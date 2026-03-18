@@ -12,3 +12,4 @@ volunteer/.env.local
 liveresults/.env.local
 .mcp.json
 .superpowers/
+.vercel
