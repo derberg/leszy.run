@@ -1,0 +1,148 @@
+@import "tailwindcss";
+@source "../../packages/ui/src";
+
+@theme {
+  --font-sans: 'Rajdhani', sans-serif;
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* Terrain variables remapped to OVERDRIVE dark palette */
+  --color-terrain-green: #BBDD00;        /* yellow — primary interactive only */
+  --color-terrain-green-dark: #8AAA00;
+  --color-terrain-green-light: #CCEE22;
+  --color-terrain-slate: #9896B4;        /* main body text — comfortable contrast */
+  --color-terrain-concrete: #5A5870;
+  --color-terrain-burgundy: #E53030;
+  --color-terrain-sand: #0A0A10;         /* background */
+  --color-terrain-border: #1C1C2A;
+  --color-terrain-surface: #10101A;
+
+  /* OVERDRIVE extended palette */
+  --color-apex-bg: #0A0A10;
+  --color-apex-surface: #10101A;
+  --color-apex-surface-2: #161622;
+  --color-apex-surface-3: #1C1C2A;
+  --color-apex-border: #1C1C2A;
+  --color-apex-border-mid: #262638;
+  --color-apex-border-bright: #343450;
+  --color-apex-yellow: #BBDD00;          /* punchy but not eye-searing */
+  --color-apex-yellow-bright: #D4FF00;   /* reserved for key data highlights only */
+  --color-apex-yellow-dim: #778800;
+  --color-apex-red: #E53030;
+  --color-apex-red-dim: #5C0A0A;
+  --color-apex-cyan: #00BFEF;
+  --color-apex-cyan-dim: #004458;
+  --color-apex-text: #9896B4;            /* comfortable reading contrast */
+  --color-apex-text-bright: #C4C2D8;    /* headings, important labels */
+  --color-apex-muted: #545268;
+  --color-apex-dim: #2C2A38;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 500;
+  background-color: #0A0A10;
+  color: #9896B4;
+  margin: 0;
+  min-height: 100vh;
+  position: relative;
+  /* Tactical grid — very subtle */
+  background-image:
+    linear-gradient(rgba(150,160,200,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(150,160,200,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Scanline overlay — very subtle, barely there */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0,0,0,0.04) 3px,
+    rgba(0,0,0,0.04) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Logo watermark */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('/logo.svg');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: 100vh;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 0;
+  filter: invert(1) sepia(1) saturate(5) hue-rotate(30deg);
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #C4C2D8;  /* headings get the brighter value */
+}
+
+/* Corner accent for cards — diagonal yellow notch */
+.apex-corner::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 14px 14px 0;
+  border-color: transparent #0A0A10 transparent transparent;
+  filter: drop-shadow(-1px 1px 0 rgba(212,255,0,0.4));
+}
+
+/* Glow pulse for live indicator */
+@keyframes glow-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }
+  50% { opacity: 0.5; box-shadow: 0 0 12px currentColor; }
+}
+
+.glow-pulse {
+  animation: glow-pulse 1.8s ease-in-out infinite;
+}
+
+/* Countdown display flash */
+@keyframes flash-in {
+  from { transform: scale(1.4); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.flash-in {
+  animation: flash-in 0.25s ease-out forwards;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #10101A; }
+::-webkit-scrollbar-thumb { background: #343450; }
+::-webkit-scrollbar-thumb:hover { background: #BBDD00; }
+
+/* Text selection */
+::selection {
+  background: #BBDD00;
+  color: #0A0A10;
+}

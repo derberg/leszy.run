@@ -1,0 +1,64 @@
+name: leszyrun
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: leszyrun
+      POSTGRES_USER: leszyrun
+      POSTGRES_PASSWORD: leszyrun
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leszyrun"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgres://leszyrun:leszyrun@db:5432/leszyrun
+      MQTT_URL: mqtt://host.docker.internal:1883
+      PORT: 3001
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SMSAPI_TOKEN: ${SMSAPI_TOKEN:-}
+      SMSAPI_SENDER: ${SMSAPI_SENDER:-LeszyRun}
+    depends_on:
+      db:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./backend/src
+          target: /app/backend/src
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:3001
+      VITE_WS_URL: ws://localhost:3001
+      VITE_VOLUNTEER_URL: http://localhost:5174
+    depends_on:
+      - backend
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
+        - action: rebuild
+          path: ./frontend/package.json
+
+volumes:
+  pgdata:

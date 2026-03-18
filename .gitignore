@@ -1,0 +1,14 @@
+node_modules/
+**/node_modules/
+.env
+!.env.example
+*.log
+dist/
+.DS_Store
+.mcp.json
+mosquitto/log/*.log
+mosquitto/data/
+volunteer/.env.local
+liveresults/.env.local
+.mcp.json
+.superpowers/

@@ -1,0 +1,19 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #0A0A10;
+  color: #C4C2D8;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+#root { display: flex; flex-direction: column; min-height: 100dvh; }
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
