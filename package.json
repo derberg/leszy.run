@@ -1,9 +1,8 @@
 {
   "name": "leszyrun",
   "private": true,
-  "workspaces": ["backend", "frontend", "liveresults", "public", "packages/ui"],
+  "workspaces": ["backend", "frontend", "public", "packages/ui"],
   "scripts": {
-    "build:liveresults": "npm run build --workspace=liveresults",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
     "db:generate": "npm run db:generate --workspace=backend",
