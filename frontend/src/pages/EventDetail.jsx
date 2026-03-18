@@ -735,13 +735,13 @@ function EventSettings({ eventId, event, updateEvent }) {
           ) : (
             <div className="flex items-center gap-3">
               <span className="text-3xl font-mono font-bold text-apex-text-bright tracking-[0.3em]">
-                {pinData?.pin || '—'}
+                {pinData?.checkinPin || '—'}
               </span>
-              {pinData?.pin && (
+              {pinData?.checkinPin && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigator.clipboard.writeText(pinData.pin)}
+                  onClick={() => navigator.clipboard.writeText(pinData.checkinPin)}
                   title="Kopiuj PIN"
                 >
                   <ClipboardCopy size={14} />
@@ -758,6 +758,22 @@ function EventSettings({ eventId, event, updateEvent }) {
             <RefreshCw size={13} className={regenPin.isPending ? 'animate-spin' : ''} />
             Regeneruj PIN
           </Button>
+          {event?.slug && (
+            <div className="pt-2 border-t border-apex-border">
+              <p className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1">Link do skanowania QR</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-apex-cyan break-all">https://leszy.run/{event.slug}/admin/checkin</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigator.clipboard.writeText(`https://leszy.run/${event.slug}/admin/checkin`)}
+                  title="Kopiuj link"
+                >
+                  <Copy size={13} />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

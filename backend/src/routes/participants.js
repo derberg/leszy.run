@@ -1,5 +1,5 @@
 import { eq, and, isNull, sql, max } from 'drizzle-orm'
-import { participants, categories, results, raceRuns } from '../db/schema.js'
+import { participants, categories, results, raceRuns, checkins } from '../db/schema.js'
 import { setScanMode } from '../mqtt/client.js'
 import Papa from 'papaparse'
 import { pickEmoji } from '../lib/emoji.js'
@@ -28,7 +28,7 @@ export async function participantsRoutes(fastify) {
 
   // Create participant
   fastify.post('/events/:eventId/participants', async (req, reply) => {
-    const { firstName, lastName, email, gender, birthDate, club, categoryId } = req.body
+    const { firstName, lastName, email, phone, gender, birthDate, club, categoryId } = req.body
     if (!firstName || !lastName) return reply.code(400).send({ error: 'firstName and lastName are required' })
 
     const [nextBib, existingEmojis] = await Promise.all([
@@ -39,7 +39,7 @@ export async function participantsRoutes(fastify) {
 
     const [row] = await db.insert(participants).values({
       eventId: req.params.eventId,
-      firstName, lastName, email, gender, birthDate, club,
+      firstName, lastName, email, phone: phone || null, gender, birthDate, club,
       categoryId: categoryId || null,
       bibNumber: nextBib,
       emoji,
@@ -173,6 +173,23 @@ export async function participantsRoutes(fastify) {
     const supabase = getSupabase()
     if (!supabase) return reply.code(503).send({ error: 'Supabase not configured' })
 
+    // Ensure participant exists in Supabase before creating checkin (FK constraint)
+    await supabase.from('participants').upsert({
+      id: participant.id,
+      event_id: participant.eventId,
+      first_name: participant.firstName,
+      last_name: participant.lastName,
+      bib_number: participant.bibNumber,
+      category_id: participant.categoryId,
+      email: participant.email,
+      phone: participant.phone,
+      gender: participant.gender,
+      birth_date: participant.birthDate,
+      club: participant.club,
+      rfid_epc: participant.rfidEpc,
+      emoji: participant.emoji,
+    }, { onConflict: 'id' })
+
     const { data: checkin, error: checkinError } = await supabase
       .from('checkins')
       .upsert({
@@ -185,6 +202,20 @@ export async function participantsRoutes(fastify) {
 
     if (checkinError) return reply.code(500).send({ error: checkinError.message })
 
+    // Mirror to local DB immediately so UI reflects the change without waiting for reverse sync
+    await db.insert(checkins).values({
+      id: checkin.id,
+      participantId: checkin.participant_id,
+      eventId: checkin.event_id,
+      checkedInAt: checkin.checked_in_at ? new Date(checkin.checked_in_at) : null,
+      createdAt: checkin.created_at ? new Date(checkin.created_at) : null,
+      updatedAt: checkin.updated_at ? new Date(checkin.updated_at) : null,
+      syncedAt: new Date(),
+    }).onConflictDoUpdate({
+      target: checkins.participantId,
+      set: { checkedInAt: checkin.checked_in_at ? new Date(checkin.checked_in_at) : null, updatedAt: new Date(), syncedAt: new Date() },
+    })
+
     if (documents?.length) {
       const docRows = documents.map(d => ({
         checkin_id: checkin.id,
@@ -196,6 +227,29 @@ export async function participantsRoutes(fastify) {
     }
 
     return { data: checkin }
+  })
+
+  fastify.delete('/participants/:id/checkin', async (req, reply) => {
+    const participant = await db.query.participants.findFirst({
+      where: eq(participants.id, req.params.id),
+    })
+    if (!participant) return reply.code(404).send({ error: 'Participant not found' })
+
+    const supabase = getSupabase()
+    if (!supabase) return reply.code(503).send({ error: 'Supabase not configured' })
+
+    const { error } = await supabase
+      .from('checkins')
+      .update({ checked_in_at: null })
+      .eq('participant_id', participant.id)
+
+    if (error) return reply.code(500).send({ error: error.message })
+
+    // Mirror to local DB immediately
+    await db.update(checkins).set({ checkedInAt: null, updatedAt: new Date(), syncedAt: new Date() })
+      .where(eq(checkins.participantId, participant.id))
+
+    return reply.code(204).send()
   })
 
   // RFID scan mode — start

@@ -63,7 +63,7 @@ export async function racesRoutes(fastify) {
         allParticipants.map(p => ({
           raceRunId: run.id,
           participantId: p.id,
-          status: p.checkin?.checkedInAt ? 'checked_in' : 'registered',
+          status: p.checkin ? 'checked_in' : 'registered',
         }))
       ).onConflictDoNothing()
     }

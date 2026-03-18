@@ -9,7 +9,8 @@ import { Badge } from '../ui/badge.jsx'
 import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../ui/alert-dialog.jsx'
 import RfidAssignDialog from './RfidAssignDialog.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../ui/dialog.jsx'
-import { Trash2, Wifi, UserCheck, UserX, Plus, X, MessageSquare, Send, Check } from 'lucide-react'
+import { Trash2, Wifi, UserCheck, UserX, Plus, X, MessageSquare, Send, Check, RotateCcw } from 'lucide-react'
+import { Tooltip } from '../ui/tooltip.jsx'
 
 export default function ParticipantsTable({ eventId, categories }) {
   const qc = useQueryClient()
@@ -71,6 +72,11 @@ export default function ParticipantsTable({ eventId, categories }) {
   const checkinMutation = useMutation({
     mutationFn: ({ participantId, documents }) => api.participants.checkin(participantId, documents),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setMinorCheckinTarget(null); setMinorDocChecks({}) },
+  })
+
+  const uncheckinMutation = useMutation({
+    mutationFn: (participantId) => api.participants.uncheckin(participantId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['participants', eventId] }),
   })
 
   const catMap = Object.fromEntries((categories || []).map(c => [c.id, c.name]))
@@ -178,7 +184,22 @@ export default function ParticipantsTable({ eventId, categories }) {
           <thead>
             <tr className="border-b border-apex-border bg-apex-surface-2">
               {['Emoji', 'Nr', 'Imię', 'Nazwisko', 'Email', 'Tel', 'Klub', 'Płeć', 'Data ur.', 'Kategoria', 'RFID', 'SMS', 'Z', ''].map(h => (
-                <th key={h} className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted whitespace-nowrap">{h}</th>
+                <th key={h} className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted whitespace-nowrap">
+                  {h === 'Z' ? (
+                    <Tooltip content={
+                      <div className="flex flex-col gap-1.5 font-normal normal-case tracking-normal whitespace-nowrap">
+                        <span className="flex items-center gap-2"><span className="text-apex-yellow">●</span> Potwierdzone przez organizatora</span>
+                        <span className="flex items-center gap-2"><span className="text-apex-cyan">●</span> Samozameldowanie online — czeka na odbiór pakietu</span>
+                        <span className="flex items-center gap-2"><span className="text-apex-muted">●</span> Niezameldowany</span>
+                      </div>
+                    }>
+                      <span className="cursor-default inline-flex items-center gap-1">
+                        Z
+                        <span className="text-apex-muted/50 text-[10px] border border-apex-border rounded-full w-3.5 h-3.5 inline-flex items-center justify-center leading-none">?</span>
+                      </span>
+                    </Tooltip>
+                  ) : h}
+                </th>
               ))}
             </tr>
           </thead>
@@ -242,9 +263,21 @@ export default function ParticipantsTable({ eventId, categories }) {
                 </td>
                 <td className="px-2 py-1 w-16">
                   {p.smsSentAt ? (
-                    <span className="text-apex-yellow" title={`Wysłano: ${new Date(p.smsSentAt).toLocaleString('pl-PL')}`}>
-                      <Check size={14} />
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-apex-yellow" title={`Wysłano: ${new Date(p.smsSentAt).toLocaleString('pl-PL')}`}>
+                        <Check size={14} />
+                      </span>
+                      {!p.checkin && p.phone && (
+                        <button
+                          onClick={() => { setSendingSmsFor(p.id); sendSms.mutate([p.id]) }}
+                          disabled={sendingSmsFor === p.id}
+                          className="text-xs text-apex-muted hover:text-apex-yellow"
+                          title="Wyślij ponownie"
+                        >
+                          <RotateCcw size={11} />
+                        </button>
+                      )}
+                    </div>
                   ) : p.phone ? (
                     <button
                       onClick={() => { setSendingSmsFor(p.id); sendSms.mutate([p.id]) }}
@@ -259,15 +292,28 @@ export default function ParticipantsTable({ eventId, categories }) {
                 </td>
                 <td className="px-2 py-1 w-8">
                   {(() => {
-                    const isCheckedIn = !!p.checkin?.checkedInAt
+                    const confirmedAt = p.checkin?.checkedInAt
+                    const selfCheckedIn = p.checkin && !confirmedAt
+                    const isCheckedIn = !!confirmedAt
+                    const title = confirmedAt
+                      ? `Zameldowany przez organizatora: ${new Date(confirmedAt).toLocaleString('pl-PL')} — kliknij aby cofnąć`
+                      : selfCheckedIn
+                      ? `Samozameldowanie online${p.checkin.createdAt ? ': ' + new Date(p.checkin.createdAt).toLocaleString('pl-PL') : ''} — potwierdź odbiór pakietu`
+                      : 'Zamelduj'
                     return (
                       <button
-                        onClick={() => !isCheckedIn && handleCheckinClick(p)}
-                        className={cn('transition-colors', isCheckedIn ? 'text-apex-yellow' : 'text-apex-text hover:text-apex-muted')}
-                        title={isCheckedIn ? 'Zameldowany' : 'Zamelduj'}
-                        disabled={isCheckedIn}
+                        onClick={() => {
+                          if (isCheckedIn) uncheckinMutation.mutate(p.id)
+                          else handleCheckinClick(p)
+                        }}
+                        className={cn('transition-colors',
+                          isCheckedIn ? 'text-apex-yellow hover:text-apex-muted' :
+                          selfCheckedIn ? 'text-apex-cyan' :
+                          'text-apex-text hover:text-apex-muted'
+                        )}
+                        title={title}
                       >
-                        {isCheckedIn ? <UserCheck size={14} /> : <UserX size={14} />}
+                        {isCheckedIn ? <UserCheck size={14} /> : selfCheckedIn ? <UserCheck size={14} /> : <UserX size={14} />}
                       </button>
                     )
                   })()}

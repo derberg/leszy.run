@@ -9,4 +9,4 @@ RUN npm ci --workspace=backend --omit=dev
 # Copy backend source
 COPY backend/ backend/
 EXPOSE 3001
-CMD ["node", "backend/src/server.js"]
+CMD ["node", "--watch", "backend/src/server.js"]

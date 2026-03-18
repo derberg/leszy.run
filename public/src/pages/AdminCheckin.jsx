@@ -6,7 +6,8 @@ const PIN_KEY = 'leszyrun_checkin_pin'
 
 export default function AdminCheckin() {
   const { event, loading: eventLoading, error: eventError } = useEvent()
-  const [pin, setPin] = useState(() => sessionStorage.getItem(PIN_KEY) || '')
+  const preselectedParticipantId = new URLSearchParams(window.location.search).get('p')
+  const [pin, setPin] = useState(() => localStorage.getItem(PIN_KEY) || '')
   const [pinVerified, setPinVerified] = useState(false)
   const [pinError, setPinError] = useState(null)
   const [pinInput, setPinInput] = useState('')
@@ -18,7 +19,7 @@ export default function AdminCheckin() {
     supabase.rpc('verify_checkin_pin', { p_event_id: event.id, p_pin: pin })
       .then(({ data, error }) => {
         if (!error && data === true) setPinVerified(true)
-        else { sessionStorage.removeItem(PIN_KEY); setPin('') }
+        else { localStorage.removeItem(PIN_KEY); setPin('') }
       })
   }, [event, pin])
 
@@ -35,7 +36,7 @@ export default function AdminCheckin() {
       return
     }
 
-    sessionStorage.setItem(PIN_KEY, pinInput.trim())
+    localStorage.setItem(PIN_KEY, pinInput.trim())
     setPin(pinInput.trim())
     setPinVerified(true)
     setVerifying(false)
@@ -43,6 +44,10 @@ export default function AdminCheckin() {
 
   if (eventLoading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ladowanie...</div>
   if (eventError) return <div className="flex items-center justify-center min-h-screen text-apex-red">{eventError}</div>
+
+  if (pinVerified) {
+    return <AdminPanel event={event} pin={pin} preselectedParticipantId={preselectedParticipantId} />
+  }
 
   if (!pinVerified) {
     return (
@@ -81,13 +86,28 @@ export default function AdminCheckin() {
     )
   }
 
-  return <AdminPanel event={event} pin={pin} />
 }
 
-function AdminPanel({ event, pin }) {
+function AdminPanel({ event, pin, preselectedParticipantId }) {
   const [mode, setMode] = useState('search') // 'scan' | 'search'
   const [selectedParticipant, setSelectedParticipant] = useState(null)
   const [flash, setFlash] = useState(null) // { type: 'success' | 'error', message }
+
+  // Load preselected participant from QR link
+  useEffect(() => {
+    if (!preselectedParticipantId || selectedParticipant) return
+    supabase
+      .from('participants')
+      .select('id, first_name, last_name, bib_number, category_id, birth_date')
+      .eq('id', preselectedParticipantId)
+      .single()
+      .then(async ({ data, error }) => {
+        if (error || !data) return
+        const { data: cats } = await supabase.from('categories').select('id, name').eq('event_id', event.id)
+        const category = (cats || []).find(c => c.id === data.category_id)
+        setSelectedParticipant({ ...data, categoryName: category?.name })
+      })
+  }, [preselectedParticipantId])
 
   const handleParticipantFound = (participant) => {
     setSelectedParticipant(participant)
@@ -185,8 +205,13 @@ function QrScanner({ event, onFound, onError }) {
           // Pause scanning while processing
           try { await html5Qrcode.pause() } catch {}
 
-          // decodedText should be a participant ID
-          const participantId = decodedText.trim()
+          // decodedText may be a full URL or a plain participant ID
+          const raw = decodedText.trim()
+          let participantId = raw
+          try {
+            const url = new URL(raw)
+            participantId = url.searchParams.get('p') || raw
+          } catch {}
           const { data, error } = await supabase
             .from('participants')
             .select('id, first_name, last_name, bib_number, category_id, birth_date')
@@ -335,11 +360,11 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
     // Check if already checked in
     const { data: existing } = await supabase
       .from('checkins')
-      .select('id')
+      .select('id, checked_in_at')
       .eq('participant_id', participant.id)
       .limit(1)
 
-    if (existing && existing.length > 0) {
+    if (existing?.[0]?.checked_in_at) {
       setAlreadyCheckedIn(true)
       setLoading(false)
       return

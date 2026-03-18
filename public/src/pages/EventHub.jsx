@@ -17,12 +17,6 @@ export default function EventHub() {
           <Link to={`/${event.slug}/results`} className="block border border-apex-border bg-apex-surface px-6 py-4 hover:bg-apex-surface-2 transition-colors text-apex-text-bright font-semibold uppercase tracking-wider">
             Wyniki na zywo
           </Link>
-          <Link to={`/${event.slug}/checkin`} className="block border border-apex-border bg-apex-surface px-6 py-4 hover:bg-apex-surface-2 transition-colors text-apex-text-bright font-semibold uppercase tracking-wider">
-            Zamelduj sie
-          </Link>
-          <Link to={`/${event.slug}/volunteer`} className="block border border-apex-border bg-apex-surface px-6 py-4 hover:bg-apex-surface-2 transition-colors text-apex-text-bright font-semibold uppercase tracking-wider">
-            Punkt kontrolny (wolontariusz)
-          </Link>
         </div>
       </div>
     </div>

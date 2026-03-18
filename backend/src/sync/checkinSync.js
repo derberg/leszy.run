@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { eq } from 'drizzle-orm'
 import { checkins, checkinDocuments } from '../db/schema.js'
 
 let supabase = null
@@ -28,15 +29,24 @@ export async function pullCheckins(db) {
 
     const now = new Date()
     for (const row of remoteCheckins) {
-      await db.insert(checkins).values({
+      const values = {
         id: row.id, participantId: row.participant_id, eventId: row.event_id,
         checkedInAt: row.checked_in_at ? new Date(row.checked_in_at) : null,
         createdAt: row.created_at ? new Date(row.created_at) : null,
         updatedAt: row.updated_at ? new Date(row.updated_at) : null, syncedAt: now,
-      }).onConflictDoUpdate({
-        target: checkins.id,
-        set: { checkedInAt: row.checked_in_at ? new Date(row.checked_in_at) : null, updatedAt: row.updated_at ? new Date(row.updated_at) : null, syncedAt: now },
-      })
+      }
+      try {
+        await db.insert(checkins).values(values).onConflictDoUpdate({
+          target: checkins.id,
+          set: { checkedInAt: values.checkedInAt, updatedAt: values.updatedAt, syncedAt: now },
+        })
+      } catch (e) {
+        if (e.code === '23505') {
+          // Local row has same participant_id but different id — replace with Supabase's version
+          await db.delete(checkins).where(eq(checkins.participantId, row.participant_id))
+          await db.insert(checkins).values(values)
+        } else throw e
+      }
     }
 
     const checkinIds = remoteCheckins.map(c => c.id)

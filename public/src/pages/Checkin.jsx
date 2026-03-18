@@ -102,7 +102,7 @@ export default function Checkin() {
     // Insert checkin
     const { data: checkinRow, error: checkinErr } = await supabase
       .from('checkins')
-      .insert({ participant_id: participantId, method: 'self' })
+      .insert({ participant_id: participantId, event_id: event.id })
       .select('id')
       .single()
 
@@ -158,14 +158,16 @@ export default function Checkin() {
     return (
       <div className="min-h-screen bg-apex-bg text-apex-text-bright">
         <div className="max-w-md mx-auto px-6 py-12 text-center">
-          <div className="font-display text-4xl uppercase tracking-widest mb-2">Zameldowany!</div>
+          <div className="font-display text-4xl uppercase tracking-widest mb-2">Zameldowano!</div>
           <div className="text-apex-muted text-sm mb-8">{participant?.first_name} {participant?.last_name} &middot; #{participant?.bib_number}</div>
 
           <div ref={qrRef} className="inline-block bg-white p-4 mb-6">
-            <QRCodeCanvas value={participantId} size={200} />
+            <QRCodeCanvas value={`${window.location.origin}/${event.slug}/admin/checkin?p=${participantId}`} size={200} />
           </div>
 
-          <div className="text-apex-text text-sm mb-6">Pokaz ten kod QR przy odbiorze pakietu startowego.</div>
+          <div className="border border-apex-yellow/40 bg-apex-yellow/10 text-apex-yellow text-sm px-4 py-3 mb-6">
+            Przed startem zgłoś się z tym kodem QR do <strong>biura zawodów</strong>, aby odebrać pakiet startowy.
+          </div>
 
           <button
             onClick={downloadQR}
@@ -238,7 +240,11 @@ export default function Checkin() {
             <div className="text-xs text-apex-muted uppercase tracking-wider mb-3">Dokumenty do dostarczenia</div>
             {provideDocs.map(doc => (
               <div key={doc.id} className="text-sm text-apex-text mb-2 pl-2 border-l-2 border-apex-border">
-                {doc.name}
+                {doc.url ? (
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-apex-cyan hover:underline">
+                    {doc.name}
+                  </a>
+                ) : doc.name}
               </div>
             ))}
           </div>
