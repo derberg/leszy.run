@@ -215,9 +215,8 @@ export default function EventDetail() {
               <div className="flex items-center gap-2">
                 {checkpoints.length > 0 && (
                   <Button size="sm" variant="outline" onClick={() => {
-                    const baseUrl = import.meta.env.VITE_VOLUNTEER_URL || 'https://c.leszy.run'
                     const text = checkpoints.map(cp =>
-                      `${cp.name}${cp.kmMarker ? ` (km ${cp.kmMarker})` : ''}: ${baseUrl}?checkpoint=${cp.id}`
+                      `${cp.name}${cp.kmMarker ? ` (km ${cp.kmMarker})` : ''}: https://leszy.run/${event?.slug || ''}/volunteer?checkpoint=${cp.id}`
                     ).join('\n')
                     navigator.clipboard.writeText(text)
                   }}>
@@ -236,7 +235,7 @@ export default function EventDetail() {
 
             <div className="space-y-2">
               {checkpoints.map(cp => {
-                const volunteerUrl = `${import.meta.env.VITE_VOLUNTEER_URL || 'https://c.leszy.run'}?checkpoint=${cp.id}`
+                const volunteerUrl = `https://leszy.run/${event?.slug || ''}/volunteer?checkpoint=${cp.id}`
                 return (
                   <div key={cp.id} className="border border-apex-border bg-apex-surface px-4 py-3 flex items-center justify-between gap-4">
                     <div>
