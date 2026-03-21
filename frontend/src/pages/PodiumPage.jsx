@@ -223,10 +223,15 @@ export default function PodiumPage() {
     }
   }, [categoryId, categories, rotateIndex])
 
+  // Filter checkpoints to only those assigned to the active category (or with no category restriction)
+  const categoryCheckpoints = activeCategory
+    ? checkpoints.filter(cp => cp.categoryIds.length === 0 || cp.categoryIds.includes(activeCategory.id))
+    : []
+
   // Enriched results for the displayed category
   const displayedResults = activeRun?.results || []
   const enrichedResults = activeCategory
-    ? estimatePositions(displayedResults, checkpoints, observations)
+    ? estimatePositions(displayedResults, categoryCheckpoints, observations)
     : []
 
   // Which category ID is visually active (for tab highlight)
@@ -331,11 +336,11 @@ export default function PodiumPage() {
                   {(activeCategory.distanceMeters / 1000).toFixed(1)} km
                 </div>
               )}
-              <CategoryCard cat={activeCategory} checkpoints={checkpoints} results={enrichedResults} />
+              <CategoryCard cat={activeCategory} checkpoints={categoryCheckpoints} results={enrichedResults} />
               <div className="mt-8">
                 <CheckpointTrackingTable
                   results={enrichedResults}
-                  checkpoints={checkpoints}
+                  checkpoints={categoryCheckpoints}
                   observations={observations}
                   formatTime={(iso) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   formatDuration={formatDuration}

@@ -24,18 +24,26 @@ export default function CategorySection({ eventId, categoryId }) {
   const checkpointsRef = useRef([])
 
   const loadData = useCallback(async () => {
-    const [catRes, runRes, cpRes] = await Promise.all([
+    const [catRes, runRes, cpRes, cpCatRes] = await Promise.all([
       supabase.from('categories').select('id, name, distance_meters').eq('id', categoryId).single(),
       supabase.from('race_runs').select('id, started_at, status').eq('category_id', categoryId)
         .in('status', ['active', 'finished']).order('created_at', { ascending: false }).limit(1).single(),
       supabase.from('checkpoints').select('id, name, km_marker')
         .eq('event_id', eventId).order('km_marker'),
+      supabase.from('checkpoint_categories').select('checkpoint_id, category_id')
+        .eq('category_id', categoryId),
     ])
 
     if (catRes.data) setCategory(catRes.data)
     if (cpRes.data) {
-      setCheckpoints(cpRes.data)
-      checkpointsRef.current = cpRes.data
+      // Filter checkpoints: include those assigned to this category or with no category restriction
+      const linkedCpIds = new Set((cpCatRes.data || []).map(l => l.checkpoint_id))
+      const allCpCatRes = await supabase.from('checkpoint_categories').select('checkpoint_id')
+        .in('checkpoint_id', cpRes.data.map(c => c.id))
+      const restrictedCpIds = new Set((allCpCatRes.data || []).map(l => l.checkpoint_id))
+      const filtered = cpRes.data.filter(c => !restrictedCpIds.has(c.id) || linkedCpIds.has(c.id))
+      setCheckpoints(filtered)
+      checkpointsRef.current = filtered
     }
 
     const run = runRes.data
@@ -64,12 +72,15 @@ export default function CategorySection({ eventId, categoryId }) {
     setResults(enrichedResults)
 
     if (cpRes.data?.length) {
-      const cpIds = cpRes.data.map(c => c.id)
+      const cpIds = checkpointsRef.current.map(c => c.id)
       const { data: obsData } = await supabase.from('checkpoint_observations')
         .select('id, checkpoint_id, participant_id, bib_number, observed_at')
         .in('checkpoint_id', cpIds)
         .gte('observed_at', run.started_at)
-      setObservations((obsData || []).map(o => ({
+      // Filter out observations from participants in other categories
+      setObservations((obsData || []).filter(o =>
+        !o.participant_id || pMap[o.participant_id]
+      ).map(o => ({
         ...o,
         checkpointId: o.checkpoint_id,
         participantId: o.participant_id,

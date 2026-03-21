@@ -164,7 +164,41 @@ export class CrossingDetector {
         backfilled++
       }
 
-      console.log(`[Detector] Gun-time backfill for race ${raceRunId}: ${backfilled} participant(s) got gun start time (after ${gunBackfillMs / 1000}s)`)
+      // Arm maxTimer retroactively for participants already in range before backfill.
+      // Without this, participants who arrive at the finish gate before backfill runs
+      // never get a maxTimer (it's only armed on first ping if already in startedParticipants),
+      // so their crossing is delayed until they physically walk away from the antenna.
+      const fallbackMs = (race.config.fallbackSeconds ?? 10) * 1000
+      let retroArmed = 0
+      for (const [epc, participantId] of epcMap) {
+        const key = `${epc}:${raceRunId}`
+        const tag = this.inRange.get(key)
+        if (!tag || tag.maxTimer) continue
+        if (!race.startedParticipants.has(participantId)) continue
+        if (race.finishedParticipants.has(participantId)) continue
+
+        tag.maxTimer = setTimeout(() => {
+          const current = this.inRange.get(key)
+          if (!current) return
+          clearTimeout(current.goneTimer)
+          clearTimeout(current.maxTimer)
+          this.inRange.delete(key)
+          this.#confirmCrossing({
+            raceRunId,
+            participantId,
+            peakRssi: current.peakRssi,
+            peakTime: current.peakTime,
+            antennaPort: current.antennaPort,
+            topic: current.topic,
+            rfidMode: race.config.rfidMode,
+            rfidTopicFinish: race.config.rfidTopicFinish,
+            race,
+          })
+        }, fallbackMs)
+        retroArmed++
+      }
+
+      console.log(`[Detector] Gun-time backfill for race ${raceRunId}: ${backfilled} participant(s) got gun start time (after ${gunBackfillMs / 1000}s)${retroArmed ? `, ${retroArmed} maxTimer(s) retroactively armed` : ''}`)
     }, gunBackfillMs)
 
     this.backfillTimers.set(raceRunId, timerId)

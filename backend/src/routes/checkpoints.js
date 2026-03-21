@@ -162,7 +162,7 @@ export async function checkpointsRoutes(fastify) {
     return reply.code(201).send({ data: obs })
   })
 
-  // List observations for a race run (via category -> event -> checkpoints)
+  // List observations for a race run — only checkpoints assigned to the race's category
   fastify.get('/races/:raceRunId/checkpoint-observations', async (req, reply) => {
     const [run] = await db.select({ categoryId: raceRuns.categoryId })
       .from(raceRuns).where(eq(raceRuns.id, req.params.raceRunId))
@@ -172,16 +172,45 @@ export async function checkpointsRoutes(fastify) {
       .from(categories).where(eq(categories.id, run.categoryId))
     if (!cat) return reply.code(404).send({ error: 'category not found' })
 
-    const cps = await db.select({ id: checkpoints.id })
+    // Get all event checkpoints
+    const allCps = await db.select({ id: checkpoints.id })
       .from(checkpoints).where(eq(checkpoints.eventId, cat.eventId))
+    if (!allCps.length) return { data: [] }
 
+    // Get category links to filter checkpoints
+    const catLinks = await db.select({ checkpointId: checkpointCategories.checkpointId, categoryId: checkpointCategories.categoryId })
+      .from(checkpointCategories)
+      .where(inArray(checkpointCategories.checkpointId, allCps.map(c => c.id)))
+
+    // Build set of checkpoints that have category restrictions
+    const restrictedCheckpoints = new Set(catLinks.map(l => l.checkpointId))
+
+    // Checkpoints assigned to this category (explicitly linked OR no category restriction)
+    const categoryLinkedIds = new Set(
+      catLinks.filter(l => l.categoryId === run.categoryId).map(l => l.checkpointId)
+    )
+    const cps = allCps.filter(c =>
+      !restrictedCheckpoints.has(c.id) || categoryLinkedIds.has(c.id)
+    )
     if (!cps.length) return { data: [] }
 
+    // Get observations for matching checkpoints
     const rows = await db.select()
       .from(checkpointObservations)
       .where(inArray(checkpointObservations.checkpointId, cps.map(c => c.id)))
       .orderBy(checkpointObservations.observedAt)
 
-    return { data: rows }
+    // Filter out observations from participants in other categories
+    // (volunteer may enter a bib from the wrong category by mistake)
+    const categoryParticipants = await db.select({ id: participants.id })
+      .from(participants)
+      .where(eq(participants.categoryId, run.categoryId))
+    const validParticipantIds = new Set(categoryParticipants.map(p => p.id))
+
+    const filtered = rows.filter(o =>
+      !o.participantId || validParticipantIds.has(o.participantId)
+    )
+
+    return { data: filtered }
   })
 }
