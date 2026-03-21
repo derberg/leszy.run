@@ -12,6 +12,7 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/:slug" element={<EventHub />} />
       <Route path="/:slug/results" element={<Results />} />
+      <Route path="/:slug/results/live" element={<Results />} />
       <Route path="/:slug/results/:categoryId" element={<Results />} />
       <Route path="/:slug/volunteer" element={<Volunteer />} />
       <Route path="/:slug/checkin" element={<Checkin />} />

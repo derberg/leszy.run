@@ -1,16 +1,22 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useEvent } from '../hooks/useEvent.js'
 import CategorySection from './CategorySection.jsx'
+import LiveTracking from './LiveTracking.jsx'
 
 export default function Results() {
   const { slug, categoryId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { event, loading: eventLoading, error: eventError } = useEvent()
   const [categories, setCategories] = useState([])
   const [catLoading, setCatLoading] = useState(true)
   const activeTabRef = useRef(null)
+
+  const isLiveView = location.pathname.endsWith('/live')
+  const activeCategoryId = isLiveView ? null : (categoryId || null)
+  const activeView = isLiveView ? 'live' : (activeCategoryId ? 'category' : 'all')
 
   useEffect(() => {
     if (!event) return
@@ -24,25 +30,26 @@ export default function Results() {
   // Update document title
   useEffect(() => {
     if (!event) return
-    if (categoryId) {
+    if (isLiveView) {
+      document.title = `Na Trasie — ${event.name}`
+    } else if (categoryId) {
       const cat = categories.find(c => c.id === categoryId)
       document.title = cat ? `${cat.name} — ${event.name}` : event.name
     } else {
       document.title = event.name
     }
-  }, [event, categories, categoryId])
+  }, [event, categories, categoryId, isLiveView])
 
   // Scroll active tab into view
   useEffect(() => {
     if (activeTabRef.current) {
       activeTabRef.current.scrollIntoView({ inline: 'nearest', behavior: 'smooth' })
     }
-  }, [categoryId, categories])
+  }, [categoryId, categories, isLiveView])
 
   if (eventLoading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ladowanie...</div>
   if (eventError) return <div className="flex items-center justify-center min-h-screen text-apex-red">{eventError}</div>
 
-  const activeCategoryId = categoryId || null
   const loading = catLoading
 
   return (
@@ -85,15 +92,27 @@ export default function Results() {
           ) : (
             <>
               <button
-                ref={!activeCategoryId ? activeTabRef : null}
+                ref={activeView === 'all' ? activeTabRef : null}
                 onClick={() => navigate(`/${slug}/results`)}
                 className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors ${
-                  !activeCategoryId
+                  activeView === 'all'
                     ? 'bg-apex-yellow-bright text-apex-bg'
                     : 'text-apex-muted hover:text-apex-text'
                 }`}
               >
                 Wszystkie
+              </button>
+              <button
+                ref={activeView === 'live' ? activeTabRef : null}
+                onClick={() => navigate(`/${slug}/results/live`)}
+                className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
+                  activeView === 'live'
+                    ? 'bg-apex-cyan text-apex-bg'
+                    : 'text-apex-muted hover:text-apex-text'
+                }`}
+              >
+                {activeView !== 'live' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-apex-cyan animate-pulse mr-1.5 align-middle" />}
+                Na Trasie
               </button>
               {categories.map(cat => (
                 <button
@@ -114,11 +133,15 @@ export default function Results() {
         </div>
 
         {/* Content */}
-        {!loading && activeCategoryId && (
+        {!loading && activeView === 'live' && (
+          <LiveTracking eventId={event.id} categories={categories} />
+        )}
+
+        {!loading && activeView === 'category' && (
           <CategorySection key={activeCategoryId} eventId={event.id} categoryId={activeCategoryId} />
         )}
 
-        {!loading && !activeCategoryId && (
+        {!loading && activeView === 'all' && (
           categories.length === 0 ? (
             <div className="text-center py-16 text-apex-muted">
               <div className="font-display text-3xl uppercase tracking-widest mb-2">Brak kategorii</div>

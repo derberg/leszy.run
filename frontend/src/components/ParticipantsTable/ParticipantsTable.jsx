@@ -49,6 +49,20 @@ export default function ParticipantsTable({ eventId, categories }) {
     onSettled: () => qc.invalidateQueries({ queryKey: ['participants', eventId] }),
   })
 
+  const regenEmoji = useMutation({
+    mutationFn: (id) => api.participants.regenerateEmoji(id),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['participants', eventId] })
+      const prev = qc.getQueryData(['participants', eventId])
+      qc.setQueryData(['participants', eventId], old =>
+        old?.map(p => p.id === id ? { ...p, emoji: '⏳' } : p)
+      )
+      return { prev }
+    },
+    onError: (_, __, ctx) => qc.setQueryData(['participants', eventId], ctx.prev),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['participants', eventId] }),
+  })
+
   const deletePart = useMutation({
     mutationFn: api.participants.delete,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setDeleteTarget(null) },
@@ -206,7 +220,16 @@ export default function ParticipantsTable({ eventId, categories }) {
           <tbody className="divide-y divide-apex-border">
             {participants.map(p => (
               <tr key={p.id} className="hover:bg-apex-surface-2 group">
-                <td className="px-2 py-1 w-10 text-center text-lg">{p.emoji || '🏃'}</td>
+                <td className="px-2 py-1 w-10 text-center text-lg group/emoji relative">
+                  <span>{p.emoji || '🏃'}</span>
+                  <button
+                    className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/emoji:opacity-100 bg-apex-surface/80 transition-opacity cursor-pointer"
+                    onClick={() => regenEmoji.mutate(p.id)}
+                    title="Regenerate emoji"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-apex-yellow" />
+                  </button>
+                </td>
                 <td className="px-2 py-1 w-14"><EditableCell participant={p} field="bibNumber" type="number" /></td>
                 <td className="px-2 py-1"><EditableCell participant={p} field="firstName" /></td>
                 <td className="px-2 py-1"><EditableCell participant={p} field="lastName" /></td>

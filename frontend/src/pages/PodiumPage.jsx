@@ -5,6 +5,7 @@ import { useWsEvent } from '../lib/ws.js'
 import { api } from '../lib/api.js'
 import { formatDuration, cn } from '../lib/utils.js'
 import { Podium, CheckpointTrackingTable, estimatePositions } from '@leszyrun/ui'
+import { QRCodeSVG } from 'qrcode.react'
 
 // Copied from AllResults.jsx
 function formatElapsed(ms) {
@@ -62,38 +63,6 @@ function RaceTimer({ startedAt, finishedAt, status }) {
   )
 }
 
-// Wrapper for "All" grid view — fetches observations per category and renders card + checkpoint table
-function CategoryWithCheckpoints({ cat, checkpoints }) {
-  const run = cat.raceRuns?.[0]
-
-  const { data: observations = [] } = useQuery({
-    queryKey: ['checkpoint-observations', run?.id],
-    queryFn: () => api.checkpoints.observationsForRace(run?.id),
-    enabled: !!run?.id && checkpoints.length > 0,
-    refetchInterval: 5000,
-  })
-
-  const rawResults = run?.results ?? []
-  const enrichedResults = estimatePositions(rawResults, checkpoints, observations)
-
-  return (
-    <div>
-      <CategoryCard cat={cat} checkpoints={checkpoints} results={enrichedResults} />
-      {run && (
-        <div className="mt-4">
-          <CheckpointTrackingTable
-            results={enrichedResults}
-            checkpoints={checkpoints}
-            observations={observations}
-            formatTime={(iso) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            formatDuration={formatDuration}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Props: { cat, checkpoints }
 // Used in both grid (All) view and single-category view.
 function CategoryCard({ cat, checkpoints, results: resultsProp }) {
@@ -140,11 +109,20 @@ function CategoryCard({ cat, checkpoints, results: resultsProp }) {
   )
 }
 
+const ROTATE_INTERVAL_MS = 5000
+
 export default function PodiumPage() {
   const { id: eventId, categoryId } = useParams()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const activeTabRef = useRef(null)
+
+  // Auto-rotate state for podium (no categoryId) view
+  const [rotateIndex, setRotateIndex] = useState(0)
+  const [progress, setProgress] = useState(0)
+  const rotateTimerRef = useRef(null)
+  const progressRafRef = useRef(null)
+  const rotateStartRef = useRef(null)
 
   const { data: event } = useQuery({
     queryKey: ['events', eventId],
@@ -163,8 +141,19 @@ export default function PodiumPage() {
     enabled: !!eventId,
   })
 
-  // Single-category only: find active run for observations query
-  const activeCategory = categoryId ? categories.find(c => c.id === categoryId) : null
+  const activeCategories = categories.filter(c =>
+    c.raceRuns?.some(r => r.status === 'active')
+  )
+
+  // Current category shown in auto-rotate mode
+  const currentRotateCategory = !categoryId && activeCategories.length > 0
+    ? activeCategories[rotateIndex % activeCategories.length]
+    : null
+
+  // For single-category view OR the currently-rotating category, find the active run
+  const activeCategory = categoryId
+    ? categories.find(c => c.id === categoryId)
+    : currentRotateCategory
   const activeRun = activeCategory?.raceRuns?.[0]
 
   const { data: observations = [] } = useQuery({
@@ -180,31 +169,68 @@ export default function PodiumPage() {
     if (activeRun?.id) qc.invalidateQueries({ queryKey: ['checkpoint-observations', activeRun.id] })
   })
 
+  // Auto-rotate timer for podium view
+  useEffect(() => {
+    if (categoryId || activeCategories.length <= 1) {
+      setProgress(0)
+      return
+    }
+
+    rotateStartRef.current = Date.now()
+
+    const tickProgress = () => {
+      const elapsed = Date.now() - rotateStartRef.current
+      setProgress(Math.min(elapsed / ROTATE_INTERVAL_MS, 1))
+      progressRafRef.current = requestAnimationFrame(tickProgress)
+    }
+    progressRafRef.current = requestAnimationFrame(tickProgress)
+
+    rotateTimerRef.current = setInterval(() => {
+      setRotateIndex(prev => prev + 1)
+      rotateStartRef.current = Date.now()
+    }, ROTATE_INTERVAL_MS)
+
+    return () => {
+      clearInterval(rotateTimerRef.current)
+      cancelAnimationFrame(progressRafRef.current)
+    }
+  }, [categoryId, activeCategories.length])
+
+  // Reset rotate index when categories change so we don't get stuck on stale index
+  useEffect(() => {
+    if (activeCategories.length > 0) {
+      setRotateIndex(prev => prev % activeCategories.length)
+    }
+  }, [activeCategories.length])
+
   // document.title
   useEffect(() => {
     if (!event) return
     if (categoryId) {
       const cat = categories.find(c => c.id === categoryId)
       document.title = cat ? `${cat.name} — ${event.name}` : event.name
+    } else if (currentRotateCategory) {
+      document.title = `${currentRotateCategory.name} — ${event.name}`
     } else {
       document.title = event.name
     }
-  }, [event, categories, categoryId])
+  }, [event, categories, categoryId, currentRotateCategory])
 
   // Scroll active tab into view on load or tab change
   useEffect(() => {
     if (activeTabRef.current) {
       activeTabRef.current.scrollIntoView({ inline: 'nearest', behavior: 'smooth' })
     }
-  }, [categoryId, categories])
+  }, [categoryId, categories, rotateIndex])
 
-  const activeCategories = categories.filter(c => c.raceRuns?.length > 0)
-
-  // Enriched results for single-cat CheckpointTrackingTable
-  const singleCatResults = activeRun?.results || []
-  const enrichedResults = categoryId
-    ? estimatePositions(singleCatResults, checkpoints, observations)
+  // Enriched results for the displayed category
+  const displayedResults = activeRun?.results || []
+  const enrichedResults = activeCategory
+    ? estimatePositions(displayedResults, checkpoints, observations)
     : []
+
+  // Which category ID is visually active (for tab highlight)
+  const visibleCategoryId = categoryId || currentRotateCategory?.id
 
   return (
     <div className="h-screen flex flex-col bg-apex-bg text-apex-text-bright relative overflow-hidden">
@@ -214,132 +240,124 @@ export default function PodiumPage() {
       }} />
 
       {/* Header */}
-      <div className="relative z-10 text-center px-6 pt-8 pb-4 shrink-0">
-        <div className="font-display text-5xl tracking-widest uppercase text-white mb-1">
-          {event?.name || '—'}
-        </div>
-        {event?.location && (
-          <div className="text-apex-muted text-sm">
-            {event.location}{event?.date ? ` · ${event.date}` : ''}
+      <div className="relative z-10 flex items-center justify-between px-6 pt-8 pb-4 shrink-0">
+        <div className="flex-1" />
+        <div className="text-center">
+          <div className="font-display text-5xl tracking-widest uppercase text-white mb-1">
+            {event?.name || '—'}
           </div>
-        )}
+          {event?.location && (
+            <div className="text-apex-muted text-sm">
+              {event.location}{event?.date ? ` · ${event.date}` : ''}
+            </div>
+          )}
+        </div>
+        <div className="flex-1 flex justify-end">
+          {event?.publicResultsUrl && (
+            <div className="bg-white p-2 rounded">
+              <QRCodeSVG value={event.publicResultsUrl} size={80} />
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Tab bar */}
-      <div
-        className="relative z-10 flex overflow-x-auto border-b border-apex-border shrink-0 [&::-webkit-scrollbar]:hidden"
-        style={{ scrollbarWidth: 'none' }}
-      >
-        {isLoading ? (
-          <>
-            {[80, 100, 70].map((w, i) => (
-              <div key={i} className="shrink-0 px-5 py-3" style={{ width: w }}>
-                <div className="h-3 bg-apex-surface-2 animate-pulse" style={{ width: w - 20 }} />
-              </div>
-            ))}
-          </>
-        ) : (
-          <>
-            <button
-              ref={!categoryId ? activeTabRef : null}
-              onClick={() => navigate(`/events/${eventId}/podium`)}
-              className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors ${
-                !categoryId ? 'bg-apex-yellow-bright text-apex-bg' : 'text-apex-muted hover:text-apex-text'
-              }`}
-            >
-              All
-            </button>
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                ref={categoryId === cat.id ? activeTabRef : null}
-                onClick={() => navigate(`/events/${eventId}/results/${cat.id}`)}
-                className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
-                  categoryId === cat.id
-                    ? 'bg-apex-yellow-bright text-apex-bg'
-                    : 'text-apex-muted hover:text-apex-text'
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </>
-        )}
+      {/* Tab bar with progress indicator */}
+      <div className="relative z-10 shrink-0">
+        <div
+          className="flex overflow-x-auto border-b border-apex-border [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {isLoading ? (
+            <>
+              {[80, 100, 70].map((w, i) => (
+                <div key={i} className="shrink-0 px-5 py-3" style={{ width: w }}>
+                  <div className="h-3 bg-apex-surface-2 animate-pulse" style={{ width: w - 20 }} />
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              {categories.map(cat => {
+                const isActive = visibleCategoryId === cat.id
+                return (
+                  <button
+                    key={cat.id}
+                    ref={isActive ? activeTabRef : null}
+                    onClick={() => navigate(`/events/${eventId}/results/${cat.id}`)}
+                    className={cn(
+                      'shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors relative',
+                      isActive
+                        ? 'bg-apex-yellow-bright text-apex-bg'
+                        : 'text-apex-muted hover:text-apex-text'
+                    )}
+                  >
+                    {cat.name}
+                    {/* Progress bar on the active rotating tab */}
+                    {isActive && !categoryId && activeCategories.length > 1 && (
+                      <span
+                        className="absolute bottom-0 left-0 h-0.5 bg-apex-bg/40"
+                        style={{ width: `${progress * 100}%`, transition: 'none' }}
+                      />
+                    )}
+                  </button>
+                )
+              })}
+              {/* Auto-rotate toggle: clicking the podium link re-enables auto mode */}
+              {categoryId && (
+                <button
+                  onClick={() => navigate(`/events/${eventId}/podium`)}
+                  className="shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase text-apex-muted hover:text-apex-text border-l border-apex-border"
+                >
+                  ▶ Auto
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Content area */}
       <div className="relative z-10 flex-1 min-h-0 overflow-hidden">
 
-        {/* ALL view — responsive grid */}
-        {!categoryId && !isLoading && (
-          activeCategories.length === 0 ? (
-            <div className="text-center py-16 text-apex-muted">
-              <div className="font-display text-3xl uppercase tracking-widest mb-2">Brak aktywnych wyścigów</div>
-              <div className="text-sm">Ta strona aktualizuje się automatycznie.</div>
-            </div>
-          ) : (
-            <div
-              className="h-full grid grid-cols-1 md:grid-cols-2"
-              style={{ gridAutoRows: '1fr' }}
-            >
-              {activeCategories.map((cat, i) => (
-                <div
-                  key={cat.id}
-                  className={cn(
-                    'overflow-y-auto border-t border-apex-border p-5',
-                    i % 2 === 1 ? 'border-l border-apex-border' : '',
-                    activeCategories.length % 2 !== 0 && i === activeCategories.length - 1
-                      ? 'md:col-span-2'
-                      : ''
-                  )}
-                >
-                  <div className="font-display text-xl tracking-widest uppercase text-apex-yellow-bright mb-4">
-                    {cat.name}
-                    {cat.distanceMeters && (
-                      <span className="text-apex-muted text-sm font-sans font-normal normal-case tracking-normal ml-3">
-                        {(cat.distanceMeters / 1000).toFixed(1)} km
-                      </span>
-                    )}
-                  </div>
-                  <CategoryWithCheckpoints cat={cat} checkpoints={checkpoints} />
-                </div>
-              ))}
-            </div>
-          )
-        )}
-
-        {/* Single-category view */}
-        {categoryId && !isLoading && (
+        {/* Auto-rotate OR single-category view — both render the same full-screen layout */}
+        {!isLoading && activeCategory && (
           <div className="h-full overflow-y-auto">
-            <div className="max-w-3xl mx-auto px-6 py-8">
-              {activeCategory ? (
-                <>
-                  <div className="font-display text-4xl tracking-widest uppercase text-white text-center mb-2">
-                    {activeCategory.name}
-                  </div>
-                  {activeCategory.distanceMeters && (
-                    <div className="text-apex-muted text-sm text-center mb-8">
-                      {(activeCategory.distanceMeters / 1000).toFixed(1)} km
-                    </div>
-                  )}
-                  <CategoryCard cat={activeCategory} checkpoints={checkpoints} results={enrichedResults} />
-                  <div className="mt-8">
-                    <CheckpointTrackingTable
-                      results={enrichedResults}
-                      checkpoints={checkpoints}
-                      observations={observations}
-                      formatTime={(iso) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                      formatDuration={formatDuration}
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-16 text-apex-muted">
-                  <div className="font-display text-3xl uppercase tracking-widest mb-2">Oczekiwanie</div>
-                  <div className="text-sm">Wyścig jeszcze nie wystartował. Ta strona aktualizuje się automatycznie.</div>
+            <div className="px-6 py-8">
+              <div className="font-display text-4xl tracking-widest uppercase text-white text-center mb-2">
+                {activeCategory.name}
+              </div>
+              {activeCategory.distanceMeters && (
+                <div className="text-apex-muted text-sm text-center mb-8">
+                  {(activeCategory.distanceMeters / 1000).toFixed(1)} km
                 </div>
               )}
+              <CategoryCard cat={activeCategory} checkpoints={checkpoints} results={enrichedResults} />
+              <div className="mt-8">
+                <CheckpointTrackingTable
+                  results={enrichedResults}
+                  checkpoints={checkpoints}
+                  observations={observations}
+                  formatTime={(iso) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  formatDuration={formatDuration}
+                />
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* No active categories */}
+        {!isLoading && !activeCategory && !categoryId && (
+          <div className="text-center py-16 text-apex-muted">
+            <div className="font-display text-3xl uppercase tracking-widest mb-2">Brak aktywnych wyścigów</div>
+            <div className="text-sm">Ta strona aktualizuje się automatycznie.</div>
+          </div>
+        )}
+
+        {/* Category selected but no race yet */}
+        {!isLoading && !activeCategory && categoryId && (
+          <div className="text-center py-16 text-apex-muted">
+            <div className="font-display text-3xl uppercase tracking-widest mb-2">Oczekiwanie</div>
+            <div className="text-sm">Wyścig jeszcze nie wystartował. Ta strona aktualizuje się automatycznie.</div>
           </div>
         )}
 

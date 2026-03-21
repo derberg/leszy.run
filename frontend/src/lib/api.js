@@ -41,6 +41,7 @@ export const api = {
     create: (eventId, body) => request('POST', `/events/${eventId}/participants`, body),
     update: (id, body) => request('PATCH', `/participants/${id}`, body),
     delete: (id) => request('DELETE', `/participants/${id}`),
+    regenerateEmoji: (id) => request('POST', `/participants/${id}/regenerate-emoji`),
     importCsv: (eventId, formData) => request('POST', `/events/${eventId}/import/participants`, formData, true),
     checkin: (id, documents) => request('POST', `/participants/${id}/checkin`, { documents }),
     uncheckin: (id) => request('DELETE', `/participants/${id}/checkin`),

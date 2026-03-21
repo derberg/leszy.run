@@ -68,6 +68,17 @@ export async function participantsRoutes(fastify) {
     }
   })
 
+  // Regenerate emoji
+  fastify.post('/participants/:id/regenerate-emoji', async (req, reply) => {
+    const [participant] = await db.select().from(participants).where(eq(participants.id, req.params.id))
+    if (!participant) return reply.code(404).send({ error: 'Participant not found' })
+
+    const existing = await usedEmojis(db, participant.eventId)
+    const emoji = pickEmoji(existing.filter(e => e !== participant.emoji))
+    const [row] = await db.update(participants).set({ emoji, updatedAt: new Date() }).where(eq(participants.id, req.params.id)).returning()
+    return { data: row }
+  })
+
   // Delete participant
   fastify.delete('/participants/:id', async (req, reply) => {
     const [row] = await db.delete(participants).where(eq(participants.id, req.params.id)).returning()

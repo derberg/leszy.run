@@ -16,6 +16,7 @@ export const events = pgTable('events', {
   fallbackSeconds: integer('fallback_seconds').notNull().default(10),
   gunBackfillSeconds: integer('gun_backfill_seconds').notNull().default(60),
   slug: text('slug').notNull().unique(),
+  publicResultsUrl: text('public_results_url'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })
