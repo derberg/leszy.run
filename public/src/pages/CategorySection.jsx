@@ -4,7 +4,7 @@ import { Podium, CheckpointTrackingTable, estimatePositions } from '../ui/index.
 
 
 function formatDuration(ms) {
-  if (!ms) return '\u2014'
+  if (!ms) return '—'
   const s = Math.floor(ms / 1000)
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
   if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
@@ -116,7 +116,7 @@ export default function CategorySection({ eventId, categoryId }) {
     <div>
       <div className="text-center mb-10">
         <div className="font-display text-5xl tracking-widest uppercase text-white mb-1">
-          {category?.name || '\u2014'}
+          {category?.name || '—'}
         </div>
         {category?.distance_meters && (
           <div className="text-apex-muted text-sm">{(category.distance_meters / 1000).toFixed(1)} km</div>

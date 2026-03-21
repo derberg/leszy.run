@@ -196,7 +196,7 @@ export default function Checkin() {
       <div className="max-w-md mx-auto px-6 py-12">
         <div className="text-center mb-8">
           <div className="font-display text-4xl uppercase tracking-widest mb-1">{event.name}</div>
-          <div className="text-apex-muted text-sm">{event.date}{event.location ? ` \u00b7 ${event.location}` : ''}</div>
+          <div className="text-apex-muted text-sm">{event.date}{event.location ? ` · ${event.location}` : ''}</div>
         </div>
 
         {/* Participant info */}

@@ -6,7 +6,7 @@ const NUMPAD = [
   ['1', '2', '3'],
   ['4', '5', '6'],
   ['7', '8', '9'],
-  ['WYCZYSC', '0', '\u232B'],
+  ['WYCZYSC', '0', '⌫'],
 ]
 
 export default function Volunteer() {
@@ -29,7 +29,7 @@ export default function Volunteer() {
 
   const handleKey = (key) => {
     if (key === 'WYCZYSC') { setBib(''); return }
-    if (key === '\u232B') { setBib(b => b.slice(0, -1)); return }
+    if (key === '⌫') { setBib(b => b.slice(0, -1)); return }
     if (bib.length >= 4) return
     setBib(b => b + key)
   }
@@ -66,7 +66,7 @@ export default function Volunteer() {
         </div>
         <div style={{ fontSize: 26, fontWeight: 700, color: '#C4C2D8', lineHeight: 1.2 }}>
           {checkpoint.name}
-          {checkpoint.km_marker && <span style={{ color: '#545268', fontSize: 18 }}> \u00b7 km {checkpoint.km_marker}</span>}
+          {checkpoint.km_marker && <span style={{ color: '#545268', fontSize: 18 }}> · km {checkpoint.km_marker}</span>}
         </div>
         {event && (
           <div style={{ fontSize: 12, color: '#545268', marginTop: 4 }}>{event.name}</div>
@@ -92,14 +92,14 @@ export default function Volunteer() {
           borderBottom: '3px solid #BBDD00', paddingBottom: 8,
           minHeight: 96,
         }}>
-          {bib || '\u2013'}
+          {bib || '–'}
         </div>
       </div>
 
       {/* Numpad */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
         {NUMPAD.flat().map((key) => {
-          const isAction = key === 'WYCZYSC' || key === '\u232B'
+          const isAction = key === 'WYCZYSC' || key === '⌫'
           return (
             <button
               key={key}

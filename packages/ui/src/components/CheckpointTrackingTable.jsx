@@ -51,27 +51,27 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
                   <td className="px-3 py-1.5 font-mono">#{p?.bibNumber}</td>
                   <td className="px-3 py-1.5">{p?.firstName} {p?.lastName}</td>
                   <td className="px-3 py-1.5 font-mono text-apex-muted">
-                    {r.startTime ? formatTime(r.startTime) : '\u2014'}
+                    {r.startTime ? formatTime(r.startTime) : '—'}
                   </td>
                   {checkpoints.map(cp => {
                     const t = obsLookup[`${r.participantId}:${cp.id}`] || bibLookup[`${r.participant?.bibNumber}:${cp.id}`]
                     return (
                       <td key={cp.id} className="px-3 py-1.5 font-mono text-apex-cyan">
-                        {t ? formatTime(t) : <span className="text-apex-dim">{'\u2014'}</span>}
+                        {t ? formatTime(t) : <span className="text-apex-dim">{'—'}</span>}
                       </td>
                     )
                   })}
                   <td className="px-3 py-1.5 font-mono font-bold text-apex-yellow-bright">
-                    {r.finishTime ? formatTime(r.finishTime) : '\u2014'}
+                    {r.finishTime ? formatTime(r.finishTime) : '—'}
                   </td>
                   {formatDuration && (
                     <td className="px-3 py-1.5 font-mono text-apex-muted">
-                      {r.durationMs ? formatDuration(r.durationMs) : '\u2014'}
+                      {r.durationMs ? formatDuration(r.durationMs) : '—'}
                     </td>
                   )}
                   {formatDuration && (
                     <td className="px-3 py-1.5 font-mono font-bold text-apex-yellow">
-                      {r.gunDurationMs ? formatDuration(r.gunDurationMs) : '\u2014'}
+                      {r.gunDurationMs ? formatDuration(r.gunDurationMs) : '—'}
                     </td>
                   )}
                   <td className="px-3 py-1.5">

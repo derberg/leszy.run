@@ -26,7 +26,7 @@ export default function Results() {
     if (!event) return
     if (categoryId) {
       const cat = categories.find(c => c.id === categoryId)
-      document.title = cat ? `${cat.name} \u2014 ${event.name}` : event.name
+      document.title = cat ? `${cat.name} — ${event.name}` : event.name
     } else {
       document.title = event.name
     }
@@ -65,10 +65,10 @@ export default function Results() {
 
         <div className="text-center mb-8">
           <div className="font-display text-5xl tracking-widest uppercase text-white mb-1">
-            {event?.name || '\u2014'}
+            {event?.name || '—'}
           </div>
           {event?.date && (
-            <div className="text-apex-muted text-sm">{event.date}{event.location ? ` \u00b7 ${event.location}` : ''}</div>
+            <div className="text-apex-muted text-sm">{event.date}{event.location ? ` · ${event.location}` : ''}</div>
           )}
         </div>
 

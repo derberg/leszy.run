@@ -20,7 +20,7 @@ export default function Home() {
           <Link key={ev.id} to={`/${ev.slug}`}
             className="block border border-apex-border bg-apex-surface px-5 py-4 hover:bg-apex-surface-2 transition-colors">
             <div className="font-semibold text-apex-text-bright">{ev.name}</div>
-            <div className="text-xs text-apex-muted mt-1">{ev.date} {ev.location && `\u00b7 ${ev.location}`}</div>
+            <div className="text-xs text-apex-muted mt-1">{ev.date} {ev.location && `· ${ev.location}`}</div>
           </Link>
         ))}
       </div>
