@@ -69,12 +69,12 @@ const start = async () => {
     // Attach WebSocket to same HTTP server
     initWebSocket(fastify.server)
 
-    // On startup, reload any active races into the crossing detector
-    // MUST happen before initMqtt so Sets are populated before RFID events arrive
-    await reloadActiveRaces()
-
-    // Connect MQTT
+    // Connect MQTT (creates the CrossingDetector instance)
     initMqtt(db)
+
+    // On startup, reload any active races into the crossing detector
+    // MUST happen after initMqtt so detector instance exists
+    await reloadActiveRaces()
 
     // Start Supabase sync
     initSupabaseSync(db)

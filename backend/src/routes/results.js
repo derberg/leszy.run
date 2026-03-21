@@ -51,6 +51,10 @@ export async function resultsRoutes(fastify) {
       return reply.code(400).send({ error: 'statusNote is required when setting status to dsq' })
     }
 
+    // Convert time strings to Date objects for Drizzle
+    if (updates.startTime) updates.startTime = new Date(updates.startTime)
+    if (updates.finishTime) updates.finishTime = new Date(updates.finishTime)
+
     if (updates.startTime || updates.finishTime) {
       updates.manualOverride = true
     }
@@ -64,18 +68,23 @@ export async function resultsRoutes(fastify) {
     const current = await db.query.results.findFirst({ where: eq(results.id, req.params.id) })
     if (!current) return reply.code(404).send({ error: 'Result not found' })
 
-    const startTime = updates.startTime ? new Date(updates.startTime) : current.startTime
-    const finishTime = updates.finishTime ? new Date(updates.finishTime) : current.finishTime
+    const startTime = updates.startTime || current.startTime
+    const finishTime = updates.finishTime || current.finishTime
+
     if (startTime && finishTime) {
-      updates.durationMs = finishTime - startTime
+      const dur = finishTime - startTime
+      updates.durationMs = dur > 0 ? dur : null
     }
     // Only recalculate gunDurationMs when finishTime changes — startTime correction does not affect it
     if (updates.finishTime) {
       const run = await db.query.raceRuns.findFirst({ where: eq(raceRuns.id, current.raceRunId) })
-      if (run?.startedAt) updates.gunDurationMs = finishTime - new Date(run.startedAt)
+      if (run?.startedAt) {
+        const gunDur = finishTime - new Date(run.startedAt)
+        updates.gunDurationMs = gunDur > 0 ? gunDur : null
+      }
     }
-    if (updates.finishTime && !current.startTime && !updates.startTime) {
-      updates.status = updates.status || 'finished'
+    if (updates.finishTime && (!updates.status || updates.status === 'dnf')) {
+      updates.status = 'finished'
     }
 
     const [row] = await db.update(results).set(updates).where(eq(results.id, req.params.id)).returning()

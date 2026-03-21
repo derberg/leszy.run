@@ -148,13 +148,19 @@ function ResultsTable({ raceRunId, results, categoryId }) {
   )
 }
 
+function toLocalDatetimeString(value) {
+  const d = new Date(value)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
 function EditResultDialog({ result, onSave, onClose, saving }) {
   const p = result.participant || {}
   const [form, setForm] = useState({
     status: result.status,
     statusNote: result.statusNote || '',
-    startTime: result.startTime ? new Date(result.startTime).toISOString().slice(0, 19) : '',
-    finishTime: result.finishTime ? new Date(result.finishTime).toISOString().slice(0, 19) : '',
+    startTime: result.startTime ? toLocalDatetimeString(result.startTime) : '',
+    finishTime: result.finishTime ? toLocalDatetimeString(result.finishTime) : '',
   })
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -188,7 +194,7 @@ function EditResultDialog({ result, onSave, onClose, saving }) {
             <div className="flex items-center gap-2">
               <Input type="datetime-local" step="1" value={form.startTime} onChange={e => set('startTime', e.target.value)} className="flex-1" />
               {!form.startTime && (
-                <Button variant="outline" size="sm" type="button" onClick={() => set('startTime', new Date().toISOString().slice(0, 19))}>
+                <Button variant="outline" size="sm" type="button" onClick={() => set('startTime', toLocalDatetimeString(new Date()))}>
                   Teraz
                 </Button>
               )}
@@ -199,7 +205,7 @@ function EditResultDialog({ result, onSave, onClose, saving }) {
             <div className="flex items-center gap-2">
               <Input type="datetime-local" step="1" value={form.finishTime} onChange={e => set('finishTime', e.target.value)} className="flex-1" />
               {!form.finishTime && (
-                <Button variant="outline" size="sm" type="button" onClick={() => set('finishTime', new Date().toISOString().slice(0, 19))}>
+                <Button variant="outline" size="sm" type="button" onClick={() => set('finishTime', toLocalDatetimeString(new Date()))}>
                   Teraz
                 </Button>
               )}

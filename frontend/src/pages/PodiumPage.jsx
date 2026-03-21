@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWsEvent } from '../lib/ws.js'
 import { api } from '../lib/api.js'
 import { formatDuration, cn } from '../lib/utils.js'
-import { Podium, CheckpointTrackingTable } from '@leszyrun/ui'
+import { Podium, CheckpointTrackingTable, estimatePositions } from '@leszyrun/ui'
 
 // Copied from AllResults.jsx
 function formatElapsed(ms) {
@@ -62,27 +62,6 @@ function RaceTimer({ startedAt, finishedAt, status }) {
   )
 }
 
-// Copied from CategoryResults.jsx
-function estimatePositions(results, checkpoints, observations) {
-  const obsCounts = {}
-  for (const obs of observations) {
-    obsCounts[obs.participantId] = (obsCounts[obs.participantId] || 0) + 1
-  }
-  const sorted = [...results].map(r => ({
-    ...r,
-    _cpCount: obsCounts[r.participant?.id] || 0,
-  })).sort((a, b) => {
-    if (a.finishTime && b.finishTime) return (a.gunDurationMs || 0) - (b.gunDurationMs || 0)
-    if (a.finishTime) return -1
-    if (b.finishTime) return 1
-    if (b._cpCount !== a._cpCount) return b._cpCount - a._cpCount
-    // Earlier start = more time on course = higher estimated position
-    if (a.startTime && b.startTime) return new Date(a.startTime) - new Date(b.startTime)
-    return 0
-  })
-  return sorted.map((r, i) => ({ ...r, estimatedPosition: r.position || (i + 1) }))
-}
-
 // Wrapper for "All" grid view — fetches observations per category and renders card + checkpoint table
 function CategoryWithCheckpoints({ cat, checkpoints }) {
   const run = cat.raceRuns?.[0]
@@ -121,13 +100,20 @@ function CategoryCard({ cat, checkpoints, results: resultsProp }) {
   const run = cat.raceRuns?.[0]
   const rawResults = resultsProp ?? run?.results ?? []
 
-  // Rank all runners (finished + on-track) so podium updates in real time
-  const ranked = estimatePositions(rawResults, checkpoints || [], [])
+  // AGENT: DO NOT CHANGE THIS LOGIC without asking the user first.
+  // estimatePositions MUST come from @leszyrun/ui — never create a local copy (see CLAUDE.md).
+  // When resultsProp is provided, it is already enriched with checkpoint observations
+  // by the caller (CategoryWithCheckpoints). Re-running estimatePositions here with
+  // empty observations would discard checkpoint data and break podium ordering.
+  // Only fall back to estimatePositions when no pre-enriched results are passed.
+  const ranked = resultsProp
+    ? rawResults
+    : estimatePositions(rawResults, checkpoints || [], [])
   const active = ranked.filter(r => r.finishTime || (r.status === 'started' && !r.finishTime))
 
   const top3 = active.slice(0, 3).map(r => ({
     ...r,
-    positionType: r.finishTime ? 'final' : 'started',
+    positionType: r.positionType || (r.finishTime ? 'final' : 'started'),
   }))
   const podiumAnimals = top3.map(r => r.participant?.emoji || '🏃')
 

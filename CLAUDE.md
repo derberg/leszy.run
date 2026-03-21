@@ -311,4 +311,6 @@ docker exec -it leszyrun-db-1 psql -U leszyrun -d leszyrun \
 - Do not pull data from Supabase into local DB (exception: `checkins` and `checkin_documents` via reverse sync)
 - Do not add TypeScript type annotations or `.ts` files
 - Do not use peak RSSI for signal-strength bars — always use live (most recent) reading with decay. See ARCHITECTURE.md → "RSSI display rule — live signal, not peak"
+- Do not create local copies of `estimatePositions()` — always import from `@leszyrun/ui` (shared package in `packages/ui/src/lib/positionEstimation.js`). A stale local copy caused a live-race bug where podium ordering ignored checkpoint timestamps. If you think the shared function needs changes, stop and ask the user first — the sorting tiers (finish time → checkpoint index → observation time → start time) are load-bearing for live race display.
+- Do not re-run `estimatePositions()` inside `CategoryCard` when `resultsProp` is provided — the caller already enriched results with checkpoint observations. Re-estimating with empty observations discards checkpoint data and breaks podium ordering during live races. See the comment in `frontend/src/pages/PodiumPage.jsx`.
 
