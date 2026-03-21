@@ -429,15 +429,18 @@ function ReaderPanel({ role, label }) {
       if (!prev) return prev
       const port = payload.antennaPort
       const cur = prev.perPort[port]
+      const now = Date.now()
       return {
         total: prev.total + 1,
         lastEpc: payload.epc,
-        lastReadAt: Date.now(),
+        lastReadAt: now,
         perPort: {
           ...prev.perPort,
           [port]: {
             count: (cur?.count || 0) + 1,
             peakRssi: cur ? Math.max(cur.peakRssi, payload.rssi) : payload.rssi,
+            lastRssi: payload.rssi,
+            lastSeenAt: now,
           },
         },
       }
@@ -472,7 +475,13 @@ function ReaderPanel({ role, label }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {!hasIp ? (
-          <p className="text-sm text-apex-muted">IP czytnika niezskonfigurowane — wpisz adres powyżej.</p>
+          <div className="space-y-1 text-sm text-apex-muted">
+            <p>IP czytnika niezskonfigurowane — wpisz adres powyżej.</p>
+            <p>Jeśli nie znasz IP, spróbuj otworzyć UI czytnika bezpośrednio:{' '}
+              <a href="https://impinj-17-0a-30.local/ui" target="_blank" rel="noopener noreferrer" className="font-mono text-apex-yellow hover:underline underline-offset-2">impinj-17-0a-30.local/ui</a>
+              {' '}— login: <span className="font-mono">root</span> / hasło: <span className="font-mono">impinj</span> (lub własne jeśli zmienione).
+            </p>
+          </div>
         ) : (
           <>
             {/* Reader status row */}
@@ -558,17 +567,20 @@ function ReaderPanel({ role, label }) {
                     {Object.entries(scanStats.perPort)
                       .sort(([a], [b]) => Number(a) - Number(b))
                       .map(([port, info]) => {
-                        const q = rssiQuality(info.peakRssi)
+                        const staleMs = Date.now() - (info.lastSeenAt || 0)
+                        const stale = staleMs > 3000
+                        const displayRssi = stale ? -9000 : info.lastRssi
+                        const q = rssiQuality(displayRssi)
                         return (
-                          <div key={port} className="flex items-center gap-3 text-xs">
+                          <div key={port} className={`flex items-center gap-3 text-xs ${stale ? 'opacity-40' : ''}`}>
                             <span className="font-mono text-apex-muted w-12">Port {port}</span>
                             <div className="w-24 bg-apex-surface border border-apex-border h-2">
                               <div
-                                className={`h-full ${q > 60 ? 'bg-apex-yellow' : q > 30 ? 'bg-amber-500' : 'bg-apex-red'}`}
+                                className={`h-full transition-all duration-500 ${q > 60 ? 'bg-apex-yellow' : q > 30 ? 'bg-amber-500' : 'bg-apex-red'}`}
                                 style={{ width: `${q}%` }}
                               />
                             </div>
-                            <span className="text-apex-muted font-mono w-16">{(info.peakRssi / 100).toFixed(0)} dBm</span>
+                            <span className="text-apex-muted font-mono w-16">{stale ? '—' : `${(info.lastRssi / 100).toFixed(0)} dBm`}</span>
                             <span className="text-apex-muted">{info.count.toLocaleString()} odcz.</span>
                           </div>
                         )

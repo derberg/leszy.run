@@ -43,7 +43,7 @@ export default function Navbar() {
             className="flex items-center gap-3 hover:opacity-80 transition-opacity group"
           >
             <span className="font-display text-lg font-black tracking-[0.15em] text-apex-text-bright hidden sm:block">
-              LESZYRUN
+              LESZY.RUN
             </span>
           </Link>
 

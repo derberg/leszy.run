@@ -11,10 +11,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog.jsx'
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog.jsx'
 import ParticipantsTable from '../components/ParticipantsTable/ParticipantsTable.jsx'
-import ImportWizard from '../components/ImportWizard/ImportWizard.jsx'
-import { Flag, Users, Tag, Settings, Upload, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy } from 'lucide-react'
+import ImportSection from '../components/ImportWizard/ImportSection.jsx'
+import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy } from 'lucide-react'
 
-const VALID_TABS = ['categories', 'participants', 'import', 'rfid', 'checkpoints', 'settings', 'documents']
+const VALID_TABS = ['categories', 'participants', 'rfid', 'checkpoints', 'settings', 'documents']
 
 export default function EventDetail() {
   const { id } = useParams()
@@ -130,7 +130,6 @@ export default function EventDetail() {
           <TabsTrigger value="categories"><Tag size={13} className="mr-1.5" />Kategorie</TabsTrigger>
           <TabsTrigger value="participants"><Users size={13} className="mr-1.5" />Uczestnicy</TabsTrigger>
           <TabsTrigger value="checkpoints"><Flag size={13} className="mr-1.5" />Punkty kontrolne</TabsTrigger>
-          <TabsTrigger value="import"><Upload size={13} className="mr-1.5" />Import</TabsTrigger>
           <TabsTrigger value="rfid"><Settings size={13} className="mr-1.5" />Ustawienia RFID</TabsTrigger>
           <TabsTrigger value="documents"><FileText size={13} className="mr-1.5" />Dokumenty</TabsTrigger>
           <TabsTrigger value="settings"><Settings size={13} className="mr-1.5" />Ustawienia</TabsTrigger>
@@ -186,16 +185,29 @@ export default function EventDetail() {
               <div className="py-8 text-center text-apex-muted text-sm">Brak kategorii. Dodaj powyżej lub zaimportuj z CSV.</div>
             )}
           </div>
+          <div className="mt-4">
+            <ImportSection
+              title="Importuj kategorie z CSV"
+              description="CSV z kolumnami: id, name, distance_meters"
+              example={"id,name,distance_meters\nbieg-5km,Bieg 5km,5000\nnordic-walking,Nordic Walking,5000"}
+              onImport={(fd) => api.categories.importCsv(id, fd)}
+              invalidateKey={['categories', id]}
+            />
+          </div>
         </TabsContent>
 
         {/* Uczestnicy */}
         <TabsContent value="participants">
           <ParticipantsTable eventId={id} categories={categories} />
-        </TabsContent>
-
-        {/* Import */}
-        <TabsContent value="import">
-          <ImportWizard eventId={id} />
+          <div className="mt-4">
+            <ImportSection
+              title="Importuj uczestników z CSV"
+              description="CSV z kolumnami: first_name, last_name, email, gender, birth_year, club, category_id"
+              example={"first_name,last_name,email,gender,birth_year,club,category_id\nJan,Kowalski,jan@example.com,M,1990,KS Biega,bieg-5km"}
+              onImport={(fd) => api.participants.importCsv(id, fd)}
+              invalidateKey={['participants', id]}
+            />
+          </div>
         </TabsContent>
 
         {/* Ustawienia RFID */}
@@ -298,7 +310,7 @@ export default function EventDetail() {
                 </label>
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Km marker</span>
-                  <Input type="number" value={cpForm.kmMarker} onChange={e => setCpForm(f => ({ ...f, kmMarker: e.target.value }))} placeholder="5" />
+                  <Input type="number" step="0.1" value={cpForm.kmMarker} onChange={e => setCpForm(f => ({ ...f, kmMarker: e.target.value }))} placeholder="1.5" />
                 </label>
                 <div>
                   <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-2 block">Kategorie (puste = wszystkie)</span>
@@ -328,7 +340,7 @@ export default function EventDetail() {
                   onClick={() => {
                     const body = {
                       name: cpForm.name,
-                      kmMarker: cpForm.kmMarker ? parseInt(cpForm.kmMarker) : null,
+                      kmMarker: cpForm.kmMarker ? parseFloat(cpForm.kmMarker) : null,
                       categoryIds: cpForm.categoryIds,
                     }
                     if (editingCp) {
@@ -803,6 +815,7 @@ function RfidSettings({ event, onSave, saving }) {
     rfidMode: event.rfidMode || 'single',
     goneWindowSeconds: event.goneWindowSeconds ?? 3,
     fallbackSeconds: event.fallbackSeconds ?? 10,
+    gunBackfillSeconds: event.gunBackfillSeconds ?? 60,
   })
 
   const { data: readerConfig } = useQuery({ queryKey: ['reader-config'], queryFn: () => api.reader.getConfig() })
@@ -848,10 +861,17 @@ function RfidSettings({ event, onSave, saving }) {
               </p>
             </label>
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Wymuszony zapis (sekundy)</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Wymuszony zapis na mecie (sekundy)</span>
               <Input type="number" step="1" min="5" max="120" value={form.fallbackSeconds} onChange={e => set('fallbackSeconds', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: 10 — jeśli zawodnik stoi przy mecie bez odejścia przez ten czas (np. upadł przy linii mety), przejście zostaje zapisane automatycznie. Nie dotyczy startu.
+                Domyślnie: 10 — dotyczy tylko mety. Jeśli zawodnik pozostaje w zasięgu anteny przez ten czas bez odejścia, przejście zostaje zapisane automatycznie. Na starcie nie działa. Uwaga: jeśli antena w ogóle nie wykryje chipa (np. uszkodzony chip, źle zamocowany numer), zawodnik pozostanie ze statusem „started" bez czasu na mecie — wymaga ręcznej korekty wyniku.
+              </p>
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Auto-uzupełnienie startu (sekundy)</span>
+              <Input type="number" step="1" min="10" max="300" value={form.gunBackfillSeconds} onChange={e => set('gunBackfillSeconds', parseInt(e.target.value))} className="max-w-32" />
+              <p className="text-xs text-apex-muted mt-1">
+                Domyślnie: 60 — po tylu sekundach od startu, uczestnicy bez odczytu chipa na starcie automatycznie dostają czas strzałki startowej. Dzięki temu ich następne przejście przez bramkę zostanie zapisane jako meta, a nie start.
               </p>
             </label>
           </div>

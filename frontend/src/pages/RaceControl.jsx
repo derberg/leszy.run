@@ -57,7 +57,8 @@ export default function RaceControl() {
   })
 
   const gunStartFallback = auditData?.gunStartFallback ?? []
-  const unresolvedCount = gunStartFallback.filter(r => r.startTimeSource === 'gun').length
+  const missingStart = auditData?.missingStart ?? []
+  const unresolvedCount = gunStartFallback.filter(r => r.startTimeSource === 'gun').length + missingStart.length
 
   useWsEvent('rfid:crossing', (payload) => {
     const p = participantMap[payload.participantId]
@@ -108,8 +109,8 @@ export default function RaceControl() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-3">
           {categories.map(cat => (
             <RaceCard
               key={cat.id}
@@ -189,6 +190,8 @@ export default function RaceControl() {
             <TabsContent value="audit">
               <AuditPanel
                 gunStartFallback={gunStartFallback}
+                missingStart={missingStart}
+                raceRunId={activeRaceRunId}
                 raceRun={races.find(r => r.id === activeRaceRunId)}
                 onCorrect={() => qc.invalidateQueries({ queryKey: ['audit'] })}
               />
@@ -408,7 +411,7 @@ function RaceCard({ category, race, participants, onRefresh }) {
   )
 }
 
-function AuditPanel({ gunStartFallback, raceRun, onCorrect }) {
+function AuditPanel({ gunStartFallback, missingStart, raceRunId, raceRun, onCorrect }) {
   const [editingId, setEditingId] = useState(null)
   const [timeInput, setTimeInput] = useState('')
 
@@ -421,6 +424,11 @@ function AuditPanel({ gunStartFallback, raceRun, onCorrect }) {
     },
   })
 
+  const assignGunMutation = useMutation({
+    mutationFn: (participantIds) => api.races.assignGunStart(raceRunId, participantIds),
+    onSuccess: () => onCorrect(),
+  })
+
   function parseTime(hhmmss, gunStartTime) {
     // Parse HH:MM:SS relative to the race start date
     const [h, m, s] = hhmmss.split(':').map(Number)
@@ -430,7 +438,7 @@ function AuditPanel({ gunStartFallback, raceRun, onCorrect }) {
     return base.toISOString()
   }
 
-  if (!gunStartFallback.length) {
+  if (!gunStartFallback.length && !missingStart.length) {
     return (
       <div className="py-8 text-center text-xs text-apex-muted">
         Brak wpisów auditu.
@@ -469,11 +477,13 @@ function AuditPanel({ gunStartFallback, raceRun, onCorrect }) {
               ? 'poprawiono ręcznie'
               : r.startTimeTrigger === 'finish_crossing'
                 ? 'brak startu RFID (meta)'
-                : r.startTimeTrigger?.startsWith('checkpoint:')
-                  ? r.checkpointName
-                    ? `brak startu RFID (pkt ${r.checkpointName})`
-                    : 'brak startu RFID (usunięty punkt)'  // checkpoint deleted
-                  : 'brak startu RFID'
+                : r.startTimeTrigger === 'auto_backfill'
+                  ? 'brak startu RFID (auto)'
+                  : r.startTimeTrigger?.startsWith('checkpoint:')
+                    ? r.checkpointName
+                      ? `brak startu RFID (pkt ${r.checkpointName})`
+                      : 'brak startu RFID (usunięty punkt)'  // checkpoint deleted
+                    : 'brak startu RFID'
 
             const nettoLabel = r.durationMs ? formatDuration(r.durationMs) : '—'
             const bruttoLabel = r.gunDurationMs ? formatDuration(r.gunDurationMs) : '—'
@@ -549,10 +559,56 @@ function AuditPanel({ gunStartFallback, raceRun, onCorrect }) {
         </p>
       </div>
 
-      {/* Placeholder for future audit sections */}
-      <div className="border border-dashed border-apex-border px-3 py-2 text-xs text-apex-muted italic">
-        Kolejne sekcje auditu pojawią się tutaj (np. check-in bez startu)
-      </div>
+      {/* Checked-in participants with no start crossing */}
+      {missingStart.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="bg-blue-900 text-blue-400 text-xs font-bold px-2 py-0.5 uppercase tracking-widest">
+              <AlertTriangle size={10} className="inline mr-1" />
+              Zameldowani bez startu RFID
+            </span>
+            <span className="text-xs text-apex-muted">
+              {missingStart.length} {missingStart.length === 1 ? 'osoba' : 'osób'}
+            </span>
+          </div>
+
+          <div className="border border-apex-border">
+            <div className="grid grid-cols-[2fr_1fr_1fr] gap-2 px-3 py-1.5 bg-apex-surface text-xs text-apex-muted uppercase tracking-widest border-b border-apex-border">
+              <span>Zawodnik</span>
+              <span>EPC</span>
+              <span>Akcja</span>
+            </div>
+
+            {missingStart.map(p => (
+              <div key={p.participantId} className="grid grid-cols-[2fr_1fr_1fr] gap-2 px-3 py-2 border-b border-apex-border last:border-0 text-xs items-center">
+                <span className="text-apex-text truncate">
+                  {p.emoji && <span className="mr-1">{p.emoji}</span>}
+                  {p.firstName} {p.lastName}
+                  {p.bibNumber && <span className="ml-1 text-apex-muted">#{p.bibNumber}</span>}
+                </span>
+                <span className="font-mono text-apex-muted truncate">{p.rfidEpc}</span>
+                <button
+                  className="border border-apex-border px-2 py-0.5 text-xs text-apex-text hover:border-apex-yellow hover:text-apex-yellow disabled:opacity-50"
+                  onClick={() => assignGunMutation.mutate([p.participantId])}
+                  disabled={assignGunMutation.isPending}
+                >
+                  Nadaj czas strzałki
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {missingStart.length > 1 && (
+            <button
+              className="mt-2 border border-apex-border px-3 py-1 text-xs text-apex-text hover:border-apex-yellow hover:text-apex-yellow disabled:opacity-50"
+              onClick={() => assignGunMutation.mutate(missingStart.map(p => p.participantId))}
+              disabled={assignGunMutation.isPending}
+            >
+              Nadaj czas strzałki wszystkim ({missingStart.length})
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

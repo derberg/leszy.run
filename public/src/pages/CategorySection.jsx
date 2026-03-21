@@ -141,6 +141,7 @@ export default function CategorySection({ eventId, categoryId }) {
             checkpoints={checkpoints}
             observations={observations}
             formatTime={formatTime}
+            formatDuration={formatDuration}
           />
         </div>
       )}

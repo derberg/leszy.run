@@ -146,8 +146,11 @@ export async function resultsRoutes(fastify) {
     const margin = 40
     let y = 800
 
+    // Strip diacritics — pdf-lib standard fonts only support WinAnsi
+    const stripDiacritics = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0142/g, 'l').replace(/\u0141/g, 'L')
+
     const drawText = (text, x, yPos, size = 10, f = font, color = rgb(0, 0, 0)) => {
-      page.drawText(String(text), { x, y: yPos, size, font: f, color })
+      page.drawText(stripDiacritics(text), { x, y: yPos, size, font: f, color })
     }
 
     // Header

@@ -1,10 +1,13 @@
+import { PositionBadge } from './PositionBadge.jsx'
+
 /**
  * @param {Array} results - enriched by estimatePositions (with estimatedPosition, positionType)
  * @param {Array} checkpoints - [{ id, name, kmMarker }] sorted by kmMarker
  * @param {Array} observations - [{ checkpointId, participantId, observedAt }]
  * @param {Function} formatTime - (isoString) => display string
+ * @param {Function} [formatDuration] - (ms) => display string for durations
  */
-export function CheckpointTrackingTable({ results, checkpoints, observations, formatTime }) {
+export function CheckpointTrackingTable({ results, checkpoints, observations, formatTime, formatDuration }) {
   // Build lookups: by participantId and by bibNumber
   const obsLookup = {}
   const bibLookup = {}
@@ -32,6 +35,9 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
               </th>
             ))}
             <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono">Meta</th>
+            {formatDuration && <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono">Netto</th>}
+            {formatDuration && <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-yellow font-mono">Brutto</th>}
+            <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted">Status</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-apex-border">
@@ -55,6 +61,19 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
                 })}
                 <td className="px-3 py-1.5 font-mono font-bold text-apex-yellow-bright">
                   {r.finishTime ? formatTime(r.finishTime) : '\u2014'}
+                </td>
+                {formatDuration && (
+                  <td className="px-3 py-1.5 font-mono text-apex-muted">
+                    {r.durationMs ? formatDuration(r.durationMs) : '\u2014'}
+                  </td>
+                )}
+                {formatDuration && (
+                  <td className="px-3 py-1.5 font-mono font-bold text-apex-yellow">
+                    {r.gunDurationMs ? formatDuration(r.gunDurationMs) : '\u2014'}
+                  </td>
+                )}
+                <td className="px-3 py-1.5">
+                  <PositionBadge positionType={r.positionType} gender={p?.gender} />
                 </td>
               </tr>
             )

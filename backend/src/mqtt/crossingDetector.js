@@ -19,6 +19,12 @@ import { gateCrossings, gateEvents, results } from '../db/schema.js'
  *  - startTime already recorded → gate = 'finish'
  *  Separate-reader mode: gate determined by MQTT topic.
  *
+ * Gun-time backfill (single-reader mode):
+ *  After gunBackfillSeconds (default 60s, configurable per event) from race start,
+ *  participants with an RFID tag who haven't been detected get gun time as their
+ *  startTime (startTimeSource='gun', startTimeTrigger='auto_backfill').
+ *  This ensures their next crossing is treated as finish, not a second start.
+ *
  * Peak RSSI: values closer to 0 are stronger. -2000 cdbm > -6000 cdbm.
  *
  * ```mermaid
@@ -59,6 +65,9 @@ export class CrossingDetector {
 
     // Dedup window: Map<epc, { rssi, time }>
     this.recentWindow = new Map()
+
+    // Map<raceRunId, timerId> — gun-time backfill timers, cleared on stopRace
+    this.backfillTimers = new Map()
   }
 
   async startRace(raceRun, eventConfig, participantList) {
@@ -80,14 +89,21 @@ export class CrossingDetector {
       if (r.finishTime) finishedParticipants.add(r.participantId)
     }
 
+    const gunStartTime = raceRun.startedAt ? new Date(raceRun.startedAt) : new Date()
+
     this.activeRaces.set(raceRun.id, {
       config: eventConfig,
-      gunStartTime: raceRun.startedAt ? new Date(raceRun.startedAt) : new Date(),
+      gunStartTime,
       epcToParticipant: epcMap,
       startedParticipants,
       finishedParticipants,
     })
     console.log(`[Detector] Started race ${raceRun.id} with ${epcMap.size} tagged participants (${startedParticipants.size} already started, ${finishedParticipants.size} already finished)`)
+
+    // After gunBackfillSeconds, backfill gun time for checked-in participants whose chip start was not detected.
+    // In single-reader mode this ensures their next crossing is treated as finish, not start.
+    const gunBackfillMs = (eventConfig.gunBackfillSeconds ?? 60) * 1000
+    this.#scheduleGunTimeBackfill(raceRun.id, gunStartTime, epcMap, startedParticipants, gunBackfillMs)
   }
 
   stopRace(raceRunId) {
@@ -99,7 +115,59 @@ export class CrossingDetector {
       }
     }
     this.activeRaces.delete(raceRunId)
+    const backfillTimer = this.backfillTimers.get(raceRunId)
+    if (backfillTimer) {
+      clearTimeout(backfillTimer)
+      this.backfillTimers.delete(raceRunId)
+    }
     console.log(`[Detector] Stopped race ${raceRunId}`)
+  }
+
+  #scheduleGunTimeBackfill(raceRunId, gunStartTime, epcMap, startedParticipants, gunBackfillMs) {
+    const timerId = setTimeout(async () => {
+      this.backfillTimers.delete(raceRunId)
+      const race = this.activeRaces.get(raceRunId)
+      if (!race) return // race was stopped before timer fired
+
+      // Find participants with an EPC who haven't started yet
+      const missing = []
+      for (const [, participantId] of epcMap) {
+        if (!race.startedParticipants.has(participantId)) {
+          missing.push(participantId)
+        }
+      }
+      if (!missing.length) return
+
+      let backfilled = 0
+      for (const participantId of missing) {
+        // Check DB to avoid overwriting a chip start that arrived between in-memory check and now
+        const existing = await this.db.query.results.findFirst({
+          where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, participantId)),
+        })
+        if (existing?.startTime) {
+          race.startedParticipants.add(participantId)
+          continue
+        }
+
+        await this.db.insert(results).values({
+          raceRunId,
+          participantId,
+          startTime: gunStartTime,
+          status: 'started',
+          startTimeSource: 'gun',
+          startTimeTrigger: 'auto_backfill',
+        }).onConflictDoUpdate({
+          target: [results.raceRunId, results.participantId],
+          set: { startTime: gunStartTime, status: 'started', startTimeSource: 'gun', startTimeTrigger: 'auto_backfill' },
+        })
+        race.startedParticipants.add(participantId)
+        backfilled++
+      }
+
+      console.log(`[Detector] Gun-time backfill for race ${raceRunId}: ${backfilled} participant(s) got gun start time (after ${gunBackfillMs / 1000}s)`)
+    }, gunBackfillMs)
+
+    this.backfillTimers.set(raceRunId, timerId)
   }
 
   processEvent(event) {

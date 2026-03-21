@@ -1,5 +1,5 @@
-import { eq, and, inArray } from 'drizzle-orm'
-import { raceRuns, results, participants, categories, events, settings, checkpoints } from '../db/schema.js'
+import { eq, and, inArray, isNull, isNotNull } from 'drizzle-orm'
+import { raceRuns, results, participants, categories, events, settings, checkpoints, checkins } from '../db/schema.js'
 import { getDetector } from '../mqtt/client.js'
 import { broadcast } from '../ws/broadcaster.js'
 
@@ -171,6 +171,92 @@ export async function racesRoutes(fastify) {
       return { ...r, checkpointName }
     })
 
-    return { data: { gunStartFallback } }
+    // Find checked-in participants in this race's category who have no start time yet
+    const run = await db.query.raceRuns.findFirst({
+      where: eq(raceRuns.id, raceRunId),
+      with: { category: true },
+    })
+
+    let missingStart = []
+    if (run) {
+      // All checked-in participants in this category with an RFID tag
+      const checkedIn = await db.select({
+        participantId: participants.id,
+        firstName: participants.firstName,
+        lastName: participants.lastName,
+        bibNumber: participants.bibNumber,
+        emoji: participants.emoji,
+        rfidEpc: participants.rfidEpc,
+      })
+        .from(participants)
+        .innerJoin(checkins, eq(checkins.participantId, participants.id))
+        .where(
+          and(
+            eq(participants.categoryId, run.categoryId),
+            isNotNull(checkins.checkedInAt),
+            isNotNull(participants.rfidEpc),
+          )
+        )
+
+      // Filter out those who already have a start time for this race run
+      const existingResults = await db.select({
+        participantId: results.participantId,
+        startTime: results.startTime,
+      })
+        .from(results)
+        .where(eq(results.raceRunId, raceRunId))
+
+      const startedIds = new Set(existingResults.filter(r => r.startTime).map(r => r.participantId))
+      missingStart = checkedIn.filter(p => !startedIds.has(p.participantId))
+    }
+
+    return { data: { gunStartFallback, missingStart } }
+  })
+
+  // Assign gun time to participants missing a start crossing
+  fastify.post('/races/:raceRunId/assign-gun-start', async (req, reply) => {
+    const raceRunId = req.params.raceRunId
+    const { participantIds } = req.body || {}
+    if (!participantIds?.length) return reply.code(400).send({ error: 'participantIds required' })
+
+    const run = await db.query.raceRuns.findFirst({ where: eq(raceRuns.id, raceRunId) })
+    if (!run) return reply.code(404).send({ error: 'Race run not found' })
+    if (!run.startedAt) return reply.code(400).send({ error: 'Race has not started' })
+
+    const gunStartTime = new Date(run.startedAt)
+    let assigned = 0
+
+    for (const participantId of participantIds) {
+      // Don't overwrite existing chip start
+      const existing = await db.query.results.findFirst({
+        where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, participantId)),
+      })
+      if (existing?.startTime) continue
+
+      await db.insert(results).values({
+        raceRunId,
+        participantId,
+        startTime: gunStartTime,
+        status: 'started',
+        startTimeSource: 'gun',
+        startTimeTrigger: 'manual_backfill',
+      }).onConflictDoUpdate({
+        target: [results.raceRunId, results.participantId],
+        set: { startTime: gunStartTime, status: 'started', startTimeSource: 'gun', startTimeTrigger: 'manual_backfill' },
+      })
+      assigned++
+    }
+
+    // Update in-memory detector state
+    const detector = getDetector()
+    if (detector) {
+      const race = detector.activeRaces.get(raceRunId)
+      if (race) {
+        for (const pid of participantIds) race.startedParticipants.add(pid)
+      }
+    }
+
+    broadcast('race:update', { raceRunId, status: run.status })
+    return { data: { assigned } }
   })
 }

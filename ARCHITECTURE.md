@@ -61,7 +61,7 @@ Mosquitto (native macOS) ←── Impinj R700(s)
 ### Additional Apps
 
 - **`public/`** — Public-facing app combining live results, volunteer bib entry, and participant self-service check-in. Reads/writes directly to Supabase (anon key + RLS). Runs on port 5173. Deployed to Vercel.
-- **`packages/ui/`** — Shared UI component library (`@leszyrun/ui`). Contains `Podium`, `CheckpointTrackingTable`, `PositionBadge`, and `estimatePositions` algorithm.
+- **`packages/ui/`** — Shared UI component library (`@leszyrun/ui`). Contains `Podium`, `CheckpointTrackingTable`, `PositionBadge`, and `estimatePositions` algorithm. **All race result rendering (status badges, position estimation, podium, results tables) MUST use these shared components.** Never duplicate result display logic in `frontend/` or `public/` — if a component is missing from `@leszyrun/ui`, add it there first, then import it in both apps.
 - **`volunteer/`** and **`liveresults/`** — Legacy apps, migrated into `public/`. Pending removal.
 
 ### Supabase Realtime (bidirectional sync)
@@ -352,6 +352,25 @@ When operator clicks "Assign RFID" for a participant:
 │  [Assign "ikUCJA=="]    [Cancel]        │
 └─────────────────────────────────────────┘
 ```
+
+### RSSI display rule — live signal, not peak
+
+**All RSSI signal-strength bars in the UI must show the most recent (live) reading,
+not the all-time peak.** When a tag leaves antenna range, bars must decay to zero
+after a short timeout (3–5 s of silence). This applies everywhere signal strength
+is visualized: Reader Dashboard "Live" view, RFID Assign dialog, and any future
+RSSI display.
+
+Why: using `Math.max()` (peak) for bars made them stick at the highest value ever
+seen and never drop — the operator had no way to tell if the tag was still in range.
+
+Implementation:
+- Store `lastRssi` (most recent reading) alongside `peakRssi` per tag/port.
+- Use `lastRssi` for bar width and displayed dBm value.
+- Track `lastSeenAt` timestamp; if stale (>timeout), set bar to 0 and dim the row.
+- Use CSS `transition-all duration-500` so bars animate smoothly.
+
+**Do not revert this to peak-based display without explicit confirmation from the user.**
 
 ---
 

@@ -1,9 +1,15 @@
 export function PositionBadge({ positionType, gender }) {
   if (positionType === 'final') {
-    const label = gender === 'F' ? 'Zakończyła' : 'Zakończył'
     return (
       <span className="text-xs font-bold uppercase tracking-widest px-1.5 py-0.5 border border-apex-yellow text-apex-yellow">
-        {label}
+        Na mecie
+      </span>
+    )
+  }
+  if (positionType === 'not-started') {
+    return (
+      <span className="text-xs font-bold uppercase tracking-widest px-1.5 py-0.5 border border-apex-muted text-apex-muted">
+        Oczekuje
       </span>
     )
   }

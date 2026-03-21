@@ -351,6 +351,7 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
   const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [minorPaperConfirmed, setMinorPaperConfirmed] = useState(false)
 
   useEffect(() => {
     loadDocuments()
@@ -454,6 +455,28 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
           )}
         </div>
 
+        {/* Minor warning — must confirm paper received */}
+        {minor && !alreadyCheckedIn && (
+          <div className="border-2 border-apex-red bg-apex-red-dim/20 p-5 mb-6">
+            <div className="font-display text-lg uppercase tracking-wider text-apex-red mb-2">Uczestnik niepelnoletni</div>
+            <div className="text-apex-text-bright text-sm leading-relaxed mb-3">
+              Uczestnik niepelnoletni <strong>musi dostarczyc podpisana zgode opiekuna prawnego w formie papierowej</strong>.
+              Bez tego dokumentu uczestnik <strong>nie moze zostac dopuszczony do startu</strong>.
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer border border-apex-red/40 bg-apex-bg p-3">
+              <input
+                type="checkbox"
+                checked={minorPaperConfirmed}
+                onChange={(e) => setMinorPaperConfirmed(e.target.checked)}
+                className="accent-[#BBDD00] w-5 h-5"
+              />
+              <span className="text-apex-text-bright text-sm font-bold">
+                Potwierdzam odbiór podpisanej zgody opiekuna w formie papierowej
+              </span>
+            </label>
+          </div>
+        )}
+
         {alreadyCheckedIn && (
           <div className="border border-green-700 bg-green-900/30 p-4 text-center text-green-400 mb-6">
             Ten uczestnik jest juz zameldowany.
@@ -496,15 +519,20 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
 
             <button
               onClick={handleConfirm}
-              disabled={submitting}
+              disabled={submitting || (minor && !minorPaperConfirmed)}
               className={`w-full py-4 font-bold text-lg uppercase tracking-wider transition-colors ${
-                !submitting
+                !submitting && (!minor || minorPaperConfirmed)
                   ? 'bg-apex-yellow text-apex-bg hover:bg-apex-yellow-bright cursor-pointer'
                   : 'bg-apex-surface-2 text-apex-muted cursor-not-allowed'
               }`}
             >
               {submitting ? 'Meldowanie...' : 'Zamelduj'}
             </button>
+            {minor && !minorPaperConfirmed && (
+              <div className="text-apex-red text-xs text-center mt-2 uppercase tracking-wider">
+                Potwierdz odbiór zgody opiekuna, aby zameldowac
+              </div>
+            )}
           </>
         )}
       </div>

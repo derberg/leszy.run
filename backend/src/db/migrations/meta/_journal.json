@@ -113,6 +113,20 @@
       "when": 1742335200000,
       "tag": "0015_drop_checked_in",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1742421600000,
+      "tag": "0016_gun_backfill_seconds",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1742508000000,
+      "tag": "0017_km_marker_decimal",
+      "breakpoints": true
     }
   ]
 }

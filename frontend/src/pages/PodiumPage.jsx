@@ -76,27 +76,60 @@ function estimatePositions(results, checkpoints, observations) {
     if (a.finishTime) return -1
     if (b.finishTime) return 1
     if (b._cpCount !== a._cpCount) return b._cpCount - a._cpCount
+    // Earlier start = more time on course = higher estimated position
+    if (a.startTime && b.startTime) return new Date(a.startTime) - new Date(b.startTime)
     return 0
   })
   return sorted.map((r, i) => ({ ...r, estimatedPosition: r.position || (i + 1) }))
 }
 
+// Wrapper for "All" grid view — fetches observations per category and renders card + checkpoint table
+function CategoryWithCheckpoints({ cat, checkpoints }) {
+  const run = cat.raceRuns?.[0]
+
+  const { data: observations = [] } = useQuery({
+    queryKey: ['checkpoint-observations', run?.id],
+    queryFn: () => api.checkpoints.observationsForRace(run?.id),
+    enabled: !!run?.id && checkpoints.length > 0,
+    refetchInterval: 5000,
+  })
+
+  const rawResults = run?.results ?? []
+  const enrichedResults = estimatePositions(rawResults, checkpoints, observations)
+
+  return (
+    <div>
+      <CategoryCard cat={cat} checkpoints={checkpoints} results={enrichedResults} />
+      {run && (
+        <div className="mt-4">
+          <CheckpointTrackingTable
+            results={enrichedResults}
+            checkpoints={checkpoints}
+            observations={observations}
+            formatTime={(iso) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            formatDuration={formatDuration}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Props: { cat, checkpoints }
 // Used in both grid (All) view and single-category view.
-// Grid view: simple gunDurationMs sort (no estimatePositions — observations not available).
-// Single-cat view: PodiumPage renders CheckpointTrackingTable separately with estimatePositions output.
 function CategoryCard({ cat, checkpoints, results: resultsProp }) {
   const run = cat.raceRuns?.[0]
-  const results = resultsProp ?? run?.results ?? []
+  const rawResults = resultsProp ?? run?.results ?? []
 
-  const finished = results
-    .filter(r => r.finishTime)
-    .sort((a, b) => (a.gunDurationMs || 0) - (b.gunDurationMs || 0))
-    .map(r => ({ ...r, positionType: 'final' }))
+  // Rank all runners (finished + on-track) so podium updates in real time
+  const ranked = estimatePositions(rawResults, checkpoints || [], [])
+  const active = ranked.filter(r => r.finishTime || (r.status === 'started' && !r.finishTime))
 
-  const top3 = finished.slice(0, 3)
+  const top3 = active.slice(0, 3).map(r => ({
+    ...r,
+    positionType: r.finishTime ? 'final' : 'started',
+  }))
   const podiumAnimals = top3.map(r => r.participant?.emoji || '🏃')
-  const onTrack = results.filter(r => r.status === 'started' && !r.finishTime)
 
   if (!run) {
     return (
@@ -115,45 +148,6 @@ function CategoryCard({ cat, checkpoints, results: resultsProp }) {
         <div className="mb-6">
           <div className="font-display text-lg tracking-widest uppercase text-apex-muted text-center mb-4">Podium</div>
           <Podium top3={top3} animals={podiumAnimals} formatDuration={formatDuration} />
-        </div>
-      )}
-
-      {finished.length > 0 && (
-        <div className="mb-4">
-          <div className="font-display text-sm tracking-widest uppercase text-apex-muted mb-2">Klasyfikacja</div>
-          <div className="border border-apex-border divide-y divide-apex-border">
-            {finished.map((r, i) => (
-              <div key={r.id} className={cn('flex items-center gap-3 px-3 py-2', i < 3 && 'bg-apex-surface-2/50')}>
-                <span className="font-display text-lg text-apex-yellow w-6">{r.position || i + 1}</span>
-                <span className="text-xs text-apex-muted font-mono w-9">#{r.participant?.bibNumber}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm truncate">{r.participant?.firstName} {r.participant?.lastName}</div>
-                  {r.participant?.club && <div className="text-xs text-apex-muted truncate">{r.participant.club}</div>}
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="font-mono font-bold text-sm text-apex-yellow">{formatDuration(r.gunDurationMs)}</div>
-                  {r.durationMs && r.durationMs !== r.gunDurationMs && (
-                    <div className="font-mono text-xs text-apex-muted">netto {formatDuration(r.durationMs)}</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {onTrack.length > 0 && (
-        <div>
-          <div className="font-display text-sm tracking-widest uppercase text-apex-muted mb-2">Na trasie</div>
-          <div className="border border-apex-border divide-y divide-apex-border">
-            {onTrack.map(r => (
-              <div key={r.id} className="flex items-center gap-3 px-3 py-1.5 text-apex-muted text-xs">
-                <span className="font-mono w-9">#{r.participant?.bibNumber}</span>
-                <span>{r.participant?.firstName} {r.participant?.lastName}</span>
-                {r.participant?.club && <span className="ml-auto text-apex-muted">{r.participant.club}</span>}
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </div>
@@ -321,7 +315,7 @@ export default function PodiumPage() {
                       </span>
                     )}
                   </div>
-                  <CategoryCard cat={cat} checkpoints={checkpoints} />
+                  <CategoryWithCheckpoints cat={cat} checkpoints={checkpoints} />
                 </div>
               ))}
             </div>
@@ -343,17 +337,15 @@ export default function PodiumPage() {
                     </div>
                   )}
                   <CategoryCard cat={activeCategory} checkpoints={checkpoints} results={enrichedResults} />
-                  {checkpoints.length > 0 && (
-                    <div className="mt-8">
-                      <div className="font-display text-lg tracking-widest uppercase text-apex-muted mb-3">Tracking na żywo</div>
-                      <CheckpointTrackingTable
-                        results={enrichedResults}
-                        checkpoints={checkpoints}
-                        observations={observations}
-                        formatTime={(iso) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                      />
-                    </div>
-                  )}
+                  <div className="mt-8">
+                    <CheckpointTrackingTable
+                      results={enrichedResults}
+                      checkpoints={checkpoints}
+                      observations={observations}
+                      formatTime={(iso) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      formatDuration={formatDuration}
+                    />
+                  </div>
                 </>
               ) : (
                 <div className="text-center py-16 text-apex-muted">

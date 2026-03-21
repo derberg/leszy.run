@@ -55,6 +55,7 @@ export const api = {
     start: (categoryId) => request('POST', `/categories/${categoryId}/races`, {}),
     update: (id, body) => request('PATCH', `/races/${id}`, body),
     audit: (raceRunId) => request('GET', `/races/${raceRunId}/audit`),
+    assignGunStart: (raceRunId, participantIds) => request('POST', `/races/${raceRunId}/assign-gun-start`, { participantIds }),
   },
 
   // RFID

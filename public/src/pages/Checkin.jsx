@@ -166,8 +166,18 @@ export default function Checkin() {
           </div>
 
           <div className="border border-apex-yellow/40 bg-apex-yellow/10 text-apex-yellow text-sm px-4 py-3 mb-6">
-            Przed startem zgłoś się z tym kodem QR do <strong>biura zawodów</strong>, aby odebrać pakiet startowy.
+            Przed startem zglos sie z tym kodem QR do <strong>biura zawodow</strong>, aby odebrac pakiet startowy.
           </div>
+
+          {minor && (
+            <div className="border-2 border-apex-red bg-apex-red-dim/20 p-4 mb-6">
+              <div className="font-display text-base uppercase tracking-wider text-apex-red mb-1">Pamietaj!</div>
+              <div className="text-apex-text-bright text-sm leading-relaxed">
+                Jako uczestnik niepelnoletni <strong>musisz dostarczyc podpisana zgode opiekuna w formie papierowej</strong> do biura zawodow.
+                Bez tego dokumentu <strong>nie zostaniesz dopuszczony/a do startu</strong>.
+              </div>
+            </div>
+          )}
 
           <button
             onClick={downloadQR}
@@ -203,8 +213,15 @@ export default function Checkin() {
 
         {/* Minor banner */}
         {minor && (
-          <div className="border border-apex-cyan bg-apex-cyan-dim/20 p-4 mb-6 text-apex-cyan text-sm">
-            Uczestnik niepelnoletni &mdash; wymagana zgoda opiekuna.
+          <div className="border-2 border-apex-red bg-apex-red-dim/20 p-5 mb-6">
+            <div className="font-display text-lg uppercase tracking-wider text-apex-red mb-2">Uczestnik niepelnoletni</div>
+            <div className="text-apex-text-bright text-sm leading-relaxed">
+              Wymagana jest <strong>pisemna zgoda opiekuna prawnego</strong>, wydrukowana i podpisana.
+            </div>
+            <div className="text-apex-text-bright text-sm leading-relaxed mt-2">
+              Dokument <strong>musi byc dostarczony w formie papierowej</strong> do biura zawodow przed startem.
+              Bez niego uczestnik <strong>nie zostanie dopuszczony do startu</strong>.
+            </div>
           </div>
         )}
 

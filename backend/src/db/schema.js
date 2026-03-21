@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, real, boolean, timestamp, bigint, jsonb, unique, date } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, integer, real, boolean, timestamp, bigint, jsonb, unique, date, numeric } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
 export const events = pgTable('events', {
@@ -14,6 +14,7 @@ export const events = pgTable('events', {
   declineThresholdCdbm: integer('decline_threshold_cdbm').notNull().default(1000),
   goneWindowSeconds: integer('gone_window_seconds').notNull().default(3),
   fallbackSeconds: integer('fallback_seconds').notNull().default(10),
+  gunBackfillSeconds: integer('gun_backfill_seconds').notNull().default(60),
   slug: text('slug').notNull().unique(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
@@ -137,7 +138,7 @@ export const checkpoints = pgTable('checkpoints', {
   id: uuid('id').primaryKey().defaultRandom(),
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  kmMarker: integer('km_marker'),
+  kmMarker: numeric('km_marker', { precision: 6, scale: 2 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })

@@ -42,6 +42,8 @@ LeszyRun/
   mosquitto/    native macOS, NOT dockerized (hardware constraint)
 ```
 
+**`packages/ui/` rule:** All race result rendering (status badges, position estimation, podium, results tables) MUST use shared components from `@leszyrun/ui`. Never duplicate result display logic in `frontend/` or `public/` — if a component is missing, add it to `packages/ui/` first, then import in both apps.
+
 ## Running locally
 
 ```bash
@@ -80,6 +82,7 @@ SMS (backend, optional — SMS disabled if missing):
 - Drizzle schema in `src/db/schema.js`, client in `src/db/index.js`
 - Use Drizzle migrations (`drizzle-kit generate` + `drizzle-kit migrate`)
 - **Migrations MUST be registered in `src/db/migrations/meta/_journal.json`** — Drizzle ignores SQL files not listed there. When writing a migration manually: create the `.sql` file AND add an entry to the journal (`idx`, `version: "7"`, `when`, `tag` matching filename without `.sql`, `breakpoints: true`). If a migration already ran (backend started and logged "Migrations complete"), do NOT modify the SQL file — create a new numbered file + new journal entry instead.
+- **DDL changes MUST be applied to both local DB and Supabase.** Local DB uses Drizzle migrations (auto-run on backend start). Supabase must be updated separately via `mcp__supabase__apply_migration`. Every schema change (new table, alter column, add index, etc.) requires both — never apply to one without the other.
 - WebSocket broadcaster in `src/ws/broadcaster.js` — export a `broadcast(event, data)` function
 - MQTT client starts on server boot, crossing detector subscribes to it
 - Supabase sync runs as a `setInterval` in background, does not block requests
@@ -307,4 +310,5 @@ docker exec -it leszyrun-db-1 psql -U leszyrun -d leszyrun \
 - Do not use `docker compose down -v` unless explicitly asked
 - Do not pull data from Supabase into local DB (exception: `checkins` and `checkin_documents` via reverse sync)
 - Do not add TypeScript type annotations or `.ts` files
+- Do not use peak RSSI for signal-strength bars — always use live (most recent) reading with decay. See ARCHITECTURE.md → "RSSI display rule — live signal, not peak"
 

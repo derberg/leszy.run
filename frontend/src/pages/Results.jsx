@@ -183,14 +183,28 @@ function EditResultDialog({ result, onSave, onClose, saving }) {
               <Input value={form.statusNote} onChange={e => set('statusNote', e.target.value)} placeholder="Powód dyskwalifikacji" />
             </label>
           )}
-          <label className="block">
+          <div>
             <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Czas startu (korekta ręczna)</span>
-            <Input type="datetime-local" step="1" value={form.startTime} onChange={e => set('startTime', e.target.value)} />
-          </label>
-          <label className="block">
+            <div className="flex items-center gap-2">
+              <Input type="datetime-local" step="1" value={form.startTime} onChange={e => set('startTime', e.target.value)} className="flex-1" />
+              {!form.startTime && (
+                <Button variant="outline" size="sm" type="button" onClick={() => set('startTime', new Date().toISOString().slice(0, 19))}>
+                  Teraz
+                </Button>
+              )}
+            </div>
+          </div>
+          <div>
             <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Czas mety (korekta ręczna)</span>
-            <Input type="datetime-local" step="1" value={form.finishTime} onChange={e => set('finishTime', e.target.value)} />
-          </label>
+            <div className="flex items-center gap-2">
+              <Input type="datetime-local" step="1" value={form.finishTime} onChange={e => set('finishTime', e.target.value)} className="flex-1" />
+              {!form.finishTime && (
+                <Button variant="outline" size="sm" type="button" onClick={() => set('finishTime', new Date().toISOString().slice(0, 19))}>
+                  Teraz
+                </Button>
+              )}
+            </div>
+          </div>
           <p className="text-xs text-apex-muted">Ręczne ustawienie czasu oznaczy wynik jako korektę ręczną.</p>
         </DialogBody>
         <DialogFooter>
