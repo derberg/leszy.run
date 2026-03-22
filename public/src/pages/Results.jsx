@@ -68,7 +68,7 @@ export default function Results() {
       }} />
 
       <div className="relative z-10 max-w-3xl mx-auto px-6 py-10">
-        <Link to={`/${slug}`} className="text-xs text-apex-muted uppercase tracking-wider hover:text-apex-text mb-6 inline-block">&larr; Powrot</Link>
+        <Link to={`/events/${slug}`} className="text-xs text-apex-muted uppercase tracking-wider hover:text-apex-text mb-6 inline-block">&larr; Powrot</Link>
 
         <div className="text-center mb-8">
           <div className="font-display text-5xl tracking-widest uppercase text-white mb-1">
@@ -93,7 +93,7 @@ export default function Results() {
             <>
               <button
                 ref={activeView === 'all' ? activeTabRef : null}
-                onClick={() => navigate(`/${slug}/results`)}
+                onClick={() => navigate(`/events/${slug}/results`)}
                 className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors ${
                   activeView === 'all'
                     ? 'bg-apex-yellow-bright text-apex-bg'
@@ -104,7 +104,7 @@ export default function Results() {
               </button>
               <button
                 ref={activeView === 'live' ? activeTabRef : null}
-                onClick={() => navigate(`/${slug}/results/live`)}
+                onClick={() => navigate(`/events/${slug}/results/live`)}
                 className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
                   activeView === 'live'
                     ? 'bg-apex-cyan text-apex-bg'
@@ -118,7 +118,7 @@ export default function Results() {
                 <button
                   key={cat.id}
                   ref={activeCategoryId === cat.id ? activeTabRef : null}
-                  onClick={() => navigate(`/${slug}/results/${cat.id}`)}
+                  onClick={() => navigate(`/events/${slug}/results/${cat.id}`)}
                   className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
                     activeCategoryId === cat.id
                       ? 'bg-apex-yellow-bright text-apex-bg'

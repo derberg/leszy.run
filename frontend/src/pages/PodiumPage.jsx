@@ -262,7 +262,7 @@ export default function PodiumPage() {
         <div className="flex-1 flex justify-end">
           {event?.slug && (
             <div className="bg-white p-2 rounded">
-              <QRCodeSVG value={`https://www.leszy.run/${event.slug}/results`} size={80} />
+              <QRCodeSVG value={`https://www.leszy.run/events/${event.slug}/results`} size={80} />
             </div>
           )}
         </div>

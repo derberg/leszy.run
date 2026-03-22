@@ -228,7 +228,7 @@ export default function EventDetail() {
                 {checkpoints.length > 0 && (
                   <Button size="sm" variant="outline" onClick={() => {
                     const text = checkpoints.map(cp =>
-                      `${cp.name}${cp.kmMarker ? ` (km ${cp.kmMarker})` : ''}: https://leszy.run/${event?.slug || ''}/volunteer?checkpoint=${cp.id}`
+                      `${cp.name}${cp.kmMarker ? ` (km ${cp.kmMarker})` : ''}: https://leszy.run/events/${event?.slug || ''}/volunteer?checkpoint=${cp.id}`
                     ).join('\n')
                     navigator.clipboard.writeText(text)
                   }}>
@@ -247,7 +247,7 @@ export default function EventDetail() {
 
             <div className="space-y-2">
               {checkpoints.map(cp => {
-                const volunteerUrl = `https://leszy.run/${event?.slug || ''}/volunteer?checkpoint=${cp.id}`
+                const volunteerUrl = `https://leszy.run/events/${event?.slug || ''}/volunteer?checkpoint=${cp.id}`
                 return (
                   <div key={cp.id} className="border border-apex-border bg-apex-surface px-4 py-3 flex items-center justify-between gap-4">
                     <div>
@@ -734,7 +734,7 @@ function EventSettings({ eventId, event, updateEvent }) {
             placeholder="moj-wyscig-2026"
           />
           {slugError && <p className="text-xs text-apex-red">{slugError}</p>}
-          <p className="text-xs text-apex-muted font-mono">leszy.run/{slug || '...'}</p>
+          <p className="text-xs text-apex-muted font-mono">leszy.run/events/{slug || '...'}</p>
         </CardContent>
       </Card>
 
@@ -774,11 +774,11 @@ function EventSettings({ eventId, event, updateEvent }) {
             <div className="pt-2 border-t border-apex-border">
               <p className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1">Link do skanowania QR</p>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-apex-cyan break-all">https://leszy.run/{event.slug}/admin/checkin</span>
+                <span className="text-xs font-mono text-apex-cyan break-all">https://leszy.run/events/{event.slug}/admin/checkin</span>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigator.clipboard.writeText(`https://leszy.run/${event.slug}/admin/checkin`)}
+                  onClick={() => navigator.clipboard.writeText(`https://leszy.run/events/${event.slug}/admin/checkin`)}
                   title="Kopiuj link"
                 >
                   <Copy size={13} />

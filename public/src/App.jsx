@@ -10,13 +10,13 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/:slug" element={<EventHub />} />
-      <Route path="/:slug/results" element={<Results />} />
-      <Route path="/:slug/results/live" element={<Results />} />
-      <Route path="/:slug/results/:categoryId" element={<Results />} />
-      <Route path="/:slug/volunteer" element={<Volunteer />} />
-      <Route path="/:slug/checkin" element={<Checkin />} />
-      <Route path="/:slug/admin/checkin" element={<AdminCheckin />} />
+      <Route path="/events/:slug" element={<EventHub />} />
+      <Route path="/events/:slug/results" element={<Results />} />
+      <Route path="/events/:slug/results/live" element={<Results />} />
+      <Route path="/events/:slug/results/:categoryId" element={<Results />} />
+      <Route path="/events/:slug/volunteer" element={<Volunteer />} />
+      <Route path="/events/:slug/checkin" element={<Checkin />} />
+      <Route path="/events/:slug/admin/checkin" element={<AdminCheckin />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

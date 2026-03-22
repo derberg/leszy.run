@@ -162,7 +162,7 @@ export default function Checkin() {
           <div className="text-apex-muted text-sm mb-8">{participant?.first_name} {participant?.last_name} &middot; #{participant?.bib_number}</div>
 
           <div ref={qrRef} className="inline-block bg-white p-4 mb-6">
-            <QRCodeCanvas value={`${window.location.origin}/${event.slug}/admin/checkin?p=${participantId}`} size={200} />
+            <QRCodeCanvas value={`${window.location.origin}/events/${event.slug}/admin/checkin?p=${participantId}`} size={200} />
           </div>
 
           <div className="border border-apex-yellow/40 bg-apex-yellow/10 text-apex-yellow text-sm px-4 py-3 mb-6">
