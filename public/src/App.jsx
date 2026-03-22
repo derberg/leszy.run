@@ -9,7 +9,7 @@ import AdminCheckin from './pages/AdminCheckin.jsx'
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/events" element={<Home />} />
       <Route path="/events/:slug" element={<EventHub />} />
       <Route path="/events/:slug/results" element={<Results />} />
       <Route path="/events/:slug/results/live" element={<Results />} />
