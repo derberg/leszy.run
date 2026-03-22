@@ -141,6 +141,8 @@ export default function PodiumPage() {
     enabled: !!eventId,
   })
 
+  // IMPORTANT: Must include 'finished' — podium must keep showing results after race stops.
+  // Filtering only 'active' causes the podium to go blank when the race ends.
   const activeCategories = categories.filter(c =>
     c.raceRuns?.some(r => r.status === 'active' || r.status === 'finished')
   )

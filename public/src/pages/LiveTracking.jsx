@@ -33,6 +33,7 @@ export default function LiveTracking({ eventId, categories }) {
       const { data: runData } = await supabase.from('race_runs')
         .select('id, started_at, status')
         .eq('category_id', cat.id)
+        // IMPORTANT: Must include 'finished' — results must stay visible after race stops.
         .in('status', ['active', 'finished'])
         .order('created_at', { ascending: false })
         .limit(1)
