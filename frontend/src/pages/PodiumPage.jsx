@@ -142,7 +142,7 @@ export default function PodiumPage() {
   })
 
   const activeCategories = categories.filter(c =>
-    c.raceRuns?.some(r => r.status === 'active')
+    c.raceRuns?.some(r => r.status === 'active' || r.status === 'finished')
   )
 
   // Current category shown in auto-rotate mode
