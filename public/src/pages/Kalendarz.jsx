@@ -148,7 +148,7 @@ export default function Kalendarz() {
   return (
     <>
       <Navbar />
-      <main id="main-content">
+      <main id="main-content" className="page-watermark">
         <div className="pt-20 md:pt-20 pb-8 px-6 max-w-[1200px] mx-auto">
           <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-2">Kalendarz biegów</p>
           <h1 className="font-display font-extrabold text-3xl md:text-5xl tracking-wider uppercase text-apex-text-bright mb-2">Wszystkie wydarzenia w Polsce</h1>
