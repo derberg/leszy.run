@@ -18,29 +18,38 @@ async function scrape() {
 
       let foundOnPage = 0
 
-      // Events have h2 for name, h3 for date, and paragraph with location details
-      $('h2').each((_, el) => {
-        const h2 = $(el)
+      // Events are <a> elements containing <h2> for name and .date or date text
+      $('a[href]').each((_, el) => {
+        const a = $(el)
+        const h2 = a.find('h2')
+        if (!h2.length) return
+
         const name = h2.text().trim()
         if (!name) return
 
-        // Look for date in nearby h3 or sibling elements
-        const parent = h2.parent()
-        const dateEl = parent.find('h3').first()
-        const dateText = dateEl.text().trim()
+        const href = a.attr('href')
+
+        // Find date: look for div.date or any element with DD.MM.YYYY pattern
+        const dateDiv = a.find('.date, [class*="date"]')
+        let dateText = dateDiv.length ? dateDiv.text().trim() : ''
+
+        if (!dateText) {
+          // Fallback: search all text for date pattern
+          const allText = a.text()
+          const dateSearch = allText.match(/(\d{2})\.(\d{2})\.(\d{4})/)
+          if (dateSearch) dateText = dateSearch[0]
+        }
+
         const dateMatch = dateText.match(/(\d{2})\.(\d{2})\.(\d{4})/)
-        const date = dateMatch ? `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}` : null
+        if (!dateMatch) return
+        const date = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`
 
-        if (!date) return
-
-        // Location info from paragraph containing voivodeship
-        const infoText = parent.text()
-        const locationMatch = infoText.match(/([A-ZŁŚŻŹĆa-ząćęłńóśźż\s-]+)\s*\|\s*([a-ząćęłńóśźż-]+)\s*\|/i)
-        const location = locationMatch ? locationMatch[1].trim() : ''
-        const voivodeship = locationMatch ? locationMatch[2].trim() : ''
-
-        // Link
-        const link = parent.find('a[href*="/"]').first().attr('href')
+        // Location and type from <p> text
+        // Format: "City | voivodeship | Type | SubType"
+        const pText = a.find('p').last().text().trim()
+        const parts = pText.split('|').map(s => s.trim())
+        const location = parts[0] || ''
+        const voivodeship = parts[1] || ''
 
         results.push({
           name,
@@ -48,10 +57,10 @@ async function scrape() {
           location,
           voivodeship,
           distances: '',
-          registration_url: link ? (link.startsWith('http') ? link : `${BASE_URL}${link}`) : null,
+          registration_url: href ? (href.startsWith('http') ? href : `${BASE_URL}${href}`) : null,
           source: 'biegiwpolsce',
           source_url: url,
-          source_id: `${name}-${date}`,
+          source_id: href || `${name}-${date}`,
         })
 
         foundOnPage++
