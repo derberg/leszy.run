@@ -18,14 +18,14 @@
   --color-apex-yellow: #BBDD00;
   --color-apex-yellow-bright: #D4FF00;
   --color-apex-yellow-dim: #778800;
-  --color-apex-red: #E53030;
+  --color-apex-red: #EF4444;
   --color-apex-red-dim: #5C0A0A;
   --color-apex-cyan: #00BFEF;
   --color-apex-cyan-dim: #004458;
   --color-apex-text: #9896B4;
   --color-apex-text-bright: #C4C2D8;
-  --color-apex-muted: #545268;
-  --color-apex-dim: #2C2A38;
+  --color-apex-muted: #8886A0;
+  --color-apex-dim: #605E78;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
