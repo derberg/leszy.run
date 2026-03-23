@@ -23,6 +23,11 @@ import { checkpointsRoutes } from './routes/checkpoints.js'
 import { smsRoutes } from './routes/sms.js'
 import { eventDocumentsRoutes } from './routes/eventDocuments.js'
 import { eventSecretsRoutes } from './routes/eventSecrets.js'
+import { scrapersRoutes } from './routes/scrapers.js'
+import { calendarEventsRoutes } from './routes/calendarEvents.js'
+import { urlSuggestionsRoutes } from './routes/urlSuggestions.js'
+import cron from 'node-cron'
+import { runPipeline } from './scrapers/index.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -48,6 +53,9 @@ await fastify.register(async (api) => {
   await api.register(smsRoutes)
   await api.register(eventDocumentsRoutes)
   await api.register(eventSecretsRoutes)
+  await api.register(scrapersRoutes)
+  await api.register(calendarEventsRoutes)
+  await api.register(urlSuggestionsRoutes)
 }, { prefix: '/api' })
 
 // Health check
@@ -79,6 +87,11 @@ const start = async () => {
     // Start Supabase sync
     initSupabaseSync(db)
     initCheckinSync(db)
+
+    cron.schedule('0 3 * * *', () => {
+      console.log('[cron] Starting daily scrape...')
+      runPipeline().catch(err => console.error('[cron] Scrape failed:', err))
+    })
 
     console.log(`[Server] LeszyRun backend running at ${address}`)
   } catch (err) {
