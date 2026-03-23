@@ -10,7 +10,9 @@ async function scrape() {
     const res = await fetch(LIST_URL, {
       headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
     })
-    const html = await res.text()
+    const buffer = await res.arrayBuffer()
+    const decoder = new TextDecoder('windows-1250')
+    const html = decoder.decode(buffer)
     const $ = cheerio.load(html)
 
     $('.event-list-box').each((_, el) => {
