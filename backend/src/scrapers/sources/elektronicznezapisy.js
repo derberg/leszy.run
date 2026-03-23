@@ -62,7 +62,10 @@ async function fetchDetailPage(eventId) {
     const distMatches = [...allText.matchAll(/(\d+[.,]?\d*)\s*km/gi)]
     const distances = distMatches.map(m => `${parseFloat(m[1].replace(',', '.'))} km`)
 
-    return { name: name || null, location, date, distances: distances.join(', ') }
+    // Store clean page text for LLM enrichment later
+    const rawDescription = allText.replace(/\s+/g, ' ').trim().slice(0, 5000)
+
+    return { name: name || null, location, date, distances: distances.join(', '), rawDescription }
   } catch (err) {
     console.error(`[elektronicznezapisy] Detail fetch failed for event ${eventId}:`, err.message)
     return null
@@ -125,6 +128,7 @@ async function scrape() {
         date: detail.date || entry.date,
         location: detail.location || '',
         distances: detail.distances || '',
+        description: detail.rawDescription || '',
         registration_url: entry.signupLink
           ? `${BASE_URL}/${entry.signupLink}`
           : `${BASE_URL}/event/${entry.eventId}/strona.html`,

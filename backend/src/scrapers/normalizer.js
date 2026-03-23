@@ -169,6 +169,7 @@ async function normalizeEvent(raw) {
     distances,
     distances_meters,
     description: raw.description || null,
+    raw_description: raw.description || null,
     registration_url: raw.registration_url || null,
     registration_deadline: raw.registration_deadline ? parseDate(raw.registration_deadline) : null,
     price_from: raw.price_from || null,

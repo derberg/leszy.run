@@ -42,7 +42,10 @@ async function fetchDetailPage(path) {
       distances.push('21.1 km')
     }
 
-    return { city, voivodeship, distances: distances.join(', ') }
+    // Store clean page text for LLM enrichment
+    const rawDescription = pageText.replace(/\s+/g, ' ').trim().slice(0, 5000)
+
+    return { city, voivodeship, distances: distances.join(', '), rawDescription }
   } catch (err) {
     return null
   }
@@ -137,6 +140,7 @@ async function scrape() {
         if (detail.city) entry.location = detail.city
         if (detail.voivodeship) entry.voivodeship = detail.voivodeship
         if (detail.distances) entry.distances = detail.distances
+        if (detail.rawDescription) entry.rawDescription = detail.rawDescription
       }
       await new Promise(r => setTimeout(r, 1100))
     }
@@ -147,6 +151,7 @@ async function scrape() {
       location: entry.location,
       voivodeship: entry.voivodeship,
       distances: entry.distances || '',
+      description: entry.rawDescription || '',
       registration_url: entry.href ? (entry.href.startsWith('http') ? entry.href : `${BASE_URL}${entry.href}`) : null,
       source: 'biegiwpolsce',
       source_url: BASE_URL,
