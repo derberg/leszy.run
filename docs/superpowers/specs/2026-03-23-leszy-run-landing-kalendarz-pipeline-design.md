@@ -121,11 +121,31 @@ Full contrast audit performed. All color combinations verified against WCAG AA (
 - Skip-to-content link for keyboard users
 - Filter controls have associated `<label>` elements (visually hidden where needed)
 
-### Responsive breakpoints
+### Responsive approach: Mobile-first
 
-- Desktop: full layout as designed
-- Tablet (≤1024px): features grid → 2 columns, kalendarz teaser stacks vertically
-- Mobile (≤768px): single column, hamburger nav, hero text smaller (44px h1), contact cards stack
+All CSS written mobile-first — base styles target phones, `min-width` media queries scale up.
+
+**Mobile (base, <768px):**
+- Single column layout throughout
+- Hamburger nav (nav links hidden, slide-out menu)
+- Hero: logo ~200px wide, h1 44px, stacked CTAs (full width)
+- Features: single column cards
+- Events: simplified rows (date + name, no tags/distances)
+- Kalendarz teaser: stacked (text above, preview below)
+- Contact: stacked cards
+- Filter bar: vertically stacked filters, full-width selects
+
+**Tablet (≥768px):**
+- Features grid → 2 columns
+- Event rows show tags + distances
+- Filter bar: horizontal row, wrapping
+- Contact cards in a row
+
+**Desktop (≥1024px):**
+- Full layout as in mockups
+- Features grid → 4 columns
+- Nav links visible (no hamburger)
+- Kalendarz teaser: side-by-side split
 
 ## 2. Kalendarz Page
 
