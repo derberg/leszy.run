@@ -31,6 +31,7 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
       SMSAPI_TOKEN: ${SMSAPI_TOKEN:-}
       SMSAPI_SENDER: ${SMSAPI_SENDER:-LeszyRun}
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
