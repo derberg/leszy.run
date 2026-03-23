@@ -21,7 +21,7 @@ Description: ${(description || '').slice(0, 3000)}`
     writeFileSync(tmpFile, prompt, 'utf-8')
     const result = execSync(
       `cat "${tmpFile}" | claude -p --model haiku --output-format text`,
-      { encoding: 'utf-8', timeout: 30000 }
+      { encoding: 'utf-8', timeout: 60000, maxBuffer: 1024 * 1024 }
     )
 
     const match = result.match(/\[[\d.,\s]*\]/)
@@ -89,8 +89,8 @@ async function enrichDistances() {
       }
     }
 
-    // Small delay between calls
-    await new Promise(r => setTimeout(r, 500))
+    // Delay between Claude CLI calls to avoid process buildup
+    await new Promise(r => setTimeout(r, 2000))
   }
 
   console.log(`[llmEnricher] Enriched ${enriched}/${needsEnrichment.length} events`)
