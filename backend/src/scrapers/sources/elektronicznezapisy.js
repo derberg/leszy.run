@@ -19,9 +19,39 @@ async function fetchDetailPage(eventId) {
     // Name from <h1>
     const name = $('h1').first().text().trim()
 
-    // City from link like <a href="/m/city">City</a>
+    // City: try multiple patterns
+    let location = null
+
+    // Pattern 1: <a href="/m/city">City</a>
     const cityLink = $('a[href^="/m/"]').first()
-    const location = cityLink.text().trim() || null
+    if (cityLink.length) {
+      location = cityLink.text().trim()
+    }
+
+    // Pattern 2: <li>Miejsce: <strong>City</strong></li>
+    if (!location) {
+      $('li, p, div').each((_, el) => {
+        const text = $(el).text().trim()
+        const match = text.match(/Miejsce:\s*(.+)/i)
+        if (match && !location) {
+          location = match[1].trim()
+        }
+      })
+    }
+
+    // Pattern 3: search for known city in <strong> tags
+    if (!location) {
+      $('strong').each((_, el) => {
+        const text = $(el).text().trim()
+        // City-like: short text, not a date, not a number
+        if (text.length > 2 && text.length < 30 && !/\d{4}/.test(text) && !/^\d+$/.test(text) && !location) {
+          const parent = $(el).parent().text().trim()
+          if (parent.toLowerCase().includes('miejsce') || parent.toLowerCase().includes('lokalizacja')) {
+            location = text
+          }
+        }
+      })
+    }
 
     // Date from text near "Początek imprezy" or any YYYY.MM.DD / YYYY-MM-DD pattern
     const allText = $('body').text()
