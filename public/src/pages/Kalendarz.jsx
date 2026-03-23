@@ -75,25 +75,35 @@ export default function Kalendarz() {
         query = query.eq('voivodeship', filters.voivodeship)
       }
 
-      const from = (page - 1) * PAGE_SIZE
-      query = query.range(from, from + PAGE_SIZE - 1)
+      // When distance filter is active, fetch all results for client-side filtering
+      // (Supabase can't filter "any array element in range" natively)
+      if (!filters.distance) {
+        const from = (page - 1) * PAGE_SIZE
+        query = query.range(from, from + PAGE_SIZE - 1)
+      } else {
+        query = query.limit(2000)
+      }
 
       const { data, count, error } = await query
       if (error) console.error('Calendar fetch error:', error.message)
 
       let filteredData = data || []
 
-      // Client-side distance filter (Supabase can't easily filter array ranges)
       if (filters.distance && filteredData.length > 0) {
         const [minDist, maxDist] = filters.distance.split('-').map(Number)
         filteredData = filteredData.filter(e => {
           if (!e.distances_meters || e.distances_meters.length === 0) return false
           return e.distances_meters.some(d => d >= minDist && d <= maxDist)
         })
+        // Client-side pagination for distance-filtered results
+        const from = (page - 1) * PAGE_SIZE
+        const paged = filteredData.slice(from, from + PAGE_SIZE)
+        setTotal(filteredData.length)
+        setEvents(paged)
+      } else {
+        setEvents(filteredData)
+        setTotal(count || 0)
       }
-
-      setEvents(filteredData)
-      setTotal(filters.distance ? filteredData.length : (count || 0))
     } catch (err) {
       console.error('Calendar fetch failed:', err)
       setEvents([])
