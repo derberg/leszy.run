@@ -97,13 +97,29 @@ Transform the `public/` app from a minimal event-listing tool into a full market
 
 ### Accessibility (WCAG AA)
 
-- All text must meet 4.5:1 contrast ratio against its background
-- Current `--muted` (#6B6980) on `--bg` (#06060A) is ~3.5:1 — bump to `#8886A0` (~4.6:1) for body text areas
-- Yellow (#BBDD00) on dark bg passes AA for large text; for small text use on dark surface only
+Full contrast audit performed. All color combinations verified against WCAG AA (4.5:1 normal text, 3:1 large text).
+
+**Color fixes required in `app.css`:**
+- `--color-apex-muted`: `#6B6980` → `#8886A0` (3.81:1 → 5.75:1 on bg) — used for body text, meta text, placeholders
+- `--color-apex-red` (OCR tag): `#E53030` → `#EF4444` (4.45:1 → 5.18:1 on surface) — fails AA normal at current value
+- `--color-apex-dim` (scroll indicator): `#2C2A38` → `#605E78` (1.44:1 → 3.25:1 on bg) — decorative but improved for usability
+
+**Passing combinations (no changes needed):**
+- `--text-bright` (#DDDCEC) on bg: 14.95:1
+- `--text` (#B0AEC6) on bg: 9.36:1
+- `--yellow` (#BBDD00) on bg: 12.96:1
+- `--yellow-dim` (#778800) on bg: 5.11:1
+- White (#FFFFFF) on bg: 20.23:1
+- bg on yellow (filled buttons): 12.96:1
+- green-bright (#4A8A42) on surface: 4.64:1
+- cyan (#00BFEF) on surface: 8.99:1
+
+**Other accessibility requirements:**
 - All interactive elements must have visible focus indicators (yellow outline)
 - Images have alt text
 - Semantic HTML: `<nav>`, `<main>`, `<section>`, `<footer>`
 - Skip-to-content link for keyboard users
+- Filter controls have associated `<label>` elements (visually hidden where needed)
 
 ### Responsive breakpoints
 
