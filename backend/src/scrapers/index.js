@@ -1,0 +1,56 @@
+import { scrape as scrapeMaratonypolskie } from './sources/maratonypolskie.js'
+import { scrape as scrapeDostartu } from './sources/dostartu.js'
+import { normalizeEvent } from './normalizer.js'
+import { upsertEvent } from './dedup.js'
+import { resolveUrls } from './urlResolver.js'
+
+const sources = [
+  { name: 'maratonypolskie', scrape: scrapeMaratonypolskie },
+  { name: 'dostartu', scrape: scrapeDostartu },
+]
+
+async function runPipeline() {
+  console.log('[pipeline] Starting scrape run...')
+  const results = { sources: [], urlResolver: null }
+
+  for (const source of sources) {
+    const stats = { source: source.name, found: 0, created: 0, updated: 0, errors: [] }
+
+    try {
+      const rawEvents = await source.scrape()
+      stats.found = rawEvents.length
+
+      for (const raw of rawEvents) {
+        try {
+          const normalized = await normalizeEvent(raw)
+          if (!normalized) {
+            stats.errors.push({ raw: raw.name, message: 'Failed to normalize (no date?)' })
+            continue
+          }
+
+          const { action, error } = await upsertEvent(normalized)
+          if (error) {
+            stats.errors.push({ raw: raw.name, message: error.message })
+          } else if (action === 'created') {
+            stats.created++
+          } else {
+            stats.updated++
+          }
+        } catch (err) {
+          stats.errors.push({ raw: raw.name, message: err.message })
+        }
+      }
+    } catch (err) {
+      stats.errors.push({ raw: null, message: `Source failed: ${err.message}` })
+    }
+
+    results.sources.push(stats)
+    console.log(`[pipeline] ${source.name}: found=${stats.found} new=${stats.created} updated=${stats.updated} errors=${stats.errors.length}`)
+  }
+
+  results.urlResolver = await resolveUrls()
+  console.log('[pipeline] Scrape run complete')
+  return results
+}
+
+export { runPipeline }
