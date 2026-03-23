@@ -1,100 +1,128 @@
 import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://maratonypolskie.pl'
-const CALENDAR_URL = `${BASE_URL}/mp_index.php?dzial=3&action=1&grp=13&trgr=1&bieganie&wielkosc=2`
+
+function buildCalendarUrl(month, year) {
+  return `${BASE_URL}/mp_index.php?dzial=3&action=1&grp=13&trgr=1&bieganie&wielkosc=2&czasm1=${month}&czasr1=${year}`
+}
+
+async function fetchWithEncoding(url) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+  })
+  // Site uses ISO-8859-2 encoding for Polish characters
+  const buffer = await res.arrayBuffer()
+  const decoder = new TextDecoder('iso-8859-2')
+  return decoder.decode(buffer)
+}
 
 async function scrape() {
   const results = []
+  const now = new Date()
+  const startMonth = now.getMonth() + 1 // 1-indexed
+  const startYear = now.getFullYear()
 
-  try {
-    const res = await fetch(CALENDAR_URL, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
-    })
-    const html = await res.text()
-    const $ = cheerio.load(html)
+  // Scrape 12 months ahead
+  for (let i = 0; i < 12; i++) {
+    let month = startMonth + i
+    let year = startYear
+    if (month > 12) {
+      month -= 12
+      year++
+    }
 
-    $('tr').each((_, el) => {
-      const cells = $(el).find('td')
-      if (cells.length < 4) return
+    try {
+      const url = buildCalendarUrl(month, year)
+      const html = await fetchWithEncoding(url)
+      const $ = cheerio.load(html)
 
-      // Try to find a date in any cell (format: YYYY.M.DD or YYYY.MM.DD)
-      let dateText = null
-      let dateCell = -1
-      cells.each((i, cell) => {
-        const text = $(cell).text().trim()
-        if (/^\d{4}\.\d{1,2}\.\d{1,2}/.test(text)) {
-          dateText = text
-          dateCell = i
-        }
-      })
+      $('tr').each((_, el) => {
+        const cells = $(el).find('td')
+        if (cells.length < 4) return
 
-      if (!dateText || dateCell < 0) return
+        // Find a date cell (format: YYYY.M.DD)
+        let dateText = null
+        let dateCell = -1
+        cells.each((idx, cell) => {
+          const text = $(cell).text().trim()
+          if (/^\d{4}\.\d{1,2}\.\d{1,2}/.test(text)) {
+            dateText = text
+            dateCell = idx
+          }
+        })
 
-      // Parse date
-      const dateMatch = dateText.match(/(\d{4})\.(\d{1,2})\.(\d{1,2})/)
-      if (!dateMatch) return
-      const date = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`
+        if (!dateText || dateCell < 0) return
 
-      // Find the cell with an event link (contains <a> with code= in href)
-      let name = null
-      let href = null
-      cells.each((i, cell) => {
-        const link = $(cell).find('a[href*="code="]').first()
-        if (link.length) {
-          name = link.text().trim()
-          href = link.attr('href')
-        }
-      })
+        const dateMatch = dateText.match(/(\d{4})\.(\d{1,2})\.(\d{1,2})/)
+        if (!dateMatch) return
 
-      if (!name) {
-        // Fallback: find any <a> that looks like an event name (not "ZGL" or short text)
-        cells.each((i, cell) => {
-          const link = $(cell).find('a').first()
-          const text = link.text().trim()
-          if (text && text.length > 5 && !name) {
-            name = text
+        const date = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`
+
+        // Skip past events
+        if (date < now.toISOString().split('T')[0]) return
+
+        // Find event name link
+        let name = null
+        let href = null
+        cells.each((idx, cell) => {
+          const link = $(cell).find('a[href*="code="]').first()
+          if (link.length) {
+            name = link.text().trim()
             href = link.attr('href')
           }
         })
-      }
 
-      if (!name) return
+        if (!name) {
+          cells.each((idx, cell) => {
+            const link = $(cell).find('a').first()
+            const text = link.text().trim()
+            if (text && text.length > 5 && !name) {
+              name = text
+              href = link.attr('href')
+            }
+          })
+        }
 
-      // Location: typically the cell after date or before the name cell
-      let location = ''
-      let distance = ''
-      cells.each((i, cell) => {
-        const text = $(cell).text().trim()
-        // Distance: contains "km"
-        if (/\d+.*km/i.test(text)) {
-          distance = text
-        }
-        // Location: not a date, not distance, not the name, not a number, not too short
-        if (i !== dateCell && text.length > 2 && !/\d{4}\.\d/.test(text) && !/km/i.test(text) && !$(cell).find('a').length && !$(cell).find('img').length) {
-          location = text
-        }
+        if (!name) return
+
+        // Location and distance from remaining cells
+        let location = ''
+        let distance = ''
+        cells.each((idx, cell) => {
+          const text = $(cell).text().trim()
+          if (/\d+.*km/i.test(text)) {
+            distance = text
+          }
+          if (idx !== dateCell && text.length > 2 && !/\d{4}\.\d/.test(text) && !/km/i.test(text) && !$(cell).find('a').length && !$(cell).find('img').length) {
+            location = text
+          }
+        })
+
+        const codeMatch = href ? href.match(/code=(\d+)/) : null
+        const sourceId = codeMatch ? codeMatch[1] : `${name}-${date}`
+
+        results.push({
+          name,
+          date,
+          location,
+          distances: distance,
+          registration_url: href ? (href.startsWith('http') ? href : `${BASE_URL}/${href}`) : null,
+          source: 'maratonypolskie',
+          source_url: buildCalendarUrl(month, year),
+          source_id: sourceId,
+        })
       })
 
-      const codeMatch = href ? href.match(/code=(\d+)/) : null
-      const sourceId = codeMatch ? codeMatch[1] : `${name}-${date}`
+      console.log(`[maratonypolskie] Month ${month}/${year}: found events so far: ${results.length}`)
 
-      results.push({
-        name,
-        date,
-        location,
-        distances: distance,
-        registration_url: href ? (href.startsWith('http') ? href : `${BASE_URL}/${href}`) : null,
-        source: 'maratonypolskie',
-        source_url: CALENDAR_URL,
-        source_id: sourceId,
-      })
-    })
-
-    console.log(`[maratonypolskie] Scraped ${results.length} events`)
-  } catch (err) {
-    console.error('[maratonypolskie] Scrape failed:', err.message)
+      // Rate limit between pages
+      await new Promise(r => setTimeout(r, 1100))
+    } catch (err) {
+      console.error(`[maratonypolskie] Failed for ${month}/${year}:`, err.message)
+    }
   }
 
+  console.log(`[maratonypolskie] Scraped ${results.length} events total`)
   return results
 }
 
