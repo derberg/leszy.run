@@ -23,7 +23,8 @@ Transform the `public/` app from a minimal event-listing tool into a full market
 
 - Route: `/` in the existing `public/` Vite+React app
 - The current `/events` list page stays as-is
-- `App.jsx` catch-all redirect (`*` → `/`) will serve the landing page instead of redirecting to `/events`
+- Add `<Route path="/" element={<Landing />} />` before the catch-all in `App.jsx`
+- The catch-all (`*` → `/`) stays, now landing on the new landing page
 
 ### Logo
 
@@ -164,8 +165,9 @@ Transform the `public/` app from a minimal event-listing tool into a full market
 
 ### Data source
 - Reads from Supabase `calendar_events` table (see data pipeline section)
-- Client-side filtering with TanStack Query
-- Server-side pagination via Supabase `.range()`
+- All filtering and pagination server-side via Supabase query params (`.ilike()`, `.in()`, `.gte()`, `.range()`)
+- Uses direct Supabase client calls with React state/effects (matching existing `public/` app pattern — no TanStack Query)
+- Filter changes update URL query params → trigger new Supabase query
 
 ## 3. Data Pipeline
 
@@ -233,11 +235,40 @@ CREATE TABLE calendar_events (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+  -- Lifecycle
+  status TEXT DEFAULT 'active',     -- 'active','cancelled','postponed'
+
+  -- Timestamps
+  last_verified_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Indexes
 CREATE INDEX idx_calendar_events_date ON calendar_events(date);
 CREATE INDEX idx_calendar_events_voivodeship ON calendar_events(voivodeship);
 CREATE INDEX idx_calendar_events_source ON calendar_events(source, source_id);
 CREATE INDEX idx_calendar_events_recurring ON calendar_events(recurring_event_id);
+CREATE INDEX idx_calendar_events_status ON calendar_events(status);
+
+-- RLS: public read access (anon key), write via service role only
+ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "public_read" ON calendar_events FOR SELECT USING (true);
+```
+
+**Note:** Like `event_secrets`, `calendar_events` and `geocode_cache` are Supabase-only tables — no Drizzle schema or local migration. Apply via `mcp__supabase__apply_migration` only.
+
+### Supabase table: `geocode_cache`
+
+```sql
+CREATE TABLE geocode_cache (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  location_query TEXT NOT NULL UNIQUE,
+  lat DECIMAL(9,6),
+  lng DECIMAL(9,6),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE geocode_cache ENABLE ROW LEVEL SECURITY;
+-- No public read needed; accessed only via service role key from backend
 ```
 
 ### Deduplication strategy
@@ -284,8 +315,8 @@ scrapers/
 
 ### Run schedule
 
-- Backend route: `POST /api/scrapers/run` — triggers a full scrape (admin only)
-- Automated: daily at 03:00 via `setInterval` or cron in backend startup
+- Backend route: `POST /api/scrapers/run` — triggers a full scrape (localhost-only, backend runs in Docker so not exposed externally)
+- Automated: daily at 03:00 via `node-cron` in backend startup
 - Each scraper logs results: `{ source, found, new, updated, errors }`
 
 ### Geocoding
@@ -318,13 +349,15 @@ scrapers/
 | Scraping | cheerio + fetch | Lightweight, no browser needed for HTML scraping |
 | Calendar data storage | Supabase only | Public page reads from Supabase directly, no need for local DB sync |
 | Pipeline runtime | Backend (Node.js) | Reuses existing Fastify server, access to Supabase client |
-| Scheduling | setInterval in backend | Simple, no external cron dependency |
+| Scheduling | node-cron in backend | Lightweight, time-of-day scheduling without drift |
 
 ## Files to create/modify
 
 ### New files
 - `public/src/pages/Landing.jsx` — landing page component
 - `public/src/pages/Kalendarz.jsx` — kalendarz page component
+- `public/src/components/Navbar.jsx` — shared navbar (Landing + Kalendarz)
+- `public/src/components/Footer.jsx` — shared footer
 - `public/src/components/EventRow.jsx` — reusable event row for kalendarz
 - `public/src/components/FilterBar.jsx` — sticky filter bar
 - `public/src/components/MapView.jsx` — Leaflet map component
@@ -341,7 +374,11 @@ scrapers/
 - `public/src/App.jsx` — add `/` and `/kalendarz` routes
 - `public/src/app.css` — bump muted color contrast for WCAG AA
 - `public/index.html` — update `<title>` to "Leszy.run"
-- Supabase: new `calendar_events` and `geocode_cache` tables via migration
+- Supabase: new `calendar_events` and `geocode_cache` tables via `mcp__supabase__apply_migration` (Supabase-only, no Drizzle)
+
+### New dependencies
+- `public/package.json`: `leaflet`, `react-leaflet`
+- `backend/package.json`: `cheerio`, `node-cron`
 
 ## Mockups
 
