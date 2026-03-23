@@ -29,9 +29,9 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-14 bg-apex-bg/85 backdrop-blur-md border-b border-apex-border" role="navigation" aria-label="Nawigacja glowna">
+    <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-14 bg-apex-bg/85 backdrop-blur-md border-b border-apex-border" role="navigation" aria-label="Nawigacja główna">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-apex-yellow focus:text-apex-bg focus:px-4 focus:py-2 focus:z-[100]">
-        Przejdz do tresci
+        Przejdź do treści
       </a>
       <Link to="/" className="font-display font-extrabold text-[22px] tracking-wider text-apex-text-bright no-underline">
         LESZY<span className="text-apex-yellow">.RUN</span>
@@ -64,7 +64,7 @@ export default function Navbar() {
       <button
         className="md:hidden text-apex-text-bright"
         onClick={() => setMenuOpen(!menuOpen)}
-        aria-label={menuOpen ? 'Zamknij menu' : 'Otworz menu'}
+        aria-label={menuOpen ? 'Zamknij menu' : 'Otwórz menu'}
         aria-expanded={menuOpen}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

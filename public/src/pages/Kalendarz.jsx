@@ -128,22 +128,22 @@ export default function Kalendarz() {
       <Navbar />
       <main id="main-content">
         <div className="pt-20 md:pt-20 pb-8 px-6 max-w-[1200px] mx-auto">
-          <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-2">Kalendarz biegow</p>
+          <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-2">Kalendarz biegów</p>
           <h1 className="font-display font-extrabold text-3xl md:text-5xl tracking-wider uppercase text-apex-text-bright mb-2">Wszystkie biegi w Polsce</h1>
-          <p className="text-base text-apex-text max-w-[600px]">Setki biegow, marszow nordic walking i wydarzen sportowych z calej Polski.</p>
+          <p className="text-base text-apex-text max-w-[600px]">Setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski.</p>
         </div>
 
         <FilterBar filters={filters} onChange={handleFilterChange} view={view} onViewChange={setView} />
 
         <div className="max-w-[1200px] mx-auto px-6 pt-4 pb-2 flex justify-between items-center">
           <span className="font-mono text-xs text-apex-muted tracking-wide">
-            Znaleziono <strong className="text-apex-yellow">{total}</strong> wydarzen
+            Znaleziono <strong className="text-apex-yellow">{total}</strong> wydarzeń
           </span>
         </div>
 
         {view === 'list' ? (
           <div className="max-w-[1200px] mx-auto px-6 pb-16">
-            {loading && <div className="text-apex-muted py-8">Ladowanie...</div>}
+            {loading && <div className="text-apex-muted py-8">Ładowanie...</div>}
 
             {!loading && Object.entries(grouped).map(([key, group]) => (
               <div key={key} className="mb-2">
@@ -155,7 +155,7 @@ export default function Kalendarz() {
             ))}
 
             {!loading && events.length === 0 && (
-              <div className="text-apex-muted py-12 text-center">Brak wydarzen dla wybranych filtrow.</div>
+              <div className="text-apex-muted py-12 text-center">Brak wydarzeń dla wybranych filtrów.</div>
             )}
 
             {totalPages > 1 && (

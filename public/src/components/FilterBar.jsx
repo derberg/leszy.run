@@ -10,9 +10,9 @@ const EVENT_TYPES = [
 ]
 
 const VOIVODESHIPS = [
-  '', 'Dolnoslaskie', 'Kujawsko-Pomorskie', 'Lodzkie', 'Lubelskie', 'Lubuskie',
-  'Malopolskie', 'Mazowieckie', 'Opolskie', 'Podkarpackie', 'Podlaskie',
-  'Pomorskie', 'Slaskie', 'Swietokrzyskie', 'Warminsko-Mazurskie', 'Wielkopolskie', 'Zachodniopomorskie',
+  '', 'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
+  'Małopolskie', 'Mazowieckie', 'Opolskie', 'Podkarpackie', 'Podlaskie',
+  'Pomorskie', 'Śląskie', 'Świętokrzyskie', 'Warmińsko-Mazurskie', 'Wielkopolskie', 'Zachodniopomorskie',
 ]
 
 const DISTANCES = [
@@ -20,17 +20,17 @@ const DISTANCES = [
   { value: '0-5000', label: 'do 5 km' },
   { value: '5000-10000', label: '5-10 km' },
   { value: '10000-21100', label: '10-21 km' },
-  { value: '21100-21100', label: 'Polmaraton' },
+  { value: '21100-21100', label: 'Półmaraton' },
   { value: '42200-42200', label: 'Maraton' },
   { value: '50000-999999', label: 'Ultra (50+ km)' },
 ]
 
 const TIME_RANGES = [
-  { value: '', label: 'Kiedy: Najblizsze' },
-  { value: 'week', label: 'Ten tydzien' },
-  { value: 'month', label: 'Ten miesiac' },
-  { value: 'next-month', label: 'Nastepny miesiac' },
-  { value: '3months', label: 'Za 3 miesiace' },
+  { value: '', label: 'Kiedy: Najbliższe' },
+  { value: 'week', label: 'Ten tydzień' },
+  { value: 'month', label: 'Ten miesiąc' },
+  { value: 'next-month', label: 'Następny miesiąc' },
+  { value: '3months', label: 'Za 3 miesiące' },
   { value: 'year', label: 'Caly rok' },
 ]
 
@@ -48,7 +48,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange }) {
           value={filters.search}
           onChange={(e) => update('search', e.target.value)}
           className="flex-1 min-w-[200px] bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-[15px] font-medium py-2.5 px-4 outline-none focus:border-apex-yellow-dim placeholder:text-apex-muted"
-          aria-label="Szukaj wydarzen"
+          aria-label="Szukaj wydarzeń"
         />
 
         <select value={filters.type} onChange={(e) => update('type', e.target.value)} className={selectClass} aria-label="Filtruj po typie">
@@ -56,7 +56,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange }) {
         </select>
 
         <select value={filters.voivodeship} onChange={(e) => update('voivodeship', e.target.value)} className={selectClass} aria-label="Filtruj po regionie">
-          <option value="">Region: Cala Polska</option>
+          <option value="">Region: Cała Polska</option>
           {VOIVODESHIPS.filter(Boolean).map(v => <option key={v} value={v}>{v}</option>)}
         </select>
 
