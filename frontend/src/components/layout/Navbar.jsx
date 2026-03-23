@@ -104,6 +104,18 @@ export default function Navbar() {
           </Link>
 
           <Link
+            to="/calendar-events"
+            className={cn(
+              'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+              location.pathname === '/calendar-events'
+                ? 'border-apex-yellow text-black bg-apex-yellow'
+                : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
+            )}
+          >
+            Kalendarz
+          </Link>
+
+          <Link
             to="/url-review"
             className={cn(
               'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',

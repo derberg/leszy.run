@@ -2,12 +2,14 @@ import { supabase } from '../lib/supabaseClient.js'
 
 export async function calendarEventsRoutes(fastify) {
   fastify.get('/calendar-events', async (request, reply) => {
-    const { page = 1, limit = 50, source } = request.query
+    const { page = 1, limit = 200, source, filter } = request.query
     const from = (page - 1) * limit
 
     let query = supabase
       .from('calendar_events')
       .select('*', { count: 'exact' })
+      .eq('status', 'active')
+      .gte('date', new Date().toISOString().split('T')[0])
       .order('date', { ascending: true })
       .range(from, from + limit - 1)
 
