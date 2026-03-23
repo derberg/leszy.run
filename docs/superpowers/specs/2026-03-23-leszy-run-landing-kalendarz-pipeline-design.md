@@ -323,16 +323,97 @@ Events appear on multiple sources. Dedup by:
 ├─────────────┤     │   + Dedup    │     │  calendar_  │
 │  Scraper 2   │────▶│              │     │  events     │
 │  dostartu    │     └──────────────┘     └─────────────┘
-├─────────────┤            ▲
-│  Scraper 3   │────────────┘
-│  Facebook    │
-└─────────────┘
+├─────────────┤            ▲                     │
+│  Scraper 3   │────────────┘                    │
+│  Facebook    │                                 ▼
+└─────────────┘                     ┌─────────────────────┐
+                                    │  URL Resolver        │
+                                    │  (events where       │
+                                    │  registration_url    │
+                                    │  IS NULL)            │
+                                    └──────────┬──────────┘
+                                               │
+                                    ┌──────────▼──────────┐
+                                    │  Web Search API      │
+                                    │  (Brave Search)      │
+                                    │  → top 3 candidates  │
+                                    └──────────┬──────────┘
+                                               │
+                                    ┌──────────▼──────────┐
+                                    │  url_suggestions     │
+                                    │  (Supabase table)    │
+                                    │  status: pending     │
+                                    └──────────┬──────────┘
+                                               │
+                                    ┌──────────▼──────────┐
+                                    │  Admin Review UI     │
+                                    │  (frontend/admin)    │
+                                    │  approve / reject    │
+                                    └─────────────────────┘
 ```
 
 - **Scrapers**: individual modules per source, return normalized event objects
 - **Normalizer**: validates, geocodes (location → lat/lng), classifies event type from description
 - **Dedup engine**: matches against existing records, upserts
-- **Scheduler**: runs daily via cron (or Supabase Edge Function on schedule)
+- **URL Resolver**: post-processing step for events with no `registration_url` (see below)
+- **Scheduler**: runs daily via cron
+
+### URL resolution for missing links
+
+After scraping + dedup, events with `registration_url IS NULL` enter the URL resolution pipeline:
+
+**Step 1 — Web search.** For each event missing a URL, query a search API with:
+```
+"{event_name} {year} zapisy rejestracja {location}"
+```
+Use Brave Search API (free tier: 2000 queries/month, no Google dependency). Take the top 3 results.
+
+**Step 2 — Store suggestions.** Save each candidate to `url_suggestions` table with status `pending`.
+
+**Step 3 — Admin review.** In the `frontend/` admin app, a new page shows pending URL suggestions. For each event: event name, date, location, and 3 candidate URLs with their page titles and snippets. The admin clicks approve (saves URL to `calendar_events.registration_url`) or reject (marks suggestion as rejected). All decisions are logged.
+
+### Supabase table: `url_suggestions`
+
+```sql
+CREATE TABLE url_suggestions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  calendar_event_id UUID NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+
+  -- Search context
+  search_query TEXT NOT NULL,           -- the query that was sent
+  search_engine TEXT DEFAULT 'brave',   -- 'brave','google','bing'
+
+  -- Candidate
+  rank INT NOT NULL,                    -- 1, 2, or 3
+  url TEXT NOT NULL,
+  page_title TEXT,
+  snippet TEXT,                         -- search result description
+
+  -- Human review
+  status TEXT DEFAULT 'pending',        -- 'pending','approved','rejected'
+  reviewed_by TEXT,                     -- admin identifier
+  reviewed_at TIMESTAMPTZ,
+  rejection_reason TEXT,                -- optional: 'wrong_event','dead_link','spam','other'
+
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_url_suggestions_status ON url_suggestions(status);
+CREATE INDEX idx_url_suggestions_event ON url_suggestions(calendar_event_id);
+
+ALTER TABLE url_suggestions ENABLE ROW LEVEL SECURITY;
+-- No public read; accessed via service role from backend and admin frontend
+```
+
+**Data value:** Every row in `url_suggestions` is a labeled training sample — search query + candidates + human decision. This data can later train a model to auto-approve high-confidence matches or improve search queries.
+
+**Admin UI location:** New page in `frontend/` admin app at route `/url-review`. Shows:
+- Count of pending suggestions
+- List of events grouped by status (pending first)
+- Per event: name, date, location + 3 URL candidates with title/snippet
+- One-click approve/reject per candidate
+- Bulk approve for obvious matches
 
 ### Scraper location
 
@@ -347,6 +428,7 @@ scrapers/
   normalizer.js         -- normalize scraped data to calendar_events schema
   dedup.js              -- cross-source deduplication logic
   geocoder.js           -- location string → lat/lng (using Nominatim/OSM)
+  urlResolver.js        -- web search for missing registration URLs → url_suggestions
 ```
 
 ### Run schedule
@@ -386,6 +468,7 @@ scrapers/
 | Calendar data storage | Supabase only | Public page reads from Supabase directly, no need for local DB sync |
 | Pipeline runtime | Backend (Node.js) | Reuses existing Fastify server, access to Supabase client |
 | Scheduling | node-cron in backend | Lightweight, time-of-day scheduling without drift |
+| URL search | Brave Search API | Free tier 2000 queries/month, no Google dependency |
 
 ## Files to create/modify
 
@@ -404,7 +487,10 @@ scrapers/
 - `backend/src/scrapers/normalizer.js`
 - `backend/src/scrapers/dedup.js`
 - `backend/src/scrapers/geocoder.js`
+- `backend/src/scrapers/urlResolver.js` — web search for missing URLs
 - `backend/src/routes/scrapers.js` — admin route to trigger scraping
+- `backend/src/routes/urlSuggestions.js` — CRUD for URL suggestion review
+- `frontend/src/pages/UrlReview.jsx` — admin UI for approving/rejecting URL suggestions
 
 ### Modified files
 - `public/src/App.jsx` — add `/` and `/kalendarz` routes
@@ -415,6 +501,9 @@ scrapers/
 ### New dependencies
 - `public/package.json`: `leaflet`, `react-leaflet`
 - `backend/package.json`: `cheerio`, `node-cron`
+
+### New env vars
+- `BRAVE_SEARCH_API_KEY` — for URL resolver (optional, URL resolution disabled if missing)
 
 ## Mockups
 
