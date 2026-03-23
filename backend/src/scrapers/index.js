@@ -5,6 +5,7 @@ import { scrape as scrapeBiegiwpolsce } from './sources/biegiwpolsce.js'
 import { normalizeEvent } from './normalizer.js'
 import { upsertEvent } from './dedup.js'
 import { resolveUrls } from './urlResolver.js'
+import { enrichDistances } from './llmEnricher.js'
 
 const sources = [
   { name: 'maratonypolskie', scrape: scrapeMaratonypolskie },
@@ -53,6 +54,7 @@ async function runPipeline() {
   }
 
   results.urlResolver = await resolveUrls()
+  results.llmEnricher = await enrichDistances()
   console.log('[pipeline] Scrape run complete')
   return results
 }
