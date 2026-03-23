@@ -214,11 +214,11 @@ Scrape running/NW events from Polish portals and aggregate into a single Supabas
 
 | Source | URL pattern | Method | Priority |
 |--------|-----------|--------|----------|
-| maratonypolskie.pl | Event listings | HTML scraping | High |
+| maratonypolskie.pl | Event listings | HTML scraping (cheerio) | High |
 | dostartu.pl | Event calendar | HTML scraping or API | High |
-| Facebook | Running groups/events | Graph API or scraping | Medium |
 | bieganie.pl | Event listings | HTML scraping | Low |
 | enduhub.com | Event listings | HTML/API | Low |
+| Manual entry | Admin UI form | Human input | For Facebook finds, small organizers, etc. |
 
 ### Supabase table: `calendar_events`
 
@@ -424,7 +424,6 @@ scrapers/
   sources/
     maratonypolskie.js  -- scraper for maratonypolskie.pl
     dostartu.js         -- scraper for dostartu.pl
-    facebook.js         -- scraper for Facebook events
   normalizer.js         -- normalize scraped data to calendar_events schema
   dedup.js              -- cross-source deduplication logic
   geocoder.js           -- location string → lat/lng (using Nominatim/OSM)
@@ -483,7 +482,6 @@ scrapers/
 - `backend/src/scrapers/index.js` — scraper orchestrator
 - `backend/src/scrapers/sources/maratonypolskie.js`
 - `backend/src/scrapers/sources/dostartu.js`
-- `backend/src/scrapers/sources/facebook.js`
 - `backend/src/scrapers/normalizer.js`
 - `backend/src/scrapers/dedup.js`
 - `backend/src/scrapers/geocoder.js`
@@ -491,6 +489,8 @@ scrapers/
 - `backend/src/routes/scrapers.js` — admin route to trigger scraping
 - `backend/src/routes/urlSuggestions.js` — CRUD for URL suggestion review
 - `frontend/src/pages/UrlReview.jsx` — admin UI for approving/rejecting URL suggestions
+- `frontend/src/pages/CalendarEventForm.jsx` — admin form to manually add/edit calendar events (for Facebook finds, small organizers, etc.)
+- `backend/src/routes/calendarEvents.js` — CRUD for manual calendar event entry
 
 ### Modified files
 - `public/src/App.jsx` — add `/` and `/kalendarz` routes
