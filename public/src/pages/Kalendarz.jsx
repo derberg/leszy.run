@@ -80,8 +80,20 @@ export default function Kalendarz() {
 
       const { data, count, error } = await query
       if (error) console.error('Calendar fetch error:', error.message)
-      setEvents(data || [])
-      setTotal(count || 0)
+
+      let filteredData = data || []
+
+      // Client-side distance filter (Supabase can't easily filter array ranges)
+      if (filters.distance && filteredData.length > 0) {
+        const [minDist, maxDist] = filters.distance.split('-').map(Number)
+        filteredData = filteredData.filter(e => {
+          if (!e.distances_meters || e.distances_meters.length === 0) return false
+          return e.distances_meters.some(d => d >= minDist && d <= maxDist)
+        })
+      }
+
+      setEvents(filteredData)
+      setTotal(filters.distance ? filteredData.length : (count || 0))
     } catch (err) {
       console.error('Calendar fetch failed:', err)
       setEvents([])
@@ -129,7 +141,7 @@ export default function Kalendarz() {
       <main id="main-content">
         <div className="pt-20 md:pt-20 pb-8 px-6 max-w-[1200px] mx-auto">
           <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-2">Kalendarz biegów</p>
-          <h1 className="font-display font-extrabold text-3xl md:text-5xl tracking-wider uppercase text-apex-text-bright mb-2">Wszystkie biegi w Polsce</h1>
+          <h1 className="font-display font-extrabold text-3xl md:text-5xl tracking-wider uppercase text-apex-text-bright mb-2">Wszystkie wydarzenia w Polsce</h1>
           <p className="text-base text-apex-text max-w-[600px]">Setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski.</p>
         </div>
 
