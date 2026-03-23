@@ -7,7 +7,7 @@ import FilterBar from '../components/FilterBar.jsx'
 import EventRow from '../components/EventRow.jsx'
 import MapView from '../components/MapView.jsx'
 
-const PAGE_SIZE = 30
+const PAGE_SIZE = 50
 
 function getDateRange(timeRange) {
   const now = new Date()
