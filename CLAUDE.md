@@ -54,9 +54,15 @@ LeszyRun/
 docker compose up
 ```
 
-Frontend: http://localhost:3000
+Admin frontend: http://localhost:3000
 Backend API: http://localhost:3001
 PostgreSQL: localhost:5432
+
+Public app (landing page + kalendarz) — run separately:
+```bash
+cd public && npx vite --port 3002
+```
+Public app: http://localhost:3002
 
 ## Environment variables
 
@@ -74,6 +80,9 @@ Frontend:
 SMS (backend, optional — SMS disabled if missing):
 - `SMSAPI_TOKEN` — API token for SMSAPI.pl
 - `SMSAPI_SENDER` — sender name registered with SMSAPI
+
+Scraper (backend, optional — URL resolver disabled if missing):
+- `BRAVE_SEARCH_API_KEY` — API key from https://brave.com/search/api/ (1000 queries/month free tier)
 
 ## Backend conventions
 
@@ -178,8 +187,11 @@ A reverse sync worker (`src/sync/checkinSync.js`) polls Supabase every 30s and p
 new/updated checkin rows into local PostgreSQL. Admin check-in from the backend also
 writes to Supabase first (not local), so all check-in data has a single source of truth in Supabase.
 
-**Supabase-only table:** `event_secrets` stores per-event check-in PINs. It lives only in
-Supabase (not in local DB or Drizzle schema) and is accessed via the Supabase client directly.
+**Supabase-only tables** (no Drizzle schema, no local migration — apply via `mcp__supabase__apply_migration` only):
+- `event_secrets` — per-event check-in PINs
+- `calendar_events` — aggregated race calendar from scrapers + manual entry
+- `geocode_cache` — Nominatim geocoding results cache
+- `url_suggestions` — Brave Search URL candidates pending admin review
 
 ## Supabase sync — how it works
 
@@ -214,40 +226,134 @@ How the trigger decides what counts as a "real" change vs. the sync worker marki
 - `POST /api/events/:eventId/secrets/checkin-pin` — generate new check-in PIN
 - `POST /api/events/:eventId/sync/checkins` — trigger immediate checkin reverse sync
 
+## Public app — Landing page & Kalendarz
+
+The `public/` app serves two purposes:
+1. **Landing page** (`/`) — leszy.run marketing site for organizers and runners
+2. **Kalendarz** (`/kalendarz`) — aggregated calendar of all running/NW events in Poland
+3. **Event pages** (`/events/:slug/*`) — live results, check-in, volunteer views
+
+The landing page and kalendarz read directly from Supabase (`calendar_events` table for kalendarz, `events` table for upcoming leszy.run events). No backend API needed for these pages.
+
+### Logo
+- `public/public/logo-bez-napisu.svg` — Leszy character without text. Two green leaves (top-left, top-right), black body/roots.
+- `public/public/logo.svg` — full logo with text (used as watermark in `app.css`)
+
+## Event scraper pipeline
+
+Scrapes Polish running event websites and aggregates into the `calendar_events` Supabase table.
+
+### Data sources (4 scrapers)
+
+| Source | URL | Events/year | Cheerio? |
+|--------|-----|-------------|----------|
+| maratonypolskie.pl | `mp_index.php?dzial=3&action=1&grp=13...` | 500+ | Yes (HTML tables) |
+| datasport.pl | `liveds.datasport.pl/lista.html` | 200+ | Yes (`.event-list-box`) |
+| elektronicznezapisy.pl | `/1/bieg.html`, `/2/nordic-walking.html` | 300-500 | Yes (HTML tables) |
+| biegiwpolsce.pl | `/?page=N` | 1000+ | Yes (paginated, `h2`/`h3`) |
+
+### Running scrapers
+
+```bash
+# Trigger manually (backend must be running)
+curl -X POST http://localhost:3001/api/scrapers/run
+
+# Response: { data: { sources: [...stats per source], urlResolver: { processed, suggestions } } }
+```
+
+The pipeline runs automatically **daily at 03:00** via `node-cron` when the backend is up.
+
+### Pipeline flow
+1. **Scrape** — each source scraper fetches and parses HTML with cheerio
+2. **Normalize** — parse dates (ISO/EU/Polish months), extract distances, classify event type (trail/nocny/ocr/nordic/charytatywny/uliczny) from keywords
+3. **Dedup** — match by `source + source_id` (exact), then cross-source by name similarity (Levenshtein > 0.8) + same date
+4. **Upsert** — insert new events or merge metadata into existing ones in Supabase
+5. **URL resolve** — events with no `registration_url` get searched via Brave Search API, top 3 candidates saved to `url_suggestions` for admin review
+
+### Scraper file structure
+```
+backend/src/scrapers/
+  index.js              -- orchestrator (runPipeline)
+  sources/
+    maratonypolskie.js
+    datasport.js
+    elektronicznezapisy.js
+    biegiwpolsce.js
+  normalizer.js         -- date/distance/type parsing
+  dedup.js              -- Levenshtein cross-source matching
+  geocoder.js           -- Nominatim + geocode_cache
+  urlResolver.js        -- Brave Search for missing URLs
+```
+
+### Admin tools for calendar management
+
+- **URL review** — `http://localhost:3000/url-review` — approve/reject URL suggestions from Brave Search
+- **Manual event entry** — `http://localhost:3000/calendar-events/new` — add events found on Facebook or elsewhere
+- **Calendar events API** — `GET/POST/PATCH/DELETE /api/calendar-events`
+
+### Adding a new scraper source
+
+1. Create `backend/src/scrapers/sources/<name>.js` exporting `async function scrape()` that returns array of `{ name, date, location, distances, registration_url, source, source_url, source_id }`
+2. Add import + entry to `sources` array in `backend/src/scrapers/index.js`
+3. The normalizer, dedup, and geocoder handle the rest automatically
+
+### Sites investigated but not scraped (for reference)
+
+- **dostartu.pl** — JavaScript SPA, requires Puppeteer (not cheerio-compatible)
+- **kalendarzbiegowy.pl** — JS-heavy, likely needs headless browser
+- **go.decathlon.pl** — React SPA, only ~27 events total across all sports, not worth it
+- **bieganie.pl** — not a calendar, uses kalendarzbiegowy.pl widget
+- **biegamy.pl** — training content, not an event calendar
+- **enduhub.com** — results database, not a forward-looking calendar
+- **parkrun.pl** — recurring weekly events at 106 fixed locations, not race events
+
+### Potential future scraper targets
+
+- **extremalny.pl** — OCR/obstacle races (50-100 events)
+- **przeszkodowo.pl** — OCR/obstacle races
+- **biegigorskie.pl** — mountain/trail only, yearly HTML tables (easy)
+- **zawodybiegowe.pl** — all types (200-500 events)
+- **ligabiegowa.pl** — road running league
+
 ## Data that persists across docker compose down
 
 Named volume `pgdata` in docker-compose.yml. Never use anonymous volumes.
 `docker compose down` is safe. `docker compose down -v` DELETES ALL DATA — warn user.
 
-## UI Design Theme — "Rugged Terrain"
+## UI Design Theme — "OVERDRIVE"
 
-Designed for trail running, OCR, ultramarathons. Feels gritty and functional.
+Dark, tactical theme for trail running timing. Acid yellow on near-black.
 
 ### Palette
-- Primary: Forest Green `#2D5A27`
-- Dark surface: Slate `#1E293B`
-- Neutral: Concrete Gray `#78716C`
-- Danger/Accent: Deep Burgundy `#7F1D1D`
-- Background: Warm off-white `#F5F3F0` with subtle grain texture
-- Surfaces (cards): `#FFFFFF` with `#E7E5E4` borders
+- Background: `#0A0A10` (near-black)
+- Surface: `#0C0C14` / `#12121E` / `#1A1A28`
+- Borders: `#1C1C2A` / `#262638` / `#343450`
+- Primary accent: `#BBDD00` (acid yellow), bright: `#D4FF00`, dim: `#778800`
+- Text: `#B0AEC6` (body), `#DDDCEC` (bright/headings), `#8886A0` (muted)
+- Red: `#EF4444`, Cyan: `#00BFEF`
+- Forest green (logo leaves): `#2D5A27`
 
 ### Typography
-- Headers (h1–h4): **Bebas Neue** (Google Fonts), letter-spacing wide
-- Body: **Inter** (400/500/600)
+- Headers: **Barlow Condensed** ExtraBold (font-display)
+- Body: **Rajdhani** 500 (font-sans)
+- Numbers/data: **IBM Plex Mono** (font-mono)
 
 ### Component rules
-- Buttons: `rounded-none` — sharp angular edges, no pill shapes
-- Badges: rectangular, thick border, look like physical bib number patches
-- Cards: flat, thin border (`border border-stone-200`), no shadow by default
-- Inputs: `rounded-none`, `border-stone-300`, focus ring in forest green
-- Status colors: green=finished, blue=active/started, yellow=dns/dnf, red=dsq
+- Buttons: `rounded-none` — sharp edges, no pill shapes. Border-style (border+text, fills on hover)
+- Badges: rectangular, thin border, color-coded per event type
+- Cards: flat, thin border (`border-apex-border`), no shadow, yellow left-edge stripe on hover
+- Inputs: `rounded-none`, `border-apex-border`, focus ring in yellow-dim
+- Status colors: green=finished, cyan=active, yellow=dns/dnf, red=dsq
 
-### Grain texture
-Apply via CSS pseudo-element on `body::before` — SVG noise, opacity 3–4%, pointer-events none.
+### Tailwind v4
+Custom tokens defined via `@theme` directive in `app.css`. All use `apex-*` prefix (e.g., `bg-apex-surface`, `text-apex-yellow`).
 
-### Import in index.html
+### WCAG AA contrast
+All color combos verified. Key ratios: text-bright on bg = 14.95:1, yellow on bg = 12.96:1, muted on bg = 5.75:1.
+
+### Fonts (import in index.html)
 ```html
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 ```
 
 ## RFID Audit Queries
