@@ -5,16 +5,22 @@ const RATE_LIMIT_MS = 1100
 
 let lastRequestAt = 0
 
+// Capitalize first letter of each word
+function capitalizeVoivodeship(v) {
+  if (!v) return null
+  return v.replace(/(?:^|\s)\S/g, c => c.toUpperCase()).replace(/^Województwo\s+/i, '')
+}
+
 async function geocode(locationQuery) {
-  if (!locationQuery || !supabase) return { lat: null, lng: null }
+  if (!locationQuery || !supabase) return { lat: null, lng: null, voivodeship: null }
 
   const { data: cached } = await supabase
     .from('geocode_cache')
-    .select('lat, lng')
+    .select('lat, lng, voivodeship')
     .eq('location_query', locationQuery)
     .single()
 
-  if (cached) return { lat: cached.lat, lng: cached.lng }
+  if (cached) return { lat: cached.lat, lng: cached.lng, voivodeship: cached.voivodeship || null }
 
   const now = Date.now()
   const wait = RATE_LIMIT_MS - (now - lastRequestAt)
@@ -27,6 +33,7 @@ async function geocode(locationQuery) {
       format: 'json',
       limit: '1',
       countrycodes: 'pl',
+      addressdetails: '1',
     })
 
     const res = await fetch(`${NOMINATIM_URL}?${params}`, {
@@ -36,22 +43,27 @@ async function geocode(locationQuery) {
     const results = await res.json()
 
     if (results.length > 0) {
-      const { lat, lon } = results[0]
+      const { lat, lon, address } = results[0]
       const coords = { lat: parseFloat(lat), lng: parseFloat(lon) }
+
+      // Nominatim returns voivodeship in address.state (e.g., "województwo mazowieckie")
+      const rawState = address?.state || null
+      const voivodeship = capitalizeVoivodeship(rawState)
 
       await supabase.from('geocode_cache').upsert({
         location_query: locationQuery,
         lat: coords.lat,
         lng: coords.lng,
+        voivodeship,
       }, { onConflict: 'location_query' })
 
-      return coords
+      return { ...coords, voivodeship }
     }
   } catch (err) {
     console.error(`Geocode failed for "${locationQuery}":`, err.message)
   }
 
-  return { lat: null, lng: null }
+  return { lat: null, lng: null, voivodeship: null }
 }
 
 export { geocode }

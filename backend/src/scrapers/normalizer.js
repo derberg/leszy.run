@@ -152,14 +152,17 @@ async function normalizeEvent(raw) {
 
   const { distances, distances_meters } = parseDistances(raw.distances || '', raw.name, raw.description)
   const eventType = classifyType(raw.name, raw.description)
-  const { lat, lng } = await geocode(raw.location)
+  const { lat, lng, voivodeship: geoVoivodeship } = await geocode(raw.location)
+
+  // Voivodeship priority: scraper data > geocoder (Nominatim) > hardcoded city map
+  const voivodeship = raw.voivodeship || geoVoivodeship || detectVoivodeship(raw.location, raw.name)
 
   return {
     name: raw.name.trim(),
     date,
     end_date: raw.end_date ? parseDate(raw.end_date) : null,
     location: raw.location || null,
-    voivodeship: raw.voivodeship || detectVoivodeship(raw.location, raw.name),
+    voivodeship,
     lat,
     lng,
     event_type: eventType,
