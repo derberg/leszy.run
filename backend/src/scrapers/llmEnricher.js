@@ -62,7 +62,8 @@ async function enrichDistances() {
     !e.distances_meters || e.distances_meters.length === 0
   )
 
-  const batch = needsEnrichment.slice(0, 50)
+  const batchSize = parseInt(process.env.LLM_BATCH_SIZE || '50', 10)
+  const batch = needsEnrichment.slice(0, batchSize)
   console.log(`[llmEnricher] Processing ${batch.length} events (${needsEnrichment.length} total need enrichment)...`)
   let enriched = 0
 
