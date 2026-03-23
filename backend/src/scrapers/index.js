@@ -1,12 +1,16 @@
 import { scrape as scrapeMaratonypolskie } from './sources/maratonypolskie.js'
-import { scrape as scrapeDostartu } from './sources/dostartu.js'
+import { scrape as scrapeDatasport } from './sources/datasport.js'
+import { scrape as scrapeElektronicznezapisy } from './sources/elektronicznezapisy.js'
+import { scrape as scrapeBiegiwpolsce } from './sources/biegiwpolsce.js'
 import { normalizeEvent } from './normalizer.js'
 import { upsertEvent } from './dedup.js'
 import { resolveUrls } from './urlResolver.js'
 
 const sources = [
   { name: 'maratonypolskie', scrape: scrapeMaratonypolskie },
-  { name: 'dostartu', scrape: scrapeDostartu },
+  { name: 'datasport', scrape: scrapeDatasport },
+  { name: 'elektronicznezapisy', scrape: scrapeElektronicznezapisy },
+  { name: 'biegiwpolsce', scrape: scrapeBiegiwpolsce },
 ]
 
 async function runPipeline() {
