@@ -1,5 +1,48 @@
 import { geocode } from './geocoder.js'
 
+const CITY_TO_VOIVODESHIP = {
+  'warszawa': 'Mazowieckie', 'kraków': 'Małopolskie', 'krakow': 'Małopolskie',
+  'wrocław': 'Dolnośląskie', 'wroclaw': 'Dolnośląskie',
+  'poznań': 'Wielkopolskie', 'poznan': 'Wielkopolskie',
+  'gdańsk': 'Pomorskie', 'gdansk': 'Pomorskie', 'gdynia': 'Pomorskie', 'sopot': 'Pomorskie',
+  'łódź': 'Łódzkie', 'lodz': 'Łódzkie',
+  'katowice': 'Śląskie', 'gliwice': 'Śląskie', 'sosnowiec': 'Śląskie', 'bytom': 'Śląskie',
+  'lublin': 'Lubelskie', 'zamość': 'Lubelskie',
+  'białystok': 'Podlaskie', 'bialystok': 'Podlaskie',
+  'szczecin': 'Zachodniopomorskie', 'koszalin': 'Zachodniopomorskie',
+  'bydgoszcz': 'Kujawsko-Pomorskie', 'toruń': 'Kujawsko-Pomorskie', 'torun': 'Kujawsko-Pomorskie',
+  'rzeszów': 'Podkarpackie', 'rzeszow': 'Podkarpackie', 'przemyśl': 'Podkarpackie',
+  'olsztyn': 'Warmińsko-Mazurskie', 'elbląg': 'Warmińsko-Mazurskie',
+  'zielona góra': 'Lubuskie', 'gorzów': 'Lubuskie',
+  'opole': 'Opolskie',
+  'kielce': 'Świętokrzyskie',
+  'radom': 'Mazowieckie', 'płock': 'Mazowieckie',
+  'częstochowa': 'Śląskie', 'czestochowa': 'Śląskie',
+  'zakopane': 'Małopolskie', 'nowy sącz': 'Małopolskie',
+  'jelenia góra': 'Dolnośląskie', 'legnica': 'Dolnośląskie', 'wałbrzych': 'Dolnośląskie',
+  'tarnów': 'Małopolskie', 'tarnow': 'Małopolskie',
+  'kalisz': 'Wielkopolskie', 'piła': 'Wielkopolskie',
+  'siedlce': 'Mazowieckie', 'ostrołęka': 'Mazowieckie',
+  'suwałki': 'Podlaskie',
+  'nowy targ': 'Małopolskie',
+  'ustrzyki': 'Podkarpackie', 'bieszczady': 'Podkarpackie',
+  'kampinos': 'Mazowieckie', 'kampinoska': 'Mazowieckie',
+  'trójmiasto': 'Pomorskie', 'trojmiasto': 'Pomorskie',
+  'polkowice': 'Dolnośląskie', 'sobótka': 'Dolnośląskie', 'sobotka': 'Dolnośląskie',
+  'lwówek': 'Dolnośląskie', 'lwowek': 'Dolnośląskie',
+  'jakuszyce': 'Dolnośląskie',
+}
+
+function detectVoivodeship(location, name) {
+  if (!location && !name) return null
+  const text = `${location || ''} ${name || ''}`.toLowerCase()
+
+  for (const [city, voivodeship] of Object.entries(CITY_TO_VOIVODESHIP)) {
+    if (text.includes(city)) return voivodeship
+  }
+  return null
+}
+
 const TYPE_KEYWORDS = {
   trail: ['trail', 'gorski', 'gorsky', 'terenowy'],
   nocny: ['nocny', 'night', 'noc'],
@@ -23,20 +66,21 @@ function classifyType(name, description = '') {
   return types
 }
 
-function parseDistances(distanceText) {
-  if (!distanceText) return { distances: [], distances_meters: [] }
+function parseDistances(distanceText, eventName = '') {
+  const combined = `${distanceText || ''} ${eventName || ''}`
+  if (!combined.trim()) return { distances: [], distances_meters: [] }
 
   const distances = []
   const meters = []
 
-  const kmMatches = distanceText.matchAll(/(\d+[.,]?\d*)\s*km/gi)
+  const kmMatches = combined.matchAll(/(\d+[.,]?\d*)\s*km/gi)
   for (const m of kmMatches) {
     const km = parseFloat(m[1].replace(',', '.'))
     distances.push(`${km} km`)
     meters.push(Math.round(km * 1000))
   }
 
-  const lower = distanceText.toLowerCase()
+  const lower = combined.toLowerCase()
   if ((lower.includes('polmaraton') || lower.includes('półmaraton')) && !meters.includes(21100)) {
     distances.push('21.1 km')
     meters.push(21100)
@@ -79,7 +123,7 @@ async function normalizeEvent(raw) {
   const date = parseDate(raw.date)
   if (!date) return null
 
-  const { distances, distances_meters } = parseDistances(raw.distances || '')
+  const { distances, distances_meters } = parseDistances(raw.distances || '', raw.name)
   const eventType = classifyType(raw.name, raw.description)
   const { lat, lng } = await geocode(raw.location)
 
@@ -88,7 +132,7 @@ async function normalizeEvent(raw) {
     date,
     end_date: raw.end_date ? parseDate(raw.end_date) : null,
     location: raw.location || null,
-    voivodeship: raw.voivodeship || null,
+    voivodeship: raw.voivodeship || detectVoivodeship(raw.location, raw.name),
     lat,
     lng,
     event_type: eventType,
