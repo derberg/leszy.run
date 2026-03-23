@@ -159,7 +159,18 @@ export default function CalendarEventsList() {
             {displayed.map(event => (
               <tr key={event.id} className="border-b border-apex-border hover:bg-apex-surface-2">
                 <td className="py-2 px-2 font-mono text-xs text-apex-yellow">{event.date}</td>
-                <td className="py-2 px-2 text-apex-text-bright font-semibold">{event.name}</td>
+                <td className="py-2 px-2 text-apex-text-bright font-semibold">
+                  {event.source_url || event.registration_url ? (
+                    <a
+                      href={event.registration_url || event.source_url}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-apex-text-bright hover:text-apex-yellow underline decoration-apex-border-mid hover:decoration-apex-yellow transition-colors"
+                    >
+                      {event.name}
+                    </a>
+                  ) : event.name}
+                </td>
                 <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="location" onSave={handleSave} /></td>
                 <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="voivodeship" onSave={handleSave} /></td>
                 <td className="py-2 px-2 text-xs"><InlineArrayEdit event={event} field="event_type" onSave={handleSave} /></td>
