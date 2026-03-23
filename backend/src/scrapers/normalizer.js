@@ -66,30 +66,57 @@ function classifyType(name, description = '') {
   return types
 }
 
-function parseDistances(distanceText, eventName = '') {
-  const combined = `${distanceText || ''} ${eventName || ''}`
+function parseDistances(distanceText, eventName = '', description = '') {
+  const combined = `${distanceText || ''} ${eventName || ''} ${description || ''}`
   if (!combined.trim()) return { distances: [], distances_meters: [] }
 
   const distances = []
   const meters = []
 
+  function addDistance(km) {
+    const rounded = Math.round(km * 10) / 10
+    const m = Math.round(km * 1000)
+    if (!meters.includes(m) && m > 0 && m < 500000) {
+      distances.push(`${rounded} km`)
+      meters.push(m)
+    }
+  }
+
+  // Match explicit "N km" patterns
   const kmMatches = combined.matchAll(/(\d+[.,]?\d*)\s*km/gi)
   for (const m of kmMatches) {
-    const km = parseFloat(m[1].replace(',', '.'))
-    distances.push(`${km} km`)
-    meters.push(Math.round(km * 1000))
+    addDistance(parseFloat(m[1].replace(',', '.')))
+  }
+
+  // Match "Nk" or "N K" patterns common in event names (e.g., "10K", "5K")
+  const kMatches = combined.matchAll(/\b(\d+)\s*[kK]\b/g)
+  for (const m of kMatches) {
+    addDistance(parseInt(m[1]))
   }
 
   const lower = combined.toLowerCase()
-  if ((lower.includes('polmaraton') || lower.includes('półmaraton')) && !meters.includes(21100)) {
-    distances.push('21.1 km')
-    meters.push(21100)
+
+  // Named distances from event names
+  if ((lower.includes('półmaraton') || lower.includes('polmaraton') || lower.includes('half')) && !meters.includes(21100)) {
+    addDistance(21.1)
   }
 
-  if (lower.includes('maraton') && !lower.includes('pol') && !lower.includes('pół') && !lower.includes('ultra') && !meters.includes(42200)) {
-    distances.push('42.2 km')
-    meters.push(42200)
+  if (/\bmaraton\b/.test(lower) && !lower.includes('pół') && !lower.includes('pol') && !lower.includes('ultra') && !lower.includes('half') && !meters.includes(42200)) {
+    addDistance(42.2)
   }
+
+  // Common named distances in Polish event names
+  if (lower.includes('piątka') || lower.includes('piatka') || /\b5\b/.test(lower.replace(/\d{4}/, ''))) {
+    // Only add 5km if "piątka" is in name (not just any "5")
+    if (lower.includes('piątka') || lower.includes('piatka')) addDistance(5)
+  }
+
+  if (lower.includes('dziesiątka') || lower.includes('dziesiatka')) {
+    addDistance(10)
+  }
+
+  // Cross-country / przełaj events without distance — skip, leave empty
+  // Nordic walking without distance — skip
 
   return { distances, distances_meters: meters.sort((a, b) => a - b) }
 }
@@ -123,7 +150,7 @@ async function normalizeEvent(raw) {
   const date = parseDate(raw.date)
   if (!date) return null
 
-  const { distances, distances_meters } = parseDistances(raw.distances || '', raw.name)
+  const { distances, distances_meters } = parseDistances(raw.distances || '', raw.name, raw.description)
   const eventType = classifyType(raw.name, raw.description)
   const { lat, lng } = await geocode(raw.location)
 

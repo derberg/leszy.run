@@ -27,7 +27,22 @@ async function fetchDetailPage(path) {
       }
     })
 
-    return { city, voivodeship }
+    // Extract distances from page text — look for categories like "Półmaraton", "10 km", etc.
+    const pageText = $('body').text()
+    const distances = []
+    const kmMatches = [...pageText.matchAll(/(\d+[.,]?\d*)\s*km/gi)]
+    for (const m of kmMatches) {
+      const km = parseFloat(m[1].replace(',', '.'))
+      if (km > 0 && km < 500 && !distances.includes(`${km} km`)) {
+        distances.push(`${km} km`)
+      }
+    }
+    // Named distances
+    if (pageText.toLowerCase().includes('półmaraton') && !distances.some(d => d.includes('21'))) {
+      distances.push('21.1 km')
+    }
+
+    return { city, voivodeship, distances: distances.join(', ') }
   } catch (err) {
     return null
   }
@@ -115,11 +130,13 @@ async function scrape() {
 
   // Step 2: fetch detail pages for events missing location
   for (const entry of eventEntries) {
-    if (entry.needsDetail && entry.href) {
+    // Fetch detail page if missing location OR always for distances
+    if (entry.href && (entry.needsDetail || !entry.distances)) {
       const detail = await fetchDetailPage(entry.href)
       if (detail) {
         if (detail.city) entry.location = detail.city
         if (detail.voivodeship) entry.voivodeship = detail.voivodeship
+        if (detail.distances) entry.distances = detail.distances
       }
       await new Promise(r => setTimeout(r, 1100))
     }
@@ -129,7 +146,7 @@ async function scrape() {
       date: entry.date,
       location: entry.location,
       voivodeship: entry.voivodeship,
-      distances: '',
+      distances: entry.distances || '',
       registration_url: entry.href ? (entry.href.startsWith('http') ? entry.href : `${BASE_URL}${entry.href}`) : null,
       source: 'biegiwpolsce',
       source_url: BASE_URL,
