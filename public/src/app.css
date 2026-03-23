@@ -39,8 +39,8 @@ body {
   min-height: 100vh;
 }
 
-/* Logo watermark */
-body::after {
+/* Logo watermark — only on pages without the hero logo (e.g. /events/:slug) */
+.page-watermark::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -52,11 +52,6 @@ body::after {
   pointer-events: none;
   z-index: 0;
   filter: invert(1) sepia(1) saturate(5) hue-rotate(30deg);
-}
-
-#root {
-  position: relative;
-  z-index: 1;
 }
 
 /* Hero glow pulse */
