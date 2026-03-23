@@ -13,28 +13,68 @@ async function scrape() {
     const html = await res.text()
     const $ = cheerio.load(html)
 
-    // Events are in table rows. Each row has cells: icon, date, city, distance, name+link
     $('tr').each((_, el) => {
       const cells = $(el).find('td')
-      if (cells.length < 5) return
+      if (cells.length < 4) return
 
-      const dateText = $(cells[1]).text().trim()
-      const location = $(cells[2]).text().trim()
-      const distance = $(cells[3]).text().trim()
-      const nameCell = $(cells[4])
-      const nameLink = nameCell.find('a').first()
-      const name = nameLink.text().trim() || nameCell.text().trim()
-      const href = nameLink.attr('href')
+      // Try to find a date in any cell (format: YYYY.M.DD or YYYY.MM.DD)
+      let dateText = null
+      let dateCell = -1
+      cells.each((i, cell) => {
+        const text = $(cell).text().trim()
+        if (/^\d{4}\.\d{1,2}\.\d{1,2}/.test(text)) {
+          dateText = text
+          dateCell = i
+        }
+      })
 
-      if (!name || !dateText) return
+      if (!dateText || dateCell < 0) return
 
-      // Parse date from "YYYY.M.DD (day)" format
+      // Parse date
       const dateMatch = dateText.match(/(\d{4})\.(\d{1,2})\.(\d{1,2})/)
-      const date = dateMatch
-        ? `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`
-        : dateText
+      if (!dateMatch) return
+      const date = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`
 
-      // Extract event code from href for source_id
+      // Find the cell with an event link (contains <a> with code= in href)
+      let name = null
+      let href = null
+      cells.each((i, cell) => {
+        const link = $(cell).find('a[href*="code="]').first()
+        if (link.length) {
+          name = link.text().trim()
+          href = link.attr('href')
+        }
+      })
+
+      if (!name) {
+        // Fallback: find any <a> that looks like an event name (not "ZGL" or short text)
+        cells.each((i, cell) => {
+          const link = $(cell).find('a').first()
+          const text = link.text().trim()
+          if (text && text.length > 5 && !name) {
+            name = text
+            href = link.attr('href')
+          }
+        })
+      }
+
+      if (!name) return
+
+      // Location: typically the cell after date or before the name cell
+      let location = ''
+      let distance = ''
+      cells.each((i, cell) => {
+        const text = $(cell).text().trim()
+        // Distance: contains "km"
+        if (/\d+.*km/i.test(text)) {
+          distance = text
+        }
+        // Location: not a date, not distance, not the name, not a number, not too short
+        if (i !== dateCell && text.length > 2 && !/\d{4}\.\d/.test(text) && !/km/i.test(text) && !$(cell).find('a').length && !$(cell).find('img').length) {
+          location = text
+        }
+      })
+
       const codeMatch = href ? href.match(/code=(\d+)/) : null
       const sourceId = codeMatch ? codeMatch[1] : `${name}-${date}`
 
@@ -43,7 +83,7 @@ async function scrape() {
         date,
         location,
         distances: distance,
-        registration_url: href ? `${BASE_URL}/${href}` : null,
+        registration_url: href ? (href.startsWith('http') ? href : `${BASE_URL}/${href}`) : null,
         source: 'maratonypolskie',
         source_url: CALENDAR_URL,
         source_id: sourceId,
