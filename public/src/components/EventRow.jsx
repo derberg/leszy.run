@@ -1,8 +1,15 @@
-const tagClass = 'font-mono text-[10px] font-semibold tracking-wide px-2 py-0.5 border border-apex-border-mid text-apex-muted uppercase'
+const baseTag = 'font-mono text-[10px] font-semibold tracking-wide px-2 py-0.5 border uppercase'
+const typeTagClass = `${baseTag} border-[rgba(0,191,239,0.3)] text-[#00BFEF]`       // cyan for event type
+const distTagClass = `${baseTag} border-[rgba(187,221,0,0.3)] text-apex-yellow-dim`  // yellow for distance
 
-function Tag({ label }) {
+function TypeTag({ label }) {
   if (!label) return null
-  return <span className={tagClass}>{label}</span>
+  return <span className={typeTagClass}>{label}</span>
+}
+
+function DistTag({ label }) {
+  if (!label) return null
+  return <span className={distTagClass}>{label}</span>
 }
 
 function extractCity(location) {
@@ -52,8 +59,8 @@ export default function EventRow({ event }) {
       </div>
 
       <div className="hidden md:flex gap-1.5 items-center flex-shrink-0">
-        <Tag label={typeLabel} />
-        <Tag label={distanceLabel} />
+        <TypeTag label={typeLabel} />
+        <DistTag label={distanceLabel} />
         {isLeszyrun && (
           <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20">
             LESZY.RUN
