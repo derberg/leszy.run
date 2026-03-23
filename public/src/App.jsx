@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import Landing from './pages/Landing.jsx'
 import Home from './pages/Home.jsx'
 import EventHub from './pages/EventHub.jsx'
 import Results from './pages/Results.jsx'
@@ -9,6 +10,7 @@ import AdminCheckin from './pages/AdminCheckin.jsx'
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/events" element={<Home />} />
       <Route path="/events/:slug" element={<EventHub />} />
       <Route path="/events/:slug/results" element={<Results />} />
