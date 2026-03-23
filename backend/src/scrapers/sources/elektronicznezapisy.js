@@ -7,8 +7,41 @@ const CATEGORY_URLS = [
   { url: `${BASE_URL}/2/nordic-walking.html`, type: 'nordic' },
 ]
 
+async function fetchDetailPage(eventId) {
+  try {
+    const url = `${BASE_URL}/event/${eventId}/strona.html`
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+    })
+    const html = await res.text()
+    const $ = cheerio.load(html)
+
+    // Name from <h1>
+    const name = $('h1').first().text().trim()
+
+    // City from link like <a href="/m/city">City</a>
+    const cityLink = $('a[href^="/m/"]').first()
+    const location = cityLink.text().trim() || null
+
+    // Date from text near "Początek imprezy" or any YYYY.MM.DD / YYYY-MM-DD pattern
+    const allText = $('body').text()
+    const dateMatch = allText.match(/(\d{4})[.\-](\d{2})[.\-](\d{2})/)
+    const date = dateMatch ? `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}` : null
+
+    // Distances: look for "km" patterns in page text
+    const distMatches = [...allText.matchAll(/(\d+[.,]?\d*)\s*km/gi)]
+    const distances = distMatches.map(m => `${parseFloat(m[1].replace(',', '.'))} km`)
+
+    return { name: name || null, location, date, distances: distances.join(', ') }
+  } catch (err) {
+    console.error(`[elektronicznezapisy] Detail fetch failed for event ${eventId}:`, err.message)
+    return null
+  }
+}
+
 async function scrape() {
-  const results = []
+  // Step 1: collect event IDs + basic data from listing pages
+  const eventEntries = []
 
   for (const category of CATEGORY_URLS) {
     try {
@@ -22,43 +55,60 @@ async function scrape() {
         const cells = $(el).find('td')
         if (cells.length < 4) return
 
-        // Cell 1: name + link + datetime
         const nameCell = $(cells[1])
-        const nameLink = nameCell.find('a').first()
-        const name = nameLink.text().trim()
-        const href = nameLink.attr('href')
+        const href = nameCell.find('a').first().attr('href')
 
-        // Cell 2: date (YYYY-MM-DD or YYYY-MM-DD HH:MM)
         const dateText = $(cells[2]).text().trim()
         const dateMatch = dateText.match(/(\d{4}-\d{2}-\d{2})/)
         const date = dateMatch ? dateMatch[1] : null
 
-        // Cell with signup link
+        if (!href || !date) return
+
+        const idMatch = href.match(/event\/(\d+)/)
+        if (!idMatch) return
+
         const signupLink = $(el).find('a[href*="signup"]').attr('href')
 
-        if (!name || !date) return
-
-        // Extract event ID from href
-        const idMatch = href ? href.match(/event\/(\d+)/) : null
-        const sourceId = idMatch ? idMatch[1] : `${name}-${date}`
-
-        results.push({
-          name,
+        eventEntries.push({
+          eventId: idMatch[1],
           date,
-          location: '',
-          distances: '',
-          registration_url: signupLink ? `${BASE_URL}/${signupLink}` : (href ? `${BASE_URL}/${href}` : null),
-          source: 'elektronicznezapisy',
-          source_url: category.url,
-          source_id: sourceId,
+          signupLink,
+          categoryUrl: category.url,
         })
       })
     } catch (err) {
-      console.error(`[elektronicznezapisy] Scrape failed for ${category.url}:`, err.message)
+      console.error(`[elektronicznezapisy] Listing scrape failed for ${category.url}:`, err.message)
     }
   }
 
-  console.log(`[elektronicznezapisy] Scraped ${results.length} events`)
+  console.log(`[elektronicznezapisy] Found ${eventEntries.length} events in listings, fetching details...`)
+
+  // Step 2: fetch detail pages for clean data
+  const results = []
+
+  for (const entry of eventEntries) {
+    const detail = await fetchDetailPage(entry.eventId)
+
+    if (detail && detail.name) {
+      results.push({
+        name: detail.name,
+        date: detail.date || entry.date,
+        location: detail.location || '',
+        distances: detail.distances || '',
+        registration_url: entry.signupLink
+          ? `${BASE_URL}/${entry.signupLink}`
+          : `${BASE_URL}/event/${entry.eventId}/strona.html`,
+        source: 'elektronicznezapisy',
+        source_url: entry.categoryUrl,
+        source_id: entry.eventId,
+      })
+    }
+
+    // Rate limit: 1 req/sec
+    await new Promise(r => setTimeout(r, 1100))
+  }
+
+  console.log(`[elektronicznezapisy] Scraped ${results.length} events with details`)
   return results
 }
 
