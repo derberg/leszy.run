@@ -137,6 +137,51 @@ async function scrape() {
         console.error(`[maratonypolskie] Failed for ${monthValue} ${year}:`, err.message?.slice(0, 100))
       }
     }
+
+    // Phase 2: fetch detail pages for each event (reuse browser session)
+    console.log(`[maratonypolskie] Fetching detail pages for ${allEvents.length} events...`)
+    for (let idx = 0; idx < allEvents.length; idx++) {
+      const event = allEvents[idx]
+      if (!event.registration_url) continue
+
+      try {
+        await page.goto(event.registration_url, { waitUntil: 'domcontentloaded', timeout: 10000 })
+        await page.waitForTimeout(500)
+
+        const detailHtml = await page.content()
+        const $d = cheerio.load(detailHtml)
+        const pageText = $d('body').text().replace(/\s+/g, ' ').trim()
+
+        // Store raw description (up to 5000 chars)
+        event.description = pageText.slice(0, 5000)
+
+        // Extract distances from detail page
+        const distMatches = [...pageText.matchAll(/(\d+[\.,]?\d*)\s*km/gi)]
+        const distances = []
+        for (const m of distMatches) {
+          const km = parseFloat(m[1].replace(',', '.'))
+          const label = `${km} km`
+          if (km > 0 && km < 500 && !distances.includes(label)) distances.push(label)
+        }
+        if (pageText.toLowerCase().includes('półmaraton') && !distances.some(d => d.includes('21'))) {
+          distances.push('21.1 km')
+        }
+        if (/\bmaraton\b/i.test(pageText) && !pageText.toLowerCase().includes('pół') && !distances.some(d => d.includes('42'))) {
+          distances.push('42.2 km')
+        }
+        if (distances.length > 0) {
+          event.distances = distances.join(', ')
+        }
+
+        if ((idx + 1) % 50 === 0) {
+          console.log(`[maratonypolskie] Detail pages: ${idx + 1}/${allEvents.length}`)
+        }
+      } catch (err) {
+        // Skip failed detail pages silently
+      }
+    }
+    console.log(`[maratonypolskie] Detail pages done`)
+
   } catch (err) {
     console.error('[maratonypolskie] Browser launch failed:', err.message?.slice(0, 200))
     console.log('[maratonypolskie] Falling back to simple fetch (current month only)...')
