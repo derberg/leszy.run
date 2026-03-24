@@ -52,14 +52,31 @@ function callClaude(prompt) {
 }
 
 async function enrichEvent(event) {
-  // Clean query: avoid duplicating year if already in name, don't add noise words
   const year = new Date(event.date).getFullYear()
   const nameHasYear = event.name.includes(String(year))
-  const query = `${event.name}${nameHasYear ? '' : ' ' + year} ${event.location || ''}`
 
-  console.log(`\n  Searching: "${query}"`)
+  // Two queries: with year and without — merge unique results for better coverage
+  const query1 = `${event.name}${nameHasYear ? '' : ' ' + year} ${event.location || ''}`
+  const query2 = `${event.name} ${event.location || ''}`
 
-  const results = await searchBrave(query)
+  console.log(`\n  Search 1: "${query1}"`)
+  const results1 = await searchBrave(query1)
+  await new Promise(r => setTimeout(r, 1000))
+
+  let results = [...results1]
+
+  // Only run second query if it's different
+  if (query1 !== query2) {
+    console.log(`  Search 2: "${query2}"`)
+    const results2 = await searchBrave(query2)
+    // Merge unique URLs
+    const seen = new Set(results.map(r => r.url))
+    for (const r of results2) {
+      if (!seen.has(r.url)) { results.push(r); seen.add(r.url) }
+    }
+    await new Promise(r => setTimeout(r, 1000))
+  }
+
   if (results.length === 0) {
     console.log(`  No search results`)
     return null
