@@ -75,7 +75,7 @@ export default function AdminCheckin() {
             disabled={verifying || pinInput.length < 4}
             className={`w-full py-3 font-bold uppercase tracking-wider transition-colors ${
               pinInput.length >= 4 && !verifying
-                ? 'bg-apex-yellow text-apex-bg hover:bg-apex-yellow-bright'
+                ? 'bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright'
                 : 'bg-apex-surface-2 text-apex-muted cursor-not-allowed'
             }`}
           >
@@ -161,7 +161,7 @@ function AdminPanel({ event, pin, preselectedParticipantId }) {
           <button
             onClick={() => setMode('scan')}
             className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${
-              mode === 'scan' ? 'bg-apex-yellow-bright text-apex-bg' : 'text-apex-muted hover:text-apex-text'
+              mode === 'scan' ? 'bg-apex-yellow-bright text-apex-ink' : 'text-apex-muted hover:text-apex-text'
             }`}
           >
             Skanuj QR
@@ -169,7 +169,7 @@ function AdminPanel({ event, pin, preselectedParticipantId }) {
           <button
             onClick={() => setMode('search')}
             className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors border-l border-apex-border ${
-              mode === 'search' ? 'bg-apex-yellow-bright text-apex-bg' : 'text-apex-muted hover:text-apex-text'
+              mode === 'search' ? 'bg-apex-yellow-bright text-apex-ink' : 'text-apex-muted hover:text-apex-text'
             }`}
           >
             Szukaj
@@ -320,7 +320,7 @@ function ManualSearch({ event, onFound }) {
         <button
           onClick={handleSearch}
           disabled={searching}
-          className="px-6 py-3 bg-apex-yellow text-apex-bg font-bold uppercase tracking-wider hover:bg-apex-yellow-bright transition-colors"
+          className="px-6 py-3 bg-apex-yellow text-apex-ink font-bold uppercase tracking-wider hover:bg-apex-yellow-bright transition-colors"
         >
           Szukaj
         </button>
@@ -468,7 +468,7 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
                 type="checkbox"
                 checked={minorPaperConfirmed}
                 onChange={(e) => setMinorPaperConfirmed(e.target.checked)}
-                className="accent-[#BBDD00] w-5 h-5"
+                className="accent-apex-yellow w-5 h-5"
               />
               <span className="text-apex-text-bright text-sm font-bold">
                 Potwierdzam odbiór podpisanej zgody opiekuna w formie papierowej
@@ -502,7 +502,7 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
                             : 'pending',
                         }))
                       }}
-                      className="accent-[#BBDD00]"
+                      className="accent-apex-yellow"
                     />
                     <div>
                       <span className="text-apex-text-bright text-sm">{doc.name}</span>
@@ -522,7 +522,7 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
               disabled={submitting || (minor && !minorPaperConfirmed)}
               className={`w-full py-4 font-bold text-lg uppercase tracking-wider transition-colors ${
                 !submitting && (!minor || minorPaperConfirmed)
-                  ? 'bg-apex-yellow text-apex-bg hover:bg-apex-yellow-bright cursor-pointer'
+                  ? 'bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright cursor-pointer'
                   : 'bg-apex-surface-2 text-apex-muted cursor-not-allowed'
               }`}
             >

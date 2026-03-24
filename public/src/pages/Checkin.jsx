@@ -181,7 +181,7 @@ export default function Checkin() {
 
           <button
             onClick={downloadQR}
-            className="w-full py-3 font-bold uppercase tracking-wider text-apex-bg bg-apex-yellow hover:bg-apex-yellow-bright transition-colors"
+            className="w-full py-3 font-bold uppercase tracking-wider text-apex-ink bg-apex-yellow hover:bg-apex-yellow-bright transition-colors"
           >
             Zapisz QR
           </button>
@@ -235,7 +235,7 @@ export default function Checkin() {
                   type="checkbox"
                   checked={!!acknowledged[doc.id]}
                   onChange={(e) => setAcknowledged(prev => ({ ...prev, [doc.id]: e.target.checked }))}
-                  className="mt-1 accent-[#BBDD00]"
+                  className="mt-1 accent-apex-yellow"
                 />
                 <div>
                   {doc.url ? (
@@ -273,7 +273,7 @@ export default function Checkin() {
           disabled={!allAcknowledged || submitting}
           className={`w-full py-4 font-bold text-lg uppercase tracking-wider transition-colors ${
             allAcknowledged && !submitting
-              ? 'bg-apex-yellow text-apex-bg hover:bg-apex-yellow-bright cursor-pointer'
+              ? 'bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright cursor-pointer'
               : 'bg-apex-surface-2 text-apex-muted cursor-not-allowed'
           }`}
         >

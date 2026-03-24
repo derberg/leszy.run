@@ -96,7 +96,7 @@ export default function Results() {
                 onClick={() => navigate(`/events/${slug}/results`)}
                 className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors ${
                   activeView === 'all'
-                    ? 'bg-apex-yellow-bright text-apex-bg'
+                    ? 'bg-apex-yellow-bright text-apex-ink'
                     : 'text-apex-muted hover:text-apex-text'
                 }`}
               >
@@ -107,7 +107,7 @@ export default function Results() {
                 onClick={() => navigate(`/events/${slug}/results/live`)}
                 className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
                   activeView === 'live'
-                    ? 'bg-apex-cyan text-apex-bg'
+                    ? 'bg-apex-cyan text-apex-ink'
                     : 'text-apex-muted hover:text-apex-text'
                 }`}
               >
@@ -121,7 +121,7 @@ export default function Results() {
                   onClick={() => navigate(`/events/${slug}/results/${cat.id}`)}
                   className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
                     activeCategoryId === cat.id
-                      ? 'bg-apex-yellow-bright text-apex-bg'
+                      ? 'bg-apex-yellow-bright text-apex-ink'
                       : 'text-apex-muted hover:text-apex-text'
                   }`}
                 >

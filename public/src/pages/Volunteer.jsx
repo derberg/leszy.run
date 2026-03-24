@@ -58,60 +58,52 @@ export default function Volunteer() {
   const canSend = bib.length > 0 && parseInt(bib, 10) >= 1
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', padding: '20px 16px', userSelect: 'none' }}>
+    <div className="flex flex-col min-h-dvh p-5 select-none bg-apex-bg">
       {/* Header */}
-      <div style={{ marginBottom: 20, textAlign: 'center' }}>
-        <div style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#545268', marginBottom: 6 }}>
+      <div className="mb-5 text-center">
+        <div className="text-[13px] uppercase tracking-[0.15em] text-apex-dim mb-1.5">
           Punkt kontrolny
         </div>
-        <div style={{ fontSize: 26, fontWeight: 700, color: '#C4C2D8', lineHeight: 1.2 }}>
+        <div className="text-[26px] font-bold text-apex-text-bright leading-tight">
           {checkpoint.name}
-          {checkpoint.km_marker && <span style={{ color: '#545268', fontSize: 18 }}> · km {checkpoint.km_marker}</span>}
+          {checkpoint.km_marker && <span className="text-apex-dim text-lg"> · km {checkpoint.km_marker}</span>}
         </div>
         {event && (
-          <div style={{ fontSize: 12, color: '#545268', marginTop: 4 }}>{event.name}</div>
+          <div className="text-xs text-apex-dim mt-1">{event.name}</div>
         )}
       </div>
 
       {/* Flash */}
       {flash === 'sent' && (
-        <div style={{ background: '#1a2e0a', border: '1px solid #4a7c10', color: '#a0d040',
-          padding: '10px 16px', textAlign: 'center', fontSize: 14, marginBottom: 16, letterSpacing: '0.1em' }}>
+        <div className="bg-apex-yellow/10 border border-apex-yellow/30 text-apex-yellow px-4 py-2.5 text-center text-sm mb-4 tracking-wide">
           Wyslano
         </div>
       )}
 
       {/* Bib display */}
-      <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#545268', marginBottom: 8 }}>
+      <div className="text-center mb-4">
+        <div className="text-[11px] uppercase tracking-[0.15em] text-apex-dim mb-2">
           Numer startowy
         </div>
-        <div style={{
-          fontSize: 80, fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1,
-          color: bib ? '#C4C2D8' : '#2a2a3a',
-          borderBottom: '3px solid #BBDD00', paddingBottom: 8,
-          minHeight: 96,
-        }}>
+        <div className={`text-[80px] font-bold tabular-nums leading-none border-b-[3px] border-apex-yellow pb-2 min-h-[96px] ${bib ? 'text-apex-text-bright' : 'text-apex-border-mid'}`}>
           {bib || '–'}
         </div>
       </div>
 
       {/* Numpad */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+      <div className="grid grid-cols-3 gap-2 mb-3">
         {NUMPAD.flat().map((key) => {
           const isAction = key === 'WYCZYSC' || key === '⌫'
           return (
             <button
               key={key}
               onClick={() => handleKey(key)}
-              style={{
-                padding: '18px 0', fontSize: isAction ? 16 : 26, fontWeight: 700,
-                background: isAction ? '#1C1C2A' : '#12121e',
-                color: isAction ? '#545268' : '#C4C2D8',
-                border: '1px solid #2a2a3a', cursor: 'pointer',
-                fontVariantNumeric: 'tabular-nums',
-                WebkitTapHighlightColor: 'transparent',
-              }}
+              className={`py-[18px] font-bold border border-apex-border-mid cursor-pointer tabular-nums
+                ${isAction
+                  ? 'text-base bg-apex-surface-3 text-apex-dim'
+                  : 'text-[26px] bg-apex-surface-2 text-apex-text-bright'
+                }`}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               {key}
             </button>
@@ -123,15 +115,12 @@ export default function Volunteer() {
       <button
         onClick={handleSubmit}
         disabled={!canSend}
-        style={{
-          width: '100%', padding: '18px', fontSize: 18, fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.1em',
-          background: canSend ? '#BBDD00' : '#1C1C2A',
-          color: canSend ? '#0A0A10' : '#545268',
-          border: 'none', cursor: canSend ? 'pointer' : 'default',
-          transition: 'all 0.15s',
-          WebkitTapHighlightColor: 'transparent',
-        }}
+        className={`w-full py-[18px] text-lg font-bold uppercase tracking-wide border-none transition-all
+          ${canSend
+            ? 'bg-apex-yellow text-apex-ink cursor-pointer'
+            : 'bg-apex-surface-3 text-apex-dim cursor-default'
+          }`}
+        style={{ WebkitTapHighlightColor: 'transparent' }}
       >
         Wyslij
       </button>
@@ -141,7 +130,7 @@ export default function Volunteer() {
 
 function LoadingScreen() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', color: '#545268' }}>
+    <div className="flex items-center justify-center min-h-dvh text-apex-dim bg-apex-bg">
       Ladowanie...
     </div>
   )
@@ -149,10 +138,9 @@ function LoadingScreen() {
 
 function ErrorScreen({ message }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh',
-      flexDirection: 'column', gap: 12, padding: 24, textAlign: 'center' }}>
-      <div style={{ fontSize: 32 }}>!</div>
-      <div style={{ color: '#E53030', fontSize: 16 }}>{message}</div>
+    <div className="flex items-center justify-center min-h-dvh flex-col gap-3 p-6 text-center bg-apex-bg">
+      <div className="text-[32px]">!</div>
+      <div className="text-apex-red text-base">{message}</div>
     </div>
   )
 }

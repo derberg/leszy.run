@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import ThemeToggle from './ThemeToggle.jsx'
 
 const navLinks = [
   { to: '/', label: 'Start', hash: '' },
@@ -30,7 +31,7 @@ export default function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-14 bg-apex-bg/85 backdrop-blur-md border-b border-apex-border" role="navigation" aria-label="Nawigacja główna">
-      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-apex-yellow focus:text-apex-bg focus:px-4 focus:py-2 focus:z-[100]">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-apex-yellow focus:text-apex-ink focus:px-4 focus:py-2 focus:z-[100]">
         Przejdź do treści
       </a>
       <Link to="/" className="font-display font-extrabold text-[22px] tracking-wider text-apex-text-bright no-underline">
@@ -51,14 +52,17 @@ export default function Navbar() {
         ))}
       </div>
 
-      {/* Desktop CTA */}
-      <Link
-        to="/#kontakt"
-        onClick={(e) => handleHashClick(e, 'kontakt')}
-        className="hidden md:block font-display font-bold text-[13px] tracking-widest uppercase px-5 py-2 border-2 border-apex-yellow text-apex-yellow no-underline hover:bg-apex-yellow hover:text-apex-bg transition-all"
-      >
-        Organizujesz bieg?
-      </Link>
+      {/* Desktop CTA + theme toggle */}
+      <div className="hidden md:flex items-center gap-3">
+        <ThemeToggle />
+        <Link
+          to="/#kontakt"
+          onClick={(e) => handleHashClick(e, 'kontakt')}
+          className="font-display font-bold text-[13px] tracking-widest uppercase px-5 py-2 border-2 border-apex-yellow text-apex-yellow no-underline hover:bg-apex-yellow hover:text-apex-ink transition-all"
+        >
+          Organizujesz bieg?
+        </Link>
+      </div>
 
       {/* Mobile hamburger */}
       <button
@@ -88,13 +92,16 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
-          <Link
-            to="/#kontakt"
-            onClick={(e) => { handleHashClick(e, 'kontakt'); setMenuOpen(false) }}
-            className="font-display font-bold text-sm tracking-widest uppercase px-5 py-3 border-2 border-apex-yellow text-apex-yellow no-underline text-center mt-2"
-          >
-            Organizujesz bieg?
-          </Link>
+          <div className="flex items-center justify-between mt-2">
+            <ThemeToggle />
+            <Link
+              to="/#kontakt"
+              onClick={(e) => { handleHashClick(e, 'kontakt'); setMenuOpen(false) }}
+              className="font-display font-bold text-sm tracking-widest uppercase px-5 py-3 border-2 border-apex-yellow text-apex-yellow no-underline text-center"
+            >
+              Organizujesz bieg?
+            </Link>
+          </div>
         </div>
       )}
     </nav>

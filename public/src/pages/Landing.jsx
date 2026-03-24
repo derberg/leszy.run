@@ -3,20 +3,27 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
+import useTheme from '../hooks/useTheme.js'
 
 function HeroSection() {
+  const { isDark } = useTheme()
+
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center text-center overflow-hidden px-6 pt-20 pb-16 hero-scanlines" aria-label="Główna">
       {/* Radial glow */}
       <div className="absolute w-[400px] h-[400px] md:w-[600px] md:h-[600px] rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-[55%] z-0"
-        style={{ background: 'radial-gradient(circle, rgba(45,90,39,0.1) 0%, rgba(45,90,39,0.04) 40%, transparent 70%)', animation: 'hero-pulse 6s ease-in-out infinite' }} />
+        style={{
+          background: isDark
+            ? 'radial-gradient(circle, rgba(45,90,39,0.1) 0%, rgba(45,90,39,0.04) 40%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(45,90,39,0.08) 0%, rgba(107,128,0,0.03) 40%, transparent 70%)',
+          animation: 'hero-pulse 6s ease-in-out infinite',
+        }} />
 
       {/* Logo */}
       <img
         src="/logo-bez-napisu.svg"
         alt="Leszy.run — duch lasu"
-        className="w-[280px] md:w-[500px] h-auto mb-6 relative z-10"
-        style={{ filter: 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6)) drop-shadow(0 0 50px rgba(45,90,39,0.4)) drop-shadow(0 0 80px rgba(187,221,0,0.15))' }}
+        className={`w-[280px] md:w-[500px] h-auto mb-6 relative z-10 ${isDark ? 'hero-logo-dark' : 'hero-logo-light'}`}
       />
 
       <p className="font-sans font-semibold text-base md:text-lg tracking-widest uppercase text-apex-muted mt-2 relative z-10">
@@ -28,7 +35,7 @@ function HeroSection() {
       </p>
 
       <div className="flex flex-col sm:flex-row gap-4 mt-9 relative z-10 w-full sm:w-auto">
-        <Link to="/kalendarz" className="font-display font-bold text-[15px] tracking-widest uppercase py-3.5 px-9 bg-apex-yellow text-apex-bg no-underline hover:shadow-[0_0_20px_rgba(187,221,0,0.3)] transition-all text-center">
+        <Link to="/kalendarz" className="font-display font-bold text-[15px] tracking-widest uppercase py-3.5 px-9 bg-apex-yellow text-apex-ink no-underline hover:shadow-[0_0_20px_rgba(187,221,0,0.3)] transition-all text-center">
           Znajdź bieg
         </Link>
         <a href="#kontakt" className="font-display font-bold text-[15px] tracking-widest uppercase py-3.5 px-9 border-2 border-apex-border-bright text-apex-text-bright no-underline hover:border-apex-yellow hover:text-apex-yellow transition-all text-center">
@@ -82,7 +89,7 @@ function CharitySection() {
         <p className="text-[17px] text-apex-text leading-relaxed mb-8">
           Organizujesz bieg charytatywny? Zapisy, obsługa i pomiar czasu — wszystko za darmo. Jedyne co musisz zrobić to skontaktować się z nami i ustalić termin.
         </p>
-        <a href="#kontakt" className="inline-block font-display font-bold text-[15px] tracking-widest uppercase py-3.5 px-9 bg-apex-yellow text-apex-bg no-underline hover:shadow-[0_0_20px_rgba(187,221,0,0.3)] transition-all">
+        <a href="#kontakt" className="inline-block font-display font-bold text-[15px] tracking-widest uppercase py-3.5 px-9 bg-apex-yellow text-apex-ink no-underline hover:shadow-[0_0_20px_rgba(187,221,0,0.3)] transition-all">
           Skontaktuj się
         </a>
       </div>
@@ -164,7 +171,7 @@ function KalendarzTeaser() {
           <p className="text-[15px] text-apex-text leading-relaxed mb-6">
             Przeglądaj setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski. Filtruj po regionie, dystansie i typie.
           </p>
-          <Link to="/kalendarz" className="inline-block font-display font-bold text-[15px] tracking-widest uppercase py-3.5 px-9 bg-apex-yellow text-apex-bg no-underline hover:shadow-[0_0_20px_rgba(187,221,0,0.3)] transition-all">
+          <Link to="/kalendarz" className="inline-block font-display font-bold text-[15px] tracking-widest uppercase py-3.5 px-9 bg-apex-yellow text-apex-ink no-underline hover:shadow-[0_0_20px_rgba(187,221,0,0.3)] transition-all">
             Otwórz kalendarz
           </Link>
         </div>

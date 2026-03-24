@@ -6,6 +6,7 @@ import Footer from '../components/Footer.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import EventRow from '../components/EventRow.jsx'
 import MapView from '../components/MapView.jsx'
+import useTheme from '../hooks/useTheme.js'
 
 const PAGE_SIZE = 50
 
@@ -144,11 +145,25 @@ export default function Kalendarz() {
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
+  const { isDark } = useTheme()
+
   return (
     <>
       <Navbar />
-      <main id="main-content" className="page-watermark">
-        <div className="pt-20 md:pt-20 pb-8 px-6 max-w-[1200px] mx-auto">
+      <main id="main-content" className="relative">
+        {/* Background logo */}
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0" aria-hidden="true">
+          <img
+            src="/logo-bez-napisu.svg"
+            alt=""
+            className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04]' : 'opacity-[0.06]'}`}
+            style={{ filter: isDark
+              ? 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6)) drop-shadow(0 0 50px rgba(45,90,39,0.4)) drop-shadow(0 0 80px rgba(187,221,0,0.15))'
+              : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))'
+            }}
+          />
+        </div>
+        <div className="pt-20 md:pt-20 pb-8 px-6 max-w-[1200px] mx-auto relative z-10">
           <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-2">Kalendarz biegów</p>
           <h1 className="font-display font-extrabold text-3xl md:text-5xl tracking-wider uppercase text-apex-text-bright mb-2">Wszystkie wydarzenia w Polsce</h1>
           <p className="text-base text-apex-text max-w-[600px]">Setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski.</p>
@@ -200,7 +215,7 @@ export default function Kalendarz() {
                   }
                   return (
                     <button key={p} onClick={() => setPage(p)}
-                      className={`font-mono text-[13px] px-3.5 py-2 border transition-all ${p === page ? 'bg-apex-yellow text-apex-bg border-apex-yellow' : 'bg-apex-surface border-apex-border text-apex-muted hover:border-apex-border-mid hover:text-apex-text-bright'}`}>
+                      className={`font-mono text-[13px] px-3.5 py-2 border transition-all ${p === page ? 'bg-apex-yellow text-apex-ink border-apex-yellow' : 'bg-apex-surface border-apex-border text-apex-muted hover:border-apex-border-mid hover:text-apex-text-bright'}`}>
                       {p}
                     </button>
                   )

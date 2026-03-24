@@ -65,7 +65,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange }) {
           />
           <button
             onClick={() => setOpen(!open)}
-            className={`md:hidden flex-shrink-0 font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border transition-all ${open || count > 0 ? 'bg-apex-yellow text-apex-bg border-apex-yellow' : 'bg-apex-surface border-apex-border text-apex-muted'}`}
+            className={`md:hidden flex-shrink-0 font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border transition-all ${open || count > 0 ? 'bg-apex-yellow text-apex-ink border-apex-yellow' : 'bg-apex-surface border-apex-border text-apex-muted'}`}
             aria-expanded={open}
             aria-label="Filtry"
           >
@@ -93,11 +93,11 @@ export default function FilterBar({ filters, onChange, view, onViewChange }) {
 
           <div className="flex border border-apex-border overflow-hidden flex-shrink-0" role="group" aria-label="Widok">
             <button onClick={() => onViewChange('list')}
-              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-bg' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
+              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
               Lista
             </button>
             <button onClick={() => onViewChange('map')}
-              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 transition-all ${view === 'map' ? 'bg-apex-yellow text-apex-bg' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
+              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 transition-all ${view === 'map' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
               Mapa
             </button>
           </div>

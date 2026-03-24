@@ -26,6 +26,7 @@
   --color-apex-text-bright: #C4C2D8;
   --color-apex-muted: #8886A0;
   --color-apex-dim: #605E78;
+  --color-apex-ink: #0A0A10;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -33,11 +34,68 @@
 body {
   font-family: 'Rajdhani', sans-serif;
   font-weight: 500;
-  background-color: #0A0A10;
-  color: #9896B4;
+  background-color: var(--color-apex-bg);
+  color: var(--color-apex-text);
   margin: 0;
   min-height: 100vh;
+  transition: background-color 0.3s, color 0.3s;
 }
+
+/* ─── LIGHT MODE ─── */
+
+/* System preference: light — when no manual override is set */
+@media (prefers-color-scheme: light) {
+  html:not(.dark) {
+    --color-terrain-green: #6B8000;
+    --color-terrain-slate: #6B6980;
+    --color-apex-bg: #F5F5F8;
+    --color-apex-surface: #FFFFFF;
+    --color-apex-surface-2: #EEEFF4;
+    --color-apex-surface-3: #E4E4EC;
+    --color-apex-border: #DCDCE8;
+    --color-apex-border-mid: #C6C6D5;
+    --color-apex-border-bright: #AEAEC2;
+    --color-apex-yellow: #6B8000;
+    --color-apex-yellow-bright: #8EA800;
+    --color-apex-yellow-dim: #4A5800;
+    --color-apex-red: #DC2626;
+    --color-apex-red-dim: #FEF2F2;
+    --color-apex-cyan: #0891B2;
+    --color-apex-cyan-dim: #ECFEFF;
+    --color-apex-text: #4A4860;
+    --color-apex-text-bright: #1A1830;
+    --color-apex-muted: #6B6980;
+    --color-apex-dim: #9896B4;
+    --color-apex-ink: #1A1830;
+  }
+}
+
+/* Manual override: light */
+html.light {
+  --color-terrain-green: #6B8000;
+  --color-terrain-slate: #6B6980;
+  --color-apex-bg: #F5F5F8;
+  --color-apex-surface: #FFFFFF;
+  --color-apex-surface-2: #EEEFF4;
+  --color-apex-surface-3: #E4E4EC;
+  --color-apex-border: #DCDCE8;
+  --color-apex-border-mid: #C6C6D5;
+  --color-apex-border-bright: #AEAEC2;
+  --color-apex-yellow: #6B8000;
+  --color-apex-yellow-bright: #8EA800;
+  --color-apex-yellow-dim: #4A5800;
+  --color-apex-red: #DC2626;
+  --color-apex-red-dim: #FEF2F2;
+  --color-apex-cyan: #0891B2;
+  --color-apex-cyan-dim: #ECFEFF;
+  --color-apex-text: #4A4860;
+  --color-apex-text-bright: #1A1830;
+  --color-apex-muted: #6B6980;
+  --color-apex-dim: #9896B4;
+  --color-apex-ink: #1A1830;
+}
+
+/* ─── LOGO & WATERMARK ─── */
 
 /* Logo watermark — only on pages without the hero logo (e.g. /events/:slug) */
 .page-watermark::after {
@@ -53,6 +111,27 @@ body {
   z-index: 0;
   filter: invert(1) sepia(1) saturate(5) hue-rotate(30deg);
 }
+
+/* Manual override: light — logo is naturally dark, no inversion */
+html.light .page-watermark::after {
+  filter: sepia(0.2) saturate(0.6) opacity(0.5);
+}
+/* System prefers light, no manual override */
+@media (prefers-color-scheme: light) {
+  html:not(.dark) .page-watermark::after {
+    filter: sepia(0.2) saturate(0.6) opacity(0.5);
+  }
+}
+
+/* Hero logo — dark mode needs filters, light mode uses natural black */
+.hero-logo-dark {
+  filter: brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6)) drop-shadow(0 0 50px rgba(45,90,39,0.4)) drop-shadow(0 0 80px rgba(187,221,0,0.15));
+}
+.hero-logo-light {
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.1)) drop-shadow(0 0 30px rgba(45,90,39,0.15));
+}
+
+/* ─── HERO ANIMATIONS ─── */
 
 /* Hero glow pulse */
 @keyframes hero-pulse {
@@ -80,4 +159,26 @@ body {
   );
   pointer-events: none;
   z-index: 2;
+}
+
+/* In light mode, scanlines use a darker tint */
+html.light .hero-scanlines::before {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(107,128,0,0.03) 2px,
+    rgba(107,128,0,0.03) 4px
+  );
+}
+@media (prefers-color-scheme: light) {
+  html:not(.dark) .hero-scanlines::before {
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(107,128,0,0.03) 2px,
+      rgba(107,128,0,0.03) 4px
+    );
+  }
 }

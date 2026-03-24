@@ -1,6 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import useTheme from '../hooks/useTheme.js'
 
 const defaultPin = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -16,6 +17,11 @@ const POLAND_ZOOM = 6
 
 export default function MapView({ events }) {
   const mappable = events.filter(e => e.lat && e.lng)
+  const { isDark } = useTheme()
+
+  const tileUrl = isDark
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
 
   return (
     <div className="max-w-[1200px] mx-auto px-6 pb-16">
@@ -23,10 +29,11 @@ export default function MapView({ events }) {
         center={POLAND_CENTER}
         zoom={POLAND_ZOOM}
         className="w-full h-[500px] border border-apex-border"
-        style={{ background: '#0C0C14' }}
+        style={{ background: isDark ? '#0C0C14' : '#F5F5F8' }}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          key={tileUrl}
+          url={tileUrl}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
         />
         {mappable.map(ev => (

@@ -1,5 +1,5 @@
 const baseTag = 'font-mono text-[10px] font-semibold tracking-wide px-2 py-0.5 border uppercase'
-const typeTagClass = `${baseTag} border-[rgba(0,191,239,0.3)] text-[#00BFEF]`       // cyan for event type
+const typeTagClass = `${baseTag} border-apex-cyan/30 text-apex-cyan`                 // cyan for event type
 const distTagClass = `${baseTag} border-[rgba(187,221,0,0.3)] text-apex-yellow-dim`  // yellow for distance
 
 const TYPE_LABELS = {
