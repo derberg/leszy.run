@@ -1,99 +1,162 @@
+import { chromium } from 'playwright'
 import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://maratonypolskie.pl'
-// Default page shows current month's events (~190). Month switching requires PHP sessions
-// we can't replicate with simple fetch. As time passes, each run captures that month's events.
 const SEARCH_URL = `${BASE_URL}/mp_index.php?dzial=3&action=1&grp=13&trgr=1&bieganie&wyswietl=Tekstowo&region=Polska`
 
-async function fetchWithEncoding(url) {
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
-  })
-  const buffer = await res.arrayBuffer()
-  const decoder = new TextDecoder('iso-8859-2')
-  return decoder.decode(buffer)
-}
+const MONTHS_PL = [
+  'styczen', 'luty', 'marzec', 'kwiecien', 'maj', 'czerwiec',
+  'lipiec', 'sierpien', 'wrzesien', 'pazdziernik', 'listopad', 'grudzien'
+]
 
-async function scrape() {
+function parseSearchResults(html, today) {
+  const $ = cheerio.load(html)
   const events = []
   const seen = new Set()
-  const today = new Date().toISOString().split('T')[0]
 
-  try {
-    const html = await fetchWithEncoding(SEARCH_URL)
-    const $ = cheerio.load(html)
+  const allCells = $('td')
+  let inSearchResults = false
 
-    // Site uses nested tables — cheerio flattens all <td> into one level.
-    // Scan for the "wyszukane" (search results) section, then parse
-    // sequential cell pattern: [icon/empty] [date] [city] [name+link]
-    const allCells = $('td')
-    let inSearchResults = false
+  for (let i = 0; i < allCells.length; i++) {
+    const cellText = $(allCells[i]).text().trim()
 
-    for (let i = 0; i < allCells.length; i++) {
-      const cellText = $(allCells[i]).text().trim()
-
-      if (cellText.includes('wyszukane')) {
-        inSearchResults = true
-        // Skip header row (DYSC, DATA, MIEJSCE, NAZWA)
-        while (i < allCells.length) {
-          if ($(allCells[i]).text().trim() === 'NAZWA') { i++; break }
-          i++
-        }
-        continue
+    if (cellText.includes('wyszukane')) {
+      inSearchResults = true
+      while (i < allCells.length) {
+        if ($(allCells[i]).text().trim() === 'NAZWA') { i++; break }
+        i++
       }
-
-      if (!inSearchResults) continue
-
-      // Look for date pattern: D.M.YYYY (day)
-      const dateMatch = cellText.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/)
-      if (!dateMatch) continue
-
-      const date = `${dateMatch[3]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`
-      if (date < today) continue
-
-      // Next cell: city (might include distance like "Kraków10 km.")
-      i++
-      if (i >= allCells.length) break
-      const cityText = $(allCells[i]).text().trim()
-      const cityDistMatch = cityText.match(/^(.+?)(\d+[\.,]?\d*\s*km\.?)$/i)
-      const location = cityDistMatch ? cityDistMatch[1].trim() : cityText
-      const distance = cityDistMatch ? cityDistMatch[2].trim() : ''
-
-      // Next cell: name with link
-      i++
-      if (i >= allCells.length) break
-      const nameCell = $(allCells[i])
-      const nameLink = nameCell.find('a').first()
-      const name = nameLink.text().trim() || nameCell.text().trim()
-      const href = nameLink.attr('href') || ''
-
-      if (!name || name.length < 3) continue
-
-      const key = `${name}-${date}`
-      if (seen.has(key)) continue
-      seen.add(key)
-
-      const codeMatch = href.match(/code=(\d+)/)
-      const sourceId = codeMatch ? codeMatch[1] : key
-
-      events.push({
-        name,
-        date,
-        location: location.length > 1 && location.length < 40 ? location : '',
-        distances: distance,
-        registration_url: href ? (href.startsWith('http') ? href : `${BASE_URL}/${href}`) : null,
-        source: 'maratonypolskie',
-        source_url: SEARCH_URL,
-        source_id: sourceId,
-      })
+      continue
     }
 
-    console.log(`[maratonypolskie] Scraped ${events.length} events`)
-  } catch (err) {
-    console.error('[maratonypolskie] Scrape failed:', err.message)
+    if (!inSearchResults) continue
+
+    const dateMatch = cellText.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/)
+    if (!dateMatch) continue
+
+    const date = `${dateMatch[3]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`
+    if (date < today) continue
+
+    i++
+    if (i >= allCells.length) break
+    const cityText = $(allCells[i]).text().trim()
+    const cityDistMatch = cityText.match(/^(.+?)(\d+[\.,]?\d*\s*km\.?)$/i)
+    const location = cityDistMatch ? cityDistMatch[1].trim() : cityText
+    const distance = cityDistMatch ? cityDistMatch[2].trim() : ''
+
+    i++
+    if (i >= allCells.length) break
+    const nameCell = $(allCells[i])
+    const nameLink = nameCell.find('a').first()
+    const name = nameLink.text().trim() || nameCell.text().trim()
+    const href = nameLink.attr('href') || ''
+
+    if (!name || name.length < 3) continue
+
+    const key = `${name}-${date}`
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    const codeMatch = href.match(/code=(\d+)/)
+    const sourceId = codeMatch ? codeMatch[1] : key
+
+    events.push({
+      name,
+      date,
+      location: location.length > 1 && location.length < 40 ? location : '',
+      distances: distance,
+      registration_url: href ? (href.startsWith('http') ? href : `${BASE_URL}/${href}`) : null,
+      source: 'maratonypolskie',
+      source_url: SEARCH_URL,
+      source_id: sourceId,
+    })
   }
 
   return events
+}
+
+async function scrape() {
+  const allEvents = []
+  const allSeen = new Set()
+  const now = new Date()
+  const today = now.toISOString().split('T')[0]
+  const startMonth = now.getMonth() // 0-indexed
+  const startYear = now.getFullYear()
+
+  let browser
+  try {
+    browser = await chromium.launch({ headless: true })
+    const page = await browser.newPage()
+    page.setDefaultTimeout(15000)
+
+    // Load the initial page
+    await page.goto(SEARCH_URL, { waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(1000)
+
+    // Scrape 12 months ahead
+    for (let i = 0; i < 12; i++) {
+      let monthIdx = startMonth + i
+      let year = startYear
+      if (monthIdx >= 12) {
+        monthIdx -= 12
+        year++
+      }
+
+      const monthValue = MONTHS_PL[monthIdx]
+
+      try {
+        // Select year if different from current
+        const currentYear = await page.$eval('select[name="czasr1"]', el => el.value)
+        if (currentYear !== String(year)) {
+          await page.selectOption('select[name="czasr1"]', String(year))
+          await page.waitForLoadState('domcontentloaded')
+          await page.waitForTimeout(1000)
+        }
+
+        // Select month — this triggers form submit via onchange
+        await page.selectOption('select[name="czasm1"]', monthValue)
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+
+        // Get the rendered HTML
+        const html = await page.content()
+        const events = parseSearchResults(html, today)
+
+        let added = 0
+        for (const event of events) {
+          const key = `${event.name}-${event.date}`
+          if (!allSeen.has(key)) {
+            allSeen.add(key)
+            allEvents.push(event)
+            added++
+          }
+        }
+
+        console.log(`[maratonypolskie] ${monthValue} ${year}: ${added} new events (total: ${allEvents.length})`)
+      } catch (err) {
+        console.error(`[maratonypolskie] Failed for ${monthValue} ${year}:`, err.message?.slice(0, 100))
+      }
+    }
+  } catch (err) {
+    console.error('[maratonypolskie] Browser launch failed:', err.message?.slice(0, 200))
+    console.log('[maratonypolskie] Falling back to simple fetch (current month only)...')
+
+    // Fallback: simple fetch without Playwright
+    try {
+      const res = await fetch(SEARCH_URL, { headers: { 'User-Agent': 'leszy.run/1.0' } })
+      const buffer = await res.arrayBuffer()
+      const html = new TextDecoder('iso-8859-2').decode(buffer)
+      const events = parseSearchResults(html, today)
+      events.forEach(e => { if (!allSeen.has(`${e.name}-${e.date}`)) { allSeen.add(`${e.name}-${e.date}`); allEvents.push(e) } })
+    } catch (fallbackErr) {
+      console.error('[maratonypolskie] Fallback also failed:', fallbackErr.message)
+    }
+  } finally {
+    if (browser) await browser.close()
+  }
+
+  console.log(`[maratonypolskie] Scraped ${allEvents.length} events total`)
+  return allEvents
 }
 
 export { scrape }
