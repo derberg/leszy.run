@@ -17,6 +17,12 @@ async function request(method, path, body, isFile = false) {
 }
 
 export const api = {
+  // Generic methods for new routes
+  get: (path) => request('GET', path),
+  post: (path, body) => request('POST', path, body),
+  patch: (path, body) => request('PATCH', path, body),
+  del: (path) => request('DELETE', path),
+
   // Events
   events: {
     list: () => request('GET', '/events'),

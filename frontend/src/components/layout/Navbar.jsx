@@ -103,6 +103,42 @@ export default function Navbar() {
             Czytnik
           </Link>
 
+          <Link
+            to="/calendar-events"
+            className={cn(
+              'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+              location.pathname === '/calendar-events'
+                ? 'border-apex-yellow text-black bg-apex-yellow'
+                : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
+            )}
+          >
+            Kalendarz
+          </Link>
+
+          <Link
+            to="/url-review"
+            className={cn(
+              'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+              location.pathname === '/url-review'
+                ? 'border-apex-yellow text-black bg-apex-yellow'
+                : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
+            )}
+          >
+            Linki
+          </Link>
+
+          <Link
+            to="/calendar-events/new"
+            className={cn(
+              'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+              location.pathname === '/calendar-events/new'
+                ? 'border-apex-yellow text-black bg-apex-yellow'
+                : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
+            )}
+          >
+            + Wydarzenie
+          </Link>
+
           {syncStatus && (syncStatus.status === 'online' || syncStatus.status === 'error' || syncStatus.pendingCount > 0) && (
             <div className="relative ml-2">
               <div

@@ -18,14 +18,14 @@
   --color-apex-yellow: #BBDD00;
   --color-apex-yellow-bright: #D4FF00;
   --color-apex-yellow-dim: #778800;
-  --color-apex-red: #E53030;
+  --color-apex-red: #EF4444;
   --color-apex-red-dim: #5C0A0A;
   --color-apex-cyan: #00BFEF;
   --color-apex-cyan-dim: #004458;
   --color-apex-text: #9896B4;
   --color-apex-text-bright: #C4C2D8;
-  --color-apex-muted: #545268;
-  --color-apex-dim: #2C2A38;
+  --color-apex-muted: #8886A0;
+  --color-apex-dim: #605E78;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -39,8 +39,8 @@ body {
   min-height: 100vh;
 }
 
-/* Logo watermark */
-body::after {
+/* Logo watermark — only on pages without the hero logo (e.g. /events/:slug) */
+.page-watermark::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -54,7 +54,30 @@ body::after {
   filter: invert(1) sepia(1) saturate(5) hue-rotate(30deg);
 }
 
-#root {
-  position: relative;
-  z-index: 1;
+/* Hero glow pulse */
+@keyframes hero-pulse {
+  0%, 100% { opacity: 0.6; transform: translate(-50%, -55%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -55%) scale(1.05); }
+}
+
+/* Scroll indicator bob */
+@keyframes hero-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(6px); }
+}
+
+/* Scanline overlay — apply to hero::before */
+.hero-scanlines::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(187,221,0,0.015) 2px,
+    rgba(187,221,0,0.015) 4px
+  );
+  pointer-events: none;
+  z-index: 2;
 }
