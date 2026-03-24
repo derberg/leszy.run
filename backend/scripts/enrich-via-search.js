@@ -51,8 +51,10 @@ function callClaude(prompt) {
 }
 
 async function enrichEvent(event) {
+  // Clean query: avoid duplicating year if already in name, don't add noise words
   const year = new Date(event.date).getFullYear()
-  const query = `${event.name} ${year} ${event.location || ''} dystans km`
+  const nameHasYear = event.name.includes(String(year))
+  const query = `${event.name}${nameHasYear ? '' : ' ' + year} ${event.location || ''}`
 
   console.log(`\n  Searching: "${query}"`)
 
@@ -62,18 +64,32 @@ async function enrichEvent(event) {
     return null
   }
 
-  // Fetch the first result page
-  const bestResult = results[0]
-  console.log(`  Found: ${bestResult.title}`)
-  console.log(`  URL: ${bestResult.url}`)
+  // Try up to 3 search results — use the one with the most "km" mentions
+  let bestContext = null
+  let bestUrl = null
+  let bestTitle = null
+  let bestKmCount = -1
 
-  const pageText = await fetchPageText(bestResult.url)
-  if (!pageText) {
-    // Fall back to search snippet
-    console.log(`  Could not fetch page, using snippet`)
+  for (const result of results) {
+    const pageText = await fetchPageText(result.url)
+    const text = pageText || `${result.title} ${result.description || ''}`
+    const kmCount = (text.match(/\d+[\.,]?\d*\s*km/gi) || []).length
+
+    console.log(`  [${kmCount} km] ${result.title.slice(0, 60)}`)
+
+    if (kmCount > bestKmCount) {
+      bestKmCount = kmCount
+      bestContext = text
+      bestUrl = result.url
+      bestTitle = result.title
+    }
+
+    await new Promise(r => setTimeout(r, 500))
   }
 
-  const context = pageText || `${bestResult.title} ${bestResult.description || ''}`
+  console.log(`  Best: ${bestTitle?.slice(0, 60)} (${bestKmCount} km mentions)`)
+
+  const context = bestContext
 
   const prompt = `Extract ALL available running/walking race distances from this event page.
 Return ONLY a valid JSON array of distances in km (numbers only), like [5, 10, 21.1, 42.2].
