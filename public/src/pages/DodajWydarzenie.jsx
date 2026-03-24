@@ -1,0 +1,241 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { supabase } from '../lib/supabase.js'
+import Navbar from '../components/Navbar.jsx'
+import Footer from '../components/Footer.jsx'
+import useTheme from '../hooks/useTheme.js'
+
+const VOIVODESHIPS = [
+  'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
+  'Małopolskie', 'Mazowieckie', 'Opolskie', 'Podkarpackie', 'Podlaskie',
+  'Pomorskie', 'Śląskie', 'Świętokrzyskie', 'Warmińsko-Mazurskie',
+  'Wielkopolskie', 'Zachodniopomorskie',
+]
+
+const EVENT_TYPES = [
+  { value: 'uliczny', label: 'Uliczny' },
+  { value: 'trail', label: 'Przełajowy / Trail' },
+  { value: 'ultra', label: 'Ultramaraton' },
+  { value: 'nordic', label: 'Nordic Walking' },
+  { value: 'ocr', label: 'OCR / Bieg z przeszkodami' },
+  { value: 'nocny', label: 'Nocny' },
+  { value: 'charytatywny', label: 'Charytatywny' },
+]
+
+const PRESET_DISTANCES = ['5 km', '10 km', '21.1 km', '42.2 km', '50 km', '100 km']
+
+const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
+const labelClass = 'block font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-1.5'
+
+export default function DodajWydarzenie() {
+  const [form, setForm] = useState({
+    name: '', date: '', location: '', voivodeship: '',
+    registrationUrl: '', organizer: '', description: '', honeypot: '',
+  })
+  const [distances, setDistances] = useState([])
+  const [customDist, setCustomDist] = useState('')
+  const [showCustom, setShowCustom] = useState(false)
+  const [eventTypes, setEventTypes] = useState([])
+  const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+  const { isDark } = useTheme()
+
+  const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }))
+
+  const toggleDistance = (d) => {
+    setDistances(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
+  }
+
+  const addCustomDistance = () => {
+    const km = parseFloat(customDist.replace(',', '.'))
+    if (km > 0 && km < 500) {
+      const label = `${km} km`
+      if (!distances.includes(label)) setDistances(prev => [...prev, label])
+      setCustomDist('')
+      setShowCustom(false)
+    }
+  }
+
+  const toggleType = (t) => {
+    setEventTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
+  }
+
+  const canSubmit = form.name.trim() && form.date && !submitting
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!canSubmit) return
+    if (form.honeypot) { setSubmitted(true); return }
+
+    setSubmitting(true)
+    setError(null)
+
+    const distStrings = distances.length ? distances : null
+    const distMeters = distances.length
+      ? distances.map(d => Math.round(parseFloat(d) * 1000))
+      : null
+
+    const { error: err } = await supabase.from('calendar_events').insert({
+      name: form.name.trim(),
+      date: form.date,
+      location: form.location.trim() || null,
+      voivodeship: form.voivodeship || null,
+      distances: distStrings,
+      distances_meters: distMeters,
+      event_type: eventTypes.length ? eventTypes : null,
+      registration_url: form.registrationUrl.trim() || null,
+      organizer: form.organizer.trim() || null,
+      description: form.description.trim() || null,
+      source: 'community',
+      status: 'pending',
+    })
+
+    setSubmitting(false)
+    if (err) {
+      setError('Nie udało się wysłać. Spróbuj ponownie.')
+      console.error('Submit error:', err.message)
+    } else {
+      setSubmitted(true)
+    }
+  }
+
+  if (submitted) {
+    return (
+      <>
+        <Navbar />
+        <main className="relative">
+          <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0" aria-hidden="true">
+            <img src="/logo-bez-napisu.svg" alt="" className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04]' : 'opacity-[0.06]'}`}
+              style={{ filter: isDark ? 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6))' : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }} />
+          </div>
+          <div className="pt-24 pb-16 px-6 max-w-[600px] mx-auto relative z-10 text-center">
+            <div className="text-apex-yellow text-4xl mb-4">&#10003;</div>
+            <h1 className="font-display font-extrabold text-2xl md:text-3xl tracking-wider uppercase text-apex-text-bright mb-4">Wydarzenie zgłoszone</h1>
+            <p className="text-apex-text mb-8">Twoje zgłoszenie oczekuje na moderację. Pojawi się w kalendarzu po zatwierdzeniu.</p>
+            <Link to="/kalendarz" className="inline-block font-display font-bold text-sm tracking-widest uppercase px-6 py-3 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all">
+              Wróć do kalendarza
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <Navbar />
+      <main className="relative">
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0" aria-hidden="true">
+          <img src="/logo-bez-napisu.svg" alt="" className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04]' : 'opacity-[0.06]'}`}
+            style={{ filter: isDark ? 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6))' : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }} />
+        </div>
+        <div className="pt-20 pb-16 px-6 max-w-[600px] mx-auto relative z-10">
+          <Link to="/kalendarz" className="inline-block font-mono text-[11px] text-apex-muted hover:text-apex-yellow-dim transition-colors mb-4">&larr; Kalendarz</Link>
+          <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-2">Dodaj wydarzenie</p>
+          <h1 className="font-display font-extrabold text-2xl md:text-3xl tracking-wider uppercase text-apex-text-bright mb-1">Zgłoś nowy bieg</h1>
+          <p className="text-sm text-apex-muted mb-8">Wypełnij formularz. Wydarzenie pojawi się po zatwierdzeniu przez moderatora.</p>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="absolute -left-[9999px]" aria-hidden="true">
+              <input type="text" name="website" tabIndex={-1} autoComplete="off" value={form.honeypot} onChange={set('honeypot')} />
+            </div>
+
+            <div>
+              <label className={labelClass}>Nazwa wydarzenia *</label>
+              <input type="text" value={form.name} onChange={set('name')} className={inputClass} placeholder="np. Bieg Leszego 2026" required />
+            </div>
+
+            <div>
+              <label className={labelClass}>Data *</label>
+              <input type="date" value={form.date} onChange={set('date')} className={inputClass} required />
+            </div>
+
+            <div>
+              <label className={labelClass}>Miasto</label>
+              <input type="text" value={form.location} onChange={set('location')} className={inputClass} placeholder="np. Zakopane" />
+            </div>
+
+            <div>
+              <label className={labelClass}>Województwo</label>
+              <select value={form.voivodeship} onChange={set('voivodeship')} className={`${inputClass} appearance-none cursor-pointer`}>
+                <option value="">— wybierz —</option>
+                {VOIVODESHIPS.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>Dystanse</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {PRESET_DISTANCES.map(d => (
+                  <button key={d} type="button" onClick={() => toggleDistance(d)}
+                    className={`font-mono text-[11px] font-semibold px-3 py-1.5 border transition-all ${distances.includes(d) ? 'border-apex-yellow text-apex-yellow bg-apex-yellow/10' : 'border-apex-border text-apex-muted hover:border-apex-border-mid'}`}>
+                    {d}
+                  </button>
+                ))}
+                <button type="button" onClick={() => setShowCustom(!showCustom)}
+                  className={`font-mono text-[11px] font-semibold px-3 py-1.5 border transition-all ${showCustom ? 'border-apex-cyan text-apex-cyan' : 'border-apex-border text-apex-muted hover:border-apex-border-mid'}`}>
+                  Inny
+                </button>
+              </div>
+              {showCustom && (
+                <div className="flex gap-2">
+                  <input type="text" value={customDist} onChange={(e) => setCustomDist(e.target.value)}
+                    className={`${inputClass} flex-1`} placeholder="np. 15" onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomDistance())} />
+                  <button type="button" onClick={addCustomDistance}
+                    className="font-mono text-[11px] font-semibold px-4 py-2 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all">km</button>
+                </div>
+              )}
+              {distances.filter(d => !PRESET_DISTANCES.includes(d)).length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {distances.filter(d => !PRESET_DISTANCES.includes(d)).map(d => (
+                    <button key={d} type="button" onClick={() => toggleDistance(d)}
+                      className="font-mono text-[11px] font-semibold px-3 py-1.5 border border-apex-yellow text-apex-yellow bg-apex-yellow/10">
+                      {d} &times;
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className={labelClass}>Typ wydarzenia</label>
+              <div className="flex flex-wrap gap-2">
+                {EVENT_TYPES.map(t => (
+                  <button key={t.value} type="button" onClick={() => toggleType(t.value)}
+                    className={`font-mono text-[11px] font-semibold px-3 py-1.5 border transition-all ${eventTypes.includes(t.value) ? 'border-apex-cyan text-apex-cyan bg-apex-cyan/10' : 'border-apex-border text-apex-muted hover:border-apex-border-mid'}`}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Link do rejestracji</label>
+              <input type="url" value={form.registrationUrl} onChange={set('registrationUrl')} className={inputClass} placeholder="https://..." />
+            </div>
+
+            <div>
+              <label className={labelClass}>Organizator</label>
+              <input type="text" value={form.organizer} onChange={set('organizer')} className={inputClass} placeholder="np. Fundacja Biegowa" />
+            </div>
+
+            <div>
+              <label className={labelClass}>Opis</label>
+              <textarea value={form.description} onChange={set('description')} rows={3} className={`${inputClass} resize-none`} placeholder="Krótki opis wydarzenia..." />
+            </div>
+
+            {error && <div className="text-apex-red text-sm">{error}</div>}
+
+            <button type="submit" disabled={!canSubmit}
+              className={`w-full font-display font-bold text-sm tracking-widest uppercase py-3.5 transition-all ${canSubmit ? 'bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright' : 'bg-apex-surface-2 text-apex-muted cursor-not-allowed border border-apex-border'}`}>
+              {submitting ? 'Wysyłanie...' : 'Zgłoś wydarzenie'}
+            </button>
+          </form>
+        </div>
+      </main>
+      <Footer />
+    </>
+  )
+}

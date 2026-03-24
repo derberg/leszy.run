@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Landing from './pages/Landing.jsx'
 import Kalendarz from './pages/Kalendarz.jsx'
+import DodajWydarzenie from './pages/DodajWydarzenie.jsx'
 import Home from './pages/Home.jsx'
 import EventHub from './pages/EventHub.jsx'
 import Results from './pages/Results.jsx'
@@ -12,6 +13,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/kalendarz/dodaj" element={<DodajWydarzenie />} />
       <Route path="/kalendarz" element={<Kalendarz />} />
       <Route path="/events" element={<Home />} />
       <Route path="/events/:slug" element={<EventHub />} />

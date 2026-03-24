@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
@@ -164,9 +164,16 @@ export default function Kalendarz() {
           />
         </div>
         <div className="pt-20 md:pt-20 pb-8 px-6 max-w-[1200px] mx-auto relative z-10">
-          <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-2">Kalendarz biegów</p>
-          <h1 className="font-display font-extrabold text-3xl md:text-5xl tracking-wider uppercase text-apex-text-bright mb-2">Wszystkie wydarzenia w Polsce</h1>
-          <p className="text-base text-apex-text max-w-[600px]">Setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski.</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-2">Kalendarz biegów</p>
+              <h1 className="font-display font-extrabold text-3xl md:text-5xl tracking-wider uppercase text-apex-text-bright mb-2">Wszystkie wydarzenia w Polsce</h1>
+              <p className="text-base text-apex-text max-w-[600px]">Setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski.</p>
+            </div>
+            <Link to="/kalendarz/dodaj" className="hidden md:inline-block font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0 mt-1">
+              + Dodaj wydarzenie
+            </Link>
+          </div>
         </div>
 
         <FilterBar filters={filters} onChange={handleFilterChange} view={view} onViewChange={setView} />
