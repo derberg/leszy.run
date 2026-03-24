@@ -65,39 +65,43 @@ async function enrichEvent(event) {
     return null
   }
 
-  // Try up to 3 search results — use the one with the most "km" mentions
+  // Try up to 3 search results — use the best for distances, check ALL for voivodeship
   let bestContext = null
-  let bestUrl = null
   let bestTitle = null
   let bestKmCount = -1
+  let detectedVoivodeship = null
+  const allTexts = []
 
   for (const result of results) {
     const pageText = await fetchPageText(result.url)
     const text = pageText || `${result.title} ${result.description || ''}`
-    // Score: count km mentions + postal codes + "kilometr" + distance-related words
+    allTexts.push(text)
+
+    // Score for distance quality
     const kmCount = (text.match(/\d+[\.,]?\d*\s*km/gi) || []).length
       + (text.match(/kilometr/gi) || []).length
       + (text.match(/\d{2}-\d{3}/g) || []).length
       + (text.match(/dystans|trasa|długość/gi) || []).length
 
-    console.log(`  [${kmCount} km] ${result.title.slice(0, 60)}`)
+    console.log(`  [${kmCount}] ${result.title.slice(0, 60)}`)
 
     if (kmCount > bestKmCount) {
       bestKmCount = kmCount
       bestContext = text
-      bestUrl = result.url
       bestTitle = result.title
+    }
+
+    // Check every page for voivodeship (postal code or name)
+    if (!detectedVoivodeship) {
+      detectedVoivodeship = voivodeshipFromText(text)
     }
 
     await new Promise(r => setTimeout(r, 500))
   }
 
-  console.log(`  Best: ${bestTitle?.slice(0, 60)} (${bestKmCount} km mentions)`)
+  console.log(`  Best: ${bestTitle?.slice(0, 60)} (score: ${bestKmCount})`)
 
   const context = bestContext
-
-  // Extract voivodeship from page text (postal code or direct mention)
-  const detectedVoivodeship = voivodeshipFromText(context)
   if (detectedVoivodeship) {
     console.log(`  Voivodeship from page: ${detectedVoivodeship}`)
   }
