@@ -16,7 +16,7 @@ function HeroSection() {
         src="/logo-bez-napisu.svg"
         alt="Leszy.run — duch lasu"
         className="w-[280px] md:w-[500px] h-auto mb-6 relative z-10"
-        style={{ filter: 'drop-shadow(0 0 30px rgba(45,90,39,0.4)) drop-shadow(0 0 60px rgba(45,90,39,0.2))' }}
+        style={{ filter: 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6)) drop-shadow(0 0 50px rgba(45,90,39,0.4)) drop-shadow(0 0 80px rgba(187,221,0,0.15))' }}
       />
 
       <p className="font-sans font-semibold text-base md:text-lg tracking-widest uppercase text-apex-muted mt-2 relative z-10">
