@@ -2,7 +2,6 @@ import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://maratonypolskie.pl'
 
-// Polish month names as used in the form params
 const MONTHS_PL = [
   'styczen', 'luty', 'marzec', 'kwiecien', 'maj', 'czerwiec',
   'lipiec', 'sierpien', 'wrzesien', 'pazdziernik', 'listopad', 'grudzien'
@@ -21,15 +20,97 @@ async function fetchWithEncoding(url) {
   return decoder.decode(buffer)
 }
 
+function parseEvents(html, today) {
+  const $ = cheerio.load(html)
+  const events = []
+  const seen = new Set()
+
+  // The page uses nested tables — cheerio flattens all <td> into one level.
+  // Get ALL td elements and scan for the pattern: [icon] [date] [city] [name+link]
+  // The search results section starts after "Wydarzenia wyszukane"
+  const allCells = $('td')
+  let inSearchResults = false
+  let i = 0
+
+  while (i < allCells.length) {
+    const cellText = $(allCells[i]).text().trim()
+
+    // Find start of search results section
+    if (cellText.includes('wyszukane')) {
+      inSearchResults = true
+      i++
+      // Skip header row (DYSC, DATA, MIEJSCE, NAZWA)
+      while (i < allCells.length) {
+        const h = $(allCells[i]).text().trim()
+        if (h === 'NAZWA') { i++; break }
+        i++
+      }
+      continue
+    }
+
+    if (!inSearchResults) { i++; continue }
+
+    // In search results: pattern is [icon/empty] [date] [city] [name+link]
+    // Date format: D.M.YYYY (day) or similar
+    const dateMatch = cellText.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/)
+    if (!dateMatch) { i++; continue }
+
+    const date = `${dateMatch[3]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`
+
+    // Skip past events
+    if (date < today) { i++; continue }
+
+    // Next cell: city (might include distance like "Kraków10 km.")
+    i++
+    if (i >= allCells.length) break
+    const cityCell = $(allCells[i]).text().trim()
+    const cityDistMatch = cityCell.match(/^(.+?)(\d+[\.,]?\d*\s*km\.?)$/i)
+    const location = cityDistMatch ? cityDistMatch[1].trim() : cityCell
+    const distance = cityDistMatch ? cityDistMatch[2].trim() : ''
+
+    // Next cell: name with link
+    i++
+    if (i >= allCells.length) break
+    const nameCell = $(allCells[i])
+    const nameLink = nameCell.find('a').first()
+    const name = nameLink.text().trim() || nameCell.text().trim()
+    const href = nameLink.attr('href') || ''
+
+    if (!name || name.length < 3) { i++; continue }
+
+    // Dedup
+    const key = `${name}-${date}`
+    if (seen.has(key)) { i++; continue }
+    seen.add(key)
+
+    const codeMatch = href.match(/code=(\d+)/)
+    const sourceId = codeMatch ? codeMatch[1] : key
+
+    events.push({
+      name,
+      date,
+      location,
+      distances: distance,
+      registration_url: href ? (href.startsWith('http') ? href : `${BASE_URL}/${href}`) : null,
+      source: 'maratonypolskie',
+      source_url: '',
+      source_id: sourceId,
+    })
+
+    i++
+  }
+
+  return events
+}
+
 async function scrape() {
   const results = []
-  const seen = new Set()
+  const allSeen = new Set()
   const now = new Date()
   const today = now.toISOString().split('T')[0]
-  const startMonth = now.getMonth() // 0-indexed
+  const startMonth = now.getMonth()
   const startYear = now.getFullYear()
 
-  // Scrape 12 months ahead
   for (let i = 0; i < 12; i++) {
     let monthIdx = startMonth + i
     let year = startYear
@@ -43,91 +124,20 @@ async function scrape() {
     try {
       const url = buildSearchUrl(monthName, year)
       const html = await fetchWithEncoding(url)
-      const $ = cheerio.load(html)
+      const events = parseEvents(html, today)
 
-      let monthCount = 0
+      let added = 0
+      for (const event of events) {
+        const key = `${event.name}-${event.date}`
+        if (!allSeen.has(key)) {
+          allSeen.add(key)
+          event.source_url = url
+          results.push(event)
+          added++
+        }
+      }
 
-      // Search results are in a table in the "Wydarzenia wyszukane" section
-      // Each row has columns: discipline icon | date | city | distance | event name (linked)
-      $('tr').each((_, el) => {
-        const cells = $(el).find('td')
-        if (cells.length < 3) return
-
-        // Find date cell: format "YYYY.M.DD" or "D.M.YYYY"
-        let dateText = null
-        let dateCell = -1
-        cells.each((idx, cell) => {
-          const text = $(cell).text().trim()
-          if (/^\d{4}\.\d{1,2}\.\d{1,2}/.test(text)) {
-            dateText = text
-            dateCell = idx
-          }
-        })
-
-        if (!dateText || dateCell < 0) return
-
-        const dateMatch = dateText.match(/(\d{4})\.(\d{1,2})\.(\d{1,2})/)
-        if (!dateMatch) return
-
-        const date = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`
-
-        // Skip past events
-        if (date < today) return
-
-        // Find event name — look for any <a> with reasonable text
-        let name = null
-        let href = null
-        cells.each((idx, cell) => {
-          $(cell).find('a').each((_, a) => {
-            const text = $(a).text().trim()
-            const link = $(a).attr('href') || ''
-            // Skip short links like "ZGŁ" (registration button) and icon links
-            if (text.length > 5 && !name && !link.includes('zapisy') && !link.includes('datasport')) {
-              name = text
-              href = link
-            }
-          })
-        })
-
-        if (!name) return
-
-        // Dedup by name+date
-        const key = `${name}-${date}`
-        if (seen.has(key)) return
-        seen.add(key)
-
-        // Location: cell with text that's not date, not distance, not name, not icon
-        let location = ''
-        let distance = ''
-        cells.each((idx, cell) => {
-          const text = $(cell).text().trim()
-          if (/\d+[\.,]?\d*\s*km/i.test(text)) {
-            distance = text
-          } else if (idx !== dateCell && text.length > 1 && text.length < 40 && !/\d{4}\.\d/.test(text) && !$(cell).find('a').length && !$(cell).find('img').length) {
-            location = text
-          }
-        })
-
-        const codeMatch = href ? href.match(/code=(\d+)/) : null
-        const sourceId = codeMatch ? codeMatch[1] : key
-
-        results.push({
-          name,
-          date,
-          location,
-          distances: distance,
-          registration_url: href ? (href.startsWith('http') ? href : `${BASE_URL}/${href}`) : null,
-          source: 'maratonypolskie',
-          source_url: url,
-          source_id: sourceId,
-        })
-
-        monthCount++
-      })
-
-      console.log(`[maratonypolskie] ${monthName} ${year}: ${monthCount} events (total so far: ${results.length})`)
-
-      // Rate limit between pages
+      console.log(`[maratonypolskie] ${monthName} ${year}: ${added} new events (total: ${results.length})`)
       await new Promise(r => setTimeout(r, 1100))
     } catch (err) {
       console.error(`[maratonypolskie] Failed for ${monthName}/${year}:`, err.message)
