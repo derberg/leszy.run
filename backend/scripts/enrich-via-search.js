@@ -182,7 +182,7 @@ const { data: events } = await supabase
   .select('id, name, date, location, voivodeship, source')
   .eq('status', 'active')
   .gte('date', new Date().toISOString().split('T')[0])
-  .or('distances_meters.is.null,distances_meters.eq.{},voivodeship.is.null')
+  .or('distances.is.null,distances.eq.{}')
   .order('date')
   .limit(BATCH_SIZE)
 
