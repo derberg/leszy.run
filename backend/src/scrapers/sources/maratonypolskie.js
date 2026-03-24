@@ -66,6 +66,7 @@ function parseSearchResults(html, today) {
       location: location.length > 1 && location.length < 40 ? location : '',
       distances: distance,
       registration_url: null,
+      _detailUrl: href ? (href.startsWith('http') ? href : `${BASE_URL}/${href}`) : null,
       source: 'maratonypolskie',
       source_url: SEARCH_URL,
       source_id: sourceId,
@@ -142,10 +143,10 @@ async function scrape() {
     console.log(`[maratonypolskie] Fetching detail pages for ${allEvents.length} events...`)
     for (let idx = 0; idx < allEvents.length; idx++) {
       const event = allEvents[idx]
-      if (!event.registration_url) continue
+      if (!event._detailUrl) continue
 
       try {
-        await page.goto(event.registration_url, { waitUntil: 'domcontentloaded', timeout: 10000 })
+        await page.goto(event._detailUrl, { waitUntil: 'domcontentloaded', timeout: 10000 })
         await page.waitForTimeout(500)
 
         const detailHtml = await page.content()
