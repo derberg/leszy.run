@@ -91,11 +91,12 @@ async function enrichEvent(event) {
 
   const context = bestContext
 
-  const prompt = `Extract ALL available running/walking race distances from this event page.
-Return ONLY a valid JSON array of distances in km (numbers only), like [5, 10, 21.1, 42.2].
-Common Polish distances: półmaraton = 21.1, maraton = 42.2, piątka = 5, dziesiątka = 10.
-If the event has multiple distances/categories, include ALL of them.
-If you truly cannot determine any distance, return [].
+  const prompt = `Extract ALL available running/walking race distances OR time formats from this event.
+Return a JSON array of strings like ["5 km", "10 km", "21.1 km"] for distance-based events.
+For time-based events (e.g. 24h relay, 12h run, 30 min), return ["24h"] or ["12h"] or ["30 min"].
+Common Polish: półmaraton = "21.1 km", maraton = "42.2 km", piątka = "5 km", dziesiątka = "10 km".
+Include ALL distances/categories. Return ONLY the JSON array, nothing else.
+If truly nothing can be determined, return [].
 
 Event name: ${event.name}
 Date: ${event.date}
@@ -107,13 +108,14 @@ ${context.slice(0, 3000)}`
   const result = callClaude(prompt)
   if (!result) return null
 
-  const match = result.match(/\[[\d.,\s]*\]/)
+  // Try to parse JSON array from response
+  const match = result.match(/\[.*?\]/s)
   if (!match) return null
 
   try {
-    const distances = JSON.parse(match[0])
-    if (Array.isArray(distances) && distances.length > 0 && distances.every(d => typeof d === 'number' && d > 0)) {
-      return distances
+    const parsed = JSON.parse(match[0])
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.filter(d => typeof d === 'string' || (typeof d === 'number' && d > 0))
     }
   } catch {}
 
@@ -139,12 +141,24 @@ for (const event of events) {
   const distances = await enrichEvent(event)
 
   if (distances) {
-    const distanceStrings = distances.map(d => `${d} km`)
-    const distanceMeters = distances.map(d => Math.round(d * 1000))
+    // Normalize: could be numbers (km) or strings ("5 km", "24h", "30 min")
+    const distanceStrings = distances.map(d => {
+      if (typeof d === 'number') return `${d} km`
+      return String(d)
+    })
+
+    // Extract meters only from km-based entries
+    const distanceMeters = distances
+      .map(d => {
+        if (typeof d === 'number') return Math.round(d * 1000)
+        const kmMatch = String(d).match(/^([\d.]+)\s*km$/i)
+        return kmMatch ? Math.round(parseFloat(kmMatch[1]) * 1000) : null
+      })
+      .filter(Boolean)
 
     await supabase.from('calendar_events').update({
       distances: distanceStrings,
-      distances_meters: distanceMeters,
+      distances_meters: distanceMeters.length > 0 ? distanceMeters : null,
     }).eq('id', event.id)
 
     console.log(`  ✓ Enriched: [${distanceStrings.join(', ')}]`)
