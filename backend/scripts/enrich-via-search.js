@@ -3,6 +3,7 @@ import { execSync } from 'child_process'
 import { writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { voivodeshipFromText } from '../src/scrapers/postalCodeMapper.js'
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 const BRAVE_API_URL = 'https://api.search.brave.com/res/v1/web/search'
@@ -91,6 +92,12 @@ async function enrichEvent(event) {
 
   const context = bestContext
 
+  // Extract voivodeship from page text (postal code or direct mention)
+  const detectedVoivodeship = voivodeshipFromText(context)
+  if (detectedVoivodeship) {
+    console.log(`  Voivodeship from page: ${detectedVoivodeship}`)
+  }
+
   const prompt = `Extract ALL available running/walking race distances OR time formats from this event.
 Return a JSON array of strings like ["5 km", "10 km", "21.1 km"] for distance-based events.
 For time-based events (e.g. 24h relay, 12h run, 30 min), return ["24h"] or ["12h"] or ["30 min"].
@@ -106,49 +113,47 @@ Page content:
 ${context.slice(0, 3000)}`
 
   const result = callClaude(prompt)
-  if (!result) return null
+  let distances = null
 
-  // Try to parse JSON array from response
-  const match = result.match(/\[.*?\]/s)
-  if (!match) return null
-
-  try {
-    const parsed = JSON.parse(match[0])
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed.filter(d => typeof d === 'string' || (typeof d === 'number' && d > 0))
+  if (result) {
+    const match = result.match(/\[.*?\]/s)
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0])
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          distances = parsed.filter(d => typeof d === 'string' || (typeof d === 'number' && d > 0))
+        }
+      } catch {}
     }
-  } catch {}
+  }
 
-  return null
+  return { distances, voivodeship: detectedVoivodeship }
 }
 
-// Main
+// Main — process events missing distances OR voivodeship
 const { data: events } = await supabase
   .from('calendar_events')
-  .select('id, name, date, location, source')
+  .select('id, name, date, location, voivodeship, source')
   .eq('status', 'active')
   .gte('date', new Date().toISOString().split('T')[0])
-  .or('distances_meters.is.null,distances_meters.eq.{}')
+  .or('distances_meters.is.null,distances_meters.eq.{},voivodeship.is.null')
   .order('date')
   .limit(BATCH_SIZE)
 
-console.log(`Processing ${events.length} events missing distances...\n`)
+console.log(`Processing ${events.length} events missing distances or voivodeship...\n`)
 
-let enriched = 0
+let enrichedDist = 0
+let enrichedVoi = 0
 for (const event of events) {
-  console.log(`[${enriched}/${events.length}] ${event.name} (${event.location || '?'})`)
+  console.log(`[${enrichedDist + enrichedVoi}/${events.length}] ${event.name} (${event.location || '?'})`)
 
-  const distances = await enrichEvent(event)
+  const result = await enrichEvent(event)
 
-  if (distances) {
-    // Normalize: could be numbers (km) or strings ("5 km", "24h", "30 min")
-    const distanceStrings = distances.map(d => {
-      if (typeof d === 'number') return `${d} km`
-      return String(d)
-    })
+  const updates = {}
 
-    // Extract meters only from km-based entries
-    const distanceMeters = distances
+  if (result?.distances) {
+    const distanceStrings = result.distances.map(d => typeof d === 'number' ? `${d} km` : String(d))
+    const distanceMeters = result.distances
       .map(d => {
         if (typeof d === 'number') return Math.round(d * 1000)
         const kmMatch = String(d).match(/^([\d.]+)\s*km$/i)
@@ -156,19 +161,26 @@ for (const event of events) {
       })
       .filter(Boolean)
 
-    await supabase.from('calendar_events').update({
-      distances: distanceStrings,
-      distances_meters: distanceMeters.length > 0 ? distanceMeters : null,
-    }).eq('id', event.id)
+    updates.distances = distanceStrings
+    updates.distances_meters = distanceMeters.length > 0 ? distanceMeters : null
+    console.log(`  ✓ Distances: [${distanceStrings.join(', ')}]`)
+    enrichedDist++
+  }
 
-    console.log(`  ✓ Enriched: [${distanceStrings.join(', ')}]`)
-    enriched++
+  if (result?.voivodeship && !event.voivodeship) {
+    updates.voivodeship = result.voivodeship
+    console.log(`  ✓ Voivodeship: ${result.voivodeship}`)
+    enrichedVoi++
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await supabase.from('calendar_events').update(updates).eq('id', event.id)
   } else {
-    console.log(`  ✗ Could not determine distances`)
+    console.log(`  ✗ No new data found`)
   }
 
   // Rate limit: Brave (1 req/sec) + Claude (~4s) + page fetch
   await new Promise(r => setTimeout(r, 1000))
 }
 
-console.log(`\nDone. Enriched ${enriched}/${events.length} events`)
+console.log(`\nDone. Distances: ${enrichedDist}, Voivodeships: ${enrichedVoi} (out of ${events.length} events)`)
