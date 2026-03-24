@@ -44,7 +44,7 @@ function detectVoivodeship(location, name) {
 }
 
 const TYPE_KEYWORDS = {
-  trail: ['trail', 'gorski', 'gorsky', 'terenowy'],
+  trail: ['trail', 'gorski', 'gorsky', 'górs', 'terenowy', 'przełaj', 'przelaj', 'cross', 'kros', 'leśny', 'lesny'],
   nocny: ['nocny', 'night', 'noc'],
   ocr: ['ocr', 'runmageddon', 'spartan', 'barbarian', 'survival'],
   nordic: ['nordic', 'marsz', 'nordic walking'],
