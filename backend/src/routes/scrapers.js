@@ -1,5 +1,5 @@
 import { runPipeline } from '../scrapers/index.js'
-import { enrichDistances } from '../scrapers/llmEnricher.js'
+import { enrichEvents } from '../scrapers/llmEnricher.js'
 
 export async function scrapersRoutes(fastify) {
   fastify.post('/scrapers/run', async (request, reply) => {
@@ -8,7 +8,7 @@ export async function scrapersRoutes(fastify) {
   })
 
   fastify.post('/scrapers/enrich', async (request, reply) => {
-    const results = await enrichDistances()
+    const results = await enrichEvents()
     return { data: results }
   })
 }
