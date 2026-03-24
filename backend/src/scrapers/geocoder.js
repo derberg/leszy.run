@@ -46,8 +46,22 @@ async function geocode(locationQuery) {
       const { lat, lon, address } = results[0]
       const coords = { lat: parseFloat(lat), lng: parseFloat(lon) }
 
-      // Nominatim returns voivodeship in address.state (e.g., "województwo mazowieckie")
-      const rawState = address?.state || null
+      // Nominatim search may not return state for small towns — use reverse geocoding as fallback
+      let rawState = address?.state || null
+
+      if (!rawState) {
+        await new Promise(r => setTimeout(r, RATE_LIMIT_MS))
+        lastRequestAt = Date.now()
+        try {
+          const revRes = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lng}&format=json&addressdetails=1`,
+            { headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' } }
+          )
+          const revData = await revRes.json()
+          rawState = revData?.address?.state || null
+        } catch {}
+      }
+
       const voivodeship = capitalizeVoivodeship(rawState)
 
       await supabase.from('geocode_cache').upsert({
