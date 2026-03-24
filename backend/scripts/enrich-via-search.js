@@ -20,15 +20,36 @@ async function searchBrave(query) {
   return (data.web?.results || []).slice(0, 3)
 }
 
+function transformDatasportUrl(url) {
+  // online.datasport.pl/zapisy/portal/zawody.php?zawody=NNN → liveds.datasport.pl/zawody_files/zawidyNNN.html
+  const match = url.match(/datasport\.pl.*zawody[=./](\d+)/)
+  if (match) {
+    return `https://liveds.datasport.pl/zawody_files/zawody${match[1]}.html`
+  }
+  // liveds.datasport.pl/zawidyNNN.html → zawody_files path (direct URLs return 403)
+  const directMatch = url.match(/liveds\.datasport\.pl\/zawody(\d+)\.html/)
+  if (directMatch) {
+    return `https://liveds.datasport.pl/zawody_files/zawody${directMatch[1]}.html`
+  }
+  return url
+}
+
 async function fetchPageText(url) {
+  // Transform datasport URLs to working paths
+  const fetchUrl = transformDatasportUrl(url)
+
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+    const res = await fetch(fetchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'pl-PL,pl;q=0.9',
+      },
       signal: AbortSignal.timeout(10000),
+      redirect: 'follow',
     })
     if (!res.ok) return null
     const html = await res.text()
-    // Strip HTML tags, keep text
     return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4000)
   } catch {
     return null
