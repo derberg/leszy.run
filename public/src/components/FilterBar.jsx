@@ -1,7 +1,7 @@
 const EVENT_TYPES = [
   { value: '', label: 'Typ: Wszystkie' },
   { value: 'uliczny', label: 'Bieg uliczny' },
-  { value: 'trail', label: 'Trail' },
+  { value: 'trail', label: 'Przełajowy / Trail' },
   { value: 'ultra', label: 'Ultramaraton' },
   { value: 'nordic', label: 'Nordic Walking' },
   { value: 'ocr', label: 'OCR' },
