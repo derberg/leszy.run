@@ -15,13 +15,9 @@ function HeroSection() {
       <img
         src="/logo-bez-napisu.svg"
         alt="Leszy.run — duch lasu"
-        className="w-[200px] md:w-[400px] h-auto mb-6 relative z-10"
+        className="w-[280px] md:w-[500px] h-auto mb-6 relative z-10"
         style={{ filter: 'drop-shadow(0 0 30px rgba(45,90,39,0.4)) drop-shadow(0 0 60px rgba(45,90,39,0.2))' }}
       />
-
-      <h1 className="font-display font-extrabold text-[44px] md:text-[72px] tracking-wider uppercase text-white relative z-10" style={{ textShadow: '0 0 60px rgba(187,221,0,0.2)' }}>
-        LESZY<span className="text-apex-yellow">.RUN</span>
-      </h1>
 
       <p className="font-sans font-semibold text-base md:text-lg tracking-widest uppercase text-apex-muted mt-2 relative z-10">
         Pomiar czasu &middot; Zapisy &middot; Wyniki na żywo
@@ -69,7 +65,7 @@ function OfertaSection() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0.5">
         <FeatureCard icon="···" title="Pomiar czasu" description="Precyzyjny pomiar z dokładnością do setnych sekundy. Wyniki widoczne natychmiast po przekroczeniu mety." />
         <FeatureCard icon="▶" title="Wyniki na żywo" description="Uczestnicy i kibice śledzą wyniki w czasie rzeczywistym na telefonie. Podium aktualizuje się automatycznie." />
-        <FeatureCard icon="✎" title="Zapisy online" description="Formularz zapisów, zarządzanie kategoriami, lista startowa. Wszystko gotowe w kilka minut." />
+        <FeatureCard icon="✎" title="Zapisy online (wkrótce)" description="Formularz zapisów, zarządzanie kategoriami, lista startowa. Wszystko gotowe w kilka minut." />
         <FeatureCard icon="★" title="Obsługa od A do Z" description="Nie musisz się martwić o technologie. Przyjedziemy, ustawimy bramki i zajmiemy się resztą." />
       </div>
     </section>
@@ -163,7 +159,7 @@ function KalendarzTeaser() {
         <div>
           <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-3">Kalendarz biegów</p>
           <h3 className="font-display font-extrabold text-2xl md:text-4xl tracking-wider uppercase text-apex-text-bright mb-3">
-            Wszystkie biegi w Polsce w jednym miejscu
+            Wszystkie wydarzenia sportowe w Polsce w jednym miejscu
           </h3>
           <p className="text-[15px] text-apex-text leading-relaxed mb-6">
             Przeglądaj setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski. Filtruj po regionie, dystansie i typie.
@@ -201,21 +197,16 @@ function ContactSection() {
   return (
     <section id="kontakt" className="py-16 md:py-24 px-6 max-w-[1100px] mx-auto text-center" aria-label="Kontakt">
       <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-3">Kontakt</p>
-      <h2 className="font-display font-extrabold text-3xl md:text-[42px] tracking-wider uppercase text-apex-text-bright mb-4">Porozmawiajmy</h2>
-      <p className="text-base text-apex-text max-w-[600px] leading-relaxed mb-8 mx-auto">
-        Chcesz zorganizować bieg? Masz pytania? Napisz do nas — odpowiemy najszybciej jak możemy.
-      </p>
+      <h2 className="font-display font-extrabold text-3xl md:text-[42px] tracking-wider uppercase text-apex-text-bright mb-4">Kontakt</h2>
       <div className="flex flex-col sm:flex-row gap-6 justify-center">
-        {[
-          { label: 'Email', value: 'kontakt@leszy.run' },
-          { label: 'Telefon', value: '+48 XXX XXX XXX' },
-          { label: 'Instagram', value: '@leszy.run' },
-        ].map(item => (
-          <div key={item.label} className="flex flex-col items-center gap-2 px-8 py-6 bg-apex-surface border border-apex-border min-w-[180px]">
-            <span className="font-mono text-[10px] tracking-widest uppercase text-apex-muted">{item.label}</span>
-            <span className="font-display font-bold text-lg text-apex-text-bright tracking-wide">{item.value}</span>
-          </div>
-        ))}
+        <a href="mailto:lpgornicki@gmail.com" className="flex flex-col items-center gap-2 px-8 py-6 bg-apex-surface border border-apex-border min-w-[180px] hover:border-apex-yellow-dim transition-colors">
+          <span className="font-mono text-[10px] tracking-widest uppercase text-apex-muted">Email</span>
+          <span className="font-display font-bold text-lg text-apex-text-bright tracking-wide">lpgornicki@gmail.com</span>
+        </a>
+        <a href="tel:+48784640977" className="flex flex-col items-center gap-2 px-8 py-6 bg-apex-surface border border-apex-border min-w-[180px] hover:border-apex-yellow-dim transition-colors">
+          <span className="font-mono text-[10px] tracking-widest uppercase text-apex-muted">Telefon</span>
+          <span className="font-display font-bold text-lg text-apex-text-bright tracking-wide">+48 784 640 977</span>
+        </a>
       </div>
     </section>
   )

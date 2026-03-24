@@ -33,6 +33,39 @@ const CITY_TO_VOIVODESHIP = {
   'jakuszyce': 'Dolnośląskie',
 }
 
+/**
+ * Clean raw location strings from scrapers before geocoding.
+ * Strips appended distances ("Łódź42.195 km," → "Łódź"),
+ * date prefixes ("26.04.2026 r.Mońki..." → "Mońki"),
+ * and full-description junk.
+ */
+function cleanLocation(raw) {
+  if (!raw) return null
+  let loc = raw.trim()
+
+  // Strip distance suffixes: "21.097 km, 10 km, 5 km (nw)" and trailing commas
+  loc = loc.replace(/\d+[\.,]?\d*\s*km\.?(\s*\([\w\s]+\))?/gi, '').replace(/,\s*$/, '').trim()
+
+  // Strip leading date patterns: "26.04.2026 r." or "16 maja 2026 r. (sobota) godz. 11.00 -"
+  loc = loc.replace(/^\d{1,2}[\./]\d{1,2}[\./]\d{4}\s*r?\.?\s*/i, '').trim()
+  loc = loc.replace(/^\d{1,2}\s+\w+\s+\d{4}\s*r?\.?\s*\([^)]*\)\s*(godz\.\s*[\d:.]+\s*[-–]?\s*)?/i, '').trim()
+
+  // If location looks like a full description (too long or starts with "Impreza"), discard
+  if (loc.length > 80 || /^impreza\s/i.test(loc) || /^rozpocz[eę]/i.test(loc)) return null
+
+  // Strip trailing description fragments after city name
+  // e.g. "Mońki ul. Tysiąclecia 17 (Szkoła Podstawowa...)" — keep just the city-ish part
+  const streetMatch = loc.match(/^([A-ZĄĆĘŁŃÓŚŹŻa-ząćęłńóśźż\s-]+?)(?:\s+ul\.\s|\s+al\.\s|\s+os\.\s|\s+pl\.\s)/i)
+  if (streetMatch && streetMatch[1].length >= 3) {
+    loc = streetMatch[1].trim()
+  }
+
+  // Strip "Odszukano imprez:" type junk
+  if (/odszukano/i.test(loc)) return null
+
+  return loc.length >= 2 ? loc : null
+}
+
 function detectVoivodeship(location, name) {
   if (!location && !name) return null
   const text = `${location || ''} ${name || ''}`.toLowerCase()
@@ -44,16 +77,34 @@ function detectVoivodeship(location, name) {
 }
 
 const TYPE_KEYWORDS = {
-  trail: ['trail', 'gorski', 'gorsky', 'górs', 'terenowy', 'przełaj', 'przelaj', 'cross', 'kros', 'leśny', 'lesny'],
-  nocny: ['nocny', 'night', 'noc'],
-  ocr: ['ocr', 'runmageddon', 'spartan', 'barbarian', 'survival'],
-  nordic: ['nordic', 'marsz', 'nordic walking'],
+  trail: [
+    // direct trail/cross-country terms
+    'trail', 'przełaj', 'przelaj', 'przełajow', 'przelajow', 'cross country',
+    'cross', 'kros', 'kross', 'crossow',
+    // terrain/mountain
+    'terenow', 'górsk', 'gorsk', 'gorsky', 'górami', 'podbiegu',
+    // forest/nature
+    'leśn', 'lesn', 'puszcz', 'borów', 'borow', 'borem',
+    // landscape features
+    'szlak', 'szlakiem', 'dolin', 'wąwoz', 'wawoz', 'grzbiet',
+    'szczyt', 'przelecz', 'przełęcz', 'skałk', 'skalk',
+    // Polish trail regions commonly in event names
+    'bieszczad', 'beskid', 'karkonosk', 'tatrzańsk', 'tatrzansk',
+    'sudecka', 'sudecki', 'izersk', 'pieniński', 'pieninski',
+    'ślężańsk', 'slezansk', 'świętokrzys', 'swietokrzys',
+    'jurajsk', 'jura ',
+    // off-road / wild
+    'bezdroż', 'bezdroz', 'poln',
+  ],
+  nocny: ['nocny', 'nocna', 'night', 'noc ', 'w noc', 'wieczorn'],
+  ocr: ['ocr', 'runmageddon', 'spartan', 'barbarian', 'survival', 'extremaln', 'przeszkod', 'mud', 'tough'],
+  nordic: ['nordic', 'nordic walking', 'marsz', 'nw)'],
   ultra: ['ultra', 'ultramaraton'],
-  charytatywny: ['charytatywny', 'charity', 'dla schroniska', 'dla hospicjum', 'dla dzieci'],
+  charytatywny: ['charytatywny', 'charytatywn', 'charity', 'dla schroniska', 'dla hospicjum', 'dla dzieci', 'pomagani', 'fundacj'],
 }
 
-function classifyType(name, description = '') {
-  const text = `${name} ${description}`.toLowerCase()
+function classifyType(name, description, location) {
+  const text = `${name || ''} ${description || ''} ${location || ''}`.toLowerCase()
   const types = []
 
   for (const [type, keywords] of Object.entries(TYPE_KEYWORDS)) {
@@ -62,7 +113,7 @@ function classifyType(name, description = '') {
     }
   }
 
-  if (types.length === 0) types.push('uliczny')
+  if (types.length === 0) types.push('bieg')
   return types
 }
 
@@ -151,17 +202,19 @@ async function normalizeEvent(raw) {
   if (!date) return null
 
   const { distances, distances_meters } = parseDistances(raw.distances || '', raw.name, raw.description)
-  const eventType = classifyType(raw.name, raw.description)
-  const { lat, lng, voivodeship: geoVoivodeship } = await geocode(raw.location)
+  const eventType = classifyType(raw.name, raw.description, raw.location)
+  const cleanedLocation = cleanLocation(raw.location)
+  const { lat, lng, voivodeship: geoVoivodeship } = await geocode(cleanedLocation)
 
   // Voivodeship priority: scraper data > geocoder (Nominatim) > hardcoded city map
-  const voivodeship = raw.voivodeship || geoVoivodeship || detectVoivodeship(raw.location, raw.name)
+  const rawVoivodeship = raw.voivodeship || geoVoivodeship || detectVoivodeship(cleanedLocation || raw.location, raw.name)
+  const voivodeship = rawVoivodeship ? rawVoivodeship.replace(/(^|-)(\S)/g, (_, sep, ch) => sep + ch.toUpperCase()) : null
 
   return {
     name: raw.name.trim(),
     date,
     end_date: raw.end_date ? parseDate(raw.end_date) : null,
-    location: raw.location || null,
+    location: cleanedLocation || raw.location || null,
     voivodeship,
     lat,
     lng,
@@ -184,4 +237,4 @@ async function normalizeEvent(raw) {
   }
 }
 
-export { normalizeEvent, classifyType, parseDistances, parseDate }
+export { normalizeEvent, classifyType, parseDistances, parseDate, cleanLocation }

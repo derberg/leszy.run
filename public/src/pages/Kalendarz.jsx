@@ -22,7 +22,6 @@ function getDateRange(timeRange) {
       const nextEnd = new Date(nextStart.getFullYear(), nextStart.getMonth() + 1, 0)
       return [nextStart.toISOString().split('T')[0], nextEnd.toISOString().split('T')[0]]
     }
-    case '3months': end = new Date(start); end.setMonth(end.getMonth() + 3); break
     case 'year': end = new Date(start.getFullYear(), 11, 31); break
     default: break
   }
@@ -75,13 +74,13 @@ export default function Kalendarz() {
         query = query.eq('voivodeship', filters.voivodeship)
       }
 
-      // When distance filter is active, fetch all results for client-side filtering
+      // Map view and distance filter need all results (no pagination)
       // (Supabase can't filter "any array element in range" natively)
-      if (!filters.distance) {
+      if (view === 'map' || filters.distance) {
+        query = query.limit(2000)
+      } else {
         const from = (page - 1) * PAGE_SIZE
         query = query.range(from, from + PAGE_SIZE - 1)
-      } else {
-        query = query.limit(2000)
       }
 
       const { data, count, error } = await query
@@ -110,7 +109,7 @@ export default function Kalendarz() {
       setTotal(0)
     }
     setLoading(false)
-  }, [filters, page])
+  }, [filters, page, view])
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
