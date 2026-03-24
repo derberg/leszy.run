@@ -74,7 +74,11 @@ async function enrichEvent(event) {
   for (const result of results) {
     const pageText = await fetchPageText(result.url)
     const text = pageText || `${result.title} ${result.description || ''}`
+    // Score: count km mentions + postal codes + "kilometr" + distance-related words
     const kmCount = (text.match(/\d+[\.,]?\d*\s*km/gi) || []).length
+      + (text.match(/kilometr/gi) || []).length
+      + (text.match(/\d{2}-\d{3}/g) || []).length
+      + (text.match(/dystans|trasa|długość/gi) || []).length
 
     console.log(`  [${kmCount} km] ${result.title.slice(0, 60)}`)
 
