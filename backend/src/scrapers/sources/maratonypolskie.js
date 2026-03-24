@@ -65,7 +65,7 @@ function parseSearchResults(html, today) {
       date,
       location: location.length > 1 && location.length < 40 ? location : '',
       distances: distance,
-      registration_url: href ? (href.startsWith('http') ? href : `${BASE_URL}/${href}`) : null,
+      registration_url: null,
       source: 'maratonypolskie',
       source_url: SEARCH_URL,
       source_id: sourceId,

@@ -152,7 +152,7 @@ async function scrape() {
       voivodeship: entry.voivodeship,
       distances: entry.distances || '',
       description: entry.rawDescription || '',
-      registration_url: entry.href ? (entry.href.startsWith('http') ? entry.href : `${BASE_URL}${entry.href}`) : null,
+      registration_url: null,
       source: 'biegiwpolsce',
       source_url: BASE_URL,
       source_id: entry.href || `${entry.name}-${entry.date}`,

@@ -97,7 +97,7 @@ async function scrape() {
         location: entry.location,
         distances,
         description,
-        registration_url: entry.href,
+        registration_url: null,
         source: 'datasport',
         source_url: LIST_URL,
         source_id: entry.sourceId,
