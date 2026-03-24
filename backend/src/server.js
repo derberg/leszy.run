@@ -25,6 +25,7 @@ import { eventDocumentsRoutes } from './routes/eventDocuments.js'
 import { eventSecretsRoutes } from './routes/eventSecrets.js'
 import { scrapersRoutes } from './routes/scrapers.js'
 import { calendarEventsRoutes } from './routes/calendarEvents.js'
+import { calendarEventReportsRoutes } from './routes/calendarEventReports.js'
 import { urlSuggestionsRoutes } from './routes/urlSuggestions.js'
 import cron from 'node-cron'
 import { runPipeline } from './scrapers/index.js'
@@ -55,6 +56,7 @@ await fastify.register(async (api) => {
   await api.register(eventSecretsRoutes)
   await api.register(scrapersRoutes)
   await api.register(calendarEventsRoutes)
+  await api.register(calendarEventReportsRoutes)
   await api.register(urlSuggestionsRoutes)
 }, { prefix: '/api' })
 
