@@ -7,7 +7,6 @@ import Results from './pages/Results.jsx'
 import PodiumPage from './pages/PodiumPage.jsx'
 import ReaderDashboard from './pages/ReaderDashboard.jsx'
 import UrlReview from './pages/UrlReview.jsx'
-import CalendarEventForm from './pages/CalendarEventForm.jsx'
 import CalendarEventsList from './pages/CalendarEventsList.jsx'
 import Moderation from './pages/Moderation.jsx'
 
@@ -24,7 +23,6 @@ export default function App() {
           <Route path="/reader" element={<ReaderDashboard />} />
           <Route path="/url-review" element={<UrlReview />} />
           <Route path="/calendar-events" element={<CalendarEventsList />} />
-          <Route path="/calendar-events/new" element={<CalendarEventForm />} />
           <Route path="/moderation" element={<Moderation />} />
         </Route>
         {/* Public views — no nav */}
