@@ -73,7 +73,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange }) {
           </button>
         </div>
 
-        <div className={`${open ? 'flex' : 'hidden'} md:flex flex-col md:flex-row gap-3 items-stretch md:items-center`}>
+        <div className={`${open ? 'flex' : 'hidden'} md:flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center`}>
           <select value={filters.type} onChange={(e) => update('type', e.target.value)} className={selectClass} aria-label="Filtruj po typie">
             {EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
