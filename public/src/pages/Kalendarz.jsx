@@ -10,6 +10,64 @@ import useTheme from '../hooks/useTheme.js'
 
 const PAGE_SIZE = 50
 
+function LeszyrunBanner() {
+  const [event, setEvent] = useState(null)
+  const [countdown, setCountdown] = useState(null)
+
+  useEffect(() => {
+    supabase
+      .from('events')
+      .select('name, date, location, slug, event_url')
+      .gte('date', new Date().toISOString().split('T')[0])
+      .order('date', { ascending: true })
+      .limit(1)
+      .then(({ data }) => {
+        if (data?.length) setEvent(data[0])
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!event) return
+    const update = () => {
+      const ms = new Date(event.date + 'T08:00:00') - new Date()
+      if (ms <= 0) { setCountdown(null); return }
+      const days = Math.floor(ms / 86400000)
+      setCountdown(days === 0 ? 'Dziś!' : days === 1 ? 'Jutro!' : `za ${days} dni`)
+    }
+    update()
+    const id = setInterval(update, 60000)
+    return () => clearInterval(id)
+  }, [event])
+
+  if (!event) return null
+
+  return (
+    <div className="max-w-[1200px] mx-auto px-6 mb-2">
+      <Link to={`/events/${event.slug}/results/live`}
+        className="block border-l-[3px] border-l-apex-yellow bg-apex-surface border border-apex-border px-4 py-3 hover:bg-apex-surface-2 hover:border-apex-border-mid transition-all no-underline text-inherit group">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20 flex-shrink-0">
+              LESZY.RUN
+            </span>
+            <span className="font-display font-bold text-sm tracking-wide uppercase text-apex-text-bright group-hover:text-apex-yellow transition-colors truncate">
+              {event.name}
+            </span>
+            <span className="text-xs text-apex-muted hidden md:inline flex-shrink-0">
+              {new Date(event.date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}
+              {event.location ? ` · ${event.location}` : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {countdown && <span className="font-mono text-[11px] font-semibold text-apex-yellow">{countdown}</span>}
+            <span className="font-mono text-[10px] tracking-widest uppercase text-apex-cyan">Wyniki live &rarr;</span>
+          </div>
+        </div>
+      </Link>
+    </div>
+  )
+}
+
 function normName(name) {
   return name.toLowerCase().replace(/[^a-z0-9ąćęłńóśźż ]/g, '').replace(/\s+/g, ' ').trim()
 }
@@ -199,6 +257,8 @@ export default function Kalendarz() {
             </Link>
           </div>
         </div>
+
+        <LeszyrunBanner />
 
         <FilterBar filters={filters} onChange={handleFilterChange} view={view} onViewChange={setView} />
 
