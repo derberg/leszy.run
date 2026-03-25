@@ -113,7 +113,7 @@ function EditableEvent({ event, onSave, onApprove, onDelete }) {
         </div>
       </div>
       <div className="flex gap-2">
-        <button onClick={handleSave} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Zapisz i zatwierdź</button>
+        <button onClick={handleSave} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Zapisz</button>
         <button onClick={() => { setForm({ ...event }); setEditing(false) }} className={`${btnBase} border border-apex-border text-apex-muted`}>Anuluj</button>
       </div>
     </div>
@@ -125,8 +125,7 @@ export default function Moderation() {
   const [pendingEvents, setPendingEvents] = useState([])
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
-  const [editingReport, setEditingReport] = useState(null)
-  const [editValue, setEditValue] = useState('')
+  const [editingEventId, setEditingEventId] = useState(null)
 
   const fetchPending = useCallback(async () => {
     const res = await fetch(`${API}/api/calendar-events?status=pending&limit=500`)
@@ -166,20 +165,27 @@ export default function Moderation() {
     setPendingEvents(prev => prev.filter(e => e.id !== id))
   }
 
-  const acceptReport = async (id, overrideValue) => {
-    const body = overrideValue !== undefined ? { suggested_value: overrideValue } : undefined
-    await fetch(`${API}/api/calendar-event-reports/${id}/accept`, {
+  const saveReportEvent = async (eventId, updates) => {
+    await fetch(`${API}/api/calendar-events/${eventId}`, {
       method: 'PATCH',
-      headers: body ? { 'Content-Type': 'application/json' } : {},
-      body: body ? JSON.stringify(body) : undefined,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
     })
-    setReports(prev => prev.filter(r => r.id !== id))
-    setEditingReport(null)
+    // Mark all pending reports for this event as accepted
+    const eventReports = reports.filter(r => r.calendar_event_id === eventId)
+    for (const r of eventReports) {
+      await fetch(`${API}/api/calendar-event-reports/${r.id}/accept`, { method: 'PATCH' })
+    }
+    setReports(prev => prev.filter(r => r.calendar_event_id !== eventId))
+    setEditingEventId(null)
   }
 
-  const rejectReport = async (id) => {
-    await fetch(`${API}/api/calendar-event-reports/${id}/reject`, { method: 'PATCH' })
-    setReports(prev => prev.filter(r => r.id !== id))
+  const rejectReportGroup = async (eventId) => {
+    const eventReports = reports.filter(r => r.calendar_event_id === eventId)
+    for (const r of eventReports) {
+      await fetch(`${API}/api/calendar-event-reports/${r.id}/reject`, { method: 'PATCH' })
+    }
+    setReports(prev => prev.filter(r => r.calendar_event_id !== eventId))
   }
 
   const reportsByEvent = reports.reduce((acc, r) => {
@@ -221,54 +227,44 @@ export default function Moderation() {
           {Object.keys(reportsByEvent).length === 0 && <div className="text-apex-muted py-8 text-center">Brak zgłoszeń do przejrzenia.</div>}
           {Object.entries(reportsByEvent).map(([eventId, { event, reports: evReports }]) => (
             <div key={eventId} className="bg-apex-surface border border-apex-border p-4">
+              {/* Report details */}
               <div className="font-display font-bold text-sm tracking-wide uppercase text-apex-text-bright mb-3">
                 {event?.name || 'Nieznane wydarzenie'} <span className="text-apex-muted font-mono text-[10px] font-normal ml-2">{event?.date}</span>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 mb-4">
                 {evReports.map(r => (
                   <div key={r.id} className="border border-apex-border bg-apex-bg p-3">
-                    <div className="font-mono text-[10px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-2">{r.field}</div>
-                    <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-start mb-2">
-                      <div>
-                        <div className="text-[10px] text-apex-dim uppercase mb-0.5">Obecna</div>
-                        <div className="text-sm text-apex-muted">{r.old_value || '—'}</div>
-                      </div>
-                      <div className="text-apex-dim self-center">&rarr;</div>
-                      <div>
-                        <div className="text-[10px] text-apex-dim uppercase mb-0.5">Sugerowana</div>
-                        {editingReport === r.id ? (
-                          <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                            className={inputClass}
-                            autoFocus onKeyDown={(e) => e.key === 'Enter' && acceptReport(r.id, editValue)} />
-                        ) : (
-                          <div className="text-sm text-apex-text-bright">{r.suggested_value || '—'}</div>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="font-mono text-[10px] font-semibold tracking-widest uppercase text-apex-yellow-dim">{r.field}</span>
+                      <span className="text-sm text-apex-muted">{r.old_value || '—'}</span>
+                      <span className="text-apex-dim">&rarr;</span>
+                      <span className="text-sm text-apex-text-bright">{r.suggested_value || '—'}</span>
                     </div>
                     {r.source_url && (
-                      <div className="text-[10px] mb-2">
+                      <div className="text-[10px]">
                         <span className="text-apex-dim">Źródło: </span>
                         <a href={r.source_url} target="_blank" rel="noopener" className="text-apex-cyan hover:underline">{r.source_url}</a>
                       </div>
                     )}
-                    {r.note && <div className="text-[10px] text-apex-muted mb-2">Notatka: {r.note}</div>}
-                    <div className="flex gap-2">
-                      {editingReport === r.id ? (
-                        <>
-                          <button onClick={() => acceptReport(r.id, editValue)} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Zapisz</button>
-                          <button onClick={() => setEditingReport(null)} className={`${btnBase} border border-apex-border text-apex-muted`}>Anuluj</button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => acceptReport(r.id)} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Akceptuj</button>
-                          <button onClick={() => { setEditingReport(r.id); setEditValue(r.suggested_value || '') }} className={`${btnBase} border border-apex-border text-apex-muted hover:text-apex-text-bright`}>Edytuj</button>
-                          <button onClick={() => rejectReport(r.id)} className={`${btnBase} border border-apex-red/50 text-apex-red hover:bg-apex-red hover:text-white`}>Odrzuć</button>
-                        </>
-                      )}
-                    </div>
+                    {r.note && <div className="text-[10px] text-apex-muted">Notatka: {r.note}</div>}
                   </div>
                 ))}
               </div>
+
+              {/* Event editor or action buttons */}
+              {editingEventId === eventId && event ? (
+                <EditableEvent
+                  event={event}
+                  onSave={(id, updates) => saveReportEvent(id, updates)}
+                  onApprove={(id) => saveReportEvent(id, {})}
+                  onDelete={() => { setEditingEventId(null); rejectReportGroup(eventId) }}
+                />
+              ) : (
+                <div className="flex gap-2">
+                  <button onClick={() => setEditingEventId(eventId)} className={`${btnBase} border border-apex-border text-apex-muted hover:text-apex-text-bright`}>Edytuj wydarzenie</button>
+                  <button onClick={() => rejectReportGroup(eventId)} className={`${btnBase} border border-apex-red/50 text-apex-red hover:bg-apex-red hover:text-white`}>Odrzuć</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
