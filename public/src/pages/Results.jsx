@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useEvent } from '../hooks/useEvent.js'
@@ -47,6 +47,48 @@ export default function Results() {
     }
   }, [categoryId, categories, isLiveView])
 
+  const [raceRuns, setRaceRuns] = useState(null)
+
+  useEffect(() => {
+    if (!event) return
+    supabase.from('race_runs').select('id, status').eq('event_id', event.id)
+      .then(({ data }) => setRaceRuns(data || []))
+      .catch(() => setRaceRuns([]))
+  }, [event])
+
+  const hasActiveRaces = raceRuns && raceRuns.some(r => r.status === 'active' || r.status === 'finished')
+
+  const preRaceState = useMemo(() => {
+    if (!event || hasActiveRaces) return null
+    const now = new Date()
+    const eventDate = new Date(event.date + 'T00:00:00')
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const eDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate())
+
+    if (today.getTime() === eDay.getTime()) return 'today'
+    if (eDay > today) return 'countdown'
+    return null
+  }, [event, hasActiveRaces])
+
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
+
+  useEffect(() => {
+    if (preRaceState !== 'countdown' || !event) return
+    const update = () => {
+      const ms = new Date(event.date + 'T08:00:00') - new Date()
+      if (ms <= 0) { setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 }); return }
+      setCountdown({
+        days: Math.floor(ms / 86400000),
+        hours: Math.floor((ms % 86400000) / 3600000),
+        minutes: Math.floor((ms % 3600000) / 60000),
+        seconds: Math.floor((ms % 60000) / 1000),
+      })
+    }
+    update()
+    const id = setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [preRaceState, event])
+
   if (eventLoading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ladowanie...</div>
   if (eventError) return <div className="flex items-center justify-center min-h-screen text-apex-red">{eventError}</div>
 
@@ -78,6 +120,40 @@ export default function Results() {
             <div className="text-apex-muted text-sm">{event.date}{event.location ? ` · ${event.location}` : ''}</div>
           )}
         </div>
+
+        {/* Pre-race countdown or event day message */}
+        {preRaceState === 'countdown' && (
+          <div className="text-center py-12 mb-8 border border-apex-border bg-apex-surface">
+            <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-6">Do startu pozostało</p>
+            <div className="flex justify-center gap-4 md:gap-6">
+              {[
+                [countdown.days, 'dni'],
+                [countdown.hours, 'godz'],
+                [countdown.minutes, 'min'],
+                [countdown.seconds, 'sek'],
+              ].map(([val, label], i) => (
+                <div key={label} className="flex items-center gap-4 md:gap-6">
+                  {i > 0 && <span className="font-mono text-2xl md:text-4xl text-apex-dim">:</span>}
+                  <div className="flex flex-col items-center">
+                    <span className="font-mono text-3xl md:text-5xl font-bold text-apex-yellow">{String(val).padStart(2, '0')}</span>
+                    <span className="font-mono text-[9px] tracking-widest uppercase text-apex-muted mt-1">{label}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-apex-muted text-sm mt-6">Wyniki pojawią się tutaj na żywo w dniu zawodów.</p>
+          </div>
+        )}
+
+        {preRaceState === 'today' && (
+          <div className="text-center py-12 mb-8 border-2 border-apex-yellow/30 bg-apex-surface">
+            <div className="font-display font-extrabold text-3xl md:text-5xl tracking-wider uppercase text-apex-yellow mb-3">
+              Zaraz zaczynamy!
+            </div>
+            <p className="text-apex-text text-base">Wyniki pojawią się tutaj na żywo po starcie.</p>
+            <span className="inline-block w-2 h-2 rounded-full bg-apex-cyan animate-pulse mt-4" />
+          </div>
+        )}
 
         {/* Tab bar */}
         <div className="flex overflow-x-auto border-b border-apex-border mb-10 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
