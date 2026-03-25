@@ -61,8 +61,7 @@ export default function CookieBanner() {
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-apex-border bg-apex-surface p-4">
       <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 sm:flex-row sm:justify-between">
         <p className="text-sm text-apex-text">
-          Używamy plików cookie (Google Analytics) aby analizować ruch na stronie.{' '}
-          Możesz zaakceptować lub odrzucić.
+          Używamy plików cookie, aby analizować ruch i ulepszać stronę.
         </p>
         <div className="flex shrink-0 gap-2">
           <button
