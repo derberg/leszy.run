@@ -63,7 +63,7 @@ export default function EventRow({ event }) {
     <>
       <div
         onClick={handleClick}
-        className="grid grid-cols-[70px_1fr_auto] md:grid-cols-[90px_1fr_auto] items-center gap-2 md:gap-4 px-3 md:px-4 py-3 md:py-3.5 bg-apex-surface border border-apex-border mb-0.5 hover:bg-apex-surface-2 hover:border-apex-border-mid transition-all cursor-pointer group"
+        className={`grid grid-cols-[70px_1fr_auto] md:grid-cols-[90px_1fr_auto] items-center gap-2 md:gap-4 px-3 md:px-4 py-3 md:py-3.5 border mb-0.5 hover:bg-apex-surface-2 hover:border-apex-border-mid transition-all cursor-pointer group ${isLeszyrun ? 'bg-apex-yellow/[0.03] border-l-[3px] border-l-apex-yellow border-t-apex-border border-r-apex-border border-b-apex-border' : 'bg-apex-surface border-apex-border'}`}
         role="link"
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && handleClick()}

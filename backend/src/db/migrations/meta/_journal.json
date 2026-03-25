@@ -134,6 +134,13 @@
       "when": 1742594400000,
       "tag": "0018_public_results_url",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1742680800000,
+      "tag": "0019_event_url",
+      "breakpoints": true
     }
   ]
 }

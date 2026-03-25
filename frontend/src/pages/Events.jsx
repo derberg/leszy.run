@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog.jsx'
 import { CalendarDays, MapPin, Users, Tag, Plus, ArrowRight, Pencil, Trash2 } from 'lucide-react'
 
-const EMPTY_FORM = { name: '', description: '', date: '', location: '' }
+const EMPTY_FORM = { name: '', description: '', date: '', location: '', eventUrl: '' }
 
 export default function Events() {
   const qc = useQueryClient()
@@ -43,7 +43,7 @@ export default function Events() {
   const openEdit = (e, event) => {
     e.preventDefault()
     setEditEvent(event)
-    setEditForm({ name: event.name, description: event.description || '', date: event.date || '', location: event.location || '' })
+    setEditForm({ name: event.name, description: event.description || '', date: event.date || '', location: event.location || '', eventUrl: event.eventUrl || '' })
   }
 
   const openDelete = () => {
@@ -124,6 +124,10 @@ export default function Events() {
               <span className="text-xs font-semibold uppercase tracking-wider text-apex-muted mb-1 block">Opis</span>
               <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Opcjonalnie" />
             </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wider text-apex-muted mb-1 block">Link do wydarzenia</span>
+              <Input type="url" value={form.eventUrl} onChange={e => setForm(f => ({ ...f, eventUrl: e.target.value }))} placeholder="https://..." />
+            </label>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Anuluj</Button>
@@ -156,6 +160,10 @@ export default function Events() {
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wider text-apex-muted mb-1 block">Opis</span>
               <Input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wider text-apex-muted mb-1 block">Link do wydarzenia</span>
+              <Input type="url" value={editForm.eventUrl} onChange={e => setEditForm(f => ({ ...f, eventUrl: e.target.value }))} placeholder="https://..." />
             </label>
           </DialogBody>
           <DialogFooter>
