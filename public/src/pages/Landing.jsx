@@ -97,6 +97,47 @@ function CharitySection() {
   )
 }
 
+function Countdown({ targetDate }) {
+  const [diff, setDiff] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date()
+      const target = new Date(targetDate + 'T08:00:00')
+      const ms = target - now
+      if (ms <= 0) { setDiff({ days: 0, hours: 0, minutes: 0, seconds: 0 }); return }
+      setDiff({
+        days: Math.floor(ms / 86400000),
+        hours: Math.floor((ms % 86400000) / 3600000),
+        minutes: Math.floor((ms % 3600000) / 60000),
+        seconds: Math.floor((ms % 60000) / 1000),
+      })
+    }
+    update()
+    const id = setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [targetDate])
+
+  const unit = (val, label) => (
+    <div className="flex flex-col items-center">
+      <span className="font-mono text-2xl md:text-4xl font-bold text-apex-yellow">{String(val).padStart(2, '0')}</span>
+      <span className="font-mono text-[9px] tracking-widest uppercase text-apex-muted mt-1">{label}</span>
+    </div>
+  )
+
+  return (
+    <div className="flex gap-4 md:gap-6">
+      {unit(diff.days, 'dni')}
+      <span className="font-mono text-2xl md:text-4xl text-apex-dim self-start">:</span>
+      {unit(diff.hours, 'godz')}
+      <span className="font-mono text-2xl md:text-4xl text-apex-dim self-start">:</span>
+      {unit(diff.minutes, 'min')}
+      <span className="font-mono text-2xl md:text-4xl text-apex-dim self-start">:</span>
+      {unit(diff.seconds, 'sek')}
+    </div>
+  )
+}
+
 function EventsSection() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -116,26 +157,44 @@ function EventsSection() {
       })
   }, [])
 
+  const nextEvent = events[0]
+
   return (
     <section id="wydarzenia" className="py-16 md:py-24 px-6 max-w-[1100px] mx-auto" aria-label="Nadchodzące wydarzenia">
       <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-3">Nadchodzące wydarzenia</p>
       <h2 className="font-display font-extrabold text-3xl md:text-[42px] tracking-wider uppercase text-apex-text-bright mb-4">Najbliższe biegi</h2>
-      <p className="text-base text-apex-text max-w-[600px] leading-relaxed mb-12">Wydarzenia obsługiwane przez Leszy.run. Kliknij aby zobaczyć szczegóły i zapisy.</p>
+      <p className="text-base text-apex-text max-w-[600px] leading-relaxed mb-12">Wydarzenia obsługiwane przez Leszy.run. Kliknij aby zobaczyć wyniki na żywo.</p>
 
       {loading && <div className="text-apex-muted">Ładowanie...</div>}
 
-      <div className="flex flex-col gap-0.5">
-        {events.map(ev => (
-          <Link key={ev.id} to={`/events/${ev.slug}`} className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr_auto] items-center gap-4 md:gap-6 bg-apex-surface border border-apex-border px-4 md:px-6 py-4 md:py-5 hover:bg-apex-surface-2 hover:border-apex-border-mid transition-all no-underline text-inherit">
-            <div className="font-mono text-[13px] font-semibold text-apex-yellow">{ev.date}</div>
+      {nextEvent && (
+        <Link to={`/events/${nextEvent.slug}/results/live`} className="block bg-apex-surface border-2 border-apex-yellow/30 p-6 md:p-10 mb-4 hover:border-apex-yellow/60 transition-all no-underline text-inherit group">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <div className="font-display font-bold text-base md:text-lg tracking-wide uppercase text-apex-text-bright">{ev.name}</div>
-              {ev.location && <div className="text-xs text-apex-muted mt-0.5">{ev.location}</div>}
+              <div className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-2">
+                {new Date(nextEvent.date).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+              <div className="font-display font-extrabold text-2xl md:text-3xl tracking-wider uppercase text-apex-text-bright group-hover:text-apex-yellow transition-colors">
+                {nextEvent.name}
+              </div>
+              {nextEvent.location && <div className="text-sm text-apex-muted mt-1">{nextEvent.location}</div>}
+              <div className="font-mono text-[10px] tracking-widest uppercase text-apex-cyan mt-3">Wyniki na żywo &rarr;</div>
             </div>
-            <div className="hidden md:block text-apex-dim text-lg">&rarr;</div>
-          </Link>
-        ))}
-      </div>
+            <Countdown targetDate={nextEvent.date} />
+          </div>
+        </Link>
+      )}
+
+      {events.slice(1).map(ev => (
+        <Link key={ev.id} to={`/events/${ev.slug}/results/live`} className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr_auto] items-center gap-4 md:gap-6 bg-apex-surface border border-apex-border px-4 md:px-6 py-4 md:py-5 mb-0.5 hover:bg-apex-surface-2 hover:border-apex-border-mid transition-all no-underline text-inherit">
+          <div className="font-mono text-[13px] font-semibold text-apex-yellow">{ev.date}</div>
+          <div>
+            <div className="font-display font-bold text-base md:text-lg tracking-wide uppercase text-apex-text-bright">{ev.name}</div>
+            {ev.location && <div className="text-xs text-apex-muted mt-0.5">{ev.location}</div>}
+          </div>
+          <div className="hidden md:block text-apex-dim text-lg">&rarr;</div>
+        </Link>
+      ))}
 
       {!loading && events.length === 0 && (
         <p className="text-apex-muted">Brak nadchodzących wydarzeń.</p>
