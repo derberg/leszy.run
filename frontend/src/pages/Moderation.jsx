@@ -5,6 +5,120 @@ const tabClass = 'font-display font-bold text-sm tracking-widest uppercase px-4 
 const activeTab = 'text-apex-yellow border-b-2 border-apex-yellow'
 const inactiveTab = 'text-apex-muted hover:text-apex-text-bright'
 const btnBase = 'font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 transition-all'
+const inputClass = 'w-full bg-apex-surface border border-apex-yellow-dim text-apex-text-bright text-sm py-1.5 px-2.5 outline-none'
+const labelClass = 'text-[10px] text-apex-dim uppercase mb-0.5'
+
+const VOIVODESHIPS = [
+  'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
+  'Małopolskie', 'Mazowieckie', 'Opolskie', 'Podkarpackie', 'Podlaskie',
+  'Pomorskie', 'Śląskie', 'Świętokrzyskie', 'Warmińsko-Mazurskie',
+  'Wielkopolskie', 'Zachodniopomorskie',
+]
+
+const EVENT_TYPES = ['uliczny', 'trail', 'ultra', 'nordic', 'ocr', 'nocny', 'charytatywny']
+
+function EditableEvent({ event, onSave, onApprove, onDelete }) {
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({ ...event })
+
+  const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
+
+  const handleSave = async () => {
+    const updates = {}
+    if (form.name !== event.name) updates.name = form.name
+    if (form.date !== event.date) updates.date = form.date
+    if (form.location !== event.location) updates.location = form.location || null
+    if (form.voivodeship !== event.voivodeship) updates.voivodeship = form.voivodeship || null
+    if (form.registration_url !== event.registration_url) updates.registration_url = form.registration_url || null
+    if (JSON.stringify(form.distances) !== JSON.stringify(event.distances)) {
+      updates.distances = form.distances
+      updates.distances_meters = (form.distances || []).map(d => Math.round(parseFloat(d) * 1000))
+    }
+    if (JSON.stringify(form.event_type) !== JSON.stringify(event.event_type)) updates.event_type = form.event_type
+
+    if (Object.keys(updates).length > 0) {
+      await onSave(event.id, updates)
+    }
+    setEditing(false)
+  }
+
+  const toggleType = (t) => {
+    const current = form.event_type || []
+    set('event_type', current.includes(t) ? current.filter(x => x !== t) : [...current, t])
+  }
+
+  if (!editing) {
+    return (
+      <div className="bg-apex-surface border border-apex-border p-4">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <div className="font-display font-bold text-base tracking-wide uppercase text-apex-text-bright">{event.name}</div>
+            <div className="text-sm text-apex-muted mt-0.5">{event.date} &middot; {event.location || '—'} &middot; {event.voivodeship || '—'}</div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setEditing(true)} className={`${btnBase} border border-apex-border text-apex-muted hover:text-apex-text-bright`}>Edytuj</button>
+            <button onClick={() => onApprove(event.id)} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Zatwierdź</button>
+            <button onClick={() => onDelete(event.id)} className={`${btnBase} border border-apex-red text-apex-red hover:bg-apex-red hover:text-white`}>Usuń</button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+          {event.distances?.length > 0 && <div><span className="text-apex-dim">Dystanse:</span> <span className="text-apex-text">{event.distances.join(', ')}</span></div>}
+          {event.event_type?.length > 0 && <div><span className="text-apex-dim">Typ:</span> <span className="text-apex-text">{event.event_type.join(', ')}</span></div>}
+          {event.registration_url && <div className="col-span-2"><span className="text-apex-dim">URL:</span> <a href={event.registration_url} target="_blank" rel="noopener" className="text-apex-cyan hover:underline">{event.registration_url}</a></div>}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-apex-surface border border-apex-yellow-dim p-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        <div>
+          <div className={labelClass}>Nazwa</div>
+          <input value={form.name || ''} onChange={e => set('name', e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <div className={labelClass}>Data</div>
+          <input type="date" value={form.date || ''} onChange={e => set('date', e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <div className={labelClass}>Miasto</div>
+          <input value={form.location || ''} onChange={e => set('location', e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <div className={labelClass}>Województwo</div>
+          <select value={form.voivodeship || ''} onChange={e => set('voivodeship', e.target.value)} className={`${inputClass} appearance-none cursor-pointer`}>
+            <option value="">—</option>
+            {VOIVODESHIPS.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </div>
+        <div>
+          <div className={labelClass}>Dystanse (oddzielone przecinkami, np. "5 km, 10 km")</div>
+          <input value={(form.distances || []).join(', ')} onChange={e => set('distances', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} className={inputClass} />
+        </div>
+        <div>
+          <div className={labelClass}>Link do wydarzenia</div>
+          <input type="url" value={form.registration_url || ''} onChange={e => set('registration_url', e.target.value)} className={inputClass} />
+        </div>
+        <div className="md:col-span-2">
+          <div className={labelClass}>Typ wydarzenia</div>
+          <div className="flex flex-wrap gap-1.5">
+            {EVENT_TYPES.map(t => (
+              <button key={t} type="button" onClick={() => toggleType(t)}
+                className={`font-mono text-[10px] font-semibold px-2 py-1 border transition-all ${(form.event_type || []).includes(t) ? 'border-apex-cyan text-apex-cyan bg-apex-cyan/10' : 'border-apex-border text-apex-muted'}`}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={handleSave} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Zapisz i zatwierdź</button>
+        <button onClick={() => { setForm({ ...event }); setEditing(false) }} className={`${btnBase} border border-apex-border text-apex-muted`}>Anuluj</button>
+      </div>
+    </div>
+  )
+}
 
 export default function Moderation() {
   const [tab, setTab] = useState('pending')
@@ -30,6 +144,17 @@ export default function Moderation() {
     setLoading(true)
     Promise.all([fetchPending(), fetchReports()]).finally(() => setLoading(false))
   }, [fetchPending, fetchReports])
+
+  const saveEvent = async (id, updates) => {
+    await fetch(`${API}/api/calendar-events/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    })
+    // Also approve after saving edits
+    await fetch(`${API}/api/calendar-events/${id}/approve`, { method: 'PATCH' })
+    setPendingEvents(prev => prev.filter(e => e.id !== id))
+  }
 
   const approveEvent = async (id) => {
     await fetch(`${API}/api/calendar-events/${id}/approve`, { method: 'PATCH' })
@@ -86,23 +211,7 @@ export default function Moderation() {
         <div className="space-y-3">
           {pendingEvents.length === 0 && <div className="text-apex-muted py-8 text-center">Brak oczekujących wydarzeń.</div>}
           {pendingEvents.map(ev => (
-            <div key={ev.id} className="bg-apex-surface border border-apex-border p-4">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <div className="font-display font-bold text-base tracking-wide uppercase text-apex-text-bright">{ev.name}</div>
-                  <div className="text-sm text-apex-muted mt-0.5">{ev.date} &middot; {ev.location || '—'} &middot; {ev.voivodeship || '—'}</div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => approveEvent(ev.id)} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Zatwierdź</button>
-                  <button onClick={() => deleteEvent(ev.id)} className={`${btnBase} border border-apex-red text-apex-red hover:bg-apex-red hover:text-white`}>Usuń</button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                {ev.distances && <div><span className="text-apex-dim">Dystanse:</span> <span className="text-apex-text">{ev.distances.join(', ')}</span></div>}
-                {ev.event_type && <div><span className="text-apex-dim">Typ:</span> <span className="text-apex-text">{ev.event_type.join(', ')}</span></div>}
-                {ev.registration_url && <div><span className="text-apex-dim">URL:</span> <a href={ev.registration_url} target="_blank" rel="noopener" className="text-apex-cyan hover:underline truncate">{ev.registration_url}</a></div>}
-              </div>
-            </div>
+            <EditableEvent key={ev.id} event={ev} onSave={saveEvent} onApprove={approveEvent} onDelete={deleteEvent} />
           ))}
         </div>
       )}
@@ -129,7 +238,7 @@ export default function Moderation() {
                         <div className="text-[10px] text-apex-dim uppercase mb-0.5">Sugerowana</div>
                         {editingReport === r.id ? (
                           <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                            className="w-full bg-apex-surface border border-apex-yellow-dim text-apex-text-bright text-sm py-1 px-2 outline-none"
+                            className={inputClass}
                             autoFocus onKeyDown={(e) => e.key === 'Enter' && acceptReport(r.id, editValue)} />
                         ) : (
                           <div className="text-sm text-apex-text-bright">{r.suggested_value || '—'}</div>
