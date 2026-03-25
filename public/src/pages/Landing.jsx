@@ -146,7 +146,7 @@ function EventsSection() {
     const today = new Date().toISOString().split('T')[0]
     supabase
       .from('events')
-      .select('id, name, date, location, slug')
+      .select('id, name, date, location, slug, event_url')
       .gte('date', today)
       .order('date', { ascending: true })
       .limit(5)
@@ -178,7 +178,15 @@ function EventsSection() {
                 {nextEvent.name}
               </div>
               {nextEvent.location && <div className="text-sm text-apex-muted mt-1">{nextEvent.location}</div>}
-              <div className="font-mono text-[10px] tracking-widest uppercase text-apex-cyan mt-3">Wyniki na żywo &rarr;</div>
+              <div className="flex gap-4 mt-3">
+                <span className="font-mono text-[10px] tracking-widest uppercase text-apex-cyan">Wyniki na żywo &rarr;</span>
+                {nextEvent.event_url && (
+                  <a href={nextEvent.event_url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
+                    className="font-mono text-[10px] tracking-widest uppercase text-apex-yellow hover:text-apex-yellow-bright">
+                    Strona wydarzenia &rarr;
+                  </a>
+                )}
+              </div>
             </div>
             <Countdown targetDate={nextEvent.date} />
           </div>
