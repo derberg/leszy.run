@@ -17,7 +17,7 @@ const FIELDS = [
   { value: 'voivodeship', label: 'Województwo' },
   { value: 'distances', label: 'Dystanse' },
   { value: 'event_type', label: 'Typ wydarzenia' },
-  { value: 'registration_url', label: 'Link do rejestracji' },
+  { value: 'registration_url', label: 'Link do wydarzenia' },
   { value: 'cancelled', label: 'Wydarzenie odwołane' },
 ]
 

@@ -210,7 +210,7 @@ export default function DodajWydarzenie() {
             </div>
 
             <div>
-              <label className={labelClass}>Link do rejestracji</label>
+              <label className={labelClass}>Link do wydarzenia</label>
               <input type="url" value={form.registrationUrl} onChange={set('registrationUrl')} className={inputClass} placeholder="https://..." />
             </div>
 
