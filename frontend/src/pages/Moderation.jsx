@@ -228,8 +228,13 @@ export default function Moderation() {
           {Object.entries(reportsByEvent).map(([eventId, { event, reports: evReports }]) => (
             <div key={eventId} className="bg-apex-surface border border-apex-border p-4">
               {/* Report details */}
-              <div className="font-display font-bold text-sm tracking-wide uppercase text-apex-text-bright mb-3">
-                {event?.name || 'Nieznane wydarzenie'} <span className="text-apex-muted font-mono text-[10px] font-normal ml-2">{event?.date}</span>
+              <div className="font-display font-bold text-sm tracking-wide uppercase mb-3">
+                {event?.registration_url ? (
+                  <a href={event.registration_url} target="_blank" rel="noopener" className="text-apex-cyan hover:underline">{event?.name || 'Nieznane wydarzenie'}</a>
+                ) : (
+                  <span className="text-apex-text-bright">{event?.name || 'Nieznane wydarzenie'}</span>
+                )}
+                <span className="text-apex-muted font-mono text-[10px] font-normal ml-2">{event?.date}</span>
               </div>
               <div className="space-y-2 mb-4">
                 {evReports.map(r => (
