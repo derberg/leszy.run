@@ -52,8 +52,8 @@ export default function FilterBar({ filters, onChange, view, onViewChange }) {
   const count = activeFilterCount(filters)
 
   return (
-    <div className="sticky top-14 z-40 bg-apex-bg/92 backdrop-blur-md border-b border-apex-border py-4 px-6">
-      <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+    <div className="sticky top-14 z-40 bg-apex-bg/92 backdrop-blur-md border-b border-apex-border py-4">
+      <div className="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
         <div className="flex gap-3 w-full md:w-auto">
           <input
             type="text"
