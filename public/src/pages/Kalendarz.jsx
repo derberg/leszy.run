@@ -10,6 +10,29 @@ import useTheme from '../hooks/useTheme.js'
 
 const PAGE_SIZE = 50
 
+function normName(name) {
+  return name.toLowerCase().replace(/[^a-z0-9ąćęłńóśźż ]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+function nameSimilar(a, b) {
+  const na = normName(a), nb = normName(b)
+  // One contains the other or starts with the same prefix (first 60% of shorter)
+  if (na.includes(nb) || nb.includes(na)) return true
+  const minLen = Math.min(na.length, nb.length)
+  const prefixLen = Math.floor(minLen * 0.6)
+  if (prefixLen > 5 && na.slice(0, prefixLen) === nb.slice(0, prefixLen)) return true
+  return false
+}
+
+function dedup(events) {
+  const seen = []
+  return events.filter(e => {
+    const isDup = seen.some(s => s.date === e.date && nameSimilar(s.name, e.name))
+    if (!isDup) { seen.push(e); return true }
+    return false
+  })
+}
+
 function getDateRange(timeRange) {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -87,7 +110,8 @@ export default function Kalendarz() {
       const { data, count, error } = await query
       if (error) console.error('Calendar fetch error:', error.message)
 
-      let filteredData = data || []
+      // Deduplicate: same date + similar name → keep first
+      let filteredData = dedup(data || [])
 
       if (filters.distance && filteredData.length > 0) {
         const [minDist, maxDist] = filters.distance.split('-').map(Number)
