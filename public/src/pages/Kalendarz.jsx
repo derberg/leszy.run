@@ -48,7 +48,7 @@ function LeszyrunBanner() {
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20 flex-shrink-0">
-              LESZY.RUN
+              POLECAMY
             </span>
             <span className="font-display font-bold text-sm tracking-wide uppercase text-apex-text-bright group-hover:text-apex-yellow transition-colors truncate">
               {event.name}
