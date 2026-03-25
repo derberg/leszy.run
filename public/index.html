@@ -6,11 +6,11 @@
     <title>Leszy.run — Pomiar czasu i obsluga biegow</title>
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
     <script>
-      // Prevent flash of wrong theme on page load
+      // Prevent flash of wrong theme on page load — light is default
       (function() {
         var t = localStorage.getItem('leszy-theme');
-        if (t === 'light') document.documentElement.classList.add('light');
-        else if (t === 'dark') document.documentElement.classList.add('dark');
+        if (t === 'dark') document.documentElement.classList.add('dark');
+        else if (t === 'light' || !window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('light');
       })();
     </script>
   </head>

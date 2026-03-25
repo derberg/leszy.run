@@ -91,6 +91,10 @@ function dedup(events) {
   })
 }
 
+function toLocalDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function getDateRange(timeRange) {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -102,15 +106,15 @@ function getDateRange(timeRange) {
     case 'next-month': {
       const nextStart = new Date(start.getFullYear(), start.getMonth() + 1, 1)
       const nextEnd = new Date(nextStart.getFullYear(), nextStart.getMonth() + 1, 0)
-      return [nextStart.toISOString().split('T')[0], nextEnd.toISOString().split('T')[0]]
+      return [toLocalDateStr(nextStart), toLocalDateStr(nextEnd)]
     }
     case 'year': end = new Date(start.getFullYear(), 11, 31); break
     default: break
   }
 
   return [
-    start.toISOString().split('T')[0],
-    end ? end.toISOString().split('T')[0] : null,
+    toLocalDateStr(start),
+    end ? toLocalDateStr(end) : null,
   ]
 }
 
