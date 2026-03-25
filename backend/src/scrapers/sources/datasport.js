@@ -83,12 +83,10 @@ async function scrape() {
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i]
       let distances = ''
-      let description = ''
 
       const detail = await fetchDetailPage(entry.sourceId)
       if (detail) {
         distances = detail.distances
-        description = detail.rawDescription
       }
 
       results.push({
@@ -96,7 +94,6 @@ async function scrape() {
         date: entry.date,
         location: entry.location,
         distances,
-        description,
         registration_url: null,
         source: 'datasport',
         source_url: LIST_URL,

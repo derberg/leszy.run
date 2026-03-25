@@ -64,9 +64,7 @@ Extract the following information. Return ONLY valid JSON, no other text.
   "voivodeship": "one of 16 Polish voivodeships" or null,
   "price_from_pln": number (lowest entry fee in PLN) or null,
   "price_to_pln": number (highest entry fee in PLN) or null,
-  "organizer": "organizer name" or null,
-  "registration_deadline": "YYYY-MM-DD" or null,
-  "description": "1-2 sentence summary of the event in Polish" or null
+  "registration_deadline": "YYYY-MM-DD" or null
 }
 
 Rules:
@@ -124,16 +122,8 @@ function validateAndMerge(event, extracted) {
     if (!event.price_to) updates.price_to = Math.round(extracted.price_to_pln * 100)
   }
 
-  if (extracted.organizer && typeof extracted.organizer === 'string') {
-    if (!event.organizer) updates.organizer = extracted.organizer.slice(0, 200)
-  }
-
   if (extracted.registration_deadline && /^\d{4}-\d{2}-\d{2}$/.test(extracted.registration_deadline)) {
     if (!event.registration_deadline) updates.registration_deadline = extracted.registration_deadline
-  }
-
-  if (extracted.description && typeof extracted.description === 'string') {
-    if (!event.description) updates.description = extracted.description.slice(0, 2000)
   }
 
   return updates
@@ -171,7 +161,7 @@ async function main() {
   // Fetch events needing enrichment (have URL, no enriched_at)
   const { data: events, error } = await supabase
     .from('calendar_events')
-    .select('id, name, date, location, registration_url, distances, distances_meters, event_type, voivodeship, price_from, price_to, organizer, registration_deadline, description')
+    .select('id, name, date, location, registration_url, distances, distances_meters, event_type, voivodeship, price_from, price_to, registration_deadline')
     .is('enriched_at', null)
     .not('registration_url', 'is', null)
     .eq('status', 'active')

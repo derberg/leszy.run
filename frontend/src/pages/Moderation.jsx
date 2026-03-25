@@ -100,10 +100,8 @@ export default function Moderation() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                 {ev.distances && <div><span className="text-apex-dim">Dystanse:</span> <span className="text-apex-text">{ev.distances.join(', ')}</span></div>}
                 {ev.event_type && <div><span className="text-apex-dim">Typ:</span> <span className="text-apex-text">{ev.event_type.join(', ')}</span></div>}
-                {ev.organizer && <div><span className="text-apex-dim">Organizator:</span> <span className="text-apex-text">{ev.organizer}</span></div>}
                 {ev.registration_url && <div><span className="text-apex-dim">URL:</span> <a href={ev.registration_url} target="_blank" rel="noopener" className="text-apex-cyan hover:underline truncate">{ev.registration_url}</a></div>}
               </div>
-              {ev.description && <div className="text-xs text-apex-muted mt-2 line-clamp-2">{ev.description}</div>}
             </div>
           ))}
         </div>

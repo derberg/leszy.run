@@ -30,7 +30,7 @@ const labelClass = 'block font-display font-bold text-xs tracking-widest upperca
 export default function DodajWydarzenie() {
   const [form, setForm] = useState({
     name: '', date: '', location: '', voivodeship: '',
-    registrationUrl: '', organizer: '', description: '', honeypot: '',
+    registrationUrl: '', honeypot: '',
   })
   const [distances, setDistances] = useState([])
   const [customDist, setCustomDist] = useState('')
@@ -85,8 +85,6 @@ export default function DodajWydarzenie() {
       distances_meters: distMeters,
       event_type: eventTypes.length ? eventTypes : null,
       registration_url: form.registrationUrl.trim() || null,
-      organizer: form.organizer.trim() || null,
-      description: form.description.trim() || null,
       source: 'community',
       status: 'pending',
     })
@@ -214,16 +212,6 @@ export default function DodajWydarzenie() {
             <div>
               <label className={labelClass}>Link do rejestracji</label>
               <input type="url" value={form.registrationUrl} onChange={set('registrationUrl')} className={inputClass} placeholder="https://..." />
-            </div>
-
-            <div>
-              <label className={labelClass}>Organizator</label>
-              <input type="text" value={form.organizer} onChange={set('organizer')} className={inputClass} placeholder="np. Fundacja Biegowa" />
-            </div>
-
-            <div>
-              <label className={labelClass}>Opis</label>
-              <textarea value={form.description} onChange={set('description')} rows={3} className={`${inputClass} resize-none`} placeholder="Krótki opis wydarzenia..." />
             </div>
 
             {error && <div className="text-apex-red text-sm">{error}</div>}

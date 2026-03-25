@@ -102,7 +102,6 @@ function DuplicateGroup({ group, onDelete }) {
         const meta = []
         if (ev.distances?.length) meta.push(ev.distances.join(', '))
         if (ev.event_type?.length) meta.push(ev.event_type.join(', '))
-        if (ev.organizer) meta.push(`org: ${ev.organizer}`)
         if (ev.price_from != null || ev.price_to != null) {
           const p = ev.price_from != null && ev.price_to != null
             ? `${ev.price_from}–${ev.price_to} zł`
@@ -115,7 +114,6 @@ function DuplicateGroup({ group, onDelete }) {
         if (ev.lat != null) flags.push('geo')
         if (ev.is_night) flags.push('nocny')
         if (ev.is_charity) flags.push('charytatywny')
-        if (ev.description) flags.push('opis')
 
         return (
         <div key={ev.id} className="flex items-start gap-3 px-3 py-2.5 border-b border-apex-border last:border-b-0 hover:bg-apex-surface-2">

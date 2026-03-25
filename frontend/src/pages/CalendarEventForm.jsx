@@ -4,8 +4,8 @@ import { api } from '../lib/api.js'
 
 const EMPTY_EVENT = {
   name: '', date: '', location: '', voivodeship: '',
-  event_type: [], distances: '', description: '',
-  registration_url: '', organizer: '', website: '',
+  event_type: [], distances: '',
+  registration_url: '', website: '',
   is_night: false, is_charity: false,
 }
 
@@ -77,14 +77,6 @@ export default function CalendarEventForm() {
         <div>
           <label className="font-mono text-[10px] tracking-widest uppercase text-apex-muted block mb-1">URL zapisow</label>
           <input type="url" value={form.registration_url} onChange={e => update('registration_url', e.target.value)} className={inputClass} />
-        </div>
-        <div>
-          <label className="font-mono text-[10px] tracking-widest uppercase text-apex-muted block mb-1">Organizator</label>
-          <input value={form.organizer} onChange={e => update('organizer', e.target.value)} className={inputClass} />
-        </div>
-        <div>
-          <label className="font-mono text-[10px] tracking-widest uppercase text-apex-muted block mb-1">Opis</label>
-          <textarea value={form.description} onChange={e => update('description', e.target.value)} rows={3} className={inputClass} />
         </div>
         <div className="flex gap-6">
           <label className="flex items-center gap-2 text-sm text-apex-text cursor-pointer">

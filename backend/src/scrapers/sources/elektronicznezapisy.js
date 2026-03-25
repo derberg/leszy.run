@@ -128,7 +128,6 @@ async function scrape() {
         date: detail.date || entry.date,
         location: detail.location || '',
         distances: detail.distances || '',
-        description: detail.rawDescription || '',
         registration_url: entry.signupLink
           ? `${BASE_URL}/${entry.signupLink}`
           : `${BASE_URL}/event/${entry.eventId}/strona.html`,

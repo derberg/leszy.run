@@ -201,8 +201,8 @@ async function normalizeEvent(raw) {
   const date = parseDate(raw.date)
   if (!date) return null
 
-  const { distances, distances_meters } = parseDistances(raw.distances || '', raw.name, raw.description)
-  const eventType = classifyType(raw.name, raw.description, raw.location)
+  const { distances, distances_meters } = parseDistances(raw.distances || '', raw.name, '')
+  const eventType = classifyType(raw.name, '', raw.location)
   const cleanedLocation = cleanLocation(raw.location)
   const { lat, lng, voivodeship: geoVoivodeship } = await geocode(cleanedLocation)
 
@@ -221,13 +221,10 @@ async function normalizeEvent(raw) {
     event_type: eventType,
     distances,
     distances_meters,
-    description: raw.description || null,
-    raw_description: raw.description || null,
     registration_url: raw.registration_url || null,
     registration_deadline: raw.registration_deadline ? parseDate(raw.registration_deadline) : null,
     price_from: raw.price_from || null,
     price_to: raw.price_to || null,
-    organizer: raw.organizer || null,
     website: raw.website || null,
     is_night: eventType.includes('nocny'),
     is_charity: eventType.includes('charytatywny'),

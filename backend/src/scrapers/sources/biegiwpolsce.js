@@ -151,7 +151,6 @@ async function scrape() {
       location: entry.location,
       voivodeship: entry.voivodeship,
       distances: entry.distances || '',
-      description: entry.rawDescription || '',
       registration_url: null,
       source: 'biegiwpolsce',
       source_url: BASE_URL,

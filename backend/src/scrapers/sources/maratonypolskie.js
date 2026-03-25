@@ -153,9 +153,6 @@ async function scrape() {
         const $d = cheerio.load(detailHtml)
         const pageText = $d('body').text().replace(/\s+/g, ' ').trim()
 
-        // Store raw description (up to 5000 chars)
-        event.description = pageText.slice(0, 5000)
-
         // Extract distances from detail page
         const distMatches = [...pageText.matchAll(/(\d+[\.,]?\d*)\s*km/gi)]
         const distances = []
