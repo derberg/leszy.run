@@ -28,17 +28,17 @@ export async function eventsRoutes(fastify) {
 
   // Create event
   fastify.post('/events', async (req, reply) => {
-    const { name, description, date, location } = req.body
+    const { name, description, date, location, eventUrl } = req.body
     if (!name) return reply.code(400).send({ error: 'name is required' })
 
     const slug = name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-')
-    const [row] = await db.insert(events).values({ name, description, date, location, slug }).returning()
+    const [row] = await db.insert(events).values({ name, description, date, location, eventUrl, slug }).returning()
     return reply.code(201).send({ data: row })
   })
 
   // Update event (includes RFID settings)
   fastify.patch('/events/:id', async (req, reply) => {
-    const allowed = ['name', 'description', 'date', 'location', 'rfidMode', 'rfidTopicMain', 'rfidTopicFinish', 'rssiThreshold', 'declineThresholdCdbm', 'fallbackSeconds', 'gunBackfillSeconds', 'slug', 'publicResultsUrl']
+    const allowed = ['name', 'description', 'date', 'location', 'rfidMode', 'rfidTopicMain', 'rfidTopicFinish', 'rssiThreshold', 'declineThresholdCdbm', 'fallbackSeconds', 'gunBackfillSeconds', 'slug', 'publicResultsUrl', 'eventUrl']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
