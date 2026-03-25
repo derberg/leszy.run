@@ -43,7 +43,7 @@ function LeszyrunBanner() {
 
   return (
     <div className="max-w-[1200px] mx-auto px-6 mb-2">
-      <Link to={`/events/${event.slug}/results/live`}
+      <a href={event.event_url || `/events/${event.slug}`} target={event.event_url ? '_blank' : undefined} rel={event.event_url ? 'noopener' : undefined}
         className="block border-l-[3px] border-l-apex-yellow bg-apex-surface border border-apex-border px-4 py-3 hover:bg-apex-surface-2 hover:border-apex-border-mid transition-all no-underline text-inherit group">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -60,10 +60,10 @@ function LeszyrunBanner() {
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             {countdown && <span className="font-mono text-[11px] font-semibold text-apex-yellow">{countdown}</span>}
-            <span className="font-mono text-[10px] tracking-widest uppercase text-apex-cyan">Wyniki live &rarr;</span>
+            <span className="font-mono text-[10px] tracking-widest uppercase text-apex-cyan">Szczegóły &rarr;</span>
           </div>
         </div>
-      </Link>
+      </a>
     </div>
   )
 }
