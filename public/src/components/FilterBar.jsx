@@ -54,13 +54,13 @@ export default function FilterBar({ filters, onChange, view, onViewChange }) {
   return (
     <div className="sticky top-14 z-40 bg-apex-bg/92 backdrop-blur-md border-b border-apex-border py-4 px-6">
       <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-        <div className="flex gap-3">
+        <div className="flex gap-3 w-full md:w-auto">
           <input
             type="text"
             placeholder="Szukaj po nazwie, miejscu..."
             value={filters.search}
             onChange={(e) => update('search', e.target.value)}
-            className="flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-[15px] font-medium py-2.5 px-4 outline-none focus:border-apex-yellow-dim placeholder:text-apex-muted"
+            className="flex-1 min-w-0 md:w-[220px] bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-[15px] font-medium py-2.5 px-4 outline-none focus:border-apex-yellow-dim placeholder:text-apex-muted"
             aria-label="Szukaj wydarzeń"
           />
           <button
