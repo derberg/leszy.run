@@ -12,8 +12,9 @@ function loadGA() {
   document.head.appendChild(script)
   window.dataLayer = window.dataLayer || []
   function gtag() { window.dataLayer.push(arguments) }
+  window.gtag = gtag
   gtag('js', new Date())
-  gtag('config', GA_ID)
+  gtag('config', GA_ID, { send_page_view: false })
 }
 
 function removeGA() {

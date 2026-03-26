@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
+import useSeo from '../hooks/useSeo.js'
 
 export default function Home() {
+  useSeo({
+    title: 'Wydarzenia',
+    description: 'Lista wszystkich wydarzeń sportowych obsługiwanych przez Leszy.run. Wyniki na żywo, pomiar czasu RFID.',
+    path: '/events',
+  })
+
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
 

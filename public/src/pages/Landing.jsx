@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import useTheme from '../hooks/useTheme.js'
+import useSeo from '../hooks/useSeo.js'
 
 function HeroSection() {
   const { isDark } = useTheme()
@@ -287,6 +288,24 @@ function ContactSection() {
 }
 
 export default function Landing() {
+  useSeo({
+    title: 'Pomiar czasu i obsługa biegów',
+    description: 'Profesjonalna obsługa biegów i wydarzeń sportowych. Pomiar czasu RFID, zapisy online, wyniki na żywo. Kalendarz biegów w Polsce — setki wydarzeń w jednym miejscu.',
+    path: '/',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      name: 'Leszy.run',
+      description: 'Profesjonalna obsługa biegów i wydarzeń sportowych — pomiar czasu RFID, zapisy, wyniki na żywo.',
+      url: 'https://leszy.run',
+      telephone: '+48784640977',
+      email: 'lpgornicki@gmail.com',
+      address: { '@type': 'PostalAddress', addressCountry: 'PL' },
+      priceRange: 'Bezpłatnie dla wydarzeń charytatywnych',
+      serviceType: ['Pomiar czasu', 'Obsługa biegów', 'Wyniki na żywo', 'Zapisy online'],
+    },
+  })
+
   return (
     <>
       <Navbar />

@@ -1,8 +1,25 @@
 import { Link } from 'react-router-dom'
 import { useEvent } from '../hooks/useEvent.js'
+import useSeo from '../hooks/useSeo.js'
 
 export default function EventHub() {
   const { event, loading, error } = useEvent()
+
+  useSeo({
+    title: event?.name || 'Wydarzenie',
+    description: event ? `${event.name}${event.location ? ` — ${event.location}` : ''}${event.date ? ` — ${event.date}` : ''}. Wyniki na żywo, lista startowa i informacje o wydarzeniu.` : undefined,
+    jsonLd: event ? {
+      '@context': 'https://schema.org',
+      '@type': 'SportsEvent',
+      name: event.name,
+      startDate: event.date,
+      location: event.location ? { '@type': 'Place', name: event.location, address: { '@type': 'PostalAddress', addressCountry: 'PL' } } : undefined,
+      url: `https://leszy.run/events/${event.slug}`,
+      organizer: { '@id': 'https://leszy.run/#organization' },
+      eventStatus: 'https://schema.org/EventScheduled',
+      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    } : undefined,
+  })
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ladowanie...</div>
   if (error) return <div className="flex items-center justify-center min-h-screen text-apex-red">{error}</div>

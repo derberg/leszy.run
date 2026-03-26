@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://leszy.run/sitemap.xml
+
+# Disallow admin and internal routes
+Disallow: /events/*/admin/
+Disallow: /events/*/volunteer
+Disallow: /events/*/checkin

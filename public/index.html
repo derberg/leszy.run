@@ -3,8 +3,93 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Leszy.run — Pomiar czasu i obsluga biegow</title>
+    <title>Leszy.run — Pomiar czasu i obsługa biegów</title>
+    <meta name="description" content="Profesjonalna obsługa biegów i wydarzeń sportowych. Pomiar czasu RFID, zapisy online, wyniki na żywo. Kalendarz biegów w Polsce — setki wydarzeń w jednym miejscu." />
+    <meta name="keywords" content="pomiar czasu, biegi, RFID, wyniki na żywo, kalendarz biegów, wydarzenia sportowe, Polska, nordic walking, trail running, maraton" />
+    <meta name="author" content="Leszy.run" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://leszy.run/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:site_name" content="Leszy.run" />
+    <meta property="og:title" content="Leszy.run — Pomiar czasu i obsługa biegów" />
+    <meta property="og:description" content="Profesjonalna obsługa biegów i wydarzeń sportowych. Pomiar czasu RFID, zapisy online, wyniki na żywo. Kalendarz biegów w Polsce." />
+    <meta property="og:url" content="https://leszy.run/" />
+    <meta property="og:image" content="https://leszy.run/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Leszy.run — Pomiar czasu i obsługa biegów" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Leszy.run — Pomiar czasu i obsługa biegów" />
+    <meta name="twitter:description" content="Profesjonalna obsługa biegów i wydarzeń sportowych. Pomiar czasu RFID, zapisy online, wyniki na żywo." />
+    <meta name="twitter:image" content="https://leszy.run/og-image.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/logo-bez-napisu.svg" />
+    <link rel="apple-touch-icon" href="/logo-bez-napisu.svg" />
+
+    <!-- Preconnect for external resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+
+    <!-- Preload critical fonts to avoid render-blocking -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" as="style" />
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+    <!-- JSON-LD Structured Data: Organization + WebSite -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://leszy.run/#organization",
+          "name": "Leszy.run",
+          "url": "https://leszy.run",
+          "logo": "https://leszy.run/logo-z-napisem.svg",
+          "description": "Profesjonalna obsługa biegów i wydarzeń sportowych — pomiar czasu RFID, zapisy, wyniki na żywo.",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+48-784-640-977",
+            "email": "lpgornicki@gmail.com",
+            "contactType": "customer service",
+            "availableLanguage": "Polish"
+          },
+          "sameAs": []
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://leszy.run/#website",
+          "name": "Leszy.run",
+          "url": "https://leszy.run",
+          "description": "Pomiar czasu i obsługa biegów. Kalendarz wydarzeń sportowych w Polsce.",
+          "publisher": { "@id": "https://leszy.run/#organization" },
+          "inLanguage": "pl-PL",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://leszy.run/kalendarz?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "WebPage",
+          "@id": "https://leszy.run/#webpage",
+          "url": "https://leszy.run",
+          "name": "Leszy.run — Pomiar czasu i obsługa biegów",
+          "isPartOf": { "@id": "https://leszy.run/#website" },
+          "about": { "@id": "https://leszy.run/#organization" },
+          "description": "Profesjonalna obsługa biegów i wydarzeń sportowych. Pomiar czasu RFID, zapisy online, wyniki na żywo. Kalendarz biegów w Polsce.",
+          "inLanguage": "pl-PL"
+        }
+      ]
+    }
+    </script>
+
     <script>
       // Prevent flash of wrong theme on page load — light is default
       (function() {

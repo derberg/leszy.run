@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import useTheme from '../hooks/useTheme.js'
+import useSeo from '../hooks/useSeo.js'
 
 const VOIVODESHIPS = [
   'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
@@ -28,6 +29,12 @@ const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-t
 const labelClass = 'block font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-1.5'
 
 export default function DodajWydarzenie() {
+  useSeo({
+    title: 'Dodaj wydarzenie biegowe',
+    description: 'Zgłoś bieg, marsz nordic walking lub inne wydarzenie sportowe do kalendarza Leszy.run. Twoje wydarzenie trafi do setek biegaczy w Polsce.',
+    path: '/kalendarz/dodaj',
+  })
+
   const [form, setForm] = useState({
     name: '', date: '', location: '', voivodeship: '',
     registrationUrl: '', honeypot: '',

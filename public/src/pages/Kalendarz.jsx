@@ -7,6 +7,7 @@ import FilterBar from '../components/FilterBar.jsx'
 import EventRow from '../components/EventRow.jsx'
 import MapView from '../components/MapView.jsx'
 import useTheme from '../hooks/useTheme.js'
+import useSeo from '../hooks/useSeo.js'
 
 const PAGE_SIZE = 50
 
@@ -119,6 +120,20 @@ function getDateRange(timeRange) {
 }
 
 export default function Kalendarz() {
+  useSeo({
+    title: 'Kalendarz biegów w Polsce',
+    description: 'Przeglądaj setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski. Filtruj po regionie, dystansie, typie i dacie.',
+    path: '/kalendarz',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: 'Kalendarz biegów w Polsce',
+      description: 'Agregowany kalendarz wszystkich biegów i wydarzeń sportowych w Polsce.',
+      url: 'https://leszy.run/kalendarz',
+      isPartOf: { '@id': 'https://leszy.run/#website' },
+    },
+  })
+
   const [searchParams, setSearchParams] = useSearchParams()
   const [events, setEvents] = useState([])
   const [total, setTotal] = useState(0)

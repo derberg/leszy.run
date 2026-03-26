@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useEvent } from '../hooks/useEvent.js'
+import useSeo from '../hooks/useSeo.js'
 import CategorySection from './CategorySection.jsx'
 import LiveTracking from './LiveTracking.jsx'
 
@@ -27,18 +28,21 @@ export default function Results() {
       })
   }, [event])
 
-  // Update document title
-  useEffect(() => {
-    if (!event) return
-    if (isLiveView) {
-      document.title = `Na Trasie — ${event.name}`
-    } else if (categoryId) {
+  // SEO meta tags
+  const seoTitle = useMemo(() => {
+    if (!event) return 'Wyniki'
+    if (isLiveView) return `Na Trasie — ${event.name}`
+    if (categoryId) {
       const cat = categories.find(c => c.id === categoryId)
-      document.title = cat ? `${cat.name} — ${event.name}` : event.name
-    } else {
-      document.title = event.name
+      return cat ? `${cat.name} — ${event.name}` : event.name
     }
+    return `Wyniki — ${event.name}`
   }, [event, categories, categoryId, isLiveView])
+
+  useSeo({
+    title: seoTitle,
+    description: event ? `Wyniki ${isLiveView ? 'na żywo' : ''} — ${event.name}${event.location ? `, ${event.location}` : ''}. Pozycje, czasy, podium.` : undefined,
+  })
 
   // Scroll active tab into view
   useEffect(() => {
