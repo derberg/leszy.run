@@ -82,9 +82,19 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
           >
             Filtry{count > 0 ? ` (${count})` : ''}
           </button>
+          <div className="hidden md:flex border border-apex-border overflow-hidden flex-shrink-0" role="group" aria-label="Widok">
+            <button onClick={() => onViewChange('list')}
+              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
+              Lista
+            </button>
+            <button onClick={() => onViewChange('map')}
+              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 transition-all ${view === 'map' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
+              Mapa
+            </button>
+          </div>
         </div>
 
-        <div className={`${open ? 'flex' : 'hidden'} md:flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center flex-1`}>
+        <div className={`${open ? 'flex' : 'hidden'} md:flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center`}>
           <select value={filters.type} onChange={(e) => update('type', e.target.value)} className={selectClass} aria-label="Filtruj po typie">
             {EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
@@ -120,7 +130,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
             </button>
           )}
 
-          <div className="flex border border-apex-border overflow-hidden flex-shrink-0 md:ml-auto" role="group" aria-label="Widok">
+          <div className="flex md:hidden border border-apex-border overflow-hidden flex-shrink-0" role="group" aria-label="Widok">
             <button onClick={() => onViewChange('list')}
               className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
               Lista
