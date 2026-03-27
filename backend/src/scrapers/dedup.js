@@ -29,23 +29,23 @@ async function findExistingMatch(event) {
   if (event.source_id) {
     const { data } = await supabase
       .from('calendar_events')
-      .select('id')
+      .select('id, status')
       .eq('source', event.source)
       .eq('source_id', event.source_id)
       .single()
 
-    if (data) return data.id
+    if (data) return data
   }
 
   const { data: candidates } = await supabase
     .from('calendar_events')
-    .select('id, name, location')
+    .select('id, name, location, status')
     .eq('date', event.date)
 
   if (candidates) {
     for (const candidate of candidates) {
       if (nameSimilarity(candidate.name, event.name) > 0.8) {
-        return candidate.id
+        return candidate
       }
     }
   }
@@ -56,9 +56,14 @@ async function findExistingMatch(event) {
 async function upsertEvent(event) {
   if (!supabase) return { action: 'skipped', id: null, error: { message: 'Supabase not configured' } }
 
-  const existingId = await findExistingMatch(event)
+  const existing = await findExistingMatch(event)
 
-  if (existingId) {
+  if (existing) {
+    // Never resurrect rejected events
+    if (existing.status === 'rejected') {
+      return { action: 'skipped', id: existing.id, error: null }
+    }
+
     const updates = {}
     for (const [key, value] of Object.entries(event)) {
       if (value !== null && value !== undefined) {
@@ -67,13 +72,15 @@ async function upsertEvent(event) {
     }
     updates.updated_at = new Date().toISOString()
     updates.last_verified_at = new Date().toISOString()
+    // Don't overwrite status on existing events
+    delete updates.status
 
     const { error } = await supabase
       .from('calendar_events')
       .update(updates)
-      .eq('id', existingId)
+      .eq('id', existing.id)
 
-    return { action: 'updated', id: existingId, error }
+    return { action: 'updated', id: existing.id, error }
   } else {
     const { data, error } = await supabase
       .from('calendar_events')

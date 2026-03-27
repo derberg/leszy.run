@@ -134,8 +134,21 @@ export async function calendarEventsRoutes(fastify) {
     return { data }
   })
 
+  fastify.patch('/calendar-events/:id/reject', async (request, reply) => {
+    const { id } = request.params
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .update({ status: 'rejected', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) return reply.status(400).send({ error: error.message })
+    return { data }
+  })
+
   fastify.post('/calendar-events', async (request, reply) => {
-    const event = { ...request.body, source: 'manual' }
+    const event = { ...request.body, source: 'manual', status: 'active' }
     if (event.voivodeship) event.voivodeship = capitalizeVoivodeship(event.voivodeship)
     const { data, error } = await supabase
       .from('calendar_events')

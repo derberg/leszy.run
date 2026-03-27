@@ -145,7 +145,7 @@ async function enrichEvents() {
     .select('id, name, date, location, registration_url, distances, event_type, voivodeship, registration_deadline')
     .is('enriched_at', null)
     .not('registration_url', 'is', null)
-    .eq('status', 'active')
+    .in('status', ['active', 'pending'])
     .gte('date', new Date().toISOString().split('T')[0])
     .limit(parseInt(process.env.LLM_BATCH_SIZE || '50', 10))
 

@@ -58,7 +58,7 @@ async function resolveUrls() {
     .from('calendar_events')
     .select('id, name, date, location')
     .is('registration_url', null)
-    .eq('status', 'active')
+    .in('status', ['active', 'pending'])
     .gte('date', new Date().toISOString().split('T')[0])
     .limit(50)
 
