@@ -202,9 +202,21 @@ async function normalizeEvent(raw) {
   if (!date) return null
 
   const { distances } = parseDistances(raw.distances || '', raw.name, '')
-  const eventType = classifyType(raw.name, '', raw.location)
+  const eventType = raw.event_type
+    ? (Array.isArray(raw.event_type) ? raw.event_type : [raw.event_type])
+    : classifyType(raw.name, '', raw.location)
   const cleanedLocation = cleanLocation(raw.location)
-  const { lat, lng, voivodeship: geoVoivodeship } = await geocode(cleanedLocation)
+
+  // Use scraper-provided lat/lng if available, otherwise geocode
+  let lat = raw.lat || null
+  let lng = raw.lng || null
+  let geoVoivodeship = null
+  if (!lat || !lng) {
+    const geo = await geocode(cleanedLocation)
+    lat = geo.lat
+    lng = geo.lng
+    geoVoivodeship = geo.voivodeship
+  }
 
   // Voivodeship priority: scraper data > geocoder (Nominatim) > hardcoded city map
   const rawVoivodeship = raw.voivodeship || geoVoivodeship || detectVoivodeship(cleanedLocation || raw.location, raw.name)
@@ -230,6 +242,7 @@ async function normalizeEvent(raw) {
     source: raw.source,
     source_url: raw.source_url || null,
     source_id: raw.source_id || null,
+    status: 'pending',
   }
 }
 
