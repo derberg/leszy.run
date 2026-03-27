@@ -65,7 +65,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
   return (
     <div className="sticky top-14 z-40 bg-apex-bg/92 backdrop-blur-md border-b border-apex-border py-4">
       <div className="max-w-[1200px] mx-auto px-6 flex flex-col gap-3">
-        {/* Row 1: Search + Blisko mnie (left) ... Lista/Mapa (right) */}
+        {/* Row 1: Search + Filtry toggle (mobile) / Search + Blisko mnie + Lista/Mapa (desktop) */}
         <div className="flex gap-3 items-center">
           <input
             type="text"
@@ -87,10 +87,42 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
           {!userLocation ? (
             <button
               onClick={onLocationRequest}
+              className="hidden md:block font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0"
+              aria-label="Pokaż wydarzenia blisko mnie"
+            >
+              📍 Blisko mnie
+            </button>
+          ) : (
+            <button
+              onClick={onLocationClear}
+              className="hidden md:block font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 bg-apex-yellow text-apex-ink border border-apex-yellow transition-all flex-shrink-0"
+              aria-label="Wyłącz filtr lokalizacji"
+            >
+              📍 Twoja lokalizacja ✕
+            </button>
+          )}
+
+          <div className="hidden md:flex border border-apex-border overflow-hidden flex-shrink-0 ml-auto" role="group" aria-label="Widok">
+            <button onClick={() => onViewChange('list')}
+              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
+              Lista
+            </button>
+            <button onClick={() => onViewChange('map')}
+              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 transition-all ${view === 'map' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
+              Mapa
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile row 2: Blisko mnie + Lista/Mapa (always visible) */}
+        <div className="flex md:hidden gap-3 items-center">
+          {!userLocation ? (
+            <button
+              onClick={onLocationRequest}
               className="font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0"
               aria-label="Pokaż wydarzenia blisko mnie"
             >
-              📍 <span className="hidden md:inline">Blisko mnie</span>
+              📍 Blisko mnie
             </button>
           ) : (
             <button
@@ -98,7 +130,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
               className="font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 bg-apex-yellow text-apex-ink border border-apex-yellow transition-all flex-shrink-0"
               aria-label="Wyłącz filtr lokalizacji"
             >
-              📍 <span className="hidden md:inline">Twoja lokalizacja</span> ✕
+              📍 Twoja lokalizacja ✕
             </button>
           )}
 
