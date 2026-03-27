@@ -82,6 +82,25 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
           >
             Filtry{count > 0 ? ` (${count})` : ''}
           </button>
+
+          {!userLocation ? (
+            <button
+              onClick={onLocationRequest}
+              className="hidden md:block font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0"
+              aria-label="Pokaż wydarzenia blisko mnie"
+            >
+              📍 Blisko mnie
+            </button>
+          ) : (
+            <button
+              onClick={onLocationClear}
+              className="hidden md:block font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 bg-apex-yellow text-apex-ink border border-apex-yellow transition-all flex-shrink-0"
+              aria-label="Wyłącz filtr lokalizacji"
+            >
+              📍 Twoja lokalizacja ✕
+            </button>
+          )}
+
           <div className="hidden md:flex border border-apex-border overflow-hidden flex-shrink-0" role="group" aria-label="Widok">
             <button onClick={() => onViewChange('list')}
               className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
@@ -115,7 +134,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
           {!userLocation ? (
             <button
               onClick={onLocationRequest}
-              className="font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0"
+              className="md:hidden font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0"
               aria-label="Pokaż wydarzenia blisko mnie"
             >
               📍 Blisko mnie
@@ -123,7 +142,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
           ) : (
             <button
               onClick={onLocationClear}
-              className="font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 bg-apex-yellow text-apex-ink border border-apex-yellow transition-all flex-shrink-0"
+              className="md:hidden font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 bg-apex-yellow text-apex-ink border border-apex-yellow transition-all flex-shrink-0"
               aria-label="Wyłącz filtr lokalizacji"
             >
               📍 Twoja lokalizacja ✕
