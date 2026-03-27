@@ -142,6 +142,13 @@ export default function Kalendarz() {
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1', 10))
   const debounceRef = useRef(null)
 
+  const [userLocation, setUserLocation] = useState(() => {
+    const stored = sessionStorage.getItem('leszy_location')
+    return stored ? JSON.parse(stored) : null
+  })
+  const [radius, setRadius] = useState(parseInt(searchParams.get('r') || '50', 10))
+  const [locationError, setLocationError] = useState(null)
+
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',
     type: searchParams.get('type') || '',
@@ -149,6 +156,33 @@ export default function Kalendarz() {
     distance: searchParams.get('dist') || '',
     timeRange: searchParams.get('when') || '',
   })
+
+  const handleLocationRequest = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationError('Twoja przeglądarka nie obsługuje geolokalizacji')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        setUserLocation(loc)
+        sessionStorage.setItem('leszy_location', JSON.stringify(loc))
+        setLocationError(null)
+        setPage(1)
+      },
+      () => {
+        setLocationError('Nie udało się pobrać lokalizacji')
+        setTimeout(() => setLocationError(null), 4000)
+      },
+      { enableHighAccuracy: false, timeout: 10000 }
+    )
+  }, [])
+
+  const handleLocationClear = useCallback(() => {
+    setUserLocation(null)
+    sessionStorage.removeItem('leszy_location')
+    setPage(1)
+  }, [])
 
   const fetchEvents = useCallback(async () => {
     setLoading(true)
@@ -224,9 +258,10 @@ export default function Kalendarz() {
     if (filters.distance) params.set('dist', filters.distance)
     if (filters.timeRange) params.set('when', filters.timeRange)
     if (view !== 'list') params.set('view', view)
+    if (userLocation && radius !== 50) params.set('r', String(radius))
     if (page > 1) params.set('page', String(page))
     setSearchParams(params, { replace: true })
-  }, [filters, view, page, setSearchParams])
+  }, [filters, view, page, radius, userLocation, setSearchParams])
 
   // Debounced filter change
   const handleFilterChange = (newFilters) => {
@@ -279,7 +314,25 @@ export default function Kalendarz() {
 
         <LeszyrunBanner />
 
-        <FilterBar filters={filters} onChange={handleFilterChange} view={view} onViewChange={setView} />
+        <FilterBar
+          filters={filters}
+          onChange={handleFilterChange}
+          view={view}
+          onViewChange={setView}
+          userLocation={userLocation}
+          radius={radius}
+          onLocationRequest={handleLocationRequest}
+          onLocationClear={handleLocationClear}
+          onRadiusChange={setRadius}
+        />
+
+        {locationError && (
+          <div className="max-w-[1200px] mx-auto px-6 mt-2">
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 font-sans text-sm px-4 py-2.5">
+              {locationError}
+            </div>
+          </div>
+        )}
 
         <div className="max-w-[1200px] mx-auto px-6 pt-4 pb-2 flex justify-between items-center">
           <span className="font-mono text-xs text-apex-muted tracking-wide">
