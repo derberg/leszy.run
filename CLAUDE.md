@@ -162,6 +162,18 @@ Configurable per event (stored in `events` table):
 - `rfid_topic_main`: default `'leszyrun'`
 - `rfid_topic_finish`: default `'leszyrun/finish'` (only used when `rfid_mode = 'separate'`)
 
+## Calendar event status values (Supabase `calendar_events` table)
+
+`pending` → `active` (admin approves via "Do przeglądu" tab)
+`pending` → `rejected` (admin rejects — hidden forever, prevents scraper re-adding)
+
+- Scraped events default to `pending` (Supabase column default)
+- Manual events created via admin UI are set to `active` immediately
+- Public kalendarz only shows `active` events
+- Admin "Do przeglądu" tab shows `pending` events with OK/NIE/X actions
+- Dedup finds rejected events by `source + source_id` but skips updating them
+- URL resolver and LLM enricher process both `active` and `pending` events
+
 ## Participant status values
 
 `registered` → `checked_in` → `started` → `finished`
