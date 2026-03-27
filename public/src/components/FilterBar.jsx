@@ -37,19 +37,30 @@ const TIME_RANGES = [
 
 const selectClass = "bg-apex-surface border border-apex-border text-apex-text font-sans text-sm font-semibold py-2.5 pl-3.5 pr-8 outline-none appearance-none cursor-pointer focus:border-apex-yellow-dim w-full md:w-auto"
 
-function activeFilterCount(filters) {
+const SNAP_POINTS = [10, 25, 50, 100, 150, 200]
+const SNAP_THRESHOLD = 0.08 * (200 - 5) // ~8% of range = ~15.6
+
+function snapRadius(value) {
+  for (const snap of SNAP_POINTS) {
+    if (Math.abs(value - snap) <= SNAP_THRESHOLD) return snap
+  }
+  return value
+}
+
+function activeFilterCount(filters, userLocation) {
   let count = 0
   if (filters.type) count++
   if (filters.voivodeship) count++
   if (filters.distance) count++
   if (filters.timeRange) count++
+  if (userLocation) count++
   return count
 }
 
-export default function FilterBar({ filters, onChange, view, onViewChange }) {
+export default function FilterBar({ filters, onChange, view, onViewChange, userLocation, radius, onLocationRequest, onLocationClear, onRadiusChange }) {
   const [open, setOpen] = useState(false)
   const update = (key, value) => onChange({ ...filters, [key]: value })
-  const count = activeFilterCount(filters)
+  const count = activeFilterCount(filters, userLocation)
 
   return (
     <div className="sticky top-14 z-40 bg-apex-bg/92 backdrop-blur-md border-b border-apex-border py-4">
@@ -91,6 +102,24 @@ export default function FilterBar({ filters, onChange, view, onViewChange }) {
             {TIME_RANGES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
 
+          {!userLocation ? (
+            <button
+              onClick={onLocationRequest}
+              className="font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0"
+              aria-label="Pokaż wydarzenia blisko mnie"
+            >
+              📍 Blisko mnie
+            </button>
+          ) : (
+            <button
+              onClick={onLocationClear}
+              className="font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 bg-apex-yellow text-apex-ink border border-apex-yellow transition-all flex-shrink-0"
+              aria-label="Wyłącz filtr lokalizacji"
+            >
+              📍 Twoja lokalizacja ✕
+            </button>
+          )}
+
           <div className="flex border border-apex-border overflow-hidden flex-shrink-0" role="group" aria-label="Widok">
             <button onClick={() => onViewChange('list')}
               className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
@@ -102,6 +131,27 @@ export default function FilterBar({ filters, onChange, view, onViewChange }) {
             </button>
           </div>
         </div>
+
+        {userLocation && (
+          <div className="flex items-center gap-4 mt-3 w-full">
+            <label htmlFor="radius-slider" className="font-mono text-xs text-apex-muted whitespace-nowrap flex-shrink-0">
+              Promień:
+            </label>
+            <input
+              id="radius-slider"
+              type="range"
+              min={5}
+              max={200}
+              value={radius}
+              onChange={(e) => onRadiusChange(snapRadius(Number(e.target.value)))}
+              className="flex-1 h-2 appearance-none bg-apex-border rounded-none cursor-pointer accent-apex-yellow [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-8 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-apex-yellow [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-8 [&::-moz-range-thumb]:h-8 [&::-moz-range-thumb]:bg-apex-yellow [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+              aria-label="Promień wyszukiwania w kilometrach"
+            />
+            <span className="font-mono text-sm font-semibold text-apex-yellow whitespace-nowrap flex-shrink-0 min-w-[56px] text-right">
+              {radius} km
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )
