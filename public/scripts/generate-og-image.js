@@ -9,37 +9,34 @@ const ROOT = resolve(__dirname, '..')
 const WIDTH = 1200
 const HEIGHT = 630
 const CX = WIDTH / 2
-const CY = HEIGHT / 2
 
-// OVERDRIVE theme colors
-const BG = '#0A0A10'
-const YELLOW = '#BBDD00'
-const YELLOW_DIM = '#778800'
+// Light theme colors (from app.css html.light)
+const BG = '#F5F5F8'
+const SURFACE = '#FFFFFF'
+const YELLOW = '#6B8000'
+const YELLOW_BRIGHT = '#8EA800'
 const GREEN = '#2D5A27'
-const TEXT_BRIGHT = '#DDDCEC'
-const TEXT_MUTED = '#8886A0'
-const BORDER = '#1C1C2A'
+const TEXT_BRIGHT = '#1A1830'
+const TEXT_MUTED = '#6B6980'
+const BORDER = '#DCDCE8'
 
 const logoPath = resolve(ROOT, 'public/logo-bez-napisu.svg')
 const logoSvg = readFileSync(logoPath, 'utf-8')
 
 const LOGO_H = 320
 
-// Clean centered layout — logo top, text below, no overlap
 const svgImage = `
 <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Radial glow behind logo -->
     <radialGradient id="glow" cx="50%" cy="35%" r="40%">
-      <stop offset="0%" stop-color="${GREEN}" stop-opacity="0.45"/>
-      <stop offset="30%" stop-color="${GREEN}" stop-opacity="0.2"/>
-      <stop offset="60%" stop-color="${GREEN}" stop-opacity="0.06"/>
+      <stop offset="0%" stop-color="${GREEN}" stop-opacity="0.12"/>
+      <stop offset="30%" stop-color="${GREEN}" stop-opacity="0.05"/>
+      <stop offset="60%" stop-color="${GREEN}" stop-opacity="0.02"/>
       <stop offset="100%" stop-color="${BG}" stop-opacity="0"/>
     </radialGradient>
-    <!-- Scanline pattern -->
     <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse">
       <rect width="4" height="2" fill="transparent"/>
-      <rect y="2" width="4" height="2" fill="${YELLOW}" opacity="0.012"/>
+      <rect y="2" width="4" height="2" fill="${GREEN}" opacity="0.015"/>
     </pattern>
   </defs>
 
@@ -48,10 +45,8 @@ const svgImage = `
   <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#glow)"/>
   <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#scan)"/>
 
-  <!-- Top yellow accent bar -->
+  <!-- Top accent bar -->
   <rect x="0" y="0" width="${WIDTH}" height="4" fill="${YELLOW}"/>
-
-  <!-- ═══ TEXT BLOCK (centered) ═══ -->
 
   <!-- LESZY.RUN -->
   <text x="${CX}" y="450"
@@ -67,8 +62,8 @@ const svgImage = `
     POMIAR CZASU · ZAPISY · WYNIKI NA ŻYWO
   </text>
 
-  <!-- Divider line -->
-  <line x1="${CX - 120}" y1="525" x2="${CX + 120}" y2="525" stroke="${YELLOW_DIM}" stroke-width="1" opacity="0.5"/>
+  <!-- Divider -->
+  <line x1="${CX - 120}" y1="525" x2="${CX + 120}" y2="525" stroke="${YELLOW}" stroke-width="1" opacity="0.4"/>
 
   <!-- Sub-description -->
   <text x="${CX}" y="558"
@@ -81,21 +76,20 @@ const svgImage = `
   <line x1="0" y1="${HEIGHT - 50}" x2="${WIDTH}" y2="${HEIGHT - 50}" stroke="${BORDER}" stroke-width="1"/>
   <text x="60" y="${HEIGHT - 20}"
     font-family="'Rajdhani', Arial, sans-serif" font-weight="500"
-    font-size="14" letter-spacing="3" fill="${TEXT_MUTED}" opacity="0.6">
+    font-size="14" letter-spacing="3" fill="${TEXT_MUTED}" opacity="0.5">
     leszy.run
   </text>
   <text x="${WIDTH - 60}" y="${HEIGHT - 20}"
     font-family="'Rajdhani', Arial, sans-serif" font-weight="500"
-    font-size="14" letter-spacing="3" fill="${YELLOW_DIM}" text-anchor="end" opacity="0.6">
+    font-size="14" letter-spacing="3" fill="${YELLOW}" text-anchor="end" opacity="0.5">
     RFID · LIVE RESULTS
   </text>
 
   <!-- Bottom accent -->
-  <rect x="0" y="${HEIGHT - 3}" width="${WIDTH}" height="3" fill="${YELLOW}" opacity="0.5"/>
+  <rect x="0" y="${HEIGHT - 3}" width="${WIDTH}" height="3" fill="${YELLOW}" opacity="0.4"/>
 </svg>`
 
 async function generate() {
-  // Rasterize logo at target size
   const logoBuffer = await sharp(Buffer.from(logoSvg))
     .resize({ height: LOGO_H, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
@@ -104,13 +98,11 @@ async function generate() {
   const logoMeta = await sharp(logoBuffer).metadata()
   const logoW = logoMeta.width || LOGO_H
 
-  // Rasterize the base card
   const baseBuffer = await sharp(Buffer.from(svgImage))
     .resize(WIDTH, HEIGHT)
     .png()
     .toBuffer()
 
-  // Center logo horizontally, place in upper portion
   const logoX = Math.round((WIDTH - logoW) / 2)
   const logoY = 60
 
