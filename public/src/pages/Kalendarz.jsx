@@ -9,6 +9,7 @@ import MapView from '../components/MapView.jsx'
 import useTheme from '../hooks/useTheme.js'
 import useSeo from '../hooks/useSeo.js'
 import { haversineKm } from '../lib/haversine.js'
+import FeedbackModal from '../components/FeedbackModal.jsx'
 
 const PAGE_SIZE = 50
 
@@ -151,6 +152,8 @@ export default function Kalendarz() {
   const [locationError, setLocationError] = useState(null)
   const [autoExpanded, setAutoExpanded] = useState(false)
 
+  const [showFeedback, setShowFeedback] = useState(false)
+
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',
     type: searchParams.get('type') || '',
@@ -255,8 +258,11 @@ export default function Kalendarz() {
       if (filters.distance && filteredData.length > 0) {
         const [minDist, maxDist] = filters.distance.split('-').map(Number)
         filteredData = filteredData.filter(e => {
-          if (!e.distances_meters || e.distances_meters.length === 0) return false
-          return e.distances_meters.some(d => d >= minDist && d <= maxDist)
+          if (!e.distances || e.distances.length === 0) return false
+          return e.distances.some(d => {
+            const m = Math.round(parseFloat(d) * 1000)
+            return !isNaN(m) && m >= minDist && m <= maxDist
+          })
         })
       }
 
@@ -337,9 +343,14 @@ export default function Kalendarz() {
               <h1 className="font-display font-extrabold text-3xl md:text-5xl tracking-wider uppercase text-apex-text-bright mb-2">Wszystkie wydarzenia w Polsce</h1>
               <p className="text-base text-apex-text max-w-[600px]">Setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski.</p>
             </div>
-            <Link to="/kalendarz/dodaj" className="hidden md:inline-block font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0 mt-1">
-              + Dodaj wydarzenie
-            </Link>
+            <div className="hidden md:flex gap-2 flex-shrink-0 mt-1">
+              <button onClick={() => setShowFeedback(true)} className="font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2.5 border-2 border-apex-border text-apex-muted hover:border-apex-text hover:text-apex-text-bright transition-all">
+                Pomóż ulepszyć
+              </button>
+              <Link to="/kalendarz/dodaj" className="font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all">
+                + Dodaj wydarzenie
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -435,6 +446,7 @@ export default function Kalendarz() {
           <MapView events={events} userLocation={userLocation} radius={radius} />
         )}
       </main>
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
       <Footer />
     </>
   )
