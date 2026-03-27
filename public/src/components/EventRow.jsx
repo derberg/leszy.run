@@ -53,6 +53,7 @@ export default function EventRow({ event }) {
   }
 
   const city = extractCity(event.location)
+  const distKm = event.distanceKm
   const types = event.event_type || []
   const typeLabel = types.length > 0 ? types[0] : null
   const distanceLabel = (event.distances && event.distances.length > 0)
@@ -72,7 +73,23 @@ export default function EventRow({ event }) {
 
         <div className="min-w-0">
           <div className="font-display font-bold text-[15px] md:text-[17px] tracking-wide uppercase text-apex-text-bright truncate">{event.name}</div>
-          {city && <div className="text-[13px] text-apex-muted mt-0.5">{city}</div>}
+          {city && (
+            <div className="text-[13px] text-apex-muted mt-0.5">
+              {city}
+              {distKm != null && (
+                <span className="ml-2 font-mono text-[11px] font-semibold text-apex-yellow-dim">
+                  {distKm} km
+                </span>
+              )}
+            </div>
+          )}
+          {!city && distKm != null && (
+            <div className="text-[13px] mt-0.5">
+              <span className="font-mono text-[11px] font-semibold text-apex-yellow-dim">
+                {distKm} km
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-1.5 items-center flex-shrink-0">
