@@ -32,7 +32,6 @@ function EditableEvent({ event, onSave, onApprove, onDelete }) {
     if (form.registration_url !== event.registration_url) updates.registration_url = form.registration_url || null
     if (JSON.stringify(form.distances) !== JSON.stringify(event.distances)) {
       updates.distances = form.distances
-      updates.distances_meters = (form.distances || []).map(d => Math.round(parseFloat(d) * 1000))
     }
     if (JSON.stringify(form.event_type) !== JSON.stringify(event.event_type)) updates.event_type = form.event_type
 
@@ -130,10 +129,64 @@ function EditableEvent({ event, onSave, onApprove, onDelete }) {
   )
 }
 
+const CATEGORY_BADGES = {
+  missing_feature: { label: 'Funkcja', cls: 'border-apex-cyan text-apex-cyan' },
+  bug: { label: 'Błąd', cls: 'border-apex-red text-apex-red' },
+  content: { label: 'Treść', cls: 'border-apex-yellow text-apex-yellow' },
+  other: { label: 'Inne', cls: 'border-apex-border text-apex-muted' },
+}
+
+function getRelativeTime(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins} min temu`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} godz. temu`
+  const days = Math.floor(hours / 24)
+  return `${days} dni temu`
+}
+
+function FeedbackItem({ item, onReview, onDismiss }) {
+  const [note, setNote] = useState('')
+  const badge = CATEGORY_BADGES[item.category] || CATEGORY_BADGES.other
+  const ago = getRelativeTime(item.created_at)
+
+  return (
+    <div className="bg-apex-surface border border-apex-border p-4">
+      <div className="flex items-center gap-3 mb-2">
+        <span className={`font-mono text-[10px] font-semibold px-2 py-0.5 border ${badge.cls}`}>
+          {badge.label}
+        </span>
+        <span className="font-mono text-[10px] text-apex-muted">{ago}</span>
+        {item.email && (
+          <a href={`mailto:${item.email}`} className="font-mono text-[10px] text-apex-cyan hover:underline ml-auto">{item.email}</a>
+        )}
+      </div>
+      <p className="text-sm text-apex-text mb-3 whitespace-pre-wrap">{item.message}</p>
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Notatka (opcjonalnie)"
+          className="flex-1 bg-apex-bg border border-apex-border text-apex-text-bright text-xs py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim"
+        />
+        <button onClick={() => onReview(item.id, note)} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>
+          Przeczytane
+        </button>
+        <button onClick={() => onDismiss(item.id, note)} className={`${btnBase} border border-apex-red/50 text-apex-red hover:bg-apex-red hover:text-white`}>
+          Odrzuć
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function Moderation() {
   const [tab, setTab] = useState('pending')
   const [pendingEvents, setPendingEvents] = useState([])
   const [reports, setReports] = useState([])
+  const [feedback, setFeedback] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingEventId, setEditingEventId] = useState(null)
 
@@ -149,10 +202,16 @@ export default function Moderation() {
     setReports(json.data || [])
   }, [])
 
+  const fetchFeedback = useCallback(async () => {
+    const res = await fetch(`${API}/api/website-feedback?status=pending`)
+    const json = await res.json()
+    setFeedback(json.data || [])
+  }, [])
+
   useEffect(() => {
     setLoading(true)
-    Promise.all([fetchPending(), fetchReports()]).finally(() => setLoading(false))
-  }, [fetchPending, fetchReports])
+    Promise.all([fetchPending(), fetchReports(), fetchFeedback()]).finally(() => setLoading(false))
+  }, [fetchPending, fetchReports, fetchFeedback])
 
   const saveEvent = async (id, updates) => {
     await fetch(`${API}/api/calendar-events/${id}`, {
@@ -198,6 +257,24 @@ export default function Moderation() {
     setReports(prev => prev.filter(r => r.calendar_event_id !== eventId))
   }
 
+  const reviewFeedback = async (id, adminNote) => {
+    await fetch(`${API}/api/website-feedback/${id}/review`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_note: adminNote || null }),
+    })
+    setFeedback(prev => prev.filter(f => f.id !== id))
+  }
+
+  const dismissFeedback = async (id, adminNote) => {
+    await fetch(`${API}/api/website-feedback/${id}/dismiss`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_note: adminNote || null }),
+    })
+    setFeedback(prev => prev.filter(f => f.id !== id))
+  }
+
   const reportsByEvent = reports.reduce((acc, r) => {
     const eventId = r.calendar_event_id
     if (!acc[eventId]) acc[eventId] = { event: r.calendar_events, reports: [] }
@@ -219,6 +296,9 @@ export default function Moderation() {
         <button onClick={() => setTab('reports')} className={`${tabClass} ${tab === 'reports' ? activeTab : inactiveTab}`}>
           Zgłoszenia ({reports.length})
         </button>
+        <button onClick={() => setTab('feedback')} className={`${tabClass} ${tab === 'feedback' ? activeTab : inactiveTab}`}>
+          Sugestie ({feedback.length})
+        </button>
       </div>
 
       {loading && <div className="text-apex-muted py-8">Ładowanie...</div>}
@@ -228,6 +308,15 @@ export default function Moderation() {
           {pendingEvents.length === 0 && <div className="text-apex-muted py-8 text-center">Brak oczekujących wydarzeń.</div>}
           {pendingEvents.map(ev => (
             <EditableEvent key={ev.id} event={ev} onSave={saveEvent} onApprove={approveEvent} onDelete={deleteEvent} />
+          ))}
+        </div>
+      )}
+
+      {!loading && tab === 'feedback' && (
+        <div className="space-y-3">
+          {feedback.length === 0 && <div className="text-apex-muted py-8 text-center">Brak sugestii do przejrzenia.</div>}
+          {feedback.map(f => (
+            <FeedbackItem key={f.id} item={f} onReview={reviewFeedback} onDismiss={dismissFeedback} />
           ))}
         </div>
       )}
