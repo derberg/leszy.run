@@ -64,14 +64,15 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
 
   return (
     <div className="sticky top-14 z-40 bg-apex-bg/92 backdrop-blur-md border-b border-apex-border py-4">
-      <div className="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-        <div className="flex gap-3 w-full md:w-auto">
+      <div className="max-w-[1200px] mx-auto px-6 flex flex-col gap-3">
+        {/* Row 1: Search + Blisko mnie (left) ... Lista/Mapa (right) */}
+        <div className="flex gap-3 items-center">
           <input
             type="text"
             placeholder="Szukaj po nazwie, miejscu..."
             value={filters.search}
             onChange={(e) => update('search', e.target.value)}
-            className="flex-1 min-w-0 md:w-[220px] bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-[15px] font-medium py-2.5 px-4 outline-none focus:border-apex-yellow-dim placeholder:text-apex-muted"
+            className="flex-1 min-w-0 md:max-w-[260px] bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-[15px] font-medium py-2.5 px-4 outline-none focus:border-apex-yellow-dim placeholder:text-apex-muted"
             aria-label="Szukaj wydarzeń"
           />
           <button
@@ -101,8 +102,19 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
             </button>
           )}
 
+          <div className="hidden md:flex border border-apex-border overflow-hidden flex-shrink-0 ml-auto" role="group" aria-label="Widok">
+            <button onClick={() => onViewChange('list')}
+              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
+              Lista
+            </button>
+            <button onClick={() => onViewChange('map')}
+              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 transition-all ${view === 'map' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
+              Mapa
+            </button>
+          </div>
         </div>
 
+        {/* Row 2: Filter dropdowns (+ mobile-only: Blisko mnie, Lista/Mapa) */}
         <div className={`${open ? 'flex' : 'hidden'} md:flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center`}>
           <select value={filters.type} onChange={(e) => update('type', e.target.value)} className={selectClass} aria-label="Filtruj po typie">
             {EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -139,7 +151,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
             </button>
           )}
 
-          <div className="flex border border-apex-border overflow-hidden flex-shrink-0 md:ml-auto" role="group" aria-label="Widok">
+          <div className="flex md:hidden border border-apex-border overflow-hidden flex-shrink-0" role="group" aria-label="Widok">
             <button onClick={() => onViewChange('list')}
               className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
               Lista
@@ -151,8 +163,9 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
           </div>
         </div>
 
+        {/* Row 3: Radius slider (only when location active) */}
         {userLocation && (
-          <div className="flex items-center gap-4 mt-3 w-full">
+          <div className="flex items-center gap-4 w-full">
             <label htmlFor="radius-slider" className="font-mono text-xs text-apex-muted whitespace-nowrap flex-shrink-0">
               Promień:
             </label>
