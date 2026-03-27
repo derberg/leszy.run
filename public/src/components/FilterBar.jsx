@@ -102,7 +102,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
             </button>
           )}
 
-          <div className="hidden md:flex border border-apex-border overflow-hidden flex-shrink-0 ml-auto" role="group" aria-label="Widok">
+          <div className="flex border border-apex-border overflow-hidden flex-shrink-0 ml-auto" role="group" aria-label="Widok">
             <button onClick={() => onViewChange('list')}
               className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
               Lista
@@ -151,16 +151,6 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
             </button>
           )}
 
-          <div className="flex md:hidden border border-apex-border overflow-hidden flex-shrink-0" role="group" aria-label="Widok">
-            <button onClick={() => onViewChange('list')}
-              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border-r border-apex-border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
-              Lista
-            </button>
-            <button onClick={() => onViewChange('map')}
-              className={`font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 transition-all ${view === 'map' ? 'bg-apex-yellow text-apex-ink' : 'bg-apex-surface text-apex-muted hover:bg-apex-surface-2 hover:text-apex-text-bright'}`}>
-              Mapa
-            </button>
-          </div>
         </div>
 
         {/* Row 3: Radius slider (only when location active) */}
