@@ -8,6 +8,7 @@ import EventRow from '../components/EventRow.jsx'
 import MapView from '../components/MapView.jsx'
 import useTheme from '../hooks/useTheme.js'
 import useSeo from '../hooks/useSeo.js'
+import { haversineKm } from '../lib/haversine.js'
 
 const PAGE_SIZE = 50
 
@@ -148,6 +149,7 @@ export default function Kalendarz() {
   })
   const [radius, setRadius] = useState(parseInt(searchParams.get('r') || '50', 10))
   const [locationError, setLocationError] = useState(null)
+  const [autoExpanded, setAutoExpanded] = useState(false)
 
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',
@@ -211,7 +213,7 @@ export default function Kalendarz() {
 
       // Map view and distance filter need all results (no pagination)
       // (Supabase can't filter "any array element in range" natively)
-      if (view === 'map' || filters.distance) {
+      if (view === 'map' || filters.distance || userLocation) {
         query = query.limit(2000)
       } else {
         const from = (page - 1) * PAGE_SIZE
@@ -224,13 +226,42 @@ export default function Kalendarz() {
       // Deduplicate: same date + similar name → keep first
       let filteredData = dedup(data || [])
 
+      // Location-based distance filtering
+      let isAutoExpanded = false
+      if (userLocation && filteredData.length > 0) {
+        // Calculate distance for all events with coordinates
+        filteredData = filteredData
+          .filter(e => e.lat && e.lng)
+          .map(e => ({
+            ...e,
+            distanceKm: Math.round(haversineKm(userLocation.lat, userLocation.lng, Number(e.lat), Number(e.lng)))
+          }))
+
+        // Filter by radius
+        let nearby = filteredData.filter(e => e.distanceKm <= radius)
+
+        // Auto-expand: if no results, show 5 nearest
+        if (nearby.length === 0 && filteredData.length > 0) {
+          nearby = [...filteredData].sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 5)
+          isAutoExpanded = true
+        }
+
+        // Sort by distance
+        filteredData = nearby.sort((a, b) => a.distanceKm - b.distanceKm)
+      }
+
+      setAutoExpanded(isAutoExpanded)
+
       if (filters.distance && filteredData.length > 0) {
         const [minDist, maxDist] = filters.distance.split('-').map(Number)
         filteredData = filteredData.filter(e => {
           if (!e.distances_meters || e.distances_meters.length === 0) return false
           return e.distances_meters.some(d => d >= minDist && d <= maxDist)
         })
-        // Client-side pagination for distance-filtered results
+      }
+
+      if (userLocation || filters.distance) {
+        // Client-side pagination for client-filtered results
         const from = (page - 1) * PAGE_SIZE
         const paged = filteredData.slice(from, from + PAGE_SIZE)
         setTotal(filteredData.length)
@@ -245,7 +276,7 @@ export default function Kalendarz() {
       setTotal(0)
     }
     setLoading(false)
-  }, [filters, page, view])
+  }, [filters, page, view, userLocation, radius])
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
@@ -340,6 +371,14 @@ export default function Kalendarz() {
           </span>
         </div>
 
+        {autoExpanded && userLocation && (
+          <div className="max-w-[1200px] mx-auto px-6 mt-2">
+            <div className="bg-apex-yellow/10 border border-apex-yellow/30 text-apex-yellow font-sans text-sm px-4 py-2.5">
+              Brak wydarzeń w promieniu {radius} km — pokazujemy 5 najbliższych
+            </div>
+          </div>
+        )}
+
         {view === 'list' ? (
           <div className="max-w-[1200px] mx-auto px-6 pb-16">
             {loading && <div className="text-apex-muted py-8">Ładowanie...</div>}
@@ -393,7 +432,7 @@ export default function Kalendarz() {
             )}
           </div>
         ) : (
-          <MapView events={events} />
+          <MapView events={events} userLocation={userLocation} radius={radius} />
         )}
       </main>
       <Footer />
