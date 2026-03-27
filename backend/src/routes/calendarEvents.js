@@ -75,7 +75,7 @@ export async function calendarEventsRoutes(fastify) {
           // Check location similarity — if both have locations and they differ a lot, skip
           if (a.location && b.location) {
             const locSim = nameSimilarity(a.location, b.location)
-            if (locSim < 0.40) continue
+            if (locSim < 0.50) continue
           }
 
           union(a.id, b.id)

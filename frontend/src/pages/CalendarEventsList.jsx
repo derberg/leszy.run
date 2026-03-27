@@ -75,6 +75,72 @@ function InlineArrayEdit({ event, field, onSave }) {
   )
 }
 
+function EventRow({ event, onSave, onDelete }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const confirmRef = useRef(null)
+
+  useEffect(() => {
+    if (confirmDelete && confirmRef.current) confirmRef.current.focus()
+  }, [confirmDelete])
+
+  return (
+    <tr className="border-b border-apex-border hover:bg-apex-surface-2">
+      <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="date" onSave={onSave} /></td>
+      <td className="py-2 px-2 text-apex-text-bright font-semibold">
+        <InlineEdit event={event} field="name" onSave={onSave} />
+      </td>
+      <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="location" onSave={onSave} /></td>
+      <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="voivodeship" onSave={onSave} /></td>
+      <td className="py-2 px-2 text-xs"><InlineArrayEdit event={event} field="event_type" onSave={onSave} /></td>
+      <td className="py-2 px-2 text-xs"><InlineArrayEdit event={event} field="distances" onSave={onSave} /></td>
+      <td className="py-2 px-2 text-xs">
+        <InlineEdit event={event} field="registration_url" onSave={onSave} />
+      </td>
+      <td className="py-2 px-2 text-xs text-apex-muted">{event.source}</td>
+      <td className="py-2 px-2 text-xs sticky right-0 bg-apex-bg">
+        {confirmDelete ? (
+          <div
+            ref={confirmRef}
+            tabIndex={0}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === 'y' || e.key === 'Y') {
+                e.preventDefault()
+                onDelete(event.id)
+                setConfirmDelete(false)
+              } else if (e.key === 'Escape') {
+                setConfirmDelete(false)
+              }
+            }}
+            onBlur={() => setConfirmDelete(false)}
+            className="flex items-center gap-1"
+          >
+            <button
+              onMouseDown={e => { e.preventDefault(); onDelete(event.id); setConfirmDelete(false) }}
+              className="font-mono text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 border border-red-600 text-red-400 hover:bg-red-600 hover:text-white transition-all"
+            >
+              Enter / Y
+            </button>
+            <button
+              onMouseDown={e => { e.preventDefault(); setConfirmDelete(false) }}
+              className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-apex-border text-apex-muted hover:text-apex-text-bright transition-all"
+            >
+              Esc
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="font-mono text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border border-apex-border text-apex-muted hover:border-red-600 hover:text-red-400 transition-all"
+            title="Usuń"
+          >
+            X
+          </button>
+        )}
+      </td>
+    </tr>
+  )
+}
+
 function DuplicateGroup({ group, onDelete }) {
   const [confirmId, setConfirmId] = useState(null)
   const confirmRef = useRef(null)
@@ -253,7 +319,7 @@ export default function CalendarEventsList() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['calendar-events-admin', filter],
-    queryFn: () => api.get(`/calendar-events?limit=200&filter=${filter}`),
+    queryFn: () => api.get(`/calendar-events?limit=2000&filter=${filter}`),
   })
 
   const { data: dupData } = useQuery({
@@ -269,6 +335,16 @@ export default function CalendarEventsList() {
     mutationFn: ({ id, updates }) => api.patch(`/calendar-events/${id}`, updates),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] }),
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.del(`/calendar-events/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-duplicates'] })
+    },
+  })
+
+  const handleDelete = (id) => deleteMutation.mutate(id)
 
   const handleSave = (id, updates) => {
     // If distances text changes, also update distances_meters
@@ -289,11 +365,12 @@ export default function CalendarEventsList() {
   const incomplete = events.filter(e =>
     !e.location || !e.voivodeship || !e.event_type?.length || !e.distances?.length
   )
+  const noUrl = events.filter(e => !e.registration_url)
   const complete = events.filter(e =>
     e.location && e.voivodeship && e.event_type?.length && e.distances?.length
   )
 
-  const displayed = filter === 'incomplete' ? incomplete : filter === 'duplicates' ? [] : events
+  const displayed = filter === 'incomplete' ? incomplete : filter === 'no-url' ? noUrl : filter === 'duplicates' ? [] : events
 
   const btnClass = (active) =>
     `font-sans text-xs font-semibold tracking-wide uppercase px-4 py-2 border transition-all ${active ? 'bg-apex-yellow text-apex-bg border-apex-yellow' : 'bg-apex-surface border-apex-border text-apex-muted hover:text-apex-text-bright'}`
@@ -312,6 +389,9 @@ export default function CalendarEventsList() {
         <div className="flex gap-2">
           <button onClick={() => setFilter('incomplete')} className={btnClass(filter === 'incomplete')}>
             Niekompletne ({incomplete.length})
+          </button>
+          <button onClick={() => setFilter('no-url')} className={btnClass(filter === 'no-url')}>
+            Brak URL ({noUrl.length})
           </button>
           <button onClick={() => setFilter('all')} className={btnClass(filter === 'all')}>
             Wszystkie
@@ -338,31 +418,14 @@ export default function CalendarEventsList() {
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[140px]">Województwo</th>
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Typ</th>
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Dystanse</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">URL zapisy</th>
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[80px]">Źródło</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[50px] sticky right-0 bg-apex-bg"></th>
                 </tr>
               </thead>
               <tbody>
                 {displayed.map(event => (
-                  <tr key={event.id} className="border-b border-apex-border hover:bg-apex-surface-2">
-                    <td className="py-2 px-2 font-mono text-xs text-apex-yellow">{event.date}</td>
-                    <td className="py-2 px-2 text-apex-text-bright font-semibold">
-                      {event.source_url || event.registration_url ? (
-                        <a
-                          href={event.registration_url || event.source_url}
-                          target="_blank"
-                          rel="noopener"
-                          className="text-apex-text-bright hover:text-apex-yellow underline decoration-apex-border-mid hover:decoration-apex-yellow transition-colors"
-                        >
-                          {event.name}
-                        </a>
-                      ) : event.name}
-                    </td>
-                    <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="location" onSave={handleSave} /></td>
-                    <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="voivodeship" onSave={handleSave} /></td>
-                    <td className="py-2 px-2 text-xs"><InlineArrayEdit event={event} field="event_type" onSave={handleSave} /></td>
-                    <td className="py-2 px-2 text-xs"><InlineArrayEdit event={event} field="distances" onSave={handleSave} /></td>
-                    <td className="py-2 px-2 text-xs text-apex-muted">{event.source}</td>
-                  </tr>
+                  <EventRow key={event.id} event={event} onSave={handleSave} onDelete={handleDelete} />
                 ))}
               </tbody>
             </table>

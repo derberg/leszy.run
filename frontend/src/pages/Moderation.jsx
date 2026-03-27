@@ -65,6 +65,16 @@ function EditableEvent({ event, onSave, onApprove, onDelete }) {
           {event.distances?.length > 0 && <div><span className="text-apex-dim">Dystanse:</span> <span className="text-apex-text">{event.distances.join(', ')}</span></div>}
           {event.event_type?.length > 0 && <div><span className="text-apex-dim">Typ:</span> <span className="text-apex-text">{event.event_type.join(', ')}</span></div>}
           {event.registration_url && <div className="col-span-2"><span className="text-apex-dim">URL:</span> <a href={event.registration_url} target="_blank" rel="noopener" className="text-apex-cyan hover:underline">{event.registration_url}</a></div>}
+          <div>
+            <span className="text-apex-dim">Geo:</span>{' '}
+            {event.lat != null && event.lng != null ? (
+              <a href={`https://www.google.com/maps?q=${event.lat},${event.lng}`} target="_blank" rel="noopener" className="text-apex-cyan hover:underline">
+                {event.lat.toFixed(4)}, {event.lng.toFixed(4)}
+              </a>
+            ) : (
+              <span className="text-apex-red">brak</span>
+            )}
+          </div>
         </div>
       </div>
     )

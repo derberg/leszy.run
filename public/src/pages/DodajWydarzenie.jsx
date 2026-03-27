@@ -83,15 +83,40 @@ export default function DodajWydarzenie() {
       ? distances.map(d => Math.round(parseFloat(d) * 1000))
       : null
 
+    // Geocode location via Nominatim
+    let lat = null
+    let lng = null
+    const locationTrimmed = form.location.trim()
+    if (locationTrimmed) {
+      try {
+        const params = new URLSearchParams({
+          q: `${locationTrimmed}, Polska`,
+          format: 'json',
+          limit: '1',
+          countrycodes: 'pl',
+        })
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+          headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+        })
+        const geoResults = await geoRes.json()
+        if (geoResults.length > 0) {
+          lat = parseFloat(geoResults[0].lat)
+          lng = parseFloat(geoResults[0].lon)
+        }
+      } catch {}
+    }
+
     const { error: err } = await supabase.from('calendar_events').insert({
       name: form.name.trim(),
       date: form.date,
-      location: form.location.trim() || null,
+      location: locationTrimmed || null,
       voivodeship: form.voivodeship || null,
       distances: distStrings,
       distances_meters: distMeters,
       event_type: eventTypes.length ? eventTypes : null,
       registration_url: form.registrationUrl.trim() || null,
+      lat,
+      lng,
       source: 'community',
       status: 'pending',
     })

@@ -38,15 +38,12 @@ Extract the following information. Return ONLY valid JSON, no other text.
   "distances_km": [numbers, e.g. 5, 10, 21.1, 42.2] or null,
   "event_type": [array from: "trail", "nocny", "ocr", "nordic", "ultra", "charytatywny", "uliczny"] or null,
   "voivodeship": "one of 16 Polish voivodeships" or null,
-  "price_from_pln": number (lowest entry fee in PLN) or null,
-  "price_to_pln": number (highest entry fee in PLN) or null,
   "registration_deadline": "YYYY-MM-DD" or null
 }
 
 Rules:
 - Only include distances that are actual race distances, not age limits or other numbers
 - For półmaraton include 21.1, for maraton include 42.2
-- Prices should be in PLN (złotych), not grosze
 - If information is not found on the page, use null
 - voivodeship must be one of: ${VOIVODESHIPS.join(', ')}`
 }
@@ -100,17 +97,6 @@ function validateAndMerge(event, extracted) {
     }
   }
 
-  // Prices (convert PLN to grosze)
-  if (typeof extracted.price_from_pln === 'number' && extracted.price_from_pln > 0) {
-    if (!event.price_from) {
-      updates.price_from = Math.round(extracted.price_from_pln * 100)
-    }
-  }
-  if (typeof extracted.price_to_pln === 'number' && extracted.price_to_pln > 0) {
-    if (!event.price_to) {
-      updates.price_to = Math.round(extracted.price_to_pln * 100)
-    }
-  }
 
   // Registration deadline
   if (extracted.registration_deadline && /^\d{4}-\d{2}-\d{2}$/.test(extracted.registration_deadline)) {
@@ -157,7 +143,7 @@ async function enrichEvents() {
 
   const { data: events } = await supabase
     .from('calendar_events')
-    .select('id, name, date, location, registration_url, distances, distances_meters, event_type, voivodeship, price_from, price_to, registration_deadline')
+    .select('id, name, date, location, registration_url, distances, distances_meters, event_type, voivodeship, registration_deadline')
     .is('enriched_at', null)
     .not('registration_url', 'is', null)
     .eq('status', 'active')
