@@ -79,9 +79,6 @@ export default function DodajWydarzenie() {
     setError(null)
 
     const distStrings = distances.length ? distances : null
-    const distMeters = distances.length
-      ? distances.map(d => Math.round(parseFloat(d) * 1000))
-      : null
 
     // Geocode location via Nominatim
     let lat = null
@@ -112,7 +109,6 @@ export default function DodajWydarzenie() {
       location: locationTrimmed || null,
       voivodeship: form.voivodeship || null,
       distances: distStrings,
-      distances_meters: distMeters,
       event_type: eventTypes.length ? eventTypes : null,
       registration_url: form.registrationUrl.trim() || null,
       lat,

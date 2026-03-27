@@ -35,7 +35,6 @@ export async function calendarEventReportsRoutes(fastify) {
     } else if (report.field === 'distances') {
       const parts = value.split(',').map(s => s.trim()).filter(Boolean)
       eventUpdate.distances = parts
-      eventUpdate.distances_meters = parts.map(d => Math.round(parseFloat(d) * 1000))
     } else if (report.field === 'event_type') {
       eventUpdate.event_type = value.split(',').map(s => s.trim()).filter(Boolean)
     } else {

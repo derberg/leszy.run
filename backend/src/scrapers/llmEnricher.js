@@ -76,9 +76,8 @@ function validateAndMerge(event, extracted) {
   // Distances
   if (extracted.distances_km && Array.isArray(extracted.distances_km) && extracted.distances_km.length > 0) {
     const valid = extracted.distances_km.filter(d => typeof d === 'number' && d > 0 && d < 500)
-    if (valid.length > 0 && (!event.distances_meters || event.distances_meters.length === 0)) {
+    if (valid.length > 0 && (!event.distances || event.distances.length === 0)) {
       updates.distances = valid.map(d => `${d} km`)
-      updates.distances_meters = valid.map(d => Math.round(d * 1000))
     }
   }
 
@@ -143,7 +142,7 @@ async function enrichEvents() {
 
   const { data: events } = await supabase
     .from('calendar_events')
-    .select('id, name, date, location, registration_url, distances, distances_meters, event_type, voivodeship, registration_deadline')
+    .select('id, name, date, location, registration_url, distances, event_type, voivodeship, registration_deadline')
     .is('enriched_at', null)
     .not('registration_url', 'is', null)
     .eq('status', 'active')

@@ -249,8 +249,8 @@ export default function Kalendarz() {
           isAutoExpanded = true
         }
 
-        // Sort by distance
-        filteredData = nearby.sort((a, b) => a.distanceKm - b.distanceKm)
+        // Sort by date first, then distance within same date
+        filteredData = nearby.sort((a, b) => a.date.localeCompare(b.date) || a.distanceKm - b.distanceKm)
       }
 
       setAutoExpanded(isAutoExpanded)

@@ -87,7 +87,14 @@ function EventRow({ event, onSave, onDelete }) {
     <tr className="border-b border-apex-border hover:bg-apex-surface-2">
       <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="date" onSave={onSave} /></td>
       <td className="py-2 px-2 text-apex-text-bright font-semibold">
-        <InlineEdit event={event} field="name" onSave={onSave} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <InlineEdit event={event} field="name" onSave={onSave} />
+          {(event.event_type || []).filter(t => t !== 'bieg').map(t => (
+            <span key={t} className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-apex-border text-apex-muted shrink-0">
+              {t}
+            </span>
+          ))}
+        </div>
       </td>
       <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="location" onSave={onSave} /></td>
       <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="voivodeship" onSave={onSave} /></td>
@@ -347,14 +354,9 @@ export default function CalendarEventsList() {
   const handleDelete = (id) => deleteMutation.mutate(id)
 
   const handleSave = (id, updates) => {
-    // If distances text changes, also update distances_meters
     if (updates.distances) {
       const arr = Array.isArray(updates.distances) ? updates.distances : updates.distances.split(',').map(s => s.trim())
       updates.distances = arr
-      updates.distances_meters = arr.map(d => {
-        const num = parseFloat(d)
-        return isNaN(num) ? 0 : Math.round(num * (d.toLowerCase().includes('km') ? 1000 : 1))
-      }).filter(n => n > 0)
     }
     updateMutation.mutate({ id, updates })
   }

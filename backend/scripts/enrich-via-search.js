@@ -208,7 +208,6 @@ for (const event of events) {
       .filter(Boolean)
 
     updates.distances = distanceStrings
-    updates.distances_meters = distanceMeters.length > 0 ? distanceMeters : null
     console.log(`  ✓ Distances: [${distanceStrings.join(', ')}]`)
     enrichedDist++
   }

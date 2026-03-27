@@ -119,17 +119,17 @@ function classifyType(name, description, location) {
 
 function parseDistances(distanceText, eventName = '', description = '') {
   const combined = `${distanceText || ''} ${eventName || ''} ${description || ''}`
-  if (!combined.trim()) return { distances: [], distances_meters: [] }
+  if (!combined.trim()) return { distances: [] }
 
   const distances = []
-  const meters = []
+  const seen = new Set()
 
   function addDistance(km) {
     const rounded = Math.round(km * 10) / 10
-    const m = Math.round(km * 1000)
-    if (!meters.includes(m) && m > 0 && m < 500000) {
+    const key = `${rounded}`
+    if (!seen.has(key) && rounded > 0 && rounded < 500) {
       distances.push(`${rounded} km`)
-      meters.push(m)
+      seen.add(key)
     }
   }
 
@@ -148,11 +148,11 @@ function parseDistances(distanceText, eventName = '', description = '') {
   const lower = combined.toLowerCase()
 
   // Named distances from event names
-  if ((lower.includes('półmaraton') || lower.includes('polmaraton') || lower.includes('half')) && !meters.includes(21100)) {
+  if ((lower.includes('półmaraton') || lower.includes('polmaraton') || lower.includes('half')) && !seen.has('21.1')) {
     addDistance(21.1)
   }
 
-  if (/\bmaraton\b/.test(lower) && !lower.includes('pół') && !lower.includes('pol') && !lower.includes('ultra') && !lower.includes('half') && !meters.includes(42200)) {
+  if (/\bmaraton\b/.test(lower) && !lower.includes('pół') && !lower.includes('pol') && !lower.includes('ultra') && !lower.includes('half') && !seen.has('42.2')) {
     addDistance(42.2)
   }
 
@@ -169,7 +169,7 @@ function parseDistances(distanceText, eventName = '', description = '') {
   // Cross-country / przełaj events without distance — skip, leave empty
   // Nordic walking without distance — skip
 
-  return { distances, distances_meters: meters.sort((a, b) => a - b) }
+  return { distances }
 }
 
 function parseDate(dateText) {
@@ -201,7 +201,7 @@ async function normalizeEvent(raw) {
   const date = parseDate(raw.date)
   if (!date) return null
 
-  const { distances, distances_meters } = parseDistances(raw.distances || '', raw.name, '')
+  const { distances } = parseDistances(raw.distances || '', raw.name, '')
   const eventType = classifyType(raw.name, '', raw.location)
   const cleanedLocation = cleanLocation(raw.location)
   const { lat, lng, voivodeship: geoVoivodeship } = await geocode(cleanedLocation)
@@ -220,7 +220,6 @@ async function normalizeEvent(raw) {
     lng,
     event_type: eventType,
     distances,
-    distances_meters,
     registration_url: raw.registration_url || null,
     registration_deadline: raw.registration_deadline ? parseDate(raw.registration_deadline) : null,
     price_from: null,

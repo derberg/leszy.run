@@ -54,8 +54,7 @@ export default function EventRow({ event }) {
 
   const city = extractCity(event.location)
   const distKm = event.distanceKm
-  const types = event.event_type || []
-  const typeLabel = types.length > 0 ? types[0] : null
+  const types = (event.event_type || []).filter(t => t !== 'bieg')
   const distanceLabel = (event.distances && event.distances.length > 0)
     ? event.distances.join(' / ')
     : null
@@ -78,7 +77,7 @@ export default function EventRow({ event }) {
               {city}
               {distKm != null && (
                 <span className="ml-2 font-mono text-[11px] font-semibold text-apex-yellow-dim">
-                  {distKm} km
+                  📍 {distKm} km od Ciebie
                 </span>
               )}
             </div>
@@ -86,15 +85,15 @@ export default function EventRow({ event }) {
           {!city && distKm != null && (
             <div className="text-[13px] mt-0.5">
               <span className="font-mono text-[11px] font-semibold text-apex-yellow-dim">
-                {distKm} km
+                📍 {distKm} km od Ciebie
               </span>
             </div>
           )}
         </div>
 
         <div className="flex gap-1.5 items-center flex-shrink-0">
-          <div className="hidden md:flex gap-1.5 items-center">
-            <TypeTag label={typeLabel} />
+          <div className="flex gap-1.5 items-center flex-wrap">
+            {types.map(t => <TypeTag key={t} label={t} />)}
             <DistTag label={distanceLabel} />
             {isLeszyrun && (
               <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20">
