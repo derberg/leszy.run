@@ -87,18 +87,18 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
           {!userLocation ? (
             <button
               onClick={onLocationRequest}
-              className="hidden md:block font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0"
+              className="font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0"
               aria-label="Pokaż wydarzenia blisko mnie"
             >
-              📍 Blisko mnie
+              📍 <span className="hidden md:inline">Blisko mnie</span>
             </button>
           ) : (
             <button
               onClick={onLocationClear}
-              className="hidden md:block font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 bg-apex-yellow text-apex-ink border border-apex-yellow transition-all flex-shrink-0"
+              className="font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 bg-apex-yellow text-apex-ink border border-apex-yellow transition-all flex-shrink-0"
               aria-label="Wyłącz filtr lokalizacji"
             >
-              📍 Twoja lokalizacja ✕
+              📍 <span className="hidden md:inline">Twoja lokalizacja</span> ✕
             </button>
           )}
 
@@ -114,7 +114,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
           </div>
         </div>
 
-        {/* Row 2: Filter dropdowns (+ mobile-only: Blisko mnie, Lista/Mapa) */}
+        {/* Row 2: Filter dropdowns */}
         <div className={`${open ? 'flex' : 'hidden'} md:flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center`}>
           <select value={filters.type} onChange={(e) => update('type', e.target.value)} className={selectClass} aria-label="Filtruj po typie">
             {EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -132,25 +132,6 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
           <select value={filters.timeRange} onChange={(e) => update('timeRange', e.target.value)} className={selectClass} aria-label="Filtruj po czasie">
             {TIME_RANGES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
-
-          {!userLocation ? (
-            <button
-              onClick={onLocationRequest}
-              className="md:hidden font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all flex-shrink-0"
-              aria-label="Pokaż wydarzenia blisko mnie"
-            >
-              📍 Blisko mnie
-            </button>
-          ) : (
-            <button
-              onClick={onLocationClear}
-              className="md:hidden font-sans text-[13px] font-semibold tracking-wide uppercase px-4 py-2.5 bg-apex-yellow text-apex-ink border border-apex-yellow transition-all flex-shrink-0"
-              aria-label="Wyłącz filtr lokalizacji"
-            >
-              📍 Twoja lokalizacja ✕
-            </button>
-          )}
-
         </div>
 
         {/* Row 3: Radius slider (only when location active) */}
