@@ -75,7 +75,7 @@ function InlineArrayEdit({ event, field, onSave }) {
   )
 }
 
-function EventRow({ event, onSave, onDelete }) {
+function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onReject }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const confirmRef = useRef(null)
 
@@ -105,44 +105,64 @@ function EventRow({ event, onSave, onDelete }) {
       </td>
       <td className="py-2 px-2 text-xs text-apex-muted">{event.source}</td>
       <td className="py-2 px-2 text-xs sticky right-0 bg-apex-bg">
-        {confirmDelete ? (
-          <div
-            ref={confirmRef}
-            tabIndex={0}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === 'y' || e.key === 'Y') {
-                e.preventDefault()
-                onDelete(event.id)
-                setConfirmDelete(false)
-              } else if (e.key === 'Escape') {
-                setConfirmDelete(false)
-              }
-            }}
-            onBlur={() => setConfirmDelete(false)}
-            className="flex items-center gap-1"
-          >
-            <button
-              onMouseDown={e => { e.preventDefault(); onDelete(event.id); setConfirmDelete(false) }}
-              className="font-mono text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 border border-red-600 text-red-400 hover:bg-red-600 hover:text-white transition-all"
+        <div className="flex items-center gap-1">
+          {showReviewActions && (
+            <>
+              <button
+                onClick={() => onApprove(event.id)}
+                className="font-mono text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border border-green-700 text-green-400 hover:bg-green-700 hover:text-white transition-all"
+                title="Zatwierdź"
+              >
+                OK
+              </button>
+              <button
+                onClick={() => onReject(event.id)}
+                className="font-mono text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border border-apex-border text-apex-muted hover:border-red-600 hover:text-red-400 transition-all"
+                title="Odrzuć (ukryj na stałe)"
+              >
+                NIE
+              </button>
+            </>
+          )}
+          {confirmDelete ? (
+            <div
+              ref={confirmRef}
+              tabIndex={0}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === 'y' || e.key === 'Y') {
+                  e.preventDefault()
+                  onDelete(event.id)
+                  setConfirmDelete(false)
+                } else if (e.key === 'Escape') {
+                  setConfirmDelete(false)
+                }
+              }}
+              onBlur={() => setConfirmDelete(false)}
+              className="flex items-center gap-1"
             >
-              Enter / Y
-            </button>
+              <button
+                onMouseDown={e => { e.preventDefault(); onDelete(event.id); setConfirmDelete(false) }}
+                className="font-mono text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 border border-red-600 text-red-400 hover:bg-red-600 hover:text-white transition-all"
+              >
+                Enter / Y
+              </button>
+              <button
+                onMouseDown={e => { e.preventDefault(); setConfirmDelete(false) }}
+                className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-apex-border text-apex-muted hover:text-apex-text-bright transition-all"
+              >
+                Esc
+              </button>
+            </div>
+          ) : (
             <button
-              onMouseDown={e => { e.preventDefault(); setConfirmDelete(false) }}
-              className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-apex-border text-apex-muted hover:text-apex-text-bright transition-all"
+              onClick={() => setConfirmDelete(true)}
+              className="font-mono text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border border-apex-border text-apex-muted hover:border-red-600 hover:text-red-400 transition-all"
+              title="Usuń"
             >
-              Esc
+              X
             </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="font-mono text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border border-apex-border text-apex-muted hover:border-red-600 hover:text-red-400 transition-all"
-            title="Usuń"
-          >
-            X
-          </button>
-        )}
+          )}
+        </div>
       </td>
     </tr>
   )
@@ -322,11 +342,16 @@ function DuplicatesView() {
 
 export default function CalendarEventsList() {
   const queryClient = useQueryClient()
-  const [filter, setFilter] = useState('incomplete')
+  const [filter, setFilter] = useState('review')
 
   const { data, isLoading } = useQuery({
     queryKey: ['calendar-events-admin', filter],
-    queryFn: () => api.get(`/calendar-events?limit=2000&filter=${filter}`),
+    queryFn: () => api.get(`/calendar-events?limit=2000&status=${filter === 'review' ? 'pending' : 'active'}&filter=${filter}`),
+  })
+
+  const { data: pendingCountData } = useQuery({
+    queryKey: ['calendar-events-pending-count'],
+    queryFn: () => api.get('/calendar-events?limit=1&status=pending'),
   })
 
   const { data: dupData } = useQuery({
@@ -340,7 +365,10 @@ export default function CalendarEventsList() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }) => api.patch(`/calendar-events/${id}`, updates),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-pending-count'] })
+    },
   })
 
   const deleteMutation = useMutation({
@@ -348,6 +376,23 @@ export default function CalendarEventsList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-events-duplicates'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-pending-count'] })
+    },
+  })
+
+  const approveMutation = useMutation({
+    mutationFn: (id) => api.patch(`/calendar-events/${id}/approve`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-pending-count'] })
+    },
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: (id) => api.patch(`/calendar-events/${id}/reject`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-pending-count'] })
     },
   })
 
@@ -363,6 +408,7 @@ export default function CalendarEventsList() {
 
   const events = data?.data || data || []
   const dupGroups = dupData || []
+  const pendingCount = pendingCountData?.total ?? 0
 
   const incomplete = events.filter(e =>
     !e.location || !e.voivodeship || !e.event_type?.length || !e.distances?.length
@@ -372,7 +418,11 @@ export default function CalendarEventsList() {
     e.location && e.voivodeship && e.event_type?.length && e.distances?.length
   )
 
-  const displayed = filter === 'incomplete' ? incomplete : filter === 'no-url' ? noUrl : filter === 'duplicates' ? [] : events
+  const displayed = filter === 'review' ? events
+    : filter === 'incomplete' ? incomplete
+    : filter === 'no-url' ? noUrl
+    : filter === 'duplicates' ? []
+    : events
 
   const btnClass = (active) =>
     `font-sans text-xs font-semibold tracking-wide uppercase px-4 py-2 border transition-all ${active ? 'bg-apex-yellow text-apex-bg border-apex-yellow' : 'bg-apex-surface border-apex-border text-apex-muted hover:text-apex-text-bright'}`
@@ -385,10 +435,16 @@ export default function CalendarEventsList() {
             Wydarzenia w kalendarzu
           </h1>
           <p className="text-apex-muted text-sm">
-            {incomplete.length} wymaga uzupełnienia &middot; {complete.length} kompletnych &middot; {events.length} łącznie
+            {filter === 'review'
+              ? `${events.length} do przeglądu`
+              : `${incomplete.length} wymaga uzupełnienia · ${complete.length} kompletnych · ${events.length} łącznie`
+            }
           </p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => setFilter('review')} className={btnClass(filter === 'review')}>
+            Do przeglądu{pendingCount > 0 ? ` (${pendingCount})` : ''}
+          </button>
           <button onClick={() => setFilter('incomplete')} className={btnClass(filter === 'incomplete')}>
             Niekompletne ({incomplete.length})
           </button>
@@ -422,12 +478,20 @@ export default function CalendarEventsList() {
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Dystanse</th>
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">URL zapisy</th>
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[80px]">Źródło</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[50px] sticky right-0 bg-apex-bg"></th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px] sticky right-0 bg-apex-bg">Akcje</th>
                 </tr>
               </thead>
               <tbody>
                 {displayed.map(event => (
-                  <EventRow key={event.id} event={event} onSave={handleSave} onDelete={handleDelete} />
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    onSave={handleSave}
+                    onDelete={handleDelete}
+                    showReviewActions={filter === 'review'}
+                    onApprove={(id) => approveMutation.mutate(id)}
+                    onReject={(id) => rejectMutation.mutate(id)}
+                  />
                 ))}
               </tbody>
             </table>
@@ -435,7 +499,7 @@ export default function CalendarEventsList() {
 
           {!isLoading && displayed.length === 0 && (
             <div className="text-apex-muted text-center py-12">
-              {filter === 'incomplete' ? 'Wszystkie wydarzenia są kompletne!' : 'Brak wydarzeń.'}
+              {filter === 'review' ? 'Brak wydarzeń do przeglądu!' : filter === 'incomplete' ? 'Wszystkie wydarzenia są kompletne!' : 'Brak wydarzeń.'}
             </div>
           )}
         </>
