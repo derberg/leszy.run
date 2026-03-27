@@ -421,4 +421,5 @@ docker exec -it leszyrun-db-1 psql -U leszyrun -d leszyrun \
 - Do not re-run `estimatePositions()` inside `CategoryCard` when `resultsProp` is provided — the caller already enriched results with checkpoint observations. Re-estimating with empty observations discards checkpoint data and breaks podium ordering during live races. See the comment in `frontend/src/pages/PodiumPage.jsx`.
 - Do not filter race runs to only `'active'` status in podium or public result views — always include `'finished'` too. Filtering only active causes the podium/results to go blank the moment a race is stopped. The podium and public views must keep showing final results after the race ends.
 - Do not add `Co-Authored-By:` trailers to git commits. Never include Claude authorship in commit messages.
+- Do not permanently delete calendar events without asking the user for confirmation first. Prefer rejecting (setting status to `rejected`) over deleting — rejected events prevent the scraper from re-adding the same junk.
 
