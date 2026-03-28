@@ -95,11 +95,11 @@ export const api = {
 
   // Results
   results: {
-    list: (raceRunId) => request('GET', `/races/${raceRunId}/results`),
+    list: (raceRunId, gender) => request('GET', `/races/${raceRunId}/results${gender ? `?gender=${gender}` : ''}`),
     listForEvent: (eventId) => request('GET', `/events/${eventId}/results`),
     update: (id, body) => request('PATCH', `/results/${id}`, body),
-    exportCsv: (raceRunId) => `${BASE}/api/races/${raceRunId}/export/csv`,
-    exportPdf: (raceRunId) => `${BASE}/api/races/${raceRunId}/export/pdf`,
+    exportCsv: (raceRunId, gender) => `${BASE}/api/races/${raceRunId}/export/csv${gender ? `?gender=${gender}` : ''}`,
+    exportPdf: (raceRunId, gender) => `${BASE}/api/races/${raceRunId}/export/pdf${gender ? `?gender=${gender}` : ''}`,
     importCheckpoint: (raceRunId, formData, label) =>
       request('POST', `/races/${raceRunId}/checkpoint-imports?label=${encodeURIComponent(label)}`, formData, true),
   },
