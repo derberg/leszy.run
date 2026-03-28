@@ -109,7 +109,8 @@ export default function ParticipantsTable({ eventId, categories }) {
   const minorProvideDocs = provideDocs.filter(d => d.requiredFor === 'all' || d.requiredFor === 'minors')
 
   const handleCheckinClick = (p) => {
-    if (isMinor(p) && minorProvideDocs.length > 0) {
+    const needsMinorDocs = isMinor(p) && minorProvideDocs.length > 0
+    if (needsMinorDocs || p.tshirtSize) {
       setMinorCheckinTarget(p)
       setMinorDocChecks({})
     } else {
@@ -319,11 +320,12 @@ export default function ParticipantsTable({ eventId, categories }) {
                     const confirmedAt = p.checkin?.checkedInAt
                     const selfCheckedIn = p.checkin && !confirmedAt
                     const isCheckedIn = !!confirmedAt
+                    const tshirtNote = p.tshirtSize ? ` | 👕 Koszulka: ${p.tshirtSize}` : ''
                     const title = confirmedAt
                       ? `Zameldowany przez organizatora: ${new Date(confirmedAt).toLocaleString('pl-PL')} — kliknij aby cofnąć`
                       : selfCheckedIn
-                      ? `Samozameldowanie online${p.checkin.createdAt ? ': ' + new Date(p.checkin.createdAt).toLocaleString('pl-PL') : ''} — potwierdź odbiór pakietu`
-                      : 'Zamelduj'
+                      ? `Samozameldowanie online${p.checkin.createdAt ? ': ' + new Date(p.checkin.createdAt).toLocaleString('pl-PL') : ''} — potwierdź odbiór pakietu${tshirtNote}`
+                      : `Zamelduj${tshirtNote}`
                     return (
                       <button
                         onClick={() => {
@@ -499,25 +501,32 @@ export default function ParticipantsTable({ eventId, categories }) {
       <Dialog open={!!minorCheckinTarget} onOpenChange={o => { if (!o) { setMinorCheckinTarget(null); setMinorDocChecks({}) } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Zamelduj nieletniego</DialogTitle>
+            <DialogTitle>{isMinor(minorCheckinTarget) && minorProvideDocs.length > 0 ? 'Zamelduj nieletniego' : 'Zamelduj uczestnika'}</DialogTitle>
           </DialogHeader>
           <DialogBody className="space-y-3">
             <p className="text-sm text-apex-muted">
               <strong>{minorCheckinTarget?.firstName} {minorCheckinTarget?.lastName}</strong> — potwierdź odbiór dokumentów:
             </p>
-            <div className="space-y-2">
-              {minorProvideDocs.map(doc => (
-                <label key={doc.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!minorDocChecks[doc.id]}
-                    onChange={e => setMinorDocChecks(prev => ({ ...prev, [doc.id]: e.target.checked }))}
-                    className="accent-apex-yellow w-4 h-4"
-                  />
-                  <span className="text-apex-text">{doc.name}</span>
-                </label>
-              ))}
-            </div>
+            {minorCheckinTarget?.tshirtSize && (
+              <div className="border border-apex-yellow/40 bg-apex-yellow/10 p-3">
+                <span className="text-sm text-apex-yellow font-bold">Wydaj koszulkę: rozmiar {minorCheckinTarget.tshirtSize}</span>
+              </div>
+            )}
+            {isMinor(minorCheckinTarget) && minorProvideDocs.length > 0 && (
+              <div className="space-y-2">
+                {minorProvideDocs.map(doc => (
+                  <label key={doc.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!minorDocChecks[doc.id]}
+                      onChange={e => setMinorDocChecks(prev => ({ ...prev, [doc.id]: e.target.checked }))}
+                      className="accent-apex-yellow w-4 h-4"
+                    />
+                    <span className="text-apex-text">{doc.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setMinorCheckinTarget(null); setMinorDocChecks({}) }}>Anuluj</Button>
@@ -526,7 +535,7 @@ export default function ParticipantsTable({ eventId, categories }) {
                 const docs = minorProvideDocs.map(d => ({ documentId: d.id, completed: !!minorDocChecks[d.id] }))
                 checkinMutation.mutate({ participantId: minorCheckinTarget.id, documents: docs })
               }}
-              disabled={checkinMutation.isPending || minorProvideDocs.some(d => !minorDocChecks[d.id])}
+              disabled={checkinMutation.isPending || (isMinor(minorCheckinTarget) && minorProvideDocs.length > 0 && minorProvideDocs.some(d => !minorDocChecks[d.id]))}
             >
               Zamelduj
             </Button>
