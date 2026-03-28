@@ -49,7 +49,20 @@ cd backend && node --env-file=../.env scripts/run-enrich-flags.js
 
 Output: `C` = charity tagged, `K` = kids flagged.
 
-### Step 5: Normalize into `calendar_events` (TODO)
+### Step 5: Enrich from regulamin PDFs (AI)
+
+Finds entries missing distances or event type that have a `regulamin_url`, downloads the PDF, and uses local Claude CLI (haiku) to extract distances and classify event type.
+
+```bash
+cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
+
+# Process more (default 50)
+cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js --limit 200
+```
+
+Requires `claude` CLI installed locally. Processes ~1 event/sec (PDF download + Claude call).
+
+### Step 6: Normalize into `calendar_events` (TODO)
 
 Not yet implemented. Will normalize `scraper_all` (parse distances, classify types) and upsert into `calendar_events`.
 

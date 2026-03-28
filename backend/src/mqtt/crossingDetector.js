@@ -129,12 +129,16 @@ export class CrossingDetector {
       const race = this.activeRaces.get(raceRunId)
       if (!race) return // race was stopped before timer fired
 
-      // Find participants with an EPC who haven't started yet
+      // Find participants with an EPC who haven't started yet AND are not currently
+      // in the detection zone (inRange). Tags in range will get a proper chip start
+      // once they move away and the goneTimer fires — backfilling them now would
+      // corrupt gate detection (their first crossing would be treated as finish).
       const missing = []
-      for (const [, participantId] of epcMap) {
-        if (!race.startedParticipants.has(participantId)) {
-          missing.push(participantId)
-        }
+      for (const [epc, participantId] of epcMap) {
+        if (race.startedParticipants.has(participantId)) continue
+        const key = `${epc}:${raceRunId}`
+        if (this.inRange.has(key)) continue
+        missing.push(participantId)
       }
       if (!missing.length) return
 
