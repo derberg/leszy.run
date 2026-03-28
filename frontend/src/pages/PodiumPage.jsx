@@ -111,6 +111,12 @@ function CategoryCard({ cat, checkpoints, results: resultsProp }) {
 
 const ROTATE_INTERVAL_MS = 5000
 
+const GENDER_VIEWS = [
+  { key: null, label: 'OPEN' },
+  { key: 'M', label: 'MĘŻCZYŹNI' },
+  { key: 'K', label: 'KOBIETY' },
+]
+
 export default function PodiumPage() {
   const { id: eventId, categoryId } = useParams()
   const navigate = useNavigate()
@@ -119,6 +125,7 @@ export default function PodiumPage() {
 
   // Auto-rotate state for podium (no categoryId) view
   const [rotateIndex, setRotateIndex] = useState(0)
+  const [singleGenderIndex, setSingleGenderIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const rotateTimerRef = useRef(null)
   const progressRafRef = useRef(null)
@@ -147,16 +154,26 @@ export default function PodiumPage() {
     c.raceRuns?.some(r => r.status === 'active' || r.status === 'finished')
   )
 
-  // Current category shown in auto-rotate mode
-  const currentRotateCategory = !categoryId && activeCategories.length > 0
-    ? activeCategories[rotateIndex % activeCategories.length]
+  // Build rotation slots: [{ category, gender }] for each active category × gender view
+  const rotationSlots = activeCategories.flatMap(cat =>
+    GENDER_VIEWS.map(g => ({ category: cat, gender: g.key, genderLabel: g.label }))
+  )
+
+  // Current slot in auto-rotate mode
+  const currentSlot = !categoryId && rotationSlots.length > 0
+    ? rotationSlots[rotateIndex % rotationSlots.length]
     : null
+
+  // For single-category view, also rotate through gender views
+  const singleGenderView = categoryId ? GENDER_VIEWS[singleGenderIndex % GENDER_VIEWS.length] : null
 
   // For single-category view OR the currently-rotating category, find the active run
   const activeCategory = categoryId
     ? categories.find(c => c.id === categoryId)
-    : currentRotateCategory
+    : currentSlot?.category
   const activeRun = activeCategory?.raceRuns?.[0]
+  const activeGender = categoryId ? singleGenderView?.key : currentSlot?.gender
+  const activeGenderLabel = categoryId ? singleGenderView?.label : currentSlot?.genderLabel
 
   const { data: observations = [] } = useQuery({
     queryKey: ['checkpoint-observations', activeRun?.id],
@@ -173,7 +190,7 @@ export default function PodiumPage() {
 
   // Auto-rotate timer for podium view
   useEffect(() => {
-    if (categoryId || activeCategories.length <= 1) {
+    if (categoryId || rotationSlots.length <= 1) {
       setProgress(0)
       return
     }
@@ -196,27 +213,37 @@ export default function PodiumPage() {
       clearInterval(rotateTimerRef.current)
       cancelAnimationFrame(progressRafRef.current)
     }
-  }, [categoryId, activeCategories.length])
+  }, [categoryId, rotationSlots.length])
 
-  // Reset rotate index when categories change so we don't get stuck on stale index
+  // Gender rotation for single-category mode
   useEffect(() => {
-    if (activeCategories.length > 0) {
-      setRotateIndex(prev => prev % activeCategories.length)
+    if (!categoryId) return
+    const timer = setInterval(() => {
+      setSingleGenderIndex(prev => prev + 1)
+    }, ROTATE_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [categoryId])
+
+  // Reset rotate index when slots change so we don't get stuck on stale index
+  useEffect(() => {
+    if (rotationSlots.length > 0) {
+      setRotateIndex(prev => prev % rotationSlots.length)
     }
-  }, [activeCategories.length])
+  }, [rotationSlots.length])
 
   // document.title
   useEffect(() => {
     if (!event) return
+    const genderSuffix = activeGenderLabel ? ` — ${activeGenderLabel}` : ''
     if (categoryId) {
       const cat = categories.find(c => c.id === categoryId)
-      document.title = cat ? `${cat.name} — ${event.name}` : event.name
-    } else if (currentRotateCategory) {
-      document.title = `${currentRotateCategory.name} — ${event.name}`
+      document.title = cat ? `${cat.name}${genderSuffix} — ${event.name}` : event.name
+    } else if (currentSlot) {
+      document.title = `${currentSlot.category.name}${genderSuffix} — ${event.name}`
     } else {
       document.title = event.name
     }
-  }, [event, categories, categoryId, currentRotateCategory])
+  }, [event, categories, categoryId, currentSlot, activeGenderLabel])
 
   // Scroll active tab into view on load or tab change
   useEffect(() => {
@@ -230,14 +257,21 @@ export default function PodiumPage() {
     ? checkpoints.filter(cp => cp.categoryIds.length === 0 || cp.categoryIds.includes(activeCategory.id))
     : []
 
-  // Enriched results for the displayed category
-  const displayedResults = activeRun?.results || []
+  // Fetch gender-filtered results when a gender is active
+  const { data: genderResults } = useQuery({
+    queryKey: ['results-gender', activeRun?.id, activeGender],
+    queryFn: () => api.results.list(activeRun.id, activeGender),
+    enabled: !!activeRun?.id && !!activeGender,
+    refetchInterval: 5000,
+  })
+
+  const displayedResults = activeGender ? (genderResults || []) : (activeRun?.results || [])
   const enrichedResults = activeCategory
-    ? estimatePositions(displayedResults, categoryCheckpoints, observations)
+    ? estimatePositions(displayedResults, categoryCheckpoints, activeGender ? [] : observations)
     : []
 
   // Which category ID is visually active (for tab highlight)
-  const visibleCategoryId = categoryId || currentRotateCategory?.id
+  const visibleCategoryId = categoryId || currentSlot?.category?.id
 
   return (
     <div className="h-screen flex flex-col bg-apex-bg text-apex-text-bright relative overflow-hidden">
@@ -300,7 +334,7 @@ export default function PodiumPage() {
                   >
                     {cat.name}
                     {/* Progress bar on the active rotating tab */}
-                    {isActive && !categoryId && activeCategories.length > 1 && (
+                    {isActive && !categoryId && rotationSlots.length > 1 && (
                       <span
                         className="absolute bottom-0 left-0 h-0.5 bg-apex-bg/40"
                         style={{ width: `${progress * 100}%`, transition: 'none' }}
@@ -330,9 +364,14 @@ export default function PodiumPage() {
         {!isLoading && activeCategory && (
           <div className="h-full overflow-y-auto">
             <div className="px-6 py-8">
-              <div className="font-display text-4xl tracking-widest uppercase text-white text-center mb-2">
+              <div className="font-display text-4xl tracking-widest uppercase text-white text-center mb-1">
                 {activeCategory.name}
               </div>
+              {activeGenderLabel && (
+                <div className="font-display text-xl tracking-widest uppercase text-apex-yellow text-center mb-1">
+                  {activeGenderLabel}
+                </div>
+              )}
               {activeCategory.distanceMeters && (
                 <div className="text-apex-muted text-sm text-center mb-8">
                   {(activeCategory.distanceMeters / 1000).toFixed(1)} km
