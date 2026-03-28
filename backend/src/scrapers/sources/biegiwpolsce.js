@@ -42,6 +42,18 @@ async function fetchDetailPage(path) {
       distances.push('21.1 km')
     }
 
+    // If no km distances, look for time-based durations (e.g., "4h", "6h", "8h")
+    if (distances.length === 0) {
+      const hourMatches = [...pageText.matchAll(/\b(\d{1,2})\s*[hH]\b/g)]
+      for (const m of hourMatches) {
+        const hours = parseInt(m[1])
+        const label = `${hours}h`
+        if (hours > 0 && hours <= 48 && !distances.includes(label)) {
+          distances.push(label)
+        }
+      }
+    }
+
     // Store clean page text for LLM enrichment
     const rawDescription = pageText.replace(/\s+/g, ' ').trim().slice(0, 5000)
 

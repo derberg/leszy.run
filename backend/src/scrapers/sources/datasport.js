@@ -15,21 +15,33 @@ async function fetchDetailPage(eventId) {
     const buffer = await res.arrayBuffer()
     const html = new TextDecoder('windows-1250').decode(buffer)
     const $ = cheerio.load(html)
-    const pageText = $('body').text().replace(/\s+/g, ' ').trim()
 
-    // Extract distances
+    // Extract distances only from the event description area, not participant stats.
+    // Datasport pages have "Pokonał/Pokonała XXX km" (cumulative participant stats)
+    // and "Półmaraton"/"Maraton" in participant history sections — strip those out.
+    const pageText = $('body').text().replace(/\s+/g, ' ').trim()
+    const cleanText = pageText
+      .replace(/Pokona[łl]a?\s+[\d.,]+\s*km/gi, '')   // strip "Pokonał 221.14 km"
+      .replace(/przebieg[łl]a?\s+[\d.,]+\s*km/gi, '')  // strip "Przebiegł 150 km"
+
+    // Extract distances from cleaned text
     const distances = []
-    const kmMatches = [...pageText.matchAll(/(\d+[\.,]?\d*)\s*km/gi)]
+    const kmMatches = [...cleanText.matchAll(/(\d+[\.,]?\d*)\s*km/gi)]
     for (const m of kmMatches) {
       const km = parseFloat(m[1].replace(',', '.'))
       const label = `${km} km`
-      if (km > 0 && km < 500 && !distances.includes(label)) distances.push(label)
+      if (km > 0 && km < 100 && !distances.includes(label)) distances.push(label)
     }
-    if (pageText.toLowerCase().includes('półmaraton') && !distances.some(d => d.includes('21'))) {
-      distances.push('21.1 km')
-    }
-    if (/\bmaraton\b/i.test(pageText) && !pageText.toLowerCase().includes('pół') && !distances.some(d => d.includes('42'))) {
-      distances.push('42.2 km')
+    // Named distances — only from event name, not page text (avoids participant history)
+    // These are checked per-event in the normalizer from the event name
+    // If no km distances, look for time-based durations (e.g., "4h", "6h", "8h")
+    if (distances.length === 0) {
+      const hourMatches = [...pageText.matchAll(/\b(\d{1,2})\s*[hH]\b/g)]
+      for (const m of hourMatches) {
+        const hours = parseInt(m[1])
+        const label = `${hours}h`
+        if (hours > 0 && hours <= 48 && !distances.includes(label)) distances.push(label)
+      }
     }
 
     return {

@@ -62,6 +62,16 @@ async function fetchDetailPage(eventId) {
     const distMatches = [...allText.matchAll(/(\d+[.,]?\d*)\s*km/gi)]
     const distances = distMatches.map(m => `${parseFloat(m[1].replace(',', '.'))} km`)
 
+    // If no km distances, look for time-based durations (e.g., "4h", "6h", "8h")
+    if (distances.length === 0) {
+      const hourMatches = [...allText.matchAll(/\b(\d{1,2})\s*[hH]\b/g)]
+      for (const m of hourMatches) {
+        const hours = parseInt(m[1])
+        const label = `${hours}h`
+        if (hours > 0 && hours <= 48 && !distances.includes(label)) distances.push(label)
+      }
+    }
+
     // Store clean page text for LLM enrichment later
     const rawDescription = allText.replace(/\s+/g, ' ').trim().slice(0, 5000)
 

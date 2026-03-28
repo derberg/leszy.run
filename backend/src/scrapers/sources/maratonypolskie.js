@@ -167,6 +167,15 @@ async function scrape() {
         if (/\bmaraton\b/i.test(pageText) && !pageText.toLowerCase().includes('pół') && !distances.some(d => d.includes('42'))) {
           distances.push('42.2 km')
         }
+        // If no km distances, look for time-based durations (e.g., "4h", "6h", "8h")
+        if (distances.length === 0) {
+          const hourMatches = [...pageText.matchAll(/\b(\d{1,2})\s*[hH]\b/g)]
+          for (const m of hourMatches) {
+            const hours = parseInt(m[1])
+            const label = `${hours}h`
+            if (hours > 0 && hours <= 48 && !distances.includes(label)) distances.push(label)
+          }
+        }
         if (distances.length > 0) {
           event.distances = distances.join(', ')
         }

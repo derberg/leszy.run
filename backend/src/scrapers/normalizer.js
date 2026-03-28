@@ -166,8 +166,19 @@ function parseDistances(distanceText, eventName = '', description = '') {
     addDistance(10)
   }
 
-  // Cross-country / przełaj events without distance — skip, leave empty
-  // Nordic walking without distance — skip
+  // If no km distances found, look for time-based durations (e.g., "4h", "6h", "8h", "12h")
+  // Common for timed ultras where participants run for a fixed number of hours
+  if (distances.length === 0) {
+    const hourMatches = combined.matchAll(/\b(\d{1,2})\s*[hH]\b/g)
+    for (const m of hourMatches) {
+      const hours = parseInt(m[1])
+      const label = `${hours}h`
+      if (hours > 0 && hours <= 48 && !seen.has(label)) {
+        distances.push(label)
+        seen.add(label)
+      }
+    }
+  }
 
   return { distances }
 }

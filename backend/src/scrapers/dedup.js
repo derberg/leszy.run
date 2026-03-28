@@ -29,7 +29,7 @@ async function findExistingMatch(event) {
   if (event.source_id) {
     const { data } = await supabase
       .from('calendar_events')
-      .select('id, status')
+      .select('*')
       .eq('source', event.source)
       .eq('source_id', event.source_id)
       .single()
@@ -39,7 +39,7 @@ async function findExistingMatch(event) {
 
   const { data: candidates } = await supabase
     .from('calendar_events')
-    .select('id, name, location, status')
+    .select('*')
     .eq('date', event.date)
 
   if (candidates) {
@@ -64,16 +64,27 @@ async function upsertEvent(event) {
       return { action: 'skipped', id: existing.id, error: null }
     }
 
+    // Only fill in fields that are missing on the existing event — never overwrite
     const updates = {}
+    const protectedKeys = ['id', 'created_at', 'status']
     for (const [key, value] of Object.entries(event)) {
-      if (value !== null && value !== undefined) {
+      if (protectedKeys.includes(key)) continue
+      if (value === null || value === undefined) continue
+      if (Array.isArray(value) && value.length === 0) continue
+
+      const existingVal = existing[key]
+      const isEmpty = existingVal === null || existingVal === undefined ||
+        (Array.isArray(existingVal) && existingVal.length === 0) ||
+        existingVal === ''
+      if (isEmpty) {
         updates[key] = value
       }
     }
-    updates.updated_at = new Date().toISOString()
     updates.last_verified_at = new Date().toISOString()
-    // Don't overwrite status on existing events
-    delete updates.status
+    if (Object.keys(updates).length === 1) {
+      // Only last_verified_at — nothing to fill in
+      updates.updated_at = new Date().toISOString()
+    }
 
     const { error } = await supabase
       .from('calendar_events')
