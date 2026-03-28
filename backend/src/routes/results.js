@@ -16,6 +16,18 @@ export async function resultsRoutes(fastify) {
       },
       orderBy: [asc(results.position), asc(results.finishTime), asc(results.startTime)],
     })
+
+    const gender = req.query.gender
+    if (gender) {
+      const filtered = rows.filter(r => r.participant?.gender === gender)
+      let pos = 1
+      const reranked = filtered.map(r => {
+        const newPos = r.finishTime ? pos++ : null
+        return { ...r, position: newPos }
+      })
+      return { data: reranked }
+    }
+
     return { data: rows }
   })
 
@@ -105,12 +117,20 @@ export async function resultsRoutes(fastify) {
     })
     if (!run) return reply.code(404).send({ error: 'Race run not found' })
 
-    const rows = await db.query.results.findMany({
+    let rows = await db.query.results.findMany({
       where: eq(results.raceRunId, req.params.raceRunId),
       with: { participant: true },
       orderBy: [asc(results.position), asc(results.finishTime)],
     })
 
+    const gender = req.query.gender
+    if (gender) {
+      rows = rows.filter(r => r.participant?.gender === gender)
+      let pos = 1
+      rows = rows.map(r => ({ ...r, position: r.finishTime ? pos++ : null }))
+    }
+
+    const genderSuffix = gender ? `-${gender}` : ''
     const csvData = rows.map(r => ({
       position: r.position || '',
       bib: r.participant.bibNumber,
@@ -129,7 +149,7 @@ export async function resultsRoutes(fastify) {
 
     const csv = Papa.unparse(csvData)
     reply.header('Content-Type', 'text/csv')
-    reply.header('Content-Disposition', `attachment; filename="results-${run.category.name}.csv"`)
+    reply.header('Content-Disposition', `attachment; filename="results-${run.category.name}${genderSuffix}.csv"`)
     return reply.send(csv)
   })
 
@@ -141,11 +161,20 @@ export async function resultsRoutes(fastify) {
     })
     if (!run) return reply.code(404).send({ error: 'Race run not found' })
 
-    const rows = await db.query.results.findMany({
+    let rows = await db.query.results.findMany({
       where: eq(results.raceRunId, req.params.raceRunId),
       with: { participant: true },
       orderBy: [asc(results.position), asc(results.finishTime)],
     })
+
+    const gender = req.query.gender
+    if (gender) {
+      rows = rows.filter(r => r.participant?.gender === gender)
+      let pos = 1
+      rows = rows.map(r => ({ ...r, position: r.finishTime ? pos++ : null }))
+    }
+
+    const genderSuffix = gender ? ` — ${gender === 'M' ? 'Mężczyźni' : 'Kobiety'}` : ''
 
     const pdfDoc = await PDFDocument.create()
     let page = pdfDoc.addPage([595, 842]) // A4
@@ -163,7 +192,7 @@ export async function resultsRoutes(fastify) {
     }
 
     // Header
-    drawText(`${run.category.event.name} — ${run.category.name}`, margin, y, 16, boldFont)
+    drawText(`${run.category.event.name} — ${run.category.name}${genderSuffix}`, margin, y, 16, boldFont)
     y -= 20
     drawText(`Race started: ${run.startedAt ? new Date(run.startedAt).toLocaleString() : 'N/A'}`, margin, y, 10)
     y -= 30
@@ -202,7 +231,7 @@ export async function resultsRoutes(fastify) {
 
     const pdfBytes = await pdfDoc.save()
     reply.header('Content-Type', 'application/pdf')
-    reply.header('Content-Disposition', `attachment; filename="results-${run.category.name}.pdf"`)
+    reply.header('Content-Disposition', `attachment; filename="results-${run.category.name}${gender ? '-' + gender : ''}.pdf"`)
     return reply.send(Buffer.from(pdfBytes))
   })
 
