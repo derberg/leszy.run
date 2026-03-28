@@ -61,6 +61,7 @@ const sources = [
       voivodeship: raw.voivodeship || null,
       registration_url: raw.registration_url || null,
       regulamin_url: raw.regulamin_url || null,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
       known_source_link: raw.known_source_link || null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,

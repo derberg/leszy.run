@@ -180,6 +180,7 @@ async function scrape() {
       distances: '',
       registration_url: registrationUrl,
       regulamin_url: regulaminUrl,
+      event_types: detail?.eventTypes || [],
       known_source_link: knownSourceLink,
       source: 'biegiwpolsce',
       source_url: BASE_URL,
