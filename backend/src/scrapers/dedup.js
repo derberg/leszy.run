@@ -1,31 +1,77 @@
 import { supabase } from '../lib/supabaseClient.js'
 
-function levenshtein(a, b) {
-  const m = a.length, n = b.length
-  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
-  for (let i = 0; i <= m; i++) dp[i][0] = i
-  for (let j = 0; j <= n; j++) dp[0][j] = j
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+// Polish adjective/noun suffixes for rough stemming
+const SUFFIXES = ['owski', 'ewski', 'owska', 'ewska', 'ński', 'ńska', 'ski', 'ska', 'owy', 'owa', 'owe', 'iego', 'ego', 'ach', 'iem']
+
+function stemPL(word) {
+  for (const s of SUFFIXES) {
+    if (word.endsWith(s) && word.length - s.length >= 3) {
+      return word.slice(0, -s.length)
     }
   }
-  return dp[m][n]
+  return word
 }
 
-function nameSimilarity(a, b) {
-  const normA = a.toLowerCase().replace(/[^a-z0-9ąćęłńóśźż ]/g, '').trim()
-  const normB = b.toLowerCase().replace(/[^a-z0-9ąćęłńóśźż ]/g, '').trim()
-  const maxLen = Math.max(normA.length, normB.length)
-  if (maxLen === 0) return 1
-  return 1 - levenshtein(normA, normB) / maxLen
+// Noise words that don't help distinguish events
+const STOP_WORDS = new Set(['bieg', 'run', 'maraton', 'marathon', 'biegi', 'edycja', 'zawody', 'impreza'])
+
+function tokenize(name) {
+  return name.toLowerCase()
+    .replace(/[^a-z0-9ąćęłńóśźż ]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 2)
+    // Strip edition numbers, ordinals, Roman numerals
+    .filter(t => !/^\d+$/.test(t) && !/^[ivxlcdm]+$/.test(t))
+    .map(stemPL)
+}
+
+function jaccardSimilarity(a, b) {
+  const tokA = tokenize(a)
+  const tokB = tokenize(b)
+  const setA = new Set(tokA)
+  const setB = new Set(tokB)
+  const intersection = [...setA].filter(t => setB.has(t)).length
+  const union = new Set([...setA, ...setB]).size
+  return union === 0 ? 0 : intersection / union
+}
+
+// Jaccard on meaningful tokens only (excluding generic running words)
+function distinctTokenSimilarity(a, b) {
+  const tokA = tokenize(a).filter(t => !STOP_WORDS.has(t))
+  const tokB = tokenize(b).filter(t => !STOP_WORDS.has(t))
+  const setA = new Set(tokA)
+  const setB = new Set(tokB)
+  if (setA.size === 0 && setB.size === 0) return 1
+  const intersection = [...setA].filter(t => setB.has(t)).length
+  const union = new Set([...setA, ...setB]).size
+  return union === 0 ? 0 : intersection / union
+}
+
+function extractCity(location) {
+  if (!location) return null
+  // Take the first meaningful part (before comma, dash, or "ul./al./os.")
+  const city = location
+    .replace(/\s*(ul\.|al\.|os\.|pl\.)\s.*/i, '')
+    .split(/[,\-–]/)[0]
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-ząćęłńóśźż ]/g, '')
+    .trim()
+  return city.length >= 2 ? city : null
+}
+
+function citiesMatch(locA, locB) {
+  const cityA = extractCity(locA)
+  const cityB = extractCity(locB)
+  if (!cityA || !cityB) return false
+  // One contains the other (handles "Wrocław" vs "Wrocław Stare Miasto")
+  return cityA.includes(cityB) || cityB.includes(cityA)
 }
 
 async function findExistingMatch(event) {
   if (!supabase) return null
 
+  // 1. Exact source match
   if (event.source_id) {
     const { data } = await supabase
       .from('calendar_events')
@@ -37,17 +83,30 @@ async function findExistingMatch(event) {
     if (data) return data
   }
 
+  // 2. Cross-source fuzzy match: same date, then score by name tokens + location
   const { data: candidates } = await supabase
     .from('calendar_events')
     .select('*')
     .eq('date', event.date)
 
-  if (candidates) {
-    for (const candidate of candidates) {
-      if (nameSimilarity(candidate.name, event.name) > 0.8) {
-        return candidate
-      }
-    }
+  if (!candidates) return null
+
+  for (const c of candidates) {
+    const jaccard = jaccardSimilarity(c.name, event.name)
+    const locMatch = citiesMatch(c.location, event.location)
+
+    // High name similarity alone — confident match
+    if (jaccard > 0.6) return c
+
+    // Same city + moderate name overlap — likely same event from different source
+    if (locMatch && jaccard > 0.35) return c
+
+    // Same city + same date + similar distinctive tokens (ignoring generic words like "bieg", "maraton")
+    if (locMatch && distinctTokenSimilarity(c.name, event.name) > 0.4) return c
+
+    // Same date + same city + both names too short/generic for token comparison
+    // e.g. "Bieg Nocny" vs "Nocny Bieg" in the same city on the same day
+    if (locMatch && tokenize(c.name).length <= 3 && tokenize(event.name).length <= 3 && jaccard > 0.25) return c
   }
 
   return null
@@ -103,4 +162,4 @@ async function upsertEvent(event) {
   }
 }
 
-export { findExistingMatch, upsertEvent, nameSimilarity }
+export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, tokenize }

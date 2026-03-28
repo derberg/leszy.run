@@ -1,31 +1,9 @@
 import { supabase } from '../lib/supabaseClient.js'
+import { jaccardSimilarity, citiesMatch } from '../scrapers/dedup.js'
 
 function capitalizeVoivodeship(s) {
   if (!s) return s
   return s.replace(/(^|-)(\S)/g, (_, sep, ch) => sep + ch.toUpperCase())
-}
-
-function levenshtein(a, b) {
-  const m = a.length, n = b.length
-  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
-  for (let i = 0; i <= m; i++) dp[i][0] = i
-  for (let j = 0; j <= n; j++) dp[0][j] = j
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
-    }
-  }
-  return dp[m][n]
-}
-
-function nameSimilarity(a, b) {
-  const normA = a.toLowerCase().replace(/[^a-z0-9ąćęłńóśźż ]/g, '').trim()
-  const normB = b.toLowerCase().replace(/[^a-z0-9ąćęłńóśźż ]/g, '').trim()
-  const maxLen = Math.max(normA.length, normB.length)
-  if (maxLen === 0) return 1
-  return 1 - levenshtein(normA, normB) / maxLen
 }
 
 export async function calendarEventsRoutes(fastify) {
@@ -69,16 +47,15 @@ export async function calendarEventsRoutes(fastify) {
       for (let i = 0; i < events.length; i++) {
         for (let j = i + 1; j < events.length; j++) {
           const a = events[i], b = events[j]
-          const sim = nameSimilarity(a.name, b.name)
-          if (sim < 0.70) continue
+          const sim = jaccardSimilarity(a.name, b.name)
+          const locMatch = citiesMatch(a.location, b.location)
 
-          // Check location similarity — if both have locations and they differ a lot, skip
-          if (a.location && b.location) {
-            const locSim = nameSimilarity(a.location, b.location)
-            if (locSim < 0.50) continue
-          }
-
-          union(a.id, b.id)
+          // High name token overlap — confident match
+          if (sim > 0.6) { union(a.id, b.id); continue }
+          // Same city + moderate name overlap
+          if (locMatch && sim > 0.35) { union(a.id, b.id); continue }
+          // Same date + same city (even with very different names — likely same event)
+          if (locMatch && sim > 0.15) { union(a.id, b.id); continue }
         }
       }
     }
