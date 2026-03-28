@@ -28,7 +28,7 @@ export async function participantsRoutes(fastify) {
 
   // Create participant
   fastify.post('/events/:eventId/participants', async (req, reply) => {
-    const { firstName, lastName, email, phone, gender, birthDate, club, categoryId } = req.body
+    const { firstName, lastName, email, phone, gender, birthDate, club, categoryId, tshirtSize } = req.body
     if (!firstName || !lastName) return reply.code(400).send({ error: 'firstName and lastName are required' })
 
     const [nextBib, existingEmojis] = await Promise.all([
@@ -41,6 +41,7 @@ export async function participantsRoutes(fastify) {
       eventId: req.params.eventId,
       firstName, lastName, email, phone: phone || null, gender, birthDate, club,
       categoryId: categoryId || null,
+      tshirtSize: tshirtSize || null,
       bibNumber: nextBib,
       emoji,
     }).returning()

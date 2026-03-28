@@ -1,10 +1,15 @@
-import { runPipeline } from '../scrapers/index.js'
+import { runPipeline, mergeIntoScraperAll } from '../scrapers/index.js'
 import { enrichEvents } from '../scrapers/llmEnricher.js'
 import { resolveUrls } from '../scrapers/urlResolver.js'
 
 export async function scrapersRoutes(fastify) {
   fastify.post('/scrapers/run', async (request, reply) => {
     const results = await runPipeline()
+    return { data: results }
+  })
+
+  fastify.post('/scrapers/merge', async (request, reply) => {
+    const results = await mergeIntoScraperAll()
     return { data: results }
   })
 

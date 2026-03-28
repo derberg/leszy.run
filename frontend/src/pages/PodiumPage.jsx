@@ -267,7 +267,7 @@ export default function PodiumPage() {
 
   const displayedResults = activeGender ? (genderResults || []) : (activeRun?.results || [])
   const enrichedResults = activeCategory
-    ? estimatePositions(displayedResults, categoryCheckpoints, activeGender ? [] : observations)
+    ? estimatePositions(displayedResults, categoryCheckpoints, observations)
     : []
 
   // Which category ID is visually active (for tab highlight)

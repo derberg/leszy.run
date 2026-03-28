@@ -1,17 +1,37 @@
 # Scraper Pipeline — Source-by-Source Documentation
 
-## Running scrapers manually
+## Running the pipeline
+
+All commands run from project root. Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `backend/.env`.
+No backend server or Docker needed — scripts talk directly to Supabase.
+
+### Step 1: Scrape raw data
+
+Fetches events from all 5 sources and stores in per-source tables (`scraper_dostartu`, `scraper_biegiwpolsce`, etc.).
 
 ```bash
-# From project root — requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in backend/.env
 cd backend && node --env-file=../.env scripts/run-scrapers.js
 
-# Force re-scrape specific sources (clears table first, then scrapes from scratch)
+# Force re-scrape specific sources (clears their table first)
 cd backend && node --env-file=../.env scripts/run-scrapers.js --force dostartu
 cd backend && node --env-file=../.env scripts/run-scrapers.js --force dostartu,elektronicznezapisy
 ```
 
-Logs stream to stdout in real time, one line per event. No backend server or Docker needed (scrapers talk directly to Supabase).
+### Step 2: Dedup and merge into `scraper_all`
+
+Reads all raw tables, deduplicates cross-source, merges into `scraper_all` with priority-based field resolution. dostartu data wins over all others.
+
+Priority: dostartu (1) > biegiwpolsce (2) > elektronicznezapisy (3) > datasport (4) > maratonypolskie (5)
+
+```bash
+cd backend && node --env-file=../.env scripts/run-merge.js
+```
+
+After this, review `scraper_all` in Supabase to verify data quality before proceeding.
+
+### Step 3: Normalize into `calendar_events` (TODO)
+
+Not yet implemented. Will normalize `scraper_all` (parse distances, geocode, classify types) and upsert into `calendar_events`.
 
 ## Supabase `calendar_events` table schema
 

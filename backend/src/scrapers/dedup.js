@@ -1,5 +1,30 @@
 import { supabase } from '../lib/supabaseClient.js'
 
+// Source priority — lower number = higher priority (wins on conflict)
+const SOURCE_PRIORITY = {
+  dostartu: 1,
+  biegiwpolsce: 2,
+  elektronicznezapisy: 3,
+  datasport: 4,
+  maratonypolskie: 5,
+}
+
+// Fields only set by LLM enricher or manual edits — scrapers never touch these
+const PROTECTED_FIELDS = new Set([
+  'id', 'created_at', 'status', 'enriched_at', 'leszyrun_event_id',
+  'registration_deadline', 'price_from', 'price_to',
+  'surface', 'elevation_gain_m', 'max_participants',
+  'is_recurring', 'recurring_event_id', 'edition_number',
+])
+
+// Fields that come from scraper_all (normalized) and can be written to calendar_events
+const SCRAPER_FIELDS = [
+  'name', 'date', 'end_date', 'location', 'voivodeship',
+  'lat', 'lng', 'event_type', 'distances',
+  'registration_url', 'regulamin_url', 'website',
+  'is_night', 'is_charity', 'is_kids',
+]
+
 // Polish adjective/noun suffixes for rough stemming
 const SUFFIXES = ['owski', 'ewski', 'owska', 'ewska', 'ński', 'ńska', 'ski', 'ska', 'owy', 'owa', 'owe', 'iego', 'ego', 'ach', 'iem']
 
@@ -12,7 +37,6 @@ function stemPL(word) {
   return word
 }
 
-// Noise words that don't help distinguish events
 const STOP_WORDS = new Set(['bieg', 'run', 'maraton', 'marathon', 'biegi', 'edycja', 'zawody', 'impreza'])
 
 function tokenize(name) {
@@ -20,7 +44,6 @@ function tokenize(name) {
     .replace(/[^a-z0-9ąćęłńóśźż ]/g, ' ')
     .split(/\s+/)
     .filter(t => t.length > 2)
-    // Strip edition numbers, ordinals, Roman numerals
     .filter(t => !/^\d+$/.test(t) && !/^[ivxlcdm]+$/.test(t))
     .map(stemPL)
 }
@@ -35,7 +58,6 @@ function jaccardSimilarity(a, b) {
   return union === 0 ? 0 : intersection / union
 }
 
-// Jaccard on meaningful tokens only (excluding generic running words)
 function distinctTokenSimilarity(a, b) {
   const tokA = tokenize(a).filter(t => !STOP_WORDS.has(t))
   const tokB = tokenize(b).filter(t => !STOP_WORDS.has(t))
@@ -49,7 +71,6 @@ function distinctTokenSimilarity(a, b) {
 
 function extractCity(location) {
   if (!location) return null
-  // Take the first meaningful part (before comma, dash, or "ul./al./os.")
   const city = location
     .replace(/\s*(ul\.|al\.|os\.|pl\.)\s.*/i, '')
     .split(/[,\-–]/)[0]
@@ -64,26 +85,48 @@ function citiesMatch(locA, locB) {
   const cityA = extractCity(locA)
   const cityB = extractCity(locB)
   if (!cityA || !cityB) return false
-  // One contains the other (handles "Wrocław" vs "Wrocław Stare Miasto")
   return cityA.includes(cityB) || cityB.includes(cityA)
 }
 
+function isEmpty(val) {
+  return val === null || val === undefined ||
+    (Array.isArray(val) && val.length === 0) ||
+    val === ''
+}
+
+/**
+ * Find a matching calendar_events row for the given normalized event.
+ * Checks source_links jsonb first, then fuzzy match.
+ */
 async function findExistingMatch(event) {
   if (!supabase) return null
 
-  // 1. Exact source match
-  if (event.source_id) {
+  // 1. Check if any source_link from this event exists in calendar_events
+  const sourceLinks = event.source_links || []
+  for (const link of sourceLinks) {
+    if (!link.source_id) continue
+
     const { data } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .contains('source_links', JSON.stringify([{ source: link.source, source_id: link.source_id }]))
+
+    if (data && data.length > 0) return data[0]
+  }
+
+  // Fallback: legacy source/source_id columns
+  if (event.source_id) {
+    const { data: legacy } = await supabase
       .from('calendar_events')
       .select('*')
       .eq('source', event.source)
       .eq('source_id', event.source_id)
       .single()
 
-    if (data) return data
+    if (legacy) return legacy
   }
 
-  // 2. Cross-source fuzzy match: same date, then score by name tokens + location
+  // 2. Cross-source fuzzy match: same date + name similarity
   const { data: candidates } = await supabase
     .from('calendar_events')
     .select('*')
@@ -95,55 +138,46 @@ async function findExistingMatch(event) {
     const jaccard = jaccardSimilarity(c.name, event.name)
     const locMatch = citiesMatch(c.location, event.location)
 
-    // High name similarity alone — confident match
     if (jaccard > 0.6) return c
-
-    // Same city + moderate name overlap — likely same event from different source
     if (locMatch && jaccard > 0.35) return c
-
-    // Same city + same date + similar distinctive tokens (ignoring generic words like "bieg", "maraton")
     if (locMatch && distinctTokenSimilarity(c.name, event.name) > 0.4) return c
-
-    // Same date + same city + both names too short/generic for token comparison
-    // e.g. "Bieg Nocny" vs "Nocny Bieg" in the same city on the same day
     if (locMatch && tokenize(c.name).length <= 3 && tokenize(event.name).length <= 3 && jaccard > 0.25) return c
   }
 
   return null
 }
 
+/**
+ * Upsert a normalized event (from scraper_all) into calendar_events.
+ * Since scraper_all already has the best-priority data merged, this always
+ * overwrites scraper fields and preserves LLM/manual fields.
+ */
 async function upsertEvent(event) {
   if (!supabase) return { action: 'skipped', id: null, error: { message: 'Supabase not configured' } }
 
   const existing = await findExistingMatch(event)
+  const now = new Date().toISOString()
 
   if (existing) {
-    // Never resurrect rejected events
     if (existing.status === 'rejected') {
       return { action: 'skipped', id: existing.id, error: null }
     }
 
-    // Only fill in fields that are missing on the existing event — never overwrite
+    // scraper_all already resolved priority — overwrite all scraper fields
     const updates = {}
-    const protectedKeys = ['id', 'created_at', 'status']
-    for (const [key, value] of Object.entries(event)) {
-      if (protectedKeys.includes(key)) continue
-      if (value === null || value === undefined) continue
-      if (Array.isArray(value) && value.length === 0) continue
+    for (const key of SCRAPER_FIELDS) {
+      const newVal = event[key]
+      if (newVal === null || newVal === undefined) continue
+      if (Array.isArray(newVal) && newVal.length === 0) continue
+      updates[key] = newVal
+    }
 
-      const existingVal = existing[key]
-      const isEmpty = existingVal === null || existingVal === undefined ||
-        (Array.isArray(existingVal) && existingVal.length === 0) ||
-        existingVal === ''
-      if (isEmpty) {
-        updates[key] = value
-      }
-    }
-    updates.last_verified_at = new Date().toISOString()
-    if (Object.keys(updates).length === 1) {
-      // Only last_verified_at — nothing to fill in
-      updates.updated_at = new Date().toISOString()
-    }
+    updates.source = event.source
+    updates.source_id = event.source_id
+    updates.source_url = event.source_url
+    updates.source_links = event.source_links || []
+    updates.last_verified_at = now
+    updates.updated_at = now
 
     const { error } = await supabase
       .from('calendar_events')
@@ -152,9 +186,20 @@ async function upsertEvent(event) {
 
     return { action: 'updated', id: existing.id, error }
   } else {
+    const row = {}
+    // Only copy non-protected fields
+    for (const [key, value] of Object.entries(event)) {
+      if (!PROTECTED_FIELDS.has(key)) {
+        row[key] = value
+      }
+    }
+    row.source_links = event.source_links || []
+    row.last_verified_at = now
+    row.scraped_at = now
+
     const { data, error } = await supabase
       .from('calendar_events')
-      .insert(event)
+      .insert(row)
       .select('id')
       .single()
 
@@ -162,4 +207,4 @@ async function upsertEvent(event) {
   }
 }
 
-export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, tokenize }
+export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, tokenize, SOURCE_PRIORITY }
