@@ -98,7 +98,7 @@ function AdminPanel({ event, pin, preselectedParticipantId }) {
     if (!preselectedParticipantId || selectedParticipant) return
     supabase
       .from('participants')
-      .select('id, first_name, last_name, bib_number, category_id, birth_date')
+      .select('id, first_name, last_name, bib_number, category_id, birth_date, tshirt_size')
       .eq('id', preselectedParticipantId)
       .single()
       .then(async ({ data, error }) => {
@@ -214,7 +214,7 @@ function QrScanner({ event, onFound, onError }) {
           } catch {}
           const { data, error } = await supabase
             .from('participants')
-            .select('id, first_name, last_name, bib_number, category_id, birth_date')
+            .select('id, first_name, last_name, bib_number, category_id, birth_date, tshirt_size')
             .eq('id', participantId)
             .single()
 
@@ -287,14 +287,14 @@ function ManualSearch({ event, onFound }) {
     if (isNumeric) {
       const { data: d } = await supabase
         .from('participants')
-        .select('id, first_name, last_name, bib_number, category_id, birth_date')
+        .select('id, first_name, last_name, bib_number, category_id, birth_date, tshirt_size')
         .in('category_id', catIds)
         .eq('bib_number', parseInt(query.trim(), 10))
       data = d || []
     } else {
       const { data: d } = await supabase
         .from('participants')
-        .select('id, first_name, last_name, bib_number, category_id, birth_date')
+        .select('id, first_name, last_name, bib_number, category_id, birth_date, tshirt_size')
         .in('category_id', catIds)
         .or(`first_name.ilike.%${query.trim()}%,last_name.ilike.%${query.trim()}%`)
         .limit(20)
@@ -474,6 +474,16 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
                 Potwierdzam odbiór podpisanej zgody opiekuna w formie papierowej
               </span>
             </label>
+          </div>
+        )}
+
+        {/* T-shirt reminder */}
+        {participant?.tshirt_size && (
+          <div className="border border-apex-yellow/40 bg-apex-yellow/10 p-5 mb-6">
+            <div className="font-display text-lg uppercase tracking-wider text-apex-yellow mb-1">Wydaj koszulkę</div>
+            <div className="text-apex-text-bright text-sm">
+              Rozmiar: <strong className="text-apex-yellow">{participant.tshirt_size}</strong>
+            </div>
           </div>
         )}
 
