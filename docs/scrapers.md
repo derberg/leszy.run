@@ -39,7 +39,17 @@ cd backend && node --env-file=../.env scripts/run-geocode.js
 
 Output: `.` = city map hit, `G` = Nominatim geocoded, `MISS` = couldn't resolve.
 
-### Step 4: Normalize into `calendar_events` (TODO)
+### Step 4: Enrich flags (charity, kids)
+
+Sets `charytatywny` event type from name keywords and `is_kids=true` when any distance is ≤ 1 km.
+
+```bash
+cd backend && node --env-file=../.env scripts/run-enrich-flags.js
+```
+
+Output: `C` = charity tagged, `K` = kids flagged.
+
+### Step 5: Normalize into `calendar_events` (TODO)
 
 Not yet implemented. Will normalize `scraper_all` (parse distances, classify types) and upsert into `calendar_events`.
 
