@@ -29,9 +29,19 @@ cd backend && node --env-file=../.env scripts/run-merge.js
 
 After this, review `scraper_all` in Supabase to verify data quality before proceeding.
 
-### Step 3: Normalize into `calendar_events` (TODO)
+### Step 3: Fill missing voivodeships
 
-Not yet implemented. Will normalize `scraper_all` (parse distances, geocode, classify types) and upsert into `calendar_events`.
+Geocodes rows in `scraper_all` that have no `voivodeship`. Tries fast city→voivodeship map first, falls back to Nominatim (rate-limited ~1 req/s, results cached in `geocode_cache`). Also fills `lat`/`lng` if missing.
+
+```bash
+cd backend && node --env-file=../.env scripts/run-geocode.js
+```
+
+Output: `.` = city map hit, `G` = Nominatim geocoded, `MISS` = couldn't resolve.
+
+### Step 4: Normalize into `calendar_events` (TODO)
+
+Not yet implemented. Will normalize `scraper_all` (parse distances, classify types) and upsert into `calendar_events`.
 
 ## Supabase `calendar_events` table schema
 

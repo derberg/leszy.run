@@ -24,6 +24,7 @@ export default function ParticipantsTable({ eventId, categories }) {
   const [sendingSmsFor, setSendingSmsFor] = useState(null) // participant id being sent
   const [minorCheckinTarget, setMinorCheckinTarget] = useState(null) // participant needing doc confirmation
   const [minorDocChecks, setMinorDocChecks] = useState({}) // { docId: true/false }
+  const [tshirtConfirmed, setTshirtConfirmed] = useState(false)
 
   const { data: participants = [] } = useQuery({
     queryKey: ['participants', eventId],
@@ -113,6 +114,7 @@ export default function ParticipantsTable({ eventId, categories }) {
     if (needsMinorDocs || p.tshirtSize) {
       setMinorCheckinTarget(p)
       setMinorDocChecks({})
+      setTshirtConfirmed(false)
     } else {
       checkinMutation.mutate({ participantId: p.id })
     }
@@ -498,7 +500,7 @@ export default function ParticipantsTable({ eventId, categories }) {
       </Dialog>
 
       {/* Check-in confirmation dialog — minor docs and/or t-shirt */}
-      <Dialog open={!!minorCheckinTarget} onOpenChange={o => { if (!o) { setMinorCheckinTarget(null); setMinorDocChecks({}) } }}>
+      <Dialog open={!!minorCheckinTarget} onOpenChange={o => { if (!o) { setMinorCheckinTarget(null); setMinorDocChecks({}); setTshirtConfirmed(false) } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{isMinor(minorCheckinTarget) && minorProvideDocs.length > 0 ? 'Zamelduj nieletniego' : 'Zamelduj uczestnika'}</DialogTitle>
@@ -508,9 +510,15 @@ export default function ParticipantsTable({ eventId, categories }) {
               <strong>{minorCheckinTarget?.firstName} {minorCheckinTarget?.lastName}</strong>{isMinor(minorCheckinTarget) && minorProvideDocs.length > 0 ? ' — potwierdź odbiór dokumentów:' : ''}
             </p>
             {minorCheckinTarget?.tshirtSize && (
-              <div className="border border-apex-yellow/40 bg-apex-yellow/10 p-3">
-                <span className="text-sm text-apex-yellow font-bold">Wydaj koszulkę: rozmiar {minorCheckinTarget.tshirtSize}</span>
-              </div>
+              <label className="flex items-center gap-2 border border-apex-yellow/40 bg-apex-yellow/10 p-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={tshirtConfirmed}
+                  onChange={e => setTshirtConfirmed(e.target.checked)}
+                  className="accent-apex-yellow w-4 h-4"
+                />
+                <span className="text-sm text-apex-yellow font-bold">Potwierdzam wydanie koszulki: rozmiar {minorCheckinTarget.tshirtSize}</span>
+              </label>
             )}
             {isMinor(minorCheckinTarget) && minorProvideDocs.length > 0 && (
               <div className="space-y-2">
@@ -529,13 +537,13 @@ export default function ParticipantsTable({ eventId, categories }) {
             )}
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setMinorCheckinTarget(null); setMinorDocChecks({}) }}>Anuluj</Button>
+            <Button variant="outline" onClick={() => { setMinorCheckinTarget(null); setMinorDocChecks({}); setTshirtConfirmed(false) }}>Anuluj</Button>
             <Button
               onClick={() => {
                 const docs = minorProvideDocs.map(d => ({ documentId: d.id, completed: !!minorDocChecks[d.id] }))
                 checkinMutation.mutate({ participantId: minorCheckinTarget.id, documents: docs })
               }}
-              disabled={checkinMutation.isPending || (isMinor(minorCheckinTarget) && minorProvideDocs.length > 0 && minorProvideDocs.some(d => !minorDocChecks[d.id]))}
+              disabled={checkinMutation.isPending || (isMinor(minorCheckinTarget) && minorProvideDocs.length > 0 && minorProvideDocs.some(d => !minorDocChecks[d.id])) || (minorCheckinTarget?.tshirtSize && !tshirtConfirmed)}
             >
               Zamelduj
             </Button>
