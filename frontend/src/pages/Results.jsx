@@ -11,6 +11,66 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFoo
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select.jsx'
 import { Download, ExternalLink, Info, Pencil, Upload } from 'lucide-react'
 
+const GENDER_VIEWS = [
+  { key: null, label: 'Open' },
+  { key: 'M', label: 'Mężczyźni' },
+  { key: 'K', label: 'Kobiety' },
+]
+
+function GenderTabs({ value, onChange }) {
+  return (
+    <div className="flex gap-1 mb-4">
+      {GENDER_VIEWS.map(v => (
+        <button
+          key={v.key ?? 'open'}
+          onClick={() => onChange(v.key)}
+          className={cn(
+            'px-3 py-1.5 text-xs font-bold tracking-widest uppercase transition-colors border',
+            value === v.key
+              ? 'bg-apex-yellow text-apex-bg border-apex-yellow'
+              : 'text-apex-muted border-apex-border hover:text-apex-text'
+          )}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function CategoryBlock({ cat, eventId }) {
+  const [gender, setGender] = useState(null)
+  const run = cat.raceRuns?.[0]
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="font-display text-2xl uppercase tracking-wider text-apex-text">{cat.name}</h2>
+        <div className="flex items-center gap-2">
+          {run && (
+            <>
+              <a href={api.results.exportCsv(run.id, gender)} target="_blank" rel="noreferrer">
+                <Button variant="outline" size="sm"><Download size={12} /> CSV</Button>
+              </a>
+              <a href={api.results.exportPdf(run.id, gender)} target="_blank" rel="noreferrer">
+                <Button variant="outline" size="sm"><Download size={12} /> PDF</Button>
+              </a>
+            </>
+          )}
+        </div>
+      </div>
+
+      <GenderTabs value={gender} onChange={setGender} />
+
+      {!run ? (
+        <div className="text-sm text-apex-muted py-4">Brak biegu.</div>
+      ) : (
+        <ResultsTable raceRunId={run.id} results={run.results || []} categoryId={cat.id} gender={gender} />
+      )}
+    </div>
+  )
+}
+
 export default function Results() {
   const { id } = useParams()
 
@@ -29,47 +89,22 @@ export default function Results() {
       </div>
 
       <div className="space-y-6">
-        {categories.map(cat => {
-          const run = cat.raceRuns?.[0]
-          return (
-            <div key={cat.id}>
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="font-display text-2xl uppercase tracking-wider text-apex-text">{cat.name}</h2>
-                <div className="flex items-center gap-2">
-                  {run && (
-                    <>
-                      <a href={api.results.exportCsv(run.id)} target="_blank" rel="noreferrer">
-                        <Button variant="outline" size="sm"><Download size={12} /> CSV</Button>
-                      </a>
-                      <a href={api.results.exportPdf(run.id)} target="_blank" rel="noreferrer">
-                        <Button variant="outline" size="sm"><Download size={12} /> PDF</Button>
-                      </a>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {!run ? (
-                <div className="text-sm text-apex-muted py-4">Brak biegu.</div>
-              ) : (
-                <ResultsTable raceRunId={run.id} results={run.results || []} categoryId={cat.id} />
-              )}
-            </div>
-          )
-        })}
+        {categories.map(cat => (
+          <CategoryBlock key={cat.id} cat={cat} eventId={id} />
+        ))}
       </div>
     </div>
   )
 }
 
-function ResultsTable({ raceRunId, results, categoryId }) {
+function ResultsTable({ raceRunId, results, categoryId, gender }) {
   const qc = useQueryClient()
   const [editRow, setEditRow] = useState(null)
 
   const { data: rows = results } = useQuery({
-    queryKey: ['results', raceRunId],
-    queryFn: () => api.results.list(raceRunId),
-    initialData: results,
+    queryKey: ['results', raceRunId, gender],
+    queryFn: () => api.results.list(raceRunId, gender),
+    initialData: gender ? undefined : results,
     refetchInterval: 10_000,
   })
 
