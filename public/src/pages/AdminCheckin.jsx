@@ -352,6 +352,7 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [minorPaperConfirmed, setMinorPaperConfirmed] = useState(false)
+  const [tshirtConfirmed, setTshirtConfirmed] = useState(false)
 
   useEffect(() => {
     loadDocuments()
@@ -477,14 +478,22 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
           </div>
         )}
 
-        {/* T-shirt reminder */}
-        {participant?.tshirt_size && (
-          <div className="border border-apex-yellow/40 bg-apex-yellow/10 p-5 mb-6">
-            <div className="font-display text-lg uppercase tracking-wider text-apex-yellow mb-1">Wydaj koszulkę</div>
-            <div className="text-apex-text-bright text-sm">
-              Rozmiar: <strong className="text-apex-yellow">{participant.tshirt_size}</strong>
+        {/* T-shirt confirmation */}
+        {participant?.tshirt_size && !alreadyCheckedIn && (
+          <label className="flex items-center gap-3 border border-apex-yellow/40 bg-apex-yellow/10 p-5 mb-6 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={tshirtConfirmed}
+              onChange={e => setTshirtConfirmed(e.target.checked)}
+              className="accent-apex-yellow w-5 h-5"
+            />
+            <div>
+              <div className="font-display text-lg uppercase tracking-wider text-apex-yellow">Potwierdzam wydanie koszulki</div>
+              <div className="text-apex-text-bright text-sm">
+                Rozmiar: <strong className="text-apex-yellow">{participant.tshirt_size}</strong>
+              </div>
             </div>
-          </div>
+          </label>
         )}
 
         {alreadyCheckedIn && (
@@ -529,9 +538,9 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
 
             <button
               onClick={handleConfirm}
-              disabled={submitting || (minor && !minorPaperConfirmed)}
+              disabled={submitting || (minor && !minorPaperConfirmed) || (participant?.tshirt_size && !tshirtConfirmed)}
               className={`w-full py-4 font-bold text-lg uppercase tracking-wider transition-colors ${
-                !submitting && (!minor || minorPaperConfirmed)
+                !submitting && (!minor || minorPaperConfirmed) && (!participant?.tshirt_size || tshirtConfirmed)
                   ? 'bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright cursor-pointer'
                   : 'bg-apex-surface-2 text-apex-muted cursor-not-allowed'
               }`}

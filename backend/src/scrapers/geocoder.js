@@ -47,29 +47,33 @@ async function geocode(locationQuery) {
       const coords = { lat: parseFloat(lat), lng: parseFloat(lon) }
 
       // Nominatim search may not return state for small towns — use reverse geocoding as fallback
-      let rawState = address?.state || null
+      // Also check province field — Nominatim sometimes uses it for Polish voivodeships
+      let rawState = address?.state || address?.province || null
 
       if (!rawState) {
         await new Promise(r => setTimeout(r, RATE_LIMIT_MS))
         lastRequestAt = Date.now()
         try {
           const revRes = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lng}&format=json&addressdetails=1`,
+            `https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lng}&format=json&addressdetails=1&zoom=5`,
             { headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' } }
           )
           const revData = await revRes.json()
-          rawState = revData?.address?.state || null
+          rawState = revData?.address?.state || revData?.address?.province || null
         } catch {}
       }
 
       const voivodeship = capitalizeVoivodeship(rawState)
 
-      await supabase.from('geocode_cache').upsert({
-        location_query: locationQuery,
-        lat: coords.lat,
-        lng: coords.lng,
-        voivodeship,
-      }, { onConflict: 'location_query' })
+      // Only cache if we got voivodeship — avoid poisoning cache with incomplete results
+      if (voivodeship) {
+        await supabase.from('geocode_cache').upsert({
+          location_query: locationQuery,
+          lat: coords.lat,
+          lng: coords.lng,
+          voivodeship,
+        }, { onConflict: 'location_query' })
+      }
 
       return { ...coords, voivodeship }
     }
