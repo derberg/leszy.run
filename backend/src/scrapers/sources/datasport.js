@@ -5,7 +5,6 @@ const LIST_URL = `${BASE_URL}/lista.html`
 
 async function fetchDetailPage(eventId) {
   try {
-    // zawody_files/ path works (direct zawodyNNN.html returns 403)
     const url = `${BASE_URL}/zawody_files/zawody${eventId}.html`
     const res = await fetch(url, {
       headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
@@ -16,37 +15,45 @@ async function fetchDetailPage(eventId) {
     const html = new TextDecoder('windows-1250').decode(buffer)
     const $ = cheerio.load(html)
 
-    // Extract distances only from the event description area, not participant stats.
-    // Datasport pages have "Pokonał/Pokonała XXX km" (cumulative participant stats)
-    // and "Półmaraton"/"Maraton" in participant history sections — strip those out.
-    const pageText = $('body').text().replace(/\s+/g, ' ').trim()
-    const cleanText = pageText
-      .replace(/Pokona[łl]a?\s+[\d.,]+\s*km/gi, '')   // strip "Pokonał 221.14 km"
-      .replace(/przebieg[łl]a?\s+[\d.,]+\s*km/gi, '')  // strip "Przebiegł 150 km"
-
-    // Extract distances from cleaned text
+    // Extract distances from <h4> race category headings in the section after #features.
+    // Structure: <section id="features">...</section> <section>...<h4>Bieg 10km</h4>...
+    // These headings contain the actual race names with distances — no junk.
     const distances = []
-    const kmMatches = [...cleanText.matchAll(/(\d+[\.,]?\d*)\s*km/gi)]
-    for (const m of kmMatches) {
-      const km = parseFloat(m[1].replace(',', '.'))
-      const label = `${km} km`
-      if (km > 0 && km < 100 && !distances.includes(label)) distances.push(label)
-    }
-    // Named distances — only from event name, not page text (avoids participant history)
-    // These are checked per-event in the normalizer from the event name
-    // If no km distances, look for time-based durations (e.g., "4h", "6h", "8h")
-    if (distances.length === 0) {
-      const hourMatches = [...pageText.matchAll(/\b(\d{1,2})\s*[hH]\b/g)]
-      for (const m of hourMatches) {
-        const hours = parseInt(m[1])
+    const featuresSection = $('section#features')
+    const categorySection = featuresSection.next('section')
+    const headings = categorySection.length ? categorySection.find('h4') : $('h4')
+
+    headings.each((_, el) => {
+      const text = $(el).text().trim()
+      // Extract km from heading like "Bieg 10km", "Bieg 5 km", "Półmaraton"
+      const kmMatch = text.match(/(\d+[.,]?\d*)\s*km/i)
+      if (kmMatch) {
+        const km = parseFloat(kmMatch[1].replace(',', '.'))
+        const label = `${km} km`
+        if (km > 0 && km < 500 && !distances.includes(label)) distances.push(label)
+      }
+      // Named distances
+      if (/półmaraton|polmaraton/i.test(text) && !distances.some(d => d.includes('21'))) {
+        distances.push('21.1 km')
+      }
+      if (/\bmaraton\b/i.test(text) && !/pół|pol/i.test(text) && !distances.some(d => d.includes('42'))) {
+        distances.push('42.2 km')
+      }
+      // Time-based durations (e.g., "Bieg 4h", "Bieg 6H")
+      const hourMatch = text.match(/\b(\d{1,2})\s*[hH]\b/)
+      if (hourMatch) {
+        const hours = parseInt(hourMatch[1])
         const label = `${hours}h`
         if (hours > 0 && hours <= 48 && !distances.includes(label)) distances.push(label)
       }
-    }
+    })
+
+    // Regulamin PDF URL
+    const regulaminLink = $(`a[href*="regulaminy/regulamin_${eventId}.pdf"]`).attr('href') || null
 
     return {
       distances: distances.join(', '),
-      rawDescription: pageText.slice(0, 5000),
+      regulaminUrl: regulaminLink,
     }
   } catch (err) {
     return null
@@ -96,9 +103,11 @@ async function scrape() {
       const entry = entries[i]
       let distances = ''
 
+      let regulaminUrl = null
       const detail = await fetchDetailPage(entry.sourceId)
       if (detail) {
         distances = detail.distances
+        regulaminUrl = detail.regulaminUrl
       }
 
       results.push({
@@ -107,6 +116,7 @@ async function scrape() {
         location: entry.location,
         distances,
         registration_url: null,
+        regulamin_url: regulaminUrl,
         source: 'datasport',
         source_url: LIST_URL,
         source_id: entry.sourceId,

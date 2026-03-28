@@ -2,6 +2,26 @@ import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://www.biegiwpolsce.pl'
 
+// Known scraper source domains — save the link but don't process further
+const KNOWN_SOURCE_DOMAINS = [
+  'maratonypolskie.pl',
+  'datasport.pl',
+  'liveds.datasport.pl',
+  'online.datasport.pl',
+  'elektronicznezapisy.pl',
+  'dostartu.pl',
+  'pomiarczasuatelier.pl',
+]
+
+function isKnownSourceUrl(url) {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '')
+    return KNOWN_SOURCE_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))
+  } catch {
+    return false
+  }
+}
+
 async function fetchDetailPage(path) {
   try {
     const url = `${BASE_URL}${path}`
@@ -11,53 +31,45 @@ async function fetchDetailPage(path) {
     const html = await res.text()
     const $ = cheerio.load(html)
 
-    // Detail page has <strong>City</strong>, voivodeship
-    const strongTags = $('strong')
+    // City + voivodeship from structured section:
+    // <i class="fas fa-map-marker-alt text-green-500 mr-4"></i><strong>Rybnik</strong>, śląskie
     let city = null
     let voivodeship = null
-
-    strongTags.each((_, el) => {
-      const text = $(el).text().trim()
-      const after = $(el).parent().text().trim()
-      // Pattern: "City, voivodeship" or "City , voivodeship"
-      const match = after.match(new RegExp(`${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*,\\s*([a-ząćęłńóśźż-]+)`, 'i'))
-      if (match && text.length < 30 && !city) {
-        city = text
-        voivodeship = match[1].trim()
+    $('i.fa-map-marker-alt').each((_, el) => {
+      const parent = $(el).parent()
+      const strong = parent.find('strong')
+      if (strong.length) {
+        city = strong.text().trim()
+        // Voivodeship is after the strong tag: ", śląskie"
+        const fullText = parent.text().trim()
+        const commaMatch = fullText.match(/,\s*([a-ząćęłńóśźż-]+)\s*$/i)
+        if (commaMatch) voivodeship = commaMatch[1].trim()
       }
     })
 
-    // Extract distances from page text — look for categories like "Półmaraton", "10 km", etc.
-    const pageText = $('body').text()
-    const distances = []
-    const kmMatches = [...pageText.matchAll(/(\d+[.,]?\d*)\s*km/gi)]
-    for (const m of kmMatches) {
-      const km = parseFloat(m[1].replace(',', '.'))
-      if (km > 0 && km < 500 && !distances.includes(`${km} km`)) {
-        distances.push(`${km} km`)
-      }
-    }
-    // Named distances
-    if (pageText.toLowerCase().includes('półmaraton') && !distances.some(d => d.includes('21'))) {
-      distances.push('21.1 km')
-    }
+    // Event types from tags:
+    // <p class="... bg-gray-300 ...">Przełaj/Cross</p>
+    // <p class="... bg-green-200 ...">Ultramaraton</p>
+    const eventTypes = []
+    $('i.fa-tags').closest('div').find('p').each((_, el) => {
+      const tag = $(el).text().trim()
+      if (tag && tag !== 'Inne') eventTypes.push(tag)
+    })
 
-    // If no km distances, look for time-based durations (e.g., "4h", "6h", "8h")
-    if (distances.length === 0) {
-      const hourMatches = [...pageText.matchAll(/\b(\d{1,2})\s*[hH]\b/g)]
-      for (const m of hourMatches) {
-        const hours = parseInt(m[1])
-        const label = `${hours}h`
-        if (hours > 0 && hours <= 48 && !distances.includes(label)) {
-          distances.push(label)
-        }
-      }
-    }
+    // Regulamin link from red button: div.text-red-700 a[href]
+    const regulaminDiv = $('div.text-red-700')
+    const regulaminUrl = regulaminDiv.find('a').attr('href') || null
 
-    // Store clean page text for LLM enrichment
-    const rawDescription = pageText.replace(/\s+/g, ' ').trim().slice(0, 5000)
+    // Zapisy (registration) link from green button: div.text-green-700 a[href]
+    const zapisyDiv = $('div.text-green-700')
+    const registrationUrl = zapisyDiv.find('a').attr('href') || null
 
-    return { city, voivodeship, distances: distances.join(', '), rawDescription }
+    // Check if registration URL is a known source
+    const knownSourceLink = registrationUrl && isKnownSourceUrl(registrationUrl)
+      ? registrationUrl
+      : null
+
+    return { city, voivodeship, eventTypes, regulaminUrl, registrationUrl, knownSourceLink }
   } catch (err) {
     return null
   }
@@ -125,7 +137,6 @@ async function scrape() {
           location,
           voivodeship,
           href,
-          needsDetail: !location,
         })
 
         foundOnPage++
@@ -141,18 +152,22 @@ async function scrape() {
     }
   }
 
-  console.log(`[biegiwpolsce] Found ${eventEntries.length} events, ${eventEntries.filter(e => e.needsDetail).length} need detail page fetch`)
+  console.log(`[biegiwpolsce] Found ${eventEntries.length} events, fetching detail pages...`)
 
-  // Step 2: fetch detail pages for events missing location
+  // Step 2: fetch detail pages for all events (regulamin, zapisy, structured data)
   for (const entry of eventEntries) {
-    // Fetch detail page if missing location OR always for distances
-    if (entry.href && (entry.needsDetail || !entry.distances)) {
+    let regulaminUrl = null
+    let registrationUrl = null
+    let knownSourceLink = null
+
+    if (entry.href) {
       const detail = await fetchDetailPage(entry.href)
       if (detail) {
         if (detail.city) entry.location = detail.city
         if (detail.voivodeship) entry.voivodeship = detail.voivodeship
-        if (detail.distances) entry.distances = detail.distances
-        if (detail.rawDescription) entry.rawDescription = detail.rawDescription
+        regulaminUrl = detail.regulaminUrl
+        registrationUrl = detail.registrationUrl
+        knownSourceLink = detail.knownSourceLink
       }
       await new Promise(r => setTimeout(r, 1100))
     }
@@ -162,8 +177,10 @@ async function scrape() {
       date: entry.date,
       location: entry.location,
       voivodeship: entry.voivodeship,
-      distances: entry.distances || '',
-      registration_url: null,
+      distances: '',
+      registration_url: registrationUrl,
+      regulamin_url: regulaminUrl,
+      known_source_link: knownSourceLink,
       source: 'biegiwpolsce',
       source_url: BASE_URL,
       source_id: entry.href || `${entry.name}-${entry.date}`,

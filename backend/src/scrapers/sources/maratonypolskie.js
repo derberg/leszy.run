@@ -9,6 +9,8 @@ const MONTHS_PL = [
   'lipiec', 'sierpien', 'wrzesien', 'pazdziernik', 'listopad', 'grudzien'
 ]
 
+const MAX_RETRIES = 3
+
 function parseSearchResults(html, today) {
   const $ = cheerio.load(html)
   const events = []
@@ -49,7 +51,6 @@ function parseSearchResults(html, today) {
     const nameCell = $(allCells[i])
     const nameLink = nameCell.find('a').first()
     const name = nameLink.text().trim() || nameCell.text().trim()
-    const href = nameLink.attr('href') || ''
 
     if (!name || name.length < 3) continue
 
@@ -57,6 +58,7 @@ function parseSearchResults(html, today) {
     if (seen.has(key)) continue
     seen.add(key)
 
+    const href = nameLink.attr('href') || ''
     const codeMatch = href.match(/code=(\d+)/)
     const sourceId = codeMatch ? codeMatch[1] : key
 
@@ -66,7 +68,6 @@ function parseSearchResults(html, today) {
       location: location.length > 1 && location.length < 40 ? location : '',
       distances: distance,
       registration_url: null,
-      _detailUrl: href ? (href.startsWith('http') ? href : `${BASE_URL}/${href}`) : null,
       source: 'maratonypolskie',
       source_url: SEARCH_URL,
       source_id: sourceId,
@@ -81,130 +82,71 @@ async function scrape() {
   const allSeen = new Set()
   const now = new Date()
   const today = now.toISOString().split('T')[0]
-  const startMonth = now.getMonth() // 0-indexed
+  const startMonth = now.getMonth()
   const startYear = now.getFullYear()
 
-  let browser
-  try {
-    browser = await chromium.launch({ headless: true })
-    const page = await browser.newPage()
-    page.setDefaultTimeout(15000)
-
-    // Load the initial page
-    await page.goto(SEARCH_URL, { waitUntil: 'domcontentloaded' })
-    await page.waitForTimeout(1000)
-
-    // Scrape 12 months ahead
-    for (let i = 0; i < 12; i++) {
-      let monthIdx = startMonth + i
-      let year = startYear
-      if (monthIdx >= 12) {
-        monthIdx -= 12
-        year++
-      }
-
-      const monthValue = MONTHS_PL[monthIdx]
-
-      try {
-        // Select year if different from current
-        const currentYear = await page.$eval('select[name="czasr1"]', el => el.value)
-        if (currentYear !== String(year)) {
-          await page.selectOption('select[name="czasr1"]', String(year))
-          await page.waitForLoadState('domcontentloaded')
-          await page.waitForTimeout(1000)
-        }
-
-        // Select month — this triggers form submit via onchange
-        await page.selectOption('select[name="czasm1"]', monthValue)
-        await page.waitForLoadState('domcontentloaded')
-        await page.waitForTimeout(1500)
-
-        // Get the rendered HTML
-        const html = await page.content()
-        const events = parseSearchResults(html, today)
-
-        let added = 0
-        for (const event of events) {
-          const key = `${event.name}-${event.date}`
-          if (!allSeen.has(key)) {
-            allSeen.add(key)
-            allEvents.push(event)
-            added++
-          }
-        }
-
-        console.log(`[maratonypolskie] ${monthValue} ${year}: ${added} new events (total: ${allEvents.length})`)
-      } catch (err) {
-        console.error(`[maratonypolskie] Failed for ${monthValue} ${year}:`, err.message?.slice(0, 100))
-      }
-    }
-
-    // Phase 2: fetch detail pages for each event (reuse browser session)
-    console.log(`[maratonypolskie] Fetching detail pages for ${allEvents.length} events...`)
-    for (let idx = 0; idx < allEvents.length; idx++) {
-      const event = allEvents[idx]
-      if (!event._detailUrl) continue
-
-      try {
-        await page.goto(event._detailUrl, { waitUntil: 'domcontentloaded', timeout: 10000 })
-        await page.waitForTimeout(500)
-
-        const detailHtml = await page.content()
-        const $d = cheerio.load(detailHtml)
-        const pageText = $d('body').text().replace(/\s+/g, ' ').trim()
-
-        // Extract distances from detail page
-        const distMatches = [...pageText.matchAll(/(\d+[\.,]?\d*)\s*km/gi)]
-        const distances = []
-        for (const m of distMatches) {
-          const km = parseFloat(m[1].replace(',', '.'))
-          const label = `${km} km`
-          if (km > 0 && km < 500 && !distances.includes(label)) distances.push(label)
-        }
-        if (pageText.toLowerCase().includes('półmaraton') && !distances.some(d => d.includes('21'))) {
-          distances.push('21.1 km')
-        }
-        if (/\bmaraton\b/i.test(pageText) && !pageText.toLowerCase().includes('pół') && !distances.some(d => d.includes('42'))) {
-          distances.push('42.2 km')
-        }
-        // If no km distances, look for time-based durations (e.g., "4h", "6h", "8h")
-        if (distances.length === 0) {
-          const hourMatches = [...pageText.matchAll(/\b(\d{1,2})\s*[hH]\b/g)]
-          for (const m of hourMatches) {
-            const hours = parseInt(m[1])
-            const label = `${hours}h`
-            if (hours > 0 && hours <= 48 && !distances.includes(label)) distances.push(label)
-          }
-        }
-        if (distances.length > 0) {
-          event.distances = distances.join(', ')
-        }
-
-        if ((idx + 1) % 50 === 0) {
-          console.log(`[maratonypolskie] Detail pages: ${idx + 1}/${allEvents.length}`)
-        }
-      } catch (err) {
-        // Skip failed detail pages silently
-      }
-    }
-    console.log(`[maratonypolskie] Detail pages done`)
-
-  } catch (err) {
-    console.error('[maratonypolskie] Browser launch failed:', err.message?.slice(0, 200))
-    console.log('[maratonypolskie] Falling back to simple fetch (current month only)...')
-
-    // Fallback: simple fetch without Playwright
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    let browser
     try {
-      const res = await fetch(SEARCH_URL, { headers: { 'User-Agent': 'leszy.run/1.0' } })
-      const buffer = await res.arrayBuffer()
-      const html = new TextDecoder('iso-8859-2').decode(buffer)
-      const events = parseSearchResults(html, today)
-      events.forEach(e => { if (!allSeen.has(`${e.name}-${e.date}`)) { allSeen.add(`${e.name}-${e.date}`); allEvents.push(e) } })
-    } catch (fallbackErr) {
-      console.error('[maratonypolskie] Fallback also failed:', fallbackErr.message)
+      browser = await chromium.launch({ headless: true })
+      const page = await browser.newPage()
+      page.setDefaultTimeout(15000)
+
+      await page.goto(SEARCH_URL, { waitUntil: 'domcontentloaded' })
+      await page.waitForTimeout(1000)
+
+      for (let i = 0; i < 12; i++) {
+        let monthIdx = startMonth + i
+        let year = startYear
+        if (monthIdx >= 12) {
+          monthIdx -= 12
+          year++
+        }
+
+        const monthValue = MONTHS_PL[monthIdx]
+
+        try {
+          const currentYear = await page.$eval('select[name="czasr1"]', el => el.value)
+          if (currentYear !== String(year)) {
+            await page.selectOption('select[name="czasr1"]', String(year))
+            await page.waitForLoadState('domcontentloaded')
+            await page.waitForTimeout(1000)
+          }
+
+          await page.selectOption('select[name="czasm1"]', monthValue)
+          await page.waitForLoadState('domcontentloaded')
+          await page.waitForTimeout(1500)
+
+          const html = await page.content()
+          const events = parseSearchResults(html, today)
+
+          let added = 0
+          for (const event of events) {
+            const key = `${event.name}-${event.date}`
+            if (!allSeen.has(key)) {
+              allSeen.add(key)
+              allEvents.push(event)
+              added++
+            }
+          }
+
+          console.log(`[maratonypolskie] ${monthValue} ${year}: ${added} new events (total: ${allEvents.length})`)
+        } catch (err) {
+          console.error(`[maratonypolskie] Failed for ${monthValue} ${year}:`, err.message?.slice(0, 100))
+        }
+      }
+
+      // Success — break retry loop
+      break
+
+    } catch (err) {
+      console.error(`[maratonypolskie] Attempt ${attempt}/${MAX_RETRIES} failed:`, err.message?.slice(0, 200))
+      if (attempt === MAX_RETRIES) {
+        console.error(`[maratonypolskie] ❌ ALL ${MAX_RETRIES} ATTEMPTS FAILED — check Playwright installation and maratonypolskie.pl availability`)
+      }
+    } finally {
+      if (browser) await browser.close()
     }
-  } finally {
-    if (browser) await browser.close()
   }
 
   console.log(`[maratonypolskie] Scraped ${allEvents.length} events total`)
