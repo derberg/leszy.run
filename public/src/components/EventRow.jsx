@@ -106,25 +106,25 @@ export default function EventRow({ event }) {
         </div>
 
         {/* Mobile: stacked layout */}
-        <div className="md:hidden">
-          <div className="flex items-baseline gap-2">
-            <span className="font-mono text-[12px] font-semibold text-apex-yellow shrink-0">{dateStr}</span>
+        <div className="md:hidden flex gap-2">
+          <span className="font-mono text-[12px] font-semibold text-apex-yellow shrink-0 pt-0.5">{dateStr}</span>
+          <div className="min-w-0">
             <span className="font-display font-bold text-[14px] tracking-wide uppercase text-apex-text-bright leading-tight">{event.name}</span>
+            {city && (
+              <div className="text-[12px] text-apex-muted mt-0.5">{city}</div>
+            )}
+            {(types.length > 0 || distanceLabel) && (
+              <div className="flex gap-1 mt-1.5 flex-wrap">
+                {types.map(t => <TypeTag key={t} label={t} />)}
+                <DistTag label={distanceLabel} />
+                {isLeszyrun && (
+                  <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20">
+                    LESZY.RUN
+                  </span>
+                )}
+              </div>
+            )}
           </div>
-          {city && (
-            <div className="text-[12px] text-apex-muted mt-1 ml-[calc(4ch+0.5rem)]">{city}</div>
-          )}
-          {(types.length > 0 || distanceLabel) && (
-            <div className="flex gap-1 mt-1.5 ml-[calc(4ch+0.5rem)] flex-wrap">
-              {types.map(t => <TypeTag key={t} label={t} />)}
-              <DistTag label={distanceLabel} />
-              {isLeszyrun && (
-                <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20">
-                  LESZY.RUN
-                </span>
-              )}
-            </div>
-          )}
         </div>
       </div>
       {showReport && <ReportEventModal event={event} onClose={() => setShowReport(false)} />}

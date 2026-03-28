@@ -242,7 +242,6 @@ async function normalizeEvent(raw) {
     source: raw.source,
     source_url: raw.source_url || null,
     source_id: raw.source_id || null,
-    status: 'pending',
   }
 }
 
