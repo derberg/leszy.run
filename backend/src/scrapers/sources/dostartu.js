@@ -44,7 +44,7 @@ function makeUrl(id) {
   return `https://dostartu.pl/front_start.php?vid=${id}`
 }
 
-async function scrape() {
+async function scrape({ knownIds = new Set() } = {}) {
   const results = []
   const dateSince = new Date().toISOString()
 
@@ -61,10 +61,11 @@ async function scrape() {
     await new Promise(r => setTimeout(r, 500))
   }
 
-  console.log(`[dostartu] Found ${allEvents.length} events, fetching classifications...`)
+  const newEvents = allEvents.filter(ev => !knownIds.has(String(ev.id)))
+  console.log(`[dostartu] Found ${allEvents.length} events, ${newEvents.length} new (skipping ${allEvents.length - newEvents.length} known)`)
 
-  for (let i = 0; i < allEvents.length; i++) {
-    const ev = allEvents[i]
+  for (let i = 0; i < newEvents.length; i++) {
+    const ev = newEvents[i]
 
     const date = ev.startedTime ? ev.startedTime.split('T')[0] : null
     if (!date) continue

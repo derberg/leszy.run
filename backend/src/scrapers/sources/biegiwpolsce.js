@@ -75,7 +75,7 @@ async function fetchDetailPage(path) {
   }
 }
 
-async function scrape() {
+async function scrape({ knownIds = new Set() } = {}) {
   const results = []
   let page = 1
   const maxPages = 10
@@ -152,16 +152,21 @@ async function scrape() {
     }
   }
 
-  console.log(`[biegiwpolsce] Found ${eventEntries.length} events, fetching detail pages...`)
+  const newEntries = eventEntries.filter(e => {
+    const sourceId = e.href || `${e.name}-${e.date}`
+    return !knownIds.has(sourceId)
+  })
+  console.log(`[biegiwpolsce] Found ${eventEntries.length} events, ${newEntries.length} new (skipping ${eventEntries.length - newEntries.length} known)`)
 
-  // Step 2: fetch detail pages for all events (regulamin, zapisy, structured data)
-  for (const entry of eventEntries) {
+  // Step 2: fetch detail pages only for new events
+  for (const entry of newEntries) {
     let regulaminUrl = null
     let registrationUrl = null
     let knownSourceLink = null
+    let detail = null
 
     if (entry.href) {
-      const detail = await fetchDetailPage(entry.href)
+      detail = await fetchDetailPage(entry.href)
       if (detail) {
         if (detail.city) entry.location = detail.city
         if (detail.voivodeship) entry.voivodeship = detail.voivodeship

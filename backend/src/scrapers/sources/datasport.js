@@ -60,7 +60,7 @@ async function fetchDetailPage(eventId) {
   }
 }
 
-async function scrape() {
+async function scrape({ knownIds = new Set() } = {}) {
   const results = []
 
   try {
@@ -96,11 +96,12 @@ async function scrape() {
       })
     })
 
-    console.log(`[datasport] Found ${entries.length} events, fetching details...`)
+    const newEntries = entries.filter(e => !knownIds.has(e.sourceId))
+    console.log(`[datasport] Found ${entries.length} events, ${newEntries.length} new (skipping ${entries.length - newEntries.length} known)`)
 
-    // Fetch detail pages
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i]
+    // Fetch detail pages only for new events
+    for (let i = 0; i < newEntries.length; i++) {
+      const entry = newEntries[i]
       let distances = ''
 
       let regulaminUrl = null
@@ -126,7 +127,7 @@ async function scrape() {
       await new Promise(r => setTimeout(r, 1100))
 
       if ((i + 1) % 50 === 0) {
-        console.log(`[datasport] Detail pages: ${i + 1}/${entries.length}`)
+        console.log(`[datasport] Detail pages: ${i + 1}/${newEntries.length}`)
       }
     }
 

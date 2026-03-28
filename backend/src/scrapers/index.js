@@ -100,7 +100,14 @@ async function runPipeline() {
     const stats = { source: source.name, found: 0, upserted: 0, errors: [] }
 
     try {
-      const rawEvents = await source.scrape()
+      // Fetch existing source_ids so scrapers can skip detail pages for known events
+      const { data: existing } = await supabase
+        .from(source.table)
+        .select('source_id')
+      const knownIds = new Set((existing || []).map(r => r.source_id))
+      console.log(`[pipeline] ${source.name}: ${knownIds.size} events already in DB`)
+
+      const rawEvents = await source.scrape({ knownIds })
       stats.found = rawEvents.length
 
       // Upsert in batches of 50

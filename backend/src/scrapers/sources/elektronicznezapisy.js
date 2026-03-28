@@ -172,7 +172,7 @@ async function fetchSignupPageLinks(eventId) {
   }
 }
 
-async function scrape() {
+async function scrape({ knownIds = new Set() } = {}) {
   // Step 1: collect event IDs + basic data from listing pages
   const eventEntries = []
 
@@ -214,12 +214,13 @@ async function scrape() {
     }
   }
 
-  console.log(`[elektronicznezapisy] Found ${eventEntries.length} events in listings, fetching details...`)
+  const newEntries = eventEntries.filter(e => !knownIds.has(e.eventId))
+  console.log(`[elektronicznezapisy] Found ${eventEntries.length} events, ${newEntries.length} new (skipping ${eventEntries.length - newEntries.length} known)`)
 
-  // Step 2: fetch detail pages for clean data
+  // Step 2: fetch detail pages only for new events
   const results = []
 
-  for (const entry of eventEntries) {
+  for (const entry of newEntries) {
     const detail = await fetchDetailPage(entry.eventId)
 
     if (detail && detail.name) {

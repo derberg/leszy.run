@@ -77,7 +77,7 @@ function parseSearchResults(html, today) {
   return events
 }
 
-async function scrape() {
+async function scrape({ knownIds = new Set() } = {}) {
   const allEvents = []
   const allSeen = new Set()
   const now = new Date()
