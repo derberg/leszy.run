@@ -32,7 +32,7 @@ export default function Checkin() {
     // Fetch participant
     const { data: pData, error: pErr } = await supabase
       .from('participants')
-      .select('id, first_name, last_name, bib_number, category_id, birth_date, email, phone')
+      .select('id, first_name, last_name, bib_number, category_id, birth_date, email, phone, tshirt_size')
       .eq('id', participantId)
       .single()
 
@@ -175,6 +175,15 @@ export default function Checkin() {
               <div className="text-apex-text-bright text-sm leading-relaxed">
                 Jako uczestnik niepelnoletni <strong>musisz dostarczyc podpisana zgode opiekuna w formie papierowej</strong> do biura zawodow.
                 Bez tego dokumentu <strong>nie zostaniesz dopuszczony/a do startu</strong>.
+              </div>
+            </div>
+          )}
+
+          {participant?.tshirt_size && (
+            <div className="border border-apex-yellow/40 bg-apex-yellow/10 p-5">
+              <div className="font-display text-lg uppercase tracking-wider text-apex-yellow mb-1">Koszulka</div>
+              <div className="text-apex-text-bright text-sm">
+                Pamiętaj odebrać koszulkę (rozmiar <strong className="text-apex-yellow">{participant.tshirt_size}</strong>) w biurze zawodów.
               </div>
             </div>
           )}
