@@ -50,7 +50,7 @@ export async function participantsRoutes(fastify) {
 
   // Update participant (inline edit)
   fastify.patch('/participants/:id', async (req, reply) => {
-    const allowed = ['firstName', 'lastName', 'email', 'gender', 'birthDate', 'club', 'bibNumber', 'categoryId', 'rfidEpc', 'phone']
+    const allowed = ['firstName', 'lastName', 'email', 'gender', 'birthDate', 'club', 'bibNumber', 'categoryId', 'rfidEpc', 'phone', 'tshirtSize']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key] === '' ? null : req.body[key]
@@ -147,6 +147,7 @@ export async function participantsRoutes(fastify) {
           club: row.club || existing.club,
           categoryId: categoryId || existing.categoryId,
           phone: phone || existing.phone,
+          tshirtSize: row.tshirt_size || existing.tshirtSize,
         }).where(eq(participants.id, existing.id))
         updated++
       } else {
@@ -165,6 +166,7 @@ export async function participantsRoutes(fastify) {
           bibNumber: nextBib,
           emoji,
           phone: phone || null,
+          tshirtSize: row.tshirt_size || null,
         })
         imported++
       }
@@ -199,6 +201,7 @@ export async function participantsRoutes(fastify) {
       club: participant.club,
       rfid_epc: participant.rfidEpc,
       emoji: participant.emoji,
+      tshirt_size: participant.tshirtSize,
     }, { onConflict: 'id' })
 
     const { data: checkin, error: checkinError } = await supabase
