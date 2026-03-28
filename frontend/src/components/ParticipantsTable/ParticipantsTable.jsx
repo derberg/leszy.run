@@ -18,7 +18,7 @@ export default function ParticipantsTable({ eventId, categories }) {
   const [rfidTarget, setRfidTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [addOpen, setAddOpen] = useState(false)
-  const [addForm, setAddForm] = useState({ firstName: '', lastName: '', email: '', phone: '', club: '', gender: '', birthDate: '', categoryId: '' })
+  const [addForm, setAddForm] = useState({ firstName: '', lastName: '', email: '', phone: '', club: '', gender: '', birthDate: '', categoryId: '', tshirtSize: '' })
   const [emailError, setEmailError] = useState('')
   const [bulkSmsOpen, setBulkSmsOpen] = useState(false)
   const [sendingSmsFor, setSendingSmsFor] = useState(null) // participant id being sent
@@ -70,7 +70,7 @@ export default function ParticipantsTable({ eventId, categories }) {
 
   const addPart = useMutation({
     mutationFn: (body) => api.participants.create(eventId, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setAddOpen(false); setAddForm({ firstName: '', lastName: '', email: '', phone: '', club: '', gender: '', birthDate: '', categoryId: '' }); setEmailError('') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setAddOpen(false); setAddForm({ firstName: '', lastName: '', email: '', phone: '', club: '', gender: '', birthDate: '', categoryId: '', tshirtSize: '' }); setEmailError('') },
   })
 
   const sendSms = useMutation({
@@ -197,7 +197,7 @@ export default function ParticipantsTable({ eventId, categories }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-apex-border bg-apex-surface-2">
-              {['Emoji', 'Nr', 'Imię', 'Nazwisko', 'Email', 'Tel', 'Klub', 'Płeć', 'Data ur.', 'Kategoria', 'RFID', 'SMS', 'Z', ''].map(h => (
+              {['Emoji', 'Nr', 'Imię', 'Nazwisko', 'Email', 'Tel', 'Klub', 'Płeć', 'Data ur.', 'Kategoria', 'Koszulka', 'RFID', 'SMS', 'Z', ''].map(h => (
                 <th key={h} className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted whitespace-nowrap">
                   {h === 'Z' ? (
                     <Tooltip content={
@@ -256,6 +256,7 @@ export default function ParticipantsTable({ eventId, categories }) {
                   />
                 </td>
                 <td className="px-2 py-1 min-w-28"><CategoryCell participant={p} /></td>
+                <td className="px-2 py-1 w-20"><EditableCell participant={p} field="tshirtSize" /></td>
                 <td className="px-2 py-1 w-28">
                   {p.rfidEpc ? (
                     <div className="flex items-center gap-1">
@@ -389,7 +390,7 @@ export default function ParticipantsTable({ eventId, categories }) {
               <h2 className="font-display text-2xl uppercase tracking-wider">Dodaj uczestnika</h2>
             </div>
             <div className="px-5 py-4 grid grid-cols-2 gap-3">
-              {[['firstName','Imię *'],['lastName','Nazwisko *'],['phone','Telefon'],['club','Klub']].map(([k, l]) => (
+              {[['firstName','Imię *'],['lastName','Nazwisko *'],['phone','Telefon'],['club','Klub'],['tshirtSize','Koszulka']].map(([k, l]) => (
                 <label key={k} className="block">
                   <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">{l}</span>
                   <Input value={addForm[k]} onChange={e => setAddForm(f => ({ ...f, [k]: e.target.value }))} />
@@ -445,7 +446,7 @@ export default function ParticipantsTable({ eventId, categories }) {
             <div className="flex justify-end gap-2 border-t border-apex-border px-5 py-4">
               <Button variant="outline" onClick={() => { setAddOpen(false); setEmailError('') }}>Anuluj</Button>
               <Button
-                onClick={() => addPart.mutate({ ...addForm, birthDate: addForm.birthDate || null, categoryId: addForm.categoryId || null, phone: addForm.phone || null })}
+                onClick={() => addPart.mutate({ ...addForm, birthDate: addForm.birthDate || null, categoryId: addForm.categoryId || null, phone: addForm.phone || null, tshirtSize: addForm.tshirtSize || null })}
                 disabled={!addForm.firstName || !addForm.lastName || !!emailError || addPart.isPending}
               >
                 Dodaj

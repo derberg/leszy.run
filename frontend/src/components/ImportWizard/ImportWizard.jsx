@@ -17,8 +17,8 @@ export default function ImportWizard({ eventId }) {
       />
       <ImportSection
         title="Importuj uczestników"
-        description="CSV z kolumnami: first_name, last_name, email, gender, birth_year, club, category_id"
-        example={"first_name,last_name,email,gender,birth_year,club,category_id\nJan,Kowalski,jan@example.com,M,1990,KS Biega,bieg-5km"}
+        description="CSV z kolumnami: first_name, last_name, email, gender, birth_year, club, category_id, tshirt_size"
+        example={"first_name,last_name,email,gender,birth_year,club,category_id,tshirt_size\nJan,Kowalski,jan@example.com,M,1990,KS Biega,bieg-5km,L"}
         onImport={(fd) => api.participants.importCsv(eventId, fd)}
         invalidateKey={['participants', eventId]}
       />
