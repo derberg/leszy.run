@@ -497,7 +497,7 @@ export default function ParticipantsTable({ eventId, categories }) {
         </DialogContent>
       </Dialog>
 
-      {/* Minor check-in dialog — provide-type documents */}
+      {/* Check-in confirmation dialog — minor docs and/or t-shirt */}
       <Dialog open={!!minorCheckinTarget} onOpenChange={o => { if (!o) { setMinorCheckinTarget(null); setMinorDocChecks({}) } }}>
         <DialogContent>
           <DialogHeader>
@@ -505,7 +505,7 @@ export default function ParticipantsTable({ eventId, categories }) {
           </DialogHeader>
           <DialogBody className="space-y-3">
             <p className="text-sm text-apex-muted">
-              <strong>{minorCheckinTarget?.firstName} {minorCheckinTarget?.lastName}</strong> — potwierdź odbiór dokumentów:
+              <strong>{minorCheckinTarget?.firstName} {minorCheckinTarget?.lastName}</strong>{isMinor(minorCheckinTarget) && minorProvideDocs.length > 0 ? ' — potwierdź odbiór dokumentów:' : ''}
             </p>
             {minorCheckinTarget?.tshirtSize && (
               <div className="border border-apex-yellow/40 bg-apex-yellow/10 p-3">
