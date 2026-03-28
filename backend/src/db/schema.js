@@ -49,6 +49,7 @@ export const participants = pgTable('participants', {
   emoji: text('emoji'),
   phone: text('phone'),
   smsSentAt: timestamp('sms_sent_at', { withTimezone: true }),
+  tshirtSize: text('tshirt_size'),
   updatedAt: timestamp('updated_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
