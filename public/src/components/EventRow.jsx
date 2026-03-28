@@ -63,52 +63,68 @@ export default function EventRow({ event }) {
     <>
       <div
         onClick={handleClick}
-        className={`grid grid-cols-[70px_1fr_auto] md:grid-cols-[90px_1fr_auto] items-center gap-2 md:gap-4 px-3 md:px-4 py-3 md:py-3.5 border mb-0.5 hover:bg-apex-surface-2 hover:border-apex-border-mid transition-all cursor-pointer group ${isLeszyrun ? 'bg-apex-yellow/[0.03] border-l-[3px] border-l-apex-yellow border-t-apex-border border-r-apex-border border-b-apex-border' : 'bg-apex-surface border-apex-border'}`}
+        className={`px-3 md:px-4 py-3 md:py-3.5 border mb-0.5 hover:bg-apex-surface-2 hover:border-apex-border-mid transition-all cursor-pointer group ${isLeszyrun ? 'bg-apex-yellow/[0.03] border-l-[3px] border-l-apex-yellow border-t-apex-border border-r-apex-border border-b-apex-border' : 'bg-apex-surface border-apex-border'}`}
         role="link"
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && handleClick()}
       >
-        <div className="font-mono text-[13px] font-semibold text-apex-yellow">{dateStr}</div>
+        {/* Desktop: single row grid */}
+        <div className="hidden md:grid grid-cols-[90px_1fr_auto] items-center gap-4">
+          <div className="font-mono text-[13px] font-semibold text-apex-yellow">{dateStr}</div>
+          <div className="min-w-0">
+            <div className="font-display font-bold text-[17px] tracking-wide uppercase text-apex-text-bright truncate">{event.name}</div>
+            {city && (
+              <div className="text-[13px] text-apex-muted mt-0.5">
+                {city}
+                {distKm != null && (
+                  <span className="ml-2 font-mono text-[11px] font-semibold text-apex-yellow-dim">
+                    📍 {distKm} km
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex gap-1.5 items-center flex-shrink-0">
+            <div className="flex gap-1.5 items-center flex-wrap">
+              {types.map(t => <TypeTag key={t} label={t} />)}
+              <DistTag label={distanceLabel} />
+              {isLeszyrun && (
+                <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20">
+                  LESZY.RUN
+                </span>
+              )}
+            </div>
+            <button onClick={handleReport} title="Zgłoś problem"
+              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-apex-dim hover:text-apex-yellow transition-all p-1 ml-1"
+              aria-label="Zgłoś problem z tym wydarzeniem">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                <line x1="4" y1="22" x2="4" y2="15" />
+              </svg>
+            </button>
+          </div>
+        </div>
 
-        <div className="min-w-0">
-          <div className="font-display font-bold text-[15px] md:text-[17px] tracking-wide uppercase text-apex-text-bright truncate">{event.name}</div>
+        {/* Mobile: stacked layout */}
+        <div className="md:hidden">
+          <div className="flex items-baseline gap-2">
+            <span className="font-mono text-[12px] font-semibold text-apex-yellow shrink-0">{dateStr}</span>
+            <span className="font-display font-bold text-[14px] tracking-wide uppercase text-apex-text-bright leading-tight">{event.name}</span>
+          </div>
           {city && (
-            <div className="text-[13px] text-apex-muted mt-0.5">
-              {city}
-              {distKm != null && (
-                <span className="ml-2 font-mono text-[11px] font-semibold text-apex-yellow-dim">
-                  📍 {distKm} km od Ciebie
+            <div className="text-[12px] text-apex-muted mt-1 ml-[calc(4ch+0.5rem)]">{city}</div>
+          )}
+          {(types.length > 0 || distanceLabel) && (
+            <div className="flex gap-1 mt-1.5 ml-[calc(4ch+0.5rem)] flex-wrap">
+              {types.map(t => <TypeTag key={t} label={t} />)}
+              <DistTag label={distanceLabel} />
+              {isLeszyrun && (
+                <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20">
+                  LESZY.RUN
                 </span>
               )}
             </div>
           )}
-          {!city && distKm != null && (
-            <div className="text-[13px] mt-0.5">
-              <span className="font-mono text-[11px] font-semibold text-apex-yellow-dim">
-                📍 {distKm} km od Ciebie
-              </span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-1.5 items-center flex-shrink-0">
-          <div className="flex gap-1.5 items-center flex-wrap">
-            {types.map(t => <TypeTag key={t} label={t} />)}
-            <DistTag label={distanceLabel} />
-            {isLeszyrun && (
-              <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20">
-                LESZY.RUN
-              </span>
-            )}
-          </div>
-          <button onClick={handleReport} title="Zgłoś problem"
-            className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-apex-dim hover:text-apex-yellow transition-all p-1 ml-1"
-            aria-label="Zgłoś problem z tym wydarzeniem">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-              <line x1="4" y1="22" x2="4" y2="15" />
-            </svg>
-          </button>
         </div>
       </div>
       {showReport && <ReportEventModal event={event} onClose={() => setShowReport(false)} />}
