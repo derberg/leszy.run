@@ -148,6 +148,7 @@ function EventsSection() {
     supabase
       .from('events')
       .select('id, name, date, location, slug, event_url')
+      .eq('visibility', 'public')
       .gte('date', today)
       .order('date', { ascending: true })
       .limit(5)

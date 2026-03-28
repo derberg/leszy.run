@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFoo
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog.jsx'
 import ParticipantsTable from '../components/ParticipantsTable/ParticipantsTable.jsx'
 import ImportSection from '../components/ImportWizard/ImportSection.jsx'
-import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy } from 'lucide-react'
+import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff } from 'lucide-react'
 
 const VALID_TABS = ['categories', 'participants', 'rfid', 'checkpoints', 'settings', 'documents']
 
@@ -717,6 +717,29 @@ function EventSettings({ eventId, event, updateEvent }) {
 
   return (
     <div className="max-w-lg space-y-6">
+      {/* Visibility */}
+      <Card>
+        <CardHeader><CardTitle>Widoczność na leszy.run</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Button
+              variant={event.visibility === 'public' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => updateEvent.mutate({ visibility: event.visibility === 'public' ? 'private' : 'public' })}
+              disabled={updateEvent.isPending}
+            >
+              {event.visibility === 'public' ? <Eye size={14} className="mr-1.5" /> : <EyeOff size={14} className="mr-1.5" />}
+              {event.visibility === 'public' ? 'Publiczne' : 'Prywatne'}
+            </Button>
+            <span className="text-xs text-apex-muted">
+              {event.visibility === 'public'
+                ? 'Wydarzenie widoczne na stronie publicznej leszy.run'
+                : 'Wydarzenie ukryte — widoczne tylko w panelu admina'}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Slug */}
       <Card>
         <CardHeader><CardTitle>Slug wydarzenia</CardTitle></CardHeader>

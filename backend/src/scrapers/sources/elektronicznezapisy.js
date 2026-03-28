@@ -1,6 +1,8 @@
 import * as cheerio from 'cheerio'
+import { fetchClassifications, parseClassifications } from './dostartu.js'
 
 const BASE_URL = 'https://elektronicznezapisy.pl'
+const DOSTARTU_API = 'https://api.dostartu.pl'
 
 const CATEGORY_URLS = [
   { url: `${BASE_URL}/1/bieg.html`, type: 'running' },
@@ -18,6 +20,13 @@ const KNOWN_SOURCE_DOMAINS = [
   'pomiarczasuatelier.pl',
 ]
 
+// Domains that use the dostartu API (same -v{id} URL pattern, same API at api.dostartu.pl)
+const DOSTARTU_LIKE_DOMAINS = [
+  'dostartu.pl',
+  'zapisy.mktime.pl',
+  'zapisy.o-timing.pl',
+]
+
 function isKnownSourceUrl(url) {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, '')
@@ -25,6 +34,20 @@ function isKnownSourceUrl(url) {
   } catch {
     return false
   }
+}
+
+function isDostartuLikeUrl(url) {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '')
+    return DOSTARTU_LIKE_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))
+  } catch {
+    return false
+  }
+}
+
+function extractDostartuId(url) {
+  const match = url.match(/-v(\d+)/)
+  return match ? match[1] : null
 }
 
 async function fetchDetailPage(eventId) {
@@ -172,6 +195,32 @@ async function fetchSignupPageLinks(eventId) {
   }
 }
 
+// Enrich sparse events from dostartu-like APIs (dostartu.pl, zapisy.mktime.pl, etc.)
+async function enrichFromDostartuApi(competitionId, eventName) {
+  try {
+    const res = await fetch(`${DOSTARTU_API}/competitions/${competitionId}`, {
+      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    const comp = json.competition
+    if (!comp) return null
+
+    const classifications = await fetchClassifications(competitionId)
+    const { distances } = parseClassifications(classifications, eventName)
+
+    return {
+      location: comp.location || null,
+      lat: comp.locationLat || null,
+      lng: comp.locationLng || null,
+      distances,
+    }
+  } catch (err) {
+    console.error(`[elektronicznezapisy] dostartu API enrichment failed for ${competitionId}:`, err.message)
+    return null
+  }
+}
+
 async function scrape({ knownIds = new Set() } = {}) {
   // Step 1: collect event IDs + basic data from listing pages
   const eventEntries = []
@@ -224,27 +273,56 @@ async function scrape({ knownIds = new Set() } = {}) {
     const detail = await fetchDetailPage(entry.eventId)
 
     if (detail && detail.name) {
+      const isSparse = !detail.distances
+
+      // If detail page is sparse, check signup page for external registration link
+      let signupExternalLink = null
+      if (isSparse) {
+        signupExternalLink = await fetchSignupPageLinks(entry.eventId)
+        if (signupExternalLink) {
+          console.log(`[elektronicznezapisy] Signup page redirect: ${entry.eventId} → ${signupExternalLink}`)
+          await new Promise(r => setTimeout(r, 1100))
+        }
+      }
+
+      const externalWebsite = detail.externalWebsite || signupExternalLink || null
+
       // If description links to a known source, save the link but skip further processing
-      const knownSourceLink = detail.externalWebsite && isKnownSourceUrl(detail.externalWebsite)
-        ? detail.externalWebsite
+      const knownSourceLink = externalWebsite && isKnownSourceUrl(externalWebsite)
+        ? externalWebsite
         : null
+
+      // Enrich from dostartu API if external link is dostartu-like and data is sparse
+      let enriched = null
+      if (isSparse && externalWebsite && isDostartuLikeUrl(externalWebsite)) {
+        const compId = extractDostartuId(externalWebsite)
+        if (compId) {
+          enriched = await enrichFromDostartuApi(compId, detail.name)
+          if (enriched) {
+            console.log(`[elektronicznezapisy] Enriched ${entry.eventId} from dostartu API (comp ${compId}): distances=${enriched.distances}`)
+          }
+          await new Promise(r => setTimeout(r, 500))
+        }
+      }
 
       results.push({
         name: detail.name,
         date: detail.date || entry.date,
-        location: detail.location || '',
-        distances: detail.distances || '',
-        registration_url: entry.signupLink
+        location: enriched?.location || detail.location || '',
+        distances: enriched?.distances || detail.distances || '',
+        registration_url: signupExternalLink || (entry.signupLink
           ? `${BASE_URL}/${entry.signupLink}`
-          : `${BASE_URL}/event/${entry.eventId}/strona.html`,
+          : `${BASE_URL}/event/${entry.eventId}/strona.html`),
         regulamin_urls: detail.regulaminUrls || [],
-        external_website: detail.externalWebsite || null,
+        external_website: externalWebsite,
         known_source_link: knownSourceLink,
         source: 'elektronicznezapisy',
-        source_url: entry.categoryUrl,
+        source_url: `${BASE_URL}/event/${entry.eventId}/strona.html`,
         source_id: entry.eventId,
       })
     }
+
+    console.log(`[elektronicznezapisy] Detail pages: ${results.length}/${newEntries.length} — ${detail?.name || entry.eventId}`)
 
     // Rate limit: 1 req/sec
     await new Promise(r => setTimeout(r, 1100))

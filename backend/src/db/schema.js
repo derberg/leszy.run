@@ -18,6 +18,7 @@ export const events = pgTable('events', {
   slug: text('slug').notNull().unique(),
   publicResultsUrl: text('public_results_url'),
   eventUrl: text('event_url'),
+  visibility: text('visibility').notNull().default('private'),  // 'private' | 'public'
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })

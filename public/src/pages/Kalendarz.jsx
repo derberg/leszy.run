@@ -21,6 +21,7 @@ function LeszyrunBanner() {
     supabase
       .from('events')
       .select('name, date, location, slug, event_url')
+      .eq('visibility', 'public')
       .gte('date', new Date().toISOString().split('T')[0])
       .order('date', { ascending: true })
       .limit(1)

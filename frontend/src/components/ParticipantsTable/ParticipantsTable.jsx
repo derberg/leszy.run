@@ -96,7 +96,7 @@ export default function ParticipantsTable({ eventId, categories }) {
   const catMap = Object.fromEntries((categories || []).map(c => [c.id, c.name]))
 
   const isMinor = (p) => {
-    if (!p.birthDate) return false
+    if (!p?.birthDate) return false
     const birth = new Date(p.birthDate)
     const today = new Date()
     let age = today.getFullYear() - birth.getFullYear()

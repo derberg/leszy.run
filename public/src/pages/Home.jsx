@@ -14,7 +14,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('events').select('id, name, date, location, slug').order('date', { ascending: false })
+    supabase.from('events').select('id, name, date, location, slug').eq('visibility', 'public').order('date', { ascending: false })
       .then(({ data }) => { setEvents(data || []); setLoading(false) })
   }, [])
 

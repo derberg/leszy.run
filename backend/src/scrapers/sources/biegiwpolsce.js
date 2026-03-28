@@ -13,6 +13,38 @@ const KNOWN_SOURCE_DOMAINS = [
   'pomiarczasuatelier.pl',
 ]
 
+// Tags that are distances, not event types
+const DISTANCE_TAGS = {
+  '5 km': '5 km',
+  '10 km': '10 km',
+  'Półmaraton': '21.1 km',
+  'Maraton': '42.2 km',
+  'Ultramaraton': 'ultra',
+}
+
+// Tags that indicate kids run
+const KIDS_TAG = 'Dla dzieci'
+
+function splitTags(tags) {
+  const eventTypes = []
+  const distances = []
+  let isKids = false
+
+  for (const tag of tags) {
+    if (tag === KIDS_TAG) {
+      isKids = true
+      continue
+    }
+    if (DISTANCE_TAGS[tag]) {
+      distances.push(DISTANCE_TAGS[tag])
+    } else {
+      eventTypes.push(tag)
+    }
+  }
+
+  return { eventTypes, distances: distances.join(', '), isKids }
+}
+
 function isKnownSourceUrl(url) {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, '')
@@ -177,18 +209,23 @@ async function scrape({ knownIds = new Set() } = {}) {
       await new Promise(r => setTimeout(r, 1100))
     }
 
+    const { eventTypes, distances, isKids } = splitTags(detail?.eventTypes || [])
+
+    console.log(`[biegiwpolsce] Detail pages: ${results.length + 1}/${newEntries.length} — ${entry.name}`)
+
     results.push({
       name: entry.name,
       date: entry.date,
       location: entry.location,
       voivodeship: entry.voivodeship,
-      distances: '',
+      distances,
       registration_url: registrationUrl,
       regulamin_url: regulaminUrl,
-      event_types: detail?.eventTypes || [],
+      event_types: eventTypes.length > 0 ? eventTypes : null,
+      is_kids: isKids,
       known_source_link: knownSourceLink,
       source: 'biegiwpolsce',
-      source_url: BASE_URL,
+      source_url: entry.href ? `${BASE_URL}${entry.href}` : BASE_URL,
       source_id: entry.href || `${entry.name}-${entry.date}`,
     })
   }

@@ -1,5 +1,18 @@
 # Scraper Pipeline — Source-by-Source Documentation
 
+## Running scrapers manually
+
+```bash
+# From project root — requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in backend/.env
+cd backend && node --env-file=../.env scripts/run-scrapers.js
+
+# Force re-scrape specific sources (clears table first, then scrapes from scratch)
+cd backend && node --env-file=../.env scripts/run-scrapers.js --force dostartu
+cd backend && node --env-file=../.env scripts/run-scrapers.js --force dostartu,elektronicznezapisy
+```
+
+Logs stream to stdout in real time, one line per event. No backend server or Docker needed (scrapers talk directly to Supabase).
+
 ## Supabase `calendar_events` table schema
 
 | Column | Type | Nullable | Default | Notes |
@@ -93,11 +106,14 @@ Each scraper writes raw data into its own table. These are the raw scraper outpu
 | date | date | NOT NULL |
 | location | text | City from detail page |
 | voivodeship | text | From detail page |
+| distances | text | Extracted from tags: `5 km`, `10 km`, `21.1 km`, `42.2 km`, `ultra` |
 | registration_url | text | Zapisy button link |
 | regulamin_url | text | Regulamin button link (PDF or page) |
+| event_types | text[] | Pure types only (e.g. `Przełaj/Cross`, `Uliczny`, `Górski`) — distance and kids tags split out |
+| is_kids | boolean | NOT NULL, default false — true when tagged `Dla dzieci` |
 | known_source_link | text | If reg URL is a known source domain |
 | source_id | text | UNIQUE, URL slug |
-| source_url | text | |
+| source_url | text | Per-event detail page URL |
 | scraped_at | timestamptz | |
 
 ### `scraper_dostartu`
@@ -110,11 +126,13 @@ Each scraper writes raw data into its own table. These are the raw scraper outpu
 | location | text | From API |
 | lat | numeric | From API |
 | lng | numeric | From API |
-| distances | text | From classifications API (e.g., "5 km, 10 km") |
+| distances | text | From classifications API — see distance formats below |
 | event_type | text | Mapped from numeric type |
-| registration_url | text | websitePl or dostartu front page |
+| registration_url | text | websitePl or dostartu permalink |
+| regulamin_url | text | statuteFilePl (hosted PDF) or statuteLinkPl (external) |
+| is_kids | boolean | NOT NULL, default false — true when all classifications are kids-only |
 | source_id | text | UNIQUE, API id |
-| source_url | text | |
+| source_url | text | dostartu permalink (`/permalink-v{id}`) |
 | scraped_at | timestamptz | |
 
 ---
@@ -202,7 +220,7 @@ Fetches `zawody_files/zawodyNNN.html` for each event.
 ```
 { name, date, location, distances (comma string from h4 headings),
   registration_url: null, regulamin_url (PDF link),
-  source: 'datasport', source_url, source_id (event number) }
+  source: 'datasport', source_url (per-event detail page), source_id (event number) }
 ```
 
 ### Known issues
@@ -262,18 +280,25 @@ Fetches `/event/NNN/strona.html` for each event:
 - Regulamin: event-specific PDF download links from "Regulamin" `list-group` section (e.g., `download/xxxx/open`)
 - External website: links from the description content area. If the link is to a known scraper source domain (datasport, dostartu, etc.), it's flagged as `known_source_link` — save but don't process further.
 
+**Phase 3 — Signup page fallback (sparse events only):**
+When the detail page has no distances (sparse), fetches `/event/NNN/signup.html` to find external registration links. Many elektronicznezapisy events are just stubs that redirect signups to external platforms (dostartu.pl, zapisy.mktime.pl, etc.).
+
+**Phase 4 — Dostartu API enrichment (dostartu-like external links only):**
+If the external link from the signup page points to a dostartu-like domain (`dostartu.pl`, `zapisy.mktime.pl`, `zapisy.o-timing.pl`), extracts the competition ID from the `-v{id}` URL pattern and calls the dostartu API (`api.dostartu.pl/competitions/{id}` + `/classifications`) to fill in missing distances, location, and coordinates. These sites all share the same backend API.
+
 ### Raw output fields
 ```
-{ name, date, location, distances (comma string from Cennik),
-  registration_url: signup link or event page,
+{ name, date, location, distances (from Cennik or dostartu API enrichment),
+  registration_url: external signup link or elektronicznezapisy signup page,
   regulamin_urls: [download links], external_website, known_source_link,
-  source: 'elektronicznezapisy', source_url (category page), source_id (event number) }
+  source: 'elektronicznezapisy', source_url (detail page), source_id (event number) }
 ```
 
 ### Known issues
 - Cennik section is not always present on the detail page (some events link to separate `pricelist.html`)
-- **HAS registration URLs** — from signup links
+- **HAS registration URLs** — from signup links or external redirects
 - **HAS regulamin PDFs** — can be scraped for detailed distance/rules data in the future
+- Dostartu API enrichment only works for `-v{id}` URL patterns
 
 ### Flow diagram
 ```
@@ -293,6 +318,24 @@ Fetches `/event/NNN/strona.html` for each event:
 │  Regulamin download links    │
 │  External website links      │
 │  (flag known source domains) │
+└──────────┬───────────────────┘
+           │
+           ▼ (if no distances)
+┌──────────────────────────────┐
+│  Fetch /event/NNN/signup.html│
+│  Find external signup link   │
+│  (e.g., zapisy.mktime.pl)   │
+└──────────┬───────────────────┘
+           │
+           ▼ (if dostartu-like URL)
+┌──────────────────────────────┐
+│  Extract competition ID from │
+│  -v{id} URL pattern          │
+│  GET api.dostartu.pl/        │
+│    competitions/{id}         │
+│  GET .../classifications     │
+│  Fill: distances, location,  │
+│  lat/lng                     │
 └──────────┬───────────────────┘
            │
            ▼
@@ -324,25 +367,43 @@ Finds `<a>` elements containing `<h2>` (event name):
 **Phase 2 — Detail pages (all events):**
 Fetches detail page for every event. Structured HTML, no Playwright needed:
 - City + voivodeship: from `<i class="fa-map-marker-alt">` parent → `<strong>City</strong>, voivodeship`
-- Event types: from tag badges near `<i class="fa-tags">` (e.g., "Przełaj/Cross", "Ultramaraton")
+- Tags from badges near `<i class="fa-tags">` — then **split** by `splitTags()`:
+  - **Distances**: `5 km` → `5 km`, `10 km` → `10 km`, `Półmaraton` → `21.1 km`, `Maraton` → `42.2 km`, `Ultramaraton` → `ultra`
+  - **Kids flag**: `Dla dzieci` → `is_kids = true`
+  - **Event types**: everything else stays as-is (e.g., `Przełaj/Cross`, `Uliczny`, `Górski`, `Charytatywny`, `NW`, `Na orientację`, `Z przeszkodami`)
 - **Regulamin**: `div.text-red-700 a[href]` — PDF link or external page with rules
 - **Zapisy (registration)**: `div.text-green-700 a[href]` — registration link (dostartu, zapisy.info, event website, etc.)
 - If the Zapisy URL points to a known scraper source domain, it's flagged as `known_source_link`
 
-**No distance extraction** — distances are not reliably available from biegiwpolsce pages. They come from other sources or future regulamin PDF scraping.
-
 ### Raw output fields
 ```
-{ name, date, location, voivodeship, distances: '' (always empty),
+{ name, date, location, voivodeship,
+  distances (from tag split: "5 km", "21.1 km", "ultra", etc.),
   registration_url (from Zapisy button), regulamin_url (from Regulamin button),
+  event_types (pure types only, distances and kids removed),
+  is_kids (boolean, from "Dla dzieci" tag),
   known_source_link (if reg URL is a known source domain),
-  source: 'biegiwpolsce', source_url, source_id (href or name-date) }
+  source: 'biegiwpolsce', source_url (per-event page), source_id (href or name-date) }
 ```
+
+### Tag splitting reference
+
+| Original tag | Stored in | Value |
+|---|---|---|
+| `5 km` | `distances` | `5 km` |
+| `10 km` | `distances` | `10 km` |
+| `Półmaraton` | `distances` | `21.1 km` |
+| `Maraton` | `distances` | `42.2 km` |
+| `Ultramaraton` | `distances` | `ultra` |
+| `Dla dzieci` | `is_kids` | `true` |
+| `Przełaj/Cross` | `event_types` | as-is |
+| `Uliczny` | `event_types` | as-is |
+| `Górski` | `event_types` | as-is |
+| everything else | `event_types` | as-is |
 
 ### Known issues
 - `source_id` is the URL path slug — decent but not guaranteed stable
-- Distances intentionally not extracted (unreliable from this source)
-- Event type tags use Polish names ("Przełaj/Cross", "Ultramaraton") — need mapping to canonical types
+- Distance tags are coarse (e.g., a 50 km race just gets `ultra`, no exact distance)
 
 ### Flow diagram
 ```
@@ -358,7 +419,10 @@ Fetches detail page for every event. Structured HTML, no Playwright needed:
 │  Phase 2: Detail pages (all) │
 │  Fetch detail → structured:  │
 │  City + voivodeship (icon)   │
-│  Event type tags             │
+│  splitTags():                │
+│    distances ← 5/10/21/42/u │
+│    is_kids ← "Dla dzieci"   │
+│    event_types ← the rest   │
 │  Regulamin URL (red button)  │
 │  Zapisy/reg URL (grn button) │
 │  Flag known source domains   │
@@ -367,7 +431,6 @@ Fetches detail page for every event. Structured HTML, no Playwright needed:
            ▼
 ┌──────────────────────────────┐
 │  Return array of raw events  │
-│  (no distance extraction)    │
 └──────────────────────────────┘
 ```
 
@@ -397,31 +460,49 @@ Queries `/competitions` with filters:
 
 Returns structured JSON: `{ id, name, startedTime, endDate, location, locationLat, locationLng, websitePl, type }`
 
-**Phase 2 — Classifications (distances):**
-For each event, fetches `/competitions/{id}/classifications`:
-- Returns array of race categories with `distance` field (numeric km)
-- Filters `distance > 0`, deduplicates
+**Phase 2 — Classifications (distances + kids detection):**
+For each event, fetches `/competitions/{id}/classifications`.
+Each classification has: `distance` (numeric km), `namePl` (category name), `classificationSetting.playerType` (`"adults"` or `"kids"`).
+
+The `parseClassifications()` function extracts distances using this priority:
+1. **API `distance` field** — if `> 0`, use as `{distance} km` (most events)
+2. **Time-based** — classification name contains `"N H"` pattern → stored as `"4h"`, `"6h"` etc. Also detects `"backyard"` (last-man-standing format, no fixed distance)
+3. **Meter distances** — name contains `"200m"`, `"800m"` etc → stored as `"200m"` (under 1km) or converted to km (≥1000m)
+4. **Named distances** — `"mila"` → `"1 mila"`, `"półmaraton"` → `"21.1 km"`, `"maraton"` → `"42.2 km"`, `"cooper"` → `"test coopera"`
+
+**Kids detection:** `is_kids = true` when ALL classifications have `playerType: "kids"`, OR all classification names match kids keywords (`dzieci`, `młodzież`, `junior`), OR the event name itself contains these keywords.
 
 ### Raw output fields
 ```
-{ name, date, end_date, location, distances (comma string from classifications),
-  registration_url (websitePl or dostartu front page),
-  source: 'dostartu', source_url (dostartu front page), source_id (numeric),
-  lat, lng, event_type (from TYPE_MAP) }
+{ name, date, end_date, location, distances (comma string — see formats above),
+  registration_url (websitePl or dostartu permalink),
+  regulamin_url (statuteFilePl PDF or statuteLinkPl external link),
+  source: 'dostartu', source_url (dostartu permalink), source_id (numeric),
+  lat, lng, event_type (from TYPE_MAP), is_kids (boolean) }
 ```
+
+### Distance format examples
+| API data | Stored `distances` |
+|---|---|
+| `distance: 10`, `distance: 5` | `10 km, 5 km` |
+| `namePl: "Bieg 4 H"`, `"Bieg 6 H"` | `4h, 6h` |
+| `namePl: "BACKYARD"` | `backyard` |
+| `namePl: "200m, dzieci do 6 lat"`, `"800m"` | `200m, 800m` |
+| `namePl: "Mila"` | `1 mila` |
+| `namePl: "test Coopera"` | `test coopera` |
 
 ### Data quality assessment
 - **BEST structured data** — real API, not HTML scraping
-- **HAS registration URLs** — either the event's own `websitePl` or dostartu signup page
+- **HAS registration URLs** — either the event's own `websitePl` or dostartu permalink
 - **HAS coordinates** — `locationLat` / `locationLng` from the API
 - **HAS event types** — mapped from numeric type codes
 - **HAS end dates** — for multi-day events
-- **Distances are structured** — from classification API, not regex on page text
+- **HAS kids flag** — from classification playerType + name keywords
+- **Distances are structured** — from classification API, handles km, time-based, meter, and named formats
 - **Only running-related** — filtered by type codes
 
 ### Known issues
 - Event names differ significantly from other sources (e.g., "Leśny Lament Trail Run 2026" vs "II Leśny Lament") — causes cross-source dedup to fail (Levenshtein < 0.8)
-- 249 events created as duplicates with `source: 'dostartu'` instead of merging into existing records
 
 ### Flow diagram
 ```
@@ -438,8 +519,14 @@ For each event, fetches `/competitions/{id}/classifications`:
 │  For each competition:       │
 │  GET /competitions/{id}/     │
 │    classifications           │
-│  Extract distance (numeric)  │
-│  from each classification    │
+│  parseClassifications():     │
+│  1. distance > 0 → "N km"   │
+│  2. name "N H" → "Nh"       │
+│  3. name "Nm" → meters/km   │
+│  4. named: mila, backyard,  │
+│     maraton, cooper          │
+│  Detect is_kids from         │
+│  playerType + name keywords  │
 └──────────┬───────────────────┘
            │
            ▼
@@ -447,7 +534,8 @@ For each event, fetches `/competitions/{id}/classifications`:
 │  Build result with:          │
 │  name, date, end_date, loc   │
 │  lat/lng, distances, type    │
-│  registration_url, source_id │
+│  is_kids, registration_url   │
+│  source_url (permalink)      │
 └──────────────────────────────┘
 ```
 
@@ -520,11 +608,12 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | **Detail pages** | No (listing only) | Yes (fetch) | Yes (fetch) | Yes (fetch) | Classifications API |
 | **Volume** | 500+ | 200+ | 300-500 | 1000+ | 250+ |
 | **Has reg URL** | No | No | Yes | Yes (Zapisy btn) | Yes |
-| **Has regulamin** | No | Yes (PDF) | Yes (download links) | Yes (red button) | No |
+| **Has regulamin** | No | Yes (PDF) | Yes (download links) | Yes (red button) | Yes (statuteFilePl PDF or statuteLinkPl) |
 | **Has location** | Yes (listing) | Yes (listing) | Yes (detail) | Yes (detail, structured) | Yes (API) |
-| **Has coordinates** | No | No | No | No | Yes (API) |
-| **Has distances** | Single from listing | h4 headings | Cennik pricing | No | Classifications API |
-| **Distance quality** | Low | **High** | **Medium-High** | N/A | **High** |
-| **Has event type** | No | No | No | Yes (tag badges) | Yes (numeric codes) |
+| **Has coordinates** | No | No | Via dostartu enrichment | No | Yes (API) |
+| **Has distances** | Single from listing | h4 headings | Cennik pricing + dostartu enrichment | Yes (from tag split) | Classifications API (km, time, meters, named) |
+| **Distance quality** | Low | **High** | **Medium-High** (High when enriched) | **Medium** (coarse: 5/10/21/42/ultra) | **Highest** |
+| **Has event type** | No | No | No | Yes (pure types after split) | Yes (numeric codes) |
+| **Has kids flag** | No | No | No | Yes ("Dla dzieci" tag) | Yes (playerType + keywords) |
 | **Has end_date** | No | No | No | No | Yes |
 | **Source ID stability** | Medium (code param) | High (zawody number) | High (event number) | Medium (URL slug) | High (API id) |

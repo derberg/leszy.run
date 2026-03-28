@@ -59,9 +59,11 @@ const sources = [
       date: raw.date,
       location: raw.location || null,
       voivodeship: raw.voivodeship || null,
+      distances: raw.distances || null,
       registration_url: raw.registration_url || null,
       regulamin_url: raw.regulamin_url || null,
       event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      is_kids: raw.is_kids || false,
       known_source_link: raw.known_source_link || null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
@@ -81,13 +83,15 @@ const sources = [
       distances: raw.distances || null,
       event_type: raw.event_type || null,
       registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      is_kids: raw.is_kids || false,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
     }),
   },
 ]
 
-async function runPipeline() {
+async function runPipeline({ force = [] } = {}) {
   if (!supabase) {
     console.error('[pipeline] Supabase not configured, cannot store scraped data')
     return { sources: [] }
@@ -101,11 +105,18 @@ async function runPipeline() {
 
     try {
       // Fetch existing source_ids so scrapers can skip detail pages for known events
-      const { data: existing } = await supabase
-        .from(source.table)
-        .select('source_id')
-      const knownIds = new Set((existing || []).map(r => r.source_id))
-      console.log(`[pipeline] ${source.name}: ${knownIds.size} events already in DB`)
+      const isForced = force.includes(source.name)
+      let knownIds = new Set()
+      if (isForced) {
+        await supabase.from(source.table).delete().neq('id', '')
+        console.log(`[pipeline] ${source.name}: FORCE mode — cleared table`)
+      } else {
+        const { data: existing } = await supabase
+          .from(source.table)
+          .select('source_id')
+        knownIds = new Set((existing || []).map(r => r.source_id))
+        console.log(`[pipeline] ${source.name}: ${knownIds.size} events already in DB`)
+      }
 
       const rawEvents = await source.scrape({ knownIds })
       stats.found = rawEvents.length

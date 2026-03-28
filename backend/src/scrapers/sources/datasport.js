@@ -119,7 +119,7 @@ async function scrape({ knownIds = new Set() } = {}) {
         registration_url: null,
         regulamin_url: regulaminUrl,
         source: 'datasport',
-        source_url: LIST_URL,
+        source_url: `${BASE_URL}/zawody_files/zawody${entry.sourceId}.html`,
         source_id: entry.sourceId,
       })
 
