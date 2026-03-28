@@ -138,7 +138,7 @@ function detectVoivodeshipFromCity(location) {
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
 async function main() {
-  // Fetch rows missing voivodeship
+  // Fetch rows missing voivodeship OR lat/lng
   const allRows = []
   let from = 0
   const pageSize = 1000
@@ -146,7 +146,7 @@ async function main() {
     const { data, error } = await supabase
       .from('scraper_all')
       .select('id, name, location, voivodeship, lat, lng')
-      .is('voivodeship', null)
+      .or('voivodeship.is.null,lat.is.null')
       .range(from, from + pageSize - 1)
 
     if (error) { console.error('Fetch error:', error.message); break }
@@ -156,28 +156,33 @@ async function main() {
     from += pageSize
   }
 
-  console.log(`Found ${allRows.length} rows missing voivodeship`)
+  const needsVoivodeship = allRows.filter(r => !r.voivodeship).length
+  const needsCoords = allRows.filter(r => !r.lat).length
+  console.log(`Found ${allRows.length} rows to process (${needsVoivodeship} missing voivodeship, ${needsCoords} missing lat/lng)`)
   let cityMap = 0, geocoded = 0, failed = 0
 
   for (const row of allRows) {
     const city = cleanLocation(row.location)
+    const needsVoiv = !row.voivodeship
+    const needsLatLng = !row.lat
 
-    // Try fast city map first
-    const fromMap = detectVoivodeshipFromCity(city)
-    if (fromMap) {
-      const updates = { voivodeship: fromMap }
-      const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
-      if (error) { console.error(`  ERR ${row.name}: ${error.message}`); failed++ }
-      else { cityMap++; process.stdout.write('.') }
-      continue
+    // Try fast city map first (only resolves voivodeship, not coords)
+    if (needsVoiv && !needsLatLng) {
+      const fromMap = detectVoivodeshipFromCity(city)
+      if (fromMap) {
+        const { error } = await supabase.from('scraper_all').update({ voivodeship: fromMap }).eq('id', row.id)
+        if (error) { console.error(`  ERR ${row.name}: ${error.message}`); failed++ }
+        else { cityMap++; process.stdout.write('.') }
+        continue
+      }
     }
 
-    // Fall back to Nominatim geocoder (rate-limited, uses cache)
+    // Nominatim geocoder — fills voivodeship AND lat/lng
     if (!city) { failed++; continue }
 
     let geo = await geocode(city)
 
-    // If full string failed, retry with just the first word (e.g. "Bukowno" from "Bukowno k Olkusza")
+    // If full string failed, retry with just the first word
     if (!geo.voivodeship && city.includes(' ')) {
       const firstWord = city.split(/\s+/)[0]
       if (firstWord.length >= 3) {
@@ -185,19 +190,26 @@ async function main() {
       }
     }
 
-    if (geo.voivodeship) {
-      const updates = { voivodeship: geo.voivodeship }
-      if (!row.lat && geo.lat) { updates.lat = geo.lat; updates.lng = geo.lng }
+    const updates = {}
+    if (needsVoiv && geo.voivodeship) updates.voivodeship = geo.voivodeship
+    if (needsVoiv && !geo.voivodeship) {
+      // Last resort: city map (even if we needed coords too, at least get voivodeship)
+      const fromMap = detectVoivodeshipFromCity(city)
+      if (fromMap) updates.voivodeship = fromMap
+    }
+    if (needsLatLng && geo.lat) { updates.lat = geo.lat; updates.lng = geo.lng }
+
+    if (Object.keys(updates).length > 0) {
       const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
       if (error) { console.error(`  ERR ${row.name}: ${error.message}`); failed++ }
-      else { geocoded++; process.stdout.write('G') }
+      else { geocoded++; process.stdout.write(geo.lat ? 'G' : '.') }
     } else {
       console.log(`\n  MISS: "${row.name}" location="${row.location}"`)
       failed++
     }
   }
 
-  console.log(`\n\nDone: ${cityMap} from city map, ${geocoded} geocoded, ${failed} failed/no location`)
+  console.log(`\n\nDone: ${cityMap} city map only, ${geocoded} geocoded, ${failed} failed/no location`)
 }
 
 main().catch(console.error)

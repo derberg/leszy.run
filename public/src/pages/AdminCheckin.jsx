@@ -478,23 +478,7 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
           </div>
         )}
 
-        {/* T-shirt confirmation */}
-        {participant?.tshirt_size && !alreadyCheckedIn && (
-          <label className="flex items-center gap-3 border border-apex-yellow/40 bg-apex-yellow/10 p-5 mb-6 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={tshirtConfirmed}
-              onChange={e => setTshirtConfirmed(e.target.checked)}
-              className="accent-apex-yellow w-5 h-5"
-            />
-            <div>
-              <div className="font-display text-lg uppercase tracking-wider text-apex-yellow">Potwierdzam wydanie koszulki</div>
-              <div className="text-apex-text-bright text-sm">
-                Rozmiar: <strong className="text-apex-yellow">{participant.tshirt_size}</strong>
-              </div>
-            </div>
-          </label>
-        )}
+        {/* T-shirt confirmation — shown inline in document checklist style */}
 
         {alreadyCheckedIn && (
           <div className="border border-green-700 bg-green-900/30 p-4 text-center text-green-400 mb-6">
@@ -504,11 +488,11 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
 
         {!alreadyCheckedIn && (
           <>
-            {/* Document checklist */}
-            {documents.length > 0 && (
+            {/* Document checklist — skip 'provide' docs for minors (covered by the red warning above) */}
+            {documents.filter(d => !(minor && d.type === 'provide')).length > 0 && (
               <div className="mb-6">
                 <div className="text-xs text-apex-muted uppercase tracking-wider mb-3">Dokumenty</div>
-                {documents.map(doc => (
+                {documents.filter(d => !(minor && d.type === 'provide')).map(doc => (
                   <label key={doc.id} className="flex items-center gap-3 mb-3 cursor-pointer">
                     <input
                       type="checkbox"
@@ -534,6 +518,21 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
                   </label>
                 ))}
               </div>
+            )}
+
+            {participant?.tshirt_size && (
+              <label className="flex items-center gap-3 mb-6 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={tshirtConfirmed}
+                  onChange={e => setTshirtConfirmed(e.target.checked)}
+                  className="accent-apex-yellow"
+                />
+                <div>
+                  <span className="text-apex-text-bright text-sm">Potwierdzam wydanie koszulki</span>
+                  <span className="ml-2 text-xs uppercase tracking-wider text-apex-yellow">{participant.tshirt_size}</span>
+                </div>
+              </label>
             )}
 
             <button
