@@ -160,7 +160,7 @@ export default function LiveTracking({ eventId, categories }) {
   return (
     <div>
       <div className="text-center mb-8">
-        <div className="font-display text-4xl tracking-widest uppercase text-white mb-1">Na Trasie</div>
+        <div className="font-display text-4xl tracking-widest uppercase text-apex-text-bright mb-1">Na Trasie</div>
         <div className="text-apex-muted text-sm">{allOnCourse.length} zawodnikow</div>
       </div>
 
@@ -177,7 +177,7 @@ export default function LiveTracking({ eventId, categories }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2 mb-1 flex-wrap">
                   {p?.emoji && <span className="text-2xl leading-none">{p.emoji}</span>}
-                  <span className="font-display text-2xl uppercase tracking-wide text-white break-words min-w-0">
+                  <span className="font-display text-2xl uppercase tracking-wide text-apex-text-bright break-words min-w-0">
                     {p?.firstName} {p?.lastName}
                   </span>
                   <span className="font-mono text-sm text-apex-muted shrink-0">#{p?.bibNumber}</span>

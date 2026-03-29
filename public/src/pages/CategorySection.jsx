@@ -157,7 +157,7 @@ export default function CategorySection({ eventId, categoryId }) {
   return (
     <div>
       <div className="text-center mb-6">
-        <div className="font-display text-5xl tracking-widest uppercase text-white mb-1">
+        <div className="font-display text-5xl tracking-widest uppercase text-apex-text-bright mb-1">
           {category?.name || '—'}
         </div>
         {category?.distance_meters && (

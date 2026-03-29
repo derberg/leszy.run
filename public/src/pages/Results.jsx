@@ -113,15 +113,7 @@ export default function Results() {
   const loading = catLoading
 
   return (
-    <div className="min-h-screen bg-black text-apex-text-bright relative overflow-hidden">
-      {/* Logo watermark */}
-      <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{
-        backgroundImage: `url('/logo.svg')`,
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center center',
-        backgroundSize: '100vh',
-        filter: 'invert(1) sepia(1) saturate(5) hue-rotate(30deg)',
-      }} />
+    <div className="min-h-screen bg-apex-bg text-apex-text-bright relative overflow-hidden page-watermark">
       {/* Noise overlay */}
       <div className="absolute inset-0 opacity-5 pointer-events-none" style={{
         backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`
@@ -131,7 +123,7 @@ export default function Results() {
         <Link to={`/events/${slug}`} className="text-xs text-apex-muted uppercase tracking-wider hover:text-apex-text mb-6 inline-block">&larr; Powrot</Link>
 
         <div className="text-center mb-8">
-          <div className="font-display text-5xl tracking-widest uppercase text-white mb-1">
+          <div className="font-display text-5xl tracking-widest uppercase text-apex-text-bright mb-1">
             {event?.name || '—'}
           </div>
           {event?.date && (

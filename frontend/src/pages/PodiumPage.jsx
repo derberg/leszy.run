@@ -45,7 +45,7 @@ function RaceTimer({ startedAt, finishedAt, status }) {
   return (
     <div className="text-center mb-6">
       <div className="text-xs tracking-widest uppercase text-apex-muted mb-1 font-display">
-        {isActive ? 'Czas biegu' : 'Łączny czas'}
+        {isActive ? 'Czas biegu' : 'Czas trwania zawodów'}
       </div>
       <div className={cn(
         'font-display text-5xl tracking-widest tabular-nums leading-none',
