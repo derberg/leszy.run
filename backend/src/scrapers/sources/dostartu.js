@@ -147,7 +147,8 @@ async function scrape({ knownIds = new Set() } = {}) {
     const sourceUrl = makeUrl(ev.permaLink, ev.id)
     const url = ev.websitePl || sourceUrl
     const eventType = TYPE_MAP[ev.type] || null
-    const regulaminUrl = ev.statuteFilePl || ev.statuteLinkPl || null
+    // Prefer external link (real PDF) over dostartu-hosted (often SPA shell)
+    const regulaminUrl = ev.statuteLinkPl || ev.statuteFilePl || null
 
     results.push({
       name: ev.name,

@@ -1,16 +1,42 @@
 import { createClient } from '@supabase/supabase-js'
 import { execSync } from 'child_process'
-import { writeFileSync, unlinkSync, existsSync } from 'fs'
+import { writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
-// Finds scraper_all entries missing distances or event type that have a regulamin URL,
+// Finds scraper_all entries that have a regulamin URL,
 // fetches the PDF, and uses local Claude to extract distances and event type.
 //
+// Behavior:
+// - distances: Claude's PDF extraction REPLACES scraper distances (PDF is authoritative)
+// - event_types: Claude's types are MERGED with existing (additive only)
+
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
-const VALID_EVENT_TYPES = ['trail', 'nocny', 'ocr', 'nordic', 'ultra', 'charytatywny', 'uliczny', 'bieg']
+const VALID_EVENT_TYPES = ['trail', 'nocny', 'ocr', 'nordic walking', 'ultra', 'charytatywny', 'uliczny']
+
+// Normalize type names Claude might return
+const TYPE_NORMALIZE = { 'nordic': 'nordic walking', 'bieg': null, 'inny': null }
+
+// Types that describe the terrain/format — only one should apply
+const TERRAIN_TYPES = new Set(['trail', 'ocr', 'uliczny'])
+
+// Merge new types into existing, but don't mix conflicting terrain types
+function mergeEventTypes(existing, incoming) {
+  const merged = new Set(existing)
+  const existingTerrain = existing.filter(t => TERRAIN_TYPES.has(t))
+
+  for (const t of incoming) {
+    if (TERRAIN_TYPES.has(t) && existingTerrain.length > 0 && !existingTerrain.includes(t)) {
+      // Skip — would contradict existing terrain type (e.g. uliczny + trail)
+      continue
+    }
+    merged.add(t)
+  }
+
+  return [...merged]
+}
 
 function checkClaudeCli() {
   try {
@@ -29,48 +55,69 @@ async function downloadPdf(url) {
       redirect: 'follow',
       signal: AbortSignal.timeout(30000),
     })
-    if (!res.ok) return null
+    if (!res.ok) return { error: `HTTP ${res.status}` }
 
     const contentType = res.headers.get('content-type') || ''
-    if (!contentType.includes('pdf') && !url.toLowerCase().endsWith('.pdf')) return null
+    if (!contentType.includes('pdf')) return { error: `not PDF (${contentType})` }
 
     const buffer = Buffer.from(await res.arrayBuffer())
-    if (buffer.length < 500) return null // too small to be a real PDF
+    if (buffer.length < 500) return { error: `too small (${buffer.length} bytes)` }
+
+    // Detect HTML served as PDF (dostartu SPA shells)
+    const head = buffer.slice(0, 100).toString('utf-8').trim()
+    if (head.startsWith('<!doctype') || head.startsWith('<!DOCTYPE') || head.startsWith('<html')) {
+      return { error: 'HTML served as PDF (SPA shell)' }
+    }
 
     writeFileSync(tmpFile, buffer)
-    return tmpFile
-  } catch {
-    return null
+    return { path: tmpFile }
+  } catch (err) {
+    return { error: err.message?.slice(0, 100) || 'unknown' }
   }
 }
 
 function buildPrompt(event) {
+  const currentDistances = event.distances && event.distances.trim() ? event.distances : 'unknown'
+  const currentTypes = (event.event_types && event.event_types.length > 0) ? event.event_types.join(', ') : 'unknown'
+
   return `You are extracting structured data about a Polish running/walking race event from its official regulations (regulamin) PDF.
 
 Event name: ${event.name}
 Event date: ${event.date}
 Event location: ${event.location || 'unknown'}
+Currently known distances: ${currentDistances}
+Currently known event types: ${currentTypes}
 
-Look at the attached PDF and extract:
-1. Race distances — look for "trasa", "dystans", "długość trasy", classification names, or distance mentions
-2. Event type classification
+Extract from the PDF:
+1. DISTANCES — look for "trasa", "dystans", "długość trasy", classification/category names, distance mentions. The PDF is the source of truth — override currently known distances if the PDF says differently.
+2. EVENT TYPE — classify based on the ACTUAL course description, surface, and terrain in the PDF.
 
 Return ONLY valid JSON, no other text:
 {
   "distances_km": [numbers, e.g. 5, 10, 21.1, 42.2],
   "time_based_distances": ["4h", "6h", "12h"],
   "meter_distances": ["200m", "500m"],
-  "event_type": ["trail", "nocny", "ocr", "nordic", "ultra", "charytatywny", "uliczny"]
+  "event_type": ["one or more from the list below"]
 }
 
-Rules:
-- Only include actual race distances, not age limits, elevation, or other numbers
+DISTANCE RULES:
+- Only actual race distances, not age limits, elevation, or other numbers
 - półmaraton = 21.1, maraton = 42.2
 - time_based_distances for timed ultras (e.g. "bieg 6-godzinny" → "6h")
 - meter_distances for short distances under 1 km (e.g. biegi dzieci 200m, 500m)
-- event_type: only use values from the list above, leave empty array if just a regular road race
-- trail = przełaj, terenowy, górski, leśny; nocny = night race; ocr = obstacle; nordic = nordic walking; ultra = ultramaraton or distances > 42.2 km; charytatywny = charity; uliczny = road/city
-- If information is not found, use empty array []`
+- If no distances found, use empty array []
+
+EVENT TYPE RULES — you MUST classify every event into at least one type. NEVER use "bieg". Valid types:
+
+- "uliczny" — DEFAULT for most events. Use when: asphalt/road/pavement surface, city streets, certified course (atest PZLA), sidewalks, cycling paths, cobblestone ("kostka brukowa"). If the regulamin describes a paved route through a city/town and no other type fits better, use "uliczny".
+- "trail" — off-road/terrain: forest paths ("ścieżki leśne"), dirt trails, mountain trails, cross-country ("przełaj"), mud, gravel paths, significant elevation gain. Keywords: terenowy, górski, leśny, przełajowy, szlak, cross.
+- "nocny" — night race. Keywords: nocny, nocna, start after 20:00, headlamp required ("czołówka").
+- "ocr" — obstacle course race. Keywords: przeszkody, obstacle, mud run, survival, extreme.
+- "nordic walking" — nordic walking category exists alongside running. Keywords: nordic walking, NW, kije/kijki, marsz.
+- "ultra" — any running distance over 50 km, or timed events (6h, 12h, 24h). Keywords: ultra, ultramaraton.
+- "charytatywny" — charity event. Keywords: charytatywny, cel charytatywny, zbiórka, fundacja, pomagamy, hospicjum.
+
+IMPORTANT: An event can have MULTIPLE types (e.g. ["trail", "nocny"] for a night trail run, ["uliczny", "charytatywny"] for a charity road race, ["uliczny", "nordic"] for a road race with NW category). When in doubt between "uliczny" and "trail", look at the surface description — asphalt/pavement = uliczny, dirt/forest/mountain = trail.`
 }
 
 function callClaudeWithPdf(prompt, pdfPath) {
@@ -83,7 +130,6 @@ function callClaudeWithPdf(prompt, pdfPath) {
       { encoding: 'utf-8', timeout: 120000, maxBuffer: 2 * 1024 * 1024 }
     )
 
-    // Strip markdown code fences if present, then find JSON
     const cleaned = result.replace(/```json\s*/g, '').replace(/```\s*/g, '')
     const match = cleaned.match(/\{[\s\S]*\}/)
     if (match) {
@@ -130,8 +176,6 @@ async function main() {
     process.exit(1)
   }
 
-  // Fetch all rows that have a regulamin URL, then filter in JS
-  // (Supabase .or() with compound conditions is unreliable)
   const allRows = []
   let from = 0
   const pageSize = 1000
@@ -149,24 +193,32 @@ async function main() {
     from += pageSize
   }
 
-  console.log(`Found ${allRows.length} rows to enrich`)
+  // Only process rows missing distances or event types
+  const needsEnrichment = allRows.filter(row => {
+    const noDistances = !row.distances || row.distances.trim() === '' || row.distances === '{}'
+    const noTypes = !row.event_types || row.event_types.length === 0
+    return noDistances || noTypes
+  })
+
+  console.log(`Found ${allRows.length} rows with regulamin URLs, ${needsEnrichment.length} need enrichment (missing distances or types)`)
   let enriched = 0, skipped = 0, failed = 0
 
-  for (const row of allRows) {
+  for (const row of needsEnrichment) {
     const url = row.regulamin_url
     console.log(`\n  ${row.name}`)
     console.log(`    URL: ${url}`)
+    console.log(`    current distances: ${row.distances || '(none)'}`)
+    console.log(`    current types: ${row.event_types?.join(', ') || '(none)'}`)
 
-    // Download PDF
-    const pdfPath = await downloadPdf(url)
-    if (!pdfPath) {
-      console.log('    SKIP: could not download PDF')
+    const download = await downloadPdf(url)
+    if (download.error) {
+      console.log(`    SKIP: ${download.error}`)
       skipped++
       continue
     }
+    const pdfPath = download.path
 
     try {
-      // Call Claude with PDF
       const prompt = buildPrompt(row)
       const extracted = callClaudeWithPdf(prompt, pdfPath)
 
@@ -177,26 +229,27 @@ async function main() {
       }
 
       const updates = {}
+      console.log(`    Claude returned: ${JSON.stringify(extracted)}`)
 
-      // Distances — always merge (Claude may find distances the scraper missed)
+      // Distances — Claude's PDF extraction REPLACES existing (PDF is authoritative)
       const newDistStr = buildDistancesString(extracted)
       if (newDistStr) {
-        const existing = new Set((row.distances || '').split(',').map(s => s.trim()).filter(Boolean))
-        const incoming = newDistStr.split(',').map(s => s.trim())
-        for (const d of incoming) existing.add(d)
-        const merged = [...existing].join(', ')
-        if (merged !== (row.distances || '')) {
-          updates.distances = merged
+        if (newDistStr !== (row.distances || '')) {
+          updates.distances = newDistStr
         }
+      } else if (!row.distances || row.distances.trim() === '') {
+        console.log('    WARN: distances still missing — Claude found none in PDF')
       }
 
-      // Event type — always try to fill
+      // Event types — MERGE but respect conflicts (no trail + uliczny etc.)
       if (extracted.event_type && Array.isArray(extracted.event_type)) {
-        const valid = extracted.event_type.filter(t => VALID_EVENT_TYPES.includes(t))
+        const valid = extracted.event_type
+          .map(t => TYPE_NORMALIZE[t.toLowerCase()] !== undefined ? TYPE_NORMALIZE[t.toLowerCase()] : t.toLowerCase())
+          .filter(t => t && VALID_EVENT_TYPES.includes(t))
         if (valid.length > 0) {
           const existingTypes = row.event_types || []
-          const merged = [...new Set([...existingTypes, ...valid])]
-          if (merged.length > existingTypes.length) {
+          const merged = mergeEventTypes(existingTypes, valid)
+          if (JSON.stringify(merged.sort()) !== JSON.stringify(existingTypes.sort())) {
             updates.event_types = merged
           }
         }
@@ -208,19 +261,18 @@ async function main() {
           console.log(`    ERR: ${updateErr.message}`)
           failed++
         } else {
-          const fields = Object.entries(updates).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ')
-          console.log(`    OK: ${fields}`)
+          if (updates.distances) console.log(`    ✓ distances: ${row.distances || '(none)'} → ${updates.distances}`)
+          if (updates.event_types) console.log(`    ✓ types: ${row.event_types?.join(', ') || '(none)'} → ${updates.event_types.join(', ')}`)
           enriched++
         }
       } else {
-        console.log('    SKIP: nothing extracted')
+        console.log('    SKIP: no changes needed')
         skipped++
       }
     } finally {
       try { unlinkSync(pdfPath) } catch {}
     }
 
-    // Small delay between Claude calls
     await new Promise(r => setTimeout(r, 1000))
   }
 

@@ -110,7 +110,7 @@ async function main() {
   }
 
   console.log(`Processing ${allRows.length} rows`)
-  let voivFixed = 0, typesFixed = 0, unchanged = 0, voivDropped = 0
+  let voivFixed = 0, typesFixed = 0, typeCleared = 0, unchanged = 0, voivDropped = 0
 
   for (const row of allRows) {
     const updates = {}
@@ -135,6 +135,11 @@ async function main() {
       updates.event_types = normTypes
     }
 
+    // Clear raw event_type after merging into normalized event_types
+    if (row.event_type && ('event_types' in updates || normTypes)) {
+      updates.event_type = null
+    }
+
     if (Object.keys(updates).length > 0) {
       const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
       if (error) {
@@ -142,6 +147,7 @@ async function main() {
       } else {
         if (updates.voivodeship) { voivFixed++; process.stdout.write('V') }
         if ('event_types' in updates) { typesFixed++; process.stdout.write('T') }
+        if ('event_type' in updates && !('event_types' in updates)) { typeCleared++; process.stdout.write('c') }
       }
     } else {
       unchanged++
@@ -151,6 +157,7 @@ async function main() {
   console.log(`\n\nDone:`)
   console.log(`  Voivodeship fixed: ${voivFixed}${voivDropped ? ` (${voivDropped} unknown, skipped)` : ''}`)
   console.log(`  Event types normalized: ${typesFixed}`)
+  console.log(`  Raw event_type cleared: ${typeCleared}`)
   console.log(`  Unchanged: ${unchanged}`)
 }
 

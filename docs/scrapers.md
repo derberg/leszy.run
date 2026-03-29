@@ -41,13 +41,16 @@ Output: `.` = city map hit, `G` = Nominatim geocoded, `MISS` = couldn't resolve.
 
 ### Step 4: Enrich flags (charity, kids)
 
-Sets `charytatywny` event type from name keywords and `is_kids=true` when any distance is ≤ 1 km.
+Enriches `scraper_all` from event name keywords:
+- **Event types** — classifies from name when no type exists (górski, nocny, ocr, nordic walking, ultra, charytatywny). Also adds `charytatywny` to events that already have types.
+- **Distances** — extracts from name when missing (półmaraton → 21.1 km, maraton → 42.2 km, dycha/dyszka → 10 km, piątka → 5 km, explicit N km)
+- **Kids flag** — sets `is_kids=true` when any distance is ≤ 1 km
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-enrich-flags.js
 ```
 
-Output: `C` = charity tagged, `K` = kids flagged.
+Output: `T` = type classified, `K` = kids flagged, `D` = distances extracted from name.
 
 ### Step 5: Enrich from regulamin PDFs (AI)
 
@@ -64,7 +67,43 @@ Output meanings:
 - **skipped** — PDF couldn't be downloaded (non-200, not a PDF, too small, timeout) or Claude found nothing new
 - **failed** — Claude returned unparseable response or Supabase update errored
 
-### Step 5.5: Normalize voivodeships and event types
+### Step 5.1: Enrich via web search (AI)
+
+Uses local Claude CLI with web search to find event websites, regulamin links, distances, and types for events missing data. Targets maratonypolskie by default (lowest data quality source — no detail pages, no PDFs).
+
+```bash
+# Dry-run first 5 events
+cd backend && node --env-file=../.env scripts/run-enrich-search.js --limit 5
+
+# Dry-run all maratonypolskie
+cd backend && node --env-file=../.env scripts/run-enrich-search.js
+
+# Apply results to DB
+cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
+
+# Other sources
+cd backend && node --env-file=../.env scripts/run-enrich-search.js --source elektronicznezapisy --limit 10
+```
+
+Requires `claude` CLI installed locally. Uses `--model sonnet` with web search. ~2 sec between calls.
+
+Finds: website URL, registration URL, regulamin URL, distances, event type. Flags non-running events (triathlon, orienteering, etc.) as `nie-bieg` for manual review.
+
+### Step 5.5: Dedup scraper_all
+
+Finds duplicate rows within `scraper_all` (same date + similar name / same city) and merges the lower-priority source into the higher-priority one. The loser row is deleted; its source_link is preserved on the winner. Empty fields on the winner get backfilled from the loser.
+
+```bash
+# Dry-run (default) — shows all matches, changes nothing
+cd backend && node --env-file=../.env scripts/run-dedup.js
+
+# Apply — merges winners, deletes losers
+cd backend && node --env-file=../.env scripts/run-dedup.js --apply
+```
+
+Output: `M` = merged pair. Each line in dry-run shows Jaccard score, city match, winner/loser names and sources.
+
+### Step 5.6: Normalize voivodeships and event types
 
 Normalizes `scraper_all` data before publishing:
 - Voivodeship → Title-Case (`dolnośląskie` → `Dolnośląskie`, `Śląsk` → `Śląskie`)
@@ -88,7 +127,7 @@ Type mapping:
 cd backend && node --env-file=../.env scripts/run-normalize.js
 ```
 
-Output: `V` = voivodeship fixed, `T` = event types normalized.
+Output: `V` = voivodeship fixed, `T` = event types normalized, `c` = raw event_type cleared.
 
 ### Step 6: Publish to `calendar_events`
 
@@ -669,17 +708,22 @@ Step 2: Merge (cross-source dedup by priority)
 └─────────────────────────────────────────────────┘
            │
            ▼
-Steps 3-5.5: Enrich scraper_all (any order)
+Steps 3-5.6: Enrich scraper_all (any order, then dedup+normalize)
 ┌──────────────────┐  ┌──────────────────┐
 │  Geocode         │  │  Enrich flags    │
 │  (voivodeship,   │  │  (charity, kids) │
 │   lat/lng)       │  │                  │
 └──────────────────┘  └──────────────────┘
 ┌──────────────────┐  ┌──────────────────┐
-│  Enrich from     │  │  Normalize       │
-│  regulamin PDFs  │  │  (voivodeships,  │
-│  (Claude CLI)    │  │   event types)   │
+│  Enrich from     │  │  Dedup           │
+│  regulamin PDFs  │  │  (cross-source   │
+│  (Claude CLI)    │  │   merge)         │
 └──────────────────┘  └──────────────────┘
+┌──────────────────┐
+│  Normalize       │
+│  (voivodeships,  │
+│   event types)   │
+└──────────────────┘
            │
            ▼
 Step 6: Publish to calendar_events

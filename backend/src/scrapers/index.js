@@ -237,6 +237,25 @@ async function findScraperAllMatch(event) {
     if (locMatch && jaccard > 0.35) return c
     if (locMatch && jaccardSimilarity(c.name, event.name) > 0.4) return c
     if (locMatch && tokenize(c.name).length <= 3 && tokenize(event.name).length <= 3 && jaccard > 0.25) return c
+
+    // Short-vs-long name with same city: ≥75% of shorter tokens in longer (exact or prefix)
+    if (locMatch) {
+      const tokC = tokenize(c.name)
+      const tokE = tokenize(event.name)
+      if (tokC.length >= 2 && tokE.length >= 2) {
+        const containment = (shorter, longer) => {
+          const setL = new Set(longer)
+          let hits = 0
+          for (const t of shorter) {
+            if (setL.has(t)) { hits++; continue }
+            if (longer.some(l => l.startsWith(t) || t.startsWith(l))) hits++
+          }
+          return hits / shorter.length
+        }
+        if (tokC.length <= tokE.length && tokC.length <= 5 && containment(tokC, tokE) >= 0.75) return c
+        if (tokE.length <= tokC.length && tokE.length <= 5 && containment(tokE, tokC) >= 0.75) return c
+      }
+    }
   }
 
   return null
@@ -445,7 +464,7 @@ async function publishToCalendar() {
       voivodeship: raw.voivodeship || null,
       lat: raw.lat || null,
       lng: raw.lng || null,
-      event_type: raw.event_type || raw.event_types || null,
+      event_type: raw.event_types || raw.event_type || null,
       distances: raw.distances || null,
       registration_url: raw.registration_url || null,
       regulamin_url: raw.regulamin_url || null,
