@@ -74,7 +74,7 @@ export default function Results() {
     return () => { supabase.removeChannel(channel) }
   }, [event])
 
-  const hasActiveRaces = raceRuns && raceRuns.some(r => r.status === 'active' || r.status === 'finished')
+  const hasActiveRaces = raceRuns && raceRuns.some(r => r.status !== 'pending')
 
   const preRaceState = useMemo(() => {
     if (!event || hasActiveRaces) return null
