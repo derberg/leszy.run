@@ -51,20 +51,56 @@ Output: `C` = charity tagged, `K` = kids flagged.
 
 ### Step 5: Enrich from regulamin PDFs (AI)
 
-Finds entries missing distances or event type that have a `regulamin_url`, downloads the PDF, and uses local Claude CLI (haiku) to extract distances and classify event type.
+Finds entries with a `regulamin_url`, downloads the PDF, and uses local Claude CLI (haiku) to extract distances and classify event type. Merges with existing data (doesn't overwrite).
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
-
-# Process more (default 50)
-cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js --limit 200
 ```
 
 Requires `claude` CLI installed locally. Processes ~1 event/sec (PDF download + Claude call).
 
-### Step 6: Normalize into `calendar_events` (TODO)
+Output meanings:
+- **enriched** — Claude extracted new data that was written to `scraper_all`
+- **skipped** — PDF couldn't be downloaded (non-200, not a PDF, too small, timeout) or Claude found nothing new
+- **failed** — Claude returned unparseable response or Supabase update errored
 
-Not yet implemented. Will normalize `scraper_all` (parse distances, classify types) and upsert into `calendar_events`.
+### Step 5.5: Normalize voivodeships and event types
+
+Normalizes `scraper_all` data before publishing:
+- Voivodeship → Title-Case (`dolnośląskie` → `Dolnośląskie`, `Śląsk` → `Śląskie`)
+- Event types: merges `event_type` (dostartu) + `event_types` (biegiwpolsce) into a single normalized `event_types` array
+
+Type mapping:
+| Raw | Normalized |
+|-----|-----------|
+| `Przełaj/Cross` | `przełajowy` |
+| `trail`, `Górski` | `górski` |
+| `Uliczny` | `uliczny` |
+| `NW`, `nordic`, `nordic-walking` | `nordic walking` |
+| `Z przeszkodami`, `ocr` | `ocr` |
+| `Charytatywny` | `charytatywny` |
+| `nocny` | `nocny` |
+| `ultra` | `ultra` |
+| `Na orientację` | `na orientację` |
+| `bieg`, `Inny` | dropped (generic) |
+
+```bash
+cd backend && node --env-file=../.env scripts/run-normalize.js
+```
+
+Output: `V` = voivodeship fixed, `T` = event types normalized.
+
+### Step 6: Publish to `calendar_events`
+
+Pushes `scraper_all` rows into the public `calendar_events` table. No normalization needed — data is already clean from previous steps. No fuzzy dedup — rows are inserted as-is.
+
+- Skips rows whose `source`+`source_id` (or any entry in `source_links`) already exists in `calendar_events`
+- New rows get `status = 'pending'` — admin must approve them to appear on public kalendarz
+- Duplicates that slip through are caught by the **Duplikaty** tab in the admin calendar view (`/calendar-events`)
+
+```bash
+cd backend && node --env-file=../.env scripts/run-publish.js
+```
 
 ## Supabase `calendar_events` table schema
 
@@ -613,41 +649,50 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | biegiwpolsce | `scraper_biegiwpolsce` | `source_id` |
 | dostartu | `scraper_dostartu` | `source_id` |
 
-**What does NOT run automatically:**
-- **Normalizer** (`normalizer.js`) — available but not called by default
-- **Dedup** (`dedup.js`) — merging into `calendar_events` is a separate manual step
-- **URL resolver** (`urlResolver.js`) — Brave Search, run manually when needed
-- **LLM enricher** (`llmEnricher.js`) — Playwright + Claude, run manually when needed
+**All steps are manual** — run each script in order. No automatic chaining.
 
 ### Full pipeline flow
 ```
+Step 1: Scrape raw data
 ┌─────────────────────────────────────────────────┐
 │  For each source (sequential):                   │
-│                                                   │
 │  ┌─────────┐    ┌────────────────────────────┐  │
 │  │ Scrape  │───►│  Upsert into source table  │  │
 │  │ (raw)   │    │  (scraper_<name>)          │  │
-│  │         │    │  by source_id              │  │
 │  └─────────┘    └────────────────────────────┘  │
-│                                                   │
 └─────────────────────────────────────────────────┘
-
-  ── Manual steps (not triggered by pipeline) ──
-
-  ┌───────────┐    ┌────────────┐    ┌────────────┐
-  │ Normalize │───►│   Dedup    │───►│ calendar_  │
-  │ + geocode │    │ cross-src  │    │ events     │
-  └───────────┘    └────────────┘    └────────────┘
-                                            │
-                   ┌────────────────────────┘
-                   ▼
-          ┌─────────────────────────┐
-          │  URL Resolver (Brave)   │
-          └────────────┬────────────┘
-                       ▼
-          ┌─────────────────────────┐
-          │  LLM Enricher (Claude)  │
-          └─────────────────────────┘
+           │
+           ▼
+Step 2: Merge (cross-source dedup by priority)
+┌─────────────────────────────────────────────────┐
+│  scraper_* tables ───► scraper_all              │
+└─────────────────────────────────────────────────┘
+           │
+           ▼
+Steps 3-5.5: Enrich scraper_all (any order)
+┌──────────────────┐  ┌──────────────────┐
+│  Geocode         │  │  Enrich flags    │
+│  (voivodeship,   │  │  (charity, kids) │
+│   lat/lng)       │  │                  │
+└──────────────────┘  └──────────────────┘
+┌──────────────────┐  ┌──────────────────┐
+│  Enrich from     │  │  Normalize       │
+│  regulamin PDFs  │  │  (voivodeships,  │
+│  (Claude CLI)    │  │   event types)   │
+└──────────────────┘  └──────────────────┘
+           │
+           ▼
+Step 6: Publish to calendar_events
+┌─────────────────────────────────────────────────┐
+│  scraper_all ───► calendar_events (pending)     │
+│  Skip existing source+source_id matches         │
+│  No fuzzy dedup — Duplikaty view handles it     │
+└─────────────────────────────────────────────────┘
+           │
+           ▼
+Admin review in /calendar-events:
+  • Do przeglądu — approve/reject pending events
+  • Duplikaty — find and delete duplicate entries
 ```
 
 ---

@@ -1,40 +1,19 @@
-import { scrape } from '../src/scrapers/sources/dostartu.js'
-import { normalizeEvent } from '../src/scrapers/normalizer.js'
-import { upsertEvent } from '../src/scrapers/dedup.js'
+import { runPipeline } from '../src/scrapers/index.js'
 
-async function main() {
-  console.log('[dostartu] Starting scrape...')
-  const rawEvents = await scrape()
-  console.log(`[dostartu] Got ${rawEvents.length} raw events, normalizing and upserting...`)
-
-  let created = 0, updated = 0, skipped = 0, errors = 0
-
-  for (const raw of rawEvents) {
-    try {
-      const normalized = await normalizeEvent(raw)
-      if (!normalized) { skipped++; continue }
-
-      // New dostartu events go in as pending for review
-      normalized.status = normalized.status || 'pending'
-
-      const { action, error } = await upsertEvent(normalized)
-      if (error) {
-        console.error(`  ERR: ${raw.name} — ${error.message}`)
-        errors++
-      } else if (action === 'created') {
-        created++
-      } else if (action === 'updated') {
-        updated++
-      } else {
-        skipped++
+// Run only the dostartu scraper (writes to scraper_dostartu table)
+runPipeline({ force: ['dostartu'], only: ['dostartu'] })
+  .then(results => {
+    console.log('\n--- Summary ---')
+    for (const s of results.sources) {
+      const errStr = s.errors.length ? ` (${s.errors.length} errors)` : ''
+      console.log(`  ${s.source}: found=${s.found} upserted=${s.upserted}${errStr}`)
+      for (const e of s.errors) {
+        console.log(`    ERR: ${e.message}`)
       }
-    } catch (err) {
-      console.error(`  ERR: ${raw.name} — ${err.message}`)
-      errors++
     }
-  }
-
-  console.log(`[dostartu] Done: ${created} new, ${updated} updated, ${skipped} skipped, ${errors} errors`)
-}
-
-main().catch(console.error)
+    process.exit(0)
+  })
+  .catch(err => {
+    console.error(err)
+    process.exit(1)
+  })

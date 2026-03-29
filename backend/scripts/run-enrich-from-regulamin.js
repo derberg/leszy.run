@@ -8,14 +8,7 @@ import { join } from 'path'
 // Finds scraper_all entries missing distances or event type that have a regulamin URL,
 // fetches the PDF, and uses local Claude to extract distances and event type.
 //
-// Optional: --limit N (default 50)
-
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
-
-const limitArg = process.argv.indexOf('--limit')
-const BATCH_LIMIT = limitArg !== -1 && process.argv[limitArg + 1]
-  ? parseInt(process.argv[limitArg + 1], 10)
-  : 50
 
 const VALID_EVENT_TYPES = ['trail', 'nocny', 'ocr', 'nordic', 'ultra', 'charytatywny', 'uliczny', 'bieg']
 
@@ -156,13 +149,10 @@ async function main() {
     from += pageSize
   }
 
-  // Process all rows with a regulamin — Claude may find distances/types the scraper missed
-  const needsWork = allRows.slice(0, BATCH_LIMIT)
-
-  console.log(`Found ${needsWork.length} rows to enrich (limit ${BATCH_LIMIT})`)
+  console.log(`Found ${allRows.length} rows to enrich`)
   let enriched = 0, skipped = 0, failed = 0
 
-  for (const row of needsWork) {
+  for (const row of allRows) {
     const url = row.regulamin_url
     console.log(`\n  ${row.name}`)
     console.log(`    URL: ${url}`)

@@ -33,7 +33,7 @@ async function sendCheckinSms(db, event, participantRows) {
   const errors = []
   for (const p of participantRows) {
     if (!p.phone) { skipped++; continue }
-    const message = `Cześć ${p.firstName}! Zamelduj się na ${event.name}: leszy.run/events/${event.slug}/checkin?p=${p.id}`
+    const message = `Cześć ${p.firstName}! Zamelduj się na ${event.name}: https://leszy.run/events/${event.slug}/checkin?p=${p.id}`
     try {
       const result = await sendSms(p.phone, message)
       if (result.success) {

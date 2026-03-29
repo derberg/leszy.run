@@ -92,7 +92,7 @@ const sources = [
   },
 ]
 
-async function runPipeline({ force = [] } = {}) {
+async function runPipeline({ force = [], only = [] } = {}) {
   if (!supabase) {
     console.error('[pipeline] Supabase not configured, cannot store scraped data')
     return { sources: [] }
@@ -101,7 +101,11 @@ async function runPipeline({ force = [] } = {}) {
   console.log('[pipeline] Starting scrape run...')
   const results = { sources: [] }
 
-  for (const source of sources) {
+  const activeSources = only.length
+    ? sources.filter(s => only.includes(s.name))
+    : sources
+
+  for (const source of activeSources) {
     const stats = { source: source.name, found: 0, upserted: 0, errors: [] }
 
     try {
@@ -365,4 +369,115 @@ async function mergeIntoScraperAll() {
   return results
 }
 
-export { runPipeline, mergeIntoScraperAll }
+/**
+ * Phase 3: Push scraper_all rows into calendar_events.
+ * No fuzzy dedup — just skip rows already present (exact source_links match).
+ * New rows go in as 'pending' for admin review.
+ */
+async function publishToCalendar() {
+  if (!supabase) return { created: 0, skipped: 0, errors: [{ message: 'Supabase not configured' }] }
+
+  console.log('[publish] Reading scraper_all...')
+
+  // Fetch all scraper_all rows (paginated)
+  const allRows = []
+  let from = 0
+  const pageSize = 1000
+  while (true) {
+    const { data, error } = await supabase
+      .from('scraper_all')
+      .select('*')
+      .range(from, from + pageSize - 1)
+
+    if (error) return { created: 0, skipped: 0, errors: [{ message: `Fetch failed: ${error.message}` }] }
+    if (!data || data.length === 0) break
+    allRows.push(...data)
+    if (data.length < pageSize) break
+    from += pageSize
+  }
+
+  console.log(`[publish] ${allRows.length} rows in scraper_all`)
+
+  // Fetch all existing source_links from calendar_events to skip exact matches
+  const existingLinks = new Set()
+  from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('source, source_id')
+      .range(from, from + pageSize - 1)
+
+    if (error) break
+    if (!data || data.length === 0) break
+    for (const r of data) {
+      if (r.source && r.source_id) existingLinks.add(`${r.source}:${r.source_id}`)
+    }
+    if (data.length < pageSize) break
+    from += pageSize
+  }
+
+  console.log(`[publish] ${existingLinks.size} existing source+source_id pairs in calendar_events`)
+
+  let created = 0, skipped = 0
+  const errors = []
+  const now = new Date().toISOString()
+
+  for (const raw of allRows) {
+    // Skip if primary source already in calendar_events
+    if (raw.source && raw.source_id && existingLinks.has(`${raw.source}:${raw.source_id}`)) {
+      skipped++
+      continue
+    }
+
+    // Also check all source_links
+    const links = Array.isArray(raw.source_links) ? raw.source_links : []
+    const anyLinkExists = links.some(l => l.source && l.source_id && existingLinks.has(`${l.source}:${l.source_id}`))
+    if (anyLinkExists) {
+      skipped++
+      continue
+    }
+
+    const row = {
+      name: raw.name,
+      date: raw.date,
+      end_date: raw.end_date || null,
+      location: raw.location || null,
+      voivodeship: raw.voivodeship || null,
+      lat: raw.lat || null,
+      lng: raw.lng || null,
+      event_type: raw.event_type || raw.event_types || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      source: raw.source,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+      source_links: links,
+      status: 'pending',
+      scraped_at: now,
+      last_verified_at: now,
+    }
+
+    const { error } = await supabase
+      .from('calendar_events')
+      .insert(row)
+
+    if (error) {
+      errors.push({ name: raw.name, message: error.message })
+    } else {
+      created++
+      // Track so we don't insert dupes from same batch
+      if (raw.source && raw.source_id) existingLinks.add(`${raw.source}:${raw.source_id}`)
+      for (const l of links) {
+        if (l.source && l.source_id) existingLinks.add(`${l.source}:${l.source_id}`)
+      }
+    }
+  }
+
+  console.log(`[publish] Done: created=${created} skipped=${skipped} errors=${errors.length}`)
+  return { created, skipped, errors }
+}
+
+export { runPipeline, mergeIntoScraperAll, publishToCalendar }
