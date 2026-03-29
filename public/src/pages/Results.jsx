@@ -58,6 +58,20 @@ export default function Results() {
     supabase.from('race_runs').select('id, status').eq('event_id', event.id)
       .then(({ data }) => setRaceRuns(data || []))
       .catch(() => setRaceRuns([]))
+
+    const channel = supabase.channel(`race_runs_${event.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'race_runs', filter: `event_id=eq.${event.id}` }, (payload) => {
+        setRaceRuns(prev => {
+          if (!prev) return prev
+          const updated = payload.new
+          const exists = prev.find(r => r.id === updated.id)
+          if (exists) return prev.map(r => r.id === updated.id ? { id: updated.id, status: updated.status } : r)
+          return [...prev, { id: updated.id, status: updated.status }]
+        })
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [event])
 
   const hasActiveRaces = raceRuns && raceRuns.some(r => r.status === 'active' || r.status === 'finished')

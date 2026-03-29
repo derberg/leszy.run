@@ -175,9 +175,9 @@ export default function LiveTracking({ eventId, categories }) {
                 {i + 1}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  {p?.emoji && <span className="text-2xl">{p.emoji}</span>}
-                  <span className="font-display text-2xl uppercase tracking-wide text-white truncate">
+                <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                  {p?.emoji && <span className="text-2xl leading-none">{p.emoji}</span>}
+                  <span className="font-display text-2xl uppercase tracking-wide text-white break-words min-w-0">
                     {p?.firstName} {p?.lastName}
                   </span>
                   <span className="font-mono text-sm text-apex-muted shrink-0">#{p?.bibNumber}</span>

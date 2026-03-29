@@ -149,7 +149,7 @@ function AdminPanel({ event, pin, preselectedParticipantId }) {
         {flash && (
           <div className={`border p-3 text-center text-sm mb-6 ${
             flash.type === 'success'
-              ? 'border-green-700 bg-green-900/30 text-green-400'
+              ? 'border-green-700 bg-green-900/30 text-apex-text-bright'
               : 'border-apex-red bg-apex-red-dim/30 text-apex-red'
           }`}>
             {flash.message}
@@ -481,7 +481,7 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
         {/* T-shirt confirmation — shown inline in document checklist style */}
 
         {alreadyCheckedIn && (
-          <div className="border border-green-700 bg-green-900/30 p-4 text-center text-green-400 mb-6">
+          <div className="border border-green-700 bg-green-900/30 p-4 text-center text-apex-text-bright mb-6">
             Ten uczestnik jest juz zameldowany.
           </div>
         )}
