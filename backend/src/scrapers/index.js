@@ -3,6 +3,7 @@ import { scrape as scrapeDatasport } from './sources/datasport.js'
 import { scrape as scrapeElektronicznezapisy } from './sources/elektronicznezapisy.js'
 import { scrape as scrapeBiegiwpolsce } from './sources/biegiwpolsce.js'
 import { scrape as scrapeDostartu } from './sources/dostartu.js'
+import { scrape as scrapeTimekeeper } from './sources/timekeeper.js'
 import { SOURCE_PRIORITY } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 
@@ -86,6 +87,22 @@ const sources = [
       registration_url: raw.registration_url || null,
       regulamin_url: raw.regulamin_url || null,
       is_kids: raw.is_kids || false,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'timekeeper',
+    scrape: scrapeTimekeeper,
+    table: 'scraper_timekeeper',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
     }),
@@ -265,7 +282,7 @@ async function findScraperAllMatch(event) {
  * Phase 1: Merge all raw scraper tables into scraper_all with priority-based dedup.
  * Processes sources in priority order (dostartu first).
  */
-async function mergeIntoScraperAll() {
+async function mergeIntoScraperAll({ dryRun = false } = {}) {
   if (!supabase) return { sources: [] }
 
   console.log('[merge:phase1] Merging raw tables → scraper_all...')
@@ -280,7 +297,7 @@ async function mergeIntoScraperAll() {
     const stats = { source: source.name, total: 0, created: 0, updated: 0, errors: [] }
 
     try {
-      // Fetch all rows from raw table (paginated)
+      // Fetch only unmerged rows from raw table (paginated)
       const allRows = []
       let from = 0
       const pageSize = 1000
@@ -288,6 +305,7 @@ async function mergeIntoScraperAll() {
         const { data, error } = await supabase
           .from(source.table)
           .select('*')
+          .is('merged_at', null)
           .range(from, from + pageSize - 1)
 
         if (error) { stats.errors.push({ message: `Fetch failed: ${error.message}` }); break }
@@ -355,23 +373,37 @@ async function mergeIntoScraperAll() {
             updates.source_links = mergeSourceLinks(existing.source_links, sourceLink)
             updates.merged_at = now
 
-            const { error } = await supabase
-              .from('scraper_all')
-              .update(updates)
-              .eq('id', existing.id)
+            if (dryRun) {
+              stats.updated++
+            } else {
+              const { error } = await supabase
+                .from('scraper_all')
+                .update(updates)
+                .eq('id', existing.id)
 
-            if (error) stats.errors.push({ name: raw.name, message: error.message })
-            else stats.updated++
+              if (error) stats.errors.push({ name: raw.name, message: error.message })
+              else {
+                stats.updated++
+                await supabase.from(source.table).update({ merged_at: now }).eq('id', raw.id)
+              }
+            }
           } else {
             row.source_links = [sourceLink]
             row.merged_at = now
 
-            const { error } = await supabase
-              .from('scraper_all')
-              .insert(row)
+            if (dryRun) {
+              stats.created++
+            } else {
+              const { error } = await supabase
+                .from('scraper_all')
+                .insert(row)
 
-            if (error) stats.errors.push({ name: raw.name, message: error.message })
-            else stats.created++
+              if (error) stats.errors.push({ name: raw.name, message: error.message })
+              else {
+                stats.created++
+                await supabase.from(source.table).update({ merged_at: now }).eq('id', raw.id)
+              }
+            }
           }
         } catch (err) {
           stats.errors.push({ name: raw.name, message: err.message })
@@ -393,7 +425,7 @@ async function mergeIntoScraperAll() {
  * No fuzzy dedup — just skip rows already present (exact source_links match).
  * New rows go in as 'pending' for admin review.
  */
-async function publishToCalendar() {
+async function publishToCalendar({ dryRun = false } = {}) {
   if (!supabase) return { created: 0, skipped: 0, errors: [{ message: 'Supabase not configured' }] }
 
   console.log('[publish] Reading scraper_all...')
@@ -499,18 +531,22 @@ async function publishToCalendar() {
       last_verified_at: now,
     }
 
-    const { error } = await supabase
-      .from('calendar_events')
-      .insert(row)
-
-    if (error) {
-      errors.push({ name: raw.name, message: error.message })
-    } else {
+    if (dryRun) {
       created++
-      // Track so we don't insert dupes from same batch
-      if (raw.source && raw.source_id) existingLinks.add(`${raw.source}:${raw.source_id}`)
-      for (const l of links) {
-        if (l.source && l.source_id) existingLinks.add(`${l.source}:${l.source_id}`)
+    } else {
+      const { error } = await supabase
+        .from('calendar_events')
+        .insert(row)
+
+      if (error) {
+        errors.push({ name: raw.name, message: error.message })
+      } else {
+        created++
+        // Track so we don't insert dupes from same batch
+        if (raw.source && raw.source_id) existingLinks.add(`${raw.source}:${raw.source_id}`)
+        for (const l of links) {
+          if (l.source && l.source_id) existingLinks.add(`${l.source}:${l.source_id}`)
+        }
       }
     }
   }

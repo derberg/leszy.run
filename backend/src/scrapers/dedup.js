@@ -7,6 +7,7 @@ const SOURCE_PRIORITY = {
   elektronicznezapisy: 3,
   datasport: 4,
   maratonypolskie: 5,
+  timekeeper: 6,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
