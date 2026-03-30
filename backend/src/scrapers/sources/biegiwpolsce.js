@@ -11,6 +11,8 @@ const KNOWN_SOURCE_DOMAINS = [
   'elektronicznezapisy.pl',
   'dostartu.pl',
   'pomiarczasuatelier.pl',
+  'timekeeper.pl',
+  'competitions.timekeeper.pl',
 ]
 
 // Tags that are distances, not event types

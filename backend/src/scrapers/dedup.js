@@ -4,10 +4,11 @@ import { supabase } from '../lib/supabaseClient.js'
 const SOURCE_PRIORITY = {
   dostartu: 1,
   biegiwpolsce: 2,
-  elektronicznezapisy: 3,
-  datasport: 4,
-  maratonypolskie: 5,
-  timekeeper: 6,
+  timekeeper: 3,
+  elektronicznezapisy: 4,
+  datasport: 5,
+  maratonypolskie: 6,
+  pomiarczasuatelier: 7,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these

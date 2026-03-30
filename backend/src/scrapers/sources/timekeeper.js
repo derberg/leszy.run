@@ -2,6 +2,23 @@ import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://competitions.timekeeper.pl'
 
+// Polish month names (genitive) used on the listing page
+const POLISH_MONTHS = {
+  stycznia: '01', lutego: '02', marca: '03', kwietnia: '04',
+  maja: '05', czerwca: '06', lipca: '07', sierpnia: '08',
+  wrzesnia: '09', września: '09', pazdziernika: '10', października: '10',
+  listopada: '11', grudnia: '12',
+}
+
+function parseListingDate(dayStr, monthStr) {
+  if (!dayStr || !monthStr) return null
+  const month = POLISH_MONTHS[monthStr.toLowerCase()]
+  if (!month) return null
+  const day = dayStr.padStart(2, '0')
+  const year = new Date().getFullYear()
+  return `${year}-${month}-${day}`
+}
+
 async function fetchDetailPage(slug) {
   try {
     const url = `${BASE_URL}/${slug}`
@@ -139,6 +156,16 @@ async function scrape({ knownIds = new Set() } = {}) {
       // Skip external events (href starts with http)
       if (btnHref && btnHref.startsWith('http')) return
 
+      // Date fallback from listing: day number in <h2>, Polish month in div.miesiac
+      let listingDate = null
+      const dateCol = row.find('div.data.text-center')
+      if (dateCol.length) {
+        const dayStr = dateCol.find('h2').text().trim()
+        const monthDivs = dateCol.find('div.miesiac')
+        const monthStr = monthDivs.first().text().trim()
+        listingDate = parseListingDate(dayStr, monthStr)
+      }
+
       // Location: div.text-danger with font-size 20px
       let location = null
       row.find('div.text-danger').each((_, el) => {
@@ -152,7 +179,7 @@ async function scrape({ knownIds = new Set() } = {}) {
       const slug = btnHref.replace(/^\//, '')
 
       if (slug) {
-        eventEntries.push({ name, slug, location })
+        eventEntries.push({ name, slug, location, listingDate })
       }
     })
   } catch (err) {
@@ -171,7 +198,7 @@ async function scrape({ knownIds = new Set() } = {}) {
 
     const event = {
       name: entry.name,
-      date: detail?.date || null,
+      date: detail?.date || entry.listingDate || null,
       location: detail?.location || entry.location || '',
       distances: detail?.distances || '',
       registration_url: `${BASE_URL}/${entry.slug}`,

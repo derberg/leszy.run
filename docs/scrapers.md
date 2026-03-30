@@ -1,13 +1,58 @@
 # Scraper Pipeline — Source-by-Source Documentation
 
-## Running the pipeline
+## Quick run — full pipeline copy-paste
+
+All commands from project root. Requires `backend/.env` with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+Also requires `claude` CLI installed for steps 5 and 5.1.
+
+```bash
+# Step 1: Scrape raw data (6 sources → per-source tables)
+cd backend && node --env-file=../.env scripts/run-scrapers.js
+
+# Step 2: Merge into scraper_all (cross-source dedup) — dry run first, then --apply
+cd backend && node --env-file=../.env scripts/run-merge.js
+cd backend && node --env-file=../.env scripts/run-merge.js --apply
+
+# Step 3: Geocode missing voivodeships/coordinates — dry run first, then --apply
+cd backend && node --env-file=../.env scripts/run-geocode.js
+cd backend && node --env-file=../.env scripts/run-geocode.js --apply
+
+# Step 4: Enrich flags (types, kids, distances from keywords) — dry run first, then --apply
+cd backend && node --env-file=../.env scripts/run-enrich-flags.js
+cd backend && node --env-file=../.env scripts/run-enrich-flags.js --apply
+
+# Step 5: Enrich from regulamin PDFs (Claude CLI)
+cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
+
+# Step 5.1: Enrich via web search (Claude CLI) — dry run first, then --apply
+cd backend && node --env-file=../.env scripts/run-enrich-search.js --limit 5
+cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
+
+# Step 5.5: Dedup scraper_all — dry run first, then --apply
+cd backend && node --env-file=../.env scripts/run-dedup.js
+cd backend && node --env-file=../.env scripts/run-dedup.js --apply
+
+# Step 6: Normalize voivodeships and event types — dry run first, then --apply
+cd backend && node --env-file=../.env scripts/run-normalize.js
+cd backend && node --env-file=../.env scripts/run-normalize.js --apply
+
+# Step 7: Publish to calendar_events — dry run first, then --apply
+cd backend && node --env-file=../.env scripts/run-publish.js
+cd backend && node --env-file=../.env scripts/run-publish.js --apply
+```
+
+After publishing, review new events in admin UI: `/calendar-events` → "Do przeglądu" tab.
+
+---
+
+## Running the pipeline (detailed)
 
 All commands run from project root. Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `backend/.env`.
 No backend server or Docker needed — scripts talk directly to Supabase.
 
 ### Step 1: Scrape raw data
 
-Fetches events from all 5 sources and stores in per-source tables (`scraper_dostartu`, `scraper_biegiwpolsce`, etc.).
+Fetches events from all 6 sources and stores in per-source tables (`scraper_dostartu`, `scraper_biegiwpolsce`, `scraper_timekeeper`, etc.).
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-scrapers.js
@@ -21,7 +66,7 @@ cd backend && node --env-file=../.env scripts/run-scrapers.js --force dostartu,e
 
 Reads all raw tables, deduplicates cross-source, merges into `scraper_all` with priority-based field resolution. dostartu data wins over all others.
 
-Priority: dostartu (1) > biegiwpolsce (2) > elektronicznezapisy (3) > datasport (4) > maratonypolskie (5)
+Priority: dostartu (1) > biegiwpolsce (2) > timekeeper (3) > elektronicznezapisy (4) > datasport (5) > maratonypolskie (6)
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-merge.js
@@ -93,23 +138,9 @@ Finds: website URL, registration URL, regulamin URL, distances, event type. Flag
 - **maratonypolskie**: Only processes events missing BOTH distances AND event types (skips already-enriched entries)
 - **Other sources**: Processes events missing any important field (distances OR types OR website OR regulamin)
 
-### Step 5.5: Dedup scraper_all
+### Step 4.5: Normalize voivodeships and event types
 
-Finds duplicate rows within `scraper_all` (same date + similar name / same city) and merges the lower-priority source into the higher-priority one. The loser row is deleted; its source_link is preserved on the winner. Empty fields on the winner get backfilled from the loser.
-
-```bash
-# Dry-run (default) — shows all matches, changes nothing
-cd backend && node --env-file=../.env scripts/run-dedup.js
-
-# Apply — merges winners, deletes losers
-cd backend && node --env-file=../.env scripts/run-dedup.js --apply
-```
-
-Output: `M` = merged pair. Each line in dry-run shows Jaccard score, city match, winner/loser names and sources.
-
-### Step 5.6: Normalize voivodeships and event types
-
-Normalizes `scraper_all` data before publishing:
+Normalizes `scraper_all` data before AI enrichment steps — ensures Claude sees clean type names, not raw scraper values.
 - Voivodeship → Title-Case (`dolnośląskie` → `Dolnośląskie`, `Śląsk` → `Śląskie`)
 - Event types: merges `event_type` (dostartu) + `event_types` (biegiwpolsce) into a single normalized `event_types` array
 
@@ -132,6 +163,20 @@ cd backend && node --env-file=../.env scripts/run-normalize.js
 ```
 
 Output: `V` = voivodeship fixed, `T` = event types normalized, `c` = raw event_type cleared.
+
+### Step 5.5: Dedup scraper_all
+
+Finds duplicate rows within `scraper_all` (same date + similar name / same city) and merges the lower-priority source into the higher-priority one. The loser row is deleted; its source_link is preserved on the winner. Empty fields on the winner get backfilled from the loser.
+
+```bash
+# Dry-run (default) — shows all matches, changes nothing
+cd backend && node --env-file=../.env scripts/run-dedup.js
+
+# Apply — merges winners, deletes losers
+cd backend && node --env-file=../.env scripts/run-dedup.js --apply
+```
+
+Output: `M` = merged pair. Each line in dry-run shows Jaccard score, city match, winner/loser names and sources.
 
 ### Step 6: Publish to `calendar_events`
 
@@ -266,6 +311,22 @@ Each scraper writes raw data into its own table. These are the raw scraper outpu
 | source_id | text | UNIQUE, API id |
 | source_url | text | dostartu permalink (`/permalink-v{id}`) |
 | scraped_at | timestamptz | |
+
+### `scraper_timekeeper`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| name | text | NOT NULL |
+| date | text | NOT NULL, `YYYY-MM-DD` |
+| location | text | City from detail page |
+| distances | text | Category names from pricing card (e.g., "Półmaraton, Bieg na 5 km") |
+| registration_url | text | Detail page URL on timekeeper.pl |
+| regulamin_url | text | PDF download link (`/download/{id}`) |
+| website | text | Organizer website from sidebar |
+| source_id | text | UNIQUE, URL slug |
+| source_url | text | Per-event detail page URL |
+| merged_at | timestamptz | Set by merge step |
+| created_at | timestamptz | |
 
 ---
 
@@ -673,6 +734,88 @@ The `parseClassifications()` function extracts distances using this priority:
 
 ---
 
+## Source 6: timekeeper.pl
+
+**URL:** `https://competitions.timekeeper.pl/`
+**Method:** HTTP fetch + Cheerio (listing) → fetch + Cheerio (detail pages)
+**Encoding:** UTF-8
+**Rate limit:** 1.1s between detail page fetches
+**Events/year:** 50-150
+
+### What it scrapes
+
+**Phase 1 — Listing page (single page, all events):**
+Parses `section.container > div.row.py-4.border-bottom` blocks:
+- Name: `<a>` inside desktop div (`d-none d-md-block`)
+- Location: `div.text-danger` with `font-size: 20px`
+- Date fallback: day number from `<h2>` + Polish month from `div.miesiac`
+- "Więcej informacji" button href determines internal vs external
+
+**External events (href starts with `http`) are skipped entirely** — they link to raceresult.com or other platforms and have no timekeeper detail page.
+
+**Phase 2 — Detail pages (internal events only):**
+Fetches `/<slug>` for each internal event:
+- Date: `YYYY-MM-DD` from `p.text-primary.h3` under "Data zawodów" heading
+- Location: city name from under "Lokalizacja" heading
+- Distances: category names from `h6.font-weight-bolder.m-0` inside "Koszt uczestnictwa" pricing card
+- Regulamin: PDF download link from `a.btn.btn-success[href*="/download/"]`
+- Organizer website: link inside "Organizator zawodów" card
+- "Lista zawodników" section is ignored
+
+### Raw output fields
+```
+{ name, date, location,
+  distances (comma-joined category names from pricing card),
+  registration_url (detail page URL on timekeeper.pl),
+  regulamin_url (PDF download link),
+  website (organizer URL),
+  source: 'timekeeper', source_url (detail page), source_id (URL slug) }
+```
+
+### Data quality assessment
+- **Good structured dates** — detail pages use `YYYY-MM-DD` format
+- **HAS regulamin PDFs** — downloadable from `/download/{id}`
+- **HAS organizer websites** — from sidebar card
+- **HAS registration URLs** — the detail page itself is the registration page
+- **Distances are category names** — e.g., "Półmaraton" (normalizer handles conversion to km)
+- **No coordinates** — geocoder fills these in
+
+### Known issues
+- External events are skipped (no detail page on timekeeper.pl)
+- Distance values are raw category names, not structured km — depends on enrich-flags pipeline
+- `source_id` is the URL slug (e.g., `19-polmaraton-rzeszowski`) — stable but verbose
+
+### Flow diagram
+```
+┌──────────────────────────────┐
+│  Fetch listing page          │
+│  Parse section.container     │
+│  rows with border-bottom     │
+│  Extract: name, slug, loc    │
+│  Date fallback from h2+month │
+│  Skip external events        │
+└──────────┬───────────────────┘
+           │
+           ▼
+┌──────────────────────────────┐
+│  For each internal event:    │
+│  Fetch /<slug>               │
+│  Extract: date (YYYY-MM-DD) │
+│  Location from heading       │
+│  Distances from pricing card │
+│  Regulamin PDF download link │
+│  Organizer website           │
+│  (skip Lista zawodników)     │
+└──────────┬───────────────────┘
+           │
+           ▼
+┌──────────────────────────────┐
+│  Return array of raw events  │
+└──────────────────────────────┘
+```
+
+---
+
 ## Pipeline orchestration (`index.js`)
 
 Runs scrapers **sequentially** in this order:
@@ -681,6 +824,7 @@ Runs scrapers **sequentially** in this order:
 3. elektronicznezapisy
 4. biegiwpolsce
 5. dostartu
+6. timekeeper
 
 Each scraper writes raw data into its own Supabase table (upsert by `source_id`):
 
@@ -691,6 +835,7 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | elektronicznezapisy | `scraper_elektronicznezapisy` | `source_id` |
 | biegiwpolsce | `scraper_biegiwpolsce` | `source_id` |
 | dostartu | `scraper_dostartu` | `source_id` |
+| timekeeper | `scraper_timekeeper` | `source_id` |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 
@@ -712,21 +857,29 @@ Step 2: Merge (cross-source dedup by priority)
 └─────────────────────────────────────────────────┘
            │
            ▼
-Steps 3-5.6: Enrich scraper_all (any order, then dedup+normalize)
+Steps 3-4.5: Enrich scraper_all (keyword + normalize)
 ┌──────────────────┐  ┌──────────────────┐
 │  Geocode         │  │  Enrich flags    │
 │  (voivodeship,   │  │  (charity, kids) │
 │   lat/lng)       │  │                  │
 └──────────────────┘  └──────────────────┘
-┌──────────────────┐  ┌──────────────────┐
-│  Enrich from     │  │  Dedup           │
-│  regulamin PDFs  │  │  (cross-source   │
-│  (Claude CLI)    │  │   merge)         │
-└──────────────────┘  └──────────────────┘
 ┌──────────────────┐
 │  Normalize       │
 │  (voivodeships,  │
 │   event types)   │
+└──────────────────┘
+           │
+           ▼
+Steps 5-5.5: AI enrichment + dedup
+┌──────────────────┐  ┌──────────────────┐
+│  Enrich from     │  │  Enrich via      │
+│  regulamin PDFs  │  │  web search      │
+│  (Claude CLI)    │  │  (Claude CLI)    │
+└──────────────────┘  └──────────────────┘
+┌──────────────────┐
+│  Dedup           │
+│  (cross-source   │
+│   merge)         │
 └──────────────────┘
            │
            ▼

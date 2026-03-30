@@ -18,6 +18,8 @@ const KNOWN_SOURCE_DOMAINS = [
   'biegiwpolsce.pl',
   'dostartu.pl',
   'pomiarczasuatelier.pl',
+  'timekeeper.pl',
+  'competitions.timekeeper.pl',
 ]
 
 // Domains that use the dostartu API (same -v{id} URL pattern, same API at api.dostartu.pl)
@@ -107,7 +109,7 @@ async function fetchDetailPage(eventId) {
       const cennikList = $(header).closest('ul.list-group')
       cennikList.find('td:first-child').each((_, td) => {
         const text = $(td).text().trim()
-        const kmMatch = text.match(/^(\d+[.,]?\d*)\s*km/i)
+        const kmMatch = text.match(/(\d+[.,]?\d*)\s*km/i)
         if (kmMatch) {
           const km = parseFloat(kmMatch[1].replace(',', '.'))
           const label = `${km} km`
@@ -122,7 +124,7 @@ async function fetchDetailPage(eventId) {
           seen.add('21.1 km')
         }
         // Time durations
-        const hourMatch = text.match(/^(\d{1,2})\s*[hH]\b/)
+        const hourMatch = text.match(/(\d{1,2})\s*[hH]\b/)
         if (hourMatch) {
           const label = `${parseInt(hourMatch[1])}h`
           if (!seen.has(label)) { distances.push(label); seen.add(label) }
@@ -263,8 +265,15 @@ async function scrape({ knownIds = new Set() } = {}) {
     }
   }
 
-  const newEntries = eventEntries.filter(e => !knownIds.has(e.eventId))
-  console.log(`[elektronicznezapisy] Found ${eventEntries.length} events, ${newEntries.length} new (skipping ${eventEntries.length - newEntries.length} known)`)
+  // Dedup by eventId — same event can appear in multiple category pages
+  const seenIds = new Set()
+  const uniqueEntries = eventEntries.filter(e => {
+    if (seenIds.has(e.eventId)) return false
+    seenIds.add(e.eventId)
+    return true
+  })
+  const newEntries = uniqueEntries.filter(e => !knownIds.has(e.eventId))
+  console.log(`[elektronicznezapisy] Found ${eventEntries.length} events (${eventEntries.length - uniqueEntries.length} cross-category dupes), ${newEntries.length} new (skipping ${uniqueEntries.length - newEntries.length} known)`)
 
   // Step 2: fetch detail pages only for new events
   const results = []
