@@ -89,6 +89,10 @@ Requires `claude` CLI installed locally. Uses `--model sonnet` with web search. 
 
 Finds: website URL, registration URL, regulamin URL, distances, event type. Flags non-running events (triathlon, orienteering, etc.) as `nie-bieg` for manual review.
 
+**Filtering logic:**
+- **maratonypolskie**: Only processes events missing BOTH distances AND event types (skips already-enriched entries)
+- **Other sources**: Processes events missing any important field (distances OR types OR website OR regulamin)
+
 ### Step 5.5: Dedup scraper_all
 
 Finds duplicate rows within `scraper_all` (same date + similar name / same city) and merges the lower-priority source into the higher-priority one. The loser row is deleted; its source_link is preserved on the winner. Empty fields on the winner get backfilled from the loser.

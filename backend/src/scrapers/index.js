@@ -456,6 +456,28 @@ async function publishToCalendar() {
       continue
     }
 
+    // Normalize event_type to array and represent kids as an explicit type.
+    // calendar_events has no is_kids column in current schema.
+    let eventType = raw.event_types || raw.event_type || []
+    if (!Array.isArray(eventType)) {
+      eventType = [eventType]
+    }
+    eventType = eventType.filter(Boolean)
+    if (raw.is_kids) {
+      const base = Array.isArray(eventType) ? eventType : []
+      if (!base.includes('dzieci')) {
+        base.push('dzieci')
+      }
+      eventType = base
+    }
+    let distances = raw.distances || []
+    if (!Array.isArray(distances)) {
+      distances = String(distances)
+        .split(',')
+        .map(d => d.trim())
+        .filter(Boolean)
+    }
+
     const row = {
       name: raw.name,
       date: raw.date,
@@ -464,12 +486,10 @@ async function publishToCalendar() {
       voivodeship: raw.voivodeship || null,
       lat: raw.lat || null,
       lng: raw.lng || null,
-      event_type: raw.event_types || raw.event_type || null,
-      distances: raw.distances || null,
+      event_type: eventType,
+      distances,
       registration_url: raw.registration_url || null,
-      regulamin_url: raw.regulamin_url || null,
       website: raw.website || null,
-      is_kids: raw.is_kids || false,
       source: raw.source,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
