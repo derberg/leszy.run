@@ -42,8 +42,8 @@ export default function EventRow({ event }) {
   const handleClick = () => {
     if (isLeszyrun && event.slug) {
       window.location.href = `/events/${event.slug}`
-    } else if (event.registration_url) {
-      window.open(event.registration_url, '_blank', 'noopener')
+    } else if (event.registration_url || event.source_url) {
+      window.open(event.registration_url || event.source_url, '_blank', 'noopener')
     }
   }
 

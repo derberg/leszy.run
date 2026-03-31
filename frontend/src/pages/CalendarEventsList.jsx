@@ -168,7 +168,7 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
   )
 }
 
-function DuplicateGroup({ group, onDelete }) {
+function DuplicateGroup({ group, onDelete, onDismiss }) {
   const [confirmId, setConfirmId] = useState(null)
   const confirmRef = useRef(null)
 
@@ -188,8 +188,14 @@ function DuplicateGroup({ group, onDelete }) {
 
   return (
     <div className="border border-apex-border mb-3 bg-apex-surface">
-      <div className="font-mono text-[10px] tracking-widest uppercase text-apex-yellow-dim px-3 py-2 border-b border-apex-border bg-apex-bg">
-        {group[0].date} &middot; {group.length} wpisy
+      <div className="flex items-center justify-between font-mono text-[10px] tracking-widest uppercase text-apex-yellow-dim px-3 py-2 border-b border-apex-border bg-apex-bg">
+        <span>{group[0].date} &middot; {group.length} wpisy</span>
+        <button
+          onClick={() => onDismiss(group.map(e => e.id))}
+          className="font-mono text-[10px] font-semibold tracking-wide uppercase px-2.5 py-0.5 border border-apex-border text-apex-muted hover:border-apex-cyan hover:text-apex-cyan transition-all"
+        >
+          Nie duplikat
+        </button>
       </div>
       {group.map(ev => {
         const meta = []
@@ -316,6 +322,13 @@ function DuplicatesView() {
     },
   })
 
+  const dismissMutation = useMutation({
+    mutationFn: (eventIds) => api.post('/calendar-events/dismiss-duplicates', { eventIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-duplicates'] })
+    },
+  })
+
   const groups = data || []
   const totalDupes = groups.reduce((sum, g) => sum + g.length - 1, 0)
 
@@ -334,7 +347,7 @@ function DuplicatesView() {
       )}
 
       {groups.map((group, i) => (
-        <DuplicateGroup key={i} group={group} onDelete={(id) => deleteMutation.mutate(id)} />
+        <DuplicateGroup key={i} group={group} onDelete={(id) => deleteMutation.mutate(id)} onDismiss={(ids) => dismissMutation.mutate(ids)} />
       ))}
     </div>
   )

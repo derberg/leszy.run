@@ -66,8 +66,8 @@ export default function MapView({ events, userLocation, radius }) {
               <div style={{ fontFamily: 'Rajdhani, sans-serif' }}>
                 <strong>{ev.name}</strong><br />
                 {ev.date} &middot; {ev.location}<br />
-                {ev.registration_url && (
-                  <a href={ev.registration_url} target="_blank" rel="noopener">Zapisy &rarr;</a>
+                {(ev.registration_url || ev.source_url) && (
+                  <a href={ev.registration_url || ev.source_url} target="_blank" rel="noopener">Zapisy &rarr;</a>
                 )}
               </div>
             </Popup>

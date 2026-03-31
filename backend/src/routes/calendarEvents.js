@@ -41,39 +41,74 @@ export async function calendarEventsRoutes(fastify) {
 
     for (const e of allEvents) parent[e.id] = e.id
 
-    // Find duplicate pairs within each date group
+    // Fetch dismissed pairs
+    const { data: dismissed } = await supabase
+      .from('dismissed_duplicates')
+      .select('event_id_1, event_id_2')
+    const dismissedSet = new Set(
+      (dismissed || []).flatMap(d => [
+        `${d.event_id_1}:${d.event_id_2}`,
+        `${d.event_id_2}:${d.event_id_1}`,
+      ])
+    )
+
+    // Remove dismissed pairs from union-find by re-building without them
+    // Reset parent
+    for (const e of allEvents) parent[e.id] = e.id
+
     for (const events of Object.values(byDate)) {
       if (events.length < 2) continue
       for (let i = 0; i < events.length; i++) {
         for (let j = i + 1; j < events.length; j++) {
           const a = events[i], b = events[j]
+          if (dismissedSet.has(`${a.id}:${b.id}`)) continue
+
           const sim = jaccardSimilarity(a.name, b.name)
           const locMatch = citiesMatch(a.location, b.location)
-
-          // High name token overlap — confident match
           if (sim > 0.6) { union(a.id, b.id); continue }
-          // Same city + moderate name overlap
           if (locMatch && sim > 0.35) { union(a.id, b.id); continue }
-          // Same date + same city (even with very different names — likely same event)
           if (locMatch && sim > 0.15) { union(a.id, b.id); continue }
         }
       }
     }
 
     // Build clusters
-    const clusters = {}
+    const filteredClusters = {}
     for (const e of allEvents) {
       const root = find(e.id)
-      if (!clusters[root]) clusters[root] = []
-      clusters[root].push(e)
+      if (!filteredClusters[root]) filteredClusters[root] = []
+      filteredClusters[root].push(e)
     }
 
     // Return only clusters with 2+ events
-    const groups = Object.values(clusters)
+    const groups = Object.values(filteredClusters)
       .filter(g => g.length > 1)
       .sort((a, b) => a[0].date.localeCompare(b[0].date))
 
     return { data: groups }
+  })
+
+  // Dismiss a group as not-duplicates (stores all pairs)
+  fastify.post('/calendar-events/dismiss-duplicates', async (request, reply) => {
+    const { eventIds } = request.body
+    if (!eventIds || eventIds.length < 2) {
+      return reply.status(400).send({ error: 'Need at least 2 event IDs' })
+    }
+
+    const pairs = []
+    for (let i = 0; i < eventIds.length; i++) {
+      for (let j = i + 1; j < eventIds.length; j++) {
+        const [a, b] = eventIds[i] < eventIds[j] ? [eventIds[i], eventIds[j]] : [eventIds[j], eventIds[i]]
+        pairs.push({ event_id_1: a, event_id_2: b })
+      }
+    }
+
+    const { error } = await supabase
+      .from('dismissed_duplicates')
+      .upsert(pairs, { onConflict: 'event_id_1,event_id_2' })
+
+    if (error) return reply.status(500).send({ error: error.message })
+    return { dismissed: pairs.length }
   })
 
   fastify.get('/calendar-events', async (request, reply) => {
