@@ -20,7 +20,7 @@ const VALID_EVENT_TYPES = ['uliczny', 'przełajowy', 'górski', 'nocny', 'ocr', 
 const args = process.argv.slice(2)
 const limitArg = args.includes('--limit') ? parseInt(args[args.indexOf('--limit') + 1]) : null
 const dryRun = !args.includes('--apply')
-const sourceArg = args.includes('--source') ? args[args.indexOf('--source') + 1] : 'maratonypolskie'
+const sourceArg = args.includes('--source') ? args[args.indexOf('--source') + 1] : null
 
 function buildPrompt(event) {
   return `Search the web for this Polish running event and extract structured data.
@@ -61,22 +61,37 @@ IMPORTANT:
 - If the event is a walk/march, orienteering, triathlon, cycling, or non-running event, set event_type to ["nie-bieg"] so we can filter it out`
 }
 
+let totalCostUsd = 0
+let totalInputTokens = 0
+let totalOutputTokens = 0
+
 function callClaude(prompt) {
   const promptFile = join(tmpdir(), `search-prompt-${Date.now()}.txt`)
 
   try {
     writeFileSync(promptFile, prompt, 'utf-8')
-    const result = execSync(
-      `cat "${promptFile}" | claude -p --model sonnet --output-format text`,
+    const raw = execSync(
+      `cat "${promptFile}" | claude -p --model sonnet --output-format json`,
       { encoding: 'utf-8', timeout: 120000, maxBuffer: 2 * 1024 * 1024 }
     )
 
-    const cleaned = result.replace(/```json\s*/g, '').replace(/```\s*/g, '')
+    const response = JSON.parse(raw)
+    const cost = response.total_cost_usd || 0
+    const input = response.usage?.input_tokens || 0
+    const output = response.usage?.output_tokens || 0
+    const cacheRead = response.usage?.cache_read_input_tokens || 0
+    totalCostUsd += cost
+    totalInputTokens += input + cacheRead
+    totalOutputTokens += output
+    console.log(`    tokens: ${input + cacheRead} in / ${output} out | cost: $${cost.toFixed(4)}`)
+
+    const text = response.result || ''
+    const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '')
     const match = cleaned.match(/\{[\s\S]*\}/)
     if (match) {
       return JSON.parse(match[0])
     }
-    console.log(`    Claude raw: ${result.slice(0, 200)}`)
+    console.log(`    Claude raw: ${text.slice(0, 200)}`)
   } catch (err) {
     console.error(`    Claude error: ${err.message?.slice(0, 200)}`)
   } finally {
@@ -89,14 +104,18 @@ async function main() {
   console.log(dryRun ? '=== DRY RUN (use --apply to write to DB) ===' : '=== APPLYING ===')
 
   // Fetch scraper_all rows and filter in-memory.
+  const allFlag = process.argv.includes('--all')
   const allRows = []
   let from = 0
   const pageSize = 1000
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('scraper_all')
-      .select('id, name, date, location, source, distances, event_types, is_kids, website, registration_url')
-      .range(from, from + pageSize - 1)
+      .select('id, name, date, location, source, distances, event_types, is_kids, website, registration_url, enriched_search_at')
+    if (!allFlag) {
+      query = query.gte('merged_at', new Date().toISOString().split('T')[0])
+    }
+    const { data, error } = await query.range(from, from + pageSize - 1)
 
     if (error) { console.error('Fetch error:', error.message); process.exit(1) }
     if (!data || data.length === 0) break
@@ -105,26 +124,21 @@ async function main() {
     from += pageSize
   }
 
-    // Source-aware filtering.
-    // maratonypolskie: only process if BOTH core fields are missing
-    // (avoids re-checking rows that already got at least one meaningful enrichment).
-    // Other sources: process if any key field is missing.
+    // Process if type or distances are missing.
+    // Skip already-searched rows.
+  const today = new Date().toISOString().split('T')[0]
   const needsWork = allRows.filter(r => {
-    if (r.source !== sourceArg) return false
+    if (sourceArg && r.source !== sourceArg) return false
+    if (r.enriched_search_at) return false
+    if (r.date && r.date < today) return false
     const noType = (!r.event_types || r.event_types.length === 0) && !r.is_kids
     const noDist = !r.distances || r.distances.trim() === ''
-    const noWebsite = !r.website
-    const noRegistration = !r.registration_url
 
-    if (sourceArg === 'maratonypolskie') {
-      return noType && noDist
-    }
-
-    return noType || noDist || noWebsite || noRegistration
+    return noType || noDist
   })
 
   const toProcess = limitArg ? needsWork.slice(0, limitArg) : needsWork
-  console.log(`Source: ${sourceArg}`)
+  console.log(`Source: ${sourceArg || 'all'}`)
   console.log(`Found ${allRows.length} total, ${needsWork.length} need enrichment, processing ${toProcess.length}\n`)
 
   let enriched = 0, skipped = 0, failed = 0, flagged = 0
@@ -135,6 +149,11 @@ async function main() {
 
     const prompt = buildPrompt(row)
     const result = callClaude(prompt)
+
+    // Stamp as checked (even if no data found) to avoid re-processing
+    if (!dryRun) {
+      await supabase.from('scraper_all').update({ enriched_search_at: new Date().toISOString() }).eq('id', row.id)
+    }
 
     if (!result) {
       console.log('    SKIP: Claude returned no data')
@@ -206,6 +225,8 @@ async function main() {
   console.log(`  skipped: ${skipped}`)
   console.log(`  failed: ${failed}`)
   console.log(`  flagged (not running): ${flagged}`)
+  console.log(`  total cost: $${totalCostUsd.toFixed(4)}`)
+  console.log(`  total tokens: ${totalInputTokens} in / ${totalOutputTokens} out`)
 }
 
 main().catch(console.error)

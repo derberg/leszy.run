@@ -120,22 +120,37 @@ EVENT TYPE RULES — you MUST classify every event into at least one type. NEVER
 IMPORTANT: An event can have MULTIPLE types (e.g. ["trail", "nocny"] for a night trail run, ["uliczny", "charytatywny"] for a charity road race, ["uliczny", "nordic"] for a road race with NW category). When in doubt between "uliczny" and "trail", look at the surface description — asphalt/pavement = uliczny, dirt/forest/mountain = trail.`
 }
 
+let totalCostUsd = 0
+let totalInputTokens = 0
+let totalOutputTokens = 0
+
 function callClaudeWithPdf(prompt, pdfPath) {
   const promptFile = join(tmpdir(), `enrich-prompt-${Date.now()}.txt`)
 
   try {
     writeFileSync(promptFile, prompt, 'utf-8')
-    const result = execSync(
-      `cat "${promptFile}" | claude -p --model haiku --output-format text "${pdfPath}"`,
+    const raw = execSync(
+      `cat "${promptFile}" | claude -p --model haiku --output-format json "${pdfPath}"`,
       { encoding: 'utf-8', timeout: 120000, maxBuffer: 2 * 1024 * 1024 }
     )
 
-    const cleaned = result.replace(/```json\s*/g, '').replace(/```\s*/g, '')
+    const response = JSON.parse(raw)
+    const cost = response.total_cost_usd || 0
+    const input = response.usage?.input_tokens || 0
+    const output = response.usage?.output_tokens || 0
+    const cacheRead = response.usage?.cache_read_input_tokens || 0
+    totalCostUsd += cost
+    totalInputTokens += input + cacheRead
+    totalOutputTokens += output
+    console.log(`    tokens: ${input + cacheRead} in / ${output} out | cost: $${cost.toFixed(4)}`)
+
+    const text = response.result || ''
+    const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '')
     const match = cleaned.match(/\{[\s\S]*\}/)
     if (match) {
       return JSON.parse(match[0])
     }
-    console.log(`    Claude raw output: ${result.slice(0, 200)}`)
+    console.log(`    Claude raw output: ${text.slice(0, 200)}`)
   } catch (err) {
     console.error(`  Claude error: ${err.message?.slice(0, 200)}`)
   } finally {
@@ -176,15 +191,20 @@ async function main() {
     process.exit(1)
   }
 
+  const allFlag = process.argv.includes('--all')
   const allRows = []
   let from = 0
   const pageSize = 1000
   while (true) {
-    const { data, error: fetchErr } = await supabase
+    let query = supabase
       .from('scraper_all')
-      .select('id, name, date, location, distances, event_type, event_types, regulamin_url, regulamin_urls')
+      .select('id, name, date, location, distances, event_type, event_types, regulamin_url, regulamin_urls, enriched_regulamin_at')
       .not('regulamin_url', 'is', null)
-      .range(from, from + pageSize - 1)
+      .is('enriched_regulamin_at', null)
+    if (!allFlag) {
+      query = query.gte('merged_at', new Date().toISOString().split('T')[0])
+    }
+    const { data, error: fetchErr } = await query.range(from, from + pageSize - 1)
 
     if (fetchErr) { console.error('Fetch error:', fetchErr.message); process.exit(1) }
     if (!data || data.length === 0) break
@@ -255,7 +275,8 @@ async function main() {
         }
       }
 
-      if (Object.keys(updates).length > 0) {
+      updates.enriched_regulamin_at = new Date().toISOString()
+      if (Object.keys(updates).length > 1) {
         const { error: updateErr } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
         if (updateErr) {
           console.log(`    ERR: ${updateErr.message}`)
@@ -266,7 +287,9 @@ async function main() {
           enriched++
         }
       } else {
-        console.log('    SKIP: no changes needed')
+        // No data changes, but still stamp as processed
+        await supabase.from('scraper_all').update({ enriched_regulamin_at: updates.enriched_regulamin_at }).eq('id', row.id)
+        console.log('    SKIP: no changes needed (marked as checked)')
         skipped++
       }
     } finally {
@@ -277,6 +300,8 @@ async function main() {
   }
 
   console.log(`\n\nDone: ${enriched} enriched, ${skipped} skipped, ${failed} failed`)
+  console.log(`  total cost: $${totalCostUsd.toFixed(4)}`)
+  console.log(`  total tokens: ${totalInputTokens} in / ${totalOutputTokens} out`)
 }
 
 main().catch(console.error)

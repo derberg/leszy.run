@@ -6,7 +6,7 @@ const typeTagClass = `${baseTag} border-apex-cyan/30 text-apex-cyan`
 const distTagClass = `${baseTag} border-[rgba(187,221,0,0.3)] text-apex-yellow-dim`
 
 const TYPE_LABELS = {
-  trail: 'przełajowy',
+  trail: 'trail',
   nocny: 'nocny',
   ocr: 'OCR',
   nordic: 'nordic walking',

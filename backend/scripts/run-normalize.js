@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 // - Event types: merges event_type + event_types into a single normalized event_types array
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+const dryRun = !process.argv.includes('--apply')
 
 // --- Voivodeship normalization ---
 
@@ -32,14 +33,13 @@ function normalizeVoivodeship(raw) {
 
 // Maps raw values (lowercased) to normalized types
 const EVENT_TYPE_MAP = {
-  // przełajowy — flat cross-country
-  'przełaj/cross':    'przełajowy',
-  'przełaj':          'przełajowy',
-  'cross':            'przełajowy',
-
-  // górski — mountain / trail
-  'trail':            'górski',
-  'górski':           'górski',
+  // trail — all off-road: mountain, forest, cross-country
+  'trail':            'trail',
+  'górski':           'trail',
+  'przełajowy':       'trail',
+  'przełaj/cross':    'trail',
+  'przełaj':          'trail',
+  'cross':            'trail',
 
   // uliczny — road/urban
   'uliczny':          'uliczny',
@@ -65,6 +65,9 @@ const EVENT_TYPE_MAP = {
 
   // orienteering
   'na orientację':    'na orientację',
+
+  // kids
+  'dzieci':           'dzieci',
 
   // drop — generic/useless
   'bieg':             null,
@@ -93,13 +96,14 @@ function normalizeEventTypes(eventType, eventTypes) {
 // --- Main ---
 
 async function main() {
+  console.log(dryRun ? '=== DRY RUN (use --apply to write to DB) ===' : '=== APPLYING ===')
   const allRows = []
   let from = 0
   const pageSize = 1000
   while (true) {
     const { data, error } = await supabase
       .from('scraper_all')
-      .select('id, voivodeship, event_type, event_types')
+      .select('id, name, voivodeship, event_type, event_types')
       .range(from, from + pageSize - 1)
 
     if (error) { console.error('Fetch error:', error.message); break }
@@ -141,14 +145,18 @@ async function main() {
     }
 
     if (Object.keys(updates).length > 0) {
-      const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
-      if (error) {
-        console.error(`\n  ERR ${row.id}: ${error.message}`)
-      } else {
-        if (updates.voivodeship) { voivFixed++; process.stdout.write('V') }
-        if ('event_types' in updates) { typesFixed++; process.stdout.write('T') }
-        if ('event_type' in updates && !('event_types' in updates)) { typeCleared++; process.stdout.write('c') }
+      if (!dryRun) {
+        const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
+        if (error) {
+          console.error(`\n  ERR ${row.id}: ${error.message}`)
+          continue
+        }
       }
+      const changes = []
+      if (updates.voivodeship) { voivFixed++; changes.push(`voiv: ${row.voivodeship} → ${updates.voivodeship}`) }
+      if ('event_types' in updates) { typesFixed++; changes.push(`types: [${(row.event_types || []).join(', ')}] → [${(updates.event_types || []).join(', ')}]`) }
+      if ('event_type' in updates && !('event_types' in updates)) { typeCleared++; changes.push(`event_type cleared: ${row.event_type}`) }
+      console.log(`  ${dryRun ? 'WOULD' : '✓'} ${row.name} → ${changes.join(' | ')}`)
     } else {
       unchanged++
     }

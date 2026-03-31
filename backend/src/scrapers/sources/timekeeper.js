@@ -10,6 +10,13 @@ const POLISH_MONTHS = {
   listopada: '11', grudnia: '12',
 }
 
+// Skip non-running events (cycling, MTB, etc.)
+const SKIP_KEYWORDS = /\b(mtb|rowerow|kolarsk|rowerowa|rowerowy|rowerowe|kolarski|kolarska|kolarskie)\b/i
+
+function isNonRunningEvent(name) {
+  return SKIP_KEYWORDS.test(name)
+}
+
 function parseListingDate(dayStr, monthStr) {
   if (!dayStr || !monthStr) return null
   const month = POLISH_MONTHS[monthStr.toLowerCase()]
@@ -145,6 +152,9 @@ async function scrape({ knownIds = new Set() } = {}) {
       }
 
       if (!name || !href) return
+
+      // Skip non-running events (cycling, MTB, etc.)
+      if (isNonRunningEvent(name)) return
 
       // "Więcej informacji" button determines internal vs external
       const moreInfoBtn = row.find('a.btn.btn-primary.btn-block')

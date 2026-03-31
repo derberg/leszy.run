@@ -136,8 +136,10 @@ function detectVoivodeshipFromCity(location) {
 }
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+const dryRun = !process.argv.includes('--apply')
 
 async function main() {
+  console.log(dryRun ? '=== DRY RUN (use --apply to write to DB) ===' : '=== APPLYING ===')
   // Fetch rows missing voivodeship OR lat/lng
   const allRows = []
   let from = 0
@@ -170,9 +172,11 @@ async function main() {
     if (needsVoiv && !needsLatLng) {
       const fromMap = detectVoivodeshipFromCity(city)
       if (fromMap) {
-        const { error } = await supabase.from('scraper_all').update({ voivodeship: fromMap }).eq('id', row.id)
-        if (error) { console.error(`  ERR ${row.name}: ${error.message}`); failed++ }
-        else { cityMap++; process.stdout.write('.') }
+        if (!dryRun) {
+          const { error } = await supabase.from('scraper_all').update({ voivodeship: fromMap }).eq('id', row.id)
+          if (error) { console.error(`  ERR ${row.name}: ${error.message}`); failed++; continue }
+        }
+        cityMap++; process.stdout.write('.')
         continue
       }
     }
@@ -200,9 +204,11 @@ async function main() {
     if (needsLatLng && geo.lat) { updates.lat = geo.lat; updates.lng = geo.lng }
 
     if (Object.keys(updates).length > 0) {
-      const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
-      if (error) { console.error(`  ERR ${row.name}: ${error.message}`); failed++ }
-      else { geocoded++; process.stdout.write(geo.lat ? 'G' : '.') }
+      if (!dryRun) {
+        const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
+        if (error) { console.error(`  ERR ${row.name}: ${error.message}`); failed++; continue }
+      }
+      geocoded++; process.stdout.write(geo.lat ? 'G' : '.')
     } else {
       console.log(`\n  MISS: "${row.name}" location="${row.location}"`)
       failed++

@@ -188,7 +188,6 @@ function classifyType(name, description, location) {
     }
   }
 
-  if (types.length === 0) types.push('bieg')
   return types
 }
 

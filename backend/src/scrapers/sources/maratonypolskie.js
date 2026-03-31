@@ -123,7 +123,7 @@ async function scrape({ knownIds = new Set() } = {}) {
           let added = 0
           for (const event of events) {
             const key = `${event.name}-${event.date}`
-            if (!allSeen.has(key)) {
+            if (!allSeen.has(key) && !knownIds.has(event.source_id)) {
               allSeen.add(key)
               allEvents.push(event)
               added++

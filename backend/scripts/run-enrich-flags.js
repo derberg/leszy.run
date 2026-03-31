@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 // - Extracts distances from event name when missing (półmaraton, maraton, dycha, N km, etc.)
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+const dryRun = !process.argv.includes('--apply')
 
 // --- Event type classification from name keywords ---
 // Output uses normalized type names (matching run-normalize.js output)
@@ -58,11 +59,11 @@ function extractDistancesFromName(name) {
   }
 
   // Named distances first
-  if (lower.includes('półmaraton') || lower.includes('polmaraton') || lower.includes('half')) {
+  if (lower.includes('półmaraton') || lower.includes('polmaraton') || lower.includes('half marathon') || lower.includes('half')) {
     add('21.1 km')
   }
-  // "maraton" but not "półmaraton", "ultramaraton"
-  if (/\bmaraton\b/.test(lower) && !lower.includes('pół') && !lower.includes('pol') && !lower.includes('ultra') && !lower.includes('half')) {
+  // "maraton"/"marathon" but not "półmaraton", "ultramaraton"
+  if (/\bmaraton\b|\bmarathon\b/.test(lower) && !lower.includes('pół') && !lower.includes('pol') && !lower.includes('ultra') && !lower.includes('half')) {
     add('42.2 km')
   }
 
@@ -73,12 +74,26 @@ function extractDistancesFromName(name) {
     if (km > 0 && km < 500) add(`${Math.round(km * 10) / 10} km`)
   }
 
-  // "dycha" / "dziesiątka" = 10 km, "piątka" = 5 km
-  if (lower.includes('dycha') || lower.includes('dychy') || lower.includes('dziesiątka') || lower.includes('dziesiatka') || lower.includes('dyszka') || lower.includes('dyszki')) {
+  // "dycha" / "dziesiątka" / "10-tka" = 10 km, "piątka" / "5-tka" = 5 km
+  if (lower.includes('dycha') || lower.includes('dychy') || lower.includes('dziesiątka') || lower.includes('dziesiatka') || lower.includes('dyszka') || lower.includes('dyszki') || lower.includes('10-tka')) {
     add('10 km')
   }
-  if (lower.includes('piątka') || lower.includes('piatka')) {
+  if (lower.includes('piątka') || lower.includes('piatka') || lower.includes('5-tka')) {
     add('5 km')
+  }
+
+  // Time-based events (e.g., "12-godzinny", "24 godziny", "6h", "Bieg 12h mocy")
+  if (distances.length === 0) {
+    const hourPatterns = [
+      /\b(\d{1,2})\s*[hH]\b/g,
+      /\b(\d{1,2})[-\s]?godzin\w*/gi,
+    ]
+    for (const pattern of hourPatterns) {
+      for (const m of lower.matchAll(pattern)) {
+        const hours = parseInt(m[1])
+        if (hours > 0 && hours <= 48) add(`${hours}h`)
+      }
+    }
   }
 
   return distances.length > 0 ? distances.join(', ') : null
@@ -127,14 +142,19 @@ function hasKidsDistance(distances) {
 // --- Main ---
 
 async function main() {
+  console.log(dryRun ? '=== DRY RUN (use --apply to write to DB) ===' : '=== APPLYING ===')
+  const allFlag = process.argv.includes('--all')
   const allRows = []
   let from = 0
   const pageSize = 1000
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('scraper_all')
       .select('id, name, distances, event_type, event_types, is_kids')
-      .range(from, from + pageSize - 1)
+    if (!allFlag) {
+      query = query.gte('merged_at', new Date().toISOString().split('T')[0])
+    }
+    const { data, error } = await query.range(from, from + pageSize - 1)
 
     if (error) { console.error('Fetch error:', error.message); break }
     if (!data || data.length === 0) break
@@ -184,14 +204,18 @@ async function main() {
     }
 
     if (Object.keys(updates).length > 0) {
-      const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
-      if (error) {
-        console.error(`  ERR ${row.name}: ${error.message}`)
-      } else {
-        if (updates.event_types) { typesAdded++; process.stdout.write('T') }
-        if (updates.is_kids) { kidsSet++; process.stdout.write('K') }
-        if (updates.distances) { distancesAdded++; process.stdout.write('D') }
+      if (!dryRun) {
+        const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
+        if (error) {
+          console.error(`  ERR ${row.name}: ${error.message}`)
+          continue
+        }
       }
+      const changes = []
+      if (updates.event_types) { typesAdded++; changes.push(`types: ${updates.event_types.join(', ')}`) }
+      if (updates.is_kids) { kidsSet++; changes.push('is_kids: true') }
+      if (updates.distances) { distancesAdded++; changes.push(`distances: ${updates.distances}`) }
+      console.log(`  ${dryRun ? 'WOULD' : '✓'} ${row.name} → ${changes.join(' | ')}`)
     } else {
       unchanged++
     }
