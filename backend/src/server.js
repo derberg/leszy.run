@@ -28,6 +28,7 @@ import { calendarEventsRoutes } from './routes/calendarEvents.js'
 import { calendarEventReportsRoutes } from './routes/calendarEventReports.js'
 import { urlSuggestionsRoutes } from './routes/urlSuggestions.js'
 import { websiteFeedbackRoutes } from './routes/websiteFeedback.js'
+import { eventPartnersRoutes } from './routes/eventPartners.js'
 import cron from 'node-cron'
 import { runPipeline } from './scrapers/index.js'
 
@@ -60,6 +61,7 @@ await fastify.register(async (api) => {
   await api.register(calendarEventReportsRoutes)
   await api.register(urlSuggestionsRoutes)
   await api.register(websiteFeedbackRoutes)
+  await api.register(eventPartnersRoutes)
 }, { prefix: '/api' })
 
 // Health check

@@ -6,6 +6,7 @@ import { api } from '../lib/api.js'
 import { formatDuration, cn } from '../lib/utils.js'
 import { Podium, CheckpointTrackingTable, estimatePositions } from '@leszyrun/ui'
 import { QRCodeSVG } from 'qrcode.react'
+import PartnerLogosBanner from '../components/PartnerLogosBanner.jsx'
 
 // Copied from AllResults.jsx
 function formatElapsed(ms) {
@@ -387,6 +388,7 @@ export default function PodiumPage() {
                   formatDuration={formatDuration}
                 />
               </div>
+              <PartnerLogosBanner eventId={eventId} />
             </div>
           </div>
         )}

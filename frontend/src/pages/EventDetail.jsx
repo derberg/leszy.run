@@ -1,6 +1,6 @@
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api.js'
 import { useWsEvent } from '../lib/ws.js'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.jsx'
@@ -12,9 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFoo
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog.jsx'
 import ParticipantsTable from '../components/ParticipantsTable/ParticipantsTable.jsx'
 import ImportSection from '../components/ImportWizard/ImportSection.jsx'
-import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff } from 'lucide-react'
+import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X } from 'lucide-react'
 
-const VALID_TABS = ['categories', 'participants', 'rfid', 'checkpoints', 'settings', 'documents']
+const VALID_TABS = ['categories', 'participants', 'rfid', 'checkpoints', 'settings', 'documents', 'partners']
 
 export default function EventDetail() {
   const { id } = useParams()
@@ -132,6 +132,7 @@ export default function EventDetail() {
           <TabsTrigger value="checkpoints"><Flag size={13} className="mr-1.5" />Punkty kontrolne</TabsTrigger>
           <TabsTrigger value="rfid"><Settings size={13} className="mr-1.5" />Ustawienia RFID</TabsTrigger>
           <TabsTrigger value="documents"><FileText size={13} className="mr-1.5" />Dokumenty</TabsTrigger>
+          <TabsTrigger value="partners"><Handshake size={13} className="mr-1.5" />Partnerzy</TabsTrigger>
           <TabsTrigger value="settings"><Settings size={13} className="mr-1.5" />Ustawienia</TabsTrigger>
         </TabsList>
 
@@ -359,6 +360,10 @@ export default function EventDetail() {
         {/* Dokumenty */}
         <TabsContent value="documents">
           <DocumentsManager eventId={id} />
+        </TabsContent>
+        {/* Partnerzy */}
+        <TabsContent value="partners">
+          <PartnersManager eventId={id} />
         </TabsContent>
         {/* Ustawienia */}
         <TabsContent value="settings">
@@ -667,6 +672,214 @@ function DocumentsManager({ eventId }) {
             <Button variant="outline" onClick={closeDialog}>Anuluj</Button>
             <Button
               disabled={!form.name || createDoc.isPending || updateDoc.isPending}
+              onClick={handleSubmit}
+            >
+              {editingId ? 'Zapisz' : 'Dodaj'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function PartnersManager({ eventId }) {
+  const qc = useQueryClient()
+  const [addOpen, setAddOpen] = useState(false)
+  const [form, setForm] = useState({ name: '', website_url: '', sort_order: 0 })
+  const [editingId, setEditingId] = useState(null)
+  const fileRef = useRef()
+
+  const { data: partners = [] } = useQuery({
+    queryKey: ['partners', eventId],
+    queryFn: () => api.partners.list(eventId),
+  })
+
+  const createPartner = useMutation({
+    mutationFn: (body) => api.partners.create(eventId, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['partners', eventId] }); closeDialog() },
+  })
+
+  const updatePartner = useMutation({
+    mutationFn: ({ id, ...body }) => api.partners.update(id, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['partners', eventId] }); closeDialog() },
+  })
+
+  const deletePartner = useMutation({
+    mutationFn: api.partners.delete,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['partners', eventId] }),
+  })
+
+  const uploadLogo = useMutation({
+    mutationFn: ({ id, file }) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return api.partners.uploadLogo(id, fd)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['partners', eventId] }),
+  })
+
+  const deleteLogo = useMutation({
+    mutationFn: api.partners.deleteLogo,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['partners', eventId] }),
+  })
+
+  const closeDialog = () => {
+    setAddOpen(false)
+    setEditingId(null)
+    setForm({ name: '', website_url: '', sort_order: 0 })
+  }
+
+  const openEdit = (p) => {
+    setEditingId(p.id)
+    setForm({ name: p.name, website_url: p.website_url || '', sort_order: p.sort_order ?? 0 })
+    setAddOpen(true)
+  }
+
+  const handleSubmit = () => {
+    const body = { name: form.name, website_url: form.website_url || null, sort_order: parseInt(form.sort_order) || 0 }
+    if (editingId) {
+      updatePartner.mutate({ id: editingId, ...body })
+    } else {
+      createPartner.mutate(body)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-2xl uppercase tracking-wider text-apex-text-bright">Partnerzy</h2>
+        <Button size="sm" onClick={() => { setEditingId(null); setForm({ name: '', website_url: '', sort_order: 0 }); setAddOpen(true) }}>
+          <Plus size={13} /> Dodaj partnera
+        </Button>
+      </div>
+
+      {partners.length === 0 && (
+        <p className="text-sm text-apex-muted py-4">Brak partnerów. Dodaj partnerów i ich logotypy — będą widoczne na wynikach na żywo.</p>
+      )}
+
+      <div className="grid gap-3">
+        {partners.map(p => (
+          <div key={p.id} className="border border-apex-border bg-apex-surface p-4 flex items-center gap-4 group hover:bg-apex-surface-2">
+            {/* Logo */}
+            <div
+              className={`shrink-0 w-24 h-16 border bg-apex-bg flex items-center justify-center overflow-hidden relative transition-colors ${
+                p._dragging ? 'border-apex-yellow border-dashed' : 'border-apex-border'
+              }`}
+              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-apex-yellow', 'border-dashed'); e.currentTarget.classList.remove('border-apex-border') }}
+              onDragLeave={(e) => { e.currentTarget.classList.remove('border-apex-yellow', 'border-dashed'); e.currentTarget.classList.add('border-apex-border') }}
+              onDrop={(e) => {
+                e.preventDefault()
+                e.currentTarget.classList.remove('border-apex-yellow', 'border-dashed')
+                e.currentTarget.classList.add('border-apex-border')
+                const file = e.dataTransfer.files[0]
+                if (file && file.type.startsWith('image/')) uploadLogo.mutate({ id: p.id, file })
+              }}
+            >
+              {p.logo_url ? (
+                <>
+                  <img src={p.logo_url} alt={p.name} className="max-w-full max-h-full object-contain" />
+                  <button
+                    onClick={() => deleteLogo.mutate(p.id)}
+                    className="absolute top-0.5 right-0.5 bg-apex-bg/80 text-apex-muted hover:text-apex-red p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Usuń logo"
+                  >
+                    <X size={12} />
+                  </button>
+                </>
+              ) : (
+                <label className="cursor-pointer text-center w-full h-full flex flex-col items-center justify-center hover:text-apex-yellow transition-colors text-apex-muted">
+                  <Upload size={16} />
+                  <span className="text-[9px] mt-0.5 uppercase tracking-wide">Logo</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files[0]) uploadLogo.mutate({ id: p.id, file: e.target.files[0] })
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm text-apex-text-bright">{p.name}</div>
+              {p.website_url && (
+                <a href={p.website_url} target="_blank" rel="noopener" className="text-xs text-apex-cyan hover:underline font-mono truncate block">{p.website_url}</a>
+              )}
+              <div className="text-[10px] text-apex-muted font-mono mt-0.5">kolejność: {p.sort_order}</div>
+            </div>
+
+            {/* Replace logo when one exists */}
+            {p.logo_url && (
+              <label className="shrink-0 cursor-pointer">
+                <Button variant="ghost" size="sm" className="text-apex-muted hover:text-apex-text-bright pointer-events-none">
+                  <Upload size={13} />
+                </Button>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files[0]) uploadLogo.mutate({ id: p.id, file: e.target.files[0] })
+                  }}
+                />
+              </label>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center gap-1 shrink-0">
+              <Button variant="ghost" size="icon" className="text-apex-text hover:text-apex-text-bright" onClick={() => openEdit(p)}>
+                <Pencil size={13} />
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-apex-text hover:text-apex-red">
+                    <Trash2 size={13} />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogTitle>Usuń partnera</AlertDialogTitle>
+                  <AlertDialogDescription>Usunąć <strong>{p.name}</strong> i logo?</AlertDialogDescription>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel asChild><Button variant="outline">Anuluj</Button></AlertDialogCancel>
+                    <AlertDialogAction asChild>
+                      <Button variant="destructive" onClick={() => deletePartner.mutate(p.id)}>Usuń</Button>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add/Edit dialog */}
+      <Dialog open={addOpen} onOpenChange={o => { if (!o) closeDialog(); else setAddOpen(true) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingId ? 'Edytuj partnera' : 'Dodaj partnera'}</DialogTitle>
+          </DialogHeader>
+          <DialogBody className="space-y-3">
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Nazwa *</span>
+              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Nazwa partnera" />
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Strona www</span>
+              <Input value={form.website_url} onChange={e => setForm(f => ({ ...f, website_url: e.target.value }))} placeholder="https://..." />
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Kolejność</span>
+              <Input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))} />
+            </label>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDialog}>Anuluj</Button>
+            <Button
+              disabled={!form.name || createPartner.isPending || updatePartner.isPending}
               onClick={handleSubmit}
             >
               {editingId ? 'Zapisz' : 'Dodaj'}

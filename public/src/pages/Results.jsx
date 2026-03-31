@@ -5,6 +5,7 @@ import { useEvent } from '../hooks/useEvent.js'
 import useSeo from '../hooks/useSeo.js'
 import CategorySection from './CategorySection.jsx'
 import LiveTracking from './LiveTracking.jsx'
+import PartnerLogos from '../components/PartnerLogos.jsx'
 
 export default function Results() {
   const { slug, categoryId } = useParams()
@@ -245,6 +246,7 @@ export default function Results() {
             </div>
           )
         )}
+        {!loading && event && <PartnerLogos eventId={event.id} />}
       </div>
     </div>
   )

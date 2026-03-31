@@ -93,6 +93,16 @@ export const api = {
     postObservation: (checkpointId, body) => request('POST', `/checkpoints/${checkpointId}/observations`, body),
   },
 
+  // Partners
+  partners: {
+    list: (eventId) => request('GET', `/events/${eventId}/partners`),
+    create: (eventId, body) => request('POST', `/events/${eventId}/partners`, body),
+    update: (id, body) => request('PATCH', `/partners/${id}`, body),
+    delete: (id) => request('DELETE', `/partners/${id}`),
+    uploadLogo: (id, formData) => request('POST', `/partners/${id}/logo`, formData, true),
+    deleteLogo: (id) => request('DELETE', `/partners/${id}/logo`),
+  },
+
   // Results
   results: {
     list: (raceRunId, gender) => request('GET', `/races/${raceRunId}/results${gender ? `?gender=${gender}` : ''}`),
