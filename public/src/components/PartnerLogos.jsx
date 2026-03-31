@@ -33,7 +33,7 @@ export default function PartnerLogos({ eventId }) {
   const withLogos = partners.filter(p => p.logo_url)
 
   return (
-    <div className="py-8 border-t border-apex-border">
+    <div className="pb-6">
       <div className="text-center mb-4">
         <span className="font-mono text-[10px] font-semibold tracking-[0.2em] uppercase text-apex-muted">
           Partnerzy

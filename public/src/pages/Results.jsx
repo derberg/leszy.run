@@ -126,6 +126,8 @@ export default function Results() {
       <div className="relative z-10 max-w-3xl mx-auto px-6 py-10">
         <Link to={`/events/${slug}`} className="text-xs text-apex-muted uppercase tracking-wider hover:text-apex-text mb-6 inline-block">&larr; Powrot</Link>
 
+        {event && <PartnerLogos eventId={event.id} />}
+
         <div className="text-center mb-8">
           <div className="font-display text-5xl tracking-widest uppercase text-apex-text-bright mb-1">
             {event?.name || '—'}
@@ -246,7 +248,6 @@ export default function Results() {
             </div>
           )
         )}
-        {!loading && event && <PartnerLogos eventId={event.id} />}
       </div>
     </div>
   )
