@@ -17,9 +17,17 @@ const VOIVODESHIPS = [
 
 const EVENT_TYPES = ['uliczny', 'trail', 'ultra', 'nordic', 'ocr', 'nocny', 'charytatywny']
 
-function EditableEvent({ event, onSave, onApprove, onDelete }) {
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, opts)
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+  return json
+}
+
+function EditableEvent({ event, onSave, onApprove, onDelete, showSaveOnly }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ ...event })
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
 
@@ -57,7 +65,14 @@ function EditableEvent({ event, onSave, onApprove, onDelete }) {
           <div className="flex gap-2">
             <button onClick={() => setEditing(true)} className={`${btnBase} border border-apex-border text-apex-muted hover:text-apex-text-bright`}>Edytuj</button>
             <button onClick={() => onApprove(event.id)} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Zatwierdź</button>
-            <button onClick={() => onDelete(event.id)} className={`${btnBase} border border-apex-red text-apex-red hover:bg-apex-red hover:text-white`}>Usuń</button>
+            {confirmDelete ? (
+              <>
+                <button onClick={() => { onDelete(event.id); setConfirmDelete(false) }} className={`${btnBase} bg-apex-red text-white`}>Potwierdź</button>
+                <button onClick={() => setConfirmDelete(false)} className={`${btnBase} border border-apex-border text-apex-muted`}>Anuluj</button>
+              </>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)} className={`${btnBase} border border-apex-red text-apex-red hover:bg-apex-red hover:text-white`}>Usuń</button>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
@@ -122,7 +137,14 @@ function EditableEvent({ event, onSave, onApprove, onDelete }) {
         </div>
       </div>
       <div className="flex gap-2">
-        <button onClick={handleSave} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Zapisz</button>
+        {showSaveOnly ? (
+          <button onClick={handleSave} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Zapisz</button>
+        ) : (
+          <>
+            <button onClick={handleSave} className={`${btnBase} border border-apex-yellow text-apex-yellow hover:bg-apex-yellow/10`}>Zapisz</button>
+            <button onClick={async () => { await handleSave(); onApprove(event.id) }} className={`${btnBase} bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright`}>Zapisz i zatwierdź</button>
+          </>
+        )}
         <button onClick={() => { setForm({ ...event }); setEditing(false) }} className={`${btnBase} border border-apex-border text-apex-muted`}>Anuluj</button>
       </div>
     </div>
@@ -188,91 +210,121 @@ export default function Moderation() {
   const [reports, setReports] = useState([])
   const [feedback, setFeedback] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [editingEventId, setEditingEventId] = useState(null)
 
   const fetchPending = useCallback(async () => {
-    const res = await fetch(`${API}/api/calendar-events?status=pending&limit=500`)
-    const json = await res.json()
+    const json = await apiFetch(`${API}/api/calendar-events?status=pending&limit=500`)
     setPendingEvents(json.data || [])
   }, [])
 
   const fetchReports = useCallback(async () => {
-    const res = await fetch(`${API}/api/calendar-event-reports?status=pending`)
-    const json = await res.json()
+    const json = await apiFetch(`${API}/api/calendar-event-reports?status=pending`)
     setReports(json.data || [])
   }, [])
 
   const fetchFeedback = useCallback(async () => {
-    const res = await fetch(`${API}/api/website-feedback?status=pending`)
-    const json = await res.json()
+    const json = await apiFetch(`${API}/api/website-feedback?status=pending`)
     setFeedback(json.data || [])
   }, [])
 
-  useEffect(() => {
-    setLoading(true)
-    Promise.all([fetchPending(), fetchReports(), fetchFeedback()]).finally(() => setLoading(false))
+  const refetchAll = useCallback(() => {
+    return Promise.all([fetchPending(), fetchReports(), fetchFeedback()])
   }, [fetchPending, fetchReports, fetchFeedback])
 
-  const saveEvent = async (id, updates) => {
-    await fetch(`${API}/api/calendar-events/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
+  useEffect(() => {
+    setLoading(true)
+    refetchAll()
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false))
+  }, [refetchAll])
+
+  const withError = async (fn) => {
+    setError(null)
+    try {
+      await fn()
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  const saveAndApproveEvent = async (id, updates) => {
+    await withError(async () => {
+      if (Object.keys(updates).length > 0) {
+        await apiFetch(`${API}/api/calendar-events/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        })
+      }
+      await apiFetch(`${API}/api/calendar-events/${id}/approve`, { method: 'PATCH' })
+      await fetchPending()
     })
-    // Also approve after saving edits
-    await fetch(`${API}/api/calendar-events/${id}/approve`, { method: 'PATCH' })
-    setPendingEvents(prev => prev.filter(e => e.id !== id))
   }
 
   const approveEvent = async (id) => {
-    await fetch(`${API}/api/calendar-events/${id}/approve`, { method: 'PATCH' })
-    setPendingEvents(prev => prev.filter(e => e.id !== id))
+    await withError(async () => {
+      await apiFetch(`${API}/api/calendar-events/${id}/approve`, { method: 'PATCH' })
+      await fetchPending()
+    })
   }
 
   const deleteEvent = async (id) => {
-    await fetch(`${API}/api/calendar-events/${id}`, { method: 'DELETE' })
-    setPendingEvents(prev => prev.filter(e => e.id !== id))
+    await withError(async () => {
+      await apiFetch(`${API}/api/calendar-events/${id}`, { method: 'DELETE' })
+      await fetchPending()
+    })
   }
 
   const saveReportEvent = async (eventId, updates) => {
-    await fetch(`${API}/api/calendar-events/${eventId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
+    await withError(async () => {
+      if (Object.keys(updates).length > 0) {
+        await apiFetch(`${API}/api/calendar-events/${eventId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        })
+      }
+      // Mark all pending reports for this event as accepted (parallel)
+      const eventReports = reports.filter(r => r.calendar_event_id === eventId)
+      await Promise.all(eventReports.map(r =>
+        apiFetch(`${API}/api/calendar-event-reports/${r.id}/accept`, { method: 'PATCH' })
+      ))
+      await fetchReports()
+      setEditingEventId(null)
     })
-    // Mark all pending reports for this event as accepted
-    const eventReports = reports.filter(r => r.calendar_event_id === eventId)
-    for (const r of eventReports) {
-      await fetch(`${API}/api/calendar-event-reports/${r.id}/accept`, { method: 'PATCH' })
-    }
-    setReports(prev => prev.filter(r => r.calendar_event_id !== eventId))
-    setEditingEventId(null)
   }
 
   const rejectReportGroup = async (eventId) => {
-    const eventReports = reports.filter(r => r.calendar_event_id === eventId)
-    for (const r of eventReports) {
-      await fetch(`${API}/api/calendar-event-reports/${r.id}/reject`, { method: 'PATCH' })
-    }
-    setReports(prev => prev.filter(r => r.calendar_event_id !== eventId))
+    await withError(async () => {
+      const eventReports = reports.filter(r => r.calendar_event_id === eventId)
+      await Promise.all(eventReports.map(r =>
+        apiFetch(`${API}/api/calendar-event-reports/${r.id}/reject`, { method: 'PATCH' })
+      ))
+      await fetchReports()
+    })
   }
 
   const reviewFeedback = async (id, adminNote) => {
-    await fetch(`${API}/api/website-feedback/${id}/review`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ admin_note: adminNote || null }),
+    await withError(async () => {
+      await apiFetch(`${API}/api/website-feedback/${id}/review`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_note: adminNote || null }),
+      })
+      await fetchFeedback()
     })
-    setFeedback(prev => prev.filter(f => f.id !== id))
   }
 
   const dismissFeedback = async (id, adminNote) => {
-    await fetch(`${API}/api/website-feedback/${id}/dismiss`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ admin_note: adminNote || null }),
+    await withError(async () => {
+      await apiFetch(`${API}/api/website-feedback/${id}/dismiss`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_note: adminNote || null }),
+      })
+      await fetchFeedback()
     })
-    setFeedback(prev => prev.filter(f => f.id !== id))
   }
 
   const reportsByEvent = reports.reduce((acc, r) => {
@@ -288,6 +340,13 @@ export default function Moderation() {
         <h1 className="font-display font-extrabold text-2xl tracking-wider uppercase text-apex-text-bright">Moderacja</h1>
         <p className="text-sm text-apex-muted mt-1">Zgłoszenia społeczności i oczekujące wydarzenia</p>
       </div>
+
+      {error && (
+        <div className="border border-apex-red bg-apex-red/10 text-apex-red text-sm px-4 py-2 flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-apex-muted hover:text-apex-text-bright ml-4">&times;</button>
+        </div>
+      )}
 
       <div className="flex gap-4 border-b border-apex-border">
         <button onClick={() => setTab('pending')} className={`${tabClass} ${tab === 'pending' ? activeTab : inactiveTab}`}>
@@ -307,7 +366,7 @@ export default function Moderation() {
         <div className="space-y-3">
           {pendingEvents.length === 0 && <div className="text-apex-muted py-8 text-center">Brak oczekujących wydarzeń.</div>}
           {pendingEvents.map(ev => (
-            <EditableEvent key={ev.id} event={ev} onSave={saveEvent} onApprove={approveEvent} onDelete={deleteEvent} />
+            <EditableEvent key={ev.id} event={ev} onSave={saveAndApproveEvent} onApprove={approveEvent} onDelete={deleteEvent} />
           ))}
         </div>
       )}
@@ -362,6 +421,7 @@ export default function Moderation() {
                   onSave={(id, updates) => saveReportEvent(id, updates)}
                   onApprove={(id) => saveReportEvent(id, {})}
                   onDelete={() => { setEditingEventId(null); rejectReportGroup(eventId) }}
+                  showSaveOnly
                 />
               ) : (
                 <div className="flex gap-2">

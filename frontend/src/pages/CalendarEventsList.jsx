@@ -357,14 +357,14 @@ export default function CalendarEventsList() {
   const queryClient = useQueryClient()
   const [filter, setFilter] = useState('review')
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['calendar-events-admin', filter],
-    queryFn: () => api.get(`/calendar-events?limit=2000&status=${filter === 'review' ? 'pending' : 'active'}&filter=${filter}`),
+  const { data: pendingEvents, isLoading: pendingLoading } = useQuery({
+    queryKey: ['calendar-events-admin', 'pending'],
+    queryFn: () => api.get('/calendar-events?limit=2000&status=pending'),
   })
 
-  const { data: pendingCountData } = useQuery({
-    queryKey: ['calendar-events-pending-count'],
-    queryFn: () => api.get('/calendar-events?limit=1&status=pending'),
+  const { data: activeEvents, isLoading: activeLoading } = useQuery({
+    queryKey: ['calendar-events-admin', 'active'],
+    queryFn: () => api.get('/calendar-events?limit=2000&status=active'),
   })
 
   const { data: dupData } = useQuery({
@@ -376,37 +376,29 @@ export default function CalendarEventsList() {
     },
   })
 
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
+    queryClient.invalidateQueries({ queryKey: ['calendar-events-duplicates'] })
+  }
+
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }) => api.patch(`/calendar-events/${id}`, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-events-pending-count'] })
-    },
+    onSuccess: invalidateAll,
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.del(`/calendar-events/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-events-duplicates'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-events-pending-count'] })
-    },
+    onSuccess: invalidateAll,
   })
 
   const approveMutation = useMutation({
     mutationFn: (id) => api.patch(`/calendar-events/${id}/approve`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-events-pending-count'] })
-    },
+    onSuccess: invalidateAll,
   })
 
   const rejectMutation = useMutation({
     mutationFn: (id) => api.patch(`/calendar-events/${id}/reject`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-events-pending-count'] })
-    },
+    onSuccess: invalidateAll,
   })
 
   const handleDelete = (id) => deleteMutation.mutate(id)
@@ -419,23 +411,24 @@ export default function CalendarEventsList() {
     updateMutation.mutate({ id, updates })
   }
 
-  const events = data?.data || data || []
+  const pending = pendingEvents || []
+  const active = activeEvents || []
   const dupGroups = dupData || []
-  const pendingCount = pendingCountData?.total ?? 0
+  const isLoading = filter === 'review' ? pendingLoading : activeLoading
 
-  const incomplete = events.filter(e =>
+  const incomplete = active.filter(e =>
     !e.location || !e.voivodeship || !e.event_type?.length || !e.distances?.length
   )
-  const noUrl = events.filter(e => !e.registration_url)
-  const complete = events.filter(e =>
+  const noUrl = active.filter(e => !e.registration_url)
+  const complete = active.filter(e =>
     e.location && e.voivodeship && e.event_type?.length && e.distances?.length
   )
 
-  const displayed = filter === 'review' ? events
+  const displayed = filter === 'review' ? pending
     : filter === 'incomplete' ? incomplete
     : filter === 'no-url' ? noUrl
     : filter === 'duplicates' ? []
-    : events
+    : active
 
   const btnClass = (active) =>
     `font-sans text-xs font-semibold tracking-wide uppercase px-4 py-2 border transition-all ${active ? 'bg-apex-yellow text-apex-bg border-apex-yellow' : 'bg-apex-surface border-apex-border text-apex-muted hover:text-apex-text-bright'}`
@@ -449,14 +442,14 @@ export default function CalendarEventsList() {
           </h1>
           <p className="text-apex-muted text-sm">
             {filter === 'review'
-              ? `${events.length} do przeglądu`
-              : `${incomplete.length} wymaga uzupełnienia · ${complete.length} kompletnych · ${events.length} łącznie`
+              ? `${pending.length} do przeglądu`
+              : `${incomplete.length} wymaga uzupełnienia · ${complete.length} kompletnych · ${active.length} łącznie`
             }
           </p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setFilter('review')} className={btnClass(filter === 'review')}>
-            Do przeglądu{pendingCount > 0 ? ` (${pendingCount})` : ''}
+            Do przeglądu{pending.length > 0 ? ` (${pending.length})` : ''}
           </button>
           <button onClick={() => setFilter('incomplete')} className={btnClass(filter === 'incomplete')}>
             Niekompletne ({incomplete.length})
