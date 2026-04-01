@@ -1,7 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 const EVENT_TYPES = [
-  { value: '', label: 'Typ: Wszystkie' },
   { value: 'uliczny', label: 'Bieg uliczny' },
   { value: 'trail', label: 'Przełajowy / Trail' },
   { value: 'ultra', label: 'Ultramaraton' },
@@ -12,13 +11,12 @@ const EVENT_TYPES = [
 ]
 
 const VOIVODESHIPS = [
-  '', 'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
+  'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
   'Małopolskie', 'Mazowieckie', 'Opolskie', 'Podkarpackie', 'Podlaskie',
   'Pomorskie', 'Śląskie', 'Świętokrzyskie', 'Warmińsko-Mazurskie', 'Wielkopolskie', 'Zachodniopomorskie',
 ]
 
 const DISTANCES = [
-  { value: '', label: 'Dystans: Wszystkie' },
   { value: '0-5000', label: 'do 5 km' },
   { value: '5000-10000', label: '5-10 km' },
   { value: '10000-21100', label: '10-21 km' },
@@ -28,17 +26,24 @@ const DISTANCES = [
 ]
 
 const TIME_RANGES = [
-  { value: '', label: 'Kiedy: Najbliższe' },
+  { value: '', label: 'Najbliższe' },
   { value: 'week', label: 'Ten tydzień' },
   { value: 'month', label: 'Ten miesiąc' },
   { value: 'next-month', label: 'Następny miesiąc' },
   { value: 'year', label: 'Cały rok' },
+  { value: 'next-year', label: 'Następny rok' },
+  { value: 'after', label: 'Od miesiąca...' },
+]
+
+const MONTH_NAMES = [
+  'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
+  'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień',
 ]
 
 const selectClass = "bg-apex-surface border border-apex-border text-apex-text font-sans text-sm font-semibold py-2.5 pl-3.5 pr-8 outline-none appearance-none cursor-pointer focus:border-apex-yellow-dim w-full md:w-auto"
 
 const SNAP_POINTS = [10, 25, 50, 100, 150, 200]
-const SNAP_THRESHOLD = 0.08 * (200 - 5) // ~8% of range = ~15.6
+const SNAP_THRESHOLD = 0.08 * (200 - 5)
 
 function snapRadius(value) {
   for (const snap of SNAP_POINTS) {
@@ -49,12 +54,199 @@ function snapRadius(value) {
 
 function activeFilterCount(filters, userLocation) {
   let count = 0
-  if (filters.type) count++
-  if (filters.voivodeship) count++
-  if (filters.distance) count++
+  if (filters.type.length) count++
+  if (filters.voivodeship.length) count++
+  if (filters.distance.length) count++
   if (filters.timeRange) count++
   if (userLocation) count++
   return count
+}
+
+function MultiSelect({ options, selected, onChange, allLabel, ariaLabel }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const toggle = (value) => {
+    const next = selected.includes(value)
+      ? selected.filter(v => v !== value)
+      : [...selected, value]
+    onChange(next)
+  }
+
+  const label = selected.length === 0
+    ? allLabel
+    : selected.length === 1
+      ? options.find(o => o.value === selected[0])?.label || selected[0]
+      : `${allLabel.split(':')[0]}: ${selected.length} wybranych`
+
+  return (
+    <div className="relative w-full md:w-auto" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`${selectClass} text-left w-full md:w-auto flex items-center justify-between gap-2 ${selected.length > 0 ? 'border-apex-yellow-dim text-apex-text-bright' : ''}`}
+        aria-label={ariaLabel}
+        aria-expanded={open}
+      >
+        <span className="truncate">{label}</span>
+        <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="none">
+          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 w-full md:w-64 max-h-72 overflow-y-auto bg-apex-surface border border-apex-border z-50 shadow-lg">
+          {selected.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              className="w-full text-left px-3.5 py-2 text-xs font-mono text-apex-yellow hover:bg-apex-surface-2 border-b border-apex-border"
+            >
+              Wyczyść filtr
+            </button>
+          )}
+          {options.map(opt => (
+            <button
+              type="button"
+              key={opt.value}
+              onClick={() => toggle(opt.value)}
+              className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-apex-surface-2 transition-colors w-full text-left"
+            >
+              <span className={`w-4 h-4 flex-shrink-0 border ${selected.includes(opt.value) ? 'bg-apex-yellow border-apex-yellow' : 'border-apex-border-mid'} flex items-center justify-center`}>
+                {selected.includes(opt.value) && (
+                  <svg className="w-3 h-3 text-apex-ink" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </span>
+              <span className="font-sans text-sm text-apex-text">{opt.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function getAfterMonths() {
+  const now = new Date()
+  const months = []
+  for (let i = 0; i < 18; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+    const val = `after-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`
+    months.push({ value: val, label })
+  }
+  return months
+}
+
+function TimeRangeSelect({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const [submenuOpen, setSubmenuOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false)
+        setSubmenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const isAfter = value.startsWith('after-') && value !== 'after'
+  const afterMonths = getAfterMonths()
+
+  const getLabel = () => {
+    if (isAfter) {
+      const m = afterMonths.find(m => m.value === value)
+      return m ? `Od: ${m.label}` : 'Od miesiąca...'
+    }
+    const found = TIME_RANGES.find(t => t.value === value)
+    return found ? (value === '' ? 'Kiedy: Najbliższe' : found.label) : 'Kiedy: Najbliższe'
+  }
+
+  const select = (val) => {
+    onChange(val)
+    setOpen(false)
+    setSubmenuOpen(false)
+  }
+
+  const isActive = value !== ''
+
+  return (
+    <div className="relative w-full md:w-auto" ref={ref}>
+      <button
+        type="button"
+        onClick={() => { setOpen(!open); if (open) setSubmenuOpen(false) }}
+        className={`${selectClass} text-left w-full md:w-auto flex items-center justify-between gap-2 ${isActive ? 'border-apex-yellow-dim text-apex-text-bright' : ''}`}
+        aria-label="Filtruj po czasie"
+        aria-expanded={open}
+      >
+        <span className="truncate">{getLabel()}</span>
+        <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="none">
+          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 w-full md:w-64 max-h-[400px] overflow-y-auto bg-apex-surface border border-apex-border z-50 shadow-lg">
+          {TIME_RANGES.filter(t => t.value !== 'after').map(t => (
+            <button
+              type="button"
+              key={t.value}
+              onClick={() => select(t.value)}
+              className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-apex-surface-2 transition-colors w-full text-left ${value === t.value ? 'text-apex-yellow' : 'text-apex-text'}`}
+            >
+              <span className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${value === t.value ? 'bg-apex-yellow' : 'bg-transparent'}`} />
+              <span className="font-sans text-sm">{t.label}</span>
+            </button>
+          ))}
+
+          {/* "Od miesiąca" with expandable submenu */}
+          <button
+            type="button"
+            onClick={() => setSubmenuOpen(!submenuOpen)}
+            className={`flex items-center justify-between px-3.5 py-2.5 cursor-pointer hover:bg-apex-surface-2 transition-colors w-full text-left border-t border-apex-border ${isAfter ? 'text-apex-yellow' : 'text-apex-text'}`}
+          >
+            <span className="flex items-center gap-3">
+              <span className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${isAfter ? 'bg-apex-yellow' : 'bg-transparent'}`} />
+              <span className="font-sans text-sm">Od miesiąca...</span>
+            </span>
+            <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${submenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="none">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          {submenuOpen && (
+            <div className="bg-apex-bg/50">
+              {afterMonths.map(m => (
+                <button
+                  type="button"
+                  key={m.value}
+                  onClick={() => select(m.value)}
+                  className={`flex items-center gap-3 pl-8 pr-3.5 py-2 cursor-pointer hover:bg-apex-surface-2 transition-colors w-full text-left ${value === m.value ? 'text-apex-yellow' : 'text-apex-text'}`}
+                >
+                  <span className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${value === m.value ? 'bg-apex-yellow' : 'bg-transparent'}`} />
+                  <span className="font-sans text-sm">{m.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function FilterBar({ filters, onChange, view, onViewChange, userLocation, radius, onLocationRequest, onLocationClear, onRadiusChange }) {
@@ -148,22 +340,44 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
 
         {/* Row 2: Filter dropdowns */}
         <div className={`${open ? 'flex' : 'hidden'} md:flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center`}>
-          <select value={filters.type} onChange={(e) => update('type', e.target.value)} className={selectClass} aria-label="Filtruj po typie">
-            {EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+          <MultiSelect
+            options={EVENT_TYPES}
+            selected={filters.type}
+            onChange={(val) => update('type', val)}
+            allLabel="Typ: Wszystkie"
+            ariaLabel="Filtruj po typie"
+          />
 
-          <select value={filters.voivodeship} onChange={(e) => update('voivodeship', e.target.value)} className={selectClass} aria-label="Filtruj po regionie">
-            <option value="">Region: Cała Polska</option>
-            {VOIVODESHIPS.filter(Boolean).map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
+          <MultiSelect
+            options={VOIVODESHIPS.map(v => ({ value: v, label: v }))}
+            selected={filters.voivodeship}
+            onChange={(val) => update('voivodeship', val)}
+            allLabel="Region: Cała Polska"
+            ariaLabel="Filtruj po regionie"
+          />
 
-          <select value={filters.distance} onChange={(e) => update('distance', e.target.value)} className={selectClass} aria-label="Filtruj po dystansie">
-            {DISTANCES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-          </select>
+          <MultiSelect
+            options={DISTANCES}
+            selected={filters.distance}
+            onChange={(val) => update('distance', val)}
+            allLabel="Dystans: Wszystkie"
+            ariaLabel="Filtruj po dystansie"
+          />
 
-          <select value={filters.timeRange} onChange={(e) => update('timeRange', e.target.value)} className={selectClass} aria-label="Filtruj po czasie">
-            {TIME_RANGES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+          <TimeRangeSelect
+            value={filters.timeRange}
+            onChange={(val) => update('timeRange', val)}
+          />
+
+          {count > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange({ search: '', type: [], voivodeship: [], distance: [], timeRange: '' })}
+              className="font-mono text-[11px] tracking-wide text-apex-yellow hover:text-apex-yellow-bright transition-colors flex-shrink-0 px-2 py-2.5"
+            >
+              Wyczyść filtry ✕
+            </button>
+          )}
         </div>
 
         {/* Row 3: Radius slider (only when location active) */}

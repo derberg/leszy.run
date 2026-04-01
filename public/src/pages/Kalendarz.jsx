@@ -104,6 +104,14 @@ function getDateRange(timeRange) {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   let end = null
 
+  // "after-YYYY-MM" — from that month onwards, no end
+  if (timeRange.startsWith('after-') && timeRange !== 'after') {
+    const parts = timeRange.split('-')
+    const year = parseInt(parts[1], 10)
+    const month = parseInt(parts[2], 10) - 1
+    return [toLocalDateStr(new Date(year, month, 1)), null]
+  }
+
   switch (timeRange) {
     case 'week': end = new Date(start); end.setDate(end.getDate() + 7); break
     case 'month': end = new Date(start.getFullYear(), start.getMonth() + 1, 0); break
@@ -113,6 +121,11 @@ function getDateRange(timeRange) {
       return [toLocalDateStr(nextStart), toLocalDateStr(nextEnd)]
     }
     case 'year': end = new Date(start.getFullYear(), 11, 31); break
+    case 'next-year': {
+      const nextYearStart = new Date(start.getFullYear() + 1, 0, 1)
+      const nextYearEnd = new Date(start.getFullYear() + 1, 11, 31)
+      return [toLocalDateStr(nextYearStart), toLocalDateStr(nextYearEnd)]
+    }
     default: break
   }
 
@@ -157,9 +170,9 @@ export default function Kalendarz() {
 
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',
-    type: searchParams.get('type') || '',
-    voivodeship: searchParams.get('region') || '',
-    distance: searchParams.get('dist') || '',
+    type: searchParams.get('type') ? searchParams.get('type').split(',') : [],
+    voivodeship: searchParams.get('region') ? searchParams.get('region').split(',') : [],
+    distance: searchParams.get('dist') ? searchParams.get('dist').split(',') : [],
     timeRange: searchParams.get('when') || '',
   })
 
@@ -207,17 +220,21 @@ export default function Kalendarz() {
         query = query.or(`name.ilike.%${filters.search}%,location.ilike.%${filters.search}%`)
       }
 
-      if (filters.type) {
-        query = query.contains('event_type', [filters.type])
+      if (filters.type.length === 1) {
+        query = query.contains('event_type', [filters.type[0]])
+      } else if (filters.type.length > 1) {
+        query = query.or(filters.type.map(t => `event_type.cs.{${t}}`).join(','))
       }
 
-      if (filters.voivodeship) {
-        query = query.eq('voivodeship', filters.voivodeship)
+      if (filters.voivodeship.length === 1) {
+        query = query.eq('voivodeship', filters.voivodeship[0])
+      } else if (filters.voivodeship.length > 1) {
+        query = query.in('voivodeship', filters.voivodeship)
       }
 
       // Map view and distance filter need all results (no pagination)
       // (Supabase can't filter "any array element in range" natively)
-      if (view === 'map' || filters.distance || userLocation) {
+      if (view === 'map' || filters.distance.length || userLocation) {
         query = query.limit(2000)
       } else {
         const from = (page - 1) * PAGE_SIZE
@@ -256,18 +273,19 @@ export default function Kalendarz() {
 
       setAutoExpanded(isAutoExpanded)
 
-      if (filters.distance && filteredData.length > 0) {
-        const [minDist, maxDist] = filters.distance.split('-').map(Number)
+      if (filters.distance.length > 0 && filteredData.length > 0) {
+        const ranges = filters.distance.map(r => r.split('-').map(Number))
         filteredData = filteredData.filter(e => {
           if (!e.distances || e.distances.length === 0) return false
           return e.distances.some(d => {
             const m = Math.round(parseFloat(d) * 1000)
-            return !isNaN(m) && m >= minDist && m <= maxDist
+            if (isNaN(m)) return false
+            return ranges.some(([minDist, maxDist]) => m >= minDist && m <= maxDist)
           })
         })
       }
 
-      if (userLocation || filters.distance) {
+      if (userLocation || filters.distance.length) {
         // Client-side pagination for client-filtered results
         const from = (page - 1) * PAGE_SIZE
         const paged = filteredData.slice(from, from + PAGE_SIZE)
@@ -291,9 +309,9 @@ export default function Kalendarz() {
   useEffect(() => {
     const params = new URLSearchParams()
     if (filters.search) params.set('q', filters.search)
-    if (filters.type) params.set('type', filters.type)
-    if (filters.voivodeship) params.set('region', filters.voivodeship)
-    if (filters.distance) params.set('dist', filters.distance)
+    if (filters.type.length) params.set('type', filters.type.join(','))
+    if (filters.voivodeship.length) params.set('region', filters.voivodeship.join(','))
+    if (filters.distance.length) params.set('dist', filters.distance.join(','))
     if (filters.timeRange) params.set('when', filters.timeRange)
     if (view !== 'list') params.set('view', view)
     if (userLocation && radius !== 50) params.set('r', String(radius))
