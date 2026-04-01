@@ -144,8 +144,13 @@ async function main() {
   for (const [date, rows] of byDate) {
     if (rows.length < 2) continue
 
-    // Sort by priority (best first) so winner is always the higher-priority source
-    rows.sort((a, b) => getPriority(a.source) - getPriority(b.source))
+    // Sort by created_at (oldest first = already enriched), then source priority as tiebreaker
+    rows.sort((a, b) => {
+      const aDate = a.created_at ? new Date(a.created_at).getTime() : Infinity
+      const bDate = b.created_at ? new Date(b.created_at).getTime() : Infinity
+      if (aDate !== bDate) return aDate - bDate
+      return getPriority(a.source) - getPriority(b.source)
+    })
 
     for (let i = 0; i < rows.length; i++) {
       if (toDelete.has(rows[i].id)) continue
@@ -163,13 +168,38 @@ async function main() {
 
   console.log(`\nFound ${merges.length} duplicates to merge:\n`)
 
+  const RICHNESS_FIELDS = [
+    'location', 'voivodeship', 'lat', 'lng', 'distances',
+    'registration_url', 'regulamin_url', 'regulamin_urls', 'website',
+    'event_type', 'event_types', 'end_date', 'is_kids',
+  ]
+
   for (const { winner, loser } of merges) {
     const jac = jaccardSimilarity(winner.name, loser.name).toFixed(2)
     const lev = levenshteinSimilarity(winner.name, loser.name).toFixed(2)
     const loc = citiesMatch(winner.location, loser.location) ? 'city✓' : 'city✗'
     console.log(`\n  ${winner.date} | ${winner.location || '?'} [${loc} j=${jac} l=${lev}]`)
-    console.log(`    ✓ KEEP   [${winner.source.padEnd(20)}] ${winner.name}`)
-    console.log(`    ✗ DELETE [${loser.source.padEnd(20)}] ${loser.name}`)
+    const wAdded = winner.created_at ? new Date(winner.created_at).toISOString().slice(0, 10) : '?'
+    const lAdded = loser.created_at ? new Date(loser.created_at).toISOString().slice(0, 10) : '?'
+    console.log(`    ✓ KEEP   [${winner.source.padEnd(20)}] (added ${wAdded}) ${winner.name}`)
+    console.log(`    ✗ DELETE [${loser.source.padEnd(20)}] (added ${lAdded}) ${loser.name}`)
+
+    // Show field richness comparison
+    const winnerFields = []
+    const loserFields = []
+    const loserOnly = [] // fields loser has that winner doesn't — would be merged
+    for (const f of RICHNESS_FIELDS) {
+      const wHas = !isEmpty(winner[f])
+      const lHas = !isEmpty(loser[f])
+      if (wHas) winnerFields.push(f)
+      if (lHas) loserFields.push(f)
+      if (!wHas && lHas) loserOnly.push(f)
+    }
+    console.log(`    ✓ fields (${winnerFields.length}/${RICHNESS_FIELDS.length}): ${winnerFields.join(', ') || '(none)'}`)
+    console.log(`    ✗ fields (${loserFields.length}/${RICHNESS_FIELDS.length}): ${loserFields.join(', ') || '(none)'}`)
+    if (loserOnly.length > 0) {
+      console.log(`    ← merge  : ${loserOnly.join(', ')}`)
+    }
   }
 
   if (dryRun) {
@@ -181,7 +211,7 @@ async function main() {
   // Apply merges
   let merged = 0, errors = 0
   for (const { winner, loser } of merges) {
-    // Fill empty fields on winner from loser
+    // Fill empty fields on winner from loser — winner keeps all its existing values
     const updates = {}
     for (const key of MERGE_FIELDS) {
       if (isEmpty(winner[key]) && !isEmpty(loser[key])) {

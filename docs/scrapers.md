@@ -13,6 +13,10 @@ cd backend && node --env-file=../.env scripts/run-scrapers.js
 cd backend && node --env-file=../.env scripts/run-merge.js
 cd backend && node --env-file=../.env scripts/run-merge.js --apply
 
+# Step 2.5: Dedup scraper_all — dry run first, then --apply
+cd backend && node --env-file=../.env scripts/run-dedup.js
+cd backend && node --env-file=../.env scripts/run-dedup.js --apply
+
 # Step 3: Geocode missing voivodeships/coordinates — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-geocode.js
 cd backend && node --env-file=../.env scripts/run-geocode.js --apply
@@ -27,10 +31,6 @@ cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
 # Step 5.1: Enrich via web search (Claude CLI) — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --limit 5
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
-
-# Step 5.5: Dedup scraper_all — dry run first, then --apply
-cd backend && node --env-file=../.env scripts/run-dedup.js
-cd backend && node --env-file=../.env scripts/run-dedup.js --apply
 
 # Step 6: Normalize voivodeships and event types — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-normalize.js

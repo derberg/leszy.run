@@ -287,14 +287,20 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
 
   console.log('[merge:phase1] Merging raw tables → scraper_all...')
 
+  // Skip non-running events (cycling, MTB, triathlon, etc.)
+  const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|triathlon|duathlon)\b/i
+
   const sortedSources = [...sources].sort(
     (a, b) => (SOURCE_PRIORITY[a.name] ?? 99) - (SOURCE_PRIORITY[b.name] ?? 99)
   )
 
   const results = { sources: [] }
+  // Track scraper_all IDs created in THIS run — merge only deups against these,
+  // not pre-existing rows. Cross-run dedup is handled by run-dedup.js separately.
+  const thisRunIds = new Set()
 
   for (const source of sortedSources) {
-    const stats = { source: source.name, total: 0, created: 0, updated: 0, errors: [] }
+    const stats = { source: source.name, total: 0, created: 0, updated: 0, errors: [], createdNames: [], updatedNames: [] }
 
     try {
       // Fetch only unmerged rows from raw table (paginated)
@@ -320,6 +326,9 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
 
       for (const raw of allRows) {
         try {
+          // Skip non-running events
+          if (raw.name && SKIP_KEYWORDS.test(raw.name)) continue
+
           // Build a unified row from raw data + source-specific field mappings
           const row = {
             name: raw.name,
@@ -346,7 +355,9 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           const sourceLink = { source: source.name, source_id: raw.source_id, source_url: raw.source_url || null }
           const now = new Date().toISOString()
 
-          if (existing) {
+          // Only dedup against rows created in THIS run.
+          // Pre-existing scraper_all rows are left untouched — run-dedup.js handles those.
+          if (existing && thisRunIds.has(existing.id)) {
             const incomingPriority = getPriority(source.name)
             const existingPriority = getPriority(existing.source)
             const incomingWins = incomingPriority < existingPriority
@@ -375,6 +386,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
 
             if (dryRun) {
               stats.updated++
+              stats.updatedNames.push(raw.name)
             } else {
               const { error } = await supabase
                 .from('scraper_all')
@@ -384,6 +396,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
               if (error) stats.errors.push({ name: raw.name, message: error.message })
               else {
                 stats.updated++
+                stats.updatedNames.push(raw.name)
                 await supabase.from(source.table).update({ merged_at: now }).eq('id', raw.id)
               }
             }
@@ -393,14 +406,19 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
 
             if (dryRun) {
               stats.created++
+              stats.createdNames.push(raw.name)
             } else {
-              const { error } = await supabase
+              const { data: inserted, error } = await supabase
                 .from('scraper_all')
                 .insert(row)
+                .select('id')
+                .single()
 
               if (error) stats.errors.push({ name: raw.name, message: error.message })
               else {
                 stats.created++
+                stats.createdNames.push(raw.name)
+                thisRunIds.add(inserted.id)
                 await supabase.from(source.table).update({ merged_at: now }).eq('id', raw.id)
               }
             }

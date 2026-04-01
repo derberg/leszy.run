@@ -58,7 +58,8 @@ IMPORTANT:
 - Return actual URLs you found, not guesses
 - If you cannot find the event at all, return all nulls and empty arrays
 - NEVER use "bieg" as event type
-- If the event is a walk/march, orienteering, triathlon, cycling, or non-running event, set event_type to ["nie-bieg"] so we can filter it out`
+- If the event is a walk/march, orienteering, triathlon, cycling, or non-running event, set event_type to ["nie-bieg"] so we can filter it out
+- If you only find a Facebook page/event for this race and no official website, use the Facebook URL as the "website" value — it's still useful`
 }
 
 let totalCostUsd = 0
@@ -133,8 +134,9 @@ async function main() {
     if (r.date && r.date < today) return false
     const noType = (!r.event_types || r.event_types.length === 0) && !r.is_kids
     const noDist = !r.distances || r.distances.trim() === ''
+    const noRegUrl = !r.registration_url
 
-    return noType || noDist
+    return noType || noDist || noRegUrl
   })
 
   const toProcess = limitArg ? needsWork.slice(0, limitArg) : needsWork
