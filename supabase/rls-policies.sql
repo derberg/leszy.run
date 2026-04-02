@@ -41,15 +41,18 @@ BEGIN
   END IF;
 END $$;
 
--- Participants: anon can read
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename='participants' AND policyname='anon read participants'
-  ) THEN
-    CREATE POLICY "anon read participants" ON participants FOR SELECT TO anon USING (true);
-  END IF;
-END $$;
+-- Participants: anon reads via participants_public view (no PII columns).
+-- Direct table access removed — check-in pages use PIN-gated RPCs.
+-- View (owned by postgres, security_invoker=false → bypasses RLS):
+CREATE OR REPLACE VIEW participants_public AS
+SELECT id, bib_number, first_name, last_name, club, category_id, emoji, gender
+FROM participants;
+GRANT SELECT ON participants_public TO anon;
+GRANT SELECT ON participants_public TO authenticated;
+-- RPCs for check-in (SECURITY DEFINER, see migrations):
+--   get_participant_for_checkin(p_participant_id) — self-service (UUID from SMS = auth)
+--   get_participant_admin(p_event_id, p_pin, p_participant_id) — admin, PIN-gated
+--   search_participants_admin(p_event_id, p_pin, p_query) — admin search, PIN-gated
 
 -- Results: anon can read
 DO $$

@@ -16,7 +16,7 @@ export default function AdminCheckin() {
   // Check stored pin on load
   useEffect(() => {
     if (!event || !pin) return
-    supabase.rpc('verify_checkin_pin', { p_event_id: event.id, p_pin: pin })
+    supabase.rpc('check_checkin_pin', { p_event_id: event.id, p_pin: pin })
       .then(({ data, error }) => {
         if (!error && data === true) setPinVerified(true)
         else { localStorage.removeItem(PIN_KEY); setPin('') }
@@ -31,7 +31,8 @@ export default function AdminCheckin() {
 
     const { data, error } = await supabase.rpc('verify_checkin_pin', { p_event_id: event.id, p_pin: pinInput.trim() })
     if (error || data !== true) {
-      setPinError('Nieprawidlowy PIN.')
+      const msg = JSON.stringify(error || '')
+      setPinError(msg.includes('Too many') ? 'Zbyt wiele prob. Sprobuj ponownie za 15 minut.' : 'Nieprawidlowy PIN.')
       setVerifying(false)
       return
     }
@@ -97,10 +98,7 @@ function AdminPanel({ event, pin, preselectedParticipantId }) {
   useEffect(() => {
     if (!preselectedParticipantId || selectedParticipant) return
     supabase
-      .from('participants')
-      .select('id, first_name, last_name, bib_number, category_id, birth_date, tshirt_size')
-      .eq('id', preselectedParticipantId)
-      .single()
+      .rpc('get_participant_admin', { p_event_id: event.id, p_pin: pin, p_participant_id: preselectedParticipantId })
       .then(async ({ data, error }) => {
         if (error || !data) return
         const { data: cats } = await supabase.from('categories').select('id, name').eq('event_id', event.id)
@@ -177,17 +175,17 @@ function AdminPanel({ event, pin, preselectedParticipantId }) {
         </div>
 
         {mode === 'scan' && (
-          <QrScanner event={event} onFound={handleParticipantFound} onError={handleError} />
+          <QrScanner event={event} pin={pin} onFound={handleParticipantFound} onError={handleError} />
         )}
         {mode === 'search' && (
-          <ManualSearch event={event} onFound={handleParticipantFound} />
+          <ManualSearch event={event} pin={pin} onFound={handleParticipantFound} />
         )}
       </div>
     </div>
   )
 }
 
-function QrScanner({ event, onFound, onError }) {
+function QrScanner({ event, pin, onFound, onError }) {
   const scannerRef = useRef(null)
   const containerRef = useRef(null)
 
@@ -212,13 +210,10 @@ function QrScanner({ event, onFound, onError }) {
             const url = new URL(raw)
             participantId = url.searchParams.get('p') || raw
           } catch {}
-          const { data, error } = await supabase
-            .from('participants')
-            .select('id, first_name, last_name, bib_number, category_id, birth_date, tshirt_size')
-            .eq('id', participantId)
-            .single()
+          const { data: pData, error } = await supabase
+            .rpc('get_participant_admin', { p_event_id: event.id, p_pin: pin, p_participant_id: participantId })
 
-          if (error || !data) {
+          if (error || !pData) {
             onError('Nie rozpoznano kodu QR.')
             try { await html5Qrcode.resume() } catch {}
             return
@@ -231,14 +226,14 @@ function QrScanner({ event, onFound, onError }) {
             .eq('event_id', event.id)
 
           const catIds = (cats || []).map(c => c.id)
-          if (!catIds.includes(data.category_id)) {
+          if (!catIds.includes(pData.category_id)) {
             onError('Uczestnik nie nalezy do tego wydarzenia.')
             try { await html5Qrcode.resume() } catch {}
             return
           }
 
-          const category = (cats || []).find(c => c.id === data.category_id)
-          onFound({ ...data, categoryName: category?.name })
+          const category = (cats || []).find(c => c.id === pData.category_id)
+          onFound({ ...pData, categoryName: category?.name })
         }
       ).catch(() => {
         onError('Nie udalo sie uruchomic kamery.')
@@ -260,7 +255,7 @@ function QrScanner({ event, onFound, onError }) {
   )
 }
 
-function ManualSearch({ event, onFound }) {
+function ManualSearch({ event, pin, onFound }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -269,37 +264,19 @@ function ManualSearch({ event, onFound }) {
     if (!query.trim()) return
     setSearching(true)
 
-    // Get event categories first
+    // Get category names for display
     const { data: cats } = await supabase
       .from('categories')
       .select('id, name')
       .eq('event_id', event.id)
 
-    const catIds = (cats || []).map(c => c.id)
-    if (catIds.length === 0) { setResults([]); setSearching(false); return }
-
     const catMap = Object.fromEntries((cats || []).map(c => [c.id, c.name]))
 
-    // Search by bib or name
-    const isNumeric = /^\d+$/.test(query.trim())
-    let data = []
+    // Search via PIN-gated RPC (no direct table access to participant PII)
+    const { data: d, error } = await supabase
+      .rpc('search_participants_admin', { p_event_id: event.id, p_pin: pin, p_query: query.trim() })
 
-    if (isNumeric) {
-      const { data: d } = await supabase
-        .from('participants')
-        .select('id, first_name, last_name, bib_number, category_id, birth_date, tshirt_size')
-        .in('category_id', catIds)
-        .eq('bib_number', parseInt(query.trim(), 10))
-      data = d || []
-    } else {
-      const { data: d } = await supabase
-        .from('participants')
-        .select('id, first_name, last_name, bib_number, category_id, birth_date, tshirt_size')
-        .in('category_id', catIds)
-        .or(`first_name.ilike.%${query.trim()}%,last_name.ilike.%${query.trim()}%`)
-        .limit(20)
-      data = d || []
-    }
+    const data = error ? [] : (d || [])
 
     setResults(data.map(p => ({ ...p, categoryName: catMap[p.category_id] })))
     setSearching(false)

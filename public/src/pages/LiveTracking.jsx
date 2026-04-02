@@ -45,7 +45,7 @@ export default function LiveTracking({ eventId, categories }) {
         supabase.from('results')
           .select('id, race_run_id, participant_id, start_time, finish_time, duration_ms, gun_duration_ms, status')
           .eq('race_run_id', runData.id),
-        supabase.from('participants')
+        supabase.from('participants_public')
           .select('id, bib_number, first_name, last_name, club, category_id, emoji, gender')
           .eq('category_id', cat.id),
       ])

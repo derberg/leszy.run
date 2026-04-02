@@ -29,12 +29,9 @@ export default function Checkin() {
   const loadData = useCallback(async () => {
     if (!event || !participantId) return
 
-    // Fetch participant
+    // Fetch participant via RPC (PII not exposed through direct table access)
     const { data: pData, error: pErr } = await supabase
-      .from('participants')
-      .select('id, first_name, last_name, bib_number, category_id, birth_date, email, phone, tshirt_size')
-      .eq('id', participantId)
-      .single()
+      .rpc('get_participant_for_checkin', { p_participant_id: participantId })
 
     if (pErr || !pData) {
       setLoadError('Nie znaleziono uczestnika.')
