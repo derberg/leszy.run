@@ -37,7 +37,7 @@ function HeroSection() {
 
       <div className="flex flex-col sm:flex-row gap-4 mt-9 relative z-10 w-full sm:w-auto">
         <Link to="/kalendarz" className="font-display font-bold text-[15px] tracking-widest uppercase py-3.5 px-9 bg-apex-yellow text-apex-ink no-underline hover:shadow-[0_0_20px_rgba(187,221,0,0.3)] transition-all text-center">
-          Znajdź bieg
+          Kalendarz wydarzeń
         </Link>
         <a href="#kontakt" className="font-display font-bold text-[15px] tracking-widest uppercase py-3.5 px-9 border-2 border-apex-border-bright text-apex-text-bright no-underline hover:border-apex-yellow hover:text-apex-yellow transition-all text-center">
           Organizujesz wydarzenie?

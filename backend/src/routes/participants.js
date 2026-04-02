@@ -188,7 +188,7 @@ export async function participantsRoutes(fastify) {
     if (!supabase) return reply.code(503).send({ error: 'Supabase not configured' })
 
     // Ensure participant exists in Supabase before creating checkin (FK constraint)
-    await supabase.from('participants').upsert({
+    const { error: partError } = await supabase.from('participants').upsert({
       id: participant.id,
       event_id: participant.eventId,
       first_name: participant.firstName,
@@ -204,6 +204,7 @@ export async function participantsRoutes(fastify) {
       emoji: participant.emoji,
       tshirt_size: participant.tshirtSize,
     }, { onConflict: 'id' })
+    if (partError) return reply.code(500).send({ error: `Supabase participant sync failed: ${partError.message}` })
 
     const { data: checkin, error: checkinError } = await supabase
       .from('checkins')

@@ -84,9 +84,11 @@ export default function ParticipantsTable({ eventId, categories }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setBulkSmsOpen(false) },
   })
 
+  const [checkinError, setCheckinError] = useState(null)
   const checkinMutation = useMutation({
     mutationFn: ({ participantId, documents }) => api.participants.checkin(participantId, documents),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setMinorCheckinTarget(null); setMinorDocChecks({}) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setMinorCheckinTarget(null); setMinorDocChecks({}); setTshirtConfirmed(false); setCheckinError(null) },
+    onError: (err) => setCheckinError(err.message),
   })
 
   const uncheckinMutation = useMutation({
@@ -115,6 +117,7 @@ export default function ParticipantsTable({ eventId, categories }) {
       setMinorCheckinTarget(p)
       setMinorDocChecks({})
       setTshirtConfirmed(false)
+      setCheckinError(null)
     } else {
       checkinMutation.mutate({ participantId: p.id })
     }
@@ -536,16 +539,20 @@ export default function ParticipantsTable({ eventId, categories }) {
               </div>
             )}
           </DialogBody>
+          {checkinError && (
+            <p className="text-sm text-apex-red px-6 pb-2">Błąd: {checkinError}</p>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setMinorCheckinTarget(null); setMinorDocChecks({}); setTshirtConfirmed(false) }}>Anuluj</Button>
+            <Button variant="outline" onClick={() => { setMinorCheckinTarget(null); setMinorDocChecks({}); setTshirtConfirmed(false); setCheckinError(null) }}>Anuluj</Button>
             <Button
               onClick={() => {
+                setCheckinError(null)
                 const docs = minorProvideDocs.map(d => ({ documentId: d.id, completed: !!minorDocChecks[d.id] }))
                 checkinMutation.mutate({ participantId: minorCheckinTarget.id, documents: docs })
               }}
               disabled={checkinMutation.isPending || (isMinor(minorCheckinTarget) && minorProvideDocs.length > 0 && minorProvideDocs.some(d => !minorDocChecks[d.id])) || (minorCheckinTarget?.tshirtSize && !tshirtConfirmed)}
             >
-              Zamelduj
+              {checkinMutation.isPending ? 'Zameldowywanie...' : 'Zamelduj'}
             </Button>
           </DialogFooter>
         </DialogContent>
