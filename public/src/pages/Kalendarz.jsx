@@ -6,6 +6,8 @@ import Footer from '../components/Footer.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import EventRow from '../components/EventRow.jsx'
 import MapView from '../components/MapView.jsx'
+import CalendarGrid from '../components/CalendarGrid.jsx'
+import CalendarDetailPanel from '../components/CalendarDetailPanel.jsx'
 import useTheme from '../hooks/useTheme.js'
 import useSeo from '../hooks/useSeo.js'
 import { haversineKm } from '../lib/haversine.js'
@@ -166,6 +168,10 @@ export default function Kalendarz() {
   const [locationError, setLocationError] = useState(null)
   const [autoExpanded, setAutoExpanded] = useState(false)
 
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date())
+  const [selectedDate, setSelectedDate] = useState(null)
+  const detailPanelRef = useRef(null)
+
   const [showFeedback, setShowFeedback] = useState(false)
 
   const [filters, setFilters] = useState({
@@ -234,7 +240,7 @@ export default function Kalendarz() {
 
       // Map view and distance filter need all results (no pagination)
       // (Supabase can't filter "any array element in range" natively)
-      if (view === 'map' || filters.distance.length || userLocation) {
+      if (view === 'map' || view === 'calendar' || filters.distance.length || userLocation) {
         query = query.limit(2000)
       } else {
         const from = (page - 1) * PAGE_SIZE
@@ -323,6 +329,11 @@ export default function Kalendarz() {
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters)
     setPage(1)
+    setSelectedDate(null)
+  }
+
+  const handleSelectDate = (dateStr) => {
+    setSelectedDate(prev => prev === dateStr ? null : dateStr)
   }
 
   // Group events by month
@@ -334,6 +345,10 @@ export default function Kalendarz() {
     acc[key].events.push(ev)
     return acc
   }, {})
+
+  const selectedDateEvents = selectedDate
+    ? events.filter(ev => ev.date === selectedDate)
+    : []
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -459,6 +474,31 @@ export default function Kalendarz() {
                   </button>
                 )}
               </div>
+            )}
+          </div>
+        ) : view === 'calendar' ? (
+          <div className="max-w-[1200px] mx-auto px-6 pb-16">
+            {loading && <div className="text-apex-muted py-8">Ładowanie...</div>}
+            {!loading && (
+              <>
+                <CalendarGrid
+                  events={events}
+                  selectedDate={selectedDate}
+                  onSelectDate={handleSelectDate}
+                  currentMonth={calendarMonth}
+                  onMonthChange={setCalendarMonth}
+                />
+                {selectedDate && selectedDateEvents.length > 0 && (
+                  <CalendarDetailPanel
+                    ref={detailPanelRef}
+                    date={selectedDate}
+                    events={selectedDateEvents}
+                  />
+                )}
+              </>
+            )}
+            {!loading && events.length === 0 && (
+              <div className="text-apex-muted py-12 text-center">Brak wydarzeń dla wybranych filtrów.</div>
             )}
           </div>
         ) : (
