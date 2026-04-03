@@ -7,6 +7,7 @@ import NotFound from './pages/NotFound.jsx'
 
 // Lazy-loaded routes — heavy dependencies (Leaflet, QR libs) only load when needed
 const Kalendarz = lazy(() => import('./pages/Kalendarz.jsx'))
+const EventPage = lazy(() => import('./pages/EventPage.jsx'))
 const DodajWydarzenie = lazy(() => import('./pages/DodajWydarzenie.jsx'))
 const Home = lazy(() => import('./pages/Home.jsx'))
 const EventHub = lazy(() => import('./pages/EventHub.jsx'))
@@ -31,6 +32,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/kalendarz/dodaj" element={<DodajWydarzenie />} />
+          <Route path="/kalendarz/:slug" element={<EventPage />} />
           <Route path="/kalendarz" element={<Kalendarz />} />
           <Route path="/events" element={<Home />} />
           <Route path="/events/:slug" element={<EventHub />} />
