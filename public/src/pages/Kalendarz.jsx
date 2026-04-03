@@ -47,26 +47,35 @@ function LeszyrunBanner() {
 
   if (!event) return null
 
+  const dateFormatted = new Date(event.date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
+
   return (
-    <div className="max-w-[1200px] mx-auto px-6 mb-2">
+    <div className="max-w-[1200px] mx-auto px-6 mb-4">
       <a href={event.event_url || `/events/${event.slug}`} target={event.event_url ? '_blank' : undefined} rel={event.event_url ? 'noopener' : undefined}
-        className="block border-l-[3px] border-l-apex-yellow bg-apex-surface border border-apex-border px-4 py-3 hover:bg-apex-surface-2 hover:border-apex-border-mid transition-all no-underline text-inherit group">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="font-mono text-[9px] font-semibold tracking-wide px-2 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/20 flex-shrink-0">
-              POLECAMY
-            </span>
-            <span className="font-display font-bold text-sm tracking-wide uppercase text-apex-text-bright group-hover:text-apex-yellow transition-colors truncate">
+        className="block border-l-[4px] border-l-apex-yellow bg-apex-yellow/[0.06] border border-apex-yellow/20 px-5 py-5 hover:bg-apex-yellow/[0.10] hover:border-apex-yellow/30 transition-all no-underline text-inherit group relative overflow-hidden">
+        {/* Diagonal accent stripe */}
+        <div className="absolute top-0 right-0 w-32 h-full bg-apex-yellow/[0.04] -skew-x-12 translate-x-8" />
+
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 mb-1.5">
+              <span className="font-mono text-[10px] font-semibold tracking-widest px-2.5 py-1 bg-apex-yellow/15 text-apex-yellow border border-apex-yellow/30 flex-shrink-0">
+                POLECAMY
+              </span>
+              {countdown && <span className="font-mono text-[11px] font-semibold text-apex-yellow">{countdown}</span>}
+            </div>
+            <div className="font-display font-extrabold text-lg md:text-xl tracking-wider uppercase text-apex-text-bright group-hover:text-apex-yellow transition-colors truncate">
               {event.name}
-            </span>
-            <span className="text-xs text-apex-muted hidden md:inline flex-shrink-0">
-              {new Date(event.date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' })}
-              {event.location ? ` · ${event.location}` : ''}
-            </span>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="font-mono text-[12px] font-semibold text-apex-yellow">{dateFormatted}</span>
+              {event.location && <span className="text-[13px] text-apex-muted">· {event.location}</span>}
+            </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            {countdown && <span className="font-mono text-[11px] font-semibold text-apex-yellow">{countdown}</span>}
-            <span className="font-mono text-[10px] tracking-widest uppercase text-apex-cyan">Szczegóły &rarr;</span>
+          <div className="flex-shrink-0 hidden md:block">
+            <span className="font-display font-bold text-[12px] tracking-widest uppercase px-5 py-2.5 border-2 border-apex-yellow text-apex-yellow group-hover:bg-apex-yellow group-hover:text-apex-ink transition-all">
+              Szczegóły &rarr;
+            </span>
           </div>
         </div>
       </a>
