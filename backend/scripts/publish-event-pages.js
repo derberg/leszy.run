@@ -216,8 +216,12 @@ async function main() {
   console.log('\nApplying changes...')
   mkdirSync(KALENDARZ_DIR, { recursive: true })
 
-  // Generate OG images for new/changed events
-  const toGenerate = [...added, ...changed]
+  // Generate OG images for new/changed events + any missing OG files
+  const unchangedMissing = [...newSlugs].filter(s =>
+    !added.includes(s) && !changed.includes(s) && !existsSync(resolve(KALENDARZ_DIR, s, 'og.png'))
+  )
+  if (unchangedMissing.length) console.log(`  ${unchangedMissing.length} unchanged events missing OG images`)
+  const toGenerate = [...added, ...changed, ...unchangedMissing]
   let generated = 0
   let genErrors = 0
 

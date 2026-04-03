@@ -54,16 +54,15 @@ function formatPolishDate(dateStr) {
 
 function buildBadges(event) {
   const badges = []
-  if (event.event_type) {
-    badges.push(event.event_type.toUpperCase())
+  const types = Array.isArray(event.event_type) ? event.event_type : []
+  for (const t of types.filter(t => t !== 'bieg').slice(0, 3)) {
+    badges.push(String(t).toUpperCase())
   }
-  if (event.distances) {
-    const dists = Array.isArray(event.distances) ? event.distances : []
-    for (const d of dists.slice(0, 3)) {
-      badges.push(String(d))
-    }
-    if (dists.length > 3) badges.push(`+${dists.length - 3}`)
+  const dists = Array.isArray(event.distances) ? event.distances : []
+  for (const d of dists.slice(0, 3)) {
+    badges.push(String(d))
   }
+  if (dists.length > 3) badges.push(`+${dists.length - 3}`)
   return badges
 }
 
