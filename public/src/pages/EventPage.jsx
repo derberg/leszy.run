@@ -118,9 +118,10 @@ export default function EventPage() {
   const [notFound, setNotFound] = useState(false)
   const [showReport, setShowReport] = useState(false)
 
-  // Load event data
+  // Load event data — reset when slug changes
   useEffect(() => {
     async function loadEvent() {
+      setEvent(null)
       setLoading(true)
       setNotFound(false)
 
@@ -129,7 +130,10 @@ export default function EventPage() {
       if (embedded) {
         try {
           const data = JSON.parse(embedded.textContent)
-          if (data) {
+          // Remove the script tag so SPA navigation to other events
+          // doesn't reuse this stale embedded data
+          embedded.remove()
+          if (data && slugify(data.name, data.date) === slug) {
             setEvent(data)
             setLoading(false)
             return
