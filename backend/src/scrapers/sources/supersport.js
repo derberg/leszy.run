@@ -47,16 +47,24 @@ async function fetchDetailPage(url) {
     // Distance: "5km", "10km", "12km", "21,1km" etc.
     let distances = null
     const distRaw = fields['Dystans']?.value
-    if (distRaw) {
+    if (distRaw && distRaw !== '-') {
       const parts = distRaw.split(/[,;/]/).map(s => s.trim()).filter(Boolean)
-      distances = parts.map(d => {
+      const parsed = parts.map(d => {
         const m = d.match(/(\d+[.,]?\d*)\s*km/i)
         if (m) return `${m[1].replace(',', '.')} km`
-        // Hour-based: "24h", "6h"
         const h = d.match(/(\d+)\s*[hH]/)
         if (h) return `${h[1]}h`
-        return d
-      }).join(', ')
+        return null
+      }).filter(Boolean)
+      if (parsed.length) distances = parsed.join(', ')
+    }
+    // Fallback: try extracting distance/duration from event name
+    if (!distances) {
+      const title = $('h1').first().text().trim() || ''
+      const hMatch = title.match(/(\d+)\s*[hH]/)
+      if (hMatch) distances = `${hMatch[1]}h`
+      const kmMatch = title.match(/(\d+[.,]?\d*)\s*km/i)
+      if (kmMatch) distances = `${kmMatch[1].replace(',', '.')} km`
     }
 
     // Price: "80 PLN", "Od 60 PLN", "od 65 PLN"
