@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import CookieBanner from './components/CookieBanner.jsx'
 import RouteTracker from './components/RouteTracker.jsx'
 import Landing from './pages/Landing.jsx'
@@ -16,6 +16,12 @@ const Volunteer = lazy(() => import('./pages/Volunteer.jsx'))
 const Checkin = lazy(() => import('./pages/Checkin.jsx'))
 const AdminCheckin = lazy(() => import('./pages/AdminCheckin.jsx'))
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  return null
+}
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-screen">
@@ -27,6 +33,7 @@ function PageLoader() {
 export default function App() {
   return (
     <>
+      <ScrollToTop />
       <RouteTracker />
       <Suspense fallback={<PageLoader />}>
         <Routes>
