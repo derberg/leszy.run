@@ -20,7 +20,7 @@ const TEXT_MUTED = '#6B6980'
 const BORDER = '#DCDCE8'
 const CYAN = '#0891B2'
 
-const LOGO_H = 200
+const LOGO_H = 150
 
 const POLISH_MONTHS = [
   'STYCZNIA', 'LUTEGO', 'MARCA', 'KWIETNIA', 'MAJA', 'CZERWCA',
@@ -85,7 +85,7 @@ export async function generateEventOg(event, outputPath) {
   // Badge text elements
   let badgeSvg = ''
   if (badges.length > 0) {
-    const badgeY = 520
+    const badgeY = 440
     const badgeH = 26
     const badgePad = 12
     const badgeGap = 8
@@ -133,24 +133,34 @@ export async function generateEventOg(event, outputPath) {
   <!-- Top accent bar -->
   <rect x="0" y="0" width="${WIDTH}" height="4" fill="${YELLOW}"/>
 
-  <!-- Event name -->
-  <text x="${CX}" y="380"
+  <!-- LESZY.RUN text below logo -->
+  <text x="${CX}" y="230"
     font-family="'Barlow Condensed', Arial, sans-serif" font-weight="800"
-    font-size="52" letter-spacing="3" text-anchor="middle" fill="${TEXT_BRIGHT}">
+    font-size="36" letter-spacing="6" text-anchor="middle" fill="${TEXT_BRIGHT}">
+    LESZY<tspan fill="${YELLOW}">.RUN</tspan>
+  </text>
+
+  <!-- Divider -->
+  <line x1="${CX - 80}" y1="248" x2="${CX + 80}" y2="248" stroke="${YELLOW}" stroke-width="1" opacity="0.4"/>
+
+  <!-- Event name -->
+  <text x="${CX}" y="310"
+    font-family="'Barlow Condensed', Arial, sans-serif" font-weight="800"
+    font-size="48" letter-spacing="3" text-anchor="middle" fill="${TEXT_BRIGHT}">
     ${name}
   </text>
 
   <!-- Date -->
-  <text x="${CX}" y="430"
+  <text x="${CX}" y="360"
     font-family="'Barlow Condensed', Arial, sans-serif" font-weight="700"
-    font-size="32" letter-spacing="4" text-anchor="middle" fill="${YELLOW}">
+    font-size="28" letter-spacing="4" text-anchor="middle" fill="${YELLOW}">
     ${date}
   </text>
 
   <!-- Location + voivodeship -->
-  <text x="${CX}" y="475"
+  <text x="${CX}" y="400"
     font-family="'Rajdhani', Arial, sans-serif" font-weight="500"
-    font-size="22" letter-spacing="2" text-anchor="middle" fill="${TEXT_MUTED}">
+    font-size="20" letter-spacing="2" text-anchor="middle" fill="${TEXT_MUTED}">
     ${escapeXml(locationLine)}
   </text>
 
