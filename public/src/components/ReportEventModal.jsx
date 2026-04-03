@@ -17,7 +17,8 @@ const FIELDS = [
   { value: 'voivodeship', label: 'Województwo' },
   { value: 'distances', label: 'Dystanse' },
   { value: 'event_type', label: 'Typ wydarzenia' },
-  { value: 'registration_url', label: 'Link do wydarzenia' },
+  { value: 'registration_url', label: 'Link do zapisów' },
+  { value: 'website', label: 'Strona wydarzenia' },
   { value: 'cancelled', label: 'Wydarzenie odwołane' },
 ]
 
@@ -65,7 +66,7 @@ function SuggestedInput({ field, value, onChange }) {
     )
   }
 
-  if (field === 'registration_url') {
+  if (field === 'registration_url' || field === 'website') {
     return <input type="url" value={value} onChange={(e) => onChange(e.target.value)} className={inputClass} placeholder="https://..." />
   }
 
