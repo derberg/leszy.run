@@ -1,4 +1,4 @@
-# Kalendarz SEO — Individual Event Pages & Dynamic OG Images
+# Kalendarz SEO — Individual Event Pages & Static OG Images
 
 ## Problem
 
@@ -12,8 +12,8 @@ The `/kalendarz` page is a client-side SPA. All events live behind JS-rendered f
 
 Three additions:
 1. **Individual event pages** at `/kalendarz/:slug` with per-event SEO
-2. **Dynamic OG images** via Supabase Edge Function
-3. **Dynamic sitemap** including all active event URLs
+2. **Static OG images** generated at build time per event
+3. **Dynamic sitemap** via Supabase Edge Function
 
 ## 1. Individual Event Pages
 
@@ -44,7 +44,7 @@ Post-`vite build` script:
 3. For each event, compute slug and write `dist/kalendarz/{slug}/index.html` containing:
    - Full `<head>` with baked-in meta tags (title, description, OG, Twitter Card, canonical)
    - JSON-LD `SportsEvent` structured data
-   - OG image URL pointing to the edge function
+   - OG image URL pointing to static `og.png` in same directory
    - Event data embedded as `<script id="event-data" type="application/json">`
    - Same `<script type="module" src="/assets/index-[hash].js">` as the main SPA
 4. Takes seconds even for 2000+ events (each file ~2KB)
@@ -104,7 +104,7 @@ When odd number of cells, last cell spans full width.
 - **Title:** `{event.name} — {date} — {location}`
 - **Description:** `{date formatted Polish} · {location} · {distances joined} · {types joined}`
 - **Canonical:** `https://leszy.run/kalendarz/{slug}`
-- **OG image:** `https://<supabase-project>.supabase.co/functions/v1/og-image?id={event.id}`
+- **OG image:** `https://leszy.run/kalendarz/{slug}/og.png`
 - **JSON-LD:** `SportsEvent` schema:
   ```json
   {
@@ -132,34 +132,36 @@ When odd number of cells, last cell spans full width.
   ```
   `offers` only included when `price_from` exists. `endDate` only when `end_date` exists.
 
-## 2. Dynamic OG Image — Supabase Edge Function
+## 2. Static OG Images — Build-time Generation
 
-### Endpoint
+Generated alongside the HTML files by the same post-build script using `sharp` (already a dependency).
 
-`GET https://<project>.supabase.co/functions/v1/og-image?id=<event_id>`
+### Per-event image
 
-### Behavior
+Same approach as existing `generate-og-image.js` — build an SVG, composite with sharp, output PNG.
 
-1. Fetch event from `calendar_events` by ID
-2. Build an SVG with OVERDRIVE light-theme styling (same approach as existing `generate-og-image.js`):
-   - Top/bottom yellow accent bars
-   - Leszy logo (smaller, top-left or top-center)
-   - Event name — large Barlow Condensed uppercase
-   - Date — formatted Polish (e.g. "12 LIPCA 2026")
-   - Location + voivodeship
-   - Distance badges in a row
-   - Type badges
-   - "leszy.run/kalendarz" branding at bottom
-3. Convert SVG → PNG using `resvg-wasm` (Deno-compatible, no native deps)
-4. Return PNG with `Cache-Control: public, max-age=86400, s-maxage=86400`
-5. Fallback: if event not found or error, return the static generic `og-image.png`
+Content:
+- Top/bottom yellow accent bars
+- Leszy logo (smaller, top-center)
+- Event name — large Barlow Condensed uppercase
+- Date — formatted Polish (e.g. "12 LIPCA 2026")
+- Location + voivodeship
+- Distance badges in a row
+- Type badges
+- "leszy.run/kalendarz" branding at bottom
+
+Output: `dist/kalendarz/{slug}/og.png`
 
 ### Image spec
 
 - 1200x630px (standard OG)
 - Light theme (readability on dark social card backgrounds)
 - Colors from `html.light` CSS variables
-- Fonts: embed Barlow Condensed Bold wasm/base64 subset via `@font-face` in SVG `<defs>`, or use Google Fonts URL in SVG `<style>` (resvg supports fetching). Fallback: Arial Bold with wide letter-spacing.
+- Fonts: Barlow Condensed available locally via Google Fonts download in the build script, or use SVG text with system font fallbacks (same as existing OG generator)
+
+### Incremental
+
+Same manifest-based skip as HTML files. If `dist/kalendarz/{slug}/og.png` already exists for an unchanged event, skip regeneration. New/updated events get a fresh image.
 
 ## 3. Dynamic Sitemap — Supabase Edge Function
 
