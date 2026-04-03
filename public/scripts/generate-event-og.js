@@ -75,7 +75,11 @@ export async function generateEventOg(event, outputPath) {
   const logoPath = resolve(ROOT, 'public/logo-z-napisem.svg')
   const logoSvg = readFileSync(logoPath, 'utf-8')
 
-  const name = escapeXml(truncate(event.name || 'Wydarzenie', 50).toUpperCase())
+  const nameRaw = truncate(event.name || 'Wydarzenie', 60).toUpperCase()
+  const name = escapeXml(nameRaw)
+  // Scale font to fit 1200px width with ~80px padding each side (1040px usable)
+  const nameLen = nameRaw.length
+  const nameFontSize = nameLen > 40 ? Math.max(28, Math.floor(1040 / (nameLen * 0.58))) : 48
   const date = escapeXml(formatPolishDate(event.date))
   const location = escapeXml(truncate(event.location || '', 60))
   const voivodeship = event.voivodeship ? escapeXml(event.voivodeship) : ''
@@ -136,7 +140,7 @@ export async function generateEventOg(event, outputPath) {
   <!-- Event name -->
   <text x="${CX}" y="300"
     font-family="'Barlow Condensed', Arial, sans-serif" font-weight="800"
-    font-size="48" letter-spacing="3" text-anchor="middle" fill="${TEXT_BRIGHT}">
+    font-size="${nameFontSize}" letter-spacing="${nameFontSize > 36 ? 3 : 2}" text-anchor="middle" fill="${TEXT_BRIGHT}">
     ${name}
   </text>
 
