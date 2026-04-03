@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import ReportEventModal from './ReportEventModal.jsx'
+import { slugify } from '../lib/slugify.js'
 
 const baseTag = 'font-mono text-[10px] font-semibold tracking-wide px-2 py-0.5 border uppercase'
 const typeTagClass = `${baseTag} border-apex-cyan/30 text-apex-cyan`
@@ -36,14 +38,15 @@ function extractCity(location) {
 
 export default function EventRow({ event }) {
   const [showReport, setShowReport] = useState(false)
+  const navigate = useNavigate()
   const dateStr = new Date(event.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' })
   const isLeszyrun = !!event.leszyrun_event_id
 
   const handleClick = () => {
     if (isLeszyrun && event.slug) {
       window.location.href = `/events/${event.slug}`
-    } else if (event.registration_url || event.website || event.source_url) {
-      window.open(event.registration_url || event.website || event.source_url, '_blank', 'noopener')
+    } else {
+      navigate(`/kalendarz/${slugify(event.name, event.date)}`)
     }
   }
 
