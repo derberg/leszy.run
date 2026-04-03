@@ -1174,7 +1174,7 @@
       "uliczny"
     ],
     "registration_url": "https://www.facebook.com/biegdopustegogrobu/",
-    "website": "https://super-sport.com.pl/zapisy/4550-xii-bieg-do-pustego-grobu-zapisy",
+    "website": "https://super-sport.com.pl/zapisy-formularze/4553-xii-bieg-do-pustego-grobu.html",
     "regulamin_url": null,
     "price_from": null,
     "price_to": null,
@@ -6679,8 +6679,8 @@
     "event_type": [
       "uliczny"
     ],
-    "registration_url": "https://super-sport.com.pl/zapisy/4599-xi-bieg-papieski-bieg-glowny",
-    "website": "https://super-sport.com.pl/zapisy/4599-xi-bieg-papieski-bieg-glowny",
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4599-xi-bieg-papieski-bieg-glowny.html",
+    "website": "https://super-sport.com.pl/zapisy-formularze/4599-xi-bieg-papieski-bieg-glowny.html",
     "regulamin_url": null,
     "price_from": null,
     "price_to": null,
@@ -9116,34 +9116,6 @@
     "is_charity": false,
     "is_kids": null
   },
-  "41-polmaraton-solan-im-romana-terlikowskiego-petla-solan-2026-05-10": {
-    "id": "0cb7a35c-32e8-42d6-b9ad-fd91ec10f022",
-    "name": "41 Półmaraton Solan  im. Romana Terlikowskiego  Pętla Solan",
-    "date": "2026-05-10",
-    "end_date": null,
-    "location": "Nowa Sól",
-    "voivodeship": "Lubuskie",
-    "lat": 51.803343,
-    "lng": 15.706238,
-    "distances": [
-      "10.2 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://super-sport.com.pl/zapisy/4587-41-polmaraton-solan-im-romana-terlikowskiego-i-1-petla-solan",
-    "website": "https://super-sport.com.pl/zapisy/4587-41-polmaraton-solan-im-romana-terlikowskiego-i-1-petla-solan",
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
-    "registration_deadline": null,
-    "max_participants": null,
-    "elevation_gain_m": null,
-    "surface": null,
-    "is_night": false,
-    "is_charity": false,
-    "is_kids": null
-  },
   "polmaraton-slimaka-2026-05-10": {
     "id": "a40f5776-d540-4869-a047-462fa6d5b06c",
     "name": "Półmaraton Ślimaka",
@@ -9190,6 +9162,34 @@
     ],
     "registration_url": "https://panel.maratonczykpomiarczasu.pl/pszczewska-dwudziestka",
     "website": "https://www.pszczewska20.pl/",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "41-polmaraton-solan-im-romana-terlikowskiego-petla-solan-2026-05-10": {
+    "id": "0cb7a35c-32e8-42d6-b9ad-fd91ec10f022",
+    "name": "41 Półmaraton Solan  im. Romana Terlikowskiego  Pętla Solan",
+    "date": "2026-05-10",
+    "end_date": null,
+    "location": "Nowa Sól",
+    "voivodeship": "Lubuskie",
+    "lat": 51.803343,
+    "lng": 15.706238,
+    "distances": [
+      "10.2 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4587-41-polmaraton-solan-im-romana-terlikowskiego-i-1-petla-solan.html",
+    "website": "https://super-sport.com.pl/zapisy-formularze/4587-41-polmaraton-solan-im-romana-terlikowskiego-i-1-petla-solan.html",
     "regulamin_url": null,
     "price_from": null,
     "price_to": null,
