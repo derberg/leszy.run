@@ -49,16 +49,9 @@ Post-`vite build` script:
    - Same `<script type="module" src="/assets/index-[hash].js">` as the main SPA
 4. Takes seconds even for 2000+ events (each file ~2KB)
 
-### Incremental generation (scraper pipeline)
+### Trigger
 
-A separate script for post-pipeline runs:
-1. Read manifest from `dist/kalendarz/.manifest.json` (map of `{ slug: { eventId, generatedAt } }`)
-2. Query `calendar_events` where `created_at > last_run_timestamp` or events not in manifest
-3. Generate HTML only for new/missing events
-4. Remove HTML for rejected/cancelled events
-5. Update manifest
-
-This runs as the last step of `scripts/run-publish.js`.
+The build runs on Vercel automatically on every push to GitHub. After running the scraper pipeline locally, just push — Vercel rebuilds and new events get their pages. No incremental logic needed; the full build regenerates everything (fast enough even for 2000+ events).
 
 ### Page layout
 
@@ -159,9 +152,7 @@ Output: `dist/kalendarz/{slug}/og.png`
 - Colors from `html.light` CSS variables
 - Fonts: Barlow Condensed available locally via Google Fonts download in the build script, or use SVG text with system font fallbacks (same as existing OG generator)
 
-### Incremental
-
-Same manifest-based skip as HTML files. If `dist/kalendarz/{slug}/og.png` already exists for an unchanged event, skip regeneration. New/updated events get a fresh image.
+Generated for all active events on every build alongside the HTML files.
 
 ## 3. Static Sitemap — Build-time Generation
 
