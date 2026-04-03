@@ -1214,6 +1214,36 @@
     "is_charity": false,
     "is_kids": null
   },
+  "itmbwieczorem-2026-04-09": {
+    "id": "3f93cee9-e65d-4306-bbdd-a035d6e9b25d",
+    "name": "ITMBWieczorem",
+    "date": "2026-04-09",
+    "end_date": null,
+    "location": "Kraków",
+    "voivodeship": "Małopolskie",
+    "lat": 50.046943,
+    "lng": 19.997153,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nocny"
+    ],
+    "registration_url": "https://itmbw.pl/itmbwieczorem-zapisy/",
+    "website": "https://itmbw.pl/itmbwieczorem/",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
   "xi-kuznianski-polmaraton-lesny-rafamet-2026-04-11": {
     "id": "3ad50c9b-2f5a-46ca-9fcc-5f45d9f4bfd2",
     "name": "XI Kuźniański Półmaraton Leśny RAFAMET",
@@ -3723,36 +3753,6 @@
     "is_charity": false,
     "is_kids": null
   },
-  "lesny-lament-trail-run-2026-2026-04-18": {
-    "id": "f3130d07-6a90-423f-a90f-3c97876af228",
-    "name": "Leśny Lament Trail Run 2026",
-    "date": "2026-04-18",
-    "end_date": null,
-    "location": "Rybnik",
-    "voivodeship": "Śląskie",
-    "lat": 50.102174,
-    "lng": 18.546285,
-    "distances": [
-      "4h",
-      "6h",
-      "8h"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v15111",
-    "website": "https://dostartu.pl/lesny-lament-trail-run-2026-v15111",
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
-    "registration_deadline": null,
-    "max_participants": null,
-    "elevation_gain_m": null,
-    "surface": null,
-    "is_night": false,
-    "is_charity": false,
-    "is_kids": null
-  },
   "iv-jupi-bieg-w-kolorowych-skarpetkach-2026-04-18": {
     "id": "b236efdd-3507-496d-a76b-169a721ccd48",
     "name": "IV JUPI BIEG W KOLOROWYCH SKARPETKACH",
@@ -3771,6 +3771,36 @@
     ],
     "registration_url": "https://www.facebook.com/profile.php?id=100090542423669",
     "website": "https://www.pion.pl/aktualnosci/zdrowie-i-sport/iv-bieg-jupi-w-kolorowych-skarpetkach/",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "lesny-lament-trail-run-2026-2026-04-18": {
+    "id": "f3130d07-6a90-423f-a90f-3c97876af228",
+    "name": "Leśny Lament Trail Run 2026",
+    "date": "2026-04-18",
+    "end_date": null,
+    "location": "Rybnik",
+    "voivodeship": "Śląskie",
+    "lat": 50.102174,
+    "lng": 18.546285,
+    "distances": [
+      "4h",
+      "6h",
+      "8h"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": " https://www.facebook.com/events/739397198677820",
+    "website": "https://www.facebook.com/events/739397198677820",
     "regulamin_url": null,
     "price_from": null,
     "price_to": null,
@@ -7047,6 +7077,97 @@
     "is_charity": false,
     "is_kids": null
   },
+  "v-majowkowy-bieg-po-flage-2026-05-01": {
+    "id": "2ae506ac-105c-45f9-8f33-9060c2403d08",
+    "name": "V Majówkowy Bieg po Flagę",
+    "date": "2026-05-01",
+    "end_date": null,
+    "location": "Latowicz, MZ",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.0116,
+    "lng": 21.824888,
+    "distances": [
+      "3 km",
+      "5 km",
+      "220m",
+      "360m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16096",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "32-wiosenny-bieg-uliczny-zbaszynek-2026-2026-05-01": {
+    "id": "75b4977d-4200-4515-bf3c-02ba76f170b5",
+    "name": "32. Wiosenny bieg uliczny - Zbąszynek - 2026",
+    "date": "2026-05-01",
+    "end_date": null,
+    "location": "Zbąszynek",
+    "voivodeship": "Lubuskie",
+    "lat": 52.243626,
+    "lng": 15.813895,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4590-32-wiosenny-bieg-uliczny-zbaszynek-2026.html",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "nordzik-walking-2026-05-01": {
+    "id": "d64c6195-45f4-4013-ab5f-8492c1207f78",
+    "name": "Nor-DZIK Walking",
+    "date": "2026-05-01",
+    "end_date": null,
+    "location": "Boguszów Gorce",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.755252,
+    "lng": 16.196364,
+    "distances": [
+      "4.5 km",
+      "9 km",
+      "13.5 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": null,
+    "website": "https://osir-boguszow.eu/wydarzenia/zawody-nor-dzik-walking-oraz-mistrzostwa-polski-nordic-walking-osob-niewidomych-i-slabowidzacych/",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
   "v-uzdrowiskowy-rajd-nordic-walking-2026-05-01": {
     "id": "8c379bfe-215e-41a6-a5c7-d366dfe06a85",
     "name": "V UZDROWISKOWY RAJD NORDIC WALKING",
@@ -7489,6 +7610,46 @@
     "is_charity": false,
     "is_kids": null
   },
+  "vi-bieg-flagi-lochow-2026-2026-05-02": {
+    "id": "4fc6bcfb-19c1-4997-94bb-f1ac1374365d",
+    "name": "VI Bieg Flagi- Łochów 2026",
+    "date": "2026-05-02",
+    "end_date": null,
+    "location": "Łochów, MZ",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.526,
+    "lng": 21.70082,
+    "distances": [
+      "0.1 km",
+      "0.2 km",
+      "0.4 km",
+      "0.6 km",
+      "0.8 km",
+      "2 km",
+      "6 km",
+      "100m",
+      "200m",
+      "400m",
+      "600m",
+      "800m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.facebook.com/lochowskagrupabiegowa/",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
   "10bieg-krola-eryka-dzieci-i-mlodziez-2026-05-02": {
     "id": "a81ad087-d54b-4ea4-b72c-4416c37aa5a2",
     "name": "10.Bieg Króla Eryka - dzieci i młodzież",
@@ -7854,6 +8015,71 @@
     ],
     "registration_url": "gryfinobiega.pl",
     "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "lubsko-biega-2026-2026-05-03": {
+    "id": "346aefbd-8ad9-4ed1-824d-5296ab67ba16",
+    "name": "Lubsko Biega 2026",
+    "date": "2026-05-03",
+    "end_date": null,
+    "location": "Lubsko",
+    "voivodeship": "Lubuskie",
+    "lat": 51.78819,
+    "lng": 14.972127,
+    "distances": [
+      "10 km",
+      "4.2 km",
+      "100m",
+      "500m"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4623-lubsko-biega-2026.html",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "49-biegi-3-majowe-2026-05-03": {
+    "id": "947817c1-2a89-46a6-bf55-23f3fa810709",
+    "name": "49 BIEGI 3 MAJOWE",
+    "date": "2026-05-03",
+    "end_date": null,
+    "location": "Rakoniewice",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.139349,
+    "lng": 16.273853,
+    "distances": [
+      "100m",
+      "200m",
+      "350m",
+      "600m",
+      "1000m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://online.datasport.pl/zapisy/portal/zawody.php?zawody=11625",
+    "website": "https://rosirrakoniewice.pl/",
     "regulamin_url": null,
     "price_from": null,
     "price_to": null,
@@ -8694,6 +8920,43 @@
       "uliczny"
     ],
     "registration_url": "https://competitions.timekeeper.pl/mini-dyszka",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "v-ksos-aquathlon-2026-05-09": {
+    "id": "bf453da8-0ef8-4286-bf0b-c64cb8d331d8",
+    "name": "V KSOS Aquathlon",
+    "date": "2026-05-09",
+    "end_date": null,
+    "location": "Kraków\n                            Kraków",
+    "voivodeship": "Małopolskie",
+    "lat": 50.064359,
+    "lng": 19.938213,
+    "distances": [
+      "25m",
+      "50m",
+      "100m",
+      "150m",
+      "200m",
+      "300m",
+      "600m",
+      "900m",
+      "1200m"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/v-ksos-aquathlon",
     "website": null,
     "regulamin_url": null,
     "price_from": null,
@@ -9809,6 +10072,70 @@
     "is_charity": false,
     "is_kids": null
   },
+  "xviii-masowy-bieg-uliczny-petla-wielunska-2026-05-16": {
+    "id": "c03a1c0a-e538-4971-bb90-cff45a4521e4",
+    "name": "XVIII Masowy Bieg Uliczny Pętla Wieluńska",
+    "date": "2026-05-16",
+    "end_date": null,
+    "location": "Wieluń, LD",
+    "voivodeship": "Łódzkie",
+    "lat": 51.220388,
+    "lng": 18.570071,
+    "distances": [
+      "1.5 km",
+      "2.5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16168",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "bieg-sowki-2026-05-16": {
+    "id": "48f7676c-06cd-4b27-b51e-5921c793c517",
+    "name": "Bieg Sówki",
+    "date": "2026-05-16",
+    "end_date": null,
+    "location": "Dzierżoniów",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.729173,
+    "lng": 16.656753,
+    "distances": [
+      "5 km",
+      "10 km",
+      "2 km",
+      "100m",
+      "300m",
+      "600m",
+      "1200m"
+    ],
+    "event_type": [
+      "nocny",
+      "dzieci"
+    ],
+    "registration_url": null,
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
   "mariuszowa-5tka-2026-05-16": {
     "id": "7e9ba059-8fcf-435c-a00c-94a0d8e1ebb4",
     "name": "Mariuszowa 5-tka",
@@ -10571,6 +10898,34 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16124",
     "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "24h-rawicki-festiwal-sportu-2026-bieg-indywidualny-2026-05-17": {
+    "id": "bd803065-7f98-460f-b14a-d0b826b5e22d",
+    "name": "24h Rawicki Festiwal Sportu 2026 - bieg indywidualny",
+    "date": "2026-05-17",
+    "end_date": null,
+    "location": "Rawicz",
+    "voivodeship": "Wielkopolskie",
+    "lat": 51.610163,
+    "lng": 16.858366,
+    "distances": [
+      "24h"
+    ],
+    "event_type": [
+      "ultra"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4633-24h-rawicki-festiwal-sportu-2026-bieg-indywidualny.html",
+    "website": "https://www.facebook.com/rawickifestiwalsportu?locale=pl_PL",
     "regulamin_url": null,
     "price_from": null,
     "price_to": null,
@@ -11715,6 +12070,34 @@
     ],
     "registration_url": "https://time4run.com.pl/imprezy/bieg-poznaniaka-dla-przedszkolaka/",
     "website": "https://time4run.com.pl/imprezy/bieg-poznaniaka-dla-przedszkolaka/",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "lubrzanska-dziesiatka-o-zlotego-nenufara-2026-2026-05-23": {
+    "id": "fbdc00f4-6bcc-441f-aa0f-887340142456",
+    "name": "Lubrzańska Dziesiątka o Złotego Nenufara 2026",
+    "date": "2026-05-23",
+    "end_date": null,
+    "location": "Lubrza",
+    "voivodeship": "Lubuskie",
+    "lat": 52.307152,
+    "lng": 15.441178,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4603-lubrzanska-dziesiatka-o-zlotego-nenufara-2026.html",
+    "website": null,
     "regulamin_url": null,
     "price_from": null,
     "price_to": null,
@@ -15507,6 +15890,71 @@
     "is_charity": false,
     "is_kids": null
   },
+  "xiii-strzegomska-dwunastka-2026-2026-06-13": {
+    "id": "7f8d431e-7c2b-4e70-ac21-15c11dfbed47",
+    "name": "XIII Strzegomska Dwunastka 2026",
+    "date": "2026-06-13",
+    "end_date": null,
+    "location": "Strzegom",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.960107,
+    "lng": 16.346213,
+    "distances": [
+      "6 km",
+      "12 km",
+      "100m",
+      "600m",
+      "1200m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4619-xiii-strzegomska-dwunastka-2026.html",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "czas-na-sport-2026-2026-06-13": {
+    "id": "791788db-eac8-48a1-885a-76eed1fd1264",
+    "name": "Czas na Sport 2026",
+    "date": "2026-06-13",
+    "end_date": null,
+    "location": "Zielona Góra",
+    "voivodeship": "Lubuskie",
+    "lat": 51.927574,
+    "lng": 15.549042,
+    "distances": [
+      "5 km",
+      "10 km",
+      "60m",
+      "200m"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4639-czas-na-sport-2026.html",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
   "bieg-recepta-na-zdrowie-2026-06-13": {
     "id": "c5e6accc-49bf-4155-9c80-4a77ed3e2354",
     "name": "Bieg Recepta na Zdrowie",
@@ -16785,6 +17233,34 @@
     "is_charity": false,
     "is_kids": null
   },
+  "iii-cross-zielonogorski-parszywa-12-odwrot-2026-06-20": {
+    "id": "78ef37ec-ef0c-4d76-bd6b-cb35489faff6",
+    "name": "III Cross Zielonogórski - Parszywa 12 - Odwrót",
+    "date": "2026-06-20",
+    "end_date": null,
+    "location": "Zielona Góra",
+    "voivodeship": "Lubuskie",
+    "lat": 51.927574,
+    "lng": 15.549042,
+    "distances": [
+      "12 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4610-iii-cross-zielonogorski-parszywa-12-odwrot.html",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
   "ii-bieg-nocy-letniej-2026-06-20": {
     "id": "de43bc68-5624-49c2-9d41-cdb63156c211",
     "name": "II Bieg Nocy Letniej",
@@ -17487,6 +17963,34 @@
     "is_charity": false,
     "is_kids": null
   },
+  "xiv-cross-zielonogorski-parszywa-12-kultowa-2026-06-21": {
+    "id": "3d82cf77-f337-4b46-a684-7fe1c17cc64f",
+    "name": "XIV Cross Zielonogórski - Parszywa 12 - Kultowa",
+    "date": "2026-06-21",
+    "end_date": null,
+    "location": "Zielona Góra",
+    "voivodeship": "Lubuskie",
+    "lat": 51.927574,
+    "lng": 15.549042,
+    "distances": [
+      "12 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4612-xiv-cross-zielonogorski-parszywa-12-kultowa.html",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
   "x-bieg-stonogi-2026-06-21": {
     "id": "8b9ce90a-5d0b-4e3e-a104-9c3d224b2355",
     "name": "X Bieg STO-nogi",
@@ -18170,6 +18674,93 @@
       "uliczny"
     ],
     "registration_url": "https://dostartu.pl/permalink-v15872",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "vii-niesulicka-dziesiatka-2026-06-27": {
+    "id": "d15e01ad-f8fa-4dd3-95fc-5f00fedd19f4",
+    "name": "VII Niesulicka Dziesiątka",
+    "date": "2026-06-27",
+    "end_date": null,
+    "location": "Niesulice",
+    "voivodeship": "Lubuskie",
+    "lat": 52.21313,
+    "lng": 15.40069,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4649-vii-niesulicka-dziesiatka.html",
+    "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "5-bieg-krolowej-bony-2026-06-27": {
+    "id": "cdc25fc2-4bac-4a3b-bd3d-9e9b3a35b6e1",
+    "name": "5. Bieg Królowej Bony",
+    "date": "2026-06-27",
+    "end_date": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "10 km",
+      "5 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": null,
+    "website": "https://fundacja-activelife.org.pl",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "iv-niesulicki-marsz-nordic-walking-2026-06-27": {
+    "id": "561181b6-f1e9-4f47-b10f-7acc88e49931",
+    "name": "IV Niesulicki Marsz Nordic Walking",
+    "date": "2026-06-27",
+    "end_date": null,
+    "location": "Niesulice",
+    "voivodeship": "Lubuskie",
+    "lat": 52.21313,
+    "lng": 15.40069,
+    "distances": [
+      "3 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4651-iv-niesulicki-marsz-nordic-walking.html",
     "website": null,
     "regulamin_url": null,
     "price_from": null,
@@ -21928,6 +22519,36 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14912/signup.html",
     "website": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "ukiel-sunset-run-olsztyn-2026-08-29": {
+    "id": "a0864e25-699e-48f0-bed8-210d7a1e5b5d",
+    "name": "Ukiel Sunset Run Olsztyn",
+    "date": "2026-08-29",
+    "end_date": null,
+    "location": "Olsztyn",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 53.776644,
+    "lng": 20.477753,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nocny"
+    ],
+    "registration_url": "https://sportaktywni.pl/",
+    "website": "https://www.facebook.com/ukielolsztynpolmaraton/",
     "regulamin_url": null,
     "price_from": null,
     "price_to": null,
@@ -25711,6 +26332,62 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14510/signup.html",
     "website": "https://www.biegdzika.pl/",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "52-maraton-debno-2026-2026-10-18": {
+    "id": "82331833-78e5-4b17-8f21-71a345851f35",
+    "name": "52. Maraton Dębno 2026",
+    "date": "2026-10-18",
+    "end_date": null,
+    "location": "Dębno",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 52.739668,
+    "lng": 14.701452,
+    "distances": [
+      "42.2 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://www.maratondebno.pl/zapisy-3/",
+    "website": "https://www.maratondebno.pl",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "registration_deadline": null,
+    "max_participants": null,
+    "elevation_gain_m": null,
+    "surface": null,
+    "is_night": false,
+    "is_charity": false,
+    "is_kids": null
+  },
+  "maratonska-dziesiatka-2026-10-18": {
+    "id": "a04226bb-7541-4ad6-8b29-cf9254e768fe",
+    "name": "Maratońska Dziesiątka",
+    "date": "2026-10-18",
+    "end_date": null,
+    "location": "Dębno",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 52.739668,
+    "lng": 14.701452,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://www.maratondebno.pl/regulamin-i-zapisy/",
+    "website": "https://www.maratondebno.pl/maratonska-dziesiatka/",
     "regulamin_url": null,
     "price_from": null,
     "price_to": null,
