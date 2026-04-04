@@ -69,7 +69,7 @@ async def process_event(event: dict, config: Config) -> dict:
         "total_chars": sum(v.chars for v in crawled.values() if v),
     }
 
-    # Step 4: Extract from PDF regulamin
+    # Step 4: Extract from PDF regulamin (fallback to crawl if PDF download fails)
     pdf_text = None
     pdf_path = None
     regulamin_url = working_urls.get("regulamin_url")
@@ -80,6 +80,12 @@ async def process_event(event: dict, config: Config) -> dict:
             pdf_text = extract_pdf_text(pdf_path, max_chars=config.max_pdf_chars)
             result["steps"]["pdf"] = {"extracted_chars": len(pdf_text) if pdf_text else 0}
             cleanup_pdf(pdf_path)
+        elif regulamin_url:
+            # PDF download failed (e.g. SPA wrapper serving HTML) — crawl it instead
+            fallback = await crawl_pages({"regulamin_url": regulamin_url}, max_chars=config.max_page_chars)
+            if fallback.get("regulamin_url"):
+                crawled_content["regulamin_url"] = fallback["regulamin_url"].content
+                result["steps"]["pdf"] = {"fallback_crawl": True, "extracted_chars": fallback["regulamin_url"].chars}
 
     # Step 5: LLM extraction
     prompt = build_prompt(event, crawled_content, pdf_text, config)
