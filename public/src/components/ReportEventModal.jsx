@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase.js'
+
+const DraggableMap = lazy(() => import('./DraggableMap.jsx'))
 
 const VOIVODESHIPS = [
   'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
@@ -19,6 +21,11 @@ const FIELDS = [
   { value: 'event_type', label: 'Typ wydarzenia' },
   { value: 'registration_url', label: 'Link do zapisów' },
   { value: 'website', label: 'Strona wydarzenia' },
+  { value: 'regulamin_url', label: 'Link do regulaminu' },
+  { value: 'price_from', label: 'Cena od (zł)' },
+  { value: 'price_to', label: 'Cena do (zł)' },
+  { value: 'registration_deadline', label: 'Termin zapisów' },
+  { value: 'location_map', label: 'Lokalizacja na mapie' },
   { value: 'cancelled', label: 'Wydarzenie odwołane' },
 ]
 
@@ -29,10 +36,21 @@ function getCurrentValue(event, field) {
   if (field === 'cancelled') return event.status === 'cancelled' ? 'Tak' : 'Nie'
   if (field === 'distances') return event.distances?.join(', ') || '—'
   if (field === 'event_type') return event.event_type?.join(', ') || '—'
+  if (field === 'price_from') return event.price_from != null ? `${event.price_from} zł` : '—'
+  if (field === 'price_to') return event.price_to != null ? `${event.price_to} zł` : '—'
+  if (field === 'registration_deadline') {
+    if (!event.registration_deadline) return '—'
+    return new Date(event.registration_deadline).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+  if (field === 'location_map') {
+    return (event.lat != null && event.lng != null)
+      ? `${Number(event.lat).toFixed(4)}, ${Number(event.lng).toFixed(4)}`
+      : 'brak'
+  }
   return event[field] || '—'
 }
 
-function SuggestedInput({ field, value, onChange }) {
+function SuggestedInput({ field, value, onChange, event }) {
   if (field === 'cancelled') return null
 
   if (field === 'date') {
@@ -66,8 +84,37 @@ function SuggestedInput({ field, value, onChange }) {
     )
   }
 
-  if (field === 'registration_url' || field === 'website') {
+  if (field === 'registration_url') {
     return <input type="url" value={value} onChange={(e) => onChange(e.target.value)} className={inputClass} placeholder="https://..." />
+  }
+
+  if (field === 'website' || field === 'regulamin_url') {
+    return <input type="url" value={value} onChange={(e) => onChange(e.target.value)} className={inputClass} placeholder="https://..." />
+  }
+
+  if (field === 'price_from' || field === 'price_to') {
+    return <input type="number" min="0" value={value} onChange={(e) => onChange(e.target.value)} className={inputClass} placeholder="np. 80" />
+  }
+
+  if (field === 'registration_deadline') {
+    return <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className={inputClass} />
+  }
+
+  if (field === 'location_map') {
+    const [lat, lng] = value ? value.split(',').map(Number) : [null, null]
+    const hasVal = lat != null && lng != null && !isNaN(lat) && !isNaN(lng)
+    const initLat = hasVal ? lat : (event.lat != null ? Number(event.lat) : null)
+    const initLng = hasVal ? lng : (event.lng != null ? Number(event.lng) : null)
+    return (
+      <Suspense fallback={<div className="border border-apex-border bg-apex-surface" style={{ height: 150 }} />}>
+        <DraggableMap
+          lat={initLat}
+          lng={initLng}
+          height={150}
+          onChange={(newLat, newLng) => onChange(`${newLat.toFixed(6)},${newLng.toFixed(6)}`)}
+        />
+      </Suspense>
+    )
   }
 
   return <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className={inputClass} />
@@ -157,7 +204,7 @@ export default function ReportEventModal({ event, onClose }) {
                   {field !== 'cancelled' && (
                     <div>
                       <label className={labelClass}>Prawidłowa wartość</label>
-                      <SuggestedInput field={field} value={suggestedValue} onChange={setSuggestedValue} />
+                      <SuggestedInput field={field} value={suggestedValue} onChange={setSuggestedValue} event={event} />
                     </div>
                   )}
 
