@@ -15,14 +15,7 @@ export default function EventInfoGrid({ event }) {
     const start = new Date(event.date).toLocaleDateString('pl-PL', {
       day: 'numeric', month: 'long', year: 'numeric',
     })
-    let value = start
-    if (event.end_date && event.end_date !== event.date) {
-      const end = new Date(event.end_date).toLocaleDateString('pl-PL', {
-        day: 'numeric', month: 'long', year: 'numeric',
-      })
-      value = `${start} — ${end}`
-    }
-    cells.push({ label: 'Data', value })
+    cells.push({ label: 'Data', value: start })
   }
 
   // Lokalizacja
@@ -55,21 +48,6 @@ export default function EventInfoGrid({ event }) {
       day: '2-digit', month: '2-digit', year: 'numeric',
     })
     cells.push({ label: 'Termin zapisów', value: `do ${formatted}`, accent: true })
-  }
-
-  // Max. uczestników
-  if (event.max_participants != null) {
-    cells.push({ label: 'Max. uczestników', value: event.max_participants.toLocaleString('pl-PL') })
-  }
-
-  // Przewyższenie
-  if (event.elevation_gain_m != null) {
-    cells.push({ label: 'Przewyższenie', value: `${event.elevation_gain_m.toLocaleString('pl-PL')} m` })
-  }
-
-  // Nawierzchnia
-  if (event.surface) {
-    cells.push({ label: 'Nawierzchnia', value: event.surface })
   }
 
   if (cells.length === 0) return null

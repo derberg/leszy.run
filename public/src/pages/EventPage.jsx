@@ -72,8 +72,6 @@ function buildJsonLd(event, slug) {
     url: `https://leszy.run/kalendarz/${slug}`,
   }
 
-  if (event.end_date) ld.endDate = event.end_date
-
   if (event.location) {
     ld.location = {
       '@type': 'Place',
