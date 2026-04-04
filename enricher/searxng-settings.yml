@@ -1,0 +1,25 @@
+use_default_settings: true
+
+server:
+  secret_key: "leszyrun-enricher-searxng-key"
+  limiter: false
+
+search:
+  default_lang: "pl"
+  formats:
+    - html
+    - json
+
+engines:
+  - name: google
+    engine: google
+    shortcut: g
+    disabled: false
+  - name: bing
+    engine: bing
+    shortcut: b
+    disabled: false
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    disabled: false
