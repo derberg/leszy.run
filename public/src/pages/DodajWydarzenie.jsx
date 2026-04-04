@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import useTheme from '../hooks/useTheme.js'
 import useSeo from '../hooks/useSeo.js'
+
+const DraggableMap = lazy(() => import('../components/DraggableMap.jsx'))
 
 const VOIVODESHIPS = [
   'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
@@ -43,6 +45,15 @@ export default function DodajWydarzenie() {
   const [customDist, setCustomDist] = useState('')
   const [showCustom, setShowCustom] = useState(false)
   const [eventTypes, setEventTypes] = useState([])
+  const [showExtras, setShowExtras] = useState(false)
+  const [website, setWebsite] = useState('')
+  const [regulaminUrl, setRegulaminUrl] = useState('')
+  const [priceFrom, setPriceFrom] = useState('')
+  const [priceTo, setPriceTo] = useState('')
+  const [regDeadline, setRegDeadline] = useState('')
+  const [mapLat, setMapLat] = useState(null)
+  const [mapLng, setMapLng] = useState(null)
+  const [mapMoved, setMapMoved] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -66,6 +77,23 @@ export default function DodajWydarzenie() {
 
   const toggleType = (t) => {
     setEventTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
+  }
+
+  const geocodeCity = async (city) => {
+    if (!city.trim()) return
+    try {
+      const params = new URLSearchParams({
+        q: `${city.trim()}, Polska`, format: 'json', limit: '1', countrycodes: 'pl',
+      })
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+        headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      })
+      const results = await res.json()
+      if (results.length > 0 && !mapMoved) {
+        setMapLat(parseFloat(results[0].lat))
+        setMapLng(parseFloat(results[0].lon))
+      }
+    } catch {}
   }
 
   const canSubmit = form.name.trim() && form.date && !submitting
@@ -103,6 +131,9 @@ export default function DodajWydarzenie() {
       } catch {}
     }
 
+    const finalLat = mapMoved ? mapLat : lat
+    const finalLng = mapMoved ? mapLng : lng
+
     const { error: err } = await supabase.from('calendar_events').insert({
       name: form.name.trim(),
       date: form.date,
@@ -111,8 +142,13 @@ export default function DodajWydarzenie() {
       distances: distStrings,
       event_type: eventTypes.length ? eventTypes : null,
       registration_url: form.registrationUrl.trim() || null,
-      lat,
-      lng,
+      website: website.trim() || null,
+      regulamin_url: regulaminUrl.trim() || null,
+      price_from: priceFrom ? parseInt(priceFrom, 10) : null,
+      price_to: priceTo ? parseInt(priceTo, 10) : null,
+      registration_deadline: regDeadline || null,
+      lat: finalLat,
+      lng: finalLng,
       source: 'community',
       status: 'pending',
     })
@@ -180,7 +216,7 @@ export default function DodajWydarzenie() {
 
             <div>
               <label className={labelClass}>Miasto</label>
-              <input type="text" value={form.location} onChange={set('location')} className={inputClass} placeholder="np. Zakopane" />
+              <input type="text" value={form.location} onChange={set('location')} onBlur={() => geocodeCity(form.location)} className={inputClass} placeholder="np. Zakopane" />
             </div>
 
             <div>
@@ -240,6 +276,62 @@ export default function DodajWydarzenie() {
             <div>
               <label className={labelClass}>Link do wydarzenia</label>
               <input type="url" value={form.registrationUrl} onChange={set('registrationUrl')} className={inputClass} placeholder="https://..." />
+            </div>
+
+            {/* Expandable extras */}
+            <div className="border border-apex-border">
+              <button type="button" onClick={() => setShowExtras(!showExtras)}
+                className="w-full flex justify-between items-center px-4 py-3">
+                <span className="font-display font-bold text-[10px] tracking-widest uppercase text-apex-yellow">
+                  {showExtras ? '▲' : '▼'} Więcej szczegółów
+                </span>
+                <span className="text-[10px] text-apex-muted">opcjonalne</span>
+              </button>
+              {showExtras && (
+                <div className="px-4 pb-4 space-y-4">
+                  <div>
+                    <label className={labelClass}>Strona wydarzenia</label>
+                    <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)}
+                      className={inputClass} placeholder="https://..." />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Link do regulaminu</label>
+                    <input type="url" value={regulaminUrl} onChange={(e) => setRegulaminUrl(e.target.value)}
+                      className={inputClass} placeholder="https://..." />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>Cena od (zł)</label>
+                      <input type="number" min="0" value={priceFrom} onChange={(e) => setPriceFrom(e.target.value)}
+                        className={inputClass} placeholder="np. 50" />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Cena do (zł)</label>
+                      <input type="number" min="0" value={priceTo} onChange={(e) => setPriceTo(e.target.value)}
+                        className={inputClass} placeholder="np. 120" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Termin zapisów</label>
+                    <input type="date" value={regDeadline} onChange={(e) => setRegDeadline(e.target.value)}
+                      className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Dokładna lokalizacja</label>
+                    <Suspense fallback={<div className="border border-apex-border bg-apex-surface" style={{ height: 180 }} />}>
+                      <DraggableMap
+                        lat={mapLat}
+                        lng={mapLng}
+                        onChange={(newLat, newLng) => {
+                          setMapLat(newLat)
+                          setMapLng(newLng)
+                          setMapMoved(true)
+                        }}
+                      />
+                    </Suspense>
+                  </div>
+                </div>
+              )}
             </div>
 
             {error && <div className="text-apex-red text-sm">{error}</div>}
