@@ -76,14 +76,34 @@ def test_dead_url_replaced_by_search_candidate(sample_event):
     assert updates["registration_url"] == "https://new.pl/zapisy"
 
 
-def test_url_llm_says_not_regulamin(sample_event):
-    """LLM says regulamin_url is not actually a regulamin → null it."""
+def test_url_llm_says_not_regulamin_with_candidate(sample_event):
+    """LLM says regulamin_url is wrong type → replace with candidate."""
+    from enricher.steps.validate_urls import UrlStatus
+    url_statuses = {"regulamin_url": UrlStatus(url="https://example.pl/regulamin.pdf", status="alive")}
+    search_candidates = {"regulamin_url": "https://better.pl/regulamin.pdf"}
+    llm = {"distances": None, "event_types": None, "url_is_regulamin": False}
+    updates = build_updates(sample_event, llm, url_statuses, search_candidates, config)
+    assert updates["regulamin_url"] == "https://better.pl/regulamin.pdf"
+
+
+def test_url_not_nulled_without_candidate(sample_event):
+    """LLM says URL is wrong type but no candidate → keep existing."""
     from enricher.steps.validate_urls import UrlStatus
     url_statuses = {"regulamin_url": UrlStatus(url="https://example.pl/regulamin.pdf", status="alive")}
     search_candidates = {}
     llm = {"distances": None, "event_types": None, "url_is_regulamin": False}
     updates = build_updates(sample_event, llm, url_statuses, search_candidates, config)
-    assert updates["regulamin_url"] is None
+    assert "regulamin_url" not in updates
+
+
+def test_dead_url_not_nulled_without_candidate(sample_event):
+    """Dead URL without a candidate → keep existing (don't null)."""
+    from enricher.steps.validate_urls import UrlStatus
+    url_statuses = {"registration_url": UrlStatus(url="https://example.pl/zapisy", status="dead")}
+    search_candidates = {}
+    llm = {"distances": None, "event_types": None}
+    updates = build_updates(sample_event, llm, url_statuses, search_candidates, config)
+    assert "registration_url" not in updates
 
 
 def test_scalar_overwrite(sample_event_full):
@@ -137,3 +157,27 @@ def test_event_types_no_change_when_same(sample_event):
     llm = {"distances": None, "event_types": ["uliczny"]}
     updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
     assert "event_types" not in updates
+
+
+# --- website_is_official logic ---
+
+
+def test_website_news_article_not_set_when_existing(sample_event_full):
+    """News article URL should not replace an existing official website."""
+    llm = {"distances": None, "event_types": None, "website": "https://moje-gniezno.pl/article", "website_is_official": False}
+    updates = build_updates(sample_event_full, llm, {}, {}, config)
+    assert "website" not in updates
+
+
+def test_website_official_replaces_news(sample_event):
+    """Official website replaces empty website field."""
+    llm = {"distances": None, "event_types": None, "website": "https://biegnij.pl", "website_is_official": True}
+    updates = build_updates(sample_event, llm, {}, {}, config)
+    assert updates["website"] == "https://biegnij.pl"
+
+
+def test_website_fills_empty_even_if_not_official(sample_event):
+    """Any website fills an empty field (better than nothing)."""
+    llm = {"distances": None, "event_types": None, "website": "https://naszemiasto.pl/bieg", "website_is_official": False}
+    updates = build_updates(sample_event, llm, {}, {}, config)
+    assert updates["website"] == "https://naszemiasto.pl/bieg"

@@ -1,6 +1,22 @@
+from urllib.parse import urlparse
 from enricher.steps.validate_urls import UrlStatus
 
 TERRAIN_TYPES = {"trail", "ocr", "uliczny"}
+
+NEWS_DOMAINS = {
+    "wiaralecha.pl", "moje-gniezno.pl", "bieganie.pl", "sport.pl",
+    "onet.pl", "wp.pl", "gazeta.pl", "naszemiasto.pl", "dziennik.pl",
+    "facebook.com", "www.facebook.com",
+}
+
+
+def _is_official_domain(url: str) -> bool:
+    """Check if URL looks like an official event site (not news/social)."""
+    try:
+        host = urlparse(url).hostname or ""
+        return not any(host == d or host.endswith("." + d) for d in NEWS_DOMAINS)
+    except Exception:
+        return True
 
 
 def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates: dict, config, had_content: bool = False) -> dict:
@@ -123,7 +139,10 @@ def _merge_scalars(event, llm, updates, config):
 
 
 def _merge_urls(event, llm, url_statuses, search_candidates, updates):
-    """Handle URL replacement based on validation + LLM confirmation."""
+    """Handle URL replacement based on validation + LLM confirmation.
+
+    NEVER null a working URL — only replace when there's an actual candidate.
+    """
     for field, llm_flag in [
         ("registration_url", "url_is_registration"),
         ("regulamin_url", "url_is_regulamin"),
@@ -131,16 +150,21 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates):
         status = url_statuses.get(field)
         candidate = search_candidates.get(field)
 
-        # Dead URL → replace
-        if status and status.status == "dead":
-            updates[field] = candidate  # may be None
+        # Dead URL → replace only if we have a candidate
+        if status and status.status == "dead" and candidate:
+            updates[field] = candidate
             continue
 
-        # LLM says URL is wrong type → replace
-        if llm.get(llm_flag) is False and event.get(field):
-            updates[field] = candidate  # may be None
+        # LLM says URL is wrong type → replace only if we have a candidate
+        if llm.get(llm_flag) is False and event.get(field) and candidate:
+            updates[field] = candidate
             continue
 
-    # Website: fill if empty
-    if not event.get("website") and llm.get("website"):
-        updates["website"] = llm["website"]
+    # Website: fill if empty, or replace with LLM's suggestion if it's an official site
+    llm_website = llm.get("website")
+    if llm_website:
+        llm_is_official = llm.get("website_is_official", False)
+        if not event.get("website"):
+            updates["website"] = llm_website
+        elif llm_is_official and not _is_official_domain(event.get("website", "")):
+            updates["website"] = llm_website

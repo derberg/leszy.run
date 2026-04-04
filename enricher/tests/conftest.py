@@ -63,6 +63,7 @@ def sample_llm_response():
         "voivodeship": "Mazowieckie",
         "is_kids": False,
         "website": "https://biegleszka.pl",
+        "website_is_official": True,
         "registration_url": "https://biegleszka.pl/zapisy",
         "regulamin_url": "https://biegleszka.pl/regulamin.pdf",
         "url_is_regulamin": True,

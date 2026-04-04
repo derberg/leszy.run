@@ -41,12 +41,13 @@ def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config) ->
 
     context_block = "\n\n".join(sections) if sections else "(No web content or PDF available)"
 
-    return f"""You are extracting structured data about a Polish running/walking race event.
+    return f"""Extract structured data about a Polish running/walking race event.
+Return ONLY valid JSON, no other text.
 
-Event name: {event.get("name", "")}
-Event date: {event.get("date", "")}
-Event location: {event.get("location", "unknown")}
-Currently known data:
+EVENT:
+  name: {event.get("name", "")}
+  date: {event.get("date", "")}
+  location: {event.get("location", "unknown")}
   distances: {distances}
   event_types: {types_str}
   registration_deadline: {deadline}
@@ -55,55 +56,71 @@ Currently known data:
 
 {context_block}
 
-Extract ALL of the following. Return ONLY valid JSON, no other text:
+RESPOND WITH THIS EXACT JSON STRUCTURE:
 {{
-  "distances": ["5 km", "10 km", "21.1 km", "6h", "200m"],
-  "event_types": ["uliczny", "trail", ...],
-  "registration_deadline": "YYYY-MM-DD" or null,
-  "price_from": number (PLN, e.g. 50) or null,
-  "price_to": number (PLN, e.g. 120) or null,
-  "voivodeship": "one of 16 Polish voivodeships" or null,
-  "is_kids": true or false,
-  "website": "https://..." or null,
-  "registration_url": "https://..." or null,
-  "regulamin_url": "https://..." or null,
-  "url_is_regulamin": true or false,
-  "url_is_registration": true or false
+  "distances": ["5 km", "10 km"],
+  "event_types": ["uliczny"],
+  "registration_deadline": "YYYY-MM-DD",
+  "price_from": 50,
+  "price_to": 120,
+  "voivodeship": "Mazowieckie",
+  "is_kids": false,
+  "website": "https://example.pl",
+  "website_is_official": true,
+  "registration_url": "https://example.pl/zapisy",
+  "regulamin_url": "https://example.pl/regulamin.pdf",
+  "url_is_regulamin": true,
+  "url_is_registration": true
 }}
 
-DISTANCE RULES:
-- Include all actual race distances (not age limits, elevation, or other numbers)
-- Format: "N km" for kilometer distances (e.g. "5 km", "21.1 km", "42.2 km")
-- półmaraton = "21.1 km", maraton = "42.2 km"
-- Time-based ultras: "4h", "6h", "12h", "24h" (for timed events like "bieg 6-godzinny")
-- Short/kids distances: "200m", "500m" (for distances under 1 km)
-- If no distances found, use empty array []
+Use null for any field you cannot determine from the provided content.
 
-EVENT TYPE RULES — classify into one or more. NEVER use "bieg". Valid types:
-- "uliczny" — DEFAULT for most events. Road/city, asphalt, PZLA certified, sidewalks, cycling paths, cobblestone
-- "trail" — off-road: forest paths, dirt trails, mountain, cross-country, mud, gravel, significant elevation
+=== FIELD RULES ===
+
+DISTANCES:
+- Format: "N km" (e.g. "5 km", "21.1 km"). półmaraton = "21.1 km", maraton = "42.2 km"
+- Time-based: "6h", "12h", "24h". Short: "200m", "500m"
+- Only actual race distances, not age limits or elevation numbers
+- Empty array [] if none found
+
+EVENT TYPES (one or more, NEVER use "bieg"):
+- "uliczny" — road/city/asphalt, PZLA certified, cycling paths, cobblestone. DEFAULT for most events
+- "trail" — off-road: forest, dirt, mountain, cross-country, mud, gravel, "przełajowy"
 - "nocny" — night race, starts after 20:00, headlamp required
-- "ocr" — obstacle course race, mud run, survival, extreme
-- "nordic walking" — has nordic walking category alongside running
-- "ultra" — any running distance over 50 km, or timed events (6h, 12h, 24h)
-- "charytatywny" — charity event, proceeds go to a cause, fundraiser
-An event can have MULTIPLE types (e.g. ["trail", "nocny"] for a night trail run).
+- "ocr" — obstacle course, mud run, survival, extreme
+- "nordic walking" — has NW category alongside running
+- "ultra" — distance over 50 km, or timed events (6h+)
+- "charytatywny" — charity, fundraiser, proceeds to a cause
+Multiple types allowed (e.g. ["trail", "nocny"] for night trail).
 
-PRICE RULES:
-- price_from: cheapest registration option in PLN (whole number, e.g. 50)
-- price_to: most expensive registration option in PLN (whole number, e.g. 120)
-- If only one price exists, set both to the same value
-- Convert from grosze if needed (5000 groszy = 50 PLN)
-- If no price info found, use null
+PRICES — READ CAREFULLY, this is the most important field to extract:
+- Look for: "opłata startowa", "wpisowe", "cena", "koszt", price tables, "pakiet startowy"
+- Prices are often in tables with columns like "do [date]" showing early-bird vs late pricing
+- price_from: CHEAPEST option across all distances and time periods (in PLN, whole number)
+- price_to: MOST EXPENSIVE option across all distances and time periods (in PLN, whole number)
+- If only one price: set both to the same value
+- If "bezpłatny" / "darmowy" / "free": set both to 0
+- Convert grosze: 5000 gr = 50 PLN
+- null ONLY if absolutely no price information found anywhere in the content
 
-VOIVODESHIP: must be exactly one of: {", ".join(VOIVODESHIPS)}
+REGISTRATION DEADLINE:
+- Look for: "termin zgłoszeń", "zapisy do", "rejestracja do", "limit zgłoszeń"
+- Format: YYYY-MM-DD. null if not found
+
+VOIVODESHIP: exactly one of: {", ".join(VOIVODESHIPS)}. null if uncertain.
+
+WEBSITE:
+- Must be the event's OFFICIAL website (organizer's domain, dedicated event page)
+- NOT a news article about the event (e.g. naszemiasto.pl, gazeta.pl, sport.pl, moje-gniezno.pl)
+- NOT a social media page (facebook.com)
+- NOT an aggregator (maratonypolskie.pl, datasport.pl, biegiwpolsce.pl, dostartu.pl)
+- website_is_official: true if the URL is the event's own domain/page, false if it's news/article/social
 
 URL VALIDATION:
-- url_is_regulamin: does the regulamin_url page/PDF actually contain race regulations? true/false
-- url_is_registration: does the registration_url page actually contain a registration form? true/false
-- If you find better URLs for website/registration/regulamin in the content, include them
+- url_is_registration: does the registration_url contain an actual sign-up form? Login pages (dostartu.pl/permalink-*) count as YES — they lead to registration after login
+- url_is_regulamin: does the regulamin_url contain actual race regulations?
 
-is_kids: true if any distance is ≤ 1 km OR if there is a dedicated children's category"""
+is_kids: true if any distance ≤ 1 km OR dedicated children's category exists"""
 
 
 def call_ollama(prompt: str, config) -> Optional[dict]:
