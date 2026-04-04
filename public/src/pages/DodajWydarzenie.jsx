@@ -23,6 +23,7 @@ const EVENT_TYPES = [
   { value: 'ocr', label: 'OCR / Bieg z przeszkodami' },
   { value: 'nocny', label: 'Nocny' },
   { value: 'charytatywny', label: 'Charytatywny' },
+  { value: 'dzieci', label: 'Dla dzieci' },
 ]
 
 const PRESET_DISTANCES = ['5 km', '10 km', '21.1 km', '42.2 km', '50 km', '100 km']
@@ -274,7 +275,7 @@ export default function DodajWydarzenie() {
             </div>
 
             <div>
-              <label className={labelClass}>Link do wydarzenia</label>
+              <label className={labelClass}>Link do zapisów</label>
               <input type="url" value={form.registrationUrl} onChange={set('registrationUrl')} className={inputClass} placeholder="https://..." />
             </div>
 

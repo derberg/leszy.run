@@ -10,7 +10,7 @@ const VOIVODESHIPS = [
   'Wielkopolskie', 'Zachodniopomorskie',
 ]
 
-const EVENT_TYPES = ['trail', 'nocny', 'ocr', 'nordic', 'ultra', 'charytatywny', 'uliczny']
+const EVENT_TYPES = ['trail', 'nocny', 'ocr', 'nordic', 'ultra', 'charytatywny', 'uliczny', 'dzieci']
 
 const FIELDS = [
   { value: 'name', label: 'Nazwa' },

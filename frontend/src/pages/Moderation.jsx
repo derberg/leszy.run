@@ -15,7 +15,7 @@ const VOIVODESHIPS = [
   'Wielkopolskie', 'Zachodniopomorskie',
 ]
 
-const EVENT_TYPES = ['uliczny', 'trail', 'ultra', 'nordic', 'ocr', 'nocny', 'charytatywny']
+const EVENT_TYPES = ['uliczny', 'trail', 'ultra', 'nordic', 'ocr', 'nocny', 'charytatywny', 'dzieci']
 
 async function apiFetch(url, opts = {}) {
   const res = await fetch(url, opts)

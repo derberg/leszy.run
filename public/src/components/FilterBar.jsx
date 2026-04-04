@@ -8,6 +8,7 @@ const EVENT_TYPES = [
   { value: 'ocr', label: 'OCR' },
   { value: 'nocny', label: 'Bieg nocny' },
   { value: 'charytatywny', label: 'Charytatywny' },
+  { value: 'dzieci', label: 'Dla dzieci' },
 ]
 
 const VOIVODESHIPS = [
