@@ -153,7 +153,7 @@ async function scrape({ knownIds = new Set() } = {}) {
     results.push({
       name: ev.name,
       date,
-      end_date: ev.endDate ? ev.endDate.split('T')[0] : null,
+      registration_deadline: ev.endDate ? ev.endDate.split('T')[0] : null,
       location,
       distances,
       registration_url: url,

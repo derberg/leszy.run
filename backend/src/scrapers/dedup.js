@@ -16,16 +16,15 @@ const SOURCE_PRIORITY = {
 const PROTECTED_FIELDS = new Set([
   'id', 'created_at', 'status', 'enriched_at', 'leszyrun_event_id',
   'registration_deadline', 'price_from', 'price_to',
-  'surface', 'elevation_gain_m', 'max_participants',
-  'is_recurring', 'recurring_event_id', 'edition_number',
 ])
 
 // Fields that come from scraper_all (normalized) and can be written to calendar_events
 const SCRAPER_FIELDS = [
-  'name', 'date', 'end_date', 'location', 'voivodeship',
+  'name', 'date', 'registration_deadline', 'location', 'voivodeship',
   'lat', 'lng', 'event_type', 'distances',
   'registration_url', 'regulamin_url', 'website',
-  'is_night', 'is_charity', 'is_kids',
+  'price_from', 'price_to',
+  'is_kids',
 ]
 
 // Polish adjective/noun suffixes for rough stemming

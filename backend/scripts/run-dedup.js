@@ -25,7 +25,7 @@ function isEmpty(val) {
 }
 
 const MERGE_FIELDS = [
-  'name', 'end_date', 'location', 'voivodeship',
+  'name', 'registration_deadline', 'location', 'voivodeship',
   'lat', 'lng', 'distances', 'event_type', 'event_types',
   'registration_url', 'regulamin_url', 'regulamin_urls', 'website',
   'is_kids',
@@ -171,7 +171,7 @@ async function main() {
   const RICHNESS_FIELDS = [
     'location', 'voivodeship', 'lat', 'lng', 'distances',
     'registration_url', 'regulamin_url', 'regulamin_urls', 'website',
-    'event_type', 'event_types', 'end_date', 'is_kids',
+    'event_type', 'event_types', 'registration_deadline', 'is_kids',
   ]
 
   for (const { winner, loser } of merges) {

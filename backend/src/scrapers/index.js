@@ -79,7 +79,7 @@ const sources = [
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
-      end_date: raw.end_date || null,
+      registration_deadline: raw.end_date || null,
       location: raw.location || null,
       lat: raw.lat || null,
       lng: raw.lng || null,
@@ -209,7 +209,7 @@ function isEmpty(val) {
  * These are raw fields before normalization.
  */
 const RAW_MERGE_FIELDS = [
-  'name', 'date', 'end_date', 'location', 'voivodeship',
+  'name', 'date', 'registration_deadline', 'location', 'voivodeship',
   'lat', 'lng', 'distances', 'event_type', 'event_types',
   'registration_url', 'regulamin_url', 'regulamin_urls', 'website',
   'is_kids',
@@ -351,7 +351,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           const row = {
             name: raw.name,
             date: raw.date,
-            end_date: raw.end_date || null,
+            registration_deadline: raw.end_date || raw.registration_deadline || null,
             location: raw.location || null,
             voivodeship: raw.voivodeship || null,
             lat: raw.lat || null,
@@ -549,7 +549,6 @@ async function publishToCalendar({ dryRun = false } = {}) {
     const row = {
       name: raw.name,
       date: raw.date,
-      end_date: raw.end_date || null,
       location: raw.location || null,
       voivodeship: raw.voivodeship || null,
       lat: raw.lat || null,
@@ -557,6 +556,10 @@ async function publishToCalendar({ dryRun = false } = {}) {
       event_type: eventType,
       distances,
       registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      price_from: raw.price_from || null,
+      price_to: raw.price_to || null,
       website: raw.website || null,
       source: raw.source,
       source_id: raw.source_id,
