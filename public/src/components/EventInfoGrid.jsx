@@ -44,10 +44,17 @@ export default function EventInfoGrid({ event }) {
 
   // Termin zapisów
   if (event.registration_deadline) {
+    const deadlineDate = new Date(event.registration_deadline + 'T23:59:59')
+    const isPast = deadlineDate < new Date()
     const formatted = new Date(event.registration_deadline).toLocaleDateString('pl-PL', {
       day: '2-digit', month: '2-digit', year: 'numeric',
     })
-    cells.push({ label: 'Termin zapisów', value: `do ${formatted}`, accent: true })
+    cells.push({
+      label: 'Termin zapisów',
+      value: isPast ? `Zapisy zamknięte (${formatted})` : `do ${formatted}`,
+      accent: true,
+      closed: isPast,
+    })
   }
 
   if (cells.length === 0) return null
@@ -67,7 +74,7 @@ export default function EventInfoGrid({ event }) {
             <div className="font-mono text-[10px] font-semibold tracking-[2px] uppercase text-apex-dim mb-1">
               {cell.label}
             </div>
-            <div className={`font-sans text-base font-semibold ${cell.accent ? 'text-apex-yellow' : 'text-apex-text-bright'}`}>
+            <div className={`font-sans text-base font-semibold ${cell.closed ? 'text-apex-red' : cell.accent ? 'text-apex-yellow' : 'text-apex-text-bright'}`}>
               {cell.value}
             </div>
           </div>
