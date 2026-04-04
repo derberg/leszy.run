@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react'
+import { useState, useRef, lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import Navbar from '../components/Navbar.jsx'
@@ -45,6 +45,7 @@ export default function DodajWydarzenie() {
   const [distances, setDistances] = useState([])
   const [customDist, setCustomDist] = useState('')
   const [showCustom, setShowCustom] = useState(false)
+  const customDistRef = useRef(null)
   const [eventTypes, setEventTypes] = useState([])
   const [showExtras, setShowExtras] = useState(false)
   const [website, setWebsite] = useState('')
@@ -237,14 +238,18 @@ export default function DodajWydarzenie() {
                     {d}
                   </button>
                 ))}
-                <button type="button" onClick={() => setShowCustom(!showCustom)}
+                <button type="button" onClick={() => {
+                    const next = !showCustom
+                    setShowCustom(next)
+                    if (next) setTimeout(() => customDistRef.current?.focus(), 0)
+                  }}
                   className={`font-mono text-[11px] font-semibold px-3 py-1.5 border transition-all ${showCustom ? 'border-apex-cyan text-apex-cyan' : 'border-apex-border text-apex-muted hover:border-apex-border-mid'}`}>
                   Inny
                 </button>
               </div>
               {showCustom && (
                 <div className="flex gap-2">
-                  <input type="text" value={customDist} onChange={(e) => setCustomDist(e.target.value)}
+                  <input ref={customDistRef} type="text" value={customDist} onChange={(e) => setCustomDist(e.target.value)}
                     className={`${inputClass} flex-1`} placeholder="np. 15" onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomDistance())} />
                   <button type="button" onClick={addCustomDistance}
                     className="font-mono text-[11px] font-semibold px-4 py-2 border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all">km</button>
