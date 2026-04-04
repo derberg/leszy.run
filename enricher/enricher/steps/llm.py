@@ -110,7 +110,7 @@ def call_ollama(prompt: str, config) -> Optional[dict]:
     """Call Ollama API and return parsed JSON response."""
     start = time.time()
     try:
-        with httpx.Client(timeout=300) as client:
+        with httpx.Client(timeout=600) as client:
             resp = client.post(
                 f"{config.ollama_url}/api/generate",
                 json={
@@ -120,6 +120,7 @@ def call_ollama(prompt: str, config) -> Optional[dict]:
                     "options": {
                         "temperature": config.ollama_temperature,
                         "num_predict": config.ollama_max_tokens,
+                        "num_ctx": 8192,
                     },
                 },
             )
@@ -133,7 +134,9 @@ def call_ollama(prompt: str, config) -> Optional[dict]:
             parsed["_duration_s"] = round(duration, 1)
         return parsed
 
-    except Exception:
+    except Exception as e:
+        import click
+        click.echo(f"    llm error: {e}")
         return None
 
 

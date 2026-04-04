@@ -351,7 +351,7 @@ distances, event_types, registration_url, regulamin_url, website, registration_d
 - JSONL logs in `enricher/logs/` — one file per run, supports `--resume`
 
 ### Dependencies
-- Ollama (native macOS, `qwen2.5:72b-instruct-q4_0`)
+- Ollama (native macOS, `qwen2.5-coder:32b` — 72b times out due to partial CPU offload)
 - SearXNG (Docker via `enricher/docker-compose.yml`, port 8888)
 - Crawl4AI + Docling (Python libs in `enricher/.venv/`)
 
