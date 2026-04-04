@@ -327,6 +327,41 @@ backend/src/scrapers/
 - **zawodybiegowe.pl** — all types (200-500 events)
 - **ligabiegowa.pl** — road running league
 
+## Local LLM Enricher
+
+Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with Docling, and uses Ollama (qwen2.5:72b) for field extraction. Replaces the paid Claude API enrichment scripts.
+
+### Running
+
+```bash
+cd enricher
+source .venv/bin/activate
+docker compose up -d          # SearXNG
+python -m enricher run         # process all un-enriched
+python -m enricher run --limit 5 --dry-run  # test run
+python -m enricher run --resume             # continue interrupted run
+python -m enricher run --force              # re-process already-enriched events
+```
+
+### What it enriches (scraper_all fields)
+distances, event_types, registration_url, regulamin_url, website, registration_deadline, price_from, price_to, voivodeship, is_kids
+
+### Enrichment tracking
+- `enriched_at` column on scraper_all — set after processing, prevents re-runs
+- JSONL logs in `enricher/logs/` — one file per run, supports `--resume`
+
+### Dependencies
+- Ollama (native macOS, `qwen2.5:72b-instruct-q4_0`)
+- SearXNG (Docker via `enricher/docker-compose.yml`, port 8888)
+- Crawl4AI + Docling (Python libs in `enricher/.venv/`)
+
+### Smart behaviors
+- Validates existing URLs (HEAD check), replaces dead ones via SearXNG search
+- LLM confirms URL type (is this regulamin really a regulamin?) and fixes mismatches
+- Distances: overwrites only if LLM found MORE entries (count comparison)
+- Event types: additive merge, no conflicting terrain types (trail vs uliczny)
+- Scalars (price, deadline): always overwrite from LLM (reads actual source material)
+
 ## Data that persists across docker compose down
 
 Named volume `pgdata` in docker-compose.yml. Never use anonymous volumes.

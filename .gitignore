@@ -15,3 +15,7 @@ liveresults/.env.local
 .superpowers/
 .worktrees/
 .vercel
+enricher/.venv/
+enricher/.env
+enricher/logs/
+enricher/searxng-data/
