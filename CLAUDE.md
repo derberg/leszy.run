@@ -329,7 +329,7 @@ backend/src/scrapers/
 
 ## Local LLM Enricher
 
-Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with Docling, and uses Ollama (qwen2.5:72b) for field extraction. Replaces the paid Claude API enrichment scripts.
+Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with Docling, and uses Ollama (qwen2.5-coder:32b) for field extraction. Only processes future events (date >= today).
 
 ### Running
 
@@ -359,7 +359,7 @@ distances, event_types, registration_url, regulamin_url, website, registration_d
 - Validates existing URLs (HEAD check), replaces dead ones via SearXNG search
 - LLM confirms URL type (is this regulamin really a regulamin?) and fixes mismatches
 - Distances: overwrites only if LLM found MORE entries (count comparison)
-- Event types: additive merge, no conflicting terrain types (trail vs uliczny)
+- Event types: when LLM had page/PDF content, overwrites existing types (fixes wrong scraper tags); without content, additive merge only
 - Scalars (price, deadline): always overwrite from LLM (reads actual source material)
 
 ## Data that persists across docker compose down
