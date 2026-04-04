@@ -101,3 +101,39 @@ def test_no_changes_returns_empty(sample_event_full):
     llm = {"distances": None, "event_types": None}
     updates = build_updates(sample_event_full, llm, {}, {}, config)
     assert len(updates) == 0
+
+
+# --- had_content=True: LLM overwrites event_types ---
+
+
+def test_event_types_overwrite_when_had_content(sample_event):
+    """With content, LLM types replace existing (fixes wrong scraper tags)."""
+    sample_event["event_types"] = ["nocny"]
+    llm = {"distances": None, "event_types": ["uliczny"]}
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
+    assert updates["event_types"] == ["uliczny"]
+    assert "nocny" not in updates["event_types"]
+
+
+def test_event_types_overwrite_removes_wrong_terrain(sample_event):
+    """With content, LLM can replace trail with uliczny."""
+    sample_event["event_types"] = ["trail", "nocny"]
+    llm = {"distances": None, "event_types": ["uliczny", "charytatywny"]}
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
+    assert set(updates["event_types"]) == {"charytatywny", "uliczny"}
+
+
+def test_event_types_no_overwrite_without_content(sample_event):
+    """Without content, additive merge keeps existing types."""
+    sample_event["event_types"] = ["nocny", "uliczny"]
+    llm = {"distances": None, "event_types": ["uliczny"]}
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=False)
+    assert "event_types" not in updates  # no change, LLM is subset
+
+
+def test_event_types_no_change_when_same(sample_event):
+    """With content, no update if LLM returns same types."""
+    sample_event["event_types"] = ["uliczny"]
+    llm = {"distances": None, "event_types": ["uliczny"]}
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
+    assert "event_types" not in updates

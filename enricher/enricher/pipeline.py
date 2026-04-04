@@ -92,7 +92,8 @@ async def process_event(event: dict, config: Config) -> dict:
     }
 
     # Step 6: Smart merge
-    updates = build_updates(event, llm_result or {}, url_statuses, search_candidates, config)
+    had_content = bool(crawled_content or pdf_text)
+    updates = build_updates(event, llm_result or {}, url_statuses, search_candidates, config, had_content)
     result["updates"] = updates
     result["steps"]["merge"] = {
         "fields_updated": [k for k in updates if k not in ("registration_url", "regulamin_url", "website")],

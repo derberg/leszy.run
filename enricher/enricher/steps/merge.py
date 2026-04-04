@@ -3,10 +3,12 @@ from enricher.steps.validate_urls import UrlStatus
 TERRAIN_TYPES = {"trail", "ocr", "uliczny"}
 
 
-def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates: dict, config) -> dict:
+def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates: dict, config, had_content: bool = False) -> dict:
     """Compare LLM output with current event data and build update dict.
 
     Returns only fields that should be changed. Empty dict = no changes.
+    had_content: True when LLM had crawled pages or PDF to analyze — makes it
+    authoritative on event_types (overwrite instead of additive merge).
     """
     if not llm:
         return {}
@@ -17,7 +19,7 @@ def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates:
     _merge_distances(event, llm, updates)
 
     # --- Event types (Rule 4) ---
-    _merge_event_types(event, llm, updates, config)
+    _merge_event_types(event, llm, updates, config, had_content)
 
     # --- Scalar fields (Rule 5: always overwrite from LLM) ---
     _merge_scalars(event, llm, updates, config)
@@ -57,7 +59,7 @@ def _merge_distances(event, llm, updates):
     # else: keep current (same count or fewer)
 
 
-def _merge_event_types(event, llm, updates, config):
+def _merge_event_types(event, llm, updates, config, had_content: bool = False):
     llm_types = llm.get("event_types")
     if not llm_types or not isinstance(llm_types, list) or len(llm_types) == 0:
         return
@@ -71,7 +73,14 @@ def _merge_event_types(event, llm, updates, config):
         updates["event_types"] = valid
         return
 
-    # Additive merge with terrain conflict resolution
+    if had_content:
+        # LLM read the actual pages — trust its classification over scraper keywords
+        new_set = sorted(set(valid))
+        if set(new_set) != set(current):
+            updates["event_types"] = new_set
+        return
+
+    # No content — additive merge with terrain conflict resolution
     merged = set(current)
     existing_terrain = [t for t in current if t in TERRAIN_TYPES]
 
