@@ -1,5 +1,7 @@
+import asyncio
 import click
 from enricher.config import load_config
+from enricher.pipeline import run_pipeline
 
 
 @click.group()
@@ -19,7 +21,7 @@ def run(limit, dry_run, resume, force):
     click.echo(f"Enricher ready. Ollama: {config.ollama_url}, SearXNG: {config.searxng_url}")
     if dry_run:
         click.echo("=== DRY RUN ===")
-    click.echo("Pipeline not yet implemented.")
+    asyncio.run(run_pipeline(config, limit, dry_run, resume, force))
 
 
 if __name__ == "__main__":
