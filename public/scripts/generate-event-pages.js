@@ -64,10 +64,6 @@ function buildJsonLd(event, slug) {
     },
   }
 
-  if (event.end_date) {
-    ld.endDate = event.end_date.slice(0, 10)
-  }
-
   if (event.lat != null && event.lng != null) {
     ld.location.geo = {
       '@type': 'GeoCoordinates',
