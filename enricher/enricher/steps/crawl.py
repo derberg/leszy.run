@@ -38,10 +38,11 @@ async def crawl_pages(urls: dict, max_chars: int = 10_000) -> dict[str, Optional
 async def _crawl_url(url: str, max_chars: int) -> Optional[CrawlResult]:
     """Crawl a single URL using Crawl4AI. Returns None on failure."""
     try:
-        from crawl4ai import AsyncWebCrawler
+        from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 
+        config = CrawlerRunConfig(wait_until="networkidle")
         async with AsyncWebCrawler() as crawler:
-            result = await crawler.arun(url=url)
+            result = await crawler.arun(url=url, config=config)
 
         if not result.success:
             return None
