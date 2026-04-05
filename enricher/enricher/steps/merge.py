@@ -162,7 +162,7 @@ def _merge_scalars(event, llm, updates, config):
 
         # Validate price is a positive number
         if field in ("price_from", "price_to"):
-            if not isinstance(value, (int, float)) or value <= 0:
+            if not isinstance(value, (int, float)) or value < 0:
                 continue
 
         # Rule 5: overwrite if LLM has a value
