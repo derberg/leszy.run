@@ -137,6 +137,29 @@ def test_deadline_correct_year_accepted(sample_event):
     assert updates["registration_deadline"] == "2026-04-01"
 
 
+def test_voivodeship_not_overwritten(sample_event_full):
+    """Existing voivodeship should never be overwritten by LLM."""
+    llm = {"distances": None, "event_types": None, "voivodeship": "Opolskie"}
+    updates = build_updates(sample_event_full, llm, {}, {}, config)
+    assert "voivodeship" not in updates
+
+
+def test_voivodeship_fills_empty(sample_event):
+    """Empty voivodeship should be filled from LLM."""
+    llm = {"distances": None, "event_types": None, "voivodeship": "Mazowieckie"}
+    updates = build_updates(sample_event, llm, {}, {}, config)
+    assert updates["voivodeship"] == "Mazowieckie"
+
+
+def test_charytatywny_not_dropped(sample_event):
+    """Charytatywny should not be dropped when LLM only returns uliczny."""
+    sample_event["event_types"] = ["charytatywny"]
+    llm = {"distances": None, "event_types": ["uliczny", "nordic walking"]}
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
+    assert "charytatywny" in updates["event_types"]
+    assert "uliczny" in updates["event_types"]
+
+
 def test_website_aggregator_blocked(sample_event):
     """Aggregator URLs should not be set as website when event already has one."""
     sample_event["website"] = "https://myevent.pl"
@@ -168,12 +191,12 @@ def test_event_types_no_downgrade_trail_to_uliczny(sample_event):
     assert "nocny" in updates["event_types"]
 
 
-def test_event_types_trail_to_ocr_allowed(sample_event):
-    """With content, replacing trail with ocr is allowed (both are specific)."""
+def test_event_types_trail_plus_ocr_merged(sample_event):
+    """With content, trail kept + ocr added (both are specific, neither dropped)."""
     sample_event["event_types"] = ["trail"]
     llm = {"distances": None, "event_types": ["ocr"]}
     updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
-    assert updates["event_types"] == ["ocr"]
+    assert set(updates["event_types"]) == {"ocr", "trail"}
 
 
 def test_event_types_uliczny_to_trail_allowed(sample_event):

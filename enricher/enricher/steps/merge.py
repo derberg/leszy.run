@@ -2,6 +2,9 @@ from urllib.parse import urlparse
 from enricher.steps.validate_urls import UrlStatus
 
 TERRAIN_TYPES = {"trail", "ocr", "uliczny"}
+# Types that carry specific meaning from scraper keyword evidence.
+# LLM should not drop these in favor of the generic "uliczny" default.
+SPECIFIC_TYPES = {"trail", "ocr", "charytatywny"}
 
 NOT_OFFICIAL_DOMAINS = {
     # News / portals
@@ -97,15 +100,14 @@ def _merge_event_types(event, llm, updates, config, had_content: bool = False):
 
     if had_content:
         # LLM read the actual pages — trust its classification, but never
-        # downgrade a specific terrain type (trail/ocr) to the default (uliczny).
-        # "uliczny" is what the LLM picks when unsure. If the scraper had
-        # keyword evidence for trail/ocr, preserve it.
-        existing_specific = set(current) & TERRAIN_TYPES - {"uliczny"}
-        llm_specific = set(valid) & TERRAIN_TYPES - {"uliczny"}
-        if existing_specific and not llm_specific:
-            # LLM only has uliczny but scraper had trail/ocr → keep existing terrain,
-            # merge in any non-terrain types the LLM found (nocny, charytatywny, etc.)
-            merged = set(current) | {t for t in valid if t not in TERRAIN_TYPES}
+        # drop specific types (trail/ocr/charytatywny) that the scraper found
+        # via keyword evidence. The LLM defaults to "uliczny" when unsure.
+        existing_specific = set(current) & SPECIFIC_TYPES
+        llm_has_those = set(valid) & existing_specific
+        lost = existing_specific - llm_has_those
+        if lost:
+            # LLM dropped specific types → preserve them, merge in LLM's additions
+            merged = set(current) | set(valid)
             new_set = sorted(merged)
         else:
             new_set = sorted(set(valid))
@@ -136,9 +138,12 @@ def _merge_scalars(event, llm, updates, config):
         if value is None:
             continue
 
-        # Validate voivodeship
-        if field == "voivodeship" and value not in config.voivodeships:
-            continue
+        # Voivodeship: only fill empty, never overwrite (scraper has geocoding evidence)
+        if field == "voivodeship":
+            if value not in config.voivodeships:
+                continue
+            if event.get("voivodeship"):
+                continue
 
         # Validate deadline format and year (must be within 1 year of event date)
         if field == "registration_deadline":
