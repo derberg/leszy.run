@@ -96,8 +96,19 @@ def _merge_event_types(event, llm, updates, config, had_content: bool = False):
         return
 
     if had_content:
-        # LLM read the actual pages — trust its classification over scraper keywords
-        new_set = sorted(set(valid))
+        # LLM read the actual pages — trust its classification, but never
+        # downgrade a specific terrain type (trail/ocr) to the default (uliczny).
+        # "uliczny" is what the LLM picks when unsure. If the scraper had
+        # keyword evidence for trail/ocr, preserve it.
+        existing_specific = set(current) & TERRAIN_TYPES - {"uliczny"}
+        llm_specific = set(valid) & TERRAIN_TYPES - {"uliczny"}
+        if existing_specific and not llm_specific:
+            # LLM only has uliczny but scraper had trail/ocr → keep existing terrain,
+            # merge in any non-terrain types the LLM found (nocny, charytatywny, etc.)
+            merged = set(current) | {t for t in valid if t not in TERRAIN_TYPES}
+            new_set = sorted(merged)
+        else:
+            new_set = sorted(set(valid))
         if set(new_set) != set(current):
             updates["event_types"] = new_set
         return

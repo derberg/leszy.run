@@ -157,12 +157,31 @@ def test_event_types_overwrite_when_had_content(sample_event):
     assert "nocny" not in updates["event_types"]
 
 
-def test_event_types_overwrite_removes_wrong_terrain(sample_event):
-    """With content, LLM can replace trail with uliczny."""
+def test_event_types_no_downgrade_trail_to_uliczny(sample_event):
+    """With content, trail should NOT be downgraded to uliczny (default fallback)."""
     sample_event["event_types"] = ["trail", "nocny"]
     llm = {"distances": None, "event_types": ["uliczny", "charytatywny"]}
     updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
-    assert set(updates["event_types"]) == {"charytatywny", "uliczny"}
+    # trail preserved, charytatywny added, nocny kept, uliczny blocked
+    assert "trail" in updates["event_types"]
+    assert "charytatywny" in updates["event_types"]
+    assert "nocny" in updates["event_types"]
+
+
+def test_event_types_trail_to_ocr_allowed(sample_event):
+    """With content, replacing trail with ocr is allowed (both are specific)."""
+    sample_event["event_types"] = ["trail"]
+    llm = {"distances": None, "event_types": ["ocr"]}
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
+    assert updates["event_types"] == ["ocr"]
+
+
+def test_event_types_uliczny_to_trail_allowed(sample_event):
+    """With content, upgrading uliczny to trail is allowed."""
+    sample_event["event_types"] = ["uliczny"]
+    llm = {"distances": None, "event_types": ["trail"]}
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
+    assert updates["event_types"] == ["trail"]
 
 
 def test_event_types_no_overwrite_without_content(sample_event):
