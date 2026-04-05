@@ -85,7 +85,7 @@ DISTANCES:
 
 EVENT TYPES (one or more, NEVER use "bieg"):
 - "uliczny" — road/city/asphalt, PZLA certified, cycling paths, cobblestone. DEFAULT for most events
-- "trail" — off-road: forest, dirt, mountain, cross-country, mud, gravel, "przełajowy"
+- "trail" — off-road: forest, dirt, mountain, cross-country, mud, gravel. IMPORTANT: "przełajowy", "cross", "bieg przełajowy" = ALWAYS trail, never uliczny
 - "nocny" — night race, starts after 20:00, headlamp required
 - "ocr" — obstacle course, mud run, survival, extreme
 - "nordic walking" — has NW category alongside running

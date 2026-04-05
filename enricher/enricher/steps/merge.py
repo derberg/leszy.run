@@ -3,10 +3,16 @@ from enricher.steps.validate_urls import UrlStatus
 
 TERRAIN_TYPES = {"trail", "ocr", "uliczny"}
 
-NEWS_DOMAINS = {
+NOT_OFFICIAL_DOMAINS = {
+    # News / portals
     "wiaralecha.pl", "moje-gniezno.pl", "bieganie.pl", "sport.pl",
     "onet.pl", "wp.pl", "gazeta.pl", "naszemiasto.pl", "dziennik.pl",
+    # Social
     "facebook.com", "www.facebook.com",
+    # Aggregators / registration platforms (not event's own site)
+    "maratonypolskie.pl", "datasport.pl", "liveds.datasport.pl",
+    "elektronicznezapisy.pl", "biegiwpolsce.pl", "dostartu.pl",
+    "domtel-sport.pl",
 }
 
 
@@ -14,7 +20,7 @@ def _is_official_domain(url: str) -> bool:
     """Check if URL looks like an official event site (not news/social)."""
     try:
         host = urlparse(url).hostname or ""
-        return not any(host == d or host.endswith("." + d) for d in NEWS_DOMAINS)
+        return not any(host == d or host.endswith("." + d) for d in NOT_OFFICIAL_DOMAINS)
     except Exception:
         return True
 
@@ -123,10 +129,20 @@ def _merge_scalars(event, llm, updates, config):
         if field == "voivodeship" and value not in config.voivodeships:
             continue
 
-        # Validate deadline format
+        # Validate deadline format and year (must be within 1 year of event date)
         if field == "registration_deadline":
             if not _re.match(r"^\d{4}-\d{2}-\d{2}$", str(value)):
                 continue
+            event_date = event.get("date", "")
+            if event_date:
+                try:
+                    from datetime import date as _date
+                    ev = _date.fromisoformat(event_date)
+                    dl = _date.fromisoformat(str(value))
+                    if abs((ev - dl).days) > 365:
+                        continue
+                except (ValueError, TypeError):
+                    pass
 
         # Validate price is a positive number
         if field in ("price_from", "price_to"):

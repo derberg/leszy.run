@@ -123,6 +123,28 @@ def test_no_changes_returns_empty(sample_event_full):
     assert len(updates) == 0
 
 
+def test_deadline_wrong_year_rejected(sample_event):
+    """Deadline with wrong year (>1 year from event) should be rejected."""
+    llm = {"distances": None, "event_types": None, "registration_deadline": "2023-03-20"}
+    updates = build_updates(sample_event, llm, {}, {}, config)
+    assert "registration_deadline" not in updates
+
+
+def test_deadline_correct_year_accepted(sample_event):
+    """Deadline within 1 year of event date should be accepted."""
+    llm = {"distances": None, "event_types": None, "registration_deadline": "2026-04-01"}
+    updates = build_updates(sample_event, llm, {}, {}, config)
+    assert updates["registration_deadline"] == "2026-04-01"
+
+
+def test_website_aggregator_blocked(sample_event):
+    """Aggregator URLs should not be set as website when event already has one."""
+    sample_event["website"] = "https://myevent.pl"
+    llm = {"distances": None, "event_types": None, "website": "https://elektronicznezapisy.pl/event/123", "website_is_official": True}
+    updates = build_updates(sample_event, llm, {}, {}, config)
+    assert "website" not in updates
+
+
 # --- had_content=True: LLM overwrites event_types ---
 
 
