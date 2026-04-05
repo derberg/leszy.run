@@ -45,6 +45,15 @@ def _parse_distances(dist_str: str) -> list:
     return [d.strip() for d in dist_str.split(",") if d.strip()]
 
 
+def _fmt(val) -> str:
+    """Format a value for display."""
+    if val is None:
+        return "(empty)"
+    if isinstance(val, list):
+        return ", ".join(str(x) for x in val) if val else "(empty)"
+    return str(val)
+
+
 def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
     """Push enriched fields from scraper_all to matching calendar_events rows."""
     sb = create_client(config.supabase_url, config.supabase_key)
@@ -88,9 +97,10 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
 
     for row in all_rows:
         # Find matching calendar_events row
-        match = sb.from_("calendar_events").select("id, event_type, distances").eq(
-            "source", row["source"]
-        ).eq("source_id", row["source_id"]).execute()
+        match = sb.from_("calendar_events").select(
+            "id, event_type, distances, registration_url, regulamin_url, "
+            "registration_deadline, price_from, price_to, website, voivodeship, enriched_at"
+        ).eq("source", row["source"]).eq("source_id", row["source_id"]).execute()
 
         if not match.data:
             not_found += 1
@@ -113,25 +123,35 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
             if new_dists and set(new_dists) != set(ce.get("distances") or []):
                 updates["distances"] = new_dists
 
-        # Simple fields: only update if scraper_all has a value
+        # Simple fields: only update if scraper_all has a value AND it differs
         for sa_field, ce_field in SYNC_FIELDS.items():
             if ce_field is None:
                 continue  # is_kids handled above
             if sa_field in ("event_types", "distances"):
                 continue  # handled above
             val = row.get(sa_field)
-            if val is not None:
+            if val is not None and val != ce.get(ce_field):
                 updates[ce_field] = val
 
         # Mark enriched
         updates["enriched_at"] = row["enriched_at"]
 
-        if not updates:
+        # Filter out enriched_at if it's the only change
+        real_changes = {k: v for k, v in updates.items() if k != "enriched_at"}
+        if not real_changes:
             skipped += 1
             continue
 
-        prefix = "WOULD" if dry_run else "✓"
-        click.echo(f"  {prefix} {row['name'][:60]:60s} | {', '.join(updates.keys())}")
+        prefix = "WOULD UPDATE" if dry_run else "✓ UPDATED"
+        click.echo(f"\n  {prefix}: {row['name']}")
+        for field, new_val in sorted(updates.items()):
+            if field == "enriched_at":
+                continue
+            ce_field = field
+            old_val = ce.get(ce_field)
+            old_str = _fmt(old_val)
+            new_str = _fmt(new_val)
+            click.echo(f"    {field:25s} {old_str} → {new_str}")
 
         if not dry_run:
             try:
