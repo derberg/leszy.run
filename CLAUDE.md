@@ -337,30 +337,27 @@ Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXN
 cd enricher
 source .venv/bin/activate
 docker compose up -d          # SearXNG
-python -m enricher run         # process all un-enriched
-python -m enricher run --limit 5 --dry-run  # test run
-python -m enricher run --resume             # continue interrupted run
+python -m enricher run         # process all un-enriched future events
 python -m enricher run --force              # re-process already-enriched events
+python -m enricher run --limit 5 --dry-run  # test run
+python -m enricher sync --since today --dry-run  # preview sync to calendar_events
+python -m enricher sync --since today            # push to calendar_events
 ```
 
-### What it enriches (scraper_all fields)
-distances, event_types, registration_url, regulamin_url, website, registration_deadline, price_from, price_to, voivodeship, is_kids
-
-### Enrichment tracking
-- `enriched_at` column on scraper_all — set after processing, prevents re-runs
-- JSONL logs in `enricher/logs/` — one file per run, supports `--resume`
+See `enricher/README.md` for full docs, all flags, merge rules, and architecture.
 
 ### Dependencies
 - Ollama (native macOS, `qwen2.5-coder:32b` — 72b times out due to partial CPU offload)
 - SearXNG (Docker via `enricher/docker-compose.yml`, port 8888)
 - Crawl4AI + Docling (Python libs in `enricher/.venv/`)
 
-### Smart behaviors
-- Validates existing URLs (HEAD check), replaces dead ones via SearXNG search
-- LLM confirms URL type (is this regulamin really a regulamin?) and fixes mismatches
-- Distances: overwrites only if LLM found MORE entries (count comparison)
-- Event types: when LLM had page/PDF content, overwrites existing types (fixes wrong scraper tags); without content, additive merge only
-- Scalars (price, deadline): always overwrite from LLM (reads actual source material)
+### Key merge safety rules
+- Never downgrades trail/ocr/charytatywny → uliczny (scraper keyword evidence preserved)
+- Never nulls a working URL without a replacement candidate
+- Never overwrites existing voivodeship (geocoding is more reliable than LLM)
+- Rejects deadlines >1 year from event date (catches hallucinated years)
+- Allows price 0 for free events, rejects price_from > price_to
+- Keyword chunk extraction feeds focused price/deadline sections to LLM (not raw 6k char dumps)
 
 ## Data that persists across docker compose down
 
