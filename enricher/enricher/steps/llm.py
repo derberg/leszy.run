@@ -94,14 +94,18 @@ EVENT TYPES (one or more, NEVER use "bieg"):
 Multiple types allowed (e.g. ["trail", "nocny"] for night trail).
 
 PRICES — READ CAREFULLY, this is the most important field to extract:
-- Look for: "opłata startowa", "wpisowe", "cena", "koszt", price tables, "pakiet startowy"
-- Prices are often in tables with columns like "do [date]" showing early-bird vs late pricing
-- price_from: CHEAPEST option across all distances and time periods (in PLN, whole number)
-- price_to: MOST EXPENSIVE option across all distances and time periods (in PLN, whole number)
+- The Polish term for entry fee is "opłata startowa" — this is the DEFINITIVE price field
+- Also look for: "wpisowe", "cena", "koszt", "pakiet startowy"
+- REGULAMIN prices are AUTHORITATIVE — if the regulamin PDF has a price table, use those numbers over registration page prices
+- Prices often have date tiers: "I termin" / "II termin" / "III termin" or "do [date]" columns
+- There is often a "w dniu biegu" / "w dniu zawodów" (race day) price — this is the HIGHEST tier
+- price_from: CHEAPEST entry fee across ALL tiers and distances (first/early-bird price, in PLN, whole number)
+- price_to: MOST EXPENSIVE entry fee — usually the race-day/"w dniu biegu" price or last tier (in PLN, whole number)
+- Copy prices EXACTLY as shown — do NOT round (99 zł = 99, not 90 or 100)
 - If only one price: set both to the same value
 - If "bezpłatny" / "darmowy" / "free": set both to 0
-- Convert grosze: 5000 gr = 50 PLN
 - null ONLY if absolutely no price information found anywhere in the content
+- Typical ranges for Polish running events: kids 0-30 PLN, 5km 30-80 PLN, half marathon 70-180 PLN, marathon 100-250 PLN
 
 REGISTRATION DEADLINE:
 - Look for: "termin zgłoszeń", "zapisy do", "rejestracja do", "limit zgłoszeń"

@@ -169,6 +169,13 @@ def _merge_scalars(event, llm, updates, config):
         if event.get(field) != value:
             updates[field] = value
 
+    # Sanity: price_from must be <= price_to
+    pf = updates.get("price_from", llm.get("price_from"))
+    pt = updates.get("price_to", llm.get("price_to"))
+    if pf is not None and pt is not None and pf > pt:
+        updates.pop("price_from", None)
+        updates.pop("price_to", None)
+
 
 def _merge_urls(event, llm, url_statuses, search_candidates, updates):
     """Handle URL replacement based on validation + LLM confirmation.

@@ -37,8 +37,8 @@ def test_build_prompt_omits_empty_sections():
              "distances": None, "event_types": None, "registration_deadline": None,
              "price_from": None, "price_to": None, "voivodeship": None}
     prompt = build_prompt(event, {}, None, config)
-    assert "REGULAMIN" not in prompt
-    assert "WEBSITE CONTENT" not in prompt
+    assert "--- REGULAMIN" not in prompt  # no regulamin content section
+    assert "--- WEBSITE CONTENT" not in prompt  # no website content section
 
 
 def test_parse_llm_response_valid_json():
