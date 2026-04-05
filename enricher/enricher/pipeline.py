@@ -126,6 +126,8 @@ def fetch_events(config: Config, limit: Optional[int], force: bool, skip_ids: se
         )
         if not force:
             query = query.is_("enriched_at", "null")
+        else:
+            query = query.not_.is_("enriched_at", "null")
         query = query.gte("date", today)
         data = query.range(offset, offset + page_size - 1).execute()
         if not data.data:
