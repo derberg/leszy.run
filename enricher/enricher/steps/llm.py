@@ -14,6 +14,8 @@ VOIVODESHIPS = [
 
 def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config) -> str:
     """Build the full extraction prompt with all gathered context."""
+    from enricher.steps.chunks import build_focused_context
+
     distances = event.get("distances") or "unknown"
     event_types = event.get("event_types")
     types_str = ", ".join(event_types) if event_types else "unknown"
@@ -23,23 +25,37 @@ def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config) ->
     price_str = f"{price_from}-{price_to} PLN" if price_from else "unknown"
     voivodeship = event.get("voivodeship") or "unknown"
 
-    sections = []
+    # Build focused chunks (prices, deadlines, distances) from all content
+    focused = build_focused_context(crawled, pdf_text)
 
-    # Content sections — only include non-empty ones
+    # Keep truncated raw content for general context (event types, URLs, etc.)
+    # Focused chunks already have price/deadline/distance data, so raw can be shorter.
+    raw_limit = 2000 if focused else config.max_page_chars
+    sections = []
     for field, label in [("website", "WEBSITE CONTENT"), ("registration_url", "REGISTRATION PAGE")]:
         content = crawled.get(field)
         if content and isinstance(content, str) and content.strip():
             url = event.get(field, "")
-            sections.append(f"--- {label} ({url}) ---\n{content}")
+            sections.append(f"--- {label} ({url}) ---\n{content[:raw_limit]}")
 
     if pdf_text and pdf_text.strip():
         regulamin_url = event.get("regulamin_url", "")
-        sections.append(f"--- REGULAMIN ({regulamin_url}) ---\n{pdf_text}")
+        sections.append(f"--- REGULAMIN ({regulamin_url}) ---\n{pdf_text[:raw_limit]}")
     elif crawled.get("regulamin_url"):
         regulamin_url = event.get("regulamin_url", "")
-        sections.append(f"--- REGULAMIN ({regulamin_url}) ---\n{crawled['regulamin_url']}")
+        sections.append(f"--- REGULAMIN ({regulamin_url}) ---\n{crawled['regulamin_url'][:raw_limit]}")
 
-    context_block = "\n\n".join(sections) if sections else "(No web content or PDF available)"
+    raw_context = "\n\n".join(sections) if sections else ""
+
+    # Combine: focused chunks first (most important), then raw context
+    if focused and raw_context:
+        context_block = focused + "\n\n=== FULL PAGE CONTENT (for event types, URLs, other details) ===\n" + raw_context
+    elif focused:
+        context_block = focused
+    elif raw_context:
+        context_block = raw_context
+    else:
+        context_block = "(No web content or PDF available)"
 
     return f"""Extract structured data about a Polish running/walking race event.
 Return ONLY valid JSON, no other text.
