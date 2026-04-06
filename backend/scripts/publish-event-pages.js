@@ -1,6 +1,7 @@
-// Usage: cd backend && node --env-file=../.env scripts/publish-event-pages.js [--apply]
+// Usage: cd backend && node --env-file=../.env scripts/publish-event-pages.js [--apply] [--regen-og]
 // Generates static event pages manifest + OG images for the public kalendarz.
 // Dry run by default — use --apply to write files.
+// --regen-og: regenerate ALL OG images (use after changing the OG template)
 
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'fs'
@@ -211,11 +212,18 @@ async function main() {
   mkdirSync(KALENDARZ_DIR, { recursive: true })
 
   // Generate OG images for new/changed events + any missing OG files
-  const unchangedMissing = [...newSlugs].filter(s =>
-    !added.includes(s) && !changed.includes(s) && !existsSync(resolve(KALENDARZ_DIR, s, 'og.png'))
-  )
-  if (unchangedMissing.length) console.log(`  ${unchangedMissing.length} unchanged events missing OG images`)
-  const toGenerate = [...added, ...changed, ...unchangedMissing]
+  const regenOg = process.argv.includes('--regen-og')
+  let toGenerate
+  if (regenOg) {
+    toGenerate = [...newSlugs]
+    console.log(`  --regen-og: regenerating ALL ${toGenerate.length} OG images`)
+  } else {
+    const unchangedMissing = [...newSlugs].filter(s =>
+      !added.includes(s) && !changed.includes(s) && !existsSync(resolve(KALENDARZ_DIR, s, 'og.png'))
+    )
+    if (unchangedMissing.length) console.log(`  ${unchangedMissing.length} unchanged events missing OG images`)
+    toGenerate = [...added, ...changed, ...unchangedMissing]
+  }
   let generated = 0
   let genErrors = 0
 
