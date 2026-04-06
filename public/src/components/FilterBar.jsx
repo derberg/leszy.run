@@ -26,6 +26,14 @@ const DISTANCES = [
   { value: '50000-999999', label: 'Ultra (50+ km)' },
 ]
 
+const PRICE_RANGES = [
+  { value: 'free', label: 'Za darmo' },
+  { value: '0-50', label: 'do 50 zł' },
+  { value: '0-100', label: 'do 100 zł' },
+  { value: '0-150', label: 'do 150 zł' },
+  { value: '0-200', label: 'do 200 zł' },
+]
+
 const TIME_RANGES = [
   { value: '', label: 'Najbliższe' },
   { value: 'week', label: 'Ten tydzień' },
@@ -59,6 +67,7 @@ function activeFilterCount(filters, userLocation) {
   if (filters.voivodeship.length) count++
   if (filters.distance.length) count++
   if (filters.timeRange) count++
+  if (filters.price) count++
   if (userLocation) count++
   return count
 }
@@ -147,6 +156,68 @@ function getAfterMonths() {
     months.push({ value: val, label })
   }
   return months
+}
+
+function PriceSelect({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const getLabel = () => {
+    if (!value) return 'Cena: Wszystkie'
+    const found = PRICE_RANGES.find(p => p.value === value)
+    return found ? found.label : 'Cena: Wszystkie'
+  }
+
+  const isActive = !!value
+
+  return (
+    <div className="relative w-full md:w-auto" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`${selectClass} text-left w-full md:w-auto flex items-center justify-between gap-2 ${isActive ? 'border-apex-yellow-dim text-apex-text-bright' : ''}`}
+        aria-label="Filtruj po cenie"
+        aria-expanded={open}
+      >
+        <span className="truncate">{getLabel()}</span>
+        <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="none">
+          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 w-full md:w-64 max-h-72 overflow-y-auto bg-apex-surface border border-apex-border z-50 shadow-lg">
+          <button
+            type="button"
+            onClick={() => { onChange(''); setOpen(false) }}
+            className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-apex-surface-2 transition-colors w-full text-left ${!value ? 'text-apex-yellow' : 'text-apex-text'}`}
+          >
+            <span className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${!value ? 'bg-apex-yellow' : 'bg-transparent'}`} />
+            <span className="font-sans text-sm">Wszystkie</span>
+          </button>
+          {PRICE_RANGES.map(p => (
+            <button
+              type="button"
+              key={p.value}
+              onClick={() => { onChange(p.value); setOpen(false) }}
+              className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-apex-surface-2 transition-colors w-full text-left ${value === p.value ? 'text-apex-yellow' : 'text-apex-text'}`}
+            >
+              <span className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${value === p.value ? 'bg-apex-yellow' : 'bg-transparent'}`} />
+              <span className="font-sans text-sm">{p.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function TimeRangeSelect({ value, onChange }) {
@@ -373,6 +444,11 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
             ariaLabel="Filtruj po dystansie"
           />
 
+          <PriceSelect
+            value={filters.price || ''}
+            onChange={(val) => update('price', val)}
+          />
+
           <TimeRangeSelect
             value={filters.timeRange}
             onChange={(val) => update('timeRange', val)}
@@ -381,7 +457,7 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
           {count > 0 && (
             <button
               type="button"
-              onClick={() => onChange({ search: '', type: [], voivodeship: [], distance: [], timeRange: '' })}
+              onClick={() => onChange({ search: '', type: [], voivodeship: [], distance: [], timeRange: '', price: '' })}
               className="font-mono text-[11px] tracking-wide text-apex-yellow hover:text-apex-yellow-bright transition-colors flex-shrink-0 px-2 py-2.5"
             >
               Wyczyść filtry ✕
@@ -415,4 +491,4 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
   )
 }
 
-export { EVENT_TYPES, VOIVODESHIPS, DISTANCES, TIME_RANGES }
+export { EVENT_TYPES, VOIVODESHIPS, DISTANCES, TIME_RANGES, PRICE_RANGES }

@@ -189,6 +189,7 @@ export default function Kalendarz() {
     voivodeship: searchParams.get('region') ? searchParams.get('region').split(',') : [],
     distance: searchParams.get('dist') ? searchParams.get('dist').split(',') : [],
     timeRange: searchParams.get('when') || '',
+    price: searchParams.get('price') || '',
   })
 
   const handleLocationRequest = useCallback(() => {
@@ -249,7 +250,7 @@ export default function Kalendarz() {
 
       // Map view and distance filter need all results (no pagination)
       // (Supabase can't filter "any array element in range" natively)
-      if (view === 'map' || view === 'calendar' || filters.distance.length || userLocation) {
+      if (view === 'map' || view === 'calendar' || filters.distance.length || filters.price || userLocation) {
         query = query.limit(2000)
       } else {
         const from = (page - 1) * PAGE_SIZE
@@ -300,7 +301,23 @@ export default function Kalendarz() {
         })
       }
 
-      if (userLocation || filters.distance.length) {
+      // Price filtering (client-side — Supabase can't filter nullable range pairs)
+      if (filters.price && filteredData.length > 0) {
+        if (filters.price === 'free') {
+          filteredData = filteredData.filter(e =>
+            e.price_from === 0 || (e.price_from == null && e.price_to === 0)
+          )
+        } else {
+          const maxPrice = parseInt(filters.price.split('-')[1], 10)
+          filteredData = filteredData.filter(e => {
+            if (e.price_from == null && e.price_to == null) return false
+            const lowest = e.price_from ?? e.price_to
+            return lowest <= maxPrice
+          })
+        }
+      }
+
+      if (userLocation || filters.distance.length || filters.price) {
         // Client-side pagination for client-filtered results
         const from = (page - 1) * PAGE_SIZE
         const paged = filteredData.slice(from, from + PAGE_SIZE)
@@ -328,6 +345,7 @@ export default function Kalendarz() {
     if (filters.voivodeship.length) params.set('region', filters.voivodeship.join(','))
     if (filters.distance.length) params.set('dist', filters.distance.join(','))
     if (filters.timeRange) params.set('when', filters.timeRange)
+    if (filters.price) params.set('price', filters.price)
     if (view !== 'list') params.set('view', view)
     if (userLocation && radius !== 50) params.set('r', String(radius))
     if (page > 1) params.set('page', String(page))

@@ -32,12 +32,21 @@ export default function EventInfoGrid({ event }) {
   // Cena
   if (event.price_from != null || event.price_to != null) {
     let value = ''
-    if (event.price_from != null && event.price_to != null) {
-      value = `od ${event.price_from} zł do ${event.price_to} zł`
-    } else if (event.price_from != null) {
-      value = `od ${event.price_from} zł`
+    const from = event.price_from
+    const to = event.price_to
+    const bothZero = from === 0 && (to == null || to === 0)
+    const fromZero = from === 0 && to != null && to > 0
+
+    if (bothZero) {
+      value = 'Za darmo'
+    } else if (fromZero) {
+      value = `od 0 zł (za darmo) do ${to} zł`
+    } else if (from != null && to != null) {
+      value = `od ${from} zł do ${to} zł`
+    } else if (from != null) {
+      value = from === 0 ? 'Za darmo' : `od ${from} zł`
     } else {
-      value = `do ${event.price_to} zł`
+      value = `do ${to} zł`
     }
     cells.push({ label: 'Cena', value, accent: true })
   }

@@ -60,6 +60,8 @@ export default function EventRow({ event }) {
   const distanceLabel = (event.distances && event.distances.length > 0)
     ? event.distances.join(' / ')
     : null
+  const regClosed = event.registration_deadline
+    && new Date(event.registration_deadline + 'T23:59:59') < new Date()
 
   return (
     <>
@@ -81,6 +83,9 @@ export default function EventRow({ event }) {
           </div>
           <div className="flex gap-1.5 items-center flex-shrink-0">
             <div className="flex gap-1.5 items-center flex-wrap">
+              {regClosed && (
+                <span className={`${baseTag} border-apex-red/30 text-apex-red`}>Zapisy zamknięte</span>
+              )}
               {types.map(t => <TypeTag key={t} label={t} />)}
               <DistTag label={distanceLabel} />
               {isLeszyrun && (
@@ -108,8 +113,11 @@ export default function EventRow({ event }) {
             {city && (
               <div className="text-[12px] text-apex-muted mt-0.5">{city}</div>
             )}
-            {(types.length > 0 || distanceLabel) && (
+            {(types.length > 0 || distanceLabel || regClosed) && (
               <div className="flex gap-1 mt-1.5 flex-wrap">
+                {regClosed && (
+                  <span className={`${baseTag} border-apex-red/30 text-apex-red`}>Zapisy zamknięte</span>
+                )}
                 {types.map(t => <TypeTag key={t} label={t} />)}
                 <DistTag label={distanceLabel} />
                 {isLeszyrun && (
