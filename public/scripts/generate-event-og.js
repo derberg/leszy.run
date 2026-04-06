@@ -96,9 +96,10 @@ export async function generateEventOg(event, outputPath) {
   const logoPath = resolve(ROOT, 'public/logo-z-napisem.svg')
   const logoSvg = readFileSync(logoPath, 'utf-8')
 
-  const nameRaw = truncate(event.name || 'Wydarzenie', 80).toUpperCase()
-  const nameLines = wrapTitle(nameRaw, 35)
-  const nameFontSize = nameLines.length > 1 ? 36 : (nameRaw.length > 30 ? Math.max(32, Math.floor(1040 / (nameRaw.length * 0.58))) : 48)
+  const nameRaw = truncate(event.name || 'Wydarzenie', 70).toUpperCase()
+  const nameLines = wrapTitle(nameRaw, 34)
+  // Size: 2-line titles get smaller font; single-line scales by length
+  const nameFontSize = nameLines.length > 1 ? 32 : (nameRaw.length > 30 ? Math.max(32, Math.floor(1040 / (nameRaw.length * 0.58))) : 48)
   const date = escapeXml(formatPolishDate(event.date))
   const location = escapeXml(truncate(event.location || '', 60))
   const voivodeship = event.voivodeship ? escapeXml(event.voivodeship) : ''
