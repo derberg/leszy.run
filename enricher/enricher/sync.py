@@ -112,6 +112,7 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
 
         if not match.data:
             not_found += 1
+            click.echo(f"  NOT FOUND: {row['name']} ({row['date']}) [{row.get('source')}:{row.get('source_id')}]")
             continue
 
         ce = match.data[0]
