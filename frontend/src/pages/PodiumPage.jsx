@@ -378,11 +378,6 @@ export default function PodiumPage() {
                   {activeGenderLabel}
                 </div>
               )}
-              {activeCategory.distanceMeters && (
-                <div className="text-apex-muted text-sm text-center mb-8">
-                  {(activeCategory.distanceMeters / 1000).toFixed(1)} km
-                </div>
-              )}
               <CategoryCard cat={activeCategory} checkpoints={categoryCheckpoints} results={enrichedResults} />
               <div className="mt-8">
                 <CheckpointTrackingTable

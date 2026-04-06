@@ -22,14 +22,13 @@ export async function categoriesRoutes(fastify) {
 
   // Create category
   fastify.post('/events/:eventId/categories', async (req, reply) => {
-    const { name, slug, distanceMeters } = req.body
+    const { name, slug } = req.body
     if (!name || !slug) return reply.code(400).send({ error: 'name and slug are required' })
 
     const [row] = await db.insert(categories).values({
       eventId: req.params.eventId,
       name,
       slug: slug.toLowerCase().replace(/\s+/g, '-'),
-      distanceMeters,
     }).returning()
 
     return reply.code(201).send({ data: row })
@@ -37,7 +36,7 @@ export async function categoriesRoutes(fastify) {
 
   // Update category
   fastify.patch('/categories/:id', async (req, reply) => {
-    const allowed = ['name', 'slug', 'distanceMeters']
+    const allowed = ['name', 'slug']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
@@ -86,7 +85,6 @@ export async function categoriesRoutes(fastify) {
       if (existing) {
         await db.update(categories).set({
           name: row.name,
-          distanceMeters: row.distance_meters ? parseInt(row.distance_meters) : existing.distanceMeters,
         }).where(eq(categories.id, existing.id))
         updated++
       } else {
@@ -94,7 +92,6 @@ export async function categoriesRoutes(fastify) {
           eventId: req.params.eventId,
           name: row.name,
           slug,
-          distanceMeters: row.distance_meters ? parseInt(row.distance_meters) : null,
         })
         imported++
       }

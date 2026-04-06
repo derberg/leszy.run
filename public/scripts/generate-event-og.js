@@ -42,6 +42,27 @@ function truncate(str, max) {
   return str.length > max ? str.slice(0, max - 1) + '\u2026' : str
 }
 
+function wrapTitle(text, maxCharsPerLine) {
+  if (text.length <= maxCharsPerLine) return [text]
+  // Split at word boundary closest to middle
+  const words = text.split(/\s+/)
+  const mid = Math.ceil(text.length / 2)
+  let line1 = ''
+  let bestSplit = 0
+  for (let i = 0; i < words.length; i++) {
+    const candidate = words.slice(0, i + 1).join(' ')
+    if (candidate.length <= mid + 5) {
+      line1 = candidate
+      bestSplit = i + 1
+    }
+  }
+  if (!line1 || bestSplit >= words.length) {
+    // Can't split nicely — just hard break
+    return [text.slice(0, maxCharsPerLine), text.slice(maxCharsPerLine).trim()]
+  }
+  return [line1, words.slice(bestSplit).join(' ')]
+}
+
 function formatPolishDate(dateStr) {
   if (!dateStr) return ''
   const d = new Date(dateStr + 'T00:00:00')
@@ -75,11 +96,9 @@ export async function generateEventOg(event, outputPath) {
   const logoPath = resolve(ROOT, 'public/logo-z-napisem.svg')
   const logoSvg = readFileSync(logoPath, 'utf-8')
 
-  const nameRaw = truncate(event.name || 'Wydarzenie', 60).toUpperCase()
-  const name = escapeXml(nameRaw)
-  // Scale font to fit 1200px width with ~80px padding each side (1040px usable)
-  const nameLen = nameRaw.length
-  const nameFontSize = nameLen > 40 ? Math.max(28, Math.floor(1040 / (nameLen * 0.58))) : 48
+  const nameRaw = truncate(event.name || 'Wydarzenie', 80).toUpperCase()
+  const nameLines = wrapTitle(nameRaw, 35)
+  const nameFontSize = nameLines.length > 1 ? 36 : (nameRaw.length > 30 ? Math.max(32, Math.floor(1040 / (nameRaw.length * 0.58))) : 48)
   const date = escapeXml(formatPolishDate(event.date))
   const location = escapeXml(truncate(event.location || '', 60))
   const voivodeship = event.voivodeship ? escapeXml(event.voivodeship) : ''
@@ -89,7 +108,7 @@ export async function generateEventOg(event, outputPath) {
   // Badge text elements
   let badgeSvg = ''
   if (badges.length > 0) {
-    const badgeY = 430
+    const badgeY = nameLines.length > 1 ? 450 : 430
     const badgeH = 26
     const badgePad = 12
     const badgeGap = 8
@@ -138,21 +157,25 @@ export async function generateEventOg(event, outputPath) {
   <rect x="0" y="0" width="${WIDTH}" height="4" fill="${YELLOW}"/>
 
   <!-- Event name -->
-  <text x="${CX}" y="300"
+  ${nameLines.map((line, i) => {
+    const baseY = nameLines.length > 1 ? 280 : 300
+    const lineY = baseY + i * (nameFontSize + 6)
+    return `<text x="${CX}" y="${lineY}"
     font-family="'Barlow Condensed', Arial, sans-serif" font-weight="800"
     font-size="${nameFontSize}" letter-spacing="${nameFontSize > 36 ? 3 : 2}" text-anchor="middle" fill="${TEXT_BRIGHT}">
-    ${name}
-  </text>
+    ${escapeXml(line)}
+  </text>`
+  }).join('\n  ')}
 
   <!-- Date -->
-  <text x="${CX}" y="350"
+  <text x="${CX}" y="${nameLines.length > 1 ? 370 : 350}"
     font-family="'Barlow Condensed', Arial, sans-serif" font-weight="700"
     font-size="28" letter-spacing="4" text-anchor="middle" fill="${YELLOW}">
     ${date}
   </text>
 
   <!-- Location + voivodeship -->
-  <text x="${CX}" y="390"
+  <text x="${CX}" y="${nameLines.length > 1 ? 410 : 390}"
     font-family="'Rajdhani', Arial, sans-serif" font-weight="500"
     font-size="20" letter-spacing="2" text-anchor="middle" fill="${TEXT_MUTED}">
     ${escapeXml(locationLine)}

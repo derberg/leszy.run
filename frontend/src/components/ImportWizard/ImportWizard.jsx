@@ -10,8 +10,8 @@ export default function ImportWizard({ eventId }) {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <ImportSection
         title="Importuj kategorie"
-        description="CSV z kolumnami: id, name, distance_meters"
-        example={"id,name,distance_meters\nbieg-5km,Bieg 5km,5000\nnordic-walking,Nordic Walking,5000"}
+        description="CSV z kolumnami: id, name"
+        example={"id,name\nbieg-5km,Bieg 5km\nnordic-walking,Nordic Walking"}
         onImport={(fd) => api.categories.importCsv(eventId, fd)}
         invalidateKey={['categories', eventId]}
       />

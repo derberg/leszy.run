@@ -156,7 +156,14 @@ export default function Checkin() {
       <div className="min-h-screen bg-apex-bg text-apex-text-bright">
         <div className="max-w-md mx-auto px-6 py-12 text-center">
           <div className="font-display text-4xl uppercase tracking-widest mb-2">Zameldowano!</div>
-          <div className="text-apex-muted text-sm mb-8">{participant?.first_name} {participant?.last_name} &middot; #{participant?.bib_number}</div>
+          <div className="text-apex-muted text-sm mb-2">{participant?.first_name} {participant?.last_name} &middot; #{participant?.bib_number}</div>
+          
+          {participant?.emoji && (
+            <div className="mb-8">
+              <div className="text-3xl mb-2">{participant.emoji}</div>
+              <div className="text-apex-muted text-xs uppercase tracking-wider">Twoja emotka</div>
+            </div>
+          )}
 
           <div ref={qrRef} className="inline-block bg-white p-4 mb-6">
             <QRCodeCanvas value={`${window.location.origin}/events/${event.slug}/admin/checkin?p=${participantId}`} size={200} />

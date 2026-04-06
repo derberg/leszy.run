@@ -28,7 +28,6 @@ export const categories = pgTable('categories', {
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   slug: text('slug').notNull(),   // human-readable import key, e.g. 'bieg-5km'
-  distanceMeters: integer('distance_meters'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 }, (t) => [

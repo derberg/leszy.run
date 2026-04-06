@@ -150,8 +150,9 @@ export default function ParticipantsTable({ eventId, categories }) {
 
     return (
       <div
-        className="cursor-text hover:bg-terrain-sand px-1 py-0.5 min-h-6 min-w-12 rounded-sm text-xs"
+        className="cursor-text hover:bg-terrain-sand px-1 py-0.5 min-h-6 min-w-12 rounded-sm text-xs truncate"
         onClick={() => setEditingCell({ rowId: participant.id, columnId: field })}
+        title={value || ''}
       >
         {display ?? (value || <span className="text-apex-text">—</span>)}
       </div>

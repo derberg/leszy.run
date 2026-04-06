@@ -75,7 +75,14 @@ export async function participantsRoutes(fastify) {
     if (!participant) return reply.code(404).send({ error: 'Participant not found' })
 
     const existing = await usedEmojis(db, participant.eventId)
-    const emoji = pickEmoji(existing.filter(e => e !== participant.emoji))
+    let emoji
+    let attempts = 0
+    // Keep trying until we get a different emoji (max 20 attempts)
+    do {
+      emoji = pickEmoji(existing)
+      attempts++
+    } while (emoji === participant.emoji && attempts < 20)
+    
     const [row] = await db.update(participants).set({ emoji, updatedAt: new Date() }).where(eq(participants.id, req.params.id)).returning()
     return { data: row }
   })
@@ -106,6 +113,9 @@ export async function participantsRoutes(fastify) {
     const existingEmojis = await usedEmojis(db, req.params.eventId)
     const assignedInThisImport = []
 
+    // Get starting bib number once, then increment locally to avoid race condition
+    let nextBib = await nextBibNumber(db, req.params.eventId)
+
     let imported = 0, updated = 0, skipped = 0
     const importErrors = []
 
@@ -133,16 +143,20 @@ export async function participantsRoutes(fastify) {
         phone = null
       }
 
+      // Match by email + name to handle family members with shared emails
       const existing = row.email
         ? await db.query.participants.findFirst({
-            where: and(eq(participants.eventId, req.params.eventId), eq(participants.email, row.email)),
+            where: and(
+              eq(participants.eventId, req.params.eventId),
+              eq(participants.email, row.email),
+              eq(participants.firstName, row.first_name),
+              eq(participants.lastName, row.last_name)
+            ),
           })
         : null
 
       if (existing) {
         await db.update(participants).set({
-          firstName: row.first_name,
-          lastName: row.last_name,
           gender: row.gender || existing.gender,
           birthDate: row.birth_date || (row.birth_year ? `${row.birth_year}-01-01` : existing.birthDate),
           club: row.club || existing.club,
@@ -152,7 +166,6 @@ export async function participantsRoutes(fastify) {
         }).where(eq(participants.id, existing.id))
         updated++
       } else {
-        const nextBib = await nextBibNumber(db, req.params.eventId)
         const emoji = pickEmoji([...existingEmojis, ...assignedInThisImport])
         assignedInThisImport.push(emoji)
         await db.insert(participants).values({
@@ -170,6 +183,7 @@ export async function participantsRoutes(fastify) {
           tshirtSize: row.tshirt_size || null,
         })
         imported++
+        nextBib++ // Increment for next participant
       }
     }
 
