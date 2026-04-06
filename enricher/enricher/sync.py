@@ -60,7 +60,7 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
 
     # Fetch enriched scraper_all rows
     query = sb.from_("scraper_all").select(
-        "id, name, source, source_id, event_types, distances, "
+        "id, name, date, source, source_id, event_types, distances, "
         "registration_url, regulamin_url, registration_deadline, "
         "price_from, price_to, website, voivodeship, is_kids, enriched_at"
     ).not_.is_("enriched_at", "null")
