@@ -96,11 +96,19 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
     errors = []
 
     for row in all_rows:
-        # Find matching calendar_events row
-        match = sb.from_("calendar_events").select(
+        # Find matching calendar_events row — try source+source_id first, fallback to name+date
+        ce_fields = (
             "id, event_type, distances, registration_url, regulamin_url, "
             "registration_deadline, price_from, price_to, website, voivodeship, enriched_at"
-        ).eq("source", row["source"]).eq("source_id", row["source_id"]).execute()
+        )
+        match = sb.from_("calendar_events").select(ce_fields).eq(
+            "source", row["source"]
+        ).eq("source_id", row["source_id"]).execute()
+
+        if not match.data and row.get("name") and row.get("date"):
+            match = sb.from_("calendar_events").select(ce_fields).eq(
+                "name", row["name"]
+            ).eq("date", row["date"]).execute()
 
         if not match.data:
             not_found += 1
