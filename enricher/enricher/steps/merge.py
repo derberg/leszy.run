@@ -160,10 +160,11 @@ def _merge_scalars(event, llm, updates, config):
                 except (ValueError, TypeError):
                     pass
 
-        # Validate price is a positive number
+        # Validate price is a positive number, cast to int (DB column is integer)
         if field in ("price_from", "price_to"):
             if not isinstance(value, (int, float)) or value < 0:
                 continue
+            value = int(round(value))
 
         # Rule 5: overwrite if LLM has a value
         if event.get(field) != value:
