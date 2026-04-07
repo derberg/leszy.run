@@ -39,9 +39,15 @@ cd backend && node --env-file=../.env scripts/run-normalize.js --apply
 # Step 7: Publish to calendar_events — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-publish.js
 cd backend && node --env-file=../.env scripts/run-publish.js --apply
+
+# Step 8: Regenerate static event pages manifest + OG images — dry run first, then --apply
+cd backend && node --env-file=../.env scripts/publish-event-pages.js
+cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply
+# Use --regen-og to regenerate ALL OG images (e.g. after changing the OG template)
 ```
 
 After publishing, review new events in admin UI: `/calendar-events` → "Do przeglądu" tab.
+After step 8, commit the updated manifest and OG images in `public/public/kalendarz/`.
 
 ---
 
