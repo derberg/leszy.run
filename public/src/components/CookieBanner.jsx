@@ -2,8 +2,14 @@ import { useState, useEffect } from 'react'
 
 const GA_ID = 'G-8JRNXVX5Z9'
 const CONSENT_KEY = 'leszy-cookie-consent'
+const IS_DEV = import.meta.env.DEV
 
 function loadGA() {
+  // Disable GA in development mode
+  if (IS_DEV) {
+    console.log('[DEV] Google Analytics disabled in development mode')
+    return
+  }
   if (document.getElementById('ga-script')) return
   const script = document.createElement('script')
   script.id = 'ga-script'

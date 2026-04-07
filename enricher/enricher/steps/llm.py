@@ -78,7 +78,7 @@ RESPOND WITH THIS EXACT JSON STRUCTURE:
   "event_types": ["uliczny"],
   "registration_deadline": "YYYY-MM-DD",
   "price_from": 50,
-  "price_to": 120,
+  "price_to": 90,
   "voivodeship": "Mazowieckie",
   "is_kids": false,
   "website": "https://example.pl",
@@ -115,13 +115,13 @@ PRICES — READ CAREFULLY, this is the most important field to extract:
 - REGULAMIN prices are AUTHORITATIVE — if the regulamin PDF has a price table, use those numbers over registration page prices
 - Prices often have date tiers: "I termin" / "II termin" / "III termin" or "do [date]" columns
 - There is often a "w dniu biegu" / "w dniu zawodów" (race day) price — this is the HIGHEST tier
-- price_from: CHEAPEST entry fee across ALL tiers and distances (first/early-bird price, in PLN, whole number)
-- price_to: MOST EXPENSIVE entry fee — usually the race-day/"w dniu biegu" price or last tier (in PLN, whole number)
-- Copy prices EXACTLY as shown — do NOT round (99 zł = 99, not 90 or 100)
+- price_from: CHEAPEST adult entry fee across date tiers (first/early-bird price, in PLN, whole number)
+- price_to: MOST EXPENSIVE adult entry fee — usually the race-day/"w dniu biegu" price or last tier (in PLN, whole number)
+- ONLY copy exact numbers that appear in the text — NEVER infer, calculate, or estimate prices
 - If only one price: set both to the same value
-- If "bezpłatny" / "darmowy" / "free": set both to 0
+- If the MAIN ADULT race is "bezpłatny" / "darmowy" / "free": set both to 0
+- IGNORE free kids/children entries ("biegi dla dzieci bezpłatne") — these are separate events, not a price tier of the main race. Only use prices for the main adult race distances
 - null ONLY if absolutely no price information found anywhere in the content
-- Typical ranges for Polish running events: kids 0-30 PLN, 5km 30-80 PLN, half marathon 70-180 PLN, marathon 100-250 PLN
 
 REGISTRATION DEADLINE:
 - Look for: "termin zgłoszeń", "zapisy do", "rejestracja do", "limit zgłoszeń"
