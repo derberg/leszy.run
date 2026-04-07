@@ -122,9 +122,7 @@ export async function calendarEventsRoutes(fastify) {
       .order('date', { ascending: true })
       .range(from, from + limit - 1)
 
-    if (status === 'active') {
-      query = query.gte('date', new Date().toISOString().split('T')[0])
-    }
+    query = query.gte('date', new Date().toISOString().split('T')[0])
 
     if (source) query = query.eq('source', source)
 

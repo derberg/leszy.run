@@ -5,6 +5,7 @@ import { scrape as scrapeBiegiwpolsce } from './sources/biegiwpolsce.js'
 import { scrape as scrapeDostartu } from './sources/dostartu.js'
 import { scrape as scrapeTimekeeper } from './sources/timekeeper.js'
 import { scrape as scrapeSupersport } from './sources/supersport.js'
+import { scrape as scrapeZmierzymyczas } from './sources/zmierzymyczas.js'
 import { SOURCE_PRIORITY } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 
@@ -121,6 +122,21 @@ const sources = [
       regulamin_url: raw.regulamin_url || null,
       website: raw.website || null,
       is_kids: raw.is_kids || false,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'zmierzymyczas',
+    scrape: scrapeZmierzymyczas,
+    table: 'scraper_zmierzymyczas',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
     }),

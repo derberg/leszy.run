@@ -6,10 +6,11 @@ const SOURCE_PRIORITY = {
   biegiwpolsce: 2,
   timekeeper: 3,
   elektronicznezapisy: 4,
-  datasport: 5,
-  maratonypolskie: 6,
-  pomiarczasuatelier: 7,
-  supersport: 8,
+  datasport: 7,
+  maratonypolskie: 9,
+  pomiarczasuatelier: 8,
+  supersport: 5,
+  zmierzymyczas: 6,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
