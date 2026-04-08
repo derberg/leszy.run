@@ -22599,6 +22599,30 @@
     "website": "https://www.ultralemkowyna.pl/",
     "is_kids": null
   },
+  "wilczy-polmaraton-2026-10-17": {
+    "id": "e6c1b868-2eff-461a-8110-3dbf0fe215c3",
+    "name": "Wilczy Półmaraton",
+    "date": "2026-10-17",
+    "registration_deadline": "2026-10-11",
+    "regulamin_url": "https://docs.google.com/document/d/1WtKIgGkY9CwkGpiz048nbxFYlqSwO4RqWK8UcyHAMRc/edit?tab=t.0",
+    "price_from": 100,
+    "price_to": 100,
+    "location": "Wilcza",
+    "voivodeship": "Śląskie",
+    "lat": 50.187361,
+    "lng": 18.594886,
+    "distances": [
+      "11 km",
+      "22 km"
+    ],
+    "event_type": [
+      "trail",
+      "nordic"
+    ],
+    "registration_url": "https://www.zatyrani.pl/wilczy-polmaraton",
+    "website": "https://www.zatyrani.pl/wilczy-polmaraton",
+    "is_kids": null
+  },
   "iv-wilczy-polmaraton-2026-10-17": {
     "id": "3207adf6-3d1d-4fc2-a189-b709e552a030",
     "name": "IV Wilczy Półmaraton",
