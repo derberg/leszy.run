@@ -486,7 +486,11 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
                       className="accent-apex-yellow"
                     />
                     <div>
-                      <span className="text-apex-text-bright text-sm">{doc.name}</span>
+                      {doc.url ? (
+                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-apex-cyan hover:underline text-sm">{doc.name}</a>
+                      ) : (
+                        <span className="text-apex-text-bright text-sm">{doc.name}</span>
+                      )}
                       <span className={`ml-2 text-xs uppercase tracking-wider ${
                         doc.type === 'provide' ? 'text-apex-cyan' : 'text-apex-muted'
                       }`}>
