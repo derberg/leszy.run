@@ -32,6 +32,7 @@ export default function Checkin() {
     // Fetch participant via RPC (PII not exposed through direct table access)
     const { data: pData, error: pErr } = await supabase
       .rpc('get_participant_for_checkin', { p_participant_id: participantId })
+      .single()
 
     if (pErr || !pData) {
       setLoadError('Nie znaleziono uczestnika.')
