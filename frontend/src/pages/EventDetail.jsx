@@ -553,7 +553,7 @@ function DocumentsManager({ eventId }) {
     }
   }
 
-  const TYPE_LABELS = { acknowledge: 'Do akceptacji', provide: 'Do dostarczenia' }
+  const TYPE_LABELS = { acknowledge: 'Do akceptacji', provide: 'Do dostarczenia', info: 'Info (link)' }
   const FOR_LABELS = { all: 'Wszyscy', minors: 'Niepełnoletni' }
 
   return (
@@ -646,6 +646,7 @@ function DocumentsManager({ eventId }) {
               >
                 <option value="acknowledge">Do akceptacji</option>
                 <option value="provide">Do dostarczenia</option>
+                <option value="info">Info (link)</option>
               </select>
             </label>
             <label className="block">

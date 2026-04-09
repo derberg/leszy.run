@@ -15,7 +15,7 @@ export async function eventDocumentsRoutes(fastify) {
   fastify.post('/events/:eventId/documents', async (req, reply) => {
     const { name, type, url, requiredFor, sortOrder } = req.body
     if (!name || !type) return reply.code(400).send({ error: 'name and type are required' })
-    if (!['acknowledge', 'provide'].includes(type)) return reply.code(400).send({ error: 'type must be acknowledge or provide' })
+    if (!['acknowledge', 'provide', 'info'].includes(type)) return reply.code(400).send({ error: 'type must be acknowledge, provide, or info' })
     const [row] = await db.insert(eventDocuments).values({
       eventId: req.params.eventId, name, type, url: url || null, requiredFor: requiredFor || 'all', sortOrder: sortOrder || 0,
     }).returning()

@@ -365,9 +365,10 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
 
     setDocuments(applicableDocs)
 
-    // Initialize doc statuses
+    // Initialize doc statuses (skip info docs — they're non-interactive)
     const initial = {}
     for (const d of applicableDocs) {
+      if (d.type === 'info') continue
       initial[d.id] = d.type === 'acknowledge' ? 'accepted' : 'pending'
     }
     setCheckinDocs(initial)
@@ -465,11 +466,11 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
 
         {!alreadyCheckedIn && (
           <>
-            {/* Document checklist — skip 'provide' docs for minors (covered by the red warning above) */}
-            {documents.filter(d => !(minor && d.type === 'provide')).length > 0 && (
+            {/* Document checklist — skip 'provide' docs for minors (covered by the red warning above), skip 'info' docs (shown separately) */}
+            {documents.filter(d => d.type !== 'info' && !(minor && d.type === 'provide')).length > 0 && (
               <div className="mb-6">
                 <div className="text-xs text-apex-muted uppercase tracking-wider mb-3">Dokumenty</div>
-                {documents.filter(d => !(minor && d.type === 'provide')).map(doc => (
+                {documents.filter(d => d.type !== 'info' && !(minor && d.type === 'provide')).map(doc => (
                   <label key={doc.id} className="flex items-center gap-3 mb-3 cursor-pointer">
                     <input
                       type="checkbox"
@@ -493,6 +494,22 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
                       </span>
                     </div>
                   </label>
+                ))}
+              </div>
+            )}
+
+            {/* Info links (read-only) */}
+            {documents.filter(d => d.type === 'info').length > 0 && (
+              <div className="mb-6">
+                <div className="text-xs text-apex-muted uppercase tracking-wider mb-3">Informacje</div>
+                {documents.filter(d => d.type === 'info').map(doc => (
+                  <div key={doc.id} className="text-sm text-apex-text mb-2 pl-2 border-l-2 border-apex-yellow/40">
+                    {doc.url ? (
+                      <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-apex-cyan hover:underline">
+                        {doc.name} ↗
+                      </a>
+                    ) : doc.name}
+                  </div>
                 ))}
               </div>
             )}

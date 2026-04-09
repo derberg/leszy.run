@@ -55,20 +55,7 @@ export default function Checkin() {
     const category = (cats || []).find(c => c.id === pData.category_id)
     setParticipant({ ...pData, categoryName: category?.name })
 
-    // Check if already checked in
-    const { data: checkinData } = await supabase
-      .from('checkins')
-      .select('id')
-      .eq('participant_id', participantId)
-      .limit(1)
-
-    if (checkinData && checkinData.length > 0) {
-      setCheckedIn(true)
-      setLoading(false)
-      return
-    }
-
-    // Fetch event documents
+    // Fetch event documents (needed for both check-in form and confirmation screen info links)
     const minor = isMinor(pData.birth_date, event.date)
     const { data: docs } = await supabase
       .from('event_documents')
@@ -83,6 +70,20 @@ export default function Checkin() {
     })
 
     setDocuments(applicableDocs)
+
+    // Check if already checked in
+    const { data: checkinData } = await supabase
+      .from('checkins')
+      .select('id')
+      .eq('participant_id', participantId)
+      .limit(1)
+
+    if (checkinData && checkinData.length > 0) {
+      setCheckedIn(true)
+      setLoading(false)
+      return
+    }
+
     setLoading(false)
   }, [event, participantId])
 
@@ -90,6 +91,7 @@ export default function Checkin() {
 
   const acknowledgeDocs = documents.filter(d => d.type === 'acknowledge')
   const provideDocs = documents.filter(d => d.type === 'provide')
+  const infoDocs = documents.filter(d => d.type === 'info')
   const allAcknowledged = acknowledgeDocs.every(d => acknowledged[d.id])
 
   const handleConfirm = async () => {
@@ -109,8 +111,8 @@ export default function Checkin() {
       return
     }
 
-    // Insert checkin_documents
-    const docRows = documents.map(d => ({
+    // Insert checkin_documents (skip info docs — they're non-interactive)
+    const docRows = documents.filter(d => d.type !== 'info').map(d => ({
       checkin_id: checkinRow.id,
       document_id: d.id,
       status: d.type === 'acknowledge' ? 'accepted' : 'pending',
@@ -189,6 +191,21 @@ export default function Checkin() {
               <div className="text-apex-text-bright text-sm">
                 Pamiętaj odebrać koszulkę (rozmiar <strong className="text-apex-yellow">{participant.tshirt_size}</strong>) w biurze zawodów.
               </div>
+            </div>
+          )}
+
+          {infoDocs.length > 0 && (
+            <div className="mb-6">
+              <div className="text-xs text-apex-muted uppercase tracking-wider mb-3">Informacje</div>
+              {infoDocs.map(doc => (
+                <div key={doc.id} className="text-sm text-apex-text mb-2 pl-2 border-l-2 border-apex-yellow/40">
+                  {doc.url ? (
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-apex-cyan hover:underline">
+                      {doc.name} ↗
+                    </a>
+                  ) : doc.name}
+                </div>
+              ))}
             </div>
           )}
 
@@ -273,6 +290,22 @@ export default function Checkin() {
                 {doc.url ? (
                   <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-apex-cyan hover:underline">
                     {doc.name}
+                  </a>
+                ) : doc.name}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Info links (non-blocking) */}
+        {infoDocs.length > 0 && (
+          <div className="mb-6">
+            <div className="text-xs text-apex-muted uppercase tracking-wider mb-3">Informacje</div>
+            {infoDocs.map(doc => (
+              <div key={doc.id} className="text-sm text-apex-text mb-2 pl-2 border-l-2 border-apex-yellow/40">
+                {doc.url ? (
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-apex-cyan hover:underline">
+                    {doc.name} ↗
                   </a>
                 ) : doc.name}
               </div>

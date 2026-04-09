@@ -166,7 +166,7 @@ export const eventDocuments = pgTable('event_documents', {
   id: uuid('id').primaryKey().defaultRandom(),
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  type: text('type').notNull(),           // 'acknowledge' | 'provide'
+  type: text('type').notNull(),           // 'acknowledge' | 'provide' | 'info'
   url: text('url'),
   requiredFor: text('required_for').notNull().default('all'),  // 'all' | 'minors'
   sortOrder: integer('sort_order').notNull().default(0),
