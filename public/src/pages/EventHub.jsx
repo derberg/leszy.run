@@ -21,7 +21,7 @@ export default function EventHub() {
     } : undefined,
   })
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ladowanie...</div>
+  if (loading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ładowanie...</div>
   if (error) return <div className="flex items-center justify-center min-h-screen text-apex-red">{error}</div>
 
   return (

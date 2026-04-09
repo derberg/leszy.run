@@ -48,7 +48,7 @@ export default function Checkin() {
 
     const catIds = (cats || []).map(c => c.id)
     if (!catIds.includes(pData.category_id)) {
-      setLoadError('Uczestnik nie nalezy do tego wydarzenia.')
+      setLoadError('Uczestnik nie należy do tego wydarzenia.')
       setLoading(false)
       return
     }
@@ -139,7 +139,7 @@ export default function Checkin() {
   }
 
   if (eventLoading || loading) {
-    return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ladowanie...</div>
+    return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ładowanie...</div>
   }
   if (eventError) {
     return <div className="flex items-center justify-center min-h-screen text-apex-red">{eventError}</div>
@@ -173,14 +173,14 @@ export default function Checkin() {
           </div>
 
           <div className="border border-apex-yellow/40 bg-apex-yellow/10 text-apex-yellow text-sm px-4 py-3 mb-6">
-            Przed startem zglos sie z tym kodem QR do <strong>biura zawodow</strong>, aby odebrac pakiet startowy.
+            Przed startem zgłoś się z tym kodem QR do <strong>biura zawodów</strong>, aby odebrać pakiet startowy.
           </div>
 
           {minor && (
             <div className="border-2 border-apex-red bg-apex-red-dim/20 p-4 mb-6">
-              <div className="font-display text-base uppercase tracking-wider text-apex-red mb-1">Pamietaj!</div>
+              <div className="font-display text-base uppercase tracking-wider text-apex-red mb-1">Pamiętaj!</div>
               <div className="text-apex-text-bright text-sm leading-relaxed">
-                Jako uczestnik niepelnoletni <strong>musisz dostarczyc podpisana zgode opiekuna w formie papierowej</strong> do biura zawodow.
+                Jako uczestnik niepełnoletni <strong>musisz dostarczyć podpisaną zgodę opiekuna w formie papierowej</strong> do biura zawodów.
                 Bez tego dokumentu <strong>nie zostaniesz dopuszczony/a do startu</strong>.
               </div>
             </div>
@@ -196,7 +196,7 @@ export default function Checkin() {
           )}
 
           {infoDocs.length > 0 && (
-            <div className="mb-6">
+            <div className="mt-6 mb-6">
               <div className="text-xs text-apex-muted uppercase tracking-wider mb-3">Informacje</div>
               {infoDocs.map(doc => (
                 <div key={doc.id} className="text-sm text-apex-text mb-2 pl-2 border-l-2 border-apex-yellow/40">
@@ -245,12 +245,12 @@ export default function Checkin() {
         {/* Minor banner */}
         {minor && (
           <div className="border-2 border-apex-red bg-apex-red-dim/20 p-5 mb-6">
-            <div className="font-display text-lg uppercase tracking-wider text-apex-red mb-2">Uczestnik niepelnoletni</div>
+            <div className="font-display text-lg uppercase tracking-wider text-apex-red mb-2">Uczestnik niepełnoletni</div>
             <div className="text-apex-text-bright text-sm leading-relaxed">
               Wymagana jest <strong>pisemna zgoda opiekuna prawnego</strong>, wydrukowana i podpisana.
             </div>
             <div className="text-apex-text-bright text-sm leading-relaxed mt-2">
-              Dokument <strong>musi byc dostarczony w formie papierowej</strong> do biura zawodow przed startem.
+              Dokument <strong>musi być dostarczony w formie papierowej</strong> do biura zawodów przed startem.
               Bez niego uczestnik <strong>nie zostanie dopuszczony do startu</strong>.
             </div>
           </div>
@@ -324,7 +324,7 @@ export default function Checkin() {
               : 'bg-apex-surface-2 text-apex-muted cursor-not-allowed'
           }`}
         >
-          {submitting ? 'Wysylanie...' : 'Potwierdzam'}
+          {submitting ? 'Wysyłanie...' : 'Potwierdzam'}
         </button>
       </div>
     </div>

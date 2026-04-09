@@ -32,7 +32,7 @@ export default function AdminCheckin() {
     const { data, error } = await supabase.rpc('verify_checkin_pin', { p_event_id: event.id, p_pin: pinInput.trim() })
     if (error || data !== true) {
       const msg = JSON.stringify(error || '')
-      setPinError(msg.includes('Too many') ? 'Zbyt wiele prob. Sprobuj ponownie za 15 minut.' : 'Nieprawidlowy PIN.')
+      setPinError(msg.includes('Too many') ? 'Zbyt wiele prób. Spróbuj ponownie za 15 minut.' : 'Nieprawidłowy PIN.')
       setVerifying(false)
       return
     }
@@ -43,7 +43,7 @@ export default function AdminCheckin() {
     setVerifying(false)
   }
 
-  if (eventLoading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ladowanie...</div>
+  if (eventLoading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ładowanie...</div>
   if (eventError) return <div className="flex items-center justify-center min-h-screen text-apex-red">{eventError}</div>
 
   if (pinVerified) {
@@ -227,7 +227,7 @@ function QrScanner({ event, pin, onFound, onError }) {
 
           const catIds = (cats || []).map(c => c.id)
           if (!catIds.includes(pData.category_id)) {
-            onError('Uczestnik nie nalezy do tego wydarzenia.')
+            onError('Uczestnik nie należy do tego wydarzenia.')
             try { await html5Qrcode.resume() } catch {}
             return
           }
@@ -401,7 +401,7 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
     })
 
     if (error) {
-      onError(`Blad: ${error.message}`)
+      onError(`Błąd: ${error.message}`)
       setSubmitting(false)
       return
     }
@@ -410,7 +410,7 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ladowanie...</div>
+    return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ładowanie...</div>
   }
 
   const minor = isMinor(participant.birth_date, event.date)
@@ -430,17 +430,17 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
             <div className="text-apex-muted text-sm">{participant.categoryName}</div>
           )}
           {minor && (
-            <div className="text-apex-cyan text-xs mt-2 uppercase tracking-wider">Niepelnoletni</div>
+            <div className="text-apex-cyan text-xs mt-2 uppercase tracking-wider">Niepełnoletni</div>
           )}
         </div>
 
         {/* Minor warning — must confirm paper received */}
         {minor && !alreadyCheckedIn && (
           <div className="border-2 border-apex-red bg-apex-red-dim/20 p-5 mb-6">
-            <div className="font-display text-lg uppercase tracking-wider text-apex-red mb-2">Uczestnik niepelnoletni</div>
+            <div className="font-display text-lg uppercase tracking-wider text-apex-red mb-2">Uczestnik niepełnoletni</div>
             <div className="text-apex-text-bright text-sm leading-relaxed mb-3">
-              Uczestnik niepelnoletni <strong>musi dostarczyc podpisana zgode opiekuna prawnego w formie papierowej</strong>.
-              Bez tego dokumentu uczestnik <strong>nie moze zostac dopuszczony do startu</strong>.
+              Uczestnik niepełnoletni <strong>musi dostarczyć podpisaną zgodę opiekuna prawnego w formie papierowej</strong>.
+              Bez tego dokumentu uczestnik <strong>nie może zostać dopuszczony do startu</strong>.
             </div>
             <label className="flex items-center gap-3 cursor-pointer border border-apex-red/40 bg-apex-bg p-3">
               <input
@@ -502,21 +502,6 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
               </div>
             )}
 
-            {/* Info links (read-only) */}
-            {documents.filter(d => d.type === 'info').length > 0 && (
-              <div className="mb-6">
-                <div className="text-xs text-apex-muted uppercase tracking-wider mb-3">Informacje</div>
-                {documents.filter(d => d.type === 'info').map(doc => (
-                  <div key={doc.id} className="text-sm text-apex-text mb-2 pl-2 border-l-2 border-apex-yellow/40">
-                    {doc.url ? (
-                      <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-apex-cyan hover:underline">
-                        {doc.name} ↗
-                      </a>
-                    ) : doc.name}
-                  </div>
-                ))}
-              </div>
-            )}
 
             {participant?.tshirt_size && (
               <label className="flex items-center gap-3 mb-6 cursor-pointer">
@@ -546,7 +531,7 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
             </button>
             {minor && !minorPaperConfirmed && (
               <div className="text-apex-red text-xs text-center mt-2 uppercase tracking-wider">
-                Potwierdz odbiór zgody opiekuna, aby zameldowac
+                Potwierdź odbiór zgody opiekuna, aby zameldować
               </div>
             )}
           </>

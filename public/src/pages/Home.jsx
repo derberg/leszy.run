@@ -21,7 +21,7 @@ export default function Home() {
   return (
     <div className="max-w-2xl mx-auto px-6 py-10 page-watermark">
       <h1 className="font-display text-5xl uppercase tracking-widest text-apex-text-bright mb-8">LeszyRun</h1>
-      {loading && <div className="text-apex-muted">Ladowanie...</div>}
+      {loading && <div className="text-apex-muted">Ładowanie...</div>}
       <div className="space-y-2">
         {events.map(ev => (
           <Link key={ev.id} to={`/events/${ev.slug}`}

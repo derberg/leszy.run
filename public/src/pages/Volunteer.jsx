@@ -131,7 +131,7 @@ export default function Volunteer() {
 function LoadingScreen() {
   return (
     <div className="flex items-center justify-center min-h-dvh text-apex-dim bg-apex-bg">
-      Ladowanie...
+      Ładowanie...
     </div>
   )
 }

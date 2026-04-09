@@ -111,7 +111,7 @@ export default function Results() {
     return () => clearInterval(id)
   }, [preRaceState, event])
 
-  if (eventLoading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ladowanie...</div>
+  if (eventLoading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ładowanie...</div>
   if (eventError) return <div className="flex items-center justify-center min-h-screen text-apex-red">{eventError}</div>
 
   const loading = catLoading

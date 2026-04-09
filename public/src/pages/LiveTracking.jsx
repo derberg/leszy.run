@@ -129,7 +129,7 @@ export default function LiveTracking({ eventId, categories }) {
   if (loading) {
     return (
       <div className="text-center py-16 text-apex-muted">
-        <div className="font-display text-2xl uppercase tracking-widest animate-pulse">Ladowanie...</div>
+        <div className="font-display text-2xl uppercase tracking-widest animate-pulse">Ładowanie...</div>
       </div>
     )
   }
