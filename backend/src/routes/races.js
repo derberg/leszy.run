@@ -95,14 +95,24 @@ export async function racesRoutes(fastify) {
 
     const [updated] = await db.update(raceRuns).set(updates).where(eq(raceRuns.id, req.params.id)).returning()
 
-    // Mark remaining participants as DNF if requested
+    // Mark remaining participants as DNF/DNS if requested
     if (markRemainingDnf && (status === 'finished' || status === 'cancelled')) {
+      // Started but didn't finish → DNF
       await db.update(results)
         .set({ status: 'dnf' })
         .where(
           and(
             eq(results.raceRunId, req.params.id),
-            inArray(results.status, ['registered', 'checked_in', 'started']),
+            eq(results.status, 'started'),
+          )
+        )
+      // Never started (registered or checked_in) → DNS
+      await db.update(results)
+        .set({ status: 'dns' })
+        .where(
+          and(
+            eq(results.raceRunId, req.params.id),
+            inArray(results.status, ['registered', 'checked_in']),
           )
         )
     }
@@ -110,7 +120,7 @@ export async function racesRoutes(fastify) {
     // Unregister from crossing detector
     const detector = getDetector()
     if (detector && (status === 'finished' || status === 'cancelled')) {
-      detector.stopRace(req.params.id)
+      await detector.stopRace(req.params.id)
     }
 
     broadcast('race:update', { raceRunId: updated.id, status: updated.status, categoryId: updated.categoryId })

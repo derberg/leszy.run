@@ -107,13 +107,37 @@ export class CrossingDetector {
     this.#scheduleGunTimeBackfill(raceRun.id, gunStartTime, epcMap, startedParticipants, gunBackfillMs)
   }
 
-  stopRace(raceRunId) {
+  async stopRace(raceRunId) {
+    // Force-confirm any pending inRange entries before clearing them
+    const pendingConfirms = []
+    const race = this.activeRaces.get(raceRunId)
     for (const [key, tag] of this.inRange) {
       if (key.endsWith(`:${raceRunId}`)) {
         clearTimeout(tag.goneTimer)
         clearTimeout(tag.maxTimer)
+        const epc = key.split(':')[0]
+        const participantId = race?.epcToParticipant.get(epc)
+        if (participantId && race && !race.finishedParticipants.has(participantId)) {
+          pendingConfirms.push(
+            this.#confirmCrossing({
+              raceRunId,
+              participantId,
+              peakRssi: tag.peakRssi,
+              peakTime: tag.peakTime,
+              antennaPort: tag.antennaPort,
+              topic: tag.topic,
+              rfidMode: race.config.rfidMode,
+              rfidTopicFinish: race.config.rfidTopicFinish,
+              race,
+            }).catch(err => console.error(`[Detector] Failed to flush pending crossing for ${epc}:`, err))
+          )
+        }
         this.inRange.delete(key)
       }
+    }
+    if (pendingConfirms.length) {
+      await Promise.all(pendingConfirms)
+      console.log(`[Detector] Flushed ${pendingConfirms.length} pending crossing(s) on race stop`)
     }
     this.activeRaces.delete(raceRunId)
     const backfillTimer = this.backfillTimers.get(raceRunId)

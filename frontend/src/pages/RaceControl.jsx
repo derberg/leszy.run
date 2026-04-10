@@ -9,7 +9,7 @@ import { Button } from '../components/ui/button.jsx'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog.jsx'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.jsx'
-import { Radio, Flag, Square, RotateCcw, AlertTriangle, Trophy } from 'lucide-react'
+import { Radio, Flag, Square, RotateCcw, AlertTriangle, Trophy, UserCheck } from 'lucide-react'
 
 const MAX_FEED = 50
 
@@ -448,11 +448,32 @@ function RaceCard({ category, race, participants, onRefresh }) {
     onSuccess: () => { setStopDialog(false); onRefresh() },
   })
 
+  const [manualFinishOpen, setManualFinishOpen] = useState(false)
+  const [bibSearch, setBibSearch] = useState('')
+
+  const manualFinish = useMutation({
+    mutationFn: (resultId) => api.results.update(resultId, { finishTime: new Date().toISOString() }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['results', race?.id] })
+      onRefresh()
+    },
+  })
+
   const checkedIn = participants.filter(p => p.checkin?.checkedInAt).length
   const finished = results.filter(r => r.status === 'finished').length
   const started = results.filter(r => r.status === 'started').length
   const isActive = race?.status === 'active'
   const isPending = !race || race.status === 'pending'
+
+  const onCourseResults = results.filter(r => r.status === 'started' && !r.finishTime)
+  const filteredOnCourse = bibSearch.trim()
+    ? onCourseResults.filter(r => {
+        const q = bibSearch.trim().toLowerCase()
+        return String(r.participant?.bibNumber).includes(q)
+          || r.participant?.lastName?.toLowerCase().includes(q)
+          || r.participant?.firstName?.toLowerCase().includes(q)
+      })
+    : onCourseResults
 
   const beginCountdown = () => {
     setCountdown(countdownDuration)
@@ -511,9 +532,16 @@ function RaceCard({ category, race, participants, onRefresh }) {
               </Button>
             )}
             {isActive && (
-              <Button size="sm" variant="destructive" onClick={() => setStopDialog(true)}>
-                <Square size={13} /> Zatrzymaj wyścig
-              </Button>
+              <>
+                <Button size="sm" variant="destructive" onClick={() => setStopDialog(true)}>
+                  <Square size={13} /> Zatrzymaj wyścig
+                </Button>
+                {onCourseResults.length > 0 && (
+                  <Button size="sm" variant="outline" onClick={() => { setManualFinishOpen(true); setBibSearch('') }}>
+                    <UserCheck size={13} /> Ręczna meta ({onCourseResults.length})
+                  </Button>
+                )}
+              </>
             )}
             {(race?.status === 'finished' || race?.status === 'cancelled') && (
               <Button size="sm" variant="outline" onClick={() => setStartDialog(true)} disabled={checkedIn === 0} title={checkedIn === 0 ? 'Brak zameldowanych uczestników' : undefined}>
@@ -617,6 +645,50 @@ function RaceCard({ category, race, participants, onRefresh }) {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setStopDialog(false); setSliderVal(0) }}>Anuluj</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog ręcznej mety */}
+      <Dialog open={manualFinishOpen} onOpenChange={setManualFinishOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ręczna meta — {category.name}</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <input
+              type="text"
+              placeholder="Numer startowy lub nazwisko..."
+              value={bibSearch}
+              onChange={e => setBibSearch(e.target.value)}
+              autoFocus
+              className="w-full bg-apex-surface border border-apex-border text-apex-text px-3 py-2 text-sm font-mono focus:outline-none focus:border-apex-yellow mb-3"
+            />
+            <div className="border border-apex-border max-h-64 overflow-y-auto">
+              {filteredOnCourse.length === 0 && (
+                <div className="py-4 text-center text-xs text-apex-muted">
+                  {bibSearch.trim() ? 'Brak wyników' : 'Brak zawodników na trasie'}
+                </div>
+              )}
+              {filteredOnCourse.map(r => (
+                <div key={r.id} className="flex items-center gap-2 px-3 py-2 border-b border-apex-border last:border-0">
+                  <span className="font-mono text-apex-muted w-10 shrink-0">#{r.participant?.bibNumber}</span>
+                  <span className="flex-1 text-sm text-apex-text truncate">
+                    {r.participant?.firstName} {r.participant?.lastName}
+                  </span>
+                  <button
+                    className="border border-apex-yellow text-apex-yellow px-3 py-1 text-xs font-bold uppercase tracking-wider hover:bg-apex-yellow hover:text-black transition-colors disabled:opacity-50"
+                    onClick={() => manualFinish.mutate(r.id)}
+                    disabled={manualFinish.isPending}
+                  >
+                    META
+                  </button>
+                </div>
+              ))}
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualFinishOpen(false)}>Zamknij</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
