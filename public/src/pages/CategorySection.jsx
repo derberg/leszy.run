@@ -52,7 +52,7 @@ export default function CategorySection({ eventId, categoryId }) {
 
   const loadData = useCallback(async () => {
     const [catRes, runRes, cpRes, cpCatRes] = await Promise.all([
-      supabase.from('categories').select('id, name, distance_meters').eq('id', categoryId).single(),
+      supabase.from('categories').select('id, name').eq('id', categoryId).single(),
       supabase.from('race_runs').select('id, started_at, status').eq('category_id', categoryId)
         .in('status', ['active', 'finished']).order('created_at', { ascending: false }).limit(1).single(),
       supabase.from('checkpoints').select('id, name, km_marker')
@@ -160,10 +160,7 @@ export default function CategorySection({ eventId, categoryId }) {
         <div className="font-display text-5xl tracking-widest uppercase text-apex-text-bright mb-1">
           {category?.name || '—'}
         </div>
-        {category?.distance_meters && (
-          <div className="text-apex-muted text-sm">{(category.distance_meters / 1000).toFixed(1)} km</div>
-        )}
-        {raceRun?.started_at && (
+{raceRun?.started_at && (
           <div className="text-apex-text text-sm">Start {formatTime(raceRun.started_at)}</div>
         )}
       </div>

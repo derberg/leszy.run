@@ -63,7 +63,6 @@ export default function LiveTracking({ eventId, categories }) {
         gunDurationMs: r.gun_duration_ms,
         participant: pMap[r.participant_id],
         _categoryName: cat.name,
-        _categoryDistance: cat.distance_meters,
       }))
 
       // Load observations

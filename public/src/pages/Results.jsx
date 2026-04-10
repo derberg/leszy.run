@@ -22,7 +22,7 @@ export default function Results() {
 
   useEffect(() => {
     if (!event) return
-    supabase.from('categories').select('id, name, distance_meters').eq('event_id', event.id)
+    supabase.from('categories').select('id, name').eq('event_id', event.id)
       .then(({ data }) => {
         setCategories(data || [])
         setCatLoading(false)
