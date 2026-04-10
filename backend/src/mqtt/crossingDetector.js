@@ -50,6 +50,7 @@ import { gateCrossings, gateEvents, results } from '../db/schema.js'
  */
 
 const DEDUP_WINDOW_MS = 200   // within this window per EPC, only keep best RSSI
+const MIN_FINISH_MS = 30_000  // ignore finish crossings within 30s of race start (ghost reads from previous run)
 
 
 export class CrossingDetector {
@@ -331,6 +332,16 @@ export class CrossingDetector {
             where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, participantId)),
           })
           gate = (!existing || !existing.startTime) ? 'start' : 'finish'
+        }
+      }
+
+      // Guard: if finish crossing happens too soon after race start, demote to start.
+      // This catches ghost reads from tags still near the antenna after a race restart.
+      if (gate === 'finish' && race?.gunStartTime) {
+        const elapsed = peakTime - race.gunStartTime
+        if (elapsed < MIN_FINISH_MS) {
+          console.log(`[Detector] Ignoring finish crossing for ${participantId} — only ${Math.round(elapsed / 1000)}s since race start (min ${MIN_FINISH_MS / 1000}s)`)
+          return
         }
       }
 

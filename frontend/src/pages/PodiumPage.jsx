@@ -113,7 +113,6 @@ function CategoryCard({ cat, checkpoints, results: resultsProp }) {
 const ROTATE_INTERVAL_MS = 5000
 
 const GENDER_VIEWS = [
-  { key: null, label: 'OPEN' },
   { key: 'M', label: 'MĘŻCZYŹNI' },
   { key: 'K', label: 'KOBIETY' },
 ]
@@ -324,7 +323,7 @@ export default function PodiumPage() {
             </>
           ) : (
             <>
-              {categories.map(cat => {
+              {activeCategories.map(cat => {
                 const isActive = visibleCategoryId === cat.id
                 return (
                   <button

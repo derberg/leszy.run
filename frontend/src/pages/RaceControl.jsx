@@ -94,11 +94,104 @@ export default function RaceControl() {
     }
   }
 
+  // "Start all" logic — starts all categories where at least 1 participant is checked in
+  const [startAllDialog, setStartAllDialog] = useState(false)
+  const [startAllCountdown, setStartAllCountdown] = useState(null)
+  const [startAllDuration, setStartAllDuration] = useState(3)
+  const startAllIntervalRef = useRef(null)
+
+  const startableCategories = categories.filter(cat => {
+    const race = raceByCategory[cat.id]
+    const isPending = !race || race.status === 'pending'
+    if (!isPending) return false
+    return participants.filter(p => p.categoryId === cat.id).some(p => p.checkin?.checkedInAt)
+  })
+
+  const startAllMutation = useMutation({
+    mutationFn: () => Promise.all(startableCategories.map(cat => api.races.start(cat.id))),
+    onSuccess: () => {
+      setStartAllDialog(false)
+      qc.invalidateQueries({ queryKey: ['races', id] })
+    },
+  })
+
+  const beginStartAllCountdown = () => {
+    setStartAllCountdown(startAllDuration)
+    let current = startAllDuration
+    startAllIntervalRef.current = setInterval(() => {
+      current -= 1
+      if (current <= 0) {
+        clearInterval(startAllIntervalRef.current)
+        setStartAllCountdown(0)
+        startAllMutation.mutate()
+      } else {
+        setStartAllCountdown(current)
+      }
+    }, 1000)
+  }
+
+  const closeStartAllDialog = () => {
+    clearInterval(startAllIntervalRef.current)
+    setStartAllDialog(false)
+    setStartAllCountdown(null)
+  }
+
+  // "Resume all" logic — restarts all finished/cancelled categories with checked-in participants
+  const [resumeAllDialog, setResumeAllDialog] = useState(false)
+  const [resumeAllCountdown, setResumeAllCountdown] = useState(null)
+  const [resumeAllDuration, setResumeAllDuration] = useState(3)
+  const resumeAllIntervalRef = useRef(null)
+
+  const resumableCategories = categories.filter(cat => {
+    const race = raceByCategory[cat.id]
+    if (!race || (race.status !== 'finished' && race.status !== 'cancelled')) return false
+    return participants.filter(p => p.categoryId === cat.id).some(p => p.checkin?.checkedInAt)
+  })
+
+  const resumeAllMutation = useMutation({
+    mutationFn: () => Promise.all(resumableCategories.map(cat => api.races.start(cat.id))),
+    onSuccess: () => {
+      setResumeAllDialog(false)
+      qc.invalidateQueries({ queryKey: ['races', id] })
+    },
+  })
+
+  const beginResumeAllCountdown = () => {
+    setResumeAllCountdown(resumeAllDuration)
+    let current = resumeAllDuration
+    resumeAllIntervalRef.current = setInterval(() => {
+      current -= 1
+      if (current <= 0) {
+        clearInterval(resumeAllIntervalRef.current)
+        setResumeAllCountdown(0)
+        resumeAllMutation.mutate()
+      } else {
+        setResumeAllCountdown(current)
+      }
+    }, 1000)
+  }
+
+  const closeResumeAllDialog = () => {
+    clearInterval(resumeAllIntervalRef.current)
+    setResumeAllDialog(false)
+    setResumeAllCountdown(null)
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-display text-4xl uppercase tracking-widest text-apex-text-bright">Sterowanie wyścigiem</h1>
         <div className="flex items-center gap-3">
+          {startableCategories.length > 1 && (
+            <Button size="sm" onClick={() => setStartAllDialog(true)}>
+              <Flag size={13} /> Startuj wszystkie ({startableCategories.length})
+            </Button>
+          )}
+          {resumableCategories.length > 1 && (
+            <Button size="sm" variant="outline" onClick={() => setResumeAllDialog(true)}>
+              <RotateCcw size={13} /> Wznów wszystkie ({resumableCategories.length})
+            </Button>
+          )}
           <div className="flex items-center gap-2 text-xs text-apex-muted">
             <Radio size={12} className="animate-pulse text-apex-yellow" />
             Na żywo
@@ -108,6 +201,126 @@ export default function RaceControl() {
           </Link>
         </div>
       </div>
+
+      {/* Start All Dialog */}
+      <Dialog open={startAllDialog} onOpenChange={(o) => { if (!o) closeStartAllDialog() }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Start wszystkich kategorii</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <div className="text-sm text-apex-muted space-y-1 mb-4">
+              <div>Kategorie do wystartowania:</div>
+              <div className="border border-apex-border divide-y divide-apex-border mt-2">
+                {startableCategories.map(cat => {
+                  const catParticipants = participants.filter(p => p.categoryId === cat.id)
+                  const catCheckedIn = catParticipants.filter(p => p.checkin?.checkedInAt).length
+                  return (
+                    <div key={cat.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
+                      <span className="text-apex-text font-semibold">{cat.name}</span>
+                      <span>{catCheckedIn}/{catParticipants.length} zameldowanych</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            {startAllCountdown !== null ? (
+              <div className="text-center py-4">
+                <div className={`font-display text-8xl ${startAllCountdown === 0 ? 'text-apex-red' : 'text-apex-yellow'}`}>
+                  {startAllCountdown === 0 ? 'START' : startAllCountdown}
+                </div>
+                <div className="text-sm text-apex-muted mt-2">{startAllCountdown === 0 ? 'Startowanie...' : 'Gotowość...'}</div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-apex-muted mb-2 block">Czas odliczania</span>
+                  <div className="flex gap-2">
+                    {[3, 5, 10, 30].map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setStartAllDuration(s)}
+                        className={`px-3 py-1.5 text-sm font-semibold border transition-colors ${startAllDuration === s ? 'border-apex-yellow bg-apex-yellow text-black' : 'border-apex-border-mid text-apex-muted hover:border-apex-yellow hover:text-apex-yellow'}`}
+                      >
+                        {s}s
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button className="w-full" onClick={beginStartAllCountdown}>Rozpocznij odliczanie</Button>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeStartAllDialog}>Anuluj</Button>
+            {startAllCountdown === null && (
+              <Button onClick={() => startAllMutation.mutate()} disabled={startAllMutation.isPending}>
+                {startAllMutation.isPending ? 'Startowanie...' : 'Startuj teraz (bez odliczania)'}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resume All Dialog */}
+      <Dialog open={resumeAllDialog} onOpenChange={(o) => { if (!o) closeResumeAllDialog() }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Wznów wszystkie kategorie</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <div className="text-sm text-apex-muted space-y-1 mb-4">
+              <div>Kategorie do wznowienia:</div>
+              <div className="border border-apex-border divide-y divide-apex-border mt-2">
+                {resumableCategories.map(cat => {
+                  const catParticipants = participants.filter(p => p.categoryId === cat.id)
+                  const catCheckedIn = catParticipants.filter(p => p.checkin?.checkedInAt).length
+                  return (
+                    <div key={cat.id} className="flex items-center justify-between px-3 py-1.5 text-xs">
+                      <span className="text-apex-text font-semibold">{cat.name}</span>
+                      <span>{catCheckedIn}/{catParticipants.length} zameldowanych</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            {resumeAllCountdown !== null ? (
+              <div className="text-center py-4">
+                <div className={`font-display text-8xl ${resumeAllCountdown === 0 ? 'text-apex-red' : 'text-apex-yellow'}`}>
+                  {resumeAllCountdown === 0 ? 'START' : resumeAllCountdown}
+                </div>
+                <div className="text-sm text-apex-muted mt-2">{resumeAllCountdown === 0 ? 'Startowanie...' : 'Gotowość...'}</div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-apex-muted mb-2 block">Czas odliczania</span>
+                  <div className="flex gap-2">
+                    {[3, 5, 10, 30].map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setResumeAllDuration(s)}
+                        className={`px-3 py-1.5 text-sm font-semibold border transition-colors ${resumeAllDuration === s ? 'border-apex-yellow bg-apex-yellow text-black' : 'border-apex-border-mid text-apex-muted hover:border-apex-yellow hover:text-apex-yellow'}`}
+                      >
+                        {s}s
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button className="w-full" onClick={beginResumeAllCountdown}>Rozpocznij odliczanie</Button>
+              </div>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeResumeAllDialog}>Anuluj</Button>
+            {resumeAllCountdown === null && (
+              <Button onClick={() => resumeAllMutation.mutate()} disabled={resumeAllMutation.isPending}>
+                {resumeAllMutation.isPending ? 'Startowanie...' : 'Wznów teraz (bez odliczania)'}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="space-y-3">
