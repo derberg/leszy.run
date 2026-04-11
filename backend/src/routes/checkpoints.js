@@ -28,11 +28,11 @@ export async function checkpointsRoutes(fastify) {
 
   // Create checkpoint
   fastify.post('/events/:eventId/checkpoints', async (req, reply) => {
-    const { name, kmMarker, categoryIds = [] } = req.body
+    const { name, kmMarker, categoryIds = [], private: isPrivate } = req.body
     if (!name) return reply.code(400).send({ error: 'name required' })
 
     const [row] = await db.insert(checkpoints)
-      .values({ eventId: req.params.eventId, name, kmMarker: kmMarker || null })
+      .values({ eventId: req.params.eventId, name, kmMarker: kmMarker || null, private: isPrivate ?? false })
       .returning()
 
     if (categoryIds.length) {
@@ -45,10 +45,11 @@ export async function checkpointsRoutes(fastify) {
 
   // Update checkpoint
   fastify.patch('/checkpoints/:id', async (req, reply) => {
-    const { name, kmMarker, categoryIds } = req.body
+    const { name, kmMarker, categoryIds, private: isPrivate } = req.body
     const updates = {}
     if (name !== undefined) updates.name = name
     if (kmMarker !== undefined) updates.kmMarker = kmMarker
+    if (isPrivate !== undefined) updates.private = isPrivate
 
     const [row] = await db.update(checkpoints)
       .set(updates)

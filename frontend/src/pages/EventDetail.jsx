@@ -51,7 +51,7 @@ export default function EventDetail() {
   })
 
   const [cpDialog, setCpDialog] = useState(false)
-  const [cpForm, setCpForm] = useState({ name: '', kmMarker: '', categoryIds: [] })
+  const [cpForm, setCpForm] = useState({ name: '', kmMarker: '', categoryIds: [], private: false })
   const [editingCp, setEditingCp] = useState(null)
 
   const [catDialog, setCatDialog] = useState(false)
@@ -236,7 +236,7 @@ export default function EventDetail() {
                     <Copy size={14} /> Kopiuj wszystkie linki
                   </Button>
                 )}
-                <Button size="sm" onClick={() => { setEditingCp(null); setCpForm({ name: '', kmMarker: '', categoryIds: [] }); setCpDialog(true) }}>
+                <Button size="sm" onClick={() => { setEditingCp(null); setCpForm({ name: '', kmMarker: '', categoryIds: [], private: false }); setCpDialog(true) }}>
                   <Plus size={14} /> Dodaj punkt
                 </Button>
               </div>
@@ -252,7 +252,10 @@ export default function EventDetail() {
                 return (
                   <div key={cp.id} className="border border-apex-border bg-apex-surface px-4 py-3 flex items-center justify-between gap-4">
                     <div>
-                      <div className="font-semibold text-apex-text-bright">{cp.name}</div>
+                      <div className="font-semibold text-apex-text-bright">
+                        {cp.name}
+                        {cp.private && <span className="ml-2 text-xs font-bold px-1.5 py-0.5 bg-apex-surface-2 text-apex-muted border border-apex-border">PRYWATNY</span>}
+                      </div>
                       <div className="text-xs text-apex-muted mt-0.5">
                         {cp.kmMarker ? `Km ${cp.kmMarker} · ` : ''}
                         {cp.categoryIds?.length
@@ -273,7 +276,7 @@ export default function EventDetail() {
                       </Button>
                       <Button size="sm" variant="outline" title="Edytuj" onClick={() => {
                         setEditingCp(cp)
-                        setCpForm({ name: cp.name, kmMarker: cp.kmMarker ?? '', categoryIds: cp.categoryIds || [] })
+                        setCpForm({ name: cp.name, kmMarker: cp.kmMarker ?? '', categoryIds: cp.categoryIds || [], private: cp.private ?? false })
                         setCpDialog(true)
                       }}>
                         <Pencil size={12} />
@@ -333,6 +336,14 @@ export default function EventDetail() {
                     ))}
                   </div>
                 </div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cpForm.private}
+                    onChange={e => setCpForm(f => ({ ...f, private: e.target.checked }))}
+                  />
+                  <span>Prywatny <span className="text-apex-muted text-xs">(widoczny tylko w panelu admina)</span></span>
+                </label>
               </DialogBody>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCpDialog(false)}>Anuluj</Button>
@@ -343,6 +354,7 @@ export default function EventDetail() {
                       name: cpForm.name,
                       kmMarker: cpForm.kmMarker ? parseFloat(cpForm.kmMarker) : null,
                       categoryIds: cpForm.categoryIds,
+                      private: cpForm.private,
                     }
                     if (editingCp) {
                       updateCheckpoint.mutate({ id: editingCp.id, ...body }, { onSuccess: () => setCpDialog(false) })

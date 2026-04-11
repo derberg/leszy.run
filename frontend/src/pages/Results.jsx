@@ -150,6 +150,107 @@ function ManualFinishPanel({ categories }) {
   )
 }
 
+function CheckinOverview({ eventId }) {
+  const [search, setSearch] = useState('')
+  const [showAll, setShowAll] = useState(false)
+
+  const { data: participants = [] } = useQuery({
+    queryKey: ['participants', eventId],
+    queryFn: () => api.participants.list(eventId),
+    refetchInterval: 10000,
+  })
+
+  const checkedIn = participants.filter(p => p.checkin?.checkedInAt)
+  const notCheckedIn = participants.filter(p => !p.checkin?.checkedInAt)
+
+  const filtered = search.trim()
+    ? participants.filter(p => {
+        const q = search.trim().toLowerCase()
+        return String(p.bibNumber).includes(q)
+          || p.lastName?.toLowerCase().includes(q)
+          || p.firstName?.toLowerCase().includes(q)
+      })
+    : showAll ? participants : checkedIn
+
+  const sorted = [...filtered].sort((a, b) => {
+    // Checked in first, then by bib number
+    const aIn = a.checkin?.checkedInAt ? 1 : 0
+    const bIn = b.checkin?.checkedInAt ? 1 : 0
+    if (aIn !== bIn) return bIn - aIn
+    return (a.bibNumber || 0) - (b.bibNumber || 0)
+  })
+
+  return (
+    <Card className="mb-6">
+      <CardHeader className="py-2.5 flex flex-row items-center justify-between">
+        <CardTitle className="text-base">
+          Zameldowani: {checkedIn.length} / {participants.length}
+          <span className="text-apex-muted font-normal ml-2 text-xs">({notCheckedIn.length} brak)</span>
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className={cn('px-2 py-1 text-xs border transition-colors',
+              showAll ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border text-apex-muted hover:text-apex-text')}
+          >
+            {showAll ? 'Wszyscy' : 'Zameldowani'}
+          </button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <input
+          type="text"
+          placeholder="Szukaj po numerze lub nazwisku..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full bg-apex-surface border border-apex-border text-apex-text px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-apex-yellow mb-2"
+        />
+        <div className="border border-apex-border max-h-96 overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0">
+              <tr className="border-b border-apex-border bg-apex-surface-2">
+                <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted w-12">Nr</th>
+                <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Imię i nazwisko</th>
+                <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Kategoria</th>
+                <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted w-16">RFID</th>
+                <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted w-24">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-apex-border">
+              {sorted.map(p => {
+                const isIn = !!p.checkin?.checkedInAt
+                const hasTag = !!p.rfidEpc
+                return (
+                  <tr key={p.id} className={cn('transition-colors', isIn ? 'bg-green-950/20' : '')}>
+                    <td className="px-2 py-1.5 font-mono text-xs">{p.bibNumber}</td>
+                    <td className="px-2 py-1.5">{p.firstName} {p.lastName}</td>
+                    <td className="px-2 py-1.5 text-xs text-apex-muted">{p.category?.name}</td>
+                    <td className="px-2 py-1.5">
+                      {hasTag
+                        ? <span className="text-green-400 text-xs">TAK</span>
+                        : <span className="text-apex-muted text-xs">—</span>}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {isIn
+                        ? <Badge className="bg-green-900 text-green-400 border-green-700">Zameldowany</Badge>
+                        : <Badge className="bg-apex-surface text-apex-muted border-apex-border">Oczekuje</Badge>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {sorted.length === 0 && (
+            <div className="py-4 text-center text-xs text-apex-muted">
+              {search.trim() ? 'Brak wyników' : 'Brak zameldowanych uczestników'}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function Results() {
   const { id } = useParams()
   const qc = useQueryClient()
@@ -172,6 +273,7 @@ export default function Results() {
         </Link>
       </div>
 
+      <CheckinOverview eventId={id} />
       <ManualFinishPanel categories={categories} />
 
       <div className="space-y-6">
@@ -246,8 +348,17 @@ function ResultsTable({ raceRunId, results, categoryId, gender }) {
                 <td className="px-3 py-2">
                   <Badge className={statusColor(r.status)}>{statusLabel(r.status)}</Badge>
                 </td>
-                <td className="px-3 py-2">
-                  <button onClick={() => setEditRow(r)} className="text-apex-text hover:text-apex-text">
+                <td className="px-3 py-2 flex items-center gap-1">
+                  {r.status === 'started' && !r.finishTime && (
+                    <button
+                      onClick={() => update.mutate({ id: r.id, finishTime: new Date().toISOString() })}
+                      disabled={update.isPending}
+                      className="border border-apex-yellow text-apex-yellow px-2 py-0.5 text-xs font-bold uppercase tracking-wider hover:bg-apex-yellow hover:text-black transition-colors disabled:opacity-50"
+                    >
+                      META
+                    </button>
+                  )}
+                  <button onClick={() => setEditRow(r)} className="text-apex-muted hover:text-apex-text">
                     <Pencil size={13} />
                   </button>
                 </td>

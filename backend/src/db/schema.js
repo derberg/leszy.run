@@ -142,6 +142,7 @@ export const checkpoints = pgTable('checkpoints', {
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   kmMarker: numeric('km_marker', { precision: 6, scale: 2 }),
+  private: boolean('private').default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })

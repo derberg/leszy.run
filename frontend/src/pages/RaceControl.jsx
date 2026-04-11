@@ -38,26 +38,21 @@ export default function RaceControl() {
   const participantMap = Object.fromEntries(participants.map(p => [p.id, p]))
   const epcMap = Object.fromEntries(participants.filter(p => p.rfidEpc).map(p => [p.rfidEpc, p]))
 
-  // Determine the active raceRunId for audit (most recently started active race across all categories)
-  const activeRaceRunId = useMemo(() => {
-    const active = races.filter(r => r.status === 'active')
-    if (!active.length) {
-      // Fall back to most recent finished race
-      const all = [...races].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      return all[0]?.id || null
-    }
-    return active.sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))[0]?.id || null
+  // Fetch audit data for ALL active/finished races
+  const activeRaceIds = useMemo(() => {
+    const relevant = races.filter(r => r.status === 'active' || r.status === 'finished')
+    return relevant.map(r => r.id)
   }, [races])
 
-  const { data: auditData } = useQuery({
-    queryKey: ['audit', activeRaceRunId],
-    queryFn: () => api.races.audit(activeRaceRunId),
-    enabled: !!activeRaceRunId,
+  const { data: allAuditData = [] } = useQuery({
+    queryKey: ['audit', ...activeRaceIds],
+    queryFn: () => Promise.all(activeRaceIds.map(id => api.races.audit(id).then(d => ({ ...d, raceRunId: id })))),
+    enabled: activeRaceIds.length > 0,
     refetchInterval: 30000,
   })
 
-  const gunStartFallback = auditData?.gunStartFallback ?? []
-  const missingStart = auditData?.missingStart ?? []
+  const gunStartFallback = allAuditData.flatMap(d => d.gunStartFallback ?? [])
+  const missingStart = allAuditData.flatMap(d => d.missingStart ?? [])
   const unresolvedCount = gunStartFallback.filter(r => r.startTimeSource === 'gun').length + missingStart.length
 
   useWsEvent('rfid:crossing', (payload) => {
@@ -404,8 +399,8 @@ export default function RaceControl() {
               <AuditPanel
                 gunStartFallback={gunStartFallback}
                 missingStart={missingStart}
-                raceRunId={activeRaceRunId}
-                raceRun={races.find(r => r.id === activeRaceRunId)}
+                raceRunId={activeRaceIds[0]}
+                raceRun={races.find(r => r.id === activeRaceIds[0])}
                 onCorrect={() => qc.invalidateQueries({ queryKey: ['audit'] })}
               />
             </TabsContent>
@@ -709,6 +704,11 @@ function AuditPanel({ gunStartFallback, missingStart, raceRunId, raceRun, onCorr
     },
   })
 
+  const finishMutation = useMutation({
+    mutationFn: (resultId) => api.results.update(resultId, { finishTime: new Date().toISOString() }),
+    onSuccess: () => onCorrect(),
+  })
+
   const assignGunMutation = useMutation({
     mutationFn: (participantIds) => api.races.assignGunStart(raceRunId, participantIds),
     onSuccess: () => onCorrect(),
@@ -796,7 +796,16 @@ function AuditPanel({ gunStartFallback, missingStart, raceRunId, raceRun, onCorr
 
                 <span className="text-apex-muted truncate" title={reason}>{reason}</span>
 
-                <div>
+                <div className="flex items-center gap-1">
+                  {!r.finishTime && (
+                    <button
+                      className="border border-apex-yellow text-apex-yellow px-2 py-0.5 text-xs font-bold uppercase tracking-wider hover:bg-apex-yellow hover:text-black transition-colors disabled:opacity-50"
+                      onClick={() => finishMutation.mutate(r.resultId)}
+                      disabled={finishMutation.isPending}
+                    >
+                      META
+                    </button>
+                  )}
                   {isResolved ? (
                     <span className="text-apex-muted italic">poprawiono ✓</span>
                   ) : editingId === r.resultId ? (

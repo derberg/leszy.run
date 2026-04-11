@@ -21,6 +21,7 @@ export default function LiveTracking({ eventId, categories }) {
     const { data: cpData } = await supabase.from('checkpoints')
       .select('id, name, km_marker')
       .eq('event_id', eventId)
+      .neq('private', true)
       .order('km_marker')
     const cps = cpData || []
     setCheckpoints(cps)

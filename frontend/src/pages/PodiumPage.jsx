@@ -254,7 +254,7 @@ export default function PodiumPage() {
 
   // Filter checkpoints to only those assigned to the active category (or with no category restriction)
   const categoryCheckpoints = activeCategory
-    ? checkpoints.filter(cp => cp.categoryIds.length === 0 || cp.categoryIds.includes(activeCategory.id))
+    ? checkpoints.filter(cp => !cp.private && (cp.categoryIds.length === 0 || cp.categoryIds.includes(activeCategory.id)))
     : []
 
   // Fetch gender-filtered results when a gender is active

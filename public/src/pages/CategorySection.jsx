@@ -56,7 +56,7 @@ export default function CategorySection({ eventId, categoryId }) {
       supabase.from('race_runs').select('id, started_at, status').eq('category_id', categoryId)
         .in('status', ['active', 'finished']).order('created_at', { ascending: false }).limit(1).single(),
       supabase.from('checkpoints').select('id, name, km_marker')
-        .eq('event_id', eventId).order('km_marker'),
+        .eq('event_id', eventId).neq('private', true).order('km_marker'),
       supabase.from('checkpoint_categories').select('checkpoint_id, category_id')
         .eq('category_id', categoryId),
     ])
