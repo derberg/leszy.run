@@ -9,7 +9,8 @@ import { Input } from '../components/ui/input.jsx'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog.jsx'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select.jsx'
-import { Download, ExternalLink, Info, Pencil, Upload } from 'lucide-react'
+import { Download, ExternalLink, Info, Pencil, Upload, UserCheck } from 'lucide-react'
+import { useWsEvent } from '../lib/ws.js'
 
 const GENDER_VIEWS = [
   { key: null, label: 'Open' },
@@ -71,13 +72,96 @@ function CategoryBlock({ cat, eventId }) {
   )
 }
 
+function ManualFinishPanel({ categories }) {
+  const qc = useQueryClient()
+  const [bibSearch, setBibSearch] = useState('')
+  const [expanded, setExpanded] = useState(false)
+
+  const manualFinish = useMutation({
+    mutationFn: (resultId) => api.results.update(resultId, { finishTime: new Date().toISOString() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['event-results'] }),
+  })
+
+  // Gather all on-course results across all categories
+  const onCourse = categories.flatMap(cat => {
+    const run = cat.raceRuns?.[0]
+    if (!run || (run.status !== 'active' && run.status !== 'finished')) return []
+    return (run.results || [])
+      .filter(r => r.status === 'started' && !r.finishTime)
+      .map(r => ({ ...r, categoryName: cat.name }))
+  })
+
+  if (onCourse.length === 0) return null
+
+  const filtered = bibSearch.trim()
+    ? onCourse.filter(r => {
+        const q = bibSearch.trim().toLowerCase()
+        return String(r.participant?.bibNumber).includes(q)
+          || r.participant?.lastName?.toLowerCase().includes(q)
+          || r.participant?.firstName?.toLowerCase().includes(q)
+      })
+    : onCourse
+
+  return (
+    <Card className="mb-6 border-apex-yellow/30">
+      <CardHeader className="py-2.5 flex flex-row items-center justify-between cursor-pointer" onClick={() => setExpanded(!expanded)}>
+        <CardTitle className="text-base flex items-center gap-2">
+          <UserCheck size={16} className="text-apex-yellow" />
+          Ręczna meta — {onCourse.length} na trasie
+        </CardTitle>
+        <span className="text-apex-muted text-xs">{expanded ? '▲' : '▼'}</span>
+      </CardHeader>
+      {expanded && (
+        <CardContent>
+          <input
+            type="text"
+            placeholder="Numer startowy lub nazwisko..."
+            value={bibSearch}
+            onChange={e => setBibSearch(e.target.value)}
+            autoFocus
+            className="w-full bg-apex-surface border border-apex-border text-apex-text px-3 py-2 text-sm font-mono focus:outline-none focus:border-apex-yellow mb-3"
+          />
+          <div className="border border-apex-border max-h-64 overflow-y-auto">
+            {filtered.length === 0 && (
+              <div className="py-4 text-center text-xs text-apex-muted">
+                {bibSearch.trim() ? 'Brak wyników' : 'Brak zawodników na trasie'}
+              </div>
+            )}
+            {filtered.map(r => (
+              <div key={r.id} className="flex items-center gap-2 px-3 py-2 border-b border-apex-border last:border-0">
+                <span className="font-mono text-apex-muted w-10 shrink-0">#{r.participant?.bibNumber}</span>
+                <span className="flex-1 text-sm text-apex-text truncate">
+                  {r.participant?.firstName} {r.participant?.lastName}
+                </span>
+                <span className="text-xs text-apex-muted shrink-0">{r.categoryName}</span>
+                <button
+                  className="border border-apex-yellow text-apex-yellow px-3 py-1 text-xs font-bold uppercase tracking-wider hover:bg-apex-yellow hover:text-black transition-colors disabled:opacity-50 shrink-0"
+                  onClick={() => manualFinish.mutate(r.id)}
+                  disabled={manualFinish.isPending}
+                >
+                  META
+                </button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
 export default function Results() {
   const { id } = useParams()
+  const qc = useQueryClient()
 
   const { data: categories = [] } = useQuery({
     queryKey: ['event-results', id],
     queryFn: () => api.results.listForEvent(id),
+    refetchInterval: 5000,
   })
+
+  useWsEvent('result:update', () => qc.invalidateQueries({ queryKey: ['event-results', id] }))
+  useWsEvent('race:update', () => qc.invalidateQueries({ queryKey: ['event-results', id] }))
 
   return (
     <div>
@@ -87,6 +171,8 @@ export default function Results() {
           <Button variant="outline" size="sm"><ExternalLink size={12} /> Widok publiczny</Button>
         </Link>
       </div>
+
+      <ManualFinishPanel categories={categories} />
 
       <div className="space-y-6">
         {categories.map(cat => (
