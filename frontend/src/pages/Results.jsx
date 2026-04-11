@@ -150,104 +150,171 @@ function ManualFinishPanel({ categories }) {
   )
 }
 
-function CheckinOverview({ eventId }) {
+function RaceOverview({ eventId, categories }) {
   const [search, setSearch] = useState('')
-  const [showAll, setShowAll] = useState(false)
+  const qc = useQueryClient()
 
-  const { data: participants = [] } = useQuery({
-    queryKey: ['participants', eventId],
-    queryFn: () => api.participants.list(eventId),
-    refetchInterval: 10000,
+  const { data: checkpoints = [] } = useQuery({
+    queryKey: ['checkpoints', eventId],
+    queryFn: () => api.checkpoints.list(eventId),
   })
 
-  const checkedIn = participants.filter(p => p.checkin?.checkedInAt)
-  const notCheckedIn = participants.filter(p => !p.checkin?.checkedInAt)
+  // ALL checkpoints including private (admin view)
+  const sortedCps = [...checkpoints].sort((a, b) => (a.kmMarker || 0) - (b.kmMarker || 0))
+
+  // Get all active/finished race runs + their results
+  const raceRuns = categories.flatMap(c =>
+    (c.raceRuns || []).filter(r => r.status === 'active' || r.status === 'finished').map(r => ({ ...r, categoryName: c.name }))
+  )
+  const allResults = categories.flatMap(c => {
+    const run = (c.raceRuns || []).find(r => r.status === 'active' || r.status === 'finished')
+    return run ? (run.results || []).map(r => ({ ...r, categoryName: c.name })) : []
+  })
+
+  // Fetch observations for all active races
+  const { data: allObservations = [] } = useQuery({
+    queryKey: ['all-observations', ...raceRuns.map(r => r.id)],
+    queryFn: () => Promise.all(raceRuns.map(r => api.checkpoints.observationsForRace(r.id))).then(arrs => arrs.flat()),
+    enabled: raceRuns.length > 0,
+    refetchInterval: 5000,
+  })
+
+  useWsEvent('checkpoint:observation', () => {
+    qc.invalidateQueries({ queryKey: ['all-observations'] })
+    qc.invalidateQueries({ queryKey: ['event-results', eventId] })
+  })
+
+  const manualFinish = useMutation({
+    mutationFn: (resultId) => api.results.update(resultId, { finishTime: new Date().toISOString() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['event-results', eventId] }),
+  })
+
+  // Build observation lookup: `${participantId}:${checkpointId}` → observedAt
+  const obsLookup = {}
+  for (const obs of allObservations) {
+    const key = obs.participantId ? `${obs.participantId}:${obs.checkpointId}` : null
+    const bibKey = obs.bibNumber != null ? `bib${obs.bibNumber}:${obs.checkpointId}` : null
+    if (key) obsLookup[key] = obs.observedAt
+    if (bibKey) obsLookup[bibKey] = obs.observedAt
+  }
+
+  // Only show results (started participants)
+  const rows = allResults.filter(r => r.startTime || r.finishTime)
 
   const filtered = search.trim()
-    ? participants.filter(p => {
+    ? rows.filter(r => {
         const q = search.trim().toLowerCase()
-        return String(p.bibNumber).includes(q)
-          || p.lastName?.toLowerCase().includes(q)
-          || p.firstName?.toLowerCase().includes(q)
+        return String(r.participant?.bibNumber).includes(q)
+          || r.participant?.lastName?.toLowerCase().includes(q)
+          || r.participant?.firstName?.toLowerCase().includes(q)
       })
-    : showAll ? participants : checkedIn
+    : rows
 
+  // Sort: finished by position, then on-course by latest checkpoint (desc), then by bib
   const sorted = [...filtered].sort((a, b) => {
-    // Checked in first, then by bib number
-    const aIn = a.checkin?.checkedInAt ? 1 : 0
-    const bIn = b.checkin?.checkedInAt ? 1 : 0
-    if (aIn !== bIn) return bIn - aIn
-    return (a.bibNumber || 0) - (b.bibNumber || 0)
+    if (a.finishTime && b.finishTime) return (a.position || 999) - (b.position || 999)
+    if (a.finishTime && !b.finishTime) return -1
+    if (!a.finishTime && b.finishTime) return 1
+    // Both on course — sort by furthest checkpoint
+    const aLastCp = sortedCps.findLastIndex(cp => obsLookup[`${a.participantId}:${cp.id}`])
+    const bLastCp = sortedCps.findLastIndex(cp => obsLookup[`${b.participantId}:${cp.id}`])
+    if (aLastCp !== bLastCp) return bLastCp - aLastCp
+    return (a.participant?.bibNumber || 0) - (b.participant?.bibNumber || 0)
   })
 
+  const onCourse = rows.filter(r => r.startTime && !r.finishTime).length
+  const finished = rows.filter(r => r.finishTime).length
+
+  const fmtTime = (iso) => {
+    if (!iso) return null
+    return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  }
+
   return (
-    <Card className="mb-6">
-      <CardHeader className="py-2.5 flex flex-row items-center justify-between">
-        <CardTitle className="text-base">
-          Zameldowani: {checkedIn.length} / {participants.length}
-          <span className="text-apex-muted font-normal ml-2 text-xs">({notCheckedIn.length} brak)</span>
-        </CardTitle>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className={cn('px-2 py-1 text-xs border transition-colors',
-              showAll ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border text-apex-muted hover:text-apex-text')}
-          >
-            {showAll ? 'Wszyscy' : 'Zameldowani'}
-          </button>
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-4">
+          <h2 className="font-display text-2xl uppercase tracking-wider text-apex-text-bright">Przegląd trasy</h2>
+          <span className="text-xs text-apex-muted">
+            Na trasie: {onCourse} · Na mecie: {finished} · Razem: {rows.length}
+          </span>
         </div>
-      </CardHeader>
-      <CardContent>
         <input
           type="text"
-          placeholder="Szukaj po numerze lub nazwisku..."
+          placeholder="Szukaj..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full bg-apex-surface border border-apex-border text-apex-text px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-apex-yellow mb-2"
+          className="bg-apex-surface border border-apex-border text-apex-text px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-apex-yellow w-48"
         />
-        <div className="border border-apex-border max-h-96 overflow-y-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0">
-              <tr className="border-b border-apex-border bg-apex-surface-2">
-                <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted w-12">Nr</th>
-                <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Imię i nazwisko</th>
-                <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Kategoria</th>
-                <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted w-16">RFID</th>
-                <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted w-24">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-apex-border">
-              {sorted.map(p => {
-                const isIn = !!p.checkin?.checkedInAt
-                const hasTag = !!p.rfidEpc
-                return (
-                  <tr key={p.id} className={cn('transition-colors', isIn ? 'bg-green-950/20' : '')}>
-                    <td className="px-2 py-1.5 font-mono text-xs">{p.bibNumber}</td>
-                    <td className="px-2 py-1.5">{p.firstName} {p.lastName}</td>
-                    <td className="px-2 py-1.5 text-xs text-apex-muted">{p.category?.name}</td>
-                    <td className="px-2 py-1.5">
-                      {hasTag
-                        ? <span className="text-green-400 text-xs">TAK</span>
-                        : <span className="text-apex-muted text-xs">—</span>}
-                    </td>
-                    <td className="px-2 py-1.5">
-                      {isIn
-                        ? <Badge className="bg-green-900 text-green-400 border-green-700">Zameldowany</Badge>
-                        : <Badge className="bg-apex-surface text-apex-muted border-apex-border">Oczekuje</Badge>}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          {sorted.length === 0 && (
-            <div className="py-4 text-center text-xs text-apex-muted">
-              {search.trim() ? 'Brak wyników' : 'Brak zameldowanych uczestników'}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="border border-apex-border bg-apex-surface overflow-x-auto max-h-[600px] overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-apex-border bg-apex-surface-2">
+              <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted w-10">Nr</th>
+              <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Zawodnik</th>
+              <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Kat.</th>
+              <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Start</th>
+              {sortedCps.map(cp => (
+                <th key={cp.id} className="text-center px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">
+                  {cp.name}
+                  {cp.kmMarker && <div className="text-apex-dim font-normal">{cp.kmMarker} km</div>}
+                  {cp.private && <div className="text-amber-500 font-normal text-[10px]">PRYW.</div>}
+                </th>
+              ))}
+              <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Meta</th>
+              <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Czas</th>
+              <th className="px-2 py-1.5 w-16"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-apex-border">
+            {sorted.map(r => {
+              const p = r.participant
+              const isFinished = !!r.finishTime
+              return (
+                <tr key={r.id} className={cn('transition-colors', isFinished ? 'bg-green-950/10' : '')}>
+                  <td className="px-2 py-1.5 font-mono text-xs">{p?.bibNumber}</td>
+                  <td className="px-2 py-1.5 text-xs">{p?.firstName} {p?.lastName}</td>
+                  <td className="px-2 py-1.5 text-xs text-apex-muted">{r.categoryName}</td>
+                  <td className="px-2 py-1.5 font-mono text-xs text-apex-muted">{fmtTime(r.startTime)}</td>
+                  {sortedCps.map(cp => {
+                    const t = obsLookup[`${r.participantId}:${cp.id}`]
+                      || (p?.bibNumber != null && obsLookup[`bib${p.bibNumber}:${cp.id}`])
+                    return (
+                      <td key={cp.id} className={cn('text-center px-2 py-1.5 font-mono text-xs', t ? 'text-cyan-400' : 'text-apex-border')}>
+                        {t ? fmtTime(t) : '—'}
+                      </td>
+                    )
+                  })}
+                  <td className="px-2 py-1.5 font-mono text-xs">
+                    {isFinished
+                      ? <span className="text-green-400">{fmtTime(r.finishTime)}</span>
+                      : <span className="text-apex-muted">—</span>}
+                  </td>
+                  <td className="px-2 py-1.5 font-mono text-xs font-semibold">
+                    {r.durationMs ? formatDuration(r.durationMs) : r.gunDurationMs ? <span className="text-amber-400">{formatDuration(r.gunDurationMs)}</span> : '—'}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {!isFinished && r.startTime && (
+                      <button
+                        onClick={() => manualFinish.mutate(r.id)}
+                        disabled={manualFinish.isPending}
+                        className="border border-apex-yellow text-apex-yellow px-2 py-0.5 text-xs font-bold uppercase tracking-wider hover:bg-apex-yellow hover:text-black transition-colors disabled:opacity-50"
+                      >
+                        META
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {sorted.length === 0 && (
+          <div className="py-8 text-center text-xs text-apex-muted">Brak wystartowanych zawodników</div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -273,14 +340,7 @@ export default function Results() {
         </Link>
       </div>
 
-      <CheckinOverview eventId={id} />
-      <ManualFinishPanel categories={categories} />
-
-      <div className="space-y-6">
-        {categories.map(cat => (
-          <CategoryBlock key={cat.id} cat={cat} eventId={id} />
-        ))}
-      </div>
+      <RaceOverview eventId={id} categories={categories} />
     </div>
   )
 }
