@@ -231,8 +231,8 @@ function RaceOverview({ eventId, categories }) {
   }
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-3">
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between mb-2 shrink-0">
         <div className="flex items-center gap-4">
           <h2 className="font-display text-2xl uppercase tracking-wider text-apex-text-bright">Przegląd trasy</h2>
           <span className="text-xs text-apex-muted">
@@ -247,7 +247,7 @@ function RaceOverview({ eventId, categories }) {
           className="bg-apex-surface border border-apex-border text-apex-text px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-apex-yellow w-48"
         />
       </div>
-      <div className="border border-apex-border bg-apex-surface overflow-x-auto max-h-[600px] overflow-y-auto">
+      <div className="border border-apex-border bg-apex-surface overflow-auto flex-1 min-h-0">
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-apex-border bg-apex-surface-2">
@@ -332,15 +332,17 @@ export default function Results() {
   useWsEvent('race:update', () => qc.invalidateQueries({ queryKey: ['event-results', id] }))
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between mb-3 shrink-0">
         <h1 className="font-display text-4xl uppercase tracking-widest text-apex-text-bright">Wyniki</h1>
         <Link to={`/events/${id}/podium`} target="_blank">
           <Button variant="outline" size="sm"><ExternalLink size={12} /> Widok publiczny</Button>
         </Link>
       </div>
 
-      <RaceOverview eventId={id} categories={categories} />
+      <div className="flex-1 min-h-0">
+        <RaceOverview eventId={id} categories={categories} />
+      </div>
     </div>
   )
 }
