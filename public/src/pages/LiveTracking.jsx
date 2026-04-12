@@ -86,8 +86,8 @@ export default function LiveTracking({ eventId, categories }) {
       // Use estimatePositions to get proper ordering per category
       const ranked = estimatePositions(enrichedResults, cps, obs)
 
-      // Filter to only on-course: started but not finished
-      const onCourse = ranked.filter(r => r.startTime && !r.finishTime)
+      // Filter to only on-course: started but not finished, exclude DNF/DNS/DSQ
+      const onCourse = ranked.filter(r => r.startTime && !r.finishTime && r.status === 'started')
       combined.push(...onCourse)
     }
 

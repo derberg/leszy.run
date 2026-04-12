@@ -152,6 +152,8 @@ function ManualFinishPanel({ categories }) {
 
 function RaceOverview({ eventId, categories }) {
   const [search, setSearch] = useState('')
+  const [editingFinish, setEditingFinish] = useState(null) // resultId being edited
+  const [finishInput, setFinishInput] = useState('')
   const qc = useQueryClient()
 
   const { data: checkpoints = [] } = useQuery({
@@ -187,6 +189,11 @@ function RaceOverview({ eventId, categories }) {
   const manualFinish = useMutation({
     mutationFn: (resultId) => api.results.update(resultId, { finishTime: new Date().toISOString() }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['event-results', eventId] }),
+  })
+
+  const updateFinish = useMutation({
+    mutationFn: ({ resultId, finishTime }) => api.results.update(resultId, { finishTime }),
+    onSuccess: () => { setEditingFinish(null); qc.invalidateQueries({ queryKey: ['event-results', eventId] }) },
   })
 
   // Build observation lookup: `${participantId}:${checkpointId}` → observedAt
@@ -264,7 +271,6 @@ function RaceOverview({ eventId, categories }) {
               ))}
               <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Meta</th>
               <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Czas</th>
-              <th className="px-2 py-1.5 w-16"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-apex-border">
@@ -287,15 +293,37 @@ function RaceOverview({ eventId, categories }) {
                     )
                   })}
                   <td className="px-2 py-1.5 font-mono text-xs">
-                    {isFinished
-                      ? <span className="text-green-400">{fmtTime(r.finishTime)}</span>
-                      : <span className="text-apex-muted">—</span>}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs font-semibold">
-                    {r.durationMs ? formatDuration(r.durationMs) : r.gunDurationMs ? <span className="text-amber-400">{formatDuration(r.gunDurationMs)}</span> : '—'}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    {!isFinished && r.startTime && (
+                    {editingFinish === r.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="time"
+                          step="1"
+                          value={finishInput}
+                          onChange={e => setFinishInput(e.target.value)}
+                          autoFocus
+                          className="bg-apex-surface border border-apex-yellow text-apex-text px-1 py-0.5 text-xs font-mono w-24 focus:outline-none"
+                        />
+                        <button
+                          className="text-green-400 text-xs font-bold px-1 hover:text-green-300"
+                          onClick={() => {
+                            if (!finishInput) return
+                            const [h, m, s] = finishInput.split(':').map(Number)
+                            const d = new Date(r.startTime || Date.now())
+                            d.setHours(h, m, s || 0, 0)
+                            updateFinish.mutate({ resultId: r.id, finishTime: d.toISOString() })
+                          }}
+                        >OK</button>
+                        <button className="text-apex-muted text-xs hover:text-apex-text" onClick={() => setEditingFinish(null)}>x</button>
+                      </div>
+                    ) : isFinished ? (
+                      <span
+                        className="text-green-400 cursor-pointer hover:underline"
+                        onClick={() => {
+                          setEditingFinish(r.id)
+                          setFinishInput(new Date(r.finishTime).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }))
+                        }}
+                      >{fmtTime(r.finishTime)}</span>
+                    ) : r.startTime ? (
                       <button
                         onClick={() => manualFinish.mutate(r.id)}
                         disabled={manualFinish.isPending}
@@ -303,7 +331,10 @@ function RaceOverview({ eventId, categories }) {
                       >
                         META
                       </button>
-                    )}
+                    ) : <span className="text-apex-muted">—</span>}
+                  </td>
+                  <td className="px-2 py-1.5 font-mono text-xs font-semibold">
+                    {r.durationMs ? formatDuration(r.durationMs) : r.gunDurationMs ? <span className="text-amber-400">{formatDuration(r.gunDurationMs)}</span> : '—'}
                   </td>
                 </tr>
               )
