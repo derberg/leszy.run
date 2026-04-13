@@ -1,98 +1,49 @@
-// Curated pool of animals, creatures, and dinosaurs (300+ unique entries)
-// Excludes: plants, food, weather, objects, and non-animal emojis
-// Blacklisted: skunk (🦨), pig (🐷), pig nose (🐽), pig face (🐖)
+// Curated pool of animals, creatures, and dinosaurs (unique entries only)
+// Excludes: plants, food, weather, objects, non-animal emojis
+// Blacklisted: skunk (🦨), pig variants (🐷🐽🐖), ugly insects (ant, cricket,
+// cockroach, mosquito, fly, worm, spider, web), microbe (🦠)
 const POOL = [
   // Mammals - Domestic & common
   '🐶','🐕','🐕‍🦺','🐩','🐱','🐈','🐈‍⬛','🐭','🐹','🐰','🐇',
-  '🐿️','🦫','🦔','🦇','🐻','🐻‍❄️','🐼','🐨','🦘','🦡',
-  
+  '🐿️','🦫','🦔','🦇','🐻','🐻‍❄️','🐼','🐨','🦘','🦡','🐁',
+
   // Mammals - Wild & predators
   '🦊','🦝','🐯','🦁','🐅','🐆','🦓','🦍','🦧','🐒',
-  '🙈','🙉','🙊','🐵',
-  
+  '🙈','🙉','🙊','🐵','🐺','🦥',
+
   // Mammals - Large herbivores
   '🐘','🦏','🦛','🦒','🦌','🫎','🐮','🐂','🐃','🐄',
   '🦬','🦣','🐪','🐫',
-  
-  // Mammals - Farm & hoofed (excluding pig variants)
-  '🐑','🐏','🐐','🐎','🐴','🦄','🫏','🦙',
-  
+
+  // Mammals - Farm & hoofed
+  '🐑','🐏','🐐','🐎','🐴','🫏','🦙','🐗',
+
   // Canines
   '🦮',
-  
-  // Birds - Common & domestic
+
+  // Birds
   '🐔','🐓','🐣','🐤','🐥','🐦','🐦‍⬛','🦃','🦆','🦢',
-  '🦩','🦚','🦜','🦅','🦉','🦤','🪿','🕊️',
-  
-  // Birds - Penguins & seabirds
-  '🐧',
-  
+  '🦩','🦚','🦜','🦅','🦉','🦤','🪿','🕊️','🐧',
+
   // Aquatic mammals
   '🐳','🐋','🐬','🦭','🦦','🦈',
-  
+
   // Fish & aquatic life
   '🐟','🐠','🐡','🦐','🦞','🦀','🦑','🐙','🪼','🐚',
-  
+
   // Reptiles & amphibians
-  '🐢','🐊','🦎','🐍','🐸','🐲','🐉',
-  
-  // Dinosaurs
-  '🦕','🦖',
-  
-  // Insects & small creatures
-  '🐌','🦋','🐛','🐜','🐝','🐞','🦗','🪲','🪳','🦟',
-  '🪰','🪱','🦂','🕷️','🕸️',
-  
-  // Mythical & fantasy creatures
-  '🦄',
-  
-  // Microorganisms
-  '🦠','🦟',
-  
-  // Additional animal faces & variations
+  '🐢','🐊','🦎','🐍','🐸',
+
+  // Mythical creatures & dinosaurs
+  '🐲','🐉','🦕','🦖','🦄','🐦‍🔥',
+  '👻','👽','🧚','🧛','🧜','🧝','🧞','🧟','🧙',
+  '🦸','🦹','🥷',
+
+  // Insects & small creatures (curated — only the nice ones)
+  '🐌','🦋','🐛','🐝','🐞','🪲','🦂',
+
+  // Animal faces & variations
   '🐾',
-  
-  // More mammals (extended set)
-  '🦥',
-  
-  // Additional sea creatures
-  '🦈‍',
-  
-  // More birds (extended)
-  '🦜','🦚','🦩','🦢','🦤','🪿',
-  
-  // Expanded mammals for variety (100+ more)
-  '🐶','🐕','🐩','🐕‍🦺','🐱','🐈','🐈‍⬛','🐭','🐹','🐰',
-  '🐇','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐸','🐵',
-  '🐔','🐧','🐦','🐤','🐣','🐥','🐺','🦝','🦡','🦔',
-  '🦦','🦥','🦘','🦙','🦒','🦌','🐄','🐂','🐃','🦬',
-  '🦣','🐘','🦏','🦛','🐪','🐫','🦓','🐆','🐅','🦍',
-  '🦧','🙈','🙉','🙊','🐒','🦥','🦦','🦡','🦔','🐿️',
-  
-  // Additional birds (50+)
-  '🐓','🦃','🦅','🦆','🦉','🦚','🦜','🦩','🦢','🦤',
-  '🪿','🕊️','🐦‍⬛','🦜','🦚','🦩','🦢','🦤','🪿','🦅',
-  
-  // Additional aquatic (50+)
-  '🐳','🐋','🐬','🦭','🦈','🐟','🐠','🐡','🦐','🦞',
-  '🦀','🦑','🐙','🪼','🐚','🐬','🦭','🐳','🐋','🦈',
-  '🐟','🐠','🐡','🦐','🦞','🦀','🦑','🐙','🪼',
-  
-  // Additional reptiles & amphibians (20+)
-  '🐢','🐊','🦎','🐍','🐸','🐲','🐉','🦕','🦖','🐢',
-  '🐊','🦎','🐍','🐸',
-  
-  // Additional insects & arthropods (50+)
-  '🐌','🦋','🐛','🐜','🐝','🐞','🦗','🪲','🪳','🦟',
-  '🪰','🪱','🦂','🕷️','🐌','🦋','🐛','🐜','🐝','🐞',
-  '🦗','🪲','🪳','🦟','🪰','🪱','🦂','🕷️','🦋','🐛',
-  '🐜','🐝','🐞','🦗','🪲',
-  
-  // Even more variety - duplicates for larger pool
-  '🦊','🦝','🐻','🐼','🐨','🦘','🦡','🦔','🦦','🦥',
-  '🐆','🐅','🦁','🐯','🦓','🦍','🦧','🐒','🦌','🦙',
-  '🦒','🐘','🦏','🦛','🦬','🦣','🐪','🐫','🐄','🐂',
-  '🐃','🐑','🐏','🐐','🐎','🐴','🦄','🫏','🦮','🐕‍🦺',
 ]
 
 /**
