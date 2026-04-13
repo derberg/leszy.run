@@ -16,14 +16,29 @@ export default function Volunteer() {
   const [loadError, setLoadError] = useState(null)
   const [bib, setBib] = useState('')
   const [flash, setFlash] = useState(null)
+  const [eventEnded, setEventEnded] = useState(false)
 
   useEffect(() => {
     if (!checkpointId) { setLoadError('Brak ID punktu kontrolnego w URL.'); return }
 
-    supabase.from('checkpoints').select('id, name, km_marker').eq('id', checkpointId).single()
-      .then(({ data, error }) => {
+    supabase.from('checkpoints').select('id, name, km_marker, event_id').eq('id', checkpointId).single()
+      .then(async ({ data, error }) => {
         if (error || !data) { setLoadError('Nie znaleziono punktu kontrolnego.'); return }
         setCheckpoint(data)
+
+        // Event ended = at least one race ran, and none are still active/pending
+        const { data: runs } = await supabase
+          .from('race_runs')
+          .select('status, category_id, categories!inner(event_id)')
+          .eq('categories.event_id', data.event_id)
+
+        const hasAnyRun = runs && runs.length > 0
+        const hasFinished = hasAnyRun && runs.some(r => r.status === 'finished' || r.status === 'cancelled')
+        const hasActive = hasAnyRun && runs.some(r => r.status === 'active' || r.status === 'pending')
+
+        if (hasFinished && !hasActive) {
+          setEventEnded(true)
+        }
       })
   }, [checkpointId])
 
@@ -54,6 +69,7 @@ export default function Volunteer() {
   if (eventError) return <ErrorScreen message={eventError} />
   if (loadError) return <ErrorScreen message={loadError} />
   if (!checkpoint) return <LoadingScreen />
+  if (eventEnded) return <EventEndedScreen eventName={event?.name} />
 
   const canSend = bib.length > 0 && parseInt(bib, 10) >= 1
 
@@ -141,6 +157,23 @@ function ErrorScreen({ message }) {
     <div className="flex items-center justify-center min-h-dvh flex-col gap-3 p-6 text-center bg-apex-bg">
       <div className="text-[32px]">!</div>
       <div className="text-apex-red text-base">{message}</div>
+    </div>
+  )
+}
+
+function EventEndedScreen({ eventName }) {
+  return (
+    <div className="flex items-center justify-center min-h-dvh flex-col gap-4 p-8 text-center bg-apex-bg">
+      <div className="text-[64px]">🏁</div>
+      <div className="text-apex-text-bright text-2xl font-bold">Zawody zakończone</div>
+      {eventName && <div className="text-apex-yellow text-base">{eventName}</div>}
+      <div className="text-apex-text text-base max-w-md leading-relaxed mt-2">
+        Dziękujemy za pomoc w organizacji!<br/>
+        Bez Ciebie zawody by się nie odbyły.
+      </div>
+      <div className="text-apex-dim text-sm mt-4">
+        Wyślij ten punkt dalej – pozdrowienia od ekipy LeszyRun 💚
+      </div>
     </div>
   )
 }
