@@ -2865,6 +2865,49 @@
     "website": "https://www.biegraszynski.pl/",
     "is_kids": null
   },
+  "szczecinska-dobranocka-27-etap-1-2026-04-15": {
+    "id": "10695d89-2e74-4e37-a653-45866ee3f932",
+    "name": "Szczecińska Dobranocka 27, Etap 1",
+    "date": "2026-04-15",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Szczecin",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.430182,
+    "lng": 14.550962,
+    "distances": [],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": null,
+    "is_kids": null
+  },
+  "itmbwieczorem-2026-04-16": {
+    "id": "cc5a151b-637a-445b-924a-92246b984ec6",
+    "name": "ITMBWieczorem",
+    "date": "2026-04-16",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Kraków",
+    "voivodeship": "Małopolskie",
+    "lat": 50.046943,
+    "lng": 19.997153,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://go.decathlon.pl/l/4d33642e-e0d7-489e-b3cf-c70ffdbafa84",
+    "website": "https://itmbw.pl/",
+    "is_kids": null
+  },
   "szczyt-wytrzymalosci-2026-04-17": {
     "id": "e36bc49e-2082-4ebc-83d8-c3e42a3f2161",
     "name": "Szczyt Wytrzymałości",
@@ -3456,6 +3499,48 @@
     "website": "https://example.pl",
     "is_kids": null
   },
+  "ii-polmaraton-karolewo-pruszcz-2026-04-18": {
+    "id": "9ed17680-954b-4231-a03d-82dc9404cd91",
+    "name": "II Półmaraton Karolewo - Pruszcz",
+    "date": "2026-04-18",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Dobrcz",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.265326,
+    "lng": 18.146376,
+    "distances": [
+      "21.1 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://zapisy.sts-timing.pl/1056/",
+    "website": "https://www.facebook.com/profile.php?id=61580765014109",
+    "is_kids": null
+  },
+  "wilkowice-na-mapie-2026-04-18": {
+    "id": "e4dfa18c-f891-4fde-a86e-8abb36c249ce",
+    "name": "Wilkowice na Mapie",
+    "date": "2026-04-18",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Wilkowice",
+    "voivodeship": "Łódzkie",
+    "lat": 51.823642,
+    "lng": 20.142927,
+    "distances": [],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://wilkowice.pl",
+    "is_kids": null
+  },
   "iii-bieg-imienia-jozefa-nojiego-bieg-warszawskiego-transportu-publicznego-wtp-2026-04-18": {
     "id": "47083257-52b0-43a0-a68e-95f2279bda12",
     "name": "III Bieg imienia Józefa Nojiego - Bieg Warszawskiego Transportu Publicznego (WTP)",
@@ -3483,6 +3568,28 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v15950",
     "website": "https://dostartu.pl/permalink-v15950",
+    "is_kids": null
+  },
+  "75130-smak-maraton-2026-04-18": {
+    "id": "c836f6c0-5d29-47ea-a6cc-0666e945281f",
+    "name": "751-30 Smak Maraton",
+    "date": "2026-04-18",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "42.2 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://www.facebook.com/p/SMAK-Maraton-100063633938101/",
     "is_kids": null
   },
   "7-nocna-dycha-2026-04-18": {
@@ -4170,6 +4277,50 @@
     "website": "https://www.zmierzymyczas.pl/",
     "is_kids": null
   },
+  "75231-smak-maraton-2026-04-19": {
+    "id": "2e7c5565-b358-4987-bdaa-131d1f38fbc3",
+    "name": "752-31 Smak Maraton",
+    "date": "2026-04-19",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "42.2 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://www.facebook.com/p/SMAK-Maraton-100063633938101/",
+    "is_kids": null
+  },
+  "bydgoski-bieg-urodzinowy-2026-04-19": {
+    "id": "4de1f477-366a-41e7-86b4-a849a0fa74a5",
+    "name": "Bydgoski Bieg Urodzinowy",
+    "date": "2026-04-19",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": 70,
+    "price_to": 70,
+    "location": "Bydgoszcz",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.129713,
+    "lng": 18.029449,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://b4sportonline.pl/Bydgoski_Bieg_Urodzinowy/",
+    "website": "https://biegi.bydgoszcz.pl/biegi/bydgoski-bieg-urodzinowy-2026/",
+    "is_kids": null
+  },
   "wspieram-autyzm-kazdym-krokiem-2026-04-19": {
     "id": "7ec904c2-7aa6-4789-b312-fd41cc4b2189",
     "name": "Wspieram Autyzm Każdym Krokiem",
@@ -4331,6 +4482,29 @@
     ],
     "registration_url": "https://gdanskmaraton.com/maraton-pakiety-startowe/",
     "website": "https://zapisy.sts-timing.pl/maratongdansk/",
+    "is_kids": null
+  },
+  "itmbwieczorem-2026-04-23": {
+    "id": "23a7a2d1-7a4a-40b1-ae31-d1641250f426",
+    "name": "ITMBWieczorem",
+    "date": "2026-04-23",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Kraków",
+    "voivodeship": "Małopolskie",
+    "lat": 50.046943,
+    "lng": 19.997153,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "nocny"
+    ],
+    "registration_url": "https://itmbw.pl/itmbwieczorem-zapisy/",
+    "website": "https://itmbw.pl/itmbwieczorem/",
     "is_kids": null
   },
   "festiwal-biegow-gorskich-3xkopa-2026-2026-04-24": {
@@ -4805,6 +4979,31 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v15773",
     "website": null,
+    "is_kids": null
+  },
+  "i-etap-xvi-jurajski-puchar-nordic-walking-2026-04-25": {
+    "id": "37d0d190-0a34-4e37-924d-b6e8692804b1",
+    "name": "I etap XVI Jurajski Puchar Nordic Walking",
+    "date": "2026-04-25",
+    "registration_deadline": null,
+    "regulamin_url": "https://elektronicznezapisy.pl/download/D2A4M2J6u0b031V7C7z6F097l663l4L9/open",
+    "price_from": 20,
+    "price_to": 70,
+    "location": "Pabianice, Gmina Janów",
+    "voivodeship": "Łódzkie",
+    "lat": 51.663986,
+    "lng": 19.353502,
+    "distances": [
+      "3 km",
+      "4 km",
+      "5 km",
+      "6 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15284/signup.html",
+    "website": "https://elektronicznezapisy.pl/event/15284/signup.html",
     "is_kids": null
   },
   "ii-bieg-konstantego-2026-04-25": {
@@ -5540,6 +5739,28 @@
     "website": "https://mosir.sochaczew.pl/",
     "is_kids": null
   },
+  "vi-bieg-charytatywny-2026-04-26": {
+    "id": "200d494d-2e5f-4c26-966e-38dbc26c28b7",
+    "name": "VI Bieg Charytatywny",
+    "date": "2026-04-26",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Kartuzy",
+    "voivodeship": "Pomorskie",
+    "lat": 54.334228,
+    "lng": 18.197364,
+    "distances": [
+      "3.5 km"
+    ],
+    "event_type": [
+      "charytatywny"
+    ],
+    "registration_url": null,
+    "website": "https://kartuzy.info/artykul/vi-bieg-charytatywny-n1806943",
+    "is_kids": null
+  },
   "bieg-debiutanta-2026-04-26": {
     "id": "b38b5156-131b-455b-a1f0-36c08ec191a5",
     "name": "Bieg Debiutanta",
@@ -5583,6 +5804,29 @@
     ],
     "registration_url": "https://naszadycha.pl",
     "website": "https://naszadycha.pl/",
+    "is_kids": null
+  },
+  "bieg-twierdzy-krakow-2026-04-26": {
+    "id": "903fee53-dd47-46eb-a8a0-8a6bbdf158b2",
+    "name": "Bieg Twierdzy Kraków",
+    "date": "2026-04-26",
+    "registration_deadline": "2026-04-20",
+    "regulamin_url": null,
+    "price_from": 60,
+    "price_to": 70,
+    "location": "Kraków",
+    "voivodeship": "Małopolskie",
+    "lat": 50.046943,
+    "lng": 19.997153,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://b4sportonline.pl/bieg_twierdzy_krakow/",
+    "website": "https://bieg-twierdzy-krakow.pl/",
     "is_kids": null
   },
   "8-dyszka-jurandowny-2026-04-26": {
@@ -5968,6 +6212,29 @@
     ],
     "registration_url": null,
     "website": "https://biegi.xyz/cbn",
+    "is_kids": null
+  },
+  "itmbwieczorem-2026-04-30": {
+    "id": "dedf4a73-df65-48d8-b702-6a3d79c2067f",
+    "name": "ITMBWieczorem",
+    "date": "2026-04-30",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Kraków",
+    "voivodeship": "Małopolskie",
+    "lat": 50.046943,
+    "lng": 19.997153,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "nocny"
+    ],
+    "registration_url": "https://itmbw.pl/itmbwieczorem-zapisy/",
+    "website": "https://itmbw.pl/itmbwieczorem/",
     "is_kids": null
   },
   "iii-aleksandryjska-piatka-po-lesie-2026-05-01": {
@@ -6771,6 +7038,56 @@
     "website": "https://www.zmierzymyczas.pl/edit/2517/pl-cz-parkowy-bieg.html",
     "is_kids": null
   },
+  "x-debinski-bieg-po-flage-2026-05-02": {
+    "id": "c5276b4f-369b-4bdb-9f54-1da38e805e0a",
+    "name": "X Dębiński Bieg po Flagę",
+    "date": "2026-05-02",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Wola Dębińska",
+    "voivodeship": "Małopolskie",
+    "lat": 49.973445,
+    "lng": 20.709751,
+    "distances": [
+      "2.5 km",
+      "4.5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://chronotex.pl/opis-zawodow/?id_zawodow=1318",
+    "website": "https://www.informatorbrzeski.pl/jubileuszowy-x-debinski-bieg-po-flage-juz-2-maja-2026/",
+    "is_kids": null
+  },
+  "gorskie-mistrzostwa-kids-cup-w-startach-indywidualnych-2026-05-02": {
+    "id": "3d94446d-194c-44b7-ad0a-458c5560f9c5",
+    "name": "Górskie Mistrzostwa Kids Cup w startach indywidualnych",
+    "date": "2026-05-02",
+    "registration_deadline": "2026-04-29",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/G4Q8b2t7B0a0B1G757j5B9m4Z5R9H8J5/open",
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Stilo",
+    "voivodeship": "Pomorskie",
+    "lat": 54.78139,
+    "lng": 17.740001,
+    "distances": [
+      "100 m",
+      "200 m",
+      "400 m",
+      "600 m"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15278/signup.html",
+    "website": "https://elektronicznezapisy.pl/",
+    "is_kids": null
+  },
   "10bieg-krola-eryka-dzieci-i-mlodziez-2026-05-02": {
     "id": "a81ad087-d54b-4ea4-b72c-4416c37aa5a2",
     "name": "10.Bieg Króla Eryka - dzieci i młodzież",
@@ -7108,6 +7425,48 @@
     "website": "https://www.wbtiming.pl/Lidzbarska10tka2026",
     "is_kids": null
   },
+  "lodzki-bieg-konstytucji-3-maja-2026-05-03": {
+    "id": "13edb49d-fa16-4b21-97a7-ddd1df6d4488",
+    "name": "Łódzki Bieg Konstytucji 3 Maja",
+    "date": "2026-05-03",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Łódź",
+    "voivodeship": "Łódzkie",
+    "lat": 51.772825,
+    "lng": 19.478486,
+    "distances": [],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": null,
+    "is_kids": null
+  },
+  "xxxvi-miedzynarodow-uliczny-bieg-konstytucji-3go-maja-2026-05-03": {
+    "id": "5875bd49-45f4-439a-9455-b7ce2c50c75d",
+    "name": "XXXVI Międzynarodow Uliczny Bieg Konstytucji 3-go Maja",
+    "date": "2026-05-03",
+    "registration_deadline": "2026-04-25",
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1073",
+    "price_from": 50,
+    "price_to": 70,
+    "location": "Stalowa Wola\n                            Stalowa Wola",
+    "voivodeship": "Podkarpackie",
+    "lat": 50.591912,
+    "lng": 22.048081,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/xxxvi-miedzynarodow-uliczny-bieg-konstytucji-3-go-maja",
+    "website": null,
+    "is_kids": null
+  },
   "10-kobierzycki-bieg-z-konstytucja-2026-05-03": {
     "id": "fa1c0d47-b8ec-41c3-9e35-5644a39d58a2",
     "name": "10 Kobierzycki Bieg z Konstytucją",
@@ -7234,6 +7593,26 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16075",
     "website": null,
+    "is_kids": null
+  },
+  "bieg-1791-hanna-2026-05-03": {
+    "id": "6a66ed8a-a046-4226-b8b0-b368e91d03b5",
+    "name": "Bieg 1791 Hanna",
+    "date": "2026-05-03",
+    "registration_deadline": null,
+    "regulamin_url": "https://elektronicznezapisy.pl/download/q4X1N2u0c0h0s1Q7r7h5U7N2u3k5S0z9/open",
+    "price_from": null,
+    "price_to": null,
+    "location": "Hanna",
+    "voivodeship": "Lubelskie",
+    "lat": 51.718326,
+    "lng": 23.503781,
+    "distances": [],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15265/signup.html",
+    "website": "https://elektronicznezapisy.pl/event/15265/signup.html",
     "is_kids": null
   },
   "poznanski-bieg-konstytucji-2026-05-03": {
@@ -7850,6 +8229,50 @@
     "website": "https://www.zmierzymyczas.pl/edit/2478/i-bieg-wolnosci-sladami-jencow-wojennych-im-rtm-witolda-pileckiego-10-km.html",
     "is_kids": null
   },
+  "13-pko-bialystok-polmaraton-2026-05-09": {
+    "id": "6bf8eba1-a1f2-45fa-9514-91ceed154f57",
+    "name": "13 PKO Białystok Półmaraton",
+    "date": "2026-05-09",
+    "registration_deadline": null,
+    "regulamin_url": "https://bialystokpolmaraton.pl/regulamin/",
+    "price_from": null,
+    "price_to": null,
+    "location": "Białystok",
+    "voivodeship": "Podlaskie",
+    "lat": 53.132398,
+    "lng": 23.159168,
+    "distances": [
+      "21.1 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://b4sportonline.pl/pko_bialystok_polmaraton/",
+    "website": "https://bialystokpolmaraton.pl/",
+    "is_kids": null
+  },
+  "akademicka-dycha-2026-05-09": {
+    "id": "9952bf71-1d77-4e9f-bd6c-370c595120e1",
+    "name": "Akademicka Dycha",
+    "date": "2026-05-09",
+    "registration_deadline": null,
+    "regulamin_url": "https://akademickadycha.uws.edu.pl/regulamin/",
+    "price_from": null,
+    "price_to": null,
+    "location": "Siedlce",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.161594,
+    "lng": 22.281253,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://akademickadycha.uws.edu.pl/zapisy/",
+    "website": "https://akademickadycha.uws.edu.pl/",
+    "is_kids": null
+  },
   "3-bieg-wiewiorki-2026-2026-05-09": {
     "id": "4ebd293f-5822-4946-b72d-9108dc362d83",
     "name": "3. BIEG WIEWIÓRKI - 2026",
@@ -8252,6 +8675,28 @@
     "website": "https://www.wingsforlifeworldrun.com/pl/",
     "is_kids": null
   },
+  "xiv-piatka-dla-bartka-2026-05-10": {
+    "id": "d4d580b0-5ba0-476f-817b-92a85bfd7abd",
+    "name": "XIV Piątka dla Bartka",
+    "date": "2026-05-10",
+    "registration_deadline": null,
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12189.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Kielce",
+    "voivodeship": "Świętokrzyskie",
+    "lat": 50.854029,
+    "lng": 20.609916,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "http://www.siebiega.com/piatka-dla-bartka-zapisy/",
+    "is_kids": null
+  },
   "xv-dzialoszynska-dziesiatka-2026-05-10": {
     "id": "7eec83f2-3434-4d66-8354-4be30b8c35a2",
     "name": "XV Działoszyńska Dziesiątka",
@@ -8523,6 +8968,30 @@
     ],
     "registration_url": "https://plus-timing.pl/zgloszenia/botaniczna5-wiosna-2026/",
     "website": "https://botaniczna5.pl/events/botaniczna-piatka-bydgoszcz-edycja-wiosenna/",
+    "is_kids": null
+  },
+  "xiv-piatka-dla-bartka-biegi-dla-dzieci-2026-05-11": {
+    "id": "118b14dc-2cd4-49c7-b221-ddaf8bb336f1",
+    "name": "XIV Piątka dla Bartka - biegi dla dzieci",
+    "date": "2026-05-11",
+    "registration_deadline": null,
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12190.pdf",
+    "price_from": 20,
+    "price_to": 20,
+    "location": "Kielce",
+    "voivodeship": "Świętokrzyskie",
+    "lat": 50.854029,
+    "lng": 20.609916,
+    "distances": [
+      "400m",
+      "800m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "http://www.online.datasport.pl/zapisy/portal/listy/?zawody=11061",
+    "website": "http://www.siebiega.com/",
     "is_kids": null
   },
   "xiii-zorski-bieg-ogniowy-2026-05-11": {
@@ -9592,6 +10061,79 @@
     "website": "https://www.zmierzymyczas.pl/edit/2521/charytatywny-maraton-fotograficzny-kilometry-pomocy-2026.html",
     "is_kids": null
   },
+  "biegaj-razem-z-nami-grand-prix-piekar-slaskich-2026-17052026-2026-05-17": {
+    "id": "1ae51d2b-cc7c-4007-908f-8a3dc349afb8",
+    "name": "Biegaj Razem z Nami – Grand Prix Piekar Śląskich 2026 - 17.05.2026",
+    "date": "2026-05-17",
+    "registration_deadline": "2026-05-15",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/V3T687U7c0z09127Q7N5F7P6e0c1V2Z6/open",
+    "price_from": null,
+    "price_to": null,
+    "location": "Dąbrówka Wielka",
+    "voivodeship": "Łódzkie",
+    "lat": 51.894414,
+    "lng": 19.429153,
+    "distances": [
+      "200m"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15196/signup.html",
+    "website": "http://www.mosir.piekary.pl",
+    "is_kids": null
+  },
+  "marszobieg-trzech-dzielnic-2026-05-17": {
+    "id": "9272de9c-63c9-40c9-8d98-af3a7fb8b3e0",
+    "name": "Marszobieg Trzech Dzielnic",
+    "date": "2026-05-17",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Kraków",
+    "voivodeship": "Małopolskie",
+    "lat": 50.046943,
+    "lng": 19.997153,
+    "distances": [
+      "0.2 km",
+      "4 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://formularz.ultimasport.pl/370",
+    "website": "https://krakow.pl/aktualnosci/293854,202,komunikat,juz_w_maju_marszobieg_trzech_dzielnic__spotkajmy_sie_nad_bialucha.html",
+    "is_kids": null
+  },
+  "v-bieg-ochota-na-zdrowie-2026-05-17": {
+    "id": "7c2cdb1b-5691-4249-bd14-9289b0aae75a",
+    "name": "V Bieg Ochota Na Zdrowie",
+    "date": "2026-05-17",
+    "registration_deadline": null,
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1075",
+    "price_from": 40,
+    "price_to": 40,
+    "location": "Warszawa, Park Forty Korotyńskiego\n                            Warszawa, Park Forty Korotyńskiego",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "5 km",
+      "200m",
+      "500m",
+      "750m",
+      "1000m",
+      "1250m"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/v-bieg-ochota-na-zdrowie",
+    "website": "https://competitions.timekeeper.pl/v-bieg-ochota-na-zdrowie",
+    "is_kids": null
+  },
   "19-bieg-wiosny-2026-05-17": {
     "id": "362d2809-ea11-474d-bde6-c4d11a4f099b",
     "name": "19. Bieg Wiosny",
@@ -9660,6 +10202,29 @@
     ],
     "registration_url": "https://www.facebook.com/ChceCisie/",
     "website": null,
+    "is_kids": null
+  },
+  "bieg-po-puszczy-2026-05-17": {
+    "id": "ae19ced4-eec8-4db4-81a6-33ab0bf78e41",
+    "name": "Bieg Po Puszczy",
+    "date": "2026-05-17",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Niepołomice",
+    "voivodeship": "Małopolskie",
+    "lat": 50.033116,
+    "lng": 20.21716,
+    "distances": [
+      "21.1 km"
+    ],
+    "event_type": [
+      "nocny",
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/12646/strona.html",
+    "website": "https://polmaratonpiaseczno.pl/",
     "is_kids": null
   },
   "vi-charytatywna-piatka-z-fludra-2026-05-17": {
@@ -10600,6 +11165,51 @@
     "website": "https://ekiden.pl",
     "is_kids": null
   },
+  "xxxiv-bieg-uliczny-po-ziemi-makowskiej-2026-05-23": {
+    "id": "7582c5f4-d751-4400-90ac-b5a5ac7abc9f",
+    "name": "XXXIV Bieg Uliczny po Ziemi Makowskiej",
+    "date": "2026-05-23",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Maków Podhalański",
+    "voivodeship": "Małopolskie",
+    "lat": 49.729897,
+    "lng": 19.67688,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://www.mckmakow.pl/miedzynarodowy_bieg_uliczny_po_ziemi_makowskiej-32878-p0.html",
+    "is_kids": null
+  },
+  "xxviii-bieg-swiecow-2026-05-23": {
+    "id": "61701aa5-372e-4d1a-a4cd-467ebc9d66a1",
+    "name": "XXVIII Bieg Święców",
+    "date": "2026-05-23",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Sławno",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 54.362982,
+    "lng": 16.678907,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://b4sportonline.pl/biegi_slawno/",
+    "website": "https://b4sportonline.pl/biegi_slawno",
+    "is_kids": null
+  },
   "iv-bieg-uliczny-biegowe-grand-prix-kociewia-2026-2026-05-23": {
     "id": "60a3e08d-8ee8-430a-909a-edd287103cc4",
     "name": "IV Bieg Uliczny - Biegowe Grand Prix Kociewia 2026",
@@ -11121,6 +11731,77 @@
     ],
     "registration_url": "https://kepasport.pl/wydarzenie/xxii-bieg-sanguszkow/",
     "website": "https://kepasport.pl/wydarzenie/xxii-bieg-sanguszkow/",
+    "is_kids": null
+  },
+  "kecka-piatka-2026-05-24": {
+    "id": "274b1ce2-286b-4a0e-913e-9d2e0fee0a7b",
+    "name": "Kęcka Piątka",
+    "date": "2026-05-24",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Kęty",
+    "voivodeship": "Małopolskie",
+    "lat": 49.882908,
+    "lng": 19.223936,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://osir.kety.pl/",
+    "is_kids": null
+  },
+  "mucharskie-petle-2026-05-24": {
+    "id": "e04909da-024c-43b1-adfe-fe00567fe1ed",
+    "name": "Mucharskie Pętle",
+    "date": "2026-05-24",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Mucharz",
+    "voivodeship": "Małopolskie",
+    "lat": 49.812017,
+    "lng": 19.558491,
+    "distances": [
+      "5 km",
+      "10 km",
+      "3 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://chronotex.pl/opis-zawodow/?id_zawodow=1316",
+    "website": "https://jmucharskie.pl/content/15-mucharskie-petle",
+    "is_kids": null
+  },
+  "gontyniec-ultra-trail-2026-05-24": {
+    "id": "04cefde7-026d-4043-8623-a08833ac4a88",
+    "name": "Gontyniec Ultra Trail",
+    "date": "2026-05-24",
+    "registration_deadline": "2026-04-27",
+    "regulamin_url": null,
+    "price_from": 90,
+    "price_to": 160,
+    "location": "Chodzież",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.994998,
+    "lng": 16.919926,
+    "distances": [
+      "12 km",
+      "26 km",
+      "52 km"
+    ],
+    "event_type": [
+      "trail",
+      "ultra"
+    ],
+    "registration_url": "https://www.gontyniec.pl/index.php/zapisy",
+    "website": "https://panel.maratonczykpomiarczasu.pl/gontyniec-ultra-trail-2026",
     "is_kids": null
   },
   "xxxi-polmaraton-jaworski-xviii-bieg-strazacki-im-adriana-kotkowskiego-i-otwarte-mistrzostwa-wojewodztwa-dolnoslaskiego-straz-2026-05-24": {
@@ -11676,6 +12357,70 @@
     ],
     "registration_url": "https://superczas.pl/gpmazury2",
     "website": "https://superczas.pl/gpmazury2",
+    "is_kids": null
+  },
+  "rodzinny-bieg-rekreacyjny-2026-05-30": {
+    "id": "fa631473-787d-48d1-8162-3c8d4a7c964b",
+    "name": "Rodzinny Bieg Rekreacyjny",
+    "date": "2026-05-30",
+    "registration_deadline": "2026-05-28",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/U7B7M5J020A0c1Y7i7B558n1U9F8n2y0/open",
+    "price_from": null,
+    "price_to": null,
+    "location": "Sępólno Krajeńskie",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.454743,
+    "lng": 17.534837,
+    "distances": [
+      "2 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15276/signup.html",
+    "website": "https://elektronicznezapisy.pl/event/15276/signup.html",
+    "is_kids": null
+  },
+  "puchar-toru-dabka-2026-05-30": {
+    "id": "0ba775f2-b2a5-4a02-8b79-a2785913b258",
+    "name": "Puchar Toru Dąbka",
+    "date": "2026-05-30",
+    "registration_deadline": null,
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1076",
+    "price_from": 800,
+    "price_to": 800,
+    "location": "Głębokie k/Rymanowa\n                            Głębokie k/Rymanowa",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.30907,
+    "lng": 15.63861,
+    "distances": [],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/puchar-toru-dabka-2025",
+    "website": "https://competitions.timekeeper.pl/puchar-toru-dabka-2025",
+    "is_kids": null
+  },
+  "9-bieg-muzealny-2026-05-30": {
+    "id": "592036cb-4586-4849-aa2d-88c493108721",
+    "name": "9. Bieg Muzealny",
+    "date": "2026-05-30",
+    "registration_deadline": "2026-05-29",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/50s8P4z350t0z1q7n743E7k4k4x7m8G8/open",
+    "price_from": 30,
+    "price_to": 70,
+    "location": "Tuczno (woj. kujawsko-pomorskie)",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 52.851297,
+    "lng": 18.117283,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/14901/signup.html",
+    "website": "https://elektronicznezapisy.pl/event/14901/signup.html",
     "is_kids": null
   },
   "8-borowiacka-dycha-2026-05-30": {
@@ -12502,6 +13247,28 @@
     "website": "https://zdunskawola.pl/przygoda-rywalizacja-i-emocje/",
     "is_kids": null
   },
+  "bieg-z-okazji-dni-ziemi-ropczyckiej-2026-05-31": {
+    "id": "512b1f23-d5b6-4806-ba90-9ecf3fff7cfd",
+    "name": "Bieg  z okazji Dni Ziemi Ropczyckiej",
+    "date": "2026-05-31",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Ropczyce",
+    "voivodeship": "Podkarpackie",
+    "lat": 50.052861,
+    "lng": 21.611632,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": null,
+    "is_kids": null
+  },
   "xxxi-ogolnopolski-bieg-masowy-petla-rudnicka-2026-05-31": {
     "id": "9fe4fd13-1830-4791-a10f-d34baf8cfa53",
     "name": "XXXI OGÓLNOPOLSKI  BIEG  MASOWY „PĘTLA  RUDNICKA\"",
@@ -12530,6 +13297,30 @@
     ],
     "registration_url": "https://www.facebook.com/profile.php?id=100071144186677",
     "website": "https://pomiarczasuatelier.pl/",
+    "is_kids": null
+  },
+  "stryszow-w-biegu-2026-05-31": {
+    "id": "183c71a4-8c78-46e5-acb4-94c993d2b67e",
+    "name": "Stryszów w Biegu",
+    "date": "2026-05-31",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Stryszów",
+    "voivodeship": "Małopolskie",
+    "lat": 49.825128,
+    "lng": 19.62615,
+    "distances": [
+      "6 km",
+      "10 km",
+      "21.1 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://www.biegigorskie.pl/news/stryszow-w-biegu-spokojny-start-w-pieknych-okolicznosciach-przyrody/",
     "is_kids": null
   },
   "13-krakowski-bieg-swoszowicki-2026-05-31": {
@@ -12601,6 +13392,28 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15066/signup.html",
     "website": "https://elektronicznezapisy.pl/event/15066/signup.html",
+    "is_kids": null
+  },
+  "szybka-piatka-5k-fast-run-kupienino-2026-2026-05-31": {
+    "id": "29145de0-8be8-4648-bd8e-44de0eae3fa6",
+    "name": "Szybka Piątka 5K FAST RUN Kupienino 2026",
+    "date": "2026-05-31",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": 69,
+    "price_to": 69,
+    "location": "Kupienino",
+    "voivodeship": "Lubuskie",
+    "lat": 52.259427,
+    "lng": 15.609817,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4661-szybka-piatka-5k-fast-run-kupienino-2026.html",
+    "website": "https://super-sport.com.pl/zapisy-formularze/4661-szybka-piatka-5k-fast-run-kupienino-2026.html",
     "is_kids": null
   },
   "promar-run-4-bieg-zawiercianski-2026-05-31": {
@@ -13487,6 +14300,28 @@
     "website": "https://www.zmierzymyczas.pl/edit/2483/iv-bieg-charytatywny-na-gronik-o-puchar-wojta-gminy-stryszawa.html",
     "is_kids": null
   },
+  "biegaj-razem-z-nami-grand-prix-piekar-slaskich-2026-07062026-2026-06-07": {
+    "id": "0f3a5d7d-d2b3-451b-939d-ba24d0734a33",
+    "name": "Biegaj Razem z Nami – Grand Prix Piekar Śląskich 2026 - 07.06.2026",
+    "date": "2026-06-07",
+    "registration_deadline": null,
+    "regulamin_url": "https://elektronicznezapisy.pl/download/19U013L7g0k0R1b7L7K5v7N6V0O9x0D8/open",
+    "price_from": null,
+    "price_to": null,
+    "location": "Kozłowa Góra",
+    "voivodeship": "Śląskie",
+    "lat": 50.42911,
+    "lng": 18.974288,
+    "distances": [
+      "200m"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15197/signup.html",
+    "website": "http://www.mosir.piekary.pl",
+    "is_kids": null
+  },
   "charytatywny-bieg-i-marsz-nw-z-milosci-dla-zdrowia-2026-06-07": {
     "id": "47ad05d1-f5eb-4873-a413-00eeb05c03ca",
     "name": "CHARYTATYWNY BIEG I MARSZ NW „Z Miłości dla Zdrowia”",
@@ -13670,6 +14505,30 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14827/signup.html",
     "website": "https://elektronicznezapisy.pl/event/14827/strona.html",
+    "is_kids": null
+  },
+  "rozbiegane-suwalki-2026-miejskie-swieto-biegania-2026-06-12": {
+    "id": "3b2aa7b9-4301-4826-8d51-c5bcc6545c5d",
+    "name": "Rozbiegane Suwałki 2026 – Miejskie Święto Biegania",
+    "date": "2026-06-12",
+    "registration_deadline": null,
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1077",
+    "price_from": 50,
+    "price_to": 80,
+    "location": "Suwałki\n                            Suwałki",
+    "voivodeship": "Podlaskie",
+    "lat": 54.107639,
+    "lng": 22.935125,
+    "distances": [
+      "5 km",
+      "10.5 km"
+    ],
+    "event_type": [
+      "nocny",
+      "uliczny"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/rozbiegane-suwalki-2026-miejskie-swieto-biegania",
+    "website": "https://osir.suwalki.pl/",
     "is_kids": null
   },
   "x-nocny-polmaraton-piotrkowski-oraz-vii-cwiercpolmaraton-2026-06-12": {
@@ -14062,6 +14921,28 @@
     ],
     "registration_url": null,
     "website": null,
+    "is_kids": null
+  },
+  "iv-bilczanska-dycha-2026-06-13": {
+    "id": "4c3b5cbf-7f61-4cbf-a39f-e0151423b5f7",
+    "name": "IV Bilczańska Dycha",
+    "date": "2026-06-13",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Morawica",
+    "voivodeship": "Świętokrzyskie",
+    "lat": 50.747815,
+    "lng": 20.618127,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://formularz.ultimasport.pl/470",
+    "website": "https://www.zgkirmorawica.pl/",
     "is_kids": null
   },
   "xxiii-wilcza-dycha-2026-06-13": {
@@ -14502,6 +15383,51 @@
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2498/i-bieg-pod-wiatrakami.html",
     "website": "https://biegpodwiatrakami.pl/",
+    "is_kids": null
+  },
+  "aktywna-gmina-sportowy-niechlow-2026-2026-06-14": {
+    "id": "8251f31b-f712-4d3d-8134-9bd2a658854a",
+    "name": "AKTYWNA GMINA – SPORTOWY NIECHLÓW 2026",
+    "date": "2026-06-14",
+    "registration_deadline": "2026-06-10",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12205.pdf",
+    "price_from": 50,
+    "price_to": 70,
+    "location": "Niechlów",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.689436,
+    "lng": 16.366036,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://www.facebook.com/AktywnaGminaSportowyNiechlow/",
+    "is_kids": null
+  },
+  "biegaj-razem-z-nami-grand-prix-piekar-slaskich-2026-14062026-2026-06-14": {
+    "id": "e29f6625-37d5-430c-b187-419cb0495f64",
+    "name": "Biegaj Razem z Nami – Grand Prix Piekar Śląskich 2026 -14.06.2026",
+    "date": "2026-06-14",
+    "registration_deadline": null,
+    "regulamin_url": "https://elektronicznezapisy.pl/download/t6R0B7N0h0k0T1A7n7p5d7z6E101N8I2/open",
+    "price_from": null,
+    "price_to": null,
+    "location": "Kamień",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.288407,
+    "lng": 18.029331,
+    "distances": [
+      "200m"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15198/signup.html",
+    "website": "http://www.mosir.piekary.pl",
     "is_kids": null
   },
   "15-lubawska-dycha-2026-06-14": {
@@ -15204,6 +16130,28 @@
     "website": "https://www.zmierzymyczas.pl/edit/2370/trojak-kowala-zar-paleniska.html",
     "is_kids": null
   },
+  "13-plocka-szybka-trojka-2026-06-20": {
+    "id": "975a272d-eb77-4c94-a4dc-90e53d336c16",
+    "name": "13. Płocka Szybka Trójka",
+    "date": "2026-06-20",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Płock",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.535347,
+    "lng": 19.71363,
+    "distances": [
+      "3 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "http://tkkfplock.pl/szybka-trojka-zapisy.html",
+    "website": "http://tkkfplock.pl/szybka-trojka.html",
+    "is_kids": null
+  },
   "ii-bieg-nocy-letniej-2026-06-20": {
     "id": "de43bc68-5624-49c2-9d41-cdb63156c211",
     "name": "II Bieg Nocy Letniej",
@@ -15255,6 +16203,26 @@
       "uliczny"
     ],
     "registration_url": "https://dostartu.pl/permalink-v15518",
+    "website": null,
+    "is_kids": null
+  },
+  "43-strzelinski-rogaining-2026-06-20": {
+    "id": "53007f5b-fbcb-4125-acdc-cbb804fa6219",
+    "name": "43 Strzeliński Rogaining",
+    "date": "2026-06-20",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Kamiennik",
+    "voivodeship": "Opolskie",
+    "lat": 50.570405,
+    "lng": 17.150688,
+    "distances": [],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
     "website": null,
     "is_kids": null
   },
@@ -16420,6 +17388,28 @@
     "website": "https://www.zmierzymyczas.pl/edit/2515/viii-bieg-swietlika.html",
     "is_kids": null
   },
+  "nietuzinkowy-bieg-2026-06-27": {
+    "id": "45511ea6-4b24-4130-9199-70560d59d478",
+    "name": "nieTUZINKOWY Bieg",
+    "date": "2026-06-27",
+    "registration_deadline": "2026-06-24",
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1074",
+    "price_from": 50,
+    "price_to": 50,
+    "location": "Hłudno\n                            Hłudno",
+    "voivodeship": "Podkarpackie",
+    "lat": 49.780144,
+    "lng": 22.135678,
+    "distances": [
+      "12 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/nietuzinkowy-bieg-2026",
+    "website": "https://competitions.timekeeper.pl/nietuzinkowy-bieg-2026",
+    "is_kids": null
+  },
   "28-ogolnopolski-bieg-milowego-slupa-konin-2026-06-27": {
     "id": "65ea9032-d993-4e5d-82fe-2a45590308ca",
     "name": "28. Ogólnopolski Bieg Milowego Słupa - Konin",
@@ -17299,6 +18289,29 @@
     "website": "https://www.forrest-limanowa.pl/",
     "is_kids": null
   },
+  "ii-bieg-dla-puckiego-hospicjum-2026-07-05": {
+    "id": "72b029b7-3580-45f2-b7a6-3243a39fc465",
+    "name": "II Bieg dla Puckiego Hospicjum",
+    "date": "2026-07-05",
+    "registration_deadline": "2026-07-02",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/m0q7P86640M0j1c7j7E5P8V2V0E2E8N1/open",
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Warszkowski Młyn",
+    "voivodeship": null,
+    "lat": null,
+    "lng": null,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15277/signup.html",
+    "website": "https://elektronicznezapisy.pl/event/15277/signup.html",
+    "is_kids": null
+  },
   "pogon-za-jednorozcem-2026-07-05": {
     "id": "a6caee0b-c6f7-40d3-bf65-a7e59ea9d0fe",
     "name": "POGOŃ ZA JEDNOROŻCEM",
@@ -17552,6 +18565,28 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v15874",
     "website": "https://pomiarczasuatelier.pl/",
+    "is_kids": null
+  },
+  "bukowiecka-dziesiatka-2026-07-11": {
+    "id": "200d29dd-1647-47dd-85a5-36825b7a3bfa",
+    "name": "Bukowiecka Dziesiątka",
+    "date": "2026-07-11",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Bukowiec",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.856473,
+    "lng": 17.238669,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://b4sportonline.pl/Bukowiecka_Dziesiatka/",
+    "website": "https://bukowiecka.pl",
     "is_kids": null
   },
   "iglotex-xix-bieg-czterech-jezior-2026-07-11": {
@@ -18685,6 +19720,29 @@
     "website": "https://zapisy.org/events/84",
     "is_kids": null
   },
+  "zlota-dycha-2026-08-08": {
+    "id": "2641412d-b580-4169-9d25-de3c745b9162",
+    "name": "Złota Dycha",
+    "date": "2026-08-08",
+    "registration_deadline": "2026-08-06",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12169.pdf",
+    "price_from": 60,
+    "price_to": 80,
+    "location": "Złotoryja",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.122409,
+    "lng": 15.919448,
+    "distances": [
+      "10 km",
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://zlotadycha.zlotoryja.pl",
+    "is_kids": null
+  },
   "ii-nadbuzanski-bieg-pod-prad-kids-2026-08-08": {
     "id": "1c55e5d1-8689-4d6d-8550-5e9e327c57d1",
     "name": "II Nadbużański Bieg pod Prąd KIDS",
@@ -19606,6 +20664,56 @@
     "website": "https://visegradmaraton.info/bieg-kurierow-sadeckich/",
     "is_kids": null
   },
+  "ix-cross-mol-2026-08-29": {
+    "id": "fd1caafd-c5f8-4026-b332-213c1d60a7a8",
+    "name": "IX CROSS - MOL",
+    "date": "2026-08-29",
+    "registration_deadline": null,
+    "regulamin_url": "https://elektronicznezapisy.pl/download/b5S8x3N090e0p1g757f5w765C8u60275/open",
+    "price_from": 45,
+    "price_to": 85,
+    "location": "Bytom",
+    "voivodeship": "Śląskie",
+    "lat": 50.347039,
+    "lng": 18.923186,
+    "distances": [
+      "10 km",
+      "5.5 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15274/signup.html",
+    "website": "https://elektronicznezapisy.pl/event/15274/signup.html",
+    "is_kids": null
+  },
+  "night-swim-open-water-2026-2026-08-29": {
+    "id": "347da61d-998c-4c48-9e9f-b6b3d5c20f9c",
+    "name": "NIGHT SWIM OPEN WATER 2026",
+    "date": "2026-08-29",
+    "registration_deadline": null,
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_Night_Swim_2026.pdf",
+    "price_from": 100,
+    "price_to": 260,
+    "location": "Wrocław, Kopalnia - Strefa Wakacji",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.108978,
+    "lng": 17.032669,
+    "distances": [
+      "400 m",
+      "1000 m",
+      "3800 m",
+      "10000 m"
+    ],
+    "event_type": [
+      "nocny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2543/night-swim-open-water-2026.html",
+    "website": "https://www.zmierzymyczas.pl/edit/2543/night-swim-open-water-2026.html",
+    "is_kids": null
+  },
   "12-bieg-sluzb-mundurowych-o-mistrzostwo-wielkopolski-2026-08-29": {
     "id": "b02f572b-4795-4c92-b219-85556de3fca3",
     "name": "12. Bieg Służb Mundurowych o Mistrzostwo Wielkopolski",
@@ -19860,6 +20968,74 @@
     ],
     "registration_url": "https://www.goralmarathon.com/pl/",
     "website": "https://www.goralmarathon.com/pl/",
+    "is_kids": null
+  },
+  "polmaraton-buski-2026-08-30": {
+    "id": "8177c0a3-a453-495d-9121-3e66dfb251f5",
+    "name": "Półmaraton Buski",
+    "date": "2026-08-30",
+    "registration_deadline": null,
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12171.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Busko Zdrój",
+    "voivodeship": "Świętokrzyskie",
+    "lat": 50.46759,
+    "lng": 20.71919,
+    "distances": [
+      "21.0975 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://online.datasport.pl/zapisy/portal/zawody.php?zawody=9365",
+    "website": "https://www.bosir.busko.pl/polmaraton-buski/",
+    "is_kids": null
+  },
+  "meritum-run-bieg-malego-szerszenia-2026-08-30": {
+    "id": "49cd7653-35f1-41ef-8e56-f4f4a6006c16",
+    "name": "Meritum Run. Bieg Małego Szerszenia",
+    "date": "2026-08-30",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Oleśnica",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.210243,
+    "lng": 17.382947,
+    "distances": [
+      "0.4 km",
+      "0.6 km",
+      "0.8 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://online.datasport.pl/zapisy/portal/zawody.php?zawody=9981",
+    "website": "http://www.szerszenolesnica.pl",
+    "is_kids": null
+  },
+  "11-bieg-po-oddech-2026-08-30": {
+    "id": "3f0376d8-e9b3-4f99-bd24-bdf765c3d8f7",
+    "name": "11 Bieg po Oddech",
+    "date": "2026-08-30",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Zakopane",
+    "voivodeship": "Małopolskie",
+    "lat": 49.296911,
+    "lng": 19.950475,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://bieg.ptwm.org.pl/zapisy/",
+    "website": "https://bieg.ptwm.org.pl/",
     "is_kids": null
   },
   "x-biegu-jurka-v-brygady-wilenskiej-2026-08-30": {
@@ -20141,6 +21317,30 @@
     ],
     "registration_url": null,
     "website": null,
+    "is_kids": null
+  },
+  "i-bieg-lewin-tri-2026-09-05": {
+    "id": "27ba7f6d-8bde-4975-9b5c-438fec236f7c",
+    "name": "I BIEG LEWin TRI",
+    "date": "2026-09-05",
+    "registration_deadline": "2026-08-20",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_Biegu_LEW_in_TRI_1.pdf",
+    "price_from": 60,
+    "price_to": 60,
+    "location": "Lewin Brzeski",
+    "voivodeship": "Opolskie",
+    "lat": 50.748711,
+    "lng": 17.616648,
+    "distances": [
+      "10 km",
+      "NW 5 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2548/i-bieg-lewin-tri.html",
+    "website": "https://www.zmierzymyczas.pl/edit/2548/i-bieg-lewin-tri.html",
     "is_kids": null
   },
   "vii-bieg-przeciszowski-2026-09-05": {
@@ -20934,6 +22134,28 @@
     "website": "https://hospicjumpk.pl/bieg-nadziei/",
     "is_kids": null
   },
+  "biegaj-razem-z-nami-grand-prix-piekar-slaskich-2026-13092026-2026-09-13": {
+    "id": "e9b0a455-dc25-45ba-8513-1807df196334",
+    "name": "Biegaj Razem z Nami – Grand Prix Piekar Śląskich 2026 - 13.09.2026",
+    "date": "2026-09-13",
+    "registration_deadline": null,
+    "regulamin_url": "https://elektronicznezapisy.pl/download/87K6N9X6Y01091N7J745X7B6v1D4L0i8/open",
+    "price_from": null,
+    "price_to": null,
+    "location": "Piekary Śląskie",
+    "voivodeship": "Śląskie",
+    "lat": 50.375779,
+    "lng": 18.937939,
+    "distances": [
+      "200m"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15199/signup.html",
+    "website": "http://www.mosir.piekary.pl",
+    "is_kids": null
+  },
   "ii-zlotowska-dziesiatka-2026-09-13": {
     "id": "2ca94d71-5b31-4139-a195-e85275d39d44",
     "name": "II Złotowska dziesiątka",
@@ -21001,6 +22223,28 @@
     ],
     "registration_url": "https://tarczyn-polmaraton.pl/zgloszenia/",
     "website": "https://tarczyn-polmaraton.pl",
+    "is_kids": null
+  },
+  "35-tarnowski-bieg-leliwitow-2026-09-17": {
+    "id": "845ff3b2-ce28-422a-827b-af0593e1edf9",
+    "name": "35 Tarnowski Bieg Leliwitów",
+    "date": "2026-09-17",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Tarnów",
+    "voivodeship": "Małopolskie",
+    "lat": 50.012378,
+    "lng": 20.988074,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://sokoltarnow.pl",
     "is_kids": null
   },
   "pko-wieczorny-polmaraton-lodz-2026-09-19": {
@@ -21101,6 +22345,52 @@
     ],
     "registration_url": "https://bytomskipolmaraton.pl/zapisy,14",
     "website": "https://bytomskipolmaraton.pl/",
+    "is_kids": null
+  },
+  "gontyniec-celtic-trail-2026-09-19": {
+    "id": "39fb543b-e878-4ea5-af74-40391b551f5c",
+    "name": "Gontyniec Celtic Trail",
+    "date": "2026-09-19",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Chodzież",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.994998,
+    "lng": 16.919926,
+    "distances": [
+      "6h",
+      "12h"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://zapisy.maratonczykpomiarczasu.pl/pl/gontyniec-celtic-trail",
+    "website": "https://www.gontyniec.pl/index.php/gontyniec-celtic-trail",
+    "is_kids": null
+  },
+  "gladiator-junior-2026-09-19": {
+    "id": "5af3f1d7-05eb-473e-a49b-665426bf4b52",
+    "name": "Gladiator Junior",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-11",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12180.pdf",
+    "price_from": 50,
+    "price_to": 60,
+    "location": "Bielawa",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.67539,
+    "lng": 16.607193,
+    "distances": [
+      "1 km"
+    ],
+    "event_type": [
+      "ocr",
+      "dzieci"
+    ],
+    "registration_url": "https://online.datasport.pl/zapisy/portal/zawody.php?zawody=6620",
+    "website": "http://gladiator.osir.bielawa.pl/index.php/junior",
     "is_kids": null
   },
   "ii-terenowy-bieg-o-puchar-soltysa-solectwa-powidz-2026-09-19": {
@@ -22344,27 +23634,49 @@
     "website": "https://marathon.poznan.pl/",
     "is_kids": null
   },
-  "xv-legnica-polmaraton-2026-10-04": {
-    "id": "e49548b7-b9bf-4e8d-ac7e-41143658dbed",
-    "name": "XV Legnica Półmaraton",
+  "xv-legnicki-polmaraton-vii-legnicka-dziesiatka-2026-10-04": {
+    "id": "47312c09-18a6-41fd-9aa4-ec334f2fdd08",
+    "name": "XV Legnicki Półmaraton - VII Legnicka Dziesiątka",
     "date": "2026-10-04",
     "registration_deadline": null,
-    "regulamin_url": null,
-    "price_from": 50,
-    "price_to": 90,
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12148.pdf",
+    "price_from": 70,
+    "price_to": 150,
     "location": "Legnica",
     "voivodeship": "Dolnośląskie",
     "lat": 51.208162,
     "lng": 16.160319,
     "distances": [
-      "21.1 km",
-      "10 km"
+      "10 km",
+      "21.1 km"
     ],
     "event_type": [
       "uliczny"
     ],
     "registration_url": null,
     "website": "https://osir.legnica.eu/p,98,legnica-polmaraton",
+    "is_kids": null
+  },
+  "biegaj-razem-z-nami-grand-prix-piekar-slaskich-2026-04102026-final-2026-10-04": {
+    "id": "2cf8fcb4-ccbd-40ec-bcd6-5e16f2a9b687",
+    "name": "Biegaj Razem z Nami – Grand Prix Piekar Śląskich 2026 - 04.10.2026 - Finał",
+    "date": "2026-10-04",
+    "registration_deadline": null,
+    "regulamin_url": "https://elektronicznezapisy.pl/download/J0d0V3M9E0g0q1W7X7P5L7p6W1N6a4R7/open",
+    "price_from": null,
+    "price_to": null,
+    "location": "Piekary Śląskie",
+    "voivodeship": "Śląskie",
+    "lat": 50.375779,
+    "lng": 18.937939,
+    "distances": [
+      "200m"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15200/signup.html",
+    "website": "http://www.mosir.piekary.pl",
     "is_kids": null
   },
   "xli-bieg-pokoju-kids-cup-2026-2026-10-04": {
@@ -22621,28 +23933,6 @@
     ],
     "registration_url": "https://www.zatyrani.pl/wilczy-polmaraton",
     "website": "https://www.zatyrani.pl/wilczy-polmaraton",
-    "is_kids": null
-  },
-  "iv-wilczy-polmaraton-2026-10-17": {
-    "id": "3207adf6-3d1d-4fc2-a189-b709e552a030",
-    "name": "IV Wilczy Półmaraton",
-    "date": "2026-10-17",
-    "registration_deadline": null,
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
-    "location": "Wilcza",
-    "voivodeship": "Dolnośląskie",
-    "lat": 50.530842,
-    "lng": 16.662049,
-    "distances": [
-      "21.1 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": null,
-    "website": "https://time-sport.pl/wilczypolmaraton2024/",
     "is_kids": null
   },
   "bieg-sambora-2026-10-17": {
@@ -23381,6 +24671,26 @@
     "website": "https://biegiolsztyn.pl",
     "is_kids": null
   },
+  "puchar-toru-dabka-2026-11-13": {
+    "id": "877d2c4b-566c-4992-bcee-a36e5f9552ad",
+    "name": "Puchar Toru Dąbka",
+    "date": "2026-11-13",
+    "registration_deadline": null,
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1078",
+    "price_from": 900,
+    "price_to": 900,
+    "location": "Stężnica\n                            Stężnica",
+    "voivodeship": "Podkarpackie",
+    "lat": 49.32069,
+    "lng": 22.31012,
+    "distances": [],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/puchar-toru-dabka-2026",
+    "website": "https://competitions.timekeeper.pl/puchar-toru-dabka-2026",
+    "is_kids": null
+  },
   "xxiv-maraton-odrzanski-2026-11-15": {
     "id": "6bac5329-6438-4ff0-8106-dd607d0b54e2",
     "name": "XXIV Maraton Odrzański",
@@ -24098,6 +25408,28 @@
     ],
     "registration_url": "https://sisxyz.pl/nasze-biegi/ultra-zadek/",
     "website": "https://sisxyz.pl/nasze-biegi/ultra-zadek/",
+    "is_kids": null
+  },
+  "gon-zajaczka-iii-bieg-charytatywny-2027-04-10": {
+    "id": "666958c3-a1a1-4720-97fd-9722f1782177",
+    "name": "Goń Zajączka III Bieg Charytatywny",
+    "date": "2027-04-10",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Gdańsk",
+    "voivodeship": "Pomorskie",
+    "lat": 54.348291,
+    "lng": 18.654023,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "charytatywny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15282/signup.html",
+    "website": "https://fundacjahospicyjna.pl/akcje-charytatywne/gon-zajaczka-charytatywny-bieg/",
     "is_kids": null
   }
 }

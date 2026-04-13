@@ -68,15 +68,26 @@ async function main() {
   }
 
   // 3. Query active calendar events
-  const { data: events, error } = await supabase
-    .from('calendar_events')
-    .select('*')
-    .eq('status', 'active')
-    .order('date', { ascending: true })
+  // Note: Supabase's PostgREST gateway caps each response at 1000 rows,
+  // so paginate with .range() until we've read everything.
+  const PAGE_SIZE = 1000
+  const events = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data: page, error } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .eq('status', 'active')
+      .order('date', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1)
 
-  if (error) {
-    console.error('Supabase query error:', error.message)
-    process.exit(1)
+    if (error) {
+      console.error('Supabase query error:', error.message)
+      process.exit(1)
+    }
+
+    if (!page || page.length === 0) break
+    events.push(...page)
+    if (page.length < PAGE_SIZE) break
   }
 
   if (!events || events.length === 0) {
