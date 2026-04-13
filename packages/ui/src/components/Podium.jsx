@@ -36,6 +36,11 @@ function PodiumBox({ place, result, animal, formatDuration }) {
       <div className="font-display text-base tracking-wider text-center leading-tight text-apex-text-bright mb-1 px-1">
         {p?.firstName}<br />{p?.lastName}
       </div>
+      {p?.club && (
+        <div className="text-[10px] text-apex-muted text-center leading-tight mb-1 px-1 italic break-words">
+          {p.club}
+        </div>
+      )}
       <div className="mb-2">
         <PositionBadge positionType={result.positionType} gender={p?.gender} />
       </div>

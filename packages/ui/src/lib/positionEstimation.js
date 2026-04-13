@@ -68,6 +68,7 @@ export function estimatePositions(results, checkpoints, observations) {
     ...r,
     estimatedPosition: i + 1,
     positionType: r.finishTime ? 'final'
+      : (r.status === 'dnf' || r.status === 'dns' || r.status === 'dsq') ? r.status
       : r._obs ? 'checkpoint'
       : r.startTime ? 'started'
       : 'not-started',

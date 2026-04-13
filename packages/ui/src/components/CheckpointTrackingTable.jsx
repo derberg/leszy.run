@@ -1,4 +1,27 @@
+import { useState } from 'react'
 import { PositionBadge } from './PositionBadge.jsx'
+
+function InfoTooltip({ label, children }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        aria-label={`Wyjaśnienie: ${label}`}
+        className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-apex-muted text-apex-muted text-[9px] hover:border-apex-yellow hover:text-apex-yellow cursor-pointer leading-none"
+      >
+        ?
+      </button>
+      {open && (
+        <span className="absolute z-50 top-5 left-0 w-64 text-left bg-apex-bg border border-apex-yellow p-2 text-xs font-normal normal-case tracking-normal text-apex-text shadow-lg whitespace-normal">
+          {children}
+        </span>
+      )}
+    </span>
+  )
+}
 
 /**
  * @param {Array} results - enriched by estimatePositions (with estimatedPosition, positionType)
@@ -20,6 +43,40 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
     }
   }
 
+  const checkpointTooltip = (
+    <>
+      Czasy na punktach kontrolnych są <strong>nieoficjalne</strong> — to pomocnicze dane
+      pozwalające śledzić, gdzie aktualnie są zawodnicy na trasie.
+      <br /><br />
+      Jeśli jakiś czas nie jest widoczny, <strong>nie znaczy to, że zawodnik go minął</strong> —
+      być może było zbyt wielu biegaczy naraz i wolontariusze nie zdążyli zapisać wszystkich numerów.
+    </>
+  )
+
+  const nettoTooltip = (
+    <>
+      <strong>Czas Netto (chip):</strong> od momentu przekroczenia linii startu przez
+      zawodnika do przekroczenia linii mety. To czas właściwy dla zawodnika,
+      niezależny od tego jak szybko dotarł do linii startu po strzale.
+    </>
+  )
+
+  const bruttoTooltip = (
+    <>
+      <strong>Czas Brutto (gun):</strong> od strzału startera (oficjalnego startu biegu)
+      do momentu przekroczenia linii mety. Jest to czas oficjalny, użytkowany
+      do klasyfikacji miejsc w wynikach.
+    </>
+  )
+
+  const clockTooltip = (
+    <>
+      Kolumny <strong>Start</strong> i <strong>Meta</strong> pokazują <strong>godziny zegarowe</strong> —
+      dokładny moment, w którym zawodnik przekroczył linię startu i mety.
+      To nie są czasy biegu, tylko rzeczywiste godziny.
+    </>
+  )
+
   return (
     <>
       {/* Desktop table */}
@@ -27,19 +84,29 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-apex-border bg-apex-surface-2">
-              <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted w-10">Poz.</th>
-              <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted w-10">Nr</th>
-              <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted">Zawodnik</th>
-              <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono">Start</th>
-              {checkpoints.map(cp => (
-                <th key={cp.id} className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-cyan font-mono whitespace-nowrap">
-                  {cp.name}{cp.kmMarker ? ` (km ${cp.kmMarker})` : ''}
+              <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted w-10">Poz.</th>
+              <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted w-12">Nr</th>
+              <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted">Zawodnik</th>
+              <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono w-20">
+                <span className="inline-flex items-center">Start<InfoTooltip label="Start">{clockTooltip}</InfoTooltip></span>
+              </th>
+              {checkpoints.map((cp, i) => (
+                <th key={cp.id} className="text-center px-1 py-2 text-xs font-bold uppercase tracking-wider text-apex-cyan font-mono truncate" title={cp.name}>
+                  <span className="inline-flex items-center">
+                    {cp.name}
+                    {i === 0 && <InfoTooltip label="Punkty kontrolne">{checkpointTooltip}</InfoTooltip>}
+                  </span>
+                  {cp.kmMarker && <div className="text-apex-dim font-normal text-[10px]">{cp.kmMarker}km</div>}
                 </th>
               ))}
-              <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono">Meta</th>
-              {formatDuration && <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono">Netto</th>}
-              {formatDuration && <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-yellow font-mono">Brutto</th>}
-              <th className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted">Status</th>
+              <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono w-16">Meta</th>
+              {formatDuration && <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono w-24">
+                <span className="inline-flex items-center">Netto<InfoTooltip label="Netto">{nettoTooltip}</InfoTooltip></span>
+              </th>}
+              {formatDuration && <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-yellow font-mono w-24">
+                <span className="inline-flex items-center">Brutto<InfoTooltip label="Brutto">{bruttoTooltip}</InfoTooltip></span>
+              </th>}
+              <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted w-24">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-apex-border">
@@ -47,34 +114,34 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
               const p = r.participant
               return (
                 <tr key={r.id} className="hover:bg-apex-surface-2 transition-colors">
-                  <td className="px-3 py-1.5 font-display text-lg text-apex-yellow">{r.estimatedPosition}</td>
-                  <td className="px-3 py-1.5 font-mono">#{p?.bibNumber}</td>
-                  <td className="px-3 py-1.5">{p?.firstName} {p?.lastName}</td>
-                  <td className="px-3 py-1.5 font-mono text-apex-muted">
+                  <td className="px-2 py-1.5 font-display text-lg text-apex-yellow">{r.estimatedPosition}</td>
+                  <td className="px-2 py-1.5 font-mono">#{p?.bibNumber}</td>
+                  <td className="px-2 py-1.5 truncate">{p?.firstName} {p?.lastName}</td>
+                  <td className="px-2 py-1.5 font-mono text-apex-muted">
                     {r.startTime ? formatTime(r.startTime) : '—'}
                   </td>
                   {checkpoints.map(cp => {
                     const t = obsLookup[`${r.participantId}:${cp.id}`] || bibLookup[`${r.participant?.bibNumber}:${cp.id}`]
                     return (
-                      <td key={cp.id} className="px-3 py-1.5 font-mono text-apex-cyan">
+                      <td key={cp.id} className="text-center px-1 py-1.5 font-mono text-apex-cyan">
                         {t ? formatTime(t) : <span className="text-apex-dim">{'—'}</span>}
                       </td>
                     )
                   })}
-                  <td className="px-3 py-1.5 font-mono font-bold text-apex-yellow-bright">
+                  <td className="px-2 py-1.5 font-mono font-bold text-apex-yellow-bright">
                     {r.finishTime ? formatTime(r.finishTime) : '—'}
                   </td>
                   {formatDuration && (
-                    <td className="px-3 py-1.5 font-mono text-apex-muted">
+                    <td className="px-2 py-1.5 font-mono text-apex-muted">
                       {r.durationMs ? formatDuration(r.durationMs) : '—'}
                     </td>
                   )}
                   {formatDuration && (
-                    <td className="px-3 py-1.5 font-mono font-bold text-apex-yellow">
+                    <td className="px-2 py-1.5 font-mono font-bold text-apex-yellow">
                       {r.gunDurationMs ? formatDuration(r.gunDurationMs) : '—'}
                     </td>
                   )}
-                  <td className="px-3 py-1.5">
+                  <td className="px-2 py-1.5">
                     <PositionBadge positionType={r.positionType} gender={p?.gender} />
                   </td>
                 </tr>

@@ -449,6 +449,20 @@ docker exec -it leszyrun-db-1 psql -U leszyrun -d leszyrun \
   -c "SELECT date_trunc('minute', received_at) as minute, COUNT(*) as pings FROM gate_events WHERE race_run_id = '<RACE_RUN_ID>' GROUP BY 1 ORDER BY 1;"
 ```
 
+## Database write safety
+
+**Before running any INSERT, UPDATE, or DELETE on any database (local Postgres or Supabase), you MUST:**
+
+1. State exactly what will change — which table(s), which rows (with ID ranges or counts), which columns, what values
+2. State the damage impact — is it reversible, what happens if it's wrong, does it affect synced data, other tables via cascades, production users
+3. Wait for explicit user confirmation ("yes", "ok", "proceed", etc.) before executing
+
+This applies to: `psql -c "DELETE..."`, `psql -c "UPDATE..."`, `psql -c "INSERT..."`, `mcp__supabase__execute_sql` with mutations, `mcp__supabase__apply_migration`, any ORM writes via scripts.
+
+SELECT / read-only queries do NOT need confirmation.
+
+Exception: if the user has just *explicitly* asked for the specific destructive action (e.g. "delete all race data for event X"), proceed without re-confirming, but still briefly state what you're about to do before doing it.
+
 ## Things to never do
 
 - Do not use TypeScript (this is a JS project)
