@@ -22,9 +22,9 @@ export default function Results() {
 
   useEffect(() => {
     if (!event) return
-    supabase.from('categories').select('id, name').eq('event_id', event.id)
+    supabase.from('categories').select('id, name, untimed').eq('event_id', event.id)
       .then(({ data }) => {
-        setCategories(data || [])
+        setCategories((data || []).filter(c => !c.untimed))
         setCatLoading(false)
       })
   }, [event])

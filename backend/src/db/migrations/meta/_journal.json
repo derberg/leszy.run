@@ -169,6 +169,13 @@
       "when": 1775376000000,
       "tag": "0023_checkpoint_private",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1775462400000,
+      "tag": "0024_category_untimed",
+      "breakpoints": true
     }
   ]
 }

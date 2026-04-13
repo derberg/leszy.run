@@ -28,6 +28,7 @@ export const categories = pgTable('categories', {
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   slug: text('slug').notNull(),   // human-readable import key, e.g. 'bieg-5km'
+  untimed: boolean('untimed').notNull().default(false),   // no timing/classification (e.g. kids' run); hidden from public results
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 }, (t) => [

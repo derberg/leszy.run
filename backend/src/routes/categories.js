@@ -22,13 +22,14 @@ export async function categoriesRoutes(fastify) {
 
   // Create category
   fastify.post('/events/:eventId/categories', async (req, reply) => {
-    const { name, slug } = req.body
+    const { name, slug, untimed } = req.body
     if (!name || !slug) return reply.code(400).send({ error: 'name and slug are required' })
 
     const [row] = await db.insert(categories).values({
       eventId: req.params.eventId,
       name,
       slug: slug.toLowerCase().replace(/\s+/g, '-'),
+      ...(untimed !== undefined ? { untimed: !!untimed } : {}),
     }).returning()
 
     return reply.code(201).send({ data: row })
@@ -36,7 +37,7 @@ export async function categoriesRoutes(fastify) {
 
   // Update category
   fastify.patch('/categories/:id', async (req, reply) => {
-    const allowed = ['name', 'slug']
+    const allowed = ['name', 'slug', 'untimed']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]

@@ -24,7 +24,7 @@ export default function RaceControl() {
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', id],
-    queryFn: () => api.categories.list(id).then(rows => rows.map(r => r.category || r)),
+    queryFn: () => api.categories.list(id).then(rows => rows.map(r => r.category || r).filter(c => !c.untimed)),
   })
   const { data: races = [] } = useQuery({
     queryKey: ['races', id],

@@ -34,7 +34,7 @@ export async function resultsRoutes(fastify) {
   // All results for an event (grouped by category)
   fastify.get('/events/:eventId/results', async (req) => {
     const cats = await db.query.categories.findMany({
-      where: eq(categories.eventId, req.params.eventId),
+      where: and(eq(categories.eventId, req.params.eventId), eq(categories.untimed, false)),
       with: {
         raceRuns: {
           orderBy: [desc(raceRuns.startedAt)],

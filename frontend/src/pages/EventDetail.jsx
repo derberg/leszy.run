@@ -55,7 +55,7 @@ export default function EventDetail() {
   const [editingCp, setEditingCp] = useState(null)
 
   const [catDialog, setCatDialog] = useState(false)
-  const [catForm, setCatForm] = useState({ name: '', slug: '' })
+  const [catForm, setCatForm] = useState({ name: '', slug: '', untimed: false })
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
   const [editingCat, setEditingCat] = useState(null)
   const [slugError, setSlugError] = useState('')
@@ -82,7 +82,7 @@ export default function EventDetail() {
 
   const closeCatDialog = () => {
     setCatDialog(false)
-    setCatForm({ name: '', slug: '' })
+    setCatForm({ name: '', slug: '', untimed: false })
     setSlugManuallyEdited(false)
     setEditingCat(null)
     setSlugError('')
@@ -148,12 +148,14 @@ export default function EventDetail() {
                   <div>
                     <span className="font-semibold text-sm text-apex-text">{cat.name}</span>
                     <span className="ml-3 text-xs text-apex-muted font-mono">{cat.slug}</span>
-
+                    {cat.untimed && (
+                      <span className="ml-3 text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 border border-apex-border text-apex-muted">bez pomiaru</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                   <Button variant="ghost" size="icon" className="text-apex-text hover:text-apex-text-bright" onClick={() => {
                     setEditingCat(cat)
-                    setCatForm({ name: cat.name, slug: cat.slug })
+                    setCatForm({ name: cat.name, slug: cat.slug, untimed: !!cat.untimed })
                     setSlugManuallyEdited(true)
                     setCatDialog(true)
                   }}>
@@ -420,6 +422,18 @@ export default function EventDetail() {
                 ? <p className="text-xs text-apex-red mt-1">{slugError}</p>
                 : <p className="text-xs text-apex-muted mt-1">Używane w imporcie CSV. Małe litery, bez spacji.</p>
               }
+            </label>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!catForm.untimed}
+                onChange={e => setCatForm(f => ({ ...f, untimed: e.target.checked }))}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="text-xs font-bold uppercase tracking-widest text-apex-muted block">Bez pomiaru czasu</span>
+                <span className="text-xs text-apex-muted">Kategoria nie będzie pokazywana w publicznych wynikach (np. bieg dzieci).</span>
+              </span>
             </label>
           </DialogBody>
           <DialogFooter>
