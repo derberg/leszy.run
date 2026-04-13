@@ -79,6 +79,14 @@ export default function Results() {
   }, [event, categories])
 
   const hasActiveRaces = raceRuns && raceRuns.some(r => r.status !== 'pending')
+  const allRacesFinished = raceRuns && raceRuns.length > 0 && raceRuns.every(r => r.status === 'finished' || r.status === 'cancelled')
+
+  // Redirect away from live tab when all races are finished
+  useEffect(() => {
+    if (isLiveView && allRacesFinished) {
+      navigate(`/events/${slug}/results`, { replace: true })
+    }
+  }, [isLiveView, allRacesFinished, slug, navigate])
 
   const preRaceState = useMemo(() => {
     if (!event || hasActiveRaces) return null
@@ -194,18 +202,20 @@ export default function Results() {
               >
                 Wszystkie
               </button>
-              <button
-                ref={activeView === 'live' ? activeTabRef : null}
-                onClick={() => navigate(`/events/${slug}/results/live`)}
-                className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
-                  activeView === 'live'
-                    ? 'bg-apex-cyan text-apex-ink'
-                    : 'text-apex-muted hover:text-apex-text'
-                }`}
-              >
-                {activeView !== 'live' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-apex-cyan animate-pulse mr-1.5 align-middle" />}
-                Na Trasie
-              </button>
+              {!allRacesFinished && (
+                <button
+                  ref={activeView === 'live' ? activeTabRef : null}
+                  onClick={() => navigate(`/events/${slug}/results/live`)}
+                  className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
+                    activeView === 'live'
+                      ? 'bg-apex-cyan text-apex-ink'
+                      : 'text-apex-muted hover:text-apex-text'
+                  }`}
+                >
+                  {activeView !== 'live' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-apex-cyan animate-pulse mr-1.5 align-middle" />}
+                  Na Trasie
+                </button>
+              )}
               {categories.map(cat => (
                 <button
                   key={cat.id}
