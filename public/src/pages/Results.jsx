@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import { useEvent } from '../hooks/useEvent.js'
 import useSeo from '../hooks/useSeo.js'
 import CategorySection from './CategorySection.jsx'
-import LiveTracking from './LiveTracking.jsx'
+import NearFinish from './NearFinish.jsx'
 import PartnerLogos from '../components/PartnerLogos.jsx'
 
 export default function Results() {
@@ -15,6 +15,7 @@ export default function Results() {
   const [categories, setCategories] = useState([])
   const [catLoading, setCatLoading] = useState(true)
   const activeTabRef = useRef(null)
+  const [nearFinishCpId, setNearFinishCpId] = useState(null)
 
   const isLiveView = location.pathname.endsWith('/live')
   const activeCategoryId = isLiveView ? null : (categoryId || null)
@@ -29,10 +30,21 @@ export default function Results() {
       })
   }, [event])
 
+  useEffect(() => {
+    if (!event) return
+    supabase.from('checkpoints')
+      .select('id')
+      .eq('event_id', event.id)
+      .eq('is_near_finish', true)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setNearFinishCpId(data?.id || null))
+  }, [event])
+
   // SEO meta tags
   const seoTitle = useMemo(() => {
     if (!event) return 'Wyniki'
-    if (isLiveView) return `Na Trasie — ${event.name}`
+    if (isLiveView) return `Blisko Mety — ${event.name}`
     if (categoryId) {
       const cat = categories.find(c => c.id === categoryId)
       return cat ? `${cat.name} — ${event.name}` : event.name
@@ -42,7 +54,7 @@ export default function Results() {
 
   useSeo({
     title: seoTitle,
-    description: event ? `Wyniki ${isLiveView ? 'na żywo' : ''} — ${event.name}${event.location ? `, ${event.location}` : ''}. Pozycje, czasy, podium.` : undefined,
+    description: event ? `Wyniki ${isLiveView ? 'blisko mety' : ''} — ${event.name}${event.location ? `, ${event.location}` : ''}. Pozycje, czasy, podium.` : undefined,
   })
 
   // Scroll active tab into view
@@ -83,7 +95,7 @@ export default function Results() {
 
   // Redirect away from live tab when all races are finished
   useEffect(() => {
-    if (isLiveView && allRacesFinished) {
+    if (isLiveView && (allRacesFinished || !nearFinishCpId)) {
       navigate(`/events/${slug}/results`, { replace: true })
     }
   }, [isLiveView, allRacesFinished, slug, navigate])
@@ -202,7 +214,7 @@ export default function Results() {
               >
                 Wszystkie
               </button>
-              {!allRacesFinished && (
+              {!allRacesFinished && nearFinishCpId && (
                 <button
                   ref={activeView === 'live' ? activeTabRef : null}
                   onClick={() => navigate(`/events/${slug}/results/live`)}
@@ -213,7 +225,7 @@ export default function Results() {
                   }`}
                 >
                   {activeView !== 'live' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-apex-cyan animate-pulse mr-1.5 align-middle" />}
-                  Na Trasie
+                  Blisko Mety
                 </button>
               )}
               {categories.map(cat => (
@@ -235,8 +247,8 @@ export default function Results() {
         </div>
 
         {/* Content */}
-        {!loading && activeView === 'live' && (
-          <LiveTracking eventId={event.id} categories={categories} />
+        {!loading && activeView === 'live' && nearFinishCpId && (
+          <NearFinish nearFinishCheckpointId={nearFinishCpId} categories={categories} />
         )}
 
         {!loading && activeView === 'category' && (
