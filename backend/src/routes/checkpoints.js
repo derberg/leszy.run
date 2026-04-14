@@ -1,4 +1,4 @@
-import { eq, inArray, and, desc } from 'drizzle-orm'
+import { eq, inArray, and, desc, ne } from 'drizzle-orm'
 import { checkpoints, checkpointCategories, checkpointObservations, raceRuns, categories, participants, results } from '../db/schema.js'
 import { syncDelete } from '../sync/supabase.js'
 import { broadcast } from '../ws/broadcaster.js'
@@ -28,11 +28,18 @@ export async function checkpointsRoutes(fastify) {
 
   // Create checkpoint
   fastify.post('/events/:eventId/checkpoints', async (req, reply) => {
-    const { name, kmMarker, categoryIds = [], private: isPrivate } = req.body
+    const { name, kmMarker, categoryIds = [], private: isPrivate, isNearFinish } = req.body
     if (!name) return reply.code(400).send({ error: 'name required' })
 
+    if (isNearFinish) {
+      const [existing] = await db.select({ id: checkpoints.id })
+        .from(checkpoints)
+        .where(and(eq(checkpoints.eventId, req.params.eventId), eq(checkpoints.isNearFinish, true)))
+      if (existing) return reply.code(409).send({ error: 'Tylko jeden punkt kontrolny może być oznaczony jako "blisko mety"' })
+    }
+
     const [row] = await db.insert(checkpoints)
-      .values({ eventId: req.params.eventId, name, kmMarker: kmMarker || null, private: isPrivate ?? false })
+      .values({ eventId: req.params.eventId, name, kmMarker: kmMarker || null, private: isPrivate ?? false, isNearFinish: isNearFinish ?? false })
       .returning()
 
     if (categoryIds.length) {
@@ -45,11 +52,28 @@ export async function checkpointsRoutes(fastify) {
 
   // Update checkpoint
   fastify.patch('/checkpoints/:id', async (req, reply) => {
-    const { name, kmMarker, categoryIds, private: isPrivate } = req.body
+    const { name, kmMarker, categoryIds, private: isPrivate, isNearFinish } = req.body
     const updates = {}
     if (name !== undefined) updates.name = name
     if (kmMarker !== undefined) updates.kmMarker = kmMarker
     if (isPrivate !== undefined) updates.private = isPrivate
+    if (isNearFinish !== undefined) updates.isNearFinish = isNearFinish
+
+    if (isNearFinish) {
+      const [current] = await db.select({ eventId: checkpoints.eventId })
+        .from(checkpoints)
+        .where(eq(checkpoints.id, req.params.id))
+      if (!current) return reply.code(404).send({ error: 'not found' })
+
+      const [existing] = await db.select({ id: checkpoints.id })
+        .from(checkpoints)
+        .where(and(
+          eq(checkpoints.eventId, current.eventId),
+          eq(checkpoints.isNearFinish, true),
+          ne(checkpoints.id, req.params.id),
+        ))
+      if (existing) return reply.code(409).send({ error: 'Tylko jeden punkt kontrolny może być oznaczony jako "blisko mety"' })
+    }
 
     const [row] = await db.update(checkpoints)
       .set(updates)

@@ -176,6 +176,13 @@
       "when": 1775462400000,
       "tag": "0024_category_untimed",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1775548800000,
+      "tag": "0025_checkpoint_near_finish",
+      "breakpoints": true
     }
   ]
 }

@@ -144,6 +144,7 @@ export const checkpoints = pgTable('checkpoints', {
   name: text('name').notNull(),
   kmMarker: numeric('km_marker', { precision: 6, scale: 2 }),
   private: boolean('private').default(false),
+  isNearFinish: boolean('is_near_finish').default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })
