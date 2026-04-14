@@ -25,22 +25,29 @@ cd backend && node --env-file=../.env scripts/run-geocode.js --apply
 cd backend && node --env-file=../.env scripts/run-enrich-flags.js
 cd backend && node --env-file=../.env scripts/run-enrich-flags.js --apply
 
-# Step 5: Enrich from regulamin PDFs (Claude CLI)
-cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
-
-# Step 5.1: Enrich via web search (Claude CLI) — dry run first, then --apply
-cd backend && node --env-file=../.env scripts/run-enrich-search.js --limit 5
-cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
-
-# Step 6: Normalize voivodeships and event types — dry run first, then --apply
+# Step 4.5: Normalize voivodeships and event types — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-normalize.js
 cd backend && node --env-file=../.env scripts/run-normalize.js --apply
 
-# Step 7: Publish to calendar_events — dry run first, then --apply
+# Step 5: Enrich via Python enricher (LOCAL LLM — PRIMARY TOOL)
+cd enricher && source .venv/bin/activate
+docker compose up -d  # Start SearXNG
+python -m enricher run --limit 5 --dry-run  # Test first
+python -m enricher run  # Full run
+
+# Step 5.1: OPTIONAL — Enrich via web search (Claude CLI fallback for fields enricher missed)
+cd backend && node --env-file=../.env scripts/run-enrich-search.js --limit 5
+cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
+
+# Step 5.5: Dedup scraper_all — dry run first, then --apply
+cd backend && node --env-file=../.env scripts/run-dedup.js
+cd backend && node --env-file=../.env scripts/run-dedup.js --apply
+
+# Step 6: Publish to calendar_events — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-publish.js
 cd backend && node --env-file=../.env scripts/run-publish.js --apply
 
-# Step 8: Regenerate static event pages manifest + OG images — dry run first, then --apply
+# Step 7: Regenerate static event pages manifest + OG images — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/publish-event-pages.js
 cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply
 # Use --regen-og to regenerate ALL OG images (e.g. after changing the OG template)
@@ -103,50 +110,68 @@ cd backend && node --env-file=../.env scripts/run-enrich-flags.js
 
 Output: `T` = type classified, `K` = kids flagged, `D` = distances extracted from name.
 
-### Step 5: Enrich from regulamin PDFs (AI)
+### Step 5: Enrich via Python enricher (LOCAL LLM — RECOMMENDED)
 
-Finds entries with a `regulamin_url`, downloads the PDF, and uses local Claude CLI (haiku) to extract distances and classify event type. Merges with existing data (doesn't overwrite).
+**PRIMARY enrichment tool** — uses local Ollama (qwen2.5-coder:32b) + SearXNG search + Crawl4AI + Docling PDF extraction. Comprehensive, cost-free, processes ALL missing fields.
+
+```bash
+cd enricher && source .venv/bin/activate
+
+# Start SearXNG (required for URL discovery)
+docker compose up -d
+
+# Dry-run first 5 events
+python -m enricher run --limit 5 --dry-run
+
+# Process all un-enriched future events
+python -m enricher run
+
+# Force re-enrich already-processed events (e.g., after fixing bugs)
+python -m enricher run --force --limit 10
+```
+
+**What it fills:**
+- **registration_url** — LLM extracts from page content, fallback to SearXNG search
+- **regulamin_url** — LLM extracts from page content or PDF links, fallback to SearXNG search
+- **website** — official event site (SearXNG search + LLM validates it's not news/social/aggregator)
+- **distances** — from regulamin PDFs (via Docling), registration pages, or website content (all crawled via Crawl4AI)
+- **event_types** — `[trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny]` extracted from all content sources
+- **price_from / price_to** — entry fees in PLN (prioritizes regulamin PDF over registration page, looks for "opłata startowa" tables with date tiers)
+- **registration_deadline** — from regulamin or registration page (format: YYYY-MM-DD)
+- **voivodeship** — only fills empty, never overwrites scraper's geocoded value
+- **is_kids** — true if any distance ≤ 1 km or dedicated children's category exists
+
+**Performance:** ~2 min/event (LLM inference on 32B model).
+
+See [enricher/README.md](../enricher/README.md) for full documentation.
+
+### Step 5.1: Enrich from regulamin PDFs (Claude CLI — LEGACY)
+
+**DEPRECATED** — the Python enricher (Step 5) handles PDFs better via Docling. Only use this for quick spot-checks.
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
 ```
 
-Requires `claude` CLI installed locally. Processes ~1 event/sec (PDF download + Claude call).
+### Step 5.2: Enrich via web search (Claude CLI — LEGACY FALLBACK)
 
-Output meanings:
-- **enriched** — Claude extracted new data that was written to `scraper_all`
-- **skipped** — PDF couldn't be downloaded (non-200, not a PDF, too small, timeout) or Claude found nothing new
-- **failed** — Claude returned unparseable response or Supabase update errored
-
-### Step 5.1: Enrich via web search (AI)
-
-Uses local Claude CLI with web search to find event websites, regulamin links, distances, and types for events missing data. Targets maratonypolskie by default (lowest data quality source — no detail pages, no PDFs).
+**DEPRECATED** — the Python enricher (Step 5) is better (local model, no API costs, more comprehensive). Only use this as a last-resort cleanup pass for specific fields that the enricher missed.
 
 ```bash
 # Dry-run first 5 events
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --limit 5
 
-# Dry-run all maratonypolskie
-cd backend && node --env-file=../.env scripts/run-enrich-search.js
-
-# Apply results to DB
+# Apply results to DB (only fills fields the enricher missed)
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
-
-# Other sources
-cd backend && node --env-file=../.env scripts/run-enrich-search.js --source elektronicznezapisy --limit 10
 ```
 
 Requires `claude` CLI installed locally. Uses `--model sonnet` with web search. ~2 sec between calls.
 
-Finds: website URL, registration URL, regulamin URL, distances, event type. Flags non-running events (triathlon, orienteering, etc.) as `nie-bieg` for manual review.
-
-**Filtering logic:**
-- **maratonypolskie**: Only processes events missing BOTH distances AND event types (skips already-enriched entries)
-- **Other sources**: Processes events missing any important field (distances OR types OR website OR regulamin)
+**Only processes events missing registration_url, distances, or event_types** — skips events the enricher already filled.
 
 ### Step 4.5: Normalize voivodeships and event types
 
-Normalizes `scraper_all` data before AI enrichment steps — ensures Claude sees clean type names, not raw scraper values.
+Normalizes `scraper_all` data before AI enrichment steps — ensures LLM sees clean type names, not raw scraper values.
 - Voivodeship → Title-Case (`dolnośląskie` → `Dolnośląskie`, `Śląsk` → `Śląskie`)
 - Event types: merges `event_type` (dostartu) + `event_types` (biegiwpolsce) into a single normalized `event_types` array
 
@@ -876,12 +901,28 @@ Steps 3-4.5: Enrich scraper_all (keyword + normalize)
 └──────────────────┘
            │
            ▼
-Steps 5-5.5: AI enrichment + dedup
-┌──────────────────┐  ┌──────────────────┐
-│  Enrich from     │  │  Enrich via      │
-│  regulamin PDFs  │  │  web search      │
-│  (Claude CLI)    │  │  (Claude CLI)    │
-└──────────────────┘  └──────────────────┘
+Step 5: PRIMARY enrichment (Python enricher)
+┌──────────────────────────────────────────┐
+│  Ollama (qwen2.5-coder:32b)              │
+│  + SearXNG search                        │
+│  + Crawl4AI (page crawling)              │
+│  + Docling (PDF extraction)              │
+│  ───────────────────────────────────────│
+│  Fills: registration_url, regulamin_url, │
+│  website, distances, event_types,        │
+│  prices, deadline, voivodeship, is_kids  │
+└──────────────────────────────────────────┘
+           │
+           ▼
+Step 5.1: OPTIONAL fallback (Claude CLI)
+┌──────────────────┐
+│  Web search for  │
+│  fields enricher │
+│  missed          │
+└──────────────────┘
+           │
+           ▼
+Step 5.5: Dedup
 ┌──────────────────┐
 │  Dedup           │
 │  (cross-source   │

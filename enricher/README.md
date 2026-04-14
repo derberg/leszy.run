@@ -75,15 +75,16 @@ python -m enricher sync                            # push ALL enriched events
 
 | Field | Source | Notes |
 |-------|--------|-------|
-| `price_from` | Regulamin PDF, registration page | Cheapest tier (early-bird) |
-| `price_to` | Regulamin PDF, registration page | Most expensive tier (race-day) |
-| `registration_deadline` | Regulamin, registration page | Last date to sign up |
-| `website` | SearXNG search | Event's official website |
-| `event_types` | LLM classification from content | trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny |
-| `distances` | Regulamin, registration page | Only if LLM found MORE than existing |
-| `registration_url` | SearXNG, LLM validation | Replaces dead URLs (only with a candidate) |
-| `regulamin_url` | SearXNG, LLM validation | Replaces dead URLs (only with a candidate) |
-| `is_kids` | LLM detection | Any distance ≤ 1km or kids category |
+| `registration_url` | LLM extracts from page content, fallback to SearXNG search | Replaces empty/dead URLs (only with a validated candidate). LLM reads actual pages to find signup links. |
+| `regulamin_url` | LLM extracts from page content or PDF links, fallback to SearXNG search | Replaces empty/dead URLs (only with a validated candidate). Downloads and extracts PDFs via Docling. |
+| `website` | SearXNG search + LLM validation | LLM validates it's the official event site (not news/social/aggregator). |
+| `distances` | Regulamin PDFs (Docling), registration pages, website content (Crawl4AI) | Only overwrites if LLM found MORE distances than existing (more complete data wins). |
+| `event_types` | LLM classification from all content sources | `[trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny]`. Additive merge with safety rules (never downgrades trail/ocr → uliczny). |
+| `price_from` | Regulamin PDF, registration page | Cheapest adult entry tier (early-bird). Regulamin prices prioritized. Looks for "opłata startowa" tables with date tiers. |
+| `price_to` | Regulamin PDF, registration page | Most expensive adult entry tier (race-day/"w dniu biegu"). Regulamin prices prioritized. |
+| `registration_deadline` | Regulamin, registration page | Last date to sign up (YYYY-MM-DD format). Rejects deadlines >1 year from event date (catches hallucinations). |
+| `voivodeship` | LLM extraction (only if empty) | NEVER overwrites existing — scraper's geocoded value is more reliable. |
+| `is_kids` | LLM detection from all content | true if any distance ≤ 1 km OR dedicated children's category exists. |
 
 ## How it works
 

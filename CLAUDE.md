@@ -251,73 +251,110 @@ The landing page and kalendarz read directly from Supabase (`calendar_events` ta
 - `public/public/logo-bez-napisu.svg` — Leszy character without text. Two green leaves (top-left, top-right), black body/roots.
 - `public/public/logo.svg` — full logo with text (used as watermark in `app.css`)
 
-## Event scraper pipeline
+## Event scraper & enrichment pipeline
 
-Scrapes Polish running event websites and aggregates into the `calendar_events` Supabase table.
+Standalone scripts (not API endpoints) that scrape Polish running event websites, enrich with AI, and publish to the `calendar_events` Supabase table. See [docs/scrapers.md](docs/scrapers.md) for full pipeline documentation.
 
-### Data sources (4 scrapers)
+### Data sources (6 scrapers)
 
-| Source | URL | Events/year | Cheerio? |
-|--------|-----|-------------|----------|
-| maratonypolskie.pl | `mp_index.php?dzial=3&action=1&grp=13...` | 500+ | Yes (HTML tables) |
-| datasport.pl | `liveds.datasport.pl/lista.html` | 200+ | Yes (`.event-list-box`) |
-| elektronicznezapisy.pl | `/1/bieg.html`, `/2/nordic-walking.html` | 300-500 | Yes (HTML tables) |
-| biegiwpolsce.pl | `/?page=N` | 1000+ | Yes (paginated, `h2`/`h3`) |
+| Source | Events/year | Method | Data quality |
+|--------|-------------|--------|--------------|
+| maratonypolskie.pl | 500+ | Playwright (HTML tables) | Low (listing only, no reg URLs) |
+| datasport.pl | 200+ | Cheerio (detail pages) | High (distances from h4 headings) |
+| elektronicznezapisy.pl | 300-500 | Cheerio + dostartu API enrichment | Medium-High |
+| biegiwpolsce.pl | 1000+ | Cheerio (paginated) | Medium (tagged distances) |
+| dostartu.pl | 250+ | REST API (JSON) | **Highest** (structured classifications) |
+| timekeeper.pl | 50-150 | Cheerio (internal events only) | Good (regulamin PDFs, organizer sites) |
 
-### Running scrapers
+### Pipeline architecture
+
+```
+scraper_* tables → scraper_all → calendar_events
+        ↓               ↓              ↓
+    (raw data)    (merged+enriched)  (public)
+```
+
+**Per-source tables:** `scraper_maratonypolskie`, `scraper_datasport`, etc. — raw scraper output, upserted by `source_id`.
+
+**Merge table:** `scraper_all` — cross-source deduped + merged with priority (dostartu > biegiwpolsce > timekeeper > elektronicznezapisy > datasport > maratonypolskie).
+
+**Public table:** `calendar_events` — published rows with `status = 'pending'` or `'active'`. Admin approves via `/calendar-events` → "Do przeglądu" tab.
+
+### Running the full pipeline
 
 ```bash
-# Trigger manually (backend must be running)
-curl -X POST http://localhost:3001/api/scrapers/run
+cd backend
 
-# Response: { data: { sources: [...stats per source], urlResolver: { processed, suggestions } } }
+# 1. Scrape raw data (6 sources → per-source tables)
+node --env-file=../.env scripts/run-scrapers.js
+
+# 2. Merge into scraper_all (cross-source dedup)
+node --env-file=../.env scripts/run-merge.js --apply
+
+# 2.5. Dedup scraper_all (same-source duplicates)
+node --env-file=../.env scripts/run-dedup.js --apply
+
+# 3. Geocode missing voivodeships/coordinates
+node --env-file=../.env scripts/run-geocode.js --apply
+
+# 4. Enrich flags (types, kids, distances from keywords)
+node --env-file=../.env scripts/run-enrich-flags.js --apply
+
+# 4.5. Normalize voivodeships and event types
+node --env-file=../.env scripts/run-normalize.js --apply
+
+# 5. PRIMARY ENRICHMENT — Python enricher (local Ollama LLM)
+cd ../enricher && source .venv/bin/activate
+docker compose up -d  # Start SearXNG
+python -m enricher run
+
+# 5.1. OPTIONAL — Claude CLI fallback (for fields enricher missed)
+cd ../backend
+node --env-file=../.env scripts/run-enrich-search.js --apply
+
+# 5.5. Final dedup pass
+node --env-file=../.env scripts/run-dedup.js --apply
+
+# 6. Publish to calendar_events
+node --env-file=../.env scripts/run-publish.js --apply
+
+# 7. Generate static event pages manifest + OG images
+node --env-file=../.env scripts/publish-event-pages.js --apply
 ```
 
-The pipeline runs automatically **daily at 03:00** via `node-cron` when the backend is up.
+### Python Enricher — PRIMARY enrichment tool
 
-### Pipeline flow
-1. **Scrape** — each source scraper fetches and parses HTML with cheerio
-2. **Normalize** — parse dates (ISO/EU/Polish months), extract distances, classify event type (trail/nocny/ocr/nordic/charytatywny/uliczny) from keywords
-3. **Dedup** — match by `source + source_id` (exact), then cross-source by name similarity (Levenshtein > 0.8) + same date
-4. **Upsert** — insert new events or merge metadata into existing ones in Supabase
-5. **URL resolve** — events with no `registration_url` get searched via Brave Search API, top 3 candidates saved to `url_suggestions` for admin review
+**Location:** `enricher/` directory
 
-### Scraper file structure
-```
-backend/src/scrapers/
-  index.js              -- orchestrator (runPipeline)
-  sources/
-    maratonypolskie.js
-    datasport.js
-    elektronicznezapisy.js
-    biegiwpolsce.js
-  normalizer.js         -- date/distance/type parsing
-  dedup.js              -- Levenshtein cross-source matching
-  geocoder.js           -- Nominatim + geocode_cache
-  urlResolver.js        -- Brave Search for missing URLs
-```
+**Tech stack:**
+- **Ollama** — local LLM (qwen2.5-coder:32b) for field extraction
+- **SearXNG** — Docker-based web search for URL discovery
+- **Crawl4AI** — headless browser for crawling SPAs (dostartu.pl, etc.)
+- **Docling** — PDF text extraction for regulamin documents
+
+**What it enriches:**
+- `registration_url` — LLM extracts from page content, fallback to SearXNG search
+- `regulamin_url` — LLM extracts from page content or PDF links, fallback to SearXNG search
+- `website` — official event site (SearXNG search + LLM validates it's not news/social/aggregator)
+- `distances` — from regulamin PDFs (via Docling), registration pages, or website content (all crawled via Crawl4AI)
+- `event_types` — `[trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny]` extracted from all content sources
+- `price_from` / `price_to` — entry fees in PLN (prioritizes regulamin PDF over registration page, looks for "opłata startowa" tables with date tiers)
+- `registration_deadline` — from regulamin or registration page (format: YYYY-MM-DD)
+- `voivodeship` — only fills empty, never overwrites scraper's geocoded value
+- `is_kids` — true if any distance ≤ 1 km or dedicated children's category exists
+
+**Performance:** ~2 min/event (LLM inference on 32B model).
+
+**Why it's the primary tool:** Cost-free (local model), comprehensive (crawls pages + PDFs), more reliable than API-based enrichment.
+
+See [enricher/README.md](enricher/README.md) for detailed documentation.
 
 ### Admin tools for calendar management
 
-- **URL review** — `http://localhost:3000/url-review` — approve/reject URL suggestions from Brave Search
-- **Manual event entry** — `http://localhost:3000/calendar-events/new` — add events found on Facebook or elsewhere
+- **Do przeglądu** — `/calendar-events` → approve/reject pending events
+- **Duplikaty** — `/calendar-events` → find and merge duplicate entries
+- **Manual event entry** — `/calendar-events/new` — add events found on Facebook or elsewhere
 - **Calendar events API** — `GET/POST/PATCH/DELETE /api/calendar-events`
-
-### Adding a new scraper source
-
-1. Create `backend/src/scrapers/sources/<name>.js` exporting `async function scrape()` that returns array of `{ name, date, location, distances, registration_url, source, source_url, source_id }`
-2. Add import + entry to `sources` array in `backend/src/scrapers/index.js`
-3. The normalizer, dedup, and geocoder handle the rest automatically
-
-### Sites investigated but not scraped (for reference)
-
-- **dostartu.pl** — JavaScript SPA, requires Puppeteer (not cheerio-compatible)
-- **kalendarzbiegowy.pl** — JS-heavy, likely needs headless browser
-- **go.decathlon.pl** — React SPA, only ~27 events total across all sports, not worth it
-- **bieganie.pl** — not a calendar, uses kalendarzbiegowy.pl widget
-- **biegamy.pl** — training content, not an event calendar
-- **enduhub.com** — results database, not a forward-looking calendar
-- **parkrun.pl** — recurring weekly events at 106 fixed locations, not race events
 
 ### Potential future scraper targets
 

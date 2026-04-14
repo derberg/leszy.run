@@ -183,22 +183,42 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates):
 
     NEVER null a working URL — only replace when there's an actual candidate.
     """
-    for field, llm_flag in [
-        ("registration_url", "url_is_registration"),
-        ("regulamin_url", "url_is_regulamin"),
+    for field, llm_field, llm_flag in [
+        ("registration_url", "registration_url", "url_is_registration"),
+        ("regulamin_url", "regulamin_url", "url_is_regulamin"),
     ]:
         status = url_statuses.get(field)
-        candidate = search_candidates.get(field)
+        search_candidate = search_candidates.get(field)
+        llm_url = llm.get(llm_field)
+        llm_confirms = llm.get(llm_flag) is True
 
-        # Dead URL → replace only if we have a candidate
-        if status and status.status == "dead" and candidate:
-            updates[field] = candidate
-            continue
+        # Fill empty field: prefer LLM-extracted URL (from page content), fallback to search
+        if not event.get(field):
+            if llm_url and llm_confirms:
+                updates[field] = llm_url
+                continue
+            elif search_candidate:
+                updates[field] = search_candidate
+                continue
 
-        # LLM says URL is wrong type → replace only if we have a candidate
-        if llm.get(llm_flag) is False and event.get(field) and candidate:
-            updates[field] = candidate
-            continue
+        # Dead URL → replace with LLM-extracted or search candidate
+        if status and status.status == "dead":
+            if llm_url and llm_confirms:
+                updates[field] = llm_url
+                continue
+            elif search_candidate:
+                updates[field] = search_candidate
+                continue
+
+        # LLM says existing URL is wrong type → replace with confirmed LLM URL or search candidate
+        if llm.get(llm_flag) is False and event.get(field):
+            if llm_url and llm_confirms:
+                # LLM found a better URL in the content
+                updates[field] = llm_url
+                continue
+            elif search_candidate:
+                updates[field] = search_candidate
+                continue
 
     # Website: fill if empty, or replace with LLM's suggestion if it's an official site
     llm_website = llm.get("website")
