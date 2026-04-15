@@ -12,7 +12,10 @@ class Config:
     searxng_url: str = "http://localhost:8888"
     url_timeout: int = 10
     max_page_chars: int = 6_000
-    max_pdf_chars: int = 6_000
+    # Raised from 6k: the opłata startowa table frequently lives on page 3-4 of a
+    # regulamin, after ~8k chars of generic preamble. Chunks step keyword-filters
+    # this down before sending to the LLM, so raw size no longer hits the prompt.
+    max_pdf_chars: int = 25_000
     ollama_temperature: float = 0.1
     ollama_max_tokens: int = 1024
 

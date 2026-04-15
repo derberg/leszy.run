@@ -23,9 +23,17 @@ KEYWORD_GROUPS = {
         "keywords": [
             "termin zgłoszeń", "zapisy do", "rejestracja do", "limit zgłoszeń",
             "termin rejestracji", "koniec zapisów", "zapisy zamknięte",
-            "ostateczny termin",
+            "ostateczny termin", "zgłoszenia przyjmowane", "zapisy trwają",
+            "zamknięcie zapisów", "termin zapisów", "do dnia",
         ],
-        "patterns": [],
+        "patterns": [
+            # Polish text-form dates near deadline context, e.g. "do 15 maja 2026"
+            r"do\s+\d{1,2}\s+(?:stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|września|października|listopada|grudnia)\s+\d{4}",
+            # ISO dates
+            r"\d{4}-\d{2}-\d{2}",
+            # European dotted dates
+            r"\d{1,2}\.\d{1,2}\.\d{4}",
+        ],
     },
     "distances": {
         "keywords": [

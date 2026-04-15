@@ -8,10 +8,12 @@ from enricher.config import Config
 from enricher.run_logger import RunLogger
 from enricher.steps.validate_urls import validate_urls
 from enricher.steps.search import search_missing_urls
-from enricher.steps.crawl import crawl_pages
+from enricher.steps.crawl import crawl_pages, crawl_url_list
 from enricher.steps.pdf import download_pdf, extract_pdf_text, cleanup_pdf
 from enricher.steps.llm import call_ollama, build_prompt
 from enricher.steps.merge import build_updates
+from enricher.steps.navigate import pick_followup_urls, is_stub_host
+from enricher.steps.regex_prepass import extract_hints
 
 
 async def process_event(event: dict, config: Config) -> dict:
@@ -41,17 +43,34 @@ async def process_event(event: dict, config: Config) -> dict:
             final = status.final_url or url
             working_urls[field] = final
 
-    # Step 2: Search for missing URLs
+    # Also trigger search for stub URLs — they usually lack the real event info.
+    # Keep the original URL (registration still works) but *also* look for the
+    # organizer's own website as an additional content source.
+    stub_fields = []
+    for field in ["registration_url", "website"]:
+        url = working_urls.get(field)
+        if url and is_stub_host(url) and field not in missing:
+            stub_fields.append(field)
+
+    # Step 2: Search for missing URLs (and better candidates for stubs)
     search_candidates = {}
-    if missing:
-        search_candidates = search_missing_urls(event, missing, config)
+    search_queue = list(missing)
+    # For stubs, we want a better *website* specifically, not to overwrite the
+    # stub registration URL.
+    if stub_fields and "website" not in search_queue and not event.get("website"):
+        search_queue.append("website")
+
+    if search_queue:
+        search_candidates = search_missing_urls(event, search_queue, config)
         result["steps"]["search"] = {
-            "queries": len(missing),
+            "queries": len(search_queue),
             "found": search_candidates,
         }
-        # Add search candidates to crawl list
+        # Only fill working_urls for truly missing fields; stub-triggered
+        # website searches get crawled as extra context below.
         for field, url in search_candidates.items():
-            working_urls[field] = url
+            if field in missing:
+                working_urls[field] = url
 
     # Step 3: Crawl web pages (exclude PDF regulamins)
     crawl_urls = {}
@@ -69,26 +88,100 @@ async def process_event(event: dict, config: Config) -> dict:
         "total_chars": sum(v.chars for v in crawled.values() if v),
     }
 
-    # Step 4: Extract from PDF regulamin (fallback to crawl if PDF download fails)
+    # Step 3b: Navigate — for stubs and landing pages, follow keyword-matched
+    # internal links and (when on a stub) the top external organizer link.
+    # This is what rescues events where the "registration page" is a thin
+    # login stub but the real content lives on subpages like "Opis Imprezy".
+    followup_urls: list[str] = []
+    followup_from_pdf_links: list[str] = []
+    for field, url in crawl_urls.items():
+        crawl_result = crawled.get(field)
+        if not crawl_result:
+            continue
+        is_stub = is_stub_host(url)
+        max_internal = 4 if is_stub else 3
+        max_external = 1 if is_stub else 0
+        picked = pick_followup_urls(
+            base_url=crawl_result.url,
+            internal_links=crawl_result.internal_links,
+            external_links=crawl_result.external_links,
+            max_internal=max_internal,
+            max_external=max_external,
+        )
+        for u in picked:
+            # Separate PDFs — they go through the PDF pipeline, not crawl
+            if u.lower().endswith(".pdf"):
+                if u not in followup_from_pdf_links:
+                    followup_from_pdf_links.append(u)
+            elif u not in followup_urls and u not in crawl_urls.values():
+                followup_urls.append(u)
+
+    # Cap followups globally to keep runtime bounded
+    followup_urls = followup_urls[:5]
+    followup_from_pdf_links = followup_from_pdf_links[:2]
+
+    # Also crawl stub-triggered search website candidate (if any) for context
+    search_website = search_candidates.get("website")
+    if stub_fields and search_website and search_website not in followup_urls and search_website not in crawl_urls.values():
+        followup_urls.append(search_website)
+
+    followup_crawled = {}
+    if followup_urls:
+        followup_crawled = await crawl_url_list(followup_urls, max_chars=config.max_page_chars)
+        for url, cr in followup_crawled.items():
+            if cr and cr.content:
+                # Merge into crawled_content under a synthetic field key
+                crawled_content[f"followup:{url}"] = cr.content
+        result["steps"]["navigate"] = {
+            "followed": len(followup_urls),
+            "pdf_candidates": len(followup_from_pdf_links),
+            "successful": len([v for v in followup_crawled.values() if v]),
+        }
+
+    # Step 4: Extract from PDF regulamin (primary, or from followup PDF links)
     pdf_text = None
     pdf_path = None
     regulamin_url = working_urls.get("regulamin_url")
     regulamin_status = url_statuses.get("regulamin_url")
+
+    # Primary: current regulamin_url if it's a PDF
     if regulamin_url and regulamin_status and regulamin_status.is_pdf:
         pdf_path = await download_pdf(regulamin_url)
         if pdf_path:
             pdf_text = extract_pdf_text(pdf_path, max_chars=config.max_pdf_chars)
-            result["steps"]["pdf"] = {"extracted_chars": len(pdf_text) if pdf_text else 0}
+            result["steps"]["pdf"] = {"source": "existing", "extracted_chars": len(pdf_text) if pdf_text else 0}
             cleanup_pdf(pdf_path)
         elif regulamin_url:
-            # PDF download failed (e.g. SPA wrapper serving HTML) — crawl it instead
             fallback = await crawl_pages({"regulamin_url": regulamin_url}, max_chars=config.max_page_chars)
             if fallback.get("regulamin_url"):
                 crawled_content["regulamin_url"] = fallback["regulamin_url"].content
-                result["steps"]["pdf"] = {"fallback_crawl": True, "extracted_chars": fallback["regulamin_url"].chars}
+                result["steps"]["pdf"] = {"source": "fallback_crawl", "extracted_chars": fallback["regulamin_url"].chars}
 
-    # Step 5: LLM extraction
-    prompt = build_prompt(event, crawled_content, pdf_text, config)
+    # Fallback: try PDFs discovered on crawled pages (often the real regulamin
+    # is linked as a PDF from an aggregator stub page)
+    if not pdf_text and followup_from_pdf_links:
+        for pdf_url in followup_from_pdf_links:
+            p = await download_pdf(pdf_url)
+            if p:
+                text = extract_pdf_text(p, max_chars=config.max_pdf_chars)
+                cleanup_pdf(p)
+                if text:
+                    pdf_text = text
+                    result["steps"]["pdf"] = {"source": "discovered", "url": pdf_url, "extracted_chars": len(text)}
+                    # If we had no regulamin_url, offer this as a candidate
+                    if not event.get("regulamin_url"):
+                        search_candidates.setdefault("regulamin_url", pdf_url)
+                    break
+
+    # Step 4.5: Regex pre-pass — extract obvious prices/deadlines before LLM
+    prepass_texts = list(crawled_content.values())
+    if pdf_text:
+        prepass_texts.append(pdf_text)
+    hints = extract_hints(prepass_texts, event_date=event.get("date"))
+    result["steps"]["prepass"] = {k: v for k, v in hints.items() if v is not None}
+
+    # Step 5: LLM extraction (with hints and scraper-known distances as anchors)
+    prompt = build_prompt(event, crawled_content, pdf_text, config, hints=hints)
     llm_result = call_ollama(prompt, config)
     duration = llm_result.pop("_duration_s", None) if llm_result else None
     result["steps"]["llm"] = {
@@ -96,6 +189,13 @@ async def process_event(event: dict, config: Config) -> dict:
         "duration_s": duration,
         "success": llm_result is not None,
     }
+
+    # Backfill LLM fields from regex hints when LLM missed them (never override
+    # a concrete LLM value — the regex is a safety net, not authoritative).
+    if llm_result is not None:
+        for key in ("price_from", "price_to", "registration_deadline"):
+            if llm_result.get(key) in (None, "") and hints.get(key) is not None:
+                llm_result[key] = hints[key]
 
     # Step 6: Smart merge
     had_content = bool(crawled_content or pdf_text)
@@ -298,8 +398,22 @@ def _print_step(name, data):
             click.echo("    search: no results")
     elif name == "crawl":
         click.echo(f"    crawl: {data.get('pages', 0)} pages, {data.get('total_chars', 0)} chars")
+    elif name == "navigate":
+        click.echo(
+            f"    navigate: {data.get('successful', 0)}/{data.get('followed', 0)} followups crawled, "
+            f"{data.get('pdf_candidates', 0)} pdf candidates"
+        )
     elif name == "pdf":
-        click.echo(f"    pdf: regulamin extracted, {data.get('extracted_chars', 0)} chars")
+        src = data.get("source", "existing")
+        click.echo(f"    pdf ({src}): {data.get('extracted_chars', 0)} chars")
+    elif name == "prepass":
+        parts = []
+        if data.get("price_from") is not None:
+            parts.append(f"price {data['price_from']}-{data.get('price_to', data['price_from'])}")
+        if data.get("registration_deadline"):
+            parts.append(f"deadline {data['registration_deadline']}")
+        if parts:
+            click.echo(f"    prepass: {', '.join(parts)}")
     elif name == "llm":
         dur = data.get("duration_s")
         click.echo(f"    llm: {dur}s, {'success' if data.get('success') else 'failed'}")

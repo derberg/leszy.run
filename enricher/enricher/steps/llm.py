@@ -12,11 +12,16 @@ VOIVODESHIPS = [
 ]
 
 
-def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config) -> str:
-    """Build the full extraction prompt with all gathered context."""
+def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config, hints: Optional[dict] = None) -> str:
+    """Build the full extraction prompt with all gathered context.
+
+    hints: optional dict from regex pre-pass {price_from, price_to, registration_deadline}.
+           Surfaced in the prompt so the LLM can confirm/correct concrete values rather
+           than guess.
+    """
     from enricher.steps.chunks import build_focused_context
 
-    distances = event.get("distances") or "unknown"
+    scraper_distances = event.get("distances") or ""
     event_types = event.get("event_types")
     types_str = ", ".join(event_types) if event_types else "unknown"
     deadline = event.get("registration_deadline") or "unknown"
@@ -38,6 +43,16 @@ def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config) ->
             url = event.get(field, "")
             sections.append(f"--- {label} ({url}) ---\n{content[:raw_limit]}")
 
+    # Include navigated follow-up pages (internal subpages, organizer sites)
+    followup_count = 0
+    for key, content in crawled.items():
+        if key.startswith("followup:") and content and isinstance(content, str) and content.strip():
+            followup_count += 1
+            if followup_count > 4:
+                break
+            page_url = key.removeprefix("followup:")
+            sections.append(f"--- FOLLOWUP PAGE ({page_url}) ---\n{content[:raw_limit]}")
+
     if pdf_text and pdf_text.strip():
         regulamin_url = event.get("regulamin_url", "")
         sections.append(f"--- REGULAMIN ({regulamin_url}) ---\n{pdf_text[:raw_limit]}")
@@ -57,6 +72,28 @@ def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config) ->
     else:
         context_block = "(No web content or PDF available)"
 
+    # Hints block (regex pre-pass) — give LLM concrete anchors it can confirm
+    hints_lines = []
+    if hints:
+        if hints.get("price_from") is not None and hints.get("price_to") is not None:
+            hints_lines.append(
+                f"  price candidates (regex-detected): {hints['price_from']} PLN (min), {hints['price_to']} PLN (max)"
+            )
+        if hints.get("registration_deadline"):
+            hints_lines.append(
+                f"  deadline candidate (regex-detected): {hints['registration_deadline']}"
+            )
+    hints_block = "\n".join(hints_lines)
+
+    distances_line = f"  distances: {scraper_distances or 'unknown'}"
+    if scraper_distances:
+        distances_line += (
+            "\n    ^^ These distances were already confirmed by the source listing."
+            " Include ALL of them in your 'distances' output unless the regulamin"
+            " explicitly contradicts (e.g. a distance was cancelled). Feel free"
+            " to add more if the regulamin/page lists additional distances."
+        )
+
     return f"""Extract structured data about a Polish running/walking race event.
 Return ONLY valid JSON, no other text.
 
@@ -64,11 +101,12 @@ EVENT:
   name: {event.get("name", "")}
   date: {event.get("date", "")}
   location: {event.get("location", "unknown")}
-  distances: {distances}
+{distances_line}
   event_types: {types_str}
   registration_deadline: {deadline}
   price: {price_str}
   voivodeship: {voivodeship}
+{(chr(10) + 'REGEX PRE-PASS HINTS (confirm or correct with evidence from content below):' + chr(10) + hints_block) if hints_block else ''}
 
 {context_block}
 

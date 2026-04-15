@@ -1166,7 +1166,7 @@
     "event_type": [
       "uliczny"
     ],
-    "registration_url": "https://zhidao.baidu.com/question/1842881063423642300.html",
+    "registration_url": null,
     "website": "https://liveds.datasport.pl/zawody_files/zawody11706.html",
     "is_kids": null
   },
@@ -2275,7 +2275,7 @@
       "trail",
       "dzieci"
     ],
-    "registration_url": "https://www.zhihu.com/question/1981809570432194448",
+    "registration_url": null,
     "website": null,
     "is_kids": null
   },
@@ -3951,7 +3951,7 @@
       "charytatywny",
       "uliczny"
     ],
-    "registration_url": null,
+    "registration_url": "https://www.tvmaster.eu/artykul/12910,charytatywna-sztafeta-dla-zuzy-piknik-i-bieg-na-stadionie",
     "website": "https://ckpolkowice.pl/",
     "is_kids": null
   },
@@ -4057,7 +4057,7 @@
       "nordic walking",
       "trail"
     ],
-    "registration_url": "https://www.zhihu.com/question/665506790",
+    "registration_url": null,
     "website": "https://rundakampinos.pl",
     "is_kids": null
   },
@@ -4539,7 +4539,7 @@
     "id": "c8c4323d-721c-4af0-a0a4-d349fae79f96",
     "name": "XIX Wojewódzkie Wiosenne Biegi Przełajowe",
     "date": "2026-04-24",
-    "registration_deadline": null,
+    "registration_deadline": "2026-04-21",
     "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260424_Kup_-_regulamin_XIX_Wiosenne_Biegi_Przełajowe.pdf",
     "price_from": null,
     "price_to": null,
@@ -4548,7 +4548,8 @@
     "lat": 50.806801,
     "lng": 17.883143,
     "distances": [
-      "różne"
+      "200m",
+      "500m"
     ],
     "event_type": [
       "trail"
@@ -7266,7 +7267,7 @@
     "registration_deadline": null,
     "regulamin_url": "https://dostartu.pl/statute_files/15937_pl.pdf",
     "price_from": 50,
-    "price_to": 130,
+    "price_to": 180,
     "location": "Rabka-Zdrój",
     "voivodeship": "Małopolskie",
     "lat": 49.605036,
@@ -7344,7 +7345,7 @@
       "nordic walking",
       "uliczny"
     ],
-    "registration_url": "https://zhidao.baidu.com/question/1873552671622463747.html",
+    "registration_url": null,
     "website": "https://www.gryfinobiega.pl/",
     "is_kids": null
   },
@@ -7815,8 +7816,8 @@
     "event_type": [
       "trail"
     ],
-    "registration_url": "https://fb.me/e/3C56P1OHN",
-    "website": null,
+    "registration_url": "https://dostartu.pl/x-tremalia-uek-2026-v15852",
+    "website": "https://zawodybiegowe.pl/",
     "is_kids": null
   },
   "championrun-bieg-na-dobry-wieczor-2026-2026-05-08": {
@@ -8584,7 +8585,7 @@
       "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v15465",
-    "website": null,
+    "website": "https://www.facebook.com/profile.php?id=100076557181292",
     "is_kids": null
   },
   "polmaraton-slimaka-2026-05-10": {
@@ -11483,7 +11484,7 @@
     "name": "IV Honorowy Bieg Kadecki  z okazji święta pułkowego 37pp",
     "date": "2026-05-24",
     "registration_deadline": "2026-04-30",
-    "regulamin_url": null,
+    "regulamin_url": "https://chronotex.pl/upload/1770498936.pdf",
     "price_from": 90,
     "price_to": 90,
     "location": "Kutno",
@@ -11879,7 +11880,7 @@
       "uliczny"
     ],
     "registration_url": "https://dostartu.pl/permalink-v15854",
-    "website": null,
+    "website": "https://elektronicznezapisy.pl/event/14255/stro",
     "is_kids": null
   },
   "vi-niechanowska-dyszka-2026-05-24": {
@@ -11978,39 +11979,6 @@
     ],
     "registration_url": "https://botaniczna5.pl/events/botaniczna-piatka-warszawa-edycja-nocna-2026/",
     "website": "https://botaniczna5.pl/events/botaniczna-piatka-warszawa-edycja-nocna-2026/",
-    "is_kids": null
-  },
-  "5-sztacheta-trail-running-nordic-walking-edycja-urodzinowa-2026-05-30": {
-    "id": "06ed537d-b7d3-4039-b62d-db498174f227",
-    "name": "5 Sztacheta Trail Running & Nordic Walking edycja urodzinowa",
-    "date": "2026-05-30",
-    "registration_deadline": null,
-    "regulamin_url": "https://dostartu.pl/statute_files/15345_pl.pdf",
-    "price_from": 20,
-    "price_to": 100,
-    "location": "Słowik, ul. Podlaska",
-    "voivodeship": "Łódzkie",
-    "lat": 50.748377,
-    "lng": 19.179554,
-    "distances": [
-      "7 km",
-      "1 km",
-      "21 km",
-      "12h",
-      "6h",
-      "200m",
-      "500m",
-      "1000m"
-    ],
-    "event_type": [
-      "charytatywny",
-      "nordic walking",
-      "trail",
-      "ultra",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zhihu.com/question/1933842682532308089",
-    "website": "https://dostartu.pl/5-sztacheta-trail-running-nordic-walking-edycja-v15345",
     "is_kids": null
   },
   "patrol-graniczny-7-2026-05-30": {
@@ -12496,7 +12464,7 @@
       "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v15728",
-    "website": null,
+    "website": "https://tupobiegasz.pl/powidz",
     "is_kids": null
   },
   "puchar-kobylnicy-kids-cup-2026-2026-05-30": {
@@ -12551,6 +12519,39 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v15324",
     "website": "https://dostartu.pl/9-bieg-pamieci-absolwentow-szko-y-podchorazych-piechoty-w-komorowie-ostrowi-mazowieckiej-v15324",
+    "is_kids": null
+  },
+  "5-sztacheta-trail-running-nordic-walking-edycja-urodzinowa-2026-05-30": {
+    "id": "06ed537d-b7d3-4039-b62d-db498174f227",
+    "name": "5 Sztacheta Trail Running & Nordic Walking edycja urodzinowa",
+    "date": "2026-05-30",
+    "registration_deadline": null,
+    "regulamin_url": "https://dostartu.pl/statute_files/15345_pl.pdf",
+    "price_from": 20,
+    "price_to": 100,
+    "location": "Słowik, ul. Podlaska",
+    "voivodeship": "Łódzkie",
+    "lat": 50.748377,
+    "lng": 19.179554,
+    "distances": [
+      "7 km",
+      "1 km",
+      "21 km",
+      "12h",
+      "6h",
+      "200m",
+      "500m",
+      "1000m"
+    ],
+    "event_type": [
+      "charytatywny",
+      "nordic walking",
+      "trail",
+      "ultra",
+      "dzieci"
+    ],
+    "registration_url": null,
+    "website": "https://dostartu.pl/5-sztacheta-trail-running-nordic-walking-edycja-v15345",
     "is_kids": null
   },
   "xiii-bieg-nyski-2026-05-30": {
@@ -12877,6 +12878,34 @@
     "website": "https://biegsgh.pl/",
     "is_kids": null
   },
+  "ultrapodkarpacie-2-1-minimaraton-rzeszowski-2026-05-31": {
+    "id": "59e261cb-2295-4261-9d81-2f688d56110b",
+    "name": "Ultrapodkarpacie 2 + 1. MiniMaraton Rzeszowski",
+    "date": "2026-05-31",
+    "registration_deadline": null,
+    "regulamin_url": "https://competitions.timekeeper.pl/download/893",
+    "price_from": 50,
+    "price_to": 90,
+    "location": "Rzeszów\n                            Rzeszów",
+    "voivodeship": "Podkarpackie",
+    "lat": 50.073553,
+    "lng": 21.967399,
+    "distances": [
+      "4.2 km",
+      "12 km",
+      "24 km",
+      "45 km",
+      "65 km",
+      "106 km"
+    ],
+    "event_type": [
+      "trail",
+      "ultra"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/ultrapodkarpacie",
+    "website": "https://competitions.timekeeper.pl/ultrapodkarpacie",
+    "is_kids": null
+  },
   "bieg-o-korone-ksieznej-dabrowki-2026-05-31": {
     "id": "9286a276-00e6-4a41-a30b-4150c56b2d0e",
     "name": "Bieg o Koronę Księżnej Dąbrówki",
@@ -12949,34 +12978,6 @@
     ],
     "registration_url": "https://www.aleczas.pl/zapisy",
     "website": "https://mosir.org.pl/project/mazowiecka-pietnastka/",
-    "is_kids": null
-  },
-  "ultrapodkarpacie-2-1-minimaraton-rzeszowski-2026-05-31": {
-    "id": "59e261cb-2295-4261-9d81-2f688d56110b",
-    "name": "Ultrapodkarpacie 2 + 1. MiniMaraton Rzeszowski",
-    "date": "2026-05-31",
-    "registration_deadline": null,
-    "regulamin_url": "https://competitions.timekeeper.pl/download/893",
-    "price_from": 253,
-    "price_to": 253,
-    "location": "Rzeszów\n                            Rzeszów",
-    "voivodeship": "Podkarpackie",
-    "lat": 50.073553,
-    "lng": 21.967399,
-    "distances": [
-      "4.2 km",
-      "12 km",
-      "24 km",
-      "45 km",
-      "65 km",
-      "106 km"
-    ],
-    "event_type": [
-      "trail",
-      "ultra"
-    ],
-    "registration_url": "https://competitions.timekeeper.pl/ultrapodkarpacie",
-    "website": "https://competitions.timekeeper.pl/ultrapodkarpacie",
     "is_kids": null
   },
   "festiwal-biegowy-szpot-swarzedz5-polmaraton-szpot-swarzedz-2026-05-31": {
@@ -13661,7 +13662,7 @@
       "uliczny"
     ],
     "registration_url": "https://dostartu.pl/permalink-v15740",
-    "website": null,
+    "website": "https://dostartu.pl/ii-biegniem-bez-las-2026-v15740",
     "is_kids": null
   },
   "vi-kurpiowski-psejk-2026-2026-06-06": {
@@ -14089,7 +14090,7 @@
       "nordic walking",
       "trail"
     ],
-    "registration_url": "https://fb.me/e/3uuayiYJR",
+    "registration_url": "https://fb.me/e/6N367rG7e",
     "website": null,
     "is_kids": null
   },
@@ -14874,7 +14875,7 @@
       "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v15521",
-    "website": null,
+    "website": "https://time-sport.pl/zapisy-13-06-2026-bieg-7-mostow-2026/",
     "is_kids": null
   },
   "bieg-recepta-na-zdrowie-2026-06-13": {
@@ -14927,10 +14928,10 @@
     "id": "4c3b5cbf-7f61-4cbf-a39f-e0151423b5f7",
     "name": "IV Bilczańska Dycha",
     "date": "2026-06-13",
-    "registration_deadline": null,
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
+    "registration_deadline": "2026-05-31",
+    "regulamin_url": "https://formularz.ultimasport.pl/uploads/regulations/470_Regulamin%20IV%20Bilcza%C5%84ska%20Dycha.pdf",
+    "price_from": 40,
+    "price_to": 80,
     "location": "Morawica",
     "voivodeship": "Świętokrzyskie",
     "lat": 50.747815,
@@ -15481,6 +15482,31 @@
     "website": "https://bialabiega.org/imprezy-biegowe/",
     "is_kids": null
   },
+  "xx-ogolnopolski-bieg-uliczny-o-puchar-burmistrza-miasta-bukowno-2026-06-14": {
+    "id": "5b47e0a8-900b-460e-a026-6a4f6ca73cf3",
+    "name": "XX Ogólnopolski Bieg Uliczny o Puchar Burmistrza Miasta Bukowno",
+    "date": "2026-06-14",
+    "registration_deadline": "2026-04-06",
+    "regulamin_url": "https://dostartu.pl/statute_files/15828_pl.pdf",
+    "price_from": 80,
+    "price_to": 100,
+    "location": "Bukowno k Olkusza",
+    "voivodeship": "Małopolskie",
+    "lat": 50.262296,
+    "lng": 19.473996,
+    "distances": [
+      "10 km",
+      "5 km",
+      "5.5 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://www.bieg.miastobukowno.pl",
+    "is_kids": null
+  },
   "xi-piotrkowski-bieg-bankowy-2026-06-14": {
     "id": "e564d623-665a-4c66-910d-270897511718",
     "name": "XI Piotrkowski Bieg Bankowy",
@@ -15647,31 +15673,6 @@
     ],
     "registration_url": null,
     "website": "https://www.finishers.com/pl/e/swiebodzicki-bieg-muflona#",
-    "is_kids": null
-  },
-  "xx-ogolnopolski-bieg-uliczny-o-puchar-burmistrza-miasta-bukowno-2026-06-14": {
-    "id": "5b47e0a8-900b-460e-a026-6a4f6ca73cf3",
-    "name": "XX Ogólnopolski Bieg Uliczny o Puchar Burmistrza Miasta Bukowno",
-    "date": "2026-06-14",
-    "registration_deadline": "2026-04-06",
-    "regulamin_url": "https://dostartu.pl/statute_files/15828_pl.pdf",
-    "price_from": 80,
-    "price_to": 100,
-    "location": "Bukowno k Olkusza",
-    "voivodeship": "Małopolskie",
-    "lat": 50.262296,
-    "lng": 19.473996,
-    "distances": [
-      "10 km",
-      "5 km",
-      "5.5 km"
-    ],
-    "event_type": [
-      "nordic walking",
-      "uliczny"
-    ],
-    "registration_url": "https://www.zhihu.com/question/6249780877",
-    "website": "https://www.bieg.miastobukowno.pl",
     "is_kids": null
   },
   "xvii-elblaski-bieg-piekarczyka-2026-06-14": {
@@ -16831,7 +16832,7 @@
       "uliczny"
     ],
     "registration_url": "https://dostartu.pl/permalink-v15605",
-    "website": null,
+    "website": "https://zcas.zlotow.pl/XVII-Eco-Cross-2026---zapisy-ruszyly_.html",
     "is_kids": null
   },
   "5-bieg-powitania-lata-2026-06-21": {
@@ -17441,7 +17442,7 @@
     "registration_deadline": "2026-06-22",
     "regulamin_url": "https://dostartu.pl/statute_files/15886_pl.pdf",
     "price_from": 50,
-    "price_to": 60,
+    "price_to": 70,
     "location": "Gidle, LD",
     "voivodeship": "Łódzkie",
     "lat": 50.977616,
@@ -17917,7 +17918,7 @@
     "registration_deadline": null,
     "regulamin_url": "https://dostartu.pl/statute_files/15396_pl.pdf",
     "price_from": 50,
-    "price_to": 100,
+    "price_to": 130,
     "location": "Zalecze Male",
     "voivodeship": "Łódzkie",
     "lat": 51.091771,
@@ -18285,7 +18286,7 @@
       "nordic walking",
       "trail"
     ],
-    "registration_url": "https://club.autohome.com.cn/bbs/forum-c-2417-1.html",
+    "registration_url": null,
     "website": "https://www.forrest-limanowa.pl/",
     "is_kids": null
   },
@@ -18817,7 +18818,7 @@
     "name": "12 Nocny Portowy Maraton Szczeciński",
     "date": "2026-07-18",
     "registration_deadline": null,
-    "regulamin_url": null,
+    "regulamin_url": "https://www.maratonszczecinski.pl/strona-glowna/regulamin",
     "price_from": 199,
     "price_to": 199,
     "location": "Szczecin",
@@ -18831,7 +18832,7 @@
       "nocny",
       "uliczny"
     ],
-    "registration_url": null,
+    "registration_url": "https://www.protiming24.pl/startmeta/ev/maraton-szczecinski",
     "website": "https://www.maratonszczecinski.pl/",
     "is_kids": null
   },
@@ -19473,7 +19474,7 @@
       "nordic walking"
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14910/signup.html",
-    "website": "https://www.google.com/search?q=Domki+Letniskowe+Frida+wiele&oq=Domki+Letniskowe+Frida+wiele&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIICAEQABgWGB4yBwgCEAAY7wUyBwgDEAAY7wUyBwgEEAAY7wUyCggFEAAYgAQYogQyBggGEEUYPDIGCAcQRRg80gEJMzg3NWowajE1qAIMsAIB8QWFRow3GDKX8g&sourceid=chrome&ie=UTF-8",
+    "website": null,
     "is_kids": null
   },
   "botaniczna-piatka-2026-08-01": {
@@ -19789,7 +19790,7 @@
       "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v15879",
-    "website": null,
+    "website": "https://mosir.rsl.pl/",
     "is_kids": null
   },
   "10-sliwicka-dyszka-2026-08-08": {
@@ -21425,7 +21426,7 @@
     "id": "63771b7e-377d-4477-848d-c141b6315329",
     "name": "VII Bieg o Puchar Wójta",
     "date": "2026-09-05",
-    "registration_deadline": null,
+    "registration_deadline": "2026-01-20",
     "regulamin_url": null,
     "price_from": null,
     "price_to": null,
@@ -21942,7 +21943,7 @@
       "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v15638",
-    "website": null,
+    "website": "https://biegpowstaniawarszawskiego.pl/o-biegu/",
     "is_kids": null
   },
   "7-bieg-wiewiorki-2026-2026-09-12": {
@@ -23377,6 +23378,30 @@
     "website": "https://silesiamarathon.pl",
     "is_kids": null
   },
+  "xi-bieg-na-molo-2026-10-03": {
+    "id": "74330d6e-cd21-4096-af42-b4ccb2248ff9",
+    "name": "XI Bieg na Molo",
+    "date": "2026-10-03",
+    "registration_deadline": null,
+    "regulamin_url": "https://revistaforum.com.br/global/lula-e-xi-jinping-desafiam-abusos-de-donald-trump/",
+    "price_from": 50,
+    "price_to": 70,
+    "location": "Osiek, Polska",
+    "voivodeship": "Małopolskie",
+    "lat": 49.947668,
+    "lng": 19.275907,
+    "distances": [
+      "10 km",
+      "5 km"
+    ],
+    "event_type": [
+      "charytatywny",
+      "uliczny"
+    ],
+    "registration_url": "https://running.life/pl/wydarzenie/bieg-na-molo",
+    "website": "https://moloresort.pl/atrakcje/bieg-na-molo/",
+    "is_kids": null
+  },
   "v-nocny-bieg-sw-michala-2026-10-03": {
     "id": "8b9dbae5-ca7f-4cce-991c-4dea363c97b9",
     "name": "V Nocny Bieg Św. Michała",
@@ -23468,30 +23493,6 @@
     ],
     "registration_url": "https://sisxyz.pl/nasze-biegi/ddkk-festiwal-biegowy/",
     "website": "https://sisxyz.pl/nasze-biegi/ddkk-festiwal-biegowy/",
-    "is_kids": null
-  },
-  "xi-bieg-na-molo-2026-10-03": {
-    "id": "74330d6e-cd21-4096-af42-b4ccb2248ff9",
-    "name": "XI Bieg na Molo",
-    "date": "2026-10-03",
-    "registration_deadline": null,
-    "regulamin_url": "https://moloresort.pl/atrakcje/bieg-na-molo/",
-    "price_from": 50,
-    "price_to": 120,
-    "location": "Osiek, Polska",
-    "voivodeship": "Małopolskie",
-    "lat": 49.947668,
-    "lng": 19.275907,
-    "distances": [
-      "10 km",
-      "5 km"
-    ],
-    "event_type": [
-      "charytatywny",
-      "uliczny"
-    ],
-    "registration_url": "https://running.life/pl/wydarzenie/bieg-na-molo",
-    "website": "https://moloresort.pl/atrakcje/bieg-na-molo/",
     "is_kids": null
   },
   "biegnij-warszawo-2026-2026-10-03": {
