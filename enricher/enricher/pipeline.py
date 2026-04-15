@@ -109,7 +109,41 @@ async def process_event(event: dict, config: Config) -> dict:
     return result
 
 
-def fetch_events(config: Config, limit: Optional[int], force: bool, skip_ids: set) -> list[dict]:
+def _is_incomplete(row: dict) -> bool:
+    """Return True if an enriched event is still missing at least one enrichable field.
+
+    price_to alone does NOT count as missing: many events have a single flat fee, so
+    we only flag it when combined with a missing price_from (which is already covered
+    by the price_from check below).
+    """
+    if not row.get("registration_url"):
+        return True
+    if not row.get("regulamin_url"):
+        return True
+    if not row.get("website"):
+        return True
+    if not row.get("registration_deadline"):
+        return True
+    if row.get("price_from") is None:
+        return True
+    if not row.get("voivodeship"):
+        return True
+    if row.get("is_kids") is None:
+        return True
+    if not row.get("distances"):
+        return True
+    if not row.get("event_types"):
+        return True
+    return False
+
+
+def fetch_events(
+    config: Config,
+    limit: Optional[int],
+    force: bool,
+    incomplete: bool,
+    skip_ids: set,
+) -> list[dict]:
     """Fetch events from scraper_all that need enrichment."""
     sb = create_client(config.supabase_url, config.supabase_key)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -124,10 +158,10 @@ def fetch_events(config: Config, limit: Optional[int], force: bool, skip_ids: se
             "registration_deadline, price_from, price_to, voivodeship, is_kids, "
             "enriched_at, enriched_regulamin_at, enriched_search_at"
         )
-        if not force:
-            query = query.is_("enriched_at", "null")
-        else:
+        if incomplete or force:
             query = query.not_.is_("enriched_at", "null")
+        else:
+            query = query.is_("enriched_at", "null")
         query = query.gte("date", today)
         data = query.range(offset, offset + page_size - 1).execute()
         if not data.data:
@@ -136,6 +170,11 @@ def fetch_events(config: Config, limit: Optional[int], force: bool, skip_ids: se
         if len(data.data) < page_size:
             break
         offset += page_size
+
+    # Narrow to events that still have gaps (client-side filter; can't express
+    # the full predicate cleanly in a single PostgREST query).
+    if incomplete:
+        all_rows = [r for r in all_rows if _is_incomplete(r)]
 
     # Filter out already-completed events (resume support)
     rows = [r for r in all_rows if r["id"] not in skip_ids]
@@ -161,7 +200,14 @@ def stamp_enriched(config: Config, event_id: str):
     }).eq("id", event_id).execute()
 
 
-async def run_pipeline(config: Config, limit: Optional[int], dry_run: bool, resume: bool, force: bool):
+async def run_pipeline(
+    config: Config,
+    limit: Optional[int],
+    dry_run: bool,
+    resume: bool,
+    force: bool,
+    incomplete: bool = False,
+):
     """Main pipeline loop: fetch events, process each, write results."""
     import click
 
@@ -174,7 +220,7 @@ async def run_pipeline(config: Config, limit: Optional[int], dry_run: bool, resu
             click.echo(f"Resuming: skipping {len(skip_ids)} already-processed events")
 
     # Fetch events
-    events = fetch_events(config, limit, force, skip_ids)
+    events = fetch_events(config, limit, force, incomplete, skip_ids)
     total = len(events)
 
     if total == 0:

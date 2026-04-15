@@ -39,6 +39,7 @@ python -m enricher run                    # all un-enriched future events
 python -m enricher run --limit 10         # first 10 only
 python -m enricher run --dry-run          # preview without writing
 python -m enricher run --force            # re-process already-enriched events
+python -m enricher run --incomplete       # re-process enriched events still missing fields
 python -m enricher run --resume           # skip events from most recent run log
 python -m enricher run --force --limit 5  # re-enrich 5 events
 ```
@@ -46,6 +47,7 @@ python -m enricher run --force --limit 5  # re-enrich 5 events
 **Flags:**
 - `--dry-run` — shows what would change, doesn't write to Supabase
 - `--force` — re-processes events that already have `enriched_at` set
+- `--incomplete` — re-processes already-enriched future events that are still missing at least one enrichable field (`registration_url`, `regulamin_url`, `website`, `registration_deadline`, `price_from`, `voivodeship`, `is_kids`, `distances`, `event_types`). `price_to` alone is ignored when `price_from` is set, since many events have a single flat fee. Mutually exclusive with `--force`.
 - `--resume` — skips events already in the most recent JSONL run log
 - `--limit N` — process at most N events
 

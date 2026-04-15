@@ -16,13 +16,21 @@ def cli():
 @click.option("--dry-run", is_flag=True, help="Show changes without writing to DB")
 @click.option("--resume", is_flag=True, help="Skip events from most recent run log")
 @click.option("--force", is_flag=True, help="Re-process even if enriched_at is set")
-def run(limit, dry_run, resume, force):
+@click.option(
+    "--incomplete",
+    is_flag=True,
+    help="Re-process enriched events still missing any enrichable field "
+    "(price_to alone is ignored when price_from is set)",
+)
+def run(limit, dry_run, resume, force, incomplete):
     """Run the enrichment pipeline."""
+    if force and incomplete:
+        raise click.UsageError("--force and --incomplete are mutually exclusive")
     config = load_config()
     click.echo(f"Enricher ready. Ollama: {config.ollama_url}, SearXNG: {config.searxng_url}")
     if dry_run:
         click.echo("=== DRY RUN ===")
-    asyncio.run(run_pipeline(config, limit, dry_run, resume, force))
+    asyncio.run(run_pipeline(config, limit, dry_run, resume, force, incomplete))
 
 
 @cli.command()
