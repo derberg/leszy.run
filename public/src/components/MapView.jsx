@@ -44,22 +44,19 @@ export default function MapView({ events, userLocation, radius }) {
   const markerKey = useMemo(() => mappable.map(e => e.id).join(','), [mappable])
   const { isDark } = useTheme()
 
-  const tileUrl = isDark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?language=pl'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?language=pl'
+  const tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 
   return (
     <div className="relative z-0 max-w-[1200px] mx-auto px-6 pb-16">
       <MapContainer
         center={userLocation ? [userLocation.lat, userLocation.lng] : POLAND_CENTER}
         zoom={userLocation ? getZoomForRadius(radius) : POLAND_ZOOM}
-        className="w-full h-[500px] border border-apex-border"
+        className={`w-full h-[500px] border border-apex-border ${isDark ? 'map-dark' : ''}`}
         style={{ background: isDark ? '#0C0C14' : '#F5F5F8' }}
       >
         <TileLayer
-          key={tileUrl}
           url={tileUrl}
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
         <LayerGroup key={markerKey}>
           {mappable.map(ev => (
