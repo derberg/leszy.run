@@ -9,6 +9,7 @@ const SOURCE_PRIORITY = {
   datasport: 7,
   maratonypolskie: 9,
   pomiarczasuatelier: 8,
+  b4sport: 8,
   supersport: 5,
   zmierzymyczas: 6,
 }

@@ -79,7 +79,7 @@ cd backend && node --env-file=../.env scripts/run-scrapers.js --force dostartu,e
 
 Reads all raw tables, deduplicates cross-source, merges into `scraper_all` with priority-based field resolution. dostartu data wins over all others.
 
-Priority: dostartu (1) > biegiwpolsce (2) > timekeeper (3) > elektronicznezapisy (4) > datasport (5) > maratonypolskie (6)
+Priority: dostartu (1) > biegiwpolsce (2) > timekeeper (3) > elektronicznezapisy (4) > supersport (5) > zmierzymyczas (6) > datasport (7) > b4sport (8) = pomiarczasuatelier (8) > maratonypolskie (9)
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-merge.js
@@ -856,6 +856,9 @@ Runs scrapers **sequentially** in this order:
 4. biegiwpolsce
 5. dostartu
 6. timekeeper
+7. supersport
+8. zmierzymyczas
+9. b4sport
 
 Each scraper writes raw data into its own Supabase table (upsert by `source_id`):
 
@@ -867,6 +870,9 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | biegiwpolsce | `scraper_biegiwpolsce` | `source_id` |
 | dostartu | `scraper_dostartu` | `source_id` |
 | timekeeper | `scraper_timekeeper` | `source_id` |
+| supersport | `scraper_supersport` | `source_id` |
+| zmierzymyczas | `scraper_zmierzymyczas` | `source_id` |
+| b4sport | `scraper_b4sport` | `source_id` |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 
@@ -947,19 +953,19 @@ Admin review in /calendar-events:
 
 ## Source comparison matrix
 
-| | maratonypolskie | datasport | elektronicznezapisy | biegiwpolsce | dostartu |
-|---|---|---|---|---|---|
-| **Method** | Playwright | fetch+Cheerio | fetch+Cheerio | fetch+Cheerio | REST API |
-| **Encoding** | UTF-8 (Playwright) | Windows-1250 | UTF-8 | UTF-8 | JSON |
-| **Detail pages** | No (listing only) | Yes (fetch) | Yes (fetch) | Yes (fetch) | Classifications API |
-| **Volume** | 500+ | 200+ | 300-500 | 1000+ | 250+ |
-| **Has reg URL** | No | No | Yes | Yes (Zapisy btn) | Yes |
-| **Has regulamin** | No | Yes (PDF) | Yes (download links) | Yes (red button) | Yes (statuteFilePl PDF or statuteLinkPl) |
-| **Has location** | Yes (listing) | Yes (listing) | Yes (detail) | Yes (detail, structured) | Yes (API) |
-| **Has coordinates** | No | No | Via dostartu enrichment | No | Yes (API) |
-| **Has distances** | Single from listing | h4 headings | Cennik pricing + dostartu enrichment | Yes (from tag split) | Classifications API (km, time, meters, named) |
-| **Distance quality** | Low | **High** | **Medium-High** (High when enriched) | **Medium** (coarse: 5/10/21/42/ultra) | **Highest** |
-| **Has event type** | No | No | No | Yes (pure types after split) | Yes (numeric codes) |
-| **Has kids flag** | No | No | No | Yes ("Dla dzieci" tag) | Yes (playerType + keywords) |
-| **Has end_date** | No | No | No | No | Yes |
-| **Source ID stability** | Medium (code param) | High (zawody number) | High (event number) | Medium (URL slug) | High (API id) |
+| | maratonypolskie | b4sport | datasport | elektronicznezapisy | biegiwpolsce | dostartu |
+|---|---|---|---|---|---|---|
+| **Method** | Playwright | fetch+Cheerio | fetch+Cheerio | fetch+Cheerio | fetch+Cheerio | REST API |
+| **Encoding** | UTF-8 (Playwright) | UTF-8 | Windows-1250 | UTF-8 | UTF-8 | JSON |
+| **Detail pages** | No (listing only) | No (listing + AJAX pagination) | Yes (fetch) | Yes (fetch) | Yes (fetch) | Classifications API |
+| **Volume** | 500+ | 100+ | 200+ | 300-500 | 1000+ | 250+ |
+| **Has reg URL** | No | Yes | No | Yes | Yes (Zapisy btn) | Yes |
+| **Has regulamin** | No | No | Yes (PDF) | Yes (download links) | Yes (red button) | Yes (statuteFilePl PDF or statuteLinkPl) |
+| **Has location** | Yes (listing) | Yes (listing) | Yes (listing) | Yes (detail) | Yes (detail, structured) | Yes (API) |
+| **Has coordinates** | No | No | No | Via dostartu enrichment | No | Yes (API) |
+| **Has distances** | Single from listing | From multi-distance child list text | h4 headings | Cennik pricing + dostartu enrichment | Yes (from tag split) | Classifications API (km, time, meters, named) |
+| **Distance quality** | Low | Low-Medium (only multi-distance cards) | **High** | **Medium-High** (High when enriched) | **Medium** (coarse: 5/10/21/42/ultra) | **Highest** |
+| **Has event type** | No | No | No | No | Yes (pure types after split) | Yes (numeric codes) |
+| **Has kids flag** | No | No | No | No | Yes ("Dla dzieci" tag) | Yes (playerType + keywords) |
+| **Has end_date** | No | No | No | No | No | Yes |
+| **Source ID stability** | Medium (code param) | High (numeric event ID) | High (zawody number) | High (event number) | Medium (URL slug) | High (API id) |

@@ -255,11 +255,12 @@ The landing page and kalendarz read directly from Supabase (`calendar_events` ta
 
 Standalone scripts (not API endpoints) that scrape Polish running event websites, enrich with AI, and publish to the `calendar_events` Supabase table. See [docs/scrapers.md](docs/scrapers.md) for full pipeline documentation.
 
-### Data sources (6 scrapers)
+### Data sources (7 scrapers)
 
 | Source | Events/year | Method | Data quality |
 |--------|-------------|--------|--------------|
 | maratonypolskie.pl | 500+ | Playwright (HTML tables) | Low (listing only, no reg URLs) |
+| b4sportonline.pl | 100+ | fetch+Cheerio (AJAX pagination) | Medium (city, name, date, reg URL, some distances) |
 | datasport.pl | 200+ | Cheerio (detail pages) | High (distances from h4 headings) |
 | elektronicznezapisy.pl | 300-500 | Cheerio + dostartu API enrichment | Medium-High |
 | biegiwpolsce.pl | 1000+ | Cheerio (paginated) | Medium (tagged distances) |

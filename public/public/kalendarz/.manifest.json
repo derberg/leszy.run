@@ -4653,7 +4653,7 @@
     "event_type": [
       "uliczny"
     ],
-    "registration_url": "https://ladime.seznam.cz/",
+    "registration_url": null,
     "website": "https://cekow.pl/",
     "is_kids": null
   },
@@ -23383,7 +23383,7 @@
     "name": "XI Bieg na Molo",
     "date": "2026-10-03",
     "registration_deadline": null,
-    "regulamin_url": "https://revistaforum.com.br/global/lula-e-xi-jinping-desafiam-abusos-de-donald-trump/",
+    "regulamin_url": null,
     "price_from": 50,
     "price_to": 70,
     "location": "Osiek, Polska",

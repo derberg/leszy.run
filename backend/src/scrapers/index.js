@@ -6,6 +6,7 @@ import { scrape as scrapeDostartu } from './sources/dostartu.js'
 import { scrape as scrapeTimekeeper } from './sources/timekeeper.js'
 import { scrape as scrapeSupersport } from './sources/supersport.js'
 import { scrape as scrapeZmierzymyczas } from './sources/zmierzymyczas.js'
+import { scrape as scrapeB4sport } from './sources/b4sport.js'
 import { SOURCE_PRIORITY } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 
@@ -137,6 +138,22 @@ const sources = [
       distances: raw.distances || null,
       registration_url: raw.registration_url || null,
       regulamin_url: raw.regulamin_url || null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'b4sport',
+    scrape: scrapeB4sport,
+    table: 'scraper_b4sport',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
     }),
