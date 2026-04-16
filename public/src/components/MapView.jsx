@@ -1,5 +1,5 @@
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet'
-import { useEffect } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, LayerGroup } from 'react-leaflet'
+import { useEffect, useMemo } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import useTheme from '../hooks/useTheme.js'
@@ -40,15 +40,16 @@ const POLAND_CENTER = [52.0, 19.5]
 const POLAND_ZOOM = 6
 
 export default function MapView({ events, userLocation, radius }) {
-  const mappable = events.filter(e => e.lat && e.lng)
+  const mappable = useMemo(() => events.filter(e => e.lat && e.lng), [events])
+  const markerKey = useMemo(() => mappable.map(e => e.id).join(','), [mappable])
   const { isDark } = useTheme()
 
   const tileUrl = isDark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?language=pl'
+    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?language=pl'
 
   return (
-    <div className="max-w-[1200px] mx-auto px-6 pb-16">
+    <div className="relative z-0 max-w-[1200px] mx-auto px-6 pb-16">
       <MapContainer
         center={userLocation ? [userLocation.lat, userLocation.lng] : POLAND_CENTER}
         zoom={userLocation ? getZoomForRadius(radius) : POLAND_ZOOM}
@@ -60,19 +61,21 @@ export default function MapView({ events, userLocation, radius }) {
           url={tileUrl}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
         />
-        {mappable.map(ev => (
-          <Marker key={ev.id} position={[Number(ev.lat), Number(ev.lng)]} icon={defaultPin}>
-            <Popup>
-              <div style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                <strong>{ev.name}</strong><br />
-                {ev.date} &middot; {ev.location}<br />
-                {(ev.registration_url || ev.source_url) && (
-                  <a href={ev.registration_url || ev.source_url} target="_blank" rel="noopener">Zapisy &rarr;</a>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        <LayerGroup key={markerKey}>
+          {mappable.map(ev => (
+            <Marker key={ev.id} position={[Number(ev.lat), Number(ev.lng)]} icon={defaultPin}>
+              <Popup>
+                <div style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                  <strong>{ev.name}</strong><br />
+                  {ev.date} &middot; {ev.location}<br />
+                  {(ev.registration_url || ev.source_url) && (
+                    <a href={ev.registration_url || ev.source_url} target="_blank" rel="noopener">Zapisy &rarr;</a>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </LayerGroup>
         {userLocation && (
           <>
             <RecenterMap center={[userLocation.lat, userLocation.lng]} zoom={getZoomForRadius(radius)} />

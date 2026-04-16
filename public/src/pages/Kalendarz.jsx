@@ -179,6 +179,7 @@ export default function Kalendarz() {
 
   const [searchParams, setSearchParams] = useSearchParams()
   const [events, setEvents] = useState([])
+  const [allFilteredEvents, setAllFilteredEvents] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState(searchParams.get('view') || 'list')
@@ -235,6 +236,9 @@ export default function Kalendarz() {
     setPage(1)
   }, [])
 
+  const [rawData, setRawData] = useState({ data: [], count: 0 })
+
+  // Supabase fetch — only runs when server-side query params change (NOT radius/distance/price)
   const fetchEvents = useCallback(async () => {
     setLoading(true)
     try {
@@ -264,8 +268,7 @@ export default function Kalendarz() {
         query = query.in('voivodeship', filters.voivodeship)
       }
 
-      // Map view and distance filter need all results (no pagination)
-      // (Supabase can't filter "any array element in range" natively)
+      // Map view and client-side filters need all results (no pagination at DB level)
       if (view === 'map' || view === 'calendar' || filters.distance.length || filters.price || userLocation) {
         query = query.limit(2000)
       } else {
@@ -276,82 +279,85 @@ export default function Kalendarz() {
       const { data, count, error } = await query
       if (error) console.error('Calendar fetch error:', error.message)
 
-      // Deduplicate: same date + similar name → keep first
-      let filteredData = dedup(data || [])
-
-      // Location-based distance filtering
-      let isAutoExpanded = false
-      if (userLocation && filteredData.length > 0) {
-        // Calculate distance for all events with coordinates
-        filteredData = filteredData
-          .filter(e => e.lat && e.lng)
-          .map(e => ({
-            ...e,
-            distanceKm: Math.round(haversineKm(userLocation.lat, userLocation.lng, Number(e.lat), Number(e.lng)))
-          }))
-
-        // Filter by radius
-        let nearby = filteredData.filter(e => e.distanceKm <= radius)
-
-        // Auto-expand: if no results, show 5 nearest
-        if (nearby.length === 0 && filteredData.length > 0) {
-          nearby = [...filteredData].sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 5)
-          isAutoExpanded = true
-        }
-
-        // Sort by date first, then distance within same date
-        filteredData = nearby.sort((a, b) => a.date.localeCompare(b.date) || a.distanceKm - b.distanceKm)
-      }
-
-      setAutoExpanded(isAutoExpanded)
-
-      if (filters.distance.length > 0 && filteredData.length > 0) {
-        const ranges = filters.distance.map(r => r.split('-').map(Number))
-        filteredData = filteredData.filter(e => {
-          if (!e.distances || e.distances.length === 0) return false
-          return e.distances.some(d => {
-            const m = Math.round(parseFloat(d) * 1000)
-            if (isNaN(m)) return false
-            return ranges.some(([minDist, maxDist]) => m >= minDist && m <= maxDist)
-          })
-        })
-      }
-
-      // Price filtering (client-side — Supabase can't filter nullable range pairs)
-      if (filters.price && filteredData.length > 0) {
-        if (filters.price === 'free') {
-          filteredData = filteredData.filter(e =>
-            e.price_from === 0 || (e.price_from == null && e.price_to === 0)
-          )
-        } else {
-          const maxPrice = parseInt(filters.price.split('-')[1], 10)
-          filteredData = filteredData.filter(e => {
-            if (e.price_from == null && e.price_to == null) return false
-            const lowest = e.price_from ?? e.price_to
-            return lowest <= maxPrice
-          })
-        }
-      }
-
-      if (userLocation || filters.distance.length || filters.price) {
-        // Client-side pagination for client-filtered results
-        const from = (page - 1) * PAGE_SIZE
-        const paged = filteredData.slice(from, from + PAGE_SIZE)
-        setTotal(filteredData.length)
-        setEvents(paged)
-      } else {
-        setEvents(filteredData)
-        setTotal(count || 0)
-      }
+      setRawData({ data: dedup(data || []), count: count || 0 })
     } catch (err) {
       console.error('Calendar fetch failed:', err)
-      setEvents([])
-      setTotal(0)
+      setRawData({ data: [], count: 0 })
     }
     setLoading(false)
-  }, [filters, page, view, userLocation, radius])
+  }, [filters, page, view, userLocation])
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
+
+  // Client-side filtering — re-runs instantly when radius/distance/price/page change
+  useEffect(() => {
+    let filteredData = rawData.data
+    if (filteredData.length === 0 && rawData.count === 0) {
+      setEvents([])
+      setAllFilteredEvents([])
+      setTotal(0)
+      return
+    }
+
+    let isAutoExpanded = false
+    if (userLocation && filteredData.length > 0) {
+      filteredData = filteredData
+        .filter(e => e.lat && e.lng)
+        .map(e => ({
+          ...e,
+          distanceKm: Math.round(haversineKm(userLocation.lat, userLocation.lng, Number(e.lat), Number(e.lng)))
+        }))
+
+      let nearby = filteredData.filter(e => e.distanceKm <= radius)
+
+      if (nearby.length === 0 && filteredData.length > 0) {
+        nearby = [...filteredData].sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 5)
+        isAutoExpanded = true
+      }
+
+      filteredData = nearby.sort((a, b) => a.date.localeCompare(b.date) || a.distanceKm - b.distanceKm)
+    }
+
+    setAutoExpanded(isAutoExpanded)
+
+    if (filters.distance.length > 0 && filteredData.length > 0) {
+      const ranges = filters.distance.map(r => r.split('-').map(Number))
+      filteredData = filteredData.filter(e => {
+        if (!e.distances || e.distances.length === 0) return false
+        return e.distances.some(d => {
+          const m = Math.round(parseFloat(d) * 1000)
+          if (isNaN(m)) return false
+          return ranges.some(([minDist, maxDist]) => m >= minDist && m <= maxDist)
+        })
+      })
+    }
+
+    if (filters.price && filteredData.length > 0) {
+      if (filters.price === 'free') {
+        filteredData = filteredData.filter(e =>
+          e.price_from === 0 || (e.price_from == null && e.price_to === 0)
+        )
+      } else {
+        const maxPrice = parseInt(filters.price.split('-')[1], 10)
+        filteredData = filteredData.filter(e => {
+          if (e.price_from == null && e.price_to == null) return false
+          const lowest = e.price_from ?? e.price_to
+          return lowest <= maxPrice
+        })
+      }
+    }
+
+    if (userLocation || filters.distance.length || filters.price) {
+      setAllFilteredEvents(filteredData)
+      const from = (page - 1) * PAGE_SIZE
+      setTotal(filteredData.length)
+      setEvents(filteredData.slice(from, from + PAGE_SIZE))
+    } else {
+      setAllFilteredEvents(filteredData)
+      setEvents(filteredData)
+      setTotal(rawData.count)
+    }
+  }, [rawData, radius, filters.distance, filters.price, page, userLocation])
 
   // Sync filters to URL
   useEffect(() => {
@@ -545,7 +551,7 @@ export default function Kalendarz() {
             )}
           </div>
         ) : (
-          <MapView events={events} userLocation={userLocation} radius={radius} />
+          <MapView events={allFilteredEvents} userLocation={userLocation} radius={radius} />
         )}
       </main>
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
