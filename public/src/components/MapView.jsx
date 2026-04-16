@@ -89,8 +89,8 @@ export default function MapView({ events, userLocation, radius }) {
               pathOptions={{
                 color: '#BBDD00',
                 fillColor: '#BBDD00',
-                fillOpacity: 0.06,
-                weight: 1.5,
+                fillOpacity: 0.12,
+                weight: 2.5,
               }}
             />
           </>
