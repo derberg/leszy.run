@@ -71,6 +71,6 @@ def test_call_ollama_sends_correct_request():
         result = call_ollama("test prompt", config)
     assert route.called
     request_body = json.loads(route.calls[0].request.content)
-    assert request_body["model"] == "qwen2.5-coder:32b"
+    assert request_body["model"] == "gemma3:27b"
     assert request_body["stream"] is False
     assert request_body["options"]["temperature"] == 0.1

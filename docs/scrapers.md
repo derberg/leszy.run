@@ -112,7 +112,7 @@ Output: `T` = type classified, `K` = kids flagged, `D` = distances extracted fro
 
 ### Step 5: Enrich via Python enricher (LOCAL LLM — RECOMMENDED)
 
-**PRIMARY enrichment tool** — uses local Ollama (qwen2.5-coder:32b) + SearXNG search + Crawl4AI + Docling PDF extraction. Comprehensive, cost-free, processes ALL missing fields.
+**PRIMARY enrichment tool** — uses local Ollama (gemma3:27b) + SearXNG search + Crawl4AI + Docling PDF extraction. Comprehensive, cost-free, processes ALL missing fields.
 
 ```bash
 cd enricher && source .venv/bin/activate
@@ -909,7 +909,7 @@ Steps 3-4.5: Enrich scraper_all (keyword + normalize)
            ▼
 Step 5: PRIMARY enrichment (Python enricher)
 ┌──────────────────────────────────────────┐
-│  Ollama (qwen2.5-coder:32b)              │
+│  Ollama (gemma3:27b)              │
 │  + SearXNG search                        │
 │  + Crawl4AI (page crawling)              │
 │  + Docling (PDF extraction)              │

@@ -1,4 +1,8 @@
+import re as _re_module
 from urllib.parse import urlparse
+
+import httpx
+
 from enricher.steps.validate_urls import UrlStatus
 
 TERRAIN_TYPES = {"trail", "ocr", "uliczny"}
@@ -47,6 +51,68 @@ def _is_social_fallback(url: str) -> bool:
         return False
 
 
+_POLISH_MAP = str.maketrans(
+    "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ",
+    "acelnoszZACELNOSZZ",
+)
+
+_URL_VERIFY_STOPWORDS = {
+    "bieg", "biegu", "biegi", "maraton", "polmaraton", "run", "running",
+    "edycja", "im", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii",
+    "ix", "x", "xi", "xii", "xiii", "xiv", "xv", "xvi", "xvii", "xviii",
+    "xix", "xx", "o", "w", "na", "do", "po", "z", "ze", "we", "ku",
+    "dla", "od", "przy", "nad", "pod", "przez",
+}
+
+
+def _tokenize_name(name: str) -> list[str]:
+    """Extract meaningful tokens (4+ chars, no stopwords) from event name."""
+    normalized = name.lower().translate(_POLISH_MAP)
+    tokens = _re_module.findall(r"[a-z0-9]+", normalized)
+    return [t for t in tokens if len(t) >= 4 and t not in _URL_VERIFY_STOPWORDS]
+
+
+def verify_url_relevance(url: str, event_name: str) -> bool:
+    """Fetch a URL and check that the page content mentions the event.
+
+    Returns True if at least half of the meaningful name tokens appear on the
+    page, or if the page couldn't be fetched (benefit of the doubt on timeouts).
+    Social media URLs are trusted without checking (hard to scrape).
+    """
+    if not url or not event_name:
+        return True
+
+    # Social media pages are hard to scrape — trust the LLM's judgment
+    try:
+        host = (urlparse(url).hostname or "").lower()
+        if any(host == d or host.endswith("." + d) for d in SOCIAL_FALLBACK_DOMAINS):
+            return True
+    except Exception:
+        pass
+
+    tokens = _tokenize_name(event_name)
+    if not tokens:
+        return True  # no meaningful tokens to check
+
+    try:
+        with httpx.Client(
+            follow_redirects=True, timeout=10,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                "Accept-Language": "pl,en-US;q=0.9",
+            },
+        ) as client:
+            resp = client.get(url)
+            if resp.status_code >= 400:
+                return True  # can't verify, allow it
+            text = resp.text.lower().translate(_POLISH_MAP)
+    except (httpx.HTTPError, Exception):
+        return True  # network error, benefit of the doubt
+
+    hits = sum(1 for t in tokens if t in text)
+    return hits >= max(1, len(tokens) // 2)
+
+
 def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates: dict, config, had_content: bool = False) -> dict:
     """Compare LLM output with current event data and build update dict.
 
@@ -69,7 +135,7 @@ def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates:
     _merge_scalars(event, llm, updates, config)
 
     # --- URLs (Rule 2) ---
-    _merge_urls(event, llm, url_statuses, search_candidates, updates)
+    _merge_urls(event, llm, url_statuses, search_candidates, updates, event.get("name", ""))
 
     # --- is_kids ---
     if llm.get("is_kids") is not None and event.get("is_kids") is None:
@@ -197,7 +263,7 @@ def _merge_scalars(event, llm, updates, config):
         updates.pop("price_to", None)
 
 
-def _merge_urls(event, llm, url_statuses, search_candidates, updates):
+def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name=""):
     """Handle URL replacement based on validation + LLM confirmation.
 
     NEVER null a working URL — only replace when there's an actual candidate.
@@ -207,6 +273,10 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates):
     result could be written directly to the DB — which led to Chinese Q&A
     sites and German Wikipedia pages overwriting valid Polish event URLs.
     The LLM's confirm flag is now required on every write path.
+
+    Every candidate URL is verified by fetching it and checking that the page
+    content mentions the event name — prevents unrelated URLs (e.g. trail
+    mapping sites) from being stored.
     """
     for field, llm_field, llm_flag in [
         ("registration_url", "registration_url", "url_is_registration"),
@@ -218,18 +288,13 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates):
         llm_confirms = llm.get(llm_flag) is True
 
         def _pick_candidate():
-            """Return the confirmed candidate URL, or None.
-
-            Priority: LLM-extracted URL (if confirmed) > search candidate (only
-            if LLM also confirms it, meaning the crawled page checked out).
-            """
+            """Return the confirmed + verified candidate URL, or None."""
             if llm_url and llm_confirms:
-                return llm_url
-            # Search candidate is acceptable ONLY if the LLM read its content
-            # and explicitly confirmed the type flag. A bare candidate with no
-            # confirmation is treated as noise.
+                if verify_url_relevance(llm_url, event_name):
+                    return llm_url
             if search_candidate and llm_confirms:
-                return search_candidate
+                if verify_url_relevance(search_candidate, event_name):
+                    return search_candidate
             return None
 
         # Fill empty field
@@ -246,9 +311,14 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates):
                 updates[field] = picked
             continue
 
-        # LLM says existing URL is wrong type → replace only with confirmed candidate
+        # LLM says existing URL is wrong type → replace with search candidate
+        # (LLM explicitly rejected the existing URL, so the search candidate
+        # found specifically for this field type is acceptable without a
+        # separate LLM confirmation — but still must pass relevance check)
         if llm.get(llm_flag) is False and event.get(field):
             picked = _pick_candidate()
+            if not picked and search_candidate and verify_url_relevance(search_candidate, event_name):
+                picked = search_candidate
             if picked:
                 updates[field] = picked
             continue
@@ -262,9 +332,12 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates):
     #      website, because a real domain is better than a FB page
     # What is NOT acceptable: any other LLM suggestion without the official
     # flag — that's how Google search / translate pages ended up stored.
+    #
+    # All candidates are verified by fetching the page and checking the event
+    # name appears in the content.
     llm_website = llm.get("website")
     llm_is_official = llm.get("website_is_official", False)
-    if llm_website:
+    if llm_website and verify_url_relevance(llm_website, event_name):
         current = event.get("website", "")
         if llm_is_official:
             # Real domain — fill empty OR upgrade from news/aggregator/social fallback

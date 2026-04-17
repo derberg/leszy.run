@@ -8,7 +8,7 @@ class Config:
     supabase_url: str = ""
     supabase_key: str = ""
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5-coder:32b"
+    ollama_model: str = "gemma3:27b"
     searxng_url: str = "http://localhost:8888"
     url_timeout: int = 10
     max_page_chars: int = 6_000
@@ -28,6 +28,7 @@ class Config:
         "bieganie.pl",
         "kalendarzbiegowy.pl",
         "enduhub.com",
+        "traseo.pl",
     ])
 
     valid_event_types: list = field(default_factory=lambda: [
@@ -48,6 +49,6 @@ def load_config() -> Config:
         supabase_url=os.environ["SUPABASE_URL"],
         supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
         ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
-        ollama_model=os.getenv("OLLAMA_MODEL", "qwen2.5-coder:32b"),
+        ollama_model=os.getenv("OLLAMA_MODEL", "gemma3:27b"),
         searxng_url=os.getenv("SEARXNG_URL", "http://localhost:8888"),
     )

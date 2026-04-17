@@ -328,7 +328,7 @@ node --env-file=../.env scripts/publish-event-pages.js --apply
 **Location:** `enricher/` directory
 
 **Tech stack:**
-- **Ollama** — local LLM (qwen2.5-coder:32b) for field extraction
+- **Ollama** — local LLM (gemma3:27b) for field extraction
 - **SearXNG** — Docker-based web search for URL discovery
 - **Crawl4AI** — headless browser for crawling SPAs (dostartu.pl, etc.)
 - **Docling** — PDF text extraction for regulamin documents
@@ -367,7 +367,7 @@ See [enricher/README.md](enricher/README.md) for detailed documentation.
 
 ## Local LLM Enricher
 
-Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with Docling, and uses Ollama (qwen2.5-coder:32b) for field extraction. Only processes future events (date >= today).
+Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with Docling, and uses Ollama (gemma3:27b) for field extraction. Only processes future events (date >= today).
 
 ### Running
 
@@ -385,7 +385,7 @@ python -m enricher sync --since today            # push to calendar_events
 See `enricher/README.md` for full docs, all flags, merge rules, and architecture.
 
 ### Dependencies
-- Ollama (native macOS, `qwen2.5-coder:32b` — 72b times out due to partial CPU offload)
+- Ollama (native macOS, `gemma3:27b` — 128K context window, general-purpose extraction model)
 - SearXNG (Docker via `enricher/docker-compose.yml`, port 8888)
 - Crawl4AI + Docling (Python libs in `enricher/.venv/`)
 

@@ -195,7 +195,7 @@ def call_ollama(prompt: str, config) -> Optional[dict]:
                     "options": {
                         "temperature": config.ollama_temperature,
                         "num_predict": config.ollama_max_tokens,
-                        "num_ctx": 8192,
+                        "num_ctx": 32768,
                     },
                 },
             )

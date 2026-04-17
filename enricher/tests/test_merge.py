@@ -1,7 +1,17 @@
+import pytest
+from unittest.mock import patch
+
 from enricher.steps.merge import build_updates
 from enricher.config import Config
 
 config = Config()
+
+
+@pytest.fixture(autouse=True)
+def _skip_url_verification():
+    """Merge tests validate merge logic, not URL verification."""
+    with patch("enricher.steps.merge.verify_url_relevance", return_value=True):
+        yield
 
 
 def test_fill_empty_fields(sample_event, sample_llm_response):
@@ -240,8 +250,8 @@ def test_website_official_replaces_news(sample_event):
     assert updates["website"] == "https://biegnij.pl"
 
 
-def test_website_fills_empty_even_if_not_official(sample_event):
-    """Any website fills an empty field (better than nothing)."""
-    llm = {"distances": None, "event_types": None, "website": "https://naszemiasto.pl/bieg", "website_is_official": False}
+def test_website_fills_empty_with_social_fallback(sample_event):
+    """Social media page fills an empty website (better than nothing)."""
+    llm = {"distances": None, "event_types": None, "website": "https://facebook.com/biegleszka", "website_is_official": False}
     updates = build_updates(sample_event, llm, {}, {}, config)
-    assert updates["website"] == "https://naszemiasto.pl/bieg"
+    assert updates["website"] == "https://facebook.com/biegleszka"

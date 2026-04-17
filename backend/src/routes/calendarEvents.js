@@ -63,11 +63,10 @@ export async function calendarEventsRoutes(fastify) {
           const a = events[i], b = events[j]
           if (dismissedSet.has(`${a.id}:${b.id}`)) continue
 
-          const sim = jaccardSimilarity(a.name, b.name)
           const locMatch = citiesMatch(a.location, b.location)
-          if (sim > 0.6) { union(a.id, b.id); continue }
-          if (locMatch && sim > 0.35) { union(a.id, b.id); continue }
-          if (locMatch && sim > 0.15) { union(a.id, b.id); continue }
+          if (!locMatch) continue
+          const sim = jaccardSimilarity(a.name, b.name)
+          if (sim > 0.35) { union(a.id, b.id); continue }
         }
       }
     }
@@ -188,9 +187,12 @@ export async function calendarEventsRoutes(fastify) {
 
   fastify.delete('/calendar-events/:id', async (request, reply) => {
     const { id } = request.params
+    // Soft-delete: set status to 'rejected' instead of removing the row.
+    // Hard delete loses the source+source_id pair, so run-publish.js
+    // re-creates the event on next run. Rejected rows are kept to prevent that.
     const { error } = await supabase
       .from('calendar_events')
-      .delete()
+      .update({ status: 'rejected' })
       .eq('id', id)
 
     if (error) return reply.status(400).send({ error: error.message })

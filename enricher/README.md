@@ -14,7 +14,7 @@ cp .env.example .env  # fill in Supabase credentials
 
 ### Dependencies
 
-- **Ollama** — running locally with `qwen2.5-coder:32b` model
+- **Ollama** — running locally with `gemma3:27b` model
 - **SearXNG** — Docker container for web search (finding missing URLs)
 - **Crawl4AI** — headless browser for crawling SPAs (dostartu.pl etc.)
 - **Docling** — PDF text extraction for regulamin documents
@@ -24,8 +24,8 @@ cp .env.example .env  # fill in Supabase credentials
 docker compose up -d
 
 # Verify Ollama has the model
-ollama list | grep qwen2.5-coder
-# If missing: ollama pull qwen2.5-coder:32b
+ollama list | grep gemma3
+# If missing: ollama pull gemma3:27b
 ```
 
 ## Commands
@@ -51,7 +51,7 @@ python -m enricher run --force --limit 5  # re-enrich 5 events
 - `--resume` — skips events already in the most recent JSONL run log
 - `--limit N` — process at most N events
 
-**Performance:** ~2 min/event (mostly LLM inference on the 32B model).
+**Performance:** ~2 min/event (mostly LLM inference on the 27B model).
 
 ### `enricher sync` — Push to calendar_events
 
@@ -97,7 +97,7 @@ python -m enricher sync                            # push ALL enriched events
 3. **Crawl4AI** — crawls alive URLs with headless browser (`wait_until=networkidle` for SPAs like dostartu.pl). Gets markdown content.
 4. **Docling PDF** — downloads and extracts text from PDF regulamins. Falls back to crawling if PDF download fails (SPA wrappers).
 5. **Keyword Chunk Extraction** — scans all content for price/deadline/distance keywords. Extracts focused text windows around matches. These chunks go at the top of the LLM prompt so prices are impossible to miss.
-6. **Ollama LLM** — sends event data + focused chunks + raw content to qwen2.5-coder:32b. Returns structured JSON.
+6. **Ollama LLM** — sends event data + focused chunks + raw content to gemma3:27b. Returns structured JSON.
 7. **Smart Merge** — compares LLM output with existing data. Safety rules prevent bad updates.
 
 ### Smart merge rules
