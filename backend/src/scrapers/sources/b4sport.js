@@ -13,7 +13,7 @@ const POLISH_MONTHS = {
 
 // Non-running events (b4sport hosts bike races, triathlons, etc. alongside running).
 // Keep trail, gorski, ultra, nordic walking, OCR, road running — filter out obvious non-running.
-const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|triathlon|duathlon|bike race|bike|aquathlon)\b/i
+const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|triathlon|duathlon|bike race|bike|aquathlon|gravel|gravelow[aey]?|enduro|sup race|wrotkars[a-z]*|jumping zoo|skill lab|turniej|3v3)\b/i
 
 function parseCardDate(raw) {
   if (!raw) return null
