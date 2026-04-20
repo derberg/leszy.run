@@ -174,6 +174,31 @@ export async function calendarEventsRoutes(fastify) {
     const updates = { ...request.body, updated_at: new Date().toISOString() }
     if (updates.voivodeship) updates.voivodeship = capitalizeVoivodeship(updates.voivodeship)
 
+    // Fields that are metadata / control and must NOT auto-lock when edited.
+    const NON_LOCKING_FIELDS = new Set([
+      'status', 'updated_at', 'locked_fields',
+      'last_verified_at', 'scraped_at',
+      'source', 'source_id', 'source_url', 'source_links',
+      'enriched_at',
+    ])
+
+    // Data fields the admin is changing in this request — all of these become sticky.
+    const editedDataFields = Object.keys(request.body || {})
+      .filter(k => !NON_LOCKING_FIELDS.has(k))
+
+    if (editedDataFields.length > 0 && !('locked_fields' in request.body)) {
+      // Read current locked_fields, merge, dedupe
+      const { data: current, error: readErr } = await supabase
+        .from('calendar_events')
+        .select('locked_fields')
+        .eq('id', id)
+        .single()
+      if (readErr) return reply.status(400).send({ error: readErr.message })
+      const existing = Array.isArray(current?.locked_fields) ? current.locked_fields : []
+      const merged = Array.from(new Set([...existing, ...editedDataFields]))
+      updates.locked_fields = merged
+    }
+
     const { data, error } = await supabase
       .from('calendar_events')
       .update(updates)
