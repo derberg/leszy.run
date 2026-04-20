@@ -173,3 +173,51 @@ def test_audit_report_line_to_json_shape_is_stable():
         "field", "url", "final_url", "verdict", "confidence", "path",
         "reasoning", "evidence", "checked_at",
     }
+
+
+import json
+import os
+import tempfile
+from enricher.audit import write_report_line, open_report, summarize_verdicts
+
+
+def test_write_report_line_produces_valid_jsonl():
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "audit.jsonl")
+        with open_report(path) as f:
+            line = AuditReportLine(
+                event_id="1", event_name="E", event_date="2026-05-10",
+                event_location="W", event_voivodeship="M", field="website",
+                url="https://x.pl", final_url="https://x.pl",
+                verdict="match", confidence=0.9, path="fast",
+                reasoning="ok", evidence={},
+                checked_at="2026-04-20T10:00:00+00:00",
+            )
+            write_report_line(f, line)
+            line2 = AuditReportLine(
+                event_id="2", event_name="E2", event_date="2026-05-11",
+                event_location="K", event_voivodeship="M", field="website",
+                url="https://y.pl", final_url="https://y.pl",
+                verdict="mismatch", confidence=0.85, path="full",
+                reasoning="different year", evidence={},
+                checked_at="2026-04-20T10:00:05+00:00",
+            )
+            write_report_line(f, line2)
+        with open(path) as f:
+            lines = f.readlines()
+        assert len(lines) == 2
+        obj1 = json.loads(lines[0])
+        obj2 = json.loads(lines[1])
+        assert obj1["verdict"] == "match"
+        assert obj2["verdict"] == "mismatch"
+
+
+def test_summarize_verdicts_counts_all_categories():
+    verdicts = ["match", "match", "mismatch", "uncertain", "skipped_social", "skipped_dead", "error", "match"]
+    counts = summarize_verdicts(verdicts)
+    assert counts["match"] == 3
+    assert counts["mismatch"] == 1
+    assert counts["uncertain"] == 1
+    assert counts["skipped_social"] == 1
+    assert counts["skipped_dead"] == 1
+    assert counts["error"] == 1

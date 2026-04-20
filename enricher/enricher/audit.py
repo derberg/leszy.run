@@ -2,9 +2,12 @@
 
 Read-only against the DB. Writes a JSONL report to enricher/logs/audit-<ts>.jsonl.
 """
+import json as _json
+import os
+from collections import Counter
 from dataclasses import dataclass, asdict, field
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, timezone, timedelta
+from typing import Iterable, Optional
 
 from enricher.steps.audit_fetch import fetch_fast, FastPage
 from enricher.steps.audit_prompt import build_fast_prompt, build_full_prompt
@@ -156,3 +159,133 @@ async def process_url(
         },
         final_url=page.final_url,
     )
+
+
+def open_report(path: str):
+    """Open a JSONL report file for writing. Ensures parent dir exists."""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    return open(path, "w", encoding="utf-8")
+
+
+def write_report_line(f, line: AuditReportLine) -> None:
+    f.write(_json.dumps(line.to_json(), ensure_ascii=False) + "\n")
+    f.flush()
+
+
+def summarize_verdicts(verdicts: Iterable[str]) -> dict:
+    c = Counter(verdicts)
+    return {
+        "match": c.get("match", 0),
+        "mismatch": c.get("mismatch", 0),
+        "uncertain": c.get("uncertain", 0),
+        "skipped_social": c.get("skipped_social", 0),
+        "skipped_dead": c.get("skipped_dead", 0),
+        "error": c.get("error", 0),
+    }
+
+
+def _parse_since(since: Optional[str]) -> str:
+    import click
+    now = datetime.now(timezone.utc)
+    if not since or since == "today":
+        return now.strftime("%Y-%m-%d")
+    if since == "tomorrow":
+        return (now + timedelta(days=1)).strftime("%Y-%m-%d")
+    # Accept YYYY-MM-DD directly
+    try:
+        datetime.fromisoformat(since)
+        return since
+    except ValueError:
+        raise click.UsageError(f"--since must be 'today', 'tomorrow', or YYYY-MM-DD, got {since!r}")
+
+
+def fetch_audit_events(config, since: str, fields: list) -> list:
+    """Fetch future calendar_events rows that have at least one of `fields` populated."""
+    from supabase import create_client
+    sb = create_client(config.supabase_url, config.supabase_key)
+
+    all_rows: list = []
+    page_size = 1000
+    offset = 0
+    select_cols = "id, name, date, location, voivodeship, distances, event_type, status, website, registration_url, regulamin_url, locked_fields"
+    while True:
+        data = (
+            sb.from_("calendar_events")
+            .select(select_cols)
+            .gte("date", since)
+            .neq("status", "rejected")
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        if not data.data:
+            break
+        all_rows.extend(data.data)
+        if len(data.data) < page_size:
+            break
+        offset += page_size
+
+    # Client-side filter: at least one of `fields` is non-empty
+    kept = []
+    for r in all_rows:
+        for f in fields:
+            v = r.get(f)
+            if v:
+                kept.append(r)
+                break
+    return kept
+
+
+async def run_audit(
+    config,
+    since: str,
+    fields: list,
+    limit: Optional[int],
+    confidence_threshold: float,
+    log_dir: str = "logs",
+) -> str:
+    """Run the audit over all matching events. Returns report path."""
+    import click
+    events = fetch_audit_events(config, since, fields)
+    if limit:
+        events = events[:limit]
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    report_path = os.path.join(log_dir, f"audit-{ts}.jsonl")
+
+    click.echo(f"Auditing {len(events)} events for fields={fields} since={since}")
+    click.echo(f"Report: {report_path}\n")
+
+    verdicts: list = []
+    mismatches: list = []
+
+    with open_report(report_path) as rf:
+        for i, ev in enumerate(events):
+            for fname in fields:
+                url = ev.get(fname)
+                if not url:
+                    continue
+                click.echo(f"[{i + 1}/{len(events)}] {ev.get('name', '')} | {fname} | {url[:80]}")
+                line = await process_url(ev, fname, url, config, confidence_threshold)
+                write_report_line(rf, line)
+                verdicts.append(line.verdict)
+                click.echo(f"    verdict={line.verdict} conf={line.confidence:.2f} path={line.path}")
+                if line.verdict == "mismatch":
+                    mismatches.append((line.confidence, line))
+
+    counts = summarize_verdicts(verdicts)
+    click.echo("\n=== Audit done ===")
+    click.echo(f"events checked: {len(events)}")
+    click.echo(f"checks performed: {len(verdicts)}")
+    click.echo("verdicts:")
+    for k, v in counts.items():
+        click.echo(f"  {k:<16} {v}")
+    click.echo(f"\nreport: {report_path}")
+
+    if mismatches:
+        click.echo("\ntop 10 mismatches:")
+        mismatches.sort(key=lambda t: -t[0])
+        for conf, line in mismatches[:10]:
+            click.echo(f"  [{conf:.2f}] {line.event_name} / {line.url}")
+            click.echo(f"         {line.reasoning[:160]}")
+
+    return report_path
