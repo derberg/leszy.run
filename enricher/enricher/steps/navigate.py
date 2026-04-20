@@ -63,12 +63,37 @@ JUNK_EXTERNAL_HOSTS = {
     "zhihu.com", "baidu.com", "wikipedia.org",
 }
 
+# Hosts whose pages cannot be meaningfully analyzed by the LLM audit
+# (JS-rendered app shells, auth-walled content). Left alone by the audit.
+SOCIAL_HOSTS = {
+    "facebook.com", "www.facebook.com", "m.facebook.com", "fb.com", "www.fb.com",
+    "instagram.com", "www.instagram.com",
+    "twitter.com", "x.com",
+    "tiktok.com", "www.tiktok.com",
+    "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be",
+}
+
 
 def is_stub_host(url: str) -> bool:
     try:
         host = (urlparse(url).hostname or "").lower().removeprefix("www.")
         return host in STUB_HOSTS or any(
             host.endswith(f".{d}") for d in STUB_HOSTS
+        )
+    except Exception:
+        return False
+
+
+def is_social_host(url: str) -> bool:
+    """Return True if the URL's host is a social/media platform that the audit should skip."""
+    if not url:
+        return False
+    try:
+        host = (urlparse(url).hostname or "").lower().removeprefix("www.")
+        if not host:
+            return False
+        return host in SOCIAL_HOSTS or any(
+            host.endswith(f".{d}") for d in SOCIAL_HOSTS
         )
     except Exception:
         return False
