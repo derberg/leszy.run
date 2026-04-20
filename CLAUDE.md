@@ -380,7 +380,13 @@ python -m enricher run --force              # re-process already-enriched events
 python -m enricher run --limit 5 --dry-run  # test run
 python -m enricher sync --since today --dry-run  # preview sync to calendar_events
 python -m enricher sync --since today            # push to calendar_events
+python -m enricher audit                         # audit website URLs on future calendar_events (report-only)
+python -m enricher audit --fields website,registration_url --limit 20
 ```
+
+**Audit command:** read-only review of outbound URL fields on `calendar_events`. Writes JSONL to `enricher/logs/audit-<ts>.jsonl`. Never mutates DB. Useful for catching wrong-year, wrong-event, or outdated URLs before they surface on the public kalendarz. See `enricher/README.md` for report shape.
+
+**`calendar_events.locked_fields`:** a `text[]` column listing column names whose values must not be overwritten by automated writers. Admin PATCH auto-appends edited field names here so human corrections stick. The enricher sync respects this list. (publishToCalendar is insert-only and therefore unaffected.)
 
 See `enricher/README.md` for full docs, all flags, merge rules, and architecture.
 

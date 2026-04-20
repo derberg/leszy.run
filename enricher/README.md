@@ -73,6 +73,45 @@ python -m enricher sync                            # push ALL enriched events
     website                   (empty) → https://www.kuzniakultury.pl
 ```
 
+### `audit` — Report-only URL review
+
+`audit` reviews outbound URL fields on `calendar_events` (future events only) and writes a JSONL report of how each URL looks to an LLM. It **never** writes to the database. Use the report to curate data manually or feed it into another tool.
+
+```bash
+# Audit all future events' `website` URLs
+python -m enricher audit
+
+# Limit, custom date, multiple fields, custom threshold
+python -m enricher audit --limit 50 \
+    --since 2026-05-01 \
+    --fields website,registration_url \
+    --confidence-threshold 0.85
+```
+
+**Verdicts** (one JSONL line per `(event_id, field)`):
+- `match` — the URL is clearly about this event
+- `mismatch` — the URL points to a different / wrong-year / unrelated page
+- `uncertain` — LLM could not tell from the content
+- `skipped_social` — Facebook / Instagram / YouTube etc. — left alone
+- `skipped_dead` — HTTP 4xx/5xx, timeout, non-HTML response
+- `error` — LLM call failed or returned unparseable output
+
+**Hybrid path:** fast HTTP fetch + HTML parse first (cheap). Falls back to Crawl4AI full crawl when fast-path content is thin (title < 10 chars OR body < 500 chars), when verdict is `uncertain`, or when confidence < `--confidence-threshold` (default 0.8).
+
+Report file: `enricher/logs/audit-<timestamp>.jsonl`. Shape per line:
+```json
+{"event_id": "...", "event_name": "...", "event_date": "...",
+ "event_location": "...", "event_voivodeship": "...",
+ "field": "website", "url": "...", "final_url": "...",
+ "verdict": "match", "confidence": 0.92, "path": "fast",
+ "reasoning": "...", "evidence": {"title": "...", "h1": [...], "body_sample": "..."},
+ "checked_at": "2026-04-20T14:32:10+00:00"}
+```
+
+### `locked_fields` on calendar_events
+
+When an admin edits a data field via the admin UI / PATCH endpoint, that field name is auto-appended to `calendar_events.locked_fields`. The enricher `sync` command never overwrites a locked field, so human corrections are sticky. To unlock, edit `locked_fields` directly (the admin endpoint respects an explicit `locked_fields` value in the request body).
+
 ## What it enriches
 
 | Field | Source | Notes |
