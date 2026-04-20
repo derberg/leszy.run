@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const DIST = resolve(ROOT, 'dist')
 const MANIFEST_PATH = resolve(ROOT, 'public/kalendarz/.manifest.json')
-const BASE_URL = 'https://leszy.run'
+const BASE_URL = 'https://www.leszy.run'
 
 const POLISH_MONTHS = [
   'stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca',

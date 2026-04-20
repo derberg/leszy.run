@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://leszy.run/sitemap.xml
+Sitemap: https://www.leszy.run/sitemap.xml
 
 # Disallow admin and internal routes
 Disallow: /events/*/admin/
