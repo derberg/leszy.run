@@ -78,9 +78,15 @@ function buildJsonLd(event, slug) {
       lowPrice: event.price_from,
       priceCurrency: 'PLN',
       availability: 'https://schema.org/InStock',
+      validFrom: new Date().toISOString().slice(0, 10),
     }
     if (event.price_to != null) {
       ld.offers.highPrice = event.price_to
+    }
+    if (event.registration_deadline) {
+      ld.offers.priceValidUntil = event.registration_deadline.slice(0, 10)
+    } else if (event.date) {
+      ld.offers.priceValidUntil = event.date.slice(0, 10)
     }
     if (event.registration_url) {
       ld.offers.url = event.registration_url

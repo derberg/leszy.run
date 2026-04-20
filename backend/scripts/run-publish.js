@@ -10,9 +10,9 @@ const dryRun = !process.argv.includes('--apply')
 if (dryRun) console.log('=== DRY RUN (use --apply to write to DB) ===\n')
 
 publishToCalendar({ dryRun })
-  .then(({ created, skipped, errors }) => {
+  .then(({ created, skipped, fuzzySkipped, errors }) => {
     console.log('\n--- Publish Summary (scraper_all → calendar_events) ---')
-    console.log(`  created=${created} skipped=${skipped} errors=${errors.length}`)
+    console.log(`  created=${created} skipped=${skipped} fuzzySkipped=${fuzzySkipped || 0} errors=${errors.length}`)
     for (const e of errors) {
       console.log(`    ERR: ${e.name || ''} ${e.message}`)
     }

@@ -8,7 +8,7 @@ import { scrape as scrapeSupersport } from './sources/supersport.js'
 import { scrape as scrapeZmierzymyczas } from './sources/zmierzymyczas.js'
 import { scrape as scrapeB4sport } from './sources/b4sport.js'
 import { scrape as scrapeRaatiming } from './sources/raatiming.js'
-import { SOURCE_PRIORITY } from './dedup.js'
+import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 
 const sources = [
@@ -555,19 +555,25 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
   console.log(`[publish] ${allRows.length} rows in scraper_all`)
 
-  // Fetch all existing source_links from calendar_events to skip exact matches
+  // Fetch all existing source+source_id pairs from calendar_events to skip exact matches.
+  // Must also index source_links — merge can reassign the primary source/source_id on
+  // scraper_all rows, so the primary pair alone is not enough for dedup.
   const existingLinks = new Set()
   from = 0
   while (true) {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('source, source_id')
+      .select('source, source_id, source_links')
       .range(from, from + pageSize - 1)
 
     if (error) break
     if (!data || data.length === 0) break
     for (const r of data) {
       if (r.source && r.source_id) existingLinks.add(`${r.source}:${r.source_id}`)
+      const links = Array.isArray(r.source_links) ? r.source_links : []
+      for (const l of links) {
+        if (l.source && l.source_id) existingLinks.add(`${l.source}:${l.source_id}`)
+      }
     }
     if (data.length < pageSize) break
     from += pageSize
@@ -575,7 +581,45 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
   console.log(`[publish] ${existingLinks.size} existing source+source_id pairs in calendar_events`)
 
-  let created = 0, skipped = 0
+  // Fetch name+date+location from calendar_events for fuzzy dedup.
+  // New scraper_all rows may have slightly different names from events already published
+  // in a prior run (source row merged/deleted since then), so source_link matching misses them.
+  const existingByDate = new Map()
+  from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('name, date, location')
+      .in('status', ['active', 'rejected'])
+      .range(from, from + pageSize - 1)
+
+    if (error) break
+    if (!data || data.length === 0) break
+    for (const r of data) {
+      const group = existingByDate.get(r.date) || []
+      group.push(r)
+      existingByDate.set(r.date, group)
+    }
+    if (data.length < pageSize) break
+    from += pageSize
+  }
+
+  console.log(`[publish] ${[...existingByDate.values()].reduce((s, g) => s + g.length, 0)} calendar_events loaded for fuzzy dedup`)
+
+  function fuzzyMatchExists(name, date, location) {
+    const candidates = existingByDate.get(date)
+    if (!candidates) return false
+    for (const c of candidates) {
+      const jaccard = jaccardSimilarity(c.name, name)
+      if (jaccard > 0.6) return true
+      const locMatch = citiesMatch(c.location, location)
+      if (locMatch && jaccard > 0.35) return true
+      if (locMatch && tokenize(c.name).length <= 3 && tokenize(name).length <= 3 && jaccard > 0.25) return true
+    }
+    return false
+  }
+
+  let created = 0, skipped = 0, fuzzySkipped = 0
   const errors = []
   const now = new Date().toISOString()
 
@@ -591,6 +635,12 @@ async function publishToCalendar({ dryRun = false } = {}) {
     const anyLinkExists = links.some(l => l.source && l.source_id && existingLinks.has(`${l.source}:${l.source_id}`))
     if (anyLinkExists) {
       skipped++
+      continue
+    }
+
+    // Fuzzy dedup: same date + similar name + same city already in calendar_events
+    if (fuzzyMatchExists(raw.name, raw.date, raw.location)) {
+      fuzzySkipped++
       continue
     }
 
@@ -656,12 +706,16 @@ async function publishToCalendar({ dryRun = false } = {}) {
         for (const l of links) {
           if (l.source && l.source_id) existingLinks.add(`${l.source}:${l.source_id}`)
         }
+        // Also track for fuzzy dedup within same batch
+        const group = existingByDate.get(raw.date) || []
+        group.push({ name: raw.name, date: raw.date, location: raw.location })
+        existingByDate.set(raw.date, group)
       }
     }
   }
 
-  console.log(`[publish] Done: created=${created} skipped=${skipped} errors=${errors.length}`)
-  return { created, skipped, errors }
+  console.log(`[publish] Done: created=${created} skipped=${skipped} fuzzySkipped=${fuzzySkipped} errors=${errors.length}`)
+  return { created, skipped, fuzzySkipped, errors }
 }
 
 export { runPipeline, mergeIntoScraperAll, publishToCalendar }
