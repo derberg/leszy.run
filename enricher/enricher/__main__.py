@@ -44,5 +44,34 @@ def sync(since, dry_run):
     sync_to_calendar(config, since, dry_run)
 
 
+@cli.command()
+@click.option("--limit", type=int, default=None, help="Max events to audit")
+@click.option("--fields", type=str, default="website",
+              help="Comma-separated URL fields to audit (website, registration_url, regulamin_url)")
+@click.option("--since", type=str, default="today",
+              help="Lower bound on event date (YYYY-MM-DD | 'today' | 'tomorrow')")
+@click.option("--confidence-threshold", type=float, default=0.8,
+              help="Fast-path confidence below this triggers fallback to full crawl")
+def audit(limit, fields, since, confidence_threshold):
+    """Audit URL fields on calendar_events for event relevance. Read-only — writes JSONL report only."""
+    from enricher.audit import run_audit, _parse_since
+
+    config = load_config()
+    field_list = [f.strip() for f in fields.split(",") if f.strip()]
+    allowed = {"website", "registration_url", "regulamin_url"}
+    bad = [f for f in field_list if f not in allowed]
+    if bad:
+        raise click.UsageError(f"--fields may only contain {sorted(allowed)}, got unknown: {bad}")
+    since_date = _parse_since(since)
+    click.echo(f"Audit ready. Ollama: {config.ollama_url}")
+    asyncio.run(run_audit(
+        config=config,
+        since=since_date,
+        fields=field_list,
+        limit=limit,
+        confidence_threshold=confidence_threshold,
+    ))
+
+
 if __name__ == "__main__":
     cli()
