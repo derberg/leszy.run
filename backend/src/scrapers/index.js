@@ -219,16 +219,38 @@ async function runPipeline({ force = [], only = [] } = {}) {
         }
       }
 
-      for (let i = 0; i < rows.length; i += 50) {
-        const batch = rows.slice(i, i + 50)
+      // Split into new rows (insert) and existing rows (selective update).
+      // Full upsert on existing rows resets merged_at to null, causing
+      // merge to re-process the same events every run.
+      const newRows = rows.filter(r => !knownIds.has(r.source_id))
+      const existingRows = rows.filter(r => knownIds.has(r.source_id))
+
+      // Insert new rows
+      for (let i = 0; i < newRows.length; i += 50) {
+        const batch = newRows.slice(i, i + 50)
         const { error } = await supabase
           .from(source.table)
-          .upsert(batch, { onConflict: 'source_id' })
+          .insert(batch)
 
         if (error) {
-          stats.errors.push({ raw: null, message: `Batch upsert failed: ${error.message}` })
+          stats.errors.push({ raw: null, message: `Batch insert failed: ${error.message}` })
         } else {
           stats.upserted += batch.length
+        }
+      }
+
+      // Update existing rows but preserve merged_at so merge doesn't re-process them
+      for (const row of existingRows) {
+        const { source_id, ...fields } = row
+        const { error } = await supabase
+          .from(source.table)
+          .update(fields)
+          .eq('source_id', source_id)
+
+        if (error) {
+          stats.errors.push({ raw: row.name, message: `Update failed: ${error.message}` })
+        } else {
+          stats.upserted++
         }
       }
     } catch (err) {
