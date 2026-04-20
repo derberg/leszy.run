@@ -54,6 +54,20 @@ def _fmt(val) -> str:
     return str(val)
 
 
+def filter_locked_fields(updates: dict, locked) -> dict:
+    """Remove keys present in `locked` from `updates`.
+
+    `enriched_at` is always preserved so the sync can still stamp completion.
+    """
+    if not locked:
+        return updates
+    locked_set = set(locked or [])
+    return {
+        k: v for k, v in updates.items()
+        if k == "enriched_at" or k not in locked_set
+    }
+
+
 def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
     """Push enriched fields from scraper_all to matching calendar_events rows."""
     sb = create_client(config.supabase_url, config.supabase_key)
@@ -99,7 +113,7 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
         # Find matching calendar_events row — try source+source_id first, fallback to name+date
         ce_fields = (
             "id, event_type, distances, registration_url, regulamin_url, "
-            "registration_deadline, price_from, price_to, website, voivodeship, enriched_at"
+            "registration_deadline, price_from, price_to, website, voivodeship, enriched_at, locked_fields"
         )
         match = sb.from_("calendar_events").select(ce_fields).eq(
             "source", row["source"]
@@ -144,6 +158,13 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
 
         # Mark enriched
         updates["enriched_at"] = row["enriched_at"]
+
+        # Respect locked_fields — admin-corrected / audit-nulled fields must never be overwritten
+        locked = ce.get("locked_fields") or []
+        updates = filter_locked_fields(updates, locked)
+
+        if locked:
+            click.echo(f"    (respecting locked_fields={locked})")
 
         # Filter out enriched_at if it's the only change
         real_changes = {k: v for k, v in updates.items() if k != "enriched_at"}
