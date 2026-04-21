@@ -51,10 +51,13 @@ cd backend && node --env-file=../.env scripts/run-publish.js --apply
 cd backend && node --env-file=../.env scripts/publish-event-pages.js
 cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply
 # Use --regen-og to regenerate ALL OG images (e.g. after changing the OG template)
+
+# Step 8: Trigger DB backup (same command as the 6-hourly cron job)
+docker exec leszyrun-db-1 pg_dump -U leszyrun -d leszyrun --format=custom > ~/backups/leszyrun/leszyrun_$(date +%Y%m%d_%H%M).dump
 ```
 
 After publishing, review new events in admin UI: `/calendar-events` → "Do przeglądu" tab.
-After step 8, commit the updated manifest and OG images in `public/public/kalendarz/`.
+After step 7, commit the updated manifest and OG images in `public/public/kalendarz/`.
 
 ---
 
