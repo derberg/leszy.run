@@ -52,7 +52,9 @@ def sync(since, dry_run):
               help="Lower bound on event date (YYYY-MM-DD | 'today' | 'tomorrow')")
 @click.option("--confidence-threshold", type=float, default=0.8,
               help="Fast-path confidence below this triggers fallback to full crawl")
-def audit(limit, fields, since, confidence_threshold):
+@click.option("--resume", is_flag=True,
+              help="Continue the most recent audit log: skip already-processed (event, field) pairs and append to the same file")
+def audit(limit, fields, since, confidence_threshold, resume):
     """Audit URL fields on calendar_events for event relevance. Read-only — writes JSONL report only."""
     from enricher.audit import run_audit, _parse_since
 
@@ -70,6 +72,7 @@ def audit(limit, fields, since, confidence_threshold):
         fields=field_list,
         limit=limit,
         confidence_threshold=confidence_threshold,
+        resume=resume,
     ))
 
 

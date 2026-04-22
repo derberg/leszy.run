@@ -2,6 +2,8 @@
 
 Read-only against the DB. Writes a JSONL report to enricher/logs/audit-<ts>.jsonl.
 """
+import asyncio
+import glob
 import json as _json
 import os
 from collections import Counter
@@ -19,6 +21,7 @@ from enricher.steps.navigate import is_social_host
 FAST_PATH_MIN_TITLE_CHARS = 10
 FAST_PATH_MIN_BODY_CHARS = 500
 FAST_PATH_BODY_SAMPLE_CHARS = 2000
+FULL_CRAWL_TIMEOUT_SECONDS = 300
 
 
 @dataclass
@@ -127,8 +130,21 @@ async def process_url(
                 final_url=page.final_url,
             )
 
-    # 4. Full path fallback: Crawl4AI
-    crawl_map = await crawl_pages({"url": url}, max_chars=config.max_page_chars)
+    # 4. Full path fallback: Crawl4AI, guarded by a hard timeout so a page that
+    # never reaches networkidle cannot stall the whole audit run.
+    try:
+        crawl_map = await asyncio.wait_for(
+            crawl_pages({"url": url}, max_chars=config.max_page_chars),
+            timeout=FULL_CRAWL_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        return _make_line(
+            event, field, url,
+            verdict="error", confidence=0.0, path="full",
+            reasoning=f"Full-path crawl exceeded {FULL_CRAWL_TIMEOUT_SECONDS}s timeout.",
+            evidence=_fast_evidence(page),
+            final_url=page.final_url,
+        )
     crawl_result = crawl_map.get("url") if crawl_map else None
     crawled_content = crawl_result.content if crawl_result else ""
 
@@ -161,10 +177,39 @@ async def process_url(
     )
 
 
-def open_report(path: str):
+def open_report(path: str, mode: str = "w"):
     """Open a JSONL report file for writing. Ensures parent dir exists."""
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    return open(path, "w", encoding="utf-8")
+    return open(path, mode, encoding="utf-8")
+
+
+def find_latest_report(log_dir: str) -> Optional[str]:
+    """Return the path to the most recent audit-*.jsonl in log_dir, or None."""
+    matches = glob.glob(os.path.join(log_dir, "audit-*.jsonl"))
+    if not matches:
+        return None
+    return max(matches, key=os.path.getmtime)
+
+
+def load_seen_pairs(report_path: str) -> set:
+    """Read an existing audit JSONL and return {(event_id, field), ...} already processed."""
+    seen: set = set()
+    if not os.path.exists(report_path):
+        return seen
+    with open(report_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = _json.loads(line)
+            except _json.JSONDecodeError:
+                continue
+            eid = obj.get("event_id")
+            fname = obj.get("field")
+            if eid and fname:
+                seen.add((eid, fname))
+    return seen
 
 
 def write_report_line(f, line: AuditReportLine) -> None:
@@ -242,15 +287,36 @@ async def run_audit(
     limit: Optional[int],
     confidence_threshold: float,
     log_dir: str = "logs",
+    resume: bool = False,
 ) -> str:
-    """Run the audit over all matching events. Returns report path."""
+    """Run the audit over all matching events. Returns report path.
+
+    When `resume=True`, continue the most recent audit-*.jsonl in log_dir:
+    skip any (event_id, field) pair already present, and append new lines
+    to that same file so the run ends up in one consolidated report.
+    """
     import click
     events = fetch_audit_events(config, since, fields)
     if limit:
         events = events[:limit]
 
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    report_path = os.path.join(log_dir, f"audit-{ts}.jsonl")
+    seen: set = set()
+    report_mode = "w"
+    report_path: str
+    if resume:
+        latest = find_latest_report(log_dir)
+        if latest:
+            seen = load_seen_pairs(latest)
+            report_path = latest
+            report_mode = "a"
+            click.echo(f"Resuming from {latest}: {len(seen)} (event, field) pairs already processed")
+        else:
+            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+            report_path = os.path.join(log_dir, f"audit-{ts}.jsonl")
+            click.echo("No prior audit log found — starting fresh")
+    else:
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        report_path = os.path.join(log_dir, f"audit-{ts}.jsonl")
 
     click.echo(f"Auditing {len(events)} events for fields={fields} since={since}")
     click.echo(f"Report: {report_path}\n")
@@ -258,11 +324,13 @@ async def run_audit(
     verdicts: list = []
     mismatches: list = []
 
-    with open_report(report_path) as rf:
+    with open_report(report_path, mode=report_mode) as rf:
         for i, ev in enumerate(events):
             for fname in fields:
                 url = ev.get(fname)
                 if not url:
+                    continue
+                if (ev.get("id"), fname) in seen:
                     continue
                 click.echo(f"[{i + 1}/{len(events)}] {ev.get('name', '')} | {fname} | {url[:80]}")
                 line = await process_url(ev, fname, url, config, confidence_threshold)

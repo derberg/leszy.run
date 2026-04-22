@@ -221,3 +221,83 @@ def test_summarize_verdicts_counts_all_categories():
     assert counts["skipped_social"] == 1
     assert counts["skipped_dead"] == 1
     assert counts["error"] == 1
+
+
+def test_load_seen_pairs_reads_jsonl():
+    from enricher.audit import load_seen_pairs, AuditReportLine, open_report, write_report_line
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "audit.jsonl")
+        with open_report(path) as f:
+            for i, v in enumerate(["match", "mismatch"]):
+                write_report_line(f, AuditReportLine(
+                    event_id=f"e{i}", event_name="E", event_date="2026-05-10",
+                    event_location="", event_voivodeship="", field="website",
+                    url=f"https://x{i}.pl", final_url="", verdict=v,
+                    confidence=0.9, path="fast", reasoning="r", evidence={},
+                    checked_at="2026-04-22T10:00:00+00:00",
+                ))
+        seen = load_seen_pairs(path)
+        assert seen == {("e0", "website"), ("e1", "website")}
+
+
+def test_load_seen_pairs_missing_file_returns_empty():
+    from enricher.audit import load_seen_pairs
+    assert load_seen_pairs("/nonexistent/path.jsonl") == set()
+
+
+def test_load_seen_pairs_ignores_malformed_lines():
+    from enricher.audit import load_seen_pairs
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "audit.jsonl")
+        with open(path, "w") as f:
+            f.write('{"event_id":"e1","field":"website"}\n')
+            f.write("not json\n")
+            f.write("\n")
+            f.write('{"event_id":"e2","field":"website"}\n')
+        seen = load_seen_pairs(path)
+        assert seen == {("e1", "website"), ("e2", "website")}
+
+
+def test_find_latest_report_picks_most_recent():
+    from enricher.audit import find_latest_report
+    import time as _time
+    with tempfile.TemporaryDirectory() as d:
+        p1 = os.path.join(d, "audit-a.jsonl")
+        p2 = os.path.join(d, "audit-b.jsonl")
+        with open(p1, "w") as f:
+            f.write("")
+        _time.sleep(0.02)
+        with open(p2, "w") as f:
+            f.write("")
+        assert find_latest_report(d) == p2
+
+
+def test_find_latest_report_none_when_empty():
+    from enricher.audit import find_latest_report
+    with tempfile.TemporaryDirectory() as d:
+        assert find_latest_report(d) is None
+
+
+def test_process_url_full_crawl_timeout_produces_error_verdict():
+    from enricher.steps.audit_fetch import FastPage
+    import enricher.audit as audit_mod
+
+    page = FastPage(
+        url="https://x.pl", final_url="https://x.pl", status="ok", http_status=200,
+        title="Hi", body_sample="short",
+    )
+
+    async def _hang(*args, **kwargs):
+        await asyncio.sleep(10)
+
+    with patch("enricher.audit.fetch_fast", return_value=page), \
+         patch("enricher.audit.crawl_pages", new=_hang), \
+         patch.object(audit_mod, "FULL_CRAWL_TIMEOUT_SECONDS", 0.1):
+        line = asyncio.run(process_url(
+            event=_event(), field="website", url="https://x.pl",
+            config=_cfg(), confidence_threshold=0.8,
+        ))
+
+    assert line.verdict == "error"
+    assert line.path == "full"
+    assert "timeout" in line.reasoning.lower()
