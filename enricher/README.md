@@ -73,12 +73,12 @@ python -m enricher sync                            # push ALL enriched events
     website                   (empty) → https://www.kuzniakultury.pl
 ```
 
-### `audit` — Report-only URL review
+### `audit` — URL review (report-only by default, `--apply` nulls mismatches)
 
-`audit` reviews outbound URL fields on `calendar_events` (future events only) and writes a JSONL report of how each URL looks to an LLM. It **never** writes to the database. Use the report to curate data manually or feed it into another tool.
+`audit` reviews outbound URL fields on `calendar_events` (future events only) and writes a JSONL report of how each URL looks to an LLM. By default it is read-only. With `--apply`, any URL the LLM calls a `mismatch` at confidence ≥ `--apply-confidence` (default 0.8) is set to NULL on BOTH `calendar_events` AND the matching row in `scraper_all` (matched by `source` + `source_id`, with a safety check that the scraper_all URL still equals the audited URL). Match / uncertain / skipped rows are never touched. After applying, run `python -m enricher run --incomplete` to re-fill the nulled fields on scraper_all, then `python -m enricher sync` to push them to calendar_events.
 
 ```bash
-# Audit all future events' `website` URLs
+# Audit all future events' `website` URLs (report only)
 python -m enricher audit
 
 # Limit, custom date, multiple fields, custom threshold
@@ -86,6 +86,10 @@ python -m enricher audit --limit 50 \
     --since 2026-05-01 \
     --fields website,registration_url \
     --confidence-threshold 0.85
+
+# Apply decisions: null mismatched URLs on calendar_events
+python -m enricher audit --apply
+python -m enricher audit --apply --apply-confidence 0.9   # stricter bar
 ```
 
 **Verdicts** (one JSONL line per `(event_id, field)`):

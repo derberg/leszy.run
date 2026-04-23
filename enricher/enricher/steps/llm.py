@@ -110,7 +110,7 @@ EVENT:
 
 {context_block}
 
-RESPOND WITH THIS EXACT JSON STRUCTURE:
+RESPOND WITH THIS EXACT JSON STRUCTURE (use null for any field not found in content — NEVER copy the placeholder strings below):
 {{
   "distances": ["5 km", "10 km"],
   "event_types": ["uliczny"],
@@ -119,15 +119,15 @@ RESPOND WITH THIS EXACT JSON STRUCTURE:
   "price_to": 90,
   "voivodeship": "Mazowieckie",
   "is_kids": false,
-  "website": "https://example.pl",
+  "website": "<REPLACE-WITH-REAL-OR-NULL>",
   "website_is_official": true,
-  "registration_url": "https://example.pl/zapisy",
-  "regulamin_url": "https://example.pl/regulamin.pdf",
+  "registration_url": "<REPLACE-WITH-REAL-OR-NULL>",
+  "regulamin_url": "<REPLACE-WITH-REAL-OR-NULL>",
   "url_is_regulamin": true,
   "url_is_registration": true
 }}
 
-Use null for any field you cannot determine from the provided content.
+Use null for any field you cannot determine from the provided content. The <REPLACE-WITH-REAL-OR-NULL> markers are placeholders — never emit them as output and never emit any example.com/example.pl URL.
 
 === FIELD RULES ===
 
@@ -215,6 +215,24 @@ def call_ollama(prompt: str, config) -> Optional[dict]:
         return None
 
 
+_URL_FIELDS = ("website", "registration_url", "regulamin_url")
+_PLACEHOLDER_URL_SUBSTRINGS = ("example.pl", "example.com", "<replace-with-real")
+
+
+def _scrub_placeholder_urls(data: dict) -> dict:
+    """Drop any URL field whose value matches a placeholder we accidentally prompt-leaked.
+
+    Guards against the model copying the JSON-example URLs verbatim (and against any
+    future drift in the placeholder string). Converts the field to None instead of
+    silently writing junk into Supabase.
+    """
+    for fld in _URL_FIELDS:
+        v = data.get(fld)
+        if isinstance(v, str) and any(s in v.lower() for s in _PLACEHOLDER_URL_SUBSTRINGS):
+            data[fld] = None
+    return data
+
+
 def parse_llm_response(raw: str) -> Optional[dict]:
     """Extract JSON from LLM response text. Handles markdown code blocks."""
     if not raw:
@@ -230,6 +248,6 @@ def parse_llm_response(raw: str) -> Optional[dict]:
         return None
 
     try:
-        return json.loads(match.group(0))
+        return _scrub_placeholder_urls(json.loads(match.group(0)))
     except json.JSONDecodeError:
         return None

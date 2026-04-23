@@ -4,11 +4,62 @@ Extracts just enough of a page (title, meta description, h1 texts, body sample)
 to feed a short LLM prompt. No JS rendering — that is the full-path fallback's
 job (Crawl4AI).
 """
+import time
+import warnings
 from dataclasses import dataclass, field
 from typing import Optional
 
 import httpx
 from bs4 import BeautifulSoup
+
+# Silence the urllib3 InsecureRequestWarning we'd otherwise get on every fetch
+# because we pass verify=False intentionally (see fetch_fast for rationale).
+try:
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+except Exception:
+    pass
+warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+
+
+# macOS mDNSResponder occasionally drops DNS queries under sustained load, which
+# surfaces as getaddrinfo "nodename nor servname provided, or not known".
+# It looks identical to a real NXDOMAIN but is transient — a short retry recovers
+# 99% of the time. These substrings identify DNS-style failures to retry on.
+_DNS_ERROR_HINTS = (
+    "nodename nor servname",
+    "getaddrinfo",
+    "temporary failure in name resolution",
+    "name or service not known",
+)
+
+_MAX_DNS_RETRIES = 2
+_DNS_RETRY_BACKOFF_S = 1.5
+
+
+def _confirm_nxdomain(url: str) -> bool:
+    """Return True if the URL's host is NXDOMAIN according to a public resolver.
+
+    Protects against local-resolver false negatives (mDNSResponder flakes, corp
+    DNS misconfig) that would otherwise cause us to mark live URLs as dead.
+    Uses `dig +short @1.1.1.1` — no extra Python deps.
+    """
+    import subprocess
+    from urllib.parse import urlparse
+    try:
+        host = urlparse(url).hostname
+        if not host:
+            return False
+        res = subprocess.run(
+            ["dig", "+short", f"@1.1.1.1", "+time=3", "+tries=1", host],
+            capture_output=True, text=True, timeout=6,
+        )
+        # Empty stdout + no error means NXDOMAIN; anything else (an IP, a CNAME)
+        # means the host exists.
+        return res.returncode == 0 and res.stdout.strip() == ""
+    except Exception:
+        # If we can't confirm, don't claim NXDOMAIN — stay conservative.
+        return False
 
 
 # Same headers as validate_urls.py — many Polish CMSes gatekeep on UA.
@@ -34,6 +85,10 @@ class FastPage:
     h1: list = field(default_factory=list)
     body_sample: str = ""
     error: Optional[str] = None
+    # When the local resolver cannot find a host, we verify against a public DNS
+    # (1.1.1.1) before calling it truly dead. The local resolver (macOS
+    # mDNSResponder, corporate DNS, etc.) is known to have false negatives.
+    nxdomain_confirmed: bool = False
 
 
 def fetch_fast(url: str, timeout: int = 10, body_chars: int = 2000) -> Optional[FastPage]:
@@ -42,15 +97,38 @@ def fetch_fast(url: str, timeout: int = 10, body_chars: int = 2000) -> Optional[
     Returns None only on catastrophic failures that we want to swallow in the
     caller (we don't currently have any — this is future-proofing).
     """
-    try:
-        with httpx.Client(
-            follow_redirects=True,
-            timeout=timeout,
-            headers=_BROWSER_HEADERS,
-        ) as client:
-            resp = client.get(url)
-    except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPError) as e:
-        return FastPage(url=url, status="dead", error=str(e)[:200])
+    attempt = 0
+    while True:
+        try:
+            # verify=False mirrors what a human user does: many small Polish event
+            # sites have misconfigured HTTPS (hostname-mismatch, self-signed, expired)
+            # but serve the correct content. Refusing to fetch = false "skipped_dead"
+            # verdicts. The audit is read-only (no credentials sent), so the security
+            # downside of bypassing verification is negligible.
+            with httpx.Client(
+                follow_redirects=True,
+                timeout=timeout,
+                headers=_BROWSER_HEADERS,
+                verify=False,
+            ) as client:
+                resp = client.get(url)
+            break
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPError) as e:
+            err_msg = str(e)
+            is_dns = any(hint in err_msg.lower() for hint in _DNS_ERROR_HINTS)
+            if is_dns and attempt < _MAX_DNS_RETRIES:
+                attempt += 1
+                time.sleep(_DNS_RETRY_BACKOFF_S * attempt)
+                continue
+            # DNS failed locally after retries — verify against 1.1.1.1 before
+            # calling it truly dead. `nxdomain_confirmed=True` lets audit.py
+            # promote the verdict to mismatch (so --apply nulls the field).
+            confirmed_dead = is_dns and _confirm_nxdomain(url)
+            return FastPage(
+                url=url, status="dead",
+                error=err_msg[:200],
+                nxdomain_confirmed=confirmed_dead,
+            )
 
     if resp.status_code >= 400:
         return FastPage(

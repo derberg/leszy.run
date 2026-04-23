@@ -6,7 +6,7 @@ import asyncio
 import glob
 import json as _json
 import os
-from collections import Counter
+from collections import Counter, deque
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone, timedelta
 from typing import Iterable, Optional
@@ -22,6 +22,120 @@ FAST_PATH_MIN_TITLE_CHARS = 10
 FAST_PATH_MIN_BODY_CHARS = 500
 FAST_PATH_BODY_SAMPLE_CHARS = 2000
 FULL_CRAWL_TIMEOUT_SECONDS = 300
+
+# DNS-storm guard: if more than STORM_THRESHOLD of the last STORM_WINDOW fetches
+# died with a DNS-shaped error, abort the run so we don't silently rack up false
+# skipped_dead verdicts. Typically indicates macOS mDNSResponder has wedged.
+DNS_STORM_WINDOW = 40
+DNS_STORM_THRESHOLD = 0.25  # abort once >25% of recent fetches are DNS-dead
+_DNS_ERROR_HINTS_LOWER = (
+    "nodename nor servname",
+    "getaddrinfo",
+    "temporary failure in name resolution",
+    "name or service not known",
+)
+
+
+def _is_dns_dead(line: "AuditReportLine") -> bool:
+    if line.verdict != "skipped_dead":
+        return False
+    err = (line.evidence.get("error", "") if isinstance(line.evidence, dict) else "").lower()
+    return any(h in err for h in _DNS_ERROR_HINTS_LOWER)
+
+# File-share hosts that are never valid as an event `website`.
+# They may legitimately appear as regulamin_url / registration_url (hosted PDFs, forms),
+# so the blacklist is gated to field == "website" only.
+WEBSITE_BLACKLIST_HOSTS = (
+    "dropbox.com",
+    "drive.google.com",
+    "docs.google.com",
+    "wetransfer.com",
+)
+
+
+def _host_matches_blacklist(url: str, hosts: tuple) -> bool:
+    try:
+        from urllib.parse import urlparse
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return False
+    for bad in hosts:
+        if host == bad or host.endswith("." + bad):
+            return True
+    return False
+
+
+# Polish stopwords and event-generic terms that shouldn't count as distinctive
+# matches between an event name and a URL slug.
+_URL_SLUG_STOPWORDS = frozenset({
+    # articles / generic
+    "bieg", "biegu", "biegi", "run", "running", "race", "marathon",
+    "polska", "polski", "edycja", "jubileuszowy", "międzynarodowy",
+    # numerals often as roman or ordinals in names
+    "pierwsza", "druga", "trzecia", "prima",
+    # years
+    "2024", "2025", "2026", "2027", "2028",
+    # descriptors
+    "open", "challenge", "festiwal", "cup", "grand", "prix",
+})
+
+
+_POLISH_FOLD = str.maketrans({
+    "ą": "a", "Ą": "A",
+    "ć": "c", "Ć": "C",
+    "ę": "e", "Ę": "E",
+    "ł": "l", "Ł": "L",
+    "ń": "n", "Ń": "N",
+    "ó": "o", "Ó": "O",
+    "ś": "s", "Ś": "S",
+    "ź": "z", "Ź": "Z",
+    "ż": "z", "Ż": "Z",
+})
+
+
+def _normalize_for_slug_match(s: str) -> str:
+    """Lowercase + fold Polish letters + strip combining marks.
+
+    Makes "Kołobrzeska Odyseja" → "kolobrzeska odyseja" which substring-matches
+    against "kolobrzeskaodyseja.pl" (after stripping non-alnum).
+
+    Note: Polish `ł` / `ó` / `ś` etc. are precomposed codepoints that NFKD does
+    NOT decompose, so we map them explicitly via a translation table.
+    """
+    import unicodedata
+    s = s.translate(_POLISH_FOLD)
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return s.lower()
+
+
+def _url_slug_matches_event(url: str, event: dict) -> bool:
+    """Return True if the URL's host+path contains at least 2 distinctive tokens
+    from the event name (or 1 distinctive name-token + the location). Used to
+    rescue `uncertain` verdicts when the URL strongly identifies the event.
+    """
+    import re
+    from urllib.parse import urlparse
+
+    name = _normalize_for_slug_match(event.get("name") or "")
+    location = _normalize_for_slug_match(event.get("location") or "")
+    u = urlparse(url)
+    host_path = _normalize_for_slug_match((u.hostname or "") + " " + (u.path or ""))
+    # Collapse everything to a letter-digit bag so "kolobrzeska-odyseja" and
+    # "kolobrzeskaodyseja" both match.
+    url_bag = re.sub(r"[^a-z0-9]+", "", host_path)
+    if not url_bag:
+        return False
+
+    def _tokens(text: str):
+        for t in re.split(r"\W+", text):
+            if len(t) >= 4 and t not in _URL_SLUG_STOPWORDS:
+                yield t
+
+    name_hits = sum(1 for t in _tokens(name) if t in url_bag)
+    loc_hits = sum(1 for t in _tokens(location) if t in url_bag)
+
+    return name_hits >= 2 or (name_hits >= 1 and loc_hits >= 1)
 
 
 @dataclass
@@ -97,14 +211,61 @@ async def process_url(
             evidence={"host": url},
         )
 
+    # 1b. Hard mismatch for file-share hosts on the website field.
+    # Dropbox / Drive / WeTransfer links are never legitimate "official event websites"
+    # even if the page is reachable — so we short-circuit with a high-confidence
+    # mismatch so --apply nulls them.
+    if field == "website" and _host_matches_blacklist(url, WEBSITE_BLACKLIST_HOSTS):
+        return _make_line(
+            event, field, url,
+            verdict="mismatch", confidence=1.0, path="none",
+            reasoning="File-share host is not a valid event website.",
+            evidence={"host": url, "blacklist": "website"},
+        )
+
     # 2. Fast path fetch
     page = fetch_fast(url, timeout=config.url_timeout, body_chars=FAST_PATH_BODY_SAMPLE_CHARS)
     if page is None or page.status == "dead":
+        http_status = page.http_status if page else 0
+        err = (page.error if page else "") or ""
+        # HTTP 4xx means the server responded — the URL itself is wrong (page deleted,
+        # moved, unauthorized) — so treat it as a high-confidence mismatch so --apply
+        # can null the field. 5xx / DNS / SSL / timeouts stay as skipped_dead because
+        # they're transient or ambiguous.
+        if 400 <= http_status < 500:
+            return _make_line(
+                event, field, url,
+                verdict="mismatch", confidence=1.0, path="none",
+                reasoning=f"HTTP {http_status} — URL no longer serves this event.",
+                evidence={"http_status": http_status, "error": err},
+                final_url=(page.final_url if page else ""),
+            )
+        # Non-HTML response on the website field (e.g. a regulamin PDF stuck in the
+        # website column) — the URL is alive but not a valid website. PDFs ARE
+        # legitimate for regulamin_url / registration_url, so only mismatch for website.
+        if field == "website" and err == "non-html content":
+            return _make_line(
+                event, field, url,
+                verdict="mismatch", confidence=1.0, path="none",
+                reasoning="URL returns non-HTML content (likely a PDF) — not a valid event website.",
+                evidence={"http_status": http_status, "error": err},
+                final_url=(page.final_url if page else ""),
+            )
+        # DNS failed locally AND was confirmed NXDOMAIN against 1.1.1.1 — the
+        # domain is globally dead. Promote to mismatch so --apply nulls the URL.
+        if page is not None and getattr(page, "nxdomain_confirmed", False):
+            return _make_line(
+                event, field, url,
+                verdict="mismatch", confidence=1.0, path="none",
+                reasoning="Domain is NXDOMAIN (confirmed via 1.1.1.1) — URL cannot resolve globally.",
+                evidence={"http_status": http_status, "error": err, "nxdomain_confirmed": True},
+                final_url=(page.final_url if page else ""),
+            )
         return _make_line(
             event, field, url,
             verdict="skipped_dead", confidence=1.0, path="none",
-            reasoning=f"URL is not reachable: {page.error if page else 'unknown error'}",
-            evidence={"http_status": page.http_status if page else 0, "error": page.error if page else ""},
+            reasoning=f"URL is not reachable: {err or 'unknown error'}",
+            evidence={"http_status": http_status, "error": err},
             final_url=(page.final_url if page else ""),
         )
 
@@ -163,15 +324,28 @@ async def process_url(
             final_url=page.final_url,
         )
 
+    # Rescue uncertain verdicts with a URL-slug heuristic. If the URL's host/path
+    # contains enough tokens from the event name (e.g. "Kołobrzeska Odyseja" at
+    # kolobrzeskaodyseja.pl), treat it as a soft match — the LLM's content-only
+    # reasoning is overly cautious about unproven editions / years.
+    final_verdict = full_verdict.verdict
+    final_confidence = full_verdict.confidence
+    slug_note = ""
+    if full_verdict.verdict == "uncertain" and _url_slug_matches_event(url, event):
+        final_verdict = "match"
+        final_confidence = max(full_verdict.confidence, 0.75)
+        slug_note = " (promoted via URL-slug match)"
+
     return _make_line(
         event, field, url,
-        verdict=full_verdict.verdict,
-        confidence=full_verdict.confidence,
+        verdict=final_verdict,
+        confidence=final_confidence,
         path="full",
-        reasoning=full_verdict.reasoning,
+        reasoning=full_verdict.reasoning + slug_note,
         evidence={
             **_fast_evidence(page),
             "crawled_chars": len(crawled_content or ""),
+            "slug_match_promoted": bool(slug_note),
         },
         final_url=page.final_url,
     )
@@ -252,7 +426,7 @@ def fetch_audit_events(config, since: str, fields: list) -> list:
     all_rows: list = []
     page_size = 1000
     offset = 0
-    select_cols = "id, name, date, location, voivodeship, distances, event_type, status, website, registration_url, regulamin_url, locked_fields"
+    select_cols = "id, name, date, location, voivodeship, distances, event_type, status, website, registration_url, regulamin_url, locked_fields, source, source_id"
     while True:
         data = (
             sb.from_("calendar_events")
@@ -288,12 +462,19 @@ async def run_audit(
     confidence_threshold: float,
     log_dir: str = "logs",
     resume: bool = False,
+    apply: bool = False,
+    apply_confidence: float = 0.8,
+    keep_uncertain: bool = False,
 ) -> str:
     """Run the audit over all matching events. Returns report path.
 
     When `resume=True`, continue the most recent audit-*.jsonl in log_dir:
     skip any (event_id, field) pair already present, and append new lines
     to that same file so the run ends up in one consolidated report.
+
+    When `apply=True`, any `mismatch` verdict with confidence >=
+    `apply_confidence` causes the corresponding field on calendar_events to
+    be set to NULL. All other verdicts leave the DB untouched.
     """
     import click
     events = fetch_audit_events(config, since, fields)
@@ -318,27 +499,120 @@ async def run_audit(
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         report_path = os.path.join(log_dir, f"audit-{ts}.jsonl")
 
+    sb = None
+    if apply:
+        from supabase import create_client
+        sb = create_client(config.supabase_url, config.supabase_key)
+        click.echo(f"APPLY mode: mismatches with confidence >= {apply_confidence} will be nulled on calendar_events AND scraper_all")
+
+    # Count how many (event, field) pairs actually need checking — so the progress
+    # counter is meaningful during --resume (otherwise the first printed line reads
+    # [68/634] because 67 prior events had no unprocessed pairs).
+    pending_total = 0
+    for ev in events:
+        for fname in fields:
+            if ev.get(fname) and (ev.get("id"), fname) not in seen:
+                pending_total += 1
+
     click.echo(f"Auditing {len(events)} events for fields={fields} since={since}")
+    click.echo(f"Pending checks: {pending_total}")
     click.echo(f"Report: {report_path}\n")
 
     verdicts: list = []
     mismatches: list = []
+    nulled_count = 0
+    nulled_scraper_all_count = 0
+    skipped_locked_count = 0
+    apply_errors: list = []
+    done = 0
+
+    # DNS-storm guard state
+    dns_window: deque = deque(maxlen=DNS_STORM_WINDOW)
+    storm_aborted = False
 
     with open_report(report_path, mode=report_mode) as rf:
-        for i, ev in enumerate(events):
+        for ev in events:
+            if storm_aborted:
+                break
             for fname in fields:
                 url = ev.get(fname)
                 if not url:
                     continue
                 if (ev.get("id"), fname) in seen:
                     continue
-                click.echo(f"[{i + 1}/{len(events)}] {ev.get('name', '')} | {fname} | {url[:80]}")
+                done += 1
+                click.echo(f"[{done}/{pending_total}] {ev.get('name', '')} | {fname} | {url[:80]}")
                 line = await process_url(ev, fname, url, config, confidence_threshold)
                 write_report_line(rf, line)
                 verdicts.append(line.verdict)
+
+                # DNS-storm check: track window of DNS-dead results; abort if too high.
+                dns_window.append(1 if _is_dns_dead(line) else 0)
+                if len(dns_window) == DNS_STORM_WINDOW:
+                    dns_rate = sum(dns_window) / DNS_STORM_WINDOW
+                    if dns_rate > DNS_STORM_THRESHOLD:
+                        click.echo("\n" + "=" * 60)
+                        click.echo(f"ABORT: DNS-storm detected — {int(dns_rate * 100)}% "
+                                   f"of the last {DNS_STORM_WINDOW} fetches failed DNS.")
+                        click.echo("Your local DNS resolver (macOS mDNSResponder?) is "
+                                   "probably wedged. Continuing would record false "
+                                   "skipped_dead verdicts.")
+                        click.echo("Fix: try `sudo killall -HUP mDNSResponder` or "
+                                   "restart networking, then:")
+                        click.echo(f"   python -m enricher audit --apply --resume")
+                        click.echo("=" * 60 + "\n")
+                        storm_aborted = True
+                        break
                 click.echo(f"    verdict={line.verdict} conf={line.confidence:.2f} path={line.path}")
-                if line.verdict == "mismatch":
+                # `uncertain` is treated like `mismatch` for --apply purposes unless
+                # --keep-uncertain was passed — operationally, "uncertain but can't
+                # confirm" is indistinguishable from "wrong" for a public calendar.
+                # The slug-match heuristic already rescues obviously-right URLs to
+                # `match`, so what stays uncertain is genuinely ambiguous.
+                nullable = line.verdict == "mismatch" or (
+                    line.verdict == "uncertain" and not keep_uncertain
+                )
+                if nullable:
                     mismatches.append((line.confidence, line))
+                    # For uncertain we bypass the confidence floor (their confidence
+                    # signals uncertainty, not conviction). For mismatch we still
+                    # require `apply_confidence` to avoid nulling weak calls.
+                    pass_conf = line.verdict == "uncertain" or line.confidence >= apply_confidence
+                    if apply and sb is not None and pass_conf:
+                        # Respect locked_fields: if an admin has locked this field
+                        # on calendar_events (manual correction), never auto-null it.
+                        locked = ev.get("locked_fields") or []
+                        if fname in locked:
+                            skipped_locked_count += 1
+                            click.echo(f"    → SKIPPED (locked) {fname} on {line.event_id}")
+                            continue
+                        try:
+                            sb.from_("calendar_events").update({fname: None}).eq("id", line.event_id).execute()
+                            nulled_count += 1
+                            click.echo(f"    → NULLED {fname} on calendar_events {line.event_id}")
+                        except Exception as e:
+                            apply_errors.append(f"{line.event_name} / {fname} (calendar_events): {e}")
+                            click.echo(f"    → APPLY FAILED (calendar_events): {e}")
+
+                        src = ev.get("source")
+                        sid = ev.get("source_id")
+                        if src and sid:
+                            try:
+                                sa_res = (
+                                    sb.from_("scraper_all")
+                                    .update({fname: None})
+                                    .eq("source", src)
+                                    .eq("source_id", sid)
+                                    .eq(fname, url)
+                                    .execute()
+                                )
+                                sa_rows = len(sa_res.data or [])
+                                if sa_rows:
+                                    nulled_scraper_all_count += sa_rows
+                                    click.echo(f"    → NULLED {fname} on scraper_all ({src}/{sid})")
+                            except Exception as e:
+                                apply_errors.append(f"{line.event_name} / {fname} (scraper_all): {e}")
+                                click.echo(f"    → APPLY FAILED (scraper_all): {e}")
 
     counts = summarize_verdicts(verdicts)
     click.echo("\n=== Audit done ===")
@@ -348,6 +622,16 @@ async def run_audit(
     for k, v in counts.items():
         click.echo(f"  {k:<16} {v}")
     click.echo(f"\nreport: {report_path}")
+
+    if apply:
+        click.echo(f"\napply: nulled {nulled_count} fields on calendar_events")
+        click.echo(f"apply: nulled {nulled_scraper_all_count} fields on scraper_all")
+        if skipped_locked_count:
+            click.echo(f"apply: skipped {skipped_locked_count} locked_fields entries")
+        if apply_errors:
+            click.echo(f"apply errors: {len(apply_errors)}")
+            for err in apply_errors[:10]:
+                click.echo(f"  {err}")
 
     if mismatches:
         click.echo("\ntop 10 mismatches:")

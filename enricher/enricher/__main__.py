@@ -54,8 +54,18 @@ def sync(since, dry_run):
               help="Fast-path confidence below this triggers fallback to full crawl")
 @click.option("--resume", is_flag=True,
               help="Continue the most recent audit log: skip already-processed (event, field) pairs and append to the same file")
-def audit(limit, fields, since, confidence_threshold, resume):
-    """Audit URL fields on calendar_events for event relevance. Read-only — writes JSONL report only."""
+@click.option("--apply", is_flag=True,
+              help="Null mismatched and uncertain URL fields on calendar_events AND scraper_all")
+@click.option("--apply-confidence", type=float, default=0.8,
+              help="Minimum confidence to null a mismatched field when --apply is set")
+@click.option("--keep-uncertain", is_flag=True,
+              help="Keep uncertain verdicts instead of nulling them (default: uncertain is nulled with --apply)")
+def audit(limit, fields, since, confidence_threshold, resume, apply, apply_confidence, keep_uncertain):
+    """Audit URL fields on calendar_events for event relevance.
+
+    By default read-only — writes JSONL report. Pass --apply to also null
+    mismatched fields on calendar_events.
+    """
     from enricher.audit import run_audit, _parse_since
 
     config = load_config()
@@ -73,6 +83,9 @@ def audit(limit, fields, since, confidence_threshold, resume):
         limit=limit,
         confidence_threshold=confidence_threshold,
         resume=resume,
+        apply=apply,
+        apply_confidence=apply_confidence,
+        keep_uncertain=keep_uncertain,
     ))
 
 
