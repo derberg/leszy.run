@@ -147,7 +147,7 @@ async function main() {
   while (true) {
     const { data, error } = await supabase
       .from('scraper_all')
-      .select('id, name, location, voivodeship, lat, lng')
+      .select('id, name, location, voivodeship, lat, lng, source_url, registration_url, website, regulamin_url')
       .or('voivodeship.is.null,lat.is.null')
       .range(from, from + pageSize - 1)
 
@@ -162,6 +162,7 @@ async function main() {
   const needsCoords = allRows.filter(r => !r.lat).length
   console.log(`Found ${allRows.length} rows to process (${needsVoivodeship} missing voivodeship, ${needsCoords} missing lat/lng)`)
   let cityMap = 0, geocoded = 0, failed = 0
+  const failures = []
 
   for (const row of allRows) {
     const city = cleanLocation(row.location)
@@ -174,7 +175,12 @@ async function main() {
       if (fromMap) {
         if (!dryRun) {
           const { error } = await supabase.from('scraper_all').update({ voivodeship: fromMap }).eq('id', row.id)
-          if (error) { console.error(`  ERR ${row.name}: ${error.message}`); failed++; continue }
+          if (error) {
+            console.error(`  ERR ${row.name}: ${error.message}`)
+            failed++
+            failures.push({ id: row.id, name: row.name, location: row.location, source_url: row.source_url, registration_url: row.registration_url, website: row.website, regulamin_url: row.regulamin_url, reason: `db update failed: ${error.message}` })
+            continue
+          }
         }
         cityMap++; process.stdout.write('.')
         continue
@@ -182,7 +188,11 @@ async function main() {
     }
 
     // Nominatim geocoder — fills voivodeship AND lat/lng
-    if (!city) { failed++; continue }
+    if (!city) {
+      failed++
+      failures.push({ id: row.id, name: row.name, location: row.location, source_url: row.source_url, registration_url: row.registration_url, website: row.website, regulamin_url: row.regulamin_url, reason: 'empty location after cleanup' })
+      continue
+    }
 
     let geo = await geocode(city)
 
@@ -206,16 +216,38 @@ async function main() {
     if (Object.keys(updates).length > 0) {
       if (!dryRun) {
         const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
-        if (error) { console.error(`  ERR ${row.name}: ${error.message}`); failed++; continue }
+        if (error) {
+          console.error(`  ERR ${row.name}: ${error.message}`)
+          failed++
+          failures.push({ id: row.id, name: row.name, location: row.location, source_url: row.source_url, registration_url: row.registration_url, website: row.website, regulamin_url: row.regulamin_url, reason: `db update failed: ${error.message}` })
+          continue
+        }
       }
       geocoded++; process.stdout.write(geo.lat ? 'G' : '.')
     } else {
-      console.log(`\n  MISS: "${row.name}" location="${row.location}"`)
+      const reason = needsLatLng
+        ? `geocoder returned no coordinates for "${city}"`
+        : `geocoder returned no voivodeship for "${city}"`
       failed++
+      failures.push({ id: row.id, name: row.name, location: row.location, source_url: row.source_url, registration_url: row.registration_url, website: row.website, regulamin_url: row.regulamin_url, reason })
     }
   }
 
   console.log(`\n\nDone: ${cityMap} city map only, ${geocoded} geocoded, ${failed} failed/no location`)
+
+  if (failures.length > 0) {
+    console.log(`\n--- Failed events (${failures.length}) ---`)
+    for (const f of failures) {
+      console.log(`  "${f.name}"`)
+      console.log(`    id:       ${f.id}`)
+      console.log(`    location: ${JSON.stringify(f.location)}`)
+      console.log(`    reason:   ${f.reason}`)
+      if (f.source_url) console.log(`    source:   ${f.source_url}`)
+      if (f.registration_url) console.log(`    reg:      ${f.registration_url}`)
+      if (f.website) console.log(`    website:  ${f.website}`)
+      if (f.regulamin_url) console.log(`    regulamin:${f.regulamin_url}`)
+    }
+  }
 }
 
 main().catch(console.error)

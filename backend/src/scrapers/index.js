@@ -82,7 +82,7 @@ const sources = [
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
-      registration_deadline: raw.end_date || null,
+      registration_deadline: raw.registration_deadline || null,
       location: raw.location || null,
       lat: raw.lat || null,
       lng: raw.lng || null,
@@ -604,21 +604,22 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
   console.log(`[publish] ${[...existingByDate.values()].reduce((s, g) => s + g.length, 0)} calendar_events loaded for fuzzy dedup`)
 
-  function fuzzyMatchExists(name, date, location) {
+  function fuzzyMatch(name, date, location) {
     const candidates = existingByDate.get(date)
-    if (!candidates) return false
+    if (!candidates) return null
     for (const c of candidates) {
       const jaccard = jaccardSimilarity(c.name, name)
-      if (jaccard > 0.6) return true
+      if (jaccard > 0.6) return { matched: c, reason: `jaccard=${jaccard.toFixed(2)}` }
       const locMatch = citiesMatch(c.location, location)
-      if (locMatch && jaccard > 0.35) return true
-      if (locMatch && tokenize(c.name).length <= 3 && tokenize(name).length <= 3 && jaccard > 0.25) return true
+      if (locMatch && jaccard > 0.35) return { matched: c, reason: `city+jaccard=${jaccard.toFixed(2)}` }
+      if (locMatch && tokenize(c.name).length <= 3 && tokenize(name).length <= 3 && jaccard > 0.25) return { matched: c, reason: `short+city+jaccard=${jaccard.toFixed(2)}` }
     }
-    return false
+    return null
   }
 
   let created = 0, skipped = 0, fuzzySkipped = 0
   const errors = []
+  const fuzzyLog = []
   const now = new Date().toISOString()
 
   for (const raw of allRows) {
@@ -637,8 +638,19 @@ async function publishToCalendar({ dryRun = false } = {}) {
     }
 
     // Fuzzy dedup: same date + similar name + same city already in calendar_events
-    if (fuzzyMatchExists(raw.name, raw.date, raw.location)) {
+    const fuzzy = fuzzyMatch(raw.name, raw.date, raw.location)
+    if (fuzzy) {
       fuzzySkipped++
+      fuzzyLog.push({
+        sa_name: raw.name,
+        sa_source: raw.source,
+        sa_source_id: raw.source_id,
+        date: raw.date,
+        sa_location: raw.location,
+        ce_name: fuzzy.matched.name,
+        ce_location: fuzzy.matched.location,
+        reason: fuzzy.reason,
+      })
       continue
     }
 
@@ -713,7 +725,18 @@ async function publishToCalendar({ dryRun = false } = {}) {
   }
 
   console.log(`[publish] Done: created=${created} skipped=${skipped} fuzzySkipped=${fuzzySkipped} errors=${errors.length}`)
-  return { created, skipped, fuzzySkipped, errors }
+
+  if (fuzzyLog.length > 0) {
+    console.log(`\n--- Fuzzy-skipped events (${fuzzyLog.length}) ---`)
+    for (const f of fuzzyLog) {
+      console.log(`  "${f.sa_name}" (${f.sa_source}:${f.sa_source_id}) on ${f.date}`)
+      console.log(`    matched existing: "${f.ce_name}"`)
+      console.log(`    sa_location: ${JSON.stringify(f.sa_location)} | ce_location: ${JSON.stringify(f.ce_location)}`)
+      console.log(`    reason: ${f.reason}`)
+    }
+  }
+
+  return { created, skipped, fuzzySkipped, errors, fuzzyLog }
 }
 
 export { runPipeline, mergeIntoScraperAll, publishToCalendar }
