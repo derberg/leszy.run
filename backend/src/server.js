@@ -94,11 +94,6 @@ const start = async () => {
     initSupabaseSync(db)
     initCheckinSync(db)
 
-    cron.schedule('0 3 * * *', () => {
-      console.log('[cron] Starting daily scrape...')
-      runPipeline().catch(err => console.error('[cron] Scrape failed:', err))
-    })
-
     console.log(`[Server] LeszyRun backend running at ${address}`)
   } catch (err) {
     console.error('[Server] Startup error:', err)
