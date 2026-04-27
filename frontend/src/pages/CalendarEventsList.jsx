@@ -103,6 +103,20 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
       <td className="py-2 px-2 text-xs">
         <InlineEdit event={event} field="registration_url" onSave={onSave} />
       </td>
+      <td className="py-2 px-2 text-xs">
+        <InlineEdit event={event} field="regulamin_url" onSave={onSave} />
+      </td>
+      <td className="py-2 px-2 text-xs">
+        <InlineEdit event={event} field="website" onSave={onSave} />
+      </td>
+      <td className="py-2 px-2 text-xs">
+        <InlineEdit event={event} field="registration_deadline" onSave={onSave} />
+      </td>
+      <td className="py-2 px-2 text-xs whitespace-nowrap">
+        <InlineEdit event={event} field="price_from" onSave={onSave} />
+        <span className="text-apex-muted mx-1">–</span>
+        <InlineEdit event={event} field="price_to" onSave={onSave} />
+      </td>
       <td className="py-2 px-2 text-xs text-apex-muted">{event.source}</td>
       <td className="py-2 px-2 text-xs sticky right-0 bg-apex-bg">
         <div className="flex items-center gap-1">
@@ -353,9 +367,17 @@ function DuplicatesView() {
   )
 }
 
+const PAGE_SIZE = 50
+
 export default function CalendarEventsList() {
   const queryClient = useQueryClient()
   const [filter, setFilter] = useState('review')
+  // sub-filter applied inside the "Wszystkie" view: 'all' | 'incomplete'
+  const [allSubFilter, setAllSubFilter] = useState('all')
+  const [page, setPage] = useState(1)
+
+  // Reset to first page when switching tabs or sub-filters
+  useEffect(() => { setPage(1) }, [filter, allSubFilter])
 
   const { data: pendingEvents, isLoading: pendingLoading } = useQuery({
     queryKey: ['calendar-events-admin', 'pending'],
@@ -416,22 +438,38 @@ export default function CalendarEventsList() {
   const dupGroups = dupData || []
   const isLoading = filter === 'review' ? pendingLoading : activeLoading
 
-  const incomplete = active.filter(e =>
-    !e.location || !e.voivodeship || !e.event_type?.length || !e.distances?.length
+  // Single source of truth for "what makes an event complete" — matches the enricher's
+  // --incomplete criteria so the admin view reflects what the enricher will re-process.
+  const isIncomplete = (e) => (
+    !e.location ||
+    !e.voivodeship ||
+    !e.event_type?.length ||
+    !e.distances?.length ||
+    !e.registration_url ||
+    !e.regulamin_url ||
+    !e.website ||
+    !e.registration_deadline ||
+    !e.price_from
   )
-  const noUrl = active.filter(e => !e.registration_url)
-  const complete = active.filter(e =>
-    e.location && e.voivodeship && e.event_type?.length && e.distances?.length
-  )
+  const incomplete = active.filter(isIncomplete)
+  const complete = active.filter(e => !isIncomplete(e))
 
-  const displayed = filter === 'review' ? pending
-    : filter === 'incomplete' ? incomplete
-    : filter === 'no-url' ? noUrl
+  // In "Wszystkie" view, further narrow by sub-filter ('all' | 'incomplete')
+  const allView = allSubFilter === 'incomplete' ? incomplete : active
+
+  const fullList = filter === 'review' ? pending
     : filter === 'duplicates' ? []
-    : active
+    : allView
+
+  const totalPages = Math.max(1, Math.ceil(fullList.length / PAGE_SIZE))
+  const clampedPage = Math.min(page, totalPages)
+  const displayed = fullList.slice((clampedPage - 1) * PAGE_SIZE, clampedPage * PAGE_SIZE)
 
   const btnClass = (active) =>
     `font-sans text-xs font-semibold tracking-wide uppercase px-4 py-2 border transition-all ${active ? 'bg-apex-yellow text-apex-bg border-apex-yellow' : 'bg-apex-surface border-apex-border text-apex-muted hover:text-apex-text-bright'}`
+
+  const chipClass = (active) =>
+    `font-mono text-[11px] tracking-wider uppercase px-3 py-1 border transition-all ${active ? 'bg-apex-yellow text-apex-bg border-apex-yellow' : 'bg-apex-surface border-apex-border text-apex-muted hover:text-apex-text-bright'}`
 
   return (
     <div className="p-6">
@@ -446,25 +484,36 @@ export default function CalendarEventsList() {
               : `${incomplete.length} wymaga uzupełnienia · ${complete.length} kompletnych · ${active.length} łącznie`
             }
           </p>
+          <p className="font-mono text-[10px] tracking-widest uppercase text-apex-muted mt-1">
+            Źródło danych: Supabase · tabela <span className="text-apex-text-bright">calendar_events</span>
+            {filter === 'review' && <> · status=<span className="text-apex-text-bright">pending</span></>}
+            {filter === 'all' && <> · status=<span className="text-apex-text-bright">active</span></>}
+          </p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setFilter('review')} className={btnClass(filter === 'review')}>
             Do przeglądu{pending.length > 0 ? ` (${pending.length})` : ''}
           </button>
-          <button onClick={() => setFilter('incomplete')} className={btnClass(filter === 'incomplete')}>
-            Niekompletne ({incomplete.length})
-          </button>
-          <button onClick={() => setFilter('no-url')} className={btnClass(filter === 'no-url')}>
-            Brak URL ({noUrl.length})
-          </button>
           <button onClick={() => setFilter('all')} className={btnClass(filter === 'all')}>
-            Wszystkie
+            Wszystkie ({active.length})
           </button>
           <button onClick={() => setFilter('duplicates')} className={btnClass(filter === 'duplicates')}>
             Duplikaty{dupGroups.length > 0 ? ` (${dupGroups.length})` : ''}
           </button>
         </div>
       </div>
+
+      {filter === 'all' && (
+        <div className="flex gap-2 mb-4 items-center">
+          <span className="font-mono text-[10px] tracking-widest uppercase text-apex-muted">Filtruj:</span>
+          <button onClick={() => setAllSubFilter('all')} className={chipClass(allSubFilter === 'all')}>
+            Wszystkie ({active.length})
+          </button>
+          <button onClick={() => setAllSubFilter('incomplete')} className={chipClass(allSubFilter === 'incomplete')}>
+            Niekompletne ({incomplete.length})
+          </button>
+        </div>
+      )}
 
       {filter === 'duplicates' ? (
         <DuplicatesView />
@@ -483,6 +532,10 @@ export default function CalendarEventsList() {
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Typ</th>
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Dystanse</th>
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">URL zapisy</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">Regulamin</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">Website</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[110px]">Deadline</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Cena</th>
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[80px]">Źródło</th>
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px] sticky right-0 bg-apex-bg">Akcje</th>
                 </tr>
@@ -503,9 +556,25 @@ export default function CalendarEventsList() {
             </table>
           </div>
 
-          {!isLoading && displayed.length === 0 && (
+          {!isLoading && fullList.length === 0 && (
             <div className="text-apex-muted text-center py-12">
-              {filter === 'review' ? 'Brak wydarzeń do przeglądu!' : filter === 'incomplete' ? 'Wszystkie wydarzenia są kompletne!' : 'Brak wydarzeń.'}
+              {filter === 'review' ? 'Brak wydarzeń do przeglądu!'
+                : filter === 'all' && allSubFilter === 'incomplete' ? 'Wszystkie wydarzenia są kompletne!'
+                : 'Brak wydarzeń.'}
+            </div>
+          )}
+
+          {!isLoading && fullList.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between mt-4 py-3 border-t border-apex-border">
+              <div className="font-mono text-[11px] tracking-wider uppercase text-apex-muted">
+                Strona {clampedPage} z {totalPages} · wyświetlono {((clampedPage - 1) * PAGE_SIZE) + 1}–{Math.min(clampedPage * PAGE_SIZE, fullList.length)} z {fullList.length}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setPage(1)} disabled={clampedPage === 1} className={chipClass(false) + ' disabled:opacity-30 disabled:cursor-not-allowed'}>« Pierwsza</button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={clampedPage === 1} className={chipClass(false) + ' disabled:opacity-30 disabled:cursor-not-allowed'}>‹ Poprzednia</button>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={clampedPage === totalPages} className={chipClass(false) + ' disabled:opacity-30 disabled:cursor-not-allowed'}>Następna ›</button>
+                <button onClick={() => setPage(totalPages)} disabled={clampedPage === totalPages} className={chipClass(false) + ' disabled:opacity-30 disabled:cursor-not-allowed'}>Ostatnia »</button>
+              </div>
             </div>
           )}
         </>

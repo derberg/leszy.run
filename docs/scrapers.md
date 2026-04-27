@@ -52,8 +52,26 @@ cd backend && node --env-file=../.env scripts/publish-event-pages.js
 cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply
 # Use --regen-og to regenerate ALL OG images (e.g. after changing the OG template)
 
-# Step 8: Trigger DB backup (same command as the 6-hourly cron job)
-docker exec leszyrun-db-1 pg_dump -U leszyrun -d leszyrun --format=custom > ~/backups/leszyrun/leszyrun_$(date +%Y%m%d_%H%M).dump
+# Step 8a: Local Postgres backup (race-timing data: events, participants, results, gate_events, …)
+# Same command as the 6-hourly cron job. --verbose streams progress; final `ls -lh` confirms size.
+f=~/backups/leszyrun/leszyrun_$(date +%Y%m%d_%H%M).dump && \
+  docker exec leszyrun-db-1 pg_dump -U leszyrun -d leszyrun --format=custom --verbose > "$f" && \
+  ls -lh "$f"
+
+# Step 8b: Supabase backup (calendar_events, scraper_*, event_secrets, checkins, …)
+# One-time setup: add the Supabase Postgres URL to .env as SUPABASE_DB_URL. Get it from
+# Supabase Dashboard → Project Settings → Database → Connection string (URI).
+# Use the "Session pooler" URL (port 5432) — works from shell.
+#   SUPABASE_DB_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+# Reuses the leszyrun-db-1 container's pg_dump binary (no extra install needed).
+# Requires SUPABASE_DB_URL in .env (Supabase Dashboard → Settings → Database → Session pooler URI).
+mkdir -p ~/backups/leszyrun && \
+  f=~/backups/leszyrun/supabase_$(date +%Y%m%d_%H%M).dump && \
+  set -a && source /Users/derberg/Documents/GitHub/BeepBeep/.env && set +a && \
+  [ -n "$SUPABASE_DB_URL" ] || { echo "ERROR: SUPABASE_DB_URL is not set in .env" >&2; false; } && \
+  docker exec -e PGURL="$SUPABASE_DB_URL" leszyrun-db-1 \
+    sh -c 'pg_dump "$PGURL" --format=custom --verbose --no-owner --no-privileges' > "$f" && \
+  ls -lh "$f"
 ```
 
 After publishing, review new events in admin UI: `/calendar-events` → "Do przeglądu" tab.
