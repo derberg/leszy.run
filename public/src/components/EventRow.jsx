@@ -94,13 +94,14 @@ export default function EventRow({ event }) {
                 </span>
               )}
             </div>
-            <button onClick={handleReport} title="Zgłoś problem"
-              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-apex-dim hover:text-apex-yellow transition-all p-1 ml-1"
-              aria-label="Zgłoś problem z tym wydarzeniem">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <button onClick={handleReport} title="Zgłoś nieprawidłowe dane wydarzenia"
+              className="text-apex-muted hover:text-apex-yellow focus:text-apex-yellow transition-colors px-2 py-1 ml-1 flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border hover:border-apex-yellow/40 shrink-0"
+              aria-label="Zgłoś nieprawidłowe dane wydarzenia">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
                 <line x1="4" y1="22" x2="4" y2="15" />
               </svg>
+              <span>Zgłoś poprawkę</span>
             </button>
           </div>
         </div>
@@ -108,7 +109,7 @@ export default function EventRow({ event }) {
         {/* Mobile: stacked layout */}
         <div className="md:hidden flex gap-2">
           <span className="font-mono text-[12px] font-semibold text-apex-yellow shrink-0 pt-0.5">{dateStr}</span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <span className="font-display font-bold text-[14px] tracking-wide uppercase text-apex-text-bright leading-tight">{event.name}</span>
             {city && (
               <div className="text-[12px] text-apex-muted mt-0.5">{city}</div>
@@ -127,6 +128,15 @@ export default function EventRow({ event }) {
                 )}
               </div>
             )}
+            <button onClick={handleReport}
+              className="mt-2 text-apex-muted active:text-apex-yellow transition-colors px-2 py-1 inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border"
+              aria-label="Zgłoś nieprawidłowe dane wydarzenia">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                <line x1="4" y1="22" x2="4" y2="15" />
+              </svg>
+              <span>Zgłoś poprawkę</span>
+            </button>
           </div>
         </div>
       </div>

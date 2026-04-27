@@ -59,23 +59,160 @@ f=~/backups/leszyrun/leszyrun_$(date +%Y%m%d_%H%M).dump && \
   ls -lh "$f"
 
 # Step 8b: Supabase backup (calendar_events, scraper_*, event_secrets, checkins, …)
-# One-time setup: add the Supabase Postgres URL to .env as SUPABASE_DB_URL. Get it from
-# Supabase Dashboard → Project Settings → Database → Connection string (URI).
-# Use the "Session pooler" URL (port 5432) — works from shell.
-#   SUPABASE_DB_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
-# Reuses the leszyrun-db-1 container's pg_dump binary (no extra install needed).
-# Requires SUPABASE_DB_URL in .env (Supabase Dashboard → Settings → Database → Session pooler URI).
+# One-time setup: add SUPABASE_DB_URL to /Users/derberg/Documents/GitHub/BeepBeep/.env.
+# MUST be the Session pooler URL (port 5432) — Direct URL needs IPv6 (container has none),
+# Transaction pooler (port 6543) breaks pg_dump (no session features).
+# Get it from Supabase Dashboard → green "Connect" button → "Session pooler" tab. Format:
+#   SUPABASE_DB_URL=postgresql://postgres.<ref>:<password>@aws-1-<region>.pooler.supabase.com:5432/postgres
+# Password is passed via PGPASSWORD (not embedded in URL flags) to avoid URL-encoding pitfalls.
 mkdir -p ~/backups/leszyrun && \
   f=~/backups/leszyrun/supabase_$(date +%Y%m%d_%H%M).dump && \
   set -a && source /Users/derberg/Documents/GitHub/BeepBeep/.env && set +a && \
-  [ -n "$SUPABASE_DB_URL" ] || { echo "ERROR: SUPABASE_DB_URL is not set in .env" >&2; false; } && \
-  docker exec -e PGURL="$SUPABASE_DB_URL" leszyrun-db-1 \
-    sh -c 'pg_dump "$PGURL" --format=custom --verbose --no-owner --no-privileges' > "$f" && \
+  PGPASSWORD=$(python3 -c "
+import re, urllib.parse, os
+url = os.environ.get('SUPABASE_DB_URL', '')
+m = re.search(r'://[^:]+:([^@]+)@', url)
+if not m: raise SystemExit('no password in SUPABASE_DB_URL')
+print(urllib.parse.unquote(m.group(1)), end='')
+") && \
+  [ -n "$PGPASSWORD" ] || { echo "ERROR: couldn't extract password from SUPABASE_DB_URL" >&2; false; } && \
+  docker run --rm -e PGPASSWORD="$PGPASSWORD" postgres:17 \
+    pg_dump --host=aws-1-eu-west-1.pooler.supabase.com --port=5432 \
+            --username=postgres.kojoxazlnxncrpxmnxiq --dbname=postgres \
+            --format=custom --verbose --no-owner --no-privileges > "$f" && \
   ls -lh "$f"
 ```
 
 After publishing, review new events in admin UI: `/calendar-events` → "Do przeglądu" tab.
 After step 7, commit the updated manifest and OG images in `public/public/kalendarz/`.
+
+---
+
+## Restoring from backup
+
+Backups produced by Step 8 are PostgreSQL custom-format dumps. The cleanest restore pattern is `docker run --rm postgres:17` with `~/backups/leszyrun` volume-mounted to `/dumps` so the container can read the file by name. Both steps below follow that pattern.
+
+### Restore the local Postgres dump (Step 8a)
+
+Step 8a dumps are produced by leszyrun-db-1 (Postgres 16). To restore them, use a Postgres 16 client container — same major version is required.
+
+```bash
+# Inspect the dump's table-of-contents first (read-only, no changes)
+docker run --rm -v ~/backups/leszyrun:/dumps:ro postgres:16 \
+  pg_restore -l /dumps/leszyrun_<TIMESTAMP>.dump | less
+
+# Pull the local DB password from docker-compose.yml so we don't hardcode it
+LOCAL_PG_PASSWORD=$(grep -E '^\s*POSTGRES_PASSWORD:' /Users/derberg/Documents/GitHub/BeepBeep/docker-compose.yml | head -1 | sed -E 's/.*POSTGRES_PASSWORD:\s*//; s/\s*$//; s/"//g')
+
+# Full restore — DESTRUCTIVE. Drops every table in the local DB before reloading.
+# A sibling container joins the leszyrun_default network so it can reach leszyrun-db-1 as host "db".
+docker run --rm --network=leszyrun_default \
+  -v ~/backups/leszyrun:/dumps:ro \
+  -e PGPASSWORD="$LOCAL_PG_PASSWORD" postgres:16 \
+  pg_restore --host=db --port=5432 --username=leszyrun --dbname=leszyrun \
+             --clean --if-exists --no-owner --no-privileges --verbose \
+             /dumps/leszyrun_<TIMESTAMP>.dump
+```
+
+Notes on the restore:
+- `--network=leszyrun_default` joins the docker-compose network so the sibling container can resolve `db` to `leszyrun-db-1`. Verify with `docker network ls | grep leszyrun` if it ever differs.
+- The compose file lives at the project root and defines `POSTGRES_PASSWORD` — the snippet above pulls it.
+
+Single-table restore (e.g. accidentally-truncated `results`):
+
+```bash
+LOCAL_PG_PASSWORD=$(grep -E '^\s*POSTGRES_PASSWORD:' /Users/derberg/Documents/GitHub/BeepBeep/docker-compose.yml | head -1 | sed -E 's/.*POSTGRES_PASSWORD:\s*//; s/\s*$//; s/"//g')
+
+docker run --rm --network=leszyrun_default \
+  -v ~/backups/leszyrun:/dumps:ro \
+  -e PGPASSWORD="$LOCAL_PG_PASSWORD" postgres:16 \
+  pg_restore --host=db --port=5432 --username=leszyrun --dbname=leszyrun \
+             --table=results --data-only --verbose \
+             /dumps/leszyrun_<TIMESTAMP>.dump
+```
+
+### Restore the Supabase dump (Step 8b)
+
+The Supabase dump contains the full database — `public` schema (calendar_events, all scraper_*, event_secrets, geocode_cache, dismissed_duplicates, etc.) **plus** Supabase-internal schemas (`auth`, `storage`, `realtime`, `extensions`, `vault`, …). The internal schemas reference Supabase-specific roles (`supabase_admin`, `authenticator`, …) that don't exist in vanilla Postgres, so partial errors during restore are normal — table data in `public` still loads.
+
+**A) Inspect the dump locally** (safe, no production touched). Load into a throwaway Postgres 17 container so you can run SELECTs against it:
+
+```bash
+# Start a temporary Postgres 17 with the dump volume-mounted
+docker run -d --name supabase-restore-tmp \
+  -e POSTGRES_PASSWORD=tmp -e POSTGRES_DB=supabase_restore \
+  -v ~/backups/leszyrun:/dumps:ro -p 5433:5432 postgres:17
+
+# Wait for it to be ready
+until docker exec supabase-restore-tmp pg_isready -U postgres; do sleep 1; done
+
+# Restore — limit to public schema to skip the failing internal-schema objects.
+# Some errors will still print (extensions, missing roles); ignore unless data tables fail.
+docker exec supabase-restore-tmp pg_restore \
+  -U postgres -d supabase_restore \
+  -n public --no-owner --no-privileges --verbose \
+  /dumps/supabase_<TIMESTAMP>.dump
+
+# Query — confirm the tables loaded
+docker exec -it supabase-restore-tmp \
+  psql -U postgres -d supabase_restore \
+       -c "SELECT COUNT(*) AS calendar_events FROM calendar_events;"
+
+# Tear down when done
+docker rm -f supabase-restore-tmp
+```
+
+**B) Restore back into Supabase production** — destructive; do this only as a last resort. Supabase has built-in Point-in-Time Recovery (Dashboard → Database → Backups) which is safer for full restores. Manual `pg_restore` into Supabase often leaves orphaned grants / RLS policies because `--no-owner --no-privileges` was used at dump time.
+
+```bash
+# DESTRUCTIVE — overwrites every table in Supabase 'public' schema.
+# Strongly consider PITR via Supabase Dashboard instead.
+set -a && source /Users/derberg/Documents/GitHub/BeepBeep/.env && set +a && \
+  PGPASSWORD=$(python3 -c "
+import re, urllib.parse, os
+url = os.environ.get('SUPABASE_DB_URL', '')
+m = re.search(r'://[^:]+:([^@]+)@', url)
+if not m: raise SystemExit('no password in SUPABASE_DB_URL')
+print(urllib.parse.unquote(m.group(1)), end='')
+") && \
+  docker run --rm -e PGPASSWORD="$PGPASSWORD" \
+    -v ~/backups/leszyrun:/dumps:ro postgres:17 \
+    pg_restore --host=aws-1-eu-west-1.pooler.supabase.com --port=5432 \
+               --username=postgres.kojoxazlnxncrpxmnxiq --dbname=postgres \
+               -n public --clean --if-exists \
+               --no-owner --no-privileges --verbose \
+               /dumps/supabase_<TIMESTAMP>.dump
+```
+
+**Single-table restore to Supabase** (much less destructive — reloads just one table):
+
+```bash
+# Replaces just calendar_events. Drops the table first, then reloads its data.
+# Use this for surgical recovery rather than full restore.
+set -a && source /Users/derberg/Documents/GitHub/BeepBeep/.env && set +a && \
+  PGPASSWORD=$(python3 -c "
+import re, urllib.parse, os
+url = os.environ.get('SUPABASE_DB_URL', '')
+m = re.search(r'://[^:]+:([^@]+)@', url)
+if not m: raise SystemExit('no password in SUPABASE_DB_URL')
+print(urllib.parse.unquote(m.group(1)), end='')
+") && \
+  docker run --rm -e PGPASSWORD="$PGPASSWORD" \
+    -v ~/backups/leszyrun:/dumps:ro postgres:17 \
+    pg_restore --host=aws-1-eu-west-1.pooler.supabase.com --port=5432 \
+               --username=postgres.kojoxazlnxncrpxmnxiq --dbname=postgres \
+               --table=calendar_events --clean --if-exists \
+               --no-owner --no-privileges --verbose \
+               /dumps/supabase_<TIMESTAMP>.dump
+```
+
+### General tips
+
+- **List a dump's TOC**: `docker run --rm -v ~/backups/leszyrun:/d postgres:17 pg_restore -l /d/<file>.dump | less` — shows every TABLE/INDEX/SEQUENCE/etc. inside.
+- **Data-only restore** (skip schema): add `--data-only`. Useful when the schema is already correct.
+- **Schema-only restore**: add `--schema-only`. Useful for inspecting structure without loading data.
+- **Selective restore via TOC list**: `pg_restore -l <file> > toc.list`, edit (comment out unwanted lines with `;`), then `pg_restore -L toc.list <file>`.
+- **Limit to public schema**: add `-n public`. Skips Supabase-internal schemas that fail with permission errors.
 
 ---
 
