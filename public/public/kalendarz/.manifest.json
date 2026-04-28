@@ -990,28 +990,6 @@
     "website": null,
     "is_kids": null
   },
-  "74726-smak-maraton-2026-04-06": {
-    "id": "bfcbf0f4-4fcb-4da8-9153-f80ebde34053",
-    "name": "747-26 Smak Maraton",
-    "date": "2026-04-06",
-    "registration_deadline": null,
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
-    "location": "Warszawa",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.231958,
-    "lng": 21.006725,
-    "distances": [
-      "42.2 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": null,
-    "website": null,
-    "is_kids": null
-  },
   "herbatka-u-tadka-czyli-bieg-do-herbacia-2026-04-08": {
     "id": "1edcbf87-9e0b-4e5e-8cc2-7dcda7546b65",
     "name": "Herbatka u Tadka, czyli Bieg do Herbacia...",
@@ -1054,28 +1032,6 @@
     ],
     "registration_url": "https://itmbw.pl/itmbwieczorem-zapisy/",
     "website": "https://itmbw.pl/itmbwieczorem/",
-    "is_kids": null
-  },
-  "74827-smak-maraton-2026-04-10": {
-    "id": "27d89d11-d723-4d79-9bf2-bfec0f8cd33e",
-    "name": "748-27 Smak Maraton",
-    "date": "2026-04-10",
-    "registration_deadline": null,
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
-    "location": "Warszawa",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.231958,
-    "lng": 21.006725,
-    "distances": [
-      "42.2 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": null,
-    "website": null,
     "is_kids": null
   },
   "xi-kuznianski-polmaraton-lesny-rafamet-2026-04-11": {
@@ -1472,28 +1428,6 @@
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2490/i-charytatywny-otwarty-bieg-i-marsz-nordic-walking-im-malgorzaty-kowcz.html",
     "website": "https://www.siechnice.gmina.pl/aktualnosc-7005-bieg_smardzowski.html",
-    "is_kids": null
-  },
-  "74928-smak-maraton-2026-04-11": {
-    "id": "604f48f1-92d1-48ef-934f-f0dca29af38c",
-    "name": "749-28 Smak Maraton",
-    "date": "2026-04-11",
-    "registration_deadline": null,
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
-    "location": "Warszawa",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.231958,
-    "lng": 21.006725,
-    "distances": [
-      "42.2 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": null,
-    "website": null,
     "is_kids": null
   },
   "bieg-charytatywny-dla-hospicjum-formuly-dobra-2026-04-11": {
@@ -2250,28 +2184,6 @@
     "event_type": [
       "trail",
       "dzieci"
-    ],
-    "registration_url": null,
-    "website": null,
-    "is_kids": null
-  },
-  "75029-smak-maraton-2026-04-12": {
-    "id": "4b2b1cc7-bb08-491a-97ce-06deb9aed388",
-    "name": "750-29 Smak Maraton",
-    "date": "2026-04-12",
-    "registration_deadline": null,
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
-    "location": "Warszawa",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.231958,
-    "lng": 21.006725,
-    "distances": [
-      "42.2 km"
-    ],
-    "event_type": [
-      "uliczny"
     ],
     "registration_url": null,
     "website": null,
@@ -3613,28 +3525,6 @@
     "website": "https://dostartu.pl/permalink-v15950",
     "is_kids": null
   },
-  "75130-smak-maraton-2026-04-18": {
-    "id": "c836f6c0-5d29-47ea-a6cc-0666e945281f",
-    "name": "751-30 Smak Maraton",
-    "date": "2026-04-18",
-    "registration_deadline": null,
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
-    "location": "Warszawa",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.231958,
-    "lng": 21.006725,
-    "distances": [
-      "42.2 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": null,
-    "website": null,
-    "is_kids": null
-  },
   "xi-wojewodzki-bieg-zulawski-brzegiem-motlawy-2026-04-18": {
     "id": "1d7ab704-58a6-4750-914e-c3c82569916c",
     "name": "XI Wojewódzki Bieg Żuławski Brzegiem Motławy",
@@ -4301,28 +4191,6 @@
     "website": "https://b4sportonline.pl/biegibytow/zapisy_na_xiv_pielgrzymka_maratonska/11841",
     "is_kids": null
   },
-  "75231-smak-maraton-2026-04-19": {
-    "id": "2e7c5565-b358-4987-bdaa-131d1f38fbc3",
-    "name": "752-31 Smak Maraton",
-    "date": "2026-04-19",
-    "registration_deadline": null,
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
-    "location": "Warszawa",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.231958,
-    "lng": 21.006725,
-    "distances": [
-      "42.2 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": null,
-    "website": null,
-    "is_kids": null
-  },
   "wspieram-autyzm-kazdym-krokiem-2026-04-19": {
     "id": "7ec904c2-7aa6-4789-b312-fd41cc4b2189",
     "name": "Wspieram Autyzm Każdym Krokiem",
@@ -4633,28 +4501,6 @@
     ],
     "registration_url": "https://ultrawysoczyzna.pl/zapisz-sie/",
     "website": "http://www.ultrawysoczyzna.pl",
-    "is_kids": null
-  },
-  "75332-smak-maraton-2026-04-25": {
-    "id": "84413bc6-0e57-44a2-85c0-281ebe57a6ea",
-    "name": "753-32 Smak Maraton",
-    "date": "2026-04-25",
-    "registration_deadline": null,
-    "regulamin_url": "https://www.facebook.com/p/SMAK-Maraton-100063633938101/",
-    "price_from": null,
-    "price_to": null,
-    "location": "Warszawa",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.231958,
-    "lng": 21.006725,
-    "distances": [
-      "42.2 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://www.facebook.com/p/SMAK-Maraton-100063633938101/",
-    "website": "https://www.facebook.com/p/SMAK-Maraton-100063633938101/",
     "is_kids": null
   },
   "bieg-w-zielone-2026-04-25": {
@@ -5769,28 +5615,6 @@
     ],
     "registration_url": "https://super-sport.com.pl/zapisy-formularze/4599-xi-bieg-papieski-bieg-glowny.html",
     "website": "https://super-sport.com.pl/zapisy-formularze/4599-xi-bieg-papieski-bieg-glowny.html",
-    "is_kids": null
-  },
-  "75433-smak-maraton-2026-04-26": {
-    "id": "e8cebe3d-7d10-46ae-a83a-16f84dbb0c21",
-    "name": "754-33 Smak Maraton",
-    "date": "2026-04-26",
-    "registration_deadline": null,
-    "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
-    "location": "Warszawa",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.231958,
-    "lng": 21.006725,
-    "distances": [
-      "42.2 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://www.facebook.com/p/SMAK-Maraton-100063633938101/",
-    "website": "https://www.facebook.com/p/SMAK-Maraton-100063633938101/",
     "is_kids": null
   },
   "ii-charytatywny-bieg-2026-04-26": {

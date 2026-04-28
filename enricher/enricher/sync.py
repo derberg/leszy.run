@@ -1,3 +1,5 @@
+import json
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -70,6 +72,7 @@ def filter_locked_fields(updates: dict, locked) -> dict:
 
 def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
     """Push enriched fields from scraper_all to matching calendar_events rows."""
+    started_at = datetime.now(timezone.utc).isoformat()
     sb = create_client(config.supabase_url, config.supabase_key)
 
     # Fetch enriched scraper_all rows
@@ -108,6 +111,8 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
     skipped = 0
     not_found = 0
     errors = []
+    updated_events = []
+    not_found_events = []
 
     for row in all_rows:
         # Find matching calendar_events row — try source+source_id first, fallback to name+date
@@ -126,6 +131,13 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
 
         if not match.data:
             not_found += 1
+            not_found_events.append({
+                "id": row["id"],
+                "name": row["name"],
+                "date": row["date"],
+                "source": row.get("source"),
+                "source_id": row.get("source_id"),
+            })
             click.echo(f"  NOT FOUND: {row['name']} ({row['date']}) [{row.get('source')}:{row.get('source_id')}]")
             continue
 
@@ -187,8 +199,14 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
             try:
                 sb.from_("calendar_events").update(updates).eq("id", ce["id"]).execute()
                 updated += 1
+                updated_events.append({
+                    "id": row["id"],
+                    "calendar_event_id": ce["id"],
+                    "name": row["name"],
+                    "fields": list(real_changes.keys()),
+                })
             except Exception as e:
-                errors.append(f"{row['name']}: {e}")
+                errors.append({"id": row["id"], "name": row["name"], "message": str(e)})
         else:
             updated += 1
 
@@ -199,4 +217,27 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
     if errors:
         click.echo(f"  errors: {len(errors)}")
         for e in errors:
-            click.echo(f"    {e}")
+            click.echo(f"    {e['name']}: {e['message']}")
+
+    if not dry_run:
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        log_path = os.path.join(log_dir, f"sync-{ts}.json")
+        summary = {
+            "script": "sync",
+            "started_at": started_at,
+            "ended_at": datetime.now(timezone.utc).isoformat(),
+            "since": since,
+            "candidates": len(all_rows),
+            "updated": updated,
+            "skipped": skipped,
+            "not_found": not_found,
+            "errors_count": len(errors),
+            "updated_events": updated_events,
+            "not_found_events": not_found_events,
+            "errors": errors,
+        }
+        with open(log_path, "w") as f:
+            json.dump(summary, f, indent=2, ensure_ascii=False)
+        click.echo(f"  Run log: {log_path}")

@@ -19,3 +19,4 @@ enricher/.venv/
 enricher/.env
 enricher/logs/
 enricher/searxng-data/
+backend/logs/

@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
+import path from 'node:path'
 import { geocode } from '../src/scrapers/geocoder.js'
+import { loadPreviousRun, previousFailureIds, tagPersistent, writeRunLog } from './lib/run-log.js'
+
+const SCRIPT_NAME = 'geocode'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-geocode.js
 // Fills missing voivodeship (and lat/lng) in scraper_all using city map + Nominatim geocoder.
@@ -139,7 +143,33 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 const dryRun = !process.argv.includes('--apply')
 
 async function main() {
+  const startedAt = new Date().toISOString()
   console.log(dryRun ? '=== DRY RUN (use --apply to write to DB) ===' : '=== APPLYING ===')
+  const previous = await loadPreviousRun(SCRIPT_NAME)
+  const prevIds = previousFailureIds(previous)
+  if (previous.file) {
+    console.log(`Comparing against previous run: ${previous.file} (${prevIds.size} failures)`)
+  }
+  // Pull rejected (source, source_id) pairs from calendar_events so we don't
+  // try to geocode events the user has already rejected.
+  const rejectedKeys = new Set()
+  {
+    let from = 0
+    const pageSize = 1000
+    while (true) {
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .select('source, source_id')
+        .eq('status', 'rejected')
+        .range(from, from + pageSize - 1)
+      if (error) { console.error('Rejected fetch error:', error.message); break }
+      if (!data || data.length === 0) break
+      for (const r of data) rejectedKeys.add(`${r.source}|${r.source_id}`)
+      if (data.length < pageSize) break
+      from += pageSize
+    }
+  }
+
   // Fetch rows missing voivodeship OR lat/lng
   const allRows = []
   let from = 0
@@ -147,7 +177,7 @@ async function main() {
   while (true) {
     const { data, error } = await supabase
       .from('scraper_all')
-      .select('id, name, location, voivodeship, lat, lng, source_url, registration_url, website, regulamin_url')
+      .select('id, name, location, voivodeship, lat, lng, source, source_id, source_url, registration_url, website, regulamin_url')
       .or('voivodeship.is.null,lat.is.null')
       .range(from, from + pageSize - 1)
 
@@ -157,6 +187,13 @@ async function main() {
     if (data.length < pageSize) break
     from += pageSize
   }
+
+  const beforeFilter = allRows.length
+  const filteredRows = allRows.filter(r => !rejectedKeys.has(`${r.source}|${r.source_id}`))
+  const skippedRejected = beforeFilter - filteredRows.length
+  if (skippedRejected > 0) console.log(`Skipped ${skippedRejected} rejected event(s) from calendar_events`)
+  allRows.length = 0
+  allRows.push(...filteredRows)
 
   const needsVoivodeship = allRows.filter(r => !r.voivodeship).length
   const needsCoords = allRows.filter(r => !r.lat).length
@@ -235,10 +272,13 @@ async function main() {
 
   console.log(`\n\nDone: ${cityMap} city map only, ${geocoded} geocoded, ${failed} failed/no location`)
 
+  const { persistent: persistentCount, fresh: newCount } = tagPersistent(failures, prevIds)
+
   if (failures.length > 0) {
-    console.log(`\n--- Failed events (${failures.length}) ---`)
+    console.log(`\n--- Failed events (${failures.length}: ${newCount} new, ${persistentCount} persistent from previous run) ---`)
     for (const f of failures) {
-      console.log(`  "${f.name}"`)
+      const tag = f.persistent ? '[PERSISTENT]' : '[NEW]'
+      console.log(`  ${tag} "${f.name}"`)
       console.log(`    id:       ${f.id}`)
       console.log(`    location: ${JSON.stringify(f.location)}`)
       console.log(`    reason:   ${f.reason}`)
@@ -247,6 +287,24 @@ async function main() {
       if (f.website) console.log(`    website:  ${f.website}`)
       if (f.regulamin_url) console.log(`    regulamin:${f.regulamin_url}`)
     }
+  }
+
+  if (!dryRun) {
+    const logFile = await writeRunLog(SCRIPT_NAME, {
+      script: SCRIPT_NAME,
+      started_at: startedAt,
+      ended_at: new Date().toISOString(),
+      previous_run: previous.file,
+      total_rows: allRows.length,
+      skipped_rejected: skippedRejected,
+      city_map: cityMap,
+      geocoded,
+      failed,
+      new_failures: newCount,
+      persistent_failures: persistentCount,
+      failures,
+    })
+    console.log(`\nRun log: ${path.relative(process.cwd(), logFile)}`)
   }
 }
 

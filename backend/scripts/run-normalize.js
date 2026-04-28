@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { writeRunLog } from './lib/run-log.js'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-normalize.js
 // Normalizes scraper_all before publishing to calendar_events:
@@ -96,7 +97,11 @@ function normalizeEventTypes(eventType, eventTypes) {
 // --- Main ---
 
 async function main() {
+  const startedAt = new Date().toISOString()
   console.log(dryRun ? '=== DRY RUN (use --apply to write to DB) ===' : '=== APPLYING ===')
+  const errors = []
+  const unknownVoiv = []
+  const changes = []
   const allRows = []
   let from = 0
   const pageSize = 1000
@@ -128,6 +133,7 @@ async function main() {
         // Unknown voivodeship value — log but don't touch
         console.warn(`\n  UNKNOWN voivodeship: "${row.voivodeship}" (id: ${row.id})`)
         voivDropped++
+        unknownVoiv.push({ id: row.id, name: row.name, value: row.voivodeship })
       }
     }
 
@@ -149,14 +155,16 @@ async function main() {
         const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
         if (error) {
           console.error(`\n  ERR ${row.id}: ${error.message}`)
+          errors.push({ id: row.id, name: row.name, message: error.message })
           continue
         }
       }
-      const changes = []
-      if (updates.voivodeship) { voivFixed++; changes.push(`voiv: ${row.voivodeship} → ${updates.voivodeship}`) }
-      if ('event_types' in updates) { typesFixed++; changes.push(`types: [${(row.event_types || []).join(', ')}] → [${(updates.event_types || []).join(', ')}]`) }
-      if ('event_type' in updates && !('event_types' in updates)) { typeCleared++; changes.push(`event_type cleared: ${row.event_type}`) }
-      console.log(`  ${dryRun ? 'WOULD' : '✓'} ${row.name} → ${changes.join(' | ')}`)
+      const rowChanges = []
+      if (updates.voivodeship) { voivFixed++; rowChanges.push(`voiv: ${row.voivodeship} → ${updates.voivodeship}`) }
+      if ('event_types' in updates) { typesFixed++; rowChanges.push(`types: [${(row.event_types || []).join(', ')}] → [${(updates.event_types || []).join(', ')}]`) }
+      if ('event_type' in updates && !('event_types' in updates)) { typeCleared++; rowChanges.push(`event_type cleared: ${row.event_type}`) }
+      console.log(`  ${dryRun ? 'WOULD' : '✓'} ${row.name} → ${rowChanges.join(' | ')}`)
+      changes.push({ id: row.id, name: row.name, updates })
     } else {
       unchanged++
     }
@@ -167,6 +175,24 @@ async function main() {
   console.log(`  Event types normalized: ${typesFixed}`)
   console.log(`  Raw event_type cleared: ${typeCleared}`)
   console.log(`  Unchanged: ${unchanged}`)
+
+  if (!dryRun) {
+    const logFile = await writeRunLog('normalize', {
+      script: 'normalize',
+      started_at: startedAt,
+      ended_at: new Date().toISOString(),
+      processed: allRows.length,
+      voiv_fixed: voivFixed,
+      types_normalized: typesFixed,
+      type_cleared: typeCleared,
+      voiv_unknown: voivDropped,
+      unchanged,
+      unknown_voivodeships: unknownVoiv,
+      errors,
+      changes,
+    })
+    console.log(`Run log: ${logFile}`)
+  }
 }
 
 main().catch(console.error)

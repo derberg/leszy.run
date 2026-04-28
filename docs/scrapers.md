@@ -88,6 +88,35 @@ After step 7, commit the updated manifest and OG images in `public/public/kalend
 
 ---
 
+## Run logs
+
+Every `--apply` run writes a JSON summary to disk so you can see what happened in past runs (and which failures are persistent vs. new).
+
+| Script | Log location |
+|---|---|
+| `run-scrapers.js` | `backend/logs/scrapers-<ts>.json` |
+| `run-merge.js` | `backend/logs/merge-<ts>.json` |
+| `run-dedup.js` | `backend/logs/dedup-<ts>.json` |
+| `run-geocode.js` | `backend/logs/geocode-<ts>.json` |
+| `run-enrich-flags.js` | `backend/logs/enrich-flags-<ts>.json` |
+| `run-normalize.js` | `backend/logs/normalize-<ts>.json` |
+| `run-enrich-search.js` | `backend/logs/enrich-search-<ts>.json` |
+| `run-publish.js` | `backend/logs/publish-<ts>.json` |
+| `publish-event-pages.js` | `backend/logs/publish-event-pages-<ts>.json` |
+| `python -m enricher run` | `enricher/logs/run-<ts>.jsonl` (per-event JSONL) |
+| `python -m enricher sync` | `enricher/logs/sync-<ts>.json` |
+| `python -m enricher audit` | `enricher/logs/audit-<ts>.jsonl` |
+
+`run-geocode.js` additionally compares failures against the previous run's log and tags each as `[NEW]` or `[PERSISTENT]`. It also skips events that are already `rejected` in `calendar_events` so previously-rejected events don't keep showing up as failures.
+
+Quick inspection:
+```bash
+ls -t backend/logs | head -10                 # latest runs
+jq '.failures' backend/logs/geocode-*.json    # all failure histories
+```
+
+---
+
 ## Restoring from backup
 
 Backups produced by Step 8 are PostgreSQL custom-format dumps. The cleanest restore pattern is `docker run --rm postgres:17` with `~/backups/leszyrun` volume-mounted to `/dumps` so the container can read the file by name. Both steps below follow that pattern.

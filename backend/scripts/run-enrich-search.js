@@ -3,6 +3,7 @@ import { execSync } from 'child_process'
 import { writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { writeRunLog } from './lib/run-log.js'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-enrich-search.js
 // Uses local Claude CLI with web search to find event websites, distances,
@@ -102,7 +103,10 @@ function callClaude(prompt) {
 }
 
 async function main() {
+  const startedAt = new Date().toISOString()
   console.log(dryRun ? '=== DRY RUN (use --apply to write to DB) ===' : '=== APPLYING ===')
+  const events = []
+  const failures = []
 
   // Fetch scraper_all rows and filter in-memory.
   const allFlag = process.argv.includes('--all')
@@ -160,6 +164,7 @@ async function main() {
     if (!result) {
       console.log('    SKIP: Claude returned no data')
       failed++
+      failures.push({ id: row.id, name: row.name, reason: 'claude_no_data' })
       continue
     }
 
@@ -167,6 +172,7 @@ async function main() {
     if (result.event_type && result.event_type.includes('nie-bieg')) {
       console.log(`    FLAG: not a running event — ${JSON.stringify(result.event_type)}`)
       flagged++
+      events.push({ id: row.id, name: row.name, status: 'flagged_not_running' })
       continue
     }
 
@@ -212,11 +218,13 @@ async function main() {
       if (error) {
         console.error(`    ERR: ${error.message}`)
         failed++
+        failures.push({ id: row.id, name: row.name, reason: 'db_update_failed', message: error.message })
         continue
       }
     }
 
     enriched++
+    events.push({ id: row.id, name: row.name, status: 'enriched', updates })
 
     // Delay between Claude calls
     await new Promise(r => setTimeout(r, 2000))
@@ -229,6 +237,28 @@ async function main() {
   console.log(`  flagged (not running): ${flagged}`)
   console.log(`  total cost: $${totalCostUsd.toFixed(4)}`)
   console.log(`  total tokens: ${totalInputTokens} in / ${totalOutputTokens} out`)
+
+  if (!dryRun) {
+    const logFile = await writeRunLog('enrich-search', {
+      script: 'enrich-search',
+      started_at: startedAt,
+      ended_at: new Date().toISOString(),
+      args: { limit: limitArg, source: sourceArg, all: allFlag },
+      candidates_total: allRows.length,
+      candidates_needs_work: needsWork.length,
+      processed: toProcess.length,
+      enriched,
+      skipped,
+      failed,
+      flagged,
+      cost_usd: Number(totalCostUsd.toFixed(4)),
+      input_tokens: totalInputTokens,
+      output_tokens: totalOutputTokens,
+      events,
+      failures,
+    })
+    console.log(`Run log: ${logFile}`)
+  }
 }
 
 main().catch(console.error)

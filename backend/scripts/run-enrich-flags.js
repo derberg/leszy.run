@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { writeRunLog } from './lib/run-log.js'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-enrich-flags.js
 // Enriches scraper_all:
@@ -142,8 +143,11 @@ function hasKidsDistance(distances) {
 // --- Main ---
 
 async function main() {
+  const startedAt = new Date().toISOString()
   console.log(dryRun ? '=== DRY RUN (use --apply to write to DB) ===' : '=== APPLYING ===')
   const allFlag = process.argv.includes('--all')
+  const errors = []
+  const changes = []
   const allRows = []
   let from = 0
   const pageSize = 1000
@@ -208,20 +212,39 @@ async function main() {
         const { error } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
         if (error) {
           console.error(`  ERR ${row.name}: ${error.message}`)
+          errors.push({ id: row.id, name: row.name, message: error.message })
           continue
         }
       }
-      const changes = []
-      if (updates.event_types) { typesAdded++; changes.push(`types: ${updates.event_types.join(', ')}`) }
-      if (updates.is_kids) { kidsSet++; changes.push('is_kids: true') }
-      if (updates.distances) { distancesAdded++; changes.push(`distances: ${updates.distances}`) }
-      console.log(`  ${dryRun ? 'WOULD' : '✓'} ${row.name} → ${changes.join(' | ')}`)
+      const rowChanges = []
+      if (updates.event_types) { typesAdded++; rowChanges.push(`types: ${updates.event_types.join(', ')}`) }
+      if (updates.is_kids) { kidsSet++; rowChanges.push('is_kids: true') }
+      if (updates.distances) { distancesAdded++; rowChanges.push(`distances: ${updates.distances}`) }
+      console.log(`  ${dryRun ? 'WOULD' : '✓'} ${row.name} → ${rowChanges.join(' | ')}`)
+      changes.push({ id: row.id, name: row.name, updates })
     } else {
       unchanged++
     }
   }
 
   console.log(`\n\nDone: ${typesAdded} types classified, ${kidsSet} kids flagged, ${distancesAdded} distances from name, ${unchanged} unchanged`)
+
+  if (!dryRun) {
+    const logFile = await writeRunLog('enrich-flags', {
+      script: 'enrich-flags',
+      started_at: startedAt,
+      ended_at: new Date().toISOString(),
+      args: { all: allFlag },
+      processed: allRows.length,
+      types_classified: typesAdded,
+      kids_flagged: kidsSet,
+      distances_from_name: distancesAdded,
+      unchanged,
+      errors,
+      changes,
+    })
+    console.log(`Run log: ${logFile}`)
+  }
 }
 
 main().catch(console.error)

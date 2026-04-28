@@ -412,8 +412,12 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
 
       for (const raw of allRows) {
         try {
+          // maratonypolskie publishes "Smak Maraton" filler entries with leading "<num>-<num>" — junk, never merge.
+          const isSmakMaratonJunk = source.name === 'maratonypolskie'
+            && raw.name && /^\s*\d+-\d+\s+smak\s+maraton\b/i.test(raw.name)
+
           // Skip non-running events and past events — mark merged so they don't re-appear
-          if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || (raw.date && raw.date < today)) {
+          if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || (raw.date && raw.date < today) || isSmakMaratonJunk) {
             if (!dryRun) {
               await supabase.from(source.table).update({ merged_at: new Date().toISOString() }).eq('id', raw.id)
             }

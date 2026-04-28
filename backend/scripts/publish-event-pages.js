@@ -8,6 +8,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { generateEventOg } from '../../public/scripts/generate-event-og.js'
+import { writeRunLog } from './lib/run-log.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..', '..')
@@ -43,6 +44,7 @@ function slugify(name, date, id) {
 const dryRun = !process.argv.includes('--apply')
 
 async function main() {
+  const startedAt = new Date().toISOString()
   if (dryRun) console.log('=== DRY RUN (use --apply to write files) ===\n')
 
   // 1. Create Supabase client
@@ -237,6 +239,7 @@ async function main() {
   }
   let generated = 0
   let genErrors = 0
+  const ogErrors = []
 
   for (const slug of toGenerate) {
     const eventDir = resolve(KALENDARZ_DIR, slug)
@@ -251,6 +254,7 @@ async function main() {
       }
     } catch (err) {
       genErrors++
+      ogErrors.push({ slug, message: err.message })
       console.error(`  Error generating OG for ${slug}: ${err.message}`)
     }
   }
@@ -271,6 +275,25 @@ async function main() {
   console.log(`  OG image errors:     ${genErrors}`)
   console.log(`  Directories removed: ${removed.length}`)
   console.log(`  Manifest written:    ${MANIFEST_PATH}`)
+
+  const logFile = await writeRunLog('publish-event-pages', {
+    script: 'publish-event-pages',
+    started_at: startedAt,
+    ended_at: new Date().toISOString(),
+    args: { regen_og: regenOg },
+    total_events: newSlugs.size,
+    added: added.length,
+    changed: changed.length,
+    removed: removed.length,
+    unchanged,
+    og_generated: generated,
+    og_errors: genErrors,
+    added_slugs: added,
+    removed_slugs: removed,
+    changed_slugs: changed,
+    og_error_details: ogErrors,
+  })
+  console.log(`  Run log:             ${logFile}`)
 }
 
 main().catch(err => {

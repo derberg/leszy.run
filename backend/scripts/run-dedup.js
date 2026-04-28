@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { jaccardSimilarity, citiesMatch, tokenize, SOURCE_PRIORITY } from '../src/scrapers/dedup.js'
+import { writeRunLog } from './lib/run-log.js'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-dedup.js
 // Run AFTER normalize (step 5.5), BEFORE publish (step 6).
@@ -109,6 +110,7 @@ function isDuplicate(a, b) {
 }
 
 async function main() {
+  const startedAt = new Date().toISOString()
   console.log(dryRun ? '=== DRY RUN (use --apply to execute) ===' : '=== APPLYING DEDUP ===')
 
   // Fetch all rows from scraper_all
@@ -249,6 +251,23 @@ async function main() {
   }
 
   console.log(`\n\nDone: merged=${merged} errors=${errors}`)
+
+  const logFile = await writeRunLog('dedup', {
+    script: 'dedup',
+    started_at: startedAt,
+    ended_at: new Date().toISOString(),
+    total_rows_loaded: allRows.length,
+    duplicates_found: merges.length,
+    merged,
+    errors,
+    merges: merges.map(({ winner, loser }) => ({
+      date: winner.date,
+      location: winner.location,
+      winner: { id: winner.id, source: winner.source, name: winner.name },
+      loser: { id: loser.id, source: loser.source, name: loser.name },
+    })),
+  })
+  console.log(`Run log: ${logFile}`)
 }
 
 main().catch(console.error)
