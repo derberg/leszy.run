@@ -7,7 +7,7 @@ from enricher.audit import process_url, AuditReportLine
 def _cfg():
     return SimpleNamespace(
         ollama_url="http://localhost:11434",
-        ollama_model="gemma3:27b",
+        ollama_model="qwen2.5:72b-instruct-q4_0",
         ollama_temperature=0.1,
         ollama_max_tokens=1024,
         url_timeout=5,

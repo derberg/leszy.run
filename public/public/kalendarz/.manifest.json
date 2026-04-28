@@ -1453,7 +1453,7 @@
     "name": "I Charytatywny Otwarty Bieg i Marsz Nord...",
     "date": "2026-04-11",
     "registration_deadline": null,
-    "regulamin_url": null,
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_bieg_Smardzów1.pdf",
     "price_from": null,
     "price_to": null,
     "location": "Smardzów Wrocławski",
@@ -1470,7 +1470,7 @@
       "uliczny",
       "dzieci"
     ],
-    "registration_url": null,
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2490/i-charytatywny-otwarty-bieg-i-marsz-nordic-walking-im-malgorzaty-kowcz.html",
     "website": "https://www.siechnice.gmina.pl/aktualnosc-7005-bieg_smardzowski.html",
     "is_kids": null
   },
@@ -7577,7 +7577,7 @@
       "trail",
       "dzieci"
     ],
-    "registration_url": "https://bacabiegi.pl/",
+    "registration_url": "https://dostartu.pl/baca-run-v15937",
     "website": "https://bacabiegi.pl",
     "is_kids": null
   },
@@ -7618,6 +7618,7 @@
       "800 m"
     ],
     "event_type": [
+      "nordic walking",
       "uliczny",
       "dzieci"
     ],
@@ -8016,7 +8017,7 @@
       "uliczny"
     ],
     "registration_url": "https://plus-timing.pl/zgloszenia/poznanska-triada-biegowa-2026/",
-    "website": null,
+    "website": "https://plus-timing.pl/zgloszenia/poznanska-triada-biegowa-2026/",
     "is_kids": null
   },
   "xxxiii-ogolnopolski-bieg-im-jana-kilinskiego-o-nagrode-firmy-paroc-2026-05-03": {
@@ -9108,7 +9109,7 @@
       "uliczny"
     ],
     "registration_url": "https://superczas.pl/biegnocny2026",
-    "website": null,
+    "website": "https://osir.lidzbarkw.pl/",
     "is_kids": null
   },
   "nocny-patrol-2026-nocny-bieg-gorski-i-marsz-nw-na-dystansach-35km-i-17km-2026-05-09": {
@@ -9659,7 +9660,7 @@
       "trail",
       "ultra"
     ],
-    "registration_url": null,
+    "registration_url": "https://liveds.datasport.pl/zawody_files/zawody11877.html",
     "website": "https://jedlina.pro-run.pl/",
     "is_kids": null
   },
@@ -9696,7 +9697,7 @@
     "name": "II JBL Run Katowice",
     "date": "2026-05-10",
     "registration_deadline": "2026-05-06",
-    "regulamin_url": null,
+    "regulamin_url": "https://elektronicznezapisy.pl/download/o8S9p0o5F0708107u7O4X6K13870L808/open",
     "price_from": 30,
     "price_to": 50,
     "location": "Katowice",
@@ -11069,28 +11070,6 @@
     "website": "https://time-sport.pl/zapisy-17-05-2026-bieg-trzech-zamkow-slawkow-2026/",
     "is_kids": null
   },
-  "32-bieg-fiata-2026-05-17": {
-    "id": "fa9590bb-43f5-407b-8146-630e09a11c02",
-    "name": "32 Bieg Fiata",
-    "date": "2026-05-17",
-    "registration_deadline": "2026-05-06",
-    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11828.pdf",
-    "price_from": 100,
-    "price_to": 100,
-    "location": "Bielsko-Biała",
-    "voivodeship": "Wielkopolskie",
-    "lat": 52.607327,
-    "lng": 15.922842,
-    "distances": [
-      "10 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://liveds.datasport.pl/zawody_files/zawody11828.html",
-    "website": "https://liveds.datasport.pl/zawody_files/zawody11828.html",
-    "is_kids": null
-  },
   "wspolne-chwile-na-sportowo-niedziela-dla-biegaczy-2026-05-17": {
     "id": "f987551f-c877-4110-a3f5-6d450a3ddc44",
     "name": "Wspólne chwile na sportowo – niedziela dla biegaczy",
@@ -11217,7 +11196,7 @@
     "name": "IX Bieszczadzki Bieg Lotników - Lato",
     "date": "2026-05-17",
     "registration_deadline": "2026-05-10",
-    "regulamin_url": "https://kepasport.pl/wp-content/uploads/2026/03/REGULAMIN-letni-bieg-17052026a.pdf",
+    "regulamin_url": "https://www.maratonypolskie.pl/dokument/2026/87068_17504_regulamin.pdf",
     "price_from": 80,
     "price_to": 150,
     "location": "Ustrzyki Dolne",
@@ -11225,11 +11204,9 @@
     "lat": 49.430187,
     "lng": 22.5877,
     "distances": [
-      "5 km",
-      "21 km"
+      "21.1 km"
     ],
     "event_type": [
-      "nordic walking",
       "trail"
     ],
     "registration_url": "https://kepasport.pl/wydarzenie/bieszczadzki-bieg-lotnikow-lato-2/",
@@ -11633,30 +11610,6 @@
     "website": "https://www.okowokozrakiem.pl/bieg-oko-w-oko-z-rakiem/",
     "is_kids": null
   },
-  "xxiii-bieg-skawinski-2026-05-17": {
-    "id": "a764a82c-7046-477f-a4fb-a5426d936f1d",
-    "name": "XXIII Bieg Skawiński",
-    "date": "2026-05-17",
-    "registration_deadline": "2026-05-14",
-    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11829.pdf",
-    "price_from": null,
-    "price_to": 100,
-    "location": "Skawina",
-    "voivodeship": "Małopolskie",
-    "lat": 49.974751,
-    "lng": 19.82657,
-    "distances": [
-      "10 km",
-      "9 km"
-    ],
-    "event_type": [
-      "nordic walking",
-      "uliczny"
-    ],
-    "registration_url": "https://liveds.datasport.pl/zawody_files/zawody11825.html",
-    "website": "https://biegskawina.pl/bieg-skawinski/",
-    "is_kids": null
-  },
   "ix-bieg-rolnika-2026-05-17": {
     "id": "f72fd407-37d9-445c-8243-98c4719bd829",
     "name": "IX Bieg Rolnika",
@@ -11684,7 +11637,7 @@
     "name": "Sierakowicka Piętnastka",
     "date": "2026-05-17",
     "registration_deadline": "2025-05-18",
-    "regulamin_url": null,
+    "regulamin_url": "https://zapisy.info/media/regulations/sierakowicka-pietnastka.pdf",
     "price_from": 30,
     "price_to": 90,
     "location": "Sierakowice",
@@ -11692,14 +11645,12 @@
     "lat": 54.345194,
     "lng": 17.893558,
     "distances": [
-      "5 km",
-      "10 km",
-      "15 km"
+      "5 km"
     ],
     "event_type": [
       "uliczny"
     ],
-    "registration_url": "https://zapisy.info/",
+    "registration_url": "https://zapisy.info/imprezy/712/",
     "website": "https://www.kaszubybiegaja.pl/",
     "is_kids": null
   },
@@ -11791,6 +11742,50 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15329/signup.html",
     "website": null,
+    "is_kids": null
+  },
+  "32-bieg-fiata-2026-05-17": {
+    "id": "fa9590bb-43f5-407b-8146-630e09a11c02",
+    "name": "32 Bieg Fiata",
+    "date": "2026-05-17",
+    "registration_deadline": "2026-05-06",
+    "regulamin_url": "https://biegfiata.pl/regulaminy/",
+    "price_from": 100,
+    "price_to": 100,
+    "location": "Bielsko-Biała",
+    "voivodeship": "Śląskie",
+    "lat": 52.607327,
+    "lng": 15.922842,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://liveds.datasport.pl/zawody_files/zawody11828.html",
+    "website": "https://liveds.datasport.pl/zawody_files/zawody11828.html",
+    "is_kids": null
+  },
+  "xxiii-bieg-skawinski-2026-05-17": {
+    "id": "a764a82c-7046-477f-a4fb-a5426d936f1d",
+    "name": "XXIII Bieg Skawiński",
+    "date": "2026-05-17",
+    "registration_deadline": "2026-05-14",
+    "regulamin_url": "https://www.maratonypolskie.pl/dokument/2026/86111_35_regulamin-bieg.pdf",
+    "price_from": null,
+    "price_to": 100,
+    "location": "Skawina",
+    "voivodeship": "Małopolskie",
+    "lat": 49.974751,
+    "lng": 19.82657,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://liveds.datasport.pl/zawody_files/zawody11825.html",
+    "website": "https://biegskawina.pl/bieg-skawinski/",
     "is_kids": null
   },
   "cytadela-by-night-115-wartostrada-2026-05-19": {
@@ -12008,7 +12003,8 @@
       "200m"
     ],
     "event_type": [
-      "uliczny"
+      "uliczny",
+      "dzieci"
     ],
     "registration_url": "https://competitions.timekeeper.pl/10-ksos-family-run",
     "website": "https://familyrun.ksos.pl/",
@@ -17555,7 +17551,7 @@
     "name": "Biegi w Rogoźniku",
     "date": "2026-06-13",
     "registration_deadline": "2026-06-03",
-    "regulamin_url": "https://www.biegiwrogozniku.pl/regulamin-13-06-2026r/",
+    "regulamin_url": "http://www.biegiwrogozniku.pl",
     "price_from": 30,
     "price_to": 225,
     "location": "Rogoźnik",
@@ -17574,9 +17570,10 @@
     ],
     "event_type": [
       "nordic walking",
-      "uliczny"
+      "uliczny",
+      "dzieci"
     ],
-    "registration_url": "https://zapisy.raatiming.pl/rejestracja-biegiwrogozniku/",
+    "registration_url": "https://zapisy.raatiming.pl/biegiwrogozniku-ultrarogohero.html",
     "website": "https://www.biegiwrogozniku.pl/",
     "is_kids": null
   },
@@ -25938,7 +25935,7 @@
     "name": "XVIII Bieg Koguta",
     "date": "2026-09-06",
     "registration_deadline": "2026-08-30",
-    "regulamin_url": null,
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/18_Bieg_Koguta_2026_-_zgoda_na_pobranie_pakietu_startowego.pdf",
     "price_from": 80,
     "price_to": 100,
     "location": "Oława",
