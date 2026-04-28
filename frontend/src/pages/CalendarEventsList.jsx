@@ -4,15 +4,41 @@ import { api } from '../lib/api.js'
 
 const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm py-1.5 px-2 outline-none focus:border-apex-yellow-dim'
 
+const NUMERIC_FIELDS = new Set(['price_from', 'price_to'])
+
+const hasValue = (v) => v !== null && v !== undefined && v !== ''
+
 function InlineEdit({ event, field, onSave }) {
   const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(event[field] || '')
+  const [value, setValue] = useState('')
+
+  const current = event[field]
+  const filled = hasValue(current)
+  const isLocked = (event.locked_fields || []).includes(field)
+
+  const startEdit = () => {
+    setValue(filled ? String(current) : '')
+    setEditing(true)
+  }
 
   const save = () => {
-    if (value !== (event[field] || '')) {
-      onSave(event.id, { [field]: value || null })
+    const trimmed = value.trim()
+    const currentStr = filled ? String(current) : ''
+    if (trimmed !== currentStr) {
+      let payload
+      if (trimmed === '') payload = null
+      else if (NUMERIC_FIELDS.has(field)) {
+        const n = Number(trimmed)
+        payload = Number.isFinite(n) ? n : null
+      } else payload = trimmed
+      onSave(event.id, { [field]: payload })
     }
     setEditing(false)
+  }
+
+  const markEmpty = (e) => {
+    e.stopPropagation()
+    onSave(event.id, { [field]: null })
   }
 
   if (editing) {
@@ -28,13 +54,46 @@ function InlineEdit({ event, field, onSave }) {
     )
   }
 
+  if (filled) {
+    return (
+      <span
+        className="cursor-pointer hover:text-apex-yellow-dim"
+        onClick={startEdit}
+        title="Kliknij aby edytować"
+      >
+        {String(current)}
+      </span>
+    )
+  }
+
+  if (isLocked) {
+    return (
+      <span
+        className="cursor-pointer hover:text-apex-yellow-dim text-apex-muted italic"
+        onClick={startEdit}
+        title="Oznaczone jako brak (zatwierdzone)"
+      >
+        brak
+      </span>
+    )
+  }
+
   return (
-    <span
-      className={`cursor-pointer hover:text-apex-yellow-dim ${!event[field] ? 'text-apex-red italic' : ''}`}
-      onClick={() => setEditing(true)}
-      title="Kliknij aby edytować"
-    >
-      {event[field] || '—'}
+    <span className="inline-flex items-center gap-2">
+      <span
+        className="cursor-pointer hover:text-apex-yellow-dim text-apex-red italic"
+        onClick={startEdit}
+        title="Kliknij aby edytować"
+      >
+        —
+      </span>
+      <button
+        onClick={markEmpty}
+        className="font-mono text-[9px] tracking-wide uppercase text-apex-muted hover:text-apex-text-bright underline decoration-dotted underline-offset-2"
+        title="Zatwierdź jako brak (event nie ma tej wartości)"
+      >
+        brak
+      </button>
     </span>
   )
 }
@@ -440,17 +499,27 @@ export default function CalendarEventsList() {
 
   // Single source of truth for "what makes an event complete" — matches the enricher's
   // --incomplete criteria so the admin view reflects what the enricher will re-process.
-  const isIncomplete = (e) => (
-    !e.location ||
-    !e.voivodeship ||
-    !e.event_type?.length ||
-    !e.distances?.length ||
-    !e.registration_url ||
-    !e.regulamin_url ||
-    !e.website ||
-    !e.registration_deadline ||
-    !e.price_from
-  )
+  // A field counts as "decided" if it has a value OR if admin explicitly locked it as empty
+  // (the backend auto-adds edited fields to locked_fields, and the "brak" button locks an empty value).
+  const isIncomplete = (e) => {
+    const locked = new Set(e.locked_fields || [])
+    const missing = (field, val) => {
+      if (locked.has(field)) return false
+      if (Array.isArray(val)) return val.length === 0
+      return val === null || val === undefined || val === ''
+    }
+    return (
+      missing('location', e.location) ||
+      missing('voivodeship', e.voivodeship) ||
+      missing('event_type', e.event_type) ||
+      missing('distances', e.distances) ||
+      missing('registration_url', e.registration_url) ||
+      missing('regulamin_url', e.regulamin_url) ||
+      missing('website', e.website) ||
+      missing('registration_deadline', e.registration_deadline) ||
+      missing('price_from', e.price_from)
+    )
+  }
   const incomplete = active.filter(isIncomplete)
   const complete = active.filter(e => !isIncomplete(e))
 
