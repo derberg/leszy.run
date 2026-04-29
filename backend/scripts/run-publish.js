@@ -11,8 +11,24 @@ const startedAt = new Date().toISOString()
 const dryRun = !process.argv.includes('--apply')
 if (dryRun) console.log('=== DRY RUN (use --apply to write to DB) ===\n')
 
+function locationToString(loc) {
+  if (!loc) return ''
+  if (typeof loc === 'string') return loc
+  if (typeof loc === 'object') {
+    return [loc.city, loc.region, loc.country].filter(Boolean).join(', ') || JSON.stringify(loc)
+  }
+  return String(loc)
+}
+
 publishToCalendar({ dryRun })
-  .then(async ({ created, skipped, fuzzySkipped, errors }) => {
+  .then(async ({ created, skipped, fuzzySkipped, errors, createdLog }) => {
+    if (createdLog && createdLog.length > 0) {
+      console.log(`\n--- ${dryRun ? 'Would create' : 'Created'} ${createdLog.length} event(s) ---`)
+      for (const c of createdLog) {
+        const place = [locationToString(c.location), c.voivodeship].filter(Boolean).join(' / ')
+        console.log(`  [${c.date}] ${c.name}${place ? ` — ${place}` : ''} (${c.source}:${c.source_id})`)
+      }
+    }
     console.log('\n--- Publish Summary (scraper_all → calendar_events) ---')
     console.log(`  created=${created} skipped=${skipped} fuzzySkipped=${fuzzySkipped || 0} errors=${errors.length}`)
     for (const e of errors) {
@@ -27,6 +43,14 @@ publishToCalendar({ dryRun })
         skipped,
         fuzzy_skipped: fuzzySkipped || 0,
         errors: errors.map(e => ({ name: e.name || null, message: String(e.message || e) })),
+        created_events: (createdLog || []).map(c => ({
+          name: c.name,
+          date: c.date,
+          location: c.location,
+          voivodeship: c.voivodeship,
+          source: c.source,
+          source_id: c.source_id,
+        })),
       })
       console.log(`\nRun log: ${logFile}`)
     }

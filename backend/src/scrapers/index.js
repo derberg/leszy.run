@@ -624,6 +624,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
   let created = 0, skipped = 0, fuzzySkipped = 0
   const errors = []
   const fuzzyLog = []
+  const createdLog = []
   const now = new Date().toISOString()
 
   for (const raw of allRows) {
@@ -706,6 +707,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
     if (dryRun) {
       created++
+      createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id })
     } else {
       const { error } = await supabase
         .from('calendar_events')
@@ -715,6 +717,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
         errors.push({ name: raw.name, message: error.message })
       } else {
         created++
+        createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id })
         // Track so we don't insert dupes from same batch
         if (raw.source && raw.source_id) existingLinks.add(`${raw.source}:${raw.source_id}`)
         for (const l of links) {
@@ -740,7 +743,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
     }
   }
 
-  return { created, skipped, fuzzySkipped, errors, fuzzyLog }
+  return { created, skipped, fuzzySkipped, errors, fuzzyLog, createdLog }
 }
 
 export { runPipeline, mergeIntoScraperAll, publishToCalendar }
