@@ -30,7 +30,12 @@ function dockerArgv(step) {
   }
   if (step.type === 'enricher') {
     // One-shot enricher container. `--profile run-once` matches the compose definition.
-    return ['docker', 'compose', '--profile', 'run-once', 'run', '--rm', '-T', 'enricher', ...step.cmd];
+    // `--no-deps` is critical: without it, compose would try to (re)start `searxng` as
+    // a dependency, but its bind mount uses a path relative to the compose file. The
+    // scheduler sees the compose file at /workspace/docker-compose.yml inside its
+    // container, so the daemon ends up asking macOS to mount /workspace/enricher/...
+    // which doesn't exist on the host. searxng must already be running on the host.
+    return ['docker', 'compose', '--profile', 'run-once', 'run', '--rm', '--no-deps', '-T', 'enricher', ...step.cmd];
   }
   throw new Error(`unknown step type: ${step.type}`);
 }
