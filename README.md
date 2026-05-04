@@ -166,6 +166,26 @@ Still in the preset view:
 
 You should immediately see messages arriving in `mosquitto/log/mosquitto.log` and raw reads appearing in the LeszyRun app under Race Control → Surowe odczyty RFID.
 
+## Daily scrape→enrich→publish scheduler
+
+The `scheduler` container runs `node-cron` jobs at 08:00 (full pipeline) and 09:00 (watchdog) Europe/Warsaw. On any failure it sends an email via SendGrid to `PIPELINE_ALERT_EMAIL`.
+
+Check it's loaded and pick up the latest banner:
+
+```bash
+docker compose ps scheduler && docker logs leszyrun-scheduler-1 --tail 5
+```
+
+Trigger a manual run:
+
+```bash
+docker compose exec scheduler npm run pipeline
+```
+
+Full design: [docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md](docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md).
+
+---
+
 ## Supabase sync (optional)
 
 Set these in `.env`:
