@@ -76,7 +76,7 @@ scheduler:
     dockerfile: scheduler/Dockerfile
   environment:
     SENDGRID_API_KEY: ${SENDGRID_API_KEY}
-    SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-noreply@leszy.run}
+    SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-biuro@zatyrani.pl}
     PIPELINE_ALERT_EMAIL: ${PIPELINE_ALERT_EMAIL:-lpgornicki@gmail.com}
     SUPABASE_URL: ${SUPABASE_URL}
     SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
@@ -230,18 +230,17 @@ All three new services join the existing default compose network. No new network
 3. Delete `enricher/docker-compose.yml`. (Confirmed: only contains `searxng` definition; no other consumers in repo.)
 4. Add `scheduler/` directory with all 7 files listed in §1.
 5. Extend root `docker-compose.yml` with `scheduler`, `enricher`, `searxng` services.
-6. Add `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL=noreply@leszy.run`, `PIPELINE_ALERT_EMAIL=lpgornicki@gmail.com` to `.env` and document them in CLAUDE.md.
-7. **Verify `noreply@leszy.run` is a verified single-sender or domain in SendGrid before first deploy.** If not yet verified, the first email will silently 403. Solution: verify in SendGrid dashboard, or temporarily fall back to `biuro@zatyrani.pl` (already verified for zatyrani.pl).
-8. Replace [scripts/daily-pipeline.sh](../../../scripts/daily-pipeline.sh) with a thin wrapper:
+6. Add `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL=biuro@zatyrani.pl`, `PIPELINE_ALERT_EMAIL=lpgornicki@gmail.com` to `.env` and document them in CLAUDE.md. (`biuro@zatyrani.pl` is already verified in SendGrid for the zatyrani.pl project — no extra verification needed.)
+7. Replace [scripts/daily-pipeline.sh](../../../scripts/daily-pipeline.sh) with a thin wrapper:
    ```bash
    #!/usr/bin/env bash
    exec docker compose exec scheduler npm run pipeline
    ```
-9. Disable the `0 8 * * *` cron entry in user crontab. Keep the 6h pg_dump and 09:00 backup watchdog.
-10. `docker compose up -d --build scheduler searxng` (enricher is build-only at this stage; will be invoked by scheduler).
-11. Manual smoke test: `docker compose exec scheduler npm run pipeline` — confirm all 11 steps run, heartbeat is written, no email fired.
-12. Force-failure test: temporarily set `SUPABASE_URL=` invalid → run pipeline → confirm failure email arrives at lpgornicki@gmail.com.
-13. Force-watchdog test: delete heartbeat file → run watchdog manually → confirm missed-run email arrives.
+8. Disable the `0 8 * * *` cron entry in user crontab. Keep the 6h pg_dump and 09:00 backup watchdog.
+9. `docker compose up -d --build scheduler searxng` (enricher is build-only at this stage; will be invoked by scheduler).
+10. Manual smoke test: `docker compose exec scheduler npm run pipeline` — confirm all 11 steps run, heartbeat is written, no email fired.
+11. Force-failure test: temporarily set `SUPABASE_URL=` invalid → run pipeline → confirm failure email arrives at lpgornicki@gmail.com.
+12. Force-watchdog test: delete heartbeat file → run watchdog manually → confirm missed-run email arrives.
 
 ## Failure modes & mitigations
 
@@ -254,7 +253,6 @@ All three new services join the existing default compose network. No new network
 | Laptop off at 08:00                                  | Same — heartbeat stale at 09:00 next day | Watchdog email next time machine boots and watchdog fires.                          |
 | SendGrid down                                        | `sgMail.send()` rejects                  | Logged to stderr (visible in `docker logs scheduler`). No retry — don't compound.   |
 | Ollama not running on host                           | enricher step exits non-zero             | Failure email naming `enricher` step.                                               |
-| `noreply@leszy.run` not verified in SendGrid         | First send returns 403                   | Documented in migration step 7. Fallback `biuro@zatyrani.pl`.                       |
 
 ## Out of scope
 
@@ -276,7 +274,7 @@ After implementation:
 ## Decisions taken (no further input needed)
 
 - Email recipient: `lpgornicki@gmail.com`.
-- From: `noreply@leszy.run` (operator to verify in SendGrid before cutover).
+- From: `biuro@zatyrani.pl` (already verified in SendGrid for zatyrani.pl, reused here to avoid sender-verification overhead).
 - Searxng: moved into root compose; per-app compose file deleted.
 - Docker socket mount over `dockerode`: shell out to `docker` CLI from scheduler. Less abstraction, fewer deps, easier to reason about. The scheduler's `Dockerfile` installs the docker CLI binary.
 - node-cron over agenda/bull/etc: in-process scheduler is sufficient for two jobs/day. No persistence layer needed; missed runs are caught by the watchdog.
