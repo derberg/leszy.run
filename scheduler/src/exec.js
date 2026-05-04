@@ -34,12 +34,12 @@ export function runCommand({ argv, env, cwd, logWrite, stderrTailLines = 50, tim
 
     proc.stdout.on('data', (d) => {
       stdoutBuf += d.toString('utf8');
-      stdoutBuf = drainLines(stdoutBuf, (line) => logWrite(`[stdout] ${line}\n`));
+      stdoutBuf = drainLines(stdoutBuf, (line) => logWrite(`${line}\n`));
     });
     proc.stderr.on('data', (d) => {
       stderrBuf += d.toString('utf8');
       stderrBuf = drainLines(stderrBuf, (line) => {
-        logWrite(`[stderr] ${line}\n`);
+        logWrite(`${line}\n`);
         pushStderr(line);
       });
     });
@@ -60,9 +60,9 @@ export function runCommand({ argv, env, cwd, logWrite, stderrTailLines = 50, tim
     proc.on('close', (code, signal) => {
       clearTimeout(timeout);
       // Flush any trailing buffer that didn't end with \n
-      if (stdoutBuf) logWrite(`[stdout] ${stdoutBuf}\n`);
+      if (stdoutBuf) logWrite(`${stdoutBuf}\n`);
       if (stderrBuf) {
-        logWrite(`[stderr] ${stderrBuf}\n`);
+        logWrite(`${stderrBuf}\n`);
         pushStderr(stderrBuf);
       }
       resolve({
