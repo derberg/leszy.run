@@ -48,12 +48,35 @@ def extract_pdf_text(pdf_path: str, max_chars: int = 15_000) -> Optional[str]:
         return None
 
 
+_converter = None
+
+
+def _get_converter():
+    """Lazy-init a Docling converter with OCR disabled.
+
+    Regulamin PDFs are text-based; OCR (default: easyocr/PyTorch) is wasted work.
+    Loading PyTorch on top of the chromium/playwright/crawl4ai stack also trips
+    the glibc dl-tls.c assertion, so leaving OCR on is actively harmful in this
+    container. Caching the converter avoids re-doing model loading per PDF.
+    """
+    global _converter
+    if _converter is None:
+        from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.pipeline_options import PdfPipelineOptions
+        from docling.document_converter import DocumentConverter, PdfFormatOption
+
+        pipeline_options = PdfPipelineOptions(do_ocr=False)
+        _converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+            }
+        )
+    return _converter
+
+
 def _docling_extract(pdf_path: str) -> str:
     """Call Docling to convert PDF to text."""
-    from docling.document_converter import DocumentConverter
-
-    converter = DocumentConverter()
-    result = converter.convert(pdf_path)
+    result = _get_converter().convert(pdf_path)
     return result.document.export_to_markdown()
 
 
