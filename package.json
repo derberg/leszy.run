@@ -1,7 +1,7 @@
 {
   "name": "leszyrun",
   "private": true,
-  "workspaces": ["backend", "frontend", "public", "packages/ui"],
+  "workspaces": ["backend", "frontend", "public", "packages/ui", "scheduler"],
   "scripts": {
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",

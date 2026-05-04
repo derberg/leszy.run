@@ -1,0 +1,10 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+logs
+*.log
+.pytest_cache
+leszyrun_enricher.egg-info
+docker-compose.yml
+tests

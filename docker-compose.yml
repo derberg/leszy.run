@@ -60,5 +60,58 @@ services:
         - action: rebuild
           path: ./frontend/package.json
 
+  searxng:
+    image: searxng/searxng:latest
+    container_name: leszyrun-searxng
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./enricher/searxng-settings.yml:/etc/searxng/settings.yml:ro
+      - searxng-data:/etc/searxng
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: scheduler/Dockerfile
+    environment:
+      TZ: Europe/Warsaw
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-biuro@zatyrani.pl}
+      PIPELINE_ALERT_EMAIL: ${PIPELINE_ALERT_EMAIL:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      LOG_DIR: /app/logs
+      COMPOSE_DIR: /workspace
+    volumes:
+      # docker socket so the scheduler can shell out to sibling services
+      - /var/run/docker.sock:/var/run/docker.sock
+      # mount compose context so `docker compose exec/run` resolves services
+      - ./docker-compose.yml:/workspace/docker-compose.yml:ro
+      - ./.env:/workspace/.env:ro
+      # writable: pipeline log + heartbeat
+      - ./logs:/app/logs
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+  enricher:
+    build:
+      context: .
+      dockerfile: enricher/Dockerfile
+    environment:
+      TZ: Europe/Warsaw
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      OLLAMA_URL: http://host.docker.internal:11434
+      SEARXNG_URL: http://searxng:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - searxng
+    profiles: [run-once]
+
 volumes:
   pgdata:
+  searxng-data:

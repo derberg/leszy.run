@@ -1,0 +1,17 @@
+{
+  "name": "leszyrun-scheduler",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "pipeline": "node src/run-pipeline.js",
+    "watchdog": "node src/run-watchdog.js"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.4",
+    "@supabase/supabase-js": "^2.49.1",
+    "html-to-text": "^9.0.5",
+    "node-cron": "^4.2.1"
+  }
+}

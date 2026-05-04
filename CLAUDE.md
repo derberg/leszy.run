@@ -39,6 +39,8 @@ LeszyRun/
   frontend/     React + Vite (admin UI)
   public/       React + Vite (public-facing: live results, volunteer bib entry, self-service check-in)
   packages/ui/  Shared UI components (@leszyrun/ui)
+  scheduler/    Node.js + node-cron daemon, runs the daily scrape→enrich→publish pipeline at 08:00 Europe/Warsaw and a watchdog at 09:00. Sends SendGrid alerts on failure.
+  enricher/     Python (Crawl4AI + Docling + local Ollama) for LLM enrichment, run-once container in compose
   mosquitto/    native macOS, NOT dockerized (hardware constraint)
 ```
 
@@ -83,6 +85,11 @@ SMS (backend, optional — SMS disabled if missing):
 
 Scraper (backend, optional — URL resolver disabled if missing):
 - `BRAVE_SEARCH_API_KEY` — API key from https://brave.com/search/api/ (1000 queries/month free tier)
+
+Pipeline scheduler / alerting (scheduler container, optional — alerts disabled if missing):
+- `SENDGRID_API_KEY` — SendGrid API key (reused from zatyrani.pl). Without this the scheduler still runs the pipeline but cannot send failure emails.
+- `SENDGRID_FROM_EMAIL` — verified sender, e.g. `"Stowarzyszenie ZATYRANI <biuro@zatyrani.pl>"`. Default falls back to `biuro@zatyrani.pl`.
+- `PIPELINE_ALERT_EMAIL` — recipient for `[FAIL]`, `[WARN]`, `[ALERT]` emails. Default `lpgornicki@gmail.com`.
 
 ## Backend conventions
 
@@ -283,44 +290,33 @@ scraper_* tables → scraper_all → calendar_events
 
 ### Running the full pipeline
 
+The 11-step daily pipeline runs automatically via the `scheduler` container at 08:00 Europe/Warsaw. To trigger ad-hoc:
+
 ```bash
-cd backend
+# Trigger inside the running scheduler container
+docker compose exec scheduler npm run pipeline
 
-# 1. Scrape raw data (6 sources → per-source tables)
-node --env-file=../.env scripts/run-scrapers.js
+# Or use the wrapper (which does exactly that)
+./scripts/daily-pipeline.sh
+```
 
-# 2. Merge into scraper_all (cross-source dedup)
-node --env-file=../.env scripts/run-merge.js --apply
+The scheduler orchestrates everything via `docker compose exec backend …` (steps 1–6, 8–11) and `docker compose run --rm enricher …` (step 7). On any non-zero exit it sends a SendGrid failure email; on full success with zero `calendar_events` row changes it sends a `[WARN]`. A 09:00 watchdog emails `[ALERT]` if the pipeline didn't run in the last 26h. See [docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md](docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md).
 
-# 2.5. Dedup scraper_all (same-source duplicates)
-node --env-file=../.env scripts/run-dedup.js --apply
+To run individual steps manually (debugging):
 
-# 3. Geocode missing voivodeships/coordinates
-node --env-file=../.env scripts/run-geocode.js --apply
-
-# 4. Enrich flags (types, kids, distances from keywords)
-node --env-file=../.env scripts/run-enrich-flags.js --apply
-
-# 4.5. Normalize voivodeships and event types
-node --env-file=../.env scripts/run-normalize.js --apply
-
-# 5. PRIMARY ENRICHMENT — Python enricher (local Ollama LLM)
-cd ../enricher && source .venv/bin/activate
-docker compose up -d  # Start SearXNG
-python -m enricher run
-
-# 5.1. OPTIONAL — Claude CLI fallback (for fields enricher missed)
-cd ../backend
-node --env-file=../.env scripts/run-enrich-search.js --apply
-
-# 5.5. Final dedup pass
-node --env-file=../.env scripts/run-dedup.js --apply
-
-# 6. Publish to calendar_events
-node --env-file=../.env scripts/run-publish.js --apply
-
-# 7. Generate static event pages manifest + OG images
-node --env-file=../.env scripts/publish-event-pages.js --apply
+```bash
+docker compose exec backend node scripts/run-scrapers.js                                # 1
+docker compose exec backend node scripts/run-merge.js --apply                           # 2
+docker compose exec backend node scripts/run-dedup.js --apply                           # 3
+docker compose exec backend node scripts/run-geocode.js --apply                         # 4
+docker compose exec backend node scripts/run-enrich-flags.js --apply                    # 5
+docker compose exec backend node scripts/run-normalize.js --apply                       # 6
+docker compose --profile run-once run --rm enricher python -m enricher run              # 7
+docker compose exec backend node scripts/run-enrich-search.js --apply                   # 8
+docker compose exec backend node scripts/run-dedup.js --apply                           # 9
+docker compose exec backend node scripts/run-normalize.js --apply                       # 10
+docker compose exec backend node scripts/run-publish.js --apply                         # 11
+docker compose exec backend node scripts/publish-event-pages.js --apply                 # post (manifest + OG images)
 ```
 
 ### Python Enricher — PRIMARY enrichment tool
