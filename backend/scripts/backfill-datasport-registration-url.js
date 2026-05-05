@@ -29,8 +29,13 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 const dryRun = !process.argv.includes('--apply')
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-const buildUrl = (sourceId) =>
-  `https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=${sourceId}`
+const buildUrl = (sourceId) => {
+  // datasport's own "Zapisz się" button URL — queue-wrapped so the race ID
+  // survives the login round-trip. wizardnew/form direct URLs lose the ID
+  // when they 302 to login.php / zaloguj.php.
+  const inner = encodeURIComponent(`https://online.datasport.pl/zapisy/portal/form/?zawody=${sourceId}&co=form`)
+  return `https://liveds.datasport.pl/queue/?redirect_url=${inner}`
+}
 
 async function fetchAllPaged(query) {
   const rows = []

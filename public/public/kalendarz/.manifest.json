@@ -14100,7 +14100,7 @@
     "lng": 20.779305,
     "distances": [],
     "event_type": [],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12278",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12278%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -15094,7 +15094,7 @@
       "uliczny",
       "dzieci"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=11742",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11742%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -15978,30 +15978,6 @@
     "website": "https://liveds.datasport.pl/zawody_files/zawody11677.html#features",
     "is_kids": null
   },
-  "15-bieg-gryfitow-przy-crossie-gryfitow-2026-06-06": {
-    "id": "f09276c3-31ad-45e0-9d6f-785ee8241f04",
-    "name": "15. Bieg Gryfitów przy CROSSIE GRYFITÓW",
-    "date": "2026-06-06",
-    "registration_deadline": null,
-    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11756.pdf",
-    "price_from": 80,
-    "price_to": 180,
-    "location": "Gryfów Śląski",
-    "voivodeship": "Dolnośląskie",
-    "lat": 51.028146,
-    "lng": 15.414505,
-    "distances": [
-      "42 km",
-      "21 km",
-      "10 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=11756",
-    "website": null,
-    "is_kids": null
-  },
   "sudecki-festiwal-biegow-gorskich-2026-06-06": {
     "id": "0ab7ef99-e262-49a8-abc1-f524653a413e",
     "name": "Sudecki Festiwal Biegów Gorskich",
@@ -16075,6 +16051,30 @@
     ],
     "registration_url": "https://zapisy.raatiming.pl/stowarzyszeniegorajerzego-polmaraton.html",
     "website": "https://zapisy.raatiming.pl/rejestracja-stowarzyszeniegorajerzego/",
+    "is_kids": null
+  },
+  "15-bieg-gryfitow-przy-crossie-gryfitow-2026-06-06": {
+    "id": "f09276c3-31ad-45e0-9d6f-785ee8241f04",
+    "name": "15. Bieg Gryfitów przy CROSSIE GRYFITÓW",
+    "date": "2026-06-06",
+    "registration_deadline": null,
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11756.pdf",
+    "price_from": 80,
+    "price_to": 180,
+    "location": "Gryfów Śląski",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.028146,
+    "lng": 15.414505,
+    "distances": [
+      "42 km",
+      "21 km",
+      "10 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11756%26co%3Dform",
+    "website": null,
     "is_kids": null
   },
   "xvi-bieg-borow-dolnoslaskich-2026-06-06": {
@@ -16294,7 +16294,7 @@
       "trail",
       "dzieci"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=11908",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11908%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -17599,7 +17599,7 @@
       "uliczny",
       "dzieci"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=11797",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11797%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -18204,7 +18204,7 @@
       "nordic walking",
       "uliczny"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12205",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12205%26co%3Dform",
     "website": "https://www.facebook.com/AktywnaGminaSportowyNiechlow/",
     "is_kids": null
   },
@@ -18536,7 +18536,7 @@
     "event_type": [
       "uliczny"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=11796",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11796%26co%3Dform",
     "website": "https://www.finishers.com/pl/e/swiebodzicki-bieg-muflona#",
     "is_kids": null
   },
@@ -18987,7 +18987,7 @@
       "nocny",
       "dzieci"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=11816",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11816%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -20289,7 +20289,7 @@
     "event_type": [
       "nocny"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12273",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12273%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -20639,39 +20639,6 @@
     "website": "https://elektronicznezapisy.pl/event/15245.html",
     "is_kids": null
   },
-  "baranowski-tour-walbrzych-rajd-rekreacyjny-2026-06-27": {
-    "id": "0f33c097-75da-4e42-af92-0f3607336714",
-    "name": "Baranowski Tour Wałbrzych - Rajd Rekreacyjny",
-    "date": "2026-06-27",
-    "registration_deadline": "2026-06-27",
-    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11905.pdf",
-    "price_from": 30,
-    "price_to": 120,
-    "location": "Wałbrzych",
-    "voivodeship": "Dolnośląskie",
-    "lat": 50.785221,
-    "lng": 16.28464,
-    "distances": [
-      "100 km",
-      "15 km",
-      "43 km",
-      "79 km",
-      "80 km",
-      "125 km",
-      "100m",
-      "300m",
-      "500m"
-    ],
-    "event_type": [
-      "trail",
-      "uliczny",
-      "ultra",
-      "dzieci"
-    ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=11905",
-    "website": null,
-    "is_kids": null
-  },
   "skrzydlaty-bieg-2026-06-27": {
     "id": "2012221a-141a-4002-9552-aa89c0ee69fa",
     "name": "Skrzydlaty Bieg",
@@ -20717,27 +20684,36 @@
     "website": "https://super-sport.com.pl/zapisy-formularze/4649-vii-niesulicka-dziesiatka.html",
     "is_kids": null
   },
-  "5-bieg-krolowej-bony-2026-06-27": {
-    "id": "cdc25fc2-4bac-4a3b-bd3d-9e9b3a35b6e1",
-    "name": "5. Bieg Królowej Bony",
+  "baranowski-tour-walbrzych-rajd-rekreacyjny-2026-06-27": {
+    "id": "0f33c097-75da-4e42-af92-0f3607336714",
+    "name": "Baranowski Tour Wałbrzych - Rajd Rekreacyjny",
     "date": "2026-06-27",
-    "registration_deadline": null,
-    "regulamin_url": "https://www.finishers.com/pl/e/bieg-krolowej-bony#",
-    "price_from": 5,
-    "price_to": 9,
-    "location": "Warszawa",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.231958,
-    "lng": 21.006725,
+    "registration_deadline": "2026-06-27",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11905.pdf",
+    "price_from": 30,
+    "price_to": 120,
+    "location": "Wałbrzych",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.785221,
+    "lng": 16.28464,
     "distances": [
-      "10 km",
-      "5 km"
+      "100 km",
+      "15 km",
+      "43 km",
+      "79 km",
+      "80 km",
+      "125 km",
+      "100m",
+      "300m",
+      "500m"
     ],
     "event_type": [
-      "nordic walking",
-      "trail"
+      "trail",
+      "uliczny",
+      "ultra",
+      "dzieci"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12151",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11905%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -20761,6 +20737,30 @@
     ],
     "registration_url": "https://super-sport.com.pl/zapisy-formularze/4651-iv-niesulicki-marsz-nordic-walking.html",
     "website": "https://super-sport.com.pl/zapisy-formularze/4651-iv-niesulicki-marsz-nordic-walking.html",
+    "is_kids": null
+  },
+  "5-bieg-krolowej-bony-2026-06-27": {
+    "id": "cdc25fc2-4bac-4a3b-bd3d-9e9b3a35b6e1",
+    "name": "5. Bieg Królowej Bony",
+    "date": "2026-06-27",
+    "registration_deadline": null,
+    "regulamin_url": "https://www.finishers.com/pl/e/bieg-krolowej-bony#",
+    "price_from": 5,
+    "price_to": 9,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "10 km",
+      "5 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12151%26co%3Dform",
+    "website": null,
     "is_kids": null
   },
   "supermaraton-gor-stolowych-2026-06-27": {
@@ -21144,7 +21144,7 @@
     "event_type": [
       "trail"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12288",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12288%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -21170,40 +21170,6 @@
       "nordic walking"
     ],
     "registration_url": "https://competitions.timekeeper.pl/iv-bieg-gorski-im-kuriera-jana-lozanskiego-2",
-    "website": null,
-    "is_kids": null
-  },
-  "baranowski-tour-walbrzych-2026-06-28": {
-    "id": "8742da76-1069-48f8-bdb2-db1bb3efaa84",
-    "name": "Baranowski Tour Wałbrzych",
-    "date": "2026-06-28",
-    "registration_deadline": "2026-06-27",
-    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11904.pdf",
-    "price_from": 80,
-    "price_to": 120,
-    "location": "Wałbrzych",
-    "voivodeship": "Dolnośląskie",
-    "lat": 50.785221,
-    "lng": 16.28464,
-    "distances": [
-      "15 km",
-      "43 km",
-      "79 km",
-      "125 km",
-      "1 km",
-      "2 km",
-      "3 km",
-      "5 km",
-      "100m",
-      "300m",
-      "500m"
-    ],
-    "event_type": [
-      "trail",
-      "ultra",
-      "dzieci"
-    ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=11904",
     "website": null,
     "is_kids": null
   },
@@ -21252,6 +21218,40 @@
       "uliczny"
     ],
     "registration_url": "https://dostartu.pl/permalink-v16097",
+    "website": null,
+    "is_kids": null
+  },
+  "baranowski-tour-walbrzych-2026-06-28": {
+    "id": "8742da76-1069-48f8-bdb2-db1bb3efaa84",
+    "name": "Baranowski Tour Wałbrzych",
+    "date": "2026-06-28",
+    "registration_deadline": "2026-06-27",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11904.pdf",
+    "price_from": 80,
+    "price_to": 120,
+    "location": "Wałbrzych",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.785221,
+    "lng": 16.28464,
+    "distances": [
+      "15 km",
+      "43 km",
+      "79 km",
+      "125 km",
+      "1 km",
+      "2 km",
+      "3 km",
+      "5 km",
+      "100m",
+      "300m",
+      "500m"
+    ],
+    "event_type": [
+      "trail",
+      "ultra",
+      "dzieci"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11904%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -22196,7 +22196,7 @@
     "event_type": [
       "uliczny"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=11991",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11991%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -23440,31 +23440,6 @@
     "website": "http://nadbuzanskibieg.pl/",
     "is_kids": null
   },
-  "v-festiwal-biegowy-pod-chelmcem-2026-07-26": {
-    "id": "467b6d4b-36a1-4c34-a6b0-514d57c8810a",
-    "name": "V Festiwal biegowy pod Chełmcem",
-    "date": "2026-07-26",
-    "registration_deadline": "2026-07-21",
-    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11981.pdf",
-    "price_from": 50,
-    "price_to": 120,
-    "location": "Szczawno Zdrój",
-    "voivodeship": "Dolnośląskie",
-    "lat": 50.795167,
-    "lng": 16.223271,
-    "distances": [
-      "5 km",
-      "10 km",
-      "22 km"
-    ],
-    "event_type": [
-      "trail",
-      "uliczny"
-    ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=11981",
-    "website": "https://mosirszczawno-zdroj.pl/",
-    "is_kids": null
-  },
   "kresowe-trail-8-janow-2026-2026-07-26": {
     "id": "12389da7-71cf-4aa6-a324-71fdd425a33b",
     "name": "Kresowe Trail #8 - JANÓW - 2026",
@@ -23559,6 +23534,31 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16156",
     "website": "https://bieguzdrowiskowy.pl/",
+    "is_kids": null
+  },
+  "v-festiwal-biegowy-pod-chelmcem-2026-07-26": {
+    "id": "467b6d4b-36a1-4c34-a6b0-514d57c8810a",
+    "name": "V Festiwal biegowy pod Chełmcem",
+    "date": "2026-07-26",
+    "registration_deadline": "2026-07-21",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11981.pdf",
+    "price_from": 50,
+    "price_to": 120,
+    "location": "Szczawno Zdrój",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.795167,
+    "lng": 16.223271,
+    "distances": [
+      "5 km",
+      "10 km",
+      "22 km"
+    ],
+    "event_type": [
+      "trail",
+      "uliczny"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11981%26co%3Dform",
+    "website": "https://mosirszczawno-zdroj.pl/",
     "is_kids": null
   },
   "2026-ustka-formoza-challenge-2026-07-26": {
@@ -25094,33 +25094,6 @@
     "website": "https://ultraswir.pl/",
     "is_kids": null
   },
-  "human-machine-100-km-vol-5-2026-08-29": {
-    "id": "6772d56c-c79a-4fd4-9aa0-47ac49f9e759",
-    "name": "HUMAN MACHINE 100 km vol. 5",
-    "date": "2026-08-29",
-    "registration_deadline": "2026-08-27",
-    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12135.pdf",
-    "price_from": 150,
-    "price_to": 250,
-    "location": "Piotrków Trybunalski",
-    "voivodeship": "Łódzkie",
-    "lat": 51.408263,
-    "lng": 19.696167,
-    "distances": [
-      "10 km",
-      "30 km",
-      "70 km",
-      "100 km"
-    ],
-    "event_type": [
-      "nocny",
-      "nordic walking",
-      "ultra"
-    ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12135",
-    "website": null,
-    "is_kids": null
-  },
   "kunicki-bieg-reggae-2026-2026-08-29": {
     "id": "6e94dc80-bf68-4501-940e-32980df38e55",
     "name": "Kunicki Bieg Reggae 2026",
@@ -25248,6 +25221,33 @@
       "trail"
     ],
     "registration_url": "https://competitions.timekeeper.pl/x-jubileuszowy-charytatywny-cross-oraz-nordic-walking-w-iwoniczu-zdroju",
+    "website": null,
+    "is_kids": null
+  },
+  "human-machine-100-km-vol-5-2026-08-29": {
+    "id": "6772d56c-c79a-4fd4-9aa0-47ac49f9e759",
+    "name": "HUMAN MACHINE 100 km vol. 5",
+    "date": "2026-08-29",
+    "registration_deadline": "2026-08-27",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12135.pdf",
+    "price_from": 150,
+    "price_to": 250,
+    "location": "Piotrków Trybunalski",
+    "voivodeship": "Łódzkie",
+    "lat": 51.408263,
+    "lng": 19.696167,
+    "distances": [
+      "10 km",
+      "30 km",
+      "70 km",
+      "100 km"
+    ],
+    "event_type": [
+      "nocny",
+      "nordic walking",
+      "ultra"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12135%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -25529,7 +25529,7 @@
     "lng": 15.454497,
     "distances": [],
     "event_type": [],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12276",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12276%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -25692,7 +25692,7 @@
     "event_type": [
       "ultra"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12268",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12268%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -26001,7 +26001,7 @@
     "event_type": [
       "nordic walking"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12270",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12270%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -26021,7 +26021,7 @@
     "event_type": [
       "dzieci"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12277",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12277%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -26590,7 +26590,7 @@
       "charytatywny",
       "uliczny"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12124",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12124%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -28146,7 +28146,7 @@
       "21.0975 km"
     ],
     "event_type": [],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12294",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12294%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -28410,7 +28410,7 @@
     "event_type": [
       "uliczny"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12293",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12293%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -28969,7 +28969,7 @@
     "event_type": [
       "trail"
     ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12053",
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12053%26co%3Dform",
     "website": null,
     "is_kids": null
   },

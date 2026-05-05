@@ -111,16 +111,25 @@ async function scrape({ knownIds = new Set() } = {}) {
         regulaminUrl = detail.regulaminUrl
       }
 
+      // The exact URL datasport's own "Zapisz się na zawody" button uses on the
+      // public event page. Goes through liveds.datasport.pl's anti-bot queue,
+      // then to the per-race signup form (which itself enforces login). Verified
+      // by scraping the public event page on 6 different competition IDs — same
+      // pattern every time. Tried two seemingly-cleaner alternatives first:
+      //   online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=<id>  → 302 to login.php (no event context)
+      //   online.datasport.pl/zapisy/portal/form/?zawody=<id>&co=form    → 302 to zaloguj.php (no event context)
+      // Both lose the race ID after redirect. The /queue/?redirect_url=… form
+      // URL preserves it through the auth round-trip, so post-login the user
+      // lands on the right race's signup form.
+      const formUrl = encodeURIComponent(`https://online.datasport.pl/zapisy/portal/form/?zawody=${entry.sourceId}&co=form`)
+      const registrationUrl = `${BASE_URL}/queue/?redirect_url=${formUrl}`
+
       results.push({
         name: entry.name,
         date: entry.date,
         location: entry.location,
         distances,
-        // datasport's canonical registration entry point — the new wizard.
-        // Pattern is stable; verified against multiple competition IDs returning 200.
-        // The source_url (zawody_files/...html) is the public info page, NOT a
-        // registration form, so it must not be used as registration_url.
-        registration_url: `https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=${entry.sourceId}`,
+        registration_url: registrationUrl,
         regulamin_url: regulaminUrl,
         source: 'datasport',
         source_url: `${BASE_URL}/zawody_files/zawody${entry.sourceId}.html`,
