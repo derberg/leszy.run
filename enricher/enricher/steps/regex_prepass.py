@@ -109,18 +109,70 @@ def extract_hints(
     return result
 
 
+# Only count `\d+ zł` matches that fall near entry-fee context. Without this,
+# the regex grabs every "300 zł nagroda" / "limit 500 osób" / "koszt naprawy
+# 1000 zł" / "wpłata charytatywna 1 zł" on the page and pollutes price_from /
+# price_to (we saw real cases produce 0-500 and 1-123 ranges, both wrong).
+_PRICE_ANCHORS = [
+    "opłata startowa", "oplata startowa",
+    "opłat startow", "oplat startow",
+    "opłaty startowej", "oplaty startowej",
+    "opłatę startową", "oplate startowa",
+    "wysokość opłaty", "wysokosc oplaty",
+    "wpisowe", "wpisowego",
+    "koszt udziału", "koszt udzialu",
+    "koszt startu", "koszt uczestnictwa",
+    "koszt zapisu", "koszt biegu",
+    "cena pakietu", "cena startu",
+    # Polish regulamin-table headers
+    "opłaty\n", "oplaty\n",
+    "płatności\n", "platnosci\n",
+    # Inline phrasings
+    "wynosi:", "wynosi ",
+    "wpłacona w terminie", "wplacona w terminie",
+    "do biura zawodów",
+]
+
+
 def _extract_prices(text: str) -> list[int]:
-    """Extract all plausible entry-fee amounts. Returns deduplicated int list."""
+    """Extract entry-fee amounts that appear near entry-fee context anchors.
+
+    Returns deduplicated int list. Plausibility-checked to 0..2000 PLN.
+    """
+    flat = text.lower()
+    # Build search windows around each anchor
+    windows: list[tuple[int, int]] = []
+    for anchor in _PRICE_ANCHORS:
+        start = 0
+        while True:
+            idx = flat.find(anchor, start)
+            if idx < 0:
+                break
+            windows.append((max(0, idx - 30), min(len(text), idx + len(anchor) + 400)))
+            start = idx + 1
+
+    if not windows:
+        return []
+
+    # Collapse overlapping windows so the same `\d+ zł` doesn't get counted twice
+    windows.sort()
+    merged: list[tuple[int, int]] = []
+    for s, e in windows:
+        if merged and s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+
     found = set()
-    for m in _PRICE_RE.finditer(text):
-        raw = m.group(1).replace(",", ".")
-        try:
-            val = float(raw)
-        except ValueError:
-            continue
-        # Plausibility: Polish running entry fees realistically range 0–2000 PLN
-        if 0 <= val <= 2000:
-            found.add(int(round(val)))
+    for s, e in merged:
+        for m in _PRICE_RE.finditer(text[s:e]):
+            raw = m.group(1).replace(",", ".")
+            try:
+                val = float(raw)
+            except ValueError:
+                continue
+            if 0 <= val <= 2000:
+                found.add(int(round(val)))
     return sorted(found)
 
 
