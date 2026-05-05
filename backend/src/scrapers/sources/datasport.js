@@ -116,7 +116,11 @@ async function scrape({ knownIds = new Set() } = {}) {
         date: entry.date,
         location: entry.location,
         distances,
-        registration_url: null,
+        // datasport's canonical registration entry point — the new wizard.
+        // Pattern is stable; verified against multiple competition IDs returning 200.
+        // The source_url (zawody_files/...html) is the public info page, NOT a
+        // registration form, so it must not be used as registration_url.
+        registration_url: `https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=${entry.sourceId}`,
         regulamin_url: regulaminUrl,
         source: 'datasport',
         source_url: `${BASE_URL}/zawody_files/zawody${entry.sourceId}.html`,

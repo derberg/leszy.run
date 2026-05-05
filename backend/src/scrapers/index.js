@@ -34,6 +34,7 @@ const sources = [
       date: raw.date,
       location: raw.location || null,
       distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
       regulamin_url: raw.regulamin_url || null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
