@@ -491,6 +491,20 @@ docker exec -it leszyrun-db-1 psql -U leszyrun -d leszyrun \
   -c "SELECT date_trunc('minute', received_at) as minute, COUNT(*) as pings FROM gate_events WHERE race_run_id = '<RACE_RUN_ID>' GROUP BY 1 ORDER BY 1;"
 ```
 
+## URL verification — REQUIRED before writing any URL to the DB
+
+**A 200 OK response is NOT proof a URL is correct.** If you write registration_url / regulamin_url / website / source_url to scraper_* or calendar_events without doing this, you will hallucinate broken URLs into production. This already happened once in this codebase (datasport `wizardnew` URLs — looked fine, 302'd to a login page that stripped the race id, locked them, had to revert).
+
+Before writing or constructing a URL pattern, you MUST:
+
+1. **Follow the full redirect chain.** Use `curl -sIL` (capital L follows redirects) AND inspect every `HTTP/...` and `location:` header in the chain — not just the final status. A "200 OK" at the end might just be a generic login page or 404 page that returns 200.
+2. **Confirm the destination has event-specific content.** Fetch the body and grep for the event name, the race id, the date — something that proves you landed on the right thing and not on a generic page.
+3. **Prefer URLs the source's own UI exposes.** If you're trying to construct a registration URL, scrape the source's public event page and grep for what their own "Zapisz się" / "Register" button uses as `href`. That's almost always the correct answer. Don't reverse-engineer URL patterns from query-param guesses.
+4. **For platforms that require login** (datasport, online registration sites, etc.) the registration URL must preserve the event identifier through the auth round-trip. Test by following the redirect chain — if the final URL has lost the race id, the URL is wrong even if it returns 200.
+5. **If automated verification is impossible** (e.g. the page is a SPA, anti-bot blocks curl, content depends on cookies), STOP. Generate 3–6 concrete example URLs across different IDs and ask the user to click them and confirm. Better to pause than to write broken URLs at scale.
+
+When you do construct a URL pattern in a scraper, the source comment must include: (a) the verification method, (b) the alternatives you ruled out and why, (c) whether user manual verification was used.
+
 ## Database write safety
 
 **Before running any INSERT, UPDATE, or DELETE on any database (local Postgres or Supabase), you MUST:**

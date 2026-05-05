@@ -113,14 +113,19 @@ async function scrape({ knownIds = new Set() } = {}) {
 
       // The exact URL datasport's own "Zapisz się na zawody" button uses on the
       // public event page. Goes through liveds.datasport.pl's anti-bot queue,
-      // then to the per-race signup form (which itself enforces login). Verified
-      // by scraping the public event page on 6 different competition IDs — same
-      // pattern every time. Tried two seemingly-cleaner alternatives first:
-      //   online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=<id>  → 302 to login.php (no event context)
-      //   online.datasport.pl/zapisy/portal/form/?zawody=<id>&co=form    → 302 to zaloguj.php (no event context)
-      // Both lose the race ID after redirect. The /queue/?redirect_url=… form
-      // URL preserves it through the auth round-trip, so post-login the user
-      // lands on the right race's signup form.
+      // then to the per-race signup form (which itself enforces login).
+      //
+      // VERIFIED:
+      //   1. scraped the public event page on 6 different competition IDs —
+      //      same /queue/?redirect_url=… pattern every time
+      //   2. user manually clicked through six concrete URLs and confirmed each
+      //      lands on the right race's signup form (post-login)
+      //
+      // Two seemingly-cleaner alternatives both fail:
+      //   online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=<id>  → 302 to login.php (race id stripped)
+      //   online.datasport.pl/zapisy/portal/form/?zawody=<id>&co=form    → 302 to zaloguj.php (race id stripped)
+      // The /queue/?redirect_url=… wrapper keeps the race id in a query param
+      // that survives the auth round-trip.
       const formUrl = encodeURIComponent(`https://online.datasport.pl/zapisy/portal/form/?zawody=${entry.sourceId}&co=form`)
       const registrationUrl = `${BASE_URL}/queue/?redirect_url=${formUrl}`
 
