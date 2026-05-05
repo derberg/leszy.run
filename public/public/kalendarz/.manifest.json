@@ -10091,6 +10091,28 @@
     "website": "https://dostartu.pl/xxviii-oleskie-uliczne-biegi-pokoju-v15959",
     "is_kids": null
   },
+  "bieg-po-zdrowie-2026-2026-05-16": {
+    "id": "786d745b-9d44-4c86-8d2a-1cab24fd1c28",
+    "name": "Bieg po Zdrowie 2026",
+    "date": "2026-05-16",
+    "registration_deadline": "2026-05-13",
+    "regulamin_url": "https://dostartu.pl/statute_files/16399_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Lublin",
+    "voivodeship": "Lubelskie",
+    "lat": 51.248862,
+    "lng": 22.546906,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "bieg"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16399",
+    "website": "https://fb.me/e/1Yzh2yPoKc",
+    "is_kids": null
+  },
   "rudawy-wiosenny-festiwal-biegowy-2026-05-16": {
     "id": "1b6668c7-848b-4487-b675-ae362766c99d",
     "name": "Rudawy Wiosenny Festiwal Biegowy",
@@ -13495,6 +13517,28 @@
     "website": null,
     "is_kids": null
   },
+  "bieg-po-zdrowie-2026-05-24": {
+    "id": "5d5ce49b-20a3-48f6-b083-903ba1e39559",
+    "name": "Bieg Po Zdrowie",
+    "date": "2026-05-24",
+    "registration_deadline": "2026-05-21",
+    "regulamin_url": "https://dostartu.pl/statute_files/16370_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Karczmiska",
+    "voivodeship": "Lubelskie",
+    "lat": 51.231398,
+    "lng": 21.989822,
+    "distances": [
+      "3 km"
+    ],
+    "event_type": [
+      "bieg"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16370",
+    "website": null,
+    "is_kids": null
+  },
   "x-wojewodzkie-mistrzostwa-policji-w-biegu-przelajowym-im-st-sierz-marka-sienickiego-2026-05-27": {
     "id": "ab9657da-ea5b-4867-9b4c-c5dc25da657f",
     "name": "X Wojewódzkie Mistrzostwa Policji w Biegu Przełajowym im. st. sierż. Marka Sienickiego",
@@ -15569,6 +15613,27 @@
     "website": "https://go.decathlon.pl/l/2fb67d56-d3f9-4191-a981-55e217502c02",
     "is_kids": null
   },
+  "biegi-dla-dzieci-13-krakowski-bieg-swoszoszowicki-2026-05-31": {
+    "id": "64e597f7-05a2-46d5-8356-19c89efaa905",
+    "name": "Biegi dla dzieci - 13. Krakowski Bieg Swoszoszowicki",
+    "date": "2026-05-31",
+    "registration_deadline": "2026-05-26",
+    "regulamin_url": "https://itmbw.pl/regulamin-13-krakowski-bieg-swoszowicki/",
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Kraków",
+    "voivodeship": "Małopolskie",
+    "lat": 49.99196,
+    "lng": 19.935894,
+    "distances": [],
+    "event_type": [
+      "bieg",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v15810",
+    "website": "https://itmbw.pl/bieg-swoszowicki/",
+    "is_kids": null
+  },
   "elektryczna-mila-biegnij-z-energia-2026-06-02": {
     "id": "2334d0aa-642a-413c-bad1-9265e7f7f859",
     "name": "Elektryczna Mila - Biegnij z energią",
@@ -17076,6 +17141,26 @@
     ],
     "registration_url": "https://www.sport-time.com.pl/zapisy-online",
     "website": null,
+    "is_kids": null
+  },
+  "4-bieg-olimpijczyka-bieg-charytatywny-2026-06-13": {
+    "id": "edc461ac-200a-478d-9b30-a1d87c53502b",
+    "name": "4. Bieg Olimpijczyka - Bieg Charytatywny",
+    "date": "2026-06-13",
+    "registration_deadline": "2026-06-08",
+    "regulamin_url": "https://dostartu.pl/statute_files/16199_pl.pdf",
+    "price_from": 50,
+    "price_to": 50,
+    "location": "Tychy",
+    "voivodeship": "Śląskie",
+    "lat": 50.121734,
+    "lng": 18.965793,
+    "distances": [],
+    "event_type": [
+      "charytatywny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16199",
+    "website": "www.facebook.com/events/s/4-bieg-olimpijczyka/2132470134215147/",
     "is_kids": null
   },
   "plum-ekiden-mini-2026-2026-06-13": {
@@ -21069,6 +21154,29 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16341",
     "website": null,
+    "is_kids": null
+  },
+  "v-runda-zubra-2026-06-28": {
+    "id": "755484a9-7264-4dfb-b00d-e4a904f1006a",
+    "name": "V RUNda Żubra",
+    "date": "2026-06-28",
+    "registration_deadline": "2026-06-26",
+    "regulamin_url": "https://dostartu.pl/statute_files/16407_pl.pdf",
+    "price_from": 70,
+    "price_to": 110,
+    "location": "Spała",
+    "voivodeship": "Łódzkie",
+    "lat": 51.54089,
+    "lng": 20.135365,
+    "distances": [
+      "21 km",
+      "5 km"
+    ],
+    "event_type": [
+      "bieg"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16407",
+    "website": "https://rundazubra.pl/",
     "is_kids": null
   },
   "kresowe-trail-7-wasilkow-2026-2026-06-28": {
@@ -26339,6 +26447,28 @@
     "website": null,
     "is_kids": null
   },
+  "xvi-ilawski-polmaraton-la-rive-im-antoniego-gierszewskiego-2026-09-06": {
+    "id": "15840334-b494-42d7-ac53-49173dac9862",
+    "name": "XVI Iławski Półmaraton La Rive im. Antoniego Gierszewskiego",
+    "date": "2026-09-06",
+    "registration_deadline": "2026-08-10",
+    "regulamin_url": "https://maraton-ilawa.pl/index.php/regulamin-2/",
+    "price_from": 120,
+    "price_to": 200,
+    "location": "Iława, Polska",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 53.595981,
+    "lng": 19.56841,
+    "distances": [
+      "21.097 km"
+    ],
+    "event_type": [
+      "bieg"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16215",
+    "website": "https://maraton-ilawa.pl/",
+    "is_kids": null
+  },
   "garmin-ultra-race-radkow-2026-09-11": {
     "id": "1f0301cd-b003-4e61-86a4-5f0a529e6be2",
     "name": "Garmin Ultra Race Radków",
@@ -27354,6 +27484,29 @@
       "trail"
     ],
     "registration_url": "https://competitions.timekeeper.pl/xxvii-bieg-na-gore-cergowa",
+    "website": null,
+    "is_kids": null
+  },
+  "madventure-race-2026-09-20": {
+    "id": "b78d23f9-362c-4bce-9b95-3a1810564e53",
+    "name": "MADVENTURE RACE",
+    "date": "2026-09-20",
+    "registration_deadline": "2026-09-17",
+    "regulamin_url": "https://dostartu.pl/statute_files/16412_pl.pdf",
+    "price_from": 169,
+    "price_to": 289,
+    "location": "Gliwice",
+    "voivodeship": "Śląskie",
+    "lat": 50.294492,
+    "lng": 18.67138,
+    "distances": [
+      "24 km",
+      "6 km"
+    ],
+    "event_type": [
+      "ocr"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16412",
     "website": null,
     "is_kids": null
   },
@@ -29187,6 +29340,29 @@
     "website": "https://krakoskikros.pl/",
     "is_kids": null
   },
+  "12-pko-polmaraton-gliwicki-2026-10-18": {
+    "id": "a6e47e42-d62b-461e-941e-daf7b5a467b9",
+    "name": "12 PKO Półmaraton Gliwicki",
+    "date": "2026-10-18",
+    "registration_deadline": "2026-10-11",
+    "regulamin_url": "https://dostartu.pl/statute_files/16360_pl.pdf",
+    "price_from": 100,
+    "price_to": 170,
+    "location": "Gliwice",
+    "voivodeship": "Śląskie",
+    "lat": 50.28561,
+    "lng": 18.685942,
+    "distances": [
+      "21.095 km",
+      "10 km"
+    ],
+    "event_type": [
+      "bieg"
+    ],
+    "registration_url": "https://dostartu.pl/12-pko-polmaraton-gliwicki-v16360",
+    "website": "https://polmaraton.gliwice.eu",
+    "is_kids": null
+  },
   "viii-rodzinny-bieg-odblaskowy-2026-10-23": {
     "id": "8930da6b-e99f-44ec-8376-fa83c1f5344b",
     "name": "VIII Rodzinny Bieg Odblaskowy",
@@ -30478,6 +30654,29 @@
     ],
     "registration_url": "https://b4sportonline.pl/swietokrzyski_poziom_gor/",
     "website": "https://zimowyswietokrzyski.pl",
+    "is_kids": null
+  },
+  "viii-bieg-przeciszowski-biegniemy-dla-35-finalu-wosp-2027-01-30": {
+    "id": "40827f0b-f771-48e9-a366-6eb810c0af2f",
+    "name": "VIII Bieg Przeciszowski Biegniemy dla 35 Finału WOŚP",
+    "date": "2027-01-30",
+    "registration_deadline": "2027-01-24",
+    "regulamin_url": "https://dostartu.pl/statute_files/16252_pl.pdf",
+    "price_from": 75,
+    "price_to": 95,
+    "location": "Przeciszów",
+    "voivodeship": "Małopolskie",
+    "lat": 50.008863,
+    "lng": 19.373844,
+    "distances": [
+      "11 km",
+      "6 km"
+    ],
+    "event_type": [
+      "charytatywny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16252",
+    "website": "https://www.facebook.com/events/1262524855991356",
     "is_kids": null
   },
   "ultra-zadek-2027-2027-03-06": {
