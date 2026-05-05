@@ -29,6 +29,22 @@ _PRICE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Phrases that mean the event is free. Polish regulamins very rarely say "0 zł"
+# explicitly — they use natural language like "bezpłatny" or "nie ma opłat".
+# Anchored to entry-fee context (opłat wpisow / udział / start) to avoid false
+# positives like "darmowa woda na trasie" or "bezpłatne miejsca parkingowe".
+_FREE_EVENT_RE = re.compile(
+    r"(?:"
+    r"udział\s+(?:w\s+\w+\s+)?(?:jest\s+)?(?:darmow|bezpłatn|nieodpłatn)"
+    r"|nie\s+(?:ma|pobier\w*|wnosi\s+się)\s+opłat"
+    r"|brak\s+opłat\s+(?:start|wpisow)"
+    r"|(?:opłata|wpisowe)\s+(?:start\w+\s+)?(?:wynosi\s+)?0\s*(?:zł|pln)?\s*(?:[.,]|$)"
+    r"|wpisowe\s+nie\s+(?:obowiązuje|jest)"
+    r"|wolny\s+od\s+opłat"
+    r")",
+    re.IGNORECASE,
+)
+
 # Deadline: "do 15 maja 2026" / "do dnia 15 maja 2026" / "do 15.05.2026" / "do dnia 15.05.2026" / "do 2026-05-15"
 # Polish regulamins frequently say "do dnia <date>" — the older patterns missed those.
 _DO_DNIA = r"do\s+(?:dnia\s+)?"  # "do " or "do dnia "
@@ -81,6 +97,11 @@ def extract_hints(
     if prices:
         result["price_from"] = min(prices)
         result["price_to"] = max(prices)
+    elif _FREE_EVENT_RE.search(combined):
+        # Free event: explicitly set both to 0 so downstream merge writes them
+        # rather than treating them as "missing"
+        result["price_from"] = 0
+        result["price_to"] = 0
 
     # --- Deadline ---
     result["registration_deadline"] = _extract_deadline(combined, event_date)
