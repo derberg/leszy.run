@@ -13684,10 +13684,16 @@
     "voivodeship": "Łódzkie",
     "lat": 51.663986,
     "lng": 19.353502,
-    "distances": [],
-    "event_type": [],
+    "distances": [
+      "100 km",
+      "24h",
+      "48h"
+    ],
+    "event_type": [
+      "ultra"
+    ],
     "registration_url": "https://ultrapark.com.pl",
-    "website": null,
+    "website": "https://ultrapark.com.pl/",
     "is_kids": null
   },
   "vii-blekitny-bieg-w-holdzie-gen-jozefowi-hallerowi-2026-05-29": {
@@ -18697,7 +18703,7 @@
       "5 km"
     ],
     "event_type": [
-      "bieg"
+      "przełajowy"
     ],
     "registration_url": "https://dostartu.pl/permalink-v16432",
     "website": null,
@@ -21904,6 +21910,31 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16371",
     "website": "http://www.mosir.wodzislaw-slaski.pl",
+    "is_kids": null
+  },
+  "mam-marzenie-12raz-25h-run-2026-07-04": {
+    "id": "10da383c-97cc-4a48-93fc-bd181b7337d3",
+    "name": "Mam Marzenie 12.RAZ 25h RUN",
+    "date": "2026-07-04",
+    "registration_deadline": "2026-06-26",
+    "regulamin_url": "https://www.protiming24.pl/startmeta/f1e159f3/doc/regulamin",
+    "price_from": 50,
+    "price_to": 50,
+    "location": "Szczecin",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.430182,
+    "lng": 14.550962,
+    "distances": [
+      "25h"
+    ],
+    "event_type": [
+      "charytatywny",
+      "ultra",
+      "nordic walking",
+      "nocny"
+    ],
+    "registration_url": "https://www.protiming24.pl/startmeta/F1E159F3/registration/",
+    "website": "https://www.facebook.com/events/4441681692739035",
     "is_kids": null
   },
   "vi-polmaraton-gestwinami-murckowskimi-2026-07-04": {
@@ -28145,9 +28176,11 @@
     "distances": [
       "21.0975 km"
     ],
-    "event_type": [],
+    "event_type": [
+      "uliczny"
+    ],
     "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12294%26co%3Dform",
-    "website": null,
+    "website": "https://www.osir.lowicz.pl",
     "is_kids": null
   },
   "5-czudec-cross-run-zapisy-wkrotce-2026-09-26": {
@@ -28396,10 +28429,10 @@
     "id": "8dba1674-b9ce-49f1-8353-3383f2372be7",
     "name": "XIV Kielecka Dycha",
     "date": "2026-09-26",
-    "registration_deadline": null,
+    "registration_deadline": "2026-09-26",
     "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12293.pdf",
-    "price_from": null,
-    "price_to": null,
+    "price_from": 60,
+    "price_to": 120,
     "location": "Kielce",
     "voivodeship": "Świętokrzyskie",
     "lat": 50.854029,
