@@ -205,18 +205,12 @@ function FeedbackItem({ item, onReview, onDismiss }) {
 }
 
 export default function Moderation() {
-  const [tab, setTab] = useState('pending')
-  const [pendingEvents, setPendingEvents] = useState([])
+  const [tab, setTab] = useState('reports')
   const [reports, setReports] = useState([])
   const [feedback, setFeedback] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editingEventId, setEditingEventId] = useState(null)
-
-  const fetchPending = useCallback(async () => {
-    const json = await apiFetch(`${API}/api/calendar-events?status=pending&limit=500`)
-    setPendingEvents(json.data || [])
-  }, [])
 
   const fetchReports = useCallback(async () => {
     const json = await apiFetch(`${API}/api/calendar-event-reports?status=pending`)
@@ -229,8 +223,8 @@ export default function Moderation() {
   }, [])
 
   const refetchAll = useCallback(() => {
-    return Promise.all([fetchPending(), fetchReports(), fetchFeedback()])
-  }, [fetchPending, fetchReports, fetchFeedback])
+    return Promise.all([fetchReports(), fetchFeedback()])
+  }, [fetchReports, fetchFeedback])
 
   useEffect(() => {
     setLoading(true)
@@ -246,34 +240,6 @@ export default function Moderation() {
     } catch (e) {
       setError(e.message)
     }
-  }
-
-  const saveAndApproveEvent = async (id, updates) => {
-    await withError(async () => {
-      if (Object.keys(updates).length > 0) {
-        await apiFetch(`${API}/api/calendar-events/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
-        })
-      }
-      await apiFetch(`${API}/api/calendar-events/${id}/approve`, { method: 'PATCH' })
-      await fetchPending()
-    })
-  }
-
-  const approveEvent = async (id) => {
-    await withError(async () => {
-      await apiFetch(`${API}/api/calendar-events/${id}/approve`, { method: 'PATCH' })
-      await fetchPending()
-    })
-  }
-
-  const deleteEvent = async (id) => {
-    await withError(async () => {
-      await apiFetch(`${API}/api/calendar-events/${id}`, { method: 'DELETE' })
-      await fetchPending()
-    })
   }
 
   const saveReportEvent = async (eventId, updates) => {
@@ -338,7 +304,7 @@ export default function Moderation() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display font-extrabold text-2xl tracking-wider uppercase text-apex-text-bright">Moderacja</h1>
-        <p className="text-sm text-apex-muted mt-1">Zgłoszenia społeczności i oczekujące wydarzenia</p>
+        <p className="text-sm text-apex-muted mt-1">Zgłoszenia i sugestie społeczności</p>
       </div>
 
       {error && (
@@ -349,9 +315,6 @@ export default function Moderation() {
       )}
 
       <div className="flex gap-4 border-b border-apex-border">
-        <button onClick={() => setTab('pending')} className={`${tabClass} ${tab === 'pending' ? activeTab : inactiveTab}`}>
-          Oczekujące ({pendingEvents.length})
-        </button>
         <button onClick={() => setTab('reports')} className={`${tabClass} ${tab === 'reports' ? activeTab : inactiveTab}`}>
           Zgłoszenia ({reports.length})
         </button>
@@ -361,15 +324,6 @@ export default function Moderation() {
       </div>
 
       {loading && <div className="text-apex-muted py-8">Ładowanie...</div>}
-
-      {!loading && tab === 'pending' && (
-        <div className="space-y-3">
-          {pendingEvents.length === 0 && <div className="text-apex-muted py-8 text-center">Brak oczekujących wydarzeń.</div>}
-          {pendingEvents.map(ev => (
-            <EditableEvent key={ev.id} event={ev} onSave={saveAndApproveEvent} onApprove={approveEvent} onDelete={deleteEvent} />
-          ))}
-        </div>
-      )}
 
       {!loading && tab === 'feedback' && (
         <div className="space-y-3">
