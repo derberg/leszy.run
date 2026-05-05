@@ -91,6 +91,8 @@ const sources = [
       registration_url: raw.registration_url || null,
       regulamin_url: raw.regulamin_url || null,
       is_kids: raw.is_kids || false,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
     }),
@@ -281,7 +283,7 @@ const RAW_MERGE_FIELDS = [
   'name', 'date', 'registration_deadline', 'location', 'voivodeship',
   'lat', 'lng', 'distances', 'event_type', 'event_types',
   'registration_url', 'regulamin_url', 'regulamin_urls', 'website',
-  'is_kids',
+  'is_kids', 'price_from', 'price_to',
 ]
 
 function mergeSourceLinks(existingLinks, newLink) {
@@ -441,6 +443,8 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
             regulamin_urls: raw.regulamin_urls || null,
             website: raw.external_website || null,
             is_kids: raw.is_kids || false,
+            price_from: raw.price_from ?? null,
+            price_to: raw.price_to ?? null,
             source: source.name,
             source_id: raw.source_id,
             source_url: raw.source_url || null,

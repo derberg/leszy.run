@@ -43,7 +43,7 @@ async function fetchClassifications(competitionId) {
 
 function parseClassifications(classifications, eventName) {
   if (!Array.isArray(classifications) || classifications.length === 0) {
-    return { distances: '', isKids: false }
+    return { distances: '', isKids: false, priceFrom: null, priceTo: null, latestEndedTime: null }
   }
 
   // Detect kids run: playerType=kids, or name/classification contains kids keywords
@@ -56,13 +56,29 @@ function parseClassifications(classifications, eventName) {
   const seen = new Set()
   const parts = []
 
+  // Aggregate price tiers and registration deadline across classifications.
+  // Skip kids classifications in mixed events for both distance AND price aggregation —
+  // a kids 100m at 20 PLN would dominate price_from for an adults marathon at 100 PLN.
+  const adultPrices = []
+  let latestEndedTime = null
+
   for (const c of classifications) {
     const name = (c.namePl || '').trim()
+    const isKidsClassification =
+      c.classificationSetting?.playerType === 'kids' || kidsKeywords.test(name)
 
-    // Skip kids classifications in mixed events — their distances pollute the main field
-    if (!isKids) {
-      const isKidsClassification = c.classificationSetting?.playerType === 'kids' || kidsKeywords.test(name)
-      if (isKidsClassification) continue
+    if (!isKids && isKidsClassification) {
+      continue
+    }
+
+    // Price tiers: { price: "259.00", endedTime: "2026-05-31T..." }
+    const tiers = Array.isArray(c.classificationPrices) ? c.classificationPrices : []
+    for (const t of tiers) {
+      const n = Number(t.price)
+      if (Number.isFinite(n) && n >= 0) adultPrices.push(n)
+      if (t.endedTime && (!latestEndedTime || t.endedTime > latestEndedTime)) {
+        latestEndedTime = t.endedTime
+      }
     }
 
     // 1. API distance field (km)
@@ -105,7 +121,13 @@ function parseClassifications(classifications, eventName) {
     }
   }
 
-  return { distances: parts.join(', '), isKids }
+  return {
+    distances: parts.join(', '),
+    isKids,
+    priceFrom: adultPrices.length > 0 ? Math.min(...adultPrices) : null,
+    priceTo: adultPrices.length > 0 ? Math.max(...adultPrices) : null,
+    latestEndedTime,
+  }
 }
 
 function makeUrl(permaLink, id) {
@@ -139,9 +161,10 @@ async function scrape({ knownIds = new Set() } = {}) {
     const date = ev.startedTime ? ev.startedTime.split('T')[0] : null
     if (!date) continue
 
-    // Fetch distances from classifications
+    // Fetch distances + prices + deadline from classifications
     const classifications = await fetchClassifications(ev.id)
-    const { distances, isKids } = parseClassifications(classifications, ev.name)
+    const { distances, isKids, priceFrom, priceTo, latestEndedTime } =
+      parseClassifications(classifications, ev.name)
 
     const location = ev.location || null
     const sourceUrl = makeUrl(ev.permaLink, ev.id)
@@ -150,10 +173,17 @@ async function scrape({ knownIds = new Set() } = {}) {
     // Prefer external link (real PDF) over dostartu-hosted (often SPA shell)
     const regulaminUrl = ev.statuteLinkPl || ev.statuteFilePl || null
 
+    // Registration deadline source preference (ev.endDate is null for ~95% of races):
+    //   1. max(classificationPrices.endedTime) — the last paid tier closes registration
+    //   2. competition.provisionTime — explicit registration close date
+    //   3. competition.endDate — legacy field, almost always null
+    const deadlineIso = latestEndedTime || ev.provisionTime || ev.endDate
+    const registrationDeadline = deadlineIso ? deadlineIso.split('T')[0] : null
+
     results.push({
       name: ev.name,
       date,
-      registration_deadline: ev.endDate ? ev.endDate.split('T')[0] : null,
+      registration_deadline: registrationDeadline,
       location,
       distances,
       registration_url: url,
@@ -165,6 +195,8 @@ async function scrape({ knownIds = new Set() } = {}) {
       lng: ev.locationLng || null,
       event_type: eventType,
       is_kids: isKids,
+      price_from: priceFrom,
+      price_to: priceTo,
     })
 
     console.log(`[dostartu] Detail pages: ${i + 1}/${newEvents.length} — ${ev.name}`)
