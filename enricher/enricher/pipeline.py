@@ -192,10 +192,15 @@ async def process_event(event: dict, config: Config) -> dict:
 
     # Backfill LLM fields from regex hints when LLM missed them (never override
     # a concrete LLM value — the regex is a safety net, not authoritative).
-    if llm_result is not None:
-        for key in ("price_from", "price_to", "registration_deadline"):
-            if llm_result.get(key) in (None, "") and hints.get(key) is not None:
-                llm_result[key] = hints[key]
+    # Critically: this must run even when the LLM call FAILED (timed out, etc.)
+    # — otherwise valid prepass hits like "70 zł / do dnia 24.09.2026" extracted
+    # from the PDF get thrown away with the failed llm_result. Promote None to
+    # an empty dict so the merge step sees the hints regardless.
+    if llm_result is None:
+        llm_result = {}
+    for key in ("price_from", "price_to", "registration_deadline"):
+        if llm_result.get(key) in (None, "") and hints.get(key) is not None:
+            llm_result[key] = hints[key]
 
     # Step 6: Smart merge
     had_content = bool(crawled_content or pdf_text)
