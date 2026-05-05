@@ -143,6 +143,7 @@ const sources = [
       distances: raw.distances || null,
       registration_url: raw.registration_url || null,
       regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
     }),

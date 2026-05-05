@@ -82,6 +82,7 @@ async function scrape({ knownIds = new Set() } = {}) {
 
       const detail = await fetchDetailPage(entry.href)
 
+      const sourceUrl = `${BASE_URL}${entry.href}`
       results.push({
         name: entry.name,
         date: entry.date,
@@ -89,8 +90,13 @@ async function scrape({ knownIds = new Set() } = {}) {
         distances: entry.distances || null,
         registration_url: detail?.registrationUrl || null,
         regulamin_url: detail?.regulaminUrl || null,
+        // No external organizer-site detection here — the enricher upgrades this
+        // later if it finds a real organizer domain. Default to the public info
+        // page (same URL as source_url) so events without a separate website
+        // still have a usable "Strona wydarzenia" link instead of NULL.
+        website: sourceUrl,
         source: 'zmierzymyczas',
-        source_url: `${BASE_URL}${entry.href}`,
+        source_url: sourceUrl,
         source_id: entry.sourceId,
       })
 
