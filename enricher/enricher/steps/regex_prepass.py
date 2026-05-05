@@ -29,22 +29,29 @@ _PRICE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Deadline: "do 15 maja 2026" / "do 15.05.2026" / "do 2026-05-15"
+# Deadline: "do 15 maja 2026" / "do dnia 15 maja 2026" / "do 15.05.2026" / "do dnia 15.05.2026" / "do 2026-05-15"
+# Polish regulamins frequently say "do dnia <date>" — the older patterns missed those.
+_DO_DNIA = r"do\s+(?:dnia\s+)?"  # "do " or "do dnia "
 _DEADLINE_TEXT_RE = re.compile(
-    r"do\s+(\d{1,2})\s+(stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|wrze(?:ś|s)nia|pa(?:ź|z)dziernika|listopada|grudnia)\s+(\d{4})",
+    rf"{_DO_DNIA}(\d{{1,2}})\s+(stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|wrze(?:ś|s)nia|pa(?:ź|z)dziernika|listopada|grudnia)\s+(\d{{4}})",
     re.IGNORECASE,
 )
 _DEADLINE_DOTTED_RE = re.compile(
-    r"(?:do\s+)?(\d{1,2})\.(\d{1,2})\.(\d{4})",
+    rf"(?:{_DO_DNIA})?(\d{{1,2}})\.(\d{{1,2}})\.(\d{{4}})",
+    re.IGNORECASE,
 )
-_DEADLINE_ISO_RE = re.compile(r"(?:do\s+)?(\d{4})-(\d{2})-(\d{2})")
+_DEADLINE_ISO_RE = re.compile(rf"(?:{_DO_DNIA})?(\d{{4}})-(\d{{2}})-(\d{{2}})", re.IGNORECASE)
 
-# Only look for deadlines near these anchor phrases (within ±200 chars)
+# Only look for deadlines near these anchor phrases (within ±200 chars).
+# "Zgłoszenia przyjmowane" covers regulamins like "Zgłoszenia przyjmowane są ... do dnia 24.09.2026"
+# which the more rigid "zgłoszenia do" anchor missed.
 _DEADLINE_ANCHORS = [
     "termin zgłosz", "zapisy do", "zapisów do", "rejestracja do",
     "rejestracji do", "koniec zapisów", "zgłoszenia do", "zgloszenia do",
+    "zgłoszenia przyjmow", "zgloszenia przyjmow",
     "zamknięcie zapisów", "zamkniecie zapisow", "przyjmowanie zgłosz",
     "ostateczny termin", "termin zapisów", "termin zapisow",
+    "opłata startowa", "wpłacona w terminie", "wplacona w terminie",
 ]
 
 

@@ -38,46 +38,42 @@ async def download_pdf(url: str, timeout: int = 30) -> Optional[str]:
 
 
 def extract_pdf_text(pdf_path: str, max_chars: int = 15_000) -> Optional[str]:
-    """Extract text from a PDF using Docling. Returns plain text or None."""
+    """Extract text from a text-based PDF (regulamin) via pypdf.
+
+    Earlier the enricher used Docling. Two problems made it unsuitable here:
+      1. Default Docling pipeline runs easyocr (PyTorch). On top of the
+         chromium/playwright/crawl4ai stack already loaded, PyTorch's TLS
+         init trips a glibc dl-tls.c assertion and aborts the worker.
+      2. Setting do_ocr=False sidesteps the crash but Docling then returns
+         0 chars for many PDFs that DO have a text layer (verified on the
+         "Pogoni za Bobrem" + "Cross Trzeźwości" regulamins, both of which
+         pdftotext/pypdf extract perfectly). Net result: silent loss of
+         price/deadline data.
+
+    Polish regulamins are essentially always Word→PDF exports with a clean
+    text layer. pypdf reads that text layer directly: fast, deterministic,
+    no ML stack, no native deps. We don't need Docling's table layout
+    reconstruction — the downstream regex_prepass and LLM consume plain
+    text and look for `\\d+ zł` / "do dnia ..." substrings, which pypdf
+    output preserves.
+    """
     try:
-        text = _docling_extract(pdf_path)
-        if not text or not text.strip():
+        from pypdf import PdfReader
+        reader = PdfReader(pdf_path)
+        parts = []
+        total = 0
+        for page in reader.pages:
+            text = page.extract_text() or ""
+            parts.append(text)
+            total += len(text)
+            if total >= max_chars:
+                break
+        joined = "\n".join(parts)
+        if not joined.strip():
             return None
-        return text[:max_chars]
+        return joined[:max_chars]
     except Exception:
         return None
-
-
-_converter = None
-
-
-def _get_converter():
-    """Lazy-init a Docling converter with OCR disabled.
-
-    Regulamin PDFs are text-based; OCR (default: easyocr/PyTorch) is wasted work.
-    Loading PyTorch on top of the chromium/playwright/crawl4ai stack also trips
-    the glibc dl-tls.c assertion, so leaving OCR on is actively harmful in this
-    container. Caching the converter avoids re-doing model loading per PDF.
-    """
-    global _converter
-    if _converter is None:
-        from docling.datamodel.base_models import InputFormat
-        from docling.datamodel.pipeline_options import PdfPipelineOptions
-        from docling.document_converter import DocumentConverter, PdfFormatOption
-
-        pipeline_options = PdfPipelineOptions(do_ocr=False)
-        _converter = DocumentConverter(
-            format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-            }
-        )
-    return _converter
-
-
-def _docling_extract(pdf_path: str) -> str:
-    """Call Docling to convert PDF to text."""
-    result = _get_converter().convert(pdf_path)
-    return result.document.export_to_markdown()
 
 
 def cleanup_pdf(path: Optional[str]):
