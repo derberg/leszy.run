@@ -14086,6 +14086,24 @@
     "website": "https://www.zmierzymyczas.pl/2552/nyskie-biegi-dzieci-i-mlodziezy-2026.html",
     "is_kids": null
   },
+  "autyzm-12-2026-05-30": {
+    "id": "1c5a9d8c-6eaa-4ea3-8faa-918a01de6ddc",
+    "name": "Autyzm 12",
+    "date": "2026-05-30",
+    "registration_deadline": null,
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12278.pdf",
+    "price_from": 150,
+    "price_to": 150,
+    "location": "Młochów",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.051626,
+    "lng": 20.779305,
+    "distances": [],
+    "event_type": [],
+    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12278",
+    "website": null,
+    "is_kids": null
+  },
   "vikings-run-xiii-koronacja-30052026-2026-05-30": {
     "id": "5c9f3f4e-c40b-4fe7-8f4a-da5f9f0b8771",
     "name": "Vikings Run XIII: Koronacja (30.05.2026)",
@@ -20253,6 +20271,28 @@
     "website": null,
     "is_kids": null
   },
+  "11-nocny-bieg-sztafetowy-janusza-kusocinskiego-2026-06-21": {
+    "id": "0775f1be-6c2f-438a-9c19-f0078af965a5",
+    "name": "11. Nocny Bieg Sztafetowy Janusza Kusocińskiego",
+    "date": "2026-06-21",
+    "registration_deadline": "2026-06-19",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12273.pdf",
+    "price_from": 60,
+    "price_to": 240,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "nocny"
+    ],
+    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12273",
+    "website": null,
+    "is_kids": null
+  },
   "roztoczanski-festiwal-biegowy-edycja-2026-2026-06-26": {
     "id": "3de4955f-02af-4205-b0e1-7fa3e4825ce5",
     "name": "ROZTOCZAŃSKI FESTIWAL BIEGOWY- EDYCJA 2026",
@@ -21084,6 +21124,28 @@
     ],
     "registration_url": null,
     "website": "https://unislaw.pl/polmaraton-i-dziesiatka-unislawska/",
+    "is_kids": null
+  },
+  "maraton-pieszy-sudecki-sowizdrzal-2026-06-27": {
+    "id": "e4e2f3a7-d9f2-4b6d-8e31-578d17235a26",
+    "name": "MARATON PIESZY „SUDECKI SOWIZDRZAŁ”",
+    "date": "2026-06-27",
+    "registration_deadline": "2026-06-19",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12288.pdf",
+    "price_from": 20,
+    "price_to": 100,
+    "location": "Jedlina Zdrój",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.72471,
+    "lng": 16.348,
+    "distances": [
+      "42.2 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12288",
+    "website": null,
     "is_kids": null
   },
   "iv-bieg-gorski-im-kuriera-jana-lozanskiego-2026-06-28": {
@@ -25920,6 +25982,29 @@
     "website": "https://kresowetrail.pl/letniki-2026-08-30/",
     "is_kids": null
   },
+  "14-letni-bieg-piastow-niedziela-jakuszycka-13tka-nordic-walking-6-km-2026-08-30": {
+    "id": "bc573d3e-90f6-4f59-8fdd-563a6fc68cf7",
+    "name": "14. Letni Bieg Piastów - Niedziela (Jakuszycka 13tka/ Nordic Walking/ 6 km )",
+    "date": "2026-08-30",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Szklarska Poręba - Jakuszyce",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.814284,
+    "lng": 15.454497,
+    "distances": [
+      "13 km",
+      "6 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://online.datasport.pl/zapisy/portal/baza/wizardnew/?zawody=12270",
+    "website": null,
+    "is_kids": null
+  },
   "bieg-przedszkolaka-2026-08-30": {
     "id": "ed8ee217-4090-4a88-b999-a67ef107376a",
     "name": "Bieg Przedszkolaka",
@@ -27389,6 +27474,26 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16254",
     "website": null,
+    "is_kids": null
+  },
+  "v-zawody-w-jezdzie-szybkiej-na-rolkach-o-puchar-skarbnika-21-km-2026-09-13": {
+    "id": "3db75887-686e-4076-a509-867d6aa8932b",
+    "name": "V Zawody w jeździe szybkiej na rolkach - O Puchar Skarbnika - 21 km",
+    "date": "2026-09-13",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Węgrzce Wielkie",
+    "voivodeship": "Małopolskie",
+    "lat": 50.014857,
+    "lng": 20.109934,
+    "distances": [
+      "21 km"
+    ],
+    "event_type": [],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2565/v-zawody-w-jezdzie-szybkiej-na-rolkach-o-puchar-skarbnika-21-km.html",
+    "website": "https://www.zmierzymyczas.pl/2565/v-zawody-w-jezdzie-szybkiej-na-rolkach-o-puchar-skarbnika-21-km.html",
     "is_kids": null
   },
   "35-tarnowski-bieg-leliwitow-2026-09-17": {
