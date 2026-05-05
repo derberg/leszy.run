@@ -168,7 +168,10 @@ async function scrape({ knownIds = new Set() } = {}) {
 
     const location = ev.location || null
     const sourceUrl = makeUrl(ev.permaLink, ev.id)
-    const url = ev.websitePl || sourceUrl
+    // dostartu permalink IS the canonical registration target. Even when
+    // ev.websitePl is set, that's the organizer's info site (often static,
+    // sometimes a Facebook page) — registrations still happen on dostartu.
+    // ev.websitePl belongs in `website`, not `registration_url`.
     const eventType = TYPE_MAP[ev.type] || null
     // Prefer external link (real PDF) over dostartu-hosted (often SPA shell)
     const regulaminUrl = ev.statuteLinkPl || ev.statuteFilePl || null
@@ -186,8 +189,9 @@ async function scrape({ knownIds = new Set() } = {}) {
       registration_deadline: registrationDeadline,
       location,
       distances,
-      registration_url: url,
+      registration_url: sourceUrl,
       regulamin_url: regulaminUrl,
+      website: ev.websitePl || null,
       source: 'dostartu',
       source_url: sourceUrl,
       source_id: String(ev.id),
