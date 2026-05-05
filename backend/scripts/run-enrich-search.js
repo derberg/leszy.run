@@ -9,10 +9,23 @@ import { writeRunLog } from './lib/run-log.js'
 // Uses local Claude CLI with web search to find event websites, distances,
 // and types for scraper_all events missing data.
 //
+// SCOPE (default, since 2026-05-05):
+//   Only processes scraper_all rows whose corresponding calendar_events row
+//   has status='pending' — i.e. events visible in the admin "Do przeglądu"
+//   tab. This is the right scope for an admin-driven enrichment fallback:
+//   we don't want to spend Claude tokens on already-approved events (which
+//   admin has already curated) or rejected duplicates (which were rejected
+//   for a reason). Pre-publish rows (in scraper_all but not yet in
+//   calendar_events) are also skipped — those will go through publish first.
+//
 // Options:
-//   --limit <n>       Max events to process (default: all)
-//   --apply           Write results to DB (default: dry run)
-//   --source <name>   Source to process (default: maratonypolskie)
+//   --limit <n>          Max events to process (default: all)
+//   --apply              Write results to DB (default: dry run)
+//   --source <name>      Source filter (e.g. 'maratonypolskie')
+//   --all-incomplete     OPT OUT — process all scraper_all rows that look
+//                        incomplete, regardless of calendar_events status.
+//                        Use sparingly; will hit hundreds of already-active
+//                        events.
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
@@ -108,16 +121,55 @@ async function main() {
   const events = []
   const failures = []
 
+  // Default: only enrich scraper_all rows that map to a pending calendar_events
+  // row. --all-incomplete opts out (e.g. for backfilling pre-publish rows).
+  const allIncompleteFlag = process.argv.includes('--all-incomplete')
+  let pendingKeys = null
+  if (!allIncompleteFlag) {
+    const pendingRows = []
+    let pFrom = 0
+    while (true) {
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .select('source, source_id, source_links')
+        .eq('status', 'pending')
+        .range(pFrom, pFrom + 999)
+      if (error) { console.error('Pending fetch failed:', error.message); process.exit(1) }
+      if (!data || data.length === 0) break
+      pendingRows.push(...data)
+      if (data.length < 1000) break
+      pFrom += 1000
+    }
+    pendingKeys = new Set()
+    for (const r of pendingRows) {
+      if (r.source && r.source_id) pendingKeys.add(`${r.source}:${r.source_id}`)
+      // also include any source from the merged source_links — scraper_all rows can
+      // have a different primary source than the published calendar_events row
+      for (const l of (r.source_links || [])) {
+        if (l.source && l.source_id) pendingKeys.add(`${l.source}:${l.source_id}`)
+      }
+    }
+    console.log(`Scope: pending calendar_events only (${pendingKeys.size} source-id pairs match a pending row)`)
+  } else {
+    console.log(`Scope: --all-incomplete — every scraper_all row that looks incomplete (DOES NOT respect calendar_events status)`)
+  }
+
   // Fetch scraper_all rows and filter in-memory.
+  // The pending-only scope (default) is already a strict constraint, so the
+  // merged_at >= today heuristic is dropped — otherwise we'd miss pending
+  // events whose scraper_all row was merged on a previous day.
+  // Only --all-incomplete mode keeps the merged_at filter as a "this week"
+  // heuristic, controlled by --all.
   const allFlag = process.argv.includes('--all')
+  const useMergedAtFilter = allIncompleteFlag && !allFlag
   const allRows = []
   let from = 0
   const pageSize = 1000
   while (true) {
     let query = supabase
       .from('scraper_all')
-      .select('id, name, date, location, source, distances, event_types, is_kids, website, registration_url, enriched_search_at')
-    if (!allFlag) {
+      .select('id, name, date, location, source, source_id, distances, event_types, is_kids, website, registration_url, enriched_search_at')
+    if (useMergedAtFilter) {
       query = query.gte('merged_at', new Date().toISOString().split('T')[0])
     }
     const { data, error } = await query.range(from, from + pageSize - 1)
@@ -136,6 +188,13 @@ async function main() {
     if (sourceArg && r.source !== sourceArg) return false
     if (r.enriched_search_at) return false
     if (r.date && r.date < today) return false
+
+    // Pending-only scope: skip unless this scraper_all row maps to a
+    // pending calendar_events row (by primary source+id or via source_links).
+    if (pendingKeys && r.source && r.source_id && !pendingKeys.has(`${r.source}:${r.source_id}`)) {
+      return false
+    }
+
     const noType = (!r.event_types || r.event_types.length === 0) && !r.is_kids
     const noDist = !r.distances || r.distances.trim() === ''
     const noRegUrl = !r.registration_url
