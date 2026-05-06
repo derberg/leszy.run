@@ -8,6 +8,7 @@ import { scrape as scrapeSupersport } from './sources/supersport.js'
 import { scrape as scrapeZmierzymyczas } from './sources/zmierzymyczas.js'
 import { scrape as scrapeB4sport } from './sources/b4sport.js'
 import { scrape as scrapeRaatiming } from './sources/raatiming.js'
+import { scrape as scrapeLumisport } from './sources/lumisport.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 
@@ -175,6 +176,25 @@ const sources = [
       registration_url: raw.registration_url || null,
       regulamin_url: raw.regulamin_url || null,
       website: raw.website || null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'lumisport',
+    scrape: scrapeLumisport,
+    table: 'scraper_lumisport',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
     }),

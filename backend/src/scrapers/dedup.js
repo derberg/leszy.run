@@ -5,6 +5,7 @@ const SOURCE_PRIORITY = {
   dostartu: 1,
   biegiwpolsce: 2,
   timekeeper: 3,
+  lumisport: 3,
   elektronicznezapisy: 4,
   datasport: 7,
   maratonypolskie: 9,
