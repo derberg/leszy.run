@@ -13623,7 +13623,7 @@
     "name": "Bieg na 5 km \"Bieg Lisewski\"",
     "date": "2026-05-24",
     "registration_deadline": "2026-05-20",
-    "regulamin_url": "https://elektronicznezapisy.pl/download/a9J0a9o3W0V0x1T7B7Z425d9266608L4/open",
+    "regulamin_url": "https://lumisport.eu/wp-content/uploads/2026/04/regulamin_bieg_lisewski-lumisport.pdf",
     "price_from": 60,
     "price_to": 60,
     "location": "Lisewo Malborskie",
@@ -13637,8 +13637,8 @@
       "charytatywny",
       "trail"
     ],
-    "registration_url": "https://elektronicznezapisy.pl/event/15132/signup.html",
-    "website": "https://elektronicznezapisy.pl/event/15132.html",
+    "registration_url": "https://lumisport.eu/produkt/bieg-lisewski/",
+    "website": "https://lumisport.eu/produkt/bieg-lisewski/",
     "is_kids": null
   },
   "panewnicki-bieg-dzika-edycja-xiv-maj-2026-05-24": {
@@ -22775,17 +22775,20 @@
     "date": "2026-07-05",
     "registration_deadline": null,
     "regulamin_url": "https://lumisport.eu/wp-content/uploads/2026/04/Regulamin_TUR.pdf",
-    "price_from": null,
-    "price_to": null,
+    "price_from": 10,
+    "price_to": 100,
     "location": "Puszcza Marianska",
     "voivodeship": "Mazowieckie",
     "lat": 51.978883,
     "lng": 20.349446,
     "distances": [
-      "42.2 km"
+      "21 km",
+      "42 km",
+      "5 km"
     ],
     "event_type": [
-      "uliczny"
+      "uliczny",
+      "dzieci"
     ],
     "registration_url": "https://lumisport.eu/produkt/bolimowski-maraton-tura/",
     "website": "https://www.facebook.com/events/999545282603918/",
