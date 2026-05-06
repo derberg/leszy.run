@@ -45,9 +45,19 @@ _FREE_EVENT_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Deadline: "do 15 maja 2026" / "do dnia 15 maja 2026" / "do 15.05.2026" / "do dnia 15.05.2026" / "do 2026-05-15"
-# Polish regulamins frequently say "do dnia <date>" — the older patterns missed those.
-_DO_DNIA = r"do\s+(?:dnia\s+)?"  # "do " or "do dnia "
+# Deadline: "do 15 maja 2026" / "do dnia 15 maja 2026" / "do 15.05.2026" /
+# "do dnia 15.05.2026" / "do 2026-05-15" / "do godziny 23:59 w poniedziałek 8 czerwca 2026"
+# Polish regulamins use a few common "do <stuff> <date>" patterns where the
+# date isn't directly after "do":
+#   - "do dnia <date>"                                 (most common)
+#   - "do godziny HH:MM <date>"                        (zmierzymyczas-style — "do godziny 23:59 8 czerwca")
+#   - "do godziny HH:MM w <day-name> <date>"           ("do godziny 23:59 w poniedziałek 8 czerwca")
+_DO_DNIA = (
+    r"do\s+"
+    r"(?:dnia\s+"
+    r"|godziny\s+\d{1,2}[:.]\d{2}(?:\s+w\s+\w+)?\s+"
+    r")?"
+)
 _DEADLINE_TEXT_RE = re.compile(
     rf"{_DO_DNIA}(\d{{1,2}})\s+(stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|wrze(?:ś|s)nia|pa(?:ź|z)dziernika|listopada|grudnia)\s+(\d{{4}})",
     re.IGNORECASE,
@@ -59,15 +69,20 @@ _DEADLINE_DOTTED_RE = re.compile(
 _DEADLINE_ISO_RE = re.compile(rf"(?:{_DO_DNIA})?(\d{{4}})-(\d{{2}})-(\d{{2}})", re.IGNORECASE)
 
 # Only look for deadlines near these anchor phrases (within ±200 chars).
-# "Zgłoszenia przyjmowane" covers regulamins like "Zgłoszenia przyjmowane są ... do dnia 24.09.2026"
-# which the more rigid "zgłoszenia do" anchor missed.
+# Several anchor variants below cover the same intent in different word orders
+# — "Zapisy będą przyjmowane … do" vs "Zgłoszenia przyjmowane …", and
+# "do godziny 23:59" cutoffs that don't say "do dnia" anywhere.
 _DEADLINE_ANCHORS = [
     "termin zgłosz", "zapisy do", "zapisów do", "rejestracja do",
     "rejestracji do", "koniec zapisów", "zgłoszenia do", "zgloszenia do",
     "zgłoszenia przyjmow", "zgloszenia przyjmow",
+    "zapisy będą przyjmow", "zapisy beda przyjmow",
+    "zapisy są przyjmow", "zapisy sa przyjmow",
+    "zapisy przyjmow", "zapisy przyjm",
     "zamknięcie zapisów", "zamkniecie zapisow", "przyjmowanie zgłosz",
     "ostateczny termin", "termin zapisów", "termin zapisow",
     "opłata startowa", "wpłacona w terminie", "wplacona w terminie",
+    "do godziny",  # "Zgłoszenia ... do godziny 23:59 w poniedziałek 8 czerwca 2026"
 ]
 
 
@@ -131,6 +146,29 @@ _PRICE_ANCHORS = [
     "wynosi:", "wynosi ",
     "wpłacona w terminie", "wplacona w terminie",
     "do biura zawodów",
+    # superczas.pl-style and rajsportactive.pl-style phrasings missed earlier
+    # ("Bieg na 5 km ... jest odpłatny: 50 zł płatne przelewem ...")
+    "jest odpłatny", "jest odplatny",
+    "płatne przelewem", "platne przelewem",
+    "płatne online", "platne online",
+    "przy wpłacie na konto",
+    "pakiet startowy",
+]
+
+# Phrases whose nearby `\d+ zł` is NOT an entry fee — name-transfer fees,
+# protest deposits, prize money caps, etc. If any of these tokens appear in
+# the same ±50 char window as a candidate price, the price is dropped.
+_PRICE_NEGATIVE_TOKENS = [
+    "kaucj",            # kaucji 100 zł (protest deposit)
+    "depozyt",          # depozyt nie może przekraczać 400 zł
+    "depozytu",
+    "przepisani",       # koszt przepisania 20 zł (name transfer)
+    "zmiany danych",
+    "skreśle",          # cancellation/refund context
+    "zwrot",            # refund / return amount
+    "nagrod",           # prize money (nagroda, nagrody)
+    "puchar",           # cup/award value
+    "limit",            # "limit 500 osób" — false positive on "500 zł"-style appearances
 ]
 
 
@@ -165,14 +203,24 @@ def _extract_prices(text: str) -> list[int]:
 
     found = set()
     for s, e in merged:
-        for m in _PRICE_RE.finditer(text[s:e]):
+        window = text[s:e]
+        for m in _PRICE_RE.finditer(window):
             raw = m.group(1).replace(",", ".")
             try:
                 val = float(raw)
             except ValueError:
                 continue
-            if 0 <= val <= 2000:
-                found.add(int(round(val)))
+            if not (0 <= val <= 2000):
+                continue
+            # Drop matches whose immediate ±50 char neighbourhood contains
+            # negative-context tokens — kaucja, depozyt, koszt przepisania,
+            # nagroda etc. — the number is not an entry fee.
+            local_s = max(0, m.start() - 50)
+            local_e = min(len(window), m.end() + 50)
+            local = window[local_s:local_e].lower()
+            if any(neg in local for neg in _PRICE_NEGATIVE_TOKENS):
+                continue
+            found.add(int(round(val)))
     return sorted(found)
 
 

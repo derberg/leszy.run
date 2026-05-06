@@ -75,17 +75,26 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
     started_at = datetime.now(timezone.utc).isoformat()
     sb = create_client(config.supabase_url, config.supabase_key)
 
-    # Fetch enriched scraper_all rows
+    # Fetch enriched scraper_all rows.
+    # A row is "enriched" if EITHER enriched_at (python pipeline) OR
+    # enriched_search_at (run-enrich-search.js Claude fallback) is set.
+    # Using only enriched_at silently dropped rows that had been search-enriched
+    # but not yet python-enriched — caused 13 events to never reach
+    # calendar_events on 2026-05-05 until we manually bumped enriched_at.
     query = sb.from_("scraper_all").select(
         "id, name, date, source, source_id, event_types, distances, "
         "registration_url, regulamin_url, registration_deadline, "
-        "price_from, price_to, website, voivodeship, is_kids, enriched_at"
-    ).not_.is_("enriched_at", "null")
+        "price_from, price_to, website, voivodeship, is_kids, "
+        "enriched_at, enriched_search_at"
+    ).or_("enriched_at.not.is.null,enriched_search_at.not.is.null")
 
     since_dt = _parse_since(since)
     if since_dt:
-        query = query.gte("enriched_at", since_dt)
-        click.echo(f"Syncing events enriched since {since_dt}")
+        # PostgREST OR: at least one of the two timestamps must be ≥ since_dt
+        query = query.or_(
+            f"enriched_at.gte.{since_dt},enriched_search_at.gte.{since_dt}"
+        )
+        click.echo(f"Syncing events enriched since {since_dt} (either pipeline)")
     else:
         click.echo("Syncing ALL enriched events")
 
@@ -168,8 +177,9 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
             if val is not None and val != ce.get(ce_field):
                 updates[ce_field] = val
 
-        # Mark enriched
-        updates["enriched_at"] = row["enriched_at"]
+        # Mark enriched. Use whichever timestamp is set — search-only rows have
+        # enriched_at=NULL but enriched_search_at populated.
+        updates["enriched_at"] = row.get("enriched_at") or row.get("enriched_search_at")
 
         # Respect locked_fields — admin-corrected / audit-nulled fields must never be overwritten
         locked = ce.get("locked_fields") or []
