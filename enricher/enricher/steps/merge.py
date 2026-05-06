@@ -218,7 +218,7 @@ def _merge_scalars(event, llm, updates, config):
     """Scalar fields: always overwrite from LLM (it reads the actual source)."""
     import re as _re
 
-    for field in ["price_from", "price_to", "registration_deadline", "voivodeship"]:
+    for field in ["price_from", "price_to", "registration_deadline", "voivodeship", "location"]:
         value = llm.get(field)
         if value is None:
             continue
@@ -229,6 +229,14 @@ def _merge_scalars(event, llm, updates, config):
                 continue
             if event.get("voivodeship"):
                 continue
+
+        # Location: only fill empty, never overwrite (scraper city is usually authoritative)
+        if field == "location":
+            if not isinstance(value, str) or not value.strip():
+                continue
+            if event.get("location"):
+                continue
+            value = value.strip()
 
         # Validate deadline format and year (must be within 1 year of event date)
         if field == "registration_deadline":

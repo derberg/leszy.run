@@ -19,6 +19,7 @@ SYNC_FIELDS = {
     "price_from": "price_from",
     "price_to": "price_to",
     "website": "website",
+    "location": "location",
     "voivodeship": "voivodeship",
     "is_kids": None,                   # handled specially: merged into event_type as "dzieci"
 }
@@ -84,7 +85,7 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
     query = sb.from_("scraper_all").select(
         "id, name, date, source, source_id, event_types, distances, "
         "registration_url, regulamin_url, registration_deadline, "
-        "price_from, price_to, website, voivodeship, is_kids, "
+        "price_from, price_to, website, location, voivodeship, is_kids, "
         "enriched_at, enriched_search_at"
     ).or_("enriched_at.not.is.null,enriched_search_at.not.is.null")
 
@@ -127,7 +128,7 @@ def sync_to_calendar(config: Config, since: Optional[str], dry_run: bool):
         # Find matching calendar_events row — try source+source_id first, fallback to name+date
         ce_fields = (
             "id, event_type, distances, registration_url, regulamin_url, "
-            "registration_deadline, price_from, price_to, website, voivodeship, enriched_at, locked_fields"
+            "registration_deadline, price_from, price_to, website, location, voivodeship, enriched_at, locked_fields"
         )
         match = sb.from_("calendar_events").select(ce_fields).eq(
             "source", row["source"]

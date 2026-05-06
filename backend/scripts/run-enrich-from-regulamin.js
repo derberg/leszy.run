@@ -3,6 +3,17 @@ import { execSync } from 'child_process'
 import { writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { AI_FILLABLE, pickFillable, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
+
+// Subset of AI_FILLABLE that's plausibly extractable from a regulamin PDF.
+// Excludes URLs (PDF doesn't contain its own URL or external pages reliably)
+// and event_types/distances (those have their own purpose-built prompt below).
+const PDF_FILLABLE = pickFillable([
+  'location', 'voivodeship',
+  'price_from', 'price_to',
+  'registration_deadline',
+  'is_kids',
+])
 
 // Usage: cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
 // Finds scraper_all entries that have a regulamin URL,
@@ -80,6 +91,14 @@ function buildPrompt(event) {
   const currentDistances = event.distances && event.distances.trim() ? event.distances : 'unknown'
   const currentTypes = (event.event_types && event.event_types.length > 0) ? event.event_types.join(', ') : 'unknown'
 
+  // Add a "fill these too if you can" section ONLY for fields currently null
+  // on the row — driven by the shared registry so any future schema additions
+  // propagate without touching this file.
+  const extraFields = fieldsNeedingFill(event, PDF_FILLABLE)
+  const extraBlock = extraFields.length === 0
+    ? ''
+    : extraFields.map(f => `  "${f}": ${PDF_FILLABLE[f].promptHint}, or null if not stated`).join(',\n')
+
   return `You are extracting structured data about a Polish running/walking race event from its official regulations (regulamin) PDF.
 
 Event name: ${event.name}
@@ -90,14 +109,14 @@ Currently known event types: ${currentTypes}
 
 Extract from the PDF:
 1. DISTANCES — look for "trasa", "dystans", "długość trasy", classification/category names, distance mentions. The PDF is the source of truth — override currently known distances if the PDF says differently.
-2. EVENT TYPE — classify based on the ACTUAL course description, surface, and terrain in the PDF.
+2. EVENT TYPE — classify based on the ACTUAL course description, surface, and terrain in the PDF.${extraFields.length ? '\n3. ADDITIONAL FACTUAL FIELDS — extract directly from the PDF where stated; null if not present.' : ''}
 
 Return ONLY valid JSON, no other text:
 {
   "distances_km": [numbers, e.g. 5, 10, 21.1, 42.2],
   "time_based_distances": ["4h", "6h", "12h"],
   "meter_distances": ["200m", "500m"],
-  "event_type": ["one or more from the list below"]
+  "event_type": ["one or more from the list below"]${extraFields.length ? ',\n' + extraBlock : ''}
 }
 
 DISTANCE RULES:
@@ -198,7 +217,7 @@ async function main() {
   while (true) {
     let query = supabase
       .from('scraper_all')
-      .select('id, name, date, location, distances, event_type, event_types, regulamin_url, regulamin_urls, enriched_regulamin_at')
+      .select('id, name, date, location, voivodeship, distances, event_type, event_types, regulamin_url, regulamin_urls, price_from, price_to, registration_deadline, is_kids, enriched_regulamin_at')
       .not('regulamin_url', 'is', null)
       .is('enriched_regulamin_at', null)
     if (!allFlag) {
@@ -213,11 +232,12 @@ async function main() {
     from += pageSize
   }
 
-  // Only process rows missing distances or event types
+  // Process rows missing distances OR event types OR ANY PDF-extractable field
   const needsEnrichment = allRows.filter(row => {
     const noDistances = !row.distances || row.distances.trim() === '' || row.distances === '{}'
     const noTypes = !row.event_types || row.event_types.length === 0
-    return noDistances || noTypes
+    const anyExtraNull = fieldsNeedingFill(row, PDF_FILLABLE).length > 0
+    return noDistances || noTypes || anyExtraNull
   })
 
   console.log(`Found ${allRows.length} rows with regulamin URLs, ${needsEnrichment.length} need enrichment (missing distances or types)`)
@@ -275,6 +295,11 @@ async function main() {
         }
       }
 
+      // Registry-driven: fill any PDF-fillable null fields the LLM provided
+      const extraFields = fieldsNeedingFill(row, PDF_FILLABLE)
+      const extraUpdates = applyRegistryUpdates(row, extracted, extraFields, PDF_FILLABLE)
+      Object.assign(updates, extraUpdates)
+
       updates.enriched_regulamin_at = new Date().toISOString()
       if (Object.keys(updates).length > 1) {
         const { error: updateErr } = await supabase.from('scraper_all').update(updates).eq('id', row.id)
@@ -284,6 +309,9 @@ async function main() {
         } else {
           if (updates.distances) console.log(`    ✓ distances: ${row.distances || '(none)'} → ${updates.distances}`)
           if (updates.event_types) console.log(`    ✓ types: ${row.event_types?.join(', ') || '(none)'} → ${updates.event_types.join(', ')}`)
+          for (const k of Object.keys(extraUpdates)) {
+            console.log(`    ✓ ${k}: ${row[k] ?? '(none)'} → ${JSON.stringify(extraUpdates[k])}`)
+          }
           enriched++
         }
       } else {

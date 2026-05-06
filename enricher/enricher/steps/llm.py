@@ -117,6 +117,7 @@ RESPOND WITH THIS EXACT JSON STRUCTURE (use null for any field not found in cont
   "registration_deadline": "YYYY-MM-DD",
   "price_from": 50,
   "price_to": 90,
+  "location": "Warszawa",
   "voivodeship": "Mazowieckie",
   "is_kids": false,
   "website": "<REPLACE-WITH-REAL-OR-NULL>",
@@ -164,6 +165,12 @@ PRICES — READ CAREFULLY, this is the most important field to extract:
 REGISTRATION DEADLINE:
 - Look for: "termin zgłoszeń", "zapisy do", "rejestracja do", "limit zgłoszeń"
 - Format: YYYY-MM-DD. null if not found
+
+LOCATION:
+- The city/town/village where the event starts. e.g. "Warszawa", "Lisewo Malborskie", "Wieliszew"
+- Look for "miejscowość", "miejsce startu", "Start:", "Trasa biegnie ulicami...", organizer's address
+- One placename, no voivodeship suffix. Forest/region names ("Puszcza Bolimowska") only if no nearby city is mentioned
+- null if uncertain
 
 VOIVODESHIP: exactly one of: {", ".join(VOIVODESHIPS)}. null if uncertain.
 
