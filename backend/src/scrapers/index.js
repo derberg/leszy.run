@@ -584,31 +584,39 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
   console.log(`[publish] ${allRows.length} rows in scraper_all`)
 
-  // Fetch all existing source+source_id pairs from calendar_events to skip exact matches.
-  // Must also index source_links — merge can reassign the primary source/source_id on
-  // scraper_all rows, so the primary pair alone is not enough for dedup.
-  const existingLinks = new Set()
+  // Fetch existing calendar_events with fields needed for both dedup AND
+  // diff-based updates. Index by every source+source_id pair (primary + every
+  // entry in source_links) so cross-source merges still find the existing row.
+  // Rejected events are tracked separately so we never resurrect their data.
+  const existingByLink = new Map()  // 'source:source_id' → ce row (active/pending only)
+  const rejectedKeys = new Set()    // 'source:source_id' from rejected events
   from = 0
   while (true) {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('source, source_id, source_links')
+      .select('id, name, date, status, source, source_id, source_links, locked_fields, location, voivodeship, lat, lng, distances, event_type, registration_url, regulamin_url, website, price_from, price_to, registration_deadline')
       .range(from, from + pageSize - 1)
 
     if (error) break
     if (!data || data.length === 0) break
     for (const r of data) {
-      if (r.source && r.source_id) existingLinks.add(`${r.source}:${r.source_id}`)
+      const keys = []
+      if (r.source && r.source_id) keys.push(`${r.source}:${r.source_id}`)
       const links = Array.isArray(r.source_links) ? r.source_links : []
       for (const l of links) {
-        if (l.source && l.source_id) existingLinks.add(`${l.source}:${l.source_id}`)
+        if (l.source && l.source_id) keys.push(`${l.source}:${l.source_id}`)
+      }
+      if (r.status === 'rejected') {
+        for (const k of keys) rejectedKeys.add(k)
+      } else {
+        for (const k of keys) existingByLink.set(k, r)
       }
     }
     if (data.length < pageSize) break
     from += pageSize
   }
 
-  console.log(`[publish] ${existingLinks.size} existing source+source_id pairs in calendar_events`)
+  console.log(`[publish] ${existingByLink.size} live + ${rejectedKeys.size} rejected source+source_id pairs in calendar_events`)
 
   // Fetch name+date+location from calendar_events for fuzzy dedup.
   // New scraper_all rows may have slightly different names from events already published
@@ -648,24 +656,150 @@ async function publishToCalendar({ dryRun = false } = {}) {
     return null
   }
 
-  let created = 0, skipped = 0, fuzzySkipped = 0
+  // Helper — given a calendar_events row and a fresh scraper_all row, build
+  // the set of fields to update. Conservative rules to protect admin curation:
+  //
+  //   - Scalars (location, voivodeship, lat, lng, prices, deadline)
+  //     and URLs (registration_url, regulamin_url, website):
+  //       FILL IF EMPTY only — never overwrite existing values. If admin
+  //       wants a fresh scraper value to win, they remove the CE value or
+  //       lock-then-edit. Avoids regressing facebook→lumisport-or-back kind
+  //       of decisions.
+  //
+  //   - distances (text[] in CE, comma string in scraper_all):
+  //       FILL IF EMPTY, or UPGRADE if scraper has strictly more distances
+  //       than CE (catches scrapers seeing newly-added race categories).
+  //
+  //   - event_type (text[]):
+  //       ADDITIVE MERGE — never drop existing tags; add scraper's new ones
+  //       and 'dzieci' if is_kids is true.
+  //
+  // Always respects ce.locked_fields.
+  function buildUpdateRow(ce, raw) {
+    const locked = new Set(Array.isArray(ce.locked_fields) ? ce.locked_fields : [])
+    const upd = {}
+
+    function fillIfEmpty(field, newVal) {
+      if (locked.has(field)) return
+      if (newVal === null || newVal === undefined) return
+      if (typeof newVal === 'string' && !newVal.trim()) return
+      const cur = ce[field]
+      if (cur !== null && cur !== undefined && cur !== '') return
+      upd[field] = newVal
+    }
+
+    fillIfEmpty('location', raw.location || null)
+    fillIfEmpty('voivodeship', raw.voivodeship || null)
+    fillIfEmpty('lat', raw.lat ?? null)
+    fillIfEmpty('lng', raw.lng ?? null)
+    fillIfEmpty('registration_url', raw.registration_url || null)
+    fillIfEmpty('regulamin_url', raw.regulamin_url || null)
+    fillIfEmpty('website', raw.website || null)
+    fillIfEmpty('registration_deadline', raw.registration_deadline || null)
+    fillIfEmpty('price_from', raw.price_from ?? null)
+    fillIfEmpty('price_to', raw.price_to ?? null)
+
+    // distances: scraper_all stores comma string, ce stores text[]
+    if (!locked.has('distances')) {
+      let saDistances = raw.distances || []
+      if (!Array.isArray(saDistances)) {
+        saDistances = String(saDistances).split(',').map(d => d.trim()).filter(Boolean)
+      }
+      const ceDistances = Array.isArray(ce.distances) ? ce.distances : []
+      if (saDistances.length > 0) {
+        if (ceDistances.length === 0 || saDistances.length > ceDistances.length) {
+          upd.distances = saDistances
+        }
+      }
+    }
+
+    // event_type: additive merge (preserve curated tags), but never mix
+    // conflicting terrain types — if CE says "trail", an incoming "uliczny"
+    // is dropped (and vice versa). Add 'dzieci' from is_kids.
+    if (!locked.has('event_type')) {
+      const TERRAIN_TYPES = new Set(['trail', 'ocr', 'uliczny'])
+      let saTypes = raw.event_types || raw.event_type || []
+      if (!Array.isArray(saTypes)) saTypes = [saTypes]
+      saTypes = saTypes.filter(Boolean)
+      if (raw.is_kids && !saTypes.includes('dzieci')) saTypes.push('dzieci')
+      if (saTypes.length > 0) {
+        const ceTypes = Array.isArray(ce.event_type) ? ce.event_type : []
+        const ceTerrain = ceTypes.find(t => TERRAIN_TYPES.has(t))
+        const merged = new Set(ceTypes)
+        for (const t of saTypes) {
+          if (TERRAIN_TYPES.has(t) && ceTerrain && t !== ceTerrain) continue
+          merged.add(t)
+        }
+        const mergedArr = [...merged]
+        if (mergedArr.length !== ceTypes.length || !ceTypes.every(t => merged.has(t))) {
+          upd.event_type = mergedArr
+        }
+      }
+    }
+
+    return upd
+  }
+
+  let created = 0, updated = 0, unchanged = 0, rejectedSkipped = 0, fuzzySkipped = 0
   const errors = []
   const fuzzyLog = []
   const createdLog = []
+  const updatedLog = []
   const now = new Date().toISOString()
 
   for (const raw of allRows) {
-    // Skip if primary source already in calendar_events
-    if (raw.source && raw.source_id && existingLinks.has(`${raw.source}:${raw.source_id}`)) {
-      skipped++
+    // Resolve existing CE row by primary source or any source_links entry
+    const links = Array.isArray(raw.source_links) ? raw.source_links : []
+    const candidateKeys = []
+    if (raw.source && raw.source_id) candidateKeys.push(`${raw.source}:${raw.source_id}`)
+    for (const l of links) {
+      if (l.source && l.source_id) candidateKeys.push(`${l.source}:${l.source_id}`)
+    }
+
+    // Rejected events: never insert OR update — admin killed them
+    if (candidateKeys.some(k => rejectedKeys.has(k))) {
+      rejectedSkipped++
       continue
     }
 
-    // Also check all source_links
-    const links = Array.isArray(raw.source_links) ? raw.source_links : []
-    const anyLinkExists = links.some(l => l.source && l.source_id && existingLinks.has(`${l.source}:${l.source_id}`))
-    if (anyLinkExists) {
-      skipped++
+    let existingCE = null
+    for (const k of candidateKeys) {
+      const found = existingByLink.get(k)
+      if (found) { existingCE = found; break }
+    }
+
+    // Existing row → diff & update path
+    if (existingCE) {
+      const upd = buildUpdateRow(existingCE, raw)
+      if (Object.keys(upd).length === 0) {
+        unchanged++
+        continue
+      }
+      // Skip if we don't have a real id yet (just-inserted within this batch)
+      if (!existingCE.id) {
+        unchanged++
+        continue
+      }
+      upd.last_verified_at = now
+
+      if (dryRun) {
+        updated++
+        updatedLog.push({ name: existingCE.name, date: existingCE.date, fields: Object.keys(upd).filter(k => k !== 'last_verified_at') })
+      } else {
+        const { error } = await supabase
+          .from('calendar_events')
+          .update(upd)
+          .eq('id', existingCE.id)
+        if (error) {
+          errors.push({ name: existingCE.name, message: `update failed: ${error.message}` })
+        } else {
+          updated++
+          updatedLog.push({ name: existingCE.name, date: existingCE.date, fields: Object.keys(upd).filter(k => k !== 'last_verified_at') })
+          // Refresh in-memory cache so a later scraper_all row matching the same
+          // CE doesn't re-update with the same values
+          for (const k of candidateKeys) existingByLink.set(k, { ...existingCE, ...upd })
+        }
+      }
       continue
     }
 
@@ -736,19 +870,38 @@ async function publishToCalendar({ dryRun = false } = {}) {
       created++
       createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id })
     } else {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('calendar_events')
         .insert(row)
+        .select('id')
+        .single()
 
       if (error) {
         errors.push({ name: raw.name, message: error.message })
       } else {
         created++
         createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id })
-        // Track so we don't insert dupes from same batch
-        if (raw.source && raw.source_id) existingLinks.add(`${raw.source}:${raw.source_id}`)
+        // Track so we don't insert dupes from same batch — also enables update path
+        // for the just-inserted row if a later scraper_all row maps to the same CE.
+        const insertedCE = {
+          id: inserted?.id || null,
+          name: raw.name,
+          date: raw.date,
+          location: raw.location || null,
+          voivodeship: raw.voivodeship || null,
+          distances,
+          event_type: eventType,
+          registration_url: raw.registration_url || null,
+          regulamin_url: raw.regulamin_url || null,
+          website: raw.website || null,
+          price_from: raw.price_from || null,
+          price_to: raw.price_to || null,
+          registration_deadline: raw.registration_deadline || null,
+          locked_fields: [],
+        }
+        if (raw.source && raw.source_id) existingByLink.set(`${raw.source}:${raw.source_id}`, insertedCE)
         for (const l of links) {
-          if (l.source && l.source_id) existingLinks.add(`${l.source}:${l.source_id}`)
+          if (l.source && l.source_id) existingByLink.set(`${l.source}:${l.source_id}`, insertedCE)
         }
         // Also track for fuzzy dedup within same batch
         const group = existingByDate.get(raw.date) || []
@@ -758,7 +911,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
     }
   }
 
-  console.log(`[publish] Done: created=${created} skipped=${skipped} fuzzySkipped=${fuzzySkipped} errors=${errors.length}`)
+  console.log(`[publish] Done: created=${created} updated=${updated} unchanged=${unchanged} rejectedSkipped=${rejectedSkipped} fuzzySkipped=${fuzzySkipped} errors=${errors.length}`)
 
   if (fuzzyLog.length > 0) {
     console.log(`\n--- Fuzzy-skipped events (${fuzzyLog.length}) ---`)
@@ -770,7 +923,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
     }
   }
 
-  return { created, skipped, fuzzySkipped, errors, fuzzyLog, createdLog }
+  return { created, updated, unchanged, rejectedSkipped, fuzzySkipped, errors, fuzzyLog, createdLog, updatedLog }
 }
 
 export { runPipeline, mergeIntoScraperAll, publishToCalendar }

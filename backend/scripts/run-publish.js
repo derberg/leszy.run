@@ -2,9 +2,11 @@ import { publishToCalendar } from '../src/scrapers/index.js'
 import { writeRunLog } from './lib/run-log.js'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-publish.js [--apply]
-// Pushes scraper_all rows into calendar_events as 'pending'.
-// Skips rows already in calendar_events (exact source+source_id match).
-// No fuzzy dedup — use the Duplikaty view in admin UI to review dupes.
+// Pushes scraper_all rows into calendar_events.
+//   - new event (no matching CE row) → INSERT as 'pending'
+//   - existing CE row, scraper_all has fresher data → UPDATE non-locked fields
+//   - rejected CE row → never touched
+//   - fuzzy match (same date + similar name) → skipped, surfaced for admin
 // Dry run by default — use --apply to write to DB.
 
 const startedAt = new Date().toISOString()
@@ -21,7 +23,7 @@ function locationToString(loc) {
 }
 
 publishToCalendar({ dryRun })
-  .then(async ({ created, skipped, fuzzySkipped, errors, createdLog }) => {
+  .then(async ({ created, updated, unchanged, rejectedSkipped, fuzzySkipped, errors, createdLog, updatedLog }) => {
     if (createdLog && createdLog.length > 0) {
       console.log(`\n--- ${dryRun ? 'Would create' : 'Created'} ${createdLog.length} event(s) ---`)
       for (const c of createdLog) {
@@ -29,8 +31,14 @@ publishToCalendar({ dryRun })
         console.log(`  [${c.date}] ${c.name}${place ? ` — ${place}` : ''} (${c.source}:${c.source_id})`)
       }
     }
+    if (updatedLog && updatedLog.length > 0) {
+      console.log(`\n--- ${dryRun ? 'Would update' : 'Updated'} ${updatedLog.length} event(s) ---`)
+      for (const u of updatedLog) {
+        console.log(`  [${u.date}] ${u.name} — fields: ${u.fields.join(', ')}`)
+      }
+    }
     console.log('\n--- Publish Summary (scraper_all → calendar_events) ---')
-    console.log(`  created=${created} skipped=${skipped} fuzzySkipped=${fuzzySkipped || 0} errors=${errors.length}`)
+    console.log(`  created=${created} updated=${updated} unchanged=${unchanged} rejectedSkipped=${rejectedSkipped} fuzzySkipped=${fuzzySkipped || 0} errors=${errors.length}`)
     for (const e of errors) {
       console.log(`    ERR: ${e.name || ''} ${e.message}`)
     }
@@ -40,7 +48,9 @@ publishToCalendar({ dryRun })
         started_at: startedAt,
         ended_at: new Date().toISOString(),
         created,
-        skipped,
+        updated,
+        unchanged,
+        rejected_skipped: rejectedSkipped,
         fuzzy_skipped: fuzzySkipped || 0,
         errors: errors.map(e => ({ name: e.name || null, message: String(e.message || e) })),
         created_events: (createdLog || []).map(c => ({
@@ -50,6 +60,11 @@ publishToCalendar({ dryRun })
           voivodeship: c.voivodeship,
           source: c.source,
           source_id: c.source_id,
+        })),
+        updated_events: (updatedLog || []).map(u => ({
+          name: u.name,
+          date: u.date,
+          fields: u.fields,
         })),
       })
       console.log(`\nRun log: ${logFile}`)
