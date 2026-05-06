@@ -168,7 +168,7 @@ You should immediately see messages arriving in `mosquitto/log/mosquitto.log` an
 
 ## Daily scrape→enrich→publish scheduler
 
-The `scheduler` container runs `node-cron` jobs at 08:00 (full pipeline) and 09:00 (watchdog) Europe/Warsaw. On any failure it sends an email via SendGrid to `PIPELINE_ALERT_EMAIL`.
+The `scheduler` container runs `node-cron` jobs at 08:00 (full pipeline) and 10:00 (watchdog) Europe/Warsaw. On any failure it sends an email via SendGrid to `PIPELINE_ALERT_EMAIL`.
 
 Check it's loaded and pick up the latest banner:
 

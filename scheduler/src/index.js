@@ -4,7 +4,7 @@ import { runWatchdog } from './watchdog.js';
 
 const TZ = process.env.TZ || 'Europe/Warsaw';
 const PIPELINE_CRON = process.env.PIPELINE_CRON || '0 8 * * *';
-const WATCHDOG_CRON = process.env.WATCHDOG_CRON || '0 9 * * *';
+const WATCHDOG_CRON = process.env.WATCHDOG_CRON || '0 10 * * *';
 
 let pipelineRunning = false;
 let watchdogRunning = false;

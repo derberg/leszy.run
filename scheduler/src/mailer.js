@@ -78,7 +78,7 @@ export async function sendMissedRunEmail({ reason, lastSeenAt }) {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto;">
       <h2 style="color: #dc2626;">⏰ Pipeline missed its run</h2>
-      <p>The 09:00 watchdog found no fresh heartbeat from the daily pipeline.</p>
+      <p>The 10:00 watchdog found no fresh heartbeat from the daily pipeline.</p>
       <ul>
         <li><strong>Reason:</strong> ${escapeHtml(reason)}</li>
         <li><strong>Last successful run:</strong> ${lastSeenAt ? escapeHtml(lastSeenAt) : '(never)'}</li>

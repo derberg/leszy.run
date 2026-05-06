@@ -39,7 +39,7 @@ LeszyRun/
   frontend/     React + Vite (admin UI)
   public/       React + Vite (public-facing: live results, volunteer bib entry, self-service check-in)
   packages/ui/  Shared UI components (@leszyrun/ui)
-  scheduler/    Node.js + node-cron daemon, runs the daily scrape→enrich→publish pipeline at 08:00 Europe/Warsaw and a watchdog at 09:00. Sends SendGrid alerts on failure.
+  scheduler/    Node.js + node-cron daemon, runs the daily scrape→enrich→publish pipeline at 08:00 Europe/Warsaw and a watchdog at 10:00. Sends SendGrid alerts on failure.
   enricher/     Python (Crawl4AI + Docling + local Ollama) for LLM enrichment, run-once container in compose
   mosquitto/    native macOS, NOT dockerized (hardware constraint)
 ```
@@ -300,7 +300,7 @@ docker compose exec scheduler npm run pipeline
 ./scripts/daily-pipeline.sh
 ```
 
-The scheduler orchestrates everything via `docker compose exec backend …` (steps 1–6, 8–11) and `docker compose run --rm enricher …` (step 7). On any non-zero exit it sends a SendGrid failure email; on full success with zero `calendar_events` row changes it sends a `[WARN]`. A 09:00 watchdog emails `[ALERT]` if the pipeline didn't run in the last 26h. See [docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md](docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md).
+The scheduler orchestrates everything via `docker compose exec backend …` (steps 1–6, 8–11) and `docker compose run --rm enricher …` (step 7). On any non-zero exit it sends a SendGrid failure email; on full success with zero `calendar_events` row changes it sends a `[WARN]`. A 10:00 watchdog emails `[ALERT]` if the pipeline didn't run in the last 26h. See [docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md](docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md).
 
 To run individual steps manually (debugging):
 
