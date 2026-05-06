@@ -8190,6 +8190,28 @@
     "website": null,
     "is_kids": null
   },
+  "lisia-dycha-59-2026-05-06": {
+    "id": "be403110-8c86-4338-add5-6a7149527618",
+    "name": "Lisia Dycha # 59",
+    "date": "2026-05-06",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Gdańsk",
+    "voivodeship": "Pomorskie",
+    "lat": 54.348291,
+    "lng": 18.654023,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://www.facebook.com/LisiaDycha/",
+    "is_kids": null
+  },
   "itmbwieczorem-2026-05-07": {
     "id": "e23dba04-8485-4a23-bdfa-da0467097b4e",
     "name": "ITMBWieczorem",
@@ -8703,6 +8725,28 @@
     "website": "https://www.zmierzymyczas.pl/2478/i-bieg-wolnosci-sladami-jencow-wojennych-im-rtm-witolda-pileckiego-10-km.html",
     "is_kids": null
   },
+  "iv-pluznicka-piatka-2026-05-09": {
+    "id": "90626fce-bd34-49ef-9e1c-4341f55b002c",
+    "name": "IV Płużnicka Piątka",
+    "date": "2026-05-09",
+    "registration_deadline": "2026-04-30",
+    "regulamin_url": "https://wbtiming.pl/Files/Regulations/2026_05_09_regulamin_4._p%C5%82u%C5%BCnicka_pi%C4%85tka.pdf",
+    "price_from": 45,
+    "price_to": 100,
+    "location": "Płużnica",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.300104,
+    "lng": 18.776792,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://wbtiming.pl/PluznickaPiatka2026",
+    "website": "https://bieg.pluznica.info/",
+    "is_kids": null
+  },
   "13-pko-bialystok-polmaraton-2026-05-09": {
     "id": "6bf8eba1-a1f2-45fa-9514-91ceed154f57",
     "name": "13 PKO Białystok Półmaraton",
@@ -9153,6 +9197,32 @@
     "website": "https://warneland.pl",
     "is_kids": null
   },
+  "wroblewska-eco-dycha-2026-05-09": {
+    "id": "5fc696ef-3736-4dec-9419-53b480d02a94",
+    "name": "Wróblewska Eco Dycha",
+    "date": "2026-05-09",
+    "registration_deadline": "2026-05-07",
+    "regulamin_url": "https://rajsportactive.pl/pdf/regWroblew2026.pdf",
+    "price_from": 50,
+    "price_to": 100,
+    "location": "Wróblew",
+    "voivodeship": "Łódzkie",
+    "lat": 51.610033,
+    "lng": 18.615694,
+    "distances": [
+      "1 km",
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci",
+      "nordic walking"
+    ],
+    "registration_url": "https://rajsportactive.pl/zapisy",
+    "website": "https://www.facebook.com/wroblewskadycha",
+    "is_kids": null
+  },
   "kids-run-bieg-europejski-puck-2026-2026-05-10": {
     "id": "7ff95f0b-c1f1-4439-819c-ef36e88d9ae7",
     "name": "Kids Run - Bieg Europejski Puck 2026",
@@ -9298,6 +9368,30 @@
     ],
     "registration_url": "https://super-sport.com.pl/zapisy-formularze/4587-41-polmaraton-solan-im-romana-terlikowskiego-i-1-petla-solan.html",
     "website": "https://super-sport.com.pl/zapisy-formularze/4587-41-polmaraton-solan-im-romana-terlikowskiego-i-1-petla-solan.html",
+    "is_kids": null
+  },
+  "xxix-gorski-bieg-magurki-2026-05-10": {
+    "id": "c5a94498-09d3-4fcf-bc8a-bc3c4a966272",
+    "name": "XXIX Górski Bieg Magurki",
+    "date": "2026-05-10",
+    "registration_deadline": "2026-05-08",
+    "regulamin_url": "https://www.bgtimesport.pl/public/pliki/833reg20260213t233336.pdf",
+    "price_from": 25,
+    "price_to": 90,
+    "location": "Bielsko-Biała",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.607327,
+    "lng": 15.922842,
+    "distances": [
+      "6.5 km",
+      "8.8 km"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://www.bgtimesport.pl/zawody/biegi/id/833",
+    "website": "https://luksgroniczek.pl",
     "is_kids": null
   },
   "wings-for-life-2026-05-10": {
@@ -17308,6 +17402,56 @@
     "website": null,
     "is_kids": null
   },
+  "lesna-zadyszka-2026-06-13": {
+    "id": "f345f1e7-3ec9-4a61-8e11-3103626b4230",
+    "name": "Leśna ZaDyszka",
+    "date": "2026-06-13",
+    "registration_deadline": "2026-06-08",
+    "regulamin_url": "https://superczas.pl/userfiles/events/698/regulamin_lesna-zadyszka-w-szulmierzu-2026_pl.pdf?1778047121",
+    "price_from": 50,
+    "price_to": 100,
+    "location": "Regimin",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.94148,
+    "lng": 20.55454,
+    "distances": [
+      "1.5 km",
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci",
+      "nordic walking"
+    ],
+    "registration_url": "https://superczas.pl/lesnazadyszka2026/zapisy",
+    "website": "https://superczas.pl/lesnazadyszka2026",
+    "is_kids": null
+  },
+  "8-bieg-chwalisza-2026-06-13": {
+    "id": "8ff6f98c-c3c7-461d-aeb2-fdd449b9b7a7",
+    "name": "8 Bieg Chwalisza",
+    "date": "2026-06-13",
+    "registration_deadline": null,
+    "regulamin_url": "https://dostartu.pl/statute_files/16421_pl.pdf",
+    "price_from": 45,
+    "price_to": 45,
+    "location": "Ściernie",
+    "voivodeship": "Śląskie",
+    "lat": 50.082671,
+    "lng": 19.133738,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "przełajowy",
+      "charytatywny",
+      "nordic walking"
+    ],
+    "registration_url": "https://time-sport.pl/zapisy-13-06-2026-8-edycja-charytatywnego-biegu-chwalisza/",
+    "website": "https://sciernie.bierun.pl",
+    "is_kids": null
+  },
   "plum-ekiden-mini-2026-2026-06-13": {
     "id": "015039ab-cce0-442e-9855-6caadc34355d",
     "name": "Plum Ekiden Mini 2026",
@@ -20277,6 +20421,32 @@
     "website": null,
     "is_kids": null
   },
+  "gryf-arena-run-2026-06-21": {
+    "id": "84cd56c7-86f7-4812-bba2-ced4405d8d66",
+    "name": "Gryf Arena Run",
+    "date": "2026-06-21",
+    "registration_deadline": "2026-06-16",
+    "regulamin_url": "https://sport-time.com.pl/competitions/view?id=772",
+    "price_from": 20,
+    "price_to": 100,
+    "location": "Gryfice",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.914853,
+    "lng": 15.198706,
+    "distances": [
+      "100 m",
+      "200 m",
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking",
+      "dzieci"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=772",
+    "website": "http://gryfarena.com",
+    "is_kids": null
+  },
   "11-nocny-bieg-sztafetowy-janusza-kusocinskiego-2026-06-21": {
     "id": "0775f1be-6c2f-438a-9c19-f0078af965a5",
     "name": "11. Nocny Bieg Sztafetowy Janusza Kusocińskiego",
@@ -21961,6 +22131,28 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v15217",
     "website": "https://wkregunatury.pl/dzialania/polmaraton-gestwinami-murckowskimi/",
+    "is_kids": null
+  },
+  "xi-janikowska-zadyszka-2026-07-04": {
+    "id": "6003a040-c2eb-4b3d-a172-14950a89b1e6",
+    "name": "XI Janikowska ZaDyszka",
+    "date": "2026-07-04",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Janikowo",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 52.753165,
+    "lng": 18.114102,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "http://www.osir.janikowo.com/janikowska-zadyszka/",
     "is_kids": null
   },
   "bieg-po-zdrowie-2026-07-05": {
@@ -23833,6 +24025,46 @@
     "website": "https://www.rudaslaska.pl/polmaraton",
     "is_kids": null
   },
+  "bieg-o-wronke-szlakiem-swietego-jakuba-2026-08-01": {
+    "id": "900c6b07-2033-4506-bcb4-528d2daf4225",
+    "name": "Bieg o Wronkę Szlakiem Świętego Jakuba",
+    "date": "2026-08-01",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Wronka",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 54.015502,
+    "lng": 21.688771,
+    "distances": [],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": null,
+    "website": null,
+    "is_kids": null
+  },
+  "xi-czastarska-piatka-2026-08-01": {
+    "id": "b0d91ee6-cc57-4aa1-8eab-a23c2fb4b0e5",
+    "name": "XI Czastarska Piątka",
+    "date": "2026-08-01",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Czastary",
+    "voivodeship": "Łódzkie",
+    "lat": 51.258111,
+    "lng": 18.320942,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [],
+    "registration_url": null,
+    "website": null,
+    "is_kids": null
+  },
   "xi-bieg-wsrod-krasnych-pol-2026-08-02": {
     "id": "267ab8a6-c3ec-462e-8354-4d934b0eadb8",
     "name": "XI Bieg Wśród Krasnych Pól",
@@ -25305,6 +25537,29 @@
     "website": "https://sportaktywni.pl/wydarzenie/ukiel-sunset-run-olsztyn-2026",
     "is_kids": null
   },
+  "xxix-bieg-miodobrania-kurpiowskiego-2026-08-29": {
+    "id": "7dff71c5-2886-4d16-b8e0-4f8ff4aa23db",
+    "name": "XXIX Bieg Miodobrania Kurpiowskiego",
+    "date": "2026-08-29",
+    "registration_deadline": "2026-08-24",
+    "regulamin_url": "https://superczas.pl/userfiles/events/699/regulamin_xxix-bieg-miodobran_owskiego-2026_pl.pdf?1778046981",
+    "price_from": 40,
+    "price_to": 100,
+    "location": "Myszyniec",
+    "voivodeship": "Mazowieckie",
+    "lat": 53.383196,
+    "lng": 21.342072,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://superczas.pl/miodobranie2026/zapisy",
+    "website": "https://superczas.pl/miodobranie2026",
+    "is_kids": null
+  },
   "bieg-pirata-2026-2026-08-29": {
     "id": "e11aa6aa-e159-479a-b6bc-8d64d4edb335",
     "name": "Bieg Pirata 2026",
@@ -26748,6 +27003,28 @@
     "website": "https://competitions.timekeeper.pl/biegam-i-wspieram-2026",
     "is_kids": null
   },
+  "10-bieg-uliczny-przybij-piatke-2026-09-06": {
+    "id": "5fcfb15d-f1fa-47b6-898c-475e71dcc077",
+    "name": "10 Bieg Uliczny Przybij Piątkę",
+    "date": "2026-09-06",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Kleosin",
+    "voivodeship": "Podlaskie",
+    "lat": 53.09866,
+    "lng": 23.118265,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://okjuchnowiec.pl/przybij-piatke-w-kleosinie/",
+    "is_kids": null
+  },
   "xiii-myszkowska-8-2026-09-06": {
     "id": "86e1b35c-f908-40f0-b4e0-db76f7db2fa8",
     "name": "XIII Myszkowska 8",
@@ -27507,6 +27784,29 @@
     "website": null,
     "is_kids": null
   },
+  "bieg-na-skale-2026-09-13": {
+    "id": "a819b142-7041-4829-9d9c-a41f3b46f794",
+    "name": "Bieg na Skałę",
+    "date": "2026-09-13",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Skała",
+    "voivodeship": "Małopolskie",
+    "lat": 50.230377,
+    "lng": 19.853537,
+    "distances": [
+      "8 km",
+      "15 km"
+    ],
+    "event_type": [
+      "przełajowy"
+    ],
+    "registration_url": null,
+    "website": "https://www.facebook.com/profile.php?id=61576161908623",
+    "is_kids": null
+  },
   "v-zawody-w-jezdzie-szybkiej-na-rolkach-o-puchar-skarbnika-21-km-2026-09-13": {
     "id": "3db75887-686e-4076-a509-867d6aa8932b",
     "name": "V Zawody w jeździe szybkiej na rolkach - O Puchar Skarbnika - 21 km",
@@ -27675,6 +27975,28 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16125",
     "website": "https://time-sport.pl/zapisy-19-09-2026-glucholaski-bieg-gorski/",
+    "is_kids": null
+  },
+  "xiv-jastrzebska-dziesiatka-2026-09-19": {
+    "id": "7cfc83cc-b2d4-4ffe-a645-380367035025",
+    "name": "XIV Jastrzębska Dziesiątka",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-08-19",
+    "regulamin_url": "https://b4sportonline.pl/users-folder/451/files/Regulamin_Jastrzebska_10___19_09_2026_r__1.pdf",
+    "price_from": 75,
+    "price_to": 75,
+    "location": "Jastrzębie-Zdrój",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.521003,
+    "lng": 18.267596,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://b4sportonline.pl/Jastrzebska_Dziesiatka/zapisy_na_xiv_bieg_uliczny_jastrzebska_dziesiatka",
+    "website": "https://www.biegjastrzebie.pl/jastrzebska-dziesiatka",
     "is_kids": null
   },
   "17-bytomski-polmaraton-2026-09-19": {
@@ -30152,6 +30474,28 @@
     "website": "https://nocnasciema.com",
     "is_kids": null
   },
+  "polmaraton-w-biskupcu-2026-10-25": {
+    "id": "85606f2e-8bc3-4650-b6e1-f901936642a4",
+    "name": "Półmaraton w Biskupcu",
+    "date": "2026-10-25",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Biskupiec",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 53.8688,
+    "lng": 20.95518,
+    "distances": [
+      "21.1 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": "https://www.gminabiskupiec.pl/serwisy-specjalne/polmaraton-w-biskupcu/",
+    "is_kids": null
+  },
   "gliwicka-prowokacja-biegowa-2026-10-31": {
     "id": "cadccbc8-f646-4ff6-a0b1-a059319f618f",
     "name": "Gliwicka Prowokacja biegowa",
@@ -30573,6 +30917,24 @@
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2420/x-mini-maraton-manhatan.html",
     "website": "https://www.zmierzymyczas.pl/2420/x-mini-maraton-manhatan.html",
+    "is_kids": null
+  },
+  "ii-mazowiecki-bieg-jesieni-2026-11-21": {
+    "id": "baa670dd-7ff0-4e09-96da-7d3e9c7476b0",
+    "name": "II Mazowiecki Bieg Jesieni",
+    "date": "2026-11-21",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Staroźreby",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.632162,
+    "lng": 19.987636,
+    "distances": [],
+    "event_type": [],
+    "registration_url": null,
+    "website": null,
     "is_kids": null
   },
   "xiii-makowska-pietnastka-2026-11-22": {
