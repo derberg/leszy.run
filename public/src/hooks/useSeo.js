@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 
 const SITE_NAME = 'Leszy.run'
-const BASE_URL = 'https://leszy.run'
+const BASE_URL = 'https://www.leszy.run'
 const DEFAULT_DESCRIPTION = 'Profesjonalna obsługa biegów i wydarzeń sportowych. Pomiar czasu RFID, zapisy online, wyniki na żywo. Kalendarz biegów w Polsce.'
 const DEFAULT_IMAGE = `${BASE_URL}/og-image.png`
 

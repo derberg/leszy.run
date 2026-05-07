@@ -57,19 +57,44 @@ function daysUntil(dateStr) {
   return diff >= 0 ? diff : null
 }
 
-/**
- * Build JSON-LD SportsEvent schema.
- * @param {Object} event
- * @param {string} slug
- * @returns {Object}
- */
+function buildSchemaDescription(event) {
+  const parts = []
+  if (event.date) parts.push(formatDatePolish(event.date))
+  if (event.location) parts.push(event.location)
+  if (Array.isArray(event.distances) && event.distances.length > 0) {
+    parts.push(event.distances.join(', '))
+  }
+  if (Array.isArray(event.event_type) && event.event_type.length > 0) {
+    parts.push(event.event_type.map(t => TYPE_LABELS[t] || t).join(', '))
+  }
+  return parts.join(' · ')
+}
+
 function buildJsonLd(event, slug) {
+  const startDate = event.date ? String(event.date).slice(0, 10) : undefined
+  const eventUrl = `https://www.leszy.run/kalendarz/${slug}`
+
   const ld = {
     '@context': 'https://schema.org',
     '@type': 'SportsEvent',
     name: event.name,
-    startDate: event.date,
-    url: `https://leszy.run/kalendarz/${slug}`,
+    description: buildSchemaDescription(event) || undefined,
+    startDate,
+    endDate: startDate,
+    eventStatus: 'https://schema.org/EventScheduled',
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    image: `${eventUrl}/og.png`,
+    url: eventUrl,
+    inLanguage: 'pl-PL',
+    organizer: {
+      '@type': 'Organization',
+      name: 'Organizator',
+      url: event.website || event.registration_url || eventUrl,
+    },
+    performer: {
+      '@type': 'PerformingGroup',
+      name: 'Uczestnicy',
+    },
   }
 
   if (event.location) {
@@ -95,19 +120,18 @@ function buildJsonLd(event, slug) {
 
   if (event.price_from != null) {
     ld.offers = {
-      '@type': 'Offer',
+      '@type': 'AggregateOffer',
+      lowPrice: event.price_from,
+      highPrice: event.price_to != null ? event.price_to : event.price_from,
       priceCurrency: 'PLN',
-      price: event.price_from,
       availability: 'https://schema.org/InStock',
       validFrom: new Date().toISOString().slice(0, 10),
+      url: event.registration_url || eventUrl,
     }
     if (event.registration_deadline) {
       ld.offers.priceValidUntil = event.registration_deadline.slice(0, 10)
-    } else if (event.date) {
-      ld.offers.priceValidUntil = event.date.slice(0, 10)
-    }
-    if (event.registration_url) {
-      ld.offers.url = event.registration_url
+    } else if (startDate) {
+      ld.offers.priceValidUntil = startDate
     }
   }
 
@@ -205,7 +229,7 @@ export default function EventPage() {
     title: seoTitle,
     description: seoDescription,
     path: `/kalendarz/${seoSlug}`,
-    image: `https://leszy.run/kalendarz/${seoSlug}/og.png`,
+    image: `https://www.leszy.run/kalendarz/${seoSlug}/og.png`,
     jsonLd: event ? buildJsonLd(event, seoSlug) : undefined,
   })
 

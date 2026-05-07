@@ -172,8 +172,8 @@ export default function Kalendarz() {
       '@type': 'CollectionPage',
       name: 'Kalendarz biegów w Polsce',
       description: 'Agregowany kalendarz wszystkich biegów i wydarzeń sportowych w Polsce.',
-      url: 'https://leszy.run/kalendarz',
-      isPartOf: { '@id': 'https://leszy.run/#website' },
+      url: 'https://www.leszy.run/kalendarz',
+      isPartOf: { '@id': 'https://www.leszy.run/#website' },
     },
   })
 

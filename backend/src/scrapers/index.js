@@ -10,6 +10,7 @@ import { scrape as scrapeB4sport } from './sources/b4sport.js'
 import { scrape as scrapeRaatiming } from './sources/raatiming.js'
 import { scrape as scrapeLumisport } from './sources/lumisport.js'
 import { scrape as scrapeProtiming24 } from './sources/protiming24.js'
+import { scrape as scrapeSuperczas } from './sources/superczas.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 
@@ -210,6 +211,25 @@ const sources = [
       location: raw.location || null,
       distances: raw.distances || null,
       registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'superczas',
+    scrape: scrapeSuperczas,
+    table: 'scraper_superczas',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
       regulamin_url: raw.regulamin_url || null,
       website: raw.website || null,
       is_kids: raw.is_kids || false,
@@ -578,6 +598,16 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
 
             updates.source_links = mergeSourceLinks(existing.source_links, sourceLink)
             updates.merged_at = now
+
+            // If new data landed (fill or overwrite), null out enrichment
+            // timestamps so enrichers re-process the row. A fresh URL or
+            // regulamin PDF can yield prices/deadlines/distances the
+            // previous enrichment pass couldn't see.
+            if (filledFields.length > 0 || overwrittenFields.length > 0) {
+              updates.enriched_at = null
+              updates.enriched_regulamin_at = null
+              updates.enriched_search_at = null
+            }
 
             const matchEntry = {
               raw_name: raw.name,

@@ -47,12 +47,21 @@ function buildDescription(event) {
 }
 
 function buildJsonLd(event, slug) {
+  const startDate = event.date ? event.date.slice(0, 10) : undefined
+  const eventUrl = `${BASE_URL}/kalendarz/${slug}`
+
   const ld = {
     '@context': 'https://schema.org',
     '@type': 'SportsEvent',
     name: event.name,
-    startDate: event.date ? event.date.slice(0, 10) : undefined,
-    url: `${BASE_URL}/kalendarz/${slug}`,
+    description: buildDescription(event) || undefined,
+    startDate,
+    endDate: startDate,
+    eventStatus: 'https://schema.org/EventScheduled',
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    image: `${eventUrl}/og.png`,
+    url: eventUrl,
+    inLanguage: 'pl-PL',
     location: {
       '@type': 'Place',
       name: event.location || undefined,
@@ -61,6 +70,15 @@ function buildJsonLd(event, slug) {
         addressRegion: event.voivodeship || undefined,
         addressCountry: 'PL',
       },
+    },
+    organizer: {
+      '@type': 'Organization',
+      name: 'Organizator',
+      url: event.website || event.registration_url || eventUrl,
+    },
+    performer: {
+      '@type': 'PerformingGroup',
+      name: 'Uczestnicy',
     },
   }
 
@@ -76,20 +94,16 @@ function buildJsonLd(event, slug) {
     ld.offers = {
       '@type': 'AggregateOffer',
       lowPrice: event.price_from,
+      highPrice: event.price_to != null ? event.price_to : event.price_from,
       priceCurrency: 'PLN',
       availability: 'https://schema.org/InStock',
       validFrom: new Date().toISOString().slice(0, 10),
-    }
-    if (event.price_to != null) {
-      ld.offers.highPrice = event.price_to
+      url: event.registration_url || eventUrl,
     }
     if (event.registration_deadline) {
       ld.offers.priceValidUntil = event.registration_deadline.slice(0, 10)
-    } else if (event.date) {
-      ld.offers.priceValidUntil = event.date.slice(0, 10)
-    }
-    if (event.registration_url) {
-      ld.offers.url = event.registration_url
+    } else if (startDate) {
+      ld.offers.priceValidUntil = startDate
     }
   }
 

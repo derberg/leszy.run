@@ -15,6 +15,7 @@ const SOURCE_PRIORITY = {
   supersport: 5,
   zmierzymyczas: 6,
   raatiming: 8,
+  superczas: 10,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these

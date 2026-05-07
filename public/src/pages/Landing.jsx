@@ -298,7 +298,7 @@ export default function Landing() {
       '@type': 'LocalBusiness',
       name: 'Leszy.run',
       description: 'Profesjonalna obsługa biegów i wydarzeń sportowych — pomiar czasu RFID, zapisy, wyniki na żywo.',
-      url: 'https://leszy.run',
+      url: 'https://www.leszy.run',
       telephone: '+48784640977',
       email: 'lpgornicki@gmail.com',
       address: { '@type': 'PostalAddress', addressCountry: 'PL' },
