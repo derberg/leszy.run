@@ -8437,33 +8437,6 @@
     "website": "https://competitions.timekeeper.pl/13-dycha-glogowska",
     "is_kids": null
   },
-  "blue-power-run-2026-05-09": {
-    "id": "33648eba-cbfd-48e6-9054-f06948e1ff1f",
-    "name": "Blue Power Run",
-    "date": "2026-05-09",
-    "registration_deadline": "2026-05-06",
-    "regulamin_url": "https://www.protiming24.pl/startmeta/09e3c807/doc/regulamin",
-    "price_from": null,
-    "price_to": null,
-    "location": "Szczecin",
-    "voivodeship": "Zachodniopomorskie",
-    "lat": 53.430182,
-    "lng": 14.550962,
-    "distances": [
-      "200 m",
-      "400 m",
-      "500 m",
-      "800 m",
-      "1700 m"
-    ],
-    "event_type": [
-      "uliczny",
-      "charytatywny"
-    ],
-    "registration_url": "https://www.protiming24.pl/startmeta/09e3c807/registration/",
-    "website": "https://www.facebook.com/pelnoprawni/",
-    "is_kids": null
-  },
   "czerwona-trasa-nordic-walking-wilkowo-obliwice-wilkowo-do-najdluzszej-deski-swiata-82-km-2026-05-09": {
     "id": "c69c9a49-4f08-44e0-96c3-1eb7f3ac6fe6",
     "name": "Czerwona Trasa Nordic Walking - Wilkowo – Obliwice - Wilkowo „Do Najdłuższej Deski Świata”– 8,2 km",
@@ -8632,6 +8605,33 @@
     ],
     "registration_url": "https://formularz.ultimasport.pl/429",
     "website": "https://mistrzostwa.kbkatywr.pl/",
+    "is_kids": null
+  },
+  "blue-power-run-2026-05-09": {
+    "id": "33648eba-cbfd-48e6-9054-f06948e1ff1f",
+    "name": "Blue Power Run",
+    "date": "2026-05-09",
+    "registration_deadline": "2026-05-06",
+    "regulamin_url": "https://www.protiming24.pl/startmeta/09e3c807/doc/regulamin",
+    "price_from": null,
+    "price_to": null,
+    "location": "Szczecin",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.430182,
+    "lng": 14.550962,
+    "distances": [
+      "200 m",
+      "400 m",
+      "500 m",
+      "800 m",
+      "1700 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "charytatywny"
+    ],
+    "registration_url": "https://www.protiming24.pl/startmeta/09e3c807/registration/",
+    "website": "https://www.facebook.com/pelnoprawni/",
     "is_kids": null
   },
   "mini-dyszka-2026-05-09": {
@@ -11989,8 +11989,8 @@
     "date": "2026-05-20",
     "registration_deadline": null,
     "regulamin_url": "https://elektronicznezapisy.pl/download/75v1s3K6B0d0l1U76748J0q6F9d8Z7N1/open",
-    "price_from": null,
-    "price_to": null,
+    "price_from": 10,
+    "price_to": 80,
     "location": "Stadion Leśny ul. Wybickiego 48",
     "voivodeship": "Świętokrzyskie",
     "lat": 50.847263,
@@ -13179,6 +13179,24 @@
     ],
     "registration_url": "https://mosir.laziska.pl/wydarzenia/xvii-bieg-uliczny-o-laziskie-liscie/",
     "website": null,
+    "is_kids": null
+  },
+  "prusice-biegaja-etap-2-2026-05-24": {
+    "id": "b48ebd47-cb68-49eb-99ea-728d168b634f",
+    "name": "Prusice Biegają - etap 2",
+    "date": "2026-05-24",
+    "registration_deadline": null,
+    "regulamin_url": "http://online.datasport.pl/logos/reg7348.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Prusice",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.371361,
+    "lng": 16.960073,
+    "distances": [],
+    "event_type": [],
+    "registration_url": null,
+    "website": "https://bieg.prusice.pl/",
     "is_kids": null
   },
   "xii-marsz-nordic-walking-10-km-2026-05-24": {
@@ -15346,6 +15364,26 @@
     "website": "https://sport.powiatszczycienski.pl/31306,V-POLMARATON-PO-KOLEI.html",
     "is_kids": null
   },
+  "swietokrzyski-bieg-europejski-2026-05-31": {
+    "id": "ac75f07d-8699-4e71-be78-49742c0d9c72",
+    "name": "Świętokrzyski Bieg Europejski",
+    "date": "2026-05-31",
+    "registration_deadline": "2026-04-11",
+    "regulamin_url": "https://www.raxero.com/storage/106/Regulamin-Świętokrzyskiego-Biegu-Europejskiego.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Kielce",
+    "voivodeship": "Świętokrzyskie",
+    "lat": 50.854029,
+    "lng": 20.609916,
+    "distances": [],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://www.raxero.com/zapisz/56-swietokrzyski-bieg-europejski/118-kielce",
+    "website": "https://funduszeueswietokrzyskie.pl",
+    "is_kids": null
+  },
   "mazowiecka-pietnastka-2026-05-31": {
     "id": "47bdda17-d9bc-47f1-b8dc-a0cf7419df16",
     "name": "Mazowiecka Piętnastka",
@@ -16391,28 +16429,6 @@
     "website": "https://liveds.datasport.pl/zawody_files/zawody11677.html#features",
     "is_kids": null
   },
-  "viii-piekarski-bieg-trzezwosci-oraz-marsz-nordic-walking-im-ks-bronislawa-gawrona-2026-06-06": {
-    "id": "53a1db89-ac5c-44ec-99f1-7fcdfc1cb9b1",
-    "name": "VIII Piekarski Bieg Trzeźwości oraz Marsz Nordic Walking im. Ks. Bronisława Gawrona",
-    "date": "2026-06-06",
-    "registration_deadline": null,
-    "regulamin_url": "https://elektronicznezapisy.pl/download/V8U7p9h0J0K011P777N8n0p6R4V2j2U3/open",
-    "price_from": null,
-    "price_to": null,
-    "location": "Mysłowice",
-    "voivodeship": "Śląskie",
-    "lat": 50.241472,
-    "lng": 19.141453,
-    "distances": [
-      "4 km"
-    ],
-    "event_type": [
-      "nordic walking"
-    ],
-    "registration_url": "https://elektronicznezapisy.pl/event/15451/signup.html",
-    "website": null,
-    "is_kids": null
-  },
   "sudecki-festiwal-biegow-gorskich-2026-06-06": {
     "id": "0ab7ef99-e262-49a8-abc1-f524653a413e",
     "name": "Sudecki Festiwal Biegów Gorskich",
@@ -16436,6 +16452,28 @@
     ],
     "registration_url": "https://stowarzyszeniewalimnazadanie.pl/sudecki-festiwal-biegow-gorskich-2/",
     "website": "https://stowarzyszeniewalimnazadanie.pl/sudecki-festiwal-biegow-gorskich-2/",
+    "is_kids": null
+  },
+  "viii-piekarski-bieg-trzezwosci-oraz-marsz-nordic-walking-im-ks-bronislawa-gawrona-2026-06-06": {
+    "id": "53a1db89-ac5c-44ec-99f1-7fcdfc1cb9b1",
+    "name": "VIII Piekarski Bieg Trzeźwości oraz Marsz Nordic Walking im. Ks. Bronisława Gawrona",
+    "date": "2026-06-06",
+    "registration_deadline": null,
+    "regulamin_url": "https://elektronicznezapisy.pl/download/V8U7p9h0J0K011P777N8n0p6R4V2j2U3/open",
+    "price_from": 10,
+    "price_to": 250,
+    "location": "Mysłowice",
+    "voivodeship": "Śląskie",
+    "lat": 50.241472,
+    "lng": 19.141453,
+    "distances": [
+      "4 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15451/signup.html",
+    "website": null,
     "is_kids": null
   },
   "ii-polmaraton-miasteczkowskich-lasow-2026-06-06": {
@@ -18423,7 +18461,7 @@
       "nordic walking",
       "uliczny"
     ],
-    "registration_url": "https://dostartu.pl/",
+    "registration_url": "https://dostartu.pl/permalink-v15566",
     "website": "https://www.facebook.com/GrandPrixBorowTucholskich/?_rdr",
     "is_kids": null
   },
@@ -19338,8 +19376,8 @@
     "date": "2026-06-16",
     "registration_deadline": null,
     "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/REGULAMIN-BIEG-ODRY-2026.pdf",
-    "price_from": null,
-    "price_to": null,
+    "price_from": 9,
+    "price_to": 9,
     "location": "Stadion Itaka Arena (Opole, ul. Olejnika 1)",
     "voivodeship": "Opolskie",
     "lat": 50.685461,
@@ -21988,6 +22026,24 @@
     "website": "https://kresowetrail.pl/",
     "is_kids": null
   },
+  "labiszynski-bieg-swietojanski-2026-06-28": {
+    "id": "816736a0-bf85-4bb6-855e-352fee363a18",
+    "name": "Łabiszyński Bieg Świętojański",
+    "date": "2026-06-28",
+    "registration_deadline": null,
+    "regulamin_url": "https://b4sportonline.pl/users-folder/95/files/Regulamin_IX_Labiszynskiego_Biegu_Swietojanskiego.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Łabiszyn",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 52.952865,
+    "lng": 17.920588,
+    "distances": [],
+    "event_type": [],
+    "registration_url": "http://b4sportonline.pl/labiszynskibiegswietojanski/zapisy_na_labiszynski_bieg_swietojanski_bieg_5km_1/12222",
+    "website": "https://b4sportonline.pl/labiszynskibiegswietojanski/",
+    "is_kids": null
+  },
   "baranowski-tour-walbrzych-2026-06-28": {
     "id": "8742da76-1069-48f8-bdb2-db1bb3efaa84",
     "name": "Baranowski Tour Wałbrzych",
@@ -23721,29 +23777,6 @@
     "website": "https://www.maratonszczecinski.pl/",
     "is_kids": null
   },
-  "7-nocny-portowy-polmaraton-szczecinski-2026-07-18": {
-    "id": "1fcf71be-99cb-4191-833e-c9563bf697d7",
-    "name": "7. Nocny Portowy Półmaraton Szczeciński",
-    "date": "2026-07-18",
-    "registration_deadline": "2026-07-18",
-    "regulamin_url": "https://www.protiming24.pl/startmeta/3bd57e67/doc/regulamin",
-    "price_from": 150,
-    "price_to": 250,
-    "location": "Szczecin",
-    "voivodeship": "Zachodniopomorskie",
-    "lat": 53.430182,
-    "lng": 14.550962,
-    "distances": [
-      "21.1 km"
-    ],
-    "event_type": [
-      "nocny",
-      "uliczny"
-    ],
-    "registration_url": "https://www.protiming24.pl/startmeta/3bd57e67/registration/",
-    "website": "https://www.maratonszczecinski.pl/",
-    "is_kids": null
-  },
   "7-pko-piekarskiego-polmaratonu-oraz-nocnej-zadyszki-2026-07-18": {
     "id": "45fb4db2-2c2d-4531-b2ad-4ad21f5ce8a3",
     "name": "7 PKO PIEKARSKIEGO PÓŁMARATONU  ORAZ NOCNEJ ZADYSZKI",
@@ -23766,6 +23799,29 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14087/signup.html",
     "website": "https://elektronicznezapisy.pl/event/14087.html",
+    "is_kids": null
+  },
+  "7-nocny-portowy-polmaraton-szczecinski-2026-07-18": {
+    "id": "1fcf71be-99cb-4191-833e-c9563bf697d7",
+    "name": "7. Nocny Portowy Półmaraton Szczeciński",
+    "date": "2026-07-18",
+    "registration_deadline": "2026-07-18",
+    "regulamin_url": "https://www.protiming24.pl/startmeta/3bd57e67/doc/regulamin",
+    "price_from": 150,
+    "price_to": 250,
+    "location": "Szczecin",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.430182,
+    "lng": 14.550962,
+    "distances": [
+      "21.1 km"
+    ],
+    "event_type": [
+      "nocny",
+      "uliczny"
+    ],
+    "registration_url": "https://www.protiming24.pl/startmeta/3bd57e67/registration/",
+    "website": "https://www.maratonszczecinski.pl/",
     "is_kids": null
   },
   "botaniczna-piatka-2026-07-18": {
@@ -27336,6 +27392,29 @@
     "website": "https://usedom-marathon.com",
     "is_kids": null
   },
+  "chojnik-karkonoski-festiwal-biegowy-2026-2026-09-05": {
+    "id": "fe96601e-7f43-4d63-a0dc-acfb7e361db6",
+    "name": "CHOJNIK Karkonoski Festiwal Biegowy 2026",
+    "date": "2026-09-05",
+    "registration_deadline": "2026-05-31",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12143.pdf",
+    "price_from": 120,
+    "price_to": 410,
+    "location": "Sobieszów",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.847045,
+    "lng": 15.641415,
+    "distances": [
+      "42.2 km",
+      "21.1 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://b4sportonline.pl/Chojnik_Karkonoski_Festiwal_Biegowy/",
+    "website": "https://chojnikmaraton.pl/",
+    "is_kids": null
+  },
   "bieg-malych-zeglarzy-iv-2026-09-05": {
     "id": "04202be8-cb01-4168-94d9-50f54306f4e4",
     "name": "Bieg Małych Żeglarzy IV",
@@ -27360,29 +27439,6 @@
     ],
     "registration_url": "https://www.protiming24.pl/startmeta/aafc8eec/registration/",
     "website": "https://www.protiming24.pl/startmeta/aafc8eec/",
-    "is_kids": null
-  },
-  "chojnik-karkonoski-festiwal-biegowy-2026-2026-09-05": {
-    "id": "fe96601e-7f43-4d63-a0dc-acfb7e361db6",
-    "name": "CHOJNIK Karkonoski Festiwal Biegowy 2026",
-    "date": "2026-09-05",
-    "registration_deadline": "2026-05-31",
-    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12143.pdf",
-    "price_from": 120,
-    "price_to": 410,
-    "location": "Sobieszów",
-    "voivodeship": "Dolnośląskie",
-    "lat": 50.847045,
-    "lng": 15.641415,
-    "distances": [
-      "42.2 km",
-      "21.1 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://b4sportonline.pl/Chojnik_Karkonoski_Festiwal_Biegowy/",
-    "website": "https://chojnikmaraton.pl/",
     "is_kids": null
   },
   "20042024-bialy-bor-xiii-otwarte-sztafetowe-mistrzostwa-polski-nordic-walking-2026-09-05": {
@@ -28469,10 +28525,10 @@
     "id": "29b7928a-c27a-48a0-b041-729c6e1f413a",
     "name": "2026 I CHODZIEŻ I FORMOZA CHALLENGE",
     "date": "2026-09-13",
-    "registration_deadline": null,
+    "registration_deadline": "2026-05-05",
     "regulamin_url": null,
-    "price_from": null,
-    "price_to": null,
+    "price_from": 25,
+    "price_to": 269,
     "location": "Chodzież",
     "voivodeship": "Wielkopolskie",
     "lat": 52.994998,
@@ -29256,7 +29312,7 @@
       "nordic walking",
       "uliczny"
     ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2508/6-polmaraton-aleja-debow-czerwonych.html",
+    "registration_url": "https://www.zmierzymyczas.pl/2508/6-polmaraton-aleja-debow-czerwonych.html",
     "website": "https://www.gosit-wieruszow.pl/",
     "is_kids": null
   },
@@ -31007,7 +31063,7 @@
     "date": "2026-10-18",
     "registration_deadline": "2026-10-11",
     "regulamin_url": "https://dostartu.pl/statute_files/16464_pl.pdf",
-    "price_from": 70,
+    "price_from": 5,
     "price_to": 150,
     "location": "Korabiewice, MZ",
     "voivodeship": "Mazowieckie",

@@ -54,26 +54,59 @@ function buildPrompt(event, fields) {
     .map(f => `  "${f}": ${AI_FILLABLE[f].promptHint}, or null`)
     .join(',\n')
 
-  return `Search the web for this Polish running event and fill in the missing fields.
+  // Extract simple city/year strings for query templates
+  const year = (event.date || '').slice(0, 4)
+  const city = (event.location || '').split(/[,\n]/)[0].trim()
+  const cityDomain = city
+    ? city.toLowerCase()
+        .replace(/[ąćęłńóśźż]/g, ch => ({ ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z' }[ch] || ch))
+        .replace(/[^a-z]/g, '')
+    : ''
 
-EVENT:
+  return `You are enriching a Polish running event by finding verified URLs (organizer website, registration page, regulamin/rules PDF) and any missing fields.
+
+EVENT
   name: ${event.name}
   date: ${event.date}
-KNOWN:
-  ${describeKnown(event)}
+  location: ${event.location || '(unknown)'}
+  known fields: ${describeKnown(event)}
 
-Find the event's official website / registration page. Verify content matches the event name + date before relying on it.
+SEARCH STRATEGY — run multiple queries, accumulate candidates:
+  1. "${event.name}" ${city} ${year}                                            [strict, exact phrase]
+  2. ${event.name} ${city} ${year}                                              [loose, no quotes — use when (1) returns nothing]
+  3. ${cityDomain ? `${cityDomain}.pl ${event.name}` : '<city>.pl <name>'}                                                  [municipal site, often hosts event announcements]
+  4. site:b4sportonline.pl OR site:datasport.pl OR site:dostartu.pl OR site:elektronicznezapisy.pl OR site:zmierzymyczas.pl OR site:plus-timing.pl OR site:online.datasport.pl ${event.name}     [direct hit on registration platforms]
+  5. ${event.name} ${year} regulamin                                            [direct PDF / rules hit]
+  6. "${event.name}" filetype:pdf                                               [regulamin PDF]
 
-Return ONLY valid JSON, no other text. Include EXACTLY these keys (use null when you cannot determine a value from real source content):
+CANDIDATE VERIFICATION (mandatory before trusting any URL):
+  - Fetch the page (or PDF — extract text) and confirm:
+    a. event name appears (case-insensitive substring or 80%+ token overlap with the EVENT name above; Polish letters: ą→a, ć→c, etc. for matching)
+    b. event date matches OR same day-month combo (±1 day)
+    c. location matches (city name appears, or nearby)
+  - If all three match → URL verified.
+  - If date or city does NOT match → reject (it's a different edition or different event with similar name).
+
+SOURCE-QUALITY RANKING (prefer in this order):
+  1. Dedicated event page on a registration platform: b4sportonline.pl/<event>/, dostartu.pl/permalink-vXXXXX, zmierzymyczas.pl/<id>/<slug>.html, elektronicznezapisy.pl/event/XXX, online.datasport.pl/zapisy/portal/zawody.php?zawody=NN
+  2. Organizer's own website: bieg.<city>.pl, gosit-<city>.pl, official municipal site (e.g. <city>.pl/wiadomosci/...)
+  3. Aggregator with verified content: running.life, tupobiegasz.pl
+  SKIP these (they're listings, not source-of-truth, and confirm nothing):
+  - maratonypolskie.pl, kalendarzbiegowy.pl, zawodybiegowe.pl, zapisysportowe.pl
+
+PATTERN — prior-year edition → new-year edition:
+  If you find a previous-year edition like "5. <event>" at zmierzymyczas.pl/2228/5-<slug>.html, search for the same slug stem on the same platform — usually a new ID exists for the next edition (zmierzymyczas.pl/2508/6-<slug>.html). Same trick on dostartu, datasport, b4sport.
+
+OUTPUT — return ONLY valid JSON, no other text:
 {
 ${fieldsBlock}
 }
 
 GLOBAL RULES:
-- Return actual URLs you verified — NEVER fabricate.
-- If you cannot find the event at all, return all nulls.
+- NEVER fabricate URLs. Every URL must come from a real verified page.
+- If verification fails OR the event has no online presence (small local race, no website yet) → return all nulls. Don't guess.
 - Polish event types — NEVER use "bieg". Use "nie-bieg" for non-running events (cycling, triathlon, MTB, walking march, orienteering).
-- Facebook page is acceptable as "website" when no organizer domain exists.
+- Facebook page is acceptable as "website" when no organizer domain exists AND the page contains the verified event date+name.
 - Distances: "21.1 km" for półmaraton, "42.2 km" for maraton; comma-separated.
 - Prices in PLN integer złote; price_from ≤ price_to.
 - registration_deadline: YYYY-MM-DD, within 1 year of event date.
