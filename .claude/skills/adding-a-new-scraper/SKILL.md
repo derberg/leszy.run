@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS public.scraper_<name> (
   regulamin_url    text,
   website          text,
   is_kids          boolean DEFAULT false,
+  event_types      text[],         -- IMPORTANT: needed for cross-source merges to land
   price_from       numeric,
   price_to         numeric,
   lat              numeric(9, 6),  -- IMPORTANT: match calendar_events precision
@@ -84,6 +85,8 @@ Apply via `mcp__supabase__apply_migration`.
 
 **lat/lng MUST be `numeric(9, 6)`** — calendar_events uses that precision; unbounded numeric causes phantom diffs in publish reports (saw 449 fake diffs in 2026-05-06 audit).
 
+**`event_types` is not optional** — see section 5b. Skipping it means your scraper's rows will be rejected as duplicates of every same-event row that's already been LLM-enriched (the distinguishing-tag guard in `findScraperAllMatch` rejects on tag-presence mismatch). Bgtimesport rollout 2026-05-07 hit this for Magurki/Żar/X Leśne until we added trail/NW detection from name keywords.
+
 ## 5. Write the scraper
 
 `backend/src/scrapers/sources/<name>.js` — exports `async function scrape({ knownIds })`.
@@ -95,7 +98,8 @@ Returns array of:
   location: null,                        // ok if source doesn't expose
   distances: '5 km, 10 km',              // string, comma-separated
   registration_url, regulamin_url, website,
-  is_kids: false,
+  is_kids: false,                        // see section 5b
+  event_types: ['trail'],                // see section 5b — required for merges to land
   price_from, price_to,                  // PLN integers
   source: '<name>',
   source_id: <slug or stable id>,
@@ -103,9 +107,64 @@ Returns array of:
 }
 ```
 
-`knownIds` is a Set of `source_id`s already in the DB. Honor it for incremental runs (skip detail-page fetches for known events; data still flows).
+`knownIds` is a Set of `source_id`s already in the DB. Honor it for incremental runs.
+
+**Two valid patterns for `knownIds`** — pick one and stick to it:
+
+| Pattern | Used by | Trade-off |
+|---|---|---|
+| **Emit only new events** (filter listing → only fetch+emit non-known) | timekeeper, bgtimesport | Simpler. Known rows untouched. Price/distance changes don't refresh until force re-scrape. |
+| **Emit all events, fetch detail only for new** | lumisport (Phase 1 = bulk API) | Refreshes prices/distances on every run. But pipeline's UPDATE path will overwrite known rows' regulamin/website with `null` if your scrape didn't re-fetch detail — make sure you DON'T return null for fields you only fetch on first encounter. |
+
+The bgtimesport rollout initially mixed the two patterns (emitted all but only fetched detail for new) and would have cleared distances/prices/regulamin from known rows on every re-run. Switched to the timekeeper pattern.
 
 Rate limit detail-page fetches: `await new Promise(r => setTimeout(r, 1100))` between requests. Use `User-Agent: 'leszy.run/1.0 (kontakt@leszy.run)'`.
+
+## 5b. Detect event_types and is_kids correctly
+
+These two fields determine whether your scraper's rows merge with existing same-event rows from other scrapers. The merge code's distinguishing-tag guard treats absence as a tag-set difference — a row with `event_types=null` will NOT merge with a row that has `event_types=['trail']`, even when names + dates + cities match perfectly. Get these wrong and you ship duplicates.
+
+### `event_types` — extract from umbrella name ONLY
+
+The umbrella event name (not bieg subdivision headings). Mirrors the categories `distinguishingTags()` recognizes: `trail`, `nordic walking`, `ultra`, `ocr`. Polish keywords:
+
+```js
+function detectEventTypes(name) {
+  const blob = (name || '').toLowerCase()
+  const tags = new Set()
+  if (/g[oó]rsk[aiey]|leśn[aey]|\btrail\b|cross(?:owy|owa|owe)?\b/i.test(blob)) tags.add('trail')
+  if (/nordic\s*walking|\bnw\b/i.test(blob)) tags.add('nordic walking')
+  if (/\bultra\b|\b\d{1,3}\s*h\s*run\b/i.test(blob)) tags.add('ultra')
+  if (/\bocr\b/i.test(blob)) tags.add('ocr')
+  return [...tags]
+}
+```
+
+**Why umbrella name only:** including subdivision headings over-tags. If the umbrella has running + NW subdivisions, picking up `'nordic walking'` from a subdivision creates a tag-set mismatch with biegiwpolsce/maratonypolskie which only tag from umbrella names — same event, different tag count → guard rejects. Bgtimesport's `X Leśne Bieganie` failed to merge with biegiwpolsce until we restricted detection to the umbrella.
+
+### `is_kids` — true if ANY subdivision is kids (lumisport rule)
+
+Opposite direction: `is_kids` should look at *all* signals, not just the umbrella. Lumisport sets `is_kids=true` whenever any product variant is in the `dzieci` category. Follow that pattern. The downstream merge guard's `audience:kids` tag matches between rows that have `is_kids=true` and rows whose enriched `event_types` contain `'dzieci'` — get this wrong and Magurki-style umbrella events with kids variants fail to merge with their LLM-enriched counterparts.
+
+```js
+// Watch out: \b doesn't recognize Polish letters in JS regex.
+// Use a manual non-letter boundary instead.
+const NB = '[^a-ząćęłńóśźż]'
+function hasKidsSignal(name) {
+  if (!name) return false
+  const s = ` ${name.toLowerCase()} `
+  if (new RegExp(`(?:biegi|dla)\\s+dzieci`).test(s)) return true
+  if (new RegExp(`${NB}m[lł]odzie[zż]`).test(s)) return true
+  if (new RegExp(`${NB}świetlik`).test(s)) return true
+  if (new RegExp(`${NB}kids?${NB}`).test(s)) return true
+  if (new RegExp(`${NB}mini[\\-a-ząćęłńóśźż]`).test(s)) return true
+  return false
+}
+
+// In scrape(): is_kids = hasKidsSignal(umbrellaName) || anyBiegMatchedKids
+```
+
+**Why "Mini" needs care:** match `MiniKierpce`, `Mini-Maraton` (kids events that start with Mini), and `miniBucze` as a subdivision (kids subdivision inside an adult umbrella). But don't match arbitrary words containing `mini`. The non-letter boundary `${NB}mini[\\-a-ząćęłńóśźż]` handles all three.
 
 ## 6. Wire into the pipeline
 
@@ -128,6 +187,7 @@ const sources = [
       regulamin_url: raw.regulamin_url || null,
       website: raw.website || null,
       is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
       price_from: raw.price_from ?? null,
       price_to: raw.price_to ?? null,
       lat: raw.lat ?? null,
@@ -297,6 +357,9 @@ git add public/public/kalendarz && git commit -m "data: manifest refresh after <
 | Cross-source fuzzy match collapses distinct events | Świetlików (kids) merged into Bieg Nocny (adults) on same date+city; Maraton merged into Półmaraton | The distinguishing-tag guard now catches audience/distance/style conflicts. If a NEW conflict slips through, extend `distinguishingTags()` rather than pre-insert |
 | Within-batch collision | Bieg + NW variant of same race on same date — first creates row, second fuzzy-matches into it | Distinguishing-tag guard (style:nw) handles this. Verify both stay separate in dry-run |
 | Cross-source fuzzy match misses | Scraper inserts new row, `calendar_events` ends up with two rows for the same event | After publish, check `fuzzySkipped` log; admin Duplikaty view to merge |
+| Distinguishing-tag guard rejects legitimate merges | Dry-run shows `created=N` for events you know exist in scraper_all from another source | Your scraper's rows have `event_types=null` while existing rows have LLM-enriched tags. Tag-presence mismatch → guard rejects. Add `detectEventTypes(name)` per section 5b |
+| `runPipeline({ force: [x] })` doesn't actually clear | Re-scrape reports duplicate-key errors, table still has stale rows | The `.delete().neq('id', '')` silently no-ops on this Supabase setup. Workaround: `DELETE FROM scraper_x` via `mcp__supabase__execute_sql` before re-scraping |
+| Polish word boundaries miss | Regex `\bświetlik\b` doesn't match "Świetlik Run" because JS `\b` doesn't recognize `ś` | Lowercase the input and use a manual non-letter boundary: `[^a-ząćęłńóśźż]świetlik` |
 | Forgot SOURCE_PRIORITY | Lower priority (defaults to 99) — your scraper never wins on field conflicts | Add to `dedup.js` |
 | Container has stale code | "ERR_MODULE_NOT_FOUND" on smoke test | `docker cp` the new file or restart with `docker compose up --watch` |
 
