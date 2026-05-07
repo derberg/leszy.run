@@ -6,6 +6,7 @@ const SOURCE_PRIORITY = {
   biegiwpolsce: 2,
   timekeeper: 3,
   lumisport: 3,
+  protiming24: 3,
   elektronicznezapisy: 4,
   datasport: 7,
   maratonypolskie: 9,
@@ -92,6 +93,83 @@ function citiesMatch(locA, locB) {
   const cityB = extractCity(locB)
   if (!cityA || !cityB) return false
   return cityA.includes(cityB) || cityB.includes(cityA)
+}
+
+/**
+ * Extract semantic "distinguishing tags" from an event — categories of
+ * meaning where a difference between two events SHOULD prevent merging
+ * even when their tokenized names overlap. Three categories:
+ *   - audience: kids vs adult
+ *   - distance: Maraton vs Półmaraton vs Ćwierćmaraton
+ *   - style:    trail / nordic walking / ocr / ultra
+ *
+ * Used by both `findScraperAllMatch` (raw → scraper_all merge) and
+ * `run-dedup.js` (within-scraper_all dedup) so identical semantic-distinct
+ * pairs aren't re-collapsed downstream.
+ */
+function distinguishingTags(event) {
+  const tags = new Set()
+  const n = (event.name || '').toLowerCase()
+
+  // Audience — kids events should never collapse with adult events
+  if (event.is_kids) tags.add('audience:kids')
+  if (/dzieci|świetlik|małych\s+żeglar|małych\s+biega|junior|młodzież|biegi\s+dla\s+dzieci/i.test(n)) {
+    tags.add('audience:kids')
+  }
+  // CE rows fold is_kids into event_type as 'dzieci' — pick that up so the
+  // guard applies on both sides of the publish-time fuzzy compare. Note that
+  // mixed family events (e.g. CE event_type=['uliczny','dzieci']) tag as
+  // audience:kids here, which matches a same-event SA row whose is_kids flag
+  // is also true. Both sides see "kids race exists" → no conflict, allowed
+  // to merge. SA rows with is_kids=true that are kids-only (e.g. Świetlików,
+  // Małych Żeglarzy) still get rejected against CE rows lacking 'dzieci'.
+  const eventTypes = []
+  if (Array.isArray(event.event_types)) eventTypes.push(...event.event_types)
+  if (Array.isArray(event.event_type)) eventTypes.push(...event.event_type)
+  if (eventTypes.includes('dzieci')) tags.add('audience:kids')
+
+  // Distance class — most-specific match first (Polish-letter-aware so
+  // "maraton" inside "półmaraton"/"ćwierćmaraton" doesn't double-tag)
+  if (/półmaraton|pulmaraton|pólmaraton/i.test(n)) tags.add('distance:half')
+  else if (/ćwierćmaraton|cwiercmaraton|ćwierć\s*maraton|cwierc\s*maraton/i.test(n)) tags.add('distance:quarter')
+  else if (/(?:^|[^\p{L}])maraton(?:[^\p{L}]|$)/iu.test(n)) tags.add('distance:full')
+
+  // Style — collected from event_types/event_type AND from name regexes
+  const types = []
+  if (Array.isArray(event.event_types)) types.push(...event.event_types)
+  if (Array.isArray(event.event_type)) types.push(...event.event_type)
+  else if (typeof event.event_type === 'string') types.push(event.event_type)
+  for (const t of types) {
+    if (t === 'trail') tags.add('style:trail')
+    else if (t === 'nordic walking') tags.add('style:nw')
+    else if (t === 'ocr') tags.add('style:ocr')
+    else if (t === 'ultra') tags.add('style:ultra')
+  }
+  if (/nordic\s*walking|\bnw\b/i.test(n)) tags.add('style:nw')
+  if (/\bocr\b/i.test(n)) tags.add('style:ocr')
+  if (/\bultra\b|\b\d{1,3}\s*h\s*run\b/i.test(n)) tags.add('style:ultra')
+  if (/cross(owy|owa|owe)\b|\btrail\b/i.test(n)) tags.add('style:trail')
+
+  return tags
+}
+
+/**
+ * Returns true if events A and B have conflicting tags in any category.
+ * Conflict = within a category, A and B have different tag sets (different
+ * presence, or different specific tags). Identical sets in all categories
+ * (including both empty) → no conflict, merge can proceed.
+ */
+function hasDistinguishingConflict(tagsA, tagsB) {
+  const categories = new Set()
+  for (const t of tagsA) categories.add(t.split(':')[0])
+  for (const t of tagsB) categories.add(t.split(':')[0])
+  for (const cat of categories) {
+    const inA = [...tagsA].filter(t => t.startsWith(cat + ':'))
+    const inB = [...tagsB].filter(t => t.startsWith(cat + ':'))
+    if (inA.length !== inB.length) return true
+    if (!inA.every(t => inB.includes(t))) return true
+  }
+  return false
 }
 
 function isEmpty(val) {
@@ -213,4 +291,4 @@ async function upsertEvent(event) {
   }
 }
 
-export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, tokenize, SOURCE_PRIORITY }
+export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict }

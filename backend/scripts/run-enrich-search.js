@@ -10,23 +10,24 @@ import { AI_FILLABLE, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-f
 // Uses local Claude CLI with web search to find event websites, distances,
 // and types for scraper_all events missing data.
 //
-// SCOPE (default, since 2026-05-05):
-//   Only processes scraper_all rows whose corresponding calendar_events row
-//   has status='pending' — i.e. events visible in the admin "Do przeglądu"
-//   tab. This is the right scope for an admin-driven enrichment fallback:
-//   we don't want to spend Claude tokens on already-approved events (which
-//   admin has already curated) or rejected duplicates (which were rejected
-//   for a reason). Pre-publish rows (in scraper_all but not yet in
-//   calendar_events) are also skipped — those will go through publish first.
+// SCOPE (default, since 2026-05-06):
+//   Processes scraper_all rows merged TODAY (merged_at >= start of today
+//   in UTC). This matches the daily pipeline cadence — every nightly run
+//   enriches just the new arrivals. Pre-publish rows are NOT skipped —
+//   today's new events go through enrich-search before publish so the
+//   pending CE row created at publish time already has the enrichment.
 //
 // Options:
 //   --limit <n>          Max events to process (default: all)
 //   --apply              Write results to DB (default: dry run)
-//   --source <name>      Source filter (e.g. 'maratonypolskie')
-//   --all-incomplete     OPT OUT — process all scraper_all rows that look
-//                        incomplete, regardless of calendar_events status.
-//                        Use sparingly; will hit hundreds of already-active
-//                        events.
+//   --source <name>      Source filter (e.g. 'protiming24')
+//   --pending-only       LEGACY scope — only rows whose CE is status='pending'.
+//                        Use to backfill admin's review queue without
+//                        re-touching today's brand-new rows.
+//   --all-incomplete     WIDE scope — every scraper_all row that looks
+//                        incomplete, ignoring merged_at AND calendar_events
+//                        status. Use sparingly (Claude API spend); will
+//                        hit hundreds of already-active events.
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
@@ -125,11 +126,20 @@ async function main() {
   const events = []
   const failures = []
 
-  // Default: only enrich scraper_all rows that map to a pending calendar_events
-  // row. --all-incomplete opts out (e.g. for backfilling pre-publish rows).
+  // Scope flags (mutually exclusive in practice — checked in priority order):
+  //   --all-incomplete : process every incomplete scraper_all row (no date,
+  //                      no CE filter)
+  //   --pending-only   : only rows mapping to a pending CE row (legacy
+  //                      behavior, useful for backfilling admin review queue)
+  //   default          : rows merged TODAY (merged_at >= start-of-today)
   const allIncompleteFlag = process.argv.includes('--all-incomplete')
+  const pendingOnlyFlag = process.argv.includes('--pending-only')
   let pendingKeys = null
-  if (!allIncompleteFlag) {
+  let useMergedAtFilter = false
+
+  if (allIncompleteFlag) {
+    console.log(`Scope: --all-incomplete — every scraper_all row that looks incomplete (DOES NOT respect calendar_events status, ignores merged_at)`)
+  } else if (pendingOnlyFlag) {
     const pendingRows = []
     let pFrom = 0
     while (true) {
@@ -153,19 +163,13 @@ async function main() {
         if (l.source && l.source_id) pendingKeys.add(`${l.source}:${l.source_id}`)
       }
     }
-    console.log(`Scope: pending calendar_events only (${pendingKeys.size} source-id pairs match a pending row)`)
+    console.log(`Scope: --pending-only (${pendingKeys.size} source-id pairs match a pending row)`)
   } else {
-    console.log(`Scope: --all-incomplete — every scraper_all row that looks incomplete (DOES NOT respect calendar_events status)`)
+    // DEFAULT: today's merges only — picks up just-arrived events for the
+    // daily pipeline. Server-side filter on merged_at to keep the fetch small.
+    useMergedAtFilter = true
+    console.log(`Scope: default — scraper_all rows merged today (merged_at >= ${new Date().toISOString().split('T')[0]})`)
   }
-
-  // Fetch scraper_all rows and filter in-memory.
-  // The pending-only scope (default) is already a strict constraint, so the
-  // merged_at >= today heuristic is dropped — otherwise we'd miss pending
-  // events whose scraper_all row was merged on a previous day.
-  // Only --all-incomplete mode keeps the merged_at filter as a "this week"
-  // heuristic, controlled by --all.
-  const allFlag = process.argv.includes('--all')
-  const useMergedAtFilter = allIncompleteFlag && !allFlag
   const allRows = []
   let from = 0
   const pageSize = 1000
@@ -284,7 +288,7 @@ async function main() {
       script: 'enrich-search',
       started_at: startedAt,
       ended_at: new Date().toISOString(),
-      args: { limit: limitArg, source: sourceArg, all: allFlag },
+      args: { limit: limitArg, source: sourceArg, all_incomplete: allIncompleteFlag, pending_only: pendingOnlyFlag },
       candidates_total: allRows.length,
       candidates_needs_work: needsWork.length,
       processed: toProcess.length,

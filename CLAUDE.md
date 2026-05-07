@@ -262,7 +262,7 @@ The landing page and kalendarz read directly from Supabase (`calendar_events` ta
 
 Standalone scripts (not API endpoints) that scrape Polish running event websites, enrich with AI, and publish to the `calendar_events` Supabase table. See [docs/scrapers.md](docs/scrapers.md) for full pipeline documentation.
 
-### Data sources (12 scrapers)
+### Data sources (13 scrapers)
 
 | Source | Events/year | Method | Data quality |
 |--------|-------------|--------|--------------|
@@ -274,6 +274,7 @@ Standalone scripts (not API endpoints) that scrape Polish running event websites
 | dostartu.pl | 250+ | REST API (JSON) | **Highest** (structured classifications) |
 | timekeeper.pl | 50-150 | Cheerio (internal events only) | Good (regulamin PDFs, organizer sites) |
 | lumisport.eu | 5-15 | WC Store API (JSON) + Cheerio for regulamin | High (structured distances + prices, direct registration URLs; undated events dropped) |
+| protiming24.pl | 20-30 | Cheerio (StartMeta listing) | Medium (Szczecin-area timing co; date+city from gcal link, registration + HTML regulamin URLs from listing) |
 
 ### Pipeline architecture
 

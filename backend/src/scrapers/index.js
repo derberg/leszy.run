@@ -9,7 +9,8 @@ import { scrape as scrapeZmierzymyczas } from './sources/zmierzymyczas.js'
 import { scrape as scrapeB4sport } from './sources/b4sport.js'
 import { scrape as scrapeRaatiming } from './sources/raatiming.js'
 import { scrape as scrapeLumisport } from './sources/lumisport.js'
-import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize } from './dedup.js'
+import { scrape as scrapeProtiming24 } from './sources/protiming24.js'
+import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 
 const sources = [
@@ -199,6 +200,24 @@ const sources = [
       source_url: raw.source_url || null,
     }),
   },
+  {
+    name: 'protiming24',
+    scrape: scrapeProtiming24,
+    table: 'scraper_protiming24',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
 ]
 
 async function runPipeline({ force = [], only = [] } = {}) {
@@ -311,7 +330,10 @@ const RAW_MERGE_FIELDS = [
 
 function mergeSourceLinks(existingLinks, newLink) {
   const links = Array.isArray(existingLinks) ? [...existingLinks] : []
-  const idx = links.findIndex(l => l.source === newLink.source)
+  // Dedupe by (source, source_id) pair — same source can legitimately have
+  // multiple distinct registration URLs for one umbrella event (e.g. 5km/10km
+  // variants). Matching only on source overwrites prior same-source entries.
+  const idx = links.findIndex(l => l.source === newLink.source && l.source_id === newLink.source_id)
   if (idx >= 0) {
     links[idx] = newLink
   } else {
@@ -326,6 +348,10 @@ function getPriority(source) {
 
 /**
  * Find a match in scraper_all for the given raw event.
+ * Returns { row, reason } or null. The reason string is for diagnostics —
+ * "source_link" / "legacy_source" for exact matches, fuzzy matches expose
+ * the threshold that fired (e.g. "city+jaccard=0.42") so a dry-run reader
+ * can judge whether the merge is correct.
  */
 async function findScraperAllMatch(event) {
   if (!supabase) return null
@@ -337,7 +363,7 @@ async function findScraperAllMatch(event) {
       .select('*')
       .contains('source_links', JSON.stringify([{ source: event.source, source_id: event.source_id }]))
 
-    if (data && data.length > 0) return data[0]
+    if (data && data.length > 0) return { row: data[0], reason: 'source_link' }
 
     // Legacy fallback
     const { data: legacy } = await supabase
@@ -347,10 +373,14 @@ async function findScraperAllMatch(event) {
       .eq('source_id', event.source_id)
       .single()
 
-    if (legacy) return legacy
+    if (legacy) return { row: legacy, reason: 'legacy_source' }
   }
 
-  // 2. Cross-source fuzzy match: same date + name similarity
+  // 2. Cross-source fuzzy match: same date + name similarity. Collects ALL
+  //    candidates that pass any threshold and returns the one with the highest
+  //    jaccard. Prevents weaker fuzzy matches from "winning" just because they
+  //    appeared earlier in the candidates list (e.g. when a kids run on the
+  //    same day grabs the umbrella event before the actual race row is checked).
   const { data: candidates } = await supabase
     .from('scraper_all')
     .select('*')
@@ -358,17 +388,30 @@ async function findScraperAllMatch(event) {
 
   if (!candidates) return null
 
+  let best = null  // { row, reason, score }
+  const considerCandidate = (c, reason, score) => {
+    if (!best || score > best.score) best = { row: c, reason, score }
+  }
+
+  // Pre-compute distinguishing tags for the incoming event (audience, distance,
+  // style). Candidates with a tag conflict in any of these categories are
+  // semantically distinct and must not merge regardless of name similarity.
+  const eventTags = distinguishingTags(event)
+
   for (const c of candidates) {
+    // Distinguishing-tag guard — kids vs adult, Półmaraton vs Maraton,
+    // Bieg vs NW, etc. all rejected here even if jaccard is high.
+    const candidateTags = distinguishingTags(c)
+    if (hasDistinguishingConflict(eventTags, candidateTags)) continue
+
     const jaccard = jaccardSimilarity(c.name, event.name)
     const locMatch = citiesMatch(c.location, event.location)
 
-    if (jaccard > 0.6) return c
-    if (locMatch && jaccard > 0.35) return c
-    if (locMatch && jaccardSimilarity(c.name, event.name) > 0.4) return c
-    if (locMatch && tokenize(c.name).length <= 3 && tokenize(event.name).length <= 3 && jaccard > 0.25) return c
-
-    // Short-vs-long name with same city: ≥75% of shorter tokens in longer (exact or prefix)
-    if (locMatch) {
+    if (jaccard > 0.6) considerCandidate(c, `jaccard=${jaccard.toFixed(2)}`, jaccard)
+    else if (locMatch && jaccard > 0.35) considerCandidate(c, `city+jaccard=${jaccard.toFixed(2)}`, jaccard)
+    else if (locMatch && tokenize(c.name).length <= 3 && tokenize(event.name).length <= 3 && jaccard > 0.25) considerCandidate(c, `short+city+jaccard=${jaccard.toFixed(2)}`, jaccard)
+    else if (locMatch) {
+      // Short-vs-long name with same city: ≥75% of shorter tokens in longer (exact or prefix)
       const tokC = tokenize(c.name)
       const tokE = tokenize(event.name)
       if (tokC.length >= 2 && tokE.length >= 2) {
@@ -381,13 +424,13 @@ async function findScraperAllMatch(event) {
           }
           return hits / shorter.length
         }
-        if (tokC.length <= tokE.length && tokC.length <= 5 && containment(tokC, tokE) >= 0.75) return c
-        if (tokE.length <= tokC.length && tokE.length <= 5 && containment(tokE, tokC) >= 0.75) return c
+        if (tokC.length <= tokE.length && tokC.length <= 5 && containment(tokC, tokE) >= 0.75) considerCandidate(c, `containment(c→e)=${containment(tokC, tokE).toFixed(2)}`, jaccard)
+        else if (tokE.length <= tokC.length && tokE.length <= 5 && containment(tokE, tokC) >= 0.75) considerCandidate(c, `containment(e→c)=${containment(tokE, tokC).toFixed(2)}`, jaccard)
       }
     }
   }
 
-  return null
+  return best ? { row: best.row, reason: best.reason } : null
 }
 
 /**
@@ -411,7 +454,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
   const results = { sources: [] }
 
   for (const source of sortedSources) {
-    const stats = { source: source.name, total: 0, created: 0, updated: 0, errors: [], createdNames: [], updatedNames: [] }
+    const stats = { source: source.name, total: 0, created: 0, updated: 0, skipped: 0, skippedReasons: { non_running: 0, past_date: 0, junk: 0 }, errors: [], createdNames: [], updatedNames: [], rows: [] }
 
     try {
       // Fetch only unmerged rows from raw table (paginated)
@@ -443,11 +486,35 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
 
           // Skip non-running events and past events — mark merged so they don't re-appear
           if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || (raw.date && raw.date < today) || isSmakMaratonJunk) {
+            stats.skipped++
+            if (raw.name && SKIP_KEYWORDS.test(raw.name)) stats.skippedReasons.non_running++
+            else if (raw.date && raw.date < today) stats.skippedReasons.past_date++
+            else if (isSmakMaratonJunk) stats.skippedReasons.junk++
             if (!dryRun) {
               await supabase.from(source.table).update({ merged_at: new Date().toISOString() }).eq('id', raw.id)
             }
             continue
           }
+
+          // Snapshot raw row for dry-run quality reporting (post-skip)
+          stats.rows.push({
+            name: raw.name,
+            date: raw.date,
+            location: raw.location || null,
+            voivodeship: raw.voivodeship || null,
+            distances: raw.distances || null,
+            event_types: raw.event_types || null,
+            event_type: raw.event_type || null,
+            is_kids: raw.is_kids || false,
+            price_from: raw.price_from ?? null,
+            price_to: raw.price_to ?? null,
+            has_registration_url: !!raw.registration_url,
+            has_regulamin_url: !!(raw.regulamin_url || (raw.regulamin_urls && raw.regulamin_urls[0])),
+            has_website: !!(raw.website || raw.external_website),
+            has_lat_lng: raw.lat != null && raw.lng != null,
+            registration_deadline: raw.end_date || raw.registration_deadline || null,
+            source_id: raw.source_id,
+          })
 
           // Build a unified row from raw data + source-specific field mappings
           const row = {
@@ -473,7 +540,9 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
             source_url: raw.source_url || null,
           }
 
-          const existing = await findScraperAllMatch(row)
+          const match = await findScraperAllMatch(row)
+          const existing = match?.row || null
+          const matchReason = match?.reason || null
           const sourceLink = { source: source.name, source_id: raw.source_id, source_url: raw.source_url || null }
           const now = new Date().toISOString()
 
@@ -483,6 +552,8 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
             const incomingWins = incomingPriority < existingPriority
 
             const updates = {}
+            const overwrittenFields = []
+            const filledFields = []
             for (const key of RAW_MERGE_FIELDS) {
               const newVal = row[key]
               if (newVal === null || newVal === undefined) continue
@@ -490,8 +561,12 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
 
               if (incomingWins) {
                 updates[key] = newVal
+                if (!isEmpty(existing[key]) && JSON.stringify(existing[key]) !== JSON.stringify(newVal)) {
+                  overwrittenFields.push(key)
+                }
               } else if (isEmpty(existing[key])) {
                 updates[key] = newVal
+                filledFields.push(key)
               }
             }
 
@@ -504,9 +579,26 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
             updates.source_links = mergeSourceLinks(existing.source_links, sourceLink)
             updates.merged_at = now
 
+            const matchEntry = {
+              raw_name: raw.name,
+              raw_date: raw.date,
+              raw_source_id: raw.source_id,
+              raw_location: raw.location || null,
+              matched_id: existing.id,
+              matched_name: existing.name,
+              matched_date: existing.date,
+              matched_source: existing.source,
+              matched_source_id: existing.source_id,
+              matched_location: existing.location || null,
+              reason: matchReason,
+              incoming_wins: incomingWins,
+              overwrite_fields: overwrittenFields,
+              fill_fields: filledFields,
+            }
+
             if (dryRun) {
               stats.updated++
-              stats.updatedNames.push(raw.name)
+              stats.updatedNames.push(matchEntry)
             } else {
               const { error } = await supabase
                 .from('scraper_all')
@@ -516,7 +608,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
               if (error) stats.errors.push({ name: raw.name, message: error.message })
               else {
                 stats.updated++
-                stats.updatedNames.push(raw.name)
+                stats.updatedNames.push(matchEntry)
                 await supabase.from(source.table).update({ merged_at: now }).eq('id', raw.id)
               }
             }
@@ -524,9 +616,16 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
             row.source_links = [sourceLink]
             row.merged_at = now
 
+            const createEntry = {
+              name: raw.name,
+              date: raw.date,
+              location: raw.location || null,
+              source_id: raw.source_id,
+            }
+
             if (dryRun) {
               stats.created++
-              stats.createdNames.push(raw.name)
+              stats.createdNames.push(createEntry)
             } else {
               const { error } = await supabase
                 .from('scraper_all')
@@ -535,7 +634,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
               if (error) stats.errors.push({ name: raw.name, message: error.message })
               else {
                 stats.created++
-                stats.createdNames.push(raw.name)
+                stats.createdNames.push(createEntry)
                 await supabase.from(source.table).update({ merged_at: now }).eq('id', raw.id)
               }
             }
@@ -618,15 +717,16 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
   console.log(`[publish] ${existingByLink.size} live + ${rejectedKeys.size} rejected source+source_id pairs in calendar_events`)
 
-  // Fetch name+date+location from calendar_events for fuzzy dedup.
-  // New scraper_all rows may have slightly different names from events already published
-  // in a prior run (source row merged/deleted since then), so source_link matching misses them.
+  // Fetch name+date+location+event_type from calendar_events for fuzzy dedup.
+  // event_type (which contains 'dzieci' when applicable) enables the
+  // distinguishing-tag guard so we don't collapse semantically-distinct
+  // events (kids vs adult, half vs full marathon).
   const existingByDate = new Map()
   from = 0
   while (true) {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('name, date, location')
+      .select('name, date, location, event_type')
       .in('status', ['active', 'rejected'])
       .range(from, from + pageSize - 1)
 
@@ -643,15 +743,24 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
   console.log(`[publish] ${[...existingByDate.values()].reduce((s, g) => s + g.length, 0)} calendar_events loaded for fuzzy dedup`)
 
-  function fuzzyMatch(name, date, location) {
-    const candidates = existingByDate.get(date)
+  function fuzzyMatch(saEvent, candidatesEvent) {
+    // saEvent: { name, date, location, is_kids, event_types, event_type } from scraper_all
+    // candidatesEvent same shape from CE (we pre-fetch event_type/is_kids for the dedup pool below)
+    const candidates = existingByDate.get(saEvent.date)
     if (!candidates) return null
+    const saTags = distinguishingTags(saEvent)
     for (const c of candidates) {
-      const jaccard = jaccardSimilarity(c.name, name)
+      // Same distinguishing-tag guard as the merge step — kids vs adult,
+      // Maraton vs Półmaraton, trail vs uliczny, etc. Prevents publish from
+      // suppressing a legitimate new CE row by misidentifying it as duplicate
+      // of a semantically-distinct existing CE.
+      if (hasDistinguishingConflict(saTags, distinguishingTags(c))) continue
+
+      const jaccard = jaccardSimilarity(c.name, saEvent.name)
       if (jaccard > 0.6) return { matched: c, reason: `jaccard=${jaccard.toFixed(2)}` }
-      const locMatch = citiesMatch(c.location, location)
+      const locMatch = citiesMatch(c.location, saEvent.location)
       if (locMatch && jaccard > 0.35) return { matched: c, reason: `city+jaccard=${jaccard.toFixed(2)}` }
-      if (locMatch && tokenize(c.name).length <= 3 && tokenize(name).length <= 3 && jaccard > 0.25) return { matched: c, reason: `short+city+jaccard=${jaccard.toFixed(2)}` }
+      if (locMatch && tokenize(c.name).length <= 3 && tokenize(saEvent.name).length <= 3 && jaccard > 0.25) return { matched: c, reason: `short+city+jaccard=${jaccard.toFixed(2)}` }
     }
     return null
   }
@@ -678,13 +787,46 @@ async function publishToCalendar({ dryRun = false } = {}) {
   function buildUpdateRow(ce, raw) {
     const locked = new Set(Array.isArray(ce.locked_fields) ? ce.locked_fields : [])
     const upd = {}
+    // Per-field decisions surfaced in the dry-run log so the operator can see
+    // what data the publisher chose NOT to write. Each entry: { field, reason,
+    // ce_value, sa_value }. Reasons: 'locked', 'already_populated', 'unchanged',
+    // 'no_new_data', 'lower_count' (for distances), 'terrain_conflict' (event_type).
+    const skipped = []
 
     function fillIfEmpty(field, newVal) {
-      if (locked.has(field)) return
+      if (locked.has(field)) {
+        if (newVal !== null && newVal !== undefined && newVal !== '') {
+          skipped.push({ field, reason: 'locked', ce_value: ce[field], sa_value: newVal })
+        }
+        return
+      }
       if (newVal === null || newVal === undefined) return
       if (typeof newVal === 'string' && !newVal.trim()) return
       const cur = ce[field]
-      if (cur !== null && cur !== undefined && cur !== '') return
+      if (cur !== null && cur !== undefined && cur !== '') {
+        // CE already has a value and it differs from sa value → silent drop
+        // by design, but log it so the operator can spot mass-overrides.
+        if (cur !== newVal) {
+          skipped.push({ field, reason: 'already_populated', ce_value: cur, sa_value: newVal })
+        }
+        return
+      }
+      upd[field] = newVal
+    }
+
+    // Always-overwrite fields: scraper_all is authoritative; the value
+    // changes over time (organizer raises the fee, registration opens new
+    // tier) and the latest scrape should win. Locked fields still respected.
+    function alwaysOverwrite(field, newVal) {
+      if (locked.has(field)) {
+        if (newVal !== null && newVal !== undefined) {
+          skipped.push({ field, reason: 'locked', ce_value: ce[field], sa_value: newVal })
+        }
+        return
+      }
+      if (newVal === null || newVal === undefined) return
+      if (ce[field] === newVal) return
+      if (typeof ce[field] === 'number' && typeof newVal === 'number' && Number(ce[field]) === Number(newVal)) return
       upd[field] = newVal
     }
 
@@ -696,11 +838,16 @@ async function publishToCalendar({ dryRun = false } = {}) {
     fillIfEmpty('regulamin_url', raw.regulamin_url || null)
     fillIfEmpty('website', raw.website || null)
     fillIfEmpty('registration_deadline', raw.registration_deadline || null)
-    fillIfEmpty('price_from', raw.price_from ?? null)
-    fillIfEmpty('price_to', raw.price_to ?? null)
+    alwaysOverwrite('price_from', raw.price_from ?? null)
+    alwaysOverwrite('price_to', raw.price_to ?? null)
 
     // distances: scraper_all stores comma string, ce stores text[]
-    if (!locked.has('distances')) {
+    if (locked.has('distances')) {
+      const saRaw = raw.distances
+      if (saRaw && (Array.isArray(saRaw) ? saRaw.length : String(saRaw).trim())) {
+        skipped.push({ field: 'distances', reason: 'locked', ce_value: ce.distances, sa_value: saRaw })
+      }
+    } else {
       let saDistances = raw.distances || []
       if (!Array.isArray(saDistances)) {
         saDistances = String(saDistances).split(',').map(d => d.trim()).filter(Boolean)
@@ -709,6 +856,14 @@ async function publishToCalendar({ dryRun = false } = {}) {
       if (saDistances.length > 0) {
         if (ceDistances.length === 0 || saDistances.length > ceDistances.length) {
           upd.distances = saDistances
+        } else if (saDistances.length === ceDistances.length) {
+          // Same count — current rule is "no upgrade" so values are dropped if
+          // CE already has same number, even when contents differ.
+          if (!saDistances.every(d => ceDistances.includes(d))) {
+            skipped.push({ field: 'distances', reason: 'same_count_different_values', ce_value: ceDistances, sa_value: saDistances })
+          }
+        } else {
+          skipped.push({ field: 'distances', reason: 'lower_count', ce_value: ceDistances, sa_value: saDistances })
         }
       }
     }
@@ -716,7 +871,12 @@ async function publishToCalendar({ dryRun = false } = {}) {
     // event_type: additive merge (preserve curated tags), but never mix
     // conflicting terrain types — if CE says "trail", an incoming "uliczny"
     // is dropped (and vice versa). Add 'dzieci' from is_kids.
-    if (!locked.has('event_type')) {
+    if (locked.has('event_type')) {
+      const saTypes = raw.event_types || raw.event_type
+      if (saTypes && (Array.isArray(saTypes) ? saTypes.length : true)) {
+        skipped.push({ field: 'event_type', reason: 'locked', ce_value: ce.event_type, sa_value: saTypes })
+      }
+    } else {
       const TERRAIN_TYPES = new Set(['trail', 'ocr', 'uliczny'])
       let saTypes = raw.event_types || raw.event_type || []
       if (!Array.isArray(saTypes)) saTypes = [saTypes]
@@ -726,18 +886,25 @@ async function publishToCalendar({ dryRun = false } = {}) {
         const ceTypes = Array.isArray(ce.event_type) ? ce.event_type : []
         const ceTerrain = ceTypes.find(t => TERRAIN_TYPES.has(t))
         const merged = new Set(ceTypes)
+        const droppedTerrain = []
         for (const t of saTypes) {
-          if (TERRAIN_TYPES.has(t) && ceTerrain && t !== ceTerrain) continue
+          if (TERRAIN_TYPES.has(t) && ceTerrain && t !== ceTerrain) {
+            droppedTerrain.push(t)
+            continue
+          }
           merged.add(t)
         }
         const mergedArr = [...merged]
         if (mergedArr.length !== ceTypes.length || !ceTypes.every(t => merged.has(t))) {
           upd.event_type = mergedArr
         }
+        if (droppedTerrain.length > 0) {
+          skipped.push({ field: 'event_type', reason: `terrain_conflict_with_${ceTerrain}`, ce_value: ce.event_type, sa_value: droppedTerrain })
+        }
       }
     }
 
-    return upd
+    return { upd, skipped }
   }
 
   let created = 0, updated = 0, unchanged = 0, rejectedSkipped = 0, fuzzySkipped = 0
@@ -770,9 +937,21 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
     // Existing row → diff & update path
     if (existingCE) {
-      const upd = buildUpdateRow(existingCE, raw)
+      const { upd, skipped: skippedFields } = buildUpdateRow(existingCE, raw)
       if (Object.keys(upd).length === 0) {
         unchanged++
+        if (skippedFields.length > 0) {
+          // Even when nothing was written, surface skipped fields so the operator
+          // can spot data they expected to land but didn't.
+          updatedLog.push({
+            name: existingCE.name,
+            date: existingCE.date,
+            ce_id: existingCE.id,
+            fields: [],
+            skipped: skippedFields,
+            no_op: true,
+          })
+        }
         continue
       }
       // Skip if we don't have a real id yet (just-inserted within this batch)
@@ -784,7 +963,13 @@ async function publishToCalendar({ dryRun = false } = {}) {
 
       if (dryRun) {
         updated++
-        updatedLog.push({ name: existingCE.name, date: existingCE.date, fields: Object.keys(upd).filter(k => k !== 'last_verified_at') })
+        updatedLog.push({
+          name: existingCE.name,
+          date: existingCE.date,
+          ce_id: existingCE.id,
+          fields: Object.keys(upd).filter(k => k !== 'last_verified_at'),
+          skipped: skippedFields,
+        })
       } else {
         const { error } = await supabase
           .from('calendar_events')
@@ -794,7 +979,13 @@ async function publishToCalendar({ dryRun = false } = {}) {
           errors.push({ name: existingCE.name, message: `update failed: ${error.message}` })
         } else {
           updated++
-          updatedLog.push({ name: existingCE.name, date: existingCE.date, fields: Object.keys(upd).filter(k => k !== 'last_verified_at') })
+          updatedLog.push({
+            name: existingCE.name,
+            date: existingCE.date,
+            ce_id: existingCE.id,
+            fields: Object.keys(upd).filter(k => k !== 'last_verified_at'),
+            skipped: skippedFields,
+          })
           // Refresh in-memory cache so a later scraper_all row matching the same
           // CE doesn't re-update with the same values
           for (const k of candidateKeys) existingByLink.set(k, { ...existingCE, ...upd })
@@ -804,7 +995,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
     }
 
     // Fuzzy dedup: same date + similar name + same city already in calendar_events
-    const fuzzy = fuzzyMatch(raw.name, raw.date, raw.location)
+    const fuzzy = fuzzyMatch(raw)
     if (fuzzy) {
       fuzzySkipped++
       fuzzyLog.push({

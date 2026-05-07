@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { jaccardSimilarity, citiesMatch, tokenize, SOURCE_PRIORITY } from '../src/scrapers/dedup.js'
+import { jaccardSimilarity, citiesMatch, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict } from '../src/scrapers/dedup.js'
 import { writeRunLog } from './lib/run-log.js'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-dedup.js
@@ -84,6 +84,14 @@ function containmentRatio(shorter, longer) {
 }
 
 function isDuplicate(a, b) {
+  // Distinguishing-tag guard: if A and B have conflicting semantic tags
+  // (audience: kids vs adult, distance: full vs half vs quarter,
+  // style: trail/nw/ocr/ultra), they are NOT duplicates regardless of
+  // name similarity. Mirrors the guard in findScraperAllMatch so the
+  // raw→scraper_all merge and within-scraper_all dedup agree on what
+  // counts as the same event.
+  if (hasDistinguishingConflict(distinguishingTags(a), distinguishingTags(b))) return false
+
   const jaccard = jaccardSimilarity(a.name, b.name)
   const locMatch = citiesMatch(a.location, b.location)
 
