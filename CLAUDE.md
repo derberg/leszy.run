@@ -262,7 +262,7 @@ The landing page and kalendarz read directly from Supabase (`calendar_events` ta
 
 Standalone scripts (not API endpoints) that scrape Polish running event websites, enrich with AI, and publish to the `calendar_events` Supabase table. See [docs/scrapers.md](docs/scrapers.md) for full pipeline documentation.
 
-### Data sources (16 scrapers)
+### Data sources (17 scrapers)
 
 | Source | Events/year | Method | Data quality |
 |--------|-------------|--------|--------------|
@@ -278,6 +278,7 @@ Standalone scripts (not API endpoints) that scrape Polish running event websites
 | superczas.pl | 30-40 | Cheerio (listing + detail pages) | High (Olsztyn/Warmia timing co; date+city+deadline from listing, distances+regulamin PDF from detail page) |
 | bgtimesport.pl | 30-50 | Cheerio (listing + detail + regulamin pages) | High (Bielsko-Biała/Silesia timing co; per-bieg prices + distances, regulamin PDF, organizer website) |
 | rajsportactive.pl | 8-12 | Cheerio (single listing page) | Medium-High (Sieradz/Łódzkie timing co; date+city+regulamin PDF from listing, distances + kids signal harvested from registration buttons) |
+| sport-time.com.pl | 10-20 | Cheerio (single listing page) | Medium (Gryfice/Zachodniopomorskie timing co; name+date+city+registration+HTML regulamin from listing; distances extracted from name where present) |
 
 ### Pipeline architecture
 

@@ -11121,7 +11121,7 @@
       "nordic walking"
     ],
     "registration_url": "https://b4sportonline.pl/boleslawiec_run/zapisy_na_bieg_dla_dzieci/12286",
-    "website": null,
+    "website": "https://b4sportonline.pl/transgranicznie_zdrowo_i_sportowo/",
     "is_kids": null
   },
   "ix-bieg-rolnika-2026-05-17": {
@@ -13610,6 +13610,29 @@
     "website": "https://rajsportactive.pl/zapisy/festiwal-biegow-ocr-baranow-2026",
     "is_kids": null
   },
+  "xxxvi-mysliborska-mila-2026-2026-05-24": {
+    "id": "b725b13a-6a08-4f85-aaeb-11783fd58150",
+    "name": "XXXVI „MYŚLIBORSKA MILA 2026”",
+    "date": "2026-05-24",
+    "registration_deadline": "2026-05-17",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=770",
+    "price_from": 60,
+    "price_to": 60,
+    "location": "Myślibórz",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 52.924825,
+    "lng": 14.86648,
+    "distances": [
+      "10 km",
+      "1609 m"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=770",
+    "website": "https://sport-time.com.pl/competitions/view?id=770",
+    "is_kids": null
+  },
   "reda-kids-cup-2026-2026-05-24": {
     "id": "ba3968da-ce5a-4ddd-85e0-fc67f6c84b9a",
     "name": "Reda - Kids Cup 2026",
@@ -14730,6 +14753,37 @@
     ],
     "registration_url": "https://b4sportonline.pl/roztocze_bez_granic/zapisy_na_rowerowe_lato_na_roztoczu/11891",
     "website": "http://roztoczebezgranic.pl/",
+    "is_kids": null
+  },
+  "x-bieg-dookola-jeziora-chociwel-2026-2026-05-30": {
+    "id": "8ae13195-f651-4bf3-82eb-57e58300cc1c",
+    "name": "X Bieg Dookoła Jeziora – Chociwel 2026",
+    "date": "2026-05-30",
+    "registration_deadline": "2026-05-26",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=765",
+    "price_from": 60,
+    "price_to": 100,
+    "location": "Chociwel",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.466395,
+    "lng": 15.331444,
+    "distances": [
+      "12 km",
+      "6 km",
+      "6 km (nordic walking)",
+      "100 m",
+      "200 m",
+      "400 m",
+      "500 m",
+      "800 m",
+      "1000 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=765",
+    "website": "https://www.sport-time.com.pl/competitions/view?id=765",
     "is_kids": null
   },
   "bieg-rodzic-i-ja-2026-05-30": {
@@ -15937,6 +15991,28 @@
     "website": "https://sieradzbiega.pl/sieradzkicross/",
     "is_kids": null
   },
+  "vi-bieg-szlakiem-przygody-nad-jeziorem-barlineckim-2026-05-31": {
+    "id": "756f04ee-5d40-4059-81b0-d00f74514d21",
+    "name": "VI BIEG SZLAKIEM PRZYGODY NAD JEZIOREM BARLINECKIM",
+    "date": "2026-05-31",
+    "registration_deadline": "2026-05-25",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=760",
+    "price_from": 70,
+    "price_to": 90,
+    "location": "Barlinek",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 52.992076,
+    "lng": 15.216639,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=760",
+    "website": "https://szlakiemprzygody.epidemiasportu-team.pl/szlak-przygody-nad-jeziorem-barlineckim",
+    "is_kids": null
+  },
   "sfora-2026-05-31": {
     "id": "57c43d35-1b38-42c7-818d-16847cea0e61",
     "name": "SFORA",
@@ -16847,34 +16923,6 @@
     "website": "https://more-poland.pl",
     "is_kids": null
   },
-  "srebrne-fale-festiwal-plywania-na-wodach-otwartych-grand-prix-puchar-polski-w-plywaniu-na-wodach-otwartych-2026-2026-06-06": {
-    "id": "537b5318-8ce4-4cfb-abdb-772377de47be",
-    "name": "Srebrne Fale- Festiwal Pływania na Wodach Otwartych - Grand Prix Puchar Polski w Pływaniu na Wodach Otwartych 2026",
-    "date": "2026-06-06",
-    "registration_deadline": null,
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Srebrne_Fale-_Festiwal_Pływania_na_Wodach_Otwartych-_6.06.2026_.pdf",
-    "price_from": null,
-    "price_to": null,
-    "location": "Jezioro Nakło - Chechło; Ośrodek Wypoczynkowy Żagiel",
-    "voivodeship": "Śląskie",
-    "lat": 50.467877,
-    "lng": 18.912613,
-    "distances": [
-      "10 km",
-      "7",
-      "5 km",
-      "5 km",
-      "3 km",
-      "1 km"
-    ],
-    "event_type": [
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2569/srebrne-fale-grand-prix-puchar-polski-w-plywaniu-na-wodach-otwartych.html",
-    "website": "https://www.zmierzymyczas.pl/2569/srebrne-fale-grand-prix-puchar-polski-w-plywaniu-na-wodach-otwartych.html",
-    "is_kids": null
-  },
   "xxiv-bieg-gorski-na-hrobacza-lake-i-viii-rajd-nordic-walking-2026-06-06": {
     "id": "fff6021a-144f-4803-a891-cf09b1a00c5f",
     "name": "XXIV Bieg Górski na Hrobaczą Łąkę i VIII Rajd Nordic Walking",
@@ -16897,6 +16945,34 @@
     ],
     "registration_url": "https://www.bgtimesport.pl/zawody/biegi/id/840",
     "website": "http://www.bnhl.pl",
+    "is_kids": null
+  },
+  "srebrne-fale-festiwal-plywania-na-wodach-otwartych-grand-prix-puchar-polski-w-plywaniu-na-wodach-otwartych-2026-2026-06-06": {
+    "id": "537b5318-8ce4-4cfb-abdb-772377de47be",
+    "name": "Srebrne Fale- Festiwal Pływania na Wodach Otwartych - Grand Prix Puchar Polski w Pływaniu na Wodach Otwartych 2026",
+    "date": "2026-06-06",
+    "registration_deadline": "2026-06-03",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Srebrne_Fale-_Festiwal_Pływania_na_Wodach_Otwartych-_6.06.2026_.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Jezioro Nakło - Chechło; Ośrodek Wypoczynkowy Żagiel",
+    "voivodeship": "Śląskie",
+    "lat": 50.467877,
+    "lng": 18.912613,
+    "distances": [
+      "10 km",
+      "7",
+      "5 km",
+      "5 km",
+      "3 km",
+      "1 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2569/srebrne-fale-grand-prix-puchar-polski-w-plywaniu-na-wodach-otwartych.html",
+    "website": "https://www.zmierzymyczas.pl/2569/srebrne-fale-grand-prix-puchar-polski-w-plywaniu-na-wodach-otwartych.html",
     "is_kids": null
   },
   "bieg-tytana-junior-2026-06-06": {
@@ -18516,6 +18592,29 @@
     ],
     "registration_url": "https://dostartu.pl/mazowiecki-ultra-skrocz-2026-v15352",
     "website": "https://www.facebook.com/MazowieckiUltraSkrocz",
+    "is_kids": null
+  },
+  "iv-helenowski-bieg-przelajowy-nordic-walking-33-km-2026-06-13": {
+    "id": "90478906-68e4-4648-9305-17e63a16941a",
+    "name": "IV Helenowski Bieg Przełajowy - NORDIC WALKING 3,3 km",
+    "date": "2026-06-13",
+    "registration_deadline": "2026-06-06",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=768",
+    "price_from": 60,
+    "price_to": 80,
+    "location": "Goleniów",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.565694,
+    "lng": 14.829929,
+    "distances": [
+      "3.3 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=768",
+    "website": null,
     "is_kids": null
   },
   "bieg-nad-wadolem-2026-2026-06-13": {
@@ -20438,6 +20537,55 @@
     "website": "https://rajsportactive.pl/zapisy/iii-szczercowski-bieg-swietojanski-2026",
     "is_kids": null
   },
+  "iii-chojna-biega-open-2026-06-20": {
+    "id": "7b1e09c0-2913-4e86-b875-75f8288cb675",
+    "name": "III Chojna Biega - OPEN",
+    "date": "2026-06-20",
+    "registration_deadline": "2026-06-14",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=778",
+    "price_from": 65,
+    "price_to": 75,
+    "location": "Chojna",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 52.962979,
+    "lng": 14.431411,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=778",
+    "website": null,
+    "is_kids": null
+  },
+  "iii-chojna-biega-biegi-dzieci-2026-06-20": {
+    "id": "b03def5b-f3b7-4cf2-a361-f73e4e0017c1",
+    "name": "III Chojna Biega – Biegi Dzieci",
+    "date": "2026-06-20",
+    "registration_deadline": "2026-06-14",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=779",
+    "price_from": 35,
+    "price_to": 45,
+    "location": "Chojna",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 52.962979,
+    "lng": 14.431411,
+    "distances": [
+      "100 m",
+      "200 m",
+      "300 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=779",
+    "website": null,
+    "is_kids": null
+  },
   "vi-bieg-swietojanski-2026-06-20": {
     "id": "f2555d95-ecbb-4507-a7a2-d23f00466828",
     "name": "VI Bieg Świętojański",
@@ -21306,6 +21454,29 @@
     "website": "https://bieg.truchtacz.pl/",
     "is_kids": null
   },
+  "ix-gryf-arena-run-2026-open-2026-06-21": {
+    "id": "0559c72d-a97a-4150-9904-97cc41c90d8e",
+    "name": "IX Gryf Arena Run 2026 - OPEN",
+    "date": "2026-06-21",
+    "registration_deadline": "2026-06-16",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=772",
+    "price_from": 75,
+    "price_to": 85,
+    "location": "Gryfice",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.914853,
+    "lng": 15.198706,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=772",
+    "website": "https://www.sport-time.com.pl/competitions/view?id=772",
+    "is_kids": null
+  },
   "bieg-wokol-jeziora-miejskiego-xvii-ecocross-2026-06-21": {
     "id": "2cafe26c-c969-4db6-a2fb-cce1ed84fdba",
     "name": "Bieg wokół Jeziora Miejskiego – XVII ECO-CROSS",
@@ -21327,6 +21498,55 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v15605",
     "website": "https://zcas.zlotow.pl/XVII-Eco-Cross-2026---zapisy-ruszyly_.html",
+    "is_kids": null
+  },
+  "xi-gorzowska-nadwarcianska-dycha-z-gospodarczym-bankiem-spoldzielczym-2026-06-21": {
+    "id": "3c1871c4-9ed0-4674-8370-c55dc52a1d71",
+    "name": "XI Gorzowska Nadwarciańska Dycha z Gospodarczym Bankiem Spółdzielczym",
+    "date": "2026-06-21",
+    "registration_deadline": "2026-06-15",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=780",
+    "price_from": 60,
+    "price_to": 80,
+    "location": "Gorzów Wlkp.",
+    "voivodeship": "Lubuskie",
+    "lat": 52.730993,
+    "lng": 15.240045,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=780",
+    "website": "https://www.osir.gorzow.pl/wydarzenie/xi-gorzowska-nadwarcianska-dycha/",
+    "is_kids": null
+  },
+  "ix-gryf-arena-run-2026-dzieci-2026-06-21": {
+    "id": "3ba7147f-4c41-4cda-997f-c74286485a7b",
+    "name": "IX Gryf Arena Run 2026 - DZIECI",
+    "date": "2026-06-21",
+    "registration_deadline": "2026-06-16",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=773",
+    "price_from": 20,
+    "price_to": 50,
+    "location": "Gryfice",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.914853,
+    "lng": 15.198706,
+    "distances": [
+      "100m",
+      "200m",
+      "400m",
+      "600m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=773",
+    "website": "https://www.gryfice.pl/komunikat4853.html",
     "is_kids": null
   },
   "3-edycja-rodzinna-mila-balatonska-oraz-balatonska-mila-2026-06-21": {
@@ -21614,32 +21834,6 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16309",
     "website": null,
-    "is_kids": null
-  },
-  "gryf-arena-run-2026-06-21": {
-    "id": "84cd56c7-86f7-4812-bba2-ced4405d8d66",
-    "name": "Gryf Arena Run",
-    "date": "2026-06-21",
-    "registration_deadline": "2026-06-16",
-    "regulamin_url": "https://sport-time.com.pl/competitions/view?id=772",
-    "price_from": 20,
-    "price_to": 100,
-    "location": "Gryfice",
-    "voivodeship": "Zachodniopomorskie",
-    "lat": 53.914853,
-    "lng": 15.198706,
-    "distances": [
-      "100 m",
-      "200 m",
-      "5 km"
-    ],
-    "event_type": [
-      "uliczny",
-      "nordic walking",
-      "dzieci"
-    ],
-    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=772",
-    "website": "http://gryfarena.com",
     "is_kids": null
   },
   "36-sudecka-100-2026-06-26": {
@@ -23948,7 +24142,8 @@
       "10 km"
     ],
     "event_type": [
-      "trail"
+      "trail",
+      "ultra"
     ],
     "registration_url": "https://b4sportonline.pl/rajd_izerskokarkonoski/zapisy_na_40_km_na_skroty/11903",
     "website": "https://b4sportonline.pl/rajd_izerskokarkonoski/",
@@ -25666,7 +25861,8 @@
       "900m"
     ],
     "event_type": [
-      "uliczny"
+      "uliczny",
+      "dzieci"
     ],
     "registration_url": "https://rajsportactive.pl/zapisy/arm-race-kamien-2026",
     "website": "https://rajsportactive.pl/zapisy/arm-race-kamien-2026",
