@@ -8707,30 +8707,6 @@
     "website": "https://superczas.pl/gpmazury1#main",
     "is_kids": null
   },
-  "bieg-juniora-2026-2026-05-09": {
-    "id": "5965db26-20e4-46ff-b072-e2bbb41720db",
-    "name": "Bieg Juniora 2026",
-    "date": "2026-05-09",
-    "registration_deadline": null,
-    "regulamin_url": "https://bialystokpolmaraton.pl/regulamin/",
-    "price_from": 50,
-    "price_to": 90,
-    "location": "Białystok",
-    "voivodeship": "Podlaskie",
-    "lat": 53.132398,
-    "lng": 23.159168,
-    "distances": [
-      "5 km",
-      "21.1 km"
-    ],
-    "event_type": [
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://b4sportonline.pl/super_biegacz/zapisy_na_bieg_juniora__9052026/11859",
-    "website": "https://bialystokpolmaraton.pl/",
-    "is_kids": null
-  },
   "v-charytatywny-bieg-dla-orewiakow-2026-05-09": {
     "id": "1243be8c-c29b-4132-9320-2f95ba005548",
     "name": "V Charytatywny Bieg dla OREW-iaków",
