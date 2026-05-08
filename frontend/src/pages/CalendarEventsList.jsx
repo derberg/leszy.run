@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.js'
+import { ReportsTab, FeedbackTab, useReportsQuery, useFeedbackQuery } from './Moderation.jsx'
 
 const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm py-1.5 px-2 outline-none focus:border-apex-yellow-dim'
 
@@ -457,6 +458,12 @@ export default function CalendarEventsList() {
     },
   })
 
+  // Pull moderation counts so the tab badges stay in sync with the moderation tabs
+  const { data: reportsData } = useReportsQuery()
+  const { data: feedbackData } = useFeedbackQuery()
+  const reportsCount = reportsData?.length || 0
+  const feedbackCount = feedbackData?.length || 0
+
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
     queryClient.invalidateQueries({ queryKey: ['calendar-events-duplicates'] })
@@ -495,7 +502,7 @@ export default function CalendarEventsList() {
   const pending = pendingEvents || []
   const active = activeEvents || []
   const dupGroups = dupData || []
-  const isLoading = filter === 'review' ? pendingLoading : activeLoading
+  const isLoading = filter === 'review' ? pendingLoading : filter === 'all' ? activeLoading : false
 
   // Single source of truth for "what makes an event complete" — matches the enricher's
   // --incomplete criteria so the admin view reflects what the enricher will re-process.
@@ -527,8 +534,8 @@ export default function CalendarEventsList() {
   const allView = allSubFilter === 'incomplete' ? incomplete : active
 
   const fullList = filter === 'review' ? pending
-    : filter === 'duplicates' ? []
-    : allView
+    : filter === 'all' ? allView
+    : []
 
   const totalPages = Math.max(1, Math.ceil(fullList.length / PAGE_SIZE))
   const clampedPage = Math.min(page, totalPages)
@@ -542,24 +549,29 @@ export default function CalendarEventsList() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-4">
         <div>
           <h1 className="font-display text-3xl font-extrabold tracking-wider uppercase text-apex-text-bright mb-1">
             Wydarzenia w kalendarzu
           </h1>
           <p className="text-apex-muted text-sm">
-            {filter === 'review'
-              ? `${pending.length} do przeglądu`
-              : `${incomplete.length} wymaga uzupełnienia · ${complete.length} kompletnych · ${active.length} łącznie`
-            }
+            {filter === 'review' && `${pending.length} do przeglądu`}
+            {filter === 'all' && `${incomplete.length} wymaga uzupełnienia · ${complete.length} kompletnych · ${active.length} łącznie`}
+            {filter === 'duplicates' && `${dupGroups.length} grup duplikatów`}
+            {filter === 'reports' && `${reportsCount} zgłoszeń od społeczności`}
+            {filter === 'feedback' && `${feedbackCount} sugestii i uwag`}
           </p>
           <p className="font-mono text-[10px] tracking-widest uppercase text-apex-muted mt-1">
-            Źródło danych: Supabase · tabela <span className="text-apex-text-bright">calendar_events</span>
+            Źródło danych: Supabase · tabela{' '}
+            {filter === 'reports' && <span className="text-apex-text-bright">calendar_event_reports</span>}
+            {filter === 'feedback' && <span className="text-apex-text-bright">website_feedback</span>}
+            {(filter === 'review' || filter === 'all' || filter === 'duplicates') && <span className="text-apex-text-bright">calendar_events</span>}
             {filter === 'review' && <> · status=<span className="text-apex-text-bright">pending</span></>}
             {filter === 'all' && <> · status=<span className="text-apex-text-bright">active</span></>}
+            {(filter === 'reports' || filter === 'feedback') && <> · status=<span className="text-apex-text-bright">pending</span></>}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={() => setFilter('review')} className={btnClass(filter === 'review')}>
             Do przeglądu{pending.length > 0 ? ` (${pending.length})` : ''}
           </button>
@@ -568,6 +580,12 @@ export default function CalendarEventsList() {
           </button>
           <button onClick={() => setFilter('duplicates')} className={btnClass(filter === 'duplicates')}>
             Duplikaty{dupGroups.length > 0 ? ` (${dupGroups.length})` : ''}
+          </button>
+          <button onClick={() => setFilter('reports')} className={btnClass(filter === 'reports')}>
+            Zgłoszenia{reportsCount > 0 ? ` (${reportsCount})` : ''}
+          </button>
+          <button onClick={() => setFilter('feedback')} className={btnClass(filter === 'feedback')}>
+            Sugestie{feedbackCount > 0 ? ` (${feedbackCount})` : ''}
           </button>
         </div>
       </div>
@@ -586,6 +604,10 @@ export default function CalendarEventsList() {
 
       {filter === 'duplicates' ? (
         <DuplicatesView />
+      ) : filter === 'reports' ? (
+        <ReportsTab />
+      ) : filter === 'feedback' ? (
+        <FeedbackTab />
       ) : (
         <>
           {isLoading && <div className="text-apex-muted">Ładowanie...</div>}

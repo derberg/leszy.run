@@ -7,7 +7,6 @@ import Results from './pages/Results.jsx'
 import PodiumPage from './pages/PodiumPage.jsx'
 import ReaderDashboard from './pages/ReaderDashboard.jsx'
 import CalendarEventsList from './pages/CalendarEventsList.jsx'
-import Moderation from './pages/Moderation.jsx'
 
 export default function App() {
   return (
@@ -21,7 +20,7 @@ export default function App() {
           <Route path="/events/:id/results" element={<Results />} />
           <Route path="/reader" element={<ReaderDashboard />} />
           <Route path="/calendar-events" element={<CalendarEventsList />} />
-          <Route path="/moderation" element={<Moderation />} />
+          <Route path="/moderation" element={<Navigate to="/calendar-events" replace />} />
         </Route>
         {/* Public views — no nav */}
         <Route path="/events/:id/podium" element={<PodiumPage />} />

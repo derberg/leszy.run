@@ -1,7 +1,42 @@
 import os
+import re
 import tempfile
 from typing import Optional
 import httpx
+
+# Threshold: if ≥30% of adjacent character pairs are letter-space-letter,
+# the PDF used a spaced-character encoding (common in some Polish Word→PDF
+# exports from rajsportactive.pl and similar sources). In this encoding each
+# glyph is stored as a separate text-run with a space between them, so pypdf
+# extracts "o p ł a t a  s t a r t o w a" instead of "opłata startowa".
+_SPACED_SAMPLE = 2000
+_SPACED_THRESHOLD = 0.30
+_LETTER_RE = re.compile(r"[A-Za-zÀ-ɏ]")  # latin + Polish letters
+
+
+def _is_spaced_encoded(text: str) -> bool:
+    sample = text[:_SPACED_SAMPLE]
+    pairs = sum(
+        1 for i in range(len(sample) - 2)
+        if _LETTER_RE.match(sample[i]) and sample[i + 1] == " " and _LETTER_RE.match(sample[i + 2])
+    )
+    letters = sum(1 for c in sample if _LETTER_RE.match(c))
+    return letters > 20 and pairs / max(letters, 1) >= _SPACED_THRESHOLD
+
+
+def _normalize_spaced_text(text: str) -> str:
+    """Collapse inter-character spaces in spaced-encoded PDF text.
+
+    The encoding puts one space between every glyph and two spaces between
+    words. Strategy: split each line on 2+ spaces (word boundaries), then
+    strip all remaining spaces within each token (removes intra-glyph gaps).
+    """
+    lines = []
+    for line in text.split("\n"):
+        tokens = re.split(r"  +", line)
+        normalized = [tok.replace(" ", "") for tok in tokens if tok.replace(" ", "")]
+        lines.append(" ".join(normalized))
+    return "\n".join(lines)
 
 
 async def download_pdf(url: str, timeout: int = 30) -> Optional[str]:
@@ -71,6 +106,8 @@ def extract_pdf_text(pdf_path: str, max_chars: int = 15_000) -> Optional[str]:
         joined = "\n".join(parts)
         if not joined.strip():
             return None
+        if _is_spaced_encoded(joined):
+            joined = _normalize_spaced_text(joined)
         return joined[:max_chars]
     except Exception:
         return None

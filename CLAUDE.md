@@ -318,6 +318,10 @@ docker compose exec backend node scripts/run-enrich-flags.js --apply            
 docker compose exec backend node scripts/run-normalize.js --apply                       # 6
 docker compose --profile run-once run --rm enricher python -m enricher run              # 7
 docker compose exec backend node scripts/run-enrich-search.js --apply                   # 8
+# NOTE: run-enrich-from-regulamin.js is NOT in the automated pipeline (requires claude CLI
+# in the Docker container). Run it manually from the host after step 8 when regulamin PDFs
+# have missing prices/deadlines (especially rajsportactive.pl multi-column PDFs):
+cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js               # manual
 docker compose exec backend node scripts/run-dedup.js --apply                           # 9
 docker compose exec backend node scripts/run-normalize.js --apply                       # 10
 docker compose exec backend node scripts/run-publish.js --apply                         # 11

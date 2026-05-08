@@ -71,6 +71,15 @@ EVENT
   location: ${event.location || '(unknown)'}
   known fields: ${describeKnown(event)}
 
+KNOWN URL FETCH (do this first, before searching):
+${event.regulamin_url && (fields.includes('price_from') || fields.includes('registration_deadline'))
+  ? `  regulamin_url is already known: ${event.regulamin_url}
+  → Fetch this URL NOW and read its content. If it is a PDF, read the full text.
+  → Extract price_from / price_to (look for "opłata startowa", "wpisowe", "cena") and registration_deadline (look for "zapisy do", "termin zgłoszeń") directly from the content.
+  → Only continue searching if this fetch fails or the fields are still missing after reading.`
+  : `  (no known regulamin URL to pre-fetch)`
+}
+
 SEARCH STRATEGY — run multiple queries, accumulate candidates:
   1. "${event.name}" ${city} ${year}                                            [strict, exact phrase]
   2. ${event.name} ${city} ${year}                                              [loose, no quotes — use when (1) returns nothing]

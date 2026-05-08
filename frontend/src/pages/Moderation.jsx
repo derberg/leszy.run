@@ -1,9 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../lib/api.js'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001'
-const tabClass = 'font-display font-bold text-sm tracking-widest uppercase px-4 py-2 transition-all'
-const activeTab = 'text-apex-yellow border-b-2 border-apex-yellow'
-const inactiveTab = 'text-apex-muted hover:text-apex-text-bright'
 const btnBase = 'font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 transition-all'
 const inputClass = 'w-full bg-apex-surface border border-apex-yellow-dim text-apex-text-bright text-sm py-1.5 px-2.5 outline-none'
 const labelClass = 'text-[10px] text-apex-dim uppercase mb-0.5'
@@ -16,13 +14,6 @@ const VOIVODESHIPS = [
 ]
 
 const EVENT_TYPES = ['uliczny', 'trail', 'ultra', 'nordic', 'ocr', 'nocny', 'charytatywny', 'dzieci']
-
-async function apiFetch(url, opts = {}) {
-  const res = await fetch(url, opts)
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
-  return json
-}
 
 function EditableEvent({ event, onSave, onApprove, onDelete, showSaveOnly }) {
   const [editing, setEditing] = useState(false)
@@ -204,93 +195,60 @@ function FeedbackItem({ item, onReview, onDismiss }) {
   )
 }
 
-export default function Moderation() {
-  const [tab, setTab] = useState('reports')
-  const [reports, setReports] = useState([])
-  const [feedback, setFeedback] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+export const reportsQueryKey = ['calendar-event-reports', 'pending']
+export const feedbackQueryKey = ['website-feedback', 'pending']
+
+export function useReportsQuery() {
+  return useQuery({
+    queryKey: reportsQueryKey,
+    queryFn: () => api.get('/calendar-event-reports?status=pending'),
+  })
+}
+
+export function useFeedbackQuery() {
+  return useQuery({
+    queryKey: feedbackQueryKey,
+    queryFn: () => api.get('/website-feedback?status=pending'),
+  })
+}
+
+export function ReportsTab() {
+  const queryClient = useQueryClient()
+  const { data, isLoading, error } = useReportsQuery()
+  const reports = data || []
   const [editingEventId, setEditingEventId] = useState(null)
 
-  const fetchReports = useCallback(async () => {
-    const json = await apiFetch(`${API}/api/calendar-event-reports?status=pending`)
-    setReports(json.data || [])
-  }, [])
-
-  const fetchFeedback = useCallback(async () => {
-    const json = await apiFetch(`${API}/api/website-feedback?status=pending`)
-    setFeedback(json.data || [])
-  }, [])
-
-  const refetchAll = useCallback(() => {
-    return Promise.all([fetchReports(), fetchFeedback()])
-  }, [fetchReports, fetchFeedback])
-
-  useEffect(() => {
-    setLoading(true)
-    refetchAll()
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [refetchAll])
-
-  const withError = async (fn) => {
-    setError(null)
-    try {
-      await fn()
-    } catch (e) {
-      setError(e.message)
-    }
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: reportsQueryKey })
+    queryClient.invalidateQueries({ queryKey: ['calendar-events-admin'] })
   }
 
+  const updateEvent = useMutation({
+    mutationFn: ({ id, updates }) => api.patch(`/calendar-events/${id}`, updates),
+  })
+
+  const acceptReport = useMutation({
+    mutationFn: (id) => api.patch(`/calendar-event-reports/${id}/accept`),
+  })
+
+  const rejectReport = useMutation({
+    mutationFn: (id) => api.patch(`/calendar-event-reports/${id}/reject`),
+  })
+
   const saveReportEvent = async (eventId, updates) => {
-    await withError(async () => {
-      if (Object.keys(updates).length > 0) {
-        await apiFetch(`${API}/api/calendar-events/${eventId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
-        })
-      }
-      // Mark all pending reports for this event as accepted (parallel)
-      const eventReports = reports.filter(r => r.calendar_event_id === eventId)
-      await Promise.all(eventReports.map(r =>
-        apiFetch(`${API}/api/calendar-event-reports/${r.id}/accept`, { method: 'PATCH' })
-      ))
-      await fetchReports()
-      setEditingEventId(null)
-    })
+    if (Object.keys(updates).length > 0) {
+      await updateEvent.mutateAsync({ id: eventId, updates })
+    }
+    const eventReports = reports.filter(r => r.calendar_event_id === eventId)
+    await Promise.all(eventReports.map(r => acceptReport.mutateAsync(r.id)))
+    invalidate()
+    setEditingEventId(null)
   }
 
   const rejectReportGroup = async (eventId) => {
-    await withError(async () => {
-      const eventReports = reports.filter(r => r.calendar_event_id === eventId)
-      await Promise.all(eventReports.map(r =>
-        apiFetch(`${API}/api/calendar-event-reports/${r.id}/reject`, { method: 'PATCH' })
-      ))
-      await fetchReports()
-    })
-  }
-
-  const reviewFeedback = async (id, adminNote) => {
-    await withError(async () => {
-      await apiFetch(`${API}/api/website-feedback/${id}/review`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin_note: adminNote || null }),
-      })
-      await fetchFeedback()
-    })
-  }
-
-  const dismissFeedback = async (id, adminNote) => {
-    await withError(async () => {
-      await apiFetch(`${API}/api/website-feedback/${id}/dismiss`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin_note: adminNote || null }),
-      })
-      await fetchFeedback()
-    })
+    const eventReports = reports.filter(r => r.calendar_event_id === eventId)
+    await Promise.all(eventReports.map(r => rejectReport.mutateAsync(r.id)))
+    invalidate()
   }
 
   const reportsByEvent = reports.reduce((acc, r) => {
@@ -300,93 +258,91 @@ export default function Moderation() {
     return acc
   }, {})
 
+  if (isLoading) return <div className="text-apex-muted py-8">Ładowanie...</div>
+  if (error) return <div className="border border-apex-red bg-apex-red/10 text-apex-red text-sm px-4 py-2">{error.message}</div>
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display font-extrabold text-2xl tracking-wider uppercase text-apex-text-bright">Moderacja</h1>
-        <p className="text-sm text-apex-muted mt-1">Zgłoszenia i sugestie społeczności</p>
-      </div>
-
-      {error && (
-        <div className="border border-apex-red bg-apex-red/10 text-apex-red text-sm px-4 py-2 flex items-center justify-between">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-apex-muted hover:text-apex-text-bright ml-4">&times;</button>
-        </div>
-      )}
-
-      <div className="flex gap-4 border-b border-apex-border">
-        <button onClick={() => setTab('reports')} className={`${tabClass} ${tab === 'reports' ? activeTab : inactiveTab}`}>
-          Zgłoszenia ({reports.length})
-        </button>
-        <button onClick={() => setTab('feedback')} className={`${tabClass} ${tab === 'feedback' ? activeTab : inactiveTab}`}>
-          Sugestie ({feedback.length})
-        </button>
-      </div>
-
-      {loading && <div className="text-apex-muted py-8">Ładowanie...</div>}
-
-      {!loading && tab === 'feedback' && (
-        <div className="space-y-3">
-          {feedback.length === 0 && <div className="text-apex-muted py-8 text-center">Brak sugestii do przejrzenia.</div>}
-          {feedback.map(f => (
-            <FeedbackItem key={f.id} item={f} onReview={reviewFeedback} onDismiss={dismissFeedback} />
-          ))}
-        </div>
-      )}
-
-      {!loading && tab === 'reports' && (
-        <div className="space-y-4">
-          {Object.keys(reportsByEvent).length === 0 && <div className="text-apex-muted py-8 text-center">Brak zgłoszeń do przejrzenia.</div>}
-          {Object.entries(reportsByEvent).map(([eventId, { event, reports: evReports }]) => (
-            <div key={eventId} className="bg-apex-surface border border-apex-border p-4">
-              {/* Report details */}
-              <div className="font-display font-bold text-sm tracking-wide uppercase mb-3">
-                {event?.registration_url ? (
-                  <a href={event.registration_url} target="_blank" rel="noopener" className="text-apex-cyan hover:underline">{event?.name || 'Nieznane wydarzenie'}</a>
-                ) : (
-                  <span className="text-apex-text-bright">{event?.name || 'Nieznane wydarzenie'}</span>
-                )}
-                <span className="text-apex-muted font-mono text-[10px] font-normal ml-2">{event?.date}</span>
-              </div>
-              <div className="space-y-2 mb-4">
-                {evReports.map(r => (
-                  <div key={r.id} className="border border-apex-border bg-apex-bg p-3">
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="font-mono text-[10px] font-semibold tracking-widest uppercase text-apex-yellow-dim">{r.field}</span>
-                      <span className="text-sm text-apex-muted">{r.old_value || '—'}</span>
-                      <span className="text-apex-dim">&rarr;</span>
-                      <span className="text-sm text-apex-text-bright">{r.suggested_value || '—'}</span>
-                    </div>
-                    {r.source_url && (
-                      <div className="text-[10px]">
-                        <span className="text-apex-dim">Źródło: </span>
-                        <a href={r.source_url} target="_blank" rel="noopener" className="text-apex-cyan hover:underline">{r.source_url}</a>
-                      </div>
-                    )}
-                    {r.note && <div className="text-[10px] text-apex-muted">Notatka: {r.note}</div>}
-                  </div>
-                ))}
-              </div>
-
-              {/* Event editor or action buttons */}
-              {editingEventId === eventId && event ? (
-                <EditableEvent
-                  event={event}
-                  onSave={(id, updates) => saveReportEvent(id, updates)}
-                  onApprove={(id) => saveReportEvent(id, {})}
-                  onDelete={() => { setEditingEventId(null); rejectReportGroup(eventId) }}
-                  showSaveOnly
-                />
-              ) : (
-                <div className="flex gap-2">
-                  <button onClick={() => setEditingEventId(eventId)} className={`${btnBase} border border-apex-border text-apex-muted hover:text-apex-text-bright`}>Edytuj wydarzenie</button>
-                  <button onClick={() => rejectReportGroup(eventId)} className={`${btnBase} border border-apex-red/50 text-apex-red hover:bg-apex-red hover:text-white`}>Odrzuć</button>
+    <div className="space-y-4">
+      {Object.keys(reportsByEvent).length === 0 && <div className="text-apex-muted py-8 text-center">Brak zgłoszeń do przejrzenia.</div>}
+      {Object.entries(reportsByEvent).map(([eventId, { event, reports: evReports }]) => (
+        <div key={eventId} className="bg-apex-surface border border-apex-border p-4">
+          <div className="font-display font-bold text-sm tracking-wide uppercase mb-3">
+            {event?.registration_url ? (
+              <a href={event.registration_url} target="_blank" rel="noopener" className="text-apex-cyan hover:underline">{event?.name || 'Nieznane wydarzenie'}</a>
+            ) : (
+              <span className="text-apex-text-bright">{event?.name || 'Nieznane wydarzenie'}</span>
+            )}
+            <span className="text-apex-muted font-mono text-[10px] font-normal ml-2">{event?.date}</span>
+          </div>
+          <div className="space-y-2 mb-4">
+            {evReports.map(r => (
+              <div key={r.id} className="border border-apex-border bg-apex-bg p-3">
+                <div className="flex items-center gap-3 mb-1">
+                  <span className="font-mono text-[10px] font-semibold tracking-widest uppercase text-apex-yellow-dim">{r.field}</span>
+                  <span className="text-sm text-apex-muted">{r.old_value || '—'}</span>
+                  <span className="text-apex-dim">&rarr;</span>
+                  <span className="text-sm text-apex-text-bright">{r.suggested_value || '—'}</span>
                 </div>
-              )}
+                {r.source_url && (
+                  <div className="text-[10px]">
+                    <span className="text-apex-dim">Źródło: </span>
+                    <a href={r.source_url} target="_blank" rel="noopener" className="text-apex-cyan hover:underline">{r.source_url}</a>
+                  </div>
+                )}
+                {r.note && <div className="text-[10px] text-apex-muted">Notatka: {r.note}</div>}
+              </div>
+            ))}
+          </div>
+
+          {editingEventId === eventId && event ? (
+            <EditableEvent
+              event={event}
+              onSave={(id, updates) => saveReportEvent(id, updates)}
+              onApprove={(id) => saveReportEvent(id, {})}
+              onDelete={() => { setEditingEventId(null); rejectReportGroup(eventId) }}
+              showSaveOnly
+            />
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={() => setEditingEventId(eventId)} className={`${btnBase} border border-apex-border text-apex-muted hover:text-apex-text-bright`}>Edytuj wydarzenie</button>
+              <button onClick={() => rejectReportGroup(eventId)} className={`${btnBase} border border-apex-red/50 text-apex-red hover:bg-apex-red hover:text-white`}>Odrzuć</button>
             </div>
-          ))}
+          )}
         </div>
-      )}
+      ))}
+    </div>
+  )
+}
+
+export function FeedbackTab() {
+  const queryClient = useQueryClient()
+  const { data, isLoading, error } = useFeedbackQuery()
+  const feedback = data || []
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ id, adminNote }) => api.patch(`/website-feedback/${id}/review`, { admin_note: adminNote || null }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: feedbackQueryKey }),
+  })
+
+  const dismissMutation = useMutation({
+    mutationFn: ({ id, adminNote }) => api.patch(`/website-feedback/${id}/dismiss`, { admin_note: adminNote || null }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: feedbackQueryKey }),
+  })
+
+  if (isLoading) return <div className="text-apex-muted py-8">Ładowanie...</div>
+  if (error) return <div className="border border-apex-red bg-apex-red/10 text-apex-red text-sm px-4 py-2">{error.message}</div>
+
+  return (
+    <div className="space-y-3">
+      {feedback.length === 0 && <div className="text-apex-muted py-8 text-center">Brak sugestii do przejrzenia.</div>}
+      {feedback.map(f => (
+        <FeedbackItem
+          key={f.id}
+          item={f}
+          onReview={(id, adminNote) => reviewMutation.mutate({ id, adminNote })}
+          onDismiss={(id, adminNote) => dismissMutation.mutate({ id, adminNote })}
+        />
+      ))}
     </div>
   )
 }

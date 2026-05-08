@@ -83,6 +83,7 @@ _DEADLINE_ANCHORS = [
     "ostateczny termin", "termin zapisów", "termin zapisow",
     "opłata startowa", "wpłacona w terminie", "wplacona w terminie",
     "do godziny",  # "Zgłoszenia ... do godziny 23:59 w poniedziałek 8 czerwca 2026"
+    "do dnia",     # "DO DNIA 29.07.2026 R." — common standalone deadline marker
 ]
 
 
@@ -300,6 +301,12 @@ def _extract_deadline(text: str, event_date: str | None) -> str | None:
     for d in candidates:
         if ev is not None:
             if d > ev:
+                continue
+            if d == ev:
+                # The race day itself is never a registration deadline — it's
+                # typically a reference to the event start time or biuro zawodów
+                # hours. Including it causes false positives when "01.08.2026"
+                # appears near a price/registration anchor.
                 continue
             if (ev - d).days > 365:
                 continue
