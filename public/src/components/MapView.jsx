@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import useTheme from '../hooks/useTheme.js'
+import { slugify } from '../lib/slugify.js'
 
 function RecenterMap({ center, zoom }) {
   const map = useMap()
@@ -59,19 +60,22 @@ export default function MapView({ events, userLocation, radius }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
         <LayerGroup key={markerKey}>
-          {mappable.map(ev => (
-            <Marker key={ev.id} position={[Number(ev.lat), Number(ev.lng)]} icon={defaultPin}>
-              <Popup>
-                <div style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                  <strong>{ev.name}</strong><br />
-                  {ev.date} &middot; {ev.location}<br />
-                  {(ev.registration_url || ev.source_url) && (
-                    <a href={ev.registration_url || ev.source_url} target="_blank" rel="noopener">Zapisy &rarr;</a>
-                  )}
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+          {mappable.map(ev => {
+            const detailHref = ev.leszyrun_event_id && ev.slug
+              ? `/events/${ev.slug}`
+              : `/kalendarz/${slugify(ev.name, ev.date)}`
+            return (
+              <Marker key={ev.id} position={[Number(ev.lat), Number(ev.lng)]} icon={defaultPin}>
+                <Popup>
+                  <div style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+                    <strong>{ev.name}</strong><br />
+                    {ev.date} &middot; {ev.location}<br />
+                    <a href={detailHref}>Szczegóły &rarr;</a>
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
         </LayerGroup>
         {userLocation && (
           <>
