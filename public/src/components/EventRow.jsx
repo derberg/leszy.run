@@ -57,9 +57,13 @@ export default function EventRow({ event }) {
 
   const city = extractCity(event.location)
   const types = (event.event_type || []).filter(t => t !== 'bieg')
-  const distanceLabel = (event.distances && event.distances.length > 0)
-    ? event.distances.join(' / ')
-    : null
+  const MAX_DISTANCES_SHOWN = 4
+  const distancesArr = event.distances || []
+  const distanceLabel = distancesArr.length === 0
+    ? null
+    : distancesArr.length > MAX_DISTANCES_SHOWN
+      ? `${distancesArr.slice(0, MAX_DISTANCES_SHOWN).join(' / ')} +${distancesArr.length - MAX_DISTANCES_SHOWN}`
+      : distancesArr.join(' / ')
   const regClosed = event.registration_deadline
     && new Date(event.registration_deadline + 'T23:59:59') < new Date()
 
@@ -72,8 +76,8 @@ export default function EventRow({ event }) {
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && handleClick()}
       >
-        {/* Desktop: single row grid */}
-        <div className="hidden md:grid grid-cols-[90px_1fr_auto] items-center gap-4">
+        {/* Desktop: title column gets minimum width; badges column shrinks and wraps */}
+        <div className="hidden md:grid grid-cols-[90px_minmax(260px,1fr)_minmax(0,auto)] items-center gap-4">
           <div className="font-mono text-[13px] font-semibold text-apex-yellow">{dateStr}</div>
           <div className="min-w-0">
             <div className="font-display font-bold text-[17px] tracking-wide uppercase text-apex-text-bright truncate">{event.name}</div>
@@ -81,8 +85,8 @@ export default function EventRow({ event }) {
               <div className="text-[13px] text-apex-muted mt-0.5">{city}</div>
             )}
           </div>
-          <div className="flex gap-1.5 items-center flex-shrink-0">
-            <div className="flex gap-1.5 items-center flex-wrap">
+          <div className="flex gap-1.5 items-center min-w-0 max-w-[55%] justify-end">
+            <div className="flex gap-1.5 items-center flex-wrap justify-end min-w-0">
               {regClosed && (
                 <span className={`${baseTag} border-apex-red/30 text-apex-red`}>Zapisy zamknięte</span>
               )}
