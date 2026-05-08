@@ -85,8 +85,8 @@ export default function EventRow({ event }) {
               <div className="text-[13px] text-apex-muted mt-0.5">{city}</div>
             )}
           </div>
-          <div className="flex gap-1.5 items-center min-w-0 max-w-[55%] justify-end">
-            <div className="flex gap-1.5 items-center flex-wrap justify-end min-w-0">
+          <div className="flex gap-1.5 items-center min-w-0 justify-end">
+            <div className="flex gap-1.5 items-center flex-wrap justify-end">
               {regClosed && (
                 <span className={`${baseTag} border-apex-red/30 text-apex-red`}>Zapisy zamknięte</span>
               )}
