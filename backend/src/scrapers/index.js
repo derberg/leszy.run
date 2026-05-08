@@ -12,6 +12,7 @@ import { scrape as scrapeLumisport } from './sources/lumisport.js'
 import { scrape as scrapeProtiming24 } from './sources/protiming24.js'
 import { scrape as scrapeSuperczas } from './sources/superczas.js'
 import { scrape as scrapeBgtimesport } from './sources/bgtimesport.js'
+import { scrape as scrapeRajsportactive } from './sources/rajsportactive.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 
@@ -254,6 +255,24 @@ const sources = [
       is_kids: raw.is_kids || false,
       price_from: raw.price_from ?? null,
       price_to: raw.price_to ?? null,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'rajsportactive',
+    scrape: scrapeRajsportactive,
+    table: 'scraper_rajsportactive',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
       event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
