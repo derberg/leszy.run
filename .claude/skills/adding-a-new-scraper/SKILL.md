@@ -218,12 +218,25 @@ Bump `### Data sources (N scrapers)` count and append a row to the table.
 
 The pipeline has multiple `--apply` steps that write to Supabase. Each one needs **its own explicit user OK** — do not infer cascading authorization.
 
+- **Auto mode does NOT relax these rules.** The auto-mode reminder explicitly says "Auto mode is not a license to destroy. Anything that deletes data or modifies shared or production systems still needs explicit user confirmation." DB writes to `scraper_all` and `calendar_events` are shared production data. "Prefer action over planning" applies to local code edits and read-only investigation, not to `--apply` commands.
+- **Confirmations are scoped to the most-recently-asked specific question.** A "yes" / "ok" / "sey" / "proceed" applies ONLY to the proposal in your previous message. It does NOT carry across topics, tasks, or open todos. If two tasks are in flight (e.g. "enrich event X" + "scraper rollout pending --apply") and the user answers a one-word "yes," it answers the most recent specific ask — NOT both. When in doubt, re-ask: *"To confirm — you mean apply the merge for `<name>`, right? Not the enrichment update I asked about earlier."*
+- **A "ready to apply, awaiting OK" status line is not the same as an open question.** If you said "awaiting OK" three turns ago, then asked something else and got "yes," that "yes" answered the recent question — not the earlier awaiting-OK item. Treat awaiting-OK items as inert until the user explicitly returns to them.
 - **"Fix the bug" ≠ "apply the merge."** If the user authorizes a code change to merge/scraper logic, that authorizes the *code edit only*. After the edit, **re-run the dry-run and show the new output**. Do not `--apply` without a fresh OK that names the apply step.
 - **"Yes, that's a separate event" ≠ "apply the merge."** Confirmations of data interpretations are not write authorizations.
 - **"Proceed" / "go ahead" / "fix" are scoped to whatever the assistant just proposed.** If the proposal was "I'll fix X and re-show dry-run," then `--apply` is not yet OK'd. Re-ask explicitly: "Apply now?"
 - **A clean dry-run does not authorize --apply.** Show the dry-run and wait. Each `--apply` is its own decision point.
 - **Don't suggest the next step ("Next: publish to calendar_events") unprompted.** After a successful --apply, *stop*. Let the user direct what comes next.
-- **If the user expresses surprise** ("wtf why" / "you were supposed to dry-run only") — STOP. Do not write anything else. Acknowledge, propose a rollback, and wait.
+- **If the user expresses surprise** ("wtf why" / "you were supposed to dry-run only" / "are you fucking mental") — STOP. Do not write anything else. Acknowledge, propose a rollback, and wait.
+
+### Confirmation hygiene — pre-apply checklist
+
+Before running ANY `--apply` command, verify all of these in the most recent user message (not earlier in the session):
+
+1. The user named the specific operation (`run-merge.js --apply`, `run-publish.js --apply`, the table name being written, etc.) — or unambiguously referred to the proposal you made one turn earlier
+2. There is no other open "awaiting OK" item that could plausibly be what they're answering
+3. You proposed THIS specific apply step in your immediately-preceding message
+
+If any of those is unclear, re-ask. The cost of one re-confirmation is low; the cost of unauthorized writes to shared tables is high (rollback work, lost trust, possibly lost data if the rollback ordering trap below isn't followed).
 
 If --apply produced state the user didn't want, rolling back has a critical ordering trap:
 
