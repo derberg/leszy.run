@@ -126,6 +126,23 @@ function toLocalDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// DB stores distances as raw strings: "5 km", "21.1 km", "600m", "200 m", "Maraton",
+// "12h" (time-based), "400 metrów", or bare numbers like "10". Returns meters or NaN.
+function parseDistanceToMeters(d) {
+  if (!d || typeof d !== 'string') return NaN
+  const s = d.toLowerCase().trim()
+  if (/\d\s*h(\b|$)/.test(s)) return NaN
+  if (s.includes('półmaraton') || s.includes('polmaraton')) return 21097
+  if (s.includes('maraton')) return 42195
+  const match = s.match(/[0-9]+([.,][0-9]+)?/)
+  if (!match) return NaN
+  const num = parseFloat(match[0].replace(',', '.'))
+  if (isNaN(num)) return NaN
+  if (/km|kilometr/.test(s)) return Math.round(num * 1000)
+  if (/\d\s*m\b|metr/.test(s)) return Math.round(num)
+  return Math.round(num * 1000)
+}
+
 function getDateRange(timeRange) {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -325,7 +342,7 @@ export default function Kalendarz() {
       filteredData = filteredData.filter(e => {
         if (!e.distances || e.distances.length === 0) return false
         return e.distances.some(d => {
-          const m = Math.round(parseFloat(d) * 1000)
+          const m = parseDistanceToMeters(d)
           if (isNaN(m)) return false
           return ranges.some(([minDist, maxDist]) => m >= minDist && m <= maxDist)
         })
