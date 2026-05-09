@@ -19,6 +19,7 @@ const SOURCE_PRIORITY = {
   bgtimesport: 3,
   rajsportactive: 3,
   sporttime: 8,
+  wbtiming: 8,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these

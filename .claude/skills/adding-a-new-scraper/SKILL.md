@@ -31,7 +31,7 @@ For each candidate event, find:
 - `slug` or stable id → `source_id`
 - `permalink` → `source_url` (and often `registration_url` / `website`)
 - `distances` (structured taxonomy if available)
-- `regulamin_url` (PDF link)
+- `regulamin_url` (PDF or HTML — HTML is still valuable for enricher price/deadline extraction)
 - `prices` (in PLN — convert from groszy if needed)
 - `location` / `voivodeship` (often missing — let enricher fill)
 
@@ -115,6 +115,7 @@ Returns array of:
 |---|---|---|
 | **Emit only new events** (filter listing → only fetch+emit non-known) | timekeeper, bgtimesport | Simpler. Known rows untouched. Price/distance changes don't refresh until force re-scrape. |
 | **Emit all events, fetch detail only for new** | lumisport (Phase 1 = bulk API) | Refreshes prices/distances on every run. But pipeline's UPDATE path will overwrite known rows' regulamin/website with `null` if your scrape didn't re-fetch detail — make sure you DON'T return null for fields you only fetch on first encounter. |
+| **Emit all events, no detail fetches** | sporttime | Safe when ALL fields come from the listing page. Re-emitting known rows is harmless — the upsert is idempotent and no field can be nulled by re-emitting. `knownIds` still accepted but ignored. |
 
 The bgtimesport rollout initially mixed the two patterns (emitted all but only fetched detail for new) and would have cleared distances/prices/regulamin from known rows on every re-run. Switched to the timekeeper pattern.
 
@@ -154,6 +155,7 @@ function hasKidsSignal(name) {
   if (!name) return false
   const s = ` ${name.toLowerCase()} `
   if (new RegExp(`(?:biegi|dla)\\s+dzieci`).test(s)) return true
+  if (new RegExp(`${NB}dzieci${NB}`).test(s)) return true  // catches standalone "- DZIECI"
   if (new RegExp(`${NB}m[lł]odzie[zż]`).test(s)) return true
   if (new RegExp(`${NB}świetlik`).test(s)) return true
   if (new RegExp(`${NB}kids?${NB}`).test(s)) return true
