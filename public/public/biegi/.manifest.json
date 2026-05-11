@@ -110,7 +110,7 @@
       },
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
@@ -181,7 +181,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -307,7 +307,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -438,7 +438,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -539,7 +539,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -640,7 +640,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -741,7 +741,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -862,7 +862,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -1723,10 +1723,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi w Śląskiem",
-    "title": "Biegi w Śląskiem (131 wydarzeń) — Leszy.run",
-    "description": "131 biegów w Śląskiem. Zapisy, dystanse, ceny.",
-    "intro": "131 biegi w Śląskiem w 2026 roku, od 0 km do 210 km. Zawody w: Katowice, Gliwice, Tychy.",
+    "h1": "Biegi na Śląsku",
+    "title": "Biegi na Śląsku (131 wydarzeń) — Leszy.run",
+    "description": "131 biegów na Śląsku. Zapisy, dystanse, ceny.",
+    "intro": "131 biegi na Śląsku w 2026 roku, od 0 km do 210 km. Zawody w: Katowice, Gliwice, Tychy.",
     "eventCount": 131,
     "canonicalUrl": "https://www.leszy.run/biegi/slaskie",
     "sitemapPriority": "0.8",
@@ -1739,52 +1739,52 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
         "path": "biegi/slaskie/2026/czerwiec",
-        "h1": "Biegi w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi na Śląsku — w czerwcu 2026",
         "eventCount": 34
       },
       {
         "path": "biegi/slaskie/2026/lipiec",
-        "h1": "Biegi w Śląskiem — w lipcu 2026",
+        "h1": "Biegi na Śląsku — w lipcu 2026",
         "eventCount": 15
       },
       {
         "path": "biegi/slaskie/2026/sierpien",
-        "h1": "Biegi w Śląskiem — w sierpniu 2026",
+        "h1": "Biegi na Śląsku — w sierpniu 2026",
         "eventCount": 14
       }
     ]
@@ -2213,7 +2213,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2279,7 +2279,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2335,7 +2335,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2401,7 +2401,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2462,7 +2462,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2523,7 +2523,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2589,7 +2589,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2650,7 +2650,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2711,7 +2711,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2777,7 +2777,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2838,7 +2838,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -2878,10 +2878,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi przełajowe w Śląskiem",
-    "title": "Biegi przełajowe w Śląskiem (55 wydarzeń) — Leszy.run",
-    "description": "55 biegów przełajowych w Śląskiem. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "55 biegi przełajowe w Śląskiem w 2026 roku, od 0 km do 100 km. Zawody w: Katowice, Gliwice, Mysłowice.",
+    "h1": "Biegi przełajowe na Śląsku",
+    "title": "Biegi przełajowe na Śląsku (55 wydarzeń) — Leszy.run",
+    "description": "55 biegów przełajowych na Śląsku. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "55 biegi przełajowe na Śląsku w 2026 roku, od 0 km do 100 km. Zawody w: Katowice, Gliwice, Mysłowice.",
     "eventCount": 55,
     "canonicalUrl": "https://www.leszy.run/biegi/przelajowe/slaskie",
     "sitemapPriority": "0.7",
@@ -2894,7 +2894,7 @@
       },
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
@@ -2924,12 +2924,12 @@
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/czerwiec",
-        "h1": "Biegi przełajowe w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi przełajowe na Śląsku — w czerwcu 2026",
         "eventCount": 13
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/lipiec",
-        "h1": "Biegi przełajowe w Śląskiem — w lipcu 2026",
+        "h1": "Biegi przełajowe na Śląsku — w lipcu 2026",
         "eventCount": 10
       }
     ]
@@ -2965,7 +2965,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -3021,7 +3021,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -3077,7 +3077,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -3138,7 +3138,7 @@
       },
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
@@ -3204,7 +3204,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3265,7 +3265,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3331,7 +3331,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3392,7 +3392,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3448,7 +3448,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3509,7 +3509,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3570,7 +3570,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3636,7 +3636,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3702,7 +3702,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3768,7 +3768,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3824,7 +3824,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -3869,10 +3869,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi uliczne w Śląskiem",
-    "title": "Biegi uliczne w Śląskiem (76 wydarzeń) — Leszy.run",
-    "description": "76 biegów ulicznych w Śląskiem. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "76 biegi uliczne w Śląskiem w 2026 roku, od 0 km do 210 km. Zawody w: Gliwice, Tychy, Wodzisław  Śląski.",
+    "h1": "Biegi uliczne na Śląsku",
+    "title": "Biegi uliczne na Śląsku (76 wydarzeń) — Leszy.run",
+    "description": "76 biegów ulicznych na Śląsku. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "76 biegi uliczne na Śląsku w 2026 roku, od 0 km do 210 km. Zawody w: Gliwice, Tychy, Wodzisław  Śląski.",
     "eventCount": 76,
     "canonicalUrl": "https://www.leszy.run/biegi/uliczne/slaskie",
     "sitemapPriority": "0.7",
@@ -3885,7 +3885,7 @@
       },
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
@@ -3915,12 +3915,12 @@
       },
       {
         "path": "biegi/uliczne/slaskie/2026/czerwiec",
-        "h1": "Biegi uliczne w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi uliczne na Śląsku — w czerwcu 2026",
         "eventCount": 16
       },
       {
         "path": "biegi/uliczne/slaskie/2026/lipiec",
-        "h1": "Biegi uliczne w Śląskiem — w lipcu 2026",
+        "h1": "Biegi uliczne na Śląsku — w lipcu 2026",
         "eventCount": 7
       }
     ]
@@ -3961,7 +3961,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -4017,7 +4017,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -4083,7 +4083,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -4149,7 +4149,7 @@
       },
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
@@ -4220,7 +4220,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4286,7 +4286,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4342,7 +4342,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4393,7 +4393,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4454,7 +4454,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4510,7 +4510,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4571,7 +4571,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4622,7 +4622,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4688,7 +4688,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4708,10 +4708,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Ultramaratony w Śląskiem",
-    "title": "Ultramaratony w Śląskiem (5 wydarzeń) — Leszy.run",
-    "description": "5 ultramaratonów w Śląskiem. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
-    "intro": "5 ultramaratony w Śląskiem w 2026 roku, od 3 km do 100 km. Zawody w: Ustroń, Palowice, Gmina Ciasna.",
+    "h1": "Ultramaratony na Śląsku",
+    "title": "Ultramaratony na Śląsku (5 wydarzeń) — Leszy.run",
+    "description": "5 ultramaratonów na Śląsku. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
+    "intro": "5 ultramaratony na Śląsku w 2026 roku, od 3 km do 100 km. Zawody w: Ustroń, Palowice, Gmina Ciasna.",
     "eventCount": 5,
     "canonicalUrl": "https://www.leszy.run/biegi/ultramaratony/slaskie",
     "sitemapPriority": "0.7",
@@ -4724,7 +4724,7 @@
       },
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
@@ -4800,7 +4800,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4856,7 +4856,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4912,7 +4912,7 @@
       },
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -4958,7 +4958,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5024,7 +5024,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5080,7 +5080,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5141,7 +5141,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5192,7 +5192,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5258,7 +5258,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5314,7 +5314,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5375,7 +5375,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5431,7 +5431,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5456,10 +5456,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi nocne w Śląskiem",
-    "title": "Biegi nocne w Śląskiem (11 wydarzeń) — Leszy.run",
-    "description": "11 biegów nocnych w Śląskiem. biegi nocne, bieg nocny, night run, nocny bieg. Zapisy, dystanse, ceny.",
-    "intro": "11 biegi nocne w Śląskiem w 2026 roku, od 0 km do 100 km. Zawody w: Rodzinny Park Rozrywki „Trzy Wzgórza”, Sosnowiec, Częstochowa.",
+    "h1": "Biegi nocne na Śląsku",
+    "title": "Biegi nocne na Śląsku (11 wydarzeń) — Leszy.run",
+    "description": "11 biegów nocnych na Śląsku. biegi nocne, bieg nocny, night run, nocny bieg. Zapisy, dystanse, ceny.",
+    "intro": "11 biegi nocne na Śląsku w 2026 roku, od 0 km do 100 km. Zawody w: Rodzinny Park Rozrywki „Trzy Wzgórza”, Sosnowiec, Częstochowa.",
     "eventCount": 11,
     "canonicalUrl": "https://www.leszy.run/biegi/nocne/slaskie",
     "sitemapPriority": "0.7",
@@ -5472,7 +5472,7 @@
       },
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
@@ -5502,12 +5502,12 @@
       },
       {
         "path": "biegi/nocne/slaskie/2026/czerwiec",
-        "h1": "Biegi nocne w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi nocne na Śląsku — w czerwcu 2026",
         "eventCount": 3
       },
       {
         "path": "biegi/nocne/slaskie/2026/lipiec",
-        "h1": "Biegi nocne w Śląskiem — w lipcu 2026",
+        "h1": "Biegi nocne na Śląsku — w lipcu 2026",
         "eventCount": 3
       }
     ]
@@ -5553,7 +5553,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5609,7 +5609,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5665,7 +5665,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5721,7 +5721,7 @@
       },
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
@@ -5772,7 +5772,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -5828,7 +5828,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -5884,7 +5884,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -5940,7 +5940,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -5996,7 +5996,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -6052,7 +6052,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -6108,7 +6108,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -6143,10 +6143,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi OCR w Śląskiem",
-    "title": "Biegi OCR w Śląskiem (4 wydarzenia) — Leszy.run",
-    "description": "4 biegów OCR w Śląskiem. biegi OCR, obstacle run, biegi z przeszkodami, OCR race. Zapisy, dystanse, ceny.",
-    "intro": "4 biegi ocr w Śląskiem w 2026 roku, od 0 km do 24 km. Zawody w: Siemianowice Śląskie, Żywiec, Gliwice.",
+    "h1": "Biegi OCR na Śląsku",
+    "title": "Biegi OCR na Śląsku (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów OCR na Śląsku. biegi OCR, obstacle run, biegi z przeszkodami, OCR race. Zapisy, dystanse, ceny.",
+    "intro": "4 biegi ocr na Śląsku w 2026 roku, od 0 km do 24 km. Zawody w: Siemianowice Śląskie, Żywiec, Gliwice.",
     "eventCount": 4,
     "canonicalUrl": "https://www.leszy.run/biegi/ocr/slaskie",
     "sitemapPriority": "0.7",
@@ -6159,7 +6159,7 @@
       },
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
@@ -6220,7 +6220,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -6276,7 +6276,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -6332,7 +6332,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -6388,7 +6388,7 @@
       },
       {
         "path": "biegi/ocr/slaskie",
-        "h1": "Biegi OCR w Śląskiem",
+        "h1": "Biegi OCR na Śląsku",
         "eventCount": 4
       },
       {
@@ -6444,7 +6444,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -6505,7 +6505,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -6566,7 +6566,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -6622,7 +6622,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -6678,7 +6678,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -6739,7 +6739,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -6800,7 +6800,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -6861,7 +6861,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -6927,7 +6927,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -6988,7 +6988,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -7044,7 +7044,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -7089,10 +7089,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Nordic Walking w Śląskiem",
-    "title": "Nordic Walking w Śląskiem (55 wydarzeń) — Leszy.run",
-    "description": "55 marszów nordic walking w Śląskiem. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "55 nordic walking w Śląskiem w 2026 roku, od 0 km do 100 km. Zawody w: Katowice, Gliwice, Ruda Śląska.",
+    "h1": "Nordic Walking na Śląsku",
+    "title": "Nordic Walking na Śląsku (55 wydarzeń) — Leszy.run",
+    "description": "55 marszów nordic walking na Śląsku. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "55 nordic walking na Śląsku w 2026 roku, od 0 km do 100 km. Zawody w: Katowice, Gliwice, Ruda Śląska.",
     "eventCount": 55,
     "canonicalUrl": "https://www.leszy.run/biegi/nordic-walking/slaskie",
     "sitemapPriority": "0.7",
@@ -7105,7 +7105,7 @@
       },
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
@@ -7135,12 +7135,12 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/czerwiec",
-        "h1": "Nordic Walking w Śląskiem — w czerwcu 2026",
+        "h1": "Nordic Walking na Śląsku — w czerwcu 2026",
         "eventCount": 13
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/lipiec",
-        "h1": "Nordic Walking w Śląskiem — w lipcu 2026",
+        "h1": "Nordic Walking na Śląsku — w lipcu 2026",
         "eventCount": 8
       }
     ]
@@ -7176,7 +7176,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -7232,7 +7232,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -7293,7 +7293,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -7354,7 +7354,7 @@
       },
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
@@ -7420,7 +7420,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -7476,7 +7476,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -7532,7 +7532,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -7593,7 +7593,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -7649,7 +7649,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -7710,7 +7710,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -7766,7 +7766,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -7827,7 +7827,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -7883,7 +7883,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -7918,10 +7918,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi charytatywne w Śląskiem",
-    "title": "Biegi charytatywne w Śląskiem (11 wydarzeń) — Leszy.run",
-    "description": "11 biegów charytatywnych w Śląskiem. biegi charytatywne, charytatywny bieg, bieg na cel. Zapisy, dystanse, ceny.",
-    "intro": "11 biegi charytatywne w Śląskiem w 2026 roku, od 0 km do 10 km. Zawody w: Katowice, Tychy, Park Lisiniec Częstochowa.",
+    "h1": "Biegi charytatywne na Śląsku",
+    "title": "Biegi charytatywne na Śląsku (11 wydarzeń) — Leszy.run",
+    "description": "11 biegów charytatywnych na Śląsku. biegi charytatywne, charytatywny bieg, bieg na cel. Zapisy, dystanse, ceny.",
+    "intro": "11 biegi charytatywne na Śląsku w 2026 roku, od 0 km do 10 km. Zawody w: Katowice, Tychy, Park Lisiniec Częstochowa.",
     "eventCount": 11,
     "canonicalUrl": "https://www.leszy.run/biegi/charytatywne/slaskie",
     "sitemapPriority": "0.7",
@@ -7934,7 +7934,7 @@
       },
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
@@ -7964,7 +7964,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie/2026/czerwiec",
-        "h1": "Biegi charytatywne w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi charytatywne na Śląsku — w czerwcu 2026",
         "eventCount": 3
       }
     ]
@@ -8000,7 +8000,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -8056,7 +8056,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -8112,7 +8112,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -8168,7 +8168,7 @@
       },
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
@@ -12658,10 +12658,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi w Śląskiem — w kwietniu 2026",
-    "title": "Biegi w Śląskiem — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
-    "description": "0 biegów w Śląskiem w kwietniu 2026. Zapisy, dystanse, ceny.",
-    "intro": "0 biegi w Śląskiem w 2026 roku.",
+    "h1": "Biegi na Śląsku — w kwietniu 2026",
+    "title": "Biegi na Śląsku — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
+    "description": "0 biegów na Śląsku w kwietniu 2026. Zapisy, dystanse, ceny.",
+    "intro": "0 biegi na Śląsku w 2026 roku.",
     "eventCount": 0,
     "canonicalUrl": "https://www.leszy.run/biegi/slaskie/2026/kwiecien",
     "sitemapPriority": "0.6",
@@ -12669,12 +12669,12 @@
     "relatedLinks": [
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
         "path": "biegi/slaskie/2026/maj",
-        "h1": "Biegi w Śląskiem — w maju 2026",
+        "h1": "Biegi na Śląsku — w maju 2026",
         "eventCount": 31
       }
     ]
@@ -12689,10 +12689,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi w Śląskiem — w maju 2026",
-    "title": "Biegi w Śląskiem — w maju 2026 (31 wydarzeń) — Leszy.run",
-    "description": "31 biegów w Śląskiem w maju 2026. Zapisy, dystanse, ceny.",
-    "intro": "31 biegi w Śląskiem w 2026 roku, od 0 km do 210 km. Zawody w: Katowice, Mysłowice, Lędziny.",
+    "h1": "Biegi na Śląsku — w maju 2026",
+    "title": "Biegi na Śląsku — w maju 2026 (31 wydarzeń) — Leszy.run",
+    "description": "31 biegów na Śląsku w maju 2026. Zapisy, dystanse, ceny.",
+    "intro": "31 biegi na Śląsku w 2026 roku, od 0 km do 210 km. Zawody w: Katowice, Mysłowice, Lędziny.",
     "eventCount": 31,
     "canonicalUrl": "https://www.leszy.run/biegi/slaskie/2026/maj",
     "sitemapPriority": "0.6",
@@ -12700,17 +12700,17 @@
     "relatedLinks": [
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
         "path": "biegi/slaskie/2026/kwiecien",
-        "h1": "Biegi w Śląskiem — w kwietniu 2026",
+        "h1": "Biegi na Śląsku — w kwietniu 2026",
         "eventCount": 0
       },
       {
         "path": "biegi/slaskie/2026/czerwiec",
-        "h1": "Biegi w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi na Śląsku — w czerwcu 2026",
         "eventCount": 34
       }
     ]
@@ -12725,10 +12725,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi w Śląskiem — w czerwcu 2026",
-    "title": "Biegi w Śląskiem — w czerwcu 2026 (34 wydarzeń) — Leszy.run",
-    "description": "34 biegów w Śląskiem w czerwcu 2026. Zapisy, dystanse, ceny.",
-    "intro": "34 biegi w Śląskiem w 2026 roku, od 0 km do 53 km. Zawody w: Mysłowice, Katowice, Wodzisław  Śląski.",
+    "h1": "Biegi na Śląsku — w czerwcu 2026",
+    "title": "Biegi na Śląsku — w czerwcu 2026 (34 wydarzeń) — Leszy.run",
+    "description": "34 biegów na Śląsku w czerwcu 2026. Zapisy, dystanse, ceny.",
+    "intro": "34 biegi na Śląsku w 2026 roku, od 0 km do 53 km. Zawody w: Mysłowice, Katowice, Wodzisław  Śląski.",
     "eventCount": 34,
     "canonicalUrl": "https://www.leszy.run/biegi/slaskie/2026/czerwiec",
     "sitemapPriority": "0.6",
@@ -12736,17 +12736,17 @@
     "relatedLinks": [
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
         "path": "biegi/slaskie/2026/maj",
-        "h1": "Biegi w Śląskiem — w maju 2026",
+        "h1": "Biegi na Śląsku — w maju 2026",
         "eventCount": 31
       },
       {
         "path": "biegi/slaskie/2026/lipiec",
-        "h1": "Biegi w Śląskiem — w lipcu 2026",
+        "h1": "Biegi na Śląsku — w lipcu 2026",
         "eventCount": 15
       }
     ]
@@ -12761,10 +12761,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi w Śląskiem — w lipcu 2026",
-    "title": "Biegi w Śląskiem — w lipcu 2026 (15 wydarzeń) — Leszy.run",
-    "description": "15 biegów w Śląskiem w lipcu 2026. Zapisy, dystanse, ceny.",
-    "intro": "15 biegi w Śląskiem w 2026 roku, od 0 km do 60 km. Zawody w: Katowice, Rodzinny Park Rozrywki „Trzy Wzgórza”, Piekary Śląskie.",
+    "h1": "Biegi na Śląsku — w lipcu 2026",
+    "title": "Biegi na Śląsku — w lipcu 2026 (15 wydarzeń) — Leszy.run",
+    "description": "15 biegów na Śląsku w lipcu 2026. Zapisy, dystanse, ceny.",
+    "intro": "15 biegi na Śląsku w 2026 roku, od 0 km do 60 km. Zawody w: Katowice, Rodzinny Park Rozrywki „Trzy Wzgórza”, Piekary Śląskie.",
     "eventCount": 15,
     "canonicalUrl": "https://www.leszy.run/biegi/slaskie/2026/lipiec",
     "sitemapPriority": "0.6",
@@ -12772,17 +12772,17 @@
     "relatedLinks": [
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
         "path": "biegi/slaskie/2026/czerwiec",
-        "h1": "Biegi w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi na Śląsku — w czerwcu 2026",
         "eventCount": 34
       },
       {
         "path": "biegi/slaskie/2026/sierpien",
-        "h1": "Biegi w Śląskiem — w sierpniu 2026",
+        "h1": "Biegi na Śląsku — w sierpniu 2026",
         "eventCount": 14
       }
     ]
@@ -12797,10 +12797,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi w Śląskiem — w sierpniu 2026",
-    "title": "Biegi w Śląskiem — w sierpniu 2026 (14 wydarzeń) — Leszy.run",
-    "description": "14 biegów w Śląskiem w sierpniu 2026. Zapisy, dystanse, ceny.",
-    "intro": "14 biegi w Śląskiem w 2026 roku, od 0 km do 100 km. Zawody w: Ruda Śląska, Katowice, Beskid Żywiecki.",
+    "h1": "Biegi na Śląsku — w sierpniu 2026",
+    "title": "Biegi na Śląsku — w sierpniu 2026 (14 wydarzeń) — Leszy.run",
+    "description": "14 biegów na Śląsku w sierpniu 2026. Zapisy, dystanse, ceny.",
+    "intro": "14 biegi na Śląsku w 2026 roku, od 0 km do 100 km. Zawody w: Ruda Śląska, Katowice, Beskid Żywiecki.",
     "eventCount": 14,
     "canonicalUrl": "https://www.leszy.run/biegi/slaskie/2026/sierpien",
     "sitemapPriority": "0.6",
@@ -12808,17 +12808,17 @@
     "relatedLinks": [
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
         "path": "biegi/slaskie/2026/lipiec",
-        "h1": "Biegi w Śląskiem — w lipcu 2026",
+        "h1": "Biegi na Śląsku — w lipcu 2026",
         "eventCount": 15
       },
       {
         "path": "biegi/slaskie/2026/wrzesien",
-        "h1": "Biegi w Śląskiem — we wrześniu 2026",
+        "h1": "Biegi na Śląsku — we wrześniu 2026",
         "eventCount": 16
       }
     ]
@@ -12833,10 +12833,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi w Śląskiem — we wrześniu 2026",
-    "title": "Biegi w Śląskiem — we wrześniu 2026 (16 wydarzeń) — Leszy.run",
-    "description": "16 biegów w Śląskiem we wrześniu 2026. Zapisy, dystanse, ceny.",
-    "intro": "16 biegi w Śląskiem w 2026 roku, od 0 km do 24 km. Zawody w: Tychy, Gliwice, Myszków.",
+    "h1": "Biegi na Śląsku — we wrześniu 2026",
+    "title": "Biegi na Śląsku — we wrześniu 2026 (16 wydarzeń) — Leszy.run",
+    "description": "16 biegów na Śląsku we wrześniu 2026. Zapisy, dystanse, ceny.",
+    "intro": "16 biegi na Śląsku w 2026 roku, od 0 km do 24 km. Zawody w: Tychy, Gliwice, Myszków.",
     "eventCount": 16,
     "canonicalUrl": "https://www.leszy.run/biegi/slaskie/2026/wrzesien",
     "sitemapPriority": "0.6",
@@ -12844,17 +12844,17 @@
     "relatedLinks": [
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
         "path": "biegi/slaskie/2026/sierpien",
-        "h1": "Biegi w Śląskiem — w sierpniu 2026",
+        "h1": "Biegi na Śląsku — w sierpniu 2026",
         "eventCount": 14
       },
       {
         "path": "biegi/slaskie/2026/pazdziernik",
-        "h1": "Biegi w Śląskiem — w październiku 2026",
+        "h1": "Biegi na Śląsku — w październiku 2026",
         "eventCount": 11
       }
     ]
@@ -12869,10 +12869,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi w Śląskiem — w październiku 2026",
-    "title": "Biegi w Śląskiem — w październiku 2026 (11 wydarzeń) — Leszy.run",
-    "description": "11 biegów w Śląskiem w październiku 2026. Zapisy, dystanse, ceny.",
-    "intro": "11 biegi w Śląskiem w 2026 roku, od 0 km do 100 km. Zawody w: Gliwice, Podlesice, Chorzów.",
+    "h1": "Biegi na Śląsku — w październiku 2026",
+    "title": "Biegi na Śląsku — w październiku 2026 (11 wydarzeń) — Leszy.run",
+    "description": "11 biegów na Śląsku w październiku 2026. Zapisy, dystanse, ceny.",
+    "intro": "11 biegi na Śląsku w 2026 roku, od 0 km do 100 km. Zawody w: Gliwice, Podlesice, Chorzów.",
     "eventCount": 11,
     "canonicalUrl": "https://www.leszy.run/biegi/slaskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
@@ -12880,17 +12880,17 @@
     "relatedLinks": [
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
         "path": "biegi/slaskie/2026/wrzesien",
-        "h1": "Biegi w Śląskiem — we wrześniu 2026",
+        "h1": "Biegi na Śląsku — we wrześniu 2026",
         "eventCount": 16
       },
       {
         "path": "biegi/slaskie/2026/listopad",
-        "h1": "Biegi w Śląskiem — w listopadzie 2026",
+        "h1": "Biegi na Śląsku — w listopadzie 2026",
         "eventCount": 5
       }
     ]
@@ -12905,10 +12905,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi w Śląskiem — w listopadzie 2026",
-    "title": "Biegi w Śląskiem — w listopadzie 2026 (5 wydarzeń) — Leszy.run",
-    "description": "5 biegów w Śląskiem w listopadzie 2026. Zapisy, dystanse, ceny.",
-    "intro": "5 biegi w Śląskiem w 2026 roku, od 4 km do 21 km. Zawody w: Paprocany, Koszęcin, Katowice.",
+    "h1": "Biegi na Śląsku — w listopadzie 2026",
+    "title": "Biegi na Śląsku — w listopadzie 2026 (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów na Śląsku w listopadzie 2026. Zapisy, dystanse, ceny.",
+    "intro": "5 biegi na Śląsku w 2026 roku, od 4 km do 21 km. Zawody w: Paprocany, Koszęcin, Katowice.",
     "eventCount": 5,
     "canonicalUrl": "https://www.leszy.run/biegi/slaskie/2026/listopad",
     "sitemapPriority": "0.6",
@@ -12916,17 +12916,17 @@
     "relatedLinks": [
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
         "path": "biegi/slaskie/2026/pazdziernik",
-        "h1": "Biegi w Śląskiem — w październiku 2026",
+        "h1": "Biegi na Śląsku — w październiku 2026",
         "eventCount": 11
       },
       {
         "path": "biegi/slaskie/2026/grudzien",
-        "h1": "Biegi w Śląskiem — w grudniu 2026",
+        "h1": "Biegi na Śląsku — w grudniu 2026",
         "eventCount": 5
       }
     ]
@@ -12941,10 +12941,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi w Śląskiem — w grudniu 2026",
-    "title": "Biegi w Śląskiem — w grudniu 2026 (5 wydarzeń) — Leszy.run",
-    "description": "5 biegów w Śląskiem w grudniu 2026. Zapisy, dystanse, ceny.",
-    "intro": "5 biegi w Śląskiem w 2026 roku, od 4 km do 74 km. Zawody w: Jezioro Malina - Opole, Rybnik, Gliwice.",
+    "h1": "Biegi na Śląsku — w grudniu 2026",
+    "title": "Biegi na Śląsku — w grudniu 2026 (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów na Śląsku w grudniu 2026. Zapisy, dystanse, ceny.",
+    "intro": "5 biegi na Śląsku w 2026 roku, od 4 km do 74 km. Zawody w: Jezioro Malina - Opole, Rybnik, Gliwice.",
     "eventCount": 5,
     "canonicalUrl": "https://www.leszy.run/biegi/slaskie/2026/grudzien",
     "sitemapPriority": "0.6",
@@ -12952,12 +12952,12 @@
     "relatedLinks": [
       {
         "path": "biegi/slaskie",
-        "h1": "Biegi w Śląskiem",
+        "h1": "Biegi na Śląsku",
         "eventCount": 131
       },
       {
         "path": "biegi/slaskie/2026/listopad",
-        "h1": "Biegi w Śląskiem — w listopadzie 2026",
+        "h1": "Biegi na Śląsku — w listopadzie 2026",
         "eventCount": 5
       }
     ]
@@ -15020,10 +15020,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi przełajowe w Śląskiem — w kwietniu 2026",
-    "title": "Biegi przełajowe w Śląskiem — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
-    "description": "0 biegów przełajowych w Śląskiem w kwietniu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "0 biegi przełajowe w Śląskiem w 2026 roku.",
+    "h1": "Biegi przełajowe na Śląsku — w kwietniu 2026",
+    "title": "Biegi przełajowe na Śląsku — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
+    "description": "0 biegów przełajowych na Śląsku w kwietniu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "0 biegi przełajowe na Śląsku w 2026 roku.",
     "eventCount": 0,
     "canonicalUrl": "https://www.leszy.run/biegi/przelajowe/slaskie/2026/kwiecien",
     "sitemapPriority": "0.6",
@@ -15031,12 +15031,12 @@
     "relatedLinks": [
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/maj",
-        "h1": "Biegi przełajowe w Śląskiem — w maju 2026",
+        "h1": "Biegi przełajowe na Śląsku — w maju 2026",
         "eventCount": 10
       }
     ]
@@ -15051,10 +15051,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi przełajowe w Śląskiem — w maju 2026",
-    "title": "Biegi przełajowe w Śląskiem — w maju 2026 (10 wydarzeń) — Leszy.run",
-    "description": "10 biegów przełajowych w Śląskiem w maju 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "10 biegi przełajowe w Śląskiem w 2026 roku, od 0 km do 70 km. Zawody w: Mysłowice, Katowice, Bytom.",
+    "h1": "Biegi przełajowe na Śląsku — w maju 2026",
+    "title": "Biegi przełajowe na Śląsku — w maju 2026 (10 wydarzeń) — Leszy.run",
+    "description": "10 biegów przełajowych na Śląsku w maju 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "10 biegi przełajowe na Śląsku w 2026 roku, od 0 km do 70 km. Zawody w: Mysłowice, Katowice, Bytom.",
     "eventCount": 10,
     "canonicalUrl": "https://www.leszy.run/biegi/przelajowe/slaskie/2026/maj",
     "sitemapPriority": "0.6",
@@ -15062,17 +15062,17 @@
     "relatedLinks": [
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/kwiecien",
-        "h1": "Biegi przełajowe w Śląskiem — w kwietniu 2026",
+        "h1": "Biegi przełajowe na Śląsku — w kwietniu 2026",
         "eventCount": 0
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/czerwiec",
-        "h1": "Biegi przełajowe w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi przełajowe na Śląsku — w czerwcu 2026",
         "eventCount": 13
       }
     ]
@@ -15087,10 +15087,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi przełajowe w Śląskiem — w czerwcu 2026",
-    "title": "Biegi przełajowe w Śląskiem — w czerwcu 2026 (13 wydarzeń) — Leszy.run",
-    "description": "13 biegów przełajowych w Śląskiem w czerwcu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "13 biegi przełajowe w Śląskiem w 2026 roku, od 0 km do 53 km. Zawody w: Katowice, Miasteczko Śląskie, Kozy k.Bielska-Białej.",
+    "h1": "Biegi przełajowe na Śląsku — w czerwcu 2026",
+    "title": "Biegi przełajowe na Śląsku — w czerwcu 2026 (13 wydarzeń) — Leszy.run",
+    "description": "13 biegów przełajowych na Śląsku w czerwcu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "13 biegi przełajowe na Śląsku w 2026 roku, od 0 km do 53 km. Zawody w: Katowice, Miasteczko Śląskie, Kozy k.Bielska-Białej.",
     "eventCount": 13,
     "canonicalUrl": "https://www.leszy.run/biegi/przelajowe/slaskie/2026/czerwiec",
     "sitemapPriority": "0.6",
@@ -15098,17 +15098,17 @@
     "relatedLinks": [
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/maj",
-        "h1": "Biegi przełajowe w Śląskiem — w maju 2026",
+        "h1": "Biegi przełajowe na Śląsku — w maju 2026",
         "eventCount": 10
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/lipiec",
-        "h1": "Biegi przełajowe w Śląskiem — w lipcu 2026",
+        "h1": "Biegi przełajowe na Śląsku — w lipcu 2026",
         "eventCount": 10
       }
     ]
@@ -15123,10 +15123,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi przełajowe w Śląskiem — w lipcu 2026",
-    "title": "Biegi przełajowe w Śląskiem — w lipcu 2026 (10 wydarzeń) — Leszy.run",
-    "description": "10 biegów przełajowych w Śląskiem w lipcu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "10 biegi przełajowe w Śląskiem w 2026 roku, od 0 km do 21 km. Zawody w: Katowice, Żarnowiec, Palowice.",
+    "h1": "Biegi przełajowe na Śląsku — w lipcu 2026",
+    "title": "Biegi przełajowe na Śląsku — w lipcu 2026 (10 wydarzeń) — Leszy.run",
+    "description": "10 biegów przełajowych na Śląsku w lipcu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "10 biegi przełajowe na Śląsku w 2026 roku, od 0 km do 21 km. Zawody w: Katowice, Żarnowiec, Palowice.",
     "eventCount": 10,
     "canonicalUrl": "https://www.leszy.run/biegi/przelajowe/slaskie/2026/lipiec",
     "sitemapPriority": "0.6",
@@ -15134,17 +15134,17 @@
     "relatedLinks": [
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/czerwiec",
-        "h1": "Biegi przełajowe w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi przełajowe na Śląsku — w czerwcu 2026",
         "eventCount": 13
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/sierpien",
-        "h1": "Biegi przełajowe w Śląskiem — w sierpniu 2026",
+        "h1": "Biegi przełajowe na Śląsku — w sierpniu 2026",
         "eventCount": 8
       }
     ]
@@ -15159,10 +15159,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi przełajowe w Śląskiem — w sierpniu 2026",
-    "title": "Biegi przełajowe w Śląskiem — w sierpniu 2026 (8 wydarzeń) — Leszy.run",
-    "description": "8 biegów przełajowych w Śląskiem w sierpniu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "8 biegi przełajowe w Śląskiem w 2026 roku, od 0 km do 100 km. Zawody w: Katowice, Beskid Żywiecki, Brenna - Park Turystyki.",
+    "h1": "Biegi przełajowe na Śląsku — w sierpniu 2026",
+    "title": "Biegi przełajowe na Śląsku — w sierpniu 2026 (8 wydarzeń) — Leszy.run",
+    "description": "8 biegów przełajowych na Śląsku w sierpniu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "8 biegi przełajowe na Śląsku w 2026 roku, od 0 km do 100 km. Zawody w: Katowice, Beskid Żywiecki, Brenna - Park Turystyki.",
     "eventCount": 8,
     "canonicalUrl": "https://www.leszy.run/biegi/przelajowe/slaskie/2026/sierpien",
     "sitemapPriority": "0.6",
@@ -15170,17 +15170,17 @@
     "relatedLinks": [
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/lipiec",
-        "h1": "Biegi przełajowe w Śląskiem — w lipcu 2026",
+        "h1": "Biegi przełajowe na Śląsku — w lipcu 2026",
         "eventCount": 10
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/wrzesien",
-        "h1": "Biegi przełajowe w Śląskiem — we wrześniu 2026",
+        "h1": "Biegi przełajowe na Śląsku — we wrześniu 2026",
         "eventCount": 3
       }
     ]
@@ -15195,10 +15195,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi przełajowe w Śląskiem — we wrześniu 2026",
-    "title": "Biegi przełajowe w Śląskiem — we wrześniu 2026 (3 wydarzenia) — Leszy.run",
-    "description": "3 biegów przełajowych w Śląskiem we wrześniu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "3 biegi przełajowe w Śląskiem w 2026 roku, od 5 km do 21 km. Zawody w: Tychy, Katowice, Gliwice.",
+    "h1": "Biegi przełajowe na Śląsku — we wrześniu 2026",
+    "title": "Biegi przełajowe na Śląsku — we wrześniu 2026 (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów przełajowych na Śląsku we wrześniu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "3 biegi przełajowe na Śląsku w 2026 roku, od 5 km do 21 km. Zawody w: Tychy, Katowice, Gliwice.",
     "eventCount": 3,
     "canonicalUrl": "https://www.leszy.run/biegi/przelajowe/slaskie/2026/wrzesien",
     "sitemapPriority": "0.6",
@@ -15206,17 +15206,17 @@
     "relatedLinks": [
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/sierpien",
-        "h1": "Biegi przełajowe w Śląskiem — w sierpniu 2026",
+        "h1": "Biegi przełajowe na Śląsku — w sierpniu 2026",
         "eventCount": 8
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/pazdziernik",
-        "h1": "Biegi przełajowe w Śląskiem — w październiku 2026",
+        "h1": "Biegi przełajowe na Śląsku — w październiku 2026",
         "eventCount": 6
       }
     ]
@@ -15231,10 +15231,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi przełajowe w Śląskiem — w październiku 2026",
-    "title": "Biegi przełajowe w Śląskiem — w październiku 2026 (6 wydarzeń) — Leszy.run",
-    "description": "6 biegów przełajowych w Śląskiem w październiku 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "6 biegi przełajowe w Śląskiem w 2026 roku, od 1 km do 100 km. Zawody w: Podlesice, Mysłowice, Wilcza.",
+    "h1": "Biegi przełajowe na Śląsku — w październiku 2026",
+    "title": "Biegi przełajowe na Śląsku — w październiku 2026 (6 wydarzeń) — Leszy.run",
+    "description": "6 biegów przełajowych na Śląsku w październiku 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "6 biegi przełajowe na Śląsku w 2026 roku, od 1 km do 100 km. Zawody w: Podlesice, Mysłowice, Wilcza.",
     "eventCount": 6,
     "canonicalUrl": "https://www.leszy.run/biegi/przelajowe/slaskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
@@ -15242,17 +15242,17 @@
     "relatedLinks": [
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/wrzesien",
-        "h1": "Biegi przełajowe w Śląskiem — we wrześniu 2026",
+        "h1": "Biegi przełajowe na Śląsku — we wrześniu 2026",
         "eventCount": 3
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/listopad",
-        "h1": "Biegi przełajowe w Śląskiem — w listopadzie 2026",
+        "h1": "Biegi przełajowe na Śląsku — w listopadzie 2026",
         "eventCount": 3
       }
     ]
@@ -15267,10 +15267,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi przełajowe w Śląskiem — w listopadzie 2026",
-    "title": "Biegi przełajowe w Śląskiem — w listopadzie 2026 (3 wydarzenia) — Leszy.run",
-    "description": "3 biegów przełajowych w Śląskiem w listopadzie 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "3 biegi przełajowe w Śląskiem w 2026 roku, od 4 km do 21 km. Zawody w: Paprocany, Katowice, Gliwice.",
+    "h1": "Biegi przełajowe na Śląsku — w listopadzie 2026",
+    "title": "Biegi przełajowe na Śląsku — w listopadzie 2026 (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów przełajowych na Śląsku w listopadzie 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "3 biegi przełajowe na Śląsku w 2026 roku, od 4 km do 21 km. Zawody w: Paprocany, Katowice, Gliwice.",
     "eventCount": 3,
     "canonicalUrl": "https://www.leszy.run/biegi/przelajowe/slaskie/2026/listopad",
     "sitemapPriority": "0.6",
@@ -15278,17 +15278,17 @@
     "relatedLinks": [
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/pazdziernik",
-        "h1": "Biegi przełajowe w Śląskiem — w październiku 2026",
+        "h1": "Biegi przełajowe na Śląsku — w październiku 2026",
         "eventCount": 6
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/grudzien",
-        "h1": "Biegi przełajowe w Śląskiem — w grudniu 2026",
+        "h1": "Biegi przełajowe na Śląsku — w grudniu 2026",
         "eventCount": 2
       }
     ]
@@ -15303,10 +15303,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi przełajowe w Śląskiem — w grudniu 2026",
-    "title": "Biegi przełajowe w Śląskiem — w grudniu 2026 (2 wydarzenia) — Leszy.run",
-    "description": "2 biegów przełajowych w Śląskiem w grudniu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "2 biegi przełajowe w Śląskiem w 2026 roku, od 5 km do 21 km. Zawody w: Gliwice, Paprocany.",
+    "h1": "Biegi przełajowe na Śląsku — w grudniu 2026",
+    "title": "Biegi przełajowe na Śląsku — w grudniu 2026 (2 wydarzenia) — Leszy.run",
+    "description": "2 biegów przełajowych na Śląsku w grudniu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "2 biegi przełajowe na Śląsku w 2026 roku, od 5 km do 21 km. Zawody w: Gliwice, Paprocany.",
     "eventCount": 2,
     "canonicalUrl": "https://www.leszy.run/biegi/przelajowe/slaskie/2026/grudzien",
     "sitemapPriority": "0.6",
@@ -15314,12 +15314,12 @@
     "relatedLinks": [
       {
         "path": "biegi/przelajowe/slaskie",
-        "h1": "Biegi przełajowe w Śląskiem",
+        "h1": "Biegi przełajowe na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/przelajowe/slaskie/2026/listopad",
-        "h1": "Biegi przełajowe w Śląskiem — w listopadzie 2026",
+        "h1": "Biegi przełajowe na Śląsku — w listopadzie 2026",
         "eventCount": 3
       }
     ]
@@ -17604,10 +17604,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi uliczne w Śląskiem — w kwietniu 2026",
-    "title": "Biegi uliczne w Śląskiem — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
-    "description": "0 biegów ulicznych w Śląskiem w kwietniu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "0 biegi uliczne w Śląskiem w 2026 roku.",
+    "h1": "Biegi uliczne na Śląsku — w kwietniu 2026",
+    "title": "Biegi uliczne na Śląsku — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
+    "description": "0 biegów ulicznych na Śląsku w kwietniu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "0 biegi uliczne na Śląsku w 2026 roku.",
     "eventCount": 0,
     "canonicalUrl": "https://www.leszy.run/biegi/uliczne/slaskie/2026/kwiecien",
     "sitemapPriority": "0.6",
@@ -17615,12 +17615,12 @@
     "relatedLinks": [
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
         "path": "biegi/uliczne/slaskie/2026/maj",
-        "h1": "Biegi uliczne w Śląskiem — w maju 2026",
+        "h1": "Biegi uliczne na Śląsku — w maju 2026",
         "eventCount": 18
       }
     ]
@@ -17635,10 +17635,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi uliczne w Śląskiem — w maju 2026",
-    "title": "Biegi uliczne w Śląskiem — w maju 2026 (18 wydarzeń) — Leszy.run",
-    "description": "18 biegów ulicznych w Śląskiem w maju 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "18 biegi uliczne w Śląskiem w 2026 roku, od 0 km do 210 km. Zawody w: Katowice, Lubliniec, Wodzisław  Śląski.",
+    "h1": "Biegi uliczne na Śląsku — w maju 2026",
+    "title": "Biegi uliczne na Śląsku — w maju 2026 (18 wydarzeń) — Leszy.run",
+    "description": "18 biegów ulicznych na Śląsku w maju 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "18 biegi uliczne na Śląsku w 2026 roku, od 0 km do 210 km. Zawody w: Katowice, Lubliniec, Wodzisław  Śląski.",
     "eventCount": 18,
     "canonicalUrl": "https://www.leszy.run/biegi/uliczne/slaskie/2026/maj",
     "sitemapPriority": "0.6",
@@ -17646,17 +17646,17 @@
     "relatedLinks": [
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
         "path": "biegi/uliczne/slaskie/2026/kwiecien",
-        "h1": "Biegi uliczne w Śląskiem — w kwietniu 2026",
+        "h1": "Biegi uliczne na Śląsku — w kwietniu 2026",
         "eventCount": 0
       },
       {
         "path": "biegi/uliczne/slaskie/2026/czerwiec",
-        "h1": "Biegi uliczne w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi uliczne na Śląsku — w czerwcu 2026",
         "eventCount": 16
       }
     ]
@@ -17671,10 +17671,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi uliczne w Śląskiem — w czerwcu 2026",
-    "title": "Biegi uliczne w Śląskiem — w czerwcu 2026 (16 wydarzeń) — Leszy.run",
-    "description": "16 biegów ulicznych w Śląskiem w czerwcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "16 biegi uliczne w Śląskiem w 2026 roku, od 0 km do 42 km. Zawody w: Wodzisław  Śląski, Gliwice, Jezioro Nakło - Chechło; Ośrodek Wypoczynkowy Żagiel.",
+    "h1": "Biegi uliczne na Śląsku — w czerwcu 2026",
+    "title": "Biegi uliczne na Śląsku — w czerwcu 2026 (16 wydarzeń) — Leszy.run",
+    "description": "16 biegów ulicznych na Śląsku w czerwcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "16 biegi uliczne na Śląsku w 2026 roku, od 0 km do 42 km. Zawody w: Wodzisław  Śląski, Gliwice, Jezioro Nakło - Chechło; Ośrodek Wypoczynkowy Żagiel.",
     "eventCount": 16,
     "canonicalUrl": "https://www.leszy.run/biegi/uliczne/slaskie/2026/czerwiec",
     "sitemapPriority": "0.6",
@@ -17682,17 +17682,17 @@
     "relatedLinks": [
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
         "path": "biegi/uliczne/slaskie/2026/maj",
-        "h1": "Biegi uliczne w Śląskiem — w maju 2026",
+        "h1": "Biegi uliczne na Śląsku — w maju 2026",
         "eventCount": 18
       },
       {
         "path": "biegi/uliczne/slaskie/2026/lipiec",
-        "h1": "Biegi uliczne w Śląskiem — w lipcu 2026",
+        "h1": "Biegi uliczne na Śląsku — w lipcu 2026",
         "eventCount": 7
       }
     ]
@@ -17707,10 +17707,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi uliczne w Śląskiem — w lipcu 2026",
-    "title": "Biegi uliczne w Śląskiem — w lipcu 2026 (7 wydarzeń) — Leszy.run",
-    "description": "7 biegów ulicznych w Śląskiem w lipcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "7 biegi uliczne w Śląskiem w 2026 roku, od 0 km do 21 km. Zawody w: Rodzinny Park Rozrywki „Trzy Wzgórza”, Żarnowiec, Kalej.",
+    "h1": "Biegi uliczne na Śląsku — w lipcu 2026",
+    "title": "Biegi uliczne na Śląsku — w lipcu 2026 (7 wydarzeń) — Leszy.run",
+    "description": "7 biegów ulicznych na Śląsku w lipcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "7 biegi uliczne na Śląsku w 2026 roku, od 0 km do 21 km. Zawody w: Rodzinny Park Rozrywki „Trzy Wzgórza”, Żarnowiec, Kalej.",
     "eventCount": 7,
     "canonicalUrl": "https://www.leszy.run/biegi/uliczne/slaskie/2026/lipiec",
     "sitemapPriority": "0.6",
@@ -17718,17 +17718,17 @@
     "relatedLinks": [
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
         "path": "biegi/uliczne/slaskie/2026/czerwiec",
-        "h1": "Biegi uliczne w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi uliczne na Śląsku — w czerwcu 2026",
         "eventCount": 16
       },
       {
         "path": "biegi/uliczne/slaskie/2026/sierpien",
-        "h1": "Biegi uliczne w Śląskiem — w sierpniu 2026",
+        "h1": "Biegi uliczne na Śląsku — w sierpniu 2026",
         "eventCount": 8
       }
     ]
@@ -17743,10 +17743,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi uliczne w Śląskiem — w sierpniu 2026",
-    "title": "Biegi uliczne w Śląskiem — w sierpniu 2026 (8 wydarzeń) — Leszy.run",
-    "description": "8 biegów ulicznych w Śląskiem w sierpniu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "8 biegi uliczne w Śląskiem w 2026 roku, od 0 km do 21 km. Zawody w: Ruda Śląska, Ustroń, Brenna - Park Turystyki.",
+    "h1": "Biegi uliczne na Śląsku — w sierpniu 2026",
+    "title": "Biegi uliczne na Śląsku — w sierpniu 2026 (8 wydarzeń) — Leszy.run",
+    "description": "8 biegów ulicznych na Śląsku w sierpniu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "8 biegi uliczne na Śląsku w 2026 roku, od 0 km do 21 km. Zawody w: Ruda Śląska, Ustroń, Brenna - Park Turystyki.",
     "eventCount": 8,
     "canonicalUrl": "https://www.leszy.run/biegi/uliczne/slaskie/2026/sierpien",
     "sitemapPriority": "0.6",
@@ -17754,17 +17754,17 @@
     "relatedLinks": [
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
         "path": "biegi/uliczne/slaskie/2026/lipiec",
-        "h1": "Biegi uliczne w Śląskiem — w lipcu 2026",
+        "h1": "Biegi uliczne na Śląsku — w lipcu 2026",
         "eventCount": 7
       },
       {
         "path": "biegi/uliczne/slaskie/2026/wrzesien",
-        "h1": "Biegi uliczne w Śląskiem — we wrześniu 2026",
+        "h1": "Biegi uliczne na Śląsku — we wrześniu 2026",
         "eventCount": 13
       }
     ]
@@ -17779,10 +17779,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi uliczne w Śląskiem — we wrześniu 2026",
-    "title": "Biegi uliczne w Śląskiem — we wrześniu 2026 (13 wydarzeń) — Leszy.run",
-    "description": "13 biegów ulicznych w Śląskiem we wrześniu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "13 biegi uliczne w Śląskiem w 2026 roku, od 0 km do 21 km. Zawody w: Tychy, Myszków, Ruda Śląska.",
+    "h1": "Biegi uliczne na Śląsku — we wrześniu 2026",
+    "title": "Biegi uliczne na Śląsku — we wrześniu 2026 (13 wydarzeń) — Leszy.run",
+    "description": "13 biegów ulicznych na Śląsku we wrześniu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "13 biegi uliczne na Śląsku w 2026 roku, od 0 km do 21 km. Zawody w: Tychy, Myszków, Ruda Śląska.",
     "eventCount": 13,
     "canonicalUrl": "https://www.leszy.run/biegi/uliczne/slaskie/2026/wrzesien",
     "sitemapPriority": "0.6",
@@ -17790,17 +17790,17 @@
     "relatedLinks": [
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
         "path": "biegi/uliczne/slaskie/2026/sierpien",
-        "h1": "Biegi uliczne w Śląskiem — w sierpniu 2026",
+        "h1": "Biegi uliczne na Śląsku — w sierpniu 2026",
         "eventCount": 8
       },
       {
         "path": "biegi/uliczne/slaskie/2026/pazdziernik",
-        "h1": "Biegi uliczne w Śląskiem — w październiku 2026",
+        "h1": "Biegi uliczne na Śląsku — w październiku 2026",
         "eventCount": 6
       }
     ]
@@ -17815,10 +17815,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi uliczne w Śląskiem — w październiku 2026",
-    "title": "Biegi uliczne w Śląskiem — w październiku 2026 (6 wydarzeń) — Leszy.run",
-    "description": "6 biegów ulicznych w Śląskiem w październiku 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "6 biegi uliczne w Śląskiem w 2026 roku, od 0 km do 100 km. Zawody w: Podlesice, Chorzów, Piekary Śląskie.",
+    "h1": "Biegi uliczne na Śląsku — w październiku 2026",
+    "title": "Biegi uliczne na Śląsku — w październiku 2026 (6 wydarzeń) — Leszy.run",
+    "description": "6 biegów ulicznych na Śląsku w październiku 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "6 biegi uliczne na Śląsku w 2026 roku, od 0 km do 100 km. Zawody w: Podlesice, Chorzów, Piekary Śląskie.",
     "eventCount": 6,
     "canonicalUrl": "https://www.leszy.run/biegi/uliczne/slaskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
@@ -17826,17 +17826,17 @@
     "relatedLinks": [
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
         "path": "biegi/uliczne/slaskie/2026/wrzesien",
-        "h1": "Biegi uliczne w Śląskiem — we wrześniu 2026",
+        "h1": "Biegi uliczne na Śląsku — we wrześniu 2026",
         "eventCount": 13
       },
       {
         "path": "biegi/uliczne/slaskie/2026/listopad",
-        "h1": "Biegi uliczne w Śląskiem — w listopadzie 2026",
+        "h1": "Biegi uliczne na Śląsku — w listopadzie 2026",
         "eventCount": 3
       }
     ]
@@ -17851,10 +17851,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi uliczne w Śląskiem — w listopadzie 2026",
-    "title": "Biegi uliczne w Śląskiem — w listopadzie 2026 (3 wydarzenia) — Leszy.run",
-    "description": "3 biegów ulicznych w Śląskiem w listopadzie 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "3 biegi uliczne w Śląskiem w 2026 roku, od 5 km do 10 km. Zawody w: Paprocany, Koszęcin.",
+    "h1": "Biegi uliczne na Śląsku — w listopadzie 2026",
+    "title": "Biegi uliczne na Śląsku — w listopadzie 2026 (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów ulicznych na Śląsku w listopadzie 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "3 biegi uliczne na Śląsku w 2026 roku, od 5 km do 10 km. Zawody w: Paprocany, Koszęcin.",
     "eventCount": 3,
     "canonicalUrl": "https://www.leszy.run/biegi/uliczne/slaskie/2026/listopad",
     "sitemapPriority": "0.6",
@@ -17862,17 +17862,17 @@
     "relatedLinks": [
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
         "path": "biegi/uliczne/slaskie/2026/pazdziernik",
-        "h1": "Biegi uliczne w Śląskiem — w październiku 2026",
+        "h1": "Biegi uliczne na Śląsku — w październiku 2026",
         "eventCount": 6
       },
       {
         "path": "biegi/uliczne/slaskie/2026/grudzien",
-        "h1": "Biegi uliczne w Śląskiem — w grudniu 2026",
+        "h1": "Biegi uliczne na Śląsku — w grudniu 2026",
         "eventCount": 5
       }
     ]
@@ -17887,10 +17887,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi uliczne w Śląskiem — w grudniu 2026",
-    "title": "Biegi uliczne w Śląskiem — w grudniu 2026 (5 wydarzeń) — Leszy.run",
-    "description": "5 biegów ulicznych w Śląskiem w grudniu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "5 biegi uliczne w Śląskiem w 2026 roku, od 4 km do 74 km. Zawody w: Jezioro Malina - Opole, Rybnik, Gliwice.",
+    "h1": "Biegi uliczne na Śląsku — w grudniu 2026",
+    "title": "Biegi uliczne na Śląsku — w grudniu 2026 (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów ulicznych na Śląsku w grudniu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "5 biegi uliczne na Śląsku w 2026 roku, od 4 km do 74 km. Zawody w: Jezioro Malina - Opole, Rybnik, Gliwice.",
     "eventCount": 5,
     "canonicalUrl": "https://www.leszy.run/biegi/uliczne/slaskie/2026/grudzien",
     "sitemapPriority": "0.6",
@@ -17898,12 +17898,12 @@
     "relatedLinks": [
       {
         "path": "biegi/uliczne/slaskie",
-        "h1": "Biegi uliczne w Śląskiem",
+        "h1": "Biegi uliczne na Śląsku",
         "eventCount": 76
       },
       {
         "path": "biegi/uliczne/slaskie/2026/listopad",
-        "h1": "Biegi uliczne w Śląskiem — w listopadzie 2026",
+        "h1": "Biegi uliczne na Śląsku — w listopadzie 2026",
         "eventCount": 3
       }
     ]
@@ -18754,10 +18754,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Ultramaratony w Śląskiem — w kwietniu 2026",
-    "title": "Ultramaratony w Śląskiem — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
-    "description": "0 ultramaratonów w Śląskiem w kwietniu 2026. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
-    "intro": "0 ultramaratony w Śląskiem w 2026 roku.",
+    "h1": "Ultramaratony na Śląsku — w kwietniu 2026",
+    "title": "Ultramaratony na Śląsku — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
+    "description": "0 ultramaratonów na Śląsku w kwietniu 2026. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
+    "intro": "0 ultramaratony na Śląsku w 2026 roku.",
     "eventCount": 0,
     "canonicalUrl": "https://www.leszy.run/biegi/ultramaratony/slaskie/2026/kwiecien",
     "sitemapPriority": "0.6",
@@ -18765,7 +18765,7 @@
     "relatedLinks": [
       {
         "path": "biegi/ultramaratony/slaskie",
-        "h1": "Ultramaratony w Śląskiem",
+        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       }
     ]
@@ -19018,10 +19018,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi nocne w Śląskiem — w maju 2026",
-    "title": "Biegi nocne w Śląskiem — w maju 2026 (3 wydarzenia) — Leszy.run",
-    "description": "3 biegów nocnych w Śląskiem w maju 2026. biegi nocne, bieg nocny, night run, nocny bieg. Zapisy, dystanse, ceny.",
-    "intro": "3 biegi nocne w Śląskiem w 2026 roku, od 1 km do 42 km. Zawody w: Sosnowiec, Częstochowa, Ossy.",
+    "h1": "Biegi nocne na Śląsku — w maju 2026",
+    "title": "Biegi nocne na Śląsku — w maju 2026 (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów nocnych na Śląsku w maju 2026. biegi nocne, bieg nocny, night run, nocny bieg. Zapisy, dystanse, ceny.",
+    "intro": "3 biegi nocne na Śląsku w 2026 roku, od 1 km do 42 km. Zawody w: Sosnowiec, Częstochowa, Ossy.",
     "eventCount": 3,
     "canonicalUrl": "https://www.leszy.run/biegi/nocne/slaskie/2026/maj",
     "sitemapPriority": "0.6",
@@ -19029,12 +19029,12 @@
     "relatedLinks": [
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
         "path": "biegi/nocne/slaskie/2026/czerwiec",
-        "h1": "Biegi nocne w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi nocne na Śląsku — w czerwcu 2026",
         "eventCount": 3
       }
     ]
@@ -19049,10 +19049,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi nocne w Śląskiem — w czerwcu 2026",
-    "title": "Biegi nocne w Śląskiem — w czerwcu 2026 (3 wydarzenia) — Leszy.run",
-    "description": "3 biegów nocnych w Śląskiem w czerwcu 2026. biegi nocne, bieg nocny, night run, nocny bieg. Zapisy, dystanse, ceny.",
-    "intro": "3 biegi nocne w Śląskiem w 2026 roku, od 2 km do 21 km. Zawody w: Dąbrowa Górnicza, Rybnik, Żarki.",
+    "h1": "Biegi nocne na Śląsku — w czerwcu 2026",
+    "title": "Biegi nocne na Śląsku — w czerwcu 2026 (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów nocnych na Śląsku w czerwcu 2026. biegi nocne, bieg nocny, night run, nocny bieg. Zapisy, dystanse, ceny.",
+    "intro": "3 biegi nocne na Śląsku w 2026 roku, od 2 km do 21 km. Zawody w: Dąbrowa Górnicza, Rybnik, Żarki.",
     "eventCount": 3,
     "canonicalUrl": "https://www.leszy.run/biegi/nocne/slaskie/2026/czerwiec",
     "sitemapPriority": "0.6",
@@ -19060,17 +19060,17 @@
     "relatedLinks": [
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
         "path": "biegi/nocne/slaskie/2026/maj",
-        "h1": "Biegi nocne w Śląskiem — w maju 2026",
+        "h1": "Biegi nocne na Śląsku — w maju 2026",
         "eventCount": 3
       },
       {
         "path": "biegi/nocne/slaskie/2026/lipiec",
-        "h1": "Biegi nocne w Śląskiem — w lipcu 2026",
+        "h1": "Biegi nocne na Śląsku — w lipcu 2026",
         "eventCount": 3
       }
     ]
@@ -19085,10 +19085,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi nocne w Śląskiem — w lipcu 2026",
-    "title": "Biegi nocne w Śląskiem — w lipcu 2026 (3 wydarzenia) — Leszy.run",
-    "description": "3 biegów nocnych w Śląskiem w lipcu 2026. biegi nocne, bieg nocny, night run, nocny bieg. Zapisy, dystanse, ceny.",
-    "intro": "3 biegi nocne w Śląskiem w 2026 roku, od 0 km do 21 km. Zawody w: Rodzinny Park Rozrywki „Trzy Wzgórza”, Piekary Śląskie.",
+    "h1": "Biegi nocne na Śląsku — w lipcu 2026",
+    "title": "Biegi nocne na Śląsku — w lipcu 2026 (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów nocnych na Śląsku w lipcu 2026. biegi nocne, bieg nocny, night run, nocny bieg. Zapisy, dystanse, ceny.",
+    "intro": "3 biegi nocne na Śląsku w 2026 roku, od 0 km do 21 km. Zawody w: Rodzinny Park Rozrywki „Trzy Wzgórza”, Piekary Śląskie.",
     "eventCount": 3,
     "canonicalUrl": "https://www.leszy.run/biegi/nocne/slaskie/2026/lipiec",
     "sitemapPriority": "0.6",
@@ -19096,12 +19096,12 @@
     "relatedLinks": [
       {
         "path": "biegi/nocne/slaskie",
-        "h1": "Biegi nocne w Śląskiem",
+        "h1": "Biegi nocne na Śląsku",
         "eventCount": 11
       },
       {
         "path": "biegi/nocne/slaskie/2026/czerwiec",
-        "h1": "Biegi nocne w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi nocne na Śląsku — w czerwcu 2026",
         "eventCount": 3
       }
     ]
@@ -20180,10 +20180,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Nordic Walking w Śląskiem — w kwietniu 2026",
-    "title": "Nordic Walking w Śląskiem — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
-    "description": "0 marszów nordic walking w Śląskiem w kwietniu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "0 nordic walking w Śląskiem w 2026 roku.",
+    "h1": "Nordic Walking na Śląsku — w kwietniu 2026",
+    "title": "Nordic Walking na Śląsku — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
+    "description": "0 marszów nordic walking na Śląsku w kwietniu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "0 nordic walking na Śląsku w 2026 roku.",
     "eventCount": 0,
     "canonicalUrl": "https://www.leszy.run/biegi/nordic-walking/slaskie/2026/kwiecien",
     "sitemapPriority": "0.6",
@@ -20191,12 +20191,12 @@
     "relatedLinks": [
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/maj",
-        "h1": "Nordic Walking w Śląskiem — w maju 2026",
+        "h1": "Nordic Walking na Śląsku — w maju 2026",
         "eventCount": 10
       }
     ]
@@ -20211,10 +20211,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Nordic Walking w Śląskiem — w maju 2026",
-    "title": "Nordic Walking w Śląskiem — w maju 2026 (10 wydarzeń) — Leszy.run",
-    "description": "10 marszów nordic walking w Śląskiem w maju 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "10 nordic walking w Śląskiem w 2026 roku, od 0 km do 21 km. Zawody w: Katowice, Gliwice, Park Lisiniec Częstochowa.",
+    "h1": "Nordic Walking na Śląsku — w maju 2026",
+    "title": "Nordic Walking na Śląsku — w maju 2026 (10 wydarzeń) — Leszy.run",
+    "description": "10 marszów nordic walking na Śląsku w maju 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "10 nordic walking na Śląsku w 2026 roku, od 0 km do 21 km. Zawody w: Katowice, Gliwice, Park Lisiniec Częstochowa.",
     "eventCount": 10,
     "canonicalUrl": "https://www.leszy.run/biegi/nordic-walking/slaskie/2026/maj",
     "sitemapPriority": "0.6",
@@ -20222,17 +20222,17 @@
     "relatedLinks": [
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/kwiecien",
-        "h1": "Nordic Walking w Śląskiem — w kwietniu 2026",
+        "h1": "Nordic Walking na Śląsku — w kwietniu 2026",
         "eventCount": 0
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/czerwiec",
-        "h1": "Nordic Walking w Śląskiem — w czerwcu 2026",
+        "h1": "Nordic Walking na Śląsku — w czerwcu 2026",
         "eventCount": 13
       }
     ]
@@ -20247,10 +20247,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Nordic Walking w Śląskiem — w czerwcu 2026",
-    "title": "Nordic Walking w Śląskiem — w czerwcu 2026 (13 wydarzeń) — Leszy.run",
-    "description": "13 marszów nordic walking w Śląskiem w czerwcu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "13 nordic walking w Śląskiem w 2026 roku, od 0 km do 42 km. Zawody w: Katowice, Gliwice, Mysłowice.",
+    "h1": "Nordic Walking na Śląsku — w czerwcu 2026",
+    "title": "Nordic Walking na Śląsku — w czerwcu 2026 (13 wydarzeń) — Leszy.run",
+    "description": "13 marszów nordic walking na Śląsku w czerwcu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "13 nordic walking na Śląsku w 2026 roku, od 0 km do 42 km. Zawody w: Katowice, Gliwice, Mysłowice.",
     "eventCount": 13,
     "canonicalUrl": "https://www.leszy.run/biegi/nordic-walking/slaskie/2026/czerwiec",
     "sitemapPriority": "0.6",
@@ -20258,17 +20258,17 @@
     "relatedLinks": [
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/maj",
-        "h1": "Nordic Walking w Śląskiem — w maju 2026",
+        "h1": "Nordic Walking na Śląsku — w maju 2026",
         "eventCount": 10
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/lipiec",
-        "h1": "Nordic Walking w Śląskiem — w lipcu 2026",
+        "h1": "Nordic Walking na Śląsku — w lipcu 2026",
         "eventCount": 8
       }
     ]
@@ -20283,10 +20283,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Nordic Walking w Śląskiem — w lipcu 2026",
-    "title": "Nordic Walking w Śląskiem — w lipcu 2026 (8 wydarzeń) — Leszy.run",
-    "description": "8 marszów nordic walking w Śląskiem w lipcu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "8 nordic walking w Śląskiem w 2026 roku, od 0 km do 21 km. Zawody w: Katowice, Żarnowiec, Palowice.",
+    "h1": "Nordic Walking na Śląsku — w lipcu 2026",
+    "title": "Nordic Walking na Śląsku — w lipcu 2026 (8 wydarzeń) — Leszy.run",
+    "description": "8 marszów nordic walking na Śląsku w lipcu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "8 nordic walking na Śląsku w 2026 roku, od 0 km do 21 km. Zawody w: Katowice, Żarnowiec, Palowice.",
     "eventCount": 8,
     "canonicalUrl": "https://www.leszy.run/biegi/nordic-walking/slaskie/2026/lipiec",
     "sitemapPriority": "0.6",
@@ -20294,17 +20294,17 @@
     "relatedLinks": [
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/czerwiec",
-        "h1": "Nordic Walking w Śląskiem — w czerwcu 2026",
+        "h1": "Nordic Walking na Śląsku — w czerwcu 2026",
         "eventCount": 13
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/sierpien",
-        "h1": "Nordic Walking w Śląskiem — w sierpniu 2026",
+        "h1": "Nordic Walking na Śląsku — w sierpniu 2026",
         "eventCount": 8
       }
     ]
@@ -20319,10 +20319,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Nordic Walking w Śląskiem — w sierpniu 2026",
-    "title": "Nordic Walking w Śląskiem — w sierpniu 2026 (8 wydarzeń) — Leszy.run",
-    "description": "8 marszów nordic walking w Śląskiem w sierpniu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "8 nordic walking w Śląskiem w 2026 roku, od 0 km do 30 km. Zawody w: Katowice, Ruda Śląska, Ustroń.",
+    "h1": "Nordic Walking na Śląsku — w sierpniu 2026",
+    "title": "Nordic Walking na Śląsku — w sierpniu 2026 (8 wydarzeń) — Leszy.run",
+    "description": "8 marszów nordic walking na Śląsku w sierpniu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "8 nordic walking na Śląsku w 2026 roku, od 0 km do 30 km. Zawody w: Katowice, Ruda Śląska, Ustroń.",
     "eventCount": 8,
     "canonicalUrl": "https://www.leszy.run/biegi/nordic-walking/slaskie/2026/sierpien",
     "sitemapPriority": "0.6",
@@ -20330,17 +20330,17 @@
     "relatedLinks": [
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/lipiec",
-        "h1": "Nordic Walking w Śląskiem — w lipcu 2026",
+        "h1": "Nordic Walking na Śląsku — w lipcu 2026",
         "eventCount": 8
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/wrzesien",
-        "h1": "Nordic Walking w Śląskiem — we wrześniu 2026",
+        "h1": "Nordic Walking na Śląsku — we wrześniu 2026",
         "eventCount": 6
       }
     ]
@@ -20355,10 +20355,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Nordic Walking w Śląskiem — we wrześniu 2026",
-    "title": "Nordic Walking w Śląskiem — we wrześniu 2026 (6 wydarzeń) — Leszy.run",
-    "description": "6 marszów nordic walking w Śląskiem we wrześniu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "6 nordic walking w Śląskiem w 2026 roku, od 1 km do 21 km. Zawody w: Katowice, Ruda Śląska, Miasteczko Siewierz Jeziorna.",
+    "h1": "Nordic Walking na Śląsku — we wrześniu 2026",
+    "title": "Nordic Walking na Śląsku — we wrześniu 2026 (6 wydarzeń) — Leszy.run",
+    "description": "6 marszów nordic walking na Śląsku we wrześniu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "6 nordic walking na Śląsku w 2026 roku, od 1 km do 21 km. Zawody w: Katowice, Ruda Śląska, Miasteczko Siewierz Jeziorna.",
     "eventCount": 6,
     "canonicalUrl": "https://www.leszy.run/biegi/nordic-walking/slaskie/2026/wrzesien",
     "sitemapPriority": "0.6",
@@ -20366,17 +20366,17 @@
     "relatedLinks": [
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/sierpien",
-        "h1": "Nordic Walking w Śląskiem — w sierpniu 2026",
+        "h1": "Nordic Walking na Śląsku — w sierpniu 2026",
         "eventCount": 8
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/pazdziernik",
-        "h1": "Nordic Walking w Śląskiem — w październiku 2026",
+        "h1": "Nordic Walking na Śląsku — w październiku 2026",
         "eventCount": 6
       }
     ]
@@ -20391,10 +20391,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Nordic Walking w Śląskiem — w październiku 2026",
-    "title": "Nordic Walking w Śląskiem — w październiku 2026 (6 wydarzeń) — Leszy.run",
-    "description": "6 marszów nordic walking w Śląskiem w październiku 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "6 nordic walking w Śląskiem w 2026 roku, od 1 km do 100 km. Zawody w: Podlesice, Ruda Śląska, Katowice.",
+    "h1": "Nordic Walking na Śląsku — w październiku 2026",
+    "title": "Nordic Walking na Śląsku — w październiku 2026 (6 wydarzeń) — Leszy.run",
+    "description": "6 marszów nordic walking na Śląsku w październiku 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "6 nordic walking na Śląsku w 2026 roku, od 1 km do 100 km. Zawody w: Podlesice, Ruda Śląska, Katowice.",
     "eventCount": 6,
     "canonicalUrl": "https://www.leszy.run/biegi/nordic-walking/slaskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
@@ -20402,12 +20402,12 @@
     "relatedLinks": [
       {
         "path": "biegi/nordic-walking/slaskie",
-        "h1": "Nordic Walking w Śląskiem",
+        "h1": "Nordic Walking na Śląsku",
         "eventCount": 55
       },
       {
         "path": "biegi/nordic-walking/slaskie/2026/wrzesien",
-        "h1": "Nordic Walking w Śląskiem — we wrześniu 2026",
+        "h1": "Nordic Walking na Śląsku — we wrześniu 2026",
         "eventCount": 6
       }
     ]
@@ -21032,10 +21032,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi charytatywne w Śląskiem — w kwietniu 2026",
-    "title": "Biegi charytatywne w Śląskiem — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
-    "description": "0 biegów charytatywnych w Śląskiem w kwietniu 2026. biegi charytatywne, charytatywny bieg, bieg na cel. Zapisy, dystanse, ceny.",
-    "intro": "0 biegi charytatywne w Śląskiem w 2026 roku.",
+    "h1": "Biegi charytatywne na Śląsku — w kwietniu 2026",
+    "title": "Biegi charytatywne na Śląsku — w kwietniu 2026 (0 wydarzeń) — Leszy.run",
+    "description": "0 biegów charytatywnych na Śląsku w kwietniu 2026. biegi charytatywne, charytatywny bieg, bieg na cel. Zapisy, dystanse, ceny.",
+    "intro": "0 biegi charytatywne na Śląsku w 2026 roku.",
     "eventCount": 0,
     "canonicalUrl": "https://www.leszy.run/biegi/charytatywne/slaskie/2026/kwiecien",
     "sitemapPriority": "0.6",
@@ -21043,12 +21043,12 @@
     "relatedLinks": [
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
         "path": "biegi/charytatywne/slaskie/2026/maj",
-        "h1": "Biegi charytatywne w Śląskiem — w maju 2026",
+        "h1": "Biegi charytatywne na Śląsku — w maju 2026",
         "eventCount": 7
       }
     ]
@@ -21063,10 +21063,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi charytatywne w Śląskiem — w maju 2026",
-    "title": "Biegi charytatywne w Śląskiem — w maju 2026 (7 wydarzeń) — Leszy.run",
-    "description": "7 biegów charytatywnych w Śląskiem w maju 2026. biegi charytatywne, charytatywny bieg, bieg na cel. Zapisy, dystanse, ceny.",
-    "intro": "7 biegi charytatywne w Śląskiem w 2026 roku, od 0 km do 10 km. Zawody w: Katowice, Park Lisiniec Częstochowa, Gliwice.",
+    "h1": "Biegi charytatywne na Śląsku — w maju 2026",
+    "title": "Biegi charytatywne na Śląsku — w maju 2026 (7 wydarzeń) — Leszy.run",
+    "description": "7 biegów charytatywnych na Śląsku w maju 2026. biegi charytatywne, charytatywny bieg, bieg na cel. Zapisy, dystanse, ceny.",
+    "intro": "7 biegi charytatywne na Śląsku w 2026 roku, od 0 km do 10 km. Zawody w: Katowice, Park Lisiniec Częstochowa, Gliwice.",
     "eventCount": 7,
     "canonicalUrl": "https://www.leszy.run/biegi/charytatywne/slaskie/2026/maj",
     "sitemapPriority": "0.6",
@@ -21074,17 +21074,17 @@
     "relatedLinks": [
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
         "path": "biegi/charytatywne/slaskie/2026/kwiecien",
-        "h1": "Biegi charytatywne w Śląskiem — w kwietniu 2026",
+        "h1": "Biegi charytatywne na Śląsku — w kwietniu 2026",
         "eventCount": 0
       },
       {
         "path": "biegi/charytatywne/slaskie/2026/czerwiec",
-        "h1": "Biegi charytatywne w Śląskiem — w czerwcu 2026",
+        "h1": "Biegi charytatywne na Śląsku — w czerwcu 2026",
         "eventCount": 3
       }
     ]
@@ -21099,10 +21099,10 @@
       "special": null,
       "city": null
     },
-    "h1": "Biegi charytatywne w Śląskiem — w czerwcu 2026",
-    "title": "Biegi charytatywne w Śląskiem — w czerwcu 2026 (3 wydarzenia) — Leszy.run",
-    "description": "3 biegów charytatywnych w Śląskiem w czerwcu 2026. biegi charytatywne, charytatywny bieg, bieg na cel. Zapisy, dystanse, ceny.",
-    "intro": "3 biegi charytatywne w Śląskiem w 2026 roku, od 0 km do 5 km. Zawody w: Ściernie, Bieruń, Tychy.",
+    "h1": "Biegi charytatywne na Śląsku — w czerwcu 2026",
+    "title": "Biegi charytatywne na Śląsku — w czerwcu 2026 (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów charytatywnych na Śląsku w czerwcu 2026. biegi charytatywne, charytatywny bieg, bieg na cel. Zapisy, dystanse, ceny.",
+    "intro": "3 biegi charytatywne na Śląsku w 2026 roku, od 0 km do 5 km. Zawody w: Ściernie, Bieruń, Tychy.",
     "eventCount": 3,
     "canonicalUrl": "https://www.leszy.run/biegi/charytatywne/slaskie/2026/czerwiec",
     "sitemapPriority": "0.6",
@@ -21110,12 +21110,12 @@
     "relatedLinks": [
       {
         "path": "biegi/charytatywne/slaskie",
-        "h1": "Biegi charytatywne w Śląskiem",
+        "h1": "Biegi charytatywne na Śląsku",
         "eventCount": 11
       },
       {
         "path": "biegi/charytatywne/slaskie/2026/maj",
-        "h1": "Biegi charytatywne w Śląskiem — w maju 2026",
+        "h1": "Biegi charytatywne na Śląsku — w maju 2026",
         "eventCount": 7
       }
     ]

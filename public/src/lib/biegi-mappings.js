@@ -91,7 +91,7 @@ export const REGION_LOCATIVE = {
   'podkarpackie': 'na Podkarpaciu',
   'podlaskie': 'na Podlasiu',
   'pomorskie': 'na Pomorzu',
-  'slaskie': 'w Śląskiem',
+  'slaskie': 'na Śląsku',
   'swietokrzyskie': 'w Świętokrzyskiem',
   'warminsko-mazurskie': 'na Warmii i Mazurach',
   'wielkopolskie': 'w Wielkopolsce',
