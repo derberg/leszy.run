@@ -60,11 +60,13 @@ export default function LandingPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [view, setView] = useState('list')
+  const [linksExpanded, setLinksExpanded] = useState(false)
 
   // Read static landing-data on mount; fall back to manifest for all SPA nav (h1, relatedLinks, etc.)
   useEffect(() => {
     let active = true
     setLandingData(null)
+    setLinksExpanded(false)
     const el = document.getElementById('landing-data')
     if (el) {
       try { setLandingData(JSON.parse(el.textContent)) } catch {}
@@ -223,7 +225,7 @@ export default function LandingPage() {
         {relatedLinks.length > 0 && (
           <nav aria-label="Powiązane strony" className="mb-8">
             <div className="flex flex-wrap gap-2">
-              {relatedLinks.map(link => (
+              {(linksExpanded ? relatedLinks : relatedLinks.slice(0, 5)).map(link => (
                 <Link
                   key={link.path}
                   to={`/${link.path}`}
@@ -233,6 +235,14 @@ export default function LandingPage() {
                   {link.eventCount > 0 && <span className="ml-1.5 text-apex-yellow-dim">{link.eventCount}</span>}
                 </Link>
               ))}
+              {relatedLinks.length > 5 && (
+                <button
+                  onClick={() => setLinksExpanded(v => !v)}
+                  className="font-mono text-[11px] font-semibold tracking-wide px-3 py-1.5 border border-apex-border text-apex-yellow-dim hover:border-apex-yellow/40 hover:text-apex-yellow transition-all"
+                >
+                  {linksExpanded ? 'Zwiń ↑' : `+${relatedLinks.length - 5} więcej`}
+                </button>
+              )}
             </div>
           </nav>
         )}
