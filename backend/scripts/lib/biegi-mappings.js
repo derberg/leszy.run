@@ -32,13 +32,13 @@ export const TYPE_H1_NOUN = {
 }
 
 export const TYPE_SECONDARY_KW = {
-  'przelajowe': 'trail running, biegi terenowe, biegi górskie, bieg w terenie',
-  'uliczne': 'biegi miejskie, bieg po asfalcie, bieg uliczny',
-  'ultramaratony': 'biegi ultra, ultramaraton, ultra trail, biegi długodystansowe',
-  'nocne': 'bieg nocny, night run, nocny bieg uliczny',
-  'ocr': 'biegi z przeszkodami, obstacle run, obstacle race',
-  'nordic-walking': 'marsze nordic walking, NW',
-  'charytatywne': 'charytatywny bieg, bieg na cel, bieg dobroczynny',
+  'przelajowe': 'biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie',
+  'uliczne': 'biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie',
+  'ultramaratony': 'ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe',
+  'nocne': 'biegi nocne, bieg nocny, night run, nocny bieg',
+  'ocr': 'biegi OCR, obstacle run, biegi z przeszkodami, OCR race',
+  'nordic-walking': 'nordic walking, marsze nordic walking, NW',
+  'charytatywne': 'biegi charytatywne, charytatywny bieg, bieg na cel',
 }
 
 export const REGION_SLUG_TO_DB = {
