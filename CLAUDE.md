@@ -530,6 +530,21 @@ SELECT / read-only queries do NOT need confirmation.
 
 Exception: if the user has just *explicitly* asked for the specific destructive action (e.g. "delete all race data for event X"), proceed without re-confirming, but still briefly state what you're about to do before doing it.
 
+## /biegi/* landing pages — URL slug rules
+
+URL slugs for `/biegi/*` pages MUST use ASCII-only characters. Polish diacritics are forbidden in slugs. Examples:
+- `przelajowe` not `przełajowe`
+- `polmaratony` not `półmaratony`
+- `lodzkie` not `łódzkie`
+- `dla-dzieci` stays `dla-dzieci`
+
+HTML display text (H1, labels, link text, meta title/description, intro, JSON-LD) MUST use correct Polish characters with diacritics. Examples:
+- H1: `Biegi przełajowe` not `Biegi przelajowe`
+- H1: `Półmaratony w Polsce` not `Polmaratony w Polsce`
+- Region display: `Łódź`, `Śląskie` — never strip diacritics for display
+
+The mapping files (`biegi-mappings.js` in both `backend/scripts/lib/` and `public/src/lib/`) encode this: keys are ASCII slugs, values are Polish display text. These two files are duplicates — keep them in sync.
+
 ## Things to never do
 
 - Do not use TypeScript (this is a JS project)
