@@ -590,12 +590,16 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           const isSmakMaratonJunk = source.name === 'maratonypolskie'
             && raw.name && /^\s*\d+-\d+\s+smak\s+maraton\b/i.test(raw.name)
 
+          // maratonypolskie "Cross Maraton u Ryśka" (Wieluń) — repeatedly rejected, block by name pattern.
+          const isRyskaJunk = source.name === 'maratonypolskie'
+            && raw.name && /u\s+Ryśka\b/i.test(raw.name)
+
           // Skip non-running events and past events — mark merged so they don't re-appear
-          if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || (raw.date && raw.date < today) || isSmakMaratonJunk) {
+          if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || (raw.date && raw.date < today) || isSmakMaratonJunk || isRyskaJunk) {
             stats.skipped++
             if (raw.name && SKIP_KEYWORDS.test(raw.name)) stats.skippedReasons.non_running++
             else if (raw.date && raw.date < today) stats.skippedReasons.past_date++
-            else if (isSmakMaratonJunk) stats.skippedReasons.junk++
+            else if (isSmakMaratonJunk || isRyskaJunk) stats.skippedReasons.junk++
             if (!dryRun) {
               await supabase.from(source.table).update({ merged_at: new Date().toISOString() }).eq('id', raw.id)
             }
@@ -1124,6 +1128,13 @@ async function publishToCalendar({ dryRun = false } = {}) {
         ce_location: fuzzy.matched.location,
         reason: fuzzy.reason,
       })
+      // Stitch the scraper_all row into the matched CE's source_links so the
+      // exact lookup finds it on the next run and fuzzy never fires again.
+      if (!dryRun && fuzzy.matched.id && raw.source && raw.source_id) {
+        const updatedLinks = mergeSourceLinks(fuzzy.matched.source_links, { source: raw.source, source_id: raw.source_id })
+        await supabase.from('calendar_events').update({ source_links: updatedLinks }).eq('id', fuzzy.matched.id)
+        existingByLink.set(`${raw.source}:${raw.source_id}`, { ...fuzzy.matched, source_links: updatedLinks })
+      }
       continue
     }
 

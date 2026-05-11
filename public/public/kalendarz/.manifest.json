@@ -18703,6 +18703,32 @@
     "website": "https://triathlon-lipiany.pl/2026/02/10/bieg-nad-wadolem/",
     "is_kids": null
   },
+  "xxiii-wilcza-dycha-biegi-dla-dzieci-2026-06-13": {
+    "id": "f58e0312-da11-4ee6-91db-5acf37548bde",
+    "name": "XXIII Wilcza Dycha - Biegi dla dzieci",
+    "date": "2026-06-13",
+    "registration_deadline": "2026-06-10",
+    "regulamin_url": "https://dostartu.pl/statute_files/16445_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Osieczna, PM",
+    "voivodeship": "Wielkopolskie",
+    "lat": 53.770403,
+    "lng": 18.203123,
+    "distances": [
+      "0.1 km",
+      "0.15 km",
+      "0.4 km",
+      "0.6 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16445",
+    "website": "https://biegajace.sliwice.pl/",
+    "is_kids": null
+  },
   "xix-bieg-marszalka-2026-06-13": {
     "id": "2b019a51-4c34-4db0-ba52-c6260df45af0",
     "name": "XIX Bieg Marszałka",
@@ -20678,6 +20704,28 @@
     "website": "https://wbtiming.pl/MLK2026",
     "is_kids": null
   },
+  "maly-memorial-zylewicza-amatorski-bieg-na-3000-m-2026-06-20": {
+    "id": "e803a6a1-fd7d-4809-a5b7-b7bd191f662f",
+    "name": "Mały Memoriał Żylewicza - Amatorski Bieg na 3000 m",
+    "date": "2026-06-20",
+    "registration_deadline": "2026-06-15",
+    "regulamin_url": "https://dostartu.pl/statute_files/16402_pl.pdf",
+    "price_from": 40,
+    "price_to": 40,
+    "location": "Gdańsk",
+    "voivodeship": "Pomorskie",
+    "lat": 54.391028,
+    "lng": 18.582644,
+    "distances": [
+      "3 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16402",
+    "website": "www.kl-lechia.pl",
+    "is_kids": null
+  },
   "vi-bieg-swietojanski-2026-06-20": {
     "id": "f2555d95-ecbb-4507-a7a2-d23f00466828",
     "name": "VI Bieg Świętojański",
@@ -21704,6 +21752,28 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/10000/signup.html",
     "website": "https://elektronicznezapisy.pl/event/10000.html",
+    "is_kids": null
+  },
+  "i-bieg-grand-prix-ustki-2026-2026-06-21": {
+    "id": "328d9472-21af-4195-9938-e0d60b9eef67",
+    "name": "I Bieg - Grand Prix Ustki 2026",
+    "date": "2026-06-21",
+    "registration_deadline": "2026-06-16",
+    "regulamin_url": "https://dostartu.pl/statute_files/16343_pl.pdf",
+    "price_from": 45,
+    "price_to": 50,
+    "location": "Ustka, PM",
+    "voivodeship": "Pomorskie",
+    "lat": 54.588316,
+    "lng": 16.856643,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16343",
+    "website": "http://osir.ustka.pl/zapisy-na-biegi/",
     "is_kids": null
   },
   "2-bojadelski-bieg-letni-2026-06-21": {
@@ -25215,6 +25285,28 @@
     "website": "https://www.zmierzymyczas.pl/2572/mts-iii-ciasne-szutry.html",
     "is_kids": null
   },
+  "sus-travel-run-mrzezyno-edycja-iv-2026-07-19": {
+    "id": "32c85bf8-1580-4834-9f90-70fc64eb424c",
+    "name": "SUS TRAVEL RUN –MRZEŻYNO Edycja IV",
+    "date": "2026-07-19",
+    "registration_deadline": "2026-07-16",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=781",
+    "price_from": 55,
+    "price_to": 70,
+    "location": "Mrzeżyno",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 54.143497,
+    "lng": 15.290551,
+    "distances": [
+      "5.5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=781",
+    "website": "http://www.sustravel.pl/",
+    "is_kids": null
+  },
   "piatka-krolowej-bony-2026-07-19": {
     "id": "b5341bc7-14f1-4311-a108-17b5a14701a6",
     "name": "Piątka Królowej Bony",
@@ -26723,6 +26815,28 @@
     ],
     "registration_url": "https://www.facebook.com/biegswietegodominika/",
     "website": "https://www.facebook.com/biegswietegodominika/",
+    "is_kids": null
+  },
+  "ii-bieg-grand-prix-ustki-2026-2026-08-09": {
+    "id": "0a2686e6-853c-4c42-b5de-c76b3984a2fe",
+    "name": "II Bieg - Grand Prix Ustki 2026",
+    "date": "2026-08-09",
+    "registration_deadline": "2026-08-04",
+    "regulamin_url": "https://dostartu.pl/statute_files/16344_pl.pdf",
+    "price_from": 45,
+    "price_to": 50,
+    "location": "Ustka, PM",
+    "voivodeship": "Pomorskie",
+    "lat": 54.588316,
+    "lng": 16.856643,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16344",
+    "website": "http://osir.ustka.pl/zapisy-na-biegi/",
     "is_kids": null
   },
   "bieg-wdziecznosci-zapisy-wkrotce-2026-08-15": {
@@ -28545,6 +28659,56 @@
     "website": "https://dostartu.pl/bieg-do-trzezwosci-v15186",
     "is_kids": null
   },
+  "17-bieg-siedleckiego-jacka-biegi-dzieciece-2026-08-30": {
+    "id": "9943387f-7ce3-407d-89ef-4dd8c9da456c",
+    "name": "17. Bieg Siedleckiego Jacka - Biegi dziecięce",
+    "date": "2026-08-30",
+    "registration_deadline": "2026-08-16",
+    "regulamin_url": "https://dostartu.pl/statute_files/16447_pl.pdf",
+    "price_from": 45,
+    "price_to": 45,
+    "location": "Siedlce, MZ",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.173836,
+    "lng": 22.289968,
+    "distances": [
+      "0.2 km",
+      "0.3 km",
+      "0.4 km",
+      "0.6 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16447",
+    "website": "https://biegjacka.pl/",
+    "is_kids": null
+  },
+  "17-bieg-siedleckiego-jacka-2026-08-30": {
+    "id": "0159b14f-03b3-40d7-bb3f-c13535f7f433",
+    "name": "17. Bieg Siedleckiego Jacka",
+    "date": "2026-08-30",
+    "registration_deadline": "2026-08-16",
+    "regulamin_url": "https://dostartu.pl/statute_files/16446_pl.pdf",
+    "price_from": 70,
+    "price_to": 130,
+    "location": "Siedlce, MZ",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.173629,
+    "lng": 22.290273,
+    "distances": [
+      "5 km",
+      "21 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16446",
+    "website": "https://biegjacka.pl/",
+    "is_kids": null
+  },
   "x-biegu-jurka-v-brygady-wilenskiej-2026-08-30": {
     "id": "ca936567-71b2-4d5e-a4fa-cfe92f0f9f0c",
     "name": "X Biegu Jurka V Brygady Wileńskiej",
@@ -30264,6 +30428,29 @@
     "website": "https://nkbchyzy.com",
     "is_kids": null
   },
+  "ix-bieg-proszowicki-im-jana-marynowskiego-2026-09-13": {
+    "id": "dfcee3e0-a678-44ee-8612-e8795c97d16d",
+    "name": "IX Bieg Proszowicki im. Jana Marynowskiego",
+    "date": "2026-09-13",
+    "registration_deadline": "2026-08-31",
+    "regulamin_url": "https://dostartu.pl/statute_files/16438_pl.pdf",
+    "price_from": 50,
+    "price_to": 50,
+    "location": "Proszowice, MA",
+    "voivodeship": "Małopolskie",
+    "lat": 50.191358,
+    "lng": 20.291614,
+    "distances": [
+      "10 km",
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16438",
+    "website": null,
+    "is_kids": null
+  },
   "xv-polmaraton-damak-2026-09-13": {
     "id": "86a451fd-85af-43d4-a509-4c35616105bf",
     "name": "XV Półmaraton Damak",
@@ -30758,6 +30945,28 @@
     ],
     "registration_url": "https://online.datasport.pl/zapisy/portal/form/?zawody=10727&co=form",
     "website": "https://www.facebook.com/legal/terms/information_about_page_insights_data",
+    "is_kids": null
+  },
+  "iii-bieg-grand-prix-ustki-2026-2026-09-19": {
+    "id": "985fe306-6e22-4d4b-a9a9-e0715245fe5e",
+    "name": "III Bieg - Grand Prix Ustki 2026",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-14",
+    "regulamin_url": "https://dostartu.pl/statute_files/16345_pl.pdf",
+    "price_from": 45,
+    "price_to": 50,
+    "location": "Ustka, PM",
+    "voivodeship": "Pomorskie",
+    "lat": 54.588316,
+    "lng": 16.856643,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16345",
+    "website": "http://osir.ustka.pl/zapisy-na-biegi/",
     "is_kids": null
   },
   "vi-ultras-oliwski-bieg-wokol-radosci-2026-09-19": {
