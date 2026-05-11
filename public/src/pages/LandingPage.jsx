@@ -31,8 +31,8 @@ function parseDistanceToMeters(d) {
 
 // Parse URL path segments into filter parameters
 function parsePathFilters(pathname) {
-  // pathname: /biegi/przelajowe/slaskie/2026/lipiec
-  const seg = pathname.replace(/^\/biegi\/?/, '')
+  // pathname: /listy/przelajowe/slaskie/2026/lipiec
+  const seg = pathname.replace(/^\/listy\/?/, '')
   if (!seg) return { special: null, typeDbVal: null, regionDb: null, year: null, month: null }
 
   const parts = seg.split('/')
@@ -72,11 +72,11 @@ export default function LandingPage() {
       try { setLandingData(JSON.parse(el.textContent)) } catch {}
       return
     }
-    const seg = location.pathname.replace(/^\/biegi\/?/, '').replace(/\/$/, '')
+    const seg = location.pathname.replace(/^\/listy\/?/, '').replace(/\/$/, '')
     if (!seg) return
-    fetch('/biegi/.manifest.json')
+    fetch('/listy/.manifest.json')
       .then(r => r.ok ? r.json() : null)
-      .then(m => { if (active && m) { const entry = m[`biegi/${seg}`]; if (entry) setLandingData(entry) } })
+      .then(m => { if (active && m) { const entry = m[`listy/${seg}`]; if (entry) setLandingData(entry) } })
       .catch(() => {})
     return () => { active = false }
   }, [location.pathname])

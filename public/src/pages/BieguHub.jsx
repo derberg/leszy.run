@@ -29,7 +29,7 @@ export default function BieguHub() {
   useSeo({
     title: `Biegi w Polsce — kalendarz biegów`,
     description: 'Kalendarz biegów w Polsce. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.',
-    path: '/biegi',
+    path: '/listy',
   })
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function BieguHub() {
       } catch {}
     }
     // Fallback: fetch manifest
-    fetch('/biegi/.manifest.json')
+    fetch('/listy/.manifest.json')
       .then(r => r.json())
       .then(manifest => {
         const byPath = {}
@@ -60,9 +60,9 @@ export default function BieguHub() {
       .catch(() => {})
   }, [])
 
-  const typeEntries = TYPE_SLUGS.map(s => entries[`biegi/${s}`]).filter(Boolean)
-  const regionEntries = Object.keys(REGION_SLUG_TO_DB).map(s => entries[`biegi/${s}`]).filter(Boolean)
-  const specialEntries = SPECIAL_SLUGS.map(s => entries[`biegi/${s}`]).filter(Boolean)
+  const typeEntries = TYPE_SLUGS.map(s => entries[`listy/${s}`]).filter(Boolean)
+  const regionEntries = Object.keys(REGION_SLUG_TO_DB).map(s => entries[`listy/${s}`]).filter(Boolean)
+  const specialEntries = SPECIAL_SLUGS.map(s => entries[`listy/${s}`]).filter(Boolean)
 
   return (
     <>

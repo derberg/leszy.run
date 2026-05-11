@@ -1,5 +1,5 @@
 // Usage: cd backend && node --env-file=../.env scripts/publish-landing-pages.js [--apply]
-// Generates public/public/biegi/.manifest.json from calendar_events Supabase data.
+// Generates public/public/listy/.manifest.json from calendar_events Supabase data.
 // Dry run by default — use --apply to write the file.
 
 import { createClient } from '@supabase/supabase-js'
@@ -16,7 +16,7 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..', '..')
-const BIEGI_DIR = resolve(PROJECT_ROOT, 'public/public/biegi')
+const BIEGI_DIR = resolve(PROJECT_ROOT, 'public/public/listy')
 const MANIFEST_PATH = resolve(BIEGI_DIR, '.manifest.json')
 const BASE_URL = 'https://www.leszy.run'
 
@@ -71,7 +71,7 @@ function buildIntro(typeSlug, regionSlug, year, month, count, topCities, distRan
   if (special === 'maratony') return `${count} maratonów w Polsce w ${yr} roku. Dystans 42 km.${citiesStr}`
   if (special === 'dla-dzieci') return `${count} biegów dla dzieci w Polsce w ${yr} roku. Krótkie dystanse dla najmłodszych biegaczy.${citiesStr}`
   if (special === 'darmowe') return `${count} darmowych biegów w Polsce w ${yr} roku. Bezpłatny udział, bez opłaty startowej.${citiesStr}`
-  const noun = typeSlug ? TYPE_H1_NOUN[typeSlug].toLowerCase() : 'biegi'
+  const noun = typeSlug ? TYPE_H1_NOUN[typeSlug].toLowerCase() : 'listy'
   const regionPart = regionSlug ? ` ${REGION_LOCATIVE[regionSlug]}` : ' w Polsce'
   return `${count} ${noun}${regionPart} w ${yr} roku${dist}.${citiesStr}`.trim()
 }
@@ -182,52 +182,52 @@ function nextNMonths(today, n) {
 function computeRelatedLinks(manifest, path, today) {
   const typeSlugs = Object.keys(TYPE_SLUG_TO_DB)
   const regionSlugs = Object.keys(REGION_SLUG_TO_DB)
-  const seg = path.replace('biegi/', '')
+  const seg = path.replace('listy/', '')
   const parts = seg === '' ? [] : seg.split('/')
 
   // Hub
-  if (path === 'biegi') {
+  if (path === 'listy') {
     return [
-      ...typeSlugs.map(t => manifestRef(manifest, `biegi/${t}`)),
-      ...SPECIAL_SLUGS.map(s => manifestRef(manifest, `biegi/${s}`)),
-      ...regionSlugs.map(r => manifestRef(manifest, `biegi/${r}`)),
+      ...typeSlugs.map(t => manifestRef(manifest, `listy/${t}`)),
+      ...SPECIAL_SLUGS.map(s => manifestRef(manifest, `listy/${s}`)),
+      ...regionSlugs.map(r => manifestRef(manifest, `listy/${r}`)),
     ].filter(Boolean)
   }
 
   // Special pages
   if (parts.length === 1 && SPECIAL_SLUGS.includes(parts[0])) {
-    return [manifestRef(manifest, 'biegi')].filter(Boolean)
+    return [manifestRef(manifest, 'listy')].filter(Boolean)
   }
 
   // Type-only
   if (parts.length === 1 && TYPE_SLUG_TO_DB[parts[0]]) {
     const typeSlug = parts[0]
     const typeRegionLinks = regionSlugs
-      .map(r => manifestRef(manifest, `biegi/${typeSlug}/${r}`))
+      .map(r => manifestRef(manifest, `listy/${typeSlug}/${r}`))
       .filter(Boolean)
       .sort((a, b) => b.eventCount - a.eventCount)
     const monthLinks = nextNMonths(today, 3)
-      .map(({ year, month }) => manifestRef(manifest, `biegi/${typeSlug}/${year}/${MONTH_NUM_TO_SLUG[month]}`))
+      .map(({ year, month }) => manifestRef(manifest, `listy/${typeSlug}/${year}/${MONTH_NUM_TO_SLUG[month]}`))
       .filter(Boolean)
-    return [manifestRef(manifest, 'biegi'), ...typeRegionLinks, ...monthLinks].filter(Boolean)
+    return [manifestRef(manifest, 'listy'), ...typeRegionLinks, ...monthLinks].filter(Boolean)
   }
 
   // Region-only
   if (parts.length === 1 && REGION_SLUG_TO_DB[parts[0]]) {
     const regionSlug = parts[0]
     const regionTypeLinks = typeSlugs
-      .map(t => manifestRef(manifest, `biegi/${t}/${regionSlug}`))
+      .map(t => manifestRef(manifest, `listy/${t}/${regionSlug}`))
       .filter(Boolean)
       .sort((a, b) => b.eventCount - a.eventCount)
     const monthLinks = nextNMonths(today, 3)
-      .map(({ year, month }) => manifestRef(manifest, `biegi/${regionSlug}/${year}/${MONTH_NUM_TO_SLUG[month]}`))
+      .map(({ year, month }) => manifestRef(manifest, `listy/${regionSlug}/${year}/${MONTH_NUM_TO_SLUG[month]}`))
       .filter(Boolean)
-    return [manifestRef(manifest, 'biegi'), ...regionTypeLinks, ...monthLinks].filter(Boolean)
+    return [manifestRef(manifest, 'listy'), ...regionTypeLinks, ...monthLinks].filter(Boolean)
   }
 
   // City page (single slug not matching type/region/special)
   if (parts.length === 1) {
-    return [manifestRef(manifest, 'biegi')].filter(Boolean)
+    return [manifestRef(manifest, 'listy')].filter(Boolean)
   }
 
   // Type + region
@@ -235,16 +235,16 @@ function computeRelatedLinks(manifest, path, today) {
     const [typeSlug, regionSlug] = parts
     const siblingRegions = regionSlugs
       .filter(r => r !== regionSlug)
-      .map(r => manifestRef(manifest, `biegi/${typeSlug}/${r}`))
+      .map(r => manifestRef(manifest, `listy/${typeSlug}/${r}`))
       .filter(Boolean)
       .sort((a, b) => b.eventCount - a.eventCount)
       .slice(0, 5)
     const monthLinks = nextNMonths(today, 2)
-      .map(({ year, month }) => manifestRef(manifest, `biegi/${typeSlug}/${regionSlug}/${year}/${MONTH_NUM_TO_SLUG[month]}`))
+      .map(({ year, month }) => manifestRef(manifest, `listy/${typeSlug}/${regionSlug}/${year}/${MONTH_NUM_TO_SLUG[month]}`))
       .filter(Boolean)
     return [
-      manifestRef(manifest, `biegi/${typeSlug}`),
-      manifestRef(manifest, `biegi/${regionSlug}`),
+      manifestRef(manifest, `listy/${typeSlug}`),
+      manifestRef(manifest, `listy/${regionSlug}`),
       ...siblingRegions,
       ...monthLinks,
     ].filter(Boolean)
@@ -255,12 +255,12 @@ function computeRelatedLinks(manifest, path, today) {
   if (yearIdx >= 0) {
     const year = parseInt(parts[yearIdx])
     const month = MONTH_SLUG_TO_NUM[parts[yearIdx + 1]]
-    const parentPath = yearIdx === 0 ? 'biegi' : `biegi/${parts.slice(0, yearIdx).join('/')}`
+    const parentPath = yearIdx === 0 ? 'listy' : `listy/${parts.slice(0, yearIdx).join('/')}`
     const prefix = parts.slice(0, yearIdx)
     const prevM = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 }
     const nextM = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 }
-    const prevPath = `biegi/${[...prefix, String(prevM.y), MONTH_NUM_TO_SLUG[prevM.m]].join('/')}`
-    const nextPath = `biegi/${[...prefix, String(nextM.y), MONTH_NUM_TO_SLUG[nextM.m]].join('/')}`
+    const prevPath = `listy/${[...prefix, String(prevM.y), MONTH_NUM_TO_SLUG[prevM.m]].join('/')}`
+    const nextPath = `listy/${[...prefix, String(nextM.y), MONTH_NUM_TO_SLUG[nextM.m]].join('/')}`
     return [
       manifestRef(manifest, parentPath),
       manifestRef(manifest, prevPath),
@@ -328,7 +328,7 @@ async function main() {
     const { count, topCities, distRange } = computeMetadata(displayEvents, facet)
     let h1, title, description, intro
 
-    if (path === 'biegi') {
+    if (path === 'listy') {
       h1 = `Biegi w Polsce — kalendarz biegów ${currentYear}`
       title = `${h1} — Leszy.run`
       description = `Kalendarz biegów w Polsce ${currentYear}. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.`
@@ -355,16 +355,16 @@ async function main() {
   }
 
   // Hub
-  addEntry({ path: 'biegi', filters: {}, priority: '0.9', changefreq: 'daily' })
+  addEntry({ path: 'listy', filters: {}, priority: '0.9', changefreq: 'daily' })
 
   // Type-only (always)
   for (const ts of typeSlugs) {
-    addEntry({ path: `biegi/${ts}`, filters: { event_type: TYPE_SLUG_TO_DB[ts] }, typeSlug: ts, priority: '0.8', changefreq: 'weekly' })
+    addEntry({ path: `listy/${ts}`, filters: { event_type: TYPE_SLUG_TO_DB[ts] }, typeSlug: ts, priority: '0.8', changefreq: 'weekly' })
   }
 
   // Region-only (always)
   for (const rs of regionSlugs) {
-    addEntry({ path: `biegi/${rs}`, filters: { voivodeship: REGION_SLUG_TO_DB[rs] }, regionSlug: rs, priority: '0.8', changefreq: 'weekly' })
+    addEntry({ path: `listy/${rs}`, filters: { voivodeship: REGION_SLUG_TO_DB[rs] }, regionSlug: rs, priority: '0.8', changefreq: 'weekly' })
   }
 
 
@@ -375,28 +375,28 @@ async function main() {
     'dla-dzieci': { isKids: true }, darmowe: { isFree: true },
   }
   for (const sp of SPECIAL_SLUGS) {
-    addEntry({ path: `biegi/${sp}`, filters: specialFilters[sp], special: sp, priority: '0.8', changefreq: 'daily' })
+    addEntry({ path: `listy/${sp}`, filters: specialFilters[sp], special: sp, priority: '0.8', changefreq: 'daily' })
   }
 
   // Type + region (≥2 threshold)
   for (const ts of typeSlugs) {
     for (const rs of regionSlugs) {
       if (countThreshold({ typeDbVal: TYPE_SLUG_TO_DB[ts], regionDb: REGION_SLUG_TO_DB[rs] }) < 2) continue
-      addEntry({ path: `biegi/${ts}/${rs}`, filters: { event_type: TYPE_SLUG_TO_DB[ts], voivodeship: REGION_SLUG_TO_DB[rs] }, typeSlug: ts, regionSlug: rs, priority: '0.7', changefreq: 'weekly' })
+      addEntry({ path: `listy/${ts}/${rs}`, filters: { event_type: TYPE_SLUG_TO_DB[ts], voivodeship: REGION_SLUG_TO_DB[rs] }, typeSlug: ts, regionSlug: rs, priority: '0.7', changefreq: 'weekly' })
     }
   }
 
   // Month-only (≥5 threshold)
   for (const { year, month } of yearMonths) {
     if (countThreshold({ year, month }) < 5) continue
-    addEntry({ path: `biegi/${year}/${MONTH_NUM_TO_SLUG[month]}`, filters: { year, month }, year, month, priority: '0.6', changefreq: 'daily' })
+    addEntry({ path: `listy/${year}/${MONTH_NUM_TO_SLUG[month]}`, filters: { year, month }, year, month, priority: '0.6', changefreq: 'daily' })
   }
 
   // Type + month (≥3 threshold)
   for (const ts of typeSlugs) {
     for (const { year, month } of yearMonths) {
       if (countThreshold({ typeDbVal: TYPE_SLUG_TO_DB[ts], year, month }) < 3) continue
-      addEntry({ path: `biegi/${ts}/${year}/${MONTH_NUM_TO_SLUG[month]}`, filters: { event_type: TYPE_SLUG_TO_DB[ts], year, month }, typeSlug: ts, year, month, priority: '0.6', changefreq: 'daily' })
+      addEntry({ path: `listy/${ts}/${year}/${MONTH_NUM_TO_SLUG[month]}`, filters: { event_type: TYPE_SLUG_TO_DB[ts], year, month }, typeSlug: ts, year, month, priority: '0.6', changefreq: 'daily' })
     }
   }
 
@@ -404,7 +404,7 @@ async function main() {
   for (const rs of regionSlugs) {
     for (const { year, month } of yearMonths) {
       if (countThreshold({ regionDb: REGION_SLUG_TO_DB[rs], year, month }) < 3) continue
-      addEntry({ path: `biegi/${rs}/${year}/${MONTH_NUM_TO_SLUG[month]}`, filters: { voivodeship: REGION_SLUG_TO_DB[rs], year, month }, regionSlug: rs, year, month, priority: '0.6', changefreq: 'daily' })
+      addEntry({ path: `listy/${rs}/${year}/${MONTH_NUM_TO_SLUG[month]}`, filters: { voivodeship: REGION_SLUG_TO_DB[rs], year, month }, regionSlug: rs, year, month, priority: '0.6', changefreq: 'daily' })
     }
   }
 
@@ -413,7 +413,7 @@ async function main() {
     for (const rs of regionSlugs) {
       for (const { year, month } of yearMonths) {
         if (countThreshold({ typeDbVal: TYPE_SLUG_TO_DB[ts], regionDb: REGION_SLUG_TO_DB[rs], year, month }) < 3) continue
-        addEntry({ path: `biegi/${ts}/${rs}/${year}/${MONTH_NUM_TO_SLUG[month]}`, filters: { event_type: TYPE_SLUG_TO_DB[ts], voivodeship: REGION_SLUG_TO_DB[rs], year, month }, typeSlug: ts, regionSlug: rs, year, month, priority: '0.6', changefreq: 'daily' })
+        addEntry({ path: `listy/${ts}/${rs}/${year}/${MONTH_NUM_TO_SLUG[month]}`, filters: { event_type: TYPE_SLUG_TO_DB[ts], voivodeship: REGION_SLUG_TO_DB[rs], year, month }, typeSlug: ts, regionSlug: rs, year, month, priority: '0.6', changefreq: 'daily' })
       }
     }
   }
@@ -428,7 +428,7 @@ async function main() {
   for (const [city, count] of Object.entries(cityCount)) {
     if (count <= 2) continue
     const citySlug = slugifyCity(city)
-    const path = `biegi/${citySlug}`
+    const path = `listy/${citySlug}`
     if (manifest[path]) continue // don't overwrite type/region/special pages
     addEntry({ path, filters: { city }, city, priority: '0.7', changefreq: 'weekly' })
   }
@@ -443,7 +443,7 @@ async function main() {
   const total = Object.keys(manifest).length
   const byType = {}
   for (const path of Object.keys(manifest)) {
-    const parts = path.replace('biegi', '').replace(/^\//, '').split('/').filter(Boolean)
+    const parts = path.replace('listy', '').replace(/^\//, '').split('/').filter(Boolean)
     const key = parts.length === 0 ? 'hub' : parts.length === 1 && SPECIAL_SLUGS.includes(parts[0]) ? 'special' : parts.length === 1 && TYPE_SLUG_TO_DB[parts[0]] ? 'type' : parts.length === 1 && REGION_SLUG_TO_DB[parts[0]] ? 'region' : parts.length === 1 ? 'city' : parts.length === 2 && TYPE_SLUG_TO_DB[parts[0]] && REGION_SLUG_TO_DB[parts[1]] ? 'type+region' : parts.length === 2 ? 'month' : parts.length === 3 ? 'type+month or region+month' : 'type+region+month'
     byType[key] = (byType[key] || 0) + 1
   }

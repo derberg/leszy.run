@@ -51,8 +51,8 @@ export default function App() {
           <Route path="/events/:slug/volunteer" element={<Volunteer />} />
           <Route path="/events/:slug/checkin" element={<Checkin />} />
           <Route path="/events/:slug/admin/checkin" element={<AdminCheckin />} />
-          <Route path="/biegi" element={<BieguHub />} />
-          <Route path="/biegi/*" element={<LandingPage />} />
+          <Route path="/listy" element={<BieguHub />} />
+          <Route path="/listy/*" element={<LandingPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
