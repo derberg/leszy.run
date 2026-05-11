@@ -4,9 +4,10 @@ import { supabase } from '../lib/supabase.js'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import EventRow from '../components/EventRow.jsx'
+import LandingMap from '../components/LandingMap.jsx'
 import useSeo from '../hooks/useSeo.js'
 import {
-  TYPE_SLUG_TO_DB, REGION_SLUG_TO_DB,
+  TYPE_SLUG_TO_DB, REGION_SLUG_TO_DB, DB_TO_REGION_SLUG, REGION_CENTER,
   MONTH_SLUG_TO_NUM, SPECIAL_SLUGS, SPECIAL_H1,
 } from '../lib/biegi-mappings.js'
 
@@ -58,13 +59,26 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
+  const [view, setView] = useState('list')
 
-  // Read static landing-data on mount
+  // Read static landing-data on mount; fall back to manifest for city pages (SPA nav)
   useEffect(() => {
+    let active = true
+    setLandingData(null)
     const el = document.getElementById('landing-data')
     if (el) {
       try { setLandingData(JSON.parse(el.textContent)) } catch {}
+      return
     }
+    const parsed = parsePathFilters(location.pathname)
+    if (parsed.special || parsed.typeDbVal || parsed.regionDb || parsed.year || parsed.month) return
+    const seg = location.pathname.replace(/^\/biegi\/?/, '').replace(/\/$/, '')
+    if (!seg) return
+    fetch('/biegi/.manifest.json')
+      .then(r => r.ok ? r.json() : null)
+      .then(m => { if (active && m) { const entry = m[`biegi/${seg}`]; if (entry) setLandingData(entry) } })
+      .catch(() => {})
+    return () => { active = false }
   }, [location.pathname])
 
   const filters = useMemo(() => {
@@ -76,6 +90,8 @@ export default function LandingPage() {
   const intro = landingData?.intro || null
   const relatedLinks = landingData?.relatedLinks || []
   const canonicalPath = landingData?.path ? `/${landingData.path}` : location.pathname
+  const regionSlug = filters.regionDb ? DB_TO_REGION_SLUG[filters.regionDb] : null
+  const mapCenter = regionSlug ? REGION_CENTER[regionSlug] : null
 
   // Fetch events from Supabase using display filter
   useEffect(() => {
@@ -93,7 +109,7 @@ export default function LandingPage() {
         .or(`registration_deadline.is.null,registration_deadline.gte.${today}`)
         .order('date', { ascending: true })
 
-      const { special, typeDbVal, regionDb, year, month } = filters
+      const { special, typeDbVal, regionDb, year, month, city } = filters
 
       if (special === 'polmaratony' || special === 'maratony') {
         // Distance-based: fetch broadly then filter client-side
@@ -108,6 +124,7 @@ export default function LandingPage() {
       } else {
         if (typeDbVal) q = q.contains('event_type', [typeDbVal])
         if (regionDb) q = q.eq('voivodeship', regionDb)
+        if (city) q = q.ilike('location', `${city}%`)
         if (year && month) {
           const monthStr = String(month).padStart(2, '0')
           const lastDay = new Date(year, month, 0).getDate()
@@ -226,17 +243,29 @@ export default function LandingPage() {
           <span className="font-mono text-xs text-apex-muted">
             Znaleziono <strong className="text-apex-yellow">{total}</strong> wydarzeń
           </span>
-          <Link
-            to={`/kalendarz${kalendarzParams.toString() ? '?' + kalendarzParams.toString() : ''}`}
-            className="font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all"
-          >
-            Przeglądaj i filtruj →
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setView('list')}
+              className={`font-mono text-[11px] tracking-wide px-3 py-1.5 border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink border-apex-yellow' : 'border-apex-border text-apex-muted hover:border-apex-border-mid hover:text-apex-text-bright'}`}>
+              Lista
+            </button>
+            <button onClick={() => setView('map')}
+              className={`font-mono text-[11px] tracking-wide px-3 py-1.5 border transition-all ${view === 'map' ? 'bg-apex-yellow text-apex-ink border-apex-yellow' : 'border-apex-border text-apex-muted hover:border-apex-border-mid hover:text-apex-text-bright'}`}>
+              Mapa
+            </button>
+            <Link
+              to={`/kalendarz${kalendarzParams.toString() ? '?' + kalendarzParams.toString() : ''}`}
+              className="font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all"
+            >
+              Przeglądaj i filtruj →
+            </Link>
+          </div>
         </div>
 
         {loading && <div className="text-apex-muted py-8">Ładowanie...</div>}
 
-        {!loading && Object.entries(grouped).map(([key, group]) => (
+        {!loading && view === 'map' && <LandingMap events={events} center={mapCenter} />}
+
+        {!loading && view === 'list' && Object.entries(grouped).map(([key, group]) => (
           <div key={key} className="mb-2">
             <div className="font-display font-bold text-base tracking-widest uppercase text-apex-yellow-dim py-5 border-b border-apex-border mb-0.5">
               {group.label}
@@ -249,7 +278,7 @@ export default function LandingPage() {
           <div className="text-apex-muted py-12 text-center">Brak wydarzeń dla tej kategorii.</div>
         )}
 
-        {totalPages > 1 && (
+        {view === 'list' && totalPages > 1 && (
           <div className="flex justify-center gap-1 pt-8">
             {page > 1 && (
               <button onClick={() => setPage(page - 1)}

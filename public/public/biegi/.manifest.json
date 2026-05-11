@@ -19665,5 +19665,1181 @@
         "eventCount": 3
       }
     ]
+  },
+  "biegi/kedzierzyn-kozle": {
+    "path": "biegi/kedzierzyn-kozle",
+    "filters": {
+      "city": "Kędzierzyn-Koźle"
+    },
+    "h1": "Biegi w Kędzierzyn-Koźle",
+    "title": "Biegi w Kędzierzyn-Koźle (6 wydarzeń) — Leszy.run",
+    "description": "6 biegów w Kędzierzyn-Koźle. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "6 biegów w Kędzierzyn-Koźle w 2026 roku.",
+    "eventCount": 6,
+    "canonicalUrl": "https://www.leszy.run/biegi/kedzierzyn-kozle",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/debica-debica": {
+    "path": "biegi/debica-debica",
+    "filters": {
+      "city": "Dębica\n                            Dębica"
+    },
+    "h1": "Biegi w Dębica\n                            Dębica",
+    "title": "Biegi w Dębica\n                            Dębica (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Dębica\n                            Dębica. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Dębica\n                            Dębica w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/debica-debica",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/opole": {
+    "path": "biegi/opole",
+    "filters": {
+      "city": "Opole"
+    },
+    "h1": "Biegi w Opole",
+    "title": "Biegi w Opole (6 wydarzeń) — Leszy.run",
+    "description": "6 biegów w Opole. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "6 biegów w Opole w 2026 roku.",
+    "eventCount": 6,
+    "canonicalUrl": "https://www.leszy.run/biegi/opole",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/olsztyn": {
+    "path": "biegi/olsztyn",
+    "filters": {
+      "city": "Olsztyn"
+    },
+    "h1": "Biegi w Olsztyn",
+    "title": "Biegi w Olsztyn (9 wydarzeń) — Leszy.run",
+    "description": "9 biegów w Olsztyn. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "9 biegów w Olsztyn w 2026 roku.",
+    "eventCount": 9,
+    "canonicalUrl": "https://www.leszy.run/biegi/olsztyn",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/wroclaw": {
+    "path": "biegi/wroclaw",
+    "filters": {
+      "city": "Wrocław"
+    },
+    "h1": "Biegi w Wrocław",
+    "title": "Biegi w Wrocław (14 wydarzeń) — Leszy.run",
+    "description": "14 biegów w Wrocław. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "14 biegów w Wrocław w 2026 roku.",
+    "eventCount": 14,
+    "canonicalUrl": "https://www.leszy.run/biegi/wroclaw",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/szczecin": {
+    "path": "biegi/szczecin",
+    "filters": {
+      "city": "Szczecin"
+    },
+    "h1": "Biegi w Szczecin",
+    "title": "Biegi w Szczecin (17 wydarzeń) — Leszy.run",
+    "description": "17 biegów w Szczecin. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "17 biegów w Szczecin w 2026 roku.",
+    "eventCount": 17,
+    "canonicalUrl": "https://www.leszy.run/biegi/szczecin",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/myslowice": {
+    "path": "biegi/myslowice",
+    "filters": {
+      "city": "Mysłowice"
+    },
+    "h1": "Biegi w Mysłowice",
+    "title": "Biegi w Mysłowice (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów w Mysłowice. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "5 biegów w Mysłowice w 2026 roku.",
+    "eventCount": 5,
+    "canonicalUrl": "https://www.leszy.run/biegi/myslowice",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/lublin": {
+    "path": "biegi/lublin",
+    "filters": {
+      "city": "Lublin"
+    },
+    "h1": "Biegi w Lublin",
+    "title": "Biegi w Lublin (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Lublin. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Lublin w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/lublin",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/marki": {
+    "path": "biegi/marki",
+    "filters": {
+      "city": "Marki"
+    },
+    "h1": "Biegi w Marki",
+    "title": "Biegi w Marki (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Marki. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Marki w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/marki",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/krakow": {
+    "path": "biegi/krakow",
+    "filters": {
+      "city": "Kraków"
+    },
+    "h1": "Biegi w Kraków",
+    "title": "Biegi w Kraków (7 wydarzeń) — Leszy.run",
+    "description": "7 biegów w Kraków. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "7 biegów w Kraków w 2026 roku.",
+    "eventCount": 7,
+    "canonicalUrl": "https://www.leszy.run/biegi/krakow",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/warszawa": {
+    "path": "biegi/warszawa",
+    "filters": {
+      "city": "Warszawa"
+    },
+    "h1": "Biegi w Warszawa",
+    "title": "Biegi w Warszawa (19 wydarzeń) — Leszy.run",
+    "description": "19 biegów w Warszawa. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "19 biegów w Warszawa w 2026 roku.",
+    "eventCount": 19,
+    "canonicalUrl": "https://www.leszy.run/biegi/warszawa",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/tarnow": {
+    "path": "biegi/tarnow",
+    "filters": {
+      "city": "Tarnów"
+    },
+    "h1": "Biegi w Tarnów",
+    "title": "Biegi w Tarnów (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Tarnów. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Tarnów w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/tarnow",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/torun": {
+    "path": "biegi/torun",
+    "filters": {
+      "city": "Toruń"
+    },
+    "h1": "Biegi w Toruń",
+    "title": "Biegi w Toruń (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Toruń. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Toruń w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/torun",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/katowice": {
+    "path": "biegi/katowice",
+    "filters": {
+      "city": "Katowice"
+    },
+    "h1": "Biegi w Katowice",
+    "title": "Biegi w Katowice (13 wydarzeń) — Leszy.run",
+    "description": "13 biegów w Katowice. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "13 biegów w Katowice w 2026 roku.",
+    "eventCount": 13,
+    "canonicalUrl": "https://www.leszy.run/biegi/katowice",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/gliwice": {
+    "path": "biegi/gliwice",
+    "filters": {
+      "city": "Gliwice"
+    },
+    "h1": "Biegi w Gliwice",
+    "title": "Biegi w Gliwice (12 wydarzeń) — Leszy.run",
+    "description": "12 biegów w Gliwice. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "12 biegów w Gliwice w 2026 roku.",
+    "eventCount": 12,
+    "canonicalUrl": "https://www.leszy.run/biegi/gliwice",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/jelcz-laskowice": {
+    "path": "biegi/jelcz-laskowice",
+    "filters": {
+      "city": "Jelcz-Laskowice"
+    },
+    "h1": "Biegi w Jelcz-Laskowice",
+    "title": "Biegi w Jelcz-Laskowice (6 wydarzeń) — Leszy.run",
+    "description": "6 biegów w Jelcz-Laskowice. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "6 biegów w Jelcz-Laskowice w 2026 roku.",
+    "eventCount": 6,
+    "canonicalUrl": "https://www.leszy.run/biegi/jelcz-laskowice",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/poznan": {
+    "path": "biegi/poznan",
+    "filters": {
+      "city": "Poznań"
+    },
+    "h1": "Biegi w Poznań",
+    "title": "Biegi w Poznań (8 wydarzeń) — Leszy.run",
+    "description": "8 biegów w Poznań. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "8 biegów w Poznań w 2026 roku.",
+    "eventCount": 8,
+    "canonicalUrl": "https://www.leszy.run/biegi/poznan",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/gdynia": {
+    "path": "biegi/gdynia",
+    "filters": {
+      "city": "Gdynia"
+    },
+    "h1": "Biegi w Gdynia",
+    "title": "Biegi w Gdynia (11 wydarzeń) — Leszy.run",
+    "description": "11 biegów w Gdynia. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "11 biegów w Gdynia w 2026 roku.",
+    "eventCount": 11,
+    "canonicalUrl": "https://www.leszy.run/biegi/gdynia",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/radom": {
+    "path": "biegi/radom",
+    "filters": {
+      "city": "Radom"
+    },
+    "h1": "Biegi w Radom",
+    "title": "Biegi w Radom (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Radom. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Radom w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/radom",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/polska": {
+    "path": "biegi/polska",
+    "filters": {
+      "city": "Polska"
+    },
+    "h1": "Biegi w Polska",
+    "title": "Biegi w Polska (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Polska. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Polska w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/polska",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/gdansk": {
+    "path": "biegi/gdansk",
+    "filters": {
+      "city": "Gdańsk"
+    },
+    "h1": "Biegi w Gdańsk",
+    "title": "Biegi w Gdańsk (13 wydarzeń) — Leszy.run",
+    "description": "13 biegów w Gdańsk. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "13 biegów w Gdańsk w 2026 roku.",
+    "eventCount": 13,
+    "canonicalUrl": "https://www.leszy.run/biegi/gdansk",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/lubliniec": {
+    "path": "biegi/lubliniec",
+    "filters": {
+      "city": "Lubliniec"
+    },
+    "h1": "Biegi w Lubliniec",
+    "title": "Biegi w Lubliniec (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów w Lubliniec. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "5 biegów w Lubliniec w 2026 roku.",
+    "eventCount": 5,
+    "canonicalUrl": "https://www.leszy.run/biegi/lubliniec",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/lodz": {
+    "path": "biegi/lodz",
+    "filters": {
+      "city": "Łódź"
+    },
+    "h1": "Biegi w Łódź",
+    "title": "Biegi w Łódź (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów w Łódź. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "5 biegów w Łódź w 2026 roku.",
+    "eventCount": 5,
+    "canonicalUrl": "https://www.leszy.run/biegi/lodz",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/hajnowka": {
+    "path": "biegi/hajnowka",
+    "filters": {
+      "city": "Hajnówka"
+    },
+    "h1": "Biegi w Hajnówka",
+    "title": "Biegi w Hajnówka (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Hajnówka. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Hajnówka w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/hajnowka",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/bukowiec": {
+    "path": "biegi/bukowiec",
+    "filters": {
+      "city": "Bukowiec"
+    },
+    "h1": "Biegi w Bukowiec",
+    "title": "Biegi w Bukowiec (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Bukowiec. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Bukowiec w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/bukowiec",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/tychy": {
+    "path": "biegi/tychy",
+    "filters": {
+      "city": "Tychy"
+    },
+    "h1": "Biegi w Tychy",
+    "title": "Biegi w Tychy (6 wydarzeń) — Leszy.run",
+    "description": "6 biegów w Tychy. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "6 biegów w Tychy w 2026 roku.",
+    "eventCount": 6,
+    "canonicalUrl": "https://www.leszy.run/biegi/tychy",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/bialystok": {
+    "path": "biegi/bialystok",
+    "filters": {
+      "city": "Białystok"
+    },
+    "h1": "Biegi w Białystok",
+    "title": "Biegi w Białystok (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Białystok. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Białystok w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/bialystok",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/bytom": {
+    "path": "biegi/bytom",
+    "filters": {
+      "city": "Bytom"
+    },
+    "h1": "Biegi w Bytom",
+    "title": "Biegi w Bytom (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Bytom. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Bytom w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/bytom",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/koszalin": {
+    "path": "biegi/koszalin",
+    "filters": {
+      "city": "Koszalin"
+    },
+    "h1": "Biegi w Koszalin",
+    "title": "Biegi w Koszalin (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Koszalin. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Koszalin w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/koszalin",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/zielona-gora": {
+    "path": "biegi/zielona-gora",
+    "filters": {
+      "city": "Zielona Góra"
+    },
+    "h1": "Biegi w Zielona Góra",
+    "title": "Biegi w Zielona Góra (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Zielona Góra. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Zielona Góra w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/zielona-gora",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/kwidzyn": {
+    "path": "biegi/kwidzyn",
+    "filters": {
+      "city": "Kwidzyn"
+    },
+    "h1": "Biegi w Kwidzyn",
+    "title": "Biegi w Kwidzyn (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Kwidzyn. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Kwidzyn w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/kwidzyn",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/bytow": {
+    "path": "biegi/bytow",
+    "filters": {
+      "city": "Bytów"
+    },
+    "h1": "Biegi w Bytów",
+    "title": "Biegi w Bytów (6 wydarzeń) — Leszy.run",
+    "description": "6 biegów w Bytów. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "6 biegów w Bytów w 2026 roku.",
+    "eventCount": 6,
+    "canonicalUrl": "https://www.leszy.run/biegi/bytow",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/ustka": {
+    "path": "biegi/ustka",
+    "filters": {
+      "city": "Ustka"
+    },
+    "h1": "Biegi w Ustka",
+    "title": "Biegi w Ustka (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów w Ustka. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "5 biegów w Ustka w 2026 roku.",
+    "eventCount": 5,
+    "canonicalUrl": "https://www.leszy.run/biegi/ustka",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/leszno": {
+    "path": "biegi/leszno",
+    "filters": {
+      "city": "Leszno"
+    },
+    "h1": "Biegi w Leszno",
+    "title": "Biegi w Leszno (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów w Leszno. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "5 biegów w Leszno w 2026 roku.",
+    "eventCount": 5,
+    "canonicalUrl": "https://www.leszy.run/biegi/leszno",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/rzeszow-rzeszow": {
+    "path": "biegi/rzeszow-rzeszow",
+    "filters": {
+      "city": "Rzeszów\n                            Rzeszów"
+    },
+    "h1": "Biegi w Rzeszów\n                            Rzeszów",
+    "title": "Biegi w Rzeszów\n                            Rzeszów (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Rzeszów\n                            Rzeszów. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Rzeszów\n                            Rzeszów w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/rzeszow-rzeszow",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/wodzislaw-slaski": {
+    "path": "biegi/wodzislaw-slaski",
+    "filters": {
+      "city": "Wodzisław  Śląski"
+    },
+    "h1": "Biegi w Wodzisław  Śląski",
+    "title": "Biegi w Wodzisław  Śląski (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Wodzisław  Śląski. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Wodzisław  Śląski w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/wodzislaw-slaski",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/sieradz": {
+    "path": "biegi/sieradz",
+    "filters": {
+      "city": "Sieradz"
+    },
+    "h1": "Biegi w Sieradz",
+    "title": "Biegi w Sieradz (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Sieradz. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Sieradz w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/sieradz",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/tczew": {
+    "path": "biegi/tczew",
+    "filters": {
+      "city": "Tczew"
+    },
+    "h1": "Biegi w Tczew",
+    "title": "Biegi w Tczew (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów w Tczew. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "5 biegów w Tczew w 2026 roku.",
+    "eventCount": 5,
+    "canonicalUrl": "https://www.leszy.run/biegi/tczew",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/goleniow": {
+    "path": "biegi/goleniow",
+    "filters": {
+      "city": "Goleniów"
+    },
+    "h1": "Biegi w Goleniów",
+    "title": "Biegi w Goleniów (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Goleniów. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Goleniów w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/goleniow",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/bydgoszcz": {
+    "path": "biegi/bydgoszcz",
+    "filters": {
+      "city": "Bydgoszcz"
+    },
+    "h1": "Biegi w Bydgoszcz",
+    "title": "Biegi w Bydgoszcz (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Bydgoszcz. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Bydgoszcz w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/bydgoszcz",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/olawa": {
+    "path": "biegi/olawa",
+    "filters": {
+      "city": "Oława"
+    },
+    "h1": "Biegi w Oława",
+    "title": "Biegi w Oława (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów w Oława. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "5 biegów w Oława w 2026 roku.",
+    "eventCount": 5,
+    "canonicalUrl": "https://www.leszy.run/biegi/olawa",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/rytro": {
+    "path": "biegi/rytro",
+    "filters": {
+      "city": "Rytro"
+    },
+    "h1": "Biegi w Rytro",
+    "title": "Biegi w Rytro (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Rytro. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Rytro w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/rytro",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/walbrzych": {
+    "path": "biegi/walbrzych",
+    "filters": {
+      "city": "Wałbrzych"
+    },
+    "h1": "Biegi w Wałbrzych",
+    "title": "Biegi w Wałbrzych (7 wydarzeń) — Leszy.run",
+    "description": "7 biegów w Wałbrzych. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "7 biegów w Wałbrzych w 2026 roku.",
+    "eventCount": 7,
+    "canonicalUrl": "https://www.leszy.run/biegi/walbrzych",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/ruda-slaska": {
+    "path": "biegi/ruda-slaska",
+    "filters": {
+      "city": "Ruda Śląska"
+    },
+    "h1": "Biegi w Ruda Śląska",
+    "title": "Biegi w Ruda Śląska (6 wydarzeń) — Leszy.run",
+    "description": "6 biegów w Ruda Śląska. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "6 biegów w Ruda Śląska w 2026 roku.",
+    "eventCount": 6,
+    "canonicalUrl": "https://www.leszy.run/biegi/ruda-slaska",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/rybnik": {
+    "path": "biegi/rybnik",
+    "filters": {
+      "city": "Rybnik"
+    },
+    "h1": "Biegi w Rybnik",
+    "title": "Biegi w Rybnik (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Rybnik. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Rybnik w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/rybnik",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/biskupiec": {
+    "path": "biegi/biskupiec",
+    "filters": {
+      "city": "Biskupiec"
+    },
+    "h1": "Biegi w Biskupiec",
+    "title": "Biegi w Biskupiec (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Biskupiec. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Biskupiec w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/biskupiec",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/strzyzow-strzyzow": {
+    "path": "biegi/strzyzow-strzyzow",
+    "filters": {
+      "city": "Strzyżów\n                            Strzyżów"
+    },
+    "h1": "Biegi w Strzyżów\n                            Strzyżów",
+    "title": "Biegi w Strzyżów\n                            Strzyżów (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Strzyżów\n                            Strzyżów. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Strzyżów\n                            Strzyżów w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/strzyzow-strzyzow",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/piekary-slaskie": {
+    "path": "biegi/piekary-slaskie",
+    "filters": {
+      "city": "Piekary Śląskie"
+    },
+    "h1": "Biegi w Piekary Śląskie",
+    "title": "Biegi w Piekary Śląskie (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Piekary Śląskie. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Piekary Śląskie w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/piekary-slaskie",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/bielsko-biala": {
+    "path": "biegi/bielsko-biala",
+    "filters": {
+      "city": "Bielsko-Biała"
+    },
+    "h1": "Biegi w Bielsko-Biała",
+    "title": "Biegi w Bielsko-Biała (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Bielsko-Biała. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Bielsko-Biała w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/bielsko-biala",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/kielce": {
+    "path": "biegi/kielce",
+    "filters": {
+      "city": "Kielce"
+    },
+    "h1": "Biegi w Kielce",
+    "title": "Biegi w Kielce (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Kielce. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Kielce w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/kielce",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/golabki": {
+    "path": "biegi/golabki",
+    "filters": {
+      "city": "Gołąbki"
+    },
+    "h1": "Biegi w Gołąbki",
+    "title": "Biegi w Gołąbki (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Gołąbki. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Gołąbki w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/golabki",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/police": {
+    "path": "biegi/police",
+    "filters": {
+      "city": "Police"
+    },
+    "h1": "Biegi w Police",
+    "title": "Biegi w Police (5 wydarzeń) — Leszy.run",
+    "description": "5 biegów w Police. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "5 biegów w Police w 2026 roku.",
+    "eventCount": 5,
+    "canonicalUrl": "https://www.leszy.run/biegi/police",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/szklarska-poreba---jakuszyce": {
+    "path": "biegi/szklarska-poreba---jakuszyce",
+    "filters": {
+      "city": "Szklarska Poręba - Jakuszyce"
+    },
+    "h1": "Biegi w Szklarska Poręba - Jakuszyce",
+    "title": "Biegi w Szklarska Poręba - Jakuszyce (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Szklarska Poręba - Jakuszyce. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Szklarska Poręba - Jakuszyce w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/szklarska-poreba---jakuszyce",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/siedlce": {
+    "path": "biegi/siedlce",
+    "filters": {
+      "city": "Siedlce"
+    },
+    "h1": "Biegi w Siedlce",
+    "title": "Biegi w Siedlce (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Siedlce. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Siedlce w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/siedlce",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/sopot": {
+    "path": "biegi/sopot",
+    "filters": {
+      "city": "Sopot"
+    },
+    "h1": "Biegi w Sopot",
+    "title": "Biegi w Sopot (4 wydarzenia) — Leszy.run",
+    "description": "4 biegów w Sopot. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "4 biegów w Sopot w 2026 roku.",
+    "eventCount": 4,
+    "canonicalUrl": "https://www.leszy.run/biegi/sopot",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "biegi/paprocany": {
+    "path": "biegi/paprocany",
+    "filters": {
+      "city": "Paprocany"
+    },
+    "h1": "Biegi w Paprocany",
+    "title": "Biegi w Paprocany (3 wydarzenia) — Leszy.run",
+    "description": "3 biegów w Paprocany. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "3 biegów w Paprocany w 2026 roku.",
+    "eventCount": 3,
+    "canonicalUrl": "https://www.leszy.run/biegi/paprocany",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "biegi",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
   }
 }

@@ -11,6 +11,7 @@ import {
   REGION_SLUG_TO_DB, REGION_LOCATIVE,
   MONTH_SLUG_TO_NUM, MONTH_NUM_TO_SLUG, MONTH_LOCATIVE,
   SPECIAL_SLUGS, SPECIAL_H1, SPECIAL_SECONDARY_KW,
+  slugifyCity,
 } from './lib/biegi-mappings.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -98,13 +99,17 @@ function getEventTypes(e) {
   return Array.isArray(e.event_type) ? e.event_type : e.event_type ? [e.event_type] : []
 }
 
-function matchesFacet(event, { typeDbVal, regionDb, year, month, special }) {
+function matchesFacet(event, { typeDbVal, regionDb, year, month, special, city }) {
   if (special === 'polmaratony') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 19000 && m <= 23000 })
   if (special === 'maratony') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 41000 && m <= 44000 })
   if (special === 'dla-dzieci') return (Array.isArray(event.event_type) ? event.event_type : []).includes('dzieci')
   if (special === 'darmowe') return event.price_from === 0
   if (typeDbVal && !getEventTypes(event).includes(typeDbVal)) return false
   if (regionDb && event.voivodeship !== regionDb) return false
+  if (city) {
+    const eventCity = event.location ? event.location.split(',')[0].trim() : null
+    if (!eventCity || eventCity.toLowerCase() !== city.toLowerCase()) return false
+  }
   if (year && month) {
     const d = new Date(event.date + 'T00:00:00')
     if (d.getFullYear() !== year || d.getMonth() + 1 !== month) return false
@@ -220,6 +225,11 @@ function computeRelatedLinks(manifest, path, today) {
     return [manifestRef(manifest, 'biegi'), ...regionTypeLinks, ...monthLinks].filter(Boolean)
   }
 
+  // City page (single slug not matching type/region/special)
+  if (parts.length === 1) {
+    return [manifestRef(manifest, 'biegi')].filter(Boolean)
+  }
+
   // Type + region
   if (parts.length === 2 && TYPE_SLUG_TO_DB[parts[0]] && REGION_SLUG_TO_DB[parts[1]]) {
     const [typeSlug, regionSlug] = parts
@@ -309,11 +319,11 @@ async function main() {
 
   const manifest = {}
 
-  function addEntry({ path, filters, typeSlug = null, regionSlug = null, year = null, month = null, special = null, priority, changefreq }) {
+  function addEntry({ path, filters, typeSlug = null, regionSlug = null, year = null, month = null, special = null, city = null, priority, changefreq }) {
     const facet = {
       typeDbVal: typeSlug ? TYPE_SLUG_TO_DB[typeSlug] : null,
       regionDb: regionSlug ? REGION_SLUG_TO_DB[regionSlug] : null,
-      year, month, special,
+      year, month, special, city,
     }
     const { count, topCities, distRange } = computeMetadata(displayEvents, facet)
     let h1, title, description, intro
@@ -323,6 +333,11 @@ async function main() {
       title = `${h1} — Leszy.run`
       description = `Kalendarz biegów w Polsce ${currentYear}. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.`
       intro = `${displayEvents.length} biegów w Polsce w ${currentYear} roku — trailowe, uliczne, ultramaratony i więcej.`
+    } else if (city) {
+      h1 = `Biegi w ${city}`
+      title = `${h1} (${inflectCount(count)}) — Leszy.run`
+      description = `${count} biegów w ${city}. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.`
+      intro = `${count} biegów w ${city} w ${currentYear} roku.`
     } else {
       h1 = buildH1(typeSlug, regionSlug, year, month)
       title = special ? `${SPECIAL_H1[special]} (${inflectCount(count)}) — Leszy.run` : buildTitle(h1, count)
@@ -351,6 +366,8 @@ async function main() {
   for (const rs of regionSlugs) {
     addEntry({ path: `biegi/${rs}`, filters: { voivodeship: REGION_SLUG_TO_DB[rs] }, regionSlug: rs, priority: '0.8', changefreq: 'weekly' })
   }
+
+
 
   // Special pages (always)
   const specialFilters = {
@@ -401,6 +418,22 @@ async function main() {
     }
   }
 
+  // City pages (> 2 display events from the same primary city)
+  const cityCount = {}
+  for (const e of displayEvents) {
+    if (!e.location) continue
+    const city = e.location.split(',')[0].trim()
+    if (city) cityCount[city] = (cityCount[city] || 0) + 1
+  }
+  for (const [city, count] of Object.entries(cityCount)) {
+    if (count <= 2) continue
+    const citySlug = slugifyCity(city)
+    const path = `biegi/${citySlug}`
+    if (manifest[path]) continue // don't overwrite type/region/special pages
+    addEntry({ path, filters: { city }, city, priority: '0.7', changefreq: 'weekly' })
+  }
+  console.log(`City pages: ${Object.values(cityCount).filter(c => c > 2).length} cities with >2 events`)
+
   // Second pass: fill relatedLinks
   for (const path of Object.keys(manifest)) {
     manifest[path].relatedLinks = computeRelatedLinks(manifest, path, today)
@@ -411,7 +444,7 @@ async function main() {
   const byType = {}
   for (const path of Object.keys(manifest)) {
     const parts = path.replace('biegi', '').replace(/^\//, '').split('/').filter(Boolean)
-    const key = parts.length === 0 ? 'hub' : parts.length === 1 && SPECIAL_SLUGS.includes(parts[0]) ? 'special' : parts.length === 1 && TYPE_SLUG_TO_DB[parts[0]] ? 'type' : parts.length === 1 && REGION_SLUG_TO_DB[parts[0]] ? 'region' : parts.length === 2 && TYPE_SLUG_TO_DB[parts[0]] && REGION_SLUG_TO_DB[parts[1]] ? 'type+region' : parts.length === 2 ? 'month' : parts.length === 3 ? 'type+month or region+month' : 'type+region+month'
+    const key = parts.length === 0 ? 'hub' : parts.length === 1 && SPECIAL_SLUGS.includes(parts[0]) ? 'special' : parts.length === 1 && TYPE_SLUG_TO_DB[parts[0]] ? 'type' : parts.length === 1 && REGION_SLUG_TO_DB[parts[0]] ? 'region' : parts.length === 1 ? 'city' : parts.length === 2 && TYPE_SLUG_TO_DB[parts[0]] && REGION_SLUG_TO_DB[parts[1]] ? 'type+region' : parts.length === 2 ? 'month' : parts.length === 3 ? 'type+month or region+month' : 'type+region+month'
     byType[key] = (byType[key] || 0) + 1
   }
   console.log('--- Manifest breakdown ---')

@@ -131,3 +131,30 @@ export const SPECIAL_SECONDARY_KW = {
   'dla-dzieci': 'biegi rodzinne, bieg dla dzieci, biegi juniorów',
   'darmowe': 'bezpłatne biegi, darmowy bieg, biegi za darmo',
 }
+
+export const REGION_CENTER = {
+  'dolnoslaskie':       { lat: 51.10, lng: 16.90, zoom: 8 },
+  'kujawsko-pomorskie': { lat: 53.10, lng: 18.50, zoom: 8 },
+  'lubelskie':          { lat: 51.25, lng: 23.10, zoom: 8 },
+  'lubuskie':           { lat: 52.20, lng: 15.20, zoom: 8 },
+  'lodzkie':            { lat: 51.75, lng: 19.50, zoom: 8 },
+  'malopolskie':        { lat: 49.90, lng: 20.50, zoom: 8 },
+  'mazowieckie':        { lat: 52.20, lng: 21.00, zoom: 8 },
+  'opolskie':           { lat: 50.70, lng: 17.90, zoom: 9 },
+  'podkarpackie':       { lat: 50.10, lng: 22.30, zoom: 8 },
+  'podlaskie':          { lat: 53.10, lng: 23.10, zoom: 8 },
+  'pomorskie':          { lat: 54.20, lng: 18.20, zoom: 8 },
+  'slaskie':            { lat: 50.30, lng: 19.00, zoom: 9 },
+  'swietokrzyskie':     { lat: 50.80, lng: 20.90, zoom: 9 },
+  'warminsko-mazurskie':{ lat: 53.90, lng: 21.00, zoom: 8 },
+  'wielkopolskie':      { lat: 52.40, lng: 17.60, zoom: 8 },
+  'zachodniopomorskie': { lat: 53.40, lng: 15.50, zoom: 8 },
+}
+
+export function slugifyCity(city) {
+  return city.toLowerCase()
+    .replace(/ą/g, 'a').replace(/ć/g, 'c').replace(/ę/g, 'e')
+    .replace(/ł/g, 'l').replace(/ń/g, 'n').replace(/ó/g, 'o')
+    .replace(/ś/g, 's').replace(/ź/g, 'z').replace(/ż/g, 'z')
+    .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+}
