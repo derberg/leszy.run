@@ -63,9 +63,15 @@ export default function BieguHub() {
   const typeEntries = TYPE_SLUGS.map(s => entries[`listy/${s}`]).filter(Boolean)
   const regionEntries = Object.keys(REGION_SLUG_TO_DB).map(s => entries[`listy/${s}`]).filter(Boolean)
   const specialEntries = SPECIAL_SLUGS.map(s => entries[`listy/${s}`]).filter(Boolean)
+  const knownSingleSlugs = new Set([
+    ...TYPE_SLUGS.map(t => `listy/${t}`),
+    ...Object.keys(REGION_SLUG_TO_DB).map(r => `listy/${r}`),
+    ...SPECIAL_SLUGS.map(s => `listy/${s}`),
+    'listy',
+  ])
   const cityEntries = Object.values(entries)
-    .filter(e => e.path && !TYPE_SLUGS.some(t => e.path === `listy/${t}`) && !Object.keys(REGION_SLUG_TO_DB).some(r => e.path === `listy/${r}`) && !SPECIAL_SLUGS.some(s => e.path === `listy/${s}`) && e.path !== 'listy')
-    .sort((a, b) => b.eventCount - a.eventCount)
+    .filter(e => e.path && !knownSingleSlugs.has(e.path) && !e.path.slice('listy/'.length).includes('/'))
+    .sort((a, b) => a.h1.localeCompare(b.h1, 'pl'))
 
   return (
     <>

@@ -11,7 +11,7 @@ import {
   REGION_SLUG_TO_DB, REGION_LOCATIVE,
   MONTH_SLUG_TO_NUM, MONTH_NUM_TO_SLUG, MONTH_LOCATIVE,
   SPECIAL_SLUGS, SPECIAL_H1, SPECIAL_SECONDARY_KW,
-  slugifyCity,
+  slugifyCity, CITY_LOCATIVE, CITY_BLOCKLIST,
 } from './lib/biegi-mappings.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -334,10 +334,11 @@ async function main() {
       description = `Kalendarz biegów w Polsce ${currentYear}. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.`
       intro = `${displayEvents.length} biegów w Polsce w ${currentYear} roku — trailowe, uliczne, ultramaratony i więcej.`
     } else if (city) {
-      h1 = `Biegi w ${city}`
+      const cityLoc = CITY_LOCATIVE[city] || `w ${city}`
+      h1 = `Biegi ${cityLoc}`
       title = `${h1} (${inflectCount(count)}) — Leszy.run`
-      description = `${count} biegów w ${city}. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.`
-      intro = `${count} biegów w ${city} w ${currentYear} roku.`
+      description = `${count} biegów ${cityLoc}. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.`
+      intro = `${count} biegów ${cityLoc} w ${currentYear} roku.`
     } else {
       h1 = buildH1(typeSlug, regionSlug, year, month)
       title = special ? `${SPECIAL_H1[special]} (${inflectCount(count)}) — Leszy.run` : buildTitle(h1, count)
@@ -423,7 +424,7 @@ async function main() {
   for (const e of displayEvents) {
     if (!e.location) continue
     const city = e.location.split(/[\n,]/)[0].replace(/\s+/g, ' ').trim()
-    if (city) cityCount[city] = (cityCount[city] || 0) + 1
+    if (city && !CITY_BLOCKLIST.has(city)) cityCount[city] = (cityCount[city] || 0) + 1
   }
   for (const [city, count] of Object.entries(cityCount)) {
     if (count <= 2) continue
