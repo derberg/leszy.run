@@ -139,7 +139,7 @@
       {
         "path": "biegi/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 229
+        "eventCount": 199
       },
       {
         "path": "biegi/darmowe",
@@ -2004,10 +2004,10 @@
       "isKids": true
     },
     "h1": "Biegi dla dzieci w Polsce",
-    "title": "Biegi dla dzieci w Polsce (229 wydarzeń) — Leszy.run",
-    "description": "229 biegów dla dzieci w Polsce. biegi rodzinne, bieg dla dzieci, biegi juniorów. Zapisy, dystanse, ceny.",
-    "intro": "229 biegów dla dzieci w Polsce w 2026 roku. Krótkie dystanse dla najmłodszych biegaczy. Zawody w: Warszawa, Ruda Śląska, Wałbrzych.",
-    "eventCount": 229,
+    "title": "Biegi dla dzieci w Polsce (199 wydarzeń) — Leszy.run",
+    "description": "199 biegów dla dzieci w Polsce. biegi rodzinne, bieg dla dzieci, biegi juniorów. Zapisy, dystanse, ceny.",
+    "intro": "199 biegów dla dzieci w Polsce w 2026 roku. Krótkie dystanse dla najmłodszych biegaczy. Zawody w: Ruda Śląska, Warszawa, Wałbrzych.",
+    "eventCount": 199,
     "canonicalUrl": "https://www.leszy.run/biegi/dla-dzieci",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "daily",

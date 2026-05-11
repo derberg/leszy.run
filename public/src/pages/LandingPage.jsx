@@ -99,10 +99,12 @@ export default function LandingPage() {
         // Distance-based: fetch broadly then filter client-side
         q = q.limit(2000)
       } else if (special === 'dla-dzieci') {
-        // Distance-based heuristic (≤1km) — is_kids not in calendar_events
-        q = q.limit(2000)
+        // is_kids is not a column in calendar_events; publishToCalendar maps it to event_type=['dzieci']
+        const from = (page - 1) * PAGE_SIZE
+        q = q.contains('event_type', ['dzieci']).range(from, from + PAGE_SIZE - 1)
       } else if (special === 'darmowe') {
-        q = q.eq('price_from', 0)
+        const from = (page - 1) * PAGE_SIZE
+        q = q.eq('price_from', 0).range(from, from + PAGE_SIZE - 1)
       } else {
         if (typeDbVal) q = q.contains('event_type', [typeDbVal])
         if (regionDb) q = q.eq('voivodeship', regionDb)
@@ -121,17 +123,15 @@ export default function LandingPage() {
 
       let result = data || []
 
-      // Client-side distance filter for polmaratony/maratony/dla-dzieci
+      // Client-side distance filter for polmaratony/maratony (distance range not filterable server-side)
       if (special === 'polmaratony') {
         result = result.filter(e => (e.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 19000 && m <= 23000 }))
       } else if (special === 'maratony') {
         result = result.filter(e => (e.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 41000 && m <= 44000 }))
-      } else if (special === 'dla-dzieci') {
-        result = result.filter(e => (e.distances || []).some(d => { const m = parseDistanceToMeters(d); return !isNaN(m) && m > 0 && m <= 1000 }))
       }
 
       setEvents(result)
-      setTotal(['polmaratony', 'maratony', 'dla-dzieci'].includes(special) ? result.length : (count || 0))
+      setTotal(['polmaratony', 'maratony'].includes(special) ? result.length : (count || 0))
       setLoading(false)
     }
 
