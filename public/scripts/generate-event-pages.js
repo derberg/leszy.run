@@ -49,9 +49,10 @@ function buildDescription(event) {
 function buildJsonLd(event, slug) {
   const startDate = event.date ? event.date.slice(0, 10) : undefined
   const eventUrl = `${BASE_URL}/kalendarz/${slug}`
+  const datePublished = event.created_at ? String(event.created_at).slice(0, 10) : startDate
+  const dateModified = event.updated_at ? String(event.updated_at).slice(0, 10) : datePublished
 
-  const ld = {
-    '@context': 'https://schema.org',
+  const sportsEvent = {
     '@type': 'SportsEvent',
     name: event.name,
     description: buildDescription(event) || undefined,
@@ -62,6 +63,8 @@ function buildJsonLd(event, slug) {
     image: `${eventUrl}/og.png`,
     url: eventUrl,
     inLanguage: 'pl-PL',
+    datePublished,
+    dateModified,
     location: {
       '@type': 'Place',
       name: event.location || undefined,
@@ -76,14 +79,10 @@ function buildJsonLd(event, slug) {
       name: 'Organizator',
       url: event.website || event.registration_url || eventUrl,
     },
-    performer: {
-      '@type': 'PerformingGroup',
-      name: 'Uczestnicy',
-    },
   }
 
   if (event.lat != null && event.lng != null) {
-    ld.location.geo = {
+    sportsEvent.location.geo = {
       '@type': 'GeoCoordinates',
       latitude: event.lat,
       longitude: event.lng,
@@ -91,7 +90,7 @@ function buildJsonLd(event, slug) {
   }
 
   if (event.price_from != null) {
-    ld.offers = {
+    sportsEvent.offers = {
       '@type': 'AggregateOffer',
       lowPrice: event.price_from,
       highPrice: event.price_to != null ? event.price_to : event.price_from,
@@ -101,13 +100,22 @@ function buildJsonLd(event, slug) {
       url: event.registration_url || eventUrl,
     }
     if (event.registration_deadline) {
-      ld.offers.priceValidUntil = event.registration_deadline.slice(0, 10)
+      sportsEvent.offers.priceValidUntil = event.registration_deadline.slice(0, 10)
     } else if (startDate) {
-      ld.offers.priceValidUntil = startDate
+      sportsEvent.offers.priceValidUntil = startDate
     }
   }
 
-  return JSON.stringify(ld, null, 2)
+  const breadcrumb = {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Leszy.run', item: BASE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Kalendarz', item: `${BASE_URL}/kalendarz` },
+      { '@type': 'ListItem', position: 3, name: event.name, item: eventUrl },
+    ],
+  }
+
+  return JSON.stringify({ '@context': 'https://schema.org', '@graph': [sportsEvent, breadcrumb] }, null, 2)
 }
 
 function buildEventHtml(event, slug, cssLinks, jsScripts) {

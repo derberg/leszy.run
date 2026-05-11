@@ -53,8 +53,9 @@ function removeJsonLd(id) {
  * @param {string} [options.image] - OG image URL
  * @param {string} [options.type] - OG type (default: 'website')
  * @param {Object} [options.jsonLd] - JSON-LD structured data object
+ * @param {boolean} [options.noindex] - Set to true to prevent indexing (noindex, follow)
  */
-export default function useSeo({ title, description, path, image, type = 'website', jsonLd } = {}) {
+export default function useSeo({ title, description, path, image, type = 'website', jsonLd, noindex = false } = {}) {
   const location = useLocation()
   const canonicalPath = path || location.pathname
 
@@ -68,7 +69,7 @@ export default function useSeo({ title, description, path, image, type = 'websit
 
     // Standard meta
     setMeta('description', desc)
-    setMeta('robots', 'index, follow')
+    setMeta('robots', noindex ? 'noindex, follow' : 'index, follow')
 
     // Open Graph
     setMeta('og:title', fullTitle, true)
@@ -96,5 +97,5 @@ export default function useSeo({ title, description, path, image, type = 'websit
     return () => {
       removeJsonLd('seo-page-jsonld')
     }
-  }, [title, description, canonicalPath, image, type, jsonLd])
+  }, [title, description, canonicalPath, image, type, jsonLd, noindex])
 }

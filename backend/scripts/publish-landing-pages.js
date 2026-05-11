@@ -437,18 +437,18 @@ async function main() {
     addEntry({ path: `listy/${sp}`, filters: specialFilters[sp], special: sp, priority: '0.8', changefreq: 'daily' })
   }
 
-  // Special + region (≥2 threshold)
+  // Special + region (≥3 threshold)
   for (const sp of SPECIAL_SLUGS) {
     for (const rs of regionSlugs) {
-      if (countThreshold({ special: sp, regionDb: REGION_SLUG_TO_DB[rs] }) < 2) continue
+      if (countThreshold({ special: sp, regionDb: REGION_SLUG_TO_DB[rs] }) < 3) continue
       addEntry({ path: `listy/${sp}/${rs}`, special: sp, regionSlug: rs, priority: '0.7', changefreq: 'daily' })
     }
   }
 
-  // Type + region (≥2 threshold)
+  // Type + region (≥3 threshold)
   for (const ts of typeSlugs) {
     for (const rs of regionSlugs) {
-      if (countThreshold({ typeDbVal: TYPE_SLUG_TO_DB[ts], regionDb: REGION_SLUG_TO_DB[rs] }) < 2) continue
+      if (countThreshold({ typeDbVal: TYPE_SLUG_TO_DB[ts], regionDb: REGION_SLUG_TO_DB[rs] }) < 3) continue
       addEntry({ path: `listy/${ts}/${rs}`, filters: { event_type: TYPE_SLUG_TO_DB[ts], voivodeship: REGION_SLUG_TO_DB[rs] }, typeSlug: ts, regionSlug: rs, priority: '0.7', changefreq: 'weekly' })
     }
   }

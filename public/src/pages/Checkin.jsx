@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useEvent } from '../hooks/useEvent.js'
 import { supabase } from '../lib/supabase.js'
 import { QRCodeCanvas } from 'qrcode.react'
+import useSeo from '../hooks/useSeo.js'
 
 function isMinor(birthDate, eventDate) {
   if (!birthDate) return false
@@ -14,6 +15,7 @@ function isMinor(birthDate, eventDate) {
 }
 
 export default function Checkin() {
+  useSeo({ title: 'Check-in', noindex: true })
   const { event, loading: eventLoading, error: eventError } = useEvent()
   const participantId = new URLSearchParams(window.location.search).get('p')
 

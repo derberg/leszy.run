@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useEvent } from '../hooks/useEvent.js'
 import { supabase } from '../lib/supabase.js'
+import useSeo from '../hooks/useSeo.js'
 
 const NUMPAD = [
   ['1', '2', '3'],
@@ -10,6 +11,7 @@ const NUMPAD = [
 ]
 
 export default function Volunteer() {
+  useSeo({ title: 'Wolontariat', noindex: true })
   const { event, loading: eventLoading, error: eventError } = useEvent()
   const checkpointId = new URLSearchParams(window.location.search).get('checkpoint')
   const [checkpoint, setCheckpoint] = useState(null)

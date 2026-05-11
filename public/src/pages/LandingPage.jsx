@@ -170,32 +170,49 @@ export default function LandingPage() {
   // Build full JSON-LD with events for useSeo after load
   const jsonLd = useMemo(() => {
     if (!events.length) return null
+    const pageUrl = `https://www.leszy.run${canonicalPath}`
+    const isRoot = canonicalPath === '/listy'
+    const breadcrumbItems = [
+      { '@type': 'ListItem', position: 1, name: 'Leszy.run', item: 'https://www.leszy.run' },
+      { '@type': 'ListItem', position: 2, name: 'Lista kategorii', item: 'https://www.leszy.run/listy' },
+    ]
+    if (!isRoot) {
+      breadcrumbItems.push({ '@type': 'ListItem', position: 3, name: h1, item: pageUrl })
+    }
     return {
       '@context': 'https://schema.org',
-      '@type': 'CollectionPage',
-      name: h1,
-      description: landingData?.description,
-      url: `https://www.leszy.run${canonicalPath}`,
-      inLanguage: 'pl-PL',
-      mainEntity: {
-        '@type': 'ItemList',
-        itemListElement: events.slice(0, 50).map((e, i) => ({
-          '@type': 'ListItem',
-          position: i + 1,
-          item: {
-            '@type': 'SportsEvent',
-            name: e.name,
-            startDate: e.date,
-            location: {
-              '@type': 'Place',
-              name: e.location || undefined,
-              address: { '@type': 'PostalAddress', addressLocality: e.location || undefined, addressRegion: e.voivodeship || undefined, addressCountry: 'PL' },
-            },
-            ...(e.price_from != null ? { offers: { '@type': 'Offer', price: String(e.price_from), priceCurrency: 'PLN', availability: 'https://schema.org/InStock' } } : {}),
-            ...(e.registration_url || e.website ? { url: e.registration_url || e.website } : {}),
+      '@graph': [
+        {
+          '@type': 'CollectionPage',
+          name: h1,
+          description: landingData?.description,
+          url: pageUrl,
+          inLanguage: 'pl-PL',
+          mainEntity: {
+            '@type': 'ItemList',
+            itemListElement: events.slice(0, 50).map((e, i) => ({
+              '@type': 'ListItem',
+              position: i + 1,
+              item: {
+                '@type': 'SportsEvent',
+                name: e.name,
+                startDate: e.date,
+                location: {
+                  '@type': 'Place',
+                  name: e.location || undefined,
+                  address: { '@type': 'PostalAddress', addressLocality: e.location || undefined, addressRegion: e.voivodeship || undefined, addressCountry: 'PL' },
+                },
+                ...(e.price_from != null ? { offers: { '@type': 'Offer', price: String(e.price_from), priceCurrency: 'PLN', availability: 'https://schema.org/InStock' } } : {}),
+                ...(e.registration_url || e.website ? { url: e.registration_url || e.website } : {}),
+              },
+            })),
           },
-        })),
-      },
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: breadcrumbItems,
+        },
+      ],
     }
   }, [events, h1, landingData, canonicalPath])
 
@@ -286,9 +303,9 @@ export default function LandingPage() {
 
         {!loading && view === 'list' && Object.entries(grouped).map(([key, group]) => (
           <div key={key} className="mb-2">
-            <div className="font-display font-bold text-base tracking-widest uppercase text-apex-yellow-dim py-5 border-b border-apex-border mb-0.5">
+            <h2 className="font-display font-bold text-base tracking-widest uppercase text-apex-yellow-dim py-5 border-b border-apex-border mb-0.5">
               {group.label}
-            </div>
+            </h2>
             {group.events.map(ev => <EventRow key={ev.id} event={ev} />)}
           </div>
         ))}

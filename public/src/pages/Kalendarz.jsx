@@ -497,9 +497,9 @@ export default function Kalendarz() {
 
             {!loading && Object.entries(grouped).map(([key, group]) => (
               <div key={key} className="mb-2">
-                <div className="font-display font-bold text-base tracking-widest uppercase text-apex-yellow-dim py-5 border-b border-apex-border mb-0.5">
+                <h2 className="font-display font-bold text-base tracking-widest uppercase text-apex-yellow-dim py-5 border-b border-apex-border mb-0.5">
                   {group.label}
-                </div>
+                </h2>
                 {group.events.map(ev => <EventRow key={ev.id} event={ev} />)}
               </div>
             ))}

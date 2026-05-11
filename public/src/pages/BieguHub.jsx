@@ -30,6 +30,25 @@ export default function BieguHub() {
     title: `Biegi w Polsce — kalendarz biegów`,
     description: 'Kalendarz biegów w Polsce. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.',
     path: '/listy',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'CollectionPage',
+          name: 'Biegi w Polsce — kalendarz biegów',
+          description: 'Kalendarz biegów w Polsce. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej.',
+          url: 'https://www.leszy.run/listy',
+          inLanguage: 'pl-PL',
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Leszy.run', item: 'https://www.leszy.run' },
+            { '@type': 'ListItem', position: 2, name: 'Lista kategorii', item: 'https://www.leszy.run/listy' },
+          ],
+        },
+      ],
+    },
   })
 
   useEffect(() => {

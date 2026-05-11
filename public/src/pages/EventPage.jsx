@@ -73,9 +73,10 @@ function buildSchemaDescription(event) {
 function buildJsonLd(event, slug) {
   const startDate = event.date ? String(event.date).slice(0, 10) : undefined
   const eventUrl = `https://www.leszy.run/kalendarz/${slug}`
+  const datePublished = event.created_at ? String(event.created_at).slice(0, 10) : startDate
+  const dateModified = event.updated_at ? String(event.updated_at).slice(0, 10) : datePublished
 
-  const ld = {
-    '@context': 'https://schema.org',
+  const sportsEvent = {
     '@type': 'SportsEvent',
     name: event.name,
     description: buildSchemaDescription(event) || undefined,
@@ -86,31 +87,29 @@ function buildJsonLd(event, slug) {
     image: `${eventUrl}/og.png`,
     url: eventUrl,
     inLanguage: 'pl-PL',
+    datePublished,
+    dateModified,
     organizer: {
       '@type': 'Organization',
       name: 'Organizator',
       url: event.website || event.registration_url || eventUrl,
     },
-    performer: {
-      '@type': 'PerformingGroup',
-      name: 'Uczestnicy',
-    },
   }
 
   if (event.location) {
-    ld.location = {
+    sportsEvent.location = {
       '@type': 'Place',
       name: event.location,
     }
     if (event.lat && event.lng) {
-      ld.location.geo = {
+      sportsEvent.location.geo = {
         '@type': 'GeoCoordinates',
         latitude: Number(event.lat),
         longitude: Number(event.lng),
       }
     }
     if (event.voivodeship) {
-      ld.location.address = {
+      sportsEvent.location.address = {
         '@type': 'PostalAddress',
         addressRegion: event.voivodeship,
         addressCountry: 'PL',
@@ -119,7 +118,7 @@ function buildJsonLd(event, slug) {
   }
 
   if (event.price_from != null) {
-    ld.offers = {
+    sportsEvent.offers = {
       '@type': 'AggregateOffer',
       lowPrice: event.price_from,
       highPrice: event.price_to != null ? event.price_to : event.price_from,
@@ -129,13 +128,22 @@ function buildJsonLd(event, slug) {
       url: event.registration_url || eventUrl,
     }
     if (event.registration_deadline) {
-      ld.offers.priceValidUntil = event.registration_deadline.slice(0, 10)
+      sportsEvent.offers.priceValidUntil = event.registration_deadline.slice(0, 10)
     } else if (startDate) {
-      ld.offers.priceValidUntil = startDate
+      sportsEvent.offers.priceValidUntil = startDate
     }
   }
 
-  return ld
+  const breadcrumb = {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Leszy.run', item: 'https://www.leszy.run' },
+      { '@type': 'ListItem', position: 2, name: 'Kalendarz', item: 'https://www.leszy.run/kalendarz' },
+      { '@type': 'ListItem', position: 3, name: event.name, item: eventUrl },
+    ],
+  }
+
+  return { '@context': 'https://schema.org', '@graph': [sportsEvent, breadcrumb] }
 }
 
 export default function EventPage() {

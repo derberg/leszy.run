@@ -27,9 +27,9 @@ function HeroSection() {
         className={`w-[280px] md:w-[500px] h-auto mb-6 relative z-10 ${isDark ? 'hero-logo-dark' : 'hero-logo-light'}`}
       />
 
-      <p className="font-sans font-semibold text-base md:text-lg tracking-widest uppercase text-apex-muted mt-2 relative z-10">
+      <h1 className="font-sans font-semibold text-base md:text-lg tracking-widest uppercase text-apex-muted mt-2 relative z-10">
         Pomiar czasu &middot; Zapisy &middot; Wyniki na żywo
-      </p>
+      </h1>
 
       <p className="text-base md:text-[17px] text-apex-text mt-5 max-w-[500px] leading-relaxed relative z-10">
         Profesjonalna obsługa biegów i wydarzeń sportowych. Zapisy, pomiar czasu, wyniki online — wszystko w jednym miejscu.

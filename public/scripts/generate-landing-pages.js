@@ -18,31 +18,50 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function buildJsonLd(entry) {
-  const ld = {
-    '@context': 'https://schema.org',
-    '@type': 'CollectionPage',
-    name: entry.h1,
-    description: entry.description,
-    url: entry.canonicalUrl,
-    inLanguage: 'pl-PL',
-    breadcrumb: {
-      '@type': 'BreadcrumbList',
-      itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Leszy.run', item: BASE_URL },
-        { '@type': 'ListItem', position: 2, name: 'Lista kategorii', item: `${BASE_URL}/listy` },
-      ],
-    },
-  }
-  if (entry.path !== 'listy') {
-    ld.breadcrumb.itemListElement.push(
-      { '@type': 'ListItem', position: 3, name: entry.h1, item: entry.canonicalUrl }
-    )
-  }
-  return JSON.stringify(ld, null, 2).replace(/<\//g, '<\\/')
+const POLISH_MONTH_SLUGS = {
+  styczen: 1, luty: 2, marzec: 3, kwiecien: 4, maj: 5, czerwiec: 6,
+  lipiec: 7, sierpien: 8, wrzesien: 9, pazdziernik: 10, listopad: 11, grudzien: 12,
 }
 
-function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl) {
+function isPastMonthPage(path) {
+  const m = path.match(/^listy\/(\d{4})\/([a-z]+)$/)
+  if (!m) return false
+  const year = parseInt(m[1], 10)
+  const monthNum = POLISH_MONTH_SLUGS[m[2]]
+  if (!monthNum) return false
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  return year < currentYear || (year === currentYear && monthNum < currentMonth)
+}
+
+function buildJsonLd(entry) {
+  const breadcrumbItems = [
+    { '@type': 'ListItem', position: 1, name: 'Leszy.run', item: BASE_URL },
+    { '@type': 'ListItem', position: 2, name: 'Lista kategorii', item: `${BASE_URL}/listy` },
+  ]
+  if (entry.path !== 'listy') {
+    breadcrumbItems.push({ '@type': 'ListItem', position: 3, name: entry.h1, item: entry.canonicalUrl })
+  }
+
+  const graph = [
+    {
+      '@type': 'CollectionPage',
+      name: entry.h1,
+      description: entry.description,
+      url: entry.canonicalUrl,
+      inLanguage: 'pl-PL',
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: breadcrumbItems,
+    },
+  ]
+
+  return JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }, null, 2).replace(/<\//g, '<\\/')
+}
+
+function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = false) {
   const title = escapeHtml(entry.title)
   const description = escapeHtml(entry.description)
   const canonical = entry.canonicalUrl
@@ -50,6 +69,7 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl) {
   // Embed full manifest entry as landing-data for React hydration
   const landingData = JSON.stringify(entry).replace(/<\//g, '<\\/')
   const ogImage = ogImageUrl || `${BASE_URL}/og-image.png`
+  const robotsContent = pastMonth ? 'noindex, follow' : 'index, follow'
 
   return `<!DOCTYPE html>
 <html lang="pl">
@@ -58,7 +78,7 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${title}</title>
     <meta name="description" content="${description}" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="${robotsContent}" />
     <link rel="canonical" href="${canonical}" />
 
     <!-- Open Graph -->
@@ -131,18 +151,21 @@ async function main() {
   await generateAllLandingOgs(DIST)
 
   let generated = 0
+  let pastMonthCount = 0
   for (const path of paths) {
     const entry = manifest[path]
+    const pastMonth = isPastMonthPage(path)
     // path is like 'listy' or 'listy/przelajowe/slaskie'
     const dir = resolve(DIST, path)
     mkdirSync(dir, { recursive: true })
     // Per-page OG image written alongside index.html
     const ogImageUrl = `${BASE_URL}/${path}/og.png`
-    const html = buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl)
+    const html = buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth)
     writeFileSync(resolve(dir, 'index.html'), html)
     generated++
+    if (pastMonth) pastMonthCount++
   }
-  console.log(`Generated ${generated} landing page HTML files.`)
+  console.log(`Generated ${generated} landing page HTML files (${pastMonthCount} past-month noindex).`)
 
   // Append to sitemap written by generate-event-pages.js
   const sitemapPath = resolve(DIST, 'sitemap.xml')
@@ -151,14 +174,15 @@ async function main() {
   let sitemap = readFileSync(sitemapPath, 'utf-8')
   sitemap = sitemap.replace('</urlset>', '')
 
-  const entries = paths.map(path => {
+  const indexablePaths = paths.filter(path => !isPastMonthPage(path))
+  const entries = indexablePaths.map(path => {
     const entry = manifest[path]
     return `  <url>\n    <loc>${entry.canonicalUrl}</loc>\n    <changefreq>${entry.sitemapChangefreq}</changefreq>\n    <priority>${entry.sitemapPriority}</priority>\n  </url>`
   })
 
   sitemap += entries.join('\n') + '\n</urlset>\n'
   writeFileSync(sitemapPath, sitemap)
-  console.log(`Appended ${paths.length} landing page URLs to sitemap.xml.`)
+  console.log(`Appended ${indexablePaths.length} landing page URLs to sitemap.xml (${paths.length - indexablePaths.length} past-month pages excluded).`)
 }
 
 main().catch(err => { console.error(err); process.exit(1) })
