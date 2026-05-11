@@ -247,11 +247,11 @@ export default function LandingPage() {
           </nav>
         )}
 
-        <div className="mb-4 flex justify-between items-center">
+        <div className="mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
           <span className="font-mono text-xs text-apex-muted">
             Znaleziono <strong className="text-apex-yellow">{total}</strong> wydarzeń
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button onClick={() => setView('list')}
               className={`font-mono text-[11px] tracking-wide px-3 py-1.5 border transition-all ${view === 'list' ? 'bg-apex-yellow text-apex-ink border-apex-yellow' : 'border-apex-border text-apex-muted hover:border-apex-border-mid hover:text-apex-text-bright'}`}>
               Lista
@@ -262,7 +262,7 @@ export default function LandingPage() {
             </button>
             <Link
               to={`/kalendarz${kalendarzParams.toString() ? '?' + kalendarzParams.toString() : ''}`}
-              className="font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all"
+              className="whitespace-nowrap font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all"
             >
               Przeglądaj i filtruj →
             </Link>
