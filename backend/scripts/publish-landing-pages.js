@@ -101,7 +101,7 @@ function getEventTypes(e) {
 function matchesFacet(event, { typeDbVal, regionDb, year, month, special }) {
   if (special === 'polmaratony') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 19000 && m <= 23000 })
   if (special === 'maratony') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 41000 && m <= 44000 })
-  if (special === 'dla-dzieci') return event.is_kids === true
+  if (special === 'dla-dzieci') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return !isNaN(m) && m > 0 && m <= 1000 })
   if (special === 'darmowe') return event.price_from === 0
   if (typeDbVal && !getEventTypes(event).includes(typeDbVal)) return false
   if (regionDb && event.voivodeship !== regionDb) return false
@@ -277,14 +277,8 @@ async function main() {
   const cutoffStr = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const currentYear = today.getFullYear()
 
-  // Probe for optional columns (is_kids may not exist yet in all envs)
-  const { error: isKidsColErr } = await supabase.from('calendar_events').select('is_kids').limit(1)
-  const hasIsKids = !isKidsColErr
-
-  const SELECT = [
-    'date,location,voivodeship,event_type,distances,price_from,registration_deadline',
-    hasIsKids ? 'is_kids' : null,
-  ].filter(Boolean).join(',')
+  // is_kids is in scraper_all but not yet in calendar_events — use distance heuristic (≤1 km) instead
+  const SELECT = 'date,location,voivodeship,event_type,distances,price_from,registration_deadline'
 
   console.log('Querying Supabase...')
   const [thresholdEvents, displayEvents] = await Promise.all([
