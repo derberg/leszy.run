@@ -54,6 +54,26 @@
         "eventCount": 77
       },
       {
+        "path": "biegi/polmaratony",
+        "h1": "Półmaratony w Polsce",
+        "eventCount": 191
+      },
+      {
+        "path": "biegi/maratony",
+        "h1": "Maratony w Polsce",
+        "eventCount": 72
+      },
+      {
+        "path": "biegi/dla-dzieci",
+        "h1": "Biegi dla dzieci w Polsce",
+        "eventCount": 199
+      },
+      {
+        "path": "biegi/darmowe",
+        "h1": "Darmowe biegi w Polsce",
+        "eventCount": 73
+      },
+      {
         "path": "biegi/dolnoslaskie",
         "h1": "Biegi w Dolnośląskiem",
         "eventCount": 89
@@ -132,26 +152,6 @@
         "path": "biegi/zachodniopomorskie",
         "h1": "Biegi w Zachodniopomorskiem",
         "eventCount": 65
-      },
-      {
-        "path": "biegi/polmaratony",
-        "h1": "Półmaratony w Polsce",
-        "eventCount": 191
-      },
-      {
-        "path": "biegi/maratony",
-        "h1": "Maratony w Polsce",
-        "eventCount": 72
-      },
-      {
-        "path": "biegi/dla-dzieci",
-        "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 199
-      },
-      {
-        "path": "biegi/darmowe",
-        "h1": "Darmowe biegi w Polsce",
-        "eventCount": 73
       }
     ]
   },

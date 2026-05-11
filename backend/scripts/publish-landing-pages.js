@@ -189,8 +189,8 @@ function computeRelatedLinks(manifest, path, today) {
   if (path === 'biegi') {
     return [
       ...typeSlugs.map(t => manifestRef(manifest, `biegi/${t}`)),
-      ...regionSlugs.map(r => manifestRef(manifest, `biegi/${r}`)),
       ...SPECIAL_SLUGS.map(s => manifestRef(manifest, `biegi/${s}`)),
+      ...regionSlugs.map(r => manifestRef(manifest, `biegi/${r}`)),
     ].filter(Boolean)
   }
 
