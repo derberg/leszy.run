@@ -1,10 +1,11 @@
-// Post-build script: generates per-landing-page HTML files and appends to sitemap.xml.
+// Post-build script: generates per-landing-page HTML files, OG images, and appends to sitemap.xml.
 // Reads public/listy/.manifest.json (written by backend/scripts/publish-landing-pages.js).
 // Run after generate-event-pages.js via the build script.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { generateAllLandingOgs } from './generate-landing-og.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -41,13 +42,14 @@ function buildJsonLd(entry) {
   return JSON.stringify(ld, null, 2).replace(/<\//g, '<\\/')
 }
 
-function buildLandingHtml(entry, cssLinks, jsScripts) {
+function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl) {
   const title = escapeHtml(entry.title)
   const description = escapeHtml(entry.description)
   const canonical = entry.canonicalUrl
   const jsonLd = buildJsonLd(entry)
   // Embed full manifest entry as landing-data for React hydration
   const landingData = JSON.stringify(entry).replace(/<\//g, '<\\/')
+  const ogImage = ogImageUrl || `${BASE_URL}/og-image.png`
 
   return `<!DOCTYPE html>
 <html lang="pl">
@@ -64,7 +66,7 @@ function buildLandingHtml(entry, cssLinks, jsScripts) {
     <meta property="og:title" content="${title}" />
     <meta property="og:description" content="${description}" />
     <meta property="og:url" content="${canonical}" />
-    <meta property="og:image" content="${BASE_URL}/og-image.png" />
+    <meta property="og:image" content="${ogImage}" />
     <meta property="og:locale" content="pl_PL" />
     <meta property="og:site_name" content="Leszy.run" />
 
@@ -72,7 +74,7 @@ function buildLandingHtml(entry, cssLinks, jsScripts) {
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
-    <meta name="twitter:image" content="${BASE_URL}/og-image.png" />
+    <meta name="twitter:image" content="${ogImage}" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/logo-bez-napisu.svg" />
@@ -107,7 +109,7 @@ function buildLandingHtml(entry, cssLinks, jsScripts) {
 </html>`
 }
 
-function main() {
+async function main() {
   if (!existsSync(MANIFEST_PATH)) {
     console.log(`No landing pages manifest at ${MANIFEST_PATH} — skipping.`)
     return
@@ -125,13 +127,18 @@ function main() {
   const jsScripts = (indexHtml.match(/<script\b[^>]*type="module"[^>]*src="[^"]*"[^>]*><\/script>/g) || []).join('\n    ')
   console.log(`Extracted CSS/JS from index.html.`)
 
+  // Generate per-page OG images into dist/
+  await generateAllLandingOgs(DIST)
+
   let generated = 0
   for (const path of paths) {
     const entry = manifest[path]
     // path is like 'listy' or 'listy/przelajowe/slaskie'
     const dir = resolve(DIST, path)
     mkdirSync(dir, { recursive: true })
-    const html = buildLandingHtml(entry, cssLinks, jsScripts)
+    // Per-page OG image written alongside index.html
+    const ogImageUrl = `${BASE_URL}/${path}/og.png`
+    const html = buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl)
     writeFileSync(resolve(dir, 'index.html'), html)
     generated++
   }
@@ -154,4 +161,4 @@ function main() {
   console.log(`Appended ${paths.length} landing page URLs to sitemap.xml.`)
 }
 
-main()
+main().catch(err => { console.error(err); process.exit(1) })
