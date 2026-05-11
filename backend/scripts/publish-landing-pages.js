@@ -347,7 +347,7 @@ async function main() {
     }
 
     manifest[path] = {
-      path, filters, h1, title, description, intro, eventCount: count,
+      path, filters: facet, h1, title, description, intro, eventCount: count,
       canonicalUrl: `${BASE_URL}/${path}`,
       sitemapPriority: priority, sitemapChangefreq: changefreq,
       relatedLinks: [],
