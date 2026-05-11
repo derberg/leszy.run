@@ -225,7 +225,7 @@ export default function LandingPage() {
         {relatedLinks.length > 0 && (
           <nav aria-label="Powiązane strony" className="mb-8">
             <div className="flex flex-wrap gap-2">
-              {(linksExpanded ? relatedLinks : relatedLinks.slice(0, 5)).map(link => (
+              {(linksExpanded ? relatedLinks : relatedLinks.slice(0, 3)).map(link => (
                 <Link
                   key={link.path}
                   to={`/${link.path}`}
@@ -235,12 +235,12 @@ export default function LandingPage() {
                   {link.eventCount > 0 && <span className="ml-1.5 text-apex-yellow-dim">{link.eventCount}</span>}
                 </Link>
               ))}
-              {relatedLinks.length > 5 && (
+              {relatedLinks.length > 3 && (
                 <button
                   onClick={() => setLinksExpanded(v => !v)}
                   className="font-mono text-[11px] font-semibold tracking-wide px-3 py-1.5 border border-apex-border text-apex-yellow-dim hover:border-apex-yellow/40 hover:text-apex-yellow transition-all"
                 >
-                  {linksExpanded ? 'Zwiń ↑' : `+${relatedLinks.length - 5} więcej`}
+                  {linksExpanded ? 'Zwiń ↑' : `+${relatedLinks.length - 3} więcej`}
                 </button>
               )}
             </div>
