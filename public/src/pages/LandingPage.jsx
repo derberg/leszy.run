@@ -61,7 +61,7 @@ export default function LandingPage() {
   const [total, setTotal] = useState(0)
   const [view, setView] = useState('list')
 
-  // Read static landing-data on mount; fall back to manifest for city pages (SPA nav)
+  // Read static landing-data on mount; fall back to manifest for all SPA nav (h1, relatedLinks, etc.)
   useEffect(() => {
     let active = true
     setLandingData(null)
@@ -70,8 +70,6 @@ export default function LandingPage() {
       try { setLandingData(JSON.parse(el.textContent)) } catch {}
       return
     }
-    const parsed = parsePathFilters(location.pathname)
-    if (parsed.special || parsed.typeDbVal || parsed.regionDb || parsed.year || parsed.month) return
     const seg = location.pathname.replace(/^\/biegi\/?/, '').replace(/\/$/, '')
     if (!seg) return
     fetch('/biegi/.manifest.json')
