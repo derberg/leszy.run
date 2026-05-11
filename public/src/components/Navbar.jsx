@@ -7,6 +7,7 @@ const navLinks = [
   { to: '/#oferta', label: 'Oferta', hash: 'oferta' },
   { to: '/#wydarzenia', label: 'Wydarzenia', hash: 'wydarzenia' },
   { to: '/kalendarz', label: 'Kalendarz', hash: '' },
+  { to: '/biegi', label: 'Biegi', hash: '' },
   { to: '/#kontakt', label: 'Kontakt', hash: 'kontakt' },
 ]
 
@@ -16,6 +17,7 @@ export default function Navbar() {
 
   const isActive = (link) => {
     if (link.to === '/kalendarz') return location.pathname === '/kalendarz'
+    if (link.to === '/biegi') return location.pathname.startsWith('/biegi')
     if (link.to === '/') return location.pathname === '/' && !location.hash
     return false
   }

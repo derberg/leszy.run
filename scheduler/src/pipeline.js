@@ -19,7 +19,8 @@ const STEPS = [
   { name: 'run-enrich-search', type: 'backend',  cmd: ['node', 'scripts/run-enrich-search.js', '--apply'] },
   { name: 'run-dedup-2',       type: 'backend',  cmd: ['node', 'scripts/run-dedup.js', '--apply'] },
   { name: 'run-normalize-2',   type: 'backend',  cmd: ['node', 'scripts/run-normalize.js', '--apply'] },
-  { name: 'run-publish',       type: 'backend',  cmd: ['node', 'scripts/run-publish.js', '--apply'] },
+  { name: 'run-publish',             type: 'backend',  cmd: ['node', 'scripts/run-publish.js', '--apply'] },
+  { name: 'publish-landing-pages',  type: 'backend',  cmd: ['node', 'scripts/publish-landing-pages.js', '--apply'] },
 ];
 
 function dockerArgv(step) {
