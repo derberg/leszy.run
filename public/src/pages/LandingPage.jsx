@@ -111,7 +111,7 @@ export default function LandingPage() {
 
       const { special, typeDbVal, regionDb, year, month, city } = filters
 
-      if (special === 'polmaratony' || special === 'maratony') {
+      if (special === 'półmaratony' || special === 'maratony') {
         // Distance-based: fetch broadly then filter client-side
         q = q.limit(2000)
       } else if (special === 'dla-dzieci') {
@@ -141,14 +141,14 @@ export default function LandingPage() {
       let result = data || []
 
       // Client-side distance filter for polmaratony/maratony (distance range not filterable server-side)
-      if (special === 'polmaratony') {
+      if (special === 'półmaratony') {
         result = result.filter(e => (e.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 19000 && m <= 23000 }))
       } else if (special === 'maratony') {
         result = result.filter(e => (e.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 41000 && m <= 44000 }))
       }
 
       setEvents(result)
-      setTotal(['polmaratony', 'maratony'].includes(special) ? result.length : (count || 0))
+      setTotal(['półmaratony', 'maratony'].includes(special) ? result.length : (count || 0))
       setLoading(false)
     }
 

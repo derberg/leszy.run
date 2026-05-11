@@ -31,7 +31,7 @@ function inflectCount(n) {
 }
 
 const TYPE_NOUN_GEN = {
-  przelajowe: 'biegów przełajowych', uliczne: 'biegów ulicznych',
+  przełajowe: 'biegów przełajowych', uliczne: 'biegów ulicznych',
   ultramaratony: 'ultramaratonów', nocne: 'biegów nocnych',
   ocr: 'biegów OCR', 'nordic-walking': 'marszów nordic walking',
   charytatywne: 'biegów charytatywnych',
@@ -52,7 +52,7 @@ function buildTitle(h1, count) {
 
 function buildDescription(typeSlug, regionSlug, year, month, count, special) {
   if (special) {
-    const spNoun = { polmaratony: 'półmaratonów', maratony: 'maratonów', 'dla-dzieci': 'biegów dla dzieci', darmowe: 'darmowych biegów' }[special]
+    const spNoun = { półmaratony: 'półmaratonów', maratony: 'maratonów', 'dla-dzieci': 'biegów dla dzieci', darmowe: 'darmowych biegów' }[special]
     const monthPart = year && month ? ` ${MONTH_LOCATIVE[month]} ${year}` : ''
     return `${count} ${spNoun} w Polsce${monthPart}. ${SPECIAL_SECONDARY_KW[special]}. Zapisy, dystanse, ceny.`
   }
@@ -67,7 +67,7 @@ function buildIntro(typeSlug, regionSlug, year, month, count, topCities, distRan
   const yr = year || new Date().getFullYear()
   const citiesStr = topCities.length ? ` Zawody w: ${topCities.join(', ')}.` : ''
   const dist = distRange && distRange.min !== distRange.max ? `, od ${distRange.min} km do ${distRange.max} km` : ''
-  if (special === 'polmaratony') return `${count} półmaratonów w Polsce w ${yr} roku. Dystans 21 km.${citiesStr}`
+  if (special === 'półmaratony') return `${count} półmaratonów w Polsce w ${yr} roku. Dystans 21 km.${citiesStr}`
   if (special === 'maratony') return `${count} maratonów w Polsce w ${yr} roku. Dystans 42 km.${citiesStr}`
   if (special === 'dla-dzieci') return `${count} biegów dla dzieci w Polsce w ${yr} roku. Krótkie dystanse dla najmłodszych biegaczy.${citiesStr}`
   if (special === 'darmowe') return `${count} darmowych biegów w Polsce w ${yr} roku. Bezpłatny udział, bez opłaty startowej.${citiesStr}`
@@ -100,7 +100,7 @@ function getEventTypes(e) {
 }
 
 function matchesFacet(event, { typeDbVal, regionDb, year, month, special, city }) {
-  if (special === 'polmaratony') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 19000 && m <= 23000 })
+  if (special === 'półmaratony') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 19000 && m <= 23000 })
   if (special === 'maratony') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 41000 && m <= 44000 })
   if (special === 'dla-dzieci') return (Array.isArray(event.event_type) ? event.event_type : []).includes('dzieci')
   if (special === 'darmowe') return event.price_from === 0
@@ -371,7 +371,7 @@ async function main() {
 
   // Special pages (always)
   const specialFilters = {
-    polmaratony: { distanceType: 'halfmarathon' }, maratony: { distanceType: 'marathon' },
+    półmaratony: { distanceType: 'halfmarathon' }, maratony: { distanceType: 'marathon' },
     'dla-dzieci': { isKids: true }, darmowe: { isFree: true },
   }
   for (const sp of SPECIAL_SLUGS) {
