@@ -54,11 +54,6 @@ function wrapTitle(text, maxCharsPerLine) {
   return [line1, words.slice(bestSplit).join(' ')]
 }
 
-function formatCount(n) {
-  if (!n || n === 0) return null
-  return `${n} WYDARZEŃ`
-}
-
 async function generateLandingOg(entry, outputPath) {
   const logoPath = resolve(ROOT, 'public/logo-z-napisem.svg')
   const logoSvg = readFileSync(logoPath, 'utf-8')
@@ -81,11 +76,6 @@ async function generateLandingOg(entry, outputPath) {
   // Title block center: ~350 (single line) or 330–350 (two lines)
   const titleBlockCenterY = twoLine ? 335 : 350
   const titleStartY = titleBlockCenterY - (titleLines.length * lineHeight) / 2 + titleFontSize
-
-  // Count line below title
-  const countY = titleStartY + (titleLines.length - 1) * lineHeight + 60
-
-  const countText = formatCount(entry.eventCount)
 
   const svgImage = `
 <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
@@ -118,13 +108,6 @@ async function generateLandingOg(entry, outputPath) {
     ${escapeXml(line)}
   </text>`
   }).join('\n  ')}
-
-  <!-- Event count -->
-  ${countText ? `<text x="${CX}" y="${countY}"
-    font-family="'IBM Plex Mono', 'Courier New', monospace" font-weight="400"
-    font-size="22" letter-spacing="4" text-anchor="middle" fill="${YELLOW}">
-    ${escapeXml(countText)}
-  </text>` : ''}
 
   <!-- Bottom divider -->
   <line x1="0" y1="${HEIGHT - 50}" x2="${WIDTH}" y2="${HEIGHT - 50}" stroke="${BORDER}" stroke-width="1"/>
