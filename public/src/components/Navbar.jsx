@@ -129,8 +129,9 @@ export default function Navbar() {
         <div className="absolute top-14 left-0 right-0 bg-apex-bg/95 backdrop-blur-md border-b border-apex-border flex flex-col p-6 gap-4 md:hidden">
           {navLinks.map(link => (
             link.dropdown ? (
-              <div key={link.to} className="flex flex-col gap-1">
+              <>
                 <Link
+                  key="kalendarz-mobile"
                   to="/kalendarz"
                   onClick={() => setMenuOpen(false)}
                   className={`font-sans font-semibold text-base tracking-wider uppercase no-underline ${location.pathname === '/kalendarz' ? 'text-apex-yellow' : 'text-apex-muted'}`}
@@ -138,13 +139,14 @@ export default function Navbar() {
                   Kalendarz
                 </Link>
                 <Link
+                  key="listy-mobile"
                   to="/listy"
                   onClick={() => setMenuOpen(false)}
-                  className={`font-sans font-semibold text-base tracking-wider uppercase no-underline pl-3 ${location.pathname.startsWith('/listy') ? 'text-apex-yellow' : 'text-apex-muted'}`}
+                  className={`font-sans font-semibold text-base tracking-wider uppercase no-underline ${location.pathname.startsWith('/listy') ? 'text-apex-yellow' : 'text-apex-muted'}`}
                 >
                   Lista kategorii
                 </Link>
-              </div>
+              </>
             ) : (
               <Link
                 key={link.to}
