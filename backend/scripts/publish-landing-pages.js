@@ -107,7 +107,7 @@ function matchesFacet(event, { typeDbVal, regionDb, year, month, special, city }
   if (typeDbVal && !getEventTypes(event).includes(typeDbVal)) return false
   if (regionDb && event.voivodeship !== regionDb) return false
   if (city) {
-    const eventCity = event.location ? event.location.split(',')[0].trim() : null
+    const eventCity = event.location ? event.location.split(/[\n,]/)[0].replace(/\s+/g, ' ').trim() : null
     if (!eventCity || eventCity.toLowerCase() !== city.toLowerCase()) return false
   }
   if (year && month) {
@@ -133,7 +133,7 @@ function topLocations(events, n = 3) {
   const counts = {}
   for (const e of events) {
     if (e.location) {
-      const city = e.location.split(',')[0].trim()
+      const city = e.location.split(/[\n,]/)[0].replace(/\s+/g, ' ').trim()
       counts[city] = (counts[city] || 0) + 1
     }
   }
@@ -422,7 +422,7 @@ async function main() {
   const cityCount = {}
   for (const e of displayEvents) {
     if (!e.location) continue
-    const city = e.location.split(',')[0].trim()
+    const city = e.location.split(/[\n,]/)[0].replace(/\s+/g, ' ').trim()
     if (city) cityCount[city] = (cityCount[city] || 0) + 1
   }
   for (const [city, count] of Object.entries(cityCount)) {

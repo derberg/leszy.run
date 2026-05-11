@@ -63,6 +63,9 @@ export default function BieguHub() {
   const typeEntries = TYPE_SLUGS.map(s => entries[`listy/${s}`]).filter(Boolean)
   const regionEntries = Object.keys(REGION_SLUG_TO_DB).map(s => entries[`listy/${s}`]).filter(Boolean)
   const specialEntries = SPECIAL_SLUGS.map(s => entries[`listy/${s}`]).filter(Boolean)
+  const cityEntries = Object.values(entries)
+    .filter(e => e.path && !TYPE_SLUGS.some(t => e.path === `listy/${t}`) && !Object.keys(REGION_SLUG_TO_DB).some(r => e.path === `listy/${r}`) && !SPECIAL_SLUGS.some(s => e.path === `listy/${s}`) && e.path !== 'listy')
+    .sort((a, b) => b.eventCount - a.eventCount)
 
   return (
     <>
@@ -97,6 +100,15 @@ export default function BieguHub() {
             <h2 className="font-display font-bold text-lg tracking-widest uppercase text-apex-yellow-dim mb-4 border-b border-apex-border pb-2">Specjalne</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
               {specialEntries.map(e => <LinkCard key={e.path} {...e} />)}
+            </div>
+          </section>
+        )}
+
+        {cityEntries.length > 0 && (
+          <section className="mb-10">
+            <h2 className="font-display font-bold text-lg tracking-widest uppercase text-apex-yellow-dim mb-4 border-b border-apex-border pb-2">Według miasta</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              {cityEntries.map(e => <LinkCard key={e.path} {...e} />)}
             </div>
           </section>
         )}
