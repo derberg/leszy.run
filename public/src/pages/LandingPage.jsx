@@ -121,6 +121,10 @@ export default function LandingPage() {
       } else if (special === 'darmowe') {
         const from = (page - 1) * PAGE_SIZE
         q = q.eq('price_from', 0).range(from, from + PAGE_SIZE - 1)
+      } else if (special === 'ostatnia-szansa') {
+        const deadline14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
+        const from = (page - 1) * PAGE_SIZE
+        q = q.not('registration_deadline', 'is', null).lte('registration_deadline', deadline14).range(from, from + PAGE_SIZE - 1)
       } else {
         if (typeDbVal) q = q.contains('event_type', [typeDbVal])
         if (regionDb) q = q.eq('voivodeship', regionDb)

@@ -1,5 +1,5 @@
 // Post-build script: generates per-landing-page HTML files and appends to sitemap.xml.
-// Reads public/biegi/.manifest.json (written by backend/scripts/publish-landing-pages.js).
+// Reads public/listy/.manifest.json (written by backend/scripts/publish-landing-pages.js).
 // Run after generate-event-pages.js via the build script.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const DIST = resolve(ROOT, 'dist')
-const MANIFEST_PATH = resolve(ROOT, 'public/biegi/.manifest.json')
+const MANIFEST_PATH = resolve(ROOT, 'public/listy/.manifest.json')
 const BASE_URL = 'https://www.leszy.run'
 
 function escapeHtml(str) {
@@ -29,11 +29,11 @@ function buildJsonLd(entry) {
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Leszy.run', item: BASE_URL },
-        { '@type': 'ListItem', position: 2, name: 'Biegi w Polsce', item: `${BASE_URL}/biegi` },
+        { '@type': 'ListItem', position: 2, name: 'Lista kategorii', item: `${BASE_URL}/listy` },
       ],
     },
   }
-  if (entry.path !== 'biegi') {
+  if (entry.path !== 'listy') {
     ld.breadcrumb.itemListElement.push(
       { '@type': 'ListItem', position: 3, name: entry.h1, item: entry.canonicalUrl }
     )
@@ -128,7 +128,7 @@ function main() {
   let generated = 0
   for (const path of paths) {
     const entry = manifest[path]
-    // path is like 'biegi' or 'biegi/przelajowe/slaskie'
+    // path is like 'listy' or 'listy/przelajowe/slaskie'
     const dir = resolve(DIST, path)
     mkdirSync(dir, { recursive: true })
     const html = buildLandingHtml(entry, cssLinks, jsScripts)

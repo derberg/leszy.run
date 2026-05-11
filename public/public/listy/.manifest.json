@@ -74,6 +74,11 @@
         "eventCount": 73
       },
       {
+        "path": "listy/ostatnia-szansa",
+        "h1": "Biegi — ostatnia szansa na zapis",
+        "eventCount": 119
+      },
+      {
         "path": "listy/dolnoslaskie",
         "h1": "Biegi w Dolnośląskiem",
         "eventCount": 89
@@ -2172,6 +2177,32 @@
     "intro": "73 darmowych biegów w Polsce w 2026 roku. Bezpłatny udział, bez opłaty startowej. Zawody w: Olsztyn, Jelcz-Laskowice, Oława.",
     "eventCount": 73,
     "canonicalUrl": "https://www.leszy.run/listy/darmowe",
+    "sitemapPriority": "0.8",
+    "sitemapChangefreq": "daily",
+    "relatedLinks": [
+      {
+        "path": "listy",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 929
+      }
+    ]
+  },
+  "listy/ostatnia-szansa": {
+    "path": "listy/ostatnia-szansa",
+    "filters": {
+      "typeDbVal": null,
+      "regionDb": null,
+      "year": null,
+      "month": null,
+      "special": "ostatnia-szansa",
+      "city": null
+    },
+    "h1": "Biegi — ostatnia szansa na zapis",
+    "title": "Biegi — ostatnia szansa na zapis (119 wydarzeń) — Leszy.run",
+    "description": "119 undefined w Polsce. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
+    "intro": "119 biegów w Polsce z zapisami kończącymi się w ciągu 14 dni. Zawody w: Kędzierzyn-Koźle, Dzierżoniów, Kołobrzeg.",
+    "eventCount": 119,
+    "canonicalUrl": "https://www.leszy.run/listy/ostatnia-szansa",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "daily",
     "relatedLinks": [

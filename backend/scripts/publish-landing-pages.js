@@ -71,6 +71,7 @@ function buildIntro(typeSlug, regionSlug, year, month, count, topCities, distRan
   if (special === 'maratony') return `${count} maratonów w Polsce w ${yr} roku. Dystans 42 km.${citiesStr}`
   if (special === 'dla-dzieci') return `${count} biegów dla dzieci w Polsce w ${yr} roku. Krótkie dystanse dla najmłodszych biegaczy.${citiesStr}`
   if (special === 'darmowe') return `${count} darmowych biegów w Polsce w ${yr} roku. Bezpłatny udział, bez opłaty startowej.${citiesStr}`
+  if (special === 'ostatnia-szansa') return `${count} biegów w Polsce z zapisami kończącymi się w ciągu 14 dni.${citiesStr}`
   const noun = typeSlug ? TYPE_H1_NOUN[typeSlug].toLowerCase() : 'listy'
   const regionPart = regionSlug ? ` ${REGION_LOCATIVE[regionSlug]}` : ' w Polsce'
   return `${count} ${noun}${regionPart} w ${yr} roku${dist}.${citiesStr}`.trim()
@@ -104,6 +105,11 @@ function matchesFacet(event, { typeDbVal, regionDb, year, month, special, city }
   if (special === 'maratony') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 41000 && m <= 44000 })
   if (special === 'dla-dzieci') return (Array.isArray(event.event_type) ? event.event_type : []).includes('dzieci')
   if (special === 'darmowe') return event.price_from === 0
+  if (special === 'ostatnia-szansa') {
+    if (!event.registration_deadline) return false
+    const daysUntil = (new Date(event.registration_deadline) - new Date()) / 86400000
+    return daysUntil >= 0 && daysUntil <= 14
+  }
   if (typeDbVal && !getEventTypes(event).includes(typeDbVal)) return false
   if (regionDb && event.voivodeship !== regionDb) return false
   if (city) {
@@ -373,7 +379,7 @@ async function main() {
   // Special pages (always)
   const specialFilters = {
     polmaratony: { distanceType: 'halfmarathon' }, maratony: { distanceType: 'marathon' },
-    'dla-dzieci': { isKids: true }, darmowe: { isFree: true },
+    'dla-dzieci': { isKids: true }, darmowe: { isFree: true }, 'ostatnia-szansa': { deadlineDays: 14 },
   }
   for (const sp of SPECIAL_SLUGS) {
     addEntry({ path: `listy/${sp}`, filters: specialFilters[sp], special: sp, priority: '0.8', changefreq: 'daily' })

@@ -116,13 +116,14 @@ export const MONTH_LOCATIVE = {
   9: 'we wrześniu', 10: 'w październiku', 11: 'w listopadzie', 12: 'w grudniu',
 }
 
-export const SPECIAL_SLUGS = ['polmaratony', 'maratony', 'dla-dzieci', 'darmowe']
+export const SPECIAL_SLUGS = ['polmaratony', 'maratony', 'dla-dzieci', 'darmowe', 'ostatnia-szansa']
 
 export const SPECIAL_H1 = {
   'polmaratony': 'Półmaratony w Polsce',
   'maratony': 'Maratony w Polsce',
   'dla-dzieci': 'Biegi dla dzieci w Polsce',
   'darmowe': 'Darmowe biegi w Polsce',
+  'ostatnia-szansa': 'Biegi — ostatnia szansa na zapis',
 }
 
 export const SPECIAL_SECONDARY_KW = {
@@ -130,6 +131,7 @@ export const SPECIAL_SECONDARY_KW = {
   'maratony': 'bieg na 42 km, maraton, marathon polska',
   'dla-dzieci': 'biegi rodzinne, bieg dla dzieci, biegi juniorów',
   'darmowe': 'bezpłatne biegi, darmowy bieg, biegi za darmo',
+  'ostatnia-szansa': 'zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg',
 }
 
 export const REGION_CENTER = {
