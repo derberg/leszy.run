@@ -37,9 +37,10 @@ function parsePathFilters(pathname) {
 
   const parts = seg.split('/')
 
-  // Special pages
-  if (parts.length === 1 && SPECIAL_SLUGS.includes(parts[0])) {
-    return { special: parts[0], typeDbVal: null, regionDb: null, year: null, month: null }
+  // Special pages (with optional region: /listy/maratony/slaskie)
+  if (SPECIAL_SLUGS.includes(parts[0])) {
+    const regionDb = parts[1] ? REGION_SLUG_TO_DB[parts[1]] || null : null
+    return { special: parts[0], typeDbVal: null, regionDb, year: null, month: null }
   }
 
   let typeDbVal = null, regionDb = null, year = null, month = null
@@ -113,18 +114,24 @@ export default function LandingPage() {
 
       if (special === 'polmaratony' || special === 'maratony') {
         // Distance-based: fetch broadly then filter client-side
+        if (regionDb) q = q.eq('voivodeship', regionDb)
         q = q.limit(2000)
       } else if (special === 'dla-dzieci') {
-        // is_kids is not a column in calendar_events; publishToCalendar maps it to event_type=['dzieci']
         const from = (page - 1) * PAGE_SIZE
-        q = q.contains('event_type', ['dzieci']).range(from, from + PAGE_SIZE - 1)
+        q = q.contains('event_type', ['dzieci'])
+        if (regionDb) q = q.eq('voivodeship', regionDb)
+        q = q.range(from, from + PAGE_SIZE - 1)
       } else if (special === 'darmowe') {
         const from = (page - 1) * PAGE_SIZE
-        q = q.eq('price_from', 0).range(from, from + PAGE_SIZE - 1)
+        q = q.eq('price_from', 0)
+        if (regionDb) q = q.eq('voivodeship', regionDb)
+        q = q.range(from, from + PAGE_SIZE - 1)
       } else if (special === 'ostatnia-szansa') {
         const deadline14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
         const from = (page - 1) * PAGE_SIZE
-        q = q.not('registration_deadline', 'is', null).lte('registration_deadline', deadline14).range(from, from + PAGE_SIZE - 1)
+        q = q.not('registration_deadline', 'is', null).lte('registration_deadline', deadline14)
+        if (regionDb) q = q.eq('voivodeship', regionDb)
+        q = q.range(from, from + PAGE_SIZE - 1)
       } else {
         if (typeDbVal) q = q.contains('event_type', [typeDbVal])
         if (regionDb) q = q.eq('voivodeship', regionDb)

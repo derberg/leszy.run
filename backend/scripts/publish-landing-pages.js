@@ -52,9 +52,10 @@ function buildTitle(h1, count) {
 
 function buildDescription(typeSlug, regionSlug, year, month, count, special) {
   if (special) {
-    const spNoun = { polmaratony: 'półmaratonów', maratony: 'maratonów', 'dla-dzieci': 'biegów dla dzieci', darmowe: 'darmowych biegów' }[special]
+    const spNoun = { polmaratony: 'półmaratonów', maratony: 'maratonów', 'dla-dzieci': 'biegów dla dzieci', darmowe: 'darmowych biegów', 'ostatnia-szansa': 'biegów z kończącymi się zapisami' }[special]
+    const regionPart = regionSlug ? ` ${REGION_LOCATIVE[regionSlug]}` : ' w Polsce'
     const monthPart = year && month ? ` ${MONTH_LOCATIVE[month]} ${year}` : ''
-    return `${count} ${spNoun} w Polsce${monthPart}. ${SPECIAL_SECONDARY_KW[special]}. Zapisy, dystanse, ceny.`
+    return `${count} ${spNoun}${regionPart}${monthPart}. ${SPECIAL_SECONDARY_KW[special]}. Zapisy, dystanse, ceny.`
   }
   const nounGen = typeSlug ? TYPE_NOUN_GEN[typeSlug] : 'biegów'
   const secKw = typeSlug ? ` ${TYPE_SECONDARY_KW[typeSlug]}.` : ''
@@ -67,13 +68,13 @@ function buildIntro(typeSlug, regionSlug, year, month, count, topCities, distRan
   const yr = year || new Date().getFullYear()
   const citiesStr = topCities.length ? ` Zawody w: ${topCities.join(', ')}.` : ''
   const dist = distRange && distRange.min !== distRange.max ? `, od ${distRange.min} km do ${distRange.max} km` : ''
-  if (special === 'polmaratony') return `${count} półmaratonów w Polsce w ${yr} roku. Dystans 21 km.${citiesStr}`
-  if (special === 'maratony') return `${count} maratonów w Polsce w ${yr} roku. Dystans 42 km.${citiesStr}`
-  if (special === 'dla-dzieci') return `${count} biegów dla dzieci w Polsce w ${yr} roku. Krótkie dystanse dla najmłodszych biegaczy.${citiesStr}`
-  if (special === 'darmowe') return `${count} darmowych biegów w Polsce w ${yr} roku. Bezpłatny udział, bez opłaty startowej.${citiesStr}`
-  if (special === 'ostatnia-szansa') return `${count} biegów w Polsce z zapisami kończącymi się w ciągu 14 dni.${citiesStr}`
-  const noun = typeSlug ? TYPE_H1_NOUN[typeSlug].toLowerCase() : 'listy'
   const regionPart = regionSlug ? ` ${REGION_LOCATIVE[regionSlug]}` : ' w Polsce'
+  if (special === 'polmaratony') return `${count} półmaratonów${regionPart} w ${yr} roku. Dystans 21 km.${citiesStr}`
+  if (special === 'maratony') return `${count} maratonów${regionPart} w ${yr} roku. Dystans 42 km.${citiesStr}`
+  if (special === 'dla-dzieci') return `${count} biegów dla dzieci${regionPart} w ${yr} roku. Krótkie dystanse dla najmłodszych biegaczy.${citiesStr}`
+  if (special === 'darmowe') return `${count} darmowych biegów${regionPart} w ${yr} roku. Bezpłatny udział, bez opłaty startowej.${citiesStr}`
+  if (special === 'ostatnia-szansa') return `${count} biegów${regionPart} z zapisami kończącymi się w ciągu 14 dni.${citiesStr}`
+  const noun = typeSlug ? TYPE_H1_NOUN[typeSlug].toLowerCase() : 'listy'
   return `${count} ${noun}${regionPart} w ${yr} roku${dist}.${citiesStr}`.trim()
 }
 
@@ -101,14 +102,32 @@ function getEventTypes(e) {
 }
 
 function matchesFacet(event, { typeDbVal, regionDb, year, month, special, city }) {
-  if (special === 'polmaratony') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 19000 && m <= 23000 })
-  if (special === 'maratony') return (event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 41000 && m <= 44000 })
-  if (special === 'dla-dzieci') return (Array.isArray(event.event_type) ? event.event_type : []).includes('dzieci')
-  if (special === 'darmowe') return event.price_from === 0
+  if (special === 'polmaratony') {
+    if (!(event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 19000 && m <= 23000 })) return false
+    if (regionDb && event.voivodeship !== regionDb) return false
+    return true
+  }
+  if (special === 'maratony') {
+    if (!(event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 41000 && m <= 44000 })) return false
+    if (regionDb && event.voivodeship !== regionDb) return false
+    return true
+  }
+  if (special === 'dla-dzieci') {
+    if (!(Array.isArray(event.event_type) ? event.event_type : []).includes('dzieci')) return false
+    if (regionDb && event.voivodeship !== regionDb) return false
+    return true
+  }
+  if (special === 'darmowe') {
+    if (event.price_from !== 0) return false
+    if (regionDb && event.voivodeship !== regionDb) return false
+    return true
+  }
   if (special === 'ostatnia-szansa') {
     if (!event.registration_deadline) return false
     const daysUntil = (new Date(event.registration_deadline) - new Date()) / 86400000
-    return daysUntil >= 0 && daysUntil <= 14
+    if (!(daysUntil >= 0 && daysUntil <= 14)) return false
+    if (regionDb && event.voivodeship !== regionDb) return false
+    return true
   }
   if (typeDbVal && !getEventTypes(event).includes(typeDbVal)) return false
   if (regionDb && event.voivodeship !== regionDb) return false
@@ -200,9 +219,30 @@ function computeRelatedLinks(manifest, path, today) {
     ].filter(Boolean)
   }
 
-  // Special pages
+  // Special pages (national)
   if (parts.length === 1 && SPECIAL_SLUGS.includes(parts[0])) {
-    return [manifestRef(manifest, 'listy')].filter(Boolean)
+    const sp = parts[0]
+    const regionalLinks = regionSlugs
+      .map(r => manifestRef(manifest, `listy/${sp}/${r}`))
+      .filter(Boolean)
+      .sort((a, b) => b.eventCount - a.eventCount)
+    return [manifestRef(manifest, 'listy'), ...regionalLinks].filter(Boolean)
+  }
+
+  // Special + region
+  if (parts.length === 2 && SPECIAL_SLUGS.includes(parts[0]) && REGION_SLUG_TO_DB[parts[1]]) {
+    const [sp, regionSlug] = parts
+    const siblingRegions = regionSlugs
+      .filter(r => r !== regionSlug)
+      .map(r => manifestRef(manifest, `listy/${sp}/${r}`))
+      .filter(Boolean)
+      .sort((a, b) => b.eventCount - a.eventCount)
+      .slice(0, 5)
+    return [
+      manifestRef(manifest, `listy/${sp}`),
+      manifestRef(manifest, `listy/${regionSlug}`),
+      ...siblingRegions,
+    ].filter(Boolean)
   }
 
   // Type-only
@@ -345,6 +385,18 @@ async function main() {
       title = `${h1} (${inflectCount(count)}) — Leszy.run`
       description = `${count} biegów ${cityLoc}. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.`
       intro = `${count} biegów ${cityLoc} w ${currentYear} roku.`
+    } else if (special && regionSlug) {
+      const SPECIAL_H1_NOUN = {
+        polmaratony: 'Półmaratony', maratony: 'Maratony', 'dla-dzieci': 'Biegi dla dzieci',
+        darmowe: 'Darmowe biegi', 'ostatnia-szansa': 'Biegi',
+      }
+      const locative = REGION_LOCATIVE[regionSlug]
+      h1 = special === 'ostatnia-szansa'
+        ? `Biegi ${locative} — ostatnia szansa na zapis`
+        : `${SPECIAL_H1_NOUN[special]} ${locative}`
+      title = `${h1} (${inflectCount(count)}) — Leszy.run`
+      description = buildDescription(typeSlug, regionSlug, year, month, count, special)
+      intro = buildIntro(typeSlug, regionSlug, year, month, count, topCities, distRange, special)
     } else {
       h1 = buildH1(typeSlug, regionSlug, year, month)
       title = special ? `${SPECIAL_H1[special]} (${inflectCount(count)}) — Leszy.run` : buildTitle(h1, count)
@@ -383,6 +435,14 @@ async function main() {
   }
   for (const sp of SPECIAL_SLUGS) {
     addEntry({ path: `listy/${sp}`, filters: specialFilters[sp], special: sp, priority: '0.8', changefreq: 'daily' })
+  }
+
+  // Special + region (≥2 threshold)
+  for (const sp of SPECIAL_SLUGS) {
+    for (const rs of regionSlugs) {
+      if (countThreshold({ special: sp, regionDb: REGION_SLUG_TO_DB[rs] }) < 2) continue
+      addEntry({ path: `listy/${sp}/${rs}`, special: sp, regionSlug: rs, priority: '0.7', changefreq: 'daily' })
+    }
   }
 
   // Type + region (≥2 threshold)
@@ -451,7 +511,7 @@ async function main() {
   const byType = {}
   for (const path of Object.keys(manifest)) {
     const parts = path.replace('listy', '').replace(/^\//, '').split('/').filter(Boolean)
-    const key = parts.length === 0 ? 'hub' : parts.length === 1 && SPECIAL_SLUGS.includes(parts[0]) ? 'special' : parts.length === 1 && TYPE_SLUG_TO_DB[parts[0]] ? 'type' : parts.length === 1 && REGION_SLUG_TO_DB[parts[0]] ? 'region' : parts.length === 1 ? 'city' : parts.length === 2 && TYPE_SLUG_TO_DB[parts[0]] && REGION_SLUG_TO_DB[parts[1]] ? 'type+region' : parts.length === 2 ? 'month' : parts.length === 3 ? 'type+month or region+month' : 'type+region+month'
+    const key = parts.length === 0 ? 'hub' : parts.length === 1 && SPECIAL_SLUGS.includes(parts[0]) ? 'special' : parts.length === 1 && TYPE_SLUG_TO_DB[parts[0]] ? 'type' : parts.length === 1 && REGION_SLUG_TO_DB[parts[0]] ? 'region' : parts.length === 1 ? 'city' : parts.length === 2 && SPECIAL_SLUGS.includes(parts[0]) && REGION_SLUG_TO_DB[parts[1]] ? 'special+region' : parts.length === 2 && TYPE_SLUG_TO_DB[parts[0]] && REGION_SLUG_TO_DB[parts[1]] ? 'type+region' : parts.length === 2 ? 'month' : parts.length === 3 ? 'type+month or region+month' : 'type+region+month'
     byType[key] = (byType[key] || 0) + 1
   }
   console.log('--- Manifest breakdown ---')
