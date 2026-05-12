@@ -17609,6 +17609,26 @@
     "website": null,
     "is_kids": null
   },
+  "jedrzejowski-bieg-uliczny-2026-06-07": {
+    "id": "0f0899be-d403-4783-8563-188df0923933",
+    "name": "Jędrzejowski Bieg Uliczny",
+    "date": "2026-06-07",
+    "registration_deadline": "2026-06-04",
+    "regulamin_url": null,
+    "price_from": 70,
+    "price_to": 70,
+    "location": "Jędrzejów",
+    "voivodeship": "Świętokrzyskie",
+    "lat": 50.639444,
+    "lng": 20.304612,
+    "distances": [],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": null,
+    "is_kids": null
+  },
   "bieg-po-zdrowie-2026-06-07": {
     "id": "27675044-cf77-4ffd-a5ac-72c491cac09b",
     "name": "Bieg po zdrowie",
@@ -17916,29 +17936,6 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16201",
     "website": "https://mosir.ostrowmaz.pl",
-    "is_kids": null
-  },
-  "17-legionowska-dycha-2026-06-12": {
-    "id": "f49c84a5-e2ea-4872-ad2d-dc0375893779",
-    "name": "17 Legionowska Dycha",
-    "date": "2026-06-12",
-    "registration_deadline": null,
-    "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
-    "price_from": 50,
-    "price_to": 60,
-    "location": "Legionowo",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.395229,
-    "lng": 20.930831,
-    "distances": [
-      "10 km"
-    ],
-    "event_type": [
-      "nocny",
-      "uliczny"
-    ],
-    "registration_url": "https://zapisyonline.pl/wydarzenie/864,16-legionowska-dycha",
-    "website": null,
     "is_kids": null
   },
   "rozbiegane-suwalki-2026-miejskie-swieto-biegania-2026-06-12": {
@@ -18977,6 +18974,26 @@
     ],
     "registration_url": "https://b4sportonline.pl/biegibytow/zapisy_na_goch_nordic_walking/11848",
     "website": "https://b4sportonline.pl/biegibytow/zapisy_na_goch_nordic_walking/11848",
+    "is_kids": null
+  },
+  "amatorskie-zawody-plywackie-dla-dzieci-i-mlodziezy-w-mogilnie-2026-06-13": {
+    "id": "89054463-4f90-4a05-91e4-6ddfd1caa18c",
+    "name": "Amatorskie Zawody Pływackie dla dzieci i młodzieży w Mogilnie",
+    "date": "2026-06-13",
+    "registration_deadline": "2026-05-31",
+    "regulamin_url": "https://b4sportonline.pl/users-folder/1604/files/22040f72a37ef1516105899814521cb0533f3.pdf",
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Mogilno",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 52.657341,
+    "lng": 17.950068,
+    "distances": [],
+    "event_type": [
+      "dzieci"
+    ],
+    "registration_url": "https://b4sportonline.pl/amatorskie_zawody_plywackie_dla_dzieci_i_mlodziezy/zapisy_na_amatorskie_zawody_plywackie_dla_dzieci_i_mlodziezy/12478",
+    "website": null,
     "is_kids": null
   },
   "xv-bieg-czerniejewski-2026-06-13": {
@@ -20179,6 +20196,29 @@
     "website": "https://wierchami.pl/",
     "is_kids": null
   },
+  "17-legionowska-dycha-2026-06-19": {
+    "id": "f49c84a5-e2ea-4872-ad2d-dc0375893779",
+    "name": "17 Legionowska Dycha",
+    "date": "2026-06-19",
+    "registration_deadline": null,
+    "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
+    "price_from": 50,
+    "price_to": 60,
+    "location": "Legionowo",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.395229,
+    "lng": 20.930831,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "nocny",
+      "uliczny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/864,16-legionowska-dycha",
+    "website": null,
+    "is_kids": null
+  },
   "stacjonarne-davita-run-krakow-2026-06-19": {
     "id": "919c0249-73e8-49d8-a1be-170f18521bc6",
     "name": "Stacjonarne DaVita Run Kraków",
@@ -20825,6 +20865,46 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14991/signup.html",
     "website": "https://elektronicznezapisy.pl/event/14991/signup.html",
+    "is_kids": null
+  },
+  "malopolska-na-sportowo-2026-06-20": {
+    "id": "d8c08444-3d71-42e9-a708-d9eec5f2eaad",
+    "name": "MAŁOPOLSKA NA SPORTOWO",
+    "date": "2026-06-20",
+    "registration_deadline": "2026-06-14",
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1106",
+    "price_from": null,
+    "price_to": null,
+    "location": "Rzepiennik Strzyżewski\n                            Rzepiennik Strzyżewski",
+    "voivodeship": "Małopolskie",
+    "lat": 49.81398,
+    "lng": 21.014578,
+    "distances": [],
+    "event_type": [],
+    "registration_url": "https://competitions.timekeeper.pl/malopolska-na-sportowo",
+    "website": null,
+    "is_kids": null
+  },
+  "v-charytatywny-bieg-z-nadzieja-2026-06-20": {
+    "id": "21e66906-8529-4cb8-bde4-7561ded598f2",
+    "name": "V Charytatywny Bieg z Nadzieją",
+    "date": "2026-06-20",
+    "registration_deadline": "2026-06-16",
+    "regulamin_url": "https://dostartu.pl/statute_files/16507_pl.pdf",
+    "price_from": 50,
+    "price_to": 60,
+    "location": "Słupsk, Polska",
+    "voivodeship": "Pomorskie",
+    "lat": 54.474277,
+    "lng": 17.045546,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "charytatywny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16507",
+    "website": null,
     "is_kids": null
   },
   "vi-bieg-po-kwiat-paproci-2026-06-20": {
@@ -23317,6 +23397,26 @@
     "website": "https://biegkonstancinski.pl/",
     "is_kids": null
   },
+  "bieg-780-dla-elblaga-bieg-junior-dzieci-713-lat-2026-06-28": {
+    "id": "469f0919-c942-4fe9-81fe-f5afffbb818c",
+    "name": "Bieg 780 dla Elbląga - Bieg Junior (dzieci 7-13 lat)",
+    "date": "2026-06-28",
+    "registration_deadline": "2026-06-24",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/s510Q4g05070V1R7t7Z7r4X5J0U44515/open",
+    "price_from": 10,
+    "price_to": 80,
+    "location": "Elbląg",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 54.1989,
+    "lng": 19.441086,
+    "distances": [],
+    "event_type": [
+      "dzieci"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15417/signup.html",
+    "website": null,
+    "is_kids": null
+  },
   "gdynia-kids-cup-2026-na-narodowym-stadionie-rugby-2026-06-28": {
     "id": "78aee34b-acc2-4c4f-bd1c-4b32e98c9e82",
     "name": "Gdynia - Kids Cup 2026 na Narodowym Stadionie Rugby",
@@ -23341,6 +23441,24 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14826/signup.html",
     "website": "https://elektronicznezapisy.pl/event/14826.html",
+    "is_kids": null
+  },
+  "bieg-780-dla-elblaga-bieg-family-dorosly-dziecko-2026-06-28": {
+    "id": "1500321c-21f9-415f-ac1d-258e76e5a2a5",
+    "name": "Bieg 780 dla Elbląga - Bieg Family (dorosły + dziecko)",
+    "date": "2026-06-28",
+    "registration_deadline": "2026-06-24",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/h7r9V2j780d0o1X7U787P4W4s9r6d1M4/open",
+    "price_from": 10,
+    "price_to": 80,
+    "location": "Elbląg",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 54.1989,
+    "lng": 19.441086,
+    "distances": [],
+    "event_type": [],
+    "registration_url": "https://elektronicznezapisy.pl/event/15418/signup.html",
+    "website": null,
     "is_kids": null
   },
   "vii-bieg-krzemionka-cross-2026-06-28": {
@@ -25840,7 +25958,7 @@
     "website": "https://botaniczna5.pl/events/botaniczna-piatka-przelewice-edycja-letnia-2026/",
     "is_kids": null
   },
-  "2026-ustka-formoza-challenge-2026-07-26": {
+  "2026-ustka-formoza-challenge-2026-07-26-2f64": {
     "id": "2f6448b7-e3ec-4b7f-be0e-d98826606a11",
     "name": "2026 | USTKA | FORMOZA CHALLENGE",
     "date": "2026-07-26",
@@ -25889,6 +26007,24 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16206",
     "website": null,
+    "is_kids": null
+  },
+  "2026-ustka-formoza-challenge-2026-07-26-01c0": {
+    "id": "01c09ece-0535-4b14-b8d8-39adf48b501f",
+    "name": "2026 | USTKA | FORMOZA CHALLENGE",
+    "date": "2026-07-26",
+    "registration_deadline": "2026-05-05",
+    "regulamin_url": null,
+    "price_from": 25,
+    "price_to": 269,
+    "location": "Ustka",
+    "voivodeship": "Pomorskie",
+    "lat": 54.575131,
+    "lng": 16.864415,
+    "distances": [],
+    "event_type": [],
+    "registration_url": "https://b4sportonline.pl/formoza_challenge/zapisy_na_formoza_ustka__short__26072026/11366",
+    "website": "https://www.formozachallenge.com/",
     "is_kids": null
   },
   "xii-bieg-solecki-lubomia-2026-07-26": {
@@ -27434,6 +27570,52 @@
     ],
     "registration_url": "https://zapisy.mktime.pl/1-aktywna-piatka-cc7719",
     "website": "https://aktywnapiatka.pl",
+    "is_kids": null
+  },
+  "bieg-lato-2026-2026-08-22": {
+    "id": "0968a04a-e355-4376-878b-53726739bbc9",
+    "name": "Bieg Lato 2026",
+    "date": "2026-08-22",
+    "registration_deadline": "2026-08-20",
+    "regulamin_url": "https://dostartu.pl/statute_files/16501_pl.pdf",
+    "price_from": 20,
+    "price_to": 80,
+    "location": "Czeladź, SL",
+    "voivodeship": "Śląskie",
+    "lat": 50.308104,
+    "lng": 19.062009,
+    "distances": [
+      "6 km",
+      "10 km"
+    ],
+    "event_type": [
+      "bieg"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16501",
+    "website": null,
+    "is_kids": null
+  },
+  "ix-dycha-juranda-ix-polmaraton-spychowski-tropem-niedzwiedzia-2026-08-22": {
+    "id": "05011a19-2645-4710-b0f2-ef227fcfc404",
+    "name": "IX Dycha Juranda / IX Półmaraton Spychowski Tropem Niedźwiedzia",
+    "date": "2026-08-22",
+    "registration_deadline": "2026-08-07",
+    "regulamin_url": "https://superczas.pl/userfiles/events/701/regulamin_ix-dycha-juranda-ix_-niedzwiedzia_pl.pdf",
+    "price_from": 80,
+    "price_to": 120,
+    "location": "Spychowo",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 53.602274,
+    "lng": 21.346158,
+    "distances": [
+      "10.5 km",
+      "21.098 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://superczas.pl/spychowo2026/zapisy",
+    "website": null,
     "is_kids": null
   },
   "v-bieg-wakacje-na-sportowo-2026-08-22": {
@@ -30049,6 +30231,48 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14680/signup.html",
     "website": "https://elektronicznezapisy.pl/event/14680.html",
+    "is_kids": null
+  },
+  "bieg-rodzinny-we-frydku-2026-09-12": {
+    "id": "7659fbfc-4a37-4b40-93ae-dc95bfb782bd",
+    "name": "Bieg Rodzinny we Frydku",
+    "date": "2026-09-12",
+    "registration_deadline": "2026-08-31",
+    "regulamin_url": "https://aktywnapiatka.pl/",
+    "price_from": 100,
+    "price_to": 100,
+    "location": "Frydek, 43-227, ul. Miodowa 189C",
+    "voivodeship": "Śląskie",
+    "lat": 49.995133,
+    "lng": 19.045926,
+    "distances": [],
+    "event_type": [
+      "bieg"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16364",
+    "website": "https://aktywnapiatka.pl",
+    "is_kids": null
+  },
+  "5-aktywna-piatka-2026-09-12": {
+    "id": "ef325778-a509-4cd4-bb6b-b3aa3b87375d",
+    "name": "5. \"Aktywna Piątka\"",
+    "date": "2026-09-12",
+    "registration_deadline": "2026-07-11",
+    "regulamin_url": "https://aktywnapiatka.pl",
+    "price_from": 75,
+    "price_to": 90,
+    "location": "Frydek, 43-227, ul. Miodowa 189C",
+    "voivodeship": "Śląskie",
+    "lat": 49.995129,
+    "lng": 19.045926,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "bieg"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16363",
+    "website": "https://aktywnapiatka.pl",
     "is_kids": null
   },
   "cc-partners-polmaraton-leszno-2026-2026-09-12": {
@@ -32858,9 +33082,9 @@
     "website": null,
     "is_kids": null
   },
-  "wilczy-polmaraton-2026-10-17": {
+  "iv-wilczy-polmaraton-2026-10-17": {
     "id": "e6c1b868-2eff-461a-8110-3dbf0fe215c3",
-    "name": "Wilczy Półmaraton",
+    "name": "IV Wilczy Półmaraton",
     "date": "2026-10-17",
     "registration_deadline": "2026-10-11",
     "regulamin_url": "https://docs.google.com/document/d/1WtKIgGkY9CwkGpiz048nbxFYlqSwO4RqWK8UcyHAMRc/edit?tab=t.0",
