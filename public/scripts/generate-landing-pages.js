@@ -71,6 +71,12 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = fa
   const ogImage = ogImageUrl || `${BASE_URL}/og-image.png`
   const robotsContent = pastMonth ? 'noindex, follow' : 'index, follow'
 
+  const relatedLinksHtml = (entry.relatedLinks && entry.relatedLinks.length > 0)
+    ? entry.relatedLinks.map(l =>
+        `      <a href="/${escapeHtml(l.path)}" style="color:#B0AEC6;font-size:0.8rem;padding:0.25rem 0.625rem;border:1px solid #262638;text-decoration:none;white-space:nowrap">${escapeHtml(l.h1)}${l.eventCount ? ` (${l.eventCount})` : ''}</a>`
+      ).join('\n')
+    : ''
+
   return `<!DOCTYPE html>
 <html lang="pl">
   <head>
@@ -123,6 +129,13 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = fa
   </head>
   <body>
     <div id="root"></div>
+    ${entry.intro ? `  <p id="seo-intro" style="display:none">${escapeHtml(entry.intro)}</p>` : ''}
+    ${relatedLinksHtml ? `  <nav id="seo-related" aria-label="Powiązane listy biegów" style="padding:1.25rem 1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A">
+    <span style="display:block;font-family:sans-serif;font-size:0.65rem;color:#8886A0;margin-bottom:0.625rem;text-transform:uppercase;letter-spacing:0.08em">Powiązane kategorie</span>
+    <div style="display:flex;flex-wrap:wrap;gap:0.375rem">
+${relatedLinksHtml}
+    </div>
+  </nav>` : ''}
     <script id="landing-data" type="application/json">${landingData}</script>
     ${jsScripts}
   </body>
@@ -174,10 +187,11 @@ async function main() {
   let sitemap = readFileSync(sitemapPath, 'utf-8')
   sitemap = sitemap.replace('</urlset>', '')
 
+  const today = new Date().toISOString().slice(0, 10)
   const indexablePaths = paths.filter(path => !isPastMonthPage(path))
   const entries = indexablePaths.map(path => {
     const entry = manifest[path]
-    return `  <url>\n    <loc>${entry.canonicalUrl}</loc>\n    <changefreq>${entry.sitemapChangefreq}</changefreq>\n    <priority>${entry.sitemapPriority}</priority>\n  </url>`
+    return `  <url>\n    <loc>${entry.canonicalUrl}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${entry.sitemapChangefreq}</changefreq>\n    <priority>${entry.sitemapPriority}</priority>\n  </url>`
   })
 
   sitemap += entries.join('\n') + '\n</urlset>\n'

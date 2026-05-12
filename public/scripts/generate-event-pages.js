@@ -11,6 +11,45 @@ const DIST = resolve(ROOT, 'dist')
 const MANIFEST_PATH = resolve(ROOT, 'public/kalendarz/.manifest.json')
 const BASE_URL = 'https://www.leszy.run'
 
+const DB_TO_TYPE_SLUG = {
+  'trail': 'przelajowe',
+  'uliczny': 'uliczne',
+  'ultra': 'ultramaratony',
+  'nocny': 'nocne',
+  'ocr': 'ocr',
+  'nordic walking': 'nordic-walking',
+  'charytatywny': 'charytatywne',
+}
+
+const TYPE_SLUG_LABEL = {
+  'przelajowe': 'Biegi przełajowe',
+  'uliczne': 'Biegi uliczne',
+  'ultramaratony': 'Ultramaratony',
+  'nocne': 'Biegi nocne',
+  'ocr': 'Biegi OCR',
+  'nordic-walking': 'Nordic Walking',
+  'charytatywne': 'Biegi charytatywne',
+}
+
+const DB_TO_REGION_SLUG = {
+  'Dolnośląskie': 'dolnoslaskie',
+  'Kujawsko-Pomorskie': 'kujawsko-pomorskie',
+  'Lubelskie': 'lubelskie',
+  'Lubuskie': 'lubuskie',
+  'Łódzkie': 'lodzkie',
+  'Małopolskie': 'malopolskie',
+  'Mazowieckie': 'mazowieckie',
+  'Opolskie': 'opolskie',
+  'Podkarpackie': 'podkarpackie',
+  'Podlaskie': 'podlaskie',
+  'Pomorskie': 'pomorskie',
+  'Śląskie': 'slaskie',
+  'Świętokrzyskie': 'swietokrzyskie',
+  'Warmińsko-Mazurskie': 'warminsko-mazurskie',
+  'Wielkopolskie': 'wielkopolskie',
+  'Zachodniopomorskie': 'zachodniopomorskie',
+}
+
 const POLISH_MONTHS = [
   'stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca',
   'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'
@@ -118,6 +157,27 @@ function buildJsonLd(event, slug) {
   return JSON.stringify({ '@context': 'https://schema.org', '@graph': [sportsEvent, breadcrumb] }, null, 2)
 }
 
+function buildRelatedNav(event) {
+  const links = [{ href: '/listy', label: 'Wszystkie biegi w Polsce' }]
+
+  const types = Array.isArray(event.event_type) ? event.event_type : (event.event_type ? [event.event_type] : [])
+  for (const t of types) {
+    const slug = DB_TO_TYPE_SLUG[t]
+    if (slug) links.push({ href: `/listy/${slug}`, label: TYPE_SLUG_LABEL[slug] })
+  }
+
+  const regionSlug = event.voivodeship ? DB_TO_REGION_SLUG[event.voivodeship] : null
+  if (regionSlug) links.push({ href: `/listy/${regionSlug}`, label: `Biegi — ${event.voivodeship}` })
+
+  const items = links.map(l => `      <a href="${l.href}" style="color:#B0AEC6;font-size:0.8rem;padding:0.25rem 0.625rem;border:1px solid #262638;text-decoration:none;white-space:nowrap">${escapeHtml(l.label)}</a>`).join('\n')
+  return `  <nav aria-label="Powiązane kategorie biegów" style="padding:1.25rem 1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A">
+    <span style="display:block;font-family:sans-serif;font-size:0.65rem;color:#8886A0;margin-bottom:0.625rem;text-transform:uppercase;letter-spacing:0.08em">Więcej biegów</span>
+    <div style="display:flex;flex-wrap:wrap;gap:0.375rem">
+${items}
+    </div>
+  </nav>`
+}
+
 function buildEventHtml(event, slug, cssLinks, jsScripts) {
   const title = `${escapeHtml(event.name)} \u2014 ${escapeHtml(formatPolishDate(event.date))} \u2014 Leszy.run`
   const description = escapeHtml(buildDescription(event))
@@ -182,13 +242,15 @@ function buildEventHtml(event, slug, cssLinks, jsScripts) {
   </head>
   <body>
     <div id="root"></div>
+    ${buildRelatedNav(event)}
     <script id="event-data" type="application/json">${eventJson}</script>
     ${jsScripts}
   </body>
 </html>`
 }
 
-function buildSitemap(slugs) {
+function buildSitemap(slugs, manifest) {
+  const today = new Date().toISOString().slice(0, 10)
   const staticEntries = [
     { loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'weekly' },
     { loc: `${BASE_URL}/kalendarz`, priority: '0.9', changefreq: 'daily' },
@@ -197,12 +259,14 @@ function buildSitemap(slugs) {
   ]
 
   const entries = staticEntries.map(e =>
-    `  <url>\n    <loc>${e.loc}</loc>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`
+    `  <url>\n    <loc>${e.loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`
   )
 
   for (const slug of slugs) {
+    const ev = manifest[slug]
+    const lastmod = (ev && ev.date) ? ev.date.slice(0, 10) : today
     entries.push(
-      `  <url>\n    <loc>${BASE_URL}/kalendarz/${slug}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>`
+      `  <url>\n    <loc>${BASE_URL}/kalendarz/${slug}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>`
     )
   }
 
@@ -263,7 +327,7 @@ function main() {
   console.log(`Generated ${generated} event HTML files.`)
 
   // 4. Generate sitemap
-  const sitemap = buildSitemap(slugs)
+  const sitemap = buildSitemap(slugs, manifest)
   writeFileSync(resolve(DIST, 'sitemap.xml'), sitemap)
   console.log(`Generated sitemap.xml with ${4 + slugs.length} entries.`)
 }
