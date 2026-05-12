@@ -254,8 +254,6 @@ function buildSitemap(slugs, manifest) {
   const staticEntries = [
     { loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'weekly' },
     { loc: `${BASE_URL}/kalendarz`, priority: '0.9', changefreq: 'daily' },
-    { loc: `${BASE_URL}/kalendarz/dodaj`, priority: '0.5', changefreq: 'monthly' },
-    { loc: `${BASE_URL}/events`, priority: '0.7', changefreq: 'weekly' },
   ]
 
   const entries = staticEntries.map(e =>
