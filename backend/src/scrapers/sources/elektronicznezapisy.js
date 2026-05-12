@@ -84,13 +84,18 @@ async function fetchDetailPage(eventId) {
       })
     }
 
-    // Date from "Początek imprezy" list item
+    // Date and registration deadline from list items
     let date = null
+    let deadline = null
     $('li.list-group-item').each((_, el) => {
       const text = $(el).text().trim()
-      const match = text.match(/Początek imprezy:\s*(\d{4})[.\-](\d{2})[.\-](\d{2})/)
-      if (match && !date) {
-        date = `${match[1]}-${match[2]}-${match[3]}`
+      const startMatch = text.match(/Początek imprezy:\s*(\d{4})[.\-](\d{2})[.\-](\d{2})/)
+      if (startMatch && !date) {
+        date = `${startMatch[1]}-${startMatch[2]}-${startMatch[3]}`
+      }
+      const deadlineMatch = text.match(/Zamknięcie rejestracji:\s*(\d{4})[.\-](\d{2})[.\-](\d{2})/)
+      if (deadlineMatch && !deadline) {
+        deadline = `${deadlineMatch[1]}-${deadlineMatch[2]}-${deadlineMatch[3]}`
       }
     })
     // Fallback: any YYYY.MM.DD / YYYY-MM-DD in body
@@ -100,16 +105,24 @@ async function fetchDetailPage(eventId) {
       if (dateMatch) date = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`
     }
 
-    // Distances from Cennik (pricing) section — most reliable structured source.
-    // Each pricing row starts with category name like "5 km - dorośli", "21 km - open"
+    // Distances and prices from Cennik / Opłaty startowe section.
+    // Iterates rows: first td = category name (distances + kids), second td = price.
     const distances = []
     const seen = new Set()
+    const prices = []
+    let isKids = false
     $('li.list-group-item-info').each((_, header) => {
-      if ($(header).text().trim() !== 'Cennik') return
+      const headerText = $(header).text().trim()
+      if (headerText !== 'Cennik' && headerText !== 'Opłaty startowe') return
       const cennikList = $(header).closest('ul.list-group')
-      cennikList.find('td:first-child').each((_, td) => {
-        const text = $(td).text().trim()
-        const kmMatch = text.match(/(\d+[.,]?\d*)\s*km/i)
+      cennikList.find('tr').each((_, tr) => {
+        const cells = $(tr).find('td')
+        if (cells.length < 2) return
+        const name = $(cells[0]).text().trim()
+        const priceText = $(cells[1]).text().trim()
+
+        // Distances from category name
+        const kmMatch = name.match(/(\d+[.,]?\d*)\s*km/i)
         if (kmMatch) {
           const km = parseFloat(kmMatch[1].replace(',', '.'))
           const label = `${km} km`
@@ -118,17 +131,22 @@ async function fetchDetailPage(eventId) {
             seen.add(label)
           }
         }
-        // Named distances
-        if (/półmaraton|polmaraton/i.test(text) && !seen.has('21.1 km')) {
+        if (/półmaraton|polmaraton/i.test(name) && !seen.has('21.1 km')) {
           distances.push('21.1 km')
           seen.add('21.1 km')
         }
-        // Time durations
-        const hourMatch = text.match(/(\d{1,2})\s*[hH]\b/)
+        const hourMatch = name.match(/(\d{1,2})\s*[hH]\b/)
         if (hourMatch) {
           const label = `${parseInt(hourMatch[1])}h`
           if (!seen.has(label)) { distances.push(label); seen.add(label) }
         }
+
+        // Kids detection from category name
+        if (/dzieci|junior|maluch|młodzież|mlodzież/i.test(name)) isKids = true
+
+        // Price from second cell
+        const priceMatch = priceText.match(/(\d+(?:[.,]\d+)?)\s*PLN/i)
+        if (priceMatch) prices.push(parseFloat(priceMatch[1].replace(',', '.')))
       })
     })
 
@@ -166,6 +184,10 @@ async function fetchDetailPage(eventId) {
       distances: distances.join(', '),
       regulaminUrls,
       externalWebsite,
+      price_from: prices.length ? Math.round(Math.min(...prices)) : null,
+      price_to: prices.length ? Math.round(Math.max(...prices)) : null,
+      registration_deadline: deadline,
+      is_kids: isKids,
     }
   } catch (err) {
     console.error(`[elektronicznezapisy] Detail fetch failed for event ${eventId}:`, err.message)
@@ -325,6 +347,10 @@ async function scrape({ knownIds = new Set() } = {}) {
         regulamin_urls: detail.regulaminUrls || [],
         external_website: externalWebsite,
         known_source_link: knownSourceLink,
+        price_from: detail.price_from,
+        price_to: detail.price_to,
+        registration_deadline: detail.registration_deadline,
+        is_kids: detail.is_kids,
         source: 'elektronicznezapisy',
         source_url: `${BASE_URL}/event/${entry.eventId}/strona.html`,
         source_id: entry.eventId,

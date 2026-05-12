@@ -258,6 +258,14 @@ def _merge_scalars(event, llm, updates, config):
             if not isinstance(value, (int, float)) or value < 0:
                 continue
             value = int(round(value))
+            # Only fill empty — scraper-extracted prices are more reliable than LLM
+            if event.get(field) is not None:
+                continue
+
+        # registration_deadline: only fill empty — scraper-stated deadline is authoritative
+        if field == "registration_deadline":
+            if event.get(field):
+                continue
 
         # Rule 5: overwrite if LLM has a value
         if event.get(field) != value:

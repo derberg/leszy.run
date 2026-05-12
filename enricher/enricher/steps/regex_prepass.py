@@ -41,6 +41,7 @@ _FREE_EVENT_RE = re.compile(
     r"|(?:opłata|wpisowe)\s+(?:start\w+\s+)?(?:wynosi\s+)?0\s*(?:zł|pln)?\s*(?:[.,]|$)"
     r"|wpisowe\s+nie\s+(?:obowiązuje|jest)"
     r"|wolny\s+od\s+opłat"
+    r"|bez\s+opłat\w*\s+startow\w*"
     r")",
     re.IGNORECASE,
 )

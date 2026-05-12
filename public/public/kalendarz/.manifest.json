@@ -16251,6 +16251,26 @@
     "website": "https://biegiwlkp.pl/events/marcelinski-bieg-wiosenny-2026/",
     "is_kids": null
   },
+  "cross-country-puchar-toru-dabka-2026-05-31": {
+    "id": "7a564936-4fd7-4235-ad95-d90bc176c984",
+    "name": "CROSS COUNTRY PUCHAR TORU DĄBKA",
+    "date": "2026-05-31",
+    "registration_deadline": null,
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1099",
+    "price_from": 250,
+    "price_to": 300,
+    "location": "Głębokie gm. Rymanów\n                            Głębokie gm. Rymanów",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.30907,
+    "lng": 15.63861,
+    "distances": [],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/cross-country-puchar-toru-dabka",
+    "website": null,
+    "is_kids": null
+  },
   "xiv-kurdeszowa-zadyszka-2026-05-31": {
     "id": "8313a219-f2ec-4d50-8ad1-4e859df7c296",
     "name": "XIV Kurdeszowa (Za)Dyszka",
@@ -16585,6 +16605,26 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v15810",
     "website": "https://itmbw.pl/bieg-swoszowicki/",
+    "is_kids": null
+  },
+  "v-bieg-i-marsz-z-kijkami-im-adama-loreta-w-leczycach-2026-06-01": {
+    "id": "2cefbc2e-5457-441f-9cf0-f758258f8770",
+    "name": "V Bieg i Marsz z Kijkami im. Adama Loreta w Łęczycach",
+    "date": "2026-06-01",
+    "registration_deadline": null,
+    "regulamin_url": "https://elektronicznezapisy.pl/download/69b3y7Y1w0j0M1r7N7u8T4T4C8h7s9s0/open",
+    "price_from": 10,
+    "price_to": 80,
+    "location": "Łęczyce",
+    "voivodeship": "Pomorskie",
+    "lat": 54.592929,
+    "lng": 17.860113,
+    "distances": [],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15470/signup.html",
+    "website": null,
     "is_kids": null
   },
   "elektryczna-mila-biegnij-z-energia-2026-06-02": {
@@ -19834,6 +19874,28 @@
     "website": "https://przyszloscdladzieci.org",
     "is_kids": null
   },
+  "bieg-charytatywny-piatka-dla-szymona-2026-06-14": {
+    "id": "edf0f73f-1944-45f0-8e85-962809a6b348",
+    "name": "Bieg charytatywny \"Piątka dla Szymona\"",
+    "date": "2026-06-14",
+    "registration_deadline": "2026-06-11",
+    "regulamin_url": null,
+    "price_from": 20,
+    "price_to": 40,
+    "location": "Kijewo Królewskie",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.273505,
+    "lng": 18.445195,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "charytatywny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15472/signup.html",
+    "website": "https://elektronicznezapisy.pl/event/15472.html",
+    "is_kids": null
+  },
   "aktywna-gmina-sportowy-niechlow-2026-2026-06-14": {
     "id": "8251f31b-f712-4d3d-8134-9bd2a658854a",
     "name": "AKTYWNA GMINA – SPORTOWY NIECHLÓW 2026",
@@ -20841,6 +20903,29 @@
     ],
     "registration_url": "https://gppt.pl/zapisy",
     "website": "https://gppt.pl",
+    "is_kids": null
+  },
+  "x-bieg-pamieci-powstan-slakich-2026-06-20": {
+    "id": "6da98075-9bee-4149-b024-60478d3a0cac",
+    "name": "X Bieg Pamięci Powstań Śląkich",
+    "date": "2026-06-20",
+    "registration_deadline": "2026-06-15",
+    "regulamin_url": "https://dostartu.pl/statute_files/16493_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Góra św. Anny",
+    "voivodeship": "Małopolskie",
+    "lat": 50.44932,
+    "lng": 18.174112,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16493",
+    "website": null,
     "is_kids": null
   },
   "viii-otwarte-akademickie-mistrzostwa-lomzy-w-nocnym-biegu-ulicznym-pod-honorowym-patronatem-prezydenta-miasta-lomza-2026-06-20": {
@@ -24897,34 +24982,33 @@
     "is_kids": null
   },
   "dfbg-2026-07-16": {
-    "id": "3665d505-b5b4-4552-93bd-8e1812c80a95",
+    "id": "aa5a133b-e88d-4999-93fb-e4f4200d3f45",
     "name": "DFBG",
     "date": "2026-07-16",
     "registration_deadline": "2026-07-14",
-    "regulamin_url": "https://dfbg.pl/zgloszenia/regulamin",
-    "price_from": 25,
+    "regulamin_url": "https://dfbg.pl/images/docs/official2026_Regulamin%2014-%20DFBG.pdf",
+    "price_from": 100,
     "price_to": 730,
     "location": "Lądek-zdrój",
-    "voivodeship": "Wielkopolskie",
+    "voivodeship": "Dolnośląskie",
     "lat": 52.20958,
     "lng": 17.92988,
     "distances": [
+      "68km",
+      "10km",
+      "21km",
       "240km",
       "170km",
       "130km",
       "110km",
       "45km",
-      "15km",
-      "68km",
-      "10km",
-      "21km"
+      "15km"
     ],
     "event_type": [
-      "trail",
       "ultra"
     ],
-    "registration_url": "https://b4sportonline.pl/dolnoslaski_festiwal_biegow_gorskich/zapisy_na_bieg_7_szczytow__240km_2026/11587",
-    "website": "https://dfbg.pl/",
+    "registration_url": "https://b4sportonline.pl/dolnoslaski_festiwal_biegow_gorskich/zapisy_na_bieg_ultra_trail__70km_2026/11592",
+    "website": "https://b4sportonline.pl/dolnoslaski_festiwal_biegow_gorskich/",
     "is_kids": null
   },
   "lesna-eko-piatka-2026-07-17": {
@@ -25423,6 +25507,26 @@
     ],
     "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=781",
     "website": "http://www.sustravel.pl/",
+    "is_kids": null
+  },
+  "ix-bieg-uliczny-zarzecze-na-5-2026-07-19": {
+    "id": "0208f7bd-6034-43d7-bf2f-8e0540b7f65e",
+    "name": "IX BIEG ULICZNY ZARZECZE NA 5",
+    "date": "2026-07-19",
+    "registration_deadline": null,
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1105",
+    "price_from": 70,
+    "price_to": 80,
+    "location": "Zarzecze k. Przeworska\n                            Zarzecze k. Przeworska",
+    "voivodeship": "Śląskie",
+    "lat": 49.912871,
+    "lng": 18.821052,
+    "distances": [],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/ix-bieg-uliczny-zarzecze-na-5",
+    "website": null,
     "is_kids": null
   },
   "piatka-krolowej-bony-2026-07-19": {
@@ -25958,7 +26062,7 @@
     "website": "https://botaniczna5.pl/events/botaniczna-piatka-przelewice-edycja-letnia-2026/",
     "is_kids": null
   },
-  "2026-ustka-formoza-challenge-2026-07-26-2f64": {
+  "2026-ustka-formoza-challenge-2026-07-26": {
     "id": "2f6448b7-e3ec-4b7f-be0e-d98826606a11",
     "name": "2026 | USTKA | FORMOZA CHALLENGE",
     "date": "2026-07-26",
@@ -25971,12 +26075,7 @@
     "lat": 54.575131,
     "lng": 16.864415,
     "distances": [
-      "6 km",
-      "FORMOZA CHALLENGE SHORT",
-      "FORMOZA CHALLENGE ULTRA",
-      "FORMOZA CHALLENGE TEAM",
-      "Bieg FORMOZA KIDS SHORT",
-      "Bieg FORMOZA KIDS LONG"
+      "6 km"
     ],
     "event_type": [
       "ocr"
@@ -26007,24 +26106,6 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16206",
     "website": null,
-    "is_kids": null
-  },
-  "2026-ustka-formoza-challenge-2026-07-26-01c0": {
-    "id": "01c09ece-0535-4b14-b8d8-39adf48b501f",
-    "name": "2026 | USTKA | FORMOZA CHALLENGE",
-    "date": "2026-07-26",
-    "registration_deadline": "2026-05-05",
-    "regulamin_url": null,
-    "price_from": 25,
-    "price_to": 269,
-    "location": "Ustka",
-    "voivodeship": "Pomorskie",
-    "lat": 54.575131,
-    "lng": 16.864415,
-    "distances": [],
-    "event_type": [],
-    "registration_url": "https://b4sportonline.pl/formoza_challenge/zapisy_na_formoza_ustka__short__26072026/11366",
-    "website": "https://www.formozachallenge.com/",
     "is_kids": null
   },
   "xii-bieg-solecki-lubomia-2026-07-26": {
@@ -29574,6 +29655,28 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16009",
     "website": "https://czersk.pl/aktualnosc/aktualnosci/6014-run-czersk-1926-2026-zapisz-te-daty-i-biegnij-z-nami-przez-historie",
+    "is_kids": null
+  },
+  "xiv-grand-prix-nordic-walking-nowa-wies-leborska-2026-09-05": {
+    "id": "92f7c8dc-e8cd-4797-a0cb-0f48c2bfc3dd",
+    "name": "XIV Grand Prix Nordic Walking Nowa Wieś Lęborska",
+    "date": "2026-09-05",
+    "registration_deadline": "2026-05-07",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/w12055x380g0n1Z7w7E3Z8H2J9n9h5p1/open",
+    "price_from": 20,
+    "price_to": 20,
+    "location": "Wilkowo Nowowiejskie",
+    "voivodeship": "Pomorskie",
+    "lat": 54.614956,
+    "lng": 17.74458,
+    "distances": [
+      "8 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15024/signup.html",
+    "website": "https://elektronicznezapisy.pl/event/15024.html",
     "is_kids": null
   },
   "i-bieg-lewin-tri-2026-09-05": {
