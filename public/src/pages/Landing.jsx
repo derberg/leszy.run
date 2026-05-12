@@ -269,6 +269,45 @@ function KalendarzTeaser() {
   )
 }
 
+const KATEGORIE = [
+  { slug: 'przelajowe', label: 'Biegi przełajowe', icon: '◈' },
+  { slug: 'uliczne', label: 'Biegi uliczne', icon: '▸' },
+  { slug: 'polmaratony', label: 'Półmaratony', icon: '◎' },
+  { slug: 'maratony', label: 'Maratony', icon: '⬡' },
+  { slug: 'ultramaratony', label: 'Ultramaratony', icon: '◇' },
+  { slug: 'nocne', label: 'Biegi nocne', icon: '◐' },
+  { slug: 'nordic-walking', label: 'Nordic Walking', icon: '◫' },
+  { slug: 'dla-dzieci', label: 'Biegi dla dzieci', icon: '◉' },
+]
+
+function KategorieSection() {
+  return (
+    <section className="py-16 md:py-24 px-6 max-w-[1100px] mx-auto" aria-label="Kategorie biegów">
+      <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-3">Kategorie</p>
+      <h2 className="font-display font-extrabold text-3xl md:text-[42px] tracking-wider uppercase text-apex-text-bright mb-4">Biegi w Polsce</h2>
+      <p className="text-base text-apex-text max-w-[600px] leading-relaxed mb-12">
+        Setki wydarzeń biegowych posegregowanych według typu. Znajdź bieg dopasowany do siebie.
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-0.5 mb-6">
+        {KATEGORIE.map(({ slug, label, icon }) => (
+          <Link
+            key={slug}
+            to={`/listy/${slug}`}
+            className="flex flex-col gap-2 bg-apex-surface border border-apex-border p-5 no-underline text-inherit hover:border-apex-border-mid hover:bg-apex-surface-2 transition-all group relative"
+          >
+            <div className="absolute top-0 left-0 w-[3px] h-0 bg-apex-yellow transition-all group-hover:h-full" />
+            <span className="font-mono text-lg text-apex-yellow-dim group-hover:text-apex-yellow transition-colors">{icon}</span>
+            <span className="font-display font-bold text-sm tracking-wide uppercase text-apex-text-bright leading-tight">{label}</span>
+          </Link>
+        ))}
+      </div>
+      <Link to="/listy" className="font-mono text-[11px] tracking-widest uppercase text-apex-yellow hover:text-apex-yellow-bright transition-colors no-underline">
+        Wszystkie kategorie i województwa &rarr;
+      </Link>
+    </section>
+  )
+}
+
 function ContactSection() {
   return (
     <section id="kontakt" className="py-16 md:py-24 px-6 max-w-[1100px] mx-auto text-center" aria-label="Kontakt">
@@ -320,6 +359,8 @@ export default function Landing() {
         <EventsSection />
         <div className="w-full h-px bg-apex-border" />
         <KalendarzTeaser />
+        <div className="w-full h-px bg-apex-border" />
+        <KategorieSection />
         <div className="w-full h-px bg-apex-border" />
         <ContactSection />
       </main>

@@ -129,7 +129,6 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = fa
   </head>
   <body>
     <div id="root"></div>
-    ${entry.intro ? `  <p id="seo-intro" style="display:none">${escapeHtml(entry.intro)}</p>` : ''}
     ${relatedLinksHtml ? `  <nav id="seo-related" aria-label="Powiązane listy biegów" style="padding:1.25rem 1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A">
     <span style="display:block;font-family:sans-serif;font-size:0.65rem;color:#8886A0;margin-bottom:0.625rem;text-transform:uppercase;letter-spacing:0.08em">Powiązane kategorie</span>
     <div style="display:flex;flex-wrap:wrap;gap:0.375rem">
