@@ -350,7 +350,8 @@ async function runPipeline({ force = [], only = [] } = {}) {
       const isForced = force.includes(source.name)
       let knownIds = new Set()
       if (isForced) {
-        await supabase.from(source.table).delete().neq('id', '')
+        const { error: deleteError } = await supabase.from(source.table).delete().not('id', 'is', null)
+        if (deleteError) throw new Error(`Force clear failed: ${deleteError.message}`)
         console.log(`[pipeline] ${source.name}: FORCE mode — cleared table`)
       } else {
         const { data: existing } = await supabase
@@ -668,12 +669,13 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
             const updates = {}
             const overwrittenFields = []
             const filledFields = []
+            const scraperAuthoritative = new Set(source.overwriteFields || [])
             for (const key of RAW_MERGE_FIELDS) {
               const newVal = row[key]
               if (newVal === null || newVal === undefined) continue
               if (Array.isArray(newVal) && newVal.length === 0) continue
 
-              if (incomingWins) {
+              if (incomingWins || scraperAuthoritative.has(key)) {
                 updates[key] = newVal
                 if (!isEmpty(existing[key]) && JSON.stringify(existing[key]) !== JSON.stringify(newVal)) {
                   overwrittenFields.push(key)

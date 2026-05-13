@@ -20905,16 +20905,16 @@
     "website": "https://gppt.pl",
     "is_kids": null
   },
-  "x-bieg-pamieci-powstan-slakich-2026-06-20": {
+  "x-bieg-pamieci-powstan-slaskich-2026-06-20": {
     "id": "6da98075-9bee-4149-b024-60478d3a0cac",
-    "name": "X Bieg Pamięci Powstań Śląkich",
+    "name": "X Bieg Pamięci Powstań Śląskich",
     "date": "2026-06-20",
     "registration_deadline": "2026-06-15",
     "regulamin_url": "https://dostartu.pl/statute_files/16493_pl.pdf",
     "price_from": null,
     "price_to": null,
     "location": "Góra św. Anny",
-    "voivodeship": "Małopolskie",
+    "voivodeship": "Śląskie",
     "lat": 50.44932,
     "lng": 18.174112,
     "distances": [
