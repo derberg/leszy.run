@@ -64,18 +64,17 @@ function buildDescription(typeSlug, regionSlug, year, month, count, special) {
   return `${count} ${nounGen}${regionPart}${monthPart}.${secKw} Zapisy, dystanse, ceny.`
 }
 
-function buildIntro(typeSlug, regionSlug, year, month, count, topCities, distRange, special) {
+function buildIntro(typeSlug, regionSlug, year, month, count, distRange, special) {
   const yr = year || new Date().getFullYear()
-  const citiesStr = topCities.length ? ` Zawody w: ${topCities.join(', ')}.` : ''
   const dist = distRange && distRange.min !== distRange.max ? `, od ${distRange.min} km do ${distRange.max} km` : ''
   const regionPart = regionSlug ? ` ${REGION_LOCATIVE[regionSlug]}` : ' w Polsce'
-  if (special === 'polmaratony') return `${count} półmaratonów${regionPart} w ${yr} roku. Dystans 21 km.${citiesStr}`
-  if (special === 'maratony') return `${count} maratonów${regionPart} w ${yr} roku. Dystans 42 km.${citiesStr}`
-  if (special === 'dla-dzieci') return `${count} biegów dla dzieci${regionPart} w ${yr} roku. Krótkie dystanse dla najmłodszych biegaczy.${citiesStr}`
-  if (special === 'darmowe') return `${count} darmowych biegów${regionPart} w ${yr} roku. Bezpłatny udział, bez opłaty startowej.${citiesStr}`
-  if (special === 'ostatnia-szansa') return `${count} biegów${regionPart} z zapisami kończącymi się w ciągu 14 dni.${citiesStr}`
+  if (special === 'polmaratony') return `${count} półmaratonów${regionPart} w ${yr} roku. Dystans 21 km.`
+  if (special === 'maratony') return `${count} maratonów${regionPart} w ${yr} roku. Dystans 42 km.`
+  if (special === 'dla-dzieci') return `${count} biegów dla dzieci${regionPart} w ${yr} roku. Krótkie dystanse dla najmłodszych biegaczy.`
+  if (special === 'darmowe') return `${count} darmowych biegów${regionPart} w ${yr} roku. Bezpłatny udział, bez opłaty startowej.`
+  if (special === 'ostatnia-szansa') return `${count} biegów${regionPart} z zapisami kończącymi się w ciągu 14 dni.`
   const noun = typeSlug ? TYPE_H1_NOUN[typeSlug].toLowerCase() : 'listy'
-  return `${count} ${noun}${regionPart} w ${yr} roku${dist}.${citiesStr}`.trim()
+  return `${count} ${noun}${regionPart} w ${yr} roku${dist}.`.trim()
 }
 
 // ─── Distance parsing (mirrors Kalendarz.jsx) ─────────────────────────────────
@@ -147,27 +146,16 @@ function computeDistRange(events) {
   for (const e of events) {
     for (const d of (e.distances || [])) {
       const m = parseDistanceToMeters(d)
-      if (!isNaN(m) && m > 0) { min = Math.min(min, m); max = Math.max(max, m) }
+      if (!isNaN(m) && m >= 1000) { min = Math.min(min, m); max = Math.max(max, m) }
     }
   }
   if (min === Infinity) return null
   return { min: Math.round(min / 1000), max: Math.round(max / 1000) }
 }
 
-function topLocations(events, n = 3) {
-  const counts = {}
-  for (const e of events) {
-    if (e.location) {
-      const city = e.location.split(/[\n,]/)[0].replace(/\s+/g, ' ').trim()
-      counts[city] = (counts[city] || 0) + 1
-    }
-  }
-  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, n).map(([c]) => c)
-}
-
 function computeMetadata(displayEvents, facet) {
   const matched = displayEvents.filter(e => matchesFacet(e, facet))
-  return { count: matched.length, topCities: topLocations(matched, 3), distRange: computeDistRange(matched) }
+  return { count: matched.length, distRange: computeDistRange(matched) }
 }
 
 // ─── Paginated Supabase query ─────────────────────────────────────────────────
@@ -371,7 +359,7 @@ async function main() {
       regionDb: regionSlug ? REGION_SLUG_TO_DB[regionSlug] : null,
       year, month, special, city,
     }
-    const { count, topCities, distRange } = computeMetadata(displayEvents, facet)
+    const { count, distRange } = computeMetadata(displayEvents, facet)
     let h1, title, description, intro
 
     if (path === 'listy') {
@@ -396,13 +384,13 @@ async function main() {
         : `${SPECIAL_H1_NOUN[special]} ${locative}`
       title = `${h1} (${inflectCount(count)}) — Leszy.run`
       description = buildDescription(typeSlug, regionSlug, year, month, count, special)
-      intro = buildIntro(typeSlug, regionSlug, year, month, count, topCities, distRange, special)
+      intro = buildIntro(typeSlug, regionSlug, year, month, count, distRange, special)
     } else {
       h1 = buildH1(typeSlug, regionSlug, year, month)
       title = special ? `${SPECIAL_H1[special]} (${inflectCount(count)}) — Leszy.run` : buildTitle(h1, count)
       if (special) h1 = SPECIAL_H1[special]
       description = buildDescription(typeSlug, regionSlug, year, month, count, special)
-      intro = buildIntro(typeSlug, regionSlug, year, month, count, topCities, distRange, special)
+      intro = buildIntro(typeSlug, regionSlug, year, month, count, distRange, special)
     }
 
     manifest[path] = {
