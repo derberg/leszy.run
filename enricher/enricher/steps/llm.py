@@ -199,10 +199,11 @@ def call_ollama(prompt: str, config) -> Optional[dict]:
                     "model": config.ollama_model,
                     "prompt": prompt,
                     "stream": False,
+                    "keep_alive": -1,
                     "options": {
                         "temperature": config.ollama_temperature,
                         "num_predict": config.ollama_max_tokens,
-                        "num_ctx": 32768,
+                        "num_ctx": 8192,
                     },
                 },
             )
@@ -216,6 +217,10 @@ def call_ollama(prompt: str, config) -> Optional[dict]:
             parsed["_duration_s"] = round(duration, 1)
         return parsed
 
+    except httpx.TimeoutException as e:
+        import click
+        click.echo(f"    llm error: {e}")
+        raise
     except Exception as e:
         import click
         click.echo(f"    llm error: {e}")

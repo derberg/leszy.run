@@ -35,6 +35,17 @@ docker compose up -d  # Start SearXNG
 python -m enricher run --limit 5 --dry-run  # Test first
 python -m enricher run  # Full run
 
+# If the enricher hangs (e.g. stuck on LLM warm-up):
+#   1. Ctrl+C to kill the native process
+#   2. Kill any stale Docker enricher containers (scheduler may have launched one):
+#        docker ps --filter name=enricher          # check
+#        docker rm -f <container-id>               # kill it
+#   3. The warm-up swaps out whatever model Ollama has loaded (~4 min for qwen2.5:72b).
+#      If qwen2.5 is loaded and you don't want to wait, kill it first:
+#        curl -s -X POST http://localhost:11434/api/generate \
+#          -d '{"model":"qwen2.5:72b-instruct-q4_0","prompt":"","stream":false,"keep_alive":0}'
+#      Then re-run — warm-up will be instant.
+
 # Step 5.1: OPTIONAL — Enrich via web search (Claude CLI fallback for fields enricher missed)
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --limit 5
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
@@ -50,6 +61,7 @@ cd backend && node --env-file=../.env scripts/run-publish.js --apply
 # Step 7: Regenerate static event pages manifest + OG images — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/publish-event-pages.js
 cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply
+cd backend && node --env-file=../.env scripts/publish-landing-pages.js --apply
 # Use --regen-og to regenerate ALL OG images (e.g. after changing the OG template)
 
 # Step 8a: Local Postgres backup (race-timing data: events, participants, results, gate_events, …)

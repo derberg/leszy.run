@@ -334,6 +334,22 @@ async def run_pipeline(
 
     click.echo(f"Processing {total} events" + (" (DRY RUN)" if dry_run else ""))
 
+    # Pre-warm the LLM: unload any other loaded models first so the swap is fast,
+    # then load the enricher model with keep_alive=-1 so it stays resident.
+    click.echo(f"Warming up LLM ({config.ollama_model})...")
+    import httpx as _httpx
+    try:
+        with _httpx.Client(timeout=900) as _client:
+            _client.post(
+                f"{config.ollama_url}/api/generate",
+                json={"model": config.ollama_model, "prompt": "hi", "stream": False,
+                      "keep_alive": -1, "options": {"num_predict": 1, "num_ctx": 8192}},
+            ).raise_for_status()
+        click.echo("LLM ready.")
+    except Exception as _e:
+        click.echo(f"LLM warm-up failed: {_e} — aborting")
+        return
+
     logger = RunLogger(log_dir=log_dir)
     enriched_count = 0
     skipped_count = 0
@@ -377,6 +393,10 @@ async def run_pipeline(
             })
 
         except Exception as e:
+            import httpx
+            if isinstance(e, httpx.TimeoutException):
+                click.echo("    LLM timed out — aborting run")
+                break
             click.echo(f"    ERROR: {str(e)[:200]}")
             logger.log(event["id"], event["name"], "error", {"message": str(e)[:500]})
             failed_count += 1

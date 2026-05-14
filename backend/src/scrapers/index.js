@@ -852,7 +852,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
   while (true) {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('name, date, location, event_type')
+      .select('id, name, date, location, event_type, source_links')
       .in('status', ['active', 'rejected'])
       .range(from, from + pageSize - 1)
 
@@ -1055,7 +1055,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
       continue
     }
 
-    let existingCE = null
+let existingCE = null
     for (const k of candidateKeys) {
       const found = existingByLink.get(k)
       if (found) { existingCE = found; break }

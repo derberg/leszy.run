@@ -134,7 +134,7 @@ function callClaude(prompt) {
     writeFileSync(promptFile, prompt, 'utf-8')
     const raw = execSync(
       `cat "${promptFile}" | claude -p --model sonnet --output-format json`,
-      { encoding: 'utf-8', timeout: 120000, maxBuffer: 2 * 1024 * 1024 }
+      { encoding: 'utf-8', timeout: 300000, maxBuffer: 2 * 1024 * 1024 }
     )
 
     const response = JSON.parse(raw)

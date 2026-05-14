@@ -348,7 +348,7 @@ docker compose exec backend node scripts/publish-event-pages.js --apply         
 **Location:** `enricher/` directory
 
 **Tech stack:**
-- **Ollama** — local LLM (qwen2.5:72b-instruct-q4_0) for field extraction
+- **Ollama** — local LLM (gemma3:27b) for field extraction
 - **SearXNG** — Docker-based web search for URL discovery
 - **Crawl4AI** — headless browser for crawling SPAs (dostartu.pl, etc.)
 - **Docling** — PDF text extraction for regulamin documents
@@ -387,7 +387,7 @@ See [enricher/README.md](enricher/README.md) for detailed documentation.
 
 ## Local LLM Enricher
 
-Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with Docling, and uses Ollama (qwen2.5:72b-instruct-q4_0) for field extraction. Only processes future events (date >= today).
+Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with Docling, and uses Ollama (gemma3:27b) for field extraction. Only processes future events (date >= today).
 
 ### Running
 
@@ -413,7 +413,7 @@ python -m enricher audit --apply --apply-confidence 0.9  # stricter bar for null
 See `enricher/README.md` for full docs, all flags, merge rules, and architecture.
 
 ### Dependencies
-- Ollama (native macOS, `qwen2.5:72b-instruct-q4_0` — 32K context window, q4 quantized, strong instruction-following for structured extraction)
+- Ollama (native macOS, `gemma3:27b` — 128K context window, strong instruction-following for structured extraction)
 - SearXNG (Docker via `enricher/docker-compose.yml`, port 8888)
 - Crawl4AI + Docling (Python libs in `enricher/.venv/`)
 
