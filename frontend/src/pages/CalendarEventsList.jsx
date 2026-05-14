@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.js'
 import { ReportsTab, FeedbackTab, useReportsQuery, useFeedbackQuery } from './Moderation.jsx'
@@ -135,6 +135,95 @@ function InlineArrayEdit({ event, field, onSave }) {
   )
 }
 
+function DuplicateUrlField({ event, field, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const current = event[field]
+  const isLocked = (event.locked_fields || []).includes(field)
+
+  const startEdit = () => { setValue(current || ''); setEditing(true) }
+
+  const save = () => {
+    const trimmed = value.trim()
+    if (trimmed !== (current || '')) {
+      onSave(event.id, { [field]: trimmed || null })
+    }
+    setEditing(false)
+  }
+
+  const markEmpty = (e) => {
+    e.stopPropagation()
+    onSave(event.id, { [field]: null })
+  }
+
+  if (editing) {
+    return (
+      <input
+        className={inputClass}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={e => e.key === 'Enter' && save()}
+        autoFocus
+      />
+    )
+  }
+
+  if (current) {
+    return (
+      <span className="inline-flex items-center gap-1.5 min-w-0 max-w-full">
+        <a
+          href={current}
+          target="_blank"
+          rel="noopener"
+          className="text-apex-yellow-dim hover:text-apex-yellow underline decoration-apex-border-mid hover:decoration-apex-yellow truncate"
+          onClick={e => e.stopPropagation()}
+        >
+          {current}
+        </a>
+        <button
+          onClick={startEdit}
+          className="text-apex-muted hover:text-apex-text-bright shrink-0 text-[10px]"
+          title="Edytuj"
+        >
+          ✎
+        </button>
+      </span>
+    )
+  }
+
+  if (isLocked) {
+    return (
+      <span
+        className="cursor-pointer hover:text-apex-yellow-dim text-apex-muted italic"
+        onClick={startEdit}
+        title="Oznaczone jako brak (zatwierdzone)"
+      >
+        brak
+      </span>
+    )
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span
+        className="cursor-pointer hover:text-apex-yellow-dim text-apex-red italic"
+        onClick={startEdit}
+        title="Kliknij aby edytować"
+      >
+        —
+      </span>
+      <button
+        onClick={markEmpty}
+        className="font-mono text-[9px] tracking-wide uppercase text-apex-muted hover:text-apex-text-bright underline decoration-dotted underline-offset-2"
+        title="Zatwierdź jako brak"
+      >
+        brak
+      </button>
+    </span>
+  )
+}
+
 function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onReject }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const confirmRef = useRef(null)
@@ -242,26 +331,134 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
   )
 }
 
-function DuplicateGroup({ group, onDelete, onDismiss }) {
-  const [confirmId, setConfirmId] = useState(null)
+function DuplicateEventCard({ event, onSave, onDelete }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const confirmRef = useRef(null)
 
   useEffect(() => {
-    if (confirmId && confirmRef.current) confirmRef.current.focus()
-  }, [confirmId])
-
-  const handleKeyDown = useCallback((e) => {
-    if (confirmId && (e.key === 'Enter' || e.key === 'y' || e.key === 'Y')) {
-      e.preventDefault()
-      onDelete(confirmId)
-      setConfirmId(null)
-    } else if (e.key === 'Escape') {
-      setConfirmId(null)
-    }
-  }, [confirmId, onDelete])
+    if (confirmDelete && confirmRef.current) confirmRef.current.focus()
+  }, [confirmDelete])
 
   return (
-    <div className="border border-apex-border mb-3 bg-apex-surface">
+    <div className="border-b border-apex-border last:border-b-0 px-3 py-3">
+      {/* Header: name + source + delete */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex-1 min-w-0 text-sm text-apex-text-bright font-semibold">
+          <InlineEdit event={event} field="name" onSave={onSave} />
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="font-mono text-[10px] text-apex-muted px-1.5 py-0.5 border border-apex-border">
+            {event.source}
+          </span>
+          {confirmDelete ? (
+            <div
+              ref={confirmRef}
+              tabIndex={0}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === 'y' || e.key === 'Y') {
+                  e.preventDefault()
+                  onDelete(event.id)
+                  setConfirmDelete(false)
+                } else if (e.key === 'Escape') {
+                  setConfirmDelete(false)
+                }
+              }}
+              onBlur={() => setConfirmDelete(false)}
+              className="flex items-center gap-1"
+            >
+              <span className="text-xs text-apex-red font-semibold">Usunąć?</span>
+              <button
+                onClick={() => { onDelete(event.id); setConfirmDelete(false) }}
+                className="font-mono text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 border border-red-600 text-red-400 hover:bg-red-600 hover:text-white transition-all"
+              >
+                Enter / Y
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="font-mono text-[10px] tracking-wide uppercase px-2 py-1 border border-apex-border text-apex-muted hover:text-apex-text-bright transition-all"
+              >
+                Esc
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="font-mono text-[10px] font-semibold tracking-wide uppercase px-3 py-1 border border-apex-border text-apex-muted hover:border-red-600 hover:text-red-400 transition-all"
+            >
+              Usuń
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Property grid — 2-column for short fields, full-width for URLs */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Data</span>
+          <span className="flex-1 min-w-0"><InlineEdit event={event} field="date" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Miejscowość</span>
+          <span className="flex-1 min-w-0"><InlineEdit event={event} field="location" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Województwo</span>
+          <span className="flex-1 min-w-0"><InlineEdit event={event} field="voivodeship" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Typ</span>
+          <span className="flex-1 min-w-0"><InlineArrayEdit event={event} field="event_type" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Dystanse</span>
+          <span className="flex-1 min-w-0"><InlineArrayEdit event={event} field="distances" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Deadline</span>
+          <span className="flex-1 min-w-0"><InlineEdit event={event} field="registration_deadline" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Cena od</span>
+          <span className="flex-1 min-w-0"><InlineEdit event={event} field="price_from" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Cena do</span>
+          <span className="flex-1 min-w-0"><InlineEdit event={event} field="price_to" onSave={onSave} /></span>
+        </div>
+        <div className="col-span-2 flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">URL zapisy</span>
+          <span className="flex-1 min-w-0"><DuplicateUrlField event={event} field="registration_url" onSave={onSave} /></span>
+        </div>
+        <div className="col-span-2 flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Regulamin</span>
+          <span className="flex-1 min-w-0"><DuplicateUrlField event={event} field="regulamin_url" onSave={onSave} /></span>
+        </div>
+        <div className="col-span-2 flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Strona</span>
+          <span className="flex-1 min-w-0"><DuplicateUrlField event={event} field="website" onSave={onSave} /></span>
+        </div>
+      </div>
+
+      {/* Footer: geo status + locked fields */}
+      <div className="flex gap-1.5 mt-2.5 flex-wrap">
+        {event.lat != null ? (
+          <span className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-green-800 text-green-500 bg-green-950/30">geo</span>
+        ) : (
+          <span className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-red-900 text-red-500">brak geo</span>
+        )}
+        {(event.locked_fields || []).length > 0 && (
+          <span className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-apex-border text-apex-muted">
+            locked: {(event.locked_fields || []).join(', ')}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DuplicateGroup({ group, onDelete, onDismiss, onSave }) {
+  return (
+    <div className="border border-apex-border mb-4 bg-apex-surface">
       <div className="flex items-center justify-between font-mono text-[10px] tracking-widest uppercase text-apex-yellow-dim px-3 py-2 border-b border-apex-border bg-apex-bg">
         <span>{group[0].date} &middot; {group.length} wpisy</span>
         <button
@@ -271,107 +468,9 @@ function DuplicateGroup({ group, onDelete, onDismiss }) {
           Nie duplikat
         </button>
       </div>
-      {group.map(ev => {
-        const meta = []
-        if (ev.distances?.length) meta.push(ev.distances.join(', '))
-        if (ev.event_type?.length) meta.push(ev.event_type.join(', '))
-        if (ev.price_from != null || ev.price_to != null) {
-          const p = ev.price_from != null && ev.price_to != null
-            ? `${ev.price_from}–${ev.price_to} zł`
-            : `${ev.price_from ?? ev.price_to} zł`
-          meta.push(p)
-        }
-
-        const flags = []
-        if (ev.registration_url) flags.push('URL zapisy')
-        if (ev.lat != null) flags.push('geo')
-        if (ev.is_night) flags.push('nocny')
-        if (ev.is_charity) flags.push('charytatywny')
-
-        return (
-        <div key={ev.id} className="flex items-start gap-3 px-3 py-2.5 border-b border-apex-border last:border-b-0 hover:bg-apex-surface-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-apex-text-bright font-semibold">
-                {ev.registration_url || ev.source_url ? (
-                  <a href={ev.registration_url || ev.source_url} target="_blank" rel="noopener"
-                    className="hover:text-apex-yellow underline decoration-apex-border-mid hover:decoration-apex-yellow transition-colors">
-                    {ev.name}
-                  </a>
-                ) : ev.name}
-              </span>
-              <span className="font-mono text-[10px] text-apex-muted px-1.5 py-0.5 border border-apex-border shrink-0">
-                {ev.source}
-              </span>
-            </div>
-            <div className="text-xs text-apex-muted mt-1">
-              {ev.location || <span className="italic text-apex-red">brak lokalizacji</span>}
-              {ev.voivodeship && <span> &middot; {ev.voivodeship}</span>}
-            </div>
-            {meta.length > 0 && (
-              <div className="text-xs text-apex-text mt-1">
-                {meta.join(' · ')}
-              </div>
-            )}
-            <div className="flex gap-1.5 mt-1.5 flex-wrap">
-              {flags.map(f => (
-                <span key={f} className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-green-800 text-green-500 bg-green-950/30">
-                  {f}
-                </span>
-              ))}
-              {!ev.registration_url && (
-                <span className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-apex-border text-apex-muted">
-                  brak URL
-                </span>
-              )}
-              {ev.lat == null && (
-                <span className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-red-900 text-red-500">
-                  brak geo
-                </span>
-              )}
-              {(!ev.distances || ev.distances.length === 0) && (
-                <span className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-red-900 text-red-500">
-                  brak dystansów
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="shrink-0">
-            {confirmId === ev.id ? (
-              <div
-                ref={confirmRef}
-                tabIndex={0}
-                onKeyDown={handleKeyDown}
-                onBlur={() => setConfirmId(null)}
-                className="flex items-center gap-2"
-              >
-                <span className="text-xs text-apex-red font-semibold">Usunąć?</span>
-                <button
-                  onClick={() => { onDelete(ev.id); setConfirmId(null) }}
-                  className="font-mono text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 border border-red-600 text-red-400 hover:bg-red-600 hover:text-white transition-all"
-                >
-                  Enter / Y
-                </button>
-                <button
-                  onClick={() => setConfirmId(null)}
-                  className="font-mono text-[10px] tracking-wide uppercase px-2 py-1 border border-apex-border text-apex-muted hover:text-apex-text-bright transition-all"
-                >
-                  Esc
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setConfirmId(ev.id)}
-                className="font-mono text-[10px] font-semibold tracking-wide uppercase px-3 py-1 border border-apex-border text-apex-muted hover:border-red-600 hover:text-red-400 transition-all"
-                title="Usuń ten wpis"
-              >
-                Usuń
-              </button>
-            )}
-          </div>
-        </div>
-        )
-      })}
+      {group.map(ev => (
+        <DuplicateEventCard key={ev.id} event={ev} onSave={onSave} onDelete={onDelete} />
+      ))}
     </div>
   )
 }
@@ -403,6 +502,15 @@ function DuplicatesView() {
     },
   })
 
+  const saveMutation = useMutation({
+    mutationFn: ({ id, updates }) => api.patch(`/calendar-events/${id}`, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-duplicates'] })
+    },
+  })
+
+  const handleSave = (id, updates) => saveMutation.mutate({ id, updates })
+
   const groups = data || []
   const totalDupes = groups.reduce((sum, g) => sum + g.length - 1, 0)
 
@@ -421,7 +529,13 @@ function DuplicatesView() {
       )}
 
       {groups.map((group, i) => (
-        <DuplicateGroup key={i} group={group} onDelete={(id) => deleteMutation.mutate(id)} onDismiss={(ids) => dismissMutation.mutate(ids)} />
+        <DuplicateGroup
+          key={i}
+          group={group}
+          onDelete={(id) => deleteMutation.mutate(id)}
+          onDismiss={(ids) => dismissMutation.mutate(ids)}
+          onSave={handleSave}
+        />
       ))}
     </div>
   )
