@@ -19,12 +19,13 @@ End-to-end checklist for adding a 13th, 14th, … scraper. Mirrors the lumisport
 
 In order of preference:
 1. **WC Store API** if WordPress + WooCommerce → `https://SOURCE/wp-json/wc/store/v1/products?per_page=100` (lumisport-style, structured)
-2. **WP REST API** → `https://SOURCE/wp-json/` (lists all available endpoints/namespaces)
-3. **Custom JSON API** → check sitemap, network tab, `/api/` paths (dostartu-style)
-4. **HTML scraping with cheerio** → server-rendered listing pages
-5. **Playwright** → JS-rendered SPAs only (last resort, slow)
+2. **iCal feed** if WordPress + The Events Calendar plugin → `https://SOURCE/wydarzenia/?ical=1` (or `/events/?ical=1`). Rich structured data: clean `DTSTART;VALUE=DATE`, `SUMMARY`, `LOCATION`, `URL`, `UID` (stable post id as prefix), and full `DESCRIPTION` containing PDF regulamin links (URL-encoded in `vc_btn` shortcodes — decode before regex). No detail page fetches needed. Exemplar: `kepasport.js`.
+3. **WP REST API** → `https://SOURCE/wp-json/` (lists all available endpoints/namespaces)
+4. **Custom JSON API** → check sitemap, network tab, `/api/` paths (dostartu-style)
+5. **HTML scraping with cheerio** → server-rendered listing pages
+6. **Playwright** → JS-rendered SPAs only (last resort, slow)
 
-**Always check:** `<source>/wp-json/` first — many Polish race sites are WordPress.
+**Always check:** `<source>/wp-json/` first — many Polish race sites are WordPress. Also check `/?ical=1` — The Events Calendar plugin is common and gives better structured data than HTML scraping.
 
 For each candidate event, find:
 - `name`, `date` (parseable to YYYY-MM-DD; DROP if not)
@@ -277,8 +278,10 @@ Before running ANY rollback, query first to identify which scraper_all rows have
 ### Run the steps
 
 ```bash
-# Container may not have new file unless watch is running. If needed:
+# Container may not have new/updated files unless watch is running. Copy all three:
 docker cp backend/src/scrapers/sources/<name>.js leszyrun-backend-1:/app/backend/src/scrapers/sources/<name>.js
+docker cp backend/src/scrapers/index.js leszyrun-backend-1:/app/backend/src/scrapers/index.js
+docker cp backend/src/scrapers/dedup.js leszyrun-backend-1:/app/backend/src/scrapers/dedup.js
 
 # 1. Standalone — verify shape of scraped rows
 docker compose exec --workdir /app/backend backend node -e "
@@ -354,7 +357,18 @@ If the new scraper covers events already in `calendar_events` from another sourc
 3. Skip fields listed in `locked_fields`
 4. After updates: `node --env-file=../.env scripts/publish-event-pages.js --apply` to refresh manifest + OG images
 
-## 10. Refresh manifest
+## 10. Update docs
+
+Two files track the scraper list — update both:
+
+**CLAUDE.md** — bump `### Data sources (N scrapers)` count and append a row to the table.
+
+**docs/scrapers.md** — find the scraper → table mapping (search for `scraper_wbtiming` or similar) and append a row:
+```
+| <name> | `scraper_<name>` | `source_id` |
+```
+
+## 11. Refresh manifest
 
 After ANY change to `calendar_events` (publish + manual backfill):
 ```bash
@@ -376,7 +390,7 @@ git add public/public/kalendarz && git commit -m "data: manifest refresh after <
 | `runPipeline({ force: [x] })` doesn't actually clear | Re-scrape reports duplicate-key errors, table still has stale rows | The `.delete().neq('id', '')` silently no-ops on this Supabase setup. Workaround: `DELETE FROM scraper_x` via `mcp__supabase__execute_sql` before re-scraping |
 | Polish word boundaries miss | Regex `\bświetlik\b` doesn't match "Świetlik Run" because JS `\b` doesn't recognize `ś` | Lowercase the input and use a manual non-letter boundary: `[^a-ząćęłńóśźż]świetlik` |
 | Forgot SOURCE_PRIORITY | Lower priority (defaults to 99) — your scraper never wins on field conflicts | Add to `dedup.js` |
-| Container has stale code | "ERR_MODULE_NOT_FOUND" on smoke test | `docker cp` the new file or restart with `docker compose up --watch` |
+| Container has stale code | "ERR_MODULE_NOT_FOUND" on standalone test; pipeline test imports old wiring | `docker cp` all three: `sources/<name>.js`, `index.js`, `dedup.js` — or restart with `docker compose up --watch` |
 
 ## Don't
 
