@@ -63,8 +63,7 @@ cd backend && node --env-file=../.env scripts/run-publish.js --apply
 
 # Step 7: Regenerate static event pages manifest + OG images — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/publish-event-pages.js
-cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply
-cd backend && node --env-file=../.env scripts/publish-landing-pages.js --apply
+cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply && node --env-file=../.env scripts/publish-landing-pages.js --apply
 # Use --regen-og to regenerate ALL OG images (e.g. after changing the OG template)
 
 # Step 8a: Local Postgres backup (race-timing data: events, participants, results, gate_events, …)

@@ -56,6 +56,7 @@ _FREE_EVENT_RE = re.compile(
 _DO_DNIA = (
     r"do\s+"
     r"(?:dnia\s+"
+    r"|dn\.\s+"
     r"|godziny\s+\d{1,2}[:.]\d{2}(?:\s+w\s+\w+)?\s+"
     r")?"
 )
@@ -68,6 +69,18 @@ _DEADLINE_DOTTED_RE = re.compile(
     re.IGNORECASE,
 )
 _DEADLINE_ISO_RE = re.compile(rf"(?:{_DO_DNIA})?(\d{{4}})-(\d{{2}})-(\d{{2}})", re.IGNORECASE)
+
+# Year-less variants — only used when event_date is supplied for year inference.
+# Negative lookahead prevents shadowing the year-bearing patterns above.
+_DEADLINE_TEXT_NOYEAR_RE = re.compile(
+    rf"{_DO_DNIA}(\d{{1,2}})\s+(stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|wrze(?:ś|s)nia|pa(?:ź|z)dziernika|listopada|grudnia)(?!\s+\d{{4}})",
+    re.IGNORECASE,
+)
+# Dotted year-less: "15.07." — trailing dot required, no 4-digit year following.
+_DEADLINE_DOTTED_NOYEAR_RE = re.compile(
+    rf"(?:{_DO_DNIA})?(\d{{1,2}})\.(\d{{1,2}})\.(?!\d)",
+    re.IGNORECASE,
+)
 
 # Only look for deadlines near these anchor phrases (within ±200 chars).
 # Several anchor variants below cover the same intent in different word orders
@@ -86,8 +99,19 @@ _DEADLINE_ANCHORS = [
     "zamknięcie zapisów", "zamkniecie zapisow", "przyjmowanie zgłosz",
     "ostateczny termin", "termin zapisów", "termin zapisow",
     "opłata startowa", "wpłacona w terminie", "wplacona w terminie",
+    "przelew",     # "przelew – do 25 czerwca 2026" — tiered price/deadline lists
     "do godziny",  # "Zgłoszenia ... do godziny 23:59 w poniedziałek 8 czerwca 2026"
     "do dnia",     # "DO DNIA 29.07.2026 R." — common standalone deadline marker
+]
+
+# Dates that appear near these phrases are NOT registration deadlines — they're
+# day-of race-office options or similar. Applied as a local ±80 char check on
+# each candidate match.
+_DEADLINE_NEGATIVE_TOKENS = [
+    "biurze zawodów", "biurze zawodow",  # "w biurze zawodów" — day-of race office
+    "biuro zawodów", "biuro zawodow",
+    "w dniu zawodów", "w dniu zawodow",
+    "w dniu imprezy",
 ]
 
 
@@ -229,6 +253,34 @@ def _extract_prices(text: str) -> list[int]:
     return sorted(found)
 
 
+def _near_deadline_negative(m, window: str, radius: int = 80) -> bool:
+    local = window[max(0, m.start() - radius):min(len(window), m.end() + radius)]
+    return any(neg in local for neg in _DEADLINE_NEGATIVE_TOKENS)
+
+
+def _month_number(raw: str) -> int | None:
+    month = _MONTHS.get(raw)
+    if month is not None:
+        return month
+    norm = raw.replace("ś", "s").replace("ź", "z")
+    for key, val in _MONTHS.items():
+        if norm == key.replace("ś", "s").replace("ź", "z"):
+            return val
+    return None
+
+
+def _infer_year(ev: _date, month: int, day: int) -> _date | None:
+    """Return date(ev.year or ev.year-1, month, day), whichever falls before ev."""
+    for delta in (0, -1):
+        try:
+            d = _date(ev.year + delta, month, day)
+        except ValueError:
+            continue
+        if d < ev:
+            return d
+    return None
+
+
 def _extract_deadline(text: str, event_date: str | None) -> str | None:
     """Extract a registration deadline from text near deadline-anchor phrases.
 
@@ -236,6 +288,13 @@ def _extract_deadline(text: str, event_date: str | None) -> str | None:
     before the event date if known.
     """
     flat = text.lower()
+
+    ev = None
+    if event_date:
+        try:
+            ev = _date.fromisoformat(event_date)
+        except ValueError:
+            pass
 
     # Find all anchor positions — only extract deadlines within ±200 chars of one
     anchor_ranges = []
@@ -258,6 +317,8 @@ def _extract_deadline(text: str, event_date: str | None) -> str | None:
 
         # ISO
         for m in _DEADLINE_ISO_RE.finditer(wlow):
+            if _near_deadline_negative(m, wlow):
+                continue
             try:
                 d = _date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
                 candidates.append(d)
@@ -266,6 +327,8 @@ def _extract_deadline(text: str, event_date: str | None) -> str | None:
 
         # Dotted
         for m in _DEADLINE_DOTTED_RE.finditer(wlow):
+            if _near_deadline_negative(m, wlow):
+                continue
             try:
                 d = _date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
                 candidates.append(d)
@@ -274,33 +337,41 @@ def _extract_deadline(text: str, event_date: str | None) -> str | None:
 
         # Text form ("do 15 maja 2026")
         for m in _DEADLINE_TEXT_RE.finditer(wlow):
-            day = int(m.group(1))
-            month_raw = m.group(2).lower()
-            # Normalize accent-folded variants
-            month = _MONTHS.get(month_raw)
-            if month is None:
-                for key, val in _MONTHS.items():
-                    if month_raw.replace("ś", "s").replace("ź", "z") == key.replace("ś", "s").replace("ź", "z"):
-                        month = val
-                        break
-            year = int(m.group(3))
+            if _near_deadline_negative(m, wlow):
+                continue
+            month = _month_number(m.group(2).lower())
             try:
-                d = _date(year, month, day)
+                d = _date(int(m.group(3)), month, int(m.group(1)))
                 candidates.append(d)
             except (ValueError, TypeError):
                 continue
+
+        # Year-less forms — only when event year is known for inference
+        if ev is not None:
+            for m in _DEADLINE_TEXT_NOYEAR_RE.finditer(wlow):
+                if _near_deadline_negative(m, wlow):
+                    continue
+                month = _month_number(m.group(2).lower())
+                if month is None:
+                    continue
+                d = _infer_year(ev, month, int(m.group(1)))
+                if d:
+                    candidates.append(d)
+
+            for m in _DEADLINE_DOTTED_NOYEAR_RE.finditer(wlow):
+                if _near_deadline_negative(m, wlow):
+                    continue
+                try:
+                    d = _infer_year(ev, int(m.group(2)), int(m.group(1)))
+                    if d:
+                        candidates.append(d)
+                except (ValueError, TypeError):
+                    continue
 
     if not candidates:
         return None
 
     # Validate against event date: deadline should be ≤ event date and ≥ event date - 1 year
-    ev = None
-    if event_date:
-        try:
-            ev = _date.fromisoformat(event_date)
-        except ValueError:
-            ev = None
-
     valid = []
     for d in candidates:
         if ev is not None:
