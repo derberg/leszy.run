@@ -16,7 +16,7 @@ export async function calendarEventsRoutes(fastify) {
     while (true) {
       const { data, error } = await supabase
         .from('calendar_events')
-        .select('id, name, date, location, voivodeship, source, source_id, registration_url, regulamin_url, registration_deadline, source_url, event_type, distances, price_from, price_to, lat, lng')
+        .select('id, name, date, location, voivodeship, source, source_id, registration_url, regulamin_url, website, registration_deadline, source_url, event_type, distances, price_from, price_to, lat, lng, locked_fields')
         .eq('status', 'active')
         .gte('date', new Date().toISOString().split('T')[0])
         .order('date')
