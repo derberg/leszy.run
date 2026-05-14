@@ -22,6 +22,7 @@ const SOURCE_PRIORITY = {
   wbtiming: 8,
   czasomierzyk: 8,
   kepasport: 3,
+  inessport: 3,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
