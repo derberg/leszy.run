@@ -6,8 +6,11 @@ All commands from project root. Requires `backend/.env` with `SUPABASE_URL` and 
 Also requires `claude` CLI installed for steps 5 and 5.1.
 
 ```bash
-# Step 1: Scrape raw data (6 sources → per-source tables)
+# Step 1: Scrape raw data (all sources → per-source tables)
 cd backend && node --env-file=../.env scripts/run-scrapers.js
+
+# Step 1 (single source only):
+cd backend && node --env-file=../.env scripts/run-scrapers.js --only czasomierzyk
 
 # Step 2: Merge into scraper_all (cross-source dedup) — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-merge.js

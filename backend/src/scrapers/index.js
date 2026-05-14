@@ -15,6 +15,7 @@ import { scrape as scrapeBgtimesport } from './sources/bgtimesport.js'
 import { scrape as scrapeRajsportactive } from './sources/rajsportactive.js'
 import { scrape as scrapeSporttime } from './sources/sporttime.js'
 import { scrape as scrapeWbtiming } from './sources/wbtiming.js'
+import { scrape as scrapeCzasomierzyk } from './sources/czasomierzyk.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 
@@ -310,6 +311,28 @@ const sources = [
     name: 'wbtiming',
     scrape: scrapeWbtiming,
     table: 'scraper_wbtiming',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'czasomierzyk',
+    scrape: scrapeCzasomierzyk,
+    table: 'scraper_czasomierzyk',
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,

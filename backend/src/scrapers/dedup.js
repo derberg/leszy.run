@@ -20,6 +20,7 @@ const SOURCE_PRIORITY = {
   rajsportactive: 3,
   sporttime: 8,
   wbtiming: 8,
+  czasomierzyk: 8,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
@@ -116,8 +117,11 @@ function distinguishingTags(event) {
   const tags = new Set()
   const n = (event.name || '').toLowerCase()
 
-  // Audience — kids events should never collapse with adult events
-  if (event.is_kids) tags.add('audience:kids')
+  // Audience — kids events should never collapse with adult events.
+  // Guard is name-based only: is_kids=true in scraper_* can come from
+  // sub-category detection on mixed events where the umbrella name has no
+  // kids keywords — using it here would create false conflicts between
+  // scrapers that see the kids sub-races and scrapers that don't.
   if (/dzieci|świetlik|małych\s+żeglar|małych\s+biega|junior|młodzież|biegi\s+dla\s+dzieci/i.test(n)) {
     tags.add('audience:kids')
   }
