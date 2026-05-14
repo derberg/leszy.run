@@ -16,6 +16,8 @@ async def crawl_pages(urls: dict, max_chars: int = 10_000) -> dict[str, Optional
 
     Deduplicates: if multiple fields point to the same URL, crawl once and reuse.
     """
+    import click
+
     # Build url → [field_names] mapping to deduplicate
     url_to_fields = {}
     for field_name, url in urls.items():
@@ -24,8 +26,12 @@ async def crawl_pages(urls: dict, max_chars: int = 10_000) -> dict[str, Optional
 
     # Crawl each unique URL
     url_results = {}
-    for url in url_to_fields:
+    for url, fields in url_to_fields.items():
+        label = ", ".join(fields)
+        click.echo(f"      crawling {label}: {url}")
         result = await _crawl_url(url, max_chars)
+        if result is None:
+            click.echo(f"      → failed")
         url_results[url] = result
 
     # Map back to field names
@@ -39,13 +45,19 @@ async def crawl_pages(urls: dict, max_chars: int = 10_000) -> dict[str, Optional
 
 async def crawl_url_list(urls: list, max_chars: int = 10_000) -> dict:
     """Crawl a plain list of URLs. Returns {url: CrawlResult or None}. Deduplicates."""
+    import click
+
     seen = set()
     results = {}
     for url in urls:
         if not url or url in seen:
             continue
         seen.add(url)
-        results[url] = await _crawl_url(url, max_chars)
+        click.echo(f"      crawling: {url}")
+        result = await _crawl_url(url, max_chars)
+        if result is None:
+            click.echo(f"      → failed")
+        results[url] = result
     return results
 
 

@@ -97,14 +97,17 @@ async function fetchFormDetails(formUrl) {
       const href = $(el).attr('href') || ''
       const text = $(el).text().trim().toLowerCase()
 
-      // Skip internal and social links
-      if (!href.startsWith('http') || SKIP_DOMAINS.test(href)) return
+      if (!href.startsWith('http')) return
 
       // "Strona zawodów i regulamin", "Strona biegu i regulamin", etc.
       if (text.includes('regulamin') || text.includes('strona zawod') || text.includes('strona bieg')) {
-        website = href
-        // If the link text mentions regulamin, the URL itself is likely the regulamin
-        if (text.includes('regulamin')) {
+        // Website: exclude social, payment, and google.* (Docs/Drive are not event websites)
+        if (!SKIP_DOMAINS.test(href)) {
+          website = href
+        }
+        // Regulamin: Google Docs / Drive are valid regulamin hosts — only exclude
+        // raatiming.pl itself (that's the registration form URL, not a regulamin doc)
+        if (text.includes('regulamin') && !regulaminUrl && !href.includes('raatiming.pl')) {
           regulaminUrl = href
         }
       }

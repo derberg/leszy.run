@@ -28,6 +28,8 @@ async def process_event(event: dict, config: Config) -> dict:
     result["steps"]["validate"] = {
         "urls_checked": len(url_statuses),
         "dead": [k for k, v in url_statuses.items() if v.status == "dead"],
+        "url_map": {k: v for k, v in url_fields.items() if v},
+        "is_pdf": [k for k, v in url_statuses.items() if v.is_pdf],
     }
 
     # Determine which URL fields are missing or dead
@@ -83,9 +85,12 @@ async def process_event(event: dict, config: Config) -> dict:
 
     crawled = await crawl_pages(crawl_urls, max_chars=config.max_page_chars)
     crawled_content = {k: v.content for k, v in crawled.items() if v}
+    skipped_pdf = [k for k in working_urls if k not in crawl_urls]
     result["steps"]["crawl"] = {
         "pages": len([v for v in crawled.values() if v]),
         "total_chars": sum(v.chars for v in crawled.values() if v),
+        "skipped_pdf": skipped_pdf,
+        "failed": [k for k, v in crawled.items() if not v],
     }
 
     # Step 3b: Navigate — for stubs and landing pages, follow keyword-matched
@@ -134,7 +139,9 @@ async def process_event(event: dict, config: Config) -> dict:
                 crawled_content[f"followup:{url}"] = cr.content
         result["steps"]["navigate"] = {
             "followed": len(followup_urls),
+            "followup_urls": followup_urls,
             "pdf_candidates": len(followup_from_pdf_links),
+            "pdf_candidate_urls": followup_from_pdf_links,
             "successful": len([v for v in followup_crawled.values() if v]),
         }
 
@@ -412,9 +419,20 @@ def _print_step(name, data):
     """Print a concise step summary."""
     import click
     if name == "validate":
-        dead = data.get("dead", [])
-        dead_str = f", {len(dead)} dead ({', '.join(dead)})" if dead else ", all alive"
-        click.echo(f"    validate: {data.get('urls_checked', 0)} URLs checked{dead_str}")
+        url_map = data.get("url_map", {})
+        dead = set(data.get("dead", []))
+        is_pdf = set(data.get("is_pdf", []))
+        parts = []
+        for field in ["registration_url", "regulamin_url", "website"]:
+            if field not in url_map:
+                parts.append(f"{field}: (none)")
+            elif field in dead:
+                parts.append(f"{field}: dead")
+            elif field in is_pdf:
+                parts.append(f"{field}: PDF")
+            else:
+                parts.append(f"{field}: ok")
+        click.echo(f"    validate: {' | '.join(parts)}")
     elif name == "search":
         found = data.get("found", {})
         if found:
@@ -422,15 +440,31 @@ def _print_step(name, data):
         else:
             click.echo("    search: no results")
     elif name == "crawl":
-        click.echo(f"    crawl: {data.get('pages', 0)} pages, {data.get('total_chars', 0)} chars")
+        pages = data.get("pages", 0)
+        chars = data.get("total_chars", 0)
+        notes = []
+        if data.get("skipped_pdf"):
+            notes.append(f"PDF skipped: {', '.join(data['skipped_pdf'])}")
+        if data.get("failed"):
+            notes.append(f"failed: {', '.join(data['failed'])}")
+        suffix = f" ({'; '.join(notes)})" if notes else ""
+        click.echo(f"    crawl: {pages} pages, {chars} chars{suffix}")
     elif name == "navigate":
+        successful = data.get("successful", 0)
+        followed = data.get("followed", 0)
+        pdf_candidates = data.get("pdf_candidates", 0)
         click.echo(
-            f"    navigate: {data.get('successful', 0)}/{data.get('followed', 0)} followups crawled, "
-            f"{data.get('pdf_candidates', 0)} pdf candidates"
+            f"    navigate: {successful}/{followed} followups crawled, "
+            f"{pdf_candidates} pdf candidates"
         )
+        for u in data.get("followup_urls", []):
+            click.echo(f"      {u}")
+        for u in data.get("pdf_candidate_urls", []):
+            click.echo(f"      PDF: {u}")
     elif name == "pdf":
         src = data.get("source", "existing")
-        click.echo(f"    pdf ({src}): {data.get('extracted_chars', 0)} chars")
+        url_note = f" ({data['url']})" if src == "discovered" and data.get("url") else ""
+        click.echo(f"    pdf ({src}){url_note}: {data.get('extracted_chars', 0)} chars")
     elif name == "prepass":
         parts = []
         if data.get("price_from") is not None:
