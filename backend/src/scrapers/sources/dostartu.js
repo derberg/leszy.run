@@ -28,6 +28,19 @@ async function fetchPage(page, dateSince) {
   return json.competitions || []
 }
 
+async function fetchCompetition(competitionId) {
+  try {
+    const res = await fetch(`${API_URL}/competitions/${competitionId}`, {
+      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.competition || null
+  } catch {
+    return null
+  }
+}
+
 async function fetchClassifications(competitionId) {
   try {
     const res = await fetch(`${API_URL}/competitions/${competitionId}/classifications`, {
@@ -213,4 +226,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape, fetchClassifications, parseClassifications }
+export { scrape, fetchCompetition, fetchClassifications, parseClassifications }

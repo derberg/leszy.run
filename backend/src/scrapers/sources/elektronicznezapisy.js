@@ -1,8 +1,7 @@
 import * as cheerio from 'cheerio'
-import { fetchClassifications, parseClassifications } from './dostartu.js'
+import { isDostartuLikeUrl, enrichFromUrl } from '../apiEnrich.js'
 
 const BASE_URL = 'https://elektronicznezapisy.pl'
-const DOSTARTU_API = 'https://api.dostartu.pl'
 
 const CATEGORY_URLS = [
   { url: `${BASE_URL}/1/bieg.html`, type: 'running' },
@@ -22,13 +21,6 @@ const KNOWN_SOURCE_DOMAINS = [
   'competitions.timekeeper.pl',
 ]
 
-// Domains that use the dostartu API (same -v{id} URL pattern, same API at api.dostartu.pl)
-const DOSTARTU_LIKE_DOMAINS = [
-  'dostartu.pl',
-  'zapisy.mktime.pl',
-  'zapisy.o-timing.pl',
-]
-
 function isKnownSourceUrl(url) {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, '')
@@ -36,20 +28,6 @@ function isKnownSourceUrl(url) {
   } catch {
     return false
   }
-}
-
-function isDostartuLikeUrl(url) {
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, '')
-    return DOSTARTU_LIKE_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))
-  } catch {
-    return false
-  }
-}
-
-function extractDostartuId(url) {
-  const match = url.match(/-v(\d+)/)
-  return match ? match[1] : null
 }
 
 async function fetchDetailPage(eventId) {
@@ -219,31 +197,6 @@ async function fetchSignupPageLinks(eventId) {
   }
 }
 
-// Enrich sparse events from dostartu-like APIs (dostartu.pl, zapisy.mktime.pl, etc.)
-async function enrichFromDostartuApi(competitionId, eventName) {
-  try {
-    const res = await fetch(`${DOSTARTU_API}/competitions/${competitionId}`, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
-    })
-    if (!res.ok) return null
-    const json = await res.json()
-    const comp = json.competition
-    if (!comp) return null
-
-    const classifications = await fetchClassifications(competitionId)
-    const { distances } = parseClassifications(classifications, eventName)
-
-    return {
-      location: comp.location || null,
-      lat: comp.locationLat || null,
-      lng: comp.locationLng || null,
-      distances,
-    }
-  } catch (err) {
-    console.error(`[elektronicznezapisy] dostartu API enrichment failed for ${competitionId}:`, err.message)
-    return null
-  }
-}
 
 async function scrape({ knownIds = new Set() } = {}) {
   // Step 1: collect event IDs + basic data from listing pages
@@ -304,11 +257,9 @@ async function scrape({ knownIds = new Set() } = {}) {
     const detail = await fetchDetailPage(entry.eventId)
 
     if (detail && detail.name) {
-      const isSparse = !detail.distances
-
       // If detail page is sparse, check signup page for external registration link
       let signupExternalLink = null
-      if (isSparse) {
+      if (!detail.distances) {
         signupExternalLink = await fetchSignupPageLinks(entry.eventId)
         if (signupExternalLink) {
           console.log(`[elektronicznezapisy] Signup page redirect: ${entry.eventId} → ${signupExternalLink}`)
@@ -323,34 +274,36 @@ async function scrape({ knownIds = new Set() } = {}) {
         ? externalWebsite
         : null
 
-      // Enrich from dostartu API if external link is dostartu-like and data is sparse
-      let enriched = null
-      if (isSparse && externalWebsite && isDostartuLikeUrl(externalWebsite)) {
-        const compId = extractDostartuId(externalWebsite)
-        if (compId) {
-          enriched = await enrichFromDostartuApi(compId, detail.name)
-          if (enriched) {
-            console.log(`[elektronicznezapisy] Enriched ${entry.eventId} from dostartu API (comp ${compId}): distances=${enriched.distances}`)
-          }
-          await new Promise(r => setTimeout(r, 500))
-        }
+      // Enrich from dostartu-like API if external link is a dostartu-compatible platform.
+      // This covers cases where externalWebsite is dostartu but registration_url is EZ —
+      // index.js-level enrichment won't see the dostartu URL in those cases.
+      let apiData = {}
+      if (externalWebsite && isDostartuLikeUrl(externalWebsite)) {
+        const enriched = await enrichFromUrl({ registration_url: externalWebsite, name: detail.name })
+        apiData = enriched
+        console.log(`[elektronicznezapisy] API-enriched ${entry.eventId}: distances=${apiData.distances}, price_from=${apiData.price_from}, deadline=${apiData.registration_deadline}`)
+        await new Promise(r => setTimeout(r, 500))
       }
 
       results.push({
         name: detail.name,
         date: detail.date || entry.date,
-        location: enriched?.location || detail.location || '',
-        distances: enriched?.distances || detail.distances || '',
+        location: apiData.location || detail.location || '',
+        lat: apiData.lat ?? null,
+        lng: apiData.lng ?? null,
+        distances: apiData.distances || detail.distances || '',
         registration_url: signupExternalLink || (entry.signupLink
           ? `${BASE_URL}/${entry.signupLink}`
           : `${BASE_URL}/event/${entry.eventId}/strona.html`),
         regulamin_urls: detail.regulaminUrls || [],
+        regulamin_url: apiData.regulamin_url || null,
         external_website: externalWebsite,
         known_source_link: knownSourceLink,
-        price_from: detail.price_from,
-        price_to: detail.price_to,
-        registration_deadline: detail.registration_deadline,
-        is_kids: detail.is_kids,
+        price_from: detail.price_from ?? apiData.price_from,
+        price_to: detail.price_to ?? apiData.price_to,
+        registration_deadline: detail.registration_deadline || apiData.registration_deadline,
+        website: apiData.website || null,
+        is_kids: detail.is_kids || apiData.is_kids || false,
         source: 'elektronicznezapisy',
         source_url: `${BASE_URL}/event/${entry.eventId}/strona.html`,
         source_id: entry.eventId,

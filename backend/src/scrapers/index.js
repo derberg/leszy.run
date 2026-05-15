@@ -18,8 +18,13 @@ import { scrape as scrapeWbtiming } from './sources/wbtiming.js'
 import { scrape as scrapeCzasomierzyk } from './sources/czasomierzyk.js'
 import { scrape as scrapeKepasport } from './sources/kepasport.js'
 import { scrape as scrapeInessport } from './sources/inessport.js'
+import { scrape as scrapeAleczas } from './sources/aleczas.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
+import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
+
+// Sources that handle their own API enrichment in-scraper (avoid double API calls)
+const SELF_ENRICHING_SOURCES = new Set(['dostartu', 'elektronicznezapisy'])
 
 const sources = [
   {
@@ -61,12 +66,16 @@ const sources = [
       distances: raw.distances || null,
       registration_url: raw.registration_url || null,
       regulamin_urls: raw.regulamin_urls && raw.regulamin_urls.length > 0 ? raw.regulamin_urls : null,
+      regulamin_url: raw.regulamin_url || null,
       external_website: raw.external_website || null,
       known_source_link: raw.known_source_link || null,
+      website: raw.website || null,
       is_kids: raw.is_kids || false,
       price_from: raw.price_from ?? null,
       price_to: raw.price_to ?? null,
       registration_deadline: raw.registration_deadline || null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
     }),
@@ -397,6 +406,29 @@ const sources = [
       source_url: raw.source_url || null,
     }),
   },
+  {
+    name: 'aleczas',
+    scrape: scrapeAleczas,
+    table: 'scraper_aleczas',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      registration_deadline: raw.registration_deadline || null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
 ]
 
 async function runPipeline({ force = [], only = [] } = {}) {
@@ -430,8 +462,24 @@ async function runPipeline({ force = [], only = [] } = {}) {
         console.log(`[pipeline] ${source.name}: ${knownIds.size} events already in DB`)
       }
 
-      const rawEvents = await source.scrape({ knownIds })
+      let rawEvents = await source.scrape({ knownIds })
       stats.found = rawEvents.length
+
+      // API-enrich any events whose registration_url points to a known API platform
+      // (dostartu, zapisy.mktime.pl, zapisy.o-timing.pl). Skip sources that already
+      // do this in-scraper to avoid redundant API calls.
+      if (!SELF_ENRICHING_SOURCES.has(source.name)) {
+        let enrichCount = 0
+        for (let j = 0; j < rawEvents.length; j++) {
+          if (!isDostartuLikeUrl(rawEvents[j].registration_url)) continue
+          if (enrichCount === 0) {
+            console.log(`[pipeline] ${source.name}: API-enriching dostartu-linked event(s)`)
+          }
+          rawEvents[j] = await enrichFromUrl(rawEvents[j])
+          enrichCount++
+          await new Promise(r => setTimeout(r, 300))
+        }
+      }
 
       const rows = []
       for (const raw of rawEvents) {

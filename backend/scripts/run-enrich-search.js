@@ -5,6 +5,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { writeRunLog } from './lib/run-log.js'
 import { AI_FILLABLE, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
+import { enrichFromUrl, isDostartuLikeUrl } from '../src/scrapers/apiEnrich.js'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-enrich-search.js
 // Uses local Claude CLI with web search to find event websites, distances,
@@ -259,8 +260,37 @@ async function main() {
     const row = toProcess[i]
     console.log(`[${i + 1}/${toProcess.length}] ${row.name} | ${row.date} | ${row.location || '?'}`)
 
+    // Try free API enrichment first (dostartu et al.) before paying for Claude
+    if (isDostartuLikeUrl(row.registration_url)) {
+      const apiEnriched = await enrichFromUrl(row)
+      const apiUpdates = {}
+      for (const field of Object.keys(AI_FILLABLE)) {
+        if (row[field] == null && apiEnriched[field] != null) {
+          apiUpdates[field] = apiEnriched[field]
+        }
+      }
+      if (Object.keys(apiUpdates).length > 0) {
+        Object.assign(row, apiUpdates)
+        console.log(`    API (dostartu): filled ${Object.keys(apiUpdates).join(', ')}`)
+        if (!dryRun) {
+          await supabase.from('scraper_all').update(apiUpdates).eq('id', row.id)
+        }
+      }
+    }
+
     // Determine which fields to ask the LLM about (only ones that are null on the row)
     const fieldsToFill = fieldsNeedingFill(row)
+
+    // If API enrichment filled everything, skip Claude entirely
+    if (fieldsToFill.length === 0) {
+      console.log('    API: all fields filled, skipping Claude')
+      if (!dryRun) {
+        await supabase.from('scraper_all').update({ enriched_search_at: new Date().toISOString() }).eq('id', row.id)
+      }
+      enriched++
+      events.push({ id: row.id, name: row.name, status: 'enriched_api' })
+      continue
+    }
 
     const prompt = buildPrompt(row, fieldsToFill)
     const result = callClaude(prompt)

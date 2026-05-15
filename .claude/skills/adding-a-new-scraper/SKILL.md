@@ -59,24 +59,25 @@ Mirror `scraper_supersport` schema, add columns the source exposes that others d
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.scraper_<name> (
-  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name             text NOT NULL,
-  date             text NOT NULL,
-  location         text,
-  distances        text,
-  registration_url text,
-  regulamin_url    text,
-  website          text,
-  is_kids          boolean DEFAULT false,
-  event_types      text[],         -- IMPORTANT: needed for cross-source merges to land
-  price_from       numeric,
-  price_to         numeric,
-  lat              numeric(9, 6),  -- IMPORTANT: match calendar_events precision
-  lng              numeric(9, 6),
-  source_id        text NOT NULL,
-  source_url       text,
-  merged_at        timestamptz,
-  created_at       timestamptz DEFAULT now()
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                  text NOT NULL,
+  date                  text NOT NULL,
+  location              text,
+  distances             text,
+  registration_url      text,
+  registration_deadline date,
+  regulamin_url         text,
+  website               text,
+  is_kids               boolean DEFAULT false,
+  event_types           text[],         -- IMPORTANT: needed for cross-source merges to land
+  price_from            numeric,
+  price_to              numeric,
+  lat                   numeric(9, 6),  -- IMPORTANT: match calendar_events precision
+  lng                   numeric(9, 6),
+  source_id             text NOT NULL,
+  source_url            text,
+  merged_at             timestamptz,
+  created_at            timestamptz DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS scraper_<name>_source_id_idx
   ON public.scraper_<name> (source_id);
@@ -97,8 +98,9 @@ Returns array of:
 {
   name, date,                            // both required, drop row if either missing
   location: null,                        // ok if source doesn't expose
-  distances: '5 km, 10 km',              // string, comma-separated
+  distances: '5 km, 10 km',              // string, comma-separated — see section 5c
   registration_url, regulamin_url, website,
+  registration_deadline: null,           // YYYY-MM-DD; include column in Supabase table too
   is_kids: false,                        // see section 5b
   event_types: ['trail'],                // see section 5b — required for merges to land
   price_from, price_to,                  // PLN integers
@@ -142,6 +144,12 @@ function detectEventTypes(name) {
 }
 ```
 
+Pass BOTH umbrella name AND the raw distances string to catch type signals in distances. Some sources write `nw 6km` in the distances field — `\bnw\b` in the name alone won't see it:
+
+```js
+const eventTypes = detectEventTypes(`${name} ${distancesRaw || ''}`)
+```
+
 **Why umbrella name only:** including subdivision headings over-tags. If the umbrella has running + NW subdivisions, picking up `'nordic walking'` from a subdivision creates a tag-set mismatch with biegiwpolsce/maratonypolskie which only tag from umbrella names — same event, different tag count → guard rejects. Bgtimesport's `X Leśne Bieganie` failed to merge with biegiwpolsce until we restricted detection to the umbrella.
 
 ### `is_kids` — true if ANY subdivision is kids (lumisport rule)
@@ -169,6 +177,67 @@ function hasKidsSignal(name) {
 
 **Why "Mini" needs care:** match `MiniKierpce`, `Mini-Maraton` (kids events that start with Mini), and `miniBucze` as a subdivision (kids subdivision inside an adult umbrella). But don't match arbitrary words containing `mini`. The non-letter boundary `${NB}mini[\\-a-ząćęłńóśźż]` handles all three.
 
+## 5c. Distances field format
+
+`distances` must be **clean numbers + unit only** — no activity-type prefixes, no noise phrases:
+
+- **Correct:** `"8 km, 6 km"`, `"5 km, 10 km, 21.1 km"`
+- **Wrong:** `"bieg 8km, nw 6km"`, `"8km,6km"`, `"8 km, biegi dla dzieci"`
+
+If the source stores distances mixed with category labels (common on Polish timing-co sites), strip them:
+
+```js
+// Input: "bieg 8km, nw 6km, biegi dla dzieci i młodzieży, rolki"
+// Output: "8 km, 6 km"
+function cleanDistances(raw) {
+  if (!raw) return null
+  let s = raw
+    .replace(/biegi dla dzieci i m[lł]odzie[żz]y?/gi, '')
+    .replace(/biegi dla dzieci/gi, '')
+    .replace(/biegi dla m[lł]odzie[żz]y?/gi, '')
+    .replace(/rolki/gi, '')
+    .replace(/\bnw\s+(?=\d)/gi, '')           // "nw 6km" → "6km"
+    .replace(/\bbieg\s+(?=\d)/gi, '')          // "bieg 8km" → "8km"
+    .replace(/(\d+)\s*km\b/gi, (_, n) => `${n} km`)   // "8km" → "8 km"
+    .replace(/(\d{2,})\s*m\b/g,  (_, n) => `${n} m`)  // "400m" → "400 m"
+    .trim()
+    .replace(/^[,\s]+|[,\s]+$/g, '')
+    .replace(/,\s*,+/g, ',')
+    .trim()
+  return s || null
+}
+```
+
+Always return `null` (not empty string) when the source has no distance data — the merge code treats empty string and null differently.
+
+## 5d. Automatic dostartu API enrichment
+
+**You don't need to add enrichment code to your scraper.** The pipeline in `index.js` automatically calls `enrichFromUrl()` from `backend/src/scrapers/apiEnrich.js` for every scraped event whose `registration_url` points to a dostartu-like platform (`dostartu.pl`, `zapisy.mktime.pl`, `zapisy.o-timing.pl`).
+
+`enrichFromUrl()` fills (without overwriting existing scraper data):
+- `price_from`, `price_to`, `registration_deadline` — from dostartu classifications API
+- `regulamin_url`, `website` — from dostartu competition API
+- `distances`, `is_kids` — from classification names (scraper wins if it already has distances)
+- `location`, `lat`, `lng` — from dostartu competition API
+
+**How it works in the pipeline:**
+```js
+// index.js — after scraping, before upsert
+if (!SELF_ENRICHING_SOURCES.has(source.name)) {
+  for (let j = 0; j < rawEvents.length; j++) {
+    if (!isDostartuLikeUrl(rawEvents[j].registration_url)) continue
+    rawEvents[j] = await enrichFromUrl(rawEvents[j])
+    await new Promise(r => setTimeout(r, 300))  // rate limit
+  }
+}
+```
+
+**`SELF_ENRICHING_SOURCES`** (currently `dostartu` and `elektronicznezapisy`): scrapers that call the dostartu API themselves in-scraper (because their dostartu URL is in a different field, not `registration_url`). Don't add your scraper here unless it has special enrichment logic inside the scraper itself.
+
+**If your scraper's dostartu URL lives in a field other than `registration_url`** (e.g. in `externalWebsite`), call `enrichFromUrl({ registration_url: externalWebsite, name, ... })` inside the scraper, and add your source to `SELF_ENRICHING_SOURCES` to skip the pipeline-level enrichment.
+
+**`registration_deadline` requires a Supabase column.** If your scraper's table doesn't have `registration_deadline date`, the enrichment result gets silently dropped when `mapRow` extracts it. Add the column to the CREATE TABLE in section 4 AND to `mapRow` in section 6.
+
 ## 6. Wire into the pipeline
 
 [backend/src/scrapers/index.js](../../../backend/src/scrapers/index.js):
@@ -187,6 +256,7 @@ const sources = [
       location: raw.location || null,
       distances: raw.distances || null,
       registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,  // DATE — add column in section 4
       regulamin_url: raw.regulamin_url || null,
       website: raw.website || null,
       is_kids: raw.is_kids || false,
@@ -391,6 +461,11 @@ git add public/public/kalendarz && git commit -m "data: manifest refresh after <
 | Polish word boundaries miss | Regex `\bświetlik\b` doesn't match "Świetlik Run" because JS `\b` doesn't recognize `ś` | Lowercase the input and use a manual non-letter boundary: `[^a-ząćęłńóśźż]świetlik` |
 | Forgot SOURCE_PRIORITY | Lower priority (defaults to 99) — your scraper never wins on field conflicts | Add to `dedup.js` |
 | Container has stale code | "ERR_MODULE_NOT_FOUND" on standalone test; pipeline test imports old wiring | `docker cp` all three: `sources/<name>.js`, `index.js`, `dedup.js` — or restart with `docker compose up --watch` |
+| Distances store activity-type labels | `distances = "bieg 8km, nw 6km"` instead of `"8 km, 6 km"` — merge code can't parse distances, enricher sees junk | Strip `bieg`/`nw` prefixes and normalize spacing with `cleanDistances()` (section 5c) |
+| `detectEventTypes` misses NW from distances | Source writes `nw 6km` only in distances, not in event name — tag missing, guard rejects NW-event merge | Pass `${name} ${distancesRaw || ''}` to `detectEventTypes` |
+| `registration_deadline` silently dropped | enrichFromUrl fills deadline but it never lands in DB | Scraper table needs `registration_deadline date` column AND mapRow must include `registration_deadline: raw.registration_deadline || null` |
+| dostartu enrichment duplicated in-scraper | Scraper calls dostartu API itself for events whose `registration_url` points to dostartu, but pipeline also calls `enrichFromUrl` | Add your source to `SELF_ENRICHING_SOURCES` in `index.js` to skip pipeline-level enrichment |
+| `enrichFromUrl` lat/lng overwrites with null | Pipeline calls `enrichFromUrl` on event that has no lat/lng from scraper; enrichFromUrl returned undefined for those fields | `enrichFromUrl` uses `event.lat ?? comp?.locationLat ?? null` — safe. If you see nulls, check that mapRow includes `lat: raw.lat ?? null` |
 
 ## Don't
 
@@ -398,3 +473,5 @@ git add public/public/kalendarz && git commit -m "data: manifest refresh after <
 - Don't add a Drizzle migration for scraper tables (Supabase-only).
 - Don't try to parse PDFs in the scraper — Docling stays in the Python enricher.
 - Don't permanently delete rejected calendar_events while testing — they prevent the scraper re-adding the same junk.
+- Don't store activity-type labels in `distances` (`"bieg 8km"`, `"nw 6km"`) — strip them with `cleanDistances()`.
+- Don't add dostartu API enrichment code inside a new scraper — the pipeline does it automatically via `apiEnrich.js` when `registration_url` points to a dostartu-like domain.

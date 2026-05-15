@@ -23,6 +23,7 @@ const SOURCE_PRIORITY = {
   czasomierzyk: 8,
   kepasport: 3,
   inessport: 3,
+  aleczas: 8,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these

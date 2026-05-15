@@ -14559,10 +14559,11 @@
       "5 km"
     ],
     "event_type": [
-      "bieg"
+      "bieg",
+      "uliczny"
     ],
     "registration_url": "https://dostartu.pl/permalink-v16419",
-    "website": null,
+    "website": "https://sphaller.szkolnastrona.pl/",
     "is_kids": null
   },
   "15-bieg-im-ks-konstantego-damrota-2026-05-30": {
@@ -17623,6 +17624,31 @@
     "website": null,
     "is_kids": null
   },
+  "kurpiowski-psejak-2026-2026-06-06": {
+    "id": "276b3b82-e345-401e-a162-cc8d7f28983f",
+    "name": "Kurpiowski Psejak 2026",
+    "date": "2026-06-06",
+    "registration_deadline": "2026-06-05",
+    "regulamin_url": "https://dostartu.pl/statute_files/15343_pl.pdf",
+    "price_from": 50,
+    "price_to": 90,
+    "location": "Nowogród",
+    "voivodeship": "Podlaskie",
+    "lat": 53.22808,
+    "lng": 21.879791,
+    "distances": [
+      "półmaraton",
+      "bieg 5km",
+      "nw 5km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/vi-kurpiowski-psejak-2026-v15343",
+    "website": "https://www.facebook.com/profile.php?id=100071089645411",
+    "is_kids": null
+  },
   "ii-biegowy-puchar-im-kazimierza-zimnego-2026-06-06": {
     "id": "801288a6-cd94-4faa-9e98-8ca8b04d59bb",
     "name": "II Biegowy Puchar im. Kazimierza Zimnego",
@@ -19383,8 +19409,8 @@
     "date": "2026-06-13",
     "registration_deadline": "2026-06-11",
     "regulamin_url": "https://dostartu.pl/statute_files/15352_pl.pdf",
-    "price_from": 25,
-    "price_to": 200,
+    "price_from": 35,
+    "price_to": 170,
     "location": "Łochów",
     "voivodeship": "Mazowieckie",
     "lat": 52.529264,
@@ -19472,7 +19498,8 @@
       "4 km"
     ],
     "event_type": [
-      "uliczny"
+      "uliczny",
+      "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v16509",
     "website": null,
@@ -20642,6 +20669,31 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14714/signup.html",
     "website": "https://krwiobiegwarszawa.pl/",
+    "is_kids": null
+  },
+  "debska-7-2026-06-14": {
+    "id": "c8ecf6bc-1205-49c6-a6b7-5406dbe307c1",
+    "name": "Dębska 7",
+    "date": "2026-06-14",
+    "registration_deadline": "2026-06-07",
+    "regulamin_url": "https://www.debewielkie.pl/wp-content/uploads/2026/04/regulamin-Debskiej-Siodemki-biegu-Puchar-Wojta-Gminy-D_be-Wielkie-v2.pdf",
+    "price_from": 50,
+    "price_to": 90,
+    "location": "Dębe Wielkie",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.199015,
+    "lng": 21.440004,
+    "distances": [
+      "bieg 7km",
+      "nw 5",
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/debska-7-bieg-o-puchar-wojta-gminy-debe-wielkie-2026-v16313",
+    "website": null,
     "is_kids": null
   },
   "swiebodzicki-polmaraton-muflona-2026-06-14": {
@@ -22008,6 +22060,31 @@
     ],
     "registration_url": "https://biegwierchami.pl/",
     "website": "https://wierchami.pl/",
+    "is_kids": null
+  },
+  "6-bialoleckie-biegi-przelajowe-2026-06-20": {
+    "id": "3005c7db-3e36-403d-8df4-32aeca80e120",
+    "name": "6 Białołęckie Biegi Przełajowe",
+    "date": "2026-06-20",
+    "registration_deadline": null,
+    "regulamin_url": "https://prod-go-poland-backend.s3.eu-west-1.amazonaws.com/prod/files/54e08cc8-b5d9-48cb-b534-6a87e8aa622f",
+    "price_from": 25,
+    "price_to": 25,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "trail",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://go.decathlon.pl/l/bialolecki-bieg-przelajowy/dbf1f5ad-d159-4fce-be7c-6cb15b3b95c2",
+    "website": "https://bialoleka.um.warszawa.pl/-/vi-bialolecki-bieg-przelajowy",
     "is_kids": null
   },
   "zielonka-challenge-2026-06-20": {
@@ -25945,32 +26022,6 @@
     "website": "https://bieg4jezior.pl/",
     "is_kids": null
   },
-  "xix-bieg-czterech-jezior-2026-07-11": {
-    "id": "c29fb250-9e03-4607-820d-3e96f5752345",
-    "name": "XIX Bieg Czterech Jezior",
-    "date": "2026-07-11",
-    "registration_deadline": "2026-07-08",
-    "regulamin_url": "https://dostartu.pl/statute_files/15542_pl.pdf",
-    "price_from": 60,
-    "price_to": 70,
-    "location": "Skórcz",
-    "voivodeship": "Pomorskie",
-    "lat": 53.794545,
-    "lng": 18.517479,
-    "distances": [
-      "5 km",
-      "10 km",
-      "12 km",
-      "15 km"
-    ],
-    "event_type": [
-      "uliczny",
-      "nordic walking"
-    ],
-    "registration_url": "https://dostartu.pl/iglotex-xix-bieg-czterech-jezior-v15542",
-    "website": "https://www.bieg4jezior.pl/",
-    "is_kids": null
-  },
   "vi-warminski-bieg-uliczny-2026-07-11": {
     "id": "3243a69d-7746-47a0-baeb-88d5ced7efe8",
     "name": "VI Warmiński Bieg Uliczny",
@@ -28767,7 +28818,8 @@
       "800 m"
     ],
     "event_type": [
-      "uliczny"
+      "uliczny",
+      "dzieci"
     ],
     "registration_url": "https://kepasport.pl/wydarzenie/tarnowski-bieg-maszkarona/",
     "website": null,
@@ -33825,7 +33877,7 @@
     "id": "19eb7d42-73b1-4840-acf0-da765b5d8d6c",
     "name": "XXVIII Jesienne Biegi Małkińskie",
     "date": "2026-09-27",
-    "registration_deadline": null,
+    "registration_deadline": "2026-07-11",
     "regulamin_url": "https://gokis.malkiniagorna.pl/",
     "price_from": null,
     "price_to": null,
@@ -33840,10 +33892,11 @@
       "10 km"
     ],
     "event_type": [
-      "nordic walking"
+      "nordic walking",
+      "dzieci"
     ],
     "registration_url": "https://www.facebook.com/GOKiSMalkiniaGorna/posts/ruszy%C5%82y-zapisy-na-xxviii-jesienne-biegi-ma%C5%82ki%C5%84skie-2026rix-jesienny-ma%C5%82ki%C5%84ski-ma/1271032828476341/",
-    "website": null,
+    "website": "https://gokis.malkiniagorna.pl/",
     "is_kids": null
   },
   "21-kamien-extreme-2026-09-27": {

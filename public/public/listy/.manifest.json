@@ -12,8 +12,8 @@
     "h1": "Biegi w Polsce — kalendarz biegów 2026",
     "title": "Biegi w Polsce — kalendarz biegów 2026 — Leszy.run",
     "description": "Kalendarz biegów w Polsce 2026. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.",
-    "intro": "978 biegów w Polsce w 2026 roku — trailowe, uliczne, ultramaratony i więcej.",
-    "eventCount": 978,
+    "intro": "980 biegów w Polsce w 2026 roku — trailowe, uliczne, ultramaratony i więcej.",
+    "eventCount": 980,
     "canonicalUrl": "https://www.leszy.run/listy",
     "sitemapPriority": "0.9",
     "sitemapChangefreq": "daily",
@@ -21,12 +21,12 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/ultramaratony",
@@ -46,7 +46,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/charytatywne",
@@ -56,7 +56,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/maratony",
@@ -66,7 +66,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/darmowe",
@@ -111,7 +111,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/opolskie",
@@ -126,12 +126,12 @@
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/slaskie",
@@ -171,10 +171,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe w Polsce",
-    "title": "Biegi przełajowe w Polsce (306 wydarzeń) — Leszy.run",
-    "description": "306 biegów przełajowych w Polsce. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "306 biegi przełajowe w Polsce w 2026 roku, od 1 km do 270 km.",
-    "eventCount": 306,
+    "title": "Biegi przełajowe w Polsce (307 wydarzeń) — Leszy.run",
+    "description": "307 biegów przełajowych w Polsce. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "307 biegi przełajowe w Polsce w 2026 roku, od 1 km do 270 km.",
+    "eventCount": 307,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -182,7 +182,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/przelajowe/slaskie",
@@ -212,7 +212,7 @@
       {
         "path": "listy/przelajowe/mazowieckie",
         "h1": "Biegi przełajowe na Mazowszu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/przelajowe/lodzkie",
@@ -267,7 +267,7 @@
       {
         "path": "listy/przelajowe/2026/czerwiec",
         "h1": "Biegi przełajowe w czerwcu 2026",
-        "eventCount": 85
+        "eventCount": 86
       },
       {
         "path": "listy/przelajowe/2026/lipiec",
@@ -292,10 +292,10 @@
       "city": null
     },
     "h1": "Biegi uliczne w Polsce",
-    "title": "Biegi uliczne w Polsce (609 wydarzeń) — Leszy.run",
-    "description": "609 biegów ulicznych w Polsce. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "609 biegi uliczne w Polsce w 2026 roku, od 1 km do 800 km.",
-    "eventCount": 609,
+    "title": "Biegi uliczne w Polsce (612 wydarzeń) — Leszy.run",
+    "description": "612 biegów ulicznych w Polsce. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "612 biegi uliczne w Polsce w 2026 roku, od 1 km do 800 km.",
+    "eventCount": 612,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -303,7 +303,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
+      },
+      {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/slaskie",
@@ -311,14 +316,9 @@
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -368,7 +368,7 @@
       {
         "path": "listy/uliczne/podlaskie",
         "h1": "Biegi uliczne na Podlasiu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/uliczne/lubelskie",
@@ -388,12 +388,12 @@
       {
         "path": "listy/uliczne/2026/czerwiec",
         "h1": "Biegi uliczne w czerwcu 2026",
-        "eventCount": 183
+        "eventCount": 186
       },
       {
         "path": "listy/uliczne/2026/lipiec",
         "h1": "Biegi uliczne w lipcu 2026",
-        "eventCount": 65
+        "eventCount": 64
       },
       {
         "path": "listy/uliczne/2026/sierpien",
@@ -424,7 +424,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -510,7 +510,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/nocne/mazowieckie",
@@ -616,7 +616,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/ocr/slaskie",
@@ -681,10 +681,10 @@
       "city": null
     },
     "h1": "Nordic Walking w Polsce",
-    "title": "Nordic Walking w Polsce (252 wydarzeń) — Leszy.run",
-    "description": "252 marszów nordic walking w Polsce. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "252 nordic walking w Polsce w 2026 roku, od 1 km do 270 km.",
-    "eventCount": 252,
+    "title": "Nordic Walking w Polsce (251 wydarzeń) — Leszy.run",
+    "description": "251 marszów nordic walking w Polsce. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "251 nordic walking w Polsce w 2026 roku, od 1 km do 270 km.",
+    "eventCount": 251,
     "canonicalUrl": "https://www.leszy.run/listy/nordic-walking",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -692,7 +692,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/nordic-walking/slaskie",
@@ -705,13 +705,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -782,7 +782,7 @@
       {
         "path": "listy/nordic-walking/2026/lipiec",
         "h1": "Nordic Walking w lipcu 2026",
-        "eventCount": 33
+        "eventCount": 32
       },
       {
         "path": "listy/nordic-walking/2026/sierpien",
@@ -813,7 +813,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/charytatywne/slaskie",
@@ -919,7 +919,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -995,7 +995,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/kujawsko-pomorskie",
@@ -1061,7 +1061,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/przelajowe/lubelskie",
@@ -1127,7 +1127,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/przelajowe/lubuskie",
@@ -1173,7 +1173,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/lodzkie",
@@ -1249,7 +1249,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/malopolskie",
@@ -1309,10 +1309,10 @@
       "city": null
     },
     "h1": "Biegi na Mazowszu",
-    "title": "Biegi na Mazowszu (110 wydarzeń) — Leszy.run",
-    "description": "110 biegów na Mazowszu. Zapisy, dystanse, ceny.",
-    "intro": "110 listy na Mazowszu w 2026 roku, od 1 km do 800 km.",
-    "eventCount": 110,
+    "title": "Biegi na Mazowszu (112 wydarzeń) — Leszy.run",
+    "description": "112 biegów na Mazowszu. Zapisy, dystanse, ceny.",
+    "intro": "112 listy na Mazowszu w 2026 roku, od 1 km do 800 km.",
+    "eventCount": 112,
     "canonicalUrl": "https://www.leszy.run/listy/mazowieckie",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -1320,12 +1320,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/mazowieckie",
         "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
+        "eventCount": 80
       },
       {
         "path": "listy/nordic-walking/mazowieckie",
@@ -1335,7 +1335,7 @@
       {
         "path": "listy/przelajowe/mazowieckie",
         "h1": "Biegi przełajowe na Mazowszu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/nocne/mazowieckie",
@@ -1355,7 +1355,7 @@
       {
         "path": "listy/mazowieckie/2026/czerwiec",
         "h1": "Biegi na Mazowszu — w czerwcu 2026",
-        "eventCount": 42
+        "eventCount": 44
       },
       {
         "path": "listy/mazowieckie/2026/lipiec",
@@ -1391,7 +1391,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/opolskie",
@@ -1452,7 +1452,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/podkarpackie",
@@ -1512,10 +1512,10 @@
       "city": null
     },
     "h1": "Biegi na Podlasiu",
-    "title": "Biegi na Podlasiu (33 wydarzeń) — Leszy.run",
-    "description": "33 biegów na Podlasiu. Zapisy, dystanse, ceny.",
-    "intro": "33 listy na Podlasiu w 2026 roku, od 1 km do 150 km.",
-    "eventCount": 33,
+    "title": "Biegi na Podlasiu (34 wydarzeń) — Leszy.run",
+    "description": "34 biegów na Podlasiu. Zapisy, dystanse, ceny.",
+    "intro": "34 listy na Podlasiu w 2026 roku, od 1 km do 150 km.",
+    "eventCount": 34,
     "canonicalUrl": "https://www.leszy.run/listy/podlaskie",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -1523,12 +1523,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/podlaskie",
         "h1": "Biegi uliczne na Podlasiu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/przelajowe/podlaskie",
@@ -1553,7 +1553,7 @@
       {
         "path": "listy/podlaskie/2026/czerwiec",
         "h1": "Biegi na Podlasiu — w czerwcu 2026",
-        "eventCount": 11
+        "eventCount": 12
       },
       {
         "path": "listy/podlaskie/2026/sierpien",
@@ -1573,10 +1573,10 @@
       "city": null
     },
     "h1": "Biegi na Pomorzu",
-    "title": "Biegi na Pomorzu (104 wydarzeń) — Leszy.run",
-    "description": "104 biegów na Pomorzu. Zapisy, dystanse, ceny.",
-    "intro": "104 listy na Pomorzu w 2026 roku, od 1 km do 90 km.",
-    "eventCount": 104,
+    "title": "Biegi na Pomorzu (103 wydarzeń) — Leszy.run",
+    "description": "103 biegów na Pomorzu. Zapisy, dystanse, ceny.",
+    "intro": "103 listy na Pomorzu w 2026 roku, od 1 km do 90 km.",
+    "eventCount": 103,
     "canonicalUrl": "https://www.leszy.run/listy/pomorskie",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -1584,17 +1584,17 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/nordic-walking/pomorskie",
         "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
+        "eventCount": 22
       },
       {
         "path": "listy/przelajowe/pomorskie",
@@ -1629,7 +1629,7 @@
       {
         "path": "listy/pomorskie/2026/lipiec",
         "h1": "Biegi na Pomorzu — w lipcu 2026",
-        "eventCount": 11
+        "eventCount": 10
       },
       {
         "path": "listy/pomorskie/2026/sierpien",
@@ -1660,7 +1660,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/slaskie",
@@ -1736,7 +1736,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/swietokrzyskie",
@@ -1782,7 +1782,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/warminsko-mazurskie",
@@ -1853,7 +1853,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/wielkopolskie",
@@ -1924,7 +1924,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/uliczne/zachodniopomorskie",
@@ -1984,10 +1984,10 @@
       "city": null
     },
     "h1": "Półmaratony w Polsce",
-    "title": "Półmaratony w Polsce (196 wydarzeń) — Leszy.run",
-    "description": "196 półmaratonów w Polsce. bieg na 21 km, półmaraton, half marathon. Zapisy, dystanse, ceny.",
-    "intro": "196 półmaratonów w Polsce w 2026 roku. Dystans 21 km.",
-    "eventCount": 196,
+    "title": "Półmaratony w Polsce (197 wydarzeń) — Leszy.run",
+    "description": "197 półmaratonów w Polsce. bieg na 21 km, półmaraton, half marathon. Zapisy, dystanse, ceny.",
+    "intro": "197 półmaratonów w Polsce w 2026 roku. Dystans 21 km.",
+    "eventCount": 197,
     "canonicalUrl": "https://www.leszy.run/listy/polmaratony",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "daily",
@@ -1995,7 +1995,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/polmaratony/slaskie",
@@ -2033,6 +2033,11 @@
         "eventCount": 10
       },
       {
+        "path": "listy/polmaratony/podlaskie",
+        "h1": "Półmaratony na Podlasiu",
+        "eventCount": 9
+      },
+      {
         "path": "listy/polmaratony/warminsko-mazurskie",
         "h1": "Półmaratony na Warmii i Mazurach",
         "eventCount": 9
@@ -2046,11 +2051,6 @@
         "path": "listy/polmaratony/zachodniopomorskie",
         "h1": "Półmaratony w Zachodniopomorskiem",
         "eventCount": 9
-      },
-      {
-        "path": "listy/polmaratony/podlaskie",
-        "h1": "Półmaratony na Podlasiu",
-        "eventCount": 8
       },
       {
         "path": "listy/polmaratony/lubelskie",
@@ -2096,7 +2096,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/maratony/dolnoslaskie",
@@ -2171,10 +2171,10 @@
       "city": null
     },
     "h1": "Biegi dla dzieci w Polsce",
-    "title": "Biegi dla dzieci w Polsce (234 wydarzeń) — Leszy.run",
-    "description": "234 biegów dla dzieci w Polsce. biegi rodzinne, bieg dla dzieci, biegi juniorów. Zapisy, dystanse, ceny.",
-    "intro": "234 biegów dla dzieci w Polsce w 2026 roku. Krótkie dystanse dla najmłodszych biegaczy.",
-    "eventCount": 234,
+    "title": "Biegi dla dzieci w Polsce (240 wydarzeń) — Leszy.run",
+    "description": "240 biegów dla dzieci w Polsce. biegi rodzinne, bieg dla dzieci, biegi juniorów. Zapisy, dystanse, ceny.",
+    "intro": "240 biegów dla dzieci w Polsce w 2026 roku. Krótkie dystanse dla najmłodszych biegaczy.",
+    "eventCount": 240,
     "canonicalUrl": "https://www.leszy.run/listy/dla-dzieci",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "daily",
@@ -2182,7 +2182,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/dla-dzieci/slaskie",
@@ -2190,14 +2190,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -2222,7 +2222,7 @@
       {
         "path": "listy/dla-dzieci/malopolskie",
         "h1": "Biegi dla dzieci w Małopolsce",
-        "eventCount": 12
+        "eventCount": 13
       },
       {
         "path": "listy/dla-dzieci/wielkopolskie",
@@ -2232,7 +2232,7 @@
       {
         "path": "listy/dla-dzieci/podlaskie",
         "h1": "Biegi dla dzieci na Podlasiu",
-        "eventCount": 7
+        "eventCount": 8
       },
       {
         "path": "listy/dla-dzieci/kujawsko-pomorskie",
@@ -2283,7 +2283,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/darmowe/slaskie",
@@ -2369,7 +2369,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -2460,7 +2460,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/dolnoslaskie",
@@ -2516,7 +2516,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -2572,7 +2572,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/lubelskie",
@@ -2628,7 +2628,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/lodzkie",
@@ -2684,7 +2684,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/malopolskie",
@@ -2740,12 +2740,12 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/polmaratony/slaskie",
@@ -2796,7 +2796,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/opolskie",
@@ -2852,7 +2852,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/podkarpackie",
@@ -2897,10 +2897,10 @@
       "city": null
     },
     "h1": "Półmaratony na Podlasiu",
-    "title": "Półmaratony na Podlasiu (8 wydarzeń) — Leszy.run",
-    "description": "8 półmaratonów na Podlasiu. bieg na 21 km, półmaraton, half marathon. Zapisy, dystanse, ceny.",
-    "intro": "8 półmaratonów na Podlasiu w 2026 roku. Dystans 21 km.",
-    "eventCount": 8,
+    "title": "Półmaratony na Podlasiu (9 wydarzeń) — Leszy.run",
+    "description": "9 półmaratonów na Podlasiu. bieg na 21 km, półmaraton, half marathon. Zapisy, dystanse, ceny.",
+    "intro": "9 półmaratonów na Podlasiu w 2026 roku. Dystans 21 km.",
+    "eventCount": 9,
     "canonicalUrl": "https://www.leszy.run/listy/polmaratony/podlaskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "daily",
@@ -2908,12 +2908,12 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/polmaratony/slaskie",
@@ -2964,12 +2964,12 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/polmaratony/slaskie",
@@ -3020,7 +3020,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/slaskie",
@@ -3076,7 +3076,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/swietokrzyskie",
@@ -3132,7 +3132,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -3188,7 +3188,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/wielkopolskie",
@@ -3244,7 +3244,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 196
+        "eventCount": 197
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -3473,7 +3473,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/maratony/dolnoslaskie",
@@ -3585,7 +3585,7 @@
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/maratony/dolnoslaskie",
@@ -3641,7 +3641,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/maratony/dolnoslaskie",
@@ -3972,7 +3972,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/dolnoslaskie",
@@ -3985,14 +3985,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4028,7 +4028,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -4041,14 +4041,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4084,7 +4084,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/lubelskie",
@@ -4097,14 +4097,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4140,7 +4140,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/lubuskie",
@@ -4153,14 +4153,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4196,7 +4196,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/lodzkie",
@@ -4209,14 +4209,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/dolnoslaskie",
@@ -4241,10 +4241,10 @@
       "city": null
     },
     "h1": "Biegi dla dzieci w Małopolsce",
-    "title": "Biegi dla dzieci w Małopolsce (12 wydarzeń) — Leszy.run",
-    "description": "12 biegów dla dzieci w Małopolsce. biegi rodzinne, bieg dla dzieci, biegi juniorów. Zapisy, dystanse, ceny.",
-    "intro": "12 biegów dla dzieci w Małopolsce w 2026 roku. Krótkie dystanse dla najmłodszych biegaczy.",
-    "eventCount": 12,
+    "title": "Biegi dla dzieci w Małopolsce (13 wydarzeń) — Leszy.run",
+    "description": "13 biegów dla dzieci w Małopolsce. biegi rodzinne, bieg dla dzieci, biegi juniorów. Zapisy, dystanse, ceny.",
+    "intro": "13 biegów dla dzieci w Małopolsce w 2026 roku. Krótkie dystanse dla najmłodszych biegaczy.",
+    "eventCount": 13,
     "canonicalUrl": "https://www.leszy.run/listy/dla-dzieci/malopolskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "daily",
@@ -4252,7 +4252,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/malopolskie",
@@ -4265,14 +4265,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4297,10 +4297,10 @@
       "city": null
     },
     "h1": "Biegi dla dzieci na Mazowszu",
-    "title": "Biegi dla dzieci na Mazowszu (30 wydarzeń) — Leszy.run",
-    "description": "30 biegów dla dzieci na Mazowszu. biegi rodzinne, bieg dla dzieci, biegi juniorów. Zapisy, dystanse, ceny.",
-    "intro": "30 biegów dla dzieci na Mazowszu w 2026 roku. Krótkie dystanse dla najmłodszych biegaczy.",
-    "eventCount": 30,
+    "title": "Biegi dla dzieci na Mazowszu (34 wydarzeń) — Leszy.run",
+    "description": "34 biegów dla dzieci na Mazowszu. biegi rodzinne, bieg dla dzieci, biegi juniorów. Zapisy, dystanse, ceny.",
+    "intro": "34 biegów dla dzieci na Mazowszu w 2026 roku. Krótkie dystanse dla najmłodszych biegaczy.",
+    "eventCount": 34,
     "canonicalUrl": "https://www.leszy.run/listy/dla-dzieci/mazowieckie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "daily",
@@ -4308,12 +4308,12 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/dla-dzieci/slaskie",
@@ -4364,7 +4364,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/opolskie",
@@ -4377,14 +4377,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4409,10 +4409,10 @@
       "city": null
     },
     "h1": "Biegi dla dzieci na Podlasiu",
-    "title": "Biegi dla dzieci na Podlasiu (7 wydarzeń) — Leszy.run",
-    "description": "7 biegów dla dzieci na Podlasiu. biegi rodzinne, bieg dla dzieci, biegi juniorów. Zapisy, dystanse, ceny.",
-    "intro": "7 biegów dla dzieci na Podlasiu w 2026 roku. Krótkie dystanse dla najmłodszych biegaczy.",
-    "eventCount": 7,
+    "title": "Biegi dla dzieci na Podlasiu (8 wydarzeń) — Leszy.run",
+    "description": "8 biegów dla dzieci na Podlasiu. biegi rodzinne, bieg dla dzieci, biegi juniorów. Zapisy, dystanse, ceny.",
+    "intro": "8 biegów dla dzieci na Podlasiu w 2026 roku. Krótkie dystanse dla najmłodszych biegaczy.",
+    "eventCount": 8,
     "canonicalUrl": "https://www.leszy.run/listy/dla-dzieci/podlaskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "daily",
@@ -4420,12 +4420,12 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/dla-dzieci/slaskie",
@@ -4433,14 +4433,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4476,12 +4476,12 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/dla-dzieci/slaskie",
@@ -4491,7 +4491,7 @@
       {
         "path": "listy/dla-dzieci/mazowieckie",
         "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
+        "eventCount": 34
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4532,7 +4532,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/slaskie",
@@ -4540,14 +4540,14 @@
         "eventCount": 140
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4588,7 +4588,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/swietokrzyskie",
@@ -4601,14 +4601,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4644,7 +4644,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -4657,14 +4657,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4700,7 +4700,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/wielkopolskie",
@@ -4713,14 +4713,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -4756,7 +4756,7 @@
       {
         "path": "listy/dla-dzieci",
         "h1": "Biegi dla dzieci w Polsce",
-        "eventCount": 234
+        "eventCount": 240
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -4769,14 +4769,14 @@
         "eventCount": 42
       },
       {
+        "path": "listy/dla-dzieci/mazowieckie",
+        "h1": "Biegi dla dzieci na Mazowszu",
+        "eventCount": 34
+      },
+      {
         "path": "listy/dla-dzieci/pomorskie",
         "h1": "Biegi dla dzieci na Pomorzu",
         "eventCount": 31
-      },
-      {
-        "path": "listy/dla-dzieci/mazowieckie",
-        "h1": "Biegi dla dzieci na Mazowszu",
-        "eventCount": 30
       },
       {
         "path": "listy/dla-dzieci/lodzkie",
@@ -5097,7 +5097,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/darmowe/slaskie",
@@ -5209,7 +5209,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/darmowe/slaskie",
@@ -5825,7 +5825,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/ostatnia-szansa/slaskie",
@@ -5881,7 +5881,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -6212,7 +6212,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/dolnoslaskie",
@@ -6242,7 +6242,7 @@
       {
         "path": "listy/przelajowe/mazowieckie",
         "h1": "Biegi przełajowe na Mazowszu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/przelajowe/dolnoslaskie/2026/czerwiec",
@@ -6278,7 +6278,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -6334,7 +6334,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/lubelskie",
@@ -6400,7 +6400,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/lubuskie",
@@ -6461,7 +6461,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/lodzkie",
@@ -6522,7 +6522,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/malopolskie",
@@ -6552,7 +6552,7 @@
       {
         "path": "listy/przelajowe/mazowieckie",
         "h1": "Biegi przełajowe na Mazowszu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/przelajowe/malopolskie/2026/czerwiec",
@@ -6577,10 +6577,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe na Mazowszu",
-    "title": "Biegi przełajowe na Mazowszu (19 wydarzeń) — Leszy.run",
-    "description": "19 biegów przełajowych na Mazowszu. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "19 biegi przełajowe na Mazowszu w 2026 roku, od 1 km do 120 km.",
-    "eventCount": 19,
+    "title": "Biegi przełajowe na Mazowszu (20 wydarzeń) — Leszy.run",
+    "description": "20 biegów przełajowych na Mazowszu. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "20 biegi przełajowe na Mazowszu w 2026 roku, od 1 km do 120 km.",
+    "eventCount": 20,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe/mazowieckie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "weekly",
@@ -6588,12 +6588,12 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/przelajowe/slaskie",
@@ -6623,7 +6623,7 @@
       {
         "path": "listy/przelajowe/mazowieckie/2026/czerwiec",
         "h1": "Biegi przełajowe na Mazowszu — w czerwcu 2026",
-        "eventCount": 7
+        "eventCount": 8
       }
     ]
   },
@@ -6649,7 +6649,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/opolskie",
@@ -6710,7 +6710,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/podkarpackie",
@@ -6740,7 +6740,7 @@
       {
         "path": "listy/przelajowe/mazowieckie",
         "h1": "Biegi przełajowe na Mazowszu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/przelajowe/podkarpackie/2026/czerwiec",
@@ -6776,12 +6776,12 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/przelajowe/slaskie",
@@ -6837,12 +6837,12 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/przelajowe/slaskie",
@@ -6867,7 +6867,7 @@
       {
         "path": "listy/przelajowe/mazowieckie",
         "h1": "Biegi przełajowe na Mazowszu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/przelajowe/pomorskie/2026/czerwiec",
@@ -6898,7 +6898,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/slaskie",
@@ -6928,7 +6928,7 @@
       {
         "path": "listy/przelajowe/mazowieckie",
         "h1": "Biegi przełajowe na Mazowszu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/przelajowe/slaskie/2026/czerwiec",
@@ -6964,7 +6964,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/swietokrzyskie",
@@ -7020,7 +7020,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -7076,7 +7076,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/wielkopolskie",
@@ -7137,7 +7137,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -7198,7 +7198,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/dolnoslaskie",
@@ -7206,19 +7206,19 @@
         "eventCount": 89
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/lodzkie",
@@ -7259,7 +7259,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -7267,19 +7267,19 @@
         "eventCount": 29
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7325,7 +7325,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/lubelskie",
@@ -7333,19 +7333,19 @@
         "eventCount": 28
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7386,7 +7386,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/lubuskie",
@@ -7394,19 +7394,19 @@
         "eventCount": 13
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7442,7 +7442,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/lodzkie",
@@ -7450,19 +7450,19 @@
         "eventCount": 71
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7508,7 +7508,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/malopolskie",
@@ -7516,19 +7516,19 @@
         "eventCount": 71
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7558,10 +7558,10 @@
       "city": null
     },
     "h1": "Biegi uliczne na Mazowszu",
-    "title": "Biegi uliczne na Mazowszu (77 wydarzeń) — Leszy.run",
-    "description": "77 biegów ulicznych na Mazowszu. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "77 biegi uliczne na Mazowszu w 2026 roku, od 1 km do 800 km.",
-    "eventCount": 77,
+    "title": "Biegi uliczne na Mazowszu (80 wydarzeń) — Leszy.run",
+    "description": "80 biegów ulicznych na Mazowszu. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "80 biegi uliczne na Mazowszu w 2026 roku, od 1 km do 800 km.",
+    "eventCount": 80,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/mazowieckie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "weekly",
@@ -7569,12 +7569,12 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/uliczne/slaskie",
@@ -7584,7 +7584,7 @@
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7604,7 +7604,7 @@
       {
         "path": "listy/uliczne/mazowieckie/2026/czerwiec",
         "h1": "Biegi uliczne na Mazowszu — w czerwcu 2026",
-        "eventCount": 28
+        "eventCount": 30
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/lipiec",
@@ -7635,7 +7635,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/opolskie",
@@ -7643,19 +7643,19 @@
         "eventCount": 37
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7701,7 +7701,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/podkarpackie",
@@ -7709,19 +7709,19 @@
         "eventCount": 52
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7756,10 +7756,10 @@
       "city": null
     },
     "h1": "Biegi uliczne na Podlasiu",
-    "title": "Biegi uliczne na Podlasiu (19 wydarzeń) — Leszy.run",
-    "description": "19 biegów ulicznych na Podlasiu. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "19 biegi uliczne na Podlasiu w 2026 roku, od 1 km do 42 km.",
-    "eventCount": 19,
+    "title": "Biegi uliczne na Podlasiu (20 wydarzeń) — Leszy.run",
+    "description": "20 biegów ulicznych na Podlasiu. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "20 biegi uliczne na Podlasiu w 2026 roku, od 1 km do 42 km.",
+    "eventCount": 20,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/podlaskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "weekly",
@@ -7767,12 +7767,17 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
+      },
+      {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/slaskie",
@@ -7780,14 +7785,9 @@
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7802,7 +7802,7 @@
       {
         "path": "listy/uliczne/podlaskie/2026/czerwiec",
         "h1": "Biegi uliczne na Podlasiu — w czerwcu 2026",
-        "eventCount": 8
+        "eventCount": 9
       }
     ]
   },
@@ -7817,10 +7817,10 @@
       "city": null
     },
     "h1": "Biegi uliczne na Pomorzu",
-    "title": "Biegi uliczne na Pomorzu (75 wydarzeń) — Leszy.run",
-    "description": "75 biegów ulicznych na Pomorzu. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "75 biegi uliczne na Pomorzu w 2026 roku, od 1 km do 81 km.",
-    "eventCount": 75,
+    "title": "Biegi uliczne na Pomorzu (74 wydarzeń) — Leszy.run",
+    "description": "74 biegów ulicznych na Pomorzu. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "74 biegi uliczne na Pomorzu w 2026 roku, od 1 km do 81 km.",
+    "eventCount": 74,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/pomorskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "weekly",
@@ -7828,22 +7828,22 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
+      },
+      {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
-      },
-      {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7868,7 +7868,7 @@
       {
         "path": "listy/uliczne/pomorskie/2026/lipiec",
         "h1": "Biegi uliczne na Pomorzu — w lipcu 2026",
-        "eventCount": 9
+        "eventCount": 8
       }
     ]
   },
@@ -7894,7 +7894,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/slaskie",
@@ -7904,12 +7904,12 @@
       {
         "path": "listy/uliczne/mazowieckie",
         "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -7960,7 +7960,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/swietokrzyskie",
@@ -7968,19 +7968,19 @@
         "eventCount": 20
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -8021,7 +8021,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -8029,19 +8029,19 @@
         "eventCount": 49
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -8087,7 +8087,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/wielkopolskie",
@@ -8095,19 +8095,19 @@
         "eventCount": 66
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -8153,7 +8153,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -8161,19 +8161,19 @@
         "eventCount": 65
       },
       {
+        "path": "listy/uliczne/mazowieckie",
+        "h1": "Biegi uliczne na Mazowszu",
+        "eventCount": 80
+      },
+      {
         "path": "listy/uliczne/slaskie",
         "h1": "Biegi uliczne na Śląsku",
         "eventCount": 80
       },
       {
-        "path": "listy/uliczne/mazowieckie",
-        "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
-      },
-      {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -8453,7 +8453,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -8575,7 +8575,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -8977,7 +8977,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/nocne/dolnoslaskie",
@@ -9155,7 +9155,7 @@
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/nocne/mazowieckie",
@@ -9211,7 +9211,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/nocne/mazowieckie",
@@ -9674,7 +9674,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/ocr/slaskie",
@@ -9893,7 +9893,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/dolnoslaskie",
@@ -9911,13 +9911,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -9954,7 +9954,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -9972,13 +9972,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10015,7 +10015,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/lubelskie",
@@ -10033,13 +10033,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10071,7 +10071,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/lubuskie",
@@ -10089,13 +10089,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10127,7 +10127,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/lodzkie",
@@ -10147,7 +10147,7 @@
       {
         "path": "listy/nordic-walking/pomorskie",
         "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
+        "eventCount": 22
       },
       {
         "path": "listy/nordic-walking/podkarpackie",
@@ -10193,7 +10193,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/malopolskie",
@@ -10211,13 +10211,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10254,12 +10254,12 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/nordic-walking/slaskie",
@@ -10267,13 +10267,13 @@
         "eventCount": 57
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10315,7 +10315,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/opolskie",
@@ -10333,13 +10333,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10381,7 +10381,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/podkarpackie",
@@ -10399,13 +10399,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10442,12 +10442,12 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/nordic-walking/slaskie",
@@ -10460,13 +10460,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10487,10 +10487,10 @@
       "city": null
     },
     "h1": "Nordic Walking na Pomorzu",
-    "title": "Nordic Walking na Pomorzu (23 wydarzeń) — Leszy.run",
-    "description": "23 marszów nordic walking na Pomorzu. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "23 nordic walking na Pomorzu w 2026 roku, od 2 km do 42 km.",
-    "eventCount": 23,
+    "title": "Nordic Walking na Pomorzu (22 wydarzeń) — Leszy.run",
+    "description": "22 marszów nordic walking na Pomorzu. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "22 nordic walking na Pomorzu w 2026 roku, od 2 km do 42 km.",
+    "eventCount": 22,
     "canonicalUrl": "https://www.leszy.run/listy/nordic-walking/pomorskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "weekly",
@@ -10498,12 +10498,12 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/nordic-walking/slaskie",
@@ -10538,7 +10538,7 @@
       {
         "path": "listy/nordic-walking/pomorskie/2026/lipiec",
         "h1": "Nordic Walking na Pomorzu — w lipcu 2026",
-        "eventCount": 5
+        "eventCount": 4
       }
     ]
   },
@@ -10564,7 +10564,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/slaskie",
@@ -10577,13 +10577,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10630,7 +10630,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/swietokrzyskie",
@@ -10648,13 +10648,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10686,7 +10686,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -10704,13 +10704,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10747,7 +10747,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/wielkopolskie",
@@ -10765,13 +10765,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -10808,7 +10808,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -10826,13 +10826,13 @@
         "eventCount": 29
       },
       {
-        "path": "listy/nordic-walking/pomorskie",
-        "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
-      },
-      {
         "path": "listy/nordic-walking/lodzkie",
         "h1": "Nordic Walking w Łódzkiem",
+        "eventCount": 22
+      },
+      {
+        "path": "listy/nordic-walking/pomorskie",
+        "h1": "Nordic Walking na Pomorzu",
         "eventCount": 22
       },
       {
@@ -11113,7 +11113,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/charytatywne/slaskie",
@@ -11291,7 +11291,7 @@
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/charytatywne/slaskie",
@@ -11347,7 +11347,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/charytatywne/slaskie",
@@ -11642,7 +11642,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/2026/maj",
@@ -11673,7 +11673,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/2026/kwiecien",
@@ -11683,7 +11683,7 @@
       {
         "path": "listy/2026/czerwiec",
         "h1": "Biegi w czerwcu 2026",
-        "eventCount": 302
+        "eventCount": 305
       }
     ]
   },
@@ -11698,10 +11698,10 @@
       "city": null
     },
     "h1": "Biegi w czerwcu 2026",
-    "title": "Biegi w czerwcu 2026 (302 wydarzeń) — Leszy.run",
-    "description": "302 biegów w Polsce w czerwcu 2026. Zapisy, dystanse, ceny.",
-    "intro": "302 listy w Polsce w 2026 roku, od 1 km do 250 km.",
-    "eventCount": 302,
+    "title": "Biegi w czerwcu 2026 (305 wydarzeń) — Leszy.run",
+    "description": "305 biegów w Polsce w czerwcu 2026. Zapisy, dystanse, ceny.",
+    "intro": "305 listy w Polsce w 2026 roku, od 1 km do 250 km.",
+    "eventCount": 305,
     "canonicalUrl": "https://www.leszy.run/listy/2026/czerwiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -11709,7 +11709,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/2026/maj",
@@ -11719,7 +11719,7 @@
       {
         "path": "listy/2026/lipiec",
         "h1": "Biegi w lipcu 2026",
-        "eventCount": 107
+        "eventCount": 106
       }
     ]
   },
@@ -11734,10 +11734,10 @@
       "city": null
     },
     "h1": "Biegi w lipcu 2026",
-    "title": "Biegi w lipcu 2026 (107 wydarzeń) — Leszy.run",
-    "description": "107 biegów w Polsce w lipcu 2026. Zapisy, dystanse, ceny.",
-    "intro": "107 listy w Polsce w 2026 roku, od 1 km do 240 km.",
-    "eventCount": 107,
+    "title": "Biegi w lipcu 2026 (106 wydarzeń) — Leszy.run",
+    "description": "106 biegów w Polsce w lipcu 2026. Zapisy, dystanse, ceny.",
+    "intro": "106 listy w Polsce w 2026 roku, od 1 km do 240 km.",
+    "eventCount": 106,
     "canonicalUrl": "https://www.leszy.run/listy/2026/lipiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -11745,12 +11745,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/2026/czerwiec",
         "h1": "Biegi w czerwcu 2026",
-        "eventCount": 302
+        "eventCount": 305
       },
       {
         "path": "listy/2026/sierpien",
@@ -11781,12 +11781,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/2026/lipiec",
         "h1": "Biegi w lipcu 2026",
-        "eventCount": 107
+        "eventCount": 106
       },
       {
         "path": "listy/2026/wrzesien",
@@ -11817,7 +11817,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/2026/sierpien",
@@ -11853,7 +11853,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/2026/wrzesien",
@@ -11889,7 +11889,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/2026/pazdziernik",
@@ -11925,7 +11925,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       },
       {
         "path": "listy/2026/listopad",
@@ -11956,7 +11956,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/przelajowe/2026/maj",
@@ -11987,7 +11987,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/przelajowe/2026/kwiecien",
@@ -11997,7 +11997,7 @@
       {
         "path": "listy/przelajowe/2026/czerwiec",
         "h1": "Biegi przełajowe w czerwcu 2026",
-        "eventCount": 85
+        "eventCount": 86
       }
     ]
   },
@@ -12012,10 +12012,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe w czerwcu 2026",
-    "title": "Biegi przełajowe w czerwcu 2026 (85 wydarzeń) — Leszy.run",
-    "description": "85 biegów przełajowych w Polsce w czerwcu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "85 biegi przełajowe w Polsce w 2026 roku, od 1 km do 125 km.",
-    "eventCount": 85,
+    "title": "Biegi przełajowe w czerwcu 2026 (86 wydarzeń) — Leszy.run",
+    "description": "86 biegów przełajowych w Polsce w czerwcu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "86 biegi przełajowe w Polsce w 2026 roku, od 1 km do 125 km.",
+    "eventCount": 86,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe/2026/czerwiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -12023,7 +12023,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/przelajowe/2026/maj",
@@ -12059,12 +12059,12 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/przelajowe/2026/czerwiec",
         "h1": "Biegi przełajowe w czerwcu 2026",
-        "eventCount": 85
+        "eventCount": 86
       },
       {
         "path": "listy/przelajowe/2026/sierpien",
@@ -12095,7 +12095,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/przelajowe/2026/lipiec",
@@ -12131,7 +12131,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/przelajowe/2026/sierpien",
@@ -12167,7 +12167,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/przelajowe/2026/wrzesien",
@@ -12203,7 +12203,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/przelajowe/2026/pazdziernik",
@@ -12239,7 +12239,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 306
+        "eventCount": 307
       },
       {
         "path": "listy/przelajowe/2026/listopad",
@@ -12270,12 +12270,12 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/uliczne/2026/maj",
         "h1": "Biegi uliczne w maju 2026",
-        "eventCount": 133
+        "eventCount": 134
       }
     ]
   },
@@ -12290,10 +12290,10 @@
       "city": null
     },
     "h1": "Biegi uliczne w maju 2026",
-    "title": "Biegi uliczne w maju 2026 (133 wydarzeń) — Leszy.run",
-    "description": "133 biegów ulicznych w Polsce w maju 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "133 biegi uliczne w Polsce w 2026 roku, od 1 km do 210 km.",
-    "eventCount": 133,
+    "title": "Biegi uliczne w maju 2026 (134 wydarzeń) — Leszy.run",
+    "description": "134 biegów ulicznych w Polsce w maju 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "134 biegi uliczne w Polsce w 2026 roku, od 1 km do 210 km.",
+    "eventCount": 134,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/2026/maj",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -12301,7 +12301,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/uliczne/2026/kwiecien",
@@ -12311,7 +12311,7 @@
       {
         "path": "listy/uliczne/2026/czerwiec",
         "h1": "Biegi uliczne w czerwcu 2026",
-        "eventCount": 183
+        "eventCount": 186
       }
     ]
   },
@@ -12326,10 +12326,10 @@
       "city": null
     },
     "h1": "Biegi uliczne w czerwcu 2026",
-    "title": "Biegi uliczne w czerwcu 2026 (183 wydarzeń) — Leszy.run",
-    "description": "183 biegów ulicznych w Polsce w czerwcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "183 biegi uliczne w Polsce w 2026 roku, od 1 km do 125 km.",
-    "eventCount": 183,
+    "title": "Biegi uliczne w czerwcu 2026 (186 wydarzeń) — Leszy.run",
+    "description": "186 biegów ulicznych w Polsce w czerwcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "186 biegi uliczne w Polsce w 2026 roku, od 1 km do 125 km.",
+    "eventCount": 186,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/2026/czerwiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -12337,17 +12337,17 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/uliczne/2026/maj",
         "h1": "Biegi uliczne w maju 2026",
-        "eventCount": 133
+        "eventCount": 134
       },
       {
         "path": "listy/uliczne/2026/lipiec",
         "h1": "Biegi uliczne w lipcu 2026",
-        "eventCount": 65
+        "eventCount": 64
       }
     ]
   },
@@ -12362,10 +12362,10 @@
       "city": null
     },
     "h1": "Biegi uliczne w lipcu 2026",
-    "title": "Biegi uliczne w lipcu 2026 (65 wydarzeń) — Leszy.run",
-    "description": "65 biegów ulicznych w Polsce w lipcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "65 biegi uliczne w Polsce w 2026 roku, od 1 km do 60 km.",
-    "eventCount": 65,
+    "title": "Biegi uliczne w lipcu 2026 (64 wydarzeń) — Leszy.run",
+    "description": "64 biegów ulicznych w Polsce w lipcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "64 biegi uliczne w Polsce w 2026 roku, od 1 km do 60 km.",
+    "eventCount": 64,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/2026/lipiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -12373,12 +12373,12 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/uliczne/2026/czerwiec",
         "h1": "Biegi uliczne w czerwcu 2026",
-        "eventCount": 183
+        "eventCount": 186
       },
       {
         "path": "listy/uliczne/2026/sierpien",
@@ -12409,12 +12409,12 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/uliczne/2026/lipiec",
         "h1": "Biegi uliczne w lipcu 2026",
-        "eventCount": 65
+        "eventCount": 64
       },
       {
         "path": "listy/uliczne/2026/wrzesien",
@@ -12445,7 +12445,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/uliczne/2026/sierpien",
@@ -12481,7 +12481,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/uliczne/2026/wrzesien",
@@ -12517,7 +12517,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/uliczne/2026/pazdziernik",
@@ -12553,7 +12553,7 @@
       {
         "path": "listy/uliczne",
         "h1": "Biegi uliczne w Polsce",
-        "eventCount": 609
+        "eventCount": 612
       },
       {
         "path": "listy/uliczne/2026/listopad",
@@ -13274,7 +13274,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/nordic-walking/2026/maj",
@@ -13305,7 +13305,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/nordic-walking/2026/kwiecien",
@@ -13341,7 +13341,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/nordic-walking/2026/maj",
@@ -13351,7 +13351,7 @@
       {
         "path": "listy/nordic-walking/2026/lipiec",
         "h1": "Nordic Walking w lipcu 2026",
-        "eventCount": 33
+        "eventCount": 32
       }
     ]
   },
@@ -13366,10 +13366,10 @@
       "city": null
     },
     "h1": "Nordic Walking w lipcu 2026",
-    "title": "Nordic Walking w lipcu 2026 (33 wydarzeń) — Leszy.run",
-    "description": "33 marszów nordic walking w Polsce w lipcu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "33 nordic walking w Polsce w 2026 roku, od 1 km do 60 km.",
-    "eventCount": 33,
+    "title": "Nordic Walking w lipcu 2026 (32 wydarzeń) — Leszy.run",
+    "description": "32 marszów nordic walking w Polsce w lipcu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "32 nordic walking w Polsce w 2026 roku, od 1 km do 60 km.",
+    "eventCount": 32,
     "canonicalUrl": "https://www.leszy.run/listy/nordic-walking/2026/lipiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -13377,7 +13377,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/nordic-walking/2026/czerwiec",
@@ -13413,12 +13413,12 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/nordic-walking/2026/lipiec",
         "h1": "Nordic Walking w lipcu 2026",
-        "eventCount": 33
+        "eventCount": 32
       },
       {
         "path": "listy/nordic-walking/2026/wrzesien",
@@ -13449,7 +13449,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/nordic-walking/2026/sierpien",
@@ -13485,7 +13485,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/nordic-walking/2026/wrzesien",
@@ -13521,7 +13521,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/nordic-walking/2026/pazdziernik",
@@ -13557,7 +13557,7 @@
       {
         "path": "listy/nordic-walking",
         "h1": "Nordic Walking w Polsce",
-        "eventCount": 252
+        "eventCount": 251
       },
       {
         "path": "listy/nordic-walking/2026/listopad",
@@ -15010,7 +15010,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/mazowieckie/2026/maj",
@@ -15041,7 +15041,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/mazowieckie/2026/kwiecien",
@@ -15051,7 +15051,7 @@
       {
         "path": "listy/mazowieckie/2026/czerwiec",
         "h1": "Biegi na Mazowszu — w czerwcu 2026",
-        "eventCount": 42
+        "eventCount": 44
       }
     ]
   },
@@ -15066,10 +15066,10 @@
       "city": null
     },
     "h1": "Biegi na Mazowszu — w czerwcu 2026",
-    "title": "Biegi na Mazowszu — w czerwcu 2026 (42 wydarzeń) — Leszy.run",
-    "description": "42 biegów na Mazowszu w czerwcu 2026. Zapisy, dystanse, ceny.",
-    "intro": "42 listy na Mazowszu w 2026 roku, od 1 km do 250 km.",
-    "eventCount": 42,
+    "title": "Biegi na Mazowszu — w czerwcu 2026 (44 wydarzeń) — Leszy.run",
+    "description": "44 biegów na Mazowszu w czerwcu 2026. Zapisy, dystanse, ceny.",
+    "intro": "44 listy na Mazowszu w 2026 roku, od 1 km do 250 km.",
+    "eventCount": 44,
     "canonicalUrl": "https://www.leszy.run/listy/mazowieckie/2026/czerwiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -15077,7 +15077,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/mazowieckie/2026/maj",
@@ -15113,12 +15113,12 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/mazowieckie/2026/czerwiec",
         "h1": "Biegi na Mazowszu — w czerwcu 2026",
-        "eventCount": 42
+        "eventCount": 44
       },
       {
         "path": "listy/mazowieckie/2026/sierpien",
@@ -15149,7 +15149,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/mazowieckie/2026/lipiec",
@@ -15185,7 +15185,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/mazowieckie/2026/sierpien",
@@ -15221,7 +15221,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/mazowieckie/2026/wrzesien",
@@ -15257,7 +15257,7 @@
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
-        "eventCount": 110
+        "eventCount": 112
       },
       {
         "path": "listy/mazowieckie/2026/pazdziernik",
@@ -15690,7 +15690,7 @@
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/podlaskie/2026/maj",
@@ -15721,7 +15721,7 @@
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/podlaskie/2026/kwiecien",
@@ -15731,7 +15731,7 @@
       {
         "path": "listy/podlaskie/2026/czerwiec",
         "h1": "Biegi na Podlasiu — w czerwcu 2026",
-        "eventCount": 11
+        "eventCount": 12
       }
     ]
   },
@@ -15746,10 +15746,10 @@
       "city": null
     },
     "h1": "Biegi na Podlasiu — w czerwcu 2026",
-    "title": "Biegi na Podlasiu — w czerwcu 2026 (11 wydarzeń) — Leszy.run",
-    "description": "11 biegów na Podlasiu w czerwcu 2026. Zapisy, dystanse, ceny.",
-    "intro": "11 listy na Podlasiu w 2026 roku, od 5 km do 21 km.",
-    "eventCount": 11,
+    "title": "Biegi na Podlasiu — w czerwcu 2026 (12 wydarzeń) — Leszy.run",
+    "description": "12 biegów na Podlasiu w czerwcu 2026. Zapisy, dystanse, ceny.",
+    "intro": "12 listy na Podlasiu w 2026 roku, od 5 km do 21 km.",
+    "eventCount": 12,
     "canonicalUrl": "https://www.leszy.run/listy/podlaskie/2026/czerwiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -15757,7 +15757,7 @@
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/podlaskie/2026/maj",
@@ -15788,7 +15788,7 @@
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/podlaskie/2026/wrzesien",
@@ -15819,7 +15819,7 @@
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
-        "eventCount": 33
+        "eventCount": 34
       },
       {
         "path": "listy/podlaskie/2026/sierpien",
@@ -15850,7 +15850,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/pomorskie/2026/maj",
@@ -15881,7 +15881,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/pomorskie/2026/kwiecien",
@@ -15917,7 +15917,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/pomorskie/2026/maj",
@@ -15927,7 +15927,7 @@
       {
         "path": "listy/pomorskie/2026/lipiec",
         "h1": "Biegi na Pomorzu — w lipcu 2026",
-        "eventCount": 11
+        "eventCount": 10
       }
     ]
   },
@@ -15942,10 +15942,10 @@
       "city": null
     },
     "h1": "Biegi na Pomorzu — w lipcu 2026",
-    "title": "Biegi na Pomorzu — w lipcu 2026 (11 wydarzeń) — Leszy.run",
-    "description": "11 biegów na Pomorzu w lipcu 2026. Zapisy, dystanse, ceny.",
-    "intro": "11 listy na Pomorzu w 2026 roku, od 5 km do 42 km.",
-    "eventCount": 11,
+    "title": "Biegi na Pomorzu — w lipcu 2026 (10 wydarzeń) — Leszy.run",
+    "description": "10 biegów na Pomorzu w lipcu 2026. Zapisy, dystanse, ceny.",
+    "intro": "10 listy na Pomorzu w 2026 roku, od 5 km do 42 km.",
+    "eventCount": 10,
     "canonicalUrl": "https://www.leszy.run/listy/pomorskie/2026/lipiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -15953,7 +15953,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/pomorskie/2026/czerwiec",
@@ -15989,12 +15989,12 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/pomorskie/2026/lipiec",
         "h1": "Biegi na Pomorzu — w lipcu 2026",
-        "eventCount": 11
+        "eventCount": 10
       },
       {
         "path": "listy/pomorskie/2026/wrzesien",
@@ -16025,7 +16025,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/pomorskie/2026/sierpien",
@@ -16061,7 +16061,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/pomorskie/2026/wrzesien",
@@ -16097,7 +16097,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/pomorskie/2026/pazdziernik",
@@ -16133,7 +16133,7 @@
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
-        "eventCount": 104
+        "eventCount": 103
       },
       {
         "path": "listy/pomorskie/2026/listopad",
@@ -17896,7 +17896,7 @@
       {
         "path": "listy/przelajowe/mazowieckie",
         "h1": "Biegi przełajowe na Mazowszu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/przelajowe/mazowieckie/2026/maj",
@@ -17927,7 +17927,7 @@
       {
         "path": "listy/przelajowe/mazowieckie",
         "h1": "Biegi przełajowe na Mazowszu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/przelajowe/mazowieckie/2026/kwiecien",
@@ -17937,7 +17937,7 @@
       {
         "path": "listy/przelajowe/mazowieckie/2026/czerwiec",
         "h1": "Biegi przełajowe na Mazowszu — w czerwcu 2026",
-        "eventCount": 7
+        "eventCount": 8
       }
     ]
   },
@@ -17952,10 +17952,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe na Mazowszu — w czerwcu 2026",
-    "title": "Biegi przełajowe na Mazowszu — w czerwcu 2026 (7 wydarzeń) — Leszy.run",
-    "description": "7 biegów przełajowych na Mazowszu w czerwcu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "7 biegi przełajowe na Mazowszu w 2026 roku, od 2 km do 53 km.",
-    "eventCount": 7,
+    "title": "Biegi przełajowe na Mazowszu — w czerwcu 2026 (8 wydarzeń) — Leszy.run",
+    "description": "8 biegów przełajowych na Mazowszu w czerwcu 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "8 biegi przełajowe na Mazowszu w 2026 roku, od 2 km do 53 km.",
+    "eventCount": 8,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe/mazowieckie/2026/czerwiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -17963,7 +17963,7 @@
       {
         "path": "listy/przelajowe/mazowieckie",
         "h1": "Biegi przełajowe na Mazowszu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/przelajowe/mazowieckie/2026/maj",
@@ -20110,12 +20110,12 @@
       {
         "path": "listy/uliczne/mazowieckie",
         "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/maj",
         "h1": "Biegi uliczne na Mazowszu — w maju 2026",
-        "eventCount": 22
+        "eventCount": 23
       }
     ]
   },
@@ -20130,10 +20130,10 @@
       "city": null
     },
     "h1": "Biegi uliczne na Mazowszu — w maju 2026",
-    "title": "Biegi uliczne na Mazowszu — w maju 2026 (22 wydarzeń) — Leszy.run",
-    "description": "22 biegów ulicznych na Mazowszu w maju 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "22 biegi uliczne na Mazowszu w 2026 roku, od 1 km do 42 km.",
-    "eventCount": 22,
+    "title": "Biegi uliczne na Mazowszu — w maju 2026 (23 wydarzeń) — Leszy.run",
+    "description": "23 biegów ulicznych na Mazowszu w maju 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "23 biegi uliczne na Mazowszu w 2026 roku, od 1 km do 42 km.",
+    "eventCount": 23,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/mazowieckie/2026/maj",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -20141,7 +20141,7 @@
       {
         "path": "listy/uliczne/mazowieckie",
         "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/kwiecien",
@@ -20151,7 +20151,7 @@
       {
         "path": "listy/uliczne/mazowieckie/2026/czerwiec",
         "h1": "Biegi uliczne na Mazowszu — w czerwcu 2026",
-        "eventCount": 28
+        "eventCount": 30
       }
     ]
   },
@@ -20166,10 +20166,10 @@
       "city": null
     },
     "h1": "Biegi uliczne na Mazowszu — w czerwcu 2026",
-    "title": "Biegi uliczne na Mazowszu — w czerwcu 2026 (28 wydarzeń) — Leszy.run",
-    "description": "28 biegów ulicznych na Mazowszu w czerwcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "28 biegi uliczne na Mazowszu w 2026 roku, od 1 km do 100 km.",
-    "eventCount": 28,
+    "title": "Biegi uliczne na Mazowszu — w czerwcu 2026 (30 wydarzeń) — Leszy.run",
+    "description": "30 biegów ulicznych na Mazowszu w czerwcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "30 biegi uliczne na Mazowszu w 2026 roku, od 1 km do 100 km.",
+    "eventCount": 30,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/mazowieckie/2026/czerwiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -20177,12 +20177,12 @@
       {
         "path": "listy/uliczne/mazowieckie",
         "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/maj",
         "h1": "Biegi uliczne na Mazowszu — w maju 2026",
-        "eventCount": 22
+        "eventCount": 23
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/lipiec",
@@ -20213,12 +20213,12 @@
       {
         "path": "listy/uliczne/mazowieckie",
         "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/czerwiec",
         "h1": "Biegi uliczne na Mazowszu — w czerwcu 2026",
-        "eventCount": 28
+        "eventCount": 30
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/sierpien",
@@ -20249,7 +20249,7 @@
       {
         "path": "listy/uliczne/mazowieckie",
         "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/lipiec",
@@ -20285,7 +20285,7 @@
       {
         "path": "listy/uliczne/mazowieckie",
         "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/sierpien",
@@ -20321,7 +20321,7 @@
       {
         "path": "listy/uliczne/mazowieckie",
         "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/wrzesien",
@@ -20357,7 +20357,7 @@
       {
         "path": "listy/uliczne/mazowieckie",
         "h1": "Biegi uliczne na Mazowszu",
-        "eventCount": 77
+        "eventCount": 80
       },
       {
         "path": "listy/uliczne/mazowieckie/2026/pazdziernik",
@@ -20672,12 +20672,12 @@
       {
         "path": "listy/uliczne/podlaskie",
         "h1": "Biegi uliczne na Podlasiu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/uliczne/podlaskie/2026/czerwiec",
         "h1": "Biegi uliczne na Podlasiu — w czerwcu 2026",
-        "eventCount": 8
+        "eventCount": 9
       }
     ]
   },
@@ -20692,10 +20692,10 @@
       "city": null
     },
     "h1": "Biegi uliczne na Podlasiu — w czerwcu 2026",
-    "title": "Biegi uliczne na Podlasiu — w czerwcu 2026 (8 wydarzeń) — Leszy.run",
-    "description": "8 biegów ulicznych na Podlasiu w czerwcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "8 biegi uliczne na Podlasiu w 2026 roku, od 5 km do 21 km.",
-    "eventCount": 8,
+    "title": "Biegi uliczne na Podlasiu — w czerwcu 2026 (9 wydarzeń) — Leszy.run",
+    "description": "9 biegów ulicznych na Podlasiu w czerwcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "9 biegi uliczne na Podlasiu w 2026 roku, od 5 km do 21 km.",
+    "eventCount": 9,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/podlaskie/2026/czerwiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -20703,7 +20703,7 @@
       {
         "path": "listy/uliczne/podlaskie",
         "h1": "Biegi uliczne na Podlasiu",
-        "eventCount": 19
+        "eventCount": 20
       },
       {
         "path": "listy/uliczne/podlaskie/2026/maj",
@@ -20734,7 +20734,7 @@
       {
         "path": "listy/uliczne/podlaskie",
         "h1": "Biegi uliczne na Podlasiu",
-        "eventCount": 19
+        "eventCount": 20
       }
     ]
   },
@@ -20760,7 +20760,7 @@
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/pomorskie/2026/maj",
@@ -20791,7 +20791,7 @@
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/pomorskie/2026/kwiecien",
@@ -20827,7 +20827,7 @@
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/pomorskie/2026/maj",
@@ -20837,7 +20837,7 @@
       {
         "path": "listy/uliczne/pomorskie/2026/lipiec",
         "h1": "Biegi uliczne na Pomorzu — w lipcu 2026",
-        "eventCount": 9
+        "eventCount": 8
       }
     ]
   },
@@ -20852,10 +20852,10 @@
       "city": null
     },
     "h1": "Biegi uliczne na Pomorzu — w lipcu 2026",
-    "title": "Biegi uliczne na Pomorzu — w lipcu 2026 (9 wydarzeń) — Leszy.run",
-    "description": "9 biegów ulicznych na Pomorzu w lipcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "9 biegi uliczne na Pomorzu w 2026 roku, od 5 km do 42 km.",
-    "eventCount": 9,
+    "title": "Biegi uliczne na Pomorzu — w lipcu 2026 (8 wydarzeń) — Leszy.run",
+    "description": "8 biegów ulicznych na Pomorzu w lipcu 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "8 biegi uliczne na Pomorzu w 2026 roku, od 5 km do 42 km.",
+    "eventCount": 8,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/pomorskie/2026/lipiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -20863,7 +20863,7 @@
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/pomorskie/2026/czerwiec",
@@ -20899,12 +20899,12 @@
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/pomorskie/2026/lipiec",
         "h1": "Biegi uliczne na Pomorzu — w lipcu 2026",
-        "eventCount": 9
+        "eventCount": 8
       },
       {
         "path": "listy/uliczne/pomorskie/2026/wrzesien",
@@ -20935,7 +20935,7 @@
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/pomorskie/2026/sierpien",
@@ -20971,7 +20971,7 @@
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/pomorskie/2026/wrzesien",
@@ -21007,7 +21007,7 @@
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/pomorskie/2026/pazdziernik",
@@ -21043,7 +21043,7 @@
       {
         "path": "listy/uliczne/pomorskie",
         "h1": "Biegi uliczne na Pomorzu",
-        "eventCount": 75
+        "eventCount": 74
       },
       {
         "path": "listy/uliczne/pomorskie/2026/listopad",
@@ -23562,7 +23562,7 @@
       {
         "path": "listy/nordic-walking/pomorskie",
         "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
+        "eventCount": 22
       },
       {
         "path": "listy/nordic-walking/pomorskie/2026/maj",
@@ -23593,7 +23593,7 @@
       {
         "path": "listy/nordic-walking/pomorskie",
         "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
+        "eventCount": 22
       },
       {
         "path": "listy/nordic-walking/pomorskie/2026/kwiecien",
@@ -23629,7 +23629,7 @@
       {
         "path": "listy/nordic-walking/pomorskie",
         "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
+        "eventCount": 22
       },
       {
         "path": "listy/nordic-walking/pomorskie/2026/maj",
@@ -23639,7 +23639,7 @@
       {
         "path": "listy/nordic-walking/pomorskie/2026/lipiec",
         "h1": "Nordic Walking na Pomorzu — w lipcu 2026",
-        "eventCount": 5
+        "eventCount": 4
       }
     ]
   },
@@ -23654,10 +23654,10 @@
       "city": null
     },
     "h1": "Nordic Walking na Pomorzu — w lipcu 2026",
-    "title": "Nordic Walking na Pomorzu — w lipcu 2026 (5 wydarzeń) — Leszy.run",
-    "description": "5 marszów nordic walking na Pomorzu w lipcu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
-    "intro": "5 nordic walking na Pomorzu w 2026 roku, od 5 km do 15 km.",
-    "eventCount": 5,
+    "title": "Nordic Walking na Pomorzu — w lipcu 2026 (4 wydarzenia) — Leszy.run",
+    "description": "4 marszów nordic walking na Pomorzu w lipcu 2026. nordic walking, marsze nordic walking, NW. Zapisy, dystanse, ceny.",
+    "intro": "4 nordic walking na Pomorzu w 2026 roku, od 5 km do 15 km.",
+    "eventCount": 4,
     "canonicalUrl": "https://www.leszy.run/listy/nordic-walking/pomorskie/2026/lipiec",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -23665,7 +23665,7 @@
       {
         "path": "listy/nordic-walking/pomorskie",
         "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
+        "eventCount": 22
       },
       {
         "path": "listy/nordic-walking/pomorskie/2026/czerwiec",
@@ -23701,12 +23701,12 @@
       {
         "path": "listy/nordic-walking/pomorskie",
         "h1": "Nordic Walking na Pomorzu",
-        "eventCount": 23
+        "eventCount": 22
       },
       {
         "path": "listy/nordic-walking/pomorskie/2026/lipiec",
         "h1": "Nordic Walking na Pomorzu — w lipcu 2026",
-        "eventCount": 5
+        "eventCount": 4
       }
     ]
   },
@@ -24786,7 +24786,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -24812,7 +24812,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -24838,7 +24838,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -24864,7 +24864,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -24890,7 +24890,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -24916,7 +24916,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -24931,10 +24931,10 @@
       "city": "Warszawa"
     },
     "h1": "Biegi w Warszawie",
-    "title": "Biegi w Warszawie (19 wydarzeń) — Leszy.run",
-    "description": "19 biegów w Warszawie. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
-    "intro": "19 biegów w Warszawie w 2026 roku.",
-    "eventCount": 19,
+    "title": "Biegi w Warszawie (20 wydarzeń) — Leszy.run",
+    "description": "20 biegów w Warszawie. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.",
+    "intro": "20 biegów w Warszawie w 2026 roku.",
+    "eventCount": 20,
     "canonicalUrl": "https://www.leszy.run/listy/warszawa",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "weekly",
@@ -24942,7 +24942,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -24968,7 +24968,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -24994,7 +24994,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25020,7 +25020,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25046,7 +25046,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25072,7 +25072,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25098,7 +25098,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25124,7 +25124,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25150,7 +25150,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25176,7 +25176,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25202,7 +25202,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25228,7 +25228,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25254,7 +25254,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25280,7 +25280,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25306,7 +25306,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25332,7 +25332,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25358,7 +25358,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25384,7 +25384,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25410,7 +25410,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25436,7 +25436,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25462,7 +25462,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25488,7 +25488,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25514,7 +25514,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25540,7 +25540,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25566,7 +25566,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25592,7 +25592,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25618,7 +25618,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25644,7 +25644,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25670,7 +25670,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25696,7 +25696,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25722,7 +25722,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25748,7 +25748,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25774,7 +25774,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25800,7 +25800,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25826,7 +25826,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25852,7 +25852,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25878,7 +25878,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25904,7 +25904,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25930,7 +25930,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25956,7 +25956,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -25982,7 +25982,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26008,7 +26008,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26034,7 +26034,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26060,7 +26060,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26086,7 +26086,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26112,7 +26112,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26138,7 +26138,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26164,7 +26164,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26190,7 +26190,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26216,7 +26216,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26242,7 +26242,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26268,7 +26268,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26294,7 +26294,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   },
@@ -26320,7 +26320,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 978
+        "eventCount": 980
       }
     ]
   }

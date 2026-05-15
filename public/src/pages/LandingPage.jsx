@@ -202,7 +202,7 @@ export default function LandingPage() {
                   name: e.location || undefined,
                   address: { '@type': 'PostalAddress', addressLocality: e.location || undefined, addressRegion: e.voivodeship || undefined, addressCountry: 'PL' },
                 },
-                ...(e.price_from != null ? { offers: { '@type': 'Offer', price: String(e.price_from), priceCurrency: 'PLN', availability: 'https://schema.org/InStock' } } : {}),
+                ...(e.price_from != null ? { offers: { '@type': 'Offer', price: String(e.price_from), priceCurrency: 'PLN', availability: 'https://schema.org/InStock', validFrom: e.created_at ? String(e.created_at).slice(0, 10) : String(e.date).slice(0, 10), url: e.registration_url || e.website || `https://www.leszy.run/kalendarz/${e.slug}` } } : {}),
                 ...(e.registration_url || e.website ? { url: e.registration_url || e.website } : {}),
               },
             })),
