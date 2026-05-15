@@ -253,8 +253,16 @@ def _extract_prices(text: str) -> list[int]:
     return sorted(found)
 
 
-def _near_deadline_negative(m, window: str, radius: int = 80) -> bool:
-    local = window[max(0, m.start() - radius):min(len(window), m.end() + radius)]
+def _near_deadline_negative(m, window: str) -> bool:
+    """True if the matched date sits next to race-office context (not an online deadline).
+
+    Looks back 60 chars for lead-in context, but forward only to the next newline
+    (max 60 chars) — prevents cross-bullet contamination in tiered price lists.
+    """
+    after_text = window[m.end():]
+    nl = after_text.find('\n')
+    after_limit = min(nl, 60) if nl >= 0 else 60
+    local = window[max(0, m.start() - 60):m.end() + after_limit]
     return any(neg in local for neg in _DEADLINE_NEGATIVE_TOKENS)
 
 

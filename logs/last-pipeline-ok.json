@@ -1,0 +1,69 @@
+{
+  "ts": "2026-05-15T06:17:49.556Z",
+  "durationMs": 1069110,
+  "steps": [
+    {
+      "name": "run-scrapers",
+      "exitCode": 0,
+      "durationMs": 83105
+    },
+    {
+      "name": "run-merge",
+      "exitCode": 0,
+      "durationMs": 4650
+    },
+    {
+      "name": "run-dedup-1",
+      "exitCode": 0,
+      "durationMs": 858
+    },
+    {
+      "name": "run-geocode",
+      "exitCode": 0,
+      "durationMs": 25701
+    },
+    {
+      "name": "run-enrich-flags",
+      "exitCode": 0,
+      "durationMs": 694
+    },
+    {
+      "name": "run-normalize-1",
+      "exitCode": 0,
+      "durationMs": 614
+    },
+    {
+      "name": "enricher",
+      "exitCode": 0,
+      "durationMs": 945794
+    },
+    {
+      "name": "run-enrich-search",
+      "exitCode": 0,
+      "durationMs": 1183
+    },
+    {
+      "name": "run-dedup-2",
+      "exitCode": 0,
+      "durationMs": 870
+    },
+    {
+      "name": "run-normalize-2",
+      "exitCode": 0,
+      "durationMs": 640
+    },
+    {
+      "name": "run-publish",
+      "exitCode": 0,
+      "durationMs": 4355
+    },
+    {
+      "name": "publish-landing-pages",
+      "exitCode": 0,
+      "durationMs": 644
+    }
+  ],
+  "rowsCreated": 7,
+  "rowsUpdated": 7,
+  "rowsCheckSkipped": false
+}
