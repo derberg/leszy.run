@@ -412,6 +412,7 @@ export default function EventPage() {
           {/* Report button */}
           <div className="flex justify-end mt-6">
             <button
+              data-testid="report-event-btn"
               onClick={() => setShowReport(true)}
               className="font-display font-bold text-[10px] tracking-widest uppercase px-4 py-2 border border-apex-border text-apex-muted hover:border-apex-text hover:text-apex-text-bright transition-all"
             >

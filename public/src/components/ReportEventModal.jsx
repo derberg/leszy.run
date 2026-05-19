@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { callFunction } from '../lib/auth.js'
 
 const DraggableMap = lazy(() => import('./DraggableMap.jsx'))
 
@@ -140,21 +140,24 @@ export default function ReportEventModal({ event, onClose }) {
     setSubmitting(true)
     setError(null)
 
-    const { error: err } = await supabase.from('calendar_event_reports').insert({
-      calendar_event_id: event.id,
-      field,
-      old_value: String(getCurrentValue(event, field)),
-      suggested_value: field === 'cancelled' ? 'cancelled' : suggestedValue.trim(),
-      source_url: sourceUrl.trim() || null,
-      note: note.trim() || null,
-    })
-
-    setSubmitting(false)
-    if (err) {
+    try {
+      await callFunction('submit-contribution', {
+        type: 'event_report',
+        reference_id: event.id,
+        payload: {
+          field,
+          old_value: String(getCurrentValue(event, field)),
+          suggested_value: field === 'cancelled' ? 'cancelled' : suggestedValue.trim(),
+          source_url: sourceUrl.trim() || null,
+          note: note.trim() || null,
+        },
+      })
+      setSubmitted(true)
+    } catch (err) {
       setError('Nie udało się wysłać zgłoszenia.')
       console.error('Report error:', err.message)
-    } else {
-      setSubmitted(true)
+    } finally {
+      setSubmitting(false)
     }
   }
 

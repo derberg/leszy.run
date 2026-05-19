@@ -98,7 +98,7 @@ export default function EventRow({ event }) {
                 </span>
               )}
             </div>
-            <button onClick={handleReport} title="Zgłoś nieprawidłowe dane wydarzenia"
+            <button data-testid="report-event-btn" onClick={handleReport} title="Zgłoś nieprawidłowe dane wydarzenia"
               className="text-apex-muted hover:text-apex-yellow focus:text-apex-yellow transition-colors px-2 py-1 ml-1 flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border hover:border-apex-yellow/40 shrink-0"
               aria-label="Zgłoś nieprawidłowe dane wydarzenia">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -132,7 +132,7 @@ export default function EventRow({ event }) {
                 )}
               </div>
             )}
-            <button onClick={handleReport}
+            <button data-testid="report-event-btn" onClick={handleReport}
               className="mt-2 text-apex-muted active:text-apex-yellow transition-colors px-2 py-1 inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border"
               aria-label="Zgłoś nieprawidłowe dane wydarzenia">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

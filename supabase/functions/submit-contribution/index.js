@@ -91,10 +91,18 @@ Deno.serve(async (req) => {
         name: payload.name,
         date: payload.date,
       }
-      if (payload.location !== undefined)         row.location = payload.location
-      if (payload.voivodeship !== undefined)       row.voivodeship = payload.voivodeship
-      if (payload.registration_url !== undefined)  row.registration_url = payload.registration_url
-      if (payload.website !== undefined)           row.website = payload.website
+      if (payload.location !== undefined)              row.location = payload.location
+      if (payload.voivodeship !== undefined)            row.voivodeship = payload.voivodeship
+      if (payload.registration_url !== undefined)       row.registration_url = payload.registration_url
+      if (payload.website !== undefined)                row.website = payload.website
+      if (payload.regulamin_url !== undefined)          row.regulamin_url = payload.regulamin_url
+      if (payload.distances !== undefined)              row.distances = payload.distances
+      if (payload.event_type !== undefined)             row.event_type = payload.event_type
+      if (payload.price_from !== undefined)             row.price_from = payload.price_from
+      if (payload.price_to !== undefined)               row.price_to = payload.price_to
+      if (payload.registration_deadline !== undefined)  row.registration_deadline = payload.registration_deadline
+      if (payload.lat !== undefined)                    row.lat = payload.lat
+      if (payload.lng !== undefined)                    row.lng = payload.lng
 
       const { data, error } = await supabaseAdmin
         .from('calendar_events')

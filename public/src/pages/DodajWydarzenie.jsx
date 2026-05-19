@@ -1,6 +1,6 @@
 import { useState, useRef, lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
+import { callFunction } from '../lib/auth.js'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import useTheme from '../hooks/useTheme.js'
@@ -136,31 +136,32 @@ export default function DodajWydarzenie() {
     const finalLat = mapMoved ? mapLat : lat
     const finalLng = mapMoved ? mapLng : lng
 
-    const { error: err } = await supabase.from('calendar_events').insert({
-      name: form.name.trim(),
-      date: form.date,
-      location: locationTrimmed || null,
-      voivodeship: form.voivodeship || null,
-      distances: distStrings,
-      event_type: eventTypes.length ? eventTypes : null,
-      registration_url: form.registrationUrl.trim() || null,
-      website: website.trim() || null,
-      regulamin_url: regulaminUrl.trim() || null,
-      price_from: priceFrom ? parseInt(priceFrom, 10) : null,
-      price_to: priceTo ? parseInt(priceTo, 10) : null,
-      registration_deadline: regDeadline || null,
-      lat: finalLat,
-      lng: finalLng,
-      source: 'community',
-      status: 'pending',
-    })
-
-    setSubmitting(false)
-    if (err) {
+    try {
+      await callFunction('submit-contribution', {
+        type: 'event_submission',
+        payload: {
+          name: form.name.trim(),
+          date: form.date,
+          location: locationTrimmed || null,
+          voivodeship: form.voivodeship || null,
+          distances: distStrings,
+          event_type: eventTypes.length ? eventTypes : null,
+          registration_url: form.registrationUrl.trim() || null,
+          website: website.trim() || null,
+          regulamin_url: regulaminUrl.trim() || null,
+          price_from: priceFrom ? parseInt(priceFrom, 10) : null,
+          price_to: priceTo ? parseInt(priceTo, 10) : null,
+          registration_deadline: regDeadline || null,
+          lat: finalLat,
+          lng: finalLng,
+        },
+      })
+      setSubmitted(true)
+    } catch (err) {
       setError('Nie udało się wysłać. Spróbuj ponownie.')
       console.error('Submit error:', err.message)
-    } else {
-      setSubmitted(true)
+    } finally {
+      setSubmitting(false)
     }
   }
 

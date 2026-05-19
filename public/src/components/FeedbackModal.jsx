@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { callFunction } from '../lib/auth.js'
 
 const CATEGORIES = [
   { value: 'missing_feature', label: 'Brakująca funkcja' },
@@ -30,18 +30,21 @@ export default function FeedbackModal({ onClose }) {
     setSubmitting(true)
     setError(null)
 
-    const { error: err } = await supabase.from('website_feedback').insert({
-      category,
-      message: message.trim(),
-      email: email.trim() || null,
-    })
-
-    setSubmitting(false)
-    if (err) {
+    try {
+      await callFunction('submit-contribution', {
+        type: 'general_feedback',
+        payload: {
+          category,
+          message: message.trim(),
+          email: email.trim() || null,
+        },
+      })
+      setSubmitted(true)
+    } catch (err) {
       setError('Nie udało się wysłać sugestii.')
       console.error('Feedback error:', err.message)
-    } else {
-      setSubmitted(true)
+    } finally {
+      setSubmitting(false)
     }
   }
 
