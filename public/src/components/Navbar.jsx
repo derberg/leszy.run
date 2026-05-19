@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle.jsx'
+import useAuth from '../hooks/useAuth.js'
+import { signOut } from '../lib/auth.js'
 
 const navLinks = [
   { to: '/', label: 'Start', hash: '' },
@@ -15,6 +17,10 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
   const location = useLocation()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef(null)
 
   const isActive = (link) => {
     if (link.to === '/kalendarz') return location.pathname === '/kalendarz' || location.pathname.startsWith('/listy')
@@ -36,6 +42,16 @@ export default function Navbar() {
     function handleClick(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -100,6 +116,41 @@ export default function Navbar() {
       {/* Desktop CTA + theme toggle */}
       <div className="hidden md:flex items-center gap-3">
         <ThemeToggle />
+        {user ? (
+          <div className="relative" ref={userMenuRef}>
+            <button
+              onClick={() => setUserMenuOpen(v => !v)}
+              className="flex items-center gap-2 font-mono text-xs text-apex-yellow border border-apex-yellow px-3 py-1.5 hover:bg-apex-yellow hover:text-apex-ink transition-all"
+            >
+              <span className="w-2 h-2 rounded-full bg-apex-yellow inline-block" />
+              {user.email?.split('@')[0]}
+            </button>
+            {userMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-44 bg-apex-bg border border-apex-border shadow-lg z-50">
+                <Link
+                  to="/profil"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="block px-4 py-2.5 font-sans text-sm text-apex-text hover:text-apex-yellow hover:bg-apex-surface transition-colors no-underline"
+                >
+                  Mój profil
+                </Link>
+                <button
+                  onClick={async () => { await signOut(); setUserMenuOpen(false); navigate('/') }}
+                  className="w-full text-left px-4 py-2.5 font-sans text-sm text-apex-muted hover:text-apex-red hover:bg-apex-surface transition-colors border-t border-apex-border"
+                >
+                  Wyloguj się
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Link
+            to="/login"
+            className="font-mono text-xs text-apex-muted border border-apex-border px-3 py-1.5 hover:text-apex-yellow hover:border-apex-yellow transition-all no-underline"
+          >
+            Zaloguj się
+          </Link>
+        )}
         <Link
           to="/#kontakt"
           onClick={(e) => handleHashClick(e, 'kontakt')}
@@ -158,6 +209,23 @@ export default function Navbar() {
               </Link>
             )
           ))}
+          {user ? (
+            <>
+              <Link to="/profil" onClick={() => setMenuOpen(false)}
+                className="font-sans font-semibold text-base tracking-wider uppercase no-underline text-apex-yellow">
+                Mój profil
+              </Link>
+              <button onClick={async () => { await signOut(); setMenuOpen(false); navigate('/') }}
+                className="text-left font-sans font-semibold text-base tracking-wider uppercase text-apex-muted">
+                Wyloguj się
+              </button>
+            </>
+          ) : (
+            <Link to="/login" onClick={() => setMenuOpen(false)}
+              className="font-sans font-semibold text-base tracking-wider uppercase no-underline text-apex-muted">
+              Zaloguj się
+            </Link>
+          )}
           <div className="flex items-center justify-between mt-2">
             <ThemeToggle />
             <Link

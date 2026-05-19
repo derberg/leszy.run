@@ -17,6 +17,10 @@ const Checkin = lazy(() => import('./pages/Checkin.jsx'))
 const AdminCheckin = lazy(() => import('./pages/AdminCheckin.jsx'))
 const BieguHub = lazy(() => import('./pages/BieguHub.jsx'))
 const LandingPage = lazy(() => import('./pages/LandingPage.jsx'))
+const Login = lazy(() => import('./pages/Login.jsx'))
+const Onboarding = lazy(() => import('./pages/Onboarding.jsx'))
+const Profil = lazy(() => import('./pages/Profil.jsx'))
+const UserProfile = lazy(() => import('./pages/UserProfile.jsx'))
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -53,6 +57,10 @@ export default function App() {
           <Route path="/events/:slug/admin/checkin" element={<AdminCheckin />} />
           <Route path="/listy" element={<BieguHub />} />
           <Route path="/listy/*" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/profil" element={<Profil />} />
+          <Route path="/u/:username" element={<UserProfile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
