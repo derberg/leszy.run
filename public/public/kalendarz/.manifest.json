@@ -29533,6 +29533,33 @@
     "website": "https://www.bieglucka.org",
     "is_kids": null
   },
+  "tuchomska-petla-biegi-dla-dzieci-2026-08-09": {
+    "id": "7c7b3782-03ab-4f23-8542-a8dbc9c26098",
+    "name": "Tuchomska Pętla- Biegi dla dzieci",
+    "date": "2026-08-09",
+    "registration_deadline": "2026-08-09",
+    "regulamin_url": "https://dostartu.pl/statute_files/16550_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Tuchomie",
+    "voivodeship": "Pomorskie",
+    "lat": 52.14248,
+    "lng": 19.423828,
+    "distances": [
+      "50m",
+      "200m",
+      "400m",
+      "600m",
+      "1000m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16550",
+    "website": null,
+    "is_kids": null
+  },
   "17-bieg-na-wielka-sowe-2026-08-09": {
     "id": "d4c8a9f4-03ef-4bbb-887f-18936d2f1442",
     "name": "17. Bieg na Wielką Sowę",
@@ -32115,6 +32142,29 @@
     "website": "https://elektronicznezapisy.pl/event/14500.html",
     "is_kids": null
   },
+  "i-grabowski-bieg-2026-2026-09-05": {
+    "id": "3e35f7bb-c346-42a4-946f-83900265f80c",
+    "name": "I Grabowski Bieg 2026",
+    "date": "2026-09-05",
+    "registration_deadline": "2026-08-31",
+    "regulamin_url": "https://dostartu.pl/statute_files/16568_pl.pdf",
+    "price_from": 55,
+    "price_to": 60,
+    "location": "Grabowo",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 53.465126,
+    "lng": 22.153726,
+    "distances": [
+      "6 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16568",
+    "website": null,
+    "is_kids": null
+  },
   "xlvi-usedom-marathon-2026-09-05": {
     "id": "95a543c4-d863-4039-adbc-5188a9d5a1cd",
     "name": "XLVI Usedom Marathon",
@@ -33626,6 +33676,29 @@
     "website": "https://sportaktywni.pl",
     "is_kids": null
   },
+  "xiii-bieg-grodzisko-cross-ix-biegowe-grand-prix-kociewia-2026-09-13": {
+    "id": "0f6a072e-00ee-41e8-8097-4453966303ee",
+    "name": "XIII BIEG GRODZISKO CROSS - IX Biegowe Grand Prix Kociewia",
+    "date": "2026-09-13",
+    "registration_deadline": "2026-09-09",
+    "regulamin_url": "https://dostartu.pl/statute_files/16545_pl.pdf",
+    "price_from": 40,
+    "price_to": 70,
+    "location": "Owidz",
+    "voivodeship": "Pomorskie",
+    "lat": 53.952746,
+    "lng": 18.570676,
+    "distances": [
+      "6.7 km"
+    ],
+    "event_type": [
+      "trail",
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16545",
+    "website": "https://www.facebook.com/KlubKociewiak",
+    "is_kids": null
+  },
   "xi-bieg-nadziei-2026-09-13": {
     "id": "cf30e6af-5932-4ba1-a435-854c711f6bc6",
     "name": "XI Bieg Nadziei",
@@ -34652,6 +34725,26 @@
     "website": null,
     "is_kids": null
   },
+  "staropolskie-igrce-malych-lechitow-2026-09-20": {
+    "id": "689cf832-8fec-4f2f-a4a5-3a95121a42ae",
+    "name": "Staropolskie Igrce Małych Lechitów",
+    "date": "2026-09-20",
+    "registration_deadline": "2026-09-18",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12355.pdf",
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Gniezno",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.535974,
+    "lng": 17.595889,
+    "distances": [],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12355%26co%3Dform",
+    "website": null,
+    "is_kids": null
+  },
   "6-polmaraton-aleja-debow-czerwonych-2026-09-20": {
     "id": "0bfbd63b-27aa-433a-b88f-9b34f2e58527",
     "name": "6. Półmaraton Aleją Dębów Czerwonych",
@@ -34722,6 +34815,31 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15487/signup.html",
     "website": "https://podkowa-janow.pl/",
+    "is_kids": null
+  },
+  "49-bieg-lechitow-biegi-mlodziezowe-2026-09-20": {
+    "id": "688c9b1a-d5fe-4e22-93cb-d5dbb3dbbeaf",
+    "name": "49. Bieg Lechitów - Biegi Młodzieżowe",
+    "date": "2026-09-20",
+    "registration_deadline": "2026-09-18",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12354.pdf",
+    "price_from": 40,
+    "price_to": 40,
+    "location": "Gniezno",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.535974,
+    "lng": 17.595889,
+    "distances": [
+      "400 m",
+      "600 m",
+      "800 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12354%26co%3Dform",
+    "website": null,
     "is_kids": null
   },
   "7-h2o-polmaraton-2026-09-20": {
@@ -34980,6 +35098,26 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/13854/signup.html",
     "website": null,
+    "is_kids": null
+  },
+  "sky-tower-run-2026-2026-09-26": {
+    "id": "8158e492-e8c6-4556-ac43-4ec5597d0d51",
+    "name": "Sky Tower Run 2026",
+    "date": "2026-09-26",
+    "registration_deadline": "2026-09-20",
+    "regulamin_url": "https://skytowerrun.pro-run.pl/regulamin/",
+    "price_from": 80,
+    "price_to": 150,
+    "location": "Wrocław",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.108978,
+    "lng": 17.032669,
+    "distances": [],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12356%26co%3Dform",
+    "website": "https://skytowerrun.pro-run.pl/",
     "is_kids": null
   },
   "xiii-bieg-branicki-2026-09-26": {
