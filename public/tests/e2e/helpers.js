@@ -25,10 +25,13 @@ export async function createTestUser(suffix = 'e2e') {
   })
   if (error) throw error
 
-  // Generate magic link URL for Playwright to navigate to (bypasses email)
+  // Generate magic link URL for Playwright to navigate to (bypasses email).
+  // redirectTo points to /login so Login.jsx is mounted and can handle the post-auth redirect
+  // to /onboarding or /profil based on whether a profile exists.
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type: 'magiclink',
     email,
+    options: { redirectTo: 'http://localhost:5173/login' },
   })
   if (linkError) throw linkError
 
