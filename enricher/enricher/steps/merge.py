@@ -8,7 +8,7 @@ from enricher.steps.validate_urls import UrlStatus
 TERRAIN_TYPES = {"trail", "ocr", "uliczny"}
 # Types that carry specific meaning from scraper keyword evidence.
 # LLM should not drop these in favor of the generic "uliczny" default.
-SPECIFIC_TYPES = {"trail", "ocr", "charytatywny"}
+SPECIFIC_TYPES = {"trail", "ocr", "charytatywny", "nordic walking"}
 
 NOT_OFFICIAL_DOMAINS = {
     # News / portals
@@ -138,8 +138,14 @@ def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates:
     _merge_urls(event, llm, url_statuses, search_candidates, updates, event.get("name", ""))
 
     # --- is_kids ---
-    if llm.get("is_kids") is not None and event.get("is_kids") is None:
-        updates["is_kids"] = llm["is_kids"]
+    llm_kids = llm.get("is_kids")
+    if llm_kids is not None:
+        if had_content:
+            # LLM read actual pages — authoritative, can correct false↔true
+            if event.get("is_kids") != llm_kids:
+                updates["is_kids"] = llm_kids
+        elif event.get("is_kids") is None:
+            updates["is_kids"] = llm_kids
 
     return updates
 

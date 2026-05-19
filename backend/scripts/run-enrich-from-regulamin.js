@@ -8,11 +8,11 @@ import { AI_FILLABLE, pickFillable, fieldsNeedingFill, applyRegistryUpdates } fr
 // Subset of AI_FILLABLE that's plausibly extractable from a regulamin PDF.
 // Excludes URLs (PDF doesn't contain its own URL or external pages reliably)
 // and event_types/distances (those have their own purpose-built prompt below).
+// is_kids is handled separately (bidirectional — PDF can both confirm and deny).
 const PDF_FILLABLE = pickFillable([
   'location', 'voivodeship',
   'price_from', 'price_to',
   'registration_deadline',
-  'is_kids',
 ])
 
 // Usage: cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
@@ -30,23 +30,23 @@ const VALID_EVENT_TYPES = ['trail', 'nocny', 'ocr', 'nordic walking', 'ultra', '
 // Normalize type names Claude might return
 const TYPE_NORMALIZE = { 'nordic': 'nordic walking', 'bieg': null, 'inny': null }
 
-// Types that describe the terrain/format — only one should apply
-const TERRAIN_TYPES = new Set(['trail', 'ocr', 'uliczny'])
+// Types with strong keyword evidence from scrapers — never silently dropped by LLM.
+// If the PDF-reading LLM omits one of these, we preserve it and merge rather than replace.
+const SPECIFIC_TYPES = new Set(['trail', 'ocr', 'charytatywny', 'nordic walking'])
 
-// Merge new types into existing, but don't mix conflicting terrain types
+// Merge PDF-extracted types with existing, treating PDF as authoritative for terrain.
+// Preserves SPECIFIC_TYPES that the LLM dropped (hallucination guard).
 function mergeEventTypes(existing, incoming) {
-  const merged = new Set(existing)
-  const existingTerrain = existing.filter(t => TERRAIN_TYPES.has(t))
+  const existingSpecific = existing.filter(t => SPECIFIC_TYPES.has(t))
+  const incomingSpecific = incoming.filter(t => SPECIFIC_TYPES.has(t))
+  const lostSpecific = existingSpecific.filter(t => !incomingSpecific.includes(t))
 
-  for (const t of incoming) {
-    if (TERRAIN_TYPES.has(t) && existingTerrain.length > 0 && !existingTerrain.includes(t)) {
-      // Skip — would contradict existing terrain type (e.g. uliczny + trail)
-      continue
-    }
-    merged.add(t)
+  if (lostSpecific.length > 0) {
+    // LLM dropped a specific type — preserve it and merge (LLM may have missed it in PDF)
+    return [...new Set([...existing, ...incoming])]
   }
-
-  return [...merged]
+  // LLM output is authoritative — replaces existing (e.g. uliczny → trail when PDF is off-road)
+  return [...new Set(incoming)]
 }
 
 function checkClaudeCli() {
@@ -109,14 +109,16 @@ Currently known event types: ${currentTypes}
 
 Extract from the PDF:
 1. DISTANCES — look for "trasa", "dystans", "długość trasy", classification/category names, distance mentions. The PDF is the source of truth — override currently known distances if the PDF says differently.
-2. EVENT TYPE — classify based on the ACTUAL course description, surface, and terrain in the PDF.${extraFields.length ? '\n3. ADDITIONAL FACTUAL FIELDS — extract directly from the PDF where stated; null if not present.' : ''}
+2. EVENT TYPE — current classification: [${currentTypes}]. Verify this against the ACTUAL course description in the PDF and CORRECT it if wrong (e.g. "uliczny" but the course is on forest paths/trails → change to "trail"; no NW category in PDF → remove "nordic walking"). The PDF is authoritative.
+3. IS_KIDS — does this regulamin include a dedicated children's/youth race? true if yes (biegi dla dzieci, separate category for kids/youth under 18, "mini bieg"); false if the regulamin clearly covers only adult/open-age races; null if not mentioned.${extraFields.length ? '\n4. ADDITIONAL FACTUAL FIELDS — extract directly from the PDF where stated; null if not present.' : ''}
 
 Return ONLY valid JSON, no other text:
 {
   "distances_km": [numbers, e.g. 5, 10, 21.1, 42.2],
   "time_based_distances": ["4h", "6h", "12h"],
   "meter_distances": ["200m", "500m"],
-  "event_type": ["one or more from the list below"]${extraFields.length ? ',\n' + extraBlock : ''}
+  "event_type": ["one or more from the list below"],
+  "is_kids": true/false/null${extraFields.length ? ',\n' + extraBlock : ''}
 }
 
 DISTANCE RULES:
@@ -232,15 +234,10 @@ async function main() {
     from += pageSize
   }
 
-  // Process rows missing distances OR event types OR ANY PDF-extractable field
-  const needsEnrichment = allRows.filter(row => {
-    const noDistances = !row.distances || row.distances.trim() === '' || row.distances === '{}'
-    const noTypes = !row.event_types || row.event_types.length === 0
-    const anyExtraNull = fieldsNeedingFill(row, PDF_FILLABLE).length > 0
-    return noDistances || noTypes || anyExtraNull
-  })
+  // Process all rows — even with types set, PDF is authoritative for verification/correction.
+  const needsEnrichment = allRows
 
-  console.log(`Found ${allRows.length} rows with regulamin URLs, ${needsEnrichment.length} need enrichment (missing distances or types)`)
+  console.log(`Found ${allRows.length} rows with regulamin URLs, ${needsEnrichment.length} need PDF verification`)
   let enriched = 0, skipped = 0, failed = 0
 
   for (const row of needsEnrichment) {
@@ -295,6 +292,14 @@ async function main() {
         }
       }
 
+      // is_kids: PDF is authoritative — bidirectional (can set true OR false)
+      if (extracted.is_kids === true || extracted.is_kids === false) {
+        const current = row.is_kids ?? null
+        if (extracted.is_kids !== current) {
+          updates.is_kids = extracted.is_kids
+        }
+      }
+
       // Registry-driven: fill any PDF-fillable null fields the LLM provided
       const extraFields = fieldsNeedingFill(row, PDF_FILLABLE)
       const extraUpdates = applyRegistryUpdates(row, extracted, extraFields, PDF_FILLABLE)
@@ -309,6 +314,7 @@ async function main() {
         } else {
           if (updates.distances) console.log(`    ✓ distances: ${row.distances || '(none)'} → ${updates.distances}`)
           if (updates.event_types) console.log(`    ✓ types: ${row.event_types?.join(', ') || '(none)'} → ${updates.event_types.join(', ')}`)
+          if (updates.is_kids !== undefined) console.log(`    ✓ is_kids: ${row.is_kids ?? '(none)'} → ${updates.is_kids}`)
           for (const k of Object.keys(extraUpdates)) {
             console.log(`    ✓ ${k}: ${row[k] ?? '(none)'} → ${JSON.stringify(extraUpdates[k])}`)
           }

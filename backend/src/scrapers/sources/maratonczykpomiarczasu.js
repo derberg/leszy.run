@@ -36,7 +36,7 @@ function hasKidsSignal(name) {
 
 function detectEventTypes(blob) {
   const tags = new Set()
-  if (/g[oó]rsk[aiey]|le[sś]n[aey]|\btrail\b|cross(?:owy|owa|owe)?\b/i.test(blob)) tags.add('trail')
+  if (/g[oó]rsk[aiey]|le[sś]n[aey]|\blesie\b|\btrail\b|cross(?:owy|owa|owe)?\b/i.test(blob)) tags.add('trail')
   if (/nordic\s*walking|\bnw\b/i.test(blob)) tags.add('nordic walking')
   if (/\bultra\b|\b\d{1,3}\s*h\s*run\b/i.test(blob)) tags.add('ultra')
   if (/\bocr\b/i.test(blob)) tags.add('ocr')

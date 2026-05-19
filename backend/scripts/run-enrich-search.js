@@ -52,7 +52,11 @@ function describeKnown(event) {
 function buildPrompt(event, fields) {
   // Build the "fields to fill" block dynamically — only what's null on the row.
   const fieldsBlock = fields
-    .map(f => `  "${f}": ${AI_FILLABLE[f].promptHint}, or null`)
+    .map(f => {
+      const def = AI_FILLABLE[f]
+      const hint = typeof def.promptHint === 'function' ? def.promptHint(event) : def.promptHint
+      return `  "${f}": ${hint}, or null`
+    })
     .join(',\n')
 
   // Extract simple city/year strings for query templates

@@ -44,8 +44,16 @@ export const AI_FILLABLE = {
     validate: trimmedString,
   },
   event_types: {
-    isEmpty: r => !r.event_types || r.event_types.length === 0,
-    promptHint: `array of one or more types from: ${VALID_EVENT_TYPES.join(', ')}. Use ["nie-bieg"] for non-running events`,
+    // Always include for rows not yet search-enriched — LLM verifies/corrects even when set.
+    isEmpty: r => !r.event_types || r.event_types.length === 0 || !r.enriched_search_at,
+    promptHint: r => {
+      const current = r?.event_types?.length ? r.event_types.join(', ') : null
+      const base = `array of one or more types from: ${VALID_EVENT_TYPES.join(', ')}`
+      if (current) {
+        return `${base}. CURRENT: [${current}] — verify against found content and correct if wrong. Use ["nie-bieg"] for non-running events`
+      }
+      return `${base}. Use ["nie-bieg"] for non-running events`
+    },
     validate: v => {
       if (!Array.isArray(v)) return null
       const filtered = v.filter(t => VALID_EVENT_TYPES.includes(t) || t === 'nie-bieg')
@@ -93,7 +101,8 @@ export const AI_FILLABLE = {
     },
   },
   is_kids: {
-    isEmpty: r => r.is_kids === null || r.is_kids === undefined,
+    // Re-check when false — regulamin often confirms kids categories the scraper missed.
+    isEmpty: r => r.is_kids !== true,
     promptHint: 'true ONLY if a dedicated kids race / "biegi dzieci" exists; null otherwise',
     validate: v => v === true ? true : null,
   },

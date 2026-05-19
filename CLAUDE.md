@@ -424,7 +424,7 @@ See `enricher/README.md` for full docs, all flags, merge rules, and architecture
 - Crawl4AI + Docling (Python libs in `enricher/.venv/`)
 
 ### Key merge safety rules
-- Never downgrades trail/ocr/charytatywny → uliczny (scraper keyword evidence preserved)
+- Never downgrades trail/ocr/charytatywny/nordic walking → uliczny (scraper keyword evidence preserved)
 - Never nulls a working URL without a replacement candidate
 - Never overwrites existing voivodeship (geocoding is more reliable than LLM)
 - Rejects deadlines >1 year from event date (catches hallucinated years)
