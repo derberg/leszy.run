@@ -19,6 +19,8 @@ import { scrape as scrapeCzasomierzyk } from './sources/czasomierzyk.js'
 import { scrape as scrapeKepasport } from './sources/kepasport.js'
 import { scrape as scrapeInessport } from './sources/inessport.js'
 import { scrape as scrapeAleczas } from './sources/aleczas.js'
+import { scrape as scrapeMaratonczykpomiarczasu } from './sources/maratonczykpomiarczasu.js'
+import { scrape as scrapeTiming4u } from './sources/timing4u.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
@@ -423,6 +425,53 @@ const sources = [
       price_from: raw.price_from ?? null,
       price_to: raw.price_to ?? null,
       registration_deadline: raw.registration_deadline || null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'maratonczykpomiarczasu',
+    scrape: scrapeMaratonczykpomiarczasu,
+    table: 'scraper_maratonczykpomiarczasu',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      voivodeship: raw.voivodeship || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      registration_deadline: raw.registration_deadline || null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'timing4u',
+    scrape: scrapeTiming4u,
+    table: 'scraper_timing4u',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
       lat: raw.lat ?? null,
       lng: raw.lng ?? null,
       source_id: raw.source_id,

@@ -1077,6 +1077,8 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | kepasport | `scraper_kepasport` | `source_id` |
 | inessport | `scraper_inessport` | `source_id` |
 | aleczas | `scraper_aleczas` | `source_id` |
+| maratonczykpomiarczasu | `scraper_maratonczykpomiarczasu` | `source_id` |
+| timing4u | `scraper_timing4u` | `source_id` |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 

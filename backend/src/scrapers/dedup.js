@@ -24,6 +24,8 @@ const SOURCE_PRIORITY = {
   kepasport: 3,
   inessport: 3,
   aleczas: 8,
+  maratonczykpomiarczasu: 8,
+  timing4u: 8,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
@@ -178,6 +180,10 @@ function hasDistinguishingConflict(tagsA, tagsB) {
   for (const cat of categories) {
     const inA = [...tagsA].filter(t => t.startsWith(cat + ':'))
     const inB = [...tagsB].filter(t => t.startsWith(cat + ':'))
+    // One side has no info for this category (e.g. unenriched scraper row with
+    // event_types=null vs LLM-enriched row with trail/nw). Absence ≠ denial —
+    // skip rather than flagging a spurious conflict.
+    if (inA.length === 0 || inB.length === 0) continue
     if (inA.length !== inB.length) return true
     if (!inA.every(t => inB.includes(t))) return true
   }
