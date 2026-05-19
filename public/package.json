@@ -7,7 +7,8 @@
     "generate-og": "node scripts/generate-og-image.js",
     "build": "node scripts/generate-og-image.js && vite build && node scripts/generate-event-pages.js && node scripts/generate-landing-pages.js",
     "preview": "vite preview",
-    "test:functions": "node --test ../supabase/functions/tests/*.test.js"
+    "test:functions": "node --test ../supabase/functions/tests/*.test.js",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0",
@@ -20,6 +21,7 @@
     "react-router-dom": "^7.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/vite": "^4.0.0",
     "@vitejs/plugin-react": "^4.0.0",
     "sharp": "^0.34.5",
