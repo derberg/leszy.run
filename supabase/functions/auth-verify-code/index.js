@@ -82,12 +82,9 @@ Deno.serve(async (req) => {
     let profile = existingProfile
     if (!profile) {
       const newId = crypto.randomUUID()
-      // username is NOT NULL — generate a temporary unique placeholder;
-      // the user will set a real username via the update-profile flow (hasUsername=false signals this)
-      const tempUsername = `user_${newId.replace(/-/g, '').slice(0, 12)}`
       const { data: newProfile, error: insertError } = await supabaseAdmin
         .from('profiles')
-        .insert({ id: newId, email: normalizedEmail, username: tempUsername })
+        .insert({ id: newId, email: normalizedEmail })
         .select('id, username')
         .single()
       if (insertError) throw insertError
@@ -105,8 +102,7 @@ Deno.serve(async (req) => {
 
     const cookie = `leszy_session=${sessionToken}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${SESSION_MAX_AGE}`
 
-    // hasUsername = true only if the username was set by the user (not the auto-generated placeholder)
-    const hasUsername = Boolean(profile.username) && !/^user_[0-9a-f]{12}$/.test(profile.username)
+    const hasUsername = Boolean(profile.username)
 
     return json(
       { success: true, hasUsername },
