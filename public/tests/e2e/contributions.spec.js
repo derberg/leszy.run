@@ -34,15 +34,13 @@ test.describe('Community flows with auth', () => {
     await expect(page.getByText(/raport/i).first()).toBeVisible()
   })
 
-  test('anon report submission still works without login', async ({ page }) => {
+  test('anon user clicking report shows login prompt instead of form', async ({ page }) => {
     await page.goto('/kalendarz')
     const reportBtn = page.getByTestId('report-event-btn').first()
     const visible = await reportBtn.waitFor({ state: 'visible', timeout: 10000 }).then(() => true).catch(() => false)
     if (!visible) { test.skip(); return }
     await reportBtn.click()
-    await page.locator('select').first().selectOption('name')
-    await page.locator('input[type="text"]').last().fill('Poprawiona nazwa anon')
-    await page.getByRole('button', { name: /wyślij/i }).click()
-    await expect(page.getByText(/dziękujemy/i)).toBeVisible()
+    await expect(page.getByText(/wymagane logowanie/i)).toBeVisible()
+    await expect(page.getByRole('link', { name: /zaloguj się/i })).toBeVisible()
   })
 })
