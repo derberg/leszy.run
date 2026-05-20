@@ -151,3 +151,71 @@ describe('auth-verify-code', () => {
     assert.equal(data.hasUsername, true)
   })
 })
+
+describe('auth-me', () => {
+  let sessionToken
+  const email = `me-${Date.now()}@test.leszy.run`
+
+  before(async () => {
+    const userId = crypto.randomUUID()
+    await supabaseAdmin.from('profiles').insert({ id: userId, email, username: 'me_test_user' })
+    sessionToken = crypto.randomBytes(32).toString('hex')
+    await supabaseAdmin.from('auth_sessions').insert({
+      id: sessionToken,
+      user_id: userId,
+      email,
+      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    })
+  })
+
+  after(async () => {
+    await supabaseAdmin.from('auth_sessions').delete().eq('email', email)
+    await supabaseAdmin.from('profiles').delete().eq('email', email)
+  })
+
+  it('returns 401 with no cookie', async () => {
+    const { status } = await post('auth-me', {})
+    assert.equal(status, 401)
+  })
+
+  it('returns user data with valid cookie', async () => {
+    const { status, data } = await post('auth-me', {}, sessionToken)
+    assert.equal(status, 200)
+    assert.equal(data.user.email, email)
+    assert.equal(data.user.username, 'me_test_user')
+  })
+})
+
+describe('auth-logout', () => {
+  let sessionToken
+  const email = `logout-${Date.now()}@test.leszy.run`
+
+  before(async () => {
+    const userId = crypto.randomUUID()
+    await supabaseAdmin.from('profiles').insert({ id: userId, email })
+    sessionToken = crypto.randomBytes(32).toString('hex')
+    await supabaseAdmin.from('auth_sessions').insert({
+      id: sessionToken,
+      user_id: userId,
+      email,
+      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    })
+  })
+
+  after(async () => {
+    await supabaseAdmin.from('profiles').delete().eq('email', email)
+  })
+
+  it('deletes session and clears cookie', async () => {
+    const { status, headers } = await post('auth-logout', {}, sessionToken)
+    assert.equal(status, 200)
+    const setCookie = headers.get('set-cookie')
+    assert.ok(setCookie?.includes('Max-Age=0'))
+
+    const { data } = await supabaseAdmin
+      .from('auth_sessions')
+      .select('id')
+      .eq('id', sessionToken)
+    assert.equal(data.length, 0)
+  })
+})
