@@ -1,25 +1,16 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { getMe } from '../lib/auth.js'
 
 export default function useAuth() {
   const [user, setUser] = useState(null)
-  const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
+    getMe().then(u => {
+      setUser(u)
       setLoading(false)
     })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-    })
-
-    return () => subscription.unsubscribe()
   }, [])
 
-  return { user, session, loading }
+  return { user, loading }
 }
