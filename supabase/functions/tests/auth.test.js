@@ -219,3 +219,39 @@ describe('auth-logout', () => {
     assert.equal(data.length, 0)
   })
 })
+
+describe('get-profile-data', () => {
+  let sessionToken, userId
+  const email = `profile-data-${Date.now()}@test.leszy.run`
+
+  before(async () => {
+    userId = crypto.randomUUID()
+    await supabaseAdmin.from('profiles').insert({
+      id: userId, email, username: 'profiledata_test',
+    })
+    sessionToken = crypto.randomBytes(32).toString('hex')
+    await supabaseAdmin.from('auth_sessions').insert({
+      id: sessionToken, user_id: userId, email,
+      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    })
+  })
+
+  after(async () => {
+    await supabaseAdmin.from('auth_sessions').delete().eq('user_id', userId)
+    await supabaseAdmin.from('profiles').delete().eq('id', userId)
+  })
+
+  it('returns 401 without session', async () => {
+    const { status } = await post('get-profile-data', {})
+    assert.equal(status, 401)
+  })
+
+  it('returns profile, badges, reports, submissions for logged-in user', async () => {
+    const { status, data } = await post('get-profile-data', {}, sessionToken)
+    assert.equal(status, 200)
+    assert.equal(data.profile.username, 'profiledata_test')
+    assert.ok(Array.isArray(data.badges))
+    assert.ok(Array.isArray(data.reports))
+    assert.ok(Array.isArray(data.submissions))
+  })
+})
