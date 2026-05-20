@@ -1,29 +1,31 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
+import { requestCode, verifyCode } from '../lib/auth.js'
 import useAuth from '../hooks/useAuth.js'
-import { signInWithEmail, verifyOtp } from '../lib/auth.js'
-import { supabase } from '../lib/supabase.js'
 import useSeo from '../hooks/useSeo.js'
 
+const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
+const labelClass = 'block font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-1.5'
+
 export default function Login() {
-  useSeo({ title: 'Zaloguj się — Leszy.run', path: '/login', noindex: true })
+  useSeo({ title: 'Logowanie — Leszy.run', path: '/login', noindex: true })
 
   const { user, loading } = useAuth()
   const navigate = useNavigate()
 
+  const [step, setStep] = useState('email') // 'email' | 'code'
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
-  const [step, setStep] = useState('email')
+  const [honeypot, setHoneypot] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
+  // Already logged in — redirect away
   useEffect(() => {
-    if (loading || !user) return
-    // Check if profile exists to decide where to redirect
-    supabase.from('profiles').select('id').eq('id', user.id).single().then(({ data }) => {
-      navigate(data ? '/profil' : '/onboarding', { replace: true })
-    })
+    if (!loading && user) {
+      navigate(user.username ? '/profil' : '/onboarding', { replace: true })
+    }
   }, [user, loading, navigate])
 
   async function handleEmailSubmit(e) {
@@ -31,7 +33,7 @@ export default function Login() {
     setError(null)
     setSubmitting(true)
     try {
-      await signInWithEmail(email)
+      await requestCode(email.trim().toLowerCase(), honeypot)
       setStep('code')
     } catch (err) {
       setError(err.message)
@@ -45,16 +47,16 @@ export default function Login() {
     setError(null)
     setSubmitting(true)
     try {
-      await verifyOtp(email, code)
+      const { hasUsername } = await verifyCode(email.trim().toLowerCase(), code.trim())
+      navigate(hasUsername ? '/profil' : '/onboarding', { replace: true })
     } catch (err) {
-      setError('Nieprawidłowy kod. Sprawdź email lub spróbuj ponownie.')
+      setError(err.message)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-3 px-4 outline-none focus:border-apex-yellow-dim transition-colors'
-  const btnClass = 'w-full font-display font-bold text-sm tracking-widest uppercase px-6 py-3 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed'
+  if (loading) return null
 
   return (
     <div className="min-h-screen bg-apex-bg text-apex-text">
@@ -62,65 +64,49 @@ export default function Login() {
       <main className="flex items-center justify-center min-h-screen pt-14 px-4">
         <div className="w-full max-w-sm">
           <h1 className="font-display font-extrabold text-3xl text-apex-text-bright uppercase tracking-wider mb-2">
-            {step === 'email' ? 'Zaloguj się' : 'Wpisz kod'}
+            Zaloguj się
           </h1>
           <p className="font-sans text-apex-muted text-sm mb-8">
             {step === 'email'
-              ? 'Wyślemy Ci link i kod jednorazowy na podany adres email.'
-              : `Wysłaliśmy kod na ${email}. Sprawdź też link w emailu — kliknięcie zaloguje Cię od razu.`}
+              ? 'Podaj email — wyślemy Ci kod logowania.'
+              : `Podaj 6-cyfrowy kod wysłany na ${email}.`}
           </p>
 
           {step === 'email' ? (
-            <form onSubmit={handleEmailSubmit} className="space-y-4">
+            <form onSubmit={handleEmailSubmit} className="space-y-5">
+              {/* Honeypot — hidden from humans, catches bots */}
+              <div className="absolute -left-[9999px]" aria-hidden="true">
+                <input type="text" name="website" tabIndex={-1} autoComplete="off"
+                  value={honeypot} onChange={e => setHoneypot(e.target.value)} />
+              </div>
               <div>
-                <label className="block font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-1.5">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  aria-label="email"
-                  value={email}
+                <label htmlFor="email" className={labelClass}>Email</label>
+                <input id="email" type="email" value={email}
                   onChange={e => setEmail(e.target.value)}
-                  required
-                  autoFocus
-                  placeholder="twoj@email.pl"
-                  className={inputClass}
-                />
+                  required autoFocus className={inputClass} placeholder="ty@przyklad.pl" />
               </div>
               {error && <p className="text-apex-red font-sans text-sm">{error}</p>}
-              <button type="submit" disabled={submitting || !email} className={btnClass}>
+              <button type="submit" disabled={submitting}
+                className="w-full font-display font-bold text-sm tracking-widest uppercase px-6 py-3 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40">
                 {submitting ? 'Wysyłanie…' : 'Wyślij kod'}
               </button>
             </form>
           ) : (
-            <form onSubmit={handleCodeSubmit} className="space-y-4">
+            <form onSubmit={handleCodeSubmit} className="space-y-5">
               <div>
-                <label className="block font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-1.5">
-                  Kod jednorazowy (6 cyfr)
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  value={code}
-                  onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-                  required
-                  autoFocus
-                  placeholder="123456"
-                  className={`${inputClass} tracking-[0.5em] text-center text-lg`}
-                />
+                <label htmlFor="code" className={labelClass}>Kod (6 cyfr)</label>
+                <input id="code" type="text" inputMode="numeric" pattern="\d{6}"
+                  value={code} onChange={e => setCode(e.target.value)}
+                  required autoFocus maxLength={6} className={inputClass} placeholder="123456" />
               </div>
               {error && <p className="text-apex-red font-sans text-sm">{error}</p>}
-              <button type="submit" disabled={submitting || code.length !== 6} className={btnClass}>
-                {submitting ? 'Sprawdzanie…' : 'Zaloguj się'}
+              <button type="submit" disabled={submitting}
+                className="w-full font-display font-bold text-sm tracking-widest uppercase px-6 py-3 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40">
+                {submitting ? 'Weryfikacja…' : 'Zaloguj się'}
               </button>
-              <button
-                type="button"
-                onClick={() => { setStep('email'); setCode(''); setError(null) }}
-                className="w-full font-sans text-xs text-apex-muted hover:text-apex-text transition-colors py-2"
-              >
-                Zmień adres email
+              <button type="button" onClick={() => { setStep('email'); setCode(''); setError(null) }}
+                className="w-full font-mono text-xs text-apex-muted hover:text-apex-text transition-colors py-2">
+                ← Zmień email
               </button>
             </form>
           )}
