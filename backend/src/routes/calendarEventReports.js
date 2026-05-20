@@ -6,7 +6,7 @@ export async function calendarEventReportsRoutes(fastify) {
 
     const { data: reports, error } = await supabase
       .from('calendar_event_reports')
-      .select('*, calendar_events(*)')
+      .select('*, calendar_events(*), profiles!calendar_event_reports_user_id_fkey(id, username, display_name, email)')
       .eq('status', status)
       .order('created_at', { ascending: false })
 

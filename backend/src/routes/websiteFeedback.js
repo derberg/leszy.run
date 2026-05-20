@@ -6,7 +6,7 @@ export async function websiteFeedbackRoutes(fastify) {
 
     let query = supabase
       .from('website_feedback')
-      .select('*')
+      .select('*, profiles!website_feedback_user_id_fkey(id, username, display_name, email)')
       .eq('status', status)
       .order('created_at', { ascending: false })
 

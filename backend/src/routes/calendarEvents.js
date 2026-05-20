@@ -116,7 +116,7 @@ export async function calendarEventsRoutes(fastify) {
 
     let query = supabase
       .from('calendar_events')
-      .select('*', { count: 'exact' })
+      .select('*, profiles!calendar_events_submitted_by_fkey(id, username, display_name, email)', { count: 'exact' })
       .eq('status', status)
       .order('date', { ascending: true })
       .range(from, from + limit - 1)
