@@ -69,3 +69,85 @@ describe('auth-request-code', () => {
     assert.equal(active.length, 1) // only the latest is active
   })
 })
+
+describe('auth-verify-code', () => {
+  const email = `verify-${Date.now()}@test.leszy.run`
+
+  async function seedCode(overrides = {}) {
+    const code = '123456'
+    const hash = crypto.createHash('sha256').update(code).digest('hex')
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    await supabaseAdmin.from('auth_codes').insert({
+      email,
+      code_hash: hash,
+      expires_at: overrides.expiresAt ?? expiresAt,
+      attempts: overrides.attempts ?? 0,
+      used: overrides.used ?? false,
+    })
+    return code
+  }
+
+  after(async () => {
+    await supabaseAdmin.from('auth_sessions').delete().eq('email', email)
+    await supabaseAdmin.from('profiles').delete().eq('email', email)
+    await supabaseAdmin.from('auth_codes').delete().eq('email', email)
+  })
+
+  it('returns 400 for expired code', async () => {
+    await seedCode({ expiresAt: new Date(Date.now() - 1000).toISOString() })
+    const { status } = await post('auth-verify-code', { email, code: '123456' })
+    assert.equal(status, 400)
+  })
+
+  it('returns 401 for wrong code', async () => {
+    await seedCode()
+    const { status } = await post('auth-verify-code', { email, code: '000000' })
+    assert.equal(status, 401)
+  })
+
+  it('returns 403 after 3 failed attempts', async () => {
+    await seedCode({ attempts: 3 })
+    const { status } = await post('auth-verify-code', { email, code: '123456' })
+    assert.equal(status, 403)
+  })
+
+  it('returns 200 with Set-Cookie on correct code, creates profile and session', async () => {
+    await seedCode()
+    const { status, data, headers } = await post('auth-verify-code', { email, code: '123456' })
+    assert.equal(status, 200)
+    assert.equal(data.success, true)
+    assert.equal(typeof data.hasUsername, 'boolean')
+
+    const setCookie = headers.get('set-cookie')
+    assert.ok(setCookie?.includes('leszy_session='))
+    assert.ok(setCookie?.includes('HttpOnly'))
+
+    // Profile created
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, email')
+      .eq('email', email)
+      .single()
+    assert.equal(profile.email, email)
+
+    // Session created
+    const token = setCookie.match(/leszy_session=([^;]+)/)[1]
+    const { data: session } = await supabaseAdmin
+      .from('auth_sessions')
+      .select('user_id, email')
+      .eq('id', token)
+      .single()
+    assert.equal(session.email, email)
+  })
+
+  it('returns hasUsername=true if profile already has username', async () => {
+    // The previous test created the profile; update it with a username
+    await supabaseAdmin
+      .from('profiles')
+      .update({ username: `verify_user_${Date.now()}`.slice(0, 30) })
+      .eq('email', email)
+    await seedCode()
+    const { data } = await post('auth-verify-code', { email, code: '123456' })
+    assert.equal(data.hasUsername, true)
+  })
+})
