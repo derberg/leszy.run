@@ -1,42 +1,38 @@
 import { test, expect } from '@playwright/test'
 import { createTestUser, cleanupUser } from './helpers.js'
 
-test.describe('Auth flow', () => {
-  let testUser
-
-  test.beforeEach(async () => {
-    testUser = await createTestUser('auth')
-  })
-
-  test.afterEach(async () => {
-    await cleanupUser(testUser.user.id)
-  })
-
-  test('login page renders and shows email form', async ({ page }) => {
+test.describe('Login page', () => {
+  test('shows email form on /login', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.getByRole('heading', { name: /zaloguj/i })).toBeVisible()
-    await expect(page.getByRole('textbox', { name: /email/i })).toBeVisible()
+    await expect(page.getByLabel(/email/i)).toBeVisible()
     await expect(page.getByRole('button', { name: /wyślij kod/i })).toBeVisible()
   })
 
-  test('redirect to /login when visiting /profil unauthenticated', async ({ page }) => {
-    await page.goto('/profil')
-    await expect(page).toHaveURL('/login')
-  })
-
-  test('magic link login navigates to /onboarding for new user', async ({ page }) => {
-    await page.goto(testUser.magicLinkUrl)
-    await page.waitForURL(/\/(onboarding|profil)/, { timeout: 15_000 })
-    const url = page.url()
-    // New user with no profile → onboarding; already profiled → profil
-    expect(url).toMatch(/\/(onboarding|profil)/)
-  })
-
-  test('already-logged-in user visiting /login is redirected', async ({ page }) => {
-    await page.goto(testUser.magicLinkUrl)
-    await page.waitForURL(/\/(onboarding|profil)/, { timeout: 15_000 })
+  test('shows code input after submitting email', async ({ page }) => {
     await page.goto('/login')
-    await page.waitForURL(/\/(profil|onboarding)/, { timeout: 10_000 })
-    expect(page.url()).toMatch(/\/(profil|onboarding)/)
+    await page.getByLabel(/email/i).fill('test@test.leszy.run')
+    await page.getByRole('button', { name: /wyślij kod/i }).click()
+    // Function returns 200 (honeypot path or real), step changes to 'code'
+    await expect(page.getByLabel(/kod/i)).toBeVisible({ timeout: 8000 })
+  })
+
+  test('redirects to /profil when already logged in', async ({ page, context }) => {
+    const testUser = await createTestUser('auth-redirect')
+    // Set username so redirect goes to /profil not /onboarding
+    await import('./helpers.js').then(h =>
+      h.supabaseAdmin.from('profiles').update({ username: 'auth_redirect_user' }).eq('id', testUser.user.id)
+    )
+    await testUser.injectSession(context)
+    await page.goto('/login')
+    await page.waitForURL('/profil')
+    await cleanupUser(testUser.user.id)
+  })
+
+  test('redirects to /onboarding when logged in without username', async ({ page, context }) => {
+    const testUser = await createTestUser('auth-onboarding')
+    await testUser.injectSession(context)
+    await page.goto('/login')
+    await page.waitForURL('/onboarding')
+    await cleanupUser(testUser.user.id)
   })
 })

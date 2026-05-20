@@ -1,54 +1,56 @@
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'node:crypto'
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
 export const FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`
 
 export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
+const SUPABASE_DOMAIN = new URL(SUPABASE_URL).hostname // 'kojoxazlnxncrpxmnxiq.supabase.co'
+
 /**
- * Creates a test user with password auth and returns their magic link URL.
- * The magic link is used in Playwright to navigate directly (no real email needed).
- * The accessToken is also returned for direct Edge Function calls in test helpers.
+ * Creates a profile + session in DB. Returns helpers for Playwright.
+ * Call injectSession(context) to authenticate a browser context.
  */
 export async function createTestUser(suffix = 'e2e') {
   const email = `e2e-${suffix}-${Date.now()}@test.leszy.run`
-  const password = 'TestE2EPass!99'
+  const userId = crypto.randomUUID()
 
-  const { data: { user }, error } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  })
-  if (error) throw error
+  const { error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .insert({ id: userId, email })
+  if (profileError) throw profileError
 
-  // Generate magic link URL for Playwright to navigate to (bypasses email).
-  // redirectTo points to /login so Login.jsx is mounted and can handle the post-auth redirect
-  // to /onboarding or /profil based on whether a profile exists.
-  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-    type: 'magiclink',
-    email,
-    options: { redirectTo: 'http://localhost:5173/login' },
-  })
-  if (linkError) throw linkError
-
-  // Also get access token for direct API calls in tests
-  const anonClient = createClient(SUPABASE_URL, ANON_KEY)
-  const { data: { session } } = await anonClient.auth.signInWithPassword({ email, password })
+  const sessionToken = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+  const { error: sessionError } = await supabaseAdmin
+    .from('auth_sessions')
+    .insert({ id: sessionToken, user_id: userId, email, expires_at: expiresAt })
+  if (sessionError) throw sessionError
 
   return {
-    user,
+    user: { id: userId, email },
     email,
-    password,
-    accessToken: session?.access_token ?? null,
-    magicLinkUrl: linkData.properties.action_link,
+    sessionToken,
+    /** Call this with a Playwright BrowserContext to inject the session cookie. */
+    async injectSession(context) {
+      await context.addCookies([{
+        name: 'leszy_session',
+        value: sessionToken,
+        domain: SUPABASE_DOMAIN,
+        path: '/',
+        httpOnly: true,
+        secure: true,
+        sameSite: 'None',
+      }])
+    },
   }
 }
 
 export async function cleanupUser(userId) {
+  await supabaseAdmin.from('auth_sessions').delete().eq('user_id', userId)
   await supabaseAdmin.from('profiles').delete().eq('id', userId)
-  await supabaseAdmin.auth.admin.deleteUser(userId)
 }

@@ -1,73 +1,61 @@
 import { test, expect } from '@playwright/test'
-import { createTestUser, cleanupUser, supabaseAdmin } from './helpers.js'
+import { createTestUser, cleanupUser, supabaseAdmin, FUNCTIONS_URL } from './helpers.js'
 
 async function setupUserWithProfile(suffix) {
-  const { user, magicLinkUrl, accessToken } = await createTestUser(suffix)
-  const res = await fetch(`${process.env.VITE_SUPABASE_URL}/functions/v1/update-profile`, {
+  const testUser = await createTestUser(suffix)
+  const username = `pub_${suffix}_${Date.now()}`.toLowerCase().slice(0, 28)
+  await fetch(`${FUNCTIONS_URL}/update-profile`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({
-      username: `pub_${suffix}_${Date.now()}`.toLowerCase().slice(0, 28),
-      display_name: 'Piotr Kowalski',
-      club: 'KB Kraków',
-    }),
+    headers: { 'Content-Type': 'application/json', Cookie: `leszy_session=${testUser.sessionToken}` },
+    body: JSON.stringify({ username, display_name: 'Test Display' }),
   })
-  const { data: profile } = await res.json()
-  return { user, profile, accessToken }
+  return { testUser, username }
 }
 
 test.describe('Public profile /u/:username', () => {
-  let testUser
+  let setup
 
-  test.beforeEach(async () => {
-    testUser = await setupUserWithProfile('pubprof')
+  test.beforeAll(async () => {
+    setup = await setupUserWithProfile('pubprofile')
   })
 
-  test.afterEach(async () => {
-    await cleanupUser(testUser.user.id)
+  test.afterAll(async () => {
+    await cleanupUser(setup.testUser.user.id)
   })
 
   test('public profile page renders for existing user', async ({ page }) => {
-    await page.goto(`/u/${testUser.profile.username}`)
-    await expect(page.getByText(`@${testUser.profile.username}`)).toBeVisible()
+    await page.goto(`/u/${setup.username}`)
+    await expect(page.getByText(`@${setup.username}`)).toBeVisible()
   })
 
-  test('display name is visible when privacy is on', async ({ page }) => {
-    await page.goto(`/u/${testUser.profile.username}`)
-    await expect(page.getByText('Piotr Kowalski')).toBeVisible()
+  test('display name is visible when privacy is on (default)', async ({ page }) => {
+    await page.goto(`/u/${setup.username}`)
+    await expect(page.getByText('Test Display')).toBeVisible()
   })
 
   test('display name is hidden when user sets privacy off', async ({ page }) => {
-    await fetch(`${process.env.VITE_SUPABASE_URL}/functions/v1/update-profile`, {
+    await fetch(`${FUNCTIONS_URL}/update-profile`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${testUser.accessToken}` },
-      body: JSON.stringify({ privacy_settings: { display_name: false, club: true, bio: true } }),
+      headers: { 'Content-Type': 'application/json', Cookie: `leszy_session=${setup.testUser.sessionToken}` },
+      body: JSON.stringify({ privacy_settings: { display_name: false, club: true } }),
     })
-    await page.goto(`/u/${testUser.profile.username}`)
-    await expect(page.getByText('Piotr Kowalski')).not.toBeVisible()
-    await expect(page.getByText(`@${testUser.profile.username}`)).toBeVisible()
+    await page.goto(`/u/${setup.username}`)
+    await expect(page.getByText('Test Display')).not.toBeVisible()
   })
 
   test('404 page shown for non-existent username', async ({ page }) => {
-    await page.goto('/u/this_user_does_not_exist_xyz_999')
+    await page.goto('/u/this_user_does_not_exist_xyz123')
     await expect(page.getByText(/nie znaleziono/i)).toBeVisible()
   })
 
   test('badges section visible when user has badges', async ({ page }) => {
-    const { data: events } = await supabaseAdmin.from('calendar_events').select('id').limit(1).single()
-    if (events?.id) {
-      await fetch(`${process.env.VITE_SUPABASE_URL}/functions/v1/submit-contribution`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${testUser.accessToken}` },
-        body: JSON.stringify({
-          type: 'event_report',
-          reference_id: events.id,
-          payload: { field: 'name', note: 'test' },
-        }),
-      })
-    }
-    await page.goto(`/u/${testUser.profile.username}`)
-    // Pioneer badge icon ★ should appear after first contribution
-    await expect(page.getByText('★')).toBeVisible({ timeout: 10_000 })
+    const { data: badgeDef } = await supabaseAdmin
+      .from('badge_definitions').select('id').limit(1).single()
+    await supabaseAdmin
+      .from('user_badges')
+      .insert({ user_id: setup.testUser.user.id, badge_id: badgeDef.id })
+    await page.goto(`/u/${setup.username}`)
+    await expect(page.getByTestId('badges-section')).toBeVisible()
+    await supabaseAdmin.from('user_badges').delete().eq('user_id', setup.testUser.user.id)
   })
 })

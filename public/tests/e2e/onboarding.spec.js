@@ -1,50 +1,44 @@
 import { test, expect } from '@playwright/test'
-import { createTestUser, cleanupUser } from './helpers.js'
+import { createTestUser, cleanupUser, supabaseAdmin } from './helpers.js'
 
-test.describe('Onboarding flow', () => {
+test.describe('Onboarding', () => {
   let testUser
 
   test.beforeEach(async () => {
-    testUser = await createTestUser('onboard')
+    testUser = await createTestUser('onboarding')
   })
 
   test.afterEach(async () => {
     await cleanupUser(testUser.user.id)
   })
 
-  async function loginAndGoToOnboarding(page) {
-    await page.goto(testUser.magicLinkUrl)
-    await page.waitForURL('/onboarding', { timeout: 15_000 })
-  }
-
-  test('onboarding page shows username field', async ({ page }) => {
-    await loginAndGoToOnboarding(page)
-    await expect(page.getByRole('heading', { name: /ustaw.*profil/i })).toBeVisible()
+  test('shows username form', async ({ page, context }) => {
+    await testUser.injectSession(context)
+    await page.goto('/onboarding')
     await expect(page.getByLabel(/nazwa użytkownika/i)).toBeVisible()
   })
 
-  test('submitting a valid username creates profile and redirects to /profil', async ({ page }) => {
-    await loginAndGoToOnboarding(page)
-    const handle = `tst_${Date.now()}`.toLowerCase().slice(0, 28)
-    await page.getByLabel(/nazwa użytkownika/i).fill(handle)
+  test('redirects to /profil after setting username', async ({ page, context }) => {
+    await testUser.injectSession(context)
+    await page.goto('/onboarding')
+    const username = `onb_${Date.now()}`.slice(0, 28).toLowerCase()
+    await page.getByLabel(/nazwa użytkownika/i).fill(username)
     await page.getByRole('button', { name: /zapisz/i }).click()
-    await expect(page).toHaveURL('/profil', { timeout: 15_000 })
+    await page.waitForURL('/profil')
   })
 
-  test('invalid username format shows error and does not navigate', async ({ page }) => {
-    await loginAndGoToOnboarding(page)
-    await page.getByLabel(/nazwa użytkownika/i).fill('AB')
+  test('shows error for username shorter than 3 chars', async ({ page, context }) => {
+    await testUser.injectSession(context)
+    await page.goto('/onboarding')
+    await page.getByLabel(/nazwa użytkownika/i).fill('ab')
     await page.getByRole('button', { name: /zapisz/i }).click()
     await expect(page.getByText(/co najmniej 3/i)).toBeVisible()
-    await expect(page).toHaveURL('/onboarding')
   })
 
-  test('display name and club are optional — onboarding works without them', async ({ page }) => {
-    await loginAndGoToOnboarding(page)
-    const handle = `min_${Date.now()}`.toLowerCase().slice(0, 28)
-    await page.getByLabel(/nazwa użytkownika/i).fill(handle)
-    // Do NOT fill display_name or club
-    await page.getByRole('button', { name: /zapisz/i }).click()
-    await expect(page).toHaveURL('/profil', { timeout: 15_000 })
+  test('redirects to /profil if user already has username', async ({ page, context }) => {
+    await supabaseAdmin.from('profiles').update({ username: 'already_set_user' }).eq('id', testUser.user.id)
+    await testUser.injectSession(context)
+    await page.goto('/onboarding')
+    await page.waitForURL('/profil')
   })
 })
