@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle.jsx'
 import useAuth from '../hooks/useAuth.js'
 import { signOut } from '../lib/auth.js'
@@ -18,7 +18,6 @@ export default function Navbar() {
   const dropdownRef = useRef(null)
   const location = useLocation()
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef(null)
 
@@ -135,7 +134,10 @@ export default function Navbar() {
                   Mój profil
                 </Link>
                 <button
-                  onClick={async () => { await signOut(); setUserMenuOpen(false); navigate('/') }}
+                  onClick={async () => {
+                    setUserMenuOpen(false)
+                    try { await signOut() } finally { window.location.href = '/' }
+                  }}
                   className="w-full text-left px-4 py-2.5 font-sans text-sm text-apex-muted hover:text-apex-red hover:bg-apex-surface transition-colors border-t border-apex-border"
                 >
                   Wyloguj się
@@ -215,7 +217,10 @@ export default function Navbar() {
                 className="font-sans font-semibold text-base tracking-wider uppercase no-underline text-apex-yellow">
                 Mój profil
               </Link>
-              <button onClick={async () => { await signOut(); setMenuOpen(false); navigate('/') }}
+              <button onClick={async () => {
+                setMenuOpen(false)
+                try { await signOut() } finally { window.location.href = '/' }
+              }}
                 className="text-left font-sans font-semibold text-base tracking-wider uppercase text-apex-muted">
                 Wyloguj się
               </button>
