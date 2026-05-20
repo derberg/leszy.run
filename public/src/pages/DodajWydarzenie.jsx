@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import useTheme from '../hooks/useTheme.js'
 import useSeo from '../hooks/useSeo.js'
+import useAuth from '../hooks/useAuth.js'
 
 const DraggableMap = lazy(() => import('../components/DraggableMap.jsx'))
 
@@ -60,6 +61,7 @@ export default function DodajWydarzenie() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const { isDark } = useTheme()
+  const { user, loading } = useAuth()
 
   const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }))
 
@@ -163,6 +165,36 @@ export default function DodajWydarzenie() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (!loading && !user) {
+    return (
+      <>
+        <Navbar />
+        <main className="relative">
+          <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0" aria-hidden="true">
+            <img src="/logo-bez-napisu.svg" alt="" className={`w-[80vh] max-w-[90vw] h-auto ${isDark ? 'opacity-[0.04]' : 'opacity-[0.06]'}`}
+              style={{ filter: isDark ? 'brightness(1.4) drop-shadow(0 0 20px rgba(45,90,39,0.6))' : 'drop-shadow(0 0 20px rgba(45,90,39,0.1))' }} />
+          </div>
+          <div className="pt-24 pb-16 px-6 max-w-[600px] mx-auto relative z-10 text-center">
+            <div className="text-apex-yellow text-4xl mb-4">🔒</div>
+            <h1 className="font-display font-extrabold text-2xl md:text-3xl tracking-wider uppercase text-apex-text-bright mb-3">
+              Wymagane logowanie
+            </h1>
+            <p className="text-apex-muted text-sm mb-6 max-w-md mx-auto">
+              Aby dodać nowe wydarzenie do kalendarza, musisz się zalogować. Dzięki temu możemy weryfikować zgłoszenia i przypisać Ci wkład.
+            </p>
+            <Link
+              to="/login"
+              className="inline-block font-display font-bold text-sm tracking-widest uppercase px-6 py-3 bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright transition-all"
+            >
+              Zaloguj się
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </>
+    )
   }
 
   if (submitted) {

@@ -1,5 +1,7 @@
 import { useState, lazy, Suspense } from 'react'
+import { Link } from 'react-router-dom'
 import { callFunction } from '../lib/auth.js'
+import useAuth from '../hooks/useAuth.js'
 
 const DraggableMap = lazy(() => import('./DraggableMap.jsx'))
 
@@ -121,6 +123,7 @@ function SuggestedInput({ field, value, onChange, event }) {
 }
 
 export default function ReportEventModal({ event, onClose }) {
+  const { user, loading } = useAuth()
   const [field, setField] = useState('')
   const [suggestedValue, setSuggestedValue] = useState('')
   const [sourceUrl, setSourceUrl] = useState('')
@@ -174,7 +177,24 @@ export default function ReportEventModal({ event, onClose }) {
 
           <div className="text-sm text-apex-muted mb-4 truncate">{event.name}</div>
 
-          {submitted ? (
+          {loading ? null : !user ? (
+            <div className="py-6 text-center">
+              <div className="text-apex-yellow text-2xl mb-2">🔒</div>
+              <p className="text-apex-text-bright font-display font-bold tracking-wide uppercase text-sm mb-2">
+                Wymagane logowanie
+              </p>
+              <p className="text-apex-muted text-xs mb-4">
+                Aby zgłosić poprawkę do wydarzenia, musisz się zalogować. Dzięki temu możesz śledzić swoje zgłoszenia i zdobywać odznaki.
+              </p>
+              <Link
+                to="/login"
+                onClick={onClose}
+                className="inline-block font-display font-bold text-xs tracking-widest uppercase px-5 py-2 bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright transition-all"
+              >
+                Zaloguj się
+              </Link>
+            </div>
+          ) : submitted ? (
             <div className="py-6 text-center">
               <div className="text-apex-yellow text-2xl mb-2">&#10003;</div>
               <p className="text-apex-text-bright font-display font-bold tracking-wide uppercase text-sm">Zgłoszenie wysłane</p>
@@ -236,3 +256,4 @@ export default function ReportEventModal({ event, onClose }) {
     </div>
   )
 }
+
