@@ -4,7 +4,6 @@ import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import useAuth from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
-import { supabase } from '../lib/supabase.js'
 import useSeo from '../hooks/useSeo.js'
 
 const inputClass = 'bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
@@ -89,16 +88,11 @@ function ProfilContent() {
 
   useEffect(() => {
     if (!user) return
-    Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single(),
-      supabase.from('user_badges').select('*, badge_definitions(*)').eq('user_id', user.id),
-      supabase.from('calendar_event_reports').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('calendar_events').select('id, name, status, created_at').eq('submitted_by', user.id).order('created_at', { ascending: false }),
-    ]).then(([{ data: p }, { data: b }, { data: r }, { data: s }]) => {
-      setProfile(p)
-      setBadges(b || [])
-      setReports(r || [])
-      setSubmissions(s || [])
+    callFunction('get-profile-data', {}).then(({ profile, badges, reports, submissions }) => {
+      setProfile(profile)
+      setBadges(badges)
+      setReports(reports)
+      setSubmissions(submissions)
       setLoading(false)
     })
   }, [user])

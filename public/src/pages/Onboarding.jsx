@@ -4,7 +4,6 @@ import AuthGuard from '../components/AuthGuard.jsx'
 import Navbar from '../components/Navbar.jsx'
 import useAuth from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
-import { supabase } from '../lib/supabase.js'
 import useSeo from '../hooks/useSeo.js'
 
 function OnboardingForm() {
@@ -19,11 +18,8 @@ function OnboardingForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  // If profile already exists, skip onboarding
   useEffect(() => {
-    if (!user) return
-    supabase.from('profiles').select('id').eq('id', user.id).single()
-      .then(({ data }) => { if (data) navigate('/profil', { replace: true }) })
+    if (user?.username) navigate('/profil', { replace: true })
   }, [user, navigate])
 
   async function handleSubmit(e) {
