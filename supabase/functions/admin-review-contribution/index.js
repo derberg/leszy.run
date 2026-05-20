@@ -1,42 +1,34 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
+import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getSession } from '../_shared/session.js'
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-function json(body, status = 200) {
+function json(body, status = 200, req) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...cors, 'Content-Type': 'application/json' },
+    headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
+  const optRes = handleOptions(req)
+  if (optRes) return optRes
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return json({ error: 'Authorization required' }, 401)
-
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL'),
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
-    if (authError || !user) return json({ error: 'Invalid token' }, 401)
-
+    const session = await getSession(req, supabaseAdmin)
+    if (!session) return json({ error: 'Authorization required' }, 401, req)
     const adminIds = (Deno.env.get('ADMIN_USER_IDS') || '').split(',').map(s => s.trim()).filter(Boolean)
-    if (!adminIds.includes(user.id)) return json({ error: 'Forbidden' }, 403)
+    if (!adminIds.includes(session.userId)) return json({ error: 'Forbidden' }, 403, req)
 
     const { type, id, action, admin_note } = await req.json()
     if (!['accept', 'reject'].includes(action)) {
-      return json({ error: 'action must be accept or reject' }, 400)
+      return json({ error: 'action must be accept or reject' }, 400, req)
     }
 
     let contributorUserId = null
@@ -75,15 +67,15 @@ Deno.serve(async (req) => {
         .single()
       contributorUserId = data?.user_id
     } else {
-      return json({ error: 'Invalid type. Must be event_report, event_submission, or general_feedback' }, 400)
+      return json({ error: 'Invalid type. Must be event_report, event_submission, or general_feedback' }, 400, req)
     }
 
     if (action === 'accept' && contributorUserId) {
       await checkAndAwardBadges(supabaseAdmin, contributorUserId)
     }
 
-    return json({ ok: true })
+    return json({ ok: true }, 200, req)
   } catch (err) {
-    return json({ error: err.message }, 500)
+    return json({ error: err.message }, 500, req)
   }
 })

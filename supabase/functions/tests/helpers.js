@@ -1,45 +1,44 @@
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'node:crypto'
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
 export const FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`
 
 export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
-/**
- * Creates a test user and returns a real Supabase session JWT.
- * Uses password auth (test-only — real users use magic link).
- */
-export async function createTestSession(suffix = 'user') {
+/** Creates a profile + session in DB. Returns { user, sessionToken, email }. */
+export async function createTestSession(suffix = 'test') {
   const email = `test-${suffix}-${Date.now()}@test.leszy.run`
-  const password = 'TestPass!99zz'
+  const userId = crypto.randomUUID()
 
-  const { data: { user }, error } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  })
-  if (error) throw error
+  const { error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .insert({ id: userId, email })
+  if (profileError) throw profileError
 
-  const anonClient = createClient(SUPABASE_URL, ANON_KEY)
-  const { data: { session }, error: signInError } = await anonClient.auth.signInWithPassword({ email, password })
-  if (signInError) throw signInError
+  const sessionToken = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+  const { error: sessionError } = await supabaseAdmin
+    .from('auth_sessions')
+    .insert({ id: sessionToken, user_id: userId, email, expires_at: expiresAt })
+  if (sessionError) throw sessionError
 
-  return { user, session, accessToken: session.access_token, email }
+  return { user: { id: userId, email }, sessionToken, email }
 }
 
-/** Deletes test user and their profile (cascades). */
+/** Deletes session(s) and profile. */
 export async function cleanupUser(userId) {
-  await supabaseAdmin.auth.admin.deleteUser(userId)
+  await supabaseAdmin.from('auth_sessions').delete().eq('user_id', userId)
+  await supabaseAdmin.from('profiles').delete().eq('id', userId)
 }
 
-/** POST to an edge function, returns { status, data }. */
-export async function callFunction(name, body, accessToken = null) {
+/** POST to an edge function. Pass sessionToken to send as cookie. */
+export async function callFunction(name, body, sessionToken = null) {
   const headers = { 'Content-Type': 'application/json' }
-  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
+  if (sessionToken) headers['Cookie'] = `leszy_session=${sessionToken}`
   const res = await fetch(`${FUNCTIONS_URL}/${name}`, {
     method: 'POST',
     headers,

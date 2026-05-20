@@ -3,15 +3,15 @@ import assert from 'node:assert/strict'
 import { createTestSession, cleanupUser, callFunction, supabaseAdmin } from './helpers.js'
 
 describe('admin-review-contribution edge function', () => {
-  let user, accessToken, adminUser, adminToken, reportId, testEventId
+  let user, sessionToken, adminUser, adminToken, reportId, testEventId
 
   before(async () => {
     // Create a regular contributor
-    ;({ user, accessToken } = await createTestSession('reviewer-contrib'))
-    await callFunction('update-profile', { username: `rev_contrib_${Date.now()}` }, accessToken)
+    ;({ user, sessionToken } = await createTestSession('reviewer-contrib'))
+    await callFunction('update-profile', { username: `rev_contrib_${Date.now()}` }, sessionToken)
 
     // Create the admin user (their UUID must be in ADMIN_USER_IDS secret to pass admin tests)
-    ;({ user: adminUser, accessToken: adminToken } = await createTestSession('reviewer-admin'))
+    ;({ user: adminUser, sessionToken: adminToken } = await createTestSession('reviewer-admin'))
     await callFunction('update-profile', { username: `rev_admin_${Date.now()}` }, adminToken)
 
     // Get a calendar event to report on
@@ -24,7 +24,7 @@ describe('admin-review-contribution edge function', () => {
         type: 'event_report',
         reference_id: testEventId,
         payload: { field: 'name', note: 'test report' },
-      }, accessToken)
+      }, sessionToken)
       reportId = contribData.data?.id
     }
 
@@ -37,7 +37,7 @@ describe('admin-review-contribution edge function', () => {
     await cleanupUser(adminUser.id)
   })
 
-  it('returns 401 with no Authorization header', async () => {
+  it('returns 401 with no session cookie', async () => {
     const { status } = await callFunction('admin-review-contribution', {
       type: 'event_report', id: reportId, action: 'accept',
     })
@@ -47,7 +47,7 @@ describe('admin-review-contribution edge function', () => {
   it('returns 403 for non-admin user', async () => {
     const { status } = await callFunction('admin-review-contribution', {
       type: 'event_report', id: reportId, action: 'accept',
-    }, accessToken)
+    }, sessionToken)
     assert.equal(status, 403)
   })
 
@@ -57,7 +57,6 @@ describe('admin-review-contribution edge function', () => {
       type: 'event_report', id: reportId, action: 'accept',
     }, adminToken)
     // This will return 403 if adminUser.id is not in ADMIN_USER_IDS secret
-    // Add adminUser.id to ADMIN_USER_IDS in Supabase dashboard to make this pass
     assert.equal(status, 200)
 
     const { data: row } = await supabaseAdmin
@@ -76,7 +75,7 @@ describe('admin-review-contribution edge function', () => {
         type: 'event_report',
         reference_id: testEventId,
         payload: { field: 'date', note: `extra ${i}` },
-      }, accessToken)
+      }, sessionToken)
       extraIds.push(data.data?.id)
       await callFunction('admin-review-contribution', {
         type: 'event_report', id: data.data?.id, action: 'accept',

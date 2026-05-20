@@ -1,22 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
+import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getSession } from '../_shared/session.js'
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-function json(body, status = 200) {
+function json(body, status = 200, req) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...cors, 'Content-Type': 'application/json' },
+    headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
 const VALID_TYPES = ['event_report', 'event_submission', 'general_feedback']
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
+  const optRes = handleOptions(req)
+  if (optRes) return optRes
 
   try {
     const supabaseAdmin = createClient(
@@ -26,18 +24,12 @@ Deno.serve(async (req) => {
     )
 
     // Optional auth — anon submissions still work
-    let userId = null
-    const authHeader = req.headers.get('Authorization')
-    if (authHeader) {
-      const { data: { user } } = await supabaseAdmin.auth.getUser(
-        authHeader.replace('Bearer ', '')
-      )
-      userId = user?.id ?? null
-    }
+    const session = await getSession(req, supabaseAdmin)
+    const userId = session?.userId ?? null
 
     const { type, reference_id, payload = {} } = await req.json()
     if (!VALID_TYPES.includes(type)) {
-      return json({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` }, 400)
+      return json({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` }, 400, req)
     }
 
     let result
@@ -143,8 +135,8 @@ Deno.serve(async (req) => {
       await checkAndAwardBadges(supabaseAdmin, userId)
     }
 
-    return json({ data: result })
+    return json({ data: result }, 200, req)
   } catch (err) {
-    return json({ error: err.message }, 500)
+    return json({ error: err.message }, 500, req)
   }
 })

@@ -3,13 +3,13 @@ import assert from 'node:assert/strict'
 import { createTestSession, cleanupUser, callFunction, supabaseAdmin } from './helpers.js'
 
 describe('submit-contribution edge function', () => {
-  let user, accessToken, testEventId
+  let user, sessionToken, testEventId
 
   before(async () => {
-    ;({ user, accessToken } = await createTestSession('contrib'))
+    ;({ user, sessionToken } = await createTestSession('contrib'))
 
-    // Create a test profile (required for badge checks)
-    await callFunction('update-profile', { username: `contrib_${Date.now()}` }, accessToken)
+    // Create a test profile with username (required for badge checks on profile page)
+    await callFunction('update-profile', { username: `contrib_${Date.now()}` }, sessionToken)
 
     // Get any existing calendar event to use as reference
     const { data } = await supabaseAdmin.from('calendar_events').select('id').limit(1).single()
@@ -21,7 +21,7 @@ describe('submit-contribution edge function', () => {
     await cleanupUser(user.id)
   })
 
-  it('anon submission works (no Authorization header)', async () => {
+  it('anon submission works (no session cookie)', async () => {
     if (!testEventId) return
     const { status, data } = await callFunction('submit-contribution', {
       type: 'event_report',
@@ -49,7 +49,7 @@ describe('submit-contribution edge function', () => {
       type: 'event_report',
       reference_id: testEventId,
       payload: { field: 'date', note: 'wrong date' },
-    }, accessToken)
+    }, sessionToken)
     assert.equal(status, 200)
 
     const { data: row } = await supabaseAdmin
@@ -73,7 +73,7 @@ describe('submit-contribution edge function', () => {
     const { status } = await callFunction('submit-contribution', {
       type: 'invalid_type',
       payload: {},
-    }, accessToken)
+    }, sessionToken)
     assert.equal(status, 400)
   })
 
@@ -81,7 +81,7 @@ describe('submit-contribution edge function', () => {
     const { status, data } = await callFunction('submit-contribution', {
       type: 'general_feedback',
       payload: { category: 'bug', message: 'Something is broken' },
-    }, accessToken)
+    }, sessionToken)
     assert.equal(status, 200)
     assert.ok(data.data.id)
   })

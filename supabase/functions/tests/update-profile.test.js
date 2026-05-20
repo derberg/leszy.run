@@ -3,26 +3,26 @@ import assert from 'node:assert/strict'
 import { createTestSession, cleanupUser, callFunction, supabaseAdmin } from './helpers.js'
 
 describe('update-profile edge function', () => {
-  let user, accessToken
+  let user, sessionToken
 
   before(async () => {
-    ;({ user, accessToken } = await createTestSession('profile'))
+    ;({ user, sessionToken } = await createTestSession('profile'))
   })
 
   after(async () => {
     await cleanupUser(user.id)
   })
 
-  it('rejects request without Authorization header', async () => {
+  it('rejects request without session cookie', async () => {
     const { status } = await callFunction('update-profile', { username: 'testuser' })
     assert.equal(status, 401)
   })
 
-  it('creates a new profile on first call (onboarding)', async () => {
+  it('sets username on first update (onboarding)', async () => {
     const { status, data } = await callFunction(
       'update-profile',
       { username: 'testuser_plan', display_name: 'Test User', club: 'Klub Biegacza' },
-      accessToken
+      sessionToken
     )
     assert.equal(status, 200)
     assert.equal(data.data.username, 'testuser_plan')
@@ -30,8 +30,7 @@ describe('update-profile edge function', () => {
   })
 
   it('returns 409 if username is already taken', async () => {
-    // Create a second user to try the taken username
-    const { user: user2, accessToken: token2 } = await createTestSession('profile2')
+    const { user: user2, sessionToken: token2 } = await createTestSession('profile2')
     try {
       const { status, data } = await callFunction(
         'update-profile',
@@ -49,7 +48,7 @@ describe('update-profile edge function', () => {
     const { status } = await callFunction(
       'update-profile',
       { username: 'Bad Username!' },
-      accessToken
+      sessionToken
     )
     assert.equal(status, 400)
   })
@@ -58,14 +57,14 @@ describe('update-profile edge function', () => {
     const { status, data } = await callFunction(
       'update-profile',
       { display_name: 'Updated Name' },
-      accessToken
+      sessionToken
     )
     assert.equal(status, 200)
     assert.equal(data.data.display_name, 'Updated Name')
   })
 
   it('privacy_settings change is reflected in profiles_public view', async () => {
-    await callFunction('update-profile', { privacy_settings: { display_name: true, club: false, bio: true } }, accessToken)
+    await callFunction('update-profile', { privacy_settings: { display_name: true, club: false, bio: true } }, sessionToken)
 
     const { data: rows } = await supabaseAdmin
       .from('profiles_public')
