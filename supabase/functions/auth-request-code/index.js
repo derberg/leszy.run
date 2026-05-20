@@ -41,7 +41,9 @@ Deno.serve(async (req) => {
       .eq('email', normalizedEmail)
       .eq('used', false)
 
-    const code = String(Math.floor(100000 + Math.random() * 900000))
+    const codeArr = new Uint32Array(1)
+    crypto.getRandomValues(codeArr)
+    const code = String(100000 + (codeArr[0] % 900000))
     const codeHash = await sha256hex(code)
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
 
