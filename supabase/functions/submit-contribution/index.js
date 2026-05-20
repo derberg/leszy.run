@@ -23,9 +23,9 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // Optional auth — anon submissions still work
+    // Auth required — anonymous submissions are no longer supported
     const session = await getSession(req, supabaseAdmin)
-    const userId = session?.userId ?? null
+    if (!session) return json({ error: 'Authorization required' }, 401, req)
 
     const { type, reference_id, payload = {} } = await req.json()
     if (!VALID_TYPES.includes(type)) {
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       //   user_id (uuid, nullable)
       const row = {
         calendar_event_id: reference_id,
-        user_id: userId,
+        user_id: session.userId,
         field: payload.field ?? 'general',
       }
       if (payload.old_value !== undefined)       row.old_value = payload.old_value
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       const row = {
         source: 'community',
         status: 'pending',
-        submitted_by: userId,
+        submitted_by: session.userId,
         name: payload.name,
         date: payload.date,
       }
@@ -116,11 +116,10 @@ Deno.serve(async (req) => {
       //   reviewed_at (timestamptz, nullable)
       //   user_id (uuid, nullable)
       const row = {
-        user_id: userId,
+        user_id: session.userId,
         category: payload.category ?? 'general',
         message: payload.message,
       }
-      if (payload.email !== undefined) row.email = payload.email
 
       const { data, error } = await supabaseAdmin
         .from('website_feedback')
@@ -131,9 +130,7 @@ Deno.serve(async (req) => {
       result = data
     }
 
-    if (userId) {
-      await checkAndAwardBadges(supabaseAdmin, userId)
-    }
+    await checkAndAwardBadges(supabaseAdmin, session.userId)
 
     return json({ data: result }, 200, req)
   } catch (err) {

@@ -21,26 +21,14 @@ describe('submit-contribution edge function', () => {
     await cleanupUser(user.id)
   })
 
-  it('anon submission works (no session cookie)', async () => {
+  it('returns 401 for anonymous submission (no session cookie)', async () => {
     if (!testEventId) return
-    const { status, data } = await callFunction('submit-contribution', {
+    const { status } = await callFunction('submit-contribution', {
       type: 'event_report',
       reference_id: testEventId,
       payload: { field: 'date', note: 'test anon report' },
     })
-    assert.equal(status, 200)
-    assert.ok(data.data.id)
-
-    // Verify user_id is null for anon
-    const { data: row } = await supabaseAdmin
-      .from('calendar_event_reports')
-      .select('user_id')
-      .eq('id', data.data.id)
-      .single()
-    assert.equal(row.user_id, null)
-
-    // Cleanup
-    await supabaseAdmin.from('calendar_event_reports').delete().eq('id', data.data.id)
+    assert.equal(status, 401)
   })
 
   it('authenticated submission sets user_id', async () => {
