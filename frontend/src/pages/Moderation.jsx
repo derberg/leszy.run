@@ -166,13 +166,26 @@ function FeedbackItem({ item, onReview, onDismiss }) {
 
   return (
     <div className="bg-apex-surface border border-apex-border p-4">
-      <div className="flex items-center gap-3 mb-2">
+      <div className="flex items-center gap-3 mb-2 flex-wrap">
         <span className={`font-mono text-[10px] font-semibold px-2 py-0.5 border ${badge.cls}`}>
           {badge.label}
         </span>
         <span className="font-mono text-[10px] text-apex-muted">{ago}</span>
-        {item.email && (
+        {item.profiles ? (
+          <a
+            href={`https://www.leszy.run/u/${item.profiles.username}`}
+            target="_blank"
+            rel="noopener"
+            className="font-mono text-[10px] text-apex-cyan hover:underline ml-auto"
+            title={item.profiles.email}
+          >
+            @{item.profiles.username}
+            {item.profiles.display_name ? ` (${item.profiles.display_name})` : ''}
+          </a>
+        ) : item.email ? (
           <a href={`mailto:${item.email}`} className="font-mono text-[10px] text-apex-cyan hover:underline ml-auto">{item.email}</a>
+        ) : (
+          <span className="font-mono text-[10px] text-apex-muted ml-auto">anon</span>
         )}
       </div>
       <p className="text-sm text-apex-text mb-3 whitespace-pre-wrap">{item.message}</p>
@@ -277,11 +290,24 @@ export function ReportsTab() {
           <div className="space-y-2 mb-4">
             {evReports.map(r => (
               <div key={r.id} className="border border-apex-border bg-apex-bg p-3">
-                <div className="flex items-center gap-3 mb-1">
+                <div className="flex items-center gap-3 mb-1 flex-wrap">
                   <span className="font-mono text-[10px] font-semibold tracking-widest uppercase text-apex-yellow-dim">{r.field}</span>
                   <span className="text-sm text-apex-muted">{r.old_value || '—'}</span>
                   <span className="text-apex-dim">&rarr;</span>
                   <span className="text-sm text-apex-text-bright">{r.suggested_value || '—'}</span>
+                  {r.profiles ? (
+                    <a
+                      href={`https://www.leszy.run/u/${r.profiles.username}`}
+                      target="_blank"
+                      rel="noopener"
+                      className="font-mono text-[10px] text-apex-cyan hover:underline ml-auto"
+                      title={r.profiles.email}
+                    >
+                      @{r.profiles.username}
+                    </a>
+                  ) : (
+                    <span className="font-mono text-[10px] text-apex-muted ml-auto">anon</span>
+                  )}
                 </div>
                 {r.source_url && (
                   <div className="text-[10px]">
