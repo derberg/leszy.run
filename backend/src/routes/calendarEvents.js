@@ -63,10 +63,18 @@ export async function calendarEventsRoutes(fastify) {
           const a = events[i], b = events[j]
           if (dismissedSet.has(`${a.id}:${b.id}`)) continue
 
-          const locMatch = citiesMatch(a.location, b.location)
-          if (!locMatch) continue
+          // Tiered match. This is a manual-review tab — false positives are
+          // dismissable, missed duplicates are not — so the same-city bar is
+          // deliberately low (0.15). Real duplicates cluster at jaccard
+          // 0.25–0.33 (one name is a short variant of the other, e.g.
+          // "Wataha 7 km" vs "Wataha 7 km Nordic Walking"), so a single
+          // 0.35 cutoff silently hid every duplicate. The 0.6 location-
+          // independent tier catches mis-geocoded same-event pairs.
           const sim = jaccardSimilarity(a.name, b.name)
-          if (sim > 0.35) { union(a.id, b.id); continue }
+          const locMatch = citiesMatch(a.location, b.location)
+          if (sim > 0.6) { union(a.id, b.id); continue }
+          if (locMatch && sim > 0.35) { union(a.id, b.id); continue }
+          if (locMatch && sim > 0.15) { union(a.id, b.id); continue }
         }
       }
     }
