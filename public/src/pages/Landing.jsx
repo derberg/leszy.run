@@ -314,9 +314,9 @@ function ContactSection() {
       <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-3">Kontakt</p>
       <h2 className="font-display font-extrabold text-3xl md:text-[42px] tracking-wider uppercase text-apex-text-bright mb-4">Kontakt</h2>
       <div className="flex flex-col sm:flex-row gap-6 justify-center">
-        <a href="mailto:lpgornicki@gmail.com" className="flex flex-col items-center gap-2 px-8 py-6 bg-apex-surface border border-apex-border min-w-[180px] hover:border-apex-yellow-dim transition-colors">
+        <a href="mailto:lukasz@leszy.run" className="flex flex-col items-center gap-2 px-8 py-6 bg-apex-surface border border-apex-border min-w-[180px] hover:border-apex-yellow-dim transition-colors">
           <span className="font-mono text-[10px] tracking-widest uppercase text-apex-muted">Email</span>
-          <span className="font-display font-bold text-lg text-apex-text-bright tracking-wide">lpgornicki@gmail.com</span>
+          <span className="font-display font-bold text-lg text-apex-text-bright tracking-wide">lukasz@leszy.run</span>
         </a>
         <a href="tel:+48784640977" className="flex flex-col items-center gap-2 px-8 py-6 bg-apex-surface border border-apex-border min-w-[180px] hover:border-apex-yellow-dim transition-colors">
           <span className="font-mono text-[10px] tracking-widest uppercase text-apex-muted">Telefon</span>
@@ -339,7 +339,7 @@ export default function Landing() {
       description: 'Profesjonalna obsługa biegów i wydarzeń sportowych — pomiar czasu RFID, zapisy, wyniki na żywo.',
       url: 'https://www.leszy.run',
       telephone: '+48784640977',
-      email: 'lpgornicki@gmail.com',
+      email: 'lukasz@leszy.run',
       address: { '@type': 'PostalAddress', addressCountry: 'PL' },
       priceRange: 'Bezpłatnie dla wydarzeń charytatywnych',
       serviceType: ['Pomiar czasu', 'Obsługa biegów', 'Wyniki na żywo', 'Zapisy online'],
