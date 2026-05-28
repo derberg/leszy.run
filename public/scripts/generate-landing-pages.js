@@ -11,11 +11,109 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const DIST = resolve(ROOT, 'dist')
 const MANIFEST_PATH = resolve(ROOT, 'public/listy/.manifest.json')
+const KALENDARZ_MANIFEST_PATH = resolve(ROOT, 'public/kalendarz/.manifest.json')
 const BASE_URL = 'https://www.leszy.run'
 
 function escapeHtml(str) {
   if (!str) return ''
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+const POLISH_MONTHS = [
+  'stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca',
+  'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'
+]
+
+function formatPolishDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T00:00:00')
+  if (isNaN(d.getTime())) return ''
+  return `${d.getDate()} ${POLISH_MONTHS[d.getMonth()]} ${d.getFullYear()}`
+}
+
+// Ported verbatim from backend/scripts/publish-landing-pages.js so the static event lists
+// rendered here match the eventCount the manifest already reports.
+function parseDistanceToMeters(s) {
+  if (!s) return NaN
+  s = String(s).toLowerCase()
+  if (/\d\s*h(\b|$)/.test(s)) return NaN
+  if (s.includes('półmaraton') || s.includes('polmaraton')) return 21097
+  if (s.includes('maraton')) return 42195
+  const match = s.match(/[0-9]+([.,][0-9]+)?/)
+  if (!match) return NaN
+  const num = parseFloat(match[0].replace(',', '.'))
+  if (isNaN(num)) return NaN
+  if (/km|kilometr/.test(s)) return Math.round(num * 1000)
+  if (/\d\s*m\b|metr/.test(s)) return Math.round(num)
+  return Math.round(num * 1000)
+}
+
+function getEventTypes(e) {
+  return Array.isArray(e.event_type) ? e.event_type : e.event_type ? [e.event_type] : []
+}
+
+function matchesFacet(event, filters) {
+  const { typeDbVal, regionDb, year, month, special, city } = filters || {}
+  if (special === 'polmaratony') {
+    if (!(event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 19000 && m <= 23000 })) return false
+    if (regionDb && event.voivodeship !== regionDb) return false
+    return true
+  }
+  if (special === 'maratony') {
+    if (!(event.distances || []).some(d => { const m = parseDistanceToMeters(d); return m >= 41000 && m <= 44000 })) return false
+    if (regionDb && event.voivodeship !== regionDb) return false
+    return true
+  }
+  if (special === 'dla-dzieci') {
+    if (!(Array.isArray(event.event_type) ? event.event_type : []).includes('dzieci')) return false
+    if (regionDb && event.voivodeship !== regionDb) return false
+    return true
+  }
+  if (special === 'darmowe') {
+    if (event.price_from !== 0) return false
+    if (regionDb && event.voivodeship !== regionDb) return false
+    return true
+  }
+  if (special === 'ostatnia-szansa') {
+    if (!event.registration_deadline) return false
+    const daysUntil = (new Date(event.registration_deadline) - new Date()) / 86400000
+    if (!(daysUntil >= 0 && daysUntil <= 14)) return false
+    if (regionDb && event.voivodeship !== regionDb) return false
+    return true
+  }
+  if (typeDbVal && !getEventTypes(event).includes(typeDbVal)) return false
+  if (regionDb && event.voivodeship !== regionDb) return false
+  if (city) {
+    const eventCity = event.location ? event.location.split(/[\n,]/)[0].replace(/\s+/g, ' ').trim() : null
+    if (!eventCity || eventCity.toLowerCase() !== city.toLowerCase()) return false
+  }
+  if (year && month) {
+    const d = new Date(event.date + 'T00:00:00')
+    if (d.getFullYear() !== year || d.getMonth() + 1 !== month) return false
+  }
+  return true
+}
+
+// Render the static event index that lives inside every /listy/* page. Each item is a
+// crawlable <a href="/kalendarz/:slug"> — this is the fix for "Discovered – currently not
+// indexed" on the 1,604 event pages: they need static inbound links from pages Google
+// already crawls (the listy pages are indexed and crawled regularly).
+function buildEventListHtml(events) {
+  if (!events || events.length === 0) return ''
+  const items = events.map(({ slug, e }) => {
+    const dateLabel = e.date ? formatPolishDate(e.date.slice(0, 10)) : ''
+    const parts = [e.name]
+    if (dateLabel) parts.push(dateLabel)
+    if (e.location) parts.push(e.location)
+    const label = escapeHtml(parts.join(' — '))
+    return `      <li style="margin:0"><a href="/kalendarz/${escapeHtml(slug)}" style="color:#B0AEC6;text-decoration:none;display:block;padding:0.25rem 0">${label}</a></li>`
+  }).join('\n')
+  return `  <nav id="seo-event-index" aria-label="Pełna lista biegów" style="padding:1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A;font-family:'Rajdhani',sans-serif">
+    <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.95rem;color:#DDDCEC;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 0.75rem">Pełna lista biegów (${events.length})</h2>
+    <ul style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0 1.25rem;font-size:0.8rem">
+${items}
+    </ul>
+  </nav>`
 }
 
 const POLISH_MONTH_SLUGS = {
@@ -61,7 +159,7 @@ function buildJsonLd(entry) {
   return JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }, null, 2).replace(/<\//g, '<\\/')
 }
 
-function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = false) {
+function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = false, events = []) {
   const title = escapeHtml(entry.title)
   const description = escapeHtml(entry.description)
   const canonical = entry.canonicalUrl
@@ -70,6 +168,7 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = fa
   const landingData = JSON.stringify(entry).replace(/<\//g, '<\\/')
   const ogImage = ogImageUrl || `${BASE_URL}/og-image.png`
   const robotsContent = pastMonth ? 'noindex, follow' : 'index, follow'
+  const eventListHtml = pastMonth ? '' : buildEventListHtml(events)
 
   const relatedLinksHtml = (entry.relatedLinks && entry.relatedLinks.length > 0)
     ? entry.relatedLinks.map(l =>
@@ -129,6 +228,7 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = fa
   </head>
   <body>
     <div id="root"></div>
+${eventListHtml}
     ${relatedLinksHtml ? `  <nav id="seo-related" aria-label="Powiązane listy biegów" style="padding:1.25rem 1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A">
     <span style="display:block;font-family:sans-serif;font-size:0.65rem;color:#8886A0;margin-bottom:0.625rem;text-transform:uppercase;letter-spacing:0.08em">Powiązane kategorie</span>
     <div style="display:flex;flex-wrap:wrap;gap:0.375rem">
@@ -151,6 +251,22 @@ async function main() {
   const paths = Object.keys(manifest)
   console.log(`Found ${paths.length} landing page entries in manifest.`)
 
+  // Load kalendarz manifest so we can pre-render static event links into each /listy/* page.
+  // Without these links the 1,604 /kalendarz/:slug pages are sitemap-only orphans and
+  // Google leaves them "Discovered – currently not indexed."
+  let futureEvents = []
+  if (existsSync(KALENDARZ_MANIFEST_PATH)) {
+    const kalendarz = JSON.parse(readFileSync(KALENDARZ_MANIFEST_PATH, 'utf-8'))
+    const today = new Date().toISOString().slice(0, 10)
+    futureEvents = Object.keys(kalendarz)
+      .map(slug => ({ slug, e: kalendarz[slug] }))
+      .filter(({ e }) => (e.date || '').slice(0, 10) >= today)
+      .sort((a, b) => (a.e.date || '').localeCompare(b.e.date || ''))
+    console.log(`Loaded ${futureEvents.length} future events from kalendarz manifest (of ${Object.keys(kalendarz).length} total).`)
+  } else {
+    console.log(`kalendarz manifest not found at ${KALENDARZ_MANIFEST_PATH} — static event lists will be empty.`)
+  }
+
   const indexPath = resolve(DIST, 'index.html')
   if (!existsSync(indexPath)) { console.error(`dist/index.html not found — did vite build run?`); process.exit(1) }
 
@@ -164,6 +280,7 @@ async function main() {
 
   let generated = 0
   let pastMonthCount = 0
+  let totalEventLinks = 0
   for (const path of paths) {
     const entry = manifest[path]
     const pastMonth = isPastMonthPage(path)
@@ -172,12 +289,14 @@ async function main() {
     mkdirSync(dir, { recursive: true })
     // Per-page OG image written alongside index.html
     const ogImageUrl = `${BASE_URL}/${path}/og.png`
-    const html = buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth)
+    const events = (pastMonth || futureEvents.length === 0) ? [] : futureEvents.filter(({ e }) => matchesFacet(e, entry.filters))
+    const html = buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth, events)
     writeFileSync(resolve(dir, 'index.html'), html)
     generated++
     if (pastMonth) pastMonthCount++
+    totalEventLinks += events.length
   }
-  console.log(`Generated ${generated} landing page HTML files (${pastMonthCount} past-month noindex).`)
+  console.log(`Generated ${generated} landing page HTML files (${pastMonthCount} past-month noindex, ${totalEventLinks} static event links emitted).`)
 
   // Append to sitemap written by generate-event-pages.js
   const sitemapPath = resolve(DIST, 'sitemap.xml')

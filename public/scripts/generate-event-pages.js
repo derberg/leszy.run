@@ -313,15 +313,20 @@ function buildSitemap(slugs, manifest) {
     `  <url>\n    <loc>${e.loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`
   )
 
+  let skipped = 0
   for (const slug of slugs) {
     const ev = manifest[slug]
-    const lastmod = (ev && ev.date) ? ev.date.slice(0, 10) : today
+    const eventDate = (ev && ev.date) ? ev.date.slice(0, 10) : null
+    // Skip past events: keeps Google's crawl budget on indexable URLs and matches the
+    // past-month noindex pattern in generate-landing-pages.js.
+    if (eventDate && eventDate < today) { skipped++; continue }
+    const lastmod = eventDate || today
     entries.push(
       `  <url>\n    <loc>${BASE_URL}/kalendarz/${slug}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>`
     )
   }
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</urlset>\n`
+  return { xml: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</urlset>\n`, included: entries.length, skipped }
 }
 
 // --- Main ---
@@ -365,22 +370,24 @@ function main() {
 
   // 3. Generate per-event HTML files
   let generated = 0
+  let pastCount = 0
   for (const slug of slugs) {
     const event = manifest[slug]
     const dir = resolve(DIST, 'kalendarz', slug)
     mkdirSync(dir, { recursive: true })
 
-    const html = buildEventHtml(event, slug, cssLinks, jsScripts)
+    const html = buildEventHtml(event, slug, cssLinks, jsScripts, manifest, TODAY)
     writeFileSync(resolve(dir, 'index.html'), html)
     generated++
+    if ((event.date || '').slice(0, 10) < TODAY) pastCount++
   }
 
-  console.log(`Generated ${generated} event HTML files.`)
+  console.log(`Generated ${generated} event HTML files (${pastCount} past-event noindex).`)
 
-  // 4. Generate sitemap
-  const sitemap = buildSitemap(slugs, manifest)
-  writeFileSync(resolve(DIST, 'sitemap.xml'), sitemap)
-  console.log(`Generated sitemap.xml with ${4 + slugs.length} entries.`)
+  // 4. Generate sitemap (past events excluded)
+  const { xml, included, skipped } = buildSitemap(slugs, manifest)
+  writeFileSync(resolve(DIST, 'sitemap.xml'), xml)
+  console.log(`Generated sitemap.xml with ${included} entries (${skipped} past events excluded).`)
 }
 
 main()
