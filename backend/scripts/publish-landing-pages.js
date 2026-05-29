@@ -30,6 +30,12 @@ function inflectCount(n) {
   return `${n} wydarzeń`
 }
 
+function inflectBieg(n) {
+  if (n === 1) return '1 bieg'
+  if (n >= 2 && n <= 4) return `${n} biegi`
+  return `${n} biegów`
+}
+
 const TYPE_NOUN_GEN = {
   przelajowe: 'biegów przełajowych', uliczne: 'biegów ulicznych',
   ultramaratony: 'ultramaratonów', nocne: 'biegów nocnych',
@@ -368,11 +374,18 @@ async function main() {
       description = `Kalendarz biegów w Polsce ${currentYear}. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.`
       intro = `${displayEvents.length} biegów w Polsce w ${currentYear} roku — trailowe, uliczne, ultramaratony i więcej.`
     } else if (city) {
-      const cityLoc = CITY_LOCATIVE[city] || `w ${city}`
-      h1 = `Biegi ${cityLoc}`
-      title = `${h1} (${inflectCount(count)}) — Leszy.run`
-      description = `${count} biegów ${cityLoc}. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.`
-      intro = `${count} biegów ${cityLoc} w ${currentYear} roku.`
+      const cityLoc = CITY_LOCATIVE[city]
+      if (cityLoc) {
+        h1 = count === 1 ? `Bieg ${cityLoc}` : `Biegi ${cityLoc}`
+        title = `${h1} (${inflectCount(count)}) — Leszy.run`
+        description = `${inflectBieg(count)} ${cityLoc} — kalendarz ${currentYear}. Zapisy, dystanse, ceny, regulaminy.`
+        intro = `${inflectBieg(count)} ${cityLoc} w ${currentYear} roku.`
+      } else {
+        h1 = count === 1 ? `Bieg — ${city}` : `Biegi — ${city}`
+        title = `${h1} (${inflectCount(count)}) — Leszy.run`
+        description = `Kalendarz biegów ${currentYear} — ${city}. ${inflectBieg(count)}. Zapisy, dystanse, ceny, regulaminy.`
+        intro = `Kalendarz biegów ${currentYear} — ${city}. ${inflectBieg(count)}.`
+      }
     } else if (special && regionSlug) {
       const SPECIAL_H1_NOUN = {
         polmaratony: 'Półmaratony', maratony: 'Maratony', 'dla-dzieci': 'Biegi dla dzieci',
@@ -473,7 +486,7 @@ async function main() {
     }
   }
 
-  // City pages (> 2 display events from the same primary city)
+  // City pages (>= 1 display event from the same primary city)
   const cityCount = {}
   for (const e of displayEvents) {
     if (!e.location) continue
@@ -481,13 +494,13 @@ async function main() {
     if (city && !CITY_BLOCKLIST.has(city)) cityCount[city] = (cityCount[city] || 0) + 1
   }
   for (const [city, count] of Object.entries(cityCount)) {
-    if (count <= 2) continue
+    if (count < 1) continue
     const citySlug = slugifyCity(city)
     const path = `listy/${citySlug}`
     if (manifest[path]) continue // don't overwrite type/region/special pages
     addEntry({ path, filters: { city }, city, priority: '0.7', changefreq: 'weekly' })
   }
-  console.log(`City pages: ${Object.values(cityCount).filter(c => c > 2).length} cities with >2 events`)
+  console.log(`City pages: ${Object.values(cityCount).filter(c => c >= 1).length} cities with >=1 event`)
 
   // Second pass: fill relatedLinks
   for (const path of Object.keys(manifest)) {

@@ -18857,6 +18857,31 @@
     "website": null,
     "is_kids": null
   },
+  "mityng-20lecia-llks-prefbet-sniadowo-lomza-2026-06-10": {
+    "id": "0adebfac-1ed1-4126-a6e2-7f2811f9ab4e",
+    "name": "Mityng 20-lecia LŁKS Prefbet Śniadowo Łomża",
+    "date": "2026-06-10",
+    "registration_deadline": "2026-06-05",
+    "regulamin_url": "https://dostartu.pl/statute_files/16623_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Łomża",
+    "voivodeship": "Podlaskie",
+    "lat": 53.186468,
+    "lng": 22.087712,
+    "distances": [
+      "1 km",
+      "0.1 km",
+      "0.3 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16623",
+    "website": null,
+    "is_kids": null
+  },
   "x-integracyjny-bieg24godzinny-2026-06-12": {
     "id": "f0d8edcc-9ecd-4d86-9ea0-526f85421f7f",
     "name": "X Integracyjny bieg24-godzinny",
@@ -22174,6 +22199,55 @@
       "dzieci"
     ],
     "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11816%26co%3Dform",
+    "website": null,
+    "is_kids": null
+  },
+  "historia-lasem-pisana-bieg-tropem-zalogi-bombowca-b17-2026-06-20": {
+    "id": "dc7d4ca0-f33b-47aa-832a-6364172bf425",
+    "name": "Historia Lasem Pisana BIEG TROPEM ZAŁOGI BOMBOWCA B-17",
+    "date": "2026-06-20",
+    "registration_deadline": "2026-06-15",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12400.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Kolesin",
+    "voivodeship": "Lubuskie",
+    "lat": 52.13626,
+    "lng": 15.75654,
+    "distances": [
+      "800 m",
+      "1500 m",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12400%26co%3Dform",
+    "website": null,
+    "is_kids": null
+  },
+  "ii-papowski-bieg-uliczny-szlakiem-komtura-2026-06-20": {
+    "id": "6c608347-94b5-421e-b01c-24165c253ff1",
+    "name": "II Papowski Bieg Uliczny Szlakiem komtura",
+    "date": "2026-06-20",
+    "registration_deadline": "2026-06-14",
+    "regulamin_url": null,
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Papowo Biskupie",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.249558,
+    "lng": 18.564025,
+    "distances": [
+      "0.5 km",
+      "2 km",
+      "5.3 km"
+    ],
+    "event_type": [
+      "trail",
+      "uliczny"
+    ],
+    "registration_url": "https://panel.maratonczykpomiarczasu.pl/bieg-papowo-biskupie",
     "website": null,
     "is_kids": null
   },
@@ -26455,6 +26529,30 @@
     "website": null,
     "is_kids": null
   },
+  "xv-bieg-na-jawornik-2026-07-04": {
+    "id": "dd50c12f-c57a-4579-9bbe-3d637e82ac8d",
+    "name": "XV Bieg na Jawornik",
+    "date": "2026-07-04",
+    "registration_deadline": "2026-07-02",
+    "regulamin_url": null,
+    "price_from": 59,
+    "price_to": 170,
+    "location": "Złoty Stok",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.442927,
+    "lng": 16.874656,
+    "distances": [
+      "5 km",
+      "10 km",
+      "20 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": null,
+    "website": null,
+    "is_kids": null
+  },
   "bursztynowa-mila-2026-2026-07-04": {
     "id": "ba138c19-6397-4a9a-a618-236c4c73ec2b",
     "name": "Bursztynowa Mila 2026",
@@ -27513,6 +27611,28 @@
     "website": "https://www.facebook.com/PolmaratonSpychowski",
     "is_kids": null
   },
+  "8-lasinska-siodemka-2026-07-11": {
+    "id": "a625262f-345f-49f3-8b5f-0c833b6bf35a",
+    "name": "8. Łasińska Siódemka",
+    "date": "2026-07-11",
+    "registration_deadline": "2026-07-08",
+    "regulamin_url": "https://wbtiming.pl/Files/Regulations/2026_07_11_regulamin_8._łasińska_siódemka.pdf",
+    "price_from": 60,
+    "price_to": 100,
+    "location": "Stadion Miejski, Łasin",
+    "voivodeship": "Podlaskie",
+    "lat": 53.105963,
+    "lng": 23.149285,
+    "distances": [
+      "7 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://wbtiming.pl/Rejestracja5/6620",
+    "website": null,
+    "is_kids": null
+  },
   "11-bieg-na-bucze-nordic-walking-minibucze-2026-07-11": {
     "id": "ce22cc15-55bc-4193-bf80-ec9099350014",
     "name": "11. Bieg na Bucze & Nordic Walking & miniBucze",
@@ -27988,8 +28108,8 @@
     "price_to": 160,
     "location": "Głogów Małopolski",
     "voivodeship": "Podkarpackie",
-    "lat": null,
-    "lng": null,
+    "lat": 50.151181,
+    "lng": 21.962757,
     "distances": [
       "6 km"
     ],
@@ -28214,6 +28334,29 @@
       "dzieci"
     ],
     "registration_url": "https://superczas.pl/gpmazury3/zapisy",
+    "website": null,
+    "is_kids": null
+  },
+  "vi-bank-spoldzielczy-bieg-poniecka-10tka-2026-07-18": {
+    "id": "2ff7d231-84d8-4f8c-bee6-7504b9424975",
+    "name": "VI Bank Spółdzielczy Bieg „Poniecka 10-tka”",
+    "date": "2026-07-18",
+    "registration_deadline": "2026-07-13",
+    "regulamin_url": null,
+    "price_from": 20,
+    "price_to": 70,
+    "location": "Poniec",
+    "voivodeship": "Wielkopolskie",
+    "lat": 51.765039,
+    "lng": 16.80599,
+    "distances": [
+      "10 km",
+      "3.5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://panel.maratonczykpomiarczasu.pl/poniecka102026",
     "website": null,
     "is_kids": null
   },
@@ -31142,6 +31285,29 @@
     ],
     "registration_url": "https://superczas.pl/biegtygrysa/zapisy",
     "website": "https://biegtygrysa.orzysz.pl/",
+    "is_kids": null
+  },
+  "xxiii-bieg-namyslowian-2026-08-22": {
+    "id": "d2721579-aad7-42e0-b2c6-c187e0f9f1f4",
+    "name": "XXIII Bieg Namysłowian",
+    "date": "2026-08-22",
+    "registration_deadline": "2026-08-19",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_-_Bieg_Namysłowian_2026.pdf",
+    "price_from": 80,
+    "price_to": 150,
+    "location": "Namysłów",
+    "voivodeship": "Opolskie",
+    "lat": 51.076626,
+    "lng": 17.718562,
+    "distances": [
+      "10 km",
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2591/xxiii-bieg-namyslowian.html",
+    "website": "https://www.zmierzymyczas.pl/2591/xxiii-bieg-namyslowian.html",
     "is_kids": null
   },
   "xi-bieg-obroncow-plocka-1920r-2026-08-22": {
@@ -34751,6 +34917,29 @@
     ],
     "registration_url": null,
     "website": null,
+    "is_kids": null
+  },
+  "15-polmaraton-dwoch-mostow-2026-09-13": {
+    "id": "de6defc6-0173-49f3-91c5-0cb0857634f9",
+    "name": "15 Półmaraton Dwóch Mostów",
+    "date": "2026-09-13",
+    "registration_deadline": "2026-09-08",
+    "regulamin_url": "https://foxter-sport.pl/uploads/competition/comp_regulations_1068.pdf",
+    "price_from": 85,
+    "price_to": 130,
+    "location": "Płock",
+    "voivodeship": "Mazowieckie",
+    "lat": null,
+    "lng": null,
+    "distances": [
+      "21.1 km",
+      "11 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://foxter-sport.pl/login/1068",
+    "website": "https://polmaraton.mosirplock.pl/",
     "is_kids": null
   },
   "olsztynska-piatka-2026-edycja-2-2026-09-13": {

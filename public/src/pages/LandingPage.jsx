@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import EventRow from '../components/EventRow.jsx'
 import LandingMap from '../components/LandingMap.jsx'
+import NotFound from './NotFound.jsx'
 import useSeo from '../hooks/useSeo.js'
 import {
   TYPE_SLUG_TO_DB, REGION_SLUG_TO_DB, DB_TO_REGION_SLUG, REGION_CENTER,
@@ -56,6 +57,7 @@ function parsePathFilters(pathname) {
 export default function LandingPage() {
   const location = useLocation()
   const [landingData, setLandingData] = useState(null)
+  const [manifestChecked, setManifestChecked] = useState(false)
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -67,18 +69,24 @@ export default function LandingPage() {
   useEffect(() => {
     let active = true
     setLandingData(null)
+    setManifestChecked(false)
     setLinksExpanded(false)
     const el = document.getElementById('landing-data')
     if (el) {
       try { setLandingData(JSON.parse(el.textContent)) } catch {}
+      setManifestChecked(true)
       return
     }
     const seg = location.pathname.replace(/^\/listy\/?/, '').replace(/\/$/, '')
-    if (!seg) return
+    if (!seg) { setManifestChecked(true); return }
     fetch('/listy/.manifest.json')
       .then(r => r.ok ? r.json() : null)
-      .then(m => { if (active && m) { const entry = m[`listy/${seg}`]; if (entry) setLandingData(entry) } })
-      .catch(() => {})
+      .then(m => {
+        if (!active) return
+        if (m) { const entry = m[`listy/${seg}`]; if (entry) setLandingData(entry) }
+        setManifestChecked(true)
+      })
+      .catch(() => { if (active) setManifestChecked(true) })
     return () => { active = false }
   }, [location.pathname])
 
@@ -86,6 +94,9 @@ export default function LandingPage() {
     if (landingData?.filters) return landingData.filters
     return parsePathFilters(location.pathname)
   }, [landingData, location.pathname])
+
+  const hasAnyFilter = !!(filters.special || filters.typeDbVal || filters.regionDb || filters.year || filters.month || filters.city)
+  const isUnknownSlug = manifestChecked && !landingData && !hasAnyFilter
 
   const h1 = landingData?.h1 || location.pathname.split('/').pop()
   const intro = landingData?.intro || null
@@ -96,6 +107,7 @@ export default function LandingPage() {
 
   // Fetch events from Supabase using display filter
   useEffect(() => {
+    if (isUnknownSlug) { setEvents([]); setTotal(0); setLoading(false); return }
     let cancelled = false
     setLoading(true)
 
@@ -165,7 +177,7 @@ export default function LandingPage() {
 
     fetchEvents()
     return () => { cancelled = true }
-  }, [filters, page])
+  }, [filters, page, isUnknownSlug])
 
   // Build full JSON-LD with events for useSeo after load
   const jsonLd = useMemo(() => {
@@ -222,6 +234,8 @@ export default function LandingPage() {
     path: canonicalPath,
     jsonLd,
   })
+
+  if (isUnknownSlug) return <NotFound />
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
