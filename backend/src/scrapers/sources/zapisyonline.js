@@ -12,6 +12,13 @@ import * as cheerio from 'cheerio'
 // /wydarzenie/<id>,<slug> link. Detail page carries a .competitions sub-table
 // (distance + "Zawody dla dzieci/dorosłych"), an organizer website link, and a
 // /files/_rules/<id>/<file>.pdf regulamin.
+//
+// Prices live one click deeper: every competition row has a "Zapisz się" button
+// → /zapisy/<competitionId>,<slug>. That registration page lists one
+// `.price.has` div per packet/wave (e.g. "159,00 zł") and, when a price tier has
+// an expiry, a `.msg` "Powyższa cena obowiązuje do <DATE>". We follow every
+// competition's Zapisz-się link, take the min/max across all packets as
+// price_from/price_to, and the latest tier-expiry date as registration_deadline.
 const BASE_URL = 'https://zapisyonline.pl'
 const LIST_URL = `${BASE_URL}/zapisy`
 const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
@@ -41,15 +48,64 @@ function cleanDistance(raw) {
   return `${m[1].replace(',', '.')} ${m[2].toLowerCase()}`
 }
 
-// event_type tags from the umbrella name only (mirrors distinguishingTags()).
-function detectEventTypes(name) {
-  const blob = (name || '').toLowerCase()
+// event_type tags from a text blob — the umbrella name plus per-competition
+// names (which often carry "Nordic walking" / "OCR" / trail signal the umbrella
+// name omits). Mirrors distinguishingTags().
+function detectEventTypes(text) {
+  const blob = (text || '').toLowerCase()
   const tags = new Set()
   if (/g[oó]rsk[aiey]|leśn[aey]|\btrail\b|cross(?:owy|owa|owe)?\b/i.test(blob)) tags.add('trail')
   if (/nordic\s*walking|\bnw\b/i.test(blob)) tags.add('nordic walking')
   if (/\bultra\b|\b\d{1,3}\s*h\s*run\b/i.test(blob)) tags.add('ultra')
   if (/\bocr\b/i.test(blob)) tags.add('ocr')
   return [...tags]
+}
+
+// Parse a /zapisy/<id>,<slug> registration page into prices + tier deadlines.
+// `.price.has` divs carry the live price per packet ("159,00 zł"); `.msg` blocks
+// carry "Powyższa cena obowiązuje do <YYYY-MM-DD>" when a tier expires.
+function parseRegistrationPrices(html) {
+  const $ = cheerio.load(html)
+  const prices = []
+  $('.price.has').each((_, el) => {
+    const m = $(el).text().match(/(\d+(?:[.,]\d+)?)\s*zł/i)
+    if (!m) return
+    const n = parseFloat(m[1].replace(',', '.'))
+    if (Number.isFinite(n) && n >= 0) prices.push(n)
+  })
+  const deadlines = []
+  $('.msg').each((_, el) => {
+    const m = $(el).text().match(/obowiązuje do\s*(\d{4}-\d{2}-\d{2})/i)
+    if (m) deadlines.push(m[1])
+  })
+  return { prices, deadlines }
+}
+
+// Fetch every competition's /zapisy/ page and aggregate prices + deadline.
+// price_from/price_to = min/max across all packets of all competitions;
+// registration_deadline = the latest tier-expiry date seen (registration stays
+// open through the final price tier). ISO dates compare correctly as strings.
+async function fetchPrices(zapisyHrefs) {
+  const prices = []
+  const deadlines = []
+  for (const href of zapisyHrefs) {
+    try {
+      const res = await fetch(BASE_URL + href, { headers: { 'User-Agent': USER_AGENT } })
+      if (res.ok) {
+        const { prices: p, deadlines: d } = parseRegistrationPrices(await res.text())
+        prices.push(...p)
+        deadlines.push(...d)
+      }
+    } catch (err) {
+      console.error(`[zapisyonline] Price fetch failed for ${href}:`, err.message)
+    }
+    await new Promise((r) => setTimeout(r, 1100))
+  }
+  return {
+    priceFrom: prices.length ? Math.min(...prices) : null,
+    priceTo: prices.length ? Math.max(...prices) : null,
+    registrationDeadline: deadlines.length ? deadlines.sort().at(-1) : null,
+  }
 }
 
 async function fetchPage(p) {
@@ -83,19 +139,29 @@ async function fetchDetail(sourceId, slug) {
   const url = `${BASE_URL}/wydarzenie/${sourceId},${slug}`
   try {
     const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } })
-    if (!res.ok) return { distances: null, isKids: false, regulaminUrl: null, website: null }
+    if (!res.ok) return { distances: null, competitionNames: [], isKids: false, regulaminUrl: null, website: null, priceFrom: null, priceTo: null, registrationDeadline: null }
     const html = await res.text()
     const $ = cheerio.load(html)
 
-    // .competitions .event rows: .item.distance + .item.kind ("Zawody dla dzieci")
+    // .competitions .event rows: .item.name (e.g. "Nordic walking", "Dzieci ...")
+    // + .item.distance + .item.kind ("Zawody dla dzieci"), plus a "Zapisz się"
+    // button (/zapisy/<id>,<slug>) we follow for prices. Competition names carry
+    // event-type signal (Nordic Walking, OCR, trail) the umbrella name often omits.
     const distances = new Set()
+    const competitionNames = []
+    const zapisyHrefs = []
     let isKids = false
     $('.competitions .event').each((_, el) => {
       const r = $(el)
       if (r.hasClass('headers')) return
       const d = cleanDistance(r.find('.item.distance').first().text())
       if (d) distances.add(d)
-      if (/dzieci/i.test(r.find('.item.kind').first().text())) isKids = true
+      const cname = r.find('.item.name').first().text().replace(/\s+/g, ' ').trim()
+      if (cname) competitionNames.push(cname)
+      const kind = r.find('.item.kind').first().text()
+      if (/dzieci/i.test(kind) || /dzieci/i.test(cname)) isKids = true
+      const z = r.find('.item.btn a[href^="/zapisy/"]').first().attr('href')
+      if (z) zapisyHrefs.push(z)
     })
 
     // Regulamin PDF (/files/_rules/<id>/<file>.pdf) — paths contain spaces, encode.
@@ -106,24 +172,40 @@ async function fetchDetail(sourceId, slug) {
       if (/\.pdf$/i.test(href)) regulaminUrl = encodeURI(BASE_URL + href)
     })
 
-    // Organizer website — first external link that isn't the platform / fonts / social.
-    let website = null
-    $('a[href^="http"]').each((_, a) => {
-      if (website) return
-      const href = $(a).attr('href') || ''
-      if (/zapisyonline\.pl|triso\.pl|googleapis|gstatic|skype|facebook|fb\.com|fb\.me|instagram|youtube/i.test(href)) return
-      website = href
-    })
+    // Organizer website — the dedicated "Oficjalna strona" (.item.www) block is
+    // the organizer's DECLARED official link, so trust it as-is even when it's a
+    // Facebook page (a valid official presence for many events); only reject the
+    // platform's own / asset hosts. The fallback that scans arbitrary page links
+    // additionally skips social, since there a Facebook hit is a share-widget
+    // guess, not a declared link.
+    const isPlatformHost = (href) => /zapisyonline\.pl|triso\.pl|googleapis|gstatic|skype/i.test(href)
+    const isSocialHost = (href) => /facebook|fb\.com|fb\.me|instagram|youtube/i.test(href)
+    let website = $('.item.www .value a[href^="http"]').first().attr('href') || null
+    if (website && isPlatformHost(website)) website = null
+    if (!website) {
+      $('a[href^="http"]').each((_, a) => {
+        if (website) return
+        const href = $(a).attr('href') || ''
+        if (isPlatformHost(href) || isSocialHost(href)) return
+        website = href
+      })
+    }
+
+    const { priceFrom, priceTo, registrationDeadline } = await fetchPrices(zapisyHrefs)
 
     return {
       distances: distances.size ? [...distances].join(', ') : null,
+      competitionNames,
       isKids,
       regulaminUrl,
       website,
+      priceFrom,
+      priceTo,
+      registrationDeadline,
     }
   } catch (err) {
     console.error(`[zapisyonline] Detail fetch failed for ${sourceId}:`, err.message)
-    return { distances: null, isKids: false, regulaminUrl: null, website: null }
+    return { distances: null, competitionNames: [], isKids: false, regulaminUrl: null, website: null, priceFrom: null, priceTo: null, registrationDeadline: null }
   }
 }
 
@@ -162,20 +244,20 @@ async function scrape({ knownIds = new Set() } = {}) {
     await new Promise((r) => setTimeout(r, 1100))
     console.log(`[zapisyonline] Detail ${results.length + 1}/${newEntries.length} — ${entry.name}`)
 
-    const eventTypes = detectEventTypes(entry.name)
+    const eventTypes = detectEventTypes([entry.name, ...(detail.competitionNames || [])].join(' '))
     results.push({
       name: entry.name,
       date: entry.date,
       location: entry.location,
       distances: detail.distances,
       registration_url: sourceUrl,
-      registration_deadline: null,
+      registration_deadline: detail.registrationDeadline,
       regulamin_url: detail.regulaminUrl,
       website: detail.website,
       is_kids: detail.isKids,
       event_types: eventTypes.length ? eventTypes : null,
-      price_from: null,
-      price_to: null,
+      price_from: detail.priceFrom,
+      price_to: detail.priceTo,
       source: 'zapisyonline',
       source_id: entry.sourceId,
       source_url: sourceUrl,
@@ -186,4 +268,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape, parseListing, parseListingDate, cleanDistance, detectEventTypes }
+export { scrape, parseListing, parseListingDate, cleanDistance, detectEventTypes, parseRegistrationPrices, fetchDetail }
