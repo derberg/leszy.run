@@ -19124,6 +19124,49 @@
     "website": "https://elektronicznezapisy.pl/event/14827.html",
     "is_kids": null
   },
+  "lesna-triada-biegowa-szlak-lata-2026-06-13": {
+    "id": "37670686-5dc5-43a1-a8e1-f0490b76f011",
+    "name": "Leśna Triada Biegowa - Szlak Lata",
+    "date": "2026-06-13",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1059/Regulamin%20Szlak%20Lata_2026.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "trail",
+      "uliczny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1059,lesna-triada-biegowa-szlak-lata",
+    "website": "http://aktywnawarszawa.pl",
+    "is_kids": null
+  },
+  "rymarz-eliminacja-2026-06-13": {
+    "id": "752134b4-39bd-49cc-9bd4-6980c07e91b4",
+    "name": "Rymarz. Eliminacja.",
+    "date": "2026-06-13",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/973/regulamin_rymarz_eliminacja.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Jugów",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.633921,
+    "lng": 16.511712,
+    "distances": [
+      "666 m"
+    ],
+    "event_type": [],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/973,rymarz-eliminacja",
+    "website": "http://www.58200.pl",
+    "is_kids": null
+  },
   "vi-wielunska-piona-2026-06-13": {
     "id": "13caf435-a339-4bb7-af67-908b9f7db365",
     "name": "VI Wieluńska Piona",
@@ -19738,6 +19781,28 @@
     ],
     "registration_url": "https://b4sportonline.pl/skolwinska_mila/zapisy_na_bieg_dzieci_i_kategoria_5_ae_7_lat_2021__2019_ae_dystans_ok_200_m/12179",
     "website": "https://b4sportonline.pl/skolwinska_mila/",
+    "is_kids": null
+  },
+  "ix-charytatywny-memorial-im-zofii-morawskiej-2026-06-13": {
+    "id": "ef1f9578-16e9-46f1-814b-60f070bd4587",
+    "name": "IX Charytatywny Memoriał im. Zofii Morawskiej",
+    "date": "2026-06-13",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1020/13062026_Regulamin%20-%20IX%20Memoria%C5%82%20im.Zofii%20Morawskiej_v2.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Izabelin-Laski",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.259294,
+    "lng": 18.340423,
+    "distances": [
+      "3300 m"
+    ],
+    "event_type": [
+      "charytatywny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1020,ix-charytatywny-memorial-im-zofii-morawskiej",
+    "website": "http://memorial-laski.pl",
     "is_kids": null
   },
   "mazowiecki-ultra-skrocz-2026-2026-06-13": {
@@ -20728,6 +20793,30 @@
     "website": "https://www.facebook.com/events/995199059627733/",
     "is_kids": null
   },
+  "kosakowo-biega-2026-06-13": {
+    "id": "14204863-d1cd-48ba-9ed7-4d2768fa29de",
+    "name": "Kosakowo Biega",
+    "date": "2026-06-13",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Kosakowo",
+    "voivodeship": "Pomorskie",
+    "lat": 54.22835,
+    "lng": 21.47486,
+    "distances": [
+      "2 km",
+      "5 km",
+      "500 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1048,kosakowo-biega",
+    "website": "https://www.facebook.com/profile.php?id=61559499449536&locale=pl_PL",
+    "is_kids": null
+  },
   "ix-krwiobieg-warszawa-5-km-chodziarze-i-nordic-walking-2026-06-14": {
     "id": "278bf694-d989-4f25-b80b-44dab7c40ba6",
     "name": "IX Krwiobieg Warszawa - 5 km Chodziarze i Nordic Walking",
@@ -21146,6 +21235,30 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15464/signup.html",
     "website": "https://elektronicznezapisy.pl/event/15464.html",
+    "is_kids": null
+  },
+  "zorientuj-sie-na-bielanach-czerwiec-2026-06-14": {
+    "id": "938f7c74-7b87-4eff-8721-bff163f7a46c",
+    "name": "Zorientuj się na Bielanach Czerwiec",
+    "date": "2026-06-14",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1064/Regulamin%20BNO%20Bielany.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "WARSZAWA",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.233374,
+    "lng": 21.071149,
+    "distances": [
+      "2 km",
+      "3.5 km",
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1064,zorientuj-sie-na-bielanach-czerwiec",
+    "website": null,
     "is_kids": null
   },
   "14-czerwca-2026-skawina-2026-06-14": {
@@ -21917,6 +22030,83 @@
     "website": "https://www.facebook.com/Tarnoviarun/",
     "is_kids": null
   },
+  "vi-bieg-nad-lakami-2026-06-14": {
+    "id": "325fa1fe-25c5-4ed8-970d-45a59b191914",
+    "name": "VI Bieg Nad Łąkami",
+    "date": "2026-06-14",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1047/REGULAMIN_bieg_nad_lakami_26.pdf",
+    "price_from": 10,
+    "price_to": 60,
+    "location": "Leśniakowizna",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.312989,
+    "lng": 21.275811,
+    "distances": [
+      "5 km",
+      "10 km",
+      "200 m",
+      "300 m",
+      "400 m"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1047,vi-bieg-nad-lakami",
+    "website": "http://www.osir.wolomin.pl",
+    "is_kids": null
+  },
+  "bieg-z-pazurem-2026-radzymin-2026-06-14": {
+    "id": "2cb2a09c-2f57-4151-b158-6eb3039241f4",
+    "name": "Bieg Z PAZUREM 2026 - Radzymin",
+    "date": "2026-06-14",
+    "registration_deadline": "2026-06-11",
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1024/REGULAMIN%20-%20Radzymin.pdf",
+    "price_from": 25,
+    "price_to": 150,
+    "location": "Radzymin",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.417635,
+    "lng": 21.180784,
+    "distances": [
+      "7 km",
+      "1600 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1024,bieg-z-pazurem-2026-radzymin",
+    "website": "http://www.zpazurem.com",
+    "is_kids": null
+  },
+  "mini-bieg-naftowy-2026-2026-06-14": {
+    "id": "b2773fc4-7a80-4bd5-998d-1275973a17e8",
+    "name": "Mini Bieg Naftowy 2026",
+    "date": "2026-06-14",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1043/Regulamin%20Mini%20Bieg%20Naftowy%202026.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Gorlice",
+    "voivodeship": "Małopolskie",
+    "lat": 49.666332,
+    "lng": 21.163484,
+    "distances": [
+      "80 m",
+      "200 m",
+      "300 m",
+      "400 m",
+      "600 m",
+      "800 m"
+    ],
+    "event_type": [
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1043,mini-bieg-naftowy-2026",
+    "website": "https://www.facebook.com/maratongorlice/",
+    "is_kids": null
+  },
   "mrowna-run-grodzisk-laczy-w-biegu-2026-06-14": {
     "id": "8cce229d-0d9a-4344-b9c8-6e0b3066245f",
     "name": "Mrowna Run Grodzisk łączy w biegu",
@@ -21938,6 +22128,28 @@
     ],
     "registration_url": "https://zapisyonline.pl/zapisy/2103,mrowna-run-grodzisk-laczy-w-biegu-bieg-glowny",
     "website": "https://zapisyonline.pl/wydarzenie/1063,mrowna-run-grodzisk-laczy-w-biegu",
+    "is_kids": null
+  },
+  "wiosna-na-sportowo-2026-06-15": {
+    "id": "4a70f43a-8dcc-4cfa-bfb3-b648a1bf0c41",
+    "name": "Wiosna na sportowo",
+    "date": "2026-06-15",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1036/Regulamin%20akcji%20wiosna%20na%20sportowo%202026.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "30 m"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1036,wiosna-na-sportowo",
+    "website": "https://fundacjapolicja.pl",
     "is_kids": null
   },
   "v-rocznicowy-bieg-odry-opole-2026-06-16": {
@@ -23034,6 +23246,29 @@
     "website": "https://wierchami.pl/",
     "is_kids": null
   },
+  "letnia-olimpiada-mlodziezy-2026-06-20": {
+    "id": "84e970ec-9b95-4cc8-aa8c-de8e2cadfc44",
+    "name": "Letnia Olimpiada Młodzieży",
+    "date": "2026-06-20",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Krzyżanowice",
+    "voivodeship": "Mazowieckie",
+    "lat": 51.196457,
+    "lng": 21.228118,
+    "distances": [
+      "500 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1061,letnia-olimpiada-mlodziezy",
+    "website": null,
+    "is_kids": null
+  },
   "6-bialoleckie-biegi-przelajowe-2026-06-20": {
     "id": "3005c7db-3e36-403d-8df4-32aeca80e120",
     "name": "6 Białołęckie Biegi Przełajowe",
@@ -23678,6 +23913,29 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14506/signup.html",
     "website": "https://www.biegdzika.pl/",
+    "is_kids": null
+  },
+  "zorientuj-sie-na-mokotowie-miejska-gra-na-orientacje-2026-06-21": {
+    "id": "21932644-df45-4c69-aff6-6eaf0e65198e",
+    "name": "Zorientuj się na Mokotowie Miejska Gra na Orientację",
+    "date": "2026-06-21",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1065/Regulamin%20Mokot%C3%B3w%20BNO.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "3 km",
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1065,zorientuj-sie-na-mokotowie-miejska-gra-na-orientacje",
+    "website": null,
     "is_kids": null
   },
   "9-debicka-dziesiatka-2026-06-21": {
@@ -24577,6 +24835,32 @@
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2588/bieg-charytatywny-dla-joanny-kilometry-pomocy-2026.html",
     "website": null,
+    "is_kids": null
+  },
+  "bieg-letnia-forma-2026-06-21": {
+    "id": "3035492d-f7f8-429a-b6bc-65f25c1f1c70",
+    "name": "Bieg \"Letnia Forma\"",
+    "date": "2026-06-21",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1008/Regulaminy%202026%20v4.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Piastów",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.185552,
+    "lng": 20.847642,
+    "distances": [
+      "1 km",
+      "2.5 km",
+      "350 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci",
+      "nordic walking"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1008,bieg-letnia-forma",
+    "website": "http://mosir.piastow.pl",
     "is_kids": null
   },
   "katowickie-biegi-przelajowe-dzieci-i-mlodziezy-szkol-podstawowych-2026-06-22": {
@@ -26030,6 +26314,77 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16552",
     "website": "http://www.mosir.lublin.pl/",
+    "is_kids": null
+  },
+  "bieg-truskawki-2026-06-27": {
+    "id": "da90418b-c419-4607-af59-a3b16ded939a",
+    "name": "Bieg Truskawki",
+    "date": "2026-06-27",
+    "registration_deadline": "2026-06-14",
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1028/Regulamin%20Bieg%20Truskawki%202026.pdf",
+    "price_from": 65,
+    "price_to": 100,
+    "location": "Laski",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.946348,
+    "lng": 15.920402,
+    "distances": [
+      "10 km",
+      "100 m"
+    ],
+    "event_type": [
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1028,bieg-truskawki",
+    "website": null,
+    "is_kids": null
+  },
+  "bieg-do-orla-9722026-2026-06-27": {
+    "id": "e847f3c1-c40b-48a6-b1b2-cb0f89ccef53",
+    "name": "Bieg do Orła 972-2026",
+    "date": "2026-06-27",
+    "registration_deadline": "2026-06-21",
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1033/regulamin%20-%20bieg%20do%20or%C5%82a.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Cedynia",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 52.878402,
+    "lng": 14.203145,
+    "distances": [
+      "4 km"
+    ],
+    "event_type": [],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1033,bieg-do-orla-972-2026",
+    "website": "http://www.cedynia.pl",
+    "is_kids": null
+  },
+  "mazowiecka-liga-biegowa-2026-06-27": {
+    "id": "3b0aa691-6c76-4e4f-ab85-301ced243fce",
+    "name": "Mazowiecka Liga Biegowa",
+    "date": "2026-06-27",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1067/REGULAMIN%20MAZOWIECKA%20LIGA%20BIEGOWA%202026.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "18 m",
+      "60 m",
+      "100 m",
+      "300 m",
+      "400 m",
+      "3000 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1067,mazowiecka-liga-biegowa-27-06-2026",
+    "website": "http://ursuswarszawa.com",
     "is_kids": null
   },
   "strzalkowo-dobry-kierunek-2026-06-28": {
@@ -31939,6 +32294,26 @@
     "website": "https://www.zmierzymyczas.pl/2586/bieg-niepodleglosci-o-puchar-burmistrza-korfantowa-2026.html",
     "is_kids": null
   },
+  "ix-strawczynska-zadycha-2026-08-22": {
+    "id": "ced54951-9809-44ae-b7b7-0876e2632eca",
+    "name": "IX Strawczyńska Zadycha",
+    "date": "2026-08-22",
+    "registration_deadline": "2026-06-22",
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1052/Regulamin%20IX%20Zadychy%202026.pdf",
+    "price_from": 50,
+    "price_to": 50,
+    "location": "Strawczyn",
+    "voivodeship": "Świętokrzyskie",
+    "lat": 50.941504,
+    "lng": 20.420112,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1052,ix-strawczynska-zadycha",
+    "website": null,
+    "is_kids": null
+  },
   "18082024-viii-ekstremalny-junior-2026-08-23": {
     "id": "6c7f1c07-a4fd-43b2-9d02-0528809b294f",
     "name": "18.08.2024 - VIII Ekstremalny Junior",
@@ -35940,6 +36315,32 @@
     "website": null,
     "is_kids": null
   },
+  "bieg-piastowska-gonitwa-2026-09-13": {
+    "id": "172d6d7e-0d48-429b-be66-39dc73c03706",
+    "name": "Bieg Piastowska Gonitwa",
+    "date": "2026-09-13",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1009/Regulaminy%202026%20v4.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Piastów",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.185552,
+    "lng": 20.847642,
+    "distances": [
+      "1 km",
+      "2.5 km",
+      "350 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci",
+      "nordic walking"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1009,bieg-piastowska-gonitwa",
+    "website": "http://mosir.piastow.pl",
+    "is_kids": null
+  },
   "35-tarnowski-bieg-leliwitow-2026-09-17": {
     "id": "845ff3b2-ce28-422a-827b-af0593e1edf9",
     "name": "35 Tarnowski Bieg Leliwitów",
@@ -36451,6 +36852,29 @@
     ],
     "registration_url": "https://super-sport.com.pl/zapisy-formularze/4688-xiv-bieg-przelajowy-memorial-tomasza-mielko.html",
     "website": "https://nszzfipw.org.pl/",
+    "is_kids": null
+  },
+  "cross-forteczny-pamieci-janusza-kusocinskiego-2026-09-19": {
+    "id": "71ea88cd-d626-479d-a96e-68de3a606f76",
+    "name": "Cross Forteczny Pamięci Janusza Kusocińskiego",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-06-30",
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/996/REGULAMIN-CROSS-FORTECZNY2026.pdf",
+    "price_from": 130,
+    "price_to": 130,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "trail",
+      "uliczny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/996,cross-forteczny-pamieci-janusza-kusocinskiego",
+    "website": "http://www.crossforteczny.pl",
     "is_kids": null
   },
   "iv-wilczy-ped-na-trojmorski-wierch-2026-09-20": {
@@ -38306,6 +38730,28 @@
     "website": null,
     "is_kids": null
   },
+  "bieg-pamieci-powstanczej-warszawa-1944-2026-10-04": {
+    "id": "44e36f54-d861-4e7f-b822-6193d001df5a",
+    "name": "Bieg Pamięci Powstańczej Warszawa 1944",
+    "date": "2026-10-04",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1010/Regulaminy%202026%20v4.pdf",
+    "price_from": 50,
+    "price_to": 50,
+    "location": "Piastów",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.185552,
+    "lng": 20.847642,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1010,bieg-pamieci-powstanczej-warszawa-1944",
+    "website": "http://mosir.piastow.pl",
+    "is_kids": null
+  },
   "xli-bieg-pokoju-kids-cup-2026-2026-10-04": {
     "id": "d11e66ad-85c7-49bd-8a97-ad459b8cfba0",
     "name": "XLI Bieg Pokoju - Kids Cup 2026",
@@ -38775,6 +39221,29 @@
     ],
     "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12361%26co%3Dform",
     "website": null,
+    "is_kids": null
+  },
+  "x-przeszkodowy-bieg-hutnika-2026-10-11": {
+    "id": "f23e510c-da48-4606-af1f-78627dff3c64",
+    "name": "X Przeszkodowy Bieg Hutnika",
+    "date": "2026-10-11",
+    "registration_deadline": "2026-08-31",
+    "regulamin_url": null,
+    "price_from": 159,
+    "price_to": 159,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "12 km",
+      "1600 m"
+    ],
+    "event_type": [
+      "ocr"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1004,x-przeszkodowy-bieg-hutnika",
+    "website": "http://www.bieghutnika.pl",
     "is_kids": null
   },
   "debowiec-nocna-petla-2026-10-17": {
