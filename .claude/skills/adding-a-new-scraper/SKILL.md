@@ -128,9 +128,9 @@ Rate limit detail-page fetches: `await new Promise(r => setTimeout(r, 1100))` be
 
 These two fields determine whether your scraper's rows merge with existing same-event rows from other scrapers. The merge code's distinguishing-tag guard treats absence as a tag-set difference — a row with `event_types=null` will NOT merge with a row that has `event_types=['trail']`, even when names + dates + cities match perfectly. Get these wrong and you ship duplicates.
 
-### `event_types` — extract from umbrella name ONLY
+### `event_types` — default to umbrella name; subdivisions only when safe
 
-The umbrella event name (not bieg subdivision headings). Mirrors the categories `distinguishingTags()` recognizes: `trail`, `nordic walking`, `ultra`, `ocr`. Polish keywords:
+Default source is the umbrella event name (not bieg subdivision headings). Mirrors the categories `distinguishingTags()` recognizes: `trail`, `nordic walking`, `ultra`, `ocr`. Polish keywords:
 
 ```js
 function detectEventTypes(name) {
@@ -150,7 +150,14 @@ Pass BOTH umbrella name AND the raw distances string to catch type signals in di
 const eventTypes = detectEventTypes(`${name} ${distancesRaw || ''}`)
 ```
 
-**Why umbrella name only:** including subdivision headings over-tags. If the umbrella has running + NW subdivisions, picking up `'nordic walking'` from a subdivision creates a tag-set mismatch with biegiwpolsce/maratonypolskie which only tag from umbrella names — same event, different tag count → guard rejects. Bgtimesport's `X Leśne Bieganie` failed to merge with biegiwpolsce until we restricted detection to the umbrella.
+**Why umbrella name is the default:** including subdivision headings over-tags. If the umbrella has running + NW subdivisions, picking up `'nordic walking'` from a subdivision can create a tag-set mismatch with biegiwpolsce/maratonypolskie which only tag from umbrella names. Bgtimesport's `X Leśne Bieganie` failed to merge with biegiwpolsce until we restricted detection to the umbrella.
+
+**The exception — when subdivision tagging is safe (and worth it).** Read `hasDistinguishingConflict` (`dedup.js`) before deciding. The guard compares per-category (audience/distance/style) and **tolerates one-sided absence** — if one row has zero `style:` tags, that category is skipped, no conflict. A conflict fires only when *both* rows have style tags in a category and they differ (including different *counts* — `{trail}` vs `{trail,nw}`). So:
+
+- **Safe:** the umbrella name carries NO style keyword and a sub-competition reveals a style (e.g. a plain `Bieg "Letnia Forma"` with a "Nordic walking" sub-race → `{style:nw}` vs an aggregator's `{}` → merges). Registration hosts that expose per-competition names (zapisyonline's `.competitions .event .item.name`) can mine this for real signal the umbrella hides. zapisyonline does this as of 2026-06-01.
+- **Dangerous:** the umbrella name ALREADY triggers a style regex AND a sub-competition adds a *different* style (e.g. a `Cross …` event → `style:trail` from the name, plus an NW sub-race → `{trail,nw}`; an umbrella-only aggregator emits `{trail}` → count mismatch → merge rejected → duplicate). Never let a subdivision add a *second* style on top of a style the umbrella already carries.
+
+Practical rule for a registration host: detect style from `umbrella name + all competition names`, but if you find the umbrella name itself matches a style regex, do NOT also append a sub-race style — fall back to umbrella-only for that event.
 
 ### `is_kids` — true if ANY subdivision is kids (lumisport rule)
 
@@ -237,6 +244,47 @@ if (!SELF_ENRICHING_SOURCES.has(source.name)) {
 **If your scraper's dostartu URL lives in a field other than `registration_url`** (e.g. in `externalWebsite`), call `enrichFromUrl({ registration_url: externalWebsite, name, ... })` inside the scraper, and add your source to `SELF_ENRICHING_SOURCES` to skip the pipeline-level enrichment.
 
 **`registration_deadline` requires a Supabase column.** If your scraper's table doesn't have `registration_deadline date`, the enrichment result gets silently dropped when `mapRow` extracts it. Add the column to the CREATE TABLE in section 4 AND to `mapRow` in section 6.
+
+## 5e. Registration hosts: prices live one click deeper
+
+On a registration *host* (the source hosts the actual sign-up, not just a listing), the detail page often shows distances + an organizer link but NO prices. Prices and the per-tier deadline live on the per-competition registration page behind the **"Zapisz się"** button. Pattern (zapisyonline, 2026-06-01):
+
+```
+/wydarzenie/<eventId>,<slug>      ← detail page: distances, website, regulamin
+   └─ .competitions .event .item.btn a[href^="/zapisy/"]   ← one per sub-race
+        → /zapisy/<competitionId>,<slug>    ← THIS page has prices
+             .price.has              → "159,00 zł" (one per packet/wave)
+             .msg "obowiązuje do <YYYY-MM-DD>"  → that tier's expiry
+```
+
+Follow every competition's button, then aggregate across ALL packets of ALL competitions:
+- `price_from` = `Math.min(...)`, `price_to` = `Math.max(...)` — exactly the lowest (usually kids) and highest (usually longest adult distance) registration price. A single price → from == to.
+- `registration_deadline` = the **latest** "obowiązuje do" date seen (registration stays open through the final price tier; ISO dates sort as strings).
+
+Rate-limit the extra fetches like any detail fetch (`setTimeout(r, 1100)`). This multiplies requests per event by the number of sub-races, so only do it for NEW events (timekeeper `knownIds` pattern).
+
+**Donation-tier trap — verify the prices are entry fees, not "cegiełki".** Charity events list donation packets ("Pakiet 35/50/100/.../1000 zł") on the same registration page, identical markup to real entry fees. Blind min/max turns those into a bogus `price_to` (saw zapisyonline `Wiosna na sportowo` → 0–500 on a 30 m run). Before trusting a wide price spread, inspect the packet names (`.pname`): tiered "Pakiet N zł" with no distance = donations → leave price null. There is no clean automated signal — spot-check events whose price_to dwarfs the distance.
+
+## 5f. `website` — trust the source's DECLARED official link
+
+When the source has a dedicated official-site field (zapisyonline's "Oficjalna strona" / `.item.www` block), use it as `website` **even if it's a Facebook page** — many Polish events have no standalone site and FB is their real presence (user directive, 2026-06-01). Only strip the timing platform's own/asset hosts (`zapisyonline`, `triso`, `googleapis`, `gstatic`, `skype`).
+
+The "first external link" *fallback heuristic* (used when there's no declared field) must STILL skip social (`facebook`, `instagram`, `youtube`, …): there a Facebook hit is a share-widget guess, not a declared link. Two filters, not one:
+
+```js
+const isPlatformHost = (href) => /zapisyonline\.pl|triso\.pl|googleapis|gstatic|skype/i.test(href)
+const isSocialHost   = (href) => /facebook|fb\.com|fb\.me|instagram|youtube/i.test(href)
+let website = $('.item.www .value a[href^="http"]').first().attr('href') || null
+if (website && isPlatformHost(website)) website = null          // declared link: only strip platform
+if (!website) $('a[href^="http"]').each((_, a) => {             // fallback: also skip social
+  if (website) return
+  const href = $(a).attr('href') || ''
+  if (isPlatformHost(href) || isSocialHost(href)) return
+  website = href
+})
+```
+
+(The Python enricher still validates/rejects social when it has no declared link to trust — this exception is scraper-side only, for fields the source itself labels official.)
 
 ## 6. Wire into the pipeline
 
@@ -466,6 +514,9 @@ git add public/public/kalendarz && git commit -m "data: manifest refresh after <
 | `registration_deadline` silently dropped | enrichFromUrl fills deadline but it never lands in DB | Scraper table needs `registration_deadline date` column AND mapRow must include `registration_deadline: raw.registration_deadline || null` |
 | dostartu enrichment duplicated in-scraper | Scraper calls dostartu API itself for events whose `registration_url` points to dostartu, but pipeline also calls `enrichFromUrl` | Add your source to `SELF_ENRICHING_SOURCES` in `index.js` to skip pipeline-level enrichment |
 | `enrichFromUrl` lat/lng overwrites with null | Pipeline calls `enrichFromUrl` on event that has no lat/lng from scraper; enrichFromUrl returned undefined for those fields | `enrichFromUrl` uses `event.lat ?? comp?.locationLat ?? null` — safe. If you see nulls, check that mapRow includes `lat: raw.lat ?? null` |
+| Donation tiers scraped as entry fees | `price_to` wildly high vs distance (e.g. 0–500 on a 30 m run) | Charity "Pakiet N zł" packets aren't entry fees. Inspect `.pname`/packet names; leave price null if tiered donations with no distance (section 5e) |
+| Subdivision style tag breaks merge | New registration-host row won't merge with biegiwpolsce/maratonypolskie even though name+date+city match; ends up duplicated | Umbrella name already carries a `style:` tag (e.g. `Cross …` → trail) and you appended a second style (nw) from a sub-race → `{trail,nw}` vs `{trail}` count mismatch. Only add sub-race style when the umbrella has none (section 5b exception) |
+| Facebook stripped from declared website | `website` null for events whose only official presence is a FB page | Don't run the social filter on a source's DECLARED official-site field — only on the fallback heuristic (section 5f) |
 
 ## Don't
 
@@ -475,3 +526,6 @@ git add public/public/kalendarz && git commit -m "data: manifest refresh after <
 - Don't permanently delete rejected calendar_events while testing — they prevent the scraper re-adding the same junk.
 - Don't store activity-type labels in `distances` (`"bieg 8km"`, `"nw 6km"`) — strip them with `cleanDistances()`.
 - Don't add dostartu API enrichment code inside a new scraper — the pipeline does it automatically via `apiEnrich.js` when `registration_url` points to a dostartu-like domain.
+- Don't blanket-reject Facebook as `website` — when the source labels a field "official site," keep it; only the first-external-link fallback skips social (section 5f).
+- Don't take min/max of registration prices without checking they're entry fees and not charity donation tiers (section 5e).
+- Don't append a sub-race style tag (nw/ocr/trail) on top of a style the umbrella name already carries — it breaks merges with umbrella-only aggregators (section 5b exception).

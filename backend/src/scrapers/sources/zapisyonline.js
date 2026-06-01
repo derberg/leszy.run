@@ -244,7 +244,15 @@ async function scrape({ knownIds = new Set() } = {}) {
     await new Promise((r) => setTimeout(r, 1100))
     console.log(`[zapisyonline] Detail ${results.length + 1}/${newEntries.length} — ${entry.name}`)
 
-    const eventTypes = detectEventTypes([entry.name, ...(detail.competitionNames || [])].join(' '))
+    // Mine event types from competition names (catches a Nordic Walking / OCR
+    // sub-race the umbrella name hides) — BUT only when the umbrella name itself
+    // carries no style tag. If it already does (e.g. "Cross …" → trail), adding a
+    // second style from a sub-race ({trail,nw}) would mismatch umbrella-only
+    // aggregators ({trail}) and break the merge. See dedup.js hasDistinguishingConflict.
+    const umbrellaTypes = detectEventTypes(entry.name)
+    const eventTypes = umbrellaTypes.length
+      ? umbrellaTypes
+      : detectEventTypes([entry.name, ...(detail.competitionNames || [])].join(' '))
     results.push({
       name: entry.name,
       date: entry.date,
