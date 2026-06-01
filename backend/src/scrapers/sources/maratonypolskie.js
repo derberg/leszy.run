@@ -11,6 +11,9 @@ const MONTHS_PL = [
 
 const MAX_RETRIES = 3
 
+// Event names to skip (substring match, case-insensitive)
+const IGNORED_NAMES = ['ITMBWieczorem']
+
 function parseSearchResults(html, today) {
   const $ = cheerio.load(html)
   const events = []
@@ -53,6 +56,8 @@ function parseSearchResults(html, today) {
     const name = nameLink.text().trim() || nameCell.text().trim()
 
     if (!name || name.length < 3) continue
+
+    if (IGNORED_NAMES.some(ignored => name.toLowerCase().includes(ignored.toLowerCase()))) continue
 
     const key = `${name}-${date}`
     if (seen.has(key)) continue

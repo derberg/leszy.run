@@ -26,6 +26,7 @@ const SOURCE_PRIORITY = {
   aleczas: 8,
   maratonczykpomiarczasu: 8,
   timing4u: 8,
+  zapisyonline: 4,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
