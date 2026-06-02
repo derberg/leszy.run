@@ -21,15 +21,19 @@ export default function NearbyEvents({ event }) {
     const to = new Date(date)
     to.setDate(to.getDate() + 3)
 
+    // Never show past events: clamp the lower bound to today, so an event in
+    // the past (e.g. a finished race) doesn't surface a window of past nearby events.
+    const todayStr = new Date().toISOString().slice(0, 10)
     const fromStr = from.toISOString().slice(0, 10)
     const toStr = to.toISOString().slice(0, 10)
+    const lowerStr = fromStr > todayStr ? fromStr : todayStr
 
     supabase
       .from('calendar_events')
       .select('id, name, date, location, distances')
       .eq('status', 'active')
       .eq('voivodeship', event.voivodeship)
-      .gte('date', fromStr)
+      .gte('date', lowerStr)
       .lte('date', toStr)
       .neq('id', event.id)
       .order('date', { ascending: true })

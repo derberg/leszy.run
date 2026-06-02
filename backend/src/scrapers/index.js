@@ -23,6 +23,7 @@ import { scrape as scrapeMaratonczykpomiarczasu } from './sources/maratonczykpom
 import { scrape as scrapeTiming4u } from './sources/timing4u.js'
 import { scrape as scrapeZapisyonline } from './sources/zapisyonline.js'
 import { scrape as scrapeFoxter } from './sources/foxter.js'
+import { scrape as scrapeHerkules } from './sources/herkules.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
@@ -522,6 +523,24 @@ const sources = [
       price_to: raw.price_to ?? null,
       lat: raw.lat ?? null,
       lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'herkules',
+    scrape: scrapeHerkules,
+    table: 'scraper_herkules',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
       source_id: raw.source_id,
       source_url: raw.source_url || null,
     }),

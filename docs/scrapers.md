@@ -1081,6 +1081,7 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | timing4u | `scraper_timing4u` | `source_id` |
 | zapisyonline | `scraper_zapisyonline` | `source_id` |
 | foxter | `scraper_foxter` | `source_id` (slug) |
+| herkules | `scraper_herkules` | `source_id` (Tribe event id) |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 

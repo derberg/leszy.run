@@ -110,15 +110,15 @@ EVENT:
 
 {context_block}
 
-RESPOND WITH THIS EXACT JSON STRUCTURE (use null for any field not found in content — NEVER copy the placeholder strings below):
+RESPOND WITH THIS EXACT JSON STRUCTURE (use null for any field not found in content — NEVER copy the placeholder/example values below; they show the SHAPE only, not real data):
 {{
-  "distances": ["5 km", "10 km"],
+  "distances": ["<KM>", "<KM>"],
   "event_types": ["uliczny"],
   "registration_deadline": "YYYY-MM-DD",
-  "price_from": 50,
-  "price_to": 90,
-  "location": "Warszawa",
-  "voivodeship": "Mazowieckie",
+  "price_from": null,
+  "price_to": null,
+  "location": null,
+  "voivodeship": null,
   "is_kids": false,
   "website": "<REPLACE-WITH-REAL-OR-NULL>",
   "website_is_official": true,
