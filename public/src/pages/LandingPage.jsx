@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import EventRow from '../components/EventRow.jsx'
 import LandingMap from '../components/LandingMap.jsx'
+import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
 import NotFound from './NotFound.jsx'
 import useSeo from '../hooks/useSeo.js'
 import {
@@ -288,6 +289,8 @@ export default function LandingPage() {
             </div>
           </nav>
         )}
+
+        <LeszyrunBanner className="mb-6" />
 
         <div className="mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
           <span className="font-mono text-xs text-apex-muted">

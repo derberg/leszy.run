@@ -1084,6 +1084,8 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | herkules | `scraper_herkules` | `source_id` (Tribe event id) |
 | zapisyvaldano | `scraper_zapisyvaldano` | `source_id` (event id) |
 | pomiaryczasu | `scraper_pomiaryczasu` | `source_id` (event slug, or `grp_<slug>` for umbrella groups) |
+| egepard | `scraper_egepard` | `source_id` (contest id) |
+| pifsport | `scraper_pifsport` | `source_id` (WordPress post id) |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 

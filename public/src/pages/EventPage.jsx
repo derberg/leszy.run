@@ -8,6 +8,7 @@ import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import EventInfoGrid from '../components/EventInfoGrid.jsx'
 import NearbyEvents from '../components/NearbyEvents.jsx'
+import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
 import ReportEventModal from '../components/ReportEventModal.jsx'
 
 const EventMap = lazy(() => import('../components/EventMap.jsx'))
@@ -314,6 +315,9 @@ export default function EventPage() {
               <li className="text-apex-text-bright truncate max-w-[300px]">{event.name}</li>
             </ol>
           </nav>
+
+          {/* Promoted leszy.run events */}
+          <LeszyrunBanner className="mb-8" />
 
           {/* Date badge + countdown */}
           <div className="flex items-center gap-3 mb-4">
