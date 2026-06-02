@@ -157,9 +157,28 @@ def _parse_distances(dist_str: str) -> list:
     return [d.strip() for d in dist_str.split(",") if d.strip()]
 
 
+def _is_distance_like(s: str) -> bool:
+    """True if a string looks like a real distance/race-length value, not an LLM
+    placeholder ('unknown', 'brak', 'n/a') or other junk. Accepts a number with a
+    unit (km/m/h/mila) or a named race distance."""
+    if not s or not isinstance(s, str):
+        return False
+    t = s.strip().lower()
+    if _re_module.search(r"\d\s*(?:km|m\b|h\b|mil)", t):
+        return True
+    if _re_module.search(r"półmaraton|polmaraton|maraton|ultra|ćwierćmaraton|cwiercmaraton", t):
+        return True
+    return False
+
+
 def _merge_distances(event, llm, updates):
     llm_distances = llm.get("distances")
     if not llm_distances or not isinstance(llm_distances, list) or len(llm_distances) == 0:
+        return
+    # Drop LLM placeholders / junk ("unknown", "brak", …) so they never land as
+    # a distance value (Bieg Legionów → distances:"unknown").
+    llm_distances = [d for d in llm_distances if _is_distance_like(d)]
+    if not llm_distances:
         return
 
     current = _parse_distances(event.get("distances", ""))

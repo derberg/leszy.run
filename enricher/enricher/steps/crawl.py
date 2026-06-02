@@ -66,7 +66,12 @@ async def _crawl_url(url: str, max_chars: int) -> Optional[CrawlResult]:
     try:
         from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 
-        config = CrawlerRunConfig(wait_until="networkidle")
+        # wait_until="domcontentloaded" (not "networkidle"): many WordPress event
+        # sites keep connections open (embedded maps, trackers, oEmbed) and never
+        # reach network-idle, so "networkidle" times out at 60s and returns nothing
+        # even though the HTML is fully delivered in ~1.5s. domcontentloaded fires
+        # once the document is parsed — enough for our text/link extraction.
+        config = CrawlerRunConfig(wait_until="domcontentloaded", page_timeout=45000)
         async with AsyncWebCrawler() as crawler:
             result = await crawler.arun(url=url, config=config)
 

@@ -13,6 +13,7 @@ Addresses two recurring failure modes:
 This step inspects the already-crawled page's links and returns up to N follow-up URLs
 worth crawling. PDF links are also picked up (they'll be handled by the PDF step).
 """
+import re
 from urllib.parse import urljoin, urlparse
 
 
@@ -133,6 +134,144 @@ def _is_junk_external(url: str) -> bool:
         return True
 
 
+# Path prefixes under which the next segment is an event identifier (slug or id).
+# Used to detect internal links that point at a DIFFERENT event than the one being
+# enriched — common on timing platforms that list sibling events in page chrome
+# (e.g. pomiaryczasu.pl's "Najbliższe zawody" widget links every upcoming race).
+EVENT_PREFIXES = {
+    "registration", "event", "events", "wydarzenie", "wydarzenia",
+    "zawody", "rejestracja", "zapisy", "bieg",
+}
+
+
+def _event_slug(url: str):
+    """Return the event-identifying path segment (the one right after a known
+    event prefix), lowercased, or None if the URL has no recognizable one."""
+    try:
+        parts = [p for p in urlparse(url).path.strip("/").split("/") if p]
+    except Exception:
+        return None
+    for i, p in enumerate(parts):
+        if p.lower() in EVENT_PREFIXES and i + 1 < len(parts):
+            return parts[i + 1].lower()
+    return None
+
+
+def _is_foreign_event(base_url: str, candidate_url: str) -> bool:
+    """True when candidate is the same host as base but identifies a DIFFERENT
+    event (different slug under an event prefix). Prevents following sibling-event
+    links — the cause of cross-event contamination (IX Bieg Wolności pulling
+    Pętla Beskidzka's 54/108 km). Fires only when BOTH URLs expose an event slug,
+    so stubs/landing pages with no slug are unaffected."""
+    try:
+        if (urlparse(base_url).hostname or "").lower() != (urlparse(candidate_url).hostname or "").lower():
+            return False
+    except Exception:
+        return False
+    bslug = _event_slug(base_url)
+    cslug = _event_slug(candidate_url)
+    return bool(bslug and cslug and bslug != cslug)
+
+
+# Generic race-name words that don't identify WHICH event. Stripped before
+# matching a page against an event, so the test keys off distinctive tokens
+# (place / proper names) rather than "bieg"/"maraton" that every page shares.
+GENERIC_NAME_WORDS = {
+    "bieg", "biegu", "biegi", "biegow", "biegowy", "biegowa", "biegowe",
+    "marsz", "maraton", "polmaraton", "półmaraton", "pulmaraton",
+    "cwiercmaraton", "ćwierćmaraton", "cross", "crossowy", "crossowa",
+    "nordic", "walking", "ultra", "run", "running", "bieganie",
+    "charytatywny", "charytatywna", "memorial", "memoriał", "edycja",
+    "puchar", "grand", "prix", "oraz", "kobiet", "mezczyzn", "mężczyzn",
+    "dzieci", "miasta", "gmina", "gminy", "nocny", "nocna", "uliczny",
+    "gorski", "górski", "lesny", "leśny", "zawody",
+}
+
+_MD_LINK_RE = re.compile(r"\]\((https?://[^)\s]+)\)")
+_TOKEN_RE = re.compile(r"[a-z0-9ąćęłńóśźż]+", re.IGNORECASE)
+
+
+def _distinctive_tokens(name: str) -> list[str]:
+    """Tokens from an event name that actually identify it — drop short tokens,
+    generic race words, and edition numerals (roman or arabic)."""
+    out = []
+    for t in _TOKEN_RE.findall((name or "").lower()):
+        if len(t) < 4:
+            continue
+        if t in GENERIC_NAME_WORDS:
+            continue
+        if t.isdigit():
+            continue
+        if re.fullmatch(r"[ivxlc]+", t):  # roman edition (vii, xxviii, …)
+            continue
+        out.append(t)
+    return out
+
+
+def page_matches_event(event: dict, text: str) -> bool:
+    """True if a crawled page plausibly describes THIS event — used to gate
+    search-discovered pages so a wrong-event SearXNG hit (e.g. Ochabski →
+    rundazubra.pl) is not extracted from. Keys off distinctive name tokens: at
+    least half (and ≥1) must appear in the page text. If the event name has no
+    distinctive tokens we can't judge, so we don't block (return True)."""
+    if not text:
+        return False
+    toks = _distinctive_tokens(event.get("name", ""))
+    if not toks:
+        return True
+    tl = text.lower()
+    hits = sum(1 for t in toks if t in tl)
+    return hits >= 1 and hits >= (len(toks) + 1) // 2
+
+
+def strip_foreign_event_lines(text: str, self_urls: list) -> str:
+    """Remove text lines that link to a DIFFERENT event on the same host — the
+    "upcoming events" / sibling-race chrome that timing platforms embed on every
+    page (pomiaryczasu's "Najbliższe zawody"). Without this, the LLM reads other
+    races' distances (IX Bieg Wolności → Pętla Beskidzka's 54/108 km) straight
+    from the page body, where link-following filters can't reach it.
+
+    A line is dropped when it contains a markdown link to a same-host page whose
+    event slug differs from every self slug. Lines about the event itself, and
+    pages on hosts where we have no self slug (external organizer sites), are
+    untouched."""
+    if not text:
+        return text
+    # host (no www.) → set of this event's own slugs
+    self_slugs: dict[str, set] = {}
+    for u in self_urls or []:
+        if not u:
+            continue
+        try:
+            host = (urlparse(u).hostname or "").lower().removeprefix("www.")
+        except Exception:
+            continue
+        slug = _event_slug(u)
+        if host and slug:
+            self_slugs.setdefault(host, set()).add(slug)
+    if not self_slugs:
+        return text
+
+    kept = []
+    for line in text.split("\n"):
+        drop = False
+        for link in _MD_LINK_RE.findall(line):
+            try:
+                host = (urlparse(link).hostname or "").lower().removeprefix("www.")
+            except Exception:
+                continue
+            slug = _event_slug(link)
+            if not slug:
+                continue
+            owned = self_slugs.get(host)
+            if owned is not None and slug not in owned:
+                drop = True
+                break
+        if not drop:
+            kept.append(line)
+    return "\n".join(kept)
+
+
 def pick_followup_urls(
     base_url: str,
     internal_links: list,
@@ -171,6 +310,10 @@ def pick_followup_urls(
         except Exception:
             continue
         if absolute == base_url:
+            continue
+        # Skip links that point at a different event on the same host (sibling
+        # races listed in page chrome) — including their regulamin PDFs.
+        if _is_foreign_event(base_url, absolute):
             continue
 
         lower = absolute.lower()

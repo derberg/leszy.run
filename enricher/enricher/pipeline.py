@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import urlparse
 
 from supabase import create_client
 
@@ -12,7 +13,9 @@ from enricher.steps.crawl import crawl_pages, crawl_url_list
 from enricher.steps.pdf import download_pdf, extract_pdf_text, cleanup_pdf
 from enricher.steps.llm import call_ollama, build_prompt
 from enricher.steps.merge import build_updates
-from enricher.steps.navigate import pick_followup_urls, is_stub_host
+from enricher.steps.navigate import (
+    pick_followup_urls, is_stub_host, page_matches_event, strip_foreign_event_lines,
+)
 from enricher.steps.regex_prepass import extract_hints
 
 
@@ -179,6 +182,70 @@ async def process_event(event: dict, config: Config) -> dict:
                     if not event.get("regulamin_url"):
                         search_candidates.setdefault("regulamin_url", pdf_url)
                     break
+
+    # Step 3c: Clean crawled content before it reaches the regex pre-pass and the
+    # LLM (both read crawled_content). Two guards:
+    #   1. Relevance gate — a page found via SearXNG that doesn't actually
+    #      describe this event (wrong-event hit, e.g. Ochabski → rundazubra.pl)
+    #      is dropped, and its URL is not adopted as a field value.
+    #   2. Foreign-event line stripping — remove "upcoming events" / sibling-race
+    #      chrome (pomiaryczasu's "Najbliższe zawody") so other races' distances
+    #      don't leak into extraction (IX Bieg Wolności → Pętla's 54/108 km).
+    search_urls = {u for u in search_candidates.values() if u}
+    self_urls = [
+        working_urls.get("registration_url"), event.get("registration_url"),
+        event.get("source_url"), working_urls.get("website"), event.get("website"),
+    ]
+
+    # Reject a bare-domain homepage adopted as the website — it's a listing root,
+    # not the event's own site (Bieg Legionów → pomiaryczasu.pl).
+    ws = search_candidates.get("website")
+    if ws:
+        try:
+            if (urlparse(ws).path or "").strip("/") == "":
+                search_candidates.pop("website", None)
+                working_urls.pop("website", None)
+                crawled_content.pop("website", None)
+        except Exception:
+            pass
+
+    def _host(u):
+        try:
+            return (urlparse(u).hostname or "").lower().removeprefix("www.")
+        except Exception:
+            return ""
+
+    dropped_irrelevant = []
+    dropped_hosts = set()
+    for key in list(crawled_content.keys()):
+        url = key.removeprefix("followup:") if key.startswith("followup:") else working_urls.get(key)
+        if url and url in search_urls and not page_matches_event(event, crawled_content[key]):
+            dropped_irrelevant.append(url)
+            crawled_content.pop(key, None)
+            if _host(url):
+                dropped_hosts.add(_host(url))
+            for f, cu in list(search_candidates.items()):
+                if cu == url:
+                    search_candidates.pop(f, None)
+                    working_urls.pop(f, None)
+
+    # A rejected search page's own subpages were crawled as followups (e.g.
+    # rundazubra.pl/trasa carries the wrong event's 21 km). Drop everything from a
+    # rejected host so those distances don't leak in through the followups.
+    if dropped_hosts:
+        for key in list(crawled_content.keys()):
+            url = key.removeprefix("followup:") if key.startswith("followup:") else working_urls.get(key)
+            if url and _host(url) in dropped_hosts:
+                crawled_content.pop(key, None)
+                if url not in dropped_irrelevant:
+                    dropped_irrelevant.append(url)
+
+    for key in list(crawled_content.keys()):
+        crawled_content[key] = strip_foreign_event_lines(crawled_content[key], self_urls)
+
+    result["steps"]["clean"] = {
+        "dropped_irrelevant_search_pages": dropped_irrelevant,
+    }
 
     # Step 4.5: Regex pre-pass — extract obvious prices/deadlines before LLM
     prepass_texts = list(crawled_content.values())

@@ -137,12 +137,14 @@ function detectEventTypes(name) {
   const blob = (name || '').toLowerCase()
   const tags = new Set()
   if (/g[oó]rsk[aiey]|leśn[aey]|\btrail\b|cross(?:owy|owa|owe)?\b/i.test(blob)) tags.add('trail')
-  if (/nordic\s*walking|\bnw\b/i.test(blob)) tags.add('nordic walking')
+  if (/nordic\s*walking|\bnw\b|marsz\s+z\s+kijami/i.test(blob)) tags.add('nordic walking')
   if (/\bultra\b|\b\d{1,3}\s*h\s*run\b/i.test(blob)) tags.add('ultra')
   if (/\bocr\b/i.test(blob)) tags.add('ocr')
   return [...tags]
 }
 ```
+
+**NW is often written in Polish, not English.** Timing/registration sites label Nordic Walking as **"marsz z kijami"** (march with poles) — sometimes "chód z kijami" / "marsz nordic". The `nordic walking|nw` keywords alone miss these. zapisyvaldano's `Mistrzowski Marsz z kijami` sub-race went untagged until the regex was extended (2026-06-02). Add `marsz\s+z\s+kijami` to the NW branch.
 
 Pass BOTH umbrella name AND the raw distances string to catch type signals in distances. Some sources write `nw 6km` in the distances field — `\bnw\b` in the name alone won't see it:
 
@@ -247,6 +249,8 @@ if (!SELF_ENRICHING_SOURCES.has(source.name)) {
 
 ## 5e. Registration hosts: prices live one click deeper
 
+**First check whether prices are already on the detail page** — not every registration host hides them one click deeper. zapisyvaldano (2026-06-02) shows a full structured "Cennik" block right on `/event/<id>` (one price per competition per date tier), and its `/register` button just 302s to a login — so the extra fetch is both unnecessary and useless. zapisyonline (below) is the harder case where you do have to follow each "Zapisz się". Look at one detail page before deciding which pattern you need.
+
 On a registration *host* (the source hosts the actual sign-up, not just a listing), the detail page often shows distances + an organizer link but NO prices. Prices and the per-tier deadline live on the per-competition registration page behind the **"Zapisz się"** button. Pattern (zapisyonline, 2026-06-01):
 
 ```
@@ -264,6 +268,8 @@ Follow every competition's button, then aggregate across ALL packets of ALL comp
 Rate-limit the extra fetches like any detail fetch (`setTimeout(r, 1100)`). This multiplies requests per event by the number of sub-races, so only do it for NEW events (timekeeper `knownIds` pattern).
 
 **Donation-tier trap — verify the prices are entry fees, not "cegiełki".** Charity events list donation packets ("Pakiet 35/50/100/.../1000 zł") on the same registration page, identical markup to real entry fees. Blind min/max turns those into a bogus `price_to` (saw zapisyonline `Wiosna na sportowo` → 0–500 on a 30 m run). Before trusting a wide price spread, inspect the packet names (`.pname`): tiered "Pakiet N zł" with no distance = donations → leave price null. There is no clean automated signal — spot-check events whose price_to dwarfs the distance.
+
+**Prose-fee contamination — scope to the STRUCTURED price block, don't grep every "zł" on the page.** Detail pages repeat fees in the description prose: the regulamin excerpt ("50,00 zł – I próg", "100,00 zł – płatne w dniu startu") and, worse, *handling fees* that aren't entry fees at all ("opłata manipulacyjna za przepisanie pakietu: 20,00 zł"). A page-wide `\d+\s*zł` match pulls the 20 zł transfer fee in as `price_from` and the day-of 100 zł as `price_to`. Target the structured pricing element only — on zapisyvaldano the Cennik price spans carry a distinctive class combo (`text-rose-600` + `font-semibold`) that the prose amounts don't, so filtering on class isolates the real tiers (2026-06-02). Sanity-check: structured tiers are usually round integers ("50 zł"); prose fees often carry decimals ("50,00 zł") and surrounding words.
 
 ## 5f. `website` — trust the source's DECLARED official link
 
@@ -517,6 +523,8 @@ git add public/public/kalendarz && git commit -m "data: manifest refresh after <
 | Donation tiers scraped as entry fees | `price_to` wildly high vs distance (e.g. 0–500 on a 30 m run) | Charity "Pakiet N zł" packets aren't entry fees. Inspect `.pname`/packet names; leave price null if tiered donations with no distance (section 5e) |
 | Subdivision style tag breaks merge | New registration-host row won't merge with biegiwpolsce/maratonypolskie even though name+date+city match; ends up duplicated | Umbrella name already carries a `style:` tag (e.g. `Cross …` → trail) and you appended a second style (nw) from a sub-race → `{trail,nw}` vs `{trail}` count mismatch. Only add sub-race style when the umbrella has none (section 5b exception) |
 | Facebook stripped from declared website | `website` null for events whose only official presence is a FB page | Don't run the social filter on a source's DECLARED official-site field — only on the fallback heuristic (section 5f) |
+| Prose/handling fees scraped as prices | `price_from`=20 (transfer fee) or `price_to`=100 (day-of fee) from text the page repeats outside the price table | Don't grep every `\d+\s*zł` on the page — scope to the structured price element (e.g. class combo `text-rose-600`+`font-semibold` on zapisyvaldano). Structured tiers are round ints; prose fees carry decimals + words (section 5e) |
+| NW labeled in Polish goes untagged | `Marsz z kijami` sub-race gets no `nordic walking` tag because `detectEventTypes` only matches `nordic walking\|nw` | Add `marsz\s+z\s+kijami` to the NW regex branch (section 5b) |
 
 ## Don't
 
