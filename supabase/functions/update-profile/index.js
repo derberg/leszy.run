@@ -10,6 +10,13 @@ function json(body, status, req) {
   })
 }
 
+const VOIVODESHIPS = new Set([
+  'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
+  'Małopolskie', 'Mazowieckie', 'Opolskie', 'Podkarpackie', 'Podlaskie',
+  'Pomorskie', 'Śląskie', 'Świętokrzyskie', 'Warmińsko-Mazurskie',
+  'Wielkopolskie', 'Zachodniopomorskie',
+])
+
 Deno.serve(async (req) => {
   const optRes = handleOptions(req)
   if (optRes) return optRes
@@ -25,7 +32,10 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { username, display_name, club, club_id, avatar_url, bio, privacy_settings } = body
+    const {
+      username, display_name, club, club_id, avatar_url, bio, privacy_settings,
+      gender, phone, date_of_birth, city, voivodeship,
+    } = body
 
     if (username !== undefined) {
       if (!/^[a-z0-9_]{3,30}$/.test(username)) {
@@ -40,6 +50,32 @@ Deno.serve(async (req) => {
       if (taken) return json({ error: 'Username already taken' }, 409, req)
     }
 
+    if (gender !== undefined && gender !== null && !['M', 'F', 'X'].includes(gender)) {
+      return json({ error: 'Płeć musi być jedną z: M, F, X' }, 400, req)
+    }
+    if (phone !== undefined && phone !== null && phone !== '') {
+      if (phone.length > 20 || !/^[\d\s+\-()]{6,20}$/.test(phone)) {
+        return json({ error: 'Nieprawidłowy numer telefonu' }, 400, req)
+      }
+    }
+    if (date_of_birth !== undefined && date_of_birth !== null && date_of_birth !== '') {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth)) {
+        return json({ error: 'Data urodzenia musi być w formacie YYYY-MM-DD' }, 400, req)
+      }
+      const d = new Date(date_of_birth)
+      const now = new Date()
+      const minYear = 1900
+      if (Number.isNaN(d.getTime()) || d > now || d.getFullYear() < minYear) {
+        return json({ error: 'Data urodzenia poza dozwolonym zakresem' }, 400, req)
+      }
+    }
+    if (city !== undefined && city !== null && city.length > 100) {
+      return json({ error: 'Nazwa miejscowości za długa (max 100 znaków)' }, 400, req)
+    }
+    if (voivodeship !== undefined && voivodeship !== null && voivodeship !== '' && !VOIVODESHIPS.has(voivodeship)) {
+      return json({ error: 'Nieprawidłowe województwo' }, 400, req)
+    }
+
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
       .select('id, club_id')
@@ -52,6 +88,11 @@ Deno.serve(async (req) => {
     if (avatar_url !== undefined)        updates.avatar_url = avatar_url
     if (bio !== undefined)               updates.bio = bio
     if (privacy_settings !== undefined)  updates.privacy_settings = privacy_settings
+    if (gender !== undefined)            updates.gender = gender || null
+    if (phone !== undefined)             updates.phone = phone || null
+    if (date_of_birth !== undefined)     updates.date_of_birth = date_of_birth || null
+    if (city !== undefined)              updates.city = city || null
+    if (voivodeship !== undefined)       updates.voivodeship = voivodeship || null
 
     // Club: a picked club_id takes precedence over free-text club.
     if (club_id !== undefined && club_id !== null && club_id !== '') {

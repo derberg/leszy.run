@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('id, email, username, display_name, club_id, clubs(name)')
+    .select('id, email, username, display_name, club_id, clubs(name), gender, phone, date_of_birth, city, voivodeship')
     .eq('id', session.userId)
     .single()
 
