@@ -162,8 +162,9 @@ export default function Navbar() {
         </Link>
       </div>
 
-      {/* Mobile auth chip + hamburger */}
+      {/* Mobile auth chip + theme toggle + hamburger */}
       <div className="md:hidden flex items-center gap-3">
+        <ThemeToggle />
         {user ? (
           <Link
             to="/profil"
@@ -238,16 +239,13 @@ export default function Navbar() {
               Wyloguj się
             </button>
           )}
-          <div className="flex items-center justify-between mt-2">
-            <ThemeToggle />
-            <Link
-              to="/#kontakt"
-              onClick={(e) => { handleHashClick(e, 'kontakt'); setMenuOpen(false) }}
-              className="font-display font-bold text-sm tracking-widest uppercase px-5 py-3 border-2 border-apex-yellow text-apex-yellow no-underline text-center"
-            >
-              Organizujesz bieg?
-            </Link>
-          </div>
+          <Link
+            to="/#kontakt"
+            onClick={(e) => { handleHashClick(e, 'kontakt'); setMenuOpen(false) }}
+            className="font-display font-bold text-sm tracking-widest uppercase mt-2 px-5 py-3 border-2 border-apex-yellow text-apex-yellow no-underline text-center"
+          >
+            Organizujesz bieg?
+          </Link>
         </div>
       )}
     </nav>
