@@ -41,6 +41,8 @@ test.describe('Community flows with auth', () => {
     if (!visible) { test.skip(); return }
     await reportBtn.click()
     await expect(page.getByText(/wymagane logowanie/i)).toBeVisible()
-    await expect(page.getByRole('link', { name: /zaloguj się/i })).toBeVisible()
+    // scope to the prompt container — the navbar also renders "Zaloguj się" links for anon users
+    const prompt = page.getByText(/wymagane logowanie/i).locator('..')
+    await expect(prompt.getByRole('link', { name: /zaloguj się/i })).toBeVisible()
   })
 })
