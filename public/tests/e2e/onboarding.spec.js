@@ -41,4 +41,25 @@ test.describe('Onboarding', () => {
     await page.goto('/onboarding')
     await page.waitForURL('/profil')
   })
+
+  test('live check shows "zajęta" for a taken username', async ({ page, context }) => {
+    const takenName = `taken_${Date.now()}`.slice(0, 28).toLowerCase()
+    const other = await createTestUser('taken-owner')
+    await supabaseAdmin.from('profiles').update({ username: takenName }).eq('id', other.user.id)
+    try {
+      await testUser.injectSession(context)
+      await page.goto('/onboarding')
+      await page.getByLabel(/nazwa użytkownika/i).fill(takenName)
+      await expect(page.getByText(/zajęta/i)).toBeVisible({ timeout: 5000 })
+    } finally {
+      await cleanupUser(other.user.id)
+    }
+  })
+
+  test('live check shows "dostępna" for a free username', async ({ page, context }) => {
+    await testUser.injectSession(context)
+    await page.goto('/onboarding')
+    await page.getByLabel(/nazwa użytkownika/i).fill(`free_${Date.now()}`.slice(0, 28).toLowerCase())
+    await expect(page.getByText(/dostępna/i)).toBeVisible({ timeout: 5000 })
+  })
 })

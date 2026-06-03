@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AuthGuard from '../components/AuthGuard.jsx'
 import Navbar from '../components/Navbar.jsx'
 import useAuth from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
 import useSeo from '../hooks/useSeo.js'
+import { supabase } from '../lib/supabase.js'
 
 function OnboardingForm() {
   useSeo({ title: 'Ustaw profil — Leszy.run', path: '/onboarding', noindex: true })
@@ -17,10 +18,29 @@ function OnboardingForm() {
   const [club, setClub] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [usernameStatus, setUsernameStatus] = useState('idle') // idle | checking | available | taken
+  const usernameRef = useRef(username)
+  usernameRef.current = username
 
   useEffect(() => {
     if (user?.username) navigate('/profil', { replace: true })
   }, [user, navigate])
+
+  useEffect(() => {
+    if (!/^[a-z0-9_]{3,30}$/.test(username)) {
+      setUsernameStatus('idle')
+      return
+    }
+    setUsernameStatus('checking')
+    const checked = username
+    const t = setTimeout(async () => {
+      const { data, error } = await supabase.rpc('is_username_available', { u: checked })
+      if (usernameRef.current !== checked) return // stale response — input changed meanwhile
+      if (error) { setUsernameStatus('idle'); return }
+      setUsernameStatus(data ? 'available' : 'taken')
+    }, 400)
+    return () => clearTimeout(t)
+  }, [username])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -38,7 +58,7 @@ function OnboardingForm() {
       })
       navigate('/profil', { replace: true })
     } catch (err) {
-      setError(err.message)
+      setError(/already taken/i.test(err.message) ? 'Ta nazwa jest już zajęta.' : err.message)
     } finally {
       setSubmitting(false)
     }
@@ -75,7 +95,18 @@ function OnboardingForm() {
                   className="flex-1 bg-transparent text-apex-text-bright font-mono text-sm font-medium py-2.5 px-2 outline-none"
                 />
               </div>
-              <p className="font-sans text-xs text-apex-muted mt-1">3–30 znaków: litery, cyfry, podkreślenie</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="font-sans text-xs text-apex-muted">3–30 znaków: litery, cyfry, podkreślenie</p>
+                {usernameStatus === 'checking' && (
+                  <span className="font-mono text-xs text-apex-muted animate-pulse">sprawdzam…</span>
+                )}
+                {usernameStatus === 'available' && (
+                  <span className="font-mono text-xs text-apex-yellow">✓ dostępna</span>
+                )}
+                {usernameStatus === 'taken' && (
+                  <span className="font-mono text-xs text-apex-red">✗ zajęta</span>
+                )}
+              </div>
             </div>
             <div>
               <label htmlFor="displayName" className={labelClass}>Imię i nazwisko (opcjonalne)</label>
