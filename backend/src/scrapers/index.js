@@ -28,6 +28,7 @@ import { scrape as scrapeZapisyvaldano } from './sources/zapisyvaldano.js'
 import { scrape as scrapePomiaryczasu } from './sources/pomiaryczasu.js'
 import { scrape as scrapePifsport } from './sources/pifsport.js'
 import { scrape as scrapeEgepard } from './sources/egepard.js'
+import { scrape as scrapeTimesport } from './sources/timesport.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
@@ -626,6 +627,30 @@ const sources = [
       name: raw.name,
       date: raw.date,
       location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'timesport',
+    scrape: scrapeTimesport,
+    table: 'scraper_timesport',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      voivodeship: raw.voivodeship || null,
       distances: raw.distances || null,
       registration_url: raw.registration_url || null,
       registration_deadline: raw.registration_deadline || null,

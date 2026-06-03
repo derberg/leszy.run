@@ -33,6 +33,7 @@ const SOURCE_PRIORITY = {
   pomiaryczasu: 3,
   pifsport: 3,
   egepard: 3,
+  timesport: 3,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
@@ -174,8 +175,11 @@ function distinguishingTags(event) {
   // sub-category detection on mixed events where the umbrella name has no
   // kids keywords — using it here would create false conflicts between
   // scrapers that see the kids sub-races and scrapers that don't.
-  if (/dzieci|świetlik|małych\s+żeglar|małych\s+biega|junior|młodzież|biegi\s+dla\s+dzieci/i.test(n)) {
-    tags.add('audience:kids')
+  // Name-derived kids signal is STRICT (own `kids:` category): a kids-NAMED event
+  // ("Kamień Extreme Kids 2026") must never fold into its non-kids-named sibling
+  // ("21. Kamień Extreme"). Reliable because both rows always have a name.
+  if (/dzieci|świetlik|małych\s+żeglar|małych\s+biega|junior|młodzież|biegi\s+dla\s+dzieci|\bkids?\b/i.test(n)) {
+    tags.add('kids:named')
   }
   // CE rows fold is_kids into event_type as 'dzieci' — pick that up so the
   // guard applies on both sides of the publish-time fuzzy compare. Note that
@@ -236,7 +240,16 @@ function hasDistinguishingConflict(tagsA, tagsB) {
     // One side has no info for this category (e.g. unenriched scraper row with
     // event_types=null vs LLM-enriched row with trail/nw). Absence ≠ denial —
     // skip rather than flagging a spurious conflict.
-    if (inA.length === 0 || inB.length === 0) continue
+    //
+    // Exception: the `kids:` category is name-derived (a kids-NAMED event vs a
+    // non-kids-named one) and reliable on both sides, so one-sided presence IS a
+    // conflict — "Kamień Extreme Kids 2026" must not fold into "21. Kamień
+    // Extreme". (Enrichment-derived `audience:kids` stays tolerant: a same-event
+    // row tagged kids by the LLM should still merge with one that wasn't.)
+    if (inA.length === 0 || inB.length === 0) {
+      if (cat === 'kids') return true
+      continue
+    }
     if (inA.length !== inB.length) return true
     if (!inA.every(t => inB.includes(t))) return true
   }
