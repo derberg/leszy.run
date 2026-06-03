@@ -182,7 +182,7 @@ export default function DodajWydarzenie() {
               Wymagane logowanie
             </h1>
             <p className="text-apex-muted text-sm mb-6 max-w-md mx-auto">
-              Aby dodać nowe wydarzenie do kalendarza, musisz się zalogować. Dzięki temu możemy weryfikować zgłoszenia i przypisać Ci wkład.
+              Aby dodać nowe wydarzenie do kalendarza, musisz się zalogować. Dzięki temu możemy weryfikować zgłoszenia i przypisać je do Twojego profilu.
             </p>
             <Link
               to="/login"

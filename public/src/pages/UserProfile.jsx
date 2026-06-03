@@ -134,7 +134,7 @@ export default function UserProfile() {
 
             <div className="space-y-1 mb-6">
               <div className="flex justify-between text-xs">
-                <span className="text-apex-muted">wkłady</span>
+                <span className="text-apex-muted">zgłoszenia</span>
                 <span className="font-mono text-apex-yellow">{allContribs.length}</span>
               </div>
               <div className="flex justify-between text-xs">
@@ -166,9 +166,9 @@ export default function UserProfile() {
           </aside>
 
           <div className="flex-1">
-            <div className={sectionTitle}>Wkłady</div>
+            <div className={sectionTitle}>Zaakceptowane zgłoszenia</div>
             {allContribs.length === 0 ? (
-              <p className="font-sans text-sm text-apex-muted py-8">Brak zaakceptowanych wkładów.</p>
+              <p className="font-sans text-sm text-apex-muted py-8">Brak zaakceptowanych zgłoszeń.</p>
             ) : (
               <div>
                 {allContribs.map((c, i) => (

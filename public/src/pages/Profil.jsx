@@ -140,7 +140,7 @@ function ProfilContent() {
             </div>
 
             <div className="space-y-1 mb-6">
-              <div className="flex justify-between text-xs"><span className="text-apex-muted">wkłady</span><span className="font-mono text-apex-yellow">{allContribs.length}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-apex-muted">zgłoszenia</span><span className="font-mono text-apex-yellow">{allContribs.length}</span></div>
               <div className="flex justify-between text-xs"><span className="text-apex-muted">zaakceptowane</span><span className="font-mono text-apex-yellow">{acceptedCount}</span></div>
               <div className="flex justify-between text-xs"><span className="text-apex-muted">odznaki</span><span className="font-mono text-apex-yellow">{badges.length}</span></div>
             </div>
@@ -180,7 +180,10 @@ function ProfilContent() {
 
           {/* Main */}
           <div className="flex-1">
-            <div className={sectionTitle}>Historia wkładów</div>
+            <div className={sectionTitle}>Moje zgłoszenia</div>
+            <p className="font-sans text-xs text-apex-muted -mt-2 mb-4">
+              Twoje raporty o poprawkach do wydarzeń oraz propozycje nowych wydarzeń wysłane do kalendarza.
+            </p>
             <div className="flex flex-wrap gap-2 mb-4">
               {[
                 { key: 'all', label: 'Wszystkie' },
@@ -196,7 +199,7 @@ function ProfilContent() {
             </div>
 
             {filtered.length === 0 ? (
-              <p className="font-sans text-sm text-apex-muted py-8">Brak wkładów do wyświetlenia.</p>
+              <p className="font-sans text-sm text-apex-muted py-8">Brak zgłoszeń do wyświetlenia.</p>
             ) : (
               <div className="space-y-0">
                 {filtered.map((c, i) => (
