@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
   ] = await Promise.all([
     supabaseAdmin
       .from('profiles')
-      .select('id, email, username, display_name, club, privacy_settings, created_at')
+      .select('id, email, username, display_name, club_id, clubs(name), privacy_settings, created_at')
       .eq('id', session.userId)
       .single(),
     supabaseAdmin
@@ -52,5 +52,9 @@ Deno.serve(async (req) => {
       .limit(50),
   ])
 
-  return json({ profile, badges: badges ?? [], reports: reports ?? [], submissions: submissions ?? [] }, 200, req)
+  const profileOut = profile
+    ? (() => { const p = { ...profile, club: profile.clubs?.name ?? null }; delete p.clubs; return p })()
+    : profile
+
+  return json({ profile: profileOut, badges: badges ?? [], reports: reports ?? [], submissions: submissions ?? [] }, 200, req)
 })
