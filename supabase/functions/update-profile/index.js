@@ -53,10 +53,11 @@ Deno.serve(async (req) => {
     if (bio !== undefined)               updates.bio = bio
     if (privacy_settings !== undefined)  updates.privacy_settings = privacy_settings
 
-    // Club: either a picked club_id (validate it exists) or free text (find-or-create).
+    // Club: a picked club_id takes precedence over free-text club.
     if (club_id !== undefined && club_id !== null && club_id !== '') {
-      const { data: clubRow } = await supabaseAdmin
+      const { data: clubRow, error: clubLookupErr } = await supabaseAdmin
         .from('clubs').select('id').eq('id', club_id).single()
+      if (clubLookupErr && clubLookupErr.code !== 'PGRST116') throw clubLookupErr
       if (!clubRow) return json({ error: 'Unknown club_id' }, 400, req)
       updates.club_id = club_id
     } else if (club !== undefined) {
@@ -80,7 +81,7 @@ Deno.serve(async (req) => {
       .single()
     if (error) throw error
 
-    const clubJustSet = updates.club_id && !existingProfile?.club_id
+    const clubJustSet = updates.club_id != null && !existingProfile?.club_id
     if (clubJustSet) {
       await checkAndAwardBadges(supabaseAdmin, session.userId)
     }

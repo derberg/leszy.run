@@ -46,10 +46,12 @@ describe('update-profile edge function', () => {
   it('same club typed differently resolves to the SAME club_id', async () => {
     const { user: u2, sessionToken: t2 } = await createTestSession('profile_dup')
     try {
-      const { data: first } = await callFunction('update-profile', { club: CLUB_A }, sessionToken)
-      const { data: second } = await callFunction('update-profile', { club: CLUB_A_VARIANT }, t2)
-      assert.equal(second.data.club_id, first.data.club_id)
-      assert.equal(second.data.club, CLUB_A.trim()) // first writer's display form wins
+      const first = await callFunction('update-profile', { club: CLUB_A }, sessionToken)
+      const second = await callFunction('update-profile', { club: CLUB_A_VARIANT }, t2)
+      assert.equal(first.status, 200, `first call failed: ${JSON.stringify(first.data)}`)
+      assert.equal(second.status, 200, `second call failed: ${JSON.stringify(second.data)}`)
+      assert.equal(second.data.data.club_id, first.data.data.club_id)
+      assert.equal(second.data.data.club, CLUB_A.trim()) // first writer's display form wins
     } finally {
       await cleanupUser(u2.id)
       await cleanupClub(CLUB_A_VARIANT)
@@ -57,10 +59,11 @@ describe('update-profile edge function', () => {
   })
 
   it('accepts club_id directly when it exists', async () => {
-    const { data: prof } = await callFunction('update-profile', { club: CLUB_A }, sessionToken)
-    const { status, data } = await callFunction('update-profile', { club_id: prof.data.club_id }, sessionToken)
+    const prof = await callFunction('update-profile', { club: CLUB_A }, sessionToken)
+    assert.equal(prof.status, 200, `setup call failed: ${JSON.stringify(prof.data)}`)
+    const { status, data } = await callFunction('update-profile', { club_id: prof.data.data.club_id }, sessionToken)
     assert.equal(status, 200)
-    assert.equal(data.data.club_id, prof.data.club_id)
+    assert.equal(data.data.club_id, prof.data.data.club_id)
   })
 
   it('rejects unknown club_id with 400', async () => {
