@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
   )
 
   const session = await getSession(req, supabaseAdmin)
-  if (!session) return json({ error: 'Not authenticated' }, 401, req)
+  if (!session) return json({ user: null }, 200, req)
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')
@@ -29,7 +29,5 @@ Deno.serve(async (req) => {
     .eq('id', session.userId)
     .single()
 
-  if (!profile) return json({ error: 'Profile not found' }, 404, req)
-
-  return json({ user: profile }, 200, req)
+  return json({ user: profile ?? null }, 200, req)
 })
