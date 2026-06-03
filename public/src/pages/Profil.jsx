@@ -5,6 +5,7 @@ import Footer from '../components/Footer.jsx'
 import useAuth from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
 import useSeo from '../hooks/useSeo.js'
+import ClubInput from '../components/ClubInput.jsx'
 
 const inputClass = 'flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const sectionTitle = 'font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted border-b border-apex-border pb-1 mb-3'
@@ -65,6 +66,53 @@ function EditableField({ fieldKey, value, onSave }) {
   )
 }
 
+function EditableClubField({ value, onSaveClub }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState({ name: value || '', clubId: null })
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    setSaving(true)
+    await onSaveClub(draft)
+    setSaving(false)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <ClubInput value={draft} onChange={setDraft} inputClass={inputClass} inputId="club-edit" testId="input-club" />
+        </div>
+        <button
+          data-testid="save-club"
+          onClick={save}
+          disabled={saving}
+          className="font-mono text-xs text-apex-yellow border border-apex-yellow px-2 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all"
+        >
+          OK
+        </button>
+        <button onClick={() => setEditing(false)} className="font-mono text-xs text-apex-muted hover:text-apex-text transition-colors px-2 py-1">✕</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-3 group">
+      <span className="font-sans text-sm text-apex-text">
+        {value || <span className="text-apex-muted italic">nie ustawiono</span>}
+      </span>
+      <button
+        data-testid="edit-club"
+        onClick={() => { setDraft({ name: value || '', clubId: null }); setEditing(true) }}
+        className="font-mono text-[10px] text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all border border-apex-border px-2 py-0.5"
+      >
+        edytuj
+      </button>
+    </div>
+  )
+}
+
 function StatusBadge({ status }) {
   if (status === 'accepted') {
     return <span className="px-1.5 py-0.5 text-[9px] font-mono border border-green-800 text-green-400 bg-green-950/30">OK</span>
@@ -103,6 +151,18 @@ function ProfilContent() {
       setProfile(updated.data)
     } catch (err) {
       console.error('Profile update failed:', err)
+    }
+  }
+
+  async function handleClubSave(draft) {
+    try {
+      const payload = draft.clubId
+        ? { club_id: draft.clubId }
+        : { club: draft.name.trim() }   // empty string clears
+      const updated = await callFunction('update-profile', payload)
+      setProfile(updated.data)
+    } catch (err) {
+      console.error('Club update failed:', err)
     }
   }
 
@@ -167,7 +227,7 @@ function ProfilContent() {
                 </div>
                 <div>
                   <div className="text-[9px] font-mono text-apex-muted mb-0.5">Klub</div>
-                  <EditableField fieldKey="club" value={profile?.club} onSave={handleSave} />
+                  <EditableClubField value={profile?.club} onSaveClub={handleClubSave} />
                 </div>
               </div>
             </div>
