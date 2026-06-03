@@ -10,6 +10,106 @@ import ClubInput from '../components/ClubInput.jsx'
 const inputClass = 'flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const sectionTitle = 'font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted border-b border-apex-border pb-1 mb-3'
 
+// Parse stored E.164 (+48xxxxxxxxx) into local digits.
+// Tolerates legacy values without country code.
+function parsePhone(stored) {
+  if (!stored) return ''
+  const digits = stored.replace(/\D/g, '')
+  if (digits.startsWith('48') && digits.length === 11) return digits.slice(2)
+  if (stored.startsWith('+48')) return stored.slice(3).replace(/\D/g, '')
+  return digits.length === 9 ? digits : digits
+}
+
+// Strip everything not a digit; remove leading 48 / +48 / 0048 that user might type.
+function normalizePhoneDigits(input) {
+  let s = (input || '').replace(/[\s\-()]/g, '')
+  if (s.startsWith('+48')) s = s.slice(3)
+  else if (s.startsWith('0048')) s = s.slice(4)
+  else if (s.startsWith('48') && s.length > 9) s = s.slice(2)
+  return s.replace(/\D/g, '').slice(0, 9)
+}
+
+function formatPhoneDisplay(stored) {
+  const d = parsePhone(stored)
+  if (d.length !== 9) return stored || ''
+  return `+48 ${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6, 9)}`
+}
+
+function EditablePhoneField({ value, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(parsePhone(value))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function save() {
+    const digits = normalizePhoneDigits(draft)
+    if (digits === '') {
+      setSaving(true)
+      await onSave('phone', null)
+      setSaving(false)
+      setEditing(false)
+      return
+    }
+    if (digits.length !== 9) {
+      setError('Numer musi mieć 9 cyfr (bez +48).')
+      return
+    }
+    setError(null)
+    setSaving(true)
+    await onSave('phone', `+48${digits}`)
+    setSaving(false)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-apex-surface border border-apex-border px-2 py-1.5 text-sm font-mono text-apex-muted shrink-0" title="Obecnie wspieramy tylko numery polskie">
+            +48
+          </div>
+          <input
+            data-testid="input-phone"
+            type="tel"
+            inputMode="numeric"
+            value={draft}
+            onChange={e => { setDraft(e.target.value); setError(null) }}
+            placeholder="123 456 789"
+            className={inputClass}
+            autoFocus
+          />
+          <button
+            data-testid="save-phone"
+            onClick={save}
+            disabled={saving}
+            className="font-mono text-xs text-apex-yellow border border-apex-yellow px-2 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all"
+          >
+            OK
+          </button>
+          <button onClick={() => { setEditing(false); setError(null) }} className="font-mono text-xs text-apex-muted hover:text-apex-text transition-colors px-2 py-1">✕</button>
+        </div>
+        {error && <p className="text-apex-red font-mono text-[10px] mt-1">{error}</p>}
+        <p className="text-apex-muted font-mono text-[9px] mt-1">Wspieramy tylko numery polskie. Numer wykorzystamy do powiadomień SMS o wydarzeniach.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-3 group">
+      <span className="font-sans text-sm text-apex-text">
+        {value ? formatPhoneDisplay(value) : <span className="text-apex-muted italic">nie ustawiono</span>}
+      </span>
+      <button
+        data-testid="edit-phone"
+        onClick={() => { setDraft(parsePhone(value)); setError(null); setEditing(true) }}
+        className="font-mono text-[10px] text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all border border-apex-border px-2 py-0.5"
+      >
+        edytuj
+      </button>
+    </div>
+  )
+}
+
 const VOIVODESHIP_OPTIONS = [
   'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
   'Małopolskie', 'Mazowieckie', 'Opolskie', 'Podkarpackie', 'Podlaskie',
@@ -291,7 +391,7 @@ function ProfilContent() {
                 </div>
                 <div>
                   <div className="text-[9px] font-mono text-apex-muted mb-0.5">Telefon</div>
-                  <EditableField fieldKey="phone" value={profile?.phone} onSave={handleSave} type="tel" />
+                  <EditablePhoneField value={profile?.phone} onSave={handleSave} />
                 </div>
                 <div>
                   <div className="text-[9px] font-mono text-apex-muted mb-0.5">Miejscowość</div>

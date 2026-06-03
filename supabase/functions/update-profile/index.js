@@ -53,9 +53,22 @@ Deno.serve(async (req) => {
     if (gender !== undefined && gender !== null && !['M', 'F', 'X'].includes(gender)) {
       return json({ error: 'Płeć musi być jedną z: M, F, X' }, 400, req)
     }
-    if (phone !== undefined && phone !== null && phone !== '') {
-      if (phone.length > 20 || !/^[\d\s+\-()]{6,20}$/.test(phone)) {
-        return json({ error: 'Nieprawidłowy numer telefonu' }, 400, req)
+    // Phone: store as E.164 (+48xxxxxxxxx). Accept user input that's "close enough"
+    // (may include +48 already, spaces, dashes, parens) and normalize to E.164.
+    let normalizedPhone
+    if (phone !== undefined) {
+      if (phone === null || phone === '') {
+        normalizedPhone = null
+      } else {
+        let s = String(phone).replace(/[\s\-()]/g, '')
+        if (s.startsWith('+48')) s = s.slice(3)
+        else if (s.startsWith('0048')) s = s.slice(4)
+        else if (s.startsWith('48') && s.length > 9) s = s.slice(2)
+        s = s.replace(/\D/g, '')
+        if (s.length !== 9) {
+          return json({ error: 'Numer telefonu musi mieć 9 cyfr (numer polski +48)' }, 400, req)
+        }
+        normalizedPhone = `+48${s}`
       }
     }
     if (date_of_birth !== undefined && date_of_birth !== null && date_of_birth !== '') {
@@ -89,7 +102,7 @@ Deno.serve(async (req) => {
     if (bio !== undefined)               updates.bio = bio
     if (privacy_settings !== undefined)  updates.privacy_settings = privacy_settings
     if (gender !== undefined)            updates.gender = gender || null
-    if (phone !== undefined)             updates.phone = phone || null
+    if (phone !== undefined)             updates.phone = normalizedPhone
     if (date_of_birth !== undefined)     updates.date_of_birth = date_of_birth || null
     if (city !== undefined)              updates.city = city || null
     if (voivodeship !== undefined)       updates.voivodeship = voivodeship || null
