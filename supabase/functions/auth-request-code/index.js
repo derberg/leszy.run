@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           personalizations: [{ to: [{ email: normalizedEmail }] }],
-          from: { email: Deno.env.get('SENDGRID_FROM_EMAIL'), name: 'Leszy.run' },
+          from: { email: Deno.env.get('SENDGRID_FROM_EMAIL'), name: 'Łukasz z LESZY.RUN' },
           subject: `${code} — Twój kod logowania do Leszy.run`,
           content: [
             { type: 'text/plain', value: plainText },
