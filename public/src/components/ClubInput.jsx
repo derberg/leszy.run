@@ -44,16 +44,17 @@ export default function ClubInput({ value, onChange, inputClass, inputId = 'club
         className={inputClass}
         role="combobox"
         aria-expanded={open}
+        aria-controls={`${inputId}-listbox`}
+        aria-autocomplete="list"
         autoComplete="off"
       />
       {open && (
-        <ul role="listbox" className="absolute z-20 left-0 right-0 mt-1 bg-apex-surface border border-apex-border max-h-56 overflow-auto">
+        <ul id={`${inputId}-listbox`} role="listbox" className="absolute z-20 left-0 right-0 mt-1 bg-apex-surface border border-apex-border max-h-56 overflow-auto">
           {suggestions.map(s => (
             <li key={s.id}>
               <button
                 type="button"
                 role="option"
-                aria-selected="false"
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => { onChange({ name: s.name, clubId: s.id }); setOpen(false) }}
                 className="w-full text-left px-3.5 py-2 font-sans text-sm text-apex-text hover:bg-apex-bg hover:text-apex-yellow transition-colors"

@@ -70,30 +70,40 @@ function EditableClubField({ value, onSaveClub }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState({ name: value || '', clubId: null })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   async function save() {
     setSaving(true)
-    await onSaveClub(draft)
-    setSaving(false)
-    setEditing(false)
+    setError(null)
+    try {
+      await onSaveClub(draft)
+      setEditing(false)
+    } catch {
+      setError('Nie udało się zapisać klubu.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (editing) {
     return (
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <ClubInput value={draft} onChange={setDraft} inputClass={inputClass} inputId="club-edit" testId="input-club" />
+      <>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <ClubInput value={draft} onChange={setDraft} inputClass={inputClass} inputId="club-edit" testId="input-club" />
+          </div>
+          <button
+            data-testid="save-club"
+            onClick={save}
+            disabled={saving}
+            className="font-mono text-xs text-apex-yellow border border-apex-yellow px-2 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all"
+          >
+            OK
+          </button>
+          <button onClick={() => { setEditing(false); setError(null) }} className="font-mono text-xs text-apex-muted hover:text-apex-text transition-colors px-2 py-1">✕</button>
         </div>
-        <button
-          data-testid="save-club"
-          onClick={save}
-          disabled={saving}
-          className="font-mono text-xs text-apex-yellow border border-apex-yellow px-2 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all"
-        >
-          OK
-        </button>
-        <button onClick={() => setEditing(false)} className="font-mono text-xs text-apex-muted hover:text-apex-text transition-colors px-2 py-1">✕</button>
-      </div>
+        {error && <p className="text-apex-red font-sans text-xs mt-1">{error}</p>}
+      </>
     )
   }
 
@@ -104,7 +114,7 @@ function EditableClubField({ value, onSaveClub }) {
       </span>
       <button
         data-testid="edit-club"
-        onClick={() => { setDraft({ name: value || '', clubId: null }); setEditing(true) }}
+        onClick={() => { setDraft({ name: value || '', clubId: null }); setError(null); setEditing(true) }}
         className="font-mono text-[10px] text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all border border-apex-border px-2 py-0.5"
       >
         edytuj
@@ -163,6 +173,7 @@ function ProfilContent() {
       setProfile(updated.data)
     } catch (err) {
       console.error('Club update failed:', err)
+      throw err
     }
   }
 

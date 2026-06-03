@@ -32,9 +32,10 @@ function OnboardingForm() {
       setUsernameStatus('idle')
       return
     }
-    setUsernameStatus('checking')
+    setUsernameStatus('idle')
     const checked = username
     const t = setTimeout(async () => {
+      setUsernameStatus('checking')
       const { data, error } = await supabase.rpc('is_username_available', { u: checked })
       if (usernameRef.current !== checked) return // stale response — input changed meanwhile
       if (error) { setUsernameStatus('idle'); return }
