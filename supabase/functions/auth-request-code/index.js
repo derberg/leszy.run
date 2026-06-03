@@ -54,6 +54,75 @@ Deno.serve(async (req) => {
 
     const apiKey = Deno.env.get('SENDGRID_API_KEY')
     if (apiKey) {
+      const plainText = `Twój kod logowania do Leszy.run:\n\n${code}\n\nKod jest ważny przez 10 minut. Jeśli to nie Ty, zignoruj tę wiadomość.\n\nLeszy.run — kalendarz biegów w Polsce\nhttps://www.leszy.run`
+      const html = `<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Twój kod logowania</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f4f4f6;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:520px;background:#ffffff;border:1px solid #e5e5ea;">
+          <tr>
+            <td align="center" style="padding:0;">
+              <a href="https://www.leszy.run" style="text-decoration:none;display:block;">
+                <img src="https://www.leszy.run/og-image.png" alt="Leszy.run" width="520" style="display:block;width:100%;max-width:520px;height:auto;border:0;"/>
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 32px 8px 32px;">
+              <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#8886a0;">Kod logowania</p>
+              <h1 style="margin:0 0 24px 0;font-size:22px;font-weight:800;line-height:1.3;color:#1a1a28;letter-spacing:-0.01em;">
+                Wpisz ten kod, aby się zalogować
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 32px 8px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="background:#0A0A10;border:2px solid #BBDD00;padding:24px 40px;">
+                    <div style="font-family:'Courier New',Courier,monospace;font-size:40px;font-weight:700;letter-spacing:0.32em;color:#BBDD00;line-height:1;text-align:center;">${code}</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px 8px 32px;">
+              <p style="margin:0;font-size:14px;line-height:1.6;color:#525266;">
+                Kod jest ważny przez <strong style="color:#1a1a28;">10 minut</strong>. Wpisz go w formularzu logowania na <a href="https://www.leszy.run/login" style="color:#3b7a00;text-decoration:underline;">leszy.run</a>.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 32px 32px;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#8886a0;border-top:1px solid #e5e5ea;padding-top:16px;">
+                Jeśli to nie Ty próbowałeś się zalogować, zignoruj tę wiadomość. Nikt nie uzyska dostępu do Twojego konta bez tego kodu.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 32px 24px 32px;">
+              <p style="margin:0;font-size:11px;line-height:1.5;color:#8886a0;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">
+                <a href="https://www.leszy.run" style="color:#8886a0;text-decoration:none;">Leszy.run</a>
+                <span style="color:#cccccc;">&nbsp;·&nbsp;</span>
+                <span>Kalendarz biegów w Polsce</span>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
       const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         headers: {
@@ -62,12 +131,12 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           personalizations: [{ to: [{ email: normalizedEmail }] }],
-          from: { email: Deno.env.get('SENDGRID_FROM_EMAIL') },
-          subject: 'Twój kod logowania — Leszy.run',
-          content: [{
-            type: 'text/plain',
-            value: `Twój kod logowania do Leszy.run:\n\n${code}\n\nKod jest ważny przez 10 minut. Jeśli to nie Ty, zignoruj tę wiadomość.`,
-          }],
+          from: { email: Deno.env.get('SENDGRID_FROM_EMAIL'), name: 'Leszy.run' },
+          subject: `${code} — Twój kod logowania do Leszy.run`,
+          content: [
+            { type: 'text/plain', value: plainText },
+            { type: 'text/html', value: html },
+          ],
         }),
       })
       if (!sgRes.ok) {
