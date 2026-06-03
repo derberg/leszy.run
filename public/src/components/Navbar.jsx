@@ -122,7 +122,7 @@ export default function Navbar() {
               className="flex items-center gap-2 font-mono text-xs text-apex-yellow border border-apex-yellow px-3 py-1.5 hover:bg-apex-yellow hover:text-apex-ink transition-all"
             >
               <span className="w-2 h-2 rounded-full bg-apex-yellow inline-block" />
-              {user.email?.split('@')[0]}
+              {user.username || user.email?.split('@')[0]}
             </button>
             {userMenuOpen && (
               <div className="absolute right-0 top-full mt-2 w-44 bg-apex-bg border border-apex-border shadow-lg z-50">
@@ -170,7 +170,7 @@ export default function Navbar() {
             className="flex items-center gap-1.5 font-mono text-[11px] text-apex-yellow border border-apex-yellow px-2.5 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all no-underline"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-apex-yellow inline-block" />
-            {user.email?.split('@')[0]}
+            {user.username || user.email?.split('@')[0]}
           </Link>
         ) : (
           <Link
