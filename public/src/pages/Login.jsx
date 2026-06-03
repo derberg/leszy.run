@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { requestCode, verifyCode } from '../lib/auth.js'
 import useAuth from '../hooks/useAuth.js'
@@ -13,12 +13,17 @@ export default function Login() {
 
   const { user, loading } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const linkEmail = searchParams.get('email')
+  const linkCode = searchParams.get('code')
+  const hasMagicLink = !!linkEmail && /^\d{6}$/.test(linkCode || '')
 
   const [step, setStep] = useState('email') // 'email' | 'code'
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [honeypot, setHoneypot] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(hasMagicLink)
   const [error, setError] = useState(null)
 
   // Already logged in — redirect away
@@ -27,6 +32,24 @@ export default function Login() {
       navigate(user.username ? '/profil' : '/onboarding', { replace: true })
     }
   }, [user, loading, navigate])
+
+  // Magic link auto-verify — runs when ?email=&code= are present and user is not logged in
+  useEffect(() => {
+    if (loading || user || !hasMagicLink) return
+    ;(async () => {
+      try {
+        const { hasUsername } = await verifyCode(linkEmail.trim().toLowerCase(), linkCode)
+        // Hard redirect so useAuth re-runs and picks up the new session cookie
+        window.location.href = hasUsername ? '/profil' : '/onboarding'
+      } catch (err) {
+        setError('Link wygasł lub jest nieprawidłowy. Wpisz kod ręcznie.')
+        setEmail(linkEmail)
+        setStep('code')
+        setSearchParams({}, { replace: true })
+        setSubmitting(false)
+      }
+    })()
+  }, [loading, user, hasMagicLink, linkEmail, linkCode])
 
   async function handleEmailSubmit(e) {
     e.preventDefault()
@@ -57,6 +80,22 @@ export default function Login() {
   }
 
   if (loading) return null
+
+  // Show a "logowanie..." state while the magic link is being verified
+  if (hasMagicLink && submitting && !error) {
+    return (
+      <div className="min-h-screen bg-apex-bg text-apex-text">
+        <Navbar />
+        <main className="flex items-center justify-center min-h-screen pt-14 px-4">
+          <div className="text-center">
+            <div className="font-display font-bold text-sm tracking-widest uppercase text-apex-yellow animate-pulse">
+              Logowanie…
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-apex-bg text-apex-text">

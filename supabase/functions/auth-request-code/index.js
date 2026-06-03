@@ -13,6 +13,16 @@ function json(body, status, req) {
   })
 }
 
+// Pick the base URL for the magic link from the request Origin (validated against
+// our allowlist) so previews work too. Falls back to production www.leszy.run.
+const STATIC_ORIGINS = ['http://localhost:5173', 'https://www.leszy.run', 'https://leszy.run']
+const PREVIEW_ORIGIN_RE = /^https:\/\/[a-z0-9-]+-derbergs-projects\.vercel\.app$/
+function magicLinkBase(req) {
+  const origin = req.headers.get('Origin') ?? ''
+  if (STATIC_ORIGINS.includes(origin) || PREVIEW_ORIGIN_RE.test(origin)) return origin
+  return 'https://www.leszy.run'
+}
+
 Deno.serve(async (req) => {
   const optRes = handleOptions(req)
   if (optRes) return optRes
@@ -54,7 +64,9 @@ Deno.serve(async (req) => {
 
     const apiKey = Deno.env.get('SENDGRID_API_KEY')
     if (apiKey) {
-      const plainText = `Twój kod logowania do Leszy.run:\n\n${code}\n\nKod jest ważny przez 10 minut. Jeśli to nie Ty, zignoruj tę wiadomość.\n\nLeszy.run — kalendarz biegów w Polsce\nhttps://www.leszy.run`
+      const linkBase = magicLinkBase(req)
+      const magicLink = `${linkBase}/login?email=${encodeURIComponent(normalizedEmail)}&code=${code}`
+      const plainText = `Twój kod logowania do Leszy.run:\n\n${code}\n\nLub kliknij ten link, aby zalogować się od razu:\n${magicLink}\n\nKod jest ważny przez 10 minut. Jeśli to nie Ty, zignoruj tę wiadomość.\n\nLeszy.run — kalendarz biegów w Polsce\nhttps://www.leszy.run`
       const html = `<!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -94,9 +106,25 @@ Deno.serve(async (req) => {
             </td>
           </tr>
           <tr>
+            <td align="center" style="padding:24px 32px 8px 32px;">
+              <p style="margin:0 0 12px 0;font-size:13px;line-height:1.5;color:#525266;">
+                Albo zaloguj się jednym kliknięciem:
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="background:#BBDD00;">
+                    <a href="${magicLink}" style="display:inline-block;padding:14px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#0A0A10;text-decoration:none;">
+                      Zaloguj się
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
             <td style="padding:24px 32px 8px 32px;">
               <p style="margin:0;font-size:14px;line-height:1.6;color:#525266;">
-                Kod jest ważny przez <strong style="color:#1a1a28;">10 minut</strong>. Wpisz go w formularzu logowania na <a href="https://www.leszy.run/login" style="color:#3b7a00;text-decoration:underline;">leszy.run</a>.
+                Kod i link są ważne przez <strong style="color:#1a1a28;">10 minut</strong>.
               </p>
             </td>
           </tr>
