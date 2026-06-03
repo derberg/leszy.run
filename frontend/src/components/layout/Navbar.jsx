@@ -115,6 +115,18 @@ export default function Navbar() {
             Kalendarz
           </Link>
 
+          <Link
+            to="/clubs"
+            className={cn(
+              'px-3 py-1 text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+              location.pathname === '/clubs'
+                ? 'border-apex-yellow text-black bg-apex-yellow'
+                : 'border-transparent text-apex-muted hover:text-apex-text hover:border-apex-border-bright',
+            )}
+          >
+            Kluby
+          </Link>
+
           {syncStatus && (syncStatus.status === 'online' || syncStatus.status === 'error' || syncStatus.pendingCount > 0) && (
             <div className="relative ml-2">
               <div
