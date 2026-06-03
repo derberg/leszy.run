@@ -162,20 +162,38 @@ export default function Navbar() {
         </Link>
       </div>
 
-      {/* Mobile hamburger */}
-      <button
-        className="md:hidden text-apex-text-bright"
-        onClick={() => setMenuOpen(!menuOpen)}
-        aria-label={menuOpen ? 'Zamknij menu' : 'Otwórz menu'}
-        aria-expanded={menuOpen}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          {menuOpen
-            ? <path d="M6 6l12 12M6 18L18 6" />
-            : <path d="M3 6h18M3 12h18M3 18h18" />
-          }
-        </svg>
-      </button>
+      {/* Mobile auth chip + hamburger */}
+      <div className="md:hidden flex items-center gap-3">
+        {user ? (
+          <Link
+            to="/profil"
+            className="flex items-center gap-1.5 font-mono text-[11px] text-apex-yellow border border-apex-yellow px-2.5 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all no-underline"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-apex-yellow inline-block" />
+            {user.email?.split('@')[0]}
+          </Link>
+        ) : (
+          <Link
+            to="/login"
+            className="font-mono text-[11px] text-apex-muted border border-apex-border px-2.5 py-1 hover:text-apex-yellow hover:border-apex-yellow transition-all no-underline"
+          >
+            Zaloguj się
+          </Link>
+        )}
+        <button
+          className="text-apex-text-bright"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label={menuOpen ? 'Zamknij menu' : 'Otwórz menu'}
+          aria-expanded={menuOpen}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            {menuOpen
+              ? <path d="M6 6l12 12M6 18L18 6" />
+              : <path d="M3 6h18M3 12h18M3 18h18" />
+            }
+          </svg>
+        </button>
+      </div>
 
       {/* Mobile menu */}
       {menuOpen && (
@@ -211,25 +229,14 @@ export default function Navbar() {
               </Link>
             )
           ))}
-          {user ? (
-            <>
-              <Link to="/profil" onClick={() => setMenuOpen(false)}
-                className="font-sans font-semibold text-base tracking-wider uppercase no-underline text-apex-yellow">
-                Mój profil
-              </Link>
-              <button onClick={async () => {
-                setMenuOpen(false)
-                try { await signOut() } finally { window.location.href = '/' }
-              }}
-                className="text-left font-sans font-semibold text-base tracking-wider uppercase text-apex-muted">
-                Wyloguj się
-              </button>
-            </>
-          ) : (
-            <Link to="/login" onClick={() => setMenuOpen(false)}
-              className="font-sans font-semibold text-base tracking-wider uppercase no-underline text-apex-muted">
-              Zaloguj się
-            </Link>
+          {user && (
+            <button onClick={async () => {
+              setMenuOpen(false)
+              try { await signOut() } finally { window.location.href = '/' }
+            }}
+              className="text-left font-sans font-semibold text-base tracking-wider uppercase text-apex-muted">
+              Wyloguj się
+            </button>
           )}
           <div className="flex items-center justify-between mt-2">
             <ThemeToggle />
