@@ -185,7 +185,7 @@ export default function DodajWydarzenie() {
               Aby dodać nowe wydarzenie do kalendarza, musisz się zalogować. Dzięki temu możemy weryfikować zgłoszenia i przypisać je do Twojego profilu.
             </p>
             <Link
-              to="/login"
+              to="/login?from=%2Fkalendarz%2Fdodaj"
               className="inline-block font-display font-bold text-sm tracking-widest uppercase px-6 py-3 bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright transition-all"
             >
               Zaloguj się

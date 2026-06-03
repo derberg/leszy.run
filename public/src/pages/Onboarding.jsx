@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import AuthGuard from '../components/AuthGuard.jsx'
 import ClubInput from '../components/ClubInput.jsx'
 import Navbar from '../components/Navbar.jsx'
@@ -13,6 +13,10 @@ function OnboardingForm() {
 
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const rawFrom = searchParams.get('from')
+  const fromParam = rawFrom && rawFrom.startsWith('/') && !rawFrom.startsWith('//') && !rawFrom.includes('\\') ? rawFrom : null
+  const nextPath = fromParam || '/profil'
 
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -24,7 +28,7 @@ function OnboardingForm() {
   usernameRef.current = username
 
   useEffect(() => {
-    if (user?.username) navigate('/profil', { replace: true })
+    if (user?.username) navigate(nextPath, { replace: true })
   }, [user, navigate])
 
   useEffect(() => {
@@ -58,7 +62,7 @@ function OnboardingForm() {
         ...(displayName ? { display_name: displayName } : {}),
         ...(club.clubId ? { club_id: club.clubId } : club.name.trim() ? { club: club.name } : {}),
       })
-      navigate('/profil', { replace: true })
+      navigate(nextPath, { replace: true })
     } catch (err) {
       setError(/already taken/i.test(err.message) ? 'Ta nazwa jest już zajęta.' : err.message)
     } finally {

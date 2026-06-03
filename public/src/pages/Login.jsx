@@ -8,6 +8,14 @@ import useSeo from '../hooks/useSeo.js'
 const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const labelClass = 'block font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-1.5'
 
+// Only allow internal redirects: must start with a single "/", no "//" (off-site), no "\".
+function sanitizeFrom(raw) {
+  if (!raw || typeof raw !== 'string') return null
+  if (!raw.startsWith('/')) return null
+  if (raw.startsWith('//') || raw.includes('\\')) return null
+  return raw
+}
+
 export default function Login() {
   useSeo({ title: 'Logowanie — Leszy.run', path: '/login', noindex: true })
 
@@ -17,7 +25,11 @@ export default function Login() {
 
   const linkEmail = searchParams.get('email')
   const linkCode = searchParams.get('code')
+  const fromParam = sanitizeFrom(searchParams.get('from'))
   const hasMagicLink = !!linkEmail && /^\d{6}$/.test(linkCode || '')
+
+  // Where to land after successful auth, in priority order.
+  const postAuthPath = (hasUsername) => fromParam || (hasUsername ? '/profil' : '/onboarding')
 
   const [step, setStep] = useState('email') // 'email' | 'code'
   const [email, setEmail] = useState('')
@@ -29,7 +41,7 @@ export default function Login() {
   // Already logged in — redirect away
   useEffect(() => {
     if (!loading && user) {
-      navigate(user.username ? '/profil' : '/onboarding', { replace: true })
+      navigate(postAuthPath(!!user.username), { replace: true })
     }
   }, [user, loading, navigate])
 
@@ -40,12 +52,15 @@ export default function Login() {
       try {
         const { hasUsername } = await verifyCode(linkEmail.trim().toLowerCase(), linkCode)
         // Hard redirect so useAuth re-runs and picks up the new session cookie
-        window.location.href = hasUsername ? '/profil' : '/onboarding'
+        window.location.href = postAuthPath(hasUsername)
       } catch (err) {
         setError('Link wygasł lub jest nieprawidłowy. Wpisz kod ręcznie.')
         setEmail(linkEmail)
         setStep('code')
-        setSearchParams({}, { replace: true })
+        // Preserve `from` so manual code entry still redirects correctly
+        const preserved = {}
+        if (fromParam) preserved.from = fromParam
+        setSearchParams(preserved, { replace: true })
         setSubmitting(false)
       }
     })()
@@ -56,7 +71,7 @@ export default function Login() {
     setError(null)
     setSubmitting(true)
     try {
-      await requestCode(email.trim().toLowerCase(), honeypot)
+      await requestCode(email.trim().toLowerCase(), honeypot, fromParam)
       setStep('code')
     } catch (err) {
       setError(err.message)
@@ -71,7 +86,7 @@ export default function Login() {
     setSubmitting(true)
     try {
       const { hasUsername } = await verifyCode(email.trim().toLowerCase(), code.trim())
-      navigate(hasUsername ? '/profil' : '/onboarding', { replace: true })
+      navigate(postAuthPath(hasUsername), { replace: true })
     } catch (err) {
       setError(err.message)
     } finally {

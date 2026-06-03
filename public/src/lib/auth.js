@@ -12,8 +12,8 @@ async function callEdge(name, body) {
   return data
 }
 
-export async function requestCode(email, honeypot = '') {
-  return callEdge('auth-request-code', { email, honeypot })
+export async function requestCode(email, honeypot = '', from = null) {
+  return callEdge('auth-request-code', { email, honeypot, from })
 }
 
 export async function verifyCode(email, code) {

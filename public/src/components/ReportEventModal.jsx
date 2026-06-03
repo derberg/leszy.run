@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { callFunction } from '../lib/auth.js'
 import useAuth from '../hooks/useAuth.js'
 
@@ -124,6 +124,8 @@ function SuggestedInput({ field, value, onChange, event }) {
 
 export default function ReportEventModal({ event, onClose }) {
   const { user, loading } = useAuth()
+  const location = useLocation()
+  const loginHref = `/login?from=${encodeURIComponent(location.pathname + location.search)}`
   const [field, setField] = useState('')
   const [suggestedValue, setSuggestedValue] = useState('')
   const [sourceUrl, setSourceUrl] = useState('')
@@ -187,7 +189,7 @@ export default function ReportEventModal({ event, onClose }) {
                 Aby zgłosić poprawkę do wydarzenia, musisz się zalogować. Dzięki temu możesz śledzić swoje zgłoszenia i zdobywać odznaki.
               </p>
               <Link
-                to="/login"
+                to={loginHref}
                 onClick={onClose}
                 className="inline-block font-display font-bold text-xs tracking-widest uppercase px-5 py-2 bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright transition-all"
               >

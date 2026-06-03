@@ -23,6 +23,15 @@ function magicLinkBase(req) {
   return 'https://www.leszy.run'
 }
 
+// `from` must be an internal path: starts with single "/", no "//", no "\", no "..".
+function sanitizeFrom(raw) {
+  if (typeof raw !== 'string' || raw.length === 0) return null
+  if (!raw.startsWith('/')) return null
+  if (raw.startsWith('//') || raw.includes('\\') || raw.includes('..')) return null
+  if (raw.length > 500) return null
+  return raw
+}
+
 Deno.serve(async (req) => {
   const optRes = handleOptions(req)
   if (optRes) return optRes
@@ -34,7 +43,8 @@ Deno.serve(async (req) => {
   )
 
   try {
-    const { email, honeypot } = await req.json()
+    const { email, honeypot, from } = await req.json()
+    const safeFrom = sanitizeFrom(from)
 
     if (honeypot) return json({ success: true }, 200, req)
 
@@ -65,7 +75,8 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get('SENDGRID_API_KEY')
     if (apiKey) {
       const linkBase = magicLinkBase(req)
-      const magicLink = `${linkBase}/login?email=${encodeURIComponent(normalizedEmail)}&code=${code}`
+      const fromQs = safeFrom ? `&from=${encodeURIComponent(safeFrom)}` : ''
+      const magicLink = `${linkBase}/login?email=${encodeURIComponent(normalizedEmail)}&code=${code}${fromQs}`
       const plainText = `Twój kod logowania do Leszy.run:\n\n${code}\n\nLub kliknij ten link, aby zalogować się od razu:\n${magicLink}\n\nKod jest ważny przez 10 minut. Jeśli to nie Ty, zignoruj tę wiadomość.\n\nLeszy.run — kalendarz biegów w Polsce\nhttps://www.leszy.run`
       const html = `<!DOCTYPE html>
 <html lang="pl">
