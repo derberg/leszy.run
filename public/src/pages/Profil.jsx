@@ -9,6 +9,16 @@ import ClubInput from '../components/ClubInput.jsx'
 
 const inputClass = 'flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const sectionTitle = 'font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted border-b border-apex-border pb-1 mb-3'
+const actionBtnClass = 'font-mono text-xs px-2 py-1.5 border transition-all leading-none'
+
+function PencilIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  )
+}
 
 // Parse stored E.164 (+48xxxxxxxxx) into local digits.
 // Tolerates legacy values without country code.
@@ -82,11 +92,11 @@ function EditablePhoneField({ value, onSave }) {
             data-testid="save-phone"
             onClick={save}
             disabled={saving}
-            className="font-mono text-xs text-apex-yellow border border-apex-yellow px-2 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all"
+            className={`${actionBtnClass} border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`}
           >
             OK
           </button>
-          <button onClick={() => { setEditing(false); setError(null) }} className="font-mono text-xs text-apex-muted hover:text-apex-text transition-colors px-2 py-1">✕</button>
+          <button onClick={() => { setEditing(false); setError(null) }} className={`${actionBtnClass} border-apex-border text-apex-muted hover:text-apex-text-bright hover:border-apex-border`}>✕</button>
         </div>
         {error && <p className="text-apex-red font-mono text-[10px] mt-1">{error}</p>}
         <p className="text-apex-muted font-mono text-[9px] mt-1">Wspieramy tylko numery polskie. Numer wykorzystamy do powiadomień SMS o wydarzeniach.</p>
@@ -95,16 +105,18 @@ function EditablePhoneField({ value, onSave }) {
   }
 
   return (
-    <div className="flex items-center gap-3 group">
+    <div className="flex items-center gap-2 group">
       <span className="font-sans text-sm text-apex-text">
         {value ? formatPhoneDisplay(value) : <span className="text-apex-muted italic">nie ustawiono</span>}
       </span>
       <button
         data-testid="edit-phone"
         onClick={() => { setDraft(parsePhone(value)); setError(null); setEditing(true) }}
-        className="font-mono text-[10px] text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all border border-apex-border px-2 py-0.5"
+        aria-label="Edytuj telefon"
+        title="Edytuj"
+        className="p-1 text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all"
       >
-        edytuj
+        <PencilIcon />
       </button>
     </div>
   )
@@ -161,13 +173,13 @@ function EditableField({ fieldKey, value, onSave, type = 'text', options, displa
           data-testid={`save-${fieldKey}`}
           onClick={save}
           disabled={saving}
-          className="font-mono text-xs text-apex-yellow border border-apex-yellow px-2 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all"
+          className={`${actionBtnClass} border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`}
         >
           OK
         </button>
         <button
           onClick={() => setEditing(false)}
-          className="font-mono text-xs text-apex-muted hover:text-apex-text transition-colors px-2 py-1"
+          className={`${actionBtnClass} border-apex-border text-apex-muted hover:text-apex-text-bright hover:border-apex-border`}
         >
           ✕
         </button>
@@ -178,16 +190,18 @@ function EditableField({ fieldKey, value, onSave, type = 'text', options, displa
   const shown = displayValue !== undefined ? displayValue : value
 
   return (
-    <div className="flex items-center gap-3 group">
+    <div className="flex items-center gap-2 group">
       <span className="font-sans text-sm text-apex-text">
         {shown || <span className="text-apex-muted italic">nie ustawiono</span>}
       </span>
       <button
         data-testid={`edit-${fieldKey}`}
         onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-        className="font-mono text-[10px] text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all border border-apex-border px-2 py-0.5"
+        aria-label="Edytuj"
+        title="Edytuj"
+        className="p-1 text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all"
       >
-        edytuj
+        <PencilIcon />
       </button>
     </div>
   )
@@ -223,11 +237,11 @@ function EditableClubField({ value, onSaveClub }) {
             data-testid="save-club"
             onClick={save}
             disabled={saving}
-            className="font-mono text-xs text-apex-yellow border border-apex-yellow px-2 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all"
+            className={`${actionBtnClass} border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`}
           >
             OK
           </button>
-          <button onClick={() => { setEditing(false); setError(null) }} className="font-mono text-xs text-apex-muted hover:text-apex-text transition-colors px-2 py-1">✕</button>
+          <button onClick={() => { setEditing(false); setError(null) }} className={`${actionBtnClass} border-apex-border text-apex-muted hover:text-apex-text-bright hover:border-apex-border`}>✕</button>
         </div>
         {error && <p className="text-apex-red font-sans text-xs mt-1">{error}</p>}
       </>
@@ -235,16 +249,18 @@ function EditableClubField({ value, onSaveClub }) {
   }
 
   return (
-    <div className="flex items-center gap-3 group">
+    <div className="flex items-center gap-2 group">
       <span className="font-sans text-sm text-apex-text">
         {value || <span className="text-apex-muted italic">nie ustawiono</span>}
       </span>
       <button
         data-testid="edit-club"
         onClick={() => { setDraft({ name: value || '', clubId: null }); setError(null); setEditing(true) }}
-        className="font-mono text-[10px] text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all border border-apex-border px-2 py-0.5"
+        aria-label="Edytuj klub"
+        title="Edytuj"
+        className="p-1 text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all"
       >
-        edytuj
+        <PencilIcon />
       </button>
     </div>
   )
@@ -318,7 +334,6 @@ function ProfilContent() {
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
   const filtered = filter === 'all' ? allContribs : allContribs.filter(c => c.status === filter)
-  const acceptedCount = allContribs.filter(c => c.status === 'accepted').length
 
   return (
     <div className="min-h-screen bg-apex-bg text-apex-text">
@@ -335,12 +350,6 @@ function ProfilContent() {
               {profile?.club && (
                 <div className="text-[9px] font-mono text-apex-muted border border-apex-border px-2 py-0.5 text-center">{profile.club}</div>
               )}
-            </div>
-
-            <div className="space-y-1 mb-6">
-              <div className="flex justify-between text-xs"><span className="text-apex-muted">zgłoszenia</span><span className="font-mono text-apex-yellow">{allContribs.length}</span></div>
-              <div className="flex justify-between text-xs"><span className="text-apex-muted">zaakceptowane</span><span className="font-mono text-apex-yellow">{acceptedCount}</span></div>
-              <div className="flex justify-between text-xs"><span className="text-apex-muted">odznaki</span><span className="font-mono text-apex-yellow">{badges.length}</span></div>
             </div>
 
             {badges.length > 0 && (
