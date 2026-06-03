@@ -9,14 +9,17 @@ import * as cheerio from 'cheerio'
 // Registration URL — verification notes (per CLAUDE.md "URL verification"):
 //   The canonical detail page reliably exposes the dostartu statute PDF
 //   (https://dostartu.pl/statute_files/<id>_pl.pdf) in static HTML. We extract the numeric
-//   dostartu id from it and emit registration_url = https://dostartu.pl/zawody/<id>.
-//   - Verified: fetchCompetition('16621') from dostartu.js resolves to "VI PYSKOWICKI BIEG
-//     MAMUTA" / Pyskowice (the right event), and apiEnrich's extractDostartuId already
-//     supports the /zawody/(\d+) form → the pipeline auto-enriches prices/distances/deadline/
-//     regulamin/website from the dostartu API.
+//   dostartu id from it and emit registration_url = https://dostartu.pl/permalink-v<id>.
+//   - Verified: api.dostartu.pl/competitions/<id> returns permaLink = "/permalink-v<id>" for
+//     every event (no custom slugs in practice), so https://dostartu.pl/permalink-v<id> is the
+//     canonical public registration page — the exact form the dostartu scraper itself produces
+//     via makeUrl(). apiEnrich's extractDostartuId matches the -v<id> form → the pipeline
+//     auto-enriches prices/distances/deadline/regulamin/website from the dostartu API.
+//   - Ruled out: https://dostartu.pl/zawody/<id> — this was the original guess. dostartu's SPA
+//     does NOT serve that path as a real event page (it loads a generic shell), so the links
+//     looked fine (HTTP 200) but were broken in the browser. Use /permalink-v<id> instead.
 //   - Ruled out: deriving the /YYYY/zapisy/zapisy-<nameslug>.html embed page (it carries the
 //     pretty -v<id> link) — that derivation FAILED on a 2nd event, so it's unreliable.
-//   - Ruled out: reverse-engineering dostartu.pl/<slug>-v<id> — we never have the dostartu slug.
 //   Fallback when no dostartu statute PDF is present: any elektronicznezapisy/b4sport/datasport
 //   registration link found on the detail page, else the time-sport canonical detail page itself.
 
@@ -102,7 +105,7 @@ async function fetchDetail(detailUrl) {
     const statute = html.match(/https?:\/\/dostartu\.pl\/statute_files\/(\d+)_[a-z]{2}\.pdf/i)
     if (statute) {
       return {
-        registration_url: `https://dostartu.pl/zawody/${statute[1]}`,
+        registration_url: `https://dostartu.pl/permalink-v${statute[1]}`,
         regulamin_url: statute[0],
       }
     }
