@@ -62,4 +62,25 @@ test.describe('Onboarding', () => {
     await page.getByLabel(/nazwa użytkownika/i).fill(`free_${Date.now()}`.slice(0, 28).toLowerCase())
     await expect(page.getByText(/dostępna/i)).toBeVisible({ timeout: 5000 })
   })
+
+  test('club autocomplete suggests an existing club and pins it', async ({ page, context }) => {
+    const clubName = `KB Testowo ${Date.now()}`
+    const { data: clubId } = await supabaseAdmin.rpc('find_or_create_club', { club_name: clubName })
+    try {
+      await testUser.injectSession(context)
+      await page.goto('/onboarding')
+      await page.getByLabel(/klub/i).fill('kb testowo')
+      await expect(page.getByRole('option', { name: new RegExp(clubName) })).toBeVisible({ timeout: 5000 })
+      await page.getByRole('option', { name: new RegExp(clubName) }).click()
+      const username = `clb_${Date.now()}`.slice(0, 28).toLowerCase()
+      await page.getByLabel(/nazwa użytkownika/i).fill(username)
+      await page.getByRole('button', { name: /zapisz/i }).click()
+      await page.waitForURL('/profil')
+      const { data: prof } = await supabaseAdmin.from('profiles').select('club_id').eq('id', testUser.user.id).single()
+      expect(prof.club_id).toBe(clubId)
+    } finally {
+      await supabaseAdmin.from('profiles').update({ club_id: null }).eq('id', testUser.user.id)
+      await supabaseAdmin.from('clubs').delete().eq('id', clubId)
+    }
+  })
 })

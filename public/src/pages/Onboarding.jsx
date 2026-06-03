@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AuthGuard from '../components/AuthGuard.jsx'
+import ClubInput from '../components/ClubInput.jsx'
 import Navbar from '../components/Navbar.jsx'
 import useAuth from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
@@ -15,7 +16,7 @@ function OnboardingForm() {
 
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [club, setClub] = useState('')
+  const [club, setClub] = useState({ name: '', clubId: null })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [usernameStatus, setUsernameStatus] = useState('idle') // idle | checking | available | taken
@@ -54,7 +55,7 @@ function OnboardingForm() {
       await callFunction('update-profile', {
         username: username.toLowerCase(),
         ...(displayName ? { display_name: displayName } : {}),
-        ...(club ? { club } : {}),
+        ...(club.clubId ? { club_id: club.clubId } : club.name.trim() ? { club: club.name } : {}),
       })
       navigate('/profil', { replace: true })
     } catch (err) {
@@ -121,14 +122,7 @@ function OnboardingForm() {
             </div>
             <div>
               <label htmlFor="club" className={labelClass}>Klub / stowarzyszenie (opcjonalne)</label>
-              <input
-                id="club"
-                type="text"
-                value={club}
-                onChange={e => setClub(e.target.value)}
-                placeholder="Klub Biegacza Kraków"
-                className={inputClass}
-              />
+              <ClubInput value={club} onChange={setClub} inputClass={inputClass} />
             </div>
             {error && <p className="text-apex-red font-sans text-sm">{error}</p>}
             <button
