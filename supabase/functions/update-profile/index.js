@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { username, display_name, club, avatar_url, bio, privacy_settings } = body
+    const { username, display_name, club, club_id, avatar_url, bio, privacy_settings } = body
 
     if (username !== undefined) {
       if (!/^[a-z0-9_]{3,30}$/.test(username)) {
@@ -42,32 +42,54 @@ Deno.serve(async (req) => {
 
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
-      .select('id, club')
+      .select('id, club_id')
       .eq('id', session.userId)
       .single()
 
     const updates = {}
     if (username !== undefined)          updates.username = username
     if (display_name !== undefined)      updates.display_name = display_name
-    if (club !== undefined)              updates.club = club
     if (avatar_url !== undefined)        updates.avatar_url = avatar_url
     if (bio !== undefined)               updates.bio = bio
     if (privacy_settings !== undefined)  updates.privacy_settings = privacy_settings
+
+    // Club: either a picked club_id (validate it exists) or free text (find-or-create).
+    if (club_id !== undefined && club_id !== null && club_id !== '') {
+      const { data: clubRow } = await supabaseAdmin
+        .from('clubs').select('id').eq('id', club_id).single()
+      if (!clubRow) return json({ error: 'Unknown club_id' }, 400, req)
+      updates.club_id = club_id
+    } else if (club !== undefined) {
+      if (club === null || club.trim() === '') {
+        updates.club_id = null
+      } else {
+        if (club.length > 100) return json({ error: 'Club name too long (max 100 chars)' }, 400, req)
+        const { data: newClubId, error: clubErr } = await supabaseAdmin
+          .rpc('find_or_create_club', { club_name: club })
+        if (clubErr) throw clubErr
+        if (!newClubId) return json({ error: 'Invalid club name' }, 400, req)
+        updates.club_id = newClubId
+      }
+    }
 
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .update(updates)
       .eq('id', session.userId)
-      .select()
+      .select('*, clubs(name)')
       .single()
     if (error) throw error
 
-    const clubJustSet = club && !existingProfile?.club
+    const clubJustSet = updates.club_id && !existingProfile?.club_id
     if (clubJustSet) {
       await checkAndAwardBadges(supabaseAdmin, session.userId)
     }
 
-    return json({ data: profile }, 200, req)
+    // API contract: keep returning club as a string
+    const out = { ...profile, club: profile.clubs?.name ?? null }
+    delete out.clubs
+
+    return json({ data: out }, 200, req)
   } catch (err) {
     return json({ error: err.message }, 500, req)
   }

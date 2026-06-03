@@ -31,7 +31,7 @@ export async function checkAndAwardBadges(supabaseAdmin, userId) {
     supabaseAdmin.from('calendar_events')
       .select('*', { count: 'exact', head: true })
       .eq('submitted_by', userId),
-    supabaseAdmin.from('profiles').select('club').eq('id', userId).single(),
+    supabaseAdmin.from('profiles').select('club_id').eq('id', userId).single(),
     supabaseAdmin.from('user_badges').select('badge_id').eq('user_id', userId),
     supabaseAdmin.from('badge_definitions').select('*'),
   ])
@@ -39,7 +39,7 @@ export async function checkAndAwardBadges(supabaseAdmin, userId) {
   const totalAccepted = (acceptedReports || 0) + (acceptedSubmissions || 0)
   const totalAny = (anyReports || 0) + (anySubmissions || 0)
   const existingIds = new Set((existingBadges || []).map(b => b.badge_id))
-  const hasClub = Boolean(profile?.club)
+  const hasClub = Boolean(profile?.club_id)
 
   for (const badge of (definitions || [])) {
     if (existingIds.has(badge.id)) continue
