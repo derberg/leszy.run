@@ -21,7 +21,9 @@ Deno.serve(async (req) => {
   )
 
   const session = await getSession(req, supabaseAdmin)
-  if (!session) return json({ user: null }, 401, req)
+  // 200 (not 401) for anon visitors — every page load calls auth-me and a 401
+  // would spam the browser console with failed-request noise. See getMe() client.
+  if (!session) return json({ user: null }, 200, req)
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')

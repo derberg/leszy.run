@@ -173,9 +173,10 @@ describe('auth-me', () => {
     await supabaseAdmin.from('profiles').delete().eq('email', email)
   })
 
-  it('returns 401 with no cookie', async () => {
-    const { status } = await post('auth-me', {})
-    assert.equal(status, 401)
+  it('returns 200 with user: null when no cookie (no console noise for anon)', async () => {
+    const { status, data } = await post('auth-me', {})
+    assert.equal(status, 200)
+    assert.equal(data.user, null)
   })
 
   it('returns user data with valid cookie', async () => {
