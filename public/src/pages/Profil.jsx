@@ -6,7 +6,7 @@ import useAuth from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
 import useSeo from '../hooks/useSeo.js'
 
-const inputClass = 'bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
+const inputClass = 'flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const sectionTitle = 'font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted border-b border-apex-border pb-1 mb-3'
 
 function EditableField({ fieldKey, value, onSave }) {
@@ -57,7 +57,7 @@ function EditableField({ fieldKey, value, onSave }) {
       <button
         data-testid={`edit-${fieldKey}`}
         onClick={() => { setDraft(value || ''); setEditing(true) }}
-        className="font-mono text-[10px] text-apex-muted opacity-0 group-hover:opacity-100 hover:text-apex-yellow transition-all border border-apex-border px-2 py-0.5"
+        className="font-mono text-[10px] text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all border border-apex-border px-2 py-0.5"
       >
         edytuj
       </button>
@@ -126,9 +126,9 @@ function ProfilContent() {
     <div className="min-h-screen bg-apex-bg text-apex-text">
       <Navbar />
       <main data-testid="profil-page" className="pt-20 pb-16 px-4 md:px-8 max-w-5xl mx-auto">
-        <div className="flex gap-8">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           {/* Sidebar */}
-          <aside className="w-52 flex-shrink-0">
+          <aside className="w-full md:w-52 md:flex-shrink-0">
             <div className="flex flex-col items-center gap-3 mb-6">
               <div className="w-14 h-14 bg-apex-surface border-2 border-apex-yellow flex items-center justify-center font-display font-bold text-xl text-apex-yellow">
                 {profile?.username?.[0]?.toUpperCase() || '?'}
@@ -181,7 +181,7 @@ function ProfilContent() {
           {/* Main */}
           <div className="flex-1">
             <div className={sectionTitle}>Historia wkładów</div>
-            <div className="flex gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-4">
               {[
                 { key: 'all', label: 'Wszystkie' },
                 { key: 'pending', label: 'Oczekujące' },
