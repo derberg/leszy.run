@@ -10,14 +10,23 @@ import ClubInput from '../components/ClubInput.jsx'
 const inputClass = 'flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const sectionTitle = 'font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted border-b border-apex-border pb-1 mb-3'
 
-function EditableField({ fieldKey, value, onSave }) {
+const VOIVODESHIP_OPTIONS = [
+  'Dolnośląskie', 'Kujawsko-Pomorskie', 'Łódzkie', 'Lubelskie', 'Lubuskie',
+  'Małopolskie', 'Mazowieckie', 'Opolskie', 'Podkarpackie', 'Podlaskie',
+  'Pomorskie', 'Śląskie', 'Świętokrzyskie', 'Warmińsko-Mazurskie',
+  'Wielkopolskie', 'Zachodniopomorskie',
+]
+
+const GENDER_LABELS = { M: 'Mężczyzna', F: 'Kobieta', X: 'Inna' }
+
+function EditableField({ fieldKey, value, onSave, type = 'text', options, displayValue }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value || '')
+  const [draft, setDraft] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
 
   async function save() {
     setSaving(true)
-    await onSave(fieldKey, draft)
+    await onSave(fieldKey, draft === '' ? null : draft)
     setSaving(false)
     setEditing(false)
   }
@@ -25,13 +34,29 @@ function EditableField({ fieldKey, value, onSave }) {
   if (editing) {
     return (
       <div className="flex items-center gap-2">
-        <input
-          data-testid={`input-${fieldKey}`}
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          className={inputClass}
-          autoFocus
-        />
+        {options ? (
+          <select
+            data-testid={`input-${fieldKey}`}
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            className={`${inputClass} appearance-none cursor-pointer`}
+            autoFocus
+          >
+            <option value="">— nie ustawiono —</option>
+            {options.map(o => (
+              <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>
+            ))}
+          </select>
+        ) : (
+          <input
+            data-testid={`input-${fieldKey}`}
+            type={type}
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            className={inputClass}
+            autoFocus
+          />
+        )}
         <button
           data-testid={`save-${fieldKey}`}
           onClick={save}
@@ -50,14 +75,16 @@ function EditableField({ fieldKey, value, onSave }) {
     )
   }
 
+  const shown = displayValue !== undefined ? displayValue : value
+
   return (
     <div className="flex items-center gap-3 group">
       <span className="font-sans text-sm text-apex-text">
-        {value || <span className="text-apex-muted italic">nie ustawiono</span>}
+        {shown || <span className="text-apex-muted italic">nie ustawiono</span>}
       </span>
       <button
         data-testid={`edit-${fieldKey}`}
-        onClick={() => { setDraft(value || ''); setEditing(true) }}
+        onClick={() => { setDraft(value ?? ''); setEditing(true) }}
         className="font-mono text-[10px] text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all border border-apex-border px-2 py-0.5"
       >
         edytuj
@@ -220,11 +247,15 @@ function ProfilContent() {
               <div className="mb-6">
                 <div className={sectionTitle}>Odznaki</div>
                 <div className="flex flex-wrap gap-1">
-                  {badges.map(b => (
-                    <span key={b.id} title={b.badge_definitions?.description} className="text-[10px] font-mono border border-apex-border px-1.5 py-0.5 text-apex-yellow">
-                      {b.badge_definitions?.icon} {b.badge_definitions?.name}
-                    </span>
-                  ))}
+                  {badges.map(b => {
+                    const def = b.badge_definitions
+                    const label = profile?.gender === 'F' && def?.name_female ? def.name_female : def?.name
+                    return (
+                      <span key={b.id} title={def?.description} className="text-[10px] font-mono border border-apex-border px-1.5 py-0.5 text-apex-yellow">
+                        {def?.icon} {label}
+                      </span>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -239,6 +270,41 @@ function ProfilContent() {
                 <div>
                   <div className="text-[9px] font-mono text-apex-muted mb-0.5">Klub</div>
                   <EditableClubField value={profile?.club} onSaveClub={handleClubSave} />
+                </div>
+                <div>
+                  <div className="text-[9px] font-mono text-apex-muted mb-0.5">Płeć</div>
+                  <EditableField
+                    fieldKey="gender"
+                    value={profile?.gender}
+                    displayValue={GENDER_LABELS[profile?.gender]}
+                    onSave={handleSave}
+                    options={[
+                      { value: 'M', label: 'Mężczyzna' },
+                      { value: 'F', label: 'Kobieta' },
+                      { value: 'X', label: 'Inna' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <div className="text-[9px] font-mono text-apex-muted mb-0.5">Data urodzenia</div>
+                  <EditableField fieldKey="date_of_birth" value={profile?.date_of_birth} onSave={handleSave} type="date" />
+                </div>
+                <div>
+                  <div className="text-[9px] font-mono text-apex-muted mb-0.5">Telefon</div>
+                  <EditableField fieldKey="phone" value={profile?.phone} onSave={handleSave} type="tel" />
+                </div>
+                <div>
+                  <div className="text-[9px] font-mono text-apex-muted mb-0.5">Miejscowość</div>
+                  <EditableField fieldKey="city" value={profile?.city} onSave={handleSave} />
+                </div>
+                <div>
+                  <div className="text-[9px] font-mono text-apex-muted mb-0.5">Województwo</div>
+                  <EditableField
+                    fieldKey="voivodeship"
+                    value={profile?.voivodeship}
+                    onSave={handleSave}
+                    options={VOIVODESHIP_OPTIONS}
+                  />
                 </div>
               </div>
             </div>

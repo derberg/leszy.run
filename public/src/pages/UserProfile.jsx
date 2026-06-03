@@ -151,15 +151,19 @@ export default function UserProfile() {
               <div data-testid="badges-section">
                 <div className={sectionTitle}>Odznaki</div>
                 <div className="flex flex-wrap gap-1">
-                  {badges.map(b => (
-                    <span
-                      key={b.id}
-                      title={b.badge_definitions?.description}
-                      className="text-[10px] font-mono border border-apex-border px-1.5 py-0.5 text-apex-yellow"
-                    >
-                      {b.badge_definitions?.icon} {b.badge_definitions?.name}
-                    </span>
-                  ))}
+                  {badges.map(b => {
+                    const def = b.badge_definitions
+                    const label = profile?.gender === 'F' && def?.name_female ? def.name_female : def?.name
+                    return (
+                      <span
+                        key={b.id}
+                        title={def?.description}
+                        className="text-[10px] font-mono border border-apex-border px-1.5 py-0.5 text-apex-yellow"
+                      >
+                        {def?.icon} {label}
+                      </span>
+                    )
+                  })}
                 </div>
               </div>
             )}
