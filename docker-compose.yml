@@ -32,6 +32,8 @@ services:
       SMSAPI_TOKEN: ${SMSAPI_TOKEN:-}
       SMSAPI_SENDER: ${SMSAPI_SENDER:-LeszyRun}
       BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-biuro@zatyrani.pl}
     depends_on:
       db:
         condition: service_healthy
