@@ -136,6 +136,10 @@ async function scrape({ knownIds = new Set() } = {}) {
         const name = h2.text().trim()
         if (!name) return
 
+        // "ITMB Wieczorem" weekly training run — repeatedly rejected junk, also blocked
+        // in maratonypolskie scraper and at merge level (whitespace-insensitive match)
+        if (/itmbwieczorem/i.test(name.replace(/\s+/g, ''))) return
+
         const href = a.attr('href')
 
         const dateDiv = a.find('.date, [class*="date"]')

@@ -20,3 +20,5 @@ enricher/.env
 enricher/logs/
 enricher/searxng-data/
 backend/logs/
+supabase/.temp/linked-project.json
+test-results/public-tests-e2e*
