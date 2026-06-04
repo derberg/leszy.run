@@ -190,6 +190,13 @@
       "when": 1780557894211,
       "tag": "0026_soft_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1780558247717,
+      "tag": "0027_fix_soft_delete_index",
+      "breakpoints": true
     }
   ]
 }
