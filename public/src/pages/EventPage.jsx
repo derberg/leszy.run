@@ -9,6 +9,7 @@ import Footer from '../components/Footer.jsx'
 import EventInfoGrid from '../components/EventInfoGrid.jsx'
 import NearbyEvents from '../components/NearbyEvents.jsx'
 import ReportEventModal from '../components/ReportEventModal.jsx'
+import StarButton from '../components/StarButton.jsx'
 
 const EventMap = lazy(() => import('../components/EventMap.jsx'))
 
@@ -190,7 +191,7 @@ export default function EventPage() {
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
-        .eq('status', 'active')
+        .in('status', ['active', 'cancelled'])
         .eq('date', date)
 
       if (error || !data?.length) {
@@ -320,11 +321,17 @@ export default function EventPage() {
             <span className="font-mono text-[13px] font-semibold text-apex-yellow">
               {dateFormatted}
             </span>
-            {days != null && (
+            {event.status === 'cancelled' && (
+              <span data-testid="cancelled-badge" className="font-mono text-[11px] font-semibold px-2 py-0.5 border border-apex-red/30 text-apex-red bg-apex-red/10 uppercase">
+                Odwołany
+              </span>
+            )}
+            {event.status !== 'cancelled' && days != null && (
               <span className="font-mono text-[11px] font-semibold px-2 py-0.5 border border-apex-cyan/30 text-apex-cyan">
                 {days === 0 ? 'Dziś!' : days === 1 ? 'Jutro!' : `za ${days} dni`}
               </span>
             )}
+            <StarButton eventId={event.id} />
           </div>
 
           {/* Title */}
@@ -362,7 +369,7 @@ export default function EventPage() {
 
           {/* CTA buttons */}
           <div className="flex flex-wrap gap-3 mb-8">
-            {event.registration_url && (
+            {event.status !== 'cancelled' && event.registration_url && (
               <a
                 href={event.registration_url}
                 target="_blank"

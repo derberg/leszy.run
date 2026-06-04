@@ -78,7 +78,7 @@ async function main() {
     const { data: page, error } = await supabase
       .from('calendar_events')
       .select('*')
-      .eq('status', 'active')
+      .in('status', ['active', 'cancelled'])
       .order('date', { ascending: true })
       .range(from, from + PAGE_SIZE - 1)
 
@@ -168,6 +168,7 @@ async function main() {
       registration_url: event.registration_url || null,
       website: event.website || null,
       is_kids: event.is_kids ?? null,
+      status: event.status || null,
     }
   }
 

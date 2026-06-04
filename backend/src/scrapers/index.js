@@ -1019,7 +1019,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
     const { data, error } = await supabase
       .from('calendar_events')
       .select('id, name, date, location, event_type, source_links')
-      .in('status', ['active', 'rejected'])
+      .in('status', ['active', 'rejected', 'cancelled'])
       .range(from, from + pageSize - 1)
 
     if (error) break
