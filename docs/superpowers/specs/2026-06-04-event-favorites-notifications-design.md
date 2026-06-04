@@ -139,36 +139,37 @@ events (respecting the `created_at > favorite.created_at` rule) → if non-empty
 email. SendGrid Pro — no daily-send-cap concerns. Failures alert via the scheduler's
 existing `[FAIL]` email path.
 
-## Write path & RLS
+## Write path & reads — Edge Functions (custom auth)
 
-Consistent with the auth spec: **reads via Supabase JS + RLS, writes via Edge Functions.**
+Per the [custom-auth spec](2026-05-20-custom-auth-design.md), there is no Supabase Auth —
+sessions live in `auth_sessions` validated via the `leszy_session` cookie by
+`_shared/session.js`. `auth.uid()` RLS is unavailable. So: **all authenticated reads AND
+writes go through Edge Functions** (service_role); the anon key stays public-read-only for
+calendar data.
 
-- **`toggle-favorite` Edge Function** — validates JWT, inserts/deletes the
-  `event_favorites` row for `auth.uid()`. Only write path; the public app never writes
-  these tables directly.
-- **`event_favorites` RLS (SELECT):** own rows always; club-mates' rows when the row owner
-  has the same `club_id` AND `privacy_settings->>'favorites'` is true:
+Both new tables get `ENABLE ROW LEVEL SECURITY` with **no policies** — anon/authenticated
+see nothing; only service_role (edge functions, backend scripts) can touch them.
 
-```sql
-CREATE POLICY favorites_select ON event_favorites FOR SELECT TO authenticated
-USING (
-  user_id = auth.uid()
-  OR EXISTS (
-    SELECT 1 FROM profiles owner, profiles me
-    WHERE owner.id = event_favorites.user_id
-      AND me.id = auth.uid()
-      AND owner.club_id IS NOT NULL
-      AND owner.club_id = me.club_id
-      AND COALESCE((owner.privacy_settings->>'favorites')::boolean, true)
-  )
-);
-```
+New Edge Functions (all use `getSession` → 401 without a valid cookie):
 
-  No anon SELECT — favorites are never public, only own-club-visible.
-- **`event_notifications` RLS:** SELECT for `authenticated` (rows contain no personal
-  data — just event id + type). No anon access needed.
-- New Supabase functions: remember the explicit `REVOKE` pattern for anything that
-  shouldn't be callable by anon/authenticated (per project convention).
+- **`toggle-favorite`** — body `{ event_id }`. Validates the event exists with status
+  `active`/`cancelled`, then inserts or deletes the favorite for the session user.
+  Returns `{ starred: boolean }`.
+- **`get-favorites`** — returns `{ events: [...starred events with name/date/status/...],
+  clubCounts: { event_id: N } }`. Club counts cover favorites of *other* members of the
+  user's club whose `privacy_settings->>'favorites'` is not false. Serves the kalendarz
+  star state, the club filter, and the /profil starred list.
+- **`get-notifications`** — body `{ markSeen?: boolean }`. Returns the feed (notifications
+  for starred events with `notification.created_at > favorite.created_at`, newest first,
+  with event name/date), plus `unseenCount` vs `profiles.notifications_seen_at`. With
+  `markSeen: true`, sets the cursor to now().
+
+Modified Edge Functions:
+
+- **`update-profile`** — accepts `weekly_digest` (boolean); `privacy_settings` updates
+  already pass through.
+- **`get-profile-data`** — include `weekly_digest` in the profile select.
+- **`export-my-data`** — include favorites and `weekly_digest` (GDPR export completeness).
 
 ## UI (public app)
 
@@ -185,18 +186,21 @@ USING (
 - **Club filter on kalendarz** — "Obserwowane w moim klubie" toggle (visible only to
   logged-in users with a club) + per-row "★ N z Twojego klubu" count. Backed by the RLS
   policy above; one batched query per page, not per row.
-- **Cancelled events visible:** public queries (`Kalendarz.jsx`, `EventPage.jsx`,
-  `NearbyEvents.jsx`, `LandingPage.jsx`) change from `.eq('status','active')` to
-  `.in('status', ['active','cancelled'])`. Red **ODWOŁANY** badge; registration CTA hidden
-  on cancelled events. Pre-rendered event pages stay live (no 404s for indexed URLs).
+- **Cancelled events visible:** `Kalendarz.jsx` and `EventPage.jsx` change from
+  `.eq('status','active')` to `.in('status', ['active','cancelled'])`, and
+  `backend/scripts/publish-event-pages.js` includes cancelled events in the manifest so
+  pre-rendered event pages stay live (no 404s for indexed URLs). Red **ODWOŁANY** badge;
+  registration CTA hidden on cancelled events. `NearbyEvents.jsx` and `LandingPage.jsx`
+  deliberately stay active-only — promotional surfaces shouldn't advertise cancelled races.
   Cancelled is sticky — scraper/enricher updates must not resurrect status (publish step
   already only inserts; verify enricher sync does not write `status`).
 
 ## Housekeeping
 
-- **Duplikaty merge:** repoint `event_favorites.event_id` to the surviving event (mirror
-  of the club-merge member repoint), dedup on conflict. `event_notifications` rows on the
-  losing event can be dropped (cascade) — the surviving event's own notifications stand.
+- **Duplicates:** there is no event-merge endpoint — admin resolves duplicates by
+  rejecting the loser (soft-delete to `status='rejected'`). A starred rejected event simply
+  stops appearing (feed/list queries filter to active+cancelled); no notification fires
+  (the user explicitly distinguished cancelled from rejected/merged). No repointing — YAGNI.
 - **GDPR** (ties into [2026-06-03-gdpr-compliance-design.md](2026-06-03-gdpr-compliance-design.md)):
   favorites are personal data → ON DELETE CASCADE covers erasure; add favorites + digest
   opt-in to the data export; privacy policy must state club-visibility-by-default and the
@@ -208,9 +212,9 @@ USING (
 - **Trigger:** unit-test via SQL — status flip fires once; second flip no-op (unique);
   pipeline-style touch (only `enriched_at`/`updated_at`) fires nothing; URL NULL→value
   fires; value→value change doesn't; null-then-refill doesn't duplicate.
-- **Edge Function:** `toggle-favorite` happy path, idempotent double-star, unauth 401.
-- **RLS:** own rows visible; same-club visible; same-club + privacy off → hidden;
-  different club → hidden; anon → nothing.
+- **Edge Functions:** `toggle-favorite` happy path, toggle-off, unauth 401, unknown
+  event 404. `get-favorites` club visibility: same-club counted; same-club + privacy
+  off → not counted; different club → not counted; own favorites never in clubCounts.
 - **Feed semantics:** notification created before star is excluded; unread cursor math.
 - **E2E (Playwright):** star as logged-in user → appears in /profil; anon star click →
   login prompt; cancelled event shows ODWOŁANY badge in kalendarz.
