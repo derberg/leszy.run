@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite --port 5173",
     "generate-og": "node scripts/generate-og-image.js",
-    "build": "node scripts/generate-og-image.js && vite build && node scripts/generate-event-pages.js && node scripts/generate-landing-pages.js",
+    "build": "node scripts/generate-og-image.js && vite build && node scripts/generate-event-pages.js && node scripts/generate-landing-pages.js && node scripts/generate-legal-pages.js",
     "preview": "vite preview",
     "test:functions": "node --test ../supabase/functions/tests/*.test.js",
     "test:e2e": "playwright test"
