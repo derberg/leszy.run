@@ -83,6 +83,25 @@ describe('get-favorites', () => {
     }
   })
 
+  it('starred events that get rejected drop out of the list', async () => {
+    const me = await createTestSession('gf-reject')
+    const eventId = await createTestEvent()
+
+    try {
+      await supabaseAdmin.from('event_favorites').insert({ user_id: me.user.id, event_id: eventId })
+
+      await supabaseAdmin.from('calendar_events').update({ status: 'rejected' }).eq('id', eventId)
+
+      const res = await callFunction('get-favorites', {}, me.sessionToken)
+      assert.equal(res.status, 200)
+      assert.deepEqual(res.data.events, [])
+    } finally {
+      await supabaseAdmin.from('event_favorites').delete().eq('user_id', me.user.id)
+      await supabaseAdmin.from('calendar_events').delete().eq('id', eventId)
+      await cleanupUser(me.user.id)
+    }
+  })
+
   it('requires auth', async () => {
     const res = await callFunction('get-favorites', {})
     assert.equal(res.status, 401)
