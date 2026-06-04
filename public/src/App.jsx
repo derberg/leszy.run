@@ -22,6 +22,10 @@ const Login = lazy(() => import('./pages/Login.jsx'))
 const Onboarding = lazy(() => import('./pages/Onboarding.jsx'))
 const Profil = lazy(() => import('./pages/Profil.jsx'))
 const UserProfile = lazy(() => import('./pages/UserProfile.jsx'))
+import PolitykaPrywatnosci from './pages/PolitykaPrywatnosci.jsx'
+import PrivacyPolicy from './pages/PrivacyPolicy.jsx'
+import Regulamin from './pages/Regulamin.jsx'
+import PodmiotyPrzetwarzajace from './pages/PodmiotyPrzetwarzajace.jsx'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -62,6 +66,10 @@ export default function App() {
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/profil" element={<Profil />} />
           <Route path="/u/:username" element={<UserProfile />} />
+          <Route path="/polityka-prywatnosci" element={<PolitykaPrywatnosci />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/regulamin" element={<Regulamin />} />
+          <Route path="/podmioty-przetwarzajace" element={<PodmiotyPrzetwarzajace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
