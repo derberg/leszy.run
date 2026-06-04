@@ -979,7 +979,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
   // diff-based updates. Index by every source+source_id pair (primary + every
   // entry in source_links) so cross-source merges still find the existing row.
   // Rejected events are tracked separately so we never resurrect their data.
-  const existingByLink = new Map()  // 'source:source_id' → ce row (active/pending only)
+  const existingByLink = new Map()  // 'source:source_id' → ce row (non-rejected: active/pending/cancelled)
   const rejectedKeys = new Set()    // 'source:source_id' from rejected events
   from = 0
   while (true) {
