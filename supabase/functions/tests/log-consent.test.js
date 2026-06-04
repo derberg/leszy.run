@@ -85,4 +85,13 @@ describe('log-consent', () => {
     )
     assert.equal(status, 400)
   })
+
+  it('returns 400 when policyVersion is missing', async () => {
+    const { status } = await post(
+      'log-consent',
+      { decision: 'accepted' },
+      sessionToken,
+    )
+    assert.equal(status, 400)
+  })
 })
