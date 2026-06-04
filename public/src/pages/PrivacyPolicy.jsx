@@ -22,6 +22,7 @@ export default function PrivacyPolicy() {
           <li><strong>Timing measurements:</strong> raw gate readings, confirmed crossings, checkpoint observations, final results.</li>
           <li><strong>Check-in:</strong> acknowledgement of the race regulations, timestamps, required documents.</li>
           <li><strong>Analytics:</strong> Google Analytics 4 cookies — only after consent has been given.</li>
+          <li><strong>Starred events (favourites):</strong> the list of events marked with a star, associated with the user account.</li>
         </ul>
       </section>
 
@@ -34,6 +35,7 @@ export default function PrivacyPolicy() {
           <li><strong>Public results and archive:</strong> Art. 6(1)(f) GDPR — legitimate interest (sports archive, transparency).</li>
           <li><strong>SMS check-in:</strong> Art. 6(1)(b) GDPR — performance of a contract.</li>
           <li><strong>Analytics:</strong> Art. 6(1)(a) GDPR — consent given via the cookie banner.</li>
+          <li><strong>Starred events and notifications:</strong> Art. 6(1)(b) GDPR — performance of a contract (event-following feature). The list of followed events is stored on the account and used for in-app notifications about changes to those events (cancellation, registration link becoming available, approaching registration deadline). If you have set a club, other members of your club can see which events you are following — you can turn this off in the privacy settings in your profile. The optional weekly email digest of followed events is sent only after you have given explicit consent (checkbox in your profile) and can be withdrawn at any time — legal basis: Art. 6(1)(a) GDPR. Followed-event data is included in the data export (Art. 15/20) and deleted on account deletion (Art. 17).</li>
         </ul>
       </section>
 
