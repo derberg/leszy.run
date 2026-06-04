@@ -62,7 +62,7 @@ LeszyRun/
   frontend/     React + Vite (admin UI)
   public/       React + Vite (public-facing: live results, volunteer bib entry, self-service check-in)
   packages/ui/  Shared UI components (@leszyrun/ui)
-  scheduler/    Node.js + node-cron daemon, runs the daily scrape→enrich→publish pipeline at 08:00 Europe/Warsaw and a watchdog at 10:00. Sends SendGrid alerts on failure.
+  scheduler/    Node.js + node-cron daemon, runs the daily scrape→enrich→publish pipeline at 08:00 Europe/Warsaw, deadline notifications at 08:30, a watchdog at 10:00, and the weekly digest Monday 09:00. Sends SendGrid alerts on failure.
   enricher/     Python (Crawl4AI + Docling + local Ollama) for LLM enrichment, run-once container in compose
   mosquitto/    native macOS, NOT dockerized (hardware constraint)
 ```
@@ -234,6 +234,8 @@ writes to Supabase first (not local), so all check-in data has a single source o
 - `calendar_events` — aggregated race calendar from scrapers + manual entry
 - `geocode_cache` — Nominatim geocoding results cache
 - `url_suggestions` — Brave Search URL candidates pending admin review
+- `event_favorites` — user star/follow shortlist (service-role only, written via `toggle-favorite` edge function)
+- `event_notifications` — event-level notification log (`cancelled` / `registration_opened` / `deadline_soon`); rows produced by a `calendar_events` trigger + `run-deadline-notifications.js`; UNIQUE(event_id, type)
 
 ## Supabase sync — how it works
 

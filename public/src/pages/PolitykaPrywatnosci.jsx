@@ -22,6 +22,7 @@ export default function PolitykaPrywatnosci() {
           <li><strong>Pomiary czasu:</strong> surowe odczyty bramek, potwierdzenia przejść, obserwacje na punktach kontrolnych, wyniki końcowe.</li>
           <li><strong>Check-in:</strong> potwierdzenie akceptacji regulaminu biegu, znaczniki czasowe, dokumenty wymagane.</li>
           <li><strong>Analityka:</strong> pliki cookie Google Analytics 4 — wyłącznie po wyrażeniu zgody.</li>
+          <li><strong>Obserwowane biegi (ulubione):</strong> lista biegów oznaczonych gwiazdką, powiązana z kontem użytkownika.</li>
         </ul>
       </section>
 
@@ -34,6 +35,7 @@ export default function PolitykaPrywatnosci() {
           <li><strong>Wyniki publiczne i archiwum:</strong> Art. 6(1)(f) RODO — uzasadniony interes (archiwum sportowe, transparentność).</li>
           <li><strong>SMS check-in:</strong> Art. 6(1)(b) RODO — wykonanie umowy.</li>
           <li><strong>Analityka:</strong> Art. 6(1)(a) RODO — zgoda wyrażana w banerze cookie.</li>
+          <li><strong>Obserwowane biegi i powiadomienia:</strong> Art. 6(1)(b) RODO — wykonanie umowy (funkcja obserwowania biegów). Lista obserwowanych biegów jest przechowywana na koncie i służy do powiadomień w aplikacji o zmianach dotyczących biegu (odwołanie biegu, pojawienie się linku do zapisów, zbliżający się termin zapisów). Jeśli masz ustawiony klub, pozostali członkowie Twojego klubu widzą, które biegi obserwujesz — możesz to wyłączyć w ustawieniach prywatności w swoim profilu. Opcjonalny tygodniowy digest e-mailowy z obserwowanymi biegami jest wysyłany wyłącznie po wyrażeniu zgody (checkbox w profilu) i można go wyłączyć w dowolnym momencie — podstawa: Art. 6(1)(a) RODO. Dane obserwowanych biegów są uwzględniane w eksporcie danych (Art. 15/20) i usuwane przy likwidacji konta (Art. 17).</li>
         </ul>
       </section>
 
