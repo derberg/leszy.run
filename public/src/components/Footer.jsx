@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom'
 
 export default function Footer() {
+  function openCookieBanner() {
+    window.dispatchEvent(new CustomEvent('leszy:cookies:open'))
+  }
+
   return (
     <footer className="border-t border-apex-border py-10 px-6" role="contentinfo">
       <div className="max-w-[1100px] mx-auto">
@@ -36,10 +40,16 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-apex-border pt-6 text-center text-xs text-apex-dim">
+        <div className="border-t border-apex-border pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-apex-dim">
           <p>
             &copy; {new Date().getFullYear()} Leszy.run &middot; Pomiar czasu i obsługa wydarzeń sportowych
           </p>
+          <nav className="flex flex-wrap gap-x-4 gap-y-1">
+            <Link to="/polityka-prywatnosci" className="text-apex-muted no-underline hover:text-apex-yellow transition-colors">Polityka prywatności</Link>
+            <Link to="/regulamin" className="text-apex-muted no-underline hover:text-apex-yellow transition-colors">Regulamin</Link>
+            <Link to="/podmioty-przetwarzajace" className="text-apex-muted no-underline hover:text-apex-yellow transition-colors">Podmioty przetwarzające</Link>
+            <button type="button" onClick={openCookieBanner} className="text-left text-apex-muted hover:text-apex-yellow transition-colors">Zarządzaj cookies</button>
+          </nav>
         </div>
       </div>
     </footer>

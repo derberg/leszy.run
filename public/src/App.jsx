@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import CookieBanner from './components/CookieBanner.jsx'
+import Footer from './components/Footer.jsx'
 import RouteTracker from './components/RouteTracker.jsx'
 import Landing from './pages/Landing.jsx'
 import NotFound from './pages/NotFound.jsx'
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      <Footer />
       <CookieBanner />
     </>
   )
