@@ -31,6 +31,7 @@ describe('toggle-favorite', () => {
         .from('event_favorites')
         .select('event_id', { count: 'exact', head: true })
         .eq('user_id', user.id)
+        .eq('event_id', eventId)
       assert.equal(count, 1)
 
       const off = await callFunction('toggle-favorite', { event_id: eventId }, sessionToken)
@@ -40,6 +41,7 @@ describe('toggle-favorite', () => {
         .from('event_favorites')
         .select('event_id', { count: 'exact', head: true })
         .eq('user_id', user.id)
+        .eq('event_id', eventId)
       assert.equal(after, 0)
     } finally {
       await supabaseAdmin.from('calendar_events').delete().eq('id', eventId)
@@ -50,6 +52,28 @@ describe('toggle-favorite', () => {
   it('requires auth', async () => {
     const res = await callFunction('toggle-favorite', { event_id: crypto.randomUUID() })
     assert.equal(res.status, 401)
+  })
+
+  it('returns 400 when event_id is missing', async () => {
+    const { user, sessionToken } = await createTestSession('fav400')
+    try {
+      const res = await callFunction('toggle-favorite', {}, sessionToken)
+      assert.equal(res.status, 400)
+    } finally {
+      await cleanupUser(user.id)
+    }
+  })
+
+  it('returns 404 for pending events', async () => {
+    const { user, sessionToken } = await createTestSession('favpend')
+    const eventId = await createTestEvent('pending')
+    try {
+      const res = await callFunction('toggle-favorite', { event_id: eventId }, sessionToken)
+      assert.equal(res.status, 404)
+    } finally {
+      await supabaseAdmin.from('calendar_events').delete().eq('id', eventId)
+      await cleanupUser(user.id)
+    }
   })
 
   it('rejects unknown and rejected events with 404', async () => {
