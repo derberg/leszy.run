@@ -29,13 +29,24 @@ export default function useNotifications({ markSeen = false } = {}) {
     if (!user) return
     // markSeen consumers (the profile feed) always refetch so the cursor advances
     if (cache !== undefined && !markSeen) return
-    if (inflight) return
-    inflight = callFunction('get-notifications', markSeen ? { markSeen: true } : {})
-      .then((d) => {
-        cache = { notifications: d.notifications ?? EMPTY_NOTIFICATIONS, unseenCount: markSeen ? 0 : (d.unseenCount ?? 0) }
-      })
-      .catch(() => { cache = { notifications: EMPTY_NOTIFICATIONS, unseenCount: 0 } })
-      .finally(() => { inflight = null; notifyAll() })
+
+    const run = () => {
+      inflight = callFunction('get-notifications', markSeen ? { markSeen: true } : {})
+        .then((d) => {
+          cache = { notifications: d.notifications ?? EMPTY_NOTIFICATIONS, unseenCount: markSeen ? 0 : (d.unseenCount ?? 0) }
+        })
+        .catch(() => { cache = { notifications: EMPTY_NOTIFICATIONS, unseenCount: 0 } })
+        .finally(() => { inflight = null; notifyAll() })
+    }
+
+    if (inflight) {
+      // A plain (badge) fetch is already running. A markSeen consumer must still
+      // advance the cursor — chain it after the inflight fetch settles. Plain
+      // consumers just piggyback on the inflight result.
+      if (markSeen) inflight.finally(run)
+      return
+    }
+    run()
   }, [user, markSeen])
 
   return {
