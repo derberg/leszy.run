@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { checkAndIncrement } from '../_shared/throttle.js'
 
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -53,6 +54,26 @@ Deno.serve(async (req) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim()
+
+    // Rate limiting: 5 requests per email and 20 per IP within a 15-minute window
+    const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+
+    const emailThrottle = await checkAndIncrement(supabaseAdmin, `email:${normalizedEmail}`, 5)
+    if (!emailThrottle.allowed) {
+      return new Response(JSON.stringify({ error: 'Too many requests' }), {
+        status: 429,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json', 'retry-after': String(emailThrottle.retryAfterSec) },
+      })
+    }
+    if (ip) {
+      const ipThrottle = await checkAndIncrement(supabaseAdmin, `ip:${ip}`, 20)
+      if (!ipThrottle.allowed) {
+        return new Response(JSON.stringify({ error: 'Too many requests' }), {
+          status: 429,
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json', 'retry-after': String(ipThrottle.retryAfterSec) },
+        })
+      }
+    }
 
     // Invalidate previous unused codes for this email
     await supabaseAdmin
