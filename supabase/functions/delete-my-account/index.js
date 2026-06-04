@@ -295,7 +295,10 @@ Deno.serve(async (req) => {
     }
 
     // 2b. Erase event favorites (soft delete on profile never fires FK cascade — GDPR erasure)
-    await supabaseAdmin.from('event_favorites').delete().eq('user_id', session.userId)
+    const { error: favError } = await supabaseAdmin.from('event_favorites').delete().eq('user_id', session.userId)
+    // Profile is already soft-deleted at this point; log and continue rather than
+    // fail the whole deletion — favorites can be swept manually if this ever fires.
+    if (favError) console.error('delete-my-account: favorites cleanup failed:', favError.message)
 
     // 3. Permanently ban auth user (email on auth.users is NOT rotated — stays claimed, blocks re-registration)
     const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(session.userId, {

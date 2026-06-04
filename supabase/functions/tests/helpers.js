@@ -23,17 +23,23 @@ export async function createTestSession(suffix = 'test') {
   if (authError) throw authError
   const userId = created.user.id
 
-  const { error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .insert({ id: userId, email })
-  if (profileError) throw profileError
-
   const sessionToken = crypto.randomBytes(32).toString('hex')
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
-  const { error: sessionError } = await supabaseAdmin
-    .from('auth_sessions')
-    .insert({ id: sessionToken, user_id: userId, email, expires_at: expiresAt })
-  if (sessionError) throw sessionError
+  try {
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .insert({ id: userId, email })
+    if (profileError) throw profileError
+
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    const { error: sessionError } = await supabaseAdmin
+      .from('auth_sessions')
+      .insert({ id: sessionToken, user_id: userId, email, expires_at: expiresAt })
+    if (sessionError) throw sessionError
+  } catch (err) {
+    // Clean up the auth user we just created so it doesn't accumulate as an orphan.
+    try { await supabaseAdmin.auth.admin.deleteUser(userId) } catch { /* best-effort */ }
+    throw err
+  }
 
   return { user: { id: userId, email }, sessionToken, email }
 }
