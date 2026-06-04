@@ -6,6 +6,29 @@ Race timing system. RFID readers detect participants crossing start/finish gates
 Events are published via MQTT. Backend processes them and stores results in local
 PostgreSQL. Syncs to Supabase when online. See ARCHITECTURE.md for full design.
 
+## GDPR compliance
+
+This project is RODO/GDPR-compliant. Reference documents:
+- [docs/gdpr/ropa.md](docs/gdpr/ropa.md) — Rejestr Czynności Przetwarzania (Art. 30, public)
+- [docs/gdpr/dpia-participants.md](docs/gdpr/dpia-participants.md) — DPIA for participant data (Art. 35)
+- [docs/gdpr/breach-response.md](docs/gdpr/breach-response.md) — Breach response runbook (Art. 33/34)
+- [docs/gdpr/rls-audit.md](docs/gdpr/rls-audit.md) — Supabase RLS audit
+- [docs/gdpr/profile-exposure.md](docs/gdpr/profile-exposure.md) — Public profile field exposure audit
+- [docs/gdpr/dpa-checklist.md](docs/gdpr/dpa-checklist.md) — Operator action items (gitignored)
+- Public legal pages: `/polityka-prywatnosci`, `/privacy-policy`, `/regulamin`, `/podmioty-przetwarzajace`
+
+**Bumping privacy policy version:** edit `POLICY_VERSION` in [public/src/lib/policyVersion.js](public/src/lib/policyVersion.js). The cookie banner detects mismatch and re-prompts every user automatically.
+
+**Data subject rights endpoints:**
+- `POST /functions/v1/export-my-data` — returns JSON export of user data (Art. 15/20)
+- `POST /functions/v1/delete-my-account` — two-step OTP soft delete (Art. 17). Email is NOT released after deletion — re-registration with same email is permanently blocked.
+
+**Consent audit trail:** every accept/reject choice on the cookie banner is logged client-side (localStorage with timestamp + policyVersion + userAgent) and, for authenticated users, server-side to the `consent_log` table via the `log-consent` edge function.
+
+**Retention:** `gate_events` and `gate_crossings` are purged 90 days post-race by the scheduler container's daily cron job at 03:00 Europe/Warsaw. No other automatic retention purges.
+
+**Admin actions:** every admin write (calendar event approval, club merge, contribution review, etc.) is logged to `admin_actions` table with admin_user_id, target, payload, ip, user_agent. Append-only, service_role only.
+
 ## Hardware documentation
 
 - `docs/impinj-r700-api/endpoints.md` — known R700 REST API endpoints (system status, antennas, MQTT, inventory presets)
