@@ -49,7 +49,7 @@ export default function UserProfile() {
           .from('calendar_event_reports')
           .select('field, status, created_at')
           .eq('user_id', p.id)
-          .in('status', ['accepted', 'pending'])
+          .eq('status', 'accepted')
           .order('created_at', { ascending: false })
           .limit(10),
         supabase
