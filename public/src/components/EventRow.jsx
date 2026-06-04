@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ReportEventModal from './ReportEventModal.jsx'
+import StarButton from './StarButton.jsx'
+import useFavorites from '../hooks/useFavorites.js'
 import { slugify } from '../lib/slugify.js'
 
 const baseTag = 'font-mono text-[10px] font-semibold tracking-wide px-2 py-0.5 border uppercase'
@@ -39,6 +41,9 @@ function extractCity(location) {
 export default function EventRow({ event }) {
   const [showReport, setShowReport] = useState(false)
   const navigate = useNavigate()
+  const { clubCounts } = useFavorites()
+  const clubCount = clubCounts[event.id] || 0
+  const isCancelled = event.status === 'cancelled'
   const dateStr = new Date(event.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' })
   const isLeszyrun = !!event.leszyrun_event_id
 
@@ -80,14 +85,20 @@ export default function EventRow({ event }) {
         <div className="hidden md:grid grid-cols-[90px_minmax(260px,1fr)_minmax(0,auto)] items-center gap-4">
           <div className="font-mono text-[13px] font-semibold text-apex-yellow">{dateStr}</div>
           <div className="min-w-0">
-            <div className="font-display font-bold text-[17px] tracking-wide uppercase text-apex-text-bright truncate">{event.name}</div>
+            <div className={`font-display font-bold text-[17px] tracking-wide uppercase text-apex-text-bright truncate ${isCancelled ? 'line-through opacity-60' : ''}`}>{event.name}</div>
             {city && (
               <div className="text-[13px] text-apex-muted mt-0.5">{city}</div>
             )}
           </div>
           <div className="flex gap-1.5 items-center min-w-0 justify-end">
             <div className="flex gap-1.5 items-center flex-wrap justify-end">
-              {regClosed && (
+              {isCancelled && (
+                <span data-testid="cancelled-badge" className={`${baseTag} border-apex-red/30 text-apex-red bg-apex-red/10`}>Odwołany</span>
+              )}
+              {clubCount > 0 && (
+                <span title="Tyle osób z Twojego klubu obserwuje ten bieg" className={`${baseTag} border-apex-yellow/40 text-apex-yellow`}>★ {clubCount} z klubu</span>
+              )}
+              {!isCancelled && regClosed && (
                 <span className={`${baseTag} border-apex-red/30 text-apex-red`}>Zapisy zamknięte</span>
               )}
               {types.map(t => <TypeTag key={t} label={t} />)}
@@ -98,6 +109,7 @@ export default function EventRow({ event }) {
                 </span>
               )}
             </div>
+            <StarButton eventId={event.id} />
             <button data-testid="report-event-btn" onClick={handleReport} title="Zgłoś nieprawidłowe dane wydarzenia"
               className="text-apex-muted hover:text-apex-yellow focus:text-apex-yellow transition-colors px-2 py-1 ml-1 flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border hover:border-apex-yellow/40 shrink-0"
               aria-label="Zgłoś nieprawidłowe dane wydarzenia">
@@ -114,13 +126,19 @@ export default function EventRow({ event }) {
         <div className="md:hidden flex gap-2">
           <span className="font-mono text-[12px] font-semibold text-apex-yellow shrink-0 pt-0.5">{dateStr}</span>
           <div className="min-w-0 flex-1">
-            <span className="font-display font-bold text-[14px] tracking-wide uppercase text-apex-text-bright leading-tight">{event.name}</span>
+            <span className={`font-display font-bold text-[14px] tracking-wide uppercase text-apex-text-bright leading-tight ${isCancelled ? 'line-through opacity-60' : ''}`}>{event.name}</span>
             {city && (
               <div className="text-[12px] text-apex-muted mt-0.5">{city}</div>
             )}
-            {(types.length > 0 || distanceLabel || regClosed) && (
+            {(types.length > 0 || distanceLabel || regClosed || isCancelled || clubCount > 0) && (
               <div className="flex gap-1 mt-1.5 flex-wrap">
-                {regClosed && (
+                {isCancelled && (
+                  <span data-testid="cancelled-badge" className={`${baseTag} border-apex-red/30 text-apex-red bg-apex-red/10`}>Odwołany</span>
+                )}
+                {clubCount > 0 && (
+                  <span title="Tyle osób z Twojego klubu obserwuje ten bieg" className={`${baseTag} border-apex-yellow/40 text-apex-yellow`}>★ {clubCount} z klubu</span>
+                )}
+                {!isCancelled && regClosed && (
                   <span className={`${baseTag} border-apex-red/30 text-apex-red`}>Zapisy zamknięte</span>
                 )}
                 {types.map(t => <TypeTag key={t} label={t} />)}
@@ -132,15 +150,18 @@ export default function EventRow({ event }) {
                 )}
               </div>
             )}
-            <button data-testid="report-event-btn" onClick={handleReport}
-              className="mt-2 text-apex-muted active:text-apex-yellow transition-colors px-2 py-1 inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border"
-              aria-label="Zgłoś nieprawidłowe dane wydarzenia">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-                <line x1="4" y1="22" x2="4" y2="15" />
-              </svg>
-              <span>Zgłoś poprawkę</span>
-            </button>
+            <div className="mt-2 flex gap-2 items-center">
+              <StarButton eventId={event.id} />
+              <button data-testid="report-event-btn" onClick={handleReport}
+                className="text-apex-muted active:text-apex-yellow transition-colors px-2 py-1 inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border"
+                aria-label="Zgłoś nieprawidłowe dane wydarzenia">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                  <line x1="4" y1="22" x2="4" y2="15" />
+                </svg>
+                <span>Zgłoś poprawkę</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

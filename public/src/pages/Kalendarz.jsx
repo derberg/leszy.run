@@ -10,6 +10,8 @@ import CalendarGrid from '../components/CalendarGrid.jsx'
 import CalendarDetailPanel from '../components/CalendarDetailPanel.jsx'
 import useTheme from '../hooks/useTheme.js'
 import useSeo from '../hooks/useSeo.js'
+import useAuth from '../hooks/useAuth.js'
+import useFavorites from '../hooks/useFavorites.js'
 import { haversineKm } from '../lib/haversine.js'
 import FeedbackModal from '../components/FeedbackModal.jsx'
 
@@ -203,6 +205,10 @@ export default function Kalendarz() {
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1', 10))
   const debounceRef = useRef(null)
 
+  const { user } = useAuth()
+  const { clubCounts, ready: favoritesReady } = useFavorites()
+  const [clubOnly, setClubOnly] = useState(false)
+
   const [userLocation, setUserLocation] = useState(() => {
     const stored = sessionStorage.getItem('leszy_location')
     return stored ? JSON.parse(stored) : null
@@ -262,7 +268,7 @@ export default function Kalendarz() {
       let query = supabase
         .from('calendar_events')
         .select('*', { count: 'exact' })
-        .eq('status', 'active')
+        .in('status', ['active', 'cancelled'])
         .order('date', { ascending: true })
 
       const [startDate, endDate] = getDateRange(filters.timeRange)
@@ -285,6 +291,12 @@ export default function Kalendarz() {
         query = query.in('voivodeship', filters.voivodeship)
       }
 
+      if (clubOnly) {
+        const clubIds = Object.keys(clubCounts)
+        // placeholder UUID → empty result instead of unfiltered when no club stars
+        query = query.in('id', clubIds.length ? clubIds : ['00000000-0000-0000-0000-000000000000'])
+      }
+
       // Map view and client-side filters need all results (no pagination at DB level)
       if (view === 'map' || view === 'calendar' || filters.distance.length || filters.price || userLocation) {
         query = query.limit(2000)
@@ -302,7 +314,7 @@ export default function Kalendarz() {
       setRawData({ data: [], count: 0 })
     }
     setLoading(false)
-  }, [filters, page, view, userLocation])
+  }, [filters, page, view, userLocation, clubOnly, clubCounts])
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
@@ -481,6 +493,16 @@ export default function Kalendarz() {
           <span className="font-mono text-xs text-apex-muted tracking-wide">
             Znaleziono <strong className="text-apex-yellow">{total}</strong> wydarzeń
           </span>
+          {user?.club && (
+            <button
+              data-testid="club-filter-toggle"
+              onClick={() => { setClubOnly((v) => !v); setPage(1); setSelectedDate(null) }}
+              disabled={!favoritesReady}
+              className={`font-mono text-[10px] px-2 py-1 border transition-all ${clubOnly ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border text-apex-muted hover:border-apex-yellow/40'}`}
+            >
+              ★ Obserwowane w moim klubie
+            </button>
+          )}
         </div>
 
         {autoExpanded && userLocation && (
