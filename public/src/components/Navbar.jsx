@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle.jsx'
 import useAuth from '../hooks/useAuth.js'
+import useNotifications from '../hooks/useNotifications.js'
 import { signOut } from '../lib/auth.js'
 
 const navLinks = [
@@ -18,6 +19,7 @@ export default function Navbar() {
   const dropdownRef = useRef(null)
   const location = useLocation()
   const { user, loading: authLoading } = useAuth()
+  const { unseenCount } = useNotifications()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef(null)
 
@@ -123,6 +125,11 @@ export default function Navbar() {
             >
               <span className="w-2 h-2 rounded-full bg-apex-yellow inline-block" />
               {user.username || user.email?.split('@')[0]}
+              {unseenCount > 0 && (
+                <span data-testid="notif-badge" className="ml-1 min-w-[16px] h-4 px-1 inline-flex items-center justify-center bg-apex-yellow text-apex-ink font-mono text-[9px] font-bold leading-none">
+                  {unseenCount}
+                </span>
+              )}
             </button>
             {userMenuOpen && (
               <div className="absolute right-0 top-full mt-2 w-44 bg-apex-bg border border-apex-border shadow-lg z-50">
@@ -177,6 +184,11 @@ export default function Navbar() {
           >
             <span className="w-1.5 h-1.5 rounded-full bg-apex-yellow inline-block" />
             {user.username || user.email?.split('@')[0]}
+            {unseenCount > 0 && (
+              <span data-testid="notif-badge" className="ml-1 min-w-[16px] h-4 px-1 inline-flex items-center justify-center bg-apex-yellow text-apex-ink font-mono text-[9px] font-bold leading-none">
+                {unseenCount}
+              </span>
+            )}
           </Link>
         ) : authLoading ? (
           <span aria-hidden="true" className="font-mono text-[11px] border border-transparent px-2.5 py-1 invisible select-none">

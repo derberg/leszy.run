@@ -6,6 +6,10 @@ import useAuth from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
 import useSeo from '../hooks/useSeo.js'
 import ClubInput from '../components/ClubInput.jsx'
+import useFavorites from '../hooks/useFavorites.js'
+import useNotifications from '../hooks/useNotifications.js'
+import StarButton from '../components/StarButton.jsx'
+import { slugify } from '../lib/slugify.js'
 
 const inputClass = 'flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const sectionTitle = 'font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted border-b border-apex-border pb-1 mb-3'
@@ -413,6 +417,8 @@ function ProfilContent() {
   useSeo({ title: 'Mój profil — Leszy.run', path: '/profil', noindex: true })
 
   const { user } = useAuth()
+  const { starredEvents } = useFavorites()
+  const { notifications } = useNotifications({ markSeen: true })
   const [profile, setProfile] = useState(null)
   const [badges, setBadges] = useState([])
   const [reports, setReports] = useState([])
@@ -551,14 +557,92 @@ function ProfilContent() {
               </div>
             </div>
 
-            <div className="border border-apex-border p-3 text-center">
-              <div className="text-[9px] font-mono text-apex-muted mb-1">Powiadomienia</div>
-              <div className="text-xs text-apex-muted">Wkrótce</div>
+            <div className="mb-6">
+              <div className={sectionTitle}>Powiadomienia</div>
+              <label className="flex items-start gap-2 cursor-pointer mb-3">
+                <input
+                  data-testid="toggle-weekly-digest"
+                  type="checkbox"
+                  checked={!!profile?.weekly_digest}
+                  onChange={(e) => handleSave('weekly_digest', e.target.checked)}
+                  className="mt-0.5 accent-[#BBDD00]"
+                />
+                <span className="font-sans text-xs text-apex-text">
+                  Cotygodniowe podsumowanie e-mailem
+                  <span className="block text-[10px] text-apex-muted">Zmiany w obserwowanych biegach, raz w tygodniu.</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  data-testid="toggle-club-visibility"
+                  type="checkbox"
+                  checked={(profile?.privacy_settings?.favorites ?? true) !== false}
+                  onChange={(e) => handleSave('privacy_settings', { ...profile?.privacy_settings, favorites: e.target.checked })}
+                  className="mt-0.5 accent-[#BBDD00]"
+                />
+                <span className="font-sans text-xs text-apex-text">
+                  Pokazuj klubowiczom co obserwuję
+                  <span className="block text-[10px] text-apex-muted">Członkowie Twojego klubu widzą, które biegi obserwujesz.</span>
+                </span>
+              </label>
             </div>
           </aside>
 
           {/* Main */}
           <div className="flex-1">
+            <div className="mb-10">
+              <div className={sectionTitle}>Obserwowane biegi</div>
+              <p className="font-sans text-xs text-apex-muted -mt-2 mb-4">
+                Powiadomimy Cię tutaj, gdy obserwowany bieg zostanie odwołany, pojawi się link do zapisów
+                lub zostanie 7 dni do końca zapisów.
+              </p>
+
+              {notifications.length > 0 && (
+                <div className="mb-5 space-y-0" data-testid="notifications-feed">
+                  {notifications.map((n) => (
+                    <div key={n.id} className="flex items-center gap-3 py-2 border-b border-apex-border/50 text-xs">
+                      <span className={`px-1.5 py-0.5 font-mono text-[9px] border flex-shrink-0 ${
+                        n.type === 'cancelled' ? 'border-apex-red/40 text-apex-red'
+                        : n.type === 'registration_opened' ? 'border-green-800 text-green-400'
+                        : 'border-apex-yellow-dim text-apex-yellow'
+                      }`}>
+                        {n.type === 'cancelled' ? 'Odwołany' : n.type === 'registration_opened' ? 'Zapisy ruszyły' : 'Koniec zapisów blisko'}
+                      </span>
+                      <a href={`/kalendarz/${slugify(n.event_name || '', n.event_date)}`} className="flex-1 text-apex-text truncate no-underline hover:text-apex-yellow">
+                        {n.event_name}
+                      </a>
+                      <span className="text-apex-muted flex-shrink-0">{new Date(n.created_at).toLocaleDateString('pl-PL')}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {starredEvents.length === 0 ? (
+                <p className="font-sans text-sm text-apex-muted py-4">
+                  Nie obserwujesz jeszcze żadnych biegów. Wejdź do{' '}
+                  <a href="/kalendarz" className="text-apex-yellow underline">kalendarza</a>{' '}
+                  i kliknij ★ przy biegu, który Cię interesuje.
+                </p>
+              ) : (
+                <div className="space-y-0" data-testid="starred-list">
+                  {starredEvents.map((ev) => (
+                    <div key={ev.id} className="flex items-center gap-3 py-2.5 border-b border-apex-border/50 text-xs">
+                      <span className="font-mono text-[11px] font-semibold text-apex-yellow flex-shrink-0">
+                        {new Date(ev.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </span>
+                      <a href={`/kalendarz/${slugify(ev.name, ev.date)}`} className={`flex-1 truncate no-underline hover:text-apex-yellow ${ev.status === 'cancelled' ? 'line-through text-apex-muted' : 'text-apex-text'}`}>
+                        {ev.name}
+                      </a>
+                      {ev.status === 'cancelled' && (
+                        <span className="px-1.5 py-0.5 text-[9px] font-mono border border-apex-red/40 text-apex-red flex-shrink-0">Odwołany</span>
+                      )}
+                      <StarButton eventId={ev.id} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className={sectionTitle}>Moje zgłoszenia</div>
             <p className="font-sans text-xs text-apex-muted -mt-2 mb-4">
               Twoje raporty o poprawkach do wydarzeń oraz propozycje nowych wydarzeń wysłane do kalendarza.
