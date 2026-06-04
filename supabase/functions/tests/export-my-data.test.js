@@ -55,6 +55,10 @@ describe('export-my-data', () => {
     assert.ok(Array.isArray(data.consent_log), 'consent_log should be an array')
     assert.ok(data.consent_log.length >= 1, 'consent_log should contain the seeded entry')
     assert.equal(data.consent_log[0].user_id, userId)
+    assert.ok(data.contributions !== undefined, 'contributions object should be present')
+    assert.ok(Array.isArray(data.contributions.calendar_event_reports), 'contributions.calendar_event_reports should be an array')
+    assert.ok(Array.isArray(data.contributions.website_feedback), 'contributions.website_feedback should be an array')
+    assert.ok(Array.isArray(data.contributions.submitted_calendar_events), 'contributions.submitted_calendar_events should be an array')
   })
 
   it('sets Content-Disposition header with correct filename format', async () => {
