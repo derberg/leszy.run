@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js'
+import { logAdminAction } from '../lib/adminAudit.js'
 
 export async function clubsRoutes(fastify) {
   // List all clubs with member counts + similarity-grouped duplicate suggestions
@@ -31,6 +32,7 @@ export async function clubsRoutes(fastify) {
     if (sourceIds.includes(id)) {
       return reply.status(400).send({ error: 'target club cannot be in sourceIds' })
     }
+    await logAdminAction({ action: 'merge_clubs', targetTable: 'clubs', targetId: id, payload: { sourceIds }, req: request.raw })
     const { data: moved, error } = await supabase.rpc('merge_clubs', { target: id, sources: sourceIds })
     if (error) {
       const status = /not found|unknown|cannot be/.test(error.message) ? 400 : 500

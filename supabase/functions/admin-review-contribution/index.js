@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { logAdminAction } from '../_shared/admin-audit.js'
 
 function json(body, status = 200, req) {
   return new Response(JSON.stringify(body), {
@@ -30,6 +31,15 @@ Deno.serve(async (req) => {
     if (!['accept', 'reject'].includes(action)) {
       return json({ error: 'action must be accept or reject' }, 400, req)
     }
+
+    await logAdminAction(supabaseAdmin, {
+      userId: session.userId,
+      action: `admin_review_contribution_${action}`,
+      targetTable: type,
+      targetId: id,
+      payload: { admin_note },
+      req,
+    })
 
     let contributorUserId = null
     const now = new Date().toISOString()
