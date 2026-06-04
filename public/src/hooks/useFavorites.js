@@ -6,6 +6,14 @@ import useAuth from './useAuth.js'
 // across all StarButton mounts. `undefined` = not fetched yet.
 let cache
 let inflight = null
+
+// Stable empty-collection identities. Without these, `cache?.x ?? {}` would
+// allocate a fresh object/array on every render while cache is undefined (anon
+// users, or logged-in users before the favorites fetch resolves). That fresh
+// identity propagates into consumers' useCallback/useMemo deps (e.g. Kalendarz's
+// fetchEvents depends on clubCounts) and causes an infinite render→refetch loop.
+const EMPTY_EVENTS = []
+const EMPTY_COUNTS = {}
 const listeners = new Set()
 
 function notifyAll() { listeners.forEach((fn) => fn()) }
@@ -70,7 +78,7 @@ export default function useFavorites() {
     // NOTE: cache.events is the load-time snapshot — toggle() only updates
     // cache.ids. Consumers listing starred events get fresh data on next page
     // load; update cache.events here if that ever becomes insufficient.
-    starredEvents: cache?.events ?? [],
-    clubCounts: cache?.clubCounts ?? {},
+    starredEvents: cache?.events ?? EMPTY_EVENTS,
+    clubCounts: cache?.clubCounts ?? EMPTY_COUNTS,
   }
 }
