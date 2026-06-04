@@ -17,7 +17,7 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
   const location = useLocation()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef(null)
 
@@ -145,6 +145,11 @@ export default function Navbar() {
               </div>
             )}
           </div>
+        ) : authLoading ? (
+          /* auth state unknown (first fetch in flight) — reserve space, don't flash "Zaloguj się" */
+          <span aria-hidden="true" className="font-mono text-xs border border-transparent px-3 py-1.5 invisible select-none">
+            Zaloguj się
+          </span>
         ) : (
           <Link
             to="/login"
@@ -173,6 +178,10 @@ export default function Navbar() {
             <span className="w-1.5 h-1.5 rounded-full bg-apex-yellow inline-block" />
             {user.username || user.email?.split('@')[0]}
           </Link>
+        ) : authLoading ? (
+          <span aria-hidden="true" className="font-mono text-[11px] border border-transparent px-2.5 py-1 invisible select-none">
+            Zaloguj się
+          </span>
         ) : (
           <Link
             to="/login"
