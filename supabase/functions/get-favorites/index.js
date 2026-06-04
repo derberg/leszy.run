@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
   const session = await getSession(req, supabaseAdmin)
   if (!session) return json({ error: 'Authorization required' }, 401, req)
 
-  // Own starred events with display details (rejected events drop out here)
+  // Own starred events with display details
   const { data: favs } = await supabaseAdmin
     .from('event_favorites')
     .select('created_at, calendar_events(id, name, date, location, status, registration_deadline, registration_url)')
@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
 
   const events = (favs ?? [])
     .map((f) => f.calendar_events)
-    .filter((e) => e && ['active', 'cancelled'].includes(e.status))
+    .filter((e) => e && ['active', 'cancelled'].includes(e.status)) // rejected events drop out here — only publicly-visible statuses are returned
 
   // Club counts: favorites of OTHER members of my club who haven't opted out
   const clubCounts = {}
@@ -54,12 +54,21 @@ Deno.serve(async (req) => {
       .map((m) => m.id)
 
     if (visibleIds.length) {
-      const { data: mateFavs } = await supabaseAdmin
-        .from('event_favorites')
-        .select('event_id')
-        .in('user_id', visibleIds)
-      for (const f of mateFavs ?? []) {
-        clubCounts[f.event_id] = (clubCounts[f.event_id] || 0) + 1
+      // Paginate past PostgREST's 1000-row response cap (large clubs would
+      // otherwise undercount). clubCounts deliberately spans ALL events mates
+      // starred — it powers the kalendarz "my club" discovery filter.
+      const pageSize = 1000
+      for (let from = 0; ; from += pageSize) {
+        const { data: mateFavs } = await supabaseAdmin
+          .from('event_favorites')
+          .select('event_id')
+          .in('user_id', visibleIds)
+          .order('event_id')
+          .range(from, from + pageSize - 1)
+        for (const f of mateFavs ?? []) {
+          clubCounts[f.event_id] = (clubCounts[f.event_id] || 0) + 1
+        }
+        if (!mateFavs || mateFavs.length < pageSize) break
       }
     }
   }
