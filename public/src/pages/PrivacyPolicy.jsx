@@ -4,7 +4,7 @@ export default function PrivacyPolicy() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12 text-apex-text">
       <header className="mb-8">
-        <h1 className="font-display text-4xl font-extrabold uppercase text-apex-bright">Privacy Policy</h1>
+        <h1 className="font-display text-4xl font-extrabold uppercase text-apex-text-bright">Privacy Policy</h1>
         <p className="mt-2 text-sm text-apex-muted">Version {POLICY_VERSION}</p>
       </header>
 

@@ -11,17 +11,17 @@ export default function PodmiotyPrzetwarzajace() {
   return (
     <article className="mx-auto max-w-4xl px-4 py-12 text-apex-text">
       <header className="mb-8">
-        <h1 className="font-display text-4xl font-extrabold uppercase text-apex-bright">Podmioty przetwarzające</h1>
+        <h1 className="font-display text-4xl font-extrabold uppercase text-apex-text-bright">Podmioty przetwarzające</h1>
         <p className="mt-3">Lista podmiotów, z którymi współpracujemy w zakresie przetwarzania danych osobowych. Każdy z nich działa w oparciu o własną umowę powierzenia (DPA) zgodną z RODO.</p>
       </header>
 
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-apex-border">
-            <th className="py-2 text-left font-display uppercase">Podmiot</th>
-            <th className="py-2 text-left font-display uppercase">Lokalizacja</th>
-            <th className="py-2 text-left font-display uppercase">Cel</th>
-            <th className="py-2 text-left font-display uppercase">DPA</th>
+            <th scope="col" className="py-2 text-left font-display uppercase">Podmiot</th>
+            <th scope="col" className="py-2 text-left font-display uppercase">Lokalizacja</th>
+            <th scope="col" className="py-2 text-left font-display uppercase">Cel</th>
+            <th scope="col" className="py-2 text-left font-display uppercase">DPA</th>
           </tr>
         </thead>
         <tbody>
