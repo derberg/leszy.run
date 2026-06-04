@@ -21,6 +21,12 @@ const TYPE_LABELS = {
   deadline_soon: 'Zostało mniej niż 7 dni do końca zapisów',
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (ch) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ))
+}
+
 // Slugify duplicated from public/src/lib/slugify.js for Node compat
 // (same established duplication as backend/scripts/publish-event-pages.js)
 const POLISH_MAP = {
@@ -63,50 +69,68 @@ async function sendEmail(to, subject, html) {
   if (!res.ok) throw new Error(`SendGrid ${res.status}: ${await res.text()}`)
 }
 
+// PostgREST caps responses at 1000 rows — paginate or silently lose data.
+async function fetchAll(buildQuery) {
+  const pageSize = 1000
+  const rows = []
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await buildQuery().range(from, from + pageSize - 1)
+    if (error) { console.error(error.message); process.exit(1) }
+    rows.push(...(data ?? []))
+    if (!data || data.length < pageSize) break
+  }
+  return rows
+}
+
 if (!dryRun && !process.env.SENDGRID_API_KEY) {
   console.error('SENDGRID_API_KEY missing — cannot send. Aborting.')
   process.exit(1)
 }
 
-// 1. Opted-in users
+// 1. Opted-in users (digest subscribers won't near 1000 soon; .order for determinism)
 const { data: users, error: usersErr } = await supabase
   .from('profiles')
   .select('id, email, username')
   .eq('weekly_digest', true)
   .is('deleted_at', null)
   .not('email', 'is', null)
+  .order('id')
 if (usersErr) { console.error(usersErr.message); process.exit(1) }
 if (!users?.length) { console.log('no digest subscribers — nothing to do'); process.exit(0) }
 
-// 2. Their favorites (single query; paginate if this ever nears 1000 rows)
-const { data: favs, error: favsErr } = await supabase
-  .from('event_favorites')
-  .select('user_id, event_id, created_at')
-  .in('user_id', users.map((u) => u.id))
-if (favsErr) { console.error(favsErr.message); process.exit(1) }
+// 2. Their favorites — paginate past PostgREST 1000-row cap
+const favs = await fetchAll(() =>
+  supabase
+    .from('event_favorites')
+    .select('user_id, event_id, created_at')
+    .in('user_id', users.map((u) => u.id))
+    .order('created_at')
+)
 
-// 3. Notifications from the last 7 days on any of those events
+// 3. Notifications from the last 7 days on any of those events — paginate past cap
 const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-const eventIds = [...new Set((favs ?? []).map((f) => f.event_id))]
+const eventIds = [...new Set(favs.map((f) => f.event_id))]
 let notifs = []
 if (eventIds.length) {
-  const { data, error: nErr } = await supabase
-    .from('event_notifications')
-    .select('event_id, type, created_at, calendar_events(name, date)')
-    .gte('created_at', since)
-    .in('event_id', eventIds)
-  if (nErr) { console.error(nErr.message); process.exit(1) }
-  notifs = data ?? []
+  notifs = await fetchAll(() =>
+    supabase
+      .from('event_notifications')
+      .select('event_id, type, created_at, calendar_events(name, date)')
+      .gte('created_at', since)
+      .in('event_id', eventIds)
+      .order('created_at')
+  )
 }
 
 // 4. Per-user digest: notification must postdate that user's star
 const favsByUser = new Map()
-for (const f of favs ?? []) {
+for (const f of favs) {
   if (!favsByUser.has(f.user_id)) favsByUser.set(f.user_id, new Map())
   favsByUser.get(f.user_id).set(f.event_id, f.created_at)
 }
 
 let sent = 0
+let failed = 0
 for (const user of users) {
   const myFavs = favsByUser.get(user.id)
   if (!myFavs) continue
@@ -119,11 +143,11 @@ for (const user of users) {
     .map((n) => {
       const name = n.calendar_events?.name ?? 'Wydarzenie'
       const url = `https://www.leszy.run/kalendarz/${slugify(name, n.calendar_events?.date)}`
-      return `<li><strong>${TYPE_LABELS[n.type]}</strong> — <a href="${url}">${name}</a></li>`
+      return `<li><strong>${TYPE_LABELS[n.type]}</strong> — <a href="${url}">${escapeHtml(name)}</a></li>`
     })
     .join('\n')
   const html = `
-    <p>Cześć${user.username ? ` ${user.username}` : ''}!</p>
+    <p>Cześć${user.username ? ` ${escapeHtml(user.username)}` : ''}!</p>
     <p>W obserwowanych przez Ciebie biegach w ostatnim tygodniu:</p>
     <ul>${items}</ul>
     <p><a href="https://www.leszy.run/profil">Zarządzaj obserwowanymi i powiadomieniami</a></p>
@@ -134,9 +158,17 @@ for (const user of users) {
     console.log(`WOULD SEND to ${user.email}: ${mine.length} item(s)`)
     for (const n of mine) console.log(`   - [${n.type}] ${n.calendar_events?.name}`)
   } else {
-    await sendEmail(user.email, 'Leszy.run — co nowego w obserwowanych biegach', html)
-    sent++
+    try {
+      await sendEmail(user.email, 'Leszy.run — co nowego w obserwowanych biegach', html)
+      sent++
+    } catch (err) {
+      console.error(`send failed for ${user.email}: ${err.message}`)
+      failed++
+    }
   }
 }
 
-console.log(dryRun ? '\nDRY RUN — no emails sent. Use --apply to send.' : `sent ${sent} digest(s)`)
+console.log(dryRun
+  ? '\nDRY RUN — no emails sent. Use --apply to send.'
+  : `sent ${sent} digest(s), failed ${failed}`)
+if (!dryRun) process.exit(failed > 0 ? 1 : 0)

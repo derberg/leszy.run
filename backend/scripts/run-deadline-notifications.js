@@ -15,6 +15,7 @@ const supabase = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 )
 
+// UTC date boundary is fine here: the 7-day range + daily 08:30 run means a Warsaw-midnight off-by-one self-heals next run.
 function isoDate(d) {
   return d.toISOString().slice(0, 10)
 }
