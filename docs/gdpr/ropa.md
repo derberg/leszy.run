@@ -15,7 +15,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 - **Podstawa prawna:** Art. 6(1)(b) RODO — wykonanie umowy o świadczenie usług elektronicznych.
 - **Kategorie danych:** email, username, display_name, telefon (opcjonalnie), data urodzenia, płeć, miasto, województwo, klub.
 - **Kategorie osób:** zarejestrowani użytkownicy serwisu Leszy.run (osoby fizyczne).
-- **Odbiorcy:** Supabase, Inc. (hosting bazy danych); SendGrid (dostarczanie emaili transakcyjnych).
+- **Odbiorcy:** Supabase, Inc. (hosting bazy danych); Twilio / SendGrid (dostarczanie emaili transakcyjnych).
 - **Transfery poza EOG:** Supabase i SendGrid mogą przetwarzać dane w USA pod EU Standard Contractual Clauses.
 - **Okres przechowywania:** bezterminowo, aż do żądania usunięcia konta przez użytkownika (soft delete).
 - **Środki bezpieczeństwa:** szyfrowanie at-rest (Supabase), RLS (Row-Level Security), uwierzytelnianie magic-link OTP, rate limiting na endpointach OTP, audit log działań administracyjnych.
@@ -24,7 +24,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 
 - **Cel:** Pomiar czasu uczestników biegów organizowanych przez organizatorów współpracujących z Leszy.run, publikacja wyników w archiwum sportowym.
 - **Podstawa prawna:** Art. 6(1)(f) RODO — uzasadniony interes administratora (świadczenie usługi pomiaru czasu, prowadzenie archiwum sportowego, weryfikowalność wyników).
-- **Kategorie danych:** imię, nazwisko, numer startowy, kategoria, tag RFID, telefon (opcjonalnie do SMS check-in), email (opcjonalnie), surowe odczyty bramek (gate_events), potwierdzenia przejść, wyniki.
+- **Kategorie danych:** imię, nazwisko, numer startowy, kategoria, tag RFID, telefon (opcjonalnie do SMS check-in), email (opcjonalnie), surowe odczyty bramek (gate_events), potwierdzenia przejść (gate_crossings), wyniki.
 - **Kategorie osób:** uczestnicy biegów zaimportowani z list startowych organizatorów (w tym małoletni — patrz DPIA).
 - **Odbiorcy:** Supabase, Inc. (baza danych), Vercel (serwowanie publicznych wyników).
 - **Transfery poza EOG:** jak w pkt 1.
@@ -39,7 +39,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 - **Kategorie osób:** uczestnicy biegów, którzy podali numer telefonu organizatorowi.
 - **Odbiorcy:** SMSAPI sp. z o.o. (Polska) jako podmiot przetwarzający SMS.
 - **Transfery poza EOG:** brak (SMSAPI przetwarza dane w Polsce).
-- **Okres przechowywania:** bezterminowo, do usunięcia konta lub wniosku osoby.
+- **Okres przechowywania:** bezterminowo dla uczestników z kontem (do usunięcia konta lub wniosku osoby); dla uczestników bez konta — 12 miesięcy od daty biegu, następnie automatyczna anonimizacja w logach SMSAPI.
 - **Środki bezpieczeństwa:** szyfrowane API SMSAPI, klucze API w secret store (env vars), brak logowania pełnej treści wiadomości w logach aplikacji.
 
 ## 4. Wkłady społecznościowe (zgłoszenia wydarzeń, recenzje, treści użytkowników)

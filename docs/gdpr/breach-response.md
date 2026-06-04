@@ -76,7 +76,7 @@ Szablon:
 >
 > Zalecenia dla Pani/Pana: [LISTA — np. zmiana hasła, monitoring konta].
 >
-> W razie pytań — lukasz@leszy.run lub +48 [telefon].
+> W razie pytań — lukasz@leszy.run lub +48 784 640 977.
 >
 > Mają Państwo prawo wniesienia skargi do Prezesa UODO (https://uodo.gov.pl).
 
