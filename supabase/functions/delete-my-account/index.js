@@ -255,7 +255,7 @@ Deno.serve(async (req) => {
     const originalEmail = normalizedEmail
 
     // 1. Anonymize participants matching original email
-    await supabaseAdmin
+    const participantsResult = await supabaseAdmin
       .from('participants')
       .update({
         first_name: 'Uczestnik',
@@ -265,6 +265,12 @@ Deno.serve(async (req) => {
         deleted_at: new Date().toISOString(),
       })
       .eq('email', originalEmail)
+
+    if (participantsResult.error) {
+      console.error('delete-my-account: participants anonymization failed for', originalEmail, participantsResult.error)
+      // Soft-delete continues — profile-level deletion is the user's primary request and must not be blocked
+      // by participant-side failures. The error is logged so a human can investigate orphan PII.
+    }
 
     // 2. Soft-delete profile (username must be unique — use first 8 chars of UUID)
     const { error: updateError } = await supabaseAdmin

@@ -15,7 +15,7 @@ async function post(path, body, cookie = null) {
 }
 
 describe('delete-my-account', () => {
-  let sessionToken, userId, email
+  let sessionToken, userId, email, testEventId, testParticipantId
 
   before(async () => {
     email = `test-delete-account-${Date.now()}@test.leszy.run`
@@ -33,6 +33,24 @@ describe('delete-my-account', () => {
       .from('auth_sessions')
       .insert({ id: sessionToken, user_id: userId, email, expires_at: expiresAt })
     if (sessionError) throw sessionError
+
+    // Seed a minimal event so we can attach a participant row
+    const { data: eventRow, error: eventError } = await supabaseAdmin
+      .from('events')
+      .insert({ name: 'test-delete-account-event' })
+      .select('id')
+      .single()
+    if (eventError) throw eventError
+    testEventId = eventRow.id
+
+    // Seed a participant row with the test user's email (category_id is nullable)
+    const { data: participantRow, error: participantError } = await supabaseAdmin
+      .from('participants')
+      .insert({ event_id: testEventId, first_name: 'Jan', last_name: 'Testowy', email, phone: '+48123456789' })
+      .select('id')
+      .single()
+    if (participantError) throw participantError
+    testParticipantId = participantRow.id
   })
 
   after(async () => {
@@ -42,6 +60,9 @@ describe('delete-my-account', () => {
     await supabaseAdmin.from('auth_sessions').delete().eq('user_id', userId)
     // Profile may have been soft-deleted (email nulled); delete by id
     await supabaseAdmin.from('profiles').delete().eq('id', userId)
+    // Clean up participant and event fixtures
+    if (testParticipantId) await supabaseAdmin.from('participants').delete().eq('id', testParticipantId)
+    if (testEventId) await supabaseAdmin.from('events').delete().eq('id', testEventId)
   })
 
   it('returns 401 for anonymous request (no session cookie)', async () => {
@@ -110,6 +131,19 @@ describe('delete-my-account', () => {
     // non-fatal error and continues — the profile deletion is the critical outcome.
     // In full integration tests with real auth.users rows, supabaseAdmin.auth.admin.getUserById
     // would show banned_until set far in the future.
+
+    // Verify participant row was anonymized
+    const { data: participant, error: participantError } = await supabaseAdmin
+      .from('participants')
+      .select('first_name, last_name, phone, email, deleted_at')
+      .eq('id', testParticipantId)
+      .single()
+    assert.equal(participantError, null)
+    assert.equal(participant.first_name, 'Uczestnik', 'participant first_name should be anonymized')
+    assert.equal(participant.last_name, 'anonimowy', 'participant last_name should be anonymized')
+    assert.equal(participant.phone, null, 'participant phone should be nulled')
+    assert.equal(participant.email, null, 'participant email should be nulled')
+    assert.ok(participant.deleted_at, 'participant deleted_at should be set')
   })
 
   it('action=confirm with invalid code returns 401', async () => {
