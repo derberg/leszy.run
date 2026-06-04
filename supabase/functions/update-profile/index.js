@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const {
       username, display_name, club, club_id, avatar_url, bio, privacy_settings,
-      gender, phone, date_of_birth, city, voivodeship,
+      gender, phone, date_of_birth, city, voivodeship, weekly_digest,
     } = body
 
     if (username !== undefined) {
@@ -88,6 +88,9 @@ Deno.serve(async (req) => {
     if (voivodeship !== undefined && voivodeship !== null && voivodeship !== '' && !VOIVODESHIPS.has(voivodeship)) {
       return json({ error: 'Nieprawidłowe województwo' }, 400, req)
     }
+    if (weekly_digest !== undefined && typeof weekly_digest !== 'boolean') {
+      return json({ error: 'weekly_digest musi być wartością logiczną' }, 400, req)
+    }
 
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
@@ -106,6 +109,7 @@ Deno.serve(async (req) => {
     if (date_of_birth !== undefined)     updates.date_of_birth = date_of_birth || null
     if (city !== undefined)              updates.city = city || null
     if (voivodeship !== undefined)       updates.voivodeship = voivodeship || null
+    if (weekly_digest !== undefined)     updates.weekly_digest = weekly_digest
 
     // Club: a picked club_id takes precedence over free-text club.
     if (club_id !== undefined && club_id !== null && club_id !== '') {

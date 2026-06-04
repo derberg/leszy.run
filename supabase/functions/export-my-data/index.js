@@ -33,13 +33,14 @@ Deno.serve(async (req) => {
 
   const userId = session.userId
 
-  const [profile, userBadges, consentLog, eventReports, websiteFeedback, submittedEvents] = await Promise.all([
+  const [profile, userBadges, consentLog, eventReports, websiteFeedback, submittedEvents, favorites] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').eq('id', userId).single(),
     supabaseAdmin.from('user_badges').select('*').eq('user_id', userId),
     supabaseAdmin.from('consent_log').select('*').eq('user_id', userId),
     supabaseAdmin.from('calendar_event_reports').select('*').eq('user_id', userId),
     supabaseAdmin.from('website_feedback').select('*').eq('user_id', userId),
     supabaseAdmin.from('calendar_events').select('*').eq('submitted_by', userId),
+    supabaseAdmin.from('event_favorites').select('event_id, created_at, calendar_events(name, date)').eq('user_id', userId),
   ])
 
   const body = {
@@ -48,6 +49,7 @@ Deno.serve(async (req) => {
     account: profile.data || null,
     badges: userBadges.data || [],
     consent_log: consentLog.data || [],
+    favorites: favorites.data || [],
     contributions: {
       calendar_event_reports: eventReports.data || [],
       website_feedback: websiteFeedback.data || [],

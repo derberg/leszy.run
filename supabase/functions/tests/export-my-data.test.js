@@ -1,6 +1,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { supabaseAdmin, FUNCTIONS_URL, createTestSession, cleanupUser } from './helpers.js'
+import { supabaseAdmin, FUNCTIONS_URL, createTestSession, cleanupUser, callFunction } from './helpers.js'
+import crypto from 'node:crypto'
 
 async function post(name, sessionToken = null) {
   const headers = { 'Content-Type': 'application/json' }
@@ -71,5 +72,28 @@ describe('export-my-data', () => {
     const date = new Date().toISOString().slice(0, 10)
     const expected = `attachment; filename="leszy-run-dane-${userId}-${date}.json"`
     assert.equal(disposition, expected)
+  })
+
+  it('export includes event favorites and weekly_digest', async () => {
+    const { user, sessionToken } = await createTestSession('export-fav')
+    const { data: ev } = await supabaseAdmin.from('calendar_events')
+      .insert({
+        name: `Export Fav Bieg ${Date.now()}`, date: '2030-01-01',
+        source: 'test', source_id: `export-fav-${crypto.randomUUID()}`, status: 'active',
+      })
+      .select('id').single()
+    try {
+      await supabaseAdmin.from('event_favorites').insert({ user_id: user.id, event_id: ev.id })
+      const res = await callFunction('export-my-data', {}, sessionToken)
+      assert.equal(res.status, 200)
+      // export shape: top-level `favorites` array, profile lives under `account`
+      assert.ok(Array.isArray(res.data.favorites))
+      assert.equal(res.data.favorites.length, 1)
+      assert.ok('weekly_digest' in res.data.account)
+    } finally {
+      await supabaseAdmin.from('event_favorites').delete().eq('user_id', user.id)
+      await supabaseAdmin.from('calendar_events').delete().eq('id', ev.id)
+      await cleanupUser(user.id)
+    }
   })
 })

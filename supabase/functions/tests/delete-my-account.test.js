@@ -15,7 +15,7 @@ async function post(path, body, cookie = null) {
 }
 
 describe('delete-my-account', () => {
-  let sessionToken, userId, email, testEventId, testParticipantId
+  let sessionToken, userId, email, testEventId, testParticipantId, testFavEventId
 
   before(async () => {
     email = `test-delete-account-${Date.now()}@test.leszy.run`
@@ -51,9 +51,29 @@ describe('delete-my-account', () => {
       .single()
     if (participantError) throw participantError
     testParticipantId = participantRow.id
+
+    // Seed a calendar event + favorite so we can verify favorites are erased on deletion
+    const { data: favEvent, error: favEventError } = await supabaseAdmin
+      .from('calendar_events')
+      .insert({
+        name: `test-delete-account-fav-${Date.now()}`, date: '2030-01-01',
+        source: 'test', source_id: `delete-fav-${crypto.randomUUID()}`, status: 'active',
+      })
+      .select('id')
+      .single()
+    if (favEventError) throw favEventError
+    testFavEventId = favEvent.id
+
+    const { error: favError } = await supabaseAdmin
+      .from('event_favorites')
+      .insert({ user_id: userId, event_id: testFavEventId })
+    if (favError) throw favError
   })
 
   after(async () => {
+    // Clean up favorites + favorite event fixture
+    await supabaseAdmin.from('event_favorites').delete().eq('user_id', userId)
+    if (testFavEventId) await supabaseAdmin.from('calendar_events').delete().eq('id', testFavEventId)
     // Clean up OTP codes issued during the test
     await supabaseAdmin.from('auth_codes').delete().eq('email', email)
     // Clean up session
@@ -144,6 +164,14 @@ describe('delete-my-account', () => {
     assert.equal(participant.phone, null, 'participant phone should be nulled')
     assert.equal(participant.email, null, 'participant email should be nulled')
     assert.ok(participant.deleted_at, 'participant deleted_at should be set')
+
+    // Verify event favorites were erased (no FK cascade on soft delete — must be explicit)
+    const { count: favCount, error: favError } = await supabaseAdmin
+      .from('event_favorites')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+    assert.equal(favError, null)
+    assert.equal(favCount, 0, 'event_favorites rows should be deleted on account deletion')
   })
 
   it('action=confirm with invalid code returns 401', async () => {

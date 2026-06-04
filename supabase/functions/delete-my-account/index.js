@@ -294,6 +294,9 @@ Deno.serve(async (req) => {
       return json({ error: 'Failed to delete account' }, 500, req)
     }
 
+    // 2b. Erase event favorites (soft delete on profile never fires FK cascade — GDPR erasure)
+    await supabaseAdmin.from('event_favorites').delete().eq('user_id', session.userId)
+
     // 3. Permanently ban auth user (email on auth.users is NOT rotated — stays claimed, blocks re-registration)
     const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(session.userId, {
       ban_duration: '876000h',

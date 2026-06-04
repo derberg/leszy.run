@@ -132,4 +132,18 @@ describe('update-profile edge function', () => {
     const slugs = badges.map(b => b.badge_definitions.slug)
     assert.ok(slugs.includes('club'), `Expected club badge, got: ${slugs}`)
   })
+
+  it('accepts weekly_digest boolean and rejects non-boolean', async () => {
+    const { user, sessionToken } = await createTestSession('digest')
+    try {
+      const ok = await callFunction('update-profile', { weekly_digest: true }, sessionToken)
+      assert.equal(ok.status, 200)
+      assert.equal(ok.data.data.weekly_digest, true)
+
+      const bad = await callFunction('update-profile', { weekly_digest: 'yes' }, sessionToken)
+      assert.equal(bad.status, 400)
+    } finally {
+      await cleanupUser(user.id)
+    }
+  })
 })
