@@ -42,6 +42,9 @@ Deno.serve(async (req) => {
       .select('id, event_id, type, created_at, calendar_events(name, date, status)')
       .in('event_id', [...favMap.keys()])
       .order('created_at', { ascending: false })
+      // limit applies BEFORE the JS before-star filter below — acceptable
+      // because each event carries at most 3 notification types and the
+      // query already spans only the user's starred events
       .limit(50)
 
     notifications = (notifs ?? [])
