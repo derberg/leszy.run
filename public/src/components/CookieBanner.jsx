@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { POLICY_VERSION } from '../lib/policyVersion'
 
 const GA_ID = 'G-8JRNXVX5Z9'
 const CONSENT_KEY = 'leszy-cookie-consent'
 const IS_DEV = import.meta.env.DEV
 
 function loadGA() {
-  // Disable GA in development mode
   if (IS_DEV) {
     console.log('[DEV] Google Analytics disabled in development mode')
     return
@@ -27,7 +27,6 @@ function removeGA() {
   const script = document.getElementById('ga-script')
   if (script) script.remove()
   window.dataLayer = undefined
-  // Remove GA cookies
   document.cookie.split(';').forEach(c => {
     const name = c.trim().split('=')[0]
     if (name.startsWith('_ga') || name.startsWith('_gid')) {
@@ -37,29 +36,89 @@ function removeGA() {
   })
 }
 
+function readConsent() {
+  const raw = localStorage.getItem(CONSENT_KEY)
+  if (!raw) return null
+  // Backwards-compat: legacy string format
+  if (raw === 'accepted' || raw === 'rejected') {
+    return { decision: raw, timestamp: null, policyVersion: 'pre-2026-06-04', userAgent: null }
+  }
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function writeConsent(decision) {
+  const record = {
+    decision,
+    timestamp: new Date().toISOString(),
+    policyVersion: POLICY_VERSION,
+    userAgent: navigator.userAgent,
+  }
+  localStorage.setItem(CONSENT_KEY, JSON.stringify(record))
+  return record
+}
+
+async function logConsentServerSide(record) {
+  // Fire and forget — the server-side log is best-effort.
+  // Only attempts when the user is logged in (auth-me check is cheap).
+  try {
+    const apiUrl = import.meta.env.VITE_SUPABASE_URL
+    if (!apiUrl) return
+    await fetch(`${apiUrl}/functions/v1/log-consent`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        decision: record.decision,
+        policyVersion: record.policyVersion,
+      }),
+    })
+  } catch (err) {
+    // Silent — server log is not critical for the UX
+    console.warn('[consent] server-side log failed:', err)
+  }
+}
+
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    const consent = localStorage.getItem(CONSENT_KEY)
-    if (consent === 'accepted') {
-      loadGA()
-    } else if (consent === null) {
+    const consent = readConsent()
+    if (!consent) {
       setVisible(true)
+      return
     }
-    // If 'rejected', do nothing — no GA, no banner
+    if (consent.policyVersion !== POLICY_VERSION) {
+      setVisible(true)
+      return
+    }
+    if (consent.decision === 'accepted') loadGA()
   }, [])
 
+  const openManually = useCallback(() => {
+    setVisible(true)
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener('leszy:cookies:open', openManually)
+    return () => window.removeEventListener('leszy:cookies:open', openManually)
+  }, [openManually])
+
   function accept() {
-    localStorage.setItem(CONSENT_KEY, 'accepted')
+    const record = writeConsent('accepted')
     loadGA()
     setVisible(false)
+    logConsentServerSide(record)
   }
 
   function reject() {
-    localStorage.setItem(CONSENT_KEY, 'rejected')
+    const record = writeConsent('rejected')
     removeGA()
     setVisible(false)
+    logConsentServerSide(record)
   }
 
   if (!visible) return null
@@ -68,7 +127,7 @@ export default function CookieBanner() {
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-apex-border bg-apex-surface p-4">
       <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 sm:flex-row sm:justify-between">
         <p className="text-sm text-apex-text">
-          Używamy plików cookie, aby analizować ruch i ulepszać stronę.
+          Używamy plików cookie do analizy ruchu (Google Analytics). Wyrażenie zgody jest opcjonalne. Szczegóły w <a href="/polityka-prywatnosci" className="text-apex-yellow underline">polityce prywatności</a>.
         </p>
         <div className="flex shrink-0 gap-2">
           <button
