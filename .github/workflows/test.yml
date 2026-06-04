@@ -1,0 +1,35 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  edge-function-tests:
+    name: Edge function tests (node:test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (root workspace)
+        run: npm ci
+
+      - name: Run edge function tests
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          # Use --test to run all *.test.js files in the tests/ directory.
+          # --test-concurrency=1 keeps tests sequential to avoid cross-test
+          # collisions on shared tables (otp_throttle, consent_log, etc.) when
+          # the same test email pattern could conflict in parallel.
+          node --test --test-concurrency=1 supabase/functions/tests/*.test.js

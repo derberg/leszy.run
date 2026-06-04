@@ -587,6 +587,16 @@ HTML display text (H1, labels, link text, meta title/description, intro, JSON-LD
 
 The mapping files (`biegi-mappings.js` in both `backend/scripts/lib/` and `public/src/lib/`) encode this: keys are ASCII slugs, values are Polish display text. These two files are duplicates — keep them in sync.
 
+## Testing
+
+### Edge function tests
+
+Tests at [supabase/functions/tests/](supabase/functions/tests/) use Node's built-in `node:test` runner. They hit the live Supabase project and create real auth users + cleanup after themselves.
+
+Local: `npm ci && VITE_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node --test --test-concurrency=1 supabase/functions/tests/*.test.js`
+
+CI: runs automatically on every PR via [.github/workflows/test.yml](.github/workflows/test.yml). Requires GitHub Actions repository secrets `VITE_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+
 ## Things to never do
 
 - Do not use TypeScript (this is a JS project)
