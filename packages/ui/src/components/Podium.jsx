@@ -1,4 +1,5 @@
 import { PositionBadge } from './PositionBadge.jsx'
+import { anonymizedName } from '../lib/anonymizedName.js'
 
 /**
  * @param {Array} top3 - up to 3 result objects with { participant, gunDurationMs, durationMs, positionType }
@@ -30,11 +31,14 @@ const placeColors = {
 
 function PodiumBox({ place, result, animal, formatDuration }) {
   const p = result.participant
+  const { displayName, isAnonymized, tooltip } = anonymizedName(p)
   return (
     <div className="flex-1 max-w-40 flex flex-col items-center">
       <div className="text-6xl leading-none mb-2">{animal}</div>
       <div className="font-display text-base tracking-wider text-center leading-tight text-apex-text-bright mb-1 px-1">
-        {p?.firstName}<br />{p?.lastName}
+        <span title={tooltip || undefined} className={isAnonymized ? 'italic text-apex-muted' : ''}>
+          {displayName}
+        </span>
       </div>
       {p?.club && (
         <div className="text-[10px] text-apex-muted text-center leading-tight mb-1 px-1 italic break-words">
