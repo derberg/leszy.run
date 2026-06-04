@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 import { requestCode, verifyCode } from '../lib/auth.js'
-import useAuth from '../hooks/useAuth.js'
+import useAuth, { clearAuthCache } from '../hooks/useAuth.js'
+import { clearFavoritesCache } from '../hooks/useFavorites.js'
 import useSeo from '../hooks/useSeo.js'
 
 const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
@@ -86,6 +87,8 @@ export default function Login() {
     setSubmitting(true)
     try {
       const { hasUsername } = await verifyCode(email.trim().toLowerCase(), code.trim())
+      clearAuthCache()
+      clearFavoritesCache()
       navigate(postAuthPath(hasUsername), { replace: true })
     } catch (err) {
       setError(err.message)

@@ -67,6 +67,9 @@ export default function useFavorites() {
     ready: cache !== undefined,
     isStarred,
     toggle,
+    // NOTE: cache.events is the load-time snapshot — toggle() only updates
+    // cache.ids. Consumers listing starred events get fresh data on next page
+    // load; update cache.events here if that ever becomes insufficient.
     starredEvents: cache?.events ?? [],
     clubCounts: cache?.clubCounts ?? {},
   }
