@@ -7,9 +7,19 @@ import { sendFailureEmail } from './mailer.js';
 const LOG_DIR = process.env.LOG_DIR || '/app/logs';
 const COMPOSE_DIR = process.env.COMPOSE_DIR || '/workspace';
 
+// Mirrors pipeline.js todayStampLocal() — YYYYMMDD in container TZ (Europe/Warsaw).
+function todayStampLocal() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}${m}${day}`;
+}
+
 async function runBackendScript(name, scriptArgs) {
   await mkdir(LOG_DIR, { recursive: true });
-  const logPath = path.join(LOG_DIR, `${name}.log`);
+  const logFileName = `${name}-${todayStampLocal()}.log`;
+  const logPath = path.join(LOG_DIR, logFileName);
   const logStream = createWriteStream(logPath, { flags: 'a' });
   const logWrite = (line) => { logStream.write(line); };
   logWrite(`\n==== ${new Date().toISOString()} ${name} starting ====\n`);
@@ -34,9 +44,10 @@ async function runBackendScript(name, scriptArgs) {
         stepName: name,
         exitCode: result.exitCode,
         stderrTail: result.stderrTail,
-        logPath: path.join('logs', `${name}.log`),
+        logPath: path.join('logs', logFileName),
         durationMs: result.durationMs,
       });
+      process.stdout.write(`[mail] failure email sent\n`);
     } catch (err) {
       process.stdout.write(`[mail] ${name} failure email FAILED to send: ${err.message}\n`);
     }
