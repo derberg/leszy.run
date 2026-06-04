@@ -183,6 +183,13 @@
       "when": 1775548800000,
       "tag": "0025_checkpoint_near_finish",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1780557894211,
+      "tag": "0026_soft_delete",
+      "breakpoints": true
     }
   ]
 }
