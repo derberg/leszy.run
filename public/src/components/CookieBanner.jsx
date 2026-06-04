@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { POLICY_VERSION } from '../lib/policyVersion'
+import { logConsentServerSide } from '../lib/logConsent'
 
 const GA_ID = 'G-8JRNXVX5Z9'
 const CONSENT_KEY = 'leszy-cookie-consent'
@@ -61,26 +62,6 @@ function writeConsent(decision) {
   return record
 }
 
-async function logConsentServerSide(record) {
-  // Fire and forget — the server-side log is best-effort.
-  // Only attempts when the user is logged in (auth-me check is cheap).
-  try {
-    const apiUrl = import.meta.env.VITE_SUPABASE_URL
-    if (!apiUrl) return
-    await fetch(`${apiUrl}/functions/v1/log-consent`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        decision: record.decision,
-        policyVersion: record.policyVersion,
-      }),
-    })
-  } catch (err) {
-    // Silent — server log is not critical for the UX
-    console.warn('[consent] server-side log failed:', err)
-  }
-}
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false)
@@ -111,14 +92,14 @@ export default function CookieBanner() {
     const record = writeConsent('accepted')
     loadGA()
     setVisible(false)
-    logConsentServerSide(record)
+    logConsentServerSide(record.decision)
   }
 
   function reject() {
     const record = writeConsent('rejected')
     removeGA()
     setVisible(false)
-    logConsentServerSide(record)
+    logConsentServerSide(record.decision)
   }
 
   if (!visible) return null

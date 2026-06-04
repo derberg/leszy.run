@@ -7,6 +7,7 @@ import useAuth from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
 import useSeo from '../hooks/useSeo.js'
 import { supabase } from '../lib/supabase.js'
+import { logConsentServerSide } from '../lib/logConsent.js'
 
 function OnboardingForm() {
   useSeo({ title: 'Ustaw profil — Leszy.run', path: '/onboarding', noindex: true })
@@ -23,6 +24,7 @@ function OnboardingForm() {
   const [club, setClub] = useState({ name: '', clubId: null })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [usernameStatus, setUsernameStatus] = useState('idle') // idle | checking | available | taken
   const usernameRef = useRef(username)
   usernameRef.current = username
@@ -62,6 +64,7 @@ function OnboardingForm() {
         ...(displayName ? { display_name: displayName } : {}),
         ...(club.clubId ? { club_id: club.clubId } : club.name.trim() ? { club: club.name } : {}),
       })
+      await logConsentServerSide('accepted')
       navigate(nextPath, { replace: true })
     } catch (err) {
       setError(/already taken/i.test(err.message) ? 'Ta nazwa jest już zajęta.' : err.message)
@@ -130,6 +133,18 @@ function OnboardingForm() {
               <ClubInput value={club} onChange={setClub} inputClass={inputClass} />
             </div>
             {error && <p className="text-apex-red font-sans text-sm">{error}</p>}
+            <label className="flex items-start gap-2 text-sm text-apex-text">
+              <input
+                type="checkbox"
+                required
+                checked={acceptedTerms}
+                onChange={e => setAcceptedTerms(e.target.checked)}
+                className="mt-1 accent-apex-yellow"
+              />
+              <span>
+                Akceptuję <a href="/regulamin" target="_blank" rel="noopener" className="text-apex-yellow underline">Regulamin</a> oraz <a href="/polityka-prywatnosci" target="_blank" rel="noopener" className="text-apex-yellow underline">Politykę prywatności</a> serwisu Leszy.run.
+              </span>
+            </label>
             <button
               type="submit"
               disabled={submitting}
