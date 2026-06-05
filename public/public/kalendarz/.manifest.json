@@ -22727,8 +22727,8 @@
     "date": "2026-06-19",
     "registration_deadline": "2026-06-16",
     "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
-    "price_from": 60,
-    "price_to": 90,
+    "price_from": 50,
+    "price_to": 60,
     "location": "Legionowo",
     "voivodeship": "Mazowieckie",
     "lat": 52.395229,
@@ -25140,34 +25140,6 @@
     "website": "https://biegkobiet.pl/",
     "is_kids": null
   },
-  "v-bieg-wolnosci-2026-06-21": {
-    "id": "d0074efa-2c5a-4f61-a930-973548ad1378",
-    "name": "V Bieg Wolności",
-    "date": "2026-06-21",
-    "registration_deadline": "2026-06-17",
-    "regulamin_url": "https://dostartu.pl/statute_files/15999_pl.pdf",
-    "price_from": 40,
-    "price_to": 40,
-    "location": "Rząśnia, LD",
-    "voivodeship": "Łódzkie",
-    "lat": 51.217418,
-    "lng": 19.039419,
-    "distances": [
-      "8 km",
-      "200m",
-      "400m",
-      "600m",
-      "800m"
-    ],
-    "event_type": [
-      "nordic walking",
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v15999",
-    "website": null,
-    "is_kids": null
-  },
   "viii-bieg-lotnej-w-haczowie-2026-06-21": {
     "id": "b9d38d37-7b46-4b8a-90db-ccafed55aa80",
     "name": "VIII Bieg „Lotnej” w Haczowie",
@@ -25627,6 +25599,58 @@
     ],
     "registration_url": "https://www.e-gepard.eu/pl/show-contest/1668",
     "website": "https://www.osir.swinoujscie.pl/wydarzenia/iv-otwarte-mistrzostwa-swinoujscia-w-biegu-3-godzinnym-i-sztafecie",
+    "is_kids": null
+  },
+  "bieg-jubileuszowy-duczki1526-2026-06-21": {
+    "id": "22354f3d-e645-4b66-9322-163eb37f6512",
+    "name": "Bieg Jubileuszowy Duczki1526",
+    "date": "2026-06-21",
+    "registration_deadline": "2026-06-18",
+    "regulamin_url": "https://dostartu.pl/statute_files/16690_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Duczki",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.361869,
+    "lng": 21.289778,
+    "distances": [
+      "0.75 km",
+      "1.526 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/bieg-jubileuszowy-duczki1526-v16690",
+    "website": null,
+    "is_kids": null
+  },
+  "v-bieg-wolnosci-2026-06-21": {
+    "id": "d0074efa-2c5a-4f61-a930-973548ad1378",
+    "name": "V Bieg Wolności",
+    "date": "2026-06-21",
+    "registration_deadline": "2026-06-17",
+    "regulamin_url": "https://dostartu.pl/statute_files/15999_pl.pdf",
+    "price_from": 40,
+    "price_to": 40,
+    "location": "Rząśnia, LD",
+    "voivodeship": "Łódzkie",
+    "lat": 51.217418,
+    "lng": 19.039419,
+    "distances": [
+      "8 km",
+      "200m",
+      "400m",
+      "600m",
+      "800m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v15999",
+    "website": "http://kasztelania.kije.pl/viii-bieg-wolnosci-kije-2026-informacje-regulamin-zapisy/",
     "is_kids": null
   },
   "lososinski-festiwal-biegowy-2026-06-21": {
@@ -39149,6 +39173,29 @@
       "nordic walking"
     ],
     "registration_url": "https://b4sportonline.pl/festiwal_nw/",
+    "website": null,
+    "is_kids": null
+  },
+  "3-bieg-szkoly-jana-pawla-ii-2026-09-19": {
+    "id": "c3f9cf95-0e46-4208-840c-8d501c60c6fa",
+    "name": "3. Bieg Szkoły Jana Pawła II",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-13",
+    "regulamin_url": "https://wbtiming.pl/Files/Regulations/2026_09_19_regulamin_3._bieg_szkoły_jana_pawła_ii.pdf",
+    "price_from": 80,
+    "price_to": 100,
+    "location": "Szkoła Podstawowa Im Jana Pawła II w Sztynwagu, Sztynwag 46",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.998297,
+    "lng": 16.127474,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://wbtiming.pl/Rejestracja5/6598",
     "website": null,
     "is_kids": null
   },
