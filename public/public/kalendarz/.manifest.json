@@ -22701,8 +22701,8 @@
     "date": "2026-06-19",
     "registration_deadline": "2026-06-16",
     "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
-    "price_from": 50,
-    "price_to": 60,
+    "price_from": 60,
+    "price_to": 90,
     "location": "Legionowo",
     "voivodeship": "Mazowieckie",
     "lat": 52.395229,
@@ -24651,6 +24651,30 @@
     "website": null,
     "is_kids": null
   },
+  "xii-wroniecka-dycha-2026-06-21": {
+    "id": "61e06328-f143-4ff2-904f-9be560dd9725",
+    "name": "XII Wroniecka Dycha",
+    "date": "2026-06-21",
+    "registration_deadline": "2026-06-15",
+    "regulamin_url": "http://wroniecka10.pl/regulamin/",
+    "price_from": 75,
+    "price_to": 99,
+    "location": "Wronki",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.710032,
+    "lng": 16.374257,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking"
+    ],
+    "registration_url": "https://plus-timing.pl/zgloszenia/wroniecka_dycha-2026",
+    "website": "http://wroniecka10.pl",
+    "is_kids": null
+  },
   "x-ostrodzki-polmaraton-sw-jerzego-2026-06-21": {
     "id": "0442a7d5-2359-47bf-aa0f-948133f0fffc",
     "name": "X Ostródzki Półmaraton św. Jerzego",
@@ -26243,6 +26267,30 @@
     ],
     "registration_url": "https://liveds.datasport.pl/zawody_files/zawody11671.html",
     "website": "https://www.sudecka100.pl",
+    "is_kids": null
+  },
+  "ix-bieg-swietojanski-2026-06-27": {
+    "id": "2e46135d-492b-495c-ad7e-de30e8348aee",
+    "name": "IX Bieg Świętojański",
+    "date": "2026-06-27",
+    "registration_deadline": "2026-06-19",
+    "regulamin_url": "http://plus-timing.pl/zgloszenia/bieg-swietojanski-smigiel-2026/doc/regulamin.pdf",
+    "price_from": 40,
+    "price_to": 80,
+    "location": "Śmigiel",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.012744,
+    "lng": 16.527112,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny"
+    ],
+    "registration_url": "https://plus-timing.pl/zgloszenia/bieg-swietojanski-smigiel-2026",
+    "website": "https://www.okfir.pl/",
     "is_kids": null
   },
   "viii-bieg-swietlika-2026-06-27": {
@@ -31156,6 +31204,29 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16153",
     "website": "https://studzianka.eu/tatarska-piatka/",
+    "is_kids": null
+  },
+  "sremska-dycha-2026-07-19": {
+    "id": "07d202f7-2907-4a02-87a0-6f4fb63020d0",
+    "name": "Śremska Dycha",
+    "date": "2026-07-19",
+    "registration_deadline": "2026-07-16",
+    "regulamin_url": "http://plus-timing.pl/zgloszenia/sremska_dycha-2026/doc/regulamin.pdf",
+    "price_from": 50,
+    "price_to": 100,
+    "location": "Śrem",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.089332,
+    "lng": 17.015681,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://plus-timing.pl/zgloszenia/sremska_dycha-2026",
+    "website": "https://sremskisport.pl/bieg-sremska-dycha",
     "is_kids": null
   },
   "botaniczna-piatka-2026-07-19": {
@@ -38984,6 +39055,31 @@
     "website": null,
     "is_kids": null
   },
+  "14-polmaraton-dolina-samy-oraz-pyrlandzka-dycha-i-piatka-2026-09-13": {
+    "id": "431669b3-ffdd-45d3-9eb8-38ed61b24df3",
+    "name": "14. Półmaraton Doliną Samy oraz Pyrlandzka Dycha i Piątka",
+    "date": "2026-09-13",
+    "registration_deadline": "2026-09-05",
+    "regulamin_url": "https://plus-timing.pl/zgloszenia/polmaraton-dolina-samy-kazmierz-2026/doc/regulamin.pdf",
+    "price_from": 70,
+    "price_to": 130,
+    "location": "Kaźmierz",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.512924,
+    "lng": 16.583147,
+    "distances": [
+      "5 km",
+      "10 km",
+      "21.1 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://plus-timing.pl/zgloszenia/polmaraton-dolina-samy-kazmierz-2026",
+    "website": "https://hochlandpolmaraton.pl",
+    "is_kids": null
+  },
   "olsztynska-piatka-2026-edycja-2-2026-09-13": {
     "id": "30916251-34d8-48cd-8c55-070678f13186",
     "name": "Olsztyńska Piątka 2026 - edycja #2",
@@ -39035,8 +39131,8 @@
     "date": "2026-09-13",
     "registration_deadline": "2026-03-01",
     "regulamin_url": "https://www.facebook.com/BiegNadzieiSroda/posts/%EF%B8%8F%EF%B8%8F-to-ju%C5%BC-oficjalne-w-najbli%C5%BCsz%C4%85-niedziel%C4%99-1-marca-2026-r-uruchamiamy-zapisy-na-/122274111536070482/",
-    "price_from": null,
-    "price_to": null,
+    "price_from": 75,
+    "price_to": 180,
     "location": "Środa Wielkopolska",
     "voivodeship": "Wielkopolskie",
     "lat": 52.228427,
@@ -39051,7 +39147,7 @@
       "nordic walking"
     ],
     "registration_url": "https://www.facebook.com/BiegNadzieiSroda/posts/%EF%B8%8F%EF%B8%8F-to-ju%C5%BC-oficjalne-w-najbli%C5%BCsz%C4%85-niedziel%C4%99-1-marca-2026-r-uruchamiamy-zapisy-na-/122274111536070482/",
-    "website": null,
+    "website": "https://hospicjumpk.pl/",
     "is_kids": null
   },
   "zyrardow-w-biegu-2026-09-13": {
@@ -39840,6 +39936,29 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16125",
     "website": "https://time-sport.pl/zapisy-19-09-2026-glucholaski-bieg-gorski/",
+    "is_kids": null
+  },
+  "forest-run-2026-2026-09-19": {
+    "id": "57bb3222-5171-42ff-a30c-6c69f320264b",
+    "name": "Forest Run 2026",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-07-30",
+    "regulamin_url": "https://docs.google.com/document/d/145jdWRKbyw5Kb3RxJmHUfx66qjnbSd_J",
+    "price_from": 125,
+    "price_to": 160,
+    "location": "Puszcza Zielonka",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.540467,
+    "lng": 17.137325,
+    "distances": [
+      "21 km",
+      "10 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://plus-timing.pl/zgloszenia/forest_run-2026",
+    "website": "https://forestrun.pl/",
     "is_kids": null
   },
   "xix-ogolnopolski-ekologiczny-bieg-krainy-3-wiez-nad-borami-2026-09-19": {
@@ -42675,11 +42794,14 @@
     "lat": 53.210039,
     "lng": 23.336073,
     "distances": [
-      "5 km",
-      "10 km"
+      "106 km",
+      "72 km",
+      "52 km",
+      "32 km"
     ],
     "event_type": [
-      "uliczny"
+      "uliczny",
+      "ultra"
     ],
     "registration_url": "https://b4sportonline.pl/bison_ultra_trail/zapisy_na_bison_trail_12/11735",
     "website": null,
@@ -45283,6 +45405,33 @@
     "website": "http://www.wkbmeta.pl/mk/",
     "is_kids": null
   },
+  "jesienny-ultra-swir-2026-11-28": {
+    "id": "73486bda-6176-4975-8013-b183afb7eaa3",
+    "name": "Jesienny Ultra Świr",
+    "date": "2026-11-28",
+    "registration_deadline": "2026-11-25",
+    "regulamin_url": "https://ultraswir.pl/regulamin-wiosna/",
+    "price_from": 90,
+    "price_to": 280,
+    "location": "Grybów",
+    "voivodeship": "Małopolskie",
+    "lat": 49.625092,
+    "lng": 20.944646,
+    "distances": [
+      "6h",
+      "12h",
+      "1 pętla (ok. 17 km)",
+      "NORDIC WALKING"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://b4sportonline.pl/ultra_swir/",
+    "website": "https://ultraswir.pl",
+    "is_kids": null
+  },
   "gliwicka-prowokacja-biegowa-2026-11-28": {
     "id": "d350868c-276e-4114-ba08-ddfd113b2e55",
     "name": "Gliwicka Prowokacja biegowa",
@@ -45312,32 +45461,6 @@
     ],
     "registration_url": "https://support.microsoft.com/en-us/contactus",
     "website": "https://gppb.eu/",
-    "is_kids": null
-  },
-  "jesienny-ultra-swir-2026-11-28": {
-    "id": "73486bda-6176-4975-8013-b183afb7eaa3",
-    "name": "Jesienny Ultra Świr",
-    "date": "2026-11-28",
-    "registration_deadline": "2026-11-25",
-    "regulamin_url": "https://ultraswir.pl/regulamin-wiosna/",
-    "price_from": 90,
-    "price_to": 280,
-    "location": "Grybów",
-    "voivodeship": "Małopolskie",
-    "lat": 49.625092,
-    "lng": 20.944646,
-    "distances": [
-      "6h",
-      "12h",
-      "1 pętla (ok. 17 km)",
-      "NORDIC WALKING"
-    ],
-    "event_type": [
-      "nordic walking",
-      "trail"
-    ],
-    "registration_url": "https://b4sportonline.pl/ultra_swir/",
-    "website": "https://ultraswir.pl",
     "is_kids": null
   },
   "bieg-po-ciacho-2026-11-29": {
