@@ -224,7 +224,7 @@ function DuplicateUrlField({ event, field, onSave }) {
   )
 }
 
-function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onReject }) {
+function EventCard({ event, onSave, onDelete, showReviewActions, onApprove, onReject }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const confirmRef = useRef(null)
 
@@ -233,54 +233,35 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
   }, [confirmDelete])
 
   return (
-    <tr className="border-b border-apex-border hover:bg-apex-surface-2">
-      <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="date" onSave={onSave} /></td>
-      <td className="py-2 px-2 text-apex-text-bright font-semibold">
-        <div className="flex items-center gap-2 flex-wrap">
-          <InlineEdit event={event} field="name" onSave={onSave} />
-          {(event.event_type || []).filter(t => t !== 'bieg').map(t => (
-            <span key={t} className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-apex-border text-apex-muted shrink-0">
-              {t}
-            </span>
-          ))}
+    <div className="border border-apex-border bg-apex-surface hover:bg-apex-surface-2 px-3 py-3">
+      {/* Header: name + type badges + source + actions */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap text-sm text-apex-text-bright font-semibold">
+            <InlineEdit event={event} field="name" onSave={onSave} />
+            {(event.event_type || []).filter(t => t !== 'bieg').map(t => (
+              <span key={t} className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-apex-border text-apex-muted shrink-0">
+                {t}
+              </span>
+            ))}
+          </div>
         </div>
-      </td>
-      <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="location" onSave={onSave} /></td>
-      <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="voivodeship" onSave={onSave} /></td>
-      <td className="py-2 px-2 text-xs"><InlineArrayEdit event={event} field="event_type" onSave={onSave} /></td>
-      <td className="py-2 px-2 text-xs"><InlineArrayEdit event={event} field="distances" onSave={onSave} /></td>
-      <td className="py-2 px-2 text-xs">
-        <InlineEdit event={event} field="registration_url" onSave={onSave} />
-      </td>
-      <td className="py-2 px-2 text-xs">
-        <InlineEdit event={event} field="regulamin_url" onSave={onSave} />
-      </td>
-      <td className="py-2 px-2 text-xs">
-        <InlineEdit event={event} field="website" onSave={onSave} />
-      </td>
-      <td className="py-2 px-2 text-xs">
-        <InlineEdit event={event} field="registration_deadline" onSave={onSave} />
-      </td>
-      <td className="py-2 px-2 text-xs whitespace-nowrap">
-        <InlineEdit event={event} field="price_from" onSave={onSave} />
-        <span className="text-apex-muted mx-1">–</span>
-        <InlineEdit event={event} field="price_to" onSave={onSave} />
-      </td>
-      <td className="py-2 px-2 text-xs text-apex-muted">{event.source}</td>
-      <td className="py-2 px-2 text-xs sticky right-0 bg-apex-bg">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="font-mono text-[10px] text-apex-muted px-1.5 py-0.5 border border-apex-border">
+            {event.source}
+          </span>
           {showReviewActions && (
             <>
               <button
                 onClick={() => onApprove(event.id)}
-                className="font-mono text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border border-green-700 text-green-400 hover:bg-green-700 hover:text-white transition-all"
+                className="font-mono text-[10px] font-semibold tracking-wide uppercase px-2.5 py-1 border border-green-700 text-green-400 hover:bg-green-700 hover:text-white transition-all"
                 title="Zatwierdź"
               >
                 OK
               </button>
               <button
                 onClick={() => onReject(event.id)}
-                className="font-mono text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border border-apex-border text-apex-muted hover:border-red-600 hover:text-red-400 transition-all"
+                className="font-mono text-[10px] font-semibold tracking-wide uppercase px-2.5 py-1 border border-apex-border text-apex-muted hover:border-red-600 hover:text-red-400 transition-all"
                 title="Odrzuć (ukryj na stałe)"
               >
                 NIE
@@ -303,15 +284,16 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
               onBlur={() => setConfirmDelete(false)}
               className="flex items-center gap-1"
             >
+              <span className="text-xs text-apex-red font-semibold">Usunąć?</span>
               <button
                 onMouseDown={e => { e.preventDefault(); onDelete(event.id); setConfirmDelete(false) }}
-                className="font-mono text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 border border-red-600 text-red-400 hover:bg-red-600 hover:text-white transition-all"
+                className="font-mono text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 border border-red-600 text-red-400 hover:bg-red-600 hover:text-white transition-all"
               >
                 Enter / Y
               </button>
               <button
                 onMouseDown={e => { e.preventDefault(); setConfirmDelete(false) }}
-                className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-apex-border text-apex-muted hover:text-apex-text-bright transition-all"
+                className="font-mono text-[10px] tracking-wide uppercase px-2 py-1 border border-apex-border text-apex-muted hover:text-apex-text-bright transition-all"
               >
                 Esc
               </button>
@@ -319,15 +301,63 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
           ) : (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="font-mono text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border border-apex-border text-apex-muted hover:border-red-600 hover:text-red-400 transition-all"
+              className="font-mono text-[10px] font-semibold tracking-wide uppercase px-3 py-1 border border-apex-border text-apex-muted hover:border-red-600 hover:text-red-400 transition-all"
               title="Usuń"
             >
               X
             </button>
           )}
         </div>
-      </td>
-    </tr>
+      </div>
+
+      {/* Property grid — 2-column for short fields, full-width for URLs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Data</span>
+          <span className="flex-1 min-w-0"><InlineEdit event={event} field="date" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Miejscowość</span>
+          <span className="flex-1 min-w-0"><InlineEdit event={event} field="location" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Województwo</span>
+          <span className="flex-1 min-w-0"><InlineEdit event={event} field="voivodeship" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Typ</span>
+          <span className="flex-1 min-w-0"><InlineArrayEdit event={event} field="event_type" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Dystanse</span>
+          <span className="flex-1 min-w-0"><InlineArrayEdit event={event} field="distances" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Deadline</span>
+          <span className="flex-1 min-w-0"><InlineEdit event={event} field="registration_deadline" onSave={onSave} /></span>
+        </div>
+        <div className="flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Cena</span>
+          <span className="flex-1 min-w-0 inline-flex items-center">
+            <InlineEdit event={event} field="price_from" onSave={onSave} />
+            <span className="text-apex-muted mx-1">–</span>
+            <InlineEdit event={event} field="price_to" onSave={onSave} />
+          </span>
+        </div>
+        <div className="sm:col-span-2 flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">URL zapisy</span>
+          <span className="flex-1 min-w-0"><DuplicateUrlField event={event} field="registration_url" onSave={onSave} /></span>
+        </div>
+        <div className="sm:col-span-2 flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Regulamin</span>
+          <span className="flex-1 min-w-0"><DuplicateUrlField event={event} field="regulamin_url" onSave={onSave} /></span>
+        </div>
+        <div className="sm:col-span-2 flex gap-2 items-baseline">
+          <span className="text-apex-muted w-24 shrink-0">Strona</span>
+          <span className="flex-1 min-w-0"><DuplicateUrlField event={event} field="website" onSave={onSave} /></span>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -726,39 +756,18 @@ export default function CalendarEventsList() {
         <>
           {isLoading && <div className="text-apex-muted">Ładowanie...</div>}
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-apex-border text-left">
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[80px]">Data</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2">Nazwa</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[140px]">Miasto</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[140px]">Województwo</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Typ</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Dystanse</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">URL zapisy</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">Regulamin</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">Website</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[110px]">Deadline</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Cena</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[80px]">Źródło</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px] sticky right-0 bg-apex-bg">Akcje</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayed.map(event => (
-                  <EventRow
-                    key={event.id}
-                    event={event}
-                    onSave={handleSave}
-                    onDelete={handleDelete}
-                    showReviewActions={filter === 'review'}
-                    onApprove={(id) => approveMutation.mutate(id)}
-                    onReject={(id) => rejectMutation.mutate(id)}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            {displayed.map(event => (
+              <EventCard
+                key={event.id}
+                event={event}
+                onSave={handleSave}
+                onDelete={handleDelete}
+                showReviewActions={filter === 'review'}
+                onApprove={(id) => approveMutation.mutate(id)}
+                onReject={(id) => rejectMutation.mutate(id)}
+              />
+            ))}
           </div>
 
           {!isLoading && fullList.length === 0 && (
