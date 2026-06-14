@@ -234,6 +234,8 @@ export default function LandingPage() {
     description: landingData?.description,
     path: canonicalPath,
     jsonLd,
+    // Match the static generator: zero-event landing pages are soft-404 duplicates → noindex.
+    noindex: (landingData?.eventCount || 0) === 0,
   })
 
   if (isUnknownSlug) return <NotFound />

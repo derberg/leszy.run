@@ -167,7 +167,11 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = fa
   // Embed full manifest entry as landing-data for React hydration
   const landingData = JSON.stringify(entry).replace(/<\//g, '<\\/')
   const ogImage = ogImageUrl || `${BASE_URL}/og-image.png`
-  const robotsContent = pastMonth ? 'noindex, follow' : 'index, follow'
+  // Zero-event landing pages are soft-404s with no content to rank for: Google indexes them,
+  // finds nothing unique, and clusters them as "duplicate, different canonical". noindex them
+  // (keep follow so any related-category links still pass equity). Kept out of the sitemap below.
+  const isEmpty = (entry.eventCount || 0) === 0
+  const robotsContent = (pastMonth || isEmpty) ? 'noindex, follow' : 'index, follow'
   const eventListHtml = pastMonth ? '' : buildEventListHtml(events)
 
   const relatedLinksHtml = (entry.relatedLinks && entry.relatedLinks.length > 0)
@@ -306,7 +310,8 @@ async function main() {
   sitemap = sitemap.replace('</urlset>', '')
 
   const today = new Date().toISOString().slice(0, 10)
-  const indexablePaths = paths.filter(path => !isPastMonthPage(path))
+  // Only list indexable pages: exclude past-month pages and zero-event soft-404s (both noindex).
+  const indexablePaths = paths.filter(path => !isPastMonthPage(path) && (manifest[path].eventCount || 0) > 0)
   const entries = indexablePaths.map(path => {
     const entry = manifest[path]
     return `  <url>\n    <loc>${entry.canonicalUrl}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${entry.sitemapChangefreq}</changefreq>\n    <priority>${entry.sitemapPriority}</priority>\n  </url>`
@@ -314,7 +319,7 @@ async function main() {
 
   sitemap += entries.join('\n') + '\n</urlset>\n'
   writeFileSync(sitemapPath, sitemap)
-  console.log(`Appended ${indexablePaths.length} landing page URLs to sitemap.xml (${paths.length - indexablePaths.length} past-month pages excluded).`)
+  console.log(`Appended ${indexablePaths.length} landing page URLs to sitemap.xml (${paths.length - indexablePaths.length} past-month / zero-event pages excluded).`)
 }
 
 main().catch(err => { console.error(err); process.exit(1) })

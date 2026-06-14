@@ -240,6 +240,10 @@ export default function EventPage() {
     path: `/kalendarz/${seoSlug}`,
     image: `https://www.leszy.run/kalendarz/${seoSlug}/og.png`,
     jsonLd: event ? buildJsonLd(event, seoSlug) : undefined,
+    // Stale/renamed event slugs orphan the old URL: no static file → SPA fallback → this
+    // not-found state at HTTP 200 with a self-canonical reads as an indexable soft-404 and
+    // Google clusters them as "duplicate, different canonical". noindex stops that bleed.
+    noindex: notFound,
   })
 
   // Loading state
