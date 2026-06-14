@@ -5,6 +5,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { writeRunLog } from './lib/run-log.js'
 import { pickFillable, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
+import { resolveDostartuRegulamin } from './lib/dostartu-regulamin.js'
 
 // This script has ONE job: find the two source-of-truth URLs for an event —
 // its registration page and its regulamin (rules) PDF. It does NOT extract
@@ -221,7 +222,7 @@ async function main() {
   while (true) {
     let query = supabase
       .from('scraper_all')
-      .select('id, name, date, location, voivodeship, source, source_id, distances, event_types, is_kids, website, registration_url, regulamin_url, price_from, price_to, registration_deadline, enriched_search_at')
+      .select('id, name, date, location, voivodeship, source, source_id, source_links, distances, event_types, is_kids, website, registration_url, regulamin_url, price_from, price_to, registration_deadline, enriched_search_at')
     if (useMergedAtFilter) {
       query = query.gte('merged_at', new Date().toISOString().split('T')[0])
     }
@@ -265,23 +266,50 @@ async function main() {
     // Which URL(s) are still missing on this row
     const fieldsToFill = fieldsNeedingFill(row, SEARCH_FILLABLE)
 
-    const prompt = buildPrompt(row, fieldsToFill)
-    const result = callClaude(prompt)
+    // dostartu regulamin is deterministic — derive + verify it for free before
+    // spending a web search. If that's the only missing field, we skip Claude
+    // entirely. (The statute lives at dostartu.pl/statute_files/<id>_pl.pdf.)
+    const updates = {}
+    const deterministicKeys = new Set()
+    let calledClaude = false
+    if (fieldsToFill.includes('regulamin_url')) {
+      const detUrl = await resolveDostartuRegulamin(row)
+      if (detUrl) {
+        updates.regulamin_url = detUrl
+        deterministicKeys.add('regulamin_url')
+        fieldsToFill.splice(fieldsToFill.indexOf('regulamin_url'), 1)
+      }
+    }
+
+    // Only pay for a web search if something is still missing.
+    let result = null
+    if (fieldsToFill.length > 0) {
+      const prompt = buildPrompt(row, fieldsToFill)
+      result = callClaude(prompt)
+      calledClaude = true
+    } else {
+      console.log('    (remaining fields resolved deterministically — skipping web search)')
+    }
 
     // Stamp as checked (even if no URL found) to avoid re-processing
     if (!dryRun) {
       await supabase.from('scraper_all').update({ enriched_search_at: new Date().toISOString() }).eq('id', row.id)
     }
 
-    if (!result) {
-      console.log('    SKIP: Claude returned no data')
-      failed++
-      failures.push({ id: row.id, name: row.name, reason: 'claude_no_data' })
-      continue
+    if (calledClaude) {
+      if (!result) {
+        // Web search failed. Still persist any deterministic fill we got.
+        if (Object.keys(updates).length === 0) {
+          console.log('    SKIP: Claude returned no data')
+          failed++
+          failures.push({ id: row.id, name: row.name, reason: 'claude_no_data' })
+          continue
+        }
+      } else {
+        // Validate + keep only the URL fields we asked Claude for
+        Object.assign(updates, applyRegistryUpdates(row, result, fieldsToFill, SEARCH_FILLABLE))
+      }
     }
-
-    // Validate + keep only the URL fields we asked for
-    const updates = applyRegistryUpdates(row, result, fieldsToFill, SEARCH_FILLABLE)
 
     if (Object.keys(updates).length === 0) {
       console.log('    SKIP: no URL found')
@@ -292,7 +320,8 @@ async function main() {
     // Log what we found
     for (const [k, v] of Object.entries(updates)) {
       const old = row[k] || '(none)'
-      console.log(`    ${dryRun ? 'WOULD' : '✓'} ${k}: ${Array.isArray(old) ? old.join(', ') : old} → ${Array.isArray(v) ? v.join(', ') : v}`)
+      const note = deterministicKeys.has(k) ? ' (dostartu, verified)' : ''
+      console.log(`    ${dryRun ? 'WOULD' : '✓'} ${k}${note}: ${Array.isArray(old) ? old.join(', ') : old} → ${Array.isArray(v) ? v.join(', ') : v}`)
     }
 
     if (!dryRun) {
@@ -308,8 +337,8 @@ async function main() {
     enriched++
     events.push({ id: row.id, name: row.name, status: 'enriched', updates })
 
-    // Delay between Claude calls
-    await new Promise(r => setTimeout(r, 2000))
+    // Delay only between actual web searches — deterministic fills are free.
+    if (calledClaude) await new Promise(r => setTimeout(r, 2000))
   }
 
   console.log(`\n=== ${dryRun ? 'DRY RUN' : 'DONE'} ===`)
