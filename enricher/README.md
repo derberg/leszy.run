@@ -1,6 +1,6 @@
 # LeszyRun Event Enricher
 
-Local LLM pipeline that enriches running event data in `scraper_all` (Supabase) with prices, deadlines, websites, and event classifications. Uses Ollama for extraction, SearXNG for URL discovery, Crawl4AI for page crawling, and Docling for PDF parsing.
+Local LLM pipeline that enriches running event data in `scraper_all` (Supabase). It does two things: (1) finds the `registration_url` and `regulamin_url` via SearXNG, and (2) extracts every other field (prices, deadlines, distances, types, kids) **from the regulamin only**. It does not enrich `website`. Uses Ollama for extraction, SearXNG for URL discovery, Crawl4AI for page crawling, and Docling for PDF parsing.
 
 ## Setup
 
@@ -47,7 +47,7 @@ python -m enricher run --force --limit 5  # re-enrich 5 events
 **Flags:**
 - `--dry-run` — shows what would change, doesn't write to Supabase
 - `--force` — re-processes events that already have `enriched_at` set
-- `--incomplete` — re-processes already-enriched future events that are still missing at least one enrichable field (`registration_url`, `regulamin_url`, `website`, `registration_deadline`, `price_from`, `voivodeship`, `is_kids`, `distances`, `event_types`). `price_to` alone is ignored when `price_from` is set, since many events have a single flat fee. Mutually exclusive with `--force`.
+- `--incomplete` — re-processes already-enriched future events that are still missing at least one enrichable field (`registration_url`, `regulamin_url`, `registration_deadline`, `price_from`, `voivodeship`, `is_kids`, `distances`, `event_types`). `price_to` alone is ignored when `price_from` is set, since many events have a single flat fee. Mutually exclusive with `--force`.
 - `--resume` — skips events already in the most recent JSONL run log
 - `--limit N` — process at most N events
 
@@ -118,30 +118,34 @@ When an admin edits a data field via the admin UI / PATCH endpoint, that field n
 
 ## What it enriches
 
+Two distinct jobs:
+
+1. **Find URLs** — SearXNG searches for the two source-of-truth URLs only: `registration_url` and `regulamin_url`. `website` is intentionally **not** searched or enriched.
+2. **Extract fields from the regulamin ONLY** — every other field is extracted from the regulamin PDF (Docling) or, when the regulamin is an HTML page, that page. The registration page, website, and navigated followups are used only to *discover* the regulamin — their content never reaches field extraction.
+
 | Field | Source | Notes |
 |-------|--------|-------|
-| `registration_url` | LLM extracts from page content, fallback to SearXNG search | Replaces empty/dead URLs (only with a validated candidate). LLM reads actual pages to find signup links. |
-| `regulamin_url` | LLM extracts from page content or PDF links, fallback to SearXNG search | Replaces empty/dead URLs (only with a validated candidate). Downloads and extracts PDFs via Docling. |
-| `website` | SearXNG search + LLM validation | LLM validates it's the official event site (not news/social/aggregator). |
-| `distances` | Regulamin PDFs (Docling), registration pages, website content (Crawl4AI) | Only overwrites if LLM found MORE distances than existing (more complete data wins). |
-| `event_types` | LLM classification from all content sources | `[trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny]`. Additive merge with safety rules (never downgrades trail/ocr → uliczny). |
-| `price_from` | Regulamin PDF, registration page | Cheapest adult entry tier (early-bird). Regulamin prices prioritized. Looks for "opłata startowa" tables with date tiers. |
-| `price_to` | Regulamin PDF, registration page | Most expensive adult entry tier (race-day/"w dniu biegu"). Regulamin prices prioritized. |
-| `registration_deadline` | Regulamin, registration page | Last date to sign up (YYYY-MM-DD format). Rejects deadlines >1 year from event date (catches hallucinations). |
-| `voivodeship` | LLM extraction (only if empty) | NEVER overwrites existing — scraper's geocoded value is more reliable. |
-| `is_kids` | LLM detection from all content | true if any distance ≤ 1 km OR dedicated children's category exists. |
+| `registration_url` | SearXNG search (+ live relevance check) | Replaces empty/dead URLs only with a validated candidate. |
+| `regulamin_url` | SearXNG search / PDF links discovered while crawling | Replaces empty/dead URLs only with a validated candidate. Downloaded and parsed via Docling. |
+| `distances` | **Regulamin only** | Only overwrites if the regulamin lists MORE distances than existing. |
+| `event_types` | **Regulamin only** | `[trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny]`. Merge never downgrades trail/ocr → uliczny. |
+| `price_from` | **Regulamin only** | Cheapest adult entry tier. Looks for "opłata startowa" tables with date tiers. |
+| `price_to` | **Regulamin only** | Most expensive adult entry tier (race-day/"w dniu biegu"). |
+| `registration_deadline` | **Regulamin only** | YYYY-MM-DD. Rejects deadlines >1 year from event date (catches hallucinations). |
+| `voivodeship` / `location` | **Regulamin only** (only if empty) | NEVER overwrites existing — scraper's geocoded value is more reliable. |
+| `is_kids` | **Regulamin only** | true if any distance ≤ 1 km OR dedicated children's category exists. |
 
 ## How it works
 
 ### Pipeline steps (per event)
 
-1. **URL Validation** — HEAD check on existing registration_url, regulamin_url, website. Classifies as alive/dead/PDF.
-2. **SearXNG Search** — for missing or dead URLs, searches the web for the event. Filters out aggregator domains.
-3. **Crawl4AI** — crawls alive URLs with headless browser (`wait_until=networkidle` for SPAs like dostartu.pl). Gets markdown content.
-4. **Docling PDF** — downloads and extracts text from PDF regulamins. Falls back to crawling if PDF download fails (SPA wrappers).
-5. **Keyword Chunk Extraction** — scans all content for price/deadline/distance keywords. Extracts focused text windows around matches. These chunks go at the top of the LLM prompt so prices are impossible to miss.
-6. **Ollama LLM** — sends event data + focused chunks + raw content to qwen2.5:72b-instruct-q4_0. Returns structured JSON.
-7. **Smart Merge** — compares LLM output with existing data. Safety rules prevent bad updates.
+1. **URL Validation** — HEAD check on existing registration_url, regulamin_url. Classifies as alive/dead/PDF.
+2. **SearXNG Search** — for missing or dead registration_url / regulamin_url, searches the web. Filters out aggregator domains.
+3. **Crawl4AI** — crawls alive URLs with a headless browser to *discover* the regulamin (e.g. a PDF link on a stub registration page). Crawled registration/followup content is NOT used for field extraction.
+4. **Docling PDF** — downloads and extracts text from the regulamin PDF. Falls back to crawling the regulamin URL if the PDF download fails (SPA wrappers).
+5. **Keyword Chunk Extraction** — scans the **regulamin content only** for price/deadline/distance keywords. Focused windows go at the top of the LLM prompt.
+6. **Ollama LLM** — sends event data + **regulamin content only** to the model. Returns structured JSON. (No registration/website content is included.)
+7. **Smart Merge** — compares LLM output with existing data. Safety rules prevent bad updates. `website` is never written.
 
 ### Smart merge rules
 
@@ -159,8 +163,8 @@ When an admin edits a data field via the admin UI / PATCH endpoint, that field n
 
 **URLs:**
 - Never nulls a working URL without a replacement candidate
-- Dead URLs only replaced when SearXNG found an alternative
-- Aggregator/news URLs blocked from replacing official websites
+- Dead/empty URLs only replaced when a search candidate passes a live event-name relevance check
+- `website` is never written (field dropped from the enricher)
 
 **Voivodeship:**
 - Only fills empty — never overwrites existing (scraper has geocoding evidence)

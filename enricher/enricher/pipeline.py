@@ -23,9 +23,9 @@ async def process_event(event: dict, config: Config) -> dict:
     """Process a single event through all enrichment steps. Returns result dict."""
     result = {"id": event["id"], "name": event["name"], "updates": {}, "steps": {}}
 
-    # Step 1: Validate existing URLs
+    # Step 1: Validate existing URLs (registration + regulamin only).
     url_fields = {
-        k: event.get(k) for k in ["registration_url", "regulamin_url", "regulamin_urls", "website"]
+        k: event.get(k) for k in ["registration_url", "regulamin_url", "regulamin_urls"]
     }
     url_statuses = validate_urls(url_fields, timeout=config.url_timeout)
     result["steps"]["validate"] = {
@@ -39,7 +39,7 @@ async def process_event(event: dict, config: Config) -> dict:
     missing = []
     working_urls = {}  # field → url (alive ones for crawling)
 
-    for field in ["registration_url", "regulamin_url", "website"]:
+    for field in ["registration_url", "regulamin_url"]:
         url = event.get(field)
         status = url_statuses.get(field)
         if not url or (status and status.status == "dead"):
@@ -48,22 +48,17 @@ async def process_event(event: dict, config: Config) -> dict:
             final = status.final_url or url
             working_urls[field] = final
 
-    # Also trigger search for stub URLs — they usually lack the real event info.
-    # Keep the original URL (registration still works) but *also* look for the
-    # organizer's own website as an additional content source.
+    # Stub registration URLs (thin login shells) carry no real content, but
+    # their subpages / linked PDFs often hold the regulamin. We crawl those
+    # below to *discover the regulamin PDF*, not to harvest fields from them.
     stub_fields = []
-    for field in ["registration_url", "website"]:
-        url = working_urls.get(field)
-        if url and is_stub_host(url) and field not in missing:
-            stub_fields.append(field)
+    url = working_urls.get("registration_url")
+    if url and is_stub_host(url) and "registration_url" not in missing:
+        stub_fields.append("registration_url")
 
-    # Step 2: Search for missing URLs (and better candidates for stubs)
+    # Step 2: Search for missing URLs (registration_url / regulamin_url only)
     search_candidates = {}
     search_queue = list(missing)
-    # For stubs, we want a better *website* specifically, not to overwrite the
-    # stub registration URL.
-    if stub_fields and "website" not in search_queue and not event.get("website"):
-        search_queue.append("website")
 
     if search_queue:
         search_candidates = search_missing_urls(event, search_queue, config)
@@ -71,8 +66,6 @@ async def process_event(event: dict, config: Config) -> dict:
             "queries": len(search_queue),
             "found": search_candidates,
         }
-        # Only fill working_urls for truly missing fields; stub-triggered
-        # website searches get crawled as extra context below.
         for field, url in search_candidates.items():
             if field in missing:
                 working_urls[field] = url
@@ -127,11 +120,6 @@ async def process_event(event: dict, config: Config) -> dict:
     # Cap followups globally to keep runtime bounded
     followup_urls = followup_urls[:5]
     followup_from_pdf_links = followup_from_pdf_links[:2]
-
-    # Also crawl stub-triggered search website candidate (if any) for context
-    search_website = search_candidates.get("website")
-    if stub_fields and search_website and search_website not in followup_urls and search_website not in crawl_urls.values():
-        followup_urls.append(search_website)
 
     followup_crawled = {}
     if followup_urls:
@@ -194,20 +182,8 @@ async def process_event(event: dict, config: Config) -> dict:
     search_urls = {u for u in search_candidates.values() if u}
     self_urls = [
         working_urls.get("registration_url"), event.get("registration_url"),
-        event.get("source_url"), working_urls.get("website"), event.get("website"),
+        event.get("source_url"),
     ]
-
-    # Reject a bare-domain homepage adopted as the website — it's a listing root,
-    # not the event's own site (Bieg Legionów → pomiaryczasu.pl).
-    ws = search_candidates.get("website")
-    if ws:
-        try:
-            if (urlparse(ws).path or "").strip("/") == "":
-                search_candidates.pop("website", None)
-                working_urls.pop("website", None)
-                crawled_content.pop("website", None)
-        except Exception:
-            pass
 
     def _host(u):
         try:
@@ -247,15 +223,24 @@ async def process_event(event: dict, config: Config) -> dict:
         "dropped_irrelevant_search_pages": dropped_irrelevant,
     }
 
-    # Step 4.5: Regex pre-pass — extract obvious prices/deadlines before LLM
-    prepass_texts = list(crawled_content.values())
+    # Field extraction reads the REGULAMIN ONLY — never the registration page,
+    # website, or navigated followups. Those are used to FIND the regulamin (and
+    # to confirm/replace URLs), but distances/prices/deadline/types/kids must
+    # come from the rules document. The regulamin is either a downloaded PDF
+    # (pdf_text) or, when it's an HTML page, crawled_content["regulamin_url"].
+    regulamin_content = {}
+    if crawled_content.get("regulamin_url"):
+        regulamin_content["regulamin_url"] = crawled_content["regulamin_url"]
+
+    # Step 4.5: Regex pre-pass — extract obvious prices/deadlines from regulamin
+    prepass_texts = list(regulamin_content.values())
     if pdf_text:
         prepass_texts.append(pdf_text)
     hints = extract_hints(prepass_texts, event_date=event.get("date"))
     result["steps"]["prepass"] = {k: v for k, v in hints.items() if v is not None}
 
-    # Step 5: LLM extraction (with hints and scraper-known distances as anchors)
-    prompt = build_prompt(event, crawled_content, pdf_text, config, hints=hints)
+    # Step 5: LLM extraction (regulamin content only; scraper distances as anchors)
+    prompt = build_prompt(event, regulamin_content, pdf_text, config, hints=hints)
     llm_result = call_ollama(prompt, config)
     duration = llm_result.pop("_duration_s", None) if llm_result else None
     result["steps"]["llm"] = {
@@ -276,13 +261,14 @@ async def process_event(event: dict, config: Config) -> dict:
         if llm_result.get(key) in (None, "") and hints.get(key) is not None:
             llm_result[key] = hints[key]
 
-    # Step 6: Smart merge
-    had_content = bool(crawled_content or pdf_text)
+    # Step 6: Smart merge. had_content reflects whether we had REGULAMIN content
+    # to read — that's what makes the LLM authoritative on event_types/is_kids.
+    had_content = bool(regulamin_content or pdf_text)
     updates = build_updates(event, llm_result or {}, url_statuses, search_candidates, config, had_content)
     result["updates"] = updates
     result["steps"]["merge"] = {
-        "fields_updated": [k for k in updates if k not in ("registration_url", "regulamin_url", "website")],
-        "fields_replaced": [k for k in ("registration_url", "regulamin_url", "website") if k in updates],
+        "fields_updated": [k for k in updates if k not in ("registration_url", "regulamin_url")],
+        "fields_replaced": [k for k in ("registration_url", "regulamin_url") if k in updates],
     }
 
     return result
@@ -298,8 +284,6 @@ def _is_incomplete(row: dict) -> bool:
     if not row.get("registration_url"):
         return True
     if not row.get("regulamin_url"):
-        return True
-    if not row.get("website"):
         return True
     if not row.get("registration_deadline"):
         return True
@@ -333,7 +317,7 @@ def fetch_events(
     while True:
         query = sb.from_("scraper_all").select(
             "id, name, date, location, distances, event_types, "
-            "registration_url, regulamin_url, regulamin_urls, website, "
+            "registration_url, regulamin_url, regulamin_urls, "
             "registration_deadline, price_from, price_to, voivodeship, is_kids, "
             "enriched_at, enriched_regulamin_at, enriched_search_at"
         )
@@ -490,7 +474,7 @@ def _print_step(name, data):
         dead = set(data.get("dead", []))
         is_pdf = set(data.get("is_pdf", []))
         parts = []
-        for field in ["registration_url", "regulamin_url", "website"]:
+        for field in ["registration_url", "regulamin_url"]:
             if field not in url_map:
                 parts.append(f"{field}: (none)")
             elif field in dead:

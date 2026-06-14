@@ -10,45 +10,13 @@ TERRAIN_TYPES = {"trail", "ocr", "uliczny"}
 # LLM should not drop these in favor of the generic "uliczny" default.
 SPECIFIC_TYPES = {"trail", "ocr", "charytatywny", "nordic walking"}
 
-NOT_OFFICIAL_DOMAINS = {
-    # News / portals
-    "wiaralecha.pl", "moje-gniezno.pl", "bieganie.pl", "sport.pl",
-    "onet.pl", "wp.pl", "gazeta.pl", "naszemiasto.pl", "dziennik.pl",
-    # Aggregators / registration platforms (not event's own site)
-    "maratonypolskie.pl", "datasport.pl", "liveds.datasport.pl",
-    "elektronicznezapisy.pl", "biegiwpolsce.pl", "dostartu.pl",
-    "domtel-sport.pl",
-}
-
-# Social platforms that many small event organizers use as their primary online
-# presence. Acceptable as website when no dedicated domain exists, but a real
-# domain should be preferred if one is found.
+# Social platforms — verify_url_relevance trusts these without scraping (their
+# pages are hard to fetch). Kept after `website` enrichment was removed because
+# a registration/regulamin URL can still legitimately point at a social page.
 SOCIAL_FALLBACK_DOMAINS = {
     "facebook.com", "www.facebook.com", "m.facebook.com",
     "instagram.com", "www.instagram.com",
 }
-
-
-def _is_official_domain(url: str) -> bool:
-    """Check if URL looks like an official event site (not news/aggregator)."""
-    try:
-        host = urlparse(url).hostname or ""
-        return not any(host == d or host.endswith("." + d) for d in NOT_OFFICIAL_DOMAINS)
-    except Exception:
-        return True
-
-
-def _is_social_fallback(url: str) -> bool:
-    """True if URL is a social-platform page (Facebook, Instagram, etc.).
-
-    These are acceptable as a fallback website but should be replaced when a
-    real event domain is available.
-    """
-    try:
-        host = urlparse(url).hostname or ""
-        return any(host == d or host.endswith("." + d) for d in SOCIAL_FALLBACK_DOMAINS)
-    except Exception:
-        return False
 
 
 _POLISH_MAP = str.maketrans(
@@ -329,11 +297,19 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
         llm_confirms = llm.get(llm_flag) is True
 
         def _pick_candidate():
-            """Return the confirmed + verified candidate URL, or None."""
+            """Return a verified candidate URL, or None.
+
+            The LLM now reads ONLY the regulamin, so it cannot judge a
+            registration page it never saw — its confirm flag is required only
+            for a URL the LLM itself surfaced from the regulamin text. A URL
+            found by the search step is gated by verify_url_relevance (live
+            fetch + event-name match) plus the search step's own TLD/aggregator
+            /relevance filters, which is sufficient on its own.
+            """
             if llm_url and llm_confirms:
                 if verify_url_relevance(llm_url, event_name):
                     return llm_url
-            if search_candidate and llm_confirms:
+            if search_candidate:
                 if verify_url_relevance(search_candidate, event_name):
                     return search_candidate
             return None
@@ -363,29 +339,3 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
             if picked:
                 updates[field] = picked
             continue
-
-    # Website: three valid write paths
-    #   1. LLM-confirmed official URL → always acceptable
-    #   2. LLM-unconfirmed but social-platform URL (FB/Instagram) → acceptable
-    #      as a fallback when the field is empty (small events often have only
-    #      a Facebook page)
-    #   3. LLM-confirmed official URL → also replaces a current social-only
-    #      website, because a real domain is better than a FB page
-    # What is NOT acceptable: any other LLM suggestion without the official
-    # flag — that's how Google search / translate pages ended up stored.
-    #
-    # All candidates are verified by fetching the page and checking the event
-    # name appears in the content.
-    llm_website = llm.get("website")
-    llm_is_official = llm.get("website_is_official", False)
-    if llm_website and verify_url_relevance(llm_website, event_name):
-        current = event.get("website", "")
-        if llm_is_official:
-            # Real domain — fill empty OR upgrade from news/aggregator/social fallback
-            if not current:
-                updates["website"] = llm_website
-            elif not _is_official_domain(current) or _is_social_fallback(current):
-                updates["website"] = llm_website
-        elif _is_social_fallback(llm_website) and not current:
-            # Social-only page is better than nothing for small events
-            updates["website"] = llm_website

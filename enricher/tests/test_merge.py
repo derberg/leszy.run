@@ -233,25 +233,15 @@ def test_event_types_no_change_when_same(sample_event):
     assert "event_types" not in updates
 
 
-# --- website_is_official logic ---
+# --- website is no longer enriched ---
 
 
-def test_website_news_article_not_set_when_existing(sample_event_full):
-    """News article URL should not replace an existing official website."""
-    llm = {"distances": None, "event_types": None, "website": "https://moje-gniezno.pl/article", "website_is_official": False}
-    updates = build_updates(sample_event_full, llm, {}, {}, config)
+def test_website_never_written(sample_event):
+    """`website` is intentionally dropped from enrichment — the merge step must
+    never emit it, regardless of what the LLM returns."""
+    llm = {
+        "distances": None, "event_types": None,
+        "website": "https://biegnij.pl", "website_is_official": True,
+    }
+    updates = build_updates(sample_event, llm, {}, {}, config)
     assert "website" not in updates
-
-
-def test_website_official_replaces_news(sample_event):
-    """Official website replaces empty website field."""
-    llm = {"distances": None, "event_types": None, "website": "https://biegnij.pl", "website_is_official": True}
-    updates = build_updates(sample_event, llm, {}, {}, config)
-    assert updates["website"] == "https://biegnij.pl"
-
-
-def test_website_fills_empty_with_social_fallback(sample_event):
-    """Social media page fills an empty website (better than nothing)."""
-    llm = {"distances": None, "event_types": None, "website": "https://facebook.com/biegleszka", "website_is_official": False}
-    updates = build_updates(sample_event, llm, {}, {}, config)
-    assert updates["website"] == "https://facebook.com/biegleszka"

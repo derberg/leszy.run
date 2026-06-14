@@ -23,11 +23,10 @@ const isHttpUrl = v => typeof v === 'string' && /^https?:\/\//.test(v.trim())
 const trimmedString = v => (typeof v === 'string' && v.trim()) ? v.trim() : null
 
 export const AI_FILLABLE = {
-  website: {
-    isEmpty: r => !r.website,
-    promptHint: 'official event website URL (organizer domain or Facebook fallback)',
-    validate: v => isHttpUrl(v) ? v.trim() : null,
-  },
+  // NOTE: `website` is intentionally NOT enriched here. Searching for an
+  // organizer website is low-yield effort — the regulamin PDF and registration
+  // page are the source-of-truth documents and carry far more (distances,
+  // prices, deadline, kids categories, types). Focus the LLM budget there.
   registration_url: {
     isEmpty: r => !r.registration_url,
     promptHint: 'sign-up / registration URL',

@@ -46,8 +46,9 @@ def sync(since, dry_run):
 
 @cli.command()
 @click.option("--limit", type=int, default=None, help="Max events to audit")
-@click.option("--fields", type=str, default="website",
-              help="Comma-separated URL fields to audit (website, registration_url, regulamin_url)")
+@click.option("--fields", type=str, default="registration_url,regulamin_url",
+              help="Comma-separated URL fields to audit (registration_url, regulamin_url; "
+                   "'website' still accepted for legacy spot-checks)")
 @click.option("--since", type=str, default="today",
               help="Lower bound on event date (YYYY-MM-DD | 'today' | 'tomorrow')")
 @click.option("--confidence-threshold", type=float, default=0.8,

@@ -324,7 +324,7 @@ scraper_* tables → scraper_all → calendar_events
 
 ### Running the full pipeline
 
-The 11-step daily pipeline runs automatically via the `scheduler` container at 08:00 Europe/Warsaw. To trigger ad-hoc:
+The unattended daily pipeline runs automatically via the `scheduler` container at 08:00 Europe/Warsaw. To trigger ad-hoc:
 
 ```bash
 # Trigger inside the running scheduler container
@@ -334,7 +334,7 @@ docker compose exec scheduler npm run pipeline
 ./scripts/daily-pipeline.sh
 ```
 
-The scheduler orchestrates everything via `docker compose exec backend …` (steps 1–6, 8–11) and `docker compose run --rm enricher …` (step 7). On any non-zero exit it sends a SendGrid failure email; on full success with zero `calendar_events` row changes it sends a `[WARN]`. A 10:00 watchdog emails `[ALERT]` if the pipeline didn't run in the last 26h. See [docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md](docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md).
+**The scheduler runs scrape + enrich only — it does NOT publish and does NOT run any claude-CLI step.** Specifically it runs (in `scheduler/src/pipeline.js` `STEPS`): run-scrapers → run-merge → run-dedup → run-geocode → run-enrich-flags → run-normalize → Python enricher (Ollama) → run-dedup → run-normalize → publish-landing-pages. It deliberately omits `run-publish.js` (publishing to `calendar_events` is a manual, human-reviewed host step) and the `claude`-CLI scripts `run-enrich-search.js` / `run-enrich-from-regulamin.js` (the backend image has no `claude`; run those on the host). On any non-zero exit it sends a SendGrid failure email; on full success with zero `scraper_all` rows merged/enriched today it sends a `[WARN]`. A 10:00 watchdog emails `[ALERT]` if the pipeline didn't run in the last 26h. See [docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md](docs/superpowers/specs/2026-05-04-dockerized-pipeline-scheduler-design.md).
 
 To run individual steps manually (debugging):
 
@@ -346,11 +346,15 @@ docker compose exec backend node scripts/run-geocode.js --apply                 
 docker compose exec backend node scripts/run-enrich-flags.js --apply                    # 5
 docker compose exec backend node scripts/run-normalize.js --apply                       # 6
 docker compose --profile run-once run --rm enricher python -m enricher run              # 7
+# Step 8 finds source URLs ONLY (registration_url + regulamin_url) — no field extraction.
 docker compose exec backend node scripts/run-enrich-search.js --apply                   # 8
-# NOTE: run-enrich-from-regulamin.js is NOT in the automated pipeline (requires claude CLI
-# in the Docker container). Run it manually from the host after step 8 when regulamin PDFs
-# have missing prices/deadlines (especially rajsportactive.pl multi-column PDFs):
-cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js               # manual
+# Step 8.1 extracts fields (distances, types, is_kids, prices, deadline, location,
+# voivodeship) FROM the regulamin PDF that step 8 located. Both step 8 and 8.1 need the
+# `claude` CLI, which is NOT in the backend Docker image — so neither does real Claude work
+# in the automated scheduler (step 8's free dostartu apiEnrich aside). Run them from the
+# HOST, where `claude` is installed. Step 8.1 must run AFTER step 8.
+cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply               # 8   (host)
+cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js               # 8.1 (host)
 docker compose exec backend node scripts/run-dedup.js --apply                           # 9
 docker compose exec backend node scripts/run-normalize.js --apply                       # 10
 docker compose exec backend node scripts/run-publish.js --apply                         # 11
@@ -367,15 +371,18 @@ docker compose exec backend node scripts/publish-event-pages.js --apply         
 - **Crawl4AI** — headless browser for crawling SPAs (dostartu.pl, etc.)
 - **Docling** — PDF text extraction for regulamin documents
 
-**What it enriches:**
-- `registration_url` — LLM extracts from page content, fallback to SearXNG search
-- `regulamin_url` — LLM extracts from page content or PDF links, fallback to SearXNG search
-- `website` — official event site (SearXNG search + LLM validates it's not news/social/aggregator)
-- `distances` — from regulamin PDFs (via Docling), registration pages, or website content (all crawled via Crawl4AI)
-- `event_types` — `[trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny]` extracted from all content sources
-- `price_from` / `price_to` — entry fees in PLN (prioritizes regulamin PDF over registration page, looks for "opłata startowa" tables with date tiers)
-- `registration_deadline` — from regulamin or registration page (format: YYYY-MM-DD)
-- `voivodeship` — only fills empty, never overwrites scraper's geocoded value
+**What it finds (URLs):** SearXNG search for the two source-of-truth URLs only:
+- `registration_url` — sign-up page (search + live relevance check)
+- `regulamin_url` — rules PDF/page (search + live relevance check)
+
+It does **NOT** enrich `website` — that field was intentionally dropped from the enricher (no search, no extraction, no sync). Scraper-set `website` values still flow to `calendar_events` via the JS publish step.
+
+**What it extracts (FROM THE REGULAMIN ONLY):** all remaining fields are extracted from the regulamin PDF (via Docling) or, if the regulamin is an HTML page, that page — never the registration page, website, or navigated followups (those are used only to *discover* the regulamin):
+- `distances` — overwrites only if more complete than scraper's
+- `event_types` — `[trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny]`
+- `price_from` / `price_to` — "opłata startowa" tables with date tiers
+- `registration_deadline` — format YYYY-MM-DD, within 1 year of event date
+- `voivodeship` / `location` — only fills empty, never overwrites scraper's geocoded value
 - `is_kids` — true if any distance ≤ 1 km or dedicated children's category exists
 
 **Performance:** ~2 min/event (LLM inference on 32B model).
