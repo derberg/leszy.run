@@ -94,23 +94,40 @@ def extract_pdf_text(pdf_path: str, max_chars: int = 15_000) -> Optional[str]:
     """
     try:
         from pypdf import PdfReader
-        reader = PdfReader(pdf_path)
-        parts = []
-        total = 0
-        for page in reader.pages:
-            text = page.extract_text() or ""
-            parts.append(text)
-            total += len(text)
-            if total >= max_chars:
-                break
-        joined = "\n".join(parts)
-        if not joined.strip():
-            return None
-        if _is_spaced_encoded(joined):
-            joined = _normalize_spaced_text(joined)
-        return joined[:max_chars]
+        return _reader_to_text(PdfReader(pdf_path), max_chars)
     except Exception:
         return None
+
+
+def extract_pdf_text_from_bytes(data: bytes, max_chars: int = 15_000) -> Optional[str]:
+    """Same as extract_pdf_text but from an in-memory buffer (no temp file).
+
+    Used when a PDF arrives as bytes we already hold — e.g. a file pulled out of
+    a Google Drive folder — so we don't round-trip through disk.
+    """
+    import io
+    try:
+        from pypdf import PdfReader
+        return _reader_to_text(PdfReader(io.BytesIO(data)), max_chars)
+    except Exception:
+        return None
+
+
+def _reader_to_text(reader, max_chars: int) -> Optional[str]:
+    parts = []
+    total = 0
+    for page in reader.pages:
+        text = page.extract_text() or ""
+        parts.append(text)
+        total += len(text)
+        if total >= max_chars:
+            break
+    joined = "\n".join(parts)
+    if not joined.strip():
+        return None
+    if _is_spaced_encoded(joined):
+        joined = _normalize_spaced_text(joined)
+    return joined[:max_chars]
 
 
 def cleanup_pdf(path: Optional[str]):

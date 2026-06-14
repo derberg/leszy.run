@@ -16,12 +16,16 @@ const PDF_FILLABLE = pickFillable([
 ])
 
 // Usage: cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
-// Finds scraper_all entries that have a regulamin URL,
-// fetches the PDF, and uses local Claude to extract distances and event type.
+// Finds scraper_all entries that have a regulamin URL, fetches the regulamin
+// (PDF, DOCX, plain HTML page, or a public Google Drive folder of any of those),
+// and uses local Claude to extract distances and event type.
 //
 // Behavior:
-// - distances: Claude's PDF extraction REPLACES scraper distances (PDF is authoritative)
+// - distances: Claude's extraction REPLACES scraper distances (regulamin is authoritative)
 // - event_types: Claude's types are MERGED with existing (additive only)
+//
+// Host-only: relies on the `claude` CLI plus macOS `textutil` (docx/html) and
+// `pdftotext` — none are in the backend Docker image (same constraint as step 8).
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
@@ -58,33 +62,125 @@ function checkClaudeCli() {
   }
 }
 
-async function downloadPdf(url) {
-  const tmpFile = join(tmpdir(), `regulamin-${Date.now()}.pdf`)
+const FETCH_HEADERS = { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' }
+
+function tmpPath(ext) {
+  return join(tmpdir(), `regulamin-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`)
+}
+
+async function fetchBuffer(url) {
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: FETCH_HEADERS,
       redirect: 'follow',
       signal: AbortSignal.timeout(30000),
     })
     if (!res.ok) return { error: `HTTP ${res.status}` }
-
-    const contentType = res.headers.get('content-type') || ''
-    if (!contentType.includes('pdf')) return { error: `not PDF (${contentType})` }
-
+    const contentType = (res.headers.get('content-type') || '').toLowerCase()
     const buffer = Buffer.from(await res.arrayBuffer())
-    if (buffer.length < 500) return { error: `too small (${buffer.length} bytes)` }
-
-    // Detect HTML served as PDF (dostartu SPA shells)
-    const head = buffer.slice(0, 100).toString('utf-8').trim()
-    if (head.startsWith('<!doctype') || head.startsWith('<!DOCTYPE') || head.startsWith('<html')) {
-      return { error: 'HTML served as PDF (SPA shell)' }
-    }
-
-    writeFileSync(tmpFile, buffer)
-    return { path: tmpFile }
+    return { buffer, contentType }
   } catch (err) {
     return { error: err.message?.slice(0, 100) || 'unknown' }
   }
+}
+
+// Identify what we downloaded from magic bytes first, then content-type / URL hints.
+// Returns 'pdf' | 'docx' | 'html' | 'unknown'.
+function detectKind(buffer, contentType, url) {
+  const ascii = buffer.slice(0, 8).toString('latin1')
+  if (ascii.startsWith('%PDF')) return 'pdf'
+  if (ascii.startsWith('PK')) {
+    // Office Open XML (.docx) is a zip — confirm via name, content-type, or a `word/` entry
+    if (/\.docx(\?|$)/i.test(url) || contentType.includes('wordprocessingml')) return 'docx'
+    if (buffer.toString('latin1', 0, Math.min(buffer.length, 4000)).includes('word/')) return 'docx'
+    return 'unknown'
+  }
+  if (contentType.includes('pdf') || /\.pdf(\?|$)/i.test(url)) return 'pdf'
+  if (contentType.includes('wordprocessingml') || /\.docx(\?|$)/i.test(url)) return 'docx'
+  const head = buffer.slice(0, 200).toString('utf-8').trim().toLowerCase()
+  if (contentType.includes('html') || head.startsWith('<!doctype') || head.startsWith('<html')) return 'html'
+  return 'unknown'
+}
+
+// Extract plain text from a downloaded buffer with the right local tool:
+// pdf -> pdftotext, docx/html -> textutil (macOS). Returns text or null.
+function extractText(buffer, kind) {
+  const f = tmpPath(kind === 'pdf' ? 'pdf' : kind === 'docx' ? 'docx' : 'html')
+  try {
+    writeFileSync(f, buffer)
+    const cmd = kind === 'pdf'
+      ? `pdftotext -enc UTF-8 "${f}" -`
+      : `textutil -convert txt -stdout "${f}"`
+    return execSync(cmd, { encoding: 'utf-8', timeout: 30000, maxBuffer: 8 * 1024 * 1024 })
+  } catch {
+    return null
+  } finally {
+    try { unlinkSync(f) } catch {}
+  }
+}
+
+const driveFolderId = (url) => (url.match(/\/drive\/folders\/([0-9A-Za-z_-]+)/) || [])[1] || null
+const driveFileId = (url) =>
+  (url.match(/\/file\/d\/([0-9A-Za-z_-]+)/) || [])[1] ||
+  (url.match(/[?&]id=([0-9A-Za-z_-]+)/) || [])[1] || null
+const driveDownloadUrl = (id) => `https://drive.google.com/uc?export=download&id=${id}`
+
+// Parse a public Drive folder page for the file ids it lists (rendered as data-id="...").
+async function listDriveFolder(url) {
+  const res = await fetchBuffer(url)
+  if (res.error) return res
+  const html = res.buffer.toString('utf-8')
+  const ids = [...new Set([...html.matchAll(/data-id="(1[0-9A-Za-z_-]{25,44})"/g)].map((m) => m[1]))]
+  if (ids.length === 0) return { error: 'no files in folder (private or empty?)' }
+  return { ids }
+}
+
+// Download a regulamin from any supported URL and return a local file ready for Claude:
+// { path, kind } where kind 'pdf' is read natively by Claude (best table fidelity) and
+// 'text' is a .txt we extracted ourselves (docx, html page, or multi-file Drive folder).
+async function acquireRegulamin(url) {
+  // 1) Google Drive folder -> download every file, extract text, concatenate
+  const folderId = driveFolderId(url)
+  if (folderId) {
+    const folder = await listDriveFolder(url)
+    if (folder.error) return folder
+    const chunks = []
+    for (const id of folder.ids) {
+      const dl = await fetchBuffer(driveDownloadUrl(id))
+      if (dl.error) continue
+      const kind = detectKind(dl.buffer, dl.contentType, '')
+      if (kind !== 'pdf' && kind !== 'docx') continue // skip images / unknown / interstitials
+      const text = extractText(dl.buffer, kind)
+      if (text && text.trim().length > 50) chunks.push(`=== ${id} (${kind}) ===\n${text.trim()}`)
+    }
+    if (chunks.length === 0) return { error: 'Drive folder had no extractable documents' }
+    const f = tmpPath('txt')
+    writeFileSync(f, chunks.join('\n\n'), 'utf-8')
+    return { path: f, kind: 'text' }
+  }
+
+  // 2) Single file (Drive file link gets rewritten to its direct-download URL)
+  const fileId = driveFileId(url)
+  const dl = await fetchBuffer(fileId ? driveDownloadUrl(fileId) : url)
+  if (dl.error) return dl
+  if (dl.buffer.length < 500) return { error: `too small (${dl.buffer.length} bytes)` }
+
+  const kind = detectKind(dl.buffer, dl.contentType, url)
+  // A Drive file that comes back as HTML is the virus-scan interstitial, not a document
+  if (fileId && kind === 'html') return { error: 'Drive interstitial (not a direct document)' }
+  if (kind === 'unknown') return { error: `unsupported type (${dl.contentType || 'no content-type'})` }
+
+  if (kind === 'pdf') {
+    const f = tmpPath('pdf')
+    writeFileSync(f, dl.buffer)
+    return { path: f, kind: 'pdf' }
+  }
+
+  const text = extractText(dl.buffer, kind)
+  if (!text || text.trim().length < 50) return { error: `${kind} extraction empty` }
+  const f = tmpPath('txt')
+  writeFileSync(f, text.trim(), 'utf-8')
+  return { path: f, kind: 'text' }
 }
 
 function buildPrompt(event) {
@@ -99,7 +195,7 @@ function buildPrompt(event) {
     ? ''
     : extraFields.map(f => `  "${f}": ${PDF_FILLABLE[f].promptHint}, or null if not stated`).join(',\n')
 
-  return `You are extracting structured data about a Polish running/walking race event from its official regulations (regulamin) PDF.
+  return `You are extracting structured data about a Polish running/walking race event from its official regulations (regulamin) document. The document may be a regulamin PDF, a DOCX, an HTML page, or several regulamin files concatenated together (one per distance) — treat all sections as describing the same event and merge what you find.
 
 Event name: ${event.name}
 Event date: ${event.date}
@@ -107,9 +203,9 @@ Event location: ${event.location || 'unknown'}
 Currently known distances: ${currentDistances}
 Currently known event types: ${currentTypes}
 
-Extract from the PDF:
-1. DISTANCES — look for "trasa", "dystans", "długość trasy", classification/category names, distance mentions. The PDF is the source of truth — override currently known distances if the PDF says differently.
-2. EVENT TYPE — current classification: [${currentTypes}]. Verify this against the ACTUAL course description in the PDF and CORRECT it if wrong (e.g. "uliczny" but the course is on forest paths/trails → change to "trail"; no NW category in PDF → remove "nordic walking"). The PDF is authoritative.
+Extract from the document:
+1. DISTANCES — look for "trasa", "dystans", "długość trasy", classification/category names, distance mentions. The document is the source of truth — override currently known distances if it says differently. If multiple regulamin sections are present, collect distances from ALL of them.
+2. EVENT TYPE — current classification: [${currentTypes}]. Verify this against the ACTUAL course description in the document and CORRECT it if wrong (e.g. "uliczny" but the course is on forest paths/trails → change to "trail"; no NW category in the document → remove "nordic walking"). The document is authoritative.
 3. IS_KIDS — does this regulamin include a dedicated children's/youth race? true if yes (biegi dla dzieci, separate category for kids/youth under 18, "mini bieg"); false if the regulamin clearly covers only adult/open-age races; null if not mentioned.${extraFields.length ? '\n4. ADDITIONAL FACTUAL FIELDS — extract directly from the PDF where stated; null if not present.' : ''}
 
 Return ONLY valid JSON, no other text:
@@ -145,13 +241,13 @@ let totalCostUsd = 0
 let totalInputTokens = 0
 let totalOutputTokens = 0
 
-function callClaudeWithPdf(prompt, pdfPath) {
+function callClaudeWithFile(prompt, filePath) {
   const promptFile = join(tmpdir(), `enrich-prompt-${Date.now()}.txt`)
 
   try {
     writeFileSync(promptFile, prompt, 'utf-8')
     const raw = execSync(
-      `cat "${promptFile}" | claude -p --model haiku --output-format json "${pdfPath}"`,
+      `cat "${promptFile}" | claude -p --model haiku --output-format json "${filePath}"`,
       { encoding: 'utf-8', timeout: 120000, maxBuffer: 2 * 1024 * 1024 }
     )
 
@@ -240,24 +336,27 @@ async function main() {
   console.log(`Found ${allRows.length} rows with regulamin URLs, ${needsEnrichment.length} need PDF verification`)
   let enriched = 0, skipped = 0, failed = 0
 
+  let processed = 0
   for (const row of needsEnrichment) {
+    processed++
     const url = row.regulamin_url
-    console.log(`\n  ${row.name}`)
+    console.log(`\n  [${processed}/${needsEnrichment.length}] ${row.name}`)
     console.log(`    URL: ${url}`)
     console.log(`    current distances: ${row.distances || '(none)'}`)
     console.log(`    current types: ${row.event_types?.join(', ') || '(none)'}`)
 
-    const download = await downloadPdf(url)
+    const download = await acquireRegulamin(url)
     if (download.error) {
       console.log(`    SKIP: ${download.error}`)
       skipped++
       continue
     }
-    const pdfPath = download.path
+    const filePath = download.path
+    console.log(`    acquired: ${download.kind} (${filePath})`)
 
     try {
       const prompt = buildPrompt(row)
-      const extracted = callClaudeWithPdf(prompt, pdfPath)
+      const extracted = callClaudeWithFile(prompt, filePath)
 
       if (!extracted) {
         console.log('    SKIP: Claude returned no data')
@@ -327,7 +426,7 @@ async function main() {
         skipped++
       }
     } finally {
-      try { unlinkSync(pdfPath) } catch {}
+      try { unlinkSync(filePath) } catch {}
     }
 
     await new Promise(r => setTimeout(r, 1000))

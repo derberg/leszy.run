@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import Optional
 import httpx
 
+from enricher.steps.docs import classify_doc_url
+
 
 @dataclass
 class UrlStatus:
@@ -9,6 +11,7 @@ class UrlStatus:
     status: str  # "alive", "dead"
     final_url: Optional[str] = None  # set if redirected
     is_pdf: bool = False
+    kind: str = "html"  # 'pdf' | 'docx' | 'drive_folder' | 'drive_file' | 'html'
     error: Optional[str] = None
 
 
@@ -72,7 +75,8 @@ def _check_url(url: str, field_name: str, timeout: int) -> UrlStatus:
 
         final_url = str(resp.url) if str(resp.url) != url else None
         content_type = resp.headers.get("content-type", "")
-        is_pdf = "pdf" in content_type.lower()
+        kind = classify_doc_url(url, content_type)
+        is_pdf = kind == "pdf"
 
         if resp.status_code < 400:
             return UrlStatus(
@@ -80,6 +84,7 @@ def _check_url(url: str, field_name: str, timeout: int) -> UrlStatus:
                 status="alive",
                 final_url=final_url,
                 is_pdf=is_pdf,
+                kind=kind,
             )
         else:
             return UrlStatus(url=url, status="dead", error=f"HTTP {resp.status_code}")

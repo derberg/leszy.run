@@ -380,15 +380,17 @@ Requires `claude` CLI installed locally. Uses `--model sonnet` with web search. 
 
 **Only processes events missing `registration_url` or `regulamin_url`** — skips rows that already have both.
 
-### Step 5.2: Extract fields from the regulamin PDF (Claude CLI)
+### Step 5.2: Extract fields from the regulamin (Claude CLI)
 
-The specialized field extractor. Reads each event's `regulamin_url` PDF and pulls **distances, event types, is_kids, price_from/price_to, registration_deadline, location, voivodeship** straight from the rules. Distances replace the scraper's value (PDF is authoritative); event types merge (with a hallucination guard for trail/ocr/charytatywny/nordic walking). Run it AFTER Step 5.1 so the regulamin URLs it found are available.
+The specialized field extractor. Reads each event's `regulamin_url` and pulls **distances, event types, is_kids, price_from/price_to, registration_deadline, location, voivodeship** straight from the rules. Distances replace the scraper's value (the regulamin is authoritative); event types merge (with a hallucination guard for trail/ocr/charytatywny/nordic walking). Run it AFTER Step 5.1 so the regulamin URLs it found are available.
+
+The `regulamin_url` does not have to be a PDF — `acquireRegulamin()` accepts **PDF, `.docx`, a plain HTML page, and a public Google Drive folder or file** (a folder of per-distance regulamins is downloaded in full, each file extracted, and the text concatenated). PDFs are read natively by Claude; `.docx`/HTML are converted with `textutil`, and Drive PDFs with `pdftotext`.
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
 ```
 
-Requires `claude` CLI installed locally. Uses `--model haiku` against the downloaded PDF. Complements the Python enricher (Step 5) rather than replacing it; the enricher remains the primary, cost-free tool.
+Requires `claude` CLI installed locally (plus `textutil` and `pdftotext`, both present on macOS). Uses `--model haiku` against the acquired document. Complements the Python enricher (Step 5) rather than replacing it; the enricher remains the primary, cost-free tool — and supports the same formats via `enricher/enricher/steps/docs.py`.
 
 ### Step 4.5: Normalize voivodeships and event types
 
@@ -1107,6 +1109,7 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | egepard | `scraper_egepard` | `source_id` (contest id) |
 | pifsport | `scraper_pifsport` | `source_id` (WordPress post id) |
 | timesport | `scraper_timesport` | `source_id` (zapisy-DD-MM-YYYY-slug) |
+| plustiming | `scraper_plustiming` | `source_id` (zgłoszenia slug) |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 

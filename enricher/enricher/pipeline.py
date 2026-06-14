@@ -11,6 +11,13 @@ from enricher.steps.validate_urls import validate_urls
 from enricher.steps.search import search_missing_urls
 from enricher.steps.crawl import crawl_pages, crawl_url_list
 from enricher.steps.pdf import download_pdf, extract_pdf_text, cleanup_pdf
+from enricher.steps.docs import extract_regulamin_doc
+
+# Regulamin URL kinds handled outside the HTML crawler (binary files / Drive
+# aggregator folders): a PDF goes through download_pdf, the rest through
+# extract_regulamin_doc. Anything not in here is crawled as an HTML page.
+_NON_CRAWL_KINDS = ("pdf", "docx", "drive_folder", "drive_file")
+_DOC_KINDS = ("docx", "drive_folder", "drive_file")
 from enricher.steps.llm import call_ollama, build_prompt
 from enricher.steps.merge import build_updates
 from enricher.steps.navigate import (
@@ -70,13 +77,27 @@ async def process_event(event: dict, config: Config) -> dict:
             if field in missing:
                 working_urls[field] = url
 
+        # A regulamin found by search has no UrlStatus yet, so Step 4 wouldn't know
+        # whether to download+extract it (pdf/docx/drive) or let Step 3 crawl it
+        # (html). Validate the found URL so its `kind` is classified exactly like an
+        # event-provided regulamin — this is what makes "search → enrich from the
+        # regulamin" work for non-HTML regulamins too.
+        searched_reg = search_candidates.get("regulamin_url")
+        if searched_reg and "regulamin_url" not in url_statuses:
+            reg_status = validate_urls({"regulamin_url": searched_reg}, timeout=config.url_timeout)
+            if "regulamin_url" in reg_status:
+                status = reg_status["regulamin_url"]
+                url_statuses["regulamin_url"] = status
+                working_urls["regulamin_url"] = status.final_url or searched_reg
+                result["steps"]["search"]["regulamin_kind"] = status.kind
+
     # Step 3: Crawl web pages (exclude PDF regulamins)
     crawl_urls = {}
     for field, url in working_urls.items():
         if field == "regulamin_url":
             status = url_statuses.get("regulamin_url")
-            if status and status.is_pdf:
-                continue  # Will handle in Step 4
+            if status and status.kind in _NON_CRAWL_KINDS:
+                continue  # PDF / docx / Drive — handled in Step 4, not crawlable HTML
         crawl_urls[field] = url
 
     crawled = await crawl_pages(crawl_urls, max_chars=config.max_page_chars)
@@ -142,8 +163,10 @@ async def process_event(event: dict, config: Config) -> dict:
     regulamin_url = working_urls.get("regulamin_url")
     regulamin_status = url_statuses.get("regulamin_url")
 
+    regulamin_kind = regulamin_status.kind if regulamin_status else None
+
     # Primary: current regulamin_url if it's a PDF
-    if regulamin_url and regulamin_status and regulamin_status.is_pdf:
+    if regulamin_url and regulamin_kind == "pdf":
         pdf_path = await download_pdf(regulamin_url)
         if pdf_path:
             pdf_text = extract_pdf_text(pdf_path, max_chars=config.max_pdf_chars)
@@ -154,6 +177,13 @@ async def process_event(event: dict, config: Config) -> dict:
             if fallback.get("regulamin_url"):
                 crawled_content["regulamin_url"] = fallback["regulamin_url"].content
                 result["steps"]["pdf"] = {"source": "fallback_crawl", "extracted_chars": fallback["regulamin_url"].chars}
+
+    # docx / Google Drive folder or file — extract text ourselves (the HTML crawler
+    # would only see a binary blob or the Drive SPA shell). Feeds pdf_text, which
+    # downstream treats as the authoritative regulamin document text.
+    elif regulamin_url and regulamin_kind in _DOC_KINDS:
+        pdf_text = await extract_regulamin_doc(regulamin_url, regulamin_kind, max_chars=config.max_pdf_chars)
+        result["steps"]["pdf"] = {"source": f"doc:{regulamin_kind}", "extracted_chars": len(pdf_text) if pdf_text else 0}
 
     # Fallback: try PDFs discovered on crawled pages (often the real regulamin
     # is linked as a PDF from an aggregator stub page)

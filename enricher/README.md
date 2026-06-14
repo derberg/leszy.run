@@ -121,7 +121,7 @@ When an admin edits a data field via the admin UI / PATCH endpoint, that field n
 Two distinct jobs:
 
 1. **Find URLs** — SearXNG searches for the two source-of-truth URLs only: `registration_url` and `regulamin_url`. `website` is intentionally **not** searched or enriched.
-2. **Extract fields from the regulamin ONLY** — every other field is extracted from the regulamin PDF (Docling) or, when the regulamin is an HTML page, that page. The registration page, website, and navigated followups are used only to *discover* the regulamin — their content never reaches field extraction.
+2. **Extract fields from the regulamin ONLY** — every other field is extracted from the regulamin, whatever its format: a PDF (pypdf), a `.docx` (stdlib zip+XML, `steps/docs.py`), a plain HTML page (Crawl4AI), or a public Google Drive folder/file of per-distance regulamins (each downloaded, extracted, and concatenated). The registration page, website, and navigated followups are used only to *discover* the regulamin — their content never reaches field extraction.
 
 | Field | Source | Notes |
 |-------|--------|-------|
@@ -139,10 +139,10 @@ Two distinct jobs:
 
 ### Pipeline steps (per event)
 
-1. **URL Validation** — HEAD check on existing registration_url, regulamin_url. Classifies as alive/dead/PDF.
+1. **URL Validation** — HEAD check on existing registration_url, regulamin_url. Classifies each by `kind`: `pdf` / `docx` / `drive_folder` / `drive_file` / `html`.
 2. **SearXNG Search** — for missing or dead registration_url / regulamin_url, searches the web. Filters out aggregator domains.
-3. **Crawl4AI** — crawls alive URLs with a headless browser to *discover* the regulamin (e.g. a PDF link on a stub registration page). Crawled registration/followup content is NOT used for field extraction.
-4. **Docling PDF** — downloads and extracts text from the regulamin PDF. Falls back to crawling the regulamin URL if the PDF download fails (SPA wrappers).
+3. **Crawl4AI** — crawls alive HTML regulamins (and registration/landing pages, to *discover* the regulamin — e.g. a PDF link on a stub registration page). PDF / docx / Drive regulamins are NOT crawled here; they go to step 4. Crawled registration/followup content is NOT used for field extraction.
+4. **Regulamin extraction** — by `kind`: PDF → download + pypdf (`steps/pdf.py`); docx → stdlib zip+XML (`steps/docs.py`); Drive folder/file → download each file via the direct-download endpoint, extract per type, concatenate (`steps/docs.py`); HTML → already crawled in step 3. PDFs fall back to crawling the URL if download fails (SPA wrappers).
 5. **Keyword Chunk Extraction** — scans the **regulamin content only** for price/deadline/distance keywords. Focused windows go at the top of the LLM prompt.
 6. **Ollama LLM** — sends event data + **regulamin content only** to the model. Returns structured JSON. (No registration/website content is included.)
 7. **Smart Merge** — compares LLM output with existing data. Safety rules prevent bad updates. `website` is never written.

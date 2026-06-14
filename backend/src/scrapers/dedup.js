@@ -34,6 +34,7 @@ const SOURCE_PRIORITY = {
   pifsport: 3,
   egepard: 3,
   timesport: 3,
+  plustiming: 3,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
