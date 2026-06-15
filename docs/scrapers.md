@@ -1110,6 +1110,7 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | pifsport | `scraper_pifsport` | `source_id` (WordPress post id) |
 | timesport | `scraper_timesport` | `source_id` (zapisy-DD-MM-YYYY-slug) |
 | plustiming | `scraper_plustiming` | `source_id` (zgłoszenia slug) |
+| biegnijmy | `scraper_biegnijmy` | `source_id` (`<YYYYMMDD-n>-<city>` slug) |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 
