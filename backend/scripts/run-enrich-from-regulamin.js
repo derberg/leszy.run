@@ -295,7 +295,9 @@ function buildDistancesString(extracted) {
 
   if (extracted.meter_distances && Array.isArray(extracted.meter_distances)) {
     for (const m of extracted.meter_distances) {
-      if (/^\d+m$/i.test(m)) parts.push(m.toLowerCase())
+      // Canonical form: metres with a space, e.g. "200m" → "200 m" (matches run-normalize.js)
+      const mm = String(m).match(/^(\d+)\s*m$/i)
+      if (mm) parts.push(`${mm[1]} m`)
     }
   }
 
