@@ -1,0 +1,21 @@
+{
+  "niebocross-pamieci-marka-nowakowskiego": {
+    "id": "6b03b13c-4316-4856-be3b-c26a27b83292",
+    "name": "NieboCross - Pamięci Marka Nowakowskiego",
+    "slug": "niebocross-pamieci-marka-nowakowskiego",
+    "date": "2026-04-12",
+    "location": "Nieborowice",
+    "stats": {
+      "participants": 233,
+      "finishers": 180,
+      "distances": [
+        "Bieg 3 km",
+        "Bieg 9 km",
+        "Nordic Walking 3 km",
+        "Nordic Walking 9 km"
+      ],
+      "fastest_ms": 704496,
+      "fastest_name": "Bartłomiej Bajon"
+    }
+  }
+}
