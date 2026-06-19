@@ -4,6 +4,18 @@ import { supabase } from '../lib/supabase.js'
 // Events with less than this many days left are considered registration-closed
 const REG_CLOSED_DAYS = 5
 
+// Per-event highlight chips, keyed by event slug. Surfaces distances and
+// disciplines that the event NAME hides — e.g. "Wilczy Półmaraton" reads like a
+// single 21 km road race, so Nordic Walking (11 km), Canicross (21 km) and the
+// fact that it's a trail run are invisible to the people who'd sign up for them.
+// `terrain` renders as a leading label; `options` render as chips.
+const EVENT_HIGHLIGHTS = {
+  'wilczy-pmaraton': {
+    terrain: 'TRAIL',
+    options: ['Bieg 21 km', 'Canicross 21 km', 'Nordic Walking 11 km'],
+  },
+}
+
 /**
  * Promoted leszy.run events ("POLECAMY") banner.
  * Reads upcoming public events directly from the `events` table.
@@ -59,6 +71,7 @@ export default function LeszyrunBanner({ className = 'max-w-[1200px] mx-auto px-
       {events.map(event => {
         const dateFormatted = new Date(event.date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
         const countdown = countdowns[event.slug]
+        const highlights = EVENT_HIGHLIGHTS[event.slug]
 
         return (
           <a key={event.slug} href={event.event_url || `/events/${event.slug}`} target={event.event_url ? '_blank' : undefined} rel={event.event_url ? 'noopener' : undefined}
@@ -81,6 +94,20 @@ export default function LeszyrunBanner({ className = 'max-w-[1200px] mx-auto px-
                   <span className="font-mono text-[12px] font-semibold text-apex-yellow">{dateFormatted}</span>
                   {event.location && <span className="text-[13px] text-apex-muted">· {event.location}</span>}
                 </div>
+                {highlights && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                    {highlights.terrain && (
+                      <span className="font-mono text-[10px] font-semibold tracking-widest px-2 py-0.5 bg-apex-cyan/15 text-apex-cyan border border-apex-cyan/30 uppercase">
+                        {highlights.terrain}
+                      </span>
+                    )}
+                    {highlights.options.map(option => (
+                      <span key={option} className="font-mono text-[11px] font-medium px-2 py-0.5 bg-apex-yellow/[0.06] text-apex-text-bright border border-apex-yellow/25">
+                        {option}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex-shrink-0 hidden md:block">
                 <span className="font-display font-bold text-[12px] tracking-widest uppercase px-5 py-2.5 border-2 border-apex-yellow text-apex-yellow group-hover:bg-apex-yellow group-hover:text-apex-ink transition-all">
