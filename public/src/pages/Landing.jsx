@@ -213,6 +213,48 @@ function EventsSection() {
   )
 }
 
+function PastEventsStrip() {
+  const [events, setEvents] = useState([])
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0]
+    supabase
+      .from('events')
+      .select('id, name, date, slug')
+      .eq('visibility', 'public')
+      .lt('date', today)
+      .order('date', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) console.error('Past events fetch error:', error.message)
+        setEvents(data || [])
+        setLoaded(true)
+      })
+  }, [])
+
+  if (!loaded || events.length === 0) return null
+
+  return (
+    <section aria-label="Minione wydarzenia" className="py-10 md:py-12 px-6 max-w-[1100px] mx-auto">
+      <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-4">Minione wydarzenia</p>
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {events.map(ev => (
+          <Link
+            key={ev.id}
+            to={`/events/${ev.slug}`}
+            className="flex-shrink-0 flex flex-col gap-1 bg-apex-surface border border-apex-border px-4 py-3 no-underline text-inherit hover:border-apex-yellow-dim hover:bg-apex-surface-2 transition-all"
+          >
+            <span className="font-mono text-[11px] text-apex-yellow-dim">
+              {new Date(ev.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </span>
+            <span className="font-display font-bold text-sm tracking-wide uppercase text-apex-text-bright whitespace-nowrap">{ev.name}</span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function KalendarzTeaser() {
   const [events, setEvents] = useState([])
 
@@ -358,6 +400,7 @@ export default function Landing() {
         <div className="w-full h-px bg-apex-border" />
         <EventsSection />
         <div className="w-full h-px bg-apex-border" />
+        <PastEventsStrip />
         <KalendarzTeaser />
         <div className="w-full h-px bg-apex-border" />
         <KategorieSection />
