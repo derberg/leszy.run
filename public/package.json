@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite --port 5173",
     "generate-og": "node scripts/generate-og-image.js",
-    "build": "node scripts/generate-og-image.js && vite build && node scripts/generate-event-pages.js && node scripts/generate-landing-pages.js",
+    "build": "node scripts/generate-og-image.js && vite build && node scripts/generate-event-pages.js && node scripts/generate-leszyrun-event-pages.js && node scripts/generate-landing-pages.js",
     "preview": "vite preview"
   },
   "dependencies": {
