@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useEvent } from '../hooks/useEvent.js'
 import useSeo from '../hooks/useSeo.js'
+import Navbar from '../components/Navbar.jsx'
+import Footer from '../components/Footer.jsx'
 
 // Read the static page's embedded stats (baked by generate-leszyrun-event-pages.js).
 // Returns the manifest entry ({ ...event, stats }) or null on a plain SPA hit.
@@ -27,45 +29,46 @@ function formatDuration(ms) {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
 }
 
-function Stat({ value, label }) {
-  return (
-    <div className="flex flex-col items-center border border-apex-border bg-apex-surface px-4 py-5">
-      <span className="font-mono text-3xl md:text-4xl font-bold text-apex-yellow">{value}</span>
-      <span className="font-mono text-[10px] tracking-widest uppercase text-apex-muted mt-1">{label}</span>
-    </div>
-  )
-}
-
 function PastEventView({ event }) {
   const st = event.stats || {}
+  const bestTimes = Array.isArray(st.bestTimes) ? st.bestTimes : []
   return (
-    <div className="min-h-screen bg-apex-bg text-apex-text-bright page-watermark">
+    <div className="min-h-[70vh] bg-apex-bg text-apex-text-bright page-watermark">
       <div className="max-w-2xl mx-auto px-6 py-16 text-center">
         <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-3">Minione wydarzenie</p>
         <h1 className="font-display text-5xl uppercase tracking-widest mb-2">{event.name}</h1>
         {event.date && <p className="text-apex-muted text-sm mb-10">{event.date}{event.location ? ` · ${event.location}` : ''}</p>}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-0.5 mb-4">
-          <Stat value={st.participants ?? 0} label="Zapisanych" />
-          <Stat value={st.finishers ?? 0} label="Na mecie" />
-          <Stat value={Array.isArray(st.distances) ? st.distances.length : 0} label="Kategorii" />
-          <Stat value={st.fastest_ms != null ? formatDuration(st.fastest_ms) : '—'} label="Najlepszy czas" />
+        <div className="inline-flex flex-col items-center border border-apex-border bg-apex-surface px-10 py-5 mb-10">
+          <span className="font-mono text-4xl font-bold text-apex-yellow">{st.participants ?? 0}</span>
+          <span className="font-mono text-[10px] tracking-widest uppercase text-apex-muted mt-1">Zapisanych</span>
         </div>
 
-        {Array.isArray(st.distances) && st.distances.length > 0 && (
-          <div className="flex flex-wrap gap-2 justify-center mb-3">
-            {st.distances.map(d => (
-              <span key={d} className="font-mono text-[10px] font-semibold tracking-wide px-2 py-0.5 border border-apex-yellow/30 text-apex-yellow-dim uppercase">{d}</span>
-            ))}
+        {bestTimes.length > 0 && (
+          <div className="mb-10 text-left">
+            <p className="font-mono text-[11px] font-semibold tracking-widest uppercase text-apex-yellow-dim mb-3 text-center">Najlepsze czasy</p>
+            <div className="border border-apex-border">
+              <div className="grid grid-cols-[1fr_5.5rem_5.5rem] gap-x-3 px-4 py-2 bg-apex-surface-2 border-b border-apex-border font-mono text-[10px] tracking-widest uppercase text-apex-muted">
+                <span>Kategoria</span>
+                <span className="text-right">Kobiety</span>
+                <span className="text-right">Mężczyźni</span>
+              </div>
+              {bestTimes.map(b => (
+                <div key={b.category} className="grid grid-cols-[1fr_5.5rem_5.5rem] gap-x-3 px-4 py-2.5 border-b border-apex-border last:border-b-0 items-center">
+                  <span className="font-display font-bold text-sm tracking-wide uppercase text-apex-text-bright">{b.category}</span>
+                  <span className="text-right font-mono text-sm text-apex-text">{b.k_ms != null ? formatDuration(b.k_ms) : '—'}</span>
+                  <span className="text-right font-mono text-sm text-apex-text">{b.m_ms != null ? formatDuration(b.m_ms) : '—'}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-        {st.fastest_name && st.fastest_ms != null && (
-          <p className="text-apex-muted text-xs mb-10">Najszybszy zawodnik: <span className="text-apex-text-bright">{st.fastest_name}</span></p>
-        )}
 
-        <Link to={`/events/${event.slug}/results`} className="inline-block border-2 border-apex-yellow bg-apex-yellow text-apex-ink px-10 py-4 font-display font-bold uppercase tracking-widest hover:shadow-[0_0_20px_rgba(187,221,0,0.3)] transition-all">
-          Zobacz wyniki →
-        </Link>
+        <div>
+          <Link to={`/events/${event.slug}/results`} className="inline-block border-2 border-apex-yellow bg-apex-yellow text-apex-ink px-10 py-4 font-display font-bold uppercase tracking-widest hover:shadow-[0_0_20px_rgba(187,221,0,0.3)] transition-all">
+            Zobacz wyniki →
+          </Link>
+        </div>
       </div>
     </div>
   )
@@ -73,7 +76,7 @@ function PastEventView({ event }) {
 
 function UpcomingEventView({ event }) {
   return (
-    <div className="min-h-screen bg-apex-bg text-apex-text-bright page-watermark">
+    <div className="min-h-[70vh] bg-apex-bg text-apex-text-bright page-watermark">
       <div className="max-w-lg mx-auto px-6 py-16 text-center">
         <h1 className="font-display text-5xl uppercase tracking-widest mb-2">{event.name}</h1>
         {event.date && <p className="text-apex-muted text-sm mb-12">{event.date}{event.location ? ` · ${event.location}` : ''}</p>}
@@ -112,8 +115,17 @@ export default function EventHub() {
     } : undefined,
   })
 
-  if (embedded) return <PastEventView event={embedded} />
-  if (loading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ładowanie...</div>
-  if (error) return <div className="flex items-center justify-center min-h-screen text-apex-red">{error}</div>
-  return <UpcomingEventView event={event} />
+  let content
+  if (embedded) content = <PastEventView event={embedded} />
+  else if (loading) content = <div className="flex items-center justify-center min-h-[60vh] text-apex-muted">Ładowanie...</div>
+  else if (error) content = <div className="flex items-center justify-center min-h-[60vh] text-apex-red">{error}</div>
+  else content = <UpcomingEventView event={event} />
+
+  return (
+    <>
+      <Navbar />
+      <main id="main-content">{content}</main>
+      <Footer />
+    </>
+  )
 }

@@ -35,22 +35,12 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
 }
 
-function formatDuration(ms) {
-  if (ms == null) return ''
-  const total = Math.floor(ms / 1000)
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  const pad = n => String(n).padStart(2, '0')
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
-}
-
 function buildDescription(e) {
   const parts = []
   if (e.date) parts.push(formatPolishDate(e.date))
   if (e.location) parts.push(e.location)
   const st = e.stats || {}
-  if (st.finishers) parts.push(`${st.finishers} na mecie`)
+  if (st.participants) parts.push(`${st.participants} zawodników`)
   if (Array.isArray(st.distances) && st.distances.length) parts.push(st.distances.join(', '))
   return parts.join(' · ')
 }
@@ -92,9 +82,7 @@ function buildStaticBody(e, manifest) {
   const st = e.stats || {}
   const statLine = [
     st.participants ? `${st.participants} zapisanych` : null,
-    st.finishers ? `${st.finishers} na mecie` : null,
     (Array.isArray(st.distances) && st.distances.length) ? st.distances.join(', ') : null,
-    st.fastest_ms != null ? `najlepszy czas ${formatDuration(st.fastest_ms)}${st.fastest_name ? ` (${st.fastest_name})` : ''}` : null,
   ].filter(Boolean).map(escapeHtml).join(' · ')
 
   const others = Object.keys(manifest).filter(s => s !== e.slug)

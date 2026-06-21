@@ -54,10 +54,30 @@ async function main() {
     statsById = Object.fromEntries((stats || []).map(s => [s.event_id, s]))
   }
 
+  // 2b. Per-category / per-gender best times
+  const bestByEvent = {}
+  if (ids.length > 0) {
+    const { data: cbt, error: cbtErr } = await supabase
+      .from('event_category_best_times')
+      .select('event_id, category, gender, best_ms')
+      .in('event_id', ids)
+    if (cbtErr) { console.error('category best times fetch error:', cbtErr.message); process.exit(1) }
+    for (const row of cbt || []) {
+      const ev = bestByEvent[row.event_id] || (bestByEvent[row.event_id] = {})
+      const cat = ev[row.category] || (ev[row.category] = { category: row.category, k_ms: null, m_ms: null })
+      const ms = row.best_ms != null ? Number(row.best_ms) : null
+      if (row.gender === 'K') cat.k_ms = ms
+      else if (row.gender === 'M') cat.m_ms = ms
+    }
+  }
+
   // 3. Build manifest keyed by slug
   const manifest = {}
   for (const e of events || []) {
     const s = statsById[e.id] || {}
+    const bestMap = bestByEvent[e.id] || {}
+    const bestTimes = Object.values(bestMap)
+      .sort((a, b) => a.category.localeCompare(b.category, 'pl'))
     manifest[e.slug] = {
       id: e.id,
       name: e.name,
@@ -66,10 +86,8 @@ async function main() {
       location: e.location || null,
       stats: {
         participants: Number(s.participants || 0),
-        finishers: Number(s.finishers || 0),
         distances: Array.isArray(s.distances) ? s.distances : [],
-        fastest_ms: s.fastest_ms != null ? Number(s.fastest_ms) : null,
-        fastest_name: s.fastest_name ? s.fastest_name.replace(/\s+/g, ' ').trim() : null,
+        bestTimes,
       },
     }
   }
@@ -78,7 +96,7 @@ async function main() {
   console.log(`Built manifest with ${Object.keys(manifest).length} past public event(s).`)
   for (const k of Object.keys(manifest)) {
     const m = manifest[k]
-    console.log(`  ${k}: ${m.stats.participants} zapisanych, ${m.stats.finishers} na mecie, dyst. [${m.stats.distances.join(', ')}]`)
+    console.log(`  ${k}: ${m.stats.participants} zapisanych, ${m.stats.bestTimes.length} kategorii z czasami`)
   }
 
   if (dryRun) {
