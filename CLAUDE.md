@@ -6,6 +6,24 @@ Race timing system. RFID readers detect participants crossing start/finish gates
 Events are published via MQTT. Backend processes them and stores results in local
 PostgreSQL. Syncs to Supabase when online. See ARCHITECTURE.md for full design.
 
+## Development workflow (branch → PR → merge — enforced)
+
+**Never commit to `main` directly, and never leave work stranded on a branch.**
+Every change goes: branch off fresh `main` → push → PR → merge back → done. A
+feature branch that piles up commits but never gets a PR/merge is a bug, not a
+state to leave the repo in.
+
+- Before editing OR before answering "what does the code do", run `git status -sb`.
+  If HEAD is behind `origin/main`, reason about `origin/main`, not the stale tree.
+- Flow: `git switch main && git pull` → `git switch -c feature/<name>` → edit →
+  `git push -u origin feature/<name>` → `gh pr create --fill` → `gh pr merge --squash --delete-branch`.
+- Parallel topics use one worktree each: `scripts/worktree.sh new feature/<name>`
+  (one worktree : one branch : one session).
+- This is enforced by hooks: a PreToolUse **branch-guard** denies edits while on
+  `main`, and a SessionStart reminder front-loads the `dev-workflow` skill. The
+  full rules, deploy model, and post-merge steps live in
+  `.claude/skills/dev-workflow/SKILL.md` — invoke that skill before the first edit.
+
 ## Hardware documentation
 
 - `docs/impinj-r700-api/endpoints.md` — known R700 REST API endpoints (system status, antennas, MQTT, inventory presets)
@@ -604,6 +622,7 @@ The mapping files (`biegi-mappings.js` in both `backend/scripts/lib/` and `publi
 - Do not create local copies of `estimatePositions()` — always import from `@leszyrun/ui` (shared package in `packages/ui/src/lib/positionEstimation.js`). A stale local copy caused a live-race bug where podium ordering ignored checkpoint timestamps. If you think the shared function needs changes, stop and ask the user first — the sorting tiers (finish time → checkpoint index → observation time → start time) are load-bearing for live race display.
 - Do not re-run `estimatePositions()` inside `CategoryCard` when `resultsProp` is provided — the caller already enriched results with checkpoint observations. Re-estimating with empty observations discards checkpoint data and breaks podium ordering during live races. See the comment in `frontend/src/pages/PodiumPage.jsx`.
 - Do not filter race runs to only `'active'` status in podium or public result views — always include `'finished'` too. Filtering only active causes the podium/results to go blank the moment a race is stopped. The podium and public views must keep showing final results after the race ends.
+- Do not commit to `main` directly or leave commits stranded on an unmerged branch — branch → push → PR → merge back. See "Development workflow" above and `.claude/skills/dev-workflow/SKILL.md` (enforced by the branch-guard hook).
 - Do not add `Co-Authored-By:` trailers to git commits. Never include Claude authorship in commit messages.
 - Do not permanently delete calendar events without asking the user for confirmation first. Prefer rejecting (setting status to `rejected`) over deleting — rejected events prevent the scraper from re-adding the same junk.
 - Do not DELETE rows from any Supabase table unless the user explicitly says "delete from [table name]". When asked to "remove" an event, ask which table(s) — never assume. Scraper source tables (`scraper_*`) are raw data and should almost never be touched directly.
