@@ -27671,98 +27671,6 @@
     ],
     "cityRegionSlug": "warminsko-mazurskie"
   },
-  "listy/katowice": {
-    "path": "listy/katowice",
-    "filters": {
-      "typeDbVal": null,
-      "regionDb": null,
-      "year": null,
-      "month": null,
-      "special": null,
-      "city": "Katowice"
-    },
-    "h1": "Biegi w Katowicach",
-    "title": "Biegi w Katowicach (11 wydarzeń) — Leszy.run",
-    "description": "11 biegów w Katowicach — kalendarz 2026. Zapisy, dystanse, ceny, regulaminy.",
-    "intro": "11 biegów w Katowicach w 2026 roku.",
-    "eventCount": 11,
-    "canonicalUrl": "https://www.leszy.run/listy/katowice",
-    "sitemapPriority": "0.7",
-    "sitemapChangefreq": "weekly",
-    "relatedLinks": [
-      {
-        "path": "listy",
-        "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 773
-      },
-      {
-        "path": "listy/slaskie",
-        "h1": "Biegi na Śląsku",
-        "eventCount": 98
-      },
-      {
-        "path": "listy/ruda-slaska",
-        "h1": "Biegi w Rudzie Śląskiej",
-        "eventCount": 8
-      },
-      {
-        "path": "listy/lubliniec",
-        "h1": "Biegi w Lublińcu",
-        "eventCount": 4
-      },
-      {
-        "path": "listy/piekary-slaskie",
-        "h1": "Biegi w Piekarach Śląskich",
-        "eventCount": 4
-      },
-      {
-        "path": "listy/tychy",
-        "h1": "Biegi w Tychach",
-        "eventCount": 4
-      },
-      {
-        "path": "listy/ustron",
-        "h1": "Biegi — Ustroń",
-        "eventCount": 3
-      },
-      {
-        "path": "listy/gliwice",
-        "h1": "Biegi w Gliwicach",
-        "eventCount": 3
-      },
-      {
-        "path": "listy/rybnik",
-        "h1": "Biegi w Rybniku",
-        "eventCount": 3
-      },
-      {
-        "path": "listy/paprocany",
-        "h1": "Biegi w Paprocanach",
-        "eventCount": 3
-      },
-      {
-        "path": "listy/wodzislaw-slaski",
-        "h1": "Biegi w Wodzisławiu Śląskim",
-        "eventCount": 2
-      },
-      {
-        "path": "listy/zloty-potok",
-        "h1": "Biegi — Złoty Potok",
-        "eventCount": 2
-      },
-      {
-        "path": "listy/brenna---park-turystyki",
-        "h1": "Biegi — Brenna - Park Turystyki",
-        "eventCount": 2
-      },
-      {
-        "path": "listy/mikolow",
-        "h1": "Biegi — Mikołów",
-        "eventCount": 2
-      }
-    ],
-    "cityRegionSlug": "slaskie"
-  },
   "listy/rodzinny-park-rozrywki-trzy-wzgorza": {
     "path": "listy/rodzinny-park-rozrywki-trzy-wzgorza",
     "filters": {
@@ -29602,6 +29510,98 @@
       }
     ],
     "cityRegionSlug": "lodzkie"
+  },
+  "listy/katowice": {
+    "path": "listy/katowice",
+    "filters": {
+      "typeDbVal": null,
+      "regionDb": null,
+      "year": null,
+      "month": null,
+      "special": null,
+      "city": "Katowice"
+    },
+    "h1": "Biegi w Katowicach",
+    "title": "Biegi w Katowicach (11 wydarzeń) — Leszy.run",
+    "description": "11 biegów w Katowicach — kalendarz 2026. Zapisy, dystanse, ceny, regulaminy.",
+    "intro": "11 biegów w Katowicach w 2026 roku.",
+    "eventCount": 11,
+    "canonicalUrl": "https://www.leszy.run/listy/katowice",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "listy",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 773
+      },
+      {
+        "path": "listy/slaskie",
+        "h1": "Biegi na Śląsku",
+        "eventCount": 98
+      },
+      {
+        "path": "listy/ruda-slaska",
+        "h1": "Biegi w Rudzie Śląskiej",
+        "eventCount": 8
+      },
+      {
+        "path": "listy/lubliniec",
+        "h1": "Biegi w Lublińcu",
+        "eventCount": 4
+      },
+      {
+        "path": "listy/piekary-slaskie",
+        "h1": "Biegi w Piekarach Śląskich",
+        "eventCount": 4
+      },
+      {
+        "path": "listy/tychy",
+        "h1": "Biegi w Tychach",
+        "eventCount": 4
+      },
+      {
+        "path": "listy/ustron",
+        "h1": "Biegi — Ustroń",
+        "eventCount": 3
+      },
+      {
+        "path": "listy/gliwice",
+        "h1": "Biegi w Gliwicach",
+        "eventCount": 3
+      },
+      {
+        "path": "listy/rybnik",
+        "h1": "Biegi w Rybniku",
+        "eventCount": 3
+      },
+      {
+        "path": "listy/paprocany",
+        "h1": "Biegi w Paprocanach",
+        "eventCount": 3
+      },
+      {
+        "path": "listy/wodzislaw-slaski",
+        "h1": "Biegi w Wodzisławiu Śląskim",
+        "eventCount": 2
+      },
+      {
+        "path": "listy/zloty-potok",
+        "h1": "Biegi — Złoty Potok",
+        "eventCount": 2
+      },
+      {
+        "path": "listy/brenna---park-turystyki",
+        "h1": "Biegi — Brenna - Park Turystyki",
+        "eventCount": 2
+      },
+      {
+        "path": "listy/mikolow",
+        "h1": "Biegi — Mikołów",
+        "eventCount": 2
+      }
+    ],
+    "cityRegionSlug": "slaskie"
   },
   "listy/chwalowice": {
     "path": "listy/chwalowice",
@@ -49355,98 +49355,6 @@
     ],
     "cityRegionSlug": "lubelskie"
   },
-  "listy/gidle": {
-    "path": "listy/gidle",
-    "filters": {
-      "typeDbVal": null,
-      "regionDb": null,
-      "year": null,
-      "month": null,
-      "special": null,
-      "city": "Gidle"
-    },
-    "h1": "Bieg — Gidle",
-    "title": "Bieg — Gidle (1 wydarzenie) — Leszy.run",
-    "description": "Kalendarz biegów 2026 — Gidle. 1 bieg. Zapisy, dystanse, ceny, regulaminy.",
-    "intro": "Kalendarz biegów 2026 — Gidle. 1 bieg.",
-    "eventCount": 1,
-    "canonicalUrl": "https://www.leszy.run/listy/gidle",
-    "sitemapPriority": "0.7",
-    "sitemapChangefreq": "weekly",
-    "relatedLinks": [
-      {
-        "path": "listy",
-        "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 773
-      },
-      {
-        "path": "listy/lodzkie",
-        "h1": "Biegi w Łódzkiem",
-        "eventCount": 42
-      },
-      {
-        "path": "listy/lodz",
-        "h1": "Biegi w Łodzi",
-        "eventCount": 6
-      },
-      {
-        "path": "listy/lowicz",
-        "h1": "Biegi — łowicz",
-        "eventCount": 4
-      },
-      {
-        "path": "listy/aleksandrow-lodzki",
-        "h1": "Biegi — Aleksandrów Łódzki",
-        "eventCount": 2
-      },
-      {
-        "path": "listy/belchatow",
-        "h1": "Biegi — Bełchatów",
-        "eventCount": 2
-      },
-      {
-        "path": "listy/celinow",
-        "h1": "Bieg — Celinów",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/zalecze-male",
-        "h1": "Bieg — Zalecze Male",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/peczniew",
-        "h1": "Bieg — Pęczniew",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/przedborz",
-        "h1": "Bieg — Przedbórz",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/stara-wies-k-bork",
-        "h1": "Bieg — Stara Wieś k/ Bork",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/zalew-w-lopuszce-malej",
-        "h1": "Bieg — Zalew w Łopuszce Małej",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/dylow-a",
-        "h1": "Bieg — Dylów A",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/czastary",
-        "h1": "Bieg — Czastary",
-        "eventCount": 1
-      }
-    ],
-    "cityRegionSlug": "lodzkie"
-  },
   "listy/grybow": {
     "path": "listy/grybow",
     "filters": {
@@ -49630,6 +49538,98 @@
       }
     ],
     "cityRegionSlug": "slaskie"
+  },
+  "listy/gidle": {
+    "path": "listy/gidle",
+    "filters": {
+      "typeDbVal": null,
+      "regionDb": null,
+      "year": null,
+      "month": null,
+      "special": null,
+      "city": "Gidle"
+    },
+    "h1": "Bieg — Gidle",
+    "title": "Bieg — Gidle (1 wydarzenie) — Leszy.run",
+    "description": "Kalendarz biegów 2026 — Gidle. 1 bieg. Zapisy, dystanse, ceny, regulaminy.",
+    "intro": "Kalendarz biegów 2026 — Gidle. 1 bieg.",
+    "eventCount": 1,
+    "canonicalUrl": "https://www.leszy.run/listy/gidle",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "listy",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 773
+      },
+      {
+        "path": "listy/lodzkie",
+        "h1": "Biegi w Łódzkiem",
+        "eventCount": 42
+      },
+      {
+        "path": "listy/lodz",
+        "h1": "Biegi w Łodzi",
+        "eventCount": 6
+      },
+      {
+        "path": "listy/lowicz",
+        "h1": "Biegi — łowicz",
+        "eventCount": 4
+      },
+      {
+        "path": "listy/aleksandrow-lodzki",
+        "h1": "Biegi — Aleksandrów Łódzki",
+        "eventCount": 2
+      },
+      {
+        "path": "listy/belchatow",
+        "h1": "Biegi — Bełchatów",
+        "eventCount": 2
+      },
+      {
+        "path": "listy/celinow",
+        "h1": "Bieg — Celinów",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/zalecze-male",
+        "h1": "Bieg — Zalecze Male",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/peczniew",
+        "h1": "Bieg — Pęczniew",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/przedborz",
+        "h1": "Bieg — Przedbórz",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/stara-wies-k-bork",
+        "h1": "Bieg — Stara Wieś k/ Bork",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/zalew-w-lopuszce-malej",
+        "h1": "Bieg — Zalew w Łopuszce Małej",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/dylow-a",
+        "h1": "Bieg — Dylów A",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/czastary",
+        "h1": "Bieg — Czastary",
+        "eventCount": 1
+      }
+    ],
+    "cityRegionSlug": "lodzkie"
   },
   "listy/tczew": {
     "path": "listy/tczew",

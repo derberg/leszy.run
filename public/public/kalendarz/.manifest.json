@@ -28822,32 +28822,6 @@
     "website": "https://dostartu.pl/permalink-v16148",
     "is_kids": null
   },
-  "vi-polmaraton-gestwinami-murckowskimi-2026-07-04": {
-    "id": "235a596a-231b-4218-9706-55dc61d629f5",
-    "name": "VI Półmaraton Gęstwinami Murckowskimi",
-    "date": "2026-07-04",
-    "registration_deadline": "2026-07-04",
-    "regulamin_url": "https://dostartu.pl/statute_files/15217_pl.pdf",
-    "price_from": 60,
-    "price_to": 240,
-    "location": "Katowice, SL",
-    "voivodeship": "Śląskie",
-    "lat": 50.194114,
-    "lng": 19.041839,
-    "distances": [
-      "21 km",
-      "5 km",
-      "10.6 km",
-      "21.1 km"
-    ],
-    "event_type": [
-      "nordic walking",
-      "trail"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v15217",
-    "website": "https://wkregunatury.pl/dzialania/polmaraton-gestwinami-murckowskimi/",
-    "is_kids": null
-  },
   "xii-erigo-nocny-bieg-z-gwiazdami-2026-07-04": {
     "id": "2dfb518c-4834-498a-a5bf-826033425671",
     "name": "XII ERIGO Nocny Bieg z Gwiazdami",
@@ -29466,6 +29440,31 @@
     ],
     "registration_url": "https://rajsportactive.pl/zapisy/bieg-po-zdrowie-peczniew-2026",
     "website": null,
+    "is_kids": null
+  },
+  "vi-polmaraton-gestwinami-murckowskimi-2026-07-04": {
+    "id": "235a596a-231b-4218-9706-55dc61d629f5",
+    "name": "VI Półmaraton Gęstwinami Murckowskimi",
+    "date": "2026-07-04",
+    "registration_deadline": "2026-07-04",
+    "regulamin_url": "https://dostartu.pl/statute_files/15217_pl.pdf",
+    "price_from": 60,
+    "price_to": 240,
+    "location": "Katowice, SL",
+    "voivodeship": "Śląskie",
+    "lat": 50.194114,
+    "lng": 19.041839,
+    "distances": [
+      "5 km",
+      "10.6 km",
+      "21.1 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v15217",
+    "website": "https://wkregunatury.pl/dzialania/polmaraton-gestwinami-murckowskimi/",
     "is_kids": null
   },
   "bieg-po-zdrowie-2026-07-05": {
@@ -30969,7 +30968,7 @@
     "lat": 52.376676,
     "lng": 20.917794,
     "distances": [
-      "6706 m"
+      "6.7 km"
     ],
     "event_type": [
       "ultra"
@@ -33715,8 +33714,7 @@
     "lat": 54.036064,
     "lng": 22.501792,
     "distances": [
-      "6.7 km",
-      "47 km"
+      "6.7 km"
     ],
     "event_type": [
       "trail",
@@ -36124,30 +36122,6 @@
     "website": null,
     "is_kids": null
   },
-  "backyard-ultra-radomsko-iv-2026-08-28": {
-    "id": "dcbc8b28-3d13-43cf-b6c9-817ab3543771",
-    "name": "BACKYARD ULTRA RADOMSKO IV",
-    "date": "2026-08-28",
-    "registration_deadline": "2026-08-14",
-    "regulamin_url": "https://dostartu.pl/statute_files/15645_pl.pdf",
-    "price_from": 220,
-    "price_to": 250,
-    "location": "Gidle",
-    "voivodeship": "Łódzkie",
-    "lat": 51.00203,
-    "lng": 19.527543,
-    "distances": [
-      "backyard",
-      "6.7 km"
-    ],
-    "event_type": [
-      "trail",
-      "ultra"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v15645",
-    "website": null,
-    "is_kids": null
-  },
   "letni-ultra-swir-2026-08-28": {
     "id": "a6d50092-7d40-4478-bcab-e828ea8963c7",
     "name": "Letni Ultra Świr",
@@ -36246,6 +36220,29 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16750",
     "website": "www.rosir.rydultowy.pl",
+    "is_kids": null
+  },
+  "backyard-ultra-radomsko-iv-2026-08-28": {
+    "id": "dcbc8b28-3d13-43cf-b6c9-817ab3543771",
+    "name": "BACKYARD ULTRA RADOMSKO IV",
+    "date": "2026-08-28",
+    "registration_deadline": "2026-08-14",
+    "regulamin_url": "https://dostartu.pl/statute_files/15645_pl.pdf",
+    "price_from": 220,
+    "price_to": 250,
+    "location": "Gidle",
+    "voivodeship": "Łódzkie",
+    "lat": 51.00203,
+    "lng": 19.527543,
+    "distances": [
+      "6.7 km"
+    ],
+    "event_type": [
+      "trail",
+      "ultra"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v15645",
+    "website": null,
     "is_kids": null
   },
   "viii-dycha-nad-wisla-ix-biegowe-grand-prix-kociewia-2026-08-29": {
