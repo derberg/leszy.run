@@ -25,6 +25,8 @@ const VOIVODESHIP_MAP = Object.fromEntries(
 )
 // Fix common non-standard values
 VOIVODESHIP_MAP['śląsk'] = 'Śląskie'
+// Source-side typos (timesport listing misspelling for Radom-area events)
+VOIVODESHIP_MAP['mazaowieckie'] = 'Mazowieckie'
 
 function normalizeVoivodeship(raw) {
   if (!raw) return null
