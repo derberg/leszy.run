@@ -29443,6 +29443,31 @@
     "website": null,
     "is_kids": null
   },
+  "bieg-po-zdrowie-peczniew-2026-2026-07-04": {
+    "id": "c391df85-8fd2-4c4e-bac3-aa9ce94da34b",
+    "name": "BIEG PO ZDROWIE - PĘCZNIEW 2026",
+    "date": "2026-07-04",
+    "registration_deadline": "2026-07-02",
+    "regulamin_url": "https://rajsportactive.pl/pdf/regPeczniew2026.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Pęczniew",
+    "voivodeship": "Łódzkie",
+    "lat": 51.803461,
+    "lng": 18.721971,
+    "distances": [
+      "100 m",
+      "200 m",
+      "300 m",
+      "400 m"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://rajsportactive.pl/zapisy/bieg-po-zdrowie-peczniew-2026",
+    "website": null,
+    "is_kids": null
+  },
   "bieg-po-zdrowie-2026-07-05": {
     "id": "df5da743-bd30-400c-855b-94b70aca7e61",
     "name": "Bieg Po Zdrowie",
@@ -33647,6 +33672,33 @@
       "dzieci"
     ],
     "registration_url": "https://dostartu.pl/5-bieg-1-brygady-legionow-polskich-v9511",
+    "website": null,
+    "is_kids": null
+  },
+  "biegu-dla-dzieci-mini-sowa-2026-08-06": {
+    "id": "93d6551d-fea8-4127-bfe6-9367a6e293c5",
+    "name": "Biegu dla dzieci Mini Sowa",
+    "date": "2026-08-06",
+    "registration_deadline": "2026-08-06",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12521.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Ludwikowice Kłodzkie",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.620784,
+    "lng": 16.474155,
+    "distances": [
+      "100 m",
+      "200 m",
+      "400 m",
+      "600 m",
+      "800 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12521%26co%3Dform",
     "website": null,
     "is_kids": null
   },
@@ -39528,6 +39580,29 @@
     "website": null,
     "is_kids": null
   },
+  "x-bieg-neptuna-2026-2026-09-06": {
+    "id": "a171c8ec-795a-4e1e-b40c-b23d36929cb2",
+    "name": "X BIEG NEPTUNA 2026",
+    "date": "2026-09-06",
+    "registration_deadline": "2026-08-31",
+    "regulamin_url": "https://zapisy.sts-timing.pl/1162/adm/pdf/fbec1ff2129e7137f0a9e20e3d7bc18a.pdf",
+    "price_from": 30,
+    "price_to": 129,
+    "location": "Trzebież",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.654832,
+    "lng": 14.509319,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://zapisy.sts-timing.pl/1162/",
+    "website": null,
+    "is_kids": null
+  },
   "garmin-ultra-race-radkow-2026-09-11": {
     "id": "1f0301cd-b003-4e61-86a4-5f0a529e6be2",
     "name": "Garmin Ultra Race Radków",
@@ -41292,6 +41367,35 @@
     ],
     "registration_url": "https://dostartu.pl/xx-jubileuszowy-radomski-maraton-trzezwosci-v13975",
     "website": "https://biegiemradom.pl",
+    "is_kids": null
+  },
+  "xxiv-ogolnopolski-bieg-uliczny-szlakiem-jana-dlugosza-wieniawa-2026-09-13": {
+    "id": "c53fad61-0506-4f05-8bd0-fcaa13d0baf5",
+    "name": "XXIV Ogólnopolski Bieg Uliczny Szlakiem Jana Długosza \"Wieniawa\"",
+    "date": "2026-09-13",
+    "registration_deadline": "2026-09-08",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/REGULAMIN_-_Biegu_Wieniawy_2026.pdf",
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Kłobuck",
+    "voivodeship": "Śląskie",
+    "lat": 50.902555,
+    "lng": 18.93716,
+    "distances": [
+      "8.4 km",
+      "100 m",
+      "200 m",
+      "400 m",
+      "800 m",
+      "1 km",
+      "1.2 km"
+    ],
+    "event_type": [
+      "trail",
+      "uliczny"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/2611/xxiv-ogolnopolski-bieg-uliczny-szlakiem-jana-dlugosza-wieniawa.html",
+    "website": "https://www.zmierzymyczas.pl/2611/xxiv-ogolnopolski-bieg-uliczny-szlakiem-jana-dlugosza-wieniawa.html",
     "is_kids": null
   },
   "35-tarnowski-bieg-leliwitow-2026-09-17": {
@@ -43339,6 +43443,50 @@
     ],
     "registration_url": "https://b4sportonline.pl/bieg_twierdzy_krakow/zapisy_na_bieg_twierdzy_krakow_xxx_edycja__park_reduta/12460",
     "website": "https://stowarzyszenieadventure.pl/",
+    "is_kids": null
+  },
+  "xi-bieg-po-gminie-zdunska-wola-2026-09-26": {
+    "id": "ece79b06-79c6-4b93-b48d-e73176413b29",
+    "name": "XI Bieg po Gminie Zduńska Wola",
+    "date": "2026-09-26",
+    "registration_deadline": "2026-09-22",
+    "regulamin_url": "https://biegajzosp.pl/regulamin/",
+    "price_from": 60,
+    "price_to": 100,
+    "location": "Janiszewice",
+    "voivodeship": "Łódzkie",
+    "lat": 51.617612,
+    "lng": 18.958853,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1458",
+    "website": "https://biegajzosp.pl/",
+    "is_kids": null
+  },
+  "ix-ultramaraton-lesna-doba-2026-09-26": {
+    "id": "f94a8a6c-c9d8-4d80-8e43-464ce0b456a1",
+    "name": "IX Ultramaraton Leśna Doba",
+    "date": "2026-09-26",
+    "registration_deadline": "2026-09-10",
+    "regulamin_url": "https://www.lesnadoba.com/index.php/regulaminy",
+    "price_from": 290,
+    "price_to": 380,
+    "location": "Róża gm. Dobroń",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.303904,
+    "lng": 17.906875,
+    "distances": [
+      "12.5 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1457",
+    "website": "https://www.lesnadoba.com/index.php",
     "is_kids": null
   },
   "v-bieg-walem-wislanym-2026-09-26": {
@@ -48319,6 +48467,50 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15282/signup.html",
     "website": "https://elektronicznezapisy.pl/event/15282.html",
+    "is_kids": null
+  },
+  "sowi-backyard-ultra-27-2027-04-30": {
+    "id": "7ddf78d6-8eaa-4d55-be3a-79f6f9a327f9",
+    "name": "Sowi Backyard Ultra '27",
+    "date": "2027-04-30",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": 350,
+    "price_to": 350,
+    "location": "Pieszyce",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.712441,
+    "lng": 16.581609,
+    "distances": [
+      "6.706 km"
+    ],
+    "event_type": [
+      "ultra"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1083,sowi-backyard-ultra-27",
+    "website": "http://www.osiagnijcel.pl",
+    "is_kids": null
+  },
+  "backyard-ultra-jablonna-2027-05-14": {
+    "id": "6e129685-07e2-46e1-b764-53e502d80e14",
+    "name": "BACKYARD ULTRA JABŁONNA",
+    "date": "2027-05-14",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Jabłonna",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.376676,
+    "lng": 20.917794,
+    "distances": [
+      "6706 km"
+    ],
+    "event_type": [
+      "ultra"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1084,backyard-ultra-jablonna",
+    "website": "https://www.facebook.com/events/1539844084603102",
     "is_kids": null
   },
   "suszecki-festiwal-biegowy-2027-2027-06-12": {
