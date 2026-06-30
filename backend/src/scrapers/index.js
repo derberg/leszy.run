@@ -1006,12 +1006,16 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           // so match whitespace-insensitively and for any source.
           const isItmbJunk = raw.name && /itmbwieczorem/i.test(raw.name.replace(/\s+/g, ''))
 
+          // "Wtorki Biegowe - Maraton na Raty" recurring weekly run series (seen on
+          // maratonypolskie AND biegiwpolsce) — repeatedly rejected, block by name for any source.
+          const isWtorkiJunk = raw.name && /wtorkibiegowe/i.test(raw.name.replace(/\s+/g, ''))
+
           // Skip non-running events and past events — mark merged so they don't re-appear
-          if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || (raw.date && raw.date < today) || isSmakMaratonJunk || isRyskaJunk || isItmbJunk) {
+          if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || (raw.date && raw.date < today) || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
             stats.skipped++
             if (raw.name && SKIP_KEYWORDS.test(raw.name)) stats.skippedReasons.non_running++
             else if (raw.date && raw.date < today) stats.skippedReasons.past_date++
-            else if (isSmakMaratonJunk || isRyskaJunk || isItmbJunk) stats.skippedReasons.junk++
+            else if (isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) stats.skippedReasons.junk++
             if (!dryRun) {
               await supabase.from(source.table).update({ merged_at: new Date().toISOString() }).eq('id', raw.id)
             }
