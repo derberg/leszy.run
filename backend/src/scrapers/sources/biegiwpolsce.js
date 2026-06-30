@@ -140,6 +140,9 @@ async function scrape({ knownIds = new Set() } = {}) {
         // in maratonypolskie scraper and at merge level (whitespace-insensitive match)
         if (/itmbwieczorem/i.test(name.replace(/\s+/g, ''))) return
 
+        // "Wtorki Biegowe - Maraton na Raty" recurring weekly run series — same treatment
+        if (/wtorkibiegowe/i.test(name.replace(/\s+/g, ''))) return
+
         const href = a.attr('href')
 
         const dateDiv = a.find('.date, [class*="date"]')
