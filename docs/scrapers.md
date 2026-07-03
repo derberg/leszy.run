@@ -57,11 +57,10 @@ cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
 # Step 5.2: Extract fields from the regulamin PDF (Claude CLI). Runs AFTER 5.1
 # so it can read the regulamin_url that step found. Pulls distances, event types,
 # is_kids, prices, deadline, location, voivodeship straight from the rules PDF.
-cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
+cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js 
 
-# Step 5.5: Dedup scraper_all — dry run first, then --apply
-cd backend && node --env-file=../.env scripts/run-dedup.js
-cd backend && node --env-file=../.env scripts/run-dedup.js --apply
+# Step 5.5: run some scripts cause AI might add some dumb things
+cd backend && node --env-file=../.env scripts/run-dedup.js --apply && node --env-file=../.env scripts/run-enrich-flags.js --apply && node --env-file=../.env scripts/run-normalize.js --apply
 
 # Step 6: Publish to calendar_events — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-publish.js
