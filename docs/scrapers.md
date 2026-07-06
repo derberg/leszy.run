@@ -32,6 +32,10 @@ cd backend && node --env-file=../.env scripts/run-enrich-flags.js --apply
 cd backend && node --env-file=../.env scripts/run-normalize.js
 cd backend && node --env-file=../.env scripts/run-normalize.js --apply
 
+###
+node --env-file=../.env scripts/run-dedup.js --apply && node --env-file=../.env scripts/run-geocode.js --apply && node --env-file=../.env scripts/run-enrich-flags.js --apply && node --env-file=../.env scripts/run-normalize.js --apply
+###
+
 # Step 5: Enrich via Python enricher (LOCAL LLM — PRIMARY TOOL)
 cd enricher && source .venv/bin/activate
 docker compose up -d  # Start SearXNG
