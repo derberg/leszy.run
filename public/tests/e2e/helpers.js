@@ -50,7 +50,20 @@ export async function createTestUser(suffix = 'e2e') {
   }
 }
 
+/** Marker prefix for content tests type into shared tables (reports, feedback).
+ *  Keep in sync with supabase/functions/tests/helpers.js — the sweep matches it. */
+export const E2E_MARKER = '[e2e-test]'
+
+/**
+ * Deletes everything a test user generated, then the session(s) and profile.
+ * Content rows MUST go first: user_id FKs are ON DELETE SET NULL, so deleting
+ * the profile first orphans reports/feedback in the admin moderation tabs.
+ */
 export async function cleanupUser(userId) {
+  await supabaseAdmin.from('calendar_event_reports').delete().eq('user_id', userId)
+  await supabaseAdmin.from('website_feedback').delete().eq('user_id', userId)
+  await supabaseAdmin.from('event_favorites').delete().eq('user_id', userId)
+  await supabaseAdmin.from('user_badges').delete().eq('user_id', userId)
   await supabaseAdmin.from('auth_sessions').delete().eq('user_id', userId)
   await supabaseAdmin.from('profiles').delete().eq('id', userId)
 }

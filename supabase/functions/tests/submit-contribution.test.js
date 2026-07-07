@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { createTestSession, cleanupUser, callFunction, supabaseAdmin } from './helpers.js'
+import { createTestSession, cleanupUser, callFunction, supabaseAdmin, E2E_MARKER } from './helpers.js'
 
 describe('submit-contribution edge function', () => {
   let user, sessionToken, testEventId
@@ -17,7 +17,9 @@ describe('submit-contribution edge function', () => {
   })
 
   after(async () => {
-    await supabaseAdmin.from('calendar_event_reports').delete().eq('user_id', user.id)
+    // cleanupUser deletes the user's reports, feedback, and badges before the
+    // profile — including the general_feedback row this suite creates, which
+    // previously leaked into the admin "Sugestie" tab on every run.
     await cleanupUser(user.id)
   })
 
@@ -26,7 +28,7 @@ describe('submit-contribution edge function', () => {
     const { status } = await callFunction('submit-contribution', {
       type: 'event_report',
       reference_id: testEventId,
-      payload: { field: 'date', note: 'test anon report' },
+      payload: { field: 'date', note: `${E2E_MARKER} test anon report` },
     })
     assert.equal(status, 401)
   })
@@ -36,7 +38,7 @@ describe('submit-contribution edge function', () => {
     const { status, data } = await callFunction('submit-contribution', {
       type: 'event_report',
       reference_id: testEventId,
-      payload: { field: 'date', note: 'wrong date' },
+      payload: { field: 'date', note: `${E2E_MARKER} wrong date` },
     }, sessionToken)
     assert.equal(status, 200)
 
@@ -68,7 +70,7 @@ describe('submit-contribution edge function', () => {
   it('general_feedback submission works', async () => {
     const { status, data } = await callFunction('submit-contribution', {
       type: 'general_feedback',
-      payload: { category: 'bug', message: 'Something is broken' },
+      payload: { category: 'bug', message: `${E2E_MARKER} Something is broken` },
     }, sessionToken)
     assert.equal(status, 200)
     assert.ok(data.data.id)

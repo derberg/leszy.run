@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { createTestSession, cleanupUser, callFunction, supabaseAdmin } from './helpers.js'
+import { createTestSession, cleanupUser, callFunction, supabaseAdmin, E2E_MARKER } from './helpers.js'
 
 describe('admin-review-contribution edge function', () => {
   let user, sessionToken, adminUser, adminToken, reportId, testEventId
@@ -23,7 +23,7 @@ describe('admin-review-contribution edge function', () => {
       const { data: contribData } = await callFunction('submit-contribution', {
         type: 'event_report',
         reference_id: testEventId,
-        payload: { field: 'name', note: 'test report' },
+        payload: { field: 'name', note: `${E2E_MARKER} test report` },
       }, sessionToken)
       reportId = contribData.data?.id
     }
@@ -32,7 +32,11 @@ describe('admin-review-contribution edge function', () => {
   })
 
   after(async () => {
-    if (reportId) await supabaseAdmin.from('calendar_event_reports').delete().eq('id', reportId)
+    // cleanupUser deletes ALL the contributor's reports (including the 4
+    // "extra" guardian-badge reports) before deleting the profile. Previously
+    // only reportId was deleted here and the extras were cleaned inside the
+    // test body AFTER its assertions — a failed assertion orphaned them into
+    // the admin "Zgłoszenia" tab.
     await cleanupUser(user.id)
     await cleanupUser(adminUser.id)
   })
@@ -69,14 +73,12 @@ describe('admin-review-contribution edge function', () => {
 
   it('contributor receives guardian badge after 5 accepted reports', async () => {
     if (!testEventId) return
-    const extraIds = []
     for (let i = 0; i < 4; i++) {
       const { data } = await callFunction('submit-contribution', {
         type: 'event_report',
         reference_id: testEventId,
-        payload: { field: 'date', note: `extra ${i}` },
+        payload: { field: 'date', note: `${E2E_MARKER} extra ${i}` },
       }, sessionToken)
-      extraIds.push(data.data?.id)
       await callFunction('admin-review-contribution', {
         type: 'event_report', id: data.data?.id, action: 'accept',
       }, adminToken)
@@ -88,10 +90,8 @@ describe('admin-review-contribution edge function', () => {
       .eq('user_id', user.id)
     const slugs = badges.map(b => b.badge_definitions.slug)
     assert.ok(slugs.includes('guardian'), `Expected guardian badge, got: ${slugs}`)
-
-    for (const id of extraIds) {
-      if (id) await supabaseAdmin.from('calendar_event_reports').delete().eq('id', id)
-    }
+    // Extra reports are cleaned in after() via cleanupUser(user.id) so a
+    // failed assertion above cannot leak them.
   })
 
   it('accepting again does not duplicate the guardian badge', async () => {

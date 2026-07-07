@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { createTestUser, cleanupUser, supabaseAdmin, FUNCTIONS_URL } from './helpers.js'
+import { createTestUser, cleanupUser, supabaseAdmin, FUNCTIONS_URL, E2E_MARKER } from './helpers.js'
 
 test.describe('Community flows with auth', () => {
   let testUser, profileUsername
@@ -15,7 +15,8 @@ test.describe('Community flows with auth', () => {
   })
 
   test.afterAll(async () => {
-    await supabaseAdmin.from('calendar_event_reports').delete().eq('user_id', testUser.user.id)
+    // cleanupUser deletes the user's reports before the profile (user_id FK is
+    // ON DELETE SET NULL — wrong order orphans the report in the admin tab).
     await cleanupUser(testUser.user.id)
   })
 
@@ -27,7 +28,7 @@ test.describe('Community flows with auth', () => {
     if (!visible) { test.skip(); return }
     await reportBtn.click()
     await page.locator('select').first().selectOption('name')
-    await page.locator('input[type="text"]').last().fill('Poprawiona nazwa')
+    await page.locator('input[type="text"]').last().fill(`${E2E_MARKER} Poprawiona nazwa`)
     await page.getByRole('button', { name: /wyślij/i }).click()
     await expect(page.getByText(/dziękujemy/i)).toBeVisible()
     await page.goto('/profil')

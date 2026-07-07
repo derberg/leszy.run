@@ -44,12 +44,54 @@ export async function createTestSession(suffix = 'test') {
   return { user: { id: userId, email }, sessionToken, email }
 }
 
-/** Deletes session(s), profile, and the auth user. */
+/** Marker prefix for content tests write to shared tables (reports, feedback).
+ *  Lets the sweep identify orphaned test rows even after their user is gone. */
+export const E2E_MARKER = '[e2e-test]'
+
+/**
+ * Deletes everything a test user generated, then the session(s), profile, and
+ * auth user. Content rows MUST go first: profiles.user_id FKs are ON DELETE
+ * SET NULL, so deleting the profile first orphans reports/feedback and they
+ * become invisible to user_id-based cleanup (this is exactly how test junk
+ * leaked into the admin moderation tabs).
+ */
 export async function cleanupUser(userId) {
+  await supabaseAdmin.from('calendar_event_reports').delete().eq('user_id', userId)
+  await supabaseAdmin.from('website_feedback').delete().eq('user_id', userId)
+  await supabaseAdmin.from('event_favorites').delete().eq('user_id', userId)
+  await supabaseAdmin.from('user_badges').delete().eq('user_id', userId)
+  await supabaseAdmin.from('consent_log').delete().eq('user_id', userId)
   await supabaseAdmin.from('auth_sessions').delete().eq('user_id', userId)
   await supabaseAdmin.from('profiles').delete().eq('id', userId)
   // Best-effort: remove the auth.users row created in createTestSession.
   try { await supabaseAdmin.auth.admin.deleteUser(userId) } catch { /* ignore */ }
+}
+
+/**
+ * Removes leftovers from previous crashed/interrupted test runs. Safe to run
+ * against production data: every predicate matches only test artifacts
+ * (@test.leszy.run emails, source='test' events, E2E_MARKER-tagged content).
+ * Run before each suite — see sweep.js and the Playwright global setup.
+ */
+export async function sweepTestData() {
+  // Profiles from prior runs (cleans their content via cleanupUser).
+  const { data: staleProfiles } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .like('email', '%@test.leszy.run')
+  for (const p of staleProfiles || []) await cleanupUser(p.id)
+
+  // Orphaned marker-tagged content (user already deleted → user_id is NULL).
+  await supabaseAdmin.from('calendar_event_reports').delete().like('note', `${E2E_MARKER}%`)
+  await supabaseAdmin.from('calendar_event_reports').delete().like('suggested_value', `${E2E_MARKER}%`)
+  await supabaseAdmin.from('website_feedback').delete().like('message', `${E2E_MARKER}%`)
+
+  // Test calendar events (favorites/notifications/delete-account suites).
+  await supabaseAdmin.from('calendar_events').delete().eq('source', 'test')
+
+  // OTP rows keyed by email, and clubs created by the onboarding e2e flow.
+  await supabaseAdmin.from('auth_codes').delete().like('email', '%@test.leszy.run')
+  await supabaseAdmin.from('clubs').delete().like('name', 'KB Testowo%')
 }
 
 /** POST to an edge function. Pass sessionToken to send as cookie. */
