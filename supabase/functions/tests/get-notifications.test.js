@@ -34,7 +34,9 @@ describe('get-notifications', () => {
       await supabaseAdmin.from('event_notifications')
         .insert({ event_id: lateEvent, type: 'cancelled' })
 
-      const res = await callFunction('get-notifications', {}, me.sessionToken)
+      // The list only comes back on the feed path (markSeen); the badge path
+      // returns the count only.
+      const res = await callFunction('get-notifications', { markSeen: true }, me.sessionToken)
       assert.equal(res.status, 200)
       assert.equal(res.data.notifications.length, 1)
       assert.equal(res.data.notifications[0].event_id, lateEvent)
@@ -58,11 +60,18 @@ describe('get-notifications', () => {
         .insert({ event_id: eventId, type: 'deadline_soon' })
 
       const first = await callFunction('get-notifications', { markSeen: true }, me.sessionToken)
-      assert.equal(first.data.unseenCount, 1) // counted against the PRE-markSeen cursor
+      assert.equal(first.data.unseenCount, 1)          // counted against the PRE-markSeen cursor
+      assert.equal(first.data.notifications.length, 1) // feed present
 
-      const second = await callFunction('get-notifications', {}, me.sessionToken)
-      assert.equal(second.data.notifications.length, 1)
-      assert.equal(second.data.unseenCount, 0)
+      // Badge path: count is cleared after markSeen, and it never ships the list.
+      const badge = await callFunction('get-notifications', {}, me.sessionToken)
+      assert.equal(badge.data.unseenCount, 0)
+      assert.equal(badge.data.notifications.length, 0)
+
+      // The feed itself is preserved — the notification still exists.
+      const feed = await callFunction('get-notifications', { markSeen: true }, me.sessionToken)
+      assert.equal(feed.data.notifications.length, 1)
+      assert.equal(feed.data.unseenCount, 0)
     } finally {
       await supabaseAdmin.from('event_favorites').delete().eq('user_id', me.user.id)
       await supabaseAdmin.from('calendar_events').delete().eq('id', eventId)

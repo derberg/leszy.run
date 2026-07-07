@@ -10,7 +10,7 @@ import useAuth from './useAuth.js'
 // { events, clubCounts } is persisted — `ids` is rebuilt from `events`, and any
 // toggle invalidates the persisted copy so the two never drift.
 const CACHE_KEY = 'leszy.favorites'
-const TTL_MS = 3 * 60 * 1000 // 3 min
+const TTL_MS = 5 * 60 * 1000 // 5 min
 
 let cache
 let inflight = null

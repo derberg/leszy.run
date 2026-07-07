@@ -34,12 +34,18 @@ Deno.serve(async (req) => {
   ])
 
   const favMap = new Map((favs ?? []).map((f) => [f.event_id, f.created_at]))
-  let notifications = []
 
+  // The navbar badge (markSeen=false) only needs the unseen COUNT — it fires on
+  // every logged-in page load, so it selects the bare minimum (no calendar_events
+  // join, no list shipped to the client). The /profil feed (markSeen=true) needs
+  // the full list with event names/dates.
+  let rows = []
   if (favMap.size) {
     const { data: notifs } = await supabaseAdmin
       .from('event_notifications')
-      .select('id, event_id, type, created_at, calendar_events(name, date, status)')
+      .select(markSeen
+        ? 'id, event_id, type, created_at, calendar_events(name, date, status)'
+        : 'event_id, created_at')
       .in('event_id', [...favMap.keys()])
       .order('created_at', { ascending: false })
       // limit applies BEFORE the JS before-star filter below — acceptable
@@ -47,21 +53,13 @@ Deno.serve(async (req) => {
       // query already spans only the user's starred events
       .limit(50)
 
-    notifications = (notifs ?? [])
+    rows = (notifs ?? [])
       // never notify about things that happened before the user starred
       .filter((n) => new Date(n.created_at) > new Date(favMap.get(n.event_id)))
-      .map((n) => ({
-        id: n.id,
-        event_id: n.event_id,
-        type: n.type,
-        created_at: n.created_at,
-        event_name: n.calendar_events?.name ?? null,
-        event_date: n.calendar_events?.date ?? null,
-      }))
   }
 
   const seenAt = profile?.notifications_seen_at
-  const unseenCount = notifications
+  const unseenCount = rows
     .filter((n) => !seenAt || new Date(n.created_at) > new Date(seenAt)).length
 
   if (markSeen) {
@@ -70,6 +68,18 @@ Deno.serve(async (req) => {
       .update({ notifications_seen_at: new Date().toISOString() })
       .eq('id', session.userId)
   }
+
+  // Only the feed consumer gets the list; the badge gets just the count.
+  const notifications = markSeen
+    ? rows.map((n) => ({
+      id: n.id,
+      event_id: n.event_id,
+      type: n.type,
+      created_at: n.created_at,
+      event_name: n.calendar_events?.name ?? null,
+      event_date: n.calendar_events?.date ?? null,
+    }))
+    : []
 
   return json({ notifications, unseenCount }, 200, req)
 })
