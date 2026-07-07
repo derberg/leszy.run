@@ -425,16 +425,23 @@ function ProfilContent() {
   const [submissions, setSubmissions] = useState([])
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
 
   useEffect(() => {
     if (!user) return
-    callFunction('get-profile-data', {}).then(({ profile, badges, reports, submissions }) => {
-      setProfile(profile)
-      setBadges(badges)
-      setReports(reports)
-      setSubmissions(submissions)
-      setLoading(false)
-    })
+    setLoadError(null)
+    callFunction('get-profile-data', {})
+      .then(({ profile, badges, reports, submissions }) => {
+        setProfile(profile)
+        setBadges(badges)
+        setReports(reports)
+        setSubmissions(submissions)
+      })
+      .catch((err) => {
+        console.error('Profile data fetch failed:', err)
+        setLoadError('Nie udało się wczytać profilu. Spróbuj odświeżyć stronę.')
+      })
+      .finally(() => setLoading(false))
   }, [user])
 
   async function handleSave(field, value) {
@@ -463,6 +470,14 @@ function ProfilContent() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <span className="font-mono text-sm text-apex-muted animate-pulse">Ładowanie…</span>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <p className="font-mono text-sm text-apex-red">{loadError}</p>
       </div>
     )
   }

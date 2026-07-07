@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Fragment } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle.jsx'
 import useAuth from '../hooks/useAuth.js'
@@ -222,9 +222,8 @@ export default function Navbar() {
         <div className="absolute top-14 left-0 right-0 bg-apex-bg/95 backdrop-blur-md border-b border-apex-border flex flex-col p-6 gap-4 md:hidden">
           {navLinks.map(link => (
             link.dropdown ? (
-              <>
+              <Fragment key={link.to}>
                 <Link
-                  key="kalendarz-mobile"
                   to="/kalendarz"
                   onClick={() => setMenuOpen(false)}
                   className={`font-sans font-semibold text-base tracking-wider uppercase no-underline ${location.pathname === '/kalendarz' ? 'text-apex-yellow' : 'text-apex-muted'}`}
@@ -232,14 +231,13 @@ export default function Navbar() {
                   Kalendarz
                 </Link>
                 <Link
-                  key="listy-mobile"
                   to="/listy"
                   onClick={() => setMenuOpen(false)}
                   className={`font-sans font-semibold text-base tracking-wider uppercase no-underline ${location.pathname.startsWith('/listy') ? 'text-apex-yellow' : 'text-apex-muted'}`}
                 >
                   Lista kategorii
                 </Link>
-              </>
+              </Fragment>
             ) : (
               <Link
                 key={link.to}
