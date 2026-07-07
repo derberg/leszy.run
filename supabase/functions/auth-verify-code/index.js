@@ -19,7 +19,7 @@ function json(body, status, req, extraHeaders = {}) {
   })
 }
 
-const SESSION_MAX_AGE = 60 * 24 * 60 * 60 // 60 days in seconds
+const SESSION_MAX_AGE = 90 * 24 * 60 * 60 // 90 days in seconds
 
 Deno.serve(async (req) => {
   const optRes = handleOptions(req)
