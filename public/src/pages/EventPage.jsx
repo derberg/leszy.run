@@ -8,6 +8,7 @@ import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import EventInfoGrid from '../components/EventInfoGrid.jsx'
 import NearbyEvents from '../components/NearbyEvents.jsx'
+import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
 import ReportEventModal from '../components/ReportEventModal.jsx'
 import StarButton from '../components/StarButton.jsx'
 
@@ -242,6 +243,10 @@ export default function EventPage() {
     path: `/kalendarz/${seoSlug}`,
     image: `https://www.leszy.run/kalendarz/${seoSlug}/og.png`,
     jsonLd: event ? buildJsonLd(event, seoSlug) : undefined,
+    // Stale/renamed event slugs orphan the old URL: no static file → SPA fallback → this
+    // not-found state at HTTP 200 with a self-canonical reads as an indexable soft-404 and
+    // Google clusters them as "duplicate, different canonical". noindex stops that bleed.
+    noindex: notFound,
   })
 
   // Loading state
@@ -317,6 +322,9 @@ export default function EventPage() {
               <li className="text-apex-text-bright truncate max-w-[300px]">{event.name}</li>
             </ol>
           </nav>
+
+          {/* Promoted leszy.run events */}
+          <LeszyrunBanner className="mb-8" />
 
           {/* Date badge + countdown */}
           <div className="flex items-center gap-3 mb-4">

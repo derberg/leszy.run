@@ -3,7 +3,7 @@
 ## Quick run — full pipeline copy-paste
 
 All commands from project root. Requires `backend/.env` with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
-Also requires `claude` CLI installed for steps 5 and 5.1.
+Also requires `claude` CLI installed for steps 5.1 and 5.2.
 
 ```bash
 # Step 1: Scrape raw data (all sources → per-source tables)
@@ -32,6 +32,10 @@ cd backend && node --env-file=../.env scripts/run-enrich-flags.js --apply
 cd backend && node --env-file=../.env scripts/run-normalize.js
 cd backend && node --env-file=../.env scripts/run-normalize.js --apply
 
+###
+node --env-file=../.env scripts/run-dedup.js --apply && node --env-file=../.env scripts/run-geocode.js --apply && node --env-file=../.env scripts/run-enrich-flags.js --apply && node --env-file=../.env scripts/run-normalize.js --apply
+###
+
 # Step 5: Enrich via Python enricher (LOCAL LLM — PRIMARY TOOL)
 cd enricher && source .venv/bin/activate
 docker compose up -d  # Start SearXNG
@@ -49,17 +53,33 @@ python -m enricher run  # Full run
 #          -d '{"model":"qwen2.5:72b-instruct-q4_0","prompt":"","stream":false,"keep_alive":0}'
 #      Then re-run — warm-up will be instant.
 
-# Step 5.1: OPTIONAL — Enrich via web search (Claude CLI fallback for fields enricher missed)
+# Step 5.1: Find missing source URLs via web search (Claude CLI).
+# Locates ONLY registration_url + regulamin_url — no field extraction.
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --limit 5
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
 
-# Step 5.5: Dedup scraper_all — dry run first, then --apply
-cd backend && node --env-file=../.env scripts/run-dedup.js
-cd backend && node --env-file=../.env scripts/run-dedup.js --apply
+# Step 5.2: Extract fields from the regulamin PDF (Claude CLI). Runs AFTER 5.1
+# so it can read the regulamin_url that step found. Pulls distances, event types,
+# is_kids, prices, deadline, location, voivodeship straight from the rules PDF.
+cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js 
+
+# Step 5.5: run some scripts cause AI might add some dumb things
+cd backend && node --env-file=../.env scripts/run-dedup.js --apply && node --env-file=../.env scripts/run-enrich-flags.js --apply && node --env-file=../.env scripts/run-normalize.js --apply
 
 # Step 6: Publish to calendar_events — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-publish.js
 cd backend && node --env-file=../.env scripts/run-publish.js --apply
+
+# Revert a publish run's INSERTS only (created pending rows) — dry run first, then --apply.
+# Reads the logs/publish-<ts>.json run log; matches back by source+source_id.
+# Only touches rows still in status='pending' — admin-approved/rejected rows are skipped.
+#   (no flag)            → most recent publish log (≈ today's run)
+#   --log <file>         → a specific publish-<ts>.json
+#   --since today|DATE   → every publish log on/after that UTC date
+#   (default)            → DELETE the row (re-added on next publish — good for a clean re-run)
+#   --reject             → set status='rejected' instead (permanent; never re-added)
+cd backend && node --env-file=../.env scripts/run-revert-publish.js
+cd backend && node --env-file=../.env scripts/run-revert-publish.js --apply
 
 # Step 7: Regenerate static event pages manifest + OG images — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/publish-event-pages.js
@@ -116,6 +136,7 @@ Every `--apply` run writes a JSON summary to disk so you can see what happened i
 | `run-normalize.js` | `backend/logs/normalize-<ts>.json` |
 | `run-enrich-search.js` | `backend/logs/enrich-search-<ts>.json` |
 | `run-publish.js` | `backend/logs/publish-<ts>.json` |
+| `run-revert-publish.js` | `backend/logs/revert-publish-<ts>.json` |
 | `publish-event-pages.js` | `backend/logs/publish-event-pages-<ts>.json` |
 | `python -m enricher run` | `enricher/logs/run-<ts>.jsonl` (per-event JSONL) |
 | `python -m enricher sync` | `enricher/logs/sync-<ts>.json` |
@@ -346,29 +367,33 @@ python -m enricher run --force --limit 10
 
 See [enricher/README.md](../enricher/README.md) for full documentation.
 
-### Step 5.1: Enrich from regulamin PDFs (Claude CLI — LEGACY)
+### Step 5.1: Find missing source URLs via web search (Claude CLI)
 
-**DEPRECATED** — the Python enricher (Step 5) handles PDFs better via Docling. Only use this for quick spot-checks.
-
-```bash
-cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
-```
-
-### Step 5.2: Enrich via web search (Claude CLI — LEGACY FALLBACK)
-
-**DEPRECATED** — the Python enricher (Step 5) is better (local model, no API costs, more comprehensive). Only use this as a last-resort cleanup pass for specific fields that the enricher missed.
+Locates the two source-of-truth URLs — **`registration_url` and `regulamin_url`** — and nothing else. No field extraction; it does not touch distances, prices, types, deadline, etc. Organizer websites are not searched. Whatever regulamin PDF this step finds is what Step 5.2 then reads.
 
 ```bash
 # Dry-run first 5 events
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --limit 5
 
-# Apply results to DB (only fills fields the enricher missed)
+# Apply results to DB (writes only registration_url / regulamin_url)
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
 ```
 
 Requires `claude` CLI installed locally. Uses `--model sonnet` with web search. ~2 sec between calls.
 
-**Only processes events missing registration_url, distances, or event_types** — skips events the enricher already filled.
+**Only processes events missing `registration_url` or `regulamin_url`** — skips rows that already have both.
+
+### Step 5.2: Extract fields from the regulamin (Claude CLI)
+
+The specialized field extractor. Reads each event's `regulamin_url` and pulls **distances, event types, is_kids, price_from/price_to, registration_deadline, location, voivodeship** straight from the rules. Distances replace the scraper's value (the regulamin is authoritative); event types merge (with a hallucination guard for trail/ocr/charytatywny/nordic walking). Run it AFTER Step 5.1 so the regulamin URLs it found are available.
+
+The `regulamin_url` does not have to be a PDF — `acquireRegulamin()` accepts **PDF, `.docx`, a plain HTML page, and a public Google Drive folder or file** (a folder of per-distance regulamins is downloaded in full, each file extracted, and the text concatenated). PDFs are read natively by Claude; `.docx`/HTML are converted with `textutil`, and Drive PDFs with `pdftotext`.
+
+```bash
+cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
+```
+
+Requires `claude` CLI installed locally (plus `textutil` and `pdftotext`, both present on macOS). Uses `--model haiku` against the acquired document. Complements the Python enricher (Step 5) rather than replacing it; the enricher remains the primary, cost-free tool — and supports the same formats via `enricher/enricher/steps/docs.py`.
 
 ### Step 4.5: Normalize voivodeships and event types
 
@@ -1079,6 +1104,16 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | aleczas | `scraper_aleczas` | `source_id` |
 | maratonczykpomiarczasu | `scraper_maratonczykpomiarczasu` | `source_id` |
 | timing4u | `scraper_timing4u` | `source_id` |
+| zapisyonline | `scraper_zapisyonline` | `source_id` |
+| foxter | `scraper_foxter` | `source_id` (slug) |
+| herkules | `scraper_herkules` | `source_id` (Tribe event id) |
+| zapisyvaldano | `scraper_zapisyvaldano` | `source_id` (event id) |
+| pomiaryczasu | `scraper_pomiaryczasu` | `source_id` (event slug, or `grp_<slug>` for umbrella groups) |
+| egepard | `scraper_egepard` | `source_id` (contest id) |
+| pifsport | `scraper_pifsport` | `source_id` (WordPress post id) |
+| timesport | `scraper_timesport` | `source_id` (zapisy-DD-MM-YYYY-slug) |
+| plustiming | `scraper_plustiming` | `source_id` (zgłoszenia slug) |
+| biegnijmy | `scraper_biegnijmy` | `source_id` (`<YYYYMMDD-n>-<city>` slug) |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 

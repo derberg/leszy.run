@@ -34,13 +34,13 @@ def search_missing_urls(event: dict, missing_fields: list[str], config) -> dict:
     year = date[:4] if date else ""
     location = event.get("location", "")
 
+    # We search for the two source-of-truth URLs only — registration and
+    # regulamin. Organizer websites are intentionally NOT searched (low-yield).
     queries = {}
     if "registration_url" in missing_fields:
         queries["registration_url"] = f"{name} {year} zapisy rejestracja {location}"
     if "regulamin_url" in missing_fields:
         queries["regulamin_url"] = f"{name} {year} regulamin"
-    if "website" in missing_fields:
-        queries["website"] = f"{name} {year} {location}"
 
     name_tokens = _tokenize(name)
 

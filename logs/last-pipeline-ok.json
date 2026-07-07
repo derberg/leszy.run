@@ -1,69 +1,59 @@
 {
-  "ts": "2026-05-15T06:17:49.556Z",
-  "durationMs": 1069110,
+  "ts": "2026-06-27T06:46:39.729Z",
+  "durationMs": 2799398,
   "steps": [
     {
       "name": "run-scrapers",
       "exitCode": 0,
-      "durationMs": 83105
+      "durationMs": 155301
     },
     {
       "name": "run-merge",
       "exitCode": 0,
-      "durationMs": 4650
+      "durationMs": 10965
     },
     {
       "name": "run-dedup-1",
       "exitCode": 0,
-      "durationMs": 858
+      "durationMs": 1452
     },
     {
       "name": "run-geocode",
       "exitCode": 0,
-      "durationMs": 25701
+      "durationMs": 9568
     },
     {
       "name": "run-enrich-flags",
       "exitCode": 0,
-      "durationMs": 694
+      "durationMs": 750
     },
     {
       "name": "run-normalize-1",
       "exitCode": 0,
-      "durationMs": 614
+      "durationMs": 1069
     },
     {
       "name": "enricher",
       "exitCode": 0,
-      "durationMs": 945794
-    },
-    {
-      "name": "run-enrich-search",
-      "exitCode": 0,
-      "durationMs": 1183
+      "durationMs": 2616787
     },
     {
       "name": "run-dedup-2",
       "exitCode": 0,
-      "durationMs": 870
+      "durationMs": 1731
     },
     {
       "name": "run-normalize-2",
       "exitCode": 0,
-      "durationMs": 640
-    },
-    {
-      "name": "run-publish",
-      "exitCode": 0,
-      "durationMs": 4355
+      "durationMs": 941
     },
     {
       "name": "publish-landing-pages",
       "exitCode": 0,
-      "durationMs": 644
+      "durationMs": 833
     }
   ],
-  "rowsCreated": 7,
-  "rowsUpdated": 7,
+  "rowsCreated": 20,
+  "rowsUpdated": 19,
   "rowsCheckSkipped": false
 }

@@ -30,29 +30,15 @@ def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config, hi
     price_str = f"{price_from}-{price_to} PLN" if price_from else "unknown"
     voivodeship = event.get("voivodeship") or "unknown"
 
-    # Build focused chunks (prices, deadlines, distances) from all content
+    # Build focused chunks (prices, deadlines, distances) from the regulamin only.
+    # `crawled` here contains at most the regulamin HTML page; registration/website
+    # content is never passed in (extraction is regulamin-only by design).
     focused = build_focused_context(crawled, pdf_text)
 
-    # Keep truncated raw content for general context (event types, URLs, etc.)
-    # Focused chunks already have price/deadline/distance data, so raw can be shorter.
+    # Raw regulamin context (for event types, kids categories, etc.). Focused
+    # chunks already carry price/deadline/distance, so raw can be shorter.
     raw_limit = 2000 if focused else config.max_page_chars
     sections = []
-    for field, label in [("website", "WEBSITE CONTENT"), ("registration_url", "REGISTRATION PAGE")]:
-        content = crawled.get(field)
-        if content and isinstance(content, str) and content.strip():
-            url = event.get(field, "")
-            sections.append(f"--- {label} ({url}) ---\n{content[:raw_limit]}")
-
-    # Include navigated follow-up pages (internal subpages, organizer sites)
-    followup_count = 0
-    for key, content in crawled.items():
-        if key.startswith("followup:") and content and isinstance(content, str) and content.strip():
-            followup_count += 1
-            if followup_count > 4:
-                break
-            page_url = key.removeprefix("followup:")
-            sections.append(f"--- FOLLOWUP PAGE ({page_url}) ---\n{content[:raw_limit]}")
-
     if pdf_text and pdf_text.strip():
         regulamin_url = event.get("regulamin_url", "")
         sections.append(f"--- REGULAMIN ({regulamin_url}) ---\n{pdf_text[:raw_limit]}")
@@ -70,7 +56,7 @@ def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config, hi
     elif raw_context:
         context_block = raw_context
     else:
-        context_block = "(No web content or PDF available)"
+        context_block = "(No regulamin content available)"
 
     # Hints block (regex pre-pass) — give LLM concrete anchors it can confirm
     hints_lines = []
@@ -110,18 +96,16 @@ EVENT:
 
 {context_block}
 
-RESPOND WITH THIS EXACT JSON STRUCTURE (use null for any field not found in content — NEVER copy the placeholder strings below):
+RESPOND WITH THIS EXACT JSON STRUCTURE (use null for any field not found in content — NEVER copy the placeholder/example values below; they show the SHAPE only, not real data):
 {{
-  "distances": ["5 km", "10 km"],
+  "distances": ["<KM>", "<KM>"],
   "event_types": ["uliczny"],
   "registration_deadline": "YYYY-MM-DD",
-  "price_from": 50,
-  "price_to": 90,
-  "location": "Warszawa",
-  "voivodeship": "Mazowieckie",
+  "price_from": null,
+  "price_to": null,
+  "location": null,
+  "voivodeship": null,
   "is_kids": false,
-  "website": "<REPLACE-WITH-REAL-OR-NULL>",
-  "website_is_official": true,
   "registration_url": "<REPLACE-WITH-REAL-OR-NULL>",
   "regulamin_url": "<REPLACE-WITH-REAL-OR-NULL>",
   "url_is_regulamin": true,
@@ -174,16 +158,11 @@ LOCATION:
 
 VOIVODESHIP: exactly one of: {", ".join(VOIVODESHIPS)}. null if uncertain.
 
-WEBSITE:
-- Must be the event's OFFICIAL website (organizer's domain, dedicated event page)
-- NOT a news article about the event (e.g. naszemiasto.pl, gazeta.pl, sport.pl, moje-gniezno.pl)
-- NOT a social media page (facebook.com)
-- NOT an aggregator (maratonypolskie.pl, datasport.pl, biegiwpolsce.pl, dostartu.pl)
-- website_is_official: true if the URL is the event's own domain/page, false if it's news/article/social
-
-URL VALIDATION:
-- url_is_registration: does the registration_url contain an actual sign-up form? Login pages (dostartu.pl/permalink-*) count as YES — they lead to registration after login
-- url_is_regulamin: does the regulamin_url contain actual race regulations?
+URLs — extract ONLY if the regulamin text itself states them; otherwise null:
+- registration_url: a sign-up link explicitly given in the regulamin (e.g. "zapisy na stronie ...")
+- regulamin_url: leave null unless the document references its own canonical URL
+- url_is_regulamin: true if the content you read above is genuinely race regulations
+- url_is_registration: true only if registration_url points to an actual sign-up page
 
 is_kids: true if any distance ≤ 1 km OR dedicated children's category exists"""
 
@@ -227,7 +206,7 @@ def call_ollama(prompt: str, config) -> Optional[dict]:
         return None
 
 
-_URL_FIELDS = ("website", "registration_url", "regulamin_url")
+_URL_FIELDS = ("registration_url", "regulamin_url")
 _PLACEHOLDER_URL_SUBSTRINGS = ("example.pl", "example.com", "<replace-with-real")
 
 

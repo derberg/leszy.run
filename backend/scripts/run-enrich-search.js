@@ -4,12 +4,22 @@ import { writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { writeRunLog } from './lib/run-log.js'
-import { AI_FILLABLE, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
-import { enrichFromUrl, isDostartuLikeUrl } from '../src/scrapers/apiEnrich.js'
+import { pickFillable, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
+import { resolveDostartuRegulamin } from './lib/dostartu-regulamin.js'
+
+// This script has ONE job: find the two source-of-truth URLs for an event —
+// its registration page and its regulamin (rules) PDF. It does NOT extract
+// distances, prices, types, deadlines or any other field. Field extraction is
+// the job of run-enrich-from-regulamin.js, which reads the regulamin PDF that
+// THIS script locates. Keep the two responsibilities separate.
+const SEARCH_FILLABLE = pickFillable(['registration_url', 'regulamin_url'])
 
 // Usage: cd backend && node --env-file=../.env scripts/run-enrich-search.js
-// Uses local Claude CLI with web search to find event websites, distances,
-// and types for scraper_all events missing data.
+// Uses local Claude CLI with web search to find each event's registration page
+// and regulamin (rules) PDF — and nothing else. Organizer websites are NOT
+// searched (low-yield; see ai-fillable.js for why `website` was removed).
+// Run run-enrich-from-regulamin.js AFTER this to mine the regulamin PDF for
+// distances / prices / deadline / types / kids.
 //
 // SCOPE (default, since 2026-05-06):
 //   Processes scraper_all rows merged TODAY (merged_at >= start of today
@@ -50,10 +60,10 @@ function describeKnown(event) {
 }
 
 function buildPrompt(event, fields) {
-  // Build the "fields to fill" block dynamically — only what's null on the row.
+  // Only the URL fields that are still missing on this row.
   const fieldsBlock = fields
     .map(f => {
-      const def = AI_FILLABLE[f]
+      const def = SEARCH_FILLABLE[f]
       const hint = typeof def.promptHint === 'function' ? def.promptHint(event) : def.promptHint
       return `  "${f}": ${hint}, or null`
     })
@@ -68,7 +78,12 @@ function buildPrompt(event, fields) {
         .replace(/[^a-z]/g, '')
     : ''
 
-  return `You are enriching a Polish running event by finding verified URLs (organizer website, registration page, regulamin/rules PDF) and any missing fields.
+  const wantReg = fields.includes('registration_url')
+  const wantReg2 = fields.includes('regulamin_url')
+  const target = [wantReg && 'the registration / sign-up page', wantReg2 && 'the regulamin (rules) PDF']
+    .filter(Boolean).join(' and ')
+
+  return `You are locating verified source URLs for a Polish running event. Your ONLY job is to find ${target}. Do NOT extract distances, prices, types, dates, kids info or any other field — return ONLY the URL(s). Those other fields are extracted later from the regulamin PDF you find here.
 
 EVENT
   name: ${event.name}
@@ -76,22 +91,13 @@ EVENT
   location: ${event.location || '(unknown)'}
   known fields: ${describeKnown(event)}
 
-KNOWN URL FETCH (do this first, before searching):
-${event.regulamin_url && (fields.includes('price_from') || fields.includes('registration_deadline'))
-  ? `  regulamin_url is already known: ${event.regulamin_url}
-  → Fetch this URL NOW and read its content. If it is a PDF, read the full text.
-  → Extract price_from / price_to (look for "opłata startowa", "wpisowe", "cena") and registration_deadline (look for "zapisy do", "termin zgłoszeń") directly from the content.
-  → Only continue searching if this fetch fails or the fields are still missing after reading.`
-  : `  (no known regulamin URL to pre-fetch)`
-}
-
 SEARCH STRATEGY — run multiple queries, accumulate candidates:
   1. "${event.name}" ${city} ${year}                                            [strict, exact phrase]
   2. ${event.name} ${city} ${year}                                              [loose, no quotes — use when (1) returns nothing]
   3. ${cityDomain ? `${cityDomain}.pl ${event.name}` : '<city>.pl <name>'}                                                  [municipal site, often hosts event announcements]
-  4. site:b4sportonline.pl OR site:datasport.pl OR site:dostartu.pl OR site:elektronicznezapisy.pl OR site:zmierzymyczas.pl OR site:plus-timing.pl OR site:online.datasport.pl ${event.name}     [direct hit on registration platforms]
-  5. ${event.name} ${year} regulamin                                            [direct PDF / rules hit]
-  6. "${event.name}" filetype:pdf                                               [regulamin PDF]
+  4. site:b4sportonline.pl OR site:datasport.pl OR site:dostartu.pl OR site:elektronicznezapisy.pl OR site:zmierzymyczas.pl OR site:plus-timing.pl OR site:online.datasport.pl ${event.name}     [direct hit on registration platforms → registration_url]
+  5. ${event.name} ${year} regulamin                                            [direct rules hit → regulamin_url]
+  6. "${event.name}" filetype:pdf                                               [regulamin PDF → regulamin_url]
 
 CANDIDATE VERIFICATION (mandatory before trusting any URL):
   - Fetch the page (or PDF — extract text) and confirm:
@@ -101,11 +107,10 @@ CANDIDATE VERIFICATION (mandatory before trusting any URL):
   - If all three match → URL verified.
   - If date or city does NOT match → reject (it's a different edition or different event with similar name).
 
-SOURCE-QUALITY RANKING (prefer in this order):
-  1. Dedicated event page on a registration platform: b4sportonline.pl/<event>/, dostartu.pl/permalink-vXXXXX, zmierzymyczas.pl/<id>/<slug>.html, elektronicznezapisy.pl/event/XXX, online.datasport.pl/zapisy/portal/zawody.php?zawody=NN
-  2. Organizer's own website: bieg.<city>.pl, gosit-<city>.pl, official municipal site (e.g. <city>.pl/wiadomosci/...)
-  3. Aggregator with verified content: running.life, tupobiegasz.pl
-  SKIP these (they're listings, not source-of-truth, and confirm nothing):
+WHAT GOES IN EACH FIELD:
+  - registration_url → the page where a runner signs up (b4sportonline.pl/<event>/, dostartu.pl/permalink-vXXXXX, zmierzymyczas.pl/<id>/<slug>.html, elektronicznezapisy.pl/event/XXX, online.datasport.pl/zapisy/portal/zawody.php?zawody=NN, or the organizer's own sign-up form).
+  - regulamin_url → the official rules document, ideally a direct PDF link ("regulamin", "regulamin.pdf").
+  SKIP these as sources (listings, not source-of-truth, confirm nothing):
   - maratonypolskie.pl, kalendarzbiegowy.pl, zawodybiegowe.pl, zapisysportowe.pl
 
 PATTERN — prior-year edition → new-year edition:
@@ -118,14 +123,8 @@ ${fieldsBlock}
 
 GLOBAL RULES:
 - NEVER fabricate URLs. Every URL must come from a real verified page.
-- If verification fails OR the event has no online presence (small local race, no website yet) → return all nulls. Don't guess.
-- Polish event types — NEVER use "bieg". Use "nie-bieg" for non-running events (cycling, triathlon, MTB, walking march, orienteering).
-- Facebook page is acceptable as "website" when no organizer domain exists AND the page contains the verified event date+name.
-- Distances: "21.1 km" for półmaraton, "42.2 km" for maraton; comma-separated.
-- Prices in PLN integer złote; price_from ≤ price_to.
-- registration_deadline: YYYY-MM-DD, within 1 year of event date.
-- is_kids: only set true if a dedicated kids race exists; otherwise null.
-- voivodeship: exact spelling, one of the 16 Polish voivodeships.`
+- If verification fails OR the event has no online presence (small local race) → return null for that field. Don't guess.
+- Return ONLY the requested URL field(s). Ignore every other piece of data on the pages you visit.`
 }
 
 let totalCostUsd = 0
@@ -223,7 +222,7 @@ async function main() {
   while (true) {
     let query = supabase
       .from('scraper_all')
-      .select('id, name, date, location, voivodeship, source, source_id, distances, event_types, is_kids, website, registration_url, regulamin_url, price_from, price_to, registration_deadline, enriched_search_at')
+      .select('id, name, date, location, voivodeship, source, source_id, source_links, distances, event_types, is_kids, website, registration_url, regulamin_url, price_from, price_to, registration_deadline, enriched_search_at')
     if (useMergedAtFilter) {
       query = query.gte('merged_at', new Date().toISOString().split('T')[0])
     }
@@ -236,7 +235,7 @@ async function main() {
     from += pageSize
   }
 
-    // Process if type or distances are missing.
+    // Process rows missing a registration_url or regulamin_url.
     // Skip already-searched rows.
   const today = new Date().toISOString().split('T')[0]
   const needsWork = allRows.filter(r => {
@@ -250,80 +249,70 @@ async function main() {
       return false
     }
 
-    // Need enrichment if ANY AI-fillable field is null on this row
-    return Object.values(AI_FILLABLE).some(def => def.isEmpty(r))
+    // Need a search only if a registration_url or regulamin_url is still missing
+    return Object.values(SEARCH_FILLABLE).some(def => def.isEmpty(r))
   })
 
   const toProcess = limitArg ? needsWork.slice(0, limitArg) : needsWork
   console.log(`Source: ${sourceArg || 'all'}`)
   console.log(`Found ${allRows.length} total, ${needsWork.length} need enrichment, processing ${toProcess.length}\n`)
 
-  let enriched = 0, skipped = 0, failed = 0, flagged = 0
+  let enriched = 0, skipped = 0, failed = 0
 
   for (let i = 0; i < toProcess.length; i++) {
     const row = toProcess[i]
     console.log(`[${i + 1}/${toProcess.length}] ${row.name} | ${row.date} | ${row.location || '?'}`)
 
-    // Try free API enrichment first (dostartu et al.) before paying for Claude
-    if (isDostartuLikeUrl(row.registration_url)) {
-      const apiEnriched = await enrichFromUrl(row)
-      const apiUpdates = {}
-      for (const field of Object.keys(AI_FILLABLE)) {
-        if (row[field] == null && apiEnriched[field] != null) {
-          apiUpdates[field] = apiEnriched[field]
-        }
-      }
-      if (Object.keys(apiUpdates).length > 0) {
-        Object.assign(row, apiUpdates)
-        console.log(`    API (dostartu): filled ${Object.keys(apiUpdates).join(', ')}`)
-        if (!dryRun) {
-          await supabase.from('scraper_all').update(apiUpdates).eq('id', row.id)
-        }
+    // Which URL(s) are still missing on this row
+    const fieldsToFill = fieldsNeedingFill(row, SEARCH_FILLABLE)
+
+    // dostartu regulamin is deterministic — derive + verify it for free before
+    // spending a web search. If that's the only missing field, we skip Claude
+    // entirely. (The statute lives at dostartu.pl/statute_files/<id>_pl.pdf.)
+    const updates = {}
+    const deterministicKeys = new Set()
+    let calledClaude = false
+    if (fieldsToFill.includes('regulamin_url')) {
+      const detUrl = await resolveDostartuRegulamin(row)
+      if (detUrl) {
+        updates.regulamin_url = detUrl
+        deterministicKeys.add('regulamin_url')
+        fieldsToFill.splice(fieldsToFill.indexOf('regulamin_url'), 1)
       }
     }
 
-    // Determine which fields to ask the LLM about (only ones that are null on the row)
-    const fieldsToFill = fieldsNeedingFill(row)
-
-    // If API enrichment filled everything, skip Claude entirely
-    if (fieldsToFill.length === 0) {
-      console.log('    API: all fields filled, skipping Claude')
-      if (!dryRun) {
-        await supabase.from('scraper_all').update({ enriched_search_at: new Date().toISOString() }).eq('id', row.id)
-      }
-      enriched++
-      events.push({ id: row.id, name: row.name, status: 'enriched_api' })
-      continue
+    // Only pay for a web search if something is still missing.
+    let result = null
+    if (fieldsToFill.length > 0) {
+      const prompt = buildPrompt(row, fieldsToFill)
+      result = callClaude(prompt)
+      calledClaude = true
+    } else {
+      console.log('    (remaining fields resolved deterministically — skipping web search)')
     }
 
-    const prompt = buildPrompt(row, fieldsToFill)
-    const result = callClaude(prompt)
-
-    // Stamp as checked (even if no data found) to avoid re-processing
+    // Stamp as checked (even if no URL found) to avoid re-processing
     if (!dryRun) {
       await supabase.from('scraper_all').update({ enriched_search_at: new Date().toISOString() }).eq('id', row.id)
     }
 
-    if (!result) {
-      console.log('    SKIP: Claude returned no data')
-      failed++
-      failures.push({ id: row.id, name: row.name, reason: 'claude_no_data' })
-      continue
+    if (calledClaude) {
+      if (!result) {
+        // Web search failed. Still persist any deterministic fill we got.
+        if (Object.keys(updates).length === 0) {
+          console.log('    SKIP: Claude returned no data')
+          failed++
+          failures.push({ id: row.id, name: row.name, reason: 'claude_no_data' })
+          continue
+        }
+      } else {
+        // Validate + keep only the URL fields we asked Claude for
+        Object.assign(updates, applyRegistryUpdates(row, result, fieldsToFill, SEARCH_FILLABLE))
+      }
     }
-
-    // Check for non-running flag (special: bypasses normal validation)
-    if (Array.isArray(result.event_types) && result.event_types.includes('nie-bieg')) {
-      console.log(`    FLAG: not a running event — ${JSON.stringify(result.event_types)}`)
-      flagged++
-      events.push({ id: row.id, name: row.name, status: 'flagged_not_running' })
-      continue
-    }
-
-    // Apply registry-driven validation
-    const updates = applyRegistryUpdates(row, result, fieldsToFill)
 
     if (Object.keys(updates).length === 0) {
-      console.log('    SKIP: nothing new found')
+      console.log('    SKIP: no URL found')
       skipped++
       continue
     }
@@ -331,7 +320,8 @@ async function main() {
     // Log what we found
     for (const [k, v] of Object.entries(updates)) {
       const old = row[k] || '(none)'
-      console.log(`    ${dryRun ? 'WOULD' : '✓'} ${k}: ${Array.isArray(old) ? old.join(', ') : old} → ${Array.isArray(v) ? v.join(', ') : v}`)
+      const note = deterministicKeys.has(k) ? ' (dostartu, verified)' : ''
+      console.log(`    ${dryRun ? 'WOULD' : '✓'} ${k}${note}: ${Array.isArray(old) ? old.join(', ') : old} → ${Array.isArray(v) ? v.join(', ') : v}`)
     }
 
     if (!dryRun) {
@@ -347,15 +337,14 @@ async function main() {
     enriched++
     events.push({ id: row.id, name: row.name, status: 'enriched', updates })
 
-    // Delay between Claude calls
-    await new Promise(r => setTimeout(r, 2000))
+    // Delay only between actual web searches — deterministic fills are free.
+    if (calledClaude) await new Promise(r => setTimeout(r, 2000))
   }
 
   console.log(`\n=== ${dryRun ? 'DRY RUN' : 'DONE'} ===`)
   console.log(`  enriched: ${enriched}`)
   console.log(`  skipped: ${skipped}`)
   console.log(`  failed: ${failed}`)
-  console.log(`  flagged (not running): ${flagged}`)
   console.log(`  total cost: $${totalCostUsd.toFixed(4)}`)
   console.log(`  total tokens: ${totalInputTokens} in / ${totalOutputTokens} out`)
 
@@ -371,7 +360,6 @@ async function main() {
       enriched,
       skipped,
       failed,
-      flagged,
       cost_usd: Number(totalCostUsd.toFixed(4)),
       input_tokens: totalInputTokens,
       output_tokens: totalOutputTokens,

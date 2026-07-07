@@ -171,12 +171,12 @@ function DuplicateUrlField({ event, field, onSave }) {
 
   if (current) {
     return (
-      <span className="inline-flex items-center gap-1.5 min-w-0 max-w-full">
+      <span className="flex items-center gap-1.5 min-w-0 max-w-full">
         <a
           href={current}
           target="_blank"
           rel="noopener"
-          className="text-apex-yellow-dim hover:text-apex-yellow underline decoration-apex-border-mid hover:decoration-apex-yellow truncate"
+          className="min-w-0 text-apex-yellow-dim hover:text-apex-yellow underline decoration-apex-border-mid hover:decoration-apex-yellow truncate"
           onClick={e => e.stopPropagation()}
         >
           {current}
@@ -224,9 +224,99 @@ function DuplicateUrlField({ event, field, onSave }) {
   )
 }
 
+// Required fields for an event to count as "ready to accept". website is intentionally
+// excluded — an event with everything else filled is good enough to approve.
+const REQUIRED_FIELDS = ['location', 'voivodeship', 'event_type', 'distances', 'registration_url', 'regulamin_url', 'registration_deadline', 'price_from']
+
+const isReadyToAccept = (e) => {
+  const locked = new Set(e.locked_fields || [])
+  return REQUIRED_FIELDS.every(field => {
+    if (locked.has(field)) return true
+    const val = e[field]
+    if (Array.isArray(val)) return val.length > 0
+    return val !== null && val !== undefined && val !== ''
+  })
+}
+
+// Compact URL cell for the table — shows a ✓ link chip when present (full URL on hover),
+// "—" when missing. Keeps the column narrow so the table never scrolls horizontally.
+function UrlCell({ event, field, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const current = event[field]
+  const isLocked = (event.locked_fields || []).includes(field)
+
+  const startEdit = () => { setValue(current || ''); setEditing(true) }
+  const save = () => {
+    const trimmed = value.trim()
+    if (trimmed !== (current || '')) onSave(event.id, { [field]: trimmed || null })
+    setEditing(false)
+  }
+  const markEmpty = (e) => { e.stopPropagation(); onSave(event.id, { [field]: null }) }
+
+  if (editing) {
+    return (
+      <input
+        className={inputClass}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={e => e.key === 'Enter' && save()}
+        autoFocus
+      />
+    )
+  }
+
+  if (current) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <a
+          href={current}
+          target="_blank"
+          rel="noopener"
+          title={current}
+          className="font-mono text-[10px] tracking-wide text-green-400 hover:text-green-300"
+          onClick={e => e.stopPropagation()}
+        >
+          ✓ link
+        </a>
+        <button
+          onClick={startEdit}
+          className="text-apex-muted hover:text-apex-text-bright text-[10px]"
+          title={`Edytuj — ${current}`}
+        >
+          ✎
+        </button>
+      </span>
+    )
+  }
+
+  if (isLocked) {
+    return (
+      <span className="cursor-pointer hover:text-apex-yellow-dim text-apex-muted italic text-[10px]" onClick={startEdit} title="Oznaczone jako brak">
+        brak
+      </span>
+    )
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="cursor-pointer hover:text-apex-yellow-dim text-apex-red" onClick={startEdit} title="Kliknij aby edytować">—</span>
+      <button
+        onClick={markEmpty}
+        className="font-mono text-[9px] tracking-wide uppercase text-apex-muted hover:text-apex-text-bright underline decoration-dotted underline-offset-2"
+        title="Zatwierdź jako brak"
+      >
+        brak
+      </button>
+    </span>
+  )
+}
+
 function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onReject }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const confirmRef = useRef(null)
+  const ready = isReadyToAccept(event)
 
   useEffect(() => {
     if (confirmDelete && confirmRef.current) confirmRef.current.focus()
@@ -234,40 +324,34 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
 
   return (
     <tr className="border-b border-apex-border hover:bg-apex-surface-2">
-      <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="date" onSave={onSave} /></td>
-      <td className="py-2 px-2 text-apex-text-bright font-semibold">
-        <div className="flex items-center gap-2 flex-wrap">
-          <InlineEdit event={event} field="name" onSave={onSave} />
-          {(event.event_type || []).filter(t => t !== 'bieg').map(t => (
-            <span key={t} className="font-mono text-[9px] tracking-wide uppercase px-1.5 py-0.5 border border-apex-border text-apex-muted shrink-0">
-              {t}
+      <td className={`py-2 px-2 text-xs whitespace-nowrap border-l-2 ${ready ? 'border-green-500' : 'border-transparent'}`}>
+        <InlineEdit event={event} field="date" onSave={onSave} />
+      </td>
+      <td className="py-2 px-2 text-apex-text-bright font-semibold max-w-[280px]">
+        <div className="flex items-center gap-2 min-w-0">
+          {ready && (
+            <span className="font-mono text-[9px] tracking-wide uppercase px-1 py-0.5 border border-green-700 text-green-400 bg-green-950/30 shrink-0" title="Wszystkie wymagane pola uzupełnione — gotowe do zatwierdzenia">
+              pełne
             </span>
-          ))}
+          )}
+          <span className="truncate min-w-0"><InlineEdit event={event} field="name" onSave={onSave} /></span>
         </div>
       </td>
-      <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="location" onSave={onSave} /></td>
-      <td className="py-2 px-2 text-xs"><InlineEdit event={event} field="voivodeship" onSave={onSave} /></td>
-      <td className="py-2 px-2 text-xs"><InlineArrayEdit event={event} field="event_type" onSave={onSave} /></td>
-      <td className="py-2 px-2 text-xs"><InlineArrayEdit event={event} field="distances" onSave={onSave} /></td>
-      <td className="py-2 px-2 text-xs">
-        <InlineEdit event={event} field="registration_url" onSave={onSave} />
-      </td>
-      <td className="py-2 px-2 text-xs">
-        <InlineEdit event={event} field="regulamin_url" onSave={onSave} />
-      </td>
-      <td className="py-2 px-2 text-xs">
-        <InlineEdit event={event} field="website" onSave={onSave} />
-      </td>
-      <td className="py-2 px-2 text-xs">
-        <InlineEdit event={event} field="registration_deadline" onSave={onSave} />
-      </td>
+      <td className="py-2 px-2 text-xs max-w-[120px]"><div className="truncate"><InlineEdit event={event} field="location" onSave={onSave} /></div></td>
+      <td className="py-2 px-2 text-xs max-w-[110px]"><div className="truncate"><InlineEdit event={event} field="voivodeship" onSave={onSave} /></div></td>
+      <td className="py-2 px-2 text-xs max-w-[110px]"><div className="truncate"><InlineArrayEdit event={event} field="event_type" onSave={onSave} /></div></td>
+      <td className="py-2 px-2 text-xs max-w-[110px]"><div className="truncate"><InlineArrayEdit event={event} field="distances" onSave={onSave} /></div></td>
+      <td className="py-2 px-2 text-xs text-center"><UrlCell event={event} field="registration_url" onSave={onSave} /></td>
+      <td className="py-2 px-2 text-xs text-center"><UrlCell event={event} field="regulamin_url" onSave={onSave} /></td>
+      <td className="py-2 px-2 text-xs text-center"><UrlCell event={event} field="website" onSave={onSave} /></td>
+      <td className="py-2 px-2 text-xs whitespace-nowrap"><InlineEdit event={event} field="registration_deadline" onSave={onSave} /></td>
       <td className="py-2 px-2 text-xs whitespace-nowrap">
         <InlineEdit event={event} field="price_from" onSave={onSave} />
         <span className="text-apex-muted mx-1">–</span>
         <InlineEdit event={event} field="price_to" onSave={onSave} />
       </td>
-      <td className="py-2 px-2 text-xs text-apex-muted">
-        <div>{event.source}</div>
+      <td className="py-2 px-2 text-xs text-apex-muted max-w-[70px]">
+        <div className="truncate">{event.source}</div>
         {event.profiles && (
           <a
             href={`https://www.leszy.run/u/${event.profiles.username}`}
@@ -743,19 +827,19 @@ export default function CalendarEventsList() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-apex-border text-left">
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[80px]">Data</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[78px]">Data</th>
                   <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2">Nazwa</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[140px]">Miasto</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[140px]">Województwo</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Typ</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Dystanse</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">URL zapisy</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">Regulamin</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[180px]">Website</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[110px]">Deadline</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px]">Cena</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[80px]">Źródło</th>
-                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[120px] sticky right-0 bg-apex-bg">Akcje</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[110px]">Miasto</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[100px]">Województwo</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[100px]">Typ</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[100px]">Dystanse</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[64px] text-center">Zapisy</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[64px] text-center">Regul.</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[64px] text-center" title="opcjonalne">WWW</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[96px]">Deadline</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[104px]">Cena</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 w-[70px]">Źródło</th>
+                  <th className="font-mono text-[10px] tracking-widest uppercase text-apex-muted py-3 px-2 sticky right-0 bg-apex-bg">Akcje</th>
                 </tr>
               </thead>
               <tbody>

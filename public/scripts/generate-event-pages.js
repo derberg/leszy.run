@@ -10,6 +10,9 @@ const ROOT = resolve(__dirname, '..')
 const DIST = resolve(ROOT, 'dist')
 const MANIFEST_PATH = resolve(ROOT, 'public/kalendarz/.manifest.json')
 const BASE_URL = 'https://www.leszy.run'
+const TODAY = new Date().toISOString().slice(0, 10)
+// How many related events to show on each /kalendarz/:slug page (static <a> links for crawlers).
+const RELATED_EVENTS_MAX = 12
 
 const DB_TO_TYPE_SLUG = {
   'trail': 'przelajowe',
@@ -180,11 +183,60 @@ ${items}
   </nav>`
 }
 
-function buildEventHtml(event, slug, cssLinks, jsScripts) {
+// Pick up to RELATED_EVENTS_MAX future events sharing this event's region or type, ranked
+// by (sameRegion ? 3 : 0) + (sharesType ? 2 : 0), then by absolute date proximity.
+// Renders as static <a href="/kalendarz/:slug"> so Googlebot has a crawlable link from this
+// page to siblings \u2014 fixes the "Discovered \u2013 currently not indexed" orphan pattern for events
+// that don't yet appear on a small-enough listy page to be reliably crawled.
+function buildRelatedEvents(event, currentSlug, manifest, today) {
+  const currentTypes = new Set(Array.isArray(event.event_type) ? event.event_type : (event.event_type ? [event.event_type] : []))
+  const currentRegion = event.voivodeship || null
+  const currentDateStr = event.date ? event.date.slice(0, 10) : today
+  const currentTime = new Date(currentDateStr + 'T00:00:00').getTime()
+
+  const candidates = []
+  for (const slug of Object.keys(manifest)) {
+    if (slug === currentSlug) continue
+    const e = manifest[slug]
+    const d = e.date ? e.date.slice(0, 10) : null
+    if (!d || d < today) continue
+    const types = new Set(Array.isArray(e.event_type) ? e.event_type : (e.event_type ? [e.event_type] : []))
+    let sharesType = false
+    for (const t of types) { if (currentTypes.has(t)) { sharesType = true; break } }
+    const sameRegion = currentRegion && e.voivodeship === currentRegion
+    if (!sharesType && !sameRegion) continue
+    const score = (sameRegion ? 3 : 0) + (sharesType ? 2 : 0)
+    const proximity = Math.abs(new Date(d + 'T00:00:00').getTime() - currentTime)
+    candidates.push({ slug, e, score, proximity })
+  }
+  candidates.sort((a, b) => b.score - a.score || a.proximity - b.proximity)
+  const top = candidates.slice(0, RELATED_EVENTS_MAX)
+  if (top.length === 0) return ''
+
+  const items = top.map(({ slug, e }) => {
+    const dateLabel = e.date ? formatPolishDate(e.date.slice(0, 10)) : ''
+    const parts = [e.name]
+    if (dateLabel) parts.push(dateLabel)
+    if (e.location) parts.push(e.location)
+    const label = escapeHtml(parts.join(' \u2014 '))
+    return `      <li style="margin:0"><a href="/kalendarz/${escapeHtml(slug)}" style="color:#B0AEC6;text-decoration:none;display:block;padding:0.25rem 0">${label}</a></li>`
+  }).join('\n')
+
+  return `  <nav aria-label="Powi\u0105zane biegi" style="padding:1.25rem 1.5rem;background:#0A0A10;border-top:1px solid #1C1C2A;font-family:'Rajdhani',sans-serif">
+    <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;color:#DDDCEC;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 0.625rem">Powi\u0105zane biegi</h2>
+    <ul style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 1rem;font-size:0.8rem">
+${items}
+    </ul>
+  </nav>`
+}
+
+function buildEventHtml(event, slug, cssLinks, jsScripts, manifest, today) {
   const title = `${escapeHtml(event.name)} \u2014 ${escapeHtml(formatPolishDate(event.date))} \u2014 Leszy.run`
   const description = escapeHtml(buildDescription(event))
   const canonical = `${BASE_URL}/kalendarz/${slug}`
   const ogImage = `${BASE_URL}/kalendarz/${slug}/og.png`
+  const isPast = (event.date || '').slice(0, 10) < today
+  const robotsContent = isPast ? 'noindex, follow' : 'index, follow'
 
   // Escape </ in JSON to prevent script tag injection
   const eventJson = JSON.stringify(event).replace(/<\//g, '<\\/')
@@ -197,7 +249,7 @@ function buildEventHtml(event, slug, cssLinks, jsScripts) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${title}</title>
     <meta name="description" content="${description}" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="${robotsContent}" />
     <link rel="canonical" href="${canonical}" />
 
     <!-- Open Graph -->
@@ -245,6 +297,7 @@ function buildEventHtml(event, slug, cssLinks, jsScripts) {
   <body>
     <div id="root"></div>
     ${buildRelatedNav(event)}
+${buildRelatedEvents(event, slug, manifest, today)}
     <script id="event-data" type="application/json">${eventJson}</script>
     ${jsScripts}
   </body>
@@ -262,15 +315,20 @@ function buildSitemap(slugs, manifest) {
     `  <url>\n    <loc>${e.loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`
   )
 
+  let skipped = 0
   for (const slug of slugs) {
     const ev = manifest[slug]
-    const lastmod = (ev && ev.date) ? ev.date.slice(0, 10) : today
+    const eventDate = (ev && ev.date) ? ev.date.slice(0, 10) : null
+    // Skip past events: keeps Google's crawl budget on indexable URLs and matches the
+    // past-month noindex pattern in generate-landing-pages.js.
+    if (eventDate && eventDate < today) { skipped++; continue }
+    const lastmod = eventDate || today
     entries.push(
       `  <url>\n    <loc>${BASE_URL}/kalendarz/${slug}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>`
     )
   }
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</urlset>\n`
+  return { xml: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</urlset>\n`, included: entries.length, skipped }
 }
 
 // --- Main ---
@@ -314,22 +372,24 @@ function main() {
 
   // 3. Generate per-event HTML files
   let generated = 0
+  let pastCount = 0
   for (const slug of slugs) {
     const event = manifest[slug]
     const dir = resolve(DIST, 'kalendarz', slug)
     mkdirSync(dir, { recursive: true })
 
-    const html = buildEventHtml(event, slug, cssLinks, jsScripts)
+    const html = buildEventHtml(event, slug, cssLinks, jsScripts, manifest, TODAY)
     writeFileSync(resolve(dir, 'index.html'), html)
     generated++
+    if ((event.date || '').slice(0, 10) < TODAY) pastCount++
   }
 
-  console.log(`Generated ${generated} event HTML files.`)
+  console.log(`Generated ${generated} event HTML files (${pastCount} past-event noindex).`)
 
-  // 4. Generate sitemap
-  const sitemap = buildSitemap(slugs, manifest)
-  writeFileSync(resolve(DIST, 'sitemap.xml'), sitemap)
-  console.log(`Generated sitemap.xml with ${4 + slugs.length} entries.`)
+  // 4. Generate sitemap (past events excluded)
+  const { xml, included, skipped } = buildSitemap(slugs, manifest)
+  writeFileSync(resolve(DIST, 'sitemap.xml'), xml)
+  console.log(`Generated sitemap.xml with ${included} entries (${skipped} past events excluded).`)
 }
 
 main()

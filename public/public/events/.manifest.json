@@ -1,0 +1,40 @@
+{
+  "niebocross-pamieci-marka-nowakowskiego": {
+    "id": "6b03b13c-4316-4856-be3b-c26a27b83292",
+    "name": "NieboCross - Pamięci Marka Nowakowskiego",
+    "slug": "niebocross-pamieci-marka-nowakowskiego",
+    "date": "2026-04-12",
+    "location": "Nieborowice",
+    "stats": {
+      "participants": 233,
+      "distances": [
+        "Bieg 3 km",
+        "Bieg 9 km",
+        "Nordic Walking 3 km",
+        "Nordic Walking 9 km"
+      ],
+      "bestTimes": [
+        {
+          "category": "Bieg 3 km",
+          "k_ms": 879398,
+          "m_ms": 704496
+        },
+        {
+          "category": "Bieg 9 km",
+          "k_ms": 2728768,
+          "m_ms": 2262189
+        },
+        {
+          "category": "Nordic Walking 3 km",
+          "k_ms": 1603536,
+          "m_ms": 1308225
+        },
+        {
+          "category": "Nordic Walking 9 km",
+          "k_ms": 4278667,
+          "m_ms": 4286965
+        }
+      ]
+    }
+  }
+}

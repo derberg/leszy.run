@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import urlparse
 
 from supabase import create_client
 
@@ -10,9 +11,18 @@ from enricher.steps.validate_urls import validate_urls
 from enricher.steps.search import search_missing_urls
 from enricher.steps.crawl import crawl_pages, crawl_url_list
 from enricher.steps.pdf import download_pdf, extract_pdf_text, cleanup_pdf
+from enricher.steps.docs import extract_regulamin_doc
+
+# Regulamin URL kinds handled outside the HTML crawler (binary files / Drive
+# aggregator folders): a PDF goes through download_pdf, the rest through
+# extract_regulamin_doc. Anything not in here is crawled as an HTML page.
+_NON_CRAWL_KINDS = ("pdf", "docx", "drive_folder", "drive_file")
+_DOC_KINDS = ("docx", "drive_folder", "drive_file")
 from enricher.steps.llm import call_ollama, build_prompt
 from enricher.steps.merge import build_updates
-from enricher.steps.navigate import pick_followup_urls, is_stub_host
+from enricher.steps.navigate import (
+    pick_followup_urls, is_stub_host, page_matches_event, strip_foreign_event_lines,
+)
 from enricher.steps.regex_prepass import extract_hints
 
 
@@ -20,9 +30,9 @@ async def process_event(event: dict, config: Config) -> dict:
     """Process a single event through all enrichment steps. Returns result dict."""
     result = {"id": event["id"], "name": event["name"], "updates": {}, "steps": {}}
 
-    # Step 1: Validate existing URLs
+    # Step 1: Validate existing URLs (registration + regulamin only).
     url_fields = {
-        k: event.get(k) for k in ["registration_url", "regulamin_url", "regulamin_urls", "website"]
+        k: event.get(k) for k in ["registration_url", "regulamin_url", "regulamin_urls"]
     }
     url_statuses = validate_urls(url_fields, timeout=config.url_timeout)
     result["steps"]["validate"] = {
@@ -36,7 +46,7 @@ async def process_event(event: dict, config: Config) -> dict:
     missing = []
     working_urls = {}  # field → url (alive ones for crawling)
 
-    for field in ["registration_url", "regulamin_url", "website"]:
+    for field in ["registration_url", "regulamin_url"]:
         url = event.get(field)
         status = url_statuses.get(field)
         if not url or (status and status.status == "dead"):
@@ -45,22 +55,17 @@ async def process_event(event: dict, config: Config) -> dict:
             final = status.final_url or url
             working_urls[field] = final
 
-    # Also trigger search for stub URLs — they usually lack the real event info.
-    # Keep the original URL (registration still works) but *also* look for the
-    # organizer's own website as an additional content source.
+    # Stub registration URLs (thin login shells) carry no real content, but
+    # their subpages / linked PDFs often hold the regulamin. We crawl those
+    # below to *discover the regulamin PDF*, not to harvest fields from them.
     stub_fields = []
-    for field in ["registration_url", "website"]:
-        url = working_urls.get(field)
-        if url and is_stub_host(url) and field not in missing:
-            stub_fields.append(field)
+    url = working_urls.get("registration_url")
+    if url and is_stub_host(url) and "registration_url" not in missing:
+        stub_fields.append("registration_url")
 
-    # Step 2: Search for missing URLs (and better candidates for stubs)
+    # Step 2: Search for missing URLs (registration_url / regulamin_url only)
     search_candidates = {}
     search_queue = list(missing)
-    # For stubs, we want a better *website* specifically, not to overwrite the
-    # stub registration URL.
-    if stub_fields and "website" not in search_queue and not event.get("website"):
-        search_queue.append("website")
 
     if search_queue:
         search_candidates = search_missing_urls(event, search_queue, config)
@@ -68,19 +73,31 @@ async def process_event(event: dict, config: Config) -> dict:
             "queries": len(search_queue),
             "found": search_candidates,
         }
-        # Only fill working_urls for truly missing fields; stub-triggered
-        # website searches get crawled as extra context below.
         for field, url in search_candidates.items():
             if field in missing:
                 working_urls[field] = url
+
+        # A regulamin found by search has no UrlStatus yet, so Step 4 wouldn't know
+        # whether to download+extract it (pdf/docx/drive) or let Step 3 crawl it
+        # (html). Validate the found URL so its `kind` is classified exactly like an
+        # event-provided regulamin — this is what makes "search → enrich from the
+        # regulamin" work for non-HTML regulamins too.
+        searched_reg = search_candidates.get("regulamin_url")
+        if searched_reg and "regulamin_url" not in url_statuses:
+            reg_status = validate_urls({"regulamin_url": searched_reg}, timeout=config.url_timeout)
+            if "regulamin_url" in reg_status:
+                status = reg_status["regulamin_url"]
+                url_statuses["regulamin_url"] = status
+                working_urls["regulamin_url"] = status.final_url or searched_reg
+                result["steps"]["search"]["regulamin_kind"] = status.kind
 
     # Step 3: Crawl web pages (exclude PDF regulamins)
     crawl_urls = {}
     for field, url in working_urls.items():
         if field == "regulamin_url":
             status = url_statuses.get("regulamin_url")
-            if status and status.is_pdf:
-                continue  # Will handle in Step 4
+            if status and status.kind in _NON_CRAWL_KINDS:
+                continue  # PDF / docx / Drive — handled in Step 4, not crawlable HTML
         crawl_urls[field] = url
 
     crawled = await crawl_pages(crawl_urls, max_chars=config.max_page_chars)
@@ -125,11 +142,6 @@ async def process_event(event: dict, config: Config) -> dict:
     followup_urls = followup_urls[:5]
     followup_from_pdf_links = followup_from_pdf_links[:2]
 
-    # Also crawl stub-triggered search website candidate (if any) for context
-    search_website = search_candidates.get("website")
-    if stub_fields and search_website and search_website not in followup_urls and search_website not in crawl_urls.values():
-        followup_urls.append(search_website)
-
     followup_crawled = {}
     if followup_urls:
         followup_crawled = await crawl_url_list(followup_urls, max_chars=config.max_page_chars)
@@ -151,8 +163,10 @@ async def process_event(event: dict, config: Config) -> dict:
     regulamin_url = working_urls.get("regulamin_url")
     regulamin_status = url_statuses.get("regulamin_url")
 
+    regulamin_kind = regulamin_status.kind if regulamin_status else None
+
     # Primary: current regulamin_url if it's a PDF
-    if regulamin_url and regulamin_status and regulamin_status.is_pdf:
+    if regulamin_url and regulamin_kind == "pdf":
         pdf_path = await download_pdf(regulamin_url)
         if pdf_path:
             pdf_text = extract_pdf_text(pdf_path, max_chars=config.max_pdf_chars)
@@ -163,6 +177,13 @@ async def process_event(event: dict, config: Config) -> dict:
             if fallback.get("regulamin_url"):
                 crawled_content["regulamin_url"] = fallback["regulamin_url"].content
                 result["steps"]["pdf"] = {"source": "fallback_crawl", "extracted_chars": fallback["regulamin_url"].chars}
+
+    # docx / Google Drive folder or file — extract text ourselves (the HTML crawler
+    # would only see a binary blob or the Drive SPA shell). Feeds pdf_text, which
+    # downstream treats as the authoritative regulamin document text.
+    elif regulamin_url and regulamin_kind in _DOC_KINDS:
+        pdf_text = await extract_regulamin_doc(regulamin_url, regulamin_kind, max_chars=config.max_pdf_chars)
+        result["steps"]["pdf"] = {"source": f"doc:{regulamin_kind}", "extracted_chars": len(pdf_text) if pdf_text else 0}
 
     # Fallback: try PDFs discovered on crawled pages (often the real regulamin
     # is linked as a PDF from an aggregator stub page)
@@ -180,15 +201,76 @@ async def process_event(event: dict, config: Config) -> dict:
                         search_candidates.setdefault("regulamin_url", pdf_url)
                     break
 
-    # Step 4.5: Regex pre-pass — extract obvious prices/deadlines before LLM
-    prepass_texts = list(crawled_content.values())
+    # Step 3c: Clean crawled content before it reaches the regex pre-pass and the
+    # LLM (both read crawled_content). Two guards:
+    #   1. Relevance gate — a page found via SearXNG that doesn't actually
+    #      describe this event (wrong-event hit, e.g. Ochabski → rundazubra.pl)
+    #      is dropped, and its URL is not adopted as a field value.
+    #   2. Foreign-event line stripping — remove "upcoming events" / sibling-race
+    #      chrome (pomiaryczasu's "Najbliższe zawody") so other races' distances
+    #      don't leak into extraction (IX Bieg Wolności → Pętla's 54/108 km).
+    search_urls = {u for u in search_candidates.values() if u}
+    self_urls = [
+        working_urls.get("registration_url"), event.get("registration_url"),
+        event.get("source_url"),
+    ]
+
+    def _host(u):
+        try:
+            return (urlparse(u).hostname or "").lower().removeprefix("www.")
+        except Exception:
+            return ""
+
+    dropped_irrelevant = []
+    dropped_hosts = set()
+    for key in list(crawled_content.keys()):
+        url = key.removeprefix("followup:") if key.startswith("followup:") else working_urls.get(key)
+        if url and url in search_urls and not page_matches_event(event, crawled_content[key]):
+            dropped_irrelevant.append(url)
+            crawled_content.pop(key, None)
+            if _host(url):
+                dropped_hosts.add(_host(url))
+            for f, cu in list(search_candidates.items()):
+                if cu == url:
+                    search_candidates.pop(f, None)
+                    working_urls.pop(f, None)
+
+    # A rejected search page's own subpages were crawled as followups (e.g.
+    # rundazubra.pl/trasa carries the wrong event's 21 km). Drop everything from a
+    # rejected host so those distances don't leak in through the followups.
+    if dropped_hosts:
+        for key in list(crawled_content.keys()):
+            url = key.removeprefix("followup:") if key.startswith("followup:") else working_urls.get(key)
+            if url and _host(url) in dropped_hosts:
+                crawled_content.pop(key, None)
+                if url not in dropped_irrelevant:
+                    dropped_irrelevant.append(url)
+
+    for key in list(crawled_content.keys()):
+        crawled_content[key] = strip_foreign_event_lines(crawled_content[key], self_urls)
+
+    result["steps"]["clean"] = {
+        "dropped_irrelevant_search_pages": dropped_irrelevant,
+    }
+
+    # Field extraction reads the REGULAMIN ONLY — never the registration page,
+    # website, or navigated followups. Those are used to FIND the regulamin (and
+    # to confirm/replace URLs), but distances/prices/deadline/types/kids must
+    # come from the rules document. The regulamin is either a downloaded PDF
+    # (pdf_text) or, when it's an HTML page, crawled_content["regulamin_url"].
+    regulamin_content = {}
+    if crawled_content.get("regulamin_url"):
+        regulamin_content["regulamin_url"] = crawled_content["regulamin_url"]
+
+    # Step 4.5: Regex pre-pass — extract obvious prices/deadlines from regulamin
+    prepass_texts = list(regulamin_content.values())
     if pdf_text:
         prepass_texts.append(pdf_text)
     hints = extract_hints(prepass_texts, event_date=event.get("date"))
     result["steps"]["prepass"] = {k: v for k, v in hints.items() if v is not None}
 
-    # Step 5: LLM extraction (with hints and scraper-known distances as anchors)
-    prompt = build_prompt(event, crawled_content, pdf_text, config, hints=hints)
+    # Step 5: LLM extraction (regulamin content only; scraper distances as anchors)
+    prompt = build_prompt(event, regulamin_content, pdf_text, config, hints=hints)
     llm_result = call_ollama(prompt, config)
     duration = llm_result.pop("_duration_s", None) if llm_result else None
     result["steps"]["llm"] = {
@@ -209,13 +291,14 @@ async def process_event(event: dict, config: Config) -> dict:
         if llm_result.get(key) in (None, "") and hints.get(key) is not None:
             llm_result[key] = hints[key]
 
-    # Step 6: Smart merge
-    had_content = bool(crawled_content or pdf_text)
+    # Step 6: Smart merge. had_content reflects whether we had REGULAMIN content
+    # to read — that's what makes the LLM authoritative on event_types/is_kids.
+    had_content = bool(regulamin_content or pdf_text)
     updates = build_updates(event, llm_result or {}, url_statuses, search_candidates, config, had_content)
     result["updates"] = updates
     result["steps"]["merge"] = {
-        "fields_updated": [k for k in updates if k not in ("registration_url", "regulamin_url", "website")],
-        "fields_replaced": [k for k in ("registration_url", "regulamin_url", "website") if k in updates],
+        "fields_updated": [k for k in updates if k not in ("registration_url", "regulamin_url")],
+        "fields_replaced": [k for k in ("registration_url", "regulamin_url") if k in updates],
     }
 
     return result
@@ -231,8 +314,6 @@ def _is_incomplete(row: dict) -> bool:
     if not row.get("registration_url"):
         return True
     if not row.get("regulamin_url"):
-        return True
-    if not row.get("website"):
         return True
     if not row.get("registration_deadline"):
         return True
@@ -266,7 +347,7 @@ def fetch_events(
     while True:
         query = sb.from_("scraper_all").select(
             "id, name, date, location, distances, event_types, "
-            "registration_url, regulamin_url, regulamin_urls, website, "
+            "registration_url, regulamin_url, regulamin_urls, "
             "registration_deadline, price_from, price_to, voivodeship, is_kids, "
             "enriched_at, enriched_regulamin_at, enriched_search_at"
         )
@@ -423,7 +504,7 @@ def _print_step(name, data):
         dead = set(data.get("dead", []))
         is_pdf = set(data.get("is_pdf", []))
         parts = []
-        for field in ["registration_url", "regulamin_url", "website"]:
+        for field in ["registration_url", "regulamin_url"]:
             if field not in url_map:
                 parts.append(f"{field}: (none)")
             elif field in dead:

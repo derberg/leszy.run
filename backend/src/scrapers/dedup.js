@@ -26,6 +26,16 @@ const SOURCE_PRIORITY = {
   aleczas: 8,
   maratonczykpomiarczasu: 8,
   timing4u: 8,
+  zapisyonline: 4,
+  foxter: 3,
+  herkules: 3,
+  zapisyvaldano: 3,
+  pomiaryczasu: 3,
+  pifsport: 3,
+  egepard: 3,
+  timesport: 3,
+  plustiming: 3,
+  biegnijmy: 8,
 }
 
 // Fields only set by LLM enricher or manual edits — scrapers never touch these
@@ -106,13 +116,53 @@ function citiesMatch(locA, locB) {
   return cityA.includes(cityB) || cityB.includes(cityA)
 }
 
+// Roman numeral → int (uppercase input, only I/V/X/L/C handled — enough for
+// race edition numbers, which don't reach D=500).
+function romanToInt(s) {
+  const vals = { I: 1, V: 5, X: 10, L: 50, C: 100 }
+  let total = 0
+  for (let i = 0; i < s.length; i++) {
+    const cur = vals[s[i]]
+    const next = vals[s[i + 1]]
+    if (!cur) return NaN
+    if (next && cur < next) total -= cur
+    else total += cur
+  }
+  return total
+}
+
+/**
+ * Leading edition number that identifies WHICH occurrence of a recurring race
+ * this is ("V Bieg Wolności" = 5th, "7. Bieg Św. Dominika" = 7th). Two sources
+ * naming the same date+race should agree on it; a mismatch means they're
+ * different events sharing a generic name (e.g. "V Bieg Wolności" in Rząśnia vs
+ * "IX Bieg Wolności Kije" — same date, different town, different series).
+ * Returns an int or null. Only a LEADING ordinal counts (so "Bieg na 10 km"
+ * never reads the 10 as an edition); roman editions are capped at 1..99.
+ */
+function editionNumber(name) {
+  const n = (name || '').trim()
+  // Arabic ordinal: "7.", "35)", "3 ." at the very start.
+  let m = n.match(/^(\d{1,3})\s*[.)]/)
+  if (m) return parseInt(m[1], 10)
+  // Roman edition: leading roman token followed by a space + more text. Requires
+  // the trailing space so words like "Cross"/"Leśny" (start with C/L) don't match.
+  m = n.match(/^([IVXLC]+)\s+\S/i)
+  if (m) {
+    const v = romanToInt(m[1].toUpperCase())
+    if (Number.isFinite(v) && v >= 1 && v <= 99) return v
+  }
+  return null
+}
+
 /**
  * Extract semantic "distinguishing tags" from an event — categories of
  * meaning where a difference between two events SHOULD prevent merging
- * even when their tokenized names overlap. Three categories:
+ * even when their tokenized names overlap. Four categories:
  *   - audience: kids vs adult
  *   - distance: Maraton vs Półmaraton vs Ćwierćmaraton
  *   - style:    trail / nordic walking / ocr / ultra
+ *   - edition:  Nth occurrence (different editions = different events)
  *
  * Used by both `findScraperAllMatch` (raw → scraper_all merge) and
  * `run-dedup.js` (within-scraper_all dedup) so identical semantic-distinct
@@ -127,8 +177,11 @@ function distinguishingTags(event) {
   // sub-category detection on mixed events where the umbrella name has no
   // kids keywords — using it here would create false conflicts between
   // scrapers that see the kids sub-races and scrapers that don't.
-  if (/dzieci|świetlik|małych\s+żeglar|małych\s+biega|junior|młodzież|biegi\s+dla\s+dzieci/i.test(n)) {
-    tags.add('audience:kids')
+  // Name-derived kids signal is STRICT (own `kids:` category): a kids-NAMED event
+  // ("Kamień Extreme Kids 2026") must never fold into its non-kids-named sibling
+  // ("21. Kamień Extreme"). Reliable because both rows always have a name.
+  if (/dzieci|świetlik|małych\s+żeglar|małych\s+biega|junior|młodzież|biegi\s+dla\s+dzieci|\bkids?\b/i.test(n)) {
+    tags.add('kids:named')
   }
   // CE rows fold is_kids into event_type as 'dzieci' — pick that up so the
   // guard applies on both sides of the publish-time fuzzy compare. Note that
@@ -164,6 +217,12 @@ function distinguishingTags(event) {
   if (/\bultra\b|\b\d{1,3}\s*h\s*run\b/i.test(n)) tags.add('style:ultra')
   if (/cross(owy|owa|owe)\b|\btrail\b/i.test(n)) tags.add('style:trail')
 
+  // Edition — Nth occurrence. Different stated editions on the same date with a
+  // generic shared name = different events. One-sided absence is tolerated by
+  // hasDistinguishingConflict, so a source omitting the number still merges.
+  const ed = editionNumber(n)
+  if (ed != null) tags.add(`edition:${ed}`)
+
   return tags
 }
 
@@ -183,7 +242,16 @@ function hasDistinguishingConflict(tagsA, tagsB) {
     // One side has no info for this category (e.g. unenriched scraper row with
     // event_types=null vs LLM-enriched row with trail/nw). Absence ≠ denial —
     // skip rather than flagging a spurious conflict.
-    if (inA.length === 0 || inB.length === 0) continue
+    //
+    // Exception: the `kids:` category is name-derived (a kids-NAMED event vs a
+    // non-kids-named one) and reliable on both sides, so one-sided presence IS a
+    // conflict — "Kamień Extreme Kids 2026" must not fold into "21. Kamień
+    // Extreme". (Enrichment-derived `audience:kids` stays tolerant: a same-event
+    // row tagged kids by the LLM should still merge with one that wasn't.)
+    if (inA.length === 0 || inB.length === 0) {
+      if (cat === 'kids') return true
+      continue
+    }
     if (inA.length !== inB.length) return true
     if (!inA.every(t => inB.includes(t))) return true
   }

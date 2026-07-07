@@ -76,6 +76,9 @@ publishToCalendar({ dryRun })
           + (place ? c.dim + ` — ${place}` + c.reset : '')
           + c.gray + `  (${ce.source}:${ce.source_id})` + c.reset
         )
+        if (ce.missing && ce.missing.length > 0) {
+          console.log('      ' + c.yellow + 'missing: ' + c.reset + ce.missing.join(', '))
+        }
       }
     }
 
@@ -111,8 +114,25 @@ publishToCalendar({ dryRun })
             + ' ' + c.bold + `"${u.name}"` + c.reset
             + c.gray + `  (ce.id=${u.ce_id})` + c.reset
           )
-          if (u.fields && u.fields.length > 0) {
+          if (u.writes && u.writes.length > 0) {
+            for (const w of u.writes) {
+              const tag = w.overwrite
+                ? c.red + 'overwrite' + c.reset
+                : c.green + 'fill' + c.reset
+              console.log(
+                '      ' + c.green + 'writes:  ' + c.reset
+                + c.bold + w.field + c.reset
+                + c.gray + ' [' + c.reset + tag + c.gray + ']' + c.reset
+                + '  ' + c.dim + fmtVal(w.ce_value) + c.reset
+                + c.gray + ' → ' + c.reset + fmtVal(w.sa_value)
+              )
+            }
+          } else if (u.fields && u.fields.length > 0) {
+            // Fallback for older run logs without per-field write detail
             console.log('      ' + c.green + 'writes:  ' + c.reset + u.fields.join(', '))
+          }
+          if (u.missing && u.missing.length > 0) {
+            console.log('      ' + c.yellow + 'missing: ' + c.reset + u.missing.join(', '))
           }
           for (const s of skipsToPrint) {
             const reasonColor = s.reason === 'locked' ? c.red : c.yellow
@@ -189,6 +209,45 @@ publishToCalendar({ dryRun })
       }
     }
 
+    // ─── Completeness summary ────────────────────────────────────
+    // Across the events touched this run (created + real updates), report how
+    // many are still missing valuable enrichment fields — and specifically how
+    // many are missing more than just `website` (the most commonly-empty one).
+    const completenessRows = [
+      ...(createdLog || []).filter(r => Array.isArray(r.missing)),
+      ...(updatedLog || []).filter(r => !r.no_op && Array.isArray(r.missing)),
+    ]
+    if (completenessRows.length > 0) {
+      const fieldCounts = {}
+      let complete = 0
+      let onlyWebsite = 0
+      let moreThanWebsite = 0
+      for (const r of completenessRows) {
+        const miss = r.missing
+        if (miss.length === 0) { complete++; continue }
+        for (const f of miss) fieldCounts[f] = (fieldCounts[f] || 0) + 1
+        if (miss.length === 1 && miss[0] === 'website') onlyWebsite++
+        else moreThanWebsite++
+      }
+      const breakdown = Object.entries(fieldCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([f, n]) => `${f}=${n}`)
+        .join(', ')
+
+      console.log()
+      console.log(c.bold + HR_HEAVY + c.reset)
+      console.log(c.bold + `  Completeness  ` + c.reset
+        + c.dim + `(${completenessRows.length} event(s) touched this run)` + c.reset)
+      console.log(c.gray + HR_LIGHT + c.reset)
+      console.log('  ' + c.green + 'fully populated:        ' + c.reset + complete)
+      console.log('  ' + c.dim + 'missing only website:   ' + c.reset + onlyWebsite)
+      console.log('  ' + c.yellow + 'missing more than that: ' + c.reset + c.bold + moreThanWebsite + c.reset
+        + c.dim + ' (missing fields beyond just website)' + c.reset)
+      if (breakdown) {
+        console.log('  ' + c.dim + 'per-field missing:      ' + c.reset + breakdown)
+      }
+    }
+
     // ─── Summary footer ──────────────────────────────────────────
     console.log()
     console.log(c.bold + HR_HEAVY + c.reset)
@@ -230,6 +289,7 @@ publishToCalendar({ dryRun })
           date: u.date,
           ce_id: u.ce_id,
           fields: u.fields || [],
+          writes: u.writes || [],
           skipped: u.skipped || [],
           no_op: !!u.no_op,
         })),

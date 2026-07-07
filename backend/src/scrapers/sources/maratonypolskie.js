@@ -11,6 +11,13 @@ const MONTHS_PL = [
 
 const MAX_RETRIES = 3
 
+// Event names to skip (substring match, case-insensitive, whitespace-insensitive —
+// the site renders both "ITMBWieczorem" and "Itmb Wieczorem").
+// "WtorkiBiegowe" = "Wtorki Biegowe - Maraton na Raty", a recurring weekly training
+// run series (one entry per Tuesday) — repeatedly rejected spam, also blocked in
+// biegiwpolsce scraper and at merge level.
+const IGNORED_NAMES = ['ITMBWieczorem', 'WtorkiBiegowe']
+
 function parseSearchResults(html, today) {
   const $ = cheerio.load(html)
   const events = []
@@ -41,18 +48,35 @@ function parseSearchResults(html, today) {
 
     i++
     if (i >= allCells.length) break
-    const cityText = $(allCells[i]).text().trim()
-    const cityDistMatch = cityText.match(/^(.+?)(\d+[\.,]?\d*\s*km\.?)$/i)
-    const location = cityDistMatch ? cityDistMatch[1].trim() : cityText
-    const distance = cityDistMatch ? cityDistMatch[2].trim() : ''
+    // City cell structure: "Spała<p align="right">21.097 km, 5 km</p>" — distances live in
+    // a nested <p>, so extract it separately instead of regexing the concatenated text
+    // (the old regex only peeled off the last distance, leaving "Spała21.097 km," as location).
+    const cityCell = $(allCells[i])
+    const distP = cityCell.find('p')
+    let location, distance
+    if (distP.length) {
+      distance = distP.text().trim()
+      distP.remove()
+      location = cityCell.text().trim()
+    } else {
+      const cityText = cityCell.text().trim()
+      const cityDistMatch = cityText.match(/^(.+?)(\d+[\.,]?\d*\s*km\.?)$/i)
+      location = cityDistMatch ? cityDistMatch[1].trim() : cityText
+      distance = cityDistMatch ? cityDistMatch[2].trim() : ''
+    }
 
     i++
     if (i >= allCells.length) break
+    // Name cell can contain a <br> subtitle ("V RUNda Żubra<br>Biegi i Nordic Walking") —
+    // join with a space so words don't glue together ("ŻubraBiegi").
     const nameCell = $(allCells[i])
+    nameCell.find('br').replaceWith(' ')
     const nameLink = nameCell.find('a').first()
-    const name = nameLink.text().trim() || nameCell.text().trim()
+    const name = (nameLink.text().trim() || nameCell.text().trim()).replace(/\s+/g, ' ')
 
     if (!name || name.length < 3) continue
+
+    if (IGNORED_NAMES.some(ignored => name.toLowerCase().replace(/\s+/g, '').includes(ignored.toLowerCase()))) continue
 
     const key = `${name}-${date}`
     if (seen.has(key)) continue

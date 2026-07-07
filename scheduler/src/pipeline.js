@@ -8,6 +8,12 @@ const LOG_DIR = process.env.LOG_DIR || '/app/logs';
 const HEARTBEAT_PATH = path.join(LOG_DIR, 'last-pipeline-ok.json');
 const COMPOSE_DIR = process.env.COMPOSE_DIR || '/workspace';
 
+// Scheduler runs the unattended scrape + enrich pipeline only. It does NOT:
+//   - publish to calendar_events (run-publish.js) — publishing is a manual,
+//     human-reviewed step the operator runs on the host.
+//   - run any claude-CLI step (run-enrich-search.js / run-enrich-from-regulamin.js)
+//     — the backend Docker image has no `claude` CLI, so those are host-only too.
+// The Python enricher uses local Ollama (no claude) and stays in.
 const STEPS = [
   { name: 'run-scrapers',      type: 'backend',  cmd: ['node', 'scripts/run-scrapers.js'] },
   { name: 'run-merge',         type: 'backend',  cmd: ['node', 'scripts/run-merge.js', '--apply'] },
@@ -16,10 +22,8 @@ const STEPS = [
   { name: 'run-enrich-flags',  type: 'backend',  cmd: ['node', 'scripts/run-enrich-flags.js', '--apply'] },
   { name: 'run-normalize-1',   type: 'backend',  cmd: ['node', 'scripts/run-normalize.js', '--apply'] },
   { name: 'enricher',          type: 'enricher', cmd: ['python', '-m', 'enricher', 'run'], timeoutMs: 4 * 60 * 60 * 1000 },
-  { name: 'run-enrich-search', type: 'backend',  cmd: ['node', 'scripts/run-enrich-search.js', '--apply'] },
   { name: 'run-dedup-2',       type: 'backend',  cmd: ['node', 'scripts/run-dedup.js', '--apply'] },
   { name: 'run-normalize-2',   type: 'backend',  cmd: ['node', 'scripts/run-normalize.js', '--apply'] },
-  { name: 'run-publish',             type: 'backend',  cmd: ['node', 'scripts/run-publish.js', '--apply'] },
   { name: 'publish-landing-pages',  type: 'backend',  cmd: ['node', 'scripts/publish-landing-pages.js', '--apply'] },
 ];
 
@@ -58,6 +62,9 @@ function todayStartIsoLocal() {
 }
 
 async function verifyRowsChanged() {
+  // The scheduler no longer publishes to calendar_events (that's a manual host
+  // step now), so "did we do work?" is measured against scraper_all instead:
+  //   rowsCreated → rows (re)merged today, rowsUpdated → rows enriched today.
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
@@ -67,7 +74,7 @@ async function verifyRowsChanged() {
   const headers = { apikey: key, Authorization: `Bearer ${key}`, Prefer: 'count=exact' };
 
   async function countWhere(filter) {
-    const u = `${url}/rest/v1/calendar_events?select=id&${filter}&limit=1`;
+    const u = `${url}/rest/v1/scraper_all?select=id&${filter}&limit=1`;
     const res = await fetch(u, { headers });
     if (!res.ok) throw new Error(`Supabase count failed: ${res.status} ${await res.text()}`);
     const range = res.headers.get('content-range') || '';
@@ -76,8 +83,8 @@ async function verifyRowsChanged() {
   }
 
   const [rowsCreated, rowsUpdated] = await Promise.all([
-    countWhere(`created_at=gte.${encodeURIComponent(since)}`),
-    countWhere(`updated_at=gte.${encodeURIComponent(since)}`),
+    countWhere(`merged_at=gte.${encodeURIComponent(since)}`),
+    countWhere(`enriched_at=gte.${encodeURIComponent(since)}`),
   ]);
   return { rowsCreated, rowsUpdated, skipped: false };
 }

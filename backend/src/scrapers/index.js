@@ -21,6 +21,16 @@ import { scrape as scrapeInessport } from './sources/inessport.js'
 import { scrape as scrapeAleczas } from './sources/aleczas.js'
 import { scrape as scrapeMaratonczykpomiarczasu } from './sources/maratonczykpomiarczasu.js'
 import { scrape as scrapeTiming4u } from './sources/timing4u.js'
+import { scrape as scrapeZapisyonline } from './sources/zapisyonline.js'
+import { scrape as scrapeFoxter } from './sources/foxter.js'
+import { scrape as scrapeHerkules } from './sources/herkules.js'
+import { scrape as scrapeZapisyvaldano } from './sources/zapisyvaldano.js'
+import { scrape as scrapePomiaryczasu } from './sources/pomiaryczasu.js'
+import { scrape as scrapePifsport } from './sources/pifsport.js'
+import { scrape as scrapeEgepard } from './sources/egepard.js'
+import { scrape as scrapeTimesport } from './sources/timesport.js'
+import { scrape as scrapePlustiming } from './sources/plustiming.js'
+import { scrape as scrapeBiegnijmy } from './sources/biegnijmy.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
@@ -478,6 +488,232 @@ const sources = [
       source_url: raw.source_url || null,
     }),
   },
+  {
+    name: 'zapisyonline',
+    scrape: scrapeZapisyonline,
+    table: 'scraper_zapisyonline',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'foxter',
+    scrape: scrapeFoxter,
+    table: 'scraper_foxter',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'herkules',
+    scrape: scrapeHerkules,
+    table: 'scraper_herkules',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'zapisyvaldano',
+    scrape: scrapeZapisyvaldano,
+    table: 'scraper_zapisyvaldano',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'pomiaryczasu',
+    scrape: scrapePomiaryczasu,
+    table: 'scraper_pomiaryczasu',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'pifsport',
+    scrape: scrapePifsport,
+    table: 'scraper_pifsport',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'egepard',
+    scrape: scrapeEgepard,
+    table: 'scraper_egepard',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'timesport',
+    scrape: scrapeTimesport,
+    table: 'scraper_timesport',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      voivodeship: raw.voivodeship || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'plustiming',
+    scrape: scrapePlustiming,
+    table: 'scraper_plustiming',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'biegnijmy',
+    scrape: scrapeBiegnijmy,
+    table: 'scraper_biegnijmy',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
 ]
 
 async function runPipeline({ force = [], only = [] } = {}) {
@@ -765,12 +1001,21 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           const isRyskaJunk = source.name === 'maratonypolskie'
             && raw.name && /u\s+Ryśka\b/i.test(raw.name)
 
+          // "ITMB Wieczorem" weekly training run (seen on maratonypolskie AND biegiwpolsce) —
+          // repeatedly rejected; the site renders both "ITMBWieczorem" and "Itmb Wieczorem",
+          // so match whitespace-insensitively and for any source.
+          const isItmbJunk = raw.name && /itmbwieczorem/i.test(raw.name.replace(/\s+/g, ''))
+
+          // "Wtorki Biegowe - Maraton na Raty" recurring weekly run series (seen on
+          // maratonypolskie AND biegiwpolsce) — repeatedly rejected, block by name for any source.
+          const isWtorkiJunk = raw.name && /wtorkibiegowe/i.test(raw.name.replace(/\s+/g, ''))
+
           // Skip non-running events and past events — mark merged so they don't re-appear
-          if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || (raw.date && raw.date < today) || isSmakMaratonJunk || isRyskaJunk) {
+          if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || (raw.date && raw.date < today) || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
             stats.skipped++
             if (raw.name && SKIP_KEYWORDS.test(raw.name)) stats.skippedReasons.non_running++
             else if (raw.date && raw.date < today) stats.skippedReasons.past_date++
-            else if (isSmakMaratonJunk || isRyskaJunk) stats.skippedReasons.junk++
+            else if (isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) stats.skippedReasons.junk++
             if (!dryRun) {
               await supabase.from(source.table).update({ merged_at: new Date().toISOString() }).eq('id', raw.id)
             }
@@ -1199,6 +1444,28 @@ async function publishToCalendar({ dryRun = false } = {}) {
     return { upd, skipped }
   }
 
+  // Enrichment fields that determine how "complete" a published event is.
+  // Used to surface, per event, which valuable fields are still empty so the
+  // operator can spot events that need manual / re-enrichment attention.
+  const COMPLETENESS_FIELDS = [
+    'website',
+    'registration_url',
+    'regulamin_url',
+    'price_from',
+    'registration_deadline',
+    'distances',
+  ]
+  function missingFields(obj) {
+    const miss = []
+    for (const f of COMPLETENESS_FIELDS) {
+      const v = obj[f]
+      const empty = v === null || v === undefined || v === '' ||
+        (Array.isArray(v) && v.length === 0)
+      if (empty) miss.push(f)
+    }
+    return miss
+  }
+
   let created = 0, updated = 0, unchanged = 0, rejectedSkipped = 0, fuzzySkipped = 0
   const errors = []
   const fuzzyLog = []
@@ -1253,14 +1520,34 @@ let existingCE = null
       }
       upd.last_verified_at = now
 
+      // Per-field write detail: old (CE) value → new (scraper) value, so the
+      // operator can see what actually changes and whether it overwrites an
+      // existing value (overwrite=true) or just fills an empty field.
+      const writtenFields = Object.keys(upd).filter(k => k !== 'last_verified_at')
+      const writes = writtenFields.map(field => {
+        const ceVal = existingCE[field]
+        return {
+          field,
+          ce_value: ceVal ?? null,
+          sa_value: upd[field],
+          overwrite: ceVal !== null && ceVal !== undefined && ceVal !== '' &&
+            !(Array.isArray(ceVal) && ceVal.length === 0),
+        }
+      })
+
+      // Completeness of the row AFTER this update lands.
+      const missing = missingFields({ ...existingCE, ...upd })
+
       if (dryRun) {
         updated++
         updatedLog.push({
           name: existingCE.name,
           date: existingCE.date,
           ce_id: existingCE.id,
-          fields: Object.keys(upd).filter(k => k !== 'last_verified_at'),
+          fields: writtenFields,
+          writes,
           skipped: skippedFields,
+          missing,
         })
       } else {
         const { error } = await supabase
@@ -1275,8 +1562,10 @@ let existingCE = null
             name: existingCE.name,
             date: existingCE.date,
             ce_id: existingCE.id,
-            fields: Object.keys(upd).filter(k => k !== 'last_verified_at'),
+            fields: writtenFields,
+            writes,
             skipped: skippedFields,
+            missing,
           })
           // Refresh in-memory cache so a later scraper_all row matching the same
           // CE doesn't re-update with the same values
@@ -1358,7 +1647,7 @@ let existingCE = null
 
     if (dryRun) {
       created++
-      createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id })
+      createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id, missing: missingFields(row) })
     } else {
       const { data: inserted, error } = await supabase
         .from('calendar_events')
@@ -1370,7 +1659,7 @@ let existingCE = null
         errors.push({ name: raw.name, message: error.message })
       } else {
         created++
-        createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id })
+        createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id, missing: missingFields(row) })
         // Track so we don't insert dupes from same batch — also enables update path
         // for the just-inserted row if a later scraper_all row maps to the same CE.
         const insertedCE = {

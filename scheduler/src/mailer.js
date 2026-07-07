@@ -55,18 +55,19 @@ export async function sendFailureEmail({ stepIndex, totalSteps, stepName, exitCo
 }
 
 export async function sendNoOutputEmail({ rowsCreated, rowsUpdated, durationMs, logPath }) {
-  const subject = `[WARN] LeszyRun pipeline ran clean but 0 calendar_events rows changed`;
+  const subject = `[WARN] LeszyRun pipeline ran clean but 0 scraper_all rows changed`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto;">
       <h2 style="color: #f59e0b;">⚠️ Pipeline produced no output</h2>
-      <p>All 11 steps exited 0, but no rows in <code>calendar_events</code> were created or updated today.</p>
+      <p>Every step exited 0, but no rows in <code>scraper_all</code> were merged or enriched today.
+         (The scheduler no longer publishes to <code>calendar_events</code> — that's a manual step.)</p>
       <ul>
-        <li>Rows created today: <strong>${rowsCreated}</strong></li>
-        <li>Rows updated today: <strong>${rowsUpdated}</strong></li>
+        <li>Rows merged today: <strong>${rowsCreated}</strong></li>
+        <li>Rows enriched today: <strong>${rowsUpdated}</strong></li>
         <li>Total duration: <strong>${(durationMs / 1000 / 60).toFixed(1)} min</strong></li>
       </ul>
       <p><strong>Log file:</strong> <code>${escapeHtml(logPath)}</code></p>
-      <p>Likely causes: Supabase down, all source sites had no new events, or <code>run-publish</code> silently no-oped.</p>
+      <p>Likely causes: Supabase down, all source sites had no new events, or the scrapers/enricher silently no-oped.</p>
       <p style="color:#666; font-size:12px;">LeszyRun daily pipeline · sent ${new Date().toISOString()}</p>
     </div>
   `;

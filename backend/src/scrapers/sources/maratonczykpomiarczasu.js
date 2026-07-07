@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { verifyPdf } from '../../lib/verifyPdf.js'
 
 const BASE_URL = 'https://www.maratonczykpomiarczasu.pl'
 const LIST_URL = `${BASE_URL}/wydarzenia-biegowe`
@@ -130,6 +131,38 @@ async function scrape({ knownIds = new Set() } = {}) {
 
   const newResults = results.filter(r => !knownIds.has(r.source_id))
   console.log(`[maratonczykpomiarczasu] Listing: ${results.length} events, ${newResults.length} new`)
+
+  // The listing carries no regulamin. Each event's registration page
+  // (panel.maratonczykpomiarczasu.pl/<slug>) links the regulamin PDF directly.
+  // Fetch it per new event, then VERIFY the PDF is live before writing — a
+  // dead/wrong link is dropped, never stored.
+  let withRegulamin = 0
+  for (const ev of newResults) {
+    if (!ev.registration_url) continue
+    try {
+      await new Promise(r => setTimeout(r, 600))
+      const res = await fetch(ev.registration_url, { headers: { 'User-Agent': UA } })
+      if (!res.ok) continue
+      const $$ = cheerio.load(await res.text())
+      let candidate = null
+      $$('a[href*=".pdf"]').each((_, a) => {
+        if (candidate) return
+        const href = $$(a).attr('href') || ''
+        const hay = `${href} ${$$(a).text()}`.toLowerCase()
+        if (hay.includes('regulamin')) {
+          candidate = href.startsWith('http') ? href : new URL(href, ev.registration_url).href
+        }
+      })
+      if (candidate && await verifyPdf(candidate)) {
+        ev.regulamin_url = candidate
+        withRegulamin++
+      }
+    } catch (err) {
+      console.error(`[maratonczykpomiarczasu] regulamin fetch failed for ${ev.source_id}:`, err.message?.slice(0, 80))
+    }
+  }
+  console.log(`[maratonczykpomiarczasu] regulamin: ${withRegulamin}/${newResults.length} verified`)
+
   return newResults
 }
 

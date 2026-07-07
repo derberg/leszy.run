@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { verifyPdf } from '../../lib/verifyPdf.js'
 
 const BASE_URL = 'https://b4sportonline.pl'
 const LIST_URL = `${BASE_URL}/kalendarz/`
@@ -69,78 +70,117 @@ function extractOrgSlug(url) {
 // Domains that are NOT organizer websites
 const SKIP_DOMAINS = /b4sport|facebook\.com|fb\.com|youtube\.com|instagram\.com|twitter\.com|google\.|tiktok\.com/i
 
+// Strip Polish diacritics + non-letters so a city name matches the way it
+// appears in a regulamin filename (e.g. "Gdynia" → "gdynia",
+// "regulamin_x_gdynia_x_formoza…pdf" → "…gdynia…").
+function citySlug(s) {
+  return (s || '')
+    .toLowerCase()
+    .replace(/[ąćęłńóśźż]/g, ch => ({ ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z' }[ch] || ch))
+    .replace(/[^a-z0-9]/g, '')
+}
+
+// Collect candidate regulamin PDF links from a loaded page. Only links whose
+// href or text mentions "regulamin" qualify (skips oświadczenie/zgoda PDFs).
+function collectRegulaminPdfs($) {
+  const out = []
+  $('a[href*=".pdf"]').each((_, a) => {
+    const href = $(a).attr('href') || ''
+    const text = $(a).text()
+    const hay = `${href} ${text}`.toLowerCase()
+    if (!hay.includes('regulamin')) return
+    let url
+    if (href.startsWith('http')) url = href
+    else url = `${BASE_URL}${href.startsWith('/') ? '' : '/'}${href}`
+    out.push({ url, hay: citySlug(hay) })
+  })
+  return out
+}
+
+// Pick the regulamin for one event from an organizer's candidate list and
+// VERIFY it's a live PDF before returning. Multi-city series (e.g. Formoza)
+// expose one regulamin per city, so we match on the event's city — and never
+// guess when several remain unmatched (writing the wrong city's rules is worse
+// than writing none). Returns a verified URL or null.
+async function pickRegulamin(candidates, city) {
+  if (!candidates || candidates.length === 0) return null
+  let chosen = null
+  if (candidates.length === 1) {
+    chosen = candidates[0].url
+  } else {
+    const cs = citySlug(city)
+    const match = cs ? candidates.find(c => c.hay.includes(cs)) : null
+    chosen = match ? match.url : null
+  }
+  if (!chosen) return null
+  return (await verifyPdf(chosen)) ? chosen : null
+}
+
 /**
- * Fetch one registration page per organizer slug and extract:
- * - website: from navbar logo link or footer copyright link
- * - regulamin_url: from sidebar nav links to PDFs or regulamin pages
+ * Fetch organizer pages per slug and extract:
+ * - website: from navbar logo link or footer copyright link (index page)
+ * - regulaminCandidates: regulamin PDF links from the index page AND the
+ *   dedicated /<slug>/regulamin route (which lists per-city PDFs for series).
+ *   Per-event selection + PDF verification happens later in pickRegulamin().
  */
 async function fetchOrganizerDetails(orgSlugs) {
-  const details = new Map() // orgSlug → { website, regulamin_url }
+  const details = new Map() // orgSlug → { website, regulaminCandidates }
+  const cleanUrl = (u) => u ? u.replace(/^https?:\/\/https?:\/\//, 'https://') : u
 
   for (const slug of orgSlugs) {
-    // Fetch the organizer's index page — lighter than a full registration page
-    const url = `${BASE_URL}/${slug}/index`
+    let website = null
+    const candidates = []
+
+    // 1. Index page — website + any regulamin links present there
     try {
-      const res = await fetch(url, {
+      const res = await fetch(`${BASE_URL}/${slug}/index`, {
         headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
         redirect: 'follow',
       })
-      const html = await res.text()
-      const $ = cheerio.load(html)
+      const $ = cheerio.load(await res.text())
 
-      let website = null
-
-      // Clean up malformed URLs like "https://http://example.com"
-      const cleanUrl = (u) => u ? u.replace(/^https?:\/\/https?:\/\//, 'https://') : u
-
-      // 1. Navbar logo link: <a href="..."><img class="navbar-logo">
       const logoLink = $('a:has(img.navbar-logo)').first()
       if (logoLink.length) {
         const href = cleanUrl(logoLink.attr('href') || '')
-        if (href && href.startsWith('http') && !SKIP_DOMAINS.test(href)) {
-          website = href
-        }
+        if (href && href.startsWith('http') && !SKIP_DOMAINS.test(href)) website = href
       }
-
-      // 2. Fallback: footer copyright link — © <a href="..." target="_blank">Org Name</a>
       if (!website) {
         $('div.footer a[target="_blank"]').each((_, a) => {
           if (website) return
           const href = cleanUrl($(a).attr('href') || '')
-          if (href && href.startsWith('http') && !SKIP_DOMAINS.test(href)) {
-            website = href
-          }
+          if (href && href.startsWith('http') && !SKIP_DOMAINS.test(href)) website = href
         })
       }
-
-      // 3. Regulamin: look for links containing "regulamin" in sidebar/nav
-      let regulaminUrl = null
-      $('a[href*="users-folder"][href$=".pdf"]').each((_, a) => {
-        if (regulaminUrl) return
-        const text = $(a).text().toLowerCase()
-        if (text.includes('regulamin')) {
-          const href = $(a).attr('href') || ''
-          regulaminUrl = href.startsWith('http') ? href : `${BASE_URL}${href}`
-        }
-      })
-      // Also check relative regulamin page links
-      if (!regulaminUrl) {
-        $('a[href]').each((_, a) => {
-          if (regulaminUrl) return
-          const text = $(a).text().toLowerCase()
-          const href = $(a).attr('href') || ''
-          if (text.includes('regulamin') && href.startsWith(`/${slug}/`) && !href.includes('lista_uczestnikow')) {
-            regulaminUrl = `${BASE_URL}${href}`
-          }
-        })
-      }
-
-      details.set(slug, { website, regulamin_url: regulaminUrl })
-      console.log(`[b4sport] Detail ${slug}: website=${website || '-'} regulamin=${regulaminUrl ? 'yes' : '-'}`)
+      candidates.push(...collectRegulaminPdfs($))
     } catch (err) {
-      console.error(`[b4sport] Detail fetch failed for ${slug}:`, err.message?.slice(0, 100))
-      details.set(slug, { website: null, regulamin_url: null })
+      console.error(`[b4sport] Index fetch failed for ${slug}:`, err.message?.slice(0, 100))
     }
+
+    // 2. Dedicated regulamin route — lists per-city regulamin PDFs
+    try {
+      await new Promise(r => setTimeout(r, 300))
+      const res = await fetch(`${BASE_URL}/${slug}/regulamin`, {
+        headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+        redirect: 'follow',
+      })
+      if (res.ok) {
+        const $ = cheerio.load(await res.text())
+        candidates.push(...collectRegulaminPdfs($))
+      }
+    } catch (err) {
+      console.error(`[b4sport] Regulamin route failed for ${slug}:`, err.message?.slice(0, 100))
+    }
+
+    // Dedup candidates by url
+    const seen = new Set()
+    const regulaminCandidates = candidates.filter(c => {
+      if (seen.has(c.url)) return false
+      seen.add(c.url)
+      return true
+    })
+
+    details.set(slug, { website, regulaminCandidates })
+    console.log(`[b4sport] Detail ${slug}: website=${website || '-'} regulaminCandidates=${regulaminCandidates.length}`)
 
     // Rate limit
     await new Promise(r => setTimeout(r, 500))
@@ -348,13 +388,15 @@ async function scrape({ knownIds = new Set() } = {}) {
   console.log(`[b4sport] Fetching details for ${orgMap.size} unique organizers...`)
   const orgDetails = await fetchOrganizerDetails([...orgMap.keys()])
 
-  // Merge organizer details back into events
+  // Merge organizer details back into events. Regulamin is chosen per-event
+  // (city-matched for multi-city series) and verified live before writing.
   for (const [slug, events] of orgMap) {
     const detail = orgDetails.get(slug)
     if (!detail) continue
     for (const ev of events) {
       if (detail.website) ev.website = detail.website
-      if (detail.regulamin_url) ev.regulamin_url = detail.regulamin_url
+      const regulamin = await pickRegulamin(detail.regulaminCandidates, ev.location)
+      if (regulamin) ev.regulamin_url = regulamin
     }
   }
 
@@ -365,4 +407,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return fresh
 }
 
-export { scrape }
+export { scrape, fetchOrganizerDetails, pickRegulamin }

@@ -7,6 +7,8 @@ export default function NotFound() {
   useSeo({
     title: '404 — Strona nie znaleziona',
     description: 'Strona nie została znaleziona. Sprawdź adres lub przejdź do strony głównej Leszy.run.',
+    // SPA 404s return HTTP 200; without this they read as indexable soft-404 duplicates.
+    noindex: true,
   })
 
   return (

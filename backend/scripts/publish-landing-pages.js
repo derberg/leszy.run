@@ -30,6 +30,12 @@ function inflectCount(n) {
   return `${n} wydarzeń`
 }
 
+function inflectBieg(n) {
+  if (n === 1) return '1 bieg'
+  if (n >= 2 && n <= 4) return `${n} biegi`
+  return `${n} biegów`
+}
+
 const TYPE_NOUN_GEN = {
   przelajowe: 'biegów przełajowych', uliczne: 'biegów ulicznych',
   ultramaratony: 'ultramaratonów', nocne: 'biegów nocnych',
@@ -192,18 +198,25 @@ function nextNMonths(today, n) {
   return result
 }
 
-function computeRelatedLinks(manifest, path, today) {
+function computeRelatedLinks(manifest, path, today, cityIndex = []) {
   const typeSlugs = Object.keys(TYPE_SLUG_TO_DB)
   const regionSlugs = Object.keys(REGION_SLUG_TO_DB)
   const seg = path.replace('listy/', '')
   const parts = seg === '' ? [] : seg.split('/')
 
-  // Hub
+  // Hub — also surface the biggest city pages so the most valuable ones get an inbound
+  // link from the most-crawled landing page (the region pages carry the rest).
   if (path === 'listy') {
+    const topCities = cityIndex
+      .slice()
+      .sort((a, b) => b.eventCount - a.eventCount)
+      .slice(0, 36)
+      .map(c => manifestRef(manifest, c.path))
     return [
       ...typeSlugs.map(t => manifestRef(manifest, `listy/${t}`)),
       ...SPECIAL_SLUGS.map(s => manifestRef(manifest, `listy/${s}`)),
       ...regionSlugs.map(r => manifestRef(manifest, `listy/${r}`)),
+      ...topCities,
     ].filter(Boolean)
   }
 
@@ -256,12 +269,28 @@ function computeRelatedLinks(manifest, path, today) {
     const monthLinks = nextNMonths(today, 3)
       .map(({ year, month }) => manifestRef(manifest, `listy/${regionSlug}/${year}/${MONTH_NUM_TO_SLUG[month]}`))
       .filter(Boolean)
-    return [manifestRef(manifest, 'listy'), ...regionTypeLinks, ...monthLinks].filter(Boolean)
+    // Link down to every city in this voivodeship — this is the primary inbound link that
+    // gets the city pages out of "Discovered – currently not indexed".
+    const regionCities = cityIndex
+      .filter(c => c.regionSlug === regionSlug)
+      .sort((a, b) => b.eventCount - a.eventCount)
+      .map(c => manifestRef(manifest, c.path))
+    return [manifestRef(manifest, 'listy'), ...regionTypeLinks, ...monthLinks, ...regionCities].filter(Boolean)
   }
 
-  // City page (single slug not matching type/region/special)
+  // City page (single slug not matching type/region/special) — link back up to its
+  // voivodeship and across to sibling cities so the page is not a dead end for crawlers.
   if (parts.length === 1) {
-    return [manifestRef(manifest, 'listy')].filter(Boolean)
+    const regionSlug = manifest[path] && manifest[path].cityRegionSlug
+    const regionRef = regionSlug ? manifestRef(manifest, `listy/${regionSlug}`) : null
+    const siblings = regionSlug
+      ? cityIndex
+          .filter(c => c.regionSlug === regionSlug && c.path !== path)
+          .sort((a, b) => b.eventCount - a.eventCount)
+          .slice(0, 12)
+          .map(c => manifestRef(manifest, c.path))
+      : []
+    return [manifestRef(manifest, 'listy'), regionRef, ...siblings].filter(Boolean)
   }
 
   // Type + region
@@ -368,11 +397,18 @@ async function main() {
       description = `Kalendarz biegów w Polsce ${currentYear}. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.`
       intro = `${displayEvents.length} biegów w Polsce w ${currentYear} roku — trailowe, uliczne, ultramaratony i więcej.`
     } else if (city) {
-      const cityLoc = CITY_LOCATIVE[city] || `w ${city}`
-      h1 = `Biegi ${cityLoc}`
-      title = `${h1} (${inflectCount(count)}) — Leszy.run`
-      description = `${count} biegów ${cityLoc}. Biegi uliczne, przełajowe, nordic walking i inne. Zapisy, dystanse, ceny.`
-      intro = `${count} biegów ${cityLoc} w ${currentYear} roku.`
+      const cityLoc = CITY_LOCATIVE[city]
+      if (cityLoc) {
+        h1 = count === 1 ? `Bieg ${cityLoc}` : `Biegi ${cityLoc}`
+        title = `${h1} (${inflectCount(count)}) — Leszy.run`
+        description = `${inflectBieg(count)} ${cityLoc} — kalendarz ${currentYear}. Zapisy, dystanse, ceny, regulaminy.`
+        intro = `${inflectBieg(count)} ${cityLoc} w ${currentYear} roku.`
+      } else {
+        h1 = count === 1 ? `Bieg — ${city}` : `Biegi — ${city}`
+        title = `${h1} (${inflectCount(count)}) — Leszy.run`
+        description = `Kalendarz biegów ${currentYear} — ${city}. ${inflectBieg(count)}. Zapisy, dystanse, ceny, regulaminy.`
+        intro = `Kalendarz biegów ${currentYear} — ${city}. ${inflectBieg(count)}.`
+      }
     } else if (special && regionSlug) {
       const SPECIAL_H1_NOUN = {
         polmaratony: 'Półmaratony', maratony: 'Maratony', 'dla-dzieci': 'Biegi dla dzieci',
@@ -473,25 +509,46 @@ async function main() {
     }
   }
 
-  // City pages (> 2 display events from the same primary city)
+  // City pages (>= 1 display event from the same primary city)
+  const REGION_DB_TO_SLUG = Object.fromEntries(
+    Object.entries(REGION_SLUG_TO_DB).map(([slug, db]) => [db, slug])
+  )
   const cityCount = {}
+  const cityRegionTally = {} // city -> { voivodeshipDb: count } to pick the dominant region
   for (const e of displayEvents) {
     if (!e.location) continue
     const city = e.location.split(/[\n,]/)[0].replace(/\s+/g, ' ').trim()
-    if (city && !CITY_BLOCKLIST.has(city)) cityCount[city] = (cityCount[city] || 0) + 1
+    if (!city || CITY_BLOCKLIST.has(city)) continue
+    cityCount[city] = (cityCount[city] || 0) + 1
+    if (e.voivodeship) {
+      cityRegionTally[city] = cityRegionTally[city] || {}
+      cityRegionTally[city][e.voivodeship] = (cityRegionTally[city][e.voivodeship] || 0) + 1
+    }
   }
   for (const [city, count] of Object.entries(cityCount)) {
-    if (count <= 2) continue
+    if (count < 1) continue
     const citySlug = slugifyCity(city)
     const path = `listy/${citySlug}`
     if (manifest[path]) continue // don't overwrite type/region/special pages
     addEntry({ path, filters: { city }, city, priority: '0.7', changefreq: 'weekly' })
+    // Tag the city with its dominant voivodeship slug so region pages can link down to it
+    // and the city page can link back up to its region + sibling cities. Without these static
+    // inbound links the 639 city pages stay sitemap-only orphans ("Discovered – currently
+    // not indexed"); the region page (already crawled) is the strongest inbound link.
+    const tally = cityRegionTally[city]
+    if (tally) {
+      const dominantDb = Object.entries(tally).sort((a, b) => b[1] - a[1])[0][0]
+      manifest[path].cityRegionSlug = REGION_DB_TO_SLUG[dominantDb] || null
+    }
   }
-  console.log(`City pages: ${Object.values(cityCount).filter(c => c > 2).length} cities with >2 events`)
+  console.log(`City pages: ${Object.values(cityCount).filter(c => c >= 1).length} cities with >=1 event`)
 
   // Second pass: fill relatedLinks
+  const cityIndex = Object.values(manifest)
+    .filter(e => e.filters && e.filters.city)
+    .map(e => ({ path: e.path, regionSlug: e.cityRegionSlug || null, eventCount: e.eventCount }))
   for (const path of Object.keys(manifest)) {
-    manifest[path].relatedLinks = computeRelatedLinks(manifest, path, today)
+    manifest[path].relatedLinks = computeRelatedLinks(manifest, path, today, cityIndex)
   }
 
   // Summary

@@ -34,7 +34,7 @@ export default function Footer() {
           <div>
             <h2 className="font-display font-bold text-xs tracking-widest uppercase text-apex-text-bright mb-3">Kontakt</h2>
             <ul className="space-y-1.5 list-none p-0 m-0">
-              <li><a href="mailto:lpgornicki@gmail.com" className="text-xs text-apex-muted no-underline hover:text-apex-yellow transition-colors">lpgornicki@gmail.com</a></li>
+              <li><a href="mailto:lukasz@leszy.run" className="text-xs text-apex-muted no-underline hover:text-apex-yellow transition-colors">lukasz@leszy.run</a></li>
               <li><a href="tel:+48784640977" className="text-xs text-apex-muted no-underline hover:text-apex-yellow transition-colors">+48 784 640 977</a></li>
             </ul>
           </div>

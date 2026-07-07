@@ -12,14 +12,16 @@ def test_build_prompt_includes_event_metadata():
     event = {"name": "Bieg Leszka", "date": "2026-05-10", "location": "Warszawa",
              "distances": "5 km", "event_types": ["uliczny"], "registration_deadline": None,
              "price_from": None, "price_to": None, "voivodeship": None}
+    # Extraction is regulamin-only: registration-page content must NEVER reach
+    # the extraction prompt (it's used elsewhere only to find the regulamin).
     crawled = {"registration_url": "# Zapisy\nRejestracja otwarta do 1 maja"}
     pdf_text = None
     prompt = build_prompt(event, crawled, pdf_text, config)
     assert "Bieg Leszka" in prompt
     assert "2026-05-10" in prompt
     assert "Warszawa" in prompt
-    assert "REGISTRATION PAGE" in prompt
-    assert "Zapisy" in prompt
+    assert "REGISTRATION PAGE" not in prompt
+    assert "Rejestracja otwarta" not in prompt
 
 
 def test_build_prompt_includes_pdf_text():
