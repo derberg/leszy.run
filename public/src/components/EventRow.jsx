@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import ReportEventModal from './ReportEventModal.jsx'
 import StarButton from './StarButton.jsx'
 import useFavorites from '../hooks/useFavorites.js'
+import useBeta from '../hooks/useBeta.js'
 import { slugify } from '../lib/slugify.js'
 
 const baseTag = 'font-mono text-[10px] font-semibold tracking-wide px-2 py-0.5 border uppercase'
@@ -41,8 +42,9 @@ function extractCity(location) {
 export default function EventRow({ event }) {
   const [showReport, setShowReport] = useState(false)
   const navigate = useNavigate()
+  const beta = useBeta() // dark-launch: hide star, club counts, report button when off
   const { clubCounts } = useFavorites()
-  const clubCount = clubCounts[event.id] || 0
+  const clubCount = beta ? (clubCounts[event.id] || 0) : 0
   const isCancelled = event.status === 'cancelled'
   const dateStr = new Date(event.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' })
   const isLeszyrun = !!event.leszyrun_event_id
@@ -110,15 +112,17 @@ export default function EventRow({ event }) {
               )}
             </div>
             <StarButton eventId={event.id} />
-            <button data-testid="report-event-btn" onClick={handleReport} title="Zgłoś nieprawidłowe dane wydarzenia"
-              className="text-apex-muted hover:text-apex-yellow focus:text-apex-yellow transition-colors px-2 py-1 ml-1 flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border hover:border-apex-yellow/40 shrink-0"
-              aria-label="Zgłoś nieprawidłowe dane wydarzenia">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-                <line x1="4" y1="22" x2="4" y2="15" />
-              </svg>
-              <span>Zgłoś poprawkę</span>
-            </button>
+            {beta && (
+              <button data-testid="report-event-btn" onClick={handleReport} title="Zgłoś nieprawidłowe dane wydarzenia"
+                className="text-apex-muted hover:text-apex-yellow focus:text-apex-yellow transition-colors px-2 py-1 ml-1 flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border hover:border-apex-yellow/40 shrink-0"
+                aria-label="Zgłoś nieprawidłowe dane wydarzenia">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                  <line x1="4" y1="22" x2="4" y2="15" />
+                </svg>
+                <span>Zgłoś poprawkę</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -152,15 +156,17 @@ export default function EventRow({ event }) {
             )}
             <div className="mt-2 flex gap-2 items-center">
               <StarButton eventId={event.id} />
-              <button data-testid="report-event-btn" onClick={handleReport}
-                className="text-apex-muted active:text-apex-yellow transition-colors px-2 py-1 inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border"
-                aria-label="Zgłoś nieprawidłowe dane wydarzenia">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-                  <line x1="4" y1="22" x2="4" y2="15" />
-                </svg>
-                <span>Zgłoś poprawkę</span>
-              </button>
+              {beta && (
+                <button data-testid="report-event-btn" onClick={handleReport}
+                  className="text-apex-muted active:text-apex-yellow transition-colors px-2 py-1 inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wide uppercase border border-apex-border"
+                  aria-label="Zgłoś nieprawidłowe dane wydarzenia">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                    <line x1="4" y1="22" x2="4" y2="15" />
+                  </svg>
+                  <span>Zgłoś poprawkę</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

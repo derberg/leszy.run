@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import useBeta from './hooks/useBeta.js'
 import CookieBanner from './components/CookieBanner.jsx'
 import Footer from './components/Footer.jsx'
 import RouteTracker from './components/RouteTracker.jsx'
@@ -42,6 +43,9 @@ function PageLoader() {
 }
 
 export default function App() {
+  // Accounts/community product is dark-launched behind ?beta=1 — its routes
+  // redirect home until the flag is on. Legal pages stay live (compliance).
+  const beta = useBeta()
   return (
     <>
       <ScrollToTop />
@@ -49,7 +53,7 @@ export default function App() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/kalendarz/dodaj" element={<DodajWydarzenie />} />
+          <Route path="/kalendarz/dodaj" element={beta ? <DodajWydarzenie /> : <Navigate to="/kalendarz" replace />} />
           <Route path="/kalendarz/:slug" element={<EventPage />} />
           <Route path="/kalendarz" element={<Kalendarz />} />
           <Route path="/events" element={<Home />} />
@@ -62,10 +66,10 @@ export default function App() {
           <Route path="/events/:slug/admin/checkin" element={<AdminCheckin />} />
           <Route path="/listy" element={<BieguHub />} />
           <Route path="/listy/*" element={<LandingPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/profil" element={<Profil />} />
-          <Route path="/u/:username" element={<UserProfile />} />
+          <Route path="/login" element={beta ? <Login /> : <Navigate to="/" replace />} />
+          <Route path="/onboarding" element={beta ? <Onboarding /> : <Navigate to="/" replace />} />
+          <Route path="/profil" element={beta ? <Profil /> : <Navigate to="/" replace />} />
+          <Route path="/u/:username" element={beta ? <UserProfile /> : <Navigate to="/" replace />} />
           <Route path="/polityka-prywatnosci" element={<PolitykaPrywatnosci />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/regulamin" element={<Regulamin />} />

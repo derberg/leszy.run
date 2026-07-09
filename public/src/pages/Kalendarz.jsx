@@ -13,6 +13,7 @@ import useTheme from '../hooks/useTheme.js'
 import useSeo from '../hooks/useSeo.js'
 import useAuth from '../hooks/useAuth.js'
 import useFavorites from '../hooks/useFavorites.js'
+import useBeta from '../hooks/useBeta.js'
 import { haversineKm } from '../lib/haversine.js'
 import FeedbackModal from '../components/FeedbackModal.jsx'
 
@@ -124,6 +125,7 @@ export default function Kalendarz() {
 
   const { user } = useAuth()
   const { clubCounts, ready: favoritesReady } = useFavorites()
+  const beta = useBeta() // dark-launch: hide add-event, feedback, club filter when off
   const [clubOnly, setClubOnly] = useState(false)
 
   const [userLocation, setUserLocation] = useState(() => {
@@ -373,14 +375,16 @@ export default function Kalendarz() {
               <h1 className="font-display font-extrabold text-3xl md:text-5xl tracking-wider uppercase text-apex-text-bright mb-2">Wszystkie wydarzenia w Polsce</h1>
               <p className="text-base text-apex-text max-w-[600px]">Setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski.</p>
             </div>
-            <div className="hidden md:flex gap-2 flex-shrink-0 mt-1">
-              <button onClick={() => setShowFeedback(true)} className="font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2.5 border-2 border-apex-border text-apex-muted hover:border-apex-text hover:text-apex-text-bright transition-all">
-                Pomóż ulepszyć
-              </button>
-              <Link to="/kalendarz/dodaj" className="font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all">
-                + Dodaj wydarzenie
-              </Link>
-            </div>
+            {beta && (
+              <div className="hidden md:flex gap-2 flex-shrink-0 mt-1">
+                <button onClick={() => setShowFeedback(true)} className="font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2.5 border-2 border-apex-border text-apex-muted hover:border-apex-text hover:text-apex-text-bright transition-all">
+                  Pomóż ulepszyć
+                </button>
+                <Link to="/kalendarz/dodaj" className="font-display font-bold text-[11px] tracking-widest uppercase px-4 py-2.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all">
+                  + Dodaj wydarzenie
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
@@ -410,7 +414,7 @@ export default function Kalendarz() {
           <span className="font-mono text-xs text-apex-muted tracking-wide">
             Znaleziono <strong className="text-apex-yellow">{total}</strong> wydarzeń
           </span>
-          {user?.club && (
+          {beta && user?.club && (
             <button
               data-testid="club-filter-toggle"
               onClick={() => { setClubOnly((v) => !v); setPage(1); setSelectedDate(null) }}

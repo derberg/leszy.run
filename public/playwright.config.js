@@ -8,6 +8,9 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5173',
     headless: true,
+    // Accounts UI is dark-launched behind the `leszy.beta` flag; the e2e suite
+    // exercises that product, so enable it for every context via localStorage.
+    storageState: './tests/e2e/beta-storage.json',
   },
   webServer: {
     command: 'npx vite --port 5173',

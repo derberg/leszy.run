@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useAuth from '../hooks/useAuth.js'
 import useFavorites from '../hooks/useFavorites.js'
+import useBeta from '../hooks/useBeta.js'
 
 function StarIcon({ filled }) {
   return (
@@ -49,6 +50,7 @@ function FirstStarModal({ onClose }) {
 }
 
 export default function StarButton({ eventId, className = '' }) {
+  const beta = useBeta()
   const { user } = useAuth()
   const { ready, isStarred, toggle } = useFavorites()
   const navigate = useNavigate()
@@ -56,6 +58,9 @@ export default function StarButton({ eventId, className = '' }) {
   const [showFirstStar, setShowFirstStar] = useState(false)
 
   const starred = isStarred(eventId)
+
+  // Dark-launched — no star UI until the accounts feature is live.
+  if (!beta) return null
 
   const handleClick = async (e) => {
     e.stopPropagation()

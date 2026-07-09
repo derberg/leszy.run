@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle.jsx'
 import useAuth from '../hooks/useAuth.js'
 import useNotifications from '../hooks/useNotifications.js'
+import useBeta from '../hooks/useBeta.js'
 import { signOut } from '../lib/auth.js'
 
 const navLinks = [
@@ -20,6 +21,7 @@ export default function Navbar() {
   const location = useLocation()
   const { user, loading: authLoading } = useAuth()
   const { unseenCount } = useNotifications()
+  const beta = useBeta() // accounts UI is dark-launched; hide auth chip when off
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef(null)
 
@@ -117,7 +119,7 @@ export default function Navbar() {
       {/* Desktop CTA + theme toggle */}
       <div className="hidden md:flex items-center gap-3">
         <ThemeToggle />
-        {user ? (
+        {beta && (user ? (
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setUserMenuOpen(v => !v)}
@@ -164,7 +166,7 @@ export default function Navbar() {
           >
             Zaloguj się
           </Link>
-        )}
+        ))}
         <Link
           to="/#kontakt"
           onClick={(e) => handleHashClick(e, 'kontakt')}
@@ -177,7 +179,7 @@ export default function Navbar() {
       {/* Mobile auth chip + theme toggle + hamburger */}
       <div className="md:hidden flex items-center gap-3">
         <ThemeToggle />
-        {user ? (
+        {beta && (user ? (
           <Link
             to="/profil"
             className="flex items-center gap-1.5 font-mono text-[11px] text-apex-yellow border border-apex-yellow px-2.5 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all no-underline"
@@ -201,7 +203,7 @@ export default function Navbar() {
           >
             Zaloguj się
           </Link>
-        )}
+        ))}
         <button
           className="text-apex-text-bright"
           onClick={() => setMenuOpen(!menuOpen)}
