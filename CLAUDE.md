@@ -300,6 +300,12 @@ The `public/` app serves four purposes:
 
 The landing page and kalendarz read directly from Supabase (`calendar_events` table for kalendarz, `events` table for upcoming leszy.run events). No backend API needed for these pages.
 
+### Feature flag — accounts/community (`useBeta`)
+
+The whole accounts/community product (login, profile, favorites/stars, notifications, clubs, report/feedback, add-event) is **dark-launched** behind `useBeta()` (`public/src/hooks/useBeta.js`): `?beta=1` → persisted to `localStorage` (`leszy.beta`); **off by default**. When off, account routes redirect home, all account/community UI is hidden, and `useAuth` short-circuits to anonymous so **no account edge functions fire**. Legal pages + cookie management stay live regardless (compliance).
+
+**Rule:** any new account/community UI MUST be gated with `useBeta()` (hide when off) — never render it unconditionally. It is a visibility switch, not a security boundary (routes + edge functions stay publicly reachable). The e2e suite forces the flag on via a `storageState` fixture (`public/tests/e2e/beta-storage.json`).
+
 ### Logo
 - `public/public/logo-bez-napisu.svg` — Leszy character without text. Two green leaves (top-left, top-right), black body/roots.
 - `public/public/logo.svg` — full logo with text (used as watermark in `app.css`)
