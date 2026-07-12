@@ -34018,6 +34018,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "xxxviii-bieg-homolan-im-jozefa-duba-2026-07-25": {
+    "id": "e9b8b52b-9950-4cfe-b164-95290f682774",
+    "name": "XXXVIII Bieg „Homolan” im. Józefa Duba",
+    "date": "2026-07-25",
+    "registration_deadline": null,
+    "regulamin_url": "https://formularz.czasomierzyk.pl/uploads/regulations/133_regulamin-bieg-homolan-2026%20(1).pdf",
+    "price_from": null,
+    "price_to": 50,
+    "location": "Kudowa Zdrój",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.442003,
+    "lng": 16.24163,
+    "distances": [
+      "10 km",
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://formularz.czasomierzyk.pl/133",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "bieg-debow-smoszewskich-2026-07-25": {
     "id": "5f9c3112-4ef1-4931-809c-d3200ff1f9da",
     "name": "BIEG DĘBÓW SMOSZEWSKICH",
@@ -34410,6 +34435,30 @@
       "uliczny"
     ],
     "registration_url": "https://super-sport.com.pl/zapisy-formularze/4711-xiv-bieg-trzech-jezior.html",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "25-topcross-maraton-z-tadeuszem-spychalskim-2026-07-26": {
+    "id": "c01b2f33-6dc1-4c74-ab3c-3d0ef9d66c60",
+    "name": "25 Top-Cross Maraton z Tadeuszem Spychalskim",
+    "date": "2026-07-26",
+    "registration_deadline": null,
+    "regulamin_url": "https://www.maratonypolskie.pl/dokument/2026/87767_13724_regulamin.pdf",
+    "price_from": 50,
+    "price_to": 100,
+    "location": "Toruń",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.010272,
+    "lng": 18.604809,
+    "distances": [
+      "42.2 km"
+    ],
+    "event_type": [
+      "trail",
+      "uliczny"
+    ],
+    "registration_url": "https://www.topcross.pl/pl/",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -40183,6 +40232,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "bieg-51015-2026-08-30": {
+    "id": "c665a2d0-38f8-42c2-a490-efe73343d9d7",
+    "name": "Bieg 5-10-15",
+    "date": "2026-08-30",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": 60,
+    "price_to": 80,
+    "location": "Ełk\n                            Ełk",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 53.823958,
+    "lng": 22.361917,
+    "distances": [
+      "5 km",
+      "10 km",
+      "15 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/bieg-5-10-15-2026",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "4-hmt-bieg-wirtualny-sierpien-2026-operacja-korona-19851988-2026-08-31": {
     "id": "49c0ee40-6667-4a43-9ba9-d1560afdf5e7",
     "name": "4. HMT Bieg wirtualny – sierpień 2026 – Operacja Korona 1985-1988",
@@ -43193,6 +43267,32 @@
     "is_kids": null,
     "status": "active"
   },
+  "bialystok-biega-z-dziecmi-2026-09-12": {
+    "id": "ff152249-9355-4d98-846d-aaa678b6750a",
+    "name": "Białystok Biega z dziećmi",
+    "date": "2026-09-12",
+    "registration_deadline": "2026-09-10",
+    "regulamin_url": "https://superbiegacz.pl/moltani-kids-run/regulamin-bialystok_biega_z_dziecmi/",
+    "price_from": 39,
+    "price_to": 50,
+    "location": "Białystok",
+    "voivodeship": "Podlaskie",
+    "lat": 53.132398,
+    "lng": 23.159168,
+    "distances": [
+      "100 m",
+      "400 m",
+      "600 m",
+      "1 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://b4sportonline.pl/super_biegacz/zapisy_na_moltani_kids_run__12092026/11862",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "przegon-przemoc-razem-mamy-moc-2026-09-12": {
     "id": "a91b8fde-2924-4c45-a2e5-a6a2f6b35907",
     "name": "PRZEGOŃ PRZEMOC - RAZEM MAMY MOC",
@@ -43212,6 +43312,30 @@
       "uliczny"
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15793/signup.html",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "viii-bieg-najezony-przeszkodami-jezyk-2026-09-12": {
+    "id": "46538448-acc5-456e-bbf3-a7610cf2e9fe",
+    "name": "VIII Bieg Najeżony Przeszkodami \"Jeżyk\"",
+    "date": "2026-09-12",
+    "registration_deadline": null,
+    "regulamin_url": "https://b4sportonline.pl/users-folder/1081/files/Regulamin_Jezyk_2026.pdf",
+    "price_from": 50,
+    "price_to": 100,
+    "location": "Solec kujawski",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.079197,
+    "lng": 18.224609,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "ocr",
+      "uliczny"
+    ],
+    "registration_url": "https://b4sportonline.pl/bieg_najezony_przeszkodami_jezyk/zapisy_na_x_bieg_najezony_przeszkodami_aezjezykae/12828",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -51528,6 +51652,33 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15794/signup.html",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "pieklo-czantorii-2026-2026-11-20": {
+    "id": "fdc0044c-7dd1-42f0-9c21-15b54f3d1125",
+    "name": "Piekło Czantorii 2026",
+    "date": "2026-11-20",
+    "registration_deadline": "2026-11-08",
+    "regulamin_url": "https://dostartu.pl/statute_files/16812_pl.pdf",
+    "price_from": 120,
+    "price_to": 410,
+    "location": "Ustroń, Polska",
+    "voivodeship": "Śląskie",
+    "lat": 49.719657,
+    "lng": 18.812058,
+    "distances": [
+      "71 km",
+      "47 km",
+      "24 km",
+      "10 km",
+      "94 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16812",
+    "website": "https://b160.pl/",
     "is_kids": null,
     "status": "active"
   },
