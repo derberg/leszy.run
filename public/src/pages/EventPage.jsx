@@ -10,6 +10,8 @@ import EventInfoGrid from '../components/EventInfoGrid.jsx'
 import NearbyEvents from '../components/NearbyEvents.jsx'
 import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
 import ReportEventModal from '../components/ReportEventModal.jsx'
+import StarButton from '../components/StarButton.jsx'
+import useBeta from '../hooks/useBeta.js'
 
 const EventMap = lazy(() => import('../components/EventMap.jsx'))
 
@@ -83,7 +85,9 @@ function buildJsonLd(event, slug) {
     description: buildSchemaDescription(event) || undefined,
     startDate,
     endDate: startDate,
-    eventStatus: 'https://schema.org/EventScheduled',
+    eventStatus: event.status === 'cancelled'
+      ? 'https://schema.org/EventCancelled'
+      : 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     image: `${eventUrl}/og.png`,
     url: eventUrl,
@@ -154,6 +158,7 @@ export default function EventPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [showReport, setShowReport] = useState(false)
+  const beta = useBeta() // dark-launch: hide report button when off
 
   // Load event data — reset when slug changes
   useEffect(() => {
@@ -191,7 +196,7 @@ export default function EventPage() {
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
-        .eq('status', 'active')
+        .in('status', ['active', 'cancelled'])
         .eq('date', date)
 
       if (error || !data?.length) {
@@ -328,11 +333,17 @@ export default function EventPage() {
             <span className="font-mono text-[13px] font-semibold text-apex-yellow">
               {dateFormatted}
             </span>
-            {days != null && (
+            {event.status === 'cancelled' && (
+              <span data-testid="cancelled-badge" className="font-mono text-[11px] font-semibold px-2 py-0.5 border border-apex-red/30 text-apex-red bg-apex-red/10 uppercase">
+                Odwołany
+              </span>
+            )}
+            {event.status !== 'cancelled' && days != null && (
               <span className="font-mono text-[11px] font-semibold px-2 py-0.5 border border-apex-cyan/30 text-apex-cyan">
                 {days === 0 ? 'Dziś!' : days === 1 ? 'Jutro!' : `za ${days} dni`}
               </span>
             )}
+            <StarButton eventId={event.id} />
           </div>
 
           {/* Title */}
@@ -370,7 +381,7 @@ export default function EventPage() {
 
           {/* CTA buttons */}
           <div className="flex flex-wrap gap-3 mb-8">
-            {event.registration_url && (
+            {event.status !== 'cancelled' && event.registration_url && (
               <a
                 href={event.registration_url}
                 target="_blank"
@@ -418,14 +429,17 @@ export default function EventPage() {
           </div>
 
           {/* Report button */}
-          <div className="flex justify-end mt-6">
-            <button
-              onClick={() => setShowReport(true)}
-              className="font-display font-bold text-[10px] tracking-widest uppercase px-4 py-2 border border-apex-border text-apex-muted hover:border-apex-text hover:text-apex-text-bright transition-all"
-            >
-              Zgłoś poprawkę
-            </button>
-          </div>
+          {beta && (
+            <div className="flex justify-end mt-6">
+              <button
+                data-testid="report-event-btn"
+                onClick={() => setShowReport(true)}
+                className="font-display font-bold text-[10px] tracking-widest uppercase px-4 py-2 border border-apex-border text-apex-muted hover:border-apex-text hover:text-apex-text-bright transition-all"
+              >
+                Zgłoś poprawkę
+              </button>
+            </div>
+          )}
 
           {/* Nearby events */}
           <NearbyEvents event={event} />

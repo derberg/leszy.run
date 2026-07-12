@@ -24,6 +24,29 @@ state to leave the repo in.
   full rules, deploy model, and post-merge steps live in
   `.claude/skills/dev-workflow/SKILL.md` — invoke that skill before the first edit.
 
+## GDPR compliance
+
+This project is RODO/GDPR-compliant. Reference documents:
+- [docs/gdpr/ropa.md](docs/gdpr/ropa.md) — Rejestr Czynności Przetwarzania (Art. 30, public)
+- [docs/gdpr/dpia-participants.md](docs/gdpr/dpia-participants.md) — DPIA for participant data (Art. 35)
+- [docs/gdpr/breach-response.md](docs/gdpr/breach-response.md) — Breach response runbook (Art. 33/34)
+- [docs/gdpr/rls-audit.md](docs/gdpr/rls-audit.md) — Supabase RLS audit
+- [docs/gdpr/profile-exposure.md](docs/gdpr/profile-exposure.md) — Public profile field exposure audit
+- [docs/gdpr/dpa-checklist.md](docs/gdpr/dpa-checklist.md) — Operator action items (gitignored)
+- Public legal pages: `/polityka-prywatnosci`, `/privacy-policy`, `/regulamin`, `/podmioty-przetwarzajace`
+
+**Bumping privacy policy version:** edit `POLICY_VERSION` in [public/src/lib/policyVersion.js](public/src/lib/policyVersion.js). The cookie banner detects mismatch and re-prompts every user automatically.
+
+**Data subject rights endpoints:**
+- `POST /functions/v1/export-my-data` — returns JSON export of user data (Art. 15/20)
+- `POST /functions/v1/delete-my-account` — two-step OTP soft delete (Art. 17). Email is NOT released after deletion — re-registration with same email is permanently blocked.
+
+**Consent audit trail:** every accept/reject choice on the cookie banner is logged client-side (localStorage with timestamp + policyVersion + userAgent) and, for authenticated users, server-side to the `consent_log` table via the `log-consent` edge function.
+
+**Retention:** `gate_events` and `gate_crossings` are purged 90 days post-race by the scheduler container's daily cron job at 03:00 Europe/Warsaw. No other automatic retention purges.
+
+**Admin actions:** every admin write (calendar event approval, club merge, contribution review, etc.) is logged to `admin_actions` table with admin_user_id, target, payload, ip, user_agent. Append-only, service_role only.
+
 ## Hardware documentation
 
 - `docs/impinj-r700-api/endpoints.md` — known R700 REST API endpoints (system status, antennas, MQTT, inventory presets)
@@ -57,7 +80,7 @@ LeszyRun/
   frontend/     React + Vite (admin UI)
   public/       React + Vite (public-facing: live results, volunteer bib entry, self-service check-in)
   packages/ui/  Shared UI components (@leszyrun/ui)
-  scheduler/    Node.js + node-cron daemon, runs the daily scrape→enrich→publish pipeline at 08:00 Europe/Warsaw and a watchdog at 10:00. Sends SendGrid alerts on failure.
+  scheduler/    Node.js + node-cron daemon, runs the daily scrape→enrich→publish pipeline at 08:00 Europe/Warsaw, deadline notifications at 08:30, a watchdog at 10:00, and the weekly digest Monday 09:00. Sends SendGrid alerts on failure.
   enricher/     Python (Crawl4AI + Docling + local Ollama) for LLM enrichment, run-once container in compose
   mosquitto/    native macOS, NOT dockerized (hardware constraint)
 ```
@@ -229,6 +252,8 @@ writes to Supabase first (not local), so all check-in data has a single source o
 - `calendar_events` — aggregated race calendar from scrapers + manual entry
 - `geocode_cache` — Nominatim geocoding results cache
 - `url_suggestions` — Brave Search URL candidates pending admin review
+- `event_favorites` — user star/follow shortlist (service-role only, written via `toggle-favorite` edge function)
+- `event_notifications` — event-level notification log (`cancelled` / `registration_opened` / `deadline_soon`); rows produced by a `calendar_events` trigger + `run-deadline-notifications.js`; UNIQUE(event_id, type)
 - `event_results_summary` — read-only view aggregating per-event stats (participants, finishers, timed distances, fastest finisher) for past-event public pages; only `participants` + `distances` are currently surfaced. Created via `apply_migration` only.
 - `event_category_best_times` — read-only view: best finish time per event × timed category × gender (`M`/`K` only; non-cancelled runs, untimed categories excluded). Feeds the past-event "Najlepsze czasy" table. Created via `apply_migration` only.
 
@@ -274,6 +299,12 @@ The `public/` app serves four purposes:
 4. **Category/region pages** (`/listy/*`) — static landing pages for event type + voivodeship combinations (trail, maratony, śląskie, etc.)
 
 The landing page and kalendarz read directly from Supabase (`calendar_events` table for kalendarz, `events` table for upcoming leszy.run events). No backend API needed for these pages.
+
+### Feature flag — accounts/community (`useBeta`)
+
+The whole accounts/community product (login, profile, favorites/stars, notifications, clubs, report/feedback, add-event) is **dark-launched** behind `useBeta()` (`public/src/hooks/useBeta.js`): `?beta=1` → persisted to `localStorage` (`leszy.beta`); **off by default**. When off, account routes redirect home, all account/community UI is hidden, and `useAuth` short-circuits to anonymous so **no account edge functions fire**. Legal pages + cookie management stay live regardless (compliance).
+
+**Rule:** any new account/community UI MUST be gated with `useBeta()` (hide when off) — never render it unconditionally. It is a visibility switch, not a security boundary (routes + edge functions stay publicly reachable). The e2e suite forces the flag on via a `storageState` fixture (`public/tests/e2e/beta-storage.json`).
 
 ### Logo
 - `public/public/logo-bez-napisu.svg` — Leszy character without text. Two green leaves (top-left, top-right), black body/roots.

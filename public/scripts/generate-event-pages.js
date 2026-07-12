@@ -100,7 +100,9 @@ function buildJsonLd(event, slug) {
     description: buildDescription(event) || undefined,
     startDate,
     endDate: startDate,
-    eventStatus: 'https://schema.org/EventScheduled',
+    eventStatus: event.status === 'cancelled'
+      ? 'https://schema.org/EventCancelled'
+      : 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     image: `${eventUrl}/og.png`,
     url: eventUrl,

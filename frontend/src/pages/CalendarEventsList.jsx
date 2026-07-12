@@ -350,7 +350,20 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
         <span className="text-apex-muted mx-1">–</span>
         <InlineEdit event={event} field="price_to" onSave={onSave} />
       </td>
-      <td className="py-2 px-2 text-xs text-apex-muted max-w-[70px]"><div className="truncate">{event.source}</div></td>
+      <td className="py-2 px-2 text-xs text-apex-muted max-w-[70px]">
+        <div className="truncate">{event.source}</div>
+        {event.profiles && (
+          <a
+            href={`https://www.leszy.run/u/${event.profiles.username}`}
+            target="_blank"
+            rel="noopener"
+            className="text-[10px] text-apex-cyan hover:underline"
+            title={event.profiles.email}
+          >
+            @{event.profiles.username}
+          </a>
+        )}
+      </td>
       <td className="py-2 px-2 text-xs sticky right-0 bg-apex-bg">
         <div className="flex items-center gap-1">
           {showReviewActions && (

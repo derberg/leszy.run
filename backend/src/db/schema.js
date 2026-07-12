@@ -54,6 +54,7 @@ export const participants = pgTable('participants', {
   updatedAt: timestamp('updated_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 }, (t) => [
   unique().on(t.eventId, t.rfidEpc),
   unique().on(t.eventId, t.bibNumber),

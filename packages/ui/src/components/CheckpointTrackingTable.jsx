@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PositionBadge } from './PositionBadge.jsx'
+import { anonymizedName } from '../lib/anonymizedName.js'
 
 function InfoTooltip({ label, children }) {
   const [open, setOpen] = useState(false)
@@ -112,11 +113,14 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
           <tbody className="divide-y divide-apex-border">
             {results.map(r => {
               const p = r.participant
+              const { displayName: pDisplayName, isAnonymized: pIsAnonymized, tooltip: pTooltip } = anonymizedName(p)
               return (
                 <tr key={r.id} className="hover:bg-apex-surface-2 transition-colors">
                   <td className="px-2 py-1.5 font-display text-lg text-apex-yellow">{r.estimatedPosition}</td>
                   <td className="px-2 py-1.5 font-mono">#{p?.bibNumber}</td>
-                  <td className="px-2 py-1.5 truncate">{p?.firstName} {p?.lastName}</td>
+                  <td className="px-2 py-1.5 truncate">
+                    <span title={pTooltip || undefined} className={pIsAnonymized ? 'italic text-apex-muted' : ''}>{pDisplayName}</span>
+                  </td>
                   <td className="px-2 py-1.5 font-mono text-apex-muted">
                     {r.startTime ? formatTime(r.startTime) : '—'}
                   </td>
@@ -155,12 +159,13 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
       <div className="md:hidden space-y-2">
         {results.map(r => {
           const p = r.participant
+          const { displayName: mDisplayName, isAnonymized: mIsAnonymized, tooltip: mTooltip } = anonymizedName(p)
           return (
             <div key={r.id} className="border border-apex-border bg-apex-surface px-3 py-2.5">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="font-display text-xl text-apex-yellow leading-none">{r.estimatedPosition}</span>
                 <span className="font-mono text-xs text-apex-muted">#{p?.bibNumber}</span>
-                <span className="font-semibold text-sm flex-1 truncate">{p?.firstName} {p?.lastName}</span>
+                <span title={mTooltip || undefined} className={`font-semibold text-sm flex-1 truncate${mIsAnonymized ? ' italic text-apex-muted' : ''}`}>{mDisplayName}</span>
                 <PositionBadge positionType={r.positionType} gender={p?.gender} />
               </div>
 

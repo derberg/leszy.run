@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js'
+import { logAdminAction } from '../lib/adminAudit.js'
 
 export async function urlSuggestionsRoutes(fastify) {
   fastify.get('/url-suggestions', async (request, reply) => {
@@ -29,6 +30,8 @@ export async function urlSuggestionsRoutes(fastify) {
 
     if (fetchErr) return reply.status(404).send({ error: 'Suggestion not found' })
 
+    await logAdminAction({ action: 'approve_url_suggestion', targetTable: 'url_suggestions', targetId: id, payload: { url: suggestion.url, calendar_event_id: suggestion.calendar_event_id }, req: request.raw })
+
     await supabase
       .from('url_suggestions')
       .update({ status: 'approved', reviewed_at: new Date().toISOString() })
@@ -52,6 +55,7 @@ export async function urlSuggestionsRoutes(fastify) {
   fastify.post('/url-suggestions/:id/reject', async (request, reply) => {
     const { id } = request.params
     const { reason } = request.body || {}
+    await logAdminAction({ action: 'reject_url_suggestion', targetTable: 'url_suggestions', targetId: id, payload: { reason }, req: request.raw })
 
     const { error } = await supabase
       .from('url_suggestions')

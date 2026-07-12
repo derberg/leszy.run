@@ -79,11 +79,11 @@ export default function CategorySection({ eventId, categoryId }) {
 
     const [resultRows, participantRows] = await Promise.all([
       supabase.from('results').select('id, race_run_id, participant_id, start_time, finish_time, duration_ms, gun_duration_ms, status').eq('race_run_id', run.id),
-      supabase.from('participants_public').select('id, bib_number, first_name, last_name, club, category_id, emoji, gender').eq('category_id', categoryId),
+      supabase.from('participants_public').select('id, bib_number, first_name, last_name, club, category_id, emoji, gender, deleted_at').eq('category_id', categoryId),
     ])
 
     const pMap = Object.fromEntries((participantRows.data || []).map(p => [p.id, {
-      ...p, firstName: p.first_name, lastName: p.last_name, bibNumber: p.bib_number, gender: p.gender,
+      ...p, firstName: p.first_name, lastName: p.last_name, bibNumber: p.bib_number, gender: p.gender, deleted_at: p.deleted_at,
     }]))
 
     const enrichedResults = (resultRows.data || []).map(r => ({

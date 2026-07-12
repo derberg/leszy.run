@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { Link, useLocation } from 'react-router-dom'
+import { callFunction } from '../lib/auth.js'
+import useAuth from '../hooks/useAuth.js'
 
 const CATEGORIES = [
   { value: 'missing_feature', label: 'Brakująca funkcja' },
@@ -12,9 +14,11 @@ const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-t
 const labelClass = 'block font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted mb-1'
 
 export default function FeedbackModal({ onClose }) {
+  const { user, loading } = useAuth()
+  const location = useLocation()
+  const loginHref = `/login?from=${encodeURIComponent(location.pathname + location.search)}`
   const [category, setCategory] = useState('')
   const [message, setMessage] = useState('')
-  const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState(null)
@@ -30,18 +34,20 @@ export default function FeedbackModal({ onClose }) {
     setSubmitting(true)
     setError(null)
 
-    const { error: err } = await supabase.from('website_feedback').insert({
-      category,
-      message: message.trim(),
-      email: email.trim() || null,
-    })
-
-    setSubmitting(false)
-    if (err) {
+    try {
+      await callFunction('submit-contribution', {
+        type: 'general_feedback',
+        payload: {
+          category,
+          message: message.trim(),
+        },
+      })
+      setSubmitted(true)
+    } catch (err) {
       setError('Nie udało się wysłać sugestii.')
       console.error('Feedback error:', err.message)
-    } else {
-      setSubmitted(true)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -58,7 +64,24 @@ export default function FeedbackModal({ onClose }) {
 
           <p className="text-sm text-apex-muted mb-4">Masz pomysł jak ulepszyć stronę? Podziel się z nami!</p>
 
-          {submitted ? (
+          {loading ? null : !user ? (
+            <div className="py-6 text-center">
+              <div className="text-apex-yellow text-2xl mb-2">🔒</div>
+              <p className="text-apex-text-bright font-display font-bold tracking-wide uppercase text-sm mb-2">
+                Wymagane logowanie
+              </p>
+              <p className="text-apex-muted text-xs mb-4">
+                Aby zgłosić uwagę lub sugestię, musisz się zalogować.
+              </p>
+              <Link
+                to={loginHref}
+                onClick={onClose}
+                className="inline-block font-display font-bold text-xs tracking-widest uppercase px-5 py-2 bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright transition-all"
+              >
+                Zaloguj się
+              </Link>
+            </div>
+          ) : submitted ? (
             <div className="py-6 text-center">
               <div className="text-apex-yellow text-2xl mb-2">&#10003;</div>
               <p className="text-apex-text-bright font-display font-bold tracking-wide uppercase text-sm">Dziękujemy za sugestię!</p>
@@ -83,12 +106,6 @@ export default function FeedbackModal({ onClose }) {
                 <label className={labelClass}>Wiadomość</label>
                 <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4}
                   className={`${inputClass} resize-none`} placeholder="Opisz swoją sugestię..." />
-              </div>
-
-              <div>
-                <label className={labelClass}>Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  className={inputClass} placeholder="opcjonalnie, jeśli chcesz odpowiedź" />
               </div>
 
               {error && <div className="text-apex-red text-xs">{error}</div>}

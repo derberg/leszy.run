@@ -1,0 +1,99 @@
+import { describe, it, before, after } from 'node:test'
+import assert from 'node:assert/strict'
+import { supabaseAdmin, FUNCTIONS_URL, createTestSession, cleanupUser, callFunction } from './helpers.js'
+import crypto from 'node:crypto'
+
+async function post(name, sessionToken = null) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (sessionToken) headers['Cookie'] = `leszy_session=${sessionToken}`
+  const res = await fetch(`${FUNCTIONS_URL}/${name}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({}),
+  })
+  return res
+}
+
+describe('export-my-data', () => {
+  let sessionToken, userId
+
+  before(async () => {
+    const session = await createTestSession('export-my-data')
+    userId = session.user.id
+    sessionToken = session.sessionToken
+
+    // Seed a consent_log entry so we can verify it is exported
+    const { error } = await supabaseAdmin.from('consent_log').insert({
+      user_id: userId,
+      decision: 'accepted',
+      policy_version: '2026-06-04',
+    })
+    if (error) throw error
+  })
+
+  after(async () => {
+    await supabaseAdmin.from('consent_log').delete().eq('user_id', userId)
+    await supabaseAdmin.from('user_badges').delete().eq('user_id', userId)
+    await cleanupUser(userId)
+  })
+
+  it('returns 401 for anonymous request (no session cookie)', async () => {
+    const res = await post('export-my-data')
+    assert.equal(res.status, 401)
+  })
+
+  it('returns 200 with user data for authenticated request', async () => {
+    const res = await post('export-my-data', sessionToken)
+    assert.equal(res.status, 200)
+
+    const data = await res.json()
+
+    assert.ok(data.exported_at, 'exported_at should be present')
+    assert.ok(data.policy_version_at_export, 'policy_version_at_export should be present')
+    assert.ok(data.account !== undefined, 'account field should be present')
+    assert.equal(data.account.id, userId, 'account.id should match the authenticated user')
+    assert.ok(Array.isArray(data.badges), 'badges should be an array')
+    assert.ok(Array.isArray(data.consent_log), 'consent_log should be an array')
+    assert.ok(data.consent_log.length >= 1, 'consent_log should contain the seeded entry')
+    assert.equal(data.consent_log[0].user_id, userId)
+    assert.ok(data.contributions !== undefined, 'contributions object should be present')
+    assert.ok(Array.isArray(data.contributions.calendar_event_reports), 'contributions.calendar_event_reports should be an array')
+    assert.ok(Array.isArray(data.contributions.website_feedback), 'contributions.website_feedback should be an array')
+    assert.ok(Array.isArray(data.contributions.submitted_calendar_events), 'contributions.submitted_calendar_events should be an array')
+  })
+
+  it('sets Content-Disposition header with correct filename format', async () => {
+    const res = await post('export-my-data', sessionToken)
+    assert.equal(res.status, 200)
+
+    const disposition = res.headers.get('content-disposition')
+    assert.ok(disposition, 'content-disposition header should be present')
+
+    const date = new Date().toISOString().slice(0, 10)
+    const expected = `attachment; filename="leszy-run-dane-${userId}-${date}.json"`
+    assert.equal(disposition, expected)
+  })
+
+  it('export includes event favorites and weekly_digest', async () => {
+    const { user, sessionToken } = await createTestSession('export-fav')
+    const { data: ev } = await supabaseAdmin.from('calendar_events')
+      .insert({
+        name: `Export Fav Bieg ${Date.now()}`, date: '2030-01-01',
+        source: 'test', source_id: `export-fav-${crypto.randomUUID()}`, status: 'active',
+      })
+      .select('id').single()
+    try {
+      await supabaseAdmin.from('event_favorites').insert({ user_id: user.id, event_id: ev.id })
+      const res = await callFunction('export-my-data', {}, sessionToken)
+      assert.equal(res.status, 200)
+      // export shape: top-level `favorites` array, profile lives under `account`
+      assert.ok(Array.isArray(res.data.favorites))
+      assert.equal(res.data.favorites.length, 1)
+      assert.ok('weekly_digest' in res.data.account)
+    } finally {
+      await supabaseAdmin.from('event_favorites').delete().eq('user_id', user.id)
+      await supabaseAdmin.from('calendar_events').delete().eq('id', ev.id)
+      await cleanupUser(user.id)
+    }
+  })
+})

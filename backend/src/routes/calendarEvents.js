@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient.js'
 import { jaccardSimilarity, citiesMatch } from '../scrapers/dedup.js'
+import { logAdminAction } from '../lib/adminAudit.js'
 
 function capitalizeVoivodeship(s) {
   if (!s) return s
@@ -124,7 +125,7 @@ export async function calendarEventsRoutes(fastify) {
 
     let query = supabase
       .from('calendar_events')
-      .select('*', { count: 'exact' })
+      .select('*, profiles!calendar_events_submitted_by_fkey(id, username, display_name, email)', { count: 'exact' })
       .eq('status', status)
       .order('date', { ascending: true })
       .range(from, from + limit - 1)
@@ -140,6 +141,7 @@ export async function calendarEventsRoutes(fastify) {
 
   fastify.patch('/calendar-events/:id/approve', async (request, reply) => {
     const { id } = request.params
+    await logAdminAction({ action: 'approve_calendar_event', targetTable: 'calendar_events', targetId: id, req: request.raw })
     const { data, error } = await supabase
       .from('calendar_events')
       .update({ status: 'active', updated_at: new Date().toISOString() })
@@ -153,6 +155,7 @@ export async function calendarEventsRoutes(fastify) {
 
   fastify.patch('/calendar-events/:id/reject', async (request, reply) => {
     const { id } = request.params
+    await logAdminAction({ action: 'reject_calendar_event', targetTable: 'calendar_events', targetId: id, req: request.raw })
     const { data, error } = await supabase
       .from('calendar_events')
       .update({ status: 'rejected', updated_at: new Date().toISOString() })
@@ -167,6 +170,7 @@ export async function calendarEventsRoutes(fastify) {
   fastify.post('/calendar-events', async (request, reply) => {
     const event = { ...request.body, source: 'manual', status: 'active' }
     if (event.voivodeship) event.voivodeship = capitalizeVoivodeship(event.voivodeship)
+    await logAdminAction({ action: 'create_calendar_event', targetTable: 'calendar_events', payload: { name: event.name, date: event.date }, req: request.raw })
     const { data, error } = await supabase
       .from('calendar_events')
       .insert(event)
@@ -179,6 +183,7 @@ export async function calendarEventsRoutes(fastify) {
 
   fastify.patch('/calendar-events/:id', async (request, reply) => {
     const { id } = request.params
+    await logAdminAction({ action: 'update_calendar_event', targetTable: 'calendar_events', targetId: id, payload: request.body, req: request.raw })
     const updates = { ...request.body, updated_at: new Date().toISOString() }
     if (updates.voivodeship) updates.voivodeship = capitalizeVoivodeship(updates.voivodeship)
 
@@ -220,6 +225,7 @@ export async function calendarEventsRoutes(fastify) {
 
   fastify.delete('/calendar-events/:id', async (request, reply) => {
     const { id } = request.params
+    await logAdminAction({ action: 'delete_calendar_event', targetTable: 'calendar_events', targetId: id, req: request.raw })
     // Soft-delete: set status to 'rejected' instead of removing the row.
     // Hard delete loses the source+source_id pair, so run-publish.js
     // re-creates the event on next run. Rejected rows are kept to prevent that.

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { anonymizedName } from '../ui/index.js'
 
 function formatTime(iso) {
   return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -32,14 +33,14 @@ export default function NearFinish({ nearFinishCheckpointId, categories }) {
     let participants = []
     if (participantIds.length > 0) {
       const { data } = await supabase.from('participants_public')
-        .select('id, bib_number, first_name, last_name, category_id')
+        .select('id, bib_number, first_name, last_name, category_id, deleted_at')
         .in('id', participantIds)
       participants = data || []
     }
     // Also fetch by bib for observations without participant_id
     if (bibNumbers.length > 0) {
       const { data } = await supabase.from('participants_public')
-        .select('id, bib_number, first_name, last_name, category_id')
+        .select('id, bib_number, first_name, last_name, category_id, deleted_at')
         .in('bib_number', bibNumbers)
       if (data) {
         const existingIds = new Set(participants.map(p => p.id))
@@ -67,8 +68,9 @@ export default function NearFinish({ nearFinishCheckpointId, categories }) {
         id: obs.id,
         bibNumber: obs.bib_number,
         observedAt: obs.observed_at,
-        firstName: p?.first_name || '?',
-        lastName: p?.last_name || '?',
+        first_name: p?.first_name || '?',
+        last_name: p?.last_name || '?',
+        deleted_at: p?.deleted_at || null,
         categoryName: p ? (catMap[p.category_id] || '') : '',
       })
     }
@@ -137,14 +139,21 @@ export default function NearFinish({ nearFinishCheckpointId, categories }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-apex-border">
-            {runners.map(r => (
-              <tr key={r.id} className="hover:bg-apex-surface-2 transition-colors">
-                <td className="px-3 py-1.5 font-mono text-xs">#{r.bibNumber}</td>
-                <td className="px-3 py-1.5">{r.firstName} {r.lastName}</td>
-                <td className="px-3 py-1.5 text-apex-muted">{r.categoryName}</td>
-                <td className="px-3 py-1.5 font-mono text-apex-cyan">{formatTime(r.observedAt)}</td>
-              </tr>
-            ))}
+            {runners.map(r => {
+              const { displayName, isAnonymized, tooltip } = anonymizedName(r)
+              return (
+                <tr key={r.id} className="hover:bg-apex-surface-2 transition-colors">
+                  <td className="px-3 py-1.5 font-mono text-xs">#{r.bibNumber}</td>
+                  <td className="px-3 py-1.5">
+                    <span title={tooltip || undefined} className={isAnonymized ? 'italic text-apex-muted' : ''}>
+                      {displayName}
+                    </span>
+                  </td>
+                  <td className="px-3 py-1.5 text-apex-muted">{r.categoryName}</td>
+                  <td className="px-3 py-1.5 font-mono text-apex-cyan">{formatTime(r.observedAt)}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

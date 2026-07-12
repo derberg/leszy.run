@@ -45,7 +45,7 @@ END $$;
 -- Direct table access removed — check-in pages use PIN-gated RPCs.
 -- View (owned by postgres, security_invoker=false → bypasses RLS):
 CREATE OR REPLACE VIEW participants_public AS
-SELECT id, bib_number, first_name, last_name, club, category_id, emoji, gender
+SELECT id, bib_number, first_name, last_name, club, category_id, emoji, gender, deleted_at
 FROM participants;
 GRANT SELECT ON participants_public TO anon;
 GRANT SELECT ON participants_public TO authenticated;

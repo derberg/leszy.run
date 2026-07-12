@@ -1,5 +1,7 @@
 import { useState, lazy, Suspense } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { Link, useLocation } from 'react-router-dom'
+import { callFunction } from '../lib/auth.js'
+import useAuth from '../hooks/useAuth.js'
 
 const DraggableMap = lazy(() => import('./DraggableMap.jsx'))
 
@@ -121,6 +123,9 @@ function SuggestedInput({ field, value, onChange, event }) {
 }
 
 export default function ReportEventModal({ event, onClose }) {
+  const { user, loading } = useAuth()
+  const location = useLocation()
+  const loginHref = `/login?from=${encodeURIComponent(location.pathname + location.search)}`
   const [field, setField] = useState('')
   const [suggestedValue, setSuggestedValue] = useState('')
   const [sourceUrl, setSourceUrl] = useState('')
@@ -140,21 +145,24 @@ export default function ReportEventModal({ event, onClose }) {
     setSubmitting(true)
     setError(null)
 
-    const { error: err } = await supabase.from('calendar_event_reports').insert({
-      calendar_event_id: event.id,
-      field,
-      old_value: String(getCurrentValue(event, field)),
-      suggested_value: field === 'cancelled' ? 'cancelled' : suggestedValue.trim(),
-      source_url: sourceUrl.trim() || null,
-      note: note.trim() || null,
-    })
-
-    setSubmitting(false)
-    if (err) {
+    try {
+      await callFunction('submit-contribution', {
+        type: 'event_report',
+        reference_id: event.id,
+        payload: {
+          field,
+          old_value: String(getCurrentValue(event, field)),
+          suggested_value: field === 'cancelled' ? 'cancelled' : suggestedValue.trim(),
+          source_url: sourceUrl.trim() || null,
+          note: note.trim() || null,
+        },
+      })
+      setSubmitted(true)
+    } catch (err) {
       setError('Nie udało się wysłać zgłoszenia.')
       console.error('Report error:', err.message)
-    } else {
-      setSubmitted(true)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -171,7 +179,24 @@ export default function ReportEventModal({ event, onClose }) {
 
           <div className="text-sm text-apex-muted mb-4 truncate">{event.name}</div>
 
-          {submitted ? (
+          {loading ? null : !user ? (
+            <div className="py-6 text-center">
+              <div className="text-apex-yellow text-2xl mb-2">🔒</div>
+              <p className="text-apex-text-bright font-display font-bold tracking-wide uppercase text-sm mb-2">
+                Wymagane logowanie
+              </p>
+              <p className="text-apex-muted text-xs mb-4">
+                Aby zgłosić poprawkę do wydarzenia, musisz się zalogować. Dzięki temu możesz śledzić swoje zgłoszenia i zdobywać odznaki.
+              </p>
+              <Link
+                to={loginHref}
+                onClick={onClose}
+                className="inline-block font-display font-bold text-xs tracking-widest uppercase px-5 py-2 bg-apex-yellow text-apex-ink hover:bg-apex-yellow-bright transition-all"
+              >
+                Zaloguj się
+              </Link>
+            </div>
+          ) : submitted ? (
             <div className="py-6 text-center">
               <div className="text-apex-yellow text-2xl mb-2">&#10003;</div>
               <p className="text-apex-text-bright font-display font-bold tracking-wide uppercase text-sm">Zgłoszenie wysłane</p>
@@ -233,3 +258,4 @@ export default function ReportEventModal({ event, onClose }) {
     </div>
   )
 }
+

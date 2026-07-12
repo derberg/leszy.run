@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js'
+import { logAdminAction } from '../lib/adminAudit.js'
 
 export async function calendarEventReportsRoutes(fastify) {
   fastify.get('/calendar-event-reports', async (request, reply) => {
@@ -6,7 +7,7 @@ export async function calendarEventReportsRoutes(fastify) {
 
     const { data: reports, error } = await supabase
       .from('calendar_event_reports')
-      .select('*, calendar_events(*)')
+      .select('*, calendar_events(*), profiles!calendar_event_reports_user_id_fkey(id, username, display_name, email)')
       .eq('status', status)
       .order('created_at', { ascending: false })
 
@@ -27,6 +28,8 @@ export async function calendarEventReportsRoutes(fastify) {
     if (fetchErr || !report) return reply.status(404).send({ error: 'Report not found' })
 
     const value = override !== undefined ? override : report.suggested_value
+
+    await logAdminAction({ action: 'accept_calendar_event_report', targetTable: 'calendar_event_reports', targetId: id, payload: { field: report.field, suggested_value: value }, req: request.raw })
 
     const eventUpdate = { updated_at: new Date().toISOString() }
 
@@ -59,6 +62,7 @@ export async function calendarEventReportsRoutes(fastify) {
 
   fastify.patch('/calendar-event-reports/:id/reject', async (request, reply) => {
     const { id } = request.params
+    await logAdminAction({ action: 'reject_calendar_event_report', targetTable: 'calendar_event_reports', targetId: id, req: request.raw })
 
     const { error } = await supabase
       .from('calendar_event_reports')

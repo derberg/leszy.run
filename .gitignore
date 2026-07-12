@@ -20,5 +20,7 @@ enricher/.env
 enricher/logs/
 enricher/searxng-data/
 backend/logs/
+docs/gdpr/dpa-checklist.md
+docs/gdpr/incidents/
 supabase/.temp/linked-project.json
 test-results/public-tests-e2e*
