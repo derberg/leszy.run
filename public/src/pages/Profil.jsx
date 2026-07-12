@@ -677,9 +677,32 @@ function ProfilContent() {
             </div>
 
             <div className={sectionTitle}>Moje zgłoszenia</div>
-            <p className="font-sans text-xs text-apex-muted -mt-2 mb-4">
+            <p className="font-sans text-xs text-apex-muted -mt-2 mb-2">
               Twoje raporty o poprawkach do wydarzeń oraz propozycje nowych wydarzeń wysłane do kalendarza.
             </p>
+            <details className="font-sans text-[11px] text-apex-muted mb-4 group">
+              <summary className="cursor-pointer text-apex-muted hover:text-apex-yellow list-none inline-flex items-center gap-1">
+                <span className="text-apex-yellow-dim group-open:rotate-90 transition-transform inline-block">›</span>
+                Co to są zgłoszenia?
+              </summary>
+              <p className="mt-1.5 pl-3 border-l border-apex-border leading-relaxed">
+                Zgłoszenia to Twój wkład w kalendarz biegów. Są dwa rodzaje:{' '}
+                <span className="text-apex-yellow-dim">raport</span> — poprawka do istniejącego
+                wydarzenia, którą wysyłasz przyciskiem <span className="text-apex-yellow-dim">„Zgłoś poprawkę"</span>{' '}
+                na stronie biegu; oraz <span className="text-apex-yellow-dim">nowe wydarzenie</span> —
+                propozycja biegu, którego jeszcze nie ma w{' '}
+                <a href="/kalendarz" className="text-apex-yellow underline">kalendarzu</a>.
+              </p>
+              <p className="mt-1.5 pl-3 border-l border-apex-border leading-relaxed">
+                Na liście poniżej rozpoznasz je po tagu z rodzajem (raport / nowe wydarzenie) po lewej
+                i statusie po prawej: <span className="text-apex-yellow-dim">Oczekujące</span> (czeka
+                na sprawdzenie), <span className="text-apex-yellow-dim">Zaakceptowane</span> (poprawka
+                lub wydarzenie trafiło do publicznego kalendarza) albo{' '}
+                <span className="text-apex-yellow-dim">Odrzucone</span>. Zakładkami powyżej
+                przefiltrujesz listę po statusie. Dzięki zgłoszeniom kalendarz jest aktualny —
+                a Ty zdobywasz odznaki za wkład.
+              </p>
+            </details>
             <div className="flex flex-wrap gap-2 mb-4">
               {[
                 { key: 'all', label: 'Wszystkie' },
