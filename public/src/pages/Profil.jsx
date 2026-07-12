@@ -622,6 +622,13 @@ function ProfilContent() {
                   daty zapisów, nie damy rady ostrzec Cię, że zostało 7 dni do jej końca. Podobnie
                   link do zapisów pojawi się dopiero, gdy trafi do naszej bazy.
                 </p>
+                <p className="mt-1.5 pl-3 border-l border-apex-border leading-relaxed">
+                  Widzisz brakującą datę, link albo błąd? Każdy członek społeczności leszy.run
+                  może pomóc — przyciskiem <span className="text-apex-yellow-dim">„Zgłoś poprawkę"</span>{' '}
+                  przy wydarzeniu w <a href="/kalendarz" className="text-apex-yellow underline">kalendarzu</a>{' '}
+                  zgłosisz poprawkę i uzupełnisz brakujące dane. Im więcej osób dba o dane, tym
+                  lepsze powiadomienia dla wszystkich.
+                </p>
               </details>
 
               {notifications.length > 0 && (
