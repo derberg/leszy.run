@@ -21,6 +21,14 @@ const TYPE_LABELS = {
   deadline_soon: 'Zostało mniej niż 7 dni do końca zapisów',
 }
 
+// Accent color per notification type — a left stripe on each row. On-brand
+// acid-yellow for "good news", red for cancellations, amber for deadlines.
+const TYPE_ACCENT = {
+  cancelled: '#EF4444',
+  registration_opened: '#BBDD00',
+  deadline_soon: '#F59E0B',
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (ch) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
@@ -143,16 +151,95 @@ for (const user of users) {
     .map((n) => {
       const name = n.calendar_events?.name ?? 'Wydarzenie'
       const url = `https://www.leszy.run/kalendarz/${slugify(name, n.calendar_events?.date)}`
-      return `<li><strong>${TYPE_LABELS[n.type]}</strong> — <a href="${url}">${escapeHtml(name)}</a></li>`
+      const accent = TYPE_ACCENT[n.type] || '#BBDD00'
+      return `
+              <tr>
+                <td style="padding:0 0 12px 0;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;background:#ffffff;border:1px solid #e5e5ea;border-left:3px solid ${accent};">
+                    <tr>
+                      <td style="padding:14px 18px;">
+                        <p style="margin:0 0 6px 0;font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#8886a0;">${TYPE_LABELS[n.type]}</p>
+                        <a href="${url}" style="font-size:16px;font-weight:800;line-height:1.3;color:#1a1a28;text-decoration:none;letter-spacing:-0.01em;">${escapeHtml(name)}</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>`
     })
     .join('\n')
-  const html = `
-    <p>Cześć${user.username ? ` ${escapeHtml(user.username)}` : ''}!</p>
-    <p>W obserwowanych przez Ciebie biegach w ostatnim tygodniu:</p>
-    <ul>${items}</ul>
-    <p><a href="https://www.leszy.run/profil">Zarządzaj obserwowanymi i powiadomieniami</a></p>
-    <p style="color:#888;font-size:12px">Dostajesz tę wiadomość, bo masz włączone cotygodniowe
-    podsumowanie na leszy.run. Możesz je wyłączyć w swoim profilu.</p>`
+  const html = `<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Co nowego w obserwowanych biegach</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f4f4f6;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:520px;background:#ffffff;border:1px solid #e5e5ea;">
+          <tr>
+            <td align="center" style="padding:0;">
+              <a href="https://www.leszy.run" style="text-decoration:none;display:block;">
+                <img src="https://www.leszy.run/og-image.png" alt="Leszy.run" width="520" style="display:block;width:100%;max-width:520px;height:auto;border:0;"/>
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 32px 8px 32px;">
+              <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#8886a0;">Podsumowanie tygodnia</p>
+              <h1 style="margin:0 0 8px 0;font-size:22px;font-weight:800;line-height:1.3;color:#1a1a28;letter-spacing:-0.01em;">
+                Cześć${user.username ? ` ${escapeHtml(user.username)}` : ''}! Co nowego w Twoich biegach
+              </h1>
+              <p style="margin:0;font-size:14px;line-height:1.6;color:#525266;">
+                W obserwowanych przez Ciebie biegach w ostatnim tygodniu wydarzyło się to:
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 8px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;">
+                ${items}
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:16px 32px 8px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="background:#BBDD00;">
+                    <a href="https://www.leszy.run/profil" style="display:inline-block;padding:14px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#0A0A10;text-decoration:none;">
+                      Zarządzaj obserwowanymi
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 32px 32px;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#8886a0;border-top:1px solid #e5e5ea;padding-top:16px;">
+                Dostajesz tę wiadomość, bo masz włączone cotygodniowe podsumowanie na leszy.run.
+                Możesz je wyłączyć w <a href="https://www.leszy.run/profil" style="color:#525266;">swoim profilu</a>.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 32px 24px 32px;">
+              <p style="margin:0;font-size:11px;line-height:1.5;color:#8886a0;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">
+                <a href="https://www.leszy.run" style="color:#8886a0;text-decoration:none;">Leszy.run</a>
+                <span style="color:#cccccc;">&nbsp;·&nbsp;</span>
+                <span>Kalendarz biegów w Polsce</span>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
 
   if (dryRun) {
     console.log(`WOULD SEND to ${user.email}: ${mine.length} item(s)`)
