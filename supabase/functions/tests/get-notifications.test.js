@@ -32,7 +32,7 @@ describe('get-notifications', () => {
       await supabaseAdmin.from('event_favorites')
         .insert({ user_id: me.user.id, event_id: lateEvent, created_at: new Date(Date.now() - 60_000).toISOString() })
       await supabaseAdmin.from('event_notifications')
-        .insert({ event_id: lateEvent, type: 'cancelled' })
+        .insert({ event_id: lateEvent, type: 'deadline_soon' })
 
       // The list only comes back on the feed path (markSeen); the badge path
       // returns the count only.
@@ -40,7 +40,7 @@ describe('get-notifications', () => {
       assert.equal(res.status, 200)
       assert.equal(res.data.notifications.length, 1)
       assert.equal(res.data.notifications[0].event_id, lateEvent)
-      assert.equal(res.data.notifications[0].type, 'cancelled')
+      assert.equal(res.data.notifications[0].type, 'deadline_soon')
       assert.ok(res.data.notifications[0].event_name)
       assert.equal(res.data.unseenCount, 1)
     } finally {
