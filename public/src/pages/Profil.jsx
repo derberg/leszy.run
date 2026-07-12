@@ -608,8 +608,9 @@ function ProfilContent() {
             <div className="mb-10">
               <div className={sectionTitle}>Obserwowane biegi</div>
               <p className="font-sans text-xs text-apex-muted -mt-2 mb-4">
-                Powiadomimy Cię tutaj, gdy obserwowany bieg zostanie odwołany, pojawi się link do zapisów
-                lub zostanie 7 dni do końca zapisów.
+                Powiadomimy Cię tutaj, gdy dla obserwowanego biegu pojawi się link do zapisów
+                lub zostanie 7 dni do końca zapisów. O odwołaniu biegu poinformujemy, jeśli
+                dowiemy się o tym od organizatora.
               </p>
 
               {notifications.length > 0 && (
