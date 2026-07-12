@@ -253,7 +253,7 @@ writes to Supabase first (not local), so all check-in data has a single source o
 - `geocode_cache` — Nominatim geocoding results cache
 - `url_suggestions` — Brave Search URL candidates pending admin review
 - `event_favorites` — user star/follow shortlist (service-role only, written via `toggle-favorite` edge function)
-- `event_notifications` — event-level notification log (`cancelled` / `registration_opened` / `deadline_soon`); rows produced by a `calendar_events` trigger + `run-deadline-notifications.js`; UNIQUE(event_id, type)
+- `event_notifications` — event-level notification log (`registration_opened` / `deadline_soon`); rows produced by a `calendar_events` trigger + `run-deadline-notifications.js`; UNIQUE(event_id, type). No `cancelled` type — cancellation alerts were intentionally dropped (we can't promise them; cancellation data depends on organizers reporting it).
 - `event_results_summary` — read-only view aggregating per-event stats (participants, finishers, timed distances, fastest finisher) for past-event public pages; only `participants` + `distances` are currently surfaced. Created via `apply_migration` only.
 - `event_category_best_times` — read-only view: best finish time per event × timed category × gender (`M`/`K` only; non-cancelled runs, untimed categories excluded). Feeds the past-event "Najlepsze czasy" table. Created via `apply_migration` only.
 

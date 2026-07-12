@@ -609,8 +609,7 @@ function ProfilContent() {
               <div className={sectionTitle}>Obserwowane biegi</div>
               <p className="font-sans text-xs text-apex-muted -mt-2 mb-4">
                 Powiadomimy Cię tutaj, gdy dla obserwowanego biegu pojawi się link do zapisów
-                lub zostanie 7 dni do końca zapisów. O odwołaniu biegu poinformujemy, jeśli
-                dowiemy się o tym od organizatora.
+                lub zostanie 7 dni do końca zapisów.
               </p>
 
               {notifications.length > 0 && (
@@ -618,11 +617,10 @@ function ProfilContent() {
                   {notifications.map((n) => (
                     <div key={n.id} className="flex items-center gap-3 py-2 border-b border-apex-border/50 text-xs">
                       <span className={`px-1.5 py-0.5 font-mono text-[9px] border flex-shrink-0 ${
-                        n.type === 'cancelled' ? 'border-apex-red/40 text-apex-red'
-                        : n.type === 'registration_opened' ? 'border-green-800 text-green-400'
+                        n.type === 'registration_opened' ? 'border-green-800 text-green-400'
                         : 'border-apex-yellow-dim text-apex-yellow'
                       }`}>
-                        {n.type === 'cancelled' ? 'Odwołany' : n.type === 'registration_opened' ? 'Zapisy ruszyły' : 'Koniec zapisów blisko'}
+                        {n.type === 'registration_opened' ? 'Zapisy ruszyły' : 'Koniec zapisów blisko'}
                       </span>
                       <a href={`/kalendarz/${slugify(n.event_name || '', n.event_date)}`} className="flex-1 text-apex-text truncate no-underline hover:text-apex-yellow">
                         {n.event_name}

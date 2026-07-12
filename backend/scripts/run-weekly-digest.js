@@ -16,15 +16,13 @@ const supabase = createClient(
 )
 
 const TYPE_LABELS = {
-  cancelled: 'Bieg odwołany',
   registration_opened: 'Zapisy ruszyły',
   deadline_soon: 'Zostało mniej niż 7 dni do końca zapisów',
 }
 
 // Accent color per notification type — a left stripe on each row. On-brand
-// acid-yellow for "good news", red for cancellations, amber for deadlines.
+// acid-yellow for "good news", amber for deadlines.
 const TYPE_ACCENT = {
-  cancelled: '#EF4444',
   registration_opened: '#BBDD00',
   deadline_soon: '#F59E0B',
 }

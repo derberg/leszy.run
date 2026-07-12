@@ -37,24 +37,14 @@ async function cleanup(eventId) {
 }
 
 describe('trg_notify_calendar_event_changes', () => {
-  it('status -> cancelled fires exactly once', async () => {
+  it('status -> cancelled does NOT fire (cancellation alerts intentionally removed)', async () => {
+    // We only promise notifications for data we control (registration URL /
+    // deadline). Cancellations depend on organizers, which we cannot guarantee,
+    // so the trigger no longer emits a 'cancelled' notification.
     const id = await createTestEvent()
     try {
       await supabaseAdmin.from('calendar_events').update({ status: 'cancelled' }).eq('id', id)
-      assert.equal(await notifCount(id, 'cancelled'), 1)
-    } finally {
-      await cleanup(id)
-    }
-  })
-
-  it('re-cancel after flipping back to active does not duplicate', async () => {
-    const id = await createTestEvent()
-    try {
-      await supabaseAdmin.from('calendar_events').update({ status: 'cancelled' }).eq('id', id)
-      // flip back and re-cancel — unique constraint keeps it at 1
-      await supabaseAdmin.from('calendar_events').update({ status: 'active' }).eq('id', id)
-      await supabaseAdmin.from('calendar_events').update({ status: 'cancelled' }).eq('id', id)
-      assert.equal(await notifCount(id, 'cancelled'), 1)
+      assert.equal(await notifCount(id, 'cancelled'), 0)
     } finally {
       await cleanup(id)
     }
