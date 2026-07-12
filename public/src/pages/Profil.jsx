@@ -607,10 +607,22 @@ function ProfilContent() {
           <div className="flex-1">
             <div className="mb-10">
               <div className={sectionTitle}>Obserwowane biegi</div>
-              <p className="font-sans text-xs text-apex-muted -mt-2 mb-4">
+              <p className="font-sans text-xs text-apex-muted -mt-2 mb-2">
                 Powiadomimy Cię tutaj, gdy dla obserwowanego biegu pojawi się link do zapisów
                 lub zostanie 7 dni do końca zapisów.
               </p>
+              <details className="font-sans text-[11px] text-apex-muted mb-4 group">
+                <summary className="cursor-pointer text-apex-muted hover:text-apex-yellow list-none inline-flex items-center gap-1">
+                  <span className="text-apex-yellow-dim group-open:rotate-90 transition-transform inline-block">›</span>
+                  Skąd biorą się powiadomienia?
+                </summary>
+                <p className="mt-1.5 pl-3 border-l border-apex-border leading-relaxed">
+                  Powiadomienia są tak dobre, jak dane, które mamy w Leszym. Opieramy je na tym,
+                  co udostępniają organizatorzy — jeśli organizator nie poda w systemie ostatecznej
+                  daty zapisów, nie damy rady ostrzec Cię, że zostało 7 dni do jej końca. Podobnie
+                  link do zapisów pojawi się dopiero, gdy trafi do naszej bazy.
+                </p>
+              </details>
 
               {notifications.length > 0 && (
                 <div className="mb-5 space-y-0" data-testid="notifications-feed">
