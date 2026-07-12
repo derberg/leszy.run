@@ -956,7 +956,10 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
   console.log('[merge:phase1] Merging raw tables → scraper_all...')
 
   // Skip non-running events (cycling, MTB, triathlon, gravel, SUP, skating, etc.)
-  const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|triathlon|duathlon|aquathlon|gravel|gravelow[aey]?|enduro|sup race|wrotkars[a-z]*|jumping zoo|skill lab|turniej|3v3)\b/i
+  // Non-running: cycling (incl. English "bike"), triathlon family, gravel/enduro,
+  // SUP, skating, and all swimming (open water / ice / winter swim, PL "pływanie",
+  // "morsowanie"). "Run & Bike" is guarded below — it keeps a running leg.
+  const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|bike|triathlon|duathlon|aquathlon|gravel|gravelow[aey]?|enduro|sup race|swim\w*|open water|pływani\w*|morsowani\w*|wrotkars[a-z]*|jumping zoo|skill lab|turniej|3v3)\b/i
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -1010,8 +1013,12 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           // maratonypolskie AND biegiwpolsce) — repeatedly rejected, block by name for any source.
           const isWtorkiJunk = raw.name && /wtorkibiegowe/i.test(raw.name.replace(/\s+/g, ''))
 
+          // "Run & Bike" (bieg + rower relay) keeps a running leg — exempt it from
+          // the `bike` keyword so it isn't wrongly dropped as a cycling event.
+          const isRunBike = raw.name && /\brun\s*&?\s*bike\b|biegowo[- ]?rowerow/i.test(raw.name)
+
           // Skip non-running events and past events — mark merged so they don't re-appear
-          if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || (raw.date && raw.date < today) || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
+          if ((raw.name && SKIP_KEYWORDS.test(raw.name) && !isRunBike) || (raw.date && raw.date < today) || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
             stats.skipped++
             if (raw.name && SKIP_KEYWORDS.test(raw.name)) stats.skippedReasons.non_running++
             else if (raw.date && raw.date < today) stats.skippedReasons.past_date++
