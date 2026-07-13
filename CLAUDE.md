@@ -306,6 +306,8 @@ The whole accounts/community product (login, profile, favorites/stars, notificat
 
 **Rule:** any new account/community UI MUST be gated with `useBeta()` (hide when off) — never render it unconditionally. It is a visibility switch, not a security boundary (routes + edge functions stay publicly reachable). The e2e suite forces the flag on via a `storageState` fixture (`public/tests/e2e/beta-storage.json`).
 
+**Auth transport — edge functions go through same-origin `/edge`, NEVER raw `VITE_SUPABASE_URL`.** The session is an httpOnly cookie the edge functions set. A cookie set by `*.supabase.co` while the page is on `leszy.run` is a THIRD-PARTY cookie that browsers block (Safari always, Chrome/Firefox increasingly) — login "succeeds" but the session never persists. So `public/vercel.json` (and the vite dev-server proxy in `public/vite.config.js`) rewrites `/edge/*` → `<project>.supabase.co/functions/v1/*`, making the cookie first-party. **Rule:** any client call to an edge function that depends on the session cookie MUST use the `FUNCTIONS_BASE` (`/edge`) constant from `public/src/lib/auth.js` — never build the URL from `VITE_SUPABASE_URL` directly. (The `supabase-js` DB client in `lib/supabase.js` is exempt: it uses bearer tokens, not cookies, so it hits `*.supabase.co` directly.)
+
 ### Logo
 - `public/public/logo-bez-napisu.svg` — Leszy character without text. Two green leaves (top-left, top-right), black body/roots.
 - `public/public/logo.svg` — full logo with text (used as watermark in `app.css`)
