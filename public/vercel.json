@@ -1,5 +1,8 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/edge/:name*", "destination": "https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/:name*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
