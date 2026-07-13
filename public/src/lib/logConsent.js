@@ -1,10 +1,9 @@
 import { POLICY_VERSION } from './policyVersion'
+import { FUNCTIONS_BASE } from './auth.js'
 
 export async function logConsentServerSide(decision = 'accepted') {
   try {
-    const apiUrl = import.meta.env.VITE_SUPABASE_URL
-    if (!apiUrl) return
-    await fetch(`${apiUrl}/functions/v1/log-consent`, {
+    await fetch(`${FUNCTIONS_BASE}/log-consent`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },

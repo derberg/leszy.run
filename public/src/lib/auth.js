@@ -1,4 +1,13 @@
-const FUNCTIONS_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
+// Edge functions are reached through a SAME-ORIGIN path (`/edge/*`), which a
+// Vercel rewrite (public/vercel.json) — and the vite dev-server proxy locally —
+// proxies to `<project>.supabase.co/functions/v1/*`. This is load-bearing for
+// auth: the session lives in an httpOnly cookie the functions set, and a cookie
+// set by `*.supabase.co` while the page is on `leszy.run` is a THIRD-PARTY
+// cookie that browsers block by default (Safari always, Chrome/Firefox
+// increasingly). Routing through our own origin makes the cookie first-party so
+// it actually persists and gets sent back. NEVER call the functions at the raw
+// `VITE_SUPABASE_URL` when the call depends on the session cookie.
+export const FUNCTIONS_BASE = '/edge'
 
 // Client-side user cache. The session itself is a 90-day httpOnly cookie the
 // browser sends automatically; this cache just remembers WHO that cookie

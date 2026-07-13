@@ -3,7 +3,7 @@ import AuthGuard from '../components/AuthGuard.jsx'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import useAuth from '../hooks/useAuth.js'
-import { callFunction } from '../lib/auth.js'
+import { callFunction, FUNCTIONS_BASE } from '../lib/auth.js'
 import useSeo from '../hooks/useSeo.js'
 import ClubInput from '../components/ClubInput.jsx'
 import useFavorites from '../hooks/useFavorites.js'
@@ -276,13 +276,11 @@ function DangerZone() {
   const [code, setCode] = useState('')
   const [error, setError] = useState(null)
 
-  const apiUrl = import.meta.env.VITE_SUPABASE_URL
-
   async function downloadData() {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`${apiUrl}/functions/v1/export-my-data`, {
+      const res = await fetch(`${FUNCTIONS_BASE}/export-my-data`, {
         method: 'POST',
         credentials: 'include',
       })
@@ -305,7 +303,7 @@ function DangerZone() {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`${apiUrl}/functions/v1/delete-my-account`, {
+      const res = await fetch(`${FUNCTIONS_BASE}/delete-my-account`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -324,7 +322,7 @@ function DangerZone() {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`${apiUrl}/functions/v1/delete-my-account`, {
+      const res = await fetch(`${FUNCTIONS_BASE}/delete-my-account`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
