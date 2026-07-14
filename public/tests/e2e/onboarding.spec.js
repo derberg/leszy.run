@@ -24,7 +24,7 @@ test.describe('Onboarding', () => {
     const username = `onb_${Date.now()}`.slice(0, 28).toLowerCase()
     await page.getByLabel(/nazwa użytkownika/i).fill(username)
     await page.getByRole('button', { name: /zapisz/i }).click()
-    await page.waitForURL('/profil')
+    await page.waitForURL(/\/profil/)
   })
 
   test('shows error for username shorter than 3 chars', async ({ page, context }) => {
@@ -39,7 +39,7 @@ test.describe('Onboarding', () => {
     await supabaseAdmin.from('profiles').update({ username: 'already_set_user' }).eq('id', testUser.user.id)
     await testUser.injectSession(context)
     await page.goto('/onboarding')
-    await page.waitForURL('/profil')
+    await page.waitForURL(/\/profil/)
   })
 
   test('live check shows "zajęta" for a taken username', async ({ page, context }) => {
@@ -75,7 +75,7 @@ test.describe('Onboarding', () => {
       const username = `clb_${Date.now()}`.slice(0, 28).toLowerCase()
       await page.getByLabel(/nazwa użytkownika/i).fill(username)
       await page.getByRole('button', { name: /zapisz/i }).click()
-      await page.waitForURL('/profil')
+      await page.waitForURL(/\/profil/)
       const { data: prof } = await supabaseAdmin.from('profiles').select('club_id').eq('id', testUser.user.id).single()
       expect(prof.club_id).toBe(clubId)
     } finally {

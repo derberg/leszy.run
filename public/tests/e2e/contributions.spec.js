@@ -31,7 +31,7 @@ test.describe('Community flows with auth', () => {
     await page.locator('input[type="text"]').last().fill(`${E2E_MARKER} Poprawiona nazwa`)
     await page.getByRole('button', { name: /wyślij/i }).click()
     await expect(page.getByText(/dziękujemy/i)).toBeVisible()
-    await page.goto('/profil')
+    await page.goto('/profil/zgloszenia')
     await expect(page.getByText(/raport/i).first()).toBeVisible()
   })
 

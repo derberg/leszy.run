@@ -24,7 +24,7 @@ test.describe('Login page', () => {
     )
     await testUser.injectSession(context)
     await page.goto('/login')
-    await page.waitForURL('/profil')
+    await page.waitForURL(/\/profil/)
     await cleanupUser(testUser.user.id)
   })
 
