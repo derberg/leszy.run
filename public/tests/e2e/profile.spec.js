@@ -27,13 +27,13 @@ test.describe('Profil page', () => {
 
   test('shows empty contributions state', async ({ page, context }) => {
     await testUser.injectSession(context)
-    await page.goto('/profil')
-    await expect(page.getByText(/brak wkładów/i)).toBeVisible()
+    await page.goto('/profil/zgloszenia')
+    await expect(page.getByText(/brak zgłoszeń/i)).toBeVisible()
   })
 
   test('can edit display_name', async ({ page, context }) => {
     await testUser.injectSession(context)
-    await page.goto('/profil')
+    await page.goto('/profil/ustawienia')
     await page.getByTestId('edit-display_name').click({ force: true })
     await page.getByTestId('input-display_name').fill('Jan Testowy')
     await page.getByTestId('save-display_name').click()
@@ -45,7 +45,7 @@ test.describe('Profil page', () => {
     const { data: clubId } = await supabaseAdmin.rpc('find_or_create_club', { club_name: clubName })
     try {
       await testUser.injectSession(context)
-      await page.goto('/profil')
+      await page.goto('/profil/ustawienia')
       await page.getByTestId('edit-club').click()
       await page.getByTestId('input-club').fill('ks profilowo')
       await page.getByRole('option', { name: new RegExp(clubName) }).click()

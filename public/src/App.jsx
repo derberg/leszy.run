@@ -22,6 +22,9 @@ const LandingPage = lazy(() => import('./pages/LandingPage.jsx'))
 const Login = lazy(() => import('./pages/Login.jsx'))
 const Onboarding = lazy(() => import('./pages/Onboarding.jsx'))
 const Profil = lazy(() => import('./pages/Profil.jsx'))
+const Obserwowane = lazy(() => import('./pages/profil/Obserwowane.jsx'))
+const Zgloszenia = lazy(() => import('./pages/profil/Zgloszenia.jsx'))
+const Ustawienia = lazy(() => import('./pages/profil/Ustawienia.jsx'))
 const UserProfile = lazy(() => import('./pages/UserProfile.jsx'))
 const PolitykaPrywatnosci = lazy(() => import('./pages/PolitykaPrywatnosci.jsx'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'))
@@ -68,7 +71,12 @@ export default function App() {
           <Route path="/listy/*" element={<LandingPage />} />
           <Route path="/login" element={beta ? <Login /> : <Navigate to="/" replace />} />
           <Route path="/onboarding" element={beta ? <Onboarding /> : <Navigate to="/" replace />} />
-          <Route path="/profil" element={beta ? <Profil /> : <Navigate to="/" replace />} />
+          <Route path="/profil" element={beta ? <Profil /> : <Navigate to="/" replace />}>
+            <Route index element={<Navigate to="obserwowane" replace />} />
+            <Route path="obserwowane" element={<Obserwowane />} />
+            <Route path="zgloszenia" element={<Zgloszenia />} />
+            <Route path="ustawienia" element={<Ustawienia />} />
+          </Route>
           <Route path="/u/:username" element={beta ? <UserProfile /> : <Navigate to="/" replace />} />
           <Route path="/polityka-prywatnosci" element={<PolitykaPrywatnosci />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
