@@ -45858,31 +45858,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "krol-parku-2026-09-20": {
-    "id": "2bff1a12-6fb5-4fef-8c25-f1216f71aabc",
-    "name": "Król Parku",
-    "date": "2026-09-20",
-    "registration_deadline": null,
-    "regulamin_url": "https://www.filmweb.pl/serial/Kr%C3%B3l-2020-833526",
-    "price_from": null,
-    "price_to": null,
-    "location": "Mosina",
-    "voivodeship": "Wielkopolskie",
-    "lat": 52.245583,
-    "lng": 16.847259,
-    "distances": [
-      "10 km",
-      "21 km",
-      "60 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://www.filmweb.pl/serial/Kr%C3%B3l-2020-833526",
-    "website": "https://krolparku.pl",
-    "is_kids": null,
-    "status": "active"
-  },
   "vii-bieg-pocztyliona-2026-09-20": {
     "id": "3039b311-90af-4edc-ab06-dda849fcedbc",
     "name": "VII Bieg Pocztyliona",
@@ -46285,6 +46260,30 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16887",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "krol-parku-2026-09-20": {
+    "id": "2bff1a12-6fb5-4fef-8c25-f1216f71aabc",
+    "name": "Król Parku",
+    "date": "2026-09-20",
+    "registration_deadline": null,
+    "regulamin_url": "https://krolparku.pl/regulamin/",
+    "price_from": null,
+    "price_to": null,
+    "location": "Mosina",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.245583,
+    "lng": 16.847259,
+    "distances": [
+      "10 km",
+      "21 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://panel.maratonczykpomiarczasu.pl/krol-parku2026",
+    "website": "https://krolparku.pl",
     "is_kids": null,
     "status": "active"
   },
