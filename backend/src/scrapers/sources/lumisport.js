@@ -63,6 +63,22 @@ function parseDate(text) {
   return null
 }
 
+// Extract location from a "Miejsce:" / "Lokalizacja:" label in the description.
+// lumisport products carry no structured location field, so mine the prose label.
+// Value is stored raw (e.g. "Góra Kamieńsk", "Tor motocrossowy – Piątkowisko") and
+// left for the geocode step to resolve — Nominatim handles these venue strings.
+// Capture stops at the next known label so we don't swallow the rest of the blurb.
+const LOCATION_STOP_LABELS = 'Data|Termin|Dystans|Dystanse|Dysatans|Start|Godzina|Trasa|Zapisy|Opłat|Cena|Kontakt|Organizator|Nagrod|Pakiet|Limit'
+function parseLocation(text) {
+  if (!text) return null
+  const m = text.match(
+    new RegExp(`(?:Miejsce|Lokalizacja)\\s*:?\\s*(.+?)(?=\\s+(?:${LOCATION_STOP_LABELS})\\b|[.!?]|$)`, 'i')
+  )
+  if (!m) return null
+  const loc = m[1].trim().replace(/[.,;:\s]+$/, '')
+  return loc.length >= 2 && loc.length <= 70 ? loc : null
+}
+
 function parseDistances(attributes) {
   if (!Array.isArray(attributes)) return { distances: null, isKids: false }
   const dystans = attributes.find(a => a.taxonomy === 'pa_dystans')
@@ -174,7 +190,7 @@ async function scrape({ knownIds = new Set() } = {}) {
       results.push({
         name,
         date,
-        location: null,
+        location: parseLocation(descText),
         distances,
         registration_url: permalink,
         regulamin_url: null,
@@ -204,4 +220,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape, parseDate, parseDistances, parsePrices, decodeEntities }
+export { scrape, parseDate, parseDistances, parsePrices, decodeEntities, parseLocation }
