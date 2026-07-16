@@ -93,8 +93,13 @@ ALTER TABLE clubs ADD COLUMN description  TEXT;
 ALTER TABLE clubs ADD COLUMN city         TEXT;
 ALTER TABLE clubs ADD COLUMN voivodeship  TEXT;                -- capitalized (Pomorskie, …)
 ALTER TABLE clubs ADD COLUMN is_public    BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE clubs ADD COLUMN pending_owner_id UUID REFERENCES profiles(id) ON DELETE SET NULL;
 -- keep: id, name, normalized_name (unique), created_at
 ```
+
+- `pending_owner_id` holds a **nominated** new owner during ownership transfer. Ownership
+  only moves when that nominee accepts (see `transfer-ownership` below); nominating does
+  not change `owner_id`.
 
 - `owner_id` is `NOT NULL` for all post-migration clubs (enforced by `create-club`, not a
   table constraint, so the migration can wipe cleanly first). `ON DELETE RESTRICT`: a
@@ -200,14 +205,15 @@ rest verify the session inside.**
 |---|---|---|---|
 | `create-club` | member | Create a club (name, slug gen, description, optional logo). Caller becomes `owner` (active). Blocks if caller already has an active membership. | `clubs`, `club_members`, `profiles` |
 | `update-club` | owner/admin | Edit name/description/logo/`city`/`voivodeship`/`is_public`. Regenerates slug only on explicit rename (avoid breaking links). | `clubs` |
-| `upload-club-logo` | owner/admin | Upload image to `club-logos` bucket, set `clubs.logo_url`. Validates type/size. | Storage + `clubs` |
+| `upload-club-logo` | owner/admin | Upload image to `club-logos` bucket, set `clubs.logo_url`. Accepts **PNG/JPG/WebP only** (no SVG — avoids XSS on the public SSR page), max 5 MB upload; **downscales to 512×512 and stores as WebP** (Deno image lib, e.g. `imagescript`). | Storage + `clubs` |
+| `transfer-ownership` | owner / nominee | Owner nominates an active member (`clubs.pending_owner_id`) or cancels; nominee accepts (→ `owner_id` = nominee, old owner → `admin`, clear pending) or declines. **Acceptance required** — no owner is created without consent. | `clubs`, `club_members` |
 | `manage-club-invite` | owner/admin | Create/revoke `link` invites (code, expiry, max_uses); create `direct` invites (email/username, sends email). List active invites. | `club_invites` |
 | `accept-invite` | member | Redeem a `link` code or accept a `direct` invite → `active` membership; sets `club_id`. Validates expiry/uses/revoked; enforces single-club. | `club_invites`, `club_members`, `profiles` |
 | `request-join` | member | Picking a club by name (onboarding/settings) → `pending` membership. Idempotent. | `club_members` |
 | `respond-join` | owner/admin | Approve (→ `active`, set `club_id`, `joined_at`) or reject (delete pending row) a request. | `club_members`, `profiles` |
 | `manage-member` | see below | Change a member's role; remove a member; leave the club; toggle own `hidden_public`; set own `club_public_name`. | `club_members`, `profiles` |
 | `get-club` | member | Authenticated club view: roster (with roles, pending requests for admins) + aggregated followed events of clubmates (reuses the `clubCounts` logic). | `club_members`, `profiles`, `event_favorites`, `calendar_events` |
-| `render-club` | **public** | SSR: returns full HTML for `/klub/:slug` — title, meta description, canonical, `SportsTeam` JSON-LD, `robots: index,follow`. Lists members honoring `hidden_public` (omit) and `club_public_name` (nickname vs display_name). 404 if not found or `is_public=false`. | `clubs`, `club_members`, `profiles`, `event_favorites`, `calendar_events` |
+| `render-club` | **public** | SSR: returns full HTML for `/klub/:slug` — title, meta description, canonical, `SportsTeam` JSON-LD, `robots: index,follow`. Lists members honoring `hidden_public` (omit) and `club_public_name` (nickname vs display_name). 404 if not found or `is_public=false`. **`Cache-Control: public, s-maxage=60, stale-while-revalidate=300`** so Vercel's CDN absorbs crawler/unfurl traffic (~1 live render per URL per minute, ≤~1 min staleness). | `clubs`, `club_members`, `profiles`, `event_favorites`, `calendar_events` |
 
 `manage-member` authorization: role change / remove require owner or admin (admins cannot
 touch an owner or promote past their own level; only owner assigns `admin`); leave / own
@@ -220,6 +226,18 @@ flows. `nickname` and `privacy_settings.club_public_name` become updatable field
 
 **`get-favorites` / `clubCounts`:** unchanged. Still groups by `profiles.club_id` and
 respects `privacy_settings.favorites`. The new `get-club` view reuses this aggregation.
+
+**`delete-my-account` change (GDPR):** before erasing a profile, check whether the user
+owns any club (`clubs.owner_id`). If so, **block** with `409` and a clear message —
+`"Jesteś właścicielem klubu «X». Przekaż własność albo usuń klub, zanim usuniesz konto."`
+The account danger zone lists blocking clubs with inline **transfer** (nominate) and
+**delete-club** actions. Erasure is never actually prevented — the user can always
+self-serve — so this stays GDPR-compliant. Owned clubs are otherwise left intact.
+
+**`export-my-data` change (GDPR):** add a `clubs` section containing the user's own
+membership (`club name, role, status, joined_at, hidden_public, club_public_name`) **and**
+clubs they own (`name, description, member_count`). Owned-club data is limited to
+names/counts — no other members' personal data is included.
 
 ### Vercel proxy
 
@@ -258,7 +276,10 @@ outlet, fed through `ProfilContext`:
 - **Owner/admin:** management panel — roster with roles, **pending join requests**
   (approve/reject), **invite-link** generator (copy link, set expiry/max-uses, revoke),
   **invite by email/username**, promote/remove members, edit club (name/logo/description/
-  `is_public`), and (owner) transfer/delete.
+  `is_public`), and (owner) **nominate a new owner** (transfer-with-acceptance) or delete
+  the club. A nominated member sees a **"Zostań właścicielem klubu «X»?"** prompt in profil
+  (accept/decline). The account **danger zone** surfaces any club that blocks account
+  deletion, with inline transfer/delete actions (see `delete-my-account`).
 
 ### Club member view
 
@@ -296,11 +317,13 @@ Alongside the existing "Pokazuj klubowiczom co obserwuję" toggle:
 
 ## Implementation phases (one spec, phased build)
 
-- **Phase A — foundation:** migration (wipe + schema + `club_members` + `club_invites` +
-  `profiles.nickname`), backend functions (`create-club`, `update-club`,
-  `upload-club-logo`, `manage-club-invite`, `accept-invite`, `request-join`,
-  `respond-join`, `manage-member`), `update-profile` change, `club-logos` bucket, and the
-  create/manage UI + onboarding/settings picker.
+- **Phase A — foundation:** migration (wipe + schema incl. `clubs.pending_owner_id` +
+  `club_members` + `club_invites` + `profiles.nickname`), backend functions (`create-club`,
+  `update-club`, `upload-club-logo`, `manage-club-invite`, `accept-invite`, `request-join`,
+  `respond-join`, `manage-member`, `transfer-ownership`), `update-profile` /
+  `delete-my-account` (409 block) / `export-my-data` (club section) changes, `club-logos`
+  bucket, and the create/manage UI + onboarding/settings picker + danger-zone transfer/
+  delete actions.
 - **Phase B — member view:** `get-club` + the club member view (roster + followed-events
   aggregate) and invite-acceptance route.
 - **Phase C — public page:** `render-club`, the `/klub/:slug` Vercel/Vite rewrite,
@@ -314,17 +337,26 @@ Alongside the existing "Pokazuj klubowiczom co obserwuję" toggle:
 - **Real registration data** (leszy.run-hosted races) and self-declared "I'm going" in the
   club view — this iteration is follows-only.
 
-## Open questions (resolve during planning)
+## Resolved details
 
-1. **Owner deletion / GDPR erasure.** `clubs.owner_id ON DELETE RESTRICT` means
-   `delete-my-account` must handle owners: force ownership transfer, or delete the club
-   (cascading `club_members`/`club_invites`), before erasing the profile. Decide the
-   default (probably: block deletion with a clear message until the owner transfers or
-   deletes the club, surfaced in the danger zone).
-2. **Ownership transfer UI** — needed for owner-leave and GDPR-delete; minimal
-   "make owner" action in the roster.
-3. **Logo constraints** — allowed types (png/jpg/webp/svg?), max dimensions/size, and
-   whether to downscale server-side.
-4. **`export-my-data`** — include club membership + owned clubs in the GDPR export.
-5. **Public page caching** — `render-club` `Cache-Control` (e.g. short s-maxage +
-   stale-while-revalidate) so crawlers get fresh-enough HTML without hammering Supabase.
+1. **Owner deletion / GDPR erasure** — **block until resolved.** `delete-my-account`
+   returns `409` when the user owns any club, with a self-serve transfer/delete path in the
+   danger zone. Compliant because the user can always resolve it themselves. (See
+   `delete-my-account change` above.)
+2. **Ownership transfer** — **transfer with acceptance.** Owner nominates
+   (`clubs.pending_owner_id`); the nominee must accept before `owner_id` moves. Old owner
+   becomes `admin`. Handled by `transfer-ownership`; nominee prompt in profil.
+3. **Logo constraints** — **raster only, server-downscaled.** PNG/JPG/WebP, ≤5 MB upload;
+   downscaled to 512×512 and stored as WebP in `club-logos`. No SVG (XSS on the public
+   page). (See `upload-club-logo`.)
+4. **GDPR export** — include **membership + owned clubs** (owned = name/description/
+   member_count only). (See `export-my-data change`.)
+5. **Public page caching** — `render-club` sets
+   `Cache-Control: public, s-maxage=60, stale-while-revalidate=300`.
+
+### Left for the implementation plan
+
+- Exact `SportsTeam` JSON-LD shape and which upcoming-events slice to surface on the public
+  page.
+- Deno image-processing library choice for `upload-club-logo` (candidate: `imagescript`).
+- Invite `code` format/length and default `expires_at` / `max_uses`.
