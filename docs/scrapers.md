@@ -33,7 +33,7 @@ cd backend && node --env-file=../.env scripts/run-normalize.js
 cd backend && node --env-file=../.env scripts/run-normalize.js --apply
 
 ###
-node --env-file=../.env scripts/run-dedup.js --apply && node --env-file=../.env scripts/run-geocode.js --apply && node --env-file=../.env scripts/run-enrich-flags.js --apply && node --env-file=../.env scripts/run-normalize.js --apply
+node --env-file=../.env scripts/run-scrapers.js && node --env-file=../.env scripts/run-merge.js --apply && node --env-file=../.env scripts/run-dedup.js --apply && node --env-file=../.env scripts/run-geocode.js --apply && node --env-file=../.env scripts/run-enrich-flags.js --apply && node --env-file=../.env scripts/run-normalize.js --apply
 ###
 
 # Step 5: Enrich via Python enricher (LOCAL LLM — PRIMARY TOOL)
