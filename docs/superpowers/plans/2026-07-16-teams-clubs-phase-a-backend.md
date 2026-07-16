@@ -4,7 +4,7 @@
 
 **Goal:** Ship the Supabase data foundation and the core club-lifecycle edge functions so a logged-in user can create a club, request to join one, be approved/rejected, have roles managed, and leave — all covered by `node --test` integration tests.
 
-**Architecture:** Supabase-only tables (no Drizzle, no local Postgres) applied via `mcp__supabase__apply_migration`. Each behavior is a Deno edge function under `supabase/functions/<name>/index.js`, deployed via `mcp__supabase__deploy_edge_function`, following the exact skeleton of `supabase/functions/toggle-favorite/index.js` (CORS short-circuit → service-role client → `getSession` → `try` body → local `json()` helper). Tests are Node integration tests (`node --test`) that hit the **deployed** functions over HTTP, so every function must be deployed before its test can pass.
+**Architecture:** Supabase-only tables (no Drizzle, no local Postgres) shipped as a committed migration under `supabase/migrations/`. Each behavior is a Deno edge function under `supabase/functions/<name>/index.js`, following the exact skeleton of `supabase/functions/toggle-favorite/index.js` (CORS short-circuit → service-role client → `getSession` → `try` body → local `json()` helper). Migration and functions deploy to production via the **Supabase CI release pipeline** (`.github/workflows/supabase-release.yml`) when the branch merges to `main` — not via MCP. Tests are Node integration tests (`node --test`) that hit the **deployed** functions over HTTP, so they run against the deployed functions after merge (the pipeline runs them as its smoke step; locally you can run them against the deployed functions any time). See `docs/supabase-release-runbook.md`.
 
 **Tech Stack:** Deno edge functions (`Deno.serve`, `https://esm.sh/@supabase/supabase-js@2`), PostgreSQL (Supabase), Node built-in test runner for integration tests.
 
@@ -18,8 +18,8 @@ _Every task's requirements implicitly include this section._
 - **Edge function skeleton is fixed:** `handleOptions(req)` first; service-role client `createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'), { auth: { autoRefreshToken: false, persistSession: false } })`; `const session = await getSession(req, supabaseAdmin)` **before** the `try`; `401 { error: 'Authorization required' }` when null; all responses via a local `json(body, status, req)` helper that spreads `getCorsHeaders(req)` + `'Content-Type': 'application/json'`. Import client from `https://esm.sh/@supabase/supabase-js@2` (unpinned minor, always `@2`).
 - **Error shape** is always `{ error: <string> }` with an HTTP status. User-facing error strings are in **Polish**.
 - **Success shape:** wrap payloads as `{ data: ... }` (matches `update-profile`; the frontend reads `result.data`).
-- **Deploy** via `mcp__supabase__deploy_edge_function` (name = function directory, entrypoint `index.js`, source = file contents). **NOT** the Supabase CLI. **Confirm with the user before every deploy and every migration** — this is a single shared production Supabase project (no dev/prod split).
-- **Schema** changes via `mcp__supabase__apply_migration` only (these tables are Supabase-only — no Drizzle migration, no local Postgres change).
+- **Deploy model (supersedes any per-task "deploy via MCP" wording below):** functions and the migration deploy to production via the **Supabase CI release pipeline** on merge to `main`. Do **not** call `mcp__supabase__deploy_edge_function` or `mcp__supabase__apply_migration`. Instead: (a) add each function's block to `supabase/config.toml` (`verify_jwt = false`, `entrypoint = "./functions/<name>/index.js"`) when the function is created; (b) commit the function file; merging deploys it. Any per-task step that says "deploy via `mcp__supabase__deploy_edge_function`" now means "commit the file; it deploys on merge; run its `node --test` against the deployed function after merge." This is a single shared production project (no dev/prod split) — the PR is the review gate.
+- **Schema** changes are a committed migration file `supabase/migrations/<ts>_teams_clubs_phase_a.sql` (Supabase-only tables — no Drizzle migration, no local Postgres change), applied by `supabase db push` in the pipeline on merge. The migration's destructive wipe still requires the confirmation in Task 1 before the file is committed.
 - **DB-write safety:** the migration performs destructive `UPDATE`/`DELETE`. State exactly what changes and get explicit user confirmation before applying (the operator has pre-authorized the club wipe, but re-confirm at apply time).
 - **Slug rule:** club `slug` is **ASCII-only** — lowercase, Polish diacritics folded to ASCII (`ą→a` … `ż→z`), non-`[a-z0-9]` stripped, whitespace collapsed to `-`. Display text keeps diacritics.
 - **Membership invariant:** a user has **at most one `active`** `club_members` row. `profiles.club_id` is kept in sync with the active membership (set on approve/create, cleared on leave/remove).
@@ -37,7 +37,8 @@ _Every task's requirements implicitly include this section._
 - `supabase/functions/update-profile/index.js` (**modify**) — drop the free-text club branch; add `nickname` + `privacy_settings.club_public_name`.
 - `supabase/functions/tests/helpers.js` (**modify**) — add club cleanup + a `createClub` test helper.
 - `supabase/functions/tests/clubs-lifecycle.test.js` (**create**) — integration tests for all of the above.
-- Migration (**apply via MCP**, no repo file required, but the SQL is recorded in Task 1).
+- `supabase/migrations/<ts>_teams_clubs_phase_a.sql` (**create**) — the migration SQL recorded in Task 1 (created with `supabase migration new teams_clubs_phase_a`).
+- `supabase/config.toml` (**modify**) — add a `[functions.<name>]` block (`verify_jwt = false`, `entrypoint = "./functions/<name>/index.js"`) for each new function created in this plan.
 
 ## Interfaces produced by this plan (contract later plans/frontend rely on)
 
@@ -56,7 +57,7 @@ _Every task's requirements implicitly include this section._
 ### Task 1: Migration — wipe, schema, RLS, storage bucket
 
 **Files:**
-- Apply via `mcp__supabase__apply_migration` (name: `teams_clubs_phase_a`).
+- Create `supabase/migrations/<ts>_teams_clubs_phase_a.sql` (via `supabase migration new teams_clubs_phase_a`) containing the SQL below. It applies to prod via `supabase db push` in the pipeline on merge — **not** via MCP.
 - Test: `supabase/functions/tests/clubs-lifecycle.test.js` (schema smoke check — created here, expanded in later tasks).
 
 **Interfaces:**
@@ -67,9 +68,9 @@ _Every task's requirements implicitly include this section._
 Tell the user verbatim what will run and wait for explicit "yes":
 > Migration `teams_clubs_phase_a` on the production Supabase project (`kojoxazlnxncrpxmnxiq`) will: (1) `UPDATE profiles SET club_id = NULL` (all rows), (2) `DELETE FROM clubs` (currently 1 row: "ZATYRANI GRATISOWNIA.PL GMINA PILCHOWICE"), (3) add columns + create `club_members`, `club_invites`, RLS, indexes, and the `club-logos` storage bucket. Irreversible for the deleted club row.
 
-- [ ] **Step 2: Apply the migration**
+- [ ] **Step 2: Write the migration file**
 
-Call `mcp__supabase__apply_migration` with name `teams_clubs_phase_a` and this SQL:
+Run `supabase migration new teams_clubs_phase_a`, then put this SQL in the generated `supabase/migrations/<ts>_teams_clubs_phase_a.sql`. It applies to prod via `supabase db push` in the pipeline on merge (do NOT call MCP). The `club-logos` bucket (Step 3) is included as section 7 so the whole change is one atomic migration:
 
 ```sql
 -- 1. Wipe existing loose clubs (feature is hidden; ~2 users)
@@ -128,17 +129,16 @@ ALTER TABLE profiles ADD COLUMN nickname TEXT;
 ALTER TABLE club_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE club_invites ENABLE ROW LEVEL SECURITY;
 -- clubs keeps its existing public-read policy (needed by search_clubs + render-club)
-```
 
-- [ ] **Step 3: Create the storage bucket**
-
-Via `mcp__supabase__execute_sql` (state the write, confirm, then run):
-
-```sql
+-- 7. Storage bucket for club logos (public read)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('club-logos', 'club-logos', true)
 ON CONFLICT (id) DO NOTHING;
 ```
+
+- [ ] **Step 3: (bucket folded into the migration above — no separate step)**
+
+The `club-logos` bucket is section 7 of the migration file, so it is created by the same `db push`. No separate `execute_sql` call.
 
 - [ ] **Step 4: Write the schema smoke test**
 
