@@ -8,13 +8,25 @@ const POLISH_MONTHS = {
   lipca: 7, sierpnia: 8, września: 9, października: 10, listopada: 11, grudnia: 12,
 }
 
+// Decode HTML entities — numeric (&#8211; &#x2013;) and common named ones.
+// WooCommerce product names/descriptions arrive with these un-decoded
+// (e.g. "SFORA &#8211; WYRYPA"), so decode before storing.
+function decodeEntities(s) {
+  if (!s) return s
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+}
+
 function stripHtml(s) {
   if (!s) return ''
-  return s
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&[a-zA-Z]+;/g, ' ')
+  return decodeEntities(s.replace(/<[^>]+>/g, ' '))
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -144,7 +156,7 @@ async function scrape({ knownIds = new Set() } = {}) {
       const slug = product.slug
       if (!slug) continue
 
-      const name = product.name?.trim()
+      const name = decodeEntities(product.name || '').trim()
       if (!name) continue
 
       const descText = stripHtml(`${product.short_description || ''} ${product.description || ''}`)
@@ -192,4 +204,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape, parseDate, parseDistances, parsePrices }
+export { scrape, parseDate, parseDistances, parsePrices, decodeEntities }
