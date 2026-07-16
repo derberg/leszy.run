@@ -486,7 +486,7 @@ Deno.serve(async (req) => {
 
 - [ ] **Step 4: Deploy the function**
 
-Confirm with the user, then deploy via `mcp__supabase__deploy_edge_function` (name `create-club`, entrypoint `index.js`, source = file contents above; `_shared/` is bundled automatically).
+Add the `[functions.create-club]` block to `supabase/config.toml` (`verify_jwt = false`, `entrypoint = "./functions/create-club/index.js"`), then commit the function file. It deploys on merge to `main` via the pipeline (`_shared/` is bundled automatically) — no MCP call. Its `node --test` runs against the deployed function after merge.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -624,7 +624,7 @@ Deno.serve(async (req) => {
 })
 ```
 
-- [ ] **Step 4: Deploy** (confirm, then `mcp__supabase__deploy_edge_function` name `request-join`).
+- [ ] **Step 4: Wire deploy** — add the `[functions.request-join]` block to `supabase/config.toml` (`verify_jwt = false`, `entrypoint = "./functions/request-join/index.js"`) and commit the file. Deploys on merge via the pipeline; tests run against it post-merge.
 
 - [ ] **Step 5: Run tests**
 
@@ -807,7 +807,7 @@ Deno.serve(async (req) => {
 })
 ```
 
-- [ ] **Step 4: Deploy** (confirm, then deploy `respond-join`).
+- [ ] **Step 4: Wire deploy** — add the `[functions.respond-join]` block to `supabase/config.toml` (`verify_jwt = false`, `entrypoint = "./functions/respond-join/index.js"`) and commit. Deploys on merge; tests run against it post-merge.
 
 - [ ] **Step 5: Run tests**
 
@@ -1028,7 +1028,7 @@ Deno.serve(async (req) => {
 })
 ```
 
-- [ ] **Step 4: Deploy** (confirm, then deploy `manage-member`).
+- [ ] **Step 4: Wire deploy** — add the `[functions.manage-member]` block to `supabase/config.toml` (`verify_jwt = false`, `entrypoint = "./functions/manage-member/index.js"`) and commit. Deploys on merge; tests run against it post-merge.
 
 - [ ] **Step 5: Run tests**
 
@@ -1138,7 +1138,7 @@ In `update-profile/index.js`:
 
 4. Change the final joined select if it references club free-text; keep `.select('*, clubs(name)')` — that still works because `club_id` is now managed elsewhere.
 
-- [ ] **Step 5: Deploy** (confirm, then re-deploy `update-profile`).
+- [ ] **Step 5: Deploy** — `update-profile` already has its `[functions.update-profile]` block in `supabase/config.toml`; just commit the modified function. It re-deploys on merge; tests run against it post-merge.
 
 - [ ] **Step 6: Run tests (new + regression)**
 
