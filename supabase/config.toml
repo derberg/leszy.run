@@ -109,3 +109,7 @@ entrypoint = "./functions/toggle-favorite/index.js"
 [functions.update-profile]
 verify_jwt = false
 entrypoint = "./functions/update-profile/index.js"
+
+[functions.upload-club-logo]
+verify_jwt = false
+entrypoint = "./functions/upload-club-logo/index.js"
