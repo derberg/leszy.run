@@ -24,6 +24,7 @@ const Onboarding = lazy(() => import('./pages/Onboarding.jsx'))
 const Profil = lazy(() => import('./pages/Profil.jsx'))
 const Obserwowane = lazy(() => import('./pages/profil/Obserwowane.jsx'))
 const Zgloszenia = lazy(() => import('./pages/profil/Zgloszenia.jsx'))
+const Klub = lazy(() => import('./pages/profil/Klub.jsx'))
 const Ustawienia = lazy(() => import('./pages/profil/Ustawienia.jsx'))
 const UserProfile = lazy(() => import('./pages/UserProfile.jsx'))
 const PolitykaPrywatnosci = lazy(() => import('./pages/PolitykaPrywatnosci.jsx'))
@@ -75,6 +76,7 @@ export default function App() {
             <Route index element={<Navigate to="obserwowane" replace />} />
             <Route path="obserwowane" element={<Obserwowane />} />
             <Route path="zgloszenia" element={<Zgloszenia />} />
+            <Route path="klub" element={<Klub />} />
             <Route path="ustawienia" element={<Ustawienia />} />
           </Route>
           <Route path="/u/:username" element={beta ? <UserProfile /> : <Navigate to="/" replace />} />

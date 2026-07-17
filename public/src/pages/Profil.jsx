@@ -15,6 +15,7 @@ import { ProfilContext } from './profil/context.js'
 const SECTIONS = [
   { to: '/profil/obserwowane', label: 'Obserwowane' },
   { to: '/profil/zgloszenia', label: 'Zgłoszenia' },
+  { to: '/profil/klub', label: 'Klub' },
 ]
 
 function GearIcon() {
@@ -32,25 +33,43 @@ function ProfilLayout() {
   const [badges, setBadges] = useState([])
   const [reports, setReports] = useState([])
   const [submissions, setSubmissions] = useState([])
+  const [pendingMembership, setPendingMembership] = useState(null)
+  const [pendingOwnership, setPendingOwnership] = useState([])
+  const [incomingInvites, setIncomingInvites] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
 
-  useEffect(() => {
-    if (!user) return
-    setLoadError(null)
-    callFunction('get-profile-data', {})
-      .then(({ profile, badges, reports, submissions }) => {
+  function loadProfileData() {
+    return callFunction('get-profile-data', {})
+      .then(({ profile, badges, reports, submissions, pending_membership, pending_ownership, incoming_invites }) => {
         setProfile(profile)
         setBadges(badges)
         setReports(reports)
         setSubmissions(submissions)
+        setPendingMembership(pending_membership ?? null)
+        setPendingOwnership(pending_ownership ?? [])
+        setIncomingInvites(incoming_invites ?? [])
       })
       .catch((err) => {
         console.error('Profile data fetch failed:', err)
         setLoadError('Nie udało się wczytać profilu. Spróbuj odświeżyć stronę.')
       })
-      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    if (!user) return
+    setLoadError(null)
+    loadProfileData().finally(() => setLoading(false))
   }, [user])
+
+  // Re-fetch just the pending/nominee/invite + club prompt state (and the
+  // profile itself, since profile.club/club_id can change as a side effect of
+  // accepting a nomination/invite or a join request being approved elsewhere).
+  // Exposed via context so Klub.jsx's <ClubPrompts/> can refresh after acting
+  // on a prompt without a full page reload.
+  async function refreshProfileData() {
+    await loadProfileData()
+  }
 
   async function handleSave(field, value) {
     try {
@@ -106,7 +125,10 @@ function ProfilLayout() {
     }`
 
   return (
-    <ProfilContext.Provider value={{ profile, badges, reports, submissions, handleSave, handleClubSave }}>
+    <ProfilContext.Provider value={{
+      profile, badges, reports, submissions, handleSave, handleClubSave,
+      pendingMembership, pendingOwnership, incomingInvites, refreshProfileData,
+    }}>
       {shell(
         <main data-testid="profil-page" className="pt-20 pb-16 px-4 md:px-8 max-w-5xl mx-auto">
           {/* Persistent profile header */}
