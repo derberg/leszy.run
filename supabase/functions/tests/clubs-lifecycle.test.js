@@ -413,8 +413,170 @@ describe('transfer-ownership', () => {
   })
 })
 
+describe('update-club', () => {
+  it('owner updates description/city/voivodeship/is_public', async () => {
+    const owner = await createTestSession('uc-owner1')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Update Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+
+      const res = await callFunction('update-club', {
+        club_id: clubId, description: 'Nowy opis', city: 'Kraków', voivodeship: 'Małopolskie', is_public: false,
+      }, owner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.club.description, 'Nowy opis')
+      assert.equal(res.data.data.club.city, 'Kraków')
+      assert.equal(res.data.data.club.voivodeship, 'Małopolskie')
+      assert.equal(res.data.data.club.is_public, false)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+    }
+  })
+
+  it('renaming regenerates a unique slug and normalized_name', async () => {
+    const owner = await createTestSession('uc-owner2')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Stara Nazwa Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+
+      const res = await callFunction('update-club',
+        { club_id: clubId, name: 'Klub Nowa Nazwa Test' }, owner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.club.name, 'Klub Nowa Nazwa Test')
+      assert.equal(res.data.data.club.slug, 'klub-nowa-nazwa-test')
+
+      const { data: club } = await supabaseAdmin.from('clubs')
+        .select('normalized_name').eq('id', clubId).single()
+      assert.equal(club.normalized_name, 'klub nowa nazwa test')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+    }
+  })
+
+  it('rejects renaming to a name already used by another club (409)', async () => {
+    const owner = await createTestSession('uc-owner3')
+    let clubId1, clubId2
+    try {
+      const c1 = await callFunction('create-club', { name: 'Klub Zajety Test' }, owner.sessionToken)
+      clubId1 = c1.data.data.club.id
+      const owner2 = await createTestSession('uc-owner3b')
+      try {
+        const c2 = await callFunction('create-club', { name: 'Klub Drugi Test' }, owner2.sessionToken)
+        clubId2 = c2.data.data.club.id
+
+        const res = await callFunction('update-club',
+          { club_id: clubId2, name: 'Klub Zajety Test' }, owner2.sessionToken)
+        assert.equal(res.status, 409)
+      } finally {
+        await cleanupClub(clubId2)
+        await cleanupUser(owner2.user.id)
+      }
+    } finally {
+      await cleanupClub(clubId1)
+      await cleanupUser(owner.user.id)
+    }
+  })
+
+  it('non-manager cannot update (403)', async () => {
+    const owner = await createTestSession('uc-owner4')
+    const member = await createTestSession('uc-member4')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Update Perm Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+
+      const res = await callFunction('update-club',
+        { club_id: clubId, description: 'x' }, member.sessionToken)
+      assert.equal(res.status, 403)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('admin (non-owner) can update', async () => {
+    const owner = await createTestSession('uc-owner5')
+    const admin = await createTestSession('uc-admin5')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Update Admin Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, admin, clubId)
+      await callFunction('manage-member',
+        { club_id: clubId, action: 'set-role', user_id: admin.user.id, role: 'admin' }, owner.sessionToken)
+
+      const res = await callFunction('update-club',
+        { club_id: clubId, description: 'Opis od admina' }, admin.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.club.description, 'Opis od admina')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(admin.user.id)
+    }
+  })
+})
+
+describe('delete-club', () => {
+  it('owner deletes the club — members/invites cascade, profiles.club_id clears', async () => {
+    const owner = await createTestSession('dc-owner1')
+    const member = await createTestSession('dc-member1')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Delete Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+
+      const res = await callFunction('delete-club', { club_id: clubId }, owner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.deleted, true)
+
+      const { data: club } = await supabaseAdmin.from('clubs').select('id').eq('id', clubId).maybeSingle()
+      assert.equal(club, null)
+
+      const { data: members } = await supabaseAdmin.from('club_members').select('user_id').eq('club_id', clubId)
+      assert.deepEqual(members, [])
+
+      const { data: ownerProfile } = await supabaseAdmin.from('profiles')
+        .select('club_id').eq('id', owner.user.id).single()
+      assert.equal(ownerProfile.club_id, null)
+      const { data: memberProfile } = await supabaseAdmin.from('profiles')
+        .select('club_id').eq('id', member.user.id).single()
+      assert.equal(memberProfile.club_id, null)
+
+      clubId = null // already deleted; skip cleanupClub's redundant delete
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('non-owner (admin) cannot delete (403)', async () => {
+    const owner = await createTestSession('dc-owner2')
+    const admin = await createTestSession('dc-admin2')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Delete Perm Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, admin, clubId)
+      await callFunction('manage-member',
+        { club_id: clubId, action: 'set-role', user_id: admin.user.id, role: 'admin' }, owner.sessionToken)
+
+      const res = await callFunction('delete-club', { club_id: clubId }, admin.sessionToken)
+      assert.equal(res.status, 403)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(admin.user.id)
+    }
+  })
+})
+
 describe('get-club', () => {
-  it('non-member gets 403', async () => {
+  it('non-member gets 200 with club: null (not 403)', async () => {
     const owner = await createTestSession('gc-owner1')
     const stranger = await createTestSession('gc-stranger1')
     let clubId
@@ -423,10 +585,36 @@ describe('get-club', () => {
       clubId = c.data.data.club.id
 
       const res = await callFunction('get-club', { club_id: clubId }, stranger.sessionToken)
-      assert.equal(res.status, 403)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.club, null)
     } finally {
       await cleanupClub(clubId)
       await cleanupUser(owner.user.id); await cleanupUser(stranger.user.id)
+    }
+  })
+
+  it('includes pending members in the roster with status, active members listed first', async () => {
+    const owner = await createTestSession('gc-owner4')
+    const joiner = await createTestSession('gc-joiner4')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub GetClub Pending Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await callFunction('request-join', { club_id: clubId }, joiner.sessionToken)
+
+      const res = await callFunction('get-club', { club_id: clubId }, owner.sessionToken)
+      assert.equal(res.status, 200)
+      const members = res.data.data.members
+      const ownerRow = members.find((m) => m.user_id === owner.user.id)
+      const joinerRow = members.find((m) => m.user_id === joiner.user.id)
+      assert.equal(ownerRow.status, 'active')
+      assert.equal(joinerRow.status, 'pending')
+      const firstPendingIdx = members.findIndex((m) => m.status === 'pending')
+      const lastActiveIdx = members.map((m) => m.status).lastIndexOf('active')
+      assert.ok(firstPendingIdx > lastActiveIdx, 'active members must be listed before pending ones')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(joiner.user.id)
     }
   })
 

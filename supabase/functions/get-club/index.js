@@ -38,7 +38,9 @@ Deno.serve(async (req) => {
       .select('role, hidden_public, status')
       .eq('club_id', clubId).eq('user_id', session.userId).maybeSingle()
     if (!me || me.status !== 'active') {
-      return json({ error: 'Nie należysz do tego klubu.' }, 403, req)
+      // Not an active member of the target club — let the client cleanly
+      // show "no club" instead of treating this as an error.
+      return json({ data: { club: null } }, 200, req)
     }
 
     const { data: club, error: clubErr } = await supabaseAdmin
@@ -47,25 +49,33 @@ Deno.serve(async (req) => {
       .eq('id', clubId).single()
     if (clubErr) throw clubErr
 
+    // Include pending members too (so managers can approve/reject them from
+    // the roster) alongside active ones; active members are listed first.
     const { data: memberRows, error: memberErr } = await supabaseAdmin
       .from('club_members')
-      .select('user_id, role, hidden_public, profiles(display_name, nickname, privacy_settings)')
-      .eq('club_id', clubId).eq('status', 'active')
+      .select('user_id, role, hidden_public, status, profiles(display_name, nickname, privacy_settings)')
+      .eq('club_id', clubId).in('status', ['active', 'pending'])
     if (memberErr) throw memberErr
 
-    const members = (memberRows ?? []).map((m) => ({
-      user_id: m.user_id,
-      display_name: m.profiles?.display_name ?? null,
-      nickname: m.profiles?.nickname ?? null,
-      role: m.role,
-      hidden_public: m.hidden_public,
-    }))
+    const members = (memberRows ?? [])
+      .slice()
+      .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
+      .map((m) => ({
+        user_id: m.user_id,
+        display_name: m.profiles?.display_name ?? null,
+        nickname: m.profiles?.nickname ?? null,
+        role: m.role,
+        hidden_public: m.hidden_public,
+        status: m.status,
+      }))
 
     // Clubmate followed events: favorites of active members who haven't opted
     // out of sharing (privacy_settings.favorites !== false), aggregated by
     // event with a per-event count. Same approach as get-favorites' clubCounts,
-    // paginated past PostgREST's 1000-row response cap.
+    // paginated past PostgREST's 1000-row response cap. Pending members are
+    // excluded — they haven't joined yet.
     const visibleIds = (memberRows ?? [])
+      .filter((m) => m.status === 'active')
       .filter((m) => (m.profiles?.privacy_settings?.favorites ?? true) !== false)
       .map((m) => m.user_id)
 
