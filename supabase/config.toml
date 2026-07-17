@@ -50,6 +50,10 @@ entrypoint = "./functions/auth-request-code/index.js"
 verify_jwt = false
 entrypoint = "./functions/auth-verify-code/index.js"
 
+[functions.create-club]
+verify_jwt = false
+entrypoint = "./functions/create-club/index.js"
+
 [functions.delete-my-account]
 verify_jwt = false
 entrypoint = "./functions/delete-my-account/index.js"
