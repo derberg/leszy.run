@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { checkAndAwardBadges } from '../_shared/badge-check.js'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 
@@ -33,9 +32,11 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json()
     const {
-      username, display_name, club, club_id, avatar_url, bio, privacy_settings,
+      username, display_name, nickname, avatar_url, bio, privacy_settings,
       gender, phone, date_of_birth, city, voivodeship, weekly_digest,
     } = body
+    // club / club_id are intentionally NOT read — club identity is set only
+    // through create-club / request-join / respond-join / manage-member.
 
     if (username !== undefined) {
       if (!/^[a-z0-9_]{3,30}$/.test(username)) {
@@ -94,7 +95,7 @@ Deno.serve(async (req) => {
 
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
-      .select('id, club_id')
+      .select('id, privacy_settings')
       .eq('id', session.userId)
       .single()
 
@@ -103,7 +104,6 @@ Deno.serve(async (req) => {
     if (display_name !== undefined)      updates.display_name = display_name
     if (avatar_url !== undefined)        updates.avatar_url = avatar_url
     if (bio !== undefined)               updates.bio = bio
-    if (privacy_settings !== undefined)  updates.privacy_settings = privacy_settings
     if (gender !== undefined)            updates.gender = gender || null
     if (phone !== undefined)             updates.phone = normalizedPhone
     if (date_of_birth !== undefined)     updates.date_of_birth = date_of_birth || null
@@ -111,24 +111,23 @@ Deno.serve(async (req) => {
     if (voivodeship !== undefined)       updates.voivodeship = voivodeship || null
     if (weekly_digest !== undefined)     updates.weekly_digest = weekly_digest
 
-    // Club: a picked club_id takes precedence over free-text club.
-    if (club_id !== undefined && club_id !== null && club_id !== '') {
-      const { data: clubRow, error: clubLookupErr } = await supabaseAdmin
-        .from('clubs').select('id').eq('id', club_id).single()
-      if (clubLookupErr && clubLookupErr.code !== 'PGRST116') throw clubLookupErr
-      if (!clubRow) return json({ error: 'Unknown club_id' }, 400, req)
-      updates.club_id = club_id
-    } else if (club !== undefined) {
-      if (club === null || club.trim() === '') {
-        updates.club_id = null
+    if (body.nickname !== undefined) {
+      if (body.nickname === null || body.nickname === '') {
+        updates.nickname = null
+      } else if (typeof body.nickname !== 'string' || body.nickname.trim().length > 60) {
+        return json({ error: 'Pseudonim może mieć maksymalnie 60 znaków.' }, 400, req)
       } else {
-        if (club.length > 100) return json({ error: 'Club name too long (max 100 chars)' }, 400, req)
-        const { data: newClubId, error: clubErr } = await supabaseAdmin
-          .rpc('find_or_create_club', { club_name: club })
-        if (clubErr) throw clubErr
-        if (!newClubId) return json({ error: 'Invalid club name' }, 400, req)
-        updates.club_id = newClubId
+        updates.nickname = body.nickname.trim()
       }
+    }
+
+    if (body.privacy_settings !== undefined) {
+      const incoming = body.privacy_settings || {}
+      const cpn = incoming.club_public_name
+      if (cpn !== undefined && !['display', 'nickname'].includes(cpn)) {
+        return json({ error: 'Nieprawidłowa wartość club_public_name.' }, 400, req)
+      }
+      updates.privacy_settings = { ...(existingProfile?.privacy_settings || {}), ...incoming }
     }
 
     const { data: profile, error } = await supabaseAdmin
@@ -138,11 +137,6 @@ Deno.serve(async (req) => {
       .select('*, clubs(name)')
       .single()
     if (error) throw error
-
-    const clubJustSet = updates.club_id != null && !existingProfile?.club_id
-    if (clubJustSet) {
-      await checkAndAwardBadges(supabaseAdmin, session.userId)
-    }
 
     // API contract: keep returning club as a string
     const out = { ...profile, club: profile.clubs?.name ?? null }

@@ -254,3 +254,36 @@ describe('manage-member', () => {
     }
   })
 })
+
+describe('update-profile clubs changes', () => {
+  it('sets nickname and club_public_name; ignores club/club_id', async () => {
+    const u = await createTestSession('up-clubs')
+    try {
+      const res = await callFunction('update-profile', {
+        nickname: 'Szybki Franek',
+        privacy_settings: { club_public_name: 'nickname' },
+        club: 'Should Be Ignored',
+        club_id: '00000000-0000-0000-0000-000000000000',
+      }, u.sessionToken)
+      assert.equal(res.status, 200)
+
+      const { data: p } = await supabaseAdmin.from('profiles')
+        .select('nickname, club_id, privacy_settings').eq('id', u.user.id).single()
+      assert.equal(p.nickname, 'Szybki Franek')
+      assert.equal(p.club_id, null) // club/club_id in the body must be ignored
+      assert.equal(p.privacy_settings.club_public_name, 'nickname')
+    } finally {
+      await cleanupUser(u.user.id)
+    }
+  })
+
+  it('rejects an over-long nickname (400)', async () => {
+    const u = await createTestSession('up-longnick')
+    try {
+      const res = await callFunction('update-profile', { nickname: 'x'.repeat(61) }, u.sessionToken)
+      assert.equal(res.status, 400)
+    } finally {
+      await cleanupUser(u.user.id)
+    }
+  })
+})
