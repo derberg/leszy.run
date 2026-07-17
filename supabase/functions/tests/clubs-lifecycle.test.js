@@ -493,3 +493,39 @@ describe('get-club', () => {
     }
   })
 })
+
+describe('delete-my-account — club ownership guard', () => {
+  it('blocks deletion while the caller owns a club (409, lists the club, account NOT deleted)', async () => {
+    const owner = await createTestSession('dma-owner1')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub DeleteGuard Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+
+      const res = await callFunction('delete-my-account', { action: 'request' }, owner.sessionToken)
+      assert.equal(res.status, 409)
+      assert.ok(Array.isArray(res.data.clubs))
+      assert.ok(res.data.clubs.some((c2) => c2.id === clubId))
+      assert.ok(res.data.error)
+
+      const { data: profile } = await supabaseAdmin.from('profiles')
+        .select('deleted_at').eq('id', owner.user.id).single()
+      assert.equal(profile.deleted_at, null, 'account must not be deleted while owning a club')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+    }
+  })
+
+  it('does not block a user who owns no club (existing behavior preserved)', async () => {
+    const u = await createTestSession('dma-nonowner1')
+    try {
+      const res = await callFunction('delete-my-account', { action: 'request' }, u.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.sent, true)
+    } finally {
+      await supabaseAdmin.from('auth_codes').delete().eq('email', u.email.toLowerCase())
+      await cleanupUser(u.user.id)
+    }
+  })
+})

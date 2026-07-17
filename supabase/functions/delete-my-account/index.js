@@ -138,6 +138,20 @@ Deno.serve(async (req) => {
     return json({ error: 'Unauthorized' }, 401, req)
   }
 
+  // GDPR/club-ownership guard: a club must have a living owner. Block deletion
+  // entirely (both the `request` and `confirm` steps) until ownership is
+  // transferred or the club is deleted — otherwise the club is left orphaned.
+  const { data: ownedClubs } = await supabaseAdmin
+    .from('clubs')
+    .select('id, name')
+    .eq('owner_id', session.userId)
+  if (ownedClubs && ownedClubs.length) {
+    return json({
+      error: 'Jesteś właścicielem klubu. Przekaż własność albo usuń klub, zanim usuniesz konto.',
+      clubs: ownedClubs.map(({ id, name }) => ({ id, name })),
+    }, 409, req)
+  }
+
   let body
   try {
     body = await req.json()
