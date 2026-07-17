@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import AuthGuard from '../components/AuthGuard.jsx'
-import ClubInput from '../components/ClubInput.jsx'
+import ClubPicker from '../components/ClubPicker.jsx'
 import Navbar from '../components/Navbar.jsx'
 import useAuth from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
@@ -21,7 +21,7 @@ function OnboardingForm() {
 
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [club, setClub] = useState({ name: '', clubId: null })
+  const [clubCreated, setClubCreated] = useState(null) // club returned by ClubPicker's onCreated, if any
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
@@ -62,7 +62,6 @@ function OnboardingForm() {
       await callFunction('update-profile', {
         username: username.toLowerCase(),
         ...(displayName ? { display_name: displayName } : {}),
-        ...(club.clubId ? { club_id: club.clubId } : club.name.trim() ? { club: club.name } : {}),
       })
       await logConsentServerSide('accepted')
       navigate(nextPath, { replace: true })
@@ -129,8 +128,17 @@ function OnboardingForm() {
               />
             </div>
             <div>
-              <label htmlFor="club" className={labelClass}>Klub / stowarzyszenie (opcjonalne)</label>
-              <ClubInput value={club} onChange={setClub} inputClass={inputClass} />
+              <label className={labelClass}>Klub (opcjonalnie)</label>
+              <p className="font-sans text-xs text-apex-muted mb-1.5">
+                Możesz to też zrobić później, w profilu.
+              </p>
+              {clubCreated ? (
+                <p className="font-sans text-sm text-apex-yellow border border-apex-yellow-dim px-3 py-2">
+                  Utworzono klub «{clubCreated.name}» — jesteś jego właścicielem.
+                </p>
+              ) : (
+                <ClubPicker onJoined={() => {}} onCreated={setClubCreated} />
+              )}
             </div>
             {error && <p className="text-apex-red font-sans text-sm">{error}</p>}
             <label className="flex items-start gap-2 text-sm text-apex-text">
