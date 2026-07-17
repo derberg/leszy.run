@@ -287,3 +287,127 @@ describe('update-profile clubs changes', () => {
     }
   })
 })
+
+describe('transfer-ownership', () => {
+  it('non-owner nominate → 403', async () => {
+    const owner = await createTestSession('to-owner1')
+    const member = await createTestSession('to-member1')
+    const stranger = await createTestSession('to-stranger1')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Transfer Perm Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+
+      const res = await callFunction('transfer-ownership',
+        { club_id: clubId, op: 'nominate', user_id: member.user.id }, stranger.sessionToken)
+      assert.equal(res.status, 403)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id); await cleanupUser(stranger.user.id)
+    }
+  })
+
+  it('owner nominates an active member → clubs.pending_owner_id set', async () => {
+    const owner = await createTestSession('to-owner2')
+    const member = await createTestSession('to-member2')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Transfer Nominate Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+
+      const res = await callFunction('transfer-ownership',
+        { club_id: clubId, op: 'nominate', user_id: member.user.id }, owner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.pending_owner_id, member.user.id)
+
+      const { data: club } = await supabaseAdmin.from('clubs').select('pending_owner_id').eq('id', clubId).single()
+      assert.equal(club.pending_owner_id, member.user.id)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('nominee accept → ownership + roles swap, pending cleared', async () => {
+    const owner = await createTestSession('to-owner3')
+    const member = await createTestSession('to-member3')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Transfer Accept Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+      await callFunction('transfer-ownership',
+        { club_id: clubId, op: 'nominate', user_id: member.user.id }, owner.sessionToken)
+
+      const res = await callFunction('transfer-ownership', { club_id: clubId, op: 'accept' }, member.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.owner_id, member.user.id)
+
+      const { data: club } = await supabaseAdmin.from('clubs')
+        .select('owner_id, pending_owner_id').eq('id', clubId).single()
+      assert.equal(club.owner_id, member.user.id)
+      assert.equal(club.pending_owner_id, null)
+
+      const { data: newOwnerRow } = await supabaseAdmin.from('club_members')
+        .select('role').eq('club_id', clubId).eq('user_id', member.user.id).single()
+      assert.equal(newOwnerRow.role, 'owner')
+
+      const { data: oldOwnerRow } = await supabaseAdmin.from('club_members')
+        .select('role').eq('club_id', clubId).eq('user_id', owner.user.id).single()
+      assert.equal(oldOwnerRow.role, 'admin')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('decline clears pending without changing owner', async () => {
+    const owner = await createTestSession('to-owner4')
+    const member = await createTestSession('to-member4')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Transfer Decline Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+      await callFunction('transfer-ownership',
+        { club_id: clubId, op: 'nominate', user_id: member.user.id }, owner.sessionToken)
+
+      const res = await callFunction('transfer-ownership', { club_id: clubId, op: 'decline' }, member.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.declined, true)
+
+      const { data: club } = await supabaseAdmin.from('clubs')
+        .select('owner_id, pending_owner_id').eq('id', clubId).single()
+      assert.equal(club.owner_id, owner.user.id)
+      assert.equal(club.pending_owner_id, null)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('cancel by owner clears pending', async () => {
+    const owner = await createTestSession('to-owner5')
+    const member = await createTestSession('to-member5')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Transfer Cancel Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+      await callFunction('transfer-ownership',
+        { club_id: clubId, op: 'nominate', user_id: member.user.id }, owner.sessionToken)
+
+      const res = await callFunction('transfer-ownership', { club_id: clubId, op: 'cancel' }, owner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.cancelled, true)
+
+      const { data: club } = await supabaseAdmin.from('clubs').select('pending_owner_id').eq('id', clubId).single()
+      assert.equal(club.pending_owner_id, null)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+})

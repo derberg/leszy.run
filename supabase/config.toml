@@ -106,6 +106,10 @@ entrypoint = "./functions/submit-contribution/index.js"
 verify_jwt = false
 entrypoint = "./functions/toggle-favorite/index.js"
 
+[functions.transfer-ownership]
+verify_jwt = false
+entrypoint = "./functions/transfer-ownership/index.js"
+
 [functions.update-profile]
 verify_jwt = false
 entrypoint = "./functions/update-profile/index.js"
