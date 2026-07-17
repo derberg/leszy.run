@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       .from('profiles')
       .update(updates)
       .eq('id', session.userId)
-      .select('*, clubs(name)')
+      .select('*, clubs!profiles_club_id_fkey(name)')
       .single()
     if (error) throw error
 
