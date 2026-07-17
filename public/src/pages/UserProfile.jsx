@@ -125,6 +125,14 @@ export default function UserProfile() {
               {profile.display_name && (
                 <div className="font-sans text-xs text-apex-text text-center">{profile.display_name}</div>
               )}
+              {/* SEO note (teams/clubs Task 14): this chip stays plain text, not
+                  a link to /klub/:slug. `profiles_public` (the view queried
+                  above) only exposes `club` (the club's name, gated by
+                  privacy_settings.club) — no club_id/slug — so there is no
+                  target to link to from here without a view/RPC change.
+                  The crawlable inbound link requirement is satisfied instead
+                  by MemberView.jsx (linked from the member's own /profil/klub,
+                  which does have club.slug via get-club). */}
               {profile.club && (
                 <div className="text-[9px] font-mono text-apex-muted border border-apex-border px-2 py-0.5 text-center">
                   {profile.club}
