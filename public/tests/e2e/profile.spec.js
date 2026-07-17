@@ -40,23 +40,16 @@ test.describe('Profil page', () => {
     await expect(page.getByText('Jan Testowy')).toBeVisible()
   })
 
-  test('editing club pins an existing club via autocomplete', async ({ page, context }) => {
-    const clubName = `KS Profilowo ${Date.now()}`
-    const { data: clubId } = await supabaseAdmin.rpc('find_or_create_club', { club_name: clubName })
-    try {
-      await testUser.injectSession(context)
-      await page.goto('/profil/ustawienia')
-      await page.getByTestId('edit-club').click()
-      await page.getByTestId('input-club').fill('ks profilowo')
-      await page.getByRole('option', { name: new RegExp(clubName) }).click()
-      await page.getByTestId('save-club').click()
-      await expect(page.getByText(clubName).first()).toBeVisible()
-      const { data: prof } = await supabaseAdmin.from('profiles').select('club_id').eq('id', testUser.user.id).single()
-      expect(prof.club_id).toBe(clubId)
-    } finally {
-      await supabaseAdmin.from('profiles').update({ club_id: null }).eq('id', testUser.user.id)
-      await supabaseAdmin.from('clubs').delete().eq('id', clubId)
-    }
+  // Club membership is no longer edited from Ustawienia (the old free-text
+  // ClubInput + find_or_create_club pinning) — Ustawienia now shows a
+  // read-only club name and links out to /profil/klub, where the full
+  // create/join/manage flow lives (see clubs.spec.js for that coverage).
+  test('shows read-only club row with a link to /profil/klub', async ({ page, context }) => {
+    await testUser.injectSession(context)
+    await page.goto('/profil/ustawienia')
+    await expect(page.getByText(/brak klubu/i)).toBeVisible()
+    await page.getByTestId('link-manage-club').click()
+    await page.waitForURL(/\/profil\/klub/)
   })
 
   test('AuthGuard redirects to /login when not logged in', async ({ page }) => {
