@@ -1,0 +1,87 @@
+# Supabase CLI project config.
+#
+# Links this repo to the single production Supabase project so `supabase db push`
+# and `supabase functions deploy` (run by .github/workflows/supabase-release.yml
+# on push to main) target the right project.
+#
+# This repo does NOT run a local Supabase stack — only the CLI's link + migrations
+# + functions-deploy features are used. The one-time baseline is created by the
+# operator via `supabase db pull` (see docs/supabase-release-runbook.md).
+project_id = "kojoxazlnxncrpxmnxiq"
+
+# --- Edge functions -----------------------------------------------------------
+#
+# IMPORTANT: `supabase functions deploy` (deploy-all) applies THESE settings to
+# every function. Two settings are load-bearing and MUST stay correct or a deploy
+# will break production:
+#
+#   verify_jwt = false  — this app uses CUSTOM email-code auth (a `leszy_session`
+#     httpOnly cookie validated by _shared/session.js), NOT Supabase Auth JWTs.
+#     The frontend calls functions via the same-origin `/edge` proxy with only the
+#     cookie — no `Authorization: Bearer` header. If verify_jwt were true the
+#     Supabase gateway would 401 every call. Every function here authenticates
+#     inside its own body (getSession → 401), so gateway JWT verification is off.
+#
+#   entrypoint — the function files are `index.js` (this is a JS project, no
+#     TypeScript). The CLI defaults to `index.ts`, so each entrypoint is set
+#     explicitly to `index.js`.
+#
+# When adding a NEW function, add a block here too (verify_jwt = false; public
+# SSR endpoints like a future `render-club` are also false because crawlers call
+# them with no auth).
+
+[functions.admin-review-contribution]
+verify_jwt = false
+entrypoint = "./functions/admin-review-contribution/index.js"
+
+[functions.auth-logout]
+verify_jwt = false
+entrypoint = "./functions/auth-logout/index.js"
+
+[functions.auth-me]
+verify_jwt = false
+entrypoint = "./functions/auth-me/index.js"
+
+[functions.auth-request-code]
+verify_jwt = false
+entrypoint = "./functions/auth-request-code/index.js"
+
+[functions.auth-verify-code]
+verify_jwt = false
+entrypoint = "./functions/auth-verify-code/index.js"
+
+[functions.delete-my-account]
+verify_jwt = false
+entrypoint = "./functions/delete-my-account/index.js"
+
+[functions.export-my-data]
+verify_jwt = false
+entrypoint = "./functions/export-my-data/index.js"
+
+[functions.get-favorites]
+verify_jwt = false
+entrypoint = "./functions/get-favorites/index.js"
+
+[functions.get-notifications]
+verify_jwt = false
+entrypoint = "./functions/get-notifications/index.js"
+
+[functions.get-profile-data]
+verify_jwt = false
+entrypoint = "./functions/get-profile-data/index.js"
+
+[functions.log-consent]
+verify_jwt = false
+entrypoint = "./functions/log-consent/index.js"
+
+[functions.submit-contribution]
+verify_jwt = false
+entrypoint = "./functions/submit-contribution/index.js"
+
+[functions.toggle-favorite]
+verify_jwt = false
+entrypoint = "./functions/toggle-favorite/index.js"
+
+[functions.update-profile]
+verify_jwt = false
+entrypoint = "./functions/update-profile/index.js"
