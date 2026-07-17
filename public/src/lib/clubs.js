@@ -49,3 +49,14 @@ export async function transferOwnership(clubId, op, userId) {
 export async function getClub(clubId) {
   return (await callFunction('get-club', clubId ? { club_id: clubId } : {})).data
 }
+
+// update-club / delete-club were added after this module's first pass (see
+// supabase/functions/update-club, /delete-club — owner/admin edit, owner-only
+// delete). Wrapped here for the manage panel (Task 9).
+export async function updateClub(clubId, body) {
+  return (await callFunction('update-club', { club_id: clubId, ...body })).data
+}
+
+export async function deleteClub(clubId) {
+  return (await callFunction('delete-club', { club_id: clubId })).data
+}
