@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { slugifyClub, normalizeClubName } from '../_shared/clubText.js'
+import { checkAndAwardBadges } from '../_shared/badge-check.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -73,6 +74,9 @@ Deno.serve(async (req) => {
     if (memErr) throw memErr
 
     await supabaseAdmin.from('profiles').update({ club_id: club.id }).eq('id', session.userId)
+
+    // Award the club_set badge now that the owner has a club (best-effort).
+    await checkAndAwardBadges(supabaseAdmin, session.userId)
 
     return json({ data: { club } }, 200, req)
   } catch (err) {
