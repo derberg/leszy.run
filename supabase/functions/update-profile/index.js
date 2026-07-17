@@ -130,12 +130,20 @@ Deno.serve(async (req) => {
       updates.privacy_settings = { ...(existingProfile?.privacy_settings || {}), ...incoming }
     }
 
-    const { data: profile, error } = await supabaseAdmin
-      .from('profiles')
-      .update(updates)
-      .eq('id', session.userId)
-      .select('*, clubs!profiles_club_id_fkey(name)')
-      .single()
+    // If the body carried only ignored fields (e.g. club/club_id), updates is
+    // empty — `.update({})` errors, so just read the current profile back.
+    const { data: profile, error } = Object.keys(updates).length === 0
+      ? await supabaseAdmin
+          .from('profiles')
+          .select('*, clubs!profiles_club_id_fkey(name)')
+          .eq('id', session.userId)
+          .single()
+      : await supabaseAdmin
+          .from('profiles')
+          .update(updates)
+          .eq('id', session.userId)
+          .select('*, clubs!profiles_club_id_fkey(name)')
+          .single()
     if (error) throw error
 
     // API contract: keep returning club as a string

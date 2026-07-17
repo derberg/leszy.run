@@ -70,12 +70,14 @@ Deno.serve(async (req) => {
           img.height > img.width ? MAX_DIMENSION : Image.RESIZE_AUTO
         )
       : img
-    const webp = await resized.encodeWEBP()
+    // imagescript can decode many formats but only ENCODES PNG — encodeWEBP()
+    // does not exist and throws. Store the (optionally downscaled) logo as PNG.
+    const png = await resized.encode()
 
-    const path = `${club_id}/logo.webp`
+    const path = `${club_id}/logo.png`
     const { error: uploadErr } = await supabaseAdmin.storage
       .from('club-logos')
-      .upload(path, webp, { contentType: 'image/webp', upsert: true })
+      .upload(path, png, { contentType: 'image/png', upsert: true })
     if (uploadErr) throw uploadErr
 
     const { data: pub } = supabaseAdmin.storage.from('club-logos').getPublicUrl(path)
