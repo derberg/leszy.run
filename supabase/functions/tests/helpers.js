@@ -61,10 +61,24 @@ export async function cleanupUser(userId) {
   await supabaseAdmin.from('event_favorites').delete().eq('user_id', userId)
   await supabaseAdmin.from('user_badges').delete().eq('user_id', userId)
   await supabaseAdmin.from('consent_log').delete().eq('user_id', userId)
+  // Clubs: delete owned clubs (cascades members/invites), then any remaining memberships
+  const { data: owned } = await supabaseAdmin.from('clubs').select('id').eq('owner_id', userId)
+  for (const c of owned ?? []) await cleanupClub(c.id)
+  await supabaseAdmin.from('club_members').delete().eq('user_id', userId)
+  await supabaseAdmin.from('profiles').update({ club_id: null }).eq('id', userId)
   await supabaseAdmin.from('auth_sessions').delete().eq('user_id', userId)
   await supabaseAdmin.from('profiles').delete().eq('id', userId)
   // Best-effort: remove the auth.users row created in createTestSession.
   try { await supabaseAdmin.auth.admin.deleteUser(userId) } catch { /* ignore */ }
+}
+
+/** Deletes a club's invites, memberships, detaches profiles, then the club row itself. */
+export async function cleanupClub(clubId) {
+  if (!clubId) return
+  await supabaseAdmin.from('club_invites').delete().eq('club_id', clubId)
+  await supabaseAdmin.from('club_members').delete().eq('club_id', clubId)
+  await supabaseAdmin.from('profiles').update({ club_id: null }).eq('club_id', clubId)
+  await supabaseAdmin.from('clubs').delete().eq('id', clubId)
 }
 
 /**
