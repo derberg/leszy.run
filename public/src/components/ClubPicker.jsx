@@ -3,8 +3,8 @@ import { searchClubs, requestJoin } from '../lib/clubs.js'
 import CreateClubForm from './CreateClubForm.jsx'
 
 // Search-existing→request-join / "Utwórz klub" / leave-blank picker. Replaces
-// the free-text ClubInput. Reuses the debounced-search_clubs combobox skeleton
-// from ClubInput.jsx, but the outcomes are actions (request a join, create a
+// the old free-text club input (a debounced-search_clubs combobox that pinned
+// a value directly). The outcomes here are actions (request a join, create a
 // club) rather than pinning a free-text value. The "Utwórz klub" branch
 // delegates to the shared `CreateClubForm` component (also used standalone by
 // the no-club branch of /profil/klub) — same fields/testids either way

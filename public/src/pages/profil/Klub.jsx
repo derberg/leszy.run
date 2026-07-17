@@ -1,7 +1,6 @@
 import useSeo from '../../hooks/useSeo.js'
 import useClub from '../../hooks/useClub.js'
 import { sectionTitle } from './fields.jsx'
-import CreateClubForm from '../../components/CreateClubForm.jsx'
 import ClubPicker from '../../components/ClubPicker.jsx'
 import MemberView from './club/MemberView.jsx'
 import ManagePanel from './club/ManagePanel.jsx'
@@ -30,18 +29,11 @@ export default function Klub() {
       ) : error ? (
         <p className="font-sans text-sm text-apex-red py-4">{error}</p>
       ) : !club ? (
-        <div className="space-y-8">
+        <div className="space-y-4">
           <p className="font-sans text-xs text-apex-muted -mt-2">
-            Nie należysz jeszcze do żadnego klubu. Załóż nowy albo dołącz do istniejącego.
+            Nie należysz jeszcze do żadnego klubu. Znajdź istniejący i poproś o dołączenie, albo załóż nowy.
           </p>
-          <div>
-            <h3 className="font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-2">Załóż klub</h3>
-            <CreateClubForm onCreated={() => reload()} />
-          </div>
-          <div>
-            <h3 className="font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-2">Dołącz do istniejącego klubu</h3>
-            <ClubPicker onJoined={() => reload()} onCreated={() => reload()} />
-          </div>
+          <ClubPicker onJoined={() => reload()} onCreated={() => reload()} />
         </div>
       ) : (me.role === 'owner' || me.role === 'admin') ? (
         <ManagePanel club={club} me={me} members={members} followedEvents={followedEvents} reload={reload} />
