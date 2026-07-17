@@ -30,6 +30,10 @@ project_id = "kojoxazlnxncrpxmnxiq"
 # SSR endpoints like a future `render-club` are also false because crawlers call
 # them with no auth).
 
+[functions.accept-invite]
+verify_jwt = false
+entrypoint = "./functions/accept-invite/index.js"
+
 [functions.admin-review-contribution]
 verify_jwt = false
 entrypoint = "./functions/admin-review-contribution/index.js"
