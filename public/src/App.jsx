@@ -27,6 +27,7 @@ const Zgloszenia = lazy(() => import('./pages/profil/Zgloszenia.jsx'))
 const Klub = lazy(() => import('./pages/profil/Klub.jsx'))
 const Ustawienia = lazy(() => import('./pages/profil/Ustawienia.jsx'))
 const UserProfile = lazy(() => import('./pages/UserProfile.jsx'))
+const InviteAccept = lazy(() => import('./pages/InviteAccept.jsx'))
 const PolitykaPrywatnosci = lazy(() => import('./pages/PolitykaPrywatnosci.jsx'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'))
 const Regulamin = lazy(() => import('./pages/Regulamin.jsx'))
@@ -80,6 +81,9 @@ export default function App() {
             <Route path="ustawienia" element={<Ustawienia />} />
           </Route>
           <Route path="/u/:username" element={beta ? <UserProfile /> : <Navigate to="/" replace />} />
+          {/* The bare /klub/:slug is an SSR rewrite (render-club) — the SPA does not own it.
+              /klub/:slug/dolacz is more specific and IS an SPA route (invite-accept). */}
+          <Route path="/klub/:slug/dolacz" element={beta ? <InviteAccept /> : <Navigate to="/" replace />} />
           <Route path="/polityka-prywatnosci" element={<PolitykaPrywatnosci />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/regulamin" element={<Regulamin />} />
