@@ -22,6 +22,15 @@ export default defineConfig(({ mode }) => {
               changeOrigin: true,
               rewrite: (p) => p.replace(/^\/edge/, '/functions/v1'),
             },
+            // Mirrors the `/klub/:slug` Vercel rewrite: bare club slug paths
+            // (NOT the `/klub/:slug/dolacz` invite-accept SPA route, which the
+            // regex excludes by requiring end-of-string right after the slug)
+            // proxy to the public render-club SSR function.
+            '^/klub/[^/]+$': {
+              target: supabaseUrl,
+              changeOrigin: true,
+              rewrite: (p) => `/functions/v1/render-club?slug=${p.replace(/^\/klub\//, '')}`,
+            },
           },
         }
       : undefined,

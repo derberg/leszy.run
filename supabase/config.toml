@@ -30,6 +30,10 @@ project_id = "kojoxazlnxncrpxmnxiq"
 # SSR endpoints like a future `render-club` are also false because crawlers call
 # them with no auth).
 
+[functions.accept-invite]
+verify_jwt = false
+entrypoint = "./functions/accept-invite/index.js"
+
 [functions.admin-review-contribution]
 verify_jwt = false
 entrypoint = "./functions/admin-review-contribution/index.js"
@@ -50,6 +54,10 @@ entrypoint = "./functions/auth-request-code/index.js"
 verify_jwt = false
 entrypoint = "./functions/auth-verify-code/index.js"
 
+[functions.create-club]
+verify_jwt = false
+entrypoint = "./functions/create-club/index.js"
+
 [functions.delete-my-account]
 verify_jwt = false
 entrypoint = "./functions/delete-my-account/index.js"
@@ -57,6 +65,10 @@ entrypoint = "./functions/delete-my-account/index.js"
 [functions.export-my-data]
 verify_jwt = false
 entrypoint = "./functions/export-my-data/index.js"
+
+[functions.get-club]
+verify_jwt = false
+entrypoint = "./functions/get-club/index.js"
 
 [functions.get-favorites]
 verify_jwt = false
@@ -74,6 +86,26 @@ entrypoint = "./functions/get-profile-data/index.js"
 verify_jwt = false
 entrypoint = "./functions/log-consent/index.js"
 
+[functions.manage-club-invite]
+verify_jwt = false
+entrypoint = "./functions/manage-club-invite/index.js"
+
+[functions.manage-member]
+verify_jwt = false
+entrypoint = "./functions/manage-member/index.js"
+
+[functions.render-club]
+verify_jwt = false
+entrypoint = "./functions/render-club/index.js"
+
+[functions.request-join]
+verify_jwt = false
+entrypoint = "./functions/request-join/index.js"
+
+[functions.respond-join]
+verify_jwt = false
+entrypoint = "./functions/respond-join/index.js"
+
 [functions.submit-contribution]
 verify_jwt = false
 entrypoint = "./functions/submit-contribution/index.js"
@@ -82,6 +114,14 @@ entrypoint = "./functions/submit-contribution/index.js"
 verify_jwt = false
 entrypoint = "./functions/toggle-favorite/index.js"
 
+[functions.transfer-ownership]
+verify_jwt = false
+entrypoint = "./functions/transfer-ownership/index.js"
+
 [functions.update-profile]
 verify_jwt = false
 entrypoint = "./functions/update-profile/index.js"
+
+[functions.upload-club-logo]
+verify_jwt = false
+entrypoint = "./functions/upload-club-logo/index.js"
