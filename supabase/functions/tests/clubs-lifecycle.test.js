@@ -521,6 +521,60 @@ describe('update-club', () => {
   })
 })
 
+describe('delete-club', () => {
+  it('owner deletes the club — members/invites cascade, profiles.club_id clears', async () => {
+    const owner = await createTestSession('dc-owner1')
+    const member = await createTestSession('dc-member1')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Delete Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+
+      const res = await callFunction('delete-club', { club_id: clubId }, owner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.deleted, true)
+
+      const { data: club } = await supabaseAdmin.from('clubs').select('id').eq('id', clubId).maybeSingle()
+      assert.equal(club, null)
+
+      const { data: members } = await supabaseAdmin.from('club_members').select('user_id').eq('club_id', clubId)
+      assert.deepEqual(members, [])
+
+      const { data: ownerProfile } = await supabaseAdmin.from('profiles')
+        .select('club_id').eq('id', owner.user.id).single()
+      assert.equal(ownerProfile.club_id, null)
+      const { data: memberProfile } = await supabaseAdmin.from('profiles')
+        .select('club_id').eq('id', member.user.id).single()
+      assert.equal(memberProfile.club_id, null)
+
+      clubId = null // already deleted; skip cleanupClub's redundant delete
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('non-owner (admin) cannot delete (403)', async () => {
+    const owner = await createTestSession('dc-owner2')
+    const admin = await createTestSession('dc-admin2')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Delete Perm Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, admin, clubId)
+      await callFunction('manage-member',
+        { club_id: clubId, action: 'set-role', user_id: admin.user.id, role: 'admin' }, owner.sessionToken)
+
+      const res = await callFunction('delete-club', { club_id: clubId }, admin.sessionToken)
+      assert.equal(res.status, 403)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(admin.user.id)
+    }
+  })
+})
+
 describe('get-club', () => {
   it('non-member gets 403', async () => {
     const owner = await createTestSession('gc-owner1')
