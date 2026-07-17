@@ -576,7 +576,7 @@ describe('delete-club', () => {
 })
 
 describe('get-club', () => {
-  it('non-member gets 403', async () => {
+  it('non-member gets 200 with club: null (not 403)', async () => {
     const owner = await createTestSession('gc-owner1')
     const stranger = await createTestSession('gc-stranger1')
     let clubId
@@ -585,10 +585,36 @@ describe('get-club', () => {
       clubId = c.data.data.club.id
 
       const res = await callFunction('get-club', { club_id: clubId }, stranger.sessionToken)
-      assert.equal(res.status, 403)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.club, null)
     } finally {
       await cleanupClub(clubId)
       await cleanupUser(owner.user.id); await cleanupUser(stranger.user.id)
+    }
+  })
+
+  it('includes pending members in the roster with status, active members listed first', async () => {
+    const owner = await createTestSession('gc-owner4')
+    const joiner = await createTestSession('gc-joiner4')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub GetClub Pending Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await callFunction('request-join', { club_id: clubId }, joiner.sessionToken)
+
+      const res = await callFunction('get-club', { club_id: clubId }, owner.sessionToken)
+      assert.equal(res.status, 200)
+      const members = res.data.data.members
+      const ownerRow = members.find((m) => m.user_id === owner.user.id)
+      const joinerRow = members.find((m) => m.user_id === joiner.user.id)
+      assert.equal(ownerRow.status, 'active')
+      assert.equal(joinerRow.status, 'pending')
+      const firstPendingIdx = members.findIndex((m) => m.status === 'pending')
+      const lastActiveIdx = members.map((m) => m.status).lastIndexOf('active')
+      assert.ok(firstPendingIdx > lastActiveIdx, 'active members must be listed before pending ones')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(joiner.user.id)
     }
   })
 
