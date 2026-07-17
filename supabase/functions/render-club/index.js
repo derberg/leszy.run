@@ -5,14 +5,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 
 function html(body, status, req) {
-  return new Response(body, {
-    status,
-    headers: {
-      ...getCorsHeaders(req),
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-    },
-  })
+  // Build headers via a Headers instance and set Content-Type explicitly last —
+  // a plain-object spread was coming back as text/plain on the deployed runtime,
+  // which breaks HTML/JSON-LD parsing for crawlers.
+  const headers = new Headers(getCorsHeaders(req))
+  headers.set('Content-Type', 'text/html; charset=utf-8')
+  headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+  return new Response(body, { status, headers })
 }
 
 function esc(s) {
