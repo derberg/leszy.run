@@ -80,19 +80,6 @@ function ProfilLayout() {
     }
   }
 
-  async function handleClubSave(draft) {
-    try {
-      const payload = draft.clubId
-        ? { club_id: draft.clubId }
-        : { club: draft.name.trim() }   // empty string clears
-      const updated = await callFunction('update-profile', payload)
-      setProfile(updated.data)
-    } catch (err) {
-      console.error('Club update failed:', err)
-      throw err
-    }
-  }
-
   const shell = (children) => (
     <div className="min-h-screen bg-apex-bg text-apex-text">
       <Navbar />
@@ -126,7 +113,7 @@ function ProfilLayout() {
 
   return (
     <ProfilContext.Provider value={{
-      profile, badges, reports, submissions, handleSave, handleClubSave,
+      profile, badges, reports, submissions, handleSave,
       pendingMembership, pendingOwnership, incomingInvites, refreshProfileData,
     }}>
       {shell(
