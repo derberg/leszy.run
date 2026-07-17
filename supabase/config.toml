@@ -78,6 +78,10 @@ entrypoint = "./functions/get-profile-data/index.js"
 verify_jwt = false
 entrypoint = "./functions/log-consent/index.js"
 
+[functions.manage-club-invite]
+verify_jwt = false
+entrypoint = "./functions/manage-club-invite/index.js"
+
 [functions.manage-member]
 verify_jwt = false
 entrypoint = "./functions/manage-member/index.js"

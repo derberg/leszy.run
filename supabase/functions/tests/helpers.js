@@ -82,6 +82,19 @@ export async function cleanupClub(clubId) {
 }
 
 /**
+ * Creates a club via the real create-club edge function as the given session
+ * (so owner membership + profiles.club_id are set exactly like production).
+ * Returns the created club row ({ id, name, slug, ... }).
+ */
+export async function createClub(sessionToken, name) {
+  const res = await callFunction('create-club', { name }, sessionToken)
+  if (res.status !== 200) {
+    throw new Error(`createClub failed: ${res.status} ${JSON.stringify(res.data)}`)
+  }
+  return res.data.data.club
+}
+
+/**
  * Removes leftovers from previous crashed/interrupted test runs. Safe to run
  * against production data: every predicate matches only test artifacts
  * (@test.leszy.run emails, source='test' events, E2E_MARKER-tagged content).
