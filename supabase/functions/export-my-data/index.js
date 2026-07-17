@@ -33,7 +33,10 @@ Deno.serve(async (req) => {
 
   const userId = session.userId
 
-  const [profile, userBadges, consentLog, eventReports, websiteFeedback, submittedEvents, favorites] = await Promise.all([
+  const [
+    profile, userBadges, consentLog, eventReports, websiteFeedback, submittedEvents, favorites,
+    clubMembership, ownedClubsRaw,
+  ] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').eq('id', userId).single(),
     supabaseAdmin.from('user_badges').select('*').eq('user_id', userId),
     supabaseAdmin.from('consent_log').select('*').eq('user_id', userId),
@@ -41,7 +44,31 @@ Deno.serve(async (req) => {
     supabaseAdmin.from('website_feedback').select('*').eq('user_id', userId),
     supabaseAdmin.from('calendar_events').select('*').eq('submitted_by', userId),
     supabaseAdmin.from('event_favorites').select('event_id, created_at, calendar_events(name, date)').eq('user_id', userId),
+    supabaseAdmin.from('club_members')
+      .select('role, status, joined_at, hidden_public, clubs(name)')
+      .eq('user_id', userId).eq('status', 'active').maybeSingle(),
+    supabaseAdmin.from('clubs').select('id, name, description').eq('owner_id', userId),
   ])
+
+  const membership = clubMembership.data
+    ? {
+        club_name: clubMembership.data.clubs?.name ?? null,
+        role: clubMembership.data.role,
+        status: clubMembership.data.status,
+        joined_at: clubMembership.data.joined_at,
+        hidden_public: clubMembership.data.hidden_public,
+        club_public_name: profile.data?.privacy_settings?.club_public_name ?? null,
+      }
+    : null
+
+  const owned = []
+  for (const c of ownedClubsRaw.data || []) {
+    const { count } = await supabaseAdmin
+      .from('club_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('club_id', c.id)
+    owned.push({ name: c.name, description: c.description ?? null, member_count: count ?? 0 })
+  }
 
   const body = {
     exported_at: new Date().toISOString(),
@@ -55,6 +82,7 @@ Deno.serve(async (req) => {
       website_feedback: websiteFeedback.data || [],
       submitted_calendar_events: submittedEvents.data || [],
     },
+    clubs: { membership, owned },
   }
 
   const date = new Date().toISOString().slice(0, 10)

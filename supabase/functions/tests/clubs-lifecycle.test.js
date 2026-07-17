@@ -529,3 +529,52 @@ describe('delete-my-account — club ownership guard', () => {
     }
   })
 })
+
+describe('export-my-data — clubs section', () => {
+  it("owner's export includes clubs.owned and clubs.membership", async () => {
+    const owner = await createTestSession('emd-owner1')
+    let clubId
+    try {
+      const c = await callFunction('create-club',
+        { name: 'Klub Export Test', description: 'Klub do testu eksportu danych' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+
+      await callFunction('update-profile', {
+        privacy_settings: { club_public_name: 'nickname' },
+      }, owner.sessionToken)
+
+      const res = await callFunction('export-my-data', {}, owner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.ok(res.data.clubs, 'expected data.clubs to be present')
+
+      const owned = res.data.clubs.owned.find((o) => o.name === 'Klub Export Test')
+      assert.ok(owned, 'expected owned club in export')
+      assert.equal(owned.description, 'Klub do testu eksportu danych')
+      assert.equal(owned.member_count, 1)
+
+      const m = res.data.clubs.membership
+      assert.ok(m, 'expected membership in export')
+      assert.equal(m.club_name, 'Klub Export Test')
+      assert.equal(m.role, 'owner')
+      assert.equal(m.status, 'active')
+      assert.ok(m.joined_at)
+      assert.equal(m.hidden_public, false)
+      assert.equal(m.club_public_name, 'nickname')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+    }
+  })
+
+  it('a user with no club has null membership and empty owned', async () => {
+    const u = await createTestSession('emd-noclub1')
+    try {
+      const res = await callFunction('export-my-data', {}, u.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.clubs.membership, null)
+      assert.deepEqual(res.data.clubs.owned, [])
+    } finally {
+      await cleanupUser(u.user.id)
+    }
+  })
+})
