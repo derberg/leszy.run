@@ -169,3 +169,88 @@ describe('respond-join', () => {
     }
   })
 })
+
+async function joinActive(owner, joiner, clubId) {
+  await callFunction('request-join', { club_id: clubId }, joiner.sessionToken)
+  await callFunction('respond-join', { club_id: clubId, user_id: joiner.user.id, action: 'approve' }, owner.sessionToken)
+}
+
+describe('manage-member', () => {
+  it('member leaves → membership gone, club_id cleared', async () => {
+    const owner = await createTestSession('mm-owner')
+    const member = await createTestSession('mm-member')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Leave Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+
+      const res = await callFunction('manage-member', { club_id: clubId, action: 'leave' }, member.sessionToken)
+      assert.equal(res.status, 200)
+      const { data: m } = await supabaseAdmin.from('club_members')
+        .select('user_id').eq('club_id', clubId).eq('user_id', member.user.id).maybeSingle()
+      assert.equal(m, null)
+      const { data: p } = await supabaseAdmin.from('profiles').select('club_id').eq('id', member.user.id).single()
+      assert.equal(p.club_id, null)
+    } finally {
+      await cleanupClub(clubId); await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('owner cannot leave (409)', async () => {
+    const owner = await createTestSession('mm-owner2')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Owner Leave Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      const res = await callFunction('manage-member', { club_id: clubId, action: 'leave' }, owner.sessionToken)
+      assert.equal(res.status, 409)
+    } finally {
+      await cleanupClub(clubId); await cleanupUser(owner.user.id)
+    }
+  })
+
+  it('owner promotes a member to admin then removes them', async () => {
+    const owner = await createTestSession('mm-owner3')
+    const member = await createTestSession('mm-member3')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Role Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+
+      const promote = await callFunction('manage-member',
+        { club_id: clubId, action: 'set-role', user_id: member.user.id, role: 'admin' }, owner.sessionToken)
+      assert.equal(promote.status, 200)
+      assert.equal(promote.data.data.role, 'admin')
+
+      const remove = await callFunction('manage-member',
+        { club_id: clubId, action: 'remove', user_id: member.user.id }, owner.sessionToken)
+      assert.equal(remove.status, 200)
+      const { data: p } = await supabaseAdmin.from('profiles').select('club_id').eq('id', member.user.id).single()
+      assert.equal(p.club_id, null)
+    } finally {
+      await cleanupClub(clubId); await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('member toggles own hidden_public', async () => {
+    const owner = await createTestSession('mm-owner4')
+    const member = await createTestSession('mm-member4')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Hide Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+      const res = await callFunction('manage-member',
+        { club_id: clubId, action: 'set-visibility', hidden_public: true }, member.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.hidden_public, true)
+      const { data: m } = await supabaseAdmin.from('club_members')
+        .select('hidden_public').eq('club_id', clubId).eq('user_id', member.user.id).single()
+      assert.equal(m.hidden_public, true)
+    } finally {
+      await cleanupClub(clubId); await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+})
