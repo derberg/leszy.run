@@ -96,3 +96,76 @@ describe('request-join', () => {
     }
   })
 })
+
+describe('respond-join', () => {
+  it('owner approves a pending request → active + club_id set', async () => {
+    const owner = await createTestSession('resp-owner')
+    const joiner = await createTestSession('resp-joiner')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Approve Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await callFunction('request-join', { club_id: clubId }, joiner.sessionToken)
+
+      const res = await callFunction('respond-join',
+        { club_id: clubId, user_id: joiner.user.id, action: 'approve' }, owner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.status, 'active')
+
+      const { data: m } = await supabaseAdmin.from('club_members')
+        .select('status, joined_at').eq('club_id', clubId).eq('user_id', joiner.user.id).single()
+      assert.equal(m.status, 'active')
+      assert.ok(m.joined_at)
+      const { data: p } = await supabaseAdmin.from('profiles').select('club_id').eq('id', joiner.user.id).single()
+      assert.equal(p.club_id, clubId)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+      await cleanupUser(joiner.user.id)
+    }
+  })
+
+  it('rejects a request → pending row deleted, club_id stays null', async () => {
+    const owner = await createTestSession('rej-owner')
+    const joiner = await createTestSession('rej-joiner')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Reject Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await callFunction('request-join', { club_id: clubId }, joiner.sessionToken)
+
+      const res = await callFunction('respond-join',
+        { club_id: clubId, user_id: joiner.user.id, action: 'reject' }, owner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.status, 'rejected')
+
+      const { data: m } = await supabaseAdmin.from('club_members')
+        .select('user_id').eq('club_id', clubId).eq('user_id', joiner.user.id).maybeSingle()
+      assert.equal(m, null)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+      await cleanupUser(joiner.user.id)
+    }
+  })
+
+  it('non-admin cannot respond (403)', async () => {
+    const owner = await createTestSession('perm-owner')
+    const joiner = await createTestSession('perm-joiner')
+    const stranger = await createTestSession('perm-stranger')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Perm Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await callFunction('request-join', { club_id: clubId }, joiner.sessionToken)
+      const res = await callFunction('respond-join',
+        { club_id: clubId, user_id: joiner.user.id, action: 'approve' }, stranger.sessionToken)
+      assert.equal(res.status, 403)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+      await cleanupUser(joiner.user.id)
+      await cleanupUser(stranger.user.id)
+    }
+  })
+})
