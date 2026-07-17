@@ -51,3 +51,48 @@ describe('create-club', () => {
     }
   })
 })
+
+describe('request-join', () => {
+  it('creates a pending membership without setting club_id', async () => {
+    const owner = await createTestSession('rj-owner')
+    const joiner = await createTestSession('rj-joiner')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Do Zapisu Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+
+      const res = await callFunction('request-join', { club_id: clubId }, joiner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.status, 'pending')
+
+      const { data: m } = await supabaseAdmin.from('club_members')
+        .select('status').eq('club_id', clubId).eq('user_id', joiner.user.id).single()
+      assert.equal(m.status, 'pending')
+
+      const { data: p } = await supabaseAdmin.from('profiles').select('club_id').eq('id', joiner.user.id).single()
+      assert.equal(p.club_id, null) // pending must NOT set club_id
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+      await cleanupUser(joiner.user.id)
+    }
+  })
+
+  it('is idempotent when already pending', async () => {
+    const owner = await createTestSession('rj2-owner')
+    const joiner = await createTestSession('rj2-joiner')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Idempotent Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await callFunction('request-join', { club_id: clubId }, joiner.sessionToken)
+      const again = await callFunction('request-join', { club_id: clubId }, joiner.sessionToken)
+      assert.equal(again.status, 200)
+      assert.equal(again.data.data.status, 'pending')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+      await cleanupUser(joiner.user.id)
+    }
+  })
+})

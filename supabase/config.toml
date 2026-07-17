@@ -78,6 +78,10 @@ entrypoint = "./functions/get-profile-data/index.js"
 verify_jwt = false
 entrypoint = "./functions/log-consent/index.js"
 
+[functions.request-join]
+verify_jwt = false
+entrypoint = "./functions/request-join/index.js"
+
 [functions.submit-contribution]
 verify_jwt = false
 entrypoint = "./functions/submit-contribution/index.js"
