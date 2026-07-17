@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import crypto from 'node:crypto'
 import { createTestSession, cleanupUser, cleanupClub, callFunction, supabaseAdmin } from './helpers.js'
 
 describe('create-club', () => {
@@ -408,6 +409,87 @@ describe('transfer-ownership', () => {
     } finally {
       await cleanupClub(clubId)
       await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+})
+
+describe('get-club', () => {
+  it('non-member gets 403', async () => {
+    const owner = await createTestSession('gc-owner1')
+    const stranger = await createTestSession('gc-stranger1')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub GetClub Perm Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+
+      const res = await callFunction('get-club', { club_id: clubId }, stranger.sessionToken)
+      assert.equal(res.status, 403)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(stranger.user.id)
+    }
+  })
+
+  it('member gets club, me, members, and followedEvents', async () => {
+    const owner = await createTestSession('gc-owner2')
+    const member = await createTestSession('gc-member2')
+    let clubId, eventId
+
+    try {
+      const c = await callFunction('create-club', { name: 'Klub GetClub Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+
+      const { data: ev } = await supabaseAdmin.from('calendar_events')
+        .insert({
+          name: `GetClub Followed Bieg ${Date.now()}`, date: '2030-01-01',
+          source: 'test', source_id: `get-club-${crypto.randomUUID()}`, status: 'active',
+        })
+        .select('id').single()
+      eventId = ev.id
+
+      await supabaseAdmin.from('event_favorites').insert([
+        { user_id: owner.user.id, event_id: eventId },
+        { user_id: member.user.id, event_id: eventId },
+      ])
+
+      const res = await callFunction('get-club', { club_id: clubId }, member.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.club.id, clubId)
+      assert.equal(res.data.data.me.role, 'member')
+
+      const memberIds = res.data.data.members.map((m) => m.user_id).sort()
+      assert.deepEqual(memberIds, [owner.user.id, member.user.id].sort())
+      const meRow = res.data.data.members.find((m) => m.user_id === member.user.id)
+      assert.ok('display_name' in meRow && 'nickname' in meRow && 'hidden_public' in meRow)
+
+      const followed = res.data.data.followedEvents.find((f) => f.event.id === eventId)
+      assert.ok(followed, 'expected the shared favorite to appear in followedEvents')
+      assert.ok(followed.count >= 2)
+    } finally {
+      if (eventId) {
+        await supabaseAdmin.from('event_favorites').delete().eq('event_id', eventId)
+        await supabaseAdmin.from('calendar_events').delete().eq('id', eventId)
+      }
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('defaults to the caller\'s active club when club_id is omitted', async () => {
+    const owner = await createTestSession('gc-owner3')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub GetClub Default Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+
+      const res = await callFunction('get-club', {}, owner.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.club.id, clubId)
+      assert.equal(res.data.data.me.role, 'owner')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
     }
   })
 })

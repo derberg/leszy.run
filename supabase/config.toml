@@ -66,6 +66,10 @@ entrypoint = "./functions/delete-my-account/index.js"
 verify_jwt = false
 entrypoint = "./functions/export-my-data/index.js"
 
+[functions.get-club]
+verify_jwt = false
+entrypoint = "./functions/get-club/index.js"
+
 [functions.get-favorites]
 verify_jwt = false
 entrypoint = "./functions/get-favorites/index.js"
