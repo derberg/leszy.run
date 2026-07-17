@@ -94,6 +94,10 @@ entrypoint = "./functions/manage-club-invite/index.js"
 verify_jwt = false
 entrypoint = "./functions/manage-member/index.js"
 
+[functions.render-club]
+verify_jwt = false
+entrypoint = "./functions/render-club/index.js"
+
 [functions.request-join]
 verify_jwt = false
 entrypoint = "./functions/request-join/index.js"
