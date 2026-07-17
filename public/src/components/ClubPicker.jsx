@@ -1,85 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
-import { searchClubs, requestJoin, createClub } from '../lib/clubs.js'
+import { searchClubs, requestJoin } from '../lib/clubs.js'
+import CreateClubForm from './CreateClubForm.jsx'
 
 // Search-existing→request-join / "Utwórz klub" / leave-blank picker. Replaces
 // the free-text ClubInput. Reuses the debounced-search_clubs combobox skeleton
 // from ClubInput.jsx, but the outcomes are actions (request a join, create a
-// club) rather than pinning a free-text value.
+// club) rather than pinning a free-text value. The "Utwórz klub" branch
+// delegates to the shared `CreateClubForm` component (also used standalone by
+// the no-club branch of /profil/klub) — same fields/testids either way
+// (`create-name`, `create-description`, `create-submit`).
 //
 // <ClubPicker onJoined={({club, status}) => {}} onCreated={(club) => {}} onCancel={() => {}} />
-//
-// NOTE: the plan (Task 3) has the "Utwórz klub" branch delegate to a shared
-// `CreateClubForm` component (Task 6, `pages/profil/club/CreateClubForm.jsx`).
-// That component doesn't exist yet in this pass, so this file ships a small
-// self-contained inline create form instead — same fields/testids
-// (`create-name`, `create-description`, `create-submit`) so Task 6 can later
-// extract it into the shared component without changing this file's public
-// interface or breaking any e2e spec already targeting these testids.
 
 const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const primaryBtnClass = 'font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed'
 const ghostBtnClass = 'font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 border border-apex-border text-apex-muted hover:text-apex-yellow hover:border-apex-yellow/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed'
-
-function CreateClubInline({ onCreated, onCancel }) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState(null)
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    const trimmed = name.trim()
-    if (trimmed.length < 2 || trimmed.length > 120) {
-      setError('Nazwa klubu musi mieć 2–120 znaków.')
-      return
-    }
-    setError(null)
-    setSubmitting(true)
-    try {
-      const { club } = await createClub({ name: trimmed, ...(description.trim() ? { description: description.trim() } : {}) })
-      onCreated?.(club)
-    } catch (err) {
-      if (/already|istnieje/i.test(err.message)) setError('Klub o tej nazwie już istnieje.')
-      else if (/należysz|member/i.test(err.message)) setError('Należysz już do klubu.')
-      else setError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-2">
-      <div>
-        <input
-          data-testid="create-name"
-          type="text"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          placeholder="Klub Biegacza Kraków"
-          maxLength={120}
-          className={inputClass}
-          autoFocus
-        />
-        <p className="font-mono text-[10px] text-apex-muted mt-0.5">{name.length}/120</p>
-      </div>
-      <textarea
-        data-testid="create-description"
-        value={description}
-        onChange={e => setDescription(e.target.value)}
-        placeholder="Opis klubu (opcjonalnie)"
-        rows={2}
-        className={`${inputClass} resize-none`}
-      />
-      {error && <p className="text-apex-red font-sans text-xs">{error}</p>}
-      <div className="flex items-center gap-2">
-        <button type="submit" data-testid="create-submit" disabled={submitting} className={primaryBtnClass}>
-          {submitting ? 'Tworzenie…' : 'Utwórz klub'}
-        </button>
-        <button type="button" onClick={onCancel} className={ghostBtnClass}>Anuluj</button>
-      </div>
-    </form>
-  )
-}
 
 export default function ClubPicker({ onJoined, onCreated, onCancel }) {
   const [query, setQuery] = useState('')
@@ -135,7 +70,7 @@ export default function ClubPicker({ onJoined, onCreated, onCancel }) {
 
   if (creating) {
     return (
-      <CreateClubInline
+      <CreateClubForm
         onCreated={(club) => { setCreating(false); onCreated?.(club) }}
         onCancel={() => setCreating(false)}
       />
