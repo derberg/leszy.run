@@ -39,6 +39,11 @@ const SEARCH_FILLABLE = pickFillable(['registration_url', 'regulamin_url'])
 //                        incomplete, ignoring merged_at AND calendar_events
 //                        status. Use sparingly (Claude API spend); will
 //                        hit hundreds of already-active events.
+//   --merged-since <d>   Like the default scope but with a custom start date
+//                        (YYYY-MM-DD, UTC) instead of start-of-today. Use when
+//                        the host-side enrich-search step runs a day (or more)
+//                        after the merge — e.g. `--merged-since 2026-07-20`
+//                        picks up yesterday's arrivals the default would miss.
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
@@ -47,6 +52,11 @@ const args = process.argv.slice(2)
 const limitArg = args.includes('--limit') ? parseInt(args[args.indexOf('--limit') + 1]) : null
 const dryRun = !args.includes('--apply')
 const sourceArg = args.includes('--source') ? args[args.indexOf('--source') + 1] : null
+const mergedSinceArg = args.includes('--merged-since') ? args[args.indexOf('--merged-since') + 1] : null
+if (mergedSinceArg && !/^\d{4}-\d{2}-\d{2}$/.test(mergedSinceArg)) {
+  console.error(`--merged-since expects YYYY-MM-DD, got: ${mergedSinceArg}`)
+  process.exit(1)
+}
 
 function describeKnown(event) {
   const known = []
@@ -177,11 +187,13 @@ async function main() {
   //                      no CE filter)
   //   --pending-only   : only rows mapping to a pending CE row (legacy
   //                      behavior, useful for backfilling admin review queue)
+  //   --merged-since   : rows merged on/after a given date (default scope
+  //                      with a custom start — for catching up missed days)
   //   default          : rows merged TODAY (merged_at >= start-of-today)
   const allIncompleteFlag = process.argv.includes('--all-incomplete')
   const pendingOnlyFlag = process.argv.includes('--pending-only')
   let pendingKeys = null
-  let useMergedAtFilter = false
+  let mergedSinceDate = null
 
   if (allIncompleteFlag) {
     console.log(`Scope: --all-incomplete — every scraper_all row that looks incomplete (DOES NOT respect calendar_events status, ignores merged_at)`)
@@ -210,11 +222,14 @@ async function main() {
       }
     }
     console.log(`Scope: --pending-only (${pendingKeys.size} source-id pairs match a pending row)`)
+  } else if (mergedSinceArg) {
+    mergedSinceDate = mergedSinceArg
+    console.log(`Scope: --merged-since — scraper_all rows with merged_at >= ${mergedSinceDate}`)
   } else {
     // DEFAULT: today's merges only — picks up just-arrived events for the
     // daily pipeline. Server-side filter on merged_at to keep the fetch small.
-    useMergedAtFilter = true
-    console.log(`Scope: default — scraper_all rows merged today (merged_at >= ${new Date().toISOString().split('T')[0]})`)
+    mergedSinceDate = new Date().toISOString().split('T')[0]
+    console.log(`Scope: default — scraper_all rows merged today (merged_at >= ${mergedSinceDate})`)
   }
   const allRows = []
   let from = 0
@@ -223,8 +238,8 @@ async function main() {
     let query = supabase
       .from('scraper_all')
       .select('id, name, date, location, voivodeship, source, source_id, source_links, distances, event_types, is_kids, website, registration_url, regulamin_url, price_from, price_to, registration_deadline, enriched_search_at')
-    if (useMergedAtFilter) {
-      query = query.gte('merged_at', new Date().toISOString().split('T')[0])
+    if (mergedSinceDate) {
+      query = query.gte('merged_at', mergedSinceDate)
     }
     const { data, error } = await query.range(from, from + pageSize - 1)
 
