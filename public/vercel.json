@@ -1,7 +1,6 @@
 {
   "rewrites": [
     { "source": "/edge/:name*", "destination": "https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/:name*" },
-    { "source": "/klub/:slug", "destination": "https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/render-club?slug=:slug" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
