@@ -139,7 +139,8 @@ Pipeline scheduler / alerting (scheduler container, optional — alerts disabled
 - Drizzle schema in `src/db/schema.js`, client in `src/db/index.js`
 - Use Drizzle migrations (`drizzle-kit generate` + `drizzle-kit migrate`)
 - **Migrations MUST be registered in `src/db/migrations/meta/_journal.json`** — Drizzle ignores SQL files not listed there. When writing a migration manually: create the `.sql` file AND add an entry to the journal (`idx`, `version: "7"`, `when`, `tag` matching filename without `.sql`, `breakpoints: true`). If a migration already ran (backend started and logged "Migrations complete"), do NOT modify the SQL file — create a new numbered file + new journal entry instead.
-- **DDL changes MUST be applied to both local DB and Supabase.** Local DB uses Drizzle migrations (auto-run on backend start). Supabase must be updated separately via `mcp__supabase__apply_migration`. Every schema change (new table, alter column, add index, etc.) requires both — never apply to one without the other.
+- **DDL changes MUST be applied to both local DB and Supabase.** Local DB uses Drizzle migrations (auto-run on backend start). **Supabase schema changes are a committed SQL migration in `supabase/migrations/` (create with `supabase migration new <name>`), applied to prod by `supabase db push` in the CI release pipeline (`.github/workflows/supabase-release.yml`) on merge to `main` — NOT via MCP `apply_migration` or ad-hoc SQL.** Every schema change touching a table that exists in both DBs requires both the Drizzle migration (local) and a committed Supabase migration. See [docs/supabase-release-runbook.md](docs/supabase-release-runbook.md).
+- **Edge functions deploy via the same CI pipeline** (`supabase functions deploy` on merge to `main`) — not via MCP. Every function needs a block in `supabase/config.toml` (`verify_jwt = false`, `entrypoint = "./functions/<name>/index.js"` — this app uses custom cookie auth, not Supabase JWTs). **Supabase edge functions cannot serve `text/html`** — the runtime coerces would-be-HTML responses to `text/plain` + `nosniff`; serve HTML pages from Vercel instead.
 - WebSocket broadcaster in `src/ws/broadcaster.js` — export a `broadcast(event, data)` function
 - MQTT client starts on server boot, crossing detector subscribes to it
 - Supabase sync runs as a `setInterval` in background, does not block requests
@@ -247,15 +248,15 @@ A reverse sync worker (`src/sync/checkinSync.js`) polls Supabase every 30s and p
 new/updated checkin rows into local PostgreSQL. Admin check-in from the backend also
 writes to Supabase first (not local), so all check-in data has a single source of truth in Supabase.
 
-**Supabase-only tables** (no Drizzle schema, no local migration — apply via `mcp__supabase__apply_migration` only):
+**Supabase-only tables** (no Drizzle schema, no local migration — a committed `supabase/migrations/` file, deployed by the CI pipeline on merge; see [docs/supabase-release-runbook.md](docs/supabase-release-runbook.md)):
 - `event_secrets` — per-event check-in PINs
 - `calendar_events` — aggregated race calendar from scrapers + manual entry
 - `geocode_cache` — Nominatim geocoding results cache
 - `url_suggestions` — Brave Search URL candidates pending admin review
 - `event_favorites` — user star/follow shortlist (service-role only, written via `toggle-favorite` edge function)
 - `event_notifications` — event-level notification log (`registration_opened` / `deadline_soon`); rows produced by a `calendar_events` trigger + `run-deadline-notifications.js`; UNIQUE(event_id, type). No `cancelled` type — cancellation alerts were intentionally dropped (we can't promise them; cancellation data depends on organizers reporting it).
-- `event_results_summary` — read-only view aggregating per-event stats (participants, finishers, timed distances, fastest finisher) for past-event public pages; only `participants` + `distances` are currently surfaced. Created via `apply_migration` only.
-- `event_category_best_times` — read-only view: best finish time per event × timed category × gender (`M`/`K` only; non-cancelled runs, untimed categories excluded). Feeds the past-event "Najlepsze czasy" table. Created via `apply_migration` only.
+- `event_results_summary` — read-only view aggregating per-event stats (participants, finishers, timed distances, fastest finisher) for past-event public pages; only `participants` + `distances` are currently surfaced. Created via a committed migration (deployed by the CI pipeline).
+- `event_category_best_times` — read-only view: best finish time per event × timed category × gender (`M`/`K` only; non-cancelled runs, untimed categories excluded). Feeds the past-event "Najlepsze czasy" table. Created via a committed migration (deployed by the CI pipeline).
 
 ## Supabase sync — how it works
 
