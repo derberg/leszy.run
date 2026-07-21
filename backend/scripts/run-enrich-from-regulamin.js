@@ -26,8 +26,25 @@ const PDF_FILLABLE = pickFillable([
 //
 // Host-only: relies on the `claude` CLI plus macOS `textutil` (docx/html) and
 // `pdftotext` — none are in the backend Docker image (same constraint as step 8).
+//
+// Options:
+//   --all                Ignore merged_at — every row with a regulamin URL not
+//                        yet mined (enriched_regulamin_at IS NULL)
+//   --merged-since <d>   Like the default scope but with a custom start date
+//                        (YYYY-MM-DD, UTC) instead of start-of-today. Use when
+//                        this host step runs a day (or more) after the merge —
+//                        pair it with the same date given to run-enrich-search.
+//   default              Rows merged TODAY (merged_at >= start-of-today UTC)
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+
+const mergedSinceArg = process.argv.includes('--merged-since')
+  ? process.argv[process.argv.indexOf('--merged-since') + 1]
+  : null
+if (mergedSinceArg && !/^\d{4}-\d{2}-\d{2}$/.test(mergedSinceArg)) {
+  console.error(`--merged-since expects YYYY-MM-DD, got: ${mergedSinceArg}`)
+  process.exit(1)
+}
 
 const VALID_EVENT_TYPES = ['trail', 'nocny', 'ocr', 'nordic walking', 'ultra', 'charytatywny', 'uliczny']
 
@@ -311,6 +328,11 @@ async function main() {
   }
 
   const allFlag = process.argv.includes('--all')
+  if (allFlag) {
+    console.log('Scope: --all — every un-mined row with a regulamin URL (ignores merged_at)')
+  } else {
+    console.log(`Scope: ${mergedSinceArg ? '--merged-since' : 'default'} — rows with merged_at >= ${mergedSinceArg || new Date().toISOString().split('T')[0]}`)
+  }
   const allRows = []
   let from = 0
   const pageSize = 1000
@@ -321,7 +343,7 @@ async function main() {
       .not('regulamin_url', 'is', null)
       .is('enriched_regulamin_at', null)
     if (!allFlag) {
-      query = query.gte('merged_at', new Date().toISOString().split('T')[0])
+      query = query.gte('merged_at', mergedSinceArg || new Date().toISOString().split('T')[0])
     }
     const { data, error: fetchErr } = await query.range(from, from + pageSize - 1)
 
