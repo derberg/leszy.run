@@ -1,6 +1,6 @@
 ---
 name: dev-workflow
-description: Use when starting ANY change to LeszyRun / BeepBeep — before the first edit, when creating a branch or worktree, when finishing work (push, PR, merge), or when the branch-guard hook denies an edit on main. Covers worktrees, branching, PR/merge, and the single-Supabase / Vercel / docker deploy model.
+description: Use when starting ANY change to LeszyRun / BeepBeep — before the first edit, when creating a branch or worktree, when finishing work (push, PR, merge), or when the branch-guard hook denies an edit. Covers the mandatory worktree-per-topic isolation, the PR/merge flow, and the single-Supabase / Vercel / docker deploy model.
 ---
 
 # LeszyRun / BeepBeep Dev Workflow
@@ -8,7 +8,7 @@ description: Use when starting ANY change to LeszyRun / BeepBeep — before the 
 ## The one rule
 
 **Never commit to `main` directly, and never leave work stranded on a branch.**
-Every change goes: branch off fresh `main` → push → PR → merge back → done.
+Every change goes: worktree off fresh `origin/main` → push → PR → merge back → done.
 A feature branch that accumulates commits but never gets a PR or merge is the
 exact failure this workflow exists to prevent.
 
@@ -25,15 +25,19 @@ If you find unmerged commits on the current branch (`git log --oneline origin/ma
 surface that immediately — decide with the user whether to merge/PR them or
 abandon them before piling new work on top.
 
-## Parallel topics — one worktree per topic
+## Worktree per topic — required, not optional
 
 A single checkout has one `HEAD`, so two sessions sharing one directory fight
 over the branch: one runs `git switch`, the other's files change underneath it.
-Use a **git worktree per topic** — each is its own directory with its own
-checked-out branch, all backed by this repo's single `.git`.
+Don't work around this with `git stash` juggling or extra clones. Use a **git
+worktree per topic** — each is its own directory with its own checked-out
+branch, all backed by this repo's single `.git` (one `fetch`, shared
+branches/stash/reflog; git refuses to check out the same branch in two
+worktrees, which is the guard you actually want).
 
 Rule: **one worktree : one branch : one session.** Spin one up with the helper
-(off fresh `origin/main`, runs `npm install` for all workspaces):
+(off fresh `origin/main`, inherits the `.vercel` link, runs `npm install` for
+all workspaces):
 
 ```bash
 scripts/worktree.sh new feature/<short-name>   # creates .worktrees/<name>, installs deps
@@ -44,25 +48,31 @@ scripts/worktree.sh rm  feature/<short-name>    # removes the dir; branch stays
 Then open `.worktrees/<name>` as the workspace for that session and work there.
 `.worktrees/` is gitignored, and the branch-guard hook is worktree-aware — it
 gates each file by the branch of the worktree that owns it, so topics never gate
-or clobber each other. You don't *have* to use a worktree for a one-off change
-on a clean checkout — but the moment you run more than one session, use them.
+or clobber each other.
+
+**A worktree is required, not optional:** the PreToolUse branch-guard hook makes
+the shared main checkout read-only for edits (on any branch), so all topic work
+happens in a `.worktrees/<topic>` directory. This is deliberate — the main
+checkout's HEAD is shared, and a concurrent session can switch it mid-task,
+landing your commit on the wrong branch. A worktree pins one branch to one
+directory, which git enforces.
 
 ## The flow
 
 ```
-git switch main && git pull             # 1a. ALWAYS land on clean, up-to-date main FIRST
-git switch -c feature/<short-name>      # 1b. branch from there — never from whatever was checked out
+scripts/worktree.sh new feature/<short-name>   # 1. fresh worktree off origin/main (main checkout is read-only)
+# open .worktrees/feature-<short-name> and work THERE
 # ... make changes ...
-git push -u origin feature/<short-name> # 2. push
+git push -u origin feature/<short-name>        # 2. push
 # 3. open a PR:  gh pr create --fill
 # 4. review, then merge:  gh pr merge --squash --delete-branch
-#    (or fast-forward locally:  git switch main && git merge --ff-only feature/<short-name> && git push)
-# 5. run any post-merge steps below
+# 5. run any post-merge steps below, then remove the worktree:
+#    scripts/worktree.sh rm feature/<short-name>
 ```
 
-**Branching from `main`, not from whatever is checked out, is load-bearing.** A
-session can start on *another* topic's branch; branching off it silently inherits
-that branch's unmerged commits. Always `git switch main && git pull` first.
+Before opening the PR, verify isolation: `git log --oneline origin/main..HEAD`
+must show **only your own commits** — anything else means you branched off the
+wrong base or another topic leaked in.
 
 ## Deploy model (single environment — NOT a dev/prod split)
 
@@ -95,11 +105,13 @@ that branch's unmerged commits. Always `git switch main && git pull` first.
 - About to describe "what the code does" without checking the branch → run
   `git status -sb` first; if HEAD is behind `origin/main`, reason about
   `origin/main`, not the stale tree.
-- About to `git switch -c` without first checking out `main` → STOP. Branch off
-  fresh `main`, not the currently-checked-out (possibly unrelated) branch.
+- About to edit in the shared main checkout, or `git switch -c` there instead of
+  making a worktree → STOP. A concurrent session can switch the main checkout's
+  HEAD out from under you, so your commit lands on another session's branch. Use
+  `scripts/worktree.sh new feature/<short-name>` and work in that worktree.
 - About to add commits to a branch that already has unmerged work with no PR →
   STOP. Resolve the stranded commits (PR/merge or abandon) before piling on.
-- branch-guard denied an edit because you're on `main` → invoke this skill and
-  follow it; don't just `git switch -c` and retry blindly.
+- branch-guard denied an edit → invoke this skill and follow it; don't just
+  `git switch -c` in the main checkout and retry blindly.
 - Finished coding but never opened a PR / merged → not done. Work stranded on a
   branch is the failure this workflow prevents.

@@ -6,23 +6,26 @@ Race timing system. RFID readers detect participants crossing start/finish gates
 Events are published via MQTT. Backend processes them and stores results in local
 PostgreSQL. Syncs to Supabase when online. See ARCHITECTURE.md for full design.
 
-## Development workflow (branch → PR → merge — enforced)
+## Development workflow (worktree → PR → merge — enforced)
 
 **Never commit to `main` directly, and never leave work stranded on a branch.**
-Every change goes: branch off fresh `main` → push → PR → merge back → done. A
-feature branch that piles up commits but never gets a PR/merge is a bug, not a
-state to leave the repo in.
+Every change goes: worktree off fresh `origin/main` → push → PR → merge back →
+done. A feature branch that piles up commits but never gets a PR/merge is a bug,
+not a state to leave the repo in.
 
+- **The shared main checkout is read-only for edits** (on any branch). All topic
+  work happens in an isolated git worktree — one worktree : one branch : one
+  session: `scripts/worktree.sh new feature/<name>`, then work in `.worktrees/<name>`.
 - Before editing OR before answering "what does the code do", run `git status -sb`.
   If HEAD is behind `origin/main`, reason about `origin/main`, not the stale tree.
-- Flow: `git switch main && git pull` → `git switch -c feature/<name>` → edit →
-  `git push -u origin feature/<name>` → `gh pr create --fill` → `gh pr merge --squash --delete-branch`.
-- Parallel topics use one worktree each: `scripts/worktree.sh new feature/<name>`
-  (one worktree : one branch : one session).
-- This is enforced by hooks: a PreToolUse **branch-guard** denies edits while on
-  `main`, and a SessionStart reminder front-loads the `dev-workflow` skill. The
-  full rules, deploy model, and post-merge steps live in
-  `.claude/skills/dev-workflow/SKILL.md` — invoke that skill before the first edit.
+- Flow: `scripts/worktree.sh new feature/<name>` → edit in `.worktrees/<name>` →
+  `git push -u origin feature/<name>` → `gh pr create --fill` → `gh pr merge --squash --delete-branch`
+  → `scripts/worktree.sh rm feature/<name>`.
+- This is enforced by hooks: a PreToolUse **branch-guard** denies edits in the
+  main checkout and on `main`/`master` anywhere, and a SessionStart reminder
+  front-loads the `dev-workflow` skill. The full rules, deploy model, and
+  post-merge steps live in `.claude/skills/dev-workflow/SKILL.md` — invoke that
+  skill before the first edit.
 
 ## GDPR compliance
 
