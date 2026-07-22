@@ -88,6 +88,22 @@ function buildDescription(event) {
   return parts.join(' \u00B7 ')
 }
 
+// Meta/OG/Twitter description \u2014 distinct from the factual JSON-LD buildDescription above.
+// "bieg <nazwa> <rok>" searchers are looking for zapisy/trasa/regulamin, so the snippet
+// must promise those; the old data-dump format sat at positions 4\u20139 with <3% CTR across
+// 240 queries (GSC, 2026-07). City stays in nominative \u2014 templates can't decline Polish
+// place names, so no "w <miasto>" phrasing.
+function buildMetaDescription(event) {
+  const sentences = []
+  const opener = [event.name, formatPolishDate(event.date)].filter(Boolean).join(' \u2014 ')
+  if (opener) sentences.push(event.location ? `${opener}, ${event.location}.` : `${opener}.`)
+  if (Array.isArray(event.distances) && event.distances.length > 0) {
+    sentences.push(`Dystanse: ${event.distances.slice(0, 4).join(', ')}.`)
+  }
+  sentences.push('Zapisy, trasa, regulamin i szczeg\u00F3\u0142y \u2014 sprawd\u017A na Leszy.run.')
+  return sentences.join(' ')
+}
+
 function buildJsonLd(event, slug) {
   const startDate = event.date ? event.date.slice(0, 10) : undefined
   const eventUrl = `${BASE_URL}/kalendarz/${slug}`
@@ -231,8 +247,11 @@ ${items}
 }
 
 function buildEventHtml(event, slug, cssLinks, jsScripts, manifest, today) {
-  const title = `${escapeHtml(event.name)} \u2014 ${escapeHtml(formatPolishDate(event.date))} \u2014 Leszy.run`
-  const description = escapeHtml(buildDescription(event))
+  // City in the title improves matching for "<bieg> <miasto> <rok>" queries where the
+  // event name itself doesn't contain the city.
+  const titleParts = [event.name, formatPolishDate(event.date), event.location].filter(Boolean)
+  const title = `${titleParts.map(escapeHtml).join(' \u2014 ')} \u2014 Leszy.run`
+  const description = escapeHtml(buildMetaDescription(event))
   const canonical = `${BASE_URL}/kalendarz/${slug}`
   const ogImage = `${BASE_URL}/kalendarz/${slug}/og.png`
   const isPast = (event.date || '').slice(0, 10) < today
@@ -331,6 +350,31 @@ function buildSitemap(slugs, manifest) {
   return { xml: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</urlset>\n`, included: entries.length, skipped }
 }
 
+// dist/kalendarz/index.html: the SPA rewrite serves the root index.html (homepage title,
+// description, and canonical) for /kalendarz until React renders and useSeo swaps them in.
+// Googlebot's raw-HTML pass — and any non-rendering crawler — therefore saw homepage meta
+// on the calendar hub. Bake a static shell with the same values Kalendarz.jsx's useSeo sets
+// at render time (keep the two in sync). The canonical also folds crawled parameter
+// variants (e.g. the SearchAction ?q= template) into /kalendarz.
+function buildKalendarzShell(indexHtml) {
+  const title = 'Kalendarz biegów w Polsce — Leszy.run'
+  const desc = 'Przeglądaj setki biegów, marszów nordic walking i wydarzeń sportowych z całej Polski. Filtruj po regionie, dystansie, typie i dacie.'
+  const url = `${BASE_URL}/kalendarz`
+  let html = indexHtml
+    .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
+    .replace(/(<meta name="description" content=")[^"]*(")/, `$1${desc}$2`)
+    .replace(/(<meta property="og:title" content=")[^"]*(")/, `$1${title}$2`)
+    .replace(/(<meta property="og:description" content=")[^"]*(")/, `$1${desc}$2`)
+    .replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${url}$2`)
+    .replace(/(<meta name="twitter:title" content=")[^"]*(")/, `$1${title}$2`)
+    .replace(/(<meta name="twitter:description" content=")[^"]*(")/, `$1${desc}$2`)
+    .replace(/(<link rel="canonical" href=")[^"]*(")/, `$1${url}$2`)
+  if (!html.includes('rel="canonical"')) {
+    html = html.replace('</title>', `</title>\n    <link rel="canonical" href="${url}" />`)
+  }
+  return html
+}
+
 // --- Main ---
 
 function main() {
@@ -385,6 +429,10 @@ function main() {
   }
 
   console.log(`Generated ${generated} event HTML files (${pastCount} past-event noindex).`)
+
+  mkdirSync(resolve(DIST, 'kalendarz'), { recursive: true })
+  writeFileSync(resolve(DIST, 'kalendarz', 'index.html'), buildKalendarzShell(indexHtml))
+  console.log('Generated kalendarz/index.html shell.')
 
   // 4. Generate sitemap (past events excluded)
   const { xml, included, skipped } = buildSitemap(slugs, manifest)
