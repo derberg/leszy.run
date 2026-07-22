@@ -79,7 +79,7 @@ docs_changed=$(printf '%s\n' "$changed" | grep -E "$DOCS")
 # Nothing relevant changed -> nothing to gate.
 [ -z "$code_changed" ] && [ -z "$automation_changed" ] && exit 0
 
-reason=$(printf 'DOCS + SKILLS + AUTOMATION GATE — run an HONEST self-check before finishing. The bar is "genuinely needed", not "produce output". If nothing drifted and no skill gap surfaced, say so in ONE line and finish. Do NOT invent docs work or invent skills to look busy. This gate fires once; spend it on real judgement.
+reason=$(printf 'DOCS + SKILLS + AUTOMATION GATE — run an HONEST self-check before finishing. The bar is "genuinely needed", not "produce output". If nothing drifted and no skill gap surfaced, emit EXACTLY the line `Docs, skills, automation: unaffected.` and finish — no headings, no per-category breakdown, no recap of what you checked. Do NOT invent docs work or invent skills to look busy. This gate fires once; spend it on real judgement, not on writing about the judgement.
 
 Code changed on this branch (where docs/skills commonly drift):
 %s
@@ -108,7 +108,10 @@ Did the diff above, OR anything you learned THIS session (a recurring failure, a
 - .github/workflows/ — CI/CD (Supabase release pipeline, action SHA pinning)
 - CLAUDE.md — rules + pointers
 
-Report the result in ONE sentence — no heading, no bullet list: name any doc updated and any skill updated or proposed, and ALWAYS include an explicit skills verdict AND an explicit automation verdict so neither is silently dropped (e.g. `Docs: CLAUDE.md updated; skills: unaffected; automation: branch-guard hook updated; others unaffected.`). The analysis must be real; only the written summary is compressed to that one sentence. You may finish once you have emitted it.' "$code_changed" "${automation_changed:-"(none)"}" "$docs_changed")
+Report the result:
+- NOTHING needed anywhere → emit exactly `Docs, skills, automation: unaffected.` and finish. Nothing else — no listing of what you reviewed or why it was fine.
+- Something WAS updated or proposed → ONE sentence, no heading, no bullet list: name only what changed, plus a terse verdict for the silent categories (e.g. `Docs: CLAUDE.md updated; skills + automation: unaffected.`).
+The analysis must be real; only the written summary is compressed. Never pad the summary to prove the review happened. You may finish once you have emitted it.' "$code_changed" "${automation_changed:-"(none)"}" "$docs_changed")
 
 # Stop hooks use {decision:"block", reason} to keep the assistant going; the
 # reason is fed back as context. systemMessage surfaces the gate to the user.
