@@ -27,8 +27,14 @@ project_id = "kojoxazlnxncrpxmnxiq"
 #     explicitly to `index.js`.
 #
 # When adding a NEW function, add a block here too (verify_jwt = false; public
-# SSR endpoints like a future `render-club` are also false because crawlers call
-# them with no auth).
+# SSR endpoints are also false because crawlers call them with no auth). NOTE:
+# `render-club` (a public SSR endpoint for /klub/:slug) was removed — the
+# Supabase edge runtime forced `text/plain` on its HTML responses, breaking
+# crawlers/JSON-LD, so /klub/:slug pages are now pre-generated static HTML
+# instead (see backend/scripts/publish-club-pages.js +
+# public/scripts/generate-club-pages.js). It may still be deployed on Supabase
+# as an unused orphan — nothing routes to it; remove manually with
+# `supabase functions delete render-club`.
 
 [functions.accept-invite]
 verify_jwt = false
@@ -97,10 +103,6 @@ entrypoint = "./functions/manage-club-invite/index.js"
 [functions.manage-member]
 verify_jwt = false
 entrypoint = "./functions/manage-member/index.js"
-
-[functions.render-club]
-verify_jwt = false
-entrypoint = "./functions/render-club/index.js"
 
 [functions.request-join]
 verify_jwt = false

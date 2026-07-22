@@ -22,15 +22,13 @@ export default defineConfig(({ mode }) => {
               changeOrigin: true,
               rewrite: (p) => p.replace(/^\/edge/, '/functions/v1'),
             },
-            // Mirrors the `/klub/:slug` Vercel rewrite: bare club slug paths
-            // (NOT the `/klub/:slug/dolacz` invite-accept SPA route, which the
-            // regex excludes by requiring end-of-string right after the slug)
-            // proxy to the public render-club SSR function.
-            '^/klub/[^/]+$': {
-              target: supabaseUrl,
-              changeOrigin: true,
-              rewrite: (p) => `/functions/v1/render-club?slug=${p.replace(/^\/klub\//, '')}`,
-            },
+            // NOTE: bare `/klub/:slug` used to proxy here to the render-club SSR
+            // function (mirroring the old Vercel rewrite). That function is retired
+            // in favor of static generation (generate-club-pages.js) — under `vite
+            // dev` a club page won't exist as a static file, so it falls through to
+            // the SPA, which doesn't own the bare route either (only
+            // `/klub/:slug/dolacz` is an SPA route) and shows NotFound. Run
+            // `npm run build && npm run preview` to see real generated club pages.
           },
         }
       : undefined,

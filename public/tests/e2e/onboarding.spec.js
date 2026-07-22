@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { createTestUser, cleanupUser, supabaseAdmin } from './helpers.js'
+import { createTestUser, cleanupUser, cleanupClub, supabaseAdmin, FUNCTIONS_URL } from './helpers.js'
 
 test.describe('Onboarding', () => {
   let testUser
@@ -63,24 +63,49 @@ test.describe('Onboarding', () => {
     await expect(page.getByText(/dostępna/i)).toBeVisible({ timeout: 5000 })
   })
 
-  test('club autocomplete suggests an existing club and pins it', async ({ page, context }) => {
+  // ClubPicker (see clubs.spec.js) replaced the old free-text ClubInput +
+  // find_or_create_club pinning. During onboarding, picking an existing club
+  // only files a join request (request-join) — it does NOT pin profiles.club_id
+  // directly; that only happens once an owner/admin approves the request.
+  test('club search during onboarding requests to join an existing club (does not pin it)', async ({ page, context }) => {
+    const clubOwner = await createTestUser('onboarding-club-owner')
     const clubName = `KB Testowo ${Date.now()}`
-    const { data: clubId } = await supabaseAdmin.rpc('find_or_create_club', { club_name: clubName })
+    let clubId = null
     try {
+      const createRes = await fetch(`${FUNCTIONS_URL}/create-club`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: `leszy_session=${clubOwner.sessionToken}` },
+        body: JSON.stringify({ name: clubName }),
+      })
+      const created = await createRes.json()
+      clubId = created.data.club.id
+
       await testUser.injectSession(context)
       await page.goto('/onboarding')
-      await page.getByLabel(/klub/i).fill('kb testowo')
-      await expect(page.getByRole('option', { name: new RegExp(clubName) })).toBeVisible({ timeout: 5000 })
-      await page.getByRole('option', { name: new RegExp(clubName) }).click()
+      await page.getByTestId('club-search-input').fill('kb testowo')
+      await expect(page.getByTestId('club-option').first()).toBeVisible({ timeout: 5000 })
+      await page.getByTestId('club-option').first().click()
+      await page.getByTestId('confirm-join').click()
+      await expect(page.getByTestId('club-pending-note')).toBeVisible()
+
       const username = `clb_${Date.now()}`.slice(0, 28).toLowerCase()
       await page.getByLabel(/nazwa użytkownika/i).fill(username)
       await page.getByRole('button', { name: /zapisz/i }).click()
       await page.waitForURL(/\/profil/)
+
+      const { data: membership } = await supabaseAdmin
+        .from('club_members')
+        .select('status')
+        .eq('club_id', clubId)
+        .eq('user_id', testUser.user.id)
+        .single()
+      expect(membership.status).toBe('pending')
+
       const { data: prof } = await supabaseAdmin.from('profiles').select('club_id').eq('id', testUser.user.id).single()
-      expect(prof.club_id).toBe(clubId)
+      expect(prof.club_id).toBeNull()
     } finally {
-      await supabaseAdmin.from('profiles').update({ club_id: null }).eq('id', testUser.user.id)
-      await supabaseAdmin.from('clubs').delete().eq('id', clubId)
+      await cleanupClub(clubId)
+      await cleanupUser(clubOwner.user.id)
     }
   })
 })

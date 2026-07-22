@@ -67,10 +67,14 @@ that branch's unmerged commits. Always `git switch main && git pull` first.
 ## Deploy model (single environment — NOT a dev/prod split)
 
 - **Supabase** — one project (id in CLAUDE.md). There is no dev/prod Supabase
-  split. Schema changes are Drizzle migrations (local, auto-run on backend boot)
-  AND a matching `mcp__supabase__apply_migration` (Supabase). Apply to BOTH —
-  see CLAUDE.md "DDL changes MUST be applied to both".
-- **Vercel** — serves the `public/` app only (landing, kalendarz, event pages).
+  split. Schema + edge functions ship via the **CI release pipeline**
+  (`.github/workflows/supabase-release.yml`) on merge to `main`: a committed
+  `supabase/migrations/` file is applied by `supabase db push`, and functions
+  deploy via `supabase functions deploy`. **NOT** MCP `apply_migration` /
+  `deploy_edge_function`. A table that also lives in the local Fastify DB still
+  needs its Drizzle migration (local, auto-run on backend boot) too. See CLAUDE.md
+  "DDL changes MUST be applied to both" + [docs/supabase-release-runbook.md](../../../docs/supabase-release-runbook.md).
+- **Vercel** — serves the `public/` app only (landing, kalendarz, event/club pages).
   Merging to `main` is what ships it; the build pre-generates static pages from
   committed manifests.
 - **Backend / frontend / scheduler / enricher** — run locally via `docker compose up`.
@@ -82,7 +86,9 @@ that branch's unmerged commits. Always `git switch main && git pull` first.
   the manifest/page generators and commit the refreshed manifests, or the static
   public pages go stale. See CLAUDE.md "Static HTML generation" +
   `feedback_manifest_refresh`.
-- **Schema changed**: confirm the migration ran locally AND was applied to Supabase.
+- **Schema changed**: confirm the Drizzle migration ran locally, and that a
+  committed `supabase/migrations/` file exists so the pipeline applies it to
+  Supabase on merge (watch the `Supabase Release` Actions run go green).
 
 ## Red flags — STOP
 

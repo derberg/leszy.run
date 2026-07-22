@@ -4,7 +4,8 @@ import { createContext, useContext } from 'react'
 // get-profile-data ONCE and provides the result here, so switching tabs never
 // refetches or flashes. Sections consume via useProfil().
 //
-// Shape: { profile, badges, reports, submissions, handleSave, handleClubSave }
+// Shape: { profile, badges, reports, submissions, handleSave,
+//          pendingMembership, pendingOwnership, incomingInvites, refreshProfileData }
 export const ProfilContext = createContext(null)
 
 export function useProfil() {

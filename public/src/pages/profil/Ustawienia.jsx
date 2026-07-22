@@ -1,11 +1,14 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import { useProfil } from './context.js'
+import useClub from '../../hooks/useClub.js'
+import { manageMember } from '../../lib/clubs.js'
 import DangerZone from './DangerZone.jsx'
 import {
   sectionTitle,
   EditableField,
   EditablePhoneField,
-  EditableClubField,
   VOIVODESHIP_OPTIONS,
   GENDER_LABELS,
 } from './fields.jsx'
@@ -22,7 +25,24 @@ function Row({ label, children }) {
 export default function Ustawienia() {
   useSeo({ title: 'Ustawienia — Leszy.run', path: '/profil/ustawienia', noindex: true })
 
-  const { profile, handleSave, handleClubSave } = useProfil()
+  const { profile, handleSave } = useProfil()
+  const { club, me, reload: reloadClub } = useClub()
+  const [visBusy, setVisBusy] = useState(false)
+  const [visError, setVisError] = useState(null)
+
+  async function toggleHiddenPublic(checked) {
+    if (!club) return
+    setVisBusy(true)
+    setVisError(null)
+    try {
+      await manageMember(club.id, 'set-visibility', { hidden_public: checked })
+      await reloadClub()
+    } catch (err) {
+      setVisError(err.message)
+    } finally {
+      setVisBusy(false)
+    }
+  }
 
   return (
     <div className="max-w-md space-y-10">
@@ -33,8 +53,22 @@ export default function Ustawienia() {
           <Row label="Imię i nazwisko">
             <EditableField fieldKey="display_name" value={profile?.display_name} onSave={handleSave} />
           </Row>
+          <Row label="Pseudonim (na publicznej stronie klubu)">
+            <EditableField fieldKey="nickname" value={profile?.nickname} onSave={handleSave} />
+          </Row>
           <Row label="Klub">
-            <EditableClubField value={profile?.club} onSaveClub={handleClubSave} />
+            <div className="flex items-center gap-2">
+              <span className="font-sans text-sm text-apex-text">
+                {profile?.club || <span className="text-apex-muted italic">brak klubu</span>}
+              </span>
+              <Link
+                to="/profil/klub"
+                data-testid="link-manage-club"
+                className="font-mono text-[10px] text-apex-yellow hover:underline"
+              >
+                Zarządzaj klubem
+              </Link>
+            </div>
           </Row>
           <Row label="Płeć">
             <EditableField
@@ -98,6 +132,36 @@ export default function Ustawienia() {
             <span className="block text-[10px] text-apex-muted">Członkowie Twojego klubu widzą, które biegi obserwujesz.</span>
           </span>
         </label>
+        <label className="flex items-start gap-2 cursor-pointer mt-3">
+          <input
+            data-testid="toggle-club-nickname"
+            type="checkbox"
+            checked={profile?.privacy_settings?.club_public_name === 'nickname'}
+            onChange={(e) => handleSave('privacy_settings', { ...profile?.privacy_settings, club_public_name: e.target.checked ? 'nickname' : 'display' })}
+            className="mt-0.5 accent-[#BBDD00]"
+          />
+          <span className="font-sans text-xs text-apex-text">
+            Na publicznej stronie klubu pokazuj tylko pseudonim
+            <span className="block text-[10px] text-apex-muted">Zamiast Twojego imienia i nazwiska.</span>
+          </span>
+        </label>
+        {club && (
+          <label className="flex items-start gap-2 cursor-pointer mt-3">
+            <input
+              data-testid="toggle-hidden-public"
+              type="checkbox"
+              checked={!!me?.hidden_public}
+              disabled={visBusy}
+              onChange={(e) => toggleHiddenPublic(e.target.checked)}
+              className="mt-0.5 accent-[#BBDD00]"
+            />
+            <span className="font-sans text-xs text-apex-text">
+              Nie pokazuj mnie na publicznej stronie klubu
+              <span className="block text-[10px] text-apex-muted">Twój wpis zniknie z listy członków na publicznej stronie klubu.</span>
+            </span>
+          </label>
+        )}
+        {visError && <p className="text-apex-red font-sans text-xs mt-2">{visError}</p>}
       </section>
 
       {/* Twoje dane i konto */}

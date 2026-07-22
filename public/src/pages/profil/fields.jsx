@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import ClubInput from '../../components/ClubInput.jsx'
 
 // Shared field primitives for the profile settings view. Extracted from the old
 // monolithic Profil.jsx so Ustawienia.jsx (and future sections) can reuse them.
 
 export const inputClass = 'flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
 export const sectionTitle = 'font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted border-b border-apex-border pb-1 mb-3'
-const actionBtnClass = 'font-mono text-xs px-2 py-1.5 border transition-all leading-none'
+export const actionBtnClass = 'font-mono text-xs px-2 py-1.5 border transition-all leading-none'
 
 export function PencilIcon() {
   return (
@@ -195,65 +194,6 @@ export function EditableField({ fieldKey, value, onSave, type = 'text', options,
         data-testid={`edit-${fieldKey}`}
         onClick={() => { setDraft(value ?? ''); setEditing(true) }}
         aria-label="Edytuj"
-        title="Edytuj"
-        className="p-1 text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all"
-      >
-        <PencilIcon />
-      </button>
-    </div>
-  )
-}
-
-export function EditableClubField({ value, onSaveClub }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState({ name: value || '', clubId: null })
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
-
-  async function save() {
-    setSaving(true)
-    setError(null)
-    try {
-      await onSaveClub(draft)
-      setEditing(false)
-    } catch {
-      setError('Nie udało się zapisać klubu.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (editing) {
-    return (
-      <>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <ClubInput value={draft} onChange={setDraft} inputClass={inputClass} inputId="club-edit" testId="input-club" />
-          </div>
-          <button
-            data-testid="save-club"
-            onClick={save}
-            disabled={saving}
-            className={`${actionBtnClass} border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`}
-          >
-            OK
-          </button>
-          <button onClick={() => { setEditing(false); setError(null) }} className={`${actionBtnClass} border-apex-border text-apex-muted hover:text-apex-text-bright hover:border-apex-border`}>✕</button>
-        </div>
-        {error && <p className="text-apex-red font-sans text-xs mt-1">{error}</p>}
-      </>
-    )
-  }
-
-  return (
-    <div className="flex items-center gap-2 group">
-      <span className="font-sans text-sm text-apex-text">
-        {value || <span className="text-apex-muted italic">nie ustawiono</span>}
-      </span>
-      <button
-        data-testid="edit-club"
-        onClick={() => { setDraft({ name: value || '', clubId: null }); setError(null); setEditing(true) }}
-        aria-label="Edytuj klub"
         title="Edytuj"
         className="p-1 text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all"
       >
