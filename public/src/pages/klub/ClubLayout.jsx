@@ -1,6 +1,5 @@
 import { Navigate, NavLink, Outlet, useParams } from 'react-router-dom'
 import Navbar from '../../components/Navbar.jsx'
-import Footer from '../../components/Footer.jsx'
 import AuthGuard from '../../components/AuthGuard.jsx'
 import useClub from '../../hooks/useClub.js'
 import { KlubContext } from './context.js'
@@ -24,7 +23,6 @@ function Shell({ children }) {
       <main data-testid="klub-page" className="pt-20 pb-16 px-4 md:px-8 max-w-5xl mx-auto">
         {children}
       </main>
-      <Footer />
     </div>
   )
 }
@@ -36,11 +34,8 @@ function ClubShell() {
   if (!ready) {
     return <Shell><p className="font-mono text-sm text-apex-muted animate-pulse py-8">Ładowanie…</p></Shell>
   }
-  if (error) {
-    return <Shell><p className="font-sans text-sm text-apex-red py-4">{error}</p></Shell>
-  }
-  // Not an active member (or club gone) — nothing to show here.
-  if (!club || !me) return <Navigate to="/profil/klub" replace />
+  // Not an active member, club gone, or fetch failed — nothing to show here.
+  if (error || !club || !me) return <Navigate to="/profil/klub" replace />
   // Old slug resolved via history — normalize the URL to the canonical slug.
   if (club.slug && club.slug !== slug) return <Navigate to={`/klub/${club.slug}/panel`} replace />
 
