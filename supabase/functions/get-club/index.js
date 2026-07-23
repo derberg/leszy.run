@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     if (!clubId) return json({ data: { club: null } }, 200, req)
 
     const { data: me } = await supabaseAdmin.from('club_members')
-      .select('role, hidden_public, status')
+      .select('role, hidden_public, status, joined_at')
       .eq('club_id', clubId).eq('user_id', session.userId).maybeSingle()
     if (!me || me.status !== 'active') {
       // Not an active member of the target club — let the client cleanly
@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
     return json({
       data: {
         club,
-        me: { role: me.role, hidden_public: me.hidden_public },
+        me: { role: me.role, hidden_public: me.hidden_public, joined_at: me.joined_at },
         members,
         followedEvents,
       },
