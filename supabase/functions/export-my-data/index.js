@@ -68,6 +68,21 @@ Deno.serve(async (req) => {
     occurred_at: e.occurred_at,
   }))
 
+  // Legacy key kept for backward compatibility — CI (clubs-lifecycle.test.js) still
+  // asserts `clubs.membership` as the single active-membership shape the export used
+  // to return before `memberships`/`membership_history` were added.
+  const activeMembership = (clubMemberships.data ?? []).find((m) => m.status === 'active') ?? null
+  const membership = activeMembership
+    ? {
+        club_name: activeMembership.clubs?.name ?? null,
+        role: activeMembership.role,
+        status: activeMembership.status,
+        joined_at: activeMembership.joined_at,
+        hidden_public: activeMembership.hidden_public,
+        club_public_name: profile.data?.privacy_settings?.club_public_name ?? null,
+      }
+    : null
+
   const owned = []
   for (const c of ownedClubsRaw.data || []) {
     const { count } = await supabaseAdmin
@@ -89,7 +104,7 @@ Deno.serve(async (req) => {
       website_feedback: websiteFeedback.data || [],
       submitted_calendar_events: submittedEvents.data || [],
     },
-    clubs: { memberships, membership_history, owned },
+    clubs: { membership, memberships, membership_history, owned },
   }
 
   const date = new Date().toISOString().slice(0, 10)
