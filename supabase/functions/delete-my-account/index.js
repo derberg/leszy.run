@@ -314,6 +314,18 @@ Deno.serve(async (req) => {
     // fail the whole deletion — favorites can be swept manually if this ever fires.
     if (favError) console.error('delete-my-account: favorites cleanup failed:', favError.message)
 
+    // 2c. Erase club membership + membership history (soft delete on profile never fires FK cascade —
+    // GDPR erasure). The owner-guard above already blocks deletion while the user owns a club, so no
+    // owner rows can be hit here.
+    const { error: membershipLogError } = await supabaseAdmin.from('club_membership_log').delete().eq('user_id', session.userId)
+    if (membershipLogError) console.error('delete-my-account: club_membership_log cleanup failed:', membershipLogError.message)
+
+    const { error: membersError } = await supabaseAdmin.from('club_members').delete().eq('user_id', session.userId)
+    if (membersError) console.error('delete-my-account: club_members cleanup failed:', membersError.message)
+
+    // 2d. Clear stale owner-transfer nominations pointing at the deleted user
+    await supabaseAdmin.from('clubs').update({ pending_owner_id: null }).eq('pending_owner_id', session.userId)
+
     // 3. Permanently ban auth user (email on auth.users is NOT rotated — stays claimed, blocks re-registration)
     const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(session.userId, {
       ban_duration: '876000h',

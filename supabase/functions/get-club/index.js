@@ -27,6 +27,17 @@ Deno.serve(async (req) => {
     try { body = await req.json() } catch { /* empty body is fine — defaults to caller's club */ }
 
     let clubId = body?.club_id
+    if (!clubId && body?.slug) {
+      const { data: bySlug } = await supabaseAdmin
+        .from('clubs').select('id').eq('slug', body.slug).maybeSingle()
+      clubId = bySlug?.id
+      if (!clubId) {
+        const { data: hist } = await supabaseAdmin
+          .from('club_slug_history').select('club_id').eq('old_slug', body.slug).maybeSingle()
+        clubId = hist?.club_id
+      }
+      if (!clubId) return json({ error: 'Klub nie istnieje.' }, 404, req)
+    }
     if (!clubId) {
       const { data: profile } = await supabaseAdmin
         .from('profiles').select('club_id').eq('id', session.userId).single()
@@ -39,7 +50,7 @@ Deno.serve(async (req) => {
     if (!clubId) return json({ data: { club: null } }, 200, req)
 
     const { data: me } = await supabaseAdmin.from('club_members')
-      .select('role, hidden_public, status')
+      .select('role, hidden_public, status, joined_at')
       .eq('club_id', clubId).eq('user_id', session.userId).maybeSingle()
     if (!me || me.status !== 'active') {
       // Not an active member of the target club — let the client cleanly
@@ -111,7 +122,7 @@ Deno.serve(async (req) => {
     return json({
       data: {
         club,
-        me: { role: me.role, hidden_public: me.hidden_public },
+        me: { role: me.role, hidden_public: me.hidden_public, joined_at: me.joined_at },
         members,
         followedEvents,
       },

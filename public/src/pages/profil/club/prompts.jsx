@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useProfil } from '../context.js'
 import { transferOwnership, acceptInvite } from '../../../lib/clubs.js'
 import { actionBtnClass } from '../fields.jsx'
+import MembershipVisibilityChoice from '../../../components/MembershipVisibilityChoice.jsx'
 
 // Nominee / pending-join / direct-invite prompts, rendered at the top of
 // Klub.jsx regardless of which club branch (no-club / member / manage) is
@@ -66,12 +67,13 @@ function InvitePrompt({ invite, onDone }) {
   const [busy, setBusy] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [error, setError] = useState(null)
+  const [hiddenPublic, setHiddenPublic] = useState(false)
 
   async function accept() {
     setBusy(true)
     setError(null)
     try {
-      await acceptInvite({ invite_id: invite.id })
+      await acceptInvite({ invite_id: invite.id, hidden_public: hiddenPublic })
       await onDone()
     } catch (err) {
       setError(err.message)
@@ -87,7 +89,8 @@ function InvitePrompt({ invite, onDone }) {
       <p className="font-display font-bold text-xs tracking-widest uppercase text-apex-yellow mb-1">
         Masz zaproszenie do klubu «{invite.club_name}»
       </p>
-      <div className="flex items-center gap-2">
+      <MembershipVisibilityChoice value={hiddenPublic} onChange={setHiddenPublic} />
+      <div className="flex items-center gap-2 mt-2">
         <button data-testid="accept-invite-btn" onClick={accept} disabled={busy} className={btnPrimary}>
           Dołącz
         </button>

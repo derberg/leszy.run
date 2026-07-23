@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   if (!session) return json({ error: 'Authorization required' }, 401, req)
 
   try {
-    const { club_id } = await req.json()
+    const { club_id, hidden_public } = await req.json()
     if (!club_id) return json({ error: 'club_id required' }, 400, req)
 
     const { data: club } = await supabaseAdmin.from('clubs').select('id').eq('id', club_id).maybeSingle()
@@ -34,10 +34,15 @@ Deno.serve(async (req) => {
       .select('club_id').eq('user_id', session.userId).eq('status', 'active').maybeSingle()
     if (active) return json({ error: 'Należysz już do klubu.' }, 409, req)
 
-    // Idempotent upsert of the pending row (PK = club_id,user_id)
+    // Idempotent upsert of the pending row (PK = club_id,user_id). A previous
+    // 'left'/'removed' stint reuses the row: reset lifecycle fields so the
+    // request is a clean re-join.
     const { error } = await supabaseAdmin.from('club_members')
       .upsert(
-        { club_id, user_id: session.userId, role: 'member', status: 'pending' },
+        {
+          club_id, user_id: session.userId, role: 'member', status: 'pending',
+          joined_at: null, left_at: null, hidden_public: !!hidden_public,
+        },
         { onConflict: 'club_id,user_id', ignoreDuplicates: false }
       )
     if (error) throw error

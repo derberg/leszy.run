@@ -129,9 +129,11 @@ export default function UserProfile() {
                   above) only exposes `club` (the club's name, gated by
                   privacy_settings.club) — no club_id/slug — so there is no
                   target to link to from here without a view/RPC change.
-                  The crawlable inbound link requirement is satisfied instead
-                  by MemberView.jsx (linked from the member's own /profil/klub,
-                  which does have club.slug via get-club). */}
+                  The member-facing club area (ClubLayout, /klub/:slug/panel
+                  etc.) does link to the club, but those routes are session-
+                  and beta-gated, so they don't count as a crawlable inbound
+                  link — the crawlable link to /klub/:slug still has to come
+                  from the public static club page/roster, not from here. */}
               {profile.club && (
                 <div className="text-[9px] font-mono text-apex-muted border border-apex-border px-2 py-0.5 text-center">
                   {profile.club}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { searchClubs, requestJoin } from '../lib/clubs.js'
 import CreateClubForm from './CreateClubForm.jsx'
+import MembershipVisibilityChoice from './MembershipVisibilityChoice.jsx'
 
 // Search-existing→request-join / "Utwórz klub" / leave-blank picker. Replaces
 // the old free-text club input (a debounced-search_clubs combobox that pinned
@@ -25,6 +26,7 @@ export default function ClubPicker({ onJoined, onCreated, onCancel }) {
   const [pending, setPending] = useState(null) // { club, status: 'pending' } after a successful request-join
   const [error, setError] = useState(null)
   const [creating, setCreating] = useState(false)
+  const [hiddenPublic, setHiddenPublic] = useState(false)
   const queryRef = useRef(query)
   queryRef.current = query
 
@@ -48,7 +50,7 @@ export default function ClubPicker({ onJoined, onCreated, onCancel }) {
     setJoining(true)
     setError(null)
     try {
-      await requestJoin(club.id)
+      await requestJoin(club.id, { hiddenPublic })
       setPending({ club, status: 'pending' })
       setConfirming(null)
       setOpen(false)
@@ -105,7 +107,7 @@ export default function ClubPicker({ onJoined, onCreated, onCancel }) {
                   role="option"
                   data-testid="club-option"
                   onMouseDown={e => e.preventDefault()}
-                  onClick={() => { setConfirming(s); setOpen(false); setError(null) }}
+                  onClick={() => { setConfirming(s); setOpen(false); setError(null); setHiddenPublic(false) }}
                   className="w-full text-left px-3.5 py-2 font-sans text-sm text-apex-text hover:bg-apex-bg hover:text-apex-yellow transition-colors"
                 >
                   {s.name}
@@ -120,12 +122,15 @@ export default function ClubPicker({ onJoined, onCreated, onCancel }) {
       </div>
 
       {confirming && (
-        <div className="flex items-center gap-2 mt-2 border border-apex-border px-3 py-2">
-          <span className="font-sans text-sm text-apex-text flex-1">Dołączyć do «{confirming.name}»?</span>
-          <button data-testid="confirm-join" type="button" onClick={() => confirmJoin(confirming)} disabled={joining} className={primaryBtnClass}>
-            {joining ? 'Wysyłanie…' : 'Poproś o dołączenie'}
-          </button>
-          <button type="button" onClick={() => setConfirming(null)} className={ghostBtnClass}>✕</button>
+        <div className="mt-2 border border-apex-border px-3 py-2 space-y-2">
+          <span className="font-sans text-sm text-apex-text">Dołączyć do «{confirming.name}»?</span>
+          <MembershipVisibilityChoice value={hiddenPublic} onChange={setHiddenPublic} />
+          <div className="flex items-center gap-2">
+            <button data-testid="confirm-join" type="button" onClick={() => confirmJoin(confirming)} disabled={joining} className={primaryBtnClass}>
+              {joining ? 'Wysyłanie…' : 'Poproś o dołączenie'}
+            </button>
+            <button type="button" onClick={() => { setConfirming(null); setHiddenPublic(false) }} className={ghostBtnClass}>✕</button>
+          </div>
         </div>
       )}
 

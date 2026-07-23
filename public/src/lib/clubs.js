@@ -18,8 +18,8 @@ export async function createClub(body) {
   return (await callFunction('create-club', body)).data
 }
 
-export async function requestJoin(clubId) {
-  return (await callFunction('request-join', { club_id: clubId })).data
+export async function requestJoin(clubId, { hiddenPublic = false } = {}) {
+  return (await callFunction('request-join', { club_id: clubId, hidden_public: hiddenPublic })).data
 }
 
 export async function respondJoin(clubId, userId, action) {
@@ -46,8 +46,9 @@ export async function transferOwnership(clubId, op, userId) {
   return (await callFunction('transfer-ownership', { club_id: clubId, op, ...(userId ? { user_id: userId } : {}) })).data
 }
 
-export async function getClub(clubId) {
-  return (await callFunction('get-club', clubId ? { club_id: clubId } : {})).data
+// ref: { club_id } | { slug } | {} (defaults to the caller's own club)
+export async function getClub(ref = {}) {
+  return (await callFunction('get-club', ref)).data
 }
 
 // update-club / delete-club were added after this module's first pass (see

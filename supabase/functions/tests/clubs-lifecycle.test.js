@@ -777,3 +777,178 @@ describe('export-my-data — clubs section', () => {
     }
   })
 })
+
+describe('membership lifecycle (soft leave + log + visibility)', () => {
+  it('leave keeps the row with status=left and left_at; log has joined+left', async () => {
+    const owner = await createTestSession('life-owner1')
+    const member = await createTestSession('life-member1')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Lifecycle Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await callFunction('request-join', { club_id: clubId }, member.sessionToken)
+      await callFunction('respond-join', { club_id: clubId, user_id: member.user.id, action: 'approve' }, owner.sessionToken)
+      await callFunction('manage-member', { club_id: clubId, action: 'leave' }, member.sessionToken)
+
+      const { data: row } = await supabaseAdmin.from('club_members')
+        .select('status, left_at').eq('club_id', clubId).eq('user_id', member.user.id).single()
+      assert.equal(row.status, 'left')
+      assert.ok(row.left_at, 'left_at must be set')
+
+      const { data: log } = await supabaseAdmin.from('club_membership_log')
+        .select('event').eq('club_id', clubId).eq('user_id', member.user.id).order('occurred_at')
+      assert.deepEqual(log.map((e) => e.event), ['joined', 'left'])
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('re-join after leave resets the row to pending and clears left_at', async () => {
+    const owner = await createTestSession('life-owner2')
+    const member = await createTestSession('life-member2')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Rejoin Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await callFunction('request-join', { club_id: clubId }, member.sessionToken)
+      await callFunction('respond-join', { club_id: clubId, user_id: member.user.id, action: 'approve' }, owner.sessionToken)
+      await callFunction('manage-member', { club_id: clubId, action: 'leave' }, member.sessionToken)
+
+      const again = await callFunction('request-join', { club_id: clubId, hidden_public: true }, member.sessionToken)
+      assert.equal(again.status, 200)
+      const { data: row } = await supabaseAdmin.from('club_members')
+        .select('status, left_at, joined_at, hidden_public')
+        .eq('club_id', clubId).eq('user_id', member.user.id).single()
+      assert.equal(row.status, 'pending')
+      assert.equal(row.left_at, null)
+      assert.equal(row.joined_at, null)
+      assert.equal(row.hidden_public, true)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
+  it('create-club honors hidden_public for the owner row', async () => {
+    const owner = await createTestSession('life-owner3')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Hidden Owner Test', hidden_public: true }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      const { data: row } = await supabaseAdmin.from('club_members')
+        .select('hidden_public').eq('club_id', clubId).eq('user_id', owner.user.id).single()
+      assert.equal(row.hidden_public, true)
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+    }
+  })
+
+  it('rejecting a re-join request restores the prior stint instead of deleting the row', async () => {
+    const owner = await createTestSession('life-owner4')
+    const member = await createTestSession('life-member4')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Rejoin Reject Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await callFunction('request-join', { club_id: clubId }, member.sessionToken)
+      await callFunction('respond-join', { club_id: clubId, user_id: member.user.id, action: 'approve' }, owner.sessionToken)
+      await callFunction('manage-member', { club_id: clubId, action: 'leave' }, member.sessionToken)
+      await callFunction('request-join', { club_id: clubId }, member.sessionToken)
+      await callFunction('respond-join', { club_id: clubId, user_id: member.user.id, action: 'reject' }, owner.sessionToken)
+
+      const { data: row } = await supabaseAdmin.from('club_members')
+        .select('status, left_at').eq('club_id', clubId).eq('user_id', member.user.id).single()
+      assert.equal(row.status, 'left')
+      assert.ok(row.left_at, 'left_at restored from the membership log')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+})
+
+describe('slug editing', () => {
+  it('changes slug, records history, resolves get-club by old slug, blocks reuse by others', async () => {
+    const owner = await createTestSession('slug-owner1')
+    const other = await createTestSession('slug-owner2')
+    let clubId, otherClubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Slug Historia Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      const oldSlug = c.data.data.club.slug
+
+      const upd = await callFunction('update-club', { club_id: clubId, slug: `${oldSlug}-nowy` }, owner.sessionToken)
+      assert.equal(upd.status, 200)
+      assert.equal(upd.data.data.club.slug, `${oldSlug}-nowy`)
+
+      const { data: hist } = await supabaseAdmin.from('club_slug_history')
+        .select('club_id').eq('old_slug', oldSlug).single()
+      assert.equal(hist.club_id, clubId)
+
+      const byOld = await callFunction('get-club', { slug: oldSlug }, owner.sessionToken)
+      assert.equal(byOld.status, 200)
+      assert.equal(byOld.data.data.club.id, clubId)
+
+      const c2 = await callFunction('create-club', { name: 'Klub Slug Zajety Test' }, other.sessionToken)
+      otherClubId = c2.data.data.club.id
+      const steal = await callFunction('update-club', { club_id: otherClubId, slug: oldSlug }, other.sessionToken)
+      assert.equal(steal.status, 409)
+    } finally {
+      await supabaseAdmin.from('club_slug_history').delete().in('club_id', [clubId, otherClubId].filter(Boolean))
+      await cleanupClub(clubId); await cleanupClub(otherClubId)
+      await cleanupUser(owner.user.id); await cleanupUser(other.user.id)
+    }
+  })
+
+  it('rejects invalid slugs and lets a club reclaim its own former slug', async () => {
+    const owner = await createTestSession('slug-owner3')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Slug Reclaim Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      const first = c.data.data.club.slug
+
+      const bad = await callFunction('update-club', { club_id: clubId, slug: 'Złe Słowo!' }, owner.sessionToken)
+      assert.equal(bad.status, 400)
+
+      await callFunction('update-club', { club_id: clubId, slug: `${first}-2` }, owner.sessionToken)
+      const back = await callFunction('update-club', { club_id: clubId, slug: first }, owner.sessionToken)
+      assert.equal(back.status, 200)
+      assert.equal(back.data.data.club.slug, first)
+      const { data: selfRow } = await supabaseAdmin.from('club_slug_history')
+        .select('club_id').eq('old_slug', first).maybeSingle()
+      assert.equal(selfRow, null, 'reclaimed slug must leave no self-pointing history row')
+    } finally {
+      await supabaseAdmin.from('club_slug_history').delete().eq('club_id', clubId)
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
+    }
+  })
+
+  it('create-club never mints a slug parked in club_slug_history', async () => {
+    const a = await createTestSession('slug-mint1')
+    const b = await createTestSession('slug-mint2')
+    let clubA, clubB
+    try {
+      const c1 = await callFunction('create-club', { name: 'Klub Mint Kolizja Test' }, a.sessionToken)
+      clubA = c1.data.data.club.id
+      const freed = c1.data.data.club.slug
+
+      // Free BOTH the slug (→ history) and the normalized name, so a new club
+      // with the original name reaches uniqueSlug with `freed` as its base.
+      await callFunction('update-club', { club_id: clubA, slug: `${freed}-x` }, a.sessionToken)
+      await callFunction('update-club', { club_id: clubA, name: 'Klub Mint Kolizja Przemianowany' }, a.sessionToken)
+
+      const c2 = await callFunction('create-club', { name: 'Klub Mint Kolizja Test' }, b.sessionToken)
+      assert.equal(c2.status, 200)
+      clubB = c2.data.data.club.id
+      assert.notEqual(c2.data.data.club.slug, freed, 'freed slug must not be reissued to a new club')
+    } finally {
+      await supabaseAdmin.from('club_slug_history').delete().in('club_id', [clubA, clubB].filter(Boolean))
+      await cleanupClub(clubA); await cleanupClub(clubB)
+      await cleanupUser(a.user.id); await cleanupUser(b.user.id)
+    }
+  })
+})

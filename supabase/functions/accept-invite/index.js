@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
+import { logMembershipEvent } from '../_shared/membershipLog.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -24,7 +25,7 @@ Deno.serve(async (req) => {
   if (!session) return json({ error: 'Authorization required' }, 401, req)
 
   try {
-    const { code, invite_id } = await req.json()
+    const { code, invite_id, hidden_public } = await req.json()
     if (!code && !invite_id) {
       return json({ error: 'code or invite_id required' }, 400, req)
     }
@@ -61,10 +62,16 @@ Deno.serve(async (req) => {
         role: 'member',
         status: 'active',
         joined_at: new Date().toISOString(),
+        left_at: null,
+        hidden_public: !!hidden_public,
       }, { onConflict: 'club_id,user_id' })
     if (memErr) throw memErr
 
     await supabaseAdmin.from('profiles').update({ club_id: invite.club_id }).eq('id', session.userId)
+
+    await logMembershipEvent(supabaseAdmin, {
+      club_id: invite.club_id, user_id: session.userId, event: 'joined', role: 'member', actor_id: session.userId,
+    })
 
     if (invite.kind === 'link') {
       await supabaseAdmin.from('club_invites').update({ uses: invite.uses + 1 }).eq('id', invite.id)

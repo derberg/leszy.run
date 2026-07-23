@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createClub } from '../lib/clubs.js'
+import MembershipVisibilityChoice from './MembershipVisibilityChoice.jsx'
 
 // Standalone create-club form, extracted from ClubPicker.jsx so it can be
 // reused both inline inside the picker's "Utwórz klub" branch and standalone
@@ -19,6 +20,7 @@ export default function CreateClubForm({ onCreated, onCancel }) {
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [hiddenPublic, setHiddenPublic] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -30,7 +32,7 @@ export default function CreateClubForm({ onCreated, onCancel }) {
     setError(null)
     setSubmitting(true)
     try {
-      const { club } = await createClub({ name: trimmed, ...(description.trim() ? { description: description.trim() } : {}) })
+      const { club } = await createClub({ name: trimmed, ...(description.trim() ? { description: description.trim() } : {}), hidden_public: hiddenPublic })
       onCreated?.(club)
     } catch (err) {
       if (/already|istnieje/i.test(err.message)) setError('Klub o tej nazwie już istnieje.')
@@ -64,6 +66,7 @@ export default function CreateClubForm({ onCreated, onCancel }) {
         rows={2}
         className={`${inputClass} resize-none`}
       />
+      <MembershipVisibilityChoice value={hiddenPublic} onChange={setHiddenPublic} />
       {error && <p className="text-apex-red font-sans text-xs">{error}</p>}
       <div className="flex items-center gap-2">
         <button type="submit" data-testid="create-submit" disabled={submitting} className={primaryBtnClass}>

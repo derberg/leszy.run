@@ -65,6 +65,17 @@ async function main() {
     console.log('No public clubs found. Writing empty manifest.')
   }
 
+  // TODO: paginate with .range() before ~1000 history rows — PostgREST caps responses
+  // at 1000 and silently truncates (missing stubs).
+  const { data: slugHistory } = await supabase
+    .from('club_slug_history')
+    .select('old_slug, club_id')
+  const formerByClub = new Map()
+  for (const row of slugHistory || []) {
+    if (!formerByClub.has(row.club_id)) formerByClub.set(row.club_id, [])
+    formerByClub.get(row.club_id).push(row.old_slug)
+  }
+
   const manifest = []
   for (const club of clubs || []) {
     const { data: memberRows, error: memErr } = await supabase
@@ -87,6 +98,7 @@ async function main() {
       logoUrl: club.logo_url || null,
       memberCount: allMembers.length,
       visibleMembers,
+      formerSlugs: formerByClub.get(club.id) || [],
     })
   }
 

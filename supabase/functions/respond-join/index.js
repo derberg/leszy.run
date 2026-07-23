@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
+import { logMembershipEvent } from '../_shared/membershipLog.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -46,7 +47,23 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'reject') {
-      await supabaseAdmin.from('club_members').delete().eq('club_id', club_id).eq('user_id', user_id)
+      // A re-join request reuses the row of a previous stint — rejecting it
+      // must restore that stint's soft state, not erase the row. First-time
+      // requests (no exit event in the log) are still deleted: a rejected
+      // request never was a membership.
+      const { data: lastExit } = await supabaseAdmin.from('club_membership_log')
+        .select('event, occurred_at')
+        .eq('club_id', club_id).eq('user_id', user_id)
+        .in('event', ['left', 'removed'])
+        .order('occurred_at', { ascending: false })
+        .limit(1).maybeSingle()
+      if (lastExit) {
+        await supabaseAdmin.from('club_members')
+          .update({ status: lastExit.event, left_at: lastExit.occurred_at })
+          .eq('club_id', club_id).eq('user_id', user_id)
+      } else {
+        await supabaseAdmin.from('club_members').delete().eq('club_id', club_id).eq('user_id', user_id)
+      }
       return json({ data: { status: 'rejected' } }, 200, req)
     }
 
@@ -59,6 +76,10 @@ Deno.serve(async (req) => {
       .update({ status: 'active', joined_at: new Date().toISOString() })
       .eq('club_id', club_id).eq('user_id', user_id)
     await supabaseAdmin.from('profiles').update({ club_id }).eq('id', user_id)
+
+    await logMembershipEvent(supabaseAdmin, {
+      club_id, user_id, event: 'joined', role: 'member', actor_id: session.userId,
+    })
 
     // Award the club_set badge to the newly-active member (best-effort).
     await checkAndAwardBadges(supabaseAdmin, user_id)
