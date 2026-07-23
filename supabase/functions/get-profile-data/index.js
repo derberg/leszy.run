@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
     { data: submissions },
     { data: pendingMembership },
     { data: pendingOwnership },
+    { data: activeMemberships },
   ] = await Promise.all([
     supabaseAdmin
       .from('profiles')
@@ -66,6 +67,13 @@ Deno.serve(async (req) => {
       .from('clubs')
       .select('id, name, slug')
       .eq('pending_owner_id', session.userId),
+    // Active memberships → "my clubs" cards on /profil/klub. List-shaped for
+    // future multi-club support even though today there is at most one.
+    supabaseAdmin
+      .from('club_members')
+      .select('club_id, role, clubs(id, name, slug, logo_url)')
+      .eq('user_id', session.userId)
+      .eq('status', 'active'),
   ])
 
   const profileOut = profile
@@ -86,6 +94,22 @@ Deno.serve(async (req) => {
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .or(orTarget)
 
+  const myClubs = []
+  for (const m of activeMemberships ?? []) {
+    const { count } = await supabaseAdmin
+      .from('club_members')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('club_id', m.club_id).eq('status', 'active')
+    myClubs.push({
+      club_id: m.club_id,
+      slug: m.clubs?.slug ?? null,
+      name: m.clubs?.name ?? null,
+      logo_url: m.clubs?.logo_url ?? null,
+      role: m.role,
+      member_count: count ?? 0,
+    })
+  }
+
   return json({
     profile: profileOut,
     badges: badges ?? [],
@@ -95,6 +119,7 @@ Deno.serve(async (req) => {
       ? { club_id: pendingMembership.club_id, club_name: pendingMembership.clubs?.name ?? null }
       : null,
     pending_ownership: pendingOwnership ?? [],
+    my_clubs: myClubs,
     incoming_invites: (invites ?? []).map((i) => ({
       id: i.id, club_id: i.club_id, club_name: i.clubs?.name ?? null,
     })),
