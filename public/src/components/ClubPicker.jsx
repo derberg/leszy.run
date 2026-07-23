@@ -107,7 +107,7 @@ export default function ClubPicker({ onJoined, onCreated, onCancel }) {
                   role="option"
                   data-testid="club-option"
                   onMouseDown={e => e.preventDefault()}
-                  onClick={() => { setConfirming(s); setOpen(false); setError(null) }}
+                  onClick={() => { setConfirming(s); setOpen(false); setError(null); setHiddenPublic(false) }}
                   className="w-full text-left px-3.5 py-2 font-sans text-sm text-apex-text hover:bg-apex-bg hover:text-apex-yellow transition-colors"
                 >
                   {s.name}
@@ -129,7 +129,7 @@ export default function ClubPicker({ onJoined, onCreated, onCancel }) {
             <button data-testid="confirm-join" type="button" onClick={() => confirmJoin(confirming)} disabled={joining} className={primaryBtnClass}>
               {joining ? 'Wysyłanie…' : 'Poproś o dołączenie'}
             </button>
-            <button type="button" onClick={() => setConfirming(null)} className={ghostBtnClass}>✕</button>
+            <button type="button" onClick={() => { setConfirming(null); setHiddenPublic(false) }} className={ghostBtnClass}>✕</button>
           </div>
         </div>
       )}
