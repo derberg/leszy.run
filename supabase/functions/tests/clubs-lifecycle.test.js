@@ -904,7 +904,7 @@ describe('slug editing', () => {
     }
   })
 
-  it('a slug parked in club_slug_history is never reissued to another club', async () => {
+  it('create-club never mints a slug parked in club_slug_history', async () => {
     const a = await createTestSession('slug-mint1')
     const b = await createTestSession('slug-mint2')
     let clubA, clubB
@@ -912,26 +912,16 @@ describe('slug editing', () => {
       const c1 = await callFunction('create-club', { name: 'Klub Mint Kolizja Test' }, a.sessionToken)
       clubA = c1.data.data.club.id
       const freed = c1.data.data.club.slug
+
+      // Free BOTH the slug (→ history) and the normalized name, so a new club
+      // with the original name reaches uniqueSlug with `freed` as its base.
       await callFunction('update-club', { club_id: clubA, slug: `${freed}-x` }, a.sessionToken)
+      await callFunction('update-club', { club_id: clubA, name: 'Klub Mint Kolizja Przemianowany' }, a.sessionToken)
 
-      const c2 = await callFunction('create-club', { name: 'Klub Mint Kolizja Test 2' }, b.sessionToken)
+      const c2 = await callFunction('create-club', { name: 'Klub Mint Kolizja Test' }, b.sessionToken)
+      assert.equal(c2.status, 200)
       clubB = c2.data.data.club.id
-
-      // NOTE on variant chosen: create-club's own uniqueSlug() guard (the fix under
-      // test) can only be reached via two separate create-club calls if two DIFFERENT
-      // names auto-derive the SAME slug while having DIFFERENT normalized names.
-      // slugifyClub() and normalizeClubName() (supabase/functions/_shared/clubText.js)
-      // share the exact same fold + `[^a-z0-9\s]` stripping regex and differ only in
-      // the join separator ('-' vs ' '), so any two names whose slugifyClub() output
-      // matches necessarily also match on normalizeClubName() — meaning create-club's
-      // pre-existing duplicate-name 409 check always fires first and the uniqueSlug()
-      // history check can never be exercised through a second create-club call alone.
-      // update-club's slug-rename path hits the identical club_slug_history guard
-      // (see update-club/index.js) and is reachable deterministically, so this test
-      // verifies that real, reachable guarantee instead: a slug parked in history for
-      // one club can never be handed to a different club, via either code path.
-      const steal = await callFunction('update-club', { club_id: clubB, slug: freed }, b.sessionToken)
-      assert.equal(steal.status, 409, 'a slug parked in club_slug_history must never be reissued')
+      assert.notEqual(c2.data.data.club.slug, freed, 'freed slug must not be reissued to a new club')
     } finally {
       await supabaseAdmin.from('club_slug_history').delete().in('club_id', [clubA, clubB].filter(Boolean))
       await cleanupClub(clubA); await cleanupClub(clubB)
