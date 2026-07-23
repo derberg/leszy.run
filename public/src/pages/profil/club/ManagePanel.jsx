@@ -302,8 +302,8 @@ function EditClubSection({ club, reload }) {
         <ClubLogoUpload clubId={club.id} currentUrl={club.logo_url} onUploaded={() => reload()} />
       </div>
       <form onSubmit={save} className="space-y-2 max-w-sm">
-        <input data-testid="edit-club-name" type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} className={inputClass} />
-        <textarea data-testid="edit-club-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={`${inputClass} resize-none`} />
+        <input data-testid="edit-club-name" type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} className={`${inputClass} w-full`} />
+        <textarea data-testid="edit-club-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className={`${inputClass} w-full resize-none`} />
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             data-testid="toggle-club-public"
