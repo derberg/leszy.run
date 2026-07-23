@@ -53,6 +53,13 @@ export default function Login() {
     ;(async () => {
       try {
         const { hasUsername } = await verifyCode(linkEmail.trim().toLowerCase(), linkCode)
+        // Drop the cached (anonymous) user BEFORE redirecting — the hard reload
+        // resets the in-memory cache but not localStorage, and a fresh anon
+        // entry there makes useAuth skip /auth-me and AuthGuard bounce the
+        // freshly logged-in user back to /login.
+        clearAuthCache()
+        clearFavoritesCache()
+        clearNotificationsCache()
         // Hard redirect so useAuth re-runs and picks up the new session cookie
         window.location.href = postAuthPath(hasUsername)
       } catch (err) {

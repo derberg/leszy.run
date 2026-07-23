@@ -9,8 +9,6 @@ export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
-const SUPABASE_DOMAIN = new URL(SUPABASE_URL).hostname // 'kojoxazlnxncrpxmnxiq.supabase.co'
-
 /**
  * Creates a profile + session in DB. Returns helpers for Playwright.
  * Call injectSession(context) to authenticate a browser context.
@@ -37,14 +35,17 @@ export async function createTestUser(suffix = 'e2e') {
     sessionToken,
     /** Call this with a Playwright BrowserContext to inject the session cookie. */
     async injectSession(context) {
+      // The app reaches the edge functions through the same-origin `/edge`
+      // proxy (vite dev server), so the cookie must be first-party on the app
+      // origin — a *.supabase.co cookie is never sent to localhost.
       await context.addCookies([{
         name: 'leszy_session',
         value: sessionToken,
-        domain: SUPABASE_DOMAIN,
+        domain: 'localhost',
         path: '/',
         httpOnly: true,
-        secure: true,
-        sameSite: 'None',
+        secure: false,
+        sameSite: 'Lax',
       }])
     },
   }
