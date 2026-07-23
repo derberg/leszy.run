@@ -179,6 +179,8 @@ function main() {
   const cssLinks = (indexHtml.match(/<link[^>]*rel="stylesheet"[^>]*>/g) || []).join('\n    ')
   const jsScripts = (indexHtml.match(/<script\b[^>]*type="module"[^>]*src="[^"]*"[^>]*><\/script>/g) || []).join('\n    ')
 
+  const liveSlugs = new Set(manifest.map((c) => c.slug))
+
   let generated = 0
   for (const club of manifest) {
     if (!club.slug) continue
@@ -189,6 +191,13 @@ function main() {
 
     for (const old of club.formerSlugs || []) {
       if (!old || old === club.slug) continue
+      // Defensive: a former slug should never collide with another club's
+      // live slug (create-club's uniqueSlug() guard prevents this at mint
+      // time), but never let a stub silently overwrite a real page.
+      if (liveSlugs.has(old)) {
+        console.warn(`skipping former-slug stub ${old} — collides with a live club page`)
+        continue
+      }
       const oldDir = resolve(DIST, 'klub', old)
       mkdirSync(oldDir, { recursive: true })
       writeFileSync(resolve(oldDir, 'index.html'), buildRedirectHtml(club))

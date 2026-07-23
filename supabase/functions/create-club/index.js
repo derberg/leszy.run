@@ -17,7 +17,10 @@ async function uniqueSlug(supabaseAdmin, base) {
   for (let n = 1; n < 50; n++) {
     const candidate = n === 1 ? slug : `${slug}-${n}`
     const { data } = await supabaseAdmin.from('clubs').select('id').eq('slug', candidate).maybeSingle()
-    if (!data) return candidate
+    if (data) continue
+    // A freed slug still redirects to its former club — never reissue it.
+    const { data: hist } = await supabaseAdmin.from('club_slug_history').select('club_id').eq('old_slug', candidate).maybeSingle()
+    if (!hist) return candidate
   }
   return `${slug}-${crypto.randomUUID().slice(0, 6)}`
 }
