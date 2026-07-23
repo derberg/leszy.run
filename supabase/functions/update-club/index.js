@@ -17,17 +17,6 @@ async function requireManager(supabaseAdmin, clubId, userId) {
   return data && (data.role === 'owner' || data.role === 'admin')
 }
 
-async function uniqueSlug(supabaseAdmin, base, currentSlug) {
-  let slug = base || 'klub'
-  for (let n = 1; n < 50; n++) {
-    const candidate = n === 1 ? slug : `${slug}-${n}`
-    if (candidate === currentSlug) return candidate
-    const { data } = await supabaseAdmin.from('clubs').select('id').eq('slug', candidate).maybeSingle()
-    if (!data) return candidate
-  }
-  return `${slug}-${crypto.randomUUID().slice(0, 6)}`
-}
-
 Deno.serve(async (req) => {
   const optRes = handleOptions(req)
   if (optRes) return optRes
@@ -42,7 +31,7 @@ Deno.serve(async (req) => {
   if (!session) return json({ error: 'Authorization required' }, 401, req)
 
   try {
-    const { club_id, name, description, is_public, city, voivodeship } = await req.json()
+    const { club_id, name, description, is_public, city, voivodeship, slug } = await req.json()
     if (!club_id) return json({ error: 'club_id required' }, 400, req)
 
     if (!(await requireManager(supabaseAdmin, club_id, session.userId))) {
@@ -66,11 +55,36 @@ Deno.serve(async (req) => {
           .from('clubs').select('id').eq('normalized_name', normalized).neq('id', club_id).maybeSingle()
         if (dupe) return json({ error: 'Klub o tej nazwie już istnieje.' }, 409, req)
 
-        const slug = await uniqueSlug(supabaseAdmin, slugifyClub(trimmed), current.slug)
-
         updates.name = trimmed
         updates.normalized_name = normalized
-        updates.slug = slug
+      }
+    }
+
+    if (slug !== undefined) {
+      const wanted = String(slug ?? '').trim()
+      const cleaned = slugifyClub(wanted)
+      if (cleaned !== wanted || cleaned.length < 3 || cleaned.length > 80) {
+        return json({ error: 'Slug: 3–80 znaków, tylko małe litery ASCII, cyfry i myślniki.' }, 400, req)
+      }
+      if (cleaned !== current.slug) {
+        const { data: taken } = await supabaseAdmin
+          .from('clubs').select('id').eq('slug', cleaned).neq('id', club_id).maybeSingle()
+        if (taken) return json({ error: 'Ten slug jest już zajęty.' }, 409, req)
+
+        const { data: hist } = await supabaseAdmin
+          .from('club_slug_history').select('club_id').eq('old_slug', cleaned).maybeSingle()
+        if (hist && hist.club_id !== club_id) {
+          return json({ error: 'Ten slug jest już zajęty.' }, 409, req)
+        }
+        // Reclaiming our own former slug — drop the history row so it doesn't
+        // point back at itself.
+        if (hist && hist.club_id === club_id) {
+          await supabaseAdmin.from('club_slug_history').delete().eq('old_slug', cleaned)
+        }
+        // Record the outgoing slug so /klub/<old> keeps resolving.
+        await supabaseAdmin.from('club_slug_history')
+          .upsert({ old_slug: current.slug, club_id }, { onConflict: 'old_slug' })
+        updates.slug = cleaned
       }
     }
 
