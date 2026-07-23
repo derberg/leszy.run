@@ -35,12 +35,13 @@ function ProfilLayout() {
   const [pendingMembership, setPendingMembership] = useState(null)
   const [pendingOwnership, setPendingOwnership] = useState([])
   const [incomingInvites, setIncomingInvites] = useState([])
+  const [myClubs, setMyClubs] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
 
   function loadProfileData() {
     return callFunction('get-profile-data', {})
-      .then(({ profile, badges, reports, submissions, pending_membership, pending_ownership, incoming_invites }) => {
+      .then(({ profile, badges, reports, submissions, pending_membership, pending_ownership, incoming_invites, my_clubs }) => {
         setProfile(profile)
         setBadges(badges)
         setReports(reports)
@@ -48,6 +49,7 @@ function ProfilLayout() {
         setPendingMembership(pending_membership ?? null)
         setPendingOwnership(pending_ownership ?? [])
         setIncomingInvites(incoming_invites ?? [])
+        setMyClubs(my_clubs ?? [])
       })
       .catch((err) => {
         console.error('Profile data fetch failed:', err)
@@ -112,7 +114,7 @@ function ProfilLayout() {
   return (
     <ProfilContext.Provider value={{
       profile, badges, reports, submissions, handleSave,
-      pendingMembership, pendingOwnership, incomingInvites, refreshProfileData,
+      pendingMembership, pendingOwnership, incomingInvites, myClubs, refreshProfileData,
     }}>
       {shell(
         <main data-testid="profil-page" className="pt-20 pb-16 px-4 md:px-8 max-w-5xl mx-auto">

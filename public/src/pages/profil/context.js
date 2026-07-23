@@ -5,7 +5,7 @@ import { createContext, useContext } from 'react'
 // refetches or flashes. Sections consume via useProfil().
 //
 // Shape: { profile, badges, reports, submissions, handleSave,
-//          pendingMembership, pendingOwnership, incomingInvites, refreshProfileData }
+//          pendingMembership, pendingOwnership, incomingInvites, myClubs, refreshProfileData }
 export const ProfilContext = createContext(null)
 
 export function useProfil() {

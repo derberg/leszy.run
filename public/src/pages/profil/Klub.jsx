@@ -1,44 +1,52 @@
+import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
-import useClub from '../../hooks/useClub.js'
 import { sectionTitle } from './fields.jsx'
 import ClubPicker from '../../components/ClubPicker.jsx'
-import MemberView from './club/MemberView.jsx'
-import ManagePanel from './club/ManagePanel.jsx'
 import ClubPrompts from './club/prompts.jsx'
+import { useProfil } from './context.js'
 
-// /profil/klub — the club hub. Branches on the caller's active club (from
-// useClub, which wraps get-club): no active club → create/join picker;
-// active member → MemberView; active owner/admin → ManagePanel (which itself
-// embeds MemberView so managers see the same roster/followed-events). The
-// nominee/pending-join/direct-invite prompts render at the top regardless of
-// branch — a nominee or invitee may already be a member elsewhere, or of no
-// club at all.
+// /profil/klub — slim hub: prompts, "my clubs" cards linking into the
+// standalone /klub/:slug/* area, and the create/join picker when clubless.
 export default function Klub() {
   useSeo({ title: 'Klub — Leszy.run', path: '/profil/klub', noindex: true })
-
-  const { ready, club, me, members, followedEvents, error, reload } = useClub()
+  const { myClubs, refreshProfileData } = useProfil()
 
   return (
     <section>
       <div className={sectionTitle}>Klub</div>
 
-      <ClubPrompts reloadClub={reload} />
+      <ClubPrompts reloadClub={refreshProfileData} />
 
-      {!ready ? (
-        <p className="font-mono text-sm text-apex-muted animate-pulse py-8">Ładowanie…</p>
-      ) : error ? (
-        <p className="font-sans text-sm text-apex-red py-4">{error}</p>
-      ) : !club ? (
+      {(myClubs ?? []).length > 0 ? (
+        <div className="space-y-2" data-testid="my-clubs">
+          {myClubs.map((c) => (
+            <Link key={c.club_id} to={`/klub/${c.slug}/panel`} data-testid="my-club-card"
+              className="flex items-center gap-3 border border-apex-border px-3.5 py-3 no-underline hover:border-apex-yellow/40 transition-all">
+              {c.logo_url ? (
+                <img src={c.logo_url} alt="" className="w-10 h-10 object-cover border border-apex-border shrink-0" />
+              ) : (
+                <div className="w-10 h-10 shrink-0 bg-apex-surface border border-apex-border flex items-center justify-center font-display font-bold text-apex-yellow">
+                  {c.name?.[0]?.toUpperCase() || '?'}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="font-display font-bold text-sm text-apex-text-bright truncate">{c.name}</div>
+                <div className="font-mono text-[10px] text-apex-muted">
+                  {{ owner: 'Właściciel', admin: 'Administrator', member: 'Członek' }[c.role] || c.role}
+                  {' · '}{c.member_count} {c.member_count === 1 ? 'członek' : 'członków'}
+                </div>
+              </div>
+              <span className="font-mono text-xs text-apex-yellow shrink-0">Otwórz →</span>
+            </Link>
+          ))}
+        </div>
+      ) : (
         <div className="space-y-4">
           <p className="font-sans text-xs text-apex-muted -mt-2">
             Nie należysz jeszcze do żadnego klubu. Znajdź istniejący i poproś o dołączenie, albo załóż nowy.
           </p>
-          <ClubPicker onJoined={() => reload()} onCreated={() => reload()} />
+          <ClubPicker onJoined={() => refreshProfileData()} onCreated={() => refreshProfileData()} />
         </div>
-      ) : (me.role === 'owner' || me.role === 'admin') ? (
-        <ManagePanel club={club} me={me} members={members} followedEvents={followedEvents} reload={reload} />
-      ) : (
-        <MemberView club={club} me={me} members={members} followedEvents={followedEvents} reload={reload} />
       )}
     </section>
   )
