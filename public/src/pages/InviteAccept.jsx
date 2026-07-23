@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar.jsx'
 import useAuth from '../hooks/useAuth.js'
 import useSeo from '../hooks/useSeo.js'
 import { acceptInvite } from '../lib/clubs.js'
+import MembershipVisibilityChoice from '../components/MembershipVisibilityChoice.jsx'
 
 const primaryBtnClass = 'font-display font-bold text-sm tracking-widest uppercase px-6 py-3 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed'
 
@@ -23,6 +24,7 @@ export default function InviteAccept() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [done, setDone] = useState(false)
+  const [hiddenPublic, setHiddenPublic] = useState(false)
 
   const returnPath = `/klub/${slug}/dolacz${kod ? `?kod=${encodeURIComponent(kod)}` : ''}`
 
@@ -42,7 +44,7 @@ export default function InviteAccept() {
     setBusy(true)
     setError(null)
     try {
-      await acceptInvite({ code: kod })
+      await acceptInvite({ code: kod, hidden_public: hiddenPublic })
       setDone(true)
       navigate('/profil/klub', { replace: true })
     } catch (err) {
@@ -85,6 +87,9 @@ export default function InviteAccept() {
         <p className="font-sans text-sm text-apex-text mb-5">
           Dołączyć do klubu?
         </p>
+        <div className="text-left mb-5">
+          <MembershipVisibilityChoice value={hiddenPublic} onChange={setHiddenPublic} />
+        </div>
         <button
           data-testid="accept-invite-confirm"
           onClick={confirm}
