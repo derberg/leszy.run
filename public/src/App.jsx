@@ -28,6 +28,11 @@ const Klub = lazy(() => import('./pages/profil/Klub.jsx'))
 const Ustawienia = lazy(() => import('./pages/profil/Ustawienia.jsx'))
 const UserProfile = lazy(() => import('./pages/UserProfile.jsx'))
 const InviteAccept = lazy(() => import('./pages/InviteAccept.jsx'))
+const ClubLayout = lazy(() => import('./pages/klub/ClubLayout.jsx'))
+const KlubPanel = lazy(() => import('./pages/klub/Panel.jsx'))
+const KlubCzlonkowie = lazy(() => import('./pages/klub/Czlonkowie.jsx'))
+const KlubZaproszenia = lazy(() => import('./pages/klub/Zaproszenia.jsx'))
+const KlubUstawienia = lazy(() => import('./pages/klub/Ustawienia.jsx'))
 const PolitykaPrywatnosci = lazy(() => import('./pages/PolitykaPrywatnosci.jsx'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'))
 const Regulamin = lazy(() => import('./pages/Regulamin.jsx'))
@@ -81,9 +86,17 @@ export default function App() {
             <Route path="ustawienia" element={<Ustawienia />} />
           </Route>
           <Route path="/u/:username" element={beta ? <UserProfile /> : <Navigate to="/" replace />} />
-          {/* The bare /klub/:slug is an SSR rewrite (render-club) — the SPA does not own it.
-              /klub/:slug/dolacz is more specific and IS an SPA route (invite-accept). */}
+          {/* Bare /klub/:slug is a STATIC public page (Vercel-served) — the SPA
+              only owns sub-paths. The index redirect fires solely for client-side
+              navigations / clubs without a static page. */}
           <Route path="/klub/:slug/dolacz" element={beta ? <InviteAccept /> : <Navigate to="/" replace />} />
+          <Route path="/klub/:slug" element={beta ? <ClubLayout /> : <Navigate to="/" replace />}>
+            <Route index element={<Navigate to="panel" replace />} />
+            <Route path="panel" element={<KlubPanel />} />
+            <Route path="czlonkowie" element={<KlubCzlonkowie />} />
+            <Route path="zaproszenia" element={<KlubZaproszenia />} />
+            <Route path="ustawienia" element={<KlubUstawienia />} />
+          </Route>
           <Route path="/polityka-prywatnosci" element={<PolitykaPrywatnosci />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/regulamin" element={<Regulamin />} />
