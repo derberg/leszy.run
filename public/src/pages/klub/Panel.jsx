@@ -20,11 +20,19 @@ const ROLE_LABELS = { owner: 'Właściciel', admin: 'Administrator', member: 'Cz
 function MyMembership() {
   const { club, me, reload } = useKlub()
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
 
   async function setVisibility(hidden) {
     setBusy(true)
-    try { await manageMember(club.id, 'set-visibility', { hidden_public: hidden }); await reload() }
-    finally { setBusy(false) }
+    setError(null)
+    try {
+      await manageMember(club.id, 'set-visibility', { hidden_public: hidden })
+      await reload()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -44,6 +52,7 @@ function MyMembership() {
       <div className={busy ? 'opacity-50 pointer-events-none' : ''}>
         <MembershipVisibilityChoice value={!!me.hidden_public} onChange={setVisibility} />
       </div>
+      {error && <p className="text-apex-red font-sans text-xs mt-1.5">{error}</p>}
       <p className="font-sans text-[11px] text-apex-muted mt-1.5">
         Zmiana widoczności pojawi się na publicznej stronie klubu po jej kolejnym odświeżeniu.
       </p>
