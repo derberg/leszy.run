@@ -15,7 +15,7 @@ export default function Klub() {
     <section>
       <div className={sectionTitle}>Klub</div>
 
-      <ClubPrompts reloadClub={refreshProfileData} />
+      <ClubPrompts />
 
       {(myClubs ?? []).length > 0 ? (
         <div className="space-y-2" data-testid="my-clubs">

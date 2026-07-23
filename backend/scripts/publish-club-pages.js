@@ -65,6 +65,8 @@ async function main() {
     console.log('No public clubs found. Writing empty manifest.')
   }
 
+  // TODO: paginate with .range() before ~1000 history rows — PostgREST caps responses
+  // at 1000 and silently truncates (missing stubs).
   const { data: slugHistory } = await supabase
     .from('club_slug_history')
     .select('old_slug, club_id')

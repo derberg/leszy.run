@@ -844,6 +844,29 @@ describe('membership lifecycle (soft leave + log + visibility)', () => {
       await cleanupUser(owner.user.id)
     }
   })
+
+  it('rejecting a re-join request restores the prior stint instead of deleting the row', async () => {
+    const owner = await createTestSession('life-owner4')
+    const member = await createTestSession('life-member4')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Rejoin Reject Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await callFunction('request-join', { club_id: clubId }, member.sessionToken)
+      await callFunction('respond-join', { club_id: clubId, user_id: member.user.id, action: 'approve' }, owner.sessionToken)
+      await callFunction('manage-member', { club_id: clubId, action: 'leave' }, member.sessionToken)
+      await callFunction('request-join', { club_id: clubId }, member.sessionToken)
+      await callFunction('respond-join', { club_id: clubId, user_id: member.user.id, action: 'reject' }, owner.sessionToken)
+
+      const { data: row } = await supabaseAdmin.from('club_members')
+        .select('status, left_at').eq('club_id', clubId).eq('user_id', member.user.id).single()
+      assert.equal(row.status, 'left')
+      assert.ok(row.left_at, 'left_at restored from the membership log')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
 })
 
 describe('slug editing', () => {

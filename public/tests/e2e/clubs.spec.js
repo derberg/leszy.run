@@ -134,11 +134,12 @@ test.describe('Clubs', () => {
 
       const { data: afterLeave } = await supabaseAdmin
         .from('club_members')
-        .select('status')
+        .select('status, left_at')
         .eq('club_id', clubId)
         .eq('user_id', joiner.user.id)
         .maybeSingle()
-      expect(afterLeave).toBeNull()
+      expect(afterLeave.status).toBe('left')
+      expect(afterLeave.left_at).not.toBeNull()
 
       const { data: joinerProf } = await supabaseAdmin.from('profiles').select('club_id').eq('id', joiner.user.id).single()
       expect(joinerProf.club_id).toBeNull()

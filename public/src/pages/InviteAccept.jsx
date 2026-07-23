@@ -44,9 +44,11 @@ export default function InviteAccept() {
     setBusy(true)
     setError(null)
     try {
-      await acceptInvite({ code: kod, hidden_public: hiddenPublic })
+      const result = await acceptInvite({ code: kod, hidden_public: hiddenPublic })
       setDone(true)
-      navigate('/profil/klub', { replace: true })
+      // Prefer the canonical slug the API returns (covers a mid-flight slug
+      // rename) and fall back to the invite URL's :slug param.
+      navigate(`/klub/${result?.club?.slug || slug}/panel`, { replace: true })
     } catch (err) {
       setError(err.message)
     } finally {

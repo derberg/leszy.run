@@ -323,6 +323,9 @@ Deno.serve(async (req) => {
     const { error: membersError } = await supabaseAdmin.from('club_members').delete().eq('user_id', session.userId)
     if (membersError) console.error('delete-my-account: club_members cleanup failed:', membersError.message)
 
+    // 2d. Clear stale owner-transfer nominations pointing at the deleted user
+    await supabaseAdmin.from('clubs').update({ pending_owner_id: null }).eq('pending_owner_id', session.userId)
+
     // 3. Permanently ban auth user (email on auth.users is NOT rotated — stays claimed, blocks re-registration)
     const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(session.userId, {
       ban_duration: '876000h',

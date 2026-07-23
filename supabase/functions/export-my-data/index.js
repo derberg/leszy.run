@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
     supabaseAdmin.from('clubs').select('id, name, description').eq('owner_id', userId),
     supabaseAdmin.from('club_membership_log')
       .select('event, role, occurred_at, clubs(name)')
-      .eq('user_id', userId),
+      .eq('user_id', userId)
+      .order('occurred_at'),
   ])
 
   const memberships = (clubMemberships.data ?? []).map((m) => ({
