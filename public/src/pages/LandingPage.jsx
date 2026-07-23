@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 import EventRow from '../components/EventRow.jsx'
 import LandingMap from '../components/LandingMap.jsx'
 import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
@@ -359,7 +358,6 @@ export default function LandingPage() {
           </div>
         )}
       </main>
-      <Footer />
     </>
   )
 }

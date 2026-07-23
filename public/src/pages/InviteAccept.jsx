@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 import useAuth from '../hooks/useAuth.js'
 import useSeo from '../hooks/useSeo.js'
 import { acceptInvite } from '../lib/clubs.js'
@@ -109,7 +108,6 @@ export default function InviteAccept() {
           {body}
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

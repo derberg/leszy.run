@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
 import useSeo from '../hooks/useSeo.js'
 import { TYPE_H1_NOUN, REGION_SLUG_TO_DB, SPECIAL_H1, SPECIAL_SLUGS } from '../lib/biegi-mappings.js'
@@ -150,7 +149,6 @@ export default function BieguHub() {
           </Link>
         </div>
       </main>
-      <Footer />
     </>
   )
 }

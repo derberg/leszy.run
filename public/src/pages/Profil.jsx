@@ -2,7 +2,6 @@ import { useState, useEffect, Suspense } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
 import AuthGuard from '../components/AuthGuard.jsx'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 import useAuth from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
 import { ProfilContext } from './profil/context.js'
@@ -84,7 +83,6 @@ function ProfilLayout() {
     <div className="min-h-screen bg-apex-bg text-apex-text">
       <Navbar />
       {children}
-      <Footer />
     </div>
   )
 

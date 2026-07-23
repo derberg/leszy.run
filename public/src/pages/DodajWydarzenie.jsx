@@ -2,7 +2,6 @@ import { useState, useRef, lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { callFunction } from '../lib/auth.js'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 import useTheme from '../hooks/useTheme.js'
 import useSeo from '../hooks/useSeo.js'
 import useAuth from '../hooks/useAuth.js'
@@ -192,7 +191,6 @@ export default function DodajWydarzenie() {
             </Link>
           </div>
         </main>
-        <Footer />
       </>
     )
   }
@@ -215,7 +213,6 @@ export default function DodajWydarzenie() {
             </Link>
           </div>
         </main>
-        <Footer />
       </>
     )
   }
@@ -382,7 +379,6 @@ export default function DodajWydarzenie() {
           </form>
         </div>
       </main>
-      <Footer />
     </>
   )
 }

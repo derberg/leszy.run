@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 import useTheme from '../hooks/useTheme.js'
 import useSeo from '../hooks/useSeo.js'
 
@@ -407,7 +406,6 @@ export default function Landing() {
         <div className="w-full h-px bg-apex-border" />
         <ContactSection />
       </main>
-      <Footer />
     </>
   )
 }

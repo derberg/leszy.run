@@ -7,7 +7,6 @@ import CategorySection from './CategorySection.jsx'
 import NearFinish from './NearFinish.jsx'
 import PartnerLogos from '../components/PartnerLogos.jsx'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 
 export default function Results() {
   const { slug, categoryId } = useParams()
@@ -276,7 +275,6 @@ export default function Results() {
         )}
       </div>
     </div>
-      <Footer />
     </>
   )
 }
