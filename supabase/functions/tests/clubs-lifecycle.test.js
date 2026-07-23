@@ -576,6 +576,17 @@ describe('delete-club', () => {
 })
 
 describe('get-club', () => {
+  it('caller with no club at all gets 200 with club: null (not 403)', async () => {
+    const u = await createTestSession('gc-noclub1')
+    try {
+      const res = await callFunction('get-club', {}, u.sessionToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.club, null)
+    } finally {
+      await cleanupUser(u.user.id)
+    }
+  })
+
   it('non-member gets 200 with club: null (not 403)', async () => {
     const owner = await createTestSession('gc-owner1')
     const stranger = await createTestSession('gc-stranger1')
