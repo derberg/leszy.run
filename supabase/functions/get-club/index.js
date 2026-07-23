@@ -32,7 +32,11 @@ Deno.serve(async (req) => {
         .from('profiles').select('club_id').eq('id', session.userId).single()
       clubId = profile?.club_id
     }
-    if (!clubId) return json({ error: 'Nie należysz do żadnego klubu.' }, 403, req)
+    // No club at all (profile.club_id is NULL) — same expected "no club yet"
+    // state as the inactive-membership case below, so return the same 200
+    // shape. A 403 here makes the client's useClub treat it as a failure and
+    // /profil/klub shows the error text instead of the create/join picker.
+    if (!clubId) return json({ data: { club: null } }, 200, req)
 
     const { data: me } = await supabaseAdmin.from('club_members')
       .select('role, hidden_public, status')
