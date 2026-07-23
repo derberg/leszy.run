@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { logMembershipEvent } from '../_shared/membershipLog.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -11,7 +12,8 @@ function json(body, status, req) {
 
 async function membership(supabaseAdmin, clubId, userId) {
   const { data } = await supabaseAdmin.from('club_members')
-    .select('role, status').eq('club_id', clubId).eq('user_id', userId).maybeSingle()
+    .select('role, status').eq('club_id', clubId).eq('user_id', userId)
+    .in('status', ['active', 'pending']).maybeSingle()
   return data
 }
 
@@ -43,8 +45,13 @@ Deno.serve(async (req) => {
       if (me.role === 'owner') {
         return json({ error: 'Właściciel nie może opuścić klubu — przekaż własność lub usuń klub.' }, 409, req)
       }
-      await supabaseAdmin.from('club_members').delete().eq('club_id', club_id).eq('user_id', session.userId)
+      await supabaseAdmin.from('club_members')
+        .update({ status: 'left', left_at: new Date().toISOString() })
+        .eq('club_id', club_id).eq('user_id', session.userId)
       await clearClubIdIfPointing(supabaseAdmin, session.userId, club_id)
+      await logMembershipEvent(supabaseAdmin, {
+        club_id, user_id: session.userId, event: 'left', role: me.role, actor_id: session.userId,
+      })
       return json({ data: { left: true } }, 200, req)
     }
 
@@ -69,8 +76,13 @@ Deno.serve(async (req) => {
       if (target.role === 'admin' && me.role !== 'owner') {
         return json({ error: 'Tylko właściciel może usunąć administratora.' }, 403, req)
       }
-      await supabaseAdmin.from('club_members').delete().eq('club_id', club_id).eq('user_id', user_id)
+      await supabaseAdmin.from('club_members')
+        .update({ status: 'removed', left_at: new Date().toISOString() })
+        .eq('club_id', club_id).eq('user_id', user_id)
       await clearClubIdIfPointing(supabaseAdmin, user_id, club_id)
+      await logMembershipEvent(supabaseAdmin, {
+        club_id, user_id, event: 'removed', role: target.role, actor_id: session.userId,
+      })
       return json({ data: { removed: true } }, 200, req)
     }
 
@@ -78,6 +90,9 @@ Deno.serve(async (req) => {
       if (me.role !== 'owner') return json({ error: 'Tylko właściciel zmienia role.' }, 403, req)
       if (!['admin', 'member'].includes(role)) return json({ error: 'Nieprawidłowa rola.' }, 400, req)
       await supabaseAdmin.from('club_members').update({ role }).eq('club_id', club_id).eq('user_id', user_id)
+      await logMembershipEvent(supabaseAdmin, {
+        club_id, user_id, event: 'role_changed', role, actor_id: session.userId,
+      })
       return json({ data: { role } }, 200, req)
     }
 
