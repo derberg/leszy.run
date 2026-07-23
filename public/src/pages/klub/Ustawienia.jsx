@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useLocation } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import useAuth from '../../hooks/useAuth.js'
 import ClubLogoUpload from '../../components/ClubLogoUpload.jsx'
@@ -31,6 +31,7 @@ export default function Ustawienia() {
   const { club, members, reload, canManage, isOwner } = useKlub()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   useSeo({ title: `Ustawienia — ${club.name} — Leszy.run`, noindex: true })
 
@@ -42,7 +43,10 @@ export default function Ustawienia() {
   const [isPublic, setIsPublic] = useState(!!club.is_public)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
-  const [saved, setSaved] = useState(false)
+  // A slug-changing save navigates to the new canonical URL (see save()
+  // below) rather than reload()-ing in place, which remounts this page —
+  // seed "saved" from router state so the confirmation survives that remount.
+  const [saved, setSaved] = useState(!!location.state?.saved)
 
   const [target, setTarget] = useState('')
   const [transferBusy, setTransferBusy] = useState(false)
@@ -64,8 +68,17 @@ export default function Ustawienia() {
       const trimmedSlug = slugValue.trim()
       if (trimmedSlug !== club.slug) payload.slug = trimmedSlug
       await updateClub(club.id, payload)
-      await reload()
-      setSaved(true)
+      if (payload.slug) {
+        // reload() would re-fetch by the OLD slug, get back the club under
+        // its NEW slug, and ClubLayout's canonical-slug check would redirect
+        // to /klub/<new>/panel — unmounting this page before "Zapisano" is
+        // visible. Navigate straight to the new canonical URL instead, and
+        // carry the confirmation through router state.
+        navigate(`/klub/${payload.slug}/ustawienia`, { replace: true, state: { saved: true } })
+      } else {
+        await reload()
+        setSaved(true)
+      }
     } catch (err) {
       setSaveError(/istnieje/i.test(err.message) ? 'Klub o tej nazwie już istnieje.' : err.message)
     } finally {
@@ -140,7 +153,7 @@ export default function Ustawienia() {
                 onChange={(e) => setSlugValue(e.target.value)} maxLength={80}
                 placeholder="np. zatyrani-gratisownia" className={fieldInput} />
             </div>
-            {slugValue !== club.slug && (
+            {slugValue.trim() !== club.slug && (
               <p className="font-sans text-[11px] text-apex-yellow mt-1">
                 Zmiana adresu: stary adres będzie przekierowywał na nowy.
               </p>
