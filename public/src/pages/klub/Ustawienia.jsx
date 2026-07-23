@@ -9,11 +9,13 @@ import { useKlub } from './context.js'
 
 // Club settings page. Edit form (name/slug/description/is_public + logo) is a
 // labeled rework of the old profil/club/ManagePanel.jsx EditClubSection
-// (lines 274-327); TransferOwnershipSection (329-397) and DeleteClubSection
-// (400-446) are copied verbatim below (owner-only), with delete's reload()
-// swapped for a navigate('/profil/klub') since a deleted club has nothing
-// left to reload. That file is deleted in a later task, so this page owns
-// its own copy rather than importing from it.
+// (lines 274-327); the transfer-ownership and delete-club logic (originally
+// TransferOwnershipSection, lines 329-397, and DeleteClubSection, lines
+// 400-446) was copied from ManagePanel.jsx and flattened directly into this
+// component (owner-only), with delete's reload() swapped for a
+// navigate('/profil/klub') since a deleted club has nothing left to reload.
+// That file is deleted in a later task, so this page owns its own copy
+// rather than importing from it.
 
 const primaryBtnClass = 'font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed'
 const btnOk = `${actionBtnClass} border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`

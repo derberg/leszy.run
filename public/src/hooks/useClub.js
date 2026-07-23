@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import useAuth from './useAuth.js'
 import { getClub } from '../lib/clubs.js'
 
@@ -12,6 +12,7 @@ import { getClub } from '../lib/clubs.js'
 export default function useClub({ slug = null } = {}) {
   const { user } = useAuth()
   const [state, setState] = useState({ ready: false, club: null, me: null, members: [], followedEvents: [], error: null })
+  const lastSlugRef = useRef(slug)
 
   const load = useCallback(async () => {
     if (!user) { setState({ ready: true, club: null, me: null, members: [], followedEvents: [], error: null }); return }
@@ -23,7 +24,16 @@ export default function useClub({ slug = null } = {}) {
     }
   }, [user, slug])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    // Param-only navigation (e.g. slug rename) must not render the previous
+    // club's data — drop to loading until the refetch for the new slug lands,
+    // or ClubLayout's canonical-slug check would redirect off a stale club.
+    if (lastSlugRef.current !== slug) {
+      lastSlugRef.current = slug
+      setState((s) => ({ ...s, ready: false }))
+    }
+    load()
+  }, [load, slug])
 
   return { ...state, reload: load }
 }
