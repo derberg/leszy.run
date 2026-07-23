@@ -3,6 +3,7 @@ import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { slugifyClub, normalizeClubName } from '../_shared/clubText.js'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
+import { logMembershipEvent } from '../_shared/membershipLog.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -35,7 +36,7 @@ Deno.serve(async (req) => {
   if (!session) return json({ error: 'Authorization required' }, 401, req)
 
   try {
-    const { name, description = null, city = null, voivodeship = null } = await req.json()
+    const { name, description = null, city = null, voivodeship = null, hidden_public = false } = await req.json()
     const trimmed = (name ?? '').trim()
     if (trimmed.length < 2 || trimmed.length > 120) {
       return json({ error: 'Nazwa klubu jest wymagana (2–120 znaków).' }, 400, req)
@@ -69,11 +70,15 @@ Deno.serve(async (req) => {
 
     const { error: memErr } = await supabaseAdmin.from('club_members').insert({
       club_id: club.id, user_id: session.userId, role: 'owner', status: 'active',
-      joined_at: new Date().toISOString(),
+      joined_at: new Date().toISOString(), hidden_public: !!hidden_public,
     })
     if (memErr) throw memErr
 
     await supabaseAdmin.from('profiles').update({ club_id: club.id }).eq('id', session.userId)
+
+    await logMembershipEvent(supabaseAdmin, {
+      club_id: club.id, user_id: session.userId, event: 'joined', role: 'owner', actor_id: session.userId,
+    })
 
     // Award the club_set badge now that the owner has a club (best-effort).
     await checkAndAwardBadges(supabaseAdmin, session.userId)

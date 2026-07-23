@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
+import { logMembershipEvent } from '../_shared/membershipLog.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -59,6 +60,10 @@ Deno.serve(async (req) => {
       .update({ status: 'active', joined_at: new Date().toISOString() })
       .eq('club_id', club_id).eq('user_id', user_id)
     await supabaseAdmin.from('profiles').update({ club_id }).eq('id', user_id)
+
+    await logMembershipEvent(supabaseAdmin, {
+      club_id, user_id, event: 'joined', role: 'member', actor_id: session.userId,
+    })
 
     // Award the club_set badge to the newly-active member (best-effort).
     await checkAndAwardBadges(supabaseAdmin, user_id)
