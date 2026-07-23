@@ -2,8 +2,8 @@
 
 **Administrator:** Łukasz Górnicki, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
-**Data ostatniej aktualizacji:** 2026-06-04
-**Wersja:** 1.0
+**Data ostatniej aktualizacji:** 2026-07-23
+**Wersja:** 1.1
 
 ## Rola Leszy.run
 
@@ -86,8 +86,20 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 - **Okres przechowywania:** logi SendGrid zgodnie z polityką SendGrid (30 dni).
 - **Środki bezpieczeństwa:** wiadomości zawierające kody OTP mają krótki czas ważności; klucz API SendGrid w secret store.
 
+## 8. Członkostwo w klubach (club_members, club_membership_log)
+
+- **Cel:** Umożliwienie użytkownikom tworzenia klubów, dołączania do nich i zarządzania członkostwem; prowadzenie historii zmian członkostwa (dołączenia, wyjścia, usunięcia, zmiany roli) dla zapewnienia integralności historycznej przynależności klubowej (przypisywanie wyników biegowych do klubu).
+- **Podstawa prawna:** Art. 6(1)(b) RODO — wykonanie umowy o świadczenie usług elektronicznych (funkcja klubowa serwisu); Art. 6(1)(f) RODO — uzasadniony interes administratora (integralność historii członkostwa, wiarygodność przypisania wyników do klubu).
+- **Kategorie danych:** `club_members` — ID użytkownika, ID klubu, rola, status członkostwa (aktywny/opuścił/usunięty), data dołączenia, data opuszczenia, ustawienia widoczności (hidden_public). `club_membership_log` — ID użytkownika, ID klubu, typ zdarzenia (dołączenie/wyjście/usunięcie/zmiana roli), rola, ID użytkownika wykonującego akcję (actor_id), znacznik czasowy.
+- **Kategorie osób:** zarejestrowani użytkownicy serwisu będący członkami lub byłymi członkami klubów.
+- **Odbiorcy:** Supabase, Inc. (hosting bazy danych).
+- **Transfery poza EOG:** jak w pkt 1.
+- **Okres przechowywania:** przez czas istnienia konta użytkownika; trwale usuwane w ramach procesu usunięcia konta (`delete-my-account`) — wiersze `club_members` i `club_membership_log` są kasowane, nie tylko anonimizowane.
+- **Środki bezpieczeństwa:** RLS (Row-Level Security), zapis do `club_membership_log` wyłącznie przez service_role (append-only), eksport danych własnych (`export-my-data`) obejmuje wszystkie wiersze członkostwa (dowolny status) oraz pełną historię zmian.
+
 ## Historia zmian
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.1 | 2026-07-23 | Dodano sekcję 8 (członkostwo w klubach: `club_members`, `club_membership_log`) — pokrycie eksportu i usuwania danych po wdrożeniu soft-delete członkostwa. |
 | 1.0 | 2026-06-04 | Pierwsza wersja ROPA — wdrożenie programu zgodności GDPR. |

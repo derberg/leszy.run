@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
 
   const [
     profile, userBadges, consentLog, eventReports, websiteFeedback, submittedEvents, favorites,
-    clubMembership, ownedClubsRaw,
+    clubMemberships, ownedClubsRaw, membershipLog,
   ] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').eq('id', userId).single(),
     supabaseAdmin.from('user_badges').select('*').eq('user_id', userId),
@@ -45,21 +45,28 @@ Deno.serve(async (req) => {
     supabaseAdmin.from('calendar_events').select('*').eq('submitted_by', userId),
     supabaseAdmin.from('event_favorites').select('event_id, created_at, calendar_events(name, date)').eq('user_id', userId),
     supabaseAdmin.from('club_members')
-      .select('role, status, joined_at, hidden_public, clubs(name)')
-      .eq('user_id', userId).eq('status', 'active').maybeSingle(),
+      .select('role, status, joined_at, left_at, hidden_public, clubs(name)')
+      .eq('user_id', userId),
     supabaseAdmin.from('clubs').select('id, name, description').eq('owner_id', userId),
+    supabaseAdmin.from('club_membership_log')
+      .select('event, role, occurred_at, clubs(name)')
+      .eq('user_id', userId),
   ])
 
-  const membership = clubMembership.data
-    ? {
-        club_name: clubMembership.data.clubs?.name ?? null,
-        role: clubMembership.data.role,
-        status: clubMembership.data.status,
-        joined_at: clubMembership.data.joined_at,
-        hidden_public: clubMembership.data.hidden_public,
-        club_public_name: profile.data?.privacy_settings?.club_public_name ?? null,
-      }
-    : null
+  const memberships = (clubMemberships.data ?? []).map((m) => ({
+    club_name: m.clubs?.name ?? null,
+    role: m.role,
+    status: m.status,
+    joined_at: m.joined_at,
+    left_at: m.left_at,
+    hidden_public: m.hidden_public,
+  }))
+  const membership_history = (membershipLog.data ?? []).map((e) => ({
+    club_name: e.clubs?.name ?? null,
+    event: e.event,
+    role: e.role,
+    occurred_at: e.occurred_at,
+  }))
 
   const owned = []
   for (const c of ownedClubsRaw.data || []) {
@@ -82,7 +89,7 @@ Deno.serve(async (req) => {
       website_feedback: websiteFeedback.data || [],
       submitted_calendar_events: submittedEvents.data || [],
     },
-    clubs: { membership, owned },
+    clubs: { memberships, membership_history, owned },
   }
 
   const date = new Date().toISOString().slice(0, 10)
