@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
-import { slugifyClub, normalizeClubName } from '../_shared/clubText.js'
+import { normalizeClubName } from '../_shared/clubText.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
     if (currentErr) throw currentErr
 
     const updates = {}
+    let slugChange = null
 
     if (name !== undefined) {
       const trimmed = (name ?? '').trim()
@@ -62,29 +63,26 @@ Deno.serve(async (req) => {
 
     if (slug !== undefined) {
       const wanted = String(slug ?? '').trim()
-      const cleaned = slugifyClub(wanted)
-      if (cleaned !== wanted || cleaned.length < 3 || cleaned.length > 80) {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(wanted) || wanted.length < 3 || wanted.length > 80) {
         return json({ error: 'Slug: 3–80 znaków, tylko małe litery ASCII, cyfry i myślniki.' }, 400, req)
       }
-      if (cleaned !== current.slug) {
+      if (wanted !== current.slug) {
         const { data: taken } = await supabaseAdmin
-          .from('clubs').select('id').eq('slug', cleaned).neq('id', club_id).maybeSingle()
+          .from('clubs').select('id').eq('slug', wanted).neq('id', club_id).maybeSingle()
         if (taken) return json({ error: 'Ten slug jest już zajęty.' }, 409, req)
 
         const { data: hist } = await supabaseAdmin
-          .from('club_slug_history').select('club_id').eq('old_slug', cleaned).maybeSingle()
+          .from('club_slug_history').select('club_id').eq('old_slug', wanted).maybeSingle()
         if (hist && hist.club_id !== club_id) {
           return json({ error: 'Ten slug jest już zajęty.' }, 409, req)
         }
-        // Reclaiming our own former slug — drop the history row so it doesn't
-        // point back at itself.
-        if (hist && hist.club_id === club_id) {
-          await supabaseAdmin.from('club_slug_history').delete().eq('old_slug', cleaned)
+
+        slugChange = {
+          outgoing: current.slug,
+          reclaimedOwn: !!(hist && hist.club_id === club_id),
+          wanted,
         }
-        // Record the outgoing slug so /klub/<old> keeps resolving.
-        await supabaseAdmin.from('club_slug_history')
-          .upsert({ old_slug: current.slug, club_id }, { onConflict: 'old_slug' })
-        updates.slug = cleaned
+        updates.slug = wanted
       }
     }
 
@@ -109,8 +107,22 @@ Deno.serve(async (req) => {
       .select('id, name, slug, description, city, voivodeship, logo_url, is_public, owner_id, created_at')
       .single()
     if (updateErr) {
-      if (updateErr.code === '23505') return json({ error: 'Klub o tej nazwie już istnieje.' }, 409, req)
+      if (updateErr.code === '23505') {
+        const slugConflict = /slug/i.test(updateErr.message || '')
+        return json({ error: slugConflict ? 'Ten slug jest już zajęty.' : 'Klub o tej nazwie już istnieje.' }, 409, req)
+      }
       throw updateErr
+    }
+
+    // Write slug history after the update succeeds, so a failed update never
+    // writes phantom history (worst case on partial failure: a missing redirect,
+    // never a wrong one).
+    if (slugChange) {
+      if (slugChange.reclaimedOwn) {
+        await supabaseAdmin.from('club_slug_history').delete().eq('old_slug', slugChange.wanted)
+      }
+      await supabaseAdmin.from('club_slug_history')
+        .upsert({ old_slug: slugChange.outgoing, club_id }, { onConflict: 'old_slug' })
     }
 
     return json({ data: { club } }, 200, req)
