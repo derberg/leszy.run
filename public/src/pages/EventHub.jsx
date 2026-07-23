@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { useEvent } from '../hooks/useEvent.js'
 import useSeo from '../hooks/useSeo.js'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 
 // Read the static page's embedded stats (baked by generate-leszyrun-event-pages.js).
 // Returns the manifest entry ({ ...event, stats }) or null on a plain SPA hit.
@@ -125,7 +124,6 @@ export default function EventHub() {
     <>
       <Navbar />
       <main id="main-content">{content}</main>
-      <Footer />
     </>
   )
 }

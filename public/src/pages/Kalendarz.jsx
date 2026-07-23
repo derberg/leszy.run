@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import EventRow from '../components/EventRow.jsx'
 import MapView from '../components/MapView.jsx'
@@ -516,7 +515,6 @@ export default function Kalendarz() {
         )}
       </main>
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
-      <Footer />
     </>
   )
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 import { supabase } from '../lib/supabase.js'
 import useSeo from '../hooks/useSeo.js'
 
@@ -200,7 +199,6 @@ export default function UserProfile() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

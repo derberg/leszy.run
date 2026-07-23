@@ -5,7 +5,6 @@ import { slugify, extractDateFromSlug } from '../lib/slugify.js'
 import useSeo from '../hooks/useSeo.js'
 import useTheme from '../hooks/useTheme.js'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 import EventInfoGrid from '../components/EventInfoGrid.jsx'
 import NearbyEvents from '../components/NearbyEvents.jsx'
 import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
@@ -259,7 +258,6 @@ export default function EventPage() {
         <main className="min-h-screen flex items-center justify-center">
           <div className="font-mono text-sm text-apex-muted animate-pulse">Ładowanie...</div>
         </main>
-        <Footer />
       </>
     )
   }
@@ -281,7 +279,6 @@ export default function EventPage() {
             Wróć do kalendarza
           </Link>
         </main>
-        <Footer />
       </>
     )
   }
@@ -447,7 +444,6 @@ export default function EventPage() {
       </main>
 
       {showReport && <ReportEventModal event={event} onClose={() => setShowReport(false)} />}
-      <Footer />
     </>
   )
 }

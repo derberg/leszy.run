@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
-import Footer from '../components/Footer.jsx'
 import useSeo from '../hooks/useSeo.js'
 
 export default function NotFound() {
@@ -33,7 +32,6 @@ export default function NotFound() {
           </div>
         </div>
       </main>
-      <Footer />
     </>
   )
 }
