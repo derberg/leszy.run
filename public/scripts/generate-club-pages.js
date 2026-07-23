@@ -131,6 +131,26 @@ ${buildBody(c)}
 </html>`
 }
 
+// Former slug → tiny redirect stub. Vercel can't 301 per-club without
+// generating vercel.json, so: canonical (SEO) + meta refresh + JS redirect.
+function buildRedirectHtml(club) {
+  const target = `${BASE_URL}/klub/${club.slug}`
+  return `<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>${escapeHtml(club.name)} — leszy.run</title>
+    <link rel="canonical" href="${target}" />
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content="0; url=${target}" />
+    <script>window.location.replace(${JSON.stringify(target)})</script>
+  </head>
+  <body>
+    <p>Ten klub ma nowy adres: <a href="${target}">${target}</a></p>
+  </body>
+</html>`
+}
+
 function main() {
   if (!existsSync(MANIFEST_PATH)) {
     console.log(`Manifest not found at ${MANIFEST_PATH} — skipping club page generation.`)
@@ -166,6 +186,14 @@ function main() {
     mkdirSync(dir, { recursive: true })
     writeFileSync(resolve(dir, 'index.html'), buildClubHtml(club, cssLinks, jsScripts))
     generated++
+
+    for (const old of club.formerSlugs || []) {
+      if (!old || old === club.slug) continue
+      const oldDir = resolve(DIST, 'klub', old)
+      mkdirSync(oldDir, { recursive: true })
+      writeFileSync(resolve(oldDir, 'index.html'), buildRedirectHtml(club))
+      generated++
+    }
   }
   console.log(`Generated ${generated} club HTML file(s).`)
 }
