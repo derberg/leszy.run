@@ -263,9 +263,15 @@ function callClaudeWithFile(prompt, filePath) {
 
   try {
     writeFileSync(promptFile, prompt, 'utf-8')
+    // --setting-sources "" + --strict-mcp-config + cwd=tmpdir() isolate the subprocess
+    // from the interactive Claude Code setup (hooks, plugins, MCP servers, repo
+    // CLAUDE.md). Without this, a Stop hook replaces the final message — so
+    // response.result is the hook's answer, not the extraction JSON — and every row
+    // is skipped. Isolation drops settings-based permission allowlists too, hence
+    // the explicit --allowedTools for reading the regulamin file.
     const raw = execSync(
-      `cat "${promptFile}" | claude -p --model haiku --output-format json "${filePath}"`,
-      { encoding: 'utf-8', timeout: 120000, maxBuffer: 2 * 1024 * 1024 }
+      `cat "${promptFile}" | claude -p --setting-sources "" --strict-mcp-config --allowedTools "Read" --model haiku --output-format json "${filePath}"`,
+      { encoding: 'utf-8', timeout: 120000, maxBuffer: 2 * 1024 * 1024, cwd: tmpdir() }
     )
 
     const response = JSON.parse(raw)
