@@ -146,9 +146,15 @@ function callClaude(prompt) {
 
   try {
     writeFileSync(promptFile, prompt, 'utf-8')
+    // --setting-sources "" + --strict-mcp-config + cwd=tmpdir() isolate the subprocess
+    // from the interactive Claude Code setup (hooks, plugins, MCP servers, repo
+    // CLAUDE.md). Without this, a Stop hook replaces the final message — so
+    // response.result is the hook's answer, not the URL JSON — and every row is
+    // skipped. Isolation drops settings-based permission allowlists too, hence the
+    // explicit --allowedTools for web search/fetch.
     const raw = execSync(
-      `cat "${promptFile}" | claude -p --model sonnet --output-format json`,
-      { encoding: 'utf-8', timeout: 300000, maxBuffer: 2 * 1024 * 1024 }
+      `cat "${promptFile}" | claude -p --setting-sources "" --strict-mcp-config --allowedTools "WebSearch,WebFetch" --model sonnet --output-format json`,
+      { encoding: 'utf-8', timeout: 300000, maxBuffer: 2 * 1024 * 1024, cwd: tmpdir() }
     )
 
     const response = JSON.parse(raw)
