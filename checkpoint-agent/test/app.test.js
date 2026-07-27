@@ -148,6 +148,100 @@ test('reset stops and clears session (queue files kept on disk)', async (t) => {
   assert.equal(state.running, false)
 })
 
+// Finding 3: reset must null out queue/confirmer/resolver/uploader refs (and
+// zero the reads counter) so /api/state doesn't keep reporting the dead
+// session's counts after a reset.
+test('reset clears stale queue/confirmer/resolver/uploader state — /api/state reports zeros', async (t) => {
+  const app = await makeApp(t)
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  // knownCount should be 1 while the session is live (roster has one entry)
+  let state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.knownCount, 1)
+  await app.inject({ method: 'POST', url: '/api/reset' })
+  state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.deepEqual(state.counts, { total: 0, pending: 0 })
+  assert.equal(state.confirmedCount, 0)
+  assert.equal(state.knownCount, 0)
+  assert.equal(state.inRangeCount, 0)
+  assert.deepEqual(state.reads, { total: 0, lastAt: null })
+})
+
+// Finding 2: a second /api/start while already running must not spin up a
+// duplicate reader/MQTT client/Uploader interval — stopAll() only ever stops
+// the LATEST set of live services, so a leaked earlier set would run forever.
+test('POST /api/start while already running returns 409 and does not replace live services', async (t) => {
+  const app = await makeApp(t)
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  const first = await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  assert.equal(first.statusCode, 200)
+  const uploaderRef = app.deps.uploader
+  const queueRef = app.deps.queue
+  const mqttClientRef = app.deps.mqttClient
+  assert.ok(uploaderRef)
+  const second = await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  assert.equal(second.statusCode, 409)
+  assert.equal(second.json().error, 'Already running')
+  // nothing was replaced by the rejected second start
+  assert.equal(app.deps.uploader, uploaderRef)
+  assert.equal(app.deps.queue, queueRef)
+  assert.equal(app.deps.mqttClient, mqttClientRef)
+})
+
+// Finding 1: the queue must be scoped per checkpoint. Before the fix,
+// Confirmer.seed(queue.epcs()) blacklisted every EPC the device had EVER
+// seen across every checkpoint session, so the same tag replayed at a
+// different checkpoint would silently never confirm again.
+test('checkpoint sessions use isolated queues: same EPC confirms again at a different checkpoint', async (t) => {
+  let messageHandler
+  const inserted = []
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-scope-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const app = await buildApp({
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    supabase: {
+      from: (table) => table === 'checkpoint_observations'
+        ? { insert: async (row) => { inserted.push(row); return { error: null } } }
+        : { select: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }) },
+    },
+    fetchRoster: async ({ pin }) =>
+      pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => ({ getStatus: async () => ({ status: 'idle' }), configure: async () => {}, start: async () => {}, stop: async () => {} }),
+    connectMqtt: () => ({
+      on: (ev, fn) => { if (ev === 'message') messageHandler = fn },
+      subscribe: () => {}, end: () => {},
+    }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  const payload = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: 'qrvMAQ==', peakRssiCdbm: -4000, antennaPort: 1 } }))
+
+  // --- Session 1: checkpoint cp1
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  messageHandler('leszyrun/checkpoint', payload)
+  await new Promise((r) => setTimeout(r, 150))
+  await app.deps.uploader.flush()
+  assert.equal(inserted.length, 1)
+  assert.equal(inserted[0].checkpoint_id, 'cp1')
+
+  await app.inject({ method: 'POST', url: '/api/stop' })
+  await app.inject({ method: 'POST', url: '/api/reset' })
+
+  // --- Session 2: checkpoint cp2, same roster EPC, same physical tag read
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp2', checkpointName: 'CP 2', pin: '123456', readerIp: '10.0.0.5' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  messageHandler('leszyrun/checkpoint', payload) // replay the SAME tag read
+  await new Promise((r) => setTimeout(r, 150))
+  await app.deps.uploader.flush()
+
+  assert.equal(inserted.length, 2)
+  assert.equal(inserted[1].checkpoint_id, 'cp2')
+  assert.equal(inserted[1].bib_number, 101)
+})
+
 test('MQTT read → confirm → queue → flush inserts observation', async (t) => {
   let messageHandler
   const inserted = []

@@ -49,6 +49,29 @@ test('tolerates a torn last line (power loss mid-append)', async (t) => {
   assert.equal(q2.counts.total, 1) // torn line dropped
 })
 
+test('scoped queues (suffix) with different names in the same dataDir are isolated', async (t) => {
+  const dir = await tempDir(t)
+  const cp1 = new ObservationQueue(dir, 'cp1')
+  await cp1.init()
+  const cp2 = new ObservationQueue(dir, 'cp2')
+  await cp2.init()
+  await cp1.append(row(1))
+  await cp2.append(row(2))
+  await cp2.append(row(3))
+  assert.deepEqual(cp1.epcs(), ['EPC1'])
+  assert.deepEqual(cp2.epcs(), ['EPC2', 'EPC3'])
+  assert.deepEqual(cp1.counts, { total: 1, pending: 1 })
+  assert.deepEqual(cp2.counts, { total: 2, pending: 2 })
+  // reloading cp1 from disk still only sees its own rows
+  const cp1Reloaded = new ObservationQueue(dir, 'cp1')
+  await cp1Reloaded.init()
+  assert.deepEqual(cp1Reloaded.epcs(), ['EPC1'])
+  // unscoped (no suffix) queue in the same dir is a third, independent file
+  const unscoped = new ObservationQueue(dir)
+  await unscoped.init()
+  assert.deepEqual(unscoped.epcs(), [])
+})
+
 test('cleans up torn line from disk on next init', async (t) => {
   const dir = await tempDir(t)
   const q1 = new ObservationQueue(dir)

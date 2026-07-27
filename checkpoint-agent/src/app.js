@@ -86,7 +86,12 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   async function startPipeline() {
     const roster = (await store.load('roster')) ?? []
     state.resolver = createResolver(roster)
-    state.queue = new ObservationQueue(config.dataDir)
+    // Scope queue files per checkpoint so Confirmer.seed(queue.epcs()) below
+    // only blacklists EPCs already recorded for THIS checkpoint session — not
+    // every EPC the device has ever seen across every event/checkpoint it's
+    // ever worked. Old checkpoints' files stay on disk (audit trail); a new
+    // checkpoint session always starts with a clean seed.
+    state.queue = new ObservationQueue(config.dataDir, state.session.checkpointId)
     await state.queue.init()
     state.confirmer = new Confirmer({
       goneWindowMs: config.goneWindowMs,
@@ -113,6 +118,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
 
   app.post('/api/start', async (req, reply) => {
     if (!state.session) return reply.code(409).send({ error: 'Not configured — run setup first' })
+    if (state.running) return reply.code(409).send({ error: 'Already running' })
     const clock = await clockStatus()
     if (clock.synced === false && !req.body?.overrideClock) {
       return reply.code(423).send({ error: 'Clock not synchronized' })
@@ -143,6 +149,11 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   app.post('/api/reset', async () => {
     await stopAll()
     state.session = null
+    state.queue = null
+    state.confirmer = null
+    state.resolver = null
+    state.uploader = null
+    state.reads = { total: 0, lastAt: null }
     await store.remove('session')
     await store.remove('roster')
     return { data: { ok: true } }

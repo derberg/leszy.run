@@ -5,11 +5,19 @@ import { join } from 'node:path'
 // pass — volume is tiny (one per runner), so appendFile-per-row is fine and
 // gives us durability at row granularity. A torn final line (power loss
 // mid-append) is dropped on reload.
+//
+// Scoped per checkpoint session: pass a `suffix` (typically the checkpointId)
+// to get dedicated `queue-<suffix>.jsonl` / `cursor-<suffix>.json` files so a
+// new checkpoint session starts clean instead of inheriting every EPC the
+// device has ever seen. Omitting `suffix` keeps the original unscoped
+// `queue.jsonl` / `cursor.json` files (existing unit tests + callers that
+// don't care about scoping).
 export class ObservationQueue {
-  constructor(dataDir) {
+  constructor(dataDir, suffix) {
     this.dataDir = dataDir
-    this.queuePath = join(dataDir, 'queue.jsonl')
-    this.cursorPath = join(dataDir, 'cursor.json')
+    this.suffix = suffix
+    this.queuePath = join(dataDir, suffix ? `queue-${suffix}.jsonl` : 'queue.jsonl')
+    this.cursorPath = join(dataDir, suffix ? `cursor-${suffix}.json` : 'cursor.json')
     this.rows = []
     this.cursor = 0
   }
