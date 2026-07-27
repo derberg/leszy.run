@@ -23,3 +23,9 @@ test('unknown EPC returns null and is tracked once with last-seen update', () =>
   assert.equal(u[0].epc, 'DEADBEEF')
   assert.ok(u[0].lastSeenAt)
 })
+
+test('resolves lowercase query case-insensitively', () => {
+  const r = createResolver(roster)
+  assert.equal(r.resolve('aabbcc01'), 101)
+  assert.equal(r.resolve('aabbcc02'), 102)
+})

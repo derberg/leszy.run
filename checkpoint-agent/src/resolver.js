@@ -4,7 +4,7 @@ export function createResolver(roster) {
   return {
     knownCount: byEpc.size,
     resolve(epc) {
-      const bib = byEpc.get(epc)
+      const bib = byEpc.get(String(epc).toUpperCase())
       if (bib == null) { unknown.set(epc, new Date().toISOString()); return null }
       return bib
     },

@@ -62,3 +62,12 @@ test('independent EPCs confirm independently', (t) => {
   mock.timers.tick(1000) // F6 hits 3s
   assert.equal(confirmed.length, 2)
 })
+
+test('seed() clears armed timer for in-range EPC (no confirm after)', (t) => {
+  const { c, confirmed } = setup(t)
+  c.read({ epc: 'X1', rssiCdbm: -4000, at: 1000 })
+  mock.timers.tick(1000)
+  c.seed(['X1'])
+  mock.timers.tick(5000) // advance well past goneWindow
+  assert.equal(confirmed.length, 0) // no confirm fired
+})

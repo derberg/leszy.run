@@ -12,7 +12,16 @@ export class Confirmer {
     this.seen = new Set()
   }
 
-  seed(epcs) { for (const e of epcs) this.seen.add(e) }
+  seed(epcs) {
+    for (const e of epcs) {
+      this.seen.add(e)
+      const cur = this.inRange.get(e)
+      if (cur) {
+        clearTimeout(cur.goneTimer)
+        this.inRange.delete(e)
+      }
+    }
+  }
 
   read({ epc, rssiCdbm, at }) {
     if (this.seen.has(epc)) return
