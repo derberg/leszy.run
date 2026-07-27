@@ -12,8 +12,19 @@ import { join } from 'node:path'
 // device has ever seen. Omitting `suffix` keeps the original unscoped
 // `queue.jsonl` / `cursor.json` files (existing unit tests + callers that
 // don't care about scoping).
+const SAFE_SUFFIX = /^[A-Za-z0-9_-]+$/
+
 export class ObservationQueue {
   constructor(dataDir, suffix) {
+    // Defense in depth: suffix flows into a filesystem path
+    // (queue-<suffix>.jsonl / cursor-<suffix>.json). Even though callers are
+    // expected to validate their own input (e.g. app.js validates
+    // checkpointId before it ever reaches here), reject anything that isn't
+    // a plain token so this class can never be turned into an arbitrary-path
+    // file-append primitive.
+    if (suffix !== undefined && suffix !== null && !SAFE_SUFFIX.test(suffix)) {
+      throw new Error('invalid queue suffix')
+    }
     this.dataDir = dataDir
     this.suffix = suffix
     this.queuePath = join(dataDir, suffix ? `queue-${suffix}.jsonl` : 'queue.jsonl')

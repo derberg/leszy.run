@@ -49,6 +49,11 @@ test('tolerates a torn last line (power loss mid-append)', async (t) => {
   assert.equal(q2.counts.total, 1) // torn line dropped
 })
 
+test('rejects a path-traversal suffix (defense in depth against unsanitized callers)', async (t) => {
+  const dir = await tempDir(t)
+  assert.throws(() => new ObservationQueue(dir, '../evil'), /invalid queue suffix/)
+})
+
 test('scoped queues (suffix) with different names in the same dataDir are isolated', async (t) => {
   const dir = await tempDir(t)
   const cp1 = new ObservationQueue(dir, 'cp1')

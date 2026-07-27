@@ -8,6 +8,13 @@ import { createResolver } from './resolver.js'
 import { ObservationQueue } from './queue.js'
 import { Uploader } from './uploader.js'
 
+// eventId/checkpointId are UUIDs in practice but flow straight into
+// filesystem paths (ObservationQueue's queue-<checkpointId>.jsonl). The
+// agent listens on 0.0.0.0 with no auth, so an unvalidated checkpointId is
+// an unauthenticated arbitrary-path file-append primitive — reject anything
+// that isn't a plain token before it's ever used.
+const SAFE_ID = /^[A-Za-z0-9_-]+$/
+
 // Fastify app factory — dependency-injected so tests can stub every side
 // effect (Supabase, MQTT, the R700 reader, roster download, clock check,
 // LAN IP detection). See task-10-brief.md for the endpoint contract.
@@ -70,6 +77,9 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     const { eventId, eventName, checkpointId, checkpointName, pin, readerIp, readerUsername, readerPassword, mqttHost } = req.body ?? {}
     if (!eventId || !checkpointId || !pin || !readerIp) {
       return reply.code(400).send({ error: 'eventId, checkpointId, pin and readerIp are required' })
+    }
+    if (!SAFE_ID.test(eventId) || !SAFE_ID.test(checkpointId)) {
+      return reply.code(400).send({ error: 'Invalid eventId or checkpointId' })
     }
     const result = await fetchRoster({ eventId, pin })
     if (!result.ok) return reply.code(result.status ?? 502).send({ error: result.error })

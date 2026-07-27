@@ -68,6 +68,28 @@ test('setup missing fields returns 400', async (t) => {
   assert.equal(res.statusCode, 400)
 })
 
+// Path traversal: checkpointId flows straight into ObservationQueue's
+// queue-<checkpointId>.jsonl filename. The agent listens on 0.0.0.0 with no
+// auth, so an unvalidated checkpointId is an unauthenticated arbitrary-path
+// file-append primitive — /api/setup must reject it before calling fetchRoster.
+test('setup with a path-traversal checkpointId returns 400 and stores no session', async (t) => {
+  const app = await makeApp(t)
+  const res = await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: '../../etc/passwd', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  assert.equal(res.statusCode, 400)
+  assert.equal(res.json().error, 'Invalid eventId or checkpointId')
+  const state = await app.inject({ method: 'GET', url: '/api/state' })
+  assert.equal(state.json().data.session, null)
+})
+
+test('setup with a path-traversal eventId returns 400 and stores no session', async (t) => {
+  const app = await makeApp(t)
+  const res = await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: '../../etc/passwd', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  assert.equal(res.statusCode, 400)
+  assert.equal(res.json().error, 'Invalid eventId or checkpointId')
+  const state = await app.inject({ method: 'GET', url: '/api/state' })
+  assert.equal(state.json().data.session, null)
+})
+
 test('setup without explicit mqttHost defaults to detectLanIp()', async (t) => {
   const app = await makeApp(t)
   const setup = await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
