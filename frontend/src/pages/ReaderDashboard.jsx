@@ -432,6 +432,15 @@ function ReaderPanel({ role, label }) {
     onSuccess: () => setTimeout(() => refetchStatus(), 1500),
   })
 
+  // Backend ↔ broker state — distinguishes "Mosquitto is down" from
+  // "broker is up but this reader can't reach it" in the warning below
+  const { data: brokerStatus } = useQuery({
+    queryKey: ['rfid-status'],
+    queryFn: () => api.rfid.status(),
+    refetchInterval: 10000,
+  })
+  const brokerDown = brokerStatus?.connected === false
+
   const reachable = hasIp && !statusError
   const inventoryRunning = status?.status === 'running' || status?.status === 'starting'
   const anyPending = configure.isPending || start.isPending || stop.isPending
@@ -551,9 +560,9 @@ function ReaderPanel({ role, label }) {
               <div className="border-2 border-apex-red bg-apex-red/10 px-3 py-2.5 space-y-1">
                 <p className="text-xs font-bold uppercase tracking-widest text-apex-red">Czytnik nie jest połączony z brokerem MQTT</p>
                 <p className="text-xs text-apex-muted">
-                  Czytnik odpowiada, ale jego odczyty nie dotrą do systemu. Sprawdź czy Mosquitto
-                  działa na Macu (baner u góry strony), a następnie wyślij konfigurację przyciskiem
-                  „Konfiguruj MQTT + Preset" poniżej.
+                  {brokerDown
+                    ? 'Czytnik odpowiada, ale broker Mosquitto na Macu nie działa (szczegóły i komenda startu w czerwonym banerze u góry strony). Po uruchomieniu brokera czytnik połączy się sam.'
+                    : 'Czytnik odpowiada i broker Mosquitto działa, ale czytnik się z nim nie łączy. Sprawdź pole „Host MQTT" w konfiguracji adresów (musi to być IP Maca widoczne z czytnika), a następnie wyślij konfigurację przyciskiem „Konfiguruj MQTT + Preset" poniżej.'}
                 </p>
               </div>
             )}
