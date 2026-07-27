@@ -31,9 +31,46 @@ export default function ReaderDashboard() {
         </div>
       )}
 
+      <MqttBrokerBanner />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ReaderPanel role="main" label="Czytnik główny (start)" />
         {config?.finishIp && <ReaderPanel role="finish" label="Czytnik mety" />}
+      </div>
+    </div>
+  )
+}
+
+// ─── Backend ↔ Mosquitto broker status banner ────────────────────────────────
+// Mosquitto runs natively on macOS (outside Docker — the R700 must reach it on
+// the LAN), so `docker compose up` does NOT start it. When it's down, nothing
+// on this page can work — surface that loudly instead of a muted badge.
+
+function MqttBrokerBanner() {
+  const [connected, setConnected] = useState(null)
+  const { data: statusData } = useQuery({
+    queryKey: ['rfid-status'],
+    queryFn: () => api.rfid.status(),
+    refetchInterval: 10000,
+  })
+  useEffect(() => { if (statusData != null) setConnected(statusData.connected) }, [statusData])
+  useWsEvent('rfid:status', useCallback((payload) => setConnected(payload.connected), []))
+
+  if (connected !== false) return null
+
+  return (
+    <div className="mb-6 border-2 border-apex-red bg-apex-red/10 px-4 py-3 flex items-start gap-3">
+      <WifiOff size={22} className="text-apex-red shrink-0 mt-0.5" />
+      <div className="space-y-1.5">
+        <p className="text-sm font-bold uppercase tracking-widest text-apex-red">Broker MQTT (Mosquitto) nie działa</p>
+        <p className="text-xs text-apex-muted">
+          Backend nie ma połączenia z brokerem — odczyty RFID z czytników nie dotrą do systemu,
+          nawet jeśli czytnik jest dostępny. Mosquitto działa natywnie na macOS (poza Dockerem,
+          bo czytnik R700 musi się z nim łączyć po sieci lokalnej) i trzeba go uruchomić osobno:
+        </p>
+        <p className="font-mono text-xs bg-apex-surface border border-apex-border px-2 py-1 inline-block select-all">
+          /opt/homebrew/sbin/mosquitto -c mosquitto/config/mosquitto.conf
+        </p>
       </div>
     </div>
   )
@@ -495,7 +532,7 @@ function ReaderPanel({ role, label }) {
                 </span>
               </div>
               {status?.mqttBrokerConnectionStatus && (
-                <span className={`text-xs px-1.5 py-0.5 border ${status.mqttBrokerConnectionStatus === 'connected' ? 'border-apex-yellow/40 text-apex-yellow' : 'border-apex-border-mid text-apex-muted'}`}>
+                <span className={`text-xs font-semibold px-1.5 py-0.5 border ${status.mqttBrokerConnectionStatus === 'connected' ? 'border-apex-yellow/40 text-apex-yellow' : 'border-apex-red bg-apex-red/10 text-apex-red'}`}>
                   MQTT {status.mqttBrokerConnectionStatus}
                 </span>
               )}
@@ -508,6 +545,18 @@ function ReaderPanel({ role, label }) {
                 </span>
               )}
             </div>
+
+            {/* Reader ↔ broker disconnected — loud warning, not a muted badge */}
+            {reachable && status?.mqttBrokerConnectionStatus && status.mqttBrokerConnectionStatus !== 'connected' && (
+              <div className="border-2 border-apex-red bg-apex-red/10 px-3 py-2.5 space-y-1">
+                <p className="text-xs font-bold uppercase tracking-widest text-apex-red">Czytnik nie jest połączony z brokerem MQTT</p>
+                <p className="text-xs text-apex-muted">
+                  Czytnik odpowiada, ale jego odczyty nie dotrą do systemu. Sprawdź czy Mosquitto
+                  działa na Macu (baner u góry strony), a następnie wyślij konfigurację przyciskiem
+                  „Konfiguruj MQTT + Preset" poniżej.
+                </p>
+              </div>
+            )}
 
             {/* Hardware diagnostics */}
             {status && (status.temperatureCelsius !== null || status.uptimeSeconds !== null || status.allocatedPowerMilliwatts !== null) && (
