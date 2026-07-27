@@ -198,11 +198,31 @@ function ReaderConfig() {
           <Input value={form.mqttHost} onChange={e => set('mqttHost', e.target.value)} placeholder="192.168.1.2" className="max-w-64" />
           <p className="text-xs text-apex-muted mt-1">IP twojego Maca na karcie sieciowej podłączonej do czytnika</p>
           {showMqttHelp && (
-            <div className="mt-2 text-xs text-apex-muted border border-apex-border bg-apex-surface-2 px-3 py-2 space-y-1">
-              <p>IP Maca na interfejsie, którym jest podłączony do czytnika. Sprawdź w Terminalu:</p>
-              <p className="font-mono bg-apex-surface border border-apex-border px-2 py-1">ipconfig getifaddr en1</p>
-              <p className="text-apex-muted"><code>en1</code>/<code>en2</code> = adapter Ethernet USB-C, <code>en0</code> = Wi-Fi. Sprawdź w Preferencjach Sieciowych który interfejs prowadzi do czytnika.</p>
-              <p>Przy bezpośrednim kablu (bez routera) adres będzie z zakresu <code>169.254.x.x</code>.</p>
+            <div className="mt-2 text-xs text-apex-muted border border-apex-border bg-apex-surface-2 px-3 py-2 space-y-2">
+              <p>
+                Wpisz tu IP Maca na tym interfejsie sieciowym, którym Mac jest połączony z czytnikiem.
+                Nazwy interfejsów (<code>en0</code>, <code>en8</code>…) różnią się między Macami — znajdź
+                właściwy w Terminalu:
+              </p>
+              <div>
+                <p className="mb-0.5"><span className="text-apex-yellow font-bold">1.</span> Na którym interfejsie Mac widzi czytnik:</p>
+                <p className="font-mono bg-apex-surface border border-apex-border px-2 py-1 select-all">arp -a | grep -i impinj</p>
+                <p className="mt-0.5">Wynik np. <code>impinj-17-0a-30.local (169.254.1.1) … on <b>en8</b></code> — zapamiętaj nazwę po „on".
+                  Brak wyniku? Otwórz najpierw stronę czytnika w przeglądarce (żeby Mac go „zobaczył") i spróbuj ponownie.</p>
+              </div>
+              <div>
+                <p className="mb-0.5"><span className="text-apex-yellow font-bold">2.</span> Adresy IP Maca na wszystkich interfejsach:</p>
+                <p className="font-mono bg-apex-surface border border-apex-border px-2 py-1 select-all">{"ifconfig -a | awk '/^[a-z]/{i=$1} /inet /{print i, $2}' | grep -v 127.0.0.1"}</p>
+              </div>
+              <div>
+                <p><span className="text-apex-yellow font-bold">3.</span> Wpisz powyżej IP Maca z <b>tego samego interfejsu</b>, na którym widać czytnik
+                  (np. czytnik on <code>en8</code> → weź IP przy <code>en8:</code>).</p>
+              </div>
+              <p>
+                Przy bezpośrednim kablu (bez routera) oba adresy będą z zakresu <code>169.254.x.x</code> — to normalne.
+                Uwaga: taki adres może się zmienić po restarcie Maca lub przepięciu kabla — jeśli czytnik przestanie
+                łączyć się z MQTT, sprawdź to pole w pierwszej kolejności i wyślij konfigurację ponownie.
+              </p>
             </div>
           )}
         </label>
