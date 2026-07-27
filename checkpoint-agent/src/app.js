@@ -32,6 +32,49 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     queue: null,
     uploader: null,
     reads: { total: 0, lastAt: null },
+    readerPollTimer: null,
+    readerDown: false,
+    lastReaderError: null,
+  }
+  // Guards a single in-flight reader-health poll so a slow/hanging
+  // getStatus()/configure()/start() call can't overlap with the next tick.
+  let readerPollInFlight = false
+
+  // Auto-recovery: while a session is running, periodically check the R700's
+  // own /status. A mid-race power cycle on the reader wipes its MQTT +
+  // inventory-preset config, so simply seeing it come back online is not
+  // enough — it has to be reconfigured and restarted, or it silently stays
+  // idle forever with no more tag reads reaching MQTT. Trigger reconfigure
+  // when either the previous poll had failed (reader was unreachable) or the
+  // reader reports it isn't actively running inventory.
+  async function pollReaderHealth() {
+    if (readerPollInFlight) return
+    if (!state.running || !state.reader || !state.session) return
+    readerPollInFlight = true
+    try {
+      const status = await state.reader.getStatus()
+      const wasDown = state.readerDown
+      const idle = status?.status !== 'running'
+      if (wasDown || idle) {
+        await state.reader.configure({ mqttHost: state.session.mqttHost ?? 'localhost', topic: config.mqttTopic, clientId: 'LeszyRunCheckpoint' })
+        await state.reader.start()
+      }
+      state.readerDown = false
+      state.lastReaderError = null
+    } catch (err) {
+      // getStatus failed, or the recovery attempt itself failed — either way
+      // the reader isn't confirmed healthy. Record it and retry on the next
+      // tick; never let a poll failure escape this loop.
+      state.readerDown = true
+      state.lastReaderError = err.message
+    } finally {
+      readerPollInFlight = false
+    }
+  }
+
+  function startReaderPoll() {
+    if (state.readerPollTimer) return
+    state.readerPollTimer = setInterval(() => { pollReaderHealth() }, config.readerPollMs ?? 15000)
   }
 
   // ---- static UI (built by task 11; absent in tests — register conditionally)
@@ -57,6 +100,8 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
         inRangeCount: state.confirmer?.inRangeCount ?? 0,
         knownCount: state.resolver?.knownCount ?? 0,
         reads: state.reads,
+        readerDown: state.readerDown,
+        lastReaderError: state.lastReaderError,
       },
     }
   })
@@ -124,6 +169,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     })
     state.mqttClient.subscribe([`${config.mqttTopic}`, `${config.mqttTopic}/#`], { qos: 1 })
     state.running = true
+    startReaderPoll()
   }
 
   app.post('/api/start', async (req, reply) => {
@@ -143,11 +189,14 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   })
 
   async function stopAll() {
+    if (state.readerPollTimer) { clearInterval(state.readerPollTimer); state.readerPollTimer = null }
     if (state.reader) await state.reader.stop().catch(() => {})
     state.mqttClient?.end()
     state.confirmer?.stop()
     state.uploader?.stop()
     state.running = false
+    state.readerDown = false
+    state.lastReaderError = null
   }
 
   app.post('/api/stop', async () => {

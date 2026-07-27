@@ -61,6 +61,7 @@ race HQ network. See `ARCHITECTURE.md` (`checkpoint_observations` schema) and
    | `DATA_DIR` | no | `./data` | session, roster, and per-checkpoint queue files |
    | `GONE_WINDOW_MS` | no | `3000` | silence window before a pass is confirmed |
    | `UPLOAD_INTERVAL_MS` | no | `5000` | how often the queue drains to Supabase |
+   | `READER_POLL_MS` | no | `15000` | how often the agent checks the R700's `/status` while a session is running and reconfigures+restarts it if it was unreachable or isn't actively running inventory (auto-recovery after a reader power cycle) |
 
 5. **Build the UI** (served by the agent itself at `AGENT_PORT`):
    ```bash
@@ -100,6 +101,7 @@ Environment=MQTT_TOPIC=leszyrun/checkpoint
 Environment=DATA_DIR=/home/pi/leszyrun/checkpoint-agent/data
 Environment=GONE_WINDOW_MS=3000
 Environment=UPLOAD_INTERVAL_MS=5000
+Environment=READER_POLL_MS=15000
 
 [Install]
 WantedBy=multi-user.target
@@ -193,8 +195,15 @@ the rest need the real reader.
       upload" turns green.
 - [ ] **Pull reader power → red banner → power back → auto-recovery.**
       Disconnect the R700's PoE/power. Confirm the dashboard's reader status
-      row turns into a red "CZYTNIK NIEDOSTĘPNY" banner within one poll
-      cycle (10s). Restore power and confirm the banner clears on its own.
+      row turns into a red "CZYTNIK NIEDOSTĘPNY" banner within one UI poll
+      cycle (10s, the browser's own `GET /api/reader/status` poll). Restore
+      power and confirm the banner clears within one UI poll cycle, AND
+      confirm tag reads resume reaching the dashboard (walk a test tag past)
+      within one `READER_POLL_MS` cycle (default 15s) — the agent's own
+      background health poll notices the reader coming back and
+      automatically reconfigures + restarts it (a power cycle wipes the
+      R700's MQTT + inventory-preset config, so the reader being reachable
+      again is not the same as it actively reading tags again).
 - [ ] **Reboot Pi mid-session → auto-resume, no duplicate observations.**
       With a session running, `sudo reboot` the Pi. Confirm the agent
       auto-resumes the same session on boot (no re-running the wizard),

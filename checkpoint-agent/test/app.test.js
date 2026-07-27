@@ -5,6 +5,17 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildApp } from '../src/app.js'
 
+// Polls `fn` (which may be async) until it returns a truthy value, instead of
+// a fixed sleep — avoids flakiness from exact interval timing.
+async function waitFor(fn, { timeout = 2000, interval = 10 } = {}) {
+  const start = Date.now()
+  while (true) {
+    if (await fn()) return
+    if (Date.now() - start > timeout) throw new Error('waitFor: timed out')
+    await new Promise((r) => setTimeout(r, interval))
+  }
+}
+
 async function makeApp(t, overrides = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
@@ -290,4 +301,100 @@ test('MQTT read → confirm → queue → flush inserts observation', async (t) 
   assert.equal(inserted.length, 1)
   assert.equal(inserted[0].bib_number, 101)
   assert.equal(inserted[0].checkpoint_id, 'cp1')
+})
+
+// Reader auto-recovery: a mid-race R700 power cycle wipes its MQTT +
+// inventory-preset config. Coming back "reachable" isn't enough — the agent
+// must notice and re-run configure()+start(), or the reader silently stays
+// idle forever. The poll: getStatus() throws => readerDown; once it succeeds
+// again (previous poll had failed, or status isn't 'running') => reconfigure.
+test('reader auto-recovery: getStatus failure then success reconfigures and clears readerDown', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-recover-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  let getStatusCalls = 0
+  let configureCalls = 0
+  let startCalls = 0
+  const app = await buildApp({
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 30, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    supabase: {
+      from: () => ({
+        select: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }),
+        insert: async () => ({ error: null }),
+      }),
+    },
+    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => ({
+      getStatus: async () => {
+        getStatusCalls += 1
+        if (getStatusCalls === 1) throw new Error('unreachable')
+        return { status: 'idle' }
+      },
+      configure: async () => { configureCalls += 1 },
+      start: async () => { startCalls += 1 },
+      stop: async () => {},
+    }),
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  assert.equal(configureCalls, 1) // from /api/start itself
+  assert.equal(startCalls, 1)
+
+  // First poll tick: getStatus() throws → readerDown flips true, visible via GET /api/state
+  await waitFor(async () => {
+    const s = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+    return s.readerDown === true
+  })
+
+  // Next poll tick: getStatus() succeeds with {status:'idle'}; since the previous
+  // poll had failed, the agent must reconfigure+restart the reader and clear readerDown.
+  await waitFor(async () => {
+    const s = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+    return s.readerDown === false
+  })
+  assert.equal(configureCalls, 2)
+  assert.equal(startCalls, 2)
+})
+
+test('reader auto-recovery: steady healthy status never triggers a reconfigure', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-steady-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  let configureCalls = 0
+  let startCalls = 0
+  const app = await buildApp({
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 30, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    supabase: {
+      from: () => ({
+        select: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }),
+        insert: async () => ({ error: null }),
+      }),
+    },
+    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => ({
+      getStatus: async () => ({ status: 'running' }),
+      configure: async () => { configureCalls += 1 },
+      start: async () => { startCalls += 1 },
+      stop: async () => {},
+    }),
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  assert.equal(configureCalls, 1)
+  assert.equal(startCalls, 1)
+
+  // Let several poll cycles (30ms each) pass — status is always 'running'.
+  await new Promise((r) => setTimeout(r, 200))
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.readerDown, false)
+  assert.equal(configureCalls, 1)
+  assert.equal(startCalls, 1)
 })
