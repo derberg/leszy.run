@@ -19,11 +19,19 @@ export default function Events() {
   const [editForm, setEditForm] = useState(EMPTY_FORM)
   const [deleteEvent, setDeleteEvent] = useState(null) // event pending deletion
   const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [showPast, setShowPast] = useState(false)
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['events'],
     queryFn: api.events.list,
   })
+
+  // date is a YYYY-MM-DD text column, so string comparison is safe;
+  // undated events count as upcoming so they never disappear from the default view
+  const today = new Date().toISOString().slice(0, 10)
+  const isPast = ({ event }) => !!event.date && event.date < today
+  const pastCount = rows.filter(isPast).length
+  const visibleRows = rows.filter(r => (showPast ? isPast(r) : !isPast(r)))
 
   const create = useMutation({
     mutationFn: api.events.create,
@@ -58,15 +66,26 @@ export default function Events() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-display text-4xl tracking-widest uppercase text-apex-text-bright">Zawody</h1>
-        <Button onClick={() => setOpen(true)}>
-          <Plus size={16} /> Nowe zawody
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant={showPast ? 'default' : 'outline'} onClick={() => setShowPast(p => !p)}>
+            {showPast ? 'Nadchodzące' : `Przeszłe (${pastCount})`}
+          </Button>
+          <Button onClick={() => setOpen(true)}>
+            <Plus size={16} /> Nowe zawody
+          </Button>
+        </div>
       </div>
+
+      {showPast && (
+        <div className="mb-4 text-xs uppercase tracking-wider text-apex-yellow border border-apex-border bg-apex-surface px-3 py-2">
+          Przeglądasz zakończone zawody — edytuj ostrożnie, dane wyników są już finalne
+        </div>
+      )}
 
       {isLoading && <div className="text-apex-muted text-sm">Ładowanie...</div>}
 
       <div className="grid gap-3">
-        {rows.map(({ event, categoryCount, participantCount }) => (
+        {visibleRows.map(({ event, categoryCount, participantCount }) => (
           <Link key={event.id} to={`/events/${event.id}`} className="block">
             <Card className="hover:border-apex-border-bright transition-colors cursor-pointer">
               <CardContent className="flex items-center justify-between py-3">
@@ -93,10 +112,16 @@ export default function Events() {
           </Link>
         ))}
 
-        {!isLoading && rows.length === 0 && (
+        {!isLoading && visibleRows.length === 0 && (
           <div className="py-12 text-center text-apex-muted">
-            <div className="font-display text-3xl uppercase tracking-wider mb-2">Brak zawodów</div>
-            <div className="text-sm">Utwórz pierwsze zawody, aby rozpocząć</div>
+            {showPast ? (
+              <div className="font-display text-3xl uppercase tracking-wider mb-2">Brak przeszłych zawodów</div>
+            ) : (
+              <>
+                <div className="font-display text-3xl uppercase tracking-wider mb-2">Brak nadchodzących zawodów</div>
+                <div className="text-sm">Utwórz nowe zawody, aby rozpocząć</div>
+              </>
+            )}
           </div>
         )}
       </div>
