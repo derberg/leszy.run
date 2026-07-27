@@ -48,3 +48,20 @@ test('tolerates a torn last line (power loss mid-append)', async (t) => {
   await q2.init()
   assert.equal(q2.counts.total, 1) // torn line dropped
 })
+
+test('cleans up torn line from disk on next init', async (t) => {
+  const dir = await tempDir(t)
+  const q1 = new ObservationQueue(dir)
+  await q1.init()
+  await q1.append(row(1))
+  const { appendFile } = await import('node:fs/promises')
+  await appendFile(join(dir, 'queue.jsonl'), '{"epc":"EPC2","bib_nu') // torn write
+  const q2 = new ObservationQueue(dir)
+  await q2.init()
+  assert.equal(q2.counts.total, 1)
+  await q2.append(row(3))
+  // Now restart and verify the file is clean (no corruption propagation)
+  const q3 = new ObservationQueue(dir)
+  await q3.init()
+  assert.deepEqual(q3.epcs(), ['EPC1', 'EPC3'])
+})

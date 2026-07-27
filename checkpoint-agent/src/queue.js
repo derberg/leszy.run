@@ -16,13 +16,19 @@ export class ObservationQueue {
 
   async init() {
     await mkdir(this.dataDir, { recursive: true })
+    let hadTornLine = false
     try {
       const text = await readFile(this.queuePath, 'utf8')
       for (const line of text.split('\n')) {
         if (!line.trim()) continue
-        try { this.rows.push(JSON.parse(line)) } catch { /* torn last line — drop */ }
+        try { this.rows.push(JSON.parse(line)) } catch { hadTornLine = true /* torn last line — drop */ }
       }
     } catch { /* no queue yet */ }
+    // If a line failed to parse, rewrite the file with only successfully parsed rows
+    if (hadTornLine) {
+      const clean = this.rows.map(r => JSON.stringify(r)).join('\n') + (this.rows.length > 0 ? '\n' : '')
+      await writeFile(this.queuePath, clean)
+    }
     try {
       const c = JSON.parse(await readFile(this.cursorPath, 'utf8'))
       this.cursor = Math.min(c.uploaded ?? 0, this.rows.length)

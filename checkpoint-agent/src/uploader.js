@@ -9,6 +9,7 @@ export class Uploader {
     this.supabase = supabase
     this.intervalMs = intervalMs
     this.timer = null
+    this.flushing = false
     this.lastUploadAt = null
     this.lastError = null
   }
@@ -21,22 +22,33 @@ export class Uploader {
   stop() { clearInterval(this.timer); this.timer = null }
 
   async flush() {
-    for (const rowObj of this.queue.pending()) {
-      const { epc, ...insertRow } = rowObj
-      let error
-      try {
-        ;({ error } = await this.supabase.from('checkpoint_observations').insert(insertRow))
-      } catch (err) {
-        error = { message: err.message }
+    if (this.flushing) return
+    this.flushing = true
+    try {
+      for (const rowObj of this.queue.pending()) {
+        const { epc, ...insertRow } = rowObj
+        let error
+        try {
+          ;({ error } = await this.supabase.from('checkpoint_observations').insert(insertRow))
+        } catch (err) {
+          error = { message: err.message }
+        }
+        if (error && error.code !== '23505') {
+          this.lastError = error.message
+          return // keep row pending; retry on next tick
+        }
+        try {
+          await this.queue.advance(1)
+        } catch (err) {
+          this.lastError = err.message
+          return // cursor write failed; keep row pending, retry on next tick
+        }
+        this.lastUploadAt = new Date().toISOString()
       }
-      if (error && error.code !== '23505') {
-        this.lastError = error.message
-        return // keep row pending; retry on next tick
-      }
-      await this.queue.advance(1)
-      this.lastUploadAt = new Date().toISOString()
+      if (this.queue.counts.pending === 0) this.lastError = null
+    } finally {
+      this.flushing = false
     }
-    if (this.queue.counts.pending === 0) this.lastError = null
   }
 
   get status() { return { lastUploadAt: this.lastUploadAt, lastError: this.lastError } }
