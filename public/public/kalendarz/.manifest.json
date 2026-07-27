@@ -23517,6 +23517,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "17-legionowska-dycha-2026-06-19": {
+    "id": "f49c84a5-e2ea-4872-ad2d-dc0375893779",
+    "name": "17 Legionowska Dycha",
+    "date": "2026-06-19",
+    "registration_deadline": "2026-06-16",
+    "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
+    "price_from": 50,
+    "price_to": 60,
+    "location": "Legionowo",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.395229,
+    "lng": 20.930831,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "nocny",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/864,16-legionowska-dycha",
+    "website": "https://zapisyonline.pl/wydarzenie/864,16-legionowska-dycha",
+    "is_kids": null,
+    "status": "active"
+  },
   "xii-festiwal-biegu-wierchami-2026-06-19": {
     "id": "5b46cced-d8ff-46a6-9c62-422dc90f9da1",
     "name": "XII FESTIWAL BIEGU WIERCHAMI",
@@ -23629,31 +23654,6 @@
     ],
     "registration_url": "https://zapisy.domtel-sport.pl/maly-memorial-zylewicza-amatorski-bieg-na-3000-m-v16402",
     "website": "http://www.kl-lechia.pl",
-    "is_kids": null,
-    "status": "active"
-  },
-  "17-legionowska-dycha-2026-06-19": {
-    "id": "f49c84a5-e2ea-4872-ad2d-dc0375893779",
-    "name": "17 Legionowska Dycha",
-    "date": "2026-06-19",
-    "registration_deadline": "2026-06-16",
-    "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
-    "price_from": 60,
-    "price_to": 90,
-    "location": "Legionowo",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.395229,
-    "lng": 20.930831,
-    "distances": [
-      "10 km"
-    ],
-    "event_type": [
-      "nocny",
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://zapisyonline.pl/wydarzenie/864,16-legionowska-dycha",
-    "website": "https://zapisyonline.pl/wydarzenie/864,16-legionowska-dycha",
     "is_kids": null,
     "status": "active"
   },
@@ -39976,6 +39976,36 @@
     "is_kids": null,
     "status": "active"
   },
+  "viii-bieg-charytatywny-sukow-na-start-2026-08-29": {
+    "id": "a0d76945-b532-4d7a-bed8-2c912af1a6cb",
+    "name": "VIII Bieg Charytatywny \"Suków na Start\"",
+    "date": "2026-08-29",
+    "registration_deadline": "2026-08-25",
+    "regulamin_url": "https://dostartu.pl/statute_files/16970_pl.pdf",
+    "price_from": 20,
+    "price_to": 40,
+    "location": "Suków",
+    "voivodeship": "Mazowieckie",
+    "lat": 50.813962,
+    "lng": 20.685196,
+    "distances": [
+      "2 km",
+      "10 km",
+      "1 km",
+      "200 m",
+      "400 m",
+      "800 m"
+    ],
+    "event_type": [
+      "charytatywny",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16970",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "solankowy-koszmar-2026-08-29": {
     "id": "1474597b-00a9-43cf-bda6-ede4d41b992b",
     "name": "Solankowy Koszmar",
@@ -40741,6 +40771,61 @@
     ],
     "registration_url": "https://time4s.pl/szczesliwa-13ka-2026",
     "website": "https://time4s.pl/szczesliwa-13ka-2026",
+    "is_kids": null,
+    "status": "active"
+  },
+  "bieg-integracyjny-w-krepie-razem-w-ruchu-2026-08-30": {
+    "id": "6521dd76-6297-4e51-b192-ab7fe1e9e5b9",
+    "name": "BIEG INTEGRACYJNY W KRĘPIE „RAZEM W RUCHU”",
+    "date": "2026-08-30",
+    "registration_deadline": "2026-08-23",
+    "regulamin_url": "https://dostartu.pl/statute_files/16966_pl.pdf",
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Krępa, woj. łódzkie",
+    "voivodeship": "Łódzkie",
+    "lat": 52.14248,
+    "lng": 19.423828,
+    "distances": [
+      "5.5 km",
+      "200 m",
+      "400 m",
+      "600 m",
+      "1 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16966",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "m-park-vogla-run-2026-08-30": {
+    "id": "c42f9957-fdee-4c56-8b25-7c08b028cc91",
+    "name": "M PARK VOGLA RUN",
+    "date": "2026-08-30",
+    "registration_deadline": "2026-08-27",
+    "regulamin_url": "https://dostartu.pl/statute_files/16913_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.165864,
+    "lng": 21.110187,
+    "distances": [
+      "400 m",
+      "800 m"
+    ],
+    "event_type": [
+      "ocr",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16913",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -42278,6 +42363,56 @@
       "dzieci"
     ],
     "registration_url": "https://superczas.pl/kilometry-pomocy-michelin-2026/zapisy",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "pniewska-piatka-2026-09-05": {
+    "id": "c2576555-2d2b-4fed-bbe9-11823d2ac069",
+    "name": "Pniewska Piątka",
+    "date": "2026-09-05",
+    "registration_deadline": "2026-09-04",
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/922/Regulamin%20PP5%20+%20O%C5%9Bwiadczenie%20dla%20niepe%C5%82noletniego%20uczestnika.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Pniewo",
+    "voivodeship": "Podlaskie",
+    "lat": 53.104043,
+    "lng": 22.202527,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/922,pniewska-piatka",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "xii-bieg-charytatywny-ewangelickiego-duszpasterstwa-wojskowego-2026-09-05": {
+    "id": "654b21a0-fded-488d-857e-3abf1c10d7d4",
+    "name": "XII Bieg Charytatywny Ewangelickiego Duszpasterstwa Wojskowego",
+    "date": "2026-09-05",
+    "registration_deadline": "2026-09-03",
+    "regulamin_url": "https://dostartu.pl/statute_files/16965_pl.pdf",
+    "price_from": 50,
+    "price_to": 50,
+    "location": "Białystok",
+    "voivodeship": "Podlaskie",
+    "lat": 53.121526,
+    "lng": 23.163772,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "charytatywny",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16965",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -44323,6 +44458,30 @@
     ],
     "registration_url": "https://rajsportactive.pl/zapisy/bieg-szlakiem-wojownika-borzatew-2026",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "ix-bieg-charytatywny-polnocny-pomaga-bieg-wirtualny-i-stacjonarny-2026-09-12": {
+    "id": "e2f6fd60-4d5f-46e2-addb-fc41ae93c549",
+    "name": "IX Bieg Charytatywny PÓŁNOCNY POMAGA – bieg wirtualny i stacjonarny",
+    "date": "2026-09-12",
+    "registration_deadline": "2026-09-10",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/a7h048e8R0m041P7D8c4s849q8u7C092/open",
+    "price_from": 60,
+    "price_to": 60,
+    "location": "Gdańsk",
+    "voivodeship": "Pomorskie",
+    "lat": 54.348291,
+    "lng": 18.654023,
+    "distances": [
+      "7.4 km"
+    ],
+    "event_type": [
+      "charytatywny",
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15896/signup.html",
+    "website": "https://photos.app.goo.gl/BQxAsh1DYr22i8er7",
     "is_kids": null,
     "status": "active"
   },
@@ -46950,6 +47109,34 @@
       "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v16783",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "xiii-otuski-bieg-przelajowy-2026-09-19": {
+    "id": "f761def7-bde7-4947-b941-9613d6f79fa8",
+    "name": "XIII Otuski Bieg Przełajowy",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-11",
+    "regulamin_url": "https://zapisy.maratonczykpomiarczasu.pl/sites/default/files/regulamin/Regulamin%20Otuski%20Bieg%20Prze%C5%82ajowy%20-%207km%20-2026.pdf",
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Otusz",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.355222,
+    "lng": 16.571982,
+    "distances": [
+      "7 km",
+      "1.2 km",
+      "100 m",
+      "300 m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisy.maratonczykpomiarczasu.pl/pl/otuski-bieg-przelajowy",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -54458,32 +54645,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "9-olsztynski-bieg-niepodleglosci-2026-11-11": {
-    "id": "650e8bd8-701a-4c14-9f18-3bb8019d1314",
-    "name": "9 Olsztyński Bieg Niepodległości",
-    "date": "2026-11-11",
-    "registration_deadline": "2026-04-22",
-    "regulamin_url": "https://biegniepodleglosci.waw.pl/regulamin-35/",
-    "price_from": 69,
-    "price_to": 150,
-    "location": "Olsztyn",
-    "voivodeship": "Warmińsko-Mazurskie",
-    "lat": 53.776644,
-    "lng": 20.477753,
-    "distances": [
-      "5 km",
-      "10 km"
-    ],
-    "event_type": [
-      "uliczny",
-      "nordic walking",
-      "charytatywny"
-    ],
-    "registration_url": "https://www.facebook.com/NiepodleglosciBieg/",
-    "website": "https://biegiolsztyn.pl",
-    "is_kids": null,
-    "status": "active"
-  },
   "10-bieg-niepodleglosci-z-wasem-2026-11-11": {
     "id": "a066a3e1-9623-49ea-b380-8e13a9306623",
     "name": "10 Bieg Niepodległości z wąsem",
@@ -54597,6 +54758,36 @@
     ],
     "registration_url": "https://b4sportonline.pl/Bydgoski_Bieg_Niepodleglosci/zapisy_na_bydgoski_bieg_niepodleglosci__11112026/12288",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "9-olsztynski-bieg-niepodleglosci-2026-11-11": {
+    "id": "650e8bd8-701a-4c14-9f18-3bb8019d1314",
+    "name": "9 Olsztyński Bieg Niepodległości",
+    "date": "2026-11-11",
+    "registration_deadline": "2026-04-22",
+    "regulamin_url": "https://biegniepodleglosci.waw.pl/regulamin-35/",
+    "price_from": 39,
+    "price_to": 189,
+    "location": "Olsztyn",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 53.776644,
+    "lng": 20.477753,
+    "distances": [
+      "5 km",
+      "10 km",
+      "100 m",
+      "200 m",
+      "400 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking",
+      "charytatywny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.facebook.com/NiepodleglosciBieg/",
+    "website": "https://biegiolsztyn.pl",
     "is_kids": null,
     "status": "active"
   },
