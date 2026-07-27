@@ -88,6 +88,7 @@ LeszyRun/
   scheduler/    Node.js + node-cron daemon, runs the daily scrape→enrich→publish pipeline at 08:00 Europe/Warsaw, deadline notifications at 08:30, a watchdog at 10:00, and the weekly digest Monday 09:00. Sends SendGrid alerts on failure.
   enricher/     Python (Crawl4AI + Docling + local Ollama) for LLM enrichment, run-once container in compose
   mosquitto/    native macOS, NOT dockerized (hardware constraint)
+  checkpoint-agent/  Node/Fastify agent for a Raspberry Pi + Impinj R700 at a trail checkpoint: records tag passes, uploads checkpoint_observations to Supabase (see checkpoint-agent/README.md)
 ```
 
 **`packages/ui/` rule:** All race result rendering (status badges, position estimation, podium, results tables) MUST use shared components from `@leszyrun/ui`. Never duplicate result display logic in `frontend/` or `public/` — if a component is missing, add it to `packages/ui/` first, then import in both apps.
