@@ -297,6 +297,8 @@ How the trigger decides what counts as a "real" change vs. the sync worker marki
 - `DELETE /api/documents/:id` — delete event document
 - `GET /api/events/:eventId/secrets/checkin-pin` — get check-in PIN from Supabase
 - `POST /api/events/:eventId/secrets/checkin-pin` — generate new check-in PIN
+- `GET /api/events/:eventId/secrets/checkpoint-pin` — get checkpoint-agent PIN from Supabase (separate secret from check-in PIN)
+- `POST /api/events/:eventId/secrets/checkpoint-pin` — generate new checkpoint-agent PIN
 - `POST /api/events/:eventId/sync/checkins` — trigger immediate checkin reverse sync
 
 ## Public app — Landing page & Kalendarz

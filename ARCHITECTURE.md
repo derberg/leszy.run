@@ -14,7 +14,7 @@ Supabase when online.
 | Scenario | Frequency | Setup |
 |---|---|---|
 | Single reader, start = finish gate (out-and-back) | 95% | One R700, topic `leszyrun`. 1st crossing = start, 2nd = finish. |
-| Single reader + checkpoint reader mid-course | 4% | Checkpoint operator exports CSV, main operator imports it with timestamps. |
+| Single reader + checkpoint reader mid-course | 4% | Preferred: `checkpoint-agent/` on a Raspberry Pi + R700 at the checkpoint, uploading `checkpoint_observations` to Supabase live over LTE (see checkpoint-agent/README.md). Fallback: checkpoint operator exports CSV, main operator imports it with timestamps. |
 | Separate readers for start and finish | 1% | Set different topic prefixes on each R700 web UI (`leszyrun/start`, `leszyrun/finish`). Configured per event in app. |
 
 ---
@@ -63,6 +63,7 @@ Mosquitto (native macOS) ←── Impinj R700(s)
 - **`public/`** — Public-facing app combining live results, volunteer bib entry, and participant self-service check-in. Reads/writes directly to Supabase (anon key + RLS). Runs on port 5173. Deployed to Vercel.
 - **`packages/ui/`** — Shared UI component library (`@leszyrun/ui`). Contains `Podium`, `CheckpointTrackingTable`, `PositionBadge`, and `estimatePositions` algorithm. **All race result rendering (status badges, position estimation, podium, results tables) MUST use these shared components.** Never duplicate result display logic in `frontend/` or `public/` — if a component is missing from `@leszyrun/ui`, add it there first, then import it in both apps.
 - **`volunteer/`** and **`liveresults/`** — Legacy apps, migrated into `public/`. Pending removal.
+- **`checkpoint-agent/`** — Standalone Node/Fastify agent for a Raspberry Pi + Impinj R700 at a trail checkpoint. Confirms tag passes (peak-RSSI/gone-window), resolves EPC → bib from a PIN-guarded roster (`checkpoint-roster` edge function, bib+EPC only), queues observations on disk, and inserts them into Supabase `checkpoint_observations` — indistinguishable from volunteer entries downstream. See checkpoint-agent/README.md.
 
 ### Supabase Realtime (bidirectional sync)
 
@@ -236,7 +237,8 @@ checkpoint_categories (
   PRIMARY KEY (checkpoint_id, category_id)
 )
 
--- Observations submitted by volunteers via the volunteer app
+-- Observations submitted by volunteers via the volunteer app or by RFID
+-- checkpoint agents (checkpoint-agent/ on a Raspberry Pi)
 checkpoint_observations (
   id              uuid PK DEFAULT gen_random_uuid(),
   checkpoint_id   uuid FK → checkpoints.id ON DELETE CASCADE,
