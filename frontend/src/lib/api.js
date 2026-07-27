@@ -134,6 +134,8 @@ export const api = {
   secrets: {
     getCheckinPin: (eventId) => request('GET', `/events/${eventId}/secrets/checkin-pin`),
     generateCheckinPin: (eventId) => request('POST', `/events/${eventId}/secrets/checkin-pin`),
+    getCheckpointPin: (eventId) => request('GET', `/events/${eventId}/secrets/checkpoint-pin`),
+    generateCheckpointPin: (eventId) => request('POST', `/events/${eventId}/secrets/checkpoint-pin`),
   },
 
   // Checkin Sync

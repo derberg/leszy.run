@@ -959,6 +959,16 @@ function EventSettings({ eventId, event, updateEvent }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['checkin-pin', eventId] }),
   })
 
+  const { data: checkpointPinData, isLoading: checkpointPinLoading } = useQuery({
+    queryKey: ['checkpointPin', eventId],
+    queryFn: () => api.secrets.getCheckpointPin(eventId),
+  })
+
+  const regenCheckpointPin = useMutation({
+    mutationFn: () => api.secrets.generateCheckpointPin(eventId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['checkpointPin', eventId] }),
+  })
+
   const handleSlugSave = () => {
     if (!validateSlug(slug)) {
       setSlugError('Tylko małe litery, cyfry i myślniki')
@@ -1072,6 +1082,47 @@ function EventSettings({ eventId, event, updateEvent }) {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Checkpoint PIN */}
+      <Card>
+        <CardHeader><CardTitle>PIN punktów kontrolnych</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {checkpointPinLoading ? (
+            <p className="text-sm text-apex-muted">Ładowanie...</p>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-3xl font-mono font-bold text-apex-text-bright tracking-[0.3em]">
+                {checkpointPinData?.checkpointPin || '—'}
+              </span>
+              {checkpointPinData?.checkpointPin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigator.clipboard.writeText(checkpointPinData.checkpointPin)}
+                  title="Kopiuj PIN"
+                >
+                  <ClipboardCopy size={14} />
+                </Button>
+              )}
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => regenCheckpointPin.mutate()}
+            disabled={regenCheckpointPin.isPending}
+          >
+            <RefreshCw size={13} className={regenCheckpointPin.isPending ? 'animate-spin' : ''} />
+            Regeneruj PIN
+          </Button>
+          {regenCheckpointPin.isError && (
+            <p className="text-xs text-apex-red">{regenCheckpointPin.error?.message || 'Nie udało się wygenerować PIN-u'}</p>
+          )}
+          <p className="text-xs text-apex-muted">
+            Dla urządzeń RFID na punktach kontrolnych (checkpoint-agent). Nie udostępniaj uczestnikom.
+          </p>
         </CardContent>
       </Card>
 
