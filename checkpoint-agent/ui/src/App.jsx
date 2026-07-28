@@ -114,6 +114,7 @@ function SetupWizard({ onSetupDone }) {
   const [readerUsername, setReaderUsername] = useState('')
   const [readerPassword, setReaderPassword] = useState('')
   const [mqttHost, setMqttHost] = useState('')
+  const [noReader, setNoReader] = useState(false)
 
   const [submitting, setSubmitting] = useState(false)
   const [setupError, setSetupError] = useState(null)
@@ -136,7 +137,7 @@ function SetupWizard({ onSetupDone }) {
 
   const selectedEvent = events.find((e) => e.id === eventId)
   const selectedCheckpoint = checkpoints.find((c) => c.id === checkpointId)
-  const canSubmit = pin.length > 0 && eventId && checkpointId && readerIp.trim().length > 0 && !submitting
+  const canSubmit = pin.length > 0 && eventId && checkpointId && (noReader || readerIp.trim().length > 0) && !submitting
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -152,6 +153,7 @@ function SetupWizard({ onSetupDone }) {
         pin,
         readerIp: readerIp.trim(),
       }
+      if (noReader) body.noReader = true
       if (readerUsername.trim()) body.readerUsername = readerUsername.trim()
       if (readerPassword) body.readerPassword = readerPassword
       if (mqttHost.trim()) body.mqttHost = mqttHost.trim()
@@ -236,6 +238,7 @@ function SetupWizard({ onSetupDone }) {
             onChange={(e) => setReaderIp(e.target.value)}
             placeholder="impinj-XX-XX-XX.local"
             autoComplete="off"
+            disabled={noReader}
           />
         </Field>
 
@@ -249,6 +252,14 @@ function SetupWizard({ onSetupDone }) {
           </button>
           {advancedOpen && (
             <div className="mt-3 flex flex-col gap-3 border-l-2 border-apex-border-mid pl-3">
+              <label className="flex items-center gap-2 text-sm text-apex-text cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={noReader}
+                  onChange={(e) => setNoReader(e.target.checked)}
+                />
+                Tryb testowy bez czytnika (symulacja)
+              </label>
               <Field label="Login czytnika (domyślnie root)">
                 <input
                   className={inputClass}
@@ -366,6 +377,15 @@ function ReaderStatusRow() {
     <div className="flex items-center gap-2 text-sm text-apex-muted">
       <span className="inline-block h-2.5 w-2.5 rounded-full bg-apex-green" />
       Czytnik połączony{status?.hostname ? ` (${status.hostname})` : ''}
+    </div>
+  )
+}
+
+function SimulatedReaderBadge() {
+  return (
+    <div className="flex items-center gap-2 text-sm text-apex-cyan border border-apex-cyan/50 bg-apex-cyan/10 px-3 py-1.5">
+      <span className="inline-block h-2.5 w-2.5 rounded-full bg-apex-cyan" />
+      TRYB TESTOWY — BEZ CZYTNIKA
     </div>
   )
 }
@@ -493,7 +513,7 @@ function Dashboard({ state, onAfterAction }) {
         </Banner>
       )}
 
-      <ReaderStatusRow />
+      {state.noReader ? <SimulatedReaderBadge /> : <ReaderStatusRow />}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Tile label="Odczyty" value={state.reads?.total ?? 0} sub={formatAge(state.reads?.lastAt)} />

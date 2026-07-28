@@ -102,6 +102,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
         reads: state.reads,
         readerDown: state.readerDown,
         lastReaderError: state.lastReaderError,
+        noReader: !!state.session?.noReader,
       },
     }
   })
@@ -119,8 +120,13 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   })
 
   app.post('/api/setup', async (req, reply) => {
-    const { eventId, eventName, checkpointId, checkpointName, pin, readerIp, readerUsername, readerPassword, mqttHost } = req.body ?? {}
-    if (!eventId || !checkpointId || !pin || !readerIp) {
+    const { eventId, eventName, checkpointId, checkpointName, pin, readerIp, readerUsername, readerPassword, mqttHost, noReader } = req.body ?? {}
+    // Test mode without a reader: the operator can run the whole
+    // pipeline (MQTT/confirmer/resolver/queue/uploader) against the
+    // simulator (scripts/simulate-reads.js) with no R700 on the LAN. In
+    // that mode readerIp isn't required — but if the operator did supply
+    // one anyway, it's still validated the normal way below.
+    if (!eventId || !checkpointId || !pin || (!readerIp && !noReader)) {
       return reply.code(400).send({ error: 'eventId, checkpointId, pin and readerIp are required' })
     }
     if (!SAFE_ID.test(eventId) || !SAFE_ID.test(checkpointId)) {
@@ -132,7 +138,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     // resolves from the Pi itself. Default to the detected LAN IP when the
     // operator didn't provide one explicitly.
     const resolvedMqttHost = mqttHost ?? detectLanIp() ?? 'localhost'
-    state.session = { eventId, eventName, checkpointId, checkpointName, readerIp, readerUsername: readerUsername ?? 'root', readerPassword: readerPassword ?? '', mqttHost: resolvedMqttHost, running: false }
+    state.session = { eventId, eventName, checkpointId, checkpointName, readerIp, readerUsername: readerUsername ?? 'root', readerPassword: readerPassword ?? '', mqttHost: resolvedMqttHost, noReader: !!noReader, running: false }
     await store.save('session', state.session)
     await store.save('roster', result.roster)
     return { data: { rosterCount: result.roster.length } }
@@ -169,7 +175,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     })
     state.mqttClient.subscribe([`${config.mqttTopic}`, `${config.mqttTopic}/#`], { qos: 1 })
     state.running = true
-    startReaderPoll()
+    if (!state.session.noReader) startReaderPoll()
   }
 
   app.post('/api/start', async (req, reply) => {
@@ -179,9 +185,11 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     if (clock.synced === false && !req.body?.overrideClock) {
       return reply.code(423).send({ error: 'Clock not synchronized' })
     }
-    state.reader = createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword })
-    await state.reader.configure({ mqttHost: state.session.mqttHost ?? 'localhost', topic: config.mqttTopic, clientId: 'LeszyRunCheckpoint' })
-    await state.reader.start()
+    if (!state.session.noReader) {
+      state.reader = createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword })
+      await state.reader.configure({ mqttHost: state.session.mqttHost ?? 'localhost', topic: config.mqttTopic, clientId: 'LeszyRunCheckpoint' })
+      await state.reader.start()
+    }
     await startPipeline()
     state.session.running = true
     await store.save('session', state.session)
@@ -220,6 +228,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
 
   app.get('/api/reader/status', async (req, reply) => {
     if (!state.session) return reply.code(409).send({ error: 'Not configured' })
+    if (state.session.noReader) return { data: { simulated: true } }
     try {
       const reader = state.reader ?? createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword })
       return { data: await reader.getStatus() }
@@ -231,11 +240,13 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   // auto-resume after reboot/crash
   app.resume = async () => {
     if (state.session?.running) {
-      try {
-        state.reader = createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword })
-        await state.reader.configure({ mqttHost: state.session.mqttHost ?? 'localhost', topic: config.mqttTopic, clientId: 'LeszyRunCheckpoint' })
-        await state.reader.start()
-      } catch { /* reader down — pipeline still records if reader reappears with old config */ }
+      if (!state.session.noReader) {
+        try {
+          state.reader = createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword })
+          await state.reader.configure({ mqttHost: state.session.mqttHost ?? 'localhost', topic: config.mqttTopic, clientId: 'LeszyRunCheckpoint' })
+          await state.reader.start()
+        } catch { /* reader down — pipeline still records if reader reappears with old config */ }
+      }
       await startPipeline()
     }
   }

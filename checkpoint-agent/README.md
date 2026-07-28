@@ -177,6 +177,26 @@ gets uploaded if it's present in the downloaded roster — an EPC simulated
 against an event where it isn't registered will show up under "unknown
 tags" instead.
 
+### Test na sucho (bez czytnika)
+
+For exercising the **full** pipeline (setup → MQTT reads from the simulator
+→ confirm → resolve → queue → upload) with no Impinj R700 attached at all —
+useful for dev-machine testing or bench-testing the Pi before hardware
+arrives. Enable the "Tryb testowy bez czytnika (symulacja)" checkbox in the
+wizard's advanced section (or `POST /api/setup` with `noReader: true`, which
+also drops the `readerIp` requirement), then hit Start and run:
+
+```bash
+node scripts/simulate-reads.js --epc <EPC>
+```
+
+This exercises everything except the R700 itself — `POST /api/start` skips
+`createReader`/`configure`/`start` and the reader health poll, but MQTT,
+the confirmer, resolver, queue and uploader all run exactly as they would
+with real hardware. `GET /api/reader/status` returns
+`{ data: { simulated: true } }` and the dashboard shows a neutral
+"TRYB TESTOWY — BEZ CZYTNIKA" badge instead of polling the reader.
+
 ## Hardware dry-run checklist
 
 Run this against real hardware before trusting a checkpoint on race day.

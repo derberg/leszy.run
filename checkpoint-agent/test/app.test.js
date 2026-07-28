@@ -360,6 +360,82 @@ test('reader auto-recovery: getStatus failure then success reconfigures and clea
   assert.equal(startCalls, 2)
 })
 
+// Test mode without a reader: setup accepts noReader:true with no readerIp,
+// start skips createReader entirely (a createReader that throws proves it's
+// never called), and the MQTT/confirm/resolve/queue/upload pipeline still
+// runs end-to-end off the simulator.
+test('noReader mode: setup without readerIp succeeds, start never calls createReader, MQTT read flows to insert', async (t) => {
+  let messageHandler
+  const inserted = []
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-noreader-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const app = await buildApp({
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    supabase: {
+      from: (table) => table === 'checkpoint_observations'
+        ? { insert: async (row) => { inserted.push(row); return { error: null } } }
+        : { select: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }) },
+    },
+    fetchRoster: async ({ pin }) =>
+      pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => { throw new Error('createReader must not be called in noReader mode') },
+    connectMqtt: () => ({
+      on: (ev, fn) => { if (ev === 'message') messageHandler = fn },
+      subscribe: () => {}, end: () => {},
+    }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  const setup = await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', noReader: true } })
+  assert.equal(setup.statusCode, 200)
+  assert.equal(setup.json().data.rosterCount, 1)
+
+  const start = await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  assert.equal(start.statusCode, 200)
+  let state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.running, true)
+  assert.equal(state.noReader, true)
+  assert.equal(app.deps.reader, null)
+
+  const payload = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: 'qrvMAQ==', peakRssiCdbm: -4000, antennaPort: 1 } }))
+  messageHandler('leszyrun/checkpoint', payload)
+  await new Promise((r) => setTimeout(r, 150))
+  await app.deps.uploader.flush()
+  assert.equal(inserted.length, 1)
+  assert.equal(inserted[0].bib_number, 101)
+  assert.equal(inserted[0].checkpoint_id, 'cp1')
+})
+
+test('noReader mode: GET /api/reader/status returns simulated flag without contacting a reader', async (t) => {
+  const app = await makeApp(t, { createReader: () => { throw new Error('createReader must not be called in noReader mode') } })
+  const setup = await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', noReader: true } })
+  assert.equal(setup.statusCode, 200)
+  const res = await app.inject({ method: 'GET', url: '/api/reader/status' })
+  assert.equal(res.statusCode, 200)
+  assert.deepEqual(res.json().data, { simulated: true })
+})
+
+// Normal mode must stay unchanged: readerIp is still required, GET
+// /api/state reports noReader: false, and /api/reader/status still proxies
+// the real reader.
+test('normal mode unaffected: readerIp still required, noReader false in state', async (t) => {
+  const app = await makeApp(t)
+  const missingIp = await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456' } })
+  assert.equal(missingIp.statusCode, 400)
+
+  const setup = await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  assert.equal(setup.statusCode, 200)
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.noReader, false)
+
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  const res = await app.inject({ method: 'GET', url: '/api/reader/status' })
+  assert.equal(res.statusCode, 200)
+  assert.deepEqual(res.json().data, { status: 'idle' })
+})
+
 test('reader auto-recovery: steady healthy status never triggers a reconfigure', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-steady-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
