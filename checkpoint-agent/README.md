@@ -16,6 +16,11 @@ Supabase directly so it keeps working on a trail with no route back to the
 race HQ network. See `ARCHITECTURE.md` (`checkpoint_observations` schema) and
 `.superpowers/sdd/2026-07-27-checkpoint-agent/` for the full design record.
 
+**Operator guide (Polish, step-by-step):** [../docs/punkty-kontrolne.md](../docs/punkty-kontrolne.md)
+— how an admin adds a checkpoint and generates the checkpoint PIN, and how an
+operator configures a checkpoint on the trail. This README is the hardware /
+install reference; that guide is the race-day walkthrough.
+
 ## Raspberry Pi setup
 
 1. **Install Node.js ≥ 20** (e.g. via NodeSource or `nvm`):
