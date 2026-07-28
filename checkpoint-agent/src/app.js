@@ -124,8 +124,8 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     // Test mode without a reader: the operator can run the whole
     // pipeline (MQTT/confirmer/resolver/queue/uploader) against the
     // simulator (scripts/simulate-reads.js) with no R700 on the LAN. In
-    // that mode readerIp isn't required — but if the operator did supply
-    // one anyway, it's still validated the normal way below.
+    // that mode readerIp isn't required and, if supplied anyway, is
+    // stored but never used.
     if (!eventId || !checkpointId || !pin || (!readerIp && !noReader)) {
       return reply.code(400).send({ error: 'eventId, checkpointId, pin and readerIp are required' })
     }
