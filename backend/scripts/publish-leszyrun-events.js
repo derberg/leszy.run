@@ -71,6 +71,82 @@ async function main() {
     }
   }
 
+  // 2c. Full final results per event — baked so the build can pre-render a static
+  // /events/:slug/results page (SEO: the SPA route is invisible to crawlers).
+  // Uses participants_public (same masked view the public Results SPA reads).
+  const resultsByEvent = {}
+  for (const eventId of ids) {
+    const { data: cats, error: catErr } = await supabase
+      .from('categories')
+      .select('id, name, untimed')
+      .eq('event_id', eventId)
+    if (catErr) { console.error('categories fetch error:', catErr.message); process.exit(1) }
+    const timedCats = (cats || []).filter(c => !c.untimed)
+    const eventResults = []
+    for (const cat of timedCats) {
+      const { data: runs, error: runErr } = await supabase
+        .from('race_runs')
+        .select('id, started_at, status')
+        .eq('category_id', cat.id)
+        .eq('status', 'finished')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (runErr) { console.error('race_runs fetch error:', runErr.message); process.exit(1) }
+      const run = runs && runs[0]
+      if (!run) continue
+
+      // Page past PostgREST's 1000-row cap
+      const rows = []
+      for (let from = 0; ; from += 1000) {
+        const { data: page, error: resErr } = await supabase
+          .from('results')
+          .select('participant_id, start_time, finish_time, duration_ms, gun_duration_ms, status')
+          .eq('race_run_id', run.id)
+          .range(from, from + 999)
+        if (resErr) { console.error('results fetch error:', resErr.message); process.exit(1) }
+        rows.push(...(page || []))
+        if (!page || page.length < 1000) break
+      }
+      if (rows.length === 0) continue
+
+      const { data: parts, error: pErr } = await supabase
+        .from('participants_public')
+        .select('id, bib_number, first_name, last_name, club, gender, deleted_at')
+        .eq('category_id', cat.id)
+      if (pErr) { console.error('participants fetch error:', pErr.message); process.exit(1) }
+      const partById = Object.fromEntries((parts || []).map(p => [p.id, p]))
+
+      eventResults.push({
+        category: cat.name,
+        startedAt: run.started_at || null,
+        // Deleted accounts stay in the archive but anonymized — same policy as the
+        // SPA's anonymizedName() helper (name + club masked, result kept).
+        rows: rows
+          .filter(r => partById[r.participant_id])
+          .map(r => {
+            const p = partById[r.participant_id]
+            const deleted = Boolean(p.deleted_at)
+            return {
+              participantId: r.participant_id,
+              bib: p.bib_number ?? null,
+              firstName: deleted ? null : (p.first_name || ''),
+              lastName: deleted ? null : (p.last_name || ''),
+              club: deleted ? null : (p.club || null),
+              gender: p.gender || null,
+              deleted,
+              startTime: r.start_time || null,
+              finishTime: r.finish_time || null,
+              durationMs: r.duration_ms != null ? Number(r.duration_ms) : null,
+              gunDurationMs: r.gun_duration_ms != null ? Number(r.gun_duration_ms) : null,
+              status: r.status || null,
+            }
+          }),
+      })
+    }
+    eventResults.sort((a, b) => a.category.localeCompare(b.category, 'pl'))
+    if (eventResults.length > 0) resultsByEvent[eventId] = eventResults
+  }
+
   // 3. Build manifest keyed by slug
   const manifest = {}
   for (const e of events || []) {
@@ -89,6 +165,7 @@ async function main() {
         distances: Array.isArray(s.distances) ? s.distances : [],
         bestTimes,
       },
+      results: resultsByEvent[e.id] || [],
     }
   }
 
@@ -96,7 +173,8 @@ async function main() {
   console.log(`Built manifest with ${Object.keys(manifest).length} past public event(s).`)
   for (const k of Object.keys(manifest)) {
     const m = manifest[k]
-    console.log(`  ${k}: ${m.stats.participants} zapisanych, ${m.stats.bestTimes.length} kategorii z czasami`)
+    const resultRows = m.results.reduce((n, c) => n + c.rows.length, 0)
+    console.log(`  ${k}: ${m.stats.participants} zapisanych, ${m.stats.bestTimes.length} kategorii z czasami, ${resultRows} wierszy wyników w ${m.results.length} kategoriach`)
   }
 
   if (dryRun) {
