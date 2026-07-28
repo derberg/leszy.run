@@ -167,11 +167,15 @@ function buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth = fa
   // Embed full manifest entry as landing-data for React hydration
   const landingData = JSON.stringify(entry).replace(/<\//g, '<\\/')
   const ogImage = ogImageUrl || `${BASE_URL}/og-image.png`
-  // Zero-event landing pages are soft-404s with no content to rank for: Google indexes them,
-  // finds nothing unique, and clusters them as "duplicate, different canonical". noindex them
-  // (keep follow so any related-category links still pass equity). Kept out of the sitemap below.
-  const isEmpty = (entry.eventCount || 0) === 0
-  const robotsContent = (pastMonth || isEmpty) ? 'noindex, follow' : 'index, follow'
+  // Thin landing pages (<4 events) are near-duplicates of the kalendarz with no content of
+  // their own — Google clusters them as "duplicate, different canonical" and they drag down
+  // sitewide quality (July 2026 update filtered the whole domain). Same for ALL monthly pages
+  // (/listy/.../2026/lipiec): hundreds of near-identical date-sliced variants of the evergreen
+  // pages. noindex both (keep follow so related-category links still pass equity); evergreen
+  // pages with real inventory stay indexable. Kept out of the sitemap below.
+  const isMonthly = Boolean(entry.filters && entry.filters.month)
+  const isThin = (entry.eventCount || 0) < 4
+  const robotsContent = (pastMonth || isMonthly || isThin) ? 'noindex, follow' : 'index, follow'
   const eventListHtml = pastMonth ? '' : buildEventListHtml(events)
 
   const relatedLinksHtml = (entry.relatedLinks && entry.relatedLinks.length > 0)
@@ -283,7 +287,7 @@ async function main() {
   await generateAllLandingOgs(DIST)
 
   let generated = 0
-  let pastMonthCount = 0
+  let noindexCount = 0
   let totalEventLinks = 0
   for (const path of paths) {
     const entry = manifest[path]
@@ -297,10 +301,10 @@ async function main() {
     const html = buildLandingHtml(entry, cssLinks, jsScripts, ogImageUrl, pastMonth, events)
     writeFileSync(resolve(dir, 'index.html'), html)
     generated++
-    if (pastMonth) pastMonthCount++
+    if (pastMonth || (entry.filters && entry.filters.month) || (entry.eventCount || 0) < 4) noindexCount++
     totalEventLinks += events.length
   }
-  console.log(`Generated ${generated} landing page HTML files (${pastMonthCount} past-month noindex, ${totalEventLinks} static event links emitted).`)
+  console.log(`Generated ${generated} landing page HTML files (${noindexCount} noindex: monthly / thin / past-month; ${totalEventLinks} static event links emitted).`)
 
   // Append to sitemap written by generate-event-pages.js
   const sitemapPath = resolve(DIST, 'sitemap.xml')
@@ -310,8 +314,12 @@ async function main() {
   sitemap = sitemap.replace('</urlset>', '')
 
   const today = new Date().toISOString().slice(0, 10)
-  // Only list indexable pages: exclude past-month pages and zero-event soft-404s (both noindex).
-  const indexablePaths = paths.filter(path => !isPastMonthPage(path) && (manifest[path].eventCount || 0) > 0)
+  // Only list indexable pages: exclude everything noindexed above (monthly, thin <4 events, past-month).
+  const indexablePaths = paths.filter(path =>
+    !isPastMonthPage(path)
+    && !(manifest[path].filters && manifest[path].filters.month)
+    && (manifest[path].eventCount || 0) >= 4
+  )
   const entries = indexablePaths.map(path => {
     const entry = manifest[path]
     return `  <url>\n    <loc>${entry.canonicalUrl}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${entry.sitemapChangefreq}</changefreq>\n    <priority>${entry.sitemapPriority}</priority>\n  </url>`
@@ -319,7 +327,7 @@ async function main() {
 
   sitemap += entries.join('\n') + '\n</urlset>\n'
   writeFileSync(sitemapPath, sitemap)
-  console.log(`Appended ${indexablePaths.length} landing page URLs to sitemap.xml (${paths.length - indexablePaths.length} past-month / zero-event pages excluded).`)
+  console.log(`Appended ${indexablePaths.length} landing page URLs to sitemap.xml (${paths.length - indexablePaths.length} monthly / thin / past-month pages excluded).`)
 }
 
 main().catch(err => { console.error(err); process.exit(1) })
