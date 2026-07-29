@@ -22,6 +22,12 @@ export default function RaceControl() {
   const [rawFeed, setRawFeed] = useState([])
   const feedRef = useRef(feed)
 
+  const { data: event } = useQuery({
+    queryKey: ['events', id],
+    queryFn: () => api.events.get(id),
+  })
+  const rssiThreshold = event?.rssiThreshold ?? -5000
+
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', id],
     queryFn: () => api.categories.list(id).then(rows => rows.map(r => r.category || r).filter(c => !c.untimed)),
@@ -371,15 +377,19 @@ export default function RaceControl() {
               </Card>
 
               <Card>
-                <CardHeader className="py-2.5"><CardTitle className="text-base">Surowe odczyty RFID</CardTitle></CardHeader>
+                <CardHeader className="py-2.5 flex-row items-center justify-between">
+                  <CardTitle className="text-base">Surowe odczyty RFID</CardTitle>
+                  <span className="text-xs font-mono text-apex-muted">próg: {rssiThreshold}</span>
+                </CardHeader>
                 <CardContent className="p-0 max-h-48 overflow-y-auto font-mono text-xs">
                   {rawFeed.length === 0 && (
                     <div className="py-4 text-center text-apex-muted">Brak sygnałów</div>
                   )}
                   {rawFeed.map((ev, i) => {
                     const p = epcMap[ev.epc]
+                    const belowThreshold = ev.rssi < rssiThreshold
                     return (
-                      <div key={i} className="flex items-center gap-2 px-3 py-1 border-b border-apex-border last:border-0">
+                      <div key={i} className={cn('flex items-center gap-2 px-3 py-1 border-b border-apex-border last:border-0', belowThreshold && 'opacity-40')}>
                         <span className="text-apex-muted shrink-0">{formatDateTime(ev.ts.toISOString())}</span>
                         <span className="truncate" title={ev.epc}>
                           {p
@@ -387,7 +397,10 @@ export default function RaceControl() {
                             : <span className="text-apex-muted font-mono">{ev.epc}</span>
                           }
                         </span>
-                        <span className="text-apex-muted ml-auto shrink-0">{ev.rssi}</span>
+                        {belowThreshold && (
+                          <span className="text-apex-muted shrink-0 uppercase tracking-widest text-[10px]" title="Odczyt słabszy niż próg eventu — ignorowany przez detekcję przejść">filtr</span>
+                        )}
+                        <span className={cn('ml-auto shrink-0', belowThreshold ? 'text-apex-muted' : 'text-apex-yellow')}>{ev.rssi}</span>
                       </div>
                     )
                   })}
