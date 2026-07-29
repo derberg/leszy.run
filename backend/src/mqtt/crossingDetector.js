@@ -257,6 +257,13 @@ export class CrossingDetector {
       if (!participantId) continue
       if (race.finishedParticipants.has(participantId)) continue
 
+      // Readings weaker than the event's rssi_threshold are far-field noise
+      // (high-sensitivity tags read from 20+ m) — not a gate crossing. Skip
+      // detection AND the audit insert; sub-threshold reads also must not
+      // reset goneTimer, so a runner leaving the gate zone confirms promptly.
+      const rssiThreshold = race.config.rssiThreshold ?? -5000
+      if (event.rssiCdbm < rssiThreshold) continue
+
       // Persist raw ping for audit — fire-and-forget, must not block sync detection loop
       this.db.insert(gateEvents).values({
         raceRunId,
