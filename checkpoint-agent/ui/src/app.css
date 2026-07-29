@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Rajdhani', sans-serif;
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --color-apex-bg: #0A0A10;
+  --color-apex-surface: #0C0C14;
+  --color-apex-surface-2: #12121E;
+  --color-apex-surface-3: #1A1A28;
+  --color-apex-border: #1C1C2A;
+  --color-apex-border-mid: #262638;
+  --color-apex-border-bright: #343450;
+  --color-apex-yellow: #BBDD00;
+  --color-apex-yellow-bright: #D4FF00;
+  --color-apex-yellow-dim: #778800;
+  --color-apex-red: #EF4444;
+  --color-apex-red-dim: #5C0A0A;
+  --color-apex-cyan: #00BFEF;
+  --color-apex-cyan-dim: #004458;
+  --color-apex-green: #22C55E;
+  --color-apex-text: #B0AEC6;
+  --color-apex-text-bright: #DDDCEC;
+  --color-apex-muted: #8886A0;
+  --color-apex-ink: #0A0A10;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 500;
+  background-color: var(--color-apex-bg);
+  color: var(--color-apex-text);
+  margin: 0;
+  min-height: 100vh;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+}

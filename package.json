@@ -1,7 +1,7 @@
 {
   "name": "leszyrun",
   "private": true,
-  "workspaces": ["backend", "frontend", "public", "packages/ui", "scheduler"],
+  "workspaces": ["backend", "frontend", "public", "packages/ui", "scheduler", "checkpoint-agent"],
   "scripts": {
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",

@@ -187,6 +187,43 @@ async function runSync(db) {
 
       const { error } = await supabase.from(name).upsert(snakeRows, { onConflict: 'id' })
       if (error) {
+        // checkpoint_observations has UNIQUE(checkpoint_id, bib_number) in Supabase
+        // (migration 20260727173000) in addition to the id PK. If a local row's
+        // (checkpoint_id, bib_number) pair already exists remotely under a
+        // DIFFERENT id — the checkpoint-agent or a volunteer inserted that pair
+        // first — the batched upsert 23505s on that one row and wedges every
+        // other pending row in the same batch forever. Fall back to per-row
+        // upserts so a single bad row can't block the rest. This fallback is
+        // scoped to checkpoint_observations only; every other table keeps the
+        // original all-or-nothing batch behavior.
+        if (name === 'checkpoint_observations' && error.code === '23505') {
+          console.error(`[Sync] Batch upsert conflict on ${name} (${error.message}) — falling back to per-row upserts`)
+          const now = new Date()
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i]
+            const snakeRow = snakeRows[i]
+            const { error: rowError } = await supabase.from(name).upsert(snakeRow, { onConflict: 'id' })
+            if (rowError) {
+              if (rowError.code === '23505') {
+                // INVARIANT: the (checkpoint_id, bib_number) pair already exists
+                // remotely under a different id ⇒ treat this local row as synced.
+                // First-observation-wins by design (matches the checkpoint-agent's
+                // own uploader) — the remote pair was recorded first, so this row
+                // has nothing left to contribute; mark it synced so it stops
+                // blocking future batches instead of retrying forever.
+                await db.update(table).set({ syncedAt: now }).where(sql`id = ${row.id}`)
+              } else {
+                console.error(`[Sync] Error syncing ${name} row ${row.id}:`, rowError.message)
+                syncErrors.push(`${name} row ${row.id}: ${rowError.message}`)
+              }
+              continue
+            }
+            await db.update(table).set({ syncedAt: now }).where(sql`id = ${row.id}`)
+          }
+          console.log(`[Sync] Per-row fallback complete for ${name}`)
+          continue
+        }
+
         console.error(`[Sync] Error syncing ${name}:`, error.message)
         syncErrors.push(`${name}: ${error.message}`)
         continue

@@ -34,6 +34,25 @@ export async function eventSecretsRoutes(fastify) {
     return { data: { checkinPin: pin } }
   })
 
+  fastify.get('/events/:eventId/secrets/checkpoint-pin', async (req, reply) => {
+    const supabase = getSupabase()
+    if (!supabase) return reply.code(503).send({ error: 'Supabase not configured' })
+    const { data, error } = await supabase.from('event_secrets').select('checkpoint_pin').eq('event_id', req.params.eventId).single()
+    if (error && error.code !== 'PGRST116') return reply.code(500).send({ error: error.message })
+    return { data: { checkpointPin: data?.checkpoint_pin || null } }
+  })
+
+  fastify.post('/events/:eventId/secrets/checkpoint-pin', async (req, reply) => {
+    const supabase = getSupabase()
+    if (!supabase) return reply.code(503).send({ error: 'Supabase not configured' })
+    const event = await db.query.events.findFirst({ where: eq(events.id, req.params.eventId) })
+    if (!event) return reply.code(404).send({ error: 'Event not found' })
+    const pin = generatePin()
+    const { error } = await supabase.from('event_secrets').upsert({ event_id: req.params.eventId, checkpoint_pin: pin }, { onConflict: 'event_id' })
+    if (error) return reply.code(500).send({ error: error.message })
+    return { data: { checkpointPin: pin } }
+  })
+
   fastify.post('/events/:eventId/sync/checkins', async (req, reply) => {
     await pullCheckins(db)
     return { data: { synced: true } }

@@ -1,0 +1,95 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { ObservationQueue } from '../src/queue.js'
+
+async function tempDir(t) {
+  const dir = await mkdtemp(join(tmpdir(), 'cpq-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  return dir
+}
+
+const row = (n) => ({ epc: `EPC${n}`, checkpoint_id: 'cp-1', bib_number: n, observed_at: new Date(n * 1000).toISOString() })
+
+test('append + pending + advance', async (t) => {
+  const q = new ObservationQueue(await tempDir(t))
+  await q.init()
+  await q.append(row(1)); await q.append(row(2))
+  assert.equal(q.pending().length, 2)
+  await q.advance(1)
+  assert.equal(q.pending().length, 1)
+  assert.equal(q.pending()[0].bib_number, 2)
+  assert.deepEqual(q.counts, { total: 2, pending: 1 })
+})
+
+test('survives restart: rows and cursor reload from disk', async (t) => {
+  const dir = await tempDir(t)
+  const q1 = new ObservationQueue(dir)
+  await q1.init()
+  await q1.append(row(1)); await q1.append(row(2)); await q1.append(row(3))
+  await q1.advance(2)
+  const q2 = new ObservationQueue(dir)
+  await q2.init()
+  assert.equal(q2.pending().length, 1)
+  assert.equal(q2.pending()[0].bib_number, 3)
+  assert.deepEqual(q2.epcs(), ['EPC1', 'EPC2', 'EPC3'])
+})
+
+test('tolerates a torn last line (power loss mid-append)', async (t) => {
+  const dir = await tempDir(t)
+  const q1 = new ObservationQueue(dir)
+  await q1.init()
+  await q1.append(row(1))
+  const { appendFile } = await import('node:fs/promises')
+  await appendFile(join(dir, 'queue.jsonl'), '{"epc":"EPC2","bib_nu') // torn write
+  const q2 = new ObservationQueue(dir)
+  await q2.init()
+  assert.equal(q2.counts.total, 1) // torn line dropped
+})
+
+test('rejects a path-traversal suffix (defense in depth against unsanitized callers)', async (t) => {
+  const dir = await tempDir(t)
+  assert.throws(() => new ObservationQueue(dir, '../evil'), /invalid queue suffix/)
+})
+
+test('scoped queues (suffix) with different names in the same dataDir are isolated', async (t) => {
+  const dir = await tempDir(t)
+  const cp1 = new ObservationQueue(dir, 'cp1')
+  await cp1.init()
+  const cp2 = new ObservationQueue(dir, 'cp2')
+  await cp2.init()
+  await cp1.append(row(1))
+  await cp2.append(row(2))
+  await cp2.append(row(3))
+  assert.deepEqual(cp1.epcs(), ['EPC1'])
+  assert.deepEqual(cp2.epcs(), ['EPC2', 'EPC3'])
+  assert.deepEqual(cp1.counts, { total: 1, pending: 1 })
+  assert.deepEqual(cp2.counts, { total: 2, pending: 2 })
+  // reloading cp1 from disk still only sees its own rows
+  const cp1Reloaded = new ObservationQueue(dir, 'cp1')
+  await cp1Reloaded.init()
+  assert.deepEqual(cp1Reloaded.epcs(), ['EPC1'])
+  // unscoped (no suffix) queue in the same dir is a third, independent file
+  const unscoped = new ObservationQueue(dir)
+  await unscoped.init()
+  assert.deepEqual(unscoped.epcs(), [])
+})
+
+test('cleans up torn line from disk on next init', async (t) => {
+  const dir = await tempDir(t)
+  const q1 = new ObservationQueue(dir)
+  await q1.init()
+  await q1.append(row(1))
+  const { appendFile } = await import('node:fs/promises')
+  await appendFile(join(dir, 'queue.jsonl'), '{"epc":"EPC2","bib_nu') // torn write
+  const q2 = new ObservationQueue(dir)
+  await q2.init()
+  assert.equal(q2.counts.total, 1)
+  await q2.append(row(3))
+  // Now restart and verify the file is clean (no corruption propagation)
+  const q3 = new ObservationQueue(dir)
+  await q3.init()
+  assert.deepEqual(q3.epcs(), ['EPC1', 'EPC3'])
+})
