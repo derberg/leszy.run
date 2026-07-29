@@ -1153,6 +1153,7 @@ function RfidSettings({ event, onSave, saving }) {
     goneWindowSeconds: event.goneWindowSeconds ?? 3,
     fallbackSeconds: event.fallbackSeconds ?? 10,
     gunBackfillSeconds: event.gunBackfillSeconds ?? 60,
+    rssiThreshold: event.rssiThreshold ?? -5000,
   })
 
   const { data: readerConfig } = useQuery({ queryKey: ['reader-config'], queryFn: () => api.reader.getConfig() })
@@ -1209,6 +1210,13 @@ function RfidSettings({ event, onSave, saving }) {
               <Input type="number" step="1" min="10" max="300" value={form.gunBackfillSeconds} onChange={e => set('gunBackfillSeconds', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
                 Domyślnie: 60 — po tylu sekundach od startu, uczestnicy bez odczytu chipa na starcie automatycznie dostają czas strzałki startowej. Dzięki temu ich następne przejście przez bramkę zostanie zapisane jako meta, a nie start.
+              </p>
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Próg sygnału (cdBm)</span>
+              <Input type="number" step="50" min="-8000" max="-3000" value={form.rssiThreshold} onChange={e => set('rssiThreshold', parseInt(e.target.value))} className="max-w-32" />
+              <p className="text-xs text-apex-muted mt-1">
+                Domyślnie: -5000 (=-50 dBm) — odczyty słabsze niż próg są ignorowane przez detekcję przejść (nie liczą się jako obecność przy bramce i nie trafiają do audytu). Chroni przed łapaniem chipów stojących daleko od anteny (czułe tagi czytają się z 20+ m przy ok. -7500). Przejście przez bramkę to zwykle -4500…-6500 — jeśli detekcja gubi zawodników przy bramce, obniż próg (np. -6500); jeśli łapie stojących obok, podnieś.
               </p>
             </label>
           </div>
