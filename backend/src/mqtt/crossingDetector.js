@@ -4,15 +4,28 @@ import { gateCrossings, gateEvents, results } from '../db/schema.js'
 /**
  * RFID Crossing Detection — Exit-Triggered Algorithm
  *
- * A crossing is confirmed when a tag's signal disappears for goneWindowMs (3 s).
- * The confirmed timestamp is always the PEAK RSSI reading — the moment the runner
- * was physically closest to the antenna.
+ * START crossings are exit-triggered: confirmed when a tag's signal disappears for
+ * goneWindowMs (3 s). The confirmed timestamp is the PEAK RSSI reading — the moment
+ * the runner was physically closest to the antenna. Exit-triggering is required for
+ * starts because runners stand in the corral inside the read zone before the gun.
+ *
+ * FINISH crossings are first-read: the FIRST reading above the event's rssi_threshold
+ * from an already-started participant confirms the finish immediately with that
+ * reading's timestamp. No timers, no waiting — subsequent readings are ignored via
+ * finishedParticipants. (The old fallbackSeconds maxTimer is gone: with sensitive
+ * tags it fired during the far-field approach, recording a weak early "finish" and
+ * then ignoring the real crossing.)
+ *
+ * Guard: finish reads within minFinishSeconds (per event, default 30 s) of the gun
+ * are ignored — ghost reads near the start line right after the gun.
  *
  * Flow:
- *  1. First reading → create inRange entry, arm goneTimer (3 s) + maxTimer (fallbackSeconds)
+ *  START (participant not started yet):
+ *  1. First reading → create inRange entry, arm goneTimer (3 s)
  *  2. Each subsequent reading → update peak if improved, RESET goneTimer
- *  3. goneTimer fires (3 s silence) → person left the gate → confirm crossing
- *  4. maxTimer fires (fallbackSeconds, never resets) → person still at gate → force-confirm
+ *  3. goneTimer fires (3 s silence) → person left the gate → confirm crossing at peak
+ *  FINISH (participant already started / finish topic):
+ *  4. First reading above threshold (and past minFinishSeconds) → confirm immediately
  *
  * Gate determination (single-reader mode):
  *  - No startTime in DB yet → gate = 'start'
@@ -29,8 +42,15 @@ import { gateCrossings, gateEvents, results } from '../db/schema.js'
  *
  * ```mermaid
  * flowchart TD
- *     A[RFID event received] --> C{Tag in inRange map?}
- *     C -->|No| D[Create entry · arm goneTimer 3s · arm maxTimer fallbackSeconds]
+ *     A[RFID event received] --> T{rssi >= threshold?}
+ *     T -->|No| X[Ignore]
+ *     T -->|Yes| B{Participant already started?}
+ *     B -->|Yes / finish topic| Y{Past minFinishSeconds since gun?}
+ *     Y -->|No| X
+ *     Y -->|Yes| M[gate=finish · finishTime=this reading · confirm IMMEDIATELY]
+ *     M --> O[broadcast · persist · add to finishedParticipants · ignore further reads]
+ *     B -->|No| C{Tag in inRange map?}
+ *     C -->|No| D[Create entry · arm goneTimer 3s]
  *     C -->|Yes| E{rssi > peakRssi?}
  *     E -->|Yes| F[Update peak]
  *     E -->|No| G[Keep tracking]
@@ -39,18 +59,12 @@ import { gateCrossings, gateEvents, results } from '../db/schema.js'
  *     D --> H
  *     H -->|next reading| A
  *     H -->|3s silence| I[goneTimer fires · confirmCrossing at peakTime]
- *     H -->|fallbackSeconds| J[maxTimer fires · confirmCrossing at peakTime]
- *     I --> K{startTime in DB?}
- *     J --> K
- *     K -->|No| L[gate=start · startTime=peakTime]
- *     K -->|Yes| M[gate=finish · finishTime=peakTime · durationMs]
+ *     I --> L[gate=start · startTime=peakTime]
  *     L --> N[broadcast · persist · add to startedParticipants]
- *     M --> O[broadcast · persist · add to finishedParticipants]
  * ```
  */
 
 const DEDUP_WINDOW_MS = 200   // within this window per EPC, only keep best RSSI
-const MIN_FINISH_MS = 30_000  // ignore finish crossings within 30s of race start (ghost reads from previous run)
 
 
 export class CrossingDetector {
@@ -61,7 +75,7 @@ export class CrossingDetector {
     // Map<raceRunId, { config, epcToParticipant, startedParticipants, finishedParticipants }>
     this.activeRaces = new Map()
 
-    // Map<`${epc}:${raceRunId}`, { peakRssi, peakTime, antennaPort, topic, goneTimer, maxTimer }>
+    // Map<`${epc}:${raceRunId}`, { peakRssi, peakTime, antennaPort, topic, goneTimer }>
     this.inRange = new Map()
 
     // Dedup window: Map<epc, { rssi, time }>
@@ -77,7 +91,7 @@ export class CrossingDetector {
       if (p.rfidEpc) epcMap.set(p.rfidEpc, p.id)
     }
 
-    // Pre-populate from DB so maxTimer arms correctly after a backend restart
+    // Pre-populate from DB so first-read finish detection works after a backend restart
     const existingResults = await this.db
       .select({ participantId: results.participantId, startTime: results.startTime, finishTime: results.finishTime })
       .from(results)
@@ -114,7 +128,6 @@ export class CrossingDetector {
     for (const [key, tag] of this.inRange) {
       if (key.endsWith(`:${raceRunId}`)) {
         clearTimeout(tag.goneTimer)
-        clearTimeout(tag.maxTimer)
         const epc = key.split(':')[0]
         const participantId = race?.epcToParticipant.get(epc)
         if (participantId && race && !race.finishedParticipants.has(participantId)) {
@@ -193,41 +206,7 @@ export class CrossingDetector {
         backfilled++
       }
 
-      // Arm maxTimer retroactively for participants already in range before backfill.
-      // Without this, participants who arrive at the finish gate before backfill runs
-      // never get a maxTimer (it's only armed on first ping if already in startedParticipants),
-      // so their crossing is delayed until they physically walk away from the antenna.
-      const fallbackMs = (race.config.fallbackSeconds ?? 10) * 1000
-      let retroArmed = 0
-      for (const [epc, participantId] of epcMap) {
-        const key = `${epc}:${raceRunId}`
-        const tag = this.inRange.get(key)
-        if (!tag || tag.maxTimer) continue
-        if (!race.startedParticipants.has(participantId)) continue
-        if (race.finishedParticipants.has(participantId)) continue
-
-        tag.maxTimer = setTimeout(() => {
-          const current = this.inRange.get(key)
-          if (!current) return
-          clearTimeout(current.goneTimer)
-          clearTimeout(current.maxTimer)
-          this.inRange.delete(key)
-          this.#confirmCrossing({
-            raceRunId,
-            participantId,
-            peakRssi: current.peakRssi,
-            peakTime: current.peakTime,
-            antennaPort: current.antennaPort,
-            topic: current.topic,
-            rfidMode: race.config.rfidMode,
-            rfidTopicFinish: race.config.rfidTopicFinish,
-            race,
-          })
-        }, fallbackMs)
-        retroArmed++
-      }
-
-      console.log(`[Detector] Gun-time backfill for race ${raceRunId}: ${backfilled} participant(s) got gun start time (after ${gunBackfillMs / 1000}s)${retroArmed ? `, ${retroArmed} maxTimer(s) retroactively armed` : ''}`)
+      console.log(`[Detector] Gun-time backfill for race ${raceRunId}: ${backfilled} participant(s) got gun start time (after ${gunBackfillMs / 1000}s)`)
     }, gunBackfillMs)
 
     this.backfillTimers.set(raceRunId, timerId)
@@ -277,16 +256,45 @@ export class CrossingDetector {
       }).catch(err => console.error('[Detector] Failed to persist gate event:', err))
 
       const key = `${event.epc}:${raceRunId}`
-      const tag = this.inRange.get(key)
 
       const rfidMode        = race.config.rfidMode
       const rfidTopicFinish = race.config.rfidTopicFinish
       const goneWindowMs    = (race.config.goneWindowSeconds ?? 3) * 1000
-      const fallbackMs      = (race.config.fallbackSeconds ?? 10) * 1000
+      const minFinishMs     = (race.config.minFinishSeconds ?? 30) * 1000
+
+      // FINISH is first-read: the first above-threshold reading from a started
+      // participant IS the finish. No exit-triggering — with sensitive tags the
+      // old fallback timer confirmed "finishes" during the far-field approach.
+      const isFinishRead = rfidMode === 'separate'
+        ? event.topic === rfidTopicFinish
+        : race.startedParticipants.has(participantId)
+
+      if (isFinishRead) {
+        // Ghost-read guard: ignore finish reads too soon after the gun
+        // (runners near the start line right after the start).
+        if (race.gunStartTime && (new Date(event.receivedAt) - race.gunStartTime) < minFinishMs) continue
+        // Mark finished synchronously BEFORE the async confirm — readings arrive
+        // faster than the DB roundtrip and would otherwise double-confirm.
+        race.finishedParticipants.add(participantId)
+        this.#confirmCrossing({
+          raceRunId,
+          participantId,
+          peakRssi: event.rssiCdbm,
+          peakTime: new Date(event.receivedAt),
+          antennaPort: event.antennaPort,
+          topic: event.topic,
+          rfidMode,
+          rfidTopicFinish,
+          race,
+        })
+        continue
+      }
+
+      // START is exit-triggered: track presence, confirm at peak after silence
+      const tag = this.inRange.get(key)
 
       const doConfirm = (t) => {
         clearTimeout(t.goneTimer)
-        clearTimeout(t.maxTimer)
         this.inRange.delete(key)
         this.#confirmCrossing({
           raceRunId,
@@ -311,24 +319,15 @@ export class CrossingDetector {
       }
 
       if (!tag) {
-        // First reading: create entry, arm timers
+        // First reading: create entry, arm gone timer
         const newTag = {
           peakRssi:    event.rssiCdbm,
           peakTime:    new Date(event.receivedAt),
           antennaPort: event.antennaPort,
           topic:       event.topic,
           goneTimer:   null,
-          maxTimer:    null,
         }
         armGoneTimer(newTag)
-        // maxTimer (force-confirm) only for finish crossings — runner may collapse at finish line
-        if (race.startedParticipants.has(participantId)) {
-          newTag.maxTimer = setTimeout(() => {
-            const current = this.inRange.get(key)
-            if (!current) return
-            doConfirm(current)
-          }, fallbackMs)
-        }
         this.inRange.set(key, newTag)
 
       } else {
@@ -340,7 +339,6 @@ export class CrossingDetector {
           tag.topic       = event.topic
         }
         armGoneTimer(tag)
-        // maxTimer keeps running untouched
       }
     }
   }
@@ -366,12 +364,15 @@ export class CrossingDetector {
         }
       }
 
-      // Guard: if finish crossing happens too soon after race start, demote to start.
-      // This catches ghost reads from tags still near the antenna after a race restart.
+      // Guard: ignore finish crossings too soon after race start (ghost reads from
+      // tags still near the antenna right after the gun). Per-event configurable.
       if (gate === 'finish' && race?.gunStartTime) {
+        const minFinishMs = (race.config?.minFinishSeconds ?? 30) * 1000
         const elapsed = peakTime - race.gunStartTime
-        if (elapsed < MIN_FINISH_MS) {
-          console.log(`[Detector] Ignoring finish crossing for ${participantId} — only ${Math.round(elapsed / 1000)}s since race start (min ${MIN_FINISH_MS / 1000}s)`)
+        if (elapsed < minFinishMs) {
+          // Roll back the optimistic first-read mark so the real crossing still counts
+          race.finishedParticipants.delete(participantId)
+          console.log(`[Detector] Ignoring finish crossing for ${participantId} — only ${Math.round(elapsed / 1000)}s since race start (min ${minFinishMs / 1000}s)`)
           return
         }
       }

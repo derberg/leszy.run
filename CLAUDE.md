@@ -187,33 +187,37 @@ All messages are JSON: `{ type, payload }`
 
 Lives in `src/mqtt/crossingDetector.js`. In-memory state only.
 
-**Exit-triggered algorithm** — a crossing is confirmed when a tag's signal disappears for
-`gone_window_seconds` (default 3 s). The confirmed timestamp is always the **peak** reading —
-when the runner was physically closest to the antenna.
+**START = exit-triggered** — confirmed when a tag's signal disappears for
+`gone_window_seconds` (default 3 s). The confirmed timestamp is the **peak** reading —
+when the runner was physically closest to the antenna. Required for mass starts:
+runners standing in the corral generate continuous readings, goneTimer keeps
+resetting → no confirmation until they actually run through.
 
-Works for mass starts: runners standing in the corral generate continuous readings, goneTimer
-keeps resetting → no confirmation until they actually run through.
+**FINISH = first-read** — the FIRST reading above the event's `rssi_threshold` from an
+already-started participant confirms the finish immediately with that reading's
+timestamp; all subsequent readings are ignored (`finishedParticipants`). There is no
+force-confirm timer anymore (`fallback_seconds` is unused — with sensitive tags it
+fired during the far-field approach and recorded weak early "finishes"). Finish reads
+within `min_finish_seconds` of the gun are ignored (ghost reads at the start line).
 
 State maps:
-- `inRange`: `Map<"${epc}:${raceRunId}", { peakRssi, peakTime, antennaPort, topic, goneTimer, maxTimer }>`
+- `inRange`: `Map<"${epc}:${raceRunId}", { peakRssi, peakTime, antennaPort, topic, goneTimer }>` (start tracking only)
 - `recentWindow`: dedup within 200 ms per EPC
 - `startedParticipants`: `Set<participantId>` per race (in-memory, avoids DB lookup per crossing)
 
-Flow per reading:
-1. Tag not in `inRange` → create entry, arm `goneTimer` (goneWindowMs); arm `maxTimer` (fallbackMs) **only if already started** (finish crossings only)
-2. Tag in `inRange`, RSSI improved → update peak; reset `goneTimer`; `maxTimer` keeps running
-3. Tag in `inRange`, RSSI not improved → reset `goneTimer` only
-4. `goneTimer` fires (silence for goneWindowSeconds) → `confirmCrossing(peakTime)`
-5. `maxTimer` fires (fallbackSeconds elapsed, finish only) → `confirmCrossing(peakTime)`
-6. 1st confirmed crossing → `gate = start`, add to `startedParticipants`
-7. 2nd confirmed crossing → `gate = finish`, add to `finishedParticipants`, calc `durationMs`
+Flow per reading (above `rssi_threshold`; weaker reads are ignored entirely):
+1. Participant already started (or finish topic in separate mode) → past `min_finish_seconds`? → **confirm finish immediately** with this reading; else ignore
+2. Not started, tag not in `inRange` → create entry, arm `goneTimer` (goneWindowMs)
+3. Not started, tag in `inRange` → update peak if improved; reset `goneTimer`
+4. `goneTimer` fires (silence for goneWindowSeconds) → `confirmCrossing(peakTime)` → `gate = start`, add to `startedParticipants`
 
 See the mermaid flowchart at the top of `crossingDetector.js` for a full diagram.
 
 Configurable per event (stored in `events` table):
 - `rssi_threshold`: default `-5000` cdbm — readings weaker than this are ignored by the detector (far-field pickup from high-sensitivity tags; they don't create/refresh `inRange` entries and are not persisted to `gate_events`). Raw `rfid:raw` broadcast is unaffected. Gate crossings read −45…−65 dBm; 20 m pickup reads −71…−78 — set per event based on gate geometry (e.g. `-6500`).
-- `gone_window_seconds`: default `3` s — silence window to confirm a crossing
-- `fallback_seconds`: default `10` s — force-confirm timeout for **finish crossings only**
+- `gone_window_seconds`: default `3` s — silence window to confirm a START crossing
+- `min_finish_seconds`: default `30` s — finish reads within this window after the gun are ignored (ghost-read guard; lower it for short test loops)
+- `fallback_seconds`: **unused** (column kept for compat) — the old finish force-confirm timer, removed in favour of first-read finish
 - `rfid_mode`: `'single'` (default) or `'separate'`
 - `rfid_topic_main`: default `'leszyrun'`
 - `rfid_topic_finish`: default `'leszyrun/finish'` (only used when `rfid_mode = 'separate'`)

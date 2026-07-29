@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD COLUMN "min_finish_seconds" integer DEFAULT 30 NOT NULL;

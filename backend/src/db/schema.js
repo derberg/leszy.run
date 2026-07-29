@@ -13,8 +13,9 @@ export const events = pgTable('events', {
   rssiThreshold: integer('rssi_threshold').notNull().default(-5000),
   declineThresholdCdbm: integer('decline_threshold_cdbm').notNull().default(1000),
   goneWindowSeconds: integer('gone_window_seconds').notNull().default(3),
-  fallbackSeconds: integer('fallback_seconds').notNull().default(10),
+  fallbackSeconds: integer('fallback_seconds').notNull().default(10), // unused since first-read finish; kept for schema compat
   gunBackfillSeconds: integer('gun_backfill_seconds').notNull().default(60),
+  minFinishSeconds: integer('min_finish_seconds').notNull().default(30),
   slug: text('slug').notNull().unique(),
   publicResultsUrl: text('public_results_url'),
   eventUrl: text('event_url'),
