@@ -49,11 +49,26 @@ install reference; that guide is the race-day walkthrough.
    sudo systemctl restart mosquitto
    sudo systemctl enable mosquitto
    ```
-3. **Clone the repo and install dependencies:**
+3. **Clone the repo and install dependencies.** A checkpoint Pi is usually on a
+   phone hotspot / weak LTE, and a full clone of this monorepo (all its history)
+   routinely dies mid-transfer over HTTP/2 with `RPC failed ... CANCEL` /
+   `early EOF`. Force HTTP/1.1 and do a **shallow** clone (latest snapshot only —
+   a fraction of the transfer):
    ```bash
-   git clone <repo-url> leszyrun
+   git config --global http.version HTTP/1.1
+   git config --global http.postBuffer 524288000
+   git clone --depth 1 <repo-url> leszyrun
    cd leszyrun/checkpoint-agent
    npm install
+   ```
+   If even the shallow clone can't finish on a poor signal, fetch just this
+   package with a sparse checkout:
+   ```bash
+   git clone --depth 1 --filter=blob:none --sparse <repo-url> leszyrun
+   cd leszyrun
+   git sparse-checkout set checkpoint-agent
+   cd checkpoint-agent
+   npm install   # still works — the package declares all its own deps
    ```
 4. **Set environment variables** (e.g. in `/etc/leszyrun-checkpoint.env`, or
    export them in the systemd unit below):
