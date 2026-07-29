@@ -23,6 +23,9 @@ function HeroSection() {
       <img
         src="/logo-bez-napisu.svg"
         alt="Leszy.run — duch lasu"
+        width="2760"
+        height="1504"
+        fetchPriority="high"
         className={`w-[280px] md:w-[500px] h-auto mb-6 relative z-10 ${isDark ? 'hero-logo-dark' : 'hero-logo-light'}`}
       />
 
@@ -179,11 +182,11 @@ function EventsSection() {
                 {nextEvent.name}
               </div>
               {nextEvent.location && <div className="text-sm text-apex-muted mt-1">{nextEvent.location}</div>}
-              <div className="flex gap-4 mt-3">
+              <div className="flex items-center gap-4 mt-3">
                 <span className="font-mono text-[10px] tracking-widest uppercase text-apex-cyan">Wyniki na żywo &rarr;</span>
                 {nextEvent.event_url && (
                   <a href={nextEvent.event_url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
-                    className="font-mono text-[10px] tracking-widest uppercase text-apex-yellow hover:text-apex-yellow-bright">
+                    className="inline-block py-2 -my-1 font-mono text-[10px] tracking-widest uppercase text-apex-yellow hover:text-apex-yellow-bright">
                     Strona wydarzenia &rarr;
                   </a>
                 )}

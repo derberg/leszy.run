@@ -35,14 +35,17 @@
     <link rel="apple-touch-icon" href="/logo-bez-napisu.svg" />
 
     <!-- Preconnect for external resources -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
     <link rel="preconnect" href="https://kojoxazlnxncrpxmnxiq.supabase.co" />
 
-    <!-- Preload critical fonts to avoid render-blocking -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" as="style" />
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Fonts are self-hosted (/fonts/*.woff2, latin + latin-ext subsets) — a
+         cross-origin Google Fonts stylesheet was the biggest render-blocking
+         cost on mobile (~0.8 s DNS+TLS+CSS before first paint). -->
+    <link rel="stylesheet" href="/fonts.css" />
+
+    <!-- Landing hero logo is the LCP element; without a preload the request is
+         only discovered after React renders. -->
+    <link rel="preload" as="image" href="/logo-bez-napisu.svg" fetchpriority="high" />
 
     <!-- JSON-LD Structured Data: Organization + WebSite -->
     <script type="application/ld+json">

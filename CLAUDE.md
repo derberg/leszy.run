@@ -555,10 +555,16 @@ Custom tokens defined via `@theme` directive in `app.css`. All use `apex-*` pref
 ### WCAG AA contrast
 All color combos verified. Key ratios: text-bright on bg = 14.95:1, yellow on bg = 12.96:1, muted on bg = 5.75:1.
 
-### Fonts (import in index.html)
+### Fonts (self-hosted in `public/`)
+Fonts are self-hosted, NOT loaded from Google Fonts (a cross-origin font stylesheet
+was the biggest render-blocking cost on mobile PageSpeed). The woff2 files (latin +
+latin-ext subsets) live in `public/public/fonts/` with `@font-face` rules in
+`public/public/fonts.css`; every page (`public/index.html` + the static page
+generators) loads them via:
 ```html
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/fonts.css">
 ```
+The admin `frontend/` app still uses the Google Fonts link — it is not public-facing.
 
 ## RFID Audit Queries
 
