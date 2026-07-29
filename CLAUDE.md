@@ -211,6 +211,7 @@ Flow per reading:
 See the mermaid flowchart at the top of `crossingDetector.js` for a full diagram.
 
 Configurable per event (stored in `events` table):
+- `rssi_threshold`: default `-5000` cdbm — readings weaker than this are ignored by the detector (far-field pickup from high-sensitivity tags; they don't create/refresh `inRange` entries and are not persisted to `gate_events`). Raw `rfid:raw` broadcast is unaffected. Gate crossings read −45…−65 dBm; 20 m pickup reads −71…−78 — set per event based on gate geometry (e.g. `-6500`).
 - `gone_window_seconds`: default `3` s — silence window to confirm a crossing
 - `fallback_seconds`: default `10` s — force-confirm timeout for **finish crossings only**
 - `rfid_mode`: `'single'` (default) or `'separate'`
