@@ -23,11 +23,13 @@ install reference; that guide is the race-day walkthrough.
 
 ## Raspberry Pi setup
 
-1. **Install Node.js ≥ 20** (e.g. via NodeSource or `nvm`):
+1. **Install Node.js (current LTS — 24.x)** (e.g. via NodeSource or `nvm`).
+   The agent requires `>=20.11`, but Node 20 reached end-of-maintenance in 2026,
+   so install the current LTS; the agent is validated on Node 24:
    ```bash
-   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+   curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
    sudo apt install -y nodejs
-   node --version   # confirm >= 20.11
+   node --version   # confirm v24.x (any >= 20.11 works)
    ```
 2. **Install Mosquitto** on the Pi itself (this broker is separate from the
    dev-machine one in the monorepo root — the R700 needs to reach it over
