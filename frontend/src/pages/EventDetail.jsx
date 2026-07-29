@@ -1151,9 +1151,9 @@ function RfidSettings({ event, onSave, saving }) {
   const [form, setForm] = useState({
     rfidMode: event.rfidMode || 'single',
     goneWindowSeconds: event.goneWindowSeconds ?? 3,
-    fallbackSeconds: event.fallbackSeconds ?? 10,
     gunBackfillSeconds: event.gunBackfillSeconds ?? 60,
     rssiThreshold: event.rssiThreshold ?? -5000,
+    minFinishSeconds: event.minFinishSeconds ?? 30,
   })
 
   const { data: readerConfig } = useQuery({ queryKey: ['reader-config'], queryFn: () => api.reader.getConfig() })
@@ -1199,10 +1199,10 @@ function RfidSettings({ event, onSave, saving }) {
               </p>
             </label>
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Wymuszony zapis na mecie (sekundy)</span>
-              <Input type="number" step="1" min="5" max="120" value={form.fallbackSeconds} onChange={e => set('fallbackSeconds', parseInt(e.target.value))} className="max-w-32" />
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Ignorowanie mety po starcie (sekundy)</span>
+              <Input type="number" step="1" min="0" max="600" value={form.minFinishSeconds} onChange={e => set('minFinishSeconds', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: 10 — dotyczy tylko mety. Jeśli zawodnik pozostaje w zasięgu anteny przez ten czas bez odejścia, przejście zostaje zapisane automatycznie. Na starcie nie działa. Uwaga: jeśli antena w ogóle nie wykryje chipa (np. uszkodzony chip, źle zamocowany numer), zawodnik pozostanie ze statusem „started" bez czasu na mecie — wymaga ręcznej korekty wyniku.
+                Domyślnie: 30 — meta jest zaliczana przy PIERWSZYM odczycie chipa (reszta odczytów jest ignorowana), więc przez tyle sekund od strzału startowego odczyty mety są blokowane. Chroni przed „metą" zawodników stojących przy bramce tuż po starcie. Ustaw poniżej najszybszego możliwego czasu na trasie; przy krótkich testach obniż (np. 10 s).
               </p>
             </label>
             <label className="block">

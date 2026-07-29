@@ -38,7 +38,7 @@ export async function eventsRoutes(fastify) {
 
   // Update event (includes RFID settings)
   fastify.patch('/events/:id', async (req, reply) => {
-    const allowed = ['name', 'description', 'date', 'location', 'rfidMode', 'rfidTopicMain', 'rfidTopicFinish', 'rssiThreshold', 'declineThresholdCdbm', 'fallbackSeconds', 'gunBackfillSeconds', 'slug', 'publicResultsUrl', 'eventUrl', 'visibility']
+    const allowed = ['name', 'description', 'date', 'location', 'rfidMode', 'rfidTopicMain', 'rfidTopicFinish', 'rssiThreshold', 'declineThresholdCdbm', 'fallbackSeconds', 'gunBackfillSeconds', 'minFinishSeconds', 'slug', 'publicResultsUrl', 'eventUrl', 'visibility']
     const updates = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
