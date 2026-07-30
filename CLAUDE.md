@@ -242,6 +242,8 @@ Configurable per event (stored in `events` table):
 - `rssi_threshold`: default `-5000` cdbm — readings weaker than this are ignored by the detector (far-field pickup from high-sensitivity tags; they don't create/refresh `inRange` entries and are not persisted to `gate_events`). Raw `rfid:raw` broadcast is unaffected. Gate crossings read −45…−65 dBm; 20 m pickup reads −71…−78 — set per event based on gate geometry (e.g. `-6500`).
 - `gone_window_seconds`: default `3` s — silence window to confirm a START crossing
 - `min_finish_seconds`: default `30` s — finish reads within this window after the gun are ignored (ghost-read guard; lower it for short test loops)
+- `gun_backfill_seconds`: default `60` s — after this long from the gun, checked-in runners not read at the start line get gun time as their start (`startTimeSource='gun'`, `startTimeTrigger='auto_backfill'`) so their next crossing counts as a finish
+- `gun_backfill_enabled`: default `true` — set `false` to disable automatic gun-time backfill entirely: neither the timer nor the finish-crossing fallback assigns gun time, so start-less runners stay start-less until manual backfill (`POST /races/:id/assign-gun-start`, UI "Nadaj czas strzałki"). Runners read normally at start keep both netto (`duration_ms`) and brutto (`gun_duration_ms`)
 - `fallback_seconds`: **unused** (column kept for compat) — the old finish force-confirm timer, removed in favour of first-read finish
 - `rfid_mode`: `'single'` (default) or `'separate'`
 - `rfid_topic_main`: default `'leszyrun'`
