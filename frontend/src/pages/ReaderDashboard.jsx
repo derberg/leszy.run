@@ -8,8 +8,15 @@ import { Input } from '../components/ui/input.jsx'
 import { Wifi, WifiOff, Play, Square, Settings, RefreshCw, Eye, EyeOff, Info, ChevronDown } from 'lucide-react'
 
 export default function ReaderDashboard() {
+  const qc = useQueryClient()
   const { data: config } = useQuery({ queryKey: ['reader-config'], queryFn: () => api.reader.getConfig() })
   const [configOpen, setConfigOpen] = useState(false)
+
+  // Backend auto-healed the reader's MQTT broker address — refresh everything
+  useWsEvent('reader:autoheal', useCallback(() => {
+    qc.invalidateQueries({ queryKey: ['reader-config'] })
+    qc.invalidateQueries({ queryKey: ['reader-status'] })
+  }, [qc]))
 
   return (
     <div>
