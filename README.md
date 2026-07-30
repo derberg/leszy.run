@@ -1,32 +1,39 @@
-tl;dr — start each dependency (each block is one copy-paste):
+tl;dr — start everything with ONE command:
 
 ```bash
-# 0. Reader sanity check: https://169.254.1.1/ui reachable, Host MQTT matches
-ifconfig en8 | grep "inet "
+./scripts/dev.sh            # mosquitto + docker (db/scheduler/searxng) + backend + frontend — Ctrl+C stops all
 ```
 
 ```bash
-# 1. Mosquitto (MQTT broker — native, from project root)
+./scripts/dev.sh --public   # same, plus the public app on :3002
+```
+
+Reader sanity check (before a race): `https://169.254.1.1/ui` reachable, Host MQTT matches `ifconfig en8 | grep "inet "`.
+
+Need to (re)start just one piece? Each dependency has its own copy-paste block:
+
+```bash
+# Mosquitto (MQTT broker — native, from project root)
 /opt/homebrew/sbin/mosquitto -c mosquitto/config/mosquitto.conf
 ```
 
 ```bash
-# 2. Docker services: PostgreSQL + scheduler + SearXNG
+# Docker services: PostgreSQL + scheduler + SearXNG
 docker compose up -d
 ```
 
 ```bash
-# 3. Backend API (native, http://localhost:3001)
+# Backend API (native, http://localhost:3001)
 cd backend && npm run dev
 ```
 
 ```bash
-# 4. Admin frontend (native, http://localhost:3000)
+# Admin frontend (native, http://localhost:3000)
 cd frontend && npm run dev
 ```
 
 ```bash
-# 5. Public app — optional (http://localhost:3002)
+# Public app — optional (http://localhost:3002)
 cd public && npx vite --port 3002
 ```
 
