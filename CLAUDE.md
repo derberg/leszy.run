@@ -97,7 +97,10 @@ LeszyRun/
 
 **Hybrid split:** backend + frontend run NATIVELY on macOS (the backend must see the
 Mac's real LAN interfaces to talk to the R700 — impossible from inside the Docker VM);
-PostgreSQL, scheduler, and SearXNG stay in Docker. One copy-paste block per dependency:
+PostgreSQL, scheduler, and SearXNG stay in Docker.
+
+**One command starts everything** (Ctrl+C stops all): `./scripts/dev.sh` (or `npm run dev`;
+add `--public` for the public app). Individual dependencies, one copy-paste block each:
 
 ```bash
 # Mosquitto (MQTT broker — native, from project root)
