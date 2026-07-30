@@ -1148,13 +1148,19 @@ function EventSettings({ eventId, event, updateEvent }) {
 }
 
 function RfidSettings({ event, onSave, saving }) {
-  const [form, setForm] = useState({
+  // Saved values from the server are the dirty-tracking baseline. After a successful
+  // save the event query refetches, this recomputes to match `form`, and the Save
+  // button auto-disables again — the visual "changes applied" signal.
+  const baseline = {
     rfidMode: event.rfidMode || 'single',
     goneWindowSeconds: event.goneWindowSeconds ?? 3,
     gunBackfillSeconds: event.gunBackfillSeconds ?? 60,
+    gunBackfillEnabled: event.gunBackfillEnabled ?? true,
     rssiThreshold: event.rssiThreshold ?? -5000,
     minFinishSeconds: event.minFinishSeconds ?? 30,
-  })
+  }
+  const [form, setForm] = useState(baseline)
+  const isDirty = JSON.stringify(form) !== JSON.stringify(baseline)
 
   const { data: readerConfig } = useQuery({ queryKey: ['reader-config'], queryFn: () => api.reader.getConfig() })
   const { data: mainStatus, error: mainError } = useQuery({
@@ -1205,13 +1211,18 @@ function RfidSettings({ event, onSave, saving }) {
                 Domyślnie: 30 — meta jest zaliczana przy PIERWSZYM odczycie chipa (reszta odczytów jest ignorowana), więc przez tyle sekund od strzału startowego odczyty mety są blokowane. Chroni przed „metą" zawodników stojących przy bramce tuż po starcie. Ustaw poniżej najszybszego możliwego czasu na trasie; przy krótkich testach obniż (np. 10 s).
               </p>
             </label>
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Auto-uzupełnienie startu (sekundy)</span>
-              <Input type="number" step="1" min="10" max="300" value={form.gunBackfillSeconds} onChange={e => set('gunBackfillSeconds', parseInt(e.target.value))} className="max-w-32" />
+            <div className="block">
+              <label className="flex items-center gap-2 cursor-pointer mb-2">
+                <input type="checkbox" checked={form.gunBackfillEnabled} onChange={e => set('gunBackfillEnabled', e.target.checked)} className="accent-terrain-green" />
+                <span className="text-xs font-bold uppercase tracking-widest text-apex-muted">Auto-uzupełnienie startu</span>
+              </label>
+              <Input type="number" step="1" min="10" max="300" value={form.gunBackfillSeconds} onChange={e => set('gunBackfillSeconds', parseInt(e.target.value))} disabled={!form.gunBackfillEnabled} className={`max-w-32 ${!form.gunBackfillEnabled ? 'opacity-40 pointer-events-none' : ''}`} />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: 60 — po tylu sekundach od startu, uczestnicy bez odczytu chipa na starcie automatycznie dostają czas strzałki startowej. Dzięki temu ich następne przejście przez bramkę zostanie zapisane jako meta, a nie start.
+                {form.gunBackfillEnabled
+                  ? 'Domyślnie: 60 — po tylu sekundach od startu, uczestnicy bez odczytu chipa na starcie automatycznie dostają czas strzałki startowej. Dzięki temu ich następne przejście przez bramkę zostanie zapisane jako meta, a nie start.'
+                  : 'Wyłączone — uczestnicy bez odczytu chipa na starcie NIE dostaną automatycznie czasu strzałki startowej. Uzupełnisz ich ręcznie przyciskiem „Nadaj czas strzałki” w kontroli wyścigu.'}
               </p>
-            </label>
+            </div>
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Próg sygnału (cdBm)</span>
               <Input type="number" step="50" min="-8000" max="-3000" value={form.rssiThreshold} onChange={e => set('rssiThreshold', parseInt(e.target.value))} className="max-w-32" />
@@ -1222,8 +1233,8 @@ function RfidSettings({ event, onSave, saving }) {
           </div>
 
           {readerOnline ? (
-            <Button onClick={() => onSave(form)} disabled={saving}>
-              {saving ? 'Zapisywanie...' : 'Zapisz ustawienia RFID'}
+            <Button onClick={() => onSave(form)} disabled={saving || !isDirty}>
+              {saving ? 'Zapisywanie...' : isDirty ? 'Zapisz ustawienia RFID' : 'Zapisano'}
             </Button>
           ) : (
             <p className="text-xs text-apex-red">Czytnik niedostępny — zapis wyłączony.</p>

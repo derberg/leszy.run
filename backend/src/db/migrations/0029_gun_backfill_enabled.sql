@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD COLUMN "gun_backfill_enabled" boolean DEFAULT true NOT NULL;
