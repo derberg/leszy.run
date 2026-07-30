@@ -78,6 +78,15 @@ in Docker, port published) via `localhost:5432`. The compose `backend` service
 remains behind `profiles: [docker]` solely for the scheduler's nightly pipeline,
 which runs each step as a one-shot container.
 
+Being native is what enables **MQTT host auto-heal**
+(`backend/src/reader/mqttHostHeal.js`): on a direct cable the Mac's link-local
+`169.254.x.x` changes after reboots/replugs while the reader keeps the stale
+broker address. A 30 s watchdog detects which interface routes to the reader,
+takes the Mac's IPv4 on it, and re-pushes the reader's MQTT config when it
+drifts (it also keeps the saved Host MQTT setting in step, and the configure
+endpoint auto-corrects before pushing). It never touches the inventory preset
+or starts tag streaming — radio control stays a human action.
+
 ---
 
 ## Tech Stack
