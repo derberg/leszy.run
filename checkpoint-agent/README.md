@@ -99,6 +99,46 @@ install reference; that guide is the race-day walkthrough.
    The agent prints its LAN IP and port on boot — that's the URL the
    operator opens on a phone or laptop to run the setup wizard.
 
+### Networking: the reader is on a *second* NIC (link-local)
+
+A checkpoint Pi almost always has **two network interfaces**, and getting them
+straight is the single most common setup snag:
+
+- **`wlan0` (or the built-in `eth0`)** — the Pi's route to the internet /
+  Supabase (Wi-Fi hotspot, LTE, or the venue LAN). This is where the wizard UI
+  is served and where uploads go.
+- **A USB-Ethernet adapter (shows up as `eth1`/`enxXXXX`)** — a **direct PoE
+  cable to the R700**. There's no router/DHCP on this cable, so — exactly like
+  the reader's fixed link-local — the R700 sits at **`169.254.1.1`** and the
+  Pi's USB NIC comes up with **no IP at all**. Until you give that NIC a
+  `169.254.x.x` address, the Pi cannot reach the reader (setup will fail with
+  `CZYTNIK NIEDOSTĘPNY … timeout`).
+
+Find the reader NIC and its link state:
+```bash
+ip link                    # the USB NIC is the one with LOWER_UP + a non-Pi MAC
+ip -4 addr                 # confirm it has NO inet address yet
+```
+Give it a **static** link-local address (static, not auto, so the MQTT host
+below never becomes a moving target across reboots), and make it persist via
+NetworkManager:
+```bash
+sudo nmcli con add type ethernet ifname eth1 con-name checkpoint-reader \
+  ipv4.method manual ipv4.addresses 169.254.1.100/16 ipv6.method disabled
+sudo nmcli con up checkpoint-reader
+ping -c2 169.254.1.1        # reader now reachable
+```
+(Replace `eth1` with the actual USB-NIC name from `ip link`. Any
+`169.254.x.x/16` except `.1.1` works.)
+
+**Then, in the wizard, the MQTT host override is mandatory, not optional.** The
+agent auto-detects "its own LAN IP" for the reader to publish to — but it will
+pick the internet NIC (`wlan0`), which the reader **cannot route to** from the
+`169.254.x` segment. Set **MQTT host = the Pi's reader-NIC address**
+(`169.254.1.100` above). Reader IP stays `169.254.1.1`. With that, the reader
+reaches the Pi's broker over the PoE cable while `wlan0` still carries
+Supabase traffic.
+
 ### systemd unit (boot-start + restart-on-crash)
 
 ```ini
@@ -284,4 +324,18 @@ the rest need the real reader.
   Check PoE power to the reader, check the reader and Pi are on the same
   LAN/subnet, and check the reader IP entered in setup is still correct
   (mDNS `.local` addresses can be flaky — a static IP is more reliable for
-  a fixed checkpoint).
+  a fixed checkpoint). If the reader is on a direct PoE cable to a USB NIC,
+  the Pi's NIC needs a `169.254.x.x` address first — see "Networking: the
+  reader is on a second NIC" above.
+- **Reader status is green but reads stay at 0** — the reader can reach the
+  Pi's REST API but not its MQTT broker. Almost always the MQTT host: the
+  wizard auto-detected the internet NIC (`wlan0`) instead of the reader-NIC
+  address, so the R700 is trying to publish to an IP it has no route to.
+  Reset, re-run setup, and set the MQTT host override to the Pi's reader-NIC
+  address (e.g. `169.254.1.100`). Confirm the connection on the Pi with
+  `sudo tail -f /var/log/mosquitto/mosquitto.log` — a `LeszyRunCheckpoint …
+  connected` line appears the instant it works.
+- **`curl localhost:8080/...` returns nothing / connection refused, but the
+  browser works** — the agent binds `0.0.0.0` (IPv4), while `localhost` on
+  the Pi resolves to IPv6 `::1` first, which nothing is listening on. Use
+  `127.0.0.1` or the Pi's LAN IP instead: `curl http://127.0.0.1:8080/api/state`.
