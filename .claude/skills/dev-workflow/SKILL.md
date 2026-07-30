@@ -87,7 +87,10 @@ wrong base or another topic leaked in.
 - **Vercel** — serves the `public/` app only (landing, kalendarz, event/club pages).
   Merging to `main` is what ships it; the build pre-generates static pages from
   committed manifests.
-- **Backend / frontend / scheduler / enricher** — run locally via `docker compose up`.
+- **Backend / frontend** — run natively on macOS (`cd backend && npm run dev`,
+  `cd frontend && npm run dev`). **Scheduler / enricher / PostgreSQL / SearXNG** —
+  Docker via `docker compose up -d`. The compose `backend`/`frontend` services are
+  behind `profiles: [docker]` (used by the nightly pipeline as one-shot containers).
   Not deployed to Vercel.
 
 ## Post-merge steps (don't skip)

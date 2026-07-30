@@ -29,9 +29,15 @@ const STEPS = [
 
 function dockerArgv(step) {
   if (step.type === 'backend') {
-    // Run inside the long-running backend container, in the backend workdir.
+    // One-shot backend container per step. The live backend runs natively on the
+    // host (it needs the Mac's LAN interfaces for the RFID reader), so the compose
+    // `backend` service sits behind `profiles: [docker]` and is not running —
+    // `run --rm` starts a fresh container from its image for each step instead of
+    // `exec`-ing into a long-running one. `--no-deps` skips the db dependency
+    // (db is a default compose service, already running). Requires the backend
+    // image to exist: docker compose --profile docker build backend.
     // backend's WORKDIR in its Dockerfile is /app, scripts live at /app/backend/scripts/.
-    return ['docker', 'compose', 'exec', '-T', '--workdir', '/app/backend', 'backend', ...step.cmd];
+    return ['docker', 'compose', '--profile', 'docker', 'run', '--rm', '--no-deps', '-T', '--workdir', '/app/backend', 'backend', ...step.cmd];
   }
   if (step.type === 'enricher') {
     // One-shot enricher container. `--profile run-once` matches the compose definition.
