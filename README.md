@@ -1,8 +1,34 @@
-tl;dr
+tl;dr — start each dependency (each block is one copy-paste):
 
-1. Make sure connection from `https://169.254.1.1/ui` or `https://impinj-17-0a-30.local/` to proper IP `ifconfig en8 | grep "inet "`
-1. Start docker `docker compose up --build`
-1. Start mosquitto `/opt/homebrew/sbin/mosquitto -c mosquitto/config/mosquitto.conf`
+```bash
+# 0. Reader sanity check: https://169.254.1.1/ui reachable, Host MQTT matches
+ifconfig en8 | grep "inet "
+```
+
+```bash
+# 1. Mosquitto (MQTT broker — native, from project root)
+/opt/homebrew/sbin/mosquitto -c mosquitto/config/mosquitto.conf
+```
+
+```bash
+# 2. Docker services: PostgreSQL + scheduler + SearXNG
+docker compose up -d
+```
+
+```bash
+# 3. Backend API (native, http://localhost:3001)
+cd backend && npm run dev
+```
+
+```bash
+# 4. Admin frontend (native, http://localhost:3000)
+cd frontend && npm run dev
+```
+
+```bash
+# 5. Public app — optional (http://localhost:3002)
+cd public && npx vite --port 3002
+```
 
 # LeszyRun
 
@@ -11,11 +37,11 @@ RFID-based race timing system for running events. Impinj R700 readers detect par
 ```
 Impinj R700(s) ──MQTT──▶ Mosquitto (native macOS)
                                   │
-                          host.docker.internal:1883
+                            localhost:1883
                                   │
                          ┌────────▼────────┐
                          │  Node.js/Fastify │
-                         │  + Crossing      │
+                         │  + Crossing      │  (native macOS)
                          │    Detector      │
                          └────────┬────────┘
                                   │
@@ -55,30 +81,54 @@ cp .env.example .env
 
 **3. Start Mosquitto** (see [MQTT Broker](#mqtt-broker) section below)
 
-**4. Build and start the app**
+**4. Build the backend Docker image** (used only by the nightly pipeline — the live backend runs natively):
 
 ```bash
-docker compose up --build
+docker compose --profile docker build backend
 ```
 
-`--build` is required on the first run and after changing `package.json` or Dockerfiles. Subsequent starts can use `docker compose up`.
+Re-run this after backend code changes so the scheduler's nightly pipeline picks them up.
 
-| Service  | URL                   |
-|----------|-----------------------|
-| Frontend | http://localhost:3000 |
-| Backend  | http://localhost:3001 |
+**5. Start each dependency** — one copy-paste block each, in this order:
+
+```bash
+# Mosquitto (MQTT broker — native, from project root)
+/opt/homebrew/sbin/mosquitto -c mosquitto/config/mosquitto.conf
+```
+
+```bash
+# Docker services: PostgreSQL (port 5432) + scheduler + SearXNG (port 8888)
+docker compose up -d
+```
+
+```bash
+# Backend API — native so it can see the reader's LAN interface (port 3001)
+cd backend && npm run dev
+```
+
+```bash
+# Admin frontend (port 3000)
+cd frontend && npm run dev
+```
+
+```bash
+# Public app — landing page + kalendarz, optional (port 3002)
+cd public && npx vite --port 3002
+```
+
+| Service    | URL                   | Runs        |
+|------------|-----------------------|-------------|
+| Frontend   | http://localhost:3000 | native (Vite) |
+| Backend    | http://localhost:3001 | native (Node) |
+| Public app | http://localhost:3002 | native (Vite) |
+| PostgreSQL | localhost:5432        | Docker      |
+| Mosquitto  | localhost:1883        | native      |
 
 ## Development
 
-Use `docker compose watch` instead of `up` for hot reload:
+Backend and frontend run **natively** (not in Docker) — the backend must see the Mac's real network interfaces to talk to the RFID reader, and native Vite gives instant HMR. `npm run dev` in `backend/` uses `node --watch` (auto-restart on change) and reads `.env` from the repo root; `npm run dev` in `frontend/` is plain Vite HMR on port 3000.
 
-```bash
-docker compose watch
-```
-
-- Backend source changes → container restart (sync+restart)
-- Frontend source changes → synced into container (Vite HMR)
-- `package.json` changes → full rebuild
+Docker runs the stateful/background pieces: PostgreSQL, the scheduler, and SearXNG. The compose `backend`/`frontend` services still exist behind the `docker` profile — the scheduler's nightly pipeline runs each step as a one-shot backend container (`docker compose --profile docker run --rm backend …`), and `docker compose --profile docker up --build` still brings up the old full-Docker stack if ever needed.
 
 Database migrations run automatically on backend startup. Data is stored in the named volume `pgdata` and survives `docker compose down`. Only `docker compose down -v` deletes it.
 

@@ -54,8 +54,8 @@ Supabase when online.
                    └─────────────────┘
 
 Mosquitto (native macOS) ←── Impinj R700(s)
-        ↕ mqtt://host.docker.internal:1883
-   Node.js backend (inside Docker)
+        ↕ mqtt://localhost:1883
+   Node.js backend (native macOS)
 ```
 
 ### Additional Apps
@@ -69,10 +69,14 @@ Mosquitto (native macOS) ←── Impinj R700(s)
 
 The backend subscribes to Supabase Realtime for `participants` and `checkpoint_observations` tables. Changes from the volunteer app (Supabase → local) flow instantly. The sync worker handles local → Supabase. Recently-synced participant IDs are tracked to prevent echo loops.
 
-**Key constraint:** Mosquitto runs natively on macOS (not in Docker) because
-Docker only forwards ports to `localhost`, making it unreachable from the R700
-which is a physical device on the network. The backend connects to it via
-`host.docker.internal`.
+**Key constraint:** Mosquitto AND the backend run natively on macOS (not in
+Docker). Mosquitto must be reachable from the R700 — a physical device on the
+LAN — and the backend must see the Mac's real network interfaces (Docker's VM
+hides them, which made reader diagnostics like Host MQTT detection impossible).
+The backend connects to Mosquitto via `localhost:1883` and to PostgreSQL (still
+in Docker, port published) via `localhost:5432`. The compose `backend` service
+remains behind `profiles: [docker]` solely for the scheduler's nightly pipeline,
+which runs each step as a one-shot container.
 
 ---
 

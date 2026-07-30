@@ -17,7 +17,14 @@ services:
       timeout: 5s
       retries: 10
 
+  # The live backend runs NATIVELY on macOS (cd backend && npm run dev) so it can
+  # see the reader's LAN interface (auto-detecting Host MQTT is impossible from
+  # inside the Docker VM). This service definition stays for the scheduler's
+  # nightly pipeline, which runs each step as a one-shot container:
+  #   docker compose --profile docker run --rm --no-deps -T backend node scripts/<step>
+  # Rebuild the image after backend changes: docker compose --profile docker build backend
   backend:
+    profiles: [docker]
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -43,7 +50,9 @@ services:
           path: ./backend/src
           target: /app/backend/src
 
+  # Admin frontend also runs natively in dev (cd frontend && npm run dev).
   frontend:
+    profiles: [docker]
     build:
       context: .
       dockerfile: frontend/Dockerfile
@@ -94,8 +103,8 @@ services:
       # writable: pipeline log + heartbeat
       - ./logs:/app/logs
     depends_on:
-      backend:
-        condition: service_started
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   enricher:

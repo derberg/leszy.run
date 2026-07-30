@@ -95,29 +95,51 @@ LeszyRun/
 
 ## Running locally
 
-```bash
-# Start Mosquitto (native, from project root)
-/opt/homebrew/sbin/mosquitto -c mosquitto/config/mosquitto.conf
+**Hybrid split:** backend + frontend run NATIVELY on macOS (the backend must see the
+Mac's real LAN interfaces to talk to the R700 — impossible from inside the Docker VM);
+PostgreSQL, scheduler, and SearXNG stay in Docker. One copy-paste block per dependency:
 
-# Start everything else
-docker compose up
+```bash
+# Mosquitto (MQTT broker — native, from project root)
+/opt/homebrew/sbin/mosquitto -c mosquitto/config/mosquitto.conf
+```
+
+```bash
+# Docker services: PostgreSQL + scheduler + SearXNG
+docker compose up -d
+```
+
+```bash
+# Backend API (native, port 3001; reads ../.env, auto-restarts on change)
+cd backend && npm run dev
+```
+
+```bash
+# Admin frontend (native Vite, port 3000)
+cd frontend && npm run dev
+```
+
+```bash
+# Public app (landing page + kalendarz, port 3002)
+cd public && npx vite --port 3002
 ```
 
 Admin frontend: http://localhost:3000
 Backend API: http://localhost:3001
 PostgreSQL: localhost:5432
-
-Public app (landing page + kalendarz) — run separately:
-```bash
-cd public && npx vite --port 3002
-```
 Public app: http://localhost:3002
+
+The compose `backend`/`frontend` services sit behind `profiles: [docker]` — not started
+by default. The scheduler's nightly pipeline runs each backend step as a one-shot
+container (`docker compose --profile docker run --rm backend …`), so after backend code
+changes rebuild its image: `docker compose --profile docker build backend`.
 
 ## Environment variables
 
-Backend (set in docker-compose.yml or .env):
-- `DATABASE_URL` — postgres connection string
-- `MQTT_URL` — mqtt://host.docker.internal:1883
+Backend (native process reads repo-root `.env` via `--env-file-if-exists`; the pipeline's
+one-shot containers get theirs from docker-compose.yml):
+- `DATABASE_URL` — postgres connection string (native default: `localhost:5432`)
+- `MQTT_URL` — native default `mqtt://localhost:1883` (in-container: `mqtt://host.docker.internal:1883`)
 - `PORT` — default 3001
 - `SUPABASE_URL` — optional, sync disabled if missing
 - `SUPABASE_SERVICE_ROLE_KEY` — service_role key (NOT anon/publishable), bypasses RLS. Backend only. Sync disabled if missing.
@@ -411,16 +433,18 @@ docker compose exec scheduler npm run pipeline
 
 To run individual steps manually (debugging):
 
+All backend steps run on the HOST (the backend is native; there is no long-running
+backend container to exec into):
+
 ```bash
-docker compose exec backend node scripts/run-scrapers.js                                # 1
-docker compose exec backend node scripts/run-merge.js --apply                           # 2
-docker compose exec backend node scripts/run-dedup.js --apply                           # 3
-docker compose exec backend node scripts/run-geocode.js --apply                         # 4
-docker compose exec backend node scripts/run-enrich-flags.js --apply                    # 5
-docker compose exec backend node scripts/run-normalize.js --apply                       # 6
+cd backend && node --env-file=../.env scripts/run-scrapers.js                            # 1
+cd backend && node --env-file=../.env scripts/run-merge.js --apply                       # 2
+cd backend && node --env-file=../.env scripts/run-dedup.js --apply                       # 3
+cd backend && node --env-file=../.env scripts/run-geocode.js --apply                     # 4
+cd backend && node --env-file=../.env scripts/run-enrich-flags.js --apply                # 5
+cd backend && node --env-file=../.env scripts/run-normalize.js --apply                   # 6
 docker compose --profile run-once run --rm enricher python -m enricher run              # 7
 # Step 8 finds source URLs ONLY (registration_url + regulamin_url) — no field extraction.
-docker compose exec backend node scripts/run-enrich-search.js --apply                   # 8
 # Step 8.1 extracts fields (distances, types, is_kids, prices, deadline, location,
 # voivodeship) FROM the regulamin that step 8 located. The regulamin can be a PDF,
 # a .docx, a plain HTML page, or a public Google Drive folder/file (per-distance
@@ -433,10 +457,10 @@ docker compose exec backend node scripts/run-enrich-search.js --apply           
 # must run AFTER step 8.
 cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply               # 8   (host)
 cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js               # 8.1 (host)
-docker compose exec backend node scripts/run-dedup.js --apply                           # 9
-docker compose exec backend node scripts/run-normalize.js --apply                       # 10
-docker compose exec backend node scripts/run-publish.js --apply                         # 11
-docker compose exec backend node scripts/publish-event-pages.js --apply                 # post (manifest + OG images)
+cd backend && node --env-file=../.env scripts/run-dedup.js --apply                       # 9
+cd backend && node --env-file=../.env scripts/run-normalize.js --apply                   # 10
+cd backend && node --env-file=../.env scripts/run-publish.js --apply                     # 11
+cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply             # post (manifest + OG images)
 ```
 
 ### Python Enricher — PRIMARY enrichment tool
