@@ -15,6 +15,7 @@ export const events = pgTable('events', {
   goneWindowSeconds: integer('gone_window_seconds').notNull().default(3),
   fallbackSeconds: integer('fallback_seconds').notNull().default(10), // unused since first-read finish; kept for schema compat
   gunBackfillSeconds: integer('gun_backfill_seconds').notNull().default(60),
+  gunBackfillEnabled: boolean('gun_backfill_enabled').notNull().default(true), // false = never auto-assign gun start time (timer + finish fallback both off)
   minFinishSeconds: integer('min_finish_seconds').notNull().default(30),
   slug: text('slug').notNull().unique(),
   publicResultsUrl: text('public_results_url'),

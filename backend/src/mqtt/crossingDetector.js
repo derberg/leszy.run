@@ -37,6 +37,9 @@ import { gateCrossings, gateEvents, results } from '../db/schema.js'
  *  participants with an RFID tag who haven't been detected get gun time as their
  *  startTime (startTimeSource='gun', startTimeTrigger='auto_backfill').
  *  This ensures their next crossing is treated as finish, not a second start.
+ *  Disabled per event via gunBackfillEnabled=false: neither the timer nor the
+ *  finish-crossing fallback then assigns gun time — start-less runners are left
+ *  for manual backfill (POST /races/:id/assign-gun-start).
  *
  * Peak RSSI: values closer to 0 are stronger. -2000 cdbm > -6000 cdbm.
  *
@@ -117,8 +120,14 @@ export class CrossingDetector {
 
     // After gunBackfillSeconds, backfill gun time for checked-in participants whose chip start was not detected.
     // In single-reader mode this ensures their next crossing is treated as finish, not start.
-    const gunBackfillMs = (eventConfig.gunBackfillSeconds ?? 60) * 1000
-    this.#scheduleGunTimeBackfill(raceRun.id, gunStartTime, epcMap, startedParticipants, gunBackfillMs)
+    // Skipped entirely when auto-backfill is disabled for the event (gunBackfillEnabled === false):
+    // start-less runners then never get an automatic gun start time and are left for manual backfill.
+    if (eventConfig.gunBackfillEnabled === false) {
+      console.log(`[Detector] Gun-time backfill disabled for race ${raceRun.id}`)
+    } else {
+      const gunBackfillMs = (eventConfig.gunBackfillSeconds ?? 60) * 1000
+      this.#scheduleGunTimeBackfill(raceRun.id, gunStartTime, epcMap, startedParticipants, gunBackfillMs)
+    }
   }
 
   async stopRace(raceRunId) {
@@ -416,15 +425,21 @@ export class CrossingDetector {
         const durationMs = existing?.startTime ? peakTime - new Date(existing.startTime) : null
         const gunDurationMs = race?.gunStartTime ? peakTime - race.gunStartTime : null
         const noChipStart = !existing?.startTime
+        // When auto-backfill is disabled we never credit a start-less runner with gun time,
+        // not even here at the finish read: record the raw finish but leave start + both
+        // durations empty so an operator resolves it via manual backfill. Runners with a
+        // real chip start are unaffected — they keep their netto (durationMs) and brutto
+        // (gunDurationMs) times exactly as before.
+        const backfillGun = noChipStart && race?.config?.gunBackfillEnabled !== false
 
         // Build the set fields (never include raceRunId/participantId — those are the conflict target)
         const setFields = {
           finishTime: peakTime,
-          durationMs: noChipStart ? gunDurationMs : durationMs,
-          gunDurationMs,
+          durationMs: noChipStart ? (backfillGun ? gunDurationMs : null) : durationMs,
+          gunDurationMs: noChipStart && !backfillGun ? null : gunDurationMs,
           status: 'finished',
           finishCrossingId: crossing.id,
-          ...(noChipStart && {
+          ...(backfillGun && {
             startTime: race.gunStartTime,
             startTimeSource: 'gun',
             startTimeTrigger: 'finish_crossing',
