@@ -91,6 +91,7 @@ export const api = {
     delete: (id) => request('DELETE', `/checkpoints/${id}`),
     observationsForRace: (raceRunId) => request('GET', `/races/${raceRunId}/checkpoint-observations`),
     postObservation: (checkpointId, body) => request('POST', `/checkpoints/${checkpointId}/observations`, body),
+    agents: (eventId) => request('GET', `/events/${eventId}/checkpoint-agents`),
   },
 
   // Partners

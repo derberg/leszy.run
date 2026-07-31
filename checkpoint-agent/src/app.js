@@ -7,6 +7,10 @@ import { Confirmer } from './confirmer.js'
 import { createResolver } from './resolver.js'
 import { ObservationQueue } from './queue.js'
 import { Uploader } from './uploader.js'
+import { createArmer } from './armer.js'
+import { createHeartbeat } from './heartbeat.js'
+
+const ARM_MODES = new Set(['race_start', 'immediate'])
 
 // eventId/checkpointId are UUIDs in practice but flow straight into
 // filesystem paths (ObservationQueue's queue-<checkpointId>.jsonl). The
@@ -35,6 +39,50 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     readerPollTimer: null,
     readerDown: false,
     lastReaderError: null,
+    armed: false,
+    ignoredReads: 0,
+    armer: null,
+    heartbeat: null,
+    heartbeatCheckpointId: null,
+  }
+
+  // Derived status shown in the UI and reported by the heartbeat:
+  //   no session          -> null
+  //   session, not running -> 'configured'
+  //   running, armed        -> 'listening'   (recording)
+  //   running, not armed    -> 'armed_waiting' (reads are being dropped)
+  function currentStatus() {
+    if (!state.session) return null
+    if (!state.running) return 'configured'
+    return state.armed ? 'listening' : 'armed_waiting'
+  }
+
+  // A heartbeat should be visible as soon as a session exists (so
+  // 'configured' shows on the admin tab before Start is ever pressed), and
+  // keeps running with updated status/counts once the pipeline starts.
+  // Idempotent: a no-op if one is already running AND still bound to the
+  // current session's checkpointId. If /api/setup is re-run for a DIFFERENT
+  // checkpoint, the old heartbeat (its checkpointId baked into the closure
+  // createHeartbeat() was built with) must be stopped and replaced — otherwise
+  // it keeps upserting status rows under the OLD checkpoint_id forever while
+  // the new checkpoint never gets a heartbeat of its own.
+  function ensureHeartbeat() {
+    if (!state.session) return
+    if (state.heartbeat && state.heartbeatCheckpointId === state.session.checkpointId) return
+    state.heartbeat?.stop()
+    state.heartbeatCheckpointId = state.session.checkpointId
+    state.heartbeat = createHeartbeat({
+      supabase,
+      checkpointId: state.session.checkpointId,
+      intervalMs: config.heartbeatMs,
+      getStatus: () => ({
+        status: currentStatus(),
+        readsTotal: state.reads.total,
+        queuePending: state.queue?.counts.pending ?? 0,
+        unknownCount: state.resolver?.unknownList().length ?? 0,
+      }),
+    })
+    state.heartbeat.start()
   }
   // Guards a single in-flight reader-health poll so a slow/hanging
   // getStatus()/configure()/start() call can't overlap with the next tick.
@@ -103,6 +151,10 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
         readerDown: state.readerDown,
         lastReaderError: state.lastReaderError,
         noReader: !!state.session?.noReader,
+        armMode: state.session?.armMode ?? null,
+        armed: state.armed,
+        ignoredReads: state.ignoredReads,
+        status: currentStatus(),
       },
     }
   })
@@ -124,7 +176,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   })
 
   app.post('/api/setup', async (req, reply) => {
-    const { eventId, eventName, checkpointId, checkpointName, pin, readerIp, readerUsername, readerPassword, mqttHost, noReader } = req.body ?? {}
+    const { eventId, eventName, checkpointId, checkpointName, pin, readerIp, readerUsername, readerPassword, mqttHost, noReader, armMode } = req.body ?? {}
     // Test mode without a reader: the operator can run the whole
     // pipeline (MQTT/confirmer/resolver/queue/uploader) against the
     // simulator (scripts/simulate-reads.js) with no R700 on the LAN. In
@@ -136,15 +188,26 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     if (!SAFE_ID.test(eventId) || !SAFE_ID.test(checkpointId)) {
       return reply.code(400).send({ error: 'Invalid eventId or checkpointId' })
     }
+    if (armMode !== undefined && !ARM_MODES.has(armMode)) {
+      return reply.code(400).send({ error: "armMode must be 'race_start' or 'immediate'" })
+    }
     const result = await fetchRoster({ eventId, pin })
     if (!result.ok) return reply.code(result.status ?? 502).send({ error: result.error })
     // The R700 must reach the Pi's broker over the LAN — 'localhost' only
     // resolves from the Pi itself. Default to the detected LAN IP when the
     // operator didn't provide one explicitly.
     const resolvedMqttHost = mqttHost ?? detectLanIp() ?? 'localhost'
-    state.session = { eventId, eventName, checkpointId, checkpointName, readerIp, readerUsername: readerUsername ?? 'root', readerPassword: readerPassword ?? '', mqttHost: resolvedMqttHost, noReader: !!noReader, running: false }
+    state.session = {
+      eventId, eventName, checkpointId, checkpointName, readerIp,
+      readerUsername: readerUsername ?? 'root', readerPassword: readerPassword ?? '',
+      mqttHost: resolvedMqttHost, noReader: !!noReader,
+      armMode: armMode ?? 'race_start', armed: false,
+      running: false,
+    }
+    state.armed = false
     await store.save('session', state.session)
     await store.save('roster', result.roster)
+    ensureHeartbeat() // 'configured' shows on the admin tab even before Start
     return { data: { rosterCount: result.roster.length } }
   })
 
@@ -169,12 +232,42 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.confirmer.seed(state.queue.epcs()) // restart recovery: don't re-record
     state.uploader = new Uploader({ queue: state.queue, supabase, intervalMs: config.uploadIntervalMs })
     state.uploader.start()
+
+    // Arm-at-start: 'immediate' arms right away (testing / events not
+    // formally started via the admin UI); 'race_start' stays disarmed until
+    // the armer observes an active/finished race_run for this event, unless
+    // a prior run already persisted armed:true (reboot mid-race must not
+    // re-disarm and start dropping real reads).
+    state.armed = state.session.armMode === 'immediate' || !!state.session.armed
+    if (state.armed && !state.session.armed) {
+      state.session.armed = true
+      await store.save('session', state.session)
+    }
+    if (!state.armed && state.session.armMode === 'race_start') {
+      state.armer = createArmer({ supabase, eventId: state.session.eventId, pollMs: config.armPollMs })
+      state.armer.start(async () => {
+        state.armed = true
+        state.session.armed = true
+        await store.save('session', state.session)
+        app.log?.info?.('[armer] race started — armed')
+      })
+    }
+    ensureHeartbeat()
+
     state.mqttClient = connectMqtt(config.mqttUrl)
     state.mqttClient.on('message', (topic, payload) => {
       const read = parseTagInventory(payload)
       if (!read) return
       state.reads.total += 1
       state.reads.lastAt = new Date().toISOString()
+      if (!state.armed) {
+        // Disarmed: drop the read entirely. It must never reach the
+        // confirmer — feeding it would poison the one-pass-per-EPC `seen`
+        // set with a pre-race false read and permanently block the
+        // runner's real pass at this checkpoint.
+        state.ignoredReads += 1
+        return
+      }
       state.confirmer.read({ ...read, at: Date.now() })
     })
     state.mqttClient.subscribe([`${config.mqttTopic}`, `${config.mqttTopic}/#`], { qos: 1 })
@@ -206,6 +299,16 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.mqttClient?.end()
     state.confirmer?.stop()
     state.uploader?.stop()
+    // Simple, correct choice: stop the heartbeat on stopAll() rather than
+    // keeping a 'configured' heartbeat alive after Stop. The row simply goes
+    // stale (UI derives offline from last_seen_at) until the operator either
+    // Starts again (heartbeat restarts via ensureHeartbeat() in
+    // startPipeline) or re-runs setup. Avoids a heartbeat instance quietly
+    // outliving the pipeline it's supposed to describe.
+    state.armer?.stop()
+    state.armer = null
+    state.heartbeat?.stop()
+    state.heartbeat = null
     state.running = false
     state.readerDown = false
     state.lastReaderError = null
@@ -225,6 +328,9 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.resolver = null
     state.uploader = null
     state.reads = { total: 0, lastAt: null }
+    state.armed = false
+    state.ignoredReads = 0
+    state.heartbeatCheckpointId = null
     await store.remove('session')
     await store.remove('roster')
     return { data: { ok: true } }
@@ -254,6 +360,13 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
       await startPipeline()
     }
   }
+
+  // Boot-time heartbeat: a session left over from a previous run (configured
+  // but never started, or started and about to be resumed above) should show
+  // up on the admin tab immediately rather than waiting for the next Start.
+  // Idempotent — resume()'s startPipeline() call also invokes ensureHeartbeat()
+  // for the running case, this just covers the not-yet-running one too.
+  if (state.session) ensureHeartbeat()
 
   app.deps = state // exposed for tests (live services: uploader, confirmer, queue, resolver, session, ...)
   app.addHook('onClose', () => stopAll())

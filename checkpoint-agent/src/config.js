@@ -9,5 +9,7 @@ export function loadConfig(env = process.env) {
     goneWindowMs: parseInt(env.GONE_WINDOW_MS ?? '3000', 10),
     uploadIntervalMs: parseInt(env.UPLOAD_INTERVAL_MS ?? '5000', 10),
     readerPollMs: parseInt(env.READER_POLL_MS ?? '15000', 10),
+    armPollMs: parseInt(env.ARM_POLL_MS ?? '15000', 10),
+    heartbeatMs: parseInt(env.HEARTBEAT_MS ?? '15000', 10),
   }
 }

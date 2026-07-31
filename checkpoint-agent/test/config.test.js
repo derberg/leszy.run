@@ -12,12 +12,16 @@ test('defaults', () => {
   assert.equal(c.dataDir, './data')
   assert.equal(c.supabaseUrl, null)
   assert.equal(c.readerPollMs, 15000)
+  assert.equal(c.armPollMs, 15000)
+  assert.equal(c.heartbeatMs, 15000)
 })
 
 test('env overrides', () => {
-  const c = loadConfig({ AGENT_PORT: '9999', GONE_WINDOW_MS: '5000', SUPABASE_URL: 'https://x.supabase.co', READER_POLL_MS: '20000' })
+  const c = loadConfig({ AGENT_PORT: '9999', GONE_WINDOW_MS: '5000', SUPABASE_URL: 'https://x.supabase.co', READER_POLL_MS: '20000', ARM_POLL_MS: '10000', HEARTBEAT_MS: '30000' })
   assert.equal(c.port, 9999)
   assert.equal(c.goneWindowMs, 5000)
   assert.equal(c.supabaseUrl, 'https://x.supabase.co')
   assert.equal(c.readerPollMs, 20000)
+  assert.equal(c.armPollMs, 10000)
+  assert.equal(c.heartbeatMs, 30000)
 })
