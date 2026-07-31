@@ -209,7 +209,23 @@ pick the internet NIC (`wlan0`), which the reader **cannot route to** from the
 reaches the Pi's broker over the PoE cable while `wlan0` still carries
 Supabase traffic.
 
-### systemd unit (boot-start + restart-on-crash)
+### systemd unit (boot-start + restart-on-crash + permanent env)
+
+This is also how you set the Supabase credentials **permanently** — no more
+`export` before every run. The two required secrets live in a root-only env
+file that the service loads; the rest are plain `Environment=` lines.
+
+Replace `leszyrun` (both the `User=` and the `/home/leszyrun/...` paths) with
+your actual Pi username if different.
+
+```bash
+# 1. Store the credentials once, root-readable only
+sudo tee /etc/leszyrun-checkpoint.env >/dev/null <<'EOF'
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_ANON_KEY=<anon-key>
+EOF
+sudo chmod 600 /etc/leszyrun-checkpoint.env
+```
 
 ```ini
 # /etc/systemd/system/leszyrun-checkpoint.service
@@ -220,17 +236,16 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/leszyrun/checkpoint-agent
+User=leszyrun
+WorkingDirectory=/home/leszyrun/leszyrun/checkpoint-agent
 ExecStart=/usr/bin/node src/index.js
 Restart=always
 RestartSec=3
-Environment=SUPABASE_URL=https://<project>.supabase.co
-Environment=SUPABASE_ANON_KEY=<anon-key>
+EnvironmentFile=/etc/leszyrun-checkpoint.env
 Environment=AGENT_PORT=8080
 Environment=MQTT_URL=mqtt://localhost:1883
 Environment=MQTT_TOPIC=leszyrun/checkpoint
-Environment=DATA_DIR=/home/pi/leszyrun/checkpoint-agent/data
+Environment=DATA_DIR=/home/leszyrun/leszyrun/checkpoint-agent/data
 Environment=GONE_WINDOW_MS=3000
 Environment=UPLOAD_INTERVAL_MS=5000
 Environment=READER_POLL_MS=15000
@@ -241,8 +256,15 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now leszyrun-checkpoint
+sudo systemctl enable --now leszyrun-checkpoint   # start now + on every boot
+systemctl status leszyrun-checkpoint --no-pager   # confirm it's running
+journalctl -u leszyrun-checkpoint -f              # follow its logs
 ```
+
+Once the service is installed you never `export` or `npm start` by hand again.
+To change credentials, edit `/etc/leszyrun-checkpoint.env` then
+`sudo systemctl restart leszyrun-checkpoint`. Stop the manual `npm start` first
+if one is running — it would hold port 8080.
 
 `Restart=always` covers reader hiccups and unhandled crashes. Session
 auto-resume (see below) is what makes a full Pi *reboot* mid-race safe, not
