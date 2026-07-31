@@ -1,7 +1,15 @@
 import { eq, inArray, and, desc, ne } from 'drizzle-orm'
+import { createClient } from '@supabase/supabase-js'
 import { checkpoints, checkpointCategories, checkpointObservations, raceRuns, categories, participants, results } from '../db/schema.js'
 import { syncDelete } from '../sync/supabase.js'
 import { broadcast } from '../ws/broadcaster.js'
+
+function getSupabase() {
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createClient(url, key)
+}
 
 export async function checkpointsRoutes(fastify) {
   const db = fastify.db
@@ -237,5 +245,35 @@ export async function checkpointsRoutes(fastify) {
     )
 
     return { data: filtered }
+  })
+
+  // Live status of Raspberry-Pi checkpoint agents for an event's checkpoints.
+  // Reads the Supabase-only `checkpoint_agents` heartbeat table (service role).
+  // The frontend derives an "offline" state from lastSeenAt age.
+  fastify.get('/events/:eventId/checkpoint-agents', async (req, reply) => {
+    const supabase = getSupabase()
+    if (!supabase) return { data: [] }  // sync disabled locally → no agent statuses
+
+    const cps = await db.select({ id: checkpoints.id })
+      .from(checkpoints).where(eq(checkpoints.eventId, req.params.eventId))
+    if (!cps.length) return { data: [] }
+
+    const { data, error } = await supabase
+      .from('checkpoint_agents')
+      .select('checkpoint_id, status, reads_total, queue_pending, unknown_count, last_seen_at, updated_at')
+      .in('checkpoint_id', cps.map(c => c.id))
+    if (error) return reply.code(502).send({ error: error.message })
+
+    return {
+      data: (data ?? []).map(r => ({
+        checkpointId: r.checkpoint_id,
+        status: r.status,
+        readsTotal: r.reads_total,
+        queuePending: r.queue_pending,
+        unknownCount: r.unknown_count,
+        lastSeenAt: r.last_seen_at,
+        updatedAt: r.updated_at,
+      })),
+    }
   })
 }
