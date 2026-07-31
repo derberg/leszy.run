@@ -24,10 +24,11 @@ async function makeApp(t, overrides = {}) {
     supabase: {
       from: (table) => ({
         select: () => ({
-          order: () => ({ limit: async () => ({ data: [{ id: 'ev1', name: 'Race', date: '2026-08-01' }], error: null }) }),
+          gte: () => ({ order: () => ({ limit: async () => ({ data: [{ id: 'ev1', name: 'Race', date: '2026-08-01' }], error: null }) }) }),
           eq: () => ({ order: async () => ({ data: [{ id: 'cp1', name: 'CP 1', km_marker: '5.00' }], error: null }) }),
         }),
         insert: async () => ({ error: null }),
+        upsert: async () => ({ error: null }),
       }),
     },
     fetchRoster: async ({ eventId, pin }) =>
@@ -252,7 +253,8 @@ test('checkpoint sessions use isolated queues: same EPC confirms again at a diff
   const payload = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: 'qrvMAQ==', peakRssiCdbm: -4000, antennaPort: 1 } }))
 
   // --- Session 1: checkpoint cp1
-  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  // armMode: 'immediate' — this test exercises queue scoping, not arming.
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5', armMode: 'immediate' } })
   await app.inject({ method: 'POST', url: '/api/start', payload: {} })
   messageHandler('leszyrun/checkpoint', payload)
   await new Promise((r) => setTimeout(r, 150))
@@ -264,7 +266,7 @@ test('checkpoint sessions use isolated queues: same EPC confirms again at a diff
   await app.inject({ method: 'POST', url: '/api/reset' })
 
   // --- Session 2: checkpoint cp2, same roster EPC, same physical tag read
-  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp2', checkpointName: 'CP 2', pin: '123456', readerIp: '10.0.0.5' } })
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp2', checkpointName: 'CP 2', pin: '123456', readerIp: '10.0.0.5', armMode: 'immediate' } })
   await app.inject({ method: 'POST', url: '/api/start', payload: {} })
   messageHandler('leszyrun/checkpoint', payload) // replay the SAME tag read
   await new Promise((r) => setTimeout(r, 150))
@@ -290,7 +292,7 @@ test('MQTT read → confirm → queue → flush inserts observation', async (t) 
         : { select: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }) },
     },
   })
-  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5', armMode: 'immediate' } })
   await app.inject({ method: 'POST', url: '/api/start', payload: {} })
   // EPC AABBCC01 = base64 qrvMAQ==
   const payload = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: 'qrvMAQ==', peakRssiCdbm: -4000, antennaPort: 1 } }))
@@ -388,7 +390,7 @@ test('noReader mode: setup without readerIp succeeds, start never calls createRe
   })
   t.after(() => app.close())
 
-  const setup = await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', noReader: true } })
+  const setup = await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', noReader: true, armMode: 'immediate' } })
   assert.equal(setup.statusCode, 200)
   assert.equal(setup.json().data.rosterCount, 1)
 
