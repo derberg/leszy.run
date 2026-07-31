@@ -108,7 +108,11 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   })
 
   app.get('/api/events', async (req, reply) => {
-    const { data, error } = await supabase.from('events').select('id, name, date').order('date', { ascending: false }).limit(50)
+    // Only upcoming events (date >= today, Europe/Warsaw). `date` is a text
+    // column in YYYY-MM-DD, so a lexicographic gte matches chronologically.
+    // Nearest-first ordering suits a checkpoint operator picking today's race.
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Warsaw' })
+    const { data, error } = await supabase.from('events').select('id, name, date').gte('date', today).order('date', { ascending: true }).limit(50)
     if (error) return reply.code(502).send({ error: error.message })
     return { data }
   })
