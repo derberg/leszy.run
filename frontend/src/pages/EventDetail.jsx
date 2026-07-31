@@ -35,6 +35,15 @@ export default function EventDetail() {
     queryFn: () => api.checkpoints.list(id),
   })
 
+  // Live status of Raspberry-Pi checkpoint agents — polled so the admin sees
+  // configured → armed_waiting → listening transitions without refreshing.
+  const { data: checkpointAgents = [] } = useQuery({
+    queryKey: ['checkpoint-agents', id],
+    queryFn: () => api.checkpoints.agents(id),
+    refetchInterval: 5000,
+  })
+  const agentsByCheckpoint = Object.fromEntries(checkpointAgents.map(a => [a.checkpointId, a]))
+
   const createCheckpoint = useMutation({
     mutationFn: (body) => api.checkpoints.create(id, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['checkpoints', id] }),
@@ -267,6 +276,9 @@ export default function EventDetail() {
                         }
                       </div>
                       <div className="text-xs text-apex-cyan font-mono mt-1 break-all">{volunteerUrl}</div>
+                      <div className="mt-1.5">
+                        <CheckpointAgentBadge agent={agentsByCheckpoint[cp.id]} />
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <a href={volunteerUrl} target="_blank" rel="noopener noreferrer">
@@ -552,6 +564,52 @@ function MqttStatus() {
         )}
       </CardContent>
     </Card>
+  )
+}
+
+// Live status of a Raspberry-Pi checkpoint agent bound to this checkpoint.
+// `agent` is the matching row from GET /events/:eventId/checkpoint-agents
+// (or undefined if no agent has ever reported in for this checkpoint).
+// lastSeenAt older than 60s overrides status with an OFFLINE badge — a
+// backend-reported 'listening' state is meaningless if the heartbeat stopped.
+function CheckpointAgentBadge({ agent }) {
+  if (!agent) {
+    return (
+      <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 border border-apex-border text-apex-dim">
+        Brak agenta RPi
+      </span>
+    )
+  }
+
+  const lastSeenMs = agent.lastSeenAt ? Date.now() - new Date(agent.lastSeenAt).getTime() : Infinity
+  const isOffline = lastSeenMs > 60000
+
+  let label = 'RPi: skonfigurowany'
+  let classes = 'border-apex-border bg-apex-surface-2 text-apex-muted'
+  if (isOffline) {
+    label = 'RPi OFFLINE'
+    classes = 'border-apex-red/40 bg-apex-red-dim/40 text-apex-red'
+  } else if (agent.status === 'armed_waiting') {
+    label = 'RPi: uzbrojony — czeka na start'
+    classes = 'border-apex-cyan/40 bg-apex-cyan-dim/40 text-apex-cyan'
+  } else if (agent.status === 'listening') {
+    label = 'RPi: nasłuchuje'
+    classes = 'border-green-700 bg-green-950/30 text-green-400'
+  }
+
+  const lastSeenLabel = agent.lastSeenAt
+    ? `widziano ${Math.round(lastSeenMs / 1000)}s temu`
+    : 'nigdy nie widziano'
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 border ${classes}`}>
+        {label}
+      </span>
+      <span className="text-[10px] text-apex-muted font-mono">
+        {lastSeenLabel} · odczyty: {agent.readsTotal ?? 0} · kolejka: {agent.queuePending ?? 0}
+      </span>
+    </div>
   )
 }
 
