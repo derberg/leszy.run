@@ -97,6 +97,25 @@ const inputClass =
   'rounded-none border border-apex-border-mid bg-apex-surface-2 text-apex-text-bright px-3 py-2.5 ' +
   'focus:outline-none focus:ring-2 focus:ring-apex-yellow-dim placeholder:text-apex-muted'
 
+function ArmModeOption({ value, current, onChange, title, description }) {
+  return (
+    <label className="flex items-start gap-2.5 text-sm text-apex-text cursor-pointer">
+      <input
+        type="radio"
+        name="armMode"
+        value={value}
+        checked={current === value}
+        onChange={() => onChange(value)}
+        className="mt-1 accent-apex-yellow"
+      />
+      <span className="flex flex-col">
+        <span className="text-apex-text-bright font-medium">{title}</span>
+        <span className="text-xs text-apex-muted">{description}</span>
+      </span>
+    </label>
+  )
+}
+
 // ---- Setup wizard --------------------------------------------------------
 
 function SetupWizard({ onSetupDone }) {
@@ -115,6 +134,7 @@ function SetupWizard({ onSetupDone }) {
   const [readerPassword, setReaderPassword] = useState('')
   const [mqttHost, setMqttHost] = useState('')
   const [noReader, setNoReader] = useState(false)
+  const [armMode, setArmMode] = useState('race_start')
 
   const [submitting, setSubmitting] = useState(false)
   const [setupError, setSetupError] = useState(null)
@@ -152,6 +172,7 @@ function SetupWizard({ onSetupDone }) {
         checkpointName: selectedCheckpoint?.name,
         pin,
         readerIp: readerIp.trim(),
+        armMode,
       }
       if (noReader) body.noReader = true
       if (readerUsername.trim()) body.readerUsername = readerUsername.trim()
@@ -240,6 +261,25 @@ function SetupWizard({ onSetupDone }) {
             autoComplete="off"
             disabled={noReader}
           />
+        </Field>
+
+        <Field label="Tryb uzbrojenia">
+          <div className="flex flex-col gap-3">
+            <ArmModeOption
+              value="race_start"
+              current={armMode}
+              onChange={setArmMode}
+              title="Uzbrój przy starcie biegu"
+              description="nagrywa dopiero gdy bieg wystartuje; wcześniejsze odczyty są ignorowane"
+            />
+            <ArmModeOption
+              value="immediate"
+              current={armMode}
+              onChange={setArmMode}
+              title="Nagrywaj od razu"
+              description="test / bez oczekiwania na start"
+            />
+          </div>
         </Field>
 
         <div>
@@ -390,6 +430,41 @@ function SimulatedReaderBadge() {
   )
 }
 
+// Arm status is derived server-side (see GET /api/state -> data.status) from
+// session/running/armed: null (no session), 'configured' (session, not
+// running), 'armed_waiting' (running, race_start mode, race not started yet
+// — reads are being dropped), 'listening' (running and armed — recording).
+function ArmStatusBadge({ status, ignoredReads }) {
+  if (status === 'listening') {
+    return (
+      <div className="flex items-center gap-2 border border-apex-green/50 bg-apex-green/10 text-apex-green px-3 py-2 font-display font-extrabold uppercase tracking-wide text-sm">
+        <span className="inline-block h-2.5 w-2.5 rounded-full bg-apex-green" />
+        Nasłuchuje — nagrywa przejścia
+      </div>
+    )
+  }
+  if (status === 'armed_waiting') {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2 border border-apex-cyan/50 bg-apex-cyan/10 text-apex-cyan px-3 py-2 font-display font-extrabold uppercase tracking-wide text-sm">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-apex-cyan animate-pulse" />
+          Uzbrojony — czeka na start biegu
+        </div>
+        <span className="text-xs text-apex-muted">
+          Ignoruje odczyty do startu biegu (pominięto: {ignoredReads ?? 0})
+        </span>
+      </div>
+    )
+  }
+  // 'configured' (session exists, running: false) — and the null/undefined fallback
+  return (
+    <div className="flex items-center gap-2 border border-apex-border-mid bg-apex-surface-2 text-apex-muted px-3 py-2 font-display font-extrabold uppercase tracking-wide text-sm">
+      <span className="inline-block h-2.5 w-2.5 rounded-full bg-apex-muted" />
+      Skonfigurowany — nie uruchomiony
+    </div>
+  )
+}
+
 function StartStopControls({ state, onAfterAction, setBanner }) {
   const [busy, setBusy] = useState(false)
   const [needsOverride, setNeedsOverride] = useState(false)
@@ -506,6 +581,8 @@ function Dashboard({ state, onAfterAction }) {
           {state.running ? 'Running' : 'Stopped'}
         </span>
       </header>
+
+      <ArmStatusBadge status={state.status} ignoredReads={state.ignoredReads} />
 
       {state.clock?.synced === false && (
         <Banner tone="yellow">
