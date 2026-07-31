@@ -21,7 +21,77 @@ race HQ network. See `ARCHITECTURE.md` (`checkpoint_observations` schema) and
 operator configures a checkpoint on the trail. This README is the hardware /
 install reference; that guide is the race-day walkthrough.
 
+## Hardware & power
+
+- **Board:** any 64-bit Raspberry Pi (tested on Pi 3B and Pi 5). 64-bit is
+  required — Node 20+ has no usable 32-bit ARM builds.
+- **Power — the #1 cause of a no-boot.** A too-weak supply makes the Pi flash
+  its green ACT LED once, then sit on solid red, and never boot. Use:
+  - **Pi 3:** a real 5V/2.5A micro-USB supply (a 2A phone charger is under spec
+    and fails).
+  - **Pi 5:** 5V/5A (27W) USB-C. A generic USB-C PD charger boots it with a
+    "not a 5A supply" warning that only limits downstream USB — harmless here,
+    since the R700 is powered separately over PoE, not off the Pi.
+  - A short, thick cable matters as much as the charger rating (voltage drop).
+- **RTC (Pi 5):** fitting the optional RTC battery means a correct clock on boot
+  with no network — the agent won't have to wait for NTP before it can record
+  (it blocks recording until the clock is sane).
+- **R700 link:** the reader connects to the Pi over Ethernet and is powered by a
+  PoE+ (802.3at) injector — not from the Pi.
+
+## Flashing the SD card (macOS)
+
+The steps below assume the Pi already boots Raspberry Pi OS. To get there from a
+blank card:
+
+1. Install **Raspberry Pi Imager**: `brew install --cask raspberry-pi-imager`
+   (or download from raspberrypi.com/software).
+2. **Device:** your Pi model. **OS:** *Raspberry Pi OS (other)* →
+   **Raspberry Pi OS Lite (64-bit)** (Lite = no desktop; we only need a shell).
+   **Storage:** the SD card.
+3. **Next → Edit Settings** (OS customisation) and set:
+   - **Hostname** — e.g. `leszyrun-checkpoint1` → reachable as
+     `leszyrun-checkpoint1.local`.
+   - **Username + password** — these are your SSH login.
+   - **Wi-Fi** — see the note below on which network to bake in.
+   - **Locale / timezone** — for correct log + observation timestamps.
+   - **Services → Enable SSH → password authentication.**
+4. **Save → Write**, confirming the overwrite. Eject, insert into the Pi, boot.
+
+**Which Wi-Fi to bake in — you won't know the trail network in advance.** The
+fix is to make the field network one you control with a *fixed* name/password,
+so you never re-flash per race:
+
+- **Simplest (no extra hardware):** set your phone's personal hotspot to a
+  permanent SSID + password and bake *that* in. At the race, turn the hotspot on
+  → the Pi auto-joins → you drive the agent from the same phone's browser. Bring
+  a power bank; the hotspot drains the phone.
+- **More robust:** a dedicated 4G/LTE travel router with its own SIM + battery;
+  set its Wi-Fi once, bake it in. Better for an unmanned checkpoint or all-day
+  race.
+- **For desk testing, bake in your home Wi-Fi** (which you know) and do the whole
+  dry-run there; add the field hotspot later (no re-flash needed —
+  `sudo nmcli device wifi connect "SSID" password "pw"` adds networks live, and
+  you can preload several).
+
+## Connecting over SSH
+
+First boot takes ~1-2 min. The Pi must be on the **same network as your Mac** —
+if the Pi is on your phone hotspot, join your Mac to that hotspot too. Then:
+
+```bash
+ssh <user>@leszyrun-checkpoint1.local     # or the Pi's IP, e.g. ssh <user>@10.80.179.35
+```
+
+If `.local` doesn't resolve (some phone hotspots block the mDNS it relies on),
+use the Pi's IP instead — it's printed on the Pi's console (`My IP address is …`)
+or visible in your hotspot's client list. Accept the host-key fingerprint on
+first connect. In the field you'll typically skip SSH entirely and just open the
+agent UI at `http://<pi-ip>:8080` from your phone.
+
 ## Raspberry Pi setup
+
+Run these on the Pi (over SSH, or at its console). Copy-paste each block.
 
 1. **Install Node.js (current LTS — 24.x)** (e.g. via NodeSource or `nvm`).
    The agent requires `>=20.11`, but Node 20 reached end-of-maintenance in 2026,
