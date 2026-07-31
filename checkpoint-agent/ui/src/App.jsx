@@ -231,7 +231,7 @@ function SetupWizard({ onSetupDone }) {
           )}
         </Field>
 
-        <Field label="Adres IP czytnika">
+        <Field label="Adres czytnika (IP lub nazwa .local)">
           <input
             className={inputClass}
             value={readerIp}
