@@ -438,6 +438,135 @@ test('normal mode unaffected: readerIp still required, noReader false in state',
   assert.deepEqual(res.json().data, { status: 'idle' })
 })
 
+// Arm-at-race-start gating: all the other MQTT tests above use armMode:
+// 'immediate', so the disarmed-drop path (and the transition out of it) is
+// otherwise untested. Build a fake supabase whose categories/race_runs
+// queries mirror armer.js's own query shape exactly (select().eq() for
+// categories, select().in().in() for race_runs) and flip its answer once the
+// "race" starts.
+test('race_start arm mode: reads are dropped while disarmed, recorded once the armer sees the race start', async (t) => {
+  let messageHandler
+  const inserted = []
+  let raceStarted = false
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-arm-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const app = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
+      goneWindowMs: 50, uploadIntervalMs: 999999, armPollMs: 30,
+      supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+    },
+    supabase: {
+      from: (table) => {
+        if (table === 'checkpoint_observations') {
+          return { insert: async (row) => { inserted.push(row); return { error: null } } }
+        }
+        if (table === 'categories') {
+          // armer.js: supabase.from('categories').select('id').eq('event_id', eventId)
+          return { select: () => ({ eq: async () => ({ data: raceStarted ? [{ id: 'cat1' }] : [], error: null }) }) }
+        }
+        if (table === 'race_runs') {
+          // armer.js: supabase.from('race_runs').select('id').in('category_id', ids).in('status', [...])
+          return { select: () => ({ in: () => ({ in: async () => ({ data: raceStarted ? [{ id: 'run1' }] : [], error: null }) }) }) }
+        }
+        // checkpoint_agents heartbeat upsert — display-only, not asserted here
+        return { upsert: async () => ({ error: null }), insert: async () => ({ error: null }) }
+      },
+    },
+    fetchRoster: async ({ pin }) =>
+      pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => ({ getStatus: async () => ({ status: 'idle' }), configure: async () => {}, start: async () => {}, stop: async () => {} }),
+    connectMqtt: () => ({
+      on: (ev, fn) => { if (ev === 'message') messageHandler = fn },
+      subscribe: () => {}, end: () => {},
+    }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5', armMode: 'race_start' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+
+  let state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.armMode, 'race_start')
+  assert.equal(state.armed, false)
+  assert.equal(state.status, 'armed_waiting')
+
+  // EPC AABBCC01 = base64 qrvMAQ==
+  const payload = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: 'qrvMAQ==', peakRssiCdbm: -4000, antennaPort: 1 } }))
+  messageHandler('leszyrun/checkpoint', payload)
+  // Well past the (short) gone window — but disarmed, so this must never
+  // reach the confirmer at all.
+  await new Promise((r) => setTimeout(r, 150))
+  await app.deps.uploader.flush()
+  assert.equal(inserted.length, 0)
+  assert.equal(app.deps.confirmer.confirmedCount, 0)
+  assert.equal(app.deps.ignoredReads, 1)
+
+  // Race "starts": flip the fake supabase data and wait for the armer's next
+  // poll (armPollMs: 30) to notice and flip status to 'listening'.
+  raceStarted = true
+  await waitFor(async () => {
+    const s = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+    return s.status === 'listening'
+  })
+  state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.armed, true)
+
+  // A subsequent read now flows through to a confirmed, queued, uploaded observation.
+  messageHandler('leszyrun/checkpoint', payload)
+  await new Promise((r) => setTimeout(r, 150))
+  await app.deps.uploader.flush()
+  assert.equal(inserted.length, 1)
+  assert.equal(inserted[0].bib_number, 101)
+})
+
+// Rebind bug: ensureHeartbeat() used to no-op whenever a heartbeat already
+// existed, even across a second /api/setup for a DIFFERENT checkpoint — so
+// the heartbeat kept upserting under the OLD checkpoint_id forever. Assert
+// that setup → setup(different checkpointId) produces upserts keyed to BOTH
+// checkpoints, and that the heartbeat instance itself is replaced.
+test('ensureHeartbeat rebinds when setup targets a different checkpointId', async (t) => {
+  const upserts = []
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-hb-rebind-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const app = await buildApp({
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, heartbeatMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    supabase: {
+      from: (table) => {
+        if (table === 'checkpoint_agents') {
+          return { upsert: async (row) => { upserts.push(row); return { error: null } } }
+        }
+        return {
+          select: () => ({
+            gte: () => ({ order: () => ({ limit: async () => ({ data: [{ id: 'ev1', name: 'Race', date: '2026-08-01' }], error: null }) }) }),
+            eq: () => ({ order: async () => ({ data: [{ id: 'cp1', name: 'CP 1', km_marker: '5.00' }], error: null }) }),
+          }),
+          insert: async () => ({ error: null }),
+          upsert: async () => ({ error: null }),
+        }
+      },
+    },
+    fetchRoster: async ({ pin }) =>
+      pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => ({ getStatus: async () => ({ status: 'idle' }), configure: async () => {}, start: async () => {}, stop: async () => {} }),
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5' } })
+  await waitFor(() => upserts.some((u) => u.checkpoint_id === 'cp1'))
+  const cp1Heartbeat = app.deps.heartbeat
+  assert.ok(cp1Heartbeat)
+
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp2', checkpointName: 'CP 2', pin: '123456', readerIp: '10.0.0.5' } })
+  await waitFor(() => upserts.some((u) => u.checkpoint_id === 'cp2'))
+  assert.notEqual(app.deps.heartbeat, cp1Heartbeat)
+})
+
 test('reader auto-recovery: steady healthy status never triggers a reconfigure', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-steady-'))
   t.after(() => rm(dir, { recursive: true, force: true }))

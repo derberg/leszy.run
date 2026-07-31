@@ -43,6 +43,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     ignoredReads: 0,
     armer: null,
     heartbeat: null,
+    heartbeatCheckpointId: null,
   }
 
   // Derived status shown in the UI and reported by the heartbeat:
@@ -59,9 +60,17 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   // A heartbeat should be visible as soon as a session exists (so
   // 'configured' shows on the admin tab before Start is ever pressed), and
   // keeps running with updated status/counts once the pipeline starts.
-  // Idempotent: a no-op if one is already running.
+  // Idempotent: a no-op if one is already running AND still bound to the
+  // current session's checkpointId. If /api/setup is re-run for a DIFFERENT
+  // checkpoint, the old heartbeat (its checkpointId baked into the closure
+  // createHeartbeat() was built with) must be stopped and replaced — otherwise
+  // it keeps upserting status rows under the OLD checkpoint_id forever while
+  // the new checkpoint never gets a heartbeat of its own.
   function ensureHeartbeat() {
-    if (!state.session || state.heartbeat) return
+    if (!state.session) return
+    if (state.heartbeat && state.heartbeatCheckpointId === state.session.checkpointId) return
+    state.heartbeat?.stop()
+    state.heartbeatCheckpointId = state.session.checkpointId
     state.heartbeat = createHeartbeat({
       supabase,
       checkpointId: state.session.checkpointId,
@@ -321,6 +330,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.reads = { total: 0, lastAt: null }
     state.armed = false
     state.ignoredReads = 0
+    state.heartbeatCheckpointId = null
     await store.remove('session')
     await store.remove('roster')
     return { data: { ok: true } }
