@@ -11,6 +11,7 @@ import { initWebSocket } from './ws/broadcaster.js'
 import { initMqtt } from './mqtt/client.js'
 import { initSupabaseSync } from './sync/supabase.js'
 import { initCheckinSync } from './sync/checkinSync.js'
+import { initConfigSync } from './sync/configSync.js'
 import { initMqttHostHeal } from './reader/mqttHostHeal.js'
 
 import { eventsRoutes } from './routes/events.js'
@@ -96,6 +97,7 @@ const start = async () => {
     // Start Supabase sync
     initSupabaseSync(db)
     initCheckinSync(db)
+    initConfigSync(db)
 
     // Auto-heal the reader's MQTT broker address when the Mac's IP drifts
     initMqttHostHeal(db)
