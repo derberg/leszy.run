@@ -17,7 +17,7 @@ function capture(responses = {}) {
   return { calls, fetchImpl }
 }
 
-test('configure pushes MQTT config then preset', async () => {
+test('configure pushes MQTT config, stops a running preset, then uploads preset', async () => {
   const { calls, fetchImpl } = capture()
   const r = createR700({ address: '10.0.0.5', username: 'root', password: 'pw', fetchImpl })
   await r.configure({ mqttHost: '10.0.0.1', topic: 'leszyrun/checkpoint', clientId: 'LeszyRunCheckpoint' })
@@ -28,18 +28,38 @@ test('configure pushes MQTT config then preset', async () => {
     eventTopic: 'leszyrun/checkpoint', active: true, tlsEnabled: false,
     cleanSession: false, eventQualityOfService: 1, keepAliveIntervalSeconds: 60,
   })
-  assert.equal(calls[1].url, 'https://10.0.0.5/api/v1/profiles/inventory/presets/leszyrun')
+  // stop the previously-running preset before modifying it (avoids R700 409)
+  assert.equal(calls[1].url, 'https://10.0.0.5/api/v1/profiles/stop')
+  assert.equal(calls[1].method, 'POST')
+  assert.equal(calls[2].url, 'https://10.0.0.5/api/v1/profiles/inventory/presets/leszyrun')
   assert.match(calls[0].headers.Authorization, /^Basic /)
 })
 
-test('start uploads preset then starts; stop calls profiles/stop', async () => {
+test('start stops a running preset, uploads preset, then starts; stop calls profiles/stop', async () => {
   const { calls, fetchImpl } = capture()
   const r = createR700({ address: '10.0.0.5', username: 'root', password: '', fetchImpl })
   await r.start()
-  assert.equal(calls[0].url, 'https://10.0.0.5/api/v1/profiles/inventory/presets/leszyrun')
-  assert.equal(calls[1].url, 'https://10.0.0.5/api/v1/profiles/inventory/presets/leszyrun/start')
+  // stop first so an already-running preset does not 409 on re-start
+  assert.equal(calls[0].url, 'https://10.0.0.5/api/v1/profiles/stop')
+  assert.equal(calls[0].method, 'POST')
+  assert.equal(calls[1].url, 'https://10.0.0.5/api/v1/profiles/inventory/presets/leszyrun')
+  assert.equal(calls[2].url, 'https://10.0.0.5/api/v1/profiles/inventory/presets/leszyrun/start')
   await r.stop()
-  assert.equal(calls[2].url, 'https://10.0.0.5/api/v1/profiles/stop')
+  assert.equal(calls[3].url, 'https://10.0.0.5/api/v1/profiles/stop')
+})
+
+test('a failing pre-stop is ignored — configure/start still proceed', async () => {
+  const calls = []
+  const fetchImpl = async (url, opts) => {
+    calls.push({ url, method: opts.method })
+    if (url.endsWith('/profiles/stop')) return { ok: false, status: 409, text: async () => '{"message":"Conflict. The preset is running."}' }
+    return { ok: true, text: async () => '{"ok":true}' }
+  }
+  const r = createR700({ address: '10.0.0.5', username: 'root', password: '', fetchImpl })
+  await r.start()  // must NOT throw even though the pre-stop 409s
+  assert.equal(calls[0].url, 'https://10.0.0.5/api/v1/profiles/stop')
+  assert.equal(calls[1].url, 'https://10.0.0.5/api/v1/profiles/inventory/presets/leszyrun')
+  assert.equal(calls[2].url, 'https://10.0.0.5/api/v1/profiles/inventory/presets/leszyrun/start')
 })
 
 test('non-ok response throws readable error', async () => {
