@@ -56,6 +56,13 @@ const RPI_MQTT_HOST_DEFAULT = '169.254.1.100'
 const RPI_READER_USER_DEFAULT = 'root'
 const RPI_READER_PASSWORD_DEFAULT = ''
 
+// Single-quote a shell value so special chars (!, $, spaces, …) survive copy-paste.
+// bash history expansion eats a bare `!` (e.g. an R700 password), so free-text
+// fields (reader login/password) MUST be quoted. Embedded single quotes → '\''.
+function shq(v) {
+  return `'${String(v ?? '').replace(/'/g, `'\\''`)}'`
+}
+
 function buildRpiCommand({ eventId, checkpointId, pin, readerIp, mqttHost, readerUser, readerPassword }) {
   const pinValue = pin || '<PIN — wygeneruj w Ustawieniach>'
   return [
@@ -65,8 +72,8 @@ function buildRpiCommand({ eventId, checkpointId, pin, readerIp, mqttHost, reade
     `AUTOCONFIG_PIN=${pinValue} \\`,
     `AUTOCONFIG_READER_IP=${readerIp} \\`,
     `AUTOCONFIG_MQTT_HOST=${mqttHost} \\`,
-    `AUTOCONFIG_READER_USER=${readerUser} \\`,
-    `AUTOCONFIG_READER_PASSWORD=${readerPassword} \\`,
+    `AUTOCONFIG_READER_USER=${shq(readerUser)} \\`,
+    `AUTOCONFIG_READER_PASSWORD=${shq(readerPassword)} \\`,
     'npm start',
   ].join('\n')
 }
