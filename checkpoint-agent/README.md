@@ -166,8 +166,18 @@ Run these on the Pi (over SSH, or at its console). Copy-paste each block.
    ```bash
    npm start
    ```
-   The agent prints its LAN IP and port on boot — that's the URL the
-   operator opens on a phone or laptop to run the setup wizard.
+   The agent prints every reachable LAN IP (with its interface name) and the
+   port on boot, e.g.:
+   ```
+   [agent] listening on:
+     http://192.168.1.103:8080   (wlan0)
+     http://169.254.1.100:8080   (eth1)
+   open the one on the same network as your phone/laptop
+   ```
+   Open whichever address is on the same network as your phone or laptop to
+   run the setup wizard (the `169.254.x.x` one above is the reader-NIC link
+   — see "Networking: the reader is on a second NIC" below; it's not
+   reachable from your phone).
 
 ### Networking: the reader is on a *second* NIC (link-local)
 
@@ -208,6 +218,57 @@ pick the internet NIC (`wlan0`), which the reader **cannot route to** from the
 (`169.254.1.100` above). Reader IP stays `169.254.1.1`. With that, the reader
 reaches the Pi's broker over the PoE cable while `wlan0` still carries
 Supabase traffic.
+
+### Headless / auto-config start (no wizard)
+
+For a checkpoint that's redeployed to the same event/checkpoint slot every
+time (or one you'd rather provision once and never touch again), the agent
+can skip the setup wizard entirely and boot straight into a running session,
+driven by `AUTOCONFIG_*` env vars. On boot — after `resume()` has had first
+crack at any already-running persisted session — the agent calls the
+equivalent of `POST /api/setup` followed by `POST /api/start` for you.
+
+| Var | Required | Notes |
+|---|---|---|
+| `AUTOCONFIG_EVENT_ID` | yes | same value the wizard's event dropdown would submit |
+| `AUTOCONFIG_CHECKPOINT_ID` | yes | same value the wizard's checkpoint dropdown would submit |
+| `AUTOCONFIG_PIN` | yes | the checkpoint PIN (see "Race-day flow" above) |
+| `AUTOCONFIG_READER_IP` | yes, unless `AUTOCONFIG_NO_READER=true` | the R700's LAN/mDNS address |
+| `AUTOCONFIG_MQTT_HOST` | no | overrides auto-detected LAN IP — same override the wizard's "Advanced" section exposes; **mandatory** on the dual-NIC reader setup described above |
+| `AUTOCONFIG_READER_USER` / `AUTOCONFIG_READER_PASSWORD` | no | defaults to `root` / blank, same as the wizard |
+| `AUTOCONFIG_ARM_MODE` | no | `race_start` (default) or `immediate` |
+| `AUTOCONFIG_NO_READER` | no | `true`/`1` → test mode without a reader (see "Test na sucho" below); drops the `AUTOCONFIG_READER_IP` requirement |
+| `AUTOCONFIG_EVENT_NAME` / `AUTOCONFIG_CHECKPOINT_NAME` | no | cosmetic display labels only |
+
+Autoconfig only fires when `AUTOCONFIG_EVENT_ID` + `AUTOCONFIG_CHECKPOINT_ID` +
+`AUTOCONFIG_PIN` are all set (and `AUTOCONFIG_READER_IP` too, unless
+`AUTOCONFIG_NO_READER` is on) — otherwise the agent boots exactly as before,
+into the empty wizard. It's also idempotent and safe across restarts: if a
+persisted session for the *same* checkpoint is already running or armed
+(the normal `resume()`-after-reboot path), autoconfig recognizes that and
+does nothing — it never re-downloads the roster or restarts a live session.
+Any failure (bad PIN, unreachable reader, bad ids) is logged to stdout as
+`[autoconfig] failed: <reason> — configure via the UI at :8080` and the
+server keeps running normally, so you can always fall back to the wizard at
+`http://<pi-ip>:8080`.
+
+One-liner example:
+
+```bash
+AUTOCONFIG_EVENT_ID=<event-uuid> \
+AUTOCONFIG_CHECKPOINT_ID=<checkpoint-uuid> \
+AUTOCONFIG_PIN=123456 \
+AUTOCONFIG_READER_IP=169.254.1.1 \
+AUTOCONFIG_MQTT_HOST=169.254.1.100 \
+SUPABASE_URL=https://<project>.supabase.co \
+SUPABASE_ANON_KEY=<anon-key> \
+node src/index.js
+```
+
+This composes with the systemd `EnvironmentFile` below — put the
+`AUTOCONFIG_*` lines alongside `SUPABASE_URL`/`SUPABASE_ANON_KEY` in
+`/etc/leszyrun-checkpoint.env` (or as extra `Environment=` lines in the unit)
+and a fresh boot comes up already recording, with zero taps on the phone.
 
 ### systemd unit (boot-start + restart-on-crash + permanent env)
 

@@ -175,24 +175,26 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     return { data }
   })
 
-  app.post('/api/setup', async (req, reply) => {
-    const { eventId, eventName, checkpointId, checkpointName, pin, readerIp, readerUsername, readerPassword, mqttHost, noReader, armMode } = req.body ?? {}
+  // Shared by POST /api/setup and bootstrapFromEnv() so headless auto-config
+  // exercises exactly the same validation + persistence path as the wizard —
+  // no duplicated logic to drift out of sync.
+  async function doSetup({ eventId, eventName, checkpointId, checkpointName, pin, readerIp, readerUsername, readerPassword, mqttHost, noReader, armMode }) {
     // Test mode without a reader: the operator can run the whole
     // pipeline (MQTT/confirmer/resolver/queue/uploader) against the
     // simulator (scripts/simulate-reads.js) with no R700 on the LAN. In
     // that mode readerIp isn't required and, if supplied anyway, is
     // stored but never used.
     if (!eventId || !checkpointId || !pin || (!readerIp && !noReader)) {
-      return reply.code(400).send({ error: 'eventId, checkpointId, pin and readerIp are required' })
+      return { ok: false, status: 400, error: 'eventId, checkpointId, pin and readerIp are required' }
     }
     if (!SAFE_ID.test(eventId) || !SAFE_ID.test(checkpointId)) {
-      return reply.code(400).send({ error: 'Invalid eventId or checkpointId' })
+      return { ok: false, status: 400, error: 'Invalid eventId or checkpointId' }
     }
     if (armMode !== undefined && !ARM_MODES.has(armMode)) {
-      return reply.code(400).send({ error: "armMode must be 'race_start' or 'immediate'" })
+      return { ok: false, status: 400, error: "armMode must be 'race_start' or 'immediate'" }
     }
     const result = await fetchRoster({ eventId, pin })
-    if (!result.ok) return reply.code(result.status ?? 502).send({ error: result.error })
+    if (!result.ok) return { ok: false, status: result.status ?? 502, error: result.error }
     // The R700 must reach the Pi's broker over the LAN — 'localhost' only
     // resolves from the Pi itself. Default to the detected LAN IP when the
     // operator didn't provide one explicitly.
@@ -208,7 +210,13 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     await store.save('session', state.session)
     await store.save('roster', result.roster)
     ensureHeartbeat() // 'configured' shows on the admin tab even before Start
-    return { data: { rosterCount: result.roster.length } }
+    return { ok: true, rosterCount: result.roster.length }
+  }
+
+  app.post('/api/setup', async (req, reply) => {
+    const result = await doSetup(req.body ?? {})
+    if (!result.ok) return reply.code(result.status).send({ error: result.error })
+    return { data: { rosterCount: result.rosterCount } }
   })
 
   async function startPipeline() {
@@ -275,12 +283,13 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     if (!state.session.noReader) startReaderPoll()
   }
 
-  app.post('/api/start', async (req, reply) => {
-    if (!state.session) return reply.code(409).send({ error: 'Not configured — run setup first' })
-    if (state.running) return reply.code(409).send({ error: 'Already running' })
+  // Shared by POST /api/start and bootstrapFromEnv().
+  async function doStart({ overrideClock } = {}) {
+    if (!state.session) return { ok: false, status: 409, error: 'Not configured — run setup first' }
+    if (state.running) return { ok: false, status: 409, error: 'Already running' }
     const clock = await clockStatus()
-    if (clock.synced === false && !req.body?.overrideClock) {
-      return reply.code(423).send({ error: 'Clock not synchronized' })
+    if (clock.synced === false && !overrideClock) {
+      return { ok: false, status: 423, error: 'Clock not synchronized' }
     }
     if (!state.session.noReader) {
       state.reader = createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword })
@@ -290,6 +299,12 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     await startPipeline()
     state.session.running = true
     await store.save('session', state.session)
+    return { ok: true }
+  }
+
+  app.post('/api/start', async (req, reply) => {
+    const result = await doStart({ overrideClock: req.body?.overrideClock })
+    if (!result.ok) return reply.code(result.status).send({ error: result.error })
     return { data: { ok: true } }
   })
 
@@ -358,6 +373,59 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
         } catch { /* reader down — pipeline still records if reader reappears with old config */ }
       }
       await startPipeline()
+    }
+  }
+
+  // Headless auto-config: lets a checkpoint Pi boot straight into a running
+  // session with no operator ever touching the wizard, driven entirely by
+  // AUTOCONFIG_* env vars (see config.js). Called from index.js AFTER
+  // app.resume() — resume() takes precedence for a session that was already
+  // persisted and running for this checkpoint; bootstrapFromEnv() only acts
+  // when nothing is currently running. Never throws — a bad PIN, an
+  // unreachable reader, or invalid ids must leave the server up and
+  // reachable so the operator can fall back to the UI, not crash the
+  // process.
+  app.bootstrapFromEnv = async () => {
+    const ac = config.autoconfig
+    if (!ac?.present) return
+    // Idempotent, and deliberately checkpoint-agnostic: if ANYTHING is
+    // already running — this checkpoint or a different one — bootstrapping
+    // must be a hard no-op. Comparing checkpointId first and only guarding
+    // on a match is wrong: doSetup() below persists state.session (pointing
+    // it at the NEW checkpoint) before doStart() would reject with 409,
+    // leaving the on-disk session pointing at the new checkpoint while the
+    // live pipeline/queue/heartbeat are still running under the old one.
+    if (state.running) {
+      console.log('[autoconfig] a session is already running — leaving it; stop it first to reconfigure')
+      return
+    }
+    const uiPort = config.port ?? 8080
+    try {
+      const setupResult = await doSetup({
+        eventId: ac.eventId,
+        eventName: ac.eventName,
+        checkpointId: ac.checkpointId,
+        checkpointName: ac.checkpointName,
+        pin: ac.pin,
+        readerIp: ac.readerIp,
+        readerUsername: ac.readerUsername,
+        readerPassword: ac.readerPassword,
+        mqttHost: ac.mqttHost,
+        noReader: ac.noReader,
+        armMode: ac.armMode,
+      })
+      if (!setupResult.ok) {
+        console.error(`[autoconfig] failed: ${setupResult.error} — configure via the UI at :${uiPort}`)
+        return
+      }
+      const startResult = await doStart({})
+      if (!startResult.ok) {
+        console.error(`[autoconfig] failed: ${startResult.error} — configure via the UI at :${uiPort}`)
+        return
+      }
+      console.log(`[autoconfig] configured checkpoint ${ac.checkpointId} for event ${ac.eventId}, armMode=${ac.armMode}, status=${currentStatus()}`)
+    } catch (err) {
+      console.error(`[autoconfig] failed: ${err.message} — configure via the UI at :${uiPort}`)
     }
   }
 
