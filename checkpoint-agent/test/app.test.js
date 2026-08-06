@@ -567,6 +567,254 @@ test('ensureHeartbeat rebinds when setup targets a different checkpointId', asyn
   assert.notEqual(app.deps.heartbeat, cp1Heartbeat)
 })
 
+// --- bootstrapFromEnv() — headless auto-config from AUTOCONFIG_* env vars,
+// parsed by config.js into config.autoconfig and consumed here. See the
+// "same setup/start logic" refactor above (doSetup/doStart) that both the
+// HTTP routes and bootstrapFromEnv() now share.
+
+function autoconfigBase(overrides = {}) {
+  return {
+    present: true,
+    eventId: 'ev1',
+    checkpointId: 'cp1',
+    pin: '123456',
+    readerIp: null,
+    mqttHost: null,
+    readerUsername: null,
+    readerPassword: null,
+    armMode: 'immediate',
+    noReader: true,
+    eventName: 'Race',
+    checkpointName: 'CP 1',
+    ...overrides,
+  }
+}
+
+function fakeSupabaseForBootstrap(inserted = []) {
+  return {
+    from: (table) => table === 'checkpoint_observations'
+      ? { insert: async (row) => { inserted.push(row); return { error: null } } }
+      : {
+          select: () => ({
+            gte: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }) }),
+            order: () => ({ limit: async () => ({ data: [], error: null }) }),
+            eq: () => ({ order: async () => ({ data: [], error: null }) }),
+          }),
+          upsert: async () => ({ error: null }),
+          insert: async () => ({ error: null }),
+        },
+  }
+}
+
+test('bootstrapFromEnv: no prior session, autoconfig present → configures and starts headlessly', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-bootstrap-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  let fetchRosterCalls = 0
+  const app = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
+      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+      autoconfig: autoconfigBase(),
+    },
+    supabase: fakeSupabaseForBootstrap(),
+    fetchRoster: async ({ pin }) => {
+      fetchRosterCalls += 1
+      return pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' }
+    },
+    createReader: () => { throw new Error('createReader must not be called in noReader autoconfig') },
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  await app.bootstrapFromEnv()
+
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.session.checkpointId, 'cp1')
+  assert.equal(state.running, true)
+  assert.equal(state.armMode, 'immediate')
+  assert.equal(state.status, 'listening')
+  assert.equal(fetchRosterCalls, 1)
+})
+
+test('bootstrapFromEnv: fetchRoster fails (bad PIN) — does not throw, server keeps running, no session created', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-bootstrap-badpin-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const app = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
+      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+      autoconfig: autoconfigBase({ pin: 'wrong' }),
+    },
+    supabase: fakeSupabaseForBootstrap(),
+    fetchRoster: async ({ pin }) =>
+      pin === '123456' ? { ok: true, roster: [] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => { throw new Error('createReader must not be called') },
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  await assert.doesNotReject(() => app.bootstrapFromEnv())
+
+  // server still responds
+  const res = await app.inject({ method: 'GET', url: '/api/state' })
+  assert.equal(res.statusCode, 200)
+  const state = res.json().data
+  assert.equal(state.session, null)
+  assert.equal(state.running, false)
+})
+
+test('bootstrapFromEnv: reader configure throwing does not crash — server stays up, no running session', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-bootstrap-readerfail-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const app = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
+      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+      autoconfig: autoconfigBase({ noReader: false, readerIp: '10.0.0.5' }),
+    },
+    supabase: fakeSupabaseForBootstrap(),
+    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => ({ getStatus: async () => ({ status: 'idle' }), configure: async () => { throw new Error('reader unreachable') }, start: async () => {}, stop: async () => {} }),
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  await assert.doesNotReject(() => app.bootstrapFromEnv())
+
+  const res = await app.inject({ method: 'GET', url: '/api/state' })
+  assert.equal(res.statusCode, 200)
+  const state = res.json().data
+  // setup succeeded (session persisted) but start() failed before flipping running
+  assert.ok(state.session)
+  assert.equal(state.running, false)
+})
+
+test('bootstrapFromEnv: invalid checkpointId (path traversal) fails cleanly, no session stored', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-bootstrap-badid-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const app = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
+      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+      autoconfig: autoconfigBase({ checkpointId: '../../etc/passwd' }),
+    },
+    supabase: fakeSupabaseForBootstrap(),
+    fetchRoster: async () => { throw new Error('fetchRoster must not be called for an invalid id') },
+    createReader: () => { throw new Error('createReader must not be called') },
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  await assert.doesNotReject(() => app.bootstrapFromEnv())
+
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.session, null)
+})
+
+test('bootstrapFromEnv: no-op when a running session already exists for the same checkpoint (resume already handled it)', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-bootstrap-noop-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  let fetchRosterCalls = 0
+  const app = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
+      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+      autoconfig: autoconfigBase(),
+    },
+    supabase: fakeSupabaseForBootstrap(),
+    fetchRoster: async ({ pin }) => {
+      fetchRosterCalls += 1
+      return pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' }
+    },
+    createReader: () => { throw new Error('createReader must not be called in noReader mode') },
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  // Simulate resume() (or a manual setup+start) already having stood up a
+  // running session for the SAME checkpointId the autoconfig targets.
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', noReader: true, armMode: 'immediate' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  assert.equal(fetchRosterCalls, 1)
+
+  await app.bootstrapFromEnv()
+
+  // no second fetchRoster call — bootstrap recognized the running session
+  // for the same checkpoint and did nothing
+  assert.equal(fetchRosterCalls, 1)
+})
+
+// Regression: bootstrapFromEnv used to only skip when the RUNNING session's
+// checkpointId matched AUTOCONFIG_CHECKPOINT_ID. If they differed, it called
+// doSetup() (which persists state.session pointing at the NEW checkpoint)
+// before doStart() rejected with 409 — leaving the on-disk session pointing
+// at the new checkpoint while the live pipeline/queue/heartbeat kept running
+// under the OLD one. bootstrapFromEnv must now be checkpoint-agnostic: any
+// running session at all blocks it.
+test('bootstrapFromEnv: no-op when a running session exists for a DIFFERENT checkpoint — does not overwrite the persisted session', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-bootstrap-diffcp-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  let fetchRosterCalls = 0
+  const app = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
+      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+      // autoconfig targets cp2, but the already-running session (below) is cp1
+      autoconfig: autoconfigBase({ checkpointId: 'cp2' }),
+    },
+    supabase: fakeSupabaseForBootstrap(),
+    fetchRoster: async ({ pin }) => {
+      fetchRosterCalls += 1
+      return pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' }
+    },
+    createReader: () => { throw new Error('createReader must not be called in noReader mode') },
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  // A running session already exists for cp1 — e.g. resume() brought it back,
+  // or the operator started it by hand — while AUTOCONFIG_CHECKPOINT_ID=cp2.
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', noReader: true, armMode: 'immediate' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  assert.equal(fetchRosterCalls, 1)
+
+  await app.bootstrapFromEnv()
+
+  // fetchRoster must NOT have been called again for cp2, and the persisted
+  // session must still point at the ORIGINAL running checkpoint (cp1) — not
+  // overwritten mid-flight by a doSetup() call that never got to doStart().
+  assert.equal(fetchRosterCalls, 1)
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.session.checkpointId, 'cp1')
+  assert.equal(state.running, true)
+})
+
+test('bootstrapFromEnv: absent autoconfig is a pure no-op', async (t) => {
+  const app = await makeApp(t)
+  await app.bootstrapFromEnv()
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.session, null)
+  assert.equal(state.running, false)
+})
+
 test('reader auto-recovery: steady healthy status never triggers a reconfigure', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-steady-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
