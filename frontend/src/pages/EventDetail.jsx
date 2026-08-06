@@ -12,9 +12,44 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFoo
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog.jsx'
 import ParticipantsTable from '../components/ParticipantsTable/ParticipantsTable.jsx'
 import ImportSection from '../components/ImportWizard/ImportSection.jsx'
-import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X, Terminal } from 'lucide-react'
+import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X, Terminal, Info, ChevronDown } from 'lucide-react'
 
 const VALID_TABS = ['categories', 'participants', 'rfid', 'checkpoints', 'settings', 'documents', 'partners']
+
+// Legend for CheckpointAgentBadge below — keep classes in exact sync with that
+// component so the swatches shown here match the real badges pixel-for-pixel.
+const AGENT_STATUS_LEGEND = [
+  {
+    label: 'Brak agenta RPi',
+    classes: 'border-apex-border text-apex-dim',
+    desc: 'Żaden Raspberry Pi nie zgłosił się dla tego punktu.',
+  },
+  {
+    label: 'RPi: skonfigurowany',
+    classes: 'border-apex-border bg-apex-surface-2 text-apex-muted',
+    desc: (
+      <>
+        Agent połączony, ale <strong className="text-apex-text-bright">jeszcze NIE nagrywa</strong> (Start nie wykonany albo się nie powiódł, np. błąd logowania do czytnika).{' '}
+        <strong className="text-apex-text-bright">To NIE jest stan docelowy</strong> — sprawdź Pi.
+      </>
+    ),
+  },
+  {
+    label: 'RPi: uzbrojony — czeka na start',
+    classes: 'border-apex-cyan/40 bg-apex-cyan-dim/40 text-apex-cyan',
+    desc: 'Wystartowany; ignoruje odczyty z czytnika do momentu startu biegu w systemie.',
+  },
+  {
+    label: 'RPi: nasłuchuje',
+    classes: 'border-green-700 bg-green-950/30 text-green-400',
+    desc: 'Nagrywa przejścia zawodników. Stan docelowy podczas biegu.',
+  },
+  {
+    label: 'RPi OFFLINE',
+    classes: 'border-apex-red/40 bg-apex-red-dim/40 text-apex-red',
+    desc: 'Brak sygnału od ponad ~60 s (utrata zasilania/sieci).',
+  },
+]
 
 const RPI_READER_IP_DEFAULT = '169.254.1.1'
 const RPI_MQTT_HOST_DEFAULT = '169.254.1.100'
@@ -82,6 +117,7 @@ export default function EventDetail() {
   const [cpDialog, setCpDialog] = useState(false)
   const [cpForm, setCpForm] = useState({ name: '', kmMarker: '', categoryIds: [], private: false })
   const [editingCp, setEditingCp] = useState(null)
+  const [showAgentLegend, setShowAgentLegend] = useState(false)
 
   // Raspberry Pi command modal — reuses the same checkpoint-agent PIN shown in Ustawienia
   const { data: checkpointPinData } = useQuery({
@@ -294,6 +330,31 @@ export default function EventDetail() {
                   <Plus size={14} /> Dodaj punkt
                 </Button>
               </div>
+            </div>
+
+            <div className="border border-apex-border bg-apex-surface">
+              <button
+                type="button"
+                onClick={() => setShowAgentLegend(v => !v)}
+                aria-expanded={showAgentLegend}
+                className="w-full flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-widest text-apex-muted hover:text-apex-text-bright transition-colors"
+              >
+                <Info size={12} />
+                Statusy RPi
+                <ChevronDown size={12} className={`ml-auto transition-transform ${showAgentLegend ? 'rotate-180' : ''}`} />
+              </button>
+              {showAgentLegend && (
+                <div className="border-t border-apex-border px-3 py-3 space-y-2.5">
+                  {AGENT_STATUS_LEGEND.map(item => (
+                    <div key={item.label} className="flex items-start gap-2">
+                      <span className={`shrink-0 text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 border ${item.classes}`}>
+                        {item.label}
+                      </span>
+                      <span className="text-xs text-apex-text leading-snug">{item.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {checkpoints.length === 0 && (
