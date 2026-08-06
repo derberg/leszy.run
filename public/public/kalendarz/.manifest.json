@@ -37197,6 +37197,29 @@
     "is_kids": null,
     "status": "active"
   },
+  "bieg-zwyciestwa-2026-2026-08-15": {
+    "id": "048f9ecb-2749-47b3-9904-a93eb6752721",
+    "name": "Bieg Zwycięstwa 2026",
+    "date": "2026-08-15",
+    "registration_deadline": "2026-08-13",
+    "regulamin_url": "https://foxter-sport.pl/uploads/competition/comp_regulations_1138.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Łowicz",
+    "voivodeship": "Łódzkie",
+    "lat": 52.107683,
+    "lng": 19.944787,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://foxter-sport.pl/bieg-zwyciestwa-2026",
+    "website": "http://parszywamila.com/",
+    "is_kids": null,
+    "status": "active"
+  },
   "biegowe-grand-prix-mazur-2026-biegaj-blizej-natury-4-bieg-sladami-niedzwiedzia-2026-08-15": {
     "id": "c3778fd9-589d-4c8d-ae84-272d1967ad0b",
     "name": "Biegowe Grand Prix Mazur 2026 Biegaj Bliżej Natury #4 - Bieg Śladami Niedźwiedzia",
@@ -38645,6 +38668,31 @@
       "bieg"
     ],
     "registration_url": "https://dostartu.pl/permalink-v16435",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "bieg-charytatywny-dla-adama-barcikowskiego-razem-dla-adama-2026-08-23": {
+    "id": "e5f898eb-d637-4bb3-89f8-f31f059e6511",
+    "name": "Bieg Charytatywny dla Adama Barcikowskiego „Razem dla Adama”.",
+    "date": "2026-08-23",
+    "registration_deadline": null,
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12596.pdf",
+    "price_from": 20,
+    "price_to": 20,
+    "location": "Wałbrzych",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.785221,
+    "lng": 16.28464,
+    "distances": [
+      "2.2 km"
+    ],
+    "event_type": [
+      "charytatywny",
+      "nordic walking",
+      "uliczny"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12596%26co%3Dform",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -41654,6 +41702,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "xiv-bieg-lesnika-2026-09-05": {
+    "id": "a74d30c5-b9dc-4986-af7e-bfc508f5757c",
+    "name": "XIV Bieg Leśnika",
+    "date": "2026-09-05",
+    "registration_deadline": "2026-09-01",
+    "regulamin_url": "https://skierniewice.lodz.lasy.gov.pl/documents/161119/54490572/R+E+G+U+L+A+M+I+N+XIV++B+I+E+G+U++L+E+%C5%9A+N+I+K+A.pdf/9a7d1553-bfe7-7747-38ab-b76fc8a43d86",
+    "price_from": null,
+    "price_to": null,
+    "location": "Skierniewice",
+    "voivodeship": "Łódzkie",
+    "lat": 51.958007,
+    "lng": 20.144809,
+    "distances": [
+      "3.5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1480",
+    "website": "https://skierniewice.lodz.lasy.gov.pl/aktualnosci/-/asset_publisher/1M8a/content/xiv-bieg-lesnika-w-nadlesnictwie-skierniewi-1",
+    "is_kids": null,
+    "status": "active"
+  },
   "bieg-malych-zeglarzy-iv-2026-09-05": {
     "id": "04202be8-cb01-4168-94d9-50f54306f4e4",
     "name": "Bieg Małych Żeglarzy IV",
@@ -42942,6 +43015,36 @@
     "distances": [],
     "event_type": [],
     "registration_url": "https://maratonczykpomiarczasu.pl/pomorze-zachodnie-tour",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "bieg-ordona-2026-09-06": {
+    "id": "4f0db6c2-0c7a-41d1-8f7d-d3d813304b3d",
+    "name": "Bieg Ordona",
+    "date": "2026-09-06",
+    "registration_deadline": null,
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1156",
+    "price_from": 40,
+    "price_to": 40,
+    "location": "Warszawa\n                            Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.213864,
+    "lng": 21.003735,
+    "distances": [
+      "5 km",
+      "200 m",
+      "500 m",
+      "750 m",
+      "1 km",
+      "1.25 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking",
+      "dzieci"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/bieg-ordona",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -48173,6 +48276,28 @@
       "trail"
     ],
     "registration_url": "https://competitions.timekeeper.pl/xxvii-bieg-na-gore-cergowa",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "race-for-the-cure-gdansk-2026-09-20": {
+    "id": "9d4b3c1f-08c9-409d-95db-e6cc2227abf1",
+    "name": "Race for the Cure Gdańsk",
+    "date": "2026-09-20",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": 60,
+    "price_to": 120,
+    "location": "Gdańsk",
+    "voivodeship": "Pomorskie",
+    "lat": 54.348291,
+    "lng": 18.654023,
+    "distances": [],
+    "event_type": [
+      "uliczny",
+      "charytatywny"
+    ],
+    "registration_url": "https://www.raceforthecure.eu/pl/Races/Race/Id/60",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -55199,6 +55324,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "vi-bieg-uliczny-piatka-szyta-na-miare-2026-10-25": {
+    "id": "b1304ae1-5aa4-4c49-b15c-aaa4db2ceabf",
+    "name": "VI Bieg uliczny \"Piątka szyta na miarę\"",
+    "date": "2026-10-25",
+    "registration_deadline": "2026-10-15",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Bełchatów",
+    "voivodeship": "Łódzkie",
+    "lat": 51.366732,
+    "lng": 19.369465,
+    "distances": [
+      "5 km",
+      "2.5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://www.e-gepard.eu/pl/show-contest/1687",
+    "website": "https://mcs.belchatow.pl/wydarzenie/vi-bieg-uliczny-piatka-szyta-na-miare/",
+    "is_kids": null,
+    "status": "active"
+  },
   "chwalowicki-maraton-napoleonski-2026-10-25": {
     "id": "a833792e-f1d8-4b04-b801-7894f7470cf6",
     "name": "Chwałowicki Maraton Napoleoński",
@@ -56984,6 +57133,31 @@
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2519/w-pogoni-za-mikolajem-ozimskie-biegi-dla-doroslych-2026.html",
     "website": "https://www.zmierzymyczas.pl/2519/w-pogoni-za-mikolajem-ozimskie-biegi-dla-doroslych-2026.html",
+    "is_kids": null,
+    "status": "active"
+  },
+  "xxxv-uliczny-bieg-o-lampke-gornicza-konin-2026-2026-12-06": {
+    "id": "2f034ca1-723f-41f2-a3be-3c576701bcbf",
+    "name": "XXXV Uliczny Bieg o Lampkę Górniczą Konin 2026",
+    "date": "2026-12-06",
+    "registration_deadline": "2026-11-26",
+    "regulamin_url": "https://foxter-sport.pl/uploads/files/915/item_3224.pdf",
+    "price_from": 59,
+    "price_to": 89,
+    "location": "Konin",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.255902,
+    "lng": 18.267866,
+    "distances": [
+      "4 km",
+      "10 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny"
+    ],
+    "registration_url": "https://foxter-sport.pl/xxxv-uliczny-bieg-o-lampke-gornicza-konin-2026",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
