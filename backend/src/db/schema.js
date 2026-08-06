@@ -165,6 +165,11 @@ export const checkpointObservations = pgTable('checkpoint_observations', {
   bibNumber: integer('bib_number').notNull(),
   participantId: uuid('participant_id').references(() => participants.id, { onDelete: 'set null' }),
   observedAt: timestamp('observed_at', { withTimezone: true }).notNull(),
+  // How the pass was recorded: 'rfid' (Raspberry-Pi checkpoint-agent read) or
+  // 'manual' (volunteer phone entry / admin POST). RFID is authoritative — the
+  // priority trigger (migration 0030) upgrades an earlier 'manual' row to 'rfid'
+  // in place; a 'manual' entry never overrides an existing 'rfid' one.
+  source: text('source').notNull().default('manual'),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })
 

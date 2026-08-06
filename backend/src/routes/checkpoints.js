@@ -146,6 +146,7 @@ export async function checkpointsRoutes(fastify) {
       bibNumber,
       participantId: p?.id || null,
       observedAt: observedAt ? new Date(observedAt) : new Date(),
+      source: 'manual',
     }).returning()
 
     // Gun-start fallback: only possible if participant was resolved

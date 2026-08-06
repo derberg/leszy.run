@@ -303,6 +303,7 @@ test('MQTT read → confirm → queue → flush inserts observation', async (t) 
   assert.equal(inserted.length, 1)
   assert.equal(inserted[0].bib_number, 101)
   assert.equal(inserted[0].checkpoint_id, 'cp1')
+  assert.equal(inserted[0].source, 'rfid') // RFID reads are marked authoritative
 })
 
 // Reader auto-recovery: a mid-race R700 power cycle wipes its MQTT +
