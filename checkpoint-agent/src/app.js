@@ -226,7 +226,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
       onConfirm: ({ epc, peakTime }) => {
         const bib = state.resolver.resolve(epc)
         if (bib == null) return // unknown tag — tracked by resolver, never uploaded
-        state.queue.append({ epc, checkpoint_id: state.session.checkpointId, bib_number: bib, observed_at: new Date(peakTime).toISOString() })
+        state.queue.append({ epc, checkpoint_id: state.session.checkpointId, bib_number: bib, observed_at: new Date(peakTime).toISOString(), source: 'rfid' })
       },
     })
     state.confirmer.seed(state.queue.epcs()) // restart recovery: don't re-record

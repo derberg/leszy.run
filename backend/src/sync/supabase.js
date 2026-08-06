@@ -87,6 +87,17 @@ export async function syncDeleteEvent(eventId) {
   }
 }
 
+async function resolveParticipantId(db, remote) {
+  const [cp] = await db.select({ eventId: checkpoints.eventId })
+    .from(checkpoints)
+    .where(eq(checkpoints.id, remote.checkpoint_id))
+  if (!cp) return null
+  const [found] = await db.select({ id: participants.id })
+    .from(participants)
+    .where(sql`event_id = ${cp.eventId} AND bib_number = ${remote.bib_number}`)
+  return found ? found.id : null
+}
+
 function subscribeRealtime(db) {
   supabase
     .channel('leszyrun-realtime')
@@ -97,20 +108,9 @@ function subscribeRealtime(db) {
         const remote = payload.new
         if (!remote?.id) return
 
-        console.log(`[Sync] Realtime checkpoint_observation: bib ${remote.bib_number}`)
+        console.log(`[Sync] Realtime checkpoint_observation INSERT: bib ${remote.bib_number} (${remote.source})`)
 
-        // Resolve participant_id from bib_number + event context
-        const [cp] = await db.select({ eventId: checkpoints.eventId })
-          .from(checkpoints)
-          .where(eq(checkpoints.id, remote.checkpoint_id))
-
-        let participantId = null
-        if (cp) {
-          const [found] = await db.select({ id: participants.id })
-            .from(participants)
-            .where(sql`event_id = ${cp.eventId} AND bib_number = ${remote.bib_number}`)
-          if (found) participantId = found.id
-        }
+        const participantId = await resolveParticipantId(db, remote)
 
         await db.insert(checkpointObservations)
           .values({
@@ -119,6 +119,7 @@ function subscribeRealtime(db) {
             bibNumber: remote.bib_number,
             participantId,
             observedAt: new Date(remote.observed_at),
+            source: remote.source ?? 'manual',
             syncedAt: new Date(),
           })
           .onConflictDoNothing()
@@ -130,6 +131,56 @@ function subscribeRealtime(db) {
           bibNumber: remote.bib_number,
           participantId,
           observedAt: remote.observed_at,
+          source: remote.source ?? 'manual',
+        })
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'checkpoint_observations' },
+      async (payload) => {
+        // The priority trigger upgrades a 'manual' row to 'rfid' in place (same
+        // id) — that fires an UPDATE, not an INSERT, so the INSERT handler above
+        // never sees it. Mirror the upgraded fields to the local row by id.
+        const remote = payload.new
+        if (!remote?.id) return
+
+        console.log(`[Sync] Realtime checkpoint_observation UPDATE: bib ${remote.bib_number} (${remote.source})`)
+
+        const participantId = await resolveParticipantId(db, remote)
+
+        const [updated] = await db.update(checkpointObservations)
+          .set({
+            observedAt: new Date(remote.observed_at),
+            source: remote.source ?? 'manual',
+            participantId,
+            syncedAt: new Date(),
+          })
+          .where(eq(checkpointObservations.id, remote.id))
+          .returning({ id: checkpointObservations.id })
+
+        // Local hadn't seen this row yet (missed INSERT / divergent id) → insert it.
+        if (!updated) {
+          await db.insert(checkpointObservations)
+            .values({
+              id: remote.id,
+              checkpointId: remote.checkpoint_id,
+              bibNumber: remote.bib_number,
+              participantId,
+              observedAt: new Date(remote.observed_at),
+              source: remote.source ?? 'manual',
+              syncedAt: new Date(),
+            })
+            .onConflictDoNothing()
+        }
+
+        broadcast('checkpoint:observation', {
+          id: remote.id,
+          checkpointId: remote.checkpoint_id,
+          bibNumber: remote.bib_number,
+          participantId,
+          observedAt: remote.observed_at,
+          source: remote.source ?? 'manual',
         })
       }
     )

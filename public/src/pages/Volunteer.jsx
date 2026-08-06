@@ -59,6 +59,7 @@ export default function Volunteer() {
       checkpoint_id: checkpointId,
       bib_number: n,
       observed_at: new Date().toISOString(),
+      source: 'manual',
     })
       .then(({ error }) => { if (error) console.error('[volunteer] upsert error', error) })
 
