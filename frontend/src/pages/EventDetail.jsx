@@ -12,14 +12,51 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFoo
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog.jsx'
 import ParticipantsTable from '../components/ParticipantsTable/ParticipantsTable.jsx'
 import ImportSection from '../components/ImportWizard/ImportSection.jsx'
-import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X, Terminal } from 'lucide-react'
+import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X, Terminal, Info, ChevronDown } from 'lucide-react'
 
 const VALID_TABS = ['categories', 'participants', 'rfid', 'checkpoints', 'settings', 'documents', 'partners']
 
+// Legend for CheckpointAgentBadge below — keep classes in exact sync with that
+// component so the swatches shown here match the real badges pixel-for-pixel.
+const AGENT_STATUS_LEGEND = [
+  {
+    label: 'Brak agenta RPi',
+    classes: 'border-apex-border text-apex-dim',
+    desc: 'Żaden Raspberry Pi nie zgłosił się dla tego punktu.',
+  },
+  {
+    label: 'RPi: skonfigurowany',
+    classes: 'border-apex-border bg-apex-surface-2 text-apex-muted',
+    desc: (
+      <>
+        Agent połączony, ale <strong className="text-apex-text-bright">jeszcze NIE nagrywa</strong> (Start nie wykonany albo się nie powiódł, np. błąd logowania do czytnika).{' '}
+        <strong className="text-apex-text-bright">To NIE jest stan docelowy</strong> — sprawdź Pi.
+      </>
+    ),
+  },
+  {
+    label: 'RPi: uzbrojony — czeka na start',
+    classes: 'border-apex-cyan/40 bg-apex-cyan-dim/40 text-apex-cyan',
+    desc: 'Wystartowany; ignoruje odczyty z czytnika do momentu startu biegu w systemie.',
+  },
+  {
+    label: 'RPi: nasłuchuje',
+    classes: 'border-green-700 bg-green-950/30 text-green-400',
+    desc: 'Nagrywa przejścia zawodników. Stan docelowy podczas biegu.',
+  },
+  {
+    label: 'RPi OFFLINE',
+    classes: 'border-apex-red/40 bg-apex-red-dim/40 text-apex-red',
+    desc: 'Brak sygnału od ponad ~60 s (utrata zasilania/sieci).',
+  },
+]
+
 const RPI_READER_IP_DEFAULT = '169.254.1.1'
 const RPI_MQTT_HOST_DEFAULT = '169.254.1.100'
+const RPI_READER_USER_DEFAULT = 'root'
+const RPI_READER_PASSWORD_DEFAULT = ''
 
-function buildRpiCommand({ eventId, checkpointId, pin, readerIp, mqttHost }) {
+function buildRpiCommand({ eventId, checkpointId, pin, readerIp, mqttHost, readerUser, readerPassword }) {
   const pinValue = pin || '<PIN — wygeneruj w Ustawieniach>'
   return [
     'cd ~/leszyrun/checkpoint-agent',
@@ -28,6 +65,8 @@ function buildRpiCommand({ eventId, checkpointId, pin, readerIp, mqttHost }) {
     `AUTOCONFIG_PIN=${pinValue} \\`,
     `AUTOCONFIG_READER_IP=${readerIp} \\`,
     `AUTOCONFIG_MQTT_HOST=${mqttHost} \\`,
+    `AUTOCONFIG_READER_USER=${readerUser} \\`,
+    `AUTOCONFIG_READER_PASSWORD=${readerPassword} \\`,
     'npm start',
   ].join('\n')
 }
@@ -78,6 +117,7 @@ export default function EventDetail() {
   const [cpDialog, setCpDialog] = useState(false)
   const [cpForm, setCpForm] = useState({ name: '', kmMarker: '', categoryIds: [], private: false })
   const [editingCp, setEditingCp] = useState(null)
+  const [showAgentLegend, setShowAgentLegend] = useState(false)
 
   // Raspberry Pi command modal — reuses the same checkpoint-agent PIN shown in Ustawienia
   const { data: checkpointPinData } = useQuery({
@@ -87,12 +127,18 @@ export default function EventDetail() {
   const [rpiCp, setRpiCp] = useState(null)
   const [rpiReaderIp, setRpiReaderIp] = useState(RPI_READER_IP_DEFAULT)
   const [rpiMqttHost, setRpiMqttHost] = useState(RPI_MQTT_HOST_DEFAULT)
+  const [rpiReaderUser, setRpiReaderUser] = useState(RPI_READER_USER_DEFAULT)
+  const [rpiReaderPassword, setRpiReaderPassword] = useState(RPI_READER_PASSWORD_DEFAULT)
+  const [rpiPasswordVisible, setRpiPasswordVisible] = useState(false)
   const [rpiCopied, setRpiCopied] = useState(false)
 
   const openRpiDialog = (cp) => {
     setRpiCp(cp)
     setRpiReaderIp(RPI_READER_IP_DEFAULT)
     setRpiMqttHost(RPI_MQTT_HOST_DEFAULT)
+    setRpiReaderUser(RPI_READER_USER_DEFAULT)
+    setRpiReaderPassword(RPI_READER_PASSWORD_DEFAULT)
+    setRpiPasswordVisible(false)
     setRpiCopied(false)
   }
 
@@ -286,6 +332,31 @@ export default function EventDetail() {
               </div>
             </div>
 
+            <div className="border border-apex-border bg-apex-surface">
+              <button
+                type="button"
+                onClick={() => setShowAgentLegend(v => !v)}
+                aria-expanded={showAgentLegend}
+                className="w-full flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-widest text-apex-muted hover:text-apex-text-bright transition-colors"
+              >
+                <Info size={12} />
+                Statusy RPi
+                <ChevronDown size={12} className={`ml-auto transition-transform ${showAgentLegend ? 'rotate-180' : ''}`} />
+              </button>
+              {showAgentLegend && (
+                <div className="border-t border-apex-border px-3 py-3 space-y-2.5">
+                  {AGENT_STATUS_LEGEND.map(item => (
+                    <div key={item.label} className="flex items-start gap-2">
+                      <span className={`shrink-0 text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 border ${item.classes}`}>
+                        {item.label}
+                      </span>
+                      <span className="text-xs text-apex-text leading-snug">{item.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {checkpoints.length === 0 && (
               <p className="text-sm text-apex-muted py-4">Brak punktów kontrolnych. Dodaj punkt, aby wolontariusze mogli rejestrować przejścia.</p>
             )}
@@ -457,6 +528,34 @@ export default function EventDetail() {
                   <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">MQTT host (IP Raspberry na kablu do czytnika)</span>
                   <Input value={rpiMqttHost} onChange={e => setRpiMqttHost(e.target.value)} placeholder={RPI_MQTT_HOST_DEFAULT} />
                 </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Login czytnika</span>
+                  <Input value={rpiReaderUser} onChange={e => setRpiReaderUser(e.target.value)} placeholder={RPI_READER_USER_DEFAULT} />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Hasło czytnika</span>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type={rpiPasswordVisible ? 'text' : 'password'}
+                      value={rpiReaderPassword}
+                      onChange={e => setRpiReaderPassword(e.target.value)}
+                      placeholder="impinj"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      title={rpiPasswordVisible ? 'Ukryj hasło' : 'Pokaż hasło'}
+                      onClick={() => setRpiPasswordVisible(v => !v)}
+                    >
+                      {rpiPasswordVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </Button>
+                  </div>
+                </label>
+                <p className="text-xs text-apex-muted">
+                  Domyślnie root/impinj — zmień jeśli czytnik ma inne dane logowania (te same co do web-UI czytnika https://IP).
+                </p>
 
                 {!checkpointPinData?.checkpointPin && (
                   <p className="text-xs text-apex-yellow border border-apex-yellow/30 bg-apex-yellow/10 px-2 py-1.5">
@@ -472,6 +571,8 @@ export default function EventDetail() {
                       pin: checkpointPinData?.checkpointPin,
                       readerIp: rpiReaderIp,
                       mqttHost: rpiMqttHost,
+                      readerUser: rpiReaderUser,
+                      readerPassword: rpiReaderPassword,
                     })}
                   </pre>
                 )}
@@ -486,6 +587,8 @@ export default function EventDetail() {
                       pin: checkpointPinData?.checkpointPin,
                       readerIp: rpiReaderIp,
                       mqttHost: rpiMqttHost,
+                      readerUser: rpiReaderUser,
+                      readerPassword: rpiReaderPassword,
                     }))
                     setRpiCopied(true)
                     setTimeout(() => setRpiCopied(false), 1500)
