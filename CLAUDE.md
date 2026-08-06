@@ -277,14 +277,28 @@ any                                      → `dsq`   (manual, requires `status_n
 ## Supabase project
 
 Project ID: `<your-supabase-project-id>`
-Sync is primarily one-way: local PostgreSQL → Supabase.
+Push is one-way: local PostgreSQL → Supabase (`src/sync/supabase.js`). Pull (Supabase →
+local) is done by three sanctioned reverse-sync workers below, which together make event
+**config + results two-way** across every device bound to the same Supabase project.
 Sync is disabled when `SUPABASE_URL` env var is missing.
 
-**Reverse sync exception:** `checkins` and `checkin_documents` tables flow Supabase → local.
-The public self-service check-in page and volunteer app write directly to Supabase.
-A reverse sync worker (`src/sync/checkinSync.js`) polls Supabase every 30s and pulls
-new/updated checkin rows into local PostgreSQL. Admin check-in from the backend also
-writes to Supabase first (not local), so all check-in data has a single source of truth in Supabase.
+**Reverse sync — config + results (`src/sync/configSync.js`):** so an event created/edited
+on one device (e.g. the Mac) appears automatically on every other device (e.g. a Pi acting
+as a second backend). Polls Supabase every 30s and upserts these tables Supabase → local:
+`events, categories, participants, checkpoints, race_runs, results, event_documents`.
+Each pulled row is stamped `synced_at = now()` so the push worker never echoes it back (the
+0010 trigger passes a `SET synced_at` change through instead of nulling it). The ON CONFLICT
+update is guarded by `synced_at IS NOT NULL`, so a locally-dirty row (a pending local edit,
+`synced_at` NULL) is NEVER clobbered — local push wins first, then re-pulls. Excludes
+`checkpoint_observations` (already reverse-synced live via realtime in `supabase.js`) and
+`gate_crossings` (raw/high-volume/device-local). **Deletes are NOT propagated** (additive/
+update only) — a row deleted on one device lingers on the others until removed there.
+
+**Reverse sync — checkins (`src/sync/checkinSync.js`):** `checkins` and `checkin_documents`
+flow Supabase → local. The public self-service check-in page and volunteer app write directly
+to Supabase. A reverse sync worker polls Supabase every 30s and pulls new/updated checkin rows
+into local PostgreSQL. Admin check-in from the backend also writes to Supabase first (not
+local), so all check-in data has a single source of truth in Supabase.
 
 **Supabase-only tables** (no Drizzle schema, no local migration — a committed `supabase/migrations/` file, deployed by the CI pipeline on merge; see [docs/supabase-release-runbook.md](docs/supabase-release-runbook.md)):
 - `event_secrets` — per-event check-in PINs
@@ -701,7 +715,7 @@ The mapping files (`biegi-mappings.js` in both `backend/scripts/lib/` and `publi
 - Do not use Next.js (use Vite)
 - Do not dockerize Mosquitto (hardware constraint — R700 needs LAN access)
 - Do not use `docker compose down -v` unless explicitly asked
-- Do not pull data from Supabase into local DB (exception: `checkins` and `checkin_documents` via reverse sync)
+- Do not pull data from Supabase into local DB EXCEPT via the sanctioned reverse-sync workers: `checkins`/`checkin_documents` (`checkinSync.js`), `checkpoint_observations` (realtime in `supabase.js`), and event config + results (`configSync.js` — `events, categories, participants, checkpoints, race_runs, results, event_documents`). Any NEW reverse-pull must stamp `synced_at = now()` and guard the ON CONFLICT update with `synced_at IS NOT NULL` (never clobber a locally-dirty row) — see `configSync.js`.
 - Do not add TypeScript type annotations or `.ts` files
 - Do not use peak RSSI for signal-strength bars — always use live (most recent) reading with decay. See ARCHITECTURE.md → "RSSI display rule — live signal, not peak"
 - Do not create local copies of `estimatePositions()` — always import from `@leszyrun/ui` (shared package in `packages/ui/src/lib/positionEstimation.js`). A stale local copy caused a live-race bug where podium ordering ignored checkpoint timestamps. If you think the shared function needs changes, stop and ask the user first — the sorting tiers (finish time → checkpoint index → observation time → start time) are load-bearing for live race display.
