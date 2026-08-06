@@ -36,6 +36,12 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     queue: null,
     uploader: null,
     reads: { total: 0, lastAt: null },
+    // Live "raw reads" ring buffer for the dashboard — newest first, capped
+    // at 30. Populated for EVERY parsed read regardless of arm state, so an
+    // operator can see the antenna->R700->MQTT->agent chain working even
+    // while disarmed (pre-race) or for tags not on the roster. This is
+    // display-only and never feeds the confirmer/queue.
+    recentReads: [],
     readerPollTimer: null,
     readerDown: false,
     lastReaderError: null,
@@ -148,6 +154,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
         inRangeCount: state.confirmer?.inRangeCount ?? 0,
         knownCount: state.resolver?.knownCount ?? 0,
         reads: state.reads,
+        recentReads: state.recentReads,
         readerDown: state.readerDown,
         lastReaderError: state.lastReaderError,
         noReader: !!state.session?.noReader,
@@ -268,6 +275,19 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
       if (!read) return
       state.reads.total += 1
       state.reads.lastAt = new Date().toISOString()
+      // Record into the display-only ring buffer for EVERY parsed read,
+      // regardless of arm state — this is the whole point of the raw-reads
+      // feed (see comment on state.recentReads above). Never touches the
+      // confirmer/queue gating below.
+      state.recentReads.unshift({
+        epc: read.epc,
+        rssiCdbm: read.rssiCdbm,
+        antennaPort: read.antennaPort,
+        at: new Date().toISOString(),
+        bib: state.resolver?.lookup(read.epc) ?? null,
+        armed: !!state.armed,
+      })
+      if (state.recentReads.length > 30) state.recentReads.length = 30
       if (!state.armed) {
         // Disarmed: drop the read entirely. It must never reach the
         // confirmer — feeding it would poison the one-pass-per-EPC `seen`
@@ -343,6 +363,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.resolver = null
     state.uploader = null
     state.reads = { total: 0, lastAt: null }
+    state.recentReads = []
     state.armed = false
     state.ignoredReads = 0
     state.heartbeatCheckpointId = null

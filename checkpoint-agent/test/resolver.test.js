@@ -29,3 +29,14 @@ test('resolves lowercase query case-insensitively', () => {
   assert.equal(r.resolve('aabbcc01'), 101)
   assert.equal(r.resolve('aabbcc02'), 102)
 })
+
+test('lookup returns bib for known EPC, null for unknown, case-insensitively, and does NOT track unknowns', () => {
+  const r = createResolver(roster)
+  assert.equal(r.lookup('AABBCC01'), 101)
+  assert.equal(r.lookup('aabbcc02'), 102)
+  assert.equal(r.lookup('DEADBEEF'), null)
+  assert.equal(r.lookup('DEADBEEF'), null)
+  // Unlike resolve(), lookup() must leave unknownList()/knownCount untouched.
+  assert.deepEqual(r.unknownList(), [])
+  assert.equal(r.knownCount, 2)
+})

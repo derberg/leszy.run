@@ -385,6 +385,59 @@ function UnknownTagsPanel({ unknown }) {
   )
 }
 
+// Live proof the antenna->R700->MQTT->agent chain works, even when nothing
+// is being recorded (before the race starts, or unknown tags). Populated
+// from state.recentReads on the existing 2s /api/state poll — no separate
+// polling needed. Newest read first.
+function RecentReadsPanel({ reads }) {
+  const list = reads ?? []
+  return (
+    <div className="border border-apex-border bg-apex-surface-2 p-4 flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs uppercase tracking-[0.12em] text-apex-muted">Ostatnie odczyty (na żywo)</span>
+        <span className="font-mono text-xs text-apex-muted">{list.length}</span>
+      </div>
+      {list.length === 0 ? (
+        <p className="text-sm text-apex-muted">
+          Brak odczytów — podłóż tag pod antenę, żeby sprawdzić czytnik.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-1 max-h-72 overflow-y-auto">
+          {list.map((r, i) => (
+            <li
+              key={`${r.epc}-${r.at}-${i}`}
+              className="flex items-center gap-2 font-mono text-xs border-b border-apex-border last:border-b-0 py-1.5"
+            >
+              <span className="text-apex-muted shrink-0 w-16">{formatAge(r.at)}</span>
+              <span className="text-apex-text-bright truncate flex-1">{r.epc}</span>
+              <span className="text-apex-muted shrink-0">
+                {r.rssiCdbm != null ? `${(r.rssiCdbm / 100).toFixed(0)} dBm` : '—'}
+              </span>
+              {r.bib != null ? (
+                <span className="shrink-0 border border-apex-green/50 bg-apex-green/10 text-apex-green px-1.5 py-0.5 font-display font-bold not-italic">
+                  #{r.bib}
+                </span>
+              ) : (
+                <span className="shrink-0 border border-apex-border-mid text-apex-muted px-1.5 py-0.5">
+                  nieznany
+                </span>
+              )}
+              {r.armed === false && (
+                <span
+                  className="shrink-0 text-apex-yellow"
+                  title="odczyt tylko podglądowy — nie nagrywany"
+                >
+                  podgląd
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function ReaderStatusRow() {
   const [status, setStatus] = useState(null)
   const [error, setError] = useState(null)
@@ -591,6 +644,8 @@ function Dashboard({ state, onAfterAction }) {
       )}
 
       {state.noReader ? <SimulatedReaderBadge /> : <ReaderStatusRow />}
+
+      <RecentReadsPanel reads={state.recentReads} />
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Tile label="Odczyty" value={state.reads?.total ?? 0} sub={formatAge(state.reads?.lastAt)} />

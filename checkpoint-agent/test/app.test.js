@@ -306,6 +306,123 @@ test('MQTT read → confirm → queue → flush inserts observation', async (t) 
   assert.equal(inserted[0].source, 'rfid') // RFID reads are marked authoritative
 })
 
+// Live raw-reads feed: every parsed MQTT read is mirrored into
+// state.recentReads (newest first) for display, resolving the bib via the
+// non-mutating resolver.lookup() — a known EPC shows its bib, an unknown one
+// shows null without polluting unknownList()/knownCount.
+test('recentReads: records known and unknown reads, newest first, with resolved bib', async (t) => {
+  let messageHandler
+  const app = await makeApp(t, {
+    connectMqtt: () => ({
+      on: (ev, fn) => { if (ev === 'message') messageHandler = fn },
+      subscribe: () => {}, end: () => {},
+    }),
+  })
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5', armMode: 'immediate' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+
+  // EPC AABBCC01 = base64 qrvMAQ== (on the roster, bib 101)
+  const known = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: 'qrvMAQ==', peakRssiCdbm: -4000, antennaPort: 1 } }))
+  // EPC DEADBEEF = base64 3q2+7w== (not on the roster)
+  const unknown = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: '3q2+7w==', peakRssiCdbm: -5500, antennaPort: 2 } }))
+
+  messageHandler('leszyrun/checkpoint', known)
+  messageHandler('leszyrun/checkpoint', unknown)
+
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.recentReads.length, 2)
+  // newest first: the unknown read (sent second) is at index 0
+  assert.equal(state.recentReads[0].epc, 'DEADBEEF')
+  assert.equal(state.recentReads[0].bib, null)
+  assert.equal(state.recentReads[0].rssiCdbm, -5500)
+  assert.equal(state.recentReads[0].antennaPort, 2)
+  assert.equal(state.recentReads[0].armed, true)
+  assert.ok(state.recentReads[0].at)
+  assert.equal(state.recentReads[1].epc, 'AABBCC01')
+  assert.equal(state.recentReads[1].bib, 101)
+  assert.equal(state.recentReads[1].rssiCdbm, -4000)
+  assert.equal(state.recentReads[1].antennaPort, 1)
+
+  // lookup() must not have polluted the unknown-tag tracking used elsewhere.
+  assert.deepEqual(state.unknown, [])
+})
+
+test('recentReads: ring buffer caps at 30 entries, newest first', async (t) => {
+  let messageHandler
+  const app = await makeApp(t, {
+    connectMqtt: () => ({
+      on: (ev, fn) => { if (ev === 'message') messageHandler = fn },
+      subscribe: () => {}, end: () => {},
+    }),
+  })
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5', armMode: 'immediate' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+
+  // EPC AABBCC01 = base64 qrvMAQ==; vary rssi per read so each entry is distinguishable.
+  for (let i = 0; i < 35; i++) {
+    const payload = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: 'qrvMAQ==', peakRssiCdbm: -4000 - i, antennaPort: 1 } }))
+    messageHandler('leszyrun/checkpoint', payload)
+  }
+
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.recentReads.length, 30)
+  // Newest first: the last read pushed (i=34, rssi -4034) must be at index 0;
+  // the oldest surviving entry (i=5, rssi -4005) is at the end.
+  assert.equal(state.recentReads[0].rssiCdbm, -4034)
+  assert.equal(state.recentReads[29].rssiCdbm, -4005)
+})
+
+// Companion to the race_start arm-mode test above: the whole point of the
+// raw-reads feed is visibility into reads arriving BEFORE the race starts —
+// they must still show up in recentReads (armed: false) even though they
+// never reach the confirmer.
+test('recentReads: reads arriving while disarmed still appear (armed: false), confirmedCount stays 0', async (t) => {
+  let messageHandler
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-arm-raw-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const app = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
+      goneWindowMs: 50, uploadIntervalMs: 999999, armPollMs: 999999,
+      supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+    },
+    supabase: {
+      from: (table) => {
+        if (table === 'categories') return { select: () => ({ eq: async () => ({ data: [], error: null }) }) }
+        if (table === 'race_runs') return { select: () => ({ in: () => ({ in: async () => ({ data: [], error: null }) }) }) }
+        return { upsert: async () => ({ error: null }), insert: async () => ({ error: null }) }
+      },
+    },
+    fetchRoster: async ({ pin }) =>
+      pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => ({ getStatus: async () => ({ status: 'idle' }), configure: async () => {}, start: async () => {}, stop: async () => {} }),
+    connectMqtt: () => ({
+      on: (ev, fn) => { if (ev === 'message') messageHandler = fn },
+      subscribe: () => {}, end: () => {},
+    }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5', armMode: 'race_start' } })
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+
+  let state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.armed, false)
+
+  const payload = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: 'qrvMAQ==', peakRssiCdbm: -4000, antennaPort: 1 } }))
+  messageHandler('leszyrun/checkpoint', payload)
+  await new Promise((r) => setTimeout(r, 150))
+
+  state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.recentReads.length, 1)
+  assert.equal(state.recentReads[0].epc, 'AABBCC01')
+  assert.equal(state.recentReads[0].bib, 101)
+  assert.equal(state.recentReads[0].armed, false)
+  assert.equal(app.deps.confirmer.confirmedCount, 0)
+})
+
 // Reader auto-recovery: a mid-race R700 power cycle wipes its MQTT +
 // inventory-preset config. Coming back "reachable" isn't enough — the agent
 // must notice and re-run configure()+start(), or the reader silently stays
