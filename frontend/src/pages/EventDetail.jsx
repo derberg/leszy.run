@@ -12,9 +12,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFoo
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog.jsx'
 import ParticipantsTable from '../components/ParticipantsTable/ParticipantsTable.jsx'
 import ImportSection from '../components/ImportWizard/ImportSection.jsx'
-import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X } from 'lucide-react'
+import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X, Terminal } from 'lucide-react'
 
 const VALID_TABS = ['categories', 'participants', 'rfid', 'checkpoints', 'settings', 'documents', 'partners']
+
+const RPI_READER_IP_DEFAULT = '169.254.1.1'
+const RPI_MQTT_HOST_DEFAULT = '169.254.1.100'
+
+function buildRpiCommand({ eventId, checkpointId, pin, readerIp, mqttHost }) {
+  const pinValue = pin || '<PIN — wygeneruj w Ustawieniach>'
+  return [
+    'cd ~/leszyrun/checkpoint-agent',
+    `AUTOCONFIG_EVENT_ID=${eventId} \\`,
+    `AUTOCONFIG_CHECKPOINT_ID=${checkpointId} \\`,
+    `AUTOCONFIG_PIN=${pinValue} \\`,
+    `AUTOCONFIG_READER_IP=${readerIp} \\`,
+    `AUTOCONFIG_MQTT_HOST=${mqttHost} \\`,
+    'npm start',
+  ].join('\n')
+}
 
 export default function EventDetail() {
   const { id } = useParams()
@@ -62,6 +78,23 @@ export default function EventDetail() {
   const [cpDialog, setCpDialog] = useState(false)
   const [cpForm, setCpForm] = useState({ name: '', kmMarker: '', categoryIds: [], private: false })
   const [editingCp, setEditingCp] = useState(null)
+
+  // Raspberry Pi command modal — reuses the same checkpoint-agent PIN shown in Ustawienia
+  const { data: checkpointPinData } = useQuery({
+    queryKey: ['checkpointPin', id],
+    queryFn: () => api.secrets.getCheckpointPin(id),
+  })
+  const [rpiCp, setRpiCp] = useState(null)
+  const [rpiReaderIp, setRpiReaderIp] = useState(RPI_READER_IP_DEFAULT)
+  const [rpiMqttHost, setRpiMqttHost] = useState(RPI_MQTT_HOST_DEFAULT)
+  const [rpiCopied, setRpiCopied] = useState(false)
+
+  const openRpiDialog = (cp) => {
+    setRpiCp(cp)
+    setRpiReaderIp(RPI_READER_IP_DEFAULT)
+    setRpiMqttHost(RPI_MQTT_HOST_DEFAULT)
+    setRpiCopied(false)
+  }
 
   const [catDialog, setCatDialog] = useState(false)
   const [catForm, setCatForm] = useState({ name: '', slug: '', untimed: false })
@@ -289,6 +322,9 @@ export default function EventDetail() {
                       <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(volunteerUrl)} title="Kopiuj link">
                         <Copy size={12} />
                       </Button>
+                      <Button size="sm" variant="outline" title="Komenda RPi" onClick={() => openRpiDialog(cp)}>
+                        <Terminal size={12} /> Komenda RPi
+                      </Button>
                       <Button size="sm" variant="outline" title="Edytuj" onClick={() => {
                         setEditingCp(cp)
                         setCpForm({ name: cp.name, kmMarker: cp.kmMarker ?? '', categoryIds: cp.categoryIds || [], private: cp.private ?? false, isNearFinish: cp.isNearFinish ?? false })
@@ -402,6 +438,68 @@ export default function EventDetail() {
                 >
                   {editingCp ? 'Zapisz' : 'Utwórz'}
                 </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Raspberry Pi command modal */}
+          <Dialog open={!!rpiCp} onOpenChange={(open) => { if (!open) setRpiCp(null) }}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Komenda dla Raspberry Pi — {rpiCp?.name}</DialogTitle>
+              </DialogHeader>
+              <DialogBody className="space-y-3">
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">IP czytnika</span>
+                  <Input value={rpiReaderIp} onChange={e => setRpiReaderIp(e.target.value)} placeholder={RPI_READER_IP_DEFAULT} />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">MQTT host (IP Raspberry na kablu do czytnika)</span>
+                  <Input value={rpiMqttHost} onChange={e => setRpiMqttHost(e.target.value)} placeholder={RPI_MQTT_HOST_DEFAULT} />
+                </label>
+
+                {!checkpointPinData?.checkpointPin && (
+                  <p className="text-xs text-apex-yellow border border-apex-yellow/30 bg-apex-yellow/10 px-2 py-1.5">
+                    Najpierw wygeneruj PIN punktów kontrolnych w zakładce Ustawienia
+                  </p>
+                )}
+
+                {rpiCp && (
+                  <pre className="border border-apex-border bg-apex-surface-2 text-apex-text-bright font-mono text-xs p-3 whitespace-pre-wrap break-all">
+                    {buildRpiCommand({
+                      eventId: id,
+                      checkpointId: rpiCp.id,
+                      pin: checkpointPinData?.checkpointPin,
+                      readerIp: rpiReaderIp,
+                      mqttHost: rpiMqttHost,
+                    })}
+                  </pre>
+                )}
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(buildRpiCommand({
+                      eventId: id,
+                      checkpointId: rpiCp?.id,
+                      pin: checkpointPinData?.checkpointPin,
+                      readerIp: rpiReaderIp,
+                      mqttHost: rpiMqttHost,
+                    }))
+                    setRpiCopied(true)
+                    setTimeout(() => setRpiCopied(false), 1500)
+                  }}
+                >
+                  <Copy size={14} /> {rpiCopied ? 'Skopiowano' : 'Kopiuj'}
+                </Button>
+
+                <p className="text-xs text-apex-muted">
+                  Wklej na Raspberry Pi (po SSH). Agent wystartuje od razu skonfigurowany, w trybie „uzbrojony — czeka na start biegu". IP czytnika i MQTT host zmień tylko jeśli masz inny sprzęt.
+                </p>
+              </DialogBody>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRpiCp(null)}>Zamknij</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
