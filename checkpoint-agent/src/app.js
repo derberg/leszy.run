@@ -399,10 +399,16 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
 
   // Headless auto-config: lets a checkpoint Pi boot straight into a running
   // session with no operator ever touching the wizard, driven entirely by
-  // AUTOCONFIG_* env vars (see config.js). Called from index.js AFTER
-  // app.resume() — resume() takes precedence for a session that was already
-  // persisted and running for this checkpoint; bootstrapFromEnv() only acts
-  // when nothing is currently running. Never throws — a bad PIN, an
+  // AUTOCONFIG_* env vars (see config.js). AUTOCONFIG is authoritative: when
+  // it's present, index.js calls this INSTEAD of app.resume() — never after
+  // it — so a stale persisted session (possibly for a different reader IP,
+  // event, or checkpoint) never gets to start running before this runs. That
+  // ordering is what lets the guard below stay simple: at boot, with
+  // resume() skipped, nothing is running yet, so this always proceeds and
+  // (re)configures from the env. The guard still matters at runtime — it
+  // stops this from being re-entered while a pipeline is already live (e.g.
+  // if something ever calls it a second time after resume() legitimately
+  // started a non-autoconfig session). Never throws — a bad PIN, an
   // unreachable reader, or invalid ids must leave the server up and
   // reachable so the operator can fall back to the UI, not crash the
   // process.

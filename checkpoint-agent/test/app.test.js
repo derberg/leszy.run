@@ -933,6 +933,193 @@ test('bootstrapFromEnv: absent autoconfig is a pure no-op', async (t) => {
   assert.equal(state.running, false)
 })
 
+// --- Boot-sequence regression: AUTOCONFIG_* must win over a stale persisted
+// session. index.js used to always `await app.resume()` (which restarts a
+// persisted RUNNING session from the ON-DISK config) BEFORE
+// `app.bootstrapFromEnv()` — so if resume() found session.running===true on
+// disk it would already be running by the time bootstrapFromEnv() ran, and
+// bootstrapFromEnv()'s own no-op-if-running guard would then skip
+// reconfiguration entirely. An operator who changed an AUTOCONFIG_* var (e.g.
+// AUTOCONFIG_READER_IP) and restarted would keep running the stale config
+// until they manually deleted data/session.json.
+//
+// The fix: index.js now calls bootstrapFromEnv() INSTEAD of resume() when
+// config.autoconfig.present is true, and only falls back to resume() when it
+// isn't. index.js itself isn't unit-testable (it wires up real
+// supabase-js/mqtt clients and calls process.exit), so these tests exercise
+// the same startup logic directly against buildApp(): they persist a stale
+// session to disk (via a first app instance, exactly like a previous boot
+// would have left behind), then build a second app instance against the same
+// dataDir and drive it the way the fixed index.js does — resume() only when
+// autoconfig is absent, bootstrapFromEnv() only when it's present — and
+// assert the env wins.
+
+test('boot: AUTOCONFIG present overrides a stale persisted RUNNING session (env readerIp wins, reader configured with new value)', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-boot-override-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const readerCalls = []
+  const baseDeps = {
+    supabase: fakeSupabaseForBootstrap(),
+    fetchRoster: async ({ eventId, pin }) =>
+      pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: ({ address, username, password }) => {
+      readerCalls.push({ address, username, password })
+      return { getStatus: async () => ({ status: 'idle' }), configure: async () => {}, start: async () => {}, stop: async () => {} }
+    },
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  }
+
+  // --- Boot 1: operator runs the wizard by hand with readerIp = OLD-IP.
+  // Persists a session to disk with running: true (doStart() saves it).
+  const app1 = await buildApp({
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
+    ...baseDeps,
+  })
+  await app1.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: 'OLD-IP', armMode: 'immediate' } })
+  await app1.inject({ method: 'POST', url: '/api/start', payload: {} })
+  const stateAfterBoot1 = (await app1.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(stateAfterBoot1.session.readerIp, 'OLD-IP')
+  assert.equal(stateAfterBoot1.running, true)
+  await app1.close() // does NOT call /api/stop — the persisted session on disk keeps running: true, exactly like a killed process
+
+  // --- Boot 2: operator changed AUTOCONFIG_READER_IP and restarted. Same
+  // dataDir (same on-disk session), autoconfig now present with a NEW
+  // readerIp. Drive it the way the fixed index.js does: skip resume(), call
+  // bootstrapFromEnv() only.
+  const app2 = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+      autoconfig: { present: true, eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: 'new.reader.local', mqttHost: null, readerUsername: null, readerPassword: null, armMode: 'immediate', noReader: false, eventName: 'Race', checkpointName: 'CP 1' },
+    },
+    ...baseDeps,
+  })
+  t.after(() => app2.close())
+
+  // Sanity: the stale session loaded from disk still has the OLD reader IP
+  // before bootstrapFromEnv() runs — proves the assertions below are about
+  // bootstrapFromEnv() overwriting it, not about it never having been loaded.
+  assert.equal(app2.deps.session.readerIp, 'OLD-IP')
+
+  await app2.bootstrapFromEnv() // index.js's autoconfig-present branch — resume() is never called
+
+  const state = (await app2.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.session.readerIp, 'new.reader.local') // env won, not the stale disk value
+  assert.equal(state.running, true)
+  const lastReaderCall = readerCalls.at(-1)
+  assert.equal(lastReaderCall.address, 'new.reader.local') // reader was actually configured with the NEW value
+})
+
+test('boot: AUTOCONFIG present, identical to the persisted session — idempotent, no crash, queue for the checkpoint is preserved', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-boot-idempotent-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  let messageHandler
+  const inserted = []
+  const supabaseSpy = {
+    from: (table) => table === 'checkpoint_observations'
+      ? { insert: async (row) => { inserted.push(row); return { error: null } } }
+      : { select: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }) },
+  }
+  const baseDeps = {
+    supabase: supabaseSpy,
+    fetchRoster: async ({ pin }) =>
+      pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => { throw new Error('createReader must not be called in noReader mode') },
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  }
+
+  // --- Boot 1: setup + start, then record one confirmed observation into the
+  // per-checkpoint queue (uploadIntervalMs is huge so it stays pending on
+  // disk, never flushed).
+  const app1 = await buildApp({
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 50, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
+    ...baseDeps,
+    connectMqtt: () => ({ on: (ev, fn) => { if (ev === 'message') messageHandler = fn }, subscribe: () => {}, end: () => {} }),
+  })
+  await app1.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', noReader: true, armMode: 'immediate' } })
+  await app1.inject({ method: 'POST', url: '/api/start', payload: {} })
+  const payload = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: 'qrvMAQ==', peakRssiCdbm: -4000, antennaPort: 1 } }))
+  messageHandler('leszyrun/checkpoint', payload)
+  await waitFor(() => app1.deps.queue.counts.pending === 1)
+  assert.equal(inserted.length, 0) // confirmed but never uploaded — still pending on disk
+  await app1.close() // no /api/stop — session persists with running: true
+
+  // --- Boot 2: autoconfig present, values IDENTICAL to the persisted
+  // session (same event/checkpoint/pin/armMode/noReader). Drive the fixed
+  // index.js autoconfig-present branch: bootstrapFromEnv() only, no resume().
+  const app2 = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 50, uploadIntervalMs: 999999, port: 8080,
+      supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+      autoconfig: { present: true, eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: null, mqttHost: null, readerUsername: null, readerPassword: null, armMode: 'immediate', noReader: true, eventName: 'Race', checkpointName: 'CP 1' },
+    },
+    ...baseDeps,
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+  })
+  t.after(() => app2.close())
+
+  await assert.doesNotReject(() => app2.bootstrapFromEnv())
+
+  const state = (await app2.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.session.checkpointId, 'cp1')
+  assert.equal(state.running, true)
+  // The queue file (queue-cp1.jsonl) from boot 1 was reused, not wiped —
+  // doSetup()/doStart() only ever replace the session config, never the
+  // per-checkpoint queue file.
+  assert.equal(state.counts.total, 1)
+  assert.equal(state.counts.pending, 1)
+})
+
+test('boot: AUTOCONFIG absent — resume() path still used, persisted session unchanged, fetchRoster not called again', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-boot-resume-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const readerCalls = []
+  let fetchRosterCalls = 0
+  const baseDeps = {
+    supabase: fakeSupabaseForBootstrap(),
+    fetchRoster: async ({ pin }) => {
+      fetchRosterCalls += 1
+      return pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' }
+    },
+    createReader: ({ address, username, password }) => {
+      readerCalls.push({ address, username, password })
+      return { getStatus: async () => ({ status: 'idle' }), configure: async () => {}, start: async () => {}, stop: async () => {} }
+    },
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  }
+
+  const app1 = await buildApp({
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
+    ...baseDeps,
+  })
+  await app1.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: 'OLD-IP', armMode: 'immediate' } })
+  await app1.inject({ method: 'POST', url: '/api/start', payload: {} })
+  assert.equal(fetchRosterCalls, 1)
+  await app1.close()
+
+  // Boot 2: no AUTOCONFIG_* env vars set at all — config.autoconfig.present
+  // is false. The fixed index.js's else-branch: resume() only.
+  const app2 = await buildApp({
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
+    ...baseDeps,
+  })
+  t.after(() => app2.close())
+
+  await app2.resume()
+
+  const state = (await app2.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.session.readerIp, 'OLD-IP') // unchanged — resume() uses the on-disk config as-is
+  assert.equal(state.running, true)
+  assert.equal(fetchRosterCalls, 1) // resume() never calls fetchRoster — only doSetup()/bootstrapFromEnv() do
+  const lastReaderCall = readerCalls.at(-1)
+  assert.equal(lastReaderCall.address, 'OLD-IP')
+})
+
 test('reader auto-recovery: steady healthy status never triggers a reconfigure', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-steady-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
