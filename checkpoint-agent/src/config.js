@@ -45,6 +45,13 @@ export function loadConfig(env = process.env) {
     goneWindowMs: parseInt(env.GONE_WINDOW_MS ?? '3000', 10),
     uploadIntervalMs: parseInt(env.UPLOAD_INTERVAL_MS ?? '5000', 10),
     readerPollMs: parseInt(env.READER_POLL_MS ?? '15000', 10),
+    // The R700 is addressed by mDNS hostname (impinj-XX-XX-XX.local) in the
+    // field. On a cold start, mDNS resolution + the reader's first HTTP
+    // response can take well over a few seconds — a too-short timeout here
+    // makes configure()/start() throw "aborted due to timeout" on the very
+    // first call after boot. 15s gives mDNS resolution room without hanging
+    // forever on a genuinely dead reader.
+    readerTimeoutMs: parseInt(env.READER_TIMEOUT_MS ?? '15000', 10),
     armPollMs: parseInt(env.ARM_POLL_MS ?? '15000', 10),
     heartbeatMs: parseInt(env.HEARTBEAT_MS ?? '15000', 10),
     autoconfig: parseAutoconfig(env),

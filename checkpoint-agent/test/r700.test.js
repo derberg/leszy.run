@@ -67,3 +67,25 @@ test('non-ok response throws readable error', async () => {
   const r = createR700({ address: '10.0.0.5', username: 'root', password: 'x', fetchImpl })
   await assert.rejects(() => r.getStatus(), /R700 HTTP 401/)
 })
+
+// The R700 is addressed by mDNS hostname in the field; a cold start (mDNS
+// resolution + the reader's first response) can exceed the old hard 5s
+// timeout. createR700 must accept a configurable timeoutMs and still issue
+// the same documented call sequence with it.
+test('createR700 accepts a configurable timeoutMs and still issues the documented call sequence', async () => {
+  const { calls, fetchImpl } = capture()
+  const r = createR700({ address: '10.0.0.5', username: 'root', password: 'pw', fetchImpl, timeoutMs: 20000 })
+  await assert.doesNotReject(() => r.configure({ mqttHost: '10.0.0.1', topic: 'leszyrun/checkpoint', clientId: 'LeszyRunCheckpoint' }))
+  assert.equal(calls[0].url, 'https://10.0.0.5/api/v1/mqtt')
+  assert.equal(calls[1].url, 'https://10.0.0.5/api/v1/profiles/stop')
+  assert.equal(calls[2].url, 'https://10.0.0.5/api/v1/profiles/inventory/presets/leszyrun')
+})
+
+// No timeoutMs passed at all (the shape every existing call site used before
+// this change) must still work — default is 15000, not the old 5000.
+test('createR700 without timeoutMs still works (defaults to 15000, not the old 5000)', async () => {
+  const { calls, fetchImpl } = capture()
+  const r = createR700({ address: '10.0.0.5', username: 'root', password: 'pw', fetchImpl })
+  await r.start()
+  assert.equal(calls.length, 3)
+})

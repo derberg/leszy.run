@@ -13,7 +13,10 @@ export function normalizeReaderBase(addr) {
   return `https://${trimmed.replace(/\/+$/, '')}`
 }
 
-export function createR700({ address, username = 'root', password = '', fetchImpl }) {
+// timeoutMs default matches config.js's READER_TIMEOUT_MS default (15000) so
+// direct callers (tests, scripts) that don't pass one still get the
+// mDNS-cold-start-tolerant value rather than the old 5s.
+export function createR700({ address, username = 'root', password = '', fetchImpl, timeoutMs = 15000 }) {
   const base = normalizeReaderBase(address)
   const doFetch = fetchImpl ?? ((url, opts) => undiciFetch(url, { ...opts, dispatcher: tlsAgent }))
 
@@ -23,7 +26,7 @@ export function createR700({ address, username = 'root', password = '', fetchImp
       Accept: 'application/json',
       Authorization: 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64'),
     }
-    const opts = { method, headers, signal: AbortSignal.timeout(5000) }
+    const opts = { method, headers, signal: AbortSignal.timeout(timeoutMs) }
     if (body !== undefined) opts.body = JSON.stringify(body)
     const res = await doFetch(`${base}/api/v1${path}`, opts)
     const text = await res.text()
