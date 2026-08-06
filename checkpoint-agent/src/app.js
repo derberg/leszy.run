@@ -312,9 +312,25 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
       return { ok: false, status: 423, error: 'Clock not synchronized' }
     }
     if (!state.session.noReader) {
-      state.reader = createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword })
-      await state.reader.configure({ mqttHost: state.session.mqttHost ?? 'localhost', topic: config.mqttTopic, clientId: 'LeszyRunCheckpoint' })
-      await state.reader.start()
+      state.reader = createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword, timeoutMs: config.readerTimeoutMs })
+      // Reader-start is NON-FATAL: on a cold R700 (mDNS hostname resolution +
+      // the reader's first HTTPS response) even a generous timeout can still
+      // occasionally be exceeded, and a hardware fault can leave it
+      // unreachable for longer than that. Either way, failing here must not
+      // abort the whole start — the pipeline still comes up (MQTT,
+      // confirmer, uploader, heartbeat, and pollReaderHealth), and
+      // pollReaderHealth already knows how to reconfigure+restart the reader
+      // once it responds (see the "wasDown || idle" branch below). Without
+      // this, a slow cold start left the agent configured-but-not-running
+      // with no automatic retry until a human intervened.
+      try {
+        await state.reader.configure({ mqttHost: state.session.mqttHost ?? 'localhost', topic: config.mqttTopic, clientId: 'LeszyRunCheckpoint' })
+        await state.reader.start()
+      } catch (err) {
+        console.error(`[reader] initial configure failed, health poll will retry: ${err.message}`)
+        state.readerDown = true
+        state.lastReaderError = err.message
+      }
     }
     await startPipeline()
     state.session.running = true
@@ -376,7 +392,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     if (!state.session) return reply.code(409).send({ error: 'Not configured' })
     if (state.session.noReader) return { data: { simulated: true } }
     try {
-      const reader = state.reader ?? createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword })
+      const reader = state.reader ?? createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword, timeoutMs: config.readerTimeoutMs })
       return { data: await reader.getStatus() }
     } catch (err) {
       return reply.code(502).send({ error: err.message })
@@ -387,11 +403,18 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   app.resume = async () => {
     if (state.session?.running) {
       if (!state.session.noReader) {
+        state.reader = createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword, timeoutMs: config.readerTimeoutMs })
         try {
-          state.reader = createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword })
           await state.reader.configure({ mqttHost: state.session.mqttHost ?? 'localhost', topic: config.mqttTopic, clientId: 'LeszyRunCheckpoint' })
           await state.reader.start()
-        } catch { /* reader down — pipeline still records if reader reappears with old config */ }
+        } catch (err) {
+          // reader down — pipeline still records if reader reappears with old
+          // config; pollReaderHealth (started by startPipeline() below) will
+          // reconfigure+restart it once it responds.
+          console.error(`[reader] initial configure failed, health poll will retry: ${err.message}`)
+          state.readerDown = true
+          state.lastReaderError = err.message
+        }
       }
       await startPipeline()
     }

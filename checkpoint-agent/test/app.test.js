@@ -787,13 +787,19 @@ test('bootstrapFromEnv: fetchRoster fails (bad PIN) — does not throw, server k
   assert.equal(state.running, false)
 })
 
-test('bootstrapFromEnv: reader configure throwing does not crash — server stays up, no running session', async (t) => {
+// Reader-start resilience: a reader that fails its initial configure() (cold
+// mDNS start, or genuinely unreachable) must NOT stop the agent from coming
+// up. bootstrapFromEnv/doStart now treat this as non-fatal — the pipeline
+// (MQTT, confirmer, uploader, heartbeat, reader health poll) starts anyway,
+// running flips true immediately, and readerDown is surfaced so the operator
+// can see it self-healing via pollReaderHealth.
+test('bootstrapFromEnv: reader configure throwing does not crash — server stays up, running anyway, readerDown surfaced', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-bootstrap-readerfail-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
   const app = await buildApp({
     config: {
       dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
-      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      goneWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 999999, port: 8080,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
       autoconfig: autoconfigBase({ noReader: false, readerIp: '10.0.0.5' }),
     },
@@ -811,9 +817,12 @@ test('bootstrapFromEnv: reader configure throwing does not crash — server stay
   const res = await app.inject({ method: 'GET', url: '/api/state' })
   assert.equal(res.statusCode, 200)
   const state = res.json().data
-  // setup succeeded (session persisted) but start() failed before flipping running
+  // setup succeeded (session persisted) AND the pipeline started despite the
+  // reader failure — self-heal, not fail-closed.
   assert.ok(state.session)
-  assert.equal(state.running, false)
+  assert.equal(state.running, true)
+  assert.equal(state.readerDown, true)
+  assert.match(state.lastReaderError, /reader unreachable/)
 })
 
 test('bootstrapFromEnv: invalid checkpointId (path traversal) fails cleanly, no session stored', async (t) => {
@@ -1157,4 +1166,76 @@ test('reader auto-recovery: steady healthy status never triggers a reconfigure',
   assert.equal(state.readerDown, false)
   assert.equal(configureCalls, 1)
   assert.equal(startCalls, 1)
+})
+
+// Field bug this task fixes: a cold R700 (mDNS hostname resolution + its
+// first HTTPS response) can blow the request timeout on the FIRST
+// configure()/start() call after boot. That used to make the whole
+// POST /api/start fail — configured but not running, no automatic retry.
+// Now: reader-start failure is non-fatal. The pipeline (and its
+// pollReaderHealth loop) comes up regardless, /api/start reports success,
+// and the very next poll tick reconfigures+restarts the reader once it
+// responds — self-heal with no human intervention.
+test('POST /api/start self-heals: initial reader configure() throws, pipeline starts anyway, poll retries and recovers', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-selfheal-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  let configureCalls = 0
+  let startCalls = 0
+  let getStatusCalls = 0
+  const app = await buildApp({
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 30, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    supabase: {
+      from: () => ({
+        select: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }),
+        insert: async () => ({ error: null }),
+      }),
+    },
+    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => ({
+      getStatus: async () => { getStatusCalls += 1; return { status: 'idle' } },
+      // First call (the initial configure() inside doStart()) throws, as a
+      // cold mDNS-hostname reader would on the very first request after
+      // boot. Every subsequent call (from pollReaderHealth) succeeds.
+      configure: async () => {
+        configureCalls += 1
+        if (configureCalls === 1) throw new Error('The operation was aborted due to timeout')
+      },
+      start: async () => { startCalls += 1 },
+      stop: async () => {},
+    }),
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: true, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: '10.0.0.5', armMode: 'immediate' } })
+  const start = await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  // /api/start must succeed even though the reader's initial configure() failed
+  assert.equal(start.statusCode, 200)
+  assert.equal(start.json().data.ok, true)
+
+  // Immediately after start: running is already true and readerDown is
+  // already true — the pipeline came up despite the reader failure, and the
+  // failure is visible to the operator without waiting for a poll tick.
+  let state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.running, true)
+  assert.equal(state.readerDown, true)
+  assert.match(state.lastReaderError, /aborted due to timeout/)
+  assert.equal(configureCalls, 1)
+  assert.equal(startCalls, 0) // start() never ran — configure() threw before it
+
+  // After the poll interval (30ms): getStatus() succeeds, and because the
+  // previous state was "down", pollReaderHealth reconfigures+restarts —
+  // readerDown flips false and configure()+start() were retried.
+  await waitFor(async () => {
+    const s = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+    return s.readerDown === false
+  })
+  assert.ok(getStatusCalls >= 1)
+  assert.equal(configureCalls, 2)
+  assert.equal(startCalls, 1)
+
+  state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.lastReaderError, null)
 })
