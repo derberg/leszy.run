@@ -33,6 +33,14 @@ export function createR700({ address, username = 'root', password = '', fetchImp
     return data
   }
 
+  // The R700 keeps its inventory preset running in its own firmware, even
+  // across agent restarts. A running preset can't be modified (PUT → 409
+  // "The preset is running") or re-started, so we stop it first, best-effort
+  // (nothing running / already stopped → ignore).
+  async function stopQuietly() {
+    try { await request('POST', '/profiles/stop', {}) } catch { /* not running */ }
+  }
+
   return {
     getStatus: () => request('GET', '/status'),
     async configure({ mqttHost, topic, clientId }) {
@@ -47,9 +55,11 @@ export function createR700({ address, username = 'root', password = '', fetchImp
         eventQualityOfService: 1,
         keepAliveIntervalSeconds: 60,
       })
+      await stopQuietly()
       await request('PUT', '/profiles/inventory/presets/leszyrun', PRESET)
     },
     async start() {
+      await stopQuietly()
       await request('PUT', '/profiles/inventory/presets/leszyrun', PRESET)
       await request('POST', '/profiles/inventory/presets/leszyrun/start', {})
     },
