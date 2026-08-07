@@ -209,6 +209,89 @@ test('rosterCount reports the on-disk roster before start, when knownCount canno
 
 // rosterCount is also restored from disk on a cold boot, so a restarted agent
 // reports it before anything else happens.
+// The setup snapshot goes stale the moment anyone registers or gets a tag, and
+// last-minute registrations are normal. A stale-but-non-empty roster silently
+// drops exactly those runners — no error, no empty-roster warning.
+test('start re-downloads the roster, picking up runners added after setup', async (t) => {
+  let roster = [{ bib_number: 101, rfid_epc: 'AABBCC01' }]
+  const app = await makeApp(t, { fetchRoster: async () => ({ ok: true, roster }) })
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
+
+  // Late registration lands between setup and the gun.
+  roster = [{ bib_number: 101, rfid_epc: 'AABBCC01' }, { bib_number: 102, rfid_epc: 'AABBCC02' }]
+
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.rosterCount, 2)
+  assert.equal(state.knownCount, 2) // the resolver sees the late entrant
+  assert.equal(state.rosterStale, false)
+  assert.equal(app.deps.resolver.lookup('AABBCC02'), 102)
+})
+
+// A race venue on a flaky uplink must still be able to start.
+test('start falls back to the cached roster when the refresh fails, and flags it stale', async (t) => {
+  let failRefresh = false
+  const app = await makeApp(t, {
+    fetchRoster: async () =>
+      failRefresh ? { ok: false, status: 502, error: 'network down' } : { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] },
+  })
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
+
+  failRefresh = true
+  const start = await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  assert.equal(start.statusCode, 200) // NOT blocked — recording beats not recording
+
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.running, true)
+  assert.equal(state.knownCount, 1) // cached snapshot still in use
+  assert.equal(state.rosterStale, true) // but the operator is told
+})
+
+// A failed refresh must not be able to empty a working roster.
+test('a failed refresh never clears the cached roster', async (t) => {
+  let failRefresh = false
+  const app = await makeApp(t, {
+    fetchRoster: async () =>
+      failRefresh ? { ok: false, status: 502, error: 'network down' } : { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] },
+  })
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
+  failRefresh = true
+  await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  await app.inject({ method: 'POST', url: '/api/stop' })
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.rosterCount, 1)
+})
+
+// /api/state is served on 0.0.0.0 with no auth — it must not hand out the
+// reader credential to anyone who can reach the port.
+test('GET /api/state does not leak readerPassword', async (t) => {
+  const app = await makeApp(t)
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5', readerPassword: 'sekret' } })
+  const res = await app.inject({ method: 'GET', url: '/api/state' })
+  assert.ok(!res.body.includes('sekret'), 'readerPassword must not appear anywhere in /api/state')
+  const { data } = res.json()
+  assert.equal(data.session.readerPassword, undefined)
+  assert.equal(data.session.readerPasswordSet, true) // presence still observable
+  // ...and the agent must still hold it internally for reader auth
+  assert.equal(app.deps.session.readerPassword, 'sekret')
+})
+
+test('GET /api/state never exposes the check-in PIN', async (t) => {
+  const app = await makeApp(t)
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
+  const res = await app.inject({ method: 'GET', url: '/api/state' })
+  assert.ok(!res.body.includes('123456'), 'PIN must not appear anywhere in /api/state')
+})
+
+test('reset clears the stored PIN', async (t) => {
+  const app = await makeApp(t)
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
+  await app.inject({ method: 'POST', url: '/api/reset' })
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.session, null)
+  assert.equal(state.rosterCount, 0)
+})
+
 test('rosterCount is restored from disk on boot', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
@@ -833,7 +916,7 @@ test('bootstrapFromEnv: no prior session, autoconfig present → configures and 
   assert.equal(state.running, true)
   assert.equal(state.armMode, 'immediate')
   assert.equal(state.status, 'listening')
-  assert.equal(fetchRosterCalls, 1)
+  assert.equal(fetchRosterCalls, 2) // doSetup's download + doStart's refresh
 })
 
 test('bootstrapFromEnv: fetchRoster fails (bad PIN) — does not throw, server keeps running, no session created', async (t) => {
@@ -959,13 +1042,13 @@ test('bootstrapFromEnv: no-op when a running session already exists for the same
   // running session for the SAME checkpointId the autoconfig targets.
   await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', noReader: true, armMode: 'immediate' } })
   await app.inject({ method: 'POST', url: '/api/start', payload: {} })
-  assert.equal(fetchRosterCalls, 1)
+  assert.equal(fetchRosterCalls, 2) // doSetup's download + doStart's refresh
 
   await app.bootstrapFromEnv()
 
-  // no second fetchRoster call — bootstrap recognized the running session
-  // for the same checkpoint and did nothing
-  assert.equal(fetchRosterCalls, 1)
+  // unchanged — bootstrap recognized the running session for the same
+  // checkpoint and did nothing (no third call)
+  assert.equal(fetchRosterCalls, 2)
 })
 
 // Regression: bootstrapFromEnv used to only skip when the RUNNING session's
@@ -1003,14 +1086,14 @@ test('bootstrapFromEnv: no-op when a running session exists for a DIFFERENT chec
   // or the operator started it by hand — while AUTOCONFIG_CHECKPOINT_ID=cp2.
   await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', noReader: true, armMode: 'immediate' } })
   await app.inject({ method: 'POST', url: '/api/start', payload: {} })
-  assert.equal(fetchRosterCalls, 1)
+  assert.equal(fetchRosterCalls, 2) // doSetup's download + doStart's refresh
 
   await app.bootstrapFromEnv()
 
   // fetchRoster must NOT have been called again for cp2, and the persisted
   // session must still point at the ORIGINAL running checkpoint (cp1) — not
   // overwritten mid-flight by a doSetup() call that never got to doStart().
-  assert.equal(fetchRosterCalls, 1)
+  assert.equal(fetchRosterCalls, 2)
   const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
   assert.equal(state.session.checkpointId, 'cp1')
   assert.equal(state.running, true)
@@ -1190,7 +1273,8 @@ test('boot: AUTOCONFIG absent — resume() path still used, persisted session un
   })
   await app1.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: 'OLD-IP', armMode: 'immediate' } })
   await app1.inject({ method: 'POST', url: '/api/start', payload: {} })
-  assert.equal(fetchRosterCalls, 1)
+  // 2 = once for doSetup's initial download, once for doStart's refresh-on-start.
+  assert.equal(fetchRosterCalls, 2)
   await app1.close()
 
   // Boot 2: no AUTOCONFIG_* env vars set at all — config.autoconfig.present
@@ -1206,7 +1290,9 @@ test('boot: AUTOCONFIG absent — resume() path still used, persisted session un
   const state = (await app2.inject({ method: 'GET', url: '/api/state' })).json().data
   assert.equal(state.session.readerIp, 'OLD-IP') // unchanged — resume() uses the on-disk config as-is
   assert.equal(state.running, true)
-  assert.equal(fetchRosterCalls, 1) // resume() never calls fetchRoster — only doSetup()/bootstrapFromEnv() do
+  // Still 2 — resume() never calls fetchRoster. Only doSetup() and doStart()
+  // do, and resume() bypasses doStart() by calling startPipeline() directly.
+  assert.equal(fetchRosterCalls, 2)
   const lastReaderCall = readerCalls.at(-1)
   assert.equal(lastReaderCall.address, 'OLD-IP')
 })

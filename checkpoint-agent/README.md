@@ -9,8 +9,9 @@ the R700, listens for tag reads over MQTT, applies a simplified
 exit-triggered crossing detector (`src/confirmer.js` — same peak-RSSI /
 silence-window idea as the backend's `crossingDetector.js`, but one
 confirmed pass per EPC per session, no finish-line fallback timer), resolves
-confirmed EPCs to bib numbers against a roster downloaded at setup time, and
-uploads the results straight to Supabase's `checkpoint_observations` table.
+confirmed EPCs to bib numbers against the roster (downloaded at setup and
+**re-downloaded on every start**, so last-minute registrations are picked up),
+and uploads the results straight to Supabase's `checkpoint_observations` table.
 It has no dependency on the local backend or local Postgres — it talks to
 Supabase directly so it keeps working on a trail with no route back to the
 race HQ network. See `ARCHITECTURE.md` (`checkpoint_observations` schema) and
@@ -355,11 +356,12 @@ just a process restart.
      the `checkpoint-roster` Supabase edge function and downloads the
      roster (bib number + RFID EPC **only** — no participant names or other
      personal data ever touches the Pi).
-3. **Start:** the dashboard's Start button (`POST /api/start`) configures
-   the R700 (MQTT target + inventory preset), starts it reading, and wires
-   up the confirm→resolve→queue→upload pipeline. Start is blocked with a 423
-   if the Pi's clock isn't NTP-synchronized (see Troubleshooting) unless the
-   operator explicitly overrides it.
+3. **Start:** the dashboard's Start button (`POST /api/start`) **re-downloads
+   the roster**, configures the R700 (MQTT target + inventory preset), starts it
+   reading, and wires up the confirm→resolve→queue→upload pipeline. Start is
+   blocked with a 423 if the Pi's clock isn't NTP-synchronized (see
+   Troubleshooting) unless the operator explicitly overrides it, and with a
+   **409 if the roster is empty** (see below).
 4. **Live dashboard** polls `GET /api/state` every 2s and shows: total
    reads, confirmed passes, tags currently in range, queue depth
    (pending/total), time since last successful upload (green < 30s,
@@ -371,6 +373,39 @@ just a process restart.
    cursor, in-memory state) so the same Pi can be redeployed to a different
    checkpoint or event. It requires a second confirming click within 5s to
    avoid fat-fingering it mid-race.
+
+### The roster is the thing that silently breaks
+
+Every read is resolved EPC → bib against the roster. `checkpoint_observations.bib_number`
+is NOT NULL, so **an unresolvable read is discarded** — it lands in the "unknown
+tags" list and is never uploaded. A wrong roster therefore produces *zero
+observations while every health indicator stays green*: running, armed, reader
+running, MQTT connected, uploader clean, no errors anywhere.
+
+This is exactly how the 2026-08-07 race lost its whole 5 km checkpoint dataset:
+the roster had been downloaded before any RFID tag was assigned, so all 20
+tagged runners resolved to `null` and were dropped. Two guards now exist:
+
+- **Empty roster → `POST /api/start` returns 409** and refuses to run. `app.resume()`
+  refuses too (it calls `startPipeline()` directly, bypassing the start handler),
+  logs `[roster] REFUSING TO START`, and clears the persisted running flag so the
+  next boot lands on `configured` instead of looping. A red banner shows on the
+  dashboard. `rosterCount` in `GET /api/state` reports the on-disk size and is
+  restored on boot — `knownCount` comes from the resolver and reads 0 until the
+  first start, so it cannot warn during the pre-race window.
+- **Stale roster → re-downloaded on every start.** `doSetup`'s snapshot goes stale
+  the moment anyone registers or gets a tag, and last-minute registrations are
+  normal. The refresh needs the checkpoint PIN, so it is persisted in its own
+  store key (`pin`) — deliberately *not* in the session, because `GET /api/state`
+  returns the session and the agent listens on 0.0.0.0 with no auth. Reset clears
+  it. `readerPassword` is stripped from `/api/state` for the same reason
+  (`readerPasswordSet: true` still reports its presence).
+
+  A failed refresh is **non-fatal** — a venue on a flaky uplink must still be able
+  to start, so it falls back to the cached snapshot, sets `rosterStale: true`, and
+  shows a yellow banner. It never clears a working roster. A session persisted
+  before this build has no stored PIN; it still starts, flagged stale, and re-running
+  setup once enables refresh-on-start from then on.
 
 ## Simulator usage
 

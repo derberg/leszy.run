@@ -64,6 +64,11 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     // while reporting running/armed/reader-ok. Tracked in state (not read
     // from disk per request) because /api/state is polled continuously.
     rosterCount: ((await store.load('roster')) ?? []).length,
+    // True when the running pipeline is using a cached roster because the
+    // refresh-on-start could not reach Supabase (or no PIN is stored). The
+    // agent still records, but anyone registered since the last successful
+    // download is invisible to it.
+    rosterStale: false,
   }
 
   // Derived status shown in the UI and reported by the heartbeat:
@@ -154,11 +159,21 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     app.register(fastifyStatic, { root: uiDist })
   } catch { /* no UI build — API only */ }
 
+  // The agent listens on 0.0.0.0 with no auth, so anything returned here is
+  // readable by anyone on the LAN (and over Tailscale). Strip the reader
+  // credential — nothing in the UI consumes it; the setup form collects it
+  // fresh. The check-in PIN is never in the session at all (own store key).
+  function publicSession(session) {
+    if (!session) return null
+    const { readerPassword, ...rest } = session
+    return { ...rest, readerPasswordSet: !!readerPassword }
+  }
+
   app.get('/api/state', async () => {
     const clock = await clockStatus()
     return {
       data: {
-        session: state.session,
+        session: publicSession(state.session),
         running: state.running,
         clock,
         counts: state.queue?.counts ?? { total: 0, pending: 0 },
@@ -173,6 +188,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
         // dashboard can warn during the pre-race window — the only time a
         // warning is still actionable.
         rosterCount: state.rosterCount,
+        rosterStale: state.rosterStale,
         reads: state.reads,
         recentReads: state.recentReads,
         readerDown: state.readerDown,
@@ -236,6 +252,11 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.armed = false
     await store.save('session', state.session)
     await store.save('roster', result.roster)
+    // Persisted OUTSIDE the session, in its own store key, because /api/state
+    // returns the session verbatim over an unauthenticated listener — a PIN in
+    // there would be readable by anyone on the LAN. Kept because doStart()
+    // re-downloads the roster, and that needs the PIN.
+    await store.save('pin', { pin })
     state.rosterCount = result.roster.length
     ensureHeartbeat() // 'configured' shows on the admin tab even before Start
     return { ok: true, rosterCount: result.roster.length }
@@ -333,20 +354,52 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   async function doStart({ overrideClock } = {}) {
     if (!state.session) return { ok: false, status: 409, error: 'Not configured — run setup first' }
     if (state.running) return { ok: false, status: 409, error: 'Already running' }
-    // REFUSE to run blind. With an empty roster the resolver maps every EPC to
-    // bib=null, and because checkpoint_observations.bib_number is NOT NULL each
-    // confirmed pass is discarded — while /api/state still reports running,
-    // armed, reader-ok and a clean uploader. That combination cost a real race
-    // its entire checkpoint dataset (2026-08-07): the roster snapshot had been
-    // taken before any RFID tag was assigned, and nothing ever refreshes it.
-    // Failing loudly here is the only signal the operator gets in time.
-    const roster = (await store.load('roster')) ?? []
-    state.rosterCount = roster.length
-    if (roster.length === 0) return { ok: false, status: 409, error: EMPTY_ROSTER_ERROR }
     const clock = await clockStatus()
     if (clock.synced === false && !overrideClock) {
       return { ok: false, status: 423, error: 'Clock not synchronized' }
     }
+
+    // Re-download the roster on every start. The snapshot taken at setup goes
+    // stale the moment anyone registers or gets a tag assigned, and last-minute
+    // registrations are normal at a race — a stale-but-non-empty roster silently
+    // drops exactly those runners, with no error and no empty-roster warning.
+    // Non-fatal by design: a venue with a flaky uplink must still be able to
+    // start, so a failed refresh falls back to the cached snapshot.
+    //
+    // Deliberately AFTER the clock gate: a start that is going to be refused
+    // anyway must not spend a network round-trip, and the clock-retry loop can
+    // call doStart() repeatedly while NTP is still cold.
+    const cached = (await store.load('roster')) ?? []
+    const { pin } = (await store.load('pin')) ?? {}
+    let roster = cached
+    if (pin) {
+      const refreshed = await fetchRoster({ eventId: state.session.eventId, pin })
+      if (refreshed.ok) {
+        roster = refreshed.roster
+        await store.save('roster', roster)
+        state.rosterStale = false
+        const added = roster.length - cached.length
+        console.log(`[roster] refreshed on start: ${roster.length} entries${added !== 0 ? ` (${added > 0 ? '+' : ''}${added} vs cached)` : ' (unchanged)'}`)
+      } else {
+        state.rosterStale = true
+        console.error(`[roster] refresh FAILED (${refreshed.error}) — starting with the cached snapshot of ${cached.length}. Runners registered since setup will NOT be recorded.`)
+      }
+    } else {
+      // Pre-existing session persisted before this build: no PIN on disk, so
+      // there is nothing to refresh with. Surfaced so the operator can re-run
+      // setup once and get refresh-on-start from then on.
+      state.rosterStale = true
+      console.error('[roster] no stored PIN — cannot refresh; using the cached snapshot. Re-run setup to enable refresh-on-start.')
+    }
+    // REFUSE to run blind. With an empty roster the resolver maps every EPC to
+    // bib=null, and because checkpoint_observations.bib_number is NOT NULL each
+    // confirmed pass is discarded — while /api/state still reports running,
+    // armed, reader-ok and a clean uploader. That combination cost a real race
+    // its entire checkpoint dataset (2026-08-07). Failing loudly here is the
+    // only signal the operator gets in time.
+    state.rosterCount = roster.length
+    if (roster.length === 0) return { ok: false, status: 409, error: EMPTY_ROSTER_ERROR }
+
     if (!state.session.noReader) {
       state.reader = createReader({ address: state.session.readerIp, username: state.session.readerUsername, password: state.session.readerPassword, timeoutMs: config.readerTimeoutMs })
       // Reader-start is NON-FATAL: on a cold R700 (mDNS hostname resolution +
@@ -420,8 +473,11 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.armed = false
     state.ignoredReads = 0
     state.heartbeatCheckpointId = null
+    state.rosterCount = 0
+    state.rosterStale = false
     await store.remove('session')
     await store.remove('roster')
+    await store.remove('pin') // reset must not leave a credential behind
     return { data: { ok: true } }
   })
 
