@@ -19,6 +19,14 @@ const ARM_MODES = new Set(['race_start', 'immediate'])
 // that isn't a plain token before it's ever used.
 const SAFE_ID = /^[A-Za-z0-9_-]+$/
 
+// An agent whose roster snapshot is empty resolves every EPC to bib=null.
+// checkpoint_observations.bib_number is NOT NULL, so every confirmed pass is
+// dropped — while /api/state reports running, armed, reader-ok and a clean
+// uploader. Refusing to start is the only signal the operator gets before the
+// race is over. Exported for the tests that assert this contract.
+export const EMPTY_ROSTER_ERROR =
+  'Roster is empty — every read would be discarded as unknown. Assign RFID tags, then re-run setup before starting.'
+
 // Fastify app factory — dependency-injected so tests can stub every side
 // effect (Supabase, MQTT, the R700 reader, roster download, clock check,
 // LAN IP detection). See task-10-brief.md for the endpoint contract.
@@ -50,6 +58,12 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     armer: null,
     heartbeat: null,
     heartbeatCheckpointId: null,
+    // Size of the roster snapshot on disk. Surfaced by /api/state so the
+    // dashboard can shout when it is 0 — an agent with an empty roster
+    // resolves EVERY read to bib=null and silently discards the whole field
+    // while reporting running/armed/reader-ok. Tracked in state (not read
+    // from disk per request) because /api/state is polled continuously.
+    rosterCount: ((await store.load('roster')) ?? []).length,
   }
 
   // Derived status shown in the UI and reported by the heartbeat:
@@ -153,6 +167,12 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
         confirmedCount: state.confirmer?.confirmedCount ?? 0,
         inRangeCount: state.confirmer?.inRangeCount ?? 0,
         knownCount: state.resolver?.knownCount ?? 0,
+        // Distinct from knownCount, which is derived from the resolver and so
+        // reads 0 until the first start even when the roster on disk is fine.
+        // rosterCount reflects the snapshot on disk (restored on boot), so the
+        // dashboard can warn during the pre-race window — the only time a
+        // warning is still actionable.
+        rosterCount: state.rosterCount,
         reads: state.reads,
         recentReads: state.recentReads,
         readerDown: state.readerDown,
@@ -216,6 +236,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.armed = false
     await store.save('session', state.session)
     await store.save('roster', result.roster)
+    state.rosterCount = result.roster.length
     ensureHeartbeat() // 'configured' shows on the admin tab even before Start
     return { ok: true, rosterCount: result.roster.length }
   }
@@ -228,6 +249,11 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
 
   async function startPipeline() {
     const roster = (await store.load('roster')) ?? []
+    state.rosterCount = roster.length
+    // Backstop for every entry point, not just doStart(): app.resume() calls
+    // startPipeline() directly after a reboot, so without this a restart would
+    // silently bring a blind agent back up.
+    if (roster.length === 0) throw new Error(EMPTY_ROSTER_ERROR)
     state.resolver = createResolver(roster)
     // Scope queue files per checkpoint so Confirmer.seed(queue.epcs()) below
     // only blacklists EPCs already recorded for THIS checkpoint session — not
@@ -307,6 +333,16 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
   async function doStart({ overrideClock } = {}) {
     if (!state.session) return { ok: false, status: 409, error: 'Not configured — run setup first' }
     if (state.running) return { ok: false, status: 409, error: 'Already running' }
+    // REFUSE to run blind. With an empty roster the resolver maps every EPC to
+    // bib=null, and because checkpoint_observations.bib_number is NOT NULL each
+    // confirmed pass is discarded — while /api/state still reports running,
+    // armed, reader-ok and a clean uploader. That combination cost a real race
+    // its entire checkpoint dataset (2026-08-07): the roster snapshot had been
+    // taken before any RFID tag was assigned, and nothing ever refreshes it.
+    // Failing loudly here is the only signal the operator gets in time.
+    const roster = (await store.load('roster')) ?? []
+    state.rosterCount = roster.length
+    if (roster.length === 0) return { ok: false, status: 409, error: EMPTY_ROSTER_ERROR }
     const clock = await clockStatus()
     if (clock.synced === false && !overrideClock) {
       return { ok: false, status: 423, error: 'Clock not synchronized' }
@@ -417,7 +453,17 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
           state.lastReaderError = err.message
         }
       }
-      await startPipeline()
+      try {
+        await startPipeline()
+      } catch (err) {
+        // Never crash-loop the service on a bad roster, and never come back up
+        // pretending to record. Clear the persisted running flag so the next
+        // boot lands on 'configured' instead of retrying this forever, and make
+        // the reason impossible to miss in journalctl.
+        console.error(`[roster] REFUSING TO START — ${err.message}`)
+        state.session.running = false
+        await store.save('session', state.session)
+      }
     }
   }
 

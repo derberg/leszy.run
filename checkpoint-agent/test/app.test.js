@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { buildApp } from '../src/app.js'
+import { buildApp, EMPTY_ROSTER_ERROR } from '../src/app.js'
 
 // Polls `fn` (which may be async) until it returns a truthy value, instead of
 // a fixed sleep — avoids flakiness from exact interval timing.
@@ -143,6 +143,82 @@ test('start without setup returns 409', async (t) => {
   const app = await makeApp(t)
   const res = await app.inject({ method: 'POST', url: '/api/start', payload: {} })
   assert.equal(res.statusCode, 409)
+})
+
+// An empty roster makes the resolver map EVERY epc to bib=null, so every
+// confirmed pass is dropped (checkpoint_observations.bib_number is NOT NULL)
+// while /api/state reports running + armed + reader-ok. That combination lost a
+// real race its entire checkpoint dataset. Starting MUST fail loudly instead.
+test('start refuses when the roster is empty', async (t) => {
+  const app = await makeApp(t, { fetchRoster: async () => ({ ok: true, roster: [] }) })
+  const setup = await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
+  assert.equal(setup.statusCode, 200)
+  assert.equal(setup.json().data.rosterCount, 0)
+
+  const start = await app.inject({ method: 'POST', url: '/api/start', payload: {} })
+  assert.equal(start.statusCode, 409)
+  assert.equal(start.json().error, EMPTY_ROSTER_ERROR)
+
+  // and it must genuinely not be running — not merely reporting an error
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.running, false)
+  assert.equal(state.rosterCount, 0)
+})
+
+// overrideClock bypasses the clock gate; it must NOT also bypass this one.
+test('start with overrideClock still refuses an empty roster', async (t) => {
+  const app = await makeApp(t, {
+    fetchRoster: async () => ({ ok: true, roster: [] }),
+    clockStatus: async () => ({ synced: false, source: 'test' }),
+  })
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
+  const forced = await app.inject({ method: 'POST', url: '/api/start', payload: { overrideClock: true } })
+  assert.equal(forced.statusCode, 409)
+  assert.equal(forced.json().error, EMPTY_ROSTER_ERROR)
+})
+
+// app.resume() calls startPipeline() directly, bypassing doStart() — without a
+// guard there, a reboot would silently bring a blind agent back up. It must
+// refuse, must not throw out of resume(), and must clear the persisted running
+// flag so the next boot lands on 'configured' rather than retrying forever.
+test('resume refuses an empty roster instead of restoring a blind agent', async (t) => {
+  const app = await makeApp(t, { fetchRoster: async () => ({ ok: true, roster: [] }) })
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
+  // Simulate a session persisted as running before the reboot.
+  app.deps.session.running = true
+
+  await app.resume()
+
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.running, false)
+  assert.equal(state.session.running, false)
+})
+
+// Before the first start there is no resolver, so knownCount reads 0 even when
+// the roster on disk is perfectly fine — it cannot warn an operator during the
+// pre-race window, which is exactly when a warning is still actionable.
+// rosterCount reflects the snapshot on disk and can.
+test('rosterCount reports the on-disk roster before start, when knownCount cannot', async (t) => {
+  const app = await makeApp(t)
+  await app.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
+  const state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.running, false)
+  assert.equal(state.knownCount, 0) // no resolver built yet
+  assert.equal(state.rosterCount, 1) // but the roster IS there
+})
+
+// rosterCount is also restored from disk on a cold boot, so a restarted agent
+// reports it before anything else happens.
+test('rosterCount is restored from disk on boot', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const first = await makeApp(t, { config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' } })
+  await first.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
+  await first.close()
+
+  const rebooted = await makeApp(t, { config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' } })
+  const state = (await rebooted.inject({ method: 'GET', url: '/api/state' })).json().data
+  assert.equal(state.rosterCount, 1)
 })
 
 test('start blocked when clock unsynced, allowed with overrideClock', async (t) => {
@@ -442,7 +518,10 @@ test('reader auto-recovery: getStatus failure then success reconfigures and clea
         insert: async () => ({ error: null }),
       }),
     },
-    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    // Non-empty roster: these tests exercise reader/bootstrap behaviour, and
+    // starting with an EMPTY roster is now refused outright (see the
+    // EMPTY_ROSTER_ERROR tests) — an empty stub would block the path under test.
+    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
     createReader: () => ({
       getStatus: async () => {
         getStatusCalls += 1
@@ -804,7 +883,10 @@ test('bootstrapFromEnv: reader configure throwing does not crash — server stay
       autoconfig: autoconfigBase({ noReader: false, readerIp: '10.0.0.5' }),
     },
     supabase: fakeSupabaseForBootstrap(),
-    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    // Non-empty roster: these tests exercise reader/bootstrap behaviour, and
+    // starting with an EMPTY roster is now refused outright (see the
+    // EMPTY_ROSTER_ERROR tests) — an empty stub would block the path under test.
+    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
     createReader: () => ({ getStatus: async () => ({ status: 'idle' }), configure: async () => { throw new Error('reader unreachable') }, start: async () => {}, stop: async () => {} }),
     connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
     clockStatus: async () => ({ synced: true, source: 'test' }),
@@ -1142,7 +1224,10 @@ test('reader auto-recovery: steady healthy status never triggers a reconfigure',
         insert: async () => ({ error: null }),
       }),
     },
-    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    // Non-empty roster: these tests exercise reader/bootstrap behaviour, and
+    // starting with an EMPTY roster is now refused outright (see the
+    // EMPTY_ROSTER_ERROR tests) — an empty stub would block the path under test.
+    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
     createReader: () => ({
       getStatus: async () => ({ status: 'running' }),
       configure: async () => { configureCalls += 1 },
@@ -1190,7 +1275,10 @@ test('POST /api/start self-heals: initial reader configure() throws, pipeline st
         insert: async () => ({ error: null }),
       }),
     },
-    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    // Non-empty roster: these tests exercise reader/bootstrap behaviour, and
+    // starting with an EMPTY roster is now refused outright (see the
+    // EMPTY_ROSTER_ERROR tests) — an empty stub would block the path under test.
+    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
     createReader: () => ({
       getStatus: async () => { getStatusCalls += 1; return { status: 'idle' } },
       // First call (the initial configure() inside doStart()) throws, as a
