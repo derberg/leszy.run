@@ -52,7 +52,19 @@ export function loadConfig(env = process.env) {
     // first call after boot. 15s gives mDNS resolution room without hanging
     // forever on a genuinely dead reader.
     readerTimeoutMs: parseInt(env.READER_TIMEOUT_MS ?? '15000', 10),
-    armPollMs: parseInt(env.ARM_POLL_MS ?? '15000', 10),
+    // 3s, not 15s. Reads taken while disarmed are DROPPED, so this interval is
+    // also the size of the window in which a checkpoint pass is silently lost
+    // after the gun. Measured 2026-08-07: race started 15:36:55, the agent armed
+    // 15:37:15 (20 s later), 830 reads were dropped and only 10 of 20 runners
+    // were recorded — the whole first wave. Irrelevant on a real course, where a
+    // mid-race checkpoint is minutes away, but fatal on a short lap and on any
+    // checkpoint sited near the start.
+    //
+    // NOTE: 3s shrinks the window ~5x, it does not close it. Closing it needs the
+    // agent to buffer pre-arm reads and replay the ones timestamped after the
+    // race start (deliberately not done here — pre-gun reads must keep being
+    // dropped, see the UNIQUE(checkpoint_id, bib_number) slot-burning problem).
+    armPollMs: parseInt(env.ARM_POLL_MS ?? '3000', 10),
     heartbeatMs: parseInt(env.HEARTBEAT_MS ?? '15000', 10),
     autoconfig: parseAutoconfig(env),
   }
