@@ -648,6 +648,16 @@ function Dashboard({ state, onAfterAction }) {
         </Banner>
       )}
 
+      {/* Refresh-on-start could not reach Supabase, so the pipeline is running on
+          a cached roster. It DOES record — but anyone who registered or got a
+          chip assigned since the last successful download is invisible. */}
+      {state.rosterStale && state.rosterCount > 0 && (
+        <Banner tone="yellow">
+          Lista startowa nie została odświeżona przy starcie ({state.rosterCount} zawodników z pamięci).
+          Zawodnicy zapisani po ostatniej udanej aktualizacji NIE będą rejestrowani.
+        </Banner>
+      )}
+
       {state.clock?.synced === false && (
         <Banner tone="yellow">
           Zegar czytnika nie jest zsynchronizowany{state.clock.source ? ` (źródło: ${state.clock.source})` : ''}.
