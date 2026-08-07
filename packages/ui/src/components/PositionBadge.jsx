@@ -1,24 +1,9 @@
-import { useState } from 'react'
+import { InfoTooltip } from './InfoTooltip.jsx'
 
-function StatusTooltip({ children }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <span className="relative inline-block">
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen(o => !o) }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-apex-muted text-apex-muted text-[9px] hover:border-apex-yellow hover:text-apex-yellow cursor-pointer leading-none"
-      >
-        ?
-      </button>
-      {open && (
-        <span className="absolute z-50 top-5 right-0 w-56 text-left bg-apex-bg border border-apex-yellow p-2 text-xs font-normal normal-case tracking-normal text-apex-text shadow-lg whitespace-normal">
-          {children}
-        </span>
-      )}
-    </span>
-  )
+// The status column sits at the right edge of a horizontally-scrollable table,
+// so these anchor right and are portalled out of the clipping container.
+function StatusTooltip({ label, children }) {
+  return <InfoTooltip label={label} align="right">{children}</InfoTooltip>
 }
 
 export function PositionBadge({ positionType, gender }) {
@@ -33,7 +18,7 @@ export function PositionBadge({ positionType, gender }) {
     return (
       <span className="text-xs font-bold uppercase tracking-widest text-apex-red whitespace-nowrap inline-flex items-center">
         DNF
-        <StatusTooltip>
+        <StatusTooltip label="DNF">
           <strong>DNF</strong> (Did Not Finish) — zawodnik wystartował, ale nie ukończył biegu.
           Przerwał trasę przed metą.
         </StatusTooltip>
@@ -44,7 +29,7 @@ export function PositionBadge({ positionType, gender }) {
     return (
       <span className="text-xs font-bold uppercase tracking-widest text-apex-muted whitespace-nowrap inline-flex items-center">
         DNS
-        <StatusTooltip>
+        <StatusTooltip label="DNS">
           <strong>DNS</strong> (Did Not Start) — zawodnik zapisał się na bieg, ale nie
           pojawił się na starcie.
         </StatusTooltip>
@@ -55,7 +40,7 @@ export function PositionBadge({ positionType, gender }) {
     return (
       <span className="text-xs font-bold uppercase tracking-widest text-apex-red whitespace-nowrap inline-flex items-center">
         DSQ
-        <StatusTooltip>
+        <StatusTooltip label="DSQ">
           <strong>DSQ</strong> (Disqualified) — zawodnik został zdyskwalifikowany
           (np. za złamanie regulaminu, skrócenie trasy, nieprawidłowy numer startowy).
         </StatusTooltip>

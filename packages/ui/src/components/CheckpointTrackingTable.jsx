@@ -1,28 +1,7 @@
 import { useState } from 'react'
 import { PositionBadge } from './PositionBadge.jsx'
+import { InfoTooltip } from './InfoTooltip.jsx'
 import { anonymizedName } from '../lib/anonymizedName.js'
-
-function InfoTooltip({ label, children }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <span className="relative inline-block">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        aria-label={`Wyjaśnienie: ${label}`}
-        className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-apex-muted text-apex-muted text-[9px] hover:border-apex-yellow hover:text-apex-yellow cursor-pointer leading-none"
-      >
-        ?
-      </button>
-      {open && (
-        <span className="absolute z-50 top-5 left-0 w-64 text-left bg-apex-bg border border-apex-yellow p-2 text-xs font-normal normal-case tracking-normal text-apex-text shadow-lg whitespace-normal">
-          {children}
-        </span>
-      )}
-    </span>
-  )
-}
 
 /**
  * @param {Array} results - enriched by estimatePositions (with estimatedPosition, positionType)
@@ -32,6 +11,8 @@ function InfoTooltip({ label, children }) {
  * @param {Function} [formatDuration] - (ms) => display string for durations
  */
 export function CheckpointTrackingTable({ results, checkpoints, observations, formatTime, formatDuration }) {
+  const [legendOpen, setLegendOpen] = useState(false)
+
   // Build lookups: by participantId and by bibNumber
   const obsLookup = {}
   const bibLookup = {}
@@ -70,9 +51,11 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
     </>
   )
 
+  // Worded to read correctly both as a column tooltip and in the mobile legend,
+  // where Start/Meta are labels on a card rather than columns.
   const clockTooltip = (
     <>
-      Kolumny <strong>Start</strong> i <strong>Meta</strong> pokazują <strong>godziny zegarowe</strong> —
+      <strong>Start</strong> i <strong>Meta</strong> to <strong>godziny zegarowe</strong> —
       dokładny moment, w którym zawodnik przekroczył linię startu i mety.
       To nie są czasy biegu, tylko rzeczywiste godziny.
     </>
@@ -153,6 +136,31 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile legend — the card layout has no column headers, so the desktop
+          per-column "?" tooltips have nowhere to hang. Without this the
+          brutto/netto distinction is unexplained on phones entirely. */}
+      <div className="md:hidden border border-apex-border bg-apex-surface mb-2">
+        <button
+          type="button"
+          onClick={() => setLegendOpen(o => !o)}
+          aria-expanded={legendOpen}
+          className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left"
+        >
+          <span className="text-xs font-bold uppercase tracking-wider text-apex-muted">
+            {formatDuration ? 'Brutto vs Netto — co oznaczają te czasy?' : 'Co oznaczają te czasy?'}
+          </span>
+          <span className="font-mono text-sm leading-none text-apex-yellow">{legendOpen ? '−' : '+'}</span>
+        </button>
+        {legendOpen && (
+          <div className="border-t border-apex-border px-3 pt-2.5 pb-3 space-y-2.5 text-xs text-apex-text">
+            {formatDuration && <p>{bruttoTooltip}</p>}
+            {formatDuration && <p>{nettoTooltip}</p>}
+            <p>{clockTooltip}</p>
+            {checkpoints.length > 0 && <p>{checkpointTooltip}</p>}
+          </div>
+        )}
       </div>
 
       {/* Mobile cards */}

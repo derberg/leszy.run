@@ -1,5 +1,6 @@
 export { Podium } from './components/Podium.jsx'
 export { CheckpointTrackingTable } from './components/CheckpointTrackingTable.jsx'
 export { PositionBadge } from './components/PositionBadge.jsx'
+export { InfoTooltip } from './components/InfoTooltip.jsx'
 export { estimatePositions } from './lib/positionEstimation.js'
 export { anonymizedName } from './lib/anonymizedName.js'
