@@ -1509,14 +1509,16 @@ function RfidSettings({ event, onSave, saving }) {
                 className="max-w-32"
               />
               <p className="text-xs text-apex-muted mt-1">
-                Puste = wyłączony (działa jak dotychczas, decyduje tylko próg sygnału powyżej).
-                Ustaw, gdy musisz mieć NISKI próg sygnału, żeby nie gubić słabych chipów, ale nie chcesz,
-                by zawodnicy stojący 15 m od bramki byli zapisywani jako przejście. Próg sygnału decyduje
-                „czy w ogóle śledzić ten odczyt”, a ten próg — „czy chip naprawdę był przy bramce”:
-                START wymaga, by SZCZYT sygnału go przekroczył, META — by przekroczył go dany odczyt.
-                Realne przejście to zwykle -3200…-5000, a łapanie z 15 m nie przekracza ok. -6200,
-                więc sensowna wartość to np. -5500. Zbyt wysoki próg = brak startu (zadziała czas
-                strzałki) lub brak mety (trzeba domknąć ręcznie).
+                <strong className="text-amber-400">Zostaw puste, jeśli nie zmierzyłeś tego na swojej bramce.</strong>{' '}
+                Puste = wyłączony (decyduje tylko próg sygnału powyżej) — i dla większości bramek to
+                właściwe ustawienie. Ten próg odrzuca przejścia, których SZCZYT sygnału jest za słaby
+                (START), albo pojedynczy odczyt jest za słaby (META). Problem: siła odczytu zależy
+                głównie od ułożenia chipa, nie od odległości — zmierzone 2026-08-07, zawodnicy idący
+                <em> tuż obok anteny</em> mieli szczyt -6200…-6450, a inni na tym samym przejściu
+                -3200. Przy takim rozrzucie ten próg wyrzuci prawdziwe przejścia, a nie „stojących obok”.
+                Ustawiaj tylko, gdy z <code>gate_crossings.peak_rssi_cdbm</code> widzisz wyraźną granicę
+                między realnymi przejściami a łapaniem z daleka. Zbyt wysoki = brak startu (zadziała
+                czas strzałki) lub brak mety (trzeba domknąć ręcznie).
               </p>
             </label>
           </div>

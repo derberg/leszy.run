@@ -47,11 +47,18 @@ import { gateCrossings, gateEvents, results } from '../db/schema.js'
  *  - confirm_rssi_cdbm is a CROSSING bar — did the tag actually reach the gate.
  *    START requires the accumulated PEAK to clear it; FINISH requires the
  *    individual read to clear it. NULL disables it (single-threshold behaviour).
- *  A single threshold cannot do both: tag performance spans ~30 dB, so one value
- *  trades missed runners against phantom crossings. Real gate passes peak at
- *  -3200…-5000; a tag idling 15 m away tops out around -6200.
- *  A start rejected by the bar falls through to gun-time backfill, which is far
- *  better than a confidently wrong chip time corrupting the runner's net result.
+ *  A start rejected by the bar falls through to gun-time backfill.
+ *
+ *  KEEP confirm_rssi_cdbm NULL UNLESS A CLEAN SEPARATION HAS BEEN MEASURED AT
+ *  THE ACTUAL GATE. It was designed on the belief that a real pass is always
+ *  strong (-3200…-5000) and only far-field pickup is weak, so ~-5500 would split
+ *  them. Measured on 2026-08-07 that is FALSE: runners passing right beside the
+ *  antenna peaked at -6200…-6450, while others on the same pass peaked at -3200.
+ *  A ~30 dB spread between identical passes is a tag-orientation/placement (or
+ *  antenna-coverage) problem, not something a threshold can fix — a bar set on
+ *  the wrong assumption silently discards genuine crossings.
+ *  gate_crossings.peak_rssi_cdbm records every confirmed crossing's peak, so
+ *  weak crossings can be reviewed AFTER a race instead of dropped during it.
  *
  * Peak RSSI: values closer to 0 are stronger. -2000 cdbm > -6000 cdbm.
  *
