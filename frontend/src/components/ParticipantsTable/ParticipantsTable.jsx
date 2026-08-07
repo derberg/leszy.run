@@ -98,6 +98,14 @@ export default function ParticipantsTable({ eventId, categories }) {
 
   const catMap = Object.fromEntries((categories || []).map(c => [c.id, c.name]))
 
+  // Display order: ascending by last name (Polish locale so ą/ć/ł/ó/… sort
+  // correctly), first name as tie-breaker. The API returns rows in bib order;
+  // the table body renders this array directly (no TanStack sort model).
+  const sortedParticipants = [...participants].sort((a, b) =>
+    (a.lastName || '').localeCompare(b.lastName || '', 'pl', { sensitivity: 'base' }) ||
+    (a.firstName || '').localeCompare(b.firstName || '', 'pl', { sensitivity: 'base' })
+  )
+
   const isMinor = (p) => {
     if (!p?.birthDate) return false
     const birth = new Date(p.birthDate)
@@ -225,7 +233,7 @@ export default function ParticipantsTable({ eventId, categories }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-apex-border">
-            {participants.map(p => (
+            {sortedParticipants.map(p => (
               <tr key={p.id} className="hover:bg-apex-surface-2 group">
                 <td className="px-2 py-1 w-10 text-center text-lg group/emoji relative">
                   <span>{p.emoji || '🏃'}</span>
