@@ -305,14 +305,26 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
       state.session.armed = true
       await store.save('session', state.session)
     }
-    if (!state.armed && state.session.armMode === 'race_start') {
+    if (state.session.armMode === 'race_start') {
+      // watch(), not start(), and started even when ALREADY armed. session.armed
+      // is persisted so a reboot mid-race doesn't drop real reads — but that also
+      // means a stale armed:true survives the run being cancelled or deleted. The
+      // agent then keeps recording into a race that no longer exists, and those
+      // observations permanently occupy the UNIQUE(checkpoint_id, bib_number) slot
+      // so the runner's real pass in the next run can never be stored. Watching in
+      // both directions is what corrects that.
       state.armer = createArmer({ supabase, eventId: state.session.eventId, pollMs: config.armPollMs })
-      state.armer.start(async () => {
-        state.armed = true
-        state.session.armed = true
+      state.armer.watch(async (armed) => {
+        state.armed = armed
+        state.session.armed = armed
         await store.save('session', state.session)
-        app.log?.info?.('[armer] race started — armed')
-      })
+        if (armed) {
+          app.log?.info?.('[armer] race started — armed')
+          console.log('[armer] race started — armed')
+        } else {
+          console.error('[armer] no active/finished race run for this event — DISARMED. Reads are now dropped; recording them would burn each runner\'s checkpoint slot on a race that does not exist.')
+        }
+      }, state.armed)
     }
     ensureHeartbeat()
 
