@@ -25,7 +25,18 @@ DELETE ON EVERY HOST + SUPABASE, OR YOU HAVE NOT DELETED ANYTHING
 - A local row that still exists after you cleared Supabase will re-push and
   resurrect the Supabase row too.
 
-So: **stop the backends first**, then delete everywhere, then start them.
+**Neither ordering is safe with the backends running** — that's why stopping them
+is the rule, not a precaution:
+
+- *Supabase first, then hosts* — any host row still `synced_at IS NULL` re-pushes
+  within 10 s and resurrects the Supabase row.
+- *Hosts first, then Supabase* — each host's `configSync` pull re-adds `race_runs`
+  and `results` from the still-populated Supabase within 30 s.
+
+So: **stop the backends first**, delete everywhere, then start them. If you can't
+stop them (live event, someone else mid-task), you can still win by checking
+`synced_at IS NOT NULL` on every host row first — a clean row won't re-push, so
+Supabase-then-hosts holds. Verify, don't assume.
 
 ## Step 1 — enumerate the hosts. Do not assume.
 
@@ -33,16 +44,37 @@ Ask or verify which backends are bound to this Supabase project. There is
 typically more than one, and the one the user is looking at is the one that
 matters. As of 2026-08-07:
 
-| Host | Postgres | Reachable from the Mac? |
+| Host | Postgres | How to reach it |
 |---|---|---|
-| Mac (dev) | Docker `leszyrun-db-1` | yes — `docker exec -i leszyrun-db-1 psql -U leszyrun -d leszyrun` |
-| `leszyrun-checkpoint1.local` (main race host, Pi5) | **native PG17**, localhost-only | **no** — 5432 closed, ssh key auth denied. Must be run on the Pi. |
-| Supabase | remote | yes — service-role key in repo-root `.env` |
+| Mac (dev) | Docker `leszyrun-db-1` | `docker exec -i leszyrun-db-1 psql -U leszyrun -d leszyrun` |
+| `leszyrun-checkpoint1.local` (main race host, Pi5) | **native PG17**, localhost-only (5432 closed on the LAN) | **over ssh** — `ssh leszyrun@leszyrun-checkpoint1.local "psql -U leszyrun -d leszyrun …"` |
+| Supabase | remote | PostgREST + service-role key from repo-root `.env` |
 
-Verify before claiming a host is clean:
+**ssh to the Pi — the two traps:**
+
+1. The user is **`leszyrun`**, not the Mac's login name. Omitting it gives
+   `Permission denied (publickey,password)`, which reads like a missing key.
+2. The Mac's `~/.ssh/id_ed25519` **is** in the Pi's `authorized_keys`, but it is
+   **passphrase-protected**. So an agentless `ssh -o BatchMode=yes` still fails
+   with `Permission denied (publickey,password)`. That error means "cannot unlock
+   the local key", NOT "key not installed" — **do not re-run `ssh-copy-id`
+   chasing it.**
+
+If the passphrase isn't in the agent, drive password auth with `expect`
+(`/usr/bin/expect` is present; `sshpass` is **not** installed). Pass the password
+via env, never argv:
+
+```tcl
+# expect -f wrapper.exp "<remote command>"   with PIPASS set in the environment
+spawn ssh -o PubkeyAuthentication=no leszyrun@leszyrun-checkpoint1.local $cmd
+expect { -re "(P|p)assword:" { send "$env(PIPASS)\r"; exp_continue } eof }
+```
+
+There is no `docker exec` on the Pi — its Postgres is native. Verify reachability
+before claiming a host is clean:
 
 ```bash
-nc -z -G 3 leszyrun-checkpoint1.local 5432 && echo OPEN || echo CLOSED
+ssh -o ConnectTimeout=8 leszyrun@leszyrun-checkpoint1.local "psql -U leszyrun -d leszyrun -c 'select 1'"
 ```
 
 If a host is unreachable, **say so explicitly and hand the user the SQL** — do
