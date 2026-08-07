@@ -346,6 +346,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
 
   async function stopAll() {
     if (state.readerPollTimer) { clearInterval(state.readerPollTimer); state.readerPollTimer = null }
+    if (state.clockRetryTimer) { clearInterval(state.clockRetryTimer); state.clockRetryTimer = null }
     if (state.reader) await state.reader.stop().catch(() => {})
     state.mqttClient?.end()
     state.confirmer?.stop()
@@ -420,6 +421,29 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     }
   }
 
+  // Cold-boot NTP self-heal: when bootstrapFromEnv()'s start was blocked purely by
+  // an unsynchronized clock (status 423), poll timedatectl in the background and, the
+  // moment the clock is no longer "not synced", re-run the full auto-config. Single
+  // timer (guarded), unref'd so it never keeps the process alive, and cleared on
+  // stop/reset. clockStatus() returns synced:null on a box without timedatectl (dev
+  // Mac) — that is NOT synced===false, so doStart never blocks there and this never
+  // engages; it only ever runs on a real Pi that reported synced===false.
+  function scheduleClockRetry() {
+    if (state.clockRetryTimer) return // already waiting — don't stack timers
+    const everyMs = config.clockRetryMs ?? 15_000
+    console.log(`[autoconfig] clock not synchronized — will retry automatically every ${everyMs / 1000}s once NTP syncs`)
+    state.clockRetryTimer = setInterval(async () => {
+      let clock
+      try { clock = await clockStatus() } catch { return }
+      if (clock.synced === false) return // still cold — keep waiting
+      clearInterval(state.clockRetryTimer)
+      state.clockRetryTimer = null
+      console.log('[autoconfig] clock now synchronized — retrying auto-config')
+      await app.bootstrapFromEnv()
+    }, everyMs)
+    state.clockRetryTimer.unref?.()
+  }
+
   // Headless auto-config: lets a checkpoint Pi boot straight into a running
   // session with no operator ever touching the wizard, driven entirely by
   // AUTOCONFIG_* env vars (see config.js). AUTOCONFIG is authoritative: when
@@ -471,6 +495,14 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
       const startResult = await doStart({})
       if (!startResult.ok) {
         console.error(`[autoconfig] failed: ${startResult.error} — configure via the UI at :${uiPort}`)
+        // A Pi without an RTC boots in 1970 and starts this agent BEFORE NTP has
+        // synced the clock (status 423 from doStart's clock gate). That is a cold-boot
+        // race, not a real misconfig — the clock syncs seconds-to-minutes later. Rather
+        // than leave the agent stuck configured-but-not-recording until a human
+        // restarts it, poll for the clock and retry the whole bootstrap automatically
+        // once NTP catches up. Scoped to 423 only — a bad PIN / unreachable reader / bad
+        // ids still just log and wait for the operator.
+        if (startResult.status === 423) scheduleClockRetry()
         return
       }
       console.log(`[autoconfig] configured checkpoint ${ac.checkpointId} for event ${ac.eventId}, armMode=${ac.armMode}, status=${currentStatus()}`)
