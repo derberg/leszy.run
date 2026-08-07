@@ -274,6 +274,13 @@ any                                      → `dsq`   (manual, requires `status_n
 - Multiple race_runs can exist per category (restarts create a new one)
 - Previous runs are not deleted, just have status `cancelled`
 
+**Wiping a test run's data** (`race_runs`, `results`, `gate_events`, `gate_crossings`)
+is not one DELETE — every backend host has its own local Postgres and **deletes are
+never propagated by the sync workers**, so the run must be removed on each host AND
+Supabase or it reappears (and re-pushes). Invoke the `resetting-race-test-data` skill —
+it covers host enumeration, the `gate_events` `SET NULL` orphan trap, and what must
+survive (check-ins, participants, tag assignments, event config).
+
 ## Supabase project
 
 Project ID: `<your-supabase-project-id>`
