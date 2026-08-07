@@ -97,6 +97,30 @@ than no reset, because it looks finished.
 `checkpoint_observations` — keyed by `checkpoint_id`, so deleting `race_runs`
 does **not** touch it. Find the event's checkpoints first.
 
+**AND the checkpoint-agent's own queue file — deleting the DB rows is not enough.**
+This is the step that gets missed. `startPipeline()` runs
+`confirmer.seed(queue.epcs())`, which blacklists every EPC already present in the
+agent's local queue so a restart doesn't double-record. That file is **per
+checkpoint and persists**, so after clearing `checkpoint_observations` the agent
+still refuses to re-record those runners — the next run silently produces zero
+checkpoint data for exactly the people you just cleared. (Observed 2026-08-07:
+DB cleared, 20 runners still blocked.)
+
+**`POST /api/reset` does NOT remove it.** Reset clears `session`, `roster` and
+`pin` — the queue files are deliberately left on disk as an audit trail. So reset
+alone costs you a full re-setup *and* still leaves the blacklist in place. Delete
+the files directly instead, which also keeps the session/roster/PIN so no
+re-configuration is needed:
+
+```bash
+ssh leszyrun@<agent-host> \
+  "cd ~/leszyrun/checkpoint-agent/data && rm -f queue-<CHECKPOINT_ID>.jsonl cursor-<CHECKPOINT_ID>.json"
+```
+
+Stop the agent first (`sudo systemctl stop leszyrun-checkpoint`) so it can't
+rewrite the file mid-delete, then start it again. Verify with `GET /api/state`:
+`counts.total` back to 0, `rosterCount` still 20 (i.e. the session survived).
+
 **KEEP unless the user explicitly says otherwise:**
 `checkins`, `checkin_documents` (else 20 people re-scan), `participants`
 (including `rfid_epc` tag assignments), `categories`, `events` (including the
@@ -188,6 +212,14 @@ Then restart the backends you stopped.
 - About to delete `checkins` or `participants` because they're "race data" →
   they're not. The user will have to re-check-in the whole field.
 - Verifying within a few seconds of the delete → a sync cycle hasn't run yet.
+- Cleared `checkpoint_observations` but not the agent's queue file → the next run
+  records nothing for those runners, and it looks like a reader fault.
+- Reaching for `POST /api/reset` to clear the queue → it doesn't, and it costs a
+  full re-setup (session, roster and PIN are wiped; the queue files are not).
+- Proposing a schema change (`race_run_id` on `checkpoint_observations`) to make
+  re-runs work → out of scope for a reset, and not a production concern: a real
+  event runs once, and a false-start restart happens before anyone has reached a
+  mid-course checkpoint, so no slot is burned. Clear the data manually instead.
 - Wiping the whole event (`DELETE /api/events/:id`) to reset one run → that
   nukes participants, checkins, and config too.
 
