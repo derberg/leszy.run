@@ -349,6 +349,29 @@ How the trigger decides what counts as a "real" change vs. the sync worker marki
 - Sync worker does `SET synced_at = now()` → `OLD.synced_at ≠ NEW.synced_at` → trigger passes through
 - Any other UPDATE → `synced_at` unchanged → trigger sets it to `NULL` → sync picks it up
 
+**Lost-update guard (`markSynced` in `supabase.js`) — do not simplify it away.** The
+worker snapshots dirty rows, spends a second or two upserting them, then marks them
+synced. Marking by `id` alone silently destroys any local change that landed in
+between: Supabase keeps the pre-change value, the row is flagged clean so the push
+worker never revisits it, and `configSync` then overwrites the local value with the
+stale remote copy (its only protection is "don't touch locally-dirty rows"). On
+2026-08-07 this wiped the chip `start_time` of 3 of 19 runners mid-race — snapshot at
+14:53:25, starts confirmed 14:53:27, a configSync pull reverted them at 14:53:55,
+0.7 s before their finish reads, which then credited gun time instead of real netto.
+So the stamp is conditional on Postgres's `xmin` system column (the xid of the last
+transaction to write the row) captured in the same snapshot:
+
+```sql
+UPDATE <t> SET synced_at = now() WHERE id = $1 AND xmin::text = $2
+```
+
+A row that changed keeps `synced_at` NULL and is simply re-pushed next cycle with its
+current value. The log reports it: `Synced N rows from <t> (M changed mid-push — left
+dirty, will re-push next cycle)`. `__xmin` is stripped in `rowToSnake` so it never
+reaches Supabase. The one deliberate exception is the `checkpoint_observations`
+23505 retirement path, which stamps unconditionally because that row is being retired
+rather than pushed.
+
 **Rules when adding new tables or mutation paths:**
 - Every new table that syncs to Supabase needs a `trg_reset_synced_at_<table>` trigger added to the migration
 - You do NOT need to manually reset `syncedAt` in route handlers — the trigger handles it
