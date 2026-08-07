@@ -12,7 +12,9 @@ test('defaults', () => {
   assert.equal(c.dataDir, './data')
   assert.equal(c.supabaseUrl, null)
   assert.equal(c.readerPollMs, 15000)
-  assert.equal(c.armPollMs, 15000)
+  // 3s on purpose: this interval is also how long a post-gun checkpoint pass can
+  // be silently dropped while the agent is still disarmed. See config.js.
+  assert.equal(c.armPollMs, 3000)
   assert.equal(c.heartbeatMs, 15000)
 })
 
