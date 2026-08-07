@@ -1,0 +1,12 @@
+-- events.confirm_rssi_cdbm — crossing bar, distinct from the tracking floor.
+--
+-- The `events` table exists in BOTH the device-local Postgres and Supabase, so
+-- this mirrors backend/src/db/migrations/0031_confirm_rssi_cdbm.sql. Without it
+-- the push sync worker would 400 on every events upsert once a backend starts
+-- sending the new column.
+--
+-- rssi_threshold decides whether a read is followed at all (permissive, or weak
+-- tags are lost). confirm_rssi_cdbm decides whether the tag actually reached the
+-- gate: START requires the accumulated peak to clear it, FINISH requires the
+-- individual read to clear it. NULL = disabled (pre-existing behaviour).
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS confirm_rssi_cdbm integer;

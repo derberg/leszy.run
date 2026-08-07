@@ -41,6 +41,18 @@ import { gateCrossings, gateEvents, results } from '../db/schema.js'
  *  finish-crossing fallback then assigns gun time — start-less runners are left
  *  for manual backfill (POST /races/:id/assign-gun-start).
  *
+ * Two-tier strength gating (rssi_threshold + confirm_rssi_cdbm):
+ *  - rssi_threshold is a TRACKING floor — may this read be followed at all.
+ *    Must stay permissive or weak-but-real tags are never seen.
+ *  - confirm_rssi_cdbm is a CROSSING bar — did the tag actually reach the gate.
+ *    START requires the accumulated PEAK to clear it; FINISH requires the
+ *    individual read to clear it. NULL disables it (single-threshold behaviour).
+ *  A single threshold cannot do both: tag performance spans ~30 dB, so one value
+ *  trades missed runners against phantom crossings. Real gate passes peak at
+ *  -3200…-5000; a tag idling 15 m away tops out around -6200.
+ *  A start rejected by the bar falls through to gun-time backfill, which is far
+ *  better than a confidently wrong chip time corrupting the runner's net result.
+ *
  * Peak RSSI: values closer to 0 are stronger. -2000 cdbm > -6000 cdbm.
  *
  * ```mermaid
@@ -139,7 +151,14 @@ export class CrossingDetector {
         clearTimeout(tag.goneTimer)
         const epc = key.split(':')[0]
         const participantId = race?.epcToParticipant.get(epc)
-        if (participantId && race && !race.finishedParticipants.has(participantId)) {
+        // Same crossing bar as the goneTimer path — otherwise stopping the race
+        // would flush exactly the far-field presences the bar just rejected.
+        const confirmRssi = race?.config?.confirmRssiCdbm ?? null
+        const tooWeak = confirmRssi !== null && tag.peakRssi < confirmRssi
+        if (tooWeak) {
+          console.log(`[Detector] Dropping pending far-field presence for ${epc} on stop — peak ${tag.peakRssi} < confirm bar ${confirmRssi}`)
+        }
+        if (participantId && race && !tooWeak && !race.finishedParticipants.has(participantId)) {
           pendingConfirms.push(
             this.#confirmCrossing({
               raceRunId,
@@ -252,6 +271,26 @@ export class CrossingDetector {
       const rssiThreshold = race.config.rssiThreshold ?? -5000
       if (event.rssiCdbm < rssiThreshold) continue
 
+      // TWO-TIER STRENGTH GATING.
+      //
+      // rssiThreshold above is a TRACKING floor: it decides whether a read is
+      // worth following at all, and must stay permissive or a weak-but-real tag
+      // is never seen (at -5000 only 8 of 20 runners were detected at a real
+      // start line; at -6500, 19 of 20 were).
+      //
+      // confirmRssiCdbm is a CROSSING bar: it decides whether a tag actually came
+      // close enough to the antenna to have crossed the gate. A permissive floor
+      // alone means a tag idling 15 m away — above the floor, never near the gate
+      // — accumulates readings, goes quiet, and is recorded as a crossing at a
+      // time when the runner was nowhere near the line.
+      //
+      // One number cannot do both jobs: tag performance spans ~30 dB, so any
+      // single value trades missed runners against phantom crossings. Real gate
+      // passes peak at -3200…-5000; far-field loiterers top out around -6200.
+      //
+      // NULL disables the bar entirely (pre-existing behaviour).
+      const confirmRssi = race.config.confirmRssiCdbm ?? null
+
       // Persist raw ping for audit — fire-and-forget, must not block sync detection loop
       this.db.insert(gateEvents).values({
         raceRunId,
@@ -282,6 +321,13 @@ export class CrossingDetector {
         // Ghost-read guard: ignore finish reads too soon after the gun
         // (runners near the start line right after the start).
         if (race.gunStartTime && (new Date(event.receivedAt) - race.gunStartTime) < minFinishMs) continue
+        // FINISH is first-read, so the crossing bar applies to THIS read rather
+        // than an accumulated peak. Skipping (instead of buffering) keeps the
+        // first-read semantics intact: the first read strong enough to be a real
+        // gate pass is the finish. Critically this must NOT add the participant
+        // to finishedParticipants — doing so would swallow their real crossing
+        // moments later and leave them permanently unfinished.
+        if (confirmRssi !== null && event.rssiCdbm < confirmRssi) continue
         // Mark finished synchronously BEFORE the async confirm — readings arrive
         // faster than the DB roundtrip and would otherwise double-confirm.
         race.finishedParticipants.add(participantId)
@@ -305,6 +351,15 @@ export class CrossingDetector {
       const doConfirm = (t) => {
         clearTimeout(t.goneTimer)
         this.inRange.delete(key)
+        // The tag went quiet, but if its PEAK never cleared the crossing bar it
+        // was never at the gate — drop it instead of recording a start at a time
+        // the runner wasn't there. A start-less runner is then picked up by
+        // gun-time backfill (or manual assignment), which is a far better outcome
+        // than a confidently wrong chip time corrupting their net result.
+        if (confirmRssi !== null && t.peakRssi < confirmRssi) {
+          console.log(`[Detector] Discarding far-field presence for ${event.epc} in race ${raceRunId} — peak ${t.peakRssi} never reached confirm bar ${confirmRssi}`)
+          return
+        }
         this.#confirmCrossing({
           raceRunId,
           participantId,

@@ -1423,6 +1423,9 @@ function RfidSettings({ event, onSave, saving }) {
     gunBackfillSeconds: event.gunBackfillSeconds ?? 60,
     gunBackfillEnabled: event.gunBackfillEnabled ?? true,
     rssiThreshold: event.rssiThreshold ?? -5000,
+    // '' represents NULL (bar disabled). Kept as a string so the empty input
+    // round-trips cleanly instead of becoming NaN.
+    confirmRssiCdbm: event.confirmRssiCdbm ?? '',
     minFinishSeconds: event.minFinishSeconds ?? 30,
   }
   const [form, setForm] = useState(baseline)
@@ -1496,10 +1499,30 @@ function RfidSettings({ event, onSave, saving }) {
                 Domyślnie: -5000 (=-50 dBm) — odczyty słabsze niż próg są ignorowane przez detekcję przejść (nie liczą się jako obecność przy bramce i nie trafiają do audytu). Chroni przed łapaniem chipów stojących daleko od anteny (czułe tagi czytają się z 20+ m przy ok. -7500). Przejście przez bramkę to zwykle -4500…-6500 — jeśli detekcja gubi zawodników przy bramce, obniż próg (np. -6500); jeśli łapie stojących obok, podnieś.
               </p>
             </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Próg potwierdzenia przejścia (cdBm)</span>
+              <Input
+                type="number" step="50" min="-8000" max="-3000"
+                value={form.confirmRssiCdbm}
+                placeholder="wyłączony"
+                onChange={e => set('confirmRssiCdbm', e.target.value === '' ? '' : parseInt(e.target.value))}
+                className="max-w-32"
+              />
+              <p className="text-xs text-apex-muted mt-1">
+                Puste = wyłączony (działa jak dotychczas, decyduje tylko próg sygnału powyżej).
+                Ustaw, gdy musisz mieć NISKI próg sygnału, żeby nie gubić słabych chipów, ale nie chcesz,
+                by zawodnicy stojący 15 m od bramki byli zapisywani jako przejście. Próg sygnału decyduje
+                „czy w ogóle śledzić ten odczyt”, a ten próg — „czy chip naprawdę był przy bramce”:
+                START wymaga, by SZCZYT sygnału go przekroczył, META — by przekroczył go dany odczyt.
+                Realne przejście to zwykle -3200…-5000, a łapanie z 15 m nie przekracza ok. -6200,
+                więc sensowna wartość to np. -5500. Zbyt wysoki próg = brak startu (zadziała czas
+                strzałki) lub brak mety (trzeba domknąć ręcznie).
+              </p>
+            </label>
           </div>
 
           {readerOnline ? (
-            <Button onClick={() => onSave(form)} disabled={saving || !isDirty}>
+            <Button onClick={() => onSave({ ...form, confirmRssiCdbm: form.confirmRssiCdbm === '' ? null : form.confirmRssiCdbm })} disabled={saving || !isDirty}>
               {saving ? 'Zapisywanie...' : isDirty ? 'Zapisz ustawienia RFID' : 'Zapisano'}
             </Button>
           ) : (
