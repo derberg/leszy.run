@@ -90,3 +90,79 @@ test('start() is idempotent — calling it twice does not create a second interv
   await new Promise((r) => setTimeout(r, 40))
   assert.equal(armedCount, 1)
 })
+
+// --- disarming ---------------------------------------------------------------
+// An agent that stays armed after its race_run is cancelled or deleted keeps
+// recording, and because checkpoint_observations is UNIQUE(checkpoint_id,
+// bib_number) with a drop-on-conflict trigger, those reads permanently occupy
+// each runner's slot — their real pass in the next run can never be stored.
+
+test('probe() distinguishes "definitely not armed" from "could not tell"', async () => {
+  const noRuns = createArmer({ supabase: fakeSupabase(() => []), eventId: 'ev1', pollMs: 10 })
+  assert.deepEqual(await noRuns.probe(), { ok: true, armed: false })
+
+  const withRun = createArmer({ supabase: fakeSupabase(() => [{ id: 'r1' }]), eventId: 'ev1', pollMs: 10 })
+  assert.deepEqual(await withRun.probe(), { ok: true, armed: true })
+
+  const erroring = { from: () => ({ select: () => ({ eq: async () => ({ data: null, error: { message: 'boom' } }) }) }) }
+  assert.deepEqual(await createArmer({ supabase: erroring, eventId: 'ev1', pollMs: 10 }).probe(), { ok: false })
+
+  const throwing = { from: () => { throw new Error('network') } }
+  assert.deepEqual(await createArmer({ supabase: throwing, eventId: 'ev1', pollMs: 10 }).probe(), { ok: false })
+})
+
+test('watch() disarms when the race run disappears', async (t) => {
+  let runs = [{ id: 'r1' }]
+  const armer = createArmer({ supabase: fakeSupabase(() => runs), eventId: 'ev1', pollMs: 10 })
+  t.after(() => armer.stop())
+  const seen = []
+  armer.watch((armed) => seen.push(armed), true) // start from "already armed"
+
+  await new Promise((r) => setTimeout(r, 40))
+  assert.deepEqual(seen, [], 'no transition while the run still exists')
+
+  runs = [] // run cancelled / deleted
+  await new Promise((r) => setTimeout(r, 60))
+  assert.deepEqual(seen, [false], 'disarmed exactly once')
+})
+
+test('watch() re-arms when a new run appears, and reports both directions', async (t) => {
+  let runs = []
+  const armer = createArmer({ supabase: fakeSupabase(() => runs), eventId: 'ev1', pollMs: 10 })
+  t.after(() => armer.stop())
+  const seen = []
+  armer.watch((armed) => seen.push(armed), false)
+
+  runs = [{ id: 'r1' }]
+  await new Promise((r) => setTimeout(r, 50))
+  runs = []
+  await new Promise((r) => setTimeout(r, 60))
+  runs = [{ id: 'r2' }]
+  await new Promise((r) => setTimeout(r, 60))
+
+  assert.deepEqual(seen, [true, false, true])
+})
+
+// The important safety property: a transient failure must NOT drop real reads.
+test('watch() never disarms on an indeterminate probe', async (t) => {
+  let fail = false
+  const supabase = {
+    from(table) {
+      if (fail) throw new Error('network down')
+      if (table === 'categories') return { select: () => ({ eq: async () => ({ data: [{ id: 'c1' }], error: null }) }) }
+      return { select: () => ({ in: () => ({ in: async () => ({ data: [{ id: 'r1' }], error: null }) }) }) }
+    },
+  }
+  const armer = createArmer({ supabase, eventId: 'ev1', pollMs: 10 })
+  t.after(() => armer.stop())
+  const seen = []
+  armer.watch((armed) => seen.push(armed), true)
+
+  fail = true
+  await new Promise((r) => setTimeout(r, 80))
+  assert.deepEqual(seen, [], 'stayed armed through the outage')
+
+  fail = false
+  await new Promise((r) => setTimeout(r, 40))
+  assert.deepEqual(seen, [], 'and still armed once it recovered')
+})

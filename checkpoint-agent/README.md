@@ -374,6 +374,28 @@ just a process restart.
    checkpoint or event. It requires a second confirming click within 5s to
    avoid fat-fingering it mid-race.
 
+### Arming is revoked, not just granted
+
+With `armMode: race_start` the agent arms when any `race_run` for the event is
+`active` or `finished`, and `session.armed` is **persisted** so a reboot mid-race
+does not start dropping real reads.
+
+That persistence used to mean arming was permanent. If the run was cancelled — or
+deleted, which is what resetting test data does — the agent kept recording into a
+race that no longer existed. Because `checkpoint_observations` is
+`UNIQUE(checkpoint_id, bib_number)` for the whole event and
+`trg_checkpoint_obs_priority` drops any later insert for that pair, those reads
+**permanently occupy each runner's slot**: their real pass in the *next* run can
+never be stored, and the results page correctly refuses to show the stale one
+(it predates that run's start). Observed 2026-08-07 — 5 of 20 runners ended up
+with an unusable, unfixable checkpoint observation.
+
+The armer now polls in **both** directions and disarms on a confirmed absence,
+logging `[armer] … DISARMED`. Crucially it distinguishes "definitely no run" from
+"could not tell": a network blip or RLS hiccup returns `{ ok: false }` and the
+current state is held, because falsely disarming mid-race would be worse than the
+bug it fixes.
+
 ### The roster is the thing that silently breaks
 
 Every read is resolved EPC → bib against the roster. `checkpoint_observations.bib_number`
