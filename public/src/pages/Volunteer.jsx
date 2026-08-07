@@ -18,6 +18,7 @@ export default function Volunteer() {
   const [loadError, setLoadError] = useState(null)
   const [bib, setBib] = useState('')
   const [flash, setFlash] = useState(null)
+  const [sending, setSending] = useState(false)
   const [eventEnded, setEventEnded] = useState(false)
 
   useEffect(() => {
@@ -51,20 +52,51 @@ export default function Volunteer() {
     setBib(b => b + key)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const n = parseInt(bib, 10)
     if (!n || n < 1) return
+    if (sending) return
 
-    supabase.from('checkpoint_observations').insert({
-      checkpoint_id: checkpointId,
-      bib_number: n,
-      observed_at: new Date().toISOString(),
-      source: 'manual',
-    })
-      .then(({ error }) => { if (error) console.error('[volunteer] upsert error', error) })
-
+    setSending(true)
     setBib('')
-    setFlash('sent')
+
+    // .select() is what makes the outcome observable at all. The
+    // trg_checkpoint_obs_priority BEFORE INSERT trigger returns NULL when a row
+    // for (checkpoint_id, bib_number) already exists — the insert is dropped and
+    // PostgREST reports NO error. Without asking for the inserted rows back, a
+    // discarded entry is indistinguishable from a saved one, which is exactly how
+    // a volunteer ends up typing a bib, seeing "Wysłano", and nothing happening.
+    const { data, error } = await supabase
+      .from('checkpoint_observations')
+      .insert({
+        checkpoint_id: checkpointId,
+        bib_number: n,
+        observed_at: new Date().toISOString(),
+        source: 'manual',
+      })
+      .select('id')
+
+    setSending(false)
+
+    if (error) {
+      // Network drop, RLS, constraint — the volunteer must see it and be able to
+      // retry, so put the bib back rather than swallowing it into a console log.
+      console.error('[volunteer] insert failed', error)
+      setBib(String(n))
+      setFlash({ kind: 'error', bib: n })
+      return
+    }
+
+    if (!data || data.length === 0) {
+      // Trigger dropped it: this bib is already recorded at this checkpoint
+      // (usually by the RFID reader, which wins by design). Not a failure —
+      // the pass IS on record — so say so plainly instead of implying loss.
+      setFlash({ kind: 'duplicate', bib: n })
+      setTimeout(() => setFlash(null), 2500)
+      return
+    }
+
+    setFlash({ kind: 'sent', bib: n })
     setTimeout(() => setFlash(null), 1200)
   }
 
@@ -74,7 +106,8 @@ export default function Volunteer() {
   if (!checkpoint) return <LoadingScreen />
   if (eventEnded) return <EventEndedScreen eventName={event?.name} />
 
-  const canSend = bib.length > 0 && parseInt(bib, 10) >= 1
+  // Blocked while an insert is in flight so a double-tap can't fire twice.
+  const canSend = bib.length > 0 && parseInt(bib, 10) >= 1 && !sending
 
   return (
     <div className="flex flex-col min-h-dvh p-5 select-none bg-apex-bg">
@@ -92,10 +125,22 @@ export default function Volunteer() {
         )}
       </div>
 
-      {/* Flash */}
-      {flash === 'sent' && (
+      {/* Flash — three distinct outcomes. "Wysłano" used to show unconditionally,
+          before the insert had even resolved, so a dropped or failed entry looked
+          identical to a saved one. */}
+      {flash?.kind === 'sent' && (
         <div className="bg-apex-yellow/10 border border-apex-yellow/30 text-apex-yellow px-4 py-2.5 text-center text-sm mb-4 tracking-wide">
-          Wyslano
+          Zapisano {flash.bib}
+        </div>
+      )}
+      {flash?.kind === 'duplicate' && (
+        <div className="bg-apex-cyan/10 border border-apex-cyan/40 text-apex-cyan px-4 py-2.5 text-center text-sm mb-4 tracking-wide">
+          Numer {flash.bib} jest już zapisany na tym punkcie — nie trzeba wpisywać ponownie.
+        </div>
+      )}
+      {flash?.kind === 'error' && (
+        <div className="bg-apex-red/10 border border-apex-red/50 text-apex-red px-4 py-2.5 text-center text-sm mb-4 tracking-wide">
+          Nie udało się zapisać {flash.bib} — numer wrócił na ekran, spróbuj ponownie.
         </div>
       )}
 
