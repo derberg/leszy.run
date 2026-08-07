@@ -1239,3 +1239,47 @@ test('POST /api/start self-heals: initial reader configure() throws, pipeline st
   state = (await app.inject({ method: 'GET', url: '/api/state' })).json().data
   assert.equal(state.lastReaderError, null)
 })
+
+// Cold-boot NTP race: a Pi without an RTC starts this agent before timedatectl
+// reports the clock synced, so bootstrapFromEnv()'s doStart is blocked (423). The
+// agent must NOT give up — it arms a background retry and, the moment the clock
+// syncs, re-runs auto-config on its own (no human restart). Regression guard for
+// the checkpoint2 incident where the agent sat configured-but-not-recording.
+test('autoconfig self-heals: retries and starts once the clock syncs', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cpapp-clockretry-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  let clockSynced = false
+  const app = await buildApp({
+    config: {
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
+      goneWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+      port: 8080, clockRetryMs: 20,
+      autoconfig: { present: true, eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5', mqttHost: '192.168.1.50', armMode: 'immediate' },
+    },
+    supabase: {
+      from: () => ({
+        select: () => ({ gte: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }),
+        insert: async () => ({ error: null }), upsert: async () => ({ error: null }),
+      }),
+    },
+    fetchRoster: async ({ pin }) => pin === '123456' ? { ok: true, roster: [{ bib_number: 101, rfid_epc: 'AABBCC01' }] } : { ok: false, status: 401, error: 'Invalid PIN' },
+    createReader: () => ({ getStatus: async () => ({ status: 'idle' }), configure: async () => {}, start: async () => {}, stop: async () => {} }),
+    connectMqtt: () => ({ on: () => {}, subscribe: () => {}, end: () => {} }),
+    clockStatus: async () => ({ synced: clockSynced, source: 'test' }),
+    detectLanIp: () => '10.0.0.99',
+  })
+  t.after(() => app.close())
+
+  // Cold boot — clock not synced yet.
+  await app.bootstrapFromEnv()
+  assert.equal(app.deps.running, false, 'not running while clock unsynced')
+  assert.ok(app.deps.session, 'setup succeeded and persisted a session')
+  assert.ok(app.deps.clockRetryTimer, 'a clock-retry timer is pending')
+
+  // NTP catches up.
+  clockSynced = true
+  await new Promise((r) => setTimeout(r, 150))
+
+  assert.equal(app.deps.running, true, 'auto-config retried and started once the clock synced')
+  assert.equal(app.deps.clockRetryTimer, null, 'retry timer cleared after a successful start')
+})
