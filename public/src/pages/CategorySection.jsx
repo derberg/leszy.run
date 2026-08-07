@@ -100,10 +100,19 @@ export default function CategorySection({ eventId, categoryId }) {
 
     if (cpRes.data?.length) {
       const cpIds = checkpointsRef.current.map(c => c.id)
+      // NO observed_at >= run.started_at filter. It looks like a sensible "only
+      // this run" guard, but checkpoint_observations is UNIQUE(checkpoint_id,
+      // bib_number) for the WHOLE event and trg_checkpoint_obs_priority drops any
+      // later insert for the same pair. So there is only ever one observation per
+      // runner per checkpoint, it can never be refreshed by a re-run — and the
+      // filter's only real effect was to hide it whenever it happened to predate
+      // the current run's start_time (e.g. recorded during an earlier attempt, or
+      // by an agent armed before the gun). Observed on 2026-08-07: 5 of 20 runners
+      // had a genuine RFID checkpoint read that the results page silently omitted.
+      // Showing the one observation we have beats hiding it.
       const { data: obsData } = await supabase.from('checkpoint_observations')
         .select('id, checkpoint_id, participant_id, bib_number, observed_at')
         .in('checkpoint_id', cpIds)
-        .gte('observed_at', run.started_at)
       // Filter out observations from participants in other categories
       setObservations((obsData || []).filter(o =>
         !o.participant_id || pMap[o.participant_id]
