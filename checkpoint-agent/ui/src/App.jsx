@@ -637,6 +637,17 @@ function Dashboard({ state, onAfterAction }) {
 
       <ArmStatusBadge status={state.status} ignoredReads={state.ignoredReads} />
 
+      {/* Empty roster = every read resolves to bib=null and is discarded, so the
+          agent records NOTHING while looking perfectly healthy. Start is refused
+          server-side; this is the pre-race warning, shown above everything else
+          because nothing on this screen matters until it is resolved. */}
+      {state.rosterCount === 0 && (
+        <Banner tone="red">
+          Lista startowa jest pusta — żaden odczyt nie zostanie zapisany. Przypisz chipy RFID,
+          a potem uruchom konfigurację ponownie (Setup) przed startem.
+        </Banner>
+      )}
+
       {state.clock?.synced === false && (
         <Banner tone="yellow">
           Zegar czytnika nie jest zsynchronizowany{state.clock.source ? ` (źródło: ${state.clock.source})` : ''}.
