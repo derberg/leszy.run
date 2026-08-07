@@ -100,19 +100,24 @@ export default function CategorySection({ eventId, categoryId }) {
 
     if (cpRes.data?.length) {
       const cpIds = checkpointsRef.current.map(c => c.id)
-      // NO observed_at >= run.started_at filter. It looks like a sensible "only
-      // this run" guard, but checkpoint_observations is UNIQUE(checkpoint_id,
-      // bib_number) for the WHOLE event and trg_checkpoint_obs_priority drops any
-      // later insert for the same pair. So there is only ever one observation per
-      // runner per checkpoint, it can never be refreshed by a re-run — and the
-      // filter's only real effect was to hide it whenever it happened to predate
-      // the current run's start_time (e.g. recorded during an earlier attempt, or
-      // by an agent armed before the gun). Observed on 2026-08-07: 5 of 20 runners
-      // had a genuine RFID checkpoint read that the results page silently omitted.
-      // Showing the one observation we have beats hiding it.
+      // observed_at >= run.started_at is REQUIRED, not an over-cautious guard: a
+      // runner cannot have reached a mid-course checkpoint before the gun, so an
+      // earlier observation is a ghost read (agent armed pre-start, or a leftover
+      // from a previous attempt at the race) and must never be rendered as a
+      // checkpoint split.
+      //
+      // Do NOT "fix" a missing checkpoint time by widening or removing this
+      // window — that was tried on 2026-08-07 and it made the results page show
+      // 5 runners as having passed 5 km before the race began. If an observation
+      // is missing here, the bug is upstream: checkpoint_observations is
+      // UNIQUE(checkpoint_id, bib_number) for the WHOLE event with no
+      // race_run_id, and trg_checkpoint_obs_priority drops any later insert for
+      // that pair — so one pre-start ghost read permanently occupies the slot and
+      // the runner's real pass can never be recorded. Fix the scoping, not the view.
       const { data: obsData } = await supabase.from('checkpoint_observations')
         .select('id, checkpoint_id, participant_id, bib_number, observed_at')
         .in('checkpoint_id', cpIds)
+        .gte('observed_at', run.started_at)
       // Filter out observations from participants in other categories
       setObservations((obsData || []).filter(o =>
         !o.participant_id || pMap[o.participant_id]
