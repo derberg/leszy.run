@@ -11,7 +11,12 @@ export const events = pgTable('events', {
   rfidTopicMain: text('rfid_topic_main').notNull().default('leszyrun'),
   rfidTopicFinish: text('rfid_topic_finish').notNull().default('leszyrun/finish'),
   rssiThreshold: integer('rssi_threshold').notNull().default(-5000),
-  declineThresholdCdbm: integer('decline_threshold_cdbm').notNull().default(1000),
+  // Crossing bar, in cdbm. rssiThreshold above is a permissive TRACKING floor
+  // (see it or lose weak tags); this is the strict test for "did the tag actually
+  // reach the gate". START: peak must clear it. FINISH: the read must clear it.
+  // NULL = disabled, i.e. exactly the pre-existing single-threshold behaviour.
+  confirmRssiCdbm: integer('confirm_rssi_cdbm'),
+  declineThresholdCdbm: integer('decline_threshold_cdbm').notNull().default(1000), // UNUSED — no reference in crossingDetector.js; kept for schema compat
   goneWindowSeconds: integer('gone_window_seconds').notNull().default(3),
   fallbackSeconds: integer('fallback_seconds').notNull().default(10), // unused since first-read finish; kept for schema compat
   gunBackfillSeconds: integer('gun_backfill_seconds').notNull().default(60),
