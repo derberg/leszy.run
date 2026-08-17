@@ -220,7 +220,10 @@ resetting → no confirmation until they actually run through.
 
 **FINISH = first-read** — the FIRST reading above the event's `rssi_threshold` from an
 already-started participant confirms the finish immediately with that reading's
-timestamp; all subsequent readings are ignored (`finishedParticipants`). There is no
+timestamp; all subsequent readings are ignored for detection (`finishedParticipants`)
+but are still written to `gate_events` for 60 s (`FINISH_AUDIT_WINDOW_MS`) so the whole
+finish pass stays auditable — before that window existed, every finish recorded exactly
+one gate event and there was no way to tell a solid crossing from one lucky ping. There is no
 force-confirm timer anymore (`fallback_seconds` is unused — with sensitive tags it
 fired during the far-field approach and recorded weak early "finishes"). Finish reads
 within `min_finish_seconds` of the gun are ignored (ghost reads at the start line).
@@ -239,7 +242,7 @@ Flow per reading (above `rssi_threshold`; weaker reads are ignored entirely):
 See the mermaid flowchart at the top of `crossingDetector.js` for a full diagram.
 
 Configurable per event (stored in `events` table):
-- `rssi_threshold`: default `-5000` cdbm — the **tracking floor**. Readings weaker than this are ignored by the detector (far-field pickup from high-sensitivity tags; they don't create/refresh `inRange` entries and are not persisted to `gate_events`). Raw `rfid:raw` broadcast is unaffected. Gate crossings read −45…−65 dBm; 20 m pickup reads −71…−78 — set per event based on gate geometry (e.g. `-6500`).
+- `rssi_threshold`: default `-6500` cdbm (was `-5000` until 2026-08-17) — the **tracking floor**. Readings weaker than this are ignored by the detector (far-field pickup from high-sensitivity tags; they don't create/refresh `inRange` entries and are not persisted to `gate_events`). Raw `rfid:raw` broadcast is unaffected. Measured at the 2026-08-07 race: genuine finish crossings came in at −60…−65 dBm and the strongest read of the entire race was −45.5 dBm, so the old `-5000` discarded essentially the whole field and every event had to be hand-tuned before it could time anything. Far-field pickup (tag on a table 15–20 m away) reads −71…−78, so `-6500` still excludes it — but only by ~6 dB, which is the real problem: at that gate the noise band and the crossing band nearly touch. Widen that gap with geometry (narrow the lane, bring runners within ~1.5 m of the antenna), not by chasing the threshold.
 - `confirm_rssi_cdbm`: **NULL by default = disabled.** The **crossing bar**, and the second half of a two-tier gate. `rssi_threshold` answers "may this read be followed at all" and must stay permissive or weak tags are lost; this answers "did the tag actually reach the gate". **START** requires the accumulated *peak* to clear it; **FINISH** requires the individual read to clear it (first-read semantics are preserved — a rejected weak read is skipped, NOT added to `finishedParticipants`, so the real crossing still counts). `stopRace`'s pending flush applies the same bar. A start rejected by the bar falls through to gun-time backfill; a rejected finish leaves the runner on course for manual closing.
 
   **LEAVE IT NULL UNLESS YOU HAVE MEASURED A CLEAN SEPARATION AT YOUR GATE.** It was built on the assumption that real gate passes are strong (−32…−50 dBm) and only far-field pickup is weak, so a bar around `-5500` would drop phantoms while keeping real crossings. **That assumption was wrong and contradicted the documented range above** (−45…−65 dBm for a real crossing). Measured at the 2026-08-07 race: runners who physically passed *right next to the antenna* peaked at **−62…−64,5 dBm**, while others on the same pass peaked at −32 dBm. A bar at `-5500` would therefore have discarded genuine crossings.

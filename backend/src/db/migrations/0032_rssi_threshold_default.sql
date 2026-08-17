@@ -1,0 +1,11 @@
+-- Loosen the default RFID tracking floor from -5000 (-50 dBm) to -6500 (-65 dBm).
+--
+-- Measured at the 2026-08-07 night race: every genuine finish crossing came in at
+-- -60…-65 dBm and the strongest read of the entire race was -45.5 dBm. A -5000
+-- default discards essentially the whole field, so every event had to be hand-tuned
+-- to -6500 before it could time anything. Far-field pickup (a tag on a table 15-20 m
+-- from the reader) sits at -71…-78 dBm, so -6500 still excludes it.
+--
+-- Existing rows are left alone: rssi_threshold is a per-event operational setting and
+-- past events must keep the value their results were produced with.
+ALTER TABLE "events" ALTER COLUMN "rssi_threshold" SET DEFAULT -6500;

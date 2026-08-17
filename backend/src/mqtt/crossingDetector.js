@@ -87,6 +87,11 @@ import { gateCrossings, gateEvents, results } from '../db/schema.js'
  */
 
 const DEDUP_WINDOW_MS = 200   // within this window per EPC, only keep best RSSI
+// After a finish is confirmed, keep writing that tag's reads to gate_events for this
+// long so the whole finish pass is auditable (how many reads, how strong) instead of
+// just the single read that happened to confirm it. Bounded so a finisher loitering
+// near the gate doesn't fill the table.
+const FINISH_AUDIT_WINDOW_MS = 60_000
 
 
 export class CrossingDetector {
@@ -134,6 +139,10 @@ export class CrossingDetector {
       epcToParticipant: epcMap,
       startedParticipants,
       finishedParticipants,
+      // participantId -> epoch ms until which post-finish reads are still persisted
+      // to gate_events (see FINISH_AUDIT_WINDOW_MS). Empty after a restart, which is
+      // fine: it only costs audit rows for runners who finished before the restart.
+      finishAuditUntil: new Map(),
     })
     console.log(`[Detector] Started race ${raceRun.id} with ${epcMap.size} tagged participants (${startedParticipants.size} already started, ${finishedParticipants.size} already finished)`)
 
@@ -269,13 +278,12 @@ export class CrossingDetector {
     for (const [raceRunId, race] of this.activeRaces) {
       const participantId = race.epcToParticipant.get(event.epc)
       if (!participantId) continue
-      if (race.finishedParticipants.has(participantId)) continue
 
       // Readings weaker than the event's rssi_threshold are far-field noise
       // (high-sensitivity tags read from 20+ m) — not a gate crossing. Skip
       // detection AND the audit insert; sub-threshold reads also must not
       // reset goneTimer, so a runner leaving the gate zone confirms promptly.
-      const rssiThreshold = race.config.rssiThreshold ?? -5000
+      const rssiThreshold = race.config.rssiThreshold ?? -6500
       if (event.rssiCdbm < rssiThreshold) continue
 
       // TWO-TIER STRENGTH GATING.
@@ -298,17 +306,36 @@ export class CrossingDetector {
       // NULL disables the bar entirely (pre-existing behaviour).
       const confirmRssi = race.config.confirmRssiCdbm ?? null
 
-      // Persist raw ping for audit — fire-and-forget, must not block sync detection loop
-      this.db.insert(gateEvents).values({
-        raceRunId,
-        epc:         event.epc,
-        antennaPort: event.antennaPort,
-        rssiCdbm:    event.rssiCdbm,
-        frequency:   event.frequency ?? null,
-        topic:       event.topic,
-        receivedAt:  new Date(event.receivedAt),
-        raw:         event.raw,
-      }).catch(err => console.error('[Detector] Failed to persist gate event:', err))
+      // Persist raw ping for audit — fire-and-forget, must not block sync detection loop.
+      //
+      // The finishedParticipants short-circuit used to sit ABOVE this insert, which
+      // meant a finish pass recorded exactly ONE gate event: the first read confirms
+      // the finish, every later read of the same pass was dropped un-persisted. After
+      // the 2026-08-07 race there was therefore no way to tell whether a finish was a
+      // solid 20-read crossing or one lucky ping at the noise floor — the single most
+      // useful thing to know when tuning a gate. Now post-finish reads keep landing in
+      // gate_events for FINISH_AUDIT_WINDOW_MS, long enough to capture the rest of the
+      // pass but not the runner standing around chatting for the next half hour (which
+      // on a sensitive tag would be thousands of rows per finisher).
+      const finished = race.finishedParticipants.has(participantId)
+      const auditUntil = race.finishAuditUntil.get(participantId)
+      if (!finished || (auditUntil !== undefined && now < auditUntil)) {
+        this.db.insert(gateEvents).values({
+          raceRunId,
+          epc:         event.epc,
+          antennaPort: event.antennaPort,
+          rssiCdbm:    event.rssiCdbm,
+          frequency:   event.frequency ?? null,
+          topic:       event.topic,
+          receivedAt:  new Date(event.receivedAt),
+          raw:         event.raw,
+        }).catch(err => console.error('[Detector] Failed to persist gate event:', err))
+      }
+
+      // Finish already confirmed for this runner — audited above where still in
+      // window, but no further detection work (first-read finish semantics: later
+      // reads never re-time an existing finish).
+      if (finished) continue
 
       const key = `${event.epc}:${raceRunId}`
 
@@ -338,6 +365,10 @@ export class CrossingDetector {
         // Mark finished synchronously BEFORE the async confirm — readings arrive
         // faster than the DB roundtrip and would otherwise double-confirm.
         race.finishedParticipants.add(participantId)
+        // Keep auditing this tag for a short window so the REST of the finish pass
+        // lands in gate_events — that is what makes "was this a solid crossing or
+        // one lucky ping?" answerable after the race.
+        race.finishAuditUntil.set(participantId, now + FINISH_AUDIT_WINDOW_MS)
         this.#confirmCrossing({
           raceRunId,
           participantId,
@@ -443,6 +474,7 @@ export class CrossingDetector {
         if (elapsed < minFinishMs) {
           // Roll back the optimistic first-read mark so the real crossing still counts
           race.finishedParticipants.delete(participantId)
+          race.finishAuditUntil.delete(participantId)
           console.log(`[Detector] Ignoring finish crossing for ${participantId} — only ${Math.round(elapsed / 1000)}s since race start (min ${minFinishMs / 1000}s)`)
           return
         }

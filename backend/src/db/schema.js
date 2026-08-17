@@ -10,7 +10,11 @@ export const events = pgTable('events', {
   rfidMode: text('rfid_mode').notNull().default('single'),        // 'single' | 'separate'
   rfidTopicMain: text('rfid_topic_main').notNull().default('leszyrun'),
   rfidTopicFinish: text('rfid_topic_finish').notNull().default('leszyrun/finish'),
-  rssiThreshold: integer('rssi_threshold').notNull().default(-5000),
+  // -6500 (=-65 dBm), not -5000: measured at the 2026-08-07 night race, genuine
+  // gate passes came in at -60…-65 dBm. A -5000 floor discards nearly the whole
+  // field. Far-field pickup (tag on a table 15-20 m away) sits at -71…-78, so
+  // -6500 still keeps it out — barely. Loosen per event, never tighten blindly.
+  rssiThreshold: integer('rssi_threshold').notNull().default(-6500),
   // Crossing bar, in cdbm. rssiThreshold above is a permissive TRACKING floor
   // (see it or lose weak tags); this is the strict test for "did the tag actually
   // reach the gate". START: peak must clear it. FINISH: the read must clear it.

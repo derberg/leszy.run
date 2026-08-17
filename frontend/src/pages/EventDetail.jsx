@@ -1422,7 +1422,7 @@ function RfidSettings({ event, onSave, saving }) {
     goneWindowSeconds: event.goneWindowSeconds ?? 3,
     gunBackfillSeconds: event.gunBackfillSeconds ?? 60,
     gunBackfillEnabled: event.gunBackfillEnabled ?? true,
-    rssiThreshold: event.rssiThreshold ?? -5000,
+    rssiThreshold: event.rssiThreshold ?? -6500,
     // '' represents NULL (bar disabled). Kept as a string so the empty input
     // round-trips cleanly instead of becoming NaN.
     confirmRssiCdbm: event.confirmRssiCdbm ?? '',
@@ -1496,7 +1496,7 @@ function RfidSettings({ event, onSave, saving }) {
               <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Próg sygnału (cdBm)</span>
               <Input type="number" step="50" min="-8000" max="-3000" value={form.rssiThreshold} onChange={e => set('rssiThreshold', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: -5000 (=-50 dBm) — odczyty słabsze niż próg są ignorowane przez detekcję przejść (nie liczą się jako obecność przy bramce i nie trafiają do audytu). Chroni przed łapaniem chipów stojących daleko od anteny (czułe tagi czytają się z 20+ m przy ok. -7500). Przejście przez bramkę to zwykle -4500…-6500 — jeśli detekcja gubi zawodników przy bramce, obniż próg (np. -6500); jeśli łapie stojących obok, podnieś.
+                Domyślnie: -6500 (=-65 dBm) — odczyty słabsze niż próg są ignorowane przez detekcję przejść (nie liczą się jako obecność przy bramce i nie trafiają do audytu). Chroni przed łapaniem chipów stojących daleko od anteny (czułe tagi czytają się z 20+ m przy ok. -7100…-7800). Zmierzone na biegu 07.08.2026: prawdziwe przejścia przez metę miały -6000…-6500, najmocniejszy odczyt całego biegu to -4550. Jeśli detekcja gubi zawodników przy bramce, obniż próg — ale pamiętaj, że im bliżej -7000, tym większe ryzyko złapania kogoś, kto stoi 15 m dalej. Prawdziwym lekarstwem jest zwężenie bramki, nie próg.
               </p>
             </label>
             <label className="block">
