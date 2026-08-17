@@ -221,7 +221,7 @@ resetting → no confirmation until they actually run through.
 **FINISH = first-read** — the FIRST reading above the event's `rssi_threshold` from an
 already-started participant confirms the finish immediately with that reading's
 timestamp; all subsequent readings are ignored for detection (`finishedParticipants`)
-but are still written to `gate_events` for 60 s (`FINISH_AUDIT_WINDOW_MS`) so the whole
+but are still written to `gate_events` for 10 s (`FINISH_AUDIT_WINDOW_MS`, sized to cover a Nordic walker's ~6 s approach from the ~8 m first-read distance) so the whole
 finish pass stays auditable — before that window existed, every finish recorded exactly
 one gate event and there was no way to tell a solid crossing from one lucky ping. There is no
 force-confirm timer anymore (`fallback_seconds` is unused — with sensitive tags it
