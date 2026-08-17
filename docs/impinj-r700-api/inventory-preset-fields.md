@@ -41,10 +41,20 @@ before returning to state A (readable again).
 | 3 | ~8 s |
 
 **Note:** Exact times are tag-dependent (governed by persistence flag in tag firmware).
-Session 2 is a good default for gate timing — reduces duplicate reads when a runner
-lingers in range for several seconds.
 
-LeszyRun default: **2**
+**Session 1 is the LeszyRun default, and session 2 is a trap for gate timing.** The
+"reduces duplicate reads" framing sounds right but inverts the priority: at a finish
+line you *want* duplicates, because each read is an independent chance to clear the
+RSSI floor. Measured at the 2026-08-07 night race on session 2 + dual-target: ~0.9
+reads/second/tag, which over a 12 s mass start gave ~10.5 reads per runner but over a
+1-2 s finish pass gave exactly **one read per finisher, 36 out of 36** — no redundancy
+at all, and 3 of 36 runners produced no finish read whatsoever. Session 1 (~500 ms
+quiet) roughly quadruples the chances per pass.
+
+Use session 2 or 3 only where tags genuinely dwell in the field for many seconds
+(equipment check-in, bag drop), not at a gate people run through.
+
+LeszyRun default: **1**
 
 ---
 

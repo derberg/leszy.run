@@ -126,14 +126,14 @@ function ReaderConfig() {
     inventorySession: {
       label: 'Sesja RFID',
       desc: 'Sesja protokołu EPC Gen2. Kontroluje jak szybko tag "wraca" do stanu gotowości po odczycie przez czytnik.',
-      options: '0 – tag gotowy natychmiast (wysokie duplikaty)\n1 – tag czeka ok. 500 ms\n2 – tag czeka 2 s (zalecana)\n3 – tag czeka 8 s',
-      recommended: 'Sesja 2 — po odczycie tag milczy ~2 s, co redukuje duplikaty przy długim przejściu przez bramkę. Sesja 1 gdy zawodnicy przebiegają bardzo szybko (< 1 s kontakt).',
+      options: '0 – tag gotowy natychmiast (wysokie duplikaty)\n1 – tag czeka ok. 500 ms (zalecana)\n2 – tag czeka 2 s\n3 – tag czeka 8 s',
+      recommended: 'Sesja 1 — po odczycie tag milczy ~500 ms, czyli biegacz przebiegający bramkę w 1–2 s dostaje kilka szans na odczyt. Na sesji 2 (poprzedni default) zmierzono ~1 odczyt/s na tag, przez co meta biegu 07.08.2026 miała dokładnie JEDEN odczyt na zawodnika — zero zapasu, 3 zgubione mety. Sesję 2 lub 3 wybieraj tylko przy długim postoju w polu anteny (np. depozyt, weryfikacja).',
     },
     inventorySearchMode: {
       label: 'Tryb wyszukiwania',
       desc: 'Algorytm przeszukiwania populacji tagów. Wpływa na to, czy czytnik przechodzi między stanami A i B tagów.',
       options: 'single-target — czyta tylko tagi w stanie A\ndual-target — czyta tagi w A, potem B, potem z powrotem A (zalecany)\nsingle-target-suppression — jak single-target ale z supresją duplikatów',
-      recommended: 'dual-target — w połączeniu z sesją 2 zapewnia że każdy tag zostanie odczytany co najmniej raz na pełny cykl, minimalizując pominięcia.',
+      recommended: 'dual-target — czytnik przechodzi A→B→A, więc tag odpowiada na obu stanach zamiast czekać na wygaśnięcie sesji. W parze z sesją 1 daje najwięcej odczytów na jedno przebiegnięcie.',
     },
     estimatedTagPopulation: {
       label: 'Szacowana populacja tagów',

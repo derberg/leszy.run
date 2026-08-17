@@ -211,3 +211,44 @@ test('confirmRssiCdbm weaker than rssiThreshold is harmless (floor still dominat
   await wait(GONE_MS + 60)
   assert.equal(broadcast.crossings().length, 1)
 })
+
+// ---------------------------------------------------------------------------
+// Post-finish audit window — the rest of a finish pass must reach gate_events so
+// "solid crossing or one lucky ping?" is answerable after the race, while
+// detection stays first-read (later reads never re-time an existing finish).
+// ---------------------------------------------------------------------------
+
+test('reads after a confirmed finish are still persisted for audit', async (t) => {
+  const { detector, broadcast, db } = await makeRace(t, {
+    resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
+  })
+
+  // Ascending RSSI: the 200 ms dedup window keeps only improving reads per EPC,
+  // so a descending sequence would be dropped there and prove nothing about audit.
+  detector.processEvent(read(-6300))                 // confirms the finish
+  await wait(20)
+  detector.processEvent(read(-5200, { receivedAt: new Date(Date.now() + 1).toISOString() }))
+  await wait(20)
+  detector.processEvent(read(-4800, { receivedAt: new Date(Date.now() + 2).toISOString() }))
+  await wait(30)
+
+  assert.equal(broadcast.crossings().length, 1, 'still exactly one finish — detection unchanged')
+  assert.equal(db._inserts().gate_crossings.length, 1)
+
+  const events = db._inserts().gate_events
+  assert.equal(events.length, 3, 'the whole pass is audited, not just the confirming read')
+  assert.deepEqual(events.map(e => e.rssiCdbm), [-6300, -5200, -4800])
+})
+
+test('post-finish reads still respect rssiThreshold', async (t) => {
+  const { detector, db } = await makeRace(t, {
+    resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
+  })
+
+  detector.processEvent(read(-6300))                 // confirms the finish
+  await wait(20)
+  detector.processEvent(read(-7400, { receivedAt: new Date(Date.now() + 1).toISOString() }))
+  await wait(30)
+
+  assert.equal(db._inserts().gate_events.length, 1, 'far-field noise stays out of the audit trail')
+})

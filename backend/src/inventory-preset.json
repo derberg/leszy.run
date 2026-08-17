@@ -3,7 +3,7 @@
     {
       "antennaPort": 1,
       "transmitPowerCdbm": 3150,
-      "inventorySession": 2,
+      "inventorySession": 1,
       "inventorySearchMode": "dual-target",
       "estimatedTagPopulation": 32,
       "rfMode": 1210
@@ -11,7 +11,7 @@
     {
       "antennaPort": 2,
       "transmitPowerCdbm": 3150,
-      "inventorySession": 2,
+      "inventorySession": 1,
       "inventorySearchMode": "dual-target",
       "estimatedTagPopulation": 32,
       "rfMode": 1210
@@ -19,7 +19,7 @@
     {
       "antennaPort": 3,
       "transmitPowerCdbm": 3150,
-      "inventorySession": 2,
+      "inventorySession": 1,
       "inventorySearchMode": "dual-target",
       "estimatedTagPopulation": 32,
       "rfMode": 1210
@@ -27,7 +27,7 @@
     {
       "antennaPort": 4,
       "transmitPowerCdbm": 3150,
-      "inventorySession": 2,
+      "inventorySession": 1,
       "inventorySearchMode": "dual-target",
       "estimatedTagPopulation": 32,
       "rfMode": 1210
