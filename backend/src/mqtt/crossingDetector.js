@@ -91,7 +91,14 @@ const DEDUP_WINDOW_MS = 200   // within this window per EPC, only keep best RSSI
 // long so the whole finish pass is auditable (how many reads, how strong) instead of
 // just the single read that happened to confirm it. Bounded so a finisher loitering
 // near the gate doesn't fill the table.
-const FINISH_AUDIT_WINDOW_MS = 60_000
+//
+// Sized off the approach, not the crossing: the first read fires from roughly 8 m out
+// (measured 2026-08-07 — real crossings at -60..-65 dBm vs -71..-78 for a tag 15-20 m
+// away), so the window has to cover the walk-in from there. A runner at 3 m/s needs
+// ~2.7 s, but a Nordic walker at ~1.4 m/s needs ~5.7 s — and that slow, weak-signal
+// group is exactly who this audit exists for, so a 5 s window would clip the very
+// passes worth inspecting. 10 s covers the slowest finisher with margin.
+const FINISH_AUDIT_WINDOW_MS = 10_000
 
 
 export class CrossingDetector {
