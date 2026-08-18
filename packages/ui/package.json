@@ -2,6 +2,9 @@
   "name": "@leszyrun/ui",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "exports": {
     ".": "./src/index.js"
   },

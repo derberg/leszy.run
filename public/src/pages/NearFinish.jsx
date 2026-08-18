@@ -54,6 +54,22 @@ export default function NearFinish({ nearFinishCheckpointId, categories }) {
     const pById = Object.fromEntries(participants.map(p => [p.id, p]))
     const pByBib = Object.fromEntries(participants.map(p => [p.bib_number, p]))
 
+    // A DNS runner never left the start line, so an observation under their bib is
+    // bogus — a mistyped bib on the volunteer numpad, or a stray read. Nocny Zew
+    // Wilka 2026-08-07: bib 1 was DNS and one manual entry put him into the
+    // on-course views. DNF/DSQ are deliberately kept — they were on course.
+    // Runs are narrowed to active/finished because a cancelled restart can leave a
+    // stale dns row behind for someone who is running in the current attempt.
+    let dnsParticipantIds = new Set()
+    if (participants.length > 0) {
+      const { data: dnsRows } = await supabase.from('results')
+        .select('participant_id, status, race_runs!inner(status)')
+        .in('participant_id', participants.map(p => p.id))
+        .eq('status', 'dns')
+        .in('race_runs.status', ['active', 'finished'])
+      dnsParticipantIds = new Set((dnsRows || []).map(r => r.participant_id))
+    }
+
     // 3. Dedup by participant (keep earliest observedAt per participant/bib)
     const seen = new Set()
     const deduped = []
@@ -61,6 +77,7 @@ export default function NearFinish({ nearFinishCheckpointId, categories }) {
     const sorted = [...observations].sort((a, b) => new Date(a.observed_at) - new Date(b.observed_at))
     for (const obs of sorted) {
       const p = (obs.participant_id && pById[obs.participant_id]) || pByBib[obs.bib_number]
+      if (p && dnsParticipantIds.has(p.id)) continue
       const key = p ? p.id : `bib-${obs.bib_number}`
       if (seen.has(key)) continue
       seen.add(key)
