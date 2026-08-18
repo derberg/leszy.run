@@ -2,6 +2,45 @@ import * as cheerio from 'cheerio'
 
 const BASE_URL = 'https://www.zmierzymyczas.pl'
 
+// zmierzymyczas's "Miejsce" cell is a free-text venue string, not a city: the town
+// is usually followed by the venue/street ("Krasiejów, Park Nauki i Rozrywki ul. 1
+// Maja 10", "Prószków (Stadion Miejski, ul. Sportowa 3)"). Geocoding and the public
+// kalendarz both want the bare town, so peel the qualifier off — but ONLY when the
+// leading segment is unambiguously a bare place name. Plenty of rows put the venue
+// FIRST ("Przystań kajakowa „Amazonka”, Staniszcze Wielkie", "Park Szczodre, Stawowa
+// 6"); truncating those would throw the town away, so they are left verbatim for the
+// geocoder/enricher to deal with.
+// NOTE the \p{L} boundaries instead of \b: JS's \b is ASCII-only, so /\bprzystań\b/
+// never matches ("ń" is not \w, so there is no word boundary after it) — which is
+// exactly the case ("Przystań kajakowa „Amazonka”, Staniszcze Wielkie") where the
+// venue comes first and truncating would discard the town.
+const VENUE_WORDS = /(?<!\p{L})(stadion|park|hala|boisko|osrodek|ośrodek|osw|zamek|jezioro|zalew|staw|dolina|przystań|przystan|plaża|plaza|kopalnia|szkoła|szkola|klub|arena|strefa|centrum|amfiteatr|molo|rynek|ul\.|ulica|al\.|aleja|pl\.|plac)(?!\p{L})/iu
+
+function looksLikeBareTown(segment) {
+  if (!segment) return false
+  if (/\d/.test(segment)) return false            // house numbers, "Dolina 3 Stawów"
+  if (VENUE_WORDS.test(segment)) return false     // venue named before the town
+  return segment.split(/\s+/).length <= 3         // "Staniszcze Wielkie" ok, prose not
+}
+
+function cityFromVenue(location) {
+  if (!location) return null
+  const clean = location.replace(/\s+/g, ' ').trim()
+  if (!clean) return null
+  // "Prószków (Stadion Miejski, ul. Sportowa 3)" / "Kup (obok boiska LZS Kup, ...)"
+  const parened = clean.split('(')[0].trim()
+  if (parened !== clean && looksLikeBareTown(parened)) return parened
+  // "Krasiejów, Park Nauki i Rozrywki ul. 1 Maja 10"
+  const comma = clean.split(',')[0].trim()
+  if (comma !== clean && looksLikeBareTown(comma)) return comma
+  // "Wrocław - Park Południowy" / "Zagwiździe – teren kompleksu ...". Spaces around
+  // the dash are required so hyphenated towns (Jelcz-Laskowice, Kędzierzyn-Koźle)
+  // are never split.
+  const dashed = clean.split(/ [-–—] /)[0].trim()
+  if (dashed !== clean && looksLikeBareTown(dashed)) return dashed
+  return clean
+}
+
 async function fetchDetailPage(href) {
   try {
     const url = href.startsWith('http') ? href : `${BASE_URL}${href}`
@@ -71,7 +110,7 @@ async function scrape({ knownIds = new Set() } = {}) {
       const sourceId = idMatch ? idMatch[1] : null
       if (!sourceId) return
 
-      entries.push({ name, date, distances, location, href, sourceId })
+      entries.push({ name, date, distances, location: cityFromVenue(location), href, sourceId })
     })
 
     const newEntries = entries.filter(e => !knownIds.has(e.sourceId))

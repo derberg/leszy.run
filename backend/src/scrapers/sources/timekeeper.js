@@ -17,6 +17,16 @@ function isNonRunningEvent(name) {
   return SKIP_KEYWORDS.test(name)
 }
 
+// competitions.timekeeper.pl renders every "card value" twice — a desktop copy
+// (`d-none d-lg-block`, 28px) and a mobile copy (`d-block d-lg-none`, 18px) — so a
+// cheerio collection's .text() concatenates BOTH, yielding
+// "Posada Zarszyńska\n                            Posada Zarszyńska".
+// Always take .first() and collapse the newline/indent runs the template leaves behind.
+function cardText(selection) {
+  if (!selection.length) return null
+  return selection.first().text().replace(/\s+/g, ' ').trim() || null
+}
+
 function parseListingDate(dayStr, monthStr) {
   if (!dayStr || !monthStr) return null
   const month = POLISH_MONTHS[monthStr.toLowerCase()]
@@ -41,9 +51,8 @@ async function fetchDetailPage(slug) {
       const text = $(el).text().trim()
       if (/data zawod/i.test(text)) {
         const card = $(el).closest('.card, .col, div')
-        const dateEl = card.find('p.text-primary.h3')
-        if (dateEl.length) {
-          const dateText = dateEl.text().trim()
+        const dateText = cardText(card.find('p.text-primary.h3'))
+        if (dateText) {
           const match = dateText.match(/(\d{4})-(\d{2})-(\d{2})/)
           if (match) date = match[0]
         }
@@ -56,10 +65,7 @@ async function fetchDetailPage(slug) {
       const text = $(el).text().trim()
       if (/lokalizacja/i.test(text)) {
         const card = $(el).closest('.card, .col, div')
-        const locEl = card.find('p.text-primary.h3')
-        if (locEl.length) {
-          location = locEl.text().trim()
-        }
+        location = cardText(card.find('p.text-primary.h3'))
       }
     })
 
@@ -181,7 +187,7 @@ async function scrape({ knownIds = new Set() } = {}) {
       row.find('div.text-danger').each((_, el) => {
         const style = $(el).attr('style') || ''
         if (style.includes('20px') || !location) {
-          location = $(el).text().trim()
+          location = $(el).text().replace(/\s+/g, ' ').trim() || null
         }
       })
 
