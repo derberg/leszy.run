@@ -6,7 +6,10 @@
  * @param {Array} checkpoints - checkpoint rows sorted by km_marker asc: [{ id, name, kmMarker }]
  * @param {Array} observations - observation rows: [{ checkpointId, participantId, observedAt }]
  * @returns {Array} results sorted by estimated position, each with { ...result, estimatedPosition, positionType }
- *   positionType: 'final' | 'checkpoint' | 'started' | 'not-started'
+ *   positionType: 'final' | 'checkpoint' | 'started' | 'not-started' | 'dnf' | 'dns' | 'dsq'
+ *
+ * Observations of a DNS runner are discarded (see dnsParticipantIds below). DNF and
+ * DSQ keep theirs — those runners were genuinely on course.
  */
 export function estimatePositions(results, checkpoints, observations) {
   // Build observation map: participantId -> { checkpointIdx, observedAt }
@@ -20,11 +23,22 @@ export function estimatePositions(results, checkpoints, observations) {
     }
   }
 
+  // DNS asserts the runner never left the start line, so ANY observation for them
+  // is bogus — a mistyped bib on the volunteer numpad, or a stray read. Dropping it
+  // here (rather than only downgrading the badge further down) is what keeps them
+  // out of the checkpoint sorting tier: Nocny Zew Wilka 2026-08-07, bib 1 was DNS,
+  // got one manual 5 km entry, and outranked every runner actually on course.
+  // DNF/DSQ are deliberately NOT included — they ran, so their splits are real.
+  const dnsParticipantIds = new Set(
+    results.filter(r => r.status === 'dns' && r.participantId).map(r => r.participantId)
+  )
+
   const obsMap = {}
 
   for (const obs of observations) {
     const pid = obs.participantId || bibToParticipantId[obs.bibNumber]
     if (!pid) continue
+    if (dnsParticipantIds.has(pid)) continue
     const idx = cpIndexById[obs.checkpointId]
     if (idx === undefined) continue
     const existing = obsMap[pid]

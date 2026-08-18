@@ -25,6 +25,15 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
     }
   }
 
+  // A DNS runner never left the start line, so a checkpoint time under their bib is
+  // bogus (mistyped volunteer entry, stray read). estimatePositions already keeps
+  // them out of the checkpoint ordering tier; this keeps the split columns clean too.
+  // DNF/DSQ deliberately keep their splits — they were on course.
+  const splitAt = (r, checkpointId) =>
+    r.positionType === 'dns'
+      ? null
+      : obsLookup[`${r.participantId}:${checkpointId}`] || bibLookup[`${r.participant?.bibNumber}:${checkpointId}`]
+
   const checkpointTooltip = (
     <>
       Czasy na punktach kontrolnych są <strong>nieoficjalne</strong> — to pomocnicze dane
@@ -108,7 +117,7 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
                     {r.startTime ? formatTime(r.startTime) : '—'}
                   </td>
                   {checkpoints.map(cp => {
-                    const t = obsLookup[`${r.participantId}:${cp.id}`] || bibLookup[`${r.participant?.bibNumber}:${cp.id}`]
+                    const t = splitAt(r, cp.id)
                     return (
                       <td key={cp.id} className="text-center px-1 py-1.5 font-mono text-apex-cyan">
                         {t ? formatTime(t) : <span className="text-apex-dim">{'—'}</span>}
@@ -202,7 +211,7 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
                   </div>
                 )}
                 {checkpoints.map(cp => {
-                  const t = obsLookup[`${r.participantId}:${cp.id}`] || bibLookup[`${r.participant?.bibNumber}:${cp.id}`]
+                  const t = splitAt(r, cp.id)
                   if (!t) return null
                   return (
                     <div key={cp.id}>
