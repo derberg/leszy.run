@@ -34,6 +34,16 @@ const PRICE_RANGES = [
   { value: '0-200', label: 'do 200 zł' },
 ]
 
+// "Kiedy dodane" — filters on calendar_events.created_at, i.e. when the event
+// first landed in the calendar (run-publish.js inserts it, admin approves the
+// same day). Lets a returning visitor see only what's new since their last look.
+const ADDED_RANGES = [
+  { value: '7d', label: 'Ostatni tydzień' },
+  { value: '14d', label: 'Ostatnie 2 tygodnie' },
+  { value: '30d', label: 'Ostatni miesiąc' },
+  { value: '90d', label: 'Ostatnie 3 miesiące' },
+]
+
 const TIME_RANGES = [
   { value: '', label: 'Najbliższe' },
   { value: 'week', label: 'Ten tydzień' },
@@ -68,6 +78,7 @@ function activeFilterCount(filters, userLocation) {
   if (filters.distance.length) count++
   if (filters.timeRange) count++
   if (filters.price) count++
+  if (filters.added) count++
   if (userLocation) count++
   return count
 }
@@ -146,6 +157,11 @@ function MultiSelect({ options, selected, onChange, allLabel, ariaLabel }) {
   )
 }
 
+function todayLocalDateStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function getAfterMonths() {
   const now = new Date()
   const months = []
@@ -214,6 +230,90 @@ function PriceSelect({ value, onChange }) {
               <span className="font-sans text-sm">{p.label}</span>
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Values: '' (all) | '7d' | '14d' | '30d' | '90d' | 'since-YYYY-MM-DD'
+function AddedSelect({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const sinceDate = value.startsWith('since-') ? value.slice(6) : ''
+
+  const getLabel = () => {
+    if (sinceDate) return `Dodane od: ${sinceDate}`
+    const found = ADDED_RANGES.find(a => a.value === value)
+    return found ? `Dodane: ${found.label.toLowerCase()}` : 'Dodane: kiedykolwiek'
+  }
+
+  const isActive = !!value
+
+  return (
+    <div className="relative w-full md:w-auto" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`${selectClass} text-left w-full md:w-auto flex items-center justify-between gap-2 ${isActive ? 'border-apex-yellow-dim text-apex-text-bright' : ''}`}
+        aria-label="Filtruj po dacie dodania do kalendarza"
+        aria-expanded={open}
+      >
+        <span className="truncate">{getLabel()}</span>
+        <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="none">
+          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 w-full md:w-64 max-h-[400px] overflow-y-auto bg-apex-surface border border-apex-border z-50 shadow-lg">
+          <button
+            type="button"
+            onClick={() => { onChange(''); setOpen(false) }}
+            className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-apex-surface-2 transition-colors w-full text-left ${!value ? 'text-apex-yellow' : 'text-apex-text'}`}
+          >
+            <span className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${!value ? 'bg-apex-yellow' : 'bg-transparent'}`} />
+            <span className="font-sans text-sm">Kiedykolwiek</span>
+          </button>
+          {ADDED_RANGES.map(a => (
+            <button
+              type="button"
+              key={a.value}
+              onClick={() => { onChange(a.value); setOpen(false) }}
+              className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-apex-surface-2 transition-colors w-full text-left ${value === a.value ? 'text-apex-yellow' : 'text-apex-text'}`}
+            >
+              <span className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${value === a.value ? 'bg-apex-yellow' : 'bg-transparent'}`} />
+              <span className="font-sans text-sm">{a.label}</span>
+            </button>
+          ))}
+
+          {/* Arbitrary "added since <date>" — for checking back after a longer break */}
+          <div className="border-t border-apex-border px-3.5 py-2.5 flex flex-col gap-2">
+            <label htmlFor="added-since" className="font-sans text-sm text-apex-text flex items-center gap-3">
+              <span className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${sinceDate ? 'bg-apex-yellow' : 'bg-transparent'}`} />
+              Od dnia...
+            </label>
+            <input
+              id="added-since"
+              type="date"
+              value={sinceDate}
+              max={todayLocalDateStr()}
+              onChange={(e) => {
+                onChange(e.target.value ? `since-${e.target.value}` : '')
+                if (e.target.value) setOpen(false)
+              }}
+              className="bg-apex-bg border border-apex-border text-apex-text font-mono text-sm px-2 py-1.5 outline-none focus:border-apex-yellow-dim w-full"
+            />
+          </div>
         </div>
       )}
     </div>
@@ -454,10 +554,15 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
             onChange={(val) => update('timeRange', val)}
           />
 
+          <AddedSelect
+            value={filters.added || ''}
+            onChange={(val) => update('added', val)}
+          />
+
           {count > 0 && (
             <button
               type="button"
-              onClick={() => onChange({ search: '', type: [], voivodeship: [], distance: [], timeRange: '', price: '' })}
+              onClick={() => onChange({ search: '', type: [], voivodeship: [], distance: [], timeRange: '', price: '', added: '' })}
               className="font-mono text-[11px] tracking-wide text-apex-yellow hover:text-apex-yellow-bright transition-colors flex-shrink-0 px-2 py-2.5"
             >
               Wyczyść filtry ✕
@@ -491,4 +596,4 @@ export default function FilterBar({ filters, onChange, view, onViewChange, userL
   )
 }
 
-export { EVENT_TYPES, VOIVODESHIPS, DISTANCES, TIME_RANGES, PRICE_RANGES }
+export { EVENT_TYPES, VOIVODESHIPS, DISTANCES, TIME_RANGES, PRICE_RANGES, ADDED_RANGES }

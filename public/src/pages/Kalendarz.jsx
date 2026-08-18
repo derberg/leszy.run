@@ -98,6 +98,27 @@ function getDateRange(timeRange) {
   ]
 }
 
+// "Dodane" filter → earliest calendar_events.created_at to accept, as an ISO
+// timestamp for Supabase. Anchored to LOCAL MIDNIGHT rather than "now minus N
+// hours" so the result set doesn't quietly shift as the day goes on.
+//   '7d' | '14d' | '30d' | '90d' → midnight N days ago
+//   'since-YYYY-MM-DD'           → midnight of that day
+//   '' / unparseable             → null (no filter)
+function getAddedSince(added) {
+  if (!added) return null
+
+  if (added.startsWith('since-')) {
+    const [y, m, d] = added.slice(6).split('-').map(Number)
+    if (!y || !m || !d) return null
+    return new Date(y, m - 1, d).toISOString()
+  }
+
+  const days = added.match(/^(\d+)d$/)
+  if (!days) return null
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - Number(days[1])).toISOString()
+}
+
 export default function Kalendarz() {
   useSeo({
     title: 'Kalendarz biegów w Polsce',
@@ -148,6 +169,7 @@ export default function Kalendarz() {
     distance: searchParams.get('dist') ? searchParams.get('dist').split(',') : [],
     timeRange: searchParams.get('when') || '',
     price: searchParams.get('price') || '',
+    added: searchParams.get('added') || '',
   })
 
   const handleLocationRequest = useCallback(() => {
@@ -192,6 +214,9 @@ export default function Kalendarz() {
       const [startDate, endDate] = getDateRange(filters.timeRange)
       query = query.gte('date', startDate)
       if (endDate) query = query.lte('date', endDate)
+
+      const addedSince = getAddedSince(filters.added)
+      if (addedSince) query = query.gte('created_at', addedSince)
 
       if (filters.search) {
         query = query.or(`name.ilike.%${filters.search}%,location.ilike.%${filters.search}%`)
@@ -315,6 +340,7 @@ export default function Kalendarz() {
     if (filters.distance.length) params.set('dist', filters.distance.join(','))
     if (filters.timeRange) params.set('when', filters.timeRange)
     if (filters.price) params.set('price', filters.price)
+    if (filters.added) params.set('added', filters.added)
     if (view !== 'list') params.set('view', view)
     if (userLocation && radius !== 50) params.set('r', String(radius))
     if (page > 1) params.set('page', String(page))
