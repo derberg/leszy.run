@@ -23710,8 +23710,8 @@
     "date": "2026-06-19",
     "registration_deadline": "2026-06-16",
     "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
-    "price_from": 50,
-    "price_to": 60,
+    "price_from": 60,
+    "price_to": 90,
     "location": "Legionowo",
     "voivodeship": "Mazowieckie",
     "lat": 52.395229,
@@ -39233,6 +39233,34 @@
     "is_kids": null,
     "status": "active"
   },
+  "bosym-badz-bosaczek-przedszkolaczek-2026-08-29": {
+    "id": "f77850be-ed09-4f37-91da-dfe5871a95ee",
+    "name": "BOSYM BĄDŹ - BOSACZEK PRZEDSZKOLACZEK",
+    "date": "2026-08-29",
+    "registration_deadline": "2026-08-29",
+    "regulamin_url": "https://dostartu.pl/statute_files/17062_pl.pdf",
+    "price_from": 40,
+    "price_to": 40,
+    "location": "Tarnów",
+    "voivodeship": "Małopolskie",
+    "lat": 50.012101,
+    "lng": 20.985841,
+    "distances": [
+      "500 m",
+      "1 km",
+      "5 km",
+      "300 m"
+    ],
+    "event_type": [
+      "charytatywny",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17062",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "maly-wielki-bieg-2026-2026-08-29": {
     "id": "98268f94-ef25-47fc-9919-9659b5dbac91",
     "name": "Mały Wielki Bieg 2026",
@@ -40435,6 +40463,29 @@
       "uliczny"
     ],
     "registration_url": "https://dostartu.pl/permalink-v16319",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "bieg-pamieci-wrzesnia-2026-08-30": {
+    "id": "d7778511-eb37-4a2e-afe5-dd38740b9ff0",
+    "name": "Bieg Pamięci Września",
+    "date": "2026-08-30",
+    "registration_deadline": "2026-08-28",
+    "regulamin_url": "https://time4run.com.pl/wp-content/uploads/2026/01/Regulamin-Tropem-Wilczym-2026.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Piątnica Poduchowna",
+    "voivodeship": "Podlaskie",
+    "lat": 53.19904,
+    "lng": 22.09555,
+    "distances": [
+      "4.9 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15968/signup.html",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -43343,6 +43394,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "xiv-rajd-nordic-walking-2026-09-06": {
+    "id": "e112587d-71e2-445f-a80b-2fa61c3e66b4",
+    "name": "XIV Rajd Nordic Walking",
+    "date": "2026-09-06",
+    "registration_deadline": "2026-06-19",
+    "regulamin_url": "https://emic.com.pl/en/about-us/dokumenty/regulamin-rajdu/",
+    "price_from": null,
+    "price_to": null,
+    "location": "Sąspów",
+    "voivodeship": "Małopolskie",
+    "lat": 50.227468,
+    "lng": 19.767846,
+    "distances": [
+      "3 km",
+      "5 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1114,xiv-rajd-nordic-walking",
+    "website": "https://www.fundacjavitaldbamozdrowie.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
   "xviii-bieg-koguta-2026-09-06": {
     "id": "7a783e09-538c-4034-ba74-97360dbd5aef",
     "name": "XVIII Bieg Koguta",
@@ -44552,6 +44627,29 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v15880",
     "website": "https://mosir.rsl.pl/aktualnosci/bieg-wiewiorki-29032025-zapisy",
+    "is_kids": null,
+    "status": "active"
+  },
+  "56biegi-przelajowe-o-puchar-prezydenta-miasta-legionowo-2026-09-12": {
+    "id": "3982d2ef-576b-4aac-8f60-a76babe604b3",
+    "name": "56.Biegi Przełajowe o Puchar Prezydenta Miasta Legionowo",
+    "date": "2026-09-12",
+    "registration_deadline": "2026-09-09",
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1115/regulamin%20biegu%20wrzesie%C5%84%202026.odt",
+    "price_from": 40,
+    "price_to": 40,
+    "location": "Legionowo",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.395229,
+    "lng": 20.930831,
+    "distances": [
+      "12 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1115,56-biegi-przelajowe-o-puchar-prezydenta-miasta-legionowo",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -45871,6 +45969,35 @@
     ],
     "registration_url": "https://competitions.timekeeper.pl/7-rodzinny-bieg-sw-maksymiliana-bieg-na-maksa",
     "website": "https://competitions.timekeeper.pl/7-rodzinny-bieg-sw-maksymiliana-bieg-na-maksa",
+    "is_kids": null,
+    "status": "active"
+  },
+  "27-ogolnopolski-cukrowniczy-bieg-uliczny-2026-09-13": {
+    "id": "557ef08d-a262-4e3f-a00e-50ee4809fde7",
+    "name": "27. Ogólnopolski Cukrowniczy Bieg Uliczny",
+    "date": "2026-09-13",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1116/RegulaminBiegow18_06_2026.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Werbkowice",
+    "voivodeship": "Lubelskie",
+    "lat": 50.750958,
+    "lng": 23.767431,
+    "distances": [
+      "1.6 km",
+      "5 km",
+      "50 m",
+      "100 m",
+      "300 m",
+      "800 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1116,27-ogolnopolski-cukrowniczy-bieg-uliczny",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -47578,6 +47705,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "2-tyski-bieg-nocny-tychy-18092026r-2026-09-18": {
+    "id": "8c755800-67cc-4f8f-838f-e7dd3753dd24",
+    "name": "2. Tyski Bieg Nocny - Tychy, 18.09.2026r",
+    "date": "2026-09-18",
+    "registration_deadline": "2026-09-11",
+    "regulamin_url": "https://dostartu.pl/statute_files/17080_pl.pdf",
+    "price_from": 40,
+    "price_to": 86,
+    "location": "Tychy",
+    "voivodeship": "Śląskie",
+    "lat": 50.089117,
+    "lng": 18.983688,
+    "distances": [
+      "800 m",
+      "7 km"
+    ],
+    "event_type": [
+      "nocny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17080",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "jurajski-bieg-swietlika-2026-09-18": {
     "id": "1beb48b5-a765-4e62-b433-d01e59612781",
     "name": "Jurajski Bieg Świetlika",
@@ -47773,6 +47925,35 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16125",
     "website": "https://time-sport.pl/zapisy-19-09-2026-glucholaski-bieg-gorski/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "xii-grand-prix-elku-w-marszach-na-orientacje-zorientuj-sie-na-elk-2026-r-ii-runda-2026-09-19": {
+    "id": "52396416-e800-4a13-a941-c087e1a3bd27",
+    "name": "XII GRAND PRIX EŁKU W MARSZACH NA ORIENTACJĘ ZORIENTUJ się na EŁK 2026 r- II runda",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-24",
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1175",
+    "price_from": 15,
+    "price_to": 25,
+    "location": "Ełk",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 53.823958,
+    "lng": 22.361917,
+    "distances": [
+      "6 km",
+      "7 km",
+      "15 km",
+      "17 km",
+      "20 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/xii-grand-prix-elku-w-marszach-na-orientacje-zorientuj-sie-na-elk-2026-r-ii-runda",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -49199,6 +49380,30 @@
       "charytatywny"
     ],
     "registration_url": "https://www.raceforthecure.eu/pl/Races/Race/Id/60",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "ostroleka-kocha-aktywnosc-2026-2026-09-20": {
+    "id": "8bfd6d5b-375b-4c50-9743-8167cd17cec9",
+    "name": "Ostrołęka Kocha Aktywność 2026",
+    "date": "2026-09-20",
+    "registration_deadline": "2026-09-17",
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1173",
+    "price_from": null,
+    "price_to": null,
+    "location": "Ostrołęka",
+    "voivodeship": "Mazowieckie",
+    "lat": 53.084314,
+    "lng": 21.566861,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/ostroleka-kocha-aktywnosc-2026",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -51648,6 +51853,29 @@
     "is_kids": null,
     "status": "active"
   },
+  "vi-pradziejowy-bieg-przelajowy-miradz-27092026-2026-09-27": {
+    "id": "d3fee85d-6e31-47b3-9c70-8180aea1c2e8",
+    "name": "VI Pradziejowy Bieg Przełajowy- Miradz 27.09.2026",
+    "date": "2026-09-27",
+    "registration_deadline": "2026-09-25",
+    "regulamin_url": "https://dostartu.pl/statute_files/17050_pl.pdf",
+    "price_from": 75,
+    "price_to": 75,
+    "location": "Miradz",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 52.591734,
+    "lng": 18.168297,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17050",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "3-lesna-mila-bieg-dla-dzieci-i-mlodziezy-2026-09-27": {
     "id": "c2a7b9e7-0488-4eda-9e2f-57220b833c95",
     "name": "3 LEŚNA MILA - bieg dla dzieci i młodzieży",
@@ -52940,8 +53168,8 @@
     "price_to": 100,
     "location": "Kraków",
     "voivodeship": "Małopolskie",
-    "lat": null,
-    "lng": null,
+    "lat": 50.046943,
+    "lng": 19.997153,
     "distances": [
       "10 km",
       "5 km",
@@ -53600,6 +53828,63 @@
     "is_kids": null,
     "status": "active"
   },
+  "dziecieca-liga-biegnijlublin-04102026-2026-10-04": {
+    "id": "416cef7d-537b-4147-9063-992eb32692a6",
+    "name": "Dziecięca Liga #biegnijlublin (04.10.2026)",
+    "date": "2026-10-04",
+    "registration_deadline": "2026-10-01",
+    "regulamin_url": "https://dostartu.pl/statute_files/17100_pl.pdf",
+    "price_from": 40,
+    "price_to": 40,
+    "location": "Lublin",
+    "voivodeship": "Lubelskie",
+    "lat": 51.238992,
+    "lng": 22.562442,
+    "distances": [
+      "60 m",
+      "100 m",
+      "200 m",
+      "300 m",
+      "400 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17100",
+    "website": "https://mosir.lublin.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "xxvii-bieg-gorski-na-cergowa-2026-10-04": {
+    "id": "8c8793df-0012-4f88-96f7-8aeda7537ff5",
+    "name": "XXVII BIEG GÓRSKI NA CERGOWĄ",
+    "date": "2026-10-04",
+    "registration_deadline": "2026-09-30",
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1177",
+    "price_from": 40,
+    "price_to": 60,
+    "location": "Dukla",
+    "voivodeship": "Podkarpackie",
+    "lat": 49.55636,
+    "lng": 21.684752,
+    "distances": [
+      "5.5 km",
+      "100 m",
+      "200 m",
+      "400 m",
+      "800 m",
+      "1 km"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/xxvii-bieg-gorski-na-cergowa",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "34-bieg-kociewski-z-polpharma-2026-10-04": {
     "id": "c5e69143-bb8e-4a44-a67c-53884f62d398",
     "name": "34. Bieg Kociewski z Polpharmą",
@@ -53697,6 +53982,37 @@
     ],
     "registration_url": "https://b4sportonline.pl/przehyba_trail/",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "xxiv-bieg-naftowy-2026-10-04": {
+    "id": "1b390b8d-37ff-4649-9c37-6f3dd0e17f53",
+    "name": "XXIV Bieg Naftowy",
+    "date": "2026-10-04",
+    "registration_deadline": "2026-05-03",
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1043/Regulamin%20Mini%20Bieg%20Naftowy%202026.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Gorlice",
+    "voivodeship": "Małopolskie",
+    "lat": 49.666332,
+    "lng": 21.163484,
+    "distances": [
+      "60 m",
+      "100 m",
+      "200 m",
+      "300 m",
+      "400 m",
+      "600 m",
+      "800 m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1117,xxiv-bieg-naftowy",
+    "website": "https://www.facebook.com/maratongorlice/",
     "is_kids": null,
     "status": "active"
   },
@@ -54401,6 +54717,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "12102024-cross-centaura-5km-i-10km-2026-10-10": {
+    "id": "a8943ac5-79e2-4a0b-a072-35174b53843d",
+    "name": "12.10.2024 - Cross Centaura - 5km i 10km",
+    "date": "2026-10-10",
+    "registration_deadline": "2026-10-07",
+    "regulamin_url": "https://b4sportonline.pl/Cross_Centaura/",
+    "price_from": 40,
+    "price_to": 80,
+    "location": "Biały bór",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.898741,
+    "lng": 16.837728,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://b4sportonline.pl/Cross_Centaura/zapisy_na_10102026__cross_centaura__5km_i_10km/12942",
+    "website": "http://herkules.org.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
   "30-bieg-przelajowy-o-noz-komandosa-2026-10-10": {
     "id": "1ed539ca-2955-4c2d-a998-6ba889ecfe9d",
     "name": "30 Bieg Przełajowy o Nóż Komandosa",
@@ -54445,6 +54786,55 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v17035",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "04102025-rajd-nordic-walking-2026-10-10": {
+    "id": "5aa356c7-c21e-4e39-a106-e58c1c4d5799",
+    "name": "04.10.2025 - Rajd Nordic Walking",
+    "date": "2026-10-10",
+    "registration_deadline": "2026-10-07",
+    "regulamin_url": "https://b4sportonline.pl/Cross_Centaura/regcent",
+    "price_from": 40,
+    "price_to": 80,
+    "location": "Biały bór",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.898741,
+    "lng": 16.837728,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://b4sportonline.pl/Cross_Centaura/zapisy_na_10102026__rajd_nordic_walking/12944",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "04102025-cross-centaura-biegi-dzieci-i-mlodziezy-2026-10-10": {
+    "id": "234f17b6-9201-46bd-bf4c-5f200091c105",
+    "name": "04.10.2025 - Cross Centaura - biegi dzieci i młodzieży",
+    "date": "2026-10-10",
+    "registration_deadline": "2026-10-07",
+    "regulamin_url": "https://b4sportonline.pl/Cross_Centaura/regcent",
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Biały bór",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.898741,
+    "lng": 16.837728,
+    "distances": [
+      "400 m",
+      "800 m"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://b4sportonline.pl/Cross_Centaura/zapisy_na_10102026__cross_centaura__biegi_dzieci_i_mlodziezy/12943",
+    "website": "http://herkules.org.pl/",
     "is_kids": null,
     "status": "active"
   },
@@ -55232,6 +55622,29 @@
     "is_kids": null,
     "status": "active"
   },
+  "i-bieg-pod-wieza-2026-10-11": {
+    "id": "a892da83-fb90-44c4-ac5a-193b3778542c",
+    "name": "I Bieg Pod Wieżą",
+    "date": "2026-10-11",
+    "registration_deadline": "2026-10-07",
+    "regulamin_url": "https://dostartu.pl/statute_files/17098_pl.pdf",
+    "price_from": 49,
+    "price_to": 59,
+    "location": "Lębork, Polska",
+    "voivodeship": "Pomorskie",
+    "lat": 54.544642,
+    "lng": 17.753251,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17098",
+    "website": "http://www.csir.lebork.pl",
+    "is_kids": null,
+    "status": "active"
+  },
   "dobromiejski-festiwal-biegow-i-nordic-wa-2026-10-11": {
     "id": "18a95a65-0166-4ae8-9c49-a9a1be6a270f",
     "name": "Dobromiejski Festiwal Biegów i Nordic Wa...",
@@ -55752,6 +56165,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "dzika-trzynastka-bieg-gorski-i-nordic-walking-2026-10-17": {
+    "id": "f9ed8769-4374-444a-826e-c7ad232153a2",
+    "name": "DZIKA TRZYNASTKA – bieg górski i nordic walking",
+    "date": "2026-10-17",
+    "registration_deadline": "2026-10-08",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12639.pdf",
+    "price_from": 60,
+    "price_to": 100,
+    "location": "Boguszów Gorce",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.755252,
+    "lng": 16.196364,
+    "distances": [
+      "13 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12639%26co%3Dform",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "12-bieg-o-zlota-szyszke-2026-10-17": {
     "id": "0c00ffa4-508c-470a-93fc-e899cbc5c42c",
     "name": "12. Bieg o Złotą Szyszkę",
@@ -55773,6 +56210,36 @@
     ],
     "registration_url": "https://www.bgtimesport.pl/zawody/biegi/id/858",
     "website": "http://www.ultrabeskid.pl",
+    "is_kids": null,
+    "status": "active"
+  },
+  "bieg-o-blekitna-wstege-bobru-2026-2026-10-17": {
+    "id": "d75162a1-ad7d-4983-a4ea-fea3ee44e910",
+    "name": "Bieg o Błękitną Wstęgę Bobru 2026",
+    "date": "2026-10-17",
+    "registration_deadline": "2026-09-28",
+    "regulamin_url": "https://super-sport.com.pl/zapisy/regulamin/20261017_regulaminBobrowice.pdf",
+    "price_from": 80,
+    "price_to": 80,
+    "location": "Bobrowice",
+    "voivodeship": "Lubuskie",
+    "lat": 51.952247,
+    "lng": 15.086762,
+    "distances": [
+      "1 km",
+      "1.5 km",
+      "10 km",
+      "100 m",
+      "200 m",
+      "400 m",
+      "800 m"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://super-sport.com.pl/zapisy-formularze/4770-bieg-o-blekitna-wstege-bobru-2026.html",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -57687,6 +58154,29 @@
     "is_kids": null,
     "status": "active"
   },
+  "bieg-niepodleglosci-2026-11-08": {
+    "id": "c9bd91c5-3964-457a-851b-0a1954578b6e",
+    "name": "Bieg Niepodległości",
+    "date": "2026-11-08",
+    "registration_deadline": "2026-11-07",
+    "regulamin_url": "https://biegniepodleglosci.pl/wp-content/uploads/2025/12/Regulamin-Prerejestracji-Biegu-Niepodleglosci-RUNPOLAND-2026.pdf",
+    "price_from": 89,
+    "price_to": 99,
+    "location": "Mielec",
+    "voivodeship": "Podkarpackie",
+    "lat": 50.289541,
+    "lng": 21.422945,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/bieg-niepodleglosci",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "36-bieg-legionow-2026-11-08": {
     "id": "2b25e186-c6a4-4c32-be86-fc0c0c69628f",
     "name": "36. Bieg Legionów",
@@ -57783,6 +58273,53 @@
     ],
     "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12569%26co%3Dform",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "14-gorski-bieg-niepodleglosci-2026-11-11": {
+    "id": "814b2cb6-4044-4eff-8605-bcda365c8009",
+    "name": "14. Górski Bieg Niepodległości",
+    "date": "2026-11-11",
+    "registration_deadline": "2026-11-09",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12635.pdf",
+    "price_from": 80,
+    "price_to": 150,
+    "location": "Świerki",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.632851,
+    "lng": 16.43188,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12635%26co%3Dform",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "10-bieg-niepodleglosci-z-wasem-2026-11-11": {
+    "id": "a066a3e1-9623-49ea-b380-8e13a9306623",
+    "name": "10 Bieg Niepodległości z wąsem",
+    "date": "2026-11-11",
+    "registration_deadline": null,
+    "regulamin_url": "http://biegniepodleglosci.pro-run.pl/regulamin/",
+    "price_from": 80,
+    "price_to": 120,
+    "location": "Wrocław",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.108978,
+    "lng": 17.032669,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://online.datasport.pl/zapisy/portal/zawody.php?zawody=10936",
+    "website": "http://biegniepodleglosci.pro-run.pl",
     "is_kids": null,
     "status": "active"
   },
@@ -57960,30 +58497,6 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14178/signup.html",
     "website": "https://elektronicznezapisy.pl/event/14178.html",
-    "is_kids": null,
-    "status": "active"
-  },
-  "10-bieg-niepodleglosci-z-wasem-2026-11-11": {
-    "id": "a066a3e1-9623-49ea-b380-8e13a9306623",
-    "name": "10 Bieg Niepodległości z wąsem",
-    "date": "2026-11-11",
-    "registration_deadline": null,
-    "regulamin_url": "http://biegniepodleglosci.pro-run.pl/regulamin/",
-    "price_from": 80,
-    "price_to": 120,
-    "location": "Wrocław",
-    "voivodeship": "Dolnośląskie",
-    "lat": 51.108978,
-    "lng": 17.032669,
-    "distances": [
-      "5 km",
-      "10 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://online.datasport.pl/zapisy/portal/zawody.php?zawody=10936",
-    "website": "http://biegniepodleglosci.pro-run.pl",
     "is_kids": null,
     "status": "active"
   },
@@ -58558,6 +59071,30 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16812",
     "website": "https://b160.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "7-polmaraton-gorski-orzel-i-2-gorska-trzynastka-2026-11-21": {
+    "id": "d716e698-2ad1-44c0-a698-5987885e9ebe",
+    "name": "7. Półmaraton Górski Orzeł i 2. Górska Trzynastka",
+    "date": "2026-11-21",
+    "registration_deadline": "2026-11-19",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12634.pdf",
+    "price_from": 90,
+    "price_to": 160,
+    "location": "Sokolec",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.654371,
+    "lng": 16.473133,
+    "distances": [
+      "13 km",
+      "22 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12634%26co%3Dform",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
