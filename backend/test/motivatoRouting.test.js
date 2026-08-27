@@ -156,3 +156,13 @@ test('takes the city and discards motivato\'s unreliable voivodeship half', () =
   assert.equal(parseCity('Łomnica-Zdrój, dolnośląskie'), 'Łomnica-Zdrój')  // region is wrong upstream
   assert.equal(parseCity(''), null)
 })
+
+// A misspelled city is a duplicate-publish bug, not a cosmetic one: dedup matches on the
+// pre-hyphen city token, so the typo'd row fails to fold into the same race scraped from
+// another source and gets published a second time (with no voivodeship, since the
+// misspelling won't geocode either).
+test('repairs known misspelled city names, leaves correct ones alone', () => {
+  assert.equal(parseCity('Żegiestó Zdrój, świętokrzyskie'), 'Żegiestów-Zdrój')
+  assert.equal(parseCity('żegiestó  zdrój'), 'Żegiestów-Zdrój')  // case- and whitespace-insensitive
+  assert.equal(parseCity('Żegiestów-Zdrój, małopolskie'), 'Żegiestów-Zdrój')
+})

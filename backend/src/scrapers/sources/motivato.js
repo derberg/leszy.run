@@ -239,6 +239,18 @@ function hasKidsSignal(name) {
   return false
 }
 
+// motivato's city names are hand-typed editorial copy, so a few are misspelled at the
+// source. A wrong city is not a cosmetic problem here: dedup's `citiesMatch` compares the
+// pre-hyphen city token, so "Żegiestó Zdrój" never matches "Żegiestów-Zdrój" and the same
+// race publishes TWICE — once per source — with the typo'd copy also missing a
+// voivodeship (run-geocode can't geocode a city that doesn't exist). Keys are lowercased
+// and whitespace-collapsed; add an entry only after confirming the correct name (the
+// 2026-10-04 X-RUN Wielki Finał is in Żegiestów-Zdrój, gmina Muszyna, małopolskie —
+// motivato files it as "Żegiestó Zdrój, świętokrzyskie", both halves wrong).
+const CITY_FIXES = {
+  'żegiestó zdrój': 'Żegiestów-Zdrój',
+}
+
 // "Brenna, śląskie" → "Brenna". The voivodeship half is deliberately NOT emitted:
 // motivato's region data has errors (it files Łomnica-Zdrój, a małopolskie village, under
 // dolnośląskie), and run-geocode.js derives voivodeship from the city far more reliably.
@@ -246,7 +258,8 @@ function hasKidsSignal(name) {
 function parseCity(text) {
   if (!text) return null
   const city = text.split(',')[0].replace(/\s+/g, ' ').trim()
-  return city || null
+  if (!city) return null
+  return CITY_FIXES[city.toLowerCase()] || city
 }
 
 async function scrape({ knownIds = new Set() } = {}) {
