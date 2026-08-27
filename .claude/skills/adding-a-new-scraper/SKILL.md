@@ -81,9 +81,19 @@ CREATE TABLE IF NOT EXISTS public.scraper_<name> (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS scraper_<name>_source_id_idx
   ON public.scraper_<name> (source_id);
+
+-- REQUIRED. Supabase's default privileges on `public` grant every new table to `anon`
+-- and `authenticated` — full SELECT/INSERT/UPDATE/DELETE/TRUNCATE. Without these two
+-- lines your table is readable AND TRUNCATABLE by anyone holding the publishable key.
+-- Only the backend and the Python enricher touch scraper_* tables and both use
+-- SUPABASE_SERVICE_ROLE_KEY, which has rolbypassrls, so this costs you nothing.
+-- (33 tables shipped without it and had to be retro-fixed on 2026-08-27 —
+-- migration 20260827150000_scraper_tables_service_role_only.sql.)
+ALTER TABLE public.scraper_<name> ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.scraper_<name> FROM anon, authenticated;
 ```
 
-Apply via `mcp__supabase__apply_migration`.
+Ship it as a **committed migration** in `supabase/migrations/` (`supabase migration new scraper_<name>`), applied to prod by `supabase db push` in the CI release pipeline on merge to `main`. **NOT** via `mcp__supabase__apply_migration` — see CLAUDE.md "DDL changes" and [docs/supabase-release-runbook.md](../../../docs/supabase-release-runbook.md). The table therefore does not exist until the PR merges, so the pipeline upsert test and merge dry-run (section 8) are post-merge steps.
 
 **lat/lng MUST be `numeric(9, 6)`** — calendar_events uses that precision; unbounded numeric causes phantom diffs in publish reports (saw 449 fake diffs in 2026-05-06 audit).
 

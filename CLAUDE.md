@@ -486,6 +486,14 @@ scraper_* tables → scraper_all → calendar_events
 
 **Public table:** `calendar_events` — published rows with `status = 'pending'` or `'active'`. Admin approves via `/calendar-events` → "Do przeglądu" tab.
 
+**All `scraper_*` tables are service_role-only** — `ENABLE ROW LEVEL SECURITY` plus
+`REVOKE ALL … FROM anon, authenticated`. Supabase's default privileges on `public` grant
+every new table to `anon`/`authenticated`, so a new scraper table is readable and
+TRUNCATABLE by anyone holding the publishable key until you revoke it. Both writers (the
+Fastify backend and the Python enricher) use `SUPABASE_SERVICE_ROLE_KEY`, which has
+`rolbypassrls`, so the lockdown costs nothing. Include both statements in the
+`CREATE TABLE` migration for every new scraper table.
+
 ### Running the full pipeline
 
 The unattended daily pipeline runs automatically via the `scheduler` container at 08:00 Europe/Warsaw. To trigger ad-hoc:
