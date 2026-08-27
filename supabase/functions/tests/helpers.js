@@ -119,6 +119,21 @@ export async function sweepTestData() {
   // OTP rows keyed by email, and clubs created by the onboarding e2e flow.
   await supabaseAdmin.from('auth_codes').delete().like('email', '%@test.leszy.run')
   await supabaseAdmin.from('clubs').delete().like('name', 'KB Testowo%')
+
+  // Timing tables (checkpoint-roster, delete-my-account). A leftover here is worse than the
+  // rest: `events`/`participants` are reverse-synced by backend/src/sync/configSync.js into
+  // EVERY backend host's local Postgres, and that sync never propagates deletes — so a row
+  // that survives long enough to be polled is stranded on those hosts permanently. configSync
+  // now refuses marker-tagged rows at the boundary; this keeps Supabase itself clean too.
+  const { data: staleEvents } = await supabaseAdmin
+    .from('events')
+    .select('id')
+    .like('name', `${E2E_MARKER}%`)
+  for (const e of staleEvents || []) {
+    await supabaseAdmin.from('event_secrets').delete().eq('event_id', e.id) // no FK → no cascade
+    await supabaseAdmin.from('participants').delete().eq('event_id', e.id)
+    await supabaseAdmin.from('events').delete().eq('id', e.id)
+  }
 }
 
 /** POST to an edge function. Pass sessionToken to send as cookie. */

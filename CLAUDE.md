@@ -318,7 +318,11 @@ update is guarded by `synced_at IS NOT NULL`, so a locally-dirty row (a pending 
 `synced_at` NULL) is NEVER clobbered — local push wins first, then re-pulls. Excludes
 `checkpoint_observations` (already reverse-synced live via realtime in `supabase.js`) and
 `gate_crossings` (raw/high-volume/device-local). **Deletes are NOT propagated** (additive/
-update only) — a row deleted on one device lingers on the others until removed there.
+update only) — a row deleted on one device lingers on the others until removed there. For the
+same reason it **refuses to pull any `events` row whose name starts with `[e2e-test]`**, plus
+everything descending from it: the edge-function suite seeds throwaway events in the same prod
+Supabase project, they outlive the 30 s poll, and once pulled the suite's own cleanup can never
+reach them again. Keep that marker in step with `E2E_MARKER` in `supabase/functions/tests/helpers.js`.
 
 **Reverse sync — checkins (`src/sync/checkinSync.js`):** `checkins` and `checkin_documents`
 flow Supabase → local. The public self-service check-in page and volunteer app write directly

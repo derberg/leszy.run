@@ -27,6 +27,15 @@ import { events, categories, participants, checkpoints, raceRuns, results, event
 //
 // Limitation: deletes are NOT propagated (additive/update only) — same as checkinSync. A row
 // deleted on one device lingers on the others until manually removed.
+//
+// Test-data quarantine: the edge-function suite (supabase/functions/tests/) runs against the
+// SAME production Supabase project — there is no isolated test env. Its throwaway
+// `events`/`participants` rows exist in Supabase for the length of a suite run, which is
+// longer than this worker's 30 s poll, so a poll pulls them into every backend host's local
+// DB. The suite deletes them from Supabase afterwards, but per the limitation above THAT
+// DELETE NEVER REACHES US — the rows are stranded locally forever (observed: two
+// `[e2e-test] roster test` events + participants, gone from Supabase, still local). So refuse
+// to pull marker-tagged events at all, and cascade the refusal to everything hanging off them.
 
 let supabase = null
 
@@ -42,6 +51,41 @@ const PULL_TABLES = [
 ]
 
 const PAGE = 1000 // PostgREST hard-caps a response at 1000 rows — paginate with range()
+
+// Must stay in sync with E2E_MARKER in supabase/functions/tests/helpers.js.
+const E2E_MARKER = '[e2e-test]'
+
+// Fresh per pull: ids of rows refused above, so children of a refused event are refused too.
+export function newSkipSets() {
+  return { events: new Set(), categories: new Set(), raceRuns: new Set() }
+}
+
+// True if this remote row is test junk — either marker-tagged itself, or descended from a row
+// that was. PULL_TABLES is ordered parents-first, so the parent's id is already in `skip`.
+export function isTestRow(name, remote, skip) {
+  switch (name) {
+    case 'events':
+      return typeof remote.name === 'string' && remote.name.startsWith(E2E_MARKER)
+    case 'categories':
+    case 'participants':
+    case 'checkpoints':
+    case 'event_documents':
+      return skip.events.has(remote.event_id)
+    case 'race_runs':
+      return skip.categories.has(remote.category_id)
+    case 'results':
+      return skip.raceRuns.has(remote.race_run_id)
+    default:
+      return false
+  }
+}
+
+// Remember a refused row's id so its own children get refused on a later table.
+export function rememberSkipped(name, remote, skip) {
+  if (name === 'events') skip.events.add(remote.id)
+  else if (name === 'categories') skip.categories.add(remote.id)
+  else if (name === 'race_runs') skip.raceRuns.add(remote.id)
+}
 
 // [{ prop, name, dataType }] for every real column of a Drizzle table.
 function columnMeta(table) {
@@ -81,11 +125,13 @@ export function initConfigSync(db) {
 
 export async function pullConfig(db) {
   if (!supabase) return
+  const skip = newSkipSets()
   for (const { name, table } of PULL_TABLES) {
     try {
       const cols = columnMeta(table)
       let offset = 0
       let examined = 0
+      let skipped = 0
       for (;;) {
         const { data, error } = await supabase.from(name).select('*').range(offset, offset + PAGE - 1)
         if (error) { console.error(`[ConfigSync] fetch ${name}:`, error.message); break }
@@ -93,6 +139,11 @@ export async function pullConfig(db) {
 
         for (const remote of data) {
           if (!remote.id) continue
+          if (isTestRow(name, remote, skip)) {
+            rememberSkipped(name, remote, skip)
+            skipped++
+            continue
+          }
           const now = new Date()
           const values = toLocalRow(cols, remote)
           values.syncedAt = now // never trust remote synced_at; stamp local so push won't echo
@@ -124,7 +175,10 @@ export async function pullConfig(db) {
         if (data.length < PAGE) break
         offset += PAGE
       }
-      if (examined) console.log(`[ConfigSync] ${name}: examined ${examined} remote row(s)`)
+      if (examined) {
+        const note = skipped ? ` (${skipped} test row(s) refused)` : ''
+        console.log(`[ConfigSync] ${name}: examined ${examined} remote row(s)${note}`)
+      }
     } catch (err) {
       console.error(`[ConfigSync] ${name}: ${err.message}`)
     }
