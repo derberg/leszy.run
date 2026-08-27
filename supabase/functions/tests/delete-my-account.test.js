@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { supabaseAdmin, FUNCTIONS_URL } from './helpers.js'
+import { supabaseAdmin, FUNCTIONS_URL, E2E_MARKER } from './helpers.js'
 import crypto from 'node:crypto'
 
 async function post(path, body, cookie = null) {
@@ -37,7 +37,7 @@ describe('delete-my-account', () => {
     // Seed a minimal event so we can attach a participant row
     const { data: eventRow, error: eventError } = await supabaseAdmin
       .from('events')
-      .insert({ name: 'test-delete-account-event' })
+      .insert({ name: `${E2E_MARKER} delete-account-event` })
       .select('id')
       .single()
     if (eventError) throw eventError
