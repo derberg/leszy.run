@@ -21,9 +21,10 @@ _DOC_KINDS = ("docx", "drive_folder", "drive_file")
 from enricher.steps.llm import call_ollama, build_prompt
 from enricher.steps.merge import build_updates
 from enricher.steps.navigate import (
-    pick_followup_urls, is_stub_host, page_matches_event, strip_foreign_event_lines,
+    pick_followup_urls, is_stub_host, strip_foreign_event_lines,
 )
 from enricher.steps.regex_prepass import extract_hints
+from enricher.steps.verify import verify_search_candidate
 
 
 async def process_event(event: dict, config: Config) -> dict:
@@ -91,6 +92,13 @@ async def process_event(event: dict, config: Config) -> dict:
                 working_urls["regulamin_url"] = status.final_url or searched_reg
                 result["steps"]["search"]["regulamin_kind"] = status.kind
 
+    # Where each candidate came from. Only a search-derived URL is gated later:
+    # a scraper column carries the organizer's own declaration, and a page
+    # reached from one inherits that. Snapshot the search URLs now, because
+    # Step 4 can add a discovered PDF to search_candidates further down.
+    search_urls = {u for u in search_candidates.values() if u}
+    candidate_origin = {f: "search" for f, u in search_candidates.items() if u}
+
     # Step 3: Crawl web pages (exclude PDF regulamins)
     crawl_urls = {}
     for field, url in working_urls.items():
@@ -115,7 +123,10 @@ async def process_event(event: dict, config: Config) -> dict:
     # This is what rescues events where the "registration page" is a thin
     # login stub but the real content lives on subpages like "Opis Imprezy".
     followup_urls: list[str] = []
-    followup_from_pdf_links: list[str] = []
+    # Each entry is (pdf_url, parent_origin). A PDF linked from a search result
+    # is search-derived; one linked from a scraper-declared page is not.
+    followup_from_pdf_links: list[tuple[str, str]] = []
+    followup_pdf_seen: set[str] = set()
     for field, url in crawl_urls.items():
         crawl_result = crawled.get(field)
         if not crawl_result:
@@ -130,11 +141,13 @@ async def process_event(event: dict, config: Config) -> dict:
             max_internal=max_internal,
             max_external=max_external,
         )
+        parent_origin = "search" if url in search_urls else "scraper"
         for u in picked:
             # Separate PDFs — they go through the PDF pipeline, not crawl
             if u.lower().endswith(".pdf"):
-                if u not in followup_from_pdf_links:
-                    followup_from_pdf_links.append(u)
+                if u not in followup_pdf_seen:
+                    followup_pdf_seen.add(u)
+                    followup_from_pdf_links.append((u, parent_origin))
             elif u not in followup_urls and u not in crawl_urls.values():
                 followup_urls.append(u)
 
@@ -153,7 +166,7 @@ async def process_event(event: dict, config: Config) -> dict:
             "followed": len(followup_urls),
             "followup_urls": followup_urls,
             "pdf_candidates": len(followup_from_pdf_links),
-            "pdf_candidate_urls": followup_from_pdf_links,
+            "pdf_candidate_urls": [u for u, _ in followup_from_pdf_links],
             "successful": len([v for v in followup_crawled.values() if v]),
         }
 
@@ -188,7 +201,7 @@ async def process_event(event: dict, config: Config) -> dict:
     # Fallback: try PDFs discovered on crawled pages (often the real regulamin
     # is linked as a PDF from an aggregator stub page)
     if not pdf_text and followup_from_pdf_links:
-        for pdf_url in followup_from_pdf_links:
+        for pdf_url, parent_origin in followup_from_pdf_links:
             p = await download_pdf(pdf_url)
             if p:
                 text = extract_pdf_text(p, max_chars=config.max_pdf_chars)
@@ -198,18 +211,19 @@ async def process_event(event: dict, config: Config) -> dict:
                     result["steps"]["pdf"] = {"source": "discovered", "url": pdf_url, "extracted_chars": len(text)}
                     # If we had no regulamin_url, offer this as a candidate
                     if not event.get("regulamin_url"):
-                        search_candidates.setdefault("regulamin_url", pdf_url)
+                        if search_candidates.setdefault("regulamin_url", pdf_url) == pdf_url:
+                            candidate_origin["regulamin_url"] = parent_origin
                     break
 
     # Step 3c: Clean crawled content before it reaches the regex pre-pass and the
     # LLM (both read crawled_content). Two guards:
-    #   1. Relevance gate — a page found via SearXNG that doesn't actually
-    #      describe this event (wrong-event hit, e.g. Ochabski → rundazubra.pl)
-    #      is dropped, and its URL is not adopted as a field value.
+    #   1. Relevance gate — every search-derived candidate is confirmed against
+    #      the content we extracted for it, and dropped unless the verdict is a
+    #      match. A wrong-event hit (Ochabski → rundazubra.pl) and a previous
+    #      edition of the right race are both rejected here.
     #   2. Foreign-event line stripping — remove "upcoming events" / sibling-race
     #      chrome (pomiaryczasu's "Najbliższe zawody") so other races' distances
     #      don't leak into extraction (IX Bieg Wolności → Pętla's 54/108 km).
-    search_urls = {u for u in search_candidates.values() if u}
     self_urls = [
         working_urls.get("registration_url"), event.get("registration_url"),
         event.get("source_url"),
@@ -221,19 +235,47 @@ async def process_event(event: dict, config: Config) -> dict:
         except Exception:
             return ""
 
+    discovered_pdf_url = result["steps"].get("pdf", {}).get("url")
+
+    def _candidate_content(field: str, url: str) -> Optional[str]:
+        """The text the gate judges this candidate against.
+
+        A document candidate is judged on its extracted text. Reading the raw
+        response instead lets an event-name token in PDF metadata stand in as
+        evidence, which is how a wrong regulamin passes an unaided byte match.
+        """
+        status = url_statuses.get(field)
+        if status and status.kind in _NON_CRAWL_KINDS:
+            return pdf_text
+        if url == discovered_pdf_url:
+            return pdf_text
+        return crawled_content.get(field)
+
     dropped_irrelevant = []
     dropped_hosts = set()
-    for key in list(crawled_content.keys()):
-        url = key.removeprefix("followup:") if key.startswith("followup:") else working_urls.get(key)
-        if url and url in search_urls and not page_matches_event(event, crawled_content[key]):
-            dropped_irrelevant.append(url)
-            crawled_content.pop(key, None)
-            if _host(url):
-                dropped_hosts.add(_host(url))
-            for f, cu in list(search_candidates.items()):
-                if cu == url:
-                    search_candidates.pop(f, None)
-                    working_urls.pop(f, None)
+    verify_log = []
+    for field, url in list(search_candidates.items()):
+        if not url or candidate_origin.get(field) != "search":
+            continue
+        content = _candidate_content(field, url)
+        res = verify_search_candidate(event, field, url, content, config)
+        verify_log.append({
+            "field": field, "url": url, "verdict": res.verdict,
+            "confidence": res.confidence, "reasoning": res.reasoning,
+            "llm_called": res.llm_called,
+        })
+        if res.ok:
+            continue
+        search_candidates.pop(field, None)
+        working_urls.pop(field, None)
+        crawled_content.pop(field, None)
+        dropped_irrelevant.append(url)
+        if _host(url):
+            dropped_hosts.add(_host(url))
+        # A rejected document must not reach extraction either, or its
+        # distances and prices land on this event through the regex pre-pass.
+        if content is pdf_text and pdf_text is not None:
+            pdf_text = None
 
     # A rejected search page's own subpages were crawled as followups (e.g.
     # rundazubra.pl/trasa carries the wrong event's 21 km). Drop everything from a
@@ -251,6 +293,12 @@ async def process_event(event: dict, config: Config) -> dict:
 
     result["steps"]["clean"] = {
         "dropped_irrelevant_search_pages": dropped_irrelevant,
+    }
+    result["steps"]["verify"] = {
+        "checked": len(verify_log),
+        "kept": len([v for v in verify_log if v["verdict"] == "match"]),
+        "dropped": len(dropped_irrelevant),
+        "candidates": verify_log,
     }
 
     # Field extraction reads the REGULAMIN ONLY — never the registration page,

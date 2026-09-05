@@ -15,6 +15,7 @@ from enricher.steps.audit_fetch import fetch_fast, FastPage
 from enricher.steps.audit_prompt import build_fast_prompt, build_full_prompt
 from enricher.steps.audit_verdict import call_audit_llm, AuditVerdict
 from enricher.steps.crawl import crawl_pages
+from enricher.steps.verify import url_slug_matches_event
 from enricher.steps.navigate import is_social_host
 
 
@@ -65,77 +66,6 @@ def _host_matches_blacklist(url: str, hosts: tuple) -> bool:
     return False
 
 
-# Polish stopwords and event-generic terms that shouldn't count as distinctive
-# matches between an event name and a URL slug.
-_URL_SLUG_STOPWORDS = frozenset({
-    # articles / generic
-    "bieg", "biegu", "biegi", "run", "running", "race", "marathon",
-    "polska", "polski", "edycja", "jubileuszowy", "międzynarodowy",
-    # numerals often as roman or ordinals in names
-    "pierwsza", "druga", "trzecia", "prima",
-    # years
-    "2024", "2025", "2026", "2027", "2028",
-    # descriptors
-    "open", "challenge", "festiwal", "cup", "grand", "prix",
-})
-
-
-_POLISH_FOLD = str.maketrans({
-    "ą": "a", "Ą": "A",
-    "ć": "c", "Ć": "C",
-    "ę": "e", "Ę": "E",
-    "ł": "l", "Ł": "L",
-    "ń": "n", "Ń": "N",
-    "ó": "o", "Ó": "O",
-    "ś": "s", "Ś": "S",
-    "ź": "z", "Ź": "Z",
-    "ż": "z", "Ż": "Z",
-})
-
-
-def _normalize_for_slug_match(s: str) -> str:
-    """Lowercase + fold Polish letters + strip combining marks.
-
-    Makes "Kołobrzeska Odyseja" → "kolobrzeska odyseja" which substring-matches
-    against "kolobrzeskaodyseja.pl" (after stripping non-alnum).
-
-    Note: Polish `ł` / `ó` / `ś` etc. are precomposed codepoints that NFKD does
-    NOT decompose, so we map them explicitly via a translation table.
-    """
-    import unicodedata
-    s = s.translate(_POLISH_FOLD)
-    s = unicodedata.normalize("NFKD", s)
-    s = "".join(c for c in s if not unicodedata.combining(c))
-    return s.lower()
-
-
-def _url_slug_matches_event(url: str, event: dict) -> bool:
-    """Return True if the URL's host+path contains at least 2 distinctive tokens
-    from the event name (or 1 distinctive name-token + the location). Used to
-    rescue `uncertain` verdicts when the URL strongly identifies the event.
-    """
-    import re
-    from urllib.parse import urlparse
-
-    name = _normalize_for_slug_match(event.get("name") or "")
-    location = _normalize_for_slug_match(event.get("location") or "")
-    u = urlparse(url)
-    host_path = _normalize_for_slug_match((u.hostname or "") + " " + (u.path or ""))
-    # Collapse everything to a letter-digit bag so "kolobrzeska-odyseja" and
-    # "kolobrzeskaodyseja" both match.
-    url_bag = re.sub(r"[^a-z0-9]+", "", host_path)
-    if not url_bag:
-        return False
-
-    def _tokens(text: str):
-        for t in re.split(r"\W+", text):
-            if len(t) >= 4 and t not in _URL_SLUG_STOPWORDS:
-                yield t
-
-    name_hits = sum(1 for t in _tokens(name) if t in url_bag)
-    loc_hits = sum(1 for t in _tokens(location) if t in url_bag)
-
-    return name_hits >= 2 or (name_hits >= 1 and loc_hits >= 1)
 
 
 @dataclass
@@ -331,7 +261,7 @@ async def process_url(
     final_verdict = full_verdict.verdict
     final_confidence = full_verdict.confidence
     slug_note = ""
-    if full_verdict.verdict == "uncertain" and _url_slug_matches_event(url, event):
+    if full_verdict.verdict == "uncertain" and url_slug_matches_event(url, event):
         final_verdict = "match"
         final_confidence = max(full_verdict.confidence, 0.75)
         slug_note = " (promoted via URL-slug match)"

@@ -125,8 +125,8 @@ Two distinct jobs:
 
 | Field | Source | Notes |
 |-------|--------|-------|
-| `registration_url` | SearXNG search (+ live relevance check) | Replaces empty/dead URLs only with a validated candidate. |
-| `regulamin_url` | SearXNG search / PDF links discovered while crawling | Replaces empty/dead URLs only with a validated candidate. Downloaded and parsed via Docling. |
+| `registration_url` | SearXNG search (+ verification gate) | Replaces empty/dead URLs only with a candidate the gate confirms. See Verification gate below. |
+| `regulamin_url` | SearXNG search / PDF links discovered while crawling | Same gate as `registration_url`. A PDF found by following a link inherits the trust of the page it came from. Downloaded and parsed via Docling. |
 | `distances` | **Regulamin only** | Only overwrites if the regulamin lists MORE distances than existing. |
 | `event_types` | **Regulamin only** | `[trail, uliczny, nocny, ocr, nordic walking, ultra, charytatywny]`. Merge never downgrades trail/ocr → uliczny. |
 | `price_from` | **Regulamin only** | Cheapest adult entry tier. Looks for "opłata startowa" tables with date tiers. |
@@ -145,7 +145,34 @@ Two distinct jobs:
 4. **Regulamin extraction** — by `kind`: PDF → download + pypdf (`steps/pdf.py`); docx → stdlib zip+XML (`steps/docs.py`); Drive folder/file → download each file via the direct-download endpoint, extract per type, concatenate (`steps/docs.py`); HTML → already crawled in step 3. PDFs fall back to crawling the URL if download fails (SPA wrappers).
 5. **Keyword Chunk Extraction** — scans the **regulamin content only** for price/deadline/distance keywords. Focused windows go at the top of the LLM prompt.
 6. **Ollama LLM** — sends event data + **regulamin content only** to the model. Returns structured JSON. (No registration/website content is included.)
-7. **Smart Merge** — compares LLM output with existing data. Safety rules prevent bad updates. `website` is never written.
+7. **Verification gate** (`steps/verify.py`) — every search-derived candidate is confirmed before merge can adopt it. See Verification gate below.
+8. **Smart Merge** — compares LLM output with existing data. Safety rules prevent bad updates. `website` is never written.
+
+### Verification gate
+
+A URL that a search produced carries no organizer guarantee, so it is confirmed
+before it is written. A scraper column and a deterministically derived dostartu
+statute are not searched values and are never gated.
+
+The gate judges a candidate against content the pipeline already extracted, so
+it adds no fetch for an HTML page. A PDF, `.docx` or Drive candidate is judged
+on its extracted text. Reading raw bytes instead lets an event-name token in PDF
+metadata stand in as evidence.
+
+The ladder runs cheapest first:
+
+1. No content for the candidate. Drop it.
+2. `page_matches_event()` fails. Drop it, with no model call.
+3. Otherwise Ollama returns `match`, `mismatch` or `uncertain`. An `uncertain`
+   gets one rescue through `url_slug_matches_event()`. Only a `match` survives.
+
+The token check rejects but never approves. A regulamin for the same race in the
+wrong year passes it, and the model rejects that case. Measured on 2026-09-05,
+the model returned `mismatch` at 0.95 confidence for a wrong-year regulamin and
+`match` at 0.95 for the correct one.
+
+A drop leaves the field empty, which a later run retries. Every candidate and
+its verdict is recorded under `steps.verify` in the run log.
 
 ### Smart merge rules
 

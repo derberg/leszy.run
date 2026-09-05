@@ -6,6 +6,7 @@ import { join } from 'path'
 import { writeRunLog } from './lib/run-log.js'
 import { pickFillable, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
 import { resolveDostartuRegulamin } from './lib/dostartu-regulamin.js'
+import { verifySearchUrls } from './lib/verify-url.js'
 
 // This script has ONE job: find the two source-of-truth URLs for an event —
 // its registration page and its regulamin (rules) PDF. It does NOT extract
@@ -278,7 +279,8 @@ async function main() {
   console.log(`Source: ${sourceArg || 'all'}`)
   console.log(`Found ${allRows.length} total, ${needsWork.length} need enrichment, processing ${toProcess.length}\n`)
 
-  let enriched = 0, skipped = 0, failed = 0
+  let enriched = 0, skipped = 0, failed = 0, rejected = 0
+  const rejections = []
 
   for (let i = 0; i < toProcess.length; i++) {
     const row = toProcess[i]
@@ -328,7 +330,24 @@ async function main() {
         }
       } else {
         // Validate + keep only the URL fields we asked Claude for
-        Object.assign(updates, applyRegistryUpdates(row, result, fieldsToFill, SEARCH_FILLABLE))
+        const searchUpdates = applyRegistryUpdates(row, result, fieldsToFill, SEARCH_FILLABLE)
+
+        // Every URL here came from a web search, so each one goes to an
+        // independent verifier before it can be written. The deterministic
+        // dostartu fill in `updates` is already fetch-verified and stays out.
+        if (Object.keys(searchUpdates).length > 0) {
+          const check = await verifySearchUrls(row, searchUpdates)
+          totalCostUsd += check.costUsd
+          totalInputTokens += check.inputTokens
+          totalOutputTokens += check.outputTokens
+          for (const d of check.dropped) {
+            console.log(`    ✗ REJECTED ${d.field}: ${d.url}`)
+            console.log(`        ${d.verdict} (${d.confidence}): ${d.reasoning}`)
+            rejections.push({ id: row.id, name: row.name, ...d })
+          }
+          rejected += check.dropped.length
+          Object.assign(updates, check.kept)
+        }
       }
     }
 
@@ -365,6 +384,7 @@ async function main() {
   console.log(`\n=== ${dryRun ? 'DRY RUN' : 'DONE'} ===`)
   console.log(`  enriched: ${enriched}`)
   console.log(`  skipped: ${skipped}`)
+  console.log(`  rejected by verifier: ${rejected}`)
   console.log(`  failed: ${failed}`)
   console.log(`  total cost: $${totalCostUsd.toFixed(4)}`)
   console.log(`  total tokens: ${totalInputTokens} in / ${totalOutputTokens} out`)
@@ -380,12 +400,14 @@ async function main() {
       processed: toProcess.length,
       enriched,
       skipped,
+      rejected,
       failed,
       cost_usd: Number(totalCostUsd.toFixed(4)),
       input_tokens: totalInputTokens,
       output_tokens: totalOutputTokens,
       events,
       failures,
+      rejections,
     })
     console.log(`Run log: ${logFile}`)
   }
