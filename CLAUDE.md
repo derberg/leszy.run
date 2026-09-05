@@ -555,8 +555,24 @@ cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply    
 - **Docling** — PDF text extraction for regulamin documents
 
 **What it finds (URLs):** SearXNG search for the two source-of-truth URLs only:
-- `registration_url` — sign-up page (search + live relevance check)
-- `regulamin_url` — rules PDF/page (search + live relevance check)
+- `registration_url` — sign-up page (search + verification gate)
+- `regulamin_url` — rules PDF/page (search + verification gate)
+
+**Verification gate: a searched URL is confirmed before it is written.** Only
+search-derived candidates are gated. A scraper column is the organizer's own
+declaration and a dostartu statute is derived deterministically, so both are
+written unchecked. `steps/verify.py` judges each candidate against content the
+pipeline already holds: crawled markdown for an HTML page, and extracted text
+for a PDF, `.docx` or Google Drive file. The ladder is: no content drops;
+`page_matches_event()` failing drops it for free without a model call; otherwise
+Ollama returns match / mismatch / uncertain, an `uncertain` gets one rescue via
+`url_slug_matches_event()`, and only a `match` survives. A drop leaves the field
+empty for a later run and is recorded in `steps.verify` of the run log.
+
+The token check rejects but never approves. Measured 2026-09-05: a regulamin for
+the same race in the wrong year passes `page_matches_event()` and is rejected by
+the model at 0.95 confidence. A wrong edition is the most common bad URL, so the
+model tier is what catches it.
 
 It does **NOT** enrich `website` — that field was intentionally dropped from the enricher (no search, no extraction, no sync). Scraper-set `website` values still flow to `calendar_events` via the JS publish step.
 
