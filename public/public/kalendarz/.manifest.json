@@ -53593,6 +53593,28 @@
     "is_kids": null,
     "status": "active"
   },
+  "bieg-tytana-junior-2026-09-26": {
+    "id": "e9de0957-89f8-4cf2-8e15-85a0f1abfd1f",
+    "name": "Bieg Tytana Junior",
+    "date": "2026-09-26",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Stargard gubiński",
+    "voivodeship": "Lubuskie",
+    "lat": 51.883584,
+    "lng": 14.785662,
+    "distances": [],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://b4sportonline.pl/bieg_tytana/zapisy_na_bieg_tytana_junior_1/13037",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "kobierzycki-bieg-w-parku-2026-09-26": {
     "id": "e85d2389-e0f0-49f9-b47d-3e3fa80bca94",
     "name": "KOBIERZYCKI BIEG W PARKU",
@@ -59802,6 +59824,34 @@
     "is_kids": null,
     "status": "active"
   },
+  "xxvii-memorial-stanislawa-ozoga-2026-10-11": {
+    "id": "be41dc53-95be-4c1b-be08-64fc1b394e7c",
+    "name": "XXVII Memoriał Stanisława Ożoga",
+    "date": "2026-10-11",
+    "registration_deadline": null,
+    "regulamin_url": "https://panel.maratonczykpomiarczasu.pl/sites/default/files/u22/Regulamin%20XXVII%20Memoria%C5%82%20Stanis%C5%82awa%20O%C5%BCoga%20-%20Sul%C4%99cin%2010.10.2026.pdf",
+    "price_from": 70,
+    "price_to": 90,
+    "location": "Sulęcin",
+    "voivodeship": "Lubuskie",
+    "lat": 52.441377,
+    "lng": 15.11615,
+    "distances": [
+      "10 km",
+      "200 m",
+      "300 m",
+      "400 m",
+      "800 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://panel.maratonczykpomiarczasu.pl/bieg-ozoga",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "xxx-koscierskie-biegi-uliczne-2026-10-11": {
     "id": "bd8ddb30-eeb5-42ff-85ba-2f478f4f918e",
     "name": "XXX Kościerskie Biegi Uliczne",
@@ -64363,6 +64413,29 @@
       "trail"
     ],
     "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11466%26co%3Dform",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "6-polmaraton-kocich-gor-kocur-2026-11-21": {
+    "id": "30ce3aee-2958-4aa4-a494-7d21baf069b5",
+    "name": "6. Półmaraton Kocich Gór KOCUR",
+    "date": "2026-11-21",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Oborniki Śląskie",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.301066,
+    "lng": 16.914551,
+    "distances": [
+      "21.1 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12713%26co%3Dform",
     "website": null,
     "is_kids": null,
     "status": "active"
