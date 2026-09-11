@@ -74,6 +74,13 @@ function parseClassifications(classifications, eventName) {
   // a kids 100m at 20 PLN would dominate price_from for an adults marathon at 100 PLN.
   const adultPrices = []
   let latestEndedTime = null
+  // Free-event detection. dostartu states this explicitly per classification via
+  // classificationSetting.isPay — an empty classificationPrices array on its own is
+  // ambiguous (it also describes a paid race whose fee tiers aren't configured yet).
+  // We count the two independently and only conclude "free" when every counted
+  // classification says isPay:false AND no tier was found anywhere.
+  let countedClassifications = 0
+  let anyPaidClassification = false
 
   for (const c of classifications) {
     const name = (c.namePl || '').trim()
@@ -83,6 +90,9 @@ function parseClassifications(classifications, eventName) {
     if (!isKids && isKidsClassification) {
       continue
     }
+
+    countedClassifications++
+    if (c.classificationSetting?.isPay === true) anyPaidClassification = true
 
     // Price tiers: { price: "259.00", endedTime: "2026-05-31T..." }
     const tiers = Array.isArray(c.classificationPrices) ? c.classificationPrices : []
@@ -134,11 +144,18 @@ function parseClassifications(classifications, eventName) {
     }
   }
 
+  // A genuinely free event: dostartu marked every counted classification isPay:false
+  // and published no tier. Emit 0/0 rather than null so the calendar can say "free"
+  // instead of "price unknown". A mixed event (some free entries, some paid) keeps
+  // tier-derived prices — a free kids race inside a paid event must not report 0.
+  const isFree =
+    adultPrices.length === 0 && countedClassifications > 0 && !anyPaidClassification
+
   return {
     distances: parts.join(', '),
     isKids,
-    priceFrom: adultPrices.length > 0 ? Math.min(...adultPrices) : null,
-    priceTo: adultPrices.length > 0 ? Math.max(...adultPrices) : null,
+    priceFrom: adultPrices.length > 0 ? Math.min(...adultPrices) : isFree ? 0 : null,
+    priceTo: adultPrices.length > 0 ? Math.max(...adultPrices) : isFree ? 0 : null,
     latestEndedTime,
   }
 }
@@ -165,11 +182,20 @@ async function scrape({ knownIds = new Set() } = {}) {
     await new Promise(r => setTimeout(r, 500))
   }
 
-  const newEvents = allEvents.filter(ev => !knownIds.has(String(ev.id)))
-  console.log(`[dostartu] Found ${allEvents.length} events, ${newEvents.length} new (skipping ${allEvents.length - newEvents.length} known)`)
+  // Deliberately NOT filtered by knownIds — dostartu events are re-read every run.
+  // The knownIds skip other scrapers use exists to avoid re-fetching expensive HTML
+  // detail pages; here the "detail" is one cheap JSON call, and organizers routinely
+  // fill in fee tiers, deadlines and extra classifications AFTER first publishing.
+  // Skipping known events froze that data at first-scrape time — e.g. competition
+  // 16843 was scraped 2026-07-03 with no tiers and still reported price=null months
+  // after the organizer set it to 10 PLN. runPipeline() already routes re-emitted
+  // known rows into a selective UPDATE that preserves merged_at, so re-emitting them
+  // refreshes the row without making merge re-process it.
+  const newCount = allEvents.filter(ev => !knownIds.has(String(ev.id))).length
+  console.log(`[dostartu] Found ${allEvents.length} events (${newCount} new, ${allEvents.length - newCount} known — refreshing all)`)
 
-  for (let i = 0; i < newEvents.length; i++) {
-    const ev = newEvents[i]
+  for (let i = 0; i < allEvents.length; i++) {
+    const ev = allEvents[i]
 
     const date = ev.startedTime ? ev.startedTime.split('T')[0] : null
     if (!date) continue
@@ -216,7 +242,7 @@ async function scrape({ knownIds = new Set() } = {}) {
       price_to: priceTo,
     })
 
-    console.log(`[dostartu] Detail pages: ${i + 1}/${newEvents.length} — ${ev.name}`)
+    console.log(`[dostartu] Detail pages: ${i + 1}/${allEvents.length} — ${ev.name}`)
 
     // Rate limit
     await new Promise(r => setTimeout(r, 500))
