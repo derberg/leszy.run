@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Nightly pre-publish review.
+
+  The scheduler container starts the scrape and enrich pipeline at 08:00
+  Europe/Warsaw, and the Python enricher alone can take four hours. 14:00 leaves
+  room for that and still lands before anyone would publish. The wrapper checks
+  the pipeline heartbeat and exits without spending anything when the night's
+  run has not finished.
+
+  Install:
+    cp scripts/launchd/run.leszy.prepublish-review.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/run.leszy.prepublish-review.plist
+
+  Remove:
+    launchctl unload ~/Library/LaunchAgents/run.leszy.prepublish-review.plist
+
+  It runs in report-only mode. To let the fix agents open and merge pull
+  requests, add <string>--apply</string> to ProgramArguments. Run it by hand for
+  a week first and read the reports before you do that.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>run.leszy.prepublish-review</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/derberg/Documents/GitHub/BeepBeep/scripts/prepublish-review.sh</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>14</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/derberg/Documents/GitHub/BeepBeep</string>
+
+  <key>StandardOutPath</key>
+  <string>/Users/derberg/Documents/GitHub/BeepBeep/logs/prepublish-review-launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/derberg/Documents/GitHub/BeepBeep/logs/prepublish-review-launchd.log</string>
+
+  <!-- launchd gives a job a minimal PATH. claude, gh, node and pdftotext all
+       live outside it, so name the directories that hold them. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/derberg/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

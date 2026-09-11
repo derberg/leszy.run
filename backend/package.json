@@ -14,6 +14,7 @@
   "dependencies": {
     "@fastify/cors": "^10.0.0",
     "@fastify/multipart": "^9.0.3",
+    "@leszyrun/ui": "file:../packages/ui",
     "@supabase/supabase-js": "^2.49.1",
     "cheerio": "^1.2.0",
     "drizzle-orm": "^0.40.0",

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.js'
 import { ReportsTab, FeedbackTab, useReportsQuery, useFeedbackQuery } from './Moderation.jsx'
+import { isReadyToAccept, isIncomplete } from '@leszyrun/ui/eventCompleteness'
 
 const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm py-1.5 px-2 outline-none focus:border-apex-yellow-dim'
 
@@ -224,19 +225,6 @@ function DuplicateUrlField({ event, field, onSave }) {
   )
 }
 
-// Required fields for an event to count as "ready to accept". website is intentionally
-// excluded — an event with everything else filled is good enough to approve.
-const REQUIRED_FIELDS = ['location', 'voivodeship', 'event_type', 'distances', 'registration_url', 'regulamin_url', 'registration_deadline', 'price_from']
-
-const isReadyToAccept = (e) => {
-  const locked = new Set(e.locked_fields || [])
-  return REQUIRED_FIELDS.every(field => {
-    if (locked.has(field)) return true
-    const val = e[field]
-    if (Array.isArray(val)) return val.length > 0
-    return val !== null && val !== undefined && val !== ''
-  })
-}
 
 // Compact URL cell for the table — shows a ✓ link chip when present (full URL on hover),
 // "—" when missing. Keeps the column narrow so the table never scrolls horizontally.
@@ -715,29 +703,6 @@ export default function CalendarEventsList() {
   const dupGroups = dupData || []
   const isLoading = filter === 'review' ? pendingLoading : filter === 'all' ? activeLoading : false
 
-  // Single source of truth for "what makes an event complete" — matches the enricher's
-  // --incomplete criteria so the admin view reflects what the enricher will re-process.
-  // A field counts as "decided" if it has a value OR if admin explicitly locked it as empty
-  // (the backend auto-adds edited fields to locked_fields, and the "brak" button locks an empty value).
-  const isIncomplete = (e) => {
-    const locked = new Set(e.locked_fields || [])
-    const missing = (field, val) => {
-      if (locked.has(field)) return false
-      if (Array.isArray(val)) return val.length === 0
-      return val === null || val === undefined || val === ''
-    }
-    return (
-      missing('location', e.location) ||
-      missing('voivodeship', e.voivodeship) ||
-      missing('event_type', e.event_type) ||
-      missing('distances', e.distances) ||
-      missing('registration_url', e.registration_url) ||
-      missing('regulamin_url', e.regulamin_url) ||
-      missing('website', e.website) ||
-      missing('registration_deadline', e.registration_deadline) ||
-      missing('price_from', e.price_from)
-    )
-  }
   const incomplete = active.filter(isIncomplete)
   const complete = active.filter(e => !isIncomplete(e))
 

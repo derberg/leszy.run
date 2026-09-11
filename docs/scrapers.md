@@ -67,6 +67,14 @@ cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js --app
 # Step 5.5: run some scripts cause AI might add some dumb things
 cd backend && node --env-file=../.env scripts/run-dedup.js --apply && node --env-file=../.env scripts/run-enrich-flags.js --apply && node --env-file=../.env scripts/run-normalize.js --apply
 
+# Step 5.9: Review what is about to publish. One agent per event that would
+# publish without enough data, tracing the missing field down to the code that
+# dropped it. Report-only by default; --apply lets the fix agents open and merge
+# pull requests, then re-scrapes the sources they fixed.
+# See .claude/skills/auditing-event-data/SKILL.md.
+scripts/prepublish-review.sh
+scripts/prepublish-review.sh --apply
+
 # Step 6: Publish to calendar_events — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-publish.js
 cd backend && node --env-file=../.env scripts/run-publish.js --apply

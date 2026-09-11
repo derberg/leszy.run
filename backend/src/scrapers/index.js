@@ -35,6 +35,7 @@ import { scrape as scrapeMotivato } from './sources/motivato.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
+import { TRACKED_FIELDS, missingTrackedFields, missingRequiredFields, isReadyToAccept } from '@leszyrun/ui/eventCompleteness'
 
 // Sources that handle their own API enrichment in-scraper (avoid double API calls)
 const SELF_ENRICHING_SOURCES = new Set(['dostartu', 'elektronicznezapisy'])
@@ -1529,26 +1530,22 @@ async function publishToCalendar({ dryRun = false } = {}) {
     return { upd, skipped }
   }
 
-  // Enrichment fields that determine how "complete" a published event is.
-  // Used to surface, per event, which valuable fields are still empty so the
-  // operator can spot events that need manual / re-enrichment attention.
-  const COMPLETENESS_FIELDS = [
-    'website',
-    'registration_url',
-    'regulamin_url',
-    'price_from',
-    'registration_deadline',
-    'distances',
-  ]
-  function missingFields(obj) {
-    const miss = []
-    for (const f of COMPLETENESS_FIELDS) {
-      const v = obj[f]
-      const empty = v === null || v === undefined || v === '' ||
-        (Array.isArray(v) && v.length === 0)
-      if (empty) miss.push(f)
+  // Completeness is defined once, in @leszyrun/ui/eventCompleteness, and the
+  // admin list reads that same rule. This file used to redefine it over six
+  // fields and ignore locked_fields, so run-publish printed "missing:
+  // regulamin_url" on a row whose admin badge already said ready to accept.
+  //
+  // Returns what the pre-publish review step selects on: the empty fields, the
+  // readiness verdict, and the values the row would carry AFTER publish.
+  function completenessOf(obj) {
+    return {
+      missing: missingTrackedFields(obj),
+      missing_required: missingRequiredFields(obj),
+      ready: isReadyToAccept(obj),
+      projected: Object.fromEntries(
+        [...TRACKED_FIELDS, 'locked_fields'].map((f) => [f, obj[f] ?? null])
+      ),
     }
-    return miss
   }
 
   let created = 0, updated = 0, unchanged = 0, rejectedSkipped = 0, fuzzySkipped = 0
@@ -1621,7 +1618,7 @@ let existingCE = null
       })
 
       // Completeness of the row AFTER this update lands.
-      const missing = missingFields({ ...existingCE, ...upd })
+      const completeness = completenessOf({ ...existingCE, ...upd })
 
       if (dryRun) {
         updated++
@@ -1632,7 +1629,7 @@ let existingCE = null
           fields: writtenFields,
           writes,
           skipped: skippedFields,
-          missing,
+          ...completeness,
         })
       } else {
         const { error } = await supabase
@@ -1650,7 +1647,7 @@ let existingCE = null
             fields: writtenFields,
             writes,
             skipped: skippedFields,
-            missing,
+            ...completeness,
           })
           // Refresh in-memory cache so a later scraper_all row matching the same
           // CE doesn't re-update with the same values
@@ -1732,7 +1729,7 @@ let existingCE = null
 
     if (dryRun) {
       created++
-      createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id, missing: missingFields(row) })
+      createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id, ...completenessOf(row) })
     } else {
       const { data: inserted, error } = await supabase
         .from('calendar_events')
@@ -1744,7 +1741,7 @@ let existingCE = null
         errors.push({ name: raw.name, message: error.message })
       } else {
         created++
-        createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id, missing: missingFields(row) })
+        createdLog.push({ name: raw.name, date: raw.date, location: raw.location, voivodeship: raw.voivodeship, source: raw.source, source_id: raw.source_id, ...completenessOf(row) })
         // Track so we don't insert dupes from same batch — also enables update path
         // for the just-inserted row if a later scraper_all row maps to the same CE.
         const insertedCE = {
