@@ -800,6 +800,43 @@ Two further gates run at enrichment time, both in `run-enrich-from-regulamin.js`
 `scripts/run-data-audit.js` reports violations that already exist in the DB (see the
 pipeline step list below).
 
+## Fixing a scraper is not enough — force the re-merge
+
+`run-merge` only reads raw rows where `merged_at IS NULL`, so re-running a fixed
+scraper updates `scraper_<source>` and **`scraper_all` keeps the old value**. To
+propagate a correction:
+
+```bash
+cd backend && node --env-file=../.env scripts/run-scrapers.js \
+  --only <source> --force <source>          # --force re-fetches detail pages for KNOWN ids
+# then clear the bookkeeping stamp so the merge reconsiders those rows:
+#   UPDATE scraper_<source> SET merged_at = NULL;
+cd backend && node --env-file=../.env scripts/run-merge.js --apply
+```
+
+`--force` is required: without it the scraper skips ids it already knows, so the
+rows you are trying to fix are never re-fetched.
+
+The merge nulls `enriched_at` / `enriched_regulamin_at` / `enriched_search_at` on
+any row whose data changed, so re-run the enrichment steps afterwards — a
+corrected regulamin usually yields prices, a deadline and distances the previous
+pass could not see.
+
+**A re-scrape is authoritative for its own record** (`incomingWinsOver` in
+`src/scrapers/index.js`): same source + same source_id replaces stored values, so
+source regressions propagate too. That is deliberate — a URL the source no longer
+publishes is not worth preserving — and `run-data-audit.js` flags the common case
+(a regulamin filename whose year predates the event).
+
+## Duplicate review — `run-dedup` reports what it will not merge
+
+Besides the pairs it merges, `run-dedup.js` prints a **"Possible duplicates — NOT
+merged"** list: same city, same date, name similarity above a low floor but below
+the auto-merge bar. It never touches these; they are for the admin "Duplikaty"
+tab. The auto-merge threshold must NOT be lowered to absorb them — the Krajenka
+pair sits at jaccard 0.250 against a `> 0.25` bar, and dropping the bar starts
+merging genuinely separate races that share a town and a date.
+
 ## Database write safety
 
 **Before running any INSERT, UPDATE, or DELETE on any database (local Postgres or Supabase), you MUST:**
