@@ -860,7 +860,9 @@ corrected code rewrites the rows. See
 
 Run it through `scripts/prepublish-review.sh`, which skips the run when the
 night's pipeline has not finished. `scripts/launchd/run.leszy.prepublish-review.plist`
-schedules it at 14:00.
+schedules it at 14:00 with `--apply`, so pull requests open and merge unattended.
+Drop the `--apply` argument from the plist to make the scheduled run
+report-only.
 
 The step reports and changes nothing unless you pass `--apply`. Nothing opens a
 pull request or merges one without it. Measured on 2026-09-11, one diagnose agent costs

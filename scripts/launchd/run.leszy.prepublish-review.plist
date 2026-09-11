@@ -16,9 +16,9 @@
   Remove:
     launchctl unload ~/Library/LaunchAgents/run.leszy.prepublish-review.plist
 
-  It runs in report-only mode. To let the fix agents open and merge pull
-  requests, add <string>--apply</string> to ProgramArguments. Run it by hand for
-  a week first and read the reports before you do that.
+  It runs with --apply, so the fix agents open pull requests, a second agent
+  reviews each diff, and up to --max-merges (default 5) land per night. Drop the
+  --apply argument to make the run report-only again.
 -->
 <plist version="1.0">
 <dict>
@@ -29,6 +29,7 @@
   <array>
     <string>/bin/bash</string>
     <string>/Users/derberg/Documents/GitHub/BeepBeep/scripts/prepublish-review.sh</string>
+    <string>--apply</string>
   </array>
 
   <key>StartCalendarInterval</key>
