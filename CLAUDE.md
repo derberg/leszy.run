@@ -543,6 +543,10 @@ cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply      
 cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js               # 8.1 (host)
 cd backend && node --env-file=../.env scripts/run-dedup.js --apply                       # 9
 cd backend && node --env-file=../.env scripts/run-normalize.js --apply                   # 10
+# Step 10.5 reviews what step 11 is about to publish. It needs the `claude` CLI,
+# `pdftotext` and `textutil`, so it is host-only like steps 8 and 8.1. Default is
+# report-only. `--apply` lets the fix agents open and merge pull requests.
+scripts/prepublish-review.sh                                                             # 10.5 (host)
 cd backend && node --env-file=../.env scripts/run-publish.js --apply                     # 11
 cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply             # post (manifest + OG images)
 cd backend && node --env-file=../.env scripts/run-data-audit.js                          # post (read-only report; exit 2 = findings)
@@ -836,6 +840,49 @@ the auto-merge bar. It never touches these; they are for the admin "Duplikaty"
 tab. The auto-merge threshold must NOT be lowered to absorb them — the Krajenka
 pair sits at jaccard 0.250 against a `> 0.25` bar, and dropping the bar starts
 merging genuinely separate races that share a town and a date.
+
+## Pre-publish review agents
+
+`run-prepublish-review.js` runs between step 10 and step 11. It asks
+`run-publish` in dry-run mode which rows it would write, keeps the ones that
+fail `isReadyToAccept`, and gives each one to an agent that traces the missing
+field down four layers: the projected `calendar_events` row, `scraper_all`,
+`scraper_<source>`, and the live source page. The layer where the field
+disappears is the layer with the defect.
+
+Findings are then grouped by the file they name, so forty events become about
+ten defects. One fix agent per defect works in its own worktree, writes a
+failing test first, and opens a pull request. A second agent reviews the diff
+without seeing the fixer's reasoning, and only an approval reaches
+`gh pr merge`. After merging, the affected sources are re-scraped so the
+corrected code rewrites the rows. See
+`.claude/skills/auditing-event-data/SKILL.md` for the method itself.
+
+Run it through `scripts/prepublish-review.sh`, which skips the run when the
+night's pipeline has not finished. `scripts/launchd/run.leszy.prepublish-review.plist`
+schedules it at 14:00.
+
+The step reports and changes nothing unless you pass `--apply`. Nothing opens a
+pull request or merges one without it. Measured on 2026-09-11, one diagnose agent costs
+about $1, so a queue of forty events is a real amount of money and of plan
+usage. `--limit` bounds it.
+
+The orchestrator enforces four limits itself rather than asking an agent to
+respect them, because the step merges without a person reading first:
+
+- Diagnose agents run with `SUPABASE_*`, `DATABASE_URL` and the other keys
+  stripped from their environment. Every row they need is in the prompt.
+- It rejects a pull request that touches anything outside
+  `backend/src/scrapers/`, `backend/src/lib/`, `backend/scripts/`,
+  `backend/test/` and `enricher/`, before the reviewing agent sees it. `reviewAgents.js` and the orchestrator itself are
+  excluded too, so an agent cannot edit the code that holds the limits.
+- The orchestrator runs `npm test --workspace=backend` itself. An agent's own
+  report that the tests pass is not evidence.
+- At most `--max-merges` (default 5) merges per run.
+
+Agents never write to a database. A wrong value is corrected by fixing the code
+and re-running the scrape, which is also why the step runs before publishing
+rather than after: nothing has reached `calendar_events` yet.
 
 ## Database write safety
 
