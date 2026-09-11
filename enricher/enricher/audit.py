@@ -407,6 +407,18 @@ async def run_audit(
     be set to NULL. All other verdicts leave the DB untouched.
     """
     import click
+    from enricher.steps.crawl import check_browser
+
+    # Same preflight as the enrichment run, and it matters more here. Every
+    # verdict is judged against crawled content, so a dead browser turns the
+    # whole audit into "no content". With --apply that nulls URLs that were fine.
+    browser_error = await check_browser()
+    if browser_error:
+        raise click.ClickException(
+            f"Crawl4AI cannot launch a browser: {browser_error}\n"
+            "  Fix with: cd enricher && .venv/bin/playwright install chromium"
+        )
+
     events = fetch_audit_events(config, since, fields)
     if limit:
         events = events[:limit]

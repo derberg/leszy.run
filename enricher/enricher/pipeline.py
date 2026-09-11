@@ -9,7 +9,7 @@ from enricher.config import Config
 from enricher.run_logger import RunLogger
 from enricher.steps.validate_urls import validate_urls
 from enricher.steps.search import search_missing_urls
-from enricher.steps.crawl import crawl_pages, crawl_url_list
+from enricher.steps.crawl import crawl_pages, crawl_url_list, check_browser
 from enricher.steps.pdf import download_pdf, extract_pdf_text, cleanup_pdf
 from enricher.steps.docs import extract_regulamin_doc
 
@@ -25,6 +25,10 @@ from enricher.steps.navigate import (
 )
 from enricher.steps.regex_prepass import extract_hints
 from enricher.steps.verify import verify_search_candidate
+
+# How many page crawls a run must attempt before a 0% success rate is read as a
+# broken crawler rather than a run that happened to hit only dead sites.
+_CRAWL_SHUTOUT_MIN_ATTEMPTS = 5
 
 
 async def process_event(event: dict, config: Config) -> dict:
@@ -470,6 +474,20 @@ async def run_pipeline(
 
     click.echo(f"Processing {total} events" + (" (DRY RUN)" if dry_run else ""))
 
+    # Preflight: the browser must actually launch. Without this check the run
+    # still reports success while every crawl fails, the LLM sees only whatever
+    # PDFs happened to be linked, and extracts nothing from HTML regulamins.
+    click.echo("Checking browser (Crawl4AI/Playwright)...")
+    browser_error = await check_browser()
+    if browser_error:
+        raise click.ClickException(
+            f"Crawl4AI cannot launch a browser: {browser_error}\n"
+            "  Every HTML crawl would fail silently. Fix with:\n"
+            "    cd enricher && .venv/bin/playwright install chromium\n"
+            "  (in the container: rebuild the enricher image)"
+        )
+    click.echo("Browser ready.")
+
     # Pre-warm the LLM: unload any other loaded models first so the swap is fast,
     # then load the enricher model with keep_alive=-1 so it stays resident.
     click.echo(f"Warming up LLM ({config.ollama_model})...")
@@ -483,13 +501,14 @@ async def run_pipeline(
             ).raise_for_status()
         click.echo("LLM ready.")
     except Exception as _e:
-        click.echo(f"LLM warm-up failed: {_e} — aborting")
-        return
+        raise click.ClickException(f"LLM warm-up failed, aborting: {_e}")
 
     logger = RunLogger(log_dir=log_dir)
     enriched_count = 0
     skipped_count = 0
     failed_count = 0
+    crawl_attempts = 0
+    crawl_successes = 0
 
     for i, event in enumerate(events):
         click.echo(f"\n[{i + 1}/{total}] {event['name']} | {event.get('date', '?')} | {event.get('location', '?')}")
@@ -501,6 +520,10 @@ async def run_pipeline(
             for step_name, step_data in result["steps"].items():
                 logger.log(event["id"], event["name"], step_name, step_data)
                 _print_step(step_name, step_data)
+
+            crawl_step = result["steps"].get("crawl") or {}
+            crawl_successes += crawl_step.get("pages", 0)
+            crawl_attempts += crawl_step.get("pages", 0) + len(crawl_step.get("failed", []))
 
             updates = result["updates"]
 
@@ -541,7 +564,19 @@ async def run_pipeline(
     click.echo(f"  enriched: {enriched_count}")
     click.echo(f"  skipped (no changes): {skipped_count}")
     click.echo(f"  failed: {failed_count}")
+    click.echo(f"  crawled: {crawl_successes}/{crawl_attempts} pages")
     click.echo(f"  log: {logger.log_path}")
+
+    # A run where nothing at all could be crawled is a broken crawler that the
+    # preflight did not catch: the browser stopped mid-run, DNS stopped
+    # resolving, egress got blocked. Individual sites fail all the time, so only a total shutout
+    # over a meaningful sample counts.
+    if crawl_attempts >= _CRAWL_SHUTOUT_MIN_ATTEMPTS and crawl_successes == 0:
+        raise click.ClickException(
+            f"0 of {crawl_attempts} page crawls succeeded across {total} events. "
+            f"That is a broken crawler, not {total} unlucky sites. "
+            f"Check the network and the browser install. Run log: {logger.log_path}"
+        )
 
 
 def _print_step(name, data):
