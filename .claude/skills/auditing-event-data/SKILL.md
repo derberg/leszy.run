@@ -1,6 +1,6 @@
 ---
 name: auditing-event-data
-description: Use when a scraped calendar event published without full details, when asked "why is <event> not with all details", when reviewing the /calendar-events queue after run-publish, or when hardening a scraper, the merge, or the enricher against a data defect. Covers the four-layer trace, the blast-radius measurement, and the defect classes already found.
+description: Use when a scraped calendar event published without full details, when asked "why is <event> not with all details", when reviewing the /calendar-events queue after run-publish, or when hardening a scraper, the merge, or the enricher against a data defect. Covers the four-layer trace, how to count the rows that share a defect, and the defect classes already found.
 ---
 
 # Auditing event data
