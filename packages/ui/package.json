@@ -6,7 +6,8 @@
     "test": "node --test test/*.test.js"
   },
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./eventCompleteness": "./src/lib/eventCompleteness.js"
   },
   "peerDependencies": {
     "react": ">=19.0.0",
