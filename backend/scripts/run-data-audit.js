@@ -53,6 +53,18 @@ async function selectAll(table, columns, applyFilters) {
   return out
 }
 
+// A year in the document's filename that predates the event year means the
+// organizer is linking last edition's rules. Sources do this to themselves —
+// Blachowniańska Leśna Dycha replaced its 2026 regulamin link with the 2025
+// file — and since a re-scrape is authoritative for its own record, we inherit
+// it. Nothing can fix that automatically; surfacing it is the whole point.
+function regulaminYear(url) {
+  if (!url) return null
+  const name = decodeURIComponent(url.split(/[?#]/)[0].split('/').filter(Boolean).pop() || '')
+  const years = [...name.matchAll(/(20[12][0-9])/g)].map((m) => Number(m[1]))
+  return years.length ? Math.max(...years) : null
+}
+
 function isSuspectRegulamin(url) {
   if (!url) return false
   const name = decodeURIComponent(url.split(/[?#]/)[0].split('/').filter(Boolean).pop() || '')
@@ -79,6 +91,7 @@ async function main() {
 
   const findings = {
     suspect_regulamin: [],
+    stale_regulamin_year: [],
     implausible_price: [],
     stale_enrichment: [],
   }
@@ -88,6 +101,10 @@ async function main() {
       const ref = { table, id: r.id, name: r.name, date: r.date }
       if (isSuspectRegulamin(r.regulamin_url)) {
         findings.suspect_regulamin.push({ ...ref, regulamin_url: r.regulamin_url })
+      }
+      const docYear = regulaminYear(r.regulamin_url)
+      if (docYear && r.date && docYear < Number(r.date.slice(0, 4))) {
+        findings.stale_regulamin_year.push({ ...ref, regulamin_url: r.regulamin_url, docYear })
       }
       if (r.price_from !== null && r.price_to !== null) {
         const contradictory = r.price_from === 0 && r.price_to >= ZERO_FLOOR_CEILING
@@ -103,8 +120,11 @@ async function main() {
     }
   }
 
-  // Only these two decide the exit code. stale_enrichment is informational.
-  const alerting = findings.suspect_regulamin.length + findings.implausible_price.length
+  // stale_enrichment is informational; everything else decides the exit code.
+  const alerting =
+    findings.suspect_regulamin.length +
+    findings.stale_regulamin_year.length +
+    findings.implausible_price.length
 
   if (asJson) {
     console.log(JSON.stringify({ scanned: scraperRows.length + calRows.length, alerting, findings }, null, 2))
@@ -113,6 +133,8 @@ async function main() {
     const report = [
       ['regulamin_url names a non-regulamin document', findings.suspect_regulamin,
         (f) => `${f.regulamin_url}`],
+      ['regulamin filename is from an earlier year than the event', findings.stale_regulamin_year,
+        (f) => `doc year ${f.docYear} · ${f.regulamin_url}`],
       ['price range is self-contradictory', findings.implausible_price,
         (f) => `${f.price_from}–${f.price_to} zł`],
     ]

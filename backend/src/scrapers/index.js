@@ -865,6 +865,26 @@ const RAW_MERGE_FIELDS = [
   'is_kids', 'price_from', 'price_to',
 ]
 
+/**
+ * Does the incoming raw row get to REPLACE the stored values, or only fill gaps?
+ *
+ * Two ways to win:
+ *  - higher source priority (a better source outranks the stored primary), or
+ *  - a self-refresh: same source AND same source_id, i.e. this is a fresh fetch
+ *    of the very record the stored row was built from. Priority only decides who
+ *    wins BETWEEN sources; comparing a source against itself is always a tie, so
+ *    without this branch a scraper bug is PERMANENT — fixing the scraper yields a
+ *    corrected value that arrives at equal priority and is skipped because the
+ *    existing value is non-empty. That stranded 19 consent-form regulamin_urls
+ *    in scraper_all after the zmierzymyczas picker was fixed.
+ *
+ * @returns {boolean}
+ */
+export function incomingWinsOver(existing, incoming) {
+  if (existing.source === incoming.source && existing.source_id === incoming.source_id) return true
+  return getPriority(incoming.source) < getPriority(existing.source)
+}
+
 function mergeSourceLinks(existingLinks, newLink) {
   const links = Array.isArray(existingLinks) ? [...existingLinks] : []
   // Dedupe by (source, source_id) pair — same source can legitimately have
@@ -1111,9 +1131,14 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           const now = new Date().toISOString()
 
           if (existing) {
-            const incomingPriority = getPriority(source.name)
-            const existingPriority = getPriority(existing.source)
-            const incomingWins = incomingPriority < existingPriority
+            // Safe against enricher work: the loop below skips null/undefined
+            // incoming values, so a scraper that does not supply a field never
+            // clears what the enricher filled, and any field that DOES change
+            // nulls the enriched_* stamps so enrichment re-runs on top.
+            const incomingWins = incomingWinsOver(existing, {
+              source: source.name,
+              source_id: raw.source_id,
+            })
 
             const updates = {}
             const overwrittenFields = []
