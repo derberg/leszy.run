@@ -14,7 +14,41 @@ const POLISH_MONTHS = {
 
 // Non-running events (b4sport hosts bike races, triathlons, etc. alongside running).
 // Keep trail, gorski, ultra, nordic walking, OCR, road running — filter out obvious non-running.
-const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|triathlon|duathlon|bike race|bike|aquathlon|gravel|gravelow[aey]?|enduro|sup race|wrotkars[a-z]*|jumping zoo|skill lab|turniej|3v3)\b/i
+//
+// "brevet" and "audax" name a long-distance cycling ride and nothing else, so
+// they are safe to drop on sight. They earn their place here because a brevet
+// often carries a name with no cycling word in it at all: KBR Kórnik registered
+// its Brevet Niepodległa as "Rajd piastowski z okazji Święta Niepodległości".
+// Bare "rajd" stays out of this list, because a rajd is as often a walk.
+//
+// The cycling stems run to the end of the word. Polish declines them, and
+// `rowerow[aey]?` read "Festiwal Turystyki Rowerowej" as a running event
+// because it stopped one letter short of "rowerowej". "rajd rowerowy" is gone
+// as a phrase: `rowerow[a-z]*` already covers it.
+const SKIP_KEYWORDS = /\b(mtb|rowerow[a-z]*|kolarsk[a-z]*|triathlon|duathlon|bike race|bike|aquathlon|gravel|gravelow[a-z]*|enduro|sup race|wrotkars[a-z]*|brevet[a-z]*|audax|jumping zoo|skill lab|turniej|3v3)\b/i
+
+// The words of a registration slug, for SKIP_KEYWORDS to read.
+//
+// b4sport URLs are /<organizer>/<event slug>/<id>, and the event slug often
+// names the race the organizer actually runs while the listing title does not.
+// Only that one segment is read. The organizer segment is excluded on purpose:
+// a club called "bike_team" would otherwise lose every running event it hosts.
+// Underscores are word characters to a regex, so `brevet_niepodlegla` hides
+// `\bbrevet\b` until the separators become spaces.
+function registrationSlugWords(url) {
+  try {
+    const parts = new URL(url).pathname.split('/').filter(Boolean)
+    return parts.length >= 2 ? parts[1].replace(/[^a-zA-Z0-9]+/g, ' ') : ''
+  } catch {
+    return ''
+  }
+}
+
+// Whether this listing row is a sport we do not carry.
+function isNonRunningEvent(name, registrationUrl) {
+  return SKIP_KEYWORDS.test(name || '') ||
+    SKIP_KEYWORDS.test(registrationSlugWords(registrationUrl))
+}
 
 function parseCardDate(raw) {
   if (!raw) return null
@@ -373,7 +407,7 @@ function parseEventCards(html, { today }) {
     if (!numericId) return
 
     // Skip non-running events
-    if (SKIP_KEYWORDS.test(name)) return
+    if (isNonRunningEvent(name, registrationUrl)) return
 
     events.push({
       name,
@@ -538,4 +572,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return fresh
 }
 
-export { scrape, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, verifyRegulaminPage, nameTokens }
+export { scrape, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, verifyRegulaminPage, nameTokens, registrationSlugWords, isNonRunningEvent }
