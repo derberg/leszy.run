@@ -251,8 +251,16 @@ def _merge_scalars(event, llm, updates, config):
             if not isinstance(value, (int, float)) or value < 0:
                 continue
             value = int(round(value))
-            # Only fill empty — scraper-extracted prices are more reliable than LLM
-            if event.get(field) is not None:
+            # Only fill empty — scraper-extracted prices are more reliable than LLM.
+            # A scraper-written 0 is the exception: it is provisional, not measured.
+            # dostartu derives it from classificationSetting.isPay, which says only
+            # that dostartu collects no money for the entry — plenty of organizers
+            # register on dostartu and take the fee in cash at the race office or by
+            # bank transfer (competition 16696 charges 50 zł that way while reporting
+            # isPay:false). The regulamin is the one document that states the real
+            # fee, so let it overrule a 0. Any non-zero scraper price still wins.
+            current = event.get(field)
+            if current is not None and current != 0:
                 continue
 
         # registration_deadline: only fill empty — scraper-stated deadline is authoritative
@@ -264,9 +272,12 @@ def _merge_scalars(event, llm, updates, config):
         if event.get(field) != value:
             updates[field] = value
 
-    # Sanity: price_from must be <= price_to
-    pf = updates.get("price_from", llm.get("price_from"))
-    pt = updates.get("price_to", llm.get("price_to"))
+    # Sanity: price_from must be <= price_to, checked against the values the row would
+    # actually end up with. Falling back to the stored value rather than the raw LLM
+    # output matters now that a provisional 0 is overwritable: a regulamin naming one
+    # bound only (price_from 50, price_to silent) would otherwise leave 50..0 behind.
+    pf = updates.get("price_from", event.get("price_from"))
+    pt = updates.get("price_to", event.get("price_to"))
     if pf is not None and pt is not None and pf > pt:
         updates.pop("price_from", None)
         updates.pop("price_to", None)

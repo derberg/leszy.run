@@ -116,14 +116,21 @@ def test_dead_url_not_nulled_without_candidate(sample_event):
     assert "registration_url" not in updates
 
 
-def test_scalar_overwrite(sample_event_full):
-    """Scalar fields (price, deadline, voivodeship) always overwrite from LLM."""
+def test_populated_scalars_are_not_overwritten(sample_event_full):
+    """Price, deadline and voivodeship are fill-if-empty, not overwrite.
+
+    The scraper reads these off the organizer's own registration system, so they beat an
+    LLM reading prose. This test previously asserted the opposite ("always overwrite") and
+    had been failing since price and deadline were changed to fill-if-empty; it now
+    documents the rule the code actually implements.
+    """
     llm = {"distances": None, "event_types": None, "price_from": 100, "price_to": 200,
            "registration_deadline": "2026-06-10", "voivodeship": "Małopolskie"}
     updates = build_updates(sample_event_full, llm, {}, {}, config)
-    assert updates["price_from"] == 100
-    assert updates["price_to"] == 200
-    assert updates["registration_deadline"] == "2026-06-10"
+    assert "price_from" not in updates
+    assert "price_to" not in updates
+    assert "registration_deadline" not in updates
+    assert "voivodeship" not in updates
 
 
 def test_no_changes_returns_empty(sample_event_full):
@@ -245,3 +252,48 @@ def test_website_never_written(sample_event):
     }
     updates = build_updates(sample_event, llm, {}, {}, config)
     assert "website" not in updates
+
+
+def test_provisional_zero_price_is_overwritten_by_regulamin(sample_event):
+    """A scraper-written 0 means 'dostartu collects nothing', not 'the race is free'.
+
+    Competition 16696 reports classificationSetting.isPay:false for every entry while its
+    regulamin charges 50 zł in cash at the race office. The regulamin is the document that
+    states the real fee, so it must be able to overrule a 0.
+    """
+    event = {**sample_event, "price_from": 0, "price_to": 0}
+    llm = {"distances": None, "event_types": None, "price_from": 50, "price_to": 50,
+           "registration_deadline": None, "voivodeship": None, "is_kids": None}
+    updates = build_updates(event, llm, {}, {}, config)
+    assert updates["price_from"] == 50
+    assert updates["price_to"] == 50
+
+
+def test_nonzero_scraper_price_still_wins_over_llm(sample_event):
+    """Only 0 is provisional — a real scraper price stays authoritative."""
+    event = {**sample_event, "price_from": 60, "price_to": 90}
+    llm = {"distances": None, "event_types": None, "price_from": 50, "price_to": 50,
+           "registration_deadline": None, "voivodeship": None, "is_kids": None}
+    updates = build_updates(event, llm, {}, {}, config)
+    assert "price_from" not in updates
+    assert "price_to" not in updates
+
+
+def test_zero_price_survives_when_regulamin_names_no_fee(sample_event):
+    """A genuinely free event keeps its 0 — the LLM returning null must not clear it."""
+    event = {**sample_event, "price_from": 0, "price_to": 0}
+    llm = {"distances": None, "event_types": None, "price_from": None, "price_to": None,
+           "registration_deadline": None, "voivodeship": None, "is_kids": None}
+    updates = build_updates(event, llm, {}, {}, config)
+    assert "price_from" not in updates
+    assert "price_to" not in updates
+
+
+def test_one_sided_price_lift_off_zero_is_rejected(sample_event):
+    """Lifting price_from off 0 while price_to stays 0 would leave an inverted range."""
+    event = {**sample_event, "price_from": 0, "price_to": 0}
+    llm = {"distances": None, "event_types": None, "price_from": 50, "price_to": None,
+           "registration_deadline": None, "voivodeship": None, "is_kids": None}
+    updates = build_updates(event, llm, {}, {}, config)
+    assert "price_from" not in updates
+    assert "price_to" not in updates
