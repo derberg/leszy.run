@@ -27,18 +27,51 @@ def test_download_pdf_rejects_tiny():
     assert is_valid is False
 
 
+def _fake_reader(*page_texts):
+    """Stand-in for pypdf.PdfReader — only .pages[].extract_text() is consumed."""
+    reader = MagicMock()
+    pages = []
+    for text in page_texts:
+        page = MagicMock()
+        page.extract_text.return_value = text
+        pages.append(page)
+    reader.pages = pages
+    return reader
+
+
 def test_extract_pdf_text_truncates():
-    """Output should be capped at max_chars."""
+    """Output should be capped at max_chars.
+
+    Patches pypdf.PdfReader rather than a module-private helper: extraction moved from
+    Docling to pypdf (Docling's easyocr/PyTorch stack aborted the worker, and disabling
+    OCR made it return 0 chars for PDFs that do have a text layer), so the old
+    _docling_extract patch target no longer existed and this test errored.
+    """
     long_text = "Lorem ipsum " * 5000  # ~60k chars
-    with patch("enricher.steps.pdf._docling_extract") as mock_extract:
-        mock_extract.return_value = long_text
+    with patch("pypdf.PdfReader", return_value=_fake_reader(long_text)):
         result = extract_pdf_text("/fake/path.pdf", max_chars=15_000)
     assert len(result) <= 15_000
 
 
+def test_extract_pdf_text_joins_pages_in_order():
+    with patch("pypdf.PdfReader", return_value=_fake_reader("page one", "page two")):
+        result = extract_pdf_text("/fake/path.pdf", max_chars=15_000)
+    assert result == "page one\npage two"
+
+
 def test_extract_pdf_text_returns_none_on_failure():
-    with patch("enricher.steps.pdf._docling_extract") as mock_extract:
-        mock_extract.side_effect = Exception("docling crash")
+    with patch("pypdf.PdfReader", side_effect=Exception("pypdf crash")):
+        result = extract_pdf_text("/fake/path.pdf", max_chars=15_000)
+    assert result is None
+
+
+def test_extract_pdf_text_returns_none_for_empty_text_layer():
+    """A scanned PDF extracts to whitespace — that is None, not an empty string.
+
+    Downstream treats None as "no regulamin text available" and skips extraction
+    rather than asking the model to invent a fee from nothing.
+    """
+    with patch("pypdf.PdfReader", return_value=_fake_reader("", "   \n  ")):
         result = extract_pdf_text("/fake/path.pdf", max_chars=15_000)
     assert result is None
 
