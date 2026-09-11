@@ -83,6 +83,73 @@ function containmentRatio(shorter, longer) {
   return hits / shorter.length
 }
 
+// Same day, same town, plausibly the same race — but NOT similar enough to merge
+// automatically. These are reported for human review and never touched.
+//
+// Auto-merge cannot simply be loosened to cover them: the Krajenka pair below
+// scores jaccard 0.250 against a `> 0.25` bar, so catching it by lowering the
+// threshold would start merging genuinely different races that share a town and
+// a date (a 10 km and its separate kids event, two races in one festival).
+//
+//   "Bieg Charytatywny 6km"  (b4sport 13053)   <- b4sport's registration-form label
+//   "Twój bieg na 6+”"       (herkules 4258)   <- the event's actual name
+//   same date 2026-09-19, same city Krajenka, one event, two rows
+//
+// Name similarity is required, not optional. Distance overlap alone was tried
+// as an alternative trigger and is far too weak a signal — it paired "Kibolska
+// Dycha" with "Niebieska Fala" purely because both Poznań races run a 10 km, and
+// produced 90 candidates of which most were unrelated. Overlap is still shown in
+// the report as supporting evidence for pairs that qualify on name.
+const REVIEW_MIN_JACCARD = 0.12
+
+function parseDistanceSet(row) {
+  const raw = typeof row.distances === 'string' ? row.distances : ''
+  return new Set(
+    raw.split(/[,;]/)
+      .map((d) => d.trim().toLowerCase().replace(/\s+/g, ''))
+      .filter(Boolean),
+  )
+}
+
+function distancesOverlap(a, b) {
+  const setA = parseDistanceSet(a)
+  const setB = parseDistanceSet(b)
+  if (setA.size === 0 || setB.size === 0) return false
+  return [...setA].some((d) => setB.has(d))
+}
+
+// hasDistinguishingConflict is deliberately strict for AUTO-MERGE: it treats
+// style:{nw,trail} vs style:{nw} as a conflict. For review that is wrong — a
+// subset means one source simply saw more sub-races than the other, which is
+// the normal shape of a cross-source duplicate. The Krajenka pair is exactly
+// this and was invisible until the rule was relaxed here.
+//
+// A genuinely DISJOINT set in a category (distance:half vs distance:full) still
+// excludes the pair, as does a one-sided kids: tag — a kids-named race is a
+// different event, not a less-complete view of the same one.
+function hasHardConflict(tagsA, tagsB) {
+  const categories = new Set()
+  for (const t of [...tagsA, ...tagsB]) categories.add(t.split(':')[0])
+  for (const cat of categories) {
+    const inA = [...tagsA].filter((t) => t.startsWith(cat + ':'))
+    const inB = [...tagsB].filter((t) => t.startsWith(cat + ':'))
+    if (inA.length === 0 || inB.length === 0) {
+      if (cat === 'kids') return true
+      continue
+    }
+    const aSubsetB = inA.every((t) => inB.includes(t))
+    const bSubsetA = inB.every((t) => inA.includes(t))
+    if (!aSubsetB && !bSubsetA) return true
+  }
+  return false
+}
+
+function isReviewCandidate(a, b) {
+  if (hasHardConflict(distinguishingTags(a), distinguishingTags(b))) return false
+  if (!citiesMatch(a.location, b.location)) return false
+  return jaccardSimilarity(a.name, b.name) >= REVIEW_MIN_JACCARD
+}
+
 function isDuplicate(a, b) {
   // Distinguishing-tag guard: if A and B have conflicting semantic tags
   // (audience: kids vs adult, distance: full vs half vs quarter,
@@ -150,6 +217,7 @@ async function main() {
 
   const toDelete = new Set()
   const merges = [] // { winner, loser }
+  const reviewCandidates = [] // { a, b } — never merged, reported for a human
 
   for (const [date, rows] of byDate) {
     if (rows.length < 2) continue
@@ -171,6 +239,8 @@ async function main() {
         if (isDuplicate(rows[i], rows[j])) {
           merges.push({ winner: rows[i], loser: rows[j] })
           toDelete.add(rows[j].id)
+        } else if (isReviewCandidate(rows[i], rows[j])) {
+          reviewCandidates.push({ a: rows[i], b: rows[j] })
         }
       }
     }
@@ -209,6 +279,17 @@ async function main() {
     console.log(`    ✗ fields (${loserFields.length}/${RICHNESS_FIELDS.length}): ${loserFields.join(', ') || '(none)'}`)
     if (loserOnly.length > 0) {
       console.log(`    ← merge  : ${loserOnly.join(', ')}`)
+    }
+  }
+
+  if (reviewCandidates.length > 0) {
+    console.log(`\n\nPossible duplicates — NOT merged, review by hand (${reviewCandidates.length}):`)
+    for (const { a, b } of reviewCandidates) {
+      const jac = jaccardSimilarity(a.name, b.name).toFixed(2)
+      const dist = distancesOverlap(a, b) ? ' distances✓' : ''
+      console.log(`\n  ${a.date} | ${a.location || '?'} [j=${jac}${dist}]`)
+      console.log(`    ? [${a.source.padEnd(20)}] ${a.name}`)
+      console.log(`    ? [${b.source.padEnd(20)}] ${b.name}`)
     }
   }
 
