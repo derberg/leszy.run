@@ -21708,12 +21708,12 @@
     "price_to": null,
     "location": "Kosakowo",
     "voivodeship": "Pomorskie",
-    "lat": 54.22835,
-    "lng": 21.47486,
+    "lat": 54.593198,
+    "lng": 18.48773,
     "distances": [
       "2 km",
       "5 km",
-      "500 km"
+      "500 m"
     ],
     "event_type": [
       "uliczny"
@@ -30375,11 +30375,13 @@
     "price_from": 80,
     "price_to": 100,
     "location": "Kosakowo",
-    "voivodeship": "Warmińsko-Mazurskie",
-    "lat": 54.22835,
-    "lng": 21.47486,
+    "voivodeship": "Pomorskie",
+    "lat": 54.593198,
+    "lng": 18.48773,
     "distances": [
-      "5 km"
+      "2 km",
+      "5 km",
+      "500 m"
     ],
     "event_type": [
       "uliczny"
@@ -36050,6 +36052,32 @@
     "is_kids": null,
     "status": "active"
   },
+  "kosakowo-biega-2026-08-08": {
+    "id": "4a5cd0d7-16fa-459e-87d3-2e284b44c664",
+    "name": "Kosakowo Biega",
+    "date": "2026-08-08",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1026/KOSAKOWO%20BIEGA%20-%20Regulamin.docx",
+    "price_from": null,
+    "price_to": null,
+    "location": "Kosakowo",
+    "voivodeship": "Pomorskie",
+    "lat": 54.593198,
+    "lng": 18.48773,
+    "distances": [
+      "2 km",
+      "5 km",
+      "500 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1087,kosakowo-biega",
+    "website": "https://www.facebook.com/profile.php?id=61559499449536&locale=pl_PL",
+    "is_kids": null,
+    "status": "active"
+  },
   "graniczna-dycha-2026-08-08": {
     "id": "6b51a091-de22-4bee-b8d6-63a53709694b",
     "name": "Graniczna Dycha",
@@ -36358,32 +36386,6 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16947",
     "website": "https://www.facebook.com/profile.php?id=61551355272263",
-    "is_kids": null,
-    "status": "active"
-  },
-  "kosakowo-biega-2026-08-08": {
-    "id": "4a5cd0d7-16fa-459e-87d3-2e284b44c664",
-    "name": "Kosakowo Biega",
-    "date": "2026-08-08",
-    "registration_deadline": null,
-    "regulamin_url": "https://zapisyonline.pl/files/_rules/1026/KOSAKOWO%20BIEGA%20-%20Regulamin.docx",
-    "price_from": null,
-    "price_to": null,
-    "location": "Kosakowo",
-    "voivodeship": "Warmińsko-Mazurskie",
-    "lat": 54.22835,
-    "lng": 21.47486,
-    "distances": [
-      "2 km",
-      "5 km",
-      "500 m"
-    ],
-    "event_type": [
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://zapisyonline.pl/wydarzenie/1087,kosakowo-biega",
-    "website": "https://www.facebook.com/profile.php?id=61559499449536&locale=pl_PL",
     "is_kids": null,
     "status": "active"
   },
@@ -43034,23 +43036,18 @@
     "id": "002c79f1-fa6d-48ed-b47f-3d51db131d52",
     "name": "Kosakowo Biega",
     "date": "2026-09-05",
-    "registration_deadline": "2026-11-04",
-    "regulamin_url": "https://kosakowosport.pl/wp-content/uploads/2026/07/REGULAMIN-BIEG-NIEPODLEGLOSCI-KOSAKOWO-2026-r_1.pdf",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1108/KOSAKOWO%20BIEGA%20-%20Regulamin%20Imprezy%20-%20FINAL.docx",
     "price_from": null,
     "price_to": 120,
     "location": "Kosakowo",
-    "voivodeship": "Warmińsko-Mazurskie",
-    "lat": 54.22835,
-    "lng": 21.47486,
+    "voivodeship": "Pomorskie",
+    "lat": 54.593198,
+    "lng": 18.48773,
     "distances": [
       "2 km",
       "5 km",
-      "10 km",
-      "100 m",
-      "200 m",
-      "300 m",
-      "600 m",
-      "800 m"
+      "500 m"
     ],
     "event_type": [
       "uliczny",
@@ -64340,6 +64337,30 @@
       "trail"
     ],
     "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D11466%26co%3Dform",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "niedzwiedzi-bieg-2026-2026-11-21": {
+    "id": "4288758d-c71a-4ba7-8178-67979b15099f",
+    "name": "Niedźwiedzi Bieg 2026",
+    "date": "2026-11-21",
+    "registration_deadline": "2026-11-18",
+    "regulamin_url": "https://dostartu.pl/statute_files/17235_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.263745,
+    "lng": 21.016502,
+    "distances": [
+      "9 km"
+    ],
+    "event_type": [
+      "ocr",
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17235",
     "website": null,
     "is_kids": null,
     "status": "active"
