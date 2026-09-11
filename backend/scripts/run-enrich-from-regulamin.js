@@ -4,6 +4,8 @@ import { writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { AI_FILLABLE, pickFillable, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
+import { looksLikeRegulamin } from '../src/lib/looksLikeRegulamin.js'
+import { dropUnsupportedFields } from '../src/lib/extractionEvidence.js'
 
 // Subset of AI_FILLABLE that's plausibly extractable from a regulamin PDF.
 // Excludes URLs (PDF doesn't contain its own URL or external pages reliably)
@@ -35,8 +37,15 @@ const PDF_FILLABLE = pickFillable([
 //                        this host step runs a day (or more) after the merge —
 //                        pair it with the same date given to run-enrich-search.
 //   default              Rows merged TODAY (merged_at >= start-of-today UTC)
+//   --null-bad-regulamin Also NULL scraper_all.regulamin_url when the acquired
+//                        document is positively identified as not being this
+//                        race's regulamin. Off by default — without it such a
+//                        row is skipped and reported, and the URL is left for a
+//                        human to look at.
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+
+const nullBadRegulamin = process.argv.includes('--null-bad-regulamin')
 
 const mergedSinceArg = process.argv.includes('--merged-since')
   ? process.argv[process.argv.indexOf('--merged-since') + 1]
@@ -172,8 +181,9 @@ async function acquireRegulamin(url) {
     }
     if (chunks.length === 0) return { error: 'Drive folder had no extractable documents' }
     const f = tmpPath('txt')
-    writeFileSync(f, chunks.join('\n\n'), 'utf-8')
-    return { path: f, kind: 'text' }
+    const joined = chunks.join('\n\n')
+    writeFileSync(f, joined, 'utf-8')
+    return { path: f, kind: 'text', text: joined, identity: looksLikeRegulamin(joined) }
   }
 
   // 2) Single file (Drive file link gets rewritten to its direct-download URL)
@@ -190,14 +200,19 @@ async function acquireRegulamin(url) {
   if (kind === 'pdf') {
     const f = tmpPath('pdf')
     writeFileSync(f, dl.buffer)
-    return { path: f, kind: 'pdf' }
+    // Claude reads the PDF natively, so we do NOT need the text for enrichment —
+    // but we do need it to check the document is this race's regulamin at all.
+    // A consent form or a national park's visitor rules is a live PDF with a
+    // plausible filename; only the text says otherwise.
+    const pdfText = extractText(dl.buffer, 'pdf') || ''
+    return { path: f, kind: 'pdf', text: pdfText, identity: looksLikeRegulamin(pdfText) }
   }
 
   const text = extractText(dl.buffer, kind)
   if (!text || text.trim().length < 50) return { error: `${kind} extraction empty` }
   const f = tmpPath('txt')
   writeFileSync(f, text.trim(), 'utf-8')
-  return { path: f, kind: 'text' }
+  return { path: f, kind: 'text', text, identity: looksLikeRegulamin(text) }
 }
 
 function buildPrompt(event) {
@@ -364,7 +379,8 @@ async function main() {
   const needsEnrichment = allRows
 
   console.log(`Found ${allRows.length} rows with regulamin URLs, ${needsEnrichment.length} need PDF verification`)
-  let enriched = 0, skipped = 0, failed = 0
+  let enriched = 0, skipped = 0, failed = 0, rejected = 0
+  const rejectedRows = []
 
   let processed = 0
   for (const row of needsEnrichment) {
@@ -384,6 +400,31 @@ async function main() {
     const filePath = download.path
     console.log(`    acquired: ${download.kind} (${filePath})`)
 
+    // Identity gate — is this document actually this race's regulamin?
+    // 'unknown' (a scan, a link-hub PDF) is NOT a rejection: we could not read
+    // it, which is not the same as knowing it is wrong. Only a positive
+    // 'not-regulamin' stops the run, because feeding the LLM the wrong document
+    // is worse than leaving the fields empty — asked for a fee in a document
+    // that has none, it invents one (the 0–500 zł ranges in scraper_all).
+    const identity = download.identity
+    if (identity?.verdict === 'not-regulamin') {
+      console.log(`    REJECT: not a regulamin — ${identity.reason}`)
+      rejected++
+      rejectedRows.push({ id: row.id, name: row.name, url, reason: identity.reason })
+      if (nullBadRegulamin) {
+        const { error: nullErr } = await supabase
+          .from('scraper_all')
+          .update({ regulamin_url: null })
+          .eq('id', row.id)
+        console.log(nullErr ? `    ERR nulling: ${nullErr.message}` : '    ✓ regulamin_url nulled')
+      }
+      try { unlinkSync(filePath) } catch {}
+      continue
+    }
+    if (identity?.verdict === 'unknown') {
+      console.log(`    NOTE: ${identity.reason} — enriching anyway`)
+    }
+
     try {
       const prompt = buildPrompt(row)
       const extracted = callClaudeWithFile(prompt, filePath)
@@ -396,6 +437,18 @@ async function main() {
 
       const updates = {}
       console.log(`    Claude returned: ${JSON.stringify(extracted)}`)
+
+      // Evidence gate — drop any value the document cannot support. A model
+      // asked for a fee in a fee-less document answers something rather than
+      // null; this is what turned a consent form into "0–500 zł". Skipped when
+      // the document had no extractable text (a scan), since absence of
+      // evidence there proves nothing.
+      if (download.text && download.text.trim().length > 0) {
+        const droppedFields = dropUnsupportedFields(extracted, download.text)
+        if (droppedFields.length > 0) {
+          console.log(`    DROP (unsupported by document): ${droppedFields.join(', ')}`)
+        }
+      }
 
       // Distances — Claude's PDF extraction REPLACES existing (PDF is authoritative)
       const newDistStr = buildDistancesString(extracted)
@@ -462,7 +515,16 @@ async function main() {
     await new Promise(r => setTimeout(r, 1000))
   }
 
-  console.log(`\n\nDone: ${enriched} enriched, ${skipped} skipped, ${failed} failed`)
+  console.log(`\n\nDone: ${enriched} enriched, ${skipped} skipped, ${failed} failed, ${rejected} rejected`)
+  if (rejectedRows.length > 0) {
+    console.log(`\n  Rejected — the linked document is not this race's regulamin:`)
+    for (const r of rejectedRows) {
+      console.log(`    ${r.name}\n      ${r.url}\n      ${r.reason}`)
+    }
+    if (!nullBadRegulamin) {
+      console.log(`\n  Re-run with --null-bad-regulamin to clear these regulamin_url values.`)
+    }
+  }
   console.log(`  total cost: $${totalCostUsd.toFixed(4)}`)
   console.log(`  total tokens: ${totalInputTokens} in / ${totalOutputTokens} out`)
 }

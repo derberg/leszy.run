@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
 
 const STORE_API_URL = 'https://lumisport.eu/wp-json/wc/store/v1/products?per_page=100'
 const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
@@ -133,13 +134,11 @@ async function fetchRegulaminUrl(permalink) {
     if (!res.ok) return null
     const html = await res.text()
     const $ = cheerio.load(html)
-    let pdf = null
-    $('a[href$=".pdf"]').each((_, el) => {
-      if (pdf) return
-      const href = $(el).attr('href')
-      if (href) pdf = href.startsWith('http') ? href : new URL(href, permalink).toString()
-    })
-    return pdf
+    // The permalink is the product/event page, NOT a regulamin-only section, so
+    // any PDF on it used to qualify. Every lumisport regulamin observed in
+    // scraper_all carries "Regulamin" in the filename, so the strict token gate
+    // keeps all of them and drops the rest.
+    return pickRegulaminFromDom($, { selector: 'a[href$=".pdf"]', baseUrl: permalink })
   } catch {
     return null
   }

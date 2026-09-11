@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
 
 const BASE_URL = 'https://www.bgtimesport.pl'
 const LISTING_URL = `${BASE_URL}/zawody`
@@ -183,14 +184,15 @@ async function fetchRegulaminPdf(sourceId) {
     if (!res.ok) return null
     const html = await res.text()
     const $ = cheerio.load(html)
-    let pdf = null
-    $('a[href$=".pdf"], a[href*=".pdf?"]').each((_, el) => {
-      if (pdf) return
-      const href = $(el).attr('href') || ''
-      if (!href) return
-      pdf = href.startsWith('http') ? href : new URL(href, BASE_URL).toString()
+    // This page IS the event's regulamin page (/zawody/regulamin/id/<id>), so a
+    // PDF on it needs no "regulamin" token to qualify — bgtimesport names them
+    // opaquely (824reg20260228t234530.pdf). requireToken:false keeps those while
+    // the deny-list still rejects an oświadczenie/map PDF linked alongside.
+    return pickRegulaminFromDom($, {
+      selector: 'a[href$=".pdf"], a[href*=".pdf?"]',
+      baseUrl: BASE_URL,
+      requireToken: false,
     })
-    return pdf
   } catch {
     return null
   }

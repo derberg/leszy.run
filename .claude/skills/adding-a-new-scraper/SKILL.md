@@ -38,6 +38,24 @@ For each candidate event, find:
 
 **No date in any field?** Drop the event. Do NOT try to derive from regulamin PDF in the scraper — Docling stays in the Python enricher.
 
+**`regulamin_url`: use `pickRegulaminFromDom`, never "the first/last PDF on the page".**
+
+```js
+import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
+const regulaminUrl = pickRegulaminFromDom($, { selector: 'a[href$=".pdf"]', baseUrl: BASE_URL })
+```
+
+Sources publish the regulamin next to an oświadczenie/zgoda consent form, a GDPR
+clause, a course map and a poster, and the ordering differs per site. zmierzymyczas
+kept the LAST matching PDF and so wrote the consent form for **19 rows**; every one
+of those then enriched to empty distances/prices/deadline, and several to an
+invented `0–500 zł`. The picker requires a positive `regulamin`/`statut` token
+instead. Pass `requireToken: false` only when the links already come from a
+regulamin-only section (a dedicated `/regulamin/id/<id>` page, an API field).
+
+See CLAUDE.md → "regulamin_url — pick the document that SAYS it is the regulamin"
+for the full rule and the two enrichment-time gates that back it up.
+
 ## 2. Decide priority (in `dedup.js` SOURCE_PRIORITY)
 
 | Tier | Priority | When |

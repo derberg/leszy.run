@@ -3,9 +3,13 @@ import { spawn } from 'node:child_process';
 /**
  * Run a command as a child process. Streams stdout/stderr to a log writer
  * (so the pipeline log gets full output) while keeping the last N lines of
- * stderr in memory for inclusion in failure emails.
+ * each in memory for inclusion in failure/warning emails.
+ *
+ * stdout is tailed as well as stderr because a reporting step writes its
+ * findings to stdout — a warning email built only from stderr would arrive
+ * empty for exactly the steps whose output is the point.
  */
-export function runCommand({ argv, env, cwd, logWrite, stderrTailLines = 50, timeoutMs = 30 * 60 * 1000 }) {
+export function runCommand({ argv, env, cwd, logWrite, stderrTailLines = 50, stdoutTailLines = 80, timeoutMs = 30 * 60 * 1000 }) {
   return new Promise((resolve) => {
     const started = Date.now();
     const proc = spawn(argv[0], argv.slice(1), {
@@ -18,6 +22,12 @@ export function runCommand({ argv, env, cwd, logWrite, stderrTailLines = 50, tim
     const pushStderr = (line) => {
       stderrTail.push(line);
       if (stderrTail.length > stderrTailLines) stderrTail.shift();
+    };
+
+    const stdoutTail = [];
+    const pushStdout = (line) => {
+      stdoutTail.push(line);
+      if (stdoutTail.length > stdoutTailLines) stdoutTail.shift();
     };
 
     let stdoutBuf = '';
@@ -34,7 +44,10 @@ export function runCommand({ argv, env, cwd, logWrite, stderrTailLines = 50, tim
 
     proc.stdout.on('data', (d) => {
       stdoutBuf += d.toString('utf8');
-      stdoutBuf = drainLines(stdoutBuf, (line) => logWrite(`${line}\n`));
+      stdoutBuf = drainLines(stdoutBuf, (line) => {
+        logWrite(`${line}\n`);
+        pushStdout(line);
+      });
     });
     proc.stderr.on('data', (d) => {
       stderrBuf += d.toString('utf8');
@@ -54,13 +67,22 @@ export function runCommand({ argv, env, cwd, logWrite, stderrTailLines = 50, tim
     proc.on('error', (err) => {
       clearTimeout(timeout);
       pushStderr(`spawn error: ${err.message}`);
-      resolve({ exitCode: -1, durationMs: Date.now() - started, stderrTail: stderrTail.join('\n'), error: err });
+      resolve({
+        exitCode: -1,
+        durationMs: Date.now() - started,
+        stderrTail: stderrTail.join('\n'),
+        stdoutTail: stdoutTail.join('\n'),
+        error: err,
+      });
     });
 
     proc.on('close', (code, signal) => {
       clearTimeout(timeout);
       // Flush any trailing buffer that didn't end with \n
-      if (stdoutBuf) logWrite(`${stdoutBuf}\n`);
+      if (stdoutBuf) {
+        logWrite(`${stdoutBuf}\n`);
+        pushStdout(stdoutBuf);
+      }
       if (stderrBuf) {
         logWrite(`${stderrBuf}\n`);
         pushStderr(stderrBuf);
@@ -70,6 +92,7 @@ export function runCommand({ argv, env, cwd, logWrite, stderrTailLines = 50, tim
         signal,
         durationMs: Date.now() - started,
         stderrTail: stderrTail.join('\n'),
+        stdoutTail: stdoutTail.join('\n'),
       });
     });
   });

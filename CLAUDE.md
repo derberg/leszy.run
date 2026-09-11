@@ -510,7 +510,7 @@ docker compose exec scheduler npm run pipeline
 ./scripts/daily-pipeline.sh
 ```
 
-**The scheduler runs scrape + enrich only — it does NOT publish and does NOT run any claude-CLI step.** Specifically it runs (in `scheduler/src/pipeline.js` `STEPS`): run-scrapers → run-merge → run-dedup → run-geocode → run-enrich-flags → run-normalize → Python enricher (Ollama) → run-dedup → run-normalize → publish-landing-pages. It deliberately omits `run-publish.js` (publishing to `calendar_events` is a manual, human-reviewed host step) and the `claude`-CLI scripts `run-enrich-search.js` / `run-enrich-from-regulamin.js` (the backend image has no `claude`; run those on the host). On any non-zero exit it sends a SendGrid failure email; on full success with zero `scraper_all` rows merged/enriched today it sends a `[WARN]`. A 10:00 watchdog emails `[ALERT]` if the pipeline didn't run in the last 26h.
+**The scheduler runs scrape + enrich only — it does NOT publish and does NOT run any claude-CLI step.** Specifically it runs (in `scheduler/src/pipeline.js` `STEPS`): run-scrapers → run-merge → run-dedup → run-geocode → run-enrich-flags → run-normalize → Python enricher (Ollama) → run-dedup → run-normalize → publish-landing-pages → run-data-audit. It deliberately omits `run-publish.js` (publishing to `calendar_events` is a manual, human-reviewed host step) and the `claude`-CLI scripts `run-enrich-search.js` / `run-enrich-from-regulamin.js` (the backend image has no `claude`; run those on the host). On any non-zero exit it sends a SendGrid failure email; on full success with zero `scraper_all` rows merged/enriched today it sends a `[WARN]`. The final `run-data-audit` step is **`warnOnly`**: it writes nothing, and exit 2 means "found suspect rows" — the scheduler mails a `[WARN]` with the report and CONTINUES rather than aborting the run. A 10:00 watchdog emails `[ALERT]` if the pipeline didn't run in the last 26h.
 
 To run individual steps manually (debugging):
 
@@ -542,6 +542,7 @@ cd backend && node --env-file=../.env scripts/run-dedup.js --apply              
 cd backend && node --env-file=../.env scripts/run-normalize.js --apply                   # 10
 cd backend && node --env-file=../.env scripts/run-publish.js --apply                     # 11
 cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply             # post (manifest + OG images)
+cd backend && node --env-file=../.env scripts/run-data-audit.js                          # post (read-only report; exit 2 = findings)
 ```
 
 ### Python Enricher — PRIMARY enrichment tool
@@ -754,6 +755,47 @@ Before writing or constructing a URL pattern, you MUST:
 5. **If automated verification is impossible** (e.g. the page is a SPA, anti-bot blocks curl, content depends on cookies), STOP. Generate 3–6 concrete example URLs across different IDs and ask the user to click them and confirm. Better to pause than to write broken URLs at scale.
 
 When you do construct a URL pattern in a scraper, the source comment must include: (a) the verification method, (b) the alternatives you ruled out and why, (c) whether user manual verification was used.
+
+## regulamin_url — pick the document that SAYS it is the regulamin
+
+Polish timing sites publish several documents per event on one page: the regulamin
+plus an oświadczenie/zgoda (consent form), a GDPR clause, a course map, a poster.
+A scraper that grabs "a PDF from the page" writes the wrong one, and because the
+enricher extracts prices, deadline and distances FROM the regulamin, one wrong link
+silently empties those fields — or fabricates them (a model asked for a fee in a
+fee-less document invents one; that is where the `0–500 zł` rows came from).
+
+**Never select a regulamin by link order or by "it ends in .pdf".** Use the shared
+picker — `backend/src/lib/pickRegulaminUrl.js`:
+
+```js
+import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
+const regulaminUrl = pickRegulaminFromDom($, { selector: 'a[href$=".pdf"]', baseUrl: BASE_URL })
+```
+
+- A positive token (`regulamin`/`statut`) in the document's own filename wins outright,
+  deny-list included — combined documents like `Regulamin_..._RODO.pdf` are real.
+- Otherwise a known non-regulamin name (`oświadcz`, `zgoda`, `mapa`, `klauzula`, …)
+  in the filename or the anchor text disqualifies it.
+- The deny-list is matched against the **filename and anchor text only**, never the
+  whole URL — datasport's regulamins live under `/zapisy/portal/regulaminy/`.
+- Pass `requireToken: false` ONLY when the links already come from a
+  regulamin-scoped section or API field (bgtimesport's `/zawody/regulamin/id/<id>`
+  page, elektronicznezapisy's opaque `/download/<hash>/open`).
+
+Two further gates run at enrichment time, both in `run-enrich-from-regulamin.js`:
+
+- `looksLikeRegulamin()` (`backend/src/lib/looksLikeRegulamin.js`) — a **structural**
+  test on the document text. A keyword test cannot work here: a consent form says
+  "zapoznałem się z treścią regulaminu". It returns `regulamin` / `not-regulamin` /
+  `unknown`, and **`unknown` is never treated as a rejection** — a scanned PDF or a
+  link-hub PDF extracts to nothing, which is not evidence of being wrong.
+- `dropUnsupportedFields()` (`backend/src/lib/extractionEvidence.js`) — deletes an
+  extracted `price_from`/`price_to` when the source text contains no fee token at
+  all, and likewise for `registration_deadline`. It only ever rejects.
+
+`scripts/run-data-audit.js` reports violations that already exist in the DB (see the
+pipeline step list below).
 
 ## Database write safety
 

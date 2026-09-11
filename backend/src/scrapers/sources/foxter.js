@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
 
 // foxter-sport.pl — custom PHP timing company (Wielkopolska / Kujawsko-Pomorskie
 // heavy) that hosts its own event registration. The /list page is a single
@@ -133,11 +134,12 @@ async function fetchDetail(slug) {
       if (km != null && km <= 1) kidsByDistance = true
     })
 
-    let regulaminUrl = null
-    $('a[href*="comp_regulations"], a[href$=".pdf"]').each((_, a) => {
-      if (regulaminUrl) return
-      const href = $(a).attr('href') || ''
-      if (/\.pdf$/i.test(href)) regulaminUrl = href.startsWith('http') ? href : BASE_URL + href
+    // Any PDF on the detail page used to qualify, so a consent form or a course
+    // map could be written as the regulamin. foxter's own regulamin files live
+    // under comp_regulations/, which pickRegulaminUrl scores on the href.
+    const regulaminUrl = pickRegulaminFromDom($, {
+      selector: 'a[href*="comp_regulations"], a[href$=".pdf"]',
+      baseUrl: BASE_URL,
     })
 
     // Organizer website — the detail page has a dedicated "Strona zawodów"
