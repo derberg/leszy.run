@@ -36052,32 +36052,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "kosakowo-biega-2026-08-08": {
-    "id": "4a5cd0d7-16fa-459e-87d3-2e284b44c664",
-    "name": "Kosakowo Biega",
-    "date": "2026-08-08",
-    "registration_deadline": null,
-    "regulamin_url": "https://zapisyonline.pl/files/_rules/1026/KOSAKOWO%20BIEGA%20-%20Regulamin.docx",
-    "price_from": null,
-    "price_to": null,
-    "location": "Kosakowo",
-    "voivodeship": "Pomorskie",
-    "lat": 54.593198,
-    "lng": 18.48773,
-    "distances": [
-      "2 km",
-      "5 km",
-      "500 m"
-    ],
-    "event_type": [
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://zapisyonline.pl/wydarzenie/1087,kosakowo-biega",
-    "website": "https://www.facebook.com/profile.php?id=61559499449536&locale=pl_PL",
-    "is_kids": null,
-    "status": "active"
-  },
   "graniczna-dycha-2026-08-08": {
     "id": "6b51a091-de22-4bee-b8d6-63a53709694b",
     "name": "Graniczna Dycha",
@@ -36098,6 +36072,32 @@
     ],
     "registration_url": "https://superczas.pl/saplaty2026/zapisy",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "kosakowo-biega-2026-08-08": {
+    "id": "4a5cd0d7-16fa-459e-87d3-2e284b44c664",
+    "name": "Kosakowo Biega",
+    "date": "2026-08-08",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1087/KOSAKOWO%20BIEGA%20-%20Regulamin.docx",
+    "price_from": null,
+    "price_to": null,
+    "location": "Kosakowo",
+    "voivodeship": "Pomorskie",
+    "lat": 54.593198,
+    "lng": 18.48773,
+    "distances": [
+      "2 km",
+      "5 km",
+      "500 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1087,kosakowo-biega",
+    "website": "https://www.facebook.com/profile.php?id=61559499449536&locale=pl_PL",
     "is_kids": null,
     "status": "active"
   },
@@ -56428,6 +56428,32 @@
     ],
     "registration_url": "https://panel.maratonczykpomiarczasu.pl/bieg-zmecha",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "kosakowo-biega-2026-10-03": {
+    "id": "014a421f-6f66-410d-a156-e58ea447680c",
+    "name": "Kosakowo Biega",
+    "date": "2026-10-03",
+    "registration_deadline": null,
+    "regulamin_url": "https://zapisyonline.pl/files/_rules/1125/KOSAKOWO%20BIEGA%20-%20Regulamin.docx",
+    "price_from": null,
+    "price_to": null,
+    "location": "Kosakowo",
+    "voivodeship": "Pomorskie",
+    "lat": 54.593198,
+    "lng": 18.48773,
+    "distances": [
+      "2 km",
+      "5 km",
+      "500 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/1125,kosakowo-biega",
+    "website": "https://www.facebook.com/profile.php?id=61559499449536",
     "is_kids": null,
     "status": "active"
   },
