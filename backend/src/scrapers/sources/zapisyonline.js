@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { voivodeshipFromPostalCode } from '../postalCodeMapper.js'
 
 // zapisyonline.pl — custom PHP registration platform (by Triso.pl) where
 // organizers host their own event registration. Events register DIRECTLY on
@@ -10,8 +11,9 @@ import * as cheerio from 'cheerio'
 // Listing: /zapisy?p=0 and /zapisy?p=1 (server-rendered, ~20 events/page,
 // future-only, sorted by date). Each .event row exposes date, city, name and a
 // /wydarzenie/<id>,<slug> link. Detail page carries a .competitions sub-table
-// (distance + "Zawody dla dzieci/dorosłych"), an organizer website link, and a
-// /files/_rules/<id>/<file>.pdf regulamin.
+// (distance + "Zawody dla dzieci/dorosłych"), an organizer website link, a
+// /files/_rules/<id>/<file> regulamin, and a .address block carrying the
+// street + postal code of the start line.
 //
 // Prices live one click deeper: every competition row has a "Zapisz się" button
 // → /zapisy/<competitionId>,<slug>. That registration page lists one
@@ -139,7 +141,7 @@ async function fetchDetail(sourceId, slug) {
   const url = `${BASE_URL}/wydarzenie/${sourceId},${slug}`
   try {
     const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } })
-    if (!res.ok) return { distances: null, competitionNames: [], isKids: false, regulaminUrl: null, website: null, priceFrom: null, priceTo: null, registrationDeadline: null }
+    if (!res.ok) return { distances: null, competitionNames: [], isKids: false, regulaminUrl: null, voivodeship: null, website: null, priceFrom: null, priceTo: null, registrationDeadline: null }
     const html = await res.text()
     const $ = cheerio.load(html)
 
@@ -164,13 +166,26 @@ async function fetchDetail(sourceId, slug) {
       if (z) zapisyHrefs.push(z)
     })
 
-    // Regulamin PDF (/files/_rules/<id>/<file>.pdf) — paths contain spaces, encode.
+    // Regulamin (/files/_rules/<id>/<file>). Paths contain spaces, so encode.
+    // Organizers upload Word as often as PDF (Kosakowo Biega's is a .docx), and a
+    // .pdf-only filter drops them silently: the field lands NULL, the enricher
+    // then searches for a replacement and can only find some OTHER edition of the
+    // same series. The enricher's acquireRegulamin() reads docx natively, so
+    // accepting them here costs nothing downstream.
     let regulaminUrl = null
     $('a[href*="/files/_rules/"]').each((_, a) => {
       if (regulaminUrl) return
       const href = $(a).attr('href') || ''
-      if (/\.pdf$/i.test(href)) regulaminUrl = encodeURI(BASE_URL + href)
+      if (/\.(pdf|docx?)$/i.test(href)) regulaminUrl = encodeURI(BASE_URL + href)
     })
+
+    // Voivodeship from the .address block's postal code. The listing gives a bare
+    // city name, and Nominatim resolves an ambiguous one to whichever village it
+    // ranks first. "Kosakowo" landed in Warmińsko-Mazurskie for four editions of a
+    // race held in Pomorskie. The postal code is unambiguous by construction, and
+    // run-geocode never overwrites a voivodeship a scraper already set.
+    const address = $('.address .data').first().text().replace(/\s+/g, ' ').trim()
+    const voivodeship = voivodeshipFromPostalCode(address)
 
     // Organizer website — the dedicated "Oficjalna strona" (.item.www) block is
     // the organizer's DECLARED official link, so trust it as-is even when it's a
@@ -198,6 +213,7 @@ async function fetchDetail(sourceId, slug) {
       competitionNames,
       isKids,
       regulaminUrl,
+      voivodeship,
       website,
       priceFrom,
       priceTo,
@@ -205,7 +221,7 @@ async function fetchDetail(sourceId, slug) {
     }
   } catch (err) {
     console.error(`[zapisyonline] Detail fetch failed for ${sourceId}:`, err.message)
-    return { distances: null, competitionNames: [], isKids: false, regulaminUrl: null, website: null, priceFrom: null, priceTo: null, registrationDeadline: null }
+    return { distances: null, competitionNames: [], isKids: false, regulaminUrl: null, voivodeship: null, website: null, priceFrom: null, priceTo: null, registrationDeadline: null }
   }
 }
 
@@ -257,6 +273,7 @@ async function scrape({ knownIds = new Set() } = {}) {
       name: entry.name,
       date: entry.date,
       location: entry.location,
+      voivodeship: detail.voivodeship,
       distances: detail.distances,
       registration_url: sourceUrl,
       registration_deadline: detail.registrationDeadline,

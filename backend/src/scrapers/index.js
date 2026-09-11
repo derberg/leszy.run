@@ -497,6 +497,7 @@ const sources = [
       name: raw.name,
       date: raw.date,
       location: raw.location || null,
+      voivodeship: raw.voivodeship || null,
       distances: raw.distances || null,
       registration_url: raw.registration_url || null,
       registration_deadline: raw.registration_deadline || null,

@@ -6,6 +6,7 @@ import { join } from 'path'
 import { AI_FILLABLE, pickFillable, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
 import { looksLikeRegulamin } from '../src/lib/looksLikeRegulamin.js'
 import { dropUnsupportedFields } from '../src/lib/extractionEvidence.js'
+import { dropsDistances } from './lib/distances.js'
 
 // Subset of AI_FILLABLE that's plausibly extractable from a regulamin PDF.
 // Excludes URLs (PDF doesn't contain its own URL or external pages reliably)
@@ -23,7 +24,8 @@ const PDF_FILLABLE = pickFillable([
 // and uses local Claude to extract distances and event type.
 //
 // Behavior:
-// - distances: Claude's extraction REPLACES scraper distances (regulamin is authoritative)
+// - distances: Claude's extraction REPLACES scraper distances (regulamin is
+//   authoritative), unless it ONLY removes distances the scraper found. See dropsDistances()
 // - event_types: Claude's types are MERGED with existing (additive only)
 //
 // Host-only: relies on the `claude` CLI plus macOS `textutil` (docx/html) and
@@ -450,10 +452,14 @@ async function main() {
         }
       }
 
-      // Distances — Claude's PDF extraction REPLACES existing (PDF is authoritative)
+      // Distances. Claude's extraction REPLACES existing (the regulamin is
+      // authoritative), EXCEPT when it only removes distances the scraper found.
+      // See dropsDistances(): that means a stale edition's document, not a fix.
       const newDistStr = buildDistancesString(extracted)
       if (newDistStr) {
-        if (newDistStr !== (row.distances || '')) {
+        if (dropsDistances(row.distances, newDistStr)) {
+          console.log(`    WARN: regulamin drops distances (${row.distances} → ${newDistStr}). Keeping the scraper's, the document looks stale`)
+        } else if (newDistStr !== (row.distances || '')) {
           updates.distances = newDistStr
         }
       } else if (!row.distances || row.distances.trim() === '') {
