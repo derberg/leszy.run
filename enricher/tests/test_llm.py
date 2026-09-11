@@ -73,6 +73,9 @@ def test_call_ollama_sends_correct_request():
         result = call_ollama("test prompt", config)
     assert route.called
     request_body = json.loads(route.calls[0].request.content)
-    assert request_body["model"] == "qwen2.5:72b-instruct-q4_0"
+    # Read the model off the config rather than hardcoding it. This assertion pinned
+    # "qwen2.5:72b-instruct-q4_0" and broke the moment the enricher moved to gemma3:27b;
+    # what the test is actually for is that call_ollama sends the CONFIGURED model.
+    assert request_body["model"] == config.ollama_model
     assert request_body["stream"] is False
     assert request_body["options"]["temperature"] == 0.1

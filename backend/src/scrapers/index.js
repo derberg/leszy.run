@@ -856,6 +856,27 @@ function isEmpty(val) {
 }
 
 /**
+ * Coerce a raw scraper price to the integer `scraper_all` stores.
+ *
+ * 21 of the 23 scraper tables hold price as `numeric` while `scraper_all` and
+ * `calendar_events` are `integer`, so a fractional price reached Postgres as-is and
+ * failed the whole row's merge with `invalid input syntax for type integer: "75.03"`.
+ * The row then sat unmerged indefinitely — dostartu 16890 charges exactly that,
+ * a 75 zł fee plus the platform's service cut.
+ *
+ * Rounds to the nearest złoty, except that a positive price never becomes 0: 0 is the
+ * signal for a genuinely free event, and some organizers publish 1-grosz placeholder
+ * tiers (0.01, 0.1) that would otherwise be published as "free".
+ */
+function toIntPrice(val) {
+  if (val === null || val === undefined || val === '') return null
+  const n = Number(val)
+  if (!Number.isFinite(n) || n < 0) return null
+  const rounded = Math.round(n)
+  return rounded === 0 && n > 0 ? 1 : rounded
+}
+
+/**
  * Fields that the scraper_all dedup can overwrite when a higher-priority source arrives.
  * These are raw fields before normalization.
  */
@@ -1091,8 +1112,8 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
             event_types: raw.event_types || null,
             event_type: raw.event_type || null,
             is_kids: raw.is_kids || false,
-            price_from: raw.price_from ?? null,
-            price_to: raw.price_to ?? null,
+            price_from: toIntPrice(raw.price_from),
+            price_to: toIntPrice(raw.price_to),
             has_registration_url: !!raw.registration_url,
             has_regulamin_url: !!(raw.regulamin_url || (raw.regulamin_urls && raw.regulamin_urls[0])),
             has_website: !!(raw.website || raw.external_website),
@@ -1118,8 +1139,8 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
             regulamin_urls: raw.regulamin_urls || null,
             website: raw.website || raw.external_website || null,
             is_kids: raw.is_kids || false,
-            price_from: raw.price_from ?? null,
-            price_to: raw.price_to ?? null,
+            price_from: toIntPrice(raw.price_from),
+            price_to: toIntPrice(raw.price_to),
             source: source.name,
             source_id: raw.source_id,
             source_url: raw.source_url || null,
@@ -1769,4 +1790,4 @@ let existingCE = null
   return { created, updated, unchanged, rejectedSkipped, fuzzySkipped, errors, fuzzyLog, createdLog, updatedLog }
 }
 
-export { runPipeline, mergeIntoScraperAll, publishToCalendar }
+export { runPipeline, mergeIntoScraperAll, publishToCalendar, toIntPrice }

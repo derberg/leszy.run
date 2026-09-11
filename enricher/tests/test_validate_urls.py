@@ -12,10 +12,23 @@ def test_alive_url():
 
 
 def test_dead_url():
+    # validate_urls retries with GET whenever HEAD fails or returns >= 400, because many
+    # Polish event CMSes answer 403/405 to HEAD but 200 to GET. Both verbs must be mocked
+    # or respx raises AllMockedAssertionError on the unmocked GET.
     with respx.mock:
         respx.head("https://example.pl/gone").mock(return_value=httpx.Response(404))
+        respx.get("https://example.pl/gone").mock(return_value=httpx.Response(404))
         result = validate_urls({"registration_url": "https://example.pl/gone"})
     assert result["registration_url"].status == "dead"
+
+
+def test_head_rejected_but_get_succeeds_is_alive():
+    """The reason the GET fallback exists: HEAD 405, GET 200 — the site works."""
+    with respx.mock:
+        respx.head("https://joomla.pl/zapisy").mock(return_value=httpx.Response(405))
+        respx.get("https://joomla.pl/zapisy").mock(return_value=httpx.Response(200))
+        result = validate_urls({"registration_url": "https://joomla.pl/zapisy"})
+    assert result["registration_url"].status == "alive"
 
 
 def test_redirect_url():
@@ -32,6 +45,7 @@ def test_redirect_url():
 def test_timeout_url():
     with respx.mock:
         respx.head("https://slow.pl").mock(side_effect=httpx.TimeoutException("timeout"))
+        respx.get("https://slow.pl").mock(side_effect=httpx.TimeoutException("timeout"))
         result = validate_urls({"website": "https://slow.pl"})
     assert result["website"].status == "dead"
 
@@ -67,6 +81,7 @@ def test_regulamin_urls_array():
             return_value=httpx.Response(200, headers={"content-type": "application/pdf"})
         )
         respx.head("https://b.pl/reg.pdf").mock(return_value=httpx.Response(404))
+        respx.get("https://b.pl/reg.pdf").mock(return_value=httpx.Response(404))
         result = validate_urls({"regulamin_urls": ["https://a.pl/reg.pdf", "https://b.pl/reg.pdf"]})
     assert result["regulamin_urls[0]"].status == "alive"
     assert result["regulamin_urls[1]"].status == "dead"

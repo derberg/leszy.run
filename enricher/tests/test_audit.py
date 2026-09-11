@@ -119,20 +119,52 @@ def test_process_url_thin_content_triggers_fallback():
     assert line.verdict == "mismatch"
 
 
-def test_process_url_dead_url_short_circuits():
-    from enricher.steps.audit_fetch import FastPage
-    dead = FastPage(url="https://x.pl", status="dead", http_status=404, error="HTTP 404")
-    with patch("enricher.audit.fetch_fast", return_value=dead), \
+def _run_dead(page):
+    """Drive process_url with a dead FastPage, asserting no model or crawler is touched."""
+    with patch("enricher.audit.fetch_fast", return_value=page), \
          patch("enricher.audit.call_audit_llm") as llm, \
          patch("enricher.audit.crawl_pages", new=AsyncMock()) as crawl:
         line = asyncio.run(process_url(
             event=_event(), field="website", url="https://x.pl",
             config=_cfg(), confidence_threshold=0.8,
         ))
-    assert line.verdict == "skipped_dead"
-    assert line.path == "none"
     llm.assert_not_called()
     crawl.assert_not_called()
+    return line
+
+
+def test_process_url_transient_failure_is_skipped_dead():
+    """5xx / DNS / SSL / timeout are ambiguous or temporary — never null the URL over them.
+
+    This test previously used a 404 and asserted skipped_dead. 4xx was since split out
+    into a high-confidence mismatch (below) so --apply can clear genuinely wrong URLs,
+    which left this assertion failing against behaviour that changed on purpose.
+    """
+    from enricher.steps.audit_fetch import FastPage
+    page = FastPage(url="https://x.pl", status="dead", http_status=503, error="HTTP 503")
+    line = _run_dead(page)
+    assert line.verdict == "skipped_dead"
+    assert line.path == "none"
+
+
+def test_process_url_4xx_is_high_confidence_mismatch():
+    """The server answered and the page is gone, so the URL itself is wrong."""
+    from enricher.steps.audit_fetch import FastPage
+    page = FastPage(url="https://x.pl", status="dead", http_status=404, error="HTTP 404")
+    line = _run_dead(page)
+    assert line.verdict == "mismatch"
+    assert line.confidence == 1.0
+    assert line.path == "none"
+
+
+def test_process_url_nxdomain_is_mismatch():
+    """DNS failure confirmed against 1.1.1.1 — the domain is globally gone, not flaky."""
+    from enricher.steps.audit_fetch import FastPage
+    page = FastPage(url="https://x.pl", status="dead", http_status=0, error="DNS failure")
+    page.nxdomain_confirmed = True
+    line = _run_dead(page)
+    assert line.verdict == "mismatch"
+    assert line.confidence == 1.0
 
 
 def test_process_url_llm_failure_reports_error():
