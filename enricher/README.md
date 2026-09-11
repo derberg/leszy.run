@@ -148,6 +148,26 @@ Two distinct jobs:
 7. **Verification gate** (`steps/verify.py`) — every search-derived candidate is confirmed before merge can adopt it. See Verification gate below.
 8. **Smart Merge** — compares LLM output with existing data. Safety rules prevent bad updates. `website` is never written.
 
+### Preflight and run health
+
+Both `enricher run` and `enricher audit` launch a browser before they process any event, and exit 1 when it does not start. Playwright pins one exact Chromium revision, so upgrading Playwright in the venv leaves the installed browser behind and Crawl4AI stops working. The failure is silent: `_crawl_url` catches the launch error and returns nothing, so each page is logged as `failed`, exactly like a site being down. Between 2026-08-05 and 2026-09-11 the enricher ran that way over roughly 360 events, extracting from linked PDFs alone, and every run still exited 0.
+
+To install the browser that the current Playwright expects, run:
+
+```bash
+cd enricher && .venv/bin/playwright install chromium
+```
+
+A run also fails at the end if it attempted at least 5 page crawls and none of them succeeded. Individual sites fail often, so only a total shutout counts as a broken crawler. The summary reports the ratio on every run:
+
+```
+crawled: 3/3 pages
+```
+
+A failed Ollama warm-up aborts the same way. It used to print a message and exit 0.
+
+The nightly pipeline runs `enricher run` in the scheduler container, so any of these exits sends the SendGrid `[FAIL]` mail.
+
 ### Verification gate
 
 A URL that a search produced carries no organizer guarantee, so it is confirmed

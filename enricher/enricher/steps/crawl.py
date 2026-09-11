@@ -117,3 +117,34 @@ def _normalize_links(raw: list) -> list:
         if href:
             out.append({"href": href, "text": text})
     return out
+
+
+# Preflight payload: a tiny raw document, so the check exercises browser launch
+# without depending on any site being up.
+_PREFLIGHT_HTML = "raw://<html><body><p>enricher browser preflight</p></body></html>"
+
+
+async def check_browser() -> Optional[str]:
+    """Verify Crawl4AI can actually drive a browser. Returns None if OK, else why not.
+
+    Playwright pins an exact Chromium build (chromium-<rev>), and upgrading
+    Playwright leaves the previously downloaded revision behind. The browser then
+    never launches, `_crawl_url` swallows the exception, and every crawl is logged
+    as a plain `failed`, which looks exactly like a site being down. That is how
+    roughly 360 events were enriched from PDFs alone between 2026-08-05 and
+    2026-09-11 and no run ever failed.
+
+    `AsyncWebCrawler.__aenter__` starts the browser, so a missing binary raises
+    here rather than at the first page.
+    """
+    try:
+        from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
+
+        config = CrawlerRunConfig(wait_until="domcontentloaded", page_timeout=30000)
+        async with AsyncWebCrawler() as crawler:
+            result = await crawler.arun(url=_PREFLIGHT_HTML, config=config)
+        if not result.success:
+            return f"browser started but the preflight scrape failed: {getattr(result, 'error_message', 'unknown error')}"
+        return None
+    except Exception as e:
+        return f"{type(e).__name__}: {str(e)[:400]}"

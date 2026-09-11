@@ -45,3 +45,32 @@ async def test_crawl_handles_failure():
             max_chars=10_000,
         )
     assert result.get("website") is None
+
+
+@pytest.mark.asyncio
+async def test_check_browser_reports_launch_failure():
+    """A missing Playwright browser binary must surface, not be swallowed."""
+    from enricher.steps.crawl import check_browser
+
+    boom = MagicMock(side_effect=Exception(
+        "BrowserType.launch: Executable doesn't exist at .../chromium-1208/..."
+    ))
+    with patch("crawl4ai.AsyncWebCrawler", boom):
+        error = await check_browser()
+
+    assert error is not None
+    assert "chromium-1208" in error
+
+
+@pytest.mark.asyncio
+async def test_check_browser_returns_none_when_browser_works():
+    from enricher.steps.crawl import check_browser
+
+    crawler = AsyncMock()
+    crawler.arun.return_value = MagicMock(success=True)
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=crawler)
+    ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("crawl4ai.AsyncWebCrawler", MagicMock(return_value=ctx)):
+        assert await check_browser() is None

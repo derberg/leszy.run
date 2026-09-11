@@ -212,3 +212,70 @@ async def test_scraper_declared_urls_skip_the_gate(sample_event):
     mock_verify.assert_not_called()
     assert result["steps"]["verify"]["checked"] == 0
     assert result["updates"] == {"distances": "5 km"}
+
+
+def _crawl_result(pages, failed):
+    """A process_event() return whose crawl step reports the given outcome."""
+    return {
+        "id": "x", "name": "Bieg", "updates": {},
+        "steps": {"crawl": {"pages": pages, "total_chars": 0,
+                            "skipped_pdf": [], "failed": failed}},
+    }
+
+
+async def _run_with_crawl_outcomes(outcomes):
+    """Drive run_pipeline over len(outcomes) events, one crawl outcome each."""
+    import click
+    from enricher import pipeline as pipeline_mod
+
+    events = [{"id": f"e{i}", "name": f"Bieg {i}", "date": "2026-05-10", "location": "Warszawa"}
+              for i in range(len(outcomes))]
+    results = iter([_crawl_result(*o) for o in outcomes])
+
+    with patch.object(pipeline_mod, "fetch_events", return_value=events), \
+         patch.object(pipeline_mod, "check_browser", new=AsyncMock(return_value=None)), \
+         patch.object(pipeline_mod, "RunLogger", MagicMock()), \
+         patch.object(pipeline_mod, "process_event", new=AsyncMock(side_effect=lambda *a, **k: next(results))), \
+         patch("httpx.Client"):
+        await pipeline_mod.run_pipeline(
+            MagicMock(ollama_model="gemma3:27b"), limit=None, dry_run=True,
+            resume=False, force=False, incomplete=False,
+        )
+
+
+@pytest.mark.asyncio
+async def test_pipeline_fails_when_every_crawl_fails():
+    """A run that crawls nothing at all means the crawler itself is broken."""
+    import click
+    with pytest.raises(click.ClickException) as exc:
+        await _run_with_crawl_outcomes([(0, ["registration_url", "regulamin_url"])] * 3)
+    assert "0 of 6 page crawls succeeded" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_tolerates_individual_crawl_failures():
+    """Sites go down; one success over the run is enough to prove the crawler works."""
+    await _run_with_crawl_outcomes([(0, ["registration_url"])] * 5 + [(1, ["regulamin_url"])])
+
+
+@pytest.mark.asyncio
+async def test_pipeline_ignores_shutout_on_a_tiny_sample():
+    """Below the sample floor a 0% rate says nothing, so --limit 1 must not fail."""
+    await _run_with_crawl_outcomes([(0, ["registration_url"])])
+
+
+@pytest.mark.asyncio
+async def test_pipeline_aborts_when_browser_is_missing():
+    from enricher import pipeline as pipeline_mod
+    import click
+
+    with patch.object(pipeline_mod, "fetch_events", return_value=[{"id": "e0", "name": "Bieg"}]), \
+         patch.object(pipeline_mod, "check_browser", new=AsyncMock(return_value="Executable doesn't exist")), \
+         patch("httpx.Client") as warmup:
+        with pytest.raises(click.ClickException) as exc:
+            await pipeline_mod.run_pipeline(
+                MagicMock(ollama_model="gemma3:27b"), limit=None, dry_run=True,
+                resume=False, force=False, incomplete=False,
+            )
+    assert "playwright install chromium" in str(exc.value)
+    warmup.assert_not_called()  # aborts before paying for the LLM warm-up
