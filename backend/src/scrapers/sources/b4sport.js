@@ -80,48 +80,175 @@ function citySlug(s) {
     .replace(/[^a-z0-9]/g, '')
 }
 
-// Collect candidate regulamin PDF links from a loaded page. Only links whose
-// href or text mentions "regulamin" qualify (skips oświadczenie/zgoda PDFs).
-function collectRegulaminPdfs($) {
+// Lowercase + de-diacritic, keeping word boundaries. citySlug() also strips
+// spaces, which is right for filename matching but destroys phrase markers.
+function plainText(s) {
+  return (s || '')
+    .toLowerCase()
+    .replace(/[ąćęłńóśźż]/g, ch => ({ ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z' }[ch] || ch))
+    .replace(/\s+/g, ' ')
+}
+
+// Words that appear in nearly every Polish race name. They cannot tell two
+// races on the same organizer's site apart.
+const NAME_STOPWORDS = new Set([
+  'bieg', 'biegi', 'biegu', 'biegow', 'biegowe', 'biegowy', 'biegowa', 'biegach',
+  'marsz', 'marszu', 'edycja', 'edycji', 'memorial', 'memorialu', 'imprezy',
+  'zawody', 'zawodow', 'otwarte', 'otwarty', 'oraz', 'roku', 'zycia', 'lata',
+  'doroslych', 'dzieci', 'nordic', 'walking', 'ogolnopolski', 'ogolnopolskie',
+])
+
+// The tokens of an event name that separate it from another race. "Mile
+// Biegowe" and "Mistrzostwa Koszalina na dystansie 5 000m" differ on "mile".
+function nameTokens(name) {
+  return [...new Set(
+    plainText(name)
+      .split(/[^a-z0-9]+/)
+      .filter(t => t.length >= 4 && !NAME_STOPWORDS.has(t) && !/^\d+$/.test(t))
+  )]
+}
+
+// Collect candidate regulamin links from a loaded page: PDFs anywhere, plus
+// HTML pages under this organizer's own b4sport path. Only links whose href or
+// text mentions "regulamin" qualify (skips oświadczenie/zgoda documents).
+//
+// Not every organizer publishes a PDF. TKKF Koszalin serves its regulamin as
+// an ordinary page at /Biegi_Koszalin_2016/mile, where a PDF-only collector
+// finds nothing. Distances, price and registration deadline all live in the
+// regulamin, so that page is the only source for any of them. HTML candidates
+// are scoped to `/<slug>/`, which keeps another organizer's regulamin out.
+function collectRegulaminLinks($, slug) {
   const out = []
-  $('a[href*=".pdf"]').each((_, a) => {
-    const href = $(a).attr('href') || ''
-    const text = $(a).text()
+  const push = (href, text, kind) => {
     const hay = `${href} ${text}`.toLowerCase()
     if (!hay.includes('regulamin')) return
-    let url
-    if (href.startsWith('http')) url = href
-    else url = `${BASE_URL}${href.startsWith('/') ? '' : '/'}${href}`
-    out.push({ url, hay: citySlug(hay) })
+    const url = href.startsWith('http')
+      ? href
+      : `${BASE_URL}${href.startsWith('/') ? '' : '/'}${href}`
+    out.push({ url, hay: citySlug(hay), text, kind })
+  }
+
+  $('a[href]').each((_, a) => {
+    const href = ($(a).attr('href') || '').trim()
+    if (!href || href.startsWith('#') || /^(mailto|javascript|tel):/i.test(href)) return
+    const text = $(a).text()
+
+    if (href.toLowerCase().includes('.pdf')) {
+      push(href, text, 'pdf')
+      return
+    }
+    if (!slug) return
+    // Same-organizer HTML page only.
+    const path = href.startsWith('http')
+      ? (href.startsWith(BASE_URL) ? href.slice(BASE_URL.length) : null)
+      : (href.startsWith('/') ? href : `/${href}`)
+    if (!path || !path.startsWith(`/${slug}/`)) return
+    push(href, text, 'html')
   })
   return out
 }
 
-// Pick the regulamin for one event from an organizer's candidate list and
-// VERIFY it's a live PDF before returning. Multi-city series (e.g. Formoza)
-// expose one regulamin per city, so we match on the event's city — and never
-// guess when several remain unmatched (writing the wrong city's rules is worse
-// than writing none). Returns a verified URL or null.
-async function pickRegulamin(candidates, city) {
-  if (!candidates || candidates.length === 0) return null
-  let chosen = null
-  if (candidates.length === 1) {
-    chosen = candidates[0].url
-  } else {
-    const cs = citySlug(city)
-    const match = cs ? candidates.find(c => c.hay.includes(cs)) : null
-    chosen = match ? match.url : null
+// Section headings every Polish regulamin carries. A menu page or a soft-404
+// that only links the word "Regulamin" carries none of them.
+const REGULAMIN_MARKERS = [
+  'cel imprezy', 'organizator', 'uczestnictw', 'zgloszen', 'zapisy',
+  'oplat', 'trasa', 'postanowienia', 'nagrody', 'klasyfikacj', 'termin',
+]
+
+/**
+ * Verify an HTML regulamin page. CLAUDE.md's URL rule states that a 200 is not
+ * proof, because the destination must carry event-specific content. So a page
+ * has to pass four checks. It answers with live HTML. Its body holds at least
+ * 1500 characters. It shows at least three regulamin section headings. It
+ * names at least one distinctive token of this event's name. A page that
+ * misses any of them is dropped rather than written.
+ *
+ * Checked against the live source on 2026-09-11. /Biegi_Koszalin_2016/mile
+ * passes. The event page /Biegi_Koszalin_2016/…/13036 fails, although the same
+ * menu links the word "Regulamin" from it. The rejected alternative was to
+ * trust any same-organizer page that mentions the word. That would have
+ * written the event page as the regulamin for every race on the site.
+ *
+ * @returns {Promise<boolean>}
+ */
+async function verifyRegulaminPage(url, eventName, { timeoutMs = 10000, fetchImpl = fetch } = {}) {
+  const tokens = nameTokens(eventName)
+  if (tokens.length === 0) return false
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetchImpl(url, {
+      redirect: 'follow',
+      signal: ctrl.signal,
+      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+    })
+    if (!res.ok) return false
+    if (!(res.headers.get('content-type') || '').toLowerCase().includes('text/html')) return false
+
+    const $ = cheerio.load(await res.text())
+    $('script, style, nav, header, footer').remove()
+    const text = plainText($('body').text())
+    if (text.length < 1500) return false
+
+    const markers = REGULAMIN_MARKERS.filter(m => text.includes(m)).length
+    if (markers < 3) return false
+    return tokens.some(t => text.includes(t))
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
   }
+}
+
+// Pick the regulamin for one event from an organizer's candidate list, then
+// verify it before returning. Two things make the choice ambiguous. A
+// multi-city series such as Formoza exposes one regulamin per city. A single
+// organizer often runs several races off one site: Koszalin has a 5000 m
+// championship and a mile series. So the event's own name settles the choice
+// first, and a city match settles it second. Neither one conclusive means no
+// choice at all. Writing the wrong race's regulamin is worse than writing
+// none. Returns a verified URL or null.
+async function pickRegulamin(candidates, city, eventName, deps = {}) {
+  const { verifyPdfFn = verifyPdf, verifyPageFn = verifyRegulaminPage } = deps
+  if (!candidates || candidates.length === 0) return null
+
+  let chosen = null
+
+  // Tier 1: distinctive tokens of this event's name. This needs an outright
+  // winner. A tie means two races share the wording and neither is provable.
+  const scored = candidates
+    .map(c => ({ c, score: nameTokens(eventName).filter(t => c.hay.includes(t)).length }))
+    .sort((a, b) => b.score - a.score)
+  if (scored[0].score > 0 && (scored.length === 1 || scored[0].score > scored[1].score)) {
+    chosen = scored[0].c
+  }
+
+  // Tier 2: city, for a multi-city series. Unique for the same reason.
+  if (!chosen) {
+    const cs = citySlug(city)
+    const hits = cs ? candidates.filter(c => c.hay.includes(cs)) : []
+    if (hits.length === 1) chosen = hits[0]
+  }
+
+  // Tier 3: a lone PDF on an organizer that runs one race. HTML never reaches
+  // this tier. A menu link repeats on every page of the site, so being the
+  // only candidate proves nothing about which race it covers.
+  if (!chosen && candidates.length === 1 && candidates[0].kind === 'pdf') chosen = candidates[0]
+
   if (!chosen) return null
-  return (await verifyPdf(chosen)) ? chosen : null
+  const ok = chosen.kind === 'html'
+    ? await verifyPageFn(chosen.url, eventName)
+    : await verifyPdfFn(chosen.url)
+  return ok ? chosen.url : null
 }
 
 /**
  * Fetch organizer pages per slug and extract:
  * - website: from navbar logo link or footer copyright link (index page)
- * - regulaminCandidates: regulamin PDF links from the index page AND the
- *   dedicated /<slug>/regulamin route (which lists per-city PDFs for series).
- *   Per-event selection + PDF verification happens later in pickRegulamin().
+ * - regulaminCandidates: regulamin links, both PDFs and same-organizer HTML
+ *   pages, from the index page AND the dedicated /<slug>/regulamin route
+ *   (which lists per-city PDFs for series). Per-event selection and
+ *   verification happen later in pickRegulamin().
  */
 async function fetchOrganizerDetails(orgSlugs) {
   const details = new Map() // orgSlug → { website, regulaminCandidates }
@@ -151,7 +278,7 @@ async function fetchOrganizerDetails(orgSlugs) {
           if (href && href.startsWith('http') && !SKIP_DOMAINS.test(href)) website = href
         })
       }
-      candidates.push(...collectRegulaminPdfs($))
+      candidates.push(...collectRegulaminLinks($, slug))
     } catch (err) {
       console.error(`[b4sport] Index fetch failed for ${slug}:`, err.message?.slice(0, 100))
     }
@@ -165,17 +292,21 @@ async function fetchOrganizerDetails(orgSlugs) {
       })
       if (res.ok) {
         const $ = cheerio.load(await res.text())
-        candidates.push(...collectRegulaminPdfs($))
+        candidates.push(...collectRegulaminLinks($, slug))
       }
     } catch (err) {
       console.error(`[b4sport] Regulamin route failed for ${slug}:`, err.message?.slice(0, 100))
     }
 
-    // Dedup candidates by url
+    // Dedup candidates by url, ignoring the ?lang= switcher. b4sport renders
+    // the same regulamin at ?lang=pl and ?lang=en. Left in, the pair ties on
+    // every selection tier, and an organizer whose only regulamin is that
+    // route resolves to nothing.
     const seen = new Set()
     const regulaminCandidates = candidates.filter(c => {
-      if (seen.has(c.url)) return false
-      seen.add(c.url)
+      const key = c.url.replace(/[?&]lang=[a-z]{2}\b/i, '')
+      if (seen.has(key)) return false
+      seen.add(key)
       return true
     })
 
@@ -389,13 +520,13 @@ async function scrape({ knownIds = new Set() } = {}) {
   const orgDetails = await fetchOrganizerDetails([...orgMap.keys()])
 
   // Merge organizer details back into events. Regulamin is chosen per-event
-  // (city-matched for multi-city series) and verified live before writing.
+  // (matched on the event's own name, then city) and verified before writing.
   for (const [slug, events] of orgMap) {
     const detail = orgDetails.get(slug)
     if (!detail) continue
     for (const ev of events) {
       if (detail.website) ev.website = detail.website
-      const regulamin = await pickRegulamin(detail.regulaminCandidates, ev.location)
+      const regulamin = await pickRegulamin(detail.regulaminCandidates, ev.location, ev.name)
       if (regulamin) ev.regulamin_url = regulamin
     }
   }
@@ -407,4 +538,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return fresh
 }
 
-export { scrape, fetchOrganizerDetails, pickRegulamin }
+export { scrape, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, verifyRegulaminPage, nameTokens }
