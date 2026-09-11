@@ -37,6 +37,26 @@ const ABSURD_CEILING = 1000
 // as a warning would make the audit cry wolf on every single run.
 const STALE_ENRICH_DAYS = 90
 
+// A registration deadline this far ahead of the event, or after it, did not come
+// from this edition's regulamin.
+//
+// This is the one extraction error the upstream gates cannot see: the document
+// is the right regulamin and it DOES contain deadline language, so the evidence
+// gate passes it — the model simply took the wrong date out of it. Only the
+// shape of the result gives it away.
+//
+// Calibrated on the 731 future active calendar_events rows carrying a deadline
+// (2026-09-11): median 5 days, 663 of them within 30 days, p95 at 88. A 30-day
+// bar would therefore flag 133 rows, most of them legitimate — the same
+// cry-wolf trap the price-span rule fell into. 120 days flags 34, plus 7 with a
+// deadline after the race.
+//
+// Those 34 are overwhelmingly one recognisable failure: a ~365-day offset, i.e.
+// the PREVIOUS edition's deadline (Bieg Renifera 2026-12-19 with a 2025-11-25
+// deadline, Krakowski Bieg Sylwestowy 2026-12-31 with 2025-12-31). Worth an
+// alert; a 45-day early-bird close is not.
+const DEADLINE_MAX_DAYS_BEFORE = 120
+
 // PostgREST caps a response at 1000 rows regardless of what you ask for, so
 // every scan here pages explicitly rather than trusting one .select().
 async function selectAll(table, columns, applyFilters) {
@@ -80,18 +100,19 @@ async function main() {
 
   const scraperRows = await selectAll(
     'scraper_all',
-    'id,name,date,source,source_id,regulamin_url,price_from,price_to,enriched_at',
+    'id,name,date,source,source_id,regulamin_url,registration_deadline,price_from,price_to,enriched_at',
     (q) => q.gte('date', today),
   )
   const calRows = await selectAll(
     'calendar_events',
-    'id,name,date,status,regulamin_url,price_from,price_to,enriched_at',
+    'id,name,date,status,regulamin_url,registration_deadline,price_from,price_to,enriched_at',
     (q) => q.gte('date', today).eq('status', 'active'),
   )
 
   const findings = {
     suspect_regulamin: [],
     stale_regulamin_year: [],
+    implausible_deadline: [],
     implausible_price: [],
     stale_enrichment: [],
   }
@@ -105,6 +126,18 @@ async function main() {
       const docYear = regulaminYear(r.regulamin_url)
       if (docYear && r.date && docYear < Number(r.date.slice(0, 4))) {
         findings.stale_regulamin_year.push({ ...ref, regulamin_url: r.regulamin_url, docYear })
+      }
+      if (r.registration_deadline && r.date) {
+        const days = Math.round(
+          (Date.parse(r.date) - Date.parse(r.registration_deadline)) / 864e5,
+        )
+        if (days > DEADLINE_MAX_DAYS_BEFORE || days < 0) {
+          findings.implausible_deadline.push({
+            ...ref,
+            registration_deadline: r.registration_deadline,
+            days,
+          })
+        }
       }
       if (r.price_from !== null && r.price_to !== null) {
         const contradictory = r.price_from === 0 && r.price_to >= ZERO_FLOOR_CEILING
@@ -124,6 +157,7 @@ async function main() {
   const alerting =
     findings.suspect_regulamin.length +
     findings.stale_regulamin_year.length +
+    findings.implausible_deadline.length +
     findings.implausible_price.length
 
   if (asJson) {
@@ -135,6 +169,9 @@ async function main() {
         (f) => `${f.regulamin_url}`],
       ['regulamin filename is from an earlier year than the event', findings.stale_regulamin_year,
         (f) => `doc year ${f.docYear} · ${f.regulamin_url}`],
+      [`registration deadline more than ${DEADLINE_MAX_DAYS_BEFORE} days before the event, or after it`,
+        findings.implausible_deadline,
+        (f) => `${f.registration_deadline} (${f.days} days before)`],
       ['price range is self-contradictory', findings.implausible_price,
         (f) => `${f.price_from}–${f.price_to} zł`],
     ]
