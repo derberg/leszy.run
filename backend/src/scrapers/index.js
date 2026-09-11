@@ -983,7 +983,14 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
   // Non-running: cycling (incl. English "bike"), triathlon family, gravel/enduro,
   // SUP, skating, and all swimming (open water / ice / winter swim, PL "pływanie",
   // "morsowanie"). "Run & Bike" is guarded below — it keeps a running leg.
-  const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|bike|triathlon|duathlon|aquathlon|gravel|gravelow[aey]?|enduro|sup race|swim\w*|open water|pływani\w*|morsowani\w*|wrotkars[a-z]*|jumping zoo|skill lab|turniej|3v3)\b/i
+  //
+  // "kręcenie" (pedalling) names a ride, not a run, but carries no cycling keyword
+  // of its own. Datasport 12725 "Poranne Kręcenie" (Jakuszyce, 25 km, 2026-09-25)
+  // reached calendar_events as `uliczny` this way — it is a Friday warm-up ride of
+  // the 12. Rowerowy Bieg Piastów weekend, and datasport exposes no discipline
+  // field to gate on. Both spellings are matched: the datasport pages are
+  // ISO-8859-2 and diacritics do not always survive.
+  const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|bike|kręceni[ae]|kreceni[ae]|triathlon|duathlon|aquathlon|gravel|gravelow[aey]?|enduro|sup race|swim\w*|open water|pływani\w*|morsowani\w*|wrotkars[a-z]*|jumping zoo|skill lab|turniej|3v3)\b/i
 
   const today = new Date().toISOString().split('T')[0]
 
