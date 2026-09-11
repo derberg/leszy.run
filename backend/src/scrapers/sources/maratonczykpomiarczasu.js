@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio'
 import { verifyPdf } from '../../lib/verifyPdf.js'
+import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
 
 const BASE_URL = 'https://www.maratonczykpomiarczasu.pl'
 const LIST_URL = `${BASE_URL}/wydarzenia-biegowe`
@@ -144,14 +145,9 @@ async function scrape({ knownIds = new Set() } = {}) {
       const res = await fetch(ev.registration_url, { headers: { 'User-Agent': UA } })
       if (!res.ok) continue
       const $$ = cheerio.load(await res.text())
-      let candidate = null
-      $$('a[href*=".pdf"]').each((_, a) => {
-        if (candidate) return
-        const href = $$(a).attr('href') || ''
-        const hay = `${href} ${$$(a).text()}`.toLowerCase()
-        if (hay.includes('regulamin')) {
-          candidate = href.startsWith('http') ? href : new URL(href, ev.registration_url).href
-        }
+      const candidate = pickRegulaminFromDom($$, {
+        selector: 'a[href*=".pdf"]',
+        baseUrl: ev.registration_url,
       })
       if (candidate && await verifyPdf(candidate)) {
         ev.regulamin_url = candidate

@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { pickRegulaminFromDom } from '../../lib/pickRegulaminUrl.js'
 
 const BASE_URL = 'https://www.zmierzymyczas.pl'
 
@@ -53,12 +54,18 @@ async function fetchDetailPage(href) {
     const $ = cheerio.load(html)
 
     // Regulamin PDF link — pattern: /images/regulaminy/*.pdf
-    let regulaminUrl = null
-    $('a[href*="/images/regulaminy/"]').each((_, el) => {
-      const h = $(el).attr('href')
-      if (h && h.endsWith('.pdf')) {
-        regulaminUrl = h.startsWith('http') ? h : `${BASE_URL}${h}`
-      }
+    //
+    // zmierzymyczas publishes SEVERAL documents per event under that same path:
+    // the regulamin plus oświadczenie/zgoda consent forms, and sometimes a
+    // course map. This used to keep the LAST match, and since the regulamin is
+    // linked first and the consent forms after it, the consent form won every
+    // time — 19 rows in scraper_all carried one as their regulamin, which then
+    // fed the enricher a document with no fee, no deadline and no distances.
+    // pickRegulaminUrl requires positive "regulamin" evidence instead of
+    // relying on link order.
+    const regulaminUrl = pickRegulaminFromDom($, {
+      selector: 'a[href*="/images/regulaminy/"]',
+      baseUrl: BASE_URL,
     })
 
     // Registration form link — pattern: /edit/{id}/{slug}.html

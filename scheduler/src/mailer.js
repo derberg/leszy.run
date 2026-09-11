@@ -54,6 +54,22 @@ export async function sendFailureEmail({ stepIndex, totalSteps, stepName, exitCo
   return send({ subject, html });
 }
 
+export async function sendDataQualityEmail({ stepName, report, logPath }) {
+  const subject = `[WARN] LeszyRun data audit found issues`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto;">
+      <h2 style="color: #d97706;">🔎 Data audit findings</h2>
+      <p>The pipeline completed, but <code>${escapeHtml(stepName)}</code> flagged rows that look wrong.
+         Nothing was changed — this is a report.</p>
+      <p><strong>Log file:</strong> <code>${escapeHtml(logPath)}</code></p>
+      <h3>Report</h3>
+      <pre style="background:#f5f5f5; padding:12px; overflow:auto; font-size:12px; line-height:1.4;">${escapeHtml(report) || '(empty)'}</pre>
+      <p style="color:#666; font-size:12px;">LeszyRun daily pipeline · sent ${new Date().toISOString()}</p>
+    </div>
+  `;
+  return send({ subject, html });
+}
+
 export async function sendNoOutputEmail({ rowsCreated, rowsUpdated, durationMs, logPath }) {
   const subject = `[WARN] LeszyRun pipeline ran clean but 0 scraper_all rows changed`;
   const html = `

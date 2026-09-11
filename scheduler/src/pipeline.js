@@ -2,7 +2,7 @@ import { mkdir, writeFile, appendFile } from 'node:fs/promises';
 import { createWriteStream, existsSync } from 'node:fs';
 import path from 'node:path';
 import { runCommand } from './exec.js';
-import { sendFailureEmail, sendNoOutputEmail } from './mailer.js';
+import { sendFailureEmail, sendNoOutputEmail, sendDataQualityEmail } from './mailer.js';
 
 const LOG_DIR = process.env.LOG_DIR || '/app/logs';
 const HEARTBEAT_PATH = path.join(LOG_DIR, 'last-pipeline-ok.json');
@@ -25,6 +25,9 @@ const STEPS = [
   { name: 'run-dedup-2',       type: 'backend',  cmd: ['node', 'scripts/run-dedup.js', '--apply'] },
   { name: 'run-normalize-2',   type: 'backend',  cmd: ['node', 'scripts/run-normalize.js', '--apply'] },
   { name: 'publish-landing-pages',  type: 'backend',  cmd: ['node', 'scripts/publish-landing-pages.js', '--apply'] },
+  // Read-only. warnOnly: a non-zero exit means "found something", not "broke" —
+  // it must not abort the run or the audit would be worse than having none.
+  { name: 'run-data-audit',    type: 'backend',  cmd: ['node', 'scripts/run-data-audit.js'], warnOnly: true },
 ];
 
 function dockerArgv(step) {
@@ -132,6 +135,22 @@ export async function runPipeline() {
       exitCode: result.exitCode,
       durationMs: result.durationMs,
     });
+
+    if (result.exitCode !== 0 && step.warnOnly) {
+      // A reporting step: findings, not a failure. Mail the report and carry on.
+      logHeader(`[WARN] step ${stepIndex}/${STEPS.length} ${step.name} reported findings (exit ${result.exitCode})\n`);
+      try {
+        await sendDataQualityEmail({
+          stepName: step.name,
+          report: result.stdoutTail,
+          logPath: hostLogPath,
+        });
+        process.stdout.write(`[mail] data-quality warning email sent\n`);
+      } catch (err) {
+        process.stdout.write(`[mail] data-quality email FAILED to send: ${err.message}\n`);
+      }
+      continue;
+    }
 
     if (result.exitCode !== 0) {
       logHeader(`[FAIL] step ${stepIndex}/${STEPS.length} ${step.name} exited ${result.exitCode}\n`);
