@@ -23517,31 +23517,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "17-legionowska-dycha-2026-06-19": {
-    "id": "f49c84a5-e2ea-4872-ad2d-dc0375893779",
-    "name": "17 Legionowska Dycha",
-    "date": "2026-06-19",
-    "registration_deadline": "2026-06-16",
-    "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
-    "price_from": 50,
-    "price_to": 60,
-    "location": "Legionowo",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.395229,
-    "lng": 20.930831,
-    "distances": [
-      "10 km"
-    ],
-    "event_type": [
-      "nocny",
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://zapisyonline.pl/wydarzenie/864,16-legionowska-dycha",
-    "website": "https://zapisyonline.pl/wydarzenie/864,16-legionowska-dycha",
-    "is_kids": null,
-    "status": "active"
-  },
   "xii-festiwal-biegu-wierchami-2026-06-19": {
     "id": "5b46cced-d8ff-46a6-9c62-422dc90f9da1",
     "name": "XII FESTIWAL BIEGU WIERCHAMI",
@@ -23726,6 +23701,31 @@
     ],
     "registration_url": "https://panel.maratonczykpomiarczasu.pl/nocny-bieg-swietojanski-kalisz",
     "website": "https://www.supermaraton.kalisz.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "17-legionowska-dycha-2026-06-19": {
+    "id": "f49c84a5-e2ea-4872-ad2d-dc0375893779",
+    "name": "17 Legionowska Dycha",
+    "date": "2026-06-19",
+    "registration_deadline": "2026-06-16",
+    "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
+    "price_from": 60,
+    "price_to": 90,
+    "location": "Legionowo",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.395229,
+    "lng": 20.930831,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "nocny",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisyonline.pl/wydarzenie/864,16-legionowska-dycha",
+    "website": "https://zapisyonline.pl/wydarzenie/864,16-legionowska-dycha",
     "is_kids": null,
     "status": "active"
   },
@@ -38697,10 +38697,17 @@
     "lat": 52.14248,
     "lng": 19.423828,
     "distances": [
-      "4 km"
+      "1 km",
+      "4 km",
+      "100 m",
+      "300 m",
+      "500 m",
+      "800 m"
     ],
     "event_type": [
-      "bieg"
+      "bieg",
+      "trail",
+      "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v16435",
     "website": null,
@@ -48627,7 +48634,7 @@
     "name": "Festiwal Górski Maraton Trzech Jezior",
     "date": "2026-09-18",
     "registration_deadline": "2026-09-13",
-    "regulamin_url": "https://www.bgtimesport.pl/zawody/regulamin/id/825",
+    "regulamin_url": "https://www.bgtimesport.pl/public/pliki/825reg20260617t145517.pdf",
     "price_from": 15,
     "price_to": 300,
     "location": "Porąbka, Międzybrodzie Bialskie",
@@ -48643,6 +48650,7 @@
     ],
     "event_type": [
       "trail",
+      "uliczny",
       "dzieci"
     ],
     "registration_url": "https://www.bgtimesport.pl/zawody/biegi/id/825",
@@ -48904,33 +48912,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "chelmski-nocny-polmaraton-z-duchem-bieluchem-2026-09-19": {
-    "id": "c2fab443-6ba2-4df1-bbff-54625a86dae0",
-    "name": "Chełmski Nocny Półmaraton z Duchem Bieluchem",
-    "date": "2026-09-19",
-    "registration_deadline": "2026-08-31",
-    "regulamin_url": "https://dostartu.pl/statute_files/16962_pl.pdf",
-    "price_from": 100,
-    "price_to": 160,
-    "location": "Chełm",
-    "voivodeship": "Lubelskie",
-    "lat": 51.143123,
-    "lng": 23.471199,
-    "distances": [
-      "21.1 km",
-      "5 km"
-    ],
-    "event_type": [
-      "nocny",
-      "nordic walking",
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v16962",
-    "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
   "xix-ogolnopolski-ekologiczny-bieg-krainy-3-wiez-nad-borami-2026-09-19": {
     "id": "b59bf016-5d5b-4152-a383-e1044e4d61ca",
     "name": "XIX Ogólnopolski Ekologiczny Bieg Krainy 3 Wież nad Borami",
@@ -48976,29 +48957,6 @@
     ],
     "registration_url": "https://bytomskipolmaraton.pl/zapisy,14",
     "website": "https://bytomskipolmaraton.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
-  "6-edycja-biegu-fun-z-easyrun-24h-nonstop-2026-09-19": {
-    "id": "dd46e075-2e7e-4e96-a76f-fabc2f6993c8",
-    "name": "6 Edycja Biegu Fun z EASYRUN 24h NONSTOP",
-    "date": "2026-09-19",
-    "registration_deadline": "2026-09-12",
-    "regulamin_url": "https://dostartu.pl/statute_files/16486_pl.pdf",
-    "price_from": 45,
-    "price_to": 90,
-    "location": "Racibórz, SL",
-    "voivodeship": "Śląskie",
-    "lat": 50.086056,
-    "lng": 18.217176,
-    "distances": [
-      "2.33 km"
-    ],
-    "event_type": [
-      "bieg"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v16486",
-    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -49363,10 +49321,10 @@
     "id": "258b04b5-47db-41a3-b3ba-f824bd747161",
     "name": "Bieg Spartakusa 2026",
     "date": "2026-09-19",
-    "registration_deadline": null,
-    "regulamin_url": "https://bieglwa.pl/regulamin-uczestnictwa-w-festiwalu-lwa/",
-    "price_from": null,
-    "price_to": null,
+    "registration_deadline": "2026-09-12",
+    "regulamin_url": "https://foxter-sport.pl/uploads/competition/comp_regulations_1067.html",
+    "price_from": 119,
+    "price_to": 219,
     "location": "Złotów",
     "voivodeship": "Wielkopolskie",
     "lat": 53.363194,
@@ -49375,7 +49333,9 @@
       "7 km"
     ],
     "event_type": [
-      "uliczny"
+      "ocr",
+      "trail",
+      "dzieci"
     ],
     "registration_url": "https://foxter-sport.pl/bieg-spartakusa-2026",
     "website": "https://bieglwa.pl/",
@@ -49578,30 +49538,6 @@
       "uliczny"
     ],
     "registration_url": "https://b4sportonline.pl/po_prostu_bieg/entries_to_po_prostu_bieg",
-    "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
-  "biegu-sluzb-mundurowych-i-czlonkow-ich-rodzin-dziewicza-gora-2026-2026-09-19": {
-    "id": "51bf49f6-ddd9-4f1a-a6ed-ab081f5dbd19",
-    "name": "Biegu Służb Mundurowych i członków ich rodzin Dziewicza Góra 2026",
-    "date": "2026-09-19",
-    "registration_deadline": null,
-    "regulamin_url": "https://foxter-sport.pl/uploads/competition/comp_regulations_884.pdf",
-    "price_from": null,
-    "price_to": null,
-    "location": "Czerwonak",
-    "voivodeship": "Wielkopolskie",
-    "lat": 52.46696,
-    "lng": 16.98026,
-    "distances": [
-      "5 km",
-      "400 m"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://foxter-sport.pl/biegu-sluzb-mundurowych-i-czlonkow-ich-rodzin--dziewicza-gora-2026",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -49901,32 +49837,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "charytatywny-bieg-biegniemy-dla-mateusza-2026-09-19": {
-    "id": "2f4f12de-2f81-4113-9f75-bd8f7f255b0e",
-    "name": "Charytatywny Bieg „BIEGNIEMY DLA MATEUSZA”",
-    "date": "2026-09-19",
-    "registration_deadline": "2026-09-10",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_-_Bieg_dla_Mateusza.pdf",
-    "price_from": 100,
-    "price_to": 100,
-    "location": "Siedlec",
-    "voivodeship": "Łódzkie",
-    "lat": 52.11447,
-    "lng": 19.1397,
-    "distances": [
-      "5 km",
-      "10 km"
-    ],
-    "event_type": [
-      "charytatywny",
-      "trail",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2654/charytatywny-bieg-biegniemy-dla-mateusza.html",
-    "website": "https://www.zmierzymyczas.pl/2654/charytatywny-bieg-biegniemy-dla-mateusza.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "viii-brzeska-dycha-sw-jakuba-2026-09-19": {
     "id": "d93caf0c-56dc-4f83-b424-caab81c862a1",
     "name": "VIII Brzeska Dycha św. Jakuba",
@@ -50009,6 +49919,32 @@
       "trail"
     ],
     "registration_url": "https://foxter-sport.pl/ii-wysocki-bieg-crossowy-2026",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "chelmski-nocny-polmaraton-z-duchem-bieluchem-2026-09-19": {
+    "id": "c2fab443-6ba2-4df1-bbff-54625a86dae0",
+    "name": "Chełmski Nocny Półmaraton z Duchem Bieluchem",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-08-31",
+    "regulamin_url": "https://dostartu.pl/statute_files/16962_pl.pdf",
+    "price_from": 100,
+    "price_to": 160,
+    "location": "Chełm",
+    "voivodeship": "Lubelskie",
+    "lat": 51.143123,
+    "lng": 23.471199,
+    "distances": [
+      "21 km",
+      "5 km"
+    ],
+    "event_type": [
+      "nocny",
+      "nordic walking",
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16962",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -50164,32 +50100,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "zawody-dla-dzieci-laskarzew-2026-2026-09-19": {
-    "id": "385a1e7d-4cfd-4356-aa30-6fa4099eae4a",
-    "name": "ZAWODY DLA DZIECI – ŁASKARZEW 2026",
-    "date": "2026-09-19",
-    "registration_deadline": "2026-09-16",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_zawodow_dzieciecych_przy_MP__v4.pdf",
-    "price_from": 40,
-    "price_to": 60,
-    "location": "Łaskarzew",
-    "voivodeship": "Mazowieckie",
-    "lat": 51.788964,
-    "lng": 21.592188,
-    "distances": [
-      "358 m",
-      "716 m",
-      "1.074 km"
-    ],
-    "event_type": [
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2650/zawody-dla-dzieci-laskarzew-2026.html",
-    "website": "https://www.zmierzymyczas.pl/2650/zawody-dla-dzieci-laskarzew-2026.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "biegiem-po-lepsze-jutro-24-godziny-jeden-cel-w-rytmie-aed-2026-09-19": {
     "id": "6934978c-c4b8-4e95-ac91-58a32163a319",
     "name": "Biegiem po lepsze Jutro! 24 godziny – jeden cel – w rytmie AED",
@@ -50231,11 +50141,11 @@
     "lat": 51.788964,
     "lng": 21.592188,
     "distances": [
-      "14 km",
       "42.2 km",
+      "14 km",
+      "1.1 km",
       "358 m",
-      "716 m",
-      "1.074 km"
+      "716 m"
     ],
     "event_type": [
       "uliczny",
@@ -50243,6 +50153,31 @@
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2649/mistrzostwa-polski-w-maratonie-laskarzew-2026.html",
     "website": "https://www.zmierzymyczas.pl/2649/mistrzostwa-polski-w-maratonie-laskarzew-2026.html",
+    "is_kids": null,
+    "status": "active"
+  },
+  "biegu-sluzb-mundurowych-i-czlonkow-ich-rodzin-dziewicza-gora-2026-2026-09-19": {
+    "id": "51bf49f6-ddd9-4f1a-a6ed-ab081f5dbd19",
+    "name": "Biegu Służb Mundurowych i członków ich rodzin Dziewicza Góra 2026",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-14",
+    "regulamin_url": "https://foxter-sport.pl/uploads/competition/comp_regulations_1131.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Czerwonak",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.46696,
+    "lng": 16.98026,
+    "distances": [
+      "5 km",
+      "400 m"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://foxter-sport.pl/biegu-sluzb-mundurowych-i-czlonkow-ich-rodzin--dziewicza-gora-2026",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -50266,6 +50201,32 @@
     ],
     "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=791",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "zawody-dla-dzieci-laskarzew-2026-2026-09-19": {
+    "id": "385a1e7d-4cfd-4356-aa30-6fa4099eae4a",
+    "name": "ZAWODY DLA DZIECI – ŁASKARZEW 2026",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-16",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_zawodow_dzieciecych_przy_MP__v4.pdf",
+    "price_from": 40,
+    "price_to": 60,
+    "location": "Łaskarzew",
+    "voivodeship": "Mazowieckie",
+    "lat": 51.788964,
+    "lng": 21.592188,
+    "distances": [
+      "1.1 km",
+      "358 m",
+      "716 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2650/zawody-dla-dzieci-laskarzew-2026.html",
+    "website": "https://www.zmierzymyczas.pl/2650/zawody-dla-dzieci-laskarzew-2026.html",
     "is_kids": null,
     "status": "active"
   },
@@ -50323,6 +50284,56 @@
     ],
     "registration_url": "https://competitions.timekeeper.pl/14-stalowa-dycha-im-bogdana-dziuby",
     "website": "https://competitions.timekeeper.pl/14-stalowa-dycha-im-bogdana-dziuby",
+    "is_kids": null,
+    "status": "active"
+  },
+  "6-edycja-biegu-fun-z-easyrun-24h-nonstop-2026-09-19": {
+    "id": "dd46e075-2e7e-4e96-a76f-fabc2f6993c8",
+    "name": "6 Edycja Biegu Fun z EASYRUN 24h NONSTOP",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-13",
+    "regulamin_url": "https://dostartu.pl/statute_files/16486_pl.pdf",
+    "price_from": 45,
+    "price_to": 90,
+    "location": "Racibórz, SL",
+    "voivodeship": "Śląskie",
+    "lat": 50.086056,
+    "lng": 18.217176,
+    "distances": [
+      "2.33 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16486",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "charytatywny-bieg-biegniemy-dla-mateusza-2026-09-19": {
+    "id": "2f4f12de-2f81-4113-9f75-bd8f7f255b0e",
+    "name": "Charytatywny Bieg „BIEGNIEMY DLA MATEUSZA”",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-10",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_-_Bieg_dla_Mateusza.pdf",
+    "price_from": 100,
+    "price_to": 100,
+    "location": "Siedlec",
+    "voivodeship": "Łódzkie",
+    "lat": 52.11447,
+    "lng": 19.1397,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "charytatywny",
+      "trail",
+      "uliczny"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2654/charytatywny-bieg-biegniemy-dla-mateusza.html",
+    "website": "https://www.zmierzymyczas.pl/2654/charytatywny-bieg-biegniemy-dla-mateusza.html",
     "is_kids": null,
     "status": "active"
   },
@@ -50607,7 +50618,7 @@
     "name": "Bieg Uliczny FORT RUN 2026",
     "date": "2026-09-20",
     "registration_deadline": "2026-09-13",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260920_Klodzko_-_Regulamin_v.3.pdf",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260920_Klodzko_-_Regulamin_v.4.pdf",
     "price_from": 80,
     "price_to": 150,
     "location": "Twierdza Kłodzko",
@@ -50672,29 +50683,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "proszkowski-bieg-uliczny-im-piotra-blachucika-2026-09-20": {
-    "id": "698eda69-da1f-4048-b496-4d483a5d72c7",
-    "name": "Prószkowski Bieg Uliczny im Piotra Blachucika",
-    "date": "2026-09-20",
-    "registration_deadline": "2026-09-14",
-    "regulamin_url": "https://dostartu.pl/statute_files/16238_pl.pdf",
-    "price_from": 90,
-    "price_to": 90,
-    "location": "Prószków",
-    "voivodeship": "Opolskie",
-    "lat": 50.573657,
-    "lng": 17.878597,
-    "distances": [
-      "10 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v16238",
-    "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
   "xliii-ogolnopolski-bieg-uliczny-im-tadeusza-zielinskiego-2026-2026-09-20": {
     "id": "8720784d-1910-43dd-8340-c7dc3ad48ab2",
     "name": "XLIII OGÓLNOPOLSKI BIEG ULICZNY IM. TADEUSZA ZIELIŃSKIEGO 2026",
@@ -50725,31 +50713,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "6-polmaraton-aleja-debow-czerwonych-2026-09-20": {
-    "id": "0bfbd63b-27aa-433a-b88f-9b34f2e58527",
-    "name": "6. Półmaraton Aleją Dębów Czerwonych",
-    "date": "2026-09-20",
-    "registration_deadline": "2026-09-16",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/PÓŁMARATON_ALEJĄ_DĘBÓW_CZERWONYCH-_na_stronę_bez_nagród.pdf",
-    "price_from": 75,
-    "price_to": 150,
-    "location": "Wieruszów",
-    "voivodeship": "Łódzkie",
-    "lat": 51.295165,
-    "lng": 18.151062,
-    "distances": [
-      "21",
-      "097 km (atest PZLA)"
-    ],
-    "event_type": [
-      "nordic walking",
-      "uliczny"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/2508/6-polmaraton-aleja-debow-czerwonych.html",
-    "website": "https://www.gosit-wieruszow.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
   "nord-trail-race-2026-09-20": {
     "id": "01630f1c-8b07-4932-a0dc-d510a7ccaec9",
     "name": "Nord Trail Race",
@@ -50774,32 +50737,6 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15258/signup.html",
     "website": "https://nordtrailrace.com/",
-    "is_kids": null,
-    "status": "active"
-  },
-  "xiii-kluczborski-bieg-przelajowy-o-zlota-barc-2026-09-20": {
-    "id": "ad08ca86-aa67-4f51-892f-7ace6e19dc52",
-    "name": "XIII Kluczborski Bieg Przełajowy - O Złotą Barć",
-    "date": "2026-09-20",
-    "registration_deadline": "2026-09-16",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/REGULAMIN_XIII_KLUCZBORSKI_BIEG_PRZEŁAJOWY_VII_MARSZ_NORDIC_WALKING_O_ZŁOTĄ_BARĆ_20.09.2026.pdf",
-    "price_from": 25,
-    "price_to": 400,
-    "location": "Kluczbork",
-    "voivodeship": "Opolskie",
-    "lat": 50.97307,
-    "lng": 18.214009,
-    "distances": [
-      "5 km",
-      "10 km",
-      "NW"
-    ],
-    "event_type": [
-      "nordic walking",
-      "trail"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2642/xiii-kluczborski-bieg-przelajowy-o-zlota-barc.html",
-    "website": "https://www.zmierzymyczas.pl/2642/xiii-kluczborski-bieg-przelajowy-o-zlota-barc.html",
     "is_kids": null,
     "status": "active"
   },
@@ -51002,10 +50939,10 @@
     "id": "05c9eb1e-e65d-4dd5-8d31-12490f916106",
     "name": "Bieg Charytatywny",
     "date": "2026-09-20",
-    "registration_deadline": null,
+    "registration_deadline": "2026-09-16",
     "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260920_Olawa_-_oswiadczenie_uczestnika.pdf",
-    "price_from": null,
-    "price_to": null,
+    "price_from": 50,
+    "price_to": 50,
     "location": "Oława",
     "voivodeship": "Dolnośląskie",
     "lat": 50.957093,
@@ -51016,7 +50953,8 @@
     ],
     "event_type": [
       "charytatywny",
-      "uliczny"
+      "uliczny",
+      "nordic walking"
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2496/bieg-charytatywny-cztery-pory-roku-etap-iii.html",
     "website": "https://www.zmierzymyczas.pl/edit/2496/bieg-charytatywny-cztery-pory-roku-etap-iii.html",
@@ -51129,8 +51067,8 @@
     "date": "2026-09-20",
     "registration_deadline": null,
     "regulamin_url": "http://www.kaszubybiegaja.pl/28-regulamin",
-    "price_from": null,
-    "price_to": null,
+    "price_from": 45,
+    "price_to": 45,
     "location": "Cewice",
     "voivodeship": "Pomorskie",
     "lat": 54.435822,
@@ -51220,29 +51158,6 @@
       "uliczny"
     ],
     "registration_url": "https://panel.maratonczykpomiarczasu.pl/bieg--kleczew",
-    "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
-  "48-bieg-jesienny-im-red-tomasza-hopfera-bieg-10-km-2026-09-20": {
-    "id": "8531b3cd-0fa8-414c-ae17-fc978d7245b0",
-    "name": "48 Bieg Jesienny im. red. Tomasza HOPFERA - Bieg 10 km",
-    "date": "2026-09-20",
-    "registration_deadline": "2026-10-09",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/48_Bieg_Hopfera_Regulamin_Biegu_G%C5%82%C3%B3wnego_2026r.pdf",
-    "price_from": 60,
-    "price_to": 100,
-    "location": "Parzymiechy",
-    "voivodeship": "Śląskie",
-    "lat": 51.040225,
-    "lng": 18.74063,
-    "distances": [
-      "10 km (Atest PZLA)"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2579/48-bieg-jesienny-im-red-tomasza-hopfera-bieg-10-km.html",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -51391,7 +51306,8 @@
       "10 km"
     ],
     "event_type": [
-      "uliczny"
+      "uliczny",
+      "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v16765",
     "website": null,
@@ -51453,6 +51369,30 @@
     ],
     "registration_url": "https://panel.maratonczykpomiarczasu.pl/krol-parku2026",
     "website": "https://krolparku.pl",
+    "is_kids": null,
+    "status": "active"
+  },
+  "proszkowski-bieg-uliczny-im-piotra-blachucika-2026-09-20": {
+    "id": "698eda69-da1f-4048-b496-4d483a5d72c7",
+    "name": "Prószkowski Bieg Uliczny im Piotra Blachucika",
+    "date": "2026-09-20",
+    "registration_deadline": "2026-09-14",
+    "regulamin_url": "https://dostartu.pl/statute_files/16238_pl.pdf",
+    "price_from": 90,
+    "price_to": 90,
+    "location": "Prószków",
+    "voivodeship": "Opolskie",
+    "lat": 50.573657,
+    "lng": 17.878597,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16238",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -51934,31 +51874,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "viii-czernikowska-10tka-2026-2026-09-20": {
-    "id": "e3782329-59f1-43d5-a1e2-fe0461cb963e",
-    "name": "VIII Czernikowska 10-tka 2026",
-    "date": "2026-09-20",
-    "registration_deadline": "2026-09-18",
-    "regulamin_url": "https://foxter-sport.pl/uploads/competition/comp_regulations_1144.pdf",
-    "price_from": 30,
-    "price_to": 100,
-    "location": "Czernikowo",
-    "voivodeship": "Kujawsko-Pomorskie",
-    "lat": 52.94226,
-    "lng": 18.9373,
-    "distances": [
-      "5 km",
-      "10 km"
-    ],
-    "event_type": [
-      "nordic walking",
-      "trail"
-    ],
-    "registration_url": "https://foxter-sport.pl/viii-czernikowska-10-tka-2026",
-    "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
   "x-sosnowicki-rajd-na-6-lapach-2026-09-20": {
     "id": "65d2c37f-7235-451c-b918-03d6b61ccb1f",
     "name": "X Sosnowicki Rajd na 6 Łapach",
@@ -52028,8 +51943,7 @@
     "lat": 50.666818,
     "lng": 17.923641,
     "distances": [
-      "2",
-      "5 km",
+      "2.5 km",
       "5 km",
       "10 km"
     ],
@@ -52060,6 +51974,31 @@
     ],
     "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1494",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "xiii-kluczborski-bieg-przelajowy-o-zlota-barc-2026-09-20": {
+    "id": "ad08ca86-aa67-4f51-892f-7ace6e19dc52",
+    "name": "XIII Kluczborski Bieg Przełajowy - O Złotą Barć",
+    "date": "2026-09-20",
+    "registration_deadline": "2026-09-16",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/REGULAMIN_XIII_KLUCZBORSKI_BIEG_PRZE%C5%81AJOWY_VII_MARSZ_NORDIC_WALKING_O_Z%C5%81OT%C4%84_BAR%C4%86_20.09.2026.pdf",
+    "price_from": 25,
+    "price_to": 400,
+    "location": "Kluczbork",
+    "voivodeship": "Opolskie",
+    "lat": 50.97307,
+    "lng": 18.214009,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2642/xiii-kluczborski-bieg-przelajowy-o-zlota-barc.html",
+    "website": "https://www.zmierzymyczas.pl/2642/xiii-kluczborski-bieg-przelajowy-o-zlota-barc.html",
     "is_kids": null,
     "status": "active"
   },
@@ -52114,6 +52053,32 @@
     "is_kids": null,
     "status": "active"
   },
+  "viii-czernikowska-10tka-2026-2026-09-20": {
+    "id": "e3782329-59f1-43d5-a1e2-fe0461cb963e",
+    "name": "VIII Czernikowska 10-tka 2026",
+    "date": "2026-09-20",
+    "registration_deadline": "2026-09-18",
+    "regulamin_url": "https://foxter-sport.pl/uploads/competition/comp_regulations_1144.pdf",
+    "price_from": 30,
+    "price_to": 100,
+    "location": "Czernikowo",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 52.94226,
+    "lng": 18.9373,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "uliczny"
+    ],
+    "registration_url": "https://foxter-sport.pl/viii-czernikowska-10-tka-2026",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "bieg-lechitow-2026-09-20": {
     "id": "d4c0553a-e8ec-45b2-a023-175388324ab8",
     "name": "Bieg Lechitów",
@@ -52136,6 +52101,53 @@
     ],
     "registration_url": "https://bieglechitow.pl/zapisy-na-wszystkie-biegi/",
     "website": "https://bieglechitow.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "6-polmaraton-aleja-debow-czerwonych-2026-09-20": {
+    "id": "0bfbd63b-27aa-433a-b88f-9b34f2e58527",
+    "name": "6. Półmaraton Aleją Dębów Czerwonych",
+    "date": "2026-09-20",
+    "registration_deadline": "2026-09-16",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/PÓŁMARATON_ALEJĄ_DĘBÓW_CZERWONYCH-_na_stronę_bez_nagród.pdf",
+    "price_from": 75,
+    "price_to": 150,
+    "location": "Wieruszów",
+    "voivodeship": "Łódzkie",
+    "lat": 51.295165,
+    "lng": 18.151062,
+    "distances": [
+      "21.1 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/2508/6-polmaraton-aleja-debow-czerwonych.html",
+    "website": "https://www.gosit-wieruszow.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "48-bieg-jesienny-im-red-tomasza-hopfera-bieg-10-km-2026-09-20": {
+    "id": "8531b3cd-0fa8-414c-ae17-fc978d7245b0",
+    "name": "48 Bieg Jesienny im. red. Tomasza HOPFERA - Bieg 10 km",
+    "date": "2026-09-20",
+    "registration_deadline": "2026-10-09",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/48_Bieg_Hopfera_Regulamin_Biegu_G%C5%82%C3%B3wnego_2026r.pdf",
+    "price_from": 60,
+    "price_to": 100,
+    "location": "Parzymiechy",
+    "voivodeship": "Śląskie",
+    "lat": 51.040225,
+    "lng": 18.74063,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2579/48-bieg-jesienny-im-red-tomasza-hopfera-bieg-10-km.html",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -52858,31 +52870,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "xiii-bieg-branicki-2026-09-26": {
-    "id": "a806a519-a2e5-4a42-b79b-406dd529e933",
-    "name": "XIII Bieg Branicki",
-    "date": "2026-09-26",
-    "registration_deadline": "2026-01-19",
-    "regulamin_url": "https://www.facebook.com/branickietowarzystwosportowe/?locale=pl_PL",
-    "price_from": 50,
-    "price_to": 50,
-    "location": "Branice",
-    "voivodeship": "Opolskie",
-    "lat": 50.050618,
-    "lng": 17.794416,
-    "distances": [
-      "5 km",
-      "10 km"
-    ],
-    "event_type": [
-      "uliczny",
-      "nordic walking"
-    ],
-    "registration_url": "https://www.facebook.com/branickietowarzystwosportowe/?locale=pl_PL",
-    "website": "https://treningbiegacza.pl/kalendarz-biegow/bieg-branicki-branice",
-    "is_kids": null,
-    "status": "active"
-  },
   "liga-zachodu-nordic-walking-oborniki-2026-09-26": {
     "id": "48fff2f6-00a2-4472-989e-fe620f4e63e9",
     "name": "Liga Zachodu Nordic Walking Oborniki",
@@ -52932,30 +52919,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "x-cross-doliny-malej-panwi-w-pogoni-za-bobrem-2026-09-26": {
-    "id": "8cd929b8-c32f-4203-aa53-51dc9203ba88",
-    "name": "X Cross Doliny Małej Panwi – W Pogoni za Bobrem",
-    "date": "2026-09-26",
-    "registration_deadline": "2026-09-26",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_X_Cross_Doliny_Małej_Panwi-W_Pogoni_za_Bobrem.pdf",
-    "price_from": 70,
-    "price_to": 100,
-    "location": "Zawadzkie",
-    "voivodeship": "Opolskie",
-    "lat": 50.606583,
-    "lng": 18.480128,
-    "distances": [
-      "10 km",
-      "5 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2564/x-cross-doliny-malej-panwi-w-pogoni-za-bobrem.html",
-    "website": "https://www.zmierzymyczas.pl/2564/x-cross-doliny-malej-panwi-w-pogoni-za-bobrem.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "k9b-poland-2026-09-26": {
     "id": "b52c8e81-8673-4553-97c9-ff75032d4038",
     "name": "K9B POLAND",
@@ -52972,8 +52935,7 @@
       "5 km"
     ],
     "event_type": [
-      "uliczny",
-      "dzieci"
+      "ocr"
     ],
     "registration_url": "https://www.zmierzymyczas.pl/2624/k9b-poland.html",
     "website": "https://www.zmierzymyczas.pl/2624/k9b-poland.html",
@@ -53200,31 +53162,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "ultra-fajna-ryba-2026-2026-09-26": {
-    "id": "87fad449-595d-45df-a8ca-283ce0100334",
-    "name": "ULTRA FAJNA RYBA 2026",
-    "date": "2026-09-26",
-    "registration_deadline": "2026-09-10",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260926_Przedborz_-_ragulamin_zawodow_Ultra_Fajna_Ryba.pdf",
-    "price_from": 120,
-    "price_to": 190,
-    "location": "Przedbórz",
-    "voivodeship": "Łódzkie",
-    "lat": 51.086808,
-    "lng": 19.874441,
-    "distances": [
-      "56 km",
-      "22 km"
-    ],
-    "event_type": [
-      "trail",
-      "ultra"
-    ],
-    "registration_url": "https://trainerday.com/events/pl/ultra-fajna-ryba",
-    "website": "https://www.zmierzymyczas.pl/2614/ultra-fajna-ryba-2026.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "viii-bieg-szlakiem-kolejowym-2026-09-26": {
     "id": "c524d6a3-bfc3-4b49-b39d-0e139dc176cc",
     "name": "VIII Bieg Szlakiem Kolejowym",
@@ -53381,6 +53318,56 @@
     "is_kids": null,
     "status": "active"
   },
+  "xiii-bieg-branicki-2026-09-26": {
+    "id": "a806a519-a2e5-4a42-b79b-406dd529e933",
+    "name": "XIII Bieg Branicki",
+    "date": "2026-09-26",
+    "registration_deadline": "2026-09-23",
+    "regulamin_url": "https://dostartu.pl/statute_files/16696_pl.pdf",
+    "price_from": 50,
+    "price_to": 50,
+    "location": "Branice",
+    "voivodeship": "Opolskie",
+    "lat": 50.050618,
+    "lng": 17.794416,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16696",
+    "website": "https://treningbiegacza.pl/kalendarz-biegow/bieg-branicki-branice",
+    "is_kids": null,
+    "status": "active"
+  },
+  "ultra-fajna-ryba-2026-2026-09-26": {
+    "id": "87fad449-595d-45df-a8ca-283ce0100334",
+    "name": "ULTRA FAJNA RYBA 2026",
+    "date": "2026-09-26",
+    "registration_deadline": "2026-09-10",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260926_Przedborz_-_ragulamin_zawodow_Ultra_Fajna_Ryba.pdf",
+    "price_from": 120,
+    "price_to": 190,
+    "location": "Przedbórz",
+    "voivodeship": "Łódzkie",
+    "lat": 51.086808,
+    "lng": 19.874441,
+    "distances": [
+      "56 km",
+      "22 km"
+    ],
+    "event_type": [
+      "trail",
+      "ultra"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2614/ultra-fajna-ryba-2026.html",
+    "website": "https://www.zmierzymyczas.pl/2614/ultra-fajna-ryba-2026.html",
+    "is_kids": null,
+    "status": "active"
+  },
   "slezanski-festiwal-biegowy-2026-2026-09-26": {
     "id": "1507b5c6-d6ff-4248-917b-ad3f906fa23c",
     "name": "Ślężański Festiwal Biegowy 2026",
@@ -53457,6 +53444,34 @@
     ],
     "registration_url": "https://competitions.timekeeper.pl/5-czudec-cross-run",
     "website": "https://mtbczudec.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "x-cross-doliny-malej-panwi-w-pogoni-za-bobrem-2026-09-26": {
+    "id": "8cd929b8-c32f-4203-aa53-51dc9203ba88",
+    "name": "X Cross Doliny Małej Panwi – W Pogoni za Bobrem",
+    "date": "2026-09-26",
+    "registration_deadline": "2026-09-26",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_X_Cross_Doliny_Ma%C5%82ej_Panwi-W_Pogoni_za_Bobrem.pdf",
+    "price_from": 70,
+    "price_to": 100,
+    "location": "Zawadzkie",
+    "voivodeship": "Opolskie",
+    "lat": 50.606583,
+    "lng": 18.480128,
+    "distances": [
+      "5 km",
+      "10 km",
+      "100 m",
+      "200 m",
+      "400 m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2564/x-cross-doliny-malej-panwi-w-pogoni-za-bobrem.html",
+    "website": "https://www.zmierzymyczas.pl/2564/x-cross-doliny-malej-panwi-w-pogoni-za-bobrem.html",
     "is_kids": null,
     "status": "active"
   },
@@ -53580,9 +53595,9 @@
     "lat": 51.762475,
     "lng": 18.089536,
     "distances": [
-      "92.5 m",
-      "192.5 m",
-      "1925 m"
+      "1.925 km",
+      "93 m",
+      "193 m"
     ],
     "event_type": [
       "uliczny",
@@ -53722,30 +53737,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "kresowe-trail-11-michalowo-2026-2026-09-27": {
-    "id": "6d501d21-166c-4bd7-ab92-a4917f3779ae",
-    "name": "Kresowe Trail #11- MICHAŁOWO - 2026",
-    "date": "2026-09-27",
-    "registration_deadline": "2026-09-28",
-    "regulamin_url": "https://dostartu.pl/statute_files/15586_pl.pdf",
-    "price_from": 60,
-    "price_to": 110,
-    "location": "Michałowo",
-    "voivodeship": "Podlaskie",
-    "lat": 53.033988,
-    "lng": 23.599319,
-    "distances": [
-      "8 km",
-      "20 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v15586",
-    "website": "https://kresowetrail.pl/michalowo-2026-09-27/",
-    "is_kids": null,
-    "status": "active"
-  },
   "viii-lesny-bieg-do-zrodel-2026-09-27": {
     "id": "b81589c2-e6a3-4003-9b08-9552e1d98611",
     "name": "VIII Leśny Bieg do Źródeł",
@@ -53795,32 +53786,6 @@
     ],
     "registration_url": "https://foxter-sport.pl/ultra-pazur-kujawy-1.0",
     "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
-  "3-lesna-mila-bieg-dla-dzieci-i-mlodziezy-2026-09-27": {
-    "id": "c2a7b9e7-0488-4eda-9e2f-57220b833c95",
-    "name": "3 LEŚNA MILA - bieg dla dzieci i młodzieży",
-    "date": "2026-09-27",
-    "registration_deadline": "2026-09-20",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260927_Jelcz-Laskowice_-_Lesna_Mila_oswiadczenie_dla_osoby_niepelnoletniej.pdf",
-    "price_from": 30,
-    "price_to": 50,
-    "location": "Jelcz-Laskowice",
-    "voivodeship": "Dolnośląskie",
-    "lat": 51.020389,
-    "lng": 17.317006,
-    "distances": [
-      "200 m",
-      "300 m"
-    ],
-    "event_type": [
-      "trail",
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2528/3-lesna-mila-bieg-dla-dzieci-i-mlodziezy.html",
-    "website": "https://www.zmierzymyczas.pl/2528/3-lesna-mila-bieg-dla-dzieci-i-mlodziezy.html",
     "is_kids": null,
     "status": "active"
   },
@@ -53989,31 +53954,6 @@
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2475/polmaraton-opole-2026.html",
     "website": "https://www.zmierzymyczas.pl/2659/polmaraton-opole-2026-lista-rezerwowa.html",
-    "is_kids": null,
-    "status": "active"
-  },
-  "family-run-opole-2026-2026-09-27": {
-    "id": "047e9461-c277-4993-be1f-815615036012",
-    "name": "Family Run Opole 2026",
-    "date": "2026-09-27",
-    "registration_deadline": "2026-09-25",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260927_Opole_-_regulamin_Family_Run_Opole_2026.pdf",
-    "price_from": 9,
-    "price_to": 9,
-    "location": "Opole",
-    "voivodeship": "Opolskie",
-    "lat": 50.666818,
-    "lng": 17.923641,
-    "distances": [
-      "ok. 2",
-      "2 km"
-    ],
-    "event_type": [
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2556/family-run-opole-2026.html",
-    "website": "https://polmaratonopole.pl/",
     "is_kids": null,
     "status": "active"
   },
@@ -54617,6 +54557,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "3-lesna-mila-bieg-dla-dzieci-i-mlodziezy-2026-09-27": {
+    "id": "c2a7b9e7-0488-4eda-9e2f-57220b833c95",
+    "name": "3 LEŚNA MILA - bieg dla dzieci i młodzieży",
+    "date": "2026-09-27",
+    "registration_deadline": "2026-09-20",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260927_Jelcz-Laskowice_-_regulamin_Lesna_Mila.pdf",
+    "price_from": 30,
+    "price_to": 50,
+    "location": "Jelcz-Laskowice",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.020389,
+    "lng": 17.317006,
+    "distances": [
+      "300 m"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2528/3-lesna-mila-bieg-dla-dzieci-i-mlodziezy.html",
+    "website": "https://www.zmierzymyczas.pl/2528/3-lesna-mila-bieg-dla-dzieci-i-mlodziezy.html",
+    "is_kids": null,
+    "status": "active"
+  },
   "xii-slupski-bieg-charytatywny-na-rzecz-zwierzat-pobiegnij-pomozesz-2026-09-27": {
     "id": "3a1eee7f-1f75-40ce-844a-4990d81b6023",
     "name": "XII Słupski Bieg Charytatywny na rzecz zwierząt - \"POBIEGNIJ - POMOŻESZ!\"",
@@ -54639,6 +54603,54 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v17136",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "kresowe-trail-11-michalowo-2026-2026-09-27": {
+    "id": "6d501d21-166c-4bd7-ab92-a4917f3779ae",
+    "name": "Kresowe Trail #11- MICHAŁOWO - 2026",
+    "date": "2026-09-27",
+    "registration_deadline": "2026-09-28",
+    "regulamin_url": "https://kresowetrail.pl/regulamin-2026/",
+    "price_from": 60,
+    "price_to": 110,
+    "location": "Michałowo",
+    "voivodeship": "Podlaskie",
+    "lat": 53.033988,
+    "lng": 23.599319,
+    "distances": [
+      "8 km",
+      "20 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v15586",
+    "website": "https://kresowetrail.pl/michalowo-2026-09-27/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "k9b-poland-2-dzien-2026-09-27": {
+    "id": "17203ec8-0cb0-4568-b2a9-d2890bbc4ec6",
+    "name": "K9B POLAND - 2 DZIEŃ",
+    "date": "2026-09-27",
+    "registration_deadline": "2026-09-24",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/REGULAMIN_K9-poprawka.pdf",
+    "price_from": 200,
+    "price_to": 275,
+    "location": "Skierniewice",
+    "voivodeship": "Łódzkie",
+    "lat": 51.958007,
+    "lng": 20.144809,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "ocr",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2625/k9b-poland2.html",
+    "website": "https://www.zmierzymyczas.pl/2625/k9b-poland2.html",
     "is_kids": null,
     "status": "active"
   },
@@ -54869,6 +54881,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "family-run-opole-2026-2026-09-27": {
+    "id": "047e9461-c277-4993-be1f-815615036012",
+    "name": "Family Run Opole 2026",
+    "date": "2026-09-27",
+    "registration_deadline": "2026-09-25",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260927_Opole_-_regulamin_Family_Run_Opole_2026.pdf",
+    "price_from": 9,
+    "price_to": 9,
+    "location": "Opole",
+    "voivodeship": "Opolskie",
+    "lat": 50.666818,
+    "lng": 17.923641,
+    "distances": [
+      "2.2 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2556/family-run-opole-2026.html",
+    "website": "https://polmaratonopole.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
   "7-biegu-po-zlote-runo-2026-09-27": {
     "id": "c897115c-0cb2-4764-aa98-43f339c95811",
     "name": "7. Biegu po Złote RUNo",
@@ -55074,36 +55110,12 @@
     "is_kids": null,
     "status": "active"
   },
-  "k9b-poland-2-dzien-2026-09-27": {
-    "id": "17203ec8-0cb0-4568-b2a9-d2890bbc4ec6",
-    "name": "K9B POLAND - 2 DZIEŃ",
-    "date": "2026-09-27",
-    "registration_deadline": "2026-09-24",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/REGULAMIN_K9-1.pdf",
-    "price_from": 200,
-    "price_to": 275,
-    "location": "Skierniewice",
-    "voivodeship": "Łódzkie",
-    "lat": 51.958007,
-    "lng": 20.144809,
-    "distances": [
-      "5 km"
-    ],
-    "event_type": [
-      "ocr",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2625/k9b-poland2.html",
-    "website": "https://www.zmierzymyczas.pl/2625/k9b-poland2.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "bieg-wikinga-wolin26-2026-09-27": {
     "id": "7de9fd0f-f5f7-4840-b941-646aef21bead",
     "name": "Bieg Wikinga - Wolin'26",
     "date": "2026-09-27",
     "registration_deadline": "2026-09-15",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260927_Wolin_-_regulamin_Biegu_Wikinga.pdf",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260927_Wolin_-_regulamin_Biegu_Wikinga_2026.pdf",
     "price_from": 140,
     "price_to": 200,
     "location": "Wolin",
@@ -55117,8 +55129,7 @@
     ],
     "event_type": [
       "uliczny",
-      "nordic walking",
-      "dzieci"
+      "nordic walking"
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2595/bieg-malego-wikinga-wolin-26.html",
     "website": "https://www.zmierzymyczas.pl/2590/bieg-wikinga-wolin-26.html",
@@ -55445,8 +55456,8 @@
     "id": "c3925884-4287-46e3-8089-cc2c200be189",
     "name": "8. Krwiobieg Kraków",
     "date": "2026-10-03",
-    "registration_deadline": null,
-    "regulamin_url": "https://lumisport.eu/wp-content/uploads/2025/06/Regulamin.pdf",
+    "registration_deadline": "2026-10-02",
+    "regulamin_url": "https://lumisport.eu/wp-content/uploads/2026/09/Regulamin-8.edycja-krwiobieg.pdf",
     "price_from": 45,
     "price_to": 100,
     "location": "Kraków",
@@ -55454,11 +55465,11 @@
     "lat": 50.046943,
     "lng": 19.997153,
     "distances": [
-      "10 km",
       "5 km",
-      "Nordic Walking - 5 km"
+      "10 km"
     ],
     "event_type": [
+      "nordic walking",
       "uliczny",
       "dzieci"
     ],
@@ -55778,7 +55789,6 @@
     ],
     "event_type": [
       "trail",
-      "uliczny",
       "ultra"
     ],
     "registration_url": "https://foxter-sport.pl/i-ultramaraton-krajna-ultra-trail-2026",
@@ -55825,13 +55835,12 @@
     "lng": 20.23866,
     "distances": [
       "5 km",
-      "10 km",
-      "400 m",
-      "800 m"
+      "10 km"
     ],
     "event_type": [
-      "uliczny",
       "nordic walking",
+      "trail",
+      "uliczny",
       "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v16858",
@@ -56093,8 +56102,7 @@
     ],
     "event_type": [
       "charytatywny",
-      "uliczny",
-      "dzieci"
+      "uliczny"
     ],
     "registration_url": "https://foxter-sport.pl/iii-roznowski-bieg-charytatywny-dla-stowarzyszenia-przyjaciel-2026",
     "website": null,
@@ -57402,6 +57410,34 @@
     "is_kids": null,
     "status": "active"
   },
+  "blachownianska-lesna-dycha-lesna-dycha-kids-2026-2026-10-04": {
+    "id": "d26902dd-63d7-4064-902c-e39d5cd536ff",
+    "name": "BLACHOWNIAŃSKA LEŚNA DYCHA & LEŚNA DYCHA KIDS 2026",
+    "date": "2026-10-04",
+    "registration_deadline": "2026-09-27",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_-_Lesna_Dycha_2025_-_porawki2_122.pdf",
+    "price_from": 15,
+    "price_to": 60,
+    "location": "Blachownia",
+    "voivodeship": "Śląskie",
+    "lat": 50.782024,
+    "lng": 18.968426,
+    "distances": [
+      "10 km",
+      "200 m",
+      "400 m",
+      "800 m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2657/blachownianska-lesna-dycha-lesna-dycha-kids-2026.html",
+    "website": "https://www.zmierzymyczas.pl/2657/blachownianska-lesna-dycha-lesna-dycha-kids-2026.html",
+    "is_kids": null,
+    "status": "active"
+  },
   "bieg-charytatywny-razem-dla-was-2026-10-04": {
     "id": "d89ae256-efa6-405c-a1c9-8890feadf516",
     "name": "Bieg Charytatywny Razem Dla Was",
@@ -57523,34 +57559,6 @@
     ],
     "registration_url": "https://competitions.timekeeper.pl/16-wyscig-o-pietruszke",
     "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
-  "blachownianska-lesna-dycha-lesna-dycha-kids-2026-2026-10-04": {
-    "id": "d26902dd-63d7-4064-902c-e39d5cd536ff",
-    "name": "BLACHOWNIAŃSKA LEŚNA DYCHA & LEŚNA DYCHA KIDS 2026",
-    "date": "2026-10-04",
-    "registration_deadline": "2026-09-27",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_-_Lesna_Dycha_2026_-_porawki2_1.pdf",
-    "price_from": 15,
-    "price_to": 60,
-    "location": "Blachownia",
-    "voivodeship": "Śląskie",
-    "lat": 50.782024,
-    "lng": 18.968426,
-    "distances": [
-      "10 km",
-      "200 m",
-      "400 m",
-      "800 m"
-    ],
-    "event_type": [
-      "nordic walking",
-      "trail",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2657/blachownianska-lesna-dycha-lesna-dycha-kids-2026.html",
-    "website": "https://www.zmierzymyczas.pl/2657/blachownianska-lesna-dycha-lesna-dycha-kids-2026.html",
     "is_kids": null,
     "status": "active"
   },
@@ -58113,38 +58121,12 @@
     "is_kids": null,
     "status": "active"
   },
-  "ii-zebowicki-strzal-w-10tke-2026-10-10": {
-    "id": "80f10441-5b91-4dc6-aeae-c802aeb8b847",
-    "name": "II ZĘBOWICKI STRZAŁ W 10-TKĘ",
-    "date": "2026-10-10",
-    "registration_deadline": "2026-10-10",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/regulamin_biegu_Zębowicka_10-2026.pdf",
-    "price_from": 40,
-    "price_to": 80,
-    "location": "Zębowice",
-    "voivodeship": "Opolskie",
-    "lat": 50.76211,
-    "lng": 18.3403,
-    "distances": [
-      "10 km",
-      "7 km"
-    ],
-    "event_type": [
-      "nordic walking",
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2600/ii-zebowicki-strzal-w-10-tke.html",
-    "website": "https://www.zmierzymyczas.pl/2600/ii-zebowicki-strzal-w-10-tke.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "ii-zebowicki-strzal-w-10tke-biegi-dzieci-2026-10-10": {
     "id": "ecfc5fce-66c3-4683-8998-167555240ca6",
     "name": "II ZĘBOWICKI STRZAŁ W 10-TKĘ - BIEGI DZIECI",
     "date": "2026-10-10",
     "registration_deadline": "2026-10-03",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/regulamin_biegu_dzieci_Zębowicka_10-2026.pdf",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/regulamin_biegu_dzieci_Z%C4%99bowicka_10-2026.pdf",
     "price_from": null,
     "price_to": null,
     "location": "Zębowice",
@@ -58152,11 +58134,11 @@
     "lat": 50.76211,
     "lng": 18.3403,
     "distances": [
-      "100m",
-      "200m",
-      "300m",
-      "400m",
-      "600m"
+      "100 m",
+      "200 m",
+      "300 m",
+      "400 m",
+      "600 m"
     ],
     "event_type": [
       "uliczny",
@@ -58350,35 +58332,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-biegi-dzieci-i-mlodziezy-2026-10-10": {
-    "id": "6c71d105-0f23-4391-a07a-851c1ac36a64",
-    "name": "VI Bieg Gminny \"Dycha Lasami Nad Górną Liswartą\" - Biegi Dzieci i Młodzieży",
-    "date": "2026-10-10",
-    "registration_deadline": "2026-10-07",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261010_Chwostek_-_Regulamin_VI_Biegu_Dycha_Lasami_Nad_Górną_Liswartą.pdf",
-    "price_from": 20,
-    "price_to": 100,
-    "location": "Chwostek",
-    "voivodeship": "Śląskie",
-    "lat": 50.718536,
-    "lng": 18.806927,
-    "distances": [
-      "6.5 km",
-      "10 km",
-      "100 m",
-      "400 m",
-      "800 m"
-    ],
-    "event_type": [
-      "nordic walking",
-      "trail",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2629/vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-biegi-dzieci-i-mlodziezy.html",
-    "website": "https://www.zmierzymyczas.pl/2629/vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-biegi-dzieci-i-mlodziezy.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "7-bialogardzki-bieg-szlakiem-gryfa-2026-10-10": {
     "id": "9cebedde-cf5c-41cd-8304-352abdadae9d",
     "name": "7 Białogardzki Bieg Szlakiem Gryfa",
@@ -58459,7 +58412,7 @@
     "id": "d79bac80-892a-44cc-99e2-d5bdc07b94f3",
     "name": "Nocny Bieg po Pszczynie 2026",
     "date": "2026-10-10",
-    "registration_deadline": "2026-10-08",
+    "registration_deadline": "2026-09-30",
     "regulamin_url": "https://dostartu.pl/statute_files/16856_pl.pdf",
     "price_from": 80,
     "price_to": 100,
@@ -58638,6 +58591,32 @@
     "is_kids": null,
     "status": "active"
   },
+  "ii-zebowicki-strzal-w-10tke-2026-10-10": {
+    "id": "80f10441-5b91-4dc6-aeae-c802aeb8b847",
+    "name": "II ZĘBOWICKI STRZAŁ W 10-TKĘ",
+    "date": "2026-10-10",
+    "registration_deadline": "2026-10-10",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/regulamin_biegu_Z%C4%99bowicka_10-2026.pdf",
+    "price_from": 40,
+    "price_to": 80,
+    "location": "Zębowice",
+    "voivodeship": "Opolskie",
+    "lat": 50.76211,
+    "lng": 18.3403,
+    "distances": [
+      "10 km",
+      "7 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2600/ii-zebowicki-strzal-w-10-tke.html",
+    "website": "https://www.zmierzymyczas.pl/2600/ii-zebowicki-strzal-w-10-tke.html",
+    "is_kids": null,
+    "status": "active"
+  },
   "8-lasy-nad-utrata-2026-memorial-im-radoslawa-chlebickiego-2026-10-10": {
     "id": "4522575c-8f77-4447-83fc-0defbdbac837",
     "name": "8. „Lasy nad Utratą” 2026 – Memoriał im. Radosława Chlebickiego",
@@ -58692,6 +58671,36 @@
     "is_kids": null,
     "status": "active"
   },
+  "vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-biegi-dzieci-i-mlodziezy-2026-10-10": {
+    "id": "6c71d105-0f23-4391-a07a-851c1ac36a64",
+    "name": "VI Bieg Gminny \"Dycha Lasami Nad Górną Liswartą\" - Biegi Dzieci i Młodzieży",
+    "date": "2026-10-10",
+    "registration_deadline": "2026-10-07",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261010_Chwostek_-_Regulamin_VI_Biegu_Dycha_Lasami_Nad_G%C3%B3rn%C4%85_Liswart%C4%85.pdf",
+    "price_from": 20,
+    "price_to": 100,
+    "location": "Chwostek",
+    "voivodeship": "Śląskie",
+    "lat": 50.718536,
+    "lng": 18.806927,
+    "distances": [
+      "6.5 km",
+      "10 km",
+      "100 m",
+      "400 m",
+      "800 m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2629/vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-biegi-dzieci-i-mlodziezy.html",
+    "website": "https://www.zmierzymyczas.pl/2629/vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-biegi-dzieci-i-mlodziezy.html",
+    "is_kids": null,
+    "status": "active"
+  },
   "ii-korczynski-polmaraton-gorski-xi-korczynski-bieg-i-nw-do-przadek-2026-10-10": {
     "id": "0c2c7fa9-ac77-4ba5-86ec-7bb36f5cc84a",
     "name": "II Korczyński Półmaraton Górski.  XI Korczyński Bieg i NW do Prządek",
@@ -58715,35 +58724,6 @@
     ],
     "registration_url": "https://competitions.timekeeper.pl/ii-korczynski-polmaraton-gorski-xi-korczynski-bieg-i-nw-do-przadek",
     "website": "https://competitions.timekeeper.pl/ii-korczynski-polmaraton-gorski-xi-korczynski-bieg-i-nw-do-przadek",
-    "is_kids": null,
-    "status": "active"
-  },
-  "vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-nordic-walking-2026-10-10": {
-    "id": "53e426c1-b1d7-4571-bd36-2116bacbbe49",
-    "name": "VI Bieg Gminny \"Dycha Lasami Nad Górną Liswartą\" + Nordic Walking",
-    "date": "2026-10-10",
-    "registration_deadline": "2026-10-07",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261010_Chwostek_-_Regulamin_VI_Biegu_Dycha_Lasami_Nad_Górną_Liswartą.pdf",
-    "price_from": 60,
-    "price_to": 100,
-    "location": "Chwostek",
-    "voivodeship": "Śląskie",
-    "lat": 50.718536,
-    "lng": 18.806927,
-    "distances": [
-      "10 km",
-      "6.5 km",
-      "100 m",
-      "400 m",
-      "800 m"
-    ],
-    "event_type": [
-      "nordic walking",
-      "trail",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2628/vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-nordic-walking.html",
-    "website": "https://www.zmierzymyczas.pl/2628/vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-nordic-walking.html",
     "is_kids": null,
     "status": "active"
   },
@@ -58773,6 +58753,36 @@
     ],
     "registration_url": "https://b4sportonline.pl/ultrakotlina/",
     "website": "https://ultrakotlina.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-nordic-walking-2026-10-10": {
+    "id": "53e426c1-b1d7-4571-bd36-2116bacbbe49",
+    "name": "VI Bieg Gminny \"Dycha Lasami Nad Górną Liswartą\" + Nordic Walking",
+    "date": "2026-10-10",
+    "registration_deadline": "2026-10-07",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261010_Chwostek_-_Regulamin_VI_Biegu_Dycha_Lasami_Nad_G%C3%B3rn%C4%85_Liswart%C4%85.pdf",
+    "price_from": 60,
+    "price_to": 100,
+    "location": "Chwostek",
+    "voivodeship": "Śląskie",
+    "lat": 50.718536,
+    "lng": 18.806927,
+    "distances": [
+      "10 km",
+      "6.5 km",
+      "100 m",
+      "400 m",
+      "800 m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2628/vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-nordic-walking.html",
+    "website": "https://www.zmierzymyczas.pl/2628/vi-bieg-gminny-dycha-lasami-nad-gorna-liswarta-nordic-walking.html",
     "is_kids": null,
     "status": "active"
   },
@@ -58834,8 +58844,8 @@
     "id": "d65654fe-1d8f-4b4a-8679-cf1cfd009126",
     "name": "IX Opolski Bieg Belfra",
     "date": "2026-10-10",
-    "registration_deadline": "2025-10-14",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20251018_Grodkow_-_regulamin_VIII_Opolskiego_Biegu_Belfra_v2.pdf",
+    "registration_deadline": "2026-10-07",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261010_Grodkow_-_regulamin_IX_Opolskiego_Biegu_Belfra.pdf",
     "price_from": 50,
     "price_to": 50,
     "location": "Grodków",
@@ -59222,7 +59232,7 @@
     "name": "XXV BIEG SOBIBORSKI - Ocalić od zapomnienia – uczyć dla przyszłości",
     "date": "2026-10-11",
     "registration_deadline": "2026-09-28",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_-_21_km_Bieg_Sobiborski_2026.pdf",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_-_Bieg_g%C5%82%C3%B3wny_Bieg_Sobiborski_2026-1.pdf",
     "price_from": 100,
     "price_to": 100,
     "location": "Włodawa",
@@ -59230,8 +59240,7 @@
     "lat": 51.541278,
     "lng": 23.529037,
     "distances": [
-      "21",
-      "097 km"
+      "21.1 km"
     ],
     "event_type": [
       "uliczny"
@@ -59646,50 +59655,12 @@
     "is_kids": null,
     "status": "active"
   },
-  "x-festiwal-biegow-rodzinnych-cob-dauch-olesnica-biegi-dzieci-2026-10-11": {
-    "id": "411089d7-c44d-43f0-a1ae-6ec3a2e04fe1",
-    "name": "X Festiwal Biegów Rodzinnych COB - DAUCH Oleśnica - Biegi Dzieci",
-    "date": "2026-10-11",
-    "registration_deadline": "2026-10-10",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261011_Oleśnica_-_regulamin_FBR_v.260606.pdf",
-    "price_from": 70,
-    "price_to": 100,
-    "location": "Oleśnica",
-    "voivodeship": "Dolnośląskie",
-    "lat": 51.210243,
-    "lng": 17.382947,
-    "distances": [
-      "0.1 km",
-      "0.2 km",
-      "0.3 km",
-      "0.4 km",
-      "0.5 km",
-      "1.3 km",
-      "2.5 km",
-      "6 km",
-      "10 km",
-      "100m",
-      "200m",
-      "300m",
-      "400m",
-      "500m"
-    ],
-    "event_type": [
-      "nordic walking",
-      "trail",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2599/x-festiwal-biegow-rodzinnych-cob-dauch-olesnica-biegi-dzieci.html",
-    "website": "https://www.zmierzymyczas.pl/2599/x-festiwal-biegow-rodzinnych-cob-dauch-olesnica-biegi-dzieci.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "x-festiwal-biegow-rodzinnych-cob-dauch-olesnica-bieg-glowny-2026-10-11": {
     "id": "041dc8fb-45c7-466d-bb93-c2614ec8164e",
     "name": "X Festiwal Biegów Rodzinnych COB - DAUCH Oleśnica - Bieg Główny",
     "date": "2026-10-11",
     "registration_deadline": "2026-10-10",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261011_Oleśnica_-_regulamin_FBR_v.260606.pdf",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261011_Ole%C5%9Bnica_-_regulamin_FBR_v.260606.pdf",
     "price_from": 70,
     "price_to": 100,
     "location": "Oleśnica",
@@ -59697,15 +59668,15 @@
     "lat": 51.210243,
     "lng": 17.382947,
     "distances": [
-      "1.3 km",
-      "2.5 km",
-      "6 km",
       "10 km",
-      "100m",
-      "200m",
-      "300m",
-      "400m",
-      "500m"
+      "6 km",
+      "100 m",
+      "200 m",
+      "300 m",
+      "400 m",
+      "500 m",
+      "1.25 km",
+      "2.5 km"
     ],
     "event_type": [
       "nordic walking",
@@ -59770,6 +59741,40 @@
     "is_kids": null,
     "status": "active"
   },
+  "x-festiwal-biegow-rodzinnych-cob-dauch-olesnica-biegi-dzieci-2026-10-11": {
+    "id": "411089d7-c44d-43f0-a1ae-6ec3a2e04fe1",
+    "name": "X Festiwal Biegów Rodzinnych COB - DAUCH Oleśnica - Biegi Dzieci",
+    "date": "2026-10-11",
+    "registration_deadline": "2026-10-10",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261011_Ole%C5%9Bnica_-_regulamin_FBR_v.260606.pdf",
+    "price_from": 70,
+    "price_to": 100,
+    "location": "Oleśnica",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.210243,
+    "lng": 17.382947,
+    "distances": [
+      "1.3 km",
+      "2.5 km",
+      "6 km",
+      "10 km",
+      "100 m",
+      "200 m",
+      "300 m",
+      "400 m",
+      "500 m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2599/x-festiwal-biegow-rodzinnych-cob-dauch-olesnica-biegi-dzieci.html",
+    "website": "https://www.zmierzymyczas.pl/2599/x-festiwal-biegow-rodzinnych-cob-dauch-olesnica-biegi-dzieci.html",
+    "is_kids": null,
+    "status": "active"
+  },
   "biegaj-razem-z-nami-grand-prix-piekar-slaskich-2026-11102026-2026-10-11": {
     "id": "c2ca7e36-8e8b-427d-ab01-94c9d69fd6ee",
     "name": "Biegaj Razem z Nami – Grand Prix Piekar Śląskich 2026 - 11.10.2026",
@@ -59805,7 +59810,7 @@
     "name": "Różowa Piątka w Pustkowie – bieg i marsz po zdrowie",
     "date": "2026-10-11",
     "registration_deadline": "2026-09-22",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_biegu_Różowa_Piątka_w_Pustkowie_-_bieg_i_marsz_po_zdrowie_11.10.2026-1.pdf",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_biegu_R%C3%B3%C5%BCowa_Pi%C4%85tka_w_Pustkowie_-_bieg_i_marsz_po_zdrowie_11.10.2026-1.pdf",
     "price_from": 30,
     "price_to": 50,
     "location": "Pustków",
@@ -60109,32 +60114,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "35-tarnowski-bieg-leliwitow-2026-2026-10-17": {
-    "id": "3b686bdd-bae9-4d80-86a4-7698c6d3ad3c",
-    "name": "35 Tarnowski Bieg Leliwitów 2026",
-    "date": "2026-10-17",
-    "registration_deadline": "2026-10-14",
-    "regulamin_url": "https://dostartu.pl/statute_files/16301_pl.pdf",
-    "price_from": 40,
-    "price_to": 100,
-    "location": "Tarnów",
-    "voivodeship": "Małopolskie",
-    "lat": 50.012101,
-    "lng": 20.985841,
-    "distances": [
-      "10 km",
-      "2 km",
-      "2.5 km"
-    ],
-    "event_type": [
-      "nocny",
-      "uliczny"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v16301",
-    "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
   "bieg-o-blekitna-wstege-bobru-2026-2026-10-17": {
     "id": "d75162a1-ad7d-4983-a4ea-fea3ee44e910",
     "name": "Bieg o Błękitną Wstęgę Bobru 2026",
@@ -60213,33 +60192,6 @@
     ],
     "registration_url": "https://www.zatyrani.pl/wilczy-polmaraton",
     "website": "https://www.zatyrani.pl/wilczy-polmaraton",
-    "is_kids": null,
-    "status": "active"
-  },
-  "2-jesienny-cross-2026-10-17": {
-    "id": "210f204d-9e7e-4509-ba3d-45640a97a529",
-    "name": "2 Jesienny Cross",
-    "date": "2026-10-17",
-    "registration_deadline": null,
-    "regulamin_url": "https://lumisport.eu/wp-content/uploads/2026/09/Regulamin-2-Jesienny-Cross.pdf",
-    "price_from": 10,
-    "price_to": 90,
-    "location": "Grotniki",
-    "voivodeship": "Łódzkie",
-    "lat": 51.893409,
-    "lng": 19.312378,
-    "distances": [
-      "21 km",
-      "5 km",
-      "5 km - na sześć łap",
-      "Nordic Walking - 5 km"
-    ],
-    "event_type": [
-      "trail",
-      "dzieci"
-    ],
-    "registration_url": "https://lumisport.eu/produkt/2-jesienny-cross/",
-    "website": "https://lumisport.eu/produkt/2-jesienny-cross/",
     "is_kids": null,
     "status": "active"
   },
@@ -60322,6 +60274,31 @@
     ],
     "registration_url": "https://b4sportonline.pl/LemkowynaUltraTrail/",
     "website": "https://www.ultralemkowyna.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "35-tarnowski-bieg-leliwitow-2026-2026-10-17": {
+    "id": "3b686bdd-bae9-4d80-86a4-7698c6d3ad3c",
+    "name": "35 Tarnowski Bieg Leliwitów 2026",
+    "date": "2026-10-17",
+    "registration_deadline": "2026-10-14",
+    "regulamin_url": "https://dostartu.pl/statute_files/16301_pl.pdf",
+    "price_from": 40,
+    "price_to": 100,
+    "location": "Tarnów",
+    "voivodeship": "Małopolskie",
+    "lat": 50.012101,
+    "lng": 20.985841,
+    "distances": [
+      "10 km",
+      "2 km",
+      "2.5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16301",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -60537,6 +60514,33 @@
     "is_kids": null,
     "status": "active"
   },
+  "2-jesienny-cross-2026-10-17": {
+    "id": "210f204d-9e7e-4509-ba3d-45640a97a529",
+    "name": "2 Jesienny Cross",
+    "date": "2026-10-17",
+    "registration_deadline": "2026-10-16",
+    "regulamin_url": "https://lumisport.eu/wp-content/uploads/2026/09/Regulamin-2-Jesienny-Cross.pdf",
+    "price_from": 10,
+    "price_to": 90,
+    "location": "Grotniki",
+    "voivodeship": "Łódzkie",
+    "lat": 51.893409,
+    "lng": 19.312378,
+    "distances": [
+      "5 km",
+      "21 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://lumisport.eu/produkt/2-jesienny-cross/",
+    "website": "https://lumisport.eu/produkt/2-jesienny-cross/",
+    "is_kids": null,
+    "status": "active"
+  },
   "43-biegi-im-henryka-witkowskiego-2026-10-17": {
     "id": "b2eb5a33-0969-4e4f-bf56-220f10c3aaa0",
     "name": "43. Biegi im. Henryka Witkowskiego",
@@ -60627,8 +60631,7 @@
     "lng": 16.966014,
     "distances": [
       "10 km",
-      "5 km",
-      "NW"
+      "5 km"
     ],
     "event_type": [
       "nordic walking",
@@ -60823,30 +60826,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "iv-bieg-po-karme-2026-10-18": {
-    "id": "aded7c97-b0d0-4f6a-86a8-39d955860fae",
-    "name": "IV Bieg Po Karmę",
-    "date": "2026-10-18",
-    "registration_deadline": "2026-10-11",
-    "regulamin_url": "https://dostartu.pl/statute_files/16464_pl.pdf",
-    "price_from": 70,
-    "price_to": 150,
-    "location": "Korabiewice, MZ",
-    "voivodeship": "Mazowieckie",
-    "lat": 51.954,
-    "lng": 20.4174,
-    "distances": [
-      "5 km",
-      "10 km"
-    ],
-    "event_type": [
-      "bieg"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v16464",
-    "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
   "10-polmaraton-lubelski-2026-10-18": {
     "id": "93f06af6-0e2e-40c4-8b14-7ab1aef23ced",
     "name": "10 Półmaraton Lubelski",
@@ -60868,32 +60847,6 @@
     ],
     "registration_url": "https://www.maraton.lublin.eu/polmaraton-lubelski/aktualnosci/aktualnosc-rozpoczynamy-zapisy-202",
     "website": "https://www.maraton.lublin.eu/polmaraton-lubelski/10-polmaraton-lubelski/o-biegu",
-    "is_kids": null,
-    "status": "active"
-  },
-  "xii-otwarty-bieg-uliczny-i-marsz-nordic-walking-lewin-biega-2026-10-18": {
-    "id": "b01fb87c-d7b0-4e07-9c29-b008713ffe04",
-    "name": "XII Otwarty Bieg Uliczny i Marsz Nordic Walking - Lewin Biega",
-    "date": "2026-10-18",
-    "registration_deadline": "2026-09-25",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_LEWIN_BIEGA_2026__marsz.pdf",
-    "price_from": 70,
-    "price_to": 70,
-    "location": "Lewin Brzeski",
-    "voivodeship": "Opolskie",
-    "lat": 50.748711,
-    "lng": 17.616648,
-    "distances": [
-      "10",
-      "8 km",
-      "NW"
-    ],
-    "event_type": [
-      "nordic walking",
-      "uliczny"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2643/xii-otwarty-bieg-uliczny-i-marsz-nordic-walking-lewin-biega.html",
-    "website": "https://www.zmierzymyczas.pl/2643/xii-otwarty-bieg-uliczny-i-marsz-nordic-walking-lewin-biega.html",
     "is_kids": null,
     "status": "active"
   },
@@ -61353,6 +61306,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "iv-bieg-po-karme-2026-10-18": {
+    "id": "aded7c97-b0d0-4f6a-86a8-39d955860fae",
+    "name": "IV Bieg Po Karmę",
+    "date": "2026-10-18",
+    "registration_deadline": "2026-10-11",
+    "regulamin_url": "https://dostartu.pl/statute_files/16464_pl.pdf",
+    "price_from": 70,
+    "price_to": 150,
+    "location": "Korabiewice, MZ",
+    "voivodeship": "Mazowieckie",
+    "lat": 51.954,
+    "lng": 20.4174,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16464",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "7-radzyminski-trail-2026-10-18": {
     "id": "59fff261-95c7-4f53-b91a-05e9c3490e77",
     "name": "7. Radzymiński Trail",
@@ -61436,15 +61414,19 @@
     "lat": 50.79283,
     "lng": 18.018566,
     "distances": [
-      "1.2 km",
+      "5 km",
+      "10 km",
       "100 m",
-      "600 m"
+      "500 m",
+      "1.2 km"
     ],
     "event_type": [
+      "nordic walking",
       "trail",
+      "uliczny",
       "dzieci"
     ],
-    "registration_url": "http://www.zmierzymyczas.pl",
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2626/bieg-ku-sloncu-2026-bieg-dzieci.html",
     "website": "https://www.zmierzymyczas.pl/2626/bieg-ku-sloncu-2026-bieg-dzieci.html",
     "is_kids": null,
     "status": "active"
@@ -61463,15 +61445,50 @@
     "lng": 18.018566,
     "distances": [
       "5 km",
-      "10 km"
+      "10 km",
+      "100 m",
+      "500 m",
+      "1.2 km"
     ],
     "event_type": [
       "nordic walking",
       "trail",
+      "uliczny",
       "dzieci"
     ],
-    "registration_url": "http://www.zmierzymyczas.pl",
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2603/bieg-ku-sloncu-2026.html",
     "website": "https://www.zmierzymyczas.pl/2603/bieg-ku-sloncu-2026.html",
+    "is_kids": null,
+    "status": "active"
+  },
+  "xii-otwarty-bieg-uliczny-i-marsz-nordic-walking-lewin-biega-2026-10-18": {
+    "id": "b01fb87c-d7b0-4e07-9c29-b008713ffe04",
+    "name": "XII Otwarty Bieg Uliczny i Marsz Nordic Walking - Lewin Biega",
+    "date": "2026-10-18",
+    "registration_deadline": "2026-09-25",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_LEWIN_BIEGA_2026__marsz.pdf",
+    "price_from": 70,
+    "price_to": 70,
+    "location": "Lewin Brzeski",
+    "voivodeship": "Opolskie",
+    "lat": 50.748711,
+    "lng": 17.616648,
+    "distances": [
+      "1.3 km",
+      "2.6 km",
+      "5.4 km",
+      "10.9 km",
+      "330 m",
+      "650 m",
+      "990 m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2643/xii-otwarty-bieg-uliczny-i-marsz-nordic-walking-lewin-biega.html",
+    "website": "https://www.zmierzymyczas.pl/2643/xii-otwarty-bieg-uliczny-i-marsz-nordic-walking-lewin-biega.html",
     "is_kids": null,
     "status": "active"
   },
@@ -61535,7 +61552,7 @@
     "name": "Wieliszewski Crossing – Jesień",
     "date": "2026-10-18",
     "registration_deadline": "2026-10-15",
-    "regulamin_url": "https://lumisport.eu/wp-content/uploads/2026/08/Regulamin-Crossing-2026.pdf",
+    "regulamin_url": "https://lumisport.eu/wp-content/uploads/2026/09/Regulamin-Crossing-2026.pdf",
     "price_from": 70,
     "price_to": 85,
     "location": "Wieliszew",
@@ -61543,13 +61560,15 @@
     "lat": 52.449736,
     "lng": 20.969413,
     "distances": [
+      "400 m",
+      "800 m",
       "1.2 km",
       "12 km",
-      "400 m",
-      "800 m"
+      "24 km"
     ],
     "event_type": [
       "trail",
+      "uliczny",
       "dzieci"
     ],
     "registration_url": "https://lumisport.eu/produkt/wieliszewski-crossing-jesien/",
@@ -61621,38 +61640,13 @@
     "lat": 50.666818,
     "lng": 17.923641,
     "distances": [
-      "500m",
-      "1000m"
+      "ok. 2 km"
     ],
     "event_type": [
       "ocr"
     ],
     "registration_url": null,
     "website": "https://www.zmierzymyczas.pl/2415/viii-rodzinny-bieg-odblaskowy.html",
-    "is_kids": null,
-    "status": "active"
-  },
-  "lesny-polmaraton-70tka-tediego-2026-10-24": {
-    "id": "c879d9f0-8ed2-40bd-a6ff-f4eeddbfd70f",
-    "name": "Leśny Półmaraton 70-tka Tediego",
-    "date": "2026-10-24",
-    "registration_deadline": "2026-08-31",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261024_Walidrogi_-_regulamin_Leśnego_Półmaratonu_70-tka_Tediego.pdf",
-    "price_from": 70,
-    "price_to": 70,
-    "location": "Walidrogi",
-    "voivodeship": "Opolskie",
-    "lat": 50.605404,
-    "lng": 18.074495,
-    "distances": [
-      "21",
-      "1 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2503/lesny-polmaraton-70-tka-tediego.html",
-    "website": "https://www.zmierzymyczas.pl/2503/lesny-polmaraton-70-tka-tediego.html",
     "is_kids": null,
     "status": "active"
   },
@@ -61881,6 +61875,29 @@
     ],
     "registration_url": "https://b4sportonline.pl/duch_pogorza/zapisy_na_duch_lasu__szybka_5_5km__24102026/11622",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "lesny-polmaraton-70tka-tediego-2026-10-24": {
+    "id": "c879d9f0-8ed2-40bd-a6ff-f4eeddbfd70f",
+    "name": "Leśny Półmaraton 70-tka Tediego",
+    "date": "2026-10-24",
+    "registration_deadline": "2026-08-31",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261024_Walidrogi_-_regulamin_Le%C5%9Bnego_P%C3%B3%C5%82maratonu_70-tka_Tediego.pdf",
+    "price_from": 70,
+    "price_to": 70,
+    "location": "Walidrogi",
+    "voivodeship": "Opolskie",
+    "lat": 50.605404,
+    "lng": 18.074495,
+    "distances": [
+      "21.1 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2503/lesny-polmaraton-70-tka-tediego.html",
+    "website": "https://www.zmierzymyczas.pl/2503/lesny-polmaraton-70-tka-tediego.html",
     "is_kids": null,
     "status": "active"
   },
@@ -62904,13 +62921,12 @@
     "lng": 22.340773,
     "distances": [
       "11 km",
-      "7.5 km",
-      "1.5 km",
-      "650 m"
+      "7 km"
     ],
     "event_type": [
       "nordic walking",
       "trail",
+      "uliczny",
       "dzieci"
     ],
     "registration_url": "https://dostartu.pl/permalink-v17013",
@@ -63167,32 +63183,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "niepodlegla-jurarun-2026-2026-11-08": {
-    "id": "96864cbe-cc20-40ad-bccd-7f613c5edb61",
-    "name": "Niepodległa Jura-Run 2026",
-    "date": "2026-11-08",
-    "registration_deadline": "2026-10-31",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261108_Ozimek_-_Regulamin_Niepodległa_JuraRUN.pdf",
-    "price_from": 30,
-    "price_to": 90,
-    "location": "Krasiejów",
-    "voivodeship": "Opolskie",
-    "lat": 50.668569,
-    "lng": 18.248019,
-    "distances": [
-      "10",
-      "8 km",
-      "200m",
-      "500m"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2516/niepodlegla-jura-run-2026.html",
-    "website": "https://www.zmierzymyczas.pl/2516/niepodlegla-jura-run-2026.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "miedzygminny-bieg-zbika-dla-niepodleglej-2026-2026-11-08": {
     "id": "4917bbce-d695-44f8-a3a4-14eb6cde6b49",
     "name": "Międzygminny Bieg Żbika dla Niepodległej 2026",
@@ -63218,6 +63208,36 @@
     ],
     "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12569%26co%3Dform",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "niepodlegla-jurarun-2026-2026-11-08": {
+    "id": "96864cbe-cc20-40ad-bccd-7f613c5edb61",
+    "name": "Niepodległa Jura-Run 2026",
+    "date": "2026-11-08",
+    "registration_deadline": "2026-10-31",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261108_Ozimek_-_Regulamin_Niepodleg%C5%82a_JuraRUN.pdf",
+    "price_from": 30,
+    "price_to": 90,
+    "location": "Krasiejów",
+    "voivodeship": "Opolskie",
+    "lat": 50.668569,
+    "lng": 18.248019,
+    "distances": [
+      "10.8 km",
+      "100 m",
+      "200 m",
+      "300 m",
+      "600 m",
+      "900 m",
+      "1.2 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2516/niepodlegla-jura-run-2026.html",
+    "website": "https://www.zmierzymyczas.pl/2516/niepodlegla-jura-run-2026.html",
     "is_kids": null,
     "status": "active"
   },
@@ -63714,30 +63734,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "x-jubileuszowy-bieg-miedzy-pomnikami-2026-2026-11-11": {
-    "id": "a302aa44-dbc8-4bdf-8ad0-3ec9b8418b9d",
-    "name": "X Jubileuszowy BIEG MIĘDZY POMNIKAMI 2026",
-    "date": "2026-11-11",
-    "registration_deadline": "2026-10-30",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/REGULAMIN_BMP_2026.pdf",
-    "price_from": 50,
-    "price_to": 100,
-    "location": "Zdzieszowice",
-    "voivodeship": "Opolskie",
-    "lat": 50.420293,
-    "lng": 18.119319,
-    "distances": [
-      "5 km",
-      "12 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2616/x-jubileuszowy-bieg-miedzy-pomnikami-2026.html",
-    "website": "https://www.zmierzymyczas.pl/2616/x-jubileuszowy-bieg-miedzy-pomnikami-2026.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "xiv-bieg-oraz-marsz-niepodleglosci-czerwonak-biega-dla-niepodleglej-2026-11-11": {
     "id": "b4e33ac4-9c5c-4c67-8f95-e04174852f15",
     "name": "XIV BIEG ORAZ MARSZ NIEPODLEGŁOŚCI „CZERWONAK BIEGA DLA NIEPODLEGŁEJ\"",
@@ -63783,7 +63779,11 @@
     "lng": 18.119319,
     "distances": [
       "5 km",
-      "12 km"
+      "12 km",
+      "100 m",
+      "300 m",
+      "600 m",
+      "900 m"
     ],
     "event_type": [
       "uliczny",
@@ -63791,31 +63791,6 @@
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2617/bieg-miedzy-pomnikami-2026-biegi-dzieci-i-mlodziezy.html",
     "website": "https://www.zmierzymyczas.pl/2617/bieg-miedzy-pomnikami-2026-biegi-dzieci-i-mlodziezy.html",
-    "is_kids": null,
-    "status": "active"
-  },
-  "ultra-niepodlegla-108-2026-11-11": {
-    "id": "f4228e2d-262b-4b06-adee-79b72f6b6f17",
-    "name": "ULTRA NIEPODLEGŁA 108",
-    "date": "2026-11-11",
-    "registration_deadline": "2026-10-26",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_Ultraniepodległa_11_11_2026.pdf",
-    "price_from": 108,
-    "price_to": 108,
-    "location": "Krasiejów",
-    "voivodeship": "Opolskie",
-    "lat": 50.668569,
-    "lng": 18.248019,
-    "distances": [
-      "108 km"
-    ],
-    "event_type": [
-      "nocny",
-      "trail",
-      "ultra"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2648/ultra-niepodlegla-108.html",
-    "website": "https://www.zmierzymyczas.pl/2648/ultra-niepodlegla-108.html",
     "is_kids": null,
     "status": "active"
   },
@@ -63871,6 +63846,31 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/16003/signup.html",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "ultra-niepodlegla-108-2026-11-11": {
+    "id": "f4228e2d-262b-4b06-adee-79b72f6b6f17",
+    "name": "ULTRA NIEPODLEGŁA 108",
+    "date": "2026-11-11",
+    "registration_deadline": "2026-10-26",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_Ultraniepodleg%C5%82a_11_11_2026.pdf",
+    "price_from": 108,
+    "price_to": 108,
+    "location": "Krasiejów",
+    "voivodeship": "Opolskie",
+    "lat": 50.668569,
+    "lng": 18.248019,
+    "distances": [
+      "108 km"
+    ],
+    "event_type": [
+      "nocny",
+      "trail",
+      "ultra"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2648/ultra-niepodlegla-108.html",
+    "website": "https://www.zmierzymyczas.pl/2648/ultra-niepodlegla-108.html",
     "is_kids": null,
     "status": "active"
   },
@@ -63946,6 +63946,35 @@
     ],
     "registration_url": "https://competitions.timekeeper.pl/14-pko-bieg-niepodleglosci-na-10km",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "x-jubileuszowy-bieg-miedzy-pomnikami-2026-2026-11-11": {
+    "id": "a302aa44-dbc8-4bdf-8ad0-3ec9b8418b9d",
+    "name": "X Jubileuszowy BIEG MIĘDZY POMNIKAMI 2026",
+    "date": "2026-11-11",
+    "registration_deadline": "2026-10-30",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/REGULAMIN_BMP_2026.pdf",
+    "price_from": 50,
+    "price_to": 100,
+    "location": "Zdzieszowice",
+    "voivodeship": "Opolskie",
+    "lat": 50.420293,
+    "lng": 18.119319,
+    "distances": [
+      "5 km",
+      "12 km",
+      "100 m",
+      "300 m",
+      "600 m",
+      "900 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2616/x-jubileuszowy-bieg-miedzy-pomnikami-2026.html",
+    "website": "https://www.zmierzymyczas.pl/2616/x-jubileuszowy-bieg-miedzy-pomnikami-2026.html",
     "is_kids": null,
     "status": "active"
   },
@@ -64159,8 +64188,7 @@
     "lat": 52.695948,
     "lng": 19.734349,
     "distances": [
-      "4",
-      "2 km"
+      "4.2 km"
     ],
     "event_type": [
       "uliczny"
@@ -64273,29 +64301,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "x-koszecinska-dycha-2026-11-21": {
-    "id": "2b50fed3-1977-4a8d-9bcd-821c9d19b2f1",
-    "name": "X Koszęcińska Dycha",
-    "date": "2026-11-21",
-    "registration_deadline": "2026-11-15",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/202611214_Koszecin_-_Regulamin_Biegu.pdf",
-    "price_from": 60,
-    "price_to": 60,
-    "location": "Koszęcin",
-    "voivodeship": "Śląskie",
-    "lat": 50.635918,
-    "lng": 18.841335,
-    "distances": [
-      "10 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "www.zmierzymyczas.pl",
-    "website": "https://www.facebook.com/p/Bieg-Prze%C5%82ajowy-Kosz%C4%99ci%C5%84ska-Dycha-100069098988613/",
-    "is_kids": null,
-    "status": "active"
-  },
   "ii-mazowiecki-bieg-jesieni-2026-11-21": {
     "id": "baa670dd-7ff0-4e09-96da-7d3e9c7476b0",
     "name": "II Mazowiecki Bieg Jesieni",
@@ -64367,6 +64372,29 @@
     ],
     "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12634%26co%3Dform",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "x-koszecinska-dycha-2026-11-21": {
+    "id": "2b50fed3-1977-4a8d-9bcd-821c9d19b2f1",
+    "name": "X Koszęcińska Dycha",
+    "date": "2026-11-21",
+    "registration_deadline": "2026-11-15",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/202611214_Koszecin_-_Regulamin_Biegu.pdf",
+    "price_from": 60,
+    "price_to": 60,
+    "location": "Koszęcin",
+    "voivodeship": "Śląskie",
+    "lat": 50.635918,
+    "lng": 18.841335,
+    "distances": [
+      "10.5 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "www.zmierzymyczas.pl",
+    "website": "https://www.facebook.com/p/Bieg-Prze%C5%82ajowy-Kosz%C4%99ci%C5%84ska-Dycha-100069098988613/",
     "is_kids": null,
     "status": "active"
   },
@@ -64513,32 +64541,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "x-jubileuszowy-bieg-tarnowski-lesna-draka-2026-11-22": {
-    "id": "8870de68-ea17-4b40-b2c5-e47fe2d7864a",
-    "name": "X Jubileuszowy Bieg Tarnowski – Leśna Draka",
-    "date": "2026-11-22",
-    "registration_deadline": null,
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261122_Tarnów_Opolski_-_regulamin_X_Jubileuszowego__Biegu_Tarnowskiego_Leśna_Draka.pdf",
-    "price_from": 60,
-    "price_to": 100,
-    "location": "Tarnów Opolski",
-    "voivodeship": "Opolskie",
-    "lat": 50.580341,
-    "lng": 18.082716,
-    "distances": [
-      "5 km",
-      "10 km"
-    ],
-    "event_type": [
-      "nordic walking",
-      "trail",
-      "uliczny"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2504/x-jubileuszowy-bieg-tarnowski-lesna-draka.html",
-    "website": "https://www.zmierzymyczas.pl/2504/x-jubileuszowy-bieg-tarnowski-lesna-draka.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "mokre-majtki-9-2026-11-22": {
     "id": "cbcd3a48-7072-4beb-b2dd-aaff3c72354c",
     "name": "MOKRE MAJTKI 9",
@@ -64615,6 +64617,32 @@
     "is_kids": null,
     "status": "active"
   },
+  "x-jubileuszowy-bieg-tarnowski-lesna-draka-2026-11-22": {
+    "id": "8870de68-ea17-4b40-b2c5-e47fe2d7864a",
+    "name": "X Jubileuszowy Bieg Tarnowski – Leśna Draka",
+    "date": "2026-11-22",
+    "registration_deadline": "2026-10-31",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261122_Tarn%C3%B3w_Opolski_-_regulamin_X_Jubileuszowego__Biegu_Tarnowskiego_Le%C5%9Bna_Draka.pdf",
+    "price_from": 60,
+    "price_to": 100,
+    "location": "Tarnów Opolski",
+    "voivodeship": "Opolskie",
+    "lat": 50.580341,
+    "lng": 18.082716,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "uliczny"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2504/x-jubileuszowy-bieg-tarnowski-lesna-draka.html",
+    "website": "https://www.zmierzymyczas.pl/2504/x-jubileuszowy-bieg-tarnowski-lesna-draka.html",
+    "is_kids": null,
+    "status": "active"
+  },
   "29-bieg-uliczny-belchatowska-pietnastka-2026-11-22": {
     "id": "8423f7b2-95a1-4145-8be2-e7f93924b821",
     "name": "29. Bieg Uliczny Bełchatowska Piętnastka",
@@ -64688,32 +64716,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "xxiii-maraton-komandosa-2026-11-28": {
-    "id": "965fd712-09e4-4ef1-95d8-404a9b7c4c27",
-    "name": "XXIII Maraton Komandosa",
-    "date": "2026-11-28",
-    "registration_deadline": "2026-11-27",
-    "regulamin_url": "http://www.wkbmeta.pl/mk/regulamin.htm",
-    "price_from": 250,
-    "price_to": 250,
-    "location": "Lubliniec",
-    "voivodeship": "Lubelskie",
-    "lat": 50.669016,
-    "lng": 18.682557,
-    "distances": [
-      "42.3 km",
-      "1 km"
-    ],
-    "event_type": [
-      "trail",
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/2410/xxiii-maraton-komandosa.html",
-    "website": "http://www.wkbmeta.pl/mk/",
-    "is_kids": null,
-    "status": "active"
-  },
   "gliwicka-prowokacja-biegowa-2026-11-28": {
     "id": "d350868c-276e-4114-ba08-ddfd113b2e55",
     "name": "Gliwicka Prowokacja biegowa",
@@ -64743,6 +64745,31 @@
     ],
     "registration_url": "https://support.microsoft.com/en-us/contactus",
     "website": "https://gppb.eu/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "xxiii-maraton-komandosa-2026-11-28": {
+    "id": "965fd712-09e4-4ef1-95d8-404a9b7c4c27",
+    "name": "XXIII Maraton Komandosa",
+    "date": "2026-11-28",
+    "registration_deadline": "2026-11-27",
+    "regulamin_url": "http://www.wkbmeta.pl/mk/regulamin.htm",
+    "price_from": 250,
+    "price_to": 250,
+    "location": "Lubliniec",
+    "voivodeship": "Lubelskie",
+    "lat": 50.669016,
+    "lng": 18.682557,
+    "distances": [
+      "42.3 km",
+      "1 km"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/2410/xxiii-maraton-komandosa.html",
+    "website": "http://www.wkbmeta.pl/mk/",
     "is_kids": null,
     "status": "active"
   },
@@ -64953,7 +64980,7 @@
     "name": "VI Bieg Malinowy Mikołaj",
     "date": "2026-12-05",
     "registration_deadline": null,
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/regulamin_bieg_Malinowy_Mikołaj_2025.pdf",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/regulamin_bieg_Malinowy_Miko%C5%82aj_2025.pdf",
     "price_from": 40,
     "price_to": 40,
     "location": "Jezioro Malina - Opole",
@@ -64961,8 +64988,7 @@
     "lat": 50.793097,
     "lng": 18.848615,
     "distances": [
-      "4",
-      "74 km"
+      "4.7 km"
     ],
     "event_type": [
       "uliczny"
@@ -65010,13 +65036,14 @@
     "lng": 21.049239,
     "distances": [
       "5 km",
-      "100m",
-      "400m"
+      "400 m",
+      "100 m"
     ],
     "event_type": [
       "charytatywny",
       "nordic walking",
       "trail",
+      "uliczny",
       "dzieci"
     ],
     "registration_url": "https://foxter-sport.pl/vii-czarnkowski-bieg-mikolajkowy-2026",
@@ -65052,7 +65079,7 @@
     "name": "„W pogoni za Mikołajem” - Ozimskie biegi dla dorosłych 2026",
     "date": "2026-12-06",
     "registration_deadline": "2026-11-30",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261206_Ozimek_-_Regulamin_W_pogoni_za_Mikołajem.pdf",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261206_Ozimek_-_Regulamin_W_pogoni_za_Miko%C5%82ajem.pdf",
     "price_from": 65,
     "price_to": 90,
     "location": "Ozimek",
@@ -65060,11 +65087,17 @@
     "lat": 50.67892,
     "lng": 18.212523,
     "distances": [
+      "1.2 km",
       "5 km",
-      "200m"
+      "100 m",
+      "200 m",
+      "300 m",
+      "600 m",
+      "900 m"
     ],
     "event_type": [
-      "uliczny"
+      "uliczny",
+      "dzieci"
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2519/w-pogoni-za-mikolajem-ozimskie-biegi-dla-doroslych-2026.html",
     "website": "https://www.zmierzymyczas.pl/2519/w-pogoni-za-mikolajem-ozimskie-biegi-dla-doroslych-2026.html",
@@ -65526,20 +65559,21 @@
     "name": "XI TOYOTA BIEG SYLWESTROWY",
     "date": "2026-12-31",
     "registration_deadline": "2026-12-31",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/XI_BS_JL_-_zgoda_na_pobranie_pakietu_startowego.pdf",
-    "price_from": null,
-    "price_to": null,
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261231_Jelcz-Laskowice_-_regulamin_Biegu_Sylwestrowego.pdf",
+    "price_from": 70,
+    "price_to": 150,
     "location": "Jelcz-Laskowice",
     "voivodeship": "Dolnośląskie",
     "lat": 51.020389,
     "lng": 17.317006,
     "distances": [
-      "10 km",
-      "5 km (Atest PZLA)"
+      "5 km",
+      "10 km"
     ],
     "event_type": [
       "uliczny",
-      "nordic walking"
+      "nordic walking",
+      "dzieci"
     ],
     "registration_url": "https://www.zmierzymyczas.pl/edit/2540/xi-toyota-bieg-sylwestrowy.html",
     "website": "https://www.zmierzymyczas.pl/2540/xi-toyota-bieg-sylwestrowy.html",
@@ -65551,7 +65585,7 @@
     "name": "SYLWESTROWE BIEGI DLA DZIECI I MŁODZIEŻY 2026",
     "date": "2026-12-31",
     "registration_deadline": "2026-12-20",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/XI_TOYOTA_Bieg_Sylwestrowy_-_Jelcz-Laskowice_oswiadczenie_dla_osoby_niepelnoletniej.pdf",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20261231_Jelcz-Laskowice_-_regulamin_Bieg%C3%B3w_Dzieci_i_M%C5%82odzie%C5%BCy.pdf",
     "price_from": 30,
     "price_to": 50,
     "location": "Jelcz-Laskowice",
@@ -65613,12 +65647,7 @@
     "lat": 50.288921,
     "lng": 18.978131,
     "distances": [
-      "7 km",
-      "14 km",
-      "21 km",
-      "28 km",
-      "35 km",
-      "42.2 km"
+      "7 km"
     ],
     "event_type": [
       "uliczny",
@@ -65926,8 +65955,7 @@
     "lng": 17.933179,
     "distances": [],
     "event_type": [
-      "trail",
-      "uliczny"
+      "trail"
     ],
     "registration_url": "https://foxter-sport.pl/61-cross-ostrzeszowski",
     "website": null,
@@ -66069,7 +66097,7 @@
     "distances": [
       "5 km",
       "10 km",
-      "21.1 km",
+      "21 km",
       "50 m",
       "100 m",
       "200 m",
