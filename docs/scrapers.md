@@ -72,8 +72,8 @@ cd backend && node --env-file=../.env scripts/run-dedup.js --apply && node --env
 # dropped it. Report-only by default; --apply lets the fix agents open and merge
 # pull requests, then re-scrapes the sources they fixed.
 # See .claude/skills/auditing-event-data/SKILL.md.
-scripts/prepublish-review.sh
-scripts/prepublish-review.sh --apply
+cd backend && node --env-file=../.env scripts/run-prepublish-review.js
+cd backend && node --env-file=../.env scripts/run-prepublish-review.js --apply
 
 # Step 6: Publish to calendar_events — dry run first, then --apply
 cd backend && node --env-file=../.env scripts/run-publish.js
