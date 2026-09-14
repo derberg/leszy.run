@@ -224,6 +224,29 @@ def page_matches_event(event: dict, text: str) -> bool:
     return hits >= 1 and hits >= (len(toks) + 1) // 2
 
 
+def pdf_belongs_to_event(event: dict, text: str) -> bool:
+    """True when a PDF discovered by crawling plausibly belongs to THIS event.
+
+    The discovered-PDF fallback exists because the real regulamin is often linked
+    from a stub page rather than stored in regulamin_url. But when the event's own
+    regulamin is dead, that same crawl walks up to the REGISTRATION PLATFORM's own
+    documents and the extractor reads event fields out of them. Measured
+    2026-09-14: eleven elektronicznezapisy events whose regulamin was a 30-byte
+    error page fell through to regulamin_portalu_internetowego_elektronicznezapisy_pl.pdf
+    and polityka-prywatnosci.pdf, and four rows were rewritten from a privacy
+    policy — is_kids flipped on three of them, event_types on a fourth.
+
+    A keyword test cannot separate the two: a portal regulamin is a regulamin, and
+    looksLikeRegulamin's structural test passes it. What a platform document never
+    carries is the race's own name, so this reuses the gate that already guards
+    search-discovered pages. An event whose name has no distinctive tokens cannot
+    be judged and is not blocked, exactly as in page_matches_event.
+    """
+    if not text or not text.strip():
+        return False
+    return page_matches_event(event, text)
+
+
 def strip_foreign_event_lines(text: str, self_urls: list) -> str:
     """Remove text lines that link to a DIFFERENT event on the same host — the
     "upcoming events" / sibling-race chrome that timing platforms embed on every

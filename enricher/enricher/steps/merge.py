@@ -231,7 +231,19 @@ def _merge_scalars(event, llm, updates, config):
                 continue
             value = value.strip()
 
-        # Validate deadline format and year (must be within 1 year of event date)
+        # A registration deadline has to sit in the window [event - 270d, event].
+        #
+        # The old rule was abs((event - deadline).days) > 365, which let two
+        # impossible values through. A deadline LATER than the race cannot exist,
+        # and abs() accepted one up to a year after. And 365 days of slack before
+        # the race is precisely where the PREVIOUS EDITION's deadline lands: XIV
+        # Biegi Przyjazni (2026-10-11) carried 2025-10-12, 364 days out, and
+        # passed. Recurring races are the common case here, and a stale edition is
+        # the common way to get a wrong date out of a document.
+        #
+        # 270 days keeps a genuine early-bird close — Gdynia Ultra Way 2027 closes
+        # its cheapest tier about eight months ahead — while excluding the
+        # year-out cluster.
         if field == "registration_deadline":
             if not _re.match(r"^\d{4}-\d{2}-\d{2}$", str(value)):
                 continue
@@ -241,7 +253,7 @@ def _merge_scalars(event, llm, updates, config):
                     from datetime import date as _date
                     ev = _date.fromisoformat(event_date)
                     dl = _date.fromisoformat(str(value))
-                    if abs((ev - dl).days) > 365:
+                    if not 0 <= (ev - dl).days <= 270:
                         continue
                 except (ValueError, TypeError):
                     pass
