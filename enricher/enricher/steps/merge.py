@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from enricher.steps.platforms import is_platform_root_url
 from enricher.steps.validate_urls import UrlStatus
 
 TERRAIN_TYPES = {"trail", "ocr", "uliczny"}
@@ -79,6 +80,19 @@ def verify_url_relevance(url: str, event_name: str) -> bool:
 
     hits = sum(1 for t in tokens if t in text)
     return hits >= max(1, len(tokens) // 2)
+
+
+def _registration_candidate_ok(field: str, url: str) -> bool:
+    """Reject a registration platform's homepage as a registration_url.
+
+    verify_url_relevance cannot catch this one: the homepage lists every race
+    the platform runs, so it names this one and passes the content check, while
+    pointing at no event in particular. Leaving the column empty lets a later
+    run find the race's own page, which is where the registration window is.
+    """
+    if field != "registration_url":
+        return True
+    return not is_platform_root_url(url)
 
 
 def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates: dict, config, had_content: bool = False) -> dict:
@@ -318,10 +332,10 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
             /relevance filters, which is sufficient on its own.
             """
             if llm_url and llm_confirms:
-                if verify_url_relevance(llm_url, event_name):
+                if _registration_candidate_ok(field, llm_url) and verify_url_relevance(llm_url, event_name):
                     return llm_url
             if search_candidate:
-                if verify_url_relevance(search_candidate, event_name):
+                if _registration_candidate_ok(field, search_candidate) and verify_url_relevance(search_candidate, event_name):
                     return search_candidate
             return None
 
@@ -345,7 +359,11 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
         # separate LLM confirmation — but still must pass relevance check)
         if llm.get(llm_flag) is False and event.get(field):
             picked = _pick_candidate()
-            if not picked and search_candidate and verify_url_relevance(search_candidate, event_name):
+            if (
+                not picked and search_candidate
+                and _registration_candidate_ok(field, search_candidate)
+                and verify_url_relevance(search_candidate, event_name)
+            ):
                 picked = search_candidate
             if picked:
                 updates[field] = picked

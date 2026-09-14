@@ -1,3 +1,5 @@
+import { isPlatformRootUrl } from '../../src/lib/registrationPlatforms.js'
+
 // Shared registry of AI-fillable scraper_all fields used by run-enrich-search.js
 // and run-enrich-from-regulamin.js. Adding a new column? Add ONE row here and
 // both enrichers automatically include it in their prompt + merge logic.
@@ -30,7 +32,12 @@ export const AI_FILLABLE = {
   registration_url: {
     isEmpty: r => !r.registration_url,
     promptHint: 'sign-up / registration URL',
-    validate: v => isHttpUrl(v) ? v.trim() : null,
+    // A registration platform's homepage lists every race it runs, so it names
+    // this one too and survives every content check we have. It is still not
+    // this race's sign-up page, and the page that is (zapisy.info/imprezy/718/)
+    // is the one holding the registration window. Drop it and leave the column
+    // empty for a later run.
+    validate: v => (isHttpUrl(v) && !isPlatformRootUrl(v)) ? v.trim() : null,
   },
   regulamin_url: {
     isEmpty: r => !r.regulamin_url,
