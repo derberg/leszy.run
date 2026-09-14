@@ -40,6 +40,7 @@ import {
   sanitizedEnv,
   groupFindings,
   partitionCandidates,
+  mergeCommands,
   branchSlug,
   checkDiffPaths,
   countBlastRadius,
@@ -272,8 +273,12 @@ async function reviewAndMerge(fixes) {
       continue
     }
     try {
-      sh('gh', ['pr', 'merge', String(record.pr), '--squash', '--delete-branch'], { cwd: fix.worktree })
+      const [ghArgs, gitArgs] = mergeCommands(record.pr, fix.branch)
+      sh('gh', ghArgs, { cwd: fix.worktree })
       merged++
+      // The branch is gone from the remote, but the merge already counted, so a
+      // failure to tidy up is not a failure to merge.
+      try { sh('git', gitArgs, { cwd: fix.worktree }) } catch {}
       log(`      MERGED #${record.pr} ${fix.group.file}`)
       outcomes.push({ ...record, outcome: 'merged' })
     } catch (err) {
