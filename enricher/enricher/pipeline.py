@@ -21,7 +21,7 @@ _DOC_KINDS = ("docx", "drive_folder", "drive_file")
 from enricher.steps.llm import call_ollama, build_prompt
 from enricher.steps.merge import build_updates
 from enricher.steps.navigate import (
-    pick_followup_urls, is_stub_host, strip_foreign_event_lines,
+    pick_followup_urls, is_stub_host, strip_foreign_event_lines, pdf_belongs_to_event,
 )
 from enricher.steps.regex_prepass import extract_hints
 from enricher.steps.verify import verify_search_candidate
@@ -210,6 +210,12 @@ async def process_event(event: dict, config: Config) -> dict:
             if p:
                 text = extract_pdf_text(p, max_chars=config.max_pdf_chars)
                 cleanup_pdf(p)
+                if text and not pdf_belongs_to_event(event, text):
+                    # A platform's own regulamin or privacy policy, reached by
+                    # crawling up from a dead event regulamin. Extracting event
+                    # fields from it rewrites the row with someone else's document.
+                    result["steps"].setdefault("pdf_rejected", []).append(pdf_url)
+                    continue
                 if text:
                     pdf_text = text
                     result["steps"]["pdf"] = {"source": "discovered", "url": pdf_url, "extracted_chars": len(text)}
