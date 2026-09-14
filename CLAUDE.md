@@ -546,7 +546,7 @@ cd backend && node --env-file=../.env scripts/run-normalize.js --apply          
 # Step 10.5 reviews what step 11 is about to publish. It needs the `claude` CLI,
 # `pdftotext` and `textutil`, so it is host-only like steps 8 and 8.1. Default is
 # report-only. `--apply` lets the fix agents open and merge pull requests.
-scripts/prepublish-review.sh                                                             # 10.5 (host)
+cd backend && node --env-file=../.env scripts/run-prepublish-review.js                   # 10.5 (host)
 cd backend && node --env-file=../.env scripts/run-publish.js --apply                     # 11
 cd backend && node --env-file=../.env scripts/publish-event-pages.js --apply             # post (manifest + OG images)
 cd backend && node --env-file=../.env scripts/run-data-audit.js                          # post (read-only report; exit 2 = findings)
@@ -858,11 +858,21 @@ without seeing the fixer's reasoning, and only an approval reaches
 corrected code rewrites the rows. See
 `.claude/skills/auditing-event-data/SKILL.md` for the method itself.
 
-Run it through `scripts/prepublish-review.sh`, which skips the run when the
-night's pipeline has not finished. `scripts/launchd/run.leszy.prepublish-review.plist`
-schedules it at 14:00 with `--apply`, so pull requests open and merge unattended.
-Drop the `--apply` argument from the plist to make the scheduled run
-report-only.
+Run it by hand the way you run every other step:
+`cd backend && node --env-file=../.env scripts/run-prepublish-review.js`, and add
+`--apply` when you want the fix agents to open and merge pull requests.
+
+`scripts/prepublish-review.sh` is the adapter for the scheduled run, and nothing
+else needs it. It supplies a working directory, a log file, and an exit code
+launchd does not read as a failure. It also skips the run unless a scrape
+finished today. A host run leaves `backend/logs/scrapers-<timestamp>.json`, and a
+scheduler-container run leaves `logs/last-pipeline-ok.json`. The adapter accepts
+either, since the container writes no file under `backend/logs` that the host can
+read. Pass `--force` to review anyway.
+`scripts/launchd/run.leszy.prepublish-review.plist` schedules the adapter at
+14:00 with `--apply`. Drop that argument from the plist to make the scheduled run
+report-only. launchd also needs Full Disk Access to reach a repository under
+`~/Documents`. Without it the job exits 126 and logs `Operation not permitted`.
 
 The step reports and changes nothing unless you pass `--apply`. Nothing opens a
 pull request or merges one without it. Measured on 2026-09-11, one diagnose agent costs

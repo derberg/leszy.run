@@ -20,6 +20,7 @@ enricher/.env
 enricher/logs/
 enricher/searxng-data/
 backend/logs/
+logs/
 docs/gdpr/dpa-checklist.md
 docs/gdpr/incidents/
 docs/superpowers/
