@@ -831,9 +831,16 @@ async function runPipeline({ force = [], only = [] } = {}) {
         }
       }
 
-      // Update existing rows but preserve merged_at so merge doesn't re-process them
+      // Update existing rows but preserve merged_at so merge doesn't re-process
+      // them — unless the row actually changed, in which case the merge has to
+      // see it again or the new value never leaves this table.
       for (const row of existingRows) {
         const { source_id, ...fields } = row
+        const changed = changedKnownFields(row, knownRows.get(source_id), source.knownColumns)
+        if (changed.length > 0) {
+          fields.merged_at = null
+          console.log(`[pipeline] ${source.name}:${source_id} changed ${changed.join(', ')} — queued for re-merge`)
+        }
         const { error } = await supabase
           .from(source.table)
           .update(fields)
@@ -855,6 +862,28 @@ async function runPipeline({ force = [], only = [] } = {}) {
 
   console.log('[pipeline] Scrape run complete (raw data stored in source tables)')
   return results
+}
+
+// Which of a source's knownColumns does this freshly scraped row actually change?
+//
+// run-merge reads raw rows only where merged_at IS NULL, and the existing-row
+// update below deliberately preserves merged_at so an unchanged row is not
+// re-merged every night. That combination silently swallowed the whole point of
+// a re-check: a recovered registration_url landed in scraper_<source> and stopped
+// there, never reaching scraper_all or calendar_events. Clearing merged_at on a
+// row whose value actually changed puts it back in front of the merge without
+// re-merging the thousands that did not.
+//
+// Only knownColumns can be compared, because only those were read back. A source
+// that declares none is unchanged in behaviour, which is every source but one.
+export function changedKnownFields(row, known, knownColumns) {
+  if (!knownColumns || !known) return []
+  const columns = String(knownColumns).split(',').map((c) => c.trim()).filter(Boolean)
+  // null and undefined are the same absence here: a scraper omits a field it did
+  // not find, and the column holds NULL. Treating those as different would clear
+  // merged_at on every run for every row.
+  const same = (a, b) => (a ?? null) === (b ?? null)
+  return columns.filter((c) => c !== 'source_id' && !same(row[c], known[c]))
 }
 
 // --- Helpers for scraper_all dedup ---
