@@ -95,9 +95,19 @@ def _check_url(url: str, field_name: str, timeout: int) -> UrlStatus:
             head_kind = classify_doc_url(url, resp.headers.get("content-type", ""))
 
             # HEAD said 200 but proved nothing about the body, so read the page.
+            # This is a SECOND request to nearly every HTML URL, which makes it
+            # the one most likely to time out, be reset, or be throttled. Its
+            # failure means the body is unproven, not empty — exactly where the
+            # URL stood before this check existed — so keep the HEAD verdict.
+            # Calling it dead would be worse than not checking at all:
+            # pipeline.py treats dead as missing and lets a search candidate
+            # overwrite the organizer's own URL.
             if not body_checked and head_kind == "html" and not _has_body(resp):
-                resp = client.get(resp.url)
-                body_checked = True
+                try:
+                    resp = client.get(resp.url)
+                    body_checked = True
+                except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPError):
+                    pass
 
         final_url = str(resp.url) if str(resp.url) != url else None
         content_type = resp.headers.get("content-type", "")

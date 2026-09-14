@@ -174,3 +174,31 @@ def test_regulamin_urls_array():
         result = validate_urls({"regulamin_urls": ["https://a.pl/reg.pdf", "https://b.pl/reg.pdf"]})
     assert result["regulamin_urls[0]"].status == "alive"
     assert result["regulamin_urls[1]"].status == "dead"
+
+
+def test_head_200_survives_a_failing_confirmation_get():
+    # The confirming GET is a SECOND request to nearly every HTML URL, so it is
+    # the request most likely to time out, be reset, or be throttled. When it
+    # fails, the page is not proven empty — it is unproven, which is where the
+    # URL stood before this check existed. Calling it dead would be worse than
+    # not checking: pipeline.py treats dead as missing and lets a search
+    # candidate overwrite the organizer's own URL.
+    with respx.mock:
+        respx.head("https://example.pl/regulamin").mock(
+            return_value=httpx.Response(200, headers={"content-type": "text/html"})
+        )
+        respx.get("https://example.pl/regulamin").mock(
+            side_effect=httpx.ReadTimeout("timed out")
+        )
+        result = validate_urls({"regulamin_url": "https://example.pl/regulamin"})
+    assert result["regulamin_url"].status == "alive"
+
+
+def test_a_head_that_itself_fails_still_falls_through_to_get():
+    # The fallback GET is the one that decides the verdict, so its failure is a
+    # real dead URL and must stay dead.
+    with respx.mock:
+        respx.head("https://gone.pl/x").mock(side_effect=httpx.ConnectError("nope"))
+        respx.get("https://gone.pl/x").mock(side_effect=httpx.ConnectError("nope"))
+        result = validate_urls({"regulamin_url": "https://gone.pl/x"})
+    assert result["regulamin_url"].status == "dead"

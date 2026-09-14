@@ -103,6 +103,19 @@ function needsDetail(entry, knownIds, knownRows, today) {
   return !known.registration_url && String(known.date) >= today
 }
 
+// Should this entry be written at all?
+//
+// fetchDetailPage returns null for ANY failure — a timeout, a 502, a reset — and
+// a re-scrape is authoritative for its own record, so a row emitted from a null
+// detail overwrites the stored URLs with nulls. The re-check set is exactly the
+// rows that already have a regulamin and are waiting for a registration link, so
+// one bad minute at the source erased a good regulamin PDF. A known row whose
+// detail page could not be read is left exactly as it is; a new row is still
+// worth recording from the listing alone, since there is nothing there to lose.
+function shouldEmitRow(detail, isKnown) {
+  return detail !== null || !isKnown
+}
+
 async function scrape({ knownIds = new Set(), knownRows = new Map() } = {}) {
   const results = []
 
@@ -149,6 +162,11 @@ async function scrape({ knownIds = new Set(), knownRows = new Map() } = {}) {
       const entry = dueEntries[i]
 
       const detail = await fetchDetailPage(entry.href)
+      if (!shouldEmitRow(detail, knownIds.has(entry.sourceId))) {
+        console.log(`[zmierzymyczas] ${entry.sourceId}: detail page unreadable, keeping stored values`)
+        await new Promise(r => setTimeout(r, 1100))
+        continue
+      }
 
       const sourceUrl = `${BASE_URL}${entry.href}`
       results.push({
@@ -184,4 +202,4 @@ async function scrape({ knownIds = new Set(), knownRows = new Map() } = {}) {
   return results
 }
 
-export { scrape, needsDetail }
+export { scrape, needsDetail, shouldEmitRow }
