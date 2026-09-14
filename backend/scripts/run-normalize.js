@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { writeRunLog } from './lib/run-log.js'
+import { normalizeDistances } from './lib/distances.js'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-normalize.js
 // Normalizes scraper_all before publishing to calendar_events:
@@ -97,64 +98,9 @@ function normalizeEventTypes(eventType, eventTypes) {
   return normalized.size > 0 ? [...normalized].sort() : null
 }
 
-// --- Distance normalization ---
-//
-// scraper_all.distances is a single comma-separated string, e.g. "1 km, 500m, 0.2 km".
-// Canonical format (one agreed setup so the DB is consistent):
-//   - distance < 1000 m  → metres, e.g. "200 m"
-//   - distance >= 1000 m → kilometres, e.g. "5 km", "21.1 km"
-//   - always a SPACE between number and unit
-//   - dot for decimals
-// Time-based ("6h"), word-based ("Maraton", "Półmaraton") and bare unitless numbers
-// are left untouched (can't be safely converted). Duplicates are collapsed, order kept.
-
-function formatMeters(meters) {
-  if (!Number.isFinite(meters) || meters <= 0) return null
-  if (meters < 1000) return `${Math.round(meters)} m`
-  const km = parseFloat((meters / 1000).toFixed(3)) // strip float noise, max 3 decimals
-  return `${km} km`
-}
-
-function normalizeDistanceToken(token) {
-  const t = token.trim()
-  if (!t) return null
-  const lower = t.toLowerCase()
-
-  // time-based: "6h", "12 h" → "6h"
-  const time = lower.match(/^(\d{1,3})\s*h$/)
-  if (time) return `${time[1]}h`
-
-  // number + km / kilometr
-  let m = lower.match(/^(\d+(?:[.,]\d+)?)\s*(?:km|kilometr\w*)$/)
-  if (m) return formatMeters(parseFloat(m[1].replace(',', '.')) * 1000) || t
-
-  // number + m / metr (but NOT km — handled above)
-  m = lower.match(/^(\d+(?:[.,]\d+)?)\s*(?:m|metr\w*)$/)
-  if (m) return formatMeters(parseFloat(m[1].replace(',', '.'))) || t
-
-  // words ("maraton"), bare numbers, anything else → leave untouched
-  return t
-}
-
-function normalizeDistances(raw) {
-  if (!raw || typeof raw !== 'string') return raw
-  // The data uses commas as BOTH decimal separators ("42,2 km") and token
-  // separators ("5 km, 10 km"), plus ";" and "+" as alternative token separators.
-  // Convert decimal-commas to dots first so the comma is unambiguously a separator,
-  // then split on , ; +. Output always re-joins with ", ".
-  const dotted = raw.replace(/(\d),(\d)/g, '$1.$2')
-  const out = []
-  const seen = new Set()
-  for (const tok of dotted.split(/[,;+]/)) {
-    const norm = normalizeDistanceToken(tok)
-    if (!norm) continue
-    const key = norm.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(norm)
-  }
-  return out.join(', ')
-}
+// Distance normalization lives in scripts/lib/distances.js so it can be tested
+// and so the certification strip is shared with anything else that reads a
+// distances string.
 
 // --- Main ---
 
