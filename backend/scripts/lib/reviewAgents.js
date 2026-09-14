@@ -6,6 +6,11 @@
 // A prompt that asks an agent not to touch a file is not a limit.
 
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 
 // Directories a fix agent may change. A scraper bug, a merge bug, an enricher
 // bug and their tests all live here. Everything else is refused before a human
@@ -106,6 +111,34 @@ export function sanitizedEnv(base = process.env) {
   return env
 }
 
+// A candidate is only diagnosable when it names the source row it came from.
+// Three of the four layers the method traces — scraper_all, scraper_<source> and
+// the calendar_events row — are keyed on source + source_id, and the scraper file
+// the diagnose agent is told to read is named after the source. Without it the
+// agent runs on one layer instead of four and is pointed at a file that does not
+// exist, which is how a pull request against sources/undefined.js got opened on
+// 2026-09-14. Hold those candidates back for a person instead.
+export function partitionCandidates(candidates) {
+  const diagnosable = []
+  const undiagnosable = []
+  for (const c of candidates || []) {
+    const source = typeof c?.source === 'string' ? c.source.trim() : ''
+    const sourceId = c?.source_id == null ? '' : String(c.source_id).trim()
+    if (source && sourceId) diagnosable.push(c)
+    else undiagnosable.push({ candidate: c, reason: !source ? 'no source on the publish row' : 'no source_id on the publish row' })
+  }
+  return { diagnosable, undiagnosable }
+}
+
+// The file a diagnose agent names is input, not fact. It has to be a path a fix
+// agent would be allowed to touch anyway, and it has to exist — an agent that
+// invents a filename would otherwise get a worktree, a branch and a pull request
+// named after it.
+export function isUsableDefectFile(file, { exists = (f) => existsSync(path.join(REPO_ROOT, f)) } = {}) {
+  if (!isPathAllowed(file)) return false
+  return exists(file)
+}
+
 // Two findings belong to the same defect when they name the same layer and the
 // same file. Grouping on the file the agents themselves named needs no model
 // call, and it is the answer anyway: one file, one fix, one pull request.
@@ -115,10 +148,11 @@ export function defectKey(finding) {
   return `${layer}:${file}`
 }
 
-export function groupFindings(findings) {
+export function groupFindings(findings, opts = {}) {
   const groups = new Map()
   for (const finding of findings) {
     if (finding?.verdict !== 'code-defect') continue
+    if (!isUsableDefectFile(finding?.defect?.file, opts)) continue
     const key = defectKey(finding)
     if (!groups.has(key)) {
       groups.set(key, {

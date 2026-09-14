@@ -39,6 +39,7 @@ import {
   runAgent,
   sanitizedEnv,
   groupFindings,
+  partitionCandidates,
   branchSlug,
   checkDiffPaths,
   countBlastRadius,
@@ -147,6 +148,13 @@ async function diagnose(candidates) {
 async function reconcile(findings) {
   const groups = groupFindings(findings)
   log(`\n[2/5] ${findings.length} finding(s) collapse into ${groups.length} defect(s)`)
+  // groupFindings refuses a defect whose file is not a real file a fix agent may
+  // touch. Say so, or the finding disappears between two counts.
+  const grouped = groups.reduce((n, g) => n + g.findings.length, 0)
+  const claimed = findings.filter((f) => f.verdict === 'code-defect').length
+  if (claimed > grouped) {
+    log(`      ! ${claimed - grouped} code-defect finding(s) named a file no fix agent may touch, or a file that does not exist — dropped`)
+  }
   for (const group of groups) {
     const first = group.findings.find((f) => f.blast_radius)
     const measured = first ? await countBlastRadius(supabase, first.blast_radius) : { count: null }
@@ -313,10 +321,21 @@ async function healSources(mergedOutcomes) {
 
 async function main() {
   const startedAt = new Date().toISOString()
-  const candidates = await selectCandidates()
-  if (candidates.length === 0) {
+  const selected = await selectCandidates()
+  if (selected.length === 0) {
     log('\nEvery row that would publish is ready to accept. There is nothing to review.')
     return { exitCode: 0, report: { startedAt, candidates: [], findings: [], defects: [] } }
+  }
+
+  // A row that does not say where it came from cannot be traced through the four
+  // layers, so it is reported rather than handed to an agent that would guess.
+  const { diagnosable: candidates, undiagnosable } = partitionCandidates(selected)
+  for (const u of undiagnosable) {
+    log(`      ! ${u.candidate?.name}: skipped, ${u.reason}`)
+  }
+  if (candidates.length === 0) {
+    log('\nNo candidate carries a source, so there is nothing an agent can trace.')
+    return { exitCode: 0, report: { startedAt, candidates: [], findings: [], defects: [], undiagnosable } }
   }
 
   const findings = await diagnose(candidates)
@@ -325,6 +344,7 @@ async function main() {
     startedAt,
     apply,
     candidates: candidates.map((c) => ({ name: c.name, date: c.date, source: c.source, missing: c.missing_required })),
+    undiagnosable: undiagnosable.map((u) => ({ name: u.candidate?.name, date: u.candidate?.date, reason: u.reason })),
     findings,
     defects: groups.map((g) => ({ file: g.file, layer: g.layer, events: g.events.length, blastRadius: g.blastRadius, signatures: g.signatures })),
     costUsd: findings.reduce((sum, f) => sum + (f.costUsd || 0), 0),
