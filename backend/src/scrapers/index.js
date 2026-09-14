@@ -173,6 +173,9 @@ const sources = [
     name: 'zmierzymyczas',
     scrape: scrapeZmierzymyczas,
     table: 'scraper_zmierzymyczas',
+    // Registration opens after the event page is published, so the scraper re-reads
+    // future-dated rows that still have no registration_url.
+    knownColumns: 'source_id, date, registration_url',
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
@@ -761,19 +764,25 @@ async function runPipeline({ force = [], only = [] } = {}) {
     try {
       const isForced = force.includes(source.name)
       let knownIds = new Set()
+      let knownRows = new Map()
       if (isForced) {
         const { error: deleteError } = await supabase.from(source.table).delete().not('id', 'is', null)
         if (deleteError) throw new Error(`Force clear failed: ${deleteError.message}`)
         console.log(`[pipeline] ${source.name}: FORCE mode — cleared table`)
       } else {
+        // A known source_id says the row exists, not that it is complete. A source
+        // that wants to re-check incomplete rows declares `knownColumns` and reads
+        // the stored values back through knownRows. Tables differ in shape, so the
+        // default stays the id-only select every table supports.
         const { data: existing } = await supabase
           .from(source.table)
-          .select('source_id')
+          .select(source.knownColumns || 'source_id')
         knownIds = new Set((existing || []).map(r => r.source_id))
+        knownRows = new Map((existing || []).map(r => [r.source_id, r]))
         console.log(`[pipeline] ${source.name}: ${knownIds.size} events already in DB`)
       }
 
-      let rawEvents = await source.scrape({ knownIds })
+      let rawEvents = await source.scrape({ knownIds, knownRows })
       stats.found = rawEvents.length
 
       // API-enrich any events whose registration_url points to a known API platform
