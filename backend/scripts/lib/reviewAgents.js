@@ -174,6 +174,19 @@ export function groupFindings(findings, opts = {}) {
     .sort((a, b) => b.findings.length - a.findings.length)
 }
 
+// How an approved pull request is merged. `gh pr merge --delete-branch` also
+// deletes the LOCAL branch, and to do that gh checks out the repository's default
+// branch — which git refuses, because this step always runs while main is checked
+// out in the shared main checkout. Merge without the flag and delete the remote
+// branch with a push, which needs no working tree at all. Returns the gh argv and
+// then the git argv.
+export function mergeCommands(pr, branch) {
+  return [
+    ['pr', 'merge', String(pr), '--squash'],
+    ['push', 'origin', '--delete', branch],
+  ]
+}
+
 // A slug for the branch name. Branches are shared with a person, so they have to
 // stay readable and they have to stay unique per defect.
 export function branchSlug(key) {

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { partitionCandidates, groupFindings } from '../scripts/lib/reviewAgents.js'
+import { partitionCandidates, groupFindings, mergeCommands } from '../scripts/lib/reviewAgents.js'
 
 // A candidate without a source cannot be diagnosed. Three of the four layers the
 // method traces — scraper_all, scraper_<source> and the calendar_events row — are
@@ -43,4 +43,19 @@ test('a finding naming a real file still groups', () => {
   const groups = groupFindings(findings)
   assert.equal(groups.length, 1)
   assert.equal(groups[0].file, 'backend/src/scrapers/sources/b4sport.js')
+})
+
+// gh pr merge --delete-branch deletes the local branch too, and to do that it
+// checks out the repository's default branch. Every run of this step happens
+// while main is checked out in the shared main checkout, and git refuses to check
+// out one branch in two worktrees. On 2026-09-14 that turned an approved pull
+// request into merge-failed.
+test('the merge never asks gh to delete the local branch', () => {
+  const [merge] = mergeCommands(128, 'fix/auto-thing')
+  assert.deepEqual(merge, ['pr', 'merge', '128', '--squash'])
+})
+
+test('the remote branch is deleted by a push, which needs no checkout', () => {
+  const [, cleanup] = mergeCommands(128, 'fix/auto-thing')
+  assert.deepEqual(cleanup, ['push', 'origin', '--delete', 'fix/auto-thing'])
 })
