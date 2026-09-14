@@ -83,7 +83,27 @@ async function fetchDetailPage(href) {
   }
 }
 
-async function scrape({ knownIds = new Set() } = {}) {
+// Is this listing entry's detail page worth fetching on this run?
+//
+// A known source_id is not a finished row. zmierzymyczas publishes the event page
+// first and opens registration later — until then the page says "Zapisy zostaną
+// otwarte <date> o <time>" and carries no /edit/ link at all, so the first scrape
+// correctly stores registration_url null. Skipping every known id meant that page
+// was never read again and the link that appeared hours later was never picked up:
+// 12 future-dated rows sit at null today, one of them (2664, XIX ZIMNAR, 2027-01-10)
+// with a live /edit/ link on the page right now.
+//
+// knownRows comes from the raw table. A known id with no row there (a source that
+// does not declare knownColumns) keeps the old skip rather than re-fetching blind.
+// A past race is left alone — its registration is not going to open.
+function needsDetail(entry, knownIds, knownRows, today) {
+  if (!knownIds.has(entry.sourceId)) return true
+  const known = knownRows.get(entry.sourceId)
+  if (!known) return false
+  return !known.registration_url && String(known.date) >= today
+}
+
+async function scrape({ knownIds = new Set(), knownRows = new Map() } = {}) {
   const results = []
 
   try {
@@ -120,11 +140,13 @@ async function scrape({ knownIds = new Set() } = {}) {
       entries.push({ name, date, distances, location: cityFromVenue(location), href, sourceId })
     })
 
-    const newEntries = entries.filter(e => !knownIds.has(e.sourceId))
-    console.log(`[zmierzymyczas] Found ${entries.length} events, ${newEntries.length} new (skipping ${entries.length - newEntries.length} known)`)
+    const today = new Date().toISOString().slice(0, 10)
+    const dueEntries = entries.filter(e => needsDetail(e, knownIds, knownRows, today))
+    const recheckCount = dueEntries.filter(e => knownIds.has(e.sourceId)).length
+    console.log(`[zmierzymyczas] Found ${entries.length} events, ${dueEntries.length - recheckCount} new, ${recheckCount} re-checked (skipping ${entries.length - dueEntries.length} known)`)
 
-    for (let i = 0; i < newEntries.length; i++) {
-      const entry = newEntries[i]
+    for (let i = 0; i < dueEntries.length; i++) {
+      const entry = dueEntries[i]
 
       const detail = await fetchDetailPage(entry.href)
 
@@ -150,7 +172,7 @@ async function scrape({ knownIds = new Set() } = {}) {
       await new Promise(r => setTimeout(r, 1100))
 
       if ((i + 1) % 50 === 0) {
-        console.log(`[zmierzymyczas] Detail pages: ${i + 1}/${newEntries.length}`)
+        console.log(`[zmierzymyczas] Detail pages: ${i + 1}/${dueEntries.length}`)
       }
     }
 
@@ -162,4 +184,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape }
+export { scrape, needsDetail }
