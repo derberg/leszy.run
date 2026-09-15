@@ -15215,6 +15215,38 @@
     "is_kids": null,
     "status": "active"
   },
+  "x-bieg-dookola-jeziora-chociwel-2026-2026-05-30": {
+    "id": "8ae13195-f651-4bf3-82eb-57e58300cc1c",
+    "name": "X Bieg Dookoła Jeziora – Chociwel 2026",
+    "date": "2026-05-30",
+    "registration_deadline": "2026-05-26",
+    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=765",
+    "price_from": 60,
+    "price_to": 100,
+    "location": "Chociwel",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.466395,
+    "lng": 15.331444,
+    "distances": [
+      "12 km",
+      "6 km",
+      "6 km (nordic walking)",
+      "100 m",
+      "200 m",
+      "400 m",
+      "500 m",
+      "800 m",
+      "1 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking"
+    ],
+    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=765",
+    "website": "https://www.sport-time.com.pl/competitions/view?id=765",
+    "is_kids": null,
+    "status": "active"
+  },
   "patrol-graniczny-7-2026-05-30": {
     "id": "8b5f44c0-761e-464f-bbbc-df1dfa0f148f",
     "name": "Patrol Graniczny 7",
@@ -15656,38 +15688,6 @@
     ],
     "registration_url": "https://b4sportonline.pl/roztocze_bez_granic/zapisy_na_rowerowe_lato_na_roztoczu/11891",
     "website": "http://roztoczebezgranic.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
-  "x-bieg-dookola-jeziora-chociwel-2026-2026-05-30": {
-    "id": "8ae13195-f651-4bf3-82eb-57e58300cc1c",
-    "name": "X Bieg Dookoła Jeziora – Chociwel 2026",
-    "date": "2026-05-30",
-    "registration_deadline": "2026-05-26",
-    "regulamin_url": "https://sport-time.com.pl/competitions/viewTerms?id=765",
-    "price_from": 60,
-    "price_to": 100,
-    "location": "Chociwel",
-    "voivodeship": "Zachodniopomorskie",
-    "lat": 53.466395,
-    "lng": 15.331444,
-    "distances": [
-      "12 km",
-      "6 km",
-      "6 km (nordic walking)",
-      "100 m",
-      "200 m",
-      "400 m",
-      "500 m",
-      "800 m",
-      "1000 m"
-    ],
-    "event_type": [
-      "uliczny",
-      "nordic walking"
-    ],
-    "registration_url": "https://sport-time.com.pl/competitionUsers/checkIn?competitionId=765",
-    "website": "https://www.sport-time.com.pl/competitions/view?id=765",
     "is_kids": null,
     "status": "active"
   },
@@ -43849,7 +43849,7 @@
     "event_type": [
       "uliczny"
     ],
-    "registration_url": "https://szybkafaktura.pl/",
+    "registration_url": "https://foxter-sport.pl/szybka-piatka-sokola-bukownica",
     "website": null,
     "is_kids": null,
     "status": "active"
