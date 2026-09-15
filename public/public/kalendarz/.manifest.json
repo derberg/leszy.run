@@ -23710,8 +23710,8 @@
     "date": "2026-06-19",
     "registration_deadline": "2026-06-16",
     "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
-    "price_from": 60,
-    "price_to": 90,
+    "price_from": 50,
+    "price_to": 60,
     "location": "Legionowo",
     "voivodeship": "Mazowieckie",
     "lat": 52.395229,
@@ -55292,6 +55292,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "xiv-bieg-hutnika-arcelormittal-poland-2026-2026-10-02": {
+    "id": "cd18f5d5-93d3-4122-ad11-82a67783ed29",
+    "name": "XIV BIEG HUTNIKA ARCELORMITTAL POLAND 2026",
+    "date": "2026-10-02",
+    "registration_deadline": "2026-09-29",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/P0E5K6g990A0O1x7C8v934T054g3u2n3/open",
+    "price_from": null,
+    "price_to": null,
+    "location": "Dąbrowa Górnicza",
+    "voivodeship": "Śląskie",
+    "lat": 50.330869,
+    "lng": 19.207892,
+    "distances": [
+      "6 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/16077/signup.html",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "silesia-marathon-2026-10-02": {
     "id": "2e36ae06-d0c7-4dfa-8454-ccefe5075b7f",
     "name": "Silesia Marathon",
@@ -56911,6 +56935,55 @@
     "is_kids": null,
     "status": "active"
   },
+  "rodzinna-sztafeta-pamieci-im-pplk-eugeniusza-tyrajskiego-sek-2026-10-04": {
+    "id": "115bb119-4385-451c-adce-13b3fe1fb5cc",
+    "name": "Rodzinna Sztafeta Pamięci im. ppłk. Eugeniusza Tyrajskiego \"Sęk\"",
+    "date": "2026-10-04",
+    "registration_deadline": "2026-10-03",
+    "regulamin_url": "https://www.entretiming.pl/sztafeta-pamieci/sztafeta-pamieci-regulamin/",
+    "price_from": null,
+    "price_to": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.207317,
+    "lng": 21.027017,
+    "distances": [
+      "1.9 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17303",
+    "website": "https://www.entretiming.pl/sztafeta-pamieci/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "v-etap-xvi-jurajski-puchar-nordic-walking-2026-10-04": {
+    "id": "608260ae-9753-4643-9317-1dcc4e2834ab",
+    "name": "V etap XVI Jurajski Puchar Nordic Walking",
+    "date": "2026-10-04",
+    "registration_deadline": "2026-10-03",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/X8o8b8y8Y0y0R1d7f869w3E7M4h4i655/open",
+    "price_from": 20,
+    "price_to": 70,
+    "location": "Słowik, Gmina Poczesna",
+    "voivodeship": "Łódzkie",
+    "lat": 51.92841,
+    "lng": 19.353342,
+    "distances": [
+      "3 km",
+      "6 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/16074/signup.html",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "5-pilawski-trail-2026-10-04": {
     "id": "d094197f-36c8-4579-9f0a-e7272a9e750a",
     "name": "5 Pilawski Trail",
@@ -57990,6 +58063,34 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15951/signup.html",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "15-bieg-zlotych-lisci-2026-10-10": {
+    "id": "99e6d94b-5646-479f-b100-0fafaadf198b",
+    "name": "15. Bieg Złotych Liści",
+    "date": "2026-10-10",
+    "registration_deadline": "2026-10-09",
+    "regulamin_url": "https://www.kondycja.com.pl/aktywnosci/bieg-zlotych-lisci/#Regulamin",
+    "price_from": 30,
+    "price_to": 40,
+    "location": "Piaseczno",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.081154,
+    "lng": 21.02386,
+    "distances": [
+      "5 km",
+      "3 km",
+      "1 km",
+      "300 m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17238",
+    "website": "https://www.kondycja.com.pl/aktywnosci/bieg-zlotych-lisci/#Regulamin",
     "is_kids": null,
     "status": "active"
   },
@@ -61723,6 +61824,58 @@
     ],
     "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1387",
     "website": "https://szakalebalut.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "ix-bieg-runbertow-2026-2026-10-24": {
+    "id": "d191195e-ea82-44bd-afef-58dc226b38a8",
+    "name": "IX BIEG RUNbertów 2026",
+    "date": "2026-10-24",
+    "registration_deadline": "2026-10-21",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12734.pdf",
+    "price_from": 65,
+    "price_to": 100,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "5 km",
+      "100 m",
+      "450 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12734%26co%3Dform",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "tt-minirunbertow-2026-10-24": {
+    "id": "1dc413ac-152c-4318-b052-411d738228b3",
+    "name": "T&T miniRUNbertów",
+    "date": "2026-10-24",
+    "registration_deadline": "2026-10-21",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12735.pdf",
+    "price_from": 18,
+    "price_to": 100,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "5 km",
+      "100 m",
+      "450 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12735%26co%3Dform",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -66423,6 +66576,30 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15964/signup.html",
     "website": "https://www.traseo.pl/trasa/razem-po-zmroku-60-km",
+    "is_kids": null,
+    "status": "active"
+  },
+  "iii-zlotowska-dziesiatka-2027-09-19": {
+    "id": "727ecdab-2f50-4d4f-bac1-4f6f896914ae",
+    "name": "III Złotowska dziesiątka",
+    "date": "2027-09-19",
+    "registration_deadline": "2027-09-17",
+    "regulamin_url": "https://dostartu.pl/statute_files/17305_pl.pdf",
+    "price_from": 49,
+    "price_to": 79,
+    "location": "Złotów",
+    "voivodeship": "Wielkopolskie",
+    "lat": 53.360938,
+    "lng": 17.043904,
+    "distances": [
+      "5 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17305",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
