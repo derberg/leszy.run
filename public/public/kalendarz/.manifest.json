@@ -49244,14 +49244,14 @@
     "lng": 17.918681,
     "distances": [
       "3 km",
-      "0.07 km",
+      "70 m",
       "1 km",
       "3.5 km",
-      "60m",
-      "100m",
-      "200m",
-      "600m",
-      "800m"
+      "60 m",
+      "100 m",
+      "200 m",
+      "600 m",
+      "800 m"
     ],
     "event_type": [
       "ocr",
@@ -53938,6 +53938,36 @@
     "is_kids": null,
     "status": "active"
   },
+  "festiwal-biegowy-i-nordic-walking-2026-09-27": {
+    "id": "e0b854ef-79e2-46f1-8d00-bf4c402c09eb",
+    "name": "Festiwal Biegowy i Nordic Walking",
+    "date": "2026-09-27",
+    "registration_deadline": "2026-09-18",
+    "regulamin_url": "https://superczas.pl/userfiles/events/709/regulamin_festiwal-biegowy-i-_olszewo-borki_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Olszewo-Borki",
+    "voivodeship": "Podlaskie",
+    "lat": 52.816077,
+    "lng": 22.889145,
+    "distances": [
+      "5 km",
+      "200 m",
+      "400 m",
+      "600 m",
+      "800 m",
+      "1 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://superczas.pl/olszewoborki2026/zapisy",
+    "website": "https://gok.olszewo-borki.pl",
+    "is_kids": null,
+    "status": "active"
+  },
   "piatka-z-hakiem-2026-09-27": {
     "id": "e489c924-cb8c-4f28-b847-a871fe077906",
     "name": "Piątka z Hakiem",
@@ -54060,37 +54090,6 @@
     ],
     "registration_url": "https://online.datasport.pl/zapisy/portal/zawody.php?zawody=11621",
     "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
-  "festiwal-biegowy-i-nordic-walking-2026-09-27": {
-    "id": "e0b854ef-79e2-46f1-8d00-bf4c402c09eb",
-    "name": "Festiwal Biegowy i Nordic Walking",
-    "date": "2026-09-27",
-    "registration_deadline": "2026-09-18",
-    "regulamin_url": "https://superczas.pl/userfiles/events/709/regulamin_festiwal-biegowy-i-_olszewo-borki_pl.pdf",
-    "price_from": null,
-    "price_to": null,
-    "location": "Olszewo-Borki",
-    "voivodeship": "Podlaskie",
-    "lat": 52.816077,
-    "lng": 22.889145,
-    "distances": [
-      "5 km",
-      "5 km",
-      "0.2 km",
-      "0.4 km",
-      "0.6 km",
-      "0.8 km",
-      "1 km"
-    ],
-    "event_type": [
-      "nordic walking",
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://superczas.pl/olszewoborki2026/zapisy",
-    "website": "https://gok.olszewo-borki.pl",
     "is_kids": null,
     "status": "active"
   },
@@ -57479,8 +57478,8 @@
     "lat": 51.020389,
     "lng": 17.317006,
     "distances": [
-      "10 km",
-      "0.5 km"
+      "500 m",
+      "10 km"
     ],
     "event_type": [
       "charytatywny",
@@ -60804,6 +60803,34 @@
     "is_kids": null,
     "status": "active"
   },
+  "bienczyce-bieg-rodzica-z-dzieckiem-krakoskikros-2026-10-18": {
+    "id": "170e5b58-5a06-4193-904e-161c822fb42b",
+    "name": "BIEŃCZYCE - Bieg Rodzica z Dzieckiem \"KrakoskiKros\"",
+    "date": "2026-10-18",
+    "registration_deadline": "2026-10-13",
+    "regulamin_url": "https://dostartu.pl/statute_files/15847_pl.pdf",
+    "price_from": 35,
+    "price_to": 60,
+    "location": "Bieńczyce",
+    "voivodeship": "Małopolskie",
+    "lat": 50.08964,
+    "lng": 20.011511,
+    "distances": [
+      "6 km",
+      "4 km",
+      "100 m",
+      "1 km",
+      "3 km"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v15847",
+    "website": "https://KraKoskiKros.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
   "maratonska-dziesiatka-2026-10-18": {
     "id": "a04226bb-7541-4ad6-8b29-cf9254e768fe",
     "name": "Maratońska Dziesiątka",
@@ -60927,34 +60954,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "bienczyce-bieg-rodzica-z-dzieckiem-krakoskikros-2026-10-18": {
-    "id": "170e5b58-5a06-4193-904e-161c822fb42b",
-    "name": "BIEŃCZYCE - Bieg Rodzica z Dzieckiem \"KrakoskiKros\"",
-    "date": "2026-10-18",
-    "registration_deadline": "2026-10-13",
-    "regulamin_url": "https://dostartu.pl/statute_files/15847_pl.pdf",
-    "price_from": 35,
-    "price_to": 60,
-    "location": "Bieńczyce",
-    "voivodeship": "Małopolskie",
-    "lat": 50.08964,
-    "lng": 20.011511,
-    "distances": [
-      "6 km",
-      "4 km",
-      "0.1 km",
-      "1 km",
-      "3 km"
-    ],
-    "event_type": [
-      "trail",
-      "dzieci"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v15847",
-    "website": "https://KraKoskiKros.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
   "52-maraton-debno-2026-2026-10-18": {
     "id": "82331833-78e5-4b17-8f21-71a345851f35",
     "name": "52. Maraton Dębno 2026",
@@ -60991,10 +60990,10 @@
     "lat": 50.089254,
     "lng": 20.012884,
     "distances": [
-      "0.1 km",
-      "0.3 km",
-      "0.5 km",
-      "0.8 km",
+      "100 m",
+      "300 m",
+      "500 m",
+      "800 m",
       "1 km",
       "2 km"
     ],
@@ -64420,8 +64419,7 @@
     "lat": 52.632162,
     "lng": 19.987636,
     "distances": [
-      "0.4 km",
-      "10 km",
+      "400 m",
       "10 km"
     ],
     "event_type": [
