@@ -14011,6 +14011,52 @@
     "is_kids": null,
     "status": "active"
   },
+  "xii-marsz-nordic-walking-10-km-2026-05-24": {
+    "id": "6cc71f26-023c-4518-a575-7d55618fe736",
+    "name": "XII Marsz Nordic Walking 10 km",
+    "date": "2026-05-24",
+    "registration_deadline": "2026-04-30",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_Nordic_Walking_2026.pdf",
+    "price_from": 70,
+    "price_to": 100,
+    "location": "Strzebiń",
+    "voivodeship": "Śląskie",
+    "lat": 50.616145,
+    "lng": 18.904354,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2468/xii-marsz-nordic-walking-10-km.html",
+    "website": "https://www.zmierzymyczas.pl/2468/xii-marsz-nordic-walking-10-km.html",
+    "is_kids": null,
+    "status": "active"
+  },
+  "xviii-parafialny-bieg-uliczny-sw-urbana-strzebin-2026-05-24": {
+    "id": "c6cf8cfc-b2f9-4d7f-95a7-bb56b124abc9",
+    "name": "XVIII PARAFIALNY BIEG ULICZNY  ŚW. URBANA  STRZEBIŃ",
+    "date": "2026-05-24",
+    "registration_deadline": "2026-04-30",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_Bieg_2026.pdf",
+    "price_from": 35,
+    "price_to": 100,
+    "location": "Strzebiń",
+    "voivodeship": "Śląskie",
+    "lat": 50.616145,
+    "lng": 18.904354,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2467/xviii-parafialny-bieg-uliczny-sw-urbana-strzebin.html",
+    "website": "https://www.zmierzymyczas.pl/2467/xviii-parafialny-bieg-uliczny-sw-urbana-strzebin.html",
+    "is_kids": null,
+    "status": "active"
+  },
   "ii-bieg-malego-swietlika-2026-05-24": {
     "id": "949401ed-8d85-473c-8386-90d559117633",
     "name": "II Bieg Małego Świetlika",
@@ -14155,29 +14201,6 @@
     "event_type": [],
     "registration_url": null,
     "website": "https://bieg.prusice.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
-  "xii-marsz-nordic-walking-10-km-2026-05-24": {
-    "id": "6cc71f26-023c-4518-a575-7d55618fe736",
-    "name": "XII Marsz Nordic Walking 10 km",
-    "date": "2026-05-24",
-    "registration_deadline": "2026-04-30",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_Nordic_Walking_2026.pdf",
-    "price_from": 70,
-    "price_to": 100,
-    "location": "Strzebiń",
-    "voivodeship": "Śląskie",
-    "lat": 50.616145,
-    "lng": 18.904354,
-    "distances": [
-      "10 km (atest PZLA)"
-    ],
-    "event_type": [
-      "nordic walking"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2468/xii-marsz-nordic-walking-10-km.html",
-    "website": "https://www.zmierzymyczas.pl/2468/xii-marsz-nordic-walking-10-km.html",
     "is_kids": null,
     "status": "active"
   },
@@ -14760,29 +14783,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "xviii-parafialny-bieg-uliczny-sw-urbana-strzebin-2026-05-24": {
-    "id": "c6cf8cfc-b2f9-4d7f-95a7-bb56b124abc9",
-    "name": "XVIII PARAFIALNY BIEG ULICZNY  ŚW. URBANA  STRZEBIŃ",
-    "date": "2026-05-24",
-    "registration_deadline": "2026-04-30",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/Regulamin_Bieg_2026.pdf",
-    "price_from": 35,
-    "price_to": 100,
-    "location": "Strzebiń",
-    "voivodeship": "Śląskie",
-    "lat": 50.616145,
-    "lng": 18.904354,
-    "distances": [
-      "10 km (atest PZLA)"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2467/xviii-parafialny-bieg-uliczny-sw-urbana-strzebin.html",
-    "website": "https://www.zmierzymyczas.pl/2467/xviii-parafialny-bieg-uliczny-sw-urbana-strzebin.html",
-    "is_kids": null,
-    "status": "active"
-  },
   "v-bieg-traktem-swietego-rocha-2026-05-24": {
     "id": "d6a906a3-7152-43fd-9557-7b606de85369",
     "name": "V Bieg Traktem Świętego Rocha",
@@ -15192,6 +15192,29 @@
     "is_kids": null,
     "status": "active"
   },
+  "xiii-smolecka-zadyszka-2026-05-30": {
+    "id": "f967cb81-8d8c-4394-b146-a84fb38cecd1",
+    "name": "XIII Smolecka (za)Dyszka",
+    "date": "2026-05-30",
+    "registration_deadline": "2026-05-23",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260202_regulaminBiegu_2026.pdf",
+    "price_from": 60,
+    "price_to": 140,
+    "location": "Smolec",
+    "voivodeship": "Dolnośląskie",
+    "lat": 51.07448,
+    "lng": 16.884357,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2476/xiii-smolecka-za-dyszka.html",
+    "website": "https://smoleckazadyszka.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
   "patrol-graniczny-7-2026-05-30": {
     "id": "8b5f44c0-761e-464f-bbbc-df1dfa0f148f",
     "name": "Patrol Graniczny 7",
@@ -15535,29 +15558,6 @@
     ],
     "registration_url": "https://www.bgtimesport.pl/zawody/biegi/id/834",
     "website": "https://www.bgtimesport.pl/zawody/biegi/id/834",
-    "is_kids": null,
-    "status": "active"
-  },
-  "xiii-smolecka-zadyszka-2026-05-30": {
-    "id": "f967cb81-8d8c-4394-b146-a84fb38cecd1",
-    "name": "XIII Smolecka (za)Dyszka",
-    "date": "2026-05-30",
-    "registration_deadline": "2026-05-23",
-    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20260202_regulaminBiegu_2026.pdf",
-    "price_from": 60,
-    "price_to": 140,
-    "location": "Smolec",
-    "voivodeship": "Dolnośląskie",
-    "lat": 51.07448,
-    "lng": 16.884357,
-    "distances": [
-      "10 km (atest PZLA)"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://www.zmierzymyczas.pl/edit/2476/xiii-smolecka-za-dyszka.html",
-    "website": "https://smoleckazadyszka.pl/",
     "is_kids": null,
     "status": "active"
   },
@@ -53475,6 +53475,34 @@
     "is_kids": null,
     "status": "active"
   },
+  "ii-bieg-palmiry-pamietamy-2026-09-26": {
+    "id": "45a1b4e1-2a37-4ca4-8b3d-6e2ff37a7349",
+    "name": "II Bieg Palmiry \"Pamiętamy\"",
+    "date": "2026-09-26",
+    "registration_deadline": "2026-09-16",
+    "regulamin_url": "https://dostartu.pl/statute_files/16890_pl.pdf",
+    "price_from": 75,
+    "price_to": 75,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.310368,
+    "lng": 20.931015,
+    "distances": [
+      "250 m",
+      "1 km",
+      "5 km",
+      "7 km",
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16890",
+    "website": "https://palmiry.pttk.pl/bieg",
+    "is_kids": null,
+    "status": "active"
+  },
   "13-garmin-polmaraton-gdansk-2026-09-26": {
     "id": "6f125011-492e-447b-a44f-7719103bdc07",
     "name": "13. Garmin Półmaraton Gdańsk",
@@ -62095,6 +62123,34 @@
     "is_kids": null,
     "status": "active"
   },
+  "cross-roslon-kabaty-2026-2026-10-24": {
+    "id": "bf88bb82-7c95-48d0-aa27-5f9ec128f41d",
+    "name": "CROSS ROSŁON KABATY 2026",
+    "date": "2026-10-24",
+    "registration_deadline": "2026-10-22",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12731.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Warszawa",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.231958,
+    "lng": 21.006725,
+    "distances": [
+      "1 km",
+      "1.6 km",
+      "5 km",
+      "600 m",
+      "800 m"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12731%26co%3Dform",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "xii-siemianowickie-nocne-marki-2026-10-24": {
     "id": "5eaba02d-aedd-40cb-b3fe-24e9a2e06a71",
     "name": "XII SIEMIANOWICKIE NOCNE MARKI",
@@ -63978,6 +64034,32 @@
     "is_kids": null,
     "status": "active"
   },
+  "bieg-dla-niepodleglej-na-dystansie-35-km-2026-11-11": {
+    "id": "474f86a6-9e2f-4603-9916-fb20743bcb20",
+    "name": "„Bieg dla Niepodległej” na dystansie 3,5 km",
+    "date": "2026-11-11",
+    "registration_deadline": "2026-10-29",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/j8110271I020C1H7r8J9b3I6L5k9z7W1/open",
+    "price_from": null,
+    "price_to": null,
+    "location": "Grabówka",
+    "voivodeship": "Podlaskie",
+    "lat": 52.994066,
+    "lng": 22.298188,
+    "distances": [
+      "3.5 km",
+      "1.918 km",
+      "108 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/16071/signup.html",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "bieg-niepodleglosci-im-dziewieciu-z-wujka-2026-11-11": {
     "id": "a6e16938-400e-41ae-9d99-86ef9bc55d6d",
     "name": "Bieg Niepodległości im. Dziewięciu z „Wujka”",
@@ -64171,6 +64253,30 @@
       "dzieci"
     ],
     "registration_url": "https://panel.maratonczykpomiarczasu.pl/chodzieski-bieg-niepodleglosci2026",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "bieg-z-wasem-2026-2026-11-14": {
+    "id": "da80d7bd-a3ea-43aa-89f3-03dd45c7ebb5",
+    "name": "Bieg z Wąsem 2026",
+    "date": "2026-11-14",
+    "registration_deadline": "2026-11-11",
+    "regulamin_url": "https://b4sportonline.pl/bieg_z_wasem/regulamin_bieg_szczecin",
+    "price_from": 29,
+    "price_to": 80,
+    "location": "Szczecin",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.430182,
+    "lng": 14.550962,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny"
+    ],
+    "registration_url": "https://b4sportonline.pl/bieg_z_wasem/zapisy_na_nordic_walking_z_wasem_w_szczecinie_1/13060",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -65335,6 +65441,32 @@
     "is_kids": null,
     "status": "active"
   },
+  "zimowy-polmaraton-myszkowski-2026-2026-12-12": {
+    "id": "cb2bda9b-afce-4074-a801-39738265d9b4",
+    "name": "Zimowy Półmaraton Myszkowski 2026",
+    "date": "2026-12-12",
+    "registration_deadline": "2026-11-30",
+    "regulamin_url": "https://dostartu.pl/statute_files/17295_pl.pdf",
+    "price_from": 60,
+    "price_to": 60,
+    "location": "Myszków, SL",
+    "voivodeship": "Śląskie",
+    "lat": 50.549956,
+    "lng": 19.298882,
+    "distances": [
+      "5 km",
+      "11 km",
+      "21.1 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17295",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "panewnicki-bieg-dzika-edycja-xiv-grudzien-2026-12-13": {
     "id": "0f154a4a-4760-4840-9135-d6b8fc9da0f6",
     "name": "Panewnicki Bieg Dzika – edycja XIV - grudzień",
@@ -65684,6 +65816,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "xix-jelczanskoolawski-toyota-zimowy-maraton-na-raty-2027-01-10": {
+    "id": "a5cc2dde-58da-463d-8f13-38c3c243ea3e",
+    "name": "XIX JELCZAŃSKO-OŁAWSKI TOYOTA ZIMOWY MARATON NA RATY",
+    "date": "2027-01-10",
+    "registration_deadline": "2027-01-03",
+    "regulamin_url": "https://www.zmierzymyczas.pl/images/regulaminy/20271010_Jelcz-Laskowice_-_ZIMNAR_regulamin_zawodw.pdf",
+    "price_from": 50,
+    "price_to": 150,
+    "location": "Chwałowice",
+    "voivodeship": "Świętokrzyskie",
+    "lat": 50.558789,
+    "lng": 20.615563,
+    "distances": [
+      "7",
+      "033 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://www.zmierzymyczas.pl/edit/2664/xix-jelczansko-olawski-toyota-zimowy-maraton-na-raty.html",
+    "website": "https://www.zmierzymyczas.pl/2664/xix-jelczansko-olawski-toyota-zimowy-maraton-na-raty.html",
+    "is_kids": null,
+    "status": "active"
+  },
   "zimowy-maraton-swietokrzyski-2027-01-16": {
     "id": "47dfaa58-a308-4484-afe2-98e8f23db2be",
     "name": "Zimowy Maraton Świętokrzyski",
@@ -65785,6 +65942,32 @@
     ],
     "registration_url": "https://www.bgtimesport.pl/zawody/biegi/id/868",
     "website": "https://zamiec.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "x-extreme-wolf-nocny-6km-2027-01-23": {
+    "id": "909a412f-0bf4-4089-b4e4-41ba0646d484",
+    "name": "X Extreme Wolf - Nocny 6km",
+    "date": "2027-01-23",
+    "registration_deadline": "2027-01-10",
+    "regulamin_url": "https://www.protiming24.pl/startmeta/6d91772e/doc/regulamin",
+    "price_from": 95,
+    "price_to": 110,
+    "location": "Grzepnica",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.514544,
+    "lng": 14.406099,
+    "distances": [
+      "6 km",
+      "12 km"
+    ],
+    "event_type": [
+      "nocny",
+      "nordic walking",
+      "trail"
+    ],
+    "registration_url": "https://www.protiming24.pl/startmeta/6d91772e/registration/",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -66131,6 +66314,34 @@
       "ultra"
     ],
     "registration_url": "https://competitions.timekeeper.pl/ultrapodkarpacie-3",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "22-nocny-maraton-kanalu-bydgoskiego-2027-06-12": {
+    "id": "08458b31-8de3-4636-a7c6-06ec1ddcf887",
+    "name": "22. Nocny Maraton Kanału Bydgoskiego",
+    "date": "2027-06-12",
+    "registration_deadline": "2027-05-21",
+    "regulamin_url": "https://bit.ly/46Z8sr3",
+    "price_from": 120,
+    "price_to": 180,
+    "location": "Bydgoszcz",
+    "voivodeship": "Kujawsko-Pomorskie",
+    "lat": 53.12348,
+    "lng": 18.008438,
+    "distances": [
+      "42.195 km",
+      "36.575 km",
+      "31.35 km",
+      "26.125 km",
+      "21.097 km"
+    ],
+    "event_type": [
+      "nocny",
+      "uliczny"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v17284",
     "website": null,
     "is_kids": null,
     "status": "active"
