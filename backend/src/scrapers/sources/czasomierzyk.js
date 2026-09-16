@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { cityFromLocation } from '../../lib/polishLocation.js'
 
 const LISTING_URL = 'https://czasomierzyk.pl/zapisy/'
 const FORMULARZ_BASE = 'https://formularz.czasomierzyk.pl'
@@ -30,11 +31,14 @@ function hasKidsSignal(name) {
   return false
 }
 
-// Take city portion (before first comma) for geocoding
+// The Miejscowość column is free text and the city is not always first in it.
+// "ul. Nasielska 1B, 05-180 Pomiechówek" put the street before the city, and
+// taking everything before the first comma stored the street, leaving the row
+// with no city to geocode at all. Fall back to the raw text when no city can be
+// read, so a venue-only entry still carries what the organizer wrote.
 function parseLocation(raw) {
   if (!raw) return null
-  const comma = raw.indexOf(',')
-  return comma > 0 ? raw.slice(0, comma).trim() : raw.trim()
+  return cityFromLocation(raw) || raw.trim() || null
 }
 
 async function fetchFormularz(id) {

@@ -5,14 +5,32 @@ const RATE_LIMIT_MS = 1100
 
 let lastRequestAt = 0
 
-// Capitalize first letter of each word
+// Nominatim answers a place query with whatever it has, including things that
+// are not places. "Kraków-Częstochowa" (a Jura trail) came back as an
+// `information` board in Świętokrzyskie, and "Rzyki-Praciaki" as a `highway`
+// bus loop in Śląskie. Both were then written to the calendar as the event's
+// region. Only a settlement can name a voivodeship.
+const SETTLEMENT_TYPES = new Set([
+  'city', 'town', 'village', 'hamlet', 'municipality', 'administrative',
+  'borough', 'suburb', 'quarter', 'neighbourhood', 'city_district',
+])
+
+// Capitalize the first letter of every word AND of every hyphenated part, so
+// the two-part voivodeships come back as "Kujawsko-Pomorskie" rather than
+// "Kujawsko-pomorskie". The rest of the pipeline matches these by string.
 function capitalizeVoivodeship(v) {
   if (!v) return null
-  return v.replace(/(?:^|\s)\S/g, c => c.toUpperCase()).replace(/^Województwo\s+/i, '')
+  return v
+    .replace(/(?:^|[\s-])\S/g, c => c.toUpperCase())
+    .replace(/^Województwo[\s-]+/i, '')
 }
 
-async function geocode(locationQuery) {
-  if (!locationQuery || !supabase) return { lat: null, lng: null, voivodeship: null }
+// `postcode` switches Nominatim to its structured endpoint. A postcode inside
+// the free-text `q` is simply ignored. "33-386 Podegrodzie" still returns both
+// the Małopolskie and the Zachodniopomorskie village. The structured city= +
+// postalcode= resolves it to the one place the organizer meant.
+async function geocode(locationQuery, { postcode = null, city = null } = {}) {
+  if (!locationQuery || !supabase) return { lat: null, lng: null, voivodeship: null, ambiguous: false }
 
   const { data: cached } = await supabase
     .from('geocode_cache')
@@ -20,7 +38,16 @@ async function geocode(locationQuery) {
     .eq('location_query', locationQuery)
     .single()
 
-  if (cached) return { lat: cached.lat, lng: cached.lng, voivodeship: cached.voivodeship || null }
+  // Re-capitalize on the way out: rows cached before the hyphen fix carry
+  // "Warmińsko-mazurskie", and the rest of the pipeline matches by string.
+  if (cached) {
+    return {
+      lat: cached.lat,
+      lng: cached.lng,
+      voivodeship: capitalizeVoivodeship(cached.voivodeship) || null,
+      ambiguous: false,
+    }
+  }
 
   const now = Date.now()
   const wait = RATE_LIMIT_MS - (now - lastRequestAt)
@@ -29,18 +56,38 @@ async function geocode(locationQuery) {
 
   try {
     const params = new URLSearchParams({
-      q: `${locationQuery}, Polska`,
       format: 'json',
-      limit: '1',
+      limit: '10',
       countrycodes: 'pl',
       addressdetails: '1',
     })
+    if (postcode && city) {
+      params.set('city', city)
+      params.set('postalcode', postcode)
+      params.set('country', 'Polska')
+    } else {
+      params.set('q', `${locationQuery}, Polska`)
+    }
 
     const res = await fetch(`${NOMINATIM_URL}?${params}`, {
       headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
     })
 
-    const results = await res.json()
+    const all = await res.json()
+
+    // Keep only settlements, then decide whether they agree. A name that names
+    // two villages in two voivodeships (Podegrodzie, Tuczno, Przystań) has no
+    // answer from the name alone: report the ambiguity and let the caller keep
+    // whatever it already had rather than pick one at random.
+    const results = Array.isArray(all)
+      ? all.filter(r => SETTLEMENT_TYPES.has(r.addresstype) || SETTLEMENT_TYPES.has(r.type))
+      : []
+    const states = new Set(
+      results.map(r => capitalizeVoivodeship(r.address?.state || r.address?.province)).filter(Boolean)
+    )
+    if (states.size > 1) {
+      return { lat: null, lng: null, voivodeship: null, ambiguous: true }
+    }
 
     if (results.length > 0) {
       const { lat, lon, address } = results[0]
@@ -75,13 +122,13 @@ async function geocode(locationQuery) {
         }, { onConflict: 'location_query' })
       }
 
-      return { ...coords, voivodeship }
+      return { ...coords, voivodeship, ambiguous: false }
     }
   } catch (err) {
     console.error(`Geocode failed for "${locationQuery}":`, err.message)
   }
 
-  return { lat: null, lng: null, voivodeship: null }
+  return { lat: null, lng: null, voivodeship: null, ambiguous: false }
 }
 
 export { geocode }
