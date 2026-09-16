@@ -36,6 +36,7 @@ import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishi
 import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
 import { TRACKED_FIELDS, missingTrackedFields, missingRequiredFields, isReadyToAccept } from '@leszyrun/ui/eventCompleteness'
+import { looksNonPolish } from '../lib/polishLocation.js'
 
 // Sources that handle their own API enrichment in-scraper (avoid double API calls)
 const SELF_ENRICHING_SOURCES = new Set(['dostartu', 'elektronicznezapisy'])
@@ -1082,7 +1083,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
   const results = { sources: [] }
 
   for (const source of sortedSources) {
-    const stats = { source: source.name, total: 0, created: 0, updated: 0, skipped: 0, skippedReasons: { non_running: 0, past_date: 0, junk: 0 }, errors: [], createdNames: [], updatedNames: [], rows: [] }
+    const stats = { source: source.name, total: 0, created: 0, updated: 0, skipped: 0, skippedReasons: { non_running: 0, past_date: 0, junk: 0, foreign: 0 }, errors: [], createdNames: [], updatedNames: [], rows: [] }
 
     try {
       // Fetch only unmerged rows from raw table (paginated)
@@ -1129,11 +1130,22 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           // the `bike` keyword so it isn't wrongly dropped as a cycling event.
           const isRunBike = raw.name && /\brun\s*&?\s*bike\b|biegowo[- ]?rowerow/i.test(raw.name)
 
+          // Races run outside Poland. dostartu and the other registration
+          // platforms carry a handful of Czech and Slovak border races, and this
+          // calendar is Polish: the geocoder is locked to countrycodes=pl, so a
+          // foreign row can never get a voivodeship, can never be ready to
+          // accept, and returns to the geocode failure list and the pre-publish
+          // review queue every night for a field that does not exist. Drop it at
+          // the merge instead. See looksNonPolish() for why the event NAME is
+          // deliberately not evidence.
+          const isForeign = looksNonPolish(raw)
+
           // Skip non-running events and past events — mark merged so they don't re-appear
-          if ((raw.name && SKIP_KEYWORDS.test(raw.name) && !isRunBike) || (raw.date && raw.date < today) || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
+          if ((raw.name && SKIP_KEYWORDS.test(raw.name) && !isRunBike) || (raw.date && raw.date < today) || isForeign || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
             stats.skipped++
             if (raw.name && SKIP_KEYWORDS.test(raw.name)) stats.skippedReasons.non_running++
             else if (raw.date && raw.date < today) stats.skippedReasons.past_date++
+            else if (isForeign) stats.skippedReasons.foreign++
             else if (isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) stats.skippedReasons.junk++
             if (!dryRun) {
               await supabase.from(source.table).update({ merged_at: new Date().toISOString() }).eq('id', raw.id)
