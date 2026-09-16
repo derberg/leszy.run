@@ -68,7 +68,7 @@ mergeIntoScraperAll({ dryRun })
       const errStr = s.errors.length ? c.red + ` errors=${s.errors.length}` + c.reset : ''
       const skippedStr = s.skipped
         ? c.gray + ` skipped=${s.skipped}` + c.reset
-          + c.dim + ` (non_running=${s.skippedReasons?.non_running || 0}, past_date=${s.skippedReasons?.past_date || 0}, junk=${s.skippedReasons?.junk || 0})` + c.reset
+          + c.dim + ` (non_running=${s.skippedReasons?.non_running || 0}, past_date=${s.skippedReasons?.past_date || 0}, junk=${s.skippedReasons?.junk || 0}, virtual=${s.skippedReasons?.virtual || 0})` + c.reset
         : ''
       console.log(
         '    '
