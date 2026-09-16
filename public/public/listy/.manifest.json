@@ -146,7 +146,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/wielkopolskie",
@@ -533,7 +533,7 @@
       {
         "path": "listy/uliczne/warminsko-mazurskie",
         "h1": "Biegi uliczne na Warmii i Mazurach",
-        "eventCount": 18
+        "eventCount": 19
       },
       {
         "path": "listy/uliczne/podkarpackie",
@@ -3451,10 +3451,10 @@
       "city": null
     },
     "h1": "Biegi na Warmii i Mazurach",
-    "title": "Biegi na Warmii i Mazurach (24 wydarzeń) — Leszy.run",
-    "description": "24 biegów na Warmii i Mazurach. Zapisy, dystanse, ceny.",
-    "intro": "24 listy na Warmii i Mazurach w 2026 roku, od 1 km do 53 km.",
-    "eventCount": 24,
+    "title": "Biegi na Warmii i Mazurach (25 wydarzeń) — Leszy.run",
+    "description": "25 biegów na Warmii i Mazurach. Zapisy, dystanse, ceny.",
+    "intro": "25 listy na Warmii i Mazurach w 2026 roku, od 1 km do 53 km.",
+    "eventCount": 25,
     "canonicalUrl": "https://www.leszy.run/listy/warminsko-mazurskie",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -3467,7 +3467,7 @@
       {
         "path": "listy/uliczne/warminsko-mazurskie",
         "h1": "Biegi uliczne na Warmii i Mazurach",
-        "eventCount": 18
+        "eventCount": 19
       },
       {
         "path": "listy/przelajowe/warminsko-mazurskie",
@@ -3492,7 +3492,7 @@
       {
         "path": "listy/warminsko-mazurskie/2026/pazdziernik",
         "h1": "Biegi na Warmii i Mazurach — w październiku 2026",
-        "eventCount": 12
+        "eventCount": 13
       },
       {
         "path": "listy/warminsko-mazurskie/2026/listopad",
@@ -4098,6 +4098,11 @@
         "eventCount": 6
       },
       {
+        "path": "listy/polmaratony/warminsko-mazurskie",
+        "h1": "Półmaratony na Warmii i Mazurach",
+        "eventCount": 6
+      },
+      {
         "path": "listy/polmaratony/wielkopolskie",
         "h1": "Półmaratony w Wielkopolsce",
         "eventCount": 6
@@ -4105,11 +4110,6 @@
       {
         "path": "listy/polmaratony/podkarpackie",
         "h1": "Półmaratony na Podkarpaciu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/polmaratony/warminsko-mazurskie",
-        "h1": "Półmaratony na Warmii i Mazurach",
         "eventCount": 5
       },
       {
@@ -4457,13 +4457,13 @@
         "eventCount": 14
       },
       {
-        "path": "listy/ostatnia-szansa/lodzkie",
-        "h1": "Biegi w Łódzkiem — ostatnia szansa na zapis",
-        "eventCount": 11
-      },
-      {
         "path": "listy/ostatnia-szansa/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach — ostatnia szansa na zapis",
+        "eventCount": 12
+      },
+      {
+        "path": "listy/ostatnia-szansa/lodzkie",
+        "h1": "Biegi w Łódzkiem — ostatnia szansa na zapis",
         "eventCount": 11
       },
       {
@@ -5135,10 +5135,10 @@
       "city": null
     },
     "h1": "Półmaratony na Warmii i Mazurach",
-    "title": "Półmaratony na Warmii i Mazurach (5 wydarzeń) — Leszy.run",
-    "description": "5 półmaratonów na Warmii i Mazurach. bieg na 21 km, półmaraton, half marathon. Zapisy, dystanse, ceny.",
-    "intro": "5 półmaratonów na Warmii i Mazurach w 2026 roku. Dystans 21 km.",
-    "eventCount": 5,
+    "title": "Półmaratony na Warmii i Mazurach (6 wydarzeń) — Leszy.run",
+    "description": "6 półmaratonów na Warmii i Mazurach. bieg na 21 km, półmaraton, half marathon. Zapisy, dystanse, ceny.",
+    "intro": "6 półmaratonów na Warmii i Mazurach w 2026 roku. Dystans 21 km.",
+    "eventCount": 6,
     "canonicalUrl": "https://www.leszy.run/listy/polmaratony/warminsko-mazurskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "daily",
@@ -5151,7 +5151,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/polmaratony/slaskie",
@@ -6551,7 +6551,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/dla-dzieci/mazowieckie",
@@ -7279,7 +7279,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/darmowe/mazowieckie",
@@ -8159,10 +8159,10 @@
       "city": null
     },
     "h1": "Biegi na Warmii i Mazurach — ostatnia szansa na zapis",
-    "title": "Biegi na Warmii i Mazurach — ostatnia szansa na zapis (11 wydarzeń) — Leszy.run",
-    "description": "11 biegów z kończącymi się zapisami na Warmii i Mazurach. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
-    "intro": "11 biegów na Warmii i Mazurach z zapisami kończącymi się w ciągu 14 dni.",
-    "eventCount": 11,
+    "title": "Biegi na Warmii i Mazurach — ostatnia szansa na zapis (12 wydarzeń) — Leszy.run",
+    "description": "12 biegów z kończącymi się zapisami na Warmii i Mazurach. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
+    "intro": "12 biegów na Warmii i Mazurach z zapisami kończącymi się w ciągu 14 dni.",
+    "eventCount": 12,
     "canonicalUrl": "https://www.leszy.run/listy/ostatnia-szansa/warminsko-mazurskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "daily",
@@ -8175,7 +8175,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/slaskie",
@@ -9141,7 +9141,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/przelajowe/slaskie",
@@ -10131,10 +10131,10 @@
       "city": null
     },
     "h1": "Biegi uliczne na Warmii i Mazurach",
-    "title": "Biegi uliczne na Warmii i Mazurach (18 wydarzeń) — Leszy.run",
-    "description": "18 biegów ulicznych na Warmii i Mazurach. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "18 biegi uliczne na Warmii i Mazurach w 2026 roku, od 1 km do 42 km.",
-    "eventCount": 18,
+    "title": "Biegi uliczne na Warmii i Mazurach (19 wydarzeń) — Leszy.run",
+    "description": "19 biegów ulicznych na Warmii i Mazurach. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "19 biegi uliczne na Warmii i Mazurach w 2026 roku, od 1 km do 42 km.",
+    "eventCount": 19,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/warminsko-mazurskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "weekly",
@@ -10147,7 +10147,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/uliczne/mazowieckie",
@@ -10177,7 +10177,7 @@
       {
         "path": "listy/uliczne/warminsko-mazurskie/2026/pazdziernik",
         "h1": "Biegi uliczne na Warmii i Mazurach — w październiku 2026",
-        "eventCount": 10
+        "eventCount": 11
       },
       {
         "path": "listy/uliczne/warminsko-mazurskie/2026/listopad",
@@ -11256,7 +11256,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/nocne/slaskie",
@@ -12487,7 +12487,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/nordic-walking/slaskie",
@@ -13194,7 +13194,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/charytatywne/malopolskie",
@@ -16398,7 +16398,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/warminsko-mazurskie/2026/wrzesien",
@@ -16429,7 +16429,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/warminsko-mazurskie/2026/sierpien",
@@ -16439,7 +16439,7 @@
       {
         "path": "listy/warminsko-mazurskie/2026/pazdziernik",
         "h1": "Biegi na Warmii i Mazurach — w październiku 2026",
-        "eventCount": 12
+        "eventCount": 13
       }
     ]
   },
@@ -16454,10 +16454,10 @@
       "city": null
     },
     "h1": "Biegi na Warmii i Mazurach — w październiku 2026",
-    "title": "Biegi na Warmii i Mazurach — w październiku 2026 (12 wydarzeń) — Leszy.run",
-    "description": "12 biegów na Warmii i Mazurach w październiku 2026. Zapisy, dystanse, ceny.",
-    "intro": "12 listy na Warmii i Mazurach w 2026 roku, od 1 km do 53 km.",
-    "eventCount": 12,
+    "title": "Biegi na Warmii i Mazurach — w październiku 2026 (13 wydarzeń) — Leszy.run",
+    "description": "13 biegów na Warmii i Mazurach w październiku 2026. Zapisy, dystanse, ceny.",
+    "intro": "13 listy na Warmii i Mazurach w 2026 roku, od 1 km do 53 km.",
+    "eventCount": 13,
     "canonicalUrl": "https://www.leszy.run/listy/warminsko-mazurskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -16465,7 +16465,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/warminsko-mazurskie/2026/wrzesien",
@@ -16501,12 +16501,12 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/warminsko-mazurskie/2026/pazdziernik",
         "h1": "Biegi na Warmii i Mazurach — w październiku 2026",
-        "eventCount": 12
+        "eventCount": 13
       }
     ]
   },
@@ -19750,7 +19750,7 @@
       {
         "path": "listy/uliczne/warminsko-mazurskie",
         "h1": "Biegi uliczne na Warmii i Mazurach",
-        "eventCount": 18
+        "eventCount": 19
       },
       {
         "path": "listy/uliczne/warminsko-mazurskie/2026/wrzesien",
@@ -19781,7 +19781,7 @@
       {
         "path": "listy/uliczne/warminsko-mazurskie",
         "h1": "Biegi uliczne na Warmii i Mazurach",
-        "eventCount": 18
+        "eventCount": 19
       },
       {
         "path": "listy/uliczne/warminsko-mazurskie/2026/sierpien",
@@ -19791,7 +19791,7 @@
       {
         "path": "listy/uliczne/warminsko-mazurskie/2026/pazdziernik",
         "h1": "Biegi uliczne na Warmii i Mazurach — w październiku 2026",
-        "eventCount": 10
+        "eventCount": 11
       }
     ]
   },
@@ -19806,10 +19806,10 @@
       "city": null
     },
     "h1": "Biegi uliczne na Warmii i Mazurach — w październiku 2026",
-    "title": "Biegi uliczne na Warmii i Mazurach — w październiku 2026 (10 wydarzeń) — Leszy.run",
-    "description": "10 biegów ulicznych na Warmii i Mazurach w październiku 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
-    "intro": "10 biegi uliczne na Warmii i Mazurach w 2026 roku, od 1 km do 42 km.",
-    "eventCount": 10,
+    "title": "Biegi uliczne na Warmii i Mazurach — w październiku 2026 (11 wydarzeń) — Leszy.run",
+    "description": "11 biegów ulicznych na Warmii i Mazurach w październiku 2026. biegi uliczne, bieg uliczny, biegi miejskie, bieg po asfalcie. Zapisy, dystanse, ceny.",
+    "intro": "11 biegi uliczne na Warmii i Mazurach w 2026 roku, od 1 km do 42 km.",
+    "eventCount": 11,
     "canonicalUrl": "https://www.leszy.run/listy/uliczne/warminsko-mazurskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -19817,7 +19817,7 @@
       {
         "path": "listy/uliczne/warminsko-mazurskie",
         "h1": "Biegi uliczne na Warmii i Mazurach",
-        "eventCount": 18
+        "eventCount": 19
       },
       {
         "path": "listy/uliczne/warminsko-mazurskie/2026/wrzesien",
@@ -19853,12 +19853,12 @@
       {
         "path": "listy/uliczne/warminsko-mazurskie",
         "h1": "Biegi uliczne na Warmii i Mazurach",
-        "eventCount": 18
+        "eventCount": 19
       },
       {
         "path": "listy/uliczne/warminsko-mazurskie/2026/pazdziernik",
         "h1": "Biegi uliczne na Warmii i Mazurach — w październiku 2026",
-        "eventCount": 10
+        "eventCount": 11
       }
     ]
   },
@@ -22179,7 +22179,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -22271,7 +22271,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -26115,7 +26115,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -27204,7 +27204,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -28753,7 +28753,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -32122,7 +32122,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -34300,7 +34300,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -35956,7 +35956,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -36324,7 +36324,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -36508,7 +36508,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -37428,7 +37428,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/elk",
@@ -38646,7 +38646,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -39198,7 +39198,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -42154,7 +42154,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -44357,7 +44357,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -47129,7 +47129,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -50590,7 +50590,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -51659,7 +51659,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -53449,7 +53449,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -53817,7 +53817,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -54829,7 +54829,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",
@@ -55555,7 +55555,7 @@
       {
         "path": "listy/warminsko-mazurskie",
         "h1": "Biegi na Warmii i Mazurach",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/olsztyn",

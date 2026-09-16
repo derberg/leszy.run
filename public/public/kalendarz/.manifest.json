@@ -56647,6 +56647,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "olsztyn-polmaraton-2026-10-04": {
+    "id": "bead43a2-056c-486b-ab72-2308eaf39b46",
+    "name": "Olsztyn Półmaraton",
+    "date": "2026-10-04",
+    "registration_deadline": "2026-09-27",
+    "regulamin_url": "https://www.olsztynhalf.pl/wp-content/uploads/2026/05/2026-Regulamin-PKO-Olsztyn-Polmaraton.pdf",
+    "price_from": 149,
+    "price_to": 300,
+    "location": "Olsztyn",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 53.776644,
+    "lng": 20.477753,
+    "distances": [
+      "21.1 km",
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "http://www.olsztynhalf.pl/rejestracja/",
+    "website": "https://www.olsztynhalf.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
   "wild-run-2026-10-04": {
     "id": "0874c172-4ac8-4016-9621-c5b86b1e1002",
     "name": "Wild Run",
@@ -57353,30 +57377,6 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15978/signup.html",
     "website": "http://www.osir.com.pl",
-    "is_kids": null,
-    "status": "active"
-  },
-  "olsztyn-polmaraton-2026-10-04": {
-    "id": "bead43a2-056c-486b-ab72-2308eaf39b46",
-    "name": "Olsztyn Półmaraton",
-    "date": "2026-10-04",
-    "registration_deadline": "2026-09-27",
-    "regulamin_url": "https://www.olsztynhalf.pl/wp-content/uploads/2026/05/2026-Regulamin-PKO-Olsztyn-Polmaraton.pdf",
-    "price_from": 149,
-    "price_to": 300,
-    "location": "Olsztyn",
-    "voivodeship": "Warmińsko-mazurskie",
-    "lat": 53.776644,
-    "lng": 20.477753,
-    "distances": [
-      "21.1 km",
-      "5 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "http://www.olsztynhalf.pl/rejestracja/",
-    "website": "https://www.olsztynhalf.pl/",
     "is_kids": null,
     "status": "active"
   },
