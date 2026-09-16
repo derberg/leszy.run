@@ -110,6 +110,23 @@ async function fetchPrices(zapisyHrefs) {
   }
 }
 
+// Not every event has a "Zapisz się" button yet: when signup opens later, the
+// competition row links to /zawody/<id> ("Lista startowa") instead, so there is
+// no registration page, no price tier and no tier expiry to read. Those pages
+// often still carry the deadline in the free-text description, e.g. #3 RUN FOR
+// FUN (1130): "Rejestracja otwarta do 10/10/2026 do godz. 12:00." Dates are
+// day-first (DD/MM/YYYY or DD.MM.YYYY); anything that isn't a real calendar
+// month/day means we misread the sentence, so emit nothing.
+const DESCRIPTION_DEADLINE_RE = /(?:rejestracj|zapis)\w*\s+(?:otwart|czynn)\w*\s+do\s+(\d{1,2})[./](\d{1,2})[./](\d{4})/i
+
+function parseDescriptionDeadline(text) {
+  const m = (text || '').match(DESCRIPTION_DEADLINE_RE)
+  if (!m) return null
+  const [, day, month, year] = m
+  if (+month < 1 || +month > 12 || +day < 1 || +day > 31) return null
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+}
+
 async function fetchPage(p) {
   const res = await fetch(`${LIST_URL}?p=${p}`, { headers: { 'User-Agent': USER_AGENT } })
   if (!res.ok) throw new Error(`listing p=${p} ${res.status} ${res.statusText}`)
@@ -208,6 +225,12 @@ async function fetchDetail(sourceId, slug) {
 
     const { priceFrom, priceTo, registrationDeadline } = await fetchPrices(zapisyHrefs)
 
+    // A live tier expiry wins: the description can be copy carried over from an
+    // earlier edition. Only when no registration page gave a date do we read the
+    // one the organizer wrote in the description.
+    const description = $('.info.article').text().replace(/\s+/g, ' ').trim()
+    const deadline = registrationDeadline || parseDescriptionDeadline(description)
+
     return {
       distances: distances.size ? [...distances].join(', ') : null,
       competitionNames,
@@ -217,7 +240,7 @@ async function fetchDetail(sourceId, slug) {
       website,
       priceFrom,
       priceTo,
-      registrationDeadline,
+      registrationDeadline: deadline,
     }
   } catch (err) {
     console.error(`[zapisyonline] Detail fetch failed for ${sourceId}:`, err.message)
@@ -293,4 +316,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape, parseListing, parseListingDate, cleanDistance, detectEventTypes, parseRegistrationPrices, fetchDetail }
+export { scrape, parseListing, parseListingDate, cleanDistance, detectEventTypes, parseRegistrationPrices, parseDescriptionDeadline, fetchDetail }
