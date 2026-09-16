@@ -5351,7 +5351,7 @@
     "price_from": null,
     "price_to": null,
     "location": "Czechowice-Dziedzice",
-    "voivodeship": "Łódzkie",
+    "voivodeship": "Śląskie",
     "lat": 51.728004,
     "lng": 20.036566,
     "distances": [],
@@ -7164,7 +7164,7 @@
     "price_from": 30,
     "price_to": 50,
     "location": "22-440 Krasnobród, ul. Wczasowa 22, stadion MGKS \"Igros\"",
-    "voivodeship": "Mazowieckie",
+    "voivodeship": "Lubelskie",
     "lat": 50.543777,
     "lng": 23.196012,
     "distances": [
@@ -9707,6 +9707,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "xxix-gorski-bieg-magurki-2026-05-10": {
+    "id": "c5a94498-09d3-4fcf-bc8a-bc3c4a966272",
+    "name": "XXIX Górski Bieg Magurki",
+    "date": "2026-05-10",
+    "registration_deadline": "2026-05-08",
+    "regulamin_url": "https://www.bgtimesport.pl/public/pliki/833reg20260213t233336.pdf",
+    "price_from": 25,
+    "price_to": 90,
+    "location": "Bielsko-Biała",
+    "voivodeship": "Śląskie",
+    "lat": 52.607327,
+    "lng": 15.922842,
+    "distances": [
+      "6.5 km",
+      "8.8 km"
+    ],
+    "event_type": [
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://www.bgtimesport.pl/zawody/biegi/id/833",
+    "website": "https://luksgroniczek.pl",
+    "is_kids": null,
+    "status": "active"
+  },
   "xx-bieg-po-glebokich-dolach-2026-05-10": {
     "id": "3b31b6a7-218f-4d66-9ff7-f6756dba1618",
     "name": "XX Bieg Po Głębokich Dołach",
@@ -9861,31 +9886,6 @@
     ],
     "registration_url": "https://super-sport.com.pl/zapisy-formularze/4587-41-polmaraton-solan-im-romana-terlikowskiego-i-1-petla-solan.html",
     "website": "https://super-sport.com.pl/zapisy-formularze/4587-41-polmaraton-solan-im-romana-terlikowskiego-i-1-petla-solan.html",
-    "is_kids": null,
-    "status": "active"
-  },
-  "xxix-gorski-bieg-magurki-2026-05-10": {
-    "id": "c5a94498-09d3-4fcf-bc8a-bc3c4a966272",
-    "name": "XXIX Górski Bieg Magurki",
-    "date": "2026-05-10",
-    "registration_deadline": "2026-05-08",
-    "regulamin_url": "https://www.bgtimesport.pl/public/pliki/833reg20260213t233336.pdf",
-    "price_from": 25,
-    "price_to": 90,
-    "location": "Bielsko-Biała",
-    "voivodeship": "Wielkopolskie",
-    "lat": 52.607327,
-    "lng": 15.922842,
-    "distances": [
-      "6.5 km",
-      "8.8 km"
-    ],
-    "event_type": [
-      "trail",
-      "dzieci"
-    ],
-    "registration_url": "https://www.bgtimesport.pl/zawody/biegi/id/833",
-    "website": "https://luksgroniczek.pl",
     "is_kids": null,
     "status": "active"
   },
@@ -10253,6 +10253,33 @@
     "is_kids": null,
     "status": "active"
   },
+  "5-festiwal-gorski-jedlinazdroj-2026-05-10": {
+    "id": "f94e111f-4a54-440e-82ce-4c5b9291fcb1",
+    "name": "5. Festiwal Górski Jedlina-Zdrój",
+    "date": "2026-05-10",
+    "registration_deadline": "2026-05-09",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11877.pdf",
+    "price_from": 50,
+    "price_to": 250,
+    "location": "Jedlina-Zdrój",
+    "voivodeship": "Dolnośląskie",
+    "lat": 52.054201,
+    "lng": 21.916107,
+    "distances": [
+      "10 km",
+      "21 km",
+      "23.5 km",
+      "50 km"
+    ],
+    "event_type": [
+      "trail",
+      "ultra"
+    ],
+    "registration_url": "https://liveds.datasport.pl/zawody_files/zawody11877.html",
+    "website": "https://jedlina.pro-run.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
   "1-edycja-biegowe-kroki-mistrzow-gp-wodzislawia-slaskiego-mlodego-pokolenia-2026-05-10": {
     "id": "23518334-8f9d-428a-abf1-01ac663a9cd7",
     "name": "1 edycja - Biegowe Kroki Mistrzów – GP Wodzisławia Śląskiego Młodego Pokolenia",
@@ -10301,33 +10328,6 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v16303",
     "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
-  "5-festiwal-gorski-jedlinazdroj-2026-05-10": {
-    "id": "f94e111f-4a54-440e-82ce-4c5b9291fcb1",
-    "name": "5. Festiwal Górski Jedlina-Zdrój",
-    "date": "2026-05-10",
-    "registration_deadline": "2026-05-09",
-    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_11877.pdf",
-    "price_from": 50,
-    "price_to": 250,
-    "location": "Jedlina-Zdrój",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.054201,
-    "lng": 21.916107,
-    "distances": [
-      "10 km",
-      "21 km",
-      "23.5 km",
-      "50 km"
-    ],
-    "event_type": [
-      "trail",
-      "ultra"
-    ],
-    "registration_url": "https://liveds.datasport.pl/zawody_files/zawody11877.html",
-    "website": "https://jedlina.pro-run.pl/",
     "is_kids": null,
     "status": "active"
   },
@@ -10475,32 +10475,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "lekkoatletyczne-nadzieje-olimpijskie-eliminacje-walcz-2026-2026-05-15": {
-    "id": "519d43c0-d968-4e3c-9bde-d6ddb2a08452",
-    "name": "Lekkoatletyczne Nadzieje Olimpijskie - eliminacje - Wałcz 2026",
-    "date": "2026-05-15",
-    "registration_deadline": "2026-05-12",
-    "regulamin_url": "https://dostartu.pl/statute_files/16390_pl.pdf",
-    "price_from": null,
-    "price_to": null,
-    "location": "78-600 Wałcz al. Zdobywców Wału Pomorskiego 99 COS OPO Wałcz",
-    "voivodeship": "Wielkopolskie",
-    "lat": 52.14248,
-    "lng": 19.423828,
-    "distances": [
-      "0.06 km",
-      "0.3 km",
-      "0.6 km"
-    ],
-    "event_type": [
-      "bieg",
-      "dzieci"
-    ],
-    "registration_url": "https://dostartu.pl/permalink-v16390",
-    "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
   "v-nocny-bieg-parami-ze-swietlikami-2026-05-15": {
     "id": "bf92b57e-78a5-481d-9ea8-6dc23fa55f35",
     "name": "V Nocny Bieg Parami ze Świetlikami",
@@ -10574,6 +10548,32 @@
     ],
     "registration_url": "http://www.biegislupsk.pl/biegi_slupsk/",
     "website": "http://www.biegislupsk.pl/biegi_slupsk/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "lekkoatletyczne-nadzieje-olimpijskie-eliminacje-walcz-2026-2026-05-15": {
+    "id": "519d43c0-d968-4e3c-9bde-d6ddb2a08452",
+    "name": "Lekkoatletyczne Nadzieje Olimpijskie - eliminacje - Wałcz 2026",
+    "date": "2026-05-15",
+    "registration_deadline": "2026-05-12",
+    "regulamin_url": "https://dostartu.pl/statute_files/16390_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "78-600 Wałcz al. Zdobywców Wału Pomorskiego 99 COS OPO Wałcz",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 52.14248,
+    "lng": 19.423828,
+    "distances": [
+      "0.06 km",
+      "0.3 km",
+      "0.6 km"
+    ],
+    "event_type": [
+      "bieg",
+      "dzieci"
+    ],
+    "registration_url": "https://dostartu.pl/permalink-v16390",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -11399,7 +11399,7 @@
     "price_from": 90,
     "price_to": 90,
     "location": "Czechowice-Dziedzice",
-    "voivodeship": "Łódzkie",
+    "voivodeship": "Śląskie",
     "lat": 51.728004,
     "lng": 20.036566,
     "distances": [],
@@ -13420,7 +13420,7 @@
     "price_from": 50,
     "price_to": 100,
     "location": "Kędzierzyn-Koźle",
-    "voivodeship": "Mazowieckie",
+    "voivodeship": "Opolskie",
     "lat": 52.695948,
     "lng": 19.734349,
     "distances": [
@@ -14358,7 +14358,7 @@
     "price_from": 80,
     "price_to": 90,
     "location": "Konstancin-Jeziorna",
-    "voivodeship": "Łódzkie",
+    "voivodeship": "Mazowieckie",
     "lat": 52.094186,
     "lng": 19.348618,
     "distances": [
@@ -16983,7 +16983,7 @@
     "price_from": 30,
     "price_to": 120,
     "location": "Przystań, Gmina Olszewo-Borki",
-    "voivodeship": "Warmińsko-Mazurskie",
+    "voivodeship": "Mazowieckie",
     "lat": 54.199825,
     "lng": 21.646009,
     "distances": [
@@ -25326,7 +25326,7 @@
     "price_from": 100,
     "price_to": 350,
     "location": "Polanica-Zdrój",
-    "voivodeship": "Lubuskie",
+    "voivodeship": "Dolnośląskie",
     "lat": 51.966389,
     "lng": 16.0475,
     "distances": [
@@ -25901,7 +25901,7 @@
     "price_from": 70,
     "price_to": 100,
     "location": "Centrum Rekreacji i Wypoczynku Deczno, Sulnówko 30D, 86-100 Świecie",
-    "voivodeship": "Mazowieckie",
+    "voivodeship": "Kujawsko-Pomorskie",
     "lat": 52.231007,
     "lng": 21.010186,
     "distances": [
@@ -29197,7 +29197,7 @@
     "price_from": 50,
     "price_to": 50,
     "location": "34-103 Lgota, ul. Podgórska 56",
-    "voivodeship": "Wielkopolskie",
+    "voivodeship": "Małopolskie",
     "lat": 49.926803,
     "lng": 19.548411,
     "distances": [
@@ -31747,6 +31747,33 @@
     "is_kids": null,
     "status": "active"
   },
+  "ix-kraszewski-bieg-po-zdrowie-2026-07-12": {
+    "id": "3febb40c-d256-4e66-903a-968e90296457",
+    "name": "IX Kraszewski Bieg Po Zdrowie",
+    "date": "2026-07-12",
+    "registration_deadline": "2026-07-09",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/k9C5b0G8U0n0l1t7b7W914O3j3U7L912/open",
+    "price_from": 20,
+    "price_to": 50,
+    "location": "Kraszewo-Gaczułty k. Raciąża",
+    "voivodeship": "Mazowieckie",
+    "lat": 54.08277,
+    "lng": 20.54096,
+    "distances": [
+      "10 km",
+      "4.7 km",
+      "300 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "nordic walking",
+      "dzieci"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/15534/signup.html",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "lecimy-z-orlem-iii-witkowicki-bieg-ulicznoprzelajowy-2026-07-12": {
     "id": "c56516d5-daca-4d5e-9fc2-5ba9fe218fe0",
     "name": "LECIMY Z ORŁEM! – III Witkowicki Bieg Uliczno-Przełajowy",
@@ -32014,33 +32041,6 @@
     ],
     "registration_url": "https://mojprzeworsk.pl/aktualnosci/sport/sporty-inne/biegi/galicyjska-10-urzejowice-zapisy-2026/",
     "website": "https://mojprzeworsk.pl/aktualnosci/sport/sporty-inne/biegi/galicyjska-10-urzejowice-zapisy-2026/",
-    "is_kids": null,
-    "status": "active"
-  },
-  "ix-kraszewski-bieg-po-zdrowie-2026-07-12": {
-    "id": "3febb40c-d256-4e66-903a-968e90296457",
-    "name": "IX Kraszewski Bieg Po Zdrowie",
-    "date": "2026-07-12",
-    "registration_deadline": "2026-07-09",
-    "regulamin_url": "https://elektronicznezapisy.pl/download/k9C5b0G8U0n0l1t7b7W914O3j3U7L912/open",
-    "price_from": 20,
-    "price_to": 50,
-    "location": "Kraszewo-Gaczułty k. Raciąża",
-    "voivodeship": "Warmińsko-Mazurskie",
-    "lat": 54.08277,
-    "lng": 20.54096,
-    "distances": [
-      "10 km",
-      "4.7 km",
-      "300 m"
-    ],
-    "event_type": [
-      "uliczny",
-      "nordic walking",
-      "dzieci"
-    ],
-    "registration_url": "https://elektronicznezapisy.pl/event/15534/signup.html",
-    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -35844,6 +35844,34 @@
     "is_kids": null,
     "status": "active"
   },
+  "bieg-zboja-2026-08-08": {
+    "id": "3d891eb4-0109-450f-8ef3-7d3ddaaf0416",
+    "name": "Bieg Zbója",
+    "date": "2026-08-08",
+    "registration_deadline": null,
+    "regulamin_url": "https://www.biegzboja.pl/regulaminb",
+    "price_from": 105,
+    "price_to": 229,
+    "location": "Bielsko-Biała",
+    "voivodeship": "Śląskie",
+    "lat": 52.607327,
+    "lng": 15.922842,
+    "distances": [
+      "7 km",
+      "11 km",
+      "25 km",
+      "42.2 km",
+      "60 km"
+    ],
+    "event_type": [
+      "trail",
+      "ultra"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/12742/signup.html",
+    "website": "https://www.biegzboja.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
   "nadbuzanski-cross-na-10-km-2026-08-08": {
     "id": "722d468f-119e-4d4b-8a9e-3eb499aa91c6",
     "name": "Nadbużański Cross na 10 km",
@@ -36497,34 +36525,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "bieg-zboja-2026-08-08": {
-    "id": "3d891eb4-0109-450f-8ef3-7d3ddaaf0416",
-    "name": "Bieg Zbója",
-    "date": "2026-08-08",
-    "registration_deadline": null,
-    "regulamin_url": "https://www.biegzboja.pl/regulaminb",
-    "price_from": 105,
-    "price_to": 229,
-    "location": "Bielsko-Biała",
-    "voivodeship": "Wielkopolskie",
-    "lat": 52.607327,
-    "lng": 15.922842,
-    "distances": [
-      "7 km",
-      "11 km",
-      "25 km",
-      "42.2 km",
-      "60 km"
-    ],
-    "event_type": [
-      "trail",
-      "ultra"
-    ],
-    "registration_url": "https://elektronicznezapisy.pl/event/12742/signup.html",
-    "website": "https://www.biegzboja.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
   "trzezwosciowy-cross-maraton-wielun-2026-2026-08-09": {
     "id": "5b136e20-9d41-4472-9207-c1d31380b6dc",
     "name": "Trzeźwościowy Cross Maraton Wieluń 2026",
@@ -36764,7 +36764,7 @@
     "price_from": 80,
     "price_to": 80,
     "location": "26-006 Nowa Słupia",
-    "voivodeship": "Wielkopolskie",
+    "voivodeship": "Świętokrzyskie",
     "lat": 50.846706,
     "lng": 21.08551,
     "distances": [
@@ -43629,6 +43629,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "bieg-kobbiet-2026-2026-09-06": {
+    "id": "69718ad7-20fb-4bae-b570-50738c34d184",
+    "name": "Bieg KoBBiet 2026",
+    "date": "2026-09-06",
+    "registration_deadline": "2026-09-01",
+    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12124.pdf",
+    "price_from": 49,
+    "price_to": 75,
+    "location": "Bielsko-Biała",
+    "voivodeship": "Śląskie",
+    "lat": 52.607327,
+    "lng": 15.922842,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "charytatywny",
+      "uliczny"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12124%26co%3Dform",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "xiv-rajd-nordic-walking-2026-09-06": {
     "id": "e112587d-71e2-445f-a80b-2fa61c3e66b4",
     "name": "XIV Rajd Nordic Walking",
@@ -43924,30 +43948,6 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14509/signup.html",
     "website": "https://www.biegdzika.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
-  "bieg-kobbiet-2026-2026-09-06": {
-    "id": "69718ad7-20fb-4bae-b570-50738c34d184",
-    "name": "Bieg KoBBiet 2026",
-    "date": "2026-09-06",
-    "registration_deadline": "2026-09-01",
-    "regulamin_url": "https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12124.pdf",
-    "price_from": 49,
-    "price_to": 75,
-    "location": "Bielsko-Biała",
-    "voivodeship": "Wielkopolskie",
-    "lat": 52.607327,
-    "lng": 15.922842,
-    "distances": [
-      "5 km"
-    ],
-    "event_type": [
-      "charytatywny",
-      "uliczny"
-    ],
-    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12124%26co%3Dform",
-    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -47384,7 +47384,7 @@
     "price_from": 30,
     "price_to": 100,
     "location": "Rogi 53, 33-386 Gmina Podegrodzie",
-    "voivodeship": "Łódzkie",
+    "voivodeship": "Małopolskie",
     "lat": 49.582226,
     "lng": 20.553017,
     "distances": [
@@ -48744,7 +48744,7 @@
     "price_from": 80,
     "price_to": 600,
     "location": "Bielsko-Biała",
-    "voivodeship": "Wielkopolskie",
+    "voivodeship": "Śląskie",
     "lat": 52.607327,
     "lng": 15.922842,
     "distances": [
@@ -48806,6 +48806,30 @@
     ],
     "registration_url": "https://biegajzdzunskawola.pl/zapisy",
     "website": "https://biegajzosp.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "iii-buski-bieg-nocny-2026-09-19": {
+    "id": "e6c37bbc-cccc-46f3-b923-6eb28af49968",
+    "name": "III Buski Bieg Nocny",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-14",
+    "regulamin_url": "https://www.protimer.pl/bio/1435/iii-buski-bieg-nocny-5km-2026/rule",
+    "price_from": 35,
+    "price_to": 50,
+    "location": "Busko-Zdrój",
+    "voivodeship": "Świętokrzyskie",
+    "lat": 53.438454,
+    "lng": 16.077851,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "nocny",
+      "uliczny"
+    ],
+    "registration_url": "https://www.protimer.pl/bio/1435/iii-buski-bieg-nocny-5km-2026/page",
+    "website": "https://www.athleticsbusko.pl/",
     "is_kids": null,
     "status": "active"
   },
@@ -49008,29 +49032,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "xiv-jastrzebska-dziesiatka-2026-09-19": {
-    "id": "7cfc83cc-b2d4-4ffe-a645-380367035025",
-    "name": "XIV Jastrzębska Dziesiątka",
-    "date": "2026-09-19",
-    "registration_deadline": "2026-08-19",
-    "regulamin_url": "https://b4sportonline.pl/users-folder/451/files/Regulamin_Jastrzebska_10___19_09_2026_r__1.pdf",
-    "price_from": 75,
-    "price_to": 75,
-    "location": "Jastrzębie-Zdrój",
-    "voivodeship": "Kujawsko-Pomorskie",
-    "lat": 53.521003,
-    "lng": 18.267596,
-    "distances": [
-      "10 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://b4sportonline.pl/Jastrzebska_Dziesiatka/zapisy_na_xiv_bieg_uliczny_jastrzebska_dziesiatka",
-    "website": "https://www.biegjastrzebie.pl/jastrzebska-dziesiatka",
-    "is_kids": null,
-    "status": "active"
-  },
   "bieg-gladiatora-2026-09-19": {
     "id": "969abc69-c3f2-42c8-918f-898426218574",
     "name": "Bieg Gladiatora",
@@ -49227,6 +49228,29 @@
     ],
     "registration_url": "https://panel.maratonczykpomiarczasu.pl/osielsko--biega",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "xiv-jastrzebska-dziesiatka-2026-09-19": {
+    "id": "7cfc83cc-b2d4-4ffe-a645-380367035025",
+    "name": "XIV Jastrzębska Dziesiątka",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-08-19",
+    "regulamin_url": "https://b4sportonline.pl/users-folder/451/files/Regulamin_Jastrzebska_10___19_09_2026_r__1.pdf",
+    "price_from": 75,
+    "price_to": 75,
+    "location": "Jastrzębie-Zdrój",
+    "voivodeship": "Śląskie",
+    "lat": 53.521003,
+    "lng": 18.267596,
+    "distances": [
+      "10 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://b4sportonline.pl/Jastrzebska_Dziesiatka/zapisy_na_xiv_bieg_uliczny_jastrzebska_dziesiatka",
+    "website": "https://www.biegjastrzebie.pl/jastrzebska-dziesiatka",
     "is_kids": null,
     "status": "active"
   },
@@ -49969,30 +49993,6 @@
     ],
     "registration_url": "https://super-sport.com.pl/zapisy-formularze/4720-i-marsz-nordic-walking-memorial-tomasza-mielko.html",
     "website": "https://nszzfipw.org.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
-  "iii-buski-bieg-nocny-2026-09-19": {
-    "id": "e6c37bbc-cccc-46f3-b923-6eb28af49968",
-    "name": "III Buski Bieg Nocny",
-    "date": "2026-09-19",
-    "registration_deadline": "2026-09-14",
-    "regulamin_url": "https://www.protimer.pl/bio/1435/iii-buski-bieg-nocny-5km-2026/rule",
-    "price_from": 35,
-    "price_to": 50,
-    "location": "Busko-Zdrój",
-    "voivodeship": "Zachodniopomorskie",
-    "lat": 53.438454,
-    "lng": 16.077851,
-    "distances": [
-      "5 km"
-    ],
-    "event_type": [
-      "nocny",
-      "uliczny"
-    ],
-    "registration_url": "https://www.protimer.pl/bio/1435/iii-buski-bieg-nocny-5km-2026/page",
-    "website": "https://www.athleticsbusko.pl/",
     "is_kids": null,
     "status": "active"
   },
@@ -53938,36 +53938,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "festiwal-biegowy-i-nordic-walking-2026-09-27": {
-    "id": "e0b854ef-79e2-46f1-8d00-bf4c402c09eb",
-    "name": "Festiwal Biegowy i Nordic Walking",
-    "date": "2026-09-27",
-    "registration_deadline": "2026-09-18",
-    "regulamin_url": "https://superczas.pl/userfiles/events/709/regulamin_festiwal-biegowy-i-_olszewo-borki_pl.pdf",
-    "price_from": null,
-    "price_to": null,
-    "location": "Olszewo-Borki",
-    "voivodeship": "Podlaskie",
-    "lat": 52.816077,
-    "lng": 22.889145,
-    "distances": [
-      "5 km",
-      "200 m",
-      "400 m",
-      "600 m",
-      "800 m",
-      "1 km"
-    ],
-    "event_type": [
-      "nordic walking",
-      "uliczny",
-      "dzieci"
-    ],
-    "registration_url": "https://superczas.pl/olszewoborki2026/zapisy",
-    "website": "https://gok.olszewo-borki.pl",
-    "is_kids": null,
-    "status": "active"
-  },
   "piatka-z-hakiem-2026-09-27": {
     "id": "e489c924-cb8c-4f28-b847-a871fe077906",
     "name": "Piątka z Hakiem",
@@ -54222,6 +54192,36 @@
     ],
     "registration_url": "https://polmaratongdansk.pl/formularz-zgloszeniowy/",
     "website": "http://www.polmaratongdansk.pl",
+    "is_kids": null,
+    "status": "active"
+  },
+  "festiwal-biegowy-i-nordic-walking-2026-09-27": {
+    "id": "e0b854ef-79e2-46f1-8d00-bf4c402c09eb",
+    "name": "Festiwal Biegowy i Nordic Walking",
+    "date": "2026-09-27",
+    "registration_deadline": "2026-09-18",
+    "regulamin_url": "https://superczas.pl/userfiles/events/709/regulamin_festiwal-biegowy-i-_olszewo-borki_pl.pdf",
+    "price_from": null,
+    "price_to": null,
+    "location": "Olszewo-Borki",
+    "voivodeship": "Mazowieckie",
+    "lat": 52.816077,
+    "lng": 22.889145,
+    "distances": [
+      "5 km",
+      "200 m",
+      "400 m",
+      "600 m",
+      "800 m",
+      "1 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://superczas.pl/olszewoborki2026/zapisy",
+    "website": "https://gok.olszewo-borki.pl",
     "is_kids": null,
     "status": "active"
   },
@@ -54793,7 +54793,7 @@
     "price_from": 59,
     "price_to": 79,
     "location": "33-122 Wierzchosławice",
-    "voivodeship": "Podlaskie",
+    "voivodeship": "Małopolskie",
     "lat": 50.034706,
     "lng": 20.839723,
     "distances": [
@@ -55666,7 +55666,7 @@
     "price_from": 40,
     "price_to": 40,
     "location": "Izabelin-Laski",
-    "voivodeship": "Wielkopolskie",
+    "voivodeship": "Mazowieckie",
     "lat": 52.259294,
     "lng": 18.340423,
     "distances": [
@@ -57778,7 +57778,7 @@
     "price_from": null,
     "price_to": null,
     "location": "Bielsko-biała",
-    "voivodeship": "Wielkopolskie",
+    "voivodeship": "Śląskie",
     "lat": 52.607327,
     "lng": 15.922842,
     "distances": [
@@ -60281,7 +60281,7 @@
     "price_from": 59,
     "price_to": 100,
     "location": "Bielsko-Biała",
-    "voivodeship": "Wielkopolskie",
+    "voivodeship": "Śląskie",
     "lat": 52.607327,
     "lng": 15.922842,
     "distances": [
@@ -60385,7 +60385,7 @@
     "price_from": 240,
     "price_to": 689,
     "location": "Krynica-Zdrój",
-    "voivodeship": "Podlaskie",
+    "voivodeship": "Małopolskie",
     "lat": 53.033609,
     "lng": 23.588067,
     "distances": [
@@ -64442,7 +64442,7 @@
     "price_from": 49,
     "price_to": 80,
     "location": "Kędzierzyn-Koźle",
-    "voivodeship": "Mazowieckie",
+    "voivodeship": "Opolskie",
     "lat": 52.695948,
     "lng": 19.734349,
     "distances": [
@@ -64465,7 +64465,7 @@
     "price_from": 79,
     "price_to": 300,
     "location": "Kędzierzyn-Koźle",
-    "voivodeship": "Mazowieckie",
+    "voivodeship": "Opolskie",
     "lat": 52.695948,
     "lng": 19.734349,
     "distances": [
@@ -65680,7 +65680,7 @@
     "price_from": 100,
     "price_to": 155,
     "location": "Rabka-Zdrój",
-    "voivodeship": "Pomorskie",
+    "voivodeship": "Małopolskie",
     "lat": 54.75416,
     "lng": 17.515992,
     "distances": [
