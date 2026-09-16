@@ -137,6 +137,12 @@ const dryRun = !process.argv.includes('--apply')
 // invisible to the normal run: the row is not NULL, so it is never looked at
 // again. Report-only unless --apply is also passed.
 const recheck = process.argv.includes('--recheck')
+// A rejected event is normally left alone. The admin has already said it does
+// not belong in the calendar, and geocoding it spends a Nominatim call on a row
+// nothing public reads. Pass --include-rejected to fill those rows anyway, so
+// an audit over scraper_all does not have to explain a column that is empty on
+// purpose.
+const includeRejected = process.argv.includes('--include-rejected')
 
 // A wrong voivodeship is invisible to the normal run: the row is not NULL, so
 // it is never looked at again. This pass re-derives the voivodeship of rows the
@@ -242,7 +248,7 @@ async function main() {
   // Pull rejected (source, source_id) pairs from calendar_events so we don't
   // try to geocode events the user has already rejected.
   const rejectedKeys = new Set()
-  {
+  if (!includeRejected) {
     let from = 0
     const pageSize = 1000
     while (true) {
@@ -281,6 +287,7 @@ async function main() {
   const filteredRows = allRows.filter(r => !rejectedKeys.has(`${r.source}|${r.source_id}`))
   const skippedRejected = beforeFilter - filteredRows.length
   if (skippedRejected > 0) console.log(`Skipped ${skippedRejected} rejected event(s) from calendar_events`)
+  if (includeRejected) console.log('Including rejected events (--include-rejected)')
   allRows.length = 0
   allRows.push(...filteredRows)
 
