@@ -12,8 +12,8 @@
     "h1": "Biegi w Polsce — kalendarz biegów 2026",
     "title": "Biegi w Polsce — kalendarz biegów 2026 — Leszy.run",
     "description": "Kalendarz biegów w Polsce 2026. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.",
-    "intro": "722 biegów w Polsce w 2026 roku — trailowe, uliczne, ultramaratony i więcej.",
-    "eventCount": 722,
+    "intro": "723 biegów w Polsce w 2026 roku — trailowe, uliczne, ultramaratony i więcej.",
+    "eventCount": 723,
     "canonicalUrl": "https://www.leszy.run/listy",
     "sitemapPriority": "0.9",
     "sitemapChangefreq": "daily",
@@ -21,7 +21,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/uliczne",
@@ -31,7 +31,7 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/nocne",
@@ -76,7 +76,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/dolnoslaskie",
@@ -136,7 +136,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/swietokrzyskie",
@@ -351,10 +351,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe w Polsce",
-    "title": "Biegi przełajowe w Polsce (263 wydarzeń) — Leszy.run",
-    "description": "263 biegów przełajowych w Polsce. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "263 biegi przełajowe w Polsce w 2026 roku, od 1 km do 270 km.",
-    "eventCount": 263,
+    "title": "Biegi przełajowe w Polsce (264 wydarzeń) — Leszy.run",
+    "description": "264 biegów przełajowych w Polsce. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "264 biegi przełajowe w Polsce w 2026 roku, od 1 km do 270 km.",
+    "eventCount": 264,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -362,12 +362,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -447,7 +447,7 @@
       {
         "path": "listy/przelajowe/2026/pazdziernik",
         "h1": "Biegi przełajowe w październiku 2026",
-        "eventCount": 121
+        "eventCount": 122
       },
       {
         "path": "listy/przelajowe/2026/listopad",
@@ -483,7 +483,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/slaskie",
@@ -593,10 +593,10 @@
       "city": null
     },
     "h1": "Ultramaratony w Polsce",
-    "title": "Ultramaratony w Polsce (43 wydarzeń) — Leszy.run",
-    "description": "43 ultramaratonów w Polsce. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
-    "intro": "43 ultramaratony w Polsce w 2026 roku, od 1 km do 6706 km.",
-    "eventCount": 43,
+    "title": "Ultramaratony w Polsce (44 wydarzeń) — Leszy.run",
+    "description": "44 ultramaratonów w Polsce. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
+    "intro": "44 ultramaratony w Polsce w 2026 roku, od 1 km do 6706 km.",
+    "eventCount": 44,
     "canonicalUrl": "https://www.leszy.run/listy/ultramaratony",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -604,7 +604,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -619,11 +624,6 @@
       {
         "path": "listy/ultramaratony/pomorskie",
         "h1": "Ultramaratony na Pomorzu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -664,7 +664,7 @@
       {
         "path": "listy/ultramaratony/2026/pazdziernik",
         "h1": "Ultramaratony w październiku 2026",
-        "eventCount": 20
+        "eventCount": 21
       },
       {
         "path": "listy/ultramaratony/2026/grudzien",
@@ -695,7 +695,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/nocne/slaskie",
@@ -766,7 +766,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/ocr/mazowieckie",
@@ -827,7 +827,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/nordic-walking/slaskie",
@@ -948,7 +948,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/charytatywne/slaskie",
@@ -1049,7 +1049,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -1350,7 +1350,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/kujawsko-pomorskie",
@@ -1506,7 +1506,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/lubelskie",
@@ -1597,7 +1597,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/lubuskie",
@@ -1733,7 +1733,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/lodzkie",
@@ -1924,7 +1924,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/malopolskie",
@@ -2165,7 +2165,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/mazowieckie",
@@ -2516,7 +2516,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/opolskie",
@@ -2707,7 +2707,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/podkarpackie",
@@ -2903,7 +2903,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/podlaskie",
@@ -3019,7 +3019,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/pomorskie",
@@ -3259,10 +3259,10 @@
       "city": null
     },
     "h1": "Biegi na Śląsku",
-    "title": "Biegi na Śląsku (108 wydarzeń) — Leszy.run",
-    "description": "108 biegów na Śląsku. Zapisy, dystanse, ceny.",
-    "intro": "108 listy na Śląsku w 2026 roku, od 1 km do 101 km.",
-    "eventCount": 108,
+    "title": "Biegi na Śląsku (109 wydarzeń) — Leszy.run",
+    "description": "109 biegów na Śląsku. Zapisy, dystanse, ceny.",
+    "intro": "109 listy na Śląsku w 2026 roku, od 1 km do 107 km.",
+    "eventCount": 109,
     "canonicalUrl": "https://www.leszy.run/listy/slaskie",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -3270,7 +3270,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/slaskie",
@@ -3280,7 +3280,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/nordic-walking/slaskie",
@@ -3300,7 +3300,7 @@
       {
         "path": "listy/ultramaratony/slaskie",
         "h1": "Ultramaratony na Śląsku",
-        "eventCount": 5
+        "eventCount": 6
       },
       {
         "path": "listy/ocr/slaskie",
@@ -3310,7 +3310,7 @@
       {
         "path": "listy/slaskie/2026/pazdziernik",
         "h1": "Biegi na Śląsku — w październiku 2026",
-        "eventCount": 48
+        "eventCount": 49
       },
       {
         "path": "listy/slaskie/2026/listopad",
@@ -3518,6 +3518,11 @@
         "eventCount": 1
       },
       {
+        "path": "listy/wegierska-gorka",
+        "h1": "Bieg — Węgierska Górka",
+        "eventCount": 1
+      },
+      {
         "path": "listy/podlesice",
         "h1": "Bieg — Podlesice",
         "eventCount": 1
@@ -3686,7 +3691,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/swietokrzyskie",
@@ -3797,7 +3802,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/warminsko-mazurskie",
@@ -3973,7 +3978,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/wielkopolskie",
@@ -4279,7 +4284,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/uliczne/zachodniopomorskie",
@@ -4470,7 +4475,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/polmaratony/slaskie",
@@ -4566,7 +4571,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/maratony/slaskie",
@@ -4637,7 +4642,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dla-dzieci/mazowieckie",
@@ -4743,7 +4748,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/darmowe/mazowieckie",
@@ -4833,10 +4838,10 @@
       "city": null
     },
     "h1": "Biegi — ostatnia szansa na zapis",
-    "title": "Biegi — ostatnia szansa na zapis (193 wydarzeń) — Leszy.run",
-    "description": "193 biegów z kończącymi się zapisami w Polsce. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
-    "intro": "193 biegów w Polsce z zapisami kończącymi się w ciągu 14 dni.",
-    "eventCount": 193,
+    "title": "Biegi — ostatnia szansa na zapis (194 wydarzeń) — Leszy.run",
+    "description": "194 biegów z kończącymi się zapisami w Polsce. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
+    "intro": "194 biegów w Polsce z zapisami kończącymi się w ciągu 14 dni.",
+    "eventCount": 194,
     "canonicalUrl": "https://www.leszy.run/listy/ostatnia-szansa",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "daily",
@@ -4844,12 +4849,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -5459,7 +5464,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/polmaratony/dolnoslaskie",
@@ -6075,7 +6080,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/maratony/zachodniopomorskie",
@@ -6859,7 +6864,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/dla-dzieci/mazowieckie",
@@ -7699,7 +7704,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/darmowe/mazowieckie",
@@ -7974,7 +7979,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/dolnoslaskie",
@@ -7984,7 +7989,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8030,7 +8035,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -8040,7 +8045,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8086,7 +8091,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/lubelskie",
@@ -8096,7 +8101,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8142,7 +8147,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/lubuskie",
@@ -8152,7 +8157,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8198,7 +8203,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/lodzkie",
@@ -8208,7 +8213,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8254,7 +8259,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/malopolskie",
@@ -8264,7 +8269,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8310,7 +8315,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/mazowieckie",
@@ -8320,7 +8325,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/dolnoslaskie",
@@ -8366,7 +8371,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/opolskie",
@@ -8376,7 +8381,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8422,7 +8427,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/podkarpackie",
@@ -8432,7 +8437,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8478,7 +8483,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/podlaskie",
@@ -8488,7 +8493,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8534,7 +8539,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/pomorskie",
@@ -8544,7 +8549,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8579,10 +8584,10 @@
       "city": null
     },
     "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-    "title": "Biegi na Śląsku — ostatnia szansa na zapis (24 wydarzeń) — Leszy.run",
-    "description": "24 biegów z kończącymi się zapisami na Śląsku. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
-    "intro": "24 biegów na Śląsku z zapisami kończącymi się w ciągu 14 dni.",
-    "eventCount": 24,
+    "title": "Biegi na Śląsku — ostatnia szansa na zapis (25 wydarzeń) — Leszy.run",
+    "description": "25 biegów z kończącymi się zapisami na Śląsku. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
+    "intro": "25 biegów na Śląsku z zapisami kończącymi się w ciągu 14 dni.",
+    "eventCount": 25,
     "canonicalUrl": "https://www.leszy.run/listy/ostatnia-szansa/slaskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "daily",
@@ -8590,12 +8595,12 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8646,7 +8651,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/swietokrzyskie",
@@ -8656,7 +8661,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8702,7 +8707,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -8712,7 +8717,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8758,7 +8763,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/wielkopolskie",
@@ -8768,7 +8773,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8814,7 +8819,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 193
+        "eventCount": 194
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -8824,7 +8829,7 @@
       {
         "path": "listy/ostatnia-szansa/slaskie",
         "h1": "Biegi na Śląsku — ostatnia szansa na zapis",
-        "eventCount": 24
+        "eventCount": 25
       },
       {
         "path": "listy/ostatnia-szansa/mazowieckie",
@@ -8870,7 +8875,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/dolnoslaskie",
@@ -8880,7 +8885,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/malopolskie",
@@ -8936,7 +8941,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -8946,7 +8951,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8997,7 +9002,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/lubelskie",
@@ -9007,7 +9012,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9058,7 +9063,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/lubuskie",
@@ -9068,7 +9073,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9114,7 +9119,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/lodzkie",
@@ -9124,7 +9129,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9175,7 +9180,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/malopolskie",
@@ -9185,7 +9190,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9241,7 +9246,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/mazowieckie",
@@ -9251,7 +9256,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9302,7 +9307,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/opolskie",
@@ -9312,7 +9317,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9368,7 +9373,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/podkarpackie",
@@ -9378,7 +9383,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9434,7 +9439,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/podlaskie",
@@ -9444,7 +9449,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9490,7 +9495,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/pomorskie",
@@ -9500,7 +9505,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9540,10 +9545,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe na Śląsku",
-    "title": "Biegi przełajowe na Śląsku (51 wydarzeń) — Leszy.run",
-    "description": "51 biegów przełajowych na Śląsku. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "51 biegi przełajowe na Śląsku w 2026 roku, od 1 km do 101 km.",
-    "eventCount": 51,
+    "title": "Biegi przełajowe na Śląsku (52 wydarzeń) — Leszy.run",
+    "description": "52 biegów przełajowych na Śląsku. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "52 biegi przełajowe na Śląsku w 2026 roku, od 1 km do 107 km.",
+    "eventCount": 52,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe/slaskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "weekly",
@@ -9551,12 +9556,12 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9586,7 +9591,7 @@
       {
         "path": "listy/przelajowe/slaskie/2026/pazdziernik",
         "h1": "Biegi przełajowe na Śląsku — w październiku 2026",
-        "eventCount": 23
+        "eventCount": 24
       },
       {
         "path": "listy/przelajowe/slaskie/2026/listopad",
@@ -9617,7 +9622,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/swietokrzyskie",
@@ -9627,7 +9632,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9678,7 +9683,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -9688,7 +9693,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9734,7 +9739,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/wielkopolskie",
@@ -9744,7 +9749,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9800,7 +9805,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -9810,7 +9815,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -10572,7 +10577,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/uliczne/mazowieckie",
@@ -10892,12 +10897,17 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/dolnoslaskie",
         "h1": "Biegi w Dolnośląskiem",
         "eventCount": 78
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/podkarpackie",
@@ -10907,11 +10917,6 @@
       {
         "path": "listy/ultramaratony/pomorskie",
         "h1": "Ultramaratony na Pomorzu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -10953,12 +10958,17 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/kujawsko-pomorskie",
         "h1": "Biegi w Kujawsko-Pomorskiem",
         "eventCount": 26
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -10973,11 +10983,6 @@
       {
         "path": "listy/ultramaratony/pomorskie",
         "h1": "Ultramaratony na Pomorzu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -11009,12 +11014,17 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/lodzkie",
         "h1": "Biegi w Łódzkiem",
         "eventCount": 37
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -11029,11 +11039,6 @@
       {
         "path": "listy/ultramaratony/pomorskie",
         "h1": "Ultramaratony na Pomorzu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -11065,12 +11070,17 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
         "eventCount": 48
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -11085,11 +11095,6 @@
       {
         "path": "listy/ultramaratony/pomorskie",
         "h1": "Ultramaratony na Pomorzu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -11121,12 +11126,17 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/mazowieckie",
         "h1": "Biegi na Mazowszu",
         "eventCount": 83
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -11141,11 +11151,6 @@
       {
         "path": "listy/ultramaratony/pomorskie",
         "h1": "Ultramaratony na Pomorzu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -11177,12 +11182,17 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/opolskie",
         "h1": "Biegi w Opolskiem",
         "eventCount": 35
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -11197,11 +11207,6 @@
       {
         "path": "listy/ultramaratony/pomorskie",
         "h1": "Ultramaratony na Pomorzu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -11233,12 +11238,17 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/podkarpackie",
         "h1": "Biegi na Podkarpaciu",
         "eventCount": 34
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -11248,11 +11258,6 @@
       {
         "path": "listy/ultramaratony/pomorskie",
         "h1": "Ultramaratony na Pomorzu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -11289,12 +11294,17 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/podlaskie",
         "h1": "Biegi na Podlasiu",
         "eventCount": 15
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -11309,11 +11319,6 @@
       {
         "path": "listy/ultramaratony/pomorskie",
         "h1": "Ultramaratony na Pomorzu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -11345,12 +11350,17 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/pomorskie",
         "h1": "Biegi na Pomorzu",
         "eventCount": 60
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -11360,11 +11370,6 @@
       {
         "path": "listy/ultramaratony/podkarpackie",
         "h1": "Ultramaratony na Podkarpaciu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -11390,10 +11395,10 @@
       "city": null
     },
     "h1": "Ultramaratony na Śląsku",
-    "title": "Ultramaratony na Śląsku (5 wydarzeń) — Leszy.run",
-    "description": "5 ultramaratonów na Śląsku. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
-    "intro": "5 ultramaratony na Śląsku w 2026 roku, od 5 km do 101 km.",
-    "eventCount": 5,
+    "title": "Ultramaratony na Śląsku (6 wydarzeń) — Leszy.run",
+    "description": "6 ultramaratonów na Śląsku. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
+    "intro": "6 ultramaratony na Śląsku w 2026 roku, od 5 km do 107 km.",
+    "eventCount": 6,
     "canonicalUrl": "https://www.leszy.run/listy/ultramaratony/slaskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "weekly",
@@ -11401,12 +11406,12 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -11436,7 +11441,7 @@
       {
         "path": "listy/ultramaratony/slaskie/2026/pazdziernik",
         "h1": "Ultramaratony na Śląsku — w październiku 2026",
-        "eventCount": 3
+        "eventCount": 4
       }
     ]
   },
@@ -11462,12 +11467,17 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/wielkopolskie",
         "h1": "Biegi w Wielkopolsce",
         "eventCount": 73
+      },
+      {
+        "path": "listy/ultramaratony/slaskie",
+        "h1": "Ultramaratony na Śląsku",
+        "eventCount": 6
       },
       {
         "path": "listy/ultramaratony/dolnoslaskie",
@@ -11482,11 +11492,6 @@
       {
         "path": "listy/ultramaratony/pomorskie",
         "h1": "Ultramaratony na Pomorzu",
-        "eventCount": 5
-      },
-      {
-        "path": "listy/ultramaratony/slaskie",
-        "h1": "Ultramaratony na Śląsku",
         "eventCount": 5
       },
       {
@@ -11747,7 +11752,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/nocne/pomorskie",
@@ -12149,7 +12154,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/ocr/mazowieckie",
@@ -12922,7 +12927,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/nordic-walking/mazowieckie",
@@ -13690,7 +13695,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/charytatywne/malopolskie",
@@ -13919,7 +13924,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/2026/wrzesien",
@@ -13950,7 +13955,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/2026/sierpien",
@@ -13960,7 +13965,7 @@
       {
         "path": "listy/2026/pazdziernik",
         "h1": "Biegi w październiku 2026",
-        "eventCount": 311
+        "eventCount": 312
       }
     ]
   },
@@ -13975,10 +13980,10 @@
       "city": null
     },
     "h1": "Biegi w październiku 2026",
-    "title": "Biegi w październiku 2026 (311 wydarzeń) — Leszy.run",
-    "description": "311 biegów w Polsce w październiku 2026. Zapisy, dystanse, ceny.",
-    "intro": "311 listy w Polsce w 2026 roku, od 1 km do 150 km.",
-    "eventCount": 311,
+    "title": "Biegi w październiku 2026 (312 wydarzeń) — Leszy.run",
+    "description": "312 biegów w Polsce w październiku 2026. Zapisy, dystanse, ceny.",
+    "intro": "312 listy w Polsce w 2026 roku, od 1 km do 150 km.",
+    "eventCount": 312,
     "canonicalUrl": "https://www.leszy.run/listy/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -13986,7 +13991,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/2026/wrzesien",
@@ -14022,12 +14027,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/2026/pazdziernik",
         "h1": "Biegi w październiku 2026",
-        "eventCount": 311
+        "eventCount": 312
       },
       {
         "path": "listy/2026/grudzien",
@@ -14058,7 +14063,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/2026/listopad",
@@ -14094,7 +14099,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/2026/grudzien",
@@ -14125,7 +14130,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       }
     ]
   },
@@ -14151,7 +14156,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/przelajowe/2026/wrzesien",
@@ -14182,7 +14187,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/przelajowe/2026/sierpien",
@@ -14192,7 +14197,7 @@
       {
         "path": "listy/przelajowe/2026/pazdziernik",
         "h1": "Biegi przełajowe w październiku 2026",
-        "eventCount": 121
+        "eventCount": 122
       }
     ]
   },
@@ -14207,10 +14212,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe w październiku 2026",
-    "title": "Biegi przełajowe w październiku 2026 (121 wydarzeń) — Leszy.run",
-    "description": "121 biegów przełajowych w Polsce w październiku 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "121 biegi przełajowe w Polsce w 2026 roku, od 1 km do 150 km.",
-    "eventCount": 121,
+    "title": "Biegi przełajowe w październiku 2026 (122 wydarzeń) — Leszy.run",
+    "description": "122 biegów przełajowych w Polsce w październiku 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "122 biegi przełajowe w Polsce w 2026 roku, od 1 km do 150 km.",
+    "eventCount": 122,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -14218,7 +14223,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/przelajowe/2026/wrzesien",
@@ -14254,12 +14259,12 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/przelajowe/2026/pazdziernik",
         "h1": "Biegi przełajowe w październiku 2026",
-        "eventCount": 121
+        "eventCount": 122
       },
       {
         "path": "listy/przelajowe/2026/grudzien",
@@ -14290,7 +14295,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/przelajowe/2026/listopad",
@@ -14326,7 +14331,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 263
+        "eventCount": 264
       },
       {
         "path": "listy/przelajowe/2026/grudzien",
@@ -14589,7 +14594,7 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/ultramaratony/2026/wrzesien",
@@ -14620,7 +14625,7 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/ultramaratony/2026/sierpien",
@@ -14630,7 +14635,7 @@
       {
         "path": "listy/ultramaratony/2026/pazdziernik",
         "h1": "Ultramaratony w październiku 2026",
-        "eventCount": 20
+        "eventCount": 21
       }
     ]
   },
@@ -14645,10 +14650,10 @@
       "city": null
     },
     "h1": "Ultramaratony w październiku 2026",
-    "title": "Ultramaratony w październiku 2026 (20 wydarzeń) — Leszy.run",
-    "description": "20 ultramaratonów w Polsce w październiku 2026. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
-    "intro": "20 ultramaratony w Polsce w 2026 roku, od 1 km do 150 km.",
-    "eventCount": 20,
+    "title": "Ultramaratony w październiku 2026 (21 wydarzeń) — Leszy.run",
+    "description": "21 ultramaratonów w Polsce w październiku 2026. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
+    "intro": "21 ultramaratony w Polsce w 2026 roku, od 1 km do 150 km.",
+    "eventCount": 21,
     "canonicalUrl": "https://www.leszy.run/listy/ultramaratony/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -14656,7 +14661,7 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       },
       {
         "path": "listy/ultramaratony/2026/wrzesien",
@@ -14687,7 +14692,7 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       }
     ]
   },
@@ -14713,7 +14718,7 @@
       {
         "path": "listy/ultramaratony",
         "h1": "Ultramaratony w Polsce",
-        "eventCount": 43
+        "eventCount": 44
       }
     ]
   },
@@ -16749,7 +16754,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/slaskie/2026/wrzesien",
@@ -16780,7 +16785,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/slaskie/2026/sierpien",
@@ -16790,7 +16795,7 @@
       {
         "path": "listy/slaskie/2026/pazdziernik",
         "h1": "Biegi na Śląsku — w październiku 2026",
-        "eventCount": 48
+        "eventCount": 49
       }
     ]
   },
@@ -16805,10 +16810,10 @@
       "city": null
     },
     "h1": "Biegi na Śląsku — w październiku 2026",
-    "title": "Biegi na Śląsku — w październiku 2026 (48 wydarzeń) — Leszy.run",
-    "description": "48 biegów na Śląsku w październiku 2026. Zapisy, dystanse, ceny.",
-    "intro": "48 listy na Śląsku w 2026 roku, od 1 km do 100 km.",
-    "eventCount": 48,
+    "title": "Biegi na Śląsku — w październiku 2026 (49 wydarzeń) — Leszy.run",
+    "description": "49 biegów na Śląsku w październiku 2026. Zapisy, dystanse, ceny.",
+    "intro": "49 listy na Śląsku w 2026 roku, od 1 km do 107 km.",
+    "eventCount": 49,
     "canonicalUrl": "https://www.leszy.run/listy/slaskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -16816,7 +16821,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/slaskie/2026/wrzesien",
@@ -16852,12 +16857,12 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/slaskie/2026/pazdziernik",
         "h1": "Biegi na Śląsku — w październiku 2026",
-        "eventCount": 48
+        "eventCount": 49
       },
       {
         "path": "listy/slaskie/2026/grudzien",
@@ -16888,7 +16893,7 @@
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/slaskie/2026/listopad",
@@ -18425,7 +18430,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/slaskie/2026/wrzesien",
@@ -18456,7 +18461,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/slaskie/2026/sierpien",
@@ -18466,7 +18471,7 @@
       {
         "path": "listy/przelajowe/slaskie/2026/pazdziernik",
         "h1": "Biegi przełajowe na Śląsku — w październiku 2026",
-        "eventCount": 23
+        "eventCount": 24
       }
     ]
   },
@@ -18481,10 +18486,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe na Śląsku — w październiku 2026",
-    "title": "Biegi przełajowe na Śląsku — w październiku 2026 (23 wydarzeń) — Leszy.run",
-    "description": "23 biegów przełajowych na Śląsku w październiku 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "23 biegi przełajowe na Śląsku w 2026 roku, od 1 km do 100 km.",
-    "eventCount": 23,
+    "title": "Biegi przełajowe na Śląsku — w październiku 2026 (24 wydarzeń) — Leszy.run",
+    "description": "24 biegów przełajowych na Śląsku w październiku 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "24 biegi przełajowe na Śląsku w 2026 roku, od 1 km do 107 km.",
+    "eventCount": 24,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe/slaskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -18492,7 +18497,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/slaskie/2026/wrzesien",
@@ -18528,12 +18533,12 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/slaskie/2026/pazdziernik",
         "h1": "Biegi przełajowe na Śląsku — w październiku 2026",
-        "eventCount": 23
+        "eventCount": 24
       },
       {
         "path": "listy/przelajowe/slaskie/2026/grudzien",
@@ -18564,7 +18569,7 @@
       {
         "path": "listy/przelajowe/slaskie",
         "h1": "Biegi przełajowe na Śląsku",
-        "eventCount": 51
+        "eventCount": 52
       },
       {
         "path": "listy/przelajowe/slaskie/2026/listopad",
@@ -20930,10 +20935,10 @@
       "city": null
     },
     "h1": "Ultramaratony na Śląsku — w październiku 2026",
-    "title": "Ultramaratony na Śląsku — w październiku 2026 (3 wydarzenia) — Leszy.run",
-    "description": "3 ultramaratonów na Śląsku w październiku 2026. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
-    "intro": "3 ultramaratony na Śląsku w 2026 roku, od 5 km do 100 km.",
-    "eventCount": 3,
+    "title": "Ultramaratony na Śląsku — w październiku 2026 (4 wydarzenia) — Leszy.run",
+    "description": "4 ultramaratonów na Śląsku w październiku 2026. ultramaratony, biegi ultra, ultramaraton, ultra trail, biegi długodystansowe. Zapisy, dystanse, ceny.",
+    "intro": "4 ultramaratony na Śląsku w 2026 roku, od 5 km do 107 km.",
+    "eventCount": 4,
     "canonicalUrl": "https://www.leszy.run/listy/ultramaratony/slaskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -20941,7 +20946,7 @@
       {
         "path": "listy/ultramaratony/slaskie",
         "h1": "Ultramaratony na Śląsku",
-        "eventCount": 5
+        "eventCount": 6
       }
     ]
   },
@@ -22605,7 +22610,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -22697,7 +22702,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -22789,12 +22794,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -22881,12 +22886,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -22973,12 +22978,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -23065,12 +23070,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -23157,7 +23162,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -23244,12 +23249,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -23336,7 +23341,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -23428,7 +23433,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -23520,7 +23525,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -23612,7 +23617,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -23704,7 +23709,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -23796,7 +23801,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -23888,7 +23893,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -23980,7 +23985,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -24072,12 +24077,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -24164,7 +24169,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -24256,7 +24261,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -24348,7 +24353,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -24440,7 +24445,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -24532,7 +24537,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -24624,7 +24629,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -24716,7 +24721,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -24808,12 +24813,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -24900,7 +24905,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -24992,12 +24997,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -25084,7 +25089,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -25176,7 +25181,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -25268,7 +25273,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -25360,7 +25365,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -25452,7 +25457,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -25544,7 +25549,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -25636,7 +25641,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -25728,7 +25733,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -25820,7 +25825,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -25912,7 +25917,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -26004,7 +26009,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -26096,7 +26101,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -26188,12 +26193,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -26280,7 +26285,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -26372,7 +26377,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -26464,7 +26469,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -26556,7 +26561,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -26648,7 +26653,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -26740,7 +26745,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -26832,7 +26837,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -26924,7 +26929,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -27016,7 +27021,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -27108,7 +27113,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -27200,7 +27205,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -27292,7 +27297,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubelskie",
@@ -27364,7 +27369,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubelskie",
@@ -27436,7 +27441,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -27523,12 +27528,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/gliwice",
@@ -27615,7 +27620,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -27707,7 +27712,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -27799,7 +27804,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -27891,7 +27896,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -27983,7 +27988,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -28075,12 +28080,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -28167,7 +28172,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -28259,7 +28264,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -28351,7 +28356,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -28443,7 +28448,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -28535,12 +28540,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -28627,7 +28632,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -28719,7 +28724,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -28811,7 +28816,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -28903,7 +28908,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -28995,7 +29000,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -29087,7 +29092,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -29179,7 +29184,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -29271,7 +29276,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -29363,7 +29368,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -29455,7 +29460,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -29547,7 +29552,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -29639,7 +29644,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -29731,7 +29736,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -29823,7 +29828,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -29915,7 +29920,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -30007,7 +30012,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -30099,7 +30104,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -30191,7 +30196,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -30283,12 +30288,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -30375,7 +30380,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -30467,7 +30472,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -30559,7 +30564,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -30651,7 +30656,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -30743,7 +30748,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -30835,7 +30840,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -30927,7 +30932,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -31019,7 +31024,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -31111,7 +31116,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -31203,7 +31208,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -31295,7 +31300,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -31387,7 +31392,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -31479,12 +31484,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -31571,7 +31576,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -31663,7 +31668,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -31750,7 +31755,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -31842,7 +31847,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -31934,7 +31939,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -32026,7 +32031,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -32118,7 +32123,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -32210,7 +32215,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -32302,7 +32307,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -32394,7 +32399,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -32486,7 +32491,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -32578,7 +32583,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -32670,7 +32675,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -32762,7 +32767,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -32854,7 +32859,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -32946,7 +32951,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -33038,7 +33043,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -33130,7 +33135,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -33222,7 +33227,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -33314,12 +33319,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -33406,7 +33411,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -33498,7 +33503,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -33590,7 +33595,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -33682,7 +33687,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -33774,7 +33779,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -33866,7 +33871,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -33958,12 +33963,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -34050,7 +34055,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -34142,7 +34147,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -34234,7 +34239,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -34321,12 +34326,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -34413,7 +34418,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -34505,12 +34510,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -34597,7 +34602,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -34689,7 +34694,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -34781,7 +34786,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -34873,12 +34878,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -34965,7 +34970,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -35057,7 +35062,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -35149,12 +35154,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -35241,7 +35246,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -35333,7 +35338,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -35425,7 +35430,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -35517,7 +35522,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -35609,12 +35614,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -35701,7 +35706,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -35793,7 +35798,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -35885,7 +35890,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -35977,12 +35982,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -36069,7 +36074,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -36161,12 +36166,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -36253,7 +36258,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -36345,7 +36350,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -36437,7 +36442,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -36529,12 +36534,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -36621,7 +36626,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -36713,7 +36718,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -36805,7 +36810,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -36897,7 +36902,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -36989,7 +36994,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -37081,7 +37086,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -37173,7 +37178,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -37265,7 +37270,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -37357,7 +37362,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -37449,7 +37454,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -37541,7 +37546,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -37633,7 +37638,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -37725,7 +37730,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -37817,7 +37822,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -37909,7 +37914,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -38001,7 +38006,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -38093,7 +38098,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -38185,7 +38190,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -38277,7 +38282,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -38369,7 +38374,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -38461,7 +38466,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -38553,7 +38558,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -38645,7 +38650,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -38737,7 +38742,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -38829,12 +38834,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -38921,12 +38926,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -39013,7 +39018,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -39105,7 +39110,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -39197,7 +39202,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -39289,7 +39294,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -39376,7 +39381,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -39468,7 +39473,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -39560,12 +39565,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -39652,7 +39657,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -39744,7 +39749,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -39836,7 +39841,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -39928,7 +39933,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -40015,7 +40020,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -40107,12 +40112,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -40199,7 +40204,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -40291,7 +40296,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -40383,7 +40388,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -40475,7 +40480,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -40567,7 +40572,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -40659,7 +40664,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -40751,7 +40756,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -40843,7 +40848,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -40935,7 +40940,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -41027,7 +41032,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -41119,7 +41124,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -41211,7 +41216,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -41303,7 +41308,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -41395,7 +41400,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -41487,7 +41492,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -41579,12 +41584,104 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
+      },
+      {
+        "path": "listy/katowice",
+        "h1": "Biegi w Katowicach",
+        "eventCount": 8
+      },
+      {
+        "path": "listy/gliwice",
+        "h1": "Biegi w Gliwicach",
+        "eventCount": 7
+      },
+      {
+        "path": "listy/chorzow",
+        "h1": "Biegi — Chorzów",
+        "eventCount": 5
+      },
+      {
+        "path": "listy/tychy",
+        "h1": "Biegi w Tychach",
+        "eventCount": 3
+      },
+      {
+        "path": "listy/bielsko-biala",
+        "h1": "Biegi w Bielsku-Białej",
+        "eventCount": 3
+      },
+      {
+        "path": "listy/rybnik",
+        "h1": "Biegi w Rybniku",
+        "eventCount": 3
+      },
+      {
+        "path": "listy/myslowice",
+        "h1": "Biegi w Mysłowicach",
+        "eventCount": 3
+      },
+      {
+        "path": "listy/ruda-slaska",
+        "h1": "Biegi w Rudzie Śląskiej",
+        "eventCount": 3
+      },
+      {
+        "path": "listy/paprocany",
+        "h1": "Biegi w Paprocanach",
+        "eventCount": 3
+      },
+      {
+        "path": "listy/porabka",
+        "h1": "Biegi — Porąbka",
+        "eventCount": 2
+      },
+      {
+        "path": "listy/zloty-potok",
+        "h1": "Biegi — Złoty Potok",
+        "eventCount": 2
+      },
+      {
+        "path": "listy/lyski",
+        "h1": "Biegi — Lyski",
+        "eventCount": 2
+      }
+    ],
+    "cityRegionSlug": "slaskie"
+  },
+  "listy/wegierska-gorka": {
+    "path": "listy/wegierska-gorka",
+    "filters": {
+      "typeDbVal": null,
+      "regionDb": null,
+      "year": null,
+      "month": null,
+      "special": null,
+      "city": "Węgierska Górka"
+    },
+    "h1": "Bieg — Węgierska Górka",
+    "title": "Bieg — Węgierska Górka (1 wydarzenie) — Leszy.run",
+    "description": "Kalendarz biegów 2026 — Węgierska Górka. 1 bieg. Zapisy, dystanse, ceny, regulaminy.",
+    "intro": "Kalendarz biegów 2026 — Węgierska Górka. 1 bieg.",
+    "eventCount": 1,
+    "canonicalUrl": "https://www.leszy.run/listy/wegierska-gorka",
+    "sitemapPriority": "0.7",
+    "sitemapChangefreq": "weekly",
+    "relatedLinks": [
+      {
+        "path": "listy",
+        "h1": "Biegi w Polsce — kalendarz biegów 2026",
+        "eventCount": 723
+      },
+      {
+        "path": "listy/slaskie",
+        "h1": "Biegi na Śląsku",
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -41671,7 +41768,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -41763,12 +41860,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -41855,7 +41952,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -41947,7 +42044,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -42039,7 +42136,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -42131,7 +42228,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -42223,7 +42320,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -42315,7 +42412,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -42407,7 +42504,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -42499,7 +42596,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -42591,7 +42688,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -42683,7 +42780,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -42775,7 +42872,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -42867,7 +42964,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -42959,7 +43056,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -43051,7 +43148,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -43143,7 +43240,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -43235,7 +43332,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -43327,7 +43424,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -43419,7 +43516,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -43506,7 +43603,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -43598,7 +43695,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -43690,7 +43787,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -43782,7 +43879,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -43874,7 +43971,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -43966,12 +44063,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -44058,7 +44155,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -44150,7 +44247,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -44242,7 +44339,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -44334,7 +44431,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -44426,7 +44523,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -44518,7 +44615,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -44610,7 +44707,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -44702,7 +44799,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubelskie",
@@ -44774,7 +44871,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -44866,7 +44963,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -44958,7 +45055,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -45050,12 +45147,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -45142,7 +45239,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -45234,7 +45331,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -45326,7 +45423,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubelskie",
@@ -45398,7 +45495,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -45490,7 +45587,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -45582,7 +45679,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -45674,7 +45771,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -45766,7 +45863,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -45858,7 +45955,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -45950,7 +46047,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -46042,7 +46139,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -46134,7 +46231,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -46226,7 +46323,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -46318,7 +46415,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -46410,7 +46507,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -46502,7 +46599,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -46594,12 +46691,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -46686,7 +46783,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -46778,7 +46875,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -46870,7 +46967,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubelskie",
@@ -46942,7 +47039,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -47034,7 +47131,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -47121,7 +47218,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -47213,7 +47310,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -47305,7 +47402,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -47397,7 +47494,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -47489,7 +47586,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -47581,7 +47678,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -47673,7 +47770,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -47765,12 +47862,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -47857,7 +47954,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -47949,7 +48046,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -48041,7 +48138,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -48133,7 +48230,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -48225,7 +48322,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -48317,12 +48414,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -48409,7 +48506,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -48501,7 +48598,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubelskie",
@@ -48573,12 +48670,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -48665,12 +48762,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -48757,12 +48854,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -48849,12 +48946,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -48941,12 +49038,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -49033,7 +49130,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -49125,7 +49222,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -49212,7 +49309,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -49304,7 +49401,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -49396,7 +49493,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -49488,7 +49585,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -49580,7 +49677,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -49672,7 +49769,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -49764,12 +49861,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -49856,7 +49953,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -49948,7 +50045,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -50040,7 +50137,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -50132,7 +50229,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -50224,7 +50321,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -50316,12 +50413,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -50408,7 +50505,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -50500,7 +50597,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -50592,12 +50689,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -50684,7 +50781,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -50776,7 +50873,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -50868,7 +50965,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -50960,12 +51057,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -51052,7 +51149,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -51144,7 +51241,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -51236,7 +51333,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -51328,7 +51425,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -51420,7 +51517,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -51512,7 +51609,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -51604,7 +51701,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -51696,7 +51793,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -51788,7 +51885,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -51880,12 +51977,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -51972,7 +52069,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -52064,7 +52161,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -52156,7 +52253,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -52248,7 +52345,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -52340,7 +52437,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubelskie",
@@ -52412,7 +52509,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -52504,7 +52601,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubelskie",
@@ -52576,7 +52673,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -52668,12 +52765,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -52760,12 +52857,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -52852,7 +52949,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -52944,12 +53041,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -53036,7 +53133,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -53128,12 +53225,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -53220,7 +53317,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -53312,7 +53409,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -53404,7 +53501,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -53496,7 +53593,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -53588,7 +53685,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -53680,7 +53777,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -53772,7 +53869,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -53864,7 +53961,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -53956,12 +54053,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -54048,7 +54145,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -54140,12 +54237,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -54232,7 +54329,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -54324,12 +54421,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -54416,7 +54513,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -54508,7 +54605,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -54600,7 +54697,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -54692,7 +54789,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -54784,7 +54881,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -54876,7 +54973,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -54968,7 +55065,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -55060,7 +55157,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -55152,7 +55249,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -55244,7 +55341,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -55336,7 +55433,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -55428,7 +55525,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -55520,7 +55617,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -55612,7 +55709,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -55704,7 +55801,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -55796,7 +55893,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -55888,7 +55985,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -55980,7 +56077,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -56072,7 +56169,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -56164,12 +56261,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -56256,7 +56353,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -56348,7 +56445,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -56440,7 +56537,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -56532,7 +56629,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -56624,7 +56721,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -56716,7 +56813,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -56808,7 +56905,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -56895,7 +56992,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -56987,7 +57084,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -57079,7 +57176,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -57171,7 +57268,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -57263,7 +57360,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -57355,7 +57452,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -57447,7 +57544,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -57539,7 +57636,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -57631,7 +57728,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -57723,7 +57820,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -57815,7 +57912,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -57907,7 +58004,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -57999,7 +58096,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -58091,12 +58188,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -58183,12 +58280,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -58275,7 +58372,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -58367,7 +58464,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -58459,7 +58556,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -58551,7 +58648,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -58643,7 +58740,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -58735,7 +58832,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -58827,7 +58924,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -58919,7 +59016,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -59011,7 +59108,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -59098,7 +59195,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -59190,12 +59287,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -59282,7 +59379,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -59374,7 +59471,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -59466,7 +59563,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -59558,7 +59655,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -59650,7 +59747,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -59742,7 +59839,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -59834,7 +59931,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -59926,7 +60023,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -60018,12 +60115,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -60110,12 +60207,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -60202,7 +60299,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -60294,7 +60391,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -60386,7 +60483,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubelskie",
@@ -60458,12 +60555,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -60550,7 +60647,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -60642,7 +60739,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -60734,7 +60831,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lubuskie",
@@ -60826,7 +60923,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -60918,7 +61015,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -61010,7 +61107,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -61102,12 +61199,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -61194,7 +61291,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -61286,7 +61383,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -61378,7 +61475,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -61470,7 +61567,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -61562,7 +61659,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -61654,12 +61751,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -61746,7 +61843,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -61838,7 +61935,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -61930,7 +62027,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -62022,7 +62119,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -62114,7 +62211,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -62206,7 +62303,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -62298,7 +62395,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -62390,7 +62487,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -62482,7 +62579,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -62574,7 +62671,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -62666,7 +62763,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -62758,7 +62855,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/lodzkie",
@@ -62850,7 +62947,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -62942,7 +63039,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -63034,7 +63131,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -63126,7 +63223,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -63218,7 +63315,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -63310,7 +63407,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -63402,7 +63499,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podlaskie",
@@ -63489,7 +63586,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -63581,7 +63678,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -63673,7 +63770,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -63765,7 +63862,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -63857,7 +63954,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -63949,7 +64046,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -64041,7 +64138,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -64133,12 +64230,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -64225,7 +64322,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -64317,7 +64414,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -64409,12 +64506,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -64501,7 +64598,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -64593,7 +64690,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -64685,7 +64782,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -64777,7 +64874,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -64869,7 +64966,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -64961,7 +65058,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -65053,12 +65150,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -65145,7 +65242,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -65237,7 +65334,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -65329,7 +65426,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -65421,7 +65518,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/wielkopolskie",
@@ -65513,7 +65610,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/podkarpackie",
@@ -65605,7 +65702,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/pomorskie",
@@ -65697,7 +65794,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -65789,7 +65886,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -65881,12 +65978,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -65973,7 +66070,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -66065,7 +66162,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -66157,12 +66254,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -66249,7 +66346,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/swietokrzyskie",
@@ -66341,7 +66438,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/opolskie",
@@ -66433,7 +66530,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -66525,7 +66622,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/malopolskie",
@@ -66617,7 +66714,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -66709,7 +66806,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/mazowieckie",
@@ -66801,7 +66898,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/dolnoslaskie",
@@ -66893,12 +66990,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
@@ -66985,12 +67082,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 722
+        "eventCount": 723
       },
       {
         "path": "listy/slaskie",
         "h1": "Biegi na Śląsku",
-        "eventCount": 108
+        "eventCount": 109
       },
       {
         "path": "listy/katowice",
