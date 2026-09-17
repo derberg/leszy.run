@@ -26,8 +26,15 @@
 //
 // STYLE TAGS COME FROM THE ICONS, not from the name. The icons are the portal's own
 // classification and are present on every row, whereas most mountain-race names carry
-// no style word at all. `ultra-2.png` gives `ultra`; the running-style icons give
-// `trail`; `ULICZNY-1.png` marks the rare road race and gives neither.
+// no style word at all. The running-style icons give `trail`, and `ULICZNY-1.png`
+// marks the rare road race and gives none.
+//
+// The `ultra-2.png` icon is deliberately NOT turned into an `ultra` tag. Every race
+// here is a mountain race, so `trail` already says what the row is, and the extra tag
+// mostly costs us merges: the merge guard compares the style tags of two rows as a
+// set, so a row we tag `{trail, ultra}` will not join a generalist source's `{trail}`
+// for the same race. Nordic walking stays, because it is a real second style that
+// this source sometimes carries and others miss.
 //
 // NON-RUNNING: the same table carries a few cycling and run-kayak events. They are
 // dropped by icon (`kolarz.jpg`, `runkajak.jpg`), which is more reliable than a name
@@ -52,7 +59,6 @@ const POLISH_MONTHS = {
 }
 
 // Icon filenames, which are the portal's own discipline marks.
-const ULTRA_ICON = /^ultra/i
 const TRAIL_ICONS = /^(cross|anglosaski|alpejski|dlugi|downhill|rajd|trekking|dogtrekking)/i
 const ROAD_ICON = /^uliczny/i
 const NON_RUNNING_ICONS = /^(kolarz|runkajak)/i
@@ -103,13 +109,13 @@ function cleanDistances(parts) {
 }
 
 /**
- * Style tags. Icons decide trail and ultra; the name is read only for the two styles
- * the icon set has no mark for. A road-marked row gets no trail tag.
+ * Style tags. The icons decide trail; the text is read for the two styles the icon
+ * set has no mark for. A road-marked row gets no trail tag, and no row gets `ultra`
+ * (see the note at the top of the file).
  */
 function detectEventTypes(icons, blob) {
   const tags = new Set()
   const road = icons.some(i => ROAD_ICON.test(i))
-  if (icons.some(i => ULTRA_ICON.test(i))) tags.add('ultra')
   if (!road && icons.some(i => TRAIL_ICONS.test(i))) tags.add('trail')
   const s = (blob || '').toLowerCase()
   if (/nordic\s*walking|\bnw\b|marsz\s+z\s+kijami/i.test(s)) tags.add('nordic walking')
