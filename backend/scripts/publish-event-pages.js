@@ -9,6 +9,7 @@ import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { generateEventOg } from '../../public/scripts/generate-event-og.js'
 import { writeRunLog } from './lib/run-log.js'
+import { buildManifestEntry } from './lib/manifestEntry.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..', '..')
@@ -151,25 +152,7 @@ async function main() {
   // 6. Build new manifest
   const newManifest = {}
   for (const { event, slug } of eventSlugs) {
-    newManifest[slug] = {
-      id: event.id,
-      name: event.name,
-      date: event.date,
-      registration_deadline: event.registration_deadline || null,
-      regulamin_url: event.regulamin_url || null,
-      price_from: event.price_from || null,
-      price_to: event.price_to || null,
-      location: event.location || null,
-      voivodeship: event.voivodeship || null,
-      lat: event.lat || null,
-      lng: event.lng || null,
-      distances: event.distances || null,
-      event_type: event.event_type || null,
-      registration_url: event.registration_url || null,
-      website: event.website || null,
-      is_kids: event.is_kids ?? null,
-      status: event.status || null,
-    }
+    newManifest[slug] = buildManifestEntry(event)
   }
 
   // 7. Diff
