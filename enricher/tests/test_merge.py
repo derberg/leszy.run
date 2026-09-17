@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch
 
 from enricher.steps.merge import build_updates
+from enricher.steps.validate_urls import UrlStatus
 from enricher.config import Config
 
 config = Config()
@@ -297,3 +298,88 @@ def test_one_sided_price_lift_off_zero_is_rejected(sample_event):
     updates = build_updates(event, llm, {}, {}, config)
     assert "price_from" not in updates
     assert "price_to" not in updates
+
+
+# A bare origin is a homepage, never a sign-up form or a rules document.
+# Regression: BIEGAM, BO LUBIĘ LASY - Lubartów (inessport gr330). The listing
+# page had no "Formularz zgłoszenia" button yet — registration opened that
+# evening — so the scraper stored null. The regulamin says "Zapisy online na
+# stronie zapisy.inessport.pl", the LLM returned that bare domain, and
+# verify_url_relevance passed it: the bare domain serves the full inesSport
+# listing, which carries every event name including this one. An event-name
+# check can never reject a listing root, so the shape has to be rejected first.
+
+def test_bare_origin_rejected_as_registration_url(sample_event):
+    """A path-less domain from the regulamin must not fill registration_url."""
+    sample_event["registration_url"] = None
+    llm = {
+        "distances": None,
+        "event_types": None,
+        "registration_url": "https://zapisy.inessport.pl",
+        "url_is_registration": True,
+    }
+    updates = build_updates(sample_event, llm, {}, {}, config)
+    assert "registration_url" not in updates
+
+
+def test_bare_origin_with_trailing_slash_rejected(sample_event):
+    """Trailing slash is still a homepage."""
+    sample_event["registration_url"] = None
+    llm = {
+        "distances": None,
+        "event_types": None,
+        "registration_url": "https://zapisy.inessport.pl/",
+        "url_is_registration": True,
+    }
+    updates = build_updates(sample_event, llm, {}, {}, config)
+    assert "registration_url" not in updates
+
+
+def test_bare_origin_rejected_from_search_candidate(sample_event):
+    """The same shape reaching via the search step is rejected too."""
+    sample_event["registration_url"] = None
+    llm = {"distances": None, "event_types": None}
+    updates = build_updates(
+        sample_event, llm, {}, {"registration_url": "https://zapisy.inessport.pl/"}, config
+    )
+    assert "registration_url" not in updates
+
+
+def test_bare_origin_rejected_as_regulamin_url(sample_event):
+    """A rules document does not live at a bare origin either."""
+    sample_event["regulamin_url"] = None
+    llm = {
+        "distances": None,
+        "event_types": None,
+        "regulamin_url": "https://zapisy.inessport.pl",
+        "url_is_regulamin": True,
+    }
+    updates = build_updates(sample_event, llm, {}, {}, config)
+    assert "regulamin_url" not in updates
+
+
+def test_bare_origin_does_not_replace_a_dead_url(sample_event):
+    """A dead URL stays put rather than degrading to a homepage."""
+    url_statuses = {"registration_url": UrlStatus(url="https://example.pl/zapisy", status="dead")}
+    llm = {
+        "distances": None,
+        "event_types": None,
+        "registration_url": "https://zapisy.inessport.pl",
+        "url_is_registration": True,
+    }
+    updates = build_updates(sample_event, llm, url_statuses, {}, config)
+    assert "registration_url" not in updates
+
+
+def test_query_only_url_still_accepted(sample_event):
+    """inesSport's real form lives at a query string on the listing path."""
+    sample_event["registration_url"] = None
+    real = "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1504"
+    llm = {
+        "distances": None,
+        "event_types": None,
+        "registration_url": real,
+        "url_is_registration": True,
+    }
+    updates = build_updates(sample_event, llm, {}, {}, config)
+    assert updates["registration_url"] == real
