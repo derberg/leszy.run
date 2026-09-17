@@ -60692,30 +60692,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "crossduathlon-laski-2026-2026-10-17": {
-    "id": "1f2505db-8b7a-46f1-a712-e357891e34f9",
-    "name": "CROSSDUATHLON LASKI 2026",
-    "date": "2026-10-17",
-    "registration_deadline": "2026-10-14",
-    "regulamin_url": "https://formularz.czasomierzyk.pl/uploads/regulations/134_Regulamin_Crossduathlon_Laski_2026_v5.pdf",
-    "price_from": 80,
-    "price_to": 160,
-    "location": "Laski",
-    "voivodeship": "Zachodniopomorskie",
-    "lat": 53.946348,
-    "lng": 15.920402,
-    "distances": [
-      "2.5 km",
-      "10 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://formularz.czasomierzyk.pl/134",
-    "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
   "skl-trail-sowno-iii-festiwal-biegowy-w-nadlesnictwie-kliniska-2026-10-17": {
     "id": "5c62dfba-3771-4362-b31a-bec8d46d2120",
     "name": "SKL Trail - Sowno - III Festiwal Biegowy w Nadleśnictwie Kliniska",
