@@ -36,7 +36,14 @@ test('style tags come from the icons, not the name', () => {
   // "Bison Ultra-Trail" would tag itself from its name, but most mountain races
   // are named like "Zamczyska Winter Trail" or "Duch Pogórza" and say nothing.
   assert.deepEqual(detectEventTypes(['anglosaski-1.png', 'dlugi.png'], 'Duch Pogórza'), ['trail'])
-  assert.deepEqual(detectEventTypes(['ultra-2.png', 'cross-1.png'], 'Duch Pogórza').sort(), ['trail', 'ultra'])
+})
+
+test('the ultra icon adds no tag of its own', () => {
+  // Every race here is a mountain race, so trail already says it. Tagging ultra
+  // as well only splits this row from a generalist source's {trail} for the same
+  // race, because the merge guard compares the style tags as a set.
+  assert.deepEqual(detectEventTypes(['ultra-2.png', 'cross-1.png'], 'Duch Pogórza'), ['trail'])
+  assert.deepEqual(detectEventTypes(['ultra-2.png'], 'Duch Pogórza'), [])
 })
 
 test('a road-marked row gets no trail tag', () => {
@@ -93,7 +100,7 @@ test('a row parses into an event', () => {
   assert.equal(ev.distances, '10 km, 50 km, 100 km')
   assert.equal(ev.registration_url, 'https://b4sportonline.pl/bison_ultra_trail/')
   assert.equal(ev.website, 'https://bisonultratrail.pl/')
-  assert.deepEqual(ev.event_types.sort(), ['trail', 'ultra'])
+  assert.deepEqual(ev.event_types, ['trail'])
   assert.equal(ev.source_id, 'bison-ultra-trail-2026-10-03')
 })
 
