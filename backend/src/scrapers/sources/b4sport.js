@@ -3,6 +3,7 @@ import { verifyPdf } from '../../lib/verifyPdf.js'
 
 const BASE_URL = 'https://b4sportonline.pl'
 const LIST_URL = `${BASE_URL}/kalendarz/`
+const MAX_PAGES = 50 // safety cap — ~500 events max per run
 
 // Polish genitive month names as they appear in card dates, e.g. "18 Kwietnia 2026"
 const POLISH_MONTHS = {
@@ -468,11 +469,57 @@ async function fetchNextPage(nextUrl, csrfToken, cookies) {
   }
 }
 
+/**
+ * Walk the listing from `firstUrl`, handing every non-empty HTML fragment to
+ * `onFragment`. Returns the number of pages read.
+ *
+ * `exceededLimit` is advisory and is NOT the end of the list. b4sport raises it
+ * while it is still serving events. Measured 2026-09-17, it turned true on the
+ * page at offset 40, offset 50 still carried Bolesławiec Run and XV Maraton
+ * Wigry 2027, and the listing only ran dry at offset 60. Breaking on the flag
+ * dropped that tail on every run, and those source_ids were missing from
+ * scraper_b4sport entirely. The list ends where it says it ends: an empty
+ * fragment, a missing nextUrl, or a response we cannot read.
+ */
+async function paginateListing({ firstUrl, fetchPage, onFragment, maxPages = MAX_PAGES, delayMs = 400 }) {
+  let nextUrl = firstUrl
+  let page = 0
+
+  while (nextUrl && page < maxPages) {
+    page++
+    const result = await fetchPage(nextUrl)
+    if (!result) {
+      console.error(`[b4sport] Page ${page}: bad JSON response — stopping`)
+      break
+    }
+
+    const fragment = result.events || ''
+    if (!fragment.trim()) {
+      console.log(`[b4sport] Page ${page}: empty — end of list`)
+      break
+    }
+
+    onFragment(fragment, page)
+
+    if (result.exceededLimit) {
+      console.log(`[b4sport] Page ${page}: exceededLimit=true, advisory only, still paging`)
+    }
+
+    nextUrl = result.nextUrl || null
+
+    // Rate limit: small delay between AJAX calls
+    if (nextUrl && delayMs) await new Promise(r => setTimeout(r, delayMs))
+  }
+
+  if (page >= maxPages) console.warn(`[b4sport] Hit the ${maxPages}-page cap, the listing may be truncated`)
+
+  return page
+}
+
 async function scrape({ knownIds = new Set() } = {}) {
   const today = new Date().toISOString().split('T')[0]
   const all = []
   const seen = new Set()
-  const MAX_PAGES = 50 // safety cap — ~500 events max per run
 
   try {
     const { html, csrfToken, cookies } = await fetchInitialPage()
@@ -494,41 +541,21 @@ async function scrape({ knownIds = new Set() } = {}) {
     const $ = cheerio.load(html)
     let nextUrl = $('#getNextForAll').attr('data-url') || null
 
-    let page = 0
-    while (nextUrl && page < MAX_PAGES) {
-      page++
-      const result = await fetchNextPage(nextUrl, csrfToken, cookies)
-      if (!result) {
-        console.error(`[b4sport] Page ${page}: bad JSON response — stopping`)
-        break
-      }
-
-      const fragment = result.events || ''
-      if (!fragment || fragment.trim() === '') {
-        console.log(`[b4sport] Page ${page}: empty — end of list`)
-        break
-      }
-
-      const parsed = parseEventCards(fragment, { today })
-      let added = 0
-      for (const ev of parsed) {
-        if (seen.has(ev.source_id)) continue
-        seen.add(ev.source_id)
-        all.push(ev)
-        added++
-      }
-      console.log(`[b4sport] Page ${page}: parsed=${parsed.length} added=${added} (total: ${all.length})`)
-
-      if (result.exceededLimit) {
-        console.log('[b4sport] exceededLimit=true — stopping')
-        break
-      }
-
-      nextUrl = result.nextUrl || null
-
-      // Rate limit: small delay between AJAX calls
-      await new Promise(r => setTimeout(r, 400))
-    }
+    await paginateListing({
+      firstUrl: nextUrl,
+      fetchPage: url => fetchNextPage(url, csrfToken, cookies),
+      onFragment: (fragment, page) => {
+        const parsed = parseEventCards(fragment, { today })
+        let added = 0
+        for (const ev of parsed) {
+          if (seen.has(ev.source_id)) continue
+          seen.add(ev.source_id)
+          all.push(ev)
+          added++
+        }
+        console.log(`[b4sport] Page ${page}: parsed=${parsed.length} added=${added} (total: ${all.length})`)
+      },
+    })
   } catch (err) {
     console.error('[b4sport] Scrape failed:', err.message)
     return all
@@ -572,4 +599,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return fresh
 }
 
-export { scrape, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, verifyRegulaminPage, nameTokens, registrationSlugWords, isNonRunningEvent }
+export { scrape, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, verifyRegulaminPage, nameTokens, registrationSlugWords, isNonRunningEvent }
