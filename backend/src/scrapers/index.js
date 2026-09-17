@@ -38,6 +38,7 @@ import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
 import { TRACKED_FIELDS, missingTrackedFields, missingRequiredFields, isReadyToAccept } from '@leszyrun/ui/eventCompleteness'
 import { looksNonPolish } from '../lib/polishLocation.js'
 import { looksVirtual } from '../lib/virtualEvent.js'
+import { looksMultisport } from '../lib/multisportEvent.js'
 
 // Sources that handle their own API enrichment in-scraper (avoid double API calls)
 const SELF_ENRICHING_SOURCES = new Set(['dostartu', 'elektronicznezapisy'])
@@ -1073,7 +1074,10 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
   // the 12. Rowerowy Bieg Piastów weekend, and datasport exposes no discipline
   // field to gate on. Both spellings are matched: the datasport pages are
   // ISO-8859-2 and diacritics do not always survive.
-  const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|bike|kręceni[ae]|kreceni[ae]|triathlon|duathlon|aquathlon|gravel|gravelow[aey]?|enduro|sup race|swim\w*|open water|pływani\w*|morsowani\w*|wrotkars[a-z]*|jumping zoo|skill lab|turniej|3v3)\b/i
+  // triathlon, duathlon and aquathlon are NOT here. They lived here wrapped in
+  // \b, which cannot match a compound name such as CROSSDUATHLON, so they moved
+  // to looksMultisport() where the boundary is dropped deliberately.
+  const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|bike|kręceni[ae]|kreceni[ae]|gravel|gravelow[aey]?|enduro|sup race|swim\w*|open water|pływani\w*|morsowani\w*|wrotkars[a-z]*|jumping zoo|skill lab|turniej|3v3)\b/i
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -1145,10 +1149,14 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           // why a hybrid with an on-site edition survives.
           const isVirtual = looksVirtual(raw)
 
+          // Triathlon, duathlon and aquathlon. A run&bike keeps its exemption
+          // inside looksMultisport(), which is why isRunBike does not guard it.
+          const isMultisport = looksMultisport(raw)
+
           // Skip non-running events and past events — mark merged so they don't re-appear
-          if ((raw.name && SKIP_KEYWORDS.test(raw.name) && !isRunBike) || (raw.date && raw.date < today) || isForeign || isVirtual || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
+          if ((raw.name && SKIP_KEYWORDS.test(raw.name) && !isRunBike) || isMultisport || (raw.date && raw.date < today) || isForeign || isVirtual || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
             stats.skipped++
-            if (raw.name && SKIP_KEYWORDS.test(raw.name)) stats.skippedReasons.non_running++
+            if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || isMultisport) stats.skippedReasons.non_running++
             else if (raw.date && raw.date < today) stats.skippedReasons.past_date++
             else if (isForeign) stats.skippedReasons.foreign++
             else if (isVirtual) stats.skippedReasons.virtual++
