@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { generateAllLandingOgs } from './generate-landing-og.js'
+import { selectDisplayEvents } from './lib/displayEvents.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -264,11 +265,11 @@ async function main() {
   if (existsSync(KALENDARZ_MANIFEST_PATH)) {
     const kalendarz = JSON.parse(readFileSync(KALENDARZ_MANIFEST_PATH, 'utf-8'))
     const today = new Date().toISOString().slice(0, 10)
-    futureEvents = Object.keys(kalendarz)
-      .map(slug => ({ slug, e: kalendarz[slug] }))
-      .filter(({ e }) => (e.date || '').slice(0, 10) >= today)
-      .sort((a, b) => (a.e.date || '').localeCompare(b.e.date || ''))
-    console.log(`Loaded ${futureEvents.length} future events from kalendarz manifest (of ${Object.keys(kalendarz).length} total).`)
+    // selectDisplayEvents applies the SAME predicate publish-landing-pages.js
+    // used for the eventCount in each manifest entry, deadline clause included.
+    // Without it every page rendered more events than its own h1 claimed.
+    futureEvents = selectDisplayEvents(kalendarz, today)
+    console.log(`Loaded ${futureEvents.length} listable events from kalendarz manifest (of ${Object.keys(kalendarz).length} total).`)
   } else {
     console.log(`kalendarz manifest not found at ${KALENDARZ_MANIFEST_PATH} — static event lists will be empty.`)
   }

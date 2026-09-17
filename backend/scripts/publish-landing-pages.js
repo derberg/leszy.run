@@ -356,9 +356,14 @@ async function main() {
   console.log('Querying Supabase...')
   const [thresholdEvents, displayEvents] = await Promise.all([
     queryAll(supabase, SELECT, q => q.eq('status', 'active').gte('date', cutoffStr).order('date', { ascending: true })),
+    // No registration_deadline filter. A race whose sign-up has closed has not
+    // happened yet, still belongs on the list, and its /kalendarz/:slug page
+    // still wants the inbound link. This query must stay identical to
+    // selectDisplayEvents() in public/scripts/lib/displayEvents.js, which
+    // renders the list: when the two disagreed, every page advertised a
+    // different number than it showed (/listy/darmowe said 65 and listed 76).
     queryAll(supabase, SELECT, q =>
       q.eq('status', 'active').gte('date', todayStr)
-        .or(`registration_deadline.is.null,registration_deadline.gte.${todayStr}`)
         .order('date', { ascending: true })
     ),
   ])
