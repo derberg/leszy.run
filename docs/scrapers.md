@@ -1124,6 +1124,7 @@ Each scraper writes raw data into its own Supabase table (upsert by `source_id`)
 | plustiming | `scraper_plustiming` | `source_id` (zgłoszenia slug) |
 | biegnijmy | `scraper_biegnijmy` | `source_id` (`<YYYYMMDD-n>-<city>` slug) |
 | motivato | `scraper_motivato` | `source_id` (`<event-slug>-<YYYY>`, from `data-id`) |
+| biegigorskie | `scraper_biegigorskie` | `source_id` (`<name-slug>-<YYYY-MM-DD>`) |
 
 **All steps are manual** — run each script in order. No automatic chaining.
 

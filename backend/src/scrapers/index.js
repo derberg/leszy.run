@@ -32,6 +32,7 @@ import { scrape as scrapeTimesport } from './sources/timesport.js'
 import { scrape as scrapePlustiming } from './sources/plustiming.js'
 import { scrape as scrapeBiegnijmy } from './sources/biegnijmy.js'
 import { scrape as scrapeMotivato } from './sources/motivato.js'
+import { scrape as scrapeBiegigorskie } from './sources/biegigorskie.js'
 import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
@@ -727,6 +728,29 @@ const sources = [
     name: 'motivato',
     scrape: scrapeMotivato,
     table: 'scraper_motivato',
+    mapRow: (raw) => ({
+      name: raw.name,
+      date: raw.date,
+      location: raw.location || null,
+      distances: raw.distances || null,
+      registration_url: raw.registration_url || null,
+      registration_deadline: raw.registration_deadline || null,
+      regulamin_url: raw.regulamin_url || null,
+      website: raw.website || null,
+      is_kids: raw.is_kids || false,
+      event_types: raw.event_types && raw.event_types.length > 0 ? raw.event_types : null,
+      price_from: raw.price_from ?? null,
+      price_to: raw.price_to ?? null,
+      lat: raw.lat ?? null,
+      lng: raw.lng ?? null,
+      source_id: raw.source_id,
+      source_url: raw.source_url || null,
+    }),
+  },
+  {
+    name: 'biegigorskie',
+    scrape: scrapeBiegigorskie,
+    table: 'scraper_biegigorskie',
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
