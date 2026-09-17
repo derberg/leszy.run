@@ -57109,6 +57109,37 @@
     "is_kids": null,
     "status": "active"
   },
+  "biegam-bo-lubie-lasy-lubartow-2026-10-04": {
+    "id": "4cd3a5c6-2cc8-410d-8309-55faeab3f1bd",
+    "name": "BIEGAM, BO LUBIĘ LASY - Lubartów",
+    "date": "2026-10-04",
+    "registration_deadline": "2026-09-29",
+    "regulamin_url": "https://drive.google.com/file/d/1DQYFGKNkf6nv-eLKNEEXcBv0QfMiUGJY/view",
+    "price_from": null,
+    "price_to": null,
+    "location": "Parking Leśny Kopanina/ k. Lubartowa",
+    "voivodeship": "Lubelskie",
+    "lat": 51.384035,
+    "lng": 22.62864,
+    "distances": [
+      "5 km",
+      "10 km",
+      "50 m",
+      "100 m",
+      "150 m",
+      "200 m",
+      "300 m"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1504",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "14-polmaraton-im-janusza-kusocinskiego-2026-10-04": {
     "id": "5e3557c4-6615-495b-a4d2-809c171836d6",
     "name": "14. Półmaraton im. Janusza Kusocińskiego",
@@ -66631,7 +66662,7 @@
     "event_type": [
       "uliczny"
     ],
-    "registration_url": "https://pabianickipolmaraton.pl/",
+    "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1487",
     "website": "https://pabianickipolmaraton.pl/",
     "is_kids": null,
     "status": "active"
