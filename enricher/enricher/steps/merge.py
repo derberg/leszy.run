@@ -40,6 +40,29 @@ def _tokenize_name(name: str) -> list[str]:
     return [t for t in tokens if len(t) >= 4 and t not in _URL_VERIFY_STOPWORDS]
 
 
+def is_bare_origin(url: str) -> bool:
+    """True when a URL addresses a site root rather than a page within it.
+
+    A sign-up form and a rules document both live at a specific address. A
+    path-less domain is a homepage, so it is never either one, and it is the
+    shape verify_url_relevance is blindest to: a registration platform's root
+    serves its whole event listing, so every event name on the platform appears
+    there and the name check passes for all of them.
+
+    Only the enricher's own candidates go through this. A scraper's value comes
+    from the source's own button and is left alone.
+    """
+    if not url:
+        return False
+    try:
+        parts = urlparse(url)
+    except ValueError:
+        return False
+    if parts.query or parts.fragment:
+        return False
+    return parts.path in ("", "/")
+
+
 def verify_url_relevance(url: str, event_name: str) -> bool:
     """Fetch a URL and check that the page content mentions the event.
 
@@ -308,7 +331,8 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
 
     Every candidate URL is verified by fetching it and checking that the page
     content mentions the event name — prevents unrelated URLs (e.g. trail
-    mapping sites) from being stored.
+    mapping sites) from being stored. That check cannot see a site root, so
+    is_bare_origin rejects path-less candidates before it runs.
     """
     for field, llm_field, llm_flag in [
         ("registration_url", "registration_url", "url_is_registration"),
@@ -329,10 +353,10 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
             fetch + event-name match) plus the search step's own TLD/aggregator
             /relevance filters, which is sufficient on its own.
             """
-            if llm_url and llm_confirms:
+            if llm_url and llm_confirms and not is_bare_origin(llm_url):
                 if verify_url_relevance(llm_url, event_name):
                     return llm_url
-            if search_candidate:
+            if search_candidate and not is_bare_origin(search_candidate):
                 if verify_url_relevance(search_candidate, event_name):
                     return search_candidate
             return None
@@ -357,7 +381,12 @@ def _merge_urls(event, llm, url_statuses, search_candidates, updates, event_name
         # separate LLM confirmation — but still must pass relevance check)
         if llm.get(llm_flag) is False and event.get(field):
             picked = _pick_candidate()
-            if not picked and search_candidate and verify_url_relevance(search_candidate, event_name):
+            if (
+                not picked
+                and search_candidate
+                and not is_bare_origin(search_candidate)
+                and verify_url_relevance(search_candidate, event_name)
+            ):
                 picked = search_candidate
             if picked:
                 updates[field] = picked

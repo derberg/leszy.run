@@ -194,6 +194,20 @@ the model returned `mismatch` at 0.95 confidence for a wrong-year regulamin and
 A drop leaves the field empty, which a later run retries. Every candidate and
 its verdict is recorded under `steps.verify` in the run log.
 
+### Bare origins are rejected on shape
+
+The name check cannot see a site root. A registration platform's root serves the
+platform's whole event listing, so every event name on it appears on that page
+and the check passes for all of them. `is_bare_origin()` in `steps/merge.py`
+therefore drops a path-less candidate before the check runs, for both
+`registration_url` and `regulamin_url`: a sign-up form and a rules document both
+live at a specific address, never at a homepage. A query string or a fragment
+counts as an address, so a form like
+`zapisy.inessport.pl/index.php?act=zgloszenie-zawodnika&event=1504` survives.
+
+This only touches the enricher's own candidates. A scraper's value comes from
+the source's own button and is left alone.
+
 ### Smart merge rules
 
 **Prices:**
@@ -211,6 +225,7 @@ its verdict is recorded under `steps.verify` in the run log.
 **URLs:**
 - Never nulls a working URL without a replacement candidate
 - Dead/empty URLs only replaced when a search candidate passes a live event-name relevance check
+- A path-less domain is never adopted for either URL field (see Bare origins above)
 - `website` is never written (field dropped from the enricher)
 
 **Voivodeship:**
