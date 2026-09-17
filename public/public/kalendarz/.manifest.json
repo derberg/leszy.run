@@ -5111,37 +5111,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "paratriathlon-kraina-liwca-2026-04-25": {
-    "id": "96ea658c-385f-4517-b79f-728995288257",
-    "name": "Paratriathlon Kraina Liwca",
-    "date": "2026-04-25",
-    "registration_deadline": "2026-04-09",
-    "regulamin_url": "https://dostartu.pl/statute_files/15211_pl.pdf",
-    "price_from": 500,
-    "price_to": 600,
-    "location": "Łochów",
-    "voivodeship": "Mazowieckie",
-    "lat": 52.53042,
-    "lng": 21.68528,
-    "distances": [
-      "5 km",
-      "6 km",
-      "7 km",
-      "22 km",
-      "100m",
-      "200m",
-      "300m",
-      "400m"
-    ],
-    "event_type": [
-      "charytatywny",
-      "dzieci"
-    ],
-    "registration_url": "https://dostartu.pl/paratriathlon-kraina-liwca-v15211",
-    "website": "https://paratriathlonkrainaliwca.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
   "mistrzostwa-szwajcarii-kaszubskiej-2026-bieg-nordic-walking-2026-04-25": {
     "id": "1b96d5b2-f053-4844-9b97-ea85ae5c0532",
     "name": "Mistrzostwa Szwajcarii Kaszubskiej 2026 Bieg + Nordic Walking",
