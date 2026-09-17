@@ -55259,6 +55259,33 @@
     "is_kids": null,
     "status": "active"
   },
+  "x-baran-trail-race-2026-10-02": {
+    "id": "fd40427f-4e27-46fd-9144-68d0c975727c",
+    "name": "X Baran Trail Race",
+    "date": "2026-10-02",
+    "registration_deadline": "2026-09-24",
+    "regulamin_url": "https://baranrace.pl/wp-content/uploads/2025/05/BTR-regulamin-2026_10.pdf",
+    "price_from": 79,
+    "price_to": 319,
+    "location": "Węgierska Górka",
+    "voivodeship": "Śląskie",
+    "lat": 49.608821,
+    "lng": 19.119586,
+    "distances": [
+      "107 km",
+      "59 km",
+      "25 km",
+      "11 km"
+    ],
+    "event_type": [
+      "trail",
+      "ultra"
+    ],
+    "registration_url": "https://b4sportonline.pl/baran_trail_race/",
+    "website": "https://baranrace.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
   "ogolnopolskie-bieg-uliczne-2026-10-02": {
     "id": "2847adae-0e25-40fc-bfe8-faff901d382f",
     "name": "Ogólnopolskie Bieg Uliczne",
