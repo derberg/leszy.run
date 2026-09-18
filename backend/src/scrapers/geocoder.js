@@ -15,6 +15,23 @@ const SETTLEMENT_TYPES = new Set([
   'borough', 'suburb', 'quarter', 'neighbourhood', 'city_district',
 ])
 
+// A venue is not a settlement, but a venue still sits in one. Organizers give
+// the hall, not the town: "Muzeum im. Anny i Jarosława Iwaszkiewiczów w
+// Stawisku" is one exact Nominatim hit, class `tourism`, carrying
+// address.state. Rejecting it threw away the only answer there was.
+const VENUE_CLASSES = new Set(['tourism', 'leisure', 'amenity', 'historic'])
+
+// Settlements first, so every query that already resolved resolves the same
+// way. A venue is read only when no settlement matched at all, and only when
+// the venue itself states a voivodeship. A guidepost or a bus stop states one
+// too, but it is not a place a race is held, so its class stays out.
+function usableResults(all) {
+  if (!Array.isArray(all)) return []
+  const settlements = all.filter(r => SETTLEMENT_TYPES.has(r.addresstype) || SETTLEMENT_TYPES.has(r.type))
+  if (settlements.length > 0) return settlements
+  return all.filter(r => VENUE_CLASSES.has(r.class) && (r.address?.state || r.address?.province))
+}
+
 // Capitalize the first letter of every word AND of every hyphenated part, so
 // the two-part voivodeships come back as "Kujawsko-Pomorskie" rather than
 // "Kujawsko-pomorskie". The rest of the pipeline matches these by string.
@@ -79,9 +96,7 @@ async function geocode(locationQuery, { postcode = null, city = null } = {}) {
     // two villages in two voivodeships (Podegrodzie, Tuczno, Przystań) has no
     // answer from the name alone: report the ambiguity and let the caller keep
     // whatever it already had rather than pick one at random.
-    const results = Array.isArray(all)
-      ? all.filter(r => SETTLEMENT_TYPES.has(r.addresstype) || SETTLEMENT_TYPES.has(r.type))
-      : []
+    const results = usableResults(all)
     const states = new Set(
       results.map(r => capitalizeVoivodeship(r.address?.state || r.address?.province)).filter(Boolean)
     )
@@ -131,4 +146,4 @@ async function geocode(locationQuery, { postcode = null, city = null } = {}) {
   return { lat: null, lng: null, voivodeship: null, ambiguous: false }
 }
 
-export { geocode }
+export { geocode, usableResults }
