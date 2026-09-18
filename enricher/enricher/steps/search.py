@@ -19,6 +19,14 @@ _HARD_BLOCKLIST = {
 }
 
 
+# Mirrors IS_REGULAMIN in backend/src/lib/pickRegulaminUrl.js: a link is the
+# regulamin only if it says so. SearXNG ranks an organizer's "start zapisow" post
+# above the per-distance regulamin pages that same post links to, and extraction
+# reads the regulamin only — so a relevant but wrong hit does not just miss the
+# rules document, it also fills the slot that would have been searched again.
+_IS_REGULAMIN = re.compile(r"regulamin|regulation|statut|\brules?\b", re.IGNORECASE)
+
+
 def search_missing_urls(event: dict, missing_fields: list[str], config) -> dict:
     """Search SearXNG for missing URLs. Returns {field_name: url} for found candidates.
 
@@ -46,15 +54,21 @@ def search_missing_urls(event: dict, missing_fields: list[str], config) -> dict:
 
     results = {}
     for field, query in queries.items():
-        url = _searxng_search(query, name_tokens, config)
+        # A regulamin hit must announce itself; relevance alone is not enough.
+        declares = _IS_REGULAMIN if field == "regulamin_url" else None
+        url = _searxng_search(query, name_tokens, config, declares)
         if url:
             results[field] = url
 
     return results
 
 
-def _searxng_search(query: str, name_tokens: set[str], config) -> str | None:
-    """Call SearXNG and return the first relevant, non-aggregator URL."""
+def _searxng_search(query: str, name_tokens: set[str], config, declares=None) -> str | None:
+    """Call SearXNG and return the first relevant, non-aggregator URL.
+
+    `declares` is an optional pattern the result URL or title must match, for
+    fields where the wrong document costs more than an empty one.
+    """
     try:
         with httpx.Client(timeout=15) as client:
             resp = client.get(
@@ -83,6 +97,8 @@ def _searxng_search(query: str, name_tokens: set[str], config) -> str | None:
             if not _tld_accepted(url):
                 continue
             if not _is_relevant(name_tokens, title, content, url):
+                continue
+            if declares is not None and not (declares.search(url) or declares.search(title)):
                 continue
             return url
     except (httpx.HTTPError, Exception):
