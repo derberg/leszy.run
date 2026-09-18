@@ -30,9 +30,10 @@ def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config, hi
     price_str = f"{price_from}-{price_to} PLN" if price_from else "unknown"
     voivodeship = event.get("voivodeship") or "unknown"
 
-    # Build focused chunks (prices, deadlines, distances) from the regulamin only.
-    # `crawled` here contains at most the regulamin HTML page; registration/website
-    # content is never passed in (extraction is regulamin-only by design).
+    # Build focused chunks (prices, deadlines, distances). `crawled` normally
+    # holds at most the regulamin HTML page. When the event has no regulamin at
+    # all, the pipeline passes the registration page / website instead so the
+    # price is not lost — labelled below as a secondary source.
     focused = build_focused_context(crawled, pdf_text)
 
     # Raw regulamin context (for event types, kids categories, etc.). Focused
@@ -45,6 +46,16 @@ def build_prompt(event: dict, crawled: dict, pdf_text: Optional[str], config, hi
     elif crawled.get("regulamin_url"):
         regulamin_url = event.get("regulamin_url", "")
         sections.append(f"--- REGULAMIN ({regulamin_url}) ---\n{crawled['regulamin_url'][:raw_limit]}")
+    else:
+        # No regulamin anywhere. Whatever the pipeline handed us is the organizer's
+        # own page, not a rules document, so say so in the header.
+        for field in ("registration_url", "website"):
+            if crawled.get(field):
+                label = "REGISTRATION PAGE" if field == "registration_url" else "WEBSITE"
+                sections.append(
+                    f"--- {label} ({event.get(field) or ''}) "
+                    f"— not the regulamin; treat cautiously ---\n{crawled[field][:raw_limit]}"
+                )
 
     raw_context = "\n\n".join(sections) if sections else ""
 
