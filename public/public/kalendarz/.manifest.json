@@ -23623,8 +23623,8 @@
     "date": "2026-06-19",
     "registration_deadline": "2026-06-16",
     "regulamin_url": "https://www.facebook.com/legionowskadycha/?locale=pl_PL",
-    "price_from": 60,
-    "price_to": 90,
+    "price_from": 50,
+    "price_to": 60,
     "location": "Legionowo",
     "voivodeship": "Mazowieckie",
     "lat": 52.395229,
@@ -50176,6 +50176,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "festiwal-gorski-maraton-trzech-jezior-2026-09-19": {
+    "id": "029a09e7-3a49-4be9-b3d5-0f5899b411d0",
+    "name": "Festiwal Górski Maraton Trzech Jezior",
+    "date": "2026-09-19",
+    "registration_deadline": "2026-09-13",
+    "regulamin_url": "https://bgtimesport.pl/zawody/regulamin/id/825",
+    "price_from": 15,
+    "price_to": 300,
+    "location": "Porąbka",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.7031,
+    "lng": 15.97712,
+    "distances": [
+      "3.5 km",
+      "17 km",
+      "21 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://bgtimesport.pl/zawody/biegi/id/825",
+    "website": "https://www.maraton3jezior.com/",
+    "is_kids": null,
+    "status": "active"
+  },
   "6-edycja-biegu-fun-z-easyrun-24h-nonstop-2026-09-19": {
     "id": "dd46e075-2e7e-4e96-a76f-fabc2f6993c8",
     "name": "6 Edycja Biegu Fun z EASYRUN 24h NONSTOP",
@@ -50246,31 +50271,6 @@
     ],
     "registration_url": "https://biegnakasprowy.pl/biegnakasprowy/zapisy_na_bieg_na_kasprowy/12407",
     "website": "https://biegnakasprowy.pl/biegnakasprowy/",
-    "is_kids": null,
-    "status": "active"
-  },
-  "festiwal-gorski-maraton-trzech-jezior-2026-09-19": {
-    "id": "029a09e7-3a49-4be9-b3d5-0f5899b411d0",
-    "name": "Festiwal Górski Maraton Trzech Jezior",
-    "date": "2026-09-19",
-    "registration_deadline": "2026-09-13",
-    "regulamin_url": "https://bgtimesport.pl/zawody/regulamin/id/825",
-    "price_from": 15,
-    "price_to": 300,
-    "location": "Porąbka",
-    "voivodeship": "Zachodniopomorskie",
-    "lat": 53.7031,
-    "lng": 15.97712,
-    "distances": [
-      "3.5 km",
-      "17 km",
-      "21 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://bgtimesport.pl/zawody/biegi/id/825",
-    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -53028,29 +53028,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "bieg-gorski-na-blatnia-oraz-beskidzki-rajd-pieszy-2026-09-26": {
-    "id": "362d2843-024d-41b2-9f52-81b3f83a6c78",
-    "name": "Bieg Górski Na Błatnią oraz Beskidzki Rajd Pieszy",
-    "date": "2026-09-26",
-    "registration_deadline": "2026-08-30",
-    "regulamin_url": "https://www.bgtimesport.pl/public/pliki/870reg20260720t172510.pdf",
-    "price_from": 30,
-    "price_to": 100,
-    "location": "Brenna",
-    "voivodeship": "Śląskie",
-    "lat": 49.725107,
-    "lng": 18.91889,
-    "distances": [
-      "9 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://www.bgtimesport.pl/zawody/biegi/id/870",
-    "website": null,
-    "is_kids": null,
-    "status": "active"
-  },
   "viii-bieg-szlakiem-kolejowym-2026-09-26": {
     "id": "c524d6a3-bfc3-4b49-b39d-0e139dc176cc",
     "name": "VIII Bieg Szlakiem Kolejowym",
@@ -53414,6 +53391,29 @@
     ],
     "registration_url": "https://polmaratongdansk.pl/formularz-zgloszeniowy/",
     "website": "https://polmaratongdansk.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "bieg-gorski-na-blatnia-oraz-beskidzki-rajd-pieszy-2026-09-26": {
+    "id": "362d2843-024d-41b2-9f52-81b3f83a6c78",
+    "name": "Bieg Górski Na Błatnią oraz Beskidzki Rajd Pieszy",
+    "date": "2026-09-26",
+    "registration_deadline": "2026-08-30",
+    "regulamin_url": "https://www.bgtimesport.pl/public/pliki/870reg20260720t172510.pdf",
+    "price_from": 30,
+    "price_to": 100,
+    "location": "Brenna",
+    "voivodeship": "Śląskie",
+    "lat": 49.725107,
+    "lng": 18.91889,
+    "distances": [
+      "9 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://www.bgtimesport.pl/zawody/biegi/id/870",
+    "website": "https://www.bgtimesport.pl/zawody/info/id/870",
     "is_kids": null,
     "status": "active"
   },
@@ -54231,7 +54231,10 @@
     "lng": 19.303538,
     "distances": [
       "5 km",
-      "10 km"
+      "900 m",
+      "600 m",
+      "300 m",
+      "100 m"
     ],
     "event_type": [
       "uliczny",
@@ -54876,29 +54879,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "12-ogolnopolski-bieg-kleszczow-na-piatke-2026-09-27": {
-    "id": "4897824a-fddb-4005-aa69-c129e2ec34b3",
-    "name": "12. Ogólnopolski Bieg Kleszczów na Piątkę",
-    "date": "2026-09-27",
-    "registration_deadline": "2026-09-20",
-    "regulamin_url": "https://kleszczowna5.pl/regulamin/",
-    "price_from": 50,
-    "price_to": 100,
-    "location": "Kleszczów",
-    "voivodeship": "Łódzkie",
-    "lat": 51.22165,
-    "lng": 19.30628,
-    "distances": [
-      "5 km"
-    ],
-    "event_type": [
-      "uliczny"
-    ],
-    "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1467",
-    "website": "https://kleszczowna5.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
   "bieg-jesinnej-jabloni-2026-09-27": {
     "id": "b700be87-86c0-435e-8179-b8e15b343306",
     "name": "Bieg Jesinnej Jabłoni",
@@ -54948,6 +54928,30 @@
     ],
     "registration_url": "https://rejestracja.maratonwarszawski.com/pl",
     "website": "https://maratonwarszawski.com/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "12-ogolnopolski-bieg-kleszczow-na-piatke-2026-09-27": {
+    "id": "4897824a-fddb-4005-aa69-c129e2ec34b3",
+    "name": "12. Ogólnopolski Bieg Kleszczów na Piątkę",
+    "date": "2026-09-27",
+    "registration_deadline": "2026-09-20",
+    "regulamin_url": "https://kleszczowna5.pl/regulamin/",
+    "price_from": 50,
+    "price_to": 100,
+    "location": "Kleszczów",
+    "voivodeship": "Łódzkie",
+    "lat": 51.22165,
+    "lng": 19.30628,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1467",
+    "website": "https://kleszczowna5.pl/",
     "is_kids": null,
     "status": "active"
   },
@@ -55890,7 +55894,7 @@
       "32 km"
     ],
     "event_type": [
-      "uliczny",
+      "trail",
       "ultra"
     ],
     "registration_url": "https://b4sportonline.pl/bison_ultra_trail/zapisy_na_bison_trail_12/11735",
@@ -56297,7 +56301,7 @@
       "trail"
     ],
     "registration_url": "https://b4sportonline.pl/przehyba_trail/",
-    "website": null,
+    "website": "https://b4sportonline.pl/przehyba_trail/",
     "is_kids": null,
     "status": "active"
   },
@@ -58274,7 +58278,7 @@
       "ultra"
     ],
     "registration_url": "https://my.raceresult.com/392481/zapisy",
-    "website": null,
+    "website": "https://my.raceresult.com/392481/",
     "is_kids": null,
     "status": "active"
   },
@@ -61955,30 +61959,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "iv-jesienny-festiwal-szakala-2026-10-24": {
-    "id": "3dd721d3-de4e-4317-8017-bf93f991a365",
-    "name": "IV Jesienny Festiwal Szakala",
-    "date": "2026-10-24",
-    "registration_deadline": "2026-10-18",
-    "regulamin_url": "https://szakalebalut.pl/wp-content/uploads/2026/02/IV-ULTRA-SZAKAL-REGULAMIN.pdf",
-    "price_from": 150,
-    "price_to": 250,
-    "location": "Łódź",
-    "voivodeship": "Łódzkie",
-    "lat": 51.772825,
-    "lng": 19.478486,
-    "distances": [
-      "21",
-      "1 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1387",
-    "website": "https://szakalebalut.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
   "biegowy-garnek-polmaraton-w-gminie-ceranow-2026-10-24": {
     "id": "7bf0c7e3-5e37-439c-911a-4da47ada4d9e",
     "name": "Biegowy GARNEK - Półmaraton w gminie Ceranów",
@@ -62334,6 +62314,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "iv-jesienny-festiwal-szakala-2026-10-24": {
+    "id": "3dd721d3-de4e-4317-8017-bf93f991a365",
+    "name": "IV Jesienny Festiwal Szakala",
+    "date": "2026-10-24",
+    "registration_deadline": "2026-10-18",
+    "regulamin_url": "https://szakalebalut.pl/wp-content/uploads/2026/02/IV-ULTRA-SZAKAL-REGULAMIN.pdf",
+    "price_from": 150,
+    "price_to": 250,
+    "location": "Łódź",
+    "voivodeship": "Łódzkie",
+    "lat": 51.772825,
+    "lng": 19.478486,
+    "distances": [
+      "21",
+      "1 km"
+    ],
+    "event_type": [
+      "trail",
+      "ultra"
+    ],
+    "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1387",
+    "website": "https://szakalebalut.pl/",
+    "is_kids": null,
+    "status": "active"
+  },
   "viii-bieg-sw-huberta-w-puszczy-rzepinskiej-2026-10-24": {
     "id": "bc6f83f2-f0e2-4f86-bfae-164abefc5b78",
     "name": "VIII Bieg Św. Huberta w Puszczy Rzepińskiej",
@@ -62447,7 +62452,7 @@
       "ultra"
     ],
     "registration_url": "https://b4sportonline.pl/sfb2026/",
-    "website": null,
+    "website": "https://b4sportonline.pl/sfb2026/",
     "is_kids": null,
     "status": "active"
   },
@@ -63258,7 +63263,7 @@
       "10 km"
     ],
     "event_type": [
-      "uliczny",
+      "trail",
       "ultra"
     ],
     "registration_url": "https://panel.maratonczykpomiarczasu.pl/ultra-nieslysz",
@@ -64203,8 +64208,8 @@
     "date": "2026-11-11",
     "registration_deadline": "2026-11-03",
     "regulamin_url": "https://muzeum.zgierz.pl/wp-content/uploads/2026/07/2026_07_16_Regulamin_Biegu_Niepodleglosci_FINAL-dostepny.pdf",
-    "price_from": 60,
-    "price_to": 60,
+    "price_from": 50,
+    "price_to": 70,
     "location": "Zgierz",
     "voivodeship": "Łódzkie",
     "lat": 51.855521,
@@ -64214,7 +64219,8 @@
       "11.1 km"
     ],
     "event_type": [
-      "uliczny"
+      "uliczny",
+      "dzieci"
     ],
     "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1482",
     "website": "https://muzeum.zgierz.pl/bieg-niepodleglosci-zgierz-2026/",
@@ -64960,7 +64966,7 @@
       "trail"
     ],
     "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12634%26co%3Dform",
-    "website": null,
+    "website": "https://biegajwgorachsowich.pl/orzel-i-trzynastka",
     "is_kids": null,
     "status": "active"
   },
@@ -65006,7 +65012,7 @@
       "trail"
     ],
     "registration_url": "https://liveds.datasport.pl/zawody_files/zawody12634.html",
-    "website": null,
+    "website": "https://biegajwgorachsowich.pl/orzel-i-trzynastka",
     "is_kids": null,
     "status": "active"
   },
@@ -65567,33 +65573,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "garmin-ultra-race-gdansk-2026-12-05": {
-    "id": "46b2c479-29b9-42d6-bea2-3a4aac4000b0",
-    "name": "Garmin Ultra Race Gdańsk",
-    "date": "2026-12-05",
-    "registration_deadline": null,
-    "regulamin_url": "https://ultrarace.pl/gdansk/regulamin-gdansk/",
-    "price_from": 110,
-    "price_to": 110,
-    "location": "Gdańsk",
-    "voivodeship": "Pomorskie",
-    "lat": 54.348291,
-    "lng": 18.654023,
-    "distances": [
-      "14 km",
-      "21.5 km",
-      "51 km",
-      "81 km"
-    ],
-    "event_type": [
-      "uliczny",
-      "ultra"
-    ],
-    "registration_url": "https://ultrarace.pl/gdansk/formularz-zgloszeniowy-gdansk/",
-    "website": "https://ultrarace.pl/gdansk/",
-    "is_kids": null,
-    "status": "active"
-  },
   "vi-bieg-malinowy-mikolaj-2026-12-05": {
     "id": "5f2647d4-a186-4948-b25f-bda34ca5ea38",
     "name": "VI Bieg Malinowy Mikołaj",
@@ -65638,6 +65617,33 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v17198",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "garmin-ultra-race-gdansk-2026-12-05": {
+    "id": "46b2c479-29b9-42d6-bea2-3a4aac4000b0",
+    "name": "Garmin Ultra Race Gdańsk",
+    "date": "2026-12-05",
+    "registration_deadline": null,
+    "regulamin_url": "https://ultrarace.pl/gdansk/regulamin-gdansk/",
+    "price_from": 110,
+    "price_to": 110,
+    "location": "Gdańsk",
+    "voivodeship": "Pomorskie",
+    "lat": 54.348291,
+    "lng": 18.654023,
+    "distances": [
+      "14 km",
+      "21.5 km",
+      "51 km",
+      "81 km"
+    ],
+    "event_type": [
+      "trail",
+      "ultra"
+    ],
+    "registration_url": "https://ultrarace.pl/gdansk/formularz-zgloszeniowy-gdansk/",
+    "website": "https://ultrarace.pl/gdansk/",
     "is_kids": null,
     "status": "active"
   },
@@ -66423,7 +66429,8 @@
       "5 km"
     ],
     "event_type": [
-      "uliczny"
+      "trail",
+      "ultra"
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15000/signup.html",
     "website": "https://www.plotaroute.com/route/3345446",
@@ -66652,6 +66659,7 @@
     "lat": 51.663986,
     "lng": 19.353502,
     "distances": [
+      "5 km",
       "21.1 km"
     ],
     "event_type": [
