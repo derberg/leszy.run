@@ -311,24 +311,43 @@ async def process_event(event: dict, config: Config) -> dict:
         "candidates": verify_log,
     }
 
-    # Field extraction reads the REGULAMIN ONLY — never the registration page,
-    # website, or navigated followups. Those are used to FIND the regulamin (and
-    # to confirm/replace URLs), but distances/prices/deadline/types/kids must
-    # come from the rules document. The regulamin is either a downloaded PDF
-    # (pdf_text) or, when it's an HTML page, crawled_content["regulamin_url"].
+    # Field extraction reads the REGULAMIN whenever there is one — never the
+    # registration page, website, or navigated followups alongside it. Those are
+    # used to FIND the regulamin (and to confirm/replace URLs), but
+    # distances/prices/deadline/types/kids come from the rules document. The
+    # regulamin is either a downloaded PDF (pdf_text) or, when it's an HTML page,
+    # crawled_content["regulamin_url"].
     regulamin_content = {}
     if crawled_content.get("regulamin_url"):
         regulamin_content["regulamin_url"] = crawled_content["regulamin_url"]
 
+    # When there is no regulamin at all — none declared by the scraper, none
+    # found by search — the rule above leaves extraction with nothing to read and
+    # the row publishes empty. Some organizers never publish a rules document and
+    # state the fee on the registration page instead: X-RUN Wielki Finał
+    # (2026-10-04) is sold on a WooCommerce product page that says 60-260 PLN,
+    # already crawled in Step 3 and then discarded here. Fall back to that page.
+    # It stays a SECONDARY source: had_content below still means "we read a
+    # regulamin", so the LLM does not become authoritative on
+    # event_types/is_kids off a shop page.
+    extraction_content = dict(regulamin_content)
+    if not regulamin_content and not pdf_text:
+        for field in ("registration_url", "website"):
+            if crawled_content.get(field):
+                extraction_content[field] = crawled_content[field]
+    result["steps"]["clean"]["fallback_sources"] = [
+        k for k in extraction_content if k != "regulamin_url"
+    ]
+
     # Step 4.5: Regex pre-pass — extract obvious prices/deadlines from regulamin
-    prepass_texts = list(regulamin_content.values())
+    prepass_texts = list(extraction_content.values())
     if pdf_text:
         prepass_texts.append(pdf_text)
     hints = extract_hints(prepass_texts, event_date=event.get("date"))
     result["steps"]["prepass"] = {k: v for k, v in hints.items() if v is not None}
 
     # Step 5: LLM extraction (regulamin content only; scraper distances as anchors)
-    prompt = build_prompt(event, regulamin_content, pdf_text, config, hints=hints)
+    prompt = build_prompt(event, extraction_content, pdf_text, config, hints=hints)
     llm_result = call_ollama(prompt, config)
     duration = llm_result.pop("_duration_s", None) if llm_result else None
     result["steps"]["llm"] = {
