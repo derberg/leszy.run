@@ -42,6 +42,36 @@ test('returns unknown — never not-regulamin — when there is too little text'
   }
 })
 
+test('accepts a regulamin published in English', () => {
+  // Silesia 5K RUN 2026 (datasport:12741). pickRegulaminUrl landed on the site's
+  // English translation, /en/regulamin-silesia-5k-run-2026/. It is the full
+  // document — organiser, route, entry fee, registration deadline, race office,
+  // time limit, classifications, final provisions — but the Polish-only stems
+  // matched one section out of twelve, so the row was skipped and shipped with
+  // registration_deadline and price_from null.
+  const text = fixture('silesia-5k-en-regulamin.txt')
+  assert.match(text, /PLN 79 – before September 13th, 2026/)
+  assert.match(text, /until September 13th, 2026, or until the limit of spots is filled/)
+  const r = looksLikeRegulamin(text)
+  assert.equal(r.verdict, 'regulamin')
+  assert.ok(r.sections >= 8, `sections=${r.sections}`)
+})
+
+test('an English consent form is still rejected', () => {
+  // The English patterns must not reopen the hole they close: a translated
+  // oświadczenie quotes the race name and the word regulations and nothing else.
+  const text = [
+    'CONSENT OF A LEGAL GUARDIAN',
+    'I hereby declare that I have read the Terms and Conditions of the race and accept them.',
+    'I consent to the participation of my child in the run and to the processing of personal data.',
+    'I declare that there are no medical contraindications to taking part.',
+    'Name and surname of the minor: ..............................................',
+    'Signature of the parent or legal guardian: ..................................',
+    'The above consent is submitted at the start.',
+  ].join('\n').padEnd(1200, ' .')
+  assert.equal(looksLikeRegulamin(text).verdict, 'not-regulamin')
+})
+
 test('a long document with many sections survives some declaration furniture', () => {
   // Several genuine regulamins embed an oświadczenie as their final annex.
   const text = fixture('olawa-regulamin.txt') + '\n\nOświadczam, że zapoznałem się.\nWyrażam zgodę na przetwarzanie.\nPodpis rodzica: ....'
