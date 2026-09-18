@@ -203,7 +203,15 @@ function distinguishingTags(event) {
   else if (/ćwierćmaraton|cwiercmaraton|ćwierć\s*maraton|cwierc\s*maraton/i.test(n)) tags.add('distance:quarter')
   else if (/(?:^|[^\p{L}])maraton(?:[^\p{L}]|$)/iu.test(n)) tags.add('distance:full')
 
-  // Style — collected from event_types/event_type AND from name regexes
+  // Style — collected from event_types/event_type AND from name regexes.
+  //
+  // `ultra` is deliberately NOT a style. It states a distance, not the character
+  // of the course, and sources disagree about it constantly: one tags a festival
+  // with a 100 km race as ultra, the next does not, and a name carrying the word
+  // adds it on one side only. Because a category is compared as a set, every one
+  // of those disagreements used to reject a correct merge. Measured 2026-09-17,
+  // biegigorskie produced 28 new rows for 50 races against rows we already held;
+  // with ultra out of this category it produced 20.
   const types = []
   if (Array.isArray(event.event_types)) types.push(...event.event_types)
   if (Array.isArray(event.event_type)) types.push(...event.event_type)
@@ -212,11 +220,9 @@ function distinguishingTags(event) {
     if (t === 'trail') tags.add('style:trail')
     else if (t === 'nordic walking') tags.add('style:nw')
     else if (t === 'ocr') tags.add('style:ocr')
-    else if (t === 'ultra') tags.add('style:ultra')
   }
   if (/nordic\s*walking|\bnw\b/i.test(n)) tags.add('style:nw')
   if (/\bocr\b/i.test(n)) tags.add('style:ocr')
-  if (/\bultra\b|\b\d{1,3}\s*h\s*run\b/i.test(n)) tags.add('style:ultra')
   if (/cross(owy|owa|owe)\b|\btrail\b/i.test(n)) tags.add('style:trail')
 
   // Edition — Nth occurrence. Different stated editions on the same date with a
