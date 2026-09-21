@@ -6,6 +6,7 @@ import { join } from 'path'
 import { writeRunLog } from './lib/run-log.js'
 import { pickFillable, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
 import { resolveDostartuRegulamin } from './lib/dostartu-regulamin.js'
+import { resolveRegistrationPageRegulamin } from './lib/registration-page-regulamin.js'
 import { verifySearchUrls } from './lib/verify-url.js'
 
 // This script has ONE job: find the two source-of-truth URLs for an event —
@@ -289,17 +290,25 @@ async function main() {
     // Which URL(s) are still missing on this row
     const fieldsToFill = fieldsNeedingFill(row, SEARCH_FILLABLE)
 
-    // dostartu regulamin is deterministic — derive + verify it for free before
-    // spending a web search. If that's the only missing field, we skip Claude
-    // entirely. (The statute lives at dostartu.pl/statute_files/<id>_pl.pdf.)
+    // Two ways to get a regulamin for free, tried before spending a web
+    // search. If they cover the only missing field, we skip Claude entirely.
+    //   1. dostartu derives it: dostartu.pl/statute_files/<id>_pl.pdf.
+    //   2. Any platform that links it from the registration page we already
+    //      know — b4sport, elektronicznezapisy and the rest all do.
+    // Both fetch-verify before returning, so neither writes a 404.
     const updates = {}
-    const deterministicKeys = new Set()
+    const deterministicKeys = new Map()
     let calledClaude = false
     if (fieldsToFill.includes('regulamin_url')) {
-      const detUrl = await resolveDostartuRegulamin(row)
+      let detUrl = await resolveDostartuRegulamin(row)
+      let origin = 'dostartu'
+      if (!detUrl) {
+        detUrl = await resolveRegistrationPageRegulamin(row)
+        origin = 'registration page'
+      }
       if (detUrl) {
         updates.regulamin_url = detUrl
-        deterministicKeys.add('regulamin_url')
+        deterministicKeys.set('regulamin_url', origin)
         fieldsToFill.splice(fieldsToFill.indexOf('regulamin_url'), 1)
       }
     }
@@ -334,7 +343,7 @@ async function main() {
 
         // Every URL here came from a web search, so each one goes to an
         // independent verifier before it can be written. The deterministic
-        // dostartu fill in `updates` is already fetch-verified and stays out.
+        // fills in `updates` are already fetch-verified and stay out.
         if (Object.keys(searchUpdates).length > 0) {
           const check = await verifySearchUrls(row, searchUpdates)
           totalCostUsd += check.costUsd
@@ -360,7 +369,7 @@ async function main() {
     // Log what we found
     for (const [k, v] of Object.entries(updates)) {
       const old = row[k] || '(none)'
-      const note = deterministicKeys.has(k) ? ' (dostartu, verified)' : ''
+      const note = deterministicKeys.has(k) ? ` (${deterministicKeys.get(k)}, verified)` : ''
       console.log(`    ${dryRun ? 'WOULD' : '✓'} ${k}${note}: ${Array.isArray(old) ? old.join(', ') : old} → ${Array.isArray(v) ? v.join(', ') : v}`)
     }
 
