@@ -731,11 +731,12 @@ Parses `<tr>` rows with 4+ `<td>` cells:
 - Signup link: from `a[href*="signup"]`
 
 **Phase 2 — Detail pages:**
-Fetches `/event/NNN/strona.html` for each event:
+Fetches `/event/NNN/strona.html` for every new event, and again for a known event whose stored row is future-dated and still has no distances. The source declares `knownColumns: 'source_id, date, distances, price_from'` so `needsDetail()` can read those stored values back. Without that re-read a Cennik that opens after the first scrape is never seen. Reads:
 - Name: `<h1>` text
 - Location: from `<a href="/m/city">` or "Miejsce:" in `li.list-group-item`
 - Date: from "Początek imprezy:" in list-group-item, fallback to body text
 - Distances: from **Cennik (pricing) section** — reads `<td>` cells in pricing tables, extracts km from category names like "5 km - dorośli", "21 km - open". Deduplicates. Also detects named distances (półmaraton) and time durations.
+- Distances, fallback: from the **description**, and only when the Cennik yields none. An event announced before registration opens has an empty price table and states its races in prose instead. `distancesFromDescription()` accepts a figure only when a race word (`bieg`, `dystans`, `maraton`, `marsz`, `ultra`) introduces it within 60 characters, and takes only the first figure after that word, because a description also states the course: "2 km asfaltu" and "dwie pętle, 2 km oraz 3 km" are not races. Kilometres only. A kids race published in metres sets `is_kids` instead.
 - Regulamin: event-specific PDF download links from "Regulamin" `list-group` section (e.g., `download/xxxx/open`)
 - External website: links from the description content area. If the link is to a known scraper source domain (datasport, dostartu, etc.), it's flagged as `known_source_link` — save but don't process further.
 
@@ -755,6 +756,7 @@ If the external link from the signup page points to a dostartu-like domain (`dos
 
 ### Known issues
 - Cennik section is not always present on the detail page (some events link to separate `pricelist.html`)
+- An empty Cennik also means no price and no deadline. The description fallback recovers distances and `is_kids` only, so those rows wait for the organizer to open the price list and for the next re-read
 - **HAS registration URLs** — from signup links or external redirects
 - **HAS regulamin PDFs** — can be scraped for detailed distance/rules data in the future
 - Dostartu API enrichment only works for `-v{id}` URL patterns
