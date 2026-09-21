@@ -294,3 +294,170 @@ export async function mapWithConcurrency(items, limit, fn) {
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
   return results
 }
+
+// ---------------------------------------------------------------------------
+// One answer per missing field.
+//
+// A diagnosis used to be one verdict and one defect for the whole event, so an
+// agent looking at a row missing four fields told one story and dropped three.
+// On 2026-09-18 X-RUN Wielki Finał was missing voivodeship, regulamin_url,
+// registration_deadline and price_from; the agent explained price_from, and
+// voivodeship was never diagnosed, never grouped, never fixed. The operator saw
+// the blank column the harness had already been paid to explain.
+//
+// So the answer is read per field, and a field the agent skipped becomes a
+// needs-human finding rather than nothing at all. Silence about a field is now
+// a visible result.
+export function normalizeDiagnosis(json, candidate) {
+  const wanted = Array.isArray(candidate?.missing_required) ? candidate.missing_required : []
+  const event = {
+    name: candidate?.name,
+    date: candidate?.date,
+    source: candidate?.source,
+    source_id: candidate?.source_id,
+  }
+  const answered = new Map()
+
+  const record = (field, body) => {
+    if (!wanted.includes(field) || answered.has(field)) return
+    answered.set(field, {
+      field,
+      verdict: body?.verdict || 'needs-human',
+      summary: body?.summary || '',
+      defect: body?.defect || null,
+      evidence: Array.isArray(body?.evidence) ? body.evidence : [],
+      blast_radius: body?.blast_radius || null,
+      confidence: typeof body?.confidence === 'number' ? body.confidence : null,
+      event,
+    })
+  }
+
+  if (Array.isArray(json?.fields)) {
+    for (const entry of json.fields) record(entry?.field, entry)
+  } else if (json && typeof json === 'object' && json.verdict) {
+    // The older single-verdict answer. A model that ignores the schema must not
+    // take the whole event down with it, so its one verdict is spread over the
+    // fields it claimed.
+    const claimed = Array.isArray(json.missing_fields) && json.missing_fields.length > 0
+      ? json.missing_fields
+      : wanted
+    for (const field of claimed) record(field, json)
+  }
+
+  for (const field of wanted) {
+    record(field, {
+      verdict: 'needs-human',
+      summary: 'the diagnose agent did not answer for this field',
+    })
+  }
+  return wanted.map((field) => answered.get(field))
+}
+
+// ---------------------------------------------------------------------------
+// What the harness has already proved.
+//
+// An absent-at-source verdict costs about a dollar and is thrown away at the end
+// of the run, so the next run buys the same answer again and the operator still
+// has no idea why the column is blank. Recording it stops both.
+export const VERDICT_RECHECK_DAYS = 30
+
+export function verdictKey({ source, source_id, field }) {
+  return `${source}|${source_id}|${field}`
+}
+
+// Only absent-at-source settles anything. A code-defect is settled by the fix
+// landing and the field filling, not by having been written down; a needs-human
+// is an open question by definition.
+//
+// A verdict expires, because an organizer who has published nothing today may
+// publish next month. Without the expiry one early answer would hide a race that
+// has since been filled in, for as long as the event exists.
+export function settledVerdicts(rows, { now = new Date(), recheckDays = VERDICT_RECHECK_DAYS } = {}) {
+  const cutoff = now.getTime() - recheckDays * 24 * 60 * 60 * 1000
+  const settled = new Set()
+  for (const row of rows || []) {
+    if (row?.verdict !== 'absent-at-source') continue
+    const decided = Date.parse(row?.decided_at)
+    if (!Number.isFinite(decided) || decided < cutoff) continue
+    settled.add(verdictKey(row))
+  }
+  return settled
+}
+
+export function unsettledFields(candidate, settled, _opts = {}) {
+  const wanted = Array.isArray(candidate?.missing_required) ? candidate.missing_required : []
+  return wanted.filter((field) => !settled.has(verdictKey({ ...candidate, field })))
+}
+
+// ---------------------------------------------------------------------------
+// The pull request GitHub has, not the one the agent remembers.
+//
+// The orchestrator used to read pr_number off the agent's own JSON and skip the
+// whole review when the agent reported anything other than "fixed". #161 was
+// pushed and opened by an agent that then reported failure, so it appears in no
+// report and nobody has looked at it since.
+export function pickPrNumber(agentOutcome, ghRows) {
+  const open = (ghRows || []).find((r) => String(r?.state).toUpperCase() === 'OPEN')
+  return open ? open.number : null
+}
+
+// A run deletes its worktrees at the end. When the branch still carries an
+// unmerged pull request, that deletes the only checkout where the change can be
+// revised, which is how #163 and #164 became orphans on 2026-09-18.
+export function shouldKeepWorktree(record) {
+  return Boolean(record?.pr) && record?.outcome !== 'merged'
+}
+
+// A reviewer asking for changes is asking for changes. One revision round, so a
+// fix agent and a reviewing agent cannot argue with each other all afternoon.
+export const MAX_REVISIONS = 1
+
+export function needsRevision(verdict, revisionsSoFar) {
+  return verdict?.verdict === 'request-changes' && revisionsSoFar < MAX_REVISIONS
+}
+
+// ---------------------------------------------------------------------------
+// Making a merged fix reach the data.
+//
+// healSources only ever recognised backend/src/scrapers/sources/<name>.js. On
+// 2026-09-18 the one merged pull request fixed the enricher's regulamin search
+// and was measured against 60 rows, and the step logged "No source scraper
+// changed, so there is nothing to re-scrape". Sixty rows kept the value the
+// broken code had written.
+//
+// Each kind of fix needs a different push to reach the rows:
+//   a scraper     re-scrape that source with --force, then merge again
+//   the enricher  clear the enrichment stamps, because the enricher only ever
+//                 reads rows it has not enriched yet
+//   shared code   the nightly pipeline re-scrapes everything at 08:00 anyway
+const ENRICHMENT_STAMPS = ['enriched_at', 'enriched_search_at', 'enriched_regulamin_at']
+
+export function planHeal(mergedDefects) {
+  const rescrape = new Set()
+  const reenrich = []
+  const nightly = []
+  const unhealed = []
+
+  for (const defect of mergedDefects || []) {
+    const file = String(defect?.file || '')
+    const source = /^backend\/src\/scrapers\/sources\/([a-z0-9]+)\.js$/.exec(file)?.[1]
+    if (source) {
+      rescrape.add(source)
+      continue
+    }
+    if (file.startsWith('enricher/')) {
+      // Clearing stamps is an UPDATE across rows the agent described, so it runs
+      // only against a radius that was actually measured. An unmeasured radius
+      // would mean every future row in the table.
+      if (!defect?.radius || defect?.blastRadius == null) {
+        unhealed.push({ file, reason: 'the blast radius was never measured, so no rows can be named' })
+        continue
+      }
+      reenrich.push({ file, radius: defect.radius, columns: ENRICHMENT_STAMPS })
+      continue
+    }
+    nightly.push({ file, reason: 'shared code reaches the rows on a full re-scrape, which the nightly pipeline runs at 08:00' })
+  }
+
+  return { rescrape: [...rescrape], reenrich, nightly, unhealed }
+}

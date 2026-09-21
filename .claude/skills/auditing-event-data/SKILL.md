@@ -14,6 +14,28 @@ This is the method that produced pull requests #104 to #118. The automated
 version runs as `backend/scripts/run-prepublish-review.js`. Use this document
 when you run it by hand.
 
+## Answer per field, not per event
+
+An event missing four fields has four questions, and they usually have four
+different answers: one field was dropped by the scraper, the next was never
+published at all. Answering "this event is incomplete because X" picks one field
+and abandons the rest. On 2026-09-18 X-RUN Wielki Finał was missing voivodeship,
+regulamin_url, registration_deadline and price_from; the diagnosis covered
+price_from, and the voivodeship blank survived the whole review untouched.
+
+Trace each field separately. If you cannot answer for one, say that you could
+not, because silence about a field reads as "nothing wrong with it".
+
+## Record what you proved
+
+"Nobody published it" is an expensive answer to buy twice. Write it to
+`prepublish_verdicts` (source, source_id, field, verdict, summary, evidence) so
+the next run skips the field for 30 days and the admin calendar can tell the
+operator why the column is blank. Do not lock the field on `calendar_events`
+instead: an organizer who has published nothing today may publish next month,
+and a lock would block the real value when it arrives. The "brak" button is a
+person's decision.
+
 ## Fix the code, not the row
 
 Do not fix the row. Fix the code that produced the row, then re-run the
@@ -100,6 +122,9 @@ new.
 | A non-running event with no cycling word in its name | "Poranne Kręcenie" is a bike ride, "Nocny Rajd do Torunia" is a rajd rowerowy | the merge keyword filter, and `SKIP_KEYWORDS` |
 | The wrong edition of a regulamin | The organizer links last year's rules, and the enricher reads prices out of them | `run-data-audit.js` flags the filename year |
 | A silent crawler failure | Playwright could not start, every page logged as `failed`, and the run still exited 0 | `enricher` preflight |
+| A fix that merged and repaired nothing | An enricher fix measured at 60 rows healed none, because only `sources/<name>.js` triggered a re-run | `planHeal()` in `reviewAgents.js` clears the enrichment stamps |
+| A city the geocoder cannot resolve | biegigorskie publishes `Żegiestó Zdrój`, one letter short of Żegiestów, so no voivodeship | the source's own typo, not the scraper |
+| A venue name where a city belongs | `Muzeum ... w Stawisku` carries `mazowieckie` in its Nominatim hit, which the settlement filter drops | `backend/src/scrapers/geocoder.js` |
 | An enricher locked out by a scraper value | A scraper-written `0` price blocked the regulamin from correcting it | the scalar merge treats `0` as provisional |
 
 ## Traps
