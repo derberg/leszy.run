@@ -32,6 +32,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { publishToCalendar } from '../src/scrapers/index.js'
@@ -42,6 +43,7 @@ import {
   partitionCandidates,
   mergeCommands,
   branchSlug,
+  planFixAttempt,
   checkDiffPaths,
   countBlastRadius,
   mapWithConcurrency,
@@ -233,15 +235,42 @@ async function reconcile(findings) {
   return groups
 }
 
+// What GitHub says exists on this branch. The orchestrator used to take the
+// pull request number from the fix agent's own JSON and skip the review whenever
+// the agent reported anything other than "fixed". #161 was pushed and opened by
+// an agent that then reported failure, so it appears in no report and no one has
+// looked at it since.
+function prsForBranch(branch) {
+  try {
+    const out = sh('gh', ['pr', 'list', '--head', branch, '--state', 'all', '--json', 'number,state'])
+    return JSON.parse(out)
+  } catch {
+    return []
+  }
+}
+
 // Phase 3. One agent per defect, each in its own worktree.
 async function fixAll(groups) {
   log(`\n[3/5] Fixing ${groups.length} defect(s), ${FIX_CONCURRENCY} at a time...`)
   return mapWithConcurrency(groups, FIX_CONCURRENCY, async (group) => {
     const branch = `fix/auto-${branchSlug(group.key)}`.slice(0, 80)
-    let worktree
+    const worktree = path.join(MAIN_ROOT, '.worktrees', branch.replace(/\//g, '-'))
+
+    // The branch name comes from the defect, so the same defect asks for the same
+    // branch every run. A previous run may have left one behind.
+    const plan = planFixAttempt({ branch, prs: prsForBranch(branch), worktreeExists: existsSync(worktree) })
+    if (plan.action === 'skip-open-pr') {
+      log(`      = ${group.file}: ${plan.reason}`)
+      return { group, branch, status: 'already-open', pr: plan.pr }
+    }
+    if (plan.action === 'reset') {
+      log(`      ${group.file}: clearing ${branch}, ${plan.reason}`)
+      try { sh('bash', ['scripts/worktree.sh', 'rm', branch], { cwd: MAIN_ROOT }) } catch {}
+      try { sh('git', ['branch', '-D', branch], { cwd: MAIN_ROOT }) } catch {}
+    }
+
     try {
       sh('bash', ['scripts/worktree.sh', 'new', branch], { cwd: MAIN_ROOT })
-      worktree = path.join(MAIN_ROOT, '.worktrees', branch.replace(/\//g, '-'))
     } catch (err) {
       log(`      ! ${group.file}: could not create a worktree: ${err.message.slice(0, 160)}`)
       return { group, status: 'failed', error: 'worktree' }
@@ -290,20 +319,6 @@ function verifyFix(fix) {
     }
   }
   return { ok: problems.length === 0, problems, changedFiles }
-}
-
-// What GitHub says exists on this branch. The orchestrator used to take the
-// pull request number from the fix agent's own JSON and skip the review whenever
-// the agent reported anything other than "fixed". #161 was pushed and opened by
-// an agent that then reported failure, so it appears in no report and no one has
-// looked at it since.
-function prsForBranch(branch) {
-  try {
-    const out = sh('gh', ['pr', 'list', '--head', branch, '--state', 'all', '--json', 'number,state'])
-    return JSON.parse(out)
-  } catch {
-    return []
-  }
 }
 
 // Phase 4. An independent agent reads the diff, then the merge.
@@ -547,16 +562,21 @@ async function main() {
 
   // Every branch that got a worktree goes to review. Whether a pull request
   // exists is GitHub's answer, not the fix agent's.
-  const fixes = (await fixAll(groups)).filter((f) => f.worktree)
+  const attempts = await fixAll(groups)
+  const fixes = attempts.filter((f) => f.worktree)
+  const alreadyOpen = attempts
+    .filter((f) => f.status === 'already-open')
+    .map((f) => ({ pr: f.pr, branch: f.branch, file: f.group.file }))
   const { outcomes, merged, kept } = await reviewAndMerge(fixes)
   report.pullRequests = outcomes
   report.merged = merged
-  report.openPullRequests = kept
+  report.openPullRequests = [...alreadyOpen, ...kept]
   report.heal = heal && merged > 0 ? await runHeal(outcomes) : { rescraped: [], reenriched: [], nightly: [], unhealed: [] }
 
   log(`\nMerged ${merged} pull request(s). Read the report, then run run-publish --apply.`)
-  if (kept.length > 0) {
-    log(`${kept.length} pull request(s) are open and waiting for you: ${kept.map((k) => `#${k.pr}`).join(', ')}`)
+  const open = report.openPullRequests
+  if (open.length > 0) {
+    log(`${open.length} pull request(s) are open and waiting for you: ${open.map((k) => `#${k.pr}`).join(', ')}`)
   }
   return { exitCode: groups.length > 0 ? 2 : 0, report }
 }
