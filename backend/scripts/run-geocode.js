@@ -1,12 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 import path from 'node:path'
-import { geocode } from '../src/scrapers/geocoder.js'
+import { geocode, reverseGeocode } from '../src/scrapers/geocoder.js'
 import {
   cityFromLocation,
   declaredVoivodeship,
   postcodeFromLocation,
 } from '../src/lib/polishLocation.js'
 import { loadPreviousRun, previousFailureIds, tagPersistent, writeRunLog } from './lib/run-log.js'
+import { voivodeshipForLocatedRow } from './lib/voivodeship.js'
 
 const SCRIPT_NAME = 'geocode'
 
@@ -302,12 +303,17 @@ async function main() {
     const needsVoiv = !row.voivodeship
     const needsLatLng = !row.lat
 
-    // Try fast city map first (only resolves voivodeship, not coords)
+    // The row already has coordinates, so only the voivodeship is missing. The
+    // city map answers first, then the row's own lat/lng. A forward name search
+    // here would discard the coordinates and stall on ambiguous names.
     if (needsVoiv && !needsLatLng) {
-      const fromMap = detectVoivodeshipFromCity(city)
-      if (fromMap) {
+      const { voivodeship, via } = await voivodeshipForLocatedRow(
+        { city, lat: row.lat, lng: row.lng },
+        { fromCityMap: detectVoivodeshipFromCity, reverseGeocode },
+      )
+      if (voivodeship) {
         if (!dryRun) {
-          const { error } = await supabase.from('scraper_all').update({ voivodeship: fromMap }).eq('id', row.id)
+          const { error } = await supabase.from('scraper_all').update({ voivodeship }).eq('id', row.id)
           if (error) {
             console.error(`  ERR ${row.name}: ${error.message}`)
             failed++
@@ -315,7 +321,9 @@ async function main() {
             continue
           }
         }
-        cityMap++; process.stdout.write('.')
+        if (via === 'city map') cityMap++
+        else geocoded++
+        process.stdout.write('.')
         continue
       }
     }
