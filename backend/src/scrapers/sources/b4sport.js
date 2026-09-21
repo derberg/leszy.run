@@ -599,4 +599,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return fresh
 }
 
-export { scrape, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, verifyRegulaminPage, nameTokens, registrationSlugWords, isNonRunningEvent }
+export { scrape, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, verifyRegulaminPage, nameTokens, citySlug, registrationSlugWords, isNonRunningEvent }
