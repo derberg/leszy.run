@@ -873,6 +873,13 @@ and named in the closing log line, because deleting the worktree throws away the
 only checkout where the change can be revised. #163 and #164 were orphaned that
 way.
 
+A branch name is derived from the defect, so the same defect asks for the same
+branch every run. **A defect whose pull request is already open is skipped, not
+re-fixed** — the previous run already offered a fix and a revision and a reviewer
+objected to both, so a third agent would spend money repeating the argument. A
+leftover branch with no open pull request is deleted before the new worktree is
+made.
+
 **Whether a pull request exists is GitHub's answer, not the agent's.** The
 orchestrator runs `gh pr list --head <branch>`. #161 was pushed and opened by an
 agent that then reported failure, and it appeared in no report at all.

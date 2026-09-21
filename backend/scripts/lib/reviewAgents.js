@@ -461,3 +461,27 @@ export function planHeal(mergedDefects) {
 
   return { rescrape: [...rescrape], reenrich, nightly, unhealed }
 }
+
+// What to do with a branch this defect has been attempted on before.
+//
+// The branch name is derived from the defect, so the same defect asks for the
+// same branch on every run. A worktree is now kept when its pull request is
+// still open, which is what lets a change be revised by hand, and that same
+// keeping collides with the next run: worktree.sh new on a checked-out branch
+// fails, and the defect silently goes unfixed.
+//
+// An open pull request is left alone. The previous run already offered a fix and
+// a revision and a reviewer objected to both, so a third agent sent at it blind
+// would spend money repeating the argument. Anything else is cleared away.
+export function planFixAttempt({ branch, prs, worktreeExists }) {
+  const open = (prs || []).find((r) => String(r?.state).toUpperCase() === 'OPEN')
+  if (open) {
+    return {
+      action: 'skip-open-pr',
+      pr: open.number,
+      reason: `pull request #${open.number} is already open on ${branch} and is waiting for a person`,
+    }
+  }
+  if (worktreeExists) return { action: 'reset', pr: null, reason: `${branch} is left over from an earlier run` }
+  return { action: 'create', pr: null, reason: null }
+}
