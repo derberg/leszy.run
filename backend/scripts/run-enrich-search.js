@@ -293,8 +293,11 @@ async function main() {
     // Two ways to get a regulamin for free, tried before spending a web
     // search. If they cover the only missing field, we skip Claude entirely.
     //   1. dostartu derives it: dostartu.pl/statute_files/<id>_pl.pdf.
-    //   2. Any platform that links it from the registration page we already
-    //      know — b4sport, elektronicznezapisy and the rest all do.
+    //   2. The registration page we already know links it as a FILE, and the
+    //      link is attributable to this row — b4sport, which publishes .odt
+    //      under each edition. A platform that serves its rules from an
+    //      extensionless download URL (elektronicznezapisy) is out of reach
+    //      here and still goes to search.
     // Both fetch-verify before returning, so neither writes a 404.
     const updates = {}
     const deterministicKeys = new Map()
