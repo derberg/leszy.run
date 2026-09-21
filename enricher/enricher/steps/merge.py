@@ -108,8 +108,10 @@ def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates:
     """Compare LLM output with current event data and build update dict.
 
     Returns only fields that should be changed. Empty dict = no changes.
-    had_content: True when LLM had crawled pages or PDF to analyze — makes it
-    authoritative on event_types (overwrite instead of additive merge).
+    had_content: True when the LLM read a REGULAMIN (crawled page or PDF).
+    It makes the LLM authoritative on event_types and is_kids (overwrite
+    instead of additive merge), and it is what lets a longer distance list
+    replace the scraper's.
     """
     if not llm:
         return {}
@@ -117,7 +119,7 @@ def build_updates(event: dict, llm: dict, url_statuses: dict, search_candidates:
     updates = {}
 
     # --- Distances (Rule 3) ---
-    _merge_distances(event, llm, updates)
+    _merge_distances(event, llm, updates, had_content)
 
     # --- Event types (Rule 4) ---
     _merge_event_types(event, llm, updates, config, had_content)
@@ -162,7 +164,7 @@ def _is_distance_like(s: str) -> bool:
     return False
 
 
-def _merge_distances(event, llm, updates):
+def _merge_distances(event, llm, updates, had_content: bool = False):
     llm_distances = llm.get("distances")
     if not llm_distances or not isinstance(llm_distances, list) or len(llm_distances) == 0:
         return
@@ -179,10 +181,17 @@ def _merge_distances(event, llm, updates):
     if current_count == 0:
         # Rule 1: empty → fill
         updates["distances"] = ", ".join(llm_distances)
-    elif new_count > current_count:
-        # Rule 3: more complete → overwrite
+    elif new_count > current_count and had_content:
+        # Rule 3: more complete → overwrite, but only off a regulamin.
+        #
+        # Without one the LLM read the registration page or the website, which
+        # the fallback in pipeline.py allows so a fee stated nowhere else can
+        # still be recovered. Those pages count ticket variants, product options
+        # and sibling races alongside the real distances, so a longer list off
+        # one of them is not a better list. The scraper read the event listing,
+        # so its distances stand and only an empty field is filled above.
         updates["distances"] = ", ".join(llm_distances)
-    # else: keep current (same count or fewer)
+    # else: keep current (same count or fewer, or no regulamin behind the count)
 
 
 def _merge_event_types(event, llm, updates, config, had_content: bool = False):

@@ -28,10 +28,10 @@ def test_fill_empty_fields(sample_event, sample_llm_response):
 
 
 def test_distances_overwrite_when_more_complete(sample_event):
-    """LLM found more distances → overwrite."""
+    """The regulamin lists more distances than the scraper, so it overwrites."""
     sample_event["distances"] = "10 km"
     llm = {"distances": ["5 km", "10 km", "21.1 km"], "event_types": None}
-    updates = build_updates(sample_event, llm, {}, {}, config)
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
     assert updates["distances"] == "5 km, 10 km, 21.1 km"
 
 
@@ -55,7 +55,7 @@ def test_distances_with_time_based(sample_event):
     """Time-based distances count toward total."""
     sample_event["distances"] = "10 km"
     llm = {"distances": ["10 km", "6h"], "event_types": None}
-    updates = build_updates(sample_event, llm, {}, {}, config)
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=True)
     assert updates["distances"] == "10 km, 6h"
 
 
@@ -383,3 +383,26 @@ def test_query_only_url_still_accepted(sample_event):
     }
     updates = build_updates(sample_event, llm, {}, {}, config)
     assert updates["registration_url"] == real
+
+
+def test_distances_not_overwritten_without_regulamin(sample_event):
+    """No regulamin was read, so the page cannot rewrite the scraper's distances.
+
+    The registration-page fallback exists to recover a fee the organizer states
+    nowhere else. The page it reads is a sign-up form or a shop listing, and the
+    numbers on one of those belong to ticket variants as often as to races. The
+    scraper read the event listing, so its distances outrank anything counted off
+    such a page.
+    """
+    sample_event["distances"] = "10 km"
+    llm = {"distances": ["5 km", "10 km", "21.1 km"], "event_types": None}
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=False)
+    assert "distances" not in updates
+
+
+def test_distances_filled_from_fallback_when_empty(sample_event):
+    """An empty field is still filled: there is nothing to protect."""
+    sample_event["distances"] = None
+    llm = {"distances": ["5 km", "10 km"], "event_types": None}
+    updates = build_updates(sample_event, llm, {}, {}, config, had_content=False)
+    assert updates["distances"] == "5 km, 10 km"
