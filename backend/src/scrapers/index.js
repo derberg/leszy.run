@@ -77,6 +77,9 @@ const sources = [
     name: 'elektronicznezapisy',
     scrape: scrapeElektronicznezapisy,
     table: 'scraper_elektronicznezapisy',
+    // The Cennik opens after the event page is published, so the scraper re-reads
+    // future-dated rows that still have no distances.
+    knownColumns: 'source_id, date, distances, price_from',
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,

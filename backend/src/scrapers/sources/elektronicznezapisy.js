@@ -30,7 +30,74 @@ function isKnownSourceUrl(url) {
   }
 }
 
-async function fetchDetailPage(eventId) {
+// Distances an organizer wrote into the description instead of the price list.
+//
+// The Cennik table is the structured answer and stays authoritative; this reads the
+// prose only when that table yields nothing, which is the state of every event
+// announced before registration opens. It is deliberately anchored rather than
+// greedy: a description states the course as well as the races, and "2 km asfaltu",
+// "300 m przewyższenia" and "dwie pętle – 2 km oraz 3 km" are not races. So a figure
+// counts only when a race word introduces it, and only the first figure after that
+// word is taken — everything further along the sentence describes it.
+//
+// Kilometres only. Kids races are published in metres ("100, 300, 500 metrów"), and
+// those belong in is_kids, not in the distance list.
+const RACE_WORD = /\b(bieg\w*|marsz\w*|dystans\w*|p[oó][lł]maraton\w*|maraton\w*|ultra\w*)/gi
+// How far past the race word the figure may sit. A longer reach starts crossing into
+// the next item of a numbered programme.
+const FIGURE_REACH = 60
+// One figure, or a list of them sharing a unit: "3 lub 6 km", "17,5 KM".
+const FIGURE = /(\d+(?:[.,]\d+)?(?:\s*(?:lub|i|oraz|\/|,)\s*\d+(?:[.,]\d+)?)*)\s*km\b/i
+// A kids race, not a mention of children. "biegi dla dzieci" and "biegi malucha"
+// are races; "obok rodziców z dziećmi" is the crowd.
+const KIDS_RACE = /(bieg\w*|marsz\w*)[^.]{0,30}?(dzieci|maluch\w*|junior\w*|m[lł]odzie[zż]\w*)/i
+
+export function distancesFromDescription(text) {
+  const prose = String(text || '').replace(/\s+/g, ' ')
+  const distances = []
+  const seen = new Set()
+
+  RACE_WORD.lastIndex = 0
+  let anchor
+  while ((anchor = RACE_WORD.exec(prose)) !== null) {
+    const window = prose.slice(anchor.index + anchor[0].length, anchor.index + anchor[0].length + FIGURE_REACH)
+    const figure = window.match(FIGURE)
+    if (!figure) continue
+    // Read the numbers back out rather than splitting on the separators: a comma is
+    // both of them at once, and splitting turned "17,5 km" into a 17 and a 5.
+    for (const part of figure[1].match(/\d+(?:[.,]\d+)?/g) || []) {
+      const km = parseFloat(part.replace(',', '.'))
+      if (!(km > 0 && km < 500)) continue
+      const label = `${km} km`
+      if (seen.has(label)) continue
+      distances.push(label)
+      seen.add(label)
+    }
+  }
+
+  return { distances, isKids: KIDS_RACE.test(prose) }
+}
+
+// Is this entry worth a detail fetch?
+//
+// A known source_id is not a finished row. elektronicznezapisy publishes the event
+// page as soon as the organizer announces a date and opens the Cennik later, so a
+// row first scraped in that window has no distances and no prices. Skipping every
+// known id meant the page was never read again and those fields stayed empty for
+// good: 16096 (VII Ultras Oliwski, 2027-09-18) lists its three distances in the
+// description today and would never have been re-read.
+//
+// knownRows comes from the raw table and is empty unless the source declares
+// knownColumns, so a known id with no stored row keeps the old skip rather than
+// re-fetching blind. A past race is left alone — its Cennik is not going to open.
+export function needsDetail(entry, knownIds, knownRows, today) {
+  if (!knownIds.has(entry.eventId)) return true
+  const known = knownRows.get(entry.eventId)
+  if (!known) return false
+  return !known.distances && String(known.date) >= today
+}
+
+export async function fetchDetailPage(eventId) {
   try {
     const url = `${BASE_URL}/event/${eventId}/strona.html`
     const res = await fetch(url, {
@@ -128,6 +195,20 @@ async function fetchDetailPage(eventId) {
       })
     })
 
+    // Description — the event's own text, and the only place a distance appears
+    // before the organizer opens the price list.
+    const contentDiv = $('div[style*="padding:10px"]').first()
+
+    // Cennik yielded nothing: read the description instead. Only in that branch —
+    // a price table that names its races has already answered, and the prose of the
+    // same event tends to round ("półmaraton na dystansie około 21 km" against the
+    // Cennik's 21.1).
+    if (distances.length === 0 && contentDiv.length) {
+      const fromProse = distancesFromDescription(contentDiv.text())
+      distances.push(...fromProse.distances)
+      if (fromProse.isKids) isKids = true
+    }
+
     // Regulamin — event-specific PDFs (not portal regulamin)
     const regulaminUrls = []
     $('li.list-group-item-info').each((_, header) => {
@@ -144,7 +225,6 @@ async function fetchDetailPage(eventId) {
     // External links from description content — look for links to known sources
     // or event's own website
     let externalWebsite = null
-    const contentDiv = $('div[style*="padding:10px"]').first()
     if (contentDiv.length) {
       contentDiv.find('a[href^="http"]').each((_, a) => {
         const href = $(a).attr('href')
@@ -198,7 +278,8 @@ async function fetchSignupPageLinks(eventId) {
 }
 
 
-async function scrape({ knownIds = new Set() } = {}) {
+async function scrape({ knownIds = new Set(), knownRows = new Map(), today } = {}) {
+  const asOf = today || new Date().toISOString().slice(0, 10)
   // Step 1: collect event IDs + basic data from listing pages
   const eventEntries = []
 
@@ -247,8 +328,9 @@ async function scrape({ knownIds = new Set() } = {}) {
     seenIds.add(e.eventId)
     return true
   })
-  const newEntries = uniqueEntries.filter(e => !knownIds.has(e.eventId))
-  console.log(`[elektronicznezapisy] Found ${eventEntries.length} events (${eventEntries.length - uniqueEntries.length} cross-category dupes), ${newEntries.length} new (skipping ${uniqueEntries.length - newEntries.length} known)`)
+  const newEntries = uniqueEntries.filter(e => needsDetail(e, knownIds, knownRows, asOf))
+  const recheck = newEntries.filter(e => knownIds.has(e.eventId)).length
+  console.log(`[elektronicznezapisy] Found ${eventEntries.length} events (${eventEntries.length - uniqueEntries.length} cross-category dupes), ${newEntries.length - recheck} new, ${recheck} re-checked for missing distances (skipping ${uniqueEntries.length - newEntries.length} known)`)
 
   // Step 2: fetch detail pages only for new events
   const results = []
