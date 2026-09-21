@@ -25,6 +25,52 @@ function capitalizeVoivodeship(v) {
     .replace(/^Województwo[\s-]+/i, '')
 }
 
+// A location that is a venue rather than a settlement.
+//
+// XII Noc STO-nogi Milanówek starts at "Muzeum im. Anny i Jarosława
+// Iwaszkiewiczów w Stawisku". Nominatim answers with exactly that museum and
+// carries "województwo mazowieckie" and the town Podkowa Leśna in its own
+// address, and SETTLEMENT_TYPES threw the whole hit away, so the row published
+// with an empty region column.
+//
+// The settlement filter is still right and still runs first. The difference
+// between this museum and the bus loop that the filter was written for is not
+// the kind of place. It is that Nominatim matched the museum's actual NAME,
+// while "Rzyki-Praciaki" only ever approximated one ("Rzyki Praciaki Pętla")
+// and "Kraków-Częstochowa" matched an information board listing seven towns.
+// So a non-settlement is allowed to name a voivodeship only when the organizer
+// wrote that place's name, which is also why a restaurant or a car park
+// qualifying here is not a problem: it qualifies only when the race genuinely
+// starts at one.
+//
+// It must also know where it is. A venue with no state, or one floating outside
+// any settlement, is a pin on a map and answers nothing.
+function normalizePlaceName(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0142/gi, 'l')
+    .toLowerCase()
+    .replace(/,\s*pol(ska|and)\s*$/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+export function pickVenueFallback(results, query) {
+  const wanted = normalizePlaceName(query)
+  if (!wanted) return null
+  const matched = (Array.isArray(results) ? results : []).filter((r) => {
+    if (normalizePlaceName(r?.name) !== wanted) return false
+    const address = r?.address || {}
+    const settlement = address.city || address.town || address.village || address.municipality
+    return Boolean(settlement && (address.state || address.province))
+  })
+  if (matched.length === 0) return null
+  const states = new Set(matched.map((r) => capitalizeVoivodeship(r.address?.state || r.address?.province)))
+  if (states.size > 1) return null
+  return matched[0]
+}
+
 // `postcode` switches Nominatim to its structured endpoint. A postcode inside
 // the free-text `q` is simply ignored. "33-386 Podegrodzie" still returns both
 // the Małopolskie and the Zachodniopomorskie village. The structured city= +
@@ -89,8 +135,12 @@ async function geocode(locationQuery, { postcode = null, city = null } = {}) {
       return { lat: null, lng: null, voivodeship: null, ambiguous: true }
     }
 
-    if (results.length > 0) {
-      const { lat, lon, address } = results[0]
+    // A settlement is always preferred. Only when there is none does a venue the
+    // organizer named by name get to answer for the region.
+    const chosen = results.length > 0 ? results[0] : pickVenueFallback(all, locationQuery)
+
+    if (chosen) {
+      const { lat, lon, address } = chosen
       const coords = { lat: parseFloat(lat), lng: parseFloat(lon) }
 
       // Nominatim search may not return state for small towns — use reverse geocoding as fallback
