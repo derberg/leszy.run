@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabaseClient.js'
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
+const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
+const USER_AGENT = 'leszy.run/1.0 (kontakt@leszy.run)'
 const RATE_LIMIT_MS = 1100
 
 let lastRequestAt = 0
@@ -71,6 +73,36 @@ export function pickVenueFallback(results, query) {
   return matched[0]
 }
 
+// A point has exactly one voivodeship, which is what a name does not have.
+// "Ujazd" names settlements in six of them, so the forward search refuses to
+// answer, while the coordinates the source published resolve without a choice.
+//
+// The forward search asks for countrycodes=pl and reverse has no such switch, so
+// the country is checked here. A dostartu race in Návsí sits in Moravskoslezský
+// kraj, and that is not a voivodeship.
+export async function reverseGeocode(lat, lng) {
+  if (lat == null || lng == null) return { voivodeship: null }
+
+  const wait = RATE_LIMIT_MS - (Date.now() - lastRequestAt)
+  if (wait > 0) await new Promise(r => setTimeout(r, wait))
+  lastRequestAt = Date.now()
+
+  try {
+    const res = await fetch(
+      `${NOMINATIM_REVERSE_URL}?lat=${lat}&lon=${lng}&format=json&addressdetails=1&zoom=5`,
+      { headers: { 'User-Agent': USER_AGENT } }
+    )
+    const data = await res.json()
+    const address = data?.address
+    if (!address || String(address.country_code || '').toLowerCase() !== 'pl') {
+      return { voivodeship: null }
+    }
+    return { voivodeship: capitalizeVoivodeship(address.state || address.province) || null }
+  } catch {
+    return { voivodeship: null }
+  }
+}
+
 // `postcode` switches Nominatim to its structured endpoint. A postcode inside
 // the free-text `q` is simply ignored. "33-386 Podegrodzie" still returns both
 // the Małopolskie and the Zachodniopomorskie village. The structured city= +
@@ -116,7 +148,7 @@ async function geocode(locationQuery, { postcode = null, city = null } = {}) {
     }
 
     const res = await fetch(`${NOMINATIM_URL}?${params}`, {
-      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+      headers: { 'User-Agent': USER_AGENT },
     })
 
     const all = await res.json()
@@ -148,16 +180,7 @@ async function geocode(locationQuery, { postcode = null, city = null } = {}) {
       let rawState = address?.state || address?.province || null
 
       if (!rawState) {
-        await new Promise(r => setTimeout(r, RATE_LIMIT_MS))
-        lastRequestAt = Date.now()
-        try {
-          const revRes = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lng}&format=json&addressdetails=1&zoom=5`,
-            { headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' } }
-          )
-          const revData = await revRes.json()
-          rawState = revData?.address?.state || revData?.address?.province || null
-        } catch {}
+        rawState = (await reverseGeocode(coords.lat, coords.lng)).voivodeship
       }
 
       const voivodeship = capitalizeVoivodeship(rawState)
