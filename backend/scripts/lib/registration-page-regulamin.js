@@ -107,6 +107,7 @@ function readSection($, a) {
     branch.siblings().not(SECTION_LABEL).each((_, block) => {
       $(block).find(SECTION_LABEL).each((__, l) => rivals.push(citySlug($(l).text())))
     })
+    collectBareLabelRivals($, branch, rivals)
     branch = branch.parent()
     if (!branch.length || branch[0].tagName === 'body') break
   }
@@ -120,6 +121,42 @@ function readSection($, a) {
     years: [...new Set(text.match(/\b20\d{2}\b/g) || [])],
     rivals: rivals.filter(Boolean),
   }
+}
+
+/**
+ * The rivals a flat page states as bare siblings rather than inside a block.
+ *
+ * `<h2>…</h2><div>…</div><h2>…</h2><div>…</div>` introduces every section with
+ * a heading that stands BESIDE our block instead of wrapping it, so the scan
+ * for labels inside sibling blocks cannot reach it and the section next door
+ * loses its voice. That layout is at least as common as the nested menu, and
+ * on it a candidate could be disowned by nothing at all.
+ *
+ * Which of them count:
+ *
+ *   after us: a label heads what follows it, so every one of them heads a
+ *               later section.
+ *   before us: readSection() adopts the nearest as our own, and labels
+ *               touching it are the rest of one heading stack (<h1> page title
+ *               above an <h2> section). A label only becomes a rival once a
+ *               block stands between it and the label we adopted: that block
+ *               is what it heads. Without that rule `<h1>` above `<div>x</div>`
+ *               above us would be read as a rival naming us better than we
+ *               name ourselves, and the city tier tolerates no tie.
+ */
+function collectBareLabelRivals($, branch, rivals) {
+  branch.nextAll(SECTION_LABEL).each((_, l) => rivals.push(citySlug($(l).text())))
+
+  let adoptedOwn = false
+  let blockBetween = false
+  branch.prevAll().each((_, el) => {
+    if (!$(el).is(SECTION_LABEL)) {
+      blockBetween = true
+      return
+    }
+    if (adoptedOwn && blockBetween) rivals.push(citySlug($(el).text()))
+    adoptedOwn = true
+  })
 }
 
 /**

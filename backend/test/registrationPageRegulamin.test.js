@@ -307,3 +307,73 @@ test('a document that never stops sending is read only up to the cap', async () 
     ODT_43,
   )
 })
+
+// A page that introduces each section with a bare heading rather than wrapping
+// it: <h2>…</h2><div>…</div><h2>…</h2><div>…</div>. readSection() adopts the
+// nearest heading above a link as the link's own, so this layout attributes
+// correctly. But the heading beside us is a SIBLING of our block, not a
+// descendant of one, so the rival scan that only looked inside sibling blocks
+// could not see it. A candidate could then be disowned by nothing, which
+// matters here more than anywhere else: a deterministic fill skips both Claude
+// and the URL verifier, so the markup is the only thing standing between this
+// and a wrong regulamin written to the row.
+const FLAT_TWO_EDITIONS = `<html><body>
+  <h2>Jesienny Ultra Swir</h2>
+  <div><a href="/d/reg-jesienny.pdf">Regulamin</a></div>
+  <h2>Wyspowy Ultra Swir</h2>
+  <div><a href="/zapisy">Zapisy</a></div>
+</body></html>`
+
+test('a bare heading beside us is a rival, so the sibling edition keeps its rules', async () => {
+  const fetchImpl = stubFetch({
+    'https://example.pl/z': html(FLAT_TWO_EDITIONS),
+    'https://example.pl/d/reg-jesienny.pdf': JESIENNY_BYTES,
+  })
+  const row = { ...ROW, registration_url: 'https://example.pl/z' }
+  // The page really does link one regulamin: this is the single-candidate
+  // case, where nothing but the section labels can refuse it.
+  assert.equal(collectRegulaminDocLinks(FLAT_TWO_EDITIONS, 'https://example.pl/z').length, 1)
+  assert.equal(await resolveRegistrationPageRegulamin(row, { fetchImpl }), null)
+  assert.ok(!fetchImpl.calls.includes('https://example.pl/d/reg-jesienny.pdf'), fetchImpl.calls.join('\n'))
+})
+
+test('a bare heading above us is still our own, so the flat layout resolves', async () => {
+  // The same flat markup with the row's own edition holding the document. The
+  // rival rule must not eat the heading that describes us.
+  const markup = `<html><body>
+    <h2>Jesienny Ultra Swir</h2>
+    <div><a href="/zapisy">Zapisy</a></div>
+    <h2>Wyspowy Ultra Swir</h2>
+    <div><a href="/d/reg-wyspowy.pdf">Regulamin</a></div>
+  </body></html>`
+  const fetchImpl = stubFetch({
+    'https://example.pl/z': html(markup),
+    'https://example.pl/d/reg-wyspowy.pdf': REGULAMIN_BYTES,
+  })
+  const row = { ...ROW, registration_url: 'https://example.pl/z' }
+  assert.equal(
+    await resolveRegistrationPageRegulamin(row, { fetchImpl }),
+    'https://example.pl/d/reg-wyspowy.pdf',
+  )
+})
+
+test('a page title stacked above our own heading is not a rival', async () => {
+  // <h1> page title, <h2> section heading, then the block: the two headings
+  // touch, so they are one stack describing us. Held apart, the <h1> would
+  // become a rival naming our city better than we do. The city tier tolerates
+  // no tie, so it would drop the only candidate on the page.
+  const markup = `<html><body>
+    <h1>Biegi w Gdansku</h1>
+    <h2>Etap wiosenny</h2>
+    <div><a href="/d/reg-gdansk.pdf">Regulamin</a></div>
+  </body></html>`
+  const fetchImpl = stubFetch({
+    'https://example.pl/z': html(markup),
+    'https://example.pl/d/reg-gdansk.pdf': 'regulamin gdansk',
+  })
+  const row = { name: 'Etap wiosenny', date: '2027-04-10', location: 'Gdansk', registration_url: 'https://example.pl/z' }
+  assert.equal(
+    await resolveRegistrationPageRegulamin(row, { fetchImpl }),
+    'https://example.pl/d/reg-gdansk.pdf',
+  )
+})
