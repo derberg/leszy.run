@@ -136,6 +136,27 @@ export async function calendarEventsRoutes(fastify) {
 
     const { data, count, error } = await query
     if (error) return reply.status(500).send({ error: error.message })
+
+    // Why a column on this row is blank, when the pre-publish review has already
+    // worked it out. Before this, an agent would prove that an organizer had
+    // published no distances, write it to a log file, and the operator would see
+    // an unexplained empty cell and ask the same question again the next day.
+    const keyed = (data || []).filter((e) => e.source && e.source_id)
+    if (keyed.length > 0) {
+      const { data: verdicts } = await supabase
+        .from('prepublish_verdicts')
+        .select('source, source_id, field, verdict, summary, decided_at')
+        .in('source', [...new Set(keyed.map((e) => e.source))])
+        .in('source_id', [...new Set(keyed.map((e) => String(e.source_id)))])
+      const byRow = new Map()
+      for (const v of verdicts || []) {
+        const key = `${v.source}|${v.source_id}`
+        if (!byRow.has(key)) byRow.set(key, {})
+        byRow.get(key)[v.field] = { verdict: v.verdict, summary: v.summary, decided_at: v.decided_at }
+      }
+      for (const e of data) e.field_verdicts = byRow.get(`${e.source}|${e.source_id}`) || null
+    }
+
     return { data, total: count }
   })
 

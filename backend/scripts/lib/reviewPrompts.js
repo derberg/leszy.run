@@ -82,44 +82,58 @@ at all, because that answer decides whether there is a defect to fix.
 ${HOUSE_RULES}
 ## Answer
 
+Answer for EVERY field in the missing list above, separately. They usually have
+different causes: one may be a scraper bug while the next was simply never
+published. An event that is missing four fields needs four entries.
+
 Reply with one JSON object and nothing else.
 
 {
-  "verdict": "code-defect" | "absent-at-source" | "needs-human",
-  "summary": "one sentence naming what went wrong",
-  "missing_fields": ["regulamin_url"],
-  "defect": {
-    "layer": "scraper" | "merge" | "enricher" | "publish",
-    "file": "repo-relative path of the file to change",
-    "symbol": "the function to change",
-    "signature": "short phrase naming the defect, e.g. detail parser accepts only .pdf",
-    "explanation": "what the code does and what it should do",
-    "proposed_fix": "the change you would make"
-  },
-  "evidence": [
-    {"layer": "scraper_all", "observation": "regulamin_url is null"},
-    {"layer": "source page", "observation": "links Regulamin_2026.docx"}
-  ],
-  "blast_radius": {
-    "table": "scraper_all",
-    "filters": [
-      {"column": "source", "op": "eq", "value": "${candidate.source}"},
-      {"column": "regulamin_url", "op": "is", "value": null}
-    ],
-    "future_only": true
-  },
-  "confidence": 0.0
+  "fields": [
+    {
+      "field": "voivodeship",
+      "verdict": "code-defect" | "absent-at-source" | "needs-human",
+      "summary": "one sentence naming what went wrong for THIS field",
+      "defect": {
+        "layer": "scraper" | "merge" | "enricher" | "publish",
+        "file": "repo-relative path of the file to change",
+        "symbol": "the function to change",
+        "signature": "short phrase naming the defect, e.g. detail parser accepts only .pdf",
+        "explanation": "what the code does and what it should do",
+        "proposed_fix": "the change you would make"
+      },
+      "evidence": [
+        {"layer": "scraper_all", "observation": "voivodeship is null"},
+        {"layer": "source page", "observation": "the city is spelled Zegiesto Zdroj, which geocodes to nothing"}
+      ],
+      "blast_radius": {
+        "table": "scraper_all",
+        "filters": [
+          {"column": "source", "op": "eq", "value": "${candidate.source}"},
+          {"column": "voivodeship", "op": "is", "value": null}
+        ],
+        "future_only": true
+      },
+      "confidence": 0.0
+    }
+  ]
 }
 
 Rules for the answer:
 
-- "absent-at-source" is a correct and useful verdict. Use it when the organizer
-  published nothing. Set "defect" to null.
+- One entry per missing field. Do not merge two fields into one entry, and do
+  not answer for a field that is not in the missing list.
+- "absent-at-source" is a correct and useful verdict, and it is recorded so that
+  no later run pays to ask the same question again. Use it only when you fetched
+  the page and saw for yourself that the organizer published nothing. Set
+  "defect" to null.
 - "needs-human" when you cannot reach the source, or the cause is a judgement
   call about policy rather than a bug.
 - "blast_radius" describes the rows that share this defect, so that a fix can be
-  measured. Allowed ops: eq, neq, is, gt, gte, lt, lte, ilike. Allowed tables:
-  scraper_all, calendar_events, scraper_<source>.
+  measured AND so that the rows can be repaired after it merges. An enricher fix
+  is only propagated to the rows its radius names, so a radius that is missing
+  or wrong means the fix reaches nothing. Allowed ops: eq, neq, is, gt, gte, lt,
+  lte, ilike. Allowed tables: scraper_all, calendar_events, scraper_<source>.
 - Do not guess. If you did not verify a claim, do not make it.`
 }
 
@@ -127,10 +141,10 @@ export function fixPrompt({ group, blastRadius, branch }) {
   const findings = group.findings
     .map(
       (f, i) => `### Finding ${i + 1}: ${f.event.name} (${f.event.date}, ${f.event.source}:${f.event.source_id})
-missing: ${(f.missing_fields || []).join(', ')}
-${f.defect.explanation}
+field: ${f.field}
+${f.defect?.explanation || ''}
 
-proposed fix: ${f.defect.proposed_fix}
+proposed fix: ${f.defect?.proposed_fix || ''}
 
 evidence:
 ${(f.evidence || []).map((e) => `  - ${e.layer}: ${e.observation}`).join('\n')}`
@@ -245,5 +259,57 @@ Reply with one JSON object and nothing else:
   "reasoning": "two or three sentences",
   "concerns": ["..."],
   "breaks_other_cases": false
+}`
+}
+
+// A reviewer that asks for changes used to end the story. The branch was pushed,
+// the pull request was open, and the worktree it lived in was deleted at the end
+// of the run, so #163 and #164 sat untouched. The reviewer's concerns are the
+// most useful thing either agent produced: they name the case the author missed.
+// Hand them back once.
+export function revisePrompt({ group, review, branch, prNumber }) {
+  const concerns = (review?.concerns || []).map((c, i) => `${i + 1}. ${c}`).join('\n')
+
+  return `You wrote the change on branch ${branch} and opened pull request #${prNumber}.
+A reviewer read the diff without seeing your reasoning and asked for changes.
+Address what they said, or explain why they are wrong and change nothing.
+
+## What the reviewer said
+
+${review?.reasoning || '(no reasoning given)'}
+
+## Their specific concerns
+
+${concerns || '(none listed)'}
+
+## What to do
+
+1. Read each concern against the code you changed. A concern that names a case
+   your change breaks is the one that matters most.
+2. Where the reviewer is right, fix it, and extend the test in backend/test/ so
+   the case they named is covered. Where the reviewer is wrong, leave the code
+   alone and say so plainly in your answer.
+3. Do not widen the change to make a point. The smallest change that answers the
+   concern is the one that gets merged.
+4. Run: npm test --workspace=backend
+5. Commit on ${branch} and push. The pull request updates itself, so do not open
+   a second one.
+
+## Limits
+
+The same limits as before. Only backend/src/scrapers/, backend/src/lib/,
+backend/scripts/, backend/test/, enricher/. No database writes. No TypeScript.
+No Co-Authored-By trailer.
+${HOUSE_RULES}
+## Answer
+
+Finish with one JSON object and nothing else:
+
+{
+  "status": "revised" | "stands" | "failed",
+  "pr_number": ${prNumber},
+  "addressed": ["which concern, and what you changed"],
+  "disputed": ["which concern you think is wrong, and why"],
+  "summary": "one sentence"
 }`
 }

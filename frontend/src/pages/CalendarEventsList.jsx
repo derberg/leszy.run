@@ -301,6 +301,42 @@ function UrlCell({ event, field, onSave }) {
   )
 }
 
+// What the pre-publish review found out about the blank columns on this row.
+//
+// An agent fetches the organizer's page, proves that no distances were ever
+// published, and that used to go into a JSON file under backend/logs. The
+// operator reviewing this queue saw an empty cell and no reason for it, so the
+// same question was asked again the next night. The answer belongs here, on the
+// row, next to the column it explains.
+function FieldVerdicts({ event }) {
+  const verdicts = event.field_verdicts
+  if (!verdicts) return null
+  const entries = Object.entries(verdicts).filter(([field]) => {
+    const value = event[field]
+    const empty = value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)
+    return empty && !(event.locked_fields || []).includes(field)
+  })
+  if (entries.length === 0) return null
+
+  return (
+    <div className="flex gap-1 flex-wrap mt-0.5">
+      {entries.map(([field, v]) => (
+        <span
+          key={field}
+          className={`font-mono text-[9px] tracking-wide px-1 py-0.5 border ${
+            v.verdict === 'absent-at-source'
+              ? 'border-apex-border text-apex-muted'
+              : 'border-yellow-900 text-yellow-600'
+          }`}
+          title={`${v.summary || ''}${v.decided_at ? `\n\nsprawdzone ${String(v.decided_at).slice(0, 10)}` : ''}`}
+        >
+          {field}: {v.verdict === 'absent-at-source' ? 'organizator nie podał' : 'wymaga sprawdzenia'}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onReject }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const confirmRef = useRef(null)
@@ -324,6 +360,7 @@ function EventRow({ event, onSave, onDelete, showReviewActions, onApprove, onRej
           )}
           <span className="truncate min-w-0"><InlineEdit event={event} field="name" onSave={onSave} /></span>
         </div>
+        <FieldVerdicts event={event} />
       </td>
       <td className="py-2 px-2 text-xs max-w-[120px]"><div className="truncate"><InlineEdit event={event} field="location" onSave={onSave} /></div></td>
       <td className="py-2 px-2 text-xs max-w-[110px]"><div className="truncate"><InlineEdit event={event} field="voivodeship" onSave={onSave} /></div></td>

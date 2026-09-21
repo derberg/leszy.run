@@ -340,6 +340,7 @@ local), so all check-in data has a single source of truth in Supabase.
 - `event_results_summary` — read-only view aggregating per-event stats (participants, finishers, timed distances, fastest finisher) for past-event public pages; only `participants` + `distances` are currently surfaced. Created via a committed migration (deployed by the CI pipeline).
 - `event_category_best_times` — read-only view: best finish time per event × timed category × gender (`M`/`K` only; non-cancelled runs, untimed categories excluded). Feeds the past-event "Najlepsze czasy" table. Created via a committed migration (deployed by the CI pipeline).
 - `club_membership_log` — append-only club membership history (joined/left/removed/role_changed), written by the club edge functions; covered by export-my-data / delete-my-account (see GDPR section)
+- `prepublish_verdicts` — what the pre-publish review proved about one field of one event (`absent-at-source` / `needs-human`), one row per source+source_id+field. Read by the review step to skip settled fields and by `GET /api/calendar-events` to explain blank columns in the admin queue.
 - `club_slug_history` — former club slugs (old_slug → club_id) backing get-club's slug fallback and the static redirect stubs; rows deleted only when a club reclaims its own former slug
 
 ## Supabase sync — how it works
@@ -851,13 +852,52 @@ field down four layers: the projected `calendar_events` row, `scraper_all`,
 `scraper_<source>`, and the live source page. The layer where the field
 disappears is the layer with the defect.
 
+**A diagnosis answers per field, not per event.** An event missing four fields
+gets four verdicts, because those fields usually have four different causes. The
+older schema asked for one verdict per event, and on 2026-09-18 an agent looking
+at X-RUN Wielki Finał explained `price_from` and said nothing at all about
+`voivodeship`, so that field was never diagnosed, never grouped and never fixed.
+A field the agent skips now comes back as `needs-human` rather than as silence.
+
 Findings are then grouped by the file they name, so forty events become about
 ten defects. One fix agent per defect works in its own worktree, writes a
 failing test first, and opens a pull request. A second agent reviews the diff
 without seeing the fixer's reasoning, and only an approval reaches
-`gh pr merge`. After merging, the affected sources are re-scraped so the
-corrected code rewrites the rows. See
-`.claude/skills/auditing-event-data/SKILL.md` for the method itself.
+`gh pr merge`. See `.claude/skills/auditing-event-data/SKILL.md` for the method
+itself.
+
+**A reviewer asking for changes gets one revision round.** The concerns go back
+to the fix agent in the worktree it already has, and the diff is reviewed again.
+If it still does not pass, the pull request and its worktree are LEFT IN PLACE
+and named in the closing log line, because deleting the worktree throws away the
+only checkout where the change can be revised. #163 and #164 were orphaned that
+way.
+
+**Whether a pull request exists is GitHub's answer, not the agent's.** The
+orchestrator runs `gh pr list --head <branch>`. #161 was pushed and opened by an
+agent that then reported failure, and it appeared in no report at all.
+
+**A merged fix is propagated to the rows it was measured against.** A scraper fix
+re-scrapes that source with `--force` and clears `merged_at` so `run-merge`
+reconsiders the rows. An **enricher** fix clears `enriched_at`,
+`enriched_search_at` and `enriched_regulamin_at` on the rows in its blast radius,
+because the enricher only reads rows it has not enriched yet and so never
+revisits its own mistakes — on 2026-09-18 a merged enricher fix measured at 60
+rows repaired none of them, because only `sources/<name>.js` was recognised. A
+fix to shared code (`backend/src/lib/`, the merge) is left to the nightly
+re-scrape and said so in the log rather than silently skipped.
+
+**`absent-at-source` and `needs-human` verdicts are recorded in the
+`prepublish_verdicts` Supabase table** (`source`, `source_id`, `field`,
+`verdict`, `summary`, `evidence`, `decided_at`), one row per field of an event.
+Two things read it: the step itself skips a field settled within the last 30 days
+instead of paying an agent to re-derive it, and `GET /api/calendar-events`
+attaches the verdicts to each row as `field_verdicts` so the admin list shows
+*organizator nie podał* next to the blank column. The verdict expires after 30
+days because an organizer who has published nothing today may publish next month.
+It NEVER writes `locked_fields` — a field is still locked by a person pressing
+"brak", since an automatic lock would block the real value forever once the
+organizer published it.
 
 Run it by hand the way you run every other step:
 `cd backend && node --env-file=../.env scripts/run-prepublish-review.js`, and add

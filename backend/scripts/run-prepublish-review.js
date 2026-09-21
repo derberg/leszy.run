@@ -45,8 +45,15 @@ import {
   checkDiffPaths,
   countBlastRadius,
   mapWithConcurrency,
+  normalizeDiagnosis,
+  settledVerdicts,
+  unsettledFields,
+  pickPrNumber,
+  shouldKeepWorktree,
+  needsRevision,
+  planHeal,
 } from './lib/reviewAgents.js'
-import { diagnosePrompt, fixPrompt, reviewPrompt } from './lib/reviewPrompts.js'
+import { diagnosePrompt, fixPrompt, reviewPrompt, revisePrompt } from './lib/reviewPrompts.js'
 
 const argv = process.argv
 const flag = (name, fallback) => {
@@ -77,7 +84,21 @@ const log = (...a) => { if (!asJson) console.log(...a) }
 const sh = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, { encoding: 'utf-8', maxBuffer: 32 * 1024 * 1024, ...opts })
 
-// Phase 0. Which events would publish incomplete.
+// What earlier runs already proved. A field an agent has recently shown to be
+// unpublished is not bought a second time.
+async function loadSettled() {
+  const { data, error } = await supabase
+    .from('prepublish_verdicts')
+    .select('source, source_id, field, verdict, decided_at')
+  if (error) {
+    log(`      ! could not read prepublish_verdicts (${error.message}); every field will be diagnosed again`)
+    return new Set()
+  }
+  return settledVerdicts(data || [])
+}
+
+// Phase 0. Which events would publish incomplete, and which of their fields are
+// still open questions.
 async function selectCandidates() {
   log('[0/5] Asking run-publish what it would write...')
   const result = await publishToCalendar({ dryRun: true })
@@ -89,7 +110,22 @@ async function selectCandidates() {
     .filter((r) => r.ready === false)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
   log(`      ${rows.length} row(s) would be written, ${notReady.length} not ready to accept`)
-  return notReady.slice(0, LIMIT)
+
+  const settled = await loadSettled()
+  const open = []
+  let answered = 0
+  for (const row of notReady) {
+    const fields = unsettledFields(row, settled)
+    if (fields.length === 0) {
+      answered++
+      continue
+    }
+    // The agent is asked only about the fields still open, so a race whose
+    // regulamin was settled last week is not re-investigated for it.
+    open.push({ ...row, missing_required: fields, missing_all: row.missing_required })
+  }
+  if (answered > 0) log(`      ${answered} of them were already answered by an earlier run, so they are not diagnosed again`)
+  return { candidates: open.slice(0, LIMIT), notReady: notReady.length, answered }
 }
 
 // Every row a diagnose agent needs, fetched here so the agent can run without
@@ -124,25 +160,53 @@ async function diagnose(candidates) {
       sourceFile: `backend/src/scrapers/sources/${candidate.source}.js`,
     })
     const res = await runAgent({ prompt, cwd: REPO_ROOT, allowedTools: DIAGNOSE_TOOLS, model: 'sonnet', env })
-    if (!res.ok || !res.json) {
-      log(`      ? ${candidate.name}: ${res.error || 'no JSON returned'}`)
-      return null
+    if (!res.ok) log(`      ? ${candidate.name}: ${res.error || 'no JSON returned'}`)
+
+    // One finding per missing field. An answer that covers three fields out of
+    // four leaves the fourth as needs-human rather than as nothing, so a field
+    // the agent quietly skipped is still visible in the report.
+    const findings = normalizeDiagnosis(res.json, candidate)
+    findings.forEach((f, i) => { f.costUsd = i === 0 ? res.costUsd : 0 })
+    for (const f of findings) {
+      const mark = { 'code-defect': 'X', 'absent-at-source': '-', 'needs-human': '?' }[f.verdict] || '?'
+      log(`      ${mark} ${candidate.name} [${f.field}]: ${f.summary || f.verdict}`)
     }
-    const finding = {
-      ...res.json,
-      event: {
-        name: candidate.name,
-        date: candidate.date,
-        source: candidate.source,
-        source_id: candidate.source_id,
-      },
-      costUsd: res.costUsd,
-    }
-    const mark = { 'code-defect': 'X', 'absent-at-source': '-', 'needs-human': '?' }[finding.verdict] || '?'
-    log(`      ${mark} ${candidate.name}: ${finding.summary || finding.verdict}`)
-    return finding
+    return findings
   })
-  return results.filter(Boolean)
+  return results.filter(Boolean).flat()
+}
+
+// Phase 1b. Write down what was proved, so the next run does not buy it again
+// and the admin calendar can say why a column is blank.
+async function recordVerdicts(findings, runId) {
+  const rows = findings
+    .filter((f) => f.verdict === 'absent-at-source' || f.verdict === 'needs-human')
+    .map((f) => ({
+      source: f.event.source,
+      source_id: String(f.event.source_id),
+      field: f.field,
+      verdict: f.verdict,
+      summary: f.summary || null,
+      evidence: f.evidence || null,
+      event_name: f.event.name || null,
+      event_date: f.event.date || null,
+      decided_at: new Date().toISOString(),
+      run_id: runId,
+    }))
+  if (rows.length === 0) return 0
+  if (!apply) {
+    log(`      ${rows.length} verdict(s) would be recorded. Pass --apply to write them.`)
+    return 0
+  }
+  const { error } = await supabase
+    .from('prepublish_verdicts')
+    .upsert(rows, { onConflict: 'source,source_id,field' })
+  if (error) {
+    log(`      ! could not record verdicts: ${error.message}`)
+    return 0
+  }
+  log(`      recorded ${rows.length} verdict(s) for the admin calendar`)
+  return rows.length
 }
 
 // Phase 2. Collapse findings into distinct defects.
@@ -160,6 +224,9 @@ async function reconcile(findings) {
     const first = group.findings.find((f) => f.blast_radius)
     const measured = first ? await countBlastRadius(supabase, first.blast_radius) : { count: null }
     group.blastRadius = measured.count
+    // Kept because a merged enricher fix is propagated to exactly the rows this
+    // radius names. Without it the fix lands in the code and reaches no data.
+    group.radius = measured.count == null ? null : first.blast_radius
     log(`      ${group.file} (${group.layer}): ${group.findings.length} event(s)`
       + (measured.count != null ? `, ${measured.count} row(s) share it` : ''))
   }
@@ -225,111 +292,210 @@ function verifyFix(fix) {
   return { ok: problems.length === 0, problems, changedFiles }
 }
 
+// What GitHub says exists on this branch. The orchestrator used to take the
+// pull request number from the fix agent's own JSON and skip the review whenever
+// the agent reported anything other than "fixed". #161 was pushed and opened by
+// an agent that then reported failure, so it appears in no report and no one has
+// looked at it since.
+function prsForBranch(branch) {
+  try {
+    const out = sh('gh', ['pr', 'list', '--head', branch, '--state', 'all', '--json', 'number,state'])
+    return JSON.parse(out)
+  } catch {
+    return []
+  }
+}
+
 // Phase 4. An independent agent reads the diff, then the merge.
+//
+// A reviewer asking for changes is not the end. The fix agent gets the concerns
+// handed back once, in the worktree it already has, and the diff is reviewed
+// again. Only then is the outcome recorded.
 async function reviewAndMerge(fixes) {
-  log(`\n[4/5] Reviewing ${fixes.length} pull request(s)...`)
+  log(`\n[4/5] Reviewing ${fixes.length} branch(es)...`)
   let merged = 0
   const outcomes = []
 
   for (const fix of fixes) {
-    const record = { file: fix.group.file, branch: fix.branch, pr: fix.agent?.pr_number ?? null }
+    const pr = pickPrNumber(fix.agent, prsForBranch(fix.branch))
+    const record = { file: fix.group.file, branch: fix.branch, pr }
 
-    const check = verifyFix(fix)
-    if (!check.ok) {
-      log(`      REJECTED ${fix.group.file}: ${check.problems[0]}`)
-      outcomes.push({ ...record, outcome: 'rejected-by-rails', problems: check.problems })
-      continue
-    }
-
-    let diff = ''
-    try {
-      diff = sh('git', ['diff', 'origin/main...HEAD'], { cwd: fix.worktree }).slice(0, 60000)
-    } catch {
-      outcomes.push({ ...record, outcome: 'rejected-by-rails', problems: ['no diff'] })
+    if (!pr) {
+      const why = fix.status === 'fixed' ? 'the agent reported a fix but opened no pull request' : (fix.agent?.reason_if_no_change || fix.status || 'no pull request')
+      log(`      - ${fix.group.file}: ${why}`)
+      outcomes.push({ ...record, outcome: 'no-pull-request', problems: [why] })
       continue
     }
 
-    const res = await runAgent({
-      prompt: reviewPrompt({ group: fix.group, diff, prNumber: record.pr ?? 0 }),
-      cwd: fix.worktree,
-      allowedTools: REVIEW_TOOLS,
-      model: 'opus',
-    })
-    const verdict = res.json || { verdict: 'request-changes', reasoning: res.error || 'the reviewer returned nothing' }
-    record.review = verdict
+    let revisions = 0
+    let done = false
+    while (!done) {
+      const check = verifyFix(fix)
+      if (!check.ok) {
+        log(`      REJECTED ${fix.group.file}: ${check.problems[0]}`)
+        outcomes.push({ ...record, outcome: 'rejected-by-rails', problems: check.problems })
+        break
+      }
 
-    if (verdict.verdict !== 'approve') {
-      log(`      ${String(verdict.verdict).toUpperCase()} ${fix.group.file}: ${verdict.reasoning}`)
-      outcomes.push({ ...record, outcome: verdict.verdict })
-      continue
-    }
-    if (merged >= MAX_MERGES) {
-      log(`      HELD ${fix.group.file}: the merge cap of ${MAX_MERGES} is reached`)
-      outcomes.push({ ...record, outcome: 'held-at-merge-cap' })
-      continue
-    }
-    if (!record.pr) {
-      outcomes.push({ ...record, outcome: 'approved-but-no-pr' })
-      continue
-    }
-    try {
-      const [ghArgs, gitArgs] = mergeCommands(record.pr, fix.branch)
-      sh('gh', ghArgs, { cwd: fix.worktree })
-      merged++
-      // The branch is gone from the remote, but the merge already counted, so a
-      // failure to tidy up is not a failure to merge.
-      try { sh('git', gitArgs, { cwd: fix.worktree }) } catch {}
-      log(`      MERGED #${record.pr} ${fix.group.file}`)
-      outcomes.push({ ...record, outcome: 'merged' })
-    } catch (err) {
-      outcomes.push({ ...record, outcome: 'merge-failed', problems: [err.message.slice(0, 200)] })
+      let diff = ''
+      try {
+        diff = sh('git', ['diff', 'origin/main...HEAD'], { cwd: fix.worktree }).slice(0, 60000)
+      } catch {
+        outcomes.push({ ...record, outcome: 'rejected-by-rails', problems: ['no diff'] })
+        break
+      }
+
+      const res = await runAgent({
+        prompt: reviewPrompt({ group: fix.group, diff, prNumber: pr }),
+        cwd: fix.worktree,
+        allowedTools: REVIEW_TOOLS,
+        model: 'opus',
+      })
+      const verdict = res.json || { verdict: 'request-changes', reasoning: res.error || 'the reviewer returned nothing' }
+      record.review = verdict
+
+      if (verdict.verdict === 'approve') {
+        if (merged >= MAX_MERGES) {
+          log(`      HELD #${pr} ${fix.group.file}: the merge cap of ${MAX_MERGES} is reached`)
+          outcomes.push({ ...record, outcome: 'held-at-merge-cap' })
+          break
+        }
+        try {
+          const [ghArgs, gitArgs] = mergeCommands(pr, fix.branch)
+          sh('gh', ghArgs, { cwd: fix.worktree })
+          merged++
+          // The branch is gone from the remote, but the merge already counted, so
+          // a failure to tidy up is not a failure to merge.
+          try { sh('git', gitArgs, { cwd: fix.worktree }) } catch {}
+          log(`      MERGED #${pr} ${fix.group.file}`)
+          outcomes.push({ ...record, outcome: 'merged', radius: fix.group.radius, blastRadius: fix.group.blastRadius })
+        } catch (err) {
+          outcomes.push({ ...record, outcome: 'merge-failed', problems: [err.message.slice(0, 200)] })
+        }
+        break
+      }
+
+      if (needsRevision(verdict, revisions)) {
+        revisions++
+        log(`      REVISING #${pr} ${fix.group.file}: ${verdict.reasoning}`)
+        const rev = await runAgent({
+          prompt: revisePrompt({ group: fix.group, review: verdict, branch: fix.branch, prNumber: pr }),
+          cwd: fix.worktree,
+          allowedTools: FIX_TOOLS,
+          model: 'opus',
+          timeoutMs: 30 * 60 * 1000,
+        })
+        record.revision = rev.json || { status: 'failed', summary: rev.error || 'the revising agent returned nothing' }
+        if (record.revision.status === 'failed') {
+          log(`      ${String(verdict.verdict).toUpperCase()} #${pr} ${fix.group.file}: the revision failed`)
+          outcomes.push({ ...record, outcome: verdict.verdict, revisions })
+          break
+        }
+        continue
+      }
+
+      log(`      ${String(verdict.verdict).toUpperCase()} #${pr} ${fix.group.file}: ${verdict.reasoning}`)
+      outcomes.push({ ...record, outcome: verdict.verdict, revisions })
+      done = true
     }
   }
 
+  // A worktree whose pull request is still open is the only checkout where that
+  // change can be revised by hand, so it stays. Deleting it is what orphaned
+  // #163 and #164.
+  const kept = []
   for (const fix of fixes) {
+    const record = outcomes.find((o) => o.branch === fix.branch)
+    if (shouldKeepWorktree(record)) {
+      kept.push({ pr: record.pr, branch: fix.branch, worktree: fix.worktree, file: fix.group.file })
+      continue
+    }
     try { sh('bash', ['scripts/worktree.sh', 'rm', fix.branch], { cwd: MAIN_ROOT }) } catch {}
   }
-  return { outcomes, merged }
+  for (const k of kept) {
+    log(`      kept ${k.branch} for PR #${k.pr}, which is still open`)
+  }
+  return { outcomes, merged, kept }
 }
 
-// Phase 5. Re-scrape so the corrected code rewrites the rows.
+// Phase 5. Make the merged fixes reach the data.
 //
-// run-merge only reads raw rows where merged_at IS NULL, so a re-scrape on its
-// own leaves scraper_all holding the old value. The stamp is cleared for the
-// affected source and only for events that have not happened yet, which is the
-// set worth rebuilding.
-async function healSources(mergedOutcomes) {
-  const sources = [...new Set(
+// This used to recognise backend/src/scrapers/sources/<name>.js and nothing
+// else. On 2026-09-18 the one merged pull request fixed the enricher's regulamin
+// search and had been measured against 60 rows, and this step logged "No source
+// scraper changed, so there is nothing to re-scrape". All 60 rows kept the value
+// the broken code had written.
+//
+// Each kind of fix needs a different push:
+//   a scraper     re-scrape that source with --force, then merge again, because
+//                 run-merge only reads raw rows where merged_at IS NULL
+//   the enricher  clear the enrichment stamps on the rows the defect was
+//                 measured against, because the enricher only ever reads rows it
+//                 has not enriched yet and so never revisits its own mistakes
+//   shared code   the nightly pipeline re-scrapes every source at 08:00 anyway
+async function runHeal(mergedOutcomes) {
+  const plan = planHeal(
     mergedOutcomes
       .filter((o) => o.outcome === 'merged')
-      .map((o) => /backend\/src\/scrapers\/sources\/([a-z0-9]+)\.js$/.exec(o.file)?.[1])
-      .filter(Boolean)
-  )]
-  if (sources.length === 0) {
-    log('\n[5/5] No source scraper changed, so there is nothing to re-scrape.')
-    return { sources: [], ran: false }
-  }
-  log(`\n[5/5] Re-scraping ${sources.join(', ')} so the fixed code rewrites the rows...`)
+      .map((o) => ({ file: o.file, radius: o.radius, blastRadius: o.blastRadius }))
+  )
   const today = new Date().toISOString().slice(0, 10)
-  const list = sources.join(',')
   const backend = path.join(MAIN_ROOT, 'backend')
-  sh('git', ['pull', '--ff-only'], { cwd: MAIN_ROOT })
-  sh('node', ['--env-file=../.env', 'scripts/run-scrapers.js', '--only', list, '--force', list], { cwd: backend, stdio: 'inherit' })
-  for (const source of sources) {
-    const { error } = await supabase.from(`scraper_${source}`).update({ merged_at: null }).gte('date', today)
-    if (error) log(`      ! could not clear merged_at on scraper_${source}: ${error.message}`)
+  const done = { rescraped: [], reenriched: [], nightly: plan.nightly, unhealed: plan.unhealed }
+
+  if (plan.rescrape.length === 0 && plan.reenrich.length === 0) {
+    log('\n[5/5] Nothing merged needs a re-scrape or a re-enrichment.')
+    for (const n of plan.nightly) log(`      ${n.file}: ${n.reason}`)
+    for (const u of plan.unhealed) log(`      ! ${u.file}: ${u.reason}`)
+    return done
   }
-  sh('node', ['--env-file=../.env', 'scripts/run-merge.js', '--apply'], { cwd: backend, stdio: 'inherit' })
-  sh('node', ['--env-file=../.env', 'scripts/run-normalize.js', '--apply'], { cwd: backend, stdio: 'inherit' })
-  return { sources, ran: true }
+
+  log('\n[5/5] Propagating the merged fixes into the rows...')
+  sh('git', ['pull', '--ff-only'], { cwd: MAIN_ROOT })
+
+  if (plan.rescrape.length > 0) {
+    const list = plan.rescrape.join(',')
+    log(`      re-scraping ${list}`)
+    sh('node', ['--env-file=../.env', 'scripts/run-scrapers.js', '--only', list, '--force', list], { cwd: backend, stdio: 'inherit' })
+    for (const source of plan.rescrape) {
+      const { error } = await supabase.from(`scraper_${source}`).update({ merged_at: null }).gte('date', today)
+      if (error) log(`      ! could not clear merged_at on scraper_${source}: ${error.message}`)
+      else done.rescraped.push(source)
+    }
+    sh('node', ['--env-file=../.env', 'scripts/run-merge.js', '--apply'], { cwd: backend, stdio: 'inherit' })
+    sh('node', ['--env-file=../.env', 'scripts/run-normalize.js', '--apply'], { cwd: backend, stdio: 'inherit' })
+  }
+
+  for (const job of plan.reenrich) {
+    let query = supabase.from(job.radius.table).update(Object.fromEntries(job.columns.map((c) => [c, null])))
+    for (const f of job.radius.filters) query = query[f.op](f.column, f.value)
+    if (job.radius.future_only) query = query.gte('date', today)
+    const { error, count } = await query.select('*', { count: 'exact', head: true })
+    if (error) {
+      log(`      ! could not clear the enrichment stamps for ${job.file}: ${error.message}`)
+      done.unhealed.push({ file: job.file, reason: error.message })
+      continue
+    }
+    log(`      cleared the enrichment stamps on ${count ?? '?'} row(s) for ${job.file}; the next enricher run re-reads them`)
+    done.reenriched.push({ file: job.file, rows: count ?? null })
+  }
+
+  for (const n of plan.nightly) log(`      ${n.file}: ${n.reason}`)
+  for (const u of plan.unhealed) log(`      ! ${u.file}: ${u.reason}`)
+  return done
 }
 
 async function main() {
   const startedAt = new Date().toISOString()
-  const selected = await selectCandidates()
+  const { candidates: selected, notReady, answered } = await selectCandidates()
   if (selected.length === 0) {
-    log('\nEvery row that would publish is ready to accept. There is nothing to review.')
-    return { exitCode: 0, report: { startedAt, candidates: [], findings: [], defects: [] } }
+    // Three different reasons land here and they are not the same news. Saying
+    // "everything is ready" when seven rows are incomplete and merely settled is
+    // how a step stops being believed.
+    if (notReady === 0) log('\nEvery row that would publish is ready to accept. There is nothing to review.')
+    else if (answered === notReady) log(`\nAll ${notReady} incomplete row(s) were already answered by an earlier run. Nothing new to diagnose.`)
+    else log(`\n${notReady} row(s) are incomplete but none were selected. Check --limit.`)
+    return { exitCode: 0, report: { startedAt, notReady, answered, candidates: [], findings: [], defects: [] } }
   }
 
   // A row that does not say where it came from cannot be traced through the four
@@ -344,13 +510,32 @@ async function main() {
   }
 
   const findings = await diagnose(candidates)
+  const recorded = await recordVerdicts(findings, startedAt)
   const groups = await reconcile(findings)
+
+  // A field nobody published and a field nobody could reach are both answers the
+  // operator needs, and neither produces a pull request. They used to end up
+  // only in this file. They are now on the row in the admin calendar as well.
+  const absent = findings.filter((f) => f.verdict === 'absent-at-source')
+  const human = findings.filter((f) => f.verdict === 'needs-human')
+  if (absent.length > 0) {
+    log(`\n      ${absent.length} field(s) are genuinely unpublished at source:`)
+    for (const f of absent) log(`        ${f.event.name} [${f.field}]: ${f.summary}`)
+  }
+  if (human.length > 0) {
+    log(`\n      ${human.length} field(s) need a person:`)
+    for (const f of human) log(`        ${f.event.name} [${f.field}]: ${f.summary}`)
+  }
+
   const report = {
     startedAt,
     apply,
     candidates: candidates.map((c) => ({ name: c.name, date: c.date, source: c.source, missing: c.missing_required })),
     undiagnosable: undiagnosable.map((u) => ({ name: u.candidate?.name, date: u.candidate?.date, reason: u.reason })),
     findings,
+    absentAtSource: absent.map((f) => ({ event: f.event.name, field: f.field, summary: f.summary })),
+    needsHuman: human.map((f) => ({ event: f.event.name, field: f.field, summary: f.summary })),
+    verdictsRecorded: recorded,
     defects: groups.map((g) => ({ file: g.file, layer: g.layer, events: g.events.length, blastRadius: g.blastRadius, signatures: g.signatures })),
     costUsd: findings.reduce((sum, f) => sum + (f.costUsd || 0), 0),
   }
@@ -360,13 +545,19 @@ async function main() {
     return { exitCode: groups.length > 0 ? 2 : 0, report }
   }
 
-  const fixes = (await fixAll(groups)).filter((f) => f.status === 'fixed')
-  const { outcomes, merged } = await reviewAndMerge(fixes)
+  // Every branch that got a worktree goes to review. Whether a pull request
+  // exists is GitHub's answer, not the fix agent's.
+  const fixes = (await fixAll(groups)).filter((f) => f.worktree)
+  const { outcomes, merged, kept } = await reviewAndMerge(fixes)
   report.pullRequests = outcomes
   report.merged = merged
-  report.heal = heal && merged > 0 ? await healSources(outcomes) : { sources: [], ran: false }
+  report.openPullRequests = kept
+  report.heal = heal && merged > 0 ? await runHeal(outcomes) : { rescraped: [], reenriched: [], nightly: [], unhealed: [] }
 
   log(`\nMerged ${merged} pull request(s). Read the report, then run run-publish --apply.`)
+  if (kept.length > 0) {
+    log(`${kept.length} pull request(s) are open and waiting for you: ${kept.map((k) => `#${k.pr}`).join(', ')}`)
+  }
   return { exitCode: groups.length > 0 ? 2 : 0, report }
 }
 
