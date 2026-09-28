@@ -3,7 +3,7 @@ import { execSync } from 'child_process'
 import { writeFileSync, unlinkSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { AI_FILLABLE, pickFillable, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
+import { AI_FILLABLE, pickFillable, fieldsNeedingFill, applyRegistryUpdates, fillFreeEntryPrices } from './lib/ai-fillable.js'
 import { looksLikeRegulamin } from '../src/lib/looksLikeRegulamin.js'
 import { dropUnsupportedFields } from '../src/lib/extractionEvidence.js'
 import { dropsDistances } from './lib/distances.js'
@@ -450,6 +450,11 @@ async function main() {
         if (droppedFields.length > 0) {
           console.log(`    DROP (unsupported by document): ${droppedFields.join(', ')}`)
         }
+        // A regulamin that says "bez opłaty startowej" states the fee: it is 0.
+        // The model reads "no number" as "not stated" and answers null, which
+        // published herkules:4279 with an empty price.
+        fillFreeEntryPrices(extracted, download.text)
+        if (extracted.price_from === 0) console.log('    FREE: document states no entry fee — price 0')
       }
 
       // Distances. Claude's extraction REPLACES existing (the regulamin is

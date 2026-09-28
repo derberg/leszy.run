@@ -7,6 +7,8 @@
 //   promptHint         — short description handed to the LLM
 //   validate(v, row)   — return validated value or null/undefined to drop
 
+import { hasFreeEvidence } from '../../src/lib/extractionEvidence.js'
+
 export const VALID_EVENT_TYPES = [
   'uliczny', 'przełajowy', 'górski', 'nocny', 'ocr',
   'nordic walking', 'ultra', 'charytatywny',
@@ -71,7 +73,7 @@ export const AI_FILLABLE = {
   },
   price_from: {
     isEmpty: r => r.price_from == null,
-    promptHint: 'lowest registration fee in PLN (integer złote, not groszy)',
+    promptHint: 'lowest registration fee in PLN (integer złote, not groszy). A document that says entry costs nothing ("bez opłaty startowej", "udział jest bezpłatny", "wpisowe: 0 zł") HAS stated the fee — answer 0, not null',
     validate: v => {
       const n = Number(v)
       return Number.isFinite(n) && n >= 0 ? Math.round(n) : null
@@ -79,7 +81,7 @@ export const AI_FILLABLE = {
   },
   price_to: {
     isEmpty: r => r.price_to == null,
-    promptHint: 'highest registration fee in PLN (integer złote)',
+    promptHint: 'highest registration fee in PLN (integer złote). A document that says entry costs nothing ("bez opłaty startowej", "udział jest bezpłatny", "wpisowe: 0 zł") HAS stated the fee — answer 0, not null',
     validate: v => {
       const n = Number(v)
       return Number.isFinite(n) && n >= 0 ? Math.round(n) : null
@@ -121,6 +123,29 @@ export function fieldsNeedingFill(row, registry = AI_FILLABLE) {
   return Object.entries(registry)
     .filter(([_, def]) => def.isEmpty(row))
     .map(([k]) => k)
+}
+
+/**
+ * Supply the price a "no entry fee" document states without writing a number.
+ *
+ * herkules:4279 "Bieg Niepodległości" published with no price: its regulamin
+ * says "BEZ OPŁATY STARTOWEJ !!!!" and the model, asked for a fee "or null if
+ * not stated", found no digits and answered null. Free is a value, so the
+ * prompt hint alone is not enough — fill it deterministically too. The wording
+ * test is hasFreeEvidence(), the same one the evidence gate uses, so anything
+ * supplied here is a value that gate would have let through.
+ *
+ * Only ever fills an empty field; a fee the model did read always wins.
+ *
+ * @param {object} llmResult  the LLM's parsed JSON (mutated in place)
+ * @param {string} text       the document the extraction came from
+ */
+export function fillFreeEntryPrices(llmResult, text) {
+  if (!llmResult || typeof llmResult !== 'object') return
+  if (!hasFreeEvidence(text)) return
+  for (const f of ['price_from', 'price_to']) {
+    if (llmResult[f] === undefined || llmResult[f] === null) llmResult[f] = 0
+  }
 }
 
 export function applyRegistryUpdates(row, llmResult, fields, registry = AI_FILLABLE) {
