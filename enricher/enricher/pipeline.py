@@ -30,6 +30,39 @@ from enricher.steps.verify import verify_search_candidate
 # broken crawler rather than a run that happened to hit only dead sites.
 _CRAWL_SHUTOUT_MIN_ATTEMPTS = 5
 
+# The fields a regulamin is the authority on. Only these carry over from a
+# second extraction pass — the URL answers stay with the pass that picked them.
+_REGULAMIN_FIELDS = (
+    "distances", "event_types", "price_from", "price_to",
+    "registration_deadline", "voivodeship", "location", "is_kids",
+)
+
+
+async def _read_regulamin(url: str, config: Config) -> tuple[Optional[str], Optional[str]]:
+    """Fetch one regulamin and return (html_content, doc_text); at most one is set.
+
+    Same branching as Step 4, for a URL that has no UrlStatus yet: classify it,
+    then download+extract a PDF / docx / Drive item, or crawl an HTML page.
+    """
+    status = validate_urls({"regulamin_url": url}, timeout=config.url_timeout).get("regulamin_url")
+    kind = status.kind if status else None
+    final = (status.final_url or url) if status else url
+
+    if kind == "pdf":
+        pdf_path = await download_pdf(final)
+        if pdf_path:
+            text = extract_pdf_text(pdf_path, max_chars=config.max_pdf_chars)
+            cleanup_pdf(pdf_path)
+            if text:
+                return None, text
+        # download failed — a PDF-looking URL that serves a page still has text
+    elif kind in _DOC_KINDS:
+        return None, await extract_regulamin_doc(final, kind, max_chars=config.max_pdf_chars)
+
+    crawled = await crawl_pages({"regulamin_url": final}, max_chars=config.max_page_chars)
+    result = crawled.get("regulamin_url")
+    return (result.content if result else None), None
+
 
 async def process_event(event: dict, config: Config) -> dict:
     """Process a single event through all enrichment steps. Returns result dict."""
@@ -372,6 +405,64 @@ async def process_event(event: dict, config: Config) -> dict:
     # to read — that's what makes the LLM authoritative on event_types/is_kids.
     had_content = bool(regulamin_content or pdf_text)
     updates = build_updates(event, llm_result or {}, url_statuses, search_candidates, config, had_content)
+
+    # Which regulamin's text actually fed the extraction above. A merge-step pick
+    # that differs from this one was never opened in this run.
+    read_regulamin_url = working_urls.get("regulamin_url") if had_content else None
+    if not read_regulamin_url and pdf_text:
+        read_regulamin_url = discovered_pdf_url
+
+    # Step 6b: Read a regulamin this run only just discovered.
+    #
+    # When the event carried none, extraction runs off the registration page
+    # (the Step 3c fallback) and the LLM lifts a rules-document link out of it.
+    # _merge_urls writes that link and run_pipeline stamps enriched_at, so
+    # fetch_events' default query (enriched_at IS NULL) never comes back for the
+    # row. ZPGS 2027 (2027-01-16, b4sport:13127) published with price_from and
+    # registration_deadline null for exactly that reason: b4sport hides the fee
+    # behind its own checkout, and the regulamin the run stored says 230 zł and
+    # 14.01.2027. Open it now and extract again from the document itself.
+    picked_regulamin = updates.get("regulamin_url")
+    if picked_regulamin and picked_regulamin != read_regulamin_url:
+        reg_html, reg_doc = await _read_regulamin(picked_regulamin, config)
+        result["steps"]["regulamin_pass"] = {
+            "url": picked_regulamin,
+            "extracted_chars": len(reg_html or reg_doc or ""),
+        }
+        if reg_html or reg_doc:
+            reg_content = {"regulamin_url": reg_html} if reg_html else {}
+            reg_texts = list(reg_content.values())
+            if reg_doc:
+                reg_texts.append(reg_doc)
+            reg_hints = extract_hints(reg_texts, event_date=event.get("date"))
+            result["steps"]["regulamin_pass"]["prepass"] = {
+                k: v for k, v in reg_hints.items() if v is not None
+            }
+
+            reg_llm = call_ollama(
+                build_prompt(event, reg_content, reg_doc, config, hints=reg_hints), config
+            ) or {}
+            reg_llm.pop("_duration_s", None)
+            for key in ("price_from", "price_to", "registration_deadline"):
+                if reg_llm.get(key) in (None, "") and reg_hints.get(key) is not None:
+                    reg_llm[key] = reg_hints[key]
+
+            # The document overrules the page it was found on, field by field.
+            # URLs are left out of this merge entirely — pass 1 already picked
+            # them, and re-running _merge_urls would only re-fetch every
+            # candidate to verify an answer we are about to discard anyway.
+            merged_llm = {k: v for k, v in llm_result.items() if k in _REGULAMIN_FIELDS}
+            for key in _REGULAMIN_FIELDS:
+                value = reg_llm.get(key)
+                if value not in (None, "", []):
+                    merged_llm[key] = value
+
+            second = build_updates(event, merged_llm, url_statuses, {}, config, True)
+            for field in ("registration_url", "regulamin_url"):
+                if field in updates:
+                    second[field] = updates[field]
+            updates = second
+
     result["updates"] = updates
     result["steps"]["merge"] = {
         "fields_updated": [k for k in updates if k not in ("registration_url", "regulamin_url")],
@@ -654,6 +745,10 @@ def _print_step(name, data):
         src = data.get("source", "existing")
         url_note = f" ({data['url']})" if src == "discovered" and data.get("url") else ""
         click.echo(f"    pdf ({src}){url_note}: {data.get('extracted_chars', 0)} chars")
+    elif name == "regulamin_pass":
+        click.echo(
+            f"    regulamin pass: {data.get('extracted_chars', 0)} chars from {data.get('url')}"
+        )
     elif name == "prepass":
         parts = []
         if data.get("price_from") is not None:
