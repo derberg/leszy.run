@@ -453,7 +453,7 @@ async function main() {
         // A regulamin that says "bez opłaty startowej" states the fee: it is 0.
         // The model reads "no number" as "not stated" and answers null, which
         // published herkules:4279 with an empty price.
-        fillFreeEntryPrices(extracted, download.text)
+        fillFreeEntryPrices(extracted, download.text, row)
         if (extracted.price_from === 0) console.log('    FREE: document states no entry fee — price 0')
       }
 

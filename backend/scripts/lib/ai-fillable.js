@@ -131,18 +131,32 @@ export function fieldsNeedingFill(row, registry = AI_FILLABLE) {
  * herkules:4279 "Bieg Niepodległości" published with no price: its regulamin
  * says "BEZ OPŁATY STARTOWEJ !!!!" and the model, asked for a fee "or null if
  * not stated", found no digits and answered null. Free is a value, so the
- * prompt hint alone is not enough — fill it deterministically too. The wording
- * test is hasFreeEvidence(), the same one the evidence gate uses, so anything
- * supplied here is a value that gate would have let through.
+ * prompt hint alone is not enough — fill it deterministically too.
+ *
+ * hasFreeEvidence() is borrowed only as the wording test; it is a REJECT-only
+ * gate (see extractionEvidence.js) and matching it is a necessary condition
+ * here, never a sufficient one. It fires on a per-category waiver too: a paid
+ * regulamin reading "50 zł, dzieci do lat 7 bez opłaty startowej" matches. So
+ * does hasFeeEvidence(), which the word "opłat" puts in every free regulamin —
+ * it cannot tell the two apart, and a "any złotówka amount means paid" test
+ * would misfire on the prize money a free race still lists. What does tell
+ * them apart is a fee already known: if the row carries a non-zero price, or
+ * the model read one out of this same document, the document charges somebody
+ * and we are looking at a waiver, not a free race. Then we fill nothing.
  *
  * Only ever fills an empty field; a fee the model did read always wins.
  *
  * @param {object} llmResult  the LLM's parsed JSON (mutated in place)
  * @param {string} text       the document the extraction came from
+ * @param {object} row        the row being enriched, for prices already stored
  */
-export function fillFreeEntryPrices(llmResult, text) {
+export function fillFreeEntryPrices(llmResult, text, row = {}) {
   if (!llmResult || typeof llmResult !== 'object') return
   if (!hasFreeEvidence(text)) return
+  const charges = v => v != null && Number.isFinite(Number(v)) && Number(v) !== 0
+  for (const f of ['price_from', 'price_to']) {
+    if (charges(llmResult[f]) || charges(row?.[f])) return
+  }
   for (const f of ['price_from', 'price_to']) {
     if (llmResult[f] === undefined || llmResult[f] === null) llmResult[f] = 0
   }
@@ -160,8 +174,13 @@ export function applyRegistryUpdates(row, llmResult, fields, registry = AI_FILLA
     if (Array.isArray(validated) && validated.length === 0) continue
     updates[field] = validated
   }
-  // Cross-field price sanity
-  if (updates.price_from != null && updates.price_to != null && updates.price_from > updates.price_to) {
+  // Cross-field price sanity, against the pair the row ENDS UP with. Only an
+  // empty column is ever fillable, so half a price pair arrives here alone:
+  // price_to=0 onto a stored price_from=50 compared nothing against nothing
+  // and wrote the inverted pair run-data-audit.js flags as `inverted`.
+  const finalFrom = updates.price_from != null ? updates.price_from : row?.price_from
+  const finalTo = updates.price_to != null ? updates.price_to : row?.price_to
+  if (finalFrom != null && finalTo != null && finalFrom > finalTo) {
     delete updates.price_from
     delete updates.price_to
   }
