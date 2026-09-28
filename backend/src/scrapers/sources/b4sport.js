@@ -4,6 +4,7 @@ import { verifyPdf } from '../../lib/verifyPdf.js'
 const BASE_URL = 'https://b4sportonline.pl'
 const LIST_URL = `${BASE_URL}/kalendarz/`
 const MAX_PAGES = 50 // safety cap — ~500 events max per run
+const MAX_CONTENT_PAGES = 4 // per organizer, on top of the index and /regulamin routes
 
 // Polish genitive month names as they appear in card dates, e.g. "18 Kwietnia 2026"
 const POLISH_MONTHS = {
@@ -143,24 +144,54 @@ function nameTokens(name) {
   )]
 }
 
-// Collect candidate regulamin links from a loaded page: PDFs anywhere, plus
-// HTML pages under this organizer's own b4sport path. Only links whose href or
-// text mentions "regulamin" qualify (skips oświadczenie/zgoda documents).
+// The b4sport path a link points at, or null when it leaves b4sport. Matched on
+// the host, not on BASE_URL: b4sport links to itself over http as well as https,
+// and an http self-link read as "another domain" would skip the slug check.
+function b4sportPath(href) {
+  if (!href.startsWith('http')) return href.startsWith('/') ? href : `/${href}`
+  try {
+    const u = new URL(href)
+    return /(^|\.)b4sportonline\.pl$/i.test(u.hostname) ? `${u.pathname}${u.search}` : null
+  } catch {
+    return '/' // unparseable — treat as b4sport's own, so the slug check drops it
+  }
+}
+
+// Collect candidate regulamin links from a loaded page: PDFs anywhere, HTML
+// pages under this organizer's own b4sport path, and HTML pages on any other
+// domain. Only links whose href or text mentions "regulamin" qualify (skips
+// oświadczenie/zgoda documents).
 //
 // Not every organizer publishes a PDF. TKKF Koszalin serves its regulamin as
 // an ordinary page at /Biegi_Koszalin_2016/mile, where a PDF-only collector
 // finds nothing. Distances, price and registration deadline all live in the
-// regulamin, so that page is the only source for any of them. HTML candidates
-// are scoped to `/<slug>/`, which keeps another organizer's regulamin out.
-function collectRegulaminLinks($, slug) {
+// regulamin, so that page is the only source for any of them.
+//
+// Inside b4sport the path names the owner, so candidates stay scoped to
+// `/<slug>/` and another organizer's regulamin is kept out. Off b4sport there
+// is no such path to read, and the restriction only cost us real documents:
+// the same TKKF Koszalin links its Bieg Sylwestrowy regulamin to
+// biegikoszalin.eu, its own domain. verifyRegulaminPage() already refuses a
+// page that does not carry this event's name, so the domain check was
+// duplicate safety.
+//
+// `context` is the label of the page the links were found on. A race page says
+// which race it is about, and the link on it often says no more than
+// "Regulamin", so the label is what lets pickRegulamin() tell two regulamins on
+// one organizer apart. It is kept in its own field, never folded into `hay`:
+// it describes the page, not the document, so only the name tier may read it.
+// A label that happens to name a city would otherwise make the city tier see
+// two matches in a series that used to resolve on one.
+function collectRegulaminLinks($, slug, context = '') {
   const out = []
-  const push = (href, text, kind) => {
+  const ctx = citySlug(context)
+  const push = (href, text, kind, offsite = false) => {
     const hay = `${href} ${text}`.toLowerCase()
     if (!hay.includes('regulamin')) return
     const url = href.startsWith('http')
       ? href
       : `${BASE_URL}${href.startsWith('/') ? '' : '/'}${href}`
-    out.push({ url, hay: citySlug(hay), text, kind })
+    out.push({ url, hay: citySlug(hay), context: ctx, text, kind, offsite })
   }
 
   $('a[href]').each((_, a) => {
@@ -172,15 +203,71 @@ function collectRegulaminLinks($, slug) {
       push(href, text, 'pdf')
       return
     }
-    if (!slug) return
-    // Same-organizer HTML page only.
-    const path = href.startsWith('http')
-      ? (href.startsWith(BASE_URL) ? href.slice(BASE_URL.length) : null)
-      : (href.startsWith('/') ? href : `/${href}`)
-    if (!path || !path.startsWith(`/${slug}/`)) return
-    push(href, text, 'html')
+    const path = b4sportPath(href)
+    if (path !== null) {
+      // On b4sport the path names the owner, so this organizer's pages only.
+      // With no slug there is nothing to check a path against, and an
+      // unparseable href resolves to '/', so both fall out here.
+      if (!slug || !path.startsWith(`/${slug}/`)) return
+      push(href, text, 'html')
+      return
+    }
+    // Off b4sport there is no path to read, and the domain check only ever
+    // cost us real documents. Flagged, because this is the one class of
+    // candidate that did not exist before: pickRegulamin() lets it win a tier,
+    // never lets it take a tier away from something that used to win.
+    push(href, text, 'html', true)
   })
   return out
+}
+
+// Routes on an organizer's site that carry no editorial text: the registration
+// wizard, the participant and result lists, the gallery, the ticket form. Every
+// other `/<slug>/<page>` is something the organizer wrote.
+const NON_CONTENT_ROUTE = /^(index|regulamin|gallery|galeria|contact|kontakt|tickets|zapisy|rejestracja|logowanie|lista_|listy_|wyniki|results)/i
+
+// The organizer's own content pages, as linked from the index, mapped to the
+// menu label that names them. b4sport gives each race on a site a page of its
+// own at /<slug>/<race>, and that page is where TKKF Koszalin keeps the only
+// link to the Bieg Sylwestrowy regulamin — the index and the /regulamin route
+// both list the unrelated Mile Biegowe one instead.
+function collectContentPages($, slug) {
+  const out = new Map()
+  if (!slug) return out
+  const prefix = `/${slug}/`
+
+  $('a[href]').each((_, a) => {
+    const href = ($(a).attr('href') || '').trim()
+    if (!href || href.startsWith('#')) return
+    const path = b4sportPath(href)
+    if (!path || !path.startsWith(prefix)) return
+    const page = path.slice(prefix.length).replace(/[?#].*$/, '').replace(/\/$/, '')
+    // One segment only: /<slug>/<race>/<id> is a registration or list page.
+    if (!page || page.includes('/')) return
+    if (NON_CONTENT_ROUTE.test(page)) return
+    const url = `${BASE_URL}${prefix}${page}`
+    if (!out.has(url)) out.set(url, $(a).text().trim())
+  })
+  return out
+}
+
+// A menu entry that names a race: a discipline word, or an edition year. The
+// informational pages that pad a long menu — Aktualności, Trasa, Nagrody,
+// Hotele, Noclegi, Historia — carry neither.
+const RACE_LABEL = /\b(bieg\w*|marsz\w*|maraton\w*|polmaraton\w*|cross|rajd\w*|triathlon|duathlon|nordic|mila|mile|sztafeta|grand prix)\b|\b(19|20)\d{2}\b/
+
+// Order content pages so the race pages are read before MAX_CONTENT_PAGES
+// runs out. In raw menu order an organizer with a long menu spends the whole
+// budget on Aktualności, Trasa, Nagrody and Kontakt, and the race page — the
+// only reason to read anything past the index — is never reached. The sort is
+// stable, so the menu still decides between two equally race-like pages. The
+// last path segment is read alongside the label because the label can be
+// empty; the slug is not, or every page on /Biegi_Koszalin_2016/ would look
+// like a race.
+function rankContentPages(pages) {
+  const raceLike = ([url, label]) =>
+    RACE_LABEL.test(plainText(`${label} ${url.slice(url.lastIndexOf('/') + 1)}`)) ? 1 : 0
+  return [...pages].sort((a, b) => raceLike(b) - raceLike(a))
 }
 
 // Section headings every Polish regulamin carries. A menu page or a soft-404
@@ -249,16 +336,30 @@ async function pickRegulamin(candidates, city, eventName, deps = {}) {
 
   let chosen = null
 
-  // Tier 1: distinctive tokens of this event's name. This needs an outright
-  // winner. A tie means two races share the wording and neither is provable.
+  // Tier 1: distinctive tokens of this event's name. The words on the link
+  // itself decide first, and the label of the page it was found on only
+  // separates links the words tie on. A race page can link a sibling race's
+  // regulamin ("zobacz też Regulamin biegu B"), and that document then wears
+  // this page's label without being this page's document — weaker evidence
+  // than the link's own text, and it must not displace a link that names the
+  // race outright. Either way tier 1 needs an outright winner: a tie means two
+  // races share the wording and neither is provable.
+  const tokens = nameTokens(eventName)
   const scored = candidates
-    .map(c => ({ c, score: nameTokens(eventName).filter(t => c.hay.includes(t)).length }))
-    .sort((a, b) => b.score - a.score)
-  if (scored[0].score > 0 && (scored.length === 1 || scored[0].score > scored[1].score)) {
-    chosen = scored[0].c
+    .map(c => ({
+      c,
+      own: tokens.filter(t => c.hay.includes(t)).length,
+      ctx: tokens.filter(t => (c.context || '').includes(t)).length,
+    }))
+    .sort((a, b) => (b.own - a.own) || (b.ctx - a.ctx))
+  const [top, next] = scored
+  if (top.own + top.ctx > 0 && (!next || top.own > next.own || top.ctx > next.ctx)) {
+    chosen = top.c
   }
 
-  // Tier 2: city, for a multi-city series. Unique for the same reason.
+  // Tier 2: city, for a multi-city series. Unique for the same reason. Reads
+  // `hay` only — see collectRegulaminLinks() on why the page label is not in
+  // it.
   if (!chosen) {
     const cs = citySlug(city)
     const hits = cs ? candidates.filter(c => c.hay.includes(cs)) : []
@@ -268,7 +369,16 @@ async function pickRegulamin(candidates, city, eventName, deps = {}) {
   // Tier 3: a lone PDF on an organizer that runs one race. HTML never reaches
   // this tier. A menu link repeats on every page of the site, so being the
   // only candidate proves nothing about which race it covers.
-  if (!chosen && candidates.length === 1 && candidates[0].kind === 'pdf') chosen = candidates[0]
+  //
+  // "Lone" ignores off-b4sport HTML. Most links off the site that match the
+  // word are not race documents at all — a payment provider's "Regulamin
+  // serwisu" in a footer is one. Counting one would take a one-race
+  // organizer's only PDF away from it, a loss that reading more pages was
+  // never meant to cause.
+  if (!chosen) {
+    const onsite = candidates.filter(c => !c.offsite)
+    if (onsite.length === 1 && onsite[0].kind === 'pdf') chosen = onsite[0]
+  }
 
   if (!chosen) return null
   const ok = chosen.kind === 'html'
@@ -280,10 +390,10 @@ async function pickRegulamin(candidates, city, eventName, deps = {}) {
 /**
  * Fetch organizer pages per slug and extract:
  * - website: from navbar logo link or footer copyright link (index page)
- * - regulaminCandidates: regulamin links, both PDFs and same-organizer HTML
- *   pages, from the index page AND the dedicated /<slug>/regulamin route
- *   (which lists per-city PDFs for series). Per-event selection and
- *   verification happen later in pickRegulamin().
+ * - regulaminCandidates: regulamin links, both PDFs and HTML pages, from the
+ *   index page, the dedicated /<slug>/regulamin route (which lists per-city
+ *   PDFs for series) AND the organizer's own per-race content pages. Per-event
+ *   selection and verification happen later in pickRegulamin().
  */
 async function fetchOrganizerDetails(orgSlugs) {
   const details = new Map() // orgSlug → { website, regulaminCandidates }
@@ -291,6 +401,7 @@ async function fetchOrganizerDetails(orgSlugs) {
 
   for (const slug of orgSlugs) {
     let website = null
+    let contentPages = new Map()
     const candidates = []
 
     // 1. Index page — website + any regulamin links present there
@@ -314,6 +425,7 @@ async function fetchOrganizerDetails(orgSlugs) {
         })
       }
       candidates.push(...collectRegulaminLinks($, slug))
+      contentPages = collectContentPages($, slug)
     } catch (err) {
       console.error(`[b4sport] Index fetch failed for ${slug}:`, err.message?.slice(0, 100))
     }
@@ -331,6 +443,28 @@ async function fetchOrganizerDetails(orgSlugs) {
       }
     } catch (err) {
       console.error(`[b4sport] Regulamin route failed for ${slug}:`, err.message?.slice(0, 100))
+    }
+
+    // 3. The organizer's own race pages, race-looking ones first. Read after
+    //    the index on purpose: the site menu repeats on every page, so a menu
+    //    link already collected above dedups away here and cannot pick up
+    //    this page's label.
+    const toRead = rankContentPages(contentPages)
+      .filter(([url]) => !candidates.some(c => c.url === url))
+      .slice(0, MAX_CONTENT_PAGES)
+    for (const [url, label] of toRead) {
+      try {
+        await new Promise(r => setTimeout(r, 300))
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+          redirect: 'follow',
+        })
+        if (!res.ok) continue
+        const $ = cheerio.load(await res.text())
+        candidates.push(...collectRegulaminLinks($, slug, label))
+      } catch (err) {
+        console.error(`[b4sport] Content page failed for ${url}:`, err.message?.slice(0, 100))
+      }
     }
 
     // Dedup candidates by url, ignoring the ?lang= switcher. b4sport renders
@@ -599,4 +733,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return fresh
 }
 
-export { scrape, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, verifyRegulaminPage, nameTokens, citySlug, registrationSlugWords, isNonRunningEvent }
+export { scrape, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, collectContentPages, rankContentPages, verifyRegulaminPage, nameTokens, citySlug, registrationSlugWords, isNonRunningEvent }
