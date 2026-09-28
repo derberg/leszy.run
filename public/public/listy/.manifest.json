@@ -12,8 +12,8 @@
     "h1": "Biegi w Polsce — kalendarz biegów 2026",
     "title": "Biegi w Polsce — kalendarz biegów 2026 — Leszy.run",
     "description": "Kalendarz biegów w Polsce 2026. Biegi przełajowe, uliczne, ultramaratony, nordic walking i więcej. Sprawdź pełny kalendarz według typu i województwa.",
-    "intro": "497 biegów w Polsce w 2026 roku — trailowe, uliczne, ultramaratony i więcej.",
-    "eventCount": 497,
+    "intro": "496 biegów w Polsce w 2026 roku — trailowe, uliczne, ultramaratony i więcej.",
+    "eventCount": 496,
     "canonicalUrl": "https://www.leszy.run/listy",
     "sitemapPriority": "0.9",
     "sitemapChangefreq": "daily",
@@ -21,7 +21,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/uliczne",
@@ -56,7 +56,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/maratony",
@@ -76,7 +76,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/dolnoslaskie",
@@ -106,7 +106,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/mazowieckie",
@@ -351,10 +351,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe w Polsce",
-    "title": "Biegi przełajowe w Polsce (194 wydarzeń) — Leszy.run",
-    "description": "194 biegów przełajowych w Polsce. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "194 biegi przełajowe w Polsce w 2026 roku, od 1 km do 225 km.",
-    "eventCount": 194,
+    "title": "Biegi przełajowe w Polsce (193 wydarzeń) — Leszy.run",
+    "description": "193 biegów przełajowych w Polsce. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "193 biegi przełajowe w Polsce w 2026 roku, od 1 km do 225 km.",
+    "eventCount": 193,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -362,7 +362,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/przelajowe/slaskie",
@@ -372,7 +372,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -447,7 +447,7 @@
       {
         "path": "listy/przelajowe/2026/pazdziernik",
         "h1": "Biegi przełajowe w październiku 2026",
-        "eventCount": 131
+        "eventCount": 130
       },
       {
         "path": "listy/przelajowe/2026/listopad",
@@ -483,7 +483,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/slaskie",
@@ -604,7 +604,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/ultramaratony/slaskie",
@@ -695,7 +695,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/nocne/slaskie",
@@ -776,7 +776,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/ocr/mazowieckie",
@@ -842,7 +842,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/nordic-walking/slaskie",
@@ -963,7 +963,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/charytatywne/malopolskie",
@@ -1064,7 +1064,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/dolnoslaskie",
@@ -1305,7 +1305,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/kujawsko-pomorskie",
@@ -1421,7 +1421,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/lubelskie",
@@ -1517,7 +1517,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/lubuskie",
@@ -1608,7 +1608,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/lodzkie",
@@ -1728,10 +1728,10 @@
       "city": null
     },
     "h1": "Biegi w Małopolsce",
-    "title": "Biegi w Małopolsce (43 wydarzeń) — Leszy.run",
-    "description": "43 biegów w Małopolsce. Zapisy, dystanse, ceny.",
-    "intro": "43 listy w Małopolsce w 2026 roku, od 1 km do 150 km.",
-    "eventCount": 43,
+    "title": "Biegi w Małopolsce (42 wydarzeń) — Leszy.run",
+    "description": "42 biegów w Małopolsce. Zapisy, dystanse, ceny.",
+    "intro": "42 listy w Małopolsce w 2026 roku, od 1 km do 150 km.",
+    "eventCount": 42,
     "canonicalUrl": "https://www.leszy.run/listy/malopolskie",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "weekly",
@@ -1739,12 +1739,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/uliczne/malopolskie",
@@ -1774,7 +1774,7 @@
       {
         "path": "listy/malopolskie/2026/pazdziernik",
         "h1": "Biegi w Małopolsce — w październiku 2026",
-        "eventCount": 23
+        "eventCount": 22
       },
       {
         "path": "listy/malopolskie/2026/listopad",
@@ -1819,11 +1819,6 @@
       {
         "path": "listy/gorlice",
         "h1": "Bieg — Gorlice",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
         "eventCount": 1
       },
       {
@@ -1965,7 +1960,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/mazowieckie",
@@ -2226,7 +2221,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/opolskie",
@@ -2392,7 +2387,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/podkarpackie",
@@ -2543,7 +2538,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/przelajowe/podlaskie",
@@ -2634,7 +2629,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/pomorskie",
@@ -2830,7 +2825,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/slaskie",
@@ -3151,7 +3146,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/przelajowe/swietokrzyskie",
@@ -3242,7 +3237,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/warminsko-mazurskie",
@@ -3388,7 +3383,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/wielkopolskie",
@@ -3594,7 +3589,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/uliczne/zachodniopomorskie",
@@ -3729,10 +3724,10 @@
       "city": null
     },
     "h1": "Półmaratony w Polsce",
-    "title": "Półmaratony w Polsce (98 wydarzeń) — Leszy.run",
-    "description": "98 półmaratonów w Polsce. bieg na 21 km, półmaraton, half marathon. Zapisy, dystanse, ceny.",
-    "intro": "98 półmaratonów w Polsce w 2026 roku. Dystans 21 km.",
-    "eventCount": 98,
+    "title": "Półmaratony w Polsce (97 wydarzeń) — Leszy.run",
+    "description": "97 półmaratonów w Polsce. bieg na 21 km, półmaraton, half marathon. Zapisy, dystanse, ceny.",
+    "intro": "97 półmaratonów w Polsce w 2026 roku. Dystans 21 km.",
+    "eventCount": 97,
     "canonicalUrl": "https://www.leszy.run/listy/polmaratony",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "daily",
@@ -3740,7 +3735,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/polmaratony/slaskie",
@@ -3755,7 +3750,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -3836,7 +3831,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/maratony/slaskie",
@@ -3907,7 +3902,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dla-dzieci/slaskie",
@@ -4013,7 +4008,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/darmowe/slaskie",
@@ -4103,10 +4098,10 @@
       "city": null
     },
     "h1": "Biegi — ostatnia szansa na zapis",
-    "title": "Biegi — ostatnia szansa na zapis (164 wydarzeń) — Leszy.run",
-    "description": "164 biegów z kończącymi się zapisami w Polsce. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
-    "intro": "164 biegów w Polsce z zapisami kończącymi się w ciągu 14 dni.",
-    "eventCount": 164,
+    "title": "Biegi — ostatnia szansa na zapis (163 wydarzeń) — Leszy.run",
+    "description": "163 biegów z kończącymi się zapisami w Polsce. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
+    "intro": "163 biegów w Polsce z zapisami kończącymi się w ciągu 14 dni.",
+    "eventCount": 163,
     "canonicalUrl": "https://www.leszy.run/listy/ostatnia-szansa",
     "sitemapPriority": "0.8",
     "sitemapChangefreq": "daily",
@@ -4114,7 +4109,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/ostatnia-szansa/slaskie",
@@ -4152,11 +4147,6 @@
         "eventCount": 9
       },
       {
-        "path": "listy/ostatnia-szansa/malopolskie",
-        "h1": "Biegi w Małopolsce — ostatnia szansa na zapis",
-        "eventCount": 8
-      },
-      {
         "path": "listy/ostatnia-szansa/lubelskie",
         "h1": "Biegi w Lubelskiem — ostatnia szansa na zapis",
         "eventCount": 7
@@ -4164,6 +4154,11 @@
       {
         "path": "listy/ostatnia-szansa/lodzkie",
         "h1": "Biegi w Łódzkiem — ostatnia szansa na zapis",
+        "eventCount": 7
+      },
+      {
+        "path": "listy/ostatnia-szansa/malopolskie",
+        "h1": "Biegi w Małopolsce — ostatnia szansa na zapis",
         "eventCount": 7
       },
       {
@@ -4215,7 +4210,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/dolnoslaskie",
@@ -4230,7 +4225,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4271,7 +4266,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/lubelskie",
@@ -4291,7 +4286,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4327,7 +4322,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/lodzkie",
@@ -4347,7 +4342,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4372,10 +4367,10 @@
       "city": null
     },
     "h1": "Półmaratony w Małopolsce",
-    "title": "Półmaratony w Małopolsce (10 wydarzeń) — Leszy.run",
-    "description": "10 półmaratonów w Małopolsce. bieg na 21 km, półmaraton, half marathon. Zapisy, dystanse, ceny.",
-    "intro": "10 półmaratonów w Małopolsce w 2026 roku. Dystans 21 km.",
-    "eventCount": 10,
+    "title": "Półmaratony w Małopolsce (9 wydarzeń) — Leszy.run",
+    "description": "9 półmaratonów w Małopolsce. bieg na 21 km, półmaraton, half marathon. Zapisy, dystanse, ceny.",
+    "intro": "9 półmaratonów w Małopolsce w 2026 roku. Dystans 21 km.",
+    "eventCount": 9,
     "canonicalUrl": "https://www.leszy.run/listy/polmaratony/malopolskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "daily",
@@ -4383,12 +4378,12 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/polmaratony/slaskie",
@@ -4439,7 +4434,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/mazowieckie",
@@ -4459,7 +4454,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4495,7 +4490,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/opolskie",
@@ -4515,7 +4510,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4551,7 +4546,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/podkarpackie",
@@ -4571,7 +4566,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4607,7 +4602,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/podlaskie",
@@ -4627,7 +4622,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4663,7 +4658,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/pomorskie",
@@ -4683,7 +4678,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/mazowieckie",
@@ -4719,7 +4714,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/slaskie",
@@ -4734,7 +4729,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4775,7 +4770,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/swietokrzyskie",
@@ -4795,7 +4790,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4831,7 +4826,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -4851,7 +4846,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4887,7 +4882,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/wielkopolskie",
@@ -4907,7 +4902,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -4943,7 +4938,7 @@
       {
         "path": "listy/polmaratony",
         "h1": "Półmaratony w Polsce",
-        "eventCount": 98
+        "eventCount": 97
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -4963,7 +4958,7 @@
       {
         "path": "listy/polmaratony/malopolskie",
         "h1": "Półmaratony w Małopolsce",
-        "eventCount": 10
+        "eventCount": 9
       },
       {
         "path": "listy/polmaratony/pomorskie",
@@ -5116,7 +5111,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/maratony/slaskie",
@@ -5788,7 +5783,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/dla-dzieci/slaskie",
@@ -6628,7 +6623,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/darmowe/slaskie",
@@ -7239,7 +7234,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/dolnoslaskie",
@@ -7295,7 +7290,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -7351,7 +7346,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/lubelskie",
@@ -7407,7 +7402,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/lodzkie",
@@ -7452,10 +7447,10 @@
       "city": null
     },
     "h1": "Biegi w Małopolsce — ostatnia szansa na zapis",
-    "title": "Biegi w Małopolsce — ostatnia szansa na zapis (8 wydarzeń) — Leszy.run",
-    "description": "8 biegów z kończącymi się zapisami w Małopolsce. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
-    "intro": "8 biegów w Małopolsce z zapisami kończącymi się w ciągu 14 dni.",
-    "eventCount": 8,
+    "title": "Biegi w Małopolsce — ostatnia szansa na zapis (7 wydarzeń) — Leszy.run",
+    "description": "7 biegów z kończącymi się zapisami w Małopolsce. zapisy kończą się wkrótce, ostatnie miejsca, deadline zapisy bieg. Zapisy, dystanse, ceny.",
+    "intro": "7 biegów w Małopolsce z zapisami kończącymi się w ciągu 14 dni.",
+    "eventCount": 7,
     "canonicalUrl": "https://www.leszy.run/listy/ostatnia-szansa/malopolskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "daily",
@@ -7463,12 +7458,12 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/ostatnia-szansa/slaskie",
@@ -7519,7 +7514,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/mazowieckie",
@@ -7575,7 +7570,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/opolskie",
@@ -7631,7 +7626,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/podkarpackie",
@@ -7687,7 +7682,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/podlaskie",
@@ -7743,7 +7738,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/pomorskie",
@@ -7799,7 +7794,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/slaskie",
@@ -7855,7 +7850,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/swietokrzyskie",
@@ -7911,7 +7906,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -7967,7 +7962,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/wielkopolskie",
@@ -8023,7 +8018,7 @@
       {
         "path": "listy/ostatnia-szansa",
         "h1": "Biegi — ostatnia szansa na zapis",
-        "eventCount": 164
+        "eventCount": 163
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -8079,7 +8074,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/dolnoslaskie",
@@ -8094,7 +8089,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/opolskie",
@@ -8145,7 +8140,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -8160,7 +8155,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8206,7 +8201,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/lubelskie",
@@ -8221,7 +8216,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8267,7 +8262,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/lubuskie",
@@ -8282,7 +8277,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8328,7 +8323,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/lodzkie",
@@ -8343,7 +8338,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8378,10 +8373,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe w Małopolsce",
-    "title": "Biegi przełajowe w Małopolsce (28 wydarzeń) — Leszy.run",
-    "description": "28 biegów przełajowych w Małopolsce. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "28 biegi przełajowe w Małopolsce w 2026 roku, od 1 km do 150 km.",
-    "eventCount": 28,
+    "title": "Biegi przełajowe w Małopolsce (27 wydarzeń) — Leszy.run",
+    "description": "27 biegów przełajowych w Małopolsce. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "27 biegi przełajowe w Małopolsce w 2026 roku, od 1 km do 150 km.",
+    "eventCount": 27,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe/malopolskie",
     "sitemapPriority": "0.7",
     "sitemapChangefreq": "weekly",
@@ -8389,12 +8384,12 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/przelajowe/slaskie",
@@ -8424,7 +8419,7 @@
       {
         "path": "listy/przelajowe/malopolskie/2026/pazdziernik",
         "h1": "Biegi przełajowe w Małopolsce — w październiku 2026",
-        "eventCount": 14
+        "eventCount": 13
       },
       {
         "path": "listy/przelajowe/malopolskie/2026/listopad",
@@ -8455,7 +8450,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/mazowieckie",
@@ -8470,7 +8465,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8516,7 +8511,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/opolskie",
@@ -8531,7 +8526,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8582,7 +8577,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/podkarpackie",
@@ -8597,7 +8592,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8648,7 +8643,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/podlaskie",
@@ -8663,7 +8658,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8709,7 +8704,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/pomorskie",
@@ -8724,7 +8719,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8770,7 +8765,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/slaskie",
@@ -8780,7 +8775,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8836,7 +8831,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/swietokrzyskie",
@@ -8851,7 +8846,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8897,7 +8892,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -8912,7 +8907,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -8953,7 +8948,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/wielkopolskie",
@@ -8968,7 +8963,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9019,7 +9014,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -9034,7 +9029,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/dolnoslaskie",
@@ -9400,7 +9395,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/uliczne/slaskie",
@@ -10284,7 +10279,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/ultramaratony/slaskie",
@@ -11302,7 +11297,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/ocr/mazowieckie",
@@ -11948,7 +11943,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/nordic-walking/slaskie",
@@ -12797,7 +12792,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/charytatywne/slaskie",
@@ -13316,7 +13311,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/2026/wrzesien",
@@ -13347,7 +13342,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/2026/sierpien",
@@ -13357,7 +13352,7 @@
       {
         "path": "listy/2026/pazdziernik",
         "h1": "Biegi w październiku 2026",
-        "eventCount": 330
+        "eventCount": 329
       }
     ]
   },
@@ -13372,10 +13367,10 @@
       "city": null
     },
     "h1": "Biegi w październiku 2026",
-    "title": "Biegi w październiku 2026 (330 wydarzeń) — Leszy.run",
-    "description": "330 biegów w Polsce w październiku 2026. Zapisy, dystanse, ceny.",
-    "intro": "330 listy w Polsce w 2026 roku, od 1 km do 150 km.",
-    "eventCount": 330,
+    "title": "Biegi w październiku 2026 (329 wydarzeń) — Leszy.run",
+    "description": "329 biegów w Polsce w październiku 2026. Zapisy, dystanse, ceny.",
+    "intro": "329 listy w Polsce w 2026 roku, od 1 km do 150 km.",
+    "eventCount": 329,
     "canonicalUrl": "https://www.leszy.run/listy/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -13383,7 +13378,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/2026/wrzesien",
@@ -13419,12 +13414,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/2026/pazdziernik",
         "h1": "Biegi w październiku 2026",
-        "eventCount": 330
+        "eventCount": 329
       },
       {
         "path": "listy/2026/grudzien",
@@ -13455,7 +13450,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/2026/listopad",
@@ -13491,7 +13486,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/2026/grudzien",
@@ -13522,7 +13517,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       }
     ]
   },
@@ -13548,7 +13543,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/przelajowe/2026/wrzesien",
@@ -13579,7 +13574,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/przelajowe/2026/sierpien",
@@ -13589,7 +13584,7 @@
       {
         "path": "listy/przelajowe/2026/pazdziernik",
         "h1": "Biegi przełajowe w październiku 2026",
-        "eventCount": 131
+        "eventCount": 130
       }
     ]
   },
@@ -13604,10 +13599,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe w październiku 2026",
-    "title": "Biegi przełajowe w październiku 2026 (131 wydarzeń) — Leszy.run",
-    "description": "131 biegów przełajowych w Polsce w październiku 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "131 biegi przełajowe w Polsce w 2026 roku, od 1 km do 150 km.",
-    "eventCount": 131,
+    "title": "Biegi przełajowe w październiku 2026 (130 wydarzeń) — Leszy.run",
+    "description": "130 biegów przełajowych w Polsce w październiku 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "130 biegi przełajowe w Polsce w 2026 roku, od 1 km do 150 km.",
+    "eventCount": 130,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -13615,7 +13610,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/przelajowe/2026/wrzesien",
@@ -13651,12 +13646,12 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/przelajowe/2026/pazdziernik",
         "h1": "Biegi przełajowe w październiku 2026",
-        "eventCount": 131
+        "eventCount": 130
       },
       {
         "path": "listy/przelajowe/2026/grudzien",
@@ -13687,7 +13682,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/przelajowe/2026/listopad",
@@ -13723,7 +13718,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/przelajowe/2026/grudzien",
@@ -13759,7 +13754,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/przelajowe/2027/styczen",
@@ -13795,7 +13790,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       },
       {
         "path": "listy/przelajowe/2027/luty",
@@ -13826,7 +13821,7 @@
       {
         "path": "listy/przelajowe",
         "h1": "Biegi przełajowe w Polsce",
-        "eventCount": 194
+        "eventCount": 193
       }
     ]
   },
@@ -15404,7 +15399,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/malopolskie/2026/wrzesien",
@@ -15435,7 +15430,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/malopolskie/2026/sierpien",
@@ -15445,7 +15440,7 @@
       {
         "path": "listy/malopolskie/2026/pazdziernik",
         "h1": "Biegi w Małopolsce — w październiku 2026",
-        "eventCount": 23
+        "eventCount": 22
       }
     ]
   },
@@ -15460,10 +15455,10 @@
       "city": null
     },
     "h1": "Biegi w Małopolsce — w październiku 2026",
-    "title": "Biegi w Małopolsce — w październiku 2026 (23 wydarzeń) — Leszy.run",
-    "description": "23 biegów w Małopolsce w październiku 2026. Zapisy, dystanse, ceny.",
-    "intro": "23 listy w Małopolsce w 2026 roku, od 1 km do 150 km.",
-    "eventCount": 23,
+    "title": "Biegi w Małopolsce — w październiku 2026 (22 wydarzeń) — Leszy.run",
+    "description": "22 biegów w Małopolsce w październiku 2026. Zapisy, dystanse, ceny.",
+    "intro": "22 listy w Małopolsce w 2026 roku, od 1 km do 150 km.",
+    "eventCount": 22,
     "canonicalUrl": "https://www.leszy.run/listy/malopolskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -15471,7 +15466,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/malopolskie/2026/wrzesien",
@@ -15507,12 +15502,12 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/malopolskie/2026/pazdziernik",
         "h1": "Biegi w Małopolsce — w październiku 2026",
-        "eventCount": 23
+        "eventCount": 22
       },
       {
         "path": "listy/malopolskie/2026/grudzien",
@@ -15543,7 +15538,7 @@
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/malopolskie/2026/listopad",
@@ -17224,7 +17219,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/malopolskie/2026/wrzesien",
@@ -17255,7 +17250,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/malopolskie/2026/sierpien",
@@ -17265,7 +17260,7 @@
       {
         "path": "listy/przelajowe/malopolskie/2026/pazdziernik",
         "h1": "Biegi przełajowe w Małopolsce — w październiku 2026",
-        "eventCount": 14
+        "eventCount": 13
       }
     ]
   },
@@ -17280,10 +17275,10 @@
       "city": null
     },
     "h1": "Biegi przełajowe w Małopolsce — w październiku 2026",
-    "title": "Biegi przełajowe w Małopolsce — w październiku 2026 (14 wydarzeń) — Leszy.run",
-    "description": "14 biegów przełajowych w Małopolsce w październiku 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
-    "intro": "14 biegi przełajowe w Małopolsce w 2026 roku, od 1 km do 150 km.",
-    "eventCount": 14,
+    "title": "Biegi przełajowe w Małopolsce — w październiku 2026 (13 wydarzeń) — Leszy.run",
+    "description": "13 biegów przełajowych w Małopolsce w październiku 2026. biegi przełajowe, bieg przełajowy, trail running, biegi terenowe, biegi górskie. Zapisy, dystanse, ceny.",
+    "intro": "13 biegi przełajowe w Małopolsce w 2026 roku, od 1 km do 150 km.",
+    "eventCount": 13,
     "canonicalUrl": "https://www.leszy.run/listy/przelajowe/malopolskie/2026/pazdziernik",
     "sitemapPriority": "0.6",
     "sitemapChangefreq": "daily",
@@ -17291,7 +17286,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/malopolskie/2026/wrzesien",
@@ -17327,12 +17322,12 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/malopolskie/2026/pazdziernik",
         "h1": "Biegi przełajowe w Małopolsce — w październiku 2026",
-        "eventCount": 14
+        "eventCount": 13
       },
       {
         "path": "listy/przelajowe/malopolskie/2026/grudzien",
@@ -17363,7 +17358,7 @@
       {
         "path": "listy/przelajowe/malopolskie",
         "h1": "Biegi przełajowe w Małopolsce",
-        "eventCount": 28
+        "eventCount": 27
       },
       {
         "path": "listy/przelajowe/malopolskie/2026/listopad",
@@ -21864,7 +21859,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -21956,7 +21951,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -22048,7 +22043,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -22140,7 +22135,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -22232,7 +22227,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -22324,7 +22319,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -22416,7 +22411,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -22508,7 +22503,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -22600,7 +22595,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -22692,7 +22687,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -22784,12 +22779,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -22822,11 +22817,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -22849,6 +22839,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -22876,12 +22871,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -22914,11 +22909,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -22941,6 +22931,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -22968,12 +22963,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/przeciszow",
@@ -23006,11 +23001,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -23033,6 +23023,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -23060,7 +23055,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -23152,7 +23147,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -23244,7 +23239,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -23336,7 +23331,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -23428,7 +23423,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -23520,7 +23515,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -23612,7 +23607,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -23704,7 +23699,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -23796,7 +23791,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -23888,7 +23883,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -23980,7 +23975,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -24072,7 +24067,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -24164,7 +24159,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -24256,7 +24251,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -24348,7 +24343,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -24440,7 +24435,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -24532,7 +24527,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -24624,7 +24619,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -24716,7 +24711,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -24808,7 +24803,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -24890,7 +24885,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podlaskie",
@@ -24952,7 +24947,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -25044,7 +25039,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -25136,7 +25131,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -25228,7 +25223,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -25320,7 +25315,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -25412,7 +25407,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -25504,7 +25499,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -25596,7 +25591,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -25688,7 +25683,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -25780,12 +25775,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -25818,11 +25813,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -25845,6 +25835,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -25872,7 +25867,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubelskie",
@@ -25944,7 +25939,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -26036,7 +26031,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -26128,7 +26123,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -26210,7 +26205,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -26302,7 +26297,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubuskie",
@@ -26374,7 +26369,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -26466,7 +26461,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -26558,7 +26553,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubelskie",
@@ -26630,7 +26625,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -26722,7 +26717,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -26814,12 +26809,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -26852,11 +26847,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -26879,6 +26869,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -26906,12 +26901,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -26944,11 +26939,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -26971,6 +26961,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -26998,7 +26993,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -27068,98 +27063,6 @@
     ],
     "cityRegionSlug": "wielkopolskie"
   },
-  "listy/zegiestow-zdroj": {
-    "path": "listy/zegiestow-zdroj",
-    "filters": {
-      "typeDbVal": null,
-      "regionDb": null,
-      "year": null,
-      "month": null,
-      "special": null,
-      "city": "Żegiestów-Zdrój"
-    },
-    "h1": "Bieg — Żegiestów-Zdrój",
-    "title": "Bieg — Żegiestów-Zdrój (1 wydarzenie) — Leszy.run",
-    "description": "Kalendarz biegów 2026 — Żegiestów-Zdrój. 1 bieg. Zapisy, dystanse, ceny, regulaminy.",
-    "intro": "Kalendarz biegów 2026 — Żegiestów-Zdrój. 1 bieg.",
-    "eventCount": 1,
-    "canonicalUrl": "https://www.leszy.run/listy/zegiestow-zdroj",
-    "sitemapPriority": "0.7",
-    "sitemapChangefreq": "weekly",
-    "relatedLinks": [
-      {
-        "path": "listy",
-        "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
-      },
-      {
-        "path": "listy/malopolskie",
-        "h1": "Biegi w Małopolsce",
-        "eventCount": 43
-      },
-      {
-        "path": "listy/krakow",
-        "h1": "Biegi w Krakowie",
-        "eventCount": 12
-      },
-      {
-        "path": "listy/przeciszow",
-        "h1": "Biegi — Przeciszów",
-        "eventCount": 2
-      },
-      {
-        "path": "listy/osiek",
-        "h1": "Bieg — Osiek",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/rytro",
-        "h1": "Bieg w Rytrze",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/golkowice-dolne",
-        "h1": "Bieg — Gołkowice Dolne",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/stary-sacz",
-        "h1": "Bieg — Stary Sącz",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/gorlice",
-        "h1": "Bieg — Gorlice",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/muszyna",
-        "h1": "Bieg — Muszyna",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/jodlowka-tuchowska",
-        "h1": "Bieg — Jodłówka Tuchowska",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/jordanow",
-        "h1": "Bieg — Jordanów",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/krynica-zdroj",
-        "h1": "Bieg — Krynica-Zdrój",
-        "eventCount": 1
-      },
-      {
-        "path": "listy/tarnow",
-        "h1": "Bieg w Tarnowie",
-        "eventCount": 1
-      }
-    ],
-    "cityRegionSlug": "malopolskie"
-  },
   "listy/radom": {
     "path": "listy/radom",
     "filters": {
@@ -27182,7 +27085,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -27274,7 +27177,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -27366,7 +27269,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -27458,7 +27361,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -27550,7 +27453,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -27642,7 +27545,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -27734,7 +27637,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -27826,12 +27729,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -27869,11 +27772,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/jodlowka-tuchowska",
         "h1": "Bieg — Jodłówka Tuchowska",
         "eventCount": 1
@@ -27891,6 +27789,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -27918,7 +27821,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -28010,7 +27913,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -28102,7 +28005,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -28194,7 +28097,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -28286,7 +28189,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -28378,7 +28281,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -28460,7 +28363,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubelskie",
@@ -28532,7 +28435,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -28624,7 +28527,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podlaskie",
@@ -28686,7 +28589,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -28778,7 +28681,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -28870,7 +28773,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -28952,7 +28855,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -29044,7 +28947,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -29136,7 +29039,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/swietokrzyskie",
@@ -29208,12 +29111,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -29251,11 +29154,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -29273,6 +29171,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -29300,7 +29203,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/swietokrzyskie",
@@ -29372,7 +29275,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -29464,7 +29367,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -29556,7 +29459,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -29648,7 +29551,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -29740,7 +29643,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubuskie",
@@ -29812,7 +29715,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -29904,7 +29807,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -29996,7 +29899,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -30088,7 +29991,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -30180,7 +30083,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -30272,7 +30175,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -30364,7 +30267,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -30456,7 +30359,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -30548,7 +30451,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -30640,7 +30543,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubelskie",
@@ -30712,7 +30615,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -30804,7 +30707,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -30896,7 +30799,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -30988,7 +30891,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -31080,7 +30983,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -31172,7 +31075,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -31254,7 +31157,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podlaskie",
@@ -31316,7 +31219,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -31408,7 +31311,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -31500,7 +31403,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -31592,7 +31495,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -31684,7 +31587,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -31776,7 +31679,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -31868,7 +31771,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -31960,7 +31863,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -32052,7 +31955,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -32144,7 +32047,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -32236,7 +32139,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubelskie",
@@ -32308,7 +32211,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -32400,7 +32303,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -32492,7 +32395,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -32584,7 +32487,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -32676,7 +32579,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -32768,7 +32671,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -32860,7 +32763,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -32952,7 +32855,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -33044,7 +32947,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -33136,7 +33039,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubuskie",
@@ -33208,7 +33111,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -33300,7 +33203,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -33392,7 +33295,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -33484,7 +33387,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -33576,7 +33479,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -33668,7 +33571,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -33760,7 +33663,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -33852,7 +33755,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -33944,7 +33847,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -34036,7 +33939,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -34128,7 +34031,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -34220,7 +34123,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -34312,7 +34215,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -34404,7 +34307,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -34496,7 +34399,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubelskie",
@@ -34568,7 +34471,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -34650,7 +34553,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubelskie",
@@ -34722,7 +34625,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -34814,7 +34717,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -34906,7 +34809,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -34998,7 +34901,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -35090,7 +34993,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -35182,7 +35085,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -35274,7 +35177,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -35366,7 +35269,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -35458,7 +35361,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -35550,7 +35453,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -35642,7 +35545,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -35734,7 +35637,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -35826,7 +35729,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubuskie",
@@ -35898,7 +35801,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -35990,12 +35893,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -36033,11 +35936,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -36055,6 +35953,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -36082,7 +35985,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -36174,7 +36077,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -36266,7 +36169,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -36358,7 +36261,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -36450,7 +36353,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -36542,7 +36445,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -36634,7 +36537,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -36726,7 +36629,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubuskie",
@@ -36798,7 +36701,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -36890,7 +36793,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -36982,7 +36885,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -37074,12 +36977,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -37117,11 +37020,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -37139,6 +37037,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -37166,12 +37069,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -37209,11 +37112,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -37231,6 +37129,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -37258,7 +37161,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -37350,7 +37253,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -37442,7 +37345,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -37534,7 +37437,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -37626,7 +37529,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -37718,7 +37621,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -37810,7 +37713,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -37902,7 +37805,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -37994,7 +37897,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -38086,7 +37989,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -38178,7 +38081,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/swietokrzyskie",
@@ -38250,7 +38153,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -38342,7 +38245,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -38434,7 +38337,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -38526,12 +38429,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -38569,11 +38472,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -38591,6 +38489,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -38618,7 +38521,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -38710,7 +38613,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -38802,7 +38705,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -38894,7 +38797,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -38986,7 +38889,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -39078,7 +38981,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -39170,7 +39073,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -39262,7 +39165,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -39354,7 +39257,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -39446,7 +39349,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/swietokrzyskie",
@@ -39518,7 +39421,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -39610,12 +39513,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -39653,11 +39556,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -39675,6 +39573,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -39702,7 +39605,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podlaskie",
@@ -39764,7 +39667,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -39856,7 +39759,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -39948,7 +39851,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -40040,7 +39943,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -40132,7 +40035,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -40224,7 +40127,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -40316,7 +40219,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -40408,7 +40311,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -40500,7 +40403,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -40592,7 +40495,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -40684,7 +40587,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubuskie",
@@ -40756,7 +40659,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -40848,7 +40751,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -40940,7 +40843,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -41032,7 +40935,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -41124,7 +41027,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -41216,7 +41119,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -41308,7 +41211,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -41400,7 +41303,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -41482,7 +41385,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -41574,7 +41477,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -41666,7 +41569,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubelskie",
@@ -41738,7 +41641,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/swietokrzyskie",
@@ -41810,7 +41713,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -41902,12 +41805,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -41945,11 +41848,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -41967,6 +41865,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -41994,7 +41897,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -42086,7 +41989,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -42178,7 +42081,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podlaskie",
@@ -42240,12 +42143,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -42283,11 +42186,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -42305,6 +42203,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -42332,7 +42235,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -42424,7 +42327,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubuskie",
@@ -42496,12 +42399,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -42539,11 +42442,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -42561,6 +42459,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -42588,7 +42491,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/swietokrzyskie",
@@ -42660,7 +42563,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -42752,7 +42655,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -42844,7 +42747,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -42936,7 +42839,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -43028,7 +42931,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -43120,7 +43023,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -43212,7 +43115,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -43304,7 +43207,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/swietokrzyskie",
@@ -43376,7 +43279,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -43468,7 +43371,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -43560,7 +43463,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -43642,7 +43545,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubelskie",
@@ -43714,7 +43617,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -43806,12 +43709,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -43849,11 +43752,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -43871,6 +43769,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -43898,7 +43801,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -43990,7 +43893,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubuskie",
@@ -44062,7 +43965,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -44154,7 +44057,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -44246,7 +44149,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -44328,7 +44231,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -44420,12 +44323,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -44463,11 +44366,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -44485,6 +44383,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -44512,7 +44415,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -44604,7 +44507,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -44696,7 +44599,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/swietokrzyskie",
@@ -44768,12 +44671,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -44811,11 +44714,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -44833,6 +44731,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -44860,7 +44763,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -44952,7 +44855,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -45044,7 +44947,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -45136,7 +45039,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -45228,7 +45131,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -45320,7 +45223,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -45412,7 +45315,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -45504,7 +45407,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -45596,7 +45499,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lodzkie",
@@ -45688,7 +45591,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -45780,7 +45683,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -45872,12 +45775,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -45915,11 +45818,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -45937,6 +45835,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -45964,7 +45867,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -46046,7 +45949,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -46138,7 +46041,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/lubuskie",
@@ -46210,12 +46113,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -46253,11 +46156,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -46275,6 +46173,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -46302,7 +46205,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -46394,7 +46297,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -46486,12 +46389,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -46529,11 +46432,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -46551,6 +46449,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -46578,7 +46481,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -46670,7 +46573,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -46762,7 +46665,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -46854,7 +46757,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podlaskie",
@@ -46916,7 +46819,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -47008,7 +46911,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -47100,7 +47003,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -47192,7 +47095,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -47284,7 +47187,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -47376,7 +47279,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -47468,7 +47371,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -47560,7 +47463,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -47652,7 +47555,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -47744,7 +47647,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -47836,7 +47739,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -47928,7 +47831,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -48020,7 +47923,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -48112,7 +48015,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -48204,7 +48107,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -48296,12 +48199,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -48339,11 +48242,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -48361,6 +48259,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -48388,12 +48291,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -48431,11 +48334,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -48453,6 +48351,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -48480,7 +48383,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -48572,12 +48475,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -48610,11 +48513,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -48637,6 +48535,11 @@
       {
         "path": "listy/tarnow",
         "h1": "Bieg w Tarnowie",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/bienczyce",
+        "h1": "Bieg — Bieńczyce",
         "eventCount": 1
       }
     ],
@@ -48664,7 +48567,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/warminsko-mazurskie",
@@ -48756,7 +48659,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -48848,7 +48751,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -48940,12 +48843,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -48983,11 +48886,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -49005,6 +48903,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -49032,7 +48935,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -49124,7 +49027,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -49216,7 +49119,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -49308,7 +49211,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -49400,7 +49303,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -49492,7 +49395,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/pomorskie",
@@ -49584,7 +49487,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -49676,12 +49579,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -49719,11 +49622,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -49741,6 +49639,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -49768,7 +49671,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -49860,12 +49763,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -49903,11 +49806,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -49925,6 +49823,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -49952,7 +49855,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -50044,7 +49947,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -50136,7 +50039,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -50228,7 +50131,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/kujawsko-pomorskie",
@@ -50310,7 +50213,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podkarpackie",
@@ -50402,7 +50305,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/swietokrzyskie",
@@ -50474,7 +50377,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/opolskie",
@@ -50566,7 +50469,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -50658,7 +50561,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/zachodniopomorskie",
@@ -50750,12 +50653,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -50793,11 +50696,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -50815,6 +50713,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -50842,7 +50745,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -50934,7 +50837,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -51026,7 +50929,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/mazowieckie",
@@ -51118,7 +51021,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -51210,7 +51113,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/dolnoslaskie",
@@ -51302,7 +51205,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",
@@ -51394,12 +51297,12 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/malopolskie",
         "h1": "Biegi w Małopolsce",
-        "eventCount": 43
+        "eventCount": 42
       },
       {
         "path": "listy/krakow",
@@ -51437,11 +51340,6 @@
         "eventCount": 1
       },
       {
-        "path": "listy/zegiestow-zdroj",
-        "h1": "Bieg — Żegiestów-Zdrój",
-        "eventCount": 1
-      },
-      {
         "path": "listy/muszyna",
         "h1": "Bieg — Muszyna",
         "eventCount": 1
@@ -51459,6 +51357,11 @@
       {
         "path": "listy/krynica-zdroj",
         "h1": "Bieg — Krynica-Zdrój",
+        "eventCount": 1
+      },
+      {
+        "path": "listy/tarnow",
+        "h1": "Bieg w Tarnowie",
         "eventCount": 1
       }
     ],
@@ -51486,7 +51389,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/podlaskie",
@@ -51548,7 +51451,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/wielkopolskie",
@@ -51640,7 +51543,7 @@
       {
         "path": "listy",
         "h1": "Biegi w Polsce — kalendarz biegów 2026",
-        "eventCount": 497
+        "eventCount": 496
       },
       {
         "path": "listy/slaskie",

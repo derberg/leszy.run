@@ -56929,31 +56929,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "xrun-wielki-final-2026-10-04-1865": {
-    "id": "186545cc-4bf6-4053-826c-f1a1ab85e6a9",
-    "name": "XRUN Wielki Finał",
-    "date": "2026-10-04",
-    "registration_deadline": "2026-10-04",
-    "regulamin_url": "https://xrun.pl/",
-    "price_from": null,
-    "price_to": null,
-    "location": "Żegiestów-Zdrój",
-    "voivodeship": "Małopolskie",
-    "lat": 49.376993,
-    "lng": 20.796819,
-    "distances": [
-      "14-22 km",
-      "21-38 km",
-      "32-50 km"
-    ],
-    "event_type": [
-      "trail"
-    ],
-    "registration_url": "https://www.biegigorskie.pl/news/xrun-2026-to-6-wyzwan-i-3-debiuty/",
-    "website": "https://xrun.pl",
-    "is_kids": null,
-    "status": "active"
-  },
   "ii-radomski-bieg-onkologiczny-2026-10-04": {
     "id": "27ad6324-48b8-4363-bb5e-8c535849eddb",
     "name": "II Radomski Bieg Onkologiczny",
@@ -57133,7 +57108,7 @@
     "is_kids": null,
     "status": "active"
   },
-  "xrun-wielki-final-2026-10-04-b4dd": {
+  "xrun-wielki-final-2026-10-04": {
     "id": "b4ddbbe4-fbb3-44c8-aa97-1eac411438cd",
     "name": "X-RUN Wielki Finał",
     "date": "2026-10-04",
