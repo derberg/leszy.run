@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { pickRegulaminUrl } from '../../lib/pickRegulaminUrl.js'
 
 // e-gepard.eu — a multi-sport timing / online-registration company (operated by
 // RFID.Zone Sp. z o.o.). It hosts the canonical registration for its own events,
@@ -23,10 +24,12 @@ import * as cheerio from 'cheerio'
 //
 // Per-event data comes from the detail page /pl/show-contest/<id>:
 //   - Miejsce (city) / Organizator / Data zawodów  — "Dane zawodów" th/td table
-//   - regulamin_url   — first external (non-e-gepard) link inside the Opis cell;
-//                       prefer a .pdf. Often hosted on the organizer's own site
-//                       (pifsport.com.pl, osir.swinoujscie.pl, …). Null when the
-//                       Opis only contains inline regulamin prose.
+//   - regulamin_url   — best external (non-e-gepard) link inside the Opis cell,
+//                       per pickRegulaminUrl. A PDF or an HTML page, often on
+//                       the organizer's own site (pifsport.com.pl,
+//                       gpclubianka.pl, …). When the Opis instead CONTAINS the
+//                       regulamin as prose, the show-contest page itself is the
+//                       document and we store that URL.
 //   - competition names + "Zapis do" dates — the #racesTable sub-race list. Used
 //                       for distances, event_types, is_kids and the registration
 //                       deadline (max "Zapis do" that is <= the event date — some
@@ -119,7 +122,7 @@ function parseListing(html, today) {
 }
 
 // Parse a detail page → { city, regulamin, subNames, deadline }.
-function parseDetail(html, eventDate) {
+function parseDetail(html, eventDate, detailUrl) {
   const $ = cheerio.load(html)
 
   // "Dane zawodów" th/td table (the #basic tab table).
@@ -135,22 +138,34 @@ function parseDetail(html, eventDate) {
   })
   const city = data['Miejsce'] || null
 
-  // regulamin: the first external (non-e-gepard) .pdf link in the Opis cell. On
-  // this source the Opis mixes regulamin PDFs (often on the organizer's own site)
-  // with privacy pages and bare organizer homepages, so we accept ONLY PDFs and
-  // skip privacy/policy docs — an HTML link here is unreliable as a regulamin, so
-  // we leave those for the enricher rather than write a wrong URL to the DB.
+  // regulamin: an external (non-e-gepard) link in the Opis cell, chosen by the
+  // shared picker. The Opis mixes regulamin documents (often on the organizer's
+  // own site) with privacy pages and bare organizer homepages, and the regulamin
+  // is as often an HTML page as a PDF — Łubianka Grand Prix Cross links
+  // http://gpclubianka.pl/ogolny/ under the anchor text "REGULAMIN …". The
+  // picker requires that positive token and still rejects RODO/oświadczenie
+  // docs, so we no longer need the PDF-only rule that dropped those pages.
   let regulamin = null
   if (opisCell) {
+    const candidates = []
     opisCell.find('a[href]').each((_, el) => {
-      if (regulamin) return
       const href = $(el).attr('href') || ''
       if (!/^https?:\/\//i.test(href)) return
-      if (/e-gepard\.eu/i.test(href)) return
-      if (!/\.pdf($|\?)/i.test(href)) return
-      if (/polityka|prywatnosci|ochrona-danych|rodo/i.test(href)) return
-      regulamin = href
+      if (/e-gepard\.eu/i.test(href)) return // self-link, never the regulamin
+      candidates.push({ href, text: $(el).text() })
     })
+    regulamin = pickRegulaminUrl(candidates, { baseUrl: BASE_URL })
+  }
+
+  // Some organizers skip the link and type the whole regulamin into the Opis
+  // cell, headed "REGULAMIN <event>" and running through numbered sections. The
+  // rules document is then the show-contest page itself, which we already store
+  // as registration_url / source_url. Require the cell to OPEN with the token
+  // and to be long enough to be a document: a one-line "regulamin wkrótce" note
+  // must not point the enricher at a page that has no rules on it.
+  if (!regulamin && opisCell && detailUrl) {
+    const opisText = opisCell.text().replace(/\s+/g, ' ').trim()
+    if (/^regulamin\b/i.test(opisText) && opisText.length >= 1500) regulamin = detailUrl
   }
 
   // Competition list (#racesTable): rows that link to a show-race page. Cells:
@@ -197,7 +212,7 @@ async function scrape({ knownIds = new Set() } = {}) {
     let detail = { city: null, regulamin: null, subNames: [], deadline: null }
     try {
       const res = await fetch(detailUrl, { headers: { 'User-Agent': USER_AGENT } })
-      if (res.ok) detail = parseDetail(await res.text(), ev.date)
+      if (res.ok) detail = parseDetail(await res.text(), ev.date, detailUrl)
       else console.error(`[egepard] Detail ${ev.id} → ${res.status}`)
     } catch (err) {
       console.error(`[egepard] Detail fetch failed for ${ev.id}:`, err.message)
