@@ -4,6 +4,7 @@ import { verifyPdf } from '../../lib/verifyPdf.js'
 const BASE_URL = 'https://b4sportonline.pl'
 const LIST_URL = `${BASE_URL}/kalendarz/`
 const MAX_PAGES = 50 // safety cap — ~500 events max per run
+const MAX_CONTENT_PAGES = 4 // per organizer, on top of the index and /regulamin routes
 
 // Polish genitive month names as they appear in card dates, e.g. "18 Kwietnia 2026"
 const POLISH_MONTHS = {
@@ -143,16 +144,42 @@ function nameTokens(name) {
   )]
 }
 
-// Collect candidate regulamin links from a loaded page: PDFs anywhere, plus
-// HTML pages under this organizer's own b4sport path. Only links whose href or
-// text mentions "regulamin" qualify (skips oświadczenie/zgoda documents).
+// The b4sport path a link points at, or null when it leaves b4sport. Matched on
+// the host, not on BASE_URL: b4sport links to itself over http as well as https,
+// and an http self-link read as "another domain" would skip the slug check.
+function b4sportPath(href) {
+  if (!href.startsWith('http')) return href.startsWith('/') ? href : `/${href}`
+  try {
+    const u = new URL(href)
+    return /(^|\.)b4sportonline\.pl$/i.test(u.hostname) ? `${u.pathname}${u.search}` : null
+  } catch {
+    return '/' // unparseable — treat as b4sport's own, so the slug check drops it
+  }
+}
+
+// Collect candidate regulamin links from a loaded page: PDFs anywhere, HTML
+// pages under this organizer's own b4sport path, and HTML pages on any other
+// domain. Only links whose href or text mentions "regulamin" qualify (skips
+// oświadczenie/zgoda documents).
 //
 // Not every organizer publishes a PDF. TKKF Koszalin serves its regulamin as
 // an ordinary page at /Biegi_Koszalin_2016/mile, where a PDF-only collector
 // finds nothing. Distances, price and registration deadline all live in the
-// regulamin, so that page is the only source for any of them. HTML candidates
-// are scoped to `/<slug>/`, which keeps another organizer's regulamin out.
-function collectRegulaminLinks($, slug) {
+// regulamin, so that page is the only source for any of them.
+//
+// Inside b4sport the path names the owner, so candidates stay scoped to
+// `/<slug>/` and another organizer's regulamin is kept out. Off b4sport there
+// is no such path to read, and the restriction only cost us real documents:
+// the same TKKF Koszalin links its Bieg Sylwestrowy regulamin to
+// biegikoszalin.eu, its own domain. verifyRegulaminPage() already refuses a
+// page that does not carry this event's name, so the domain check was
+// duplicate safety.
+//
+// `context` is the label of the page the links were found on. A race page says
+// which race it is about, and the link on it often says no more than
+// "Regulamin", so the label is what lets pickRegulamin() tell two regulamins on
+// one organizer apart.
+function collectRegulaminLinks($, slug, context = '') {
   const out = []
   const push = (href, text, kind) => {
     const hay = `${href} ${text}`.toLowerCase()
@@ -160,7 +187,7 @@ function collectRegulaminLinks($, slug) {
     const url = href.startsWith('http')
       ? href
       : `${BASE_URL}${href.startsWith('/') ? '' : '/'}${href}`
-    out.push({ url, hay: citySlug(hay), text, kind })
+    out.push({ url, hay: citySlug(`${hay} ${context}`), text, kind })
   }
 
   $('a[href]').each((_, a) => {
@@ -172,13 +199,40 @@ function collectRegulaminLinks($, slug) {
       push(href, text, 'pdf')
       return
     }
-    if (!slug) return
-    // Same-organizer HTML page only.
-    const path = href.startsWith('http')
-      ? (href.startsWith(BASE_URL) ? href.slice(BASE_URL.length) : null)
-      : (href.startsWith('/') ? href : `/${href}`)
-    if (!path || !path.startsWith(`/${slug}/`)) return
+    const path = b4sportPath(href)
+    // Off b4sport: take it. On b4sport: this organizer's own pages only.
+    if (path && !(slug && path.startsWith(`/${slug}/`))) return
     push(href, text, 'html')
+  })
+  return out
+}
+
+// Routes on an organizer's site that carry no editorial text: the registration
+// wizard, the participant and result lists, the gallery, the ticket form. Every
+// other `/<slug>/<page>` is something the organizer wrote.
+const NON_CONTENT_ROUTE = /^(index|regulamin|gallery|galeria|contact|kontakt|tickets|zapisy|rejestracja|logowanie|lista_|listy_|wyniki|results)/i
+
+// The organizer's own content pages, as linked from the index, mapped to the
+// menu label that names them. b4sport gives each race on a site a page of its
+// own at /<slug>/<race>, and that page is where TKKF Koszalin keeps the only
+// link to the Bieg Sylwestrowy regulamin — the index and the /regulamin route
+// both list the unrelated Mile Biegowe one instead.
+function collectContentPages($, slug) {
+  const out = new Map()
+  if (!slug) return out
+  const prefix = `/${slug}/`
+
+  $('a[href]').each((_, a) => {
+    const href = ($(a).attr('href') || '').trim()
+    if (!href || href.startsWith('#')) return
+    const path = b4sportPath(href)
+    if (!path || !path.startsWith(prefix)) return
+    const page = path.slice(prefix.length).replace(/[?#].*$/, '').replace(/\/$/, '')
+    // One segment only: /<slug>/<race>/<id> is a registration or list page.
+    if (!page || page.includes('/')) return
+    if (NON_CONTENT_ROUTE.test(page)) return
+    const url = `${BASE_URL}${prefix}${page}`
+    if (!out.has(url)) out.set(url, $(a).text().trim())
   })
   return out
 }
@@ -280,10 +334,10 @@ async function pickRegulamin(candidates, city, eventName, deps = {}) {
 /**
  * Fetch organizer pages per slug and extract:
  * - website: from navbar logo link or footer copyright link (index page)
- * - regulaminCandidates: regulamin links, both PDFs and same-organizer HTML
- *   pages, from the index page AND the dedicated /<slug>/regulamin route
- *   (which lists per-city PDFs for series). Per-event selection and
- *   verification happen later in pickRegulamin().
+ * - regulaminCandidates: regulamin links, both PDFs and HTML pages, from the
+ *   index page, the dedicated /<slug>/regulamin route (which lists per-city
+ *   PDFs for series) AND the organizer's own per-race content pages. Per-event
+ *   selection and verification happen later in pickRegulamin().
  */
 async function fetchOrganizerDetails(orgSlugs) {
   const details = new Map() // orgSlug → { website, regulaminCandidates }
@@ -291,6 +345,7 @@ async function fetchOrganizerDetails(orgSlugs) {
 
   for (const slug of orgSlugs) {
     let website = null
+    let contentPages = new Map()
     const candidates = []
 
     // 1. Index page — website + any regulamin links present there
@@ -314,6 +369,7 @@ async function fetchOrganizerDetails(orgSlugs) {
         })
       }
       candidates.push(...collectRegulaminLinks($, slug))
+      contentPages = collectContentPages($, slug)
     } catch (err) {
       console.error(`[b4sport] Index fetch failed for ${slug}:`, err.message?.slice(0, 100))
     }
@@ -331,6 +387,27 @@ async function fetchOrganizerDetails(orgSlugs) {
       }
     } catch (err) {
       console.error(`[b4sport] Regulamin route failed for ${slug}:`, err.message?.slice(0, 100))
+    }
+
+    // 3. The organizer's own race pages. Read after the index on purpose: the
+    //    site menu repeats on every page, so a menu link already collected
+    //    above dedups away here and cannot pick up this page's label.
+    const toRead = [...contentPages]
+      .filter(([url]) => !candidates.some(c => c.url === url))
+      .slice(0, MAX_CONTENT_PAGES)
+    for (const [url, label] of toRead) {
+      try {
+        await new Promise(r => setTimeout(r, 300))
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+          redirect: 'follow',
+        })
+        if (!res.ok) continue
+        const $ = cheerio.load(await res.text())
+        candidates.push(...collectRegulaminLinks($, slug, label))
+      } catch (err) {
+        console.error(`[b4sport] Content page failed for ${url}:`, err.message?.slice(0, 100))
+      }
     }
 
     // Dedup candidates by url, ignoring the ?lang= switcher. b4sport renders
@@ -599,4 +676,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return fresh
 }
 
-export { scrape, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, verifyRegulaminPage, nameTokens, citySlug, registrationSlugWords, isNonRunningEvent }
+export { scrape, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, collectContentPages, verifyRegulaminPage, nameTokens, citySlug, registrationSlugWords, isNonRunningEvent }
