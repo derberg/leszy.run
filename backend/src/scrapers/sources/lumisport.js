@@ -69,27 +69,53 @@ function parseDate(text) {
 // Value is stored raw (e.g. "Góra Kamieńsk", "Tor motocrossowy – Piątkowisko") and
 // left for the geocode step to resolve — Nominatim handles these venue strings.
 // Capture stops at the next known label so we don't swallow the rest of the blurb.
-const LOCATION_STOP_LABELS = 'Data|Termin|Dystans|Dystanse|Dysatans|Start|Godzina|Trasa|Baza|Zapisy|Opłat|Cena|Kontakt|Organizator|Nagrod|Pakiet|Limit'
+const LOCATION_STOP_LABELS = 'Data|Termin|Dystans|Dystanse|Dysatans|Start|Godzina|Trasa|Zapisy|Opłat|Cena|Kontakt|Organizator|Nagrod|Pakiet|Limit'
+
 // Polish address prose shortens words with a period: "Las Wiączyński (k.
 // Łodzi)", "ul. Leśna", "Kościół św. Anny". That period ends an abbreviation,
 // not the sentence, and stopping on it cut 2 Forest Cross down to
-// "Las Wiączyński (k" — a string Nominatim answers with nothing, so the row
-// published with no voivodeship and no coordinates. "Baza" joins the stop
-// labels for the same row: past the abbreviation the next period is 140
-// characters away, and the length guard below would have dropped the lot.
+// "Las Wiączyński (k" — a string Nominatim answers with nothing (verified
+// 2026-09-29, the bare name answers with the forest in województwo łódzkie),
+// so the row published with no voivodeship and no coordinates.
+//
+// The inner lookbehind is what keeps this to abbreviations: the letters must
+// open a word, so "leszy.pl." and "10k." still end the value.
 const LOCATION_ABBREVIATIONS = 'k|ul|al|pl|os|im|św|gm|woj|pow'
-function parseLocation(text) {
-  if (!text) return null
+const SENTENCE_END = `(?<!(?<![\\p{L}\\d.])(?:${LOCATION_ABBREVIATIONS}))[.!?]`
+
+// The organizer's own layout ends the value too. These descriptions are a run
+// of "Label: value" pairs — "Baza zawodów:", "Formuła:", "Dla kogo:" — and the
+// list above can only ever name the ones already seen. A capitalized word (or
+// a capitalized word plus one lowercase one) followed by a colon is a label,
+// whatever it says. Case-sensitive on purpose, and therefore a separate pass:
+// under the `i` flag \p{Lu} matches lowercase too, and the rule would then cut
+// the value at its own first word.
+const NEXT_INLINE_LABEL = /\s\p{Lu}\p{L}*(?:\s\p{Ll}\p{L}*)?\s*:/u
+
+function captureLocation(text, { abbreviationAware }) {
   const m = text.match(
     new RegExp(
       `(?:Miejsce|Lokalizacja)\\s*:?\\s*(.+?)(?=\\s+(?:${LOCATION_STOP_LABELS})\\b`
-      + `|(?<!(?<![\\p{L}])(?:${LOCATION_ABBREVIATIONS}))[.!?]|$)`,
+      + `|${abbreviationAware ? SENTENCE_END : '[.!?]'}|$)`,
       'iu'
     )
   )
   if (!m) return null
-  const loc = m[1].trim().replace(/[.,;:\s]+$/, '')
+  let value = m[1]
+  const label = value.search(NEXT_INLINE_LABEL)
+  if (label > 0) value = value.slice(0, label)
+  const loc = value.trim().replace(/[.,;:\s]+$/, '')
   return loc.length >= 2 && loc.length <= 70 ? loc : null
+}
+
+function parseLocation(text) {
+  if (!text) return null
+  // Not stopping at a period means a description with neither a label nor a
+  // period can now run past the length guard. Falling back to the old, naive
+  // capture keeps that row at the truncated value it had before rather than
+  // dropping the location entirely.
+  return captureLocation(text, { abbreviationAware: true })
+    ?? captureLocation(text, { abbreviationAware: false })
 }
 
 function parseDistances(attributes) {
