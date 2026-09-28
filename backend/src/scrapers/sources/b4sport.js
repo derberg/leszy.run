@@ -178,16 +178,20 @@ function b4sportPath(href) {
 // `context` is the label of the page the links were found on. A race page says
 // which race it is about, and the link on it often says no more than
 // "Regulamin", so the label is what lets pickRegulamin() tell two regulamins on
-// one organizer apart.
+// one organizer apart. It is kept in its own field, never folded into `hay`:
+// it describes the page, not the document, so only the name tier may read it.
+// A label that happens to name a city would otherwise make the city tier see
+// two matches in a series that used to resolve on one.
 function collectRegulaminLinks($, slug, context = '') {
   const out = []
-  const push = (href, text, kind) => {
+  const ctx = citySlug(context)
+  const push = (href, text, kind, offsite = false) => {
     const hay = `${href} ${text}`.toLowerCase()
     if (!hay.includes('regulamin')) return
     const url = href.startsWith('http')
       ? href
       : `${BASE_URL}${href.startsWith('/') ? '' : '/'}${href}`
-    out.push({ url, hay: citySlug(`${hay} ${context}`), text, kind })
+    out.push({ url, hay: citySlug(hay), context: ctx, text, kind, offsite })
   }
 
   $('a[href]').each((_, a) => {
@@ -200,9 +204,19 @@ function collectRegulaminLinks($, slug, context = '') {
       return
     }
     const path = b4sportPath(href)
-    // Off b4sport: take it. On b4sport: this organizer's own pages only.
-    if (path && !(slug && path.startsWith(`/${slug}/`))) return
-    push(href, text, 'html')
+    if (path !== null) {
+      // On b4sport the path names the owner, so this organizer's pages only.
+      // With no slug there is nothing to check a path against, and an
+      // unparseable href resolves to '/', so both fall out here.
+      if (!slug || !path.startsWith(`/${slug}/`)) return
+      push(href, text, 'html')
+      return
+    }
+    // Off b4sport there is no path to read, and the domain check only ever
+    // cost us real documents. Flagged, because this is the one class of
+    // candidate that did not exist before: pickRegulamin() lets it win a tier,
+    // never lets it take a tier away from something that used to win.
+    push(href, text, 'html', true)
   })
   return out
 }
@@ -235,6 +249,25 @@ function collectContentPages($, slug) {
     if (!out.has(url)) out.set(url, $(a).text().trim())
   })
   return out
+}
+
+// A menu entry that names a race: a discipline word, or an edition year. The
+// informational pages that pad a long menu — Aktualności, Trasa, Nagrody,
+// Hotele, Noclegi, Historia — carry neither.
+const RACE_LABEL = /\b(bieg\w*|marsz\w*|maraton\w*|polmaraton\w*|cross|rajd\w*|triathlon|duathlon|nordic|mila|mile|sztafeta|grand prix)\b|\b(19|20)\d{2}\b/
+
+// Order content pages so the race pages are read before MAX_CONTENT_PAGES
+// runs out. In raw menu order an organizer with a long menu spends the whole
+// budget on Aktualności, Trasa, Nagrody and Kontakt, and the race page — the
+// only reason to read anything past the index — is never reached. The sort is
+// stable, so the menu still decides between two equally race-like pages. The
+// last path segment is read alongside the label because the label can be
+// empty; the slug is not, or every page on /Biegi_Koszalin_2016/ would look
+// like a race.
+function rankContentPages(pages) {
+  const raceLike = ([url, label]) =>
+    RACE_LABEL.test(plainText(`${label} ${url.slice(url.lastIndexOf('/') + 1)}`)) ? 1 : 0
+  return [...pages].sort((a, b) => raceLike(b) - raceLike(a))
 }
 
 // Section headings every Polish regulamin carries. A menu page or a soft-404
@@ -303,16 +336,30 @@ async function pickRegulamin(candidates, city, eventName, deps = {}) {
 
   let chosen = null
 
-  // Tier 1: distinctive tokens of this event's name. This needs an outright
-  // winner. A tie means two races share the wording and neither is provable.
+  // Tier 1: distinctive tokens of this event's name. The words on the link
+  // itself decide first, and the label of the page it was found on only
+  // separates links the words tie on. A race page can link a sibling race's
+  // regulamin ("zobacz też Regulamin biegu B"), and that document then wears
+  // this page's label without being this page's document — weaker evidence
+  // than the link's own text, and it must not displace a link that names the
+  // race outright. Either way tier 1 needs an outright winner: a tie means two
+  // races share the wording and neither is provable.
+  const tokens = nameTokens(eventName)
   const scored = candidates
-    .map(c => ({ c, score: nameTokens(eventName).filter(t => c.hay.includes(t)).length }))
-    .sort((a, b) => b.score - a.score)
-  if (scored[0].score > 0 && (scored.length === 1 || scored[0].score > scored[1].score)) {
-    chosen = scored[0].c
+    .map(c => ({
+      c,
+      own: tokens.filter(t => c.hay.includes(t)).length,
+      ctx: tokens.filter(t => (c.context || '').includes(t)).length,
+    }))
+    .sort((a, b) => (b.own - a.own) || (b.ctx - a.ctx))
+  const [top, next] = scored
+  if (top.own + top.ctx > 0 && (!next || top.own > next.own || top.ctx > next.ctx)) {
+    chosen = top.c
   }
 
-  // Tier 2: city, for a multi-city series. Unique for the same reason.
+  // Tier 2: city, for a multi-city series. Unique for the same reason. Reads
+  // `hay` only — see collectRegulaminLinks() on why the page label is not in
+  // it.
   if (!chosen) {
     const cs = citySlug(city)
     const hits = cs ? candidates.filter(c => c.hay.includes(cs)) : []
@@ -322,7 +369,16 @@ async function pickRegulamin(candidates, city, eventName, deps = {}) {
   // Tier 3: a lone PDF on an organizer that runs one race. HTML never reaches
   // this tier. A menu link repeats on every page of the site, so being the
   // only candidate proves nothing about which race it covers.
-  if (!chosen && candidates.length === 1 && candidates[0].kind === 'pdf') chosen = candidates[0]
+  //
+  // "Lone" ignores off-b4sport HTML. Most links off the site that match the
+  // word are not race documents at all — a payment provider's "Regulamin
+  // serwisu" in a footer is one. Counting one would take a one-race
+  // organizer's only PDF away from it, a loss that reading more pages was
+  // never meant to cause.
+  if (!chosen) {
+    const onsite = candidates.filter(c => !c.offsite)
+    if (onsite.length === 1 && onsite[0].kind === 'pdf') chosen = onsite[0]
+  }
 
   if (!chosen) return null
   const ok = chosen.kind === 'html'
@@ -389,10 +445,11 @@ async function fetchOrganizerDetails(orgSlugs) {
       console.error(`[b4sport] Regulamin route failed for ${slug}:`, err.message?.slice(0, 100))
     }
 
-    // 3. The organizer's own race pages. Read after the index on purpose: the
-    //    site menu repeats on every page, so a menu link already collected
-    //    above dedups away here and cannot pick up this page's label.
-    const toRead = [...contentPages]
+    // 3. The organizer's own race pages, race-looking ones first. Read after
+    //    the index on purpose: the site menu repeats on every page, so a menu
+    //    link already collected above dedups away here and cannot pick up
+    //    this page's label.
+    const toRead = rankContentPages(contentPages)
       .filter(([url]) => !candidates.some(c => c.url === url))
       .slice(0, MAX_CONTENT_PAGES)
     for (const [url, label] of toRead) {
@@ -676,4 +733,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return fresh
 }
 
-export { scrape, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, collectContentPages, verifyRegulaminPage, nameTokens, citySlug, registrationSlugWords, isNonRunningEvent }
+export { scrape, paginateListing, fetchOrganizerDetails, pickRegulamin, collectRegulaminLinks, collectContentPages, rankContentPages, verifyRegulaminPage, nameTokens, citySlug, registrationSlugWords, isNonRunningEvent }

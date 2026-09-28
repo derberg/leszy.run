@@ -6,7 +6,10 @@ import {
   collectRegulaminLinks,
   fetchOrganizerDetails,
   pickRegulamin,
+  rankContentPages,
 } from '../src/scrapers/sources/b4sport.js'
+
+const yes = async () => true
 
 // TKKF Koszalin, sampled 2026-09-29. The organizer runs two races off one site.
 // The menu links the Mile Biegowe regulamin and nothing else, so the index page
@@ -103,4 +106,72 @@ test('event 13098 gets its own regulamin, not the Mile Biegowe one', async () =>
   } finally {
     globalThis.fetch = realFetch
   }
+})
+
+// --- the widening must not take away an answer that already worked ----------
+
+test('an off-domain service regulamin does not cost a one-race organizer its PDF', async () => {
+  const $ = cheerio.load(`
+    <a href="https://cdn.example.pl/regulamin_biegu.pdf">Regulamin</a>
+    <div class="footer"><a href="https://platnosci.example.com/regulamin">Regulamin serwisu</a></div>`)
+  const candidates = collectRegulaminLinks($, 'Jakis_Bieg_2026')
+  // The footer link is collected now, where before it was dropped on the
+  // domain check. It must not read as a second race document.
+  assert.equal(candidates.length, 2)
+  const url = await pickRegulamin(candidates, 'Sopot', 'Bieg Zupełnie Inny', { verifyPdfFn: yes })
+  assert.equal(url, 'https://cdn.example.pl/regulamin_biegu.pdf')
+})
+
+test('a page label naming a city does not break the city tier for a series', async () => {
+  const candidates = [
+    // Found on a race page whose menu label happens to name another city.
+    ...collectRegulaminLinks(
+      cheerio.load('<a href="https://x.pl/regulamin_gdansk.pdf">Regulamin</a>'),
+      'Seria',
+      'XV Bieg Uliczny Gdynia 2026',
+    ),
+    ...collectRegulaminLinks(cheerio.load('<a href="https://x.pl/regulamin_gdynia.pdf">Regulamin</a>'), 'Seria'),
+  ]
+  const url = await pickRegulamin(candidates, 'Gdynia', 'FORMOZA CHALLENGE', { verifyPdfFn: yes })
+  assert.equal(url, 'https://x.pl/regulamin_gdynia.pdf')
+})
+
+test('a sibling race linked from a race page does not outrank the race own regulamin', async () => {
+  const candidates = [
+    // From the index: the link itself names the race.
+    ...collectRegulaminLinks(
+      cheerio.load('<a href="/Org/regulamin_a">Regulamin - Bieg Pętla Jeziora</a>'),
+      'Org',
+    ),
+    // From that race's page: a "see also" to a sibling race, stamped with
+    // this page's label. The label says Pętla Jeziora, the document does not.
+    ...collectRegulaminLinks(
+      cheerio.load('<a href="/Org/regulamin_b">zobacz też Regulamin biegu Nocna Dycha</a>'),
+      'Org',
+      'Bieg Pętla Jeziora',
+    ),
+  ]
+  const url = await pickRegulamin(candidates, 'Koszalin', 'III Bieg Pętla Jeziora', { verifyPageFn: yes })
+  assert.equal(url, 'https://b4sportonline.pl/Org/regulamin_a')
+})
+
+test('a long menu does not spend the page budget before the race page', () => {
+  const $ = cheerio.load(`
+    <a href="/Dlugie_Menu_2026/aktualnosci">Aktualności</a>
+    <a href="/Dlugie_Menu_2026/trasa">Trasa</a>
+    <a href="/Dlugie_Menu_2026/nagrody">Nagrody</a>
+    <a href="/Dlugie_Menu_2026/hotele">Hotele</a>
+    <a href="/Dlugie_Menu_2026/noclegi">Noclegi</a>
+    <a href="/Dlugie_Menu_2026/bieg_glowny">XII Bieg Główny</a>`)
+  const ranked = rankContentPages(collectContentPages($, 'Dlugie_Menu_2026')).map(([url]) => url)
+  // Sixth in the menu, first to be read. MAX_CONTENT_PAGES is 4.
+  assert.equal(ranked[0], 'https://b4sportonline.pl/Dlugie_Menu_2026/bieg_glowny')
+  // Everything else keeps menu order.
+  assert.deepEqual(ranked.slice(1), [
+    'https://b4sportonline.pl/Dlugie_Menu_2026/aktualnosci',
+    'https://b4sportonline.pl/Dlugie_Menu_2026/trasa',
+    'https://b4sportonline.pl/Dlugie_Menu_2026/nagrody',
+    'https://b4sportonline.pl/Dlugie_Menu_2026/hotele',
+    'https://b4sportonline.pl/Dlugie_Menu_2026/noclegi',
+  ])
 })
