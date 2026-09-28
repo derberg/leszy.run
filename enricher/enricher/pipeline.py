@@ -7,7 +7,7 @@ from supabase import create_client
 
 from enricher.config import Config
 from enricher.run_logger import RunLogger
-from enricher.steps.validate_urls import validate_urls
+from enricher.steps.validate_urls import validate_urls, UrlStatus
 from enricher.steps.search import search_missing_urls
 from enricher.steps.crawl import crawl_pages, crawl_url_list, check_browser
 from enricher.steps.pdf import download_pdf, extract_pdf_text, cleanup_pdf
@@ -30,21 +30,46 @@ from enricher.steps.verify import verify_search_candidate
 # broken crawler rather than a run that happened to hit only dead sites.
 _CRAWL_SHUTOUT_MIN_ATTEMPTS = 5
 
-# The fields a regulamin is the authority on. Only these carry over from a
-# second extraction pass — the URL answers stay with the pass that picked them.
+# The fields a regulamin is the authority on. A second extraction pass carries
+# over only the ones the regulamin itself answered — the URL answers, and every
+# field the document is silent about, stay with the pass that produced them.
 _REGULAMIN_FIELDS = (
     "distances", "event_types", "price_from", "price_to",
     "registration_deadline", "voivodeship", "location", "is_kids",
 )
 
 
-async def _read_regulamin(url: str, config: Config) -> tuple[Optional[str], Optional[str]]:
-    """Fetch one regulamin and return (html_content, doc_text); at most one is set.
+def _url_key(url: str) -> str:
+    """A URL reduced to the document it addresses, for "did we already read this?".
+
+    http vs https, a www. prefix and a trailing slash are three spellings of one
+    page, and a redirect makes the difference routine: working_urls holds the
+    address the URL redirected TO, while _merge_urls stores the raw candidate.
+    Comparing those two verbatim says "not read yet" about a document this run
+    just extracted, and pays for a second crawl and a second LLM pass to learn
+    nothing.
+    """
+    try:
+        parts = urlparse(url)
+    except ValueError:
+        return url or ""
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    key = host + parts.path.rstrip("/")
+    return f"{key}?{parts.query}" if parts.query else key
+
+
+async def _read_regulamin(
+    url: str, config: Config
+) -> tuple[Optional[str], Optional[str], Optional[UrlStatus]]:
+    """Fetch one regulamin: (html_content, doc_text, status); at most one text is set.
 
     Same branching as Step 4, for a URL that has no UrlStatus yet: classify it,
-    then download+extract a PDF / docx / Drive item, or crawl an HTML page.
+    then download+extract a PDF / docx / Drive item, or crawl an HTML page. A
+    dead URL is not fetched at all, exactly as Step 3 leaves dead URLs uncrawled.
     """
     status = validate_urls({"regulamin_url": url}, timeout=config.url_timeout).get("regulamin_url")
+    if status and status.status == "dead":
+        return None, None, status
     kind = status.kind if status else None
     final = (status.final_url or url) if status else url
 
@@ -54,14 +79,14 @@ async def _read_regulamin(url: str, config: Config) -> tuple[Optional[str], Opti
             text = extract_pdf_text(pdf_path, max_chars=config.max_pdf_chars)
             cleanup_pdf(pdf_path)
             if text:
-                return None, text
+                return None, text, status
         # download failed — a PDF-looking URL that serves a page still has text
     elif kind in _DOC_KINDS:
-        return None, await extract_regulamin_doc(final, kind, max_chars=config.max_pdf_chars)
+        return None, await extract_regulamin_doc(final, kind, max_chars=config.max_pdf_chars), status
 
     crawled = await crawl_pages({"regulamin_url": final}, max_chars=config.max_page_chars)
     result = crawled.get("regulamin_url")
-    return (result.content if result else None), None
+    return (result.content if result else None), None, status
 
 
 async def process_event(event: dict, config: Config) -> dict:
@@ -407,10 +432,20 @@ async def process_event(event: dict, config: Config) -> dict:
     updates = build_updates(event, llm_result or {}, url_statuses, search_candidates, config, had_content)
 
     # Which regulamin's text actually fed the extraction above. A merge-step pick
-    # that differs from this one was never opened in this run.
-    read_regulamin_url = working_urls.get("regulamin_url") if had_content else None
-    if not read_regulamin_url and pdf_text:
-        read_regulamin_url = discovered_pdf_url
+    # that addresses none of these was never opened in this run. Both spellings
+    # of the URL count as read — the raw one the merge step stores and the one it
+    # redirected to, which is what working_urls holds.
+    read_regulamin_urls = set()
+    if had_content:
+        read_status = url_statuses.get("regulamin_url")
+        if read_status:
+            read_regulamin_urls.update(
+                _url_key(u) for u in (read_status.url, read_status.final_url) if u
+            )
+        if working_urls.get("regulamin_url"):
+            read_regulamin_urls.add(_url_key(working_urls["regulamin_url"]))
+    if pdf_text and discovered_pdf_url:
+        read_regulamin_urls.add(_url_key(discovered_pdf_url))
 
     # Step 6b: Read a regulamin this run only just discovered.
     #
@@ -423,12 +458,31 @@ async def process_event(event: dict, config: Config) -> dict:
     # behind its own checkout, and the regulamin the run stored says 230 zł and
     # 14.01.2027. Open it now and extract again from the document itself.
     picked_regulamin = updates.get("regulamin_url")
-    if picked_regulamin and picked_regulamin != read_regulamin_url:
-        reg_html, reg_doc = await _read_regulamin(picked_regulamin, config)
+    if picked_regulamin and _url_key(picked_regulamin) not in read_regulamin_urls:
+        reg_html, reg_doc, reg_status = await _read_regulamin(picked_regulamin, config)
         result["steps"]["regulamin_pass"] = {
             "url": picked_regulamin,
             "extracted_chars": len(reg_html or reg_doc or ""),
         }
+
+        # A PDF this run discovered gets the guard Step 4 puts on a discovered
+        # PDF. Crawling up from a page often lands on the PLATFORM's own
+        # regulamin or privacy policy, which carries no race name, and reading
+        # event fields out of one rewrites the row with someone else's document.
+        # _merge_urls' verify_url_relevance is not that guard: it returns True on
+        # any 4xx or network error, and it token-matches the raw response bytes.
+        if reg_doc and reg_status and reg_status.kind == "pdf" and not pdf_belongs_to_event(event, reg_doc):
+            result["steps"]["regulamin_pass"]["rejected"] = "not this event"
+            reg_doc = None
+
+        # Step 3c's cleaning applies to this page too. A regulamin page carries
+        # the same "Najbliższe zawody" sibling-race chrome as every other page on
+        # the host (IX Bieg Wolności → Pętla's 54/108 km), and this pass writes
+        # with regulamin authority, so an uncleaned leak here OVERWRITES the
+        # scraper's distances rather than merely sitting beside them.
+        if reg_html:
+            reg_html = strip_foreign_event_lines(reg_html, self_urls)
+
         if reg_html or reg_doc:
             reg_content = {"regulamin_url": reg_html} if reg_html else {}
             reg_texts = list(reg_content.values())
@@ -447,21 +501,39 @@ async def process_event(event: dict, config: Config) -> dict:
                 if reg_llm.get(key) in (None, "") and reg_hints.get(key) is not None:
                     reg_llm[key] = reg_hints[key]
 
-            # The document overrules the page it was found on, field by field.
-            # URLs are left out of this merge entirely — pass 1 already picked
-            # them, and re-running _merge_urls would only re-fetch every
-            # candidate to verify an answer we are about to discard anyway.
-            merged_llm = {k: v for k, v in llm_result.items() if k in _REGULAMIN_FIELDS}
-            for key in _REGULAMIN_FIELDS:
-                value = reg_llm.get(key)
-                if value not in (None, "", []):
-                    merged_llm[key] = value
+            # The document overrules the page it was found on, field by field —
+            # and ONLY on the fields it actually answered. Pass 1's values came
+            # off the registration page or the website fallback and were merged
+            # with had_content=False deliberately: a shop page counts ticket
+            # variants and sibling races as distances, so Rule 3 must not let its
+            # longer list replace the scraper's, and its is_kids guess must not
+            # correct a stored one. Re-merging those values at had_content=True
+            # would hand page answers regulamin authority, so the second pass
+            # builds its updates from reg_llm alone and layers them over pass 1's.
+            # A second pass that extracted nothing (LLM down, no regex hits)
+            # therefore changes nothing rather than degrading the row.
+            #
+            # URLs stay out of this merge: reg_llm's url fields are dropped by the
+            # same filter, so _merge_urls has no candidate to write and pass 1's
+            # picks survive the layering untouched.
+            reg_only = {
+                k: v for k, v in reg_llm.items()
+                if k in _REGULAMIN_FIELDS and v not in (None, "", [])
+            }
+            second = build_updates(event, reg_only, url_statuses, {}, config, True)
+            updates = {**updates, **second}
+            result["steps"]["regulamin_pass"]["fields"] = sorted(second)
 
-            second = build_updates(event, merged_llm, url_statuses, {}, config, True)
-            for field in ("registration_url", "regulamin_url"):
-                if field in updates:
-                    second[field] = updates[field]
-            updates = second
+            # price_from and price_to describe ONE fee range. Taking one bound
+            # from the regulamin and the other from pass 1's page can invert it,
+            # and _merge_scalars' own sanity check only ever sees one pass. Drop
+            # the page's bound, not the document's.
+            pf = updates.get("price_from", event.get("price_from"))
+            pt = updates.get("price_to", event.get("price_to"))
+            if pf is not None and pt is not None and pf > pt:
+                for field in ("price_from", "price_to"):
+                    if field not in second:
+                        updates.pop(field, None)
 
     result["updates"] = updates
     result["steps"]["merge"] = {
@@ -746,8 +818,10 @@ def _print_step(name, data):
         url_note = f" ({data['url']})" if src == "discovered" and data.get("url") else ""
         click.echo(f"    pdf ({src}){url_note}: {data.get('extracted_chars', 0)} chars")
     elif name == "regulamin_pass":
+        note = f" REJECTED ({data['rejected']})" if data.get("rejected") else ""
         click.echo(
-            f"    regulamin pass: {data.get('extracted_chars', 0)} chars from {data.get('url')}"
+            f"    regulamin pass: {data.get('extracted_chars', 0)} chars from "
+            f"{data.get('url')}{note}"
         )
     elif name == "prepass":
         parts = []
