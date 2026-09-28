@@ -56929,7 +56929,7 @@
     "is_kids": null,
     "status": "active"
   },
-  "xrun-wielki-final-2026-10-04": {
+  "xrun-wielki-final-2026-10-04-1865": {
     "id": "186545cc-4bf6-4053-826c-f1a1ab85e6a9",
     "name": "XRUN Wielki Finał",
     "date": "2026-10-04",
@@ -57133,6 +57133,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "xrun-wielki-final-2026-10-04-b4dd": {
+    "id": "b4ddbbe4-fbb3-44c8-aa97-1eac411438cd",
+    "name": "X-RUN Wielki Finał",
+    "date": "2026-10-04",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": 90,
+    "price_to": 260,
+    "location": "Muszyna",
+    "voivodeship": "Małopolskie",
+    "lat": null,
+    "lng": null,
+    "distances": [
+      "18 km",
+      "28 km",
+      "40 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://xrun.pl/wielki-final-2026/",
+    "website": "https://xrun.pl/wielki-final-2026/",
+    "is_kids": null,
+    "status": "active"
+  },
   "xli-bieg-pokoju-kids-cup-2026-2026-10-04": {
     "id": "d11e66ad-85c7-49bd-8a97-ad459b8cfba0",
     "name": "XLI Bieg Pokoju - Kids Cup 2026",
@@ -57205,6 +57230,33 @@
       "dzieci"
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/16074/signup.html",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "silesia-ultramarathon-silesia-marathon-silesia-half-marathon-2026-10-04": {
+    "id": "6fd81e22-f27d-42df-9730-ed04c98244c4",
+    "name": "Silesia Ultramarathon, Silesia Marathon, Silesia Half Marathon",
+    "date": "2026-10-04",
+    "registration_deadline": null,
+    "regulamin_url": "https://silesiamarathon.pl/start-zapisow-silesia-marathon-2026/",
+    "price_from": null,
+    "price_to": null,
+    "location": "Katowice",
+    "voivodeship": "Śląskie",
+    "lat": 50.259899,
+    "lng": 19.021585,
+    "distances": [
+      "5 km",
+      "10 km",
+      "21.1 km",
+      "42.2 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "ultra"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12743%26co%3Dform",
     "website": null,
     "is_kids": null,
     "status": "active"
@@ -60555,6 +60607,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "run-for-fighters-2026-10-15": {
+    "id": "884e6ae1-9b9c-418e-b514-941b196efbfc",
+    "name": "Run for Fighters",
+    "date": "2026-10-15",
+    "registration_deadline": "2026-10-14",
+    "regulamin_url": "https://elektronicznezapisy.pl/download/F3K184a7h03001V7H8F9I9z9u2N2H8h7/open",
+    "price_from": 15,
+    "price_to": 30,
+    "location": "Gdynia",
+    "voivodeship": "Pomorskie",
+    "lat": 54.516498,
+    "lng": 18.540274,
+    "distances": [
+      "5 km",
+      "2 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/16095/signup.html",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "vi-bieg-o-zachodzie-slonca-2026-10-16": {
     "id": "204cdfba-4be4-4b69-884f-a003c4e17113",
     "name": "VI Bieg o Zachodzie Słońca",
@@ -60774,6 +60850,29 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/14547/signup.html",
     "website": "http://www.biegajacy.tczew.pl/sambor/",
+    "is_kids": null,
+    "status": "active"
+  },
+  "33-marszobieg-na-czantorie-wielka-2026-10-17": {
+    "id": "c0dbfbf4-06cf-482c-ae32-a7a8b1d005de",
+    "name": "33 Marszobieg na Czantorię Wielką",
+    "date": "2026-10-17",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Ustroń",
+    "voivodeship": "Śląskie",
+    "lat": 49.718649,
+    "lng": 18.825108,
+    "distances": [
+      "9.2 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://barbarianrace.pl/formula/marszobieg",
+    "website": "https://www.facebook.com/MarszobiegNaCzantorie",
     "is_kids": null,
     "status": "active"
   },
