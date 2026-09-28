@@ -69,11 +69,23 @@ function parseDate(text) {
 // Value is stored raw (e.g. "Góra Kamieńsk", "Tor motocrossowy – Piątkowisko") and
 // left for the geocode step to resolve — Nominatim handles these venue strings.
 // Capture stops at the next known label so we don't swallow the rest of the blurb.
-const LOCATION_STOP_LABELS = 'Data|Termin|Dystans|Dystanse|Dysatans|Start|Godzina|Trasa|Zapisy|Opłat|Cena|Kontakt|Organizator|Nagrod|Pakiet|Limit'
+const LOCATION_STOP_LABELS = 'Data|Termin|Dystans|Dystanse|Dysatans|Start|Godzina|Trasa|Baza|Zapisy|Opłat|Cena|Kontakt|Organizator|Nagrod|Pakiet|Limit'
+// Polish address prose shortens words with a period: "Las Wiączyński (k.
+// Łodzi)", "ul. Leśna", "Kościół św. Anny". That period ends an abbreviation,
+// not the sentence, and stopping on it cut 2 Forest Cross down to
+// "Las Wiączyński (k" — a string Nominatim answers with nothing, so the row
+// published with no voivodeship and no coordinates. "Baza" joins the stop
+// labels for the same row: past the abbreviation the next period is 140
+// characters away, and the length guard below would have dropped the lot.
+const LOCATION_ABBREVIATIONS = 'k|ul|al|pl|os|im|św|gm|woj|pow'
 function parseLocation(text) {
   if (!text) return null
   const m = text.match(
-    new RegExp(`(?:Miejsce|Lokalizacja)\\s*:?\\s*(.+?)(?=\\s+(?:${LOCATION_STOP_LABELS})\\b|[.!?]|$)`, 'i')
+    new RegExp(
+      `(?:Miejsce|Lokalizacja)\\s*:?\\s*(.+?)(?=\\s+(?:${LOCATION_STOP_LABELS})\\b`
+      + `|(?<!(?<![\\p{L}])(?:${LOCATION_ABBREVIATIONS}))[.!?]|$)`,
+      'iu'
+    )
   )
   if (!m) return null
   const loc = m[1].trim().replace(/[.,;:\s]+$/, '')
