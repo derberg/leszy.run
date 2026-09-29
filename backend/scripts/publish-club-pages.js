@@ -42,8 +42,11 @@ function visibleMemberLabels(members) {
     .filter((m) => !m.hidden_public)
     .map((m) => {
       const wantsNickname = m.profiles?.privacy_settings?.club_public_name === 'nickname'
-      const primary = wantsNickname ? m.profiles?.nickname : m.profiles?.display_name
-      return primary || m.profiles?.nickname || m.profiles?.display_name || 'Anonimowy zawodnik'
+      // A member who asked to be shown by nickname and has none is anonymous —
+      // NOT display_name. The old `||` chain fell straight through to the one
+      // field they had just asked to hide.
+      if (wantsNickname) return m.profiles?.nickname || 'Anonimowy zawodnik'
+      return m.profiles?.display_name || m.profiles?.nickname || 'Anonimowy zawodnik'
     })
 }
 
