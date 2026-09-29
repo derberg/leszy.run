@@ -21,19 +21,32 @@ function readValue(argv, flag) {
   return i === -1 ? null : argv[i + 1] ?? ''
 }
 
+/** Every value given to a repeatable flag, in the order they appear. */
+function readValues(argv, flag) {
+  const out = []
+  argv.forEach((arg, i) => {
+    if (arg === flag) out.push(argv[i + 1] ?? '')
+  })
+  return out
+}
+
 /**
  * Resolve the row-selection scope from the command line.
  *
  * @param {object} options
  * @param {string[]} options.argv Arguments after the script name.
  * @param {string} options.today Today as YYYY-MM-DD, the floor for event dates.
- * @returns {{mergedSince: string|null, minDate: string|null, limit: number|null, description: string}}
+ * @returns {{mergedSince: string|null, minDate: string|null, limit: number|null,
+ *   only: Array<{source: string, source_id: string}>|null, unminedOnly: boolean,
+ *   description: string}}
  *   `mergedSince` and `minDate` are inclusive floors on `merged_at` and on the
  *   event date, and null means no floor. `limit` caps the number of rows, and
- *   null means no cap.
- * @throws {Error} When `--merged-since` or `--limit` is given an unusable value.
- *   The caller is a command-line script, so a bad flag stops the run rather
- *   than silently selecting a different set of rows.
+ *   null means no cap. `only` names the rows to mine, and null means every row
+ *   the other filters allow. `unminedOnly` keeps the run off rows that have
+ *   been mined already.
+ * @throws {Error} When `--merged-since`, `--limit` or `--only` is given an
+ *   unusable value. The caller is a command-line script, so a bad flag stops
+ *   the run rather than silently selecting a different set of rows.
  */
 export function resolveRegulaminScope({ argv = [], today }) {
   const all = argv.includes('--all')
@@ -56,13 +69,33 @@ export function resolveRegulaminScope({ argv = [], today }) {
     limit = Number(value)
   }
 
-  const minDate = all ? null : today
+  // A named row is a deliberate choice, so the two filters that exist to bound
+  // a bulk run do not apply to it. The date floor is there to stop the step
+  // paying for races that already happened, and the un-mined gate is there to
+  // stop it paying twice. A person naming one row has answered both. This is
+  // also what lets a merged fix be applied to the rows it was measured against
+  // without an UPDATE clearing enriched_regulamin_at first.
+  const only = argv.includes('--only')
+    ? readValues(argv, '--only').map((value) => {
+        const [source, ...rest] = value.split(':')
+        const sourceId = rest.join(':')
+        if (!source || !sourceId) {
+          throw new Error(`--only expects source:source_id, got: ${value || '(nothing)'}`)
+        }
+        return { source, source_id: sourceId }
+      })
+    : null
 
-  const description = all
-    ? 'every un-mined row with a regulamin URL, past races included'
-    : mergedSince
-      ? `un-mined rows for races from ${today} on, merged since ${mergedSince}`
-      : `every un-mined row with a regulamin URL for a race from ${today} on`
+  const minDate = all || only ? null : today
+  const unminedOnly = !only
 
-  return { mergedSince, minDate, limit, description }
+  const description = only
+    ? `the named rows: ${only.map((r) => `${r.source}:${r.source_id}`).join(', ')}`
+    : all
+      ? 'every un-mined row with a regulamin URL, past races included'
+      : mergedSince
+        ? `un-mined rows for races from ${today} on, merged since ${mergedSince}`
+        : `every un-mined row with a regulamin URL for a race from ${today} on`
+
+  return { mergedSince, minDate, limit, only, unminedOnly, description }
 }

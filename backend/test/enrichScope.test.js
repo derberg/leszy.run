@@ -67,3 +67,56 @@ test('the description says which scope is in force', () => {
     /2026-09-28/
   )
 })
+
+// Naming rows is what a fix needs after it merges. The step reads every
+// un-mined future row with a regulamin URL, 57 of them on 2026-09-29, and
+// orders them soonest race first, so --limit cannot reach a race in 2027. A
+// fix measured against ZPGS 2027 (b4sport:13127) therefore had no way to be
+// applied to ZPGS 2027 short of paying for all 57.
+test('--only names the rows to mine', () => {
+  const scope = resolveRegulaminScope({
+    argv: ['--only', 'b4sport:13127', '--only', 'motivato:ultramaraton-bieszczadzki-2026'],
+    today: TODAY,
+  })
+  assert.deepEqual(scope.only, [
+    { source: 'b4sport', source_id: '13127' },
+    { source: 'motivato', source_id: 'ultramaraton-bieszczadzki-2026' },
+  ])
+})
+
+// A named row is a deliberate choice, so neither filter that exists to bound a
+// bulk run applies to it. The date floor is there to stop the step paying for
+// races that already happened, and the un-mined gate is there to stop it
+// paying twice; a person naming one row has answered both questions. Without
+// this, re-mining a row a fix was measured against needs an UPDATE clearing
+// enriched_regulamin_at, which is a database write to get a read-only rerun.
+test('--only overrides the date floor and the un-mined gate', () => {
+  const scope = resolveRegulaminScope({ argv: ['--only', 'b4sport:13127'], today: TODAY })
+  assert.equal(scope.minDate, null)
+  assert.equal(scope.unminedOnly, false)
+})
+
+test('a run with no --only still mines un-mined future rows', () => {
+  const scope = resolveRegulaminScope({ argv: [], today: TODAY })
+  assert.equal(scope.only, null)
+  assert.equal(scope.unminedOnly, true)
+})
+
+test('--only rejects anything that is not source:source_id', () => {
+  for (const bad of ['b4sport', ':13127', 'b4sport:', '']) {
+    assert.throws(
+      () => resolveRegulaminScope({ argv: ['--only', bad], today: TODAY }),
+      /--only expects source:source_id/,
+      JSON.stringify(bad)
+    )
+  }
+  assert.throws(
+    () => resolveRegulaminScope({ argv: ['--only'], today: TODAY }),
+    /--only expects source:source_id/
+  )
+})
+
+test('the description names the rows when --only is given', () => {
+  const scope = resolveRegulaminScope({ argv: ['--only', 'b4sport:13127'], today: TODAY })
+  assert.match(scope.description, /b4sport:13127/)
+})
