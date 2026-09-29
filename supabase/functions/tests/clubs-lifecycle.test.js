@@ -364,6 +364,35 @@ describe('transfer-ownership', () => {
     }
   })
 
+  it('a nominee who left the club cannot accept ownership', async () => {
+    const owner = await createTestSession('to-owner-left')
+    const member = await createTestSession('to-member-left')
+    let clubId
+    try {
+      const c = await callFunction('create-club', { name: 'Klub Transfer Left Test' }, owner.sessionToken)
+      clubId = c.data.data.club.id
+      await joinActive(owner, member, clubId)
+      await callFunction('transfer-ownership',
+        { club_id: clubId, op: 'nominate', user_id: member.user.id }, owner.sessionToken)
+
+      // They walk out while nominated. Nothing used to clear the nomination,
+      // so accepting afterwards left the club owned by a non-member and nobody
+      // able to delete it or change a role.
+      await callFunction('manage-member', { club_id: clubId, action: 'leave' }, member.sessionToken)
+
+      const res = await callFunction('transfer-ownership', { club_id: clubId, op: 'accept' }, member.sessionToken)
+      assert.equal(res.status, 409)
+
+      const { data: club } = await supabaseAdmin.from('clubs')
+        .select('owner_id, pending_owner_id').eq('id', clubId).single()
+      assert.equal(club.owner_id, owner.user.id, 'ownership must not move')
+      assert.equal(club.pending_owner_id, null, 'the stale nomination must be cleared')
+    } finally {
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id); await cleanupUser(member.user.id)
+    }
+  })
+
   it('decline clears pending without changing owner', async () => {
     const owner = await createTestSession('to-owner4')
     const member = await createTestSession('to-member4')

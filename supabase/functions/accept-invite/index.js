@@ -89,7 +89,12 @@ Deno.serve(async (req) => {
         left_at: null,
         hidden_public: !!hidden_public,
       }, { onConflict: 'club_id,user_id' })
-    if (memErr) throw memErr
+    if (memErr) {
+      // The one-active-membership index caught what the check above cannot: a
+      // concurrent join through another path.
+      if (memErr.code === '23505') return json({ error: 'Należysz już do klubu. Opuść go, aby dołączyć do innego.' }, 409, req)
+      throw memErr
+    }
 
     await supabaseAdmin.from('profiles').update({ club_id: invite.club_id }).eq('id', session.userId)
 
