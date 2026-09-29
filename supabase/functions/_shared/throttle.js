@@ -10,7 +10,7 @@ const WINDOW_SECONDS = 15 * 60
  * while the counter stayed at 1. The cap that is supposed to stop someone
  * mailing 50 login codes at an address they do not own did nothing under
  * exactly the conditions it exists for. The decision now happens inside the
- * write — see claim_throttle_slot in migration 20260929200000.
+ * write — see claim_throttle_slot in migration 20260929230000.
  *
  * `failOpen` says what to do when the RPC itself is unavailable — a PostgREST
  * schema cache lagging a fresh migration, a pool timeout. It is not one answer
