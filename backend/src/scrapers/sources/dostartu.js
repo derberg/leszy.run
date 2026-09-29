@@ -160,6 +160,27 @@ function parseClassifications(classifications, eventName) {
   }
 }
 
+// The regulamin of one competition.
+//
+// statuteLinkPl is the organizer's own link and is used verbatim. statuteFilePl
+// is dostartu's own copy and the API gives it as a bare path
+// ("statute_files/17343_pl.pdf"), which is not a URL: stored as-is, nothing can
+// fetch it, so run-enrich-from-regulamin skips the row and the race keeps no
+// price, no deadline and no distances. Verified on 2026-09-29 against 17343:
+// https://dostartu.pl/statute_files/17343_pl.pdf answers 200 application/pdf
+// with no redirect, and the document is that race's regulamin. A /files/ prefix
+// also answers 200, but with text/html, so it is a soft 404 and not the base.
+export function statuteUrl(ev = {}) {
+  const external = ev.statuteLinkPl?.trim()
+  if (external) return external
+
+  const file = ev.statuteFilePl?.trim()
+  if (!file) return null
+  if (/^https?:\/\//i.test(file)) return file
+  if (file.startsWith('//')) return `https:${file}`
+  return `https://dostartu.pl/${file.replace(/^\/+/, '')}`
+}
+
 function makeUrl(permaLink, id) {
   if (permaLink) return `https://dostartu.pl${permaLink}`
   return `https://dostartu.pl/permalink-v${id}`
@@ -213,7 +234,7 @@ async function scrape({ knownIds = new Set() } = {}) {
     // ev.websitePl belongs in `website`, not `registration_url`.
     const eventType = TYPE_MAP[ev.type] || null
     // Prefer external link (real PDF) over dostartu-hosted (often SPA shell)
-    const regulaminUrl = ev.statuteLinkPl || ev.statuteFilePl || null
+    const regulaminUrl = statuteUrl(ev)
 
     // Registration deadline source preference (ev.endDate is null for ~95% of races):
     //   1. max(classificationPrices.endedTime) — the last paid tier closes registration
