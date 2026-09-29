@@ -9,6 +9,8 @@ import { createClient } from '@supabase/supabase-js'
 
 const dryRun = !process.argv.includes('--apply')
 
+import { pickDigestNotifications } from './lib/notificationWindow.js'
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -96,7 +98,7 @@ if (!dryRun && !process.env.SENDGRID_API_KEY) {
 // 1. Opted-in users (digest subscribers won't near 1000 soon; .order for determinism)
 const { data: users, error: usersErr } = await supabase
   .from('profiles')
-  .select('id, email, username')
+  .select('id, email, username, digest_sent_at')
   .eq('weekly_digest', true)
   .is('deleted_at', null)
   .not('email', 'is', null)
@@ -114,14 +116,16 @@ const favs = await fetchAll(() =>
 )
 
 // 3. Notifications from the last 7 days on any of those events — paginate past cap
-const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+const since = sevenDaysAgo
+const todayIso = new Date().toISOString().slice(0, 10)
 const eventIds = [...new Set(favs.map((f) => f.event_id))]
 let notifs = []
 if (eventIds.length) {
   notifs = await fetchAll(() =>
     supabase
       .from('event_notifications')
-      .select('event_id, type, created_at, calendar_events(name, date)')
+      .select('event_id, type, created_at, calendar_events(name, date, status)')
       .gte('created_at', since)
       .in('event_id', eventIds)
       .order('created_at')
@@ -140,9 +144,11 @@ let failed = 0
 for (const user of users) {
   const myFavs = favsByUser.get(user.id)
   if (!myFavs) continue
-  const mine = notifs.filter(
-    (n) => myFavs.has(n.event_id) && new Date(n.created_at) > new Date(myFavs.get(n.event_id))
-  )
+  // Never before this user's last successful digest: the 7-day window alone
+  // meant that re-running the job after a partial failure mailed everyone who
+  // had already been served the same week a second time.
+  const since = user.digest_sent_at && user.digest_sent_at > sevenDaysAgo ? user.digest_sent_at : sevenDaysAgo
+  const mine = pickDigestNotifications(notifs, myFavs, since, todayIso)
   if (!mine.length) continue
 
   const items = mine
@@ -246,6 +252,13 @@ for (const user of users) {
     try {
       await sendEmail(user.email, 'Leszy.run — co nowego w obserwowanych biegach', html)
       sent++
+      // Stamped only after SendGrid accepted it, so a failure re-sends next run
+      // rather than swallowing the week.
+      const { error: stampErr } = await supabase
+        .from('profiles')
+        .update({ digest_sent_at: new Date().toISOString() })
+        .eq('id', user.id)
+      if (stampErr) console.error(`digest_sent_at stamp failed for ${user.email}: ${stampErr.message}`)
     } catch (err) {
       console.error(`send failed for ${user.email}: ${err.message}`)
       failed++
