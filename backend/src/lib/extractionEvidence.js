@@ -56,6 +56,40 @@ export function hasDeadlineEvidence(text) {
   return DEADLINE_TOKENS.test(String(text || ''))
 }
 
+// A fee only some entrants may pay is not the entry fee.
+//
+// A regulamin states its fee, then often offers a lower one to a named group:
+// residents of the gmina, club members, pupils of the local school. Asked for
+// the lowest fee, the model returns that one, and the calendar then advertises
+// a price almost nobody reading it can pay. BIEG PAŹDZIERNIKOWY 2026 - GMINA
+// ŁUBIANKA published 15 zł on 2026-09-29, the rate for residents of gmina
+// Łubianka. Its general fee is 25 zł.
+//
+// The test is WHO may pay, not whether the word is a discount. An early-bird
+// tier is a discount every entrant can take by entering early, so it stays a
+// real price_from and this gate leaves it alone.
+const RESTRICTED_TO = /(mieszka[nń]|cz[lł]onk|uczni|uczen|student|senior|emeryt|niepe[lł]nosprawn|legitymacj|zamieszka[lł]|karty?\s+du[zż]ej\s+rodziny)/i
+
+// One statement of a fee. The text arrives from pdftotext or textutil, so a
+// line break is as much a separator as a full stop.
+const splitSegments = (text) => String(text || '').split(/[\n.;]+/)
+
+/**
+ * True when every mention of this amount sits in a segment that restricts it to
+ * a named group. One unrestricted mention is enough to keep the value.
+ *
+ * A value that appears nowhere in the text is NOT restricted by this test. It
+ * has a different problem, and hasFeeEvidence is what answers for it.
+ */
+function onlyOfferedToSomeEntrants(amount, text) {
+  if (amount == null || !Number.isFinite(Number(amount))) return false
+  // 15 zł, 15zł, 15,00 PLN. The boundary stops 15 matching inside 150.
+  const money = new RegExp(`(?<!\\d)${Number(amount)}(?:[.,]00?)?\\s*(?:z[lł]|pln)`, 'i')
+  const mentions = splitSegments(text).filter((seg) => money.test(seg))
+  if (mentions.length === 0) return false
+  return mentions.every((seg) => RESTRICTED_TO.test(seg))
+}
+
 /**
  * Strip extracted values the source document cannot support.
  *
@@ -79,6 +113,15 @@ export function dropUnsupportedFields(extracted, text) {
       dropped.push(f)
     }
   }
+  // A rate gated on who you are is not this race's price. Runs after the fee
+  // gate, so a value already dropped for having no evidence is not re-reported.
+  for (const f of ['price_from', 'price_to']) {
+    if (extracted[f] === undefined || extracted[f] === null) continue
+    if (!onlyOfferedToSomeEntrants(extracted[f], text)) continue
+    delete extracted[f]
+    dropped.push(f)
+  }
+
   if (!hasDeadlineEvidence(text)) {
     if (extracted.registration_deadline !== undefined && extracted.registration_deadline !== null) {
       delete extracted.registration_deadline

@@ -71,7 +71,7 @@ export const AI_FILLABLE = {
   },
   price_from: {
     isEmpty: r => r.price_from == null,
-    promptHint: 'lowest registration fee in PLN (integer złote, not groszy)',
+    promptHint: 'lowest registration fee an ordinary entrant pays, in PLN (integer złote, not groszy). A rate offered only to a named group (residents of the gmina, club members, pupils, students, seniors) is NOT this fee, so skip it. A date tier such as an early-bird price is open to everyone and does count',
     validate: v => {
       const n = Number(v)
       return Number.isFinite(n) && n >= 0 ? Math.round(n) : null
