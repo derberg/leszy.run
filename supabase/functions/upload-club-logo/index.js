@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 // the working version here. decode → resize(max 512) → encodeWEBP is the
 // contract this function relies on; keep that flow if the API differs slightly.
 import { Image } from 'https://deno.land/x/imagescript@1.2.15/mod.ts'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 
 const MAX_BYTES = 5 * 1024 * 1024 // 5MB
@@ -26,8 +26,8 @@ async function requireManager(supabaseAdmin, clubId, userId) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL'),

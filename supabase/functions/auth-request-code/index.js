@@ -1,11 +1,29 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest, isAllowed } from '../_shared/cors.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
 import { isEmailRetired } from '../_shared/deletedEmails.js'
 
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// The FIRST x-forwarded-for element, deliberately, even though a direct caller
+// can forge it.
+//
+// Browser traffic does not reach this function directly: it goes through the
+// same-origin /edge rewrite in public/vercel.json, so the chain that arrives
+// here is [browser, vercel-egress] and Cloudflare's cf-connecting-ip is
+// Vercel's egress address. Keying on either of those collapses every user of
+// the site onto one or two shared addresses — and then one person with 21
+// different email addresses (the per-email cap of 5 never fires) exhausts the
+// 20-per-IP budget and locks EVERYONE out of login for the rest of the window.
+// A cap that an attacker can evade for themselves is a far smaller problem than
+// one they can trip for everybody, so this reads the originating element and
+// accepts the spoofing. The per-email cap and the per-code attempt cap are what
+// actually bound abuse.
+function clientIp(req) {
+  return (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
 }
 
 function json(body, status, req) {
@@ -15,14 +33,13 @@ function json(body, status, req) {
   })
 }
 
-// Pick the base URL for the magic link from the request Origin (validated against
-// our allowlist) so previews work too. Falls back to production www.leszy.run.
-const STATIC_ORIGINS = ['http://localhost:5173', 'https://www.leszy.run', 'https://leszy.run']
-const PREVIEW_ORIGIN_RE = /^https:\/\/[a-z0-9-]+-derbergs-projects\.vercel\.app$/
+// Pick the base URL for the magic link from the request Origin, using the SAME
+// allowlist guardRequest enforces — a second copy drifted once already: it knew
+// about :5173 and not :3002, so a login started on the port the README
+// documents mailed a link into PRODUCTION. Falls back to www.leszy.run.
 function magicLinkBase(req) {
   const origin = req.headers.get('Origin') ?? ''
-  if (STATIC_ORIGINS.includes(origin) || PREVIEW_ORIGIN_RE.test(origin)) return origin
-  return 'https://www.leszy.run'
+  return isAllowed(origin) ? origin : 'https://www.leszy.run'
 }
 
 // `from` must be an internal path: starts with single "/", no "//", no "\", no "..".
@@ -35,8 +52,8 @@ function sanitizeFrom(raw) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL'),
@@ -64,7 +81,7 @@ Deno.serve(async (req) => {
     }
 
     // Rate limiting: 5 requests per email and 20 per IP within a 15-minute window
-    const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+    const ip = clientIp(req)
 
     const emailThrottle = await checkAndIncrement(supabaseAdmin, `email:${normalizedEmail}`, 5)
     if (!emailThrottle.allowed) {
@@ -83,11 +100,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Invalidate previous unused codes for this email
+    // Invalidate previous unused LOGIN codes for this email. Scoped by purpose:
+    // without it, asking for a login code silently killed a pending
+    // account-deletion OTP (and vice versa, the two flows fought each other).
     await supabaseAdmin
       .from('auth_codes')
       .update({ used: true })
       .eq('email', normalizedEmail)
+      .eq('purpose', 'login')
       .eq('used', false)
 
     const codeArr = new Uint32Array(1)

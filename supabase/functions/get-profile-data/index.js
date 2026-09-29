@@ -1,6 +1,6 @@
 // supabase/functions/get-profile-data/index.js
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 
 function json(body, status, req) {
@@ -11,8 +11,8 @@ function json(body, status, req) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL'),

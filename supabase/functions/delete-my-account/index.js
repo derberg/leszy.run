@@ -4,7 +4,7 @@
 //   POST { action: 'request' }           → issues OTP, sends email, returns { sent: true }
 //   POST { action: 'confirm', code: '…' } → validates OTP, soft-deletes profile, bans auth user, returns { deleted: true }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { retireEmail } from '../_shared/deletedEmails.js'
 import { getSession } from '../_shared/session.js'
 
@@ -121,8 +121,8 @@ async function sendDeletionEmail(email, code) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405, req)
@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString()
     const { data: codes } = await supabaseAdmin
       .from('auth_codes')
-      .select('id, code_hash, attempts')
+      .select('id')
       .eq('email', normalizedEmail)
       .eq('purpose', 'delete_account')
       .eq('used', false)
@@ -248,18 +248,27 @@ Deno.serve(async (req) => {
       return json({ error: 'Invalid or expired code' }, 401, req)
     }
 
-    if (otpRow.attempts >= 3) {
-      return json({ error: 'Too many attempts. Request a new code.' }, 403, req)
+    // Same atomic claim as the login code: counting attempts with a SELECT and
+    // a separate UPDATE lets concurrent requests all read the same value and
+    // all get a guess, so the 3-attempt cap is worth however many requests fit
+    // in one round trip.
+    const { data: claimedHash, error: claimErr } = await supabaseAdmin
+      .rpc('claim_auth_code_attempt', { p_code_id: otpRow.id, p_max: 3 })
+    if (claimErr) {
+      // This branch has no enclosing try: a throw here escapes Deno.serve as a
+      // bare 500 with no CORS headers and no body, and DangerZone then shows
+      // "Niepoprawny kod" — blaming the user for a database problem.
+      console.error('delete-my-account: claim_auth_code_attempt failed:', claimErr.message)
+      return json({ error: 'Wystąpił błąd. Spróbuj ponownie za chwilę.' }, 500, req)
+    }
+    if (!claimedHash) {
+      // Used, expired, or out of attempts — most often a double-submitted form
+      // whose first request already consumed the code.
+      return json({ error: 'Ten kod jest już nieaktualny. Poproś o nowy.' }, 403, req)
     }
 
-    // Increment attempts before checking hash (rate-limit even on wrong guesses)
-    await supabaseAdmin
-      .from('auth_codes')
-      .update({ attempts: otpRow.attempts + 1 })
-      .eq('id', otpRow.id)
-
     const incomingHash = await sha256hex(trimmedCode)
-    if (incomingHash !== otpRow.code_hash) {
+    if (incomingHash !== claimedHash) {
       return json({ error: 'Invalid or expired code' }, 401, req)
     }
 

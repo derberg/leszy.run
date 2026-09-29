@@ -83,6 +83,7 @@ describe('auth-verify-code', () => {
       expires_at: overrides.expiresAt ?? expiresAt,
       attempts: overrides.attempts ?? 0,
       used: overrides.used ?? false,
+      purpose: overrides.purpose ?? 'login',
     })
     return code
   }
@@ -105,6 +106,21 @@ describe('auth-verify-code', () => {
     assert.equal(status, 401)
   })
 
+  it('refuses a code issued for account deletion', async () => {
+    await seedCode({ purpose: 'delete_account' })
+    const { status } = await post('auth-verify-code', { email, code: '123456' })
+    assert.equal(status, 400, 'a delete_account OTP must not log anyone in')
+  })
+
+  it('refuses a request from a foreign origin', async () => {
+    const res = await fetch(`${FUNCTIONS_URL}/auth-verify-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example' },
+      body: JSON.stringify({ email, code: '123456' }),
+    })
+    assert.equal(res.status, 403)
+  })
+
   it('returns 403 after 3 failed attempts', async () => {
     await seedCode({ attempts: 3 })
     const { status } = await post('auth-verify-code', { email, code: '123456' })
@@ -121,6 +137,11 @@ describe('auth-verify-code', () => {
     const setCookie = headers.get('set-cookie')
     assert.ok(setCookie?.includes('leszy_session='))
     assert.ok(setCookie?.includes('HttpOnly'))
+    assert.ok(setCookie?.includes('Secure'))
+    // SameSite=Lax, never None: the cookie is set through the same-origin /edge
+    // proxy, and None let any page on the internet POST to a mutating function
+    // with this cookie attached.
+    assert.ok(setCookie?.includes('SameSite=Lax'), `expected SameSite=Lax, got: ${setCookie}`)
 
     // Profile created
     const { data: profile } = await supabaseAdmin

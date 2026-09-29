@@ -1,42 +1,43 @@
-const WINDOW_MS = 15 * 60 * 1000
+const WINDOW_SECONDS = 15 * 60
 
 /**
- * Atomically check + increment a counter under a key.
+ * Check + increment a counter under a key, in one statement.
+ *
+ * The previous version SELECTed the row, decided, and wrote in a separate
+ * statement — and its own doc comment called that atomic. It was not: a burst
+ * of concurrent first requests all read "no row", all inserted, all collided on
+ * the primary key (the insert's error was discarded), and all returned allowed
+ * while the counter stayed at 1. The cap that is supposed to stop someone
+ * mailing 50 login codes at an address they do not own did nothing under
+ * exactly the conditions it exists for. The decision now happens inside the
+ * write — see claim_throttle_slot in migration 20260929200000.
+ *
+ * `failOpen` says what to do when the RPC itself is unavailable — a PostgREST
+ * schema cache lagging a fresh migration, a pool timeout. It is not one answer
+ * for both callers:
+ *   - verifying a code: fail OPEN. A 429 there strands someone mid-login and
+ *     tells them they made too many attempts, which sends whoever debugs it
+ *     looking in the wrong place. Guessing is still capped per code by
+ *     claim_auth_code_attempt.
+ *   - requesting a code: fail CLOSED. That path sends mail to any address the
+ *     caller names, so running it unthrottled lets one person mail thousands of
+ *     login codes to a third party and burn the sending domain's reputation.
+ *     The cost of being wrong is "you cannot start a new login for a few
+ *     minutes"; existing sessions are untouched.
+ *
  * @returns {Promise<{ allowed: boolean, retryAfterSec?: number }>}
  */
-export async function checkAndIncrement(supabaseAdmin, key, limit) {
-  const now = new Date()
-  const cutoff = new Date(now.getTime() - WINDOW_MS)
-
-  const { data: existing } = await supabaseAdmin
-    .from('otp_throttle')
-    .select('*')
-    .eq('key', key)
-    .single()
-
-  if (!existing) {
-    await supabaseAdmin.from('otp_throttle').insert({ key, attempts: 1 })
-    return { allowed: true }
+export async function checkAndIncrement(supabaseAdmin, key, limit, { failOpen = false } = {}) {
+  const { data, error } = await supabaseAdmin.rpc('claim_throttle_slot', {
+    p_key: key,
+    p_limit: limit,
+    p_window_seconds: WINDOW_SECONDS,
+  })
+  if (error) {
+    console.error(`throttle: claim_throttle_slot unavailable for ${key}, ${failOpen ? 'allowing' : 'refusing'}:`, error.message)
+    return failOpen ? { allowed: true } : { allowed: false, retryAfterSec: 60 }
   }
-
-  if (new Date(existing.window_started_at) < cutoff) {
-    await supabaseAdmin
-      .from('otp_throttle')
-      .update({ attempts: 1, window_started_at: now.toISOString() })
-      .eq('key', key)
-    return { allowed: true }
-  }
-
-  if (existing.attempts >= limit) {
-    const retryAfterSec = Math.ceil(
-      (new Date(existing.window_started_at).getTime() + WINDOW_MS - now.getTime()) / 1000
-    )
-    return { allowed: false, retryAfterSec }
-  }
-
-  await supabaseAdmin
-    .from('otp_throttle')
-    .update({ attempts: existing.attempts + 1 })
-    .eq('key', key)
-  return { allowed: true }
+  const row = Array.isArray(data) ? data[0] : data
+  if (row?.allowed) return { allowed: true }
+  return { allowed: false, retryAfterSec: row?.retry_after_sec ?? 60 }
 }
