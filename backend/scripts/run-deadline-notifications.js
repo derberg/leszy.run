@@ -23,10 +23,16 @@ function isoDate(d) {
 const today = new Date()
 const plus7 = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
 
+// `date >= today` as well as the deadline window: some events carry a
+// registration_deadline that falls AFTER their own race date (an enricher data
+// error), and without this guard the job cheerfully warns "zapisy kończą się za
+// chwilę" about a race that was run weeks ago. Measured 2026-09-29: 2 such rows
+// were queued to be inserted.
 const { data: candidates, error } = await supabase
   .from('calendar_events')
-  .select('id, name, registration_deadline')
+  .select('id, name, date, registration_deadline')
   .eq('status', 'active')
+  .gte('date', isoDate(today))
   .gte('registration_deadline', isoDate(today))
   .lte('registration_deadline', isoDate(plus7))
 if (error) {
