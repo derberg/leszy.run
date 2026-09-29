@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString()
     const { data: codes } = await supabaseAdmin
       .from('auth_codes')
-      .select('id, code_hash, attempts')
+      .select('id')
       .eq('email', normalizedEmail)
       .eq('purpose', 'delete_account')
       .eq('used', false)
@@ -248,18 +248,19 @@ Deno.serve(async (req) => {
       return json({ error: 'Invalid or expired code' }, 401, req)
     }
 
-    if (otpRow.attempts >= 3) {
+    // Same atomic claim as the login code: counting attempts with a SELECT and
+    // a separate UPDATE lets concurrent requests all read the same value and
+    // all get a guess, so the 3-attempt cap is worth however many requests fit
+    // in one round trip.
+    const { data: claimedHash, error: claimErr } = await supabaseAdmin
+      .rpc('claim_auth_code_attempt', { p_code_id: otpRow.id, p_max: 3 })
+    if (claimErr) throw claimErr
+    if (!claimedHash) {
       return json({ error: 'Too many attempts. Request a new code.' }, 403, req)
     }
 
-    // Increment attempts before checking hash (rate-limit even on wrong guesses)
-    await supabaseAdmin
-      .from('auth_codes')
-      .update({ attempts: otpRow.attempts + 1 })
-      .eq('id', otpRow.id)
-
     const incomingHash = await sha256hex(trimmedCode)
-    if (incomingHash !== otpRow.code_hash) {
+    if (incomingHash !== claimedHash) {
       return json({ error: 'Invalid or expired code' }, 401, req)
     }
 

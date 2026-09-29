@@ -6,9 +6,17 @@ const STATIC_ORIGINS = [
 
 const PREVIEW_ORIGIN_RE = /^https:\/\/[a-z0-9-]+-derbergs-projects\.vercel\.app$/
 
+// Any port on the dev machine: scripts/dev.sh serves the public app on 3002,
+// public/package.json's dev script on 5173, and `vite preview` on 4173. Pinning
+// one port means the documented local setup gets a 403 from every edge call.
+// http only, and the host must be exactly localhost / 127.0.0.1 — "localhost.
+// evil.example" is a real domain somebody else can own.
+const LOCAL_ORIGIN_RE = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d{1,5})?$/
+
 function isAllowed(origin) {
   if (!origin) return false
   if (STATIC_ORIGINS.includes(origin)) return true
+  if (LOCAL_ORIGIN_RE.test(origin)) return true
   return PREVIEW_ORIGIN_RE.test(origin)
 }
 

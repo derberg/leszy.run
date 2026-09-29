@@ -81,8 +81,11 @@ Deno.serve(async (req) => {
     const { data: claimedHash, error: claimErr } = await supabaseAdmin
       .rpc('claim_auth_code_attempt', { p_code_id: loginCode.id, p_max: 3 })
     if (claimErr) throw claimErr
+    // NULL means used, expired, or out of attempts — including the harmless
+    // case of a double-submitted form whose first request already consumed the
+    // code, so the message must not insist they ran out of guesses.
     if (!claimedHash) {
-      return json({ error: 'Przekroczono liczbę prób. Poproś o nowy kod.' }, 403, req)
+      return json({ error: 'Ten kod jest już nieaktualny. Poproś o nowy.' }, 403, req)
     }
 
     const incomingHash = await sha256hex(trimmedCode)

@@ -21,10 +21,16 @@ export async function checkAndIncrement(supabaseAdmin, key, limit) {
     p_window_seconds: WINDOW_SECONDS,
   })
   if (error) {
-    // Fail closed: a throttle that errors open is not a throttle. The caller
-    // turns this into a 429, which is the safe answer for the login form.
-    console.error('throttle: claim_throttle_slot failed:', error.message)
-    return { allowed: false, retryAfterSec: 60 }
+    // Fail OPEN, loudly. Failing closed sounds safer until you notice what it
+    // does: this function now gates both auth-request-code and
+    // auth-verify-code, so one unavailable RPC — a PostgREST schema cache that
+    // has not caught up with a fresh migration, a pool timeout — locks every
+    // user out of logging in, and tells them "too many attempts", which sends
+    // whoever debugs it looking in the wrong place entirely. A rate limit is
+    // not an authorisation check: while it is down, the per-code 3-attempt cap
+    // (atomic, in the same migration) still bounds guessing.
+    console.error('throttle: claim_throttle_slot unavailable, allowing request:', error.message)
+    return { allowed: true }
   }
   const row = Array.isArray(data) ? data[0] : data
   if (row?.allowed) return { allowed: true }

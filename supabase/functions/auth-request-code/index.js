@@ -8,12 +8,22 @@ async function sha256hex(text) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-// See the call site: only the tail of the chain is trustworthy.
+// The FIRST x-forwarded-for element, deliberately, even though a direct caller
+// can forge it.
+//
+// Browser traffic does not reach this function directly: it goes through the
+// same-origin /edge rewrite in public/vercel.json, so the chain that arrives
+// here is [browser, vercel-egress] and Cloudflare's cf-connecting-ip is
+// Vercel's egress address. Keying on either of those collapses every user of
+// the site onto one or two shared addresses — and then one person with 21
+// different email addresses (the per-email cap of 5 never fires) exhausts the
+// 20-per-IP budget and locks EVERYONE out of login for the rest of the window.
+// A cap that an attacker can evade for themselves is a far smaller problem than
+// one they can trip for everybody, so this reads the originating element and
+// accepts the spoofing. The per-email cap and the per-code attempt cap are what
+// actually bound abuse.
 function clientIp(req) {
-  const direct = req.headers.get('cf-connecting-ip')
-  if (direct) return direct.trim()
-  const chain = (req.headers.get('x-forwarded-for') || '').split(',').map((s) => s.trim()).filter(Boolean)
-  return chain.length ? chain[chain.length - 1] : ''
+  return (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
 }
 
 function json(body, status, req) {
@@ -72,11 +82,6 @@ Deno.serve(async (req) => {
     }
 
     // Rate limiting: 5 requests per email and 20 per IP within a 15-minute window
-    // The FIRST x-forwarded-for element is whatever the client claimed, and the
-    // functions are reachable directly at *.supabase.co, so anyone can put a
-    // fresh fake value on every request and never meet the per-IP cap. The
-    // trustworthy value is the one our own edge appended — the last element —
-    // or cf-connecting-ip, which a client cannot forge past Cloudflare.
     const ip = clientIp(req)
 
     const emailThrottle = await checkAndIncrement(supabaseAdmin, `email:${normalizedEmail}`, 5)

@@ -20,8 +20,20 @@ describe('guardRequest', () => {
 
   it('lets a request from the app through', () => {
     assert.equal(guardRequest(post('https://www.leszy.run')), null)
-    assert.equal(guardRequest(post('http://localhost:5173')), null)
+    assert.equal(guardRequest(post('https://leszy.run')), null)
     assert.equal(guardRequest(post('https://leszy-run-abc123-derbergs-projects.vercel.app')), null)
+  })
+
+  it('lets every local dev server through, whatever port the README told you to use', () => {
+    // scripts/dev.sh runs the public app on 3002, package.json on 5173,
+    // vite preview on 4173. Allowing only one of them breaks the documented
+    // setup for everyone else.
+    for (const origin of [
+      'http://localhost:5173', 'http://localhost:3002', 'http://localhost:4173',
+      'http://127.0.0.1:5173', 'http://127.0.0.1:3002',
+    ]) {
+      assert.equal(guardRequest(post(origin)), null, `${origin} should be allowed`)
+    }
   })
 
   it('lets a request with no Origin through — that is a server, not a browser', () => {
@@ -40,6 +52,8 @@ describe('guardRequest', () => {
       'https://evil.leszy.run',
       'http://www.leszy.run',
       'https://leszy-run-abc.evil-derbergs-projects.vercel.app',
+      'http://localhost.evil.example',
+      'https://localhost:5173',
     ]) {
       const res = guardRequest(post(origin))
       assert.ok(res instanceof Response, `${origin} should be refused`)
