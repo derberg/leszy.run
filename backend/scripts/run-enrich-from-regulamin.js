@@ -47,6 +47,13 @@ const PDF_FILLABLE = pickFillable([
 //                        Pair it with the same date given to run-enrich-search.
 //   --limit <n>          Stop after n rows. Races are taken soonest first, so a
 //                        bounded run clears the most urgent ones.
+//   --only <s>:<id>      Mine exactly these rows, repeatable. Neither the event
+//                        date nor enriched_regulamin_at is consulted, so this
+//                        is how a merged fix reaches the rows it was measured
+//                        against: --only b4sport:13127. Soonest-first ordering
+//                        puts a 2027 race out of --limit's reach, and clearing
+//                        the stamp by hand is a database write for what should
+//                        be a rerun.
 //   --null-bad-regulamin Also NULL scraper_all.regulamin_url when the acquired
 //                        document is positively identified as not being this
 //                        race's regulamin. Off by default — without it such a
@@ -390,12 +397,17 @@ async function main() {
   while (true) {
     let query = supabase
       .from('scraper_all')
-      .select('id, name, date, location, voivodeship, distances, event_type, event_types, regulamin_url, regulamin_urls, price_from, price_to, registration_deadline, is_kids, enriched_regulamin_at')
+      .select('id, source, source_id, name, date, location, voivodeship, distances, event_type, event_types, regulamin_url, regulamin_urls, price_from, price_to, registration_deadline, is_kids, enriched_regulamin_at')
       .not('regulamin_url', 'is', null)
-      .is('enriched_regulamin_at', null)
       // Soonest race first, so a run cut short by --limit or by a person has
       // done the most urgent rows.
       .order('date', { ascending: true })
+    if (scope.unminedOnly) query = query.is('enriched_regulamin_at', null)
+    if (scope.only) {
+      query = query.or(
+        scope.only.map((r) => `and(source.eq.${r.source},source_id.eq.${r.source_id})`).join(',')
+      )
+    }
     if (scope.minDate) query = query.gte('date', scope.minDate)
     if (scope.mergedSince) query = query.gte('merged_at', scope.mergedSince)
     const { data, error: fetchErr } = await query.range(from, from + pageSize - 1)
