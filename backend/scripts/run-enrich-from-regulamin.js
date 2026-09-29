@@ -7,6 +7,7 @@ import { AI_FILLABLE, pickFillable, fieldsNeedingFill, applyRegistryUpdates } fr
 import { looksLikeRegulamin } from '../src/lib/looksLikeRegulamin.js'
 import { dropUnsupportedFields } from '../src/lib/extractionEvidence.js'
 import { dropsDistances } from './lib/distances.js'
+import { resolveRegulaminScope } from './lib/enrichScope.js'
 
 // Subset of AI_FILLABLE that's plausibly extractable from a regulamin PDF.
 // Excludes URLs (PDF doesn't contain its own URL or external pages reliably)
@@ -32,13 +33,19 @@ const PDF_FILLABLE = pickFillable([
 // `pdftotext` — none are in the backend Docker image (same constraint as step 8).
 //
 // Options:
-//   --all                Ignore merged_at — every row with a regulamin URL not
-//                        yet mined (enriched_regulamin_at IS NULL)
-//   --merged-since <d>   Like the default scope but with a custom start date
-//                        (YYYY-MM-DD, UTC) instead of start-of-today. Use when
-//                        this host step runs a day (or more) after the merge —
-//                        pair it with the same date given to run-enrich-search.
-//   default              Rows merged TODAY (merged_at >= start-of-today UTC)
+//   default              Every un-mined row (enriched_regulamin_at IS NULL)
+//                        with a regulamin URL, for a race that has not happened
+//                        yet. See resolveRegulaminScope() for why the scope is
+//                        the event date and not merged_at.
+//   --all                Drop the event-date floor too, so past races are mined
+//                        as well. That was 1465 rows on 2026-09-29 against 124
+//                        for the default, so pair it with --limit.
+//   --merged-since <d>   Narrow the default to rows merged on or after <d>
+//                        (YYYY-MM-DD, UTC). Use when this host step runs right
+//                        after a merge and you want only that merge's rows.
+//                        Pair it with the same date given to run-enrich-search.
+//   --limit <n>          Stop after n rows. Races are taken soonest first, so a
+//                        bounded run clears the most urgent ones.
 //   --null-bad-regulamin Also NULL scraper_all.regulamin_url when the acquired
 //                        document is positively identified as not being this
 //                        race's regulamin. Off by default — without it such a
@@ -49,11 +56,14 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 const nullBadRegulamin = process.argv.includes('--null-bad-regulamin')
 
-const mergedSinceArg = process.argv.includes('--merged-since')
-  ? process.argv[process.argv.indexOf('--merged-since') + 1]
-  : null
-if (mergedSinceArg && !/^\d{4}-\d{2}-\d{2}$/.test(mergedSinceArg)) {
-  console.error(`--merged-since expects YYYY-MM-DD, got: ${mergedSinceArg}`)
+let scope
+try {
+  scope = resolveRegulaminScope({
+    argv: process.argv.slice(2),
+    today: new Date().toISOString().split('T')[0],
+  })
+} catch (err) {
+  console.error(err.message)
   process.exit(1)
 }
 
@@ -350,12 +360,7 @@ async function main() {
     process.exit(1)
   }
 
-  const allFlag = process.argv.includes('--all')
-  if (allFlag) {
-    console.log('Scope: --all — every un-mined row with a regulamin URL (ignores merged_at)')
-  } else {
-    console.log(`Scope: ${mergedSinceArg ? '--merged-since' : 'default'} — rows with merged_at >= ${mergedSinceArg || new Date().toISOString().split('T')[0]}`)
-  }
+  console.log(`Scope: ${scope.description}${scope.limit ? `, at most ${scope.limit}` : ''}`)
   const allRows = []
   let from = 0
   const pageSize = 1000
@@ -365,17 +370,21 @@ async function main() {
       .select('id, name, date, location, voivodeship, distances, event_type, event_types, regulamin_url, regulamin_urls, price_from, price_to, registration_deadline, is_kids, enriched_regulamin_at')
       .not('regulamin_url', 'is', null)
       .is('enriched_regulamin_at', null)
-    if (!allFlag) {
-      query = query.gte('merged_at', mergedSinceArg || new Date().toISOString().split('T')[0])
-    }
+      // Soonest race first, so a run cut short by --limit or by a person has
+      // done the most urgent rows.
+      .order('date', { ascending: true })
+    if (scope.minDate) query = query.gte('date', scope.minDate)
+    if (scope.mergedSince) query = query.gte('merged_at', scope.mergedSince)
     const { data, error: fetchErr } = await query.range(from, from + pageSize - 1)
 
     if (fetchErr) { console.error('Fetch error:', fetchErr.message); process.exit(1) }
     if (!data || data.length === 0) break
     allRows.push(...data)
     if (data.length < pageSize) break
+    if (scope.limit && allRows.length >= scope.limit) break
     from += pageSize
   }
+  if (scope.limit) allRows.length = Math.min(allRows.length, scope.limit)
 
   // Process all rows — even with types set, PDF is authoritative for verification/correction.
   const needsEnrichment = allRows
