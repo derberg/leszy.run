@@ -1,4 +1,4 @@
-import { Navigate, NavLink, Outlet, useParams } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import Navbar from '../../components/Navbar.jsx'
 import AuthGuard from '../../components/AuthGuard.jsx'
 import useClub from '../../hooks/useClub.js'
@@ -29,6 +29,7 @@ function Shell({ children }) {
 
 function ClubShell() {
   const { slug } = useParams()
+  const location = useLocation()
   const { ready, club, me, members, followedEvents, error, reload } = useClub({ slug })
 
   if (!ready) {
@@ -36,8 +37,14 @@ function ClubShell() {
   }
   // Not an active member, club gone, or fetch failed — nothing to show here.
   if (error || !club || !me) return <Navigate to="/profil/klub" replace />
-  // Old slug resolved via history — normalize the URL to the canonical slug.
-  if (club.slug && club.slug !== slug) return <Navigate to={`/klub/${club.slug}/panel`} replace />
+  // Old slug resolved via history — normalize the URL to the canonical slug,
+  // keeping the section the visitor actually asked for. Sending everyone to
+  // /panel meant a bookmark of .../czlonkowie survived a rename only as far as
+  // the club's front page.
+  if (club.slug && club.slug !== slug) {
+    const section = location.pathname.split('/')[3] || 'panel'
+    return <Navigate to={`/klub/${club.slug}/${section}${location.search}`} replace />
+  }
 
   const canManage = me.role === 'owner' || me.role === 'admin'
   const isOwner = me.role === 'owner'
