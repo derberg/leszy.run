@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
+import { isEmailRetired } from '../_shared/deletedEmails.js'
 
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -54,6 +55,13 @@ Deno.serve(async (req) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim()
+
+    // A deleted account's address is retired for good — say so plainly instead
+    // of mailing a code that would silently create a second, empty account
+    // under the same address (see _shared/deletedEmails.js).
+    if (await isEmailRetired(supabaseAdmin, normalizedEmail)) {
+      return json({ error: 'To konto zostało usunięte. Ten adres email nie może być ponownie użyty.' }, 403, req)
+    }
 
     // Rate limiting: 5 requests per email and 20 per IP within a 15-minute window
     const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()

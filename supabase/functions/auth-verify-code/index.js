@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { isEmailRetired } from '../_shared/deletedEmails.js'
 
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -81,6 +82,12 @@ Deno.serve(async (req) => {
 
     let profile = existingProfile
     if (!profile) {
+      // Nothing under this address — but it may be one we retired. Checked here
+      // as well as in auth-request-code, because this is the step that would
+      // actually create the account.
+      if (await isEmailRetired(supabaseAdmin, normalizedEmail)) {
+        return json({ error: 'To konto zostało usunięte. Ten adres email nie może być ponownie użyty.' }, 403, req)
+      }
       const newId = crypto.randomUUID()
       const { data: newProfile, error: insertError } = await supabaseAdmin
         .from('profiles')

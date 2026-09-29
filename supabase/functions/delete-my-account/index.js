@@ -5,6 +5,7 @@
 //   POST { action: 'confirm', code: '…' } → validates OTP, soft-deletes profile, bans auth user, returns { deleted: true }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { retireEmail } from '../_shared/deletedEmails.js'
 import { getSession } from '../_shared/session.js'
 
 async function sha256hex(text) {
@@ -293,6 +294,9 @@ Deno.serve(async (req) => {
         email: null,
         username: 'usuniety-' + profile.id.slice(0, 8),
         display_name: 'Uczestnik anonimowy',
+        nickname: null,
+        bio: null,
+        avatar_url: null,
         phone: null,
         date_of_birth: null,
         gender: null,
@@ -326,13 +330,30 @@ Deno.serve(async (req) => {
     // 2d. Clear stale owner-transfer nominations pointing at the deleted user
     await supabaseAdmin.from('clubs').update({ pending_owner_id: null }).eq('pending_owner_id', session.userId)
 
-    // 3. Permanently ban auth user (email on auth.users is NOT rotated — stays claimed, blocks re-registration)
-    const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(session.userId, {
-      ban_duration: '876000h',
-    })
-    if (banError) {
-      // Non-fatal: profile is already soft-deleted; log and continue
-      console.error('auth ban error (non-fatal, profile already deleted):', banError)
+    // 2e. Revoke every session. A soft delete never fires the ON DELETE CASCADE
+    // from auth_sessions, so without this the browser that just deleted the
+    // account keeps a valid 90-day cookie: auth-me still answers, and
+    // update-profile would happily write the erased fields back. The rows also
+    // carry the plaintext email, which erasure must not leave behind.
+    const { error: sessErr } = await supabaseAdmin.from('auth_sessions').delete().eq('user_id', session.userId)
+    if (sessErr) console.error('delete-my-account: session revoke failed:', sessErr.message)
+
+    // 2f. Same for any outstanding login / deletion codes for that address.
+    const { error: codesErr } = await supabaseAdmin.from('auth_codes').delete().eq('email', originalEmail)
+    if (codesErr) console.error('delete-my-account: auth_codes cleanup failed:', codesErr.message)
+
+    // 3. Retire the address. This REPLACES a supabase.auth.admin ban that could
+    // never work: this app does not create auth.users rows (auth-verify-code
+    // mints a profile with crypto.randomUUID(), and profiles.id has no FK to
+    // auth.users), so updateUserById targeted a non-existent user, failed, and
+    // was swallowed — while the dialog told the user the address was blocked
+    // for good. Only a hash is stored; see _shared/deletedEmails.js.
+    const { error: retireErr } = await retireEmail(supabaseAdmin, originalEmail)
+    if (retireErr) {
+      // Fatal on purpose: the profile is erased either way, but silently
+      // leaving the address re-registrable is the exact bug this replaces.
+      console.error('delete-my-account: email retirement failed:', retireErr.message)
+      return json({ error: 'Konto usunięte, ale nie udało się zablokować adresu email. Skontaktuj się z nami.' }, 500, req)
     }
 
     return json({ deleted: true }, 200, req)

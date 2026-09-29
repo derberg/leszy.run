@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { callFunction } from '../lib/auth.js'
-import { readCache, writeCache, clearCache, isFresh } from '../lib/clientCache.js'
+import { readCache, writeCache, clearCache, isFresh, USER_CACHE_KEYS } from '../lib/clientCache.js'
 import useAuth from './useAuth.js'
 
 // Module-level cache: get-favorites is fetched once per page load and shared
@@ -9,7 +9,7 @@ import useAuth from './useAuth.js'
 // loads (StarButton is on kalendarz, which navigates via full reloads). Only
 // { events, clubCounts } is persisted — `ids` is rebuilt from `events`, and any
 // toggle invalidates the persisted copy so the two never drift.
-const CACHE_KEY = 'leszy.favorites'
+const CACHE_KEY = USER_CACHE_KEYS[0]
 const TTL_MS = 5 * 60 * 1000 // 5 min
 
 let cache
