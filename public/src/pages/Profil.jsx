@@ -72,13 +72,13 @@ function ProfilLayout() {
     await loadProfileData()
   }
 
+  // Throws on failure — on purpose. Swallowing the error here (it used to
+  // console.error and return) meant EditableField closed the editor and
+  // re-rendered the stored value, so a rejected save — too long a nickname, an
+  // expired session, a network blip — was indistinguishable from a saved one.
   async function handleSave(field, value) {
-    try {
-      const updated = await callFunction('update-profile', { [field]: value })
-      setProfile(updated.data)
-    } catch (err) {
-      console.error('Profile update failed:', err)
-    }
+    const updated = await callFunction('update-profile', { [field]: value })
+    setProfile(updated.data)
   }
 
   const shell = (children) => (

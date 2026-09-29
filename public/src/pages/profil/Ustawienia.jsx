@@ -29,6 +29,21 @@ export default function Ustawienia() {
   const { club, me, reload: reloadClub } = useClub()
   const [visBusy, setVisBusy] = useState(false)
   const [visError, setVisError] = useState(null)
+  const [prefError, setPrefError] = useState(null)
+
+  // handleSave throws now, so a checkbox that fires it must catch — otherwise a
+  // rejected save is an unhandled rejection and the box silently springs back.
+  async function savePref(field, value) {
+    setPrefError(null)
+    try {
+      await handleSave(field, value)
+    } catch (err) {
+      setPrefError(err.message || 'Nie udało się zapisać ustawienia.')
+    }
+  }
+
+  const privacy = profile?.privacy_settings ?? {}
+  const savePrivacy = (patch) => savePref('privacy_settings', { ...privacy, ...patch })
 
   async function toggleHiddenPublic(checked) {
     if (!club) return
@@ -111,7 +126,7 @@ export default function Ustawienia() {
             data-testid="toggle-weekly-digest"
             type="checkbox"
             checked={!!profile?.weekly_digest}
-            onChange={(e) => handleSave('weekly_digest', e.target.checked)}
+            onChange={(e) => savePref('weekly_digest', e.target.checked)}
             className="mt-0.5 accent-[#BBDD00]"
           />
           <span className="font-sans text-xs text-apex-text">
@@ -124,7 +139,7 @@ export default function Ustawienia() {
             data-testid="toggle-club-visibility"
             type="checkbox"
             checked={(profile?.privacy_settings?.favorites ?? true) !== false}
-            onChange={(e) => handleSave('privacy_settings', { ...profile?.privacy_settings, favorites: e.target.checked })}
+            onChange={(e) => savePrivacy({ favorites: e.target.checked })}
             className="mt-0.5 accent-[#BBDD00]"
           />
           <span className="font-sans text-xs text-apex-text">
@@ -132,12 +147,52 @@ export default function Ustawienia() {
             <span className="block text-[10px] text-apex-muted">Członkowie Twojego klubu widzą, które biegi obserwujesz.</span>
           </span>
         </label>
+        <div className="mt-4 mb-1 font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted">
+          Profil publiczny (leszy.run/u/{profile?.username || '…'})
+        </div>
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            data-testid="toggle-public-display-name"
+            type="checkbox"
+            checked={(privacy.display_name ?? true) !== false}
+            onChange={(e) => savePrivacy({ display_name: e.target.checked })}
+            className="mt-0.5 accent-[#BBDD00]"
+          />
+          <span className="font-sans text-xs text-apex-text">
+            Pokazuj imię i nazwisko
+            <span className="block text-[10px] text-apex-muted">Gdy wyłączone, na profilu publicznym zostaje sama nazwa użytkownika.</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 cursor-pointer mt-3">
+          <input
+            data-testid="toggle-public-club"
+            type="checkbox"
+            checked={(privacy.club ?? true) !== false}
+            onChange={(e) => savePrivacy({ club: e.target.checked })}
+            className="mt-0.5 accent-[#BBDD00]"
+          />
+          <span className="font-sans text-xs text-apex-text">
+            Pokazuj mój klub
+          </span>
+        </label>
+        <label className="flex items-start gap-2 cursor-pointer mt-3">
+          <input
+            data-testid="toggle-public-bio"
+            type="checkbox"
+            checked={(privacy.bio ?? true) !== false}
+            onChange={(e) => savePrivacy({ bio: e.target.checked })}
+            className="mt-0.5 accent-[#BBDD00]"
+          />
+          <span className="font-sans text-xs text-apex-text">
+            Pokazuj opis o mnie
+          </span>
+        </label>
         <label className="flex items-start gap-2 cursor-pointer mt-3">
           <input
             data-testid="toggle-club-nickname"
             type="checkbox"
             checked={profile?.privacy_settings?.club_public_name === 'nickname'}
-            onChange={(e) => handleSave('privacy_settings', { ...profile?.privacy_settings, club_public_name: e.target.checked ? 'nickname' : 'display' })}
+            onChange={(e) => savePrivacy({ club_public_name: e.target.checked ? 'nickname' : 'display' })}
             className="mt-0.5 accent-[#BBDD00]"
           />
           <span className="font-sans text-xs text-apex-text">
@@ -162,6 +217,7 @@ export default function Ustawienia() {
           </label>
         )}
         {visError && <p className="text-apex-red font-sans text-xs mt-2">{visError}</p>}
+        {prefError && <p data-testid="pref-error" className="text-apex-red font-sans text-xs mt-2">{prefError}</p>}
       </section>
 
       {/* Twoje dane i konto */}
