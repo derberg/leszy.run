@@ -65,14 +65,10 @@ function ClubShell() {
           )}
           <div className="min-w-0">
             <div className="font-display font-bold text-lg text-apex-yellow truncate">{club.name}</div>
-            {/* Plain <a>: the bare public page is a static file — client-side
-                routing would land in the SPA instead of Vercel's HTML. */}
-            {club.is_public && (
-              <a href={`/klub/${club.slug}`} target="_blank" rel="noopener"
-                className="font-mono text-[10px] text-apex-muted hover:text-apex-yellow">
-                leszy.run/klub/{club.slug} ↗
-              </a>
-            )}
+            {/* The bare /klub/:slug public page is parked (see
+                public/public/klub/.manifest.json), so there is nothing to link
+                to — the club's own address is shown instead. */}
+            <span className="font-mono text-[10px] text-apex-muted">leszy.run/klub/{club.slug}</span>
           </div>
         </div>
       </header>

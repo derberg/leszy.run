@@ -13,6 +13,13 @@
 //   supabase functions delete render-club
 //
 // Dry run by default — use --apply to write the manifest.
+//
+// PARKED as of 2026-09-29: the public club page is not shipped. The committed
+// manifest is deliberately `[]`, which makes generate-club-pages.js a no-op and
+// leaves /klub/:slug to the SPA's member-only club area. Running this with
+// --apply publishes those pages again, so do it only when the public page is
+// being brought back — and flip the disabled "Publiczna strona klubu" switch in
+// public/src/pages/klub/Ustawienia.jsx back on in the same change.
 
 import { createClient } from '@supabase/supabase-js'
 import { writeFileSync, mkdirSync } from 'fs'

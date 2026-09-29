@@ -56,9 +56,6 @@ function MyMembership() {
         <MembershipVisibilityChoice value={!!me.hidden_public} onChange={setVisibility} />
       </div>
       {error && <p className="text-apex-red font-sans text-xs mt-1.5">{error}</p>}
-      <p className="font-sans text-[11px] text-apex-muted mt-1.5">
-        Zmiana widoczności pojawi się na publicznej stronie klubu po jej kolejnym odświeżeniu.
-      </p>
     </div>
   )
 }
