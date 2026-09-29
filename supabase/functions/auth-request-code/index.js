@@ -1,11 +1,19 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
 import { isEmailRetired } from '../_shared/deletedEmails.js'
 
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// See the call site: only the tail of the chain is trustworthy.
+function clientIp(req) {
+  const direct = req.headers.get('cf-connecting-ip')
+  if (direct) return direct.trim()
+  const chain = (req.headers.get('x-forwarded-for') || '').split(',').map((s) => s.trim()).filter(Boolean)
+  return chain.length ? chain[chain.length - 1] : ''
 }
 
 function json(body, status, req) {
@@ -35,8 +43,8 @@ function sanitizeFrom(raw) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL'),
@@ -64,7 +72,12 @@ Deno.serve(async (req) => {
     }
 
     // Rate limiting: 5 requests per email and 20 per IP within a 15-minute window
-    const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+    // The FIRST x-forwarded-for element is whatever the client claimed, and the
+    // functions are reachable directly at *.supabase.co, so anyone can put a
+    // fresh fake value on every request and never meet the per-IP cap. The
+    // trustworthy value is the one our own edge appended — the last element —
+    // or cf-connecting-ip, which a client cannot forge past Cloudflare.
+    const ip = clientIp(req)
 
     const emailThrottle = await checkAndIncrement(supabaseAdmin, `email:${normalizedEmail}`, 5)
     if (!emailThrottle.allowed) {
@@ -83,11 +96,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Invalidate previous unused codes for this email
+    // Invalidate previous unused LOGIN codes for this email. Scoped by purpose:
+    // without it, asking for a login code silently killed a pending
+    // account-deletion OTP (and vice versa, the two flows fought each other).
     await supabaseAdmin
       .from('auth_codes')
       .update({ used: true })
       .eq('email', normalizedEmail)
+      .eq('purpose', 'login')
       .eq('used', false)
 
     const codeArr = new Uint32Array(1)

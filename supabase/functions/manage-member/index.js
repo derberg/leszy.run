@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { logMembershipEvent } from '../_shared/membershipLog.js'
 
@@ -22,8 +22,8 @@ async function clearClubIdIfPointing(supabaseAdmin, userId, clubId) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL'),

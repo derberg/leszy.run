@@ -1,42 +1,32 @@
-const WINDOW_MS = 15 * 60 * 1000
+const WINDOW_SECONDS = 15 * 60
 
 /**
- * Atomically check + increment a counter under a key.
+ * Check + increment a counter under a key, in one statement.
+ *
+ * The previous version SELECTed the row, decided, and wrote in a separate
+ * statement — and its own doc comment called that atomic. It was not: a burst
+ * of concurrent first requests all read "no row", all inserted, all collided on
+ * the primary key (the insert's error was discarded), and all returned allowed
+ * while the counter stayed at 1. The cap that is supposed to stop someone
+ * mailing 50 login codes at an address they do not own did nothing under
+ * exactly the conditions it exists for. The decision now happens inside the
+ * write — see claim_throttle_slot in migration 20260929200000.
+ *
  * @returns {Promise<{ allowed: boolean, retryAfterSec?: number }>}
  */
 export async function checkAndIncrement(supabaseAdmin, key, limit) {
-  const now = new Date()
-  const cutoff = new Date(now.getTime() - WINDOW_MS)
-
-  const { data: existing } = await supabaseAdmin
-    .from('otp_throttle')
-    .select('*')
-    .eq('key', key)
-    .single()
-
-  if (!existing) {
-    await supabaseAdmin.from('otp_throttle').insert({ key, attempts: 1 })
-    return { allowed: true }
+  const { data, error } = await supabaseAdmin.rpc('claim_throttle_slot', {
+    p_key: key,
+    p_limit: limit,
+    p_window_seconds: WINDOW_SECONDS,
+  })
+  if (error) {
+    // Fail closed: a throttle that errors open is not a throttle. The caller
+    // turns this into a 429, which is the safe answer for the login form.
+    console.error('throttle: claim_throttle_slot failed:', error.message)
+    return { allowed: false, retryAfterSec: 60 }
   }
-
-  if (new Date(existing.window_started_at) < cutoff) {
-    await supabaseAdmin
-      .from('otp_throttle')
-      .update({ attempts: 1, window_started_at: now.toISOString() })
-      .eq('key', key)
-    return { allowed: true }
-  }
-
-  if (existing.attempts >= limit) {
-    const retryAfterSec = Math.ceil(
-      (new Date(existing.window_started_at).getTime() + WINDOW_MS - now.getTime()) / 1000
-    )
-    return { allowed: false, retryAfterSec }
-  }
-
-  await supabaseAdmin
-    .from('otp_throttle')
-    .update({ attempts: existing.attempts + 1 })
-    .eq('key', key)
-  return { allowed: true }
+  const row = Array.isArray(data) ? data[0] : data
+  if (row?.allowed) return { allowed: true }
+  return { allowed: false, retryAfterSec: row?.retry_after_sec ?? 60 }
 }

@@ -1,6 +1,6 @@
 // supabase/functions/log-consent/index.js
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 
 const VALID_DECISIONS = ['accepted', 'rejected', 'withdrawn']
@@ -13,8 +13,8 @@ function json(body, status, req, extraHeaders = {}) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405, req)

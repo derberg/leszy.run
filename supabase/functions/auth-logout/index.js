@@ -1,6 +1,6 @@
 // supabase/functions/auth-logout/index.js
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 
 function json(body, status, req, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
@@ -10,8 +10,8 @@ function json(body, status, req, extraHeaders = {}) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL'),
@@ -26,6 +26,6 @@ Deno.serve(async (req) => {
     await supabaseAdmin.from('auth_sessions').delete().eq('id', token)
   }
 
-  const clearCookie = 'leszy_session=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0'
+  const clearCookie = 'leszy_session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'
   return json({ success: true }, 200, req, { 'Set-Cookie': clearCookie })
 })

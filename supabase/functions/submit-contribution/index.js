@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 
 function json(body, status = 200, req) {
@@ -13,8 +13,8 @@ function json(body, status = 200, req) {
 const VALID_TYPES = ['event_report', 'event_submission', 'general_feedback']
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   try {
     const supabaseAdmin = createClient(

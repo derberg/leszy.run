@@ -3,7 +3,7 @@
 // the roster lives on a Pi in a forest. Auth: per-event checkpoint_pin from
 // event_secrets (NOT the check-in PIN, which participants know).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -29,8 +29,8 @@ function throttled(ip) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, req)
 
   const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown'
