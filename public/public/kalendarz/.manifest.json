@@ -66116,6 +66116,34 @@
     "is_kids": null,
     "status": "active"
   },
+  "2-forest-cross-2026-11-15": {
+    "id": "af62ce68-e6f0-4436-9ce9-6d119c2e8ec8",
+    "name": "2 Forest Cross",
+    "date": "2026-11-15",
+    "registration_deadline": "2026-11-14",
+    "regulamin_url": "https://lumisport.eu/wp-content/uploads/2026/09/Regulamin-2-Forest-Cross.pdf",
+    "price_from": 10,
+    "price_to": 100,
+    "location": "Wiączyń Dolny",
+    "voivodeship": "Łódzkie",
+    "lat": null,
+    "lng": null,
+    "distances": [
+      "10 km",
+      "21 km",
+      "5 km",
+      "Nordic Walking - 5 km"
+    ],
+    "event_type": [
+      "nordic walking",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://lumisport.eu/produkt/2-forest-cross/",
+    "website": "https://lumisport.eu/produkt/2-forest-cross/",
+    "is_kids": null,
+    "status": "active"
+  },
   "borecka-lekuk-trail-2026-11-20": {
     "id": "0d9ee140-2238-4f00-9ff0-df98fb2217cb",
     "name": "Borecka Łękuk Trail",
@@ -67916,30 +67944,6 @@
     "is_kids": null,
     "status": "active"
   },
-  "28122024-sylwestrowy-nordic-walking-34km-2026-12-31": {
-    "id": "4fc45abc-94d8-44b2-be0e-1220fcf6a4db",
-    "name": "28.12.2024 - Sylwestrowy Nordic Walking - 3,4km",
-    "date": "2026-12-31",
-    "registration_deadline": "2026-12-28",
-    "regulamin_url": "https://biegikoszalin.eu/Biegi_Koszalin_2016/biegsyl2025",
-    "price_from": 10,
-    "price_to": 100,
-    "location": "Koszalin",
-    "voivodeship": "Zachodniopomorskie",
-    "lat": 54.19092,
-    "lng": 16.17707,
-    "distances": [
-      "3.4 km"
-    ],
-    "event_type": [
-      "nordic walking",
-      "uliczny"
-    ],
-    "registration_url": "https://b4sportonline.pl/Biegi_Koszalin_2016/zapisy_na_31122026__sylwestrowy_nordic_walking__34km/13104",
-    "website": "http://tkkf.koszalin.pl/",
-    "is_kids": null,
-    "status": "active"
-  },
   "xxi-slaski-maraton-noworoczny-cyborg-2027-01-01": {
     "id": "861c722f-a185-4e15-b949-c11a76129f5a",
     "name": "XXI Śląski Maraton Noworoczny - CYBORG",
@@ -68305,6 +68309,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "zpgs-2027-2027-01-16": {
+    "id": "f9b7eee8-9154-4ae4-8046-fbdac0c7981b",
+    "name": "ZPGS 2027",
+    "date": "2027-01-16",
+    "registration_deadline": "2027-01-14",
+    "regulamin_url": "https://www.maratongorstolowych.pl/wp-content/uploads/2026/09/ZPGS27_regulamin.docx.pdf",
+    "price_from": 230,
+    "price_to": 300,
+    "location": "Kudowa zdrój",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.445786,
+    "lng": 16.254147,
+    "distances": [
+      "31 km",
+      "21 km"
+    ],
+    "event_type": [
+      "trail"
+    ],
+    "registration_url": "https://b4sportonline.pl/Zimowy_Polmaraton_Gor_Stolowych/zapisy_na_biala_trzydziestka_31km__2027/13127",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "zamiec-2027-2027-01-22": {
     "id": "6276bd4d-de12-4061-b9e3-068a9e482e70",
     "name": "ZAMIEĆ 2027",
@@ -68664,6 +68692,31 @@
     "is_kids": null,
     "status": "active"
   },
+  "ksg-2027-2027-04-10": {
+    "id": "8d3afb8f-fb40-40fa-8856-e0b50b7de4a5",
+    "name": "KSG 2027",
+    "date": "2027-04-10",
+    "registration_deadline": null,
+    "regulamin_url": "http://sztafetagorska.pl/regulamin/",
+    "price_from": null,
+    "price_to": null,
+    "location": "Kudowa zdrój",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.445786,
+    "lng": 16.254147,
+    "distances": [
+      "42 km",
+      "10 km",
+      "75 km"
+    ],
+    "event_type": [
+      "ultra"
+    ],
+    "registration_url": "https://b4sportonline.pl/Sztafeta_Gorska/zapisy_na_obledny_maraton_42km_2027/13152",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "mlb-5-km-kwiecien-2027-04-11": {
     "id": "7d1a4b7a-bfae-43c1-9299-cbbd7125dc39",
     "name": "MLB 5 km - Kwiecień",
@@ -68778,6 +68831,30 @@
     ],
     "registration_url": "https://zapisyonline.pl/wydarzenie/1084,backyard-ultra-jablonna",
     "website": "https://www.facebook.com/events/1539844084603102",
+    "is_kids": null,
+    "status": "active"
+  },
+  "rzeznik-500-2027-05-21": {
+    "id": "2ee3ba5b-0028-4e27-9ecc-e01244126155",
+    "name": "Rzeźnik 500",
+    "date": "2027-05-21",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Ustroń",
+    "voivodeship": "Śląskie",
+    "lat": 49.718649,
+    "lng": 18.825108,
+    "distances": [
+      "500 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://b4sportonline.pl/rzeznik_GSB/zapisy_na_rzeznik_500__2027/13145",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -69027,6 +69104,34 @@
     "is_kids": null,
     "status": "active"
   },
+  "poznanski-czerwiec56-bieg-pamieci-2027-06-20": {
+    "id": "0157c951-7198-450a-b3ef-6bb61581dc95",
+    "name": "POZNAŃSKI CZERWIEC’56 – BIEG PAMIĘCI",
+    "date": "2027-06-20",
+    "registration_deadline": "2027-06-14",
+    "regulamin_url": "https://b4sportonline.pl/users-folder/1007/files/regulamin_x_Bieg_Pamieci_Czerwca56_x_edycja2027_(1).pdf",
+    "price_from": 39,
+    "price_to": 89,
+    "location": "Poznań",
+    "voivodeship": "Wielkopolskie",
+    "lat": 52.400663,
+    "lng": 16.919733,
+    "distances": [
+      "1.2 km",
+      "2 km",
+      "5 km",
+      "10 km",
+      "600 m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://b4sportonline.pl/poznanski_czerwiec_56/zapisy_na_sztafeta_5x_2km/13132",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "gdynia-ultra-way-summer-race-2027-2027-06-25": {
     "id": "e8b139aa-2d05-4cad-bace-944a44e3437d",
     "name": "Gdynia Ultra Way Summer Race 2027",
@@ -69109,6 +69214,57 @@
     ],
     "registration_url": "https://elektronicznezapisy.pl/event/15964/signup.html",
     "website": "https://www.traseo.pl/trasa/razem-po-zmroku-60-km",
+    "is_kids": null,
+    "status": "active"
+  },
+  "supermaraton-gor-stolowych-2027-06-26": {
+    "id": "f9f9f95d-0705-4e84-b230-838ca3821eb0",
+    "name": "Supermaraton Gór Stołowych",
+    "date": "2027-06-26",
+    "registration_deadline": null,
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Kudowa zdrój",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.445786,
+    "lng": 16.254147,
+    "distances": [
+      "23 km",
+      "55 km"
+    ],
+    "event_type": [
+      "ultra"
+    ],
+    "registration_url": "https://b4sportonline.pl/Supermaraton_Gor_Stolowych/zapisy_na_polmaraton__light_21km_2027/13157",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "kaszubski-festiwal-biegowy-2027-07-18": {
+    "id": "e2fab648-433c-4261-8660-4b113039ecc4",
+    "name": "Kaszubski Festiwal Biegowy",
+    "date": "2027-07-18",
+    "registration_deadline": "2027-06-18",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Rozewie - Swarzewo - Jastrzębia Góra - Rozewie",
+    "voivodeship": "Pomorskie",
+    "lat": 54.82997,
+    "lng": 18.335821,
+    "distances": [
+      "42.2 km",
+      "21.1 km",
+      "15 km",
+      "10 km",
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/16099/signup.html",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -69242,6 +69398,32 @@
     "is_kids": null,
     "status": "active"
   },
+  "festiwal-biegowy-polnocy-2027-09-12": {
+    "id": "55618b57-45f1-4609-953c-193112ea974a",
+    "name": "Festiwal Biegowy Północy",
+    "date": "2027-09-12",
+    "registration_deadline": "2027-08-15",
+    "regulamin_url": null,
+    "price_from": null,
+    "price_to": null,
+    "location": "Hel - Jastarnia - Rozewie",
+    "voivodeship": "Pomorskie",
+    "lat": 54.623709,
+    "lng": 18.727501,
+    "distances": [
+      "5 km",
+      "10 km",
+      "21.1 km",
+      "42.2 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://elektronicznezapisy.pl/event/16100/signup.html",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "vii-ultras-oliwski-bieg-wokol-radosci-2027-09-18": {
     "id": "7df55b07-102f-450b-9e38-f99608905fd0",
     "name": "VII Ultras Oliwski - Bieg Wokół Radości!",
@@ -69288,6 +69470,31 @@
     ],
     "registration_url": "https://dostartu.pl/permalink-v17305",
     "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "2027-gdynia-formoza-challenge-2027-10-10": {
+    "id": "0aa6a5e8-7642-4bb1-b4f9-0ef8e3617962",
+    "name": "2027 | GDYNIA | FORMOZA CHALLENGE",
+    "date": "2027-10-10",
+    "registration_deadline": null,
+    "regulamin_url": "https://b4sportonline.pl/users-folder/959/files/regulamin_x_gdynia_x_formoza_challenge_edycja2026_(002).pdf",
+    "price_from": 149,
+    "price_to": 289,
+    "location": "Gdynia",
+    "voivodeship": "Pomorskie",
+    "lat": 54.516498,
+    "lng": 18.540274,
+    "distances": [
+      "6 km"
+    ],
+    "event_type": [
+      "ocr",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://b4sportonline.pl/formoza_challenge/zapisy_na_formoza_gdynia__kids_short__10102027/13100",
+    "website": "https://www.formozachallenge.com/",
     "is_kids": null,
     "status": "active"
   },
