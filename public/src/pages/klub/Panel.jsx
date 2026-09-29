@@ -94,7 +94,7 @@ function FollowedEvent({ entry, members }) {
             type="button"
             data-testid={`club-followers-toggle-${event.id}`}
             onClick={() => setExpanded((v) => !v)}
-            className="ml-1.5 text-apex-yellow hover:text-apex-yellow-bright underline-offset-2 hover:underline"
+            className="ml-1.5 inline-block px-3 py-2.5 -my-2 text-apex-yellow hover:text-apex-yellow-bright underline-offset-2 hover:underline"
           >
             {expanded ? 'zwiń' : `+${hidden.length}`}
           </button>

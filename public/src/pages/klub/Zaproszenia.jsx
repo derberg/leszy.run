@@ -114,20 +114,25 @@ export default function Zaproszenia() {
         </button>
         {loaded && linkInvites.length > 0 && (
           <div className="mt-2 space-y-1.5">
+            {/* Link on its own line: sharing a row with the counter and two
+                buttons left ~130px of a ~680px URL visible on a phone, so an
+                admin could not tell two invites apart before revoking one. */}
             {linkInvites.map((inv) => (
-              <div key={inv.id} className="flex items-center gap-2 text-xs">
-                <code className="flex-1 truncate bg-apex-surface border border-apex-border px-2 py-1 font-mono text-[10px] text-apex-muted">
+              <div key={inv.id} className="space-y-1.5 text-xs pb-1.5">
+                <code className="block break-all bg-apex-surface border border-apex-border px-2 py-1 font-mono text-[10px] text-apex-muted">
                   {`${window.location.origin}/klub/${club.slug}/dolacz?kod=${inv.code}`}
                 </code>
-                <span className="font-mono text-[9px] text-apex-muted flex-shrink-0">
-                  {inv.uses}{inv.max_uses != null ? `/${inv.max_uses}` : ''} użyć
-                </span>
-                <button data-testid="copy-invite" onClick={() => copyLink(inv)} className={btnGhost}>
-                  {copiedId === inv.id ? 'Skopiowano' : 'Kopiuj'}
-                </button>
-                <button data-testid="revoke-invite" onClick={() => revoke(inv.id)} disabled={busy} className={btnDanger}>
-                  Unieważnij
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[9px] text-apex-muted flex-shrink-0">
+                    {inv.uses}{inv.max_uses != null ? `/${inv.max_uses}` : ''} użyć
+                  </span>
+                  <button data-testid="copy-invite" onClick={() => copyLink(inv)} className={btnGhost}>
+                    {copiedId === inv.id ? 'Skopiowano' : 'Kopiuj'}
+                  </button>
+                  <button data-testid="revoke-invite" onClick={() => revoke(inv.id)} disabled={busy} className={btnDanger}>
+                    Unieważnij
+                  </button>
+                </div>
               </div>
             ))}
           </div>

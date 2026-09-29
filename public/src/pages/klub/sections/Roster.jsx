@@ -115,8 +115,11 @@ export default function Roster() {
             // (same rule as RosterManage.canManage — copied verbatim).
             const rowCanManage = canManage && !isSelf && m.role !== 'owner' && (isOwner || m.role === 'member')
             return (
-              <div key={m.user_id} className="flex items-center gap-2 py-2 border-b border-apex-border/50 text-xs">
-                <span className="flex-1 text-apex-text truncate">{displayNameFor(m)}</span>
+              <div key={m.user_id} className="flex flex-wrap items-center gap-2 py-2 border-b border-apex-border/50 text-xs">
+                {/* The name takes its own line on a narrow screen: sharing one
+                    line with the role tag and the remove button truncated it to
+                    a couple of characters, right next to a destructive action. */}
+                <span className="basis-full sm:basis-auto sm:flex-1 min-w-0 text-apex-text truncate">{displayNameFor(m)}</span>
                 <RoleTag role={m.role} />
                 {rowCanManage && (
                   <>
