@@ -55,10 +55,6 @@ async function runBackendScript(name, scriptArgs) {
   return result;
 }
 
-export function runDeadlineNotifications() {
-  return runBackendScript('deadline-notifications', ['scripts/run-deadline-notifications.js', '--apply']);
-}
-
 export function runWeeklyDigest() {
   return runBackendScript('weekly-digest', ['scripts/run-weekly-digest.js', '--apply']);
 }

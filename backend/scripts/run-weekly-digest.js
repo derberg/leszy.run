@@ -10,6 +10,10 @@ import { createClient } from '@supabase/supabase-js'
 const dryRun = !process.argv.includes('--apply')
 
 import { pickDigestNotifications } from './lib/notificationWindow.js'
+// The same rule the in-app feed uses, so the email and the badge cannot
+// disagree about what the user was told (supabase/functions/_shared is plain
+// JS — no Deno globals — so Node can import it directly).
+import { deadlineSoonFor } from '../../supabase/functions/_shared/deadlineSoon.js'
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -126,10 +130,27 @@ if (eventIds.length) {
     supabase
       .from('event_notifications')
       .select('event_id, type, created_at, calendar_events(name, date, status)')
+      .eq('type', 'registration_opened')
       .gte('created_at', since)
       .in('event_id', eventIds)
       .order('created_at')
   )
+
+  // deadline_soon is derived, not read: a stored row fires once per event
+  // (UNIQUE(event_id,type)), and every reader drops notifications older than
+  // the user's star — so anyone who starred a race after that single row was
+  // written could never be warned its entries were closing.
+  const favEvents = await fetchAll(() =>
+    supabase
+      .from('calendar_events')
+      .select('id, name, date, status, registration_deadline')
+      .in('id', eventIds)
+      .order('id')
+  )
+  for (const ev of favEvents) {
+    const hit = deadlineSoonFor(ev, todayIso)
+    if (hit) notifs.push({ ...hit, calendar_events: ev })
+  }
 }
 
 // 4. Per-user digest: notification must postdate that user's star
