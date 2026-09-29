@@ -254,9 +254,17 @@ Deno.serve(async (req) => {
     // in one round trip.
     const { data: claimedHash, error: claimErr } = await supabaseAdmin
       .rpc('claim_auth_code_attempt', { p_code_id: otpRow.id, p_max: 3 })
-    if (claimErr) throw claimErr
+    if (claimErr) {
+      // This branch has no enclosing try: a throw here escapes Deno.serve as a
+      // bare 500 with no CORS headers and no body, and DangerZone then shows
+      // "Niepoprawny kod" — blaming the user for a database problem.
+      console.error('delete-my-account: claim_auth_code_attempt failed:', claimErr.message)
+      return json({ error: 'Wystąpił błąd. Spróbuj ponownie za chwilę.' }, 500, req)
+    }
     if (!claimedHash) {
-      return json({ error: 'Too many attempts. Request a new code.' }, 403, req)
+      // Used, expired, or out of attempts — most often a double-submitted form
+      // whose first request already consumed the code.
+      return json({ error: 'Ten kod jest już nieaktualny. Poproś o nowy.' }, 403, req)
     }
 
     const incomingHash = await sha256hex(trimmedCode)

@@ -12,25 +12,30 @@ const WINDOW_SECONDS = 15 * 60
  * exactly the conditions it exists for. The decision now happens inside the
  * write — see claim_throttle_slot in migration 20260929200000.
  *
+ * `failOpen` says what to do when the RPC itself is unavailable — a PostgREST
+ * schema cache lagging a fresh migration, a pool timeout. It is not one answer
+ * for both callers:
+ *   - verifying a code: fail OPEN. A 429 there strands someone mid-login and
+ *     tells them they made too many attempts, which sends whoever debugs it
+ *     looking in the wrong place. Guessing is still capped per code by
+ *     claim_auth_code_attempt.
+ *   - requesting a code: fail CLOSED. That path sends mail to any address the
+ *     caller names, so running it unthrottled lets one person mail thousands of
+ *     login codes to a third party and burn the sending domain's reputation.
+ *     The cost of being wrong is "you cannot start a new login for a few
+ *     minutes"; existing sessions are untouched.
+ *
  * @returns {Promise<{ allowed: boolean, retryAfterSec?: number }>}
  */
-export async function checkAndIncrement(supabaseAdmin, key, limit) {
+export async function checkAndIncrement(supabaseAdmin, key, limit, { failOpen = false } = {}) {
   const { data, error } = await supabaseAdmin.rpc('claim_throttle_slot', {
     p_key: key,
     p_limit: limit,
     p_window_seconds: WINDOW_SECONDS,
   })
   if (error) {
-    // Fail OPEN, loudly. Failing closed sounds safer until you notice what it
-    // does: this function now gates both auth-request-code and
-    // auth-verify-code, so one unavailable RPC — a PostgREST schema cache that
-    // has not caught up with a fresh migration, a pool timeout — locks every
-    // user out of logging in, and tells them "too many attempts", which sends
-    // whoever debugs it looking in the wrong place entirely. A rate limit is
-    // not an authorisation check: while it is down, the per-code 3-attempt cap
-    // (atomic, in the same migration) still bounds guessing.
-    console.error('throttle: claim_throttle_slot unavailable, allowing request:', error.message)
-    return { allowed: true }
+    console.error(`throttle: claim_throttle_slot unavailable for ${key}, ${failOpen ? 'allowing' : 'refusing'}:`, error.message)
+    return failOpen ? { allowed: true } : { allowed: false, retryAfterSec: 60 }
   }
   const row = Array.isArray(data) ? data[0] : data
   if (row?.allowed) return { allowed: true }

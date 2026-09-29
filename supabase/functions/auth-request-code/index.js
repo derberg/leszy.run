@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest, isAllowed } from '../_shared/cors.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
 import { isEmailRetired } from '../_shared/deletedEmails.js'
 
@@ -33,14 +33,13 @@ function json(body, status, req) {
   })
 }
 
-// Pick the base URL for the magic link from the request Origin (validated against
-// our allowlist) so previews work too. Falls back to production www.leszy.run.
-const STATIC_ORIGINS = ['http://localhost:5173', 'https://www.leszy.run', 'https://leszy.run']
-const PREVIEW_ORIGIN_RE = /^https:\/\/[a-z0-9-]+-derbergs-projects\.vercel\.app$/
+// Pick the base URL for the magic link from the request Origin, using the SAME
+// allowlist guardRequest enforces — a second copy drifted once already: it knew
+// about :5173 and not :3002, so a login started on the port the README
+// documents mailed a link into PRODUCTION. Falls back to www.leszy.run.
 function magicLinkBase(req) {
   const origin = req.headers.get('Origin') ?? ''
-  if (STATIC_ORIGINS.includes(origin) || PREVIEW_ORIGIN_RE.test(origin)) return origin
-  return 'https://www.leszy.run'
+  return isAllowed(origin) ? origin : 'https://www.leszy.run'
 }
 
 // `from` must be an internal path: starts with single "/", no "//", no "\", no "..".

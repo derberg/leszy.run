@@ -47,7 +47,9 @@ Deno.serve(async (req) => {
     // Guessing is bounded per address as well as per code: requesting a new code
     // resets the 3-attempt counter, so without this an attacker could keep
     // buying fresh guesses. auth-request-code is throttled; this step was not.
-    const guessThrottle = await checkAndIncrement(supabaseAdmin, `verify:${normalizedEmail}`, 15)
+    // failOpen: an unavailable rate limiter must not strand someone mid-login;
+    // the per-code attempt cap is what stops guessing. See _shared/throttle.js.
+    const guessThrottle = await checkAndIncrement(supabaseAdmin, `verify:${normalizedEmail}`, 15, { failOpen: true })
     if (!guessThrottle.allowed) {
       return new Response(JSON.stringify({ error: 'Zbyt wiele prób. Spróbuj ponownie później.' }), {
         status: 429,
