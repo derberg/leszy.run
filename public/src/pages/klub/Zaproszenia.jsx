@@ -150,16 +150,36 @@ export default function Zaproszenia() {
         />
         <button type="submit" disabled={busy || !directTarget.trim()} className={btnOk}>Zaproś</button>
       </form>
-      {directSent && <p className="font-sans text-xs text-apex-yellow mb-2">Zaproszenie wysłane.</p>}
+      {directSent && (
+        <p className="font-sans text-xs text-apex-yellow mb-2">
+          Zaproszenie utworzone. Nie wysyłamy go mailem — skopiuj link poniżej i wyślij go tej osobie.
+        </p>
+      )}
 
       {loaded && directInvites.length > 0 && (
         <div className="space-y-1.5">
           {directInvites.map((inv) => (
-            <div key={inv.id} className="flex items-center gap-2 text-xs">
-              <span className="flex-1 truncate text-apex-text">{inv.target_email || `@${inv.target_username}`}</span>
-              <button data-testid="revoke-invite" onClick={() => revoke(inv.id)} disabled={busy} className={btnDanger}>
-                Unieważnij
-              </button>
+            <div key={inv.id} className="space-y-1.5 text-xs pb-1.5">
+              <span className="block truncate text-apex-text">{inv.target_email || `@${inv.target_username}`}</span>
+              {inv.code && (
+                <code className="block break-all bg-apex-surface border border-apex-border px-2 py-1 font-mono text-[10px] text-apex-muted">
+                  {`${window.location.origin}/klub/${club.slug}/dolacz?kod=${inv.code}`}
+                </code>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[9px] text-apex-muted flex-shrink-0">
+                  {/* Only the named person can use it, so passing the link on is safe. */}
+                  tylko dla tej osoby · jednorazowe
+                </span>
+                {inv.code && (
+                  <button data-testid="copy-direct-invite" onClick={() => copyLink(inv)} className={btnGhost}>
+                    {copiedId === inv.id ? 'Skopiowano' : 'Kopiuj'}
+                  </button>
+                )}
+                <button data-testid="revoke-invite" onClick={() => revoke(inv.id)} disabled={busy} className={btnDanger}>
+                  Unieważnij
+                </button>
+              </div>
             </div>
           ))}
         </div>

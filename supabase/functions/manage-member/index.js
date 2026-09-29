@@ -80,6 +80,13 @@ Deno.serve(async (req) => {
         .update({ status: 'removed', left_at: new Date().toISOString() })
         .eq('club_id', club_id).eq('user_id', user_id)
       await clearClubIdIfPointing(supabaseAdmin, user_id, club_id)
+      // Their invites go with them. A removed admin otherwise kept every link
+      // they had generated, and could keep funnelling people into the club they
+      // were just thrown out of — they simply could not manage it any more.
+      const { error: invErr } = await supabaseAdmin.from('club_invites')
+        .update({ revoked: true })
+        .eq('club_id', club_id).eq('created_by', user_id).eq('revoked', false)
+      if (invErr) console.error('manage-member: revoking removed member invites failed:', invErr.message)
       await logMembershipEvent(supabaseAdmin, {
         club_id, user_id, event: 'removed', role: target.role, actor_id: session.userId,
       })

@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { inviteIsForCaller } from '../_shared/clubInvites.js'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
 import { logMembershipEvent } from '../_shared/membershipLog.js'
 
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
     }
 
     let query = supabaseAdmin.from('club_invites')
-      .select('id, club_id, kind, expires_at, max_uses, uses, revoked')
+      .select('id, club_id, kind, expires_at, max_uses, uses, revoked, target_email, target_username')
     query = invite_id ? query.eq('id', invite_id) : query.eq('code', code)
     const { data: invite } = await query.maybeSingle()
 
@@ -44,6 +45,14 @@ Deno.serve(async (req) => {
       return json({ error: 'Zaproszenie wyczerpane.' }, 409, req)
     }
 
+    // A direct invite names one person. Nothing used to check that, so its id
+    // was a transferable key to the club — see _shared/clubInvites.js.
+    const { data: callerProfile } = await supabaseAdmin
+      .from('profiles').select('username').eq('id', session.userId).maybeSingle()
+    if (!inviteIsForCaller(invite, { email: session.email, username: callerProfile?.username })) {
+      return json({ error: 'To zaproszenie jest dla innej osoby.' }, 403, req)
+    }
+
     // Enforce ≤1 active membership per user
     const { data: activeElsewhere } = await supabaseAdmin.from('club_members')
       .select('club_id').eq('user_id', session.userId).eq('status', 'active').maybeSingle()
@@ -54,6 +63,21 @@ Deno.serve(async (req) => {
     const { data: club, error: clubErr } = await supabaseAdmin.from('clubs')
       .select('id, slug, name').eq('id', invite.club_id).single()
     if (clubErr) throw clubErr
+
+    // Claim the use first, and only if the counter is still what we read. Two
+    // people clicking a max_uses=1 link in the same second both used to pass
+    // the check above, both joined, and the counter still said 1 — so the cap
+    // did nothing in exactly the case it exists for. A direct invite is
+    // consumed too; it used to be exempt, which is why it never ran out.
+    const { data: claimed } = await supabaseAdmin.from('club_invites')
+      .update({ uses: invite.uses + 1 })
+      .eq('id', invite.id)
+      .eq('uses', invite.uses)
+      .eq('revoked', false)
+      .select('id')
+    if (!claimed?.length) {
+      return json({ error: 'Zaproszenie zostało właśnie wykorzystane. Poproś o nowe.' }, 409, req)
+    }
 
     const { error: memErr } = await supabaseAdmin.from('club_members')
       .upsert({
@@ -72,10 +96,6 @@ Deno.serve(async (req) => {
     await logMembershipEvent(supabaseAdmin, {
       club_id: invite.club_id, user_id: session.userId, event: 'joined', role: 'member', actor_id: session.userId,
     })
-
-    if (invite.kind === 'link') {
-      await supabaseAdmin.from('club_invites').update({ uses: invite.uses + 1 }).eq('id', invite.id)
-    }
 
     // Award the club_set badge now that the user has a club (best-effort).
     await checkAndAwardBadges(supabaseAdmin, session.userId)
