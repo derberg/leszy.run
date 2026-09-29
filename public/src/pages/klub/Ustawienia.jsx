@@ -23,7 +23,7 @@ const btnGhost = `${actionBtnClass} border-apex-border text-apex-muted hover:tex
 const btnDanger = `${actionBtnClass} border-apex-red text-apex-red hover:bg-apex-red hover:text-apex-ink`
 
 const fieldLabel = 'block font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted mb-1'
-const fieldInput = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
+const fieldInput = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-base md:text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
 
 function displayNameFor(m) {
   return m?.display_name || m?.nickname || 'Uczestnik anonimowy'

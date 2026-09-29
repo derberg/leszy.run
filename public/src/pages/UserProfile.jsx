@@ -114,8 +114,11 @@ export default function UserProfile() {
     <div className="min-h-screen bg-apex-bg text-apex-text">
       <Navbar />
       <main className="pt-20 pb-16 px-4 md:px-8 max-w-5xl mx-auto">
-        <div className="flex gap-8">
-          <aside className="w-52 flex-shrink-0">
+        {/* Stacks below md: the rail used to be a hard 208px next to a column
+            with no min-w-0, so at phone width the document grew to ~794px and
+            half the page — including the navbar — sat off-screen. */}
+        <div className="flex flex-col md:flex-row gap-8">
+          <aside className="w-full md:w-52 md:flex-shrink-0">
             <div className="flex flex-col items-center gap-3 mb-6">
               <div className="w-14 h-14 bg-apex-surface border-2 border-apex-yellow flex items-center justify-center font-display font-bold text-xl text-apex-yellow">
                 {profile.username[0].toUpperCase()}
@@ -178,7 +181,7 @@ export default function UserProfile() {
             )}
           </aside>
 
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className={sectionTitle}>Zaakceptowane zgłoszenia</div>
             {allContribs.length === 0 ? (
               <p className="font-sans text-sm text-apex-muted py-8">Brak zaakceptowanych zgłoszeń.</p>
