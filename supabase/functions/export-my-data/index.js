@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
 
   const [
     profile, userBadges, consentLog, eventReports, websiteFeedback, submittedEvents, favorites,
-    clubMemberships, ownedClubsRaw, membershipLog,
+    clubMemberships, ownedClubsRaw, membershipLog, raceEntries, invitesToMe,
   ] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').eq('id', userId).single(),
     supabaseAdmin.from('user_badges').select('*').eq('user_id', userId),
@@ -52,6 +52,23 @@ Deno.serve(async (req) => {
       .select('event, role, occurred_at, clubs(name)')
       .eq('user_id', userId)
       .order('occurred_at'),
+    // Race entries are matched to a person by email, which is exactly how
+    // delete-my-account finds them to anonymise — so the system already treats
+    // them as this user's personal data, and an Art. 15 export that omits them
+    // is incomplete. A runner downloading their data got no trace of the races
+    // they had actually entered.
+    session.email
+      ? supabaseAdmin.from('participants')
+        .select('first_name, last_name, email, phone, bib_number, club, checked_in, checked_in_at, deleted_at, events(name, date)')
+        .eq('email', session.email)
+      : Promise.resolve({ data: [] }),
+    // Invitations addressed to them, which they can neither see nor act on
+    // anywhere else once the club has them.
+    session.email
+      ? supabaseAdmin.from('club_invites')
+        .select('kind, target_email, target_username, created_at, expires_at, revoked, clubs(name)')
+        .eq('target_email', session.email)
+      : Promise.resolve({ data: [] }),
   ])
 
   const memberships = (clubMemberships.data ?? []).map((m) => ({
@@ -106,6 +123,28 @@ Deno.serve(async (req) => {
       submitted_calendar_events: submittedEvents.data || [],
     },
     clubs: { membership, memberships, membership_history, owned },
+    race_entries: (raceEntries.data ?? []).map((p) => ({
+      event_name: p.events?.name ?? null,
+      event_date: p.events?.date ?? null,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      email: p.email,
+      phone: p.phone,
+      bib_number: p.bib_number,
+      club: p.club,
+      checked_in: p.checked_in,
+      checked_in_at: p.checked_in_at,
+      anonymised_at: p.deleted_at,
+    })),
+    club_invitations_received: (invitesToMe.data ?? []).map((i) => ({
+      club_name: i.clubs?.name ?? null,
+      kind: i.kind,
+      target_email: i.target_email,
+      target_username: i.target_username,
+      created_at: i.created_at,
+      expires_at: i.expires_at,
+      revoked: i.revoked,
+    })),
   }
 
   const date = new Date().toISOString().slice(0, 10)
