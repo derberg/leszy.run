@@ -16,6 +16,10 @@ async function requireManager(supabaseAdmin, clubId, userId) {
   return data && (data.role === 'owner' || data.role === 'admin')
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+const DEFAULT_LINK_TTL_MS = 30 * DAY_MS
+const DEFAULT_DIRECT_TTL_MS = 30 * DAY_MS
+
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -46,7 +50,10 @@ Deno.serve(async (req) => {
           kind: 'link',
           code,
           created_by: session.userId,
-          expires_at: expires_at ?? null,
+          // Default expiry, because the UI never passed one and a link pasted
+          // into a public post otherwise admits strangers a year later. The
+          // caller can still choose, and "Unieważnij" still works.
+          expires_at: expires_at ?? new Date(Date.now() + DEFAULT_LINK_TTL_MS).toISOString(),
           max_uses: max_uses ?? null,
         })
         .select('id, code, expires_at, max_uses, uses')
@@ -59,27 +66,39 @@ Deno.serve(async (req) => {
       if (!email && !username) {
         return json({ error: 'Wymagany email lub nazwa użytkownika.' }, 400, req)
       }
+      // A direct invite carries a code as well, so the manager has something to
+      // send: nothing in this system mails it (there is no notification type
+      // for club events), and without a code there was no URL at all — the
+      // invitee could only ever find it by chance on /profil/klub. It is bound
+      // to the named person in accept-invite, so passing the link on does not
+      // let somebody else in, and it is single-use with an expiry.
+      const code = crypto.randomUUID().replace(/-/g, '').slice(0, 10)
       const { data: invite, error } = await supabaseAdmin.from('club_invites')
         .insert({
           club_id,
           kind: 'direct',
+          code,
           target_email: email ?? null,
           target_username: username ?? null,
           created_by: session.userId,
+          max_uses: 1,
+          expires_at: new Date(Date.now() + DEFAULT_DIRECT_TTL_MS).toISOString(),
         })
-        .select('id')
+        .select('id, code, target_email, target_username, expires_at')
         .single()
       if (error) throw error
-      // TODO(notify): send the invite email/notification to the target once the
-      // frontend/notify path lands. Row creation is all this endpoint owns.
       return json({ data: { invite } }, 200, req)
     }
 
     if (op === 'revoke') {
       if (!invite_id) return json({ error: 'invite_id required' }, 400, req)
-      const { error } = await supabaseAdmin.from('club_invites')
-        .update({ revoked: true }).eq('id', invite_id).eq('club_id', club_id)
+      // .select() so "revoked: true" means a row actually changed. Without it a
+      // stale id — or one belonging to another club — reported success and the
+      // manager believed a live invite was dead.
+      const { data: revoked, error } = await supabaseAdmin.from('club_invites')
+        .update({ revoked: true }).eq('id', invite_id).eq('club_id', club_id).select('id')
       if (error) throw error
+      if (!revoked?.length) return json({ error: 'Nie znaleziono takiego zaproszenia.' }, 404, req)
       return json({ data: { revoked: true } }, 200, req)
     }
 
