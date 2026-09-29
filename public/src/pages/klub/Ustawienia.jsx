@@ -148,7 +148,7 @@ export default function Ustawienia() {
               placeholder="np. Zatyrani Gratisownia" className={fieldInput} />
           </div>
           <div>
-            <label htmlFor="club-slug" className={fieldLabel}>Adres publicznej strony</label>
+            <label htmlFor="club-slug" className={fieldLabel}>Adres klubu</label>
             <div className="flex items-center gap-1">
               <span className="font-mono text-xs text-apex-muted shrink-0">leszy.run/klub/</span>
               <input id="club-slug" data-testid="edit-club-slug" type="text" value={slugValue}
@@ -168,16 +168,26 @@ export default function Ustawienia() {
               placeholder="Napisz kilka zdań o klubie — kto biega, skąd jesteście, jak dołączyć…"
               className={`${fieldInput} resize-none`} />
           </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              data-testid="toggle-club-public"
-              type="checkbox"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-              className="accent-[#BBDD00]"
-            />
-            <span className="font-sans text-xs text-apex-text">Publiczna strona klubu widoczna dla wszystkich</span>
-          </label>
+          {/* Parked, not removed: the public club page is off until it is worth
+              showing, so the switch stays where owners already expect it and
+              says why it does nothing. `isPublic` keeps the stored value, so
+              saving anything else here does not silently flip it. */}
+          <div>
+            <label className="flex items-center gap-2 opacity-50 cursor-not-allowed">
+              <input
+                data-testid="toggle-club-public"
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                disabled
+                className="accent-[#BBDD00]"
+              />
+              <span className="font-sans text-xs text-apex-text">Publiczna strona klubu widoczna dla wszystkich</span>
+            </label>
+            <p className="font-sans text-[11px] text-apex-muted mt-1">
+              Wkrótce — publiczna strona klubu jest w przygotowaniu.
+            </p>
+          </div>
           {saveError && <p className="text-apex-red font-sans text-xs">{saveError}</p>}
           <div className="flex items-center gap-2">
             <button type="submit" data-testid="save-club" disabled={saving} className={primaryBtnClass}>
