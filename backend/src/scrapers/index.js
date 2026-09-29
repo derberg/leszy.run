@@ -40,6 +40,7 @@ import { TRACKED_FIELDS, missingTrackedFields, missingRequiredFields, isReadyToA
 import { looksNonPolish } from '../lib/polishLocation.js'
 import { looksVirtual } from '../lib/virtualEvent.js'
 import { looksMultisport } from '../lib/multisportEvent.js'
+import { looksWalkingRally } from '../lib/walkingRally.js'
 
 // Sources that handle their own API enrichment in-scraper (avoid double API calls)
 const SELF_ENRICHING_SOURCES = new Set(['dostartu', 'elektronicznezapisy'])
@@ -1180,10 +1181,14 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           // inside looksMultisport(), which is why isRunBike does not guard it.
           const isMultisport = looksMultisport(raw)
 
+          // A rajd pieszy: walked, not raced. A name that also carries a run or
+          // a nordic walking race keeps its exemption inside looksWalkingRally().
+          const isWalkingRally = looksWalkingRally(raw)
+
           // Skip non-running events and past events — mark merged so they don't re-appear
-          if ((raw.name && SKIP_KEYWORDS.test(raw.name) && !isRunBike) || isMultisport || (raw.date && raw.date < today) || isForeign || isVirtual || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
+          if ((raw.name && SKIP_KEYWORDS.test(raw.name) && !isRunBike) || isMultisport || isWalkingRally || (raw.date && raw.date < today) || isForeign || isVirtual || isSmakMaratonJunk || isRyskaJunk || isItmbJunk || isWtorkiJunk) {
             stats.skipped++
-            if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || isMultisport) stats.skippedReasons.non_running++
+            if ((raw.name && SKIP_KEYWORDS.test(raw.name)) || isMultisport || isWalkingRally) stats.skippedReasons.non_running++
             else if (raw.date && raw.date < today) stats.skippedReasons.past_date++
             else if (isForeign) stats.skippedReasons.foreign++
             else if (isVirtual) stats.skippedReasons.virtual++
