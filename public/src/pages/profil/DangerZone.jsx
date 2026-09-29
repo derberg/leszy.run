@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FUNCTIONS_BASE } from '../../lib/auth.js'
+import { FUNCTIONS_BASE, signOut } from '../../lib/auth.js'
 import { deleteClub } from '../../lib/clubs.js'
 
 // Account data + deletion controls. Lives inside the Ustawienia section under the
@@ -106,6 +106,10 @@ export default function DangerZone() {
         }
         throw new Error(body.error || 'Niepoprawny kod')
       }
+      // The server revoked the session rows; drop every client-side trace too,
+      // so the browser does not sit on a dead cookie and a cache of the
+      // account that was just erased.
+      await signOut().catch(() => {})
       window.location.href = '/'
     } catch (err) {
       setError(err.message)

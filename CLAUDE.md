@@ -42,7 +42,7 @@ This project is RODO/GDPR-compliant. Reference documents:
 
 **Data subject rights endpoints:**
 - `POST /functions/v1/export-my-data` — returns JSON export of user data (Art. 15/20)
-- `POST /functions/v1/delete-my-account` — two-step OTP soft delete (Art. 17). Email is NOT released after deletion — re-registration with same email is permanently blocked.
+- `POST /functions/v1/delete-my-account` — two-step OTP soft delete (Art. 17). It erases the profile's PII, deletes the favourites and club rows, **revokes every `auth_sessions` row** (a soft delete fires no FK cascade, so without this the browser that just deleted the account kept a valid 90-day cookie and could write the erased fields back), and **retires the address in `deleted_email_hashes`** — a SHA-256, never the plaintext. `auth-request-code` and `auth-verify-code` refuse a retired address, which is what makes "email is NOT released after deletion" true. It previously rested on a `supabase.auth.admin` ban, which could never work: this app creates no `auth.users` rows (`auth-verify-code` mints a profile with `crypto.randomUUID()`), so the ban failed and was swallowed.
 
 **Consent audit trail:** every accept/reject choice on the cookie banner is logged client-side (localStorage with timestamp + policyVersion + userAgent) and, for authenticated users, server-side to the `consent_log` table via the `log-consent` edge function.
 
@@ -341,6 +341,7 @@ local), so all check-in data has a single source of truth in Supabase.
 - `event_category_best_times` — read-only view: best finish time per event × timed category × gender (`M`/`K` only; non-cancelled runs, untimed categories excluded). Feeds the past-event "Najlepsze czasy" table. Created via a committed migration (deployed by the CI pipeline).
 - `club_membership_log` — append-only club membership history (joined/left/removed/role_changed), written by the club edge functions; covered by export-my-data / delete-my-account (see GDPR section)
 - `prepublish_verdicts` — what the pre-publish review proved about one field of one event (`absent-at-source` / `needs-human`), one row per source+source_id+field. Read by the review step to skip settled fields and by `GET /api/calendar-events` to explain blank columns in the admin queue.
+- `deleted_email_hashes` — SHA-256 of every deleted account's address, so the address cannot be re-registered. Holds no plaintext.
 - `club_slug_history` — former club slugs (old_slug → club_id) backing get-club's slug fallback and the static redirect stubs; rows deleted only when a club reclaims its own former slug
 
 ## Supabase sync — how it works
