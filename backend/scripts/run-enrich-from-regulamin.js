@@ -8,6 +8,7 @@ import { looksLikeRegulamin } from '../src/lib/looksLikeRegulamin.js'
 import { dropUnsupportedFields } from '../src/lib/extractionEvidence.js'
 import { dropsDistances } from './lib/distances.js'
 import { resolveRegulaminScope } from './lib/enrichScope.js'
+import { resolveRegulaminFromPageHtml } from './lib/registration-page-regulamin.js'
 
 // Subset of AI_FILLABLE that's plausibly extractable from a regulamin PDF.
 // Excludes URLs (PDF doesn't contain its own URL or external pages reliably)
@@ -176,7 +177,7 @@ async function listDriveFolder(url) {
 // Download a regulamin from any supported URL and return a local file ready for Claude:
 // { path, kind } where kind 'pdf' is read natively by Claude (best table fidelity) and
 // 'text' is a .txt we extracted ourselves (docx, html page, or multi-file Drive folder).
-async function acquireRegulamin(url) {
+async function acquireRegulamin(url, row, { followWrapper = true } = {}) {
   // 1) Google Drive folder -> download every file, extract text, concatenate
   const folderId = driveFolderId(url)
   if (folderId) {
@@ -222,9 +223,31 @@ async function acquireRegulamin(url) {
 
   const text = extractText(dl.buffer, kind)
   if (!text || text.trim().length < 50) return { error: `${kind} extraction empty` }
+  const identity = looksLikeRegulamin(text)
+
+  // An HTML page that does not read as a regulamin may still BE where the
+  // regulamin lives. A WordPress site publishes rules written in Word by
+  // uploading the file and giving it a page with a heading and a link. The
+  // page is a wrapper, and everything the model is asked for is in the document
+  // beside it. ZPGS 2027 (b4sport:13127) published with price_from, price_to
+  // and registration_deadline null off a regulamin_url returning HTTP 200,
+  // while ZPGS27_regulamin.docx.pdf one link away states the 230/255/280 zł
+  // tiers and the 14.01.2027 payment deadline. Measured 2026-09-29: 7 of the
+  // 195 future rows whose regulamin_url is an HTML page are this shape.
+  //
+  // Only one hop, and only when the page failed the structural test. A page
+  // that reads as a regulamin IS the regulamin, whatever else it links.
+  if (kind === 'html' && followWrapper && identity.verdict !== 'regulamin') {
+    const wrapped = await resolveRegulaminFromPageHtml(dl.buffer.toString('utf-8'), url, row)
+    if (wrapped && wrapped !== url) {
+      const doc = await acquireRegulamin(wrapped, row, { followWrapper: false })
+      if (!doc.error) return { ...doc, wrapperUrl: url, resolvedUrl: wrapped }
+    }
+  }
+
   const f = tmpPath('txt')
   writeFileSync(f, text.trim(), 'utf-8')
-  return { path: f, kind: 'text', text, identity: looksLikeRegulamin(text) }
+  return { path: f, kind: 'text', text, identity }
 }
 
 function buildPrompt(event) {
@@ -402,13 +425,16 @@ async function main() {
     console.log(`    current distances: ${row.distances || '(none)'}`)
     console.log(`    current types: ${row.event_types?.join(', ') || '(none)'}`)
 
-    const download = await acquireRegulamin(url)
+    const download = await acquireRegulamin(url, row)
     if (download.error) {
       console.log(`    SKIP: ${download.error}`)
       skipped++
       continue
     }
     const filePath = download.path
+    if (download.resolvedUrl) {
+      console.log(`    wrapper page, following its link to ${download.resolvedUrl}`)
+    }
     console.log(`    acquired: ${download.kind} (${filePath})`)
 
     // Identity gate — is this document actually this race's regulamin?
@@ -448,6 +474,12 @@ async function main() {
 
       const updates = {}
       console.log(`    Claude returned: ${JSON.stringify(extracted)}`)
+
+      // The document we read is the regulamin; the wrapper page only points at
+      // it. Storing the document keeps the field meaning one thing, lets
+      // run-data-audit read the edition year out of the filename, and spares
+      // the next run the hop.
+      if (download.resolvedUrl) updates.regulamin_url = download.resolvedUrl
 
       // Evidence gate — drop any value the document cannot support. A model
       // asked for a fee in a fee-less document answers something rather than
@@ -509,6 +541,7 @@ async function main() {
           console.log(`    ERR: ${updateErr.message}`)
           failed++
         } else {
+          if (updates.regulamin_url) console.log(`    ✓ regulamin_url: ${url} → ${updates.regulamin_url}`)
           if (updates.distances) console.log(`    ✓ distances: ${row.distances || '(none)'} → ${updates.distances}`)
           if (updates.event_types) console.log(`    ✓ types: ${row.event_types?.join(', ') || '(none)'} → ${updates.event_types.join(', ')}`)
           if (updates.is_kids !== undefined) console.log(`    ✓ is_kids: ${row.is_kids ?? '(none)'} → ${updates.is_kids}`)

@@ -312,20 +312,28 @@ async function documentFingerprint(url, opts) {
 }
 
 /**
- * Find the regulamin linked from a scraper_all-shaped row's own registration
- * page. Returns a fetch-verified URL, or null when the page links none, links
- * none this row can claim, links more than one distinct document, or will not
- * load.
+ * Find this row's regulamin among the document links of a page we already
+ * hold. Returns a fetch-verified URL, or null when the page links none, links
+ * none this row can claim, or links more than one distinct document.
  *
- * @param {object} row  needs registration_url, and name/location to claim a link
- * @param {object} [deps]
- * @param {Function} [deps.fetchImpl]
- * @param {number}   [deps.timeoutMs]
- * @param {number}   [deps.maxCandidates]  above this the page is a document
- *                                         index, not an event page
- * @param {number}   [deps.maxDocBytes]
+ * Two kinds of page are asked this question, and they fail in the same way, so
+ * they get the same answer:
+ *
+ *   a registration page, which links the rules beside the sign-up form; and
+ *   a regulamin_url that turns out to be a WRAPPER: an HTML page whose whole
+ *     body is a heading and a link to the document, which is how a WordPress
+ *     site publishes rules written in Word. Its own text reads as no regulamin
+ *     at all, so attribution is the only thing standing between the row and
+ *     whatever else the site links: on an elektronicznezapisy page the only
+ *     documents are the PORTAL's terms of service and privacy policy, and the
+ *     terms carry the word regulamin in their filename.
+ *
+ * @param {string} html     the page's markup
+ * @param {string} pageUrl  where it came from, for resolving relative hrefs
+ * @param {object} row      needs name and date, and location for the city tier
+ * @param {object} [deps]   see resolveRegistrationPageRegulamin
  */
-export async function resolveRegistrationPageRegulamin(row, deps = {}) {
+export async function resolveRegulaminFromPageHtml(html, pageUrl, row, deps = {}) {
   const {
     fetchImpl = fetch,
     timeoutMs = 10000,
@@ -333,12 +341,6 @@ export async function resolveRegistrationPageRegulamin(row, deps = {}) {
     maxDocBytes = MAX_DOC_BYTES,
   } = deps
   const opts = { fetchImpl, timeoutMs, maxDocBytes }
-  const pageUrl = row?.registration_url
-  if (!pageUrl || !/^https?:\/\//i.test(pageUrl)) return null
-
-  const html = await fetchWithin(pageUrl, opts, (res, contentType) =>
-    contentType.includes('text/html') ? res.text() : null)
-  if (!html) return null
 
   const candidates = collectRegulaminDocLinks(html, pageUrl)
   if (candidates.length === 0 || candidates.length > maxCandidates) return null
@@ -355,4 +357,30 @@ export async function resolveRegistrationPageRegulamin(row, deps = {}) {
   }
 
   return mine[0].url
+}
+
+/**
+ * Find the regulamin linked from a scraper_all-shaped row's own registration
+ * page. Returns a fetch-verified URL, or null when the page links none, links
+ * none this row can claim, links more than one distinct document, or will not
+ * load.
+ *
+ * @param {object} row  needs registration_url, and name/location to claim a link
+ * @param {object} [deps]
+ * @param {Function} [deps.fetchImpl]
+ * @param {number}   [deps.timeoutMs]
+ * @param {number}   [deps.maxCandidates]  above this the page is a document
+ *                                         index, not an event page
+ * @param {number}   [deps.maxDocBytes]
+ */
+export async function resolveRegistrationPageRegulamin(row, deps = {}) {
+  const { fetchImpl = fetch, timeoutMs = 10000, maxDocBytes = MAX_DOC_BYTES } = deps
+  const pageUrl = row?.registration_url
+  if (!pageUrl || !/^https?:\/\//i.test(pageUrl)) return null
+
+  const html = await fetchWithin(pageUrl, { fetchImpl, timeoutMs, maxDocBytes }, (res, contentType) =>
+    contentType.includes('text/html') ? res.text() : null)
+  if (!html) return null
+
+  return resolveRegulaminFromPageHtml(html, pageUrl, row, deps)
 }
