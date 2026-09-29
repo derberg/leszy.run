@@ -59,3 +59,15 @@ test('an empty or missing name is not a match', () => {
   assert.equal(looksMultisport({}), false)
   assert.equal(looksMultisport(), false)
 })
+
+test('drops a biathlon', () => {
+  // All 15 raw rows carrying the word on 2026-09-29 are bgtimesport's, and all
+  // 15 are the shooting sport. Five of the eight that reached calendar_events
+  // had already been rejected by hand.
+  assert.equal(looksMultisport({ name: 'Biathlon dla Każdego Piechowice' }), true)
+  // The word is declined, so the pattern must not require a trailing boundary.
+  assert.equal(looksMultisport({ name: 'Regionalne Zawody Biathlonowe im. Radosława Szwade' }), true)
+  assert.equal(looksMultisport({ name: 'Mistrzostwa Polski Amatorów w biathlonie letnim' }), true)
+  // Polish drops the h here too.
+  assert.equal(looksMultisport({ name: 'Biatlon Letni Duszniki' }), true)
+})
