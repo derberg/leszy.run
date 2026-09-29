@@ -73,7 +73,13 @@ Deno.serve(async (req) => {
       .eq('club_id', clubId).in('status', ['active', 'pending'])
     if (memberErr) throw memberErr
 
+    // Pending applicants are only a manager's business. The roster component
+    // hides them from plain members, but they were in the payload — so anyone
+    // in the club could read the names and ids of everyone who had applied and
+    // not yet been accepted, by opening devtools.
+    const canSeePending = me.role === 'owner' || me.role === 'admin'
     const members = (memberRows ?? [])
+      .filter((m) => canSeePending || m.status === 'active')
       .slice()
       .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
       .map((m) => ({

@@ -72,9 +72,15 @@ Deno.serve(async (req) => {
       .select('club_id').eq('user_id', user_id).eq('status', 'active').maybeSingle()
     if (activeElsewhere) return json({ error: 'Użytkownik należy już do innego klubu.' }, 409, req)
 
-    await supabaseAdmin.from('club_members')
+    const { error: activateErr } = await supabaseAdmin.from('club_members')
       .update({ status: 'active', joined_at: new Date().toISOString() })
       .eq('club_id', club_id).eq('user_id', user_id)
+    if (activateErr) {
+      if (activateErr.code === '23505') {
+        return json({ error: 'Użytkownik należy już do innego klubu.' }, 409, req)
+      }
+      throw activateErr
+    }
     await supabaseAdmin.from('profiles').update({ club_id }).eq('id', user_id)
 
     await logMembershipEvent(supabaseAdmin, {

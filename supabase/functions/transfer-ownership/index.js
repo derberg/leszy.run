@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { logMembershipEvent } from '../_shared/membershipLog.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -59,6 +60,20 @@ Deno.serve(async (req) => {
       if (!club.pending_owner_id || club.pending_owner_id !== session.userId) {
         return json({ error: 'Brak uprawnień.' }, 403, req)
       }
+
+      // The nomination is checked against an ACTIVE membership at accept time,
+      // not just at nominate time. Nothing cleared pending_owner_id when the
+      // nominee left or was removed, so they could walk out, join another club,
+      // and then accept: the club ended up owned by a non-member, its previous
+      // owner demoted to admin, and NOBODY able to delete it or change a role.
+      const { data: stillMember } = await supabaseAdmin.from('club_members')
+        .select('user_id').eq('club_id', club_id).eq('user_id', session.userId)
+        .eq('status', 'active').maybeSingle()
+      if (!stillMember) {
+        await supabaseAdmin.from('clubs').update({ pending_owner_id: null }).eq('id', club_id)
+        return json({ error: 'Nie jesteś już członkiem tego klubu.' }, 409, req)
+      }
+
       const previousOwnerId = club.owner_id
 
       const { error: clubUpdateErr } = await supabaseAdmin.from('clubs')
@@ -73,7 +88,17 @@ Deno.serve(async (req) => {
         const { error: oldOwnerErr } = await supabaseAdmin.from('club_members')
           .update({ role: 'admin' }).eq('club_id', club_id).eq('user_id', previousOwnerId)
         if (oldOwnerErr) throw oldOwnerErr
+        await logMembershipEvent(supabaseAdmin, {
+          club_id, user_id: previousOwnerId, event: 'role_changed', role: 'admin', actor_id: session.userId,
+        })
       }
+
+      // A transfer changes two people's roles and used to write nothing to the
+      // log, while a hand-made demotion wrote a row — so the history said an
+      // owner had simply always been an admin.
+      await logMembershipEvent(supabaseAdmin, {
+        club_id, user_id: session.userId, event: 'role_changed', role: 'owner', actor_id: session.userId,
+      })
 
       return json({ data: { owner_id: session.userId } }, 200, req)
     }

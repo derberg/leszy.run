@@ -21,6 +21,16 @@ async function clearClubIdIfPointing(supabaseAdmin, userId, clubId) {
   await supabaseAdmin.from('profiles').update({ club_id: null }).eq('id', userId).eq('club_id', clubId)
 }
 
+// A pending owner who leaves or is removed stops being a pending owner. Nothing
+// used to clear this, so the nomination outlived the membership and
+// transfer-ownership would hand the club to someone who was no longer in it.
+async function clearPendingOwnerIfSame(supabaseAdmin, clubId, userId) {
+  const { error } = await supabaseAdmin.from('clubs')
+    .update({ pending_owner_id: null })
+    .eq('id', clubId).eq('pending_owner_id', userId)
+  if (error) console.error('manage-member: clearing pending_owner_id failed:', error.message)
+}
+
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -49,6 +59,7 @@ Deno.serve(async (req) => {
         .update({ status: 'left', left_at: new Date().toISOString() })
         .eq('club_id', club_id).eq('user_id', session.userId)
       await clearClubIdIfPointing(supabaseAdmin, session.userId, club_id)
+      await clearPendingOwnerIfSame(supabaseAdmin, club_id, session.userId)
       await logMembershipEvent(supabaseAdmin, {
         club_id, user_id: session.userId, event: 'left', role: me.role, actor_id: session.userId,
       })
@@ -80,6 +91,7 @@ Deno.serve(async (req) => {
         .update({ status: 'removed', left_at: new Date().toISOString() })
         .eq('club_id', club_id).eq('user_id', user_id)
       await clearClubIdIfPointing(supabaseAdmin, user_id, club_id)
+      await clearPendingOwnerIfSame(supabaseAdmin, club_id, user_id)
       // Their invites go with them. A removed admin otherwise kept every link
       // they had generated, and could keep funnelling people into the club they
       // were just thrown out of — they simply could not manage it any more.
