@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { aggregateFollowedEvents, sharingMemberIds } from '../_shared/clubFollowers.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -86,38 +87,30 @@ Deno.serve(async (req) => {
 
     // Clubmate followed events: favorites of active members who haven't opted
     // out of sharing (privacy_settings.favorites !== false), aggregated by
-    // event with a per-event count. Same approach as get-favorites' clubCounts,
-    // paginated past PostgREST's 1000-row response cap. Pending members are
-    // excluded — they haven't joined yet.
-    const visibleIds = (memberRows ?? [])
-      .filter((m) => m.status === 'active')
-      .filter((m) => (m.profiles?.privacy_settings?.favorites ?? true) !== false)
-      .map((m) => m.user_id)
+    // event with a per-event count AND the user_ids behind it, so the club
+    // panel can name them instead of only counting them. The client resolves
+    // those ids against `members` above — no second copy of the display-name
+    // rule here. Same approach as get-favorites' clubCounts, paginated past
+    // PostgREST's 1000-row response cap. Pending members are excluded — they
+    // haven't joined yet.
+    const visibleIds = sharingMemberIds(memberRows)
 
-    const eventsById = {}
+    const favRows = []
     if (visibleIds.length) {
-      const today = new Date().toISOString().slice(0, 10)
       const pageSize = 1000
       for (let from = 0; ; from += pageSize) {
         const { data: favs } = await supabaseAdmin
           .from('event_favorites')
-          .select('event_id, calendar_events(id, name, date, location, status, registration_url)')
+          .select('user_id, event_id, calendar_events(id, name, date, location, status, registration_url)')
           .in('user_id', visibleIds)
           .order('event_id')
           .range(from, from + pageSize - 1)
-        for (const f of favs ?? []) {
-          const ev = f.calendar_events
-          if (!ev) continue
-          if (!['active', 'cancelled'].includes(ev.status)) continue
-          if (ev.date && ev.date < today) continue // followedEvents surfaces only upcoming events
-          if (!eventsById[ev.id]) eventsById[ev.id] = { event: ev, count: 0 }
-          eventsById[ev.id].count += 1
-        }
+        favRows.push(...(favs ?? []))
         if (!favs || favs.length < pageSize) break
       }
     }
-    const followedEvents = Object.values(eventsById)
-      .sort((a, b) => (a.event.date || '').localeCompare(b.event.date || ''))
+    const today = new Date().toISOString().slice(0, 10)
+    const followedEvents = aggregateFollowedEvents(memberRows, favRows, today)
 
     return json({
       data: {

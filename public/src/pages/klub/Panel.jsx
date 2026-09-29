@@ -5,17 +5,20 @@ import StarButton from '../../components/StarButton.jsx'
 import MembershipVisibilityChoice from '../../components/MembershipVisibilityChoice.jsx'
 import { slugify } from '../../lib/slugify.js'
 import { manageMember } from '../../lib/clubs.js'
+import { followerNames, splitFollowers } from '../../lib/clubFollowers.js'
 import { sectionTitle, actionBtnClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
 
 // Club home page. ClubLayout's header already renders logo + name + public-page
 // link, so this starts with description/location/member-count (copied from
 // public/src/pages/profil/club/MemberView.jsx:53-60), then "moje członkostwo"
-// (role + joined date + visibility toggle), followed events (verbatim from
-// MemberView.jsx:86-114) and the leave button (MemberView.jsx:116-128).
+// (role + joined date + visibility toggle), followed events (FollowedEvent
+// below, grown out of MemberView.jsx:86-114) and the leave button
+// (MemberView.jsx:116-128).
 // Roster now lives on Czlonkowie.jsx (sections/Roster.jsx).
 
 const ROLE_LABELS = { owner: 'Właściciel', admin: 'Administrator', member: 'Członek' }
+const FOLLOWERS_SHOWN = 3
 
 function MyMembership() {
   const { club, me, reload } = useKlub()
@@ -55,6 +58,50 @@ function MyMembership() {
       {error && <p className="text-apex-red font-sans text-xs mt-1.5">{error}</p>}
       <p className="font-sans text-[11px] text-apex-muted mt-1.5">
         Zmiana widoczności pojawi się na publicznej stronie klubu po jej kolejnym odświeżeniu.
+      </p>
+    </div>
+  )
+}
+
+// One followed race: the race on the first line, who from the club follows it on
+// the second. Only members who share what they follow reach `followers` — the
+// edge function filters on privacy_settings.favorites before counting or naming.
+// `followers` may be absent if the deployed function still predates it, and then
+// the row falls back to the bare count it used to show.
+function FollowedEvent({ entry, members }) {
+  const { event, count, followers } = entry
+  const [expanded, setExpanded] = useState(false)
+  const names = followerNames(followers, members)
+  const { shown, hidden } = splitFollowers(names, FOLLOWERS_SHOWN)
+
+  return (
+    <div className="py-2.5 border-b border-apex-border/50 text-xs">
+      <div className="flex items-center gap-3">
+        <span className="font-mono text-[11px] font-semibold text-apex-yellow flex-shrink-0">
+          {new Date(event.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+        </span>
+        <a
+          href={`/kalendarz/${slugify(event.name, event.date)}`}
+          className={`flex-1 truncate no-underline hover:text-apex-yellow ${event.status === 'cancelled' ? 'line-through text-apex-muted' : 'text-apex-text'}`}
+        >
+          {event.name}
+        </a>
+        <StarButton eventId={event.id} />
+      </div>
+      <p data-testid={`club-followers-${event.id}`} className="font-mono text-[10px] text-apex-muted mt-1 pr-8">
+        {names.length === 0
+          ? `${count} ${count === 1 ? 'klubowicz' : 'klubowiczów'} obserwuje`
+          : (expanded ? names : shown).join(', ')}
+        {hidden.length > 0 && (
+          <button
+            type="button"
+            data-testid={`club-followers-toggle-${event.id}`}
+            onClick={() => setExpanded((v) => !v)}
+            className="ml-1.5 text-apex-yellow hover:text-apex-yellow-bright underline-offset-2 hover:underline"
+          >
+            {expanded ? 'zwiń' : `+${hidden.length}`}
+          </button>
+        )}
       </p>
     </div>
   )
@@ -106,22 +153,8 @@ export default function Panel() {
           <p className="font-sans text-sm text-apex-muted py-2">Nikt z klubu nie obserwuje jeszcze żadnego biegu.</p>
         ) : (
           <div data-testid="club-followed-events" className="space-y-0">
-            {followedEvents.map(({ event, count }) => (
-              <div key={event.id} className="flex items-center gap-3 py-2.5 border-b border-apex-border/50 text-xs">
-                <span className="font-mono text-[11px] font-semibold text-apex-yellow flex-shrink-0">
-                  {new Date(event.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                </span>
-                <a
-                  href={`/kalendarz/${slugify(event.name, event.date)}`}
-                  className={`flex-1 truncate no-underline hover:text-apex-yellow ${event.status === 'cancelled' ? 'line-through text-apex-muted' : 'text-apex-text'}`}
-                >
-                  {event.name}
-                </a>
-                <span className="font-mono text-[10px] text-apex-muted flex-shrink-0">
-                  {count} {count === 1 ? 'klubowicz' : 'klubowiczów'} obserwuje
-                </span>
-                <StarButton eventId={event.id} />
-              </div>
+            {followedEvents.map((entry) => (
+              <FollowedEvent key={entry.event.id} entry={entry} members={members} />
             ))}
           </div>
         )}
