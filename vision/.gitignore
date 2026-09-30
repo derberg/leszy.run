@@ -1,4 +1,9 @@
 .venv/
-models/
 __pycache__/
 *.egg-info/
+
+# Third-party model downloads stay out; our own trained recognizer is
+# committed so the tests and the phase 0 measurement are reproducible.
+models/*
+!models/digits.onnx
+!models/digits.onnx.data
