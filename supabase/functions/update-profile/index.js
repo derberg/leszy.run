@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { sanitizePrivacySettings } from '../_shared/privacySettings.js'
+import { usernameChangeError } from '../_shared/usernameChange.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -96,9 +97,17 @@ Deno.serve(async (req) => {
 
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
-      .select('id, privacy_settings')
+      .select('id, username, privacy_settings')
       .eq('id', session.userId)
       .single()
+
+    if (username !== undefined) {
+      // Claimed once, kept. See _shared/usernameChange.js — a rename breaks
+      // every link to /u/<old>, which has no history table behind it, and hands
+      // the freed handle to whoever asks next.
+      const changeErr = usernameChangeError(existingProfile?.username, username)
+      if (changeErr) return json({ error: changeErr }, 409, req)
+    }
 
     const updates = {}
     if (username !== undefined)          updates.username = username
