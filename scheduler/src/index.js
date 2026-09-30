@@ -2,13 +2,14 @@ import cron from 'node-cron';
 import { runPipeline } from './pipeline.js';
 import { runWatchdog } from './watchdog.js';
 import { purgeRfidLogs } from './jobs/purgeRfidLogs.js';
-import { runWeeklyDigest } from './notifications.js';
+import { runPurgeAuthTables, runWeeklyDigest } from './notifications.js';
 
 const TZ = process.env.TZ || 'Europe/Warsaw';
 const PIPELINE_CRON = process.env.PIPELINE_CRON || '0 8 * * *';
 const WATCHDOG_CRON = process.env.WATCHDOG_CRON || '0 10 * * *';
 const PURGE_RFID_CRON = process.env.PURGE_RFID_CRON || '0 3 * * *';
 const DIGEST_CRON = process.env.DIGEST_CRON || '0 9 * * 1';       // Monday 09:00
+const PURGE_AUTH_CRON = process.env.PURGE_AUTH_CRON || '40 3 * * *';   // daily 03:40, after the RFID purge
 
 let pipelineRunning = false;
 let watchdogRunning = false;
@@ -74,6 +75,23 @@ cron.schedule(
 // row was invisible to everyone who starred the race afterwards. A nightly job
 // writing rows nobody reads only grew the table.
 
+// Expired login codes, dead sessions and spent throttle windows. Nothing ever
+// deleted them, so every token and code hash ever issued accumulated — and
+// auth_sessions rows carry the plaintext email of accounts since deleted.
+cron.schedule(
+  PURGE_AUTH_CRON,
+  async () => {
+    console.log(`[cron] purge-auth-tables trigger at ${new Date().toISOString()}`);
+    try {
+      const result = await runPurgeAuthTables();
+      console.log(`[cron] purge-auth-tables finished:`, JSON.stringify({ exitCode: result.exitCode, durationMs: result.durationMs }));
+    } catch (err) {
+      console.error(`[cron] purge-auth-tables threw:`, err);
+    }
+  },
+  { timezone: TZ }
+);
+
 cron.schedule(
   DIGEST_CRON,
   async () => {
@@ -97,7 +115,7 @@ cron.schedule(
 
 console.log(
   `[scheduler] up. pipeline="${PIPELINE_CRON}" watchdog="${WATCHDOG_CRON}" purge="${PURGE_RFID_CRON}" ` +
-  `digest="${DIGEST_CRON}" tz=${TZ} ` +
+  `digest="${DIGEST_CRON}" purge-auth="${PURGE_AUTH_CRON}" tz=${TZ} ` +
   `now=${new Date().toLocaleString('sv-SE', { timeZone: TZ })}`
 );
 
