@@ -1,10 +1,9 @@
 """Geometry and colour of the leszy.run bib.
 
 Every number here is measured from leszy_bibs_light.pdf in the zatyrani.pl
-repository. The colours start as placeholders; scripts/sample_bib_colours.py
-replaces them with values sampled from the real document, because the digit
-recognizer trains on these colours and a wrong olive shifts every training
-image away from what the camera will see.
+repository. The colours were sampled from that document by scripts/sample_bib_colours.py,
+not eyeballed: the digit recognizer trains on these values, so a wrong olive
+shifts every training image away from what the camera will see.
 """
 from dataclasses import dataclass
 
@@ -23,7 +22,7 @@ BIB = BibSpec(
     block_w_mm=190.0,
     block_h_mm=95.0,
     digit_height_mm=76.0,
-    block_rgb=(107, 142, 35),
-    digit_rgb=(240, 240, 240),
+    block_rgb=(107, 128, 0),
+    digit_rgb=(245, 245, 248),
     corner_mark_mm=12.0,
 )
