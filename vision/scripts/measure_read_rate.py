@@ -13,11 +13,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from PIL import Image
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from vision.measure import score  # noqa: E402
+from vision.clock import check_ordering  # noqa: E402
+from vision.measure import load_frame, per_track_rows, score  # noqa: E402
 from vision.pipeline import read_frame  # noqa: E402
 from vision.track import Tracker  # noqa: E402
 
@@ -41,9 +40,30 @@ def main():
         if line.strip()
     ]
 
+    # Frames named by sensor timestamp: if the clock stepped backwards the
+    # sorted order above is meaningless across the step, so say so.
+    stamps = []
+    for path in frames:
+        try:
+            stamps.append(int(path.stem))
+        except ValueError:
+            stamps = []
+            break
+    if stamps:
+        anomalies = check_ordering(stamps)
+        if anomalies:
+            print(f"WARNING: sensor clock stepped backwards at frame indices "
+                  f"{anomalies}. Frames either side of a step cannot be "
+                  f"ordered against each other.\n")
+
     tracker = Tracker()
+    unreadable_files = 0
     for index, path in enumerate(frames):
-        tracker.add(index, read_frame(Image.open(path)))
+        image = load_frame(path)
+        if image is None:
+            unreadable_files += 1
+            continue
+        tracker.add(index, read_frame(image))
         if (index + 1) % 25 == 0:
             print(f"  {index + 1}/{len(frames)} frames", file=sys.stderr)
 
@@ -51,8 +71,17 @@ def main():
     got = [r.text for r in results if r.text is not None]
     unreadable = sum(1 for r in results if r.text is None)
 
-    print(f"\nframes {len(frames)}, tracks {len(results)}, unreadable tracks {unreadable}\n")
+    print(f"\nframes {len(frames)}, unreadable files {unreadable_files}, "
+          f"tracks {len(results)}, unreadable tracks {unreadable}\n")
     print(score(expected, got).summary())
+
+    print("\nper track (this is where the confidence floor comes from):")
+    print(f"  {'number':>8}  {'conf':>6}  {'frames':>6}  verdict")
+    for row in sorted(per_track_rows(results, expected),
+                      key=lambda r: r.confidence, reverse=True):
+        label = row.text if row.text is not None else "-"
+        print(f"  {label:>8}  {row.confidence:6.3f}  {row.frame_count:6d}  {row.verdict}")
+
     print(
         "\nJudge the wrong rate first. A missed runner leaves a gap a person "
         "fills.\nA wrong number gives somebody else's time to a runner and "

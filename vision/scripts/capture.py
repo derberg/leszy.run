@@ -19,6 +19,8 @@ def main():
     ap.add_argument("--queue", required=True)
     ap.add_argument("--seconds", type=float, required=True)
     ap.add_argument("--exposure-us", type=int, default=1200)
+    ap.add_argument("--gain", type=float, default=4.0,
+                    help="analogue gain; there is no automatic adaptation")
     ap.add_argument("--width", type=int, default=1640)
     ap.add_argument("--height", type=int, default=1232)
     ap.add_argument("--allow-unsynced-clock", action="store_true")
@@ -29,6 +31,7 @@ def main():
             args.queue, args.seconds,
             size=(args.width, args.height),
             exposure_us=args.exposure_us,
+            gain=args.gain,
             allow_unsynced_clock=args.allow_unsynced_clock,
         )
     except ClockNotSynced as err:

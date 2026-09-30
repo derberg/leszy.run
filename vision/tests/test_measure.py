@@ -54,3 +54,38 @@ def test_a_neighbours_number_is_a_wrong_read():
 def test_a_number_nobody_wore_and_nobody_missed_is_still_reported():
     report = score(expected=["1"], got=["1", "999"])
     assert report.spurious == ["999"]
+
+
+def test_a_corrupt_frame_is_skipped_rather_than_killing_the_run(tmp_path):
+    # queue.write never fsyncs, so a power cut at the gate can land the
+    # rename before the data. One torn frame out of two thousand must not
+    # lose the whole measurement.
+    from vision.measure import load_frame
+
+    good = tmp_path / "good.jpg"
+    from PIL import Image
+    Image.new("RGB", (32, 32), (10, 20, 30)).save(good)
+    torn = tmp_path / "torn.jpg"
+    torn.write_bytes(b"\xff\xd8\xff\xe0 not really a jpeg")
+
+    assert load_frame(good) is not None
+    assert load_frame(torn) is None
+
+
+def test_per_track_rows_expose_the_numbers_the_confidence_floor_needs():
+    # The spec says the staged shoot produces the confidence floor. Aggregate
+    # rates cannot yield it; the floor is read off per-track confidence
+    # against whether that track was right.
+    from vision.measure import per_track_rows
+
+    class Track:
+        def __init__(self, text, confidence, frame_count):
+            self.text, self.confidence, self.frame_count = text, confidence, frame_count
+
+    rows = per_track_rows(
+        [Track("47", 0.99, 30), Track("83", 0.41, 2), Track(None, 0.0, 5)],
+        expected=["47"],
+    )
+    assert [r.verdict for r in rows] == ["correct", "wrong", "unreadable"]
+    assert rows[0].confidence == 0.99
+    assert rows[1].frame_count == 2

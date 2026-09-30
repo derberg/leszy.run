@@ -3,6 +3,8 @@ from PIL import Image
 from vision.pipeline import Sighting, read_frame
 from vision.synth.render import render_bib
 
+from tests.conftest import needs_detector
+
 FIXTURE = "tests/fixtures/runner.jpg"
 
 
@@ -13,14 +15,17 @@ def _person_wearing(number):
     return image
 
 
+@needs_detector
 def test_empty_scene_returns_an_empty_list_and_does_not_raise():
     assert read_frame(Image.new("RGB", (640, 480), (90, 110, 70))) == []
 
 
+@needs_detector
 def test_reads_a_bib_worn_by_a_detected_person():
     assert any(s.text == "47" for s in read_frame(_person_wearing(47)))
 
 
+@needs_detector
 def test_person_without_a_bib_yields_a_sighting_with_no_text():
     # The runner in a zipped jacket. The person is real, the number is not
     # readable, and that row is the lead an operator needs.
@@ -30,6 +35,7 @@ def test_person_without_a_bib_yields_a_sighting_with_no_text():
     assert all(s.text is None for s in sightings)
 
 
+@needs_detector
 def test_one_bib_is_never_awarded_to_two_people():
     # Runner A's bib is covered by runner B's shoulder, and B's bib falls
     # inside A's detector box. locate_bib searches inside a person box and
@@ -48,6 +54,7 @@ def test_one_bib_is_never_awarded_to_two_people():
     assert keepers[0] == b_person
 
 
+@needs_detector
 def test_two_people_with_their_own_bibs_both_keep_them():
     from vision.pipeline import resolve_bib_claims
 

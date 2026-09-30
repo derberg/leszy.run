@@ -2,17 +2,22 @@ from PIL import Image
 
 from vision.people import detect_people
 
+from tests.conftest import needs_detector
+
 FIXTURE = "tests/fixtures/runner.jpg"
 
 
+@needs_detector
 def test_returns_a_list_on_an_empty_scene():
     assert detect_people(Image.new("RGB", (640, 480), (90, 110, 70))) == []
 
 
+@needs_detector
 def test_finds_the_person_in_the_fixture():
     assert len(detect_people(Image.open(FIXTURE))) >= 1
 
 
+@needs_detector
 def test_boxes_are_inside_the_image_and_ordered_by_area():
     image = Image.open(FIXTURE)
     boxes = detect_people(image)

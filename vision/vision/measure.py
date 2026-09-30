@@ -9,6 +9,9 @@ number invents a runner who was never there.
 """
 from collections import Counter
 from dataclasses import dataclass
+from pathlib import Path
+
+from PIL import Image
 
 
 @dataclass
@@ -84,3 +87,58 @@ def score(expected: list, got: list) -> Report:
         expected_count=len(expected),
         got_count=len(got),
     )
+
+
+def load_frame(path):
+    """Open a frame, or return None when it cannot be read.
+
+    Writes are atomic against a killed process, but never fsynced, so a power
+    cut at the gate can land the rename before the data. Pillow opens lazily,
+    so a torn file raises later, deep inside the pipeline. One bad frame out
+    of two thousand must not lose the whole measurement.
+    """
+    try:
+        image = Image.open(Path(path))
+        image.load()
+        return image
+    except Exception:
+        return None
+
+
+@dataclass
+class TrackRow:
+    text: str
+    confidence: float
+    frame_count: int
+    verdict: str
+
+
+def per_track_rows(tracks, expected: list) -> list:
+    """One row per track, with whether its number was worn by anybody.
+
+    The spec asks the staged shoot to produce the confidence floor. Aggregate
+    rates cannot yield it: the floor is the confidence above which incorrect
+    reads stop appearing, and that is only visible per track.
+
+    A verdict of "wrong" here means the number was not among the expected
+    ones. That covers both of the aggregate report's wrong and spurious
+    classes, because for choosing a floor the distinction does not matter:
+    both are numbers that should not have been emitted.
+    """
+    remaining = Counter(expected)
+    rows = []
+    for track in tracks:
+        if track.text is None:
+            verdict = "unreadable"
+        elif remaining[track.text] > 0:
+            remaining[track.text] -= 1
+            verdict = "correct"
+        else:
+            verdict = "wrong"
+        rows.append(TrackRow(
+            text=track.text,
+            confidence=track.confidence,
+            frame_count=track.frame_count,
+            verdict=verdict,
+        ))
+    return rows

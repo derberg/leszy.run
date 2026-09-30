@@ -16,18 +16,24 @@ That property is what makes the data protection position defensible, so keep it.
 cd vision
 python3.12 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
+.venv/bin/python scripts/fetch_models.py
 .venv/bin/python -m pytest
 ```
+
+Add the `train` extra (`".[dev,train]"`) only if you intend to retrain the
+recognizer. It pulls in PyTorch, which the Pi never needs.
 
 Python 3.12 rather than the system default, because mediapipe publishes no
 wheels for 3.14 yet.
 
 ## Models
 
-`models/` is not committed. Two files go there:
+`models/digits.onnx` (with its `.data` sidecar) IS committed, so the tests and
+the phase 0 measurement are reproducible against the exact weights that
+produced the number. Regenerate it with `scripts/train_recognizer.py`.
 
-- `digits.onnx`, produced by `scripts/train_recognizer.py`
-- `efficientdet_lite0.tflite`, downloaded once (Apache 2.0)
+`models/efficientdet_lite0.tflite` is 14 MB and is not committed. Fetch it
+once. Tests that need it skip with an instruction until you do.
 
 ## Licensing
 

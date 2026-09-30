@@ -9,9 +9,13 @@ meets a half-written frame even when capture is killed mid-write. Frames are
 named by sensor timestamp, zero padded, so sorting the directory sorts by
 time.
 """
+import json
 from pathlib import Path
 
-NAME_WIDTH = 18          # nanoseconds since boot fits well inside this
+# Epoch nanoseconds need 19 digits and nanoseconds since boot need fewer.
+# Pad to 20 so every name is the same length, because a mix of widths sorts
+# lexically wrong and these names are sorted to order frames by time.
+NAME_WIDTH = 20
 SUFFIX = ".jpg"
 JPEG_QUALITY = 88
 
@@ -40,3 +44,38 @@ class FrameQueue:
 
     def timestamp_of(self, path) -> int:
         return int(Path(path).stem)
+
+    def ordering_anomalies(self) -> list:
+        """Timestamps that are earlier than the frame written before them.
+
+        pending() sorts, which puts the frames back in numeric order and
+        hides the fact that the sensor clock stepped backwards. Frames on
+        either side of such a step cannot be compared, so the step is
+        reported rather than quietly smoothed over.
+        """
+        from vision.clock import check_ordering
+
+        written = sorted(
+            (p for p in self.dir.glob(f"*{SUFFIX}")),
+            key=lambda p: p.stat().st_mtime_ns,
+        )
+        stamps = [self.timestamp_of(p) for p in written]
+        return [stamps[i] for i in check_ordering(stamps)]
+
+    def write_session(self, offset: float) -> None:
+        """Record the monotonic-to-UTC offset for this capture session.
+
+        Without it the frames carry sensor nanoseconds and nothing else, so
+        once capture exits no frame can be tied to a wall clock, and a gun
+        time cannot be matched to a crossing.
+        """
+        (self.dir / "session.json").write_text(json.dumps({"offset": offset}))
+
+    def session_offset(self):
+        path = self.dir / "session.json"
+        if not path.exists():
+            return None
+        try:
+            return float(json.loads(path.read_text())["offset"])
+        except (ValueError, KeyError):
+            return None
