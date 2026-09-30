@@ -19,6 +19,13 @@ MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "digits.onnx"
 DIGIT_SIZE = (32, 48)          # width, height, as PIL wants it
 MIN_HEIGHT_RATIO = 0.45        # against the tallest component in the crop
 MIN_AREA_PX = 12
+# Measured across every digit rendered in the real bib face: width over
+# height runs 0.37 (the 1) to 0.70 (the 4). The bounds below leave room for
+# the perspective skew of an off-angle approach, and reject the two shapes
+# that are not digits at all: a thin bright strap or belt (about 0.15) and
+# several digits merged into one blob by heavy blur (about 1.6).
+MIN_DIGIT_ASPECT = 0.22
+MAX_DIGIT_ASPECT = 1.00
 MIN_CONTRAST = 40              # grey levels between the block and the digits
 MAX_BRIGHT_COVERAGE = 0.6      # above this, the bright class is the background
 
@@ -71,6 +78,13 @@ def segment_digits(crop: Image.Image) -> list:
 
     tallest = max(b[3] for b in boxes)
     digits = [b for b in boxes if b[3] >= tallest * MIN_HEIGHT_RATIO]
+    # Shape gate. Without it a bright strap beside the number becomes a
+    # leading digit (47 read as 147 at 0.93 confidence), and three digits
+    # blurred into one blob are classified as a single digit. Both are
+    # confident lies. Dropping the component turns them into an honest miss,
+    # which a person can still resolve from the photograph.
+    digits = [b for b in digits
+              if MIN_DIGIT_ASPECT <= b[2] / b[3] <= MAX_DIGIT_ASPECT]
     digits.sort(key=lambda b: b[0])
 
     return [

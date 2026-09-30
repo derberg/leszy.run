@@ -29,7 +29,7 @@ def iou(a, b) -> float:
 
 @dataclass
 class TrackResult:
-    text: str
+    text: str | None
     confidence: float
     frame_count: int
     best_frame_index: int

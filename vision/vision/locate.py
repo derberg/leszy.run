@@ -36,8 +36,8 @@ def _colour_mask(rgb: np.ndarray) -> np.ndarray:
     return cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
 
 
-def locate_bib(image: Image.Image, region=None):
-    """Return (x1, y1, x2, y2) of the bib block, or None."""
+def _find_block(image: Image.Image, region=None):
+    """Return (axis-aligned box, rotated rect) for the bib block, or None."""
     rgb = np.asarray(image.convert("RGB"))
     offset_x = offset_y = 0
     if region is not None:
@@ -54,17 +54,74 @@ def locate_bib(image: Image.Image, region=None):
     best, best_area = None, 0
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        area = w * h
-        if h == 0 or area < width * height * MIN_AREA_FRACTION:
+        if h == 0 or w * h < width * height * MIN_AREA_FRACTION:
             continue
-        if not ASPECT_MIN < w / h < ASPECT_MAX:
+
+        # Fill and aspect are judged on the ROTATED rectangle, not the
+        # axis-aligned one. A bib swings on a moving runner and the runner
+        # leans, and a tilted rectangle fills less and less of its
+        # axis-aligned box: measured against the upright fit, the block was
+        # lost entirely from about ten degrees, which is ordinary rather
+        # than exotic.
+        (_, _), (rect_w, rect_h), _ = cv2.minAreaRect(contour)
+        if rect_w < 1 or rect_h < 1:
             continue
-        if cv2.contourArea(contour) / area < MIN_FILL:
+        long_side, short_side = max(rect_w, rect_h), min(rect_w, rect_h)
+        if not ASPECT_MIN < long_side / short_side < ASPECT_MAX:
             continue
+        if cv2.contourArea(contour) / (rect_w * rect_h) < MIN_FILL:
+            continue
+
+        area = rect_w * rect_h
         if area > best_area:
-            best, best_area = (x, y, x + w, y + h), area
+            rect = cv2.minAreaRect(contour)
+            best = ((x, y, x + w, y + h), rect)
+            best_area = area
 
     if best is None:
         return None
-    return (best[0] + offset_x, best[1] + offset_y,
-            best[2] + offset_x, best[3] + offset_y)
+    (x1, y1, x2, y2), ((cx, cy), size, angle) = best
+    return (
+        (x1 + offset_x, y1 + offset_y, x2 + offset_x, y2 + offset_y),
+        ((cx + offset_x, cy + offset_y), size, angle),
+    )
+
+
+def locate_bib(image: Image.Image, region=None):
+    """Return (x1, y1, x2, y2) of the bib block, or None."""
+    found = _find_block(image, region)
+    return None if found is None else found[0]
+
+
+def extract_bib(image: Image.Image, region=None):
+    """Return (box, upright crop) for the bib block, or (None, None).
+
+    The crop is deskewed. Reading straight off a tilted crop is not safe:
+    measured on a rendered bib, 47 came back as 40 at ten degrees of tilt and
+    55 at twenty, both at around 0.5 confidence. A bib pinned to a moving
+    runner tilts as a matter of course, so that is an ordinary input, and a
+    confidently wrong number is the costliest thing this pipeline can produce.
+    """
+    found = _find_block(image, region)
+    if found is None:
+        return None, None
+    box, ((cx, cy), (rect_w, rect_h), angle) = found
+
+    # minAreaRect reports an angle in (0, 90] and may describe the block
+    # standing on its short edge. Put the long edge horizontal, which is how
+    # the block is printed. Subtracting brings the angle into (-90, 0], which
+    # is the small correction a tilted bib needs. Adding instead turns the
+    # crop nearly upside down, and 47 then reads as 22.
+    if rect_w < rect_h:
+        rect_w, rect_h = rect_h, rect_w
+        angle -= 90.0
+
+    rgb = np.asarray(image.convert("RGB"))
+    rotation = cv2.getRotationMatrix2D((cx, cy), angle, 1.0)
+    straightened = cv2.warpAffine(
+        rgb, rotation, (rgb.shape[1], rgb.shape[0]), flags=cv2.INTER_CUBIC
+    )
+    upright = cv2.getRectSubPix(
+        straightened, (int(round(rect_w)), int(round(rect_h))), (cx, cy)
+    )
+    return box, Image.fromarray(upright)

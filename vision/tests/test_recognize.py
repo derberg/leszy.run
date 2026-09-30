@@ -51,3 +51,27 @@ def test_returns_none_on_an_empty_block():
     text, confidence = read_bib(blank)
     assert text is None
     assert confidence == 0.0
+
+
+def test_a_bright_strap_across_the_bib_does_not_become_a_digit():
+    # A race belt, a reflective strap or white sponsor text across the block.
+    # Emitting "147" for a bib that plainly says 47 hands a runner a number
+    # that is not theirs, which is the failure that costs the most.
+    from PIL import ImageDraw
+
+    bib = render_bib(47, px_per_mm=2.0)
+    draw = ImageDraw.Draw(bib)
+    draw.rectangle([60, 25, 82, 165], fill=(250, 250, 250))
+    text, _ = read_bib(bib)
+    assert text != "147"
+
+
+def test_digits_merged_by_heavy_blur_are_refused_not_guessed():
+    # At high blur three digits collapse into one blob. Returning "1" for a
+    # bib that says 188 is a confident lie; returning nothing is an honest
+    # miss that a person can still resolve from the photograph.
+    from PIL import ImageFilter
+
+    blurred = render_bib(188, px_per_mm=2.0).filter(ImageFilter.GaussianBlur(9))
+    text, _ = read_bib(blurred)
+    assert text is None

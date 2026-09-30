@@ -31,10 +31,21 @@ class Report:
         )
 
 
-def _looks_like_a_misread_of(candidate: str, target: str) -> bool:
-    """One substituted digit, same length. 41 for 47, not 999 for 1."""
-    return (len(candidate) == len(target)
-            and sum(a != b for a, b in zip(candidate, target)) == 1)
+def edit_distance(a: str, b: str) -> int:
+    """Levenshtein distance, so an inserted or dropped digit counts too."""
+    if len(a) < len(b):
+        a, b = b, a
+    previous = list(range(len(b) + 1))
+    for i, ca in enumerate(a, start=1):
+        current = [i]
+        for j, cb in enumerate(b, start=1):
+            current.append(min(
+                previous[j] + 1,            # delete
+                current[j - 1] + 1,         # insert
+                previous[j - 1] + (ca != cb),  # substitute
+            ))
+        previous = current
+    return previous[-1]
 
 
 def score(expected: list, got: list) -> Report:
@@ -43,16 +54,22 @@ def score(expected: list, got: list) -> Report:
     missed = sorted((expected_counts - got_counts).elements())
     extra = sorted((got_counts - expected_counts).elements())
 
-    # An extra number that reads like a corruption of a missed one is a wrong
-    # read. Anything else is spurious, invented from nothing.
+    # Any extra number that an absent runner could account for is a WRONG
+    # read: somebody was not read, and a number came out that was not theirs.
+    # Only an extra with no absent runner left to explain it is spurious.
+    #
+    # The earlier rule required the same length and exactly one differing
+    # digit. That filed every length-changing misread as spurious, so the one
+    # number this whole phase exists to produce could not see the failures the
+    # pipeline actually makes: a bright strap turning 47 into 147, or a runner
+    # handed the neighbour's bib. A staged shoot would have reported a wrong
+    # rate of zero while both were happening.
     unmatched = list(missed)
     wrong, spurious = [], []
     for candidate in extra:
-        near = next(
-            (m for m in unmatched if _looks_like_a_misread_of(candidate, m)), None
-        )
-        if near is not None:
-            unmatched.remove(near)
+        if unmatched:
+            nearest = min(unmatched, key=lambda m: edit_distance(candidate, m))
+            unmatched.remove(nearest)
             wrong.append(candidate)
         else:
             spurious.append(candidate)
