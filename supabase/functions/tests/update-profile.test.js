@@ -30,6 +30,29 @@ describe('update-profile edge function', () => {
     assert.equal(data.data.username, 'testuser_plan')
   })
 
+  it('refuses to change a username once it is set', async () => {
+    // Runs after the onboarding test above, so this session already holds one.
+    const { status, data } = await callFunction(
+      'update-profile',
+      { username: 'testuser_renamed' },
+      sessionToken
+    )
+    assert.equal(status, 409)
+    assert.match(data.error, /Napisz do nas/i)
+
+    const { data: row } = await supabaseAdmin.from('profiles').select('username').eq('id', user.id).single()
+    assert.equal(row.username, 'testuser_plan', 'the stored username must be untouched')
+  })
+
+  it('accepts a request that repeats the username it already has', async () => {
+    const { status } = await callFunction(
+      'update-profile',
+      { username: 'testuser_plan', display_name: 'Test User Again' },
+      sessionToken
+    )
+    assert.equal(status, 200, 're-sending the same username is not a change')
+  })
+
   // Club identity is now managed exclusively via create-club / request-join /
   // respond-join / manage-member — update-profile must silently ignore any
   // club / club_id fields in the body (see clubs-lifecycle.test.js
