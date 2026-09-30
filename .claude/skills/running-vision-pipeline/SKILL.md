@@ -26,7 +26,13 @@ a workstation:
 cd vision
 python3.12 -m venv .venv
 .venv/bin/pip install -e ".[dev,train]"
+.venv/bin/python scripts/fetch_models.py
 ```
+
+`fetch_models.py` pulls the person detector, which is 14 MB and not
+committed. Without it the detector and pipeline tests skip rather than run,
+so a green suite that says `8 skipped` means you have not tested half of it.
+`models/digits.onnx` IS committed and needs no download.
 
 Python 3.12, not the system default. `mediapipe==0.10.21` has no 3.14 wheels,
 and 1.0.x aborts on macOS arm64. That pin is deliberate and the reason is in
@@ -79,15 +85,26 @@ Work down the stages. Each is testable on its own.
 
 1. `detect_people` (`vision/people.py`). No person box means no bib is ever
    looked for. Check the model file exists.
-2. `locate_bib` (`vision/locate.py`). Colour and rectangle fit inside the
-   person box. The saturation gate is what keeps forest undergrowth out: wet
-   moss sits close to the block in hue and far from it in saturation.
-3. `segment_digits` (`vision/recognize.py`). Components are filtered by
-   height, not by cropping a margin, because the corner marks reach about 19
-   percent into the block while digits start at about 10 percent.
-4. `read_bib`. Confidence is the weakest digit, because a bib is read whole or
+2. `resolve_bib_claims` (`vision/pipeline.py`). When two runners overlap, the
+   same bib falls inside both person boxes. It goes to whoever it sits most
+   centrally within, and the other runner gets a miss. A runner who should
+   have a number and has None may have lost it here.
+3. `extract_bib` (`vision/locate.py`). Colour and ROTATED-rectangle fit
+   inside the person box, then a deskew. The saturation gate keeps forest
+   undergrowth out: wet moss sits close to the block in hue and far from it
+   in saturation. Fit and fill are judged on the rotated rect because an
+   upright fit lost the block from about ten degrees of tilt. Always read
+   from the crop `extract_bib` returns, never from `image.crop(box)`: 47 read
+   off a tilted axis-aligned crop came back as 40.
+4. `segment_digits` (`vision/recognize.py`). Components are filtered by
+   height, because the corner marks reach about 19 percent into the block
+   while digits start at about 10 percent, and then by aspect ratio. Real
+   digits measure 0.37 to 0.70 wide over tall. A dropped digit is usually the
+   aspect gate, and that gate is deliberate: without it a bright strap became
+   a leading digit and blurred digits merged into one.
+5. `read_bib`. Confidence is the weakest digit, because a bib is read whole or
    not at all.
-5. `Tracker` (`vision/track.py`). Thirty frames vote. If one bad frame decided
+6. `Tracker` (`vision/track.py`). Thirty frames vote. If one bad frame decided
    the answer, the tracker is not linking frames and the runner produced
    several one-frame tracks.
 
@@ -110,3 +127,12 @@ gate. No code change fixes darkness.
   gate exists because a blank block was once read as `1`.
 - `clock_synced()` returning `None` warns instead of refusing. That is a
   workstation with no `timedatectl`. `False` still refuses.
+- A bib that is present and legible to you but comes back as None. Check the
+  aspect gate and `resolve_bib_claims` before anything else. Both turn a
+  would-be wrong answer into an honest miss on purpose, and a miss is the
+  recoverable outcome.
+- `score()` calling an extra number "wrong" rather than "spurious" whenever
+  any runner went unread. That is the rule: an extra number an absent runner
+  could account for is a wrong read. The older same-length-one-digit test
+  filed every length-changing misread as harmless, which made the gate metric
+  blind to the failures this pipeline actually makes.
