@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import useAuth from '../../hooks/useAuth.js'
 import ClubLogoUpload from '../../components/ClubLogoUpload.jsx'
@@ -33,22 +33,17 @@ export default function Ustawienia() {
   const { club, members, reload, canManage, isOwner } = useKlub()
   const { user } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
 
   useSeo({ title: `Ustawienia — ${club.name} — Leszy.run`, noindex: true })
 
   // All hooks below must run unconditionally (Rules of Hooks) even though
   // non-managers get redirected — the guard return happens after them.
   const [name, setName] = useState(club.name)
-  const [slugValue, setSlugValue] = useState(club.slug)
   const [description, setDescription] = useState(club.description || '')
   const [isPublic, setIsPublic] = useState(!!club.is_public)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
-  // A slug-changing save navigates to the new canonical URL (see save()
-  // below) rather than reload()-ing in place, which remounts this page —
-  // seed "saved" from router state so the confirmation survives that remount.
-  const [saved, setSaved] = useState(!!location.state?.saved)
+  const [saved, setSaved] = useState(false)
 
   const [target, setTarget] = useState('')
   const [transferBusy, setTransferBusy] = useState(false)
@@ -67,20 +62,11 @@ export default function Ustawienia() {
     setSaved(false)
     try {
       const payload = { name: name.trim(), description: description.trim(), is_public: isPublic }
-      const trimmedSlug = slugValue.trim()
-      if (trimmedSlug !== club.slug) payload.slug = trimmedSlug
       await updateClub(club.id, payload)
-      if (payload.slug) {
-        // reload() would re-fetch by the OLD slug, get back the club under
-        // its NEW slug, and ClubLayout's canonical-slug check would redirect
-        // to /klub/<new>/panel — unmounting this page before "Zapisano" is
-        // visible. Navigate straight to the new canonical URL instead, and
-        // carry the confirmation through router state.
-        navigate(`/klub/${payload.slug}/ustawienia`, { replace: true, state: { saved: true } })
-      } else {
-        await reload()
-        setSaved(true)
-      }
+      // No slug in the payload any more — the address is fixed, so the page
+      // never has to survive a canonical-URL redirect after saving.
+      await reload()
+      setSaved(true)
     } catch (err) {
       setSaveError(/istnieje/i.test(err.message) ? 'Klub o tej nazwie już istnieje.' : err.message)
     } finally {
@@ -147,19 +133,18 @@ export default function Ustawienia() {
               onChange={(e) => setName(e.target.value)} maxLength={120}
               placeholder="np. Zatyrani Gratisownia" className={fieldInput} />
           </div>
+          {/* Read-only: the address is fixed once the club is created. Changing
+              it repoints every published link and parks the old one forever. */}
           <div>
             <label htmlFor="club-slug" className={fieldLabel}>Adres klubu</label>
             <div className="flex items-center gap-1">
               <span className="font-mono text-xs text-apex-muted shrink-0">leszy.run/klub/</span>
-              <input id="club-slug" data-testid="edit-club-slug" type="text" value={slugValue}
-                onChange={(e) => setSlugValue(e.target.value)} maxLength={80}
-                placeholder="np. zatyrani-gratisownia" className={fieldInput} />
+              <input id="club-slug" data-testid="edit-club-slug" type="text" value={club.slug}
+                readOnly disabled className={`${fieldInput} opacity-50 cursor-not-allowed`} />
             </div>
-            {slugValue.trim() !== club.slug && (
-              <p className="font-sans text-[11px] text-apex-yellow mt-1">
-                Zmiana adresu: stary adres będzie przekierowywał na nowy.
-              </p>
-            )}
+            <p className="font-sans text-[11px] text-apex-muted mt-1">
+              Adresu nie można zmienić. Napisz do nas, jeśli potrzebujesz zmiany.
+            </p>
           </div>
           <div>
             <label htmlFor="club-description" className={fieldLabel}>Opis klubu</label>
