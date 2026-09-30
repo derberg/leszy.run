@@ -55,6 +55,10 @@ async function runBackendScript(name, scriptArgs) {
   return result;
 }
 
+export function runPurgeAuthTables() {
+  return runBackendScript('purge-auth-tables', ['scripts/purge-auth-tables.js', '--apply']);
+}
+
 export function runWeeklyDigest() {
   return runBackendScript('weekly-digest', ['scripts/run-weekly-digest.js', '--apply']);
 }
