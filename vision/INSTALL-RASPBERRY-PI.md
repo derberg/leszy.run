@@ -132,6 +132,39 @@ bib edge on. Down the lane gives thirty and sees it square.
 5. Capture a few seconds and look at a frame. The number must be clearly
    legible. If it is not, move the camera closer.
 
+## 6a. Verify the shutter is actually locked
+
+Do this before the staged shoot, not after. The whole reason for a fast
+shutter is freezing runners, and if auto exposure is quietly overriding it the
+frames will blur in exactly the dull light the setting was chosen for. Nobody
+has checked this against a real camera yet.
+
+Capture a few seconds and read back what the camera actually used:
+
+```bash
+.venv/bin/python - <<'EOF'
+from picamera2 import Picamera2
+from vision.capture import build_controls
+camera = Picamera2()
+camera.configure(camera.create_video_configuration(
+    main={"size": (1640, 1232), "format": "RGB888"},
+    controls=build_controls(exposure_us=1200, gain=4.0)))
+camera.start()
+import time; time.sleep(2)
+meta = camera.capture_metadata()
+print("ExposureTime", meta.get("ExposureTime"), "AnalogueGain", meta.get("AnalogueGain"))
+camera.stop(); camera.close()
+EOF
+```
+
+`ExposureTime` must come back close to 1200. If it comes back as something
+else, auto exposure is still driving the shutter and `build_controls` in
+`vision/capture.py` needs correcting.
+
+There is **no automatic gain adaptation**. Set `--gain` for the light on the
+day, take a test capture, and adjust. Too dark means raise it; grainy means
+lower it and add light instead.
+
 ## 7. A test recording
 
 ```bash
@@ -185,3 +218,6 @@ section 4 did not run or did not finish.
 **Numbers read wrong rather than not at all.** Usually the bib is too small in
 frame. Move the camera closer and re-check section 6 before changing anything
 in the code.
+
+**Frames blurred despite the fast shutter.** Section 6a. Auto exposure is
+probably still driving the shutter.
