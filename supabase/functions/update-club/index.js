@@ -43,7 +43,6 @@ Deno.serve(async (req) => {
     if (currentErr) throw currentErr
 
     const updates = {}
-    let slugChange = null
 
     if (name !== undefined) {
       const trimmed = (name ?? '').trim()
@@ -61,29 +60,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (slug !== undefined) {
-      const wanted = String(slug ?? '').trim()
-      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(wanted) || wanted.length < 3 || wanted.length > 80) {
-        return json({ error: 'Slug: 3–80 znaków, tylko małe litery ASCII, cyfry i myślniki.' }, 400, req)
-      }
-      if (wanted !== current.slug) {
-        const { data: taken } = await supabaseAdmin
-          .from('clubs').select('id').eq('slug', wanted).neq('id', club_id).maybeSingle()
-        if (taken) return json({ error: 'Ten slug jest już zajęty.' }, 409, req)
-
-        const { data: hist } = await supabaseAdmin
-          .from('club_slug_history').select('club_id').eq('old_slug', wanted).maybeSingle()
-        if (hist && hist.club_id !== club_id) {
-          return json({ error: 'Ten slug jest już zajęty.' }, 409, req)
-        }
-
-        slugChange = {
-          outgoing: current.slug,
-          reclaimedOwn: !!(hist && hist.club_id === club_id),
-          wanted,
-        }
-        updates.slug = wanted
-      }
+    // Renaming a club's address is not supported for now — the same call as for
+    // usernames. The slug is the club's identity: changing it repoints every
+    // published link, permanently parks the old address in club_slug_history so
+    // nobody else can ever take it, and leaves the generated pages stale until
+    // someone re-runs the publish script. Whoever needs a different address
+    // writes in and it is done by hand.
+    //
+    // The machinery stays: club_slug_history keeps resolving the one rename
+    // that already happened, and create-club still mints the initial slug.
+    if (slug !== undefined && String(slug ?? '').trim() !== current.slug) {
+      return json({ error: 'Adresu klubu nie można zmienić. Napisz do nas, jeśli potrzebujesz zmiany.' }, 409, req)
     }
 
     if (description !== undefined) updates.description = description
@@ -112,17 +99,6 @@ Deno.serve(async (req) => {
         return json({ error: slugConflict ? 'Ten slug jest już zajęty.' : 'Klub o tej nazwie już istnieje.' }, 409, req)
       }
       throw updateErr
-    }
-
-    // Write slug history after the update succeeds, so a failed update never
-    // writes phantom history (worst case on partial failure: a missing redirect,
-    // never a wrong one).
-    if (slugChange) {
-      if (slugChange.reclaimedOwn) {
-        await supabaseAdmin.from('club_slug_history').delete().eq('old_slug', slugChange.wanted)
-      }
-      await supabaseAdmin.from('club_slug_history')
-        .upsert({ old_slug: slugChange.outgoing, club_id }, { onConflict: 'old_slug' })
     }
 
     return json({ data: { club } }, 200, req)

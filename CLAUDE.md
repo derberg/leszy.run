@@ -348,7 +348,7 @@ local), so all check-in data has a single source of truth in Supabase.
 - `club_membership_log` — append-only club membership history (joined/left/removed/role_changed), written by the club edge functions; covered by export-my-data / delete-my-account (see GDPR section)
 - `prepublish_verdicts` — what the pre-publish review proved about one field of one event (`absent-at-source` / `needs-human`), one row per source+source_id+field. Read by the review step to skip settled fields and by `GET /api/calendar-events` to explain blank columns in the admin queue.
 - `deleted_email_hashes` — SHA-256 of every deleted account's address, so the address cannot be re-registered. Holds no plaintext.
-- `club_slug_history` — former club slugs (old_slug → club_id) backing get-club's slug fallback and the static redirect stubs; rows deleted only when a club reclaims its own former slug
+- `club_slug_history` — former club slugs (old_slug → club_id) backing get-club's slug fallback. **Renaming a club's slug is no longer possible** (`update-club` returns 409, the field is read-only in Ustawienia) — for the same reason usernames cannot be renamed: it repoints every published link and parks the old address forever. The table stays because it still resolves the renames that already happened, and `create-club`'s `uniqueSlug` must keep refusing to reissue a parked slug. Someone who needs a different address writes in.
 
 ## Supabase sync — how it works
 

@@ -899,58 +899,48 @@ describe('membership lifecycle (soft leave + log + visibility)', () => {
 })
 
 describe('slug editing', () => {
-  it('changes slug, records history, resolves get-club by old slug, blocks reuse by others', async () => {
+  it('refuses to change a club slug, leaving the address and the history untouched', async () => {
     const owner = await createTestSession('slug-owner1')
-    const other = await createTestSession('slug-owner2')
-    let clubId, otherClubId
+    let clubId
     try {
-      const c = await callFunction('create-club', { name: 'Klub Slug Historia Test' }, owner.sessionToken)
+      const c = await callFunction('create-club', { name: 'Klub Slug Stały Test' }, owner.sessionToken)
       clubId = c.data.data.club.id
-      const oldSlug = c.data.data.club.slug
+      const slug = c.data.data.club.slug
 
-      const upd = await callFunction('update-club', { club_id: clubId, slug: `${oldSlug}-nowy` }, owner.sessionToken)
-      assert.equal(upd.status, 200)
-      assert.equal(upd.data.data.club.slug, `${oldSlug}-nowy`)
+      // Renaming a club's address is deliberately unsupported: it repoints
+      // every published link and parks the old address forever.
+      const upd = await callFunction('update-club', { club_id: clubId, slug: `${slug}-nowy` }, owner.sessionToken)
+      assert.equal(upd.status, 409)
+      assert.match(upd.data.error, /Napisz do nas/i)
 
-      const { data: hist } = await supabaseAdmin.from('club_slug_history')
-        .select('club_id').eq('old_slug', oldSlug).single()
-      assert.equal(hist.club_id, clubId)
+      const { data: row } = await supabaseAdmin.from('clubs').select('slug').eq('id', clubId).single()
+      assert.equal(row.slug, slug, 'the address must be unchanged')
 
-      const byOld = await callFunction('get-club', { slug: oldSlug }, owner.sessionToken)
-      assert.equal(byOld.status, 200)
-      assert.equal(byOld.data.data.club.id, clubId)
-
-      const c2 = await callFunction('create-club', { name: 'Klub Slug Zajety Test' }, other.sessionToken)
-      otherClubId = c2.data.data.club.id
-      const steal = await callFunction('update-club', { club_id: otherClubId, slug: oldSlug }, other.sessionToken)
-      assert.equal(steal.status, 409)
+      const { count } = await supabaseAdmin.from('club_slug_history')
+        .select('*', { count: 'exact', head: true }).eq('club_id', clubId)
+      assert.equal(count, 0, 'a refused change must write no history')
     } finally {
-      await supabaseAdmin.from('club_slug_history').delete().in('club_id', [clubId, otherClubId].filter(Boolean))
-      await cleanupClub(clubId); await cleanupClub(otherClubId)
-      await cleanupUser(owner.user.id); await cleanupUser(other.user.id)
+      await cleanupClub(clubId)
+      await cleanupUser(owner.user.id)
     }
   })
 
-  it('rejects invalid slugs and lets a club reclaim its own former slug', async () => {
+  it('accepts a save that repeats the slug the club already has', async () => {
     const owner = await createTestSession('slug-owner3')
     let clubId
     try {
-      const c = await callFunction('create-club', { name: 'Klub Slug Reclaim Test' }, owner.sessionToken)
+      const c = await callFunction('create-club', { name: 'Klub Slug Bez Zmiany Test' }, owner.sessionToken)
       clubId = c.data.data.club.id
-      const first = c.data.data.club.slug
+      const slug = c.data.data.club.slug
 
-      const bad = await callFunction('update-club', { club_id: clubId, slug: 'Złe Słowo!' }, owner.sessionToken)
-      assert.equal(bad.status, 400)
-
-      await callFunction('update-club', { club_id: clubId, slug: `${first}-2` }, owner.sessionToken)
-      const back = await callFunction('update-club', { club_id: clubId, slug: first }, owner.sessionToken)
-      assert.equal(back.status, 200)
-      assert.equal(back.data.data.club.slug, first)
-      const { data: selfRow } = await supabaseAdmin.from('club_slug_history')
-        .select('club_id').eq('old_slug', first).maybeSingle()
-      assert.equal(selfRow, null, 'reclaimed slug must leave no self-pointing history row')
+      // The settings form posts the whole object; sending what is already
+      // stored is not a change.
+      const same = await callFunction('update-club',
+        { club_id: clubId, slug, description: 'Opis' }, owner.sessionToken)
+      assert.equal(same.status, 200)
+      assert.equal(same.data.data.club.slug, slug)
+      assert.equal(same.data.data.club.description, 'Opis')
     } finally {
-      await supabaseAdmin.from('club_slug_history').delete().eq('club_id', clubId)
       await cleanupClub(clubId)
       await cleanupUser(owner.user.id)
     }
@@ -965,10 +955,14 @@ describe('slug editing', () => {
       clubA = c1.data.data.club.id
       const freed = c1.data.data.club.slug
 
-      // Free BOTH the slug (→ history) and the normalized name, so a new club
-      // with the original name reaches uniqueSlug with `freed` as its base.
-      await callFunction('update-club', { club_id: clubA, slug: `${freed}-x` }, a.sessionToken)
-      await callFunction('update-club', { club_id: clubA, name: 'Klub Mint Kolizja Przemianowany' }, a.sessionToken)
+      // Park the slug in history the way a past rename did — renames are no
+      // longer possible, but the rows they left behind are, and uniqueSlug must
+      // still refuse to hand one to a new club. Renaming the club frees the
+      // normalized name so the new club's base slug collides.
+      await supabaseAdmin.from('club_slug_history').insert({ old_slug: freed, club_id: clubA })
+      await supabaseAdmin.from('clubs')
+        .update({ slug: `${freed}-x`, name: 'Klub Mint Kolizja Przemianowany', normalized_name: 'klub mint kolizja przemianowany' })
+        .eq('id', clubA)
 
       const c2 = await callFunction('create-club', { name: 'Klub Mint Kolizja Test' }, b.sessionToken)
       assert.equal(c2.status, 200)
