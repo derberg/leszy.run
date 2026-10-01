@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { fetchDetailPage, needsDetail, shouldEmitRow, scrape } from '../src/scrapers/sources/datasport.js'
+import { fetchDetailPage, needsDetail, shouldEmitRow, keepStoredRegulamin, scrape } from '../src/scrapers/sources/datasport.js'
 
 // datasport reads distances from the <h4> race category headings in the section
 // after #features. Event 12775 (25 BIEG MARATOŃCZYKA, 2026-12-20) runs on the
@@ -21,6 +21,11 @@ const SPARSE_PAGE = `<html><body>
   <section><div class="container"></div></section>
 </body></html>`
 
+// The per-distance price tier tables are part of the real page and no code here
+// reads them: scraper_datasport has no registration_deadline column ("42703
+// column scraper_datasport.registration_deadline does not exist", checked
+// 2026-10-01), so a parsed deadline would have nowhere to go. They stay in the
+// fixture because the headings have to be found with them in the way.
 const HEADING_PAGE = `<html><body>
   <section id="features"><div class="container"></div></section>
   <section><div class="container">
@@ -128,6 +133,24 @@ test('a heading still reads a distance spelled as a word', async () => {
   }
 })
 
+test('a relay leg is not published as the race distance', async () => {
+  // The stats JSON lists results categories, so relay and age-group names reach
+  // the parser that the <h4> headings never carried. "Sztafeta 4x5km" is four
+  // legs of five: reading 5 km there publishes a fifth of the race. Same rule as
+  // the mangled half marathon — no distance beats a wrong one.
+  const stub = stubFetch((url) =>
+    url.includes('/statcont/')
+      ? statsJson(['Sztafeta 4x5km', 'Sztafeta 4 x 5 km', 'Bieg 10 km'])
+      : SPARSE_PAGE,
+  )
+  try {
+    const detail = await fetchDetailPage('12142')
+    assert.equal(detail.distances, '10 km')
+  } finally {
+    stub.restore()
+  }
+})
+
 test('a missing stats JSON leaves distances empty instead of throwing', async () => {
   const stub = stubFetch((url) => (url.includes('/statcont/') ? null : SPARSE_PAGE))
   try {
@@ -195,4 +218,41 @@ test('an unreadable detail page on a known row writes nothing', () => {
   assert.equal(shouldEmitRow(null, true), false)
   assert.equal(shouldEmitRow(null, false), true)
   assert.equal(shouldEmitRow({ distances: '10 km', regulaminUrl: null }, true), true)
+})
+
+test('a re-check that finds no regulamin anchor keeps the stored PDF', async () => {
+  // shouldEmitRow covers an unreadable page only. SPARSE_PAGE reads fine and
+  // carries no regulamin link, and runPipeline's existing-row path writes the
+  // whole mapped field set, so an un-carried null would delete the stored PDF
+  // from the raw table — 18 of the 30 rows in the re-check set hold one.
+  const stub = stubFetch((url) => {
+    if (url.includes('/lista.html')) return LIST_PAGE
+    if (url.includes('/statcont/')) return statsJson(['Bieg 10km'])
+    return SPARSE_PAGE
+  })
+  try {
+    const rows = await scrape({
+      knownIds: KNOWN_IDS,
+      knownRows: new Map([['12775', {
+        source_id: '12775',
+        date: '2026-12-20',
+        distances: null,
+        regulamin_url: 'https://liveds.datasport.pl/regulaminy/regulamin_12775.pdf',
+      }]]),
+      today: '2026-10-01',
+    })
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].distances, '10 km')
+    assert.equal(rows[0].regulamin_url, 'https://liveds.datasport.pl/regulaminy/regulamin_12775.pdf')
+  } finally {
+    stub.restore()
+  }
+})
+
+test('a freshly read regulamin replaces the stored one, and a new row has none to keep', () => {
+  const stored = { regulamin_url: 'https://liveds.datasport.pl/regulaminy/regulamin_12775.pdf' }
+  assert.equal(keepStoredRegulamin(null, stored), stored.regulamin_url)
+  assert.equal(keepStoredRegulamin('https://example.org/nowy.pdf', stored), 'https://example.org/nowy.pdf')
+  assert.equal(keepStoredRegulamin(null, undefined), null)
+  assert.equal(keepStoredRegulamin(null, { regulamin_url: null }), null)
 })

@@ -7,8 +7,14 @@ const LIST_URL = `${BASE_URL}/lista.html`
 // or a duration ("Bieg 4h", "Bieg 6H"). Digits only, so it holds whatever the
 // Polish letters around them look like.
 function readDistanceDigits(text, distances) {
-  // Extract km from heading like "Bieg 10km", "Bieg 5 km", "Półmaraton"
-  const kmMatch = text.match(/(\d+[.,]?\d*)\s*km/i)
+  // Extract km from heading like "Bieg 10km", "Bieg 5 km", "Półmaraton".
+  //
+  // A multiplier in front of the number means a relay leg, not the race:
+  // "Sztafeta 4x5km" is four legs of five, and reading 5 km there publishes a
+  // fifth of the distance. The stats JSON lists results categories, where relay
+  // and age-group names turn up that the <h4> headings never carried, so a
+  // number preceded by a multiplier is not read at all.
+  const kmMatch = text.match(/(?<![\dx×]\s*)(\d+[.,]?\d*)\s*km/i)
   if (kmMatch) {
     const km = parseFloat(kmMatch[1].replace(',', '.'))
     const label = `${km} km`
@@ -125,12 +131,27 @@ function needsDetail(entry, knownIds, knownRows, today) {
 // fetchDetailPage returns null for ANY failure, and a re-scrape is authoritative
 // for its own record, so a row emitted from a null detail overwrites the stored
 // regulamin URL with null. The re-check set is exactly the rows waiting for
-// distances, and some of them already carry a regulamin PDF, so one bad minute
-// at the source would erase it. A known row whose detail page could not be read
-// is left exactly as it is; a new row is still worth recording from the listing
-// alone, since there is nothing there to lose.
+// distances, and 18 of the 30 there today already carry a regulamin PDF, so one
+// bad minute at the source would erase it. A known row whose detail page could
+// not be read is left exactly as it is; a new row is still worth recording from
+// the listing alone, since there is nothing there to lose.
+//
+// This covers an unreadable page only. A page that reads but shows no regulamin
+// anchor is handled by keepStoredRegulamin below.
 function shouldEmitRow(detail, isKnown) {
   return detail !== null || !isKnown
+}
+
+// The regulamin URL to store for an entry that is being read again.
+//
+// A detail page that parses is not proof that the regulamin is gone: the anchor
+// can be absent for a run while the document is still published, and runPipeline
+// writes the whole mapped field set on an existing row, so a null here deletes a
+// stored PDF from the raw table. scraper_all is safe — the merge refuses to let
+// an incoming null win — but the raw table is where the next re-check reads
+// from. A fresh URL replaces the stored one; an absent one leaves it standing.
+function keepStoredRegulamin(fresh, known) {
+  return fresh || (known && known.regulamin_url) || null
 }
 
 async function scrape({ knownIds = new Set(), knownRows = new Map(), today } = {}) {
@@ -177,6 +198,7 @@ async function scrape({ knownIds = new Set(), knownRows = new Map(), today } = {
     // Fetch detail pages only for new and re-checked events
     for (let i = 0; i < newEntries.length; i++) {
       const entry = newEntries[i]
+      const known = knownRows.get(entry.sourceId)
       let distances = ''
 
       let regulaminUrl = null
@@ -215,7 +237,7 @@ async function scrape({ knownIds = new Set(), knownRows = new Map(), today } = {
         location: entry.location,
         distances,
         registration_url: registrationUrl,
-        regulamin_url: regulaminUrl,
+        regulamin_url: keepStoredRegulamin(regulaminUrl, known),
         source: 'datasport',
         source_url: `${BASE_URL}/zawody_files/zawody${entry.sourceId}.html`,
         source_id: entry.sourceId,
@@ -237,4 +259,4 @@ async function scrape({ knownIds = new Set(), knownRows = new Map(), today } = {
   return results
 }
 
-export { scrape, fetchDetailPage, needsDetail, shouldEmitRow }
+export { scrape, fetchDetailPage, needsDetail, shouldEmitRow, keepStoredRegulamin }
