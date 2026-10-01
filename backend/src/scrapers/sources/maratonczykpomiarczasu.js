@@ -60,24 +60,93 @@ function fold(s) {
   return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/gi, 'l').toLowerCase()
 }
 
-// Links the listing repeats on rows of different events. The organizer pastes
-// one event's sign-up link into its neighbours, so a repeated link names at
-// most one of them and has to earn its row before we store it.
-function repeatedLinks(rows) {
-  const owners = new Map()
+// Links the listing puts on rows of more than one event. The organizer pastes
+// one event's sign-up link into its neighbours, so a shared link belongs to at
+// most one of them. Returns url → the rows contending for it.
+function sharedLinks(rows) {
+  const byUrl = new Map()
   for (const r of rows) {
     if (!r.registration_url) continue
-    if (!owners.has(r.registration_url)) owners.set(r.registration_url, new Set())
-    owners.get(r.registration_url).add(r.source_id)
+    if (!byUrl.has(r.registration_url)) byUrl.set(r.registration_url, [])
+    byUrl.get(r.registration_url).push(r)
   }
-  return new Set([...owners].filter(([, ids]) => ids.size > 1).map(([url]) => url))
+  const shared = new Map()
+  for (const [url, contenders] of byUrl) {
+    if (new Set(contenders.map(r => r.source_id)).size > 1) shared.set(url, contenders)
+  }
+  return shared
 }
 
-// A registration page states which city it sells entries for in its <title>,
-// e.g. "Pabianice, Poland 2026 - Rejestracja - ONWF".
-function pageNamesCity($$, city) {
-  if (!city) return false
-  return fold($$('title').first().text()).includes(fold(city))
+// A city has to be matched on words, not on its whole string: ONWF titles
+// "Kostrzyn nad Odrą" as "Kostrzyn, Poland 2026", so requiring the full value
+// would make the event that owns the page look like a stranger on it. Words
+// under four letters ("nad", "i", "n.") name no city on their own.
+function cityWords(city) {
+  return fold(city).split(/[^a-z0-9]+/).filter(w => w.length >= 4)
+}
+
+function titleNamesCity(title, city) {
+  const want = cityWords(city)
+  if (want.length === 0) return false
+  const have = fold(title).split(/[^a-z0-9]+/).filter(Boolean)
+  return want.some(w => have.some(h => h.startsWith(w)))
+}
+
+// What a shared registration page says about the row we are holding. Only the
+// <title> counts — the body lists clubs ("Walka Kostrzyn" is entered at
+// Bełchatów), so body text names cities that are not selling anything.
+//
+//   'mine'    the title names this row's city and no other contender's
+//   'foreign' it names exactly one contender, and that is not this row
+//   'unknown' it names none of them, or several — no evidence either way
+//
+// 'unknown' is the answer for a link several rows legitimately share: a panel
+// page titled with the event name alone, or a league hub listing every round.
+// There we keep the link we were given and read nothing off the page, because
+// a price that could belong to any of the rows belongs to none of them.
+function ownership($$, ev, contenders) {
+  const title = $$('title').first().text()
+  const named = contenders.filter(c => titleNamesCity(title, c.location))
+  if (named.length !== 1) return 'unknown'
+  return named[0].source_id === ev.source_id ? 'mine' : 'foreign'
+}
+
+const ONWF_HOST = 'poland.nordicwalkingworldleague.com'
+const ONWF_SEARCH = `https://${ONWF_HOST}/pl/tournaments/list/getEvents`
+
+// The three league rounds the listing hands one round's link each have their
+// own ONWF page; the listing just does not link it. ONWF's event search takes a
+// city, so ask it for this row's city and accept a hit only when the row it
+// returns carries this row's date and the page it points at is titled with this
+// row's city. Anything less is a guess, and a guess is not an answer.
+async function resolveOwnTournamentPage(ev) {
+  if (!ev.location) return null
+  const res = await fetch(ONWF_SEARCH, {
+    method: 'POST',
+    headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ name: ev.location, cycleId: 'all', page: '1', grade: '[]' }).toString(),
+  })
+  if (!res.ok) return null
+  const $ = cheerio.load(await res.text())
+
+  let href = null
+  $('.row.signin-data').each((_, row) => {
+    if (href) return
+    const dates = $(row).text().match(/\d{4}-\d{2}-\d{2}/g) || []
+    if (!dates.includes(ev.date)) return
+    $(row).find('a[href*="/tournaments/"]').each((_, a) => {
+      const h = $(a).attr('href') || ''
+      if (!href && !h.includes('/applications')) href = h
+    })
+  })
+  if (!href) return null
+
+  const url = new URL(href, `https://${ONWF_HOST}`).toString()
+  const page = await fetch(url, { headers: { 'User-Agent': UA } })
+  if (!page.ok) return null
+  const $$ = cheerio.load(await page.text())
+  if (!titleNamesCity($$('title').first().text(), ev.location)) return null
+  return { url, $: $$ }
 }
 
 // Concession rates — a kids or disabled-entrant tier undercuts the general
@@ -106,14 +175,15 @@ function parseTournamentPage($$, { isKids = false } = {}) {
     }
 
     // "Nordic Walking 20km - w biurze zawodów - 270 PLN" — the fee is the last
-    // dash-separated part, everything before it names the category.
-    const m = value.match(/^(.*)-\s*(\d+)\s*PLN$/)
+    // dash-separated part, everything before it names the category. Grosze are
+    // written with a comma ("85,00 PLN") and are still a fee.
+    const m = value.match(/^(.*)-\s*(\d+(?:[.,]\d{1,2})?)\s*PLN$/)
     if (!m) return
     const category = m[1]
     if (!TIER_DISTANCE.test(category)) return
     if (DISABLED_TIER.test(category)) return
     if (!isKids && KIDS_TIER.test(category)) return
-    tiers.push(parseInt(m[2], 10))
+    tiers.push(Number(m[2].replace(',', '.')))
   })
 
   return {
@@ -217,31 +287,51 @@ async function scrape({ knownIds = new Set() } = {}) {
   //
   // The same page also carries price and registration close, and is the only
   // place this source publishes them. Read both while we are there — but only
-  // after the page has proven it belongs to this event, because a link the
-  // listing repeats across rows points at one event's page and sells one
+  // off a page that has proven it belongs to this event, because a link the
+  // listing puts on several rows points at one event's page and sells one
   // event's entries.
-  const repeated = repeatedLinks(results)
+  const shared = sharedLinks(results)
   let withRegulamin = 0
   let withPrice = 0
-  let foreign = 0
+  let reassigned = 0
+  let dropped = 0
+  let ambiguous = 0
   for (const ev of newResults) {
     if (!ev.registration_url) continue
     try {
       await new Promise(r => setTimeout(r, 600))
       const res = await fetch(ev.registration_url, { headers: { 'User-Agent': UA } })
       if (!res.ok) continue
-      const $$ = cheerio.load(await res.text())
+      let $$ = cheerio.load(await res.text())
+      let pageUrl = ev.registration_url
 
-      if (repeated.has(ev.registration_url) && !pageNamesCity($$, ev.location)) {
-        if (ev.website === ev.registration_url) ev.website = null
-        ev.registration_url = null
-        foreign++
-        continue
+      const contenders = shared.get(ev.registration_url)
+      if (contenders) {
+        const verdict = ownership($$, ev, contenders)
+        if (verdict === 'unknown') {
+          // No evidence the page is anyone else's. Keep the link the listing
+          // gave us — deleting a field on a hunch is worse than the blank it
+          // would fill — and take nothing off a page we cannot attribute.
+          ambiguous++
+          continue
+        }
+        if (verdict === 'foreign') {
+          const own = await resolveOwnTournamentPage(ev)
+          if (!own) {
+            ev.registration_url = null
+            dropped++
+            continue
+          }
+          ev.registration_url = own.url
+          pageUrl = own.url
+          $$ = own.$
+          reassigned++
+        }
       }
 
       const candidate = pickRegulaminFromDom($$, {
         selector: 'a[href*=".pdf"]',
-        baseUrl: ev.registration_url,
+        baseUrl: pageUrl,
       })
       if (candidate && await verifyPdf(candidate)) {
         ev.regulamin_url = candidate
@@ -259,9 +349,9 @@ async function scrape({ knownIds = new Set() } = {}) {
       console.error(`[maratonczykpomiarczasu] detail fetch failed for ${ev.source_id}:`, err.message?.slice(0, 80))
     }
   }
-  console.log(`[maratonczykpomiarczasu] regulamin: ${withRegulamin}/${newResults.length} verified, price: ${withPrice}, foreign links dropped: ${foreign}`)
+  console.log(`[maratonczykpomiarczasu] regulamin: ${withRegulamin}/${newResults.length} verified, price: ${withPrice}, shared links: ${reassigned} repointed, ${dropped} dropped, ${ambiguous} left alone`)
 
   return newResults
 }
 
-export { scrape, parseRows, repeatedLinks, parseTournamentPage }
+export { scrape, parseRows, sharedLinks, titleNamesCity, parseTournamentPage }
