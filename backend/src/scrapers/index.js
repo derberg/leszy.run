@@ -63,6 +63,10 @@ const sources = [
     name: 'datasport',
     scrape: scrapeDatasport,
     table: 'scraper_datasport',
+    // A "Panel zapisów" page publishes its race categories only through the
+    // stats JSON, so rows stored before that was read have no distances. They
+    // are read again while the race is still ahead.
+    knownColumns: 'source_id, date, distances',
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
