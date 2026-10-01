@@ -3,6 +3,61 @@ import * as cheerio from 'cheerio'
 const BASE_URL = 'https://liveds.datasport.pl'
 const LIST_URL = `${BASE_URL}/lista.html`
 
+// The number a race category name carries: kilometres ("Bieg 10km", "Bieg 5 km")
+// or a duration ("Bieg 4h", "Bieg 6H"). Digits only, so it holds whatever the
+// Polish letters around them look like.
+function readDistanceDigits(text, distances) {
+  // Extract km from heading like "Bieg 10km", "Bieg 5 km", "Półmaraton".
+  //
+  // A multiplier in front of the number means a relay leg, not the race:
+  // "Sztafeta 4x5km" is four legs of five, and reading 5 km there publishes a
+  // fifth of the distance. The stats JSON lists results categories, where relay
+  // and age-group names turn up that the <h4> headings never carried, so a
+  // number preceded by a multiplier is not read at all.
+  const kmMatch = text.match(/(?<![\dx×]\s*)(\d+[.,]?\d*)\s*km/i)
+  if (kmMatch) {
+    const km = parseFloat(kmMatch[1].replace(',', '.'))
+    const label = `${km} km`
+    if (km > 0 && km < 500 && !distances.includes(label)) distances.push(label)
+  }
+  // Time-based durations (e.g., "Bieg 4h", "Bieg 6H")
+  const hourMatch = text.match(/\b(\d{1,2})\s*[hH]\b/)
+  if (hourMatch) {
+    const hours = parseInt(hourMatch[1])
+    const label = `${hours}h`
+    if (hours > 0 && hours <= 48 && !distances.includes(label)) distances.push(label)
+  }
+}
+
+// A heading, where a distance may also be spelled out as a word.
+function readDistanceHeading(text, distances) {
+  readDistanceDigits(text, distances)
+  // Named distances
+  if (/półmaraton|polmaraton/i.test(text) && !distances.some(d => d.includes('21'))) {
+    distances.push('21.1 km')
+  }
+  if (/\bmaraton\b/i.test(text) && !/pół|pol/i.test(text) && !distances.some(d => d.includes('42'))) {
+    distances.push('42.2 km')
+  }
+}
+
+// Race categories as the stats page reads them. The JSON is UTF-8, unlike the
+// windows-1250 event pages, so the default fetch decoding is the right one.
+async function fetchStatsDistances(eventId) {
+  try {
+    const res = await fetch(`${BASE_URL}/statcont/statystyki${eventId}.json`, {
+      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+    })
+    if (!res.ok) return []
+
+    const data = await res.json()
+    const all = data && data.distances && data.distances.all
+    return Array.isArray(all) ? all.map(d => d && d.name).filter(Boolean) : []
+  } catch (err) {
+    return []
+  }
+}
+
 async function fetchDetailPage(eventId) {
   try {
     const url = `${BASE_URL}/zawody_files/zawody${eventId}.html`
@@ -23,30 +78,23 @@ async function fetchDetailPage(eventId) {
     const categorySection = featuresSection.next('section')
     const headings = categorySection.length ? categorySection.find('h4') : $('h4')
 
-    headings.each((_, el) => {
-      const text = $(el).text().trim()
-      // Extract km from heading like "Bieg 10km", "Bieg 5 km", "Półmaraton"
-      const kmMatch = text.match(/(\d+[.,]?\d*)\s*km/i)
-      if (kmMatch) {
-        const km = parseFloat(kmMatch[1].replace(',', '.'))
-        const label = `${km} km`
-        if (km > 0 && km < 500 && !distances.includes(label)) distances.push(label)
-      }
-      // Named distances
-      if (/półmaraton|polmaraton/i.test(text) && !distances.some(d => d.includes('21'))) {
-        distances.push('21.1 km')
-      }
-      if (/\bmaraton\b/i.test(text) && !/pół|pol/i.test(text) && !distances.some(d => d.includes('42'))) {
-        distances.push('42.2 km')
-      }
-      // Time-based durations (e.g., "Bieg 4h", "Bieg 6H")
-      const hourMatch = text.match(/\b(\d{1,2})\s*[hH]\b/)
-      if (hourMatch) {
-        const hours = parseInt(hourMatch[1])
-        const label = `${hours}h`
-        if (hours > 0 && hours <= 48 && !distances.includes(label)) distances.push(label)
-      }
-    })
+    headings.each((_, el) => readDistanceHeading($(el).text().trim(), distances))
+
+    // Newer "Panel zapisów" pages carry no category headings at all: the
+    // #features section holds generic cards only (results, signup, group signup,
+    // list, stats). The categories are still published, but only in the JSON the
+    // stats page fetches client-side. 25 BIEG MARATOŃCZYKA (12775, 2026-12-20)
+    // is such a page — zero <h4>, while statystyki12775.json lists "Bieg 10km".
+    //
+    // Only the digits are read there. datasport mangles Polish letters in those
+    // names — event 12557's "XI PÓŁMARATON PIASTOWSKI" arrives as "PӣMARATON",
+    // which still matches /maraton/ but no longer matches /pół/, so the word
+    // branch would publish 42.2 km for a half marathon. No distance beats a
+    // wrong one.
+    if (distances.length === 0) {
+      const names = await fetchStatsDistances(eventId)
+      for (const name of names) readDistanceDigits(name, distances)
+    }
 
     // Regulamin PDF URL
     const regulaminLink = $(`a[href*="regulaminy/regulamin_${eventId}.pdf"]`).attr('href') || null
@@ -60,8 +108,55 @@ async function fetchDetailPage(eventId) {
   }
 }
 
-async function scrape({ knownIds = new Set() } = {}) {
+// Should this listing entry have its detail page read?
+//
+// A known source_id is not a finished row. The rows scraped from a "Panel
+// zapisów" page before the stats JSON was read have no distances, and skipping
+// every known id meant the page was never opened again, so they stayed empty for
+// good — 25 BIEG MARATOŃCZYKA (12775, 2026-12-20) among them. A stored future row
+// with no distances is read again; a past race is left alone.
+//
+// knownRows comes from the raw table and is empty unless the source declares
+// knownColumns, so a known id with no stored row keeps the old skip rather than
+// re-fetching blind.
+function needsDetail(entry, knownIds, knownRows, today) {
+  if (!knownIds.has(entry.sourceId)) return true
+  const known = knownRows.get(entry.sourceId)
+  if (!known) return false
+  return !known.distances && String(known.date) >= today
+}
+
+// Should this entry be written at all?
+//
+// fetchDetailPage returns null for ANY failure, and a re-scrape is authoritative
+// for its own record, so a row emitted from a null detail overwrites the stored
+// regulamin URL with null. The re-check set is exactly the rows waiting for
+// distances, and 18 of the 30 there today already carry a regulamin PDF, so one
+// bad minute at the source would erase it. A known row whose detail page could
+// not be read is left exactly as it is; a new row is still worth recording from
+// the listing alone, since there is nothing there to lose.
+//
+// This covers an unreadable page only. A page that reads but shows no regulamin
+// anchor is handled by keepStoredRegulamin below.
+function shouldEmitRow(detail, isKnown) {
+  return detail !== null || !isKnown
+}
+
+// The regulamin URL to store for an entry that is being read again.
+//
+// A detail page that parses is not proof that the regulamin is gone: the anchor
+// can be absent for a run while the document is still published, and runPipeline
+// writes the whole mapped field set on an existing row, so a null here deletes a
+// stored PDF from the raw table. scraper_all is safe — the merge refuses to let
+// an incoming null win — but the raw table is where the next re-check reads
+// from. A fresh URL replaces the stored one; an absent one leaves it standing.
+function keepStoredRegulamin(fresh, known) {
+  return fresh || (known && known.regulamin_url) || null
+}
+
+async function scrape({ knownIds = new Set(), knownRows = new Map(), today } = {}) {
   const results = []
+  const asOf = today || new Date().toISOString().split('T')[0]
 
   try {
     const res = await fetch(LIST_URL, {
@@ -96,16 +191,23 @@ async function scrape({ knownIds = new Set() } = {}) {
       })
     })
 
-    const newEntries = entries.filter(e => !knownIds.has(e.sourceId))
-    console.log(`[datasport] Found ${entries.length} events, ${newEntries.length} new (skipping ${entries.length - newEntries.length} known)`)
+    const newEntries = entries.filter(e => needsDetail(e, knownIds, knownRows, asOf))
+    const recheckCount = newEntries.filter(e => knownIds.has(e.sourceId)).length
+    console.log(`[datasport] Found ${entries.length} events, ${newEntries.length - recheckCount} new, ${recheckCount} re-checked (skipping ${entries.length - newEntries.length} known)`)
 
-    // Fetch detail pages only for new events
+    // Fetch detail pages only for new and re-checked events
     for (let i = 0; i < newEntries.length; i++) {
       const entry = newEntries[i]
+      const known = knownRows.get(entry.sourceId)
       let distances = ''
 
       let regulaminUrl = null
       const detail = await fetchDetailPage(entry.sourceId)
+      if (!shouldEmitRow(detail, knownIds.has(entry.sourceId))) {
+        console.log(`[datasport] ${entry.sourceId}: detail page unreadable, keeping stored values`)
+        await new Promise(r => setTimeout(r, 1100))
+        continue
+      }
       if (detail) {
         distances = detail.distances
         regulaminUrl = detail.regulaminUrl
@@ -135,7 +237,7 @@ async function scrape({ knownIds = new Set() } = {}) {
         location: entry.location,
         distances,
         registration_url: registrationUrl,
-        regulamin_url: regulaminUrl,
+        regulamin_url: keepStoredRegulamin(regulaminUrl, known),
         source: 'datasport',
         source_url: `${BASE_URL}/zawody_files/zawody${entry.sourceId}.html`,
         source_id: entry.sourceId,
@@ -157,4 +259,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape }
+export { scrape, fetchDetailPage, needsDetail, shouldEmitRow, keepStoredRegulamin }

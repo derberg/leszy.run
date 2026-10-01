@@ -63,6 +63,17 @@ const sources = [
     name: 'datasport',
     scrape: scrapeDatasport,
     table: 'scraper_datasport',
+    // A "Panel zapisów" page publishes its race categories only through the
+    // stats JSON, so rows stored before that was read have no distances. They
+    // are read again while the race is still ahead. regulamin_url is read back
+    // too, so a re-check that finds no anchor keeps the stored PDF instead of
+    // deleting it (see keepStoredRegulamin in sources/datasport.js).
+    knownColumns: 'source_id, date, distances, regulamin_url',
+    // No registration_deadline key on purpose: scraper_datasport has no such
+    // column ("42703 column scraper_datasport.registration_deadline does not
+    // exist", checked 2026-10-01), and listing it here would fail every insert.
+    // Reading the per-distance price tiers has to land with the migration that
+    // adds the column.
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
