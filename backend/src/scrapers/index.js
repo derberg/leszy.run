@@ -148,6 +148,18 @@ const sources = [
     name: 'timekeeper',
     scrape: scrapeTimekeeper,
     table: 'scraper_timekeeper',
+    // scrape() now emits price_from/price_to off the "Koszt uczestnictwa" card, but
+    // scraper_timekeeper has neither column, so they are dropped here and no published
+    // row changes yet. Mapping them before the columns exist fails every insert with
+    // `column "price_from" of relation "scraper_timekeeper" does not exist`, which is
+    // why they are left out rather than added optimistically. One migration opens it:
+    //
+    //   ALTER TABLE scraper_timekeeper ADD COLUMN IF NOT EXISTS price_from numeric;
+    //   ALTER TABLE scraper_timekeeper ADD COLUMN IF NOT EXISTS price_to   numeric;
+    //
+    // then add `price_from: raw.price_from ?? null` and `price_to: raw.price_to ?? null`
+    // below and re-scrape; the rest of the pipeline already carries a 0 through
+    // (toIntPrice keeps it, alwaysOverwrite uses `??`).
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
