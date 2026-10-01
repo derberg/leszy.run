@@ -56,6 +56,83 @@ function cleanDistances(raw) {
   return s || null
 }
 
+function fold(s) {
+  return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/gi, 'l').toLowerCase()
+}
+
+// Links the listing repeats on rows of different events. The organizer pastes
+// one event's sign-up link into its neighbours, so a repeated link names at
+// most one of them and has to earn its row before we store it.
+function repeatedLinks(rows) {
+  const owners = new Map()
+  for (const r of rows) {
+    if (!r.registration_url) continue
+    if (!owners.has(r.registration_url)) owners.set(r.registration_url, new Set())
+    owners.get(r.registration_url).add(r.source_id)
+  }
+  return new Set([...owners].filter(([, ids]) => ids.size > 1).map(([url]) => url))
+}
+
+// A registration page states which city it sells entries for in its <title>,
+// e.g. "Pabianice, Poland 2026 - Rejestracja - ONWF".
+function pageNamesCity($$, city) {
+  if (!city) return false
+  return fold($$('title').first().text()).includes(fold(city))
+}
+
+// Concession rates — a kids or disabled-entrant tier undercuts the general
+// entry fee, and price_from has to be the fee a reader can actually pay.
+const KIDS_TIER = /dzieci|młodzie[żz]|junior|kid/i
+const DISABLED_TIER = /niepełnosprawn|niewidom|niedowidz/i
+// An entry fee always names its distance. Add-ons on the same price ladder
+// ("posiłek dla kibica - 30 PLN") do not, and must not become price_from.
+const TIER_DISTANCE = /\d+(?:[.,]\d+)?\s*(?:km|m)\b/i
+
+// ONWF tournament pages (poland.nordicwalkingworldleague.com) put both the
+// price ladder and the registration close in .row.collapse-data pairs: a label
+// or quota on the left, the value on the right.
+function parseTournamentPage($$, { isKids = false } = {}) {
+  const tiers = []
+  let deadline = null
+
+  $$('.row.collapse-data').each((_, row) => {
+    const label = $$(row).children().not('.collapse-data-right').first().text().trim()
+    const value = $$(row).find('.collapse-data-right').first().text().trim()
+    if (!value) return
+
+    if (fold(label) === 'zamkniecie rejestracji') {
+      deadline = parseDeadline(value) || deadline
+      return
+    }
+
+    // "Nordic Walking 20km - w biurze zawodów - 270 PLN" — the fee is the last
+    // dash-separated part, everything before it names the category.
+    const m = value.match(/^(.*)-\s*(\d+)\s*PLN$/)
+    if (!m) return
+    const category = m[1]
+    if (!TIER_DISTANCE.test(category)) return
+    if (DISABLED_TIER.test(category)) return
+    if (!isKids && KIDS_TIER.test(category)) return
+    tiers.push(parseInt(m[2], 10))
+  })
+
+  return {
+    price_from: tiers.length > 0 ? Math.min(...tiers) : null,
+    price_to: tiers.length > 0 ? Math.max(...tiers) : null,
+    registration_deadline: deadline,
+  }
+}
+
+// "16.08.2026 23:59" → "2026-08-16". A date we cannot read is dropped.
+function parseDeadline(raw) {
+  const m = (raw || '').match(/\b(\d{2})\.(\d{2})\.(\d{4})\b/)
+  if (!m) return null
+  const [, dd, mm, yyyy] = m
+  const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`)
+  if (Number.isNaN(d.getTime()) || d.getUTCDate() !== Number(dd)) return null
+  return `${yyyy}-${mm}-${dd}`
+}
+
 function parseRows($) {
   const results = []
   $('table tr').each((_, tr) => {
@@ -137,7 +214,16 @@ async function scrape({ knownIds = new Set() } = {}) {
   // (panel.maratonczykpomiarczasu.pl/<slug>) links the regulamin PDF directly.
   // Fetch it per new event, then VERIFY the PDF is live before writing — a
   // dead/wrong link is dropped, never stored.
+  //
+  // The same page also carries price and registration close, and is the only
+  // place this source publishes them. Read both while we are there — but only
+  // after the page has proven it belongs to this event, because a link the
+  // listing repeats across rows points at one event's page and sells one
+  // event's entries.
+  const repeated = repeatedLinks(results)
   let withRegulamin = 0
+  let withPrice = 0
+  let foreign = 0
   for (const ev of newResults) {
     if (!ev.registration_url) continue
     try {
@@ -145,6 +231,14 @@ async function scrape({ knownIds = new Set() } = {}) {
       const res = await fetch(ev.registration_url, { headers: { 'User-Agent': UA } })
       if (!res.ok) continue
       const $$ = cheerio.load(await res.text())
+
+      if (repeated.has(ev.registration_url) && !pageNamesCity($$, ev.location)) {
+        if (ev.website === ev.registration_url) ev.website = null
+        ev.registration_url = null
+        foreign++
+        continue
+      }
+
       const candidate = pickRegulaminFromDom($$, {
         selector: 'a[href*=".pdf"]',
         baseUrl: ev.registration_url,
@@ -153,13 +247,21 @@ async function scrape({ knownIds = new Set() } = {}) {
         ev.regulamin_url = candidate
         withRegulamin++
       }
+
+      const { price_from, price_to, registration_deadline } = parseTournamentPage($$, { isKids: ev.is_kids })
+      if (price_from !== null) {
+        ev.price_from = price_from
+        ev.price_to = price_to
+        withPrice++
+      }
+      if (registration_deadline) ev.registration_deadline = registration_deadline
     } catch (err) {
-      console.error(`[maratonczykpomiarczasu] regulamin fetch failed for ${ev.source_id}:`, err.message?.slice(0, 80))
+      console.error(`[maratonczykpomiarczasu] detail fetch failed for ${ev.source_id}:`, err.message?.slice(0, 80))
     }
   }
-  console.log(`[maratonczykpomiarczasu] regulamin: ${withRegulamin}/${newResults.length} verified`)
+  console.log(`[maratonczykpomiarczasu] regulamin: ${withRegulamin}/${newResults.length} verified, price: ${withPrice}, foreign links dropped: ${foreign}`)
 
   return newResults
 }
 
-export { scrape }
+export { scrape, parseRows, repeatedLinks, parseTournamentPage }
