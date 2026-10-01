@@ -77,12 +77,19 @@ function parseDetailPage(html) {
     }
   })
 
-  // Distances and prices: one `.row` per start inside the "Koszt uczestnictwa" card,
-  // the distance in h6.font-weight-bolder.m-0 and the fee in the `.text-right` cell
-  // beside it. That heading is an <h4> in the card-header, so it needs both a wider
-  // tag match and `.closest('.card')` — the nearest wrapping div is the header's own
-  // column, which holds the heading and nothing else.
-  const distances = []
+  // Prices: one `.row` per start inside the "Koszt uczestnictwa" card, the start's
+  // h6.font-weight-bolder.m-0 label and the fee in the `.text-right` cell beside it.
+  // That heading is an <h4> in the card-header, so it needs both a wider tag match and
+  // `.closest('.card')` — the nearest wrapping div is the header's own column, which
+  // holds the heading and nothing else.
+  //
+  // The label is NOT a distance and is deliberately not emitted. Across the 20 live
+  // pages on 2026-10-01 it reads "Bieg Niepodległości +grawerowanie medalu",
+  // "Klasa 4x4 Weteran", "PRZYMIERZE [PRZemyśl - RZEszów, 130+ km] (pakiet z koszulką 🎽)"
+  // and "Sztafeta rodzinna (rodzic + dziecko) - RODZIC WPISUJE TYLKO DANE STARTUJĄCEGO
+  // DZIECKA" — ticket names, sometimes repeated, several carrying the comma that the
+  // scraper_all → calendar_events step splits on. timekeeper is priority 3, so emitting
+  // them would overwrite real distances that better sources already published.
   const prices = []
   $('h4, h5, h6, strong').each((_, el) => {
     const text = $(el).text().trim()
@@ -90,8 +97,6 @@ function parseDetailPage(html) {
       const closestCard = $(el).closest('.card')
       const card = closestCard.length ? closestCard : $(el).closest('.col, div')
       card.find('h6.font-weight-bolder.m-0').each((_, h6) => {
-        const dist = $(h6).text().replace(/\s+/g, ' ').trim()
-        if (dist) distances.push(dist)
         const price = parsePriceCell($(h6).closest('.row').find('.text-right').first())
         if (price !== null) prices.push(price)
       })
@@ -99,7 +104,9 @@ function parseDetailPage(html) {
   })
 
   // A free start beside a paid one must not drag price_from to 0 — the race costs money.
-  // Only a card where every start is free reports 0.
+  // Only a card where every start is free reports 0. min/max also make the reading immune
+  // to a cost card the template happens to render twice: repeating a figure cannot move
+  // either end of the range.
   const paid = prices.filter(p => p > 0)
   const quoted = paid.length ? paid : prices
   const priceFrom = quoted.length ? Math.min(...quoted) : null
@@ -129,7 +136,6 @@ function parseDetailPage(html) {
   return {
     date,
     location,
-    distances: distances.join(', '),
     priceFrom,
     priceTo,
     regulaminUrl,
@@ -251,7 +257,9 @@ async function scrape({ knownIds = new Set() } = {}) {
       name: entry.name,
       date: detail?.date || entry.listingDate || null,
       location: detail?.location || entry.location || '',
-      distances: detail?.distances || '',
+      // Neither the listing nor the detail page states a distance — see parseDetailPage
+      // on why the cost card's start labels are not one. Stays empty, as it always was.
+      distances: '',
       price_from: detail?.priceFrom ?? null,
       price_to: detail?.priceTo ?? null,
       registration_url: `${BASE_URL}/${entry.slug}`,

@@ -318,8 +318,10 @@ async function normalizeEvent(raw) {
     event_type: eventType,
     distances,
     registration_url: raw.registration_url || null,
-    price_from: raw.price_from || null,
-    price_to: raw.price_to || null,
+    // `??`, not `||`: 0 means the race is free. That is a value, and `||` erased it,
+    // reporting a free start as "price unknown".
+    price_from: raw.price_from ?? null,
+    price_to: raw.price_to ?? null,
     website: raw.website || null,
     source: raw.source,
     source_url: raw.source_url || null,
