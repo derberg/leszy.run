@@ -148,6 +148,9 @@ const sources = [
     name: 'timekeeper',
     scrape: scrapeTimekeeper,
     table: 'scraper_timekeeper',
+    // The scraper reads price_from/price_to off the "Koszt uczestnictwa" card, but
+    // scraper_timekeeper has no such columns, so they are dropped here and the merge
+    // never sees them. Add the two columns to the table, then map them below.
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
