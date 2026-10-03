@@ -12,9 +12,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFoo
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog.jsx'
 import ParticipantsTable from '../components/ParticipantsTable/ParticipantsTable.jsx'
 import ImportSection from '../components/ImportWizard/ImportSection.jsx'
-import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X, Terminal, Info, ChevronDown } from 'lucide-react'
+import VisionAudit from '../components/VisionAudit/VisionAudit.jsx'
+import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X, Terminal, Info, ChevronDown, Camera } from 'lucide-react'
 
-const VALID_TABS = ['categories', 'participants', 'rfid', 'checkpoints', 'settings', 'documents', 'partners']
+const VALID_TABS = ['categories', 'participants', 'rfid', 'camera', 'checkpoints', 'settings', 'documents', 'partners']
 
 // Legend for CheckpointAgentBadge below — keep classes in exact sync with that
 // component so the swatches shown here match the real badges pixel-for-pixel.
@@ -226,6 +227,7 @@ export default function EventDetail() {
           <TabsTrigger value="participants"><Users size={13} className="mr-1.5" />Uczestnicy</TabsTrigger>
           <TabsTrigger value="checkpoints"><Flag size={13} className="mr-1.5" />Punkty kontrolne</TabsTrigger>
           <TabsTrigger value="rfid"><Settings size={13} className="mr-1.5" />Ustawienia RFID</TabsTrigger>
+          <TabsTrigger value="camera"><Camera size={13} className="mr-1.5" />Audyt kamery</TabsTrigger>
           <TabsTrigger value="documents"><FileText size={13} className="mr-1.5" />Dokumenty</TabsTrigger>
           <TabsTrigger value="partners"><Handshake size={13} className="mr-1.5" />Partnerzy</TabsTrigger>
           <TabsTrigger value="settings"><Settings size={13} className="mr-1.5" />Ustawienia</TabsTrigger>
@@ -314,6 +316,14 @@ export default function EventDetail() {
             <MqttStatus />
             <RfidSettings event={event} onSave={(vals) => updateEvent.mutate(vals)} saving={updateEvent.isPending} />
           </div>
+        </TabsContent>
+
+        {/* Audyt kamery — raw camera reads, detection outcome and health.
+            Mirrors what ReaderDashboard does for the R700: it works with no
+            race run started, because checking the camera happens BEFORE the
+            race, not during it. */}
+        <TabsContent value="camera">
+          <VisionAudit eventId={id} />
         </TabsContent>
         {/* Punkty kontrolne */}
         <TabsContent value="checkpoints">

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, real, boolean, timestamp, bigint, jsonb, unique, date, numeric } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, integer, real, boolean, timestamp, bigint, jsonb, unique, date, numeric, doublePrecision } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
 export const events = pgTable('events', {
@@ -182,6 +182,45 @@ export const checkpointObservations = pgTable('checkpoint_observations', {
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })
 
+// ─── Camera audit (finish-gate bib recognition) ──────────────────────────────
+// DEVICE-LOCAL, like gateCrossings. Never pushed to Supabase: there is no
+// syncedAt column and no trg_reset_synced_at_* trigger, and these tables are
+// deliberately absent from configSync.js's pull list. Camera evidence staying
+// on the machine that captured it is the data protection position.
+
+export const visionSessions = pgTable('vision_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  // Nullable: the operator checks the camera BEFORE starting a run.
+  raceRunId: uuid('race_run_id').references(() => raceRuns.id, { onDelete: 'set null' }),
+  label: text('label'),
+  queueDir: text('queue_dir').notNull(),
+  clockOffset: doublePrecision('clock_offset'),
+  // Byte offset into sightings.jsonl already ingested, so a backend restart
+  // resumes without losing or repeating a line.
+  logCursor: bigint('log_cursor', { mode: 'number' }).notNull().default(0),
+  health: jsonb('health'),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  stoppedAt: timestamp('stopped_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const visionSightings = pgTable('vision_sightings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').notNull().references(() => visionSessions.id, { onDelete: 'cascade' }),
+  // Nullable on purpose — "somebody crossed and could not be read" is the row
+  // an operator needs when a runner is missing.
+  bibNumber: text('bib_number'),
+  participantId: uuid('participant_id').references(() => participants.id, { onDelete: 'set null' }),
+  confidence: doublePrecision('confidence').notNull().default(0),
+  frameCount: integer('frame_count').notNull().default(0),
+  sightedAt: timestamp('sighted_at', { withTimezone: true }).notNull(),
+  bestFrameTs: bigint('best_frame_ts', { mode: 'number' }),
+  cropName: text('crop_name'),
+  votes: jsonb('votes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const eventDocuments = pgTable('event_documents', {
   id: uuid('id').primaryKey().defaultRandom(),
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
@@ -278,6 +317,17 @@ export const checkpointsRelations = relations(checkpoints, ({ one, many }) => ({
 export const checkpointObservationsRelations = relations(checkpointObservations, ({ one }) => ({
   checkpoint: one(checkpoints, { fields: [checkpointObservations.checkpointId], references: [checkpoints.id] }),
   participant: one(participants, { fields: [checkpointObservations.participantId], references: [participants.id] }),
+}))
+
+export const visionSessionsRelations = relations(visionSessions, ({ one, many }) => ({
+  event: one(events, { fields: [visionSessions.eventId], references: [events.id] }),
+  raceRun: one(raceRuns, { fields: [visionSessions.raceRunId], references: [raceRuns.id] }),
+  sightings: many(visionSightings),
+}))
+
+export const visionSightingsRelations = relations(visionSightings, ({ one }) => ({
+  session: one(visionSessions, { fields: [visionSightings.sessionId], references: [visionSessions.id] }),
+  participant: one(participants, { fields: [visionSightings.participantId], references: [participants.id] }),
 }))
 
 export const eventDocumentsRelations = relations(eventDocuments, ({ one }) => ({
