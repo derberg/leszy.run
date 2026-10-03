@@ -11,7 +11,7 @@ import {
 } from '../ui/dialog.jsx'
 import {
   Camera, CameraOff, AlertTriangle, CheckCircle2, HelpCircle, Play, Square,
-  Trash2, Image as ImageIcon, Info,
+  Trash2, Image as ImageIcon,
 } from 'lucide-react'
 
 const DEFAULT_QUEUE_DIR = '/mnt/ssd/frames'
@@ -70,7 +70,6 @@ export default function VisionAudit({ eventId }) {
 
   return (
     <div className="space-y-4">
-      <NotTimingNotice />
       <SessionBar
         eventId={eventId}
         sessions={sessions}
@@ -81,25 +80,6 @@ export default function VisionAudit({ eventId }) {
       {active
         ? <SessionView session={active} />
         : <NoSession />}
-    </div>
-  )
-}
-
-// ─── the standing caveat ────────────────────────────────────────────────────
-// The parent spec rules live reading out of scope because the Pi has no
-// accelerator. A throttled diagnostic view is a different claim, and the only
-// way that stays honest is to say so where it cannot be missed.
-
-function NotTimingNotice() {
-  return (
-    <div className="border border-apex-border-mid bg-apex-surface-2 px-4 py-3 flex items-start gap-3">
-      <Info size={16} className="text-apex-muted shrink-0 mt-0.5" />
-      <p className="text-xs text-apex-muted leading-relaxed">
-        <span className="font-bold uppercase tracking-widest text-apex-text">Podgląd diagnostyczny.</span>{' '}
-        Odczyt z kamery jest celowo spowolniony i <span className="text-apex-text">nie służy do pomiaru czasu</span> —
-        czas liczy chip. Ten ekran odpowiada na jedno pytanie: czy kamera działa, jest dobrze
-        ustawiona i czyta numery. Zdjęcia nie opuszczają tego komputera.
-      </p>
     </div>
   )
 }
@@ -393,13 +373,6 @@ function Stats({ stats }) {
             value={stats.unreadable}
             hint="ktoś przebiegł, numeru nie dało się odczytać"
           />
-          {/* The distinction that keeps this screen honest. */}
-          <p className="text-[10px] text-apex-muted leading-relaxed border-t border-apex-border pt-2">
-            To <span className="text-apex-text">nie jest</span> read rate. Read rate mierzy się
-            względem numerów, które zawodnicy naprawdę mieli — tego ten ekran nie wie.
-            „Trafienia w roster” to najlepszy dostępny sygnał jakości: numer spoza rosteru
-            to prawie zawsze błędny odczyt.
-          </p>
         </CardContent>
       </Card>
 
@@ -418,11 +391,6 @@ function Stats({ stats }) {
               <span className="w-8 text-right font-mono text-xs text-apex-text">{n}</span>
             </div>
           ))}
-          <p className="text-[10px] text-apex-muted leading-relaxed border-t border-apex-border pt-2">
-            Kamera skierowana wzdłuż bieżni daje ok. 30 klatek na zawodnika i jedna zła klatka
-            zostaje przegłosowana. Skupisko w „1-4” znaczy, że kamera patrzy w poprzek —
-            cztery klatki nie przegłosują jednej złej. To problem ustawienia, nie modelu.
-          </p>
         </CardContent>
       </Card>
     </div>
@@ -552,10 +520,6 @@ function FrameDialog({ sighting, sessionId, onClose }) {
             alt=""
             className="w-full border border-apex-border bg-apex-bg"
           />
-          <p className="mt-3 text-[10px] text-apex-muted leading-relaxed">
-            Klatka jest przechowywana wyłącznie na tym komputerze i nie jest nigdzie wysyłana.
-            Zawiera wizerunek — podlega retencji opisanej w rejestrze czynności przetwarzania.
-          </p>
         </DialogBody>
       </DialogContent>
     </Dialog>
