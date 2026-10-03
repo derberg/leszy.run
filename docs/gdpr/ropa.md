@@ -97,9 +97,23 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 - **Okres przechowywania:** przez czas istnienia konta użytkownika; trwale usuwane w ramach procesu usunięcia konta (`delete-my-account`) — wiersze `club_members` i `club_membership_log` są kasowane, nie tylko anonimizowane.
 - **Środki bezpieczeństwa:** RLS (Row-Level Security), zapis do `club_membership_log` wyłącznie przez service_role (append-only), eksport danych własnych (`export-my-data`) obejmuje wszystkie wiersze członkostwa (dowolny status) oraz pełną historię zmian.
 
+## 9. Rozpoznawanie numerów startowych z obrazu (kamera na mecie)
+
+- **Cel:** Odczyt numeru startowego z fotografii wykonanych na mecie, jako **drugie źródło** czasu dla zawodników, których nie zarejestrował chip RFID, oraz diagnostyka poprawności działania kamery (ekran „Audyt kamery" w panelu administracyjnym). Czas z chipa ma zawsze pierwszeństwo — obraz go nie zastępuje.
+- **Podstawa prawna:** Art. 6(1)(b) RODO — wykonanie umowy z uczestnikiem (pomiar czasu jest przedmiotem umowy zawieranej przez akceptację regulaminu biegu). **Nie jest to zgoda** — zgoda musi być dobrowolna i odwoływalna, a zgoda, której uczestnik nie może odmówić pozostając w biegu, jest nieważna.
+- **Kategorie danych:** fotografie klatek z kamery (zawierają wizerunek całej sylwetki i twarz), wycinki samego numeru startowego (tylko cyfry), numer startowy odczytany automatycznie, pewność odczytu, liczba klatek, znacznik czasu przejścia, powiązanie z uczestnikiem z listy startowej.
+- **Kategorie osób:** uczestnicy biegów przekraczający linię mety oraz osoby postronne, które weszły w kadr.
+- **Odbiorcy:** **BRAK.** Fotografie nie opuszczają komputera, który je zarejestrował (Raspberry Pi na mecie). Nie są wysyłane do Supabase, do chmury, ani do żadnego podmiotu przetwarzającego. Tabele `vision_sessions` i `vision_sightings` są wyłącznie lokalne i celowo nie podlegają synchronizacji.
+- **Transfery poza EOG:** brak.
+- **Okres przechowywania:** **30 dni od biegu**, po czym automatyczny purge (`backend/scripts/purge-vision-evidence.js`, cron 03:20 w kontenerze scheduler) kasuje najpierw pliki zdjęć, a następnie wiersze. Okres jest krótszy niż 90 dni dla `gate_events`, ponieważ fotografia osoby jest danymi wrażliwszymi niż odczyt tagu, a jej użyteczność kończy się z chwilą zatwierdzenia wyników.
+- **Środki bezpieczeństwa:** brak jakiegokolwiek połączenia sieciowego i klienta bazy danych w pakiecie `vision/` (zapis wyłącznie do plików na dysku lokalnego); serwowanie obrazów wyłącznie przez lokalny backend, z walidacją nazwy pliku odporną na path traversal i nagłówkiem `Cache-Control: private`; pełna klatka dostępna wyłącznie po jawnym kliknięciu, nigdy na liście; lista pokazuje wyłącznie wycinek numeru (bez sylwetki i twarzy).
+- **Czego system NIE robi (zakaz stały, nie opis bieżącej wersji):** nie wykrywa twarzy, nie prowadzi rozpoznawania twarzy, nie buduje szablonów biometrycznych i nie porównuje osób ze zbiorem wzorców. Obrazy **zawierają** twarze i są danymi osobowymi w pełnym zakresie, ale **nie są** danymi biometrycznymi szczególnej kategorii w rozumieniu art. 9 RODO, ponieważ nic nie wyprowadza z nich identyfikatora biometrycznego. Dodanie rozpoznawania twarzy byłoby odrębnym przedsięwzięciem na odrębnej podstawie prawnej i wymagałoby nowej oceny skutków.
+- **Uwaga wdrożeniowa:** klauzule do regulaminu i polityki prywatności są przygotowane w `docs/gdpr/vision-bib-recognition-klauzule.md`, ale **nie zostały jeszcze przyjęte**. Kamera nie powinna pracować na biegu, którego regulamin nie wymienia rozpoznawania numerów z obrazu.
+
 ## Historia zmian
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.2 | 2026-10-03 | Dodano sekcję 9 (rozpoznawanie numerów startowych z obrazu) — wdrożenie ekranu „Audyt kamery" i automatycznego purge po 30 dniach. |
 | 1.1 | 2026-07-23 | Dodano sekcję 8 (członkostwo w klubach: `club_members`, `club_membership_log`) — pokrycie eksportu i usuwania danych po wdrożeniu soft-delete członkostwa. |
 | 1.0 | 2026-06-04 | Pierwsza wersja ROPA — wdrożenie programu zgodności GDPR. |

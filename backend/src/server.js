@@ -12,6 +12,7 @@ import { initMqtt } from './mqtt/client.js'
 import { initSupabaseSync } from './sync/supabase.js'
 import { initCheckinSync } from './sync/checkinSync.js'
 import { initConfigSync } from './sync/configSync.js'
+import { resumeIngest } from './vision/ingest.js'
 import { initMqttHostHeal } from './reader/mqttHostHeal.js'
 
 import { eventsRoutes } from './routes/events.js'
@@ -32,6 +33,7 @@ import { urlSuggestionsRoutes } from './routes/urlSuggestions.js'
 import { websiteFeedbackRoutes } from './routes/websiteFeedback.js'
 import { eventPartnersRoutes } from './routes/eventPartners.js'
 import { clubsRoutes } from './routes/clubs.js'
+import { visionRoutes } from './routes/vision.js'
 import cron from 'node-cron'
 import { runPipeline } from './scrapers/index.js'
 
@@ -66,6 +68,7 @@ await fastify.register(async (api) => {
   await api.register(websiteFeedbackRoutes)
   await api.register(eventPartnersRoutes)
   await api.register(clubsRoutes)
+  await api.register(visionRoutes)
 }, { prefix: '/api' })
 
 // Health check
@@ -101,6 +104,11 @@ const start = async () => {
 
     // Auto-heal the reader's MQTT broker address when the Mac's IP drifts
     initMqttHostHeal(db)
+
+    // Resume tailing any camera session that was still running. The sighting
+    // log is append-only and each session keeps a byte cursor, so a restart
+    // mid-race picks up exactly where it left off.
+    await resumeIngest(db)
 
     console.log(`[Server] LeszyRun backend running at ${address}`)
   } catch (err) {

@@ -10,6 +10,38 @@ It never opens a network connection, never talks to a database, and never
 uploads a photograph anywhere. Frames stay on the machine that captured them.
 That property is what makes the data protection position defensible, so keep it.
 
+## How anything gets out, then
+
+A file, and only a file.
+
+```
+scripts/capture.py     --> <queue>/<sensor_ns>.jpg      frames
+scripts/read_queue.py  --> <queue>/sightings.jsonl      one line per runner
+                       --> <queue>/crops/<ts>.jpg       the bib, digits only
+                       --> <queue>/health.json          heartbeat + diagnostics
+```
+
+The Fastify backend on the same machine tails those three and owns every
+database write. Nothing here knows the backend exists, which is the point: if
+the camera needs to tell the app something new, add a field to the log rather
+than giving this package a socket.
+
+### Running the reader
+
+```bash
+python scripts/capture.py --queue /mnt/ssd/frames --seconds 7200 &
+python scripts/read_queue.py --queue /mnt/ssd/frames --max-fps 3
+```
+
+`read_queue.py` is throttled on purpose. The Pi 5 has no accelerator and
+cannot read every frame in real time, so what it feeds the admin screen is a
+**diagnostic** view, not a timing source — the chip still times the race.
+Falling behind is safe by construction: the queue keeps the frames and the
+reader catches up between finishers.
+
+Then open the event in the admin app and add the queue directory under
+**Audyt kamery**.
+
 ## Running the tests
 
 ```bash
