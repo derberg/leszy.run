@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { slugifyClub, normalizeClubName } from '../_shared/clubText.js'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
@@ -26,8 +26,8 @@ async function uniqueSlug(supabaseAdmin, base) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL'),
@@ -75,7 +75,17 @@ Deno.serve(async (req) => {
       club_id: club.id, user_id: session.userId, role: 'owner', status: 'active',
       joined_at: new Date().toISOString(), hidden_public: !!hidden_public,
     })
-    if (memErr) throw memErr
+    if (memErr) {
+      // Undo the club. These are two round trips with no transaction, and a
+      // club with no owner row is unreachable: get-club returns null for a
+      // non-member, so the user only learns it exists when their next attempt
+      // is refused as a duplicate name — their own phantom club.
+      await supabaseAdmin.from('clubs').delete().eq('id', club.id)
+      // 23505 here is the one-active-membership index: they joined a club in
+      // another tab while this request was in flight.
+      if (memErr.code === '23505') return json({ error: 'Należysz już do klubu. Opuść go, aby dołączyć do innego.' }, 409, req)
+      throw memErr
+    }
 
     await supabaseAdmin.from('profiles').update({ club_id: club.id }).eq('id', session.userId)
 

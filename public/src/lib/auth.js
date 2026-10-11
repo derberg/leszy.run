@@ -1,3 +1,4 @@
+import { clearCache, USER_CACHE_KEYS } from './clientCache.js'
 // Edge functions are reached through a SAME-ORIGIN path (`/edge/*`), which a
 // Vercel rewrite (public/vercel.json) — and the vite dev-server proxy locally —
 // proxies to `<project>.supabase.co/functions/v1/*`. This is load-bearing for
@@ -58,6 +59,12 @@ export async function verifyCode(email, code) {
 
 export async function signOut() {
   clearCachedUser()
+  // The identity cache is not the only thing holding the user's data: the
+  // favorites and notifications caches are plain localStorage and survive a
+  // logout, so on a shared machine the next visitor saw the previous user's
+  // starred races (filled stars on /kalendarz) and their notification list.
+  // Login already clears all three; logout has to as well.
+  for (const key of USER_CACHE_KEYS) clearCache(key)
   return callEdge('auth-logout', {})
 }
 

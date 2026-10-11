@@ -182,10 +182,12 @@ export default function Navbar() {
         {beta && (user ? (
           <Link
             to="/profil"
-            className="flex items-center gap-1.5 font-mono text-[11px] text-apex-yellow border border-apex-yellow px-2.5 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all no-underline"
+            className="flex items-center gap-1.5 min-w-0 font-mono text-[11px] text-apex-yellow border border-apex-yellow px-2.5 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all no-underline"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-apex-yellow inline-block" />
-            {user.username || user.email?.split('@')[0]}
+            <span className="w-1.5 h-1.5 rounded-full bg-apex-yellow inline-block flex-shrink-0" />
+            {/* Truncated: without a shrink floor a long username pushed the
+                hamburger off a 320px screen, leaving no way to open the menu. */}
+            <span className="truncate max-w-[90px]">{user.username || user.email?.split('@')[0]}</span>
             {unseenCount > 0 && (
               <span data-testid="notif-badge" className="ml-1 min-w-[16px] h-4 px-1 inline-flex items-center justify-center bg-apex-yellow text-apex-ink font-mono text-[9px] font-bold leading-none">
                 {unseenCount}
@@ -205,7 +207,7 @@ export default function Navbar() {
           </Link>
         ))}
         <button
-          className="text-apex-text-bright"
+          className="p-2 -m-2 text-apex-text-bright"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label={menuOpen ? 'Zamknij menu' : 'Otwórz menu'}
           aria-expanded={menuOpen}

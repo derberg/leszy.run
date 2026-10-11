@@ -1,4 +1,4 @@
-import { Navigate, NavLink, Outlet, useParams } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import Navbar from '../../components/Navbar.jsx'
 import AuthGuard from '../../components/AuthGuard.jsx'
 import useClub from '../../hooks/useClub.js'
@@ -29,6 +29,7 @@ function Shell({ children }) {
 
 function ClubShell() {
   const { slug } = useParams()
+  const location = useLocation()
   const { ready, club, me, members, followedEvents, error, reload } = useClub({ slug })
 
   if (!ready) {
@@ -36,8 +37,14 @@ function ClubShell() {
   }
   // Not an active member, club gone, or fetch failed — nothing to show here.
   if (error || !club || !me) return <Navigate to="/profil/klub" replace />
-  // Old slug resolved via history — normalize the URL to the canonical slug.
-  if (club.slug && club.slug !== slug) return <Navigate to={`/klub/${club.slug}/panel`} replace />
+  // Old slug resolved via history — normalize the URL to the canonical slug,
+  // keeping the section the visitor actually asked for. Sending everyone to
+  // /panel meant a bookmark of .../czlonkowie survived a rename only as far as
+  // the club's front page.
+  if (club.slug && club.slug !== slug) {
+    const section = location.pathname.split('/')[3] || 'panel'
+    return <Navigate to={`/klub/${club.slug}/${section}${location.search}`} replace />
+  }
 
   const canManage = me.role === 'owner' || me.role === 'admin'
   const isOwner = me.role === 'owner'
@@ -65,14 +72,10 @@ function ClubShell() {
           )}
           <div className="min-w-0">
             <div className="font-display font-bold text-lg text-apex-yellow truncate">{club.name}</div>
-            {/* Plain <a>: the bare public page is a static file — client-side
-                routing would land in the SPA instead of Vercel's HTML. */}
-            {club.is_public && (
-              <a href={`/klub/${club.slug}`} target="_blank" rel="noopener"
-                className="font-mono text-[10px] text-apex-muted hover:text-apex-yellow">
-                leszy.run/klub/{club.slug} ↗
-              </a>
-            )}
+            {/* The bare /klub/:slug public page is parked (see
+                public/public/klub/.manifest.json), so there is nothing to link
+                to — the club's own address is shown instead. */}
+            <span className="font-mono text-[10px] text-apex-muted">leszy.run/klub/{club.slug}</span>
           </div>
         </div>
       </header>

@@ -7,6 +7,8 @@ import { AI_FILLABLE, pickFillable, fieldsNeedingFill, applyRegistryUpdates, fil
 import { looksLikeRegulamin } from '../src/lib/looksLikeRegulamin.js'
 import { dropUnsupportedFields } from '../src/lib/extractionEvidence.js'
 import { dropsDistances } from './lib/distances.js'
+import { resolveRegulaminScope } from './lib/enrichScope.js'
+import { resolveRegulaminFromPageHtml } from './lib/registration-page-regulamin.js'
 
 // Subset of AI_FILLABLE that's plausibly extractable from a regulamin PDF.
 // Excludes URLs (PDF doesn't contain its own URL or external pages reliably)
@@ -32,13 +34,26 @@ const PDF_FILLABLE = pickFillable([
 // `pdftotext` — none are in the backend Docker image (same constraint as step 8).
 //
 // Options:
-//   --all                Ignore merged_at — every row with a regulamin URL not
-//                        yet mined (enriched_regulamin_at IS NULL)
-//   --merged-since <d>   Like the default scope but with a custom start date
-//                        (YYYY-MM-DD, UTC) instead of start-of-today. Use when
-//                        this host step runs a day (or more) after the merge —
-//                        pair it with the same date given to run-enrich-search.
-//   default              Rows merged TODAY (merged_at >= start-of-today UTC)
+//   default              Every un-mined row (enriched_regulamin_at IS NULL)
+//                        with a regulamin URL, for a race that has not happened
+//                        yet. See resolveRegulaminScope() for why the scope is
+//                        the event date and not merged_at.
+//   --all                Drop the event-date floor too, so past races are mined
+//                        as well. That was 1465 rows on 2026-09-29 against 124
+//                        for the default, so pair it with --limit.
+//   --merged-since <d>   Narrow the default to rows merged on or after <d>
+//                        (YYYY-MM-DD, UTC). Use when this host step runs right
+//                        after a merge and you want only that merge's rows.
+//                        Pair it with the same date given to run-enrich-search.
+//   --limit <n>          Stop after n rows. Races are taken soonest first, so a
+//                        bounded run clears the most urgent ones.
+//   --only <s>:<id>      Mine exactly these rows, repeatable. Neither the event
+//                        date nor enriched_regulamin_at is consulted, so this
+//                        is how a merged fix reaches the rows it was measured
+//                        against: --only b4sport:13127. Soonest-first ordering
+//                        puts a 2027 race out of --limit's reach, and clearing
+//                        the stamp by hand is a database write for what should
+//                        be a rerun.
 //   --null-bad-regulamin Also NULL scraper_all.regulamin_url when the acquired
 //                        document is positively identified as not being this
 //                        race's regulamin. Off by default — without it such a
@@ -49,11 +64,14 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 const nullBadRegulamin = process.argv.includes('--null-bad-regulamin')
 
-const mergedSinceArg = process.argv.includes('--merged-since')
-  ? process.argv[process.argv.indexOf('--merged-since') + 1]
-  : null
-if (mergedSinceArg && !/^\d{4}-\d{2}-\d{2}$/.test(mergedSinceArg)) {
-  console.error(`--merged-since expects YYYY-MM-DD, got: ${mergedSinceArg}`)
+let scope
+try {
+  scope = resolveRegulaminScope({
+    argv: process.argv.slice(2),
+    today: new Date().toISOString().split('T')[0],
+  })
+} catch (err) {
+  console.error(err.message)
   process.exit(1)
 }
 
@@ -166,7 +184,7 @@ async function listDriveFolder(url) {
 // Download a regulamin from any supported URL and return a local file ready for Claude:
 // { path, kind } where kind 'pdf' is read natively by Claude (best table fidelity) and
 // 'text' is a .txt we extracted ourselves (docx, html page, or multi-file Drive folder).
-async function acquireRegulamin(url) {
+async function acquireRegulamin(url, row, { followWrapper = true } = {}) {
   // 1) Google Drive folder -> download every file, extract text, concatenate
   const folderId = driveFolderId(url)
   if (folderId) {
@@ -212,9 +230,31 @@ async function acquireRegulamin(url) {
 
   const text = extractText(dl.buffer, kind)
   if (!text || text.trim().length < 50) return { error: `${kind} extraction empty` }
+  const identity = looksLikeRegulamin(text)
+
+  // An HTML page that does not read as a regulamin may still BE where the
+  // regulamin lives. A WordPress site publishes rules written in Word by
+  // uploading the file and giving it a page with a heading and a link. The
+  // page is a wrapper, and everything the model is asked for is in the document
+  // beside it. ZPGS 2027 (b4sport:13127) published with price_from, price_to
+  // and registration_deadline null off a regulamin_url returning HTTP 200,
+  // while ZPGS27_regulamin.docx.pdf one link away states the 230/255/280 zł
+  // tiers and the 14.01.2027 payment deadline. Measured 2026-09-29: 7 of the
+  // 195 future rows whose regulamin_url is an HTML page are this shape.
+  //
+  // Only one hop, and only when the page failed the structural test. A page
+  // that reads as a regulamin IS the regulamin, whatever else it links.
+  if (kind === 'html' && followWrapper && identity.verdict !== 'regulamin') {
+    const wrapped = await resolveRegulaminFromPageHtml(dl.buffer.toString('utf-8'), url, row)
+    if (wrapped && wrapped !== url) {
+      const doc = await acquireRegulamin(wrapped, row, { followWrapper: false })
+      if (!doc.error) return { ...doc, wrapperUrl: url, resolvedUrl: wrapped }
+    }
+  }
+
   const f = tmpPath('txt')
   writeFileSync(f, text.trim(), 'utf-8')
-  return { path: f, kind: 'text', text, identity: looksLikeRegulamin(text) }
+  return { path: f, kind: 'text', text, identity }
 }
 
 function buildPrompt(event) {
@@ -350,32 +390,36 @@ async function main() {
     process.exit(1)
   }
 
-  const allFlag = process.argv.includes('--all')
-  if (allFlag) {
-    console.log('Scope: --all — every un-mined row with a regulamin URL (ignores merged_at)')
-  } else {
-    console.log(`Scope: ${mergedSinceArg ? '--merged-since' : 'default'} — rows with merged_at >= ${mergedSinceArg || new Date().toISOString().split('T')[0]}`)
-  }
+  console.log(`Scope: ${scope.description}${scope.limit ? `, at most ${scope.limit}` : ''}`)
   const allRows = []
   let from = 0
   const pageSize = 1000
   while (true) {
     let query = supabase
       .from('scraper_all')
-      .select('id, name, date, location, voivodeship, distances, event_type, event_types, regulamin_url, regulamin_urls, price_from, price_to, registration_deadline, is_kids, enriched_regulamin_at')
+      .select('id, source, source_id, name, date, location, voivodeship, distances, event_type, event_types, regulamin_url, regulamin_urls, price_from, price_to, registration_deadline, is_kids, enriched_regulamin_at')
       .not('regulamin_url', 'is', null)
-      .is('enriched_regulamin_at', null)
-    if (!allFlag) {
-      query = query.gte('merged_at', mergedSinceArg || new Date().toISOString().split('T')[0])
+      // Soonest race first, so a run cut short by --limit or by a person has
+      // done the most urgent rows.
+      .order('date', { ascending: true })
+    if (scope.unminedOnly) query = query.is('enriched_regulamin_at', null)
+    if (scope.only) {
+      query = query.or(
+        scope.only.map((r) => `and(source.eq.${r.source},source_id.eq.${r.source_id})`).join(',')
+      )
     }
+    if (scope.minDate) query = query.gte('date', scope.minDate)
+    if (scope.mergedSince) query = query.gte('merged_at', scope.mergedSince)
     const { data, error: fetchErr } = await query.range(from, from + pageSize - 1)
 
     if (fetchErr) { console.error('Fetch error:', fetchErr.message); process.exit(1) }
     if (!data || data.length === 0) break
     allRows.push(...data)
     if (data.length < pageSize) break
+    if (scope.limit && allRows.length >= scope.limit) break
     from += pageSize
   }
+  if (scope.limit) allRows.length = Math.min(allRows.length, scope.limit)
 
   // Process all rows — even with types set, PDF is authoritative for verification/correction.
   const needsEnrichment = allRows
@@ -393,13 +437,16 @@ async function main() {
     console.log(`    current distances: ${row.distances || '(none)'}`)
     console.log(`    current types: ${row.event_types?.join(', ') || '(none)'}`)
 
-    const download = await acquireRegulamin(url)
+    const download = await acquireRegulamin(url, row)
     if (download.error) {
       console.log(`    SKIP: ${download.error}`)
       skipped++
       continue
     }
     const filePath = download.path
+    if (download.resolvedUrl) {
+      console.log(`    wrapper page, following its link to ${download.resolvedUrl}`)
+    }
     console.log(`    acquired: ${download.kind} (${filePath})`)
 
     // Identity gate — is this document actually this race's regulamin?
@@ -439,6 +486,12 @@ async function main() {
 
       const updates = {}
       console.log(`    Claude returned: ${JSON.stringify(extracted)}`)
+
+      // The document we read is the regulamin; the wrapper page only points at
+      // it. Storing the document keeps the field meaning one thing, lets
+      // run-data-audit read the edition year out of the filename, and spares
+      // the next run the hop.
+      if (download.resolvedUrl) updates.regulamin_url = download.resolvedUrl
 
       // Evidence gate — drop any value the document cannot support. A model
       // asked for a fee in a fee-less document answers something rather than
@@ -505,6 +558,7 @@ async function main() {
           console.log(`    ERR: ${updateErr.message}`)
           failed++
         } else {
+          if (updates.regulamin_url) console.log(`    ✓ regulamin_url: ${url} → ${updates.regulamin_url}`)
           if (updates.distances) console.log(`    ✓ distances: ${row.distances || '(none)'} → ${updates.distances}`)
           if (updates.event_types) console.log(`    ✓ types: ${row.event_types?.join(', ') || '(none)'} → ${updates.event_types.join(', ')}`)
           if (updates.is_kids !== undefined) console.log(`    ✓ is_kids: ${row.is_kids ?? '(none)'} → ${updates.is_kids}`)

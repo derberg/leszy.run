@@ -61,7 +61,7 @@ cd backend && node --env-file=../.env scripts/run-enrich-search.js --apply
 # Step 5.2: Extract fields from the regulamin PDF (Claude CLI). Runs AFTER 5.1
 # so it can read the regulamin_url that step found. Pulls distances, event types,
 # is_kids, prices, deadline, location, voivodeship straight from the rules PDF.
-# remember about  --merged-since 2026-09-03
+# Picks up every un-mined row for a race still to come, whenever it last merged.
 cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js --apply
 
 # Step 5.5: run some scripts cause AI might add some dumb things
@@ -400,7 +400,21 @@ The `regulamin_url` does not have to be a PDF — `acquireRegulamin()` accepts *
 
 ```bash
 cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js
+cd backend && node --env-file=../.env scripts/run-enrich-from-regulamin.js --limit 20
 ```
+
+The step selects every row that has a `regulamin_url`, has never been mined
+(`enriched_regulamin_at IS NULL`) and belongs to a race that has not happened yet,
+soonest race first. It does not gate on `merged_at`, because nothing schedules this
+step: it runs when you run it, and a merge-day scope abandons every row you do not
+mine that same day. On 2026-09-29 that had left 124 future rows from 17 sources
+un-mined, the oldest merged six months earlier.
+
+`--limit <n>` bounds a catch-up run. `--merged-since <YYYY-MM-DD>` narrows the
+selection to rows merged on or after that date, for when you want only the rows a
+particular merge produced. `--all` additionally drops the event-date floor and mines
+races that have already happened, which was 1465 rows against 124 for the default, so
+pair it with `--limit`.
 
 Requires `claude` CLI installed locally (plus `textutil` and `pdftotext`, both present on macOS). Uses `--model haiku` against the acquired document. Complements the Python enricher (Step 5) rather than replacing it; the enricher remains the primary, cost-free tool — and supports the same formats via `enricher/enricher/steps/docs.py`.
 

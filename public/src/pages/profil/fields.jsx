@@ -3,7 +3,7 @@ import { useState } from 'react'
 // Shared field primitives for the profile settings view. Extracted from the old
 // monolithic Profil.jsx so Ustawienia.jsx (and future sections) can reuse them.
 
-export const inputClass = 'flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
+export const inputClass = 'flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-base md:text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
 export const sectionTitle = 'font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted border-b border-apex-border pb-1 mb-3'
 export const actionBtnClass = 'font-mono text-xs px-2 py-1.5 border transition-all leading-none'
 
@@ -110,7 +110,7 @@ export function EditablePhoneField({ value, onSave }) {
         onClick={() => { setDraft(parsePhone(value)); setError(null); setEditing(true) }}
         aria-label="Edytuj telefon"
         title="Edytuj"
-        className="p-1 text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all"
+        className="p-2.5 -m-1.5 text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all"
       >
         <PencilIcon />
       </button>
@@ -131,17 +131,27 @@ export function EditableField({ fieldKey, value, onSave, type = 'text', options,
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   async function save() {
     setSaving(true)
-    await onSave(fieldKey, draft === '' ? null : draft)
-    setSaving(false)
-    setEditing(false)
+    setError(null)
+    try {
+      await onSave(fieldKey, draft === '' ? null : draft)
+      setEditing(false)
+    } catch (err) {
+      // Stay open with the draft intact: closing on a failed save threw away
+      // what the user typed and showed them the old value as if it had stuck.
+      setError(err.message || 'Nie udało się zapisać.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (editing) {
     return (
-      <div className="flex items-center gap-2">
+      <div>
+        <div className="flex items-center gap-2">
         {options ? (
           <select
             data-testid={`input-${fieldKey}`}
@@ -174,11 +184,13 @@ export function EditableField({ fieldKey, value, onSave, type = 'text', options,
           OK
         </button>
         <button
-          onClick={() => setEditing(false)}
+          onClick={() => { setEditing(false); setError(null) }}
           className={`${actionBtnClass} border-apex-border text-apex-muted hover:text-apex-text-bright hover:border-apex-border`}
         >
           ✕
         </button>
+        </div>
+        {error && <p data-testid={`error-${fieldKey}`} className="text-apex-red font-mono text-[10px] mt-1">{error}</p>}
       </div>
     )
   }
@@ -192,10 +204,10 @@ export function EditableField({ fieldKey, value, onSave, type = 'text', options,
       </span>
       <button
         data-testid={`edit-${fieldKey}`}
-        onClick={() => { setDraft(value ?? ''); setEditing(true) }}
+        onClick={() => { setDraft(value ?? ''); setError(null); setEditing(true) }}
         aria-label="Edytuj"
         title="Edytuj"
-        className="p-1 text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all"
+        className="p-2.5 -m-1.5 text-apex-muted md:opacity-0 md:group-hover:opacity-100 hover:text-apex-yellow transition-all"
       >
         <PencilIcon />
       </button>

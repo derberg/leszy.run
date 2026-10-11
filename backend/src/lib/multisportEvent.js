@@ -1,6 +1,7 @@
-// Multisport races: triathlon, duathlon, aquathlon. They contain a running leg,
-// so an organizer files them on a running platform and a scraper reads them as
-// running events. This calendar lists races a runner enters as a runner.
+// Multisport races: triathlon, duathlon, aquathlon, biathlon. They contain a
+// running leg, so an organizer files them on a running platform and a scraper
+// reads them as running events. This calendar lists races a runner enters as a
+// runner.
 
 // No leading \b. The merge's SKIP_KEYWORDS carried \btriathlon\b, \bduathlon\b
 // and \baquathlon\b, and a \b needs a non-word character in front, which a
@@ -13,9 +14,13 @@
 // aqua as akwa. The prefixes stop one letter short (aqu, akw) because the a
 // belongs to the -athlon half: aquathlon splits as aqu + athlon.
 //
-// biathlon and pentathlon are deliberately absent: neither has appeared, and
-// -athlon alone would match them along with anything else ending that way.
-const MULTISPORT = /(?:du|tri|aqu|akw)(?:ath|at)lon/i
+// biathlon is a shooting sport. In summer the competitors run between the
+// shooting ranges instead of skiing, so bgtimesport files it as a running
+// event. All 15 rows carrying the word on 2026-09-29 were that sport.
+//
+// pentathlon is deliberately absent: it has not appeared, and -athlon alone
+// would match it along with anything else ending that way.
+const MULTISPORT = /(?:du|tri|aqu|akw|bi)(?:ath|at)lon/i
 
 // A run&bike is entered as a running race with a bike leg, and its running leg
 // is timed on its own. mergeIntoScraperAll already exempted these from

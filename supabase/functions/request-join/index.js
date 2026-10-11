@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 
 function json(body, status, req) {
@@ -10,8 +10,8 @@ function json(body, status, req) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL'),
@@ -33,6 +33,17 @@ Deno.serve(async (req) => {
     const { data: active } = await supabaseAdmin.from('club_members')
       .select('club_id').eq('user_id', session.userId).eq('status', 'active').maybeSingle()
     if (active) return json({ error: 'Należysz już do klubu.' }, 409, req)
+
+    // One pending request at a time. get-profile-data reads the caller's pending
+    // row with .maybeSingle(), so a second request made two rows, maybeSingle
+    // errored, the error was discarded, and the "your request is waiting"
+    // banner vanished — leaving the user with two live requests and no sign of
+    // either, and no way to cancel one.
+    const { data: pendingElsewhere } = await supabaseAdmin.from('club_members')
+      .select('club_id').eq('user_id', session.userId).eq('status', 'pending').neq('club_id', club_id).maybeSingle()
+    if (pendingElsewhere) {
+      return json({ error: 'Masz już oczekującą prośbę o dołączenie do innego klubu.' }, 409, req)
+    }
 
     // Idempotent upsert of the pending row (PK = club_id,user_id). A previous
     // 'left'/'removed' stint reuses the row: reset lifecycle fields so the

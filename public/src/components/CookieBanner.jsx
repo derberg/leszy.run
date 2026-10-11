@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { POLICY_VERSION } from '../lib/policyVersion'
 import { logConsentServerSide } from '../lib/logConsent'
 
@@ -65,6 +65,7 @@ function writeConsent(decision) {
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false)
+  const bannerRef = useRef(null)
 
   useEffect(() => {
     const consent = readConsent()
@@ -102,10 +103,32 @@ export default function CookieBanner() {
     logConsentServerSide(record.decision)
   }
 
+  // The banner is fixed, so without reserved space it covers whatever happens to
+  // be at the bottom of the page — measured on a 390x844 phone, that was the
+  // "Zapisz zmiany" button of the club settings form and three roster action
+  // rows. Reserve its height on <body> while it is up, and give it back after.
+  useEffect(() => {
+    if (!visible) return undefined
+    const el = bannerRef.current
+    const apply = () => {
+      const h = el?.offsetHeight ?? 0
+      document.body.style.paddingBottom = h ? `${h}px` : ''
+    }
+    apply()
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(apply) : null
+    if (observer && el) observer.observe(el)
+    window.addEventListener('resize', apply)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', apply)
+      document.body.style.paddingBottom = ''
+    }
+  }, [visible])
+
   if (!visible) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-apex-border bg-apex-surface p-4">
+    <div ref={bannerRef} className="fixed bottom-0 left-0 right-0 z-50 border-t border-apex-border bg-apex-surface p-4">
       <div className="mx-auto flex max-w-4xl flex-col items-center gap-3 sm:flex-row sm:justify-between">
         <p className="text-sm text-apex-text">
           Używamy plików cookie do analizy ruchu (Google Analytics). Wyrażenie zgody jest opcjonalne. Szczegóły w <a href="/polityka-prywatnosci" className="text-apex-yellow underline">polityce prywatności</a>.

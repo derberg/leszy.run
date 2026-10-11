@@ -41,12 +41,14 @@ This project is RODO/GDPR-compliant. Reference documents:
 **Bumping privacy policy version:** edit `POLICY_VERSION` in [public/src/lib/policyVersion.js](public/src/lib/policyVersion.js). The cookie banner detects mismatch and re-prompts every user automatically.
 
 **Data subject rights endpoints:**
-- `POST /functions/v1/export-my-data` — returns JSON export of user data (Art. 15/20)
-- `POST /functions/v1/delete-my-account` — two-step OTP soft delete (Art. 17). Email is NOT released after deletion — re-registration with same email is permanently blocked.
+- `POST /functions/v1/export-my-data` — returns JSON export of user data (Art. 15/20). Covers the profile, badges, consent log, favourites, contributions, club membership + `club_membership_log` + owned clubs, **race entries** (`participants` matched by email — the same rows `delete-my-account` anonymises, so the system already treats them as this person's data) and **club invitations addressed to them**.
+- `POST /functions/v1/delete-my-account` — two-step OTP soft delete (Art. 17). It erases the profile's PII, deletes the favourites and club rows, **revokes every `auth_sessions` row** (a soft delete fires no FK cascade, so without this the browser that just deleted the account kept a valid 90-day cookie and could write the erased fields back), and **retires the address in `deleted_email_hashes`** — a SHA-256, never the plaintext. `auth-request-code` and `auth-verify-code` refuse a retired address, which is what makes "email is NOT released after deletion" true. It previously rested on a `supabase.auth.admin` ban, which could never work: this app creates no `auth.users` rows (`auth-verify-code` mints a profile with `crypto.randomUUID()`), so the ban failed and was swallowed.
+
+**Username is claimed once, at onboarding, and cannot be changed** (`_shared/usernameChange.js`, 409 from `update-profile`). There is no rename and no redirect: `/u/<username>` is a public page other pages link to and has no history table behind it — unlike a club slug, which parks former slugs in `club_slug_history` and keeps redirecting — so a rename would break every inbound link AND free the old handle for somebody else to claim. Someone who needs a change writes in and it is done by hand.
 
 **Consent audit trail:** every accept/reject choice on the cookie banner is logged client-side (localStorage with timestamp + policyVersion + userAgent) and, for authenticated users, server-side to the `consent_log` table via the `log-consent` edge function.
 
-**Retention:** `gate_events` and `gate_crossings` are purged 90 days post-race by the scheduler container's daily cron job at 03:00 Europe/Warsaw. No other automatic retention purges.
+**Retention:** `gate_events` and `gate_crossings` are purged 90 days post-race by the scheduler container's daily cron job at 03:00 Europe/Warsaw. At 03:40 the same container runs `backend/scripts/purge-auth-tables.js --apply`, which deletes `auth_sessions` more than 7 days past expiry, `auth_codes` more than a day past expiry and `otp_throttle` windows older than a day — nothing used to delete them, so every session token and code hash ever issued accumulated, and `auth_sessions` rows carry the plaintext email of accounts since deleted. Run it by hand without `--apply` to see the counts. No other automatic retention purges.
 
 **Admin actions:** every admin write (calendar event approval, club merge, contribution review, etc.) is logged to `admin_actions` table with admin_user_id, target, payload, ip, user_agent. Append-only, service_role only.
 
@@ -170,7 +172,11 @@ Pipeline scheduler / alerting (scheduler container, optional — alerts disabled
 - Drizzle schema in `src/db/schema.js`, client in `src/db/index.js`
 - Use Drizzle migrations (`drizzle-kit generate` + `drizzle-kit migrate`)
 - **Migrations MUST be registered in `src/db/migrations/meta/_journal.json`** — Drizzle ignores SQL files not listed there. When writing a migration manually: create the `.sql` file AND add an entry to the journal (`idx`, `version: "7"`, `when`, `tag` matching filename without `.sql`, `breakpoints: true`). If a migration already ran (backend started and logged "Migrations complete"), do NOT modify the SQL file — create a new numbered file + new journal entry instead.
+- **A migration's timestamp must be LATER than every migration already applied to Supabase.** `supabase db push` refuses a file that sorts before the last applied one ("Found local migration files to be inserted before the last migration on remote database") and fails the whole release — so nothing after it deploys either, including the edge functions. This bites when two branches are open at once and the one with the EARLIER timestamp merges second, which is exactly what happened on 2026-09-29. Check `mcp__supabase__list_migrations` (or the last green release) before naming the file, and if it has already been overtaken, rename it to a later timestamp — safe precisely because it was never applied.
 - **DDL changes MUST be applied to both local DB and Supabase.** Local DB uses Drizzle migrations (auto-run on backend start). **Supabase schema changes are a committed SQL migration in `supabase/migrations/` (create with `supabase migration new <name>`), applied to prod by `supabase db push` in the CI release pipeline (`.github/workflows/supabase-release.yml`) on merge to `main` — NOT via MCP `apply_migration` or ad-hoc SQL.** Every schema change touching a table that exists in both DBs requires both the Drizzle migration (local) and a committed Supabase migration. See [docs/supabase-release-runbook.md](docs/supabase-release-runbook.md).
+- **`clubs` is readable by `anon` only where `is_public = true`**, and the club tables (`clubs`, `club_members`, `club_invites`, `club_membership_log`, `club_slug_history`) plus `event_notifications` and `event_favorites` have `REVOKE ALL … FROM anon, authenticated` — the same lockdown the `scraper_*` tables get, because RLS does not govern TRUNCATE. The club picker is unaffected: `search_clubs` is SECURITY DEFINER. Every other club read goes through an edge function on the service role.
+- **Every edge function starts with `guardRequest(req)`** (`_shared/cors.js`): it answers the preflight AND refuses a request whose `Origin` is not ours. CORS headers alone never stopped anything — they decide whether the browser hands the *response* back, while the request already ran, so a page on any origin could POST to `/edge/delete-club` with `credentials: 'include'` and `Content-Type: text/plain` (no preflight) and the session cookie went along. A request with no `Origin` passes: that is a server, not a browser, and every local dev port (`localhost`/`127.0.0.1`) is allowed because `scripts/dev.sh` serves the public app on 3002 while `public/package.json` uses 5173 and `vite preview` uses 4173. The load-bearing half of the fix is the cookie: `SameSite=Lax`, never `None` — it is set through the same-origin `/edge` proxy, so `None` bought nothing and cost exactly this. The cookie is host-scoped to `www.leszy.run` and is never sent to `*.supabase.co`, so the `Origin` check is defence in depth for the proxied path.
+- **Rate limits and attempt counters must be one statement.** `_shared/throttle.js` and the login-code attempt counter both used to SELECT, decide, then UPDATE, which under concurrency lets every request read the same value and pass. They now go through `claim_throttle_slot` / `claim_auth_code_attempt` (migration `20260929230000_atomic_auth_throttles.sql`), where the write IS the check. A new SECURITY DEFINER function needs an explicit `REVOKE … FROM anon, authenticated` — Supabase grants EXECUTE to both by default.
 - **Edge functions deploy via the same CI pipeline** (`supabase functions deploy` on merge to `main`) — not via MCP. Every function needs a block in `supabase/config.toml` (`verify_jwt = false`, `entrypoint = "./functions/<name>/index.js"` — this app uses custom cookie auth, not Supabase JWTs). **Supabase edge functions cannot serve `text/html`** — the runtime coerces would-be-HTML responses to `text/plain` + `nosniff`; serve HTML pages from Vercel instead.
 - WebSocket broadcaster in `src/ws/broadcaster.js` — export a `broadcast(event, data)` function
 - MQTT client starts on server boot, crossing detector subscribes to it
@@ -198,6 +204,8 @@ All messages are JSON: `{ type, payload }`
 | `race:update` | `{ raceRunId, status }` | race started, stopped |
 | `result:update` | `{ raceRunId, participantId, position, durationMs, status }` | new finish or position change |
 | `sync:status` | `{ status, pendingCount, lastSyncedAt }` | sync worker status changes |
+| `vision:sighting` | the `vision_sightings` row, roster-resolved | camera reader closed a track |
+| `vision:health` | `{ sessionId, health, verdict }` | every camera ingest poll (~1 s) |
 
 ## Frontend conventions
 
@@ -268,6 +276,115 @@ Configurable per event (stored in `events` table):
 - `rfid_topic_main`: default `'leszyrun'`
 - `rfid_topic_finish`: default `'leszyrun/finish'` (only used when `rfid_mode = 'separate'`)
 
+## Vision bib recognition (`vision/`)
+
+A camera at the finish gate reads bib numbers from photographs, as a second
+source for runners the chip missed. Phase 0 only: the goal is a measured read
+rate, not a running system. Design:
+`docs/superpowers/specs/2026-09-30-vision-bib-recognition-design.md`, plan:
+`docs/superpowers/plans/2026-09-30-vision-bib-phase0.md`. Both paths are
+gitignored, so specs and plans here are never committed and never get a pull
+request.
+
+**What it is.** A second source at the finish gate. It never outranks a chip
+read, and it is not a photo finish. The timestamp target is 0.5 s.
+
+**Time source precedence: chip, then camera, then volunteer.** Sources never
+cancel each other. Each keeps its own value and the displayed result is
+derived, so changing the precedence later re-derives correctly instead of
+discovering the old value is gone. Precedence applies only where two sources
+both hold a value for the same runner: a volunteer entry with no camera
+sighting is never touched, because a bib under a zipped jacket is invisible to
+the camera and obvious to a person.
+
+**A sighting auto-applies only into an empty chip slot.** Where a chip time
+exists the sighting is stored for the record and never offered. Where none
+exists it applies, including over a volunteer time, and one click in the admin
+screen switches back. None of that is built yet; it is Plan 2, and only if
+phase 0 passes.
+
+**`vision/` is Python.** Second carve-out from the JavaScript-only rule after
+`enricher/`, because `picamera2` and the recognition runtimes are Python only.
+Anything touching a database stays Node.
+
+**Nothing in `vision/` reaches the network or a database.** Photographs never
+leave the machine that captured them. No Supabase client, no cloud, no
+processor, no cross-border transfer. That property is most of why the data
+protection position is defensible, so keep it even when it is inconvenient.
+**The transport out is a file, and only a file:** `read_queue.py` appends to
+`sightings.jsonl`, writes bib crops and rewrites `health.json`; the Fastify
+backend on the same Pi tails those and owns every database write. If you ever
+need the camera to tell the app something new, add a field to that log — do
+not give Python a socket.
+Clauses for the regulamin, the privacy policy and the ROPA are drafted in
+[docs/gdpr/vision-bib-recognition-klauzule.md](docs/gdpr/vision-bib-recognition-klauzule.md).
+The basis is contract performance, not consent, and the system reads numbers,
+never faces.
+
+**The recognizer trains on synthetic renders**, generated by
+`vision/synth/render.py` from the real bib design using the bundled
+`fonts/BarlowCondensed-ExtraBold.ttf`. Photographs are the exam, never the
+training set.
+
+**Phase 0 is a gate.** `scripts/measure_read_rate.py` prints read rate, wrong
+rate and spurious count. Judge the wrong rate first: a missed runner leaves a
+gap a person fills, while a wrong number gives somebody else's time to a
+runner and nobody notices.
+
+**Pinned dependencies with reasons, per platform.** On macOS
+`mediapipe==0.10.21`, because 1.0.x aborts on macOS arm64 asking for a Metal
+service that is not there, and `numpy<2` follows. On the Pi the reverse:
+0.10.21 has no linux-aarch64 wheel and Python 3.13 has no numpy<2 wheel, so
+Linux gets `mediapipe>=1.0` on the apt numpy 2 (plus `libgles2` from apt).
+`opencv<5` holds on both. Do not trust OpenCV's `minAreaRect` angle
+convention: 4.11 reports an untilted block at +90 and 4.14 at -90, which is
+why `_upright()` in `locate.py` folds the correction into [-90, 90). `torch` is in an optional
+`[train]` extra: training runs on a workstation, the Pi only needs
+`onnxruntime`.
+
+**The camera audit tab** (`Audyt kamery` on the event page,
+`frontend/src/components/VisionAudit/`) is the operator's answer to "is the
+camera connected and reading". It works with **no race run started**, like the
+RFID reader dashboard, because checking the camera happens before the race.
+Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
+
+- `vision/scripts/read_queue.py` — the long-running reader. Drains the frame
+  queue, reuses `Tracker` unchanged (so the tab cannot flatter the pipeline),
+  and emits one JSONL line per closed track plus a bib crop. The Pi 5 has no
+  accelerator and reads about 8 frames a second, so capture is pinned to
+  `--fps 6` and the reader skips frames more than `--max-lag-s 3` behind the
+  newest (moved to `done/` unread, kept on disk). Before both existed the
+  reader ran at a 3 fps throttle against a 13 fps camera and fell four minutes
+  behind in ten. `reader_fps` in `health.json` is the MEASURED rate;
+  `capacity_fps` is the flat-out one. The chip still times.
+- `backend/src/vision/ingest.js` — tails the log from a **byte** cursor stored
+  on the session, so a backend restart mid-race resumes exactly where it left
+  off. `parseLog` never consumes past the last newline: a half-written line
+  would otherwise become a second row with no bib, indistinguishable from a
+  genuine unreadable runner.
+- `vision_sessions` / `vision_sightings` are **device-local**, like
+  `gate_crossings` — absent from `configSync.js`, no `trg_reset_synced_at_*`,
+  never pushed. `race_run_id` is nullable by design.
+- **It reports `recognitionRate`, never a read rate.** A read rate is measured
+  against the numbers people actually wore and nothing here knows those.
+  `rosterMatchRate` is the real quality signal available for free: a
+  recognised number matching nobody in the race is almost always a misread.
+- Retention is **30 days**, not 90: `backend/scripts/purge-vision-evidence.js`
+  (cron 03:20, `scheduler/src/jobs/purgeVisionEvidence.js`) deletes the image
+  files first and the rows second, so an interrupted run leaves rows pointing
+  at missing files rather than orphaned photographs.
+- The full-frame view shows a face and is behind an explicit click; the list
+  shows only the digits-only crop. ROPA section 9 covers this. **The regulamin
+  clauses in `docs/gdpr/vision-bib-recognition-klauzule.md` are still not
+  adopted** — do not run the camera at a race whose regulamin omits them.
+
+Install on the Pi: [vision/INSTALL-RASPBERRY-PI.md](vision/INSTALL-RASPBERRY-PI.md).
+On a race Pi, capture and the reader run as systemd services
+(`vision/systemd/`, settings in `/etc/default/leszyrun-vision`). Capture is
+`Restart=on-failure`, never `always`: a run that ended on its time limit or on
+the `--min-free-gb` margin must stay stopped, because frames are never deleted
+before the retention purge and the SD card also holds the database.
+
 ## Calendar event status values (Supabase `calendar_events` table)
 
 `pending` → `active` (admin approves via "Do przeglądu" tab)
@@ -336,12 +453,13 @@ local), so all check-in data has a single source of truth in Supabase.
 - `geocode_cache` — Nominatim geocoding results cache
 - `url_suggestions` — Brave Search URL candidates pending admin review
 - `event_favorites` — user star/follow shortlist (service-role only, written via `toggle-favorite` edge function)
-- `event_notifications` — event-level notification log (`registration_opened` / `deadline_soon`); rows produced by a `calendar_events` trigger + `run-deadline-notifications.js`; UNIQUE(event_id, type). No `cancelled` type — cancellation alerts were intentionally dropped (we can't promise them; cancellation data depends on organizers reporting it).
+- `event_notifications` — event-level notification log. Only `registration_opened` is stored now, by a `calendar_events` trigger; UNIQUE(event_id, type). **`deadline_soon` is DERIVED at read time** (`supabase/functions/_shared/deadlineSoon.js`, shared by `get-notifications` and the weekly digest so the badge and the email agree). Storing it could not work: the unique constraint means the fact fires once per event, and every reader drops notifications older than the user's star, so the single row was invisible to everyone who starred the race afterwards — which is precisely the person who needs the warning. `run-deadline-notifications.js` and its 08:30 cron are retired; old `deadline_soon` rows are ignored. No `cancelled` type — cancellation alerts were intentionally dropped (we can't promise them; cancellation data depends on organizers reporting it).
 - `event_results_summary` — read-only view aggregating per-event stats (participants, finishers, timed distances, fastest finisher) for past-event public pages; only `participants` + `distances` are currently surfaced. Created via a committed migration (deployed by the CI pipeline).
 - `event_category_best_times` — read-only view: best finish time per event × timed category × gender (`M`/`K` only; non-cancelled runs, untimed categories excluded). Feeds the past-event "Najlepsze czasy" table. Created via a committed migration (deployed by the CI pipeline).
 - `club_membership_log` — append-only club membership history (joined/left/removed/role_changed), written by the club edge functions; covered by export-my-data / delete-my-account (see GDPR section)
 - `prepublish_verdicts` — what the pre-publish review proved about one field of one event (`absent-at-source` / `needs-human`), one row per source+source_id+field. Read by the review step to skip settled fields and by `GET /api/calendar-events` to explain blank columns in the admin queue.
-- `club_slug_history` — former club slugs (old_slug → club_id) backing get-club's slug fallback and the static redirect stubs; rows deleted only when a club reclaims its own former slug
+- `deleted_email_hashes` — SHA-256 of every deleted account's address, so the address cannot be re-registered. Holds no plaintext.
+- `club_slug_history` — former club slugs (old_slug → club_id) backing get-club's slug fallback. **Renaming a club's slug is no longer possible** (`update-club` returns 409, the field is read-only in Ustawienia) — for the same reason usernames cannot be renamed: it repoints every published link and parks the old address forever. The table stays because it still resolves the renames that already happened, and `create-club`'s `uniqueSlug` must keep refusing to reissue a parked slug. Someone who needs a different address writes in.
 
 ## Supabase sync — how it works
 
@@ -429,7 +547,7 @@ The `public/` build is **not a pure SPA**. After `vite build`, several scripts w
 - `scripts/generate-event-pages.js` — one file per `/kalendarz/:slug` (reads `public/public/kalendarz/.manifest.json`)
 - `scripts/generate-landing-pages.js` — one file per `/listy/*` page (reads `public/public/listy/.manifest.json`)
 - `scripts/generate-leszyrun-event-pages.js` — one file per past, public leszy.run event at `/events/:slug` (reads `public/public/events/.manifest.json`), with baked stats + a "Zobacz wyniki" link to the internal results. The manifest is produced by `backend/scripts/publish-leszyrun-events.js --apply` (host: `cd backend && node --env-file=../.env scripts/publish-leszyrun-events.js --apply`). Re-run after a new event finishes, then commit the refreshed manifest.
-- `scripts/generate-club-pages.js` — one file per public club at `/klub/:slug` (reads `public/public/klub/.manifest.json`, a committed JSON array), with member count + visible-member roster + a SportsTeam JSON-LD. The manifest is produced by `backend/scripts/publish-club-pages.js --apply` (host: `cd backend && node --env-file=../.env scripts/publish-club-pages.js --apply`) — query is `clubs` where `is_public = true AND owner_id IS NOT NULL`, applying the same `hidden_public`/`club_public_name` masking as the retired `render-club` function. Re-run whenever a club's public visibility, roster, profile fields, **or slug** change, then commit the refreshed manifest — a slug rename also needs a fresh redirect stub (see below). This REPLACES the old `render-club` Supabase edge function SSR approach (the Supabase edge runtime forced `text/plain` on HTML responses there, breaking crawlers/JSON-LD) — unlike `/events/:slug`, the SPA does not own the bare `/klub/:slug` route; only the sub-paths are SPA routes: `/klub/:slug/dolacz` (invite-accept) and the slug-scoped club area `/klub/:slug/{panel,czlonkowie,zaproszenia,ustawienia}` (member home, roster, invites, settings — index redirects to `panel`, all beta-gated). Renaming a club's slug leaves a redirect stub at the old `/klub/:old-slug` (from `club_slug_history`, regenerated by the same `generate-club-pages.js` run) so old links and bookmarks keep resolving.
+- `scripts/generate-club-pages.js` — **PARKED since 2026-09-29: the public club page is not shipped.** `public/public/klub/.manifest.json` is deliberately `[]`, so this generator writes nothing and `/klub/:slug` belongs entirely to the SPA's member-only club area; the "Publiczna strona klubu" switch in `public/src/pages/klub/Ustawienia.jsx` is rendered disabled with a *wkrótce* note. Do NOT run `publish-club-pages.js --apply` until the page is brought back — it would republish the pages. How it works when revived: one file per public club at `/klub/:slug` (reads `public/public/klub/.manifest.json`, a committed JSON array), with member count + visible-member roster + a SportsTeam JSON-LD. The manifest is produced by `backend/scripts/publish-club-pages.js --apply` (host: `cd backend && node --env-file=../.env scripts/publish-club-pages.js --apply`) — query is `clubs` where `is_public = true AND owner_id IS NOT NULL`, applying the same `hidden_public`/`club_public_name` masking as the retired `render-club` function. Re-run whenever a club's public visibility, roster, profile fields, **or slug** change, then commit the refreshed manifest — a slug rename also needs a fresh redirect stub (see below). This REPLACES the old `render-club` Supabase edge function SSR approach (the Supabase edge runtime forced `text/plain` on HTML responses there, breaking crawlers/JSON-LD) — unlike `/events/:slug`, the SPA does not own the bare `/klub/:slug` route; only the sub-paths are SPA routes: `/klub/:slug/dolacz` (invite-accept) and the slug-scoped club area `/klub/:slug/{panel,czlonkowie,zaproszenia,ustawienia}` (member home, roster, invites, settings — index redirects to `panel`, all beta-gated). Renaming a club's slug leaves a redirect stub at the old `/klub/:old-slug` (from `club_slug_history`, regenerated by the same `generate-club-pages.js` run) so old links and bookmarks keep resolving.
 
 All manifests are **committed to the repo** and generated by backend pipeline scripts (`publish-event-pages.js --apply`, `publish-leszyrun-events.js --apply`, `publish-club-pages.js --apply`). Vercel serves the pre-generated files directly; the SPA rewrite in `vercel.json` only catches paths with no matching static file. `vercel.json` also has a permanent redirect from `leszy.run` → `www.leszy.run`.
 
@@ -984,6 +1102,10 @@ The mapping files (`biegi-mappings.js` in both `backend/scripts/lib/` and `publi
 - Do not use `docker compose down -v` unless explicitly asked
 - Do not pull data from Supabase into local DB EXCEPT via the sanctioned reverse-sync workers: `checkins`/`checkin_documents` (`checkinSync.js`), `checkpoint_observations` (realtime in `supabase.js`), and event config + results (`configSync.js` — `events, categories, participants, checkpoints, race_runs, results, event_documents`). Any NEW reverse-pull must stamp `synced_at = now()` and guard the ON CONFLICT update with `synced_at IS NOT NULL` (never clobber a locally-dirty row) — see `configSync.js`.
 - Do not add TypeScript type annotations or `.ts` files
+- Do not add an AGPL dependency to `vision/`. The YOLOv8 and Ultralytics family is banned; leszy.run is a commercial service and that licence does not belong inside it. Person detection is MediaPipe, Apache 2.0, and it is enough.
+- Do not train the vision recognizer on photographs from a real race. They are the measurement set, and a model trained on its own exam produces a read rate that means nothing. Training data is generated by `vision/synth/`.
+- Do not give `vision/` a database client, a Supabase client, or any outbound network call. Photographs staying on the capture machine is what the GDPR position rests on. The only way data leaves `vision/` is a file on disk (`sightings.jsonl`, `health.json`, `crops/`) that the Node backend tails — extend that log rather than opening a socket.
+- Do not add a `trg_reset_synced_at_*` trigger or a `configSync.js` entry for `vision_sessions` / `vision_sightings`, and do not add a `synced_at` column to them. They are device-local on purpose; syncing them would push camera evidence to Supabase and break the data protection position outright.
 - Do not use peak RSSI for signal-strength bars — always use live (most recent) reading with decay. See ARCHITECTURE.md → "RSSI display rule — live signal, not peak"
 - Do not create local copies of `estimatePositions()` — always import from `@leszyrun/ui` (shared package in `packages/ui/src/lib/positionEstimation.js`). A stale local copy caused a live-race bug where podium ordering ignored checkpoint timestamps. If you think the shared function needs changes, stop and ask the user first — the sorting tiers (finish time → checkpoint index → observation time → start time) are load-bearing for live race display.
 - Do not resurrect a DNS runner's checkpoint observations. A `dns` result asserts the runner never left the start line, so any observation under their bib is bogus — a mistyped bib on the volunteer numpad, or a stray read. Three read paths drop them and must stay in agreement: `estimatePositions()` discards the observation entirely (so DNS never enters the checkpoint sorting tier), `CheckpointTrackingTable`'s `splitAt()` blanks their split columns, and `NearFinish` filters them out of "Blisko Mety". **DNF and DSQ deliberately keep theirs** — those runners were on course. Guarded by `packages/ui/test/positionEstimation.test.js` (`npm run test:ui`); the regression came from Nocny Zew Wilka 2026-08-07, where bib 1 was DNS and one manual 5 km entry showed him as "NA TRASIE" ranked above runners who had actually started.

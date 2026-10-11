@@ -1,0 +1,45 @@
+[project]
+name = "leszyrun-vision"
+version = "0.1.0"
+requires-python = ">=3.11"
+# mediapipe is pinned per platform, because no single release runs on both.
+# On macOS arm64 1.0.x aborts: the object detector asks for a Metal GPU
+# service that is not there and calls Check failed. 0.10.21 works, and it
+# requires numpy<2. On the Pi the opposite holds: 0.10.21 ships no
+# linux-aarch64 wheel at all, and Raspberry Pi OS (trixie) runs Python 3.13,
+# for which numpy<2 has no wheel either and fails to build from source. 1.x
+# installs there against the apt numpy 2. It needs libgles2 from apt.
+# mediapipe 1.x also pulls opencv-contrib-python, which would otherwise
+# resolve to 5.x beside our 4.x headless build. Both provide cv2.
+dependencies = [
+    "pillow>=10.0",
+    "numpy>=1.26,<2; sys_platform == 'darwin'",
+    "numpy>=1.26; sys_platform == 'linux'",
+    "opencv-python-headless>=4.9,<5",
+    "opencv-contrib-python>=4.9,<5; sys_platform == 'linux'",
+    "onnxruntime>=1.17",
+    "mediapipe==0.10.21; sys_platform == 'darwin'",
+    "mediapipe>=1.0; sys_platform == 'linux'",
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+# Training only, and only on a workstation. The Pi never needs these.
+train = ["torch>=2.2", "onnxscript>=0.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "error::DeprecationWarning:vision.*",
+    # protobuf ships a Python 3.14 deprecation that mediapipe pulls in. Not
+    # ours to fix, and it would otherwise be the only noise in the run.
+    "ignore:Type google._upb._message.*:DeprecationWarning",
+]
+
+[tool.setuptools.packages.find]
+include = ["vision*"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"

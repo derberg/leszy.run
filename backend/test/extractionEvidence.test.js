@@ -72,3 +72,63 @@ test('deadline gate', () => {
   assert.equal(hasDeadlineEvidence('Zapisy przyjmowane do 10 września.'), true)
   assert.equal(hasDeadlineEvidence('Bieg odbędzie się bez względu na pogodę.'), false)
 })
+
+// A fee only some entrants may pay is not the entry fee.
+//
+// Verbatim from http://gpclubianka.pl/ogolny/, the regulamin of BIEG
+// PAŹDZIERNIKOWY 2026 - GMINA ŁUBIANKA. On 2026-09-29 the regulamin step read
+// 15 as price_from and it reached the public calendar, where nobody outside the
+// gmina could have paid it.
+const LUBIANKA = `XIII. Zasady finansowania: Opłaty wpisowej dokonujemy drogą internetową za pomocą formularza zgłoszeniowego na stronie gplubianka.pl lub w biurze zawodów w dniu biegu.
+Wysokość opłaty za pomocą internetowego systemu płatności najpóźniej na pięć dni przed każdym biegiem – 25 zł, w biurze zawodów przed startem – 50 zł
+Dla mieszkanek oraz mieszkańców gminy Łubianka przewidziana jest bonifikata:15 zł rejestracja internetowa, 50 zł rejestracja w dniu biegu, 120 zł w przypadku opłacenia całego cyklu z góry).`
+
+test('drops a fee that only residents may pay', () => {
+  const extracted = { price_from: 15, price_to: 50 }
+  const dropped = dropUnsupportedFields(extracted, LUBIANKA)
+  assert.deepEqual(dropped, ['price_from'])
+  assert.equal(extracted.price_from, undefined)
+  // 50 is stated for everyone in the line above, so it keeps its evidence.
+  assert.equal(extracted.price_to, 50)
+})
+
+test('keeps the fee an ordinary entrant pays', () => {
+  const extracted = { price_from: 25, price_to: 50 }
+  assert.deepEqual(dropUnsupportedFields(extracted, LUBIANKA), [])
+  assert.equal(extracted.price_from, 25)
+  assert.equal(extracted.price_to, 50)
+})
+
+test('drops both when both come from the restricted offer', () => {
+  const extracted = { price_from: 15, price_to: 120 }
+  const dropped = dropUnsupportedFields(extracted, LUBIANKA)
+  assert.deepEqual(dropped.sort(), ['price_from', 'price_to'])
+})
+
+test('an early-bird tier is open to everyone and survives', () => {
+  // The distinction is WHO may pay, not whether the word is a discount. A date
+  // tier is a discount anybody can take by entering early.
+  const text = 'Opłata startowa: 40 zł do 30 września, 60 zł po tym terminie.'
+  const extracted = { price_from: 40, price_to: 60 }
+  assert.deepEqual(dropUnsupportedFields(extracted, text), [])
+  assert.equal(extracted.price_from, 40)
+})
+
+test('other restricted groups are caught too', () => {
+  for (const [group, line] of [
+    ['members', 'Opłata startowa 80 zł. Członkowie klubu płacą 40 zł.'],
+    ['pupils', 'Opłata startowa 80 zł. Uczniowie szkół gminy płacą 40 zł.'],
+    ['students', 'Opłata startowa 80 zł. Studenci za okazaniem legitymacji 40 zł.'],
+    ['seniors', 'Opłata startowa 80 zł. Seniorzy powyżej 70 lat 40 zł.'],
+  ]) {
+    const extracted = { price_from: 40, price_to: 80 }
+    assert.deepEqual(dropUnsupportedFields(extracted, line), ['price_from'], group)
+  }
+})
+
+test('a free race is still free', () => {
+  // The restriction check must not disturb the 0 that hasFreeEvidence allows.
+  const extracted = { price_from: 0 }
+  assert.deepEqual(dropUnsupportedFields(extracted, 'Udział w biegu jest bezpłatny.'), [])
+  assert.equal(extracted.price_from, 0)
+})

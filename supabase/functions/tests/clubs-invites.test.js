@@ -40,9 +40,13 @@ describe('manage-club-invite', () => {
     assert.ok(data.data.invite.id)
 
     const { data: row } = await supabaseAdmin.from('club_invites')
-      .select('kind, target_email').eq('id', data.data.invite.id).single()
+      .select('kind, target_email, code, max_uses, expires_at').eq('id', data.data.invite.id).single()
     assert.equal(row.kind, 'direct')
     assert.equal(row.target_email, 'kolega@example.com')
+    // It carries a link the manager can send, and it runs out.
+    assert.ok(row.code, 'a direct invite needs a code or there is no URL to send')
+    assert.equal(row.max_uses, 1)
+    assert.ok(row.expires_at, 'a direct invite must expire')
   })
 
   it('create-direct requires email or username (400)', async () => {
@@ -188,6 +192,54 @@ describe('accept-invite', () => {
       if (clubA) await cleanupClub(clubA.id)
       if (clubB) await cleanupClub(clubB.id)
       await cleanupUser(ownerA.user.id); await cleanupUser(ownerB.user.id)
+    }
+  })
+
+  it('a direct invite addressed to someone else is refused (403)', async () => {
+    const owner = await createTestSession('acc-dir-owner-x')
+    const stranger = await createTestSession('acc-dir-stranger')
+    let club
+    try {
+      club = await createClub(owner.sessionToken, 'Accept Direct Wrong Person Club')
+      const invite = await callFunction('manage-club-invite',
+        { club_id: club.id, op: 'create-direct', email: 'kolega@example.com' }, owner.sessionToken)
+
+      // The id alone used to be enough: anyone who saw it could join.
+      const { status } = await callFunction('accept-invite',
+        { invite_id: invite.data.data.invite.id }, stranger.sessionToken)
+      assert.equal(status, 403)
+
+      const { count } = await supabaseAdmin.from('club_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('club_id', club.id).eq('user_id', stranger.user.id)
+      assert.equal(count, 0)
+    } finally {
+      if (club) await cleanupClub(club.id)
+      await cleanupUser(owner.user.id); await cleanupUser(stranger.user.id)
+    }
+  })
+
+  it('a single-use link cannot be used twice', async () => {
+    const owner = await createTestSession('acc-once-owner')
+    const first = await createTestSession('acc-once-first')
+    const second = await createTestSession('acc-once-second')
+    let club
+    try {
+      club = await createClub(owner.sessionToken, 'Accept Once Club')
+      const invite = await callFunction('manage-club-invite',
+        { club_id: club.id, op: 'create-link', max_uses: 1 }, owner.sessionToken)
+      const code = invite.data.data.invite.code
+
+      const a = await callFunction('accept-invite', { code }, first.sessionToken)
+      assert.equal(a.status, 200)
+      const b = await callFunction('accept-invite', { code }, second.sessionToken)
+      assert.equal(b.status, 409)
+
+      const { data: row } = await supabaseAdmin.from('club_invites').select('uses').eq('code', code).single()
+      assert.equal(row.uses, 1, 'the counter must reflect the one accepted use')
+    } finally {
+      if (club) await cleanupClub(club.id)
+      await cleanupUser(owner.user.id); await cleanupUser(first.user.id); await cleanupUser(second.user.id)
     }
   })
 

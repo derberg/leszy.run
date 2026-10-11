@@ -80,6 +80,11 @@ describe('delete-my-account', () => {
     await supabaseAdmin.from('auth_sessions').delete().eq('user_id', userId)
     // Profile may have been soft-deleted (email nulled); delete by id
     await supabaseAdmin.from('profiles').delete().eq('id', userId)
+    // The deletion retires the address permanently — drop the tombstone so the
+    // suite does not accumulate one hash per CI run.
+    const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(email.toLowerCase().trim()))
+    const emailHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+    await supabaseAdmin.from('deleted_email_hashes').delete().eq('email_hash', emailHash)
     // Clean up participant and event fixtures
     if (testParticipantId) await supabaseAdmin.from('participants').delete().eq('id', testParticipantId)
     if (testEventId) await supabaseAdmin.from('events').delete().eq('id', testEventId)
@@ -111,7 +116,7 @@ describe('delete-my-account', () => {
     assert.equal(rows[0].used, false)
   })
 
-  it('action=confirm with valid code soft-deletes profile and bans auth user', async () => {
+  it('action=confirm erases the profile, revokes the session and retires the email', async () => {
     // Issue a fresh OTP directly into the DB so we know the plaintext
     const plainCode = '543210'
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(plainCode))
@@ -137,7 +142,7 @@ describe('delete-my-account', () => {
     // Verify profile was soft-deleted
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('email, display_name, deleted_at, username')
+      .select('email, display_name, deleted_at, username, bio, nickname, avatar_url')
       .eq('id', userId)
       .single()
     assert.equal(profileError, null)
@@ -146,11 +151,28 @@ describe('delete-my-account', () => {
     assert.ok(profile.deleted_at, 'deleted_at should be set')
     assert.ok(profile.username.startsWith('usuniety-'), 'username should be anonymized')
 
-    // Note: auth.users ban is verified by checking that the ban_duration was set.
-    // Since we seeded a profile-only row (no auth.users entry), the ban step logs a
-    // non-fatal error and continues — the profile deletion is the critical outcome.
-    // In full integration tests with real auth.users rows, supabaseAdmin.auth.admin.getUserById
-    // would show banned_until set far in the future.
+    // The free-text fields the first version of this left behind.
+    assert.equal(profile.bio, null, 'bio should be erased')
+    assert.equal(profile.nickname, null, 'nickname should be erased')
+    assert.equal(profile.avatar_url, null, 'avatar_url should be erased')
+
+    // Sessions are revoked: a soft delete fires no FK cascade, so without an
+    // explicit delete the browser that just deleted the account kept a valid
+    // 90-day cookie and could write the erased fields back.
+    const { count: sessionCount } = await supabaseAdmin
+      .from('auth_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+    assert.equal(sessionCount, 0, 'auth_sessions rows should be deleted on account deletion')
+
+    const stillAlive = await post('get-profile-data', {}, sessionToken)
+    assert.equal(stillAlive.status, 401, 'the revoked session must no longer authenticate')
+
+    // The address is retired — this is what makes the dialog's "adres email nie
+    // zostanie zwolniony" true. It used to rest on an auth.users ban, and this
+    // app creates no auth.users rows, so re-registration was never blocked.
+    const retired = await post('auth-request-code', { email })
+    assert.equal(retired.status, 403, 'a retired address must not be issued a new login code')
 
     // Verify participant row was anonymized
     const { data: participant, error: participantError } = await supabaseAdmin

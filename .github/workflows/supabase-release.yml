@@ -65,7 +65,7 @@ jobs:
       # prod-safe create/remove smoke.
       - name: Smoke test (advisory — non-blocking)
         continue-on-error: true
-        run: node supabase/functions/tests/sweep.js && node --test supabase/functions/tests/*.test.js
+        run: npm run test:unit --prefix public && node supabase/functions/tests/sweep.js && node --test supabase/functions/tests/*.test.js
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

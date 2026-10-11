@@ -1,6 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { sanitizePrivacySettings } from '../_shared/privacySettings.js'
+import { usernameChangeError } from '../_shared/usernameChange.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -17,8 +19,8 @@ const VOIVODESHIPS = new Set([
 ])
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL'),
@@ -95,9 +97,17 @@ Deno.serve(async (req) => {
 
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
-      .select('id, privacy_settings')
+      .select('id, username, privacy_settings')
       .eq('id', session.userId)
       .single()
+
+    if (username !== undefined) {
+      // Claimed once, kept. See _shared/usernameChange.js — a rename breaks
+      // every link to /u/<old>, which has no history table behind it, and hands
+      // the freed handle to whoever asks next.
+      const changeErr = usernameChangeError(existingProfile?.username, username)
+      if (changeErr) return json({ error: changeErr }, 409, req)
+    }
 
     const updates = {}
     if (username !== undefined)          updates.username = username
@@ -122,12 +132,9 @@ Deno.serve(async (req) => {
     }
 
     if (body.privacy_settings !== undefined) {
-      const incoming = body.privacy_settings || {}
-      const cpn = incoming.club_public_name
-      if (cpn !== undefined && !['display', 'nickname'].includes(cpn)) {
-        return json({ error: 'Nieprawidłowa wartość club_public_name.' }, 400, req)
-      }
-      updates.privacy_settings = { ...(existingProfile?.privacy_settings || {}), ...incoming }
+      const sanitized = sanitizePrivacySettings(body.privacy_settings, existingProfile?.privacy_settings)
+      if (sanitized.error) return json({ error: sanitized.error }, 400, req)
+      updates.privacy_settings = sanitized.value
     }
 
     // If the body carried only ignored fields (e.g. club/club_id), updates is
@@ -144,7 +151,17 @@ Deno.serve(async (req) => {
           .eq('id', session.userId)
           .select('*, clubs!profiles_club_id_fkey(name)')
           .single()
-    if (error) throw error
+    if (error) {
+      // The username pre-check is a SELECT and the write is a separate
+      // statement, so two people claiming the same handle in the same second
+      // both pass it and the loser hits the unique constraint. That used to
+      // reach the browser as a 500 carrying the raw Postgres text, which
+      // Onboarding then printed at the user.
+      if (error.code === '23505' && /username/.test(error.message || '')) {
+        return json({ error: 'Username already taken' }, 409, req)
+      }
+      throw error
+    }
 
     // API contract: keep returning club as a string
     const out = { ...profile, club: profile.clubs?.name ?? null }
@@ -152,6 +169,9 @@ Deno.serve(async (req) => {
 
     return json({ data: out }, 200, req)
   } catch (err) {
-    return json({ error: err.message }, 500, req)
+    // Never hand a raw Postgres error to the browser — it names constraints,
+    // columns and types.
+    console.error('update-profile failed:', err.message)
+    return json({ error: 'Nie udało się zapisać zmian.' }, 500, req)
   }
 })

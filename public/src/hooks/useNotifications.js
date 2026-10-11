@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { callFunction } from '../lib/auth.js'
-import { readCache, writeCache, clearCache, isFresh } from '../lib/clientCache.js'
+import { readCache, writeCache, clearCache, isFresh, USER_CACHE_KEYS } from '../lib/clientCache.js'
 import useAuth from './useAuth.js'
 
 // The navbar badge shows on every page, so a naive fetch = one get-notifications
 // per full page load per logged-in user. A short-TTL localStorage cache lets the
 // badge survive reloads without re-fetching, while staying fresh enough that a
 // new notification surfaces within TTL_MS.
-const CACHE_KEY = 'leszy.notifications'
+const CACHE_KEY = USER_CACHE_KEYS[1]
 const TTL_MS = 5 * 60 * 1000 // 5 min
 
 let cache

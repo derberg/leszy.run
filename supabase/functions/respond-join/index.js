@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
 import { logMembershipEvent } from '../_shared/membershipLog.js'
@@ -19,8 +19,8 @@ async function requireManager(supabaseAdmin, clubId, userId) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL'),
@@ -72,9 +72,15 @@ Deno.serve(async (req) => {
       .select('club_id').eq('user_id', user_id).eq('status', 'active').maybeSingle()
     if (activeElsewhere) return json({ error: 'Użytkownik należy już do innego klubu.' }, 409, req)
 
-    await supabaseAdmin.from('club_members')
+    const { error: activateErr } = await supabaseAdmin.from('club_members')
       .update({ status: 'active', joined_at: new Date().toISOString() })
       .eq('club_id', club_id).eq('user_id', user_id)
+    if (activateErr) {
+      if (activateErr.code === '23505') {
+        return json({ error: 'Użytkownik należy już do innego klubu.' }, 409, req)
+      }
+      throw activateErr
+    }
     await supabaseAdmin.from('profiles').update({ club_id }).eq('id', user_id)
 
     await logMembershipEvent(supabaseAdmin, {

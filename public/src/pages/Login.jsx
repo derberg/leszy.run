@@ -7,7 +7,7 @@ import { clearFavoritesCache } from '../hooks/useFavorites.js'
 import { clearNotificationsCache } from '../hooks/useNotifications.js'
 import useSeo from '../hooks/useSeo.js'
 
-const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
+const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-base md:text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const labelClass = 'block font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-1.5'
 
 // Only allow internal redirects: must start with a single "/", no "//" (off-site), no "\".

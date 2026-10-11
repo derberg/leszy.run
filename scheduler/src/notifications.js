@@ -55,8 +55,8 @@ async function runBackendScript(name, scriptArgs) {
   return result;
 }
 
-export function runDeadlineNotifications() {
-  return runBackendScript('deadline-notifications', ['scripts/run-deadline-notifications.js', '--apply']);
+export function runPurgeAuthTables() {
+  return runBackendScript('purge-auth-tables', ['scripts/purge-auth-tables.js', '--apply']);
 }
 
 export function runWeeklyDigest() {

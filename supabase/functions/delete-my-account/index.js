@@ -4,7 +4,8 @@
 //   POST { action: 'request' }           → issues OTP, sends email, returns { sent: true }
 //   POST { action: 'confirm', code: '…' } → validates OTP, soft-deletes profile, bans auth user, returns { deleted: true }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, handleOptions } from '../_shared/cors.js'
+import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
+import { retireEmail } from '../_shared/deletedEmails.js'
 import { getSession } from '../_shared/session.js'
 
 async function sha256hex(text) {
@@ -120,8 +121,8 @@ async function sendDeletionEmail(email, code) {
 }
 
 Deno.serve(async (req) => {
-  const optRes = handleOptions(req)
-  if (optRes) return optRes
+  const guard = guardRequest(req)
+  if (guard) return guard
 
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405, req)
@@ -234,7 +235,7 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString()
     const { data: codes } = await supabaseAdmin
       .from('auth_codes')
-      .select('id, code_hash, attempts')
+      .select('id')
       .eq('email', normalizedEmail)
       .eq('purpose', 'delete_account')
       .eq('used', false)
@@ -247,18 +248,27 @@ Deno.serve(async (req) => {
       return json({ error: 'Invalid or expired code' }, 401, req)
     }
 
-    if (otpRow.attempts >= 3) {
-      return json({ error: 'Too many attempts. Request a new code.' }, 403, req)
+    // Same atomic claim as the login code: counting attempts with a SELECT and
+    // a separate UPDATE lets concurrent requests all read the same value and
+    // all get a guess, so the 3-attempt cap is worth however many requests fit
+    // in one round trip.
+    const { data: claimedHash, error: claimErr } = await supabaseAdmin
+      .rpc('claim_auth_code_attempt', { p_code_id: otpRow.id, p_max: 3 })
+    if (claimErr) {
+      // This branch has no enclosing try: a throw here escapes Deno.serve as a
+      // bare 500 with no CORS headers and no body, and DangerZone then shows
+      // "Niepoprawny kod" — blaming the user for a database problem.
+      console.error('delete-my-account: claim_auth_code_attempt failed:', claimErr.message)
+      return json({ error: 'Wystąpił błąd. Spróbuj ponownie za chwilę.' }, 500, req)
+    }
+    if (!claimedHash) {
+      // Used, expired, or out of attempts — most often a double-submitted form
+      // whose first request already consumed the code.
+      return json({ error: 'Ten kod jest już nieaktualny. Poproś o nowy.' }, 403, req)
     }
 
-    // Increment attempts before checking hash (rate-limit even on wrong guesses)
-    await supabaseAdmin
-      .from('auth_codes')
-      .update({ attempts: otpRow.attempts + 1 })
-      .eq('id', otpRow.id)
-
     const incomingHash = await sha256hex(trimmedCode)
-    if (incomingHash !== otpRow.code_hash) {
+    if (incomingHash !== claimedHash) {
       return json({ error: 'Invalid or expired code' }, 401, req)
     }
 
@@ -293,6 +303,9 @@ Deno.serve(async (req) => {
         email: null,
         username: 'usuniety-' + profile.id.slice(0, 8),
         display_name: 'Uczestnik anonimowy',
+        nickname: null,
+        bio: null,
+        avatar_url: null,
         phone: null,
         date_of_birth: null,
         gender: null,
@@ -326,13 +339,30 @@ Deno.serve(async (req) => {
     // 2d. Clear stale owner-transfer nominations pointing at the deleted user
     await supabaseAdmin.from('clubs').update({ pending_owner_id: null }).eq('pending_owner_id', session.userId)
 
-    // 3. Permanently ban auth user (email on auth.users is NOT rotated — stays claimed, blocks re-registration)
-    const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(session.userId, {
-      ban_duration: '876000h',
-    })
-    if (banError) {
-      // Non-fatal: profile is already soft-deleted; log and continue
-      console.error('auth ban error (non-fatal, profile already deleted):', banError)
+    // 2e. Revoke every session. A soft delete never fires the ON DELETE CASCADE
+    // from auth_sessions, so without this the browser that just deleted the
+    // account keeps a valid 90-day cookie: auth-me still answers, and
+    // update-profile would happily write the erased fields back. The rows also
+    // carry the plaintext email, which erasure must not leave behind.
+    const { error: sessErr } = await supabaseAdmin.from('auth_sessions').delete().eq('user_id', session.userId)
+    if (sessErr) console.error('delete-my-account: session revoke failed:', sessErr.message)
+
+    // 2f. Same for any outstanding login / deletion codes for that address.
+    const { error: codesErr } = await supabaseAdmin.from('auth_codes').delete().eq('email', originalEmail)
+    if (codesErr) console.error('delete-my-account: auth_codes cleanup failed:', codesErr.message)
+
+    // 3. Retire the address. This REPLACES a supabase.auth.admin ban that could
+    // never work: this app does not create auth.users rows (auth-verify-code
+    // mints a profile with crypto.randomUUID(), and profiles.id has no FK to
+    // auth.users), so updateUserById targeted a non-existent user, failed, and
+    // was swallowed — while the dialog told the user the address was blocked
+    // for good. Only a hash is stored; see _shared/deletedEmails.js.
+    const { error: retireErr } = await retireEmail(supabaseAdmin, originalEmail)
+    if (retireErr) {
+      // Fatal on purpose: the profile is erased either way, but silently
+      // leaving the address re-registrable is the exact bug this replaces.
+      console.error('delete-my-account: email retirement failed:', retireErr.message)
+      return json({ error: 'Konto usunięte, ale nie udało się zablokować adresu email. Skontaktuj się z nami.' }, 500, req)
     }
 
     return json({ deleted: true }, 200, req)
