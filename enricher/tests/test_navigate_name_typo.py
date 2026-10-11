@@ -27,3 +27,17 @@ def test_typo_tolerance_does_not_accept_a_different_name():
 def test_short_tokens_still_need_an_exact_match():
     # 4-5 letter tokens are too short for one edit to mean a typo.
     assert page_matches_event({"name": "Bieg Rysia"}, "Bieg Lisia 5 km") is False
+
+
+def test_one_substituted_letter_is_a_different_name():
+    # "gdyński" and "gdański" are one substitution apart and are different towns.
+    event = {"name": "Półmaraton Gdyński", "date": "2026-10-23"}
+    text = "Regulamin Półmaratonu Gdańskiego. Organizator: Gdański Ośrodek Sportu."
+    assert pdf_belongs_to_event(event, text) is False
+
+
+def test_search_and_verify_gate_stays_exact():
+    # The typo allowance is for the PDF gate only; page_matches_event, which
+    # also gates search hits and verify.py, still needs the exact token.
+    event = {"name": "Bieg Legionsty", "date": "2026-10-23"}
+    assert page_matches_event(event, LEGIONISTY_PDF) is False
