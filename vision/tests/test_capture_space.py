@@ -34,3 +34,16 @@ def test_a_wedged_camera_fails_instead_of_hanging(tmp_path, monkeypatch):
     monkeypatch.setattr(capture, "open_camera", lambda **_: _WedgedCamera())
     with pytest.raises(capture.CameraStalled):
         capture.run_capture(tmp_path, 60)
+
+
+def test_frame_rate_is_pinned_by_the_frame_duration():
+    # The reader manages about 8 frames a second on a Pi 5. A camera left at
+    # its natural 13 fps outruns it for the whole race and the view falls
+    # minutes behind.
+    controls = capture.build_controls(exposure_us=1200, gain=4.0, fps=6)
+    assert controls["FrameDurationLimits"] == (166_666, 166_666)
+    assert controls["ExposureTime"] == 1200
+
+
+def test_no_frame_rate_leaves_the_camera_at_its_own_pace():
+    assert "FrameDurationLimits" not in capture.build_controls(1200, 4.0)

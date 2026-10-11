@@ -149,3 +149,16 @@ def test_frames_per_track_histogram_separates_a_good_gate_from_a_bad_one():
     hist = frames_per_track_histogram([track(frame_count=n) for n in (2, 4, 30, 31)])
     assert hist["1-4"] == 2
     assert hist["25+"] == 2
+
+
+def test_the_reader_rate_shown_is_the_measured_one_not_the_capacity():
+    # 120 ms a frame reads as 8.3 fps of capacity, while a 3 fps throttle
+    # held the real rate at 2.7 and the backlog grew by thousands.
+    snap = health_snapshot(
+        pending=2000, processed=541, ms_per_frame=120.0, capture_fps=13.2,
+        clock_synced=True, ordering_anomalies=[], torn_frames=0,
+        mean_luminance=0.4, last_frame_age_s=0.1, reader_fps=2.7,
+    )
+    assert snap["reader_fps"] == 2.7
+    assert snap["capacity_fps"] == 8.33
+    assert snap["keeping_up"] is False

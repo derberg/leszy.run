@@ -8,7 +8,8 @@ WorkingDirectory=/home/leszyrun/leszyrun/vision
 EnvironmentFile=/etc/default/leszyrun-vision
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/home/leszyrun/leszyrun/vision/.venv/bin/python scripts/read_queue.py \
-  --queue ${VISION_QUEUE}
+  --queue ${VISION_QUEUE} --max-fps ${VISION_READER_MAX_FPS} \
+  --max-lag-s ${VISION_MAX_LAG_S}
 # The reader only drains the queue, so leaving it running costs nothing when
 # there are no frames. Bring it back whatever stopped it.
 Restart=always

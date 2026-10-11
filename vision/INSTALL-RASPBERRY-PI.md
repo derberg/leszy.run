@@ -220,6 +220,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now leszyrun-vision-reader leszyrun-vision-capture
 ```
 
+When a `git pull` brings new settings into `systemd/leszyrun-vision.env`, copy
+it over again (and re-apply your own values) and copy the units, then
+`sudo systemctl daemon-reload`. A unit that names a setting the installed file
+lacks starts with an empty argument and fails.
+
 Set the queue directory, the gain and the run length in
 `/etc/default/leszyrun-vision`, then `sudo systemctl restart
 leszyrun-vision-capture leszyrun-vision-reader`. The file is not overwritten by a

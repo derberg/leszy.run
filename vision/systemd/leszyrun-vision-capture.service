@@ -13,7 +13,7 @@ EnvironmentFile=/etc/default/leszyrun-vision
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/home/leszyrun/leszyrun/vision/.venv/bin/python scripts/capture.py \
   --queue ${VISION_QUEUE} --seconds ${VISION_SECONDS} \
-  --gain ${VISION_GAIN} --min-free-gb ${VISION_MIN_FREE_GB}
+  --gain ${VISION_GAIN} --min-free-gb ${VISION_MIN_FREE_GB} --fps ${VISION_FPS}
 # on-failure, not always: a run that ended because its time was up or the
 # disk reached its margin exited cleanly and must stay stopped.
 Restart=on-failure

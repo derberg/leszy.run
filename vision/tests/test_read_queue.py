@@ -224,3 +224,46 @@ def test_session_offset_written_after_the_reader_started_is_picked_up(tmp_path):
     queue.write(frame(), 1_000_000_000)
     drain(s)
     assert s.offset == 1_700_000_000.0
+
+
+# ─── keeping the view live ──────────────────────────────────────────────────
+
+def test_frames_older_than_the_lag_limit_are_skipped_not_read(tmp_path):
+    # Ten seconds of frames at 10 fps, a 3 s limit: only the newest 3 s are
+    # read. A view minutes behind is no view at all.
+    seed(tmp_path, 100, step=100_000_000)
+    seen = []
+    s = rq.Session(tmp_path, max_fps=0, max_lag_s=3.0)
+    rq.read_frame_with_crops = lambda img: seen.append(1) or []
+    drain(s)
+    assert s.skipped == 69
+    assert s.processed == 31
+    assert len(seen) == 31
+
+
+def test_skipped_frames_stay_on_disk(tmp_path):
+    # Skipping is about the live view. The frames remain for a later pass.
+    seed(tmp_path, 50, step=100_000_000)
+    s = rq.Session(tmp_path, max_fps=0, max_lag_s=1.0)
+    rq.read_frame_with_crops = lambda img: []
+    drain(s)
+    assert len(list((tmp_path / "done").glob("*.jpg"))) == 50
+
+
+def test_no_lag_limit_reads_everything(tmp_path):
+    seed(tmp_path, 40, step=100_000_000)
+    s = rq.Session(tmp_path, max_fps=0, max_lag_s=0)
+    rq.read_frame_with_crops = lambda img: []
+    drain(s)
+    assert s.skipped == 0
+    assert s.processed == 40
+
+
+def test_health_reports_the_lag_and_the_skips(tmp_path):
+    seed(tmp_path, 100, step=100_000_000)
+    s = rq.Session(tmp_path, max_fps=0, max_lag_s=3.0)
+    rq.read_frame_with_crops = lambda img: []
+    drain(s)
+    health = json.loads((tmp_path / "health.json").read_text())
+    assert health["skipped"] == 69
+    assert health["lag_s"] == 0
