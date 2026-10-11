@@ -24,6 +24,8 @@ def main():
     ap.add_argument("--width", type=int, default=1640)
     ap.add_argument("--height", type=int, default=1232)
     ap.add_argument("--allow-unsynced-clock", action="store_true")
+    ap.add_argument("--min-free-gb", type=float, default=5.0,
+                    help="stop cleanly when the disk has less than this free")
     args = ap.parse_args()
 
     try:
@@ -33,6 +35,7 @@ def main():
             exposure_us=args.exposure_us,
             gain=args.gain,
             allow_unsynced_clock=args.allow_unsynced_clock,
+            min_free_bytes=int(args.min_free_gb * 1e9),
         )
     except ClockNotSynced as err:
         sys.exit(str(err))

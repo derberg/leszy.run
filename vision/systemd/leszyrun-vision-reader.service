@@ -1,0 +1,18 @@
+[Unit]
+Description=LeszyRun finish camera bib reader
+StartLimitIntervalSec=0
+
+[Service]
+User=leszyrun
+WorkingDirectory=/home/leszyrun/leszyrun/vision
+EnvironmentFile=/etc/default/leszyrun-vision
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/leszyrun/leszyrun/vision/.venv/bin/python scripts/read_queue.py \
+  --queue ${VISION_QUEUE}
+# The reader only drains the queue, so leaving it running costs nothing when
+# there are no frames. Bring it back whatever stopped it.
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
