@@ -74,7 +74,7 @@ def read_frame_with_crops(image):
 
 
 class Session:
-    def __init__(self, queue_dir, max_fps):
+    def __init__(self, queue_dir, max_fps, max_lag_s=0.0):
         self.queue = FrameQueue(queue_dir)
         self.dir = Path(queue_dir)
         self.crops_dir = self.dir / "crops"
@@ -84,6 +84,9 @@ class Session:
         self.tracker = Tracker()
         self.offset = self.queue.session_offset()
         self.min_interval = 1.0 / max_fps if max_fps > 0 else 0.0
+        self.max_lag_ns = int(max_lag_s * 1e9) if max_lag_s > 0 else 0
+        self.skipped = 0
+        self.done_times = deque(maxlen=30)
 
         self.frame_index = 0
         self.stamps = {}
@@ -130,6 +133,7 @@ class Session:
         self.luminance = mean_luminance(image)
         self.recent_stamps.append(stamp)
         self.processed += 1
+        self.done_times.append(time.monotonic())
         self.durations.append((time.monotonic() - started) * 1000.0)
         self.queue.mark_done(path)
 
@@ -201,6 +205,42 @@ class Session:
 
     # ── health ───────────────────────────────────────────────────────────
 
+    def skip_stale(self, pending):
+        """Drop frames further behind the newest than the lag limit allows.
+
+        The audit view is only worth anything live. A reader slower than the
+        camera fell four minutes behind in ten, so past the limit the oldest
+        frames are moved to done/ unread. They stay on disk for a later pass.
+        Returns the frames still to read.
+        """
+        if not self.max_lag_ns or len(pending) < 2:
+            return pending
+        cutoff = self.queue.timestamp_of(pending[-1]) - self.max_lag_ns
+        keep = 0
+        while keep < len(pending) and self.queue.timestamp_of(pending[keep]) < cutoff:
+            keep += 1
+        for path in pending[:keep]:
+            self.recent_stamps.append(self.queue.timestamp_of(path))
+            self.queue.mark_done(path)
+        # Advance the frame index across the gap, so a track that spanned it
+        # ages out instead of being joined to whoever is in frame now.
+        self.frame_index += keep
+        self.skipped += keep
+        return pending[keep:]
+
+    def reader_fps(self):
+        """Frames actually read per second, measured, not the capacity."""
+        if len(self.done_times) < 2:
+            return 0.0
+        span = self.done_times[-1] - self.done_times[0]
+        return (len(self.done_times) - 1) / span if span > 0 else 0.0
+
+    def lag_s(self, pending):
+        if len(pending) < 2:
+            return 0.0
+        return (self.queue.timestamp_of(pending[-1])
+                - self.queue.timestamp_of(pending[0])) / 1e9
+
     def capture_fps(self):
         """Measured from the sensor timestamps, not assumed from a flag."""
         if len(self.recent_stamps) < 2:
@@ -211,17 +251,22 @@ class Session:
         return (len(self.recent_stamps) - 1) / (span_ns / 1e9)
 
     def last_frame_age(self):
-        newest = max(
-            (p.stat().st_mtime for p in self.dir.glob("*.jpg")), default=None
-        )
+        newest = None
+        for path in self.dir.glob("*.jpg"):
+            try:
+                mtime = path.stat().st_mtime
+            except FileNotFoundError:
+                continue    # read and moved to done/ between glob and stat
+            newest = mtime if newest is None else max(newest, mtime)
         if newest is None:
             return float("inf")
         return max(0.0, time.time() - newest)
 
     def write_health(self):
         durations = list(self.durations)
+        pending = self.queue.pending()
         snap = health_snapshot(
-            pending=len(self.queue.pending()),
+            pending=len(pending),
             processed=self.processed,
             ms_per_frame=sum(durations) / len(durations) if durations else 0.0,
             capture_fps=self.capture_fps(),
@@ -230,6 +275,9 @@ class Session:
             torn_frames=self.torn,
             mean_luminance=self.luminance,
             last_frame_age_s=self.last_frame_age(),
+            reader_fps=self.reader_fps(),
+            skipped=self.skipped,
+            lag_s=self.lag_s(pending),
         )
         snap["updated_at"] = time.time()
         snap["session_offset"] = self.offset
@@ -242,7 +290,7 @@ class Session:
     def run(self, stop):
         last_health = 0.0
         while not stop():
-            pending = self.queue.pending()
+            pending = self.skip_stale(self.queue.pending())
             if pending:
                 started = time.monotonic()
                 self.process(pending[0])
@@ -265,11 +313,14 @@ class Session:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--queue", required=True)
-    ap.add_argument("--max-fps", type=float, default=3.0,
-                    help="throttle; the Pi cannot read every frame in real time")
+    ap.add_argument("--max-fps", type=float, default=10.0,
+                    help="throttle, to leave CPU for the timing backend; keep "
+                         "it above the capture --fps or the view falls behind")
+    ap.add_argument("--max-lag-s", type=float, default=3.0,
+                    help="skip frames further behind than this; 0 reads all")
     args = ap.parse_args()
 
-    session = Session(args.queue, args.max_fps)
+    session = Session(args.queue, args.max_fps, args.max_lag_s)
     if session.offset is None:
         print("warning: no session.json in the queue, timestamps will be "
               "relative to the epoch and cannot be matched to a gun time")
@@ -285,7 +336,8 @@ def main():
 
     print(f"reading {args.queue} at up to {args.max_fps} fps; Ctrl-C to stop")
     session.run(lambda: stopping)
-    print(f"\nprocessed {session.processed} frames, {session.torn} torn")
+    print(f"\nprocessed {session.processed} frames, skipped {session.skipped}, "
+          f"{session.torn} torn")
 
 
 if __name__ == "__main__":

@@ -33,9 +33,14 @@ class ClockNotSynced(RuntimeError):
 
 
 DEFAULT_GAIN = 4.0
+# The reader manages about 8 frames a second on a Pi 5. At its natural 13 fps
+# the camera outran it for the whole session and the audit view fell minutes
+# behind. A runner coming down the lane is still in about ten frames at 6.
+DEFAULT_FPS = 6.0
 
 
-def build_controls(exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN) -> dict:
+def build_controls(exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN,
+                   fps=None) -> dict:
     """Camera controls that actually pin the shutter.
 
     AeEnable must be False. With auto exposure on, the AE algorithm owns both
@@ -48,22 +53,27 @@ def build_controls(exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN) -> dict:
     check a test capture, and adjust. Verifying this against the real camera
     is on the Task 13 hardware checklist.
     """
-    return {
+    controls = {
         "AeEnable": False,
         "ExposureTime": int(exposure_us),
         "AnalogueGain": float(gain),
     }
+    if fps:
+        # Equal bounds pin the frame duration, and with it the frame rate.
+        frame_us = int(1_000_000 / fps)
+        controls["FrameDurationLimits"] = (frame_us, frame_us)
+    return controls
 
 
 def open_camera(size=DEFAULT_SIZE, exposure_us=DEFAULT_EXPOSURE_US,
-                gain=DEFAULT_GAIN):
+                gain=DEFAULT_GAIN, fps=DEFAULT_FPS):
     """Configure picamera2 with one mode and a locked shutter."""
     from picamera2 import Picamera2
 
     camera = Picamera2()
     config = camera.create_video_configuration(
         main={"size": size, "format": "RGB888"},
-        controls=build_controls(exposure_us, gain),
+        controls=build_controls(exposure_us, gain, fps),
     )
     camera.configure(config)
     return camera
@@ -93,7 +103,8 @@ def has_room(directory, min_free_bytes: int) -> bool:
 
 def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
                 exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN,
-                allow_unsynced_clock=False, min_free_bytes=0):
+                allow_unsynced_clock=False, min_free_bytes=0,
+                fps=DEFAULT_FPS):
     """Capture for duration_s seconds into queue_dir. Returns frames written."""
     synced = clock_synced()
     if synced is False and not allow_unsynced_clock:
@@ -106,7 +117,7 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
         print("warning: cannot determine clock sync (no timedatectl)")
 
     queue = FrameQueue(Path(queue_dir))
-    camera = open_camera(size=size, exposure_us=exposure_us, gain=gain)
+    camera = open_camera(size=size, exposure_us=exposure_us, gain=gain, fps=fps)
     camera.start()
 
     # One offset for the whole session, so every frame converts the same way.

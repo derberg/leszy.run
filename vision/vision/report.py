@@ -112,13 +112,19 @@ def mean_luminance(image) -> float:
 def health_snapshot(*, pending: int, processed: int, ms_per_frame: float,
                     capture_fps: float, clock_synced, ordering_anomalies: list,
                     torn_frames: int, mean_luminance: float,
-                    last_frame_age_s: float) -> dict:
+                    last_frame_age_s: float, reader_fps=None,
+                    skipped: int = 0, lag_s: float = 0.0) -> dict:
     """Everything the health strip shows, decided here rather than in React.
 
     The thresholds live in Python next to the code that produces the inputs,
     so a change to one is visible beside the other.
     """
-    reader_fps = 1000.0 / ms_per_frame if ms_per_frame > 0 else 0.0
+    # Capacity is what the reader could do flat out. The rate shown is what
+    # it measurably did: a throttle held a reader with 8 fps of capacity to
+    # under 3, and showing capacity hid a backlog that grew by thousands.
+    capacity_fps = 1000.0 / ms_per_frame if ms_per_frame > 0 else 0.0
+    if reader_fps is None:
+        reader_fps = capacity_fps
     exposure = "ok"
     if mean_luminance < DARK_BELOW:
         exposure = "dark"
@@ -130,11 +136,14 @@ def health_snapshot(*, pending: int, processed: int, ms_per_frame: float,
         "pending": int(pending),
         "processed": int(processed),
         "ms_per_frame": round(float(ms_per_frame), 1),
-        "reader_fps": round(reader_fps, 2),
+        "reader_fps": round(float(reader_fps), 2),
+        "capacity_fps": round(capacity_fps, 2),
+        "lag_s": round(float(lag_s), 2),
+        "skipped": int(skipped),
         "capture_fps": round(float(capture_fps), 2),
         # A reader slower than capture does not merely lag, it loses ground
         # for as long as the race lasts.
-        "keeping_up": reader_fps >= capture_fps,
+        "keeping_up": capacity_fps >= capture_fps,
         "clock_synced": clock_synced,
         "ordering_anomalies": list(ordering_anomalies),
         "torn_frames": int(torn_frames),

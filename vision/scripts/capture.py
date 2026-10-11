@@ -21,6 +21,8 @@ def main():
     ap.add_argument("--exposure-us", type=int, default=1200)
     ap.add_argument("--gain", type=float, default=4.0,
                     help="analogue gain; there is no automatic adaptation")
+    ap.add_argument("--fps", type=float, default=6.0,
+                    help="frames a second; keep it below what the reader manages")
     ap.add_argument("--width", type=int, default=1640)
     ap.add_argument("--height", type=int, default=1232)
     ap.add_argument("--allow-unsynced-clock", action="store_true")
@@ -36,6 +38,7 @@ def main():
             gain=args.gain,
             allow_unsynced_clock=args.allow_unsynced_clock,
             min_free_bytes=int(args.min_free_gb * 1e9),
+            fps=args.fps,
         )
     except (ClockNotSynced, CameraStalled) as err:
         sys.exit(str(err))

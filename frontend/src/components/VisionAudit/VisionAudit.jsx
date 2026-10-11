@@ -304,8 +304,9 @@ function HealthStrip({ verdict, health, session }) {
           {verdict?.detail && <p className="text-xs text-apex-muted mt-1">{verdict.detail}</p>}
         </div>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border-t border-apex-border divide-x divide-apex-border">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 border-t border-apex-border divide-x divide-apex-border">
         <Metric label="Ostatnia klatka" value={health ? `${health.last_frame_age_s}s` : '—'} />
+        <Metric label="Opóźnienie" value={health?.lag_s != null ? `${health.lag_s}s` : '—'} />
         <Metric label="Zaległość" value={health ? health.pending : '—'} />
         <Metric label="Klatek / s (kamera)" value={health ? health.capture_fps : '—'} />
         <Metric label="Klatek / s (odczyt)" value={health ? health.reader_fps : '—'} />
@@ -324,6 +325,7 @@ function HealthStrip({ verdict, health, session }) {
         <span>{session.queueDir}</span>
         <span>zegar: {health?.clock_synced === false ? 'NIE ZSYNCHRONIZOWANY' : health?.clock_synced === true ? 'ok' : '—'}</span>
         <span>przetworzone: {health?.processed ?? '—'}</span>
+        <span>pominięte: {health?.skipped ?? '—'}</span>
         <span>{health?.ms_per_frame != null ? `${health.ms_per_frame} ms/klatkę` : ''}</span>
       </div>
     </div>
