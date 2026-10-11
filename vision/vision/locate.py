@@ -93,6 +93,24 @@ def locate_bib(image: Image.Image, region=None):
     return None if found is None else found[0]
 
 
+def _upright(rect_w, rect_h, angle):
+    """Return ((long, short), angle) that puts the block's long edge horizontal.
+
+    minAreaRect may describe the block standing on its short edge, so swap the
+    sides and turn by 90. Then take the smallest rotation that does it.
+    OpenCV's angle convention is not stable across releases: 4.11 reports an
+    untilted block at +90 degrees and 4.14 at -90. Subtracting 90 from the
+    second gives -180, which turns the crop upside down, and 47 then reads as
+    24. A rectangle looks the same after half a turn, so the correction is
+    always folded into [-90, 90) and never flips the crop.
+    """
+    if rect_w < rect_h:
+        rect_w, rect_h = rect_h, rect_w
+        angle -= 90.0
+    angle = (angle + 90.0) % 180.0 - 90.0
+    return (rect_w, rect_h), angle
+
+
 def extract_bib(image: Image.Image, region=None):
     """Return (box, upright crop) for the bib block, or (None, None).
 
@@ -107,14 +125,7 @@ def extract_bib(image: Image.Image, region=None):
         return None, None
     box, ((cx, cy), (rect_w, rect_h), angle) = found
 
-    # minAreaRect reports an angle in (0, 90] and may describe the block
-    # standing on its short edge. Put the long edge horizontal, which is how
-    # the block is printed. Subtracting brings the angle into (-90, 0], which
-    # is the small correction a tilted bib needs. Adding instead turns the
-    # crop nearly upside down, and 47 then reads as 22.
-    if rect_w < rect_h:
-        rect_w, rect_h = rect_h, rect_w
-        angle -= 90.0
+    (rect_w, rect_h), angle = _upright(rect_w, rect_h, angle)
 
     rgb = np.asarray(image.convert("RGB"))
     rotation = cv2.getRotationMatrix2D((cx, cy), angle, 1.0)

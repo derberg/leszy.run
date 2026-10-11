@@ -55,11 +55,17 @@ class FrameQueue:
         """
         from vision.clock import check_ordering
 
-        written = sorted(
-            (p for p in self.dir.glob(f"*{SUFFIX}")),
-            key=lambda p: p.stat().st_mtime_ns,
-        )
-        stamps = [self.timestamp_of(p) for p in written]
+        # The reader moves frames into done/ while this runs, so a frame can
+        # be listed and gone before it is stat'ed. A frame already read has
+        # left the queue and has no place in this check; skip it.
+        written = []
+        for path in self.dir.glob(f"*{SUFFIX}"):
+            try:
+                written.append((path.stat().st_mtime_ns, path))
+            except FileNotFoundError:
+                continue
+        written.sort()
+        stamps = [self.timestamp_of(p) for _, p in written]
         return [stamps[i] for i in check_ordering(stamps)]
 
     def write_session(self, offset: float) -> None:

@@ -34,6 +34,9 @@ class TrackResult:
     frame_count: int
     best_frame_index: int
     votes: dict
+    # Which box the winning read came from, so the screen can show the crop
+    # that produced the number rather than guessing among several people.
+    best_bib_box: tuple | None = None
 
 
 @dataclass
@@ -44,6 +47,7 @@ class _Track:
     votes: dict = field(default_factory=lambda: defaultdict(float))
     best_confidence: float = 0.0
     best_frame_index: int = -1
+    best_bib_box: tuple | None = None
 
 
 class Tracker:
@@ -77,22 +81,55 @@ class Tracker:
             if sight.confidence > match.best_confidence:
                 match.best_confidence = sight.confidence
                 match.best_frame_index = frame_index
+                match.best_bib_box = sight.bib_box
+
+    @staticmethod
+    def _result(track) -> TrackResult:
+        if track.votes:
+            text = max(track.votes, key=track.votes.get)
+            total = sum(track.votes.values())
+            confidence = track.votes[text] / total if total else 0.0
+        else:
+            # An unreadable track keeps its row. Somebody crossed.
+            text, confidence = None, 0.0
+        return TrackResult(
+            text=text,
+            confidence=confidence,
+            frame_count=len(track.frames),
+            best_frame_index=track.best_frame_index,
+            votes=dict(track.votes),
+            best_bib_box=track.best_bib_box,
+        )
 
     def results(self) -> list:
-        out = []
+        return [self._result(t) for t in self._tracks]
+
+    def pop_closed(self, frame_index: int) -> list:
+        """Tracks that can no longer change, removed as they are returned.
+
+        The audit screen shows runners while the race is still running, so a
+        track has to be emitted the moment nothing more can join it rather
+        than at the end of the session. The cut is the same MAX_GAP_FRAMES
+        that add() uses to decide what is still live, so a track is never
+        emitted while a later frame could still extend it.
+
+        Removing them is what stops one runner appearing on the screen as
+        two crossings, and it also keeps the tracker from growing for the
+        whole race.
+        """
+        closed, live = [], []
         for track in self._tracks:
-            if track.votes:
-                text = max(track.votes, key=track.votes.get)
-                total = sum(track.votes.values())
-                confidence = track.votes[text] / total if total else 0.0
-            else:
-                # An unreadable track keeps its row. Somebody crossed.
-                text, confidence = None, 0.0
-            out.append(TrackResult(
-                text=text,
-                confidence=confidence,
-                frame_count=len(track.frames),
-                best_frame_index=track.best_frame_index,
-                votes=dict(track.votes),
-            ))
+            (closed if frame_index - track.last_frame > MAX_GAP_FRAMES
+             else live).append(track)
+        self._tracks = live
+        return [self._result(t) for t in closed]
+
+    def flush(self) -> list:
+        """Everything still open, emptied.
+
+        The last runner of the day has nobody following them, so their track
+        never ages out. Without this they would be lost at shutdown.
+        """
+        out = [self._result(t) for t in self._tracks]
+        self._tracks = []
         return out

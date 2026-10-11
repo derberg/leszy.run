@@ -83,6 +83,27 @@ export const api = {
     stop: (role) => request('POST', `/reader/${role}/stop`),
   },
 
+  // Camera audit (finish-gate bib recognition)
+  // IMAGE_BASE is the raw URL, not request(): these endpoints return JPEG
+  // bytes, not { data }. They are served by THIS backend on the capture
+  // machine and the pictures never go anywhere else.
+  vision: {
+    sessions: (eventId) => request('GET', `/events/${eventId}/vision/sessions`),
+    createSession: (eventId, body) => request('POST', `/events/${eventId}/vision/sessions`, body),
+    session: (id) => request('GET', `/vision/sessions/${id}`),
+    stop: (id) => request('POST', `/vision/sessions/${id}/stop`),
+    resume: (id) => request('POST', `/vision/sessions/${id}/resume`),
+    deleteSession: (id) => request('DELETE', `/vision/sessions/${id}`),
+    sightings: (id, params = {}) => {
+      const q = new URLSearchParams(
+        Object.entries(params).filter(([, v]) => v != null && v !== ''),
+      ).toString()
+      return request('GET', `/vision/sessions/${id}/sightings${q ? `?${q}` : ''}`)
+    },
+    cropUrl: (id, name) => `${BASE}/api/vision/sessions/${id}/crop/${encodeURIComponent(name)}`,
+    frameUrl: (id, ts) => `${BASE}/api/vision/sessions/${id}/frame/${encodeURIComponent(ts)}`,
+  },
+
   // Checkpoints
   checkpoints: {
     list: (eventId) => request('GET', `/events/${eventId}/checkpoints`),

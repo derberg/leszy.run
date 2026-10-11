@@ -69,8 +69,11 @@ needed. There is no `start_x` setting any more and you should not add one.
 
 ```bash
 sudo apt update
-sudo apt install -y python3-picamera2 python3-venv libgl1 libglib2.0-0
+sudo apt install -y python3-picamera2 python3-venv libgl1 libglib2.0-0 libgles2
 ```
+
+`libgles2` is for the person detector: mediapipe loads `libGLESv2.so.2` when
+it starts, and without it every detection fails with an `OSError`.
 
 `python3-picamera2` comes from apt rather than pip, because it is built
 against the system camera stack.
@@ -84,7 +87,11 @@ python3 -m venv --system-site-packages .venv
 ```
 
 `--system-site-packages` matters. Without it the virtual environment cannot
-see the apt-installed `picamera2` and capture fails on import.
+see the apt-installed `picamera2` and capture fails on import. It also lets
+pip reuse the apt `numpy`. Raspberry Pi OS runs Python 3.13, which has no
+prebuilt numpy older than 2, so the Pi gets mediapipe 1.x and numpy 2 while
+macOS stays on mediapipe 0.10.21. `pyproject.toml` picks the right pair by
+platform.
 
 Download the person detector, which is not committed:
 
@@ -199,7 +206,51 @@ out and then fails at the worst possible moment.
 
 Point `--queue` at a directory on the SSD.
 
+## 8a. Running as services
+
+For a race, run capture and the reader under systemd instead of in two SSH
+windows. A crash is restarted within seconds, and both start at boot. The
+units and their settings live in `vision/systemd/`.
+
+```bash
+cd ~/leszyrun/vision
+sudo cp systemd/leszyrun-vision.env /etc/default/leszyrun-vision
+sudo cp systemd/leszyrun-vision-*.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now leszyrun-vision-reader leszyrun-vision-capture
+```
+
+When a `git pull` brings new settings into `systemd/leszyrun-vision.env`, copy
+it over again (and re-apply your own values) and copy the units, then
+`sudo systemctl daemon-reload`. A unit that names a setting the installed file
+lacks starts with an empty argument and fails.
+
+Set the queue directory, the gain and the run length in
+`/etc/default/leszyrun-vision`, then `sudo systemctl restart
+leszyrun-vision-capture leszyrun-vision-reader`. The file is not overwritten by a
+`git pull`.
+
+Capture is restarted only when it fails. A run that ends because its
+`VISION_SECONDS` are up, or because the disk is down to `VISION_MIN_FREE_GB`,
+stays stopped, so a forgotten service cannot fill the card. Before the clock
+syncs, capture refuses to start and is retried every five seconds until it
+does. The reader is always restarted, and with no frames it only waits.
+
+```bash
+systemctl status leszyrun-vision-capture leszyrun-vision-reader --no-pager
+journalctl -u leszyrun-vision-capture -f
+sudo systemctl start leszyrun-vision-capture   # a new run after one ended
+sudo systemctl disable --now leszyrun-vision-capture   # stop recording at boot
+```
+
 ## 9. When it does not work
+
+**The capture log repeats `no frame from the camera in 5 s`, after
+`Failed to queue buffer … Operation already in progress`.** The camera driver
+is wedged, usually because a capture was killed mid-stream, or because two
+captures fought over the camera (one by hand while the service ran). The
+service restarts capture, but a restart does not clear the driver. Reboot the
+Pi. Never start `capture.py` by hand while the service is enabled.
 
 **All frames are black or nearly black.** There is not enough light. The
 Camera Module v2.1 has an infrared-cut filter and cannot see in the dark, and

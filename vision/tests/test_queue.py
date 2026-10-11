@@ -54,6 +54,18 @@ def test_no_anomaly_when_the_clock_only_moved_forwards(tmp_path):
     assert queue.ordering_anomalies() == []
 
 
+def test_a_frame_read_mid_scan_does_not_crash_the_anomaly_check(tmp_path):
+    # The reader moves each frame into done/ while capture scans the queue,
+    # so a frame can be listed and gone a moment later. Capture crashed on
+    # that at the end of a test session on the Pi. A dangling link is a
+    # frame that is listed but cannot be stat'ed, the same moment frozen.
+    queue = FrameQueue(tmp_path)
+    for ts in (100, 200):
+        queue.write(frame(), ts)
+    (tmp_path / "00000000000000000300.jpg").symlink_to(tmp_path / "gone.jpg")
+    assert queue.ordering_anomalies() == []
+
+
 def test_the_session_offset_survives_the_process(tmp_path):
     # The monotonic-to-UTC offset was printed and then lost, so frames could
     # never be tied back to a gun time once capture exited.

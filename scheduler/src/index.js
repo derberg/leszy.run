@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { runPipeline } from './pipeline.js';
 import { runWatchdog } from './watchdog.js';
 import { purgeRfidLogs } from './jobs/purgeRfidLogs.js';
+import { purgeVisionEvidence } from './jobs/purgeVisionEvidence.js';
 import { runPurgeAuthTables, runWeeklyDigest } from './notifications.js';
 
 const TZ = process.env.TZ || 'Europe/Warsaw';
@@ -10,6 +11,7 @@ const WATCHDOG_CRON = process.env.WATCHDOG_CRON || '0 10 * * *';
 const PURGE_RFID_CRON = process.env.PURGE_RFID_CRON || '0 3 * * *';
 const DIGEST_CRON = process.env.DIGEST_CRON || '0 9 * * 1';       // Monday 09:00
 const PURGE_AUTH_CRON = process.env.PURGE_AUTH_CRON || '40 3 * * *';   // daily 03:40, after the RFID purge
+const PURGE_VISION_CRON = process.env.PURGE_VISION_CRON || '20 3 * * *'; // daily 03:20, between the RFID and auth purges
 
 let pipelineRunning = false;
 let watchdogRunning = false;
@@ -78,6 +80,24 @@ cron.schedule(
 // Expired login codes, dead sessions and spent throttle windows. Nothing ever
 // deleted them, so every token and code hash ever issued accumulated — and
 // auth_sessions rows carry the plaintext email of accounts since deleted.
+// Camera frames and bib crops past their retention (30 days, vs 90 for tag
+// reads — a photograph of a person is more sensitive than an EPC, and its
+// usefulness ends once the results are final). The frames never left the
+// capture machine, so this is the only thing that ever removes them.
+cron.schedule(
+  PURGE_VISION_CRON,
+  async () => {
+    console.log(`[cron] purge-vision-evidence trigger at ${new Date().toISOString()}`);
+    try {
+      await purgeVisionEvidence();
+      console.log(`[cron] purge-vision-evidence finished`);
+    } catch (err) {
+      console.error(`[cron] purge-vision-evidence threw:`, err);
+    }
+  },
+  { timezone: TZ }
+);
+
 cron.schedule(
   PURGE_AUTH_CRON,
   async () => {
@@ -115,7 +135,7 @@ cron.schedule(
 
 console.log(
   `[scheduler] up. pipeline="${PIPELINE_CRON}" watchdog="${WATCHDOG_CRON}" purge="${PURGE_RFID_CRON}" ` +
-  `digest="${DIGEST_CRON}" purge-auth="${PURGE_AUTH_CRON}" tz=${TZ} ` +
+  `digest="${DIGEST_CRON}" purge-auth="${PURGE_AUTH_CRON}" purge-vision="${PURGE_VISION_CRON}" tz=${TZ} ` +
   `now=${new Date().toLocaleString('sv-SE', { timeZone: TZ })}`
 );
 

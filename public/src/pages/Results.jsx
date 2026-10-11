@@ -68,7 +68,8 @@ export default function Results() {
   const [raceRuns, setRaceRuns] = useState(null)
 
   useEffect(() => {
-    if (!event || !categories.length) return
+    if (!event || catLoading) return
+    if (!categories.length) { setRaceRuns([]); return }
     const catIds = categories.map(c => c.id)
     supabase.from('race_runs').select('id, status, category_id').in('category_id', catIds)
       .then(({ data }) => setRaceRuns(data || []))
@@ -81,15 +82,33 @@ export default function Results() {
             if (!prev) return prev
             const updated = payload.new
             const exists = prev.find(r => r.id === updated.id)
-            if (exists) return prev.map(r => r.id === updated.id ? { id: updated.id, status: updated.status } : r)
-            return [...prev, { id: updated.id, status: updated.status }]
+            const row = { id: updated.id, status: updated.status, category_id: updated.category_id ?? catId }
+            if (exists) return prev.map(r => r.id === updated.id ? row : r)
+            return [...prev, row]
           })
         })
         .subscribe()
     })
 
     return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
-  }, [event, categories])
+  }, [event, categories, catLoading])
+
+  const isPastEvent = useMemo(() => {
+    if (!event?.date) return false
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    return new Date(event.date + 'T00:00:00') < today
+  }, [event])
+
+  // Once the event day is over, a category that never had a run started is
+  // not "awaiting" anything — it simply did not take place, so it is hidden.
+  const visibleCategories = useMemo(() => {
+    if (!isPastEvent || !raceRuns) return categories
+    const ran = new Set(raceRuns
+      .filter(r => r.status === 'active' || r.status === 'finished')
+      .map(r => r.category_id))
+    return categories.filter(c => ran.has(c.id))
+  }, [categories, raceRuns, isPastEvent])
 
   const hasActiveRaces = raceRuns && raceRuns.some(r => r.status !== 'pending')
   const allRacesFinished = raceRuns && raceRuns.length > 0 && raceRuns.every(r => r.status === 'finished' || r.status === 'cancelled')
@@ -100,6 +119,14 @@ export default function Results() {
       navigate(`/events/${slug}/results`, { replace: true })
     }
   }, [isLiveView, allRacesFinished, slug, navigate])
+
+  // A direct link to a hidden category lands on the overview instead.
+  useEffect(() => {
+    if (catLoading || !activeCategoryId || !isPastEvent || !raceRuns) return
+    if (!visibleCategories.some(c => c.id === activeCategoryId)) {
+      navigate(`/events/${slug}/results`, { replace: true })
+    }
+  }, [catLoading, activeCategoryId, isPastEvent, raceRuns, visibleCategories, slug, navigate])
 
   const preRaceState = useMemo(() => {
     if (!event || hasActiveRaces) return null
@@ -135,7 +162,7 @@ export default function Results() {
   if (eventLoading) return <div className="flex items-center justify-center min-h-screen text-apex-muted">Ładowanie...</div>
   if (eventError) return <div className="flex items-center justify-center min-h-screen text-apex-red">{eventError}</div>
 
-  const loading = catLoading
+  const loading = catLoading || (isPastEvent && raceRuns === null)
 
   return (
     <>
@@ -231,7 +258,7 @@ export default function Results() {
                   Blisko Mety
                 </button>
               )}
-              {categories.map(cat => (
+              {visibleCategories.map(cat => (
                 <button
                   key={cat.id}
                   ref={activeCategoryId === cat.id ? activeTabRef : null}
@@ -259,13 +286,13 @@ export default function Results() {
         )}
 
         {!loading && activeView === 'all' && (
-          categories.length === 0 ? (
+          visibleCategories.length === 0 ? (
             <div className="text-center py-16 text-apex-muted">
               <div className="font-display text-3xl uppercase tracking-widest mb-2">Brak kategorii</div>
             </div>
           ) : (
             <div className="space-y-20">
-              {categories.map(cat => (
+              {visibleCategories.map(cat => (
                 <div key={cat.id} className="border-t border-apex-border pt-10 first:border-t-0 first:pt-0">
                   <CategorySection key={cat.id} eventId={event.id} categoryId={cat.id} />
                 </div>
