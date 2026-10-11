@@ -1128,7 +1128,10 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
   // triathlon, duathlon and aquathlon are NOT here. They lived here wrapped in
   // \b, which cannot match a compound name such as CROSSDUATHLON, so they moved
   // to looksMultisport() where the boundary is dropped deliberately.
-  const SKIP_KEYWORDS = /\b(mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|bike|kręceni[ae]|kreceni[ae]|gravel|gravelow[aey]?|enduro|sup race|swim\w*|open water|pływani\w*|morsowani\w*|wrotkars[a-z]*|jumping zoo|skill lab|turniej|3v3)\b/i
+  // cyclo matches anywhere inside a word (\w*cyclo\w*), so CYCLOCROSS and a glued
+  // prefix like PROTOURCYCLOCROSS are both caught. maratonczykpomiarczasu filed
+  // the ten PROTOUR CYCLOCROSS CUP 2026/27 rounds as running events.
+  const SKIP_KEYWORDS = /\b(\w*cyclo\w*|mtb|rowerow[aey]?|kolarsk[aie]?|kolarski|rajd rowerowy|bike|kręceni[ae]|kreceni[ae]|gravel|gravelow[aey]?|enduro|sup race|swim\w*|open water|pływani\w*|morsowani\w*|wrotkars[a-z]*|jumping zoo|skill lab|turniej|3v3)\b/i
 
   const today = new Date().toISOString().split('T')[0]
 
