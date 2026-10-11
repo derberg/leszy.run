@@ -208,6 +208,31 @@ def _distinctive_tokens(name: str) -> list[str]:
     return out
 
 
+def _within_one_edit(a: str, b: str) -> bool:
+    """True when a and b differ by at most one insert, delete or substitution."""
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) > len(b):
+        a, b = b, a
+    i = 0
+    while i < len(a) and a[i] == b[i]:
+        i += 1
+    if len(a) == len(b):
+        return a[i + 1:] == b[i + 1:]
+    return a[i:] == b[i + 1:]
+
+
+def _token_in_text(token: str, tl: str, words: set) -> bool:
+    """Exact substring, or for tokens of 6+ letters a text word one edit away.
+    Scraped names carry typos: raatiming's "Bieg Legionsty" is "Legionisty" in
+    its own regulamin, and the exact test rejected that PDF."""
+    if token in tl:
+        return True
+    if len(token) < 6:
+        return False
+    return any(_within_one_edit(token, w) for w in words)
+
+
 def page_matches_event(event: dict, text: str) -> bool:
     """True if a crawled page plausibly describes THIS event — used to gate
     search-discovered pages so a wrong-event SearXNG hit (e.g. Ochabski →
@@ -220,7 +245,8 @@ def page_matches_event(event: dict, text: str) -> bool:
     if not toks:
         return True
     tl = text.lower()
-    hits = sum(1 for t in toks if t in tl)
+    words = set(_TOKEN_RE.findall(tl))
+    hits = sum(1 for t in toks if _token_in_text(t, tl, words))
     return hits >= 1 and hits >= (len(toks) + 1) // 2
 
 
