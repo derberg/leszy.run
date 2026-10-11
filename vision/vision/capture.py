@@ -90,6 +90,19 @@ class CameraStalled(RuntimeError):
     """The camera stopped delivering frames."""
 
 
+def to_image(array) -> Image.Image:
+    """The camera's BGR array as an RGB image.
+
+    Reversing the channels with array[:, :, ::-1] gives the same pixels, but
+    as a strided view that PIL copies pixel by pixel: 16 ms a frame on a
+    laptop, and on the Pi enough that capture alone took more than a whole
+    core at 13 fps, starving the reader. cvtColor does it in under 1 ms.
+    """
+    import cv2
+
+    return Image.fromarray(cv2.cvtColor(array, cv2.COLOR_BGR2RGB))
+
+
 def has_room(directory, min_free_bytes: int) -> bool:
     """True while the queue's filesystem keeps min_free_bytes free.
 
@@ -150,7 +163,7 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
                 # evidence. Drop it and say so.
                 print("warning: frame had no SensorTimestamp, dropped")
                 continue
-            queue.write(Image.fromarray(array[:, :, ::-1]), sensor_ns)
+            queue.write(to_image(array), sensor_ns)
             written += 1
     finally:
         camera.stop()

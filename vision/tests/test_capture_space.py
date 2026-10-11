@@ -47,3 +47,15 @@ def test_frame_rate_is_pinned_by_the_frame_duration():
 
 def test_no_frame_rate_leaves_the_camera_at_its_own_pace():
     assert "FrameDurationLimits" not in capture.build_controls(1200, 4.0)
+
+
+def test_the_camera_array_becomes_an_rgb_image_with_channels_swapped():
+    # picamera2's "RGB888" is BGR in memory. The swap has to give the same
+    # image as before, only without PIL copying a reversed view pixel by pixel.
+    import numpy as np
+    bgr = np.zeros((4, 6, 3), dtype=np.uint8)
+    bgr[..., 0], bgr[..., 1], bgr[..., 2] = 10, 20, 30
+    image = capture.to_image(bgr)
+    assert image.mode == "RGB"
+    assert image.size == (6, 4)
+    assert image.getpixel((0, 0)) == (30, 20, 10)
