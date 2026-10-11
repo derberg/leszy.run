@@ -240,6 +240,13 @@ sudo systemctl disable --now leszyrun-vision-capture   # stop recording at boot
 
 ## 9. When it does not work
 
+**The capture log repeats `no frame from the camera in 5 s`, after
+`Failed to queue buffer … Operation already in progress`.** The camera driver
+is wedged, usually because a capture was killed mid-stream, or because two
+captures fought over the camera (one by hand while the service ran). The
+service restarts capture, but a restart does not clear the driver. Reboot the
+Pi. Never start `capture.py` by hand while the service is enabled.
+
 **All frames are black or nearly black.** There is not enough light. The
 Camera Module v2.1 has an infrared-cut filter and cannot see in the dark, and
 the shutter is deliberately locked fast to freeze runners. A night race needs

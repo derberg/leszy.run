@@ -16,3 +16,21 @@ def test_no_room_once_free_space_drops_below_the_margin(tmp_path, monkeypatch):
     monkeypatch.setattr(capture.shutil, "disk_usage",
                         lambda _: Usage(100, 96, 4_000_000_000))
     assert not capture.has_room(tmp_path, 5_000_000_000)
+
+
+class _WedgedCamera:
+    def start(self): pass
+    def stop(self): pass
+    def close(self): pass
+
+    def capture_request(self, wait=None):
+        raise TimeoutError
+
+
+def test_a_wedged_camera_fails_instead_of_hanging(tmp_path, monkeypatch):
+    # Hanging kept systemd reporting a running service that wrote nothing.
+    import pytest
+    monkeypatch.setattr(capture, "clock_synced", lambda: True)
+    monkeypatch.setattr(capture, "open_camera", lambda **_: _WedgedCamera())
+    with pytest.raises(capture.CameraStalled):
+        capture.run_capture(tmp_path, 60)

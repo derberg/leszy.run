@@ -99,6 +99,12 @@ class Session:
 
     def process(self, path):
         started = time.monotonic()
+        if self.offset is None:
+            # Started as a service beside capture, the reader can come up
+            # before capture has written session.json. Read once at start,
+            # the offset stayed missing for the whole run and no sighting
+            # could be tied to a gun time.
+            self.offset = self.queue.session_offset()
         image = load_frame(path)
         if image is None:
             # Writes are atomic against a killed process but never fsynced,

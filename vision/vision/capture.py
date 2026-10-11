@@ -69,6 +69,17 @@ def open_camera(size=DEFAULT_SIZE, exposure_us=DEFAULT_EXPOSURE_US,
     return camera
 
 
+# A healthy camera delivers a frame every 70 ms or so. Five seconds without
+# one means the pipeline is wedged: on the Pi a capture killed mid-stream left
+# the driver failing every buffer, and the next run blocked in capture_request
+# forever while systemd showed it running. Failing instead lets systemd see it.
+FRAME_TIMEOUT_S = 5.0
+
+
+class CameraStalled(RuntimeError):
+    """The camera stopped delivering frames."""
+
+
 def has_room(directory, min_free_bytes: int) -> bool:
     """True while the queue's filesystem keeps min_free_bytes free.
 
@@ -111,7 +122,12 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
                 print(f"stopping: less than {min_free_bytes / 1e9:.1f} GB "
                       f"free under {queue.dir}")
                 break
-            request = camera.capture_request()
+            try:
+                request = camera.capture_request(wait=FRAME_TIMEOUT_S)
+            except TimeoutError as err:
+                raise CameraStalled(
+                    f"no frame from the camera in {FRAME_TIMEOUT_S:.0f} s"
+                ) from err
             try:
                 array = request.make_array("main")
                 sensor_ns = request.get_metadata().get("SensorTimestamp")
