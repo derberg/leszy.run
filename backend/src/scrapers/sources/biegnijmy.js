@@ -13,16 +13,26 @@
 //   - "ID#YYYYMMDD-n"        → stable id; the ZAPISY href encodes <id>-<city>
 //
 // URLs:
-//   - source_url = the ZAPISY page biegnijmy.pl/index.php?kat=zapisy/<id>-<city>&plik=zapisy
-//     (verified event-specific — title/heading name the event). It's an INFO page
-//     (regulamin + organizer), NOT a registration form, and exposes no reliable
-//     per-event external signup link → registration_url is left null for the
-//     enricher's search step to fill.
+//   - source_url = the event page the listing links from the name cell,
+//     biegnijmy.pl/<slug>-<year> (one row per edition: date, distances, organizer,
+//     REGULAMIN / ZAPISY / LISTA STARTOWA buttons). All 45 rows of the 2026 listing
+//     carry one. Falls back to the ZAPISY page when the name has no link.
+//   - registration_url = the ZAPISY page biegnijmy.pl/index.php?kat=zapisy/<id>-<city>&plik=zapisy,
+//     taken from the row's own ZAPISY button. biegnijmy hosts the sign-up form there
+//     (the page loads /zapisy/sprawdz.php to check entries) and after the deadline
+//     the same page says "ZAPISY ELEKTRONICZNE ZOSTAŁY ZAKOŃCZONE". Verified
+//     2026-10-11 with curl -sIL: a single 200, no redirect, heading names the event
+//     ("ZAPISY - Nordic Walking wokół jeziora Bukowiec - Świdwin"). No row had an
+//     open form that day, so the live form itself was not seen. Ruled out: the
+//     site-wide biegnijmy.pl/zapisy (a list of every event, not this one) and
+//     LISTA STARTOWA (the start list). No manual click-through by the user.
+//     Earlier versions called this page "info only" and left the field null, so the
+//     enricher wrote biegnijmy.pl/zapisy out of the regulamin instead.
 //   - regulamin_url = biegnijmy-hosted PDF when present (verified content-type=pdf).
 //   - website = STRONA BIEGU declared official link (kept even if it's a Facebook
 //     org page, per the declared-official-link rule; only biegnijmy's own host stripped).
 //
-// This is a regional listing/aggregator (registration lives elsewhere) → priority 8.
+// This is a regional listing/aggregator that also takes entries for some events → priority 8.
 //
 // RUNNING FILTER: biegnijmy has no discipline field, so non-running events are
 // dropped by name keyword — cycling ("rowerowy"/"kolarski"/MTB), triathlon/duathlon,
@@ -131,11 +141,7 @@ function isValidDate(d) {
   return year >= 2024 && year <= 2100
 }
 
-async function fetchYear(year) {
-  const url = `${BASE}/index.php?plik=imprezy&co=${year}-`
-  const res = await fetch(url, { headers: { 'User-Agent': UA } })
-  if (!res.ok) return []
-  const html = await res.text()
+function parseListing(html) {
   const $ = cheerio.load(html)
   const rows = []
 
@@ -144,8 +150,10 @@ async function fetchYear(year) {
     const szczegoly = r.find('td.szczegoly')
     if (!szczegoly.length) return
 
-    const name = szczegoly.find('td.czarny').first().text().replace(/\s+/g, ' ').trim()
+    const nameCell = szczegoly.find('td.czarny').first()
+    const name = nameCell.text().replace(/\s+/g, ' ').trim()
     if (!name) return
+    const eventPath = (nameCell.find('a').first().attr('href') || '').trim()
 
     // ISO date + city cell
     let dateCity = ''
@@ -186,14 +194,23 @@ async function fetchYear(year) {
     const idMatch = r.text().match(/ID#(\d{8}-\d+)/)
     const id = idMatch ? idMatch[1] : null
     const source_id = zapisySlug || (id ? `${id}-${slugify(city || '')}` : slugify(`${name}-${date}`))
-    const source_url = `${BASE}/index.php?kat=zapisy/${source_id}&plik=zapisy`
+    const zapisyUrl = `${BASE}/index.php?kat=zapisy/${source_id}&plik=zapisy`
+    const registration_url = zapisySlug ? zapisyUrl : null
+    const source_url = /^\/[a-z0-9-]+$/i.test(eventPath) ? `${BASE}${eventPath}` : zapisyUrl
 
     if (website && /biegnijmy\.pl/i.test(website)) website = null // never the portal itself
 
-    rows.push({ name, date, city, distances, regulamin_url, website, source_id, source_url })
+    rows.push({ name, date, city, distances, regulamin_url, registration_url, website, source_id, source_url })
   })
 
   return rows
+}
+
+async function fetchYear(year) {
+  const url = `${BASE}/index.php?plik=imprezy&co=${year}-`
+  const res = await fetch(url, { headers: { 'User-Agent': UA } })
+  if (!res.ok) return []
+  return parseListing(await res.text())
 }
 
 export async function scrape({ knownIds } = {}) {
@@ -218,7 +235,7 @@ export async function scrape({ knownIds } = {}) {
       date: r.date,
       location: r.city || null,
       distances: cleanDistances(r.distances),
-      registration_url: null, // ZAPISY page is info-only; enricher finds the real one
+      registration_url: r.registration_url,
       registration_deadline: null,
       regulamin_url: r.regulamin_url || null,
       website: r.website || null,
@@ -234,3 +251,5 @@ export async function scrape({ knownIds } = {}) {
 
   return events
 }
+
+export { parseListing }
