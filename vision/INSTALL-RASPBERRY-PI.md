@@ -206,6 +206,38 @@ out and then fails at the worst possible moment.
 
 Point `--queue` at a directory on the SSD.
 
+## 8a. Running as services
+
+For a race, run capture and the reader under systemd instead of in two SSH
+windows. A crash is restarted within seconds, and both start at boot. The
+units and their settings live in `vision/systemd/`.
+
+```bash
+cd ~/leszyrun/vision
+sudo cp systemd/leszyrun-vision.env /etc/default/leszyrun-vision
+sudo cp systemd/leszyrun-vision-*.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now leszyrun-vision-reader leszyrun-vision-capture
+```
+
+Set the queue directory, the gain and the run length in
+`/etc/default/leszyrun-vision`, then `sudo systemctl restart
+leszyrun-vision-capture leszyrun-vision-reader`. The file is not overwritten by a
+`git pull`.
+
+Capture is restarted only when it fails. A run that ends because its
+`VISION_SECONDS` are up, or because the disk is down to `VISION_MIN_FREE_GB`,
+stays stopped, so a forgotten service cannot fill the card. Before the clock
+syncs, capture refuses to start and is retried every five seconds until it
+does. The reader is always restarted, and with no frames it only waits.
+
+```bash
+systemctl status leszyrun-vision-capture leszyrun-vision-reader --no-pager
+journalctl -u leszyrun-vision-capture -f
+sudo systemctl start leszyrun-vision-capture   # a new run after one ended
+sudo systemctl disable --now leszyrun-vision-capture   # stop recording at boot
+```
+
 ## 9. When it does not work
 
 **All frames are black or nearly black.** There is not enough light. The

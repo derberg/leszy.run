@@ -375,6 +375,11 @@ Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
   adopted** — do not run the camera at a race whose regulamin omits them.
 
 Install on the Pi: [vision/INSTALL-RASPBERRY-PI.md](vision/INSTALL-RASPBERRY-PI.md).
+On a race Pi, capture and the reader run as systemd services
+(`vision/systemd/`, settings in `/etc/default/leszyrun-vision`). Capture is
+`Restart=on-failure`, never `always`: a run that ended on its time limit or on
+the `--min-free-gb` margin must stay stopped, because frames are never deleted
+before the retention purge and the SD card also holds the database.
 
 ## Calendar event status values (Supabase `calendar_events` table)
 

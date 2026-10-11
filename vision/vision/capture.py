@@ -15,6 +15,7 @@ The configuration never switches mode. picamera2 can switch to a still mode
 for a higher resolution capture, and that switch costs hundreds of
 milliseconds, by which time the runner has gone.
 """
+import shutil
 import time
 from pathlib import Path
 
@@ -68,9 +69,20 @@ def open_camera(size=DEFAULT_SIZE, exposure_us=DEFAULT_EXPOSURE_US,
     return camera
 
 
+def has_room(directory, min_free_bytes: int) -> bool:
+    """True while the queue's filesystem keeps min_free_bytes free.
+
+    Capture writes several megabytes a second and nothing deletes frames
+    until the retention purge. Run as a boot service it would otherwise fill
+    the disk, and on a Pi with no SSD that is the SD card the database lives
+    on, so a full card takes timing down with it.
+    """
+    return shutil.disk_usage(directory).free >= min_free_bytes
+
+
 def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
                 exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN,
-                allow_unsynced_clock=False):
+                allow_unsynced_clock=False, min_free_bytes=0):
     """Capture for duration_s seconds into queue_dir. Returns frames written."""
     synced = clock_synced()
     if synced is False and not allow_unsynced_clock:
@@ -93,6 +105,12 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
     try:
         deadline = time.monotonic() + duration_s
         while time.monotonic() < deadline:
+            # Checked every 30 frames, about two seconds: often enough to
+            # stop well before the margin is gone, rare enough to cost nothing.
+            if written % 30 == 0 and not has_room(queue.dir, min_free_bytes):
+                print(f"stopping: less than {min_free_bytes / 1e9:.1f} GB "
+                      f"free under {queue.dir}")
+                break
             request = camera.capture_request()
             try:
                 array = request.make_array("main")
