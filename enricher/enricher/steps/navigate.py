@@ -208,7 +208,32 @@ def _distinctive_tokens(name: str) -> list[str]:
     return out
 
 
-def page_matches_event(event: dict, text: str) -> bool:
+def _one_letter_apart(a: str, b: str) -> bool:
+    """True when a and b differ by exactly one inserted or deleted letter.
+    Substitutions do not count: "gdyński" and "gdański" are different towns."""
+    if abs(len(a) - len(b)) != 1:
+        return False
+    if len(a) > len(b):
+        a, b = b, a
+    i = 0
+    while i < len(a) and a[i] == b[i]:
+        i += 1
+    return a[i:] == b[i + 1:]
+
+
+def _token_in_text(token: str, tl: str, words: set, fuzzy: bool) -> bool:
+    """Exact substring, or with fuzzy for tokens of 6+ letters a text word one
+    letter longer or shorter. Scraped names carry typos: raatiming's "Bieg
+    Legionsty" is "Legionisty" in its own regulamin, and the exact test rejected
+    that PDF."""
+    if token in tl:
+        return True
+    if not fuzzy or len(token) < 6:
+        return False
+    return any(_one_letter_apart(token, w) for w in words)
+
+
+def page_matches_event(event: dict, text: str, fuzzy: bool = False) -> bool:
     """True if a crawled page plausibly describes THIS event — used to gate
     search-discovered pages so a wrong-event SearXNG hit (e.g. Ochabski →
     rundazubra.pl) is not extracted from. Keys off distinctive name tokens: at
@@ -220,7 +245,8 @@ def page_matches_event(event: dict, text: str) -> bool:
     if not toks:
         return True
     tl = text.lower()
-    hits = sum(1 for t in toks if t in tl)
+    words = set(_TOKEN_RE.findall(tl))
+    hits = sum(1 for t in toks if _token_in_text(t, tl, words, fuzzy))
     return hits >= 1 and hits >= (len(toks) + 1) // 2
 
 
@@ -240,11 +266,12 @@ def pdf_belongs_to_event(event: dict, text: str) -> bool:
     looksLikeRegulamin's structural test passes it. What a platform document never
     carries is the race's own name, so this reuses the gate that already guards
     search-discovered pages. An event whose name has no distinctive tokens cannot
-    be judged and is not blocked, exactly as in page_matches_event.
+    be judged and is not blocked, exactly as in page_matches_event. Only here is a
+    one-letter typo in the name forgiven; search gating and verify stay exact.
     """
     if not text or not text.strip():
         return False
-    return page_matches_event(event, text)
+    return page_matches_event(event, text, fuzzy=True)
 
 
 def strip_foreign_event_lines(text: str, self_urls: list) -> str:
