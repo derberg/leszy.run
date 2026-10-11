@@ -69,8 +69,11 @@ needed. There is no `start_x` setting any more and you should not add one.
 
 ```bash
 sudo apt update
-sudo apt install -y python3-picamera2 python3-venv libgl1 libglib2.0-0
+sudo apt install -y python3-picamera2 python3-venv libgl1 libglib2.0-0 libgles2
 ```
+
+`libgles2` is for the person detector: mediapipe loads `libGLESv2.so.2` when
+it starts, and without it every detection fails with an `OSError`.
 
 `python3-picamera2` comes from apt rather than pip, because it is built
 against the system camera stack.
@@ -84,7 +87,11 @@ python3 -m venv --system-site-packages .venv
 ```
 
 `--system-site-packages` matters. Without it the virtual environment cannot
-see the apt-installed `picamera2` and capture fails on import.
+see the apt-installed `picamera2` and capture fails on import. It also lets
+pip reuse the apt `numpy`. Raspberry Pi OS runs Python 3.13, which has no
+prebuilt numpy older than 2, so the Pi gets mediapipe 1.x and numpy 2 while
+macOS stays on mediapipe 0.10.21. `pyproject.toml` picks the right pair by
+platform.
 
 Download the person detector, which is not committed:
 

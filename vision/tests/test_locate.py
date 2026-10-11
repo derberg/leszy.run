@@ -67,3 +67,26 @@ def test_a_tilted_bib_reads_correctly_after_deskew(degrees):
     box, crop = extract_bib(scene)
     assert box is not None
     assert read_bib(crop)[0] == "47"
+
+
+@pytest.mark.parametrize(
+    "rect, want",
+    [
+        # An untilted block standing on its short edge. OpenCV 4.11 reports it
+        # at +90 degrees and 4.14 at -90, the same rectangle either way. Both
+        # need no rotation; turning the -90 form by 180 put the crop upside
+        # down on the Pi and 47 read as 24.
+        (((59.0, 199.0), 90.0), ((199.0, 59.0), 0.0)),
+        (((59.0, 199.0), -90.0), ((199.0, 59.0), 0.0)),
+        (((199.0, 59.0), 0.0), ((199.0, 59.0), 0.0)),
+        # Ten degrees of tilt, described from either edge.
+        (((59.0, 199.0), 80.0), ((199.0, 59.0), -10.0)),
+        (((199.0, 59.0), 10.0), ((199.0, 59.0), 10.0)),
+    ],
+)
+def test_upright_angle_is_the_smallest_correction(rect, want):
+    from vision.locate import _upright
+
+    (w, h), angle = _upright(*rect[0], rect[1])
+    assert (w, h) == want[0]
+    assert angle == pytest.approx(want[1])

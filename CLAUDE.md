@@ -331,9 +331,14 @@ rate and spurious count. Judge the wrong rate first: a missed runner leaves a
 gap a person fills, while a wrong number gives somebody else's time to a
 runner and nobody notices.
 
-**Pinned dependencies with reasons.** `mediapipe==0.10.21`, because 1.0.x
-aborts on macOS arm64 asking for a Metal service that is not there.
-`numpy<2` and `opencv<5` follow from that pin. `torch` is in an optional
+**Pinned dependencies with reasons, per platform.** On macOS
+`mediapipe==0.10.21`, because 1.0.x aborts on macOS arm64 asking for a Metal
+service that is not there, and `numpy<2` follows. On the Pi the reverse:
+0.10.21 has no linux-aarch64 wheel and Python 3.13 has no numpy<2 wheel, so
+Linux gets `mediapipe>=1.0` on the apt numpy 2 (plus `libgles2` from apt).
+`opencv<5` holds on both. Do not trust OpenCV's `minAreaRect` angle
+convention: 4.11 reports an untilted block at +90 and 4.14 at -90, which is
+why `_upright()` in `locate.py` folds the correction into [-90, 90). `torch` is in an optional
 `[train]` extra: training runs on a workstation, the Pi only needs
 `onnxruntime`.
 
