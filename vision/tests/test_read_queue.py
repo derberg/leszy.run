@@ -213,3 +213,14 @@ def test_the_crop_cache_does_not_grow_for_the_whole_race(tmp_path):
         assert len(s.crops) <= 11
     finally:
         rq.CROP_CACHE_FRAMES = 900
+
+
+def test_session_offset_written_after_the_reader_started_is_picked_up(tmp_path):
+    # Two services start together and the reader can win the race.
+    queue = FrameQueue(tmp_path)
+    s = session(tmp_path, lambda img: [])
+    assert s.offset is None
+    queue.write_session(1_700_000_000.0)
+    queue.write(frame(), 1_000_000_000)
+    drain(s)
+    assert s.offset == 1_700_000_000.0

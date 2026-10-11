@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from vision.capture import ClockNotSynced, run_capture  # noqa: E402
+from vision.capture import CameraStalled, ClockNotSynced, run_capture  # noqa: E402
 
 
 def main():
@@ -37,7 +37,7 @@ def main():
             allow_unsynced_clock=args.allow_unsynced_clock,
             min_free_bytes=int(args.min_free_gb * 1e9),
         )
-    except ClockNotSynced as err:
+    except (ClockNotSynced, CameraStalled) as err:
         sys.exit(str(err))
 
 
