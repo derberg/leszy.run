@@ -7,6 +7,14 @@
 // Prices not exposed in HTML (loaded dynamically) — left to Python enricher.
 // Cycling events (gravel, MTB) skipped.
 // URL verification: registration URL confirmed via curl -sIL for event 1351 (200, event-specific content).
+// Before sign-ups open the listing shows "Zapisy od <date>" instead of the
+// "Formularz zgłoszenia" button. The form already lives at the same
+// act=zgloszenie-zawodnika&event=<id> URL, with the id taken from the race's own
+// "Lista startowa" link: checked 2026-10-12 with curl -sIL for event 1515 (gr333),
+// 200 with no redirect, the page names the race and reads "Wydarzenie nieaktywne"
+// until the opening date. A race with neither the button nor a "Zapisy od" date
+// (event 1492, closed or offline) gets no link, because its form is just as
+// inactive and will not open. No manual verification by the user.
 
 import * as cheerio from 'cheerio'
 
@@ -66,6 +74,15 @@ function findWebsiteUrl($, el) {
     if (/strona\s+www/i.test($(a).text())) url = $(a).attr('href') || null
   })
   return url
+}
+
+// The form a race will open on its "Zapisy od" date. Null when the item has no
+// opening date, so a race whose sign-ups are over never links to a dead form.
+function upcomingFormUrl($, el) {
+  if (!/Zapisy od\s+\d{4}-\d{2}-\d{2}/.test($(el).text())) return null
+  const href = $(el).find('a[href*="act=lista-startowa"]').first().attr('href') || ''
+  const id = href.match(/[?&]event=(\d+)/)?.[1]
+  return id ? `${BASE_URL}/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=${id}` : null
 }
 
 function resolveHref(href) {
@@ -173,10 +190,22 @@ export async function scrape({ knownIds = new Set() } = {}) {
           const btn = $(sub).find('a[href*="zgloszenie-zawodnika"]').first()
           if (btn.length) registrationUrl = resolveHref(btn.attr('href'))
         })
-        // Fallback: any sub-item
-        if (!registrationUrl) {
+        // Fallback: a kids form, but only for a kids-only group. When the adult
+        // race's form is gone its sign-ups are over (gr327, 2026-10-12: 1489
+        // closed, 1490 "biegi dziecięce" still open), and the kids form is not
+        // where an adult runner signs up.
+        const hasAdultRace = subItemNames.some((n) => !hasKidsSignal(n))
+        if (!registrationUrl && !hasAdultRace) {
           const btn = $el.find('a[href*="zgloszenie-zawodnika"]').first()
           if (btn.length) registrationUrl = resolveHref(btn.attr('href'))
+        }
+        // Not open yet: the form of the first non-kids race with an opening date
+        if (!registrationUrl) {
+          $el.find('.event-subitem-main').each((_, sub) => {
+            if (registrationUrl) return
+            if (hasKidsSignal($(sub).find('.event-title').text())) return
+            registrationUrl = upcomingFormUrl($, sub)
+          })
         }
 
         // Regulamin + website: from first sub-item (usually shared across all sub-items)
@@ -200,6 +229,7 @@ export async function scrape({ knownIds = new Set() } = {}) {
 
         const btn = $el.find('a[href*="zgloszenie-zawodnika"]').first()
         if (btn.length) registrationUrl = resolveHref(btn.attr('href'))
+        else registrationUrl = upcomingFormUrl($, el)
 
         regulaminUrl = findRegulaminUrl($, el)
         website = findWebsiteUrl($, el)

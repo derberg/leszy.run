@@ -436,6 +436,10 @@ const sources = [
     name: 'inessport',
     scrape: scrapeInessport,
     table: 'scraper_inessport',
+    // A race announced before sign-ups open gets its form link from the
+    // "Zapisy od" date, but a link that appears on a row the pipeline already
+    // holds would never leave this table without being compared here.
+    knownColumns: 'source_id, date, registration_url',
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,
@@ -1915,4 +1919,4 @@ let existingCE = null
   return { created, updated, unchanged, rejectedSkipped, fuzzySkipped, errors, fuzzyLog, createdLog, updatedLog }
 }
 
-export { runPipeline, mergeIntoScraperAll, publishToCalendar, toIntPrice }
+export { runPipeline, mergeIntoScraperAll, publishToCalendar, toIntPrice, sources }
