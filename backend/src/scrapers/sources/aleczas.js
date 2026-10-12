@@ -61,6 +61,12 @@ function cleanDistances(raw) {
     .replace(/biegi dla dzieci/gi, '')
     .replace(/biegi dla m[lł]odzie[żz]y?/gi, '')
     .replace(/rolki/gi, '')
+    // Polish decimal comma ("nw 5,5 km"), or the split below cuts it in two.
+    .replace(/(\d),(\d)/g, '$1.$2')
+    // Legs leszy.run does not list: a run with a dog (canicross) and a walk
+    // ("spacer", or "marsz" without poles). Removed with their distance, or
+    // "bieg z psem 5km" would survive as "5 km".
+    .replace(/(?:bieg\s+z\s+psem|canicross|spacer|marsz(?!\s*(?:nw|nordic)))[^,]*/gi, '')
     // Strip activity-type prefixes before distances: "bieg 8km" → "8km", "nw 5km" → "5km"
     .replace(/\bnw\s+(?=\d)/gi, '')
     .replace(/\bbieg\s+(?=\d)/gi, '')
@@ -72,20 +78,19 @@ function cleanDistances(raw) {
     // Collapse multiple commas/spaces left by removals
     .replace(/,\s*,+/g, ',')
     .trim()
-  return s || null
+  // Stripping "nw" can leave the same length twice ("bieg 5km, nw 5km").
+  const parts = [...new Set(s.split(/\s*,\s*/).filter(Boolean))]
+  return parts.join(', ') || null
 }
 
-async function scrape({ knownIds = new Set() } = {}) {
-  let html
-  try {
-    const res = await fetch(LIST_URL, { headers: { 'User-Agent': USER_AGENT } })
-    if (!res.ok) throw new Error(`listing ${res.status} ${res.statusText}`)
-    html = await res.text()
-  } catch (err) {
-    console.error('[aleczas] Listing fetch failed:', err.message)
-    return []
-  }
+// The button is a placeholder until registration opens: href="#" with a label
+// like "zapisy od 2.11.2026". Only an absolute http(s) link is a sign-up page.
+function registrationUrl(href) {
+  const url = href?.trim()
+  return url && /^https?:\/\//i.test(url) ? url : null
+}
 
+function parseListing(html) {
   const $ = cheerio.load(html)
   const results = []
 
@@ -115,7 +120,7 @@ async function scrape({ knownIds = new Set() } = {}) {
 
     // Registration URL: first button link ("zapisz się")
     const regLink = entry.find('.entry-bottom a.button').first()
-    const registration_url = regLink.attr('href')?.trim() || null
+    const registration_url = registrationUrl(regLink.attr('href'))
 
     const distances = cleanDistances(distancesRaw)
     // detectEventTypes checks the name; also pass raw distances to catch "nw Xkm" patterns
@@ -143,8 +148,23 @@ async function scrape({ knownIds = new Set() } = {}) {
     })
   })
 
+  return results
+}
+
+async function scrape({ knownIds = new Set() } = {}) {
+  let html
+  try {
+    const res = await fetch(LIST_URL, { headers: { 'User-Agent': USER_AGENT } })
+    if (!res.ok) throw new Error(`listing ${res.status} ${res.statusText}`)
+    html = await res.text()
+  } catch (err) {
+    console.error('[aleczas] Listing fetch failed:', err.message)
+    return []
+  }
+
+  const results = parseListing(html)
   console.log(`[aleczas] Scraped ${results.length} events`)
   return results
 }
 
-export { scrape, parseDate, detectEventTypes, hasKidsSignal }
+export { scrape, parseListing, parseDate, detectEventTypes, hasKidsSignal }
