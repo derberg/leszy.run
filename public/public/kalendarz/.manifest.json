@@ -60689,6 +60689,29 @@
     "is_kids": null,
     "status": "active"
   },
+  "nordic-walking-wokol-jeziora-bukowiec-jez-bukowiec-2026-10-11": {
+    "id": "84bc6e0f-2652-44e3-8645-880cfbf01f03",
+    "name": "Nordic Walking wokół jeziora Bukowiec (jez. Bukowiec)",
+    "date": "2026-10-11",
+    "registration_deadline": "2026-09-30",
+    "regulamin_url": "https://biegnijmy.pl/artykuly/zapisy/20261011-2-swidwin/Regulamin%20nording-walking%202026.pdf",
+    "price_from": 29,
+    "price_to": 29,
+    "location": "Świdwin",
+    "voivodeship": "Zachodniopomorskie",
+    "lat": 53.774596,
+    "lng": 15.776796,
+    "distances": [
+      "3.2 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://biegnijmy.pl/index.php?kat=zapisy/20261011-2-swidwin&plik=zapisy",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "run-for-fighters-2026-10-15": {
     "id": "884e6ae1-9b9c-418e-b514-941b196efbfc",
     "name": "Run for Fighters",
@@ -62747,6 +62770,33 @@
     ],
     "registration_url": null,
     "website": "https://www.zmierzymyczas.pl/2415/viii-rodzinny-bieg-odblaskowy.html",
+    "is_kids": null,
+    "status": "active"
+  },
+  "bieg-legionisty-2026-10-23": {
+    "id": "c9cfcbb8-fa24-43cf-89f9-135b747e4816",
+    "name": "Bieg Legionisty",
+    "date": "2026-10-23",
+    "registration_deadline": "2026-10-16",
+    "regulamin_url": "https://gok.chelmiec.pl/wp-content/uploads/2026/10/Regulamin-XXXIII-Biegu-Legionisty.pdf",
+    "price_from": 0,
+    "price_to": 0,
+    "location": "Marcinkowice",
+    "voivodeship": "Małopolskie",
+    "lat": null,
+    "lng": null,
+    "distances": [
+      "600m",
+      "800m",
+      "1000m",
+      "1500m"
+    ],
+    "event_type": [
+      "uliczny",
+      "dzieci"
+    ],
+    "registration_url": "https://zapisy.raatiming.pl/bieglegionisty-kordynatorzy.html",
+    "website": "https://gok.chelmiec.pl/ruszaja-zapisy-na-xxxiii-bieg-legionisty-w-marcinkowicach/",
     "is_kids": null,
     "status": "active"
   },
@@ -67035,6 +67085,29 @@
     "is_kids": null,
     "status": "active"
   },
+  "xi-chrzanowski-marsz-niepodleglosci-nordic-walking-5-km-11112026r-2026-11-11": {
+    "id": "9c0d8cb5-d981-4397-995f-e4a711d56c8e",
+    "name": "XI Chrzanowski Marsz Niepodległości Nordic Walking – 5 km, 11.11.2026r.",
+    "date": "2026-11-11",
+    "registration_deadline": "2026-11-09",
+    "regulamin_url": "https://pifsport.com.pl/wp-content/uploads/2026/10/Regulamin-XI-Marszu-Niepodleglosci-2026.pdf",
+    "price_from": 0,
+    "price_to": 0,
+    "location": "CHRZANÓW przy",
+    "voivodeship": "Małopolskie",
+    "lat": null,
+    "lng": null,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "nordic walking"
+    ],
+    "registration_url": "https://www.e-gepard.eu/pl/show-contest/1701",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "nocny-jelczanski-bieg-towarzyski-4-2026-11-13": {
     "id": "65afdbce-41ab-4836-b870-081d82679d48",
     "name": "Nocny Jelczański Bieg Towarzyski 4",
@@ -68533,6 +68606,29 @@
     "is_kids": null,
     "status": "active"
   },
+  "xv-ogolnopolski-bieg-barborkowy-solidarnosci-2026-11-29": {
+    "id": "c34fa846-f086-4f5c-960a-e8868e129d50",
+    "name": "XV OGÓLNOPOLSKI BIEG BARBÓRKOWY SOLIDARNOŚCI",
+    "date": "2026-11-29",
+    "registration_deadline": "2026-11-20",
+    "regulamin_url": "https://drive.google.com/file/d/1VqlQ5BoDHPnGiMWVJPwLnujw7IiMcV8J/view?usp=drive_link",
+    "price_from": 70,
+    "price_to": 90,
+    "location": "Bogdanka",
+    "voivodeship": "Lubelskie",
+    "lat": null,
+    "lng": null,
+    "distances": [
+      "12.4 km"
+    ],
+    "event_type": [
+      "uliczny"
+    ],
+    "registration_url": "https://zapisy.inessport.pl/index.php?idm=5&idp=0&act=zgloszenie-zawodnika&event=1515",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "xvii-grand-prix-myslowic-2026-12-05": {
     "id": "8b8ac6f5-5586-43e6-bcb7-0a2f0fba63d3",
     "name": "XVII Grand Prix Mysłowic",
@@ -69296,6 +69392,30 @@
     "is_kids": null,
     "status": "active"
   },
+  "dynow-biega-9bieg-mikolajkowy-2026-12-06": {
+    "id": "862e0a29-8c58-4fa2-b3ea-40250a3355e2",
+    "name": "Dynów Biega - 9.Bieg Mikołajkowy",
+    "date": "2026-12-06",
+    "registration_deadline": null,
+    "regulamin_url": "https://competitions.timekeeper.pl/download/1198",
+    "price_from": 0,
+    "price_to": 0,
+    "location": "Dynów",
+    "voivodeship": "Podkarpackie",
+    "lat": 49.813777,
+    "lng": 22.238094,
+    "distances": [
+      "1.7 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "charytatywny"
+    ],
+    "registration_url": "https://competitions.timekeeper.pl/bieg-mikolajkowy-w-dynowie",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
   "gliwicka-prowokacja-biegowa-2026-12-12": {
     "id": "869d8153-9cc3-4e2f-ac92-3dea784119ee",
     "name": "Gliwicka Prowokacja biegowa",
@@ -69585,6 +69705,30 @@
     ],
     "registration_url": "https://www.protimer.pl/bio/1384/perly-malopolski-rabka-zdrojgorce-14-grudnia-2025/page",
     "website": "www.perlymalopolski.pl",
+    "is_kids": null,
+    "status": "active"
+  },
+  "vii-bieg-mikolajow-warminski-jarmark-swiateczny-olsztyn-2026-2026-12-13": {
+    "id": "6f97d4c8-78a2-4d1f-a41e-1ccdb4058cf8",
+    "name": "VII Bieg Mikołajów - Warmiński Jarmark Świąteczny - Olsztyn 2026",
+    "date": "2026-12-13",
+    "registration_deadline": "2026-12-10",
+    "regulamin_url": "https://superczas.pl/mikolajeolsztyn2026#main",
+    "price_from": 30,
+    "price_to": 30,
+    "location": "Olsztyn",
+    "voivodeship": "Warmińsko-Mazurskie",
+    "lat": 53.776644,
+    "lng": 20.477753,
+    "distances": [
+      "5 km"
+    ],
+    "event_type": [
+      "uliczny",
+      "charytatywny"
+    ],
+    "registration_url": "https://superczas.pl/mikolajeolsztyn2026/zapisy",
+    "website": null,
     "is_kids": null,
     "status": "active"
   },
@@ -70806,6 +70950,36 @@
       "dzieci"
     ],
     "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12846%26co%3Dform",
+    "website": null,
+    "is_kids": null,
+    "status": "active"
+  },
+  "51-bieg-piastow-festiwal-narciarstwa-biegowego-25-km-ct-worldloppet-xiii-memorial-wandy-i-jerzego-lechowiczow-2027-02-21": {
+    "id": "d4929a6c-03e0-43fc-bf7e-3c61e48a3675",
+    "name": "51. Bieg Piastów – Festiwal Narciarstwa Biegowego - 25 km CT - Worldloppet (XIII Memoriał Wandy i Jerzego Lechowiczów)",
+    "date": "2027-02-21",
+    "registration_deadline": null,
+    "regulamin_url": "https://bieg-piastow.pl/img/files/Regulamin%20-%20Festiwal%20Narciarstwa%20Biegowego%20(51_BP)(9).pdf",
+    "price_from": 100,
+    "price_to": 380,
+    "location": "Szklarska Poręba - Jakuszyce",
+    "voivodeship": "Dolnośląskie",
+    "lat": 50.81463,
+    "lng": 15.429516,
+    "distances": [
+      "6 km",
+      "12 km",
+      "15 km",
+      "25 km",
+      "30 km",
+      "50 km"
+    ],
+    "event_type": [
+      "nocny",
+      "trail",
+      "dzieci"
+    ],
+    "registration_url": "https://liveds.datasport.pl/queue/?redirect_url=https%3A%2F%2Fonline.datasport.pl%2Fzapisy%2Fportal%2Fform%2F%3Fzawody%3D12847%26co%3Dform",
     "website": null,
     "is_kids": null,
     "status": "active"
