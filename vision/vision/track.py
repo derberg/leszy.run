@@ -56,6 +56,33 @@ class _Track:
     best_confidence: float = 0.0
     best_frame_index: int = -1
     best_bib_box: tuple | None = None
+    reads: list = field(default_factory=list)   # (frame, text, confidence, bib box)
+
+
+def _split_numbers(track) -> list:
+    """The numbers in one track that belong to different passes.
+
+    Box overlap cannot tell two runners apart when one follows the other
+    through the same spot without a gap: bib 33 then bib 55 shown on one
+    body made one track, and the vote reported 55 and lost 33. A second
+    number is a separate pass when it is read in enough frames of its own,
+    all of them before or all after the first number's, and it is not a
+    piece of the first. Interleaved misreads, and the "0" left when a 20 is
+    cut by the frame edge, stay votes inside the one pass.
+    """
+    counts = {t: n for t, n in track.read_frames.items() if n >= MIN_AGREEING_FRAMES}
+    if len(counts) < 2:
+        return []
+    spans = {t: (min(f for f, x, *_ in track.reads if x == t),
+                 max(f for f, x, *_ in track.reads if x == t)) for t in counts}
+    order = sorted(counts, key=lambda t: track.votes[t], reverse=True)
+    kept = [order[0]]
+    for text in order[1:]:
+        lo, hi = spans[text]
+        if all((hi < spans[k][0] or lo > spans[k][1]) and text not in k and k not in text
+               for k in kept):
+            kept.append(text)
+    return sorted(kept, key=lambda t: spans[t][0]) if len(kept) > 1 else []
 
 
 class Tracker:
@@ -87,6 +114,7 @@ class Tracker:
             if sight.text is not None:
                 match.votes[sight.text] += sight.confidence
                 match.read_frames[sight.text] += 1
+                match.reads.append((frame_index, sight.text, sight.confidence, sight.bib_box))
             if sight.confidence > match.best_confidence:
                 match.best_confidence = sight.confidence
                 match.best_frame_index = frame_index
@@ -111,8 +139,37 @@ class Tracker:
             frame_indices=list(track.frames),
         )
 
+    @classmethod
+    def _results(cls, track) -> list:
+        """One result per pass in the track, usually exactly one."""
+        numbers = _split_numbers(track)
+        if not numbers:
+            return [cls._result(track)]
+        # Each pass owns the frames up to the midpoint between its reads and
+        # the next pass's, so every frame of the track lands in one pass.
+        firsts = [min(f for f, t, *_ in track.reads if t == n) for n in numbers]
+        lasts = [max(f for f, t, *_ in track.reads if t == n) for n in numbers]
+        cuts = [(lasts[i] + firsts[i + 1]) / 2 for i in range(len(numbers) - 1)]
+        out = []
+        for i, number in enumerate(numbers):
+            lo = cuts[i - 1] if i else float("-inf")
+            hi = cuts[i] if i < len(cuts) else float("inf")
+            part = _Track(box=track.box, last_frame=track.last_frame)
+            part.frames = [f for f in track.frames if lo < f <= hi]
+            for frame, text, confidence, bib_box in track.reads:
+                if not lo < frame <= hi:
+                    continue
+                part.votes[text] += confidence
+                part.read_frames[text] += 1
+                if confidence > part.best_confidence:
+                    part.best_confidence = confidence
+                    part.best_frame_index = frame
+                    part.best_bib_box = bib_box
+            out.append(cls._result(part))
+        return out
+
     def results(self) -> list:
-        return [self._result(t) for t in self._tracks]
+        return [r for t in self._tracks for r in self._results(t)]
 
     def pop_closed(self, frame_index: int) -> list:
         """Tracks that can no longer change, removed as they are returned.
@@ -132,7 +189,7 @@ class Tracker:
             (closed if frame_index - track.last_frame > MAX_GAP_FRAMES
              else live).append(track)
         self._tracks = live
-        return [self._result(t) for t in closed]
+        return [r for t in closed for r in self._results(t)]
 
     def flush(self) -> list:
         """Everything still open, emptied.
@@ -140,6 +197,6 @@ class Tracker:
         The last runner of the day has nobody following them, so their track
         never ages out. Without this they would be lost at shutdown.
         """
-        out = [self._result(t) for t in self._tracks]
+        out = [r for t in self._tracks for r in self._results(t)]
         self._tracks = []
         return out

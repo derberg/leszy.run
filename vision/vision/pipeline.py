@@ -121,7 +121,12 @@ def locate_claims(image: Image.Image, people: list):
     bare = [i for i, (_, bib_box) in enumerate(claims) if bib_box is None]
     if bare:
         bib_box, crop = extract_bib(image)
-        if bib_box is not None and tuple(bib_box) not in crops:
+        # The bib the whole frame turns up is usually one a person already
+        # holds, found again a few pixels off. Given to a bare box it became
+        # a second claim, and a poster on the wall the detector takes for a
+        # person collected a vote from every runner who passed in front.
+        if bib_box is not None and not any(
+                _overlap(k, bib_box) > SAME_BIB for k in crops):
             nearest = min(bare, key=lambda i: _distance(claims[i][0], bib_box))
             claims[nearest] = (claims[nearest][0], bib_box)
             crops[tuple(bib_box)] = crop
