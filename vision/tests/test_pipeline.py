@@ -62,3 +62,15 @@ def test_two_people_with_their_own_bibs_both_keep_them():
     b = ((400, 100, 600, 600), (450, 300, 550, 360))
     resolved = resolve_bib_claims([a, b])
     assert [bib for _, bib in resolved] == [a[1], b[1]]
+
+
+@needs_detector
+def test_a_bib_held_beside_the_body_is_given_to_that_person():
+    # A runner holding their number out in a hand: the detector boxes the
+    # body, the bib sits outside the box, and it used to be lost entirely.
+    runner = Image.open(FIXTURE).convert("RGB")
+    canvas = Image.new("RGB", (runner.width * 2, runner.height), (60, 60, 60))
+    canvas.paste(runner, (0, 0))
+    bib = render_bib(47, px_per_mm=max(0.6, runner.width / 900))
+    canvas.paste(bib, (runner.width + runner.width // 4, runner.height // 3))
+    assert any(s.text == "47" for s in read_frame(canvas))

@@ -95,3 +95,44 @@ def test_a_bright_edge_of_the_crop_is_not_a_digit():
     crop = Image.new("RGB", (222, 147), BIB.block_rgb)
     ImageDraw.Draw(crop).polygon([(0, 0), (30, 0), (45, 147), (0, 147)], fill=(235, 235, 235))
     assert read_bib(crop)[0] is None
+
+
+def test_a_number_cut_by_the_crop_edge_is_refused_not_shortened():
+    # The locator found a bib whose 2 ran off the left edge of the crop; the
+    # 2 was dropped and the bib read as 0. A shortened number is a different
+    # runner. Refuse it.
+    bib = render_bib(20, px_per_mm=2.0)
+    cut = bib.crop((int(bib.width * 0.30), 0, bib.width, bib.height))
+    assert read_bib(cut)[0] is None
+
+
+def test_a_digit_merged_with_glare_at_the_edge_is_refused():
+    # A glare streak reached the right edge and swallowed the 0 of bib 20,
+    # which then read as 2 at confidence 1.00 on three frames.
+    from PIL import ImageDraw
+
+    bib = render_bib(20, px_per_mm=2.0)
+    draw = ImageDraw.Draw(bib)
+    draw.polygon([(bib.width * 0.62, 0), (bib.width, 0), (bib.width, bib.height),
+                  (bib.width * 0.70, bib.height)], fill=(225, 235, 245))
+    assert read_bib(bib)[0] is None
+
+
+def test_a_digit_the_classifier_is_unsure_of_refuses_the_number(monkeypatch):
+    # A skewed bib read as 19 with its weakest digit at 0.56. Below the floor
+    # the number is refused, as a guess would hand somebody else's time out.
+    import numpy as np
+    import vision.recognize as recognize
+
+    class Unsure:
+        def get_inputs(self):
+            return [type("I", (), {"name": "x"})()]
+
+        def run(self, _, feeds):
+            n = feeds["x"].shape[0]
+            logits = np.zeros((n, 10), dtype=np.float32)
+            logits[:, 1] = 0.5      # softmax max about 0.15, well under 0.7
+            return [logits]
+
+    monkeypatch.setattr(recognize, "_model", lambda: Unsure())
+    assert recognize.read_bib(render_bib(20, px_per_mm=2.0))[0] is None

@@ -27,10 +27,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from vision.clock import clock_synced  # noqa: E402
-from vision.locate import extract_bib  # noqa: E402
 from vision.measure import load_frame  # noqa: E402
 from vision.people import detect_people  # noqa: E402
-from vision.pipeline import Sighting, resolve_bib_claims  # noqa: E402
+from vision.pipeline import Sighting, locate_claims, resolve_bib_claims  # noqa: E402
 from vision.queue import FrameQueue  # noqa: E402
 from vision.recognize import read_bib  # noqa: E402
 from vision.report import (  # noqa: E402
@@ -54,13 +53,7 @@ def read_frame_with_crops(image):
     number, so this keeps them. The detection logic is identical and is
     reused rather than copied.
     """
-    people = detect_people(image)
-    claims, crops = [], {}
-    for person_box in people:
-        bib_box, crop = extract_bib(image, region=person_box)
-        claims.append((person_box, bib_box))
-        if bib_box is not None:
-            crops[tuple(bib_box)] = crop
+    claims, crops = locate_claims(image, detect_people(image))
 
     out = []
     for person_box, bib_box in resolve_bib_claims(claims):

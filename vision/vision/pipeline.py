@@ -1,8 +1,11 @@
 """Read every bib in one frame.
 
-Person first, then the bib inside that person. Searching a whole frame for
-the block colour finds undergrowth at a trail race; searching inside a
-detected torso does not.
+Person first, then the bib inside that person. When a person has no bib
+inside their box, the whole frame is searched once and a bib found there is
+given to the nearest person without one: a runner holding the number out in
+a hand, or wearing it on an arm, has it outside the box the detector draws.
+The locator's own checks (digits inside, clear of the frame edge) and the
+two-frame rule in the tracker stand between that wider search and foliage.
 
 A person with no readable bib still produces a Sighting whose text is None.
 That row is evidence, not noise: it says somebody crossed and could not be
@@ -72,15 +75,41 @@ def resolve_bib_claims(claims: list) -> list:
     return resolved
 
 
-def read_frame(image: Image.Image) -> list:
-    """Return one Sighting per detected person, readable or not."""
-    people = detect_people(image)
+def _distance(person_box, bib_box) -> float:
+    """Gap between the bib's centre and the person's box, 0 when inside."""
+    px1, py1, px2, py2 = person_box
+    bx1, by1, bx2, by2 = bib_box
+    cx, cy = (bx1 + bx2) / 2, (by1 + by2) / 2
+    dx = max(px1 - cx, 0, cx - px2)
+    dy = max(py1 - cy, 0, cy - py2)
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def locate_claims(image: Image.Image, people: list):
+    """(claims, crops): each person with the bib box found for them, or None.
+
+    Shared by read_frame and the live reader so both search the same way.
+    """
     claims, crops = [], {}
     for person_box in people:
         bib_box, crop = extract_bib(image, region=person_box)
         claims.append((person_box, bib_box))
         if bib_box is not None:
             crops[tuple(bib_box)] = crop
+
+    bare = [i for i, (_, bib_box) in enumerate(claims) if bib_box is None]
+    if bare:
+        bib_box, crop = extract_bib(image)
+        if bib_box is not None and tuple(bib_box) not in crops:
+            nearest = min(bare, key=lambda i: _distance(claims[i][0], bib_box))
+            claims[nearest] = (claims[nearest][0], bib_box)
+            crops[tuple(bib_box)] = crop
+    return claims, crops
+
+
+def read_frame(image: Image.Image) -> list:
+    """Return one Sighting per detected person, readable or not."""
+    claims, crops = locate_claims(image, detect_people(image))
 
     sightings = []
     for person_box, bib_box in resolve_bib_claims(claims):
