@@ -86,3 +86,12 @@ def test_a_dark_bib_reads_the_same_as_a_bright_one(brightness):
 
     dark = ImageEnhance.Brightness(render_bib(65, px_per_mm=2)).enhance(brightness)
     assert read_bib(dark)[0] == "65"
+
+
+def test_a_bright_edge_of_the_crop_is_not_a_digit():
+    # A fragment of the block beside the digits, with the white paper margin
+    # caught along one side, read as 2. Real digits sit inside the block with
+    # a margin of olive on every side, so nothing touching the edge is one.
+    crop = Image.new("RGB", (222, 147), BIB.block_rgb)
+    ImageDraw.Draw(crop).polygon([(0, 0), (30, 0), (45, 147), (0, 147)], fill=(235, 235, 235))
+    assert read_bib(crop)[0] is None
