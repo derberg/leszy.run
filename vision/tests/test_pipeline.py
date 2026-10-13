@@ -89,3 +89,23 @@ def test_one_bib_seen_from_two_person_boxes_is_one_claim(monkeypatch):
     assert claims[0][1] == claims[1][1]
     resolved = pipeline.resolve_bib_claims(claims)
     assert sum(bib is not None for _, bib in resolved) == 1
+
+
+def test_the_whole_frame_search_does_not_hand_a_held_bib_to_a_second_person(monkeypatch):
+    # A poster the detector took for a person has no bib of its own. The
+    # whole-frame search found the runner's bib again a few pixels off and
+    # gave it to the poster, which then collected a vote from every runner.
+    import vision.pipeline as pipeline
+
+    def extract(image, region=None):
+        if region == (278, 1, 1079, 1296):
+            return (432, 475, 696, 624), Image.new("RGB", (4, 4))
+        if region is None:
+            return (434, 478, 696, 679), Image.new("RGB", (4, 4))
+        return None, None
+
+    monkeypatch.setattr(pipeline, "extract_bib", extract)
+    claims, crops = pipeline.locate_claims(
+        Image.new("RGB", (8, 8)), [(278, 1, 1079, 1296), (1029, 276, 1357, 790)])
+    assert len(crops) == 1
+    assert claims[1][1] is None

@@ -129,3 +129,33 @@ def test_a_number_read_in_two_frames_stands():
         text = "47" if i in (3, 4) else None
         tracker.add(i, [sighting(text, 0.9, (100 + i, 200, 200 + i, 260))])
     assert tracker.results()[0].text == "47"
+
+
+def _pass(tracker, texts, start=0):
+    from vision.pipeline import Sighting
+    for i, text in enumerate(texts):
+        tracker.add(start + i, [Sighting(text, 0.99, (10, 10, 30, 20), (0, 0, 100, 200))])
+
+
+def test_two_bibs_one_after_the_other_in_one_track_are_two_passes():
+    # Bib 33 then bib 55 shown without leaving the frame made one track, and
+    # the vote reported 55 and lost 33.
+    t = Tracker()
+    _pass(t, ["33"] * 6 + [None] * 2 + ["55"] * 8)
+    results = t.flush()
+    assert [r.text for r in results] == ["33", "55"]
+    assert sum(r.frame_count for r in results) == 16
+    assert all(r.confidence == 1.0 for r in results)
+
+
+def test_misreads_interleaved_in_a_pass_do_not_split_it():
+    t = Tracker()
+    _pass(t, ["20", "29", "20", "20", "29", "20", "20"])
+    assert [r.text for r in t.flush()] == ["20"]
+
+
+def test_a_piece_of_the_number_at_the_end_of_a_pass_does_not_split_it():
+    # A 20 cut by the edge of the frame on the way out reads as 0.
+    t = Tracker()
+    _pass(t, ["20"] * 6 + ["0"] * 3)
+    assert [r.text for r in t.flush()] == ["20"]
