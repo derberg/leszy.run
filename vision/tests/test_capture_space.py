@@ -59,3 +59,19 @@ def test_the_camera_array_becomes_an_rgb_image_with_channels_swapped():
     assert image.mode == "RGB"
     assert image.size == (6, 4)
     assert image.getpixel((0, 0)) == (30, 20, 10)
+
+
+def test_focus_is_pinned_at_the_lane_distance():
+    # LensPosition is in dioptres, the reciprocal of the distance in metres.
+    controls = capture.build_controls(1200, 4.0, focus_m=2.5)
+    assert controls["AfMode"] == 0
+    assert controls["LensPosition"] == 0.4
+
+
+def test_controls_the_camera_lacks_are_dropped():
+    # A Camera Module 2 has no lens motor, so it lists no AfMode.
+    controls = capture.build_controls(1200, 4.0, focus_m=3.0)
+    kept = capture.supported(controls, {"AeEnable", "ExposureTime", "AnalogueGain"})
+    assert "AfMode" not in kept
+    assert "LensPosition" not in kept
+    assert kept["ExposureTime"] == 1200

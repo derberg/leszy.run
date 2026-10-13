@@ -379,6 +379,11 @@ Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
   adopted** — do not run the camera at a race whose regulamin omits them.
 
 Install on the Pi: [vision/INSTALL-RASPBERRY-PI.md](vision/INSTALL-RASPBERRY-PI.md).
+The camera is a **Camera Module 3, standard, never NoIR**. The locator finds the
+bib by its olive colour, and a NoIR sensor renders that block dark purple, so
+nothing is ever located. Capture defaults to the IMX708's native 2304x1296
+mode with the lens held at 3 m (`--focus-m`), because autofocus hunts as
+runners cross the frame.
 On a race Pi, capture and the reader run as systemd services
 (`vision/systemd/`, settings in `/etc/default/leszyrun-vision`). Capture is
 `Restart=on-failure`, never `always`: a run that ended on its time limit or on
