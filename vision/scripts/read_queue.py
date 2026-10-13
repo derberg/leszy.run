@@ -151,12 +151,14 @@ class Session:
         from vision.report import sighting_record
 
         for result in closed:
+            frame_ts = [int(self.stamps[i]) for i in result.frame_indices
+                        if i in self.stamps]
             if result.best_frame_index < 0:
                 # Nobody in this track was ever read, so there is no best
                 # frame. It still counts: somebody crossed and could not be
                 # read, which is the lead an operator needs. Timestamp it
                 # from the first frame it was seen in.
-                stamp = self._any_stamp(result)
+                stamp = frame_ts[0] if frame_ts else None
                 if stamp is None:
                     continue
                 record = {
@@ -171,10 +173,8 @@ class Session:
                 except ValueError:
                     continue
             record["crop"] = self._write_crop(result)
+            record["frame_ts"] = frame_ts
             self.log.append(record)
-
-    def _any_stamp(self, result):
-        return self.stamps.get(max(self.stamps)) if self.stamps else None
 
     def _iso(self, stamp):
         from vision.clock import monotonic_to_utc

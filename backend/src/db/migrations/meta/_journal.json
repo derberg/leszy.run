@@ -239,6 +239,13 @@
       "when": 1790000000000,
       "tag": "0033_vision_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790100000000,
+      "tag": "0034_vision_sighting_frames",
+      "breakpoints": true
     }
   ]
 }

@@ -267,3 +267,34 @@ def test_health_reports_the_lag_and_the_skips(tmp_path):
     health = json.loads((tmp_path / "health.json").read_text())
     assert health["skipped"] == 69
     assert health["lag_s"] == 0
+
+
+# ─── every photo of a pass ──────────────────────────────────────────────────
+
+def test_a_pass_lists_every_frame_it_was_seen_in(tmp_path):
+    # The audit screen showed one photo of a pass and said it spanned fifteen.
+    seed(tmp_path, 5)
+    s = session(tmp_path, lambda img: [
+        (Sighting("47", 0.9, (10, 10, 30, 20), (0, 0, 60, 48)), crop())
+    ])
+    drain(s)
+    row = records(tmp_path)[0]
+    assert row["frame_ts"] == [1_000_000_000 + i * 100_000_000 for i in range(5)]
+
+
+def test_an_unread_pass_is_timed_from_its_own_first_frame(tmp_path):
+    # It used to take the newest frame of the whole session.
+    seed(tmp_path, 12)
+    seen = []
+
+    def reader(img):
+        seen.append(1)
+        if len(seen) <= 3:
+            return [(Sighting(None, 0.0, None, (0, 0, 60, 48)), None)]
+        return []
+
+    s = session(tmp_path, reader)
+    drain(s)
+    row = records(tmp_path)[0]
+    assert row["best_frame_ts"] == 1_000_000_000
+    assert row["frame_ts"] == [1_000_000_000, 1_100_000_000, 1_200_000_000]

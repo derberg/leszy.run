@@ -41,6 +41,9 @@ class TrackResult:
     # Which box the winning read came from, so the screen can show the crop
     # that produced the number rather than guessing among several people.
     best_bib_box: tuple | None = None
+    # Every frame the runner was seen in, so the audit screen can step
+    # through the whole pass rather than one photograph of it.
+    frame_indices: list = field(default_factory=list)
 
 
 @dataclass
@@ -105,6 +108,7 @@ class Tracker:
             best_frame_index=track.best_frame_index,
             votes=dict(track.votes),
             best_bib_box=track.best_bib_box,
+            frame_indices=list(track.frames),
         )
 
     def results(self) -> list:

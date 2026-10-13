@@ -11,7 +11,7 @@ import {
 } from '../ui/dialog.jsx'
 import {
   Camera, CameraOff, AlertTriangle, CheckCircle2, HelpCircle, Play, Square,
-  Trash2, Image as ImageIcon,
+  Trash2, Image as ImageIcon, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 const DEFAULT_QUEUE_DIR = '/mnt/ssd/frames'
@@ -510,20 +510,50 @@ function SightingRow({ s, sessionId, onOpenFrame }) {
 
 function FrameDialog({ sighting, sessionId, onClose }) {
   if (!sighting) return null
+  return <PassFrames key={sighting.id} sighting={sighting} sessionId={sessionId} onClose={onClose} />
+}
+
+function PassFrames({ sighting, sessionId, onClose }) {
+  // Rows written before the reader listed a pass's frames have only the best.
+  const frames = sighting.frameTs?.length ? sighting.frameTs : [sighting.bestFrameTs]
+  const [index, setIndex] = useState(() => Math.max(0, frames.indexOf(sighting.bestFrameTs)))
+  const step = (delta) => setIndex(i => Math.min(frames.length - 1, Math.max(0, i + delta)))
+  const ts = frames[index]
+
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent
+        className="max-w-4xl"
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft') step(-1)
+          if (e.key === 'ArrowRight') step(1)
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             Pełna klatka — {sighting.bibNumber ?? 'nieodczytany'} · {clockTime(sighting.sightedAt)}
           </DialogTitle>
         </DialogHeader>
-        <DialogBody>
+        <DialogBody className="space-y-2">
           <img
-            src={api.vision.frameUrl(sessionId, sighting.bestFrameTs)}
+            src={api.vision.frameUrl(sessionId, ts)}
             alt=""
             className="w-full border border-apex-border bg-apex-bg"
           />
+          {frames.length > 1 && (
+            <div className="flex items-center justify-between gap-3">
+              <Button size="sm" variant="outline" onClick={() => step(-1)} disabled={index === 0}>
+                <ChevronLeft size={14} />
+              </Button>
+              <span className="font-mono text-xs text-apex-muted">
+                {index + 1} / {frames.length}
+                {ts === sighting.bestFrameTs && <span className="ml-2 text-apex-yellow">najlepsza</span>}
+              </span>
+              <Button size="sm" variant="outline" onClick={() => step(1)} disabled={index === frames.length - 1}>
+                <ChevronRight size={14} />
+              </Button>
+            </div>
+          )}
         </DialogBody>
       </DialogContent>
     </Dialog>

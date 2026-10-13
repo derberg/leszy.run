@@ -218,6 +218,7 @@ export const visionSightings = pgTable('vision_sightings', {
   bestFrameTs: bigint('best_frame_ts', { mode: 'number' }),
   cropName: text('crop_name'),
   votes: jsonb('votes'),
+  frameTs: jsonb('frame_ts'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
