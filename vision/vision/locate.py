@@ -27,6 +27,9 @@ MIN_VALUE = 20                 # below this, hue is sensor noise
 # Share of the block the digits cover. Measured on renders of 1 to 4 digits;
 # a patch with no bright shapes inside is foliage, not a bib.
 MIN_DIGIT_FRACTION = 0.05
+# Closing that joins the pieces of a block cut apart by its own digits, as a
+# share of the search area's width: about one digit stroke on a torso.
+JOIN_FRACTION = 0.025
 MAX_DIGIT_FRACTION = 0.6
 MIN_FILL = 0.7                 # a real block is solid; foliage is ragged
 
@@ -48,22 +51,62 @@ def _colour_mask(rgb: np.ndarray, relaxed: bool = False) -> np.ndarray:
     return cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
 
 
-def _holds_digits(rgb_box, contour, origin) -> bool:
-    """True when the candidate has bright shapes inside it, as a bib does.
+def _best_relaxed(rgb):
+    """The bib block judged by its structure, when colour alone is not enough.
 
-    The digits are holes in the colour mask, so the test runs on the filled
-    contour: pixels clearly brighter than the block's own median, covering a
-    share of it no blank patch and no all-white sheet would.
+    The digits of a real bib are nearly as tall as the block and cut it into
+    pieces in the colour mask: on a photographed bib 20 the olive alone
+    filled 42 percent of its rectangle and the digits sat outside its
+    outline. So the pieces are joined with a closing about one digit stroke
+    wide, the rectangle is fitted to the convex hull, and a pixel counts as
+    bib when it is olive OR clearly brighter than the olive. A field of
+    foliage touches the edge of the search area and has no bright shapes
+    inside it, so both are refused.
     """
-    filled = np.zeros(rgb_box.shape[:2], np.uint8)
-    cv2.drawContours(filled, [contour - np.array(origin)], -1, 255, cv2.FILLED)
-    inside = filled > 0
-    if inside.sum() == 0:
-        return False
-    grey = cv2.cvtColor(rgb_box, cv2.COLOR_RGB2GRAY).astype(np.float32)[inside]
-    block = float(np.median(grey))
-    bright = (grey > block + 25).mean()
-    return MIN_DIGIT_FRACTION <= bright <= MAX_DIGIT_FRACTION
+    # Structure survives halving, and on a torso-sized search area the full
+    # resolution doubled the reader's time per frame on the Pi.
+    scale = 2 if rgb.shape[1] > 800 else 1
+    if scale > 1:
+        rgb = cv2.resize(rgb, (rgb.shape[1] // scale, rgb.shape[0] // scale),
+                         interpolation=cv2.INTER_AREA)
+    olive = _colour_mask(rgb, relaxed=True)
+    height, width = olive.shape
+    k = max(7, int(width * JOIN_FRACTION))
+    joined = cv2.morphologyEx(olive, cv2.MORPH_CLOSE, np.ones((k, k), np.uint8))
+    grey = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+    contours, _ = cv2.findContours(joined, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    best, best_area = None, 0
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        if w * h < width * height * MIN_AREA_FRACTION:
+            continue
+        if x == 0 or y == 0 or x + w >= width or y + h >= height:
+            continue
+        rect = cv2.minAreaRect(cv2.convexHull(contour))
+        (_, _), (rect_w, rect_h), _ = rect
+        if rect_w < 1 or rect_h < 1:
+            continue
+        if not ASPECT_MIN < max(rect_w, rect_h) / min(rect_w, rect_h) < ASPECT_MAX:
+            continue
+        inside = np.zeros((height, width), np.uint8)
+        cv2.fillPoly(inside, [np.int32(cv2.boxPoints(rect))], 255)
+        inside = inside > 0
+        block_px = (olive > 0) & inside
+        if not block_px.any():
+            continue
+        bright = (grey > np.median(grey[block_px]) + 25) & inside
+        if ((olive > 0) | bright)[inside].mean() < MIN_FILL:
+            continue
+        if not MIN_DIGIT_FRACTION <= bright[inside].mean() <= MAX_DIGIT_FRACTION:
+            continue
+        if rect_w * rect_h > best_area:
+            best, best_area = ((x, y, x + w, y + h), rect), rect_w * rect_h
+    if best is None or scale == 1:
+        return best
+    (x1, y1, x2, y2), ((cx, cy), (rw, rh), angle) = best
+    return ((x1 * scale, y1 * scale, x2 * scale, y2 * scale),
+            ((cx * scale, cy * scale), (rw * scale, rh * scale), angle))
 
 
 def _find_block(image: Image.Image, region=None):
@@ -81,9 +124,9 @@ def _find_block(image: Image.Image, region=None):
     # keeps a block pasted straight onto foliage apart from it. Only when it
     # finds nothing does the relaxed pass run, and there colour no longer
     # separates bib from foliage, so the candidate must also hold digits.
-    best = _best_block(rgb, _colour_mask(rgb), structural=False)
+    best = _best_block(rgb, _colour_mask(rgb))
     if best is None:
-        best = _best_block(rgb, _colour_mask(rgb, relaxed=True), structural=True)
+        best = _best_relaxed(rgb)
     if best is None:
         return None
     (x1, y1, x2, y2), ((cx, cy), size, angle) = best
@@ -93,7 +136,7 @@ def _find_block(image: Image.Image, region=None):
     )
 
 
-def _best_block(rgb, mask, structural):
+def _best_block(rgb, mask):
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     height, width = mask.shape
@@ -117,13 +160,6 @@ def _best_block(rgb, mask, structural):
             continue
         if cv2.contourArea(contour) / (rect_w * rect_h) < MIN_FILL:
             continue
-        if structural:
-            # A field of foliage filling the search area touches its edge.
-            # A bib on a torso, or pasted into a scene, sits inside it.
-            if x == 0 or y == 0 or x + w >= width or y + h >= height:
-                continue
-            if not _holds_digits(rgb[y:y + h, x:x + w], contour, (x, y)):
-                continue
 
         area = rect_w * rect_h
         if area > best_area:
