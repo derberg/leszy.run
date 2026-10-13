@@ -74,3 +74,18 @@ def test_a_bib_held_beside_the_body_is_given_to_that_person():
     bib = render_bib(47, px_per_mm=max(0.6, runner.width / 900))
     canvas.paste(bib, (runner.width + runner.width // 4, runner.height // 3))
     assert any(s.text == "47" for s in read_frame(canvas))
+
+
+def test_one_bib_seen_from_two_person_boxes_is_one_claim(monkeypatch):
+    # Two overlapping person boxes locate the same bib a few pixels apart.
+    # As two bibs they started two tracks and split the reads between them.
+    import vision.pipeline as pipeline
+
+    boxes = iter([(693, 379, 938, 530), (696, 383, 941, 521)])
+    monkeypatch.setattr(pipeline, "extract_bib",
+                        lambda image, region=None: (next(boxes), Image.new("RGB", (4, 4))))
+    claims, crops = pipeline.locate_claims(Image.new("RGB", (8, 8)), [(0, 0, 9, 9), (1, 1, 9, 9)])
+    assert len(crops) == 1
+    assert claims[0][1] == claims[1][1]
+    resolved = pipeline.resolve_bib_claims(claims)
+    assert sum(bib is not None for _, bib in resolved) == 1

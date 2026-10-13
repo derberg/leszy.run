@@ -154,3 +154,30 @@ def test_a_six_of_unknown_orientation_is_refused_not_read_as_either():
 def test_turned_reading(text, turned):
     from vision.recognize import turned_reading
     assert turned_reading(text) == turned
+
+
+def test_two_touching_digits_are_cut_apart_not_dropped():
+    # The flag of a 1 reached the 7 on a real 71, making one component too
+    # wide for a digit. Dropped, the bib went unread on its clearest frame.
+    import cv2
+    import numpy as np
+
+    crop = render_bib(71)
+    grey = np.asarray(crop.convert("L"))
+    _, _, stats, _ = cv2.connectedComponentsWithStats((grey > 200).astype(np.uint8))
+    seven, one = sorted((s for s in stats[1:] if s[3] > crop.height * 0.5), key=lambda s: s[0])
+    top = one[1] + one[3] * 0.1
+    draw = ImageDraw.Draw(crop)
+    draw.rectangle([seven[0] + seven[2] - 4, top, one[0] + 4, top + one[3] * 0.08],
+                   fill=BIB.digit_rgb)
+    assert len(segment_digits(crop)) == 2
+    assert read_bib(crop)[0] == "71"
+
+
+def test_a_blob_that_cannot_be_cut_refuses_the_number():
+    # Dropping it would read 147 as 7, which is somebody else.
+    crop = render_bib(7)
+    draw = ImageDraw.Draw(crop)
+    w, h = crop.size
+    draw.rectangle([w * 0.05, h * 0.12, w * 0.40, h * 0.88], fill=BIB.digit_rgb)
+    assert read_bib(crop)[0] is None
