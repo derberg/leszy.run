@@ -5,6 +5,7 @@ import {
   matchRoster,
   sessionStats,
   healthVerdict,
+  openSessionOn,
 } from '../src/vision/ingest.js'
 
 // ─── parseLog ───────────────────────────────────────────────────────────────
@@ -187,4 +188,21 @@ test('falling behind is a warning and names the backlog', () => {
 
 test('an unsynced clock is an error because every timestamp is then suspect', () => {
   assert.equal(healthVerdict(health({ clock_synced: false })).level, 'error')
+})
+
+// ─── openSessionOn ──────────────────────────────────────────────────────────
+// Two open sessions on one folder both tail the same log, so every sighting
+// lands twice.
+
+test('an open session on the same folder is found', () => {
+  const sessions = [
+    { id: 'a', queueDir: '/home/leszyrun/frames', stoppedAt: null },
+    { id: 'b', queueDir: '/mnt/ssd/frames', stoppedAt: null },
+  ]
+  assert.equal(openSessionOn(sessions, '/home/leszyrun/frames').id, 'a')
+})
+
+test('a stopped session on the same folder does not block a new one', () => {
+  const sessions = [{ id: 'a', queueDir: '/home/leszyrun/frames', stoppedAt: new Date() }]
+  assert.equal(openSessionOn(sessions, '/home/leszyrun/frames'), null)
 })

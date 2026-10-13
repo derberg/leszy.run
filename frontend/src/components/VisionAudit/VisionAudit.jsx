@@ -102,7 +102,9 @@ function NoSession() {
 // ─── session chooser + start/stop ───────────────────────────────────────────
 
 function SessionBar({ eventId, sessions, active, onPick, onChanged }) {
-  const [queueDir, setQueueDir] = useState(DEFAULT_QUEUE_DIR)
+  // Until the operator types, offer the folder of the latest session.
+  const [typedDir, setQueueDir] = useState(null)
+  const queueDir = typedDir ?? sessions[0]?.queueDir ?? DEFAULT_QUEUE_DIR
   const [label, setLabel] = useState('')
   const [error, setError] = useState(null)
 
