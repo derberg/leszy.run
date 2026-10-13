@@ -194,10 +194,32 @@ test('a stored row with no distances is read again and gains them', async () => 
   }
 })
 
-test('a stored row that already has distances is not read again', () => {
+test('a stored row with distances and a regulamin is not read again', () => {
   const entry = { sourceId: '12785', date: '2027-04-04' }
-  const known = new Map([['12785', { source_id: '12785', date: '2027-04-04', distances: '10 km, 5 km' }]])
+  const known = new Map([['12785', {
+    source_id: '12785', date: '2027-04-04', distances: '10 km, 5 km',
+    regulamin_url: 'https://online.datasport.pl/zapisy/portal/regulaminy/regulamin_12785.pdf',
+  }]])
   assert.equal(needsDetail(entry, new Set(['12775', '12785']), known, '2026-10-01'), false)
+})
+
+test('a future row with distances but no regulamin is read again', () => {
+  // 47. Półmaraton Wiązowski (12859, 2027-02-28) was listed with its two
+  // distances months before the organizer uploaded the rules, so the row was
+  // complete enough to be skipped and its regulamin would never have been seen.
+  const entry = { sourceId: '12859', date: '2027-02-28' }
+  const known = new Map([['12859', {
+    source_id: '12859', date: '2027-02-28', distances: '21.098 km, 5 km', regulamin_url: null,
+  }]])
+  assert.equal(needsDetail(entry, new Set(['12859']), known, '2026-10-13'), true)
+})
+
+test('a past row with no regulamin is left alone', () => {
+  const entry = { sourceId: '12859', date: '2026-02-28' }
+  const known = new Map([['12859', {
+    source_id: '12859', date: '2026-02-28', distances: '21.098 km, 5 km', regulamin_url: null,
+  }]])
+  assert.equal(needsDetail(entry, new Set(['12859']), known, '2026-10-13'), false)
 })
 
 test('a past race with no distances is left alone', () => {
