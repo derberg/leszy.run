@@ -338,7 +338,11 @@ service that is not there, and `numpy<2` follows. On the Pi the reverse:
 Linux gets `mediapipe>=1.0` on the apt numpy 2 (plus `libgles2` from apt).
 `opencv<5` holds on both. Do not trust OpenCV's `minAreaRect` angle
 convention: 4.11 reports an untilted block at +90 and 4.14 at -90, which is
-why `_upright()` in `locate.py` folds the correction into [-90, 90). `torch` is in an optional
+why `_upright()` in `locate.py` folds the correction into [-90, 90). Folding
+loses which way up the bib is, so `bib_orientation()` reads it from the
+banners: the header lettering is taller than the footer's. A turned crop
+needs both banners in view, and a number that is a different bib upside
+down (6/9, 16/91) is refused when neither proves the orientation. `torch` is in an optional
 `[train]` extra: training runs on a workstation, the Pi only needs
 `onnxruntime`.
 
@@ -358,7 +362,10 @@ Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
   `--fps 6` and the reader skips frames more than `--max-lag-s 3` behind the
   newest (moved to `done/` unread, kept on disk). Before both existed the
   reader ran at a 3 fps throttle against a 13 fps camera and fell four minutes
-  behind in ten. `reader_fps` in `health.json` is the MEASURED rate;
+  behind in ten. It reads `--workers` frames at once (default 3) and
+  commits them in order: one frame at a time used a single core and capped
+  the reader at 5 fps with the CPU 86 percent idle; three measured 15.
+  `reader_fps` in `health.json` is the MEASURED rate;
   `capacity_fps` is the flat-out one. The chip still times.
 - `backend/src/vision/ingest.js` — tails the log from a **byte** cursor stored
   on the session, so a backend restart mid-race resumes exactly where it left
