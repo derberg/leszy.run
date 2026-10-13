@@ -169,8 +169,39 @@ def _model():
     return _session
 
 
+# What each digit becomes turned half round, in the bib face. 3, 4 and 7
+# become no digit at all.
+TURNED = {"0": "0", "1": "1", "2": "2", "5": "5", "6": "9", "8": "8", "9": "6"}
+
+
+def turned_reading(text: str):
+    """The number the same bib shows upside down, or None if it shows none.
+
+    A reading with a leading zero is not a bib, so 20 turned is no number.
+    """
+    if not all(d in TURNED for d in text):
+        return None
+    turned = "".join(TURNED[d] for d in reversed(text))
+    return None if turned.startswith("0") else turned
+
+
 def read_bib(crop: Image.Image) -> tuple:
-    """Return (number as a string or None, confidence between 0 and 1)."""
+    """Return (number as a string or None, confidence between 0 and 1).
+
+    A crop from extract_bib says in crop.info["orientation"] whether its way
+    up was proven. When it was not, a number that is a different bib upside
+    down is refused: a 6 held upside down reads as a clean 9, and 16 as 91.
+    """
+    text, confidence = _read_upright(crop)
+    if text is None or crop.info.get("orientation", "upright") is not None:
+        return text, confidence
+    turned = turned_reading(text)
+    if turned is not None and turned != text:
+        return None, 0.0
+    return text, confidence
+
+
+def _read_upright(crop: Image.Image) -> tuple:
     crop = normalise(crop)
     if crop is None:
         return None, 0.0

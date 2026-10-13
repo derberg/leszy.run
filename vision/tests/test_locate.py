@@ -134,3 +134,50 @@ def test_dull_foliage_without_digits_is_not_a_bib():
     scene = Image.new("RGB", (900, 700), (60, 60, 60))
     scene.paste(Image.new("RGB", (300, 150), tuple(int(v) for v in block)), (300, 200))
     assert locate_bib(scene) is None
+
+
+def _printed_bib(number):
+    """The block with the paper round it: a tall header, a short footer.
+
+    Stand-ins for the lettering, sized as on the real bib: the header
+    wordmark is set at 260 points and the footer at 150.
+    """
+    from PIL import ImageDraw
+
+    block = render_bib(number, px_per_mm=1.2)
+    w, h = block.size
+    header, footer = int(h * 0.31), int(h * 0.2)
+    bib = Image.new("RGB", (w, header + h + footer), (250, 250, 250))
+    bib.paste(block, (0, header))
+    draw = ImageDraw.Draw(bib)
+    for i in range(6):
+        x = 20 + i * (w - 40) // 6
+        draw.rectangle([x, header * 0.2, x + 14, header * 0.2 + h * 0.2], fill=(30, 30, 40))
+    for i in range(12):
+        x = 20 + i * (w - 40) // 12
+        draw.rectangle([x, header + h + footer * 0.3, x + 7, header + h + footer * 0.3 + h * 0.08],
+                       fill=(30, 30, 40))
+    return bib
+
+
+@pytest.mark.parametrize("degrees, want", [(0, "upright"), (180, "flipped")])
+def test_the_banners_say_which_way_up_the_bib_is(degrees, want):
+    # A rectangle looks the same after half a turn, so the block alone cannot
+    # tell a 6 from a 9 held upside down. A runner flipping the number in a
+    # hand did exactly that and was read as 9.
+    from vision.locate import extract_bib
+    from vision.recognize import read_bib
+
+    scene = Image.new("RGB", (900, 700), FOREST)
+    scene.paste(_printed_bib(6).rotate(degrees), (250, 180))
+    _, crop = extract_bib(scene)
+    assert crop.info["orientation"] == want
+    assert read_bib(crop)[0] == "6"
+
+
+def test_a_bare_block_has_no_proven_orientation():
+    from vision.locate import extract_bib
+
+    scene, _ = _scene()
+    _, crop = extract_bib(scene)
+    assert crop.info["orientation"] is None

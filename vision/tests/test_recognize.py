@@ -136,3 +136,21 @@ def test_a_digit_the_classifier_is_unsure_of_refuses_the_number(monkeypatch):
 
     monkeypatch.setattr(recognize, "_model", lambda: Unsure())
     assert recognize.read_bib(render_bib(20, px_per_mm=2.0))[0] is None
+
+
+def test_a_six_of_unknown_orientation_is_refused_not_read_as_either():
+    # Turned half round, a 6 is a clean 9. Without the banners to say which
+    # way up the bib is, reading either hands out somebody else's time.
+    crop = render_bib(6)
+    crop.info["orientation"] = None
+    assert read_bib(crop) == (None, 0.0)
+    crop.info["orientation"] = "upright"
+    assert read_bib(crop)[0] == "6"
+
+
+@pytest.mark.parametrize("text, turned", [
+    ("6", "9"), ("16", "91"), ("25", "52"), ("69", "69"), ("20", None), ("47", None),
+])
+def test_turned_reading(text, turned):
+    from vision.recognize import turned_reading
+    assert turned_reading(text) == turned

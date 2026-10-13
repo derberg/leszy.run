@@ -10,6 +10,7 @@ Download the model once:
     https://storage.googleapis.com/mediapipe-models/object_detector/\\
 efficientdet_lite0/float32/1/efficientdet_lite0.tflite
 """
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -18,12 +19,13 @@ from PIL import Image
 MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "efficientdet_lite0.tflite"
 SCORE_FLOOR = 0.2
 
-_detector = None
+# One detector per thread. The live reader detects on several frames at once,
+# and a MediaPipe task is not documented as safe to call from two threads.
+_local = threading.local()
 
 
 def _get_detector():
-    global _detector
-    if _detector is None:
+    if getattr(_local, "detector", None) is None:
         from mediapipe.tasks.python import BaseOptions
         from mediapipe.tasks.python import vision as mp_vision
 
@@ -32,7 +34,7 @@ def _get_detector():
                 f"No detector model at {MODEL_PATH}. See the download command "
                 "in this module's docstring."
             )
-        _detector = mp_vision.ObjectDetector.create_from_options(
+        _local.detector = mp_vision.ObjectDetector.create_from_options(
             mp_vision.ObjectDetectorOptions(
                 base_options=BaseOptions(model_asset_path=str(MODEL_PATH)),
                 running_mode=mp_vision.RunningMode.IMAGE,
@@ -40,7 +42,7 @@ def _get_detector():
                 score_threshold=SCORE_FLOOR,
             )
         )
-    return _detector
+    return _local.detector
 
 
 def detect_people(image: Image.Image, min_confidence: float = 0.4) -> list:

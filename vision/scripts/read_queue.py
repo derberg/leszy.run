@@ -18,10 +18,12 @@ Usage:
   python scripts/read_queue.py --queue /mnt/ssd/frames --max-fps 2
 """
 import argparse
+import os
 import signal
 import sys
 import time
 from collections import deque
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -67,7 +69,7 @@ def read_frame_with_crops(image):
 
 
 class Session:
-    def __init__(self, queue_dir, max_fps, max_lag_s=0.0):
+    def __init__(self, queue_dir, max_fps, max_lag_s=0.0, workers=1):
         self.queue = FrameQueue(queue_dir)
         self.dir = Path(queue_dir)
         self.crops_dir = self.dir / "crops"
@@ -91,17 +93,52 @@ class Session:
         self.luminance = 0.0
         self.recent_stamps = deque(maxlen=30)
 
+        # Frames are read on several threads at once and committed in order.
+        # Read one at a time, the reader used one of the Pi's four cores and
+        # stayed at 5 frames a second with the CPU 86 percent idle, so the
+        # camera at 5 fps left it no headroom and anybody in frame built a
+        # backlog. Detection, OpenCV and onnxruntime all release the GIL.
+        self.workers = max(1, int(workers))
+        self.pool = ThreadPoolExecutor(self.workers) if self.workers > 1 else None
+        self.inflight = deque()     # (path, frame index, future), oldest first
+
     # ── per-frame ────────────────────────────────────────────────────────
 
-    def process(self, path):
+    def _read(self, path):
+        """The expensive part, safe to run on a worker thread."""
         started = time.monotonic()
+        image = load_frame(path)
+        pairs = None if image is None else read_frame_with_crops(image)
+        return image, pairs, (time.monotonic() - started) * 1000.0
+
+    def submit(self, path):
+        """Start reading a frame. Its index is fixed now, in queue order."""
+        index = self.frame_index
+        self.frame_index += 1
+        if self.pool is not None:
+            future = self.pool.submit(self._read, path)
+        else:
+            future = Future()
+            future.set_result(self._read(path))
+        self.inflight.append((path, index, future))
+
+    def commit_oldest(self):
+        """Hand the oldest frame in flight to the tracker, waiting if needed."""
+        path, index, future = self.inflight.popleft()
+        self.commit(path, index, *future.result())
+
+    def process(self, path):
+        """Read one frame and commit it. Kept for callers outside the loop."""
+        self.submit(path)
+        self.commit_oldest()
+
+    def commit(self, path, index, image, pairs, duration_ms):
         if self.offset is None:
             # Started as a service beside capture, the reader can come up
             # before capture has written session.json. Read once at start,
             # the offset stayed missing for the whole run and no sighting
             # could be tied to a gun time.
             self.offset = self.queue.session_offset()
-        image = load_frame(path)
         if image is None:
             # Writes are atomic against a killed process but never fsynced,
             # so a power cut can land the rename before the data. One bad
@@ -110,10 +147,7 @@ class Session:
             self.queue.mark_done(path)
             return
         stamp = self.queue.timestamp_of(path)
-        index = self.frame_index
-        self.frame_index += 1
 
-        pairs = read_frame_with_crops(image)
         self.tracker.add(index, [s for s, _ in pairs])
 
         self.stamps[index] = stamp
@@ -127,7 +161,9 @@ class Session:
         self.recent_stamps.append(stamp)
         self.processed += 1
         self.done_times.append(time.monotonic())
-        self.durations.append((time.monotonic() - started) * 1000.0)
+        # Wall time per frame: with several frames in flight each one takes
+        # longer than the reader spends on it.
+        self.durations.append(duration_ms / self.workers)
         self.queue.mark_done(path)
 
         self.emit(self.tracker.pop_closed(index))
@@ -287,10 +323,15 @@ class Session:
     def run(self, stop):
         last_health = 0.0
         while not stop():
-            pending = self.skip_stale(self.queue.pending())
-            if pending:
+            busy = {path for path, _, _ in self.inflight}
+            pending = self.skip_stale(
+                [p for p in self.queue.pending() if p not in busy]
+            )
+            for path in pending[:self.workers - len(self.inflight)]:
+                self.submit(path)
+            if self.inflight:
                 started = time.monotonic()
-                self.process(pending[0])
+                self.commit_oldest()
                 if self.min_interval:
                     slack = self.min_interval - (time.monotonic() - started)
                     if slack > 0:
@@ -301,6 +342,10 @@ class Session:
                 self.write_health()
                 last_health = time.monotonic()
 
+        while self.inflight:
+            self.commit_oldest()
+        if self.pool is not None:
+            self.pool.shutdown()
         # The last runner of the day has nobody following them, so their
         # track never ages out on its own.
         self.emit(self.tracker.flush())
@@ -315,9 +360,11 @@ def main():
                          "it above the capture --fps or the view falls behind")
     ap.add_argument("--max-lag-s", type=float, default=3.0,
                     help="skip frames further behind than this; 0 reads all")
+    ap.add_argument("--workers", type=int, default=min(3, os.cpu_count() or 1),
+                    help="frames read at once; leave a core for the backend")
     args = ap.parse_args()
 
-    session = Session(args.queue, args.max_fps, args.max_lag_s)
+    session = Session(args.queue, args.max_fps, args.max_lag_s, args.workers)
     if session.offset is None:
         print("warning: no session.json in the queue, timestamps will be "
               "relative to the epoch and cannot be matched to a gun time")
