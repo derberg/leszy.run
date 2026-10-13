@@ -15,6 +15,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from vision.bib_spec import BIB
+
 MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "digits.onnx"
 DIGIT_SIZE = (32, 48)          # width, height, as PIL wants it
 MIN_HEIGHT_RATIO = 0.45        # against the tallest component in the crop
@@ -26,12 +28,16 @@ MIN_AREA_PX = 12
 # several digits merged into one blob by heavy blur (about 1.6).
 MIN_DIGIT_ASPECT = 0.22
 MAX_DIGIT_ASPECT = 1.00
-MIN_CONTRAST = 40              # grey levels between the block and the digits
+# Grey levels between the median block pixel and the median digit pixel.
+# Medians, not max minus min: one black border pixel or one glint passes a
+# range test on a blank block, and a dim but clean bib indoors has a block
+# near 12 and digits near 39.
+MIN_CONTRAST = 15
 MAX_BRIGHT_COVERAGE = 0.6      # above this, the bright class is the background
 
 
-def _bright_mask(crop: Image.Image):
-    """Bright-pixel mask, or None when there is nothing to threshold.
+def _levels(crop: Image.Image):
+    """(bright mask, median block level, median digit level), or None.
 
     Otsu is used because exposure at the gate is not controlled, so an
     absolute level cannot work. But Otsu always returns a split, even for a
@@ -41,12 +47,42 @@ def _bright_mask(crop: Image.Image):
     background rather than trusted as digits.
     """
     grey = np.asarray(crop.convert("L"))
-    if int(grey.max()) - int(grey.min()) < MIN_CONTRAST:
-        return None
     _, mask = cv2.threshold(grey, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    if (mask > 0).mean() > MAX_BRIGHT_COVERAGE:
+    bright = mask > 0
+    if not bright.any() or bright.all() or bright.mean() > MAX_BRIGHT_COVERAGE:
         return None
-    return mask
+    block, digit = float(np.median(grey[~bright])), float(np.median(grey[bright]))
+    if digit - block < MIN_CONTRAST:
+        return None
+    return mask, block, digit
+
+
+def _bright_mask(crop: Image.Image):
+    levels = _levels(crop)
+    return None if levels is None else levels[0]
+
+
+def _lum(rgb) -> float:
+    return 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
+
+
+def normalise(crop: Image.Image):
+    """The crop with its block and digits moved to the levels of the bib face.
+
+    The classifier trains on renders where the digits sit near 245 and the
+    block near 107. Indoors a real crop of 65 peaked at 54 of 255 and was read
+    as 44 with confidence 0.66: a confidently wrong number, from a crop a
+    person reads at a glance. Stretched to the trained levels it reads 65.
+    Returns None when there is no digit-against-block contrast to stretch.
+    """
+    levels = _levels(crop)
+    if levels is None:
+        return None
+    _, block, digit = levels
+    grey = np.asarray(crop.convert("L"), dtype=np.float32)
+    lo, hi = _lum(BIB.block_rgb), _lum(BIB.digit_rgb)
+    stretched = (grey - block) / (digit - block) * (hi - lo) + lo
+    return Image.fromarray(np.clip(stretched, 0, 255).astype(np.uint8))
 
 
 def segment_digits(crop: Image.Image) -> list:
@@ -113,6 +149,9 @@ def _model():
 
 def read_bib(crop: Image.Image) -> tuple:
     """Return (number as a string or None, confidence between 0 and 1)."""
+    crop = normalise(crop)
+    if crop is None:
+        return None, 0.0
     digits = segment_digits(crop)
     if not digits:
         return None, 0.0
