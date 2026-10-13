@@ -168,9 +168,13 @@ EOF
 else, auto exposure is still driving the shutter and `build_controls` in
 `vision/capture.py` needs correcting.
 
-There is **no automatic gain adaptation**. Set `--gain` for the light on the
-day, take a test capture, and adjust. Too dark means raise it; grainy means
-lower it and add light instead.
+Capture adapts exposure itself, about once a second, to keep the middle of
+the frame at `--target-luminance` (default 0.4). It raises gain first and
+keeps the shutter at `--exposure-us`. Only when gain reaches the sensor's
+maximum does it lengthen the shutter, up to `--max-exposure-us` (default
+3000). A frame that is still dark at that point needs more light, not
+software. `--gain` is only the starting value. Pass `--manual-exposure` to
+hold `--gain` and `--exposure-us` fixed, as the shutter check above does.
 
 ## 7. A test recording
 

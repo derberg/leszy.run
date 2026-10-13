@@ -383,7 +383,11 @@ The camera is a **Camera Module 3, standard, never NoIR**. The locator finds the
 bib by its olive colour, and a NoIR sensor renders that block dark purple, so
 nothing is ever located. Capture defaults to the IMX708's native 2304x1296
 mode with the lens held at 3 m (`--focus-m`), because autofocus hunts as
-runners cross the frame.
+runners cross the frame. Exposure is adapted by capture itself
+(`next_exposure`), not by libcamera's AE: gain first, the shutter only once
+gain is at its ceiling and never past 3 ms, because a longer shutter smears
+the digits. A fixed exposure left an overcast or indoor frame at a block
+brightness of 20 of 255, where hue is noise and the locator finds nothing.
 On a race Pi, capture and the reader run as systemd services
 (`vision/systemd/`, settings in `/etc/default/leszyrun-vision`). Capture is
 `Restart=on-failure`, never `always`: a run that ended on its time limit or on
