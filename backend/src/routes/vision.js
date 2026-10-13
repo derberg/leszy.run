@@ -2,7 +2,7 @@ import { createReadStream, promises as fs } from 'fs'
 import path from 'path'
 import { eq, and, desc, sql, isNull, isNotNull } from 'drizzle-orm'
 import { visionSessions, visionSightings, participants } from '../db/schema.js'
-import { startIngest, stopIngest, sessionStats, healthVerdict } from '../vision/ingest.js'
+import { startIngest, stopIngest, sessionStats, healthVerdict, openSessionOn } from '../vision/ingest.js'
 import { safeCropPath, safeFramePath } from '../vision/paths.js'
 
 const DEFAULT_LIMIT = 200
@@ -59,6 +59,15 @@ export async function visionRoutes(fastify) {
       })
     }
 
+    const open = await db.select().from(visionSessions)
+      .where(isNull(visionSessions.stoppedAt))
+    const existing = openSessionOn(open, dir)
+    if (existing) {
+      return reply.code(409).send({
+        error: `Ten katalog obserwuje już otwarta sesja „${existing.label || existing.queueDir}”. Wybierz ją z listy.`,
+      })
+    }
+
     // The offset is written once per capture session and is what turns a
     // sensor nanosecond into a wall clock. Without it no sighting can be
     // matched to a gun time.
@@ -96,6 +105,14 @@ export async function visionRoutes(fastify) {
   fastify.post('/vision/sessions/:id/resume', async (req, reply) => {
     const session = await loadSession(db, req.params.id)
     if (!session) return reply.code(404).send({ error: 'Session not found' })
+    const open = await db.select().from(visionSessions)
+      .where(isNull(visionSessions.stoppedAt))
+    const existing = openSessionOn(open.filter(s => s.id !== session.id), session.queueDir)
+    if (existing) {
+      return reply.code(409).send({
+        error: `Ten katalog obserwuje już otwarta sesja „${existing.label || existing.queueDir}”. Zatrzymaj ją najpierw.`,
+      })
+    }
     const [row] = await db.update(visionSessions)
       .set({ stoppedAt: null })
       .where(eq(visionSessions.id, session.id)).returning()

@@ -101,6 +101,14 @@ export function sessionStats(sightings) {
  * backlog meaningless, so it is reported alone rather than alongside its own
  * consequences.
  */
+/**
+ * The open session already watching this folder, or null. Two open sessions
+ * on one folder both tail the same log, so every sighting is stored twice.
+ */
+export function openSessionOn(sessions, queueDir) {
+  return sessions.find(s => !s.stoppedAt && s.queueDir === queueDir) ?? null
+}
+
 export function healthVerdict(health) {
   if (!health) {
     return {
