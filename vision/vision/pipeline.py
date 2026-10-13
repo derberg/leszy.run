@@ -85,17 +85,38 @@ def _distance(person_box, bib_box) -> float:
     return (dx * dx + dy * dy) ** 0.5
 
 
+def _overlap(a, b) -> float:
+    """Intersection over union of two boxes."""
+    ix = max(0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    union = ((a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter)
+    return inter / union if union > 0 else 0.0
+
+
+SAME_BIB = 0.5
+
+
 def locate_claims(image: Image.Image, people: list):
     """(claims, crops): each person with the bib box found for them, or None.
 
     Shared by read_frame and the live reader so both search the same way.
+    One bib found from two overlapping person boxes comes back a few pixels
+    apart, (693, 379, 938, 530) and (696, 383, 941, 521) on one frame of 71.
+    Taken as two bibs, each started its own track, the reads split between
+    them one apiece, and neither reached the two frames a number needs. So
+    a box that mostly overlaps one already found is that same bib.
     """
     claims, crops = [], {}
     for person_box in people:
         bib_box, crop = extract_bib(image, region=person_box)
-        claims.append((person_box, bib_box))
         if bib_box is not None:
-            crops[tuple(bib_box)] = crop
+            same = next((k for k in crops if _overlap(k, bib_box) > SAME_BIB), None)
+            if same is not None:
+                bib_box = same
+            else:
+                crops[tuple(bib_box)] = crop
+        claims.append((person_box, bib_box))
 
     bare = [i for i, (_, bib_box) in enumerate(claims) if bib_box is None]
     if bare:

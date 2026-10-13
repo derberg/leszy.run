@@ -240,15 +240,38 @@ def bib_orientation(context: np.ndarray):
     treat None as "could be either", never as upright.
     """
     olive = _colour_mask(context, relaxed=True) > 0
-    rows = np.append(olive.mean(axis=1) > 0.35, False)
-    # The block is the longest run of olive rows. The olive .RUN in each
-    # wordmark is too thin to make a run of its own.
-    run, top, bottom, start = 0, 0, 0, 0
-    for i, is_olive in enumerate(rows):
-        if is_olive and (i == 0 or not rows[i - 1]):
-            start = i
-        if not is_olive and i > 0 and rows[i - 1] and i - start > run:
-            run, top, bottom = i - start, start, i
+    # The block's rows are found in two strips just inside its left and
+    # right edges, where the number never reaches: a whole-row test failed
+    # because wide digits cut the block apart (across a 71 no row was a
+    # quarter olive), so the "band above" fell inside the number and a bib
+    # held upright was turned over. Either strip is enough, since a hand
+    # holding the bib covers one side. The context is 1.1 block widths, so
+    # the block runs from about 4.5 to 95.5 percent of it.
+    width = olive.shape[1]
+    left = olive[:, int(width * 0.055):int(width * 0.10)].mean(axis=1)
+    right = olive[:, int(width * 0.90):int(width * 0.945)].mean(axis=1)
+    rows = np.maximum(left, right) > 0.5
+    # The run through the middle, where the locator put the block. Gaps of
+    # a few rows (a corner mark, a crease) are bridged; the white banners
+    # are far wider than that.
+    centre = len(rows) // 2
+    gap = max(2, int(len(rows) / 2.4 * 0.1))
+    top = bottom = None
+    last = centre
+    for i in range(centre, -1, -1):
+        if rows[i]:
+            top, last = i, i
+        elif last - i > gap:
+            break
+    last = centre
+    for i in range(centre, len(rows)):
+        if rows[i]:
+            bottom, last = i + 1, i
+        elif i - last > gap:
+            break
+    if top is None or bottom is None:
+        return None
+    run = bottom - top
     if run < 10:
         return None
     cols = np.flatnonzero(olive[top:bottom].mean(axis=0) > 0.5)

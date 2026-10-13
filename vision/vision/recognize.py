@@ -38,6 +38,14 @@ MIN_DIGIT_CONFIDENCE = 0.7
 # Share of its bounding box a digit's strokes fill. Measured on Pi crops:
 # digits 0.47 to 0.73, the paper ring round a block 0.13 to 0.20.
 MIN_DIGIT_SOLIDITY = 0.3
+# Two digits that touch are cut at the narrowest column, if it is this thin
+# against their height. The flag of a 1 reaching a 7 left a bridge 9 pixels
+# tall on a 94-pixel 71. Measured on renders, the thinnest inner column of a
+# single digit is 0.37 of its height or more, except the 1 (0.20), which is
+# too narrow to be tried: only shapes wider than SPLIT_ASPECT are, and the
+# widest digit, the 4, is 0.69.
+MAX_BRIDGE = 0.25
+SPLIT_ASPECT = 0.75
 
 
 def _levels(crop: Image.Image):
@@ -102,14 +110,14 @@ def segment_digits(crop: Image.Image) -> list:
     mask = _bright_mask(crop)
     if mask is None:
         return []
-    count, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
     if count <= 1:
         return []
 
     boxes = [
         (stats[i, cv2.CC_STAT_LEFT], stats[i, cv2.CC_STAT_TOP],
          stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT],
-         stats[i, cv2.CC_STAT_AREA])
+         stats[i, cv2.CC_STAT_AREA], i)
         for i in range(1, count)
     ]
     boxes = [b for b in boxes if b[4] >= MIN_AREA_PX]
@@ -137,18 +145,69 @@ def segment_digits(crop: Image.Image) -> list:
             return []
     digits = inside
     # Shape gate. Without it a bright strap beside the number becomes a
-    # leading digit (47 read as 147 at 0.93 confidence), and three digits
-    # blurred into one blob are classified as a single digit. Both are
-    # confident lies. Dropping the component turns them into an honest miss,
-    # which a person can still resolve from the photograph.
-    digits = [b for b in digits
-              if MIN_DIGIT_ASPECT <= b[2] / b[3] <= MAX_DIGIT_ASPECT]
-    digits.sort(key=lambda b: b[0])
+    # leading digit (47 read as 147 at 0.93 confidence). Dropping a thin
+    # component turns that into an honest miss. A wide component may be
+    # digits run together, so it is cut where they touch: a touching 71 was
+    # 0.97 wide, inside the single-digit bound, and would otherwise have
+    # been read as one digit. One too wide to be any digit that cannot be
+    # cut refuses the whole read, because dropping it would shorten the
+    # number to somebody else's.
+    shaped = []
+    for b in digits:
+        aspect = b[2] / b[3]
+        parts = _split_touching(labels == b[5], b) if aspect > SPLIT_ASPECT else None
+        if parts is not None:
+            shaped.extend(parts)
+        elif aspect > MAX_DIGIT_ASPECT:
+            return []
+        elif aspect >= MIN_DIGIT_ASPECT:
+            shaped.append(b)
+    digits = sorted(shaped, key=lambda b: b[0])
 
     return [
         crop.crop((x, y, x + w, y + h)).resize(DIGIT_SIZE, Image.BILINEAR)
-        for x, y, w, h, _ in digits
+        for x, y, w, h, *_ in digits
     ]
+
+
+def _split_touching(component: np.ndarray, box, depth: int = 0):
+    """Cut a run of touching digits at its thinnest columns, or None.
+
+    Every piece must come out digit-shaped and nearly as tall as the run.
+    Anything else is a blob that cannot be taken apart honestly.
+    """
+    x, y, w, h = box[:4]
+    region = component[y:y + h, x:x + w]
+    columns = region.sum(axis=0)
+    lo, hi = int(w * 0.2), int(w * 0.8)
+    if hi <= lo:
+        return None
+    cut = lo + int(np.argmin(columns[lo:hi]))
+    if columns[cut] > MAX_BRIDGE * h:
+        return None
+    pieces = []
+    for start, stop in ((0, cut), (cut + 1, w)):
+        part = region[:, start:stop]
+        cols, rows = np.flatnonzero(part.any(axis=0)), np.flatnonzero(part.any(axis=1))
+        if len(cols) == 0:
+            return None
+        piece = (x + start + cols[0], y + rows[0], cols[-1] - cols[0] + 1,
+                 rows[-1] - rows[0] + 1, int(part.sum()), box[5])
+        if piece[3] < 0.8 * h:
+            return None
+        aspect = piece[2] / piece[3]
+        if aspect > MAX_DIGIT_ASPECT and depth < 2:
+            sub = np.zeros_like(component)
+            sub[y:y + h, x + start:x + stop] = part
+            more = _split_touching(sub, piece, depth + 1)
+            if more is None:
+                return None
+            pieces.extend(more)
+        elif MIN_DIGIT_ASPECT <= aspect <= MAX_DIGIT_ASPECT:
+            pieces.append(piece)
+        else:
+            return None
+    return pieces
 
 
 _session = None
