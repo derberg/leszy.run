@@ -34,6 +34,10 @@ MAX_DIGIT_ASPECT = 1.00
 # near 12 and digits near 39.
 MIN_CONTRAST = 15
 MAX_BRIGHT_COVERAGE = 0.6      # above this, the bright class is the background
+MIN_DIGIT_CONFIDENCE = 0.7
+# Share of its bounding box a digit's strokes fill. Measured on Pi crops:
+# digits 0.47 to 0.73, the paper ring round a block 0.13 to 0.20.
+MIN_DIGIT_SOLIDITY = 0.3
 
 
 def _levels(crop: Image.Image):
@@ -114,6 +118,24 @@ def segment_digits(crop: Image.Image) -> list:
 
     tallest = max(b[3] for b in boxes)
     digits = [b for b in boxes if b[3] >= tallest * MIN_HEIGHT_RATIO]
+    # Something touching the left or right edge of the crop is usually the
+    # bib's white paper: a ring round the block (wide, mostly hollow) or a
+    # sliver of the sheet's edge (thin). Those are dropped. But a shape with
+    # a digit's proportions and solidity there means the number is not all
+    # in the crop: a 2 cut off by the edge left bib 20 reading 0, and a
+    # skewed crop read 19. A shortened number is somebody else's, so then
+    # the whole read is refused. Top and bottom are not checked: the digits
+    # fill most of the block's height and touch a tightly fitted crop there
+    # on good reads.
+    width = mask.shape[1]
+    inside = []
+    for b in digits:
+        if b[0] > 0 and b[0] + b[2] < width:
+            inside.append(b)
+        elif (MIN_DIGIT_ASPECT <= b[2] / b[3] <= MAX_DIGIT_ASPECT
+              and b[4] / (b[2] * b[3]) >= MIN_DIGIT_SOLIDITY):
+            return []
+    digits = inside
     # Shape gate. Without it a bright strap beside the number becomes a
     # leading digit (47 read as 147 at 0.93 confidence), and three digits
     # blurred into one blob are classified as a single digit. Both are
@@ -121,14 +143,6 @@ def segment_digits(crop: Image.Image) -> list:
     # which a person can still resolve from the photograph.
     digits = [b for b in digits
               if MIN_DIGIT_ASPECT <= b[2] / b[3] <= MAX_DIGIT_ASPECT]
-    # A digit sits inside the block with olive on every side. A component
-    # touching the edge of the crop is the paper margin, a shirt or a strap
-    # caught when the locator found only a fragment of the block, and one
-    # such strip beside bib 65 was read as 2.
-    height, width = mask.shape
-    digits = [b for b in digits
-              if b[0] > 0 and b[1] > 0
-              and b[0] + b[2] < width and b[1] + b[3] < height]
     digits.sort(key=lambda b: b[0])
 
     return [
@@ -173,6 +187,11 @@ def read_bib(crop: Image.Image) -> tuple:
     probs = shifted / shifted.sum(axis=1, keepdims=True)
 
     labels = probs.argmax(axis=1)
+    weakest = float(probs.max(axis=1).min())
+    # A skewed bib read as 19 with its weakest digit at 0.56. One uncertain
+    # digit makes the number a guess, and a guess hands out another time.
+    if weakest < MIN_DIGIT_CONFIDENCE:
+        return None, weakest
     # The weakest digit sets the confidence: one uncertain digit makes the
     # whole number uncertain, because a bib is read as a whole or not at all.
     return "".join(str(int(v)) for v in labels), float(probs.max(axis=1).min())
