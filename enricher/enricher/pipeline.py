@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -570,6 +570,98 @@ def _is_incomplete(row: dict) -> bool:
     return False
 
 
+# The approval bar, copied from REQUIRED_FIELDS in
+# packages/ui/src/lib/eventCompleteness.js. Python cannot import that file, so
+# tests/test_recheck_published.py fails if the two lists drift apart.
+REQUIRED_FIELDS = (
+    "location",
+    "voivodeship",
+    "event_type",
+    "distances",
+    "registration_url",
+    "regulamin_url",
+    "registration_deadline",
+    "price_from",
+)
+
+# How long a published, still-incomplete event waits before it is read again.
+# On 2026-10-13, 58 future calendar_events rows failed the approval bar. At one
+# pass per week that is about 8 rows a day, roughly 16 minutes of Ollama time.
+RECHECK_AFTER_DAYS = 7
+
+
+def _is_empty(value) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, (list, tuple)):
+        return len(value) == 0
+    if isinstance(value, str):
+        return value.strip() == ""
+    if isinstance(value, dict):
+        return all(v in (None, "") for v in value.values())
+    return False
+
+
+def missing_required(ce_row: dict) -> list[str]:
+    """Required fields a calendar_events row still lacks.
+
+    A field locked by the "brak" button counts as decided, the same rule
+    isFieldDecided applies in the admin list. A price_from of 0 is a free race,
+    not a gap.
+    """
+    locked = set(ce_row.get("locked_fields") or [])
+    return [f for f in REQUIRED_FIELDS if f not in locked and _is_empty(ce_row.get(f))]
+
+
+def select_rechecks(sa_rows: list, ce_rows: list, now: datetime) -> list:
+    """Already-enriched scraper_all rows whose published event is still incomplete.
+
+    The default run only reads rows with enriched_at IS NULL, so a row enriched
+    before the organizer published the rules, prices or deadline was never read
+    again. 47. Półmaraton Wiązowski (datasport:12859) was enriched on 2026-10-13
+    with no regulamin anywhere online yet. Publishing it did not make the gap
+    anybody's job.
+
+    The calendar row decides, because that is what the approval list shows: a
+    pending or active event that fails the bar is re-read once its last
+    enrichment is RECHECK_AFTER_DAYS old. A rejected event is never re-read.
+    """
+    incomplete_by_key = {}
+    for ce in ce_rows:
+        if ce.get("status") not in ("pending", "active") or not missing_required(ce):
+            continue
+        keys = [(ce.get("source"), ce.get("source_id"))]
+        keys += [(l.get("source"), l.get("source_id")) for l in (ce.get("source_links") or [])]
+        for key in keys:
+            if key[0] and key[1]:
+                incomplete_by_key[key] = ce
+
+    cutoff = now - timedelta(days=RECHECK_AFTER_DAYS)
+    picked = []
+    for row in sa_rows:
+        if (row.get("source"), row.get("source_id")) not in incomplete_by_key:
+            continue
+        stamp = row.get("enriched_at")
+        if not stamp or datetime.fromisoformat(stamp.replace("Z", "+00:00")) > cutoff:
+            continue
+        picked.append(row)
+    return picked
+
+
+def _fetch_all(query_fn) -> list:
+    """Page through a PostgREST query; responses are capped at 1000 rows."""
+    rows, offset, page_size = [], 0, 1000
+    while True:
+        data = query_fn().range(offset, offset + page_size - 1).execute()
+        if not data.data:
+            break
+        rows.extend(data.data)
+        if len(data.data) < page_size:
+            break
+        offset += page_size
+    return rows
+
+
 def fetch_events(
     config: Config,
     limit: Optional[int],
@@ -586,7 +678,7 @@ def fetch_events(
     offset = 0
     while True:
         query = sb.from_("scraper_all").select(
-            "id, name, date, location, distances, event_types, "
+            "id, source, source_id, name, date, location, distances, event_types, "
             "registration_url, regulamin_url, regulamin_urls, "
             "registration_deadline, price_from, price_to, voivodeship, is_kids, "
             "enriched_at, enriched_regulamin_at, enriched_search_at"
@@ -608,6 +700,25 @@ def fetch_events(
     # the full predicate cleanly in a single PostgREST query).
     if incomplete:
         all_rows = [r for r in all_rows if _is_incomplete(r)]
+
+    # The default run also re-reads published events that still fail the
+    # approval bar. --force and --incomplete already cover enriched rows.
+    if not (incomplete or force):
+        enriched = _fetch_all(lambda: sb.from_("scraper_all").select(
+            "id, source, source_id, name, date, location, distances, event_types, "
+            "registration_url, regulamin_url, regulamin_urls, "
+            "registration_deadline, price_from, price_to, voivodeship, is_kids, "
+            "enriched_at, enriched_regulamin_at, enriched_search_at"
+        ).not_.is_("enriched_at", "null").gte("date", today))
+        published = _fetch_all(lambda: sb.from_("calendar_events").select(
+            "source, source_id, source_links, status, locked_fields, "
+            + ", ".join(REQUIRED_FIELDS)
+        ).in_("status", ["pending", "active"]).gte("date", today))
+        rechecks = select_rechecks(enriched, published, datetime.now(timezone.utc))
+        if rechecks:
+            import click
+            click.echo(f"Re-reading {len(rechecks)} published event(s) that are still incomplete")
+        all_rows.extend(rechecks)
 
     # Filter out already-completed events (resume support)
     rows = [r for r in all_rows if r["id"] not in skip_ids]
