@@ -17,6 +17,7 @@ from PIL import Image
 from vision.bib_spec import BIB
 
 MIN_AREA_FRACTION = 0.002
+LOCATE_WIDTH = 800             # search area is shrunk to this before locating
 ASPECT_MIN, ASPECT_MAX = 1.2, 3.2
 MAX_HUE_DISTANCE = 12          # OpenCV hue units, so 24 degrees
 MAX_SAT_DISTANCE = 90          # strict pass: close to the PDF's olive
@@ -63,12 +64,6 @@ def _best_relaxed(rgb):
     foliage touches the edge of the search area and has no bright shapes
     inside it, so both are refused.
     """
-    # Structure survives halving, and on a torso-sized search area the full
-    # resolution doubled the reader's time per frame on the Pi.
-    scale = 2 if rgb.shape[1] > 800 else 1
-    if scale > 1:
-        rgb = cv2.resize(rgb, (rgb.shape[1] // scale, rgb.shape[0] // scale),
-                         interpolation=cv2.INTER_AREA)
     olive = _colour_mask(rgb, relaxed=True)
     height, width = olive.shape
     k = max(7, int(width * JOIN_FRACTION))
@@ -102,11 +97,7 @@ def _best_relaxed(rgb):
             continue
         if rect_w * rect_h > best_area:
             best, best_area = ((x, y, x + w, y + h), rect), rect_w * rect_h
-    if best is None or scale == 1:
-        return best
-    (x1, y1, x2, y2), ((cx, cy), (rw, rh), angle) = best
-    return ((x1 * scale, y1 * scale, x2 * scale, y2 * scale),
-            ((cx * scale, cy * scale), (rw * scale, rh * scale), angle))
+    return best
 
 
 def _find_block(image: Image.Image, region=None):
@@ -119,6 +110,14 @@ def _find_block(image: Image.Image, region=None):
         offset_x, offset_y = x1, y1
     if rgb.size == 0:
         return None
+    # Located at no more than LOCATE_WIDTH pixels across. On the Pi a
+    # torso-sized search area at full resolution cost 53 ms a frame, enough
+    # to leave the reader behind the camera. The deskew and crop that follow
+    # still use the full-resolution frame.
+    scale = max(1.0, rgb.shape[1] / LOCATE_WIDTH)
+    if scale > 1.0:
+        rgb = cv2.resize(rgb, (int(rgb.shape[1] / scale), int(rgb.shape[0] / scale)),
+                         interpolation=cv2.INTER_AREA)
 
     # The strict pass finds a well-lit print by colour alone, which also
     # keeps a block pasted straight onto foliage apart from it. Only when it
@@ -129,10 +128,11 @@ def _find_block(image: Image.Image, region=None):
         best = _best_relaxed(rgb)
     if best is None:
         return None
-    (x1, y1, x2, y2), ((cx, cy), size, angle) = best
+    (x1, y1, x2, y2), ((cx, cy), (rw, rh), angle) = best
     return (
-        (x1 + offset_x, y1 + offset_y, x2 + offset_x, y2 + offset_y),
-        ((cx + offset_x, cy + offset_y), size, angle),
+        (int(x1 * scale) + offset_x, int(y1 * scale) + offset_y,
+         int(x2 * scale) + offset_x, int(y2 * scale) + offset_y),
+        ((cx * scale + offset_x, cy * scale + offset_y), (rw * scale, rh * scale), angle),
     )
 
 
