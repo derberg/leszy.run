@@ -239,6 +239,7 @@ async function pollOnce(db, sessionId) {
       bestFrameTs: r.best_frame_ts ?? null,
       cropName: r.crop ?? null,
       votes: r.votes ?? null,
+      frameTs: Array.isArray(r.frame_ts) ? r.frame_ts : null,
     })).filter(r => !Number.isNaN(r.sightedAt.getTime()))
 
     if (rows.length) {

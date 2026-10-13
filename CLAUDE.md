@@ -350,7 +350,10 @@ Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
 
 - `vision/scripts/read_queue.py` — the long-running reader. Drains the frame
   queue, reuses `Tracker` unchanged (so the tab cannot flatter the pipeline),
-  and emits one JSONL line per closed track plus a bib crop. The Pi 5 has no
+  and emits one JSONL line per closed track plus a bib crop. Each line lists
+  the sensor timestamps of every frame in the pass (`frame_ts`, stored in
+  `vision_sightings.frame_ts`), which is what lets the full-frame view step
+  through the whole pass. The Pi 5 has no
   accelerator and reads about 8 frames a second, so capture is pinned to
   `--fps 6` and the reader skips frames more than `--max-lag-s 3` behind the
   newest (moved to `done/` unread, kept on disk). Before both existed the

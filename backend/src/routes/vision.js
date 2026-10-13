@@ -187,6 +187,7 @@ export async function visionRoutes(fastify) {
       bestFrameTs: visionSightings.bestFrameTs,
       cropName: visionSightings.cropName,
       votes: visionSightings.votes,
+      frameTs: visionSightings.frameTs,
       firstName: participants.firstName,
       lastName: participants.lastName,
     })
