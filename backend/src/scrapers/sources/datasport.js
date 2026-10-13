@@ -113,8 +113,11 @@ async function fetchDetailPage(eventId) {
 // A known source_id is not a finished row. The rows scraped from a "Panel
 // zapisów" page before the stats JSON was read have no distances, and skipping
 // every known id meant the page was never opened again, so they stayed empty for
-// good — 25 BIEG MARATOŃCZYKA (12775, 2026-12-20) among them. A stored future row
-// with no distances is read again; a past race is left alone.
+// good — 25 BIEG MARATOŃCZYKA (12775, 2026-12-20) among them. The regulamin has
+// the same problem: organizers list the distances months before they upload the
+// rules, so 47. Półmaraton Wiązowski (12859, 2027-02-28) was skipped as complete
+// and its rules would never have been seen. A stored future row missing either
+// is read again; a past race is left alone.
 //
 // knownRows comes from the raw table and is empty unless the source declares
 // knownColumns, so a known id with no stored row keeps the old skip rather than
@@ -123,7 +126,7 @@ function needsDetail(entry, knownIds, knownRows, today) {
   if (!knownIds.has(entry.sourceId)) return true
   const known = knownRows.get(entry.sourceId)
   if (!known) return false
-  return !known.distances && String(known.date) >= today
+  return (!known.distances || !known.regulamin_url) && String(known.date) >= today
 }
 
 // Should this entry be written at all?

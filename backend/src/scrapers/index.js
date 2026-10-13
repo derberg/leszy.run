@@ -65,9 +65,11 @@ const sources = [
     table: 'scraper_datasport',
     // A "Panel zapisów" page publishes its race categories only through the
     // stats JSON, so rows stored before that was read have no distances. They
-    // are read again while the race is still ahead. regulamin_url is read back
-    // too, so a re-check that finds no anchor keeps the stored PDF instead of
-    // deleting it (see keepStoredRegulamin in sources/datasport.js).
+    // are read again while the race is still ahead, and so are rows with no
+    // regulamin_url, because organizers upload the rules after listing the
+    // distances. regulamin_url is read back too, so a re-check that finds no
+    // anchor keeps the stored PDF instead of deleting it (see
+    // keepStoredRegulamin in sources/datasport.js).
     knownColumns: 'source_id, date, distances, regulamin_url',
     // No registration_deadline key on purpose: scraper_datasport has no such
     // column ("42703 column scraper_datasport.registration_deadline does not
