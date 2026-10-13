@@ -153,14 +153,14 @@ export function healthVerdict(health) {
     return {
       level: 'warn',
       headline: 'Obraz jest za ciemny',
-      detail: 'Ekspozycja jest zablokowana i wzmocnienie nie dostosowuje się samo. Zwiększ --gain.',
+      detail: 'Za mało światła nawet przy maksymalnym wzmocnieniu i migawce 3 ms.',
     }
   }
   if (health.exposure === 'bright') {
     return {
       level: 'warn',
       headline: 'Obraz jest prześwietlony',
-      detail: 'Zmniejsz --gain albo skróć --exposure-us.',
+      detail: 'Za dużo światła nawet przy najkrótszej migawce.',
     }
   }
   if (health.keeping_up === false) {

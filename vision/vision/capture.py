@@ -38,6 +38,12 @@ class ClockNotSynced(RuntimeError):
 
 
 DEFAULT_GAIN = 4.0
+# Middle grey for the centre of the frame, where the runner is.
+DEFAULT_TARGET_LUMINANCE = 0.4
+# A runner at 5 m/s moves 15 mm in 3 ms, a fifth of a 76 mm digit. Longer
+# than that and the digits smear into each other.
+DEFAULT_MAX_EXPOSURE_US = 3000
+MIN_EXPOSURE_US = 100
 # The reader manages about 8 frames a second on a Pi 5. At its natural 13 fps
 # the camera outran it for the whole session and the audit view fell minutes
 # behind. A runner coming down the lane is still in about ten frames at 6.
@@ -53,10 +59,8 @@ def build_controls(exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN,
     would put motion blur straight back into the frames in exactly the low
     light the fast shutter was chosen for.
 
-    The cost is that gain no longer adapts by itself. Automatic gain
-    adaptation is NOT implemented. Set `gain` for the conditions on the day,
-    check a test capture, and adjust. Verifying this against the real camera
-    is on the Task 13 hardware checklist.
+    The cost is that libcamera no longer adapts exposure, so run_capture
+    does it instead, through next_exposure, with the shutter kept short.
     """
     controls = {
         "AeEnable": False,
@@ -118,6 +122,39 @@ def to_image(array) -> Image.Image:
     return Image.fromarray(cv2.cvtColor(array, cv2.COLOR_BGR2RGB))
 
 
+def next_exposure(luminance, gain, exposure_us, *, target, base_us, max_us,
+                  min_us, max_gain, dead_band=0.15):
+    """The (gain, exposure in us) that moves the frame towards target.
+
+    Gain is spent before shutter, because a longer shutter blurs a runner and
+    gain only adds noise. The shutter stays at base_us until gain is at its
+    ceiling, then lengthens to max_us and no further. In bright light it
+    drops below base_us only once gain is down to 1. One step at most doubles
+    or halves the exposure, and a frame within dead_band of the target is
+    left alone, so the loop does not chase sensor noise.
+    """
+    luminance = max(luminance, 1e-3)
+    if abs(luminance - target) <= dead_band * target:
+        return gain, exposure_us
+    total = gain * exposure_us * min(2.0, max(0.5, target / luminance))
+    if total <= base_us:
+        return 1.0, int(round(max(min_us, total)))
+    if total <= max_gain * base_us:
+        return total / base_us, base_us
+    return max_gain, int(round(min(max_us, total / max_gain)))
+
+
+def centre_luminance(array) -> float:
+    """Mean brightness of the middle of the frame, 0 to 1.
+
+    The middle, because that is where the runner is. A bright window or sky
+    at the edge would otherwise hold the exposure down while the bib stays
+    dark. Every eighth pixel is plenty for a mean.
+    """
+    h, w = array.shape[:2]
+    return float(array[h // 5:h * 4 // 5:8, w // 5:w * 4 // 5:8].mean()) / 255.0
+
+
 def has_room(directory, min_free_bytes: int) -> bool:
     """True while the queue's filesystem keeps min_free_bytes free.
 
@@ -132,8 +169,13 @@ def has_room(directory, min_free_bytes: int) -> bool:
 def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
                 exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN,
                 allow_unsynced_clock=False, min_free_bytes=0,
-                fps=DEFAULT_FPS, focus_m=DEFAULT_FOCUS_M):
-    """Capture for duration_s seconds into queue_dir. Returns frames written."""
+                fps=DEFAULT_FPS, focus_m=DEFAULT_FOCUS_M, auto_exposure=True,
+                target_luminance=DEFAULT_TARGET_LUMINANCE,
+                max_exposure_us=DEFAULT_MAX_EXPOSURE_US):
+    """Capture for duration_s seconds into queue_dir. Returns frames written.
+
+    With auto_exposure, gain and exposure_us are only the starting point.
+    """
     synced = clock_synced()
     if synced is False and not allow_unsynced_clock:
         raise ClockNotSynced(
@@ -148,6 +190,9 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
     camera = open_camera(size=size, exposure_us=exposure_us, gain=gain,
                          fps=fps, focus_m=focus_m)
     camera.start()
+    gain_range = getattr(camera, "camera_controls", {}).get("AnalogueGain")
+    max_gain = float(gain_range[1]) if gain_range else 16.0
+    adjust_every = max(1, int(round(fps or 1)))    # about once a second
 
     # One offset for the whole session, so every frame converts the same way.
     offset = time.time() - time.monotonic()
@@ -181,6 +226,17 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
                 continue
             queue.write(to_image(array), sensor_ns)
             written += 1
+            if auto_exposure and written % adjust_every == 0:
+                new_gain, new_exposure = next_exposure(
+                    centre_luminance(array), gain, exposure_us,
+                    target=target_luminance, base_us=DEFAULT_EXPOSURE_US,
+                    max_us=max_exposure_us, min_us=MIN_EXPOSURE_US,
+                    max_gain=max_gain,
+                )
+                if (new_gain, new_exposure) != (gain, exposure_us):
+                    gain, exposure_us = new_gain, new_exposure
+                    camera.set_controls(
+                        {"AnalogueGain": gain, "ExposureTime": exposure_us})
     finally:
         camera.stop()
         camera.close()
