@@ -1,5 +1,6 @@
 from PIL import Image
 
+from vision.bib_spec import BIB
 from vision.locate import locate_bib
 from vision.synth.render import render_bib
 
@@ -90,3 +91,46 @@ def test_upright_angle_is_the_smallest_correction(rect, want):
     (w, h), angle = _upright(*rect[0], rect[1])
     assert (w, h) == want[0]
     assert angle == pytest.approx(want[1])
+
+
+def _as_photographed(image):
+    """The bib face in the colours the camera recorded indoors.
+
+    Measured on a real frame of bib 20, in OpenCV's 8-bit Lab: the printed
+    block came back at (57, -7, 16) against the PDF's (128, -22, 55), about
+    as chromatic as foliage. The digits stay the brightest thing on it.
+    """
+    import cv2
+    import numpy as np
+
+    block = cv2.cvtColor(np.uint8([[[57, 128 - 7, 128 + 16]]]),
+                         cv2.COLOR_LAB2RGB)[0, 0]
+    rgb = np.asarray(image.convert("RGB")).copy()
+    is_block = (rgb == np.array(BIB.block_rgb, dtype=np.uint8)).all(axis=2)
+    rgb[is_block] = block
+    rgb[~is_block] = (rgb[~is_block] * 0.75).astype(np.uint8)
+    return Image.fromarray(rgb)
+
+
+def test_finds_a_bib_photographed_in_dull_light():
+    from vision.locate import extract_bib
+    from vision.recognize import read_bib
+
+    scene = Image.new("RGB", (900, 700), (60, 60, 60))
+    scene.paste(_as_photographed(render_bib(20, px_per_mm=1.5)), (300, 200))
+    box, crop = extract_bib(scene)
+    assert box is not None
+    assert read_bib(crop)[0] == "20"
+
+
+def test_dull_foliage_without_digits_is_not_a_bib():
+    # The same dull olive as the photographed block, but nothing bright inside
+    # it. Colour alone cannot tell them apart any more; the digits can.
+    import cv2
+    import numpy as np
+
+    block = cv2.cvtColor(np.uint8([[[57, 128 - 7, 128 + 16]]]),
+                         cv2.COLOR_LAB2RGB)[0, 0]
+    scene = Image.new("RGB", (900, 700), (60, 60, 60))
+    scene.paste(Image.new("RGB", (300, 150), tuple(int(v) for v in block)), (300, 200))
+    assert locate_bib(scene) is None
