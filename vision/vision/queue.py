@@ -77,6 +77,19 @@ class FrameQueue:
         """
         (self.dir / "session.json").write_text(json.dumps({"offset": offset}))
 
+    def write_exposure(self, gain: float, exposure_us: int, at_limit: bool) -> None:
+        """Record the gain and shutter capture is using, for the health view."""
+        part = self.dir / "exposure.json.part"
+        part.write_text(json.dumps(
+            {"gain": float(gain), "exposure_us": int(exposure_us), "at_limit": bool(at_limit)}))
+        part.replace(self.dir / "exposure.json")
+
+    def exposure(self):
+        try:
+            return json.loads((self.dir / "exposure.json").read_text())
+        except (FileNotFoundError, ValueError):
+            return None
+
     def session_offset(self):
         path = self.dir / "session.json"
         if not path.exists():

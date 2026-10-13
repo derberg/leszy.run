@@ -76,3 +76,11 @@ def test_the_session_offset_survives_the_process(tmp_path):
 
 def test_session_offset_is_none_when_never_written(tmp_path):
     assert FrameQueue(tmp_path).session_offset() is None
+
+
+def test_the_exposure_capture_settled_on_is_readable_by_the_reader(tmp_path):
+    # Brightness alone cannot tell a camera at its limit from one not adapting.
+    queue = FrameQueue(tmp_path)
+    assert queue.exposure() is None
+    queue.write_exposure(16.0, 3000, at_limit=True)
+    assert queue.exposure() == {"gain": 16.0, "exposure_us": 3000, "at_limit": True}

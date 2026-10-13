@@ -194,6 +194,12 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
     max_gain = float(gain_range[1]) if gain_range else 16.0
     adjust_every = max(1, int(round(fps or 1)))    # about once a second
 
+    def report():
+        queue.write_exposure(gain, exposure_us,
+                             gain >= max_gain and exposure_us >= max_exposure_us)
+
+    report()
+
     # One offset for the whole session, so every frame converts the same way.
     offset = time.time() - time.monotonic()
     queue.write_session(offset)
@@ -237,6 +243,7 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
                     gain, exposure_us = new_gain, new_exposure
                     camera.set_controls(
                         {"AnalogueGain": gain, "ExposureTime": exposure_us})
+                    report()
     finally:
         camera.stop()
         camera.close()

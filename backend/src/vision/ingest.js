@@ -153,7 +153,9 @@ export function healthVerdict(health) {
     return {
       level: 'warn',
       headline: 'Obraz jest za ciemny',
-      detail: 'Za mało światła nawet przy maksymalnym wzmocnieniu i migawce 3 ms.',
+      detail: health.exposure_at_limit === false
+        ? 'Kamera dopasowuje ekspozycję.'
+        : 'Za mało światła nawet przy maksymalnym wzmocnieniu i migawce 3 ms.',
     }
   }
   if (health.exposure === 'bright') {
