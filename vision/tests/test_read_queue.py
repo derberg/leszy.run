@@ -298,3 +298,12 @@ def test_an_unread_pass_is_timed_from_its_own_first_frame(tmp_path):
     row = records(tmp_path)[0]
     assert row["best_frame_ts"] == 1_000_000_000
     assert row["frame_ts"] == [1_000_000_000, 1_100_000_000, 1_200_000_000]
+
+
+def test_health_carries_the_exposure_capture_reports(tmp_path):
+    queue = seed(tmp_path, 3)
+    queue.write_exposure(8.0, 1200, at_limit=False)
+    s = session(tmp_path, lambda img: [])
+    drain(s)
+    health = json.loads((tmp_path / "health.json").read_text())
+    assert (health["camera_gain"], health["exposure_us"], health["exposure_at_limit"]) == (8.0, 1200, False)

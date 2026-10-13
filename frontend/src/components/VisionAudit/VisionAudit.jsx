@@ -328,6 +328,11 @@ function HealthStrip({ verdict, health, session }) {
         <span>zegar: {health?.clock_synced === false ? 'NIE ZSYNCHRONIZOWANY' : health?.clock_synced === true ? 'ok' : '—'}</span>
         <span>przetworzone: {health?.processed ?? '—'}</span>
         <span>pominięte: {health?.skipped ?? '—'}</span>
+        {health?.camera_gain != null && (
+          <span className={health.exposure_at_limit ? 'text-apex-yellow' : ''}>
+            wzmocnienie {health.camera_gain.toFixed(1)} · migawka {(health.exposure_us / 1000).toFixed(1)} ms
+          </span>
+        )}
         <span>{health?.ms_per_frame != null ? `${health.ms_per_frame} ms/klatkę` : ''}</span>
       </div>
     </div>

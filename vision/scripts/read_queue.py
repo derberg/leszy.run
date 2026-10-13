@@ -281,6 +281,10 @@ class Session:
         )
         snap["updated_at"] = time.time()
         snap["session_offset"] = self.offset
+        exposure = self.queue.exposure() or {}
+        snap["camera_gain"] = exposure.get("gain")
+        snap["exposure_us"] = exposure.get("exposure_us")
+        snap["exposure_at_limit"] = exposure.get("at_limit")
         tmp = self.health_path.with_suffix(".json.part")
         tmp.write_text(json.dumps(snap))
         tmp.replace(self.health_path)   # atomic, so a reader never sees half

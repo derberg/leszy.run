@@ -206,3 +206,13 @@ test('a stopped session on the same folder does not block a new one', () => {
   const sessions = [{ id: 'a', queueDir: '/home/leszyrun/frames', stoppedAt: new Date() }]
   assert.equal(openSessionOn(sessions, '/home/leszyrun/frames'), null)
 })
+
+test('a dark frame below the exposure limit says the camera is still adapting', () => {
+  const v = healthVerdict(health({ exposure: 'dark', exposure_at_limit: false }))
+  assert.match(v.detail, /dopasowuje/)
+})
+
+test('a dark frame at the exposure limit says there is not enough light', () => {
+  const v = healthVerdict(health({ exposure: 'dark', exposure_at_limit: true }))
+  assert.match(v.detail, /Za mało światła/)
+})
