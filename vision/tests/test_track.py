@@ -81,6 +81,8 @@ def test_a_closed_track_is_not_emitted_a_second_time():
 def test_closing_one_track_leaves_a_live_one_alone():
     tracker = Tracker()
     tracker.add(0, [sighting("47", 0.9, (100, 200, 200, 260))])
+    tracker.add(1, [sighting("47", 0.9, (100, 200, 200, 260))])
+    tracker.add(19, [sighting("86", 0.9, (600, 200, 700, 260))])
     tracker.add(20, [sighting("86", 0.9, (600, 200, 700, 260))])
     closed = tracker.pop_closed(21)
     assert [t.text for t in closed] == ["47"]
@@ -91,6 +93,7 @@ def test_flush_emits_whatever_is_still_open_at_shutdown():
     # The last runner of the day must not be lost because nobody followed.
     tracker = Tracker()
     tracker.add(0, [sighting("47", 0.9, (100, 200, 200, 260))])
+    tracker.add(1, [sighting("47", 0.9, (100, 200, 200, 260))])
     assert [t.text for t in tracker.flush()] == ["47"]
     assert tracker.flush() == []
 
@@ -106,3 +109,23 @@ def test_a_track_remembers_which_box_its_best_read_came_from():
     result = tracker.results()[0]
     assert result.best_frame_index == 1
     assert result.best_bib_box == (11, 21, 31, 41)
+
+
+def test_a_number_read_in_one_frame_of_a_long_pass_is_withheld():
+    # A green fragment beside the digits read as 2 once in 163 frames and was
+    # shown as 2 at a vote share of 1.00. One frame is noise, not a reading.
+    tracker = Tracker()
+    for i in range(30):
+        text = "2" if i == 7 else None
+        tracker.add(i, [sighting(text, 0.9, (100 + i, 200, 200 + i, 260))])
+    result = tracker.results()[0]
+    assert result.text is None
+    assert result.votes == {"2": 0.9}     # kept, so the audit still shows it
+
+
+def test_a_number_read_in_two_frames_stands():
+    tracker = Tracker()
+    for i in range(10):
+        text = "47" if i in (3, 4) else None
+        tracker.add(i, [sighting(text, 0.9, (100 + i, 200, 200 + i, 260))])
+    assert tracker.results()[0].text == "47"

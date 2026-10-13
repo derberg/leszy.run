@@ -121,6 +121,14 @@ def segment_digits(crop: Image.Image) -> list:
     # which a person can still resolve from the photograph.
     digits = [b for b in digits
               if MIN_DIGIT_ASPECT <= b[2] / b[3] <= MAX_DIGIT_ASPECT]
+    # A digit sits inside the block with olive on every side. A component
+    # touching the edge of the crop is the paper margin, a shirt or a strap
+    # caught when the locator found only a fragment of the block, and one
+    # such strip beside bib 65 was read as 2.
+    height, width = mask.shape
+    digits = [b for b in digits
+              if b[0] > 0 and b[1] > 0
+              and b[0] + b[2] < width and b[1] + b[3] < height]
     digits.sort(key=lambda b: b[0])
 
     return [

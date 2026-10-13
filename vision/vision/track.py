@@ -13,6 +13,10 @@ from dataclasses import dataclass, field
 
 IOU_MATCH = 0.3
 MAX_GAP_FRAMES = 5
+# A number must be read in this many frames of the pass to be reported. A
+# fragment of the block read as 2 once in 163 frames came out at a vote share
+# of 1.00, because it was the only vote. One frame is noise.
+MIN_AGREEING_FRAMES = 2
 
 
 def iou(a, b) -> float:
@@ -45,6 +49,7 @@ class _Track:
     last_frame: int
     frames: list = field(default_factory=list)
     votes: dict = field(default_factory=lambda: defaultdict(float))
+    read_frames: dict = field(default_factory=lambda: defaultdict(int))
     best_confidence: float = 0.0
     best_frame_index: int = -1
     best_bib_box: tuple | None = None
@@ -78,6 +83,7 @@ class Tracker:
             match.frames.append(frame_index)
             if sight.text is not None:
                 match.votes[sight.text] += sight.confidence
+                match.read_frames[sight.text] += 1
             if sight.confidence > match.best_confidence:
                 match.best_confidence = sight.confidence
                 match.best_frame_index = frame_index
@@ -85,8 +91,8 @@ class Tracker:
 
     @staticmethod
     def _result(track) -> TrackResult:
-        if track.votes:
-            text = max(track.votes, key=track.votes.get)
+        text = max(track.votes, key=track.votes.get) if track.votes else None
+        if text is not None and track.read_frames[text] >= MIN_AGREEING_FRAMES:
             total = sum(track.votes.values())
             confidence = track.votes[text] / total if total else 0.0
         else:
