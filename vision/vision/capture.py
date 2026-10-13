@@ -25,7 +25,12 @@ from vision.clock import clock_synced
 from vision.queue import FrameQueue
 
 DEFAULT_EXPOSURE_US = 1200
-DEFAULT_SIZE = (1640, 1232)
+# A native sensor mode of the Camera Module 3 (IMX708), so the frame is
+# binned rather than cropped and keeps the full 75 degree field of view.
+DEFAULT_SIZE = (2304, 1296)
+# The runner is read 2 to 3 m from the lens. Autofocus would hunt as people
+# cross the frame, so the lens is held at this distance instead.
+DEFAULT_FOCUS_M = 3.0
 
 
 class ClockNotSynced(RuntimeError):
@@ -40,7 +45,7 @@ DEFAULT_FPS = 6.0
 
 
 def build_controls(exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN,
-                   fps=None) -> dict:
+                   fps=None, focus_m=None) -> dict:
     """Camera controls that actually pin the shutter.
 
     AeEnable must be False. With auto exposure on, the AE algorithm owns both
@@ -62,18 +67,28 @@ def build_controls(exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN,
         # Equal bounds pin the frame duration, and with it the frame rate.
         frame_us = int(1_000_000 / fps)
         controls["FrameDurationLimits"] = (frame_us, frame_us)
+    if focus_m:
+        # AfMode 0 is libcamera's AfModeManual. LensPosition is in dioptres.
+        controls["AfMode"] = 0
+        controls["LensPosition"] = 1.0 / focus_m
     return controls
 
 
+def supported(controls: dict, available) -> dict:
+    """The controls this camera has. A Camera Module 2 has no lens motor."""
+    return {k: v for k, v in controls.items() if k in available}
+
+
 def open_camera(size=DEFAULT_SIZE, exposure_us=DEFAULT_EXPOSURE_US,
-                gain=DEFAULT_GAIN, fps=DEFAULT_FPS):
-    """Configure picamera2 with one mode and a locked shutter."""
+                gain=DEFAULT_GAIN, fps=DEFAULT_FPS, focus_m=DEFAULT_FOCUS_M):
+    """Configure picamera2 with one mode, a locked shutter and a fixed lens."""
     from picamera2 import Picamera2
 
     camera = Picamera2()
+    controls = build_controls(exposure_us, gain, fps, focus_m)
     config = camera.create_video_configuration(
         main={"size": size, "format": "RGB888"},
-        controls=build_controls(exposure_us, gain, fps),
+        controls=supported(controls, camera.camera_controls),
     )
     camera.configure(config)
     return camera
@@ -117,7 +132,7 @@ def has_room(directory, min_free_bytes: int) -> bool:
 def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
                 exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN,
                 allow_unsynced_clock=False, min_free_bytes=0,
-                fps=DEFAULT_FPS):
+                fps=DEFAULT_FPS, focus_m=DEFAULT_FOCUS_M):
     """Capture for duration_s seconds into queue_dir. Returns frames written."""
     synced = clock_synced()
     if synced is False and not allow_unsynced_clock:
@@ -130,7 +145,8 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
         print("warning: cannot determine clock sync (no timedatectl)")
 
     queue = FrameQueue(Path(queue_dir))
-    camera = open_camera(size=size, exposure_us=exposure_us, gain=gain, fps=fps)
+    camera = open_camera(size=size, exposure_us=exposure_us, gain=gain,
+                         fps=fps, focus_m=focus_m)
     camera.start()
 
     # One offset for the whole session, so every frame converts the same way.

@@ -16,7 +16,7 @@ Polish.
 | Part | Notes |
 |---|---|
 | Raspberry Pi 5 | The one already running the timing stack is fine. |
-| Camera Module v2.1 | The sensor is IMX219. It has an infrared-cut filter, so it cannot see in darkness. |
+| Camera Module 3, standard (SC0872 or SC1223) | The sensor is IMX708. Not the NoIR version: without the infrared-cut filter the olive bib block comes out dark purple and the locator never finds it. The NoIR Camera Module 2 has a black board, the standard one a green board. |
 | Camera cable, 22-pin to 15-pin | Botland 23929, 50 cm. See the warning below. |
 | USB SSD | Not the SD card. See section 8. |
 | Tripod | Anything that holds the camera steady at chest height. |
@@ -58,7 +58,7 @@ Power up and run:
 rpicam-hello --list-cameras
 ```
 
-You want a line naming `imx219`.
+You want a line naming `imx708`.
 
 Nothing listed? In order: power down, reseat both ends of the cable, check the
 contacts face the right way, and check you have the camera tape rather than the
@@ -154,7 +154,7 @@ from picamera2 import Picamera2
 from vision.capture import build_controls
 camera = Picamera2()
 camera.configure(camera.create_video_configuration(
-    main={"size": (1640, 1232), "format": "RGB888"},
+    main={"size": (2304, 1296), "format": "RGB888"},
     controls=build_controls(exposure_us=1200, gain=4.0)))
 camera.start()
 import time; time.sleep(2)
@@ -253,7 +253,7 @@ service restarts capture, but a restart does not clear the driver. Reboot the
 Pi. Never start `capture.py` by hand while the service is enabled.
 
 **All frames are black or nearly black.** There is not enough light. The
-Camera Module v2.1 has an infrared-cut filter and cannot see in the dark, and
+Camera Module 3 has an infrared-cut filter and cannot see in the dark, and
 the shutter is deliberately locked fast to freeze runners. A night race needs
 a lit gate. This is not something software can fix.
 
