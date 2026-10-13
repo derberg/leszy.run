@@ -75,3 +75,14 @@ def test_digits_merged_by_heavy_blur_are_refused_not_guessed():
     blurred = render_bib(188, px_per_mm=2.0).filter(ImageFilter.GaussianBlur(9))
     text, _ = read_bib(blurred)
     assert text is None
+
+
+@pytest.mark.parametrize("brightness", [0.15, 0.25, 0.4])
+def test_a_dark_bib_reads_the_same_as_a_bright_one(brightness):
+    # Indoors with a fast shutter a real crop of 65 peaked at 54 of 255 and
+    # read as 44, a confidently wrong number. The classifier only ever saw
+    # digits near 245 on a block near 107.
+    from PIL import ImageEnhance
+
+    dark = ImageEnhance.Brightness(render_bib(65, px_per_mm=2)).enhance(brightness)
+    assert read_bib(dark)[0] == "65"
