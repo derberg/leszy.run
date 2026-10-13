@@ -4,9 +4,11 @@ The leszy.run bib is a flat rectangle of one saturated colour with bright
 digits inside, so a colour mask plus a rectangle fit finds it without a
 trained model.
 
-Pass `region` to search inside a detected person. That is what separates the
-bib from mossy undergrowth at a trail race: the hue of wet moss is close to
-the block, but moss is far less saturated, and it is not inside a torso.
+Pass `region` to search inside a detected person. Colour alone cannot
+separate the bib from foliage: photographed in dull light the printed block
+measured (57, -7, 16) in OpenCV's 8-bit Lab against the PDF's (128, -22, 55),
+about as chromatic as moss. What foliage lacks is the structure, so a candidate must
+also hold bright digits and sit clear of the edge of the search area.
 """
 import cv2
 import numpy as np
@@ -17,11 +19,19 @@ from vision.bib_spec import BIB
 MIN_AREA_FRACTION = 0.002
 ASPECT_MIN, ASPECT_MAX = 1.2, 3.2
 MAX_HUE_DISTANCE = 12          # OpenCV hue units, so 24 degrees
-MAX_SAT_DISTANCE = 90
+MAX_SAT_DISTANCE = 90          # strict pass: close to the PDF's olive
+# Relaxed pass: a floor, not a distance from the PDF's fully saturated olive: a print under
+# real light measured saturation 104 to 140 of 255 and was never located.
+MIN_SATURATION = 60
+MIN_VALUE = 20                 # below this, hue is sensor noise
+# Share of the block the digits cover. Measured on renders of 1 to 4 digits;
+# a patch with no bright shapes inside is foliage, not a bib.
+MIN_DIGIT_FRACTION = 0.05
+MAX_DIGIT_FRACTION = 0.6
 MIN_FILL = 0.7                 # a real block is solid; foliage is ragged
 
 
-def _colour_mask(rgb: np.ndarray) -> np.ndarray:
+def _colour_mask(rgb: np.ndarray, relaxed: bool = False) -> np.ndarray:
     hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV).astype(np.float32)
     target = cv2.cvtColor(
         np.array(BIB.block_rgb, dtype=np.uint8).reshape(1, 1, 3), cv2.COLOR_RGB2HSV
@@ -29,11 +39,31 @@ def _colour_mask(rgb: np.ndarray) -> np.ndarray:
 
     diff = np.abs(hsv[..., 0] - target[0])
     hue_distance = np.minimum(diff, 180 - diff)      # hue wraps
-    sat_distance = np.abs(hsv[..., 1] - target[1])
+    if relaxed:
+        colour = (hsv[..., 1] >= MIN_SATURATION) & (hsv[..., 2] >= MIN_VALUE)
+    else:
+        colour = np.abs(hsv[..., 1] - target[1]) < MAX_SAT_DISTANCE
 
-    mask = ((hue_distance < MAX_HUE_DISTANCE)
-            & (sat_distance < MAX_SAT_DISTANCE)).astype(np.uint8) * 255
+    mask = ((hue_distance < MAX_HUE_DISTANCE) & colour).astype(np.uint8) * 255
     return cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+
+
+def _holds_digits(rgb_box, contour, origin) -> bool:
+    """True when the candidate has bright shapes inside it, as a bib does.
+
+    The digits are holes in the colour mask, so the test runs on the filled
+    contour: pixels clearly brighter than the block's own median, covering a
+    share of it no blank patch and no all-white sheet would.
+    """
+    filled = np.zeros(rgb_box.shape[:2], np.uint8)
+    cv2.drawContours(filled, [contour - np.array(origin)], -1, 255, cv2.FILLED)
+    inside = filled > 0
+    if inside.sum() == 0:
+        return False
+    grey = cv2.cvtColor(rgb_box, cv2.COLOR_RGB2GRAY).astype(np.float32)[inside]
+    block = float(np.median(grey))
+    bright = (grey > block + 25).mean()
+    return MIN_DIGIT_FRACTION <= bright <= MAX_DIGIT_FRACTION
 
 
 def _find_block(image: Image.Image, region=None):
@@ -47,7 +77,23 @@ def _find_block(image: Image.Image, region=None):
     if rgb.size == 0:
         return None
 
-    mask = _colour_mask(rgb)
+    # The strict pass finds a well-lit print by colour alone, which also
+    # keeps a block pasted straight onto foliage apart from it. Only when it
+    # finds nothing does the relaxed pass run, and there colour no longer
+    # separates bib from foliage, so the candidate must also hold digits.
+    best = _best_block(rgb, _colour_mask(rgb), structural=False)
+    if best is None:
+        best = _best_block(rgb, _colour_mask(rgb, relaxed=True), structural=True)
+    if best is None:
+        return None
+    (x1, y1, x2, y2), ((cx, cy), size, angle) = best
+    return (
+        (x1 + offset_x, y1 + offset_y, x2 + offset_x, y2 + offset_y),
+        ((cx + offset_x, cy + offset_y), size, angle),
+    )
+
+
+def _best_block(rgb, mask, structural):
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     height, width = mask.shape
@@ -71,20 +117,20 @@ def _find_block(image: Image.Image, region=None):
             continue
         if cv2.contourArea(contour) / (rect_w * rect_h) < MIN_FILL:
             continue
+        if structural:
+            # A field of foliage filling the search area touches its edge.
+            # A bib on a torso, or pasted into a scene, sits inside it.
+            if x == 0 or y == 0 or x + w >= width or y + h >= height:
+                continue
+            if not _holds_digits(rgb[y:y + h, x:x + w], contour, (x, y)):
+                continue
 
         area = rect_w * rect_h
         if area > best_area:
             rect = cv2.minAreaRect(contour)
             best = ((x, y, x + w, y + h), rect)
             best_area = area
-
-    if best is None:
-        return None
-    (x1, y1, x2, y2), ((cx, cy), size, angle) = best
-    return (
-        (x1 + offset_x, y1 + offset_y, x2 + offset_x, y2 + offset_y),
-        ((cx + offset_x, cy + offset_y), size, angle),
-    )
+    return best
 
 
 def locate_bib(image: Image.Image, region=None):
