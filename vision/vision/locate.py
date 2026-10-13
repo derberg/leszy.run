@@ -33,6 +33,16 @@ MIN_DIGIT_FRACTION = 0.05
 JOIN_FRACTION = 0.025
 MAX_DIGIT_FRACTION = 0.6
 MIN_FILL = 0.7                 # a real block is solid; foliage is ragged
+# Which way up the bib is, read from the paper above and below the block. The
+# top banner carries the logo and a LESZY.RUN wordmark set at 260 points; the
+# bottom one only LESZY.RUN/KALENDARZ at 150. Measured on Pi frames as glyph
+# height over block height: header 0.14 to 0.25, footer 0.05 to 0.12.
+BANNER_BAND = 0.4              # band searched above and below, share of block height
+HEADER_GLYPH = 0.13            # a glyph this tall can only be the header
+HEADER_OVER_FOOTER = 1.3       # with both bands seen, how much taller the header must be
+MIN_GLYPHS = 3                 # fewer is a hand or a shadow, not a line of text
+MIN_PAPER = 0.3                # share of a band that must be bright paper
+PAPER_OVER_BLOCK = 1.4         # paper is this much brighter than the olive block
 
 
 def _colour_mask(rgb: np.ndarray, relaxed: bool = False) -> np.ndarray:
@@ -193,6 +203,79 @@ def _upright(rect_w, rect_h, angle):
     return (rect_w, rect_h), angle
 
 
+def _glyph_height(band, block_h, block_grey):
+    """Typical height of the dark letters in one banner band, or None.
+
+    The tallest few glyphs, so the dot and the slash in the wordmark do not
+    drag it down. A band that is not mostly bright paper is a shirt or a
+    hand and says nothing: dark folds of clothing under a bare block once
+    passed for a header and turned a 47 upside down.
+    """
+    if band.size == 0:
+        return None
+    grey = cv2.cvtColor(band, cv2.COLOR_RGB2GRAY)
+    paper = np.percentile(grey, 85)
+    if paper < block_grey * PAPER_OVER_BLOCK or (grey > paper - 40).mean() < MIN_PAPER:
+        return None
+    dark = (grey < paper * 0.6).astype(np.uint8)
+    count, _, stats, _ = cv2.connectedComponentsWithStats(dark, connectivity=8)
+    heights = []
+    for x, y, w, h, area in stats[1:count]:
+        if (0.04 * block_h <= h <= 0.32 * block_h and w < 0.3 * band.shape[1]
+                and area > 0.15 * w * h):
+            heights.append(h / block_h)
+    if len(heights) < MIN_GLYPHS:
+        return None
+    return float(np.median(sorted(heights)[-6:]))
+
+
+def bib_orientation(context: np.ndarray):
+    """'upright', 'flipped' or None, from a straightened crop round the block.
+
+    The locator turns the block so its long edge is level, and a rectangle
+    looks the same after half a turn, so a bib held upside down came out
+    upside down and its 6 was read as 9. Only the paper round the block says
+    which way up it is: the taller lettering is the header. None when the
+    banners are hidden or out of frame, which is common, so a caller must
+    treat None as "could be either", never as upright.
+    """
+    olive = _colour_mask(context, relaxed=True) > 0
+    rows = np.append(olive.mean(axis=1) > 0.35, False)
+    # The block is the longest run of olive rows. The olive .RUN in each
+    # wordmark is too thin to make a run of its own.
+    run, top, bottom, start = 0, 0, 0, 0
+    for i, is_olive in enumerate(rows):
+        if is_olive and (i == 0 or not rows[i - 1]):
+            start = i
+        if not is_olive and i > 0 and rows[i - 1] and i - start > run:
+            run, top, bottom = i - start, start, i
+    if run < 10:
+        return None
+    cols = np.flatnonzero(olive[top:bottom].mean(axis=0) > 0.5)
+    if len(cols) < 10:
+        return None
+    margin = int((cols[-1] - cols[0]) * 0.05)
+    left, right = cols[0] + margin, cols[-1] - margin
+    band = int(run * BANNER_BAND)
+    grey = cv2.cvtColor(context, cv2.COLOR_RGB2GRAY)
+    block_grey = float(np.median(grey[top:bottom][olive[top:bottom]]))
+    above = _glyph_height(context[max(0, top - band):top, left:right], run, block_grey)
+    below = _glyph_height(context[bottom:bottom + band, left:right], run, block_grey)
+
+    if above is not None and below is not None:
+        if above >= HEADER_GLYPH and above > below * HEADER_OVER_FOOTER:
+            return "upright"
+        if below >= HEADER_GLYPH and below > above * HEADER_OVER_FOOTER:
+            return "flipped"
+        return None
+    # One band only. A tall line of text above is the header, which only
+    # confirms what is assumed anyway. Turning the crop over takes both
+    # bands: a wrong turn reads a 6 as 9 with nothing to show for it.
+    if above is not None and above >= HEADER_GLYPH:
+        return "upright"
+    return None
+
+
 def extract_bib(image: Image.Image, region=None):
     """Return (box, upright crop) for the bib block, or (None, None).
 
@@ -217,4 +300,14 @@ def extract_bib(image: Image.Image, region=None):
     upright = cv2.getRectSubPix(
         straightened, (int(round(rect_w)), int(round(rect_h))), (cx, cy)
     )
-    return box, Image.fromarray(upright)
+    context = cv2.getRectSubPix(
+        straightened, (int(rect_w * 1.1), int(rect_h * 2.4)), (cx, cy)
+    )
+    orientation = bib_orientation(context)
+    crop = Image.fromarray(upright)
+    if orientation == "flipped":
+        crop = crop.rotate(180)
+    # read_bib reads this: with no proof of which way up, a 6 and a 9 are
+    # the same picture.
+    crop.info["orientation"] = orientation
+    return box, crop

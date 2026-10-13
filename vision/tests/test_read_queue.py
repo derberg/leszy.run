@@ -307,3 +307,27 @@ def test_health_carries_the_exposure_capture_reports(tmp_path):
     drain(s)
     health = json.loads((tmp_path / "health.json").read_text())
     assert (health["camera_gain"], health["exposure_us"], health["exposure_at_limit"]) == (8.0, 1200, False)
+
+
+def test_frames_read_in_parallel_reach_the_tracker_in_order(tmp_path):
+    # Several frames are read at once, and a later frame can finish first.
+    # The tracker must still see them in queue order, or one pass is split
+    # in two and its frame list comes out shuffled.
+    import itertools
+    import random
+    import time as _time
+
+    seed(tmp_path, 12)
+    s = rq.Session(tmp_path, max_fps=0, workers=3)
+    delays = itertools.cycle([0.03, 0.0, 0.01])
+
+    def slow(img):
+        _time.sleep(next(delays) * random.random())
+        return [(Sighting("47", 0.9, (10, 10, 30, 20), (0, 0, 60, 48)), crop())]
+
+    rq.read_frame_with_crops = slow
+    drain(s)
+    rows = records(tmp_path)
+    assert len(rows) == 1
+    assert rows[0]["frame_count"] == 12
+    assert rows[0]["frame_ts"] == sorted(rows[0]["frame_ts"])
