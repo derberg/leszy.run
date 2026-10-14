@@ -3,6 +3,7 @@ import { eq, isNull, sql, getTableColumns } from 'drizzle-orm'
 import { events, categories, participants, raceRuns, gateCrossings, results,
          checkpoints, checkpointObservations, eventDocuments } from '../db/schema.js'
 import { broadcast } from '../ws/broadcaster.js'
+import { pushCheckpointLinks } from './checkpointLinks.js'
 
 let supabase = null
 
@@ -326,6 +327,17 @@ async function runSync(db) {
         console.error(`[Sync] Error syncing ${name}:`, error.message)
         syncErrors.push(`${name}: ${error.message}`)
         continue
+      }
+
+      // A checkpoint carries its category links (checkpointLinks.js). Replace them
+      // before marking the rows synced, so a failure leaves them dirty for a retry.
+      if (name === 'checkpoints') {
+        const linkError = await pushCheckpointLinks(supabase, db, rows.map(r => r.id))
+        if (linkError) {
+          console.error('[Sync] Error syncing checkpoint_categories:', linkError)
+          syncErrors.push(`checkpoint_categories: ${linkError}`)
+          continue
+        }
       }
 
       // Mark synced — only rows untouched since the snapshot (see markSynced).

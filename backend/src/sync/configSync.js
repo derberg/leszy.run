@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { sql } from 'drizzle-orm'
 import { events, categories, participants, checkpoints, raceRuns, results, eventDocuments } from '../db/schema.js'
+import { pullCheckpointLinks } from './checkpointLinks.js'
 
 // Reverse sync: Supabase → local, for event CONFIG + results — so an event created/edited
 // on ONE device (e.g. the Mac) shows up automatically on EVERY other device (e.g. a Pi)
@@ -22,8 +23,9 @@ import { events, categories, participants, checkpoints, raceRuns, results, event
 //     supabase.js; handling it here too would double-write.
 //   - gate_crossings — raw, high-volume, device-local; other devices only need the derived
 //     `results`, not the raw crossings.
-//   - checkpoint_categories — not in the push SYNC_TABLES (no synced_at), so not reliably in
-//     Supabase; nothing to pull.
+//
+// checkpoint_categories has no id or synced_at, so it is not a PULL_TABLES entry; its links
+// ride on their checkpoint row and are pulled by pullCheckpointLinks() after the tables below.
 //
 // Limitation: deletes are NOT propagated (additive/update only) — same as checkinSync. A row
 // deleted on one device lingers on the others until manually removed.
@@ -182,5 +184,10 @@ export async function pullConfig(db) {
     } catch (err) {
       console.error(`[ConfigSync] ${name}: ${err.message}`)
     }
+  }
+  try {
+    await pullCheckpointLinks(supabase, db)
+  } catch (err) {
+    console.error(`[ConfigSync] checkpoint_categories: ${err.message}`)
   }
 }

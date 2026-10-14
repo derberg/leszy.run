@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { checkpoints, checkpointCategories, checkpointObservations, raceRuns, categories, participants, results } from '../db/schema.js'
 import { syncDelete } from '../sync/supabase.js'
 import { broadcast } from '../ws/broadcaster.js'
+import { checkpointUpdates } from '../lib/checkpointUpdates.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -46,26 +47,25 @@ export async function checkpointsRoutes(fastify) {
       if (existing) return reply.code(409).send({ error: 'Tylko jeden punkt kontrolny może być oznaczony jako "blisko mety"' })
     }
 
-    const [row] = await db.insert(checkpoints)
-      .values({ eventId: req.params.eventId, name, kmMarker: kmMarker || null, private: isPrivate ?? false, isNearFinish: isNearFinish ?? false })
-      .returning()
-
-    if (categoryIds.length) {
-      await db.insert(checkpointCategories)
-        .values(categoryIds.map(cid => ({ checkpointId: row.id, categoryId: cid })))
-    }
+    // One transaction, so the push worker never sees the checkpoint without its links.
+    const row = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(checkpoints)
+        .values({ eventId: req.params.eventId, name, kmMarker: kmMarker || null, private: isPrivate ?? false, isNearFinish: isNearFinish ?? false })
+        .returning()
+      if (categoryIds.length) {
+        await tx.insert(checkpointCategories)
+          .values(categoryIds.map(cid => ({ checkpointId: created.id, categoryId: cid })))
+      }
+      return created
+    })
 
     return reply.code(201).send({ data: { ...row, categoryIds } })
   })
 
   // Update checkpoint
   fastify.patch('/checkpoints/:id', async (req, reply) => {
-    const { name, kmMarker, categoryIds, private: isPrivate, isNearFinish } = req.body
-    const updates = {}
-    if (name !== undefined) updates.name = name
-    if (kmMarker !== undefined) updates.kmMarker = kmMarker
-    if (isPrivate !== undefined) updates.private = isPrivate
-    if (isNearFinish !== undefined) updates.isNearFinish = isNearFinish
+    const { categoryIds, isNearFinish } = req.body
+    const updates = checkpointUpdates(req.body)
 
     if (isNearFinish) {
       const [current] = await db.select({ eventId: checkpoints.eventId })
@@ -83,20 +83,25 @@ export async function checkpointsRoutes(fastify) {
       if (existing) return reply.code(409).send({ error: 'Tylko jeden punkt kontrolny może być oznaczony jako "blisko mety"' })
     }
 
-    const [row] = await db.update(checkpoints)
-      .set(updates)
-      .where(eq(checkpoints.id, req.params.id))
-      .returning()
+    // Row first, links second, in one transaction: the row update turns the checkpoint
+    // dirty (so the push carries the new links) and takes the lock pullCheckpointLinks waits on.
+    const row = await db.transaction(async (tx) => {
+      const [updated] = await tx.update(checkpoints)
+        .set(updates)
+        .where(eq(checkpoints.id, req.params.id))
+        .returning()
+      if (!updated) return null
+      if (categoryIds !== undefined) {
+        await tx.delete(checkpointCategories).where(eq(checkpointCategories.checkpointId, updated.id))
+        if (categoryIds.length) {
+          await tx.insert(checkpointCategories)
+            .values(categoryIds.map(cid => ({ checkpointId: updated.id, categoryId: cid })))
+        }
+      }
+      return updated
+    })
 
     if (!row) return reply.code(404).send({ error: 'not found' })
-
-    if (categoryIds !== undefined) {
-      await db.delete(checkpointCategories).where(eq(checkpointCategories.checkpointId, row.id))
-      if (categoryIds.length) {
-        await db.insert(checkpointCategories)
-          .values(categoryIds.map(cid => ({ checkpointId: row.id, categoryId: cid })))
-      }
-    }
 
     const catLinks = await db.select().from(checkpointCategories)
       .where(eq(checkpointCategories.checkpointId, row.id))
