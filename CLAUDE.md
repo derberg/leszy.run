@@ -54,6 +54,20 @@ This project is RODO/GDPR-compliant. Reference documents:
 
 **Club membership lifecycle log:** every join/leave/remove/role-change on a club is appended to `club_membership_log` (`club_id`, `user_id`, `event` — `joined`/`left`/`removed`/`role_changed`, `role`, `actor_id`, `occurred_at`). Append-only, service_role only — same access pattern as `admin_actions`, but scoped to club membership rather than admin actions.
 
+## Race devices: read `readme-internal.md` first
+
+Before connecting to, deploying to or debugging a race Pi (checkpoint1,
+checkpoint2) or an R700 reader, read `readme-internal.md` in the root of the
+main checkout. It holds each device's Tailscale address, the SSH user, the
+passwords and the per-host setup. It is local only: `.git/info/exclude` keeps it
+out of git, so it is absent from worktrees and from every clone. Read it at
+`/Users/derberg/Documents/GitHub/BeepBeep/readme-internal.md`, and never copy
+its contents into a tracked file.
+
+Reach a Pi by its Tailscale address before trying `.local`. On 2026-10-14 the
+phone hotspot stopped passing traffic between the Mac and checkpoint1, even
+though both were on it and both had internet.
+
 ## Hardware documentation
 
 - `docs/impinj-r700-api/endpoints.md` — known R700 REST API endpoints (system status, antennas, MQTT, inventory presets)
