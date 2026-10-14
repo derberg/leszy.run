@@ -13,6 +13,10 @@ It is throttled on purpose. The Pi 5 has no accelerator and cannot read every
 frame in real time, so this view is diagnostic and the chip stays the timing
 source. Falling behind is safe by construction: the queue keeps the frames.
 
+Frames it read and found nobody in are deleted once they are older than
+--keep-empty-min (vision/empty_frames.py). Every frame with a person in it,
+and every frame it skipped or could not decode, stays for the retention purge.
+
 Usage:
   python scripts/read_queue.py --queue /mnt/ssd/frames
   python scripts/read_queue.py --queue /mnt/ssd/frames --max-fps 2
@@ -29,6 +33,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from vision.clock import clock_synced  # noqa: E402
+from vision.empty_frames import EmptyFrameSweeper  # noqa: E402
 from vision.measure import load_frame  # noqa: E402
 from vision.people import detect_people  # noqa: E402
 from vision.pipeline import Sighting, locate_claims, resolve_bib_claims  # noqa: E402
@@ -41,6 +46,12 @@ from vision.track import Tracker  # noqa: E402
 import json  # noqa: E402
 
 HEALTH_EVERY_S = 2.0
+# How often frames proven empty are deleted. Deleting is cheap; this only
+# keeps the reader from listing the ledger on every frame.
+SWEEP_EVERY_S = 30.0
+# Empty frames are kept this long, so a runner the person detector missed
+# entirely can still be looked at right after it happened.
+DEFAULT_KEEP_EMPTY_MIN = 10.0
 IDLE_SLEEP_S = 0.25
 # Crops are kept until their track closes. A track can start long before its
 # best frame ages out, so the cache is generous; a bib crop is a few KB.
@@ -69,7 +80,8 @@ def read_frame_with_crops(image):
 
 
 class Session:
-    def __init__(self, queue_dir, max_fps, max_lag_s=0.0, workers=1):
+    def __init__(self, queue_dir, max_fps, max_lag_s=0.0, workers=1,
+                 keep_empty_s=DEFAULT_KEEP_EMPTY_MIN * 60):
         self.queue = FrameQueue(queue_dir)
         self.dir = Path(queue_dir)
         self.crops_dir = self.dir / "crops"
@@ -82,6 +94,7 @@ class Session:
         self.max_lag_ns = int(max_lag_s * 1e9) if max_lag_s > 0 else 0
         self.skipped = 0
         self.done_times = deque(maxlen=30)
+        self.sweeper = EmptyFrameSweeper(queue_dir, keep_empty_s)
 
         self.frame_index = 0
         self.stamps = {}
@@ -165,6 +178,8 @@ class Session:
         # longer than the reader spends on it.
         self.durations.append(duration_ms / self.workers)
         self.queue.mark_done(path)
+        # Only after the move: the ledger names files in done/.
+        self.sweeper.observe(index, Path(path).name, bool(pairs))
 
         self.emit(self.tracker.pop_closed(index))
 
@@ -308,6 +323,8 @@ class Session:
             skipped=self.skipped,
             lag_s=self.lag_s(pending),
         )
+        snap["empty_frames_deleted"] = self.sweeper.deleted
+        snap["empty_bytes_deleted"] = self.sweeper.deleted_bytes
         snap["updated_at"] = time.time()
         snap["session_offset"] = self.offset
         exposure = self.queue.exposure() or {}
@@ -322,6 +339,7 @@ class Session:
 
     def run(self, stop):
         last_health = 0.0
+        last_sweep = time.monotonic()
         while not stop():
             busy = {path for path, _, _ in self.inflight}
             pending = self.skip_stale(
@@ -341,6 +359,9 @@ class Session:
             if time.monotonic() - last_health > HEALTH_EVERY_S:
                 self.write_health()
                 last_health = time.monotonic()
+            if time.monotonic() - last_sweep > SWEEP_EVERY_S:
+                self.sweeper.sweep()
+                last_sweep = time.monotonic()
 
         while self.inflight:
             self.commit_oldest()
@@ -349,6 +370,7 @@ class Session:
         # The last runner of the day has nobody following them, so their
         # track never ages out on its own.
         self.emit(self.tracker.flush())
+        self.sweeper.sweep()
         self.write_health()
 
 
@@ -362,9 +384,15 @@ def main():
                     help="skip frames further behind than this; 0 reads all")
     ap.add_argument("--workers", type=int, default=min(3, os.cpu_count() or 1),
                     help="frames read at once; leave a core for the backend")
+    ap.add_argument("--keep-empty-min", type=float,
+                    default=float(os.environ.get("VISION_KEEP_EMPTY_MIN",
+                                                 DEFAULT_KEEP_EMPTY_MIN)),
+                    help="delete frames proven to show nobody once they are "
+                         "older than this many minutes (env VISION_KEEP_EMPTY_MIN)")
     args = ap.parse_args()
 
-    session = Session(args.queue, args.max_fps, args.max_lag_s, args.workers)
+    session = Session(args.queue, args.max_fps, args.max_lag_s, args.workers,
+                      keep_empty_s=args.keep_empty_min * 60)
     if session.offset is None:
         print("warning: no session.json in the queue, timestamps will be "
               "relative to the epoch and cannot be matched to a gun time")
@@ -381,7 +409,7 @@ def main():
     print(f"reading {args.queue} at up to {args.max_fps} fps; Ctrl-C to stop")
     session.run(lambda: stopping)
     print(f"\nprocessed {session.processed} frames, skipped {session.skipped}, "
-          f"{session.torn} torn")
+          f"{session.torn} torn, deleted {session.sweeper.deleted} empty")
 
 
 if __name__ == "__main__":
