@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useReactTable, getCoreRowModel, flexRender } from '@tanstack/react-table'
 import { api } from '../../lib/api.js'
 import { cn } from '../../lib/utils.js'
+import { sortParticipants } from '../../lib/participantOrder.js'
 import { Button } from '../ui/button.jsx'
 import { Input } from '../ui/input.jsx'
 import { Badge } from '../ui/badge.jsx'
@@ -98,13 +99,10 @@ export default function ParticipantsTable({ eventId, categories }) {
 
   const catMap = Object.fromEntries((categories || []).map(c => [c.id, c.name]))
 
-  // Display order: ascending by last name (Polish locale so ą/ć/ł/ó/… sort
-  // correctly), first name as tie-breaker. The API returns rows in bib order;
+  // Display order: category (event's category order), then last name, then
+  // first name, see lib/participantOrder.js. The API returns rows in bib order;
   // the table body renders this array directly (no TanStack sort model).
-  const sortedParticipants = [...participants].sort((a, b) =>
-    (a.lastName || '').localeCompare(b.lastName || '', 'pl', { sensitivity: 'base' }) ||
-    (a.firstName || '').localeCompare(b.firstName || '', 'pl', { sensitivity: 'base' })
-  )
+  const sortedParticipants = sortParticipants(participants, categories)
 
   const isMinor = (p) => {
     if (!p?.birthDate) return false
