@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { anonymizedName } from '../ui/index.js'
+import { excludedParticipants, nearFinishRunners } from '../lib/nearFinish.js'
 
 function formatTime(iso) {
   return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 /**
- * Shows runners observed at the near-finish checkpoint.
+ * Shows runners observed at the near-finish checkpoint who have not finished yet.
  * @param {string} nearFinishCheckpointId - the checkpoint with is_near_finish=true
  * @param {Array} categories - all timed categories for this event
  */
@@ -50,50 +51,22 @@ export default function NearFinish({ nearFinishCheckpointId, categories }) {
       }
     }
 
-    // Build lookup maps
-    const pById = Object.fromEntries(participants.map(p => [p.id, p]))
-    const pByBib = Object.fromEntries(participants.map(p => [p.bib_number, p]))
-
-    // A DNS runner never left the start line, so an observation under their bib is
-    // bogus — a mistyped bib on the volunteer numpad, or a stray read. Nocny Zew
-    // Wilka 2026-08-07: bib 1 was DNS and one manual entry put him into the
-    // on-course views. DNF/DSQ are deliberately kept — they were on course.
-    // Runs are narrowed to active/finished because a cancelled restart can leave a
-    // stale dns row behind for someone who is running in the current attempt.
-    let dnsParticipantIds = new Set()
+    // Runners already past the finish (and DNS runners) leave the list — see lib/nearFinish.js.
+    let resultRows = []
     if (participants.length > 0) {
-      const { data: dnsRows } = await supabase.from('results')
-        .select('participant_id, status, race_runs!inner(status)')
+      const { data } = await supabase.from('results')
+        .select('participant_id, status, finish_time, race_runs!inner(status)')
         .in('participant_id', participants.map(p => p.id))
-        .eq('status', 'dns')
         .in('race_runs.status', ['active', 'finished'])
-      dnsParticipantIds = new Set((dnsRows || []).map(r => r.participant_id))
+      resultRows = data || []
     }
 
-    // 3. Dedup by participant (keep earliest observedAt per participant/bib)
-    const seen = new Set()
-    const deduped = []
-    // Sort ascending to pick earliest first, then reverse for display
-    const sorted = [...observations].sort((a, b) => new Date(a.observed_at) - new Date(b.observed_at))
-    for (const obs of sorted) {
-      const p = (obs.participant_id && pById[obs.participant_id]) || pByBib[obs.bib_number]
-      if (p && dnsParticipantIds.has(p.id)) continue
-      const key = p ? p.id : `bib-${obs.bib_number}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      deduped.push({
-        id: obs.id,
-        bibNumber: obs.bib_number,
-        observedAt: obs.observed_at,
-        first_name: p?.first_name || '?',
-        last_name: p?.last_name || '?',
-        deleted_at: p?.deleted_at || null,
-        categoryName: p ? (catMap[p.category_id] || '') : '',
-      })
-    }
-
-    // Sort by observed_at descending (most recent first)
-    deduped.sort((a, b) => new Date(b.observedAt) - new Date(a.observedAt))
+    const deduped = nearFinishRunners({
+      observations,
+      participants,
+      excluded: excludedParticipants(resultRows),
+      catMap,
+    })
 
     setRunners(deduped)
     setLoading(false)
