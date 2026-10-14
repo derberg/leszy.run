@@ -56,3 +56,14 @@ export function nearFinishRunners({ observations, participants, excluded, catMap
   }
   return out.sort((a, b) => new Date(b.observedAt) - new Date(a.observedAt))
 }
+
+/**
+ * Whether the "Blisko Mety" tab is shown: the event has a near-finish checkpoint
+ * and at least one run is under way. Before the gun the list can only be empty,
+ * and once every run is over nobody is left on course.
+ * @param {Array<{ status: string }>|null} raceRuns
+ * @param {string|null|undefined} nearFinishCpId
+ */
+export function nearFinishTabVisible(raceRuns, nearFinishCpId) {
+  return !!nearFinishCpId && !!raceRuns?.some(r => r.status === 'active')
+}

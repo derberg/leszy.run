@@ -5,6 +5,7 @@ import { useEvent } from '../hooks/useEvent.js'
 import useSeo from '../hooks/useSeo.js'
 import CategorySection from './CategorySection.jsx'
 import NearFinish from './NearFinish.jsx'
+import { nearFinishTabVisible } from '../lib/nearFinish.js'
 import PartnerLogos from '../components/PartnerLogos.jsx'
 import Navbar from '../components/Navbar.jsx'
 
@@ -16,7 +17,8 @@ export default function Results() {
   const [categories, setCategories] = useState([])
   const [catLoading, setCatLoading] = useState(true)
   const activeTabRef = useRef(null)
-  const [nearFinishCpId, setNearFinishCpId] = useState(null)
+  // undefined while loading, null when the event has no near-finish checkpoint
+  const [nearFinishCpId, setNearFinishCpId] = useState(undefined)
 
   const isLiveView = location.pathname.endsWith('/live')
   const activeCategoryId = isLiveView ? null : (categoryId || null)
@@ -111,14 +113,16 @@ export default function Results() {
   }, [categories, raceRuns, isPastEvent])
 
   const hasActiveRaces = raceRuns && raceRuns.some(r => r.status !== 'pending')
-  const allRacesFinished = raceRuns && raceRuns.length > 0 && raceRuns.every(r => r.status === 'finished' || r.status === 'cancelled')
 
-  // Redirect away from live tab when all races are finished
+  // "Blisko Mety" exists only while a race is running: before the gun nobody can
+  // have passed the checkpoint, and after the last finish there is nobody left.
+  const showNearFinish = nearFinishTabVisible(raceRuns, nearFinishCpId)
+
+  // Leave the live tab once both answers are in and it should not be shown.
   useEffect(() => {
-    if (isLiveView && (allRacesFinished || !nearFinishCpId)) {
-      navigate(`/events/${slug}/results`, { replace: true })
-    }
-  }, [isLiveView, allRacesFinished, slug, navigate])
+    if (!isLiveView || raceRuns === null || nearFinishCpId === undefined) return
+    if (!showNearFinish) navigate(`/events/${slug}/results`, { replace: true })
+  }, [isLiveView, raceRuns, nearFinishCpId, showNearFinish, slug, navigate])
 
   // A direct link to a hidden category lands on the overview instead.
   useEffect(() => {
@@ -244,7 +248,7 @@ export default function Results() {
               >
                 Wszystkie
               </button>
-              {!allRacesFinished && nearFinishCpId && (
+              {showNearFinish && (
                 <button
                   ref={activeView === 'live' ? activeTabRef : null}
                   onClick={() => navigate(`/events/${slug}/results/live`)}
@@ -277,7 +281,7 @@ export default function Results() {
         </div>
 
         {/* Content */}
-        {!loading && activeView === 'live' && nearFinishCpId && (
+        {!loading && activeView === 'live' && showNearFinish && (
           <NearFinish nearFinishCheckpointId={nearFinishCpId} categories={categories} />
         )}
 

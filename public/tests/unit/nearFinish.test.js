@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { excludedParticipants, nearFinishRunners } from '../../src/lib/nearFinish.js'
+import { excludedParticipants, nearFinishRunners, nearFinishTabVisible } from '../../src/lib/nearFinish.js'
 
 const participants = [
   { id: 'p1', bib_number: 1, first_name: 'Anna', last_name: 'A', category_id: 'hm' },
@@ -60,5 +60,20 @@ describe('nearFinishRunners', () => {
     const excluded = excludedParticipants([{ participant_id: 'p2', status: 'dns', finish_time: null }])
     const rows = nearFinishRunners({ observations, participants, excluded, catMap })
     assert.deepEqual(bibs(rows), [4, 3, 1])
+  })
+})
+
+describe('nearFinishTabVisible', () => {
+  it('is hidden before any run starts', () => {
+    assert.equal(nearFinishTabVisible([{ status: 'pending' }], 'cp'), false)
+    assert.equal(nearFinishTabVisible([], 'cp'), false)
+    assert.equal(nearFinishTabVisible(null, 'cp'), false)
+  })
+  it('is shown while any run is active', () => {
+    assert.equal(nearFinishTabVisible([{ status: 'finished' }, { status: 'active' }], 'cp'), true)
+  })
+  it('is hidden once every run is over, and without a near-finish checkpoint', () => {
+    assert.equal(nearFinishTabVisible([{ status: 'finished' }, { status: 'cancelled' }], 'cp'), false)
+    assert.equal(nearFinishTabVisible([{ status: 'active' }], null), false)
   })
 })
