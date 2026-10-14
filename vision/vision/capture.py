@@ -15,6 +15,7 @@ The configuration never switches mode. picamera2 can switch to a still mode
 for a higher resolution capture, and that switch costs hundreds of
 milliseconds, by which time the runner has gone.
 """
+import json
 import shutil
 import time
 from pathlib import Path
@@ -166,6 +167,52 @@ def has_room(directory, min_free_bytes: int) -> bool:
     return shutil.disk_usage(directory).free >= min_free_bytes
 
 
+# The switch the admin panel writes into the queue directory. A race runs
+# about three hours and the first runner arrives after about one, so the
+# operator records only the part of it with runners in it.
+RECORDING_FILE = "recording.json"
+RECORDING_CHECK_S = 1.0
+
+
+def recording_enabled(queue_dir) -> bool:
+    """False only when the switch file holds {"recording": false}.
+
+    A missing, unreadable or malformed file records. A camera paused by
+    accident records nobody, while one recording by accident only costs disk.
+    """
+    try:
+        state = json.loads((Path(queue_dir) / RECORDING_FILE).read_text())
+    except (OSError, ValueError):
+        return True
+    return not (isinstance(state, dict) and state.get("recording") is False)
+
+
+class RecordSwitch:
+    """The switch file, read at most once every interval_s seconds."""
+
+    def __init__(self, queue_dir, interval_s=RECORDING_CHECK_S,
+                 clock=time.monotonic):
+        self.queue_dir = Path(queue_dir)
+        self.interval_s = interval_s
+        self.clock = clock
+        self._state = None
+        self._checked_at = None
+
+    def recording(self) -> bool:
+        now = self.clock()
+        if self._checked_at is not None and now - self._checked_at < self.interval_s:
+            return self._state
+        self._checked_at = now
+        state = recording_enabled(self.queue_dir)
+        if state != self._state:
+            if not state:
+                print(f"recording paused by {self.queue_dir / RECORDING_FILE}")
+            elif self._state is not None:
+                print("recording resumed")
+            self._state = state
+        return state
+
+
 def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
                 exposure_us=DEFAULT_EXPOSURE_US, gain=DEFAULT_GAIN,
                 allow_unsynced_clock=False, min_free_bytes=0,
@@ -175,6 +222,9 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
     """Capture for duration_s seconds into queue_dir. Returns frames written.
 
     With auto_exposure, gain and exposure_us are only the starting point.
+    While the switch file pauses recording, the camera keeps running and
+    exposure keeps adapting, so the first frame after a resume is already
+    exposed for the light at that moment. Only the writing stops.
     """
     synced = clock_synced()
     if synced is False and not allow_unsynced_clock:
@@ -203,13 +253,17 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
     # One offset for the whole session, so every frame converts the same way.
     offset = time.time() - time.monotonic()
     queue.write_session(offset)
+    switch = RecordSwitch(queue.dir)
     written = 0
+    seen = 0
     try:
         deadline = time.monotonic() + duration_s
         while time.monotonic() < deadline:
             # Checked every 30 frames, about two seconds: often enough to
             # stop well before the margin is gone, rare enough to cost nothing.
-            if written % 30 == 0 and not has_room(queue.dir, min_free_bytes):
+            recording = switch.recording()
+            if (recording and written % 30 == 0
+                    and not has_room(queue.dir, min_free_bytes)):
                 print(f"stopping: less than {min_free_bytes / 1e9:.1f} GB "
                       f"free under {queue.dir}")
                 break
@@ -230,9 +284,11 @@ def run_capture(queue_dir, duration_s: float, size=DEFAULT_SIZE,
                 # evidence. Drop it and say so.
                 print("warning: frame had no SensorTimestamp, dropped")
                 continue
-            queue.write(to_image(array), sensor_ns)
-            written += 1
-            if auto_exposure and written % adjust_every == 0:
+            seen += 1
+            if recording:
+                queue.write(to_image(array), sensor_ns)
+                written += 1
+            if auto_exposure and seen % adjust_every == 0:
                 new_gain, new_exposure = next_exposure(
                     centre_luminance(array), gain, exposure_us,
                     target=target_luminance, base_us=DEFAULT_EXPOSURE_US,

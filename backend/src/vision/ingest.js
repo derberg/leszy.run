@@ -3,6 +3,7 @@ import path from 'path'
 import { eq, and, sql } from 'drizzle-orm'
 import { visionSessions, visionSightings, participants } from '../db/schema.js'
 import { broadcast } from '../ws/broadcaster.js'
+import { readRecording } from './recording.js'
 
 // How often the backend looks at the log. The reader is throttled to a few
 // frames a second, so a runner takes seconds to cross and a one-second poll
@@ -109,7 +110,13 @@ export function openSessionOn(sessions, queueDir) {
   return sessions.find(s => !s.stoppedAt && s.queueDir === queueDir) ?? null
 }
 
-export function healthVerdict(health) {
+const CLOCK_NOT_SYNCED = {
+  level: 'error',
+  headline: 'Zegar nie jest zsynchronizowany',
+  detail: 'Każdy znacznik czasu jest podejrzany. Napraw NTP przed startem.',
+}
+
+export function healthVerdict(health, { recording = true } = {}) {
   if (!health) {
     return {
       level: 'unknown',
@@ -128,6 +135,16 @@ export function healthVerdict(health) {
       detail: `Ostatni sygnał ${Math.round(heartbeatAge)} s temu. Kamera może pracować, ale nikt nie czyta klatek.`,
     }
   }
+  // Paused, capture writes no frames and the reader reports it dead. Only a
+  // problem that would also spoil the frames after a resume outranks it.
+  if (recording === false) {
+    if (health.clock_synced === false) return CLOCK_NOT_SYNCED
+    return {
+      level: 'warn',
+      headline: 'Nagrywanie wstrzymane',
+      detail: 'Kamera nie zapisuje klatek.',
+    }
+  }
   if (health.capture_alive === false) {
     return {
       level: 'error',
@@ -135,13 +152,7 @@ export function healthVerdict(health) {
       detail: `Ostatnia klatka ${health.last_frame_age_s ?? '?'} s temu. Sprawdź kabel, zasilanie i czy capture.py działa.`,
     }
   }
-  if (health.clock_synced === false) {
-    return {
-      level: 'error',
-      headline: 'Zegar nie jest zsynchronizowany',
-      detail: 'Każdy znacznik czasu jest podejrzany. Napraw NTP przed startem.',
-    }
-  }
+  if (health.clock_synced === false) return CLOCK_NOT_SYNCED
   if (health.ordering_anomalies?.length) {
     return {
       level: 'error',
@@ -255,8 +266,9 @@ async function pollOnce(db, sessionId) {
     .set({ logCursor: nextCursor, health })
     .where(eq(visionSessions.id, sessionId))
 
+  const { recording } = await readRecording(session.queueDir)
   broadcast('vision:health', {
-    sessionId, health, verdict: healthVerdict(health),
+    sessionId, health, verdict: healthVerdict(health, { recording }),
   })
   return true
 }

@@ -11,7 +11,7 @@ import {
 } from '../ui/dialog.jsx'
 import {
   Camera, CameraOff, AlertTriangle, CheckCircle2, HelpCircle, Play, Square,
-  Trash2, Image as ImageIcon, ChevronLeft, ChevronRight,
+  Trash2, Image as ImageIcon, ChevronLeft, ChevronRight, Pause, Circle,
 } from 'lucide-react'
 
 const DEFAULT_QUEUE_DIR = '/mnt/ssd/frames'
@@ -245,6 +245,7 @@ function SessionView({ session }) {
 
   return (
     <div className="space-y-4">
+      <RecordingSwitch sessionId={session.id} />
       <HealthStrip verdict={verdict} health={health} session={detail ?? session} />
       {stats && <Stats stats={stats} />}
 
@@ -287,6 +288,76 @@ function SessionView({ session }) {
         sessionId={session.id}
         onClose={() => setFrameOf(null)}
       />
+    </div>
+  )
+}
+
+// ─── recording switch ───────────────────────────────────────────────────────
+// capture.py reads the switch about once a second. The state shown is the file
+// on disk, so a pause the operator forgot stays on screen until it is lifted.
+
+function RecordingSwitch({ sessionId }) {
+  const qc = useQueryClient()
+  const [error, setError] = useState(null)
+
+  const { data: state } = useQuery({
+    queryKey: ['vision-recording', sessionId],
+    queryFn: () => api.vision.recording(sessionId),
+    refetchInterval: 5000,
+  })
+
+  const toggle = useMutation({
+    mutationFn: (recording) => api.vision.setRecording(sessionId, recording),
+    onSuccess: (next) => {
+      setError(null)
+      qc.setQueryData(['vision-recording', sessionId], next)
+      qc.invalidateQueries({ queryKey: ['vision-session', sessionId] })
+    },
+    onError: (err) => setError(err.message),
+  })
+
+  if (!state) {
+    return <div className="h-14 border-2 border-apex-border bg-apex-surface animate-pulse" />
+  }
+
+  const paused = !state.recording
+  const since = state.changedAt ? clockTime(state.changedAt) : null
+
+  return (
+    <div className={`border-2 ${paused ? 'border-apex-red bg-apex-red/10' : 'border-green-700 bg-apex-surface'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="flex items-center gap-3">
+          {paused
+            ? <Pause size={22} className="shrink-0 text-apex-red" />
+            : <Circle size={18} className="shrink-0 fill-apex-red text-apex-red animate-pulse" />}
+          <div>
+            <p className={`text-sm font-bold uppercase tracking-widest ${paused ? 'text-apex-red' : 'text-green-400'}`}>
+              Nagrywanie: {paused ? 'wstrzymane' : 'włączone'}
+            </p>
+            {since && <p className="text-[10px] font-mono text-apex-muted">od {since}</p>}
+          </div>
+        </div>
+        {paused
+          ? (
+            <Button onClick={() => toggle.mutate(true)} disabled={toggle.isPending}>
+              <Play size={13} className="mr-1.5" />Wznów nagrywanie
+            </Button>
+          )
+          : (
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (confirm('Wstrzymać nagrywanie? Kamera nie zapisze żadnej klatki do wznowienia.')) {
+                  toggle.mutate(false)
+                }
+              }}
+              disabled={toggle.isPending}
+            >
+              <Pause size={13} className="mr-1.5" />Wstrzymaj nagrywanie
+            </Button>
+          )}
+      </div>
+      {error && <p className="border-t border-apex-border px-4 py-2 text-xs text-apex-red">{error}</p>}
     </div>
   )
 }

@@ -33,7 +33,7 @@ def main():
     ap.add_argument("--focus-m", type=float, default=3.0,
                     help="distance the lens is held at, in metres")
     ap.add_argument("--allow-unsynced-clock", action="store_true")
-    ap.add_argument("--min-free-gb", type=float, default=5.0,
+    ap.add_argument("--min-free-gb", type=float, default=1.0,
                     help="stop cleanly when the disk has less than this free")
     args = ap.parse_args()
 
