@@ -331,3 +331,69 @@ def test_frames_read_in_parallel_reach_the_tracker_in_order(tmp_path):
     assert len(rows) == 1
     assert rows[0]["frame_count"] == 12
     assert rows[0]["frame_ts"] == sorted(rows[0]["frame_ts"])
+
+
+# ─── dropping the empty gate ────────────────────────────────────────────────
+
+def _age(directory, seconds):
+    import os
+    import time as _time
+    old = _time.time() - seconds
+    for path in Path(directory).glob("*.jpg"):
+        os.utime(path, (old, old))
+
+
+def test_empty_frames_older_than_the_window_are_deleted(tmp_path):
+    # A day of an empty gate filled the SD card the database lives on.
+    seed(tmp_path, 30)
+    _age(tmp_path, 3600)
+    s = rq.Session(tmp_path, max_fps=0, keep_empty_s=600)
+    rq.read_frame_with_crops = lambda img: []
+    drain(s)
+    from vision.track import MAX_GAP_FRAMES
+    assert len(list((tmp_path / "done").glob("*.jpg"))) == MAX_GAP_FRAMES
+    health = json.loads((tmp_path / "health.json").read_text())
+    assert health["empty_frames_deleted"] == 30 - MAX_GAP_FRAMES
+    assert health["empty_bytes_deleted"] > 0
+
+
+def test_every_frame_of_a_pass_survives_the_sweep_read_or_not(tmp_path):
+    # The operator steps through a runner the camera failed to read.
+    seed(tmp_path, 40)
+    _age(tmp_path, 3600)
+    seen = []
+
+    def reader(img):
+        seen.append(1)
+        if 15 <= len(seen) <= 20:
+            return [(Sighting(None, 0.0, None, (0, 0, 60, 48)), None)]
+        return []
+
+    s = rq.Session(tmp_path, max_fps=0, keep_empty_s=0)
+    rq.read_frame_with_crops = reader
+    drain(s)
+    row = records(tmp_path)[0]
+    assert len(row["frame_ts"]) == 6
+    assert s.sweeper.deleted > 0
+    for ts in row["frame_ts"]:
+        assert (tmp_path / "done" / f"{ts:020d}.jpg").exists()
+
+
+def test_frames_skipped_for_lag_are_not_deleted(tmp_path):
+    # Never read, so never proven empty.
+    seed(tmp_path, 100, step=100_000_000)
+    _age(tmp_path, 3600)
+    s = rq.Session(tmp_path, max_fps=0, max_lag_s=3.0, keep_empty_s=0)
+    rq.read_frame_with_crops = lambda img: []
+    drain(s)
+    left = {p.name for p in (tmp_path / "done").glob("*.jpg")}
+    assert all(f"{1_000_000_000 + i * 100_000_000:020d}.jpg" in left
+               for i in range(69))
+
+
+def test_recent_empty_frames_are_kept(tmp_path):
+    seed(tmp_path, 30)
+    s = rq.Session(tmp_path, max_fps=0, keep_empty_s=600)
+    rq.read_frame_with_crops = lambda img: []
+    drain(s)
+    assert len(list((tmp_path / "done").glob("*.jpg"))) == 30

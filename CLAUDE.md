@@ -381,6 +381,14 @@ Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
   the reader at 5 fps with the CPU 86 percent idle; three measured 15.
   `reader_fps` in `health.json` is the MEASURED rate;
   `capacity_fps` is the flat-out one. The chip still times.
+- The reader deletes the frames it read and found **nobody** in, once they are
+  older than `VISION_KEEP_EMPTY_MIN` (default 10, `--keep-empty-min`), because
+  an empty gate at 5 fps filled the SD card. `vision/vision/empty_frames.py`
+  keeps everything else: every frame with a person (so every `frame_ts` of a
+  pass, read or not), the empty frames within `MAX_GAP_FRAMES` of one, and
+  every frame skipped for lag or torn. Judged-empty names go to
+  `empty_frames.txt` in the queue, so a restart loses nothing, and
+  `health.json` reports `empty_frames_deleted` / `empty_bytes_deleted`.
 - `backend/src/vision/ingest.js` — tails the log from a **byte** cursor stored
   on the session, so a backend restart mid-race resumes exactly where it left
   off. `parseLog` never consumes past the last newline: a half-written line
@@ -415,8 +423,8 @@ brightness of 20 of 255, where hue is noise and the locator finds nothing.
 On a race Pi, capture and the reader run as systemd services
 (`vision/systemd/`, settings in `/etc/default/leszyrun-vision`). Capture is
 `Restart=on-failure`, never `always`: a run that ended on its time limit or on
-the `--min-free-gb` margin must stay stopped, because frames are never deleted
-before the retention purge and the SD card also holds the database.
+the `--min-free-gb` margin must stay stopped, because frames with a person in
+them are never deleted before the retention purge and the SD card also holds the database.
 
 ## Calendar event status values (Supabase `calendar_events` table)
 
