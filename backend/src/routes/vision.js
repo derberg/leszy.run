@@ -4,6 +4,7 @@ import { eq, and, desc, sql, isNull, isNotNull } from 'drizzle-orm'
 import { visionSessions, visionSightings, participants } from '../db/schema.js'
 import { startIngest, stopIngest, sessionStats, healthVerdict, openSessionOn } from '../vision/ingest.js'
 import { safeCropPath, safeFramePath } from '../vision/paths.js'
+import { readRecording, writeRecording } from '../vision/recording.js'
 
 const DEFAULT_LIMIT = 200
 const MAX_LIMIT = 1000
@@ -38,7 +39,11 @@ export async function visionRoutes(fastify) {
     const rows = await db.select().from(visionSessions)
       .where(eq(visionSessions.eventId, req.params.eventId))
       .orderBy(desc(visionSessions.startedAt))
-    return { data: rows.map(r => ({ ...r, verdict: healthVerdict(r.health) })) }
+    const data = await Promise.all(rows.map(async (r) => {
+      const { recording } = await readRecording(r.queueDir)
+      return { ...r, verdict: healthVerdict(r.health, { recording }) }
+    }))
+    return { data }
   })
 
   // POST /api/events/:eventId/vision/sessions
@@ -144,12 +149,41 @@ export async function visionRoutes(fastify) {
       frameCount: visionSightings.frameCount,
     }).from(visionSightings).where(eq(visionSightings.sessionId, session.id))
 
+    const { recording } = await readRecording(session.queueDir)
     return {
       data: {
         ...session,
-        verdict: healthVerdict(session.health),
+        verdict: healthVerdict(session.health, { recording }),
         stats: sessionStats(rows),
       },
+    }
+  })
+
+  // ─── recording switch ─────────────────────────────────────────────────
+
+  // GET /api/vision/sessions/:id/recording
+  // Read from the file capture.py reads, never from a copy of our own, so the
+  // panel shows what the camera is doing rather than what was last asked.
+  fastify.get('/vision/sessions/:id/recording', async (req, reply) => {
+    const session = await loadSession(db, req.params.id)
+    if (!session) return reply.code(404).send({ error: 'Session not found' })
+    return { data: await readRecording(session.queueDir) }
+  })
+
+  // PUT /api/vision/sessions/:id/recording  { recording: boolean }
+  fastify.put('/vision/sessions/:id/recording', async (req, reply) => {
+    const session = await loadSession(db, req.params.id)
+    if (!session) return reply.code(404).send({ error: 'Session not found' })
+    const { recording } = req.body ?? {}
+    if (typeof recording !== 'boolean') {
+      return reply.code(400).send({ error: 'recording must be true or false' })
+    }
+    try {
+      return { data: await writeRecording(session.queueDir, recording) }
+    } catch {
+      return reply.code(409).send({
+        error: `Nie można zapisać przełącznika w ${session.queueDir}. Sprawdź, czy katalog kolejki istnieje.`,
+      })
     }
   })
 

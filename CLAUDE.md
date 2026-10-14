@@ -330,6 +330,8 @@ protection position is defensible, so keep it even when it is inconvenient.
 backend on the same Pi tails those and owns every database write. If you ever
 need the camera to tell the app something new, add a field to that log — do
 not give Python a socket.
+The one file going the other way is `recording.json` in the queue directory,
+which the backend writes and capture only reads.
 Clauses for the regulamin, the privacy policy and the ROPA are drafted in
 [docs/gdpr/vision-bib-recognition-klauzule.md](docs/gdpr/vision-bib-recognition-klauzule.md).
 The basis is contract performance, not consent, and the system reads numbers,
@@ -401,6 +403,16 @@ Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
   against the numbers people actually wore and nothing here knows those.
   `rosterMatchRate` is the real quality signal available for free: a
   recognised number matching nobody in the race is almost always a misread.
+- **Recording switch.** A race runs about three hours and the first runner
+  arrives after about one, so the tab pauses and resumes recording.
+  `PUT /api/vision/sessions/:id/recording` `{ recording }` writes
+  `{"recording": false, "changed_at": …}` to `recording.json` in the queue
+  directory (temp file + rename); `GET` reads that file, so the panel shows
+  what capture sees. Capture checks it about once a second. Paused, the
+  camera keeps running and `next_exposure` keeps adapting, but no frame is
+  written. A missing or malformed file means record, on both sides: a
+  forgotten pause loses runners, a forgotten resume only costs disk. The
+  health verdict reads "Nagrywanie wstrzymane" instead of a dead camera.
 - Retention is **30 days**, not 90: `backend/scripts/purge-vision-evidence.js`
   (cron 03:20, `scheduler/src/jobs/purgeVisionEvidence.js`) deletes the image
   files first and the rows second, so an interrupted run leaves rows pointing
@@ -423,8 +435,9 @@ brightness of 20 of 255, where hue is noise and the locator finds nothing.
 On a race Pi, capture and the reader run as systemd services
 (`vision/systemd/`, settings in `/etc/default/leszyrun-vision`). Capture is
 `Restart=on-failure`, never `always`: a run that ended on its time limit or on
-the `--min-free-gb` margin must stay stopped, because frames with a person in
-them are never deleted before the retention purge and the SD card also holds the database.
+the `--min-free-gb` margin (1 GB) must stay stopped, because frames with a person
+in them are never deleted before the retention purge and the SD card also holds
+the database.
 
 ## Calendar event status values (Supabase `calendar_events` table)
 

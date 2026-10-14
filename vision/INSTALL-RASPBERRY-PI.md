@@ -235,10 +235,21 @@ leszyrun-vision-capture leszyrun-vision-reader`. The file is not overwritten by 
 `git pull`.
 
 Capture is restarted only when it fails. A run that ends because its
-`VISION_SECONDS` are up, or because the disk is down to `VISION_MIN_FREE_GB`,
-stays stopped, so a forgotten service cannot fill the card. Before the clock
+`VISION_SECONDS` are up, or because the disk is down to `VISION_MIN_FREE_GB`
+(1 GB in the template), stays stopped, so a forgotten service cannot fill the card. Before the clock
 syncs, capture refuses to start and is retried every five seconds until it
 does. The reader is always restarted, and with no frames it only waits.
+
+Recording is paused and resumed from the **Audyt kamery** tab in the admin
+panel. The panel writes `recording.json` into the queue directory, and capture
+reads it about once a second. While paused, the camera keeps running and keeps
+adapting its exposure, but writes no frames, and the capture log says
+`recording paused`. The pause is a file, so it survives a restart of capture
+and of the Pi. With no file, capture records. To resume without the panel:
+
+```bash
+echo '{"recording": true}' > "$VISION_QUEUE/recording.json"
+```
 
 ```bash
 systemctl status leszyrun-vision-capture leszyrun-vision-reader --no-pager

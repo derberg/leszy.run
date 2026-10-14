@@ -94,6 +94,8 @@ export const api = {
     stop: (id) => request('POST', `/vision/sessions/${id}/stop`),
     resume: (id) => request('POST', `/vision/sessions/${id}/resume`),
     deleteSession: (id) => request('DELETE', `/vision/sessions/${id}`),
+    recording: (id) => request('GET', `/vision/sessions/${id}/recording`),
+    setRecording: (id, recording) => request('PUT', `/vision/sessions/${id}/recording`, { recording }),
     sightings: (id, params = {}) => {
       const q = new URLSearchParams(
         Object.entries(params).filter(([, v]) => v != null && v !== ''),
