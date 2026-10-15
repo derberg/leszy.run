@@ -343,7 +343,7 @@ export default function EventDetail() {
                     <Copy size={14} /> Kopiuj wszystkie linki
                   </Button>
                 )}
-                <Button size="sm" onClick={() => { setEditingCp(null); setCpForm({ name: '', kmMarker: '', categoryIds: [], private: false, isNearFinish: false }); setCpDialog(true) }}>
+                <Button size="sm" onClick={() => { setEditingCp(null); setCpForm({ name: '', kmMarker: '', categoryIds: [], private: false, isNearFinish: false, isFinish: false }); setCpDialog(true) }}>
                   <Plus size={14} /> Dodaj punkt
                 </Button>
               </div>
@@ -388,6 +388,7 @@ export default function EventDetail() {
                         {cp.name}
                         {cp.private && <span className="ml-2 text-xs font-bold px-1.5 py-0.5 bg-apex-surface-2 text-apex-muted border border-apex-border">PRYWATNY</span>}
                         {cp.isNearFinish && <span className="ml-2 text-xs font-bold px-1.5 py-0.5 bg-apex-yellow/10 text-apex-yellow border border-apex-yellow/30">BLISKO METY</span>}
+                        {cp.isFinish && <span className="ml-2 text-xs font-bold px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/30">RĘCZNA META</span>}
                       </div>
                       <div className="text-xs text-apex-muted mt-0.5">
                         {cp.kmMarker ? `Km ${cp.kmMarker} · ` : ''}
@@ -415,7 +416,7 @@ export default function EventDetail() {
                       </Button>
                       <Button size="sm" variant="outline" title="Edytuj" onClick={() => {
                         setEditingCp(cp)
-                        setCpForm({ name: cp.name, kmMarker: cp.kmMarker ?? '', categoryIds: cp.categoryIds || [], private: cp.private ?? false, isNearFinish: cp.isNearFinish ?? false })
+                        setCpForm({ name: cp.name, kmMarker: cp.kmMarker ?? '', categoryIds: cp.categoryIds || [], private: cp.private ?? false, isNearFinish: cp.isNearFinish ?? false, isFinish: cp.isFinish ?? false })
                         setCpDialog(true)
                       }}>
                         <Pencil size={12} />
@@ -483,6 +484,14 @@ export default function EventDetail() {
                   />
                   <span>Prywatny <span className="text-apex-muted text-xs">(widoczny tylko w panelu admina)</span></span>
                 </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!cpForm.isFinish}
+                    onChange={e => setCpForm(f => ({ ...f, isFinish: e.target.checked }))}
+                  />
+                  <span>Ręczna meta <span className="text-apex-muted text-xs">(wpisy wolontariusza na mecie)</span></span>
+                </label>
                 {(() => {
                   const otherNearFinish = checkpoints.find(cp => cp.isNearFinish && (!editingCp || cp.id !== editingCp.id))
                   return (
@@ -516,6 +525,7 @@ export default function EventDetail() {
                       categoryIds: cpForm.categoryIds,
                       private: cpForm.private,
                       isNearFinish: cpForm.isNearFinish,
+                      isFinish: !!cpForm.isFinish,
                     }
                     if (editingCp) {
                       updateCheckpoint.mutate({ id: editingCp.id, ...body }, { onSuccess: () => setCpDialog(false) })

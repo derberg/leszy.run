@@ -5,12 +5,13 @@
 // (sync/checkpointLinks.js), so the row must turn dirty. Without this the update had
 // no columns to set and the route answered 500 "No values to set".
 export function checkpointUpdates(body) {
-  const { name, kmMarker, categoryIds, private: isPrivate, isNearFinish } = body || {}
+  const { name, kmMarker, categoryIds, private: isPrivate, isNearFinish, isFinish } = body || {}
   const updates = {}
   if (name !== undefined) updates.name = name
   if (kmMarker !== undefined) updates.kmMarker = kmMarker
   if (isPrivate !== undefined) updates.private = isPrivate
   if (isNearFinish !== undefined) updates.isNearFinish = isNearFinish
+  if (isFinish !== undefined) updates.isFinish = isFinish
   if (categoryIds !== undefined && !Object.keys(updates).length) updates.syncedAt = null
   return updates
 }

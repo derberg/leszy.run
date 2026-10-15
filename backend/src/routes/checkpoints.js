@@ -37,7 +37,7 @@ export async function checkpointsRoutes(fastify) {
 
   // Create checkpoint
   fastify.post('/events/:eventId/checkpoints', async (req, reply) => {
-    const { name, kmMarker, categoryIds = [], private: isPrivate, isNearFinish } = req.body
+    const { name, kmMarker, categoryIds = [], private: isPrivate, isNearFinish, isFinish } = req.body
     if (!name) return reply.code(400).send({ error: 'name required' })
 
     if (isNearFinish) {
@@ -50,7 +50,7 @@ export async function checkpointsRoutes(fastify) {
     // One transaction, so the push worker never sees the checkpoint without its links.
     const row = await db.transaction(async (tx) => {
       const [created] = await tx.insert(checkpoints)
-        .values({ eventId: req.params.eventId, name, kmMarker: kmMarker || null, private: isPrivate ?? false, isNearFinish: isNearFinish ?? false })
+        .values({ eventId: req.params.eventId, name, kmMarker: kmMarker || null, private: isPrivate ?? false, isNearFinish: isNearFinish ?? false, isFinish: isFinish ?? false })
         .returning()
       if (categoryIds.length) {
         await tx.insert(checkpointCategories)
