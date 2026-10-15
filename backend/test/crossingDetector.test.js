@@ -19,8 +19,8 @@ function baseConfig(over = {}) {
   }
 }
 
-async function makeRace(t, { config = baseConfig(), resultsRows = [], participants = [{ id: 'p1', rfidEpc: 'EPC1' }] } = {}) {
-  const db = createFakeDb({ resultsRows })
+async function makeRace(t, { config = baseConfig(), resultsRows = [], checkinRows = [], participants = [{ id: 'p1', rfidEpc: 'EPC1' }] } = {}) {
+  const db = createFakeDb({ resultsRows, checkinRows })
   const broadcast = createFakeBroadcast()
   const detector = new CrossingDetector({ db, broadcast })
   const raceRun = { id: 'rr1', startedAt: new Date(Date.now() - 60_000) }
@@ -251,4 +251,57 @@ test('post-finish reads still respect rssiThreshold', async (t) => {
   await wait(30)
 
   assert.equal(db._inserts().gate_events.length, 1, 'far-field noise stays out of the audit trail')
+})
+
+// ---------------------------------------------------------------------------
+// Gun-time backfill only ever credits a CHECKED-IN runner.
+//
+// A runner who never checked in has not accepted the regulamin and is not
+// allowed to start. Crediting them with gun time made them 'started', so the
+// stop button's markRemainingDnf turned them into DNF instead of DNS. The tag
+// alone proves nothing: chips are assigned before bib pickup.
+// ---------------------------------------------------------------------------
+
+const BACKFILL_MS = 50
+const twoRunners = [
+  { id: 'p1', rfidEpc: 'EPC1' }, // checked in
+  { id: 'p2', rfidEpc: 'EPC2' }, // registered only
+]
+const p1CheckedIn = [{ participantId: 'p1', checkedInAt: new Date() }, { participantId: 'p2', checkedInAt: null }]
+
+test('backfill timer gives gun time to a checked-in runner but not to one who never checked in', async (t) => {
+  const { db } = await makeRace(t, {
+    config: baseConfig({ gunBackfillEnabled: true, gunBackfillSeconds: BACKFILL_MS / 1000 }),
+    participants: twoRunners,
+    checkinRows: p1CheckedIn,
+  })
+
+  await wait(BACKFILL_MS + 60)
+
+  const byId = Object.fromEntries(db._rows().map((r) => [r.participantId, r]))
+  assert.equal(byId.p1?.startTimeSource, 'gun')
+  assert.equal(byId.p1?.status, 'started')
+  assert.equal(byId.p2, undefined, 'a runner without check-in gets no result row, so stopping the race marks them DNS')
+})
+
+test('a finish read does not credit gun time to a runner who never checked in', async (t) => {
+  const { detector, db, broadcast } = await makeRace(t, {
+    config: baseConfig({ rfidMode: 'separate', gunBackfillEnabled: true, gunBackfillSeconds: 3600 }),
+    participants: twoRunners,
+    checkinRows: p1CheckedIn,
+  })
+
+  detector.processEvent(read(-4000, { topic: 'leszyrun/finish' }))
+  detector.processEvent(read(-4000, { epc: 'EPC2', topic: 'leszyrun/finish' }))
+  await wait(40)
+
+  assert.equal(broadcast.crossings().length, 2)
+  const byId = Object.fromEntries(db._rows().map((r) => [r.participantId, r]))
+  assert.equal(byId.p1.startTimeSource, 'gun')
+  assert.equal(byId.p1.startTimeTrigger, 'finish_crossing')
+  assert.ok(byId.p1.durationMs > 0)
+  assert.ok(byId.p2.finishTime, 'the raw finish is still recorded for the operator')
+  assert.equal(byId.p2.startTime, undefined)
+  assert.equal(byId.p2.durationMs, null)
+  assert.equal(byId.p2.gunDurationMs, null)
 })

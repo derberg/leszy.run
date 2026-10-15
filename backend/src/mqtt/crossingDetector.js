@@ -1,5 +1,5 @@
-import { eq, and, isNotNull, asc, sql } from 'drizzle-orm'
-import { gateCrossings, gateEvents, results } from '../db/schema.js'
+import { eq, and, isNotNull, asc, sql, inArray } from 'drizzle-orm'
+import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
 
 /**
  * RFID Crossing Detection — Exit-Triggered Algorithm
@@ -34,8 +34,11 @@ import { gateCrossings, gateEvents, results } from '../db/schema.js'
  *
  * Gun-time backfill (single-reader mode):
  *  After gunBackfillSeconds (default 60s, configurable per event) from race start,
- *  participants with an RFID tag who haven't been detected get gun time as their
- *  startTime (startTimeSource='gun', startTimeTrigger='auto_backfill').
+ *  CHECKED-IN participants with an RFID tag who haven't been detected get gun time
+ *  as their startTime (startTimeSource='gun', startTimeTrigger='auto_backfill').
+ *  A runner who never checked in gets nothing: they have not accepted the
+ *  regulamin and may not start, so stopping the race must leave them DNS. Gun
+ *  time would make them 'started' and the stop would turn them into DNF.
  *  This ensures their next crossing is treated as finish, not a second start.
  *  Disabled per event via gunBackfillEnabled=false: neither the timer nor the
  *  finish-crossing fallback then assigns gun time — start-less runners are left
@@ -231,8 +234,14 @@ export class CrossingDetector {
       }
       if (!missing.length) return
 
+      // Read check-ins now, not at startRace: last-minute check-ins reach the
+      // local DB through checkinSync up to 30 s later, often after the gun.
+      const checkedIn = await this.#checkedInIds(missing)
+      const notCheckedIn = missing.length - checkedIn.size
+
       let backfilled = 0
       for (const participantId of missing) {
+        if (!checkedIn.has(participantId)) continue
         // Check DB to avoid overwriting a chip start that arrived between in-memory check and now
         const existing = await this.db.query.results.findFirst({
           where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, participantId)),
@@ -257,7 +266,7 @@ export class CrossingDetector {
         backfilled++
       }
 
-      console.log(`[Detector] Gun-time backfill for race ${raceRunId}: ${backfilled} participant(s) got gun start time (after ${gunBackfillMs / 1000}s)`)
+      console.log(`[Detector] Gun-time backfill for race ${raceRunId}: ${backfilled} participant(s) got gun start time (after ${gunBackfillMs / 1000}s), ${notCheckedIn} skipped as not checked in`)
     }, gunBackfillMs)
 
     this.backfillTimers.set(raceRunId, timerId)
@@ -531,7 +540,10 @@ export class CrossingDetector {
         // durations empty so an operator resolves it via manual backfill. Runners with a
         // real chip start are unaffected — they keep their netto (durationMs) and brutto
         // (gunDurationMs) times exactly as before.
+        // The same holds for a runner who never checked in: they may not start, so
+        // they are never credited with gun time either.
         const backfillGun = noChipStart && race?.config?.gunBackfillEnabled !== false
+          && (await this.#checkedInIds([participantId])).has(participantId)
 
         // Build the set fields (never include raceRunId/participantId — those are the conflict target)
         const setFields = {
@@ -582,6 +594,16 @@ export class CrossingDetector {
     } catch (err) {
       console.error('[Detector] Error confirming crossing:', err)
     }
+  }
+
+  /** @returns {Promise<Set<string>>} the ids among `participantIds` with a check-in */
+  async #checkedInIds(participantIds) {
+    if (!participantIds.length) return new Set()
+    const rows = await this.db
+      .select({ participantId: checkins.participantId })
+      .from(checkins)
+      .where(and(inArray(checkins.participantId, participantIds), isNotNull(checkins.checkedInAt)))
+    return new Set(rows.map(r => r.participantId))
   }
 
   async #recalcPositions(raceRunId) {
