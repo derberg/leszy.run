@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api.js'
 import { ReportsTab, FeedbackTab, useReportsQuery, useFeedbackQuery } from './Moderation.jsx'
 import { isReadyToAccept, isIncomplete } from '@leszyrun/ui/eventCompleteness'
+import { API_URL } from '../lib/apiOrigin.js'
 
 const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-sm py-1.5 px-2 outline-none focus:border-apex-yellow-dim'
 
@@ -603,7 +604,7 @@ function DuplicatesView() {
   const { data, isLoading } = useQuery({
     queryKey: ['calendar-events-duplicates'],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/calendar-events/duplicates`)
+      const res = await fetch(`${API_URL}/api/calendar-events/duplicates`)
       const json = await res.json()
       return json.data
     },
@@ -688,7 +689,7 @@ export default function CalendarEventsList() {
   const { data: dupData } = useQuery({
     queryKey: ['calendar-events-duplicates'],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/calendar-events/duplicates`)
+      const res = await fetch(`${API_URL}/api/calendar-events/duplicates`)
       const json = await res.json()
       return json.data
     },
