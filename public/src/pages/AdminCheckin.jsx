@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useEvent } from '../hooks/useEvent.js'
 import { supabase } from '../lib/supabase.js'
+import { participantIdFromQr, isRepeatScan } from '../lib/qrScan.js'
+import { getQrDetector } from '../lib/qrDetector.js'
 
 const PIN_KEY = 'leszyrun_checkin_pin'
 
@@ -122,8 +124,11 @@ function AdminPanel({ event, pin, preselectedParticipantId }) {
     setTimeout(() => setFlash(null), 3000)
   }
 
-  if (selectedParticipant) {
-    return (
+  // The panel stays mounted under the participant card, only hidden, so the
+  // scanner's camera keeps running between participants.
+  return (
+    <>
+    {selectedParticipant && (
       <ParticipantCheckin
         event={event}
         participant={selectedParticipant}
@@ -132,11 +137,8 @@ function AdminPanel({ event, pin, preselectedParticipantId }) {
         onError={handleError}
         onBack={() => setSelectedParticipant(null)}
       />
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-apex-bg text-apex-text-bright">
+    )}
+    <div className={selectedParticipant ? 'hidden' : 'min-h-screen bg-apex-bg text-apex-text-bright'}>
       <div className="max-w-lg mx-auto px-6 py-8">
         <div className="text-center mb-6">
           <div className="font-display text-3xl uppercase tracking-widest mb-1">Odprawa</div>
@@ -175,82 +177,231 @@ function AdminPanel({ event, pin, preselectedParticipantId }) {
         </div>
 
         {mode === 'scan' && (
-          <QrScanner event={event} pin={pin} onFound={handleParticipantFound} onError={handleError} />
+          <QrScanner event={event} pin={pin} active={!selectedParticipant} onFound={handleParticipantFound} onError={handleError} />
         )}
         {mode === 'search' && (
           <ManualSearch event={event} pin={pin} onFound={handleParticipantFound} />
         )}
       </div>
     </div>
+    </>
   )
 }
 
-function QrScanner({ event, pin, onFound, onError }) {
-  const scannerRef = useRef(null)
-  const containerRef = useRef(null)
+// How often a frame is handed to the decoder. The next one is scheduled only
+// after the previous decode returns, so a slow phone never queues frames up.
+const SCAN_INTERVAL_MS = 100
+
+const CAMERA = {
+  audio: false,
+  video: {
+    facingMode: { ideal: 'environment' },
+    width: { ideal: 1920 },
+    height: { ideal: 1080 },
+  },
+}
+
+function scanFeedback(ok, audioRef) {
+  try { navigator.vibrate?.(ok ? 80 : [60, 60, 60]) } catch {}
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    if (!Ctx) return
+    const ctx = audioRef.current || (audioRef.current = new Ctx())
+    ctx.resume?.()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.frequency.value = ok ? 1200 : 300
+    gain.gain.value = 0.15
+    osc.connect(gain).connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + (ok ? 0.12 : 0.3))
+  } catch {}
+}
+
+// The camera stays on while a participant's card is open (`active` false), so
+// the next person is scanned the moment the volunteer comes back, without a
+// new camera start or permission prompt.
+function QrScanner({ event, pin, active, onFound, onError }) {
+  const videoRef = useRef(null)
+  const trackRef = useRef(null)
+  const audioRef = useRef(null)
+  const activeRef = useRef(active)
+  const handlersRef = useRef({ onFound, onError })
+  const [status, setStatus] = useState('starting') // 'starting' | 'running' | 'failed'
+  const [failure, setFailure] = useState(null)
+  const [torch, setTorch] = useState({ available: false, on: false })
 
   useEffect(() => {
-    let html5Qrcode = null
+    handlersRef.current = { onFound, onError }
+  }, [onFound, onError])
 
-    import('html5-qrcode').then(({ Html5Qrcode }) => {
-      html5Qrcode = new Html5Qrcode('qr-reader')
-      scannerRef.current = html5Qrcode
+  useEffect(() => {
+    activeRef.current = active
+    if (active) videoRef.current?.play().catch(() => {})
+  }, [active])
 
-      html5Qrcode.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: 250 },
-        async (decodedText) => {
-          // Pause scanning while processing
-          try { await html5Qrcode.pause() } catch {}
+  useEffect(() => {
+    let stopped = false
+    let stream = null
+    let timer = null
+    let last = null
+    let categories = null
 
-          // decodedText may be a full URL or a plain participant ID
-          const raw = decodedText.trim()
-          let participantId = raw
-          try {
-            const url = new URL(raw)
-            participantId = url.searchParams.get('p') || raw
-          } catch {}
-          const { data: pData, error } = await supabase
-            .rpc('get_participant_admin', { p_event_id: event.id, p_pin: pin, p_participant_id: participantId })
+    const fail = (message) => {
+      if (stopped) return
+      setFailure(message)
+      setStatus('failed')
+    }
 
-          if (error || !pData) {
-            onError('Nie rozpoznano kodu QR.')
-            try { await html5Qrcode.resume() } catch {}
-            return
-          }
+    const loadCategories = async () => {
+      if (categories) return categories
+      const { data, error } = await supabase.from('categories').select('id, name').eq('event_id', event.id)
+      if (error) throw error
+      categories = data || []
+      return categories
+    }
 
-          // Validate belongs to event
-          const { data: cats } = await supabase
-            .from('categories')
-            .select('id, name')
-            .eq('event_id', event.id)
+    const handle = async (text) => {
+      const now = Date.now()
+      if (isRepeatScan(last, text, now)) return
+      last = { text, at: now }
 
-          const catIds = (cats || []).map(c => c.id)
-          if (!catIds.includes(pData.category_id)) {
-            onError('Uczestnik nie należy do tego wydarzenia.')
-            try { await html5Qrcode.resume() } catch {}
-            return
-          }
+      const participantId = participantIdFromQr(text)
+      if (!participantId) {
+        scanFeedback(false, audioRef)
+        handlersRef.current.onError('To nie jest kod QR uczestnika.')
+        return
+      }
 
-          const category = (cats || []).find(c => c.id === pData.category_id)
-          onFound({ ...pData, categoryName: category?.name })
-        }
-      ).catch(() => {
-        onError('Nie udalo sie uruchomic kamery.')
-      })
-    })
+      let pData, cats
+      try {
+        const [res, loaded] = await Promise.all([
+          supabase.rpc('get_participant_admin', { p_event_id: event.id, p_pin: pin, p_participant_id: participantId }),
+          loadCategories(),
+        ])
+        if (res.error) throw res.error
+        pData = res.data
+        cats = loaded
+      } catch {
+        if (stopped) return
+        last = null
+        scanFeedback(false, audioRef)
+        handlersRef.current.onError('Błąd połączenia. Zeskanuj kod jeszcze raz.')
+        return
+      }
+      if (stopped) return
+
+      if (!pData) {
+        scanFeedback(false, audioRef)
+        handlersRef.current.onError('Nie rozpoznano kodu QR.')
+        return
+      }
+      const category = cats.find(c => c.id === pData.category_id)
+      if (!category) {
+        scanFeedback(false, audioRef)
+        handlersRef.current.onError('Uczestnik nie należy do tego wydarzenia.')
+        return
+      }
+      scanFeedback(true, audioRef)
+      handlersRef.current.onFound({ ...pData, categoryName: category.name })
+    }
+
+    const loop = async (detector) => {
+      if (stopped) return
+      const video = videoRef.current
+      if (activeRef.current && video && video.readyState >= 2) {
+        try {
+          const codes = await detector.detect(video)
+          if (codes.length > 0) await handle(codes[0].rawValue)
+        } catch {}
+      }
+      if (!stopped) timer = setTimeout(() => loop(detector), SCAN_INTERVAL_MS)
+    }
+
+    const start = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        fail('Ta przeglądarka nie daje dostępu do kamery. Użyj zakładki Szukaj.')
+        return
+      }
+      let detector
+      try {
+        detector = await getQrDetector()
+      } catch {
+        fail('Nie udało się uruchomić skanera. Odśwież stronę albo użyj zakładki Szukaj.')
+        return
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(CAMERA)
+      } catch {
+        fail('Nie udało się uruchomić kamery. Sprawdź, czy przeglądarka ma do niej dostęp.')
+        return
+      }
+      if (stopped) {
+        stream.getTracks().forEach(t => t.stop())
+        return
+      }
+
+      const track = stream.getVideoTracks()[0]
+      trackRef.current = track
+      const caps = track?.getCapabilities?.() || {}
+      if (caps.focusMode?.includes('continuous')) {
+        track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {})
+      }
+      setTorch({ available: !!caps.torch, on: false })
+
+      const video = videoRef.current
+      video.srcObject = stream
+      await video.play().catch(() => {})
+      if (stopped) return
+      setStatus('running')
+      loop(detector)
+    }
+
+    start()
 
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {})
-      }
+      stopped = true
+      clearTimeout(timer)
+      stream?.getTracks().forEach(t => t.stop())
+      trackRef.current = null
     }
-  }, [event.id])
+  }, [event.id, pin])
+
+  const toggleTorch = () => {
+    const track = trackRef.current
+    if (!track) return
+    const on = !torch.on
+    track.applyConstraints({ advanced: [{ torch: on }] })
+      .then(() => setTorch(t => ({ ...t, on })))
+      .catch(() => {})
+  }
 
   return (
     <div>
-      <div id="qr-reader" ref={containerRef} className="mb-4" />
-      <div className="text-apex-muted text-xs text-center">Skieruj kamere na kod QR uczestnika.</div>
+      <div className="relative bg-black aspect-[4/3] overflow-hidden mb-4">
+        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
+        {status === 'running' && (
+          <div className="absolute left-1/2 top-1/2 w-3/5 aspect-square -translate-x-1/2 -translate-y-1/2 border-2 border-apex-yellow pointer-events-none" />
+        )}
+        {status === 'starting' && (
+          <div className="absolute inset-0 flex items-center justify-center text-apex-muted text-sm">Uruchamianie kamery...</div>
+        )}
+        {status === 'failed' && (
+          <div className="absolute inset-0 flex items-center justify-center text-apex-red text-sm text-center px-6">{failure}</div>
+        )}
+      </div>
+      {torch.available && (
+        <button
+          type="button"
+          onClick={toggleTorch}
+          className={`w-full mb-4 py-2 text-xs font-bold uppercase tracking-wider border rounded-none transition-colors ${
+            torch.on ? 'border-apex-yellow bg-apex-yellow-bright text-apex-ink' : 'border-apex-border text-apex-muted hover:text-apex-text'
+          }`}
+        >
+          {torch.on ? 'Wyłącz latarkę' : 'Włącz latarkę'}
+        </button>
+      )}
+      <div className="text-apex-muted text-xs text-center">Skieruj kamerę na kod QR uczestnika.</div>
     </div>
   )
 }
