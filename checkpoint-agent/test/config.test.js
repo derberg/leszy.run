@@ -7,7 +7,7 @@ test('defaults', () => {
   assert.equal(c.port, 8080)
   assert.equal(c.mqttUrl, 'mqtt://localhost:1883')
   assert.equal(c.mqttTopic, 'leszyrun/checkpoint')
-  assert.equal(c.goneWindowMs, 3000)
+  assert.equal(c.passWindowMs, 3000)
   assert.equal(c.uploadIntervalMs, 5000)
   assert.equal(c.dataDir, './data')
   assert.equal(c.supabaseUrl, null)
@@ -19,9 +19,9 @@ test('defaults', () => {
 })
 
 test('env overrides', () => {
-  const c = loadConfig({ AGENT_PORT: '9999', GONE_WINDOW_MS: '5000', SUPABASE_URL: 'https://x.supabase.co', READER_POLL_MS: '20000', ARM_POLL_MS: '10000', HEARTBEAT_MS: '30000' })
+  const c = loadConfig({ AGENT_PORT: '9999', PASS_WINDOW_MS: '5000', SUPABASE_URL: 'https://x.supabase.co', READER_POLL_MS: '20000', ARM_POLL_MS: '10000', HEARTBEAT_MS: '30000' })
   assert.equal(c.port, 9999)
-  assert.equal(c.goneWindowMs, 5000)
+  assert.equal(c.passWindowMs, 5000)
   assert.equal(c.supabaseUrl, 'https://x.supabase.co')
   assert.equal(c.readerPollMs, 20000)
   assert.equal(c.armPollMs, 10000)
@@ -103,4 +103,9 @@ test('autoconfig picks up optional reader creds, mqtt host override, and display
   assert.equal(c.autoconfig.readerPassword, 'secret')
   assert.equal(c.autoconfig.eventName, 'Bieg Testowy')
   assert.equal(c.autoconfig.checkpointName, 'CP 3')
+})
+
+test('the old GONE_WINDOW_MS name still sets the pass window', () => {
+  const c = loadConfig({ GONE_WINDOW_MS: '4000', SUPABASE_URL: 'https://x.supabase.co' })
+  assert.equal(c.passWindowMs, 4000)
 })

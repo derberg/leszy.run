@@ -122,7 +122,7 @@ events (
   rfid_topic_main        text DEFAULT 'leszyrun',       -- used when mode='single' or start topic for 'separate'
   rfid_topic_finish      text DEFAULT 'leszyrun/finish',-- only used when mode='separate'
   rssi_threshold         int  DEFAULT -5000,            -- cdbm, events weaker than this are ignored
-  gone_window_seconds    int  DEFAULT 3,                -- silence window (s) to confirm a crossing
+  gone_window_seconds    int  DEFAULT 3,                -- start: silence (s) that confirms; finish: fixed pass length (s) from the first read
   fallback_seconds       int  DEFAULT 10,               -- force-confirm timeout (s) for finish crossings only
   created_at  timestamptz DEFAULT now(),
   synced_at   timestamptz
@@ -290,26 +290,28 @@ keep only the reading with the highest (least negative) `peakRssiCdbm`.
 ### Exit-triggered algorithm (per EPC, per active race run)
 Runs in-memory in the backend. State is reset between race runs.
 
-A crossing is confirmed when a tag's signal **disappears for `gone_window_seconds`** (default 3 s).
-The confirmed timestamp is always the **peak RSSI reading** — the moment the runner was physically
-closest to the antenna.
+A START crossing is confirmed when a tag's signal **disappears for `gone_window_seconds`**
+(default 3 s), because runners stand in the corral inside the read zone. A FINISH crossing,
+and a pass at a checkpoint, is confirmed **`gone_window_seconds` after its first read**,
+however long the tag stays in range. The confirmed timestamp is always the **peak RSSI
+reading** inside the pass — the moment the runner was physically closest to the antenna.
 
 ```
-First reading for EPC
-  → create inRange entry: { peakRssi, peakTime, goneTimer, maxTimer }
+START, first reading for EPC
+  → create inRange entry: { peakRssi, peakTime, goneTimer }
   → arm goneTimer (gone_window_seconds, default 3 s)
-  → arm maxTimer (fallback_seconds, default 10 s) — FINISH CROSSINGS ONLY
-
-Subsequent reading for same EPC
+START, subsequent reading
   → if rssi > peakRssi: update peakRssi and peakTime
   → reset goneTimer (person still nearby)
-  → maxTimer keeps running (never reset)
-
 goneTimer fires (silence for gone_window_seconds)
   → person has left the gate → CROSSING CONFIRMED at peakTime
 
-maxTimer fires (fallback_seconds elapsed, finish only)
-  → person still at gate (e.g. collapsed at finish line) → CROSSING CONFIRMED at peakTime
+FINISH, first reading for EPC
+  → create pass, arm timer (gone_window_seconds), never reset
+FINISH, subsequent reading inside the window
+  → if rssi > peakRssi: update peakRssi and peakTime
+timer fires
+  → CROSSING CONFIRMED at peakTime; later reads never re-time it
 
 CROSSING CONFIRMED
   → write gate_crossing record to DB

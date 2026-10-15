@@ -9,11 +9,13 @@ import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
  * the runner was physically closest to the antenna. Exit-triggering is required for
  * starts because runners stand in the corral inside the read zone before the gun.
  *
- * FINISH crossings are exit-triggered too, timestamped at the PEAK of the pass. A
- * pass ends when the tag goes silent for goneWindowMs, or FINISH_PASS_MAX_MS after
- * its first read, whichever comes first. The cap exists because finishers stop
- * just past the line: without it a runner standing in the read zone would never
- * confirm, and a later read from where they stand could replace the crossing.
+ * FINISH crossings are timed at the PEAK of a fixed window. The first read of a
+ * started runner opens a pass that lasts exactly goneWindowMs (3 s) from that
+ * read; later reads only move the peak and never extend it. The gate hears a tag
+ * from about 5 m (measured 2026-10-15), so a runner is through the read zone well
+ * inside 3 s, and a finisher who stops just past the line cannot hold the pass
+ * open or replace the crossing with a read from where they stand. Reads after the
+ * window closes never re-time the finish.
  *
  * Finish used to be first-read: the first read above rssi_threshold WAS the
  * finish. That made rssi_threshold decide the finish time, and no value worked.
@@ -33,8 +35,9 @@ import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
  *  2. Each subsequent reading → update peak if improved, RESET goneTimer
  *  3. goneTimer fires (3 s silence) → person left the gate → confirm crossing at peak
  *  FINISH (participant already started / finish topic, past minFinishSeconds):
- *  4. Same as START: track the pass, keep its peak, reset goneTimer on each read
- *  5. goneTimer fires, or the pass reaches FINISH_PASS_MAX_MS → confirm at peak
+ *  4. First reading → open a pass, arm a goneWindowMs timer that is never reset
+ *  5. Reads inside the window update the peak only
+ *  6. Timer fires (goneWindowMs after the first read) → confirm at peak
  *
  * Gate determination (single-reader mode):
  *  - No startTime in DB yet → gate = 'start'
@@ -83,8 +86,8 @@ import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
  *     T -->|Yes| B{Participant already started?}
  *     B -->|Yes / finish topic| Y{Past minFinishSeconds since gun?}
  *     Y -->|No| X
- *     Y -->|Yes| P[Track finish pass · keep peak · reset goneTimer]
- *     P -->|3s silence or FINISH_PASS_MAX_MS| Q{peak >= confirm bar?}
+ *     Y -->|Yes| P[Open finish pass on first read · keep peak · no reset]
+ *     P -->|3s after first read| Q{peak >= confirm bar?}
  *     Q -->|No| X
  *     Q -->|Yes| M[gate=finish · finishTime=peakTime]
  *     M --> O[broadcast · persist · add to finishedParticipants · ignore further reads]
@@ -117,22 +120,15 @@ const DEDUP_WINDOW_MS = 200   // within this window per EPC, only keep best RSSI
 // passes worth inspecting. 10 s covers the slowest finisher with margin.
 const FINISH_AUDIT_WINDOW_MS = 10_000
 
-// Longest a finish pass may last before it is confirmed at its peak. The gate
-// hears a tag from about 5 m and not at 6 m (measured 2026-10-15), so a Nordic
-// walker at 1.4 m/s crosses the read zone in under 10 s. The cap leaves margin
-// and bounds how much standing around after the line can compete for the peak.
-const FINISH_PASS_MAX_MS = 20_000
-
 const DEFAULT_RSSI_THRESHOLD = -9000
 const DEFAULT_CONFIRM_RSSI = null
 const DEFAULT_MIN_FINISH_SECONDS = 300
 
 
 export class CrossingDetector {
-  constructor({ db, broadcast, finishPassMaxMs = FINISH_PASS_MAX_MS }) {
+  constructor({ db, broadcast }) {
     this.db = db
     this.broadcast = broadcast
-    this.finishPassMaxMs = finishPassMaxMs
 
     // Map<raceRunId, { config, epcToParticipant, startedParticipants, finishedParticipants }>
     this.activeRaces = new Map()
@@ -462,9 +458,9 @@ export class CrossingDetector {
     }
   }
 
-  // One finish pass of one tag: the same peak tracking as START, plus the
-  // FINISH_PASS_MAX_MS cap. Nothing is marked finished until the pass closes, so
-  // a pass rejected by the crossing bar leaves the runner free to finish later.
+  // One finish pass of one tag: a fixed goneWindowMs window from the first read,
+  // timed at its peak. Nothing is marked finished until the pass closes, so a
+  // pass rejected by the crossing bar leaves the runner free to finish later.
   #trackFinishPass({ event, now, raceRunId, participantId, race, confirmRssi, goneWindowMs, rfidMode, rfidTopicFinish }) {
     const key = `${event.epc}:${raceRunId}:finish`
 
@@ -498,8 +494,14 @@ export class CrossingDetector {
     }
 
     let pass = this.inRange.get(key)
+    if (pass && now - pass.firstAt >= goneWindowMs) {
+      // The timer is due but has not run yet: this read is after the window.
+      close()
+      return
+    }
     if (!pass) {
       pass = { epc: event.epc, raceRunId, firstAt: now, peakRssi: -Infinity, peakTime: null, antennaPort: null, topic: null, goneTimer: null }
+      pass.goneTimer = setTimeout(close, goneWindowMs)
       this.inRange.set(key, pass)
     }
     if (event.rssiCdbm > pass.peakRssi) {
@@ -508,12 +510,6 @@ export class CrossingDetector {
       pass.antennaPort = event.antennaPort
       pass.topic       = event.topic
     }
-    clearTimeout(pass.goneTimer)
-    if (now - pass.firstAt >= this.finishPassMaxMs) {
-      close()
-      return
-    }
-    pass.goneTimer = setTimeout(close, Math.min(goneWindowMs, pass.firstAt + this.finishPassMaxMs - now))
   }
 
   async #confirmCrossing({ raceRunId, participantId, peakRssi, peakTime, antennaPort, topic, rfidMode, rfidTopicFinish, race }) {

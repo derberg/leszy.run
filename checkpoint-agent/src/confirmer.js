@@ -1,14 +1,16 @@
-// Simplified crossing detector for checkpoints. Exit-triggered: a pass is
-// confirmed when a tag goes silent for goneWindowMs, timestamped at the PEAK
-// reading (closest physical approach) — correct ordering even when runners
-// linger at an aid station. One pass per EPC per session (course rule:
+// Crossing detector for checkpoints. The first read of a tag opens a pass that
+// lasts a fixed passWindowMs (3 s). Reads inside the window only move the peak;
+// they never extend it. When the window ends the pass is confirmed, timestamped
+// at the PEAK reading (closest physical approach). A tag is heard from about
+// 5 m (measured 2026-10-15), so a runner is through the read zone well inside
+// 3 s, and a runner who stops at an aid station still confirms on time instead
+// of holding the pass open. One pass per EPC per session (course rule:
 // checkpoints are passed once; out-and-back = two logical checkpoints).
-// No maxTimer/fallback here — that is finish-line-only semantics.
 export class Confirmer {
-  constructor({ goneWindowMs = 3000, onConfirm }) {
-    this.goneWindowMs = goneWindowMs
+  constructor({ passWindowMs = 3000, onConfirm }) {
+    this.passWindowMs = passWindowMs
     this.onConfirm = onConfirm
-    this.inRange = new Map() // epc -> { peakRssi, peakTime, goneTimer }
+    this.inRange = new Map() // epc -> { peakRssi, peakTime, timer }
     this.seen = new Set()
   }
 
@@ -17,7 +19,7 @@ export class Confirmer {
       this.seen.add(e)
       const cur = this.inRange.get(e)
       if (cur) {
-        clearTimeout(cur.goneTimer)
+        clearTimeout(cur.timer)
         this.inRange.delete(e)
       }
     }
@@ -31,13 +33,11 @@ export class Confirmer {
       this.inRange.set(epc, {
         peakRssi: rssi,
         peakTime: at,
-        goneTimer: setTimeout(() => this.#confirm(epc), this.goneWindowMs),
+        timer: setTimeout(() => this.#confirm(epc), this.passWindowMs),
       })
       return
     }
     if (rssi > cur.peakRssi) { cur.peakRssi = rssi; cur.peakTime = at }
-    clearTimeout(cur.goneTimer)
-    cur.goneTimer = setTimeout(() => this.#confirm(epc), this.goneWindowMs)
   }
 
   #confirm(epc) {
@@ -52,7 +52,7 @@ export class Confirmer {
   get confirmedCount() { return this.seen.size }
 
   stop() {
-    for (const { goneTimer } of this.inRange.values()) clearTimeout(goneTimer)
+    for (const { timer } of this.inRange.values()) clearTimeout(timer)
     this.inRange.clear()
   }
 }

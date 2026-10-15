@@ -1480,7 +1480,7 @@ function RfidSettings({ event, onSave, saving }) {
               <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Okno ciszy (sekundy)</span>
               <Input type="number" step="1" min="1" max="10" value={form.goneWindowSeconds} onChange={e => set('goneWindowSeconds', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: 3. Po tylu sekundach ciszy przejście przez bramkę zostaje zapisane z czasem najmocniejszego odczytu, na starcie i na mecie. Meta zapisuje się najpóźniej 20 s po pierwszym odczycie, nawet gdy zawodnik stoi przy bramce.
+                Domyślnie: 3. Meta: przejście trwa tyle sekund od pierwszego odczytu i dostaje czas najmocniejszego odczytu z tego okna. Start: przejście zapisuje się po tylu sekundach ciszy, bo zawodnicy stoją w strefie startu.
               </p>
             </label>
             <label className="block">

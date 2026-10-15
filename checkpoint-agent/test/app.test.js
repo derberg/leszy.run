@@ -20,7 +20,7 @@ async function makeApp(t, overrides = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
   const deps = {
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
     supabase: {
       from: (table) => ({
         select: () => ({
@@ -295,11 +295,11 @@ test('reset clears the stored PIN', async (t) => {
 test('rosterCount is restored from disk on boot', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
-  const first = await makeApp(t, { config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' } })
+  const first = await makeApp(t, { config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' } })
   await first.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5' } })
   await first.close()
 
-  const rebooted = await makeApp(t, { config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' } })
+  const rebooted = await makeApp(t, { config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' } })
   const state = (await rebooted.inject({ method: 'GET', url: '/api/state' })).json().data
   assert.equal(state.rosterCount, 1)
 })
@@ -391,7 +391,7 @@ test('checkpoint sessions use isolated queues: same EPC confirms again at a diff
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-scope-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
   const app = await buildApp({
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
     supabase: {
       from: (table) => table === 'checkpoint_observations'
         ? { insert: async (row) => { inserted.push(row); return { error: null } } }
@@ -440,7 +440,7 @@ test('MQTT read → confirm → queue → flush inserts observation', async (t) 
   let messageHandler
   const inserted = []
   const app = await makeApp(t, {
-    config: { dataDir: (await mkdtemp(join(tmpdir(), 'cpapp-flush-'))), mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    config: { dataDir: (await mkdtemp(join(tmpdir(), 'cpapp-flush-'))), mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
     connectMqtt: () => ({
       on: (ev, fn) => { if (ev === 'message') messageHandler = fn },
       subscribe: () => {}, end: () => {},
@@ -456,7 +456,7 @@ test('MQTT read → confirm → queue → flush inserts observation', async (t) 
   // EPC AABBCC01 = base64 qrvMAQ==
   const payload = Buffer.from(JSON.stringify({ eventType: 'tagInventory', tagInventoryEvent: { epc: 'qrvMAQ==', peakRssiCdbm: -4000, antennaPort: 1 } }))
   messageHandler('leszyrun/checkpoint', payload)
-  // goneWindowMs: 50 (config override above) — wait past the gone window with margin
+  // passWindowMs: 50 (config override above) — wait past the pass window with margin
   await new Promise((r) => setTimeout(r, 150))
   await app.deps.uploader.flush()
   assert.equal(inserted.length, 1)
@@ -542,7 +542,7 @@ test('recentReads: reads arriving while disarmed still appear (armed: false), co
   const app = await buildApp({
     config: {
       dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
-      goneWindowMs: 50, uploadIntervalMs: 999999, armPollMs: 999999,
+      passWindowMs: 50, uploadIntervalMs: 999999, armPollMs: 999999,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
     },
     supabase: {
@@ -594,7 +594,7 @@ test('reader auto-recovery: getStatus failure then success reconfigures and clea
   let configureCalls = 0
   let startCalls = 0
   const app = await buildApp({
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 30, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 30, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
     supabase: {
       from: () => ({
         select: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }),
@@ -652,7 +652,7 @@ test('noReader mode: setup without readerIp succeeds, start never calls createRe
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-noreader-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
   const app = await buildApp({
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
     supabase: {
       from: (table) => table === 'checkpoint_observations'
         ? { insert: async (row) => { inserted.push(row); return { error: null } } }
@@ -733,7 +733,7 @@ test('race_start arm mode: reads are dropped while disarmed, recorded once the a
   const app = await buildApp({
     config: {
       dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
-      goneWindowMs: 50, uploadIntervalMs: 999999, armPollMs: 30,
+      passWindowMs: 50, uploadIntervalMs: 999999, armPollMs: 30,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
     },
     supabase: {
@@ -812,7 +812,7 @@ test('ensureHeartbeat rebinds when setup targets a different checkpointId', asyn
   const dir = await mkdtemp(join(tmpdir(), 'cpapp-hb-rebind-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
   const app = await buildApp({
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, heartbeatMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, heartbeatMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
     supabase: {
       from: (table) => {
         if (table === 'checkpoint_agents') {
@@ -893,7 +893,7 @@ test('bootstrapFromEnv: no prior session, autoconfig present → configures and 
   const app = await buildApp({
     config: {
       dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
-      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      passWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
       autoconfig: autoconfigBase(),
     },
@@ -925,7 +925,7 @@ test('bootstrapFromEnv: fetchRoster fails (bad PIN) — does not throw, server k
   const app = await buildApp({
     config: {
       dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
-      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      passWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
       autoconfig: autoconfigBase({ pin: 'wrong' }),
     },
@@ -961,7 +961,7 @@ test('bootstrapFromEnv: reader configure throwing does not crash — server stay
   const app = await buildApp({
     config: {
       dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
-      goneWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 999999, port: 8080,
+      passWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 999999, port: 8080,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
       autoconfig: autoconfigBase({ noReader: false, readerIp: '10.0.0.5' }),
     },
@@ -996,7 +996,7 @@ test('bootstrapFromEnv: invalid checkpointId (path traversal) fails cleanly, no 
   const app = await buildApp({
     config: {
       dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
-      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      passWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
       autoconfig: autoconfigBase({ checkpointId: '../../etc/passwd' }),
     },
@@ -1022,7 +1022,7 @@ test('bootstrapFromEnv: no-op when a running session already exists for the same
   const app = await buildApp({
     config: {
       dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
-      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      passWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
       autoconfig: autoconfigBase(),
     },
@@ -1065,7 +1065,7 @@ test('bootstrapFromEnv: no-op when a running session exists for a DIFFERENT chec
   const app = await buildApp({
     config: {
       dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
-      goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      passWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
       // autoconfig targets cp2, but the already-running session (below) is cp1
       autoconfig: autoconfigBase({ checkpointId: 'cp2' }),
@@ -1148,7 +1148,7 @@ test('boot: AUTOCONFIG present overrides a stale persisted RUNNING session (env 
   // --- Boot 1: operator runs the wizard by hand with readerIp = OLD-IP.
   // Persists a session to disk with running: true (doStart() saves it).
   const app1 = await buildApp({
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
     ...baseDeps,
   })
   await app1.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: 'OLD-IP', armMode: 'immediate' } })
@@ -1164,7 +1164,7 @@ test('boot: AUTOCONFIG present overrides a stale persisted RUNNING session (env 
   // bootstrapFromEnv() only.
   const app2 = await buildApp({
     config: {
-      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, port: 8080,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
       autoconfig: { present: true, eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: 'new.reader.local', mqttHost: null, readerUsername: null, readerPassword: null, armMode: 'immediate', noReader: false, eventName: 'Race', checkpointName: 'CP 1' },
     },
@@ -1209,7 +1209,7 @@ test('boot: AUTOCONFIG present, identical to the persisted session — idempoten
   // per-checkpoint queue (uploadIntervalMs is huge so it stays pending on
   // disk, never flushed).
   const app1 = await buildApp({
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 50, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 50, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
     ...baseDeps,
     connectMqtt: () => ({ on: (ev, fn) => { if (ev === 'message') messageHandler = fn }, subscribe: () => {}, end: () => {} }),
   })
@@ -1226,7 +1226,7 @@ test('boot: AUTOCONFIG present, identical to the persisted session — idempoten
   // index.js autoconfig-present branch: bootstrapFromEnv() only, no resume().
   const app2 = await buildApp({
     config: {
-      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 50, uploadIntervalMs: 999999, port: 8080,
+      dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 50, uploadIntervalMs: 999999, port: 8080,
       supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
       autoconfig: { present: true, eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: null, mqttHost: null, readerUsername: null, readerPassword: null, armMode: 'immediate', noReader: true, eventName: 'Race', checkpointName: 'CP 1' },
     },
@@ -1268,7 +1268,7 @@ test('boot: AUTOCONFIG absent — resume() path still used, persisted session un
   }
 
   const app1 = await buildApp({
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
     ...baseDeps,
   })
   await app1.inject({ method: 'POST', url: '/api/setup', payload: { eventId: 'ev1', eventName: 'Race', checkpointId: 'cp1', checkpointName: 'CP 1', pin: '123456', readerIp: 'OLD-IP', armMode: 'immediate' } })
@@ -1280,7 +1280,7 @@ test('boot: AUTOCONFIG absent — resume() path still used, persisted session un
   // Boot 2: no AUTOCONFIG_* env vars set at all — config.autoconfig.present
   // is false. The fixed index.js's else-branch: resume() only.
   const app2 = await buildApp({
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, port: 8080, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon', autoconfig: { present: false } },
     ...baseDeps,
   })
   t.after(() => app2.close())
@@ -1303,7 +1303,7 @@ test('reader auto-recovery: steady healthy status never triggers a reconfigure',
   let configureCalls = 0
   let startCalls = 0
   const app = await buildApp({
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 30, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 30, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
     supabase: {
       from: () => ({
         select: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }),
@@ -1354,7 +1354,7 @@ test('POST /api/start self-heals: initial reader configure() throws, pipeline st
   let startCalls = 0
   let getStatusCalls = 0
   const app = await buildApp({
-    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', goneWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 30, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
+    config: { dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint', passWindowMs: 3000, uploadIntervalMs: 999999, readerPollMs: 30, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon' },
     supabase: {
       from: () => ({
         select: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }), eq: () => ({ order: async () => ({ data: [], error: null }) }) }),
@@ -1426,7 +1426,7 @@ test('autoconfig self-heals: retries and starts once the clock syncs', async (t)
   const app = await buildApp({
     config: {
       dataDir: dir, mqttUrl: 'mqtt://localhost:1883', mqttTopic: 'leszyrun/checkpoint',
-      goneWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
+      passWindowMs: 50, uploadIntervalMs: 999999, supabaseUrl: 'https://x.supabase.co', supabaseAnonKey: 'anon',
       port: 8080, clockRetryMs: 20,
       autoconfig: { present: true, eventId: 'ev1', checkpointId: 'cp1', pin: '123456', readerIp: '10.0.0.5', mqttHost: '192.168.1.50', armMode: 'immediate' },
     },

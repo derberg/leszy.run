@@ -19,12 +19,10 @@ function baseConfig(over = {}) {
   }
 }
 
-const PASS_MAX_MS = 150
-
-async function makeRace(t, { config = baseConfig(), resultsRows = [], checkinRows = [], participants = [{ id: 'p1', rfidEpc: 'EPC1' }], finishPassMaxMs = PASS_MAX_MS } = {}) {
+async function makeRace(t, { config = baseConfig(), resultsRows = [], checkinRows = [], participants = [{ id: 'p1', rfidEpc: 'EPC1' }] } = {}) {
   const db = createFakeDb({ resultsRows, checkinRows })
   const broadcast = createFakeBroadcast()
-  const detector = new CrossingDetector({ db, broadcast, finishPassMaxMs })
+  const detector = new CrossingDetector({ db, broadcast })
   const raceRun = { id: 'rr1', startedAt: new Date(Date.now() - 60_000) }
   await detector.startRace(raceRun, config, participants)
   t.after(() => detector.stopRace(raceRun.id).catch(() => {}))
@@ -76,7 +74,7 @@ test('reads weaker than rssiThreshold are ignored entirely', async (t) => {
   assert.equal(db._inserts().gate_events.length, 0, 'sub-threshold reads are not persisted for audit either')
 })
 
-test('FINISH confirms at the peak of the pass after the silence window, not at the first read', async (t) => {
+test('FINISH confirms at the peak of the window, not at the first read', async (t) => {
   const { detector, broadcast } = await makeRace(t, {
     resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
   })
@@ -88,7 +86,7 @@ test('FINISH confirms at the peak of the pass after the silence window, not at t
   await wait(5)
   detector.processEvent(read(-6900))
   await wait(20)
-  assert.equal(broadcast.crossings().length, 0, 'nothing is confirmed while the pass is still open')
+  assert.equal(broadcast.crossings().length, 0, 'nothing is confirmed while the window is open')
 
   await wait(GONE_MS + 60)
   const crossings = broadcast.crossings()
@@ -98,34 +96,31 @@ test('FINISH confirms at the peak of the pass after the silence window, not at t
   assert.equal(crossings[0].peakRssiCdbm, -4000)
 })
 
-test('a FINISH pass that stays in range is confirmed at its peak once it reaches the pass cap', async (t) => {
-  // Reads 220 ms apart clear the 200 ms dedup window, and a 300 ms gone window
-  // never expires between them, so only the cap can close this pass.
+test('a FINISH pass closes a fixed window after its first read, even while the tag is still read', async (t) => {
+  // Reads 220 ms apart clear the 200 ms dedup window. With a 500 ms window the
+  // pass must close at ~500 ms although reads keep arriving.
   const { detector, broadcast } = await makeRace(t, {
-    config: baseConfig({ goneWindowSeconds: 0.3 }),
-    finishPassMaxMs: 600,
+    config: baseConfig({ goneWindowSeconds: 0.5 }),
     resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
   })
 
   // A finisher who stops just past the line keeps being read.
   const peakAt = new Date().toISOString()
   detector.processEvent(read(-4500, { receivedAt: peakAt }))
-  for (let i = 0; i < 2; i++) {
-    await wait(220)
-    detector.processEvent(read(-6000, { receivedAt: new Date().toISOString() }))
-  }
-  assert.equal(broadcast.crossings().length, 0, 'still open at ~440 ms: reads keep resetting the gone timer')
-
   await wait(220)
   detector.processEvent(read(-6000, { receivedAt: new Date().toISOString() }))
-  await wait(40)
-  assert.equal(broadcast.crossings().length, 1, 'closed by the cap')
+  await wait(220)
+  detector.processEvent(read(-6000, { receivedAt: new Date().toISOString() }))
+  assert.equal(broadcast.crossings().length, 0, 'still open at ~440 ms')
+
+  await wait(120)
+  assert.equal(broadcast.crossings().length, 1, 'closed 500 ms after the first read, reads did not extend it')
   assert.equal(new Date(broadcast.crossings()[0].confirmedAt).toISOString(), peakAt)
 
   // A stronger read later, from where they stand, must not re-time it.
   await wait(220)
   detector.processEvent(read(-3000, { receivedAt: new Date().toISOString() }))
-  await wait(400)
+  await wait(600)
   assert.equal(broadcast.crossings().length, 1, 'a finish is never re-timed')
 })
 

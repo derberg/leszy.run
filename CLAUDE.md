@@ -242,11 +242,14 @@ when the runner was physically closest to the antenna. Required for mass starts:
 runners standing in the corral generate continuous readings, goneTimer keeps
 resetting → no confirmation until they actually run through.
 
-**FINISH = exit-triggered too, at the peak of the pass.** A started participant's reads
-past `min_finish_seconds` open a finish pass that keeps its strongest read; the pass
-closes after `gone_window_seconds` of silence or `FINISH_PASS_MAX_MS` (20 s) after its
-first read, whichever comes first, and the finish gets the peak's timestamp. The cap
-exists because finishers stop just past the line and would otherwise keep the pass open.
+**FINISH = fixed window from the first read, timed at its peak.** A started participant's
+first read past `min_finish_seconds` opens a finish pass that lasts exactly
+`gone_window_seconds` (3 s) from that read. Later reads only move the peak and never
+extend the window, and the finish gets the peak's timestamp. The gate hears a tag from
+about 5 m (measured 2026-10-15), so a runner is through the read zone well inside 3 s,
+and a finisher who stops just past the line cannot hold the pass open. The checkpoint
+agent (`checkpoint-agent/src/confirmer.js`) uses the same rule. Only START waits for
+silence, because runners stand in the corral inside the read zone.
 After confirmation (`finishedParticipants`) later reads never re-time the finish, but
 are still written to `gate_events` for 10 s (`FINISH_AUDIT_WINDOW_MS`).
 
@@ -264,7 +267,7 @@ State maps:
 - `startedParticipants`: `Set<participantId>` per race (in-memory, avoids DB lookup per crossing)
 
 Flow per reading (above `rssi_threshold`; weaker reads are ignored entirely):
-1. Participant already started (or finish topic in separate mode) and past `min_finish_seconds` → open or extend the finish pass, keep its peak, reset `goneTimer`; the pass closes on silence or at the 20 s cap
+1. Participant already started (or finish topic in separate mode) and past `min_finish_seconds` → open the finish pass on the first read and arm a `goneWindowMs` timer that is never reset; later reads only move the peak; the pass closes when the timer fires
 2. Not started, tag not in `inRange` → create entry, arm `goneTimer` (goneWindowMs)
 3. Not started, tag in `inRange` → update peak if improved; reset `goneTimer`
 4. `goneTimer` fires (silence for goneWindowSeconds) → `confirmCrossing(peakTime)` → `gate = start`, add to `startedParticipants`
@@ -287,7 +290,7 @@ Configurable per event (stored in `events` table):
   GROUP BY 1,2,3 ORDER BY best ASC;
   ```
   Weak runners clustered on one port → antenna problem. Spread across all ports → tag/bib problem. `gate_crossings.peak_rssi_cdbm` records each confirmed crossing's peak, so low-confidence crossings can be reviewed **after** a race.
-- `gone_window_seconds`: default `3` s: silence window that closes a start or finish pass
+- `gone_window_seconds`: default `3` s. At the start, the silence that closes a pass. At the finish, the fixed length of a pass counted from its first read
 - `min_finish_seconds`: default `300` s (was `30`). Reads within this window after the gun never open a finish pass. With no floor a runner leaving the shared start/finish gate stays audible for well over 30 s; lower it only for short test loops
 - `gun_backfill_seconds`: default `60` s — after this long from the gun, checked-in runners not read at the start line get gun time as their start (`startTimeSource='gun'`, `startTimeTrigger='auto_backfill'`) so their next crossing counts as a finish. A runner with no check-in never gets gun time, from this timer or from the finish-crossing fallback, so stopping the race leaves them DNS rather than DNF. Check-ins are read when the gun time is assigned, not at race start, because a last-minute check-in reaches the local DB through `checkinSync` up to 30 s later
 - `gun_backfill_enabled`: default `true` — set `false` to disable automatic gun-time backfill entirely: neither the timer nor the finish-crossing fallback assigns gun time, so start-less runners stay start-less until manual backfill (`POST /races/:id/assign-gun-start`, UI "Nadaj czas strzałki"). Runners read normally at start keep both netto (`duration_ms`) and brutto (`gun_duration_ms`)
