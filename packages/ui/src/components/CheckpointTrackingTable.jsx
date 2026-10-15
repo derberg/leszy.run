@@ -183,14 +183,18 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, gu
               {(r.gunDurationMs || r.durationMs) && (
                 <div className="flex items-baseline gap-3 mb-1">
                   {r.gunDurationMs && (
-                    <span className="font-mono font-bold text-lg leading-none text-apex-yellow-bright">{formatDuration(r.gunDurationMs)}</span>
+                    <span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-apex-yellow">Brutto </span>
+                      <span className="font-mono font-bold text-lg leading-none text-apex-yellow-bright">{formatDuration(r.gunDurationMs)}</span>
+                    </span>
                   )}
                   {r.durationMs && r.durationMs !== r.gunDurationMs && (
                     <span className="text-xs">
-                      <span className="text-apex-muted">netto </span>
+                      <span className="uppercase tracking-wider text-apex-muted">Netto </span>
                       <span className="font-mono text-apex-muted">{formatDuration(r.durationMs)}</span>
                     </span>
                   )}
+                  <InfoTooltip label="Brutto i netto">{bruttoTooltip}<br /><br />{nettoTooltip}</InfoTooltip>
                 </div>
               )}
 
