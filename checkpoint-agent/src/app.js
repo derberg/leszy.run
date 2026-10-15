@@ -284,7 +284,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.queue = new ObservationQueue(config.dataDir, state.session.checkpointId)
     await state.queue.init()
     state.confirmer = new Confirmer({
-      goneWindowMs: config.goneWindowMs,
+      passWindowMs: config.passWindowMs,
       onConfirm: ({ epc, peakTime }) => {
         const bib = state.resolver.resolve(epc)
         if (bib == null) return // unknown tag — tracked by resolver, never uploaded

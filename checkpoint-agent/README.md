@@ -5,10 +5,10 @@
 A standalone Node/Fastify agent that runs on a Raspberry Pi paired with an
 Impinj R700 RFID reader at a trail checkpoint (an aid station, a mid-course
 timing point, anything away from the main start/finish gate). It configures
-the R700, listens for tag reads over MQTT, applies a simplified
-exit-triggered crossing detector (`src/confirmer.js` — same peak-RSSI /
-silence-window idea as the backend's `crossingDetector.js`, but one
-confirmed pass per EPC per session, no finish-line fallback timer), resolves
+the R700, listens for tag reads over MQTT, applies a crossing detector
+(`src/confirmer.js` — the first read opens a fixed 3 s pass, the pass is
+timed at its strongest read, the same rule as the finish in the backend's
+`crossingDetector.js`, one confirmed pass per EPC per session), resolves
 confirmed EPCs to bib numbers against the roster (downloaded at setup and
 **re-downloaded on every start**, so last-minute registrations are picked up),
 and uploads the results straight to Supabase's `checkpoint_observations` table.
@@ -152,7 +152,7 @@ Run these on the Pi (over SSH, or at its console). Copy-paste each block.
    | `MQTT_URL` | no | `mqtt://localhost:1883` | the Pi's own Mosquitto — leave as localhost |
    | `MQTT_TOPIC` | no | `leszyrun/checkpoint` | agent also subscribes to `<topic>/#` |
    | `DATA_DIR` | no | `./data` | session, roster, and per-checkpoint queue files |
-   | `GONE_WINDOW_MS` | no | `3000` | silence window before a pass is confirmed |
+   | `PASS_WINDOW_MS` | no | `3000` | length of a pass, counted from its first read; the old name `GONE_WINDOW_MS` still works |
    | `UPLOAD_INTERVAL_MS` | no | `5000` | how often the queue drains to Supabase |
    | `READER_POLL_MS` | no | `15000` | how often the agent checks the R700's `/status` while a session is running and reconfigures+restarts it if it was unreachable or isn't actively running inventory (auto-recovery after a reader power cycle) |
 
@@ -308,7 +308,7 @@ Environment=AGENT_PORT=8080
 Environment=MQTT_URL=mqtt://localhost:1883
 Environment=MQTT_TOPIC=leszyrun/checkpoint
 Environment=DATA_DIR=/home/leszyrun/leszyrun/checkpoint-agent/data
-Environment=GONE_WINDOW_MS=3000
+Environment=PASS_WINDOW_MS=3000
 Environment=UPLOAD_INTERVAL_MS=5000
 Environment=READER_POLL_MS=15000
 
@@ -442,8 +442,8 @@ node scripts/simulate-reads.js --epc AABBCC01 [--topic leszyrun/checkpoint] [--u
 ```
 
 It publishes a rising-then-falling RSSI curve (7 reads, 200ms apart) and
-goes silent — with the default `GONE_WINDOW_MS=3000`, the agent (if running
-with a session configured) should confirm the pass about 3 seconds later, at
+goes silent — with the default `PASS_WINDOW_MS=3000`, the agent (if running
+with a session configured) should confirm the pass 3 seconds after the first read, at
 the peak-RSSI reading's timestamp. The EPC only resolves to a bib number and
 gets uploaded if it's present in the downloaded roster — an EPC simulated
 against an event where it isn't registered will show up under "unknown
