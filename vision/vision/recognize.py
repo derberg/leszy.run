@@ -35,6 +35,13 @@ MAX_DIGIT_ASPECT = 1.00
 MIN_CONTRAST = 15
 MAX_BRIGHT_COVERAGE = 0.6      # above this, the bright class is the background
 MIN_DIGIT_CONFIDENCE = 0.7
+# Below this the digits are under 40 pixels tall (they are 0.8 of the block)
+# and too coarse to tell apart. A leafy patch of a runner's top, about 34
+# pixels tall, read as 24 at 0.74 to 0.87 in three separate passes, while
+# every genuine read on the Pi came from a block 71 pixels tall or more.
+# Too small is "nothing to read", not a refused read: it carries no
+# confidence, so the tracker does not count it as a vote against.
+MIN_BLOCK_HEIGHT_PX = 50
 # Share of its bounding box a digit's strokes fill. Measured on Pi crops:
 # digits 0.47 to 0.73, the paper ring round a block 0.13 to 0.20.
 MIN_DIGIT_SOLIDITY = 0.3
@@ -251,6 +258,8 @@ def read_bib(crop: Image.Image) -> tuple:
     up was proven. When it was not, a number that is a different bib upside
     down is refused: a 6 held upside down reads as a clean 9, and 16 as 91.
     """
+    if crop.height < MIN_BLOCK_HEIGHT_PX:
+        return None, 0.0
     text, confidence = _read_upright(crop)
     if text is None or crop.info.get("orientation", "upright") is not None:
         return text, confidence

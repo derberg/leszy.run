@@ -17,6 +17,19 @@ MAX_GAP_FRAMES = 5
 # fragment of the block read as 2 once in 163 frames came out at a vote share
 # of 1.00, because it was the only vote. One frame is noise.
 MIN_AGREEING_FRAMES = 2
+# Frames where digits were found but the recognizer refused them count
+# against the winner. A leafy patch of a runner's top read as 24 in two
+# frames and was refused in about twenty: with only accepted reads voting it
+# came out at a share of 1.00. The winner must hold this share of every
+# frame where digits were found, accepted or refused.
+MIN_READ_SHARE = 0.25
+# One read may stand on its own, but only when nothing in the pass argues
+# with it: a certain read, no other number, no refusal, and a pass short
+# enough to be a runner crossing rather than someone standing at the gate,
+# where fragments get read. A quick crossing gave ten frames and only one
+# held the bib close enough to read, 7 at 1.00.
+SINGLE_READ_CONFIDENCE = 0.99
+SINGLE_READ_MAX_FRAMES = 20
 
 
 def iou(a, b) -> float:
@@ -57,6 +70,7 @@ class _Track:
     best_frame_index: int = -1
     best_bib_box: tuple | None = None
     reads: list = field(default_factory=list)   # (frame, text, confidence, bib box)
+    refused: list = field(default_factory=list)  # frames whose digits the recognizer refused
 
 
 def _split_numbers(track) -> list:
@@ -115,15 +129,29 @@ class Tracker:
                 match.votes[sight.text] += sight.confidence
                 match.read_frames[sight.text] += 1
                 match.reads.append((frame_index, sight.text, sight.confidence, sight.bib_box))
+            elif sight.confidence > 0:
+                match.refused.append(frame_index)
             if sight.confidence > match.best_confidence:
                 match.best_confidence = sight.confidence
                 match.best_frame_index = frame_index
                 match.best_bib_box = sight.bib_box
 
     @staticmethod
-    def _result(track) -> TrackResult:
+    def _stands(track, text) -> bool:
+        agreeing = track.read_frames[text]
+        attempts = sum(track.read_frames.values()) + len(track.refused)
+        if agreeing / attempts < MIN_READ_SHARE:
+            return False
+        if agreeing >= MIN_AGREEING_FRAMES:
+            return True
+        return (attempts == 1
+                and len(track.frames) <= SINGLE_READ_MAX_FRAMES
+                and track.votes[text] >= SINGLE_READ_CONFIDENCE)
+
+    @classmethod
+    def _result(cls, track) -> TrackResult:
         text = max(track.votes, key=track.votes.get) if track.votes else None
-        if text is not None and track.read_frames[text] >= MIN_AGREEING_FRAMES:
+        if text is not None and cls._stands(track, text):
             total = sum(track.votes.values())
             confidence = track.votes[text] / total if total else 0.0
         else:
@@ -156,6 +184,7 @@ class Tracker:
             hi = cuts[i] if i < len(cuts) else float("inf")
             part = _Track(box=track.box, last_frame=track.last_frame)
             part.frames = [f for f in track.frames if lo < f <= hi]
+            part.refused = [f for f in track.refused if lo < f <= hi]
             for frame, text, confidence, bib_box in track.reads:
                 if not lo < frame <= hi:
                     continue
