@@ -9,11 +9,16 @@
 //   db.insert(t).values(v).onConflictDoUpdate({ set })
 //   db.insert(t).values(v)                             (fire-and-forget, .catch())
 //   db.update(t).set(patch).where()
+//   db.select({ participantId }).from(checkins).where()  -> checked-in rows
 //
 // Result rows are keyed by participantId so ON CONFLICT DO UPDATE and findFirst
 // behave like the real unique(raceRunId, participantId) constraint.
-export function createFakeDb({ resultsRows = [] } = {}) {
+// `checkinRows` stands in for the checkins table: [{ participantId, checkedInAt }].
+// The stub does not evaluate the WHERE clause, so it returns only rows with a
+// checkedInAt, which is the one condition the detector cares about.
+export function createFakeDb({ resultsRows = [], checkinRows = [] } = {}) {
   const rows = resultsRows.map((r) => ({ ...r }))
+  const checkins = checkinRows.filter((c) => c.checkedInAt)
   const inserts = { gate_crossings: [], gate_events: [], results: [] }
 
   const tableName = (t) => {
@@ -49,7 +54,9 @@ export function createFakeDb({ resultsRows = [] } = {}) {
           const name = tableName(t)
           const value = isCount
             ? [{ count: inserts.gate_crossings.length }]
-            : name === 'results' ? rows : []
+            : name === 'results' ? rows
+            : name === 'checkins' ? checkins
+            : []
           const mk = () => {
             const p = Promise.resolve(value)
             p.orderBy = () => Promise.resolve(value)
