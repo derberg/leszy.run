@@ -3,6 +3,7 @@ import { useEvent } from '../hooks/useEvent.js'
 import { supabase } from '../lib/supabase.js'
 import { QRCodeCanvas } from 'qrcode.react'
 import useSeo from '../hooks/useSeo.js'
+import { cardContent, cardFileName, renderCheckinCard, shareMode, downloadFile } from '../lib/checkinCard.js'
 
 function isMinor(birthDate, eventDate) {
   if (!birthDate) return false
@@ -27,6 +28,7 @@ export default function Checkin() {
   const [loadError, setLoadError] = useState(null)
   const [loading, setLoading] = useState(true)
   const qrRef = useRef(null)
+  const [cardFile, setCardFile] = useState(null)
 
   const loadData = useCallback(async () => {
     if (!event || !participantId) return
@@ -130,14 +132,35 @@ export default function Checkin() {
     setSubmitting(false)
   }
 
-  const downloadQR = () => {
-    const canvas = qrRef.current?.querySelector('canvas')
-    if (!canvas) return
-    const url = canvas.toDataURL('image/png')
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `checkin-${participant?.bib_number || participantId}.png`
-    a.click()
+  // Render the card as soon as the confirmation screen is up, so the tap on
+  // "Udostępnij" can call navigator.share straight away. iOS Safari refuses a
+  // share that follows slow async work inside the click handler.
+  useEffect(() => {
+    if (!checkedIn || !participant || !event) return
+    let cancelled = false
+    const qrCanvas = qrRef.current?.querySelector('canvas')
+    if (!qrCanvas) return
+    const content = cardContent({ event, participant, minor: isMinor(participant.birth_date, event.date) })
+    renderCheckinCard(qrCanvas, content, cardFileName(participant, participantId))
+      .then(file => { if (!cancelled) setCardFile(file) })
+      .catch(err => console.error('[checkin] card render error', err))
+    return () => { cancelled = true }
+  }, [checkedIn, participant, event, participantId])
+
+  const canShare = cardFile ? shareMode(navigator, cardFile) === 'share' : false
+
+  const shareCard = async () => {
+    if (!cardFile) return
+    try {
+      await navigator.share({ files: [cardFile], title: `Check-in: ${event.name}` })
+    } catch (err) {
+      // AbortError = the runner closed the share sheet; nothing to do.
+      if (err?.name !== 'AbortError') downloadFile(cardFile)
+    }
+  }
+
+  const saveCard = () => {
+    if (cardFile) downloadFile(cardFile)
   }
 
   if (eventLoading || loading) {
@@ -172,6 +195,26 @@ export default function Checkin() {
 
           <div ref={qrRef} className="inline-block bg-white p-4 mb-6">
             <QRCodeCanvas value={`${window.location.origin}/events/${event.slug}/admin/checkin?p=${participantId}`} size={200} />
+          </div>
+
+          <div className="flex flex-col gap-3 mb-6">
+            {canShare && (
+              <button
+                onClick={shareCard}
+                className="w-full py-3 font-bold uppercase tracking-wider text-apex-ink bg-apex-yellow hover:bg-apex-yellow-bright transition-colors"
+              >
+                Udostępnij
+              </button>
+            )}
+            <button
+              onClick={saveCard}
+              disabled={!cardFile}
+              className={canShare
+                ? 'w-full py-3 font-bold uppercase tracking-wider border border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-colors disabled:opacity-50'
+                : 'w-full py-3 font-bold uppercase tracking-wider text-apex-ink bg-apex-yellow hover:bg-apex-yellow-bright transition-colors disabled:opacity-50'}
+            >
+              Zapisz obraz
+            </button>
           </div>
 
           <div className="border border-apex-yellow/40 bg-apex-yellow/10 text-apex-yellow text-sm px-4 py-3 mb-6">
@@ -212,12 +255,6 @@ export default function Checkin() {
             </div>
           )}
 
-          <button
-            onClick={downloadQR}
-            className="w-full py-3 font-bold uppercase tracking-wider text-apex-ink bg-apex-yellow hover:bg-apex-yellow-bright transition-colors"
-          >
-            Zapisz QR
-          </button>
         </div>
       </div>
     )
