@@ -29,11 +29,15 @@ export function useCheckpointOutbox(checkpointId) {
     // The browser knows before we do that the signal came back.
     const kick = () => ob.flush()
     const onVisible = () => { if (document.visibilityState === 'visible') ob.flush() }
+    // Another tab on the same checkpoint wrote its queue.
+    const onStorage = (e) => { if (e.key === outboxKey(checkpointId)) ob.sync() }
     window.addEventListener('online', kick)
+    window.addEventListener('storage', onStorage)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       off()
       window.removeEventListener('online', kick)
+      window.removeEventListener('storage', onStorage)
       document.removeEventListener('visibilitychange', onVisible)
       ob.destroy()
       setOutbox(null)

@@ -16,6 +16,7 @@
 // entry delivered five minutes late still carries the right time.
 
 const TIMEOUT_MS = 8000
+const TIMEOUT_MAX_MS = 30000
 const BACKOFF_BASE_MS = 1000
 const BACKOFF_MAX_MS = 15000
 const KEEP_DONE = 20
@@ -24,6 +25,13 @@ const KEEP_DONE = 20
 // rollback (serialization, deadlock), insufficient resources, operator
 // intervention (statement timeout, shutdown), system error.
 const TRANSIENT_SQLSTATE_CLASSES = ['08', '40', '53', '57', '58']
+// PostgREST's own "cannot reach the database right now" codes: no connection,
+// pool timeout, schema cache not loaded. Supabase returns them while it
+// restarts or is overloaded.
+const TRANSIENT_PGRST_CODES = ['PGRST000', 'PGRST001', 'PGRST002', 'PGRST003']
+// Statuses that mean the server has the row. Only these, from another tab,
+// override a local 'pending': a 'failed' copy may be one this tab is retrying.
+const DELIVERED = new Set(['saved', 'duplicate'])
 
 export function outboxKey(checkpointId) {
   return `leszy.checkpointOutbox.${checkpointId}`
@@ -44,8 +52,14 @@ export function classifyInsertResult({ data, error, status }) {
   err.code = code
   err.status = status
   // No code at all is how postgrest-js reports a fetch that never got an
-  // answer: offline, DNS, an abort, a gateway error page.
-  err.permanent = code !== '' && !TRANSIENT_SQLSTATE_CLASSES.includes(code.slice(0, 2))
+  // answer: offline, DNS, an abort, a gateway error page. A 5xx or 429 is the
+  // server saying "not now", whatever code it carries.
+  const transient = code === ''
+    || status >= 500
+    || status === 429
+    || TRANSIENT_PGRST_CODES.includes(code)
+    || TRANSIENT_SQLSTATE_CLASSES.includes(code.slice(0, 2))
+  err.permanent = !transient
   throw err
 }
 
@@ -85,6 +99,10 @@ export function createOutbox({
   let inFlight = null // { id, token, cancelTimeout }
   let cancelBackoff = null
   let failStreak = 0
+  let timeoutStreak = 0
+  // Ids this tab cancelled or pruned, so a copy written back by another tab
+  // does not bring them back.
+  const removed = new Set()
   let reachable = true
   let token = 0
   let stopped = false
@@ -110,7 +128,39 @@ export function createOutbox({
     try { storage.setItem(key, storage.getItem(key) ?? '[]'); return true } catch { return false }
   }
 
+  // Two tabs on the same checkpoint share one storage key. Each write first
+  // takes in what the other tab stored, or the last writer would erase the
+  // other's unsent entries. Both tabs may then send the same entry; the
+  // dedup trigger makes that harmless.
+  function mergeForeign() {
+    let foreign
+    try {
+      const raw = storage.getItem(key)
+      foreign = raw ? JSON.parse(raw) : []
+    } catch {
+      return false
+    }
+    if (!Array.isArray(foreign)) return false
+    let touched = false
+    for (const f of foreign) {
+      if (!f || typeof f.id !== 'string' || !Number.isInteger(f.bib) || removed.has(f.id)) continue
+      const mine = find(f.id)
+      if (!mine) {
+        items.push({ ...f })
+        touched = true
+      } else if (mine.status === 'pending' && DELIVERED.has(f.status)) {
+        // The other tab already delivered it.
+        mine.status = f.status
+        mine.error = f.error ?? null
+        touched = true
+      }
+    }
+    if (touched) items.sort((a, b) => (a.observedAt < b.observedAt ? -1 : a.observedAt > b.observedAt ? 1 : 0))
+    return touched
+  }
+
   function save() {
+    mergeForeign()
     try {
       storage.setItem(key, JSON.stringify(items))
       persistent = true
@@ -134,6 +184,7 @@ export function createOutbox({
     const done = items.filter(e => e.status === 'saved' || e.status === 'duplicate')
     if (done.length <= keepDone) return
     const drop = new Set(done.slice(0, done.length - keepDone).map(e => e.id))
+    for (const id of drop) removed.add(id)
     items = items.filter(e => !drop.has(e.id))
   }
 
@@ -147,6 +198,10 @@ export function createOutbox({
     if (!inFlight || inFlight.token !== myToken) return // abandoned after a timeout
     inFlight.cancelTimeout()
     inFlight = null
+    // Any answer from the server, good or bad, means the link carries a round
+    // trip again.
+    if (outcome || err?.permanent) timeoutStreak = 0
+    else if (err?.timeout) timeoutStreak++
 
     if (outcome) {
       entry.status = outcome
@@ -188,13 +243,17 @@ export function createOutbox({
     const controller = new AbortController()
     entry.status = 'sending'
     entry.attempts = (entry.attempts || 0) + 1
+    // A link so slow that a round trip takes longer than the timeout would
+    // otherwise abort every attempt forever, even while each one lands.
+    const wait = Math.min(timeoutMs * 2 ** timeoutStreak, TIMEOUT_MAX_MS)
     const cancelTimeout = schedule(() => {
       controller.abort()
       const err = new Error('timeout')
       err.permanent = false
+      err.timeout = true
       finish(myToken, entry, null, err)
-    }, timeoutMs)
-    inFlight = { id: entry.id, token: myToken, cancelTimeout }
+    }, wait)
+    inFlight = { id: entry.id, token: myToken, cancelTimeout, controller }
     changed()
 
     let result
@@ -234,9 +293,13 @@ export function createOutbox({
       flush()
       return { ...entry }
     },
+    // Only an entry never attempted can be taken back. Once a request has gone
+    // out it may have landed even if no answer came, and the page has no way
+    // to delete it from the server.
     cancel(id) {
       const e = find(id)
-      if (!e || e.status !== 'pending') return false
+      if (!e || e.status !== 'pending' || (e.attempts || 0) > 0) return false
+      removed.add(id)
       items = items.filter(x => x.id !== id)
       changed()
       return true
@@ -251,6 +314,15 @@ export function createOutbox({
       return true
     },
     flush,
+    // Take in what another tab stored (call on the window 'storage' event).
+    sync() {
+      if (mergeForeign()) {
+        for (const fn of listeners) {
+          try { fn() } catch (e) { console.error('[outbox] listener failed', e) }
+        }
+      }
+      pump()
+    },
     entries: () => items.slice().reverse().map(e => ({ ...e })),
     pendingCount: () => items.filter(e => e.status === 'pending' || e.status === 'sending').length,
     failedCount: () => items.filter(e => e.status === 'failed').length,
@@ -263,7 +335,7 @@ export function createOutbox({
     destroy() {
       stopped = true
       if (cancelBackoff) { cancelBackoff(); cancelBackoff = null }
-      if (inFlight) { inFlight.cancelTimeout(); inFlight = null }
+      if (inFlight) { inFlight.cancelTimeout(); inFlight.controller.abort(); inFlight = null }
       listeners.clear()
     },
   }

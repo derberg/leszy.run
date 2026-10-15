@@ -171,7 +171,7 @@ function QueueStatus({ outbox }) {
       )}
       {failed > 0 && (
         <div className="border border-apex-red/50 bg-apex-red/10 text-apex-red px-3 py-2">
-          Serwer odrzucił {failed} {failed === 1 ? 'numer' : 'numery'}. Spróbuj ponownie albo podaj je koordynatorowi.
+          Serwer odrzucił {failed} {numerWord(failed)}. Spróbuj ponownie albo podaj je koordynatorowi.
         </div>
       )}
       {pending > 0 && !reachable && (
@@ -187,6 +187,13 @@ function QueueStatus({ outbox }) {
       )}
     </div>
   )
+}
+
+function numerWord(n) {
+  if (n === 1) return 'numer'
+  const tens = n % 100
+  if (n % 10 >= 2 && n % 10 <= 4 && (tens < 12 || tens > 14)) return 'numery'
+  return 'numerów'
 }
 
 const STATUS = {
@@ -213,7 +220,7 @@ function RecentEntries({ outbox }) {
             <span className="font-mono text-apex-dim w-[70px]">{timeFmt.format(new Date(e.observedAt))}</span>
             <span className="font-mono font-bold text-apex-text-bright text-lg w-[56px] text-right">{e.bib}</span>
             <span className={`flex-1 ${st.cls}`}>{st.label}</span>
-            {e.status === 'pending' && (
+            {e.status === 'pending' && !e.attempts && (
               <button
                 onClick={() => {
                   if (confirmId !== e.id) { setConfirmId(e.id); return }

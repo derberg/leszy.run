@@ -290,6 +290,95 @@ describe('createOutbox', () => {
   })
 })
 
+describe('createOutbox, review fixes', () => {
+  it('cancel() refuses an entry that was already attempted, since it may be on the server', async () => {
+    const timers = manualTimers()
+    const { outbox } = make({ timers, send: async () => { throw new Error('Failed to fetch') } })
+    const e = outbox.add(1)
+    await settle()
+    assert.equal(outbox.entries()[0].status, 'pending')
+    assert.equal(outbox.cancel(e.id), false)
+    assert.equal(outbox.entries().length, 1)
+  })
+
+  it('lengthens the timeout after consecutive timeouts and resets it once the server answers', async () => {
+    const timers = manualTimers()
+    let hang = true
+    const { outbox } = make({
+      timers,
+      send: (e, signal) => hang
+        ? new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('AbortError'))))
+        : Promise.resolve('saved'),
+    })
+    outbox.add(1)
+    assert.equal(timers.pending[0].ms, 8000)
+    await timers.fireAll()          // timeout 1
+    await timers.fireAll()          // backoff → resend
+    assert.equal(timers.pending[0].ms, 16000)
+    await timers.fireAll()          // timeout 2
+    await timers.fireAll()
+    assert.equal(timers.pending[0].ms, 30000)
+    await timers.fireAll()
+    await timers.fireAll()
+    assert.equal(timers.pending[0].ms, 30000, 'capped')
+    hang = false
+    await timers.fireAll()          // timeout 3 fires, then backoff resend succeeds
+    await timers.fireAll()
+    assert.equal(outbox.entries()[0].status, 'saved')
+    outbox.add(2)
+    assert.equal(timers.pending[0].ms, 8000)
+  })
+
+  it('destroy() aborts the request in flight', () => {
+    let aborted = false
+    const { outbox } = make({ send: (e, signal) => { signal.addEventListener('abort', () => { aborted = true }); return new Promise(() => {}) } })
+    outbox.add(1)
+    outbox.destroy()
+    assert.equal(aborted, true)
+  })
+
+  it('does not erase an entry another tab wrote to the same key', async () => {
+    const storage = memoryStorage()
+    const never = () => new Promise(() => {})
+    const a = make({ storage, send: never }).outbox
+    const b = make({ storage, send: never }).outbox
+    a.add(1)
+    b.add(2)
+    const stored = JSON.parse(storage.data.k).map(e => e.bib).sort()
+    assert.deepEqual(stored, [1, 2])
+  })
+
+  it('sync() adopts entries another tab added and takes its final statuses', async () => {
+    const storage = memoryStorage()
+    const timers = manualTimers()
+    const a = make({ storage, timers, send: async () => { throw new Error('offline') } }).outbox
+    const e1 = a.add(1)
+    await settle()
+    // Another tab delivered entry 1 and added entry 2.
+    const other = JSON.parse(storage.data.k)
+    other[0].status = 'saved'
+    other.push({ id: 'z', bib: 2, observedAt: '2026-10-17T10:00:01.000Z', status: 'saved', attempts: 1 })
+    storage.data.k = JSON.stringify(other)
+    a.sync()
+    const byBib = Object.fromEntries(a.entries().map(e => [e.bib, e.status]))
+    assert.deepEqual(byBib, { 1: 'saved', 2: 'saved' })
+    assert.equal(a.entries().find(e => e.id === e1.id).status, 'saved')
+  })
+
+  it('does not bring back an entry this tab cancelled', () => {
+    const storage = memoryStorage()
+    const never = () => new Promise(() => {})
+    const a = make({ storage, send: never }).outbox
+    a.add(1)               // in flight
+    const e2 = a.add(2)    // waiting
+    const stale = storage.data.k
+    a.cancel(e2.id)
+    storage.data.k = stale // another tab writes its older copy back
+    a.sync()
+    assert.deepEqual(a.entries().map(e => e.bib), [1])
+  })
+})
+
 describe('classifyInsertResult', () => {
   it('a returned row is saved', () => {
     assert.equal(classifyInsertResult({ data: [{ id: 'x' }], error: null }), 'saved')
@@ -317,6 +406,24 @@ describe('classifyInsertResult', () => {
       () => classifyInsertResult({ data: null, error: { code: '57014', message: 'canceling statement' }, status: 500 }),
       (e) => e.permanent === false,
     )
+  })
+  it('PostgREST connection and schema-cache errors are transient', () => {
+    for (const [code, status] of [['PGRST000', 503], ['PGRST001', 503], ['PGRST002', 503], ['PGRST003', 504]]) {
+      assert.throws(
+        () => classifyInsertResult({ data: null, error: { code, message: 'x' }, status }),
+        (e) => e.permanent === false,
+        code,
+      )
+    }
+  })
+  it('any 5xx or 429 is transient whatever the code', () => {
+    for (const status of [500, 502, 503, 429]) {
+      assert.throws(
+        () => classifyInsertResult({ data: null, error: { code: 'XX000', message: 'x' }, status }),
+        (e) => e.permanent === false,
+        String(status),
+      )
+    }
   })
   it('a foreign key or RLS violation is permanent', () => {
     for (const code of ['23503', '42501', '22P02', 'PGRST204']) {
