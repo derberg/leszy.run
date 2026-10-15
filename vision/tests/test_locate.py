@@ -181,3 +181,42 @@ def test_a_bare_block_has_no_proven_orientation():
     scene, _ = _scene()
     _, crop = extract_bib(scene)
     assert crop.info["orientation"] is None
+
+
+
+def _at_dusk(image, factor=0.28):
+    """The scene as the gate camera recorded it after sunset.
+
+    Measured on the 2026-10-15 test race: with gain and shutter both at their
+    ceiling the bib block came back at saturation about 91 and value about 16
+    of 255. That is below the relaxed colour mask's value floor of 20, and
+    too unsaturated for the strict one, so no block was located. Scaling
+    every channel keeps hue and saturation and lowers only the value: the
+    dull-light block here goes from 56 to about 16.
+    """
+    import numpy as np
+
+    rgb = np.asarray(image.convert("RGB")).astype(np.float32) * factor
+    return Image.fromarray(rgb.astype(np.uint8))
+
+
+def test_finds_and_reads_a_bib_at_dusk():
+    from vision.locate import extract_bib
+    from vision.recognize import read_bib
+
+    scene = Image.new("RGB", (900, 700), (60, 60, 60))
+    scene.paste(_as_photographed(render_bib(20, px_per_mm=1.5)), (300, 200))
+    box, crop = extract_bib(_at_dusk(scene), region=(150, 50, 750, 650))
+    assert box is not None
+    assert read_bib(crop)[0] == "20"
+
+
+def test_dark_foliage_without_digits_is_still_not_a_bib():
+    import cv2
+    import numpy as np
+
+    block = cv2.cvtColor(np.uint8([[[57, 128 - 7, 128 + 16]]]),
+                         cv2.COLOR_LAB2RGB)[0, 0]
+    scene = Image.new("RGB", (900, 700), (60, 60, 60))
+    scene.paste(Image.new("RGB", (300, 150), tuple(int(v) for v in block)), (300, 200))
+    assert locate_bib(_at_dusk(scene), region=(150, 50, 750, 650)) is None

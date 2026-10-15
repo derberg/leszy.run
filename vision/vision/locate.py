@@ -43,6 +43,17 @@ HEADER_OVER_FOOTER = 1.3       # with both bands seen, how much taller the heade
 MIN_GLYPHS = 3                 # fewer is a hand or a shadow, not a line of text
 MIN_PAPER = 0.3                # share of a band that must be bright paper
 PAPER_OVER_BLOCK = 1.4         # paper is this much brighter than the olive block
+# Dusk. After sunset at the 2026-10-15 test race the camera ran at its gain
+# and shutter ceilings and the block still came back at a value of about 16,
+# under MIN_VALUE, so no runner of the race proper was located by colour. A
+# search area whose brightest pixels sit under DARK_BELOW is multiplied up
+# before anything else looks at it. Every channel takes the same gain, which
+# keeps hue and saturation, and the absolute levels the locator also leans
+# on (MIN_VALUE, digits 25 levels above the block, paper brighter than the
+# block) scale with the picture instead of being tuned for the dark.
+DARK_BELOW = 120               # 99th percentile grey of the search area
+LIFT_TO = 220
+MAX_LIFT = 8.0                 # beyond this it is amplifying sensor noise
 
 
 def _colour_mask(rgb: np.ndarray, relaxed: bool = False) -> np.ndarray:
@@ -179,9 +190,31 @@ def _best_block(rgb, mask):
     return best
 
 
+def _lift(image: Image.Image, region=None) -> Image.Image:
+    """The image with a dark search area brought up to daylight levels.
+
+    The gain is measured on the search area alone, because a runner in the
+    shade of a lit gate is dark while the frame is not. Returned unchanged
+    when the area is bright enough already.
+    """
+    rgb = np.asarray(image.convert("RGB"))
+    area = rgb
+    if region is not None:
+        x1, y1, x2, y2 = (int(v) for v in region)
+        area = rgb[y1:y2, x1:x2]
+    if area.size == 0:
+        return image
+    grey = cv2.cvtColor(np.ascontiguousarray(area[::4, ::4]), cv2.COLOR_RGB2GRAY)
+    top = float(np.percentile(grey, 99))
+    if top >= DARK_BELOW:
+        return image
+    gain = min(MAX_LIFT, LIFT_TO / max(top, 1.0))
+    return Image.fromarray(cv2.convertScaleAbs(rgb, alpha=gain))
+
+
 def locate_bib(image: Image.Image, region=None):
     """Return (x1, y1, x2, y2) of the bib block, or None."""
-    found = _find_block(image, region)
+    found = _find_block(_lift(image, region), region)
     return None if found is None else found[0]
 
 
@@ -307,7 +340,11 @@ def extract_bib(image: Image.Image, region=None):
     55 at twenty, both at around 0.5 confidence. A bib pinned to a moving
     runner tilts as a matter of course, so that is an ordinary input, and a
     confidently wrong number is the costliest thing this pipeline can produce.
+
+    The crop comes from the lifted image too, so a dusk crop reaches the
+    recognizer at the levels it was located at.
     """
+    image = _lift(image, region)
     found = _find_block(image, region)
     if found is None:
         return None, None

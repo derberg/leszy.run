@@ -121,6 +121,14 @@ Black frames mean no light. The Camera Module v2.1 has an infrared-cut filter
 and the shutter is locked fast to freeze runners. A night race needs a lit
 gate. No code change fixes darkness.
 
+Dim is not black. At dusk the locator multiplies a dark person region up
+before it looks for the block (`_lift` in `vision/locate.py`), because on the
+2026-10-15 test race the block came back at a value of about 16, under the
+colour mask's floor of 20. That rescues a block that is dim but present. It
+cannot rescue one that is too small: in the same race the median runner was
+350 px tall and most blocks were under 50 px, so they were never read. That
+is camera placement. Bring the lane to about 3 m from the lens.
+
 ## Things that will look like bugs and are not
 
 - A track with `text=None` is kept on purpose. It says somebody crossed and
