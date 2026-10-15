@@ -1,4 +1,5 @@
 import Fastify from 'fastify'
+import { createWriteStream } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FileStore } from './store.js'
@@ -283,8 +284,12 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     // checkpoint session always starts with a clean seed.
     state.queue = new ObservationQueue(config.dataDir, state.session.checkpointId)
     await state.queue.init()
+    // Every armed read, so a pass can be checked after the race: was the
+    // confirmed time really the strongest read? The queue keeps only the result.
+    state.readLog = createWriteStream(join(config.dataDir, `reads-${state.session.checkpointId}.jsonl`), { flags: 'a' })
     state.confirmer = new Confirmer({
-      passWindowMs: config.passWindowMs,
+      quietMs: config.passQuietMs,
+      maxPassMs: config.passMaxMs,
       onConfirm: ({ epc, peakTime }) => {
         const bib = state.resolver.resolve(epc)
         if (bib == null) return // unknown tag — tracked by resolver, never uploaded
@@ -355,7 +360,9 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
         state.ignoredReads += 1
         return
       }
-      state.confirmer.read({ ...read, at: Date.now() })
+      const at = Date.now()
+      state.readLog?.write(JSON.stringify({ epc: read.epc, rssiCdbm: read.rssiCdbm, antennaPort: read.antennaPort, at: new Date(at).toISOString() }) + '\n')
+      state.confirmer.read({ ...read, at })
     })
     state.mqttClient.subscribe([`${config.mqttTopic}`, `${config.mqttTopic}/#`], { qos: 1 })
     state.running = true
@@ -452,6 +459,11 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.mqttClient?.end()
     state.confirmer?.stop()
     state.uploader?.stop()
+    if (state.readLog) {
+      const log = state.readLog
+      state.readLog = null
+      await new Promise((resolve) => log.end(resolve))
+    }
     // Simple, correct choice: stop the heartbeat on stopAll() rather than
     // keeping a 'configured' heartbeat alive after Stop. The row simply goes
     // stale (UI derives offline from last_seen_at) until the operator either

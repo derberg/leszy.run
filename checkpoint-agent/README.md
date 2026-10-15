@@ -6,8 +6,9 @@ A standalone Node/Fastify agent that runs on a Raspberry Pi paired with an
 Impinj R700 RFID reader at a trail checkpoint (an aid station, a mid-course
 timing point, anything away from the main start/finish gate). It configures
 the R700, listens for tag reads over MQTT, applies a crossing detector
-(`src/confirmer.js` — the first read opens a fixed 3 s pass, the pass is
-timed at its strongest read, the same rule as the finish in the backend's
+(`src/confirmer.js`: the first read opens a pass, it closes 2 s after the
+last stronger read and at most 6 s after the first, and it is timed at its
+strongest read, the same rule as the finish in the backend's
 `crossingDetector.js`, one confirmed pass per EPC per session), resolves
 confirmed EPCs to bib numbers against the roster (downloaded at setup and
 **re-downloaded on every start**, so last-minute registrations are picked up),
@@ -151,8 +152,9 @@ Run these on the Pi (over SSH, or at its console). Copy-paste each block.
    | `AGENT_PORT` | no | `8080` | wizard/dashboard UI + API |
    | `MQTT_URL` | no | `mqtt://localhost:1883` | the Pi's own Mosquitto — leave as localhost |
    | `MQTT_TOPIC` | no | `leszyrun/checkpoint` | agent also subscribes to `<topic>/#` |
-   | `DATA_DIR` | no | `./data` | session, roster, and per-checkpoint queue files |
-   | `PASS_WINDOW_MS` | no | `3000` | length of a pass, counted from its first read; the old name `GONE_WINDOW_MS` still works |
+   | `DATA_DIR` | no | `./data` | session, roster, per-checkpoint queue files, and `reads-<checkpointId>.jsonl` with every armed read |
+   | `PASS_QUIET_MS` | no | `2000` | a pass closes this long after its last stronger read |
+   | `PASS_MAX_MS` | no | `6000` | a pass closes this long after its first read at the latest |
    | `UPLOAD_INTERVAL_MS` | no | `5000` | how often the queue drains to Supabase |
    | `READER_POLL_MS` | no | `15000` | how often the agent checks the R700's `/status` while a session is running and reconfigures+restarts it if it was unreachable or isn't actively running inventory (auto-recovery after a reader power cycle) |
 
@@ -308,7 +310,8 @@ Environment=AGENT_PORT=8080
 Environment=MQTT_URL=mqtt://localhost:1883
 Environment=MQTT_TOPIC=leszyrun/checkpoint
 Environment=DATA_DIR=/home/leszyrun/leszyrun/checkpoint-agent/data
-Environment=PASS_WINDOW_MS=3000
+Environment=PASS_QUIET_MS=2000
+Environment=PASS_MAX_MS=6000
 Environment=UPLOAD_INTERVAL_MS=5000
 Environment=READER_POLL_MS=15000
 
@@ -442,9 +445,9 @@ node scripts/simulate-reads.js --epc AABBCC01 [--topic leszyrun/checkpoint] [--u
 ```
 
 It publishes a rising-then-falling RSSI curve (7 reads, 200ms apart) and
-goes silent — with the default `PASS_WINDOW_MS=3000`, the agent (if running
-with a session configured) should confirm the pass 3 seconds after the first read, at
-the peak-RSSI reading's timestamp. The EPC only resolves to a bib number and
+goes silent. With the defaults, the agent (if running with a session
+configured) confirms the pass 2 seconds after the strongest read, at that
+read's timestamp. The EPC only resolves to a bib number and
 gets uploaded if it's present in the downloaded roster — an EPC simulated
 against an event where it isn't registered will show up under "unknown
 tags" instead.

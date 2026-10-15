@@ -5,6 +5,9 @@ import { createFakeDb, createFakeBroadcast, wait } from './helpers/fakeDb.js'
 
 // Short windows so the exit-triggered start confirms in milliseconds, not seconds.
 const GONE_MS = 60
+// The finish pass, scaled the same way: closes GONE_MS after its last new peak,
+// and FINISH_MAX_MS after its first read at the latest.
+const FINISH_MAX_MS = 4 * GONE_MS
 
 function baseConfig(over = {}) {
   return {
@@ -22,7 +25,7 @@ function baseConfig(over = {}) {
 async function makeRace(t, { config = baseConfig(), resultsRows = [], checkinRows = [], participants = [{ id: 'p1', rfidEpc: 'EPC1' }] } = {}) {
   const db = createFakeDb({ resultsRows, checkinRows })
   const broadcast = createFakeBroadcast()
-  const detector = new CrossingDetector({ db, broadcast })
+  const detector = new CrossingDetector({ db, broadcast, finishQuietMs: GONE_MS, finishMaxPassMs: FINISH_MAX_MS })
   const raceRun = { id: 'rr1', startedAt: new Date(Date.now() - 60_000) }
   await detector.startRace(raceRun, config, participants)
   t.after(() => detector.stopRace(raceRun.id).catch(() => {}))
@@ -96,31 +99,61 @@ test('FINISH confirms at the peak of the window, not at the first read', async (
   assert.equal(crossings[0].peakRssiCdbm, -4000)
 })
 
-test('a FINISH pass closes a fixed window after its first read, even while the tag is still read', async (t) => {
-  // Reads 220 ms apart clear the 200 ms dedup window. With a 500 ms window the
-  // pass must close at ~500 ms although reads keep arriving.
+test('a FINISH pass stays open while the signal is still rising (2026-10-15, bib 4)', async (t) => {
+  // Bib 4 was first heard 4.5 s before its peak. The old fixed 3 s window closed
+  // while the runner was still walking in and timed the finish 1.58 s early, at
+  // -6450 instead of the -3300 read at the line. Scaled down: reads every 40 ms,
+  // each stronger, for longer than the quiet window.
   const { detector, broadcast } = await makeRace(t, {
-    config: baseConfig({ goneWindowSeconds: 0.5 }),
     resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
   })
 
-  // A finisher who stops just past the line keeps being read.
+  let peakAt
+  for (const r of [-7850, -7550, -7000, -6450, -5400, -4800, -3300]) {
+    peakAt = new Date().toISOString()
+    detector.processEvent(read(r, { receivedAt: peakAt }))
+    await wait(40)
+  }
+  assert.equal(broadcast.crossings().length, 0, 'still open: the last new peak is under GONE_MS old')
+
+  await wait(GONE_MS + 60)
+  const crossings = broadcast.crossings()
+  assert.equal(crossings.length, 1)
+  assert.equal(crossings[0].peakRssiCdbm, -3300)
+  assert.equal(new Date(crossings[0].confirmedAt).toISOString(), peakAt)
+})
+
+test('a FINISH pass closes once no stronger read arrives for the quiet window', async (t) => {
+  const { detector, broadcast } = await makeRace(t, {
+    resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
+  })
+
   const peakAt = new Date().toISOString()
-  detector.processEvent(read(-4500, { receivedAt: peakAt }))
-  await wait(220)
-  detector.processEvent(read(-6000, { receivedAt: new Date().toISOString() }))
-  await wait(220)
-  detector.processEvent(read(-6000, { receivedAt: new Date().toISOString() }))
-  assert.equal(broadcast.crossings().length, 0, 'still open at ~440 ms')
-
-  await wait(120)
-  assert.equal(broadcast.crossings().length, 1, 'closed 500 ms after the first read, reads did not extend it')
+  detector.processEvent(read(-3500, { receivedAt: peakAt }))
+  await wait(GONE_MS + 30)
+  assert.equal(broadcast.crossings().length, 1, 'closed GONE_MS after the peak, not FINISH_MAX_MS after the first read')
   assert.equal(new Date(broadcast.crossings()[0].confirmedAt).toISOString(), peakAt)
+})
 
-  // A stronger read later, from where they stand, must not re-time it.
-  await wait(220)
-  detector.processEvent(read(-3000, { receivedAt: new Date().toISOString() }))
-  await wait(600)
+test('a FINISH pass closes FINISH_MAX_MS after its first read, even while reads keep getting stronger', async (t) => {
+  // A finisher who stops right under the antenna can keep producing slightly
+  // stronger reads. The cap stops them from moving their own finish time.
+  const { detector, broadcast } = await makeRace(t, {
+    resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
+  })
+
+  const t0 = Date.now()
+  let rssi = -6400 // above the -6500 tracking floor, so the first read opens the pass
+  while (Date.now() - t0 < FINISH_MAX_MS + 150) {
+    detector.processEvent(read(rssi, { receivedAt: new Date().toISOString() }))
+    rssi += 100
+    await wait(30)
+  }
+  const crossings = broadcast.crossings()
+  assert.equal(crossings.length, 1, 'closed by the cap although every read was a new peak')
+  assert.ok(new Date(crossings[0].confirmedAt).getTime() - t0 <= FINISH_MAX_MS, 'no read after the cap competes for the peak')
+
+  await wait(GONE_MS + 60)
   assert.equal(broadcast.crossings().length, 1, 'a finish is never re-timed')
 })
 
