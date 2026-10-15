@@ -194,7 +194,7 @@ export default function Checkin() {
           )}
 
           <div ref={qrRef} className="inline-block bg-white p-4 mb-6">
-            <QRCodeCanvas value={`${window.location.origin}/events/${event.slug}/admin/checkin?p=${participantId}`} size={200} />
+            <QRCodeCanvas value={`${window.location.origin}/events/${event.slug}/admin/checkin?p=${participantId}`} size={280} />
           </div>
 
           <div className="flex flex-col gap-3 mb-6">
