@@ -889,6 +889,13 @@ The admin `frontend/` app still uses the Google Fonts link — it is not public-
 
 DB credentials: container `leszyrun-db-1`, user `leszyrun`, db `leszyrun`.
 
+The commands below are for the Mac's Docker database. A race timed on checkpoint1 has its
+`gate_events` and `gate_crossings` only in that Pi's native Postgres, so run the same SQL
+there over ssh: `PGPASSWORD=leszyrun psql -U leszyrun -d leszyrun -h localhost -f q.sql`
+(plain `psql` fails authentication). Copy the query over as a file, because quoting through
+ssh breaks. The Pi's journald keeps only the current boot, and reads below the event's
+`rssi_threshold` are never stored, so `gate_events` is the only record of a past race.
+
 **Investigation flow:** start with query 5 to get EPC → query 1 to check R700 saw the tag → if rows exist, use query 2 to check antenna coverage.
 
 **1. Did the R700 see this EPC at all?**
