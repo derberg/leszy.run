@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFoo
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select.jsx'
 import { Download, ExternalLink, Info, Pencil, Upload, UserCheck } from 'lucide-react'
 import { useWsEvent } from '../lib/ws.js'
+import { volunteerFinishAt, volunteerFinishCheck } from '../lib/volunteerFinish.js'
 
 const GENDER_VIEWS = [
   { key: null, label: 'Open' },
@@ -161,8 +162,10 @@ function RaceOverview({ eventId, categories }) {
     queryFn: () => api.checkpoints.list(eventId),
   })
 
-  // ALL checkpoints including private (admin view)
-  const sortedCps = [...checkpoints].sort((a, b) => (a.kmMarker || 0) - (b.kmMarker || 0))
+  // ALL checkpoints including private (admin view). The manual finish goes last,
+  // next to the chip finish it is compared with.
+  const cpOrder = (cp) => (cp.isFinish ? Infinity : cp.kmMarker || 0)
+  const sortedCps = [...checkpoints].sort((a, b) => cpOrder(a) - cpOrder(b))
 
   // Get all active/finished race runs + their results
   const raceRuns = categories.flatMap(c =>
@@ -277,6 +280,16 @@ function RaceOverview({ eventId, categories }) {
             {sorted.map(r => {
               const p = r.participant
               const isFinished = !!r.finishTime
+              const obsAt = (cpId) => obsLookup[`${r.participantId}:${cpId}`]
+                || (p?.bibNumber != null ? obsLookup[`bib${p.bibNumber}:${cpId}`] : undefined)
+              const volunteer = volunteerFinishCheck(r.finishTime, volunteerFinishAt(sortedCps, obsAt))
+              const volunteerTitle = volunteer
+                ? `Wolontariusz: ${fmtTime(volunteer.volunteerAt)}${volunteer.diffMs != null ? ` (chip ${volunteer.diffMs > 0 ? '+' : '−'}${formatDuration(Math.abs(volunteer.diffMs))})` : ''}`
+                : undefined
+              const editFinish = (iso) => {
+                setEditingFinish(r.id)
+                setFinishInput(new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }))
+              }
               return (
                 <tr key={r.id} className={cn('transition-colors', isFinished ? 'bg-green-950/10' : '')}>
                   <td className="px-2 py-1.5 font-mono text-xs">{p?.bibNumber}</td>
@@ -292,7 +305,7 @@ function RaceOverview({ eventId, categories }) {
                       </td>
                     )
                   })}
-                  <td className="px-2 py-1.5 font-mono text-xs">
+                  <td className={cn('px-2 py-1.5 font-mono text-xs', volunteer && editingFinish !== r.id && 'bg-amber-500/15 outline outline-1 outline-amber-500/60')} title={volunteerTitle}>
                     {editingFinish === r.id ? (
                       <div className="flex items-center gap-1">
                         <input
@@ -317,12 +330,16 @@ function RaceOverview({ eventId, categories }) {
                       </div>
                     ) : isFinished ? (
                       <span
-                        className="text-green-400 cursor-pointer hover:underline"
-                        onClick={() => {
-                          setEditingFinish(r.id)
-                          setFinishInput(new Date(r.finishTime).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }))
-                        }}
-                      >{fmtTime(r.finishTime)}</span>
+                        className={cn('cursor-pointer hover:underline', volunteer ? 'text-amber-400' : 'text-green-400')}
+                        onClick={() => editFinish(volunteer ? volunteer.volunteerAt : r.finishTime)}
+                      >{fmtTime(r.finishTime)}{volunteer && <span className="ml-1 text-amber-400/80">W {fmtTime(volunteer.volunteerAt)}</span>}</span>
+                    ) : volunteer ? (
+                      <button
+                        onClick={() => editFinish(volunteer.volunteerAt)}
+                        className="border border-amber-500 text-amber-400 px-2 py-0.5 text-xs font-bold tracking-wider hover:bg-amber-500 hover:text-black transition-colors"
+                      >
+                        W {fmtTime(volunteer.volunteerAt)}
+                      </button>
                     ) : r.startTime ? (
                       <button
                         onClick={() => manualFinish.mutate(r.id)}

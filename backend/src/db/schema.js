@@ -156,6 +156,9 @@ export const checkpoints = pgTable('checkpoints', {
   kmMarker: numeric('km_marker', { precision: 6, scale: 2 }),
   private: boolean('private').default(false),
   isNearFinish: boolean('is_near_finish').default(false),
+  // The volunteer's finish entry ("Ręczna meta"). The admin live view compares
+  // its observations with the chip finish; it never changes a result.
+  isFinish: boolean('is_finish').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })

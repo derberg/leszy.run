@@ -300,6 +300,17 @@ Configurable per event (stored in `events` table):
 - `rfid_topic_main`: default `'leszyrun'`
 - `rfid_topic_finish`: default `'leszyrun/finish'` (only used when `rfid_mode = 'separate'`)
 
+**Chip vs volunteer finish: the chip decides, the admin view flags.** A checkpoint marked
+`is_finish` ("Ręczna meta" in the checkpoint dialog) holds the volunteer's finish entries.
+The live view (`Przegląd trasy`, `frontend/src/pages/Results.jsx`) highlights the finish
+cell in amber when the chip finish and the volunteer entry differ by more than 60 s
+(`FINISH_MISMATCH_MS` in `frontend/src/lib/volunteerFinish.js`), or when the volunteer saw a
+runner the chip never finished. Clicking it opens the editor pre-filled with the volunteer's
+time. Nothing changes a result automatically: the user chose to keep the chip on top and
+review by hand. On 2026-08-07 five chip finishes came 1.4 to 15.5 min after the volunteer's
+entry, read when the runners walked back past the gate; a volunteer normally types the bib
+1 to 26 s after the chip.
+
 ## Vision bib recognition (`vision/`)
 
 A camera at the finish gate reads bib numbers from photographs, as a second
