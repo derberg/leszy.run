@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useEvent } from '../hooks/useEvent.js'
 import { supabase } from '../lib/supabase.js'
 import useSeo from '../hooks/useSeo.js'
+import { useCheckpointOutbox } from '../hooks/useCheckpointOutbox.js'
 
 const NUMPAD = [
   ['1', '2', '3'],
@@ -18,8 +19,9 @@ export default function Volunteer() {
   const [loadError, setLoadError] = useState(null)
   const [bib, setBib] = useState('')
   const [flash, setFlash] = useState(null)
-  const [sending, setSending] = useState(false)
+  const flashTimer = useRef(null)
   const [eventEnded, setEventEnded] = useState(false)
+  const outbox = useCheckpointOutbox(checkpointId)
 
   useEffect(() => {
     if (!checkpointId) { setLoadError('Brak ID punktu kontrolnego w URL.'); return }
@@ -52,62 +54,34 @@ export default function Volunteer() {
     setBib(b => b + key)
   }
 
-  const handleSubmit = async () => {
+  // Sending happens in the background (useCheckpointOutbox). The tap only
+  // stores the entry on the phone, so a weak signal never holds up the next
+  // runner. The button used to stay disabled until Supabase answered, which on
+  // a bad connection took tens of seconds, and a failure then wrote the old
+  // bib back over whatever the volunteer had typed since.
+  const handleSubmit = () => {
     const n = parseInt(bib, 10)
-    if (!n || n < 1) return
-    if (sending) return
-
-    setSending(true)
+    if (!n || n < 1 || !outbox.ready) return
+    outbox.add(n)
     setBib('')
-
-    // .select() is what makes the outcome observable at all. The
-    // trg_checkpoint_obs_priority BEFORE INSERT trigger returns NULL when a row
-    // for (checkpoint_id, bib_number) already exists — the insert is dropped and
-    // PostgREST reports NO error. Without asking for the inserted rows back, a
-    // discarded entry is indistinguishable from a saved one, which is exactly how
-    // a volunteer ends up typing a bib, seeing "Wysłano", and nothing happening.
-    const { data, error } = await supabase
-      .from('checkpoint_observations')
-      .insert({
-        checkpoint_id: checkpointId,
-        bib_number: n,
-        observed_at: new Date().toISOString(),
-        source: 'manual',
-      })
-      .select('id')
-
-    setSending(false)
-
-    if (error) {
-      // Network drop, RLS, constraint — the volunteer must see it and be able to
-      // retry, so put the bib back rather than swallowing it into a console log.
-      console.error('[volunteer] insert failed', error)
-      setBib(String(n))
-      setFlash({ kind: 'error', bib: n })
-      return
-    }
-
-    if (!data || data.length === 0) {
-      // Trigger dropped it: this bib is already recorded at this checkpoint
-      // (usually by the RFID reader, which wins by design). Not a failure —
-      // the pass IS on record — so say so plainly instead of implying loss.
-      setFlash({ kind: 'duplicate', bib: n })
-      setTimeout(() => setFlash(null), 2500)
-      return
-    }
-
-    setFlash({ kind: 'sent', bib: n })
-    setTimeout(() => setFlash(null), 1200)
+    clearTimeout(flashTimer.current)
+    setFlash({ bib: n })
+    flashTimer.current = setTimeout(() => setFlash(null), 1200)
   }
+
+  useEffect(() => () => clearTimeout(flashTimer.current), [])
 
   if (eventLoading) return <LoadingScreen />
   if (eventError) return <ErrorScreen message={eventError} />
   if (loadError) return <ErrorScreen message={loadError} />
   if (!checkpoint) return <LoadingScreen />
-  if (eventEnded) return <EventEndedScreen eventName={event?.name} />
+  // Keep the keypad while anything is unsent or rejected, so the queue stays
+  // visible and keeps draining after the race is closed.
+  if (eventEnded && outbox.pending === 0 && outbox.failed === 0) {
+    return <EventEndedScreen eventName={event?.name} />
+  }
 
-  // Blocked while an insert is in flight so a double-tap can't fire twice.
-  const canSend = bib.length > 0 && parseInt(bib, 10) >= 1 && !sending
+  const canSend = bib.length > 0 && parseInt(bib, 10) >= 1 && outbox.ready
 
   return (
     <div className="flex flex-col min-h-dvh p-5 select-none bg-apex-bg">
@@ -125,24 +99,15 @@ export default function Volunteer() {
         )}
       </div>
 
-      {/* Flash — three distinct outcomes. "Wysłano" used to show unconditionally,
-          before the insert had even resolved, so a dropped or failed entry looked
-          identical to a saved one. */}
-      {flash?.kind === 'sent' && (
-        <div className="bg-apex-yellow/10 border border-apex-yellow/30 text-apex-yellow px-4 py-2.5 text-center text-sm mb-4 tracking-wide">
-          Zapisano {flash.bib}
-        </div>
-      )}
-      {flash?.kind === 'duplicate' && (
-        <div className="bg-apex-cyan/10 border border-apex-cyan/40 text-apex-cyan px-4 py-2.5 text-center text-sm mb-4 tracking-wide">
-          Numer {flash.bib} jest już zapisany na tym punkcie — nie trzeba wpisywać ponownie.
-        </div>
-      )}
-      {flash?.kind === 'error' && (
-        <div className="bg-apex-red/10 border border-apex-red/50 text-apex-red px-4 py-2.5 text-center text-sm mb-4 tracking-wide">
-          Nie udało się zapisać {flash.bib} — numer wrócił na ekran, spróbuj ponownie.
-        </div>
-      )}
+      {/* "Przyjęto" means stored on this phone, not yet on the server. The
+          list below says which entries the server has confirmed. */}
+      <div className="min-h-[42px] mb-4">
+        {flash && (
+          <div className="bg-apex-yellow/10 border border-apex-yellow/30 text-apex-yellow px-4 py-2.5 text-center text-sm tracking-wide">
+            Przyjęto {flash.bib}
+          </div>
+        )}
+      </div>
 
       {/* Bib display */}
       <div className="text-center mb-4">
@@ -188,7 +153,99 @@ export default function Volunteer() {
       >
         Wyslij
       </button>
+
+      <QueueStatus outbox={outbox} />
+      <RecentEntries outbox={outbox} />
     </div>
+  )
+}
+
+function QueueStatus({ outbox }) {
+  const { pending, failed, reachable, persistent } = outbox
+  return (
+    <div className="mt-4 flex flex-col gap-2 text-sm text-center">
+      {!persistent && (
+        <div className="border border-apex-red/50 text-apex-red px-3 py-2">
+          Ten telefon nie zapisuje numerów w pamięci. Nie zamykaj strony, dopóki wszystko nie zostanie wysłane.
+        </div>
+      )}
+      {failed > 0 && (
+        <div className="border border-apex-red/50 bg-apex-red/10 text-apex-red px-3 py-2">
+          Serwer odrzucił {failed} {numerWord(failed)}. Spróbuj ponownie albo podaj je koordynatorowi.
+        </div>
+      )}
+      {pending > 0 && !reachable && (
+        <div className="border border-apex-yellow/40 text-apex-yellow px-3 py-2">
+          Brak połączenia. Czeka na wysłanie: {pending}. Wyślą się same, gdy wróci zasięg. Możesz dalej wpisywać.
+        </div>
+      )}
+      {pending > 0 && reachable && (
+        <div className="text-apex-muted">Wysyłanie: {pending}</div>
+      )}
+      {pending === 0 && failed === 0 && outbox.entries.length > 0 && (
+        <div className="text-apex-dim">Wszystko wysłane</div>
+      )}
+    </div>
+  )
+}
+
+function numerWord(n) {
+  if (n === 1) return 'numer'
+  const tens = n % 100
+  if (n % 10 >= 2 && n % 10 <= 4 && (tens < 12 || tens > 14)) return 'numery'
+  return 'numerów'
+}
+
+const STATUS = {
+  pending: { label: 'czeka', cls: 'text-apex-muted' },
+  sending: { label: 'wysyłanie…', cls: 'text-apex-muted' },
+  saved: { label: 'zapisano', cls: 'text-apex-yellow' },
+  duplicate: { label: 'już zapisany', cls: 'text-apex-cyan' },
+  failed: { label: 'odrzucony', cls: 'text-apex-red' },
+}
+
+const timeFmt = new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+function RecentEntries({ outbox }) {
+  // Cancelling takes two taps: one stray tap must not drop a runner's pass.
+  const [confirmId, setConfirmId] = useState(null)
+  const rows = outbox.entries.slice(0, 8)
+  if (rows.length === 0) return null
+  return (
+    <ul className="mt-3 border-t border-apex-border-mid">
+      {rows.map(e => {
+        const st = STATUS[e.status] || STATUS.pending
+        return (
+          <li key={e.id} className="flex items-center gap-3 py-2 border-b border-apex-border text-sm">
+            <span className="font-mono text-apex-dim w-[70px]">{timeFmt.format(new Date(e.observedAt))}</span>
+            <span className="font-mono font-bold text-apex-text-bright text-lg w-[56px] text-right">{e.bib}</span>
+            <span className={`flex-1 ${st.cls}`}>{st.label}</span>
+            {e.status === 'pending' && !e.attempts && (
+              <button
+                onClick={() => {
+                  if (confirmId !== e.id) { setConfirmId(e.id); return }
+                  outbox.cancel(e.id)
+                  setConfirmId(null)
+                }}
+                className={`px-3 py-1 border text-xs uppercase ${confirmId === e.id ? 'border-apex-red/50 text-apex-red' : 'border-apex-border-mid text-apex-dim'}`}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                {confirmId === e.id ? 'Usunąć?' : 'Cofnij'}
+              </button>
+            )}
+            {e.status === 'failed' && (
+              <button
+                onClick={() => outbox.retry(e.id)}
+                className="px-3 py-1 border border-apex-red/50 text-apex-red text-xs uppercase"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                Ponów
+              </button>
+            )}
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
