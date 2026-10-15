@@ -383,6 +383,7 @@ export default function PodiumPage() {
                   results={enrichedResults}
                   checkpoints={categoryCheckpoints}
                   observations={observations}
+                  gunStartedAt={activeRun?.startedAt}
                   formatTime={(iso) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   formatDuration={formatDuration}
                 />

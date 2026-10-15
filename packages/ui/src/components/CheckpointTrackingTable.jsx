@@ -2,15 +2,22 @@ import { useState } from 'react'
 import { PositionBadge } from './PositionBadge.jsx'
 import { InfoTooltip } from './InfoTooltip.jsx'
 import { anonymizedName } from '../lib/anonymizedName.js'
+import { checkpointSplitMs } from '../lib/checkpointSplit.js'
 
 /**
+ * Every time in this table is a duration measured from the gun. Wall-clock times
+ * (start, checkpoint, finish hour) are left out on purpose: shown next to
+ * durations in the same mono font they read as results, and the finish hour adds
+ * nothing that brutto does not already say.
+ *
  * @param {Array} results - enriched by estimatePositions (with estimatedPosition, positionType)
  * @param {Array} checkpoints - [{ id, name, kmMarker }] sorted by kmMarker
  * @param {Array} observations - [{ checkpointId, participantId, observedAt }]
- * @param {Function} formatTime - (isoString) => display string
- * @param {Function} [formatDuration] - (ms) => display string for durations
+ * @param {string|null} gunStartedAt - ISO timestamp of the race run's gun; checkpoint splits are measured from it
+ * @param {Function} formatDuration - (ms) => display string
+ * @param {Function} [formatTime] - (isoString) => wall-clock string, shown only as a hover title on desktop splits
  */
-export function CheckpointTrackingTable({ results, checkpoints, observations, formatTime, formatDuration }) {
+export function CheckpointTrackingTable({ results, checkpoints, observations, gunStartedAt, formatDuration, formatTime }) {
   const [legendOpen, setLegendOpen] = useState(false)
 
   // Build lookups: by participantId and by bibNumber
@@ -29,13 +36,17 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
   // bogus (mistyped volunteer entry, stray read). estimatePositions already keeps
   // them out of the checkpoint ordering tier; this keeps the split columns clean too.
   // DNF/DSQ deliberately keep their splits — they were on course.
-  const splitAt = (r, checkpointId) =>
+  const observedAt = (r, checkpointId) =>
     r.positionType === 'dns'
       ? null
       : obsLookup[`${r.participantId}:${checkpointId}`] || bibLookup[`${r.participant?.bibNumber}:${checkpointId}`]
+  const splitAt = (r, checkpointId) => checkpointSplitMs(observedAt(r, checkpointId), gunStartedAt)
 
   const checkpointTooltip = (
     <>
+      Czas na punkcie kontrolnym liczony jest <strong>od strzału startera</strong>,
+      tak samo jak czas brutto.
+      <br /><br />
       Czasy na punktach kontrolnych są <strong>nieoficjalne</strong> — to pomocnicze dane
       pozwalające śledzić, gdzie aktualnie są zawodnicy na trasie.
       <br /><br />
@@ -60,16 +71,6 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
     </>
   )
 
-  // Worded to read correctly both as a column tooltip and in the mobile legend,
-  // where Start/Meta are labels on a card rather than columns.
-  const clockTooltip = (
-    <>
-      <strong>Start</strong> i <strong>Meta</strong> to <strong>godziny zegarowe</strong> —
-      dokładny moment, w którym zawodnik przekroczył linię startu i mety.
-      To nie są czasy biegu, tylko rzeczywiste godziny.
-    </>
-  )
-
   return (
     <>
       {/* Desktop table */}
@@ -80,9 +81,6 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
               <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted w-10">Poz.</th>
               <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted w-12">Nr</th>
               <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted">Zawodnik</th>
-              <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono w-20">
-                <span className="inline-flex items-center">Start<InfoTooltip label="Start">{clockTooltip}</InfoTooltip></span>
-              </th>
               {checkpoints.map((cp, i) => (
                 <th key={cp.id} className="text-center px-1 py-2 text-xs font-bold uppercase tracking-wider text-apex-cyan font-mono truncate" title={cp.name}>
                   <span className="inline-flex items-center">
@@ -92,13 +90,12 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
                   {cp.kmMarker && <div className="text-apex-dim font-normal text-[10px]">{cp.kmMarker}km</div>}
                 </th>
               ))}
-              <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono w-16">Meta</th>
-              {formatDuration && <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono w-24">
-                <span className="inline-flex items-center">Netto<InfoTooltip label="Netto">{nettoTooltip}</InfoTooltip></span>
-              </th>}
-              {formatDuration && <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-yellow font-mono w-24">
+              <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-yellow font-mono w-28">
                 <span className="inline-flex items-center">Brutto<InfoTooltip label="Brutto">{bruttoTooltip}</InfoTooltip></span>
-              </th>}
+              </th>
+              <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted font-mono w-24">
+                <span className="inline-flex items-center">Netto<InfoTooltip label="Netto">{nettoTooltip}</InfoTooltip></span>
+              </th>
               <th className="text-left px-2 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted w-24">Status</th>
             </tr>
           </thead>
@@ -113,30 +110,25 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
                   <td className="px-2 py-1.5 truncate">
                     <span title={pTooltip || undefined} className={pIsAnonymized ? 'italic text-apex-muted' : ''}>{pDisplayName}</span>
                   </td>
-                  <td className="px-2 py-1.5 font-mono text-apex-muted">
-                    {r.startTime ? formatTime(r.startTime) : '—'}
-                  </td>
                   {checkpoints.map(cp => {
-                    const t = splitAt(r, cp.id)
+                    const split = splitAt(r, cp.id)
+                    const at = observedAt(r, cp.id)
                     return (
-                      <td key={cp.id} className="text-center px-1 py-1.5 font-mono text-apex-cyan">
-                        {t ? formatTime(t) : <span className="text-apex-dim">{'—'}</span>}
+                      <td
+                        key={cp.id}
+                        className="text-center px-1 py-1.5 font-mono text-apex-cyan"
+                        title={split != null && formatTime ? `godz. ${formatTime(at)}` : undefined}
+                      >
+                        {split != null ? formatDuration(split) : <span className="text-apex-dim">{'—'}</span>}
                       </td>
                     )
                   })}
-                  <td className="px-2 py-1.5 font-mono font-bold text-apex-yellow-bright">
-                    {r.finishTime ? formatTime(r.finishTime) : '—'}
+                  <td className="px-2 py-1.5 font-mono text-sm font-bold text-apex-yellow-bright">
+                    {r.gunDurationMs ? formatDuration(r.gunDurationMs) : '—'}
                   </td>
-                  {formatDuration && (
-                    <td className="px-2 py-1.5 font-mono text-apex-muted">
-                      {r.durationMs ? formatDuration(r.durationMs) : '—'}
-                    </td>
-                  )}
-                  {formatDuration && (
-                    <td className="px-2 py-1.5 font-mono font-bold text-apex-yellow">
-                      {r.gunDurationMs ? formatDuration(r.gunDurationMs) : '—'}
-                    </td>
-                  )}
+                  <td className="px-2 py-1.5 font-mono text-apex-muted">
+                    {r.durationMs ? formatDuration(r.durationMs) : '—'}
+                  </td>
                   <td className="px-2 py-1.5">
                     <PositionBadge positionType={r.positionType} gender={p?.gender} />
                   </td>
@@ -158,15 +150,14 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
           className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left"
         >
           <span className="text-xs font-bold uppercase tracking-wider text-apex-muted">
-            {formatDuration ? 'Brutto vs Netto — co oznaczają te czasy?' : 'Co oznaczają te czasy?'}
+            Brutto vs Netto — co oznaczają te czasy?
           </span>
           <span className="font-mono text-sm leading-none text-apex-yellow">{legendOpen ? '−' : '+'}</span>
         </button>
         {legendOpen && (
           <div className="border-t border-apex-border px-3 pt-2.5 pb-3 space-y-2.5 text-xs text-apex-text">
-            {formatDuration && <p>{bruttoTooltip}</p>}
-            {formatDuration && <p>{nettoTooltip}</p>}
-            <p>{clockTooltip}</p>
+            <p>{bruttoTooltip}</p>
+            <p>{nettoTooltip}</p>
             {checkpoints.length > 0 && <p>{checkpointTooltip}</p>}
           </div>
         )}
@@ -177,6 +168,9 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
         {results.map(r => {
           const p = r.participant
           const { displayName: mDisplayName, isAnonymized: mIsAnonymized, tooltip: mTooltip } = anonymizedName(p)
+          const splits = checkpoints
+            .map(cp => ({ cp, split: splitAt(r, cp.id) }))
+            .filter(s => s.split != null)
           return (
             <div key={r.id} className="border border-apex-border bg-apex-surface px-3 py-2.5">
               <div className="flex items-center gap-2 mb-1.5">
@@ -186,47 +180,34 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, fo
                 <PositionBadge positionType={r.positionType} gender={p?.gender} />
               </div>
 
-              {formatDuration && (r.gunDurationMs || r.durationMs) && (
-                <div className="flex items-center gap-3 mb-1.5">
+              {(r.gunDurationMs || r.durationMs) && (
+                <div className="flex items-baseline gap-3 mb-1">
                   {r.gunDurationMs && (
-                    <div>
-                      <span className="text-xs text-apex-muted uppercase tracking-wider">Brutto </span>
-                      <span className="font-mono font-bold text-sm text-apex-yellow">{formatDuration(r.gunDurationMs)}</span>
-                    </div>
+                    <span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-apex-yellow">Brutto </span>
+                      <span className="font-mono font-bold text-lg leading-none text-apex-yellow-bright">{formatDuration(r.gunDurationMs)}</span>
+                    </span>
                   )}
                   {r.durationMs && r.durationMs !== r.gunDurationMs && (
-                    <div>
-                      <span className="text-xs text-apex-muted uppercase tracking-wider">Netto </span>
-                      <span className="font-mono text-sm text-apex-muted">{formatDuration(r.durationMs)}</span>
-                    </div>
+                    <span className="text-xs">
+                      <span className="uppercase tracking-wider text-apex-muted">Netto </span>
+                      <span className="font-mono text-apex-muted">{formatDuration(r.durationMs)}</span>
+                    </span>
                   )}
+                  <InfoTooltip label="Brutto i netto">{bruttoTooltip}<br /><br />{nettoTooltip}</InfoTooltip>
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
-                {r.startTime && (
-                  <div>
-                    <span className="text-apex-muted">Start </span>
-                    <span className="font-mono text-apex-text">{formatTime(r.startTime)}</span>
-                  </div>
-                )}
-                {checkpoints.map(cp => {
-                  const t = splitAt(r, cp.id)
-                  if (!t) return null
-                  return (
+              {splits.length > 0 && (
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                  {splits.map(({ cp, split }) => (
                     <div key={cp.id}>
                       <span className="text-apex-cyan">{cp.name} </span>
-                      <span className="font-mono text-apex-text">{formatTime(t)}</span>
+                      <span className="font-mono text-apex-text">{formatDuration(split)}</span>
                     </div>
-                  )
-                })}
-                {r.finishTime && (
-                  <div>
-                    <span className="text-apex-muted">Meta </span>
-                    <span className="font-mono font-bold text-apex-yellow-bright">{formatTime(r.finishTime)}</span>
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}
