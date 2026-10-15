@@ -163,9 +163,11 @@ one-shot containers get theirs from docker-compose.yml):
 - `SUPABASE_URL` — optional, sync disabled if missing
 - `SUPABASE_SERVICE_ROLE_KEY` — service_role key (NOT anon/publishable), bypasses RLS. Backend only. Sync disabled if missing.
 
-Frontend:
-- `VITE_API_URL` — http://localhost:3001
-- `VITE_WS_URL` — ws://localhost:3001
+Frontend (both optional — unset, the admin panel calls port 3001 on whatever host
+served the page, so one build works over `localhost`, `.local` and Tailscale; set
+them only when the backend runs on a different machine):
+- `VITE_API_URL` — e.g. http://localhost:3001
+- `VITE_WS_URL` — e.g. ws://localhost:3001
 
 SMS (backend, optional — SMS disabled if missing):
 - `SMSAPI_TOKEN` — API token for SMSAPI.pl

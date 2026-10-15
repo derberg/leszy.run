@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+import { API_URL as BASE } from './apiOrigin.js'
 
 async function request(method, path, body, isFile = false) {
   const opts = { method, headers: {} }

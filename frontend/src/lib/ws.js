@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001'
+import { WS_URL } from './apiOrigin.js'
 
 let socket = null
 const listeners = new Map() // type → Set<callback>
