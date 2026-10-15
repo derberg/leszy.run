@@ -75,14 +75,28 @@ export default function ParticipantsTable({ eventId, categories }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setAddOpen(false); setAddForm({ firstName: '', lastName: '', email: '', phone: '', club: '', gender: '', birthDate: '', categoryId: '', tshirtSize: '' }); setEmailError('') },
   })
 
+  // The backend answers 200 even when SMSAPI rejects a number: the reasons come
+  // back in `errors`, so a send counts as failed when that list is not empty.
+  const [smsError, setSmsError] = useState(null)
+  const smsResult = (res) => {
+    qc.invalidateQueries({ queryKey: ['participants', eventId] })
+    setSmsError(res?.errors?.length ? res.errors.map(e => e.message).join('; ') : null)
+  }
+
   const sendSms = useMutation({
     mutationFn: (participantIds) => api.sms.sendToParticipants(eventId, participantIds),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setSendingSmsFor(null) },
+    onMutate: () => setSmsError(null),
+    onSuccess: smsResult,
+    onError: (err) => setSmsError(err.message),
+    onSettled: () => setSendingSmsFor(null),
   })
 
   const sendAllSms = useMutation({
     mutationFn: () => api.sms.sendToAll(eventId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setBulkSmsOpen(false) },
+    onMutate: () => setSmsError(null),
+    onSuccess: smsResult,
+    onError: (err) => setSmsError(err.message),
+    onSettled: () => setBulkSmsOpen(false),
   })
 
   const [checkinError, setCheckinError] = useState(null)
@@ -205,6 +219,13 @@ export default function ParticipantsTable({ eventId, categories }) {
           <Button size="sm" onClick={() => setAddOpen(true)}><Plus size={13} /> Dodaj uczestnika</Button>
         </div>
       </div>
+
+      {smsError && (
+        <div className="flex items-start justify-between gap-2 border border-apex-red px-3 py-2 mb-3 text-sm text-apex-red">
+          <span>SMS nie wysłany: {smsError}</span>
+          <button onClick={() => setSmsError(null)} className="text-apex-muted hover:text-apex-text-bright"><X size={14} /></button>
+        </div>
+      )}
 
       <div className="border border-apex-border bg-apex-surface overflow-x-auto">
         <table className="w-full text-sm">
