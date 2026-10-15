@@ -272,41 +272,52 @@ mqttx pub -h localhost -p 1883 -t "leszyrun" -m '{"timestamp":"2026-01-01T10:00:
 
 ---
 
-## Jak działa wykrywanie przejścia przez bramkę
+## How gate crossings are detected
 
-Czytnik RFID wysyła odczyty co ~200 ms. Dla każdego zawodnika system śledzi siłę sygnału (RSSI) w cDbm — im bliżej 0, tym silniejszy (np. -2000 to sygnał lepszy niż -6000).
+The RFID reader reports reads about every 200 ms. For every runner the system tracks signal strength (RSSI) in cdBm: the closer to 0, the stronger (-2000 is a stronger signal than -6000).
 
-**Algorytm (exit-triggered — wyzwalany wyjściem z zasięgu):**
+**Start: wait until the runner leaves the gate.**
 
 ```
-Kowalski zbliża się do bramki startowej:
+Kowalski runs through the start gate:
 
-  odczyt 1:  -5200  (5m przed bramką)
-  odczyt 2:  -4100  (3m)
-  odczyt 3:  -2800  (1m)
-  odczyt 4:  -1900  ← szczyt RSSI = Kowalski PRZY bramce
-  odczyt 5:  -2400  (odbiega)
-  odczyt 6:  -3500
-  odczyt 7:  -5100  (5m za bramką)
-  [cisza przez 3 sekundy]
+  read 1:  -5200  (5 m before the gate)
+  read 2:  -4100  (3 m)
+  read 3:  -2800  (1 m)
+  read 4:  -1900  ← RSSI peak = Kowalski AT the gate
+  read 5:  -2400  (running away)
+  read 6:  -3500
+  read 7:  -5100  (5 m past the gate)
+  [3 s of silence]
                ↑
-               brak odczytu przez 3 s → POTWIERDZONE ✓
+               no read for 3 s → CONFIRMED ✓
 
-  startTime = timestamp odczytu 4 (-1900) — moment szczytu
+  startTime = timestamp of read 4 (-1900), the peak
 ```
 
-Potwierdzenie odpala się gdy sygnał znika na `Okno ciszy` sekund (domyślnie 3 s).
-**Zapisany timestamp to zawsze moment szczytu** — kiedy zawodnik był fizycznie przy bramce, nie moment zniknięcia sygnału.
+A start is confirmed when the signal has been gone for `gone_window_seconds` (the admin form calls it "Okno przejścia", default 3 s). Every new read resets the countdown, because runners stand in the start corral inside the antennas' range and keep being read. The start is confirmed only once the runner has actually run off.
 
-**Start masowy** — zawodnicy stojący w korytarzu startowym dają ciągłe odczyty. Timer ciszy jest co chwilę resetowany → brak potwierdzenia. Potwierdzenie następuje dopiero gdy zawodnik faktycznie odejdzie od bramki.
+**Finish and checkpoints: a fixed window from the first read.**
 
-**Zawodnik zatrzymuje się przy mecie** — odczyty trwają, timer ciszy się resetuje. Po upływie `Wymuszony zapis` (domyślnie 10 s) od pierwszego odczytu timer fallback odpala potwierdzenie. Dotyczy **tylko mety** — start nigdy nie jest wymuszony.
+```
+Kowalski crosses the finish line:
 
-**Dwa timery:**
-- `goneTimer` (domyślnie 3 s) — resetuje się przy każdym nowym odczycie; odpala gdy zawodnik odejdzie
-- `maxTimer` (domyślnie 10 s, **tylko meta**) — nie resetuje się; odpala gdy zawodnik zbyt długo stoi przy mecie
+  0.0 s  read 1:  -7400  (~5 m before the gate) → opens a 3 s window
+  0.8 s  read 2:  -5100
+  1.4 s  read 3:  -3900  ← RSSI peak
+  2.1 s  read 4:  -5600  (stops past the line)
+  2.9 s  read 5:  -5500
+  3.0 s  window closes → CONFIRMED ✓
+  later reads -5400, -5300, … → ignored
 
-Oba parametry konfigurowane per-event w zakładce **Ustawienia RFID**.
+  finishTime = timestamp of read 3 (-3900)
+```
+
+The first read opens a window of `gone_window_seconds` (default 3 s). Reads inside the window can only move the peak; they never extend the window. After 3 s the crossing is recorded. A runner who stands at the finish or at an aid station cannot hold the pass open, and later reads never change their time. The antennas hear a tag from about 5 m, so a runner is through the gate in under 3 s. The checkpoint agent uses the same rule (`PASS_WINDOW_MS`, default 3000).
+
+**Either way, the recorded time is the peak**, when the runner was closest to the antennas, not the moment the pass closed.
+
+The window is set per event in the **Ustawienia RFID** tab.
 
 ---
 
