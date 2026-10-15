@@ -253,6 +253,13 @@
       "when": 1790200000000,
       "tag": "0035_push_checkpoint_category_links",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790300000000,
+      "tag": "0036_peak_finish_defaults",
+      "breakpoints": true
     }
   ]
 }

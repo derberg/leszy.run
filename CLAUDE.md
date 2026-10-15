@@ -242,38 +242,43 @@ when the runner was physically closest to the antenna. Required for mass starts:
 runners standing in the corral generate continuous readings, goneTimer keeps
 resetting → no confirmation until they actually run through.
 
-**FINISH = first-read** — the FIRST reading above the event's `rssi_threshold` from an
-already-started participant confirms the finish immediately with that reading's
-timestamp; all subsequent readings are ignored for detection (`finishedParticipants`)
-but are still written to `gate_events` for 10 s (`FINISH_AUDIT_WINDOW_MS`, sized to cover a Nordic walker's ~6 s approach from the ~8 m first-read distance) so the whole
-finish pass stays auditable — before that window existed, every finish recorded exactly
-one gate event and there was no way to tell a solid crossing from one lucky ping. There is no
-force-confirm timer anymore (`fallback_seconds` is unused — with sensitive tags it
-fired during the far-field approach and recorded weak early "finishes"). Finish reads
-within `min_finish_seconds` of the gun are ignored (ghost reads at the start line).
+**FINISH = exit-triggered too, at the peak of the pass.** A started participant's reads
+past `min_finish_seconds` open a finish pass that keeps its strongest read; the pass
+closes after `gone_window_seconds` of silence or `FINISH_PASS_MAX_MS` (20 s) after its
+first read, whichever comes first, and the finish gets the peak's timestamp. The cap
+exists because finishers stop just past the line and would otherwise keep the pass open.
+After confirmation (`finishedParticipants`) later reads never re-time the finish, but
+are still written to `gate_events` for 10 s (`FINISH_AUDIT_WINDOW_MS`).
+
+Finish used to be first-read: the first read above `rssi_threshold` was the finish.
+That let the floor decide the finish time. At the 2026-08-07 night race the floor was
+`-6500` and all 36 finish peaks sat between `-6000` and `-6500`, the histogram rising
+right up to the floor: the floor was cutting the passes off. Three runners got no
+finish, and five got one from a read minutes later, when they walked back past the
+gate. A lower first-read floor only moves the finish earlier, to wherever the tag is
+first heard. There is no force-confirm timer (`fallback_seconds` is unused).
 
 State maps:
-- `inRange`: `Map<"${epc}:${raceRunId}", { peakRssi, peakTime, antennaPort, topic, goneTimer }>` (start tracking only)
+- `inRange`: open passes. Start key `"${epc}:${raceRunId}"`, finish key `"${epc}:${raceRunId}:finish"`, value `{ epc, raceRunId, firstAt, peakRssi, peakTime, antennaPort, topic, goneTimer }`
 - `recentWindow`: dedup within 200 ms per EPC
 - `startedParticipants`: `Set<participantId>` per race (in-memory, avoids DB lookup per crossing)
 
 Flow per reading (above `rssi_threshold`; weaker reads are ignored entirely):
-1. Participant already started (or finish topic in separate mode) → past `min_finish_seconds`? → **confirm finish immediately** with this reading; else ignore
+1. Participant already started (or finish topic in separate mode) and past `min_finish_seconds` → open or extend the finish pass, keep its peak, reset `goneTimer`; the pass closes on silence or at the 20 s cap
 2. Not started, tag not in `inRange` → create entry, arm `goneTimer` (goneWindowMs)
 3. Not started, tag in `inRange` → update peak if improved; reset `goneTimer`
 4. `goneTimer` fires (silence for goneWindowSeconds) → `confirmCrossing(peakTime)` → `gate = start`, add to `startedParticipants`
+5. When `confirm_rssi_cdbm` is set, a pass, start or finish, whose peak is below it is dropped: a dropped start falls through to gun-time backfill, a dropped finish leaves the runner on course
 
 See the mermaid flowchart at the top of `crossingDetector.js` for a full diagram.
 
 Configurable per event (stored in `events` table):
-- `rssi_threshold`: default `-6500` cdbm (was `-5000` until 2026-08-17) — the **tracking floor**. Readings weaker than this are ignored by the detector (far-field pickup from high-sensitivity tags; they don't create/refresh `inRange` entries and are not persisted to `gate_events`). Raw `rfid:raw` broadcast is unaffected. Measured at the 2026-08-07 race: genuine finish crossings came in at −60…−65 dBm and the strongest read of the entire race was −45.5 dBm, so the old `-5000` discarded essentially the whole field and every event had to be hand-tuned before it could time anything. Far-field pickup (tag on a table 15–20 m away) reads −71…−78, so `-6500` still excludes it — but only by ~6 dB, which is the real problem: at that gate the noise band and the crossing band nearly touch. Widen that gap with geometry (narrow the lane, bring runners within ~1.5 m of the antenna), not by chasing the threshold.
-- `confirm_rssi_cdbm`: **NULL by default = disabled.** The **crossing bar**, and the second half of a two-tier gate. `rssi_threshold` answers "may this read be followed at all" and must stay permissive or weak tags are lost; this answers "did the tag actually reach the gate". **START** requires the accumulated *peak* to clear it; **FINISH** requires the individual read to clear it (first-read semantics are preserved — a rejected weak read is skipped, NOT added to `finishedParticipants`, so the real crossing still counts). `stopRace`'s pending flush applies the same bar. A start rejected by the bar falls through to gun-time backfill; a rejected finish leaves the runner on course for manual closing.
+- `rssi_threshold`: default `-9000` cdbm (was `-6500` until 2026-10-15, `-5000` before 2026-08-17), below anything the R700 reports, so every read is followed. The **tracking floor**: reads weaker than it are ignored and not persisted to `gate_events`. Raw `rfid:raw` broadcast is unaffected. Peak-of-pass timing on both gates is what makes a missing floor safe: a weak read can no longer set a time. Events created before the change keep their stored value, so check it before a race: Wilczy Półmaraton 2026 still had `-5000`, which would have timed almost nobody.
+- `confirm_rssi_cdbm`: **NULL by default = disabled.** The **crossing bar**: when set, the PEAK of a start or finish pass must reach it, or the pass is dropped. It is the per-event answer to a tag heard from far away (a runner on a stretch of course near the gate, a bib in a bag by the tent) becoming a crossing. `stopRace`'s pending flush applies the same bar. It stays off by default because a runner 5 m before the antennas reads −70…−77 dBm (measured 2026-10-15), so a bar near the old floor drops real passes.
 
-  **LEAVE IT NULL UNLESS YOU HAVE MEASURED A CLEAN SEPARATION AT YOUR GATE.** It was built on the assumption that real gate passes are strong (−32…−50 dBm) and only far-field pickup is weak, so a bar around `-5500` would drop phantoms while keeping real crossings. **That assumption was wrong and contradicted the documented range above** (−45…−65 dBm for a real crossing). Measured at the 2026-08-07 race: runners who physically passed *right next to the antenna* peaked at **−62…−64,5 dBm**, while others on the same pass peaked at −32 dBm. A bar at `-5500` would therefore have discarded genuine crossings.
+  **Set it only after measuring a separation at your gate.** Measured at the 2026-08-07 race: runners who physically passed *right next to the antenna* peaked at **−62…−64,5 dBm**, while others on the same pass peaked at −32 dBm. That **~32 dB spread between identical passes** is almost certainly tag orientation/placement (900 MHz is heavily absorbed by the body; a bib worn flat and forward vs. curled or against skin easily accounts for 20–30 dB), possibly antenna coverage nulls. **No threshold fixes that**; it can only choose whom to lose. Widen the gap with geometry instead: narrow the lane, bring runners within ~1.5 m of the antenna.
 
-  The real finding from that race is a **~32 dB spread between identical passes** (≈40× in power at the same distance) — almost certainly tag orientation/placement (900 MHz is heavily absorbed by the body; a bib worn flat and forward vs. curled or against skin easily accounts for 20–30 dB), possibly antenna coverage nulls. **No threshold fixes that**; it can only choose whom to lose. It also means `rssi_threshold` needs real margin below the weakest genuine pass: at `-6500` the weakest real crossing had 1 dB of headroom, which is why runners were dropped entirely.
-
-  Before reaching for this bar, diagnose instead — per-antenna read strength per runner:
+  Diagnose weak runners per antenna:
   ```sql
   SELECT p.bib_number, p.last_name, ge.antenna_port,
          count(*) AS pings, min(ge.rssi_cdbm) AS worst, max(ge.rssi_cdbm) AS best
@@ -281,12 +286,12 @@ Configurable per event (stored in `events` table):
   WHERE ge.race_run_id = '<RACE_RUN_ID>'
   GROUP BY 1,2,3 ORDER BY best ASC;
   ```
-  Weak runners clustered on one port → antenna problem. Spread across all ports → tag/bib problem. Note `gate_crossings.peak_rssi_cdbm` already records each confirmed crossing's peak, so low-confidence crossings can be reviewed **after** a race without risking losing anyone during it.
-- `gone_window_seconds`: default `3` s — silence window to confirm a START crossing
-- `min_finish_seconds`: default `30` s — finish reads within this window after the gun are ignored (ghost-read guard; lower it for short test loops)
+  Weak runners clustered on one port → antenna problem. Spread across all ports → tag/bib problem. `gate_crossings.peak_rssi_cdbm` records each confirmed crossing's peak, so low-confidence crossings can be reviewed **after** a race.
+- `gone_window_seconds`: default `3` s: silence window that closes a start or finish pass
+- `min_finish_seconds`: default `300` s (was `30`). Reads within this window after the gun never open a finish pass. With no floor a runner leaving the shared start/finish gate stays audible for well over 30 s; lower it only for short test loops
 - `gun_backfill_seconds`: default `60` s — after this long from the gun, checked-in runners not read at the start line get gun time as their start (`startTimeSource='gun'`, `startTimeTrigger='auto_backfill'`) so their next crossing counts as a finish. A runner with no check-in never gets gun time, from this timer or from the finish-crossing fallback, so stopping the race leaves them DNS rather than DNF. Check-ins are read when the gun time is assigned, not at race start, because a last-minute check-in reaches the local DB through `checkinSync` up to 30 s later
 - `gun_backfill_enabled`: default `true` — set `false` to disable automatic gun-time backfill entirely: neither the timer nor the finish-crossing fallback assigns gun time, so start-less runners stay start-less until manual backfill (`POST /races/:id/assign-gun-start`, UI "Nadaj czas strzałki"). Runners read normally at start keep both netto (`duration_ms`) and brutto (`gun_duration_ms`)
-- `fallback_seconds`: **unused** (column kept for compat) — the old finish force-confirm timer, removed in favour of first-read finish
+- `fallback_seconds`: **unused** (column kept for compat): the old finish force-confirm timer
 - `decline_threshold_cdbm`: **unused** (column kept for compat) — no reference anywhere in `crossingDetector.js`; it is PATCHable but does nothing. Use `confirm_rssi_cdbm` for strength gating.
 - `rfid_mode`: `'single'` (default) or `'separate'`
 - `rfid_topic_main`: default `'leszyrun'`

@@ -1432,11 +1432,11 @@ function RfidSettings({ event, onSave, saving }) {
     goneWindowSeconds: event.goneWindowSeconds ?? 3,
     gunBackfillSeconds: event.gunBackfillSeconds ?? 60,
     gunBackfillEnabled: event.gunBackfillEnabled ?? true,
-    rssiThreshold: event.rssiThreshold ?? -6500,
+    rssiThreshold: event.rssiThreshold ?? -9000,
     // '' represents NULL (bar disabled). Kept as a string so the empty input
     // round-trips cleanly instead of becoming NaN.
     confirmRssiCdbm: event.confirmRssiCdbm ?? '',
-    minFinishSeconds: event.minFinishSeconds ?? 30,
+    minFinishSeconds: event.minFinishSeconds ?? 300,
   }
   const [form, setForm] = useState(baseline)
   const isDirty = JSON.stringify(form) !== JSON.stringify(baseline)
@@ -1480,14 +1480,14 @@ function RfidSettings({ event, onSave, saving }) {
               <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Okno ciszy (sekundy)</span>
               <Input type="number" step="1" min="1" max="10" value={form.goneWindowSeconds} onChange={e => set('goneWindowSeconds', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: 3 — czas braku sygnału po którym przejście przez bramkę zostaje potwierdzone. Czytnik rejestruje szczyt sygnału (moment przy bramce), a po N sekundach ciszy zapisuje start lub metę.
+                Domyślnie: 3. Po tylu sekundach ciszy przejście przez bramkę zostaje zapisane z czasem najmocniejszego odczytu, na starcie i na mecie. Meta zapisuje się najpóźniej 20 s po pierwszym odczycie, nawet gdy zawodnik stoi przy bramce.
               </p>
             </label>
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Ignorowanie mety po starcie (sekundy)</span>
               <Input type="number" step="1" min="0" max="600" value={form.minFinishSeconds} onChange={e => set('minFinishSeconds', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: 30 — meta jest zaliczana przy PIERWSZYM odczycie chipa (reszta odczytów jest ignorowana), więc przez tyle sekund od strzału startowego odczyty mety są blokowane. Chroni przed „metą" zawodników stojących przy bramce tuż po starcie. Ustaw poniżej najszybszego możliwego czasu na trasie; przy krótkich testach obniż (np. 10 s).
+                Domyślnie: 300. Przez tyle sekund od strzału odczyty nie liczą się jako meta, bo zawodnik oddalający się od bramki startowej jest jeszcze słyszalny. Ustaw poniżej najszybszego możliwego czasu na trasie; przy krótkich testach obniż (np. 10 s).
               </p>
             </label>
             <div className="block">
@@ -1504,31 +1504,22 @@ function RfidSettings({ event, onSave, saving }) {
             </div>
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Próg sygnału (cdBm)</span>
-              <Input type="number" step="50" min="-8000" max="-3000" value={form.rssiThreshold} onChange={e => set('rssiThreshold', parseInt(e.target.value))} className="max-w-32" />
+              <Input type="number" step="50" min="-9000" max="-3000" value={form.rssiThreshold} onChange={e => set('rssiThreshold', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
-                Domyślnie: -6500 (=-65 dBm) — odczyty słabsze niż próg są ignorowane przez detekcję przejść (nie liczą się jako obecność przy bramce i nie trafiają do audytu). Chroni przed łapaniem chipów stojących daleko od anteny (czułe tagi czytają się z 20+ m przy ok. -7100…-7800). Zmierzone na biegu 07.08.2026: prawdziwe przejścia przez metę miały -6000…-6500, najmocniejszy odczyt całego biegu to -4550. Jeśli detekcja gubi zawodników przy bramce, obniż próg — ale pamiętaj, że im bliżej -7000, tym większe ryzyko złapania kogoś, kto stoi 15 m dalej. Prawdziwym lekarstwem jest zwężenie bramki, nie próg.
+                Domyślnie: -9000, czyli brak progu. Odczyty słabsze od tej wartości są pomijane. Start i meta biorą najmocniejszy odczyt z przejścia, więc słaby odczyt z daleka nie ustala czasu.
               </p>
             </label>
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Próg potwierdzenia przejścia (cdBm)</span>
               <Input
-                type="number" step="50" min="-8000" max="-3000"
+                type="number" step="50" min="-9000" max="-3000"
                 value={form.confirmRssiCdbm}
                 placeholder="wyłączony"
                 onChange={e => set('confirmRssiCdbm', e.target.value === '' ? '' : parseInt(e.target.value))}
                 className="max-w-32"
               />
               <p className="text-xs text-apex-muted mt-1">
-                <strong className="text-amber-400">Zostaw puste, jeśli nie zmierzyłeś tego na swojej bramce.</strong>{' '}
-                Puste = wyłączony (decyduje tylko próg sygnału powyżej) — i dla większości bramek to
-                właściwe ustawienie. Ten próg odrzuca przejścia, których SZCZYT sygnału jest za słaby
-                (START), albo pojedynczy odczyt jest za słaby (META). Problem: siła odczytu zależy
-                głównie od ułożenia chipa, nie od odległości — zmierzone 2026-08-07, zawodnicy idący
-                <em> tuż obok anteny</em> mieli szczyt -6200…-6450, a inni na tym samym przejściu
-                -3200. Przy takim rozrzucie ten próg wyrzuci prawdziwe przejścia, a nie „stojących obok”.
-                Ustawiaj tylko, gdy z <code>gate_crossings.peak_rssi_cdbm</code> widzisz wyraźną granicę
-                między realnymi przejściami a łapaniem z daleka. Zbyt wysoki = brak startu (zadziała
-                czas strzałki) lub brak mety (trzeba domknąć ręcznie).
+                Domyślnie: wyłączony. Gdy ustawiony, przejście liczy się tylko wtedy, gdy jego najmocniejszy odczyt jest co najmniej taki. Odrzuca chip usłyszany z daleka, np. z trasy biegnącej obok bramki. Zawodnik 5 m przed antenami ma -7000…-7700, więc ustawiaj go dopiero po pomiarze na bramce.
               </p>
             </label>
           </div>
