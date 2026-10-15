@@ -379,6 +379,59 @@ describe('createOutbox, review fixes', () => {
   })
 })
 
+describe('createOutbox, two tabs', () => {
+  it('sends a foreign entry it adopted mid-send, since the other tab may never finish it', async () => {
+    const storage = memoryStorage({
+      k: JSON.stringify([{ id: 'x', bib: 9, observedAt: '2026-10-17T10:00:00.000Z', status: 'pending', attempts: 0 }]),
+    })
+    const sent = []
+    const a = make({ storage, send: async (e) => { sent.push(e.id); return 'saved' } }).outbox
+    await settle()
+    sent.length = 0
+    // Tab B adds an entry and is caught sending it.
+    const raw = JSON.parse(storage.data.k)
+    raw.push({ id: 'y', bib: 10, observedAt: '2026-10-17T10:00:05.000Z', status: 'sending', attempts: 1 })
+    storage.data.k = JSON.stringify(raw)
+    a.sync()
+    await settle()
+    assert.deepEqual(sent, ['y'])
+    assert.equal(a.pendingCount(), 0)
+  })
+
+  it('a cancel in one tab stops the other tab from sending the entry', async () => {
+    const storage = memoryStorage()
+    const first = deferred()
+    const sentB = []
+    const timers = manualTimers()
+    const a = make({ storage, timers, send: () => first.promise }).outbox
+    a.add(1)              // in flight in A
+    const e2 = a.add(2)   // waiting in A
+    const b = make({ storage, timers, send: (e) => { sentB.push(e.bib); return new Promise(() => {}) } }).outbox
+    // B loaded both; it is now sending 1 and has 2 waiting.
+    assert.equal(a.cancel(e2.id), true)
+    b.sync()
+    first.resolve('saved')
+    await settle()
+    assert.deepEqual(sentB, [1])
+    assert.deepEqual(b.entries().map(e => e.bib), [1])
+    assert.deepEqual(a.entries().map(e => e.bib), [1])
+  })
+
+  it('a failed entry takes a delivery reported by the other tab', () => {
+    const storage = memoryStorage()
+    const a = make({ storage, send: async () => { throw Object.assign(new Error('x'), { permanent: true }) } }).outbox
+    const e = a.add(3)
+    return settle().then(() => {
+      const raw = JSON.parse(storage.data.k)
+      raw[0].status = 'duplicate'
+      storage.data.k = JSON.stringify(raw)
+      a.sync()
+      assert.equal(a.entries().find(x => x.id === e.id).status, 'duplicate')
+      assert.equal(a.failedCount(), 0)
+    })
+  })
+})
+
 describe('classifyInsertResult', () => {
   it('a returned row is saved', () => {
     assert.equal(classifyInsertResult({ data: [{ id: 'x' }], error: null }), 'saved')

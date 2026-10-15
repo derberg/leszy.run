@@ -146,9 +146,15 @@ export function createOutbox({
       if (!f || typeof f.id !== 'string' || !Number.isInteger(f.bib) || removed.has(f.id)) continue
       const mine = find(f.id)
       if (!mine) {
-        items.push({ ...f })
+        // A 'sending' copy belongs to a request in the other tab that this tab
+        // will never see finish, so it is ours to send too.
+        items.push({ ...f, status: f.status === 'sending' ? 'pending' : f.status })
         touched = true
-      } else if (mine.status === 'pending' && DELIVERED.has(f.status)) {
+      } else if (f.status === 'cancelled' && mine.status === 'pending') {
+        // Taken back in the other tab before anything was sent there.
+        mine.status = 'cancelled'
+        touched = true
+      } else if ((mine.status === 'pending' || mine.status === 'failed') && DELIVERED.has(f.status)) {
         // The other tab already delivered it.
         mine.status = f.status
         mine.error = f.error ?? null
@@ -181,7 +187,7 @@ export function createOutbox({
   }
 
   function prune() {
-    const done = items.filter(e => e.status === 'saved' || e.status === 'duplicate')
+    const done = items.filter(e => e.status === 'saved' || e.status === 'duplicate' || e.status === 'cancelled')
     if (done.length <= keepDone) return
     const drop = new Set(done.slice(0, done.length - keepDone).map(e => e.id))
     for (const id of drop) removed.add(id)
@@ -299,8 +305,10 @@ export function createOutbox({
     cancel(id) {
       const e = find(id)
       if (!e || e.status !== 'pending' || (e.attempts || 0) > 0) return false
-      removed.add(id)
-      items = items.filter(x => x.id !== id)
+      // Kept as a tombstone in storage, so another tab holding the same entry
+      // drops it instead of sending it.
+      e.status = 'cancelled'
+      prune()
       changed()
       return true
     },
@@ -323,7 +331,7 @@ export function createOutbox({
       }
       pump()
     },
-    entries: () => items.slice().reverse().map(e => ({ ...e })),
+    entries: () => items.filter(e => e.status !== 'cancelled').reverse().map(e => ({ ...e })),
     pendingCount: () => items.filter(e => e.status === 'pending' || e.status === 'sending').length,
     failedCount: () => items.filter(e => e.status === 'failed').length,
     persistent: () => persistent,
