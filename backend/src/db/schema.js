@@ -10,22 +10,21 @@ export const events = pgTable('events', {
   rfidMode: text('rfid_mode').notNull().default('single'),        // 'single' | 'separate'
   rfidTopicMain: text('rfid_topic_main').notNull().default('leszyrun'),
   rfidTopicFinish: text('rfid_topic_finish').notNull().default('leszyrun/finish'),
-  // -6500 (=-65 dBm), not -5000: measured at the 2026-08-07 night race, genuine
-  // gate passes came in at -60…-65 dBm. A -5000 floor discards nearly the whole
-  // field. Far-field pickup (tag on a table 15-20 m away) sits at -71…-78, so
-  // -6500 still keeps it out — barely. Loosen per event, never tighten blindly.
-  rssiThreshold: integer('rssi_threshold').notNull().default(-6500),
-  // Crossing bar, in cdbm. rssiThreshold above is a permissive TRACKING floor
-  // (see it or lose weak tags); this is the strict test for "did the tag actually
-  // reach the gate". START: peak must clear it. FINISH: the read must clear it.
-  // NULL = disabled, i.e. exactly the pre-existing single-threshold behaviour.
+  // Tracking floor, in cdbm. -9000 is below anything the R700 reports, so every
+  // read is followed: start AND finish are timed at the peak of the pass, so a
+  // weak read can no longer set a time. confirmRssiCdbm decides what counts.
+  rssiThreshold: integer('rssi_threshold').notNull().default(-9000),
+  // Crossing bar, in cdbm: the PEAK of a start or finish pass must reach it, or
+  // the pass is dropped. NULL = disabled, the default: a runner 5 m before the
+  // antennas reads -7000…-7700 (measured 2026-10-15), so a bar there drops real
+  // passes. Set it per event only after measuring the gate.
   confirmRssiCdbm: integer('confirm_rssi_cdbm'),
   declineThresholdCdbm: integer('decline_threshold_cdbm').notNull().default(1000), // UNUSED — no reference in crossingDetector.js; kept for schema compat
   goneWindowSeconds: integer('gone_window_seconds').notNull().default(3),
-  fallbackSeconds: integer('fallback_seconds').notNull().default(10), // unused since first-read finish; kept for schema compat
+  fallbackSeconds: integer('fallback_seconds').notNull().default(10), // unused since the finish force-confirm timer was removed; kept for schema compat
   gunBackfillSeconds: integer('gun_backfill_seconds').notNull().default(60),
   gunBackfillEnabled: boolean('gun_backfill_enabled').notNull().default(true), // false = never auto-assign gun start time (timer + finish fallback both off)
-  minFinishSeconds: integer('min_finish_seconds').notNull().default(30),
+  minFinishSeconds: integer('min_finish_seconds').notNull().default(300),
   slug: text('slug').notNull().unique(),
   publicResultsUrl: text('public_results_url'),
   eventUrl: text('event_url'),

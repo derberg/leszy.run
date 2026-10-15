@@ -19,10 +19,12 @@ function baseConfig(over = {}) {
   }
 }
 
-async function makeRace(t, { config = baseConfig(), resultsRows = [], checkinRows = [], participants = [{ id: 'p1', rfidEpc: 'EPC1' }] } = {}) {
+const PASS_MAX_MS = 150
+
+async function makeRace(t, { config = baseConfig(), resultsRows = [], checkinRows = [], participants = [{ id: 'p1', rfidEpc: 'EPC1' }], finishPassMaxMs = PASS_MAX_MS } = {}) {
   const db = createFakeDb({ resultsRows, checkinRows })
   const broadcast = createFakeBroadcast()
-  const detector = new CrossingDetector({ db, broadcast })
+  const detector = new CrossingDetector({ db, broadcast, finishPassMaxMs })
   const raceRun = { id: 'rr1', startedAt: new Date(Date.now() - 60_000) }
   await detector.startRace(raceRun, config, participants)
   t.after(() => detector.stopRace(raceRun.id).catch(() => {}))
@@ -74,17 +76,57 @@ test('reads weaker than rssiThreshold are ignored entirely', async (t) => {
   assert.equal(db._inserts().gate_events.length, 0, 'sub-threshold reads are not persisted for audit either')
 })
 
-test('an already-started participant finishes on the FIRST qualifying read', async (t) => {
+test('FINISH confirms at the peak of the pass after the silence window, not at the first read', async (t) => {
   const { detector, broadcast } = await makeRace(t, {
     resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
   })
 
-  detector.processEvent(read(-4000))
-  await wait(40)
+  detector.processEvent(read(-7800)) // first heard far out
+  await wait(5)
+  const peakAt = new Date().toISOString()
+  detector.processEvent(read(-4000, { receivedAt: peakAt })) // at the line
+  await wait(5)
+  detector.processEvent(read(-6900))
+  await wait(20)
+  assert.equal(broadcast.crossings().length, 0, 'nothing is confirmed while the pass is still open')
 
+  await wait(GONE_MS + 60)
   const crossings = broadcast.crossings()
   assert.equal(crossings.length, 1)
   assert.equal(crossings[0].gate, 'finish')
+  assert.equal(new Date(crossings[0].confirmedAt).toISOString(), peakAt)
+  assert.equal(crossings[0].peakRssiCdbm, -4000)
+})
+
+test('a FINISH pass that stays in range is confirmed at its peak once it reaches the pass cap', async (t) => {
+  // Reads 220 ms apart clear the 200 ms dedup window, and a 300 ms gone window
+  // never expires between them, so only the cap can close this pass.
+  const { detector, broadcast } = await makeRace(t, {
+    config: baseConfig({ goneWindowSeconds: 0.3 }),
+    finishPassMaxMs: 600,
+    resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
+  })
+
+  // A finisher who stops just past the line keeps being read.
+  const peakAt = new Date().toISOString()
+  detector.processEvent(read(-4500, { receivedAt: peakAt }))
+  for (let i = 0; i < 2; i++) {
+    await wait(220)
+    detector.processEvent(read(-6000, { receivedAt: new Date().toISOString() }))
+  }
+  assert.equal(broadcast.crossings().length, 0, 'still open at ~440 ms: reads keep resetting the gone timer')
+
+  await wait(220)
+  detector.processEvent(read(-6000, { receivedAt: new Date().toISOString() }))
+  await wait(40)
+  assert.equal(broadcast.crossings().length, 1, 'closed by the cap')
+  assert.equal(new Date(broadcast.crossings()[0].confirmedAt).toISOString(), peakAt)
+
+  // A stronger read later, from where they stand, must not re-time it.
+  await wait(220)
+  detector.processEvent(read(-3000, { receivedAt: new Date().toISOString() }))
+  await wait(400)
+  assert.equal(broadcast.crossings().length, 1, 'a finish is never re-timed')
 })
 
 // ---------------------------------------------------------------------------
@@ -146,44 +188,38 @@ test('the confirm bar is inclusive — a peak exactly at confirmRssiCdbm counts'
   assert.equal(broadcast.crossings().length, 1)
 })
 
-test('FINISH ignores a far-field read and confirms on the first strong one', async (t) => {
+test('a FINISH pass whose peak misses the crossing bar is discarded and the real pass still counts', async (t) => {
   const { detector, broadcast } = await makeRace(t, {
-    config: baseConfig({ rssiThreshold: -6500, confirmRssiCdbm: -5500 }),
+    config: baseConfig({ rssiThreshold: -9000, confirmRssiCdbm: -7000 }),
     resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
   })
 
-  // Approaching from 15 m out: must NOT be recorded as the finish, otherwise the
-  // runner gets a time from before they reached the line.
-  detector.processEvent(read(-6300))
-  await wait(30)
-  assert.equal(broadcast.crossings().length, 0, 'weak approach read must not finish the runner')
+  // Heard once from a stretch of course 30 m from the gate, mid-race.
+  detector.processEvent(read(-7900))
+  await wait(GONE_MS + 60)
+  assert.equal(broadcast.crossings().length, 0, 'a far-away pass is not a finish')
 
-  const strongAt = new Date().toISOString()
-  detector.processEvent(read(-3600, { receivedAt: strongAt }))
-  await wait(40)
-
-  const crossings = broadcast.crossings()
-  assert.equal(crossings.length, 1)
-  assert.equal(crossings[0].gate, 'finish')
-  assert.equal(new Date(crossings[0].confirmedAt).toISOString(), strongAt)
+  const realAt = new Date().toISOString()
+  detector.processEvent(read(-6800, { receivedAt: realAt }))
+  await wait(GONE_MS + 60)
+  assert.equal(broadcast.crossings().length, 1)
+  assert.equal(broadcast.crossings()[0].gate, 'finish')
+  assert.equal(new Date(broadcast.crossings()[0].confirmedAt).toISOString(), realAt)
 })
 
-test('a rejected weak finish read does not block the real one (finishedParticipants not poisoned)', async (t) => {
+test('the 2026-08-07 case: a pass just under the old -6500 floor is now timed', async (t) => {
   const { detector, broadcast } = await makeRace(t, {
-    config: baseConfig({ rssiThreshold: -6500, confirmRssiCdbm: -5500 }),
+    config: baseConfig({ rssiThreshold: -9000, confirmRssiCdbm: -7000 }),
     resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
   })
 
-  for (const r of [-6400, -6300, -6450, -6200]) {
+  for (const r of [-7600, -7100, -6700, -6900]) {
     detector.processEvent(read(r, { receivedAt: new Date().toISOString() }))
     await wait(3)
   }
-  assert.equal(broadcast.crossings().length, 0)
-
-  detector.processEvent(read(-4100, { receivedAt: new Date().toISOString() }))
-  await wait(40)
+  await wait(GONE_MS + 60)
   assert.equal(broadcast.crossings().length, 1)
-  assert.equal(broadcast.crossings()[0].gate, 'finish')
+  assert.equal(broadcast.crossings()[0].peakRssiCdbm, -6700)
 })
 
 test('confirmRssiCdbm unset (null) preserves existing behaviour exactly', async (t) => {
@@ -213,9 +249,9 @@ test('confirmRssiCdbm weaker than rssiThreshold is harmless (floor still dominat
 })
 
 // ---------------------------------------------------------------------------
-// Post-finish audit window — the rest of a finish pass must reach gate_events so
-// "solid crossing or one lucky ping?" is answerable after the race, while
-// detection stays first-read (later reads never re-time an existing finish).
+// Post-finish audit window. The tail of a finish pass must reach gate_events so
+// "solid crossing or one lucky ping?" is answerable after the race, while later
+// reads never re-time an existing finish.
 // ---------------------------------------------------------------------------
 
 test('reads after a confirmed finish are still persisted for audit', async (t) => {
@@ -223,20 +259,22 @@ test('reads after a confirmed finish are still persisted for audit', async (t) =
     resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
   })
 
+  detector.processEvent(read(-6300))                 // the pass, confirmed after silence
+  await wait(GONE_MS + 60)
+  assert.equal(broadcast.crossings().length, 1)
+
   // Ascending RSSI: the 200 ms dedup window keeps only improving reads per EPC,
   // so a descending sequence would be dropped there and prove nothing about audit.
-  detector.processEvent(read(-6300))                 // confirms the finish
-  await wait(20)
   detector.processEvent(read(-5200, { receivedAt: new Date(Date.now() + 1).toISOString() }))
   await wait(20)
   detector.processEvent(read(-4800, { receivedAt: new Date(Date.now() + 2).toISOString() }))
-  await wait(30)
+  await wait(GONE_MS + 60)
 
-  assert.equal(broadcast.crossings().length, 1, 'still exactly one finish — detection unchanged')
+  assert.equal(broadcast.crossings().length, 1, 'still exactly one finish')
   assert.equal(db._inserts().gate_crossings.length, 1)
 
   const events = db._inserts().gate_events
-  assert.equal(events.length, 3, 'the whole pass is audited, not just the confirming read')
+  assert.equal(events.length, 3, 'reads after the finish are audited too')
   assert.deepEqual(events.map(e => e.rssiCdbm), [-6300, -5200, -4800])
 })
 
@@ -245,8 +283,8 @@ test('post-finish reads still respect rssiThreshold', async (t) => {
     resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'started' }],
   })
 
-  detector.processEvent(read(-6300))                 // confirms the finish
-  await wait(20)
+  detector.processEvent(read(-6300))                 // the finish pass
+  await wait(GONE_MS + 60)
   detector.processEvent(read(-7400, { receivedAt: new Date(Date.now() + 1).toISOString() }))
   await wait(30)
 
@@ -293,7 +331,7 @@ test('a finish read does not credit gun time to a runner who never checked in', 
 
   detector.processEvent(read(-4000, { topic: 'leszyrun/finish' }))
   detector.processEvent(read(-4000, { epc: 'EPC2', topic: 'leszyrun/finish' }))
-  await wait(40)
+  await wait(GONE_MS + 60)
 
   assert.equal(broadcast.crossings().length, 2)
   const byId = Object.fromEntries(db._rows().map((r) => [r.participantId, r]))

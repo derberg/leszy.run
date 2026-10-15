@@ -9,12 +9,20 @@ import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
  * the runner was physically closest to the antenna. Exit-triggering is required for
  * starts because runners stand in the corral inside the read zone before the gun.
  *
- * FINISH crossings are first-read: the FIRST reading above the event's rssi_threshold
- * from an already-started participant confirms the finish immediately with that
- * reading's timestamp. No timers, no waiting — subsequent readings are ignored via
- * finishedParticipants. (The old fallbackSeconds maxTimer is gone: with sensitive
- * tags it fired during the far-field approach, recording a weak early "finish" and
- * then ignoring the real crossing.)
+ * FINISH crossings are exit-triggered too, timestamped at the PEAK of the pass. A
+ * pass ends when the tag goes silent for goneWindowMs, or FINISH_PASS_MAX_MS after
+ * its first read, whichever comes first. The cap exists because finishers stop
+ * just past the line: without it a runner standing in the read zone would never
+ * confirm, and a later read from where they stand could replace the crossing.
+ *
+ * Finish used to be first-read: the first read above rssi_threshold WAS the
+ * finish. That made rssi_threshold decide the finish time, and no value worked.
+ * At the 2026-08-07 night race the floor was -6500 and every one of the 36 finish
+ * peaks sat between -6000 and -6500, the histogram rising right up to the floor:
+ * the floor was cutting the passes off. Three runners got no finish at all, and
+ * five got one from a read minutes later, when they walked back past the gate.
+ * Lowering a first-read floor only moves the finish earlier, to wherever the tag
+ * is first heard. Taking the peak of the pass makes the floor harmless.
  *
  * Guard: finish reads within minFinishSeconds (per event, default 30 s) of the gun
  * are ignored — ghost reads near the start line right after the gun.
@@ -24,8 +32,9 @@ import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
  *  1. First reading → create inRange entry, arm goneTimer (3 s)
  *  2. Each subsequent reading → update peak if improved, RESET goneTimer
  *  3. goneTimer fires (3 s silence) → person left the gate → confirm crossing at peak
- *  FINISH (participant already started / finish topic):
- *  4. First reading above threshold (and past minFinishSeconds) → confirm immediately
+ *  FINISH (participant already started / finish topic, past minFinishSeconds):
+ *  4. Same as START: track the pass, keep its peak, reset goneTimer on each read
+ *  5. goneTimer fires, or the pass reaches FINISH_PASS_MAX_MS → confirm at peak
  *
  * Gate determination (single-reader mode):
  *  - No startTime in DB yet → gate = 'start'
@@ -45,21 +54,23 @@ import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
  *  for manual backfill (POST /races/:id/assign-gun-start).
  *
  * Two-tier strength gating (rssi_threshold + confirm_rssi_cdbm):
- *  - rssi_threshold is a TRACKING floor — may this read be followed at all.
- *    Must stay permissive or weak-but-real tags are never seen.
- *  - confirm_rssi_cdbm is a CROSSING bar — did the tag actually reach the gate.
- *    START requires the accumulated PEAK to clear it; FINISH requires the
- *    individual read to clear it. NULL disables it (single-threshold behaviour).
- *  A start rejected by the bar falls through to gun-time backfill.
+ *  - rssi_threshold is a TRACKING floor: may this read be followed at all.
+ *    Default -9000, which is below anything the R700 reports, so every read is
+ *    followed. With peak-of-pass timing a weak read can no longer set a time.
+ *  - confirm_rssi_cdbm is a CROSSING bar: did the tag actually reach the gate.
+ *    The PEAK of a start or finish pass must clear it. NULL (the default)
+ *    disables it. Set it per event to stop a tag heard from far away (a runner
+ *    on a stretch of course near the gate, a bib in a bag by the tent) from
+ *    becoming a crossing. Measured on 2026-10-15, a runner 5 m before the
+ *    antennas read -7000…-7700, so a bar near -7000 drops real passes.
+ *  A start rejected by the bar falls through to gun-time backfill; a rejected
+ *  finish pass leaves the runner on course, so their real pass still counts.
  *
- *  KEEP confirm_rssi_cdbm NULL UNLESS A CLEAN SEPARATION HAS BEEN MEASURED AT
- *  THE ACTUAL GATE. It was designed on the belief that a real pass is always
- *  strong (-3200…-5000) and only far-field pickup is weak, so ~-5500 would split
- *  them. Measured on 2026-08-07 that is FALSE: runners passing right beside the
+ *  Do not raise confirm_rssi_cdbm above -6500 without a measured separation at
+ *  the actual gate. Measured on 2026-08-07, runners passing right beside the
  *  antenna peaked at -6200…-6450, while others on the same pass peaked at -3200.
  *  A ~30 dB spread between identical passes is a tag-orientation/placement (or
- *  antenna-coverage) problem, not something a threshold can fix — a bar set on
- *  the wrong assumption silently discards genuine crossings.
+ *  antenna-coverage) problem, not something a threshold can fix.
  *  gate_crossings.peak_rssi_cdbm records every confirmed crossing's peak, so
  *  weak crossings can be reviewed AFTER a race instead of dropped during it.
  *
@@ -72,7 +83,10 @@ import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
  *     T -->|Yes| B{Participant already started?}
  *     B -->|Yes / finish topic| Y{Past minFinishSeconds since gun?}
  *     Y -->|No| X
- *     Y -->|Yes| M[gate=finish · finishTime=this reading · confirm IMMEDIATELY]
+ *     Y -->|Yes| P[Track finish pass · keep peak · reset goneTimer]
+ *     P -->|3s silence or FINISH_PASS_MAX_MS| Q{peak >= confirm bar?}
+ *     Q -->|No| X
+ *     Q -->|Yes| M[gate=finish · finishTime=peakTime]
  *     M --> O[broadcast · persist · add to finishedParticipants · ignore further reads]
  *     B -->|No| C{Tag in inRange map?}
  *     C -->|No| D[Create entry · arm goneTimer 3s]
@@ -103,16 +117,28 @@ const DEDUP_WINDOW_MS = 200   // within this window per EPC, only keep best RSSI
 // passes worth inspecting. 10 s covers the slowest finisher with margin.
 const FINISH_AUDIT_WINDOW_MS = 10_000
 
+// Longest a finish pass may last before it is confirmed at its peak. The gate
+// hears a tag from about 5 m and not at 6 m (measured 2026-10-15), so a Nordic
+// walker at 1.4 m/s crosses the read zone in under 10 s. The cap leaves margin
+// and bounds how much standing around after the line can compete for the peak.
+const FINISH_PASS_MAX_MS = 20_000
+
+const DEFAULT_RSSI_THRESHOLD = -9000
+const DEFAULT_CONFIRM_RSSI = null
+const DEFAULT_MIN_FINISH_SECONDS = 300
+
 
 export class CrossingDetector {
-  constructor({ db, broadcast }) {
+  constructor({ db, broadcast, finishPassMaxMs = FINISH_PASS_MAX_MS }) {
     this.db = db
     this.broadcast = broadcast
+    this.finishPassMaxMs = finishPassMaxMs
 
     // Map<raceRunId, { config, epcToParticipant, startedParticipants, finishedParticipants }>
     this.activeRaces = new Map()
 
-    // Map<`${epc}:${raceRunId}`, { peakRssi, peakTime, antennaPort, topic, goneTimer }>
+    // Open passes. Start: `${epc}:${raceRunId}`, finish: `${epc}:${raceRunId}:finish`.
+    // Value: { epc, raceRunId, firstAt, peakRssi, peakTime, antennaPort, topic, goneTimer }
     this.inRange = new Map()
 
     // Dedup window: Map<epc, { rssi, time }>
@@ -173,13 +199,13 @@ export class CrossingDetector {
     const pendingConfirms = []
     const race = this.activeRaces.get(raceRunId)
     for (const [key, tag] of this.inRange) {
-      if (key.endsWith(`:${raceRunId}`)) {
+      if (tag.raceRunId === raceRunId) {
         clearTimeout(tag.goneTimer)
-        const epc = key.split(':')[0]
+        const epc = tag.epc
         const participantId = race?.epcToParticipant.get(epc)
         // Same crossing bar as the goneTimer path — otherwise stopping the race
         // would flush exactly the far-field presences the bar just rejected.
-        const confirmRssi = race?.config?.confirmRssiCdbm ?? null
+        const confirmRssi = confirmRssiOf(race?.config)
         const tooWeak = confirmRssi !== null && tag.peakRssi < confirmRssi
         if (tooWeak) {
           console.log(`[Detector] Dropping pending far-field presence for ${epc} on stop — peak ${tag.peakRssi} < confirm bar ${confirmRssi}`)
@@ -299,7 +325,7 @@ export class CrossingDetector {
       // (high-sensitivity tags read from 20+ m) — not a gate crossing. Skip
       // detection AND the audit insert; sub-threshold reads also must not
       // reset goneTimer, so a runner leaving the gate zone confirms promptly.
-      const rssiThreshold = race.config.rssiThreshold ?? -6500
+      const rssiThreshold = race.config.rssiThreshold ?? DEFAULT_RSSI_THRESHOLD
       if (event.rssiCdbm < rssiThreshold) continue
 
       // TWO-TIER STRENGTH GATING.
@@ -319,8 +345,8 @@ export class CrossingDetector {
       // single value trades missed runners against phantom crossings. Real gate
       // passes peak at -3200…-5000; far-field loiterers top out around -6200.
       //
-      // NULL disables the bar entirely (pre-existing behaviour).
-      const confirmRssi = race.config.confirmRssiCdbm ?? null
+      // NULL disables the bar entirely.
+      const confirmRssi = confirmRssiOf(race.config)
 
       // Persist raw ping for audit — fire-and-forget, must not block sync detection loop.
       //
@@ -348,9 +374,8 @@ export class CrossingDetector {
         }).catch(err => console.error('[Detector] Failed to persist gate event:', err))
       }
 
-      // Finish already confirmed for this runner — audited above where still in
-      // window, but no further detection work (first-read finish semantics: later
-      // reads never re-time an existing finish).
+      // Finish already confirmed for this runner. Audited above where still in
+      // window, but later reads never re-time an existing finish.
       if (finished) continue
 
       const key = `${event.epc}:${raceRunId}`
@@ -358,11 +383,8 @@ export class CrossingDetector {
       const rfidMode        = race.config.rfidMode
       const rfidTopicFinish = race.config.rfidTopicFinish
       const goneWindowMs    = (race.config.goneWindowSeconds ?? 3) * 1000
-      const minFinishMs     = (race.config.minFinishSeconds ?? 30) * 1000
+      const minFinishMs     = (race.config.minFinishSeconds ?? DEFAULT_MIN_FINISH_SECONDS) * 1000
 
-      // FINISH is first-read: the first above-threshold reading from a started
-      // participant IS the finish. No exit-triggering — with sensitive tags the
-      // old fallback timer confirmed "finishes" during the far-field approach.
       const isFinishRead = rfidMode === 'separate'
         ? event.topic === rfidTopicFinish
         : race.startedParticipants.has(participantId)
@@ -371,31 +393,7 @@ export class CrossingDetector {
         // Ghost-read guard: ignore finish reads too soon after the gun
         // (runners near the start line right after the start).
         if (race.gunStartTime && (new Date(event.receivedAt) - race.gunStartTime) < minFinishMs) continue
-        // FINISH is first-read, so the crossing bar applies to THIS read rather
-        // than an accumulated peak. Skipping (instead of buffering) keeps the
-        // first-read semantics intact: the first read strong enough to be a real
-        // gate pass is the finish. Critically this must NOT add the participant
-        // to finishedParticipants — doing so would swallow their real crossing
-        // moments later and leave them permanently unfinished.
-        if (confirmRssi !== null && event.rssiCdbm < confirmRssi) continue
-        // Mark finished synchronously BEFORE the async confirm — readings arrive
-        // faster than the DB roundtrip and would otherwise double-confirm.
-        race.finishedParticipants.add(participantId)
-        // Keep auditing this tag for a short window so the REST of the finish pass
-        // lands in gate_events — that is what makes "was this a solid crossing or
-        // one lucky ping?" answerable after the race.
-        race.finishAuditUntil.set(participantId, now + FINISH_AUDIT_WINDOW_MS)
-        this.#confirmCrossing({
-          raceRunId,
-          participantId,
-          peakRssi: event.rssiCdbm,
-          peakTime: new Date(event.receivedAt),
-          antennaPort: event.antennaPort,
-          topic: event.topic,
-          rfidMode,
-          rfidTopicFinish,
-          race,
-        })
+        this.#trackFinishPass({ event, now, raceRunId, participantId, race, confirmRssi, goneWindowMs, rfidMode, rfidTopicFinish })
         continue
       }
 
@@ -439,6 +437,9 @@ export class CrossingDetector {
       if (!tag) {
         // First reading: create entry, arm gone timer
         const newTag = {
+          epc:         event.epc,
+          raceRunId,
+          firstAt:     now,
           peakRssi:    event.rssiCdbm,
           peakTime:    new Date(event.receivedAt),
           antennaPort: event.antennaPort,
@@ -459,6 +460,60 @@ export class CrossingDetector {
         armGoneTimer(tag)
       }
     }
+  }
+
+  // One finish pass of one tag: the same peak tracking as START, plus the
+  // FINISH_PASS_MAX_MS cap. Nothing is marked finished until the pass closes, so
+  // a pass rejected by the crossing bar leaves the runner free to finish later.
+  #trackFinishPass({ event, now, raceRunId, participantId, race, confirmRssi, goneWindowMs, rfidMode, rfidTopicFinish }) {
+    const key = `${event.epc}:${raceRunId}:finish`
+
+    const close = () => {
+      const pass = this.inRange.get(key)
+      if (!pass) return
+      clearTimeout(pass.goneTimer)
+      this.inRange.delete(key)
+      if (race.finishedParticipants.has(participantId)) return
+      if (confirmRssi !== null && pass.peakRssi < confirmRssi) {
+        console.log(`[Detector] Discarding finish pass for ${event.epc} in race ${raceRunId}: peak ${pass.peakRssi} never reached confirm bar ${confirmRssi}`)
+        return
+      }
+      // Mark finished synchronously BEFORE the async confirm, so reads arriving
+      // during the DB round trip cannot open a second pass.
+      race.finishedParticipants.add(participantId)
+      // Keep auditing this tag for a short window so the tail of the pass lands
+      // in gate_events too.
+      race.finishAuditUntil.set(participantId, Date.now() + FINISH_AUDIT_WINDOW_MS)
+      this.#confirmCrossing({
+        raceRunId,
+        participantId,
+        peakRssi: pass.peakRssi,
+        peakTime: pass.peakTime,
+        antennaPort: pass.antennaPort,
+        topic: pass.topic,
+        rfidMode,
+        rfidTopicFinish,
+        race,
+      })
+    }
+
+    let pass = this.inRange.get(key)
+    if (!pass) {
+      pass = { epc: event.epc, raceRunId, firstAt: now, peakRssi: -Infinity, peakTime: null, antennaPort: null, topic: null, goneTimer: null }
+      this.inRange.set(key, pass)
+    }
+    if (event.rssiCdbm > pass.peakRssi) {
+      pass.peakRssi    = event.rssiCdbm
+      pass.peakTime    = new Date(event.receivedAt)
+      pass.antennaPort = event.antennaPort
+      pass.topic       = event.topic
+    }
+    clearTimeout(pass.goneTimer)
+    if (now - pass.firstAt >= this.finishPassMaxMs) {
+      close()
+      return
+    }
+    pass.goneTimer = setTimeout(close, Math.min(goneWindowMs, pass.firstAt + this.finishPassMaxMs - now))
   }
 
   async #confirmCrossing({ raceRunId, participantId, peakRssi, peakTime, antennaPort, topic, rfidMode, rfidTopicFinish, race }) {
@@ -485,10 +540,10 @@ export class CrossingDetector {
       // Guard: ignore finish crossings too soon after race start (ghost reads from
       // tags still near the antenna right after the gun). Per-event configurable.
       if (gate === 'finish' && race?.gunStartTime) {
-        const minFinishMs = (race.config?.minFinishSeconds ?? 30) * 1000
+        const minFinishMs = (race.config?.minFinishSeconds ?? DEFAULT_MIN_FINISH_SECONDS) * 1000
         const elapsed = peakTime - race.gunStartTime
         if (elapsed < minFinishMs) {
-          // Roll back the optimistic first-read mark so the real crossing still counts
+          // Roll back the optimistic finished mark so the real crossing still counts
           race.finishedParticipants.delete(participantId)
           race.finishAuditUntil.delete(participantId)
           console.log(`[Detector] Ignoring finish crossing for ${participantId} — only ${Math.round(elapsed / 1000)}s since race start (min ${minFinishMs / 1000}s)`)
@@ -617,4 +672,10 @@ export class CrossingDetector {
       await this.db.update(results).set({ position: i + 1 }).where(eq(results.id, finished[i].id))
     }
   }
+}
+
+// A missing value means the default, which is no bar.
+function confirmRssiOf(config) {
+  if (!config || config.confirmRssiCdbm === undefined) return DEFAULT_CONFIRM_RSSI
+  return config.confirmRssiCdbm
 }

@@ -26,7 +26,7 @@ export default function RaceControl() {
     queryKey: ['events', id],
     queryFn: () => api.events.get(id),
   })
-  const rssiThreshold = event?.rssiThreshold ?? -6500
+  const rssiThreshold = event?.rssiThreshold ?? -9000
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories', id],
