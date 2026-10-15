@@ -616,6 +616,8 @@ The whole accounts/community product (login, profile, favorites/stars, notificat
 
 **Auth transport — edge functions go through same-origin `/edge`, NEVER raw `VITE_SUPABASE_URL`.** The session is an httpOnly cookie the edge functions set. A cookie set by `*.supabase.co` while the page is on `leszy.run` is a THIRD-PARTY cookie that browsers block (Safari always, Chrome/Firefox increasingly) — login "succeeds" but the session never persists. So `public/vercel.json` (and the vite dev-server proxy in `public/vite.config.js`) rewrites `/edge/*` → `<project>.supabase.co/functions/v1/*`, making the cookie first-party. **Rule:** any client call to an edge function that depends on the session cookie MUST use the `FUNCTIONS_BASE` (`/edge`) constant from `public/src/lib/auth.js` — never build the URL from `VITE_SUPABASE_URL` directly. (The `supabase-js` DB client in `lib/supabase.js` is exempt: it uses bearer tokens, not cookies, so it hits `*.supabase.co` directly.)
 
+**Browser APIs are gated by `Permissions-Policy` in `public/vercel.json`.** A feature that uses the camera, the microphone, geolocation or another gated API needs `<feature>=(self)` there, or Chrome blocks it on www.leszy.run and shows no reason. It happened twice: `geolocation=()` broke "Blisko mnie" for two weeks, and `camera=()` kept the bib-office QR scanner from opening the camera until 2026-10-15. The Vite dev and preview servers copy these headers from `vercel.json`, so the breakage shows up locally too.
+
 ### Logo
 - `public/public/logo-bez-napisu.svg` — Leszy character without text. Two green leaves (top-left, top-right), black body/roots.
 - `public/public/logo.svg` — full logo with text (used as watermark in `app.css`)
