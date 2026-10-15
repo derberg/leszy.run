@@ -103,8 +103,12 @@ Work down the stages. Each is testable on its own.
    aspect gate, and that gate is deliberate: without it a bright strap became
    a leading digit and blurred digits merged into one.
 5. `read_bib`. Confidence is the weakest digit, because a bib is read whole or
-   not at all.
-6. `Tracker` (`vision/track.py`). Thirty frames vote. If one bad frame decided
+   not at all. A block under `MIN_BLOCK_HEIGHT_PX` (50) is not read at all:
+   a 34-pixel leafy patch of a top read as 24 in three passes.
+6. `Tracker` (`vision/track.py`). Thirty frames vote. A refused read (no
+   number, confidence above 0) votes against the winner, which must hold
+   `MIN_READ_SHARE` of every frame where digits were found. A single read
+   stands only at 0.99 or more, unopposed, in a pass of 20 frames or fewer. If one bad frame decided
    the answer, the tracker is not linking frames and the runner produced
    several one-frame tracks.
 

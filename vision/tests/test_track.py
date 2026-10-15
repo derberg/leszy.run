@@ -1,3 +1,5 @@
+import pytest
+
 from vision.pipeline import Sighting
 from vision.track import IOU_MATCH, MAX_GAP_FRAMES, Tracker, iou
 
@@ -126,8 +128,10 @@ def test_a_number_read_in_one_frame_of_a_long_pass_is_withheld():
 def test_a_number_read_in_two_frames_stands():
     tracker = Tracker()
     for i in range(10):
-        text = "47" if i in (3, 4) else None
-        tracker.add(i, [sighting(text, 0.9, (100 + i, 200, 200 + i, 260))])
+        # A frame with no number found carries confidence 0; a non-zero
+        # confidence with no number is a refused read, which votes against.
+        text, confidence = ("47", 0.9) if i in (3, 4) else (None, 0.0)
+        tracker.add(i, [sighting(text, confidence, (100 + i, 200, 200 + i, 260))])
     assert tracker.results()[0].text == "47"
 
 
@@ -159,3 +163,78 @@ def test_a_piece_of_the_number_at_the_end_of_a_pass_does_not_split_it():
     t = Tracker()
     _pass(t, ["20"] * 6 + ["0"] * 3)
     assert [r.text for r in t.flush()] == ["20"]
+
+
+def test_a_number_outnumbered_by_refused_reads_of_the_same_patch_is_withheld():
+    # A leafy patch of a runner's top, found as a 53x34 "bib", came back as
+    # 24 at 0.83 in two frames and was refused at 0.44 to 0.67 in about
+    # twenty more. Only the two accepted reads voted, so 24 was reported at
+    # a share of 1.00. The refusals are evidence that it is not a number.
+    tracker = Tracker()
+    for i in range(60):
+        if i in (5, 40):
+            text, confidence = "24", 0.83
+        elif i % 3 == 0:
+            text, confidence = None, 0.55
+        else:
+            text, confidence = None, 0.0
+        tracker.add(i, [sighting(text, confidence, (100 + i, 200, 200 + i, 260))])
+    result = tracker.results()[0]
+    assert result.text is None
+    assert result.votes == {"24": pytest.approx(1.66)}
+
+
+def test_a_few_refused_reads_do_not_overturn_a_clear_number():
+    tracker = Tracker()
+    for i in range(12):
+        if i in (2, 3, 4, 5, 6):
+            text, confidence = "47", 0.95
+        elif i in (7, 8):
+            text, confidence = None, 0.6
+        else:
+            text, confidence = None, 0.0
+        tracker.add(i, [sighting(text, confidence, (100 + i, 200, 200 + i, 260))])
+    assert tracker.results()[0].text == "47"
+
+
+def test_one_certain_read_in_a_short_uncontested_pass_stands():
+    # A runner crossing quickly gave ten frames, and only one held the bib
+    # close enough to read: 7 at 1.00. Nothing else in the pass was read or
+    # refused, so there is nothing for that read to be outvoted by.
+    tracker = Tracker()
+    for i in range(10):
+        text, confidence = ("7", 1.0) if i == 2 else (None, 0.0)
+        tracker.add(i, [sighting(text, confidence, (100 + i, 200, 200 + i, 260))])
+    result = tracker.results()[0]
+    assert result.text == "7"
+    assert result.confidence == 1.0
+
+
+def test_one_certain_read_in_a_long_pass_is_still_withheld():
+    # Someone lingering in front of the camera is where fragments get read.
+    tracker = Tracker()
+    for i in range(163):
+        text, confidence = ("2", 1.0) if i == 7 else (None, 0.0)
+        tracker.add(i, [sighting(text, confidence, (100 + i, 200, 200 + i, 260))])
+    assert tracker.results()[0].text is None
+
+
+def test_one_read_is_withheld_when_the_pass_also_refused_a_read():
+    tracker = Tracker()
+    for i in range(10):
+        if i == 2:
+            text, confidence = "7", 1.0
+        elif i == 3:
+            text, confidence = None, 0.6
+        else:
+            text, confidence = None, 0.0
+        tracker.add(i, [sighting(text, confidence, (100 + i, 200, 200 + i, 260))])
+    assert tracker.results()[0].text is None
+
+
+def test_one_read_below_certainty_is_withheld_even_in_a_short_pass():
+    tracker = Tracker()
+    for i in range(10):
+        text, confidence = ("7", 0.95) if i == 2 else (None, 0.0)
+        tracker.add(i, [sighting(text, confidence, (100 + i, 200, 200 + i, 260))])
+    assert tracker.results()[0].text is None

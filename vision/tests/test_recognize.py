@@ -181,3 +181,9 @@ def test_a_blob_that_cannot_be_cut_refuses_the_number():
     w, h = crop.size
     draw.rectangle([w * 0.05, h * 0.12, w * 0.40, h * 0.88], fill=BIB.digit_rgb)
     assert read_bib(crop)[0] is None
+
+
+def test_a_block_too_small_for_legible_digits_is_not_read():
+    # A 34-pixel patch read as 24 at 0.83. Digits that small are guesses.
+    small = render_bib(24, px_per_mm=2.0).resize((60, 34))
+    assert read_bib(small) == (None, 0.0)
