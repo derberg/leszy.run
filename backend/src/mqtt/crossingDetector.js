@@ -9,13 +9,18 @@ import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
  * the runner was physically closest to the antenna. Exit-triggering is required for
  * starts because runners stand in the corral inside the read zone before the gun.
  *
- * FINISH crossings are timed at the PEAK of a fixed window. The first read of a
- * started runner opens a pass that lasts exactly goneWindowMs (3 s) from that
- * read; later reads only move the peak and never extend it. The gate hears a tag
- * from about 5 m (measured 2026-10-15), so a runner is through the read zone well
- * inside 3 s, and a finisher who stops just past the line cannot hold the pass
- * open or replace the crossing with a read from where they stand. Reads after the
- * window closes never re-time the finish.
+ * FINISH crossings are timed at the PEAK of the pass. The first read of a
+ * started runner opens a pass. Every stronger read becomes the new peak. The pass
+ * closes once FINISH_QUIET_MS (2 s) go by with no stronger read, and never later
+ * than FINISH_MAX_PASS_MS (6 s) after its first read, so a finisher who stops
+ * under the antenna cannot keep moving their own time. Reads after the pass
+ * closes never re-time the finish.
+ *
+ * The pass used to be a fixed 3 s window from the first read. At the 2026-10-15
+ * rehearsal bib 4 was first heard 4.5 s before its peak, the window closed while
+ * the runner was still walking in, and the finish came out 1.58 s early at -6450
+ * instead of the -3300 read at the line. Two more runners peaked within 0.12 s of
+ * that window closing.
  *
  * Finish used to be first-read: the first read above rssi_threshold WAS the
  * finish. That made rssi_threshold decide the finish time, and no value worked.
@@ -35,9 +40,10 @@ import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
  *  2. Each subsequent reading → update peak if improved, RESET goneTimer
  *  3. goneTimer fires (3 s silence) → person left the gate → confirm crossing at peak
  *  FINISH (participant already started / finish topic, past minFinishSeconds):
- *  4. First reading → open a pass, arm a goneWindowMs timer that is never reset
- *  5. Reads inside the window update the peak only
- *  6. Timer fires (goneWindowMs after the first read) → confirm at peak
+ *  4. First reading → open a pass, arm a FINISH_QUIET_MS timer
+ *  5. A stronger read moves the peak and re-arms the timer, capped at
+ *     FINISH_MAX_PASS_MS after the first read; a weaker read changes nothing
+ *  6. Timer fires → confirm at peak
  *
  * Gate determination (single-reader mode):
  *  - No startTime in DB yet → gate = 'start'
@@ -86,8 +92,8 @@ import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
  *     T -->|Yes| B{Participant already started?}
  *     B -->|Yes / finish topic| Y{Past minFinishSeconds since gun?}
  *     Y -->|No| X
- *     Y -->|Yes| P[Open finish pass on first read · keep peak · no reset]
- *     P -->|3s after first read| Q{peak >= confirm bar?}
+ *     Y -->|Yes| P[Open finish pass on first read · stronger read = new peak, re-arm 2s]
+ *     P -->|2s with no new peak, or 6s after first read| Q{peak >= confirm bar?}
  *     Q -->|No| X
  *     Q -->|Yes| M[gate=finish · finishTime=peakTime]
  *     M --> O[broadcast · persist · add to finishedParticipants · ignore further reads]
@@ -123,18 +129,25 @@ const FINISH_AUDIT_WINDOW_MS = 10_000
 const DEFAULT_RSSI_THRESHOLD = -9000
 const DEFAULT_CONFIRM_RSSI = null
 const DEFAULT_MIN_FINISH_SECONDS = 300
+// A finish pass closes this long after its last new peak...
+const FINISH_QUIET_MS = 2000
+// ...and never later than this after its first read.
+const FINISH_MAX_PASS_MS = 6000
 
 
 export class CrossingDetector {
-  constructor({ db, broadcast }) {
+  constructor({ db, broadcast, finishQuietMs = FINISH_QUIET_MS, finishMaxPassMs = FINISH_MAX_PASS_MS }) {
     this.db = db
     this.broadcast = broadcast
+    this.finishQuietMs = finishQuietMs
+    this.finishMaxPassMs = finishMaxPassMs
 
     // Map<raceRunId, { config, epcToParticipant, startedParticipants, finishedParticipants }>
     this.activeRaces = new Map()
 
     // Open passes. Start: `${epc}:${raceRunId}`, finish: `${epc}:${raceRunId}:finish`.
     // Value: { epc, raceRunId, firstAt, peakRssi, peakTime, antennaPort, topic, goneTimer }
+    // A finish pass also carries peakAt: the wall-clock time of its last new peak.
     this.inRange = new Map()
 
     // Dedup window: Map<epc, { rssi, time }>
@@ -389,7 +402,7 @@ export class CrossingDetector {
         // Ghost-read guard: ignore finish reads too soon after the gun
         // (runners near the start line right after the start).
         if (race.gunStartTime && (new Date(event.receivedAt) - race.gunStartTime) < minFinishMs) continue
-        this.#trackFinishPass({ event, now, raceRunId, participantId, race, confirmRssi, goneWindowMs, rfidMode, rfidTopicFinish })
+        this.#trackFinishPass({ event, now, raceRunId, participantId, race, confirmRssi, rfidMode, rfidTopicFinish })
         continue
       }
 
@@ -458,10 +471,11 @@ export class CrossingDetector {
     }
   }
 
-  // One finish pass of one tag: a fixed goneWindowMs window from the first read,
-  // timed at its peak. Nothing is marked finished until the pass closes, so a
-  // pass rejected by the crossing bar leaves the runner free to finish later.
-  #trackFinishPass({ event, now, raceRunId, participantId, race, confirmRssi, goneWindowMs, rfidMode, rfidTopicFinish }) {
+  // One finish pass of one tag, timed at its peak. It closes finishQuietMs after
+  // its last new peak, or finishMaxPassMs after its first read, whichever comes
+  // first. Nothing is marked finished until the pass closes, so a pass rejected
+  // by the crossing bar leaves the runner free to finish later.
+  #trackFinishPass({ event, now, raceRunId, participantId, race, confirmRssi, rfidMode, rfidTopicFinish }) {
     const key = `${event.epc}:${raceRunId}:finish`
 
     const close = () => {
@@ -494,14 +508,13 @@ export class CrossingDetector {
     }
 
     let pass = this.inRange.get(key)
-    if (pass && now - pass.firstAt >= goneWindowMs) {
-      // The timer is due but has not run yet: this read is after the window.
+    if (pass && (now - pass.firstAt >= this.finishMaxPassMs || now - pass.peakAt >= this.finishQuietMs)) {
+      // The timer is due but has not run yet: this read is after the pass.
       close()
       return
     }
     if (!pass) {
-      pass = { epc: event.epc, raceRunId, firstAt: now, peakRssi: -Infinity, peakTime: null, antennaPort: null, topic: null, goneTimer: null }
-      pass.goneTimer = setTimeout(close, goneWindowMs)
+      pass = { epc: event.epc, raceRunId, firstAt: now, peakAt: now, peakRssi: -Infinity, peakTime: null, antennaPort: null, topic: null, goneTimer: null }
       this.inRange.set(key, pass)
     }
     if (event.rssiCdbm > pass.peakRssi) {
@@ -509,6 +522,10 @@ export class CrossingDetector {
       pass.peakTime    = new Date(event.receivedAt)
       pass.antennaPort = event.antennaPort
       pass.topic       = event.topic
+      pass.peakAt      = now
+      clearTimeout(pass.goneTimer)
+      const untilCap = this.finishMaxPassMs - (now - pass.firstAt)
+      pass.goneTimer = setTimeout(close, Math.min(this.finishQuietMs, untilCap))
     }
   }
 

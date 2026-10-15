@@ -42,8 +42,10 @@ export function loadConfig(env = process.env) {
     supabaseUrl: env.SUPABASE_URL ?? null,
     supabaseAnonKey: env.SUPABASE_ANON_KEY ?? null,
     dataDir: env.DATA_DIR ?? './data',
-    // GONE_WINDOW_MS is the old name, from when the window was a silence window.
-    passWindowMs: parseInt(env.PASS_WINDOW_MS ?? env.GONE_WINDOW_MS ?? '3000', 10),
+    // A pass closes passQuietMs after its last stronger read, and passMaxMs
+    // after its first read at the latest (see confirmer.js).
+    passQuietMs: parseInt(env.PASS_QUIET_MS ?? '2000', 10),
+    passMaxMs: parseInt(env.PASS_MAX_MS ?? '6000', 10),
     uploadIntervalMs: parseInt(env.UPLOAD_INTERVAL_MS ?? '5000', 10),
     readerPollMs: parseInt(env.READER_POLL_MS ?? '15000', 10),
     // The R700 is addressed by mDNS hostname (impinj-XX-XX-XX.local) in the
