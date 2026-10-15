@@ -63,7 +63,7 @@ Mosquitto (native macOS) ←── Impinj R700(s)
 - **`public/`** — Public-facing app combining live results, volunteer bib entry, and participant self-service check-in. Reads/writes directly to Supabase (anon key + RLS). Runs on port 5173. Deployed to Vercel.
 - **`packages/ui/`** — Shared UI component library (`@leszyrun/ui`). Contains `Podium`, `CheckpointTrackingTable`, `PositionBadge`, and `estimatePositions` algorithm. **All race result rendering (status badges, position estimation, podium, results tables) MUST use these shared components.** Never duplicate result display logic in `frontend/` or `public/` — if a component is missing from `@leszyrun/ui`, add it there first, then import it in both apps.
 - **`volunteer/`** and **`liveresults/`** — Legacy apps, migrated into `public/`. Pending removal.
-- **`checkpoint-agent/`** — Standalone Node/Fastify agent for a Raspberry Pi + Impinj R700 at a trail checkpoint. Confirms tag passes (peak-RSSI/gone-window), resolves EPC → bib from a PIN-guarded roster (`checkpoint-roster` edge function, bib+EPC only), queues observations on disk, and inserts them into Supabase `checkpoint_observations` — indistinguishable from volunteer entries downstream. See checkpoint-agent/README.md.
+- **`checkpoint-agent/`** — Standalone Node/Fastify agent for a Raspberry Pi + Impinj R700 at a trail checkpoint. Confirms tag passes (a fixed 3 s window from the first read, timed at the peak RSSI), resolves EPC → bib from a PIN-guarded roster (`checkpoint-roster` edge function, bib+EPC only), queues observations on disk, and inserts them into Supabase `checkpoint_observations` — indistinguishable from volunteer entries downstream. See checkpoint-agent/README.md.
 
 ### Supabase Realtime (bidirectional sync)
 
@@ -123,7 +123,7 @@ events (
   rfid_topic_finish      text DEFAULT 'leszyrun/finish',-- only used when mode='separate'
   rssi_threshold         int  DEFAULT -5000,            -- cdbm, events weaker than this are ignored
   gone_window_seconds    int  DEFAULT 3,                -- start: silence (s) that confirms; finish: fixed pass length (s) from the first read
-  fallback_seconds       int  DEFAULT 10,               -- force-confirm timeout (s) for finish crossings only
+  fallback_seconds       int  DEFAULT 10,               -- unused, kept for schema compat (the old finish force-confirm timer)
   created_at  timestamptz DEFAULT now(),
   synced_at   timestamptz
 )

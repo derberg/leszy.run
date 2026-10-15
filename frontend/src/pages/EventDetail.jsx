@@ -1477,7 +1477,7 @@ function RfidSettings({ event, onSave, saving }) {
 
           <div className="pt-2 border-t border-stone-100 space-y-4">
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Okno ciszy (sekundy)</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-apex-muted mb-1 block">Okno przejścia (sekundy)</span>
               <Input type="number" step="1" min="1" max="10" value={form.goneWindowSeconds} onChange={e => set('goneWindowSeconds', parseInt(e.target.value))} className="max-w-32" />
               <p className="text-xs text-apex-muted mt-1">
                 Domyślnie: 3. Meta: przejście trwa tyle sekund od pierwszego odczytu i dostaje czas najmocniejszego odczytu z tego okna. Start: przejście zapisuje się po tylu sekundach ciszy, bo zawodnicy stoją w strefie startu.
