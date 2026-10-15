@@ -150,12 +150,19 @@ export function createOutbox({
         // will never see finish, so it is ours to send too.
         items.push({ ...f, status: f.status === 'sending' ? 'pending' : f.status })
         touched = true
-      } else if (f.status === 'cancelled' && mine.status === 'pending') {
+        continue
+      }
+      // An attempt in either tab means the row may be on the server, which is
+      // what cancel() and the "Cofnij" button check.
+      const attempts = Math.max(mine.attempts || 0, f.attempts || 0)
+      if (attempts !== (mine.attempts || 0)) { mine.attempts = attempts; touched = true }
+      if (f.status === 'cancelled' && mine.status === 'pending' && !mine.attempts) {
         // Taken back in the other tab before anything was sent there.
         mine.status = 'cancelled'
         touched = true
-      } else if ((mine.status === 'pending' || mine.status === 'failed') && DELIVERED.has(f.status)) {
-        // The other tab already delivered it.
+      } else if (['pending', 'failed', 'cancelled'].includes(mine.status) && DELIVERED.has(f.status)) {
+        // The other tab delivered it. The server has the row whatever this tab
+        // thought, so show it as on record, even over a local cancel.
         mine.status = f.status
         mine.error = f.error ?? null
         touched = true

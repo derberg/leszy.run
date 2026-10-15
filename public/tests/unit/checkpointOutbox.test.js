@@ -417,6 +417,39 @@ describe('createOutbox, two tabs', () => {
     assert.deepEqual(a.entries().map(e => e.bib), [1])
   })
 
+  it('cannot cancel an entry the other tab has started sending, and shows it on record once delivered', () => {
+    const storage = memoryStorage({
+      k: JSON.stringify([{ id: 'x', bib: 7, observedAt: '2026-10-17T10:00:00.000Z', status: 'pending', attempts: 0 }]),
+    })
+    // A is stuck sending x, so entry 8 waits in A with no attempt yet while
+    // the other tab picks it up.
+    const a = make({ storage, send: () => new Promise(() => {}) }).outbox
+    const e = a.add(8) // waiting behind x in A
+    const raw = JSON.parse(storage.data.k)
+    const mineE = raw.find(r => r.id === e.id)
+    mineE.status = 'sending'; mineE.attempts = 1 // the other tab is sending it
+    storage.data.k = JSON.stringify(raw)
+    a.sync()
+    assert.equal(a.cancel(e.id), false, 'an attempt elsewhere blocks the cancel')
+    mineE.status = 'saved'
+    storage.data.k = JSON.stringify(raw)
+    a.sync()
+    assert.equal(a.entries().find(x => x.id === e.id).status, 'saved')
+  })
+
+  it('a delivery reported by the other tab overrides a local cancel', () => {
+    const storage = memoryStorage()
+    const a = make({ storage, send: () => new Promise(() => {}) }).outbox
+    a.add(1)
+    const e = a.add(2)
+    const before = JSON.parse(storage.data.k)
+    assert.equal(a.cancel(e.id), true)
+    before.find(r => r.id === e.id).status = 'saved'
+    storage.data.k = JSON.stringify(before)
+    a.sync()
+    assert.equal(a.entries().find(x => x.id === e.id)?.status, 'saved')
+  })
+
   it('a failed entry takes a delivery reported by the other tab', () => {
     const storage = memoryStorage()
     const a = make({ storage, send: async () => { throw Object.assign(new Error('x'), { permanent: true }) } }).outbox
