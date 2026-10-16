@@ -12,6 +12,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Download, ExternalLink, Info, Pencil, Upload, UserCheck } from 'lucide-react'
 import { useWsEvent } from '../lib/ws.js'
 import { volunteerFinishAt, volunteerFinishCheck } from '../lib/volunteerFinish.js'
+import { sortOverviewRows } from '../lib/overviewOrder.js'
 
 const GENDER_VIEWS = [
   { key: null, label: 'Open' },
@@ -220,17 +221,7 @@ function RaceOverview({ eventId, categories }) {
       })
     : rows
 
-  // Sort: finished by position, then on-course by latest checkpoint (desc), then by bib
-  const sorted = [...filtered].sort((a, b) => {
-    if (a.finishTime && b.finishTime) return (a.position || 999) - (b.position || 999)
-    if (a.finishTime && !b.finishTime) return -1
-    if (!a.finishTime && b.finishTime) return 1
-    // Both on course — sort by furthest checkpoint
-    const aLastCp = sortedCps.findLastIndex(cp => obsLookup[`${a.participantId}:${cp.id}`])
-    const bLastCp = sortedCps.findLastIndex(cp => obsLookup[`${b.participantId}:${cp.id}`])
-    if (aLastCp !== bLastCp) return bLastCp - aLastCp
-    return (a.participant?.bibNumber || 0) - (b.participant?.bibNumber || 0)
-  })
+  const sorted = sortOverviewRows(filtered, sortedCps, obsLookup)
 
   const onCourse = rows.filter(r => r.startTime && !r.finishTime).length
   const finished = rows.filter(r => r.finishTime).length
