@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, 
 import ParticipantsTable from '../components/ParticipantsTable/ParticipantsTable.jsx'
 import ImportSection from '../components/ImportWizard/ImportSection.jsx'
 import VisionAudit from '../components/VisionAudit/VisionAudit.jsx'
+import LinkQrButton from '../components/LinkQrButton.jsx'
 import { Flag, Users, Tag, Settings, Plus, Trash2, Pencil, ExternalLink, Copy, FileText, RefreshCw, ClipboardCopy, Eye, EyeOff, Handshake, Upload, X, Terminal, Info, ChevronDown, Camera } from 'lucide-react'
 
 const VALID_TABS = ['categories', 'participants', 'rfid', 'camera', 'checkpoints', 'settings', 'documents', 'partners']
@@ -411,6 +412,11 @@ export default function EventDetail() {
                       <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(volunteerUrl)} title="Kopiuj link">
                         <Copy size={12} />
                       </Button>
+                      <LinkQrButton
+                        url={volunteerUrl}
+                        title={cp.name}
+                        subtitle={`${cp.kmMarker ? `Km ${cp.kmMarker} · ` : ''}Zeskanuj, aby otworzyć panel wolontariusza`}
+                      />
                       <Button size="sm" variant="outline" title="Komenda RPi" onClick={() => openRpiDialog(cp)}>
                         <Terminal size={12} /> Komenda RPi
                       </Button>
@@ -1365,6 +1371,11 @@ function EventSettings({ eventId, event, updateEvent }) {
                 >
                   <Copy size={13} />
                 </Button>
+                <LinkQrButton
+                  url={`https://leszy.run/events/${event.slug}/admin/checkin`}
+                  title="Check-in (admin)"
+                  subtitle="Zeskanuj, aby otworzyć check-in zawodników"
+                />
               </div>
             </div>
           )}
