@@ -3,7 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useCategoryResults } from '../hooks/useCategoryResults.js'
 import { formatDuration } from '../lib/formatDuration.js'
-import { RunnerResultCard, estimatePositions, findRunners, bibCouldMatch, runnerSummary, anonymizedName } from '../ui/index.js'
+import { RunnerResultCard, estimatePositions, findRunners, runnerSummary, anonymizedName } from '../ui/index.js'
+
+const PAGE = 1000
 
 /**
  * "Znajdź swój wynik": type a bib (or a name) and see that runner's result,
@@ -12,12 +14,20 @@ import { RunnerResultCard, estimatePositions, findRunners, bibCouldMatch, runner
  *
  * @param {string} eventId
  * @param {Array} categories - the categories shown on the page: [{ id, name }]
+ * @param {Array} raceRuns - the event's runs, kept live by the page: [{ id, status, category_id }]
+ * @param {boolean} isPastEvent
  */
-export default function BibFinder({ eventId, categories }) {
+export default function BibFinder({ eventId, categories, raceRuns, isPastEvent }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [mode, setMode] = useState('bib')
   const [query, setQuery] = useState(() => searchParams.get('nr') || '')
   const [participants, setParticipants] = useState(null)
+  // Set by picking a runner from a list. Two categories can hand out the same
+  // bib, and a runner can have no bib yet, so the bib alone cannot say who.
+  const [selectedId, setSelectedId] = useState(null)
+  // Resolving waits for typing to pause: "123" would otherwise open bib 1,
+  // then 12, then 123, and load a category for each.
+  const [settled, setSettled] = useState(query)
   const loadingRef = useRef(false)
   const inputRef = useRef(null)
 
@@ -29,23 +39,38 @@ export default function BibFinder({ eventId, categories }) {
   const loadParticipants = () => {
     if (participants || loadingRef.current || !categoryIds.length) return
     loadingRef.current = true
-    supabase.from('participants_public')
-      .select('id, bib_number, first_name, last_name, category_id, deleted_at')
-      .in('category_id', categoryIds)
-      .then(({ data, error }) => {
-        loadingRef.current = false
-        if (error || !data) return
-        setParticipants(data.map(p => ({
-          ...p, bibNumber: p.bib_number, firstName: p.first_name, lastName: p.last_name,
-        })))
-      }, () => { loadingRef.current = false })
+    // PostgREST answers at most 1000 rows, so a bigger field is read in pages.
+    const fetchAll = async () => {
+      const rows = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase.from('participants_public')
+          .select('id, bib_number, first_name, last_name, category_id, deleted_at')
+          .in('category_id', categoryIds)
+          .order('id')
+          .range(from, from + PAGE - 1)
+        if (error || !data) throw error
+        rows.push(...data)
+        if (data.length < PAGE) return rows
+      }
+    }
+    fetchAll().then(rows => {
+      setParticipants(rows.map(p => ({
+        ...p, bibNumber: p.bib_number, firstName: p.first_name, lastName: p.last_name,
+      })))
+    }).catch(() => {}).finally(() => { loadingRef.current = false })
   }
+
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(query), 300)
+    return () => clearTimeout(t)
+  }, [query])
 
   useEffect(() => {
     if (query) loadParticipants()
   }, [query, categoryIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep ?nr= in step with a bib search, without adding history entries.
+  // searchParams is a dependency too: a category tab navigates without it.
   useEffect(() => {
     const nr = mode === 'bib' ? query.trim().replace(/^#/, '') : ''
     if ((searchParams.get('nr') || '') === nr) return
@@ -53,21 +78,39 @@ export default function BibFinder({ eventId, categories }) {
     if (nr) next.set('nr', nr)
     else next.delete('nr')
     setSearchParams(next, { replace: true })
-  }, [mode, query]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, query, searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const matches = participants ? findRunners(participants, query, mode) : []
+  const matches = participants ? findRunners(participants, settled, mode) : []
   const trimmed = query.trim()
-  const single = matches.length === 1 ? matches[0] : null
+  const typing = query !== settled
+  const found = (selectedId && participants?.find(p => p.id === selectedId))
+    || (matches.length === 1 ? matches[0] : null)
+
+  // The run a category is on, from the page's live list, so the card reloads
+  // when a category starts and stops promising updates once it is over.
+  const runFor = (categoryId) => {
+    const runs = (raceRuns || []).filter(r => r.category_id === categoryId)
+    return runs.find(r => r.status === 'active') || runs.find(r => r.status === 'finished') || null
+  }
+
+  const type = (value) => {
+    setSelectedId(null)
+    setQuery(value)
+  }
 
   const switchMode = (next) => {
     setMode(next)
-    setQuery('')
+    type('')
     inputRef.current?.focus()
   }
 
   const pick = (p) => {
-    setMode('bib')
-    setQuery(String(p.bibNumber))
+    setSelectedId(p.id)
+    if (p.bibNumber != null) {
+      setMode('bib')
+      setQuery(String(p.bibNumber))
+      setSettled(String(p.bibNumber))
+    }
   }
 
   return (
@@ -88,11 +131,11 @@ export default function BibFinder({ eventId, categories }) {
           placeholder={mode === 'bib' ? 'Numer startowy' : 'Imię lub nazwisko'}
           value={query}
           onFocus={loadParticipants}
-          onChange={e => setQuery(mode === 'bib' ? e.target.value.replace(/[^0-9]/g, '') : e.target.value)}
+          onChange={e => type(mode === 'bib' ? e.target.value.replace(/[^0-9]/g, '') : e.target.value)}
           className={`flex-1 min-w-0 bg-transparent outline-none text-xl font-bold text-apex-text-bright placeholder:text-apex-dim placeholder:font-semibold [&::-webkit-search-cancel-button]:hidden ${mode === 'bib' ? 'font-mono' : ''}`}
         />
         {query && (
-          <button type="button" aria-label="Wyczyść" onClick={() => { setQuery(''); inputRef.current?.focus() }}
+          <button type="button" aria-label="Wyczyść" onClick={() => { type(''); inputRef.current?.focus() }}
             className="w-11 h-11 flex items-center justify-center text-apex-muted hover:text-apex-text-bright">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
@@ -103,21 +146,29 @@ export default function BibFinder({ eventId, categories }) {
         {mode === 'bib' ? 'albo szukaj po nazwisku' : 'wróć do numeru startowego'}
       </button>
 
+      <div aria-live="polite" className="flex flex-col gap-2.5">
       {trimmed && participants === null && (
         <div className="h-24 bg-apex-surface-2 animate-pulse" />
       )}
 
-      {single && (
-        <FoundRunner key={single.id} eventId={eventId} participant={single} categoryName={categoryName[single.category_id]} />
-      )}
+      {found && (() => {
+        const run = runFor(found.category_id)
+        const raceOver = isPastEvent || (run?.status === 'finished')
+        // Keyed by category and run: another bib in the same category reuses
+        // the loaded data, and a category that starts gets a fresh load.
+        return (
+          <FoundRunner key={`${found.category_id}:${run?.id ?? 'none'}`} eventId={eventId}
+            participant={found} categoryName={categoryName[found.category_id]} raceOver={raceOver} />
+        )
+      })()}
 
-      {matches.length > 1 && (
+      {!found && matches.length > 1 && (
         <ul className="border border-apex-border divide-y divide-apex-border">
           {matches.slice(0, 20).map(p => (
             <li key={p.id}>
               <button type="button" onClick={() => pick(p)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 min-h-11 text-left hover:bg-apex-surface-2">
-                <span className="font-mono text-sm font-bold text-apex-text-bright w-12">#{p.bibNumber}</span>
+                <span className="font-mono text-sm font-bold text-apex-text-bright w-12">{p.bibNumber != null ? `#${p.bibNumber}` : ''}</span>
                 <span className="flex-1 min-w-0 flex flex-col">
                   <span className="font-bold text-apex-text-bright truncate">{anonymizedName(p).displayName}</span>
                   <span className="text-xs text-apex-muted">{categoryName[p.category_id]}</span>
@@ -128,7 +179,7 @@ export default function BibFinder({ eventId, categories }) {
         </ul>
       )}
 
-      {participants && trimmed && matches.length === 0 && (mode === 'name' ? trimmed.length >= 2 : !bibCouldMatch(participants, trimmed)) && (
+      {participants && trimmed && !typing && !found && matches.length === 0 && (mode === 'bib' || trimmed.length >= 2) && (
         <div className="border border-dashed border-apex-border-bright px-3.5 py-3">
           <div className="font-bold text-apex-text-bright">
             {mode === 'bib' ? `Nie ma numeru ${trimmed} w wynikach` : 'Nikogo takiego nie ma w wynikach'}
@@ -136,11 +187,12 @@ export default function BibFinder({ eventId, categories }) {
           <div className="text-sm text-apex-text">Sprawdź numer na swoim numerze startowym.</div>
         </div>
       )}
+      </div>
     </div>
   )
 }
 
-function FoundRunner({ eventId, participant, categoryName }) {
+function FoundRunner({ eventId, participant, categoryName, raceOver }) {
   const { raceRun, results, checkpoints, observations, loaded } = useCategoryResults(eventId, participant.category_id)
   const [shareLabel, setShareLabel] = useState('Udostępnij')
 
@@ -152,7 +204,9 @@ function FoundRunner({ eventId, participant, categoryName }) {
   if (!loaded) return <div className="h-24 bg-apex-surface-2 animate-pulse" />
 
   const share = async () => {
-    const url = `${window.location.origin}${window.location.pathname}?nr=${participant.bibNumber}`
+    const url = participant.bibNumber != null
+      ? `${window.location.origin}${window.location.pathname}?nr=${participant.bibNumber}`
+      : window.location.href
     try {
       if (navigator.share) {
         await navigator.share({ url, title: `Wynik #${participant.bibNumber}` })
@@ -171,6 +225,7 @@ function FoundRunner({ eventId, participant, categoryName }) {
       participant={participant}
       categoryName={categoryName}
       summary={summary}
+      raceOver={raceOver}
       formatDuration={formatDuration}
       onShare={share}
       shareLabel={shareLabel}

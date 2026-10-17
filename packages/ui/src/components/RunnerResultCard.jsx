@@ -16,20 +16,22 @@ const STATUS = {
  * @param {Function} formatDuration - (ms) => display string
  * @param {Function} [onShare]
  * @param {string} [shareLabel] - button text, e.g. "Skopiowano link" after a copy
+ * @param {boolean} [raceOver] - the run has ended: nothing more will arrive for this runner
  */
-export function RunnerResultCard({ participant, categoryName, summary, formatDuration, onShare, shareLabel = 'Udostępnij' }) {
+export function RunnerResultCard({ participant, categoryName, summary, formatDuration, onShare, shareLabel = 'Udostępnij', raceOver = false }) {
   const { displayName, isAnonymized } = anonymizedName(participant)
   const type = summary?.positionType
   const finished = type === 'final'
-  const onCourse = type === 'checkpoint' || type === 'started'
   const status = STATUS[type]
+  const onCourse = !raceOver && (type === 'checkpoint' || type === 'started')
+  const noResult = !finished && !status && !onCourse
 
   const frame = finished
     ? 'border-apex-yellow bg-apex-yellow/10'
     : onCourse ? 'border-apex-cyan bg-apex-cyan/10' : 'border-apex-border-bright bg-apex-surface'
 
   return (
-    <div className={`border-2 ${frame} p-3.5 flex flex-col gap-2.5`} aria-live="polite">
+    <div className={`border-2 ${frame} p-3.5 flex flex-col gap-2.5`}>
       <div className="flex items-center gap-3.5">
         {finished && summary.position != null && (
           <span className="font-display font-extrabold text-5xl leading-none text-apex-yellow">{summary.position}.</span>
@@ -67,9 +69,11 @@ export function RunnerResultCard({ participant, categoryName, summary, formatDur
       {onCourse && <div className="text-sm text-apex-text">Czas pojawi się tu sam po przekroczeniu mety.</div>}
 
       {status && <div className="text-sm text-apex-text">{status.note}</div>}
-      {!summary || type === 'not-started'
-        ? <div className="text-sm text-apex-text">Jeszcze nie wystartował(a). Czas pojawi się tu sam.</div>
-        : null}
+      {noResult && (
+        <div className="text-sm text-apex-text">
+          {raceOver ? 'Brak wyniku.' : 'Jeszcze nie wystartował(a). Czas pojawi się tu sam.'}
+        </div>
+      )}
 
       {onShare && (
         <button

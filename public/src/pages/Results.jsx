@@ -239,7 +239,7 @@ export default function Results() {
         )}
 
         {!loading && hasActiveRaces && visibleCategories.length > 0 && (
-          <BibFinder eventId={event.id} categories={visibleCategories} />
+          <BibFinder eventId={event.id} categories={visibleCategories} raceRuns={raceRuns} isPastEvent={isPastEvent} />
         )}
 
         {/* Tab bar */}
@@ -256,7 +256,7 @@ export default function Results() {
             <>
               <button
                 ref={activeView === 'all' ? activeTabRef : null}
-                onClick={() => navigate(`/events/${slug}/results`)}
+                onClick={() => navigate(`/events/${slug}/results${location.search}`)}
                 className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors ${
                   activeView === 'all'
                     ? 'bg-apex-yellow-bright text-apex-ink'
@@ -268,7 +268,7 @@ export default function Results() {
               {showNearFinish && (
                 <button
                   ref={activeView === 'live' ? activeTabRef : null}
-                  onClick={() => navigate(`/events/${slug}/results/live`)}
+                  onClick={() => navigate(`/events/${slug}/results/live${location.search}`)}
                   className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
                     activeView === 'live'
                       ? 'bg-apex-cyan text-apex-ink'
@@ -283,7 +283,7 @@ export default function Results() {
                 <button
                   key={cat.id}
                   ref={activeCategoryId === cat.id ? activeTabRef : null}
-                  onClick={() => navigate(`/events/${slug}/results/${cat.id}`)}
+                  onClick={() => navigate(`/events/${slug}/results/${cat.id}${location.search}`)}
                   className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
                     activeCategoryId === cat.id
                       ? 'bg-apex-yellow-bright text-apex-ink'

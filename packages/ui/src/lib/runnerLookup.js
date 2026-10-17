@@ -1,5 +1,7 @@
 import { checkpointSplitMs } from './checkpointSplit.js'
 
+const UNRANKED = new Set(['dns', 'dnf', 'dsq'])
+
 // Lower case without Polish diacritics, so "lukasz" finds "Łukasz".
 function fold(s) {
   return String(s ?? '')
@@ -36,16 +38,6 @@ export function findRunners(participants, query, mode) {
 }
 
 /**
- * Whether a typed bib could still become a real one: some bib starts with it.
- * Lets the page wait while "20" is on its way to "207" instead of saying the
- * number does not exist after the first keystroke.
- */
-export function bibCouldMatch(participants, query) {
-  const bib = fold(query).replace(/^#/, '')
-  return participants.some(p => p.bibNumber != null && String(p.bibNumber).startsWith(bib))
-}
-
-/**
  * What the lookup card shows for one runner.
  *
  * @param {Array} ranked - results enriched by estimatePositions (all genders)
@@ -61,8 +53,11 @@ export function bibCouldMatch(participants, query) {
 export function runnerSummary(ranked, participantId, checkpoints, observations, gunStartedAt) {
   const r = ranked.find(x => x.participantId === participantId)
   if (!r) return null
+  // A status an operator set outranks a chip finish: estimatePositions calls
+  // anyone with a finish time 'final', and a disqualified runner keeps theirs.
+  const positionType = UNRANKED.has(r.status) ? r.status : r.positionType
   let lastCheckpoint = null
-  if (r.positionType === 'checkpoint') {
+  if (positionType === 'checkpoint') {
     const bib = r.participant?.bibNumber
     for (let i = checkpoints.length - 1; i >= 0 && !lastCheckpoint; i--) {
       const cp = checkpoints[i]
@@ -72,8 +67,8 @@ export function runnerSummary(ranked, participantId, checkpoints, observations, 
     }
   }
   return {
-    positionType: r.positionType,
-    position: r.positionType === 'final' ? r.estimatedPosition : null,
+    positionType,
+    position: positionType === 'final' ? r.estimatedPosition : null,
     gunDurationMs: r.gunDurationMs ?? null,
     durationMs: r.durationMs ?? null,
     lastCheckpoint,

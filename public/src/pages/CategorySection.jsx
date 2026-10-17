@@ -70,7 +70,7 @@ export default function CategorySection({ eventId, categoryId, afterPodium }) {
         </div>
       )}
 
-      {afterPodium && <div className="mb-10">{afterPodium}</div>}
+      {afterPodium}
 
       {enrichedResults.length > 0 && (
         <div className="mb-8">

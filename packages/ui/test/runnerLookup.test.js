@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { findRunners, bibCouldMatch, runnerSummary } from '../src/lib/runnerLookup.js'
+import { findRunners, runnerSummary } from '../src/lib/runnerLookup.js'
 import { estimatePositions } from '../src/lib/positionEstimation.js'
 
 const people = [
@@ -13,11 +13,6 @@ test('a bib search matches the whole number only', () => {
   assert.deepEqual(findRunners(people, '20', 'bib').map(p => p.id), ['a'])
   assert.deepEqual(findRunners(people, '#207', 'bib').map(p => p.id), ['b'])
   assert.deepEqual(findRunners(people, '2', 'bib'), [])
-})
-
-test('a partial bib is still on its way to a real one', () => {
-  assert.equal(bibCouldMatch(people, '2'), true)
-  assert.equal(bibCouldMatch(people, '9'), false)
 })
 
 test('a name search ignores case and Polish letters', () => {
@@ -57,4 +52,11 @@ test('an unranked runner gets no place, and a missing runner gets nothing', () =
   const ranked = estimatePositions(results, cps, obs)
   assert.equal(runnerSummary(ranked, 'c', cps, obs, gun).position, null)
   assert.equal(runnerSummary(ranked, 'zzz', cps, obs, gun), null)
+})
+
+test('a disqualified runner with a finish time gets no place', () => {
+  const dsq = [{ ...results[0], status: 'dsq' }]
+  const s = runnerSummary(estimatePositions(dsq, cps, []), 'a', cps, [], gun)
+  assert.equal(s.positionType, 'dsq')
+  assert.equal(s.position, null)
 })
