@@ -133,6 +133,8 @@ const DEFAULT_MIN_FINISH_SECONDS = 300
 const FINISH_QUIET_MS = 2000
 // ...and never later than this after its first read.
 const FINISH_MAX_PASS_MS = 6000
+// Statuses the gun-time backfill must never overwrite.
+const SETTLED_STATUSES = new Set(['dns', 'dnf', 'dsq', 'finished'])
 
 
 export class CrossingDetector {
@@ -285,6 +287,9 @@ export class CrossingDetector {
           race.startedParticipants.add(participantId)
           continue
         }
+        // A status the operator set by hand is final. A restart mid-race re-arms
+        // this timer, and would otherwise turn a DNS runner back into 'started'.
+        if (SETTLED_STATUSES.has(existing?.status)) continue
 
         await this.db.insert(results).values({
           raceRunId,

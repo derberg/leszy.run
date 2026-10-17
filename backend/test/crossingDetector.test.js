@@ -371,3 +371,21 @@ test('a finish read does not credit gun time to a runner who never checked in', 
   assert.equal(byId.p2.durationMs, null)
   assert.equal(byId.p2.gunDurationMs, null)
 })
+
+// A backend restart mid-race re-arms the backfill timer for every active race.
+// At Wilczy Półmaraton 2026-10-17, ten checked-in runners had been marked DNS by
+// hand; a restart would have turned each of them back into 'started' on gun time.
+test('backfill leaves a result the operator already settled (DNS) untouched', async (t) => {
+  const { db } = await makeRace(t, {
+    config: baseConfig({ gunBackfillEnabled: true, gunBackfillSeconds: BACKFILL_MS / 1000 }),
+    participants: twoRunners,
+    checkinRows: [{ participantId: 'p1', checkedInAt: new Date() }],
+    resultsRows: [{ raceRunId: 'rr1', participantId: 'p1', status: 'dns' }],
+  })
+
+  await wait(BACKFILL_MS + 60)
+
+  const p1 = db._rows().find((r) => r.participantId === 'p1')
+  assert.equal(p1.status, 'dns')
+  assert.equal(p1.startTime, undefined)
+})

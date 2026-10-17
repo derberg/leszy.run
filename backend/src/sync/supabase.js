@@ -4,6 +4,7 @@ import { events, categories, participants, raceRuns, gateCrossings, results,
          checkpoints, checkpointObservations, eventDocuments } from '../db/schema.js'
 import { broadcast } from '../ws/broadcaster.js'
 import { pushCheckpointLinks } from './checkpointLinks.js'
+import { pullCheckpointObservations } from './observationCatchup.js'
 
 let supabase = null
 
@@ -79,6 +80,9 @@ export function initSupabaseSync(db) {
 
   subscribeRealtime(db)
 
+  setInterval(() => catchUpObservations(db), 30_000)
+  setTimeout(() => catchUpObservations(db), 8_000)
+
   setInterval(() => runSync(db), 10_000)
   // Run once on startup after a short delay
   setTimeout(() => runSync(db), 5_000)
@@ -142,8 +146,48 @@ async function resolveParticipantId(db, remote) {
   return found ? found.id : null
 }
 
+// Realtime can miss rows (see observationCatchup.js), so this pull runs whatever
+// the channel's state is.
+async function catchUpObservations(db) {
+  try {
+    const changed = await pullCheckpointObservations(db, supabase)
+    if (!changed.length) return
+    console.log(`[Sync] Catch-up pulled ${changed.length} checkpoint observation(s) Realtime missed`)
+    for (const o of changed) {
+      broadcast('checkpoint:observation', {
+        id: o.id,
+        checkpointId: o.checkpoint_id,
+        bibNumber: o.bib_number,
+        participantId: o.participant_id,
+        observedAt: new Date(o.observed_at).toISOString(),
+        source: o.source,
+      })
+    }
+  } catch (err) {
+    console.error('[Sync] Checkpoint observation catch-up failed:', err.message)
+  }
+}
+
+// A failed channel is never rejoined by supabase-js once it reports CLOSED or
+// TIMED_OUT, so drop it and open a new one. Every status of a replaced channel
+// is ignored, including the CLOSED that removeChannel itself produces.
+const RESUBSCRIBE_MS = 10_000
+let realtimeChannel = null
+let resubscribeTimer = null
+
+function scheduleResubscribe(db, channel) {
+  if (channel !== realtimeChannel || resubscribeTimer) return
+  resubscribeTimer = setTimeout(async () => {
+    resubscribeTimer = null
+    realtimeChannel = null
+    try { await supabase.removeChannel(channel) } catch { /* already gone */ }
+    console.log('[Sync] Realtime resubscribing')
+    subscribeRealtime(db)
+  }, RESUBSCRIBE_MS)
+}
+
 function subscribeRealtime(db) {
-  supabase
+  const channel = supabase
     .channel('leszyrun-realtime')
     .on(
       'postgres_changes',
@@ -229,8 +273,13 @@ function subscribeRealtime(db) {
       }
     )
     .subscribe((status) => {
+      if (channel !== realtimeChannel) return
       console.log(`[Sync] Realtime subscription status: ${status}`)
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        scheduleResubscribe(db, channel)
+      }
     })
+  realtimeChannel = channel
 }
 
 async function isOnline() {
