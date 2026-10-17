@@ -532,6 +532,11 @@ export class CrossingDetector {
     }
   }
 
+  /** A start set outside the detector (a withdrawal undone after the gun): their next pass is a finish. */
+  markStarted(raceRunId, participantId) {
+    this.activeRaces.get(raceRunId)?.startedParticipants.add(participantId)
+  }
+
   async #confirmCrossing({ raceRunId, participantId, peakRssi, peakTime, antennaPort, topic, rfidMode, rfidTopicFinish, race }) {
     try {
       const db = this.db
@@ -559,10 +564,7 @@ export class CrossingDetector {
         if (race && race.startedParticipants.has(participantId)) {
           gate = 'finish'
         } else {
-          const existing = await db.query.results.findFirst({
-            where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, participantId)),
-          })
-          gate = (!existing || !existing.startTime) ? 'start' : 'finish'
+          gate = current?.startTime ? 'finish' : 'start'
         }
       }
 

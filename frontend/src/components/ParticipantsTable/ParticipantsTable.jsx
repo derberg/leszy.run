@@ -225,6 +225,9 @@ export default function ParticipantsTable({ eventId, categories }) {
                   <Ban size={13} /> {counts.withdrawn} nie startuje
                 </span>
               )}
+              {unwithdraw.error && (
+                <span className="text-apex-red">Nie udało się cofnąć „nie startuje”: {unwithdraw.error.message}</span>
+              )}
             </div>
           )
         })()}
