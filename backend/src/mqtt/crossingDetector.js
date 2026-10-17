@@ -286,6 +286,8 @@ export class CrossingDetector {
           race.startedParticipants.add(participantId)
           continue
         }
+        // An operator who marked the runner DNS has seen them not start.
+        if (existing?.status === 'dns') continue
 
         await this.db.insert(results).values({
           raceRunId,

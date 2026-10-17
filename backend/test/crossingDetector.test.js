@@ -364,6 +364,21 @@ test('backfill timer gives gun time to a checked-in runner but not to one who ne
   assert.equal(byId.p2, undefined, 'a runner without check-in gets no result row, so stopping the race marks them DNS')
 })
 
+test('backfill timer leaves a runner the operator marked DNS alone', async (t) => {
+  const { db } = await makeRace(t, {
+    config: baseConfig({ gunBackfillEnabled: true, gunBackfillSeconds: BACKFILL_MS / 1000 }),
+    participants: [{ id: 'p1', rfidEpc: 'EPC1' }],
+    checkinRows: [{ participantId: 'p1', checkedInAt: new Date() }],
+    resultsRows: [{ id: 'res-1', participantId: 'p1', status: 'dns' }],
+  })
+
+  await wait(BACKFILL_MS + 60)
+
+  const r = db._rows().find(x => x.participantId === 'p1')
+  assert.equal(r.status, 'dns')
+  assert.equal(r.startTime, undefined)
+})
+
 test('a finish read does not credit gun time to a runner who never checked in', async (t) => {
   const { detector, db, broadcast } = await makeRace(t, {
     config: baseConfig({ rfidMode: 'separate', gunBackfillEnabled: true, gunBackfillSeconds: 3600 }),

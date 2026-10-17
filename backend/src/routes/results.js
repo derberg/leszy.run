@@ -3,7 +3,7 @@ import { results, participants, raceRuns, categories, events, checkpointImports,
 import { broadcast } from '../ws/broadcaster.js'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import Papa from 'papaparse'
-import { recalcPositions } from '../lib/positions.js'
+import { recalcPositions, UNRANKED } from '../lib/positions.js'
 
 const RESULT_STATUSES = ['registered', 'checked_in', 'started', 'finished', 'dnf', 'dns', 'dsq']
 
@@ -25,7 +25,7 @@ export async function resultsRoutes(fastify) {
       const filtered = rows.filter(r => r.participant?.gender === gender)
       let pos = 1
       const reranked = filtered.map(r => {
-        const newPos = r.finishTime ? pos++ : null
+        const newPos = r.finishTime && !UNRANKED.has(r.status) ? pos++ : null
         return { ...r, position: newPos }
       })
       return { data: reranked }
@@ -101,7 +101,8 @@ export async function resultsRoutes(fastify) {
         updates.gunDurationMs = gunDur > 0 ? gunDur : null
       }
     }
-    if (updates.finishTime && (!updates.status || updates.status === 'dnf')) {
+    // A new finish time ends a DNF, but a DSQ stays until someone withdraws it.
+    if (updates.finishTime && (updates.status === 'dnf' || (!updates.status && current.status !== 'dsq'))) {
       updates.status = 'finished'
     }
 
@@ -133,7 +134,7 @@ export async function resultsRoutes(fastify) {
     if (gender) {
       rows = rows.filter(r => r.participant?.gender === gender)
       let pos = 1
-      rows = rows.map(r => ({ ...r, position: r.finishTime ? pos++ : null }))
+      rows = rows.map(r => ({ ...r, position: r.finishTime && !UNRANKED.has(r.status) ? pos++ : null }))
     }
 
     const genderSuffix = gender ? `-${gender}` : ''
@@ -177,7 +178,7 @@ export async function resultsRoutes(fastify) {
     if (gender) {
       rows = rows.filter(r => r.participant?.gender === gender)
       let pos = 1
-      rows = rows.map(r => ({ ...r, position: r.finishTime ? pos++ : null }))
+      rows = rows.map(r => ({ ...r, position: r.finishTime && !UNRANKED.has(r.status) ? pos++ : null }))
     }
 
     const genderSuffix = gender ? ` — ${gender === 'M' ? 'Mężczyźni' : 'Kobiety'}` : ''

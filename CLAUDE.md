@@ -483,7 +483,7 @@ the database.
 `registered` / `checked_in`             → `dns`    (manual)
 any                                      → `dsq`   (manual, requires `status_note`)
 
-A `dns`, `dnf` or `dsq` result never gets a `position`, even with a finish time (`backend/src/lib/positions.js`, shared by the PATCH route and the crossing detector). A chip finish never turns a `dsq` back into `finished`. Operators set these from the Status column of `Przegląd trasy`.
+A `dns`, `dnf` or `dsq` result never gets a stored `position` or a place in the gender lists and CSV/PDF exports, even with a finish time (`UNRANKED` in `backend/src/lib/positions.js`). The public views do not read that column: `estimatePositions()` ranks by finish time. Neither a chip finish nor a finish-time edit turns a `dsq` back into `finished`, and gun-time backfill skips a runner marked `dns`. Operators set these from the Status column of `Przegląd trasy`.
 
 ## Race run lifecycle
 

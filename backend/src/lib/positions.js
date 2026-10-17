@@ -3,7 +3,7 @@ import { results } from '../db/schema.js'
 
 // A DNS, DNF or DSQ runner can still hold a finish time (a DSQ is usually
 // decided after the runner crossed the line), but none of them places.
-const UNRANKED = new Set(['dns', 'dnf', 'dsq'])
+export const UNRANKED = new Set(['dns', 'dnf', 'dsq'])
 
 /**
  * Positions for one race run: finishers by brutto time, everyone else null.
