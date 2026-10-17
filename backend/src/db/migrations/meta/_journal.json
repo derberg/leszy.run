@@ -267,6 +267,13 @@
       "when": 1790400000000,
       "tag": "0037_checkpoint_is_finish",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790500000000,
+      "tag": "0038_vision_reviews",
+      "breakpoints": true
     }
   ]
 }

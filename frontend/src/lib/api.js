@@ -1,6 +1,6 @@
 import { API_URL as BASE } from './apiOrigin.js'
 
-async function request(method, path, body, isFile = false) {
+async function send(method, path, body, isFile = false) {
   const opts = { method, headers: {} }
   if (isFile) {
     if (body) opts.body = body
@@ -13,7 +13,12 @@ async function request(method, path, body, isFile = false) {
   if (res.status === 204) return null
   const json = await res.json()
   if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
-  return json.data
+  return json
+}
+
+async function request(method, path, body, isFile = false) {
+  const json = await send(method, path, body, isFile)
+  return json && json.data
 }
 
 export const api = {
@@ -102,6 +107,10 @@ export const api = {
       ).toString()
       return request('GET', `/vision/sessions/${id}/sightings${q ? `?${q}` : ''}`)
     },
+    review: (id, filter) => send('GET', `/vision/sessions/${id}/review${filter ? `?filter=${filter}` : ''}`),
+    reviewFrames: (id, participantId) => request('GET', `/vision/sessions/${id}/review/${participantId}/frames`),
+    setReview: (id, participantId, body) => request('PUT', `/vision/sessions/${id}/review/${participantId}`, body),
+    clearReview: (id, participantId) => request('DELETE', `/vision/sessions/${id}/review/${participantId}`),
     cropUrl: (id, name) => `${BASE}/api/vision/sessions/${id}/crop/${encodeURIComponent(name)}`,
     frameUrl: (id, ts) => `${BASE}/api/vision/sessions/${id}/frame/${encodeURIComponent(ts)}`,
   },

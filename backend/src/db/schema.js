@@ -224,6 +224,24 @@ export const visionSightings = pgTable('vision_sightings', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// A person's verdict on a finisher the camera did not read. `visible` carries
+// the frame and the point (0..1 of the frame) where the runner is, which is
+// what the torso reader is retrained from. Device-local, never synced.
+export const visionReviews = pgTable('vision_reviews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').notNull().references(() => visionSessions.id, { onDelete: 'cascade' }),
+  participantId: uuid('participant_id').notNull().references(() => participants.id, { onDelete: 'cascade' }),
+  verdict: text('verdict').notNull(),     // 'visible' | 'covered' | 'no_front' | 'absent'
+  bibNumber: text('bib_number'),
+  frameTs: bigint('frame_ts', { mode: 'number' }),
+  x: doublePrecision('x'),
+  y: doublePrecision('y'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique().on(t.sessionId, t.participantId),
+])
+
 export const eventDocuments = pgTable('event_documents', {
   id: uuid('id').primaryKey().defaultRandom(),
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),

@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api.js'
 import { useWsEvent } from '../../lib/ws.js'
+import ReviewPanel from './ReviewPanel.jsx'
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card.jsx'
 import { Button } from '../ui/button.jsx'
 import { Input } from '../ui/input.jsx'
@@ -212,6 +213,7 @@ function SessionView({ session }) {
   const [filter, setFilter] = useState('all')
   const [bib, setBib] = useState('')
   const [frameOf, setFrameOf] = useState(null)
+  const [view, setView] = useState('reads')
 
   const { data: detail } = useQuery({
     queryKey: ['vision-session', session.id],
@@ -249,7 +251,25 @@ function SessionView({ session }) {
       <HealthStrip verdict={verdict} health={health} session={detail ?? session} />
       {stats && <Stats stats={stats} />}
 
-      <Card>
+      <div className="flex gap-2">
+        {[['reads', 'Odczyty'], ['review', 'Weryfikacja']].map(([key, text]) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            className={`border px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition-colors ${
+              view === key
+                ? 'border-apex-yellow text-apex-yellow'
+                : 'border-apex-border text-apex-muted hover:border-apex-border-mid'
+            }`}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+
+      {view === 'review' && <ReviewPanel sessionId={session.id} />}
+
+      {view === 'reads' && <Card>
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle>Odczyty</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
@@ -281,7 +301,7 @@ function SessionView({ session }) {
             onOpenFrame={setFrameOf}
           />
         </CardContent>
-      </Card>
+      </Card>}
 
       <FrameDialog
         sighting={frameOf}
