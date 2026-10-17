@@ -72,8 +72,21 @@ cd vision
 About three minutes. It renders synthetic bibs, augments them, segments them
 into digits, trains, and writes `models/digits.onnx`, which is committed.
 
-**Never train on photographs from a real race.** Those are the measurement
-set. A model trained on its own exam produces a read rate that means nothing.
+The digit recognizer never trains on race photographs. The torso reader
+does, with runners held out:
+
+```bash
+cd vision
+.venv/bin/python scripts/train_torso_reader.py --frames <queue>/done \
+    --labels <dir>/labels.csv --backgrounds <dir>/backgrounds.csv
+```
+
+Labels come from the Weryfikacja view in the camera tab, or from reading the
+bibs by eye, and each must be a finisher in the roster. Judge it on the
+held-out runners only, and replay the whole race through `read_people()` and
+`Tracker` before shipping: on 2026-10-17 the held-out score looked clean while
+a replay found spectators standing at the line read as 94, 88 and 73. Keep
+the weights out of git and point `VISION_TORSO_MODEL` at them.
 
 The trainer drops any bib whose segmentation disagrees with its label, and
 prints how many. A sudden jump in that number means segmentation broke, not
