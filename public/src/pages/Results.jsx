@@ -7,6 +7,7 @@ import CategorySection from './CategorySection.jsx'
 import NearFinish from './NearFinish.jsx'
 import { nearFinishTabVisible } from '../lib/nearFinish.js'
 import PartnerLogos from '../components/PartnerLogos.jsx'
+import BibFinder from '../components/BibFinder.jsx'
 import Navbar from '../components/Navbar.jsx'
 
 export default function Results() {
@@ -63,7 +64,7 @@ export default function Results() {
   // Scroll active tab into view
   useEffect(() => {
     if (activeTabRef.current) {
-      activeTabRef.current.scrollIntoView({ inline: 'nearest', behavior: 'smooth' })
+      activeTabRef.current.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
     }
   }, [categoryId, categories, isLiveView])
 
@@ -185,13 +186,19 @@ export default function Results() {
         backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`
       }} />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 py-10">
-        <Link to={`/events/${slug}`} className="text-xs text-apex-muted uppercase tracking-wider hover:text-apex-text mb-6 inline-block">&larr; Powrot</Link>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 md:px-6 md:py-10 flex flex-col">
+        <Link to={`/events/${slug}`} className="self-start text-xs text-apex-muted uppercase tracking-wider hover:text-apex-text mb-4 md:mb-6">&larr; Powrót</Link>
 
-        {event && <PartnerLogos eventId={event.id} />}
+        {/* On a phone the logos fill the whole first screen, so they go below
+            the results there; on wider screens they stay on top. */}
+        {event && (
+          <div className="order-last mt-12 md:order-none md:mt-0">
+            <PartnerLogos eventId={event.id} />
+          </div>
+        )}
 
-        <div className="text-center mb-8">
-          <div className="font-display text-5xl tracking-widest uppercase text-apex-text-bright mb-1">
+        <div className="text-left md:text-center mb-5 md:mb-8">
+          <div className="font-display text-3xl md:text-5xl tracking-widest uppercase text-apex-text-bright mb-1">
             {event?.name || '—'}
           </div>
           {event?.date && (
@@ -231,6 +238,10 @@ export default function Results() {
             <p className="text-apex-text text-base">Wyniki pojawią się tutaj na żywo po starcie.</p>
             <span className="inline-block w-2 h-2 rounded-full bg-apex-cyan animate-pulse mt-4" />
           </div>
+        )}
+
+        {!loading && hasActiveRaces && visibleCategories.length > 0 && (
+          <BibFinder eventId={event.id} categories={visibleCategories} />
         )}
 
         {/* Tab bar */}

@@ -3,3 +3,5 @@ export { CheckpointTrackingTable } from '../../../packages/ui/src/components/Che
 export { PositionBadge } from '../../../packages/ui/src/components/PositionBadge.jsx'
 export { estimatePositions } from '../../../packages/ui/src/lib/positionEstimation.js'
 export { anonymizedName } from '../../../packages/ui/src/lib/anonymizedName.js'
+export { RunnerResultCard } from '../../../packages/ui/src/components/RunnerResultCard.jsx'
+export { findRunners, bibCouldMatch, runnerSummary } from '../../../packages/ui/src/lib/runnerLookup.js'
