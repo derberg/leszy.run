@@ -26,3 +26,6 @@ docs/gdpr/incidents/
 docs/superpowers/
 supabase/.temp/linked-project.json
 test-results/public-tests-e2e*
+
+# Local backup of race results changed by hand; holds personal data, never committed
+runs-backup.md
