@@ -483,6 +483,8 @@ the database.
 `registered` / `checked_in`             → `dns`    (manual)
 any                                      → `dsq`   (manual, requires `status_note`)
 
+A `dns`, `dnf` or `dsq` result never gets a stored `position` or a place in the gender lists and CSV/PDF exports, even with a finish time (`UNRANKED` in `backend/src/lib/positions.js`). The public views do not read that column: `estimatePositions()` ranks by finish time. Neither a chip finish nor a finish-time edit turns a `dsq` back into `finished`, and gun-time backfill skips a runner marked `dns`. Operators set these from the Status column of `Przegląd trasy`.
+
 ## Race run lifecycle
 
 - `pending` → `active` (on start) → `finished` or `cancelled`

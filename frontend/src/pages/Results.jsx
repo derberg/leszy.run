@@ -12,7 +12,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Download, ExternalLink, Info, Pencil, Upload, UserCheck } from 'lucide-react'
 import { useWsEvent } from '../lib/ws.js'
 import { volunteerFinishAt, volunteerFinishCheck } from '../lib/volunteerFinish.js'
-import { sortOverviewRows } from '../lib/overviewOrder.js'
+import { sortOverviewRows, overviewGroup } from '../lib/overviewOrder.js'
 
 const GENDER_VIEWS = [
   { key: null, label: 'Open' },
@@ -156,6 +156,7 @@ function RaceOverview({ eventId, categories }) {
   const [search, setSearch] = useState('')
   const [editingFinish, setEditingFinish] = useState(null) // resultId being edited
   const [finishInput, setFinishInput] = useState('')
+  const [statusRow, setStatusRow] = useState(null)
   const qc = useQueryClient()
 
   const { data: checkpoints = [] } = useQuery({
@@ -209,8 +210,7 @@ function RaceOverview({ eventId, categories }) {
     if (bibKey) obsLookup[bibKey] = obs.observedAt
   }
 
-  // Only show results (started participants)
-  const rows = allResults.filter(r => r.startTime || r.finishTime)
+  const rows = allResults
 
   const filtered = search.trim()
     ? rows.filter(r => {
@@ -223,8 +223,11 @@ function RaceOverview({ eventId, categories }) {
 
   const sorted = sortOverviewRows(filtered, sortedCps, obsLookup)
 
-  const onCourse = rows.filter(r => r.startTime && !r.finishTime).length
-  const finished = rows.filter(r => r.finishTime).length
+  const groupCount = (g) => rows.filter(r => overviewGroup(r) === g).length
+  const onCourse = groupCount(1)
+  const finished = groupCount(0)
+  const notStarted = groupCount(2)
+  const closed = { dnf: groupCount(3), dsq: groupCount(4), dns: groupCount(5) }
 
   const fmtTime = (iso) => {
     if (!iso) return null
@@ -237,7 +240,9 @@ function RaceOverview({ eventId, categories }) {
         <div className="flex items-center gap-4">
           <h2 className="font-display text-2xl uppercase tracking-wider text-apex-text-bright">Przegląd trasy</h2>
           <span className="text-xs text-apex-muted">
-            Na trasie: {onCourse} · Na mecie: {finished} · Razem: {rows.length}
+            Na trasie: {onCourse} · Na mecie: {finished} · Przed startem: {notStarted}
+            {Object.entries(closed).filter(([, n]) => n).map(([s, n]) => ` · ${statusLabel(s)}: ${n}`).join('')}
+            {' '}· Razem: {rows.length}
           </span>
         </div>
         <input
@@ -265,12 +270,14 @@ function RaceOverview({ eventId, categories }) {
               ))}
               <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Meta</th>
               <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Czas</th>
+              <th className="text-left px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-apex-muted">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-apex-border">
             {sorted.map(r => {
               const p = r.participant
               const isFinished = !!r.finishTime
+              const isClosed = overviewGroup(r) >= 3
               const obsAt = (cpId) => obsLookup[`${r.participantId}:${cpId}`]
                 || (p?.bibNumber != null ? obsLookup[`bib${p.bibNumber}:${cpId}`] : undefined)
               const volunteer = volunteerFinishCheck(r.finishTime, volunteerFinishAt(sortedCps, obsAt))
@@ -282,7 +289,7 @@ function RaceOverview({ eventId, categories }) {
                 setFinishInput(new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }))
               }
               return (
-                <tr key={r.id} className={cn('transition-colors', isFinished ? 'bg-green-950/10' : '')}>
+                <tr key={r.id} className={cn('transition-colors', isClosed ? 'opacity-50' : isFinished ? 'bg-green-950/10' : '')}>
                   <td className="px-2 py-1.5 font-mono text-xs">{p?.bibNumber}</td>
                   <td className="px-2 py-1.5 text-xs">{p?.firstName} {p?.lastName}</td>
                   <td className="px-2 py-1.5 text-xs text-apex-muted">{r.categoryName}</td>
@@ -331,7 +338,7 @@ function RaceOverview({ eventId, categories }) {
                       >
                         W {fmtTime(volunteer.volunteerAt)}
                       </button>
-                    ) : r.startTime ? (
+                    ) : r.startTime && !isClosed ? (
                       <button
                         onClick={() => manualFinish.mutate(r.id)}
                         disabled={manualFinish.isPending}
@@ -344,16 +351,84 @@ function RaceOverview({ eventId, categories }) {
                   <td className="px-2 py-1.5 font-mono text-xs font-semibold">
                     {r.durationMs ? formatDuration(r.durationMs) : r.gunDurationMs ? <span className="text-amber-400">{formatDuration(r.gunDurationMs)}</span> : '—'}
                   </td>
+                  <td className="px-2 py-1.5">
+                    <button onClick={() => setStatusRow(r)} title={r.statusNote || undefined}>
+                      <Badge className={cn('cursor-pointer', statusColor(r.status))}>{statusLabel(r.status)}</Badge>
+                    </button>
+                  </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-xs text-apex-muted">Brak wystartowanych zawodników</div>
+          <div className="py-8 text-center text-xs text-apex-muted">Brak zawodników</div>
         )}
       </div>
+      {statusRow && (
+        <StatusDialog
+          result={statusRow}
+          onClose={() => setStatusRow(null)}
+          onSaved={() => { setStatusRow(null); qc.invalidateQueries({ queryKey: ['event-results', eventId] }) }}
+        />
+      )}
     </div>
+  )
+}
+
+// The status a result returns to when DNS/DNF/DSQ is withdrawn: what its times say.
+function timedStatus(r) {
+  if (r.finishTime) return 'finished'
+  if (r.startTime) return 'started'
+  return 'registered'
+}
+
+function StatusDialog({ result, onClose, onSaved }) {
+  const p = result.participant || {}
+  const [pickDsq, setPickDsq] = useState(result.status === 'dsq')
+  const [note, setNote] = useState(result.statusNote || '')
+  const save = useMutation({
+    mutationFn: (body) => api.results.update(result.id, body),
+    onSuccess: onSaved,
+  })
+  const set = (status, statusNote = null) => save.mutate({ status, statusNote })
+  const isClosed = ['dns', 'dnf', 'dsq'].includes(result.status)
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>#{p.bibNumber} {p.firstName} {p.lastName}</DialogTitle>
+        </DialogHeader>
+        <DialogBody className="space-y-3">
+          <div className="flex gap-2">
+            {['dns', 'dnf'].map(s => (
+              <Button key={s} variant="outline" className={cn('flex-1', result.status === s && statusColor(s))} disabled={save.isPending} onClick={() => set(s)}>
+                {statusLabel(s)}
+              </Button>
+            ))}
+            <Button variant="outline" className={cn('flex-1', pickDsq && statusColor('dsq'))} disabled={save.isPending} onClick={() => setPickDsq(true)}>
+              DSQ
+            </Button>
+          </div>
+          {pickDsq && (
+            <div className="flex gap-2">
+              <Input value={note} onChange={e => setNote(e.target.value)} placeholder="Powód dyskwalifikacji" autoFocus className="flex-1" />
+              <Button disabled={!note.trim() || save.isPending} onClick={() => set('dsq', note.trim())}>Zapisz</Button>
+            </div>
+          )}
+          {save.isError && <p className="text-xs text-apex-red">{save.error.message}</p>}
+        </DialogBody>
+        <DialogFooter>
+          {isClosed && (
+            <Button variant="outline" disabled={save.isPending} onClick={() => set(timedStatus(result))}>
+              Cofnij {statusLabel(result.status)}
+            </Button>
+          )}
+          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

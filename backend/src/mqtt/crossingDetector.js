@@ -1,5 +1,6 @@
-import { eq, and, isNotNull, asc, sql, inArray } from 'drizzle-orm'
+import { eq, and, isNotNull, sql, inArray } from 'drizzle-orm'
 import { checkins, gateCrossings, gateEvents, results } from '../db/schema.js'
+import { recalcPositions } from '../lib/positions.js'
 
 /**
  * RFID Crossing Detection — Exit-Triggered Algorithm
@@ -285,6 +286,8 @@ export class CrossingDetector {
           race.startedParticipants.add(participantId)
           continue
         }
+        // An operator who marked the runner DNS has seen them not start.
+        if (existing?.status === 'dns') continue
 
         await this.db.insert(results).values({
           raceRunId,
@@ -618,7 +621,8 @@ export class CrossingDetector {
           finishTime: peakTime,
           durationMs: noChipStart ? (backfillGun ? gunDurationMs : null) : durationMs,
           gunDurationMs: noChipStart && !backfillGun ? null : gunDurationMs,
-          status: 'finished',
+          // A disqualification is a decision, so a chip read never undoes it.
+          status: existing?.status === 'dsq' ? 'dsq' : 'finished',
           finishCrossingId: crossing.id,
           ...(backfillGun && {
             startTime: race.gunStartTime,
@@ -675,16 +679,9 @@ export class CrossingDetector {
   }
 
   async #recalcPositions(raceRunId) {
-    const finished = await this.db
-      .select({ id: results.id })
-      .from(results)
-      .where(and(eq(results.raceRunId, raceRunId), isNotNull(results.finishTime)))
-      .orderBy(asc(results.gunDurationMs))
-
-    for (let i = 0; i < finished.length; i++) {
-      await this.db.update(results).set({ position: i + 1 }).where(eq(results.id, finished[i].id))
-    }
+    await recalcPositions(this.db, raceRunId)
   }
+
 }
 
 // A missing value means the default, which is no bar.

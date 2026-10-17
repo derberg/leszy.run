@@ -99,6 +99,20 @@ test('FINISH confirms at the peak of the window, not at the first read', async (
   assert.equal(crossings[0].peakRssiCdbm, -4000)
 })
 
+test('a chip finish keeps a DSQ that the operator set', async (t) => {
+  const { detector, db } = await makeRace(t, {
+    resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'dsq', statusNote: 'skrót' }],
+  })
+
+  detector.processEvent(read(-4000))
+  await wait(GONE_MS + 60)
+
+  const r = db._rows().find(x => x.participantId === 'p1')
+  assert.ok(r.finishTime, 'the finish time is still recorded')
+  assert.equal(r.status, 'dsq')
+  assert.equal(r.position ?? null, null, 'a DSQ never places')
+})
+
 test('a FINISH pass stays open while the signal is still rising (2026-10-15, bib 4)', async (t) => {
   // Bib 4 was first heard 4.5 s before its peak. The old fixed 3 s window closed
   // while the runner was still walking in and timed the finish 1.58 s early, at
@@ -348,6 +362,21 @@ test('backfill timer gives gun time to a checked-in runner but not to one who ne
   assert.equal(byId.p1?.startTimeSource, 'gun')
   assert.equal(byId.p1?.status, 'started')
   assert.equal(byId.p2, undefined, 'a runner without check-in gets no result row, so stopping the race marks them DNS')
+})
+
+test('backfill timer leaves a runner the operator marked DNS alone', async (t) => {
+  const { db } = await makeRace(t, {
+    config: baseConfig({ gunBackfillEnabled: true, gunBackfillSeconds: BACKFILL_MS / 1000 }),
+    participants: [{ id: 'p1', rfidEpc: 'EPC1' }],
+    checkinRows: [{ participantId: 'p1', checkedInAt: new Date() }],
+    resultsRows: [{ id: 'res-1', participantId: 'p1', status: 'dns' }],
+  })
+
+  await wait(BACKFILL_MS + 60)
+
+  const r = db._rows().find(x => x.participantId === 'p1')
+  assert.equal(r.status, 'dns')
+  assert.equal(r.startTime, undefined)
 })
 
 test('a finish read does not credit gun time to a runner who never checked in', async (t) => {

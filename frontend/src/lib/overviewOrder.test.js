@@ -37,3 +37,15 @@ test('runners on course: furthest checkpoint first, then bib', () => {
   const obs = { 'p9:cp1': 't', 'p2:cp2': 't' }
   assert.deepEqual(bibs(sortOverviewRows(rows, cps, obs)), [2, 9, 7])
 })
+
+test('not started, then DNF, DSQ and DNS follow the runners on course', () => {
+  const rows = [
+    row(1, { status: 'dns' }),
+    row(2, { status: 'dsq', startTime: 'x', finishTime: '2026-10-16T13:30:00Z' }),
+    row(3, { status: 'checked_in' }),
+    row(4, { status: 'dnf', startTime: 'x' }),
+    row(5, { status: 'started', startTime: 'x' }),
+    row(6, { status: 'finished', startTime: 'x', finishTime: '2026-10-16T13:31:00Z' }),
+  ]
+  assert.deepEqual(bibs(sortOverviewRows(rows, cps, {})), [6, 5, 3, 4, 2, 1])
+})
