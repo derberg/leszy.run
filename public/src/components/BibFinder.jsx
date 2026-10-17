@@ -57,8 +57,14 @@ export default function BibFinder({ eventId, categories, raceRuns, isPastEvent }
       setParticipants(rows.map(p => ({
         ...p, bibNumber: p.bib_number, firstName: p.first_name, lastName: p.last_name,
       })))
-    }).catch(() => {}).finally(() => { loadingRef.current = false })
+    }).catch(() => {
+      // An overloaded API must not leave the skeleton up for good: try again,
+      // spread over 5–10 s so the open tabs do not all ask at once.
+      setTimeout(() => loadRef.current(), 5000 + Math.random() * 5000)
+    }).finally(() => { loadingRef.current = false })
   }
+  const loadRef = useRef(loadParticipants)
+  loadRef.current = loadParticipants
 
   useEffect(() => {
     const t = setTimeout(() => setSettled(query), 300)
@@ -70,15 +76,17 @@ export default function BibFinder({ eventId, categories, raceRuns, isPastEvent }
   }, [query, categoryIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep ?nr= in step with a bib search, without adding history entries.
-  // searchParams is a dependency too: a category tab navigates without it.
+  // It follows the settled query, so the address changes once per pause and
+  // not on every keystroke. searchParams is a dependency too: a redirect on
+  // this page navigates without it.
   useEffect(() => {
-    const nr = mode === 'bib' ? query.trim().replace(/^#/, '') : ''
+    const nr = mode === 'bib' ? settled.trim().replace(/^#/, '') : ''
     if ((searchParams.get('nr') || '') === nr) return
     const next = new URLSearchParams(searchParams)
     if (nr) next.set('nr', nr)
     else next.delete('nr')
     setSearchParams(next, { replace: true })
-  }, [mode, query, searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, settled, searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const matches = participants ? findRunners(participants, settled, mode) : []
   const trimmed = query.trim()
@@ -153,7 +161,9 @@ export default function BibFinder({ eventId, categories, raceRuns, isPastEvent }
 
       {found && (() => {
         const run = runFor(found.category_id)
-        const raceOver = isPastEvent || (run?.status === 'finished')
+        // The run decides when there is one: a night race is still on after
+        // midnight, when the event date is already in the past.
+        const raceOver = run ? run.status === 'finished' : isPastEvent
         // Keyed by category and run: another bib in the same category reuses
         // the loaded data, and a category that starts gets a fresh load.
         return (
@@ -195,6 +205,13 @@ export default function BibFinder({ eventId, categories, raceRuns, isPastEvent }
 function FoundRunner({ eventId, participant, categoryName, raceOver }) {
   const { raceRun, results, checkpoints, observations, loaded } = useCategoryResults(eventId, participant.category_id)
   const [shareLabel, setShareLabel] = useState('Udostępnij')
+  const labelTimer = useRef(null)
+  // The component stays mounted while another runner of the same category is
+  // picked, so a "copied" label must not carry over to them.
+  useEffect(() => {
+    setShareLabel('Udostępnij')
+    return () => clearTimeout(labelTimer.current)
+  }, [participant.id])
 
   const summary = useMemo(() => {
     if (!raceRun) return null
@@ -204,9 +221,7 @@ function FoundRunner({ eventId, participant, categoryName, raceOver }) {
   if (!loaded) return <div className="h-24 bg-apex-surface-2 animate-pulse" />
 
   const share = async () => {
-    const url = participant.bibNumber != null
-      ? `${window.location.origin}${window.location.pathname}?nr=${participant.bibNumber}`
-      : window.location.href
+    const url = `${window.location.origin}${window.location.pathname}?nr=${participant.bibNumber}`
     try {
       if (navigator.share) {
         await navigator.share({ url, title: `Wynik #${participant.bibNumber}` })
@@ -214,7 +229,8 @@ function FoundRunner({ eventId, participant, categoryName, raceOver }) {
       }
       await navigator.clipboard.writeText(url)
       setShareLabel('Skopiowano link')
-      setTimeout(() => setShareLabel('Udostępnij'), 2000)
+      clearTimeout(labelTimer.current)
+      labelTimer.current = setTimeout(() => setShareLabel('Udostępnij'), 2000)
     } catch {
       // The viewer closed the share sheet, or the clipboard was refused: nothing to do.
     }
@@ -227,7 +243,8 @@ function FoundRunner({ eventId, participant, categoryName, raceOver }) {
       summary={summary}
       raceOver={raceOver}
       formatDuration={formatDuration}
-      onShare={share}
+      // A link can only point at a runner through their bib.
+      onShare={participant.bibNumber != null ? share : undefined}
       shareLabel={shareLabel}
     />
   )

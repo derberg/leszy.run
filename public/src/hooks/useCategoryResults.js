@@ -83,7 +83,6 @@ export function useCategoryResults(eventId, categoryId) {
     }))
 
     setResults(enrichedResults)
-    setLoaded(true)
 
     if (cpRes.data?.length) {
       const cpIds = checkpointsRef.current.map(c => c.id)
@@ -116,6 +115,9 @@ export function useCategoryResults(eventId, categoryId) {
         observedAt: o.observed_at,
       })))
     }
+    // After the observations, so a runner past a checkpoint is never shown
+    // for a moment as on course with no checkpoint.
+    setLoaded(true)
   }, [eventId, categoryId])
 
   loadDataRef.current = loadData

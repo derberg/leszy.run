@@ -29,7 +29,8 @@ export function findRunners(participants, query, mode) {
   const q = fold(query)
   if (!q) return []
   if (mode === 'bib') {
-    const bib = q.replace(/^#/, '')
+    // bib_number is an integer, so "07" means bib 7.
+    const bib = q.replace(/^#/, '').replace(/^0+(?=\d)/, '')
     return participants.filter(p => p.bibNumber != null && String(p.bibNumber) === bib)
   }
   if (q.length < 2) return []

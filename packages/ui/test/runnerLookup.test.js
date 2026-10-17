@@ -13,6 +13,7 @@ test('a bib search matches the whole number only', () => {
   assert.deepEqual(findRunners(people, '20', 'bib').map(p => p.id), ['a'])
   assert.deepEqual(findRunners(people, '#207', 'bib').map(p => p.id), ['b'])
   assert.deepEqual(findRunners(people, '2', 'bib'), [])
+  assert.deepEqual(findRunners(people, '020', 'bib').map(p => p.id), ['a'])
 })
 
 test('a name search ignores case and Polish letters', () => {
