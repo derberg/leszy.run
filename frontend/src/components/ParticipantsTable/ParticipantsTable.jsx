@@ -11,7 +11,7 @@ import { Badge } from '../ui/badge.jsx'
 import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../ui/alert-dialog.jsx'
 import RfidAssignDialog from './RfidAssignDialog.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../ui/dialog.jsx'
-import { Trash2, Wifi, UserCheck, UserX, Plus, X, MessageSquare, Send, Check, RotateCcw } from 'lucide-react'
+import { Trash2, Wifi, UserCheck, UserX, Plus, X, MessageSquare, Send, Check, RotateCcw, Ban } from 'lucide-react'
 import { Tooltip } from '../ui/tooltip.jsx'
 
 export default function ParticipantsTable({ eventId, categories }) {
@@ -97,6 +97,17 @@ export default function ParticipantsTable({ eventId, categories }) {
     mutationFn: (participantId) => api.participants.uncheckin(participantId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['participants', eventId] }),
   })
+
+  const [withdrawTarget, setWithdrawTarget] = useState(null)
+  const withdraw = useMutation({
+    mutationFn: (participantId) => api.participants.withdraw(participantId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['participants', eventId] }); setWithdrawTarget(null) },
+  })
+  const unwithdraw = useMutation({
+    mutationFn: (participantId) => api.participants.unwithdraw(participantId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['participants', eventId] }),
+  })
+  const openWithdraw = (p) => { withdraw.reset(); setWithdrawTarget(p) }
 
   const catMap = Object.fromEntries((categories || []).map(c => [c.id, c.name]))
 
@@ -209,6 +220,11 @@ export default function ParticipantsTable({ eventId, categories }) {
               <span className="flex items-center gap-1 text-apex-yellow" title="Zameldowani przez organizatora">
                 <UserCheck size={13} /> {counts.confirmed} potwierdzonych
               </span>
+              {counts.withdrawn > 0 && (
+                <span className="flex items-center gap-1" title="Zameldowani, ale nie startują">
+                  <Ban size={13} /> {counts.withdrawn} nie startuje
+                </span>
+              )}
             </div>
           )
         })()}
@@ -224,7 +240,7 @@ export default function ParticipantsTable({ eventId, categories }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-apex-border bg-apex-surface-2">
-              {['Emoji', 'Nr', 'Imię', 'Nazwisko', 'Email', 'Tel', 'Klub', 'Płeć', 'Data ur.', 'Kategoria', 'Koszulka', 'RFID', 'SMS', 'Z', ''].map(h => (
+              {['Emoji', 'Nr', 'Imię', 'Nazwisko', 'Email', 'Tel', 'Klub', 'Płeć', 'Data ur.', 'Kategoria', 'Koszulka', 'RFID', 'SMS', 'Z', 'NS', ''].map(h => (
                 <th key={h} className="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-apex-muted whitespace-nowrap">
                   {h === 'Z' ? (
                     <Tooltip content={
@@ -239,6 +255,8 @@ export default function ParticipantsTable({ eventId, categories }) {
                         <span className="text-apex-muted/50 text-[10px] border border-apex-border rounded-full w-3.5 h-3.5 inline-flex items-center justify-center leading-none">?</span>
                       </span>
                     </Tooltip>
+                  ) : h === 'NS' ? (
+                    <span className="cursor-default" title="Nie startuje: wynik DNS, odczyty chipa ignorowane">NS</span>
                   ) : h}
                 </th>
               ))}
@@ -246,7 +264,7 @@ export default function ParticipantsTable({ eventId, categories }) {
           </thead>
           <tbody className="divide-y divide-apex-border">
             {sortedParticipants.map(p => (
-              <tr key={p.id} className="hover:bg-apex-surface-2 group">
+              <tr key={p.id} className={cn('hover:bg-apex-surface-2 group', p.withdrawnAt && '[&>td:not(.keep)]:opacity-45')}>
                 <td className="px-2 py-1 w-10 text-center text-lg group/emoji relative">
                   <span>{p.emoji || '🏃'}</span>
                   <button
@@ -258,8 +276,17 @@ export default function ParticipantsTable({ eventId, categories }) {
                   </button>
                 </td>
                 <td className="px-2 py-1 w-14"><EditableCell participant={p} field="bibNumber" type="number" /></td>
-                <td className="px-2 py-1"><EditableCell participant={p} field="firstName" /></td>
-                <td className="px-2 py-1"><EditableCell participant={p} field="lastName" /></td>
+                <td className={cn('px-2 py-1', p.withdrawnAt && 'line-through')}><EditableCell participant={p} field="firstName" /></td>
+                <td className="keep px-2 py-1">
+                  {p.withdrawnAt ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="line-through opacity-45"><EditableCell participant={p} field="lastName" /></div>
+                      <span className="border border-apex-yellow text-apex-yellow font-mono text-[10px] font-bold px-1 leading-4">DNS</span>
+                    </div>
+                  ) : (
+                    <EditableCell participant={p} field="lastName" />
+                  )}
+                </td>
                 <td className="px-2 py-1 max-w-36"><EditableCell participant={p} field="email" type="email" /></td>
                 <td className="px-2 py-1 max-w-28"><EditableCell participant={p} field="phone" type="tel" /></td>
                 <td className="px-2 py-1"><EditableCell participant={p} field="club" /></td>
@@ -370,6 +397,25 @@ export default function ParticipantsTable({ eventId, categories }) {
                     )
                   })()}
                 </td>
+                <td className="keep px-2 py-1 w-8">
+                  {p.withdrawnAt ? (
+                    <button
+                      onClick={() => unwithdraw.mutate(p.id)}
+                      className="text-apex-yellow hover:text-apex-muted transition-colors"
+                      title={`Nie startuje od ${new Date(p.withdrawnAt).toLocaleString('pl-PL')} — kliknij aby cofnąć`}
+                    >
+                      <Ban size={14} />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => openWithdraw(p)}
+                      className="text-apex-muted hover:text-apex-yellow transition-colors"
+                      title="Nie startuje"
+                    >
+                      <Ban size={14} />
+                    </button>
+                  )}
+                </td>
                 <td className="px-2 py-1 w-8">
                   <button
                     onClick={() => setDeleteTarget(p)}
@@ -394,6 +440,31 @@ export default function ParticipantsTable({ eventId, categories }) {
           onClose={() => setRfidTarget(null)}
         />
       )}
+
+      <Dialog open={!!withdrawTarget} onOpenChange={o => { if (!o) setWithdrawTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nie startuje</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <p className="text-sm">
+              <strong className="text-apex-text-bright">#{withdrawTarget?.bibNumber} {withdrawTarget?.firstName} {withdrawTarget?.lastName}</strong>
+              {withdrawTarget?.categoryId && catMap[withdrawTarget.categoryId] ? ` (${catMap[withdrawTarget.categoryId]})` : ''} nie wystartuje.
+            </p>
+            {withdraw.error ? (
+              <p className="text-sm text-apex-red mt-2">{withdraw.error.message}</p>
+            ) : (
+              <p className="text-sm text-apex-muted mt-2">Dostanie status DNS, a odczyty chipa będą ignorowane.</p>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWithdrawTarget(null)}>{withdraw.error ? 'Zamknij' : 'Anuluj'}</Button>
+            {!withdraw.error && (
+              <Button onClick={() => withdraw.mutate(withdrawTarget.id)} disabled={withdraw.isPending}>Nie startuje</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={o => !o && setDeleteTarget(null)}>
         <AlertDialogContent>

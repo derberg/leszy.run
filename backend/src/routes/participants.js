@@ -1,10 +1,12 @@
-import { eq, and, isNull, sql, max } from 'drizzle-orm'
+import { eq, and, isNull, sql, max, ne } from 'drizzle-orm'
 import { participants, categories, results, raceRuns, checkins } from '../db/schema.js'
 import { setScanMode } from '../mqtt/client.js'
 import Papa from 'papaparse'
 import { pickEmoji } from '../lib/emoji.js'
 import { syncDelete } from '../sync/supabase.js'
 import { createClient } from '@supabase/supabase-js'
+import { broadcast } from '../ws/broadcaster.js'
+import { withdrawalRefusal, statusAfterReturn } from '../lib/withdrawal.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -67,6 +69,46 @@ export async function participantsRoutes(fastify) {
       if (err.code === '23505') return reply.code(409).send({ error: 'Bib number or RFID already taken' })
       throw err
     }
+  })
+
+  // The runner came but will not start. Before the gun this only sets the flag
+  // (race start seeds their result as DNS); after it, their result turns DNS now.
+  fastify.post('/participants/:id/withdraw', async (req, reply) => {
+    const runResults = await liveRunResults(db, req.params.id)
+    const refusal = withdrawalRefusal(runResults)
+    if (refusal) return reply.code(409).send({ error: refusal })
+
+    const now = new Date()
+    const [row] = await db.update(participants).set({ withdrawnAt: now, updatedAt: now })
+      .where(eq(participants.id, req.params.id)).returning()
+    if (!row) return reply.code(404).send({ error: 'Participant not found' })
+
+    for (const r of runResults) {
+      if (r.status === 'dns') continue
+      await db.update(results).set({ status: 'dns' }).where(eq(results.id, r.id))
+      broadcast('result:update', { raceRunId: r.raceRunId, participantId: r.participantId, position: r.position, durationMs: r.durationMs, status: 'dns' })
+    }
+    return { data: row }
+  })
+
+  // Undo a withdrawal: the DNS results go back to what the race would have given.
+  fastify.delete('/participants/:id/withdraw', async (req, reply) => {
+    const participant = await db.query.participants.findFirst({
+      where: eq(participants.id, req.params.id),
+      with: { checkin: true },
+    })
+    if (!participant) return reply.code(404).send({ error: 'Participant not found' })
+
+    const [row] = await db.update(participants).set({ withdrawnAt: null, updatedAt: new Date() })
+      .where(eq(participants.id, req.params.id)).returning()
+
+    for (const r of await liveRunResults(db, req.params.id)) {
+      if (r.status !== 'dns') continue
+      const status = statusAfterReturn(r, !!participant.checkin)
+      await db.update(results).set({ status }).where(eq(results.id, r.id))
+      broadcast('result:update', { raceRunId: r.raceRunId, participantId: r.participantId, position: r.position, durationMs: r.durationMs, status })
+    }
+    return { data: row }
   })
 
   // Regenerate emoji
@@ -309,4 +351,13 @@ async function usedEmojis(db, eventId) {
     .from(participants)
     .where(eq(participants.eventId, eventId))
   return rows.map(r => r.emoji).filter(Boolean)
+}
+
+// The participant's results in every race run that was not cancelled.
+async function liveRunResults(db, participantId) {
+  const rows = await db.select({ result: results })
+    .from(results)
+    .innerJoin(raceRuns, eq(raceRuns.id, results.raceRunId))
+    .where(and(eq(results.participantId, participantId), ne(raceRuns.status, 'cancelled')))
+  return rows.map(r => r.result)
 }

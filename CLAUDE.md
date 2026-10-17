@@ -485,6 +485,8 @@ any                                      → `dsq`   (manual, requires `status_n
 
 A `dns`, `dnf` or `dsq` result never gets a stored `position` or a place in the gender lists and CSV/PDF exports, even with a finish time (`UNRANKED` in `backend/src/lib/positions.js`). The public views do not read that column: `estimatePositions()` ranks by finish time. Neither a chip finish nor a finish-time edit turns a `dsq` back into `finished`, and gun-time backfill skips a runner marked `dns`. Operators set these from the Status column of `Przegląd trasy`.
 
+A runner who came but will not start, because they handed the bib back, gets **Nie startuje** in the NS column of the participants table. That calls `POST /api/participants/:id/withdraw`, and `DELETE` on the same path undoes it. It sets `participants.withdrawn_at`. Race start seeds their result as `dns`. After the gun, the result turns `dns` at once. The detector ignores every crossing of a runner whose result is `dns`. A returned bib near the gate therefore gives nobody a start or a finish. This also covers a DNS set in `Przegląd trasy`, which a chip start used to overwrite. The endpoint refuses a runner with a finish time with a 409, because that runner was on course: set DNF or DSQ in `Przegląd trasy` instead.
+
 ## Race run lifecycle
 
 - `pending` → `active` (on start) → `finished` or `cancelled`
