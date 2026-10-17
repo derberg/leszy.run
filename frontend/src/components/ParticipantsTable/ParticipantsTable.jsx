@@ -457,7 +457,7 @@ export default function ParticipantsTable({ eventId, categories }) {
             {withdraw.error ? (
               <p className="text-sm text-apex-red mt-2">{withdraw.error.message}</p>
             ) : (
-              <p className="text-sm text-apex-muted mt-2">Dostanie status DNS, a odczyty chipa będą ignorowane.</p>
+              <p className="text-sm text-apex-muted mt-2">Po starcie biegu dostanie status DNS, a odczyty chipa będą ignorowane.</p>
             )}
           </DialogBody>
           <DialogFooter>
