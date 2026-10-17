@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { Podium, CheckpointTrackingTable, estimatePositions } from '../ui/index.js'
+import { applyResultChange, canApplyResultChange, coalesce } from '../lib/liveResults.js'
 
 
 // Always H:MM:SS, hours included even when zero: a bare "47:18" reads like a
@@ -50,6 +51,11 @@ export default function CategorySection({ eventId, categoryId }) {
   const [checkpoints, setCheckpoints] = useState([])
   const [observations, setObservations] = useState([])
   const checkpointsRef = useRef([])
+  const pMapRef = useRef({})
+  // Retries a load the API failed, spread over 5–10 s.
+  const loadDataRef = useRef(null)
+  const retryRef = useRef(null)
+  if (!retryRef.current) retryRef.current = coalesce(() => loadDataRef.current(), 5000, 5000)
 
   const loadData = useCallback(async () => {
     const [catRes, runRes, cpRes, cpCatRes] = await Promise.all([
@@ -75,6 +81,9 @@ export default function CategorySection({ eventId, categoryId }) {
     }
 
     const run = runRes.data
+    // PGRST116 is .single() finding no started run: genuinely nothing to show.
+    // Any other error is an overloaded API, so try again rather than go blank.
+    if (runRes.error && runRes.error.code !== 'PGRST116') { retryRef.current.trigger(); return }
     if (!run) return
     setRaceRun(run)
 
@@ -83,9 +92,12 @@ export default function CategorySection({ eventId, categoryId }) {
       supabase.from('participants_public').select('id, bib_number, first_name, last_name, club, category_id, emoji, gender, deleted_at').eq('category_id', categoryId),
     ])
 
+    if (resultRows.error || participantRows.error) { retryRef.current.trigger(); return }
+
     const pMap = Object.fromEntries((participantRows.data || []).map(p => [p.id, {
       ...p, firstName: p.first_name, lastName: p.last_name, bibNumber: p.bib_number, gender: p.gender, deleted_at: p.deleted_at,
     }]))
+    pMapRef.current = pMap
 
     const enrichedResults = (resultRows.data || []).map(r => ({
       ...r,
@@ -132,14 +144,24 @@ export default function CategorySection({ eventId, categoryId }) {
     }
   }, [eventId, categoryId])
 
+  loadDataRef.current = loadData
+  useEffect(() => () => retryRef.current.cancel(), [])
+
   useEffect(() => { loadData() }, [loadData])
 
   useEffect(() => {
     if (!raceRun?.id) return
 
+    // A change carries the whole row, so it is applied in place. Only a runner
+    // this page has not loaded yet costs a reload, and a burst of those costs
+    // one, spread over 10–15 s so the open tabs do not all ask at once.
+    const reload = coalesce(loadData, 10000, 5000)
     const channel = supabase.channel(`public-results-${categoryId}-${raceRun.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'results',
-        filter: `race_run_id=eq.${raceRun.id}` }, () => loadData())
+        filter: `race_run_id=eq.${raceRun.id}` }, (payload) => {
+          if (!canApplyResultChange(payload, pMapRef.current)) { reload.trigger(); return }
+          setResults(prev => applyResultChange(prev, payload, pMapRef.current) ?? prev)
+        })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'checkpoint_observations' },
         (payload) => {
           const obs = payload.new
@@ -158,7 +180,7 @@ export default function CategorySection({ eventId, categoryId }) {
         })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => { reload.cancel(); supabase.removeChannel(channel) }
   }, [raceRun?.id, categoryId, loadData])
 
   const filteredResults = gender

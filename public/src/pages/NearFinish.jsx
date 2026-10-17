@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { anonymizedName } from '../ui/index.js'
 import { excludedParticipants, nearFinishRunners } from '../lib/nearFinish.js'
+import { coalesce } from '../lib/liveResults.js'
 
 function formatTime(iso) {
   return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -75,22 +76,24 @@ export default function NearFinish({ nearFinishCheckpointId, categories }) {
   useEffect(() => { loadData() }, [loadData])
 
   // Real-time: subscribe to checkpoint_observations inserts for this checkpoint
+  // One reload per burst of passes, not one per pass in every open tab.
   useEffect(() => {
+    const reload = coalesce(loadData, 3000, 3000)
     const channel = supabase.channel(`near-finish-${nearFinishCheckpointId}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'checkpoint_observations',
         filter: `checkpoint_id=eq.${nearFinishCheckpointId}`,
-      }, () => loadData())
+      }, () => reload.trigger())
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => { reload.cancel(); supabase.removeChannel(channel) }
   }, [nearFinishCheckpointId, loadData])
 
-  // Poll every 10s as fallback
+  // Poll every 30s as fallback
   useEffect(() => {
-    const interval = setInterval(loadData, 10000)
+    const interval = setInterval(loadData, 30000)
     return () => clearInterval(interval)
   }, [loadData])
 
