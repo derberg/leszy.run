@@ -177,6 +177,12 @@ export default function Results() {
 
   const loading = catLoading || (isPastEvent && raceRuns === null)
 
+  // The partners sit under the first podium on the page. Above the results
+  // they filled the whole first screen of a phone. A view with no podium
+  // (Blisko Mety, no categories) shows them at the end instead.
+  const partners = event ? <PartnerLogos eventId={event.id} /> : null
+  const partnersUnderPodium = !loading && (activeView === 'category' || (activeView === 'all' && visibleCategories.length > 0))
+
   return (
     <>
       <Navbar />
@@ -186,16 +192,8 @@ export default function Results() {
         backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`
       }} />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 md:px-6 md:py-10 flex flex-col">
-        <Link to={`/events/${slug}`} className="self-start text-xs text-apex-muted uppercase tracking-wider hover:text-apex-text mb-4 md:mb-6">&larr; Powrót</Link>
-
-        {/* On a phone the logos fill the whole first screen, so they go below
-            the results there; on wider screens they stay on top. */}
-        {event && (
-          <div className="order-last mt-12 md:order-none md:mt-0">
-            <PartnerLogos eventId={event.id} />
-          </div>
-        )}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 md:px-6 md:py-10">
+        <Link to={`/events/${slug}`} className="inline-block text-xs text-apex-muted uppercase tracking-wider hover:text-apex-text mb-4 md:mb-6">&larr; Powrót</Link>
 
         <div className="text-left md:text-center mb-5 md:mb-8">
           <div className="font-display text-3xl md:text-5xl tracking-widest uppercase text-apex-text-bright mb-1">
@@ -305,7 +303,7 @@ export default function Results() {
         )}
 
         {!loading && activeView === 'category' && (
-          <CategorySection key={activeCategoryId} eventId={event.id} categoryId={activeCategoryId} />
+          <CategorySection key={activeCategoryId} eventId={event.id} categoryId={activeCategoryId} afterPodium={partners} />
         )}
 
         {!loading && activeView === 'all' && (
@@ -315,14 +313,16 @@ export default function Results() {
             </div>
           ) : (
             <div className="space-y-20">
-              {visibleCategories.map(cat => (
+              {visibleCategories.map((cat, i) => (
                 <div key={cat.id} className="border-t border-apex-border pt-10 first:border-t-0 first:pt-0">
-                  <CategorySection key={cat.id} eventId={event.id} categoryId={cat.id} />
+                  <CategorySection key={cat.id} eventId={event.id} categoryId={cat.id} afterPodium={i === 0 ? partners : null} />
                 </div>
               ))}
             </div>
           )
         )}
+
+        {!partnersUnderPodium && <div className="mt-12">{partners}</div>}
       </div>
     </div>
     </>

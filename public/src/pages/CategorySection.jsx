@@ -34,7 +34,11 @@ function GenderTabs({ value, onChange }) {
   )
 }
 
-export default function CategorySection({ eventId, categoryId }) {
+/**
+ * @param {import('react').ReactNode} [afterPodium] - shown right under the podium
+ *   (the event's partners on the results page)
+ */
+export default function CategorySection({ eventId, categoryId, afterPodium }) {
   const [gender, setGender] = useState(null)
   const { category, raceRun, results, checkpoints, observations } = useCategoryResults(eventId, categoryId)
 
@@ -65,6 +69,8 @@ export default function CategorySection({ eventId, categoryId }) {
           <Podium top3={top3} animals={animals} formatDuration={formatDuration} />
         </div>
       )}
+
+      {afterPodium && <div className="mb-10">{afterPodium}</div>}
 
       {enrichedResults.length > 0 && (
         <div className="mb-8">
