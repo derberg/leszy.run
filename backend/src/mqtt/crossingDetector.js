@@ -536,6 +536,19 @@ export class CrossingDetector {
     try {
       const db = this.db
 
+      // A DNS runner did not start, so a read of their tag (a handed-back bib in a
+      // box near the gate) is neither a start nor a finish. Undo the optimistic
+      // finish mark so the tag counts again if the operator changes the DNS.
+      const current = await db.query.results.findFirst({
+        where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, participantId)),
+      })
+      if (current?.status === 'dns') {
+        race?.finishedParticipants.delete(participantId)
+        race?.finishAuditUntil.delete(participantId)
+        console.log(`[Detector] Ignoring crossing for ${participantId} in race ${raceRunId}: marked DNS`)
+        return
+      }
+
       // Determine gate
       let gate
       if (rfidMode === 'separate') {
@@ -546,10 +559,7 @@ export class CrossingDetector {
         if (race && race.startedParticipants.has(participantId)) {
           gate = 'finish'
         } else {
-          const existing = await db.query.results.findFirst({
-            where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, participantId)),
-          })
-          gate = (!existing || !existing.startTime) ? 'start' : 'finish'
+          gate = current?.startTime ? 'finish' : 'start'
         }
       }
 

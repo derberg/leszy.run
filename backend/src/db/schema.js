@@ -61,6 +61,8 @@ export const participants = pgTable('participants', {
   phone: text('phone'),
   smsSentAt: timestamp('sms_sent_at', { withTimezone: true }),
   tshirtSize: text('tshirt_size'),
+  // Set when the runner came but will not start. Their result is DNS and their tag is ignored.
+  withdrawnAt: timestamp('withdrawn_at', { withTimezone: true }),
   updatedAt: timestamp('updated_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),

@@ -113,6 +113,35 @@ test('a chip finish keeps a DSQ that the operator set', async (t) => {
   assert.equal(r.position ?? null, null, 'a DSQ never places')
 })
 
+test('a DNS runner gets no start from their tag', async (t) => {
+  const { detector, db, broadcast } = await makeRace(t, {
+    resultsRows: [{ id: 'res-1', participantId: 'p1', status: 'dns' }],
+  })
+
+  detector.processEvent(read(-4000))
+  await wait(GONE_MS + 60)
+
+  const r = db._rows().find(x => x.participantId === 'p1')
+  assert.equal(r.status, 'dns')
+  assert.equal(r.startTime, undefined)
+  assert.equal(broadcast.crossings().length, 0)
+  assert.equal(db._inserts().gate_crossings.length, 0)
+})
+
+test('a DNS runner with a chip start gets no finish from their tag', async (t) => {
+  const { detector, db } = await makeRace(t, {
+    resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'dns' }],
+  })
+
+  detector.processEvent(read(-4000))
+  await wait(FINISH_MAX_MS + 60)
+
+  const r = db._rows().find(x => x.participantId === 'p1')
+  assert.equal(r.status, 'dns')
+  assert.equal(r.finishTime, undefined)
+  assert.equal(db._inserts().gate_crossings.length, 0)
+})
+
 test('a FINISH pass stays open while the signal is still rising (2026-10-15, bib 4)', async (t) => {
   // Bib 4 was first heard 4.5 s before its peak. The old fixed 3 s window closed
   // while the runner was still walking in and timed the finish 1.58 s early, at
