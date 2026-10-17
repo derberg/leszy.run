@@ -189,8 +189,10 @@ export async function visionRoutes(fastify) {
 
   // ─── sightings ────────────────────────────────────────────────────────
 
-  // GET /api/vision/sessions/:id/sightings?limit&filter&bib
+  // GET /api/vision/sessions/:id/sightings?limit&offset&filter&bib
   // filter: all | unreadable | unmatched | matched
+  // `total` counts every row the filter matches, so the tab can page through a
+  // whole race: a three-hour session holds thousands of tracks.
   fastify.get('/vision/sessions/:id/sightings', async (req, reply) => {
     const session = await loadSession(db, req.params.id)
     if (!session) return reply.code(404).send({ error: 'Session not found' })
@@ -198,6 +200,7 @@ export async function visionRoutes(fastify) {
     const limit = Math.min(
       parseInt(req.query.limit ?? DEFAULT_LIMIT, 10) || DEFAULT_LIMIT, MAX_LIMIT,
     )
+    const offset = Math.max(0, parseInt(req.query.offset ?? 0, 10) || 0)
     const where = [eq(visionSightings.sessionId, session.id)]
     if (req.query.filter === 'unreadable') {
       where.push(isNull(visionSightings.bibNumber))
@@ -228,10 +231,15 @@ export async function visionRoutes(fastify) {
       .from(visionSightings)
       .leftJoin(participants, eq(participants.id, visionSightings.participantId))
       .where(and(...where))
-      .orderBy(desc(visionSightings.sightedAt))
+      .orderBy(desc(visionSightings.sightedAt), desc(visionSightings.id))
       .limit(limit)
+      .offset(offset)
 
-    return { data: rows }
+    const [{ total }] = await db.select({ total: sql`count(*)::int` })
+      .from(visionSightings)
+      .where(and(...where))
+
+    return { data: rows, total, limit, offset }
   })
 
   // ─── images (local only — never Supabase, never cached publicly) ──────
