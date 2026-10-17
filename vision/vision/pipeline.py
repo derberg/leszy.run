@@ -18,6 +18,7 @@ from PIL import Image
 from vision.locate import extract_bib
 from vision.people import detect_people
 from vision.recognize import read_bib
+from vision.torso import read_torsos, torso_box
 
 
 @dataclass(frozen=True)
@@ -133,17 +134,68 @@ def locate_claims(image: Image.Image, people: list):
     return claims, crops
 
 
+# A bib is never bigger than the person wearing it. At the 2026-10-17 race the
+# whole-frame search handed the recognizer the arch and the tent, blocks 900
+# to 1,368 pixels wide given to runners 40 to 480 wide, and 21 finishers came
+# back with a 1 or a 4 that nobody wore. A bib held out beside the body is
+# still accepted: it sits outside the box but is the size of a bib.
+def _plausible(person_box, bib_box) -> bool:
+    px1, py1, px2, py2 = person_box
+    bx1, by1, bx2, by2 = bib_box
+    return bx2 - bx1 <= px2 - px1 and by2 - by1 <= (py2 - py1) * 0.5
+
+
+def _audit_crop(image, person_box):
+    """The torso, cut below the chin, for the audit list.
+
+    The list shows a picture beside every read and must not show a face, so
+    this starts lower than the band the model reads.
+    """
+    x1, y1, x2, y2 = (int(v) for v in person_box)
+    h = y2 - y1
+    return image.convert("RGB").crop((x1, int(y1 + 0.22 * h), x2, int(y1 + 0.72 * h)))
+
+
+def read_people(image: Image.Image) -> list:
+    """(Sighting, crop) for every detected person, readable or not.
+
+    Two readers look at each person. The torso reader is the one that reads
+    a small bib: it takes the person's torso and returns the number directly.
+    The colour locator and digit recogniser still read a large olive block,
+    and a bib held out beside the body, but only count when the block is no
+    bigger than the person. When both read a number and the numbers differ, the
+    person is refused: one of them is wrong and nothing here says which.
+    """
+    people = detect_people(image)
+    if not people:
+        return []
+    from_torso = read_torsos(image, people)
+    claims, crops = locate_claims(image, people)
+
+    out = []
+    for (t_text, t_conf), (person_box, bib_box) in zip(
+            from_torso, resolve_bib_claims(claims)):
+        b_text, b_conf, crop = None, 0.0, None
+        if bib_box is not None:
+            crop = crops[tuple(bib_box)]
+            b_text, b_conf = read_bib(crop)
+            if b_text is not None and not _plausible(person_box, bib_box):
+                b_text, b_conf = None, 0.0
+        if t_text is not None and b_text is not None and t_text != b_text:
+            sighting = Sighting(None, max(t_conf, b_conf), bib_box, person_box)
+        elif t_text is not None:
+            sighting = Sighting(t_text, t_conf, torso_box(person_box), person_box)
+            crop = _audit_crop(image, person_box)
+        elif b_text is not None:
+            sighting = Sighting(b_text, b_conf, bib_box, person_box)
+        else:
+            # Nobody read a number. A refusal from either reader still
+            # counts against the winner in the tracker, as before.
+            sighting = Sighting(None, max(t_conf, b_conf), bib_box, person_box)
+        out.append((sighting, crop if sighting.bib_box is not None else None))
+    return out
+
+
 def read_frame(image: Image.Image) -> list:
     """Return one Sighting per detected person, readable or not."""
-    claims, crops = locate_claims(image, detect_people(image))
-
-    sightings = []
-    for person_box, bib_box in resolve_bib_claims(claims):
-        if bib_box is None:
-            sightings.append(Sighting(None, 0.0, None, person_box))
-            continue
-        # The deskewed crop, not image.crop(bib_box): a tilted bib read off
-        # its axis-aligned box comes back as a different number.
-        text, confidence = read_bib(crops[tuple(bib_box)])
-        sightings.append(Sighting(text, confidence, bib_box, person_box))
-    return sightings
+    return [sighting for sighting, _ in read_people(image)]

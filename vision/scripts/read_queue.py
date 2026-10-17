@@ -35,10 +35,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from vision.clock import clock_synced  # noqa: E402
 from vision.empty_frames import EmptyFrameSweeper  # noqa: E402
 from vision.measure import load_frame  # noqa: E402
-from vision.people import detect_people  # noqa: E402
-from vision.pipeline import Sighting, locate_claims, resolve_bib_claims  # noqa: E402
+from vision.pipeline import read_people  # noqa: E402
 from vision.queue import FrameQueue  # noqa: E402
-from vision.recognize import read_bib  # noqa: E402
 from vision.report import (  # noqa: E402
     SightingLog, health_snapshot, mean_luminance,
 )
@@ -59,24 +57,8 @@ CROP_CACHE_FRAMES = 900
 
 
 def read_frame_with_crops(image):
-    """read_frame, but it also hands back the deskewed crop per sighting.
-
-    pipeline.read_frame throws the crops away because the measurement script
-    only needs numbers. The audit screen needs the picture that produced the
-    number, so this keeps them. The detection logic is identical and is
-    reused rather than copied.
-    """
-    claims, crops = locate_claims(image, detect_people(image))
-
-    out = []
-    for person_box, bib_box in resolve_bib_claims(claims):
-        if bib_box is None:
-            out.append((Sighting(None, 0.0, None, person_box), None))
-            continue
-        crop = crops[tuple(bib_box)]
-        text, confidence = read_bib(crop)
-        out.append((Sighting(text, confidence, bib_box, person_box), crop))
-    return out
+    """Every person in the frame, with the crop the audit screen shows."""
+    return read_people(image)
 
 
 class Session:
