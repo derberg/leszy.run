@@ -99,6 +99,20 @@ test('FINISH confirms at the peak of the window, not at the first read', async (
   assert.equal(crossings[0].peakRssiCdbm, -4000)
 })
 
+test('a chip finish keeps a DSQ that the operator set', async (t) => {
+  const { detector, db } = await makeRace(t, {
+    resultsRows: [{ id: 'res-1', participantId: 'p1', startTime: new Date(Date.now() - 30_000), status: 'dsq', statusNote: 'skrót' }],
+  })
+
+  detector.processEvent(read(-4000))
+  await wait(GONE_MS + 60)
+
+  const r = db._rows().find(x => x.participantId === 'p1')
+  assert.ok(r.finishTime, 'the finish time is still recorded')
+  assert.equal(r.status, 'dsq')
+  assert.equal(r.position ?? null, null, 'a DSQ never places')
+})
+
 test('a FINISH pass stays open while the signal is still rising (2026-10-15, bib 4)', async (t) => {
   // Bib 4 was first heard 4.5 s before its peak. The old fixed 3 s window closed
   // while the runner was still walking in and timed the finish 1.58 s early, at

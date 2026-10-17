@@ -1,8 +1,11 @@
-import { eq, and, asc, desc, isNotNull } from 'drizzle-orm'
+import { eq, and, asc, desc } from 'drizzle-orm'
 import { results, participants, raceRuns, categories, events, checkpointImports, checkpointReadings } from '../db/schema.js'
 import { broadcast } from '../ws/broadcaster.js'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import Papa from 'papaparse'
+import { recalcPositions } from '../lib/positions.js'
+
+const RESULT_STATUSES = ['registered', 'checked_in', 'started', 'finished', 'dnf', 'dns', 'dsq']
 
 export async function resultsRoutes(fastify) {
   const { db } = fastify
@@ -59,6 +62,9 @@ export async function resultsRoutes(fastify) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
     }
 
+    if (updates.status !== undefined && !RESULT_STATUSES.includes(updates.status)) {
+      return reply.code(400).send({ error: `status must be one of ${RESULT_STATUSES.join(', ')}` })
+    }
     if (updates.status === 'dsq' && !req.body.statusNote) {
       return reply.code(400).send({ error: 'statusNote is required when setting status to dsq' })
     }
@@ -283,18 +289,6 @@ export async function resultsRoutes(fastify) {
 
     return { data: { importId: importRecord.id, total: readings.length, resolved } }
   })
-}
-
-async function recalcPositions(db, raceRunId) {
-  const finished = await db
-    .select({ id: results.id })
-    .from(results)
-    .where(and(eq(results.raceRunId, raceRunId), isNotNull(results.finishTime)))
-    .orderBy(asc(results.gunDurationMs))
-
-  for (let i = 0; i < finished.length; i++) {
-    await db.update(results).set({ position: i + 1 }).where(eq(results.id, finished[i].id))
-  }
 }
 
 function formatDuration(ms) {
