@@ -7,6 +7,7 @@ import CategorySection from './CategorySection.jsx'
 import NearFinish from './NearFinish.jsx'
 import { nearFinishTabVisible } from '../lib/nearFinish.js'
 import PartnerLogos from '../components/PartnerLogos.jsx'
+import BibFinder from '../components/BibFinder.jsx'
 import Navbar from '../components/Navbar.jsx'
 
 export default function Results() {
@@ -63,7 +64,7 @@ export default function Results() {
   // Scroll active tab into view
   useEffect(() => {
     if (activeTabRef.current) {
-      activeTabRef.current.scrollIntoView({ inline: 'nearest', behavior: 'smooth' })
+      activeTabRef.current.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
     }
   }, [categoryId, categories, isLiveView])
 
@@ -176,6 +177,12 @@ export default function Results() {
 
   const loading = catLoading || (isPastEvent && raceRuns === null)
 
+  // The partners sit under the first podium on the page. Above the results
+  // they filled the whole first screen of a phone. A view with no podium
+  // (Blisko Mety, no categories) shows them at the end instead.
+  const partners = event ? <PartnerLogos eventId={event.id} /> : null
+  const partnersUnderPodium = !loading && (activeView === 'category' || (activeView === 'all' && visibleCategories.length > 0))
+
   return (
     <>
       <Navbar />
@@ -185,13 +192,11 @@ export default function Results() {
         backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`
       }} />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 py-10">
-        <Link to={`/events/${slug}`} className="text-xs text-apex-muted uppercase tracking-wider hover:text-apex-text mb-6 inline-block">&larr; Powrot</Link>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 md:px-6 md:py-10">
+        <Link to={`/events/${slug}`} className="inline-block text-xs text-apex-muted uppercase tracking-wider hover:text-apex-text mb-4 md:mb-6">&larr; Powrót</Link>
 
-        {event && <PartnerLogos eventId={event.id} />}
-
-        <div className="text-center mb-8">
-          <div className="font-display text-5xl tracking-widest uppercase text-apex-text-bright mb-1">
+        <div className="text-left md:text-center mb-5 md:mb-8">
+          <div className="font-display text-3xl md:text-5xl tracking-widest uppercase text-apex-text-bright mb-1">
             {event?.name || '—'}
           </div>
           {event?.date && (
@@ -233,6 +238,10 @@ export default function Results() {
           </div>
         )}
 
+        {!loading && hasActiveRaces && visibleCategories.length > 0 && (
+          <BibFinder eventId={event.id} categories={visibleCategories} raceRuns={raceRuns} isPastEvent={isPastEvent} />
+        )}
+
         {/* Tab bar */}
         <div className="flex overflow-x-auto border-b border-apex-border mb-10 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
           {loading ? (
@@ -247,7 +256,7 @@ export default function Results() {
             <>
               <button
                 ref={activeView === 'all' ? activeTabRef : null}
-                onClick={() => navigate(`/events/${slug}/results`)}
+                onClick={() => navigate(`/events/${slug}/results${location.search}`)}
                 className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors ${
                   activeView === 'all'
                     ? 'bg-apex-yellow-bright text-apex-ink'
@@ -259,7 +268,7 @@ export default function Results() {
               {showNearFinish && (
                 <button
                   ref={activeView === 'live' ? activeTabRef : null}
-                  onClick={() => navigate(`/events/${slug}/results/live`)}
+                  onClick={() => navigate(`/events/${slug}/results/live${location.search}`)}
                   className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
                     activeView === 'live'
                       ? 'bg-apex-cyan text-apex-ink'
@@ -274,7 +283,7 @@ export default function Results() {
                 <button
                   key={cat.id}
                   ref={activeCategoryId === cat.id ? activeTabRef : null}
-                  onClick={() => navigate(`/events/${slug}/results/${cat.id}`)}
+                  onClick={() => navigate(`/events/${slug}/results/${cat.id}${location.search}`)}
                   className={`shrink-0 px-5 py-3 text-xs font-bold tracking-widest uppercase transition-colors border-l border-apex-border ${
                     activeCategoryId === cat.id
                       ? 'bg-apex-yellow-bright text-apex-ink'
@@ -294,7 +303,7 @@ export default function Results() {
         )}
 
         {!loading && activeView === 'category' && (
-          <CategorySection key={activeCategoryId} eventId={event.id} categoryId={activeCategoryId} />
+          <CategorySection key={activeCategoryId} eventId={event.id} categoryId={activeCategoryId} afterPodium={partners} />
         )}
 
         {!loading && activeView === 'all' && (
@@ -304,14 +313,16 @@ export default function Results() {
             </div>
           ) : (
             <div className="space-y-20">
-              {visibleCategories.map(cat => (
+              {visibleCategories.map((cat, i) => (
                 <div key={cat.id} className="border-t border-apex-border pt-10 first:border-t-0 first:pt-0">
-                  <CategorySection key={cat.id} eventId={event.id} categoryId={cat.id} />
+                  <CategorySection key={cat.id} eventId={event.id} categoryId={cat.id} afterPodium={i === 0 ? partners : null} />
                 </div>
               ))}
             </div>
           )
         )}
+
+        {!partnersUnderPodium && <div className="mt-12">{partners}</div>}
       </div>
     </div>
     </>
