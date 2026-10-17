@@ -73,9 +73,17 @@ export default function Results() {
     if (!event || catLoading) return
     if (!categories.length) { setRaceRuns([]); return }
     const catIds = categories.map(c => c.id)
-    supabase.from('race_runs').select('id, status, category_id').in('category_id', catIds)
-      .then(({ data }) => setRaceRuns(data || []))
-      .catch(() => setRaceRuns([]))
+    // A failed or slow request is not "no race yet": until the runs arrive the
+    // page must not say the race has not started, so a failure is retried.
+    let retry = null
+    let cancelled = false
+    const fetchRuns = () => supabase.from('race_runs').select('id, status, category_id').in('category_id', catIds)
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error || !data) { retry = setTimeout(fetchRuns, 5000 + Math.random() * 5000); return }
+        setRaceRuns(data)
+      }, () => { if (!cancelled) retry = setTimeout(fetchRuns, 5000 + Math.random() * 5000) })
+    fetchRuns()
 
     const channels = catIds.map(catId => {
       return supabase.channel(`race_runs_${catId}`)
@@ -92,7 +100,7 @@ export default function Results() {
         .subscribe()
     })
 
-    return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
+    return () => { cancelled = true; clearTimeout(retry); channels.forEach(ch => supabase.removeChannel(ch)) }
   }, [event, categories, catLoading])
 
   const isPastEvent = useMemo(() => {
@@ -133,7 +141,7 @@ export default function Results() {
   }, [catLoading, activeCategoryId, isPastEvent, raceRuns, visibleCategories, slug, navigate])
 
   const preRaceState = useMemo(() => {
-    if (!event || hasActiveRaces) return null
+    if (!event || hasActiveRaces || raceRuns === null) return null
     const now = new Date()
     const eventDate = new Date(event.date + 'T00:00:00')
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -142,7 +150,7 @@ export default function Results() {
     if (today.getTime() === eDay.getTime()) return 'today'
     if (eDay > today) return 'countdown'
     return null
-  }, [event, hasActiveRaces])
+  }, [event, hasActiveRaces, raceRuns])
 
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
 
