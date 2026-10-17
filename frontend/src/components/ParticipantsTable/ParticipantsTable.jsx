@@ -4,6 +4,7 @@ import { useReactTable, getCoreRowModel, flexRender } from '@tanstack/react-tabl
 import { api } from '../../lib/api.js'
 import { cn } from '../../lib/utils.js'
 import { sortParticipants } from '../../lib/participantOrder.js'
+import { checkinCounts } from '../../lib/checkinCounts.js'
 import { Button } from '../ui/button.jsx'
 import { Input } from '../ui/input.jsx'
 import { Badge } from '../ui/badge.jsx'
@@ -196,8 +197,21 @@ export default function ParticipantsTable({ eventId, categories }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-apex-muted">{participants.length} uczestników</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        {(() => {
+          const counts = checkinCounts(participants)
+          return (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-apex-muted whitespace-nowrap">
+              <span>{counts.total} uczestników</span>
+              <span className="flex items-center gap-1 text-apex-cyan" title="Samozameldowanie online (QR)">
+                <UserCheck size={13} /> {counts.selfCheckins} QR
+              </span>
+              <span className="flex items-center gap-1 text-apex-yellow" title="Zameldowani przez organizatora">
+                <UserCheck size={13} /> {counts.confirmed} potwierdzonych
+              </span>
+            </div>
+          )
+        })()}
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setBulkSmsOpen(true)}>
             <MessageSquare size={13} /> Wyślij SMS do wszystkich
