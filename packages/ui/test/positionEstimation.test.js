@@ -40,10 +40,8 @@ test('DNS: a checkpoint observation does not rank the runner as on-course', () =
   const r2 = byBib(rows)[2]
   assert.equal(r1.positionType, 'dns')
   assert.equal(r2.positionType, 'started')
-  assert.ok(
-    r2.estimatedPosition < r1.estimatedPosition,
-    `runner who started (pos ${r2.estimatedPosition}) must outrank the DNS runner (pos ${r1.estimatedPosition})`,
-  )
+  assert.equal(r2.estimatedPosition, 1)
+  assert.equal(r1.estimatedPosition, null, 'a DNS runner has no place')
 })
 
 test('DNS: the observation is dropped, so consumers cannot render it as a split', () => {
@@ -66,11 +64,13 @@ test('DNS: observations resolved by bib number are dropped too', () => {
   )
   const r1 = byBib(rows)[1]
   assert.equal(r1._obs, undefined)
-  assert.ok(byBib(rows)[2].estimatedPosition < r1.estimatedPosition)
+  assert.equal(r1.estimatedPosition, null)
 })
 
-// DNF and DSQ runners WERE on course, so their splits stay load-bearing.
-test('DNF keeps its checkpoint observation and its ordering', () => {
+// DNF and DSQ runners WERE on course, so their splits stay load-bearing. They no
+// longer sort among the runners still racing: an operator has ended their race,
+// so they go after everyone who can still finish.
+test('DNF keeps its checkpoint observation and goes after runners on course', () => {
   const rows = estimatePositions(
     [
       result(1, { status: 'dnf', startTime: '2026-08-07T18:40:00Z' }),
@@ -82,7 +82,8 @@ test('DNF keeps its checkpoint observation and its ordering', () => {
   const r1 = byBib(rows)[1]
   assert.equal(r1.positionType, 'dnf')
   assert.ok(r1._obs, 'DNF observation must survive')
-  assert.ok(r1.estimatedPosition < byBib(rows)[2].estimatedPosition)
+  assert.equal(byBib(rows)[2].estimatedPosition, 1)
+  assert.equal(r1.estimatedPosition, 2)
 })
 
 test('DSQ keeps its checkpoint observation', () => {
@@ -138,4 +139,24 @@ test('DNS, DNF and DSQ with a finish time do not take a finisher\'s place', () =
   assert.equal(b[3].positionType, 'dnf')
   assert.equal(b[4].positionType, 'dsq')
   assert.deepEqual(rows.slice(0, 2).map(r => r.participant.bibNumber), [1, 5])
+})
+
+// Wilczy Półmaraton 2026-10-17: a DNS runner never ran, so a place or a time next
+// to their name is wrong. A DNF ran and stopped, so it keeps a number, after
+// everyone else; DSQ the same, after the DNFs.
+test('order: finishers and runners on course, then DNF, then DSQ, then DNS without a place', () => {
+  const rows = estimatePositions(
+    [
+      result(1, { status: 'dns', finishTime: '2026-10-17T09:00:00Z', gunDurationMs: 50, startTime: '2026-10-17T07:00:00Z' }),
+      result(2, { status: 'dsq', finishTime: '2026-10-17T09:00:00Z', gunDurationMs: 60, startTime: '2026-10-17T07:00:00Z' }),
+      result(3, { status: 'dnf', startTime: '2026-10-17T07:00:00Z' }),
+      result(4, { status: 'finished', finishTime: '2026-10-17T09:10:00Z', gunDurationMs: 600 }),
+      result(5, { status: 'started', startTime: '2026-10-17T07:00:00Z' }),
+      result(6, { status: 'registered' }),
+    ],
+    CHECKPOINTS,
+    [],
+  )
+  assert.deepEqual(rows.map(r => r.participant.bibNumber), [4, 5, 6, 3, 2, 1])
+  assert.deepEqual(rows.map(r => r.estimatedPosition), [1, 2, 3, 4, 5, null])
 })
