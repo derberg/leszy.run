@@ -274,6 +274,13 @@
       "when": 1790500000000,
       "tag": "0038_vision_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790600000000,
+      "tag": "0039_vision_sighting_log_offset",
+      "breakpoints": true
     }
   ]
 }

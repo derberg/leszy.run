@@ -63,6 +63,23 @@ test('the cursor is counted in bytes, not characters', () => {
   assert.notEqual(Buffer.byteLength(text), text.length)
 })
 
+test('two passes that share a best frame and a time are two rows', () => {
+  // 2026-10-17: a pass with no number and 188's read both started on frame
+  // 9535490314000. Keyed on frame and time, 188's read was dropped.
+  const unread = '{"bib_number":null,"best_frame_ts":9535490314000,"sighted_at":"2026-10-17T08:37:50.487Z"}\n'
+  const read = '{"bib_number":"188","best_frame_ts":9535490314000,"sighted_at":"2026-10-17T08:37:50.487Z"}\n'
+  const { records } = parseLog(Buffer.from(unread + read), 1000)
+  assert.deepEqual(records.map(r => r.logOffset), [1000, 1000 + Buffer.byteLength(unread)])
+})
+
+test('a line keeps its offset when it is read again after a cursor reset', () => {
+  const text = '{"bib_number":"47"}\n{"note":"zażółć"}\n{"bib_number":"86"}\n'
+  const all = parseLog(Buffer.from(text), 0).records
+  const head = Buffer.byteLength('{"bib_number":"47"}\n{"note":"zażółć"}\n')
+  const tail = parseLog(Buffer.from(text).subarray(head), head).records
+  assert.equal(tail[0].logOffset, all[2].logOffset)
+})
+
 // ─── matchRoster ────────────────────────────────────────────────────────────
 // The only quality signal available with no ground truth: a recognised number
 // that matches nobody in this race is almost certainly a misread.

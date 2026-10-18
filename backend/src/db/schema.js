@@ -221,6 +221,9 @@ export const visionSightings = pgTable('vision_sightings', {
   cropName: text('crop_name'),
   votes: jsonb('votes'),
   frameTs: jsonb('frame_ts'),
+  // Byte offset of the line in sightings.jsonl: one row per line, so a
+  // re-ingest after a cursor reset adds nothing.
+  logOffset: bigint('log_offset', { mode: 'number' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
