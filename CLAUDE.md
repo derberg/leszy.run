@@ -437,7 +437,11 @@ Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
   on the session, so a backend restart mid-race resumes exactly where it left
   off. `parseLog` never consumes past the last newline: a half-written line
   would otherwise become a second row with no bib, indistinguishable from a
-  genuine unreadable runner.
+  genuine unreadable runner. Each row stores its line's byte offset
+  (`log_offset`), and that offset is the duplicate key: two passes can share
+  a best frame and a time, and keyed on those, 188's read beside 171's was
+  dropped at the 2026-10-17 race. Rows go in 1,000 at a time, because a whole
+  race read at once passes PostgreSQL's 65,534-parameter limit.
 - **Weryfikacja** (review) in the same tab lists every chip finisher the
   session did not read within 20 s of the chip time
   (`GET /api/vision/sessions/:id/review`), shows the frames from 3 s before
