@@ -377,7 +377,8 @@ bib number and the held-out share never reaches training. Quote read rate,
 wrong reads and spectator false reads from held-out runners only; a figure
 from runners the model trained on proves nothing. The labels, crops and
 weights stay next to the frames and out of git, because they come from
-photographs of people. `VISION_TORSO_MODEL` points at the weights; without
+photographs of people. `VISION_TORSO_MODEL` points at the weights, several
+files separated by `:` are averaged (each on one thread); without
 them the pipeline runs the colour locator alone. `read_people()` in
 `vision/pipeline.py` combines the two readers: the colour locator's read
 counts only for a block no bigger than the person, two different numbers
