@@ -450,7 +450,8 @@ Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
   dropped at the 2026-10-17 race. Rows go in 1,000 at a time, because a whole
   race read at once passes PostgreSQL's 65,534-parameter limit.
 - **Weryfikacja** (review) in the same tab lists every chip finisher the
-  session did not read within 20 s of the chip time
+  session did not read within 20 s of the chip time, leaving out DNS and DNF
+  results, which keep a chip finish the operator has overruled
   (`GET /api/vision/sessions/:id/review`), shows the frames from 3 s before
   to 1 s after it, and stores a person's verdict in `vision_reviews`:
   `visible` (with the frame and the clicked point, a training label),
