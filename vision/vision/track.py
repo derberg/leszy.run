@@ -38,6 +38,12 @@ SINGLE_READ_MAX_FRAMES = 20
 # How far either side of a number's reads a frame still votes on it: about
 # two seconds at the 5 fps capture runs at.
 VOTE_WINDOW_FRAMES = 10
+# A box no track matched by overlap continues an unclaimed track when it is
+# up to this much taller, holds this share of the track's last box, and the
+# track was seen this recently: a runner closing on the camera.
+APPROACH_MAX_GROWTH = 2.0
+APPROACH_HELD = 0.7
+APPROACH_GAP_FRAMES = 1
 
 
 def iou(a, b) -> float:
@@ -95,6 +101,22 @@ def _fit(track_box, box):
     return overlap if overlap > IOU_MATCH else None
 
 
+def _approach(track_box, box):
+    """How much of a track's last box a taller new box holds, or None.
+
+    Only for a box no track matched by overlap, so a spectator still standing
+    where they were keeps their own track first.
+    """
+    h_old, h_new = track_box[3] - track_box[1], box[3] - box[1]
+    if h_old <= 0 or not 1.0 <= h_new / h_old <= APPROACH_MAX_GROWTH:
+        return None
+    ix = max(0, min(track_box[2], box[2]) - max(track_box[0], box[0]))
+    iy = max(0, min(track_box[3], box[3]) - max(track_box[1], box[1]))
+    area = (track_box[2] - track_box[0]) * h_old
+    held = ix * iy / area if area > 0 else 0.0
+    return held if held >= APPROACH_HELD else None
+
+
 def _split_numbers(track) -> list:
     """The numbers in one track that belong to different passes.
 
@@ -146,6 +168,26 @@ class Tracker:
                 continue
             chosen[si] = track
             claimed.add(tid)
+
+        # A runner nearing the camera grows faster than overlap allows: 112
+        # went from 184 to 323 pixels tall within two frames, and each jump
+        # started a new track whose one-frame misread (12) then stood alone.
+        # A box left over may still continue a track nobody claimed this
+        # frame, when it holds most of that track's last box and is the
+        # taller of the two.
+        for si, sight in enumerate(sightings):
+            if si in chosen:
+                continue
+            best = None
+            for track in live:
+                if id(track) in claimed or frame_index - track.last_frame > APPROACH_GAP_FRAMES:
+                    continue
+                held = _approach(track.box, sight.person_box)
+                if held is not None and (best is None or held > best[0]):
+                    best = (held, track)
+            if best is not None:
+                chosen[si] = best[1]
+                claimed.add(id(best[1]))
 
         for si, sight in enumerate(sightings):
             match = chosen.get(si)

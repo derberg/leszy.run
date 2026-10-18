@@ -11,6 +11,62 @@ export const MATCH_MS = 20000
 
 export const VERDICTS = ['visible', 'covered', 'no_front', 'absent']
 
+// How close a neighbouring chip finish must be to call a read its misread. At
+// the 2026-10-17 race the four misreads that had a neighbour sat 0 to 1 s from
+// that runner's chip finish.
+export const NEIGHBOUR_MS = 2000
+
+/** True when b is a with one digit dropped, added or changed. */
+export function oneDigitApart(a, b) {
+  if (a === b) return false
+  if (a.length === b.length) {
+    let diff = 0
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diff++
+    return diff === 1
+  }
+  const [short, long] = a.length < b.length ? [a, b] : [b, a]
+  if (long.length - short.length !== 1) return false
+  for (let i = 0; i < long.length; i++) {
+    if (long.slice(0, i) + long.slice(i + 1) === short) return true
+  }
+  return false
+}
+
+/**
+ * Why a camera read is probably somebody else's number, or null.
+ *
+ * Every misread at the 2026-10-17 race landed on a number in the race, so the
+ * roster match never caught one. Two signs did:
+ * - `neighbour`: the read number has no chip finish near the pass, while a
+ *   number one digit away finished within NEIGHBOUR_MS of it (12 for 112,
+ *   84 for 64, 119 for 219, 136 for 138). Two runners with neighbouring
+ *   numbers who finish together each have their own chip finish, so they
+ *   are left alone.
+ * - `dns`: the number belongs to a runner marked DNS (146, the back of 148
+ *   walking out through the gate).
+ * Nothing acts on this. It is shown so a person looks at the frame.
+ *
+ * @param {{ bibNumber: string|null, sightedAtMs: number }} sighting
+ * @param {{ bibNumber: string, status: string, finishMs: number|null }[]} field
+ *   every result of the event, one per runner
+ */
+export function likelyMisread(sighting, field) {
+  const bib = sighting.bibNumber
+  if (bib == null) return null
+  const near = (r, ms) => r.finishMs != null && Math.abs(r.finishMs - sighting.sightedAtMs) <= ms
+  const own = field.filter(r => r.bibNumber === bib)
+  if (own.some(r => near(r, MATCH_MS))) return null
+
+  let best = null
+  for (const r of field) {
+    if (r.bibNumber === bib || !near(r, NEIGHBOUR_MS) || !oneDigitApart(bib, r.bibNumber)) continue
+    if (!best || Math.abs(r.finishMs - sighting.sightedAtMs) < Math.abs(best.finishMs - sighting.sightedAtMs)) best = r
+  }
+  if (best) return { reason: 'neighbour', bib: best.bibNumber }
+  if (own.some(r => r.status === 'dns')) return { reason: 'dns' }
+  return null
+}
+
 /**
  * Sensor timestamps (ns, as numbers) of every frame on disk, sorted.
  *

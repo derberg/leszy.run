@@ -29,6 +29,7 @@ const FILTERS = [
   ['matched', 'Rozpoznane w rosterze'],
   ['unmatched', 'Spoza rosteru'],
   ['unreadable', 'Nieodczytane'],
+  ['suspect', 'Podejrzane'],
 ]
 
 function pct(value) {
@@ -581,7 +582,13 @@ function SightingRow({ s, sessionId, onOpenFrame }) {
         {unmatched && (
           <Badge className="border-apex-red text-apex-red">Spoza rosteru</Badge>
         )}
-        {!unreadable && !unmatched && (
+        {s.suspect?.reason === 'neighbour' && (
+          <Badge className="border-amber-500 text-amber-400">Może {s.suspect.bib}?</Badge>
+        )}
+        {s.suspect?.reason === 'dns' && (
+          <Badge className="border-amber-500 text-amber-400">DNS</Badge>
+        )}
+        {!unreadable && !unmatched && !s.suspect && (
           <Badge className="border-green-700 text-green-400">OK</Badge>
         )}
       </td>

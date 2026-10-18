@@ -393,7 +393,13 @@ on every box it made a frame half as slow again. `Tracker` pairs boxes with
 tracks best overlap first across the whole frame, and never joins boxes whose
 heights differ by more than 1.5x (`MAX_HEIGHT_RATIO`): a runner passing in
 front of a spectator standing further back is a different person. Predicting
-each runner's motion was tried and lost as many finishers as it found.
+each runner's motion was tried and lost as many finishers as it found. A box
+no track matched by overlap still continues an unclaimed track seen in the
+previous frame when it is up to 2x taller and holds 70 percent of that
+track's last box (`APPROACH_*`): a runner closing on the camera outgrows the
+overlap test, and the one-frame fragment's misread (12 for 112) stood alone.
+On the 2026-10-17 replay this removed 3 of 5 misreads and lost no finisher;
+0.65 lost bib 39 and 0.75 kept a misread, so re-measure before moving it.
 Replayed on 2026-10-17 this reads 147 of 196 finishers with 4 confident
 misreads.
 
@@ -464,6 +470,13 @@ Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
   `covered`, `no_front` or `absent`. Frames map to wall time through
   `vision_sessions.clock_offset`, never `session.json`, which capture
   rewrites on every start.
+- Every row of `GET /api/vision/sessions/:id/sightings` carries `suspect`
+  (`likelyMisread` in `backend/src/vision/review.js`), and `filter=suspect`
+  lists only those: `{ reason: 'neighbour', bib }` when the read number has
+  no chip finish within 20 s while a number one digit away finished within
+  2 s, `{ reason: 'dns' }` when it belongs to a DNS runner. Every misread at
+  the 2026-10-17 race was a real bib, so the roster match caught none; this
+  flagged all five and nothing else among 313 reads. It only marks the row.
 - `vision_sessions` / `vision_sightings` / `vision_reviews` are **device-local**, like
   `gate_crossings` — absent from `configSync.js`, no `trg_reset_synced_at_*`,
   never pushed. `race_run_id` is nullable by design.
@@ -526,7 +539,9 @@ the database.
 `registered` / `checked_in`             → `dns`    (manual)
 any                                      → `dsq`   (manual, requires `status_note`)
 
-A `dns`, `dnf` or `dsq` result never gets a stored `position` or a place in the gender lists and CSV/PDF exports, even with a finish time (`UNRANKED` in `backend/src/lib/positions.js`). The public views do not read that column: `estimatePositions()` ranks by finish time. Neither a chip finish nor a finish-time edit turns a `dsq` back into `finished`, and gun-time backfill skips a runner marked `dns`. Operators set these from the Status column of `Przegląd trasy`.
+A `dns`, `dnf` or `dsq` result never gets a stored `position` or a place in the gender lists and CSV/PDF exports, even with a finish time (`UNRANKED` in `backend/src/lib/positions.js`). The public views do not read that column. `estimatePositions()` ranks by finish time and keeps these statuses out of the finished tier on its own, so the public places match the stored ones. On the public list DNF comes after everyone still in the race, DSQ after DNF, and DNS last with no place and no times (a DNS can hold a chip finish or a backfilled gun start, neither of which they ran). `position` is only recalculated by the host that made the edit, so a host on older code writes stale places into Supabase. That happened on 2026-10-17, when checkpoint1 ran code from before #272 and three DNS runners kept places 83, 84 and 118. Neither a chip finish nor a finish-time edit turns a `dsq` back into `finished`, and gun-time backfill skips a runner marked `dns`. Operators set these from the Status column of `Przegląd trasy`.
+
+A runner who came but will not start, because they handed the bib back, gets **Nie startuje** in the NS column of the participants table before the race. That calls `POST /api/participants/:id/withdraw`, and `DELETE` on the same path undoes it. It sets `participants.withdrawn_at`, and race start seeds their result as `dns`. Both calls answer 409 once the runner has a result in a race run that was not cancelled: during the race, the status is changed in `Przegląd trasy`. The detector ignores every crossing of a runner whose result is `dns`, so a returned bib near the gate gives nobody a start or a finish. This also covers a DNS set in `Przegląd trasy`, which a chip start used to overwrite.
 
 ## Race run lifecycle
 
@@ -665,6 +680,8 @@ The whole accounts/community product (login, profile, favorites/stars, notificat
 
 **Auth transport — edge functions go through same-origin `/edge`, NEVER raw `VITE_SUPABASE_URL`.** The session is an httpOnly cookie the edge functions set. A cookie set by `*.supabase.co` while the page is on `leszy.run` is a THIRD-PARTY cookie that browsers block (Safari always, Chrome/Firefox increasingly) — login "succeeds" but the session never persists. So `public/vercel.json` (and the vite dev-server proxy in `public/vite.config.js`) rewrites `/edge/*` → `<project>.supabase.co/functions/v1/*`, making the cookie first-party. **Rule:** any client call to an edge function that depends on the session cookie MUST use the `FUNCTIONS_BASE` (`/edge`) constant from `public/src/lib/auth.js` — never build the URL from `VITE_SUPABASE_URL` directly. (The `supabase-js` DB client in `lib/supabase.js` is exempt: it uses bearer tokens, not cookies, so it hits `*.supabase.co` directly.)
 
+**Analytics never sees a runner.** `RouteTracker` (`public/src/components/RouteTracker.jsx`) sends `pathname + search` to GA as `page_path`, minus `nr`: the results page keeps the searched bib in `?nr=`, and a bib names a runner. A new query parameter that identifies a person must be stripped there too, and a page that rewrites its address while someone types must do it once per pause, not per keystroke, or every keystroke becomes a page view.
+
 **Browser APIs are gated by `Permissions-Policy` in `public/vercel.json`.** A feature that uses the camera, the microphone, geolocation or another gated API needs `<feature>=(self)` there, or Chrome blocks it on www.leszy.run and shows no reason. It happened twice: `geolocation=()` broke "Blisko mnie" for two weeks, and `camera=()` kept the bib-office QR scanner from opening the camera until 2026-10-15. The Vite dev and preview servers copy these headers from `vercel.json`, so the breakage shows up locally too.
 
 ### Logo
@@ -690,6 +707,8 @@ All manifests are **committed to the repo** and generated by backend pipeline sc
 Standalone scripts (not API endpoints) that scrape Polish running event websites, enrich with AI, and publish to the `calendar_events` Supabase table. See [docs/scrapers.md](docs/scrapers.md) for full pipeline documentation.
 
 ### Data sources (35 scrapers)
+
+pomiarczasuatelier.pl was dropped on 2026-03-28: its sign-ups all go through dostartu.pl, which the dostartu scraper already covers with better data.
 
 | Source | Events/year | Method | Data quality |
 |--------|-------------|--------|--------------|
@@ -725,6 +744,9 @@ Standalone scripts (not API endpoints) that scrape Polish running event websites
 | biegnijmy.pl | 15-25 | Cheerio (imprezy calendar, custom PHP) | Medium-High (Rozbiegany Koszalin regional portal, Zachodniopomorskie — Koszalin/Białogard/Świdwin/Tychowo/Karlino/Manowo/Świeszyno; all events as `tr.bieg` rows on index.php?plik=imprezy&co=<YEAR>- (fetches current+next year), no detail fetches; clean ISO date+city, name from td.czarny, distances from "Dystans:" row, regulamin PDF + STRONA BIEGU website from anchors; source_url=the event page linked from the name cell (/<slug>-<year>); registration_url=the row's ZAPISY page index.php?kat=zapisy/<id>-<city>&plik=zapisy, which hosts biegnijmy's own sign-up form (says "ZAPISY ELEKTRONICZNE ZOSTAŁY ZAKOŃCZONE" once closed), null when the row has no ZAPISY button; NO discipline field → RUNNING FILTER by name drops cycling (rowerowy/kolarski/MTB)/triathlon/swim/ski + CANCELLED (odwołane), mixed bieg+rower events keep running distances; is_kids + event_types (trail/NW/charytatywny/uliczny) mined from name+distances; declared STRONA BIEGU kept even if Facebook; voivodeship geocoded from city; prices/deadline → enricher) |
 | motivato.pl | 120-150 | Cheerio (single Astro-rendered listing page) | Medium-High (editorial running portal, NOT a registration platform — so it covers events that register on their OWN sites, the structural blind spot every timing-co scraper shares: measured 2026-08-27, ~21 of 123 dated events were absent from calendar_events, skewed to mountain/ultra/trail + marquee city races; ALL fields from ONE fetch of /kalendarz-biegowy/ — detail pages add nothing, zero detail fetches; name+ISO date+city+distances+surface straight off `article[data-race-item]` data-* attributes; current-year window only (Aug→Dec); 16 "termin przybliżony" rows dropped (bare data-date); voivodeship NOT emitted (source files Łomnica-Zdrój under dolnośląskie) → geocoded from city; the single "Sprawdź zapisy" outbound link is editorially curated and often is NOT registration, so it is ROUTED by destination — .pdf/regulamin path → regulamin_url, verified registration-platform host or zapisy./rejestracja./formularz. subdomain → registration_url, everything else → website; malformed `https://http://…` hrefs repaired, tracking params stripped, and a link reused across multiple events is dropped entirely (motivato attaches one URL to unrelated races); prices/deadline → enricher) |
 | biegigorskie.pl | 170-180 | Cheerio (one table per year) | Medium-High (the Polish mountain-running calendar — editorial, single-discipline, so it reaches organizer-run mountain/trail/ultra races the timing platforms never list: measured 2026-09-17, 5 of its 40 future rows were absent from calendar_events; one page per year at /kalendarz-<YEAR>/, a server-rendered Supsystic table, no detail fetches; cells addressed by `data-x` column index with values split across `<br>`; STYLE TAGS FROM THE ICONS (`ultra-2.png` → ultra, cross/anglosaski/alpejski/dlugi → trail, `ULICZNY-1.png` → neither) because mountain race names rarely carry a style word; distances filtered to bare number+unit so the interleaved climb figures (`~500mUp`, `(+/-940m)`) never become races; cycling and run-kayak rows dropped by icon; foreign races dropped on the country line; ZAPISY link → registration_url and often an organizer's own b4sport subsite, WYNIKI means the edition is run → null; name cell's link → website; future rows only; no regulamin published → enricher; voivodeship geocoded from city) |
+| super-sport.com.pl | n/a | Cheerio (`/zapisy-formularze.html` listing + detail pages) | Medium (date, distances and regulamin from the detail page's label/value table; the detail page is the registration URL) |
+| zmierzymyczas.pl | n/a | Cheerio (homepage listing + detail pages) | Medium (Opolskie/Dolnośląskie timing co; town peeled off the free-text "Miejsce" venue cell; regulamin via `pickRegulaminFromDom`; known ids with no registration URL are re-checked until the date passes) |
+| zapisy.raatiming.pl | n/a | Cheerio (homepage listing + event and form pages) | Medium (date parsed from the event name in several formats; distances, registration, regulamin and organizer website from the event and form pages) |
 
 ### Pipeline architecture
 
@@ -1244,7 +1266,7 @@ The mapping files (`biegi-mappings.js` in both `backend/scripts/lib/` and `publi
 - Do not give `vision/` a database client, a Supabase client, or any outbound network call. Photographs staying on the capture machine is what the GDPR position rests on. The only way data leaves `vision/` is a file on disk (`sightings.jsonl`, `health.json`, `crops/`) that the Node backend tails — extend that log rather than opening a socket.
 - Do not add a `trg_reset_synced_at_*` trigger or a `configSync.js` entry for `vision_sessions` / `vision_sightings`, and do not add a `synced_at` column to them. They are device-local on purpose; syncing them would push camera evidence to Supabase and break the data protection position outright.
 - Do not use peak RSSI for signal-strength bars — always use live (most recent) reading with decay. See ARCHITECTURE.md → "RSSI display rule — live signal, not peak"
-- Do not create local copies of `estimatePositions()` — always import from `@leszyrun/ui` (shared package in `packages/ui/src/lib/positionEstimation.js`). A stale local copy caused a live-race bug where podium ordering ignored checkpoint timestamps. If you think the shared function needs changes, stop and ask the user first — the sorting tiers (finish time → checkpoint index → observation time → start time) are load-bearing for live race display.
+- Do not create local copies of `estimatePositions()` — always import from `@leszyrun/ui` (shared package in `packages/ui/src/lib/positionEstimation.js`). A stale local copy caused a live-race bug where podium ordering ignored checkpoint timestamps. If you think the shared function needs changes, stop and ask the user first — the sorting tiers (status group: in the race → DNF → DSQ → DNS; then finish time → checkpoint index → observation time → start time) are load-bearing for live race display.
 - Do not resurrect a DNS runner's checkpoint observations. A `dns` result asserts the runner never left the start line, so any observation under their bib is bogus — a mistyped bib on the volunteer numpad, or a stray read. Three read paths drop them and must stay in agreement: `estimatePositions()` discards the observation entirely (so DNS never enters the checkpoint sorting tier), `CheckpointTrackingTable`'s `splitAt()` blanks their split columns, and `NearFinish` filters them out of "Blisko Mety". **DNF and DSQ deliberately keep theirs** — those runners were on course. Guarded by `packages/ui/test/positionEstimation.test.js` (`npm run test:ui`); the regression came from Nocny Zew Wilka 2026-08-07, where bib 1 was DNS and one manual 5 km entry showed him as "NA TRASIE" ranked above runners who had actually started.
 - Do not re-run `estimatePositions()` inside `CategoryCard` when `resultsProp` is provided — the caller already enriched results with checkpoint observations. Re-estimating with empty observations discards checkpoint data and breaks podium ordering during live races. See the comment in `frontend/src/pages/PodiumPage.jsx`.
 - Do not refetch in a public realtime handler. Every open tab gets every change, so a `postgres_changes` callback that reloads multiplies the API load by the viewer count. Apply the payload row in place and batch any reload you cannot avoid (`public/src/lib/liveResults.js`). At Wilczy Półmaraton 2026-10-17 the per-change reload in `CategorySection` produced 55k requests per 5 min from ~170 viewers, and Supabase took 15–35 s to answer a one-row query.

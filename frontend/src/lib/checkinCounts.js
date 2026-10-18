@@ -14,15 +14,17 @@ export function isSelfCheckin(checkin) {
 }
 
 /**
- * @param {Array<{ checkin?: object|null }>} participants
- * @returns {{ total: number, selfCheckins: number, confirmed: number }}
+ * @param {Array<{ checkin?: object|null, withdrawnAt?: string|null }>} participants
+ * @returns {{ total: number, selfCheckins: number, confirmed: number, withdrawn: number }}
  */
 export function checkinCounts(participants) {
   let selfCheckins = 0
   let confirmed = 0
+  let withdrawn = 0
   for (const p of participants) {
     if (isSelfCheckin(p.checkin)) selfCheckins++
     if (p.checkin?.checkedInAt) confirmed++
+    if (p.withdrawnAt) withdrawn++
   }
-  return { total: participants.length, selfCheckins, confirmed }
+  return { total: participants.length, selfCheckins, confirmed, withdrawn }
 }

@@ -9,19 +9,27 @@ const IS_DEV = import.meta.env.DEV
  */
 export default function RouteTracker() {
   const location = useLocation()
+  // The results page keeps the searched bib in ?nr=. It is not a new page, and
+  // a bib names a runner, so it never reaches analytics.
+  const search = (() => {
+    const params = new URLSearchParams(location.search)
+    params.delete('nr')
+    const s = params.toString()
+    return s ? `?${s}` : ''
+  })()
 
   useEffect(() => {
     if (IS_DEV) {
-      console.log('[DEV] Page view (not tracked):', location.pathname + location.search)
+      console.log('[DEV] Page view (not tracked):', location.pathname + search)
       return
     }
     if (typeof window.gtag === 'function') {
       window.gtag('event', 'page_view', {
-        page_path: location.pathname + location.search,
+        page_path: location.pathname + search,
         page_title: document.title,
       })
     }
-  }, [location.pathname, location.search])
+  }, [location.pathname, search])
 
   return null
 }

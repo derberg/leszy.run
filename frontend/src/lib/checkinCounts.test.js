@@ -12,7 +12,7 @@ test('counts runners, QR self check-ins and admin confirmations separately', () 
     { checkin: { createdAt: at('07:00:00'), checkedInAt: at('08:30:00') } }, // QR, then confirmed
     { checkin: { createdAt: at('08:40:00'), checkedInAt: at('08:40:00') } }, // admin only
   ])
-  assert.deepEqual(counts, { total: 4, selfCheckins: 2, confirmed: 2 })
+  assert.deepEqual(counts, { total: 4, selfCheckins: 2, confirmed: 2, withdrawn: 0 })
 })
 
 test('an admin check-in written a moment after the row is not counted as QR', () => {
@@ -24,5 +24,14 @@ test('an admin check-in written a moment after the row is not counted as QR', ()
 })
 
 test('an empty list counts zero', () => {
-  assert.deepEqual(checkinCounts([]), { total: 0, selfCheckins: 0, confirmed: 0 })
+  assert.deepEqual(checkinCounts([]), { total: 0, selfCheckins: 0, confirmed: 0, withdrawn: 0 })
+})
+
+test('a runner who will not start is counted, and still counts as checked in', () => {
+  const counts = checkinCounts([
+    { checkin: { createdAt: at('08:40:00'), checkedInAt: at('08:40:00') }, withdrawnAt: at('09:10:00') },
+    { checkin: null, withdrawnAt: null },
+  ])
+  assert.equal(counts.withdrawn, 1)
+  assert.equal(counts.confirmed, 1)
 })

@@ -56,6 +56,8 @@ export const api = {
     importCsv: (eventId, formData) => request('POST', `/events/${eventId}/import/participants`, formData, true),
     checkin: (id, documents) => request('POST', `/participants/${id}/checkin`, { documents }),
     uncheckin: (id) => request('DELETE', `/participants/${id}/checkin`),
+    withdraw: (id) => request('POST', `/participants/${id}/withdraw`),
+    unwithdraw: (id) => request('DELETE', `/participants/${id}/withdraw`),
     startScan: () => request('POST', '/rfid/scan-mode/start'),
     stopScan: () => request('POST', '/rfid/scan-mode/stop'),
   },

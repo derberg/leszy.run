@@ -1,10 +1,11 @@
-import { eq, and, isNull, sql, max } from 'drizzle-orm'
+import { eq, and, isNull, sql, max, ne } from 'drizzle-orm'
 import { participants, categories, results, raceRuns, checkins } from '../db/schema.js'
 import { setScanMode } from '../mqtt/client.js'
 import Papa from 'papaparse'
 import { pickEmoji } from '../lib/emoji.js'
 import { syncDelete } from '../sync/supabase.js'
 import { createClient } from '@supabase/supabase-js'
+import { withdrawalRefusal } from '../lib/withdrawal.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -68,6 +69,19 @@ export async function participantsRoutes(fastify) {
       throw err
     }
   })
+
+  // The runner came but will not start. Before the gun only; race start seeds their result as DNS.
+  fastify.post('/participants/:id/withdraw', (req, reply) => setWithdrawn(req, reply, new Date()))
+  fastify.delete('/participants/:id/withdraw', (req, reply) => setWithdrawn(req, reply, null))
+
+  async function setWithdrawn(req, reply, withdrawnAt) {
+    const refusal = withdrawalRefusal(await liveResultCount(db, req.params.id))
+    if (refusal) return reply.code(409).send({ error: refusal })
+    const [row] = await db.update(participants).set({ withdrawnAt, updatedAt: new Date() })
+      .where(eq(participants.id, req.params.id)).returning()
+    if (!row) return reply.code(404).send({ error: 'Participant not found' })
+    return { data: row }
+  }
 
   // Regenerate emoji
   fastify.post('/participants/:id/regenerate-emoji', async (req, reply) => {
@@ -309,4 +323,13 @@ async function usedEmojis(db, eventId) {
     .from(participants)
     .where(eq(participants.eventId, eventId))
   return rows.map(r => r.emoji).filter(Boolean)
+}
+
+// How many results the participant has in race runs that were not cancelled.
+async function liveResultCount(db, participantId) {
+  const [row] = await db.select({ n: sql`count(*)` })
+    .from(results)
+    .innerJoin(raceRuns, eq(raceRuns.id, results.raceRunId))
+    .where(and(eq(results.participantId, participantId), ne(raceRuns.status, 'cancelled')))
+  return Number(row.n)
 }

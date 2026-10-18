@@ -7,7 +7,7 @@ import {
 import { startIngest, stopIngest, sessionStats, healthVerdict, openSessionOn } from '../vision/ingest.js'
 import { safeCropPath, safeFramePath } from '../vision/paths.js'
 import { readRecording, writeRecording } from '../vision/recording.js'
-import { frameStamps, framesAround, parseVerdict, MATCH_MS } from '../vision/review.js'
+import { frameStamps, framesAround, parseVerdict, likelyMisread, MATCH_MS } from '../vision/review.js'
 
 // A DNS or DNF keeps whatever finish the chip gave it, but the operator has
 // said the runner never crossed the line, so there is nothing to look for in
@@ -199,7 +199,9 @@ export async function visionRoutes(fastify) {
   // ─── sightings ────────────────────────────────────────────────────────
 
   // GET /api/vision/sessions/:id/sightings?limit&filter&bib
-  // filter: all | unreadable | unmatched | matched
+  // filter: all | unreadable | unmatched | matched | suspect
+  // Each row carries `suspect` (likelyMisread): a read that is probably
+  // somebody else's number, for a person to check against the frame.
   fastify.get('/vision/sessions/:id/sightings', async (req, reply) => {
     const session = await loadSession(db, req.params.id)
     if (!session) return reply.code(404).send({ error: 'Session not found' })
@@ -215,7 +217,7 @@ export async function visionRoutes(fastify) {
       // and the most useful thing on the screen when judging quality.
       where.push(isNotNull(visionSightings.bibNumber))
       where.push(isNull(visionSightings.participantId))
-    } else if (req.query.filter === 'matched') {
+    } else if (req.query.filter === 'matched' || req.query.filter === 'suspect') {
       where.push(isNotNull(visionSightings.participantId))
     }
     if (req.query.bib) where.push(eq(visionSightings.bibNumber, String(req.query.bib)))
@@ -238,9 +240,30 @@ export async function visionRoutes(fastify) {
       .leftJoin(participants, eq(participants.id, visionSightings.participantId))
       .where(and(...where))
       .orderBy(desc(visionSightings.sightedAt))
-      .limit(limit)
+      .limit(req.query.filter === 'suspect' ? MAX_LIMIT : limit)
 
-    return { data: rows }
+    const field = (await db.select({
+      bibNumber: participants.bibNumber,
+      status: results.status,
+      finishTime: results.finishTime,
+    })
+      .from(results)
+      .innerJoin(participants, eq(participants.id, results.participantId))
+      .innerJoin(raceRuns, eq(raceRuns.id, results.raceRunId))
+      .innerJoin(categories, eq(categories.id, raceRuns.categoryId))
+      .where(and(eq(categories.eventId, session.eventId), ne(raceRuns.status, 'cancelled'))))
+      .map(r => ({
+        bibNumber: r.bibNumber == null ? null : String(r.bibNumber),
+        status: r.status,
+        finishMs: r.finishTime ? new Date(r.finishTime).getTime() : null,
+      }))
+
+    let data = rows.map(r => ({
+      ...r,
+      suspect: likelyMisread({ bibNumber: r.bibNumber, sightedAtMs: new Date(r.sightedAt).getTime() }, field),
+    }))
+    if (req.query.filter === 'suspect') data = data.filter(r => r.suspect).slice(0, limit)
+    return { data }
   })
 
   // ─── review: finishers the camera did not read ────────────────────────
