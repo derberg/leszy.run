@@ -11,6 +11,8 @@
  * Observations of a DNS runner are discarded (see dnsParticipantIds below). DNF and
  * DSQ keep theirs — those runners were genuinely on course.
  */
+const UNRANKED = new Set(['dns', 'dnf', 'dsq'])
+
 export function estimatePositions(results, checkpoints, observations) {
   // Build observation map: participantId -> { checkpointIdx, observedAt }
   const cpIndexById = Object.fromEntries(checkpoints.map((cp, i) => [cp.id, i]))
@@ -53,10 +55,14 @@ export function estimatePositions(results, checkpoints, observations) {
     return { ...r, _obs: obs }
   })
 
-  // Sort: finished first (by gunDurationMs), then by furthest checkpoint, then by start time
+  // Sort: finished first (by gunDurationMs), then by furthest checkpoint, then by start time.
+  // A DNS, DNF or DSQ can still hold the chip's finish time, but an operator has said
+  // the runner does not place, so it never enters the finished tier: Wilczy Półmaraton
+  // 2026-10-17, three DNS bibs with chip finishes took places 83, 84 and 118.
+  const finished = r => !!r.finishTime && !UNRANKED.has(r.status)
   enriched.sort((a, b) => {
-    const aFinished = !!a.finishTime
-    const bFinished = !!b.finishTime
+    const aFinished = finished(a)
+    const bFinished = finished(b)
 
     if (aFinished && bFinished) return (a.gunDurationMs || 0) - (b.gunDurationMs || 0)
     if (aFinished) return -1
@@ -81,8 +87,8 @@ export function estimatePositions(results, checkpoints, observations) {
   return enriched.map((r, i) => ({
     ...r,
     estimatedPosition: i + 1,
-    positionType: r.finishTime ? 'final'
-      : (r.status === 'dnf' || r.status === 'dns' || r.status === 'dsq') ? r.status
+    positionType: UNRANKED.has(r.status) ? r.status
+      : r.finishTime ? 'final'
       : r._obs ? 'checkpoint'
       : r.startTime ? 'started'
       : 'not-started',

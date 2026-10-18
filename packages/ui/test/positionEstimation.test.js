@@ -113,3 +113,29 @@ test('ordering tiers unchanged: finish time, then furthest checkpoint, then star
   )
   assert.deepEqual(rows.map(r => r.participant.bibNumber), [5, 2, 4, 1, 3])
 })
+
+// A chip finish does not make a runner a finisher once an operator has said
+// otherwise. Wilczy Półmaraton 2026-10-17: bibs 149, 35 and 71 were marked DNS
+// but kept the finish the chip gave them (two unworn bibs carried past the gate,
+// one stray read), so they took places 83, 84 and 118 and pushed every runner
+// behind them down by up to three places.
+test('DNS, DNF and DSQ with a finish time do not take a finisher\'s place', () => {
+  const rows = estimatePositions(
+    [
+      result(1, { finishTime: '2026-10-17T09:00:00Z', gunDurationMs: 100, status: 'finished' }),
+      result(2, { finishTime: '2026-10-17T09:00:01Z', gunDurationMs: 101, status: 'dns' }),
+      result(3, { finishTime: '2026-10-17T09:00:02Z', gunDurationMs: 102, status: 'dnf', startTime: '2026-10-17T07:00:00Z' }),
+      result(4, { finishTime: '2026-10-17T09:00:03Z', gunDurationMs: 103, status: 'dsq', startTime: '2026-10-17T07:00:00Z' }),
+      result(5, { finishTime: '2026-10-17T09:00:04Z', gunDurationMs: 104, status: 'finished' }),
+    ],
+    CHECKPOINTS,
+    [],
+  )
+  const b = byBib(rows)
+  assert.equal(b[1].estimatedPosition, 1)
+  assert.equal(b[5].estimatedPosition, 2)
+  assert.equal(b[2].positionType, 'dns')
+  assert.equal(b[3].positionType, 'dnf')
+  assert.equal(b[4].positionType, 'dsq')
+  assert.deepEqual(rows.slice(0, 2).map(r => r.participant.bibNumber), [1, 5])
+})
