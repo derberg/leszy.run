@@ -381,8 +381,9 @@ photographs of people. `VISION_TORSO_MODEL` points at the weights; without
 them the pipeline runs the colour locator alone. `read_people()` in
 `vision/pipeline.py` combines the two readers: the colour locator's read
 counts only for a block no bigger than the person, two different numbers
-refuse the person, and "no bib" from the torso reader votes against a number
-in `Tracker`.
+refuse the person, one number read in two boxes of a frame stays with the
+surer box (a runner's torso crop can hold the neighbour's bib), and "no bib"
+from the torso reader votes against a number in `Tracker`.
 
 **Phase 0 is a gate.** `scripts/measure_read_rate.py` prints read rate, wrong
 rate and spurious count. Judge the wrong rate first: a missed runner leaves a
