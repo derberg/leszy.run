@@ -271,15 +271,22 @@
     {
       "idx": 38,
       "version": "7",
-      "when": 1790500000000,
-      "tag": "0038_vision_reviews",
+      "when": 1792280000000,
+      "tag": "0038_participant_withdrawn",
       "breakpoints": true
     },
     {
       "idx": 39,
       "version": "7",
-      "when": 1790600000000,
-      "tag": "0039_vision_sighting_log_offset",
+      "when": 1792290000000,
+      "tag": "0039_vision_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792300000000,
+      "tag": "0040_vision_sighting_log_offset",
       "breakpoints": true
     }
   ]

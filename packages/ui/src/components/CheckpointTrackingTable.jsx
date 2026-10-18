@@ -41,6 +41,9 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, gu
       ? null
       : obsLookup[`${r.participantId}:${checkpointId}`] || bibLookup[`${r.participant?.bibNumber}:${checkpointId}`]
   const splitAt = (r, checkpointId) => checkpointSplitMs(observedAt(r, checkpointId), gunStartedAt)
+  // A DNS runner can still hold a chip finish, and gun-time backfill gives one a
+  // brutto. Neither is a time they ran, so neither is shown.
+  const hideTimes = r => r.positionType === 'dns'
 
   const checkpointTooltip = (
     <>
@@ -105,7 +108,7 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, gu
               const { displayName: pDisplayName, isAnonymized: pIsAnonymized, tooltip: pTooltip } = anonymizedName(p)
               return (
                 <tr key={r.id} className="hover:bg-apex-surface-2 transition-colors">
-                  <td className="px-2 py-1.5 font-display text-lg text-apex-yellow">{r.estimatedPosition}</td>
+                  <td className="px-2 py-1.5 font-display text-lg text-apex-yellow">{r.estimatedPosition ?? <span className="text-apex-dim">{'—'}</span>}</td>
                   <td className="px-2 py-1.5 font-mono">#{p?.bibNumber}</td>
                   <td className="px-2 py-1.5 truncate">
                     <span title={pTooltip || undefined} className={pIsAnonymized ? 'italic text-apex-muted' : ''}>{pDisplayName}</span>
@@ -124,10 +127,10 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, gu
                     )
                   })}
                   <td className="px-2 py-1.5 font-mono text-sm font-bold text-apex-yellow-bright">
-                    {r.gunDurationMs ? formatDuration(r.gunDurationMs) : '—'}
+                    {r.gunDurationMs && !hideTimes(r) ? formatDuration(r.gunDurationMs) : '—'}
                   </td>
                   <td className="px-2 py-1.5 font-mono text-apex-muted">
-                    {r.durationMs ? formatDuration(r.durationMs) : '—'}
+                    {r.durationMs && !hideTimes(r) ? formatDuration(r.durationMs) : '—'}
                   </td>
                   <td className="px-2 py-1.5">
                     <PositionBadge positionType={r.positionType} gender={p?.gender} />
@@ -174,13 +177,15 @@ export function CheckpointTrackingTable({ results, checkpoints, observations, gu
           return (
             <div key={r.id} className="border border-apex-border bg-apex-surface px-3 py-2.5">
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="font-display text-xl text-apex-yellow leading-none">{r.estimatedPosition}</span>
+                {r.estimatedPosition != null && (
+                  <span className="font-display text-xl text-apex-yellow leading-none">{r.estimatedPosition}</span>
+                )}
                 <span className="font-mono text-xs text-apex-muted">#{p?.bibNumber}</span>
                 <span title={mTooltip || undefined} className={`font-semibold text-sm flex-1 truncate${mIsAnonymized ? ' italic text-apex-muted' : ''}`}>{mDisplayName}</span>
                 <PositionBadge positionType={r.positionType} gender={p?.gender} />
               </div>
 
-              {(r.gunDurationMs || r.durationMs) && (
+              {(r.gunDurationMs || r.durationMs) && !hideTimes(r) && (
                 <div className="flex items-baseline gap-3 mb-1">
                   {r.gunDurationMs && (
                     <span>

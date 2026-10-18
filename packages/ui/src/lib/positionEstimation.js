@@ -11,6 +11,9 @@
  * Observations of a DNS runner are discarded (see dnsParticipantIds below). DNF and
  * DSQ keep theirs — those runners were genuinely on course.
  */
+const UNRANKED = new Set(['dns', 'dnf', 'dsq'])
+const STATUS_GROUP = { dnf: 1, dsq: 2, dns: 3 }
+
 export function estimatePositions(results, checkpoints, observations) {
   // Build observation map: participantId -> { checkpointIdx, observedAt }
   const cpIndexById = Object.fromEntries(checkpoints.map((cp, i) => [cp.id, i]))
@@ -53,10 +56,19 @@ export function estimatePositions(results, checkpoints, observations) {
     return { ...r, _obs: obs }
   })
 
-  // Sort: finished first (by gunDurationMs), then by furthest checkpoint, then by start time
+  // Sort: finished first (by gunDurationMs), then by furthest checkpoint, then by start time.
+  // A DNS, DNF or DSQ can still hold the chip's finish time, but an operator has said
+  // the runner does not place, so it never enters the finished tier: Wilczy Półmaraton
+  // 2026-10-17, three DNS bibs with chip finishes took places 83, 84 and 118.
+  // Above those tiers sits the status group: everyone still in the race first,
+  // then DNF, then DSQ, then DNS, which has no place at all (see the map below).
+  const finished = r => !!r.finishTime && !UNRANKED.has(r.status)
   enriched.sort((a, b) => {
-    const aFinished = !!a.finishTime
-    const bFinished = !!b.finishTime
+    const group = (STATUS_GROUP[a.status] ?? 0) - (STATUS_GROUP[b.status] ?? 0)
+    if (group) return group
+
+    const aFinished = finished(a)
+    const bFinished = finished(b)
 
     if (aFinished && bFinished) return (a.gunDurationMs || 0) - (b.gunDurationMs || 0)
     if (aFinished) return -1
@@ -80,9 +92,11 @@ export function estimatePositions(results, checkpoints, observations) {
 
   return enriched.map((r, i) => ({
     ...r,
-    estimatedPosition: i + 1,
-    positionType: r.finishTime ? 'final'
-      : (r.status === 'dnf' || r.status === 'dns' || r.status === 'dsq') ? r.status
+    // A DNS runner never ran, so they get no place; they sort last, so the
+    // numbers of everyone above stay contiguous.
+    estimatedPosition: r.status === 'dns' ? null : i + 1,
+    positionType: UNRANKED.has(r.status) ? r.status
+      : r.finishTime ? 'final'
       : r._obs ? 'checkpoint'
       : r.startTime ? 'started'
       : 'not-started',
