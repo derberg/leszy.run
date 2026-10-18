@@ -266,3 +266,28 @@ def test_a_runner_passing_a_spectator_further_back_gets_a_track_of_their_own():
     for frame in range(40, 46):
         tracker.add(frame, [Sighting("188", 1.0, runner, runner)])
     assert "188" in [r.text for r in tracker.flush()]
+
+
+def test_a_runner_closing_on_the_camera_stays_one_pass():
+    # 112 at the 2026-10-17 race: the box grew from 184 to 323 pixels in
+    # two frames, overlap fell under IOU_MATCH, and the fragment's one read
+    # of "12" stood alone. The grown box holds the old one, so it continues.
+    tracker = Tracker()
+    boxes = [(900, 500, 1000, 700), (850, 450, 1050, 840), (760, 380, 1140, 1140)]
+    assert iou(boxes[0], boxes[1]) < IOU_MATCH and iou(boxes[1], boxes[2]) < IOU_MATCH
+    for i, (box, text) in enumerate(zip(boxes, ["112", "112", "12"])):
+        tracker.add(i, [sighting(text, 0.99, box)])
+    results = tracker.flush()
+    assert [r.text for r in results] == ["112"]
+
+
+def test_a_spectator_still_standing_keeps_their_own_track():
+    # A runner whose box holds a standing spectator's must not take the
+    # spectator's track while the spectator is still seen in the frame.
+    tracker = Tracker()
+    spectator, runner = (900, 500, 1000, 700), (850, 420, 1060, 820)
+    tracker.add(0, [sighting(None, 0.0, spectator)])
+    tracker.add(1, [sighting(None, 0.0, spectator), sighting("47", 0.99, runner)])
+    tracker.add(2, [sighting(None, 0.0, spectator), sighting("47", 0.99, runner)])
+    texts = sorted((r.text or "-", r.frame_count) for r in tracker.flush())
+    assert texts == [("-", 3), ("47", 2)]
