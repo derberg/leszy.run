@@ -399,9 +399,6 @@ track's last box (`APPROACH_*`): a runner closing on the camera outgrows the
 overlap test, and the one-frame fragment's misread (12 for 112) stood alone.
 On the 2026-10-17 replay this removed 3 of 5 misreads and lost no finisher;
 0.65 lost bib 39 and 0.75 kept a misread, so re-measure before moving it.
-Pasted training bibs with an end digit hidden are labelled "no number"
-(`COVER_SHARE` in `vision/synth/paste.py`): a label naming a digit the reader
-cannot see teaches it to guess.
 Replayed on 2026-10-17 this reads 147 of 196 finishers with 4 confident
 misreads.
 
