@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { api } from '../../lib/api.js'
 import { useWsEvent } from '../../lib/ws.js'
 import ReviewPanel from './ReviewPanel.jsx'
@@ -12,7 +12,8 @@ import {
 } from '../ui/dialog.jsx'
 import {
   Camera, CameraOff, AlertTriangle, CheckCircle2, HelpCircle, Play, Square,
-  Trash2, Image as ImageIcon, ChevronLeft, ChevronRight, Pause, Circle,
+  Trash2, Image as ImageIcon, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  Pause, Circle,
 } from 'lucide-react'
 
 const DEFAULT_QUEUE_DIR = '/mnt/ssd/frames'
@@ -23,6 +24,8 @@ const VERDICT_STYLE = {
   error:   { cls: 'border-apex-red text-apex-red',       Icon: CameraOff },
   unknown: { cls: 'border-apex-border-mid text-apex-muted', Icon: HelpCircle },
 }
+
+const PAGE_SIZE = 100
 
 const FILTERS = [
   ['all', 'Wszystkie'],
@@ -213,6 +216,7 @@ function SessionView({ session }) {
   const qc = useQueryClient()
   const [filter, setFilter] = useState('all')
   const [bib, setBib] = useState('')
+  const [page, setPage] = useState(0)
   const [frameOf, setFrameOf] = useState(null)
   const [view, setView] = useState('reads')
 
@@ -222,11 +226,16 @@ function SessionView({ session }) {
     refetchInterval: 5000,
   })
 
-  const { data: sightings = [] } = useQuery({
-    queryKey: ['vision-sightings', session.id, filter, bib],
-    queryFn: () => api.vision.sightings(session.id, { filter, bib: bib || undefined }),
+  const { data: sightingPage } = useQuery({
+    queryKey: ['vision-sightings', session.id, filter, bib, page],
+    queryFn: () => api.vision.sightings(session.id, {
+      filter, bib: bib || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE,
+    }),
     refetchInterval: 5000,
+    placeholderData: keepPreviousData,
   })
+  const sightings = sightingPage?.data ?? []
+  const total = sightingPage?.total ?? 0
 
   // A new read arriving pushes the list rather than waiting for the poll, so
   // walking a volunteer past the camera gives immediate feedback.
@@ -277,7 +286,7 @@ function SessionView({ session }) {
             {FILTERS.map(([key, text]) => (
               <button
                 key={key}
-                onClick={() => setFilter(key)}
+                onClick={() => { setFilter(key); setPage(0) }}
                 className={`border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest transition-colors ${
                   filter === key
                     ? 'border-apex-yellow text-apex-yellow'
@@ -289,7 +298,7 @@ function SessionView({ session }) {
             ))}
             <Input
               value={bib}
-              onChange={e => setBib(e.target.value)}
+              onChange={e => { setBib(e.target.value); setPage(0) }}
               placeholder="nr"
               className="w-20 text-xs font-mono"
             />
@@ -301,6 +310,7 @@ function SessionView({ session }) {
             sessionId={session.id}
             onOpenFrame={setFrameOf}
           />
+          <Pager page={page} total={total} onPage={setPage} />
         </CardContent>
       </Card>}
 
@@ -513,6 +523,33 @@ function Stat({ label, value, hint, tone }) {
 }
 
 // ─── the read list ──────────────────────────────────────────────────────────
+
+function Pager({ page, total, onPage }) {
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  if (pages <= 1) return null
+  const from = page * PAGE_SIZE + 1
+  const to = Math.min(total, (page + 1) * PAGE_SIZE)
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-apex-border px-3 py-2">
+      <span className="font-mono text-xs text-apex-muted">{from}–{to} z {total}</span>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={() => onPage(0)} disabled={page === 0}>
+          <ChevronsLeft size={14} />
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => onPage(page - 1)} disabled={page === 0}>
+          <ChevronLeft size={14} />
+        </Button>
+        <span className="font-mono text-xs text-apex-text">{page + 1} / {pages}</span>
+        <Button size="sm" variant="outline" onClick={() => onPage(page + 1)} disabled={page >= pages - 1}>
+          <ChevronRight size={14} />
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => onPage(pages - 1)} disabled={page >= pages - 1}>
+          <ChevronsRight size={14} />
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 function SightingTable({ sightings, sessionId, onOpenFrame }) {
   if (!sightings.length) {
