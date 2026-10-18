@@ -221,6 +221,11 @@ function ReviewDialog({ sessionId, row, onClose, onNext }) {
               </Button>
             </div>
           )}
+          {ts && (
+            <p className={`text-xs ${point ? 'text-apex-muted' : 'text-apex-yellow'}`}>
+              {point ? 'Zawodnik zaznaczony.' : 'Kliknij zawodnika na zdjęciu, żeby zapisać „Numer widoczny”.'}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <Input
               value={bib}
