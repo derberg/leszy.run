@@ -25,11 +25,14 @@ from PIL import Image
 
 # The weights are learned from photographs of runners, so they may be kept
 # outside the repository. VISION_TORSO_MODEL points at them; unset, the
-# reader looks in models/.
-MODEL_PATH = Path(os.environ.get(
+# reader looks in models/. Several files separated by ":" are read together
+# and their answers averaged: models trained on the same data with different
+# seeds make different stray mistakes, and averaging outvotes them.
+MODEL_PATHS = [Path(p) for p in os.environ.get(
     "VISION_TORSO_MODEL",
-    Path(__file__).resolve().parents[1] / "models" / "torso_reader.onnx",
-))
+    str(Path(__file__).resolve().parents[1] / "models" / "torso_reader.onnx"),
+).split(os.pathsep) if p]
+MODEL_PATH = MODEL_PATHS[0]          # where training writes
 INPUT_SIZE = 128
 # The band of the person box the bib is worn in, as shares of its height.
 # Measured on the 2026-10-17 frames: bibs sat from the chest down to a waist
@@ -47,7 +50,7 @@ MIN_CONFIDENCE = 0.9
 # holds the share Tracker asks for.
 NO_BIB_CONFIDENCE = 0.01
 
-_session = None
+_sessions = None
 
 
 def torso_box(person_box):
@@ -62,19 +65,20 @@ def torso_crop(image: Image.Image, person_box) -> Image.Image:
     return crop.resize((INPUT_SIZE, INPUT_SIZE), Image.BILINEAR)
 
 
-def _model():
-    global _session
-    if _session is None:
+def _models():
+    global _sessions
+    if _sessions is None:
         import onnxruntime as ort
-        if not MODEL_PATH.exists():
-            raise FileNotFoundError(
-                f"No torso reader at {MODEL_PATH}. Run: "
-                "python scripts/train_torso_reader.py"
-            )
-        _session = ort.InferenceSession(
-            str(MODEL_PATH), providers=["CPUExecutionProvider"]
-        )
-    return _session
+        # One thread per model. The reader already reads several frames at
+        # once on its own threads, and each session defaulting to a pool the
+        # size of the machine made six readers with three models each run at
+        # a quarter of the speed of one.
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = 1
+        options.inter_op_num_threads = 1
+        _sessions = [ort.InferenceSession(str(p), options, providers=["CPUExecutionProvider"])
+                     for p in [MODEL_PATH, *MODEL_PATHS[1:]]]
+    return _sessions
 
 
 def decode(probs: np.ndarray) -> tuple:
@@ -99,7 +103,7 @@ def decode(probs: np.ndarray) -> tuple:
 
 
 def available() -> bool:
-    return MODEL_PATH.exists()
+    return all(p.exists() for p in [MODEL_PATH, *MODEL_PATHS[1:]])
 
 
 def read_torsos(image: Image.Image, person_boxes: list) -> list:
@@ -116,8 +120,11 @@ def read_torsos(image: Image.Image, person_boxes: list) -> list:
         np.asarray(torso_crop(image, box), dtype=np.float32) / 255.0
         for box in person_boxes
     ]).transpose(0, 3, 1, 2)
-    session = _model()
-    logits = session.run(None, {session.get_inputs()[0].name: batch})[0]
-    shifted = np.exp(logits - logits.max(axis=2, keepdims=True))
-    probs = shifted / shifted.sum(axis=2, keepdims=True)
+    probs = 0
+    sessions = _models()
+    for session in sessions:
+        logits = session.run(None, {session.get_inputs()[0].name: batch})[0]
+        shifted = np.exp(logits - logits.max(axis=2, keepdims=True))
+        probs = probs + shifted / shifted.sum(axis=2, keepdims=True)
+    probs = probs / len(sessions)
     return [decode(p) for p in probs]
