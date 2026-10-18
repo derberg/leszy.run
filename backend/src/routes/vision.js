@@ -1,6 +1,6 @@
 import { createReadStream, promises as fs } from 'fs'
 import path from 'path'
-import { eq, and, desc, asc, sql, ne, isNull, isNotNull } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ne, isNull, isNotNull, notInArray } from 'drizzle-orm'
 import {
   visionSessions, visionSightings, visionReviews, participants, results, raceRuns, categories,
 } from '../db/schema.js'
@@ -8,6 +8,12 @@ import { startIngest, stopIngest, sessionStats, healthVerdict, openSessionOn } f
 import { safeCropPath, safeFramePath } from '../vision/paths.js'
 import { readRecording, writeRecording } from '../vision/recording.js'
 import { frameStamps, framesAround, parseVerdict, MATCH_MS } from '../vision/review.js'
+
+// A DNS or DNF keeps whatever finish the chip gave it, but the operator has
+// said the runner never crossed the line, so there is nothing to look for in
+// the frames. At Wilczy Półmaraton 2026 two unworn bibs carried past the gate
+// got a finish at the same instant. A DSQ runner did cross and stays.
+const NOT_FINISHERS = ['dns', 'dnf']
 
 const DEFAULT_LIMIT = 200
 const MAX_LIMIT = 1000
@@ -278,6 +284,7 @@ export async function visionRoutes(fastify) {
         eq(categories.eventId, session.eventId),
         ne(raceRuns.status, 'cancelled'),
         isNotNull(results.finishTime),
+        notInArray(results.status, NOT_FINISHERS),
       ))
       .orderBy(asc(results.finishTime))
 
