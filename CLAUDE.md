@@ -383,7 +383,13 @@ them the pipeline runs the colour locator alone. `read_people()` in
 counts only for a block no bigger than the person, two different numbers
 refuse the person, one number read in two boxes of a frame stays with the
 surer box (a runner's torso crop can hold the neighbour's bib), and "no bib"
-from the torso reader votes against a number in `Tracker`.
+from the torso reader votes against a number in `Tracker`, but only within
+`VOTE_WINDOW_FRAMES` (10) of that number's reads, so a runner who walks
+through a spectator's track keeps the number. The person detector runs at a
+0.3 floor (`PERSON_CONFIDENCE`), and the colour locator only on people at
+least 0.46 of the frame tall, the smallest that can carry a block it reads;
+on every box it made a frame half as slow again. Replayed on 2026-10-17 this
+reads 144 of 196 finishers with 4 confident misreads.
 
 **Phase 0 is a gate.** `scripts/measure_read_rate.py` prints read rate, wrong
 rate and spurious count. Judge the wrong rate first: a missed runner leaves a

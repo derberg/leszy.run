@@ -156,6 +156,14 @@ def _audit_crop(image, person_box):
     return image.convert("RGB").crop((x1, int(y1 + 0.22 * h), x2, int(y1 + 0.72 * h)))
 
 
+# The person detector's score floor. At 0.4 it found nobody in 9 percent of
+# the frames just before a finish on 2026-10-17; at 0.3 the replay read 8 more
+# finishers, once Tracker votes only near the reads. Lower found no more.
+PERSON_CONFIDENCE = 0.3
+# As a share of the frame height: 600 of the 1,296 pixels capture records.
+LOCATOR_MIN_PERSON_SHARE = 0.46
+
+
 def read_people(image: Image.Image) -> list:
     """(Sighting, crop) for every detected person, readable or not.
 
@@ -166,11 +174,20 @@ def read_people(image: Image.Image) -> list:
     bigger than the person. When both read a number and the numbers differ, the
     person is refused: one of them is wrong and nothing here says which.
     """
-    people = detect_people(image)
+    people = detect_people(image, min_confidence=PERSON_CONFIDENCE)
     if not people:
         return []
     from_torso = read_torsos(image, people)
-    claims, crops = locate_claims(image, people)
+    # The colour locator only for people tall enough to carry a block it can
+    # read: its recognizer refuses a block under MIN_BLOCK_HEIGHT_PX, and the
+    # block is about a fifteenth of a runner's height. Run on every box the
+    # lower detector bar finds, it made a frame half as slow again.
+    near = [i for i, (_, y1, _, y2) in enumerate(people)
+            if y2 - y1 >= LOCATOR_MIN_PERSON_SHARE * image.height]
+    found, crops = locate_claims(image, [people[i] for i in near]) if near else ([], {})
+    claims = [(box, None) for box in people]
+    for i, claim in zip(near, found):
+        claims[i] = claim
 
     out = []
     for (t_text, t_conf), (person_box, bib_box) in zip(

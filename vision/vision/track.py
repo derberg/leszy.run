@@ -30,6 +30,9 @@ MIN_READ_SHARE = 0.25
 # held the bib close enough to read, 7 at 1.00.
 SINGLE_READ_CONFIDENCE = 0.99
 SINGLE_READ_MAX_FRAMES = 20
+# How far either side of a number's reads a frame still votes on it: about
+# two seconds at the 5 fps capture runs at.
+VOTE_WINDOW_FRAMES = 10
 
 
 def iou(a, b) -> float:
@@ -138,8 +141,21 @@ class Tracker:
 
     @staticmethod
     def _stands(track, text) -> bool:
+        # Only the frames within VOTE_WINDOW_FRAMES of this number's reads
+        # vote. A track can hold a spectator who stood at the line for a
+        # minute and then a runner who walked through the same spot: on
+        # 2026-10-17 bib 188, read in 18 frames, joined a 96-frame spectator
+        # track and was outvoted by the spectator's "no bib" frames.
+        reads = [frame for frame, t, _, _ in track.reads if t == text]
         agreeing = track.read_frames[text]
-        attempts = sum(track.read_frames.values()) + len(track.refused)
+        if reads:
+            lo, hi = min(reads) - VOTE_WINDOW_FRAMES, max(reads) + VOTE_WINDOW_FRAMES
+            others = sum(1 for frame, t, _, _ in track.reads if t != text and lo <= frame <= hi)
+            refused = sum(1 for frame in track.refused if lo <= frame <= hi)
+            attempts = agreeing + others + refused
+        else:
+            # A pass split out of a longer track keeps counts, not frames.
+            attempts = sum(track.read_frames.values()) + len(track.refused)
         if agreeing / attempts < MIN_READ_SHARE:
             return False
         if agreeing >= MIN_AGREEING_FRAMES:

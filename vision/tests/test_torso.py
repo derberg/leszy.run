@@ -66,7 +66,7 @@ def test_without_a_model_every_person_reads_nothing(monkeypatch, tmp_path):
 
 def _frame_with(monkeypatch, torso_read, block_read, bib_box):
     person = (100, 100, 300, 700)
-    monkeypatch.setattr(pipeline, "detect_people", lambda image: [person])
+    monkeypatch.setattr(pipeline, "detect_people", lambda image, **kw: [person])
     monkeypatch.setattr(pipeline, "read_torsos", lambda image, boxes: [torso_read])
     crop = Image.new("RGB", (60, 30))
     monkeypatch.setattr(pipeline, "extract_bib", lambda image, region=None: (bib_box, crop))
@@ -100,7 +100,7 @@ def test_a_bib_sized_block_still_reads_when_the_torso_reader_cannot(monkeypatch)
 def test_one_number_in_two_boxes_stays_with_the_surer_one(monkeypatch):
     # 167 beside 192: her torso crop holds 192's bib too.
     people = [(800, 700, 1060, 1190), (450, 700, 720, 1190)]
-    monkeypatch.setattr(pipeline, "detect_people", lambda image: people)
+    monkeypatch.setattr(pipeline, "detect_people", lambda image, **kw: people)
     monkeypatch.setattr(pipeline, "read_torsos", lambda image, boxes: [("192", 1.0), ("192", 0.99)])
     monkeypatch.setattr(pipeline, "extract_bib", lambda image, region=None: (None, None))
     first, second = pipeline.read_frame(Image.new("RGB", (1400, 1300)))

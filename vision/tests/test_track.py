@@ -238,3 +238,17 @@ def test_one_read_below_certainty_is_withheld_even_in_a_short_pass():
         text, confidence = ("7", 0.95) if i == 2 else (None, 0.0)
         tracker.add(i, [sighting(text, confidence, (100 + i, 200, 200 + i, 260))])
     assert tracker.results()[0].text is None
+
+
+def test_a_runner_who_walks_through_a_spectators_track_keeps_the_number():
+    # 2026-10-17: bib 188, read in 18 frames, joined a spectator's track of
+    # nearly a hundred frames and was outvoted by the "no bib" frames the
+    # spectator had made before she arrived.
+    from vision.pipeline import Sighting
+    tracker = Tracker()
+    box = (1200, 840, 1270, 950)
+    for frame in range(80):
+        tracker.add(frame, [Sighting(None, 0.01, None, box)])
+    for frame in range(80, 98):
+        tracker.add(frame, [Sighting("188", 1.0, box, box)])
+    assert [r.text for r in tracker.flush()] == ["188"]
