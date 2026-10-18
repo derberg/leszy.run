@@ -17,6 +17,8 @@ const NOT_FINISHERS = ['dns', 'dnf']
 
 const DEFAULT_LIMIT = 200
 const MAX_LIMIT = 1000
+// Matched reads scanned for the suspect filter. A whole race read 313.
+const SUSPECT_SCAN_LIMIT = 20000
 
 async function loadSession(db, id) {
   const [row] = await db.select().from(visionSessions)
@@ -198,8 +200,10 @@ export async function visionRoutes(fastify) {
 
   // ─── sightings ────────────────────────────────────────────────────────
 
-  // GET /api/vision/sessions/:id/sightings?limit&filter&bib
+  // GET /api/vision/sessions/:id/sightings?limit&offset&filter&bib
   // filter: all | unreadable | unmatched | matched | suspect
+  // `total` counts every row the filter matches, so the tab can page through a
+  // whole race: a three-hour session holds thousands of tracks.
   // Each row carries `suspect` (likelyMisread): a read that is probably
   // somebody else's number, for a person to check against the frame.
   fastify.get('/vision/sessions/:id/sightings', async (req, reply) => {
@@ -209,6 +213,8 @@ export async function visionRoutes(fastify) {
     const limit = Math.min(
       parseInt(req.query.limit ?? DEFAULT_LIMIT, 10) || DEFAULT_LIMIT, MAX_LIMIT,
     )
+    const offset = Math.max(0, parseInt(req.query.offset ?? 0, 10) || 0)
+    const suspectOnly = req.query.filter === 'suspect'
     const where = [eq(visionSightings.sessionId, session.id)]
     if (req.query.filter === 'unreadable') {
       where.push(isNull(visionSightings.bibNumber))
@@ -239,8 +245,11 @@ export async function visionRoutes(fastify) {
       .from(visionSightings)
       .leftJoin(participants, eq(participants.id, visionSightings.participantId))
       .where(and(...where))
-      .orderBy(desc(visionSightings.sightedAt))
-      .limit(req.query.filter === 'suspect' ? MAX_LIMIT : limit)
+      .orderBy(desc(visionSightings.sightedAt), desc(visionSightings.id))
+      // Whether a read is suspect is decided here, not in SQL, so that filter
+      // reads every matched row and pages afterwards.
+      .limit(suspectOnly ? SUSPECT_SCAN_LIMIT : limit)
+      .offset(suspectOnly ? 0 : offset)
 
     const field = (await db.select({
       bibNumber: participants.bibNumber,
@@ -258,12 +267,20 @@ export async function visionRoutes(fastify) {
         finishMs: r.finishTime ? new Date(r.finishTime).getTime() : null,
       }))
 
-    let data = rows.map(r => ({
+    const data = rows.map(r => ({
       ...r,
       suspect: likelyMisread({ bibNumber: r.bibNumber, sightedAtMs: new Date(r.sightedAt).getTime() }, field),
     }))
-    if (req.query.filter === 'suspect') data = data.filter(r => r.suspect).slice(0, limit)
-    return { data }
+    if (suspectOnly) {
+      const suspects = data.filter(r => r.suspect)
+      return { data: suspects.slice(offset, offset + limit), total: suspects.length, limit, offset }
+    }
+
+    const [{ total }] = await db.select({ total: sql`count(*)::int` })
+      .from(visionSightings)
+      .where(and(...where))
+
+    return { data, total, limit, offset }
   })
 
   // ─── review: finishers the camera did not read ────────────────────────

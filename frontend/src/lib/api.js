@@ -107,7 +107,8 @@ export const api = {
       const q = new URLSearchParams(
         Object.entries(params).filter(([, v]) => v != null && v !== ''),
       ).toString()
-      return request('GET', `/vision/sessions/${id}/sightings${q ? `?${q}` : ''}`)
+      // The whole body, not just `data`: the tab pages with `total`.
+      return send('GET', `/vision/sessions/${id}/sightings${q ? `?${q}` : ''}`)
     },
     review: (id, filter) => send('GET', `/vision/sessions/${id}/review${filter ? `?filter=${filter}` : ''}`),
     reviewFrames: (id, participantId) => request('GET', `/vision/sessions/${id}/review/${participantId}/frames`),
