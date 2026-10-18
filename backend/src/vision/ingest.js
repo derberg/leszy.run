@@ -32,16 +32,23 @@ export function parseLog(buffer, cursor) {
   const lastNewline = buffer.lastIndexOf(0x0a)
   if (lastNewline === -1) return { records: [], nextCursor: cursor }
 
-  const complete = buffer.subarray(0, lastNewline + 1).toString('utf8')
+  // Each record carries the byte offset its line starts at. That offset is
+  // the line's identity in the database: two passes can share a best frame
+  // and a time, and keyed on those the second one was silently dropped.
   const records = []
-  for (const line of complete.split('\n')) {
-    if (!line.trim()) continue
-    try {
-      records.push(JSON.parse(line))
-    } catch {
-      // One malformed line must not stall ingest for the rest of the race.
-      // It is counted by its absence; the cursor still moves past it.
+  let start = 0
+  while (start <= lastNewline) {
+    const end = buffer.indexOf(0x0a, start)
+    const line = buffer.subarray(start, end).toString('utf8')
+    if (line.trim()) {
+      try {
+        records.push({ ...JSON.parse(line), logOffset: cursor + start })
+      } catch {
+        // One malformed line must not stall ingest for the rest of the race.
+        // It is counted by its absence; the cursor still moves past it.
+      }
     }
+    start = end + 1
   }
   return { records, nextCursor: cursor + lastNewline + 1 }
 }
@@ -222,6 +229,8 @@ async function rosterFor(db, eventId) {
   return new Map(rows.filter(r => r.bib != null).map(r => [String(r.bib), r.id]))
 }
 
+const INSERT_BATCH = 1000
+
 async function pollOnce(db, sessionId) {
   const [session] = await db.select().from(visionSessions)
     .where(eq(visionSessions.id, sessionId)).limit(1)
@@ -253,10 +262,14 @@ async function pollOnce(db, sessionId) {
       cropName: r.crop ?? null,
       votes: r.votes ?? null,
       frameTs: Array.isArray(r.frame_ts) ? r.frame_ts : null,
+      logOffset: r.logOffset,
     })).filter(r => !Number.isNaN(r.sightedAt.getTime()))
 
-    if (rows.length) {
-      const inserted = await db.insert(visionSightings).values(rows)
+    // In batches: PostgreSQL takes at most 65,534 parameters in one
+    // statement, and a whole race read at once (6,315 lines on 2026-10-17)
+    // is 69,465.
+    for (let i = 0; i < rows.length; i += INSERT_BATCH) {
+      const inserted = await db.insert(visionSightings).values(rows.slice(i, i + INSERT_BATCH))
         .onConflictDoNothing().returning()
       for (const row of inserted) broadcast('vision:sighting', row)
     }

@@ -110,6 +110,10 @@ export const api = {
       // The whole body, not just `data`: the tab pages with `total`.
       return send('GET', `/vision/sessions/${id}/sightings${q ? `?${q}` : ''}`)
     },
+    review: (id, filter) => send('GET', `/vision/sessions/${id}/review${filter ? `?filter=${filter}` : ''}`),
+    reviewFrames: (id, participantId) => request('GET', `/vision/sessions/${id}/review/${participantId}/frames`),
+    setReview: (id, participantId, body) => request('PUT', `/vision/sessions/${id}/review/${participantId}`, body),
+    clearReview: (id, participantId) => request('DELETE', `/vision/sessions/${id}/review/${participantId}`),
     cropUrl: (id, name) => `${BASE}/api/vision/sessions/${id}/crop/${encodeURIComponent(name)}`,
     frameUrl: (id, ts) => `${BASE}/api/vision/sessions/${id}/frame/${encodeURIComponent(ts)}`,
   },

@@ -12,6 +12,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 IOU_MATCH = 0.3
+# Two boxes whose heights differ more than this are not the same person. It
+# is what keeps a runner passing in front of a spectator standing further
+# back out of the spectator's track: bib 188 at 225 pixels joined a 110-pixel
+# spectator's track and was outvoted by the spectator's frames.
+MAX_HEIGHT_RATIO = 1.5
 MAX_GAP_FRAMES = 5
 # A number must be read in this many frames of the pass to be reported. A
 # fragment of the block read as 2 once in 163 frames came out at a vote share
@@ -30,6 +35,15 @@ MIN_READ_SHARE = 0.25
 # held the bib close enough to read, 7 at 1.00.
 SINGLE_READ_CONFIDENCE = 0.99
 SINGLE_READ_MAX_FRAMES = 20
+# How far either side of a number's reads a frame still votes on it: about
+# two seconds at the 5 fps capture runs at.
+VOTE_WINDOW_FRAMES = 10
+# A box no track matched by overlap continues an unclaimed track when it is
+# up to this much taller, holds this share of the track's last box, and the
+# track was seen this recently: a runner closing on the camera.
+APPROACH_MAX_GROWTH = 2.0
+APPROACH_HELD = 0.7
+APPROACH_GAP_FRAMES = 1
 
 
 def iou(a, b) -> float:
@@ -73,6 +87,36 @@ class _Track:
     refused: list = field(default_factory=list)  # frames whose digits the recognizer refused
 
 
+def _fit(track_box, box):
+    """Overlap of a box with a track's last box, or None when it cannot join.
+
+    Two boxes of very different heights are different people however much
+    they overlap: a runner passing in front of a spectator who stands
+    further back.
+    """
+    h_old, h_new = track_box[3] - track_box[1], box[3] - box[1]
+    if min(h_old, h_new) <= 0 or max(h_old, h_new) / min(h_old, h_new) > MAX_HEIGHT_RATIO:
+        return None
+    overlap = iou(track_box, box)
+    return overlap if overlap > IOU_MATCH else None
+
+
+def _approach(track_box, box):
+    """How much of a track's last box a taller new box holds, or None.
+
+    Only for a box no track matched by overlap, so a spectator still standing
+    where they were keeps their own track first.
+    """
+    h_old, h_new = track_box[3] - track_box[1], box[3] - box[1]
+    if h_old <= 0 or not 1.0 <= h_new / h_old <= APPROACH_MAX_GROWTH:
+        return None
+    ix = max(0, min(track_box[2], box[2]) - max(track_box[0], box[0]))
+    iy = max(0, min(track_box[3], box[3]) - max(track_box[1], box[1]))
+    area = (track_box[2] - track_box[0]) * h_old
+    held = ix * iy / area if area > 0 else 0.0
+    return held if held >= APPROACH_HELD else None
+
+
 def _split_numbers(track) -> list:
     """The numbers in one track that belong to different passes.
 
@@ -106,22 +150,51 @@ class Tracker:
     def add(self, frame_index: int, sightings: list) -> None:
         live = [t for t in self._tracks
                 if frame_index - t.last_frame <= MAX_GAP_FRAMES]
-        claimed = set()
 
-        for sight in sightings:
-            match, best_overlap = None, IOU_MATCH
+        # Every plausible pairing of a sighting with a live track, best first,
+        # so a box that happens to come first cannot take the track another
+        # box fits better. Measured on the 2026-10-17 replay, with the height
+        # rule this read 3 more finishers and lost none.
+        pairs = []
+        for si, sight in enumerate(sightings):
             for track in live:
-                if id(track) in claimed:
-                    continue
-                overlap = iou(track.box, sight.person_box)
-                if overlap > best_overlap:
-                    match, best_overlap = track, overlap
+                score = _fit(track.box, sight.person_box)
+                if score is not None:
+                    pairs.append((score, si, id(track), track))
+        pairs.sort(key=lambda p: p[0], reverse=True)
+        chosen, claimed = {}, set()
+        for score, si, tid, track in pairs:
+            if si in chosen or tid in claimed:
+                continue
+            chosen[si] = track
+            claimed.add(tid)
 
+        # A runner nearing the camera grows faster than overlap allows: 112
+        # went from 184 to 323 pixels tall within two frames, and each jump
+        # started a new track whose one-frame misread (12) then stood alone.
+        # A box left over may still continue a track nobody claimed this
+        # frame, when it holds most of that track's last box and is the
+        # taller of the two.
+        for si, sight in enumerate(sightings):
+            if si in chosen:
+                continue
+            best = None
+            for track in live:
+                if id(track) in claimed or frame_index - track.last_frame > APPROACH_GAP_FRAMES:
+                    continue
+                held = _approach(track.box, sight.person_box)
+                if held is not None and (best is None or held > best[0]):
+                    best = (held, track)
+            if best is not None:
+                chosen[si] = best[1]
+                claimed.add(id(best[1]))
+
+        for si, sight in enumerate(sightings):
+            match = chosen.get(si)
             if match is None:
                 match = _Track(box=sight.person_box, last_frame=frame_index)
                 self._tracks.append(match)
 
-            claimed.add(id(match))
             match.box = sight.person_box
             match.last_frame = frame_index
             match.frames.append(frame_index)
@@ -138,8 +211,21 @@ class Tracker:
 
     @staticmethod
     def _stands(track, text) -> bool:
+        # Only the frames within VOTE_WINDOW_FRAMES of this number's reads
+        # vote. A track can hold a spectator who stood at the line for a
+        # minute and then a runner who walked through the same spot: on
+        # 2026-10-17 bib 188, read in 18 frames, joined a 96-frame spectator
+        # track and was outvoted by the spectator's "no bib" frames.
+        reads = [frame for frame, t, _, _ in track.reads if t == text]
         agreeing = track.read_frames[text]
-        attempts = sum(track.read_frames.values()) + len(track.refused)
+        if reads:
+            lo, hi = min(reads) - VOTE_WINDOW_FRAMES, max(reads) + VOTE_WINDOW_FRAMES
+            others = sum(1 for frame, t, _, _ in track.reads if t != text and lo <= frame <= hi)
+            refused = sum(1 for frame in track.refused if lo <= frame <= hi)
+            attempts = agreeing + others + refused
+        else:
+            # A pass split out of a longer track keeps counts, not frames.
+            attempts = sum(track.read_frames.values()) + len(track.refused)
         if agreeing / attempts < MIN_READ_SHARE:
             return False
         if agreeing >= MIN_AGREEING_FRAMES:

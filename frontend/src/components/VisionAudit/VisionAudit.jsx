@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { api } from '../../lib/api.js'
 import { useWsEvent } from '../../lib/ws.js'
+import ReviewPanel from './ReviewPanel.jsx'
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card.jsx'
 import { Button } from '../ui/button.jsx'
 import { Input } from '../ui/input.jsx'
@@ -31,6 +32,7 @@ const FILTERS = [
   ['matched', 'Rozpoznane w rosterze'],
   ['unmatched', 'Spoza rosteru'],
   ['unreadable', 'Nieodczytane'],
+  ['suspect', 'Podejrzane'],
 ]
 
 function pct(value) {
@@ -216,6 +218,7 @@ function SessionView({ session }) {
   const [bib, setBib] = useState('')
   const [page, setPage] = useState(0)
   const [frameOf, setFrameOf] = useState(null)
+  const [view, setView] = useState('reads')
 
   const { data: detail } = useQuery({
     queryKey: ['vision-session', session.id],
@@ -258,7 +261,25 @@ function SessionView({ session }) {
       <HealthStrip verdict={verdict} health={health} session={detail ?? session} />
       {stats && <Stats stats={stats} />}
 
-      <Card>
+      <div className="flex gap-2">
+        {[['reads', 'Odczyty'], ['review', 'Weryfikacja']].map(([key, text]) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            className={`border px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition-colors ${
+              view === key
+                ? 'border-apex-yellow text-apex-yellow'
+                : 'border-apex-border text-apex-muted hover:border-apex-border-mid'
+            }`}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+
+      {view === 'review' && <ReviewPanel sessionId={session.id} />}
+
+      {view === 'reads' && <Card>
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle>Odczyty</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
@@ -291,7 +312,7 @@ function SessionView({ session }) {
           />
           <Pager page={page} total={total} onPage={setPage} />
         </CardContent>
-      </Card>
+      </Card>}
 
       <FrameDialog
         sighting={frameOf}
@@ -598,7 +619,13 @@ function SightingRow({ s, sessionId, onOpenFrame }) {
         {unmatched && (
           <Badge className="border-apex-red text-apex-red">Spoza rosteru</Badge>
         )}
-        {!unreadable && !unmatched && (
+        {s.suspect?.reason === 'neighbour' && (
+          <Badge className="border-amber-500 text-amber-400">Może {s.suspect.bib}?</Badge>
+        )}
+        {s.suspect?.reason === 'dns' && (
+          <Badge className="border-amber-500 text-amber-400">DNS</Badge>
+        )}
+        {!unreadable && !unmatched && !s.suspect && (
           <Badge className="border-green-700 text-green-400">OK</Badge>
         )}
       </td>

@@ -1,10 +1,19 @@
 import { createReadStream, promises as fs } from 'fs'
 import path from 'path'
-import { eq, and, desc, sql, isNull, isNotNull } from 'drizzle-orm'
-import { visionSessions, visionSightings, participants } from '../db/schema.js'
+import { eq, and, desc, asc, sql, ne, isNull, isNotNull, notInArray } from 'drizzle-orm'
+import {
+  visionSessions, visionSightings, visionReviews, participants, results, raceRuns, categories,
+} from '../db/schema.js'
 import { startIngest, stopIngest, sessionStats, healthVerdict, openSessionOn } from '../vision/ingest.js'
 import { safeCropPath, safeFramePath } from '../vision/paths.js'
 import { readRecording, writeRecording } from '../vision/recording.js'
+import { frameStamps, framesAround, parseVerdict, likelyMisread, MATCH_MS } from '../vision/review.js'
+
+// A DNS or DNF keeps whatever finish the chip gave it, but the operator has
+// said the runner never crossed the line, so there is nothing to look for in
+// the frames. At Wilczy Półmaraton 2026 two unworn bibs carried past the gate
+// got a finish at the same instant. A DSQ runner did cross and stays.
+const NOT_FINISHERS = ['dns', 'dnf']
 
 const DEFAULT_LIMIT = 200
 const MAX_LIMIT = 1000
@@ -190,7 +199,9 @@ export async function visionRoutes(fastify) {
   // ─── sightings ────────────────────────────────────────────────────────
 
   // GET /api/vision/sessions/:id/sightings?limit&offset&filter&bib
-  // filter: all | unreadable | unmatched | matched
+  // filter: all | unreadable | unmatched | matched | suspect
+  // Each row carries `suspect` (likelyMisread): a read that is probably
+  // somebody else's number, for a person to check against the frame.
   // `total` counts every row the filter matches, so the tab can page through a
   // whole race: a three-hour session holds thousands of tracks.
   fastify.get('/vision/sessions/:id/sightings', async (req, reply) => {
@@ -209,7 +220,7 @@ export async function visionRoutes(fastify) {
       // and the most useful thing on the screen when judging quality.
       where.push(isNotNull(visionSightings.bibNumber))
       where.push(isNull(visionSightings.participantId))
-    } else if (req.query.filter === 'matched') {
+    } else if (req.query.filter === 'matched' || req.query.filter === 'suspect') {
       where.push(isNotNull(visionSightings.participantId))
     }
     if (req.query.bib) where.push(eq(visionSightings.bibNumber, String(req.query.bib)))
@@ -232,14 +243,146 @@ export async function visionRoutes(fastify) {
       .leftJoin(participants, eq(participants.id, visionSightings.participantId))
       .where(and(...where))
       .orderBy(desc(visionSightings.sightedAt), desc(visionSightings.id))
-      .limit(limit)
-      .offset(offset)
+      .limit(req.query.filter === 'suspect' ? MAX_LIMIT : limit)
+      .offset(req.query.filter === 'suspect' ? 0 : offset)
 
-    const [{ total }] = await db.select({ total: sql`count(*)::int` })
-      .from(visionSightings)
-      .where(and(...where))
+    const field = (await db.select({
+      bibNumber: participants.bibNumber,
+      status: results.status,
+      finishTime: results.finishTime,
+    })
+      .from(results)
+      .innerJoin(participants, eq(participants.id, results.participantId))
+      .innerJoin(raceRuns, eq(raceRuns.id, results.raceRunId))
+      .innerJoin(categories, eq(categories.id, raceRuns.categoryId))
+      .where(and(eq(categories.eventId, session.eventId), ne(raceRuns.status, 'cancelled'))))
+      .map(r => ({
+        bibNumber: r.bibNumber == null ? null : String(r.bibNumber),
+        status: r.status,
+        finishMs: r.finishTime ? new Date(r.finishTime).getTime() : null,
+      }))
 
-    return { data: rows, total, limit, offset }
+    let data = rows.map(r => ({
+      ...r,
+      suspect: likelyMisread({ bibNumber: r.bibNumber, sightedAtMs: new Date(r.sightedAt).getTime() }, field),
+    }))
+    let total
+    if (req.query.filter === 'suspect') {
+      // Suspect is decided here, not in SQL, so it pages in memory.
+      data = data.filter(r => r.suspect)
+      total = data.length
+      data = data.slice(offset, offset + limit)
+    } else {
+      const [count] = await db.select({ n: sql`count(*)::int` })
+        .from(visionSightings)
+        .where(and(...where))
+      total = count.n
+    }
+    return { data, total, limit, offset }
+  })
+
+  // ─── review: finishers the camera did not read ────────────────────────
+
+  // GET /api/vision/sessions/:id/review?filter=unread|all
+  // Every chip finisher of the session's event, whether the camera read their
+  // number within MATCH_MS of the chip finish, and a person's verdict if one
+  // was given. `unread` keeps the rows with no read.
+  fastify.get('/vision/sessions/:id/review', async (req, reply) => {
+    const session = await loadSession(db, req.params.id)
+    if (!session) return reply.code(404).send({ error: 'Session not found' })
+
+    const rows = await db.select({
+      participantId: results.participantId,
+      bibNumber: participants.bibNumber,
+      firstName: participants.firstName,
+      lastName: participants.lastName,
+      category: categories.name,
+      finishTime: results.finishTime,
+      cameraRead: sql`exists (
+        select 1 from ${visionSightings} s
+        where s.session_id = ${session.id}
+          and s.participant_id = ${results.participantId}
+          and abs(extract(epoch from (s.sighted_at - ${results.finishTime}))) * 1000 <= ${MATCH_MS}
+      )`.mapWith(Boolean),
+      verdict: visionReviews.verdict,
+      reviewBib: visionReviews.bibNumber,
+      reviewFrameTs: visionReviews.frameTs,
+      reviewX: visionReviews.x,
+      reviewY: visionReviews.y,
+    })
+      .from(results)
+      .innerJoin(participants, eq(participants.id, results.participantId))
+      .innerJoin(raceRuns, eq(raceRuns.id, results.raceRunId))
+      .innerJoin(categories, eq(categories.id, raceRuns.categoryId))
+      .leftJoin(visionReviews, and(
+        eq(visionReviews.sessionId, session.id),
+        eq(visionReviews.participantId, results.participantId),
+      ))
+      .where(and(
+        eq(categories.eventId, session.eventId),
+        ne(raceRuns.status, 'cancelled'),
+        isNotNull(results.finishTime),
+        notInArray(results.status, NOT_FINISHERS),
+      ))
+      .orderBy(asc(results.finishTime))
+
+    const data = req.query.filter === 'all' ? rows : rows.filter(r => !r.cameraRead)
+    return {
+      data,
+      total: rows.length,
+      read: rows.filter(r => r.cameraRead).length,
+      reviewed: rows.filter(r => r.verdict).length,
+    }
+  })
+
+  // GET /api/vision/sessions/:id/review/:participantId/frames
+  // The frames around this finisher's chip time, oldest first.
+  fastify.get('/vision/sessions/:id/review/:participantId/frames', async (req, reply) => {
+    const session = await loadSession(db, req.params.id)
+    if (!session) return reply.code(404).send({ error: 'Session not found' })
+    const [row] = await db.select({ finishTime: results.finishTime })
+      .from(results)
+      .innerJoin(raceRuns, eq(raceRuns.id, results.raceRunId))
+      .where(and(
+        eq(results.participantId, req.params.participantId),
+        ne(raceRuns.status, 'cancelled'),
+        isNotNull(results.finishTime),
+      ))
+      .limit(1)
+    if (!row) return reply.code(404).send({ error: 'No chip finish for this participant' })
+    const stamps = await frameStamps(session.queueDir)
+    const frames = framesAround(stamps, session.clockOffset, new Date(row.finishTime).getTime())
+    return { data: frames.map(String) }
+  })
+
+  // PUT /api/vision/sessions/:id/review/:participantId
+  // { verdict, bibNumber?, frameTs?, x?, y? }
+  fastify.put('/vision/sessions/:id/review/:participantId', async (req, reply) => {
+    const session = await loadSession(db, req.params.id)
+    if (!session) return reply.code(404).send({ error: 'Session not found' })
+    const parsed = parseVerdict(req.body)
+    if (parsed.error) return reply.code(400).send({ error: parsed.error })
+    const values = {
+      sessionId: session.id,
+      participantId: req.params.participantId,
+      ...parsed.value,
+    }
+    const [row] = await db.insert(visionReviews).values(values)
+      .onConflictDoUpdate({
+        target: [visionReviews.sessionId, visionReviews.participantId],
+        set: { ...parsed.value, updatedAt: new Date() },
+      })
+      .returning()
+    return { data: row }
+  })
+
+  // DELETE /api/vision/sessions/:id/review/:participantId
+  fastify.delete('/vision/sessions/:id/review/:participantId', async (req) => {
+    await db.delete(visionReviews).where(and(
+      eq(visionReviews.sessionId, req.params.id),
+      eq(visionReviews.participantId, req.params.participantId),
+    ))
+    return { data: null }
   })
 
   // ─── images (local only — never Supabase, never cached publicly) ──────
