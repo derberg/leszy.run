@@ -193,6 +193,28 @@ def read_people(image: Image.Image) -> list:
             # counts against the winner in the tracker, as before.
             sighting = Sighting(None, max(t_conf, b_conf), bib_box, person_box)
         out.append((sighting, crop if sighting.bib_box is not None else None))
+    return _one_box_per_number(out)
+
+
+def _one_box_per_number(pairs: list) -> list:
+    """A number read in two boxes of one frame stays only with the surer one.
+
+    The torso band is as wide as the person box, so a runner beside another
+    has the neighbour's bib in their crop. On 2026-10-17 bib 167 walked in
+    beside 192, and her box read 192 in three frames: the tracker made a
+    second 192 pass out of her, a wrong read at 192's own finish time. The
+    other box gets a refused read, which counts against whatever it is voted.
+    """
+    best = {}
+    for i, (s, _) in enumerate(pairs):
+        if s.text is not None and (s.text not in best or s.confidence > pairs[best[s.text]][0].confidence):
+            best[s.text] = i
+    out = []
+    for i, (s, crop) in enumerate(pairs):
+        if s.text is not None and best[s.text] != i:
+            out.append((Sighting(None, s.confidence, None, s.person_box), None))
+        else:
+            out.append((s, crop))
     return out
 
 

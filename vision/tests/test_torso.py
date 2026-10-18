@@ -95,3 +95,14 @@ def test_a_block_bigger_than_the_person_is_never_read(monkeypatch):
 def test_a_bib_sized_block_still_reads_when_the_torso_reader_cannot(monkeypatch):
     sighting = _frame_with(monkeypatch, (None, 0.0), ("47", 0.99), (150, 300, 250, 350))
     assert sighting.text == "47"
+
+
+def test_one_number_in_two_boxes_stays_with_the_surer_one(monkeypatch):
+    # 167 beside 192: her torso crop holds 192's bib too.
+    people = [(800, 700, 1060, 1190), (450, 700, 720, 1190)]
+    monkeypatch.setattr(pipeline, "detect_people", lambda image: people)
+    monkeypatch.setattr(pipeline, "read_torsos", lambda image, boxes: [("192", 1.0), ("192", 0.99)])
+    monkeypatch.setattr(pipeline, "extract_bib", lambda image, region=None: (None, None))
+    first, second = pipeline.read_frame(Image.new("RGB", (1400, 1300)))
+    assert first.text == "192"
+    assert second.text is None and second.confidence > 0
