@@ -12,6 +12,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 IOU_MATCH = 0.3
+# Two boxes whose heights differ more than this are not the same person. It
+# is what keeps a runner passing in front of a spectator standing further
+# back out of the spectator's track: bib 188 at 225 pixels joined a 110-pixel
+# spectator's track and was outvoted by the spectator's frames.
+MAX_HEIGHT_RATIO = 1.5
 MAX_GAP_FRAMES = 5
 # A number must be read in this many frames of the pass to be reported. A
 # fragment of the block read as 2 once in 163 frames came out at a vote share
@@ -76,6 +81,20 @@ class _Track:
     refused: list = field(default_factory=list)  # frames whose digits the recognizer refused
 
 
+def _fit(track_box, box):
+    """Overlap of a box with a track's last box, or None when it cannot join.
+
+    Two boxes of very different heights are different people however much
+    they overlap: a runner passing in front of a spectator who stands
+    further back.
+    """
+    h_old, h_new = track_box[3] - track_box[1], box[3] - box[1]
+    if min(h_old, h_new) <= 0 or max(h_old, h_new) / min(h_old, h_new) > MAX_HEIGHT_RATIO:
+        return None
+    overlap = iou(track_box, box)
+    return overlap if overlap > IOU_MATCH else None
+
+
 def _split_numbers(track) -> list:
     """The numbers in one track that belong to different passes.
 
@@ -109,22 +128,31 @@ class Tracker:
     def add(self, frame_index: int, sightings: list) -> None:
         live = [t for t in self._tracks
                 if frame_index - t.last_frame <= MAX_GAP_FRAMES]
-        claimed = set()
 
-        for sight in sightings:
-            match, best_overlap = None, IOU_MATCH
+        # Every plausible pairing of a sighting with a live track, best first,
+        # so a box that happens to come first cannot take the track another
+        # box fits better. Measured on the 2026-10-17 replay, with the height
+        # rule this read 3 more finishers and lost none.
+        pairs = []
+        for si, sight in enumerate(sightings):
             for track in live:
-                if id(track) in claimed:
-                    continue
-                overlap = iou(track.box, sight.person_box)
-                if overlap > best_overlap:
-                    match, best_overlap = track, overlap
+                score = _fit(track.box, sight.person_box)
+                if score is not None:
+                    pairs.append((score, si, id(track), track))
+        pairs.sort(key=lambda p: p[0], reverse=True)
+        chosen, claimed = {}, set()
+        for score, si, tid, track in pairs:
+            if si in chosen or tid in claimed:
+                continue
+            chosen[si] = track
+            claimed.add(tid)
 
+        for si, sight in enumerate(sightings):
+            match = chosen.get(si)
             if match is None:
                 match = _Track(box=sight.person_box, last_frame=frame_index)
                 self._tracks.append(match)
 
-            claimed.add(id(match))
             match.box = sight.person_box
             match.last_frame = frame_index
             match.frames.append(frame_index)

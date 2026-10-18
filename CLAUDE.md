@@ -388,8 +388,13 @@ from the torso reader votes against a number in `Tracker`, but only within
 through a spectator's track keeps the number. The person detector runs at a
 0.3 floor (`PERSON_CONFIDENCE`), and the colour locator only on people at
 least 0.46 of the frame tall, the smallest that can carry a block it reads;
-on every box it made a frame half as slow again. Replayed on 2026-10-17 this
-reads 144 of 196 finishers with 4 confident misreads.
+on every box it made a frame half as slow again. `Tracker` pairs boxes with
+tracks best overlap first across the whole frame, and never joins boxes whose
+heights differ by more than 1.5x (`MAX_HEIGHT_RATIO`): a runner passing in
+front of a spectator standing further back is a different person. Predicting
+each runner's motion was tried and lost as many finishers as it found.
+Replayed on 2026-10-17 this reads 147 of 196 finishers with 4 confident
+misreads.
 
 **Phase 0 is a gate.** `scripts/measure_read_rate.py` prints read rate, wrong
 rate and spurious count. Judge the wrong rate first: a missed runner leaves a

@@ -252,3 +252,17 @@ def test_a_runner_who_walks_through_a_spectators_track_keeps_the_number():
     for frame in range(80, 98):
         tracker.add(frame, [Sighting("188", 1.0, box, box)])
     assert [r.text for r in tracker.flush()] == ["188"]
+
+
+def test_a_runner_passing_a_spectator_further_back_gets_a_track_of_their_own():
+    # A runner (225 px tall) crossing the spot of a spectator (110 px) who
+    # stands further back. Overlap alone put them in one track.
+    from vision.pipeline import Sighting
+    tracker = Tracker()
+    spectator = (1200, 840, 1260, 950)
+    for frame in range(40):
+        tracker.add(frame, [Sighting(None, 0.01, None, spectator)])
+    runner = (1150, 800, 1270, 1025)
+    for frame in range(40, 46):
+        tracker.add(frame, [Sighting("188", 1.0, runner, runner)])
+    assert "188" in [r.text for r in tracker.flush()]
