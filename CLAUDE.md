@@ -392,7 +392,16 @@ on every box it made a frame half as slow again. `Tracker` pairs boxes with
 tracks best overlap first across the whole frame, and never joins boxes whose
 heights differ by more than 1.5x (`MAX_HEIGHT_RATIO`): a runner passing in
 front of a spectator standing further back is a different person. Predicting
-each runner's motion was tried and lost as many finishers as it found.
+each runner's motion was tried and lost as many finishers as it found. A box
+no track matched by overlap still continues an unclaimed track seen in the
+previous frame when it is up to 2x taller and holds 70 percent of that
+track's last box (`APPROACH_*`): a runner closing on the camera outgrows the
+overlap test, and the one-frame fragment's misread (12 for 112) stood alone.
+On the 2026-10-17 replay this removed 3 of 5 misreads and lost no finisher;
+0.65 lost bib 39 and 0.75 kept a misread, so re-measure before moving it.
+Pasted training bibs with an end digit hidden are labelled "no number"
+(`COVER_SHARE` in `vision/synth/paste.py`): a label naming a digit the reader
+cannot see teaches it to guess.
 Replayed on 2026-10-17 this reads 147 of 196 finishers with 4 confident
 misreads.
 
@@ -463,6 +472,13 @@ Design: `docs/superpowers/specs/2026-10-03-vision-audit-tab-design.md`.
   `covered`, `no_front` or `absent`. Frames map to wall time through
   `vision_sessions.clock_offset`, never `session.json`, which capture
   rewrites on every start.
+- Every row of `GET /api/vision/sessions/:id/sightings` carries `suspect`
+  (`likelyMisread` in `backend/src/vision/review.js`), and `filter=suspect`
+  lists only those: `{ reason: 'neighbour', bib }` when the read number has
+  no chip finish within 20 s while a number one digit away finished within
+  2 s, `{ reason: 'dns' }` when it belongs to a DNS runner. Every misread at
+  the 2026-10-17 race was a real bib, so the roster match caught none; this
+  flagged all five and nothing else among 313 reads. It only marks the row.
 - `vision_sessions` / `vision_sightings` / `vision_reviews` are **device-local**, like
   `gate_crossings` — absent from `configSync.js`, no `trg_reset_synced_at_*`,
   never pushed. `race_run_id` is nullable by design.
