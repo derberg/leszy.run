@@ -167,8 +167,10 @@ function distancesFromDescription(description) {
   if (!description) return ''
   const seen = new Set()
   const parts = []
-  for (const match of description.matchAll(/dystans\w*\s*(\d+(?:[.,]\d+)?)\s*(km|m)\b/gi)) {
-    const n = parseFloat(match[1].replace(',', '.'))
+  // "1 500 m" uses a thousands space; \p{L} covers inflections like "dystansów".
+  const re = /dystans\p{L}*\s*(\d{1,3}(?:[ \u00a0]\d{3})+|\d+(?:[.,]\d+)?)\s*(km|m)(?!\p{L})/giu
+  for (const match of description.matchAll(re)) {
+    const n = parseFloat(match[1].replace(/[ \u00a0]/g, '').replace(',', '.'))
     if (!Number.isFinite(n) || n <= 0) continue
     const m = match[2].toLowerCase() === 'km' ? n * 1000 : n
     const label = m >= 1000 ? `${(m / 1000).toFixed(1).replace(/\.0$/, '')} km` : `${m}m`
@@ -243,7 +245,9 @@ async function scrape({ knownIds = new Set() } = {}) {
     const parsed = parseClassifications(classifications, ev.name)
     const { isKids, priceFrom, priceTo, latestEndedTime } = parsed
     // The list endpoint already carries descriptionPl, so no extra fetch is needed.
-    const distances = parsed.distances || distancesFromDescription(ev.descriptionPl)
+    // Only kids events: in a mixed event the description also lists the kids
+    // distances that parseClassifications deliberately skipped.
+    const distances = parsed.distances || (isKids ? distancesFromDescription(ev.descriptionPl) : '')
 
     const location = ev.location || null
     const sourceUrl = makeUrl(ev.permaLink, ev.id)

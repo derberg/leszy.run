@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseClassifications, distancesFromDescription } from '../src/scrapers/sources/dostartu.js'
+import { scrape, parseClassifications, distancesFromDescription } from '../src/scrapers/sources/dostartu.js'
 
 // Competition 17484 (XVIII BIEG NIEPODLEGŁOŚCI - Biegi Dzieci, 2026-11-11) has one
 // classification "Biegi Dzieci" with distance 0. The distances live only in
@@ -38,4 +38,48 @@ test('km distances in a description keep the km label', () => {
 test('empty or missing description gives empty string', () => {
   assert.equal(distancesFromDescription(null), '')
   assert.equal(distancesFromDescription('Zapraszamy na bieg!'), '')
+})
+
+test('thousands space and Polish inflections are read', () => {
+  assert.equal(distancesFromDescription('na dystansie 1 500 m oraz dystansów 5 km'), '1.5 km, 5 km')
+})
+
+// scrape() end to end with a mocked API: the list item carries descriptionPl
+// (checked live on 2026-10-19), and distances must come out of it.
+async function scrapeWith(listItem, classifications) {
+  const realFetch = globalThis.fetch
+  globalThis.fetch = async (url) => {
+    const u = String(url)
+    const body = u.includes('/classifications')
+      ? { classifications }
+      : { competitions: u.includes('page=1') ? [listItem] : [] }
+    return { ok: true, json: async () => body }
+  }
+  try {
+    return await scrape()
+  } finally {
+    globalThis.fetch = realFetch
+  }
+}
+
+test('scrape(): kids event takes distances from the list item descriptionPl', async () => {
+  const [row] = await scrapeWith(
+    { id: 17484, name: 'XVIII BIEG NIEPODLEGŁOŚCI - Biegi Dzieci', startedTime: '2026-11-11T10:00:00', descriptionPl: DESCRIPTION_17484 },
+    [{ namePl: 'Biegi Dzieci', distance: 0, classificationSetting: { playerType: 'kids' } }],
+  )
+  assert.equal(row.distances, '250m, 350m, 500m, 1 km, 1.5 km')
+})
+
+test('scrape(): mixed adult+kids event does not take kids distances from the description', async () => {
+  const [row] = await scrapeWith(
+    {
+      id: 1, name: 'Bieg Leśny', startedTime: '2026-11-11T10:00:00',
+      descriptionPl: 'Bieg główny. Dystans dla dzieci 400 m. Na dystansie 21 km przewyższenie 300 m.',
+    },
+    [
+      { namePl: 'Open', distance: 0 },
+      { namePl: 'Bieg dzieci', distance: 0, classificationSetting: { playerType: 'kids' } },
+    ],
+  )
+  assert.equal(row.distances, '')
 })
