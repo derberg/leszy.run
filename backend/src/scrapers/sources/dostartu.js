@@ -160,6 +160,23 @@ function parseClassifications(classifications, eventName) {
   }
 }
 
+// Fallback when the classifications give no distance. Competition 17484 has one
+// classification "Biegi Dzieci" with distance 0, and the per-age-group distances
+// ("na dystansie 250 m", "dystansie1500 m") are only in descriptionPl.
+function distancesFromDescription(description) {
+  if (!description) return ''
+  const seen = new Set()
+  const parts = []
+  for (const match of description.matchAll(/dystans\w*\s*(\d+(?:[.,]\d+)?)\s*(km|m)\b/gi)) {
+    const n = parseFloat(match[1].replace(',', '.'))
+    if (!Number.isFinite(n) || n <= 0) continue
+    const m = match[2].toLowerCase() === 'km' ? n * 1000 : n
+    const label = m >= 1000 ? `${(m / 1000).toFixed(1).replace(/\.0$/, '')} km` : `${m}m`
+    if (!seen.has(label)) { parts.push(label); seen.add(label) }
+  }
+  return parts.join(', ')
+}
+
 // The regulamin of one competition.
 //
 // statuteLinkPl is the organizer's own link and is used verbatim. statuteFilePl
@@ -223,8 +240,10 @@ async function scrape({ knownIds = new Set() } = {}) {
 
     // Fetch distances + prices + deadline from classifications
     const classifications = await fetchClassifications(ev.id)
-    const { distances, isKids, priceFrom, priceTo, latestEndedTime } =
-      parseClassifications(classifications, ev.name)
+    const parsed = parseClassifications(classifications, ev.name)
+    const { isKids, priceFrom, priceTo, latestEndedTime } = parsed
+    // The list endpoint already carries descriptionPl, so no extra fetch is needed.
+    const distances = parsed.distances || distancesFromDescription(ev.descriptionPl)
 
     const location = ev.location || null
     const sourceUrl = makeUrl(ev.permaLink, ev.id)
@@ -273,4 +292,4 @@ async function scrape({ knownIds = new Set() } = {}) {
   return results
 }
 
-export { scrape, fetchCompetition, fetchClassifications, parseClassifications }
+export { scrape, fetchCompetition, fetchClassifications, parseClassifications, distancesFromDescription }
