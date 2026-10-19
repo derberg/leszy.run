@@ -118,6 +118,49 @@ function citiesMatch(locA, locB) {
   return cityA.includes(cityB) || cityB.includes(cityA)
 }
 
+function foldDiacritics(s) {
+  return s.toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+function editDistance(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    }
+    prev = cur
+  }
+  return prev[b.length]
+}
+
+/**
+ * True when both locations name a town and the towns are plainly different.
+ * Stricter than `!citiesMatch`, because sources spell one town several ways:
+ * without diacritics (Dzialdowo), with a typo (Świdnia), or as a venue near it
+ * (Rzyki k/Andrychowa, Przełęcz Lądecka). Each of those names a word of the
+ * other location, stem included, or sits within two edits of it.
+ *
+ * Name similarity alone merged a Baranowo race into a Radom one on 2026-11-11,
+ * because every town runs a "Bieg i Marsz Niepodległości" that day.
+ */
+function citiesConflict(locA, locB) {
+  const cityA = extractCity(locA)
+  const cityB = extractCity(locB)
+  if (!cityA || !cityB) return false
+  const a = foldDiacritics(cityA)
+  const b = foldDiacritics(cityB)
+  if (a.includes(b) || b.includes(a)) return false
+  if (Math.min(a.length, b.length) >= 5 && editDistance(a, b) <= 2) return false
+
+  const words = s => foldDiacritics(s).replace(/[^a-z]+/g, ' ').trim()
+  const sharesWord = (city, location) => {
+    const haystack = ` ${words(location)} `
+    return words(city).split(' ').some(w => w.length >= 4 && haystack.includes(w.slice(0, Math.max(4, w.length - 2))))
+  }
+  return !sharesWord(cityA, locB) && !sharesWord(cityB, locA)
+}
+
 // Roman numeral → int (uppercase input, only I/V/X/L/C handled — enough for
 // race edition numbers, which don't reach D=500).
 function romanToInt(s) {
@@ -313,6 +356,7 @@ async function findExistingMatch(event) {
   if (!candidates) return null
 
   for (const c of candidates) {
+    if (citiesConflict(c.location, event.location)) continue
     const jaccard = jaccardSimilarity(c.name, event.name)
     const locMatch = citiesMatch(c.location, event.location)
 
@@ -385,4 +429,4 @@ async function upsertEvent(event) {
   }
 }
 
-export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict }
+export { findExistingMatch, upsertEvent, jaccardSimilarity, citiesMatch, citiesConflict, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict }

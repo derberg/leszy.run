@@ -33,7 +33,7 @@ import { scrape as scrapePlustiming } from './sources/plustiming.js'
 import { scrape as scrapeBiegnijmy } from './sources/biegnijmy.js'
 import { scrape as scrapeMotivato } from './sources/motivato.js'
 import { scrape as scrapeBiegigorskie } from './sources/biegigorskie.js'
-import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
+import { SOURCE_PRIORITY, jaccardSimilarity, citiesMatch, citiesConflict, tokenize, distinguishingTags, hasDistinguishingConflict } from './dedup.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { enrichFromUrl, isDostartuLikeUrl } from './apiEnrich.js'
 import { TRACKED_FIELDS, missingTrackedFields, missingRequiredFields, isReadyToAccept } from '@leszyrun/ui/eventCompleteness'
@@ -1033,6 +1033,7 @@ function getPriority(source) {
  */
 async function findScraperAllMatch(event) {
   if (!supabase) return null
+  let detachFrom = null
 
   // 1. Exact source match in source_links
   if (event.source_id) {
@@ -1041,7 +1042,13 @@ async function findScraperAllMatch(event) {
       .select('*')
       .contains('source_links', JSON.stringify([{ source: event.source, source_id: event.source_id }]))
 
-    if (data && data.length > 0) return { row: data[0], reason: 'source_link' }
+    // A link held by a row in another town was attached by a name-only match
+    // before citiesConflict existed. Detach it and match afresh, or the event
+    // stays inside the wrong row forever.
+    if (data && data.length > 0) {
+      if (!citiesConflict(data[0].location, event.location)) return { row: data[0], reason: 'source_link' }
+      detachFrom = data[0]
+    }
 
     // Legacy fallback
     const { data: legacy } = await supabase
@@ -1051,7 +1058,7 @@ async function findScraperAllMatch(event) {
       .eq('source_id', event.source_id)
       .single()
 
-    if (legacy) return { row: legacy, reason: 'legacy_source' }
+    if (legacy && !detachFrom) return { row: legacy, reason: 'legacy_source' }
   }
 
   // 2. Cross-source fuzzy match: same date + name similarity. Collects ALL
@@ -1064,7 +1071,7 @@ async function findScraperAllMatch(event) {
     .select('*')
     .eq('date', event.date)
 
-  if (!candidates) return null
+  if (!candidates) return detachFrom ? { row: null, detachFrom } : null
 
   let best = null  // { row, reason, score }
   const considerCandidate = (c, reason, score) => {
@@ -1081,6 +1088,10 @@ async function findScraperAllMatch(event) {
     // Bieg vs NW, etc. all rejected here even if jaccard is high.
     const candidateTags = distinguishingTags(c)
     if (hasDistinguishingConflict(eventTags, candidateTags)) continue
+    if (detachFrom && c.id === detachFrom.id) continue
+    // Same date, similar name, different town: two races. Every town runs a
+    // "Bieg Niepodległości" on 11 November.
+    if (citiesConflict(c.location, event.location)) continue
 
     const jaccard = jaccardSimilarity(c.name, event.name)
     const locMatch = citiesMatch(c.location, event.location)
@@ -1108,7 +1119,8 @@ async function findScraperAllMatch(event) {
     }
   }
 
-  return best ? { row: best.row, reason: best.reason } : null
+  if (!best) return detachFrom ? { row: null, detachFrom } : null
+  return { row: best.row, reason: best.reason, detachFrom }
 }
 
 /**
@@ -1148,7 +1160,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
   const results = { sources: [] }
 
   for (const source of sortedSources) {
-    const stats = { source: source.name, total: 0, created: 0, updated: 0, skipped: 0, skippedReasons: { non_running: 0, past_date: 0, junk: 0, foreign: 0, virtual: 0 }, errors: [], createdNames: [], updatedNames: [], rows: [] }
+    const stats = { source: source.name, total: 0, created: 0, updated: 0, detached: 0, skipped: 0, skippedReasons: { non_running: 0, past_date: 0, junk: 0, foreign: 0, virtual: 0 }, errors: [], createdNames: [], updatedNames: [], rows: [] }
 
     try {
       // Fetch only unmerged rows from raw table (paginated)
@@ -1281,6 +1293,17 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
           const sourceLink = { source: source.name, source_id: raw.source_id, source_url: raw.source_url || null }
           const now = new Date().toISOString()
 
+          if (match?.detachFrom) {
+            const stale = match.detachFrom
+            console.log(`[merge] ${source.name}:${raw.source_id} (${raw.location}) detached from "${stale.name}" (${stale.location})`)
+            stats.detached++
+            if (!dryRun) {
+              const kept = (stale.source_links || []).filter(l => !(l.source === source.name && l.source_id === raw.source_id))
+              const { error } = await supabase.from('scraper_all').update({ source_links: kept }).eq('id', stale.id)
+              if (error) stats.errors.push({ name: raw.name, message: error.message })
+            }
+          }
+
           if (existing) {
             // Safe against enricher work: the loop below skips null/undefined
             // incoming values, so a scraper that does not supply a field never
@@ -1399,7 +1422,7 @@ async function mergeIntoScraperAll({ dryRun = false } = {}) {
     }
 
     results.sources.push(stats)
-    console.log(`[merge:phase1] ${source.name}: created=${stats.created} updated=${stats.updated} errors=${stats.errors.length}`)
+    console.log(`[merge:phase1] ${source.name}: created=${stats.created} updated=${stats.updated} detached=${stats.detached} errors=${stats.errors.length}`)
   }
 
   return results
@@ -1506,6 +1529,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
       // suppressing a legitimate new CE row by misidentifying it as duplicate
       // of a semantically-distinct existing CE.
       if (hasDistinguishingConflict(saTags, distinguishingTags(c))) continue
+      if (citiesConflict(c.location, saEvent.location)) continue
 
       const jaccard = jaccardSimilarity(c.name, saEvent.name)
       if (jaccard > 0.6) return { matched: c, reason: `jaccard=${jaccard.toFixed(2)}` }

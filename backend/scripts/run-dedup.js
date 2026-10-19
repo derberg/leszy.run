@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { jaccardSimilarity, citiesMatch, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict } from '../src/scrapers/dedup.js'
+import { jaccardSimilarity, citiesMatch, citiesConflict, tokenize, SOURCE_PRIORITY, distinguishingTags, hasDistinguishingConflict } from '../src/scrapers/dedup.js'
 import { writeRunLog } from './lib/run-log.js'
 
 // Usage: cd backend && node --env-file=../.env scripts/run-dedup.js
@@ -158,6 +158,7 @@ function isDuplicate(a, b) {
   // raw→scraper_all merge and within-scraper_all dedup agree on what
   // counts as the same event.
   if (hasDistinguishingConflict(distinguishingTags(a), distinguishingTags(b))) return false
+  if (citiesConflict(a.location, b.location)) return false
 
   const jaccard = jaccardSimilarity(a.name, b.name)
   const locMatch = citiesMatch(a.location, b.location)
