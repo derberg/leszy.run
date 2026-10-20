@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api.js'
 import { Button } from './ui/button.jsx'
@@ -16,27 +16,26 @@ const clockMs = (ms) => {
 export default function TieFramesDialog({ session, group, onClose }) {
   const lead = group[0]
   const { data: frames = [], isLoading } = useQuery({
-    queryKey: ['vision-review-frames', session.id, lead.participantId],
-    queryFn: () => api.vision.reviewFrames(session.id, lead.participantId),
+    queryKey: ['vision-tie-frames', session.id, lead.participantId, lead.raceRunId],
+    queryFn: () => api.vision.reviewFrames(session.id, lead.participantId, lead.raceRunId),
+    staleTime: Infinity,
   })
-  const [index, setIndex] = useState(0)
-  const placed = useRef(false)
-
-  useEffect(() => {
-    if (placed.current || frames.length === 0) return
-    placed.current = true
-    setIndex(Math.max(0, nearestFrameIndex(frames, session.clockOffset, Date.parse(lead.finishTime))))
-  }, [frames, session.clockOffset, lead.finishTime])
+  // null until the operator steps: then the frame nearest the first finish is shown,
+  // on the first render that has frames, so no other frame is ever requested first.
+  const [picked, setPicked] = useState(null)
+  const last = frames.length - 1
+  const index = Math.min(last, picked ?? Math.max(0, nearestFrameIndex(frames, session.clockOffset, Date.parse(lead.finishTime))))
 
   const ts = frames[index]
   const atMs = ts ? frameWallMs(ts, session.clockOffset) : null
-  const step = (delta) => setIndex(i => Math.min(frames.length - 1, Math.max(0, i + delta)))
+  const step = (delta) => setPicked(Math.min(last, Math.max(0, index + delta)))
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent
         className="max-w-5xl"
         onKeyDown={(e) => {
+          if (e.target.tagName === 'INPUT') return
           if (e.key === 'ArrowLeft') step(-1)
           if (e.key === 'ArrowRight') step(1)
         }}
@@ -59,7 +58,7 @@ export default function TieFramesDialog({ session, group, onClose }) {
               </Button>
               <input
                 type="range" min={0} max={frames.length - 1} value={index}
-                onChange={e => setIndex(Number(e.target.value))}
+                onChange={e => setPicked(Number(e.target.value))}
                 className="flex-1 accent-cyan-400"
               />
               <span className="font-mono text-xs text-apex-muted">{index + 1} / {frames.length}</span>
