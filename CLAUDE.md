@@ -315,6 +315,16 @@ review by hand. On 2026-08-07 five chip finishes came 1.4 to 15.5 min after the 
 entry, read when the runners walked back past the gate; a volunteer normally types the bib
 1 to 26 s after the chip.
 
+**Chip tie: the admin view flags, a person orders.** Two finishers of one race run whose
+chip finishes are less than 500 ms apart (`CHIP_TIE_MS` in `frontend/src/lib/chipTie.js`)
+get a cyan finish cell in `Przegląd trasy` and a "Remisy chipowe" count in the header. The
+chip cannot order them: each finish is its own tag's peak read, and a tag is read every 50
+to 250 ms. At Wilczy Półmaraton 2026-10-17 bibs 203 and 201 finished 28 ms apart in that
+order, while the photo and the volunteer had 201 first. The popover's "#N pierwsza" / "#N pierwszy" button
+sets that runner's finish 1 ms before the group's earliest one, or re-saves it when that runner is
+first already. Either save sets `manual_override`, and a group holding a manual finish is
+no longer flagged.
+
 ## Vision bib recognition (`vision/`)
 
 A camera at the finish gate reads bib numbers from photographs, as a second
