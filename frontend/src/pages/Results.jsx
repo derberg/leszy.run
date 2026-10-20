@@ -12,6 +12,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Download, ExternalLink, Info, Pencil, Upload, UserCheck } from 'lucide-react'
 import { useWsEvent } from '../lib/ws.js'
 import { volunteerFinishAt, volunteerFinishCheck } from '../lib/volunteerFinish.js'
+import { chipTies, chipTieCount, chipTieSpreadMs, finishToLeadGroup } from '../lib/chipTie.js'
 import { sortOverviewRows, overviewGroup } from '../lib/overviewOrder.js'
 
 const GENDER_VIEWS = [
@@ -157,6 +158,7 @@ function RaceOverview({ eventId, categories }) {
   const [editingFinish, setEditingFinish] = useState(null) // resultId being edited
   const [finishInput, setFinishInput] = useState('')
   const [statusRow, setStatusRow] = useState(null)
+  const [tieOpen, setTieOpen] = useState(null) // resultId whose tie popover is open
   const qc = useQueryClient()
 
   const { data: checkpoints = [] } = useQuery({
@@ -211,6 +213,7 @@ function RaceOverview({ eventId, categories }) {
   }
 
   const rows = allResults
+  const ties = chipTies(allResults)
 
   const filtered = search.trim()
     ? rows.filter(r => {
@@ -228,6 +231,9 @@ function RaceOverview({ eventId, categories }) {
   const finished = groupCount(0)
   const notStarted = groupCount(2)
   const closed = { dnf: groupCount(3), dsq: groupCount(4), dns: groupCount(5) }
+  const tieCount = chipTieCount(ties)
+
+  const fmtTimeMs = (iso) => `${fmtTime(iso)}.${String(new Date(iso).getMilliseconds()).padStart(3, '0')}`
 
   const fmtTime = (iso) => {
     if (!iso) return null
@@ -242,6 +248,7 @@ function RaceOverview({ eventId, categories }) {
           <span className="text-xs text-apex-muted">
             Na trasie: {onCourse} · Na mecie: {finished} · Przed startem: {notStarted}
             {Object.entries(closed).filter(([, n]) => n).map(([s, n]) => ` · ${statusLabel(s)}: ${n}`).join('')}
+            {tieCount > 0 && <> · <span className="font-bold text-cyan-400">Remisy chipowe: {tieCount}</span></>}
             {' '}· Razem: {rows.length}
           </span>
         </div>
@@ -284,6 +291,8 @@ function RaceOverview({ eventId, categories }) {
               const volunteerTitle = volunteer
                 ? `Wolontariusz: ${fmtTime(volunteer.volunteerAt)}${volunteer.diffMs != null ? ` (chip ${volunteer.diffMs > 0 ? '+' : '−'}${formatDuration(Math.abs(volunteer.diffMs))})` : ''}`
                 : undefined
+              // The volunteer flag wins the cell: its fix is a different time, not an order.
+              const tie = !volunteer ? ties.get(r.id) : undefined
               const editFinish = (iso) => {
                 setEditingFinish(r.id)
                 setFinishInput(new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }))
@@ -303,7 +312,7 @@ function RaceOverview({ eventId, categories }) {
                       </td>
                     )
                   })}
-                  <td className={cn('px-2 py-1.5 font-mono text-xs', volunteer && editingFinish !== r.id && 'bg-amber-500/15 outline outline-1 outline-amber-500/60')} title={volunteerTitle}>
+                  <td className={cn('relative px-2 py-1.5 font-mono text-xs', editingFinish !== r.id && (volunteer ? 'bg-amber-500/15 outline outline-1 outline-amber-500/60' : tie && 'bg-cyan-400/10 outline outline-1 outline-cyan-400/60'))} title={volunteerTitle}>
                     {editingFinish === r.id ? (
                       <div className="flex items-center gap-1">
                         <input
@@ -320,12 +329,48 @@ function RaceOverview({ eventId, categories }) {
                             if (!finishInput) return
                             const [h, m, s] = finishInput.split(':').map(Number)
                             const d = new Date(r.startTime || Date.now())
-                            d.setHours(h, m, s || 0, 0)
+                            // The input holds whole seconds. An unchanged second keeps the
+                            // stored milliseconds, which order a chip tie.
+                            const prev = r.finishTime ? new Date(r.finishTime) : null
+                            const sameSecond = prev && prev.getHours() === h && prev.getMinutes() === m && prev.getSeconds() === (s || 0)
+                            d.setHours(h, m, s || 0, sameSecond ? prev.getMilliseconds() : 0)
                             updateFinish.mutate({ resultId: r.id, finishTime: d.toISOString() })
                           }}
                         >OK</button>
                         <button className="text-apex-muted text-xs hover:text-apex-text" onClick={() => setEditingFinish(null)}>x</button>
                       </div>
+                    ) : tie ? (
+                      <>
+                        <span className="cursor-pointer whitespace-nowrap hover:underline text-cyan-400" onClick={() => setTieOpen(tieOpen === r.id ? null : r.id)}>
+                          {fmtTime(r.finishTime)}<span className="ml-1 text-cyan-400/80">⇅ {chipTieSpreadMs(tie)} ms</span>
+                        </span>
+                        {tieOpen === r.id && (
+                          <div className="absolute right-0 top-full z-20 mt-1 w-72 border border-cyan-400 bg-apex-surface-2 p-2.5">
+                            {tie.map(t => (
+                              <div key={t.id} className="flex justify-between py-0.5">
+                                <span>#{t.participant?.bibNumber} {t.participant?.lastName}</span>
+                                <span>{fmtTimeMs(t.finishTime)}</span>
+                              </div>
+                            ))}
+                            <div className="mt-2 flex gap-1.5">
+                              {tie.map((t, i) => (
+                                <button
+                                  key={t.id}
+                                  disabled={updateFinish.isPending}
+                                  onClick={() => { setTieOpen(null); updateFinish.mutate({ resultId: t.id, finishTime: finishToLeadGroup(tie, t) }) }}
+                                  className={cn('flex-1 border border-cyan-400 px-1.5 py-1 font-sans text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50', i === 0 ? 'bg-cyan-400 text-black' : 'text-cyan-400 hover:bg-cyan-400 hover:text-black')}
+                                >
+                                  #{t.participant?.bibNumber} {t.participant?.gender === 'K' ? 'pierwsza' : 'pierwszy'}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="mt-2 flex justify-between font-sans">
+                              <button className="text-xs text-apex-muted hover:text-apex-text" onClick={() => { setTieOpen(null); editFinish(r.finishTime) }}>Edytuj czas</button>
+                              <button className="text-xs text-apex-muted hover:text-apex-text" onClick={() => setTieOpen(null)}>x</button>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     ) : isFinished ? (
                       <span
                         className={cn('cursor-pointer hover:underline', volunteer ? 'text-amber-400' : 'text-green-400')}
