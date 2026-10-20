@@ -329,7 +329,11 @@ function RaceOverview({ eventId, categories }) {
                             if (!finishInput) return
                             const [h, m, s] = finishInput.split(':').map(Number)
                             const d = new Date(r.startTime || Date.now())
-                            d.setHours(h, m, s || 0, 0)
+                            // The input holds whole seconds. An unchanged second keeps the
+                            // stored milliseconds, which order a chip tie.
+                            const prev = r.finishTime ? new Date(r.finishTime) : null
+                            const sameSecond = prev && prev.getHours() === h && prev.getMinutes() === m && prev.getSeconds() === (s || 0)
+                            d.setHours(h, m, s || 0, sameSecond ? prev.getMilliseconds() : 0)
                             updateFinish.mutate({ resultId: r.id, finishTime: d.toISOString() })
                           }}
                         >OK</button>
