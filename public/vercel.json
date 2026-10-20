@@ -1,4 +1,5 @@
 {
+  "regions": ["dub1"],
   "rewrites": [
     { "source": "/edge/:name*", "destination": "https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/:name*" },
     { "source": "/(.*)", "destination": "/index.html" }

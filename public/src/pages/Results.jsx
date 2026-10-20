@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
 import { useEvent } from '../hooks/useEvent.js'
+import { useResultsSnapshot } from '../hooks/useResultsSnapshot.js'
 import useSeo from '../hooks/useSeo.js'
 import CategorySection from './CategorySection.jsx'
 import NearFinish from './NearFinish.jsx'
@@ -15,35 +15,19 @@ export default function Results() {
   const navigate = useNavigate()
   const location = useLocation()
   const { event, loading: eventLoading, error: eventError } = useEvent()
-  const [categories, setCategories] = useState([])
-  const [catLoading, setCatLoading] = useState(true)
-  const activeTabRef = useRef(null)
+  const snapshot = useResultsSnapshot(event?.id)
+  const catLoading = !snapshot
+  const categories = useMemo(() => (snapshot?.categories || []).filter(c => !c.untimed), [snapshot])
+  // A failed or slow request is not "no race yet": until the first snapshot
+  // arrives the page must not say the race has not started, so this stays null.
+  const raceRuns = snapshot?.raceRuns ?? null
   // undefined while loading, null when the event has no near-finish checkpoint
-  const [nearFinishCpId, setNearFinishCpId] = useState(undefined)
+  const nearFinishCpId = snapshot ? (snapshot.checkpoints.find(c => c.is_near_finish)?.id ?? null) : undefined
+  const activeTabRef = useRef(null)
 
   const isLiveView = location.pathname.endsWith('/live')
   const activeCategoryId = isLiveView ? null : (categoryId || null)
   const activeView = isLiveView ? 'live' : (activeCategoryId ? 'category' : 'all')
-
-  useEffect(() => {
-    if (!event) return
-    supabase.from('categories').select('id, name, untimed').eq('event_id', event.id)
-      .then(({ data }) => {
-        setCategories((data || []).filter(c => !c.untimed))
-        setCatLoading(false)
-      })
-  }, [event])
-
-  useEffect(() => {
-    if (!event) return
-    supabase.from('checkpoints')
-      .select('id')
-      .eq('event_id', event.id)
-      .eq('is_near_finish', true)
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => setNearFinishCpId(data?.id || null))
-  }, [event])
 
   // SEO meta tags
   const seoTitle = useMemo(() => {
@@ -67,42 +51,6 @@ export default function Results() {
       activeTabRef.current.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
     }
   }, [categoryId, categories, isLiveView])
-
-  const [raceRuns, setRaceRuns] = useState(null)
-
-  useEffect(() => {
-    if (!event || catLoading) return
-    if (!categories.length) { setRaceRuns([]); return }
-    const catIds = categories.map(c => c.id)
-    // A failed or slow request is not "no race yet": until the runs arrive the
-    // page must not say the race has not started, so a failure is retried.
-    let retry = null
-    let cancelled = false
-    const fetchRuns = () => supabase.from('race_runs').select('id, status, category_id').in('category_id', catIds)
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error || !data) { retry = setTimeout(fetchRuns, 5000 + Math.random() * 5000); return }
-        setRaceRuns(data)
-      }, () => { if (!cancelled) retry = setTimeout(fetchRuns, 5000 + Math.random() * 5000) })
-    fetchRuns()
-
-    const channels = catIds.map(catId => {
-      return supabase.channel(`race_runs_${catId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'race_runs', filter: `category_id=eq.${catId}` }, (payload) => {
-          setRaceRuns(prev => {
-            if (!prev) return prev
-            const updated = payload.new
-            const exists = prev.find(r => r.id === updated.id)
-            const row = { id: updated.id, status: updated.status, category_id: updated.category_id ?? catId }
-            if (exists) return prev.map(r => r.id === updated.id ? row : r)
-            return [...prev, row]
-          })
-        })
-        .subscribe()
-    })
-
-    return () => { cancelled = true; clearTimeout(retry); channels.forEach(ch => supabase.removeChannel(ch)) }
-  }, [event, categories, catLoading])
 
   const isPastEvent = useMemo(() => {
     if (!event?.date) return false
@@ -299,7 +247,7 @@ export default function Results() {
 
         {/* Content */}
         {!loading && activeView === 'live' && showNearFinish && (
-          <NearFinish nearFinishCheckpointId={nearFinishCpId} categories={categories} />
+          <NearFinish eventId={event.id} nearFinishCheckpointId={nearFinishCpId} categories={categories} />
         )}
 
         {!loading && activeView === 'category' && (
