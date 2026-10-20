@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { looksWalkingRally } from '../src/lib/walkingRally.js'
+import { looksWalkingRally, looksUnracedRajd } from '../src/lib/walkingRally.js'
 
 // Every name below is verbatim from scraper_all, calendar_events or a raw
 // scraper table on 2026-09-29. Between them they are every row in the corpus
@@ -60,4 +60,32 @@ test('an empty or missing name is not a match', () => {
   assert.equal(looksWalkingRally({ name: null }), false)
   assert.equal(looksWalkingRally({}), false)
   assert.equal(looksWalkingRally(), false)
+})
+
+test('a rajd is dropped at publish unless its name or tags say it is raced', () => {
+  // zapisyonline 1142 is a bike tour: the regulamin is "REGULAMIN WYCIECZKI
+  // ROWEROWEJ" and only the description says so. Its name has no bike word.
+  assert.equal(looksUnracedRajd({ name: 'Kujawskie szlaki z Qemetica. Rajd Niepodległości.', event_types: ['trail', 'uliczny'] }), true)
+  assert.equal(looksUnracedRajd({ name: 'Rajd piastowski z okazji Święta Niepodległości', event_types: ['uliczny'] }), true)
+  assert.equal(looksUnracedRajd({ name: 'Rajd Górski Boguszowska 50', event_types: ['trail'] }), true)
+  assert.equal(looksUnracedRajd({ name: 'I PIESZY RAJD - KIERUNEK CHEŁMY', event_types: null }), true)
+})
+
+test('a nordic walking rajd survives, by name or by tag', () => {
+  assert.equal(looksUnracedRajd({ name: 'V RAJD NORDIC WALKING  "Idę dla Niepodległej"' }), false)
+  assert.equal(looksUnracedRajd({ name: 'X Rajd z Kijami przez Jaskinie' }), false)
+  // Neither name says nordic walking; the enrichment tags do.
+  assert.equal(looksUnracedRajd({ name: 'Rajd "Nie z tej ziemi"', event_types: ['nordic walking', 'trail'] }), false)
+  assert.equal(looksUnracedRajd({ name: 'Rajd Naturalnie Aktywni', event_types: ['nordic walking', 'trail'] }), false)
+})
+
+test('a rajd held alongside a run survives', () => {
+  assert.equal(looksUnracedRajd({ name: 'IV Rajd dla Niepodległej i I Bieg z biało-czerwoną flagą', event_types: ['trail'] }), false)
+  assert.equal(looksUnracedRajd({ name: 'Bieg Górski Na Błatnią oraz Beskidzki Rajd Pieszy' }), false)
+})
+
+test('a name without rajd is not a rajd', () => {
+  assert.equal(looksUnracedRajd({ name: 'Bieg Niepodległości', event_types: ['uliczny'] }), false)
+  assert.equal(looksUnracedRajd({ name: 'Rajdowy Bieg' }), false)
+  assert.equal(looksUnracedRajd({}), false)
 })

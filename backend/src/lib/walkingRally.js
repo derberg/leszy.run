@@ -43,3 +43,27 @@ export function looksWalkingRally({ name } = {}) {
   if (RACED.test(name)) return false
   return WALKED.test(name)
 }
+
+// Any rajd, not only a pieszy one: a rajd is a ramble or a bike tour unless it
+// says it is raced. Kujawskie szlaki z Qemetica. Rajd Niepodległości is a bike
+// tour whose name has no bike word, and on 2026-10-20 the operator ruled that a
+// rajd is not a race. Rajd Górski Boguszowska 50 and the other long walked rajdy
+// the comment above defends go with it.
+const RAJD = /\brajd(?:u|zie|y|ów|ach|em|om)?\b/i
+
+/**
+ * True when the event is a rajd that nothing marks as raced.
+ *
+ * Applied at publish, not at the merge, because nordic walking is the common
+ * raced rajd and the merge sees only the raw name. Rajd "Nie z tej ziemi" and
+ * Rajd Naturalnie Aktywni say nordic walking only in the event_types that
+ * enrichment adds to scraper_all.
+ *
+ * @param {{name?: string, event_types?: string[]|null}} [event]
+ * @returns {boolean}
+ */
+export function looksUnracedRajd({ name, event_types } = {}) {
+  if (!name || !RAJD.test(name)) return false
+  if (RACED.test(name)) return false
+  return !(event_types || []).includes('nordic walking')
+}
