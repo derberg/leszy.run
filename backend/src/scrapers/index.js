@@ -40,7 +40,7 @@ import { TRACKED_FIELDS, missingTrackedFields, missingRequiredFields, isReadyToA
 import { looksNonPolish } from '../lib/polishLocation.js'
 import { looksVirtual } from '../lib/virtualEvent.js'
 import { looksMultisport } from '../lib/multisportEvent.js'
-import { looksWalkingRally } from '../lib/walkingRally.js'
+import { looksWalkingRally, looksUnracedRajd } from '../lib/walkingRally.js'
 
 // Sources that handle their own API enrichment in-scraper (avoid double API calls)
 const SELF_ENRICHING_SOURCES = new Set(['dostartu', 'elektronicznezapisy'])
@@ -1700,7 +1700,7 @@ async function publishToCalendar({ dryRun = false } = {}) {
     }
   }
 
-  let created = 0, updated = 0, unchanged = 0, rejectedSkipped = 0, fuzzySkipped = 0
+  let created = 0, updated = 0, unchanged = 0, rejectedSkipped = 0, fuzzySkipped = 0, rajdSkipped = 0
   const errors = []
   const fuzzyLog = []
   const createdLog = []
@@ -1719,6 +1719,14 @@ async function publishToCalendar({ dryRun = false } = {}) {
     // Rejected events: never insert OR update — admin killed them
     if (candidateKeys.some(k => rejectedKeys.has(k))) {
       rejectedSkipped++
+      continue
+    }
+
+    // A rajd nothing marks as raced: a ramble or a bike tour. Here and not at
+    // the merge, because only scraper_all carries the nordic walking tag that
+    // keeps a raced rajd. See looksUnracedRajd().
+    if (looksUnracedRajd(raw)) {
+      rajdSkipped++
       continue
     }
 
@@ -1930,7 +1938,7 @@ let existingCE = null
     }
   }
 
-  console.log(`[publish] Done: created=${created} updated=${updated} unchanged=${unchanged} rejectedSkipped=${rejectedSkipped} fuzzySkipped=${fuzzySkipped} errors=${errors.length}`)
+  console.log(`[publish] Done: created=${created} updated=${updated} unchanged=${unchanged} rejectedSkipped=${rejectedSkipped} rajdSkipped=${rajdSkipped} fuzzySkipped=${fuzzySkipped} errors=${errors.length}`)
 
   if (fuzzyLog.length > 0) {
     console.log(`\n--- Fuzzy-skipped events (${fuzzyLog.length}) ---`)
@@ -1942,7 +1950,7 @@ let existingCE = null
     }
   }
 
-  return { created, updated, unchanged, rejectedSkipped, fuzzySkipped, errors, fuzzyLog, createdLog, updatedLog }
+  return { created, updated, unchanged, rejectedSkipped, rajdSkipped, fuzzySkipped, errors, fuzzyLog, createdLog, updatedLog }
 }
 
 export { runPipeline, mergeIntoScraperAll, publishToCalendar, toIntPrice, sources }
