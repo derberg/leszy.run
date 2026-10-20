@@ -60,8 +60,10 @@ function fakeRes() {
 }
 
 describe('api/results', () => {
-  it('refuses a request without a valid event id and keeps the error out of the CDN', async () => {
-    for (const url of ['/api/results', '/api/results?event=1;drop', '/?event=abc']) {
+  it('refuses anything but one lowercase event id, and keeps the error out of the CDN', async () => {
+    const id = 'fab0de56-2645-4c24-ae52-6342f0c799b4'
+    for (const url of ['/api/results', '/api/results?event=1;drop', '/?event=abc',
+      `/?event=${id}&x=1`, `/?event=${id.toUpperCase()}`, `/?event=${id}&event=${id}`]) {
       const res = fakeRes()
       await handler({ url }, res)
       assert.equal(res.statusCode, 400)

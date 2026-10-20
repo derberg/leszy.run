@@ -9,7 +9,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { buildResultsSnapshot } from '../src/lib/resultsSnapshot.js'
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 let supabase = null
 
@@ -41,8 +41,14 @@ const CACHED = {
 }
 
 export default async function handler(req, res) {
-  const eventId = new URL(req.url, 'http://localhost').searchParams.get('event')
-  if (!eventId || !UUID.test(eventId)) return send(res, 400, { error: 'event must be an event id' }, NO_STORE)
+  // The CDN keys its cache on the whole query string. Accepting only one
+  // spelling of it keeps one entry per event, so a request cannot skip the
+  // cache by adding a parameter or changing the id's case.
+  const params = new URL(req.url, 'http://localhost').searchParams
+  const eventId = params.get('event')
+  if ([...params.keys()].length !== 1 || !eventId || !UUID.test(eventId)) {
+    return send(res, 400, { error: 'expected ?event=<lowercase event id> and nothing else' }, NO_STORE)
+  }
   try {
     send(res, 200, await buildResultsSnapshot(client(), eventId), CACHED)
   } catch (err) {
