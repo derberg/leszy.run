@@ -63,3 +63,25 @@ export function finishToLeadGroup(group, result) {
   if (group[0].id === result.id) return new Date(result.finishTime).toISOString()
   return new Date(Date.parse(group[0].finishTime) - 1).toISOString()
 }
+
+/** Wall-clock ms of a camera frame: its sensor stamp (ns) plus the session's clock offset (s). */
+export function frameWallMs(ts, clockOffset) {
+  return (Number(ts) / 1e9 + clockOffset) * 1000
+}
+
+/** Index of the frame closest in time to `atMs`, or -1 when there are none. */
+export function nearestFrameIndex(frames, clockOffset, atMs) {
+  let best = -1
+  for (let i = 0; i < frames.length; i++) {
+    const d = Math.abs(frameWallMs(frames[i], clockOffset) - atMs)
+    if (best < 0 || d < Math.abs(frameWallMs(frames[best], clockOffset) - atMs)) best = i
+  }
+  return best
+}
+
+/** The camera session that was recording at `atMs`. */
+export function sessionAt(sessions, atMs) {
+  return sessions.find(s => s.clockOffset != null
+    && Date.parse(s.startedAt) <= atMs
+    && (!s.stoppedAt || atMs <= Date.parse(s.stoppedAt))) ?? null
+}

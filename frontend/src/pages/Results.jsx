@@ -9,10 +9,11 @@ import { Input } from '../components/ui/input.jsx'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.jsx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '../components/ui/dialog.jsx'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select.jsx'
-import { Download, ExternalLink, Info, Pencil, Upload, UserCheck } from 'lucide-react'
+import { Camera, Download, ExternalLink, Info, Pencil, Upload, UserCheck } from 'lucide-react'
 import { useWsEvent } from '../lib/ws.js'
 import { volunteerFinishAt, volunteerFinishCheck } from '../lib/volunteerFinish.js'
-import { chipTies, chipTieCount, chipTieSpreadMs, finishToLeadGroup } from '../lib/chipTie.js'
+import { chipTies, chipTieCount, chipTieSpreadMs, finishToLeadGroup, sessionAt } from '../lib/chipTie.js'
+import TieFramesDialog from '../components/TieFramesDialog.jsx'
 import { sortOverviewRows, overviewGroup } from '../lib/overviewOrder.js'
 
 const GENDER_VIEWS = [
@@ -159,11 +160,19 @@ function RaceOverview({ eventId, categories }) {
   const [finishInput, setFinishInput] = useState('')
   const [statusRow, setStatusRow] = useState(null)
   const [tieOpen, setTieOpen] = useState(null) // resultId whose tie popover is open
+  const [tieFrames, setTieFrames] = useState(null) // { session, group } shown in the frame viewer
   const qc = useQueryClient()
 
   const { data: checkpoints = [] } = useQuery({
     queryKey: ['checkpoints', eventId],
     queryFn: () => api.checkpoints.list(eventId),
+  })
+
+  // Camera sessions live only on the host that ran the camera. Elsewhere the
+  // list is empty and the tie popover offers no photos.
+  const { data: visionSessions = [] } = useQuery({
+    queryKey: ['vision-sessions', eventId],
+    queryFn: () => api.vision.sessions(eventId),
   })
 
   // ALL checkpoints including private (admin view). The manual finish goes last,
@@ -364,8 +373,17 @@ function RaceOverview({ eventId, categories }) {
                                 </button>
                               ))}
                             </div>
-                            <div className="mt-2 flex justify-between font-sans">
+                            <div className="mt-2 flex items-center justify-between gap-3 font-sans">
                               <button className="text-xs text-apex-muted hover:text-apex-text" onClick={() => { setTieOpen(null); editFinish(r.finishTime) }}>Edytuj czas</button>
+                              {sessionAt(visionSessions, Date.parse(tie[0].finishTime)) && (
+                                <button
+                                  className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300"
+                                  onClick={() => { setTieOpen(null); setTieFrames({ session: sessionAt(visionSessions, Date.parse(tie[0].finishTime)), group: tie }) }}
+                                >
+                                  <Camera size={12} /> Zdjęcia
+                                </button>
+                              )}
+                              <span className="flex-1" />
                               <button className="text-xs text-apex-muted hover:text-apex-text" onClick={() => setTieOpen(null)}>x</button>
                             </div>
                           </div>
@@ -410,6 +428,9 @@ function RaceOverview({ eventId, categories }) {
           <div className="py-8 text-center text-xs text-apex-muted">Brak zawodników</div>
         )}
       </div>
+      {tieFrames && (
+        <TieFramesDialog session={tieFrames.session} group={tieFrames.group} onClose={() => setTieFrames(null)} />
+      )}
       {statusRow && (
         <StatusDialog
           result={statusRow}
