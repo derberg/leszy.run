@@ -22,22 +22,30 @@ async function readAll(query) {
 }
 
 /**
- * Reads one event's public results from Supabase.
+ * Reads one event's public results from Supabase. The anon key can read more
+ * than the page shows, so everything the page does not show is left out here:
+ * the document is pushed into every viewer's browser and the CDN.
  * @param {import('@supabase/supabase-js').SupabaseClient} supabase - an anon client
  * @param {string} eventId
  */
 export async function buildResultsSnapshot(supabase, eventId) {
-  const [categories, checkpoints] = await Promise.all([
+  const [allCategories, allCheckpoints] = await Promise.all([
     // The tabs follow the order the organizer created the categories in.
     readAll(() => supabase.from('categories').select('id, name, untimed')
       .eq('event_id', eventId).order('created_at').order('id')),
     readAll(() => supabase.from('checkpoints').select('id, name, km_marker, private, is_near_finish')
       .eq('event_id', eventId).order('id')),
   ])
+  // An untimed category, such as a kids' run, is never on the public page.
+  const categories = allCategories.filter(c => !c.untimed).map(c => ({ id: c.id, name: c.name }))
+  // A private checkpoint holds volunteer entries only operators review, such as
+  // the manual finish. The near-finish checkpoint stays even when private,
+  // because "Blisko Mety" lists the passes there.
+  const checkpoints = allCheckpoints.filter(c => !c.private || c.is_near_finish)
   const categoryIds = categories.map(c => c.id)
   const checkpointIds = checkpoints.map(c => c.id)
 
-  const [raceRuns, participants, checkpointCategories, observations] = await Promise.all([
+  const [raceRuns, participants, checkpointCategories, allObservations] = await Promise.all([
     categoryIds.length ? readAll(() => supabase.from('race_runs')
       .select('id, status, category_id, started_at, created_at')
       .in('category_id', categoryIds).order('id')) : [],
@@ -52,15 +60,25 @@ export async function buildResultsSnapshot(supabase, eventId) {
       .in('checkpoint_id', checkpointIds).order('id')) : [],
   ])
 
-  const runIds = raceRuns.filter(r => SHOWN.has(r.status)).map(r => r.id)
+  const shownRuns = raceRuns.filter(r => SHOWN.has(r.status))
+  const runIds = shownRuns.map(r => r.id)
   const results = runIds.length ? await readAll(() => supabase.from('results')
     .select('id, race_run_id, participant_id, start_time, finish_time, duration_ms, gun_duration_ms, status')
     .in('race_run_id', runIds).order('id')) : []
 
-  return {
-    generatedAt: new Date().toISOString(),
-    categories, checkpoints, checkpointCategories, raceRuns, participants, results, observations,
-  }
+  // Nobody passes a checkpoint before the first gun of the event. categoryView
+  // applies each category's own gun on top of this.
+  const guns = shownRuns.map(r => Date.parse(r.started_at)).filter(Number.isFinite)
+  const firstGun = guns.length ? Math.min(...guns) : null
+  const observations = firstGun === null ? []
+    : allObservations.filter(o => Date.parse(o.observed_at) >= firstGun)
+
+  return { categories, checkpoints, checkpointCategories, raceRuns, participants, results, observations }
+}
+
+/** Whether a run of the event is under way, so the page needs fresh data often. */
+export function isLive(snapshot) {
+  return snapshot.raceRuns.some(r => r.status === 'active')
 }
 
 const EMPTY_CATEGORY = { category: null, raceRun: null, results: [], checkpoints: [], observations: [], loaded: false }

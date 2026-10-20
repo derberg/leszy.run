@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test'
+import { describe, it, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { subscribe, getSnapshot } from '../../src/lib/snapshotStore.js'
 import handler from '../../api/results.js'
@@ -19,21 +19,46 @@ function fakeFetch(bodies) {
 
 describe('snapshotStore', () => {
   it('fetches once for all listeners of an event and notifies each of them', async () => {
-    const fetch = fakeFetch([{ generatedAt: 't1' }])
+    const fetch = fakeFetch([{ version: 'v1' }])
     let a = 0, b = 0
     const offA = subscribe('ev-1', () => a++, fetch)
     const offB = subscribe('ev-1', () => b++, fetch)
     await tick()
     assert.deepEqual(fetch.calls, ['/api/results?event=ev-1'])
-    assert.equal(getSnapshot('ev-1').generatedAt, 't1')
+    assert.equal(getSnapshot('ev-1').version, 'v1')
     assert.equal(a, 1)
     assert.equal(b, 1)
     offA()
     offB()
   })
 
+  it('skips a poll that brings the same version, and polls every 60 s once no run is live', async () => {
+    mock.timers.enable({ apis: ['setTimeout'] })
+    const flush = async () => { for (let i = 0; i < 5; i++) await new Promise(r => setImmediate(r)) }
+    try {
+      const fetch = fakeFetch([{ version: 'v1', live: true }, { version: 'v1', live: true }, { version: 'v2', live: false }, { version: 'v3', live: false }])
+      let notified = 0
+      const off = subscribe('ev-4', () => notified++, fetch)
+      await flush()
+      assert.equal(notified, 1)
+      mock.timers.tick(10_000); await flush()
+      assert.equal(fetch.calls.length, 2)
+      assert.equal(notified, 1)
+      mock.timers.tick(10_000); await flush()
+      assert.equal(getSnapshot('ev-4').version, 'v2')
+      assert.equal(notified, 2)
+      mock.timers.tick(10_000); await flush()
+      assert.equal(fetch.calls.length, 3)
+      mock.timers.tick(50_000); await flush()
+      assert.equal(fetch.calls.length, 4)
+      off()
+    } finally {
+      mock.timers.reset()
+    }
+  })
+
   it('forgets the event and its snapshot once the last listener leaves', async () => {
-    const fetch = fakeFetch([{ generatedAt: 't1' }])
+    const fetch = fakeFetch([{ version: 'v1' }])
     const off = subscribe('ev-2', () => {}, fetch)
     await tick()
     off()

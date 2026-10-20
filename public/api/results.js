@@ -6,8 +6,9 @@
 // single thread, so that load grows with the viewer count and a bigger instance
 // does not raise it. Here the CDN answers the viewers, and Supabase sees about
 // one request per event every 5 s per CDN region.
+import { createHash } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
-import { buildResultsSnapshot } from '../src/lib/resultsSnapshot.js'
+import { buildResultsSnapshot, isLive } from '../src/lib/resultsSnapshot.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
@@ -17,7 +18,14 @@ function client() {
   supabase ??= createClient(
     process.env.VITE_SUPABASE_URL?.trim(),
     process.env.VITE_SUPABASE_ANON_KEY?.trim(),
-    { auth: { persistSession: false } },
+    {
+      auth: { persistSession: false },
+      // A stalled Supabase fails the build in 8 s. The CDN then keeps serving
+      // its last good copy, instead of waiting while every new poll starts a
+      // build of its own: Vercel collapses background revalidation, but not
+      // requests that find no cached copy at all.
+      global: { fetch: (url, opts) => fetch(url, { ...opts, signal: AbortSignal.timeout(8000) }) },
+    },
   )
   return supabase
 }
@@ -33,11 +41,16 @@ function send(res, status, body, headers) {
 // CDN still holds a good copy, stale-while-revalidate keeps serving it.
 const NO_STORE = { 'Cache-Control': 'no-store' }
 
-const CACHED = {
-  // Vercel's CDN reads this header and strips it before the response leaves.
-  'Vercel-CDN-Cache-Control': 'max-age=5, stale-while-revalidate=30',
-  // The browser always asks again, so a poll never reuses its own old copy.
-  'Cache-Control': 'public, max-age=0, must-revalidate',
+// While a race runs, the CDN refreshes every 5 s. Before and after it, every
+// 60 s. A stale copy keeps being served for up to 10 minutes while a refresh
+// runs or fails.
+function cacheHeaders(live) {
+  return {
+    // Vercel's CDN reads this header and strips it before the response leaves.
+    'Vercel-CDN-Cache-Control': `max-age=${live ? 5 : 60}, stale-while-revalidate=600, stale-if-error=600`,
+    // The browser always asks again, so a poll never reuses its own old copy.
+    'Cache-Control': 'public, max-age=0, must-revalidate',
+  }
 }
 
 export default async function handler(req, res) {
@@ -50,7 +63,12 @@ export default async function handler(req, res) {
     return send(res, 400, { error: 'expected ?event=<lowercase event id> and nothing else' }, NO_STORE)
   }
   try {
-    send(res, 200, await buildResultsSnapshot(client(), eventId), CACHED)
+    const snapshot = await buildResultsSnapshot(client(), eventId)
+    // The version changes only when the data does, so a page can skip a
+    // re-render when a refresh brought nothing new.
+    const version = createHash('sha1').update(JSON.stringify(snapshot)).digest('hex')
+    send(res, 200, { version, generatedAt: new Date().toISOString(), live: isLive(snapshot), ...snapshot },
+      { ...cacheHeaders(isLive(snapshot)), ETag: `"${version}"` })
   } catch (err) {
     console.error(`[api/results] ${eventId}: ${err.message}`)
     send(res, 502, { error: 'results unavailable' }, NO_STORE)

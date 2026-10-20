@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildResultsSnapshot, categoryView, latestRun, nearFinishInputs } from '../../src/lib/resultsSnapshot.js'
+import { buildResultsSnapshot, categoryView, latestRun, nearFinishInputs, isLive } from '../../src/lib/resultsSnapshot.js'
 
 // A Supabase client over in-memory tables that understands the calls the
 // builder makes. Every page read is logged as "<table> <from>".
@@ -53,7 +53,34 @@ describe('buildResultsSnapshot', () => {
     assert.deepEqual(snap.raceRuns.map(r => r.id).sort(), ['old', 'run'])
     assert.deepEqual(snap.results.map(r => r.id), ['r1'])
     assert.equal(snap.observations.length, 1)
-    assert.ok(snap.generatedAt)
+  })
+
+  it('leaves out what the page never shows: untimed categories, private checkpoints, reads before the gun', async () => {
+    const snap = await buildResultsSnapshot(fakeSupabase({
+      ...tables,
+      categories: [...tables.categories, { id: 'kids', event_id: 'e1', name: 'Bieg dziecięcy', untimed: true }],
+      participants_public: [...tables.participants_public, { id: 'child', category_id: 'kids', bib_number: 900 }],
+      checkpoints: [
+        ...tables.checkpoints,
+        { id: 'meta', event_id: 'e1', name: 'Meta', private: true, is_near_finish: false },
+        { id: 'nf', event_id: 'e1', name: 'Tuż tuż', private: true, is_near_finish: true },
+      ],
+      checkpoint_observations: [
+        ...tables.checkpoint_observations,
+        { id: 'manual', checkpoint_id: 'meta', participant_id: 'p1', bib_number: 7, observed_at: '2026-10-17T10:30:00Z' },
+        { id: 'near', checkpoint_id: 'nf', participant_id: 'p1', bib_number: 7, observed_at: '2026-10-17T10:25:00Z' },
+        { id: 'ghost', checkpoint_id: 'cp1', participant_id: 'p1', bib_number: 7, observed_at: '2026-10-17T08:30:00Z' },
+      ],
+    }), 'e1')
+    assert.deepEqual(snap.categories.map(c => c.id), ['c10'])
+    assert.deepEqual(snap.participants.map(p => p.id), ['p1'])
+    assert.deepEqual(snap.checkpoints.map(c => c.id).sort(), ['cp1', 'nf'])
+    assert.deepEqual(snap.observations.map(o => o.id).sort(), ['near', 'o1'])
+  })
+
+  it('carries no observations before any run has started', async () => {
+    const snap = await buildResultsSnapshot(fakeSupabase({ ...tables, race_runs: [] }), 'e1')
+    assert.deepEqual(snap.observations, [])
   })
 
   it('reads past the 1000-row page PostgREST returns', async () => {
@@ -74,6 +101,13 @@ describe('buildResultsSnapshot', () => {
 
   it('throws when Supabase answers with an error, so the handler never caches a partial snapshot', async () => {
     await assert.rejects(buildResultsSnapshot(fakeSupabase(tables, { failOn: 'results' }), 'e1'), /boom/)
+  })
+})
+
+describe('isLive', () => {
+  it('is live only while a run is active', () => {
+    assert.equal(isLive({ raceRuns: [{ status: 'finished' }, { status: 'active' }] }), true)
+    assert.equal(isLive({ raceRuns: [{ status: 'finished' }, { status: 'pending' }] }), false)
   })
 })
 

@@ -692,8 +692,11 @@ The landing page and kalendarz read directly from Supabase (`calendar_events` ta
 
 The results page (`/events/:slug/results`), "Blisko Mety" and the bib search read one JSON document per event from `GET /api/results?event=<event id>`, a Vercel Function in `public/api/results.js`. It reads Supabase with the anon key, so RLS still decides what is public, and `buildResultsSnapshot()` in `public/src/lib/resultsSnapshot.js` does the reading. `categoryView()` in the same file cuts out what one category section shows.
 
-- `Vercel-CDN-Cache-Control: max-age=5, stale-while-revalidate=30` lets Vercel's CDN answer every viewer, so Supabase sees about one request per event every 5 s per CDN region, whatever the number of viewers. An error answers `no-store` and is never cached.
-- `public/src/lib/snapshotStore.js` polls every 10 s, once per event per tab, and pauses while the tab is hidden. A result reaches the page up to about 15 s after it reaches Supabase.
+- The snapshot carries only what the page shows. `buildResultsSnapshot()` leaves out untimed categories and their participants, private checkpoints other than the near-finish one (the manual "Meta" holds volunteer entries only operators review), and observations from before the event's first gun. The anon key can read all of these, but the snapshot is pushed into every viewer's browser and the CDN, so filtering it in the page is not enough.
+- While a run is active, `Vercel-CDN-Cache-Control` is `max-age=5`, and pages poll every 10 s. Otherwise it is `max-age=60`, and pages poll every 60 s. Either way Supabase sees about one build per event per interval per CDN region, whatever the number of viewers. Polling pauses while the tab is hidden.
+- `stale-while-revalidate=600, stale-if-error=600` and an 8 s timeout on the Supabase fetch keep a stale copy on screen while Supabase is slow. Vercel collapses background revalidation into one function run, but not requests that find no cached copy, so a short stale window would let every poll start its own build against a struggling database. An error answers `no-store` and is never cached.
+- The response carries a `version` hash of the data. `public/src/lib/snapshotStore.js` re-renders only when it changes. A result reaches the page up to about 15 s after it reaches Supabase during a race.
+- The endpoint answers 400 to anything but one lowercase `event` id, because the CDN keys its cache on the whole query string.
 - The function runs in `dub1` (`regions` in `public/vercel.json`), next to the Supabase project in `eu-west-1`.
 - `vite dev` serves the same handler through the `vercelApi` plugin in `public/vite.config.js`.
 

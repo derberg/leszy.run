@@ -3,7 +3,9 @@
 // on one page share it, so a tab asks once per interval however many of them
 // are mounted.
 
-const POLL_MS = 10_000
+// While a run is active, every 10 s. Before and after the race, every 60 s.
+const LIVE_POLL_MS = 10_000
+const IDLE_POLL_MS = 60_000
 
 /** @type {Map<string, { snapshot: object|null, listeners: Set<() => void>, timer: any, inFlight: boolean, onVisible: () => void }>} */
 const entries = new Map()
@@ -20,9 +22,8 @@ async function refresh(eventId, fetchImpl) {
     const res = await fetchImpl(`/api/results?event=${encodeURIComponent(eventId)}`)
     if (!res.ok) return
     const snapshot = await res.json()
-    // The CDN answers with the same document until it expires, so most polls
-    // change nothing and must not re-render the page.
-    if (entries.get(eventId) !== entry || snapshot.generatedAt === entry.snapshot?.generatedAt) return
+    // A refresh that brought no new data must not re-render the page.
+    if (entries.get(eventId) !== entry || (entry.snapshot && snapshot.version === entry.snapshot.version)) return
     entry.snapshot = snapshot
     entry.listeners.forEach(l => l())
   } catch {
@@ -32,9 +33,20 @@ async function refresh(eventId, fetchImpl) {
   }
 }
 
+function schedule(eventId, fetchImpl) {
+  const entry = entries.get(eventId)
+  if (!entry) return
+  clearTimeout(entry.timer)
+  entry.timer = setTimeout(async () => {
+    if (!hidden()) await refresh(eventId, fetchImpl)
+    schedule(eventId, fetchImpl)
+  }, entry.snapshot?.live === false ? IDLE_POLL_MS : LIVE_POLL_MS)
+}
+
 /**
  * Starts polling an event on its first listener and stops on its last.
  * Polling pauses while the tab is hidden and catches up when it is shown.
+ * It slows down while no run of the event is active.
  * @param {string} eventId
  * @param {() => void} listener
  * @param {typeof fetch} [fetchImpl]
@@ -46,15 +58,15 @@ export function subscribe(eventId, listener, fetchImpl = globalThis.fetch) {
     entry = { snapshot: null, listeners: new Set(), timer: null, inFlight: false, onVisible: null }
     entries.set(eventId, entry)
     entry.onVisible = () => { if (!hidden()) refresh(eventId, fetchImpl) }
-    entry.timer = setInterval(() => { if (!hidden()) refresh(eventId, fetchImpl) }, POLL_MS)
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', entry.onVisible)
     refresh(eventId, fetchImpl)
+    schedule(eventId, fetchImpl)
   }
   entry.listeners.add(listener)
   return () => {
     entry.listeners.delete(listener)
     if (entry.listeners.size) return
-    clearInterval(entry.timer)
+    clearTimeout(entry.timer)
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', entry.onVisible)
     entries.delete(eventId)
   }
