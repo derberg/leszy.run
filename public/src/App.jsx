@@ -36,6 +36,7 @@ const KlubUstawienia = lazy(() => import('./pages/klub/Ustawienia.jsx'))
 const PolitykaPrywatnosci = lazy(() => import('./pages/PolitykaPrywatnosci.jsx'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'))
 const Regulamin = lazy(() => import('./pages/Regulamin.jsx'))
+const Reklamacje = lazy(() => import('./pages/Reklamacje.jsx'))
 const PodmiotyPrzetwarzajace = lazy(() => import('./pages/PodmiotyPrzetwarzajace.jsx'))
 
 function ScrollToTop() {
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="/polityka-prywatnosci" element={<PolitykaPrywatnosci />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/regulamin" element={<Regulamin />} />
+          <Route path="/reklamacje" element={<Reklamacje />} />
           <Route path="/podmioty-przetwarzajace" element={<PodmiotyPrzetwarzajace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -10,7 +10,7 @@ export default function PrivacyPolicy() {
 
       <section id="administrator">
         <h2 className="font-display text-2xl uppercase">1. Data Controller</h2>
-        <p className="mt-3">Łukasz Górnicki, operating the Leszy.run service. Contact: <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
+        <p className="mt-3">Łukasz Górnicki, running a sole proprietorship under the business name Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, Poland, NIP (tax ID) 6292248418, REGON 385416140, operating the Leszy.run service. Contact: <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
         <p className="mt-3"><strong>Leszy.run is the sole data controller for all personal data processed within the service — regardless of whether the data was provided directly during account registration or obtained from a race organiser upon import of the start list.</strong> The race organiser remains the controller of data within their own registration system, but once data has been transferred to Leszy.run, the sole controller of that data within our database is Leszy.run. All requests (access, erasure, rectification, objection) should be directed to <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
       </section>
 

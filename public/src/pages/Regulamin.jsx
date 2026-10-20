@@ -11,7 +11,7 @@ export default function Regulamin() {
       <section id="definicje">
         <h2 className="font-display text-2xl uppercase">§1. Definicje</h2>
         <ul className="mt-3 list-disc space-y-2 pl-6">
-          <li><strong>Usługodawca:</strong> Łukasz Górnicki, prowadzący serwis Leszy.run pod adresem www.leszy.run, kontakt: lukasz@leszy.run.</li>
+          <li><strong>Usługodawca:</strong> Łukasz Górnicki prowadzący działalność gospodarczą pod firmą Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run pod adresem www.leszy.run, kontakt: lukasz@leszy.run.</li>
           <li><strong>Serwis:</strong> witryna internetowa Leszy.run wraz z funkcjonalnościami dostępnymi po rejestracji konta.</li>
           <li><strong>Użytkownik:</strong> osoba fizyczna posiadająca konto w Serwisie.</li>
           <li><strong>Konto:</strong> indywidualny profil Użytkownika, identyfikowany adresem email.</li>
@@ -45,7 +45,7 @@ export default function Regulamin() {
 
       <section id="reklamacje" className="mt-8">
         <h2 className="font-display text-2xl uppercase">§5. Reklamacje</h2>
-        <p className="mt-3">Reklamacje dotyczące działania Serwisu należy zgłaszać na adres <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>. Reklamacja zostanie rozpatrzona w terminie 28 dni od daty zgłoszenia.</p>
+        <p className="mt-3">Zasady składania i rozpatrywania reklamacji określa <a href="/reklamacje" className="text-apex-yellow underline">Procedura reklamacyjna</a>.</p>
       </section>
 
       <section id="rozwiazanie" className="mt-8">

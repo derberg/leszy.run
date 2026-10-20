@@ -51,6 +51,7 @@ export default function Footer() {
           <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link to="/polityka-prywatnosci" className="inline-block py-1.5 text-apex-muted no-underline hover:text-apex-yellow transition-colors">Polityka prywatności</Link>
             <Link to="/regulamin" className="inline-block py-1.5 text-apex-muted no-underline hover:text-apex-yellow transition-colors">Regulamin</Link>
+            <Link to="/reklamacje" className="inline-block py-1.5 text-apex-muted no-underline hover:text-apex-yellow transition-colors">Reklamacje</Link>
             <Link to="/podmioty-przetwarzajace" className="inline-block py-1.5 text-apex-muted no-underline hover:text-apex-yellow transition-colors">Podmioty przetwarzające</Link>
             <button type="button" onClick={openCookieBanner} className="inline-block py-1.5 text-left text-apex-muted hover:text-apex-yellow transition-colors">Zarządzaj cookies</button>
           </nav>
