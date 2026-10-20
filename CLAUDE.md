@@ -324,6 +324,12 @@ order, while the photo and the volunteer had 201 first. The popover's "#N pierws
 sets that runner's finish 1 ms before the group's earliest one, or re-saves it when that runner is
 first already. Either save sets `manual_override`, and a group holding a manual finish is
 no longer flagged.
+"Zdjęcia" in the same popover opens the camera frames from 3 s before to 1 s after the
+group's first chip finish (`TieFramesDialog`, the review panel's frames endpoint), on the
+frame nearest it, with each frame's wall time against each runner's chip time. It appears
+only where a `vision_sessions` row was recording at that moment, so only on the host that
+ran the camera. The camera takes a frame every 200 ms, so a frame shows the order, not the
+millisecond.
 
 ## Vision bib recognition (`vision/`)
 

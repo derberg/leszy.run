@@ -1,7 +1,7 @@
 // Run: node --test frontend/src/lib/chipTie.test.js
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chipTies, chipTieCount, chipTieSpreadMs, finishToLeadGroup } from './chipTie.js'
+import { chipTies, chipTieCount, chipTieSpreadMs, finishToLeadGroup, frameWallMs, nearestFrameIndex, sessionAt } from './chipTie.js'
 
 const at = (hms) => `2026-10-17T${hms}Z`
 const row = (id, finish, extra = {}) => ({ id, raceRunId: 'run', finishTime: finish ? at(finish) : null, status: 'finished', ...extra })
@@ -57,4 +57,28 @@ test('choosing 201 first puts her 1 ms ahead of 203', () => {
   const [r203, r201] = group
   assert.equal(finishToLeadGroup(group, r201), at('08:57:04.672'))
   assert.equal(finishToLeadGroup(group, r203), at('08:57:04.673'))
+})
+
+// Session d24c81ea at Wilczy Półmaraton 2026-10-17: frames every 200 ms.
+const OFFSET = 1792216734.9973624
+const frames = ['10689400700000', '10689600690000', '10689800682000', '10690000656000']
+
+test('a frame stamp maps to wall time through the clock offset', () => {
+  assert.equal(new Date(Math.round(frameWallMs(frames[0], OFFSET))).toISOString(), '2026-10-17T08:57:04.398Z')
+})
+
+test('the frame nearest 203 and 201 at the line', () => {
+  assert.equal(nearestFrameIndex(frames, OFFSET, Date.parse(at('08:57:04.673'))), 1) // frame at .598
+  assert.equal(nearestFrameIndex(frames, OFFSET, Date.parse(at('08:57:04.701'))), 2) // frame at .798
+  assert.equal(nearestFrameIndex([], OFFSET, 0), -1)
+})
+
+test('the session recording at the finish is picked, not the later replay', () => {
+  const sessions = [
+    { id: 'replay', clockOffset: OFFSET, startedAt: '2026-10-17T21:01:14Z', stoppedAt: '2026-10-18T09:50:40Z' },
+    { id: 'race', clockOffset: OFFSET, startedAt: '2026-10-17T06:38:47Z', stoppedAt: '2026-10-17T15:49:28Z' },
+    { id: 'open', clockOffset: null, startedAt: '2026-10-17T06:00:00Z', stoppedAt: null },
+  ]
+  assert.equal(sessionAt(sessions, Date.parse(at('08:57:04.673'))).id, 'race')
+  assert.equal(sessionAt(sessions, Date.parse('2026-10-19T00:00:00Z')), null)
 })

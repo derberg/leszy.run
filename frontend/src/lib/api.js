@@ -111,7 +111,7 @@ export const api = {
       return send('GET', `/vision/sessions/${id}/sightings${q ? `?${q}` : ''}`)
     },
     review: (id, filter) => send('GET', `/vision/sessions/${id}/review${filter ? `?filter=${filter}` : ''}`),
-    reviewFrames: (id, participantId) => request('GET', `/vision/sessions/${id}/review/${participantId}/frames`),
+    reviewFrames: (id, participantId, raceRunId) => request('GET', `/vision/sessions/${id}/review/${participantId}/frames${raceRunId ? `?raceRunId=${raceRunId}` : ''}`),
     setReview: (id, participantId, body) => request('PUT', `/vision/sessions/${id}/review/${participantId}`, body),
     clearReview: (id, participantId) => request('DELETE', `/vision/sessions/${id}/review/${participantId}`),
     cropUrl: (id, name) => `${BASE}/api/vision/sessions/${id}/crop/${encodeURIComponent(name)}`,

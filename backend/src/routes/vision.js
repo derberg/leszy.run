@@ -336,7 +336,9 @@ export async function visionRoutes(fastify) {
   })
 
   // GET /api/vision/sessions/:id/review/:participantId/frames
-  // The frames around this finisher's chip time, oldest first.
+  // The frames around this finisher's chip time, oldest first. `?raceRunId=`
+  // names the run; without it the newest run with a finish is used, so a
+  // rehearsal left `finished` instead of `cancelled` cannot centre the window.
   fastify.get('/vision/sessions/:id/review/:participantId/frames', async (req, reply) => {
     const session = await loadSession(db, req.params.id)
     if (!session) return reply.code(404).send({ error: 'Session not found' })
@@ -347,7 +349,9 @@ export async function visionRoutes(fastify) {
         eq(results.participantId, req.params.participantId),
         ne(raceRuns.status, 'cancelled'),
         isNotNull(results.finishTime),
+        req.query.raceRunId ? eq(results.raceRunId, String(req.query.raceRunId)) : undefined,
       ))
+      .orderBy(desc(results.finishTime))
       .limit(1)
     if (!row) return reply.code(404).send({ error: 'No chip finish for this participant' })
     const stamps = await frameStamps(session.queueDir)
