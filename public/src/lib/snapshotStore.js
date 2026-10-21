@@ -3,8 +3,8 @@
 // on one page share it, so a tab asks once per interval however many of them
 // are mounted.
 
-// While a run is active, every 10 s. Before and after the race, every 60 s.
-const LIVE_POLL_MS = 10_000
+// While a run is active, every 5 s. Before and after the race, every 60 s.
+const LIVE_POLL_MS = 5_000
 const IDLE_POLL_MS = 60_000
 
 /** @type {Map<string, { snapshot: object|null, listeners: Set<() => void>, timer: any, inFlight: boolean, onVisible: () => void }>} */
