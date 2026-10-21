@@ -10,7 +10,7 @@ export default function Reklamacje() {
 
       <section id="zakres">
         <h2 className="font-display text-2xl uppercase">§1. Zakres</h2>
-        <p className="mt-3">Procedura dotyczy usług świadczonych drogą elektroniczną w serwisie Leszy.run przez Usługodawcę: Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140.</p>
+        <p className="mt-3">Procedura dotyczy usług świadczonych drogą elektroniczną w serwisie LESZY.RUN przez Usługodawcę: Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140.</p>
         <p className="mt-3">Pojęcia pisane wielką literą mają znaczenie nadane im w <a href="/regulamin" className="text-apex-yellow underline">Regulaminie serwisu</a>.</p>
         <p className="mt-3">Sprawy dotyczące przebiegu zawodów, klasyfikacji i protestów co do wyników rozstrzyga Organizator zgodnie z regulaminem danych zawodów. Błąd w wyniku można zgłosić także Usługodawcy, który przekaże zgłoszenie Organizatorowi.</p>
       </section>

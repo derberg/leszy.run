@@ -4,19 +4,19 @@ export default function Regulamin() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12 text-apex-text">
       <header className="mb-8">
-        <h1 className="font-display text-4xl font-extrabold uppercase text-apex-text-bright">Regulamin serwisu Leszy.run</h1>
+        <h1 className="font-display text-4xl font-extrabold uppercase text-apex-text-bright">Regulamin serwisu LESZY.RUN</h1>
         <p className="mt-2 text-sm text-apex-muted">Wersja {POLICY_VERSION}</p>
       </header>
 
       <section id="definicje">
         <h2 className="font-display text-2xl uppercase">§1. Definicje</h2>
         <ul className="mt-3 list-disc space-y-2 pl-6">
-          <li><strong>Usługodawca:</strong> Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run pod adresem www.leszy.run, kontakt: lukasz@leszy.run.</li>
-          <li><strong>Serwis:</strong> witryna internetowa Leszy.run wraz z funkcjonalnościami dostępnymi po rejestracji konta.</li>
+          <li><strong>Usługodawca:</strong> Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis LESZY.RUN pod adresem www.leszy.run, kontakt: lukasz@leszy.run.</li>
+          <li><strong>Serwis:</strong> witryna internetowa LESZY.RUN wraz z funkcjonalnościami dostępnymi po rejestracji konta.</li>
           <li><strong>Użytkownik:</strong> osoba fizyczna posiadająca konto w Serwisie.</li>
           <li><strong>Konto:</strong> indywidualny profil Użytkownika, identyfikowany adresem email.</li>
           <li><strong>Organizator:</strong> podmiot organizujący zawody biegowe, korzystający z usług pomiaru czasu Usługodawcy.</li>
-          <li><strong>Uczestnik:</strong> osoba startująca w zawodach obsługiwanych przez Leszy.run.</li>
+          <li><strong>Uczestnik:</strong> osoba startująca w zawodach obsługiwanych przez LESZY.RUN.</li>
         </ul>
       </section>
 

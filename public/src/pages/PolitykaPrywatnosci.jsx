@@ -10,8 +10,8 @@ export default function PolitykaPrywatnosci() {
 
       <section id="administrator">
         <h2 className="font-display text-2xl uppercase">1. Administrator danych osobowych</h2>
-        <p className="mt-3">Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run. Kontakt: <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
-        <p className="mt-3"><strong>Leszy.run jest administratorem danych osobowych przetwarzanych w serwisie — niezależnie od tego, czy zostały podane bezpośrednio przy rejestracji konta, czy pozyskane od organizatora biegu przy imporcie listy startowej.</strong> Organizator biegu pozostaje administratorem danych w swoim własnym systemie zapisów, lecz po przekazaniu danych do Leszy.run administratorem tych danych w naszej bazie jest wyłącznie Leszy.run. Wszelkie wnioski (dostęp, usunięcie, sprostowanie, sprzeciw) należy kierować do <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
+        <p className="mt-3">Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis LESZY.RUN. Kontakt: <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
+        <p className="mt-3"><strong>LESZY.RUN jest administratorem danych osobowych przetwarzanych w serwisie — niezależnie od tego, czy zostały podane bezpośrednio przy rejestracji konta, czy pozyskane od organizatora biegu przy imporcie listy startowej.</strong> Organizator biegu pozostaje administratorem danych w swoim własnym systemie zapisów, lecz po przekazaniu danych do LESZY.RUN administratorem tych danych w naszej bazie jest wyłącznie LESZY.RUN. Wszelkie wnioski (dostęp, usunięcie, sprostowanie, sprzeciw) należy kierować do <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
       </section>
 
       <section id="zakres" className="mt-8">
@@ -30,7 +30,7 @@ export default function PolitykaPrywatnosci() {
         <h2 className="font-display text-2xl uppercase">3. Cele i podstawy prawne przetwarzania</h2>
         <ul className="mt-3 list-disc space-y-2 pl-6">
           <li><strong>Konto użytkownika:</strong> Art. 6(1)(b) RODO — wykonanie umowy o świadczenie usług elektronicznych.</li>
-          <li><strong>Uczestnictwo w biegu (dane od organizatora):</strong> Art. 6(1)(f) RODO — uzasadniony interes Leszy.run (świadczenie usługi pomiaru czasu i prowadzenie archiwum sportowego). Uczestnik może w każdej chwili wnieść sprzeciw — wówczas dane zostaną zanonimizowane.</li>
+          <li><strong>Uczestnictwo w biegu (dane od organizatora):</strong> Art. 6(1)(f) RODO — uzasadniony interes LESZY.RUN (świadczenie usługi pomiaru czasu i prowadzenie archiwum sportowego). Uczestnik może w każdej chwili wnieść sprzeciw — wówczas dane zostaną zanonimizowane.</li>
           <li><strong>Pomiary czasu:</strong> Art. 6(1)(f) RODO — uzasadniony interes (integralność i weryfikowalność wyników).</li>
           <li><strong>Wyniki publiczne i archiwum:</strong> Art. 6(1)(f) RODO — uzasadniony interes (archiwum sportowe, transparentność).</li>
           <li><strong>SMS check-in:</strong> Art. 6(1)(b) RODO — wykonanie umowy.</li>
@@ -48,7 +48,7 @@ export default function PolitykaPrywatnosci() {
           <li><strong>Logi zgody (consent_log):</strong> bezterminowo (dowód zgody).</li>
           <li><strong>Dane analityczne GA4:</strong> 14 miesięcy (konfiguracja Google).</li>
         </ul>
-        <p className="mt-3"><strong>Po usunięciu konta na Leszy.run, ten sam adres email nie może już zostać użyty do ponownej rejestracji.</strong> Jest to celowa polityka — usunięcie konta jest ostateczne i nieodwracalne.</p>
+        <p className="mt-3"><strong>Po usunięciu konta na LESZY.RUN, ten sam adres email nie może już zostać użyty do ponownej rejestracji.</strong> Jest to celowa polityka — usunięcie konta jest ostateczne i nieodwracalne.</p>
       </section>
 
       <section id="odbiorcy" className="mt-8">
