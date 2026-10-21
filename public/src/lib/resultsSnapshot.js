@@ -36,7 +36,8 @@ export async function buildResultsSnapshot(supabase, eventId) {
     readAll(() => supabase.from('checkpoints').select('id, name, km_marker, private, is_near_finish')
       .eq('event_id', eventId).order('id')),
   ])
-  // An untimed category, such as a kids' run, is never on the public page.
+  // An untimed category has no times or places, so the results page has
+  // nothing to show for it. A timed kids' category shows like any other.
   const categories = allCategories.filter(c => !c.untimed).map(c => ({ id: c.id, name: c.name }))
   // A private checkpoint holds volunteer entries only operators review, such as
   // the manual finish. The near-finish checkpoint stays even when private,
