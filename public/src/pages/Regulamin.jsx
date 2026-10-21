@@ -22,7 +22,22 @@ export default function Regulamin() {
 
       <section id="warunki" className="mt-8">
         <h2 className="font-display text-2xl uppercase">§2. Warunki świadczenia usług elektronicznych</h2>
-        <p className="mt-3">Usługodawca świadczy drogą elektroniczną nieodpłatne usługi obejmujące: rejestrację konta, prezentację kalendarza biegów, prezentację wyników biegów, składanie zgłoszeń wydarzeń i innych wkładów społecznościowych.</p>
+        <p className="mt-3">Usługodawca świadczy drogą elektroniczną nieodpłatnie następujące usługi:</p>
+        <ul className="mt-3 list-disc space-y-2 pl-6">
+          <li>rejestrację i prowadzenie Konta,</li>
+          <li>prezentację kalendarza biegów i wyników zawodów,</li>
+          <li>tworzenie klubów i zarządzanie nimi,</li>
+          <li>przyjmowanie zapisów na zawody,</li>
+          <li>składanie zgłoszeń wydarzeń i innych wkładów społecznościowych.</li>
+        </ul>
+        <p className="mt-3">Organizatorowi Usługodawca świadczy ponadto usługi odpłatne, które Organizator może włączyć dla swoich zawodów:</p>
+        <ul className="mt-3 list-disc space-y-2 pl-6">
+          <li>przyjmowanie płatności online za udział w zawodach,</li>
+          <li>wysyłkę wiadomości email do Uczestników,</li>
+          <li>wysyłkę wiadomości SMS do Uczestników.</li>
+        </ul>
+        <p className="mt-3">Cenę i warunki usługi odpłatnej Usługodawca przekazuje Organizatorowi przed jej włączeniem. Usługa jest świadczona dopiero po zaakceptowaniu tych warunków przez Organizatora.</p>
+        <p className="mt-3">Dla Użytkowników i Uczestników korzystanie z Serwisu jest nieodpłatne. Wysokość opłaty startowej za udział w zawodach ustala Organizator.</p>
         <p className="mt-3">Wymagania techniczne: przeglądarka internetowa z obsługą JavaScript i ciasteczek, aktywne połączenie internetowe.</p>
       </section>
 
