@@ -27,7 +27,7 @@ export default function Regulamin() {
           <li>rejestrację i prowadzenie Konta,</li>
           <li>prezentację kalendarza biegów i wyników zawodów,</li>
           <li>tworzenie klubów i zarządzanie nimi,</li>
-          <li>przyjmowanie zapisów na zawody,</li>
+          <li>przyjmowanie zapisów na zawody, bez obsługi płatności online,</li>
           <li>składanie zgłoszeń wydarzeń i innych wkładów społecznościowych.</li>
         </ul>
         <p className="mt-3">Usługodawca może świadczyć Organizatorowi usługi dodatkowe, w tym odpłatne. Ich zakres, cenę i warunki Usługodawca przekazuje Organizatorowi przed włączeniem usługi, a usługa jest świadczona dopiero po zaakceptowaniu tych warunków.</p>
