@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { useMemo } from 'react'
 import { anonymizedName } from '../ui/index.js'
 import { excludedParticipants, nearFinishRunners } from '../lib/nearFinish.js'
-import { coalesce } from '../lib/liveResults.js'
+import { nearFinishInputs } from '../lib/resultsSnapshot.js'
+import { useResultsSnapshot } from '../hooks/useResultsSnapshot.js'
 
 function formatTime(iso) {
   return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -10,92 +10,24 @@ function formatTime(iso) {
 
 /**
  * Shows runners observed at the near-finish checkpoint who have not finished yet.
+ * @param {string} eventId
  * @param {string} nearFinishCheckpointId - the checkpoint with is_near_finish=true
  * @param {Array} categories - all timed categories for this event
  */
-export default function NearFinish({ nearFinishCheckpointId, categories }) {
-  const [runners, setRunners] = useState([])
-  const [loading, setLoading] = useState(true)
+export default function NearFinish({ eventId, nearFinishCheckpointId, categories }) {
+  const snapshot = useResultsSnapshot(eventId)
+  const loading = !snapshot
 
-  const catMap = Object.fromEntries(categories.map(c => [c.id, c.name]))
-
-  const loadData = useCallback(async () => {
-    // 1. Fetch observations for this checkpoint
-    const { data: obsData } = await supabase.from('checkpoint_observations')
-      .select('id, checkpoint_id, bib_number, participant_id, observed_at')
-      .eq('checkpoint_id', nearFinishCheckpointId)
-      .order('observed_at', { ascending: false })
-
-    const observations = obsData || []
-
-    // 2. Get participant IDs and bib numbers to fetch participant details
-    const participantIds = [...new Set(observations.filter(o => o.participant_id).map(o => o.participant_id))]
-    const bibNumbers = [...new Set(observations.map(o => o.bib_number))]
-
-    let participants = []
-    if (participantIds.length > 0) {
-      const { data } = await supabase.from('participants_public')
-        .select('id, bib_number, first_name, last_name, category_id, deleted_at')
-        .in('id', participantIds)
-      participants = data || []
-    }
-    // Also fetch by bib for observations without participant_id
-    if (bibNumbers.length > 0) {
-      const { data } = await supabase.from('participants_public')
-        .select('id, bib_number, first_name, last_name, category_id, deleted_at')
-        .in('bib_number', bibNumbers)
-      if (data) {
-        const existingIds = new Set(participants.map(p => p.id))
-        for (const p of data) {
-          if (!existingIds.has(p.id)) participants.push(p)
-        }
-      }
-    }
-
-    // Runners already past the finish (and DNS runners) leave the list — see lib/nearFinish.js.
-    let resultRows = []
-    if (participants.length > 0) {
-      const { data } = await supabase.from('results')
-        .select('participant_id, status, finish_time, race_runs!inner(status)')
-        .in('participant_id', participants.map(p => p.id))
-        .in('race_runs.status', ['active', 'finished'])
-      resultRows = data || []
-    }
-
-    const deduped = nearFinishRunners({
+  const runners = useMemo(() => {
+    if (!snapshot) return []
+    const { observations, participants, results } = nearFinishInputs(snapshot, nearFinishCheckpointId)
+    return nearFinishRunners({
       observations,
       participants,
-      excluded: excludedParticipants(resultRows),
-      catMap,
+      excluded: excludedParticipants(results),
+      catMap: Object.fromEntries(categories.map(c => [c.id, c.name])),
     })
-
-    setRunners(deduped)
-    setLoading(false)
-  }, [nearFinishCheckpointId, categories])
-
-  useEffect(() => { loadData() }, [loadData])
-
-  // Real-time: subscribe to checkpoint_observations inserts for this checkpoint
-  // One reload per burst of passes, not one per pass in every open tab.
-  useEffect(() => {
-    const reload = coalesce(loadData, 3000, 3000)
-    const channel = supabase.channel(`near-finish-${nearFinishCheckpointId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'checkpoint_observations',
-        filter: `checkpoint_id=eq.${nearFinishCheckpointId}`,
-      }, () => reload.trigger())
-      .subscribe()
-
-    return () => { reload.cancel(); supabase.removeChannel(channel) }
-  }, [nearFinishCheckpointId, loadData])
-
-  // Poll every 30s as fallback
-  useEffect(() => {
-    const interval = setInterval(loadData, 30000)
-    return () => clearInterval(interval)
-  }, [loadData])
+  }, [snapshot, nearFinishCheckpointId, categories])
 
   if (loading) {
     return (

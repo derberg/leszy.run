@@ -87,6 +87,10 @@ wrong base or another topic leaked in.
 - **Vercel** — serves the `public/` app only (landing, kalendarz, event/club pages).
   Merging to `main` is what ships it; the build pre-generates static pages from
   committed manifests.
+  The CLI link (`.vercel/project.json`, project `leszy-public`, root directory
+  `public`) sits at the repo root, so run `vercel` commands from there. Run from
+  `public/`, which has no link, `vercel ... --yes` creates a new empty project.
+  Only the user creates or deletes Vercel projects.
 - **Backend / frontend** — run natively on macOS (`cd backend && npm run dev`,
   `cd frontend && npm run dev`). **Scheduler / enricher / PostgreSQL / SearXNG** —
   Docker via `docker compose up -d`. The compose `backend`/`frontend` services are

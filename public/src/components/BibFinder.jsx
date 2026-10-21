@@ -1,11 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
 import { useCategoryResults } from '../hooks/useCategoryResults.js'
+import { useResultsSnapshot } from '../hooks/useResultsSnapshot.js'
 import { formatDuration } from '../lib/formatDuration.js'
 import { RunnerResultCard, estimatePositions, findRunners, runnerSummary, anonymizedName } from '../ui/index.js'
-
-const PAGE = 1000
 
 /**
  * "Znajdź swój wynik": type a bib (or a name) and see that runner's result,
@@ -21,59 +19,31 @@ export default function BibFinder({ eventId, categories, raceRuns, isPastEvent }
   const [searchParams, setSearchParams] = useSearchParams()
   const [mode, setMode] = useState('bib')
   const [query, setQuery] = useState(() => searchParams.get('nr') || '')
-  const [participants, setParticipants] = useState(null)
   // Set by picking a runner from a list. Two categories can hand out the same
   // bib, and a runner can have no bib yet, so the bib alone cannot say who.
   const [selectedId, setSelectedId] = useState(null)
   // Resolving waits for typing to pause: "123" would otherwise open bib 1,
   // then 12, then 123, and load a category for each.
   const [settled, setSettled] = useState(query)
-  const loadingRef = useRef(false)
   const inputRef = useRef(null)
 
   const categoryIds = useMemo(() => categories.map(c => c.id), [categories])
   const categoryName = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c.name])), [categories])
 
-  // The roster is fetched on first use, not on every page view: most viewers
-  // never search, and a live race page is opened by many people at once.
-  const loadParticipants = () => {
-    if (participants || loadingRef.current || !categoryIds.length) return
-    loadingRef.current = true
-    // PostgREST answers at most 1000 rows, so a bigger field is read in pages.
-    const fetchAll = async () => {
-      const rows = []
-      for (let from = 0; ; from += PAGE) {
-        const { data, error } = await supabase.from('participants_public')
-          .select('id, bib_number, first_name, last_name, category_id, deleted_at')
-          .in('category_id', categoryIds)
-          .order('id')
-          .range(from, from + PAGE - 1)
-        if (error || !data) throw error
-        rows.push(...data)
-        if (data.length < PAGE) return rows
-      }
-    }
-    fetchAll().then(rows => {
-      setParticipants(rows.map(p => ({
-        ...p, bibNumber: p.bib_number, firstName: p.first_name, lastName: p.last_name,
-      })))
-    }).catch(() => {
-      // An overloaded API must not leave the skeleton up for good: try again,
-      // spread over 5–10 s so the open tabs do not all ask at once.
-      setTimeout(() => loadRef.current(), 5000 + Math.random() * 5000)
-    }).finally(() => { loadingRef.current = false })
-  }
-  const loadRef = useRef(loadParticipants)
-  loadRef.current = loadParticipants
+  // The roster comes with the results snapshot, null until it arrives.
+  const snapshot = useResultsSnapshot(eventId)
+  const participants = useMemo(() => {
+    if (!snapshot) return null
+    const shown = new Set(categoryIds)
+    return snapshot.participants
+      .filter(p => shown.has(p.category_id))
+      .map(p => ({ ...p, bibNumber: p.bib_number, firstName: p.first_name, lastName: p.last_name }))
+  }, [snapshot, categoryIds])
 
   useEffect(() => {
     const t = setTimeout(() => setSettled(query), 300)
     return () => clearTimeout(t)
   }, [query])
-
-  useEffect(() => {
-    if (query) loadParticipants()
-  }, [query, categoryIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep ?nr= in step with a bib search, without adding history entries.
   // It follows the settled query, so the address changes once per pause and
@@ -138,7 +108,6 @@ export default function BibFinder({ eventId, categories, raceRuns, isPastEvent }
           enterKeyHint="search"
           placeholder={mode === 'bib' ? 'Numer startowy' : 'Imię lub nazwisko'}
           value={query}
-          onFocus={loadParticipants}
           onChange={e => type(mode === 'bib' ? e.target.value.replace(/[^0-9]/g, '') : e.target.value)}
           className={`flex-1 min-w-0 bg-transparent outline-none text-xl font-bold text-apex-text-bright placeholder:text-apex-dim placeholder:font-semibold [&::-webkit-search-cancel-button]:hidden ${mode === 'bib' ? 'font-mono' : ''}`}
         />
