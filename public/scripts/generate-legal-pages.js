@@ -28,6 +28,13 @@ const PAGES = [
     lang: 'pl-PL',
   },
   {
+    slug: 'reklamacje',
+    title: 'Reklamacje — Leszy.run',
+    description: 'Jak złożyć reklamację dotyczącą serwisu Leszy.run i w jakim terminie ją rozpatrujemy.',
+    canonical: 'https://www.leszy.run/reklamacje',
+    lang: 'pl-PL',
+  },
+  {
     slug: 'podmioty-przetwarzajace',
     title: 'Podmioty przetwarzające — Leszy.run',
     description: 'Lista podmiotów współpracujących z Leszy.run w zakresie przetwarzania danych osobowych.',

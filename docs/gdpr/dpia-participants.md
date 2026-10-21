@@ -2,7 +2,7 @@
 
 **Wersja:** 1.0
 **Data:** 2026-06-04
-**Administrator:** Łukasz Górnicki, lukasz@leszy.run
+**Administrator:** Wookiee Łukasz Górnicki (NIP 6292248418), lukasz@leszy.run
 **Podstawa wymogu:** Art. 35 RODO — przetwarzanie wysokiego ryzyka.
 
 ## 1. Opis przetwarzania

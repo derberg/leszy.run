@@ -4,7 +4,6 @@ const PROCESSORS = [
   { name: 'SMSAPI sp. z o.o.', country: 'Polska', purpose: 'Wysyłka wiadomości SMS check-in', dpa: 'https://www.smsapi.pl/dokumenty-prawne' },
   { name: 'Twilio Inc. / SendGrid', country: 'USA (EU SCC)', purpose: 'Wysyłka wiadomości email', dpa: 'https://www.twilio.com/legal/data-protection-addendum' },
   { name: 'Google Ireland Ltd.', country: 'Irlandia / USA (EU SCC)', purpose: 'Analityka GA4 (tylko po wyrażeniu zgody)', dpa: 'https://support.google.com/analytics/answer/9012600' },
-  { name: 'Google Fonts (CDN)', country: 'Globalnie', purpose: 'Renderowanie czcionek', dpa: '—' },
 ]
 
 export default function PodmiotyPrzetwarzajace() {

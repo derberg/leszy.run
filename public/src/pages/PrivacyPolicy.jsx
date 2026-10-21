@@ -10,8 +10,8 @@ export default function PrivacyPolicy() {
 
       <section id="administrator">
         <h2 className="font-display text-2xl uppercase">1. Data Controller</h2>
-        <p className="mt-3">Łukasz Górnicki, operating the Leszy.run service. Contact: <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
-        <p className="mt-3"><strong>Leszy.run is the sole data controller for all personal data processed within the service — regardless of whether the data was provided directly during account registration or obtained from a race organiser upon import of the start list.</strong> The race organiser remains the controller of data within their own registration system, but once data has been transferred to Leszy.run, the sole controller of that data within our database is Leszy.run. All requests (access, erasure, rectification, objection) should be directed to <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
+        <p className="mt-3">Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, Poland, NIP (tax ID) 6292248418, REGON 385416140, operating the LESZY.RUN service. Contact: <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
+        <p className="mt-3"><strong>LESZY.RUN is the sole data controller for all personal data processed within the service — regardless of whether the data was provided directly during account registration or obtained from a race organiser upon import of the start list.</strong> The race organiser remains the controller of data within their own registration system, but once data has been transferred to LESZY.RUN, the sole controller of that data within our database is LESZY.RUN. All requests (access, erasure, rectification, objection) should be directed to <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
       </section>
 
       <section id="zakres" className="mt-8">
@@ -30,7 +30,7 @@ export default function PrivacyPolicy() {
         <h2 className="font-display text-2xl uppercase">3. Purposes and Legal Bases for Processing</h2>
         <ul className="mt-3 list-disc space-y-2 pl-6">
           <li><strong>User account:</strong> Art. 6(1)(b) GDPR — performance of a contract for the provision of electronic services.</li>
-          <li><strong>Race participation (data from organiser):</strong> Art. 6(1)(f) GDPR — legitimate interest of Leszy.run (provision of race timing services and maintenance of a sports archive). A participant may object at any time — in such a case, their data will be anonymised.</li>
+          <li><strong>Race participation (data from organiser):</strong> Art. 6(1)(f) GDPR — legitimate interest of LESZY.RUN (provision of race timing services and maintenance of a sports archive). A participant may object at any time — in such a case, their data will be anonymised.</li>
           <li><strong>Timing measurements:</strong> Art. 6(1)(f) GDPR — legitimate interest (integrity and verifiability of results).</li>
           <li><strong>Public results and archive:</strong> Art. 6(1)(f) GDPR — legitimate interest (sports archive, transparency).</li>
           <li><strong>SMS check-in:</strong> Art. 6(1)(b) GDPR — performance of a contract.</li>
@@ -48,13 +48,13 @@ export default function PrivacyPolicy() {
           <li><strong>Consent logs (consent_log):</strong> indefinitely (proof of consent).</li>
           <li><strong>GA4 analytics data:</strong> 14 months (Google configuration).</li>
         </ul>
-        <p className="mt-3"><strong>After an account is deleted on Leszy.run, the same email address cannot be used to register again.</strong> This is a deliberate policy — account deletion is final and irreversible.</p>
+        <p className="mt-3"><strong>After an account is deleted on LESZY.RUN, the same email address cannot be used to register again.</strong> This is a deliberate policy — account deletion is final and irreversible.</p>
       </section>
 
       <section id="odbiorcy" className="mt-8">
         <h2 className="font-display text-2xl uppercase">5. Recipients of Data</h2>
         <p className="mt-3">The full list of data processors, including links to their Data Processing Agreements (DPAs), is available at: <a href="/podmioty-przetwarzajace" className="text-apex-yellow underline">/podmioty-przetwarzajace</a>.</p>
-        <p className="mt-3">We use the following processors: Supabase, Inc. (database and authentication), Vercel, Inc. (hosting), SMSAPI sp. z o.o. (SMS), Twilio Inc. / SendGrid (transactional email), Google Ireland Ltd. (GA4 analytics), Google Fonts (font CDN).</p>
+        <p className="mt-3">We use the following processors: Supabase, Inc. (database and authentication), Vercel, Inc. (hosting), SMSAPI sp. z o.o. (SMS), Twilio Inc. / SendGrid (transactional email), Google Ireland Ltd. (GA4 analytics).</p>
       </section>
 
       <section id="prawa" className="mt-8">

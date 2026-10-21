@@ -36,7 +36,7 @@ This project is RODO/GDPR-compliant. Reference documents:
 - [docs/gdpr/rls-audit.md](docs/gdpr/rls-audit.md) — Supabase RLS audit
 - [docs/gdpr/profile-exposure.md](docs/gdpr/profile-exposure.md) — Public profile field exposure audit
 - [docs/gdpr/dpa-checklist.md](docs/gdpr/dpa-checklist.md) — Operator action items (gitignored)
-- Public legal pages: `/polityka-prywatnosci`, `/privacy-policy`, `/regulamin`, `/podmioty-przetwarzajace`
+- Public legal pages: `/polityka-prywatnosci`, `/privacy-policy`, `/regulamin`, `/reklamacje`, `/podmioty-przetwarzajace`
 
 **Bumping privacy policy version:** edit `POLICY_VERSION` in [public/src/lib/policyVersion.js](public/src/lib/policyVersion.js). The cookie banner detects mismatch and re-prompts every user automatically.
 
