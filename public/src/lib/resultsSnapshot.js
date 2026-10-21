@@ -138,6 +138,10 @@ export function categoryView(snapshot, categoryId) {
       gunDurationMs: r.gun_duration_ms,
       participant: pMap[r.participant_id],
     }))
+    // estimatePositions keeps the input order for runners it cannot tell
+    // apart, such as DNS runners with no times. Sorting by bib makes that
+    // order fixed and easy to scan.
+    .sort((a, b) => (a.participant?.bibNumber ?? Infinity) - (b.participant?.bibNumber ?? Infinity) || a.id.localeCompare(b.id))
 
   // observed_at >= run.started_at is REQUIRED, not an over-cautious guard: a
   // runner cannot have reached a mid-course checkpoint before the gun, so an

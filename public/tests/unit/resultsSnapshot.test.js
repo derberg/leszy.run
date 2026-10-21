@@ -168,6 +168,23 @@ describe('categoryView', () => {
     assert.equal(v.results[0].participant.bibNumber, 1)
   })
 
+  it('passes results to the ranking in bib order, so tied runners always show the same way', () => {
+    const snap = {
+      ...base,
+      participants: [
+        { id: 'pa', category_id: 'c10', bib_number: 30 },
+        { id: 'pb', category_id: 'c10', bib_number: 4 },
+        { id: 'pc', category_id: 'c10', bib_number: null },
+      ],
+      results: [
+        { id: 'ra', race_run_id: 'run', participant_id: 'pa', status: 'dns' },
+        { id: 'rc', race_run_id: 'run', participant_id: 'pc', status: 'dns' },
+        { id: 'rb', race_run_id: 'run', participant_id: 'pb', status: 'dns' },
+      ],
+    }
+    assert.deepEqual(categoryView(snap, 'c10').results.map(r => r.id), ['rb', 'ra', 'rc'])
+  })
+
   it('drops observations from before the gun, from other categories and at private checkpoints', () => {
     assert.deepEqual(categoryView(base, 'c10').observations.map(o => o.id), ['real', 'unmatched'])
     assert.equal(categoryView(base, 'c10').observations[0].observedAt, '2026-10-17T09:20:00Z')
