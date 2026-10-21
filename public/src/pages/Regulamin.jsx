@@ -38,7 +38,7 @@ export default function Regulamin() {
       <section id="rejestracja" className="mt-8">
         <h2 className="font-display text-2xl uppercase">§3. Rejestracja i konto</h2>
         <p className="mt-3">Rejestracja wymaga podania adresu email i akceptacji niniejszego Regulaminu oraz <a href="/polityka-prywatnosci" className="text-apex-yellow underline">Polityki prywatności</a>.</p>
-        <p className="mt-3">Konto może posiadać wyłącznie osoba pełnoletnia. Konta osób małoletnich mogą być zakładane wyłącznie przez ich opiekunów prawnych.</p>
+        <p className="mt-3">Konto może założyć osoba, która ukończyła 16 lat.</p>
       </section>
 
       <section id="zasady" className="mt-8">
@@ -52,25 +52,42 @@ export default function Regulamin() {
         </ul>
       </section>
 
+      <section id="zapisy" className="mt-8">
+        <h2 className="font-display text-2xl uppercase">§5. Zapisy na zawody</h2>
+        <ol className="mt-3 list-decimal space-y-2 pl-6">
+          <li>Zapisując się na zawody, Uczestnik zawiera umowę o udział w zawodach z Organizatorem. Usługodawca przyjmuje zapisy w imieniu Organizatora i nie jest stroną tej umowy.</li>
+          <li>Za przebieg zawodów, ich odwołanie lub zmianę oraz zwrot opłat odpowiada Organizator, na zasadach określonych w regulaminie zawodów.</li>
+          <li>Uczestnikowi nie przysługuje ustawowe prawo odstąpienia od umowy o udział w zawodach (art. 38 pkt 12 ustawy o prawach konsumenta). Zasady rezygnacji i ewentualnego zwrotu opłaty określa Organizator w regulaminie zawodów.</li>
+        </ol>
+      </section>
+
+      <section id="tresci" className="mt-8">
+        <h2 className="font-display text-2xl uppercase">§6. Treści Użytkowników</h2>
+        <ol className="mt-3 list-decimal space-y-2 pl-6">
+          <li>Treści bezprawne lub naruszające Regulamin można zgłosić na adres <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>. Zgłoszenie powinno wskazywać treść, jej lokalizację i powód zgłoszenia. Ten adres jest też punktem kontaktowym dla organów i Użytkowników, a korespondencja odbywa się w języku polskim.</li>
+          <li>Usługodawca może usunąć treść lub zablokować Konto, jeśli narusza ono prawo lub Regulamin. O takiej decyzji informuje Użytkownika, podając jej uzasadnienie, a Użytkownik może się od niej odwołać w trybie reklamacji.</li>
+        </ol>
+      </section>
+
       <section id="reklamacje" className="mt-8">
-        <h2 className="font-display text-2xl uppercase">§5. Reklamacje</h2>
+        <h2 className="font-display text-2xl uppercase">§7. Reklamacje</h2>
         <p className="mt-3">Zasady składania i rozpatrywania reklamacji określa <a href="/reklamacje" className="text-apex-yellow underline">Procedura reklamacyjna</a>.</p>
       </section>
 
       <section id="rozwiazanie" className="mt-8">
-        <h2 className="font-display text-2xl uppercase">§6. Rozwiązanie umowy</h2>
+        <h2 className="font-display text-2xl uppercase">§8. Rozwiązanie umowy</h2>
         <p className="mt-3">Użytkownik może w każdej chwili usunąć konto przez funkcjonalność „Usuń konto" w sekcji <a href="/profil" className="text-apex-yellow underline">/profil</a>. Usunięcie konta jest nieodwracalne — tego samego adresu email nie da się ponownie wykorzystać do rejestracji.</p>
         <p className="mt-3">Usługodawca może rozwiązać umowę z Użytkownikiem w przypadku rażącego naruszenia Regulaminu, po uprzednim wezwaniu do zaprzestania naruszeń.</p>
       </section>
 
       <section id="prawo" className="mt-8">
-        <h2 className="font-display text-2xl uppercase">§7. Prawo właściwe i sąd właściwy</h2>
-        <p className="mt-3">Prawem właściwym dla niniejszego Regulaminu jest prawo polskie. Sądem właściwym jest sąd właściwy miejscowo dla siedziby Usługodawcy.</p>
+        <h2 className="font-display text-2xl uppercase">§9. Prawo właściwe i sąd właściwy</h2>
+        <p className="mt-3">Prawem właściwym dla niniejszego Regulaminu jest prawo polskie. Sądem właściwym jest sąd właściwy miejscowo dla siedziby Usługodawcy, z wyjątkiem Użytkowników będących konsumentami, wobec których sąd właściwy ustala się według przepisów ogólnych.</p>
       </section>
 
       <section id="postanowienia" className="mt-8">
-        <h2 className="font-display text-2xl uppercase">§8. Postanowienia końcowe</h2>
-        <p className="mt-3">Regulamin wchodzi w życie z dniem {POLICY_VERSION}. Usługodawca może zmieniać Regulamin — o zmianach Użytkownicy będą informowani z 14-dniowym wyprzedzeniem przez komunikat w Serwisie.</p>
+        <h2 className="font-display text-2xl uppercase">§10. Postanowienia końcowe</h2>
+        <p className="mt-3">Regulamin wchodzi w życie z dniem {POLICY_VERSION}. O zmianie Regulaminu Usługodawca informuje Użytkowników mailowo i komunikatem w Serwisie co najmniej 14 dni przed jej wejściem w życie. Użytkownik, który nie akceptuje zmian, może przed tym terminem usunąć Konto.</p>
       </section>
     </article>
   )
