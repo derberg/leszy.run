@@ -1,6 +1,6 @@
 # Rejestr Czynności Przetwarzania (ROPA) — Leszy.run
 
-**Administrator:** Łukasz Górnicki prowadzący działalność gospodarczą pod firmą Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
+**Administrator:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
 **Data ostatniej aktualizacji:** 2026-10-20
 **Wersja:** 1.2

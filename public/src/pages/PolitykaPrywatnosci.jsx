@@ -10,7 +10,7 @@ export default function PolitykaPrywatnosci() {
 
       <section id="administrator">
         <h2 className="font-display text-2xl uppercase">1. Administrator danych osobowych</h2>
-        <p className="mt-3">Łukasz Górnicki prowadzący działalność gospodarczą pod firmą Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run. Kontakt: <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
+        <p className="mt-3">Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run. Kontakt: <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
         <p className="mt-3"><strong>Leszy.run jest administratorem danych osobowych przetwarzanych w serwisie — niezależnie od tego, czy zostały podane bezpośrednio przy rejestracji konta, czy pozyskane od organizatora biegu przy imporcie listy startowej.</strong> Organizator biegu pozostaje administratorem danych w swoim własnym systemie zapisów, lecz po przekazaniu danych do Leszy.run administratorem tych danych w naszej bazie jest wyłącznie Leszy.run. Wszelkie wnioski (dostęp, usunięcie, sprostowanie, sprzeciw) należy kierować do <a href="mailto:lukasz@leszy.run" className="text-apex-yellow underline">lukasz@leszy.run</a>.</p>
       </section>
 

@@ -11,7 +11,7 @@ export default function Regulamin() {
       <section id="definicje">
         <h2 className="font-display text-2xl uppercase">§1. Definicje</h2>
         <ul className="mt-3 list-disc space-y-2 pl-6">
-          <li><strong>Usługodawca:</strong> Łukasz Górnicki prowadzący działalność gospodarczą pod firmą Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run pod adresem www.leszy.run, kontakt: lukasz@leszy.run.</li>
+          <li><strong>Usługodawca:</strong> Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run pod adresem www.leszy.run, kontakt: lukasz@leszy.run.</li>
           <li><strong>Serwis:</strong> witryna internetowa Leszy.run wraz z funkcjonalnościami dostępnymi po rejestracji konta.</li>
           <li><strong>Użytkownik:</strong> osoba fizyczna posiadająca konto w Serwisie.</li>
           <li><strong>Konto:</strong> indywidualny profil Użytkownika, identyfikowany adresem email.</li>
