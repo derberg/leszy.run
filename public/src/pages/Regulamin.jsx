@@ -30,13 +30,7 @@ export default function Regulamin() {
           <li>przyjmowanie zapisów na zawody,</li>
           <li>składanie zgłoszeń wydarzeń i innych wkładów społecznościowych.</li>
         </ul>
-        <p className="mt-3">Organizatorowi Usługodawca świadczy ponadto usługi odpłatne, które Organizator może włączyć dla swoich zawodów:</p>
-        <ul className="mt-3 list-disc space-y-2 pl-6">
-          <li>przyjmowanie płatności online za udział w zawodach,</li>
-          <li>wysyłkę wiadomości email do Uczestników,</li>
-          <li>wysyłkę wiadomości SMS do Uczestników.</li>
-        </ul>
-        <p className="mt-3">Cenę i warunki usługi odpłatnej Usługodawca przekazuje Organizatorowi przed jej włączeniem. Usługa jest świadczona dopiero po zaakceptowaniu tych warunków przez Organizatora.</p>
+        <p className="mt-3">Usługodawca może świadczyć Organizatorowi usługi dodatkowe, w tym odpłatne. Ich zakres, cenę i warunki Usługodawca przekazuje Organizatorowi przed włączeniem usługi, a usługa jest świadczona dopiero po zaakceptowaniu tych warunków.</p>
         <p className="mt-3">Dla Użytkowników i Uczestników korzystanie z Serwisu jest nieodpłatne. Wysokość opłaty startowej za udział w zawodach ustala Organizator.</p>
         <p className="mt-3">Wymagania techniczne: przeglądarka internetowa z obsługą JavaScript i ciasteczek, aktywne połączenie internetowe.</p>
       </section>
