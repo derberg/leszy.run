@@ -54,7 +54,7 @@ export default function PrivacyPolicy() {
       <section id="odbiorcy" className="mt-8">
         <h2 className="font-display text-2xl uppercase">5. Recipients of Data</h2>
         <p className="mt-3">The full list of data processors, including links to their Data Processing Agreements (DPAs), is available at: <a href="/podmioty-przetwarzajace" className="text-apex-yellow underline">/podmioty-przetwarzajace</a>.</p>
-        <p className="mt-3">We use the following processors: Supabase, Inc. (database and authentication), Vercel, Inc. (hosting), SMSAPI sp. z o.o. (SMS), Twilio Inc. / SendGrid (transactional email), Google Ireland Ltd. (GA4 analytics), Google Fonts (font CDN).</p>
+        <p className="mt-3">We use the following processors: Supabase, Inc. (database and authentication), Vercel, Inc. (hosting), SMSAPI sp. z o.o. (SMS), Twilio Inc. / SendGrid (transactional email), Google Ireland Ltd. (GA4 analytics).</p>
       </section>
 
       <section id="prawa" className="mt-8">

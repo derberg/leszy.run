@@ -54,7 +54,7 @@ export default function PolitykaPrywatnosci() {
       <section id="odbiorcy" className="mt-8">
         <h2 className="font-display text-2xl uppercase">5. Odbiorcy danych</h2>
         <p className="mt-3">Pełna lista podmiotów przetwarzających dane wraz z linkami do ich umów DPA dostępna jest pod adresem: <a href="/podmioty-przetwarzajace" className="text-apex-yellow underline">/podmioty-przetwarzajace</a>.</p>
-        <p className="mt-3">Korzystamy z następujących podmiotów przetwarzających: Supabase, Inc. (baza danych i autentykacja), Vercel, Inc. (hosting), SMSAPI sp. z o.o. (SMS), Twilio Inc. / SendGrid (email transakcyjny), Google Ireland Ltd. (analityka GA4), Google Fonts (CDN czcionek).</p>
+        <p className="mt-3">Korzystamy z następujących podmiotów przetwarzających: Supabase, Inc. (baza danych i autentykacja), Vercel, Inc. (hosting), SMSAPI sp. z o.o. (SMS), Twilio Inc. / SendGrid (email transakcyjny), Google Ireland Ltd. (analityka GA4).</p>
       </section>
 
       <section id="prawa" className="mt-8">
