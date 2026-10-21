@@ -57,10 +57,13 @@ export function subscribe(eventId, listener, fetchImpl = globalThis.fetch) {
   if (!entry) {
     entry = { snapshot: null, listeners: new Set(), timer: null, inFlight: false, onVisible: null }
     entries.set(eventId, entry)
-    entry.onVisible = () => { if (!hidden()) refresh(eventId, fetchImpl) }
+    // The next poll is timed from the latest answer, which says whether a run
+    // is active, and a tab coming back restarts the timer instead of adding a
+    // second poll right after its own.
+    const refreshNow = () => refresh(eventId, fetchImpl).then(() => schedule(eventId, fetchImpl))
+    entry.onVisible = () => { if (!hidden()) refreshNow() }
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', entry.onVisible)
-    refresh(eventId, fetchImpl)
-    schedule(eventId, fetchImpl)
+    refreshNow()
   }
   entry.listeners.add(listener)
   return () => {

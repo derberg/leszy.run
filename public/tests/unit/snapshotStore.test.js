@@ -57,6 +57,23 @@ describe('snapshotStore', () => {
     }
   })
 
+  it('waits 60 s for the first poll when the first answer says no run is live', async () => {
+    mock.timers.enable({ apis: ['setTimeout'] })
+    const flush = async () => { for (let i = 0; i < 5; i++) await new Promise(r => setImmediate(r)) }
+    try {
+      const fetch = fakeFetch([{ version: 'v1', live: false }, { version: 'v1', live: false }])
+      const off = subscribe('ev-5', () => {}, fetch)
+      await flush()
+      mock.timers.tick(5_000); await flush()
+      assert.equal(fetch.calls.length, 1)
+      mock.timers.tick(55_000); await flush()
+      assert.equal(fetch.calls.length, 2)
+      off()
+    } finally {
+      mock.timers.reset()
+    }
+  })
+
   it('forgets the event and its snapshot once the last listener leaves', async () => {
     const fetch = fakeFetch([{ version: 'v1' }])
     const off = subscribe('ev-2', () => {}, fetch)
