@@ -209,6 +209,16 @@ const sources = [
     // Registration opens after the event page is published, so the scraper re-reads
     // future-dated rows that still have no registration_url.
     knownColumns: 'source_id, date, registration_url',
+    // scrape() emits price_from/price_to off the /edit/ registration form, but
+    // scraper_zmierzymyczas has neither column (checked 2026-10-22), so they are
+    // dropped here, as for timekeeper below. Mapping them first would fail every
+    // insert. One migration opens it:
+    //
+    //   ALTER TABLE scraper_zmierzymyczas ADD COLUMN IF NOT EXISTS price_from numeric;
+    //   ALTER TABLE scraper_zmierzymyczas ADD COLUMN IF NOT EXISTS price_to   numeric;
+    //
+    // then add `price_from: raw.price_from ?? null` and `price_to: raw.price_to ?? null`
+    // below and re-scrape.
     mapRow: (raw) => ({
       name: raw.name,
       date: raw.date,

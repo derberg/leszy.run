@@ -77,7 +77,40 @@ async function fetchDetailPage(href) {
       }
     })
 
-    return { regulaminUrl, registrationUrl }
+    const fee = registrationUrl ? await fetchFormFee(registrationUrl) : null
+
+    return { regulaminUrl, registrationUrl, fee }
+  } catch (err) {
+    return null
+  }
+}
+
+// The fee is never on the event page. It lives only on the /edit/ registration
+// form: one hidden rodz_cena_hid_<id> input per option, mirrored by a radio label
+// ending "- 40 PLN". 2683 (Statuetka - cykl biegów KB Harcownik 2026) published
+// with no price because this form was never read, and its "Zasady" PDF has no fee
+// for the enricher to find either. 0 is a free race and is kept.
+function parseFormFee(html) {
+  const $ = cheerio.load(html)
+  let amounts = $('input[name^="rodz_cena_hid_"]')
+    .map((_, el) => parseFloat(String($(el).attr('value')).replace(',', '.')))
+    .get()
+    .filter(Number.isFinite)
+  if (amounts.length === 0) {
+    amounts = [...$.root().text().matchAll(/(\d+(?:[.,]\d+)?)\s*PLN/gi)]
+      .map(m => parseFloat(m[1].replace(',', '.')))
+  }
+  if (amounts.length === 0) return null
+  return { priceFrom: Math.min(...amounts), priceTo: Math.max(...amounts) }
+}
+
+async function fetchFormFee(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'leszy.run/1.0 (kontakt@leszy.run)' },
+    })
+    if (!res.ok) return null
+    return parseFormFee(await res.text())
   } catch (err) {
     return null
   }
@@ -176,6 +209,8 @@ async function scrape({ knownIds = new Set(), knownRows = new Map() } = {}) {
         distances: entry.distances || null,
         registration_url: detail?.registrationUrl || null,
         regulamin_url: detail?.regulaminUrl || null,
+        price_from: detail?.fee?.priceFrom ?? null,
+        price_to: detail?.fee?.priceTo ?? null,
         // No external organizer-site detection here — the enricher upgrades this
         // later if it finds a real organizer domain. Default to the public info
         // page (same URL as source_url) so events without a separate website
@@ -202,4 +237,4 @@ async function scrape({ knownIds = new Set(), knownRows = new Map() } = {}) {
   return results
 }
 
-export { scrape, needsDetail, shouldEmitRow }
+export { scrape, needsDetail, shouldEmitRow, parseFormFee }
