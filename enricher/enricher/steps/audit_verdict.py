@@ -65,6 +65,7 @@ def call_audit_llm(prompt: str, config) -> Optional[AuditVerdict]:
                     "model": config.ollama_model,
                     "prompt": prompt,
                     "stream": False,
+                    "think": False,
                     "options": {
                         "temperature": config.ollama_temperature,
                         "num_predict": config.ollama_max_tokens,

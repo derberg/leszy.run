@@ -190,6 +190,9 @@ def call_ollama(prompt: str, config) -> Optional[dict]:
                     "prompt": prompt,
                     "stream": False,
                     "keep_alive": -1,
+                    # Qwen 3.x reasons before answering unless told not to, and the
+                    # reasoning eats num_predict before any JSON is written.
+                    "think": False,
                     "options": {
                         "temperature": config.ollama_temperature,
                         "num_predict": config.ollama_max_tokens,

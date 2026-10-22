@@ -795,7 +795,7 @@ async def run_pipeline(
         with _httpx.Client(timeout=900) as _client:
             _client.post(
                 f"{config.ollama_url}/api/generate",
-                json={"model": config.ollama_model, "prompt": "hi", "stream": False,
+                json={"model": config.ollama_model, "prompt": "hi", "stream": False, "think": False,
                       "keep_alive": -1, "options": {"num_predict": 1, "num_ctx": 8192}},
             ).raise_for_status()
         click.echo("LLM ready.")
