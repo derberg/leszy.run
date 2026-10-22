@@ -10,7 +10,7 @@ from enricher.steps.audit_verdict import AuditVerdict
 class FakeConfig:
     max_page_chars: int = 6000
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "gemma3:27b"
+    ollama_model: str = "qwen3.6:27b"
     ollama_temperature: float = 0.1
     ollama_max_tokens: int = 800
 

@@ -238,7 +238,7 @@ async def _run_with_crawl_outcomes(outcomes):
          patch.object(pipeline_mod, "process_event", new=AsyncMock(side_effect=lambda *a, **k: next(results))), \
          patch("httpx.Client"):
         await pipeline_mod.run_pipeline(
-            MagicMock(ollama_model="gemma3:27b"), limit=None, dry_run=True,
+            MagicMock(ollama_model="qwen3.6:27b"), limit=None, dry_run=True,
             resume=False, force=False, incomplete=False,
         )
 
@@ -274,7 +274,7 @@ async def test_pipeline_aborts_when_browser_is_missing():
          patch("httpx.Client") as warmup:
         with pytest.raises(click.ClickException) as exc:
             await pipeline_mod.run_pipeline(
-                MagicMock(ollama_model="gemma3:27b"), limit=None, dry_run=True,
+                MagicMock(ollama_model="qwen3.6:27b"), limit=None, dry_run=True,
                 resume=False, force=False, incomplete=False,
             )
     assert "playwright install chromium" in str(exc.value)

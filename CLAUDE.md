@@ -857,7 +857,7 @@ cd backend && node --env-file=../.env scripts/run-data-audit.js                 
 **Location:** `enricher/` directory
 
 **Tech stack:**
-- **Ollama** — local LLM (gemma3:27b) for field extraction
+- **Ollama** — local LLM (qwen3.6:27b, called with thinking off) for field extraction
 - **SearXNG** — Docker-based web search for URL discovery
 - **Crawl4AI** — headless browser for crawling SPAs (dostartu.pl, etc.)
 - **Docling** — PDF text extraction for regulamin documents
@@ -914,7 +914,7 @@ See [enricher/README.md](enricher/README.md) for detailed documentation.
 
 ## Local LLM Enricher
 
-Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with Docling, and uses Ollama (gemma3:27b) for field extraction. Only processes future events (date >= today).
+Python-based enrichment pipeline in `enricher/`. Validates URLs, searches SearXNG, crawls pages with Crawl4AI, extracts PDFs with Docling, and uses Ollama (qwen3.6:27b) for field extraction. Only processes future events (date >= today).
 
 ### Running
 
@@ -940,7 +940,7 @@ python -m enricher audit --apply --apply-confidence 0.9  # stricter bar for null
 See `enricher/README.md` for full docs, all flags, merge rules, and architecture.
 
 ### Dependencies
-- Ollama (native macOS, `gemma3:27b` — 128K context window, strong instruction-following for structured extraction)
+- Ollama (native macOS, `qwen3.6:27b`, which replaced `gemma3:27b` on 2026-10-22. Every call sends `"think": false`, because Qwen 3.x otherwise reasons first and spends the token budget before writing any JSON)
 - SearXNG (Docker via `enricher/docker-compose.yml`, port 8888)
 - Crawl4AI + Docling (Python libs in `enricher/.venv/`)
 
