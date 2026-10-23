@@ -32,5 +32,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "docs@cennso-ai": false
   }
 }
