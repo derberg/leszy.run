@@ -108,7 +108,7 @@ function FollowedEvent({ entry, members }) {
 export default function Panel() {
   const { club, me, followedEvents, members } = useKlub()
   const navigate = useNavigate()
-  const { hash } = useLocation()
+  const { hash, key } = useLocation()
   const [leaving, setLeaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -117,10 +117,11 @@ export default function Panel() {
   const activeMembers = (members ?? []).filter((m) => m.status === 'active')
 
   // The account menu's "Starty klubowiczów" lands here; the router does not
-  // scroll to a hash by itself.
+  // scroll to a hash by itself. `key` changes on every navigation, so picking
+  // the shortcut again while already here scrolls again.
   useEffect(() => {
     if (hash === `#${CLUB_STARTS_ANCHOR}`) document.getElementById(CLUB_STARTS_ANCHOR)?.scrollIntoView()
-  }, [hash])
+  }, [hash, key])
 
   async function handleLeave() {
     setLeaving(true)

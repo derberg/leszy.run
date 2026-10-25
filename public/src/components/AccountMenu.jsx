@@ -57,7 +57,8 @@ export default function AccountMenu({ user, onNavigate, large = false }) {
   const club = clubLinks(user)
   const clubStarts = useClubStarts(club.hasClub ? user.club_id : null, true)
 
-  const today = new Date().toISOString().slice(0, 10)
+  // Local date, not UTC: between midnight and 02:00 in Poland UTC is still yesterday.
+  const today = new Date().toLocaleDateString('en-CA')
   const { count: starredCount, next } = upcomingStarts(starredEvents, today)
 
   return (

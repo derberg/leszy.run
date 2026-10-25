@@ -26,6 +26,8 @@ export default function Navbar() {
   const userMenuRef = useRef(null)
   // Phone: the username chip opens the account menu as a bottom sheet.
   const [sheetOpen, setSheetOpen] = useState(false)
+  const sheetRef = useRef(null)
+  const sheetChipRef = useRef(null)
 
   const isActive = (link) => {
     if (link.to === '/kalendarz') return location.pathname === '/kalendarz' || location.pathname.startsWith('/listy')
@@ -67,6 +69,20 @@ export default function Navbar() {
     setUserMenuOpen(false)
     setSheetOpen(false)
   }, [location.pathname])
+
+  // The sheet is modal: the page behind it does not scroll, focus moves in on
+  // open and goes back to the chip on close.
+  useEffect(() => {
+    if (!sheetOpen) return
+    const chip = sheetChipRef.current
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    sheetRef.current?.querySelector('a, button')?.focus()
+    return () => {
+      document.body.style.overflow = overflow
+      chip?.focus()
+    }
+  }, [sheetOpen])
 
   useEffect(() => {
     if (!userMenuOpen && !sheetOpen) return
@@ -139,6 +155,8 @@ export default function Navbar() {
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setUserMenuOpen(v => !v)}
+              aria-haspopup="true"
+              aria-expanded={userMenuOpen}
               className="flex items-center gap-2 font-mono text-xs text-apex-yellow border border-apex-yellow px-3 py-1.5 hover:bg-apex-yellow hover:text-apex-ink transition-all"
             >
               <span className="w-2 h-2 rounded-full bg-apex-yellow inline-block" />
@@ -183,7 +201,9 @@ export default function Navbar() {
         {user ? (
           <button
             type="button"
+            ref={sheetChipRef}
             onClick={() => { setMenuOpen(false); setSheetOpen(v => !v) }}
+            aria-haspopup="dialog"
             aria-expanded={sheetOpen}
             className="flex items-center gap-1.5 min-w-0 font-mono text-[11px] text-apex-yellow border border-apex-yellow px-2.5 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all"
           >
@@ -281,7 +301,9 @@ export default function Navbar() {
         <div className="md:hidden fixed inset-0 z-[60]">
           <div className="absolute inset-0 bg-apex-ink/45" onClick={() => setSheetOpen(false)} aria-hidden="true" />
           <div
+            ref={sheetRef}
             role="dialog"
+            aria-modal="true"
             aria-label="Menu konta"
             className="absolute left-0 right-0 bottom-0 max-h-[86%] overflow-y-auto bg-apex-bg border-t-2 border-apex-yellow pb-[env(safe-area-inset-bottom)]"
           >

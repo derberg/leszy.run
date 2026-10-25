@@ -16,6 +16,12 @@ const TTL_MS = 5 * 60 * 1000 // 5 min
  */
 export default function useClubStarts(clubId, enabled) {
   const [count, setCount] = useState(() => cachedCount(clubId))
+  // A different club must not keep showing the previous club's number.
+  const [prevClubId, setPrevClubId] = useState(clubId)
+  if (clubId !== prevClubId) {
+    setPrevClubId(clubId)
+    setCount(cachedCount(clubId))
+  }
 
   useEffect(() => {
     if (!enabled || !clubId) return
