@@ -4,9 +4,9 @@ import useAuth from '../hooks/useAuth.js'
 import useFavorites from '../hooks/useFavorites.js'
 import useBeta from '../hooks/useBeta.js'
 
-function StarIcon({ filled }) {
+function StarIcon({ filled, size = 14 }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'}
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
@@ -49,7 +49,9 @@ function FirstStarModal({ onClose }) {
   )
 }
 
-export default function StarButton({ eventId, className = '' }) {
+// `labeled` renders a full CTA-sized "Obserwuj" button (event page), the default
+// is the compact icon-only star used in list rows.
+export default function StarButton({ eventId, className = '', labeled = false }) {
   const beta = useBeta()
   const { user } = useAuth()
   const { ready, isStarred, toggle } = useFavorites()
@@ -82,13 +84,20 @@ export default function StarButton({ eventId, className = '' }) {
         title={starred ? 'Przestań obserwować' : 'Obserwuj ten bieg'}
         aria-label={starred ? 'Przestań obserwować' : 'Obserwuj ten bieg'}
         aria-pressed={starred}
-        className={`px-2 py-1 border transition-colors shrink-0 ${
-          starred
-            ? 'border-apex-yellow text-apex-yellow'
-            : 'border-apex-border text-apex-muted hover:text-apex-yellow hover:border-apex-yellow/40'
-        } ${className}`}
+        className={labeled
+          ? `inline-flex items-center gap-2 font-display font-bold text-[12px] tracking-widest uppercase px-6 py-2.5 border-2 transition-all ${
+            starred
+              ? 'border-apex-yellow text-apex-yellow'
+              : 'border-apex-border text-apex-text-bright hover:border-apex-text hover:text-apex-yellow'
+          } ${className}`
+          : `px-2 py-1 border transition-colors shrink-0 ${
+            starred
+              ? 'border-apex-yellow text-apex-yellow'
+              : 'border-apex-border text-apex-muted hover:text-apex-yellow hover:border-apex-yellow/40'
+          } ${className}`}
       >
-        <StarIcon filled={starred} />
+        <StarIcon filled={starred} size={labeled ? 13 : 14} />
+        {labeled && (starred ? 'Obserwujesz' : 'Obserwuj')}
       </button>
       {showFirstStar && <FirstStarModal onClose={() => setShowFirstStar(false)} />}
     </>
