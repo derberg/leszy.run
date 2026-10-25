@@ -65,10 +65,21 @@ scripts/worktree.sh new feature/<short-name>   # 1. fresh worktree off origin/ma
 # ... make changes ...
 git push -u origin feature/<short-name>        # 2. push
 # 3. open a PR:  gh pr create --fill
-# 4. review, then merge:  gh pr merge --squash --delete-branch
-# 5. run any post-merge steps below, then remove the worktree:
+# 4. review, then merge:  gh pr merge --squash          (no --delete-branch, see below)
+# 5. confirm it merged:    gh pr view --json state -q .state   → must print MERGED
+# 6. only then delete:     git push origin --delete feature/<short-name>
+# 7. run any post-merge steps below, then remove the worktree:
 #    scripts/worktree.sh rm feature/<short-name>
 ```
+
+**Never delete the branch before GitHub says `MERGED`.** From a worktree,
+`gh pr merge --delete-branch` always ends in an error (`'main' is already used
+by worktree`) because it tries to check out `main` locally, even when the
+merge on GitHub succeeded. So the branch gets deleted by hand, and that step
+does not know whether the merge worked. On 2026-10-25 #299 hit a merge
+conflict, its branch was deleted anyway, and GitHub closed the PR unmerged and
+refused to reopen it, so the change had to go in as #303. On a conflict:
+rebase onto `origin/main`, push, and merge again.
 
 Before opening the PR, verify isolation: `git log --oneline origin/main..HEAD`
 must show **only your own commits** — anything else means you branched off the
@@ -109,6 +120,8 @@ wrong base or another topic leaked in.
 
 ## Red flags — STOP
 
+- About to delete a branch (`git push origin --delete`) without having seen
+  `MERGED` from `gh pr view` → STOP. A deleted head branch closes an open PR.
 - About to describe "what the code does" without checking the branch → run
   `git status -sb` first; if HEAD is behind `origin/main`, reason about
   `origin/main`, not the stale tree.
