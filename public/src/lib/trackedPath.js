@@ -1,7 +1,10 @@
 // What a page view sends to GA as page_path: the path and query minus anything
-// that names a person. `nr` is a searched bib (results page); `email` and
-// `code` arrive on a magic login link (/login?email=&code=).
-const PRIVATE = ['nr', 'email', 'code']
+// that names a person or is a credential. `nr` is a searched bib (results
+// page); `p` and `t` are the check-in link's participant id and token; `pin`
+// is the volunteer link's checkpoint PIN; `email` and `code` arrive on a magic
+// login link (/login?email=&code=).
+export const PRIVATE_PARAMS = ['nr', 'p', 't', 'pin', 'email', 'code']
+const PRIVATE = PRIVATE_PARAMS
 
 export function trackedPath(pathname, search) {
   const params = new URLSearchParams(search)

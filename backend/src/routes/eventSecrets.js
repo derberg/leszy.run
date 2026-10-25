@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { eq } from 'drizzle-orm'
 import { events } from '../db/schema.js'
 import { pullCheckins } from '../sync/checkinSync.js'
+import { generatePin } from '../lib/checkinLink.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -10,7 +11,6 @@ function getSupabase() {
   return createClient(url, key)
 }
 
-function generatePin() { return String(Math.floor(100000 + Math.random() * 900000)) }
 
 export async function eventSecretsRoutes(fastify) {
   const { db } = fastify

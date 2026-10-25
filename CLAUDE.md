@@ -689,10 +689,32 @@ filter pulls drafts, so update every host before the first club event is created
 
 
 **Reverse sync — checkins (`src/sync/checkinSync.js`):** `checkins` and `checkin_documents`
-flow Supabase → local. The public self-service check-in page and volunteer app write directly
-to Supabase. A reverse sync worker polls Supabase every 30s and pulls new/updated checkin rows
+flow Supabase → local. The public self-service check-in page writes them to Supabase through
+the `self-checkin` edge function, never with the publishable key (see "Anon key lockdown" below). A reverse sync worker polls Supabase every 30s and pulls new/updated checkin rows
 into local PostgreSQL. Admin check-in from the backend also writes to Supabase first (not
 local), so all check-in data has a single source of truth in Supabase.
+
+**Anon key lockdown (security review 2026-10-25, migration `20261025210000_anon_lockdown.sql`).**
+The publishable key is in every browser, so whatever it may do, anyone may do. It now only
+reads. Every write a public page or a Pi makes goes through an edge function on the service role:
+- `self-checkin` — the runner's check-in from the SMS link. The link carries `t`, an HMAC of the
+  participant id under `event_secrets.checkin_link_key` (`backend/src/lib/checkinLink.js` builds
+  it for the SMS, `_shared/checkinToken.js` checks it). A participant id alone is public
+  (`participants_public`, `results`), so it is not a credential. It replaced
+  `get_participant_for_checkin`, which handed anyone the phone and birth date of every
+  participant, and the anon INSERT on `checkins`.
+- `checkpoint-write` — volunteer entries, Pi agent passes and Pi heartbeats, authorised by the
+  event's `checkpoint_pin`. The admin's volunteer link carries `&pin=`; the volunteer page moves
+  it to localStorage and off the address bar, and asks for it when it is missing. The Pi agent
+  sends the PIN it already stores for `checkpoint-roster` (`checkpoint-agent/src/edgeWriter.js`).
+- PIN guesses are counted per event, not per caller, because there is no caller identity a forger
+  cannot change: 30 failures in 15 minutes lock the PIN. `_shared/pinGuard.js` does it for the
+  checkpoint PIN, `checkin_pin_ok()` in SQL for the check-in PIN. A lockout also blocks the real
+  volunteers, whose entries then wait in the outbox and go out afterwards. A PIN function must
+  never RAISE on a wrong PIN, or the rollback erases the recorded failure.
+- A new table needs RLS on and `REVOKE ALL … FROM anon, authenticated` in the migration that
+  creates it, then a GRANT and a policy only for what the public app reads. Six tables had RLS
+  off with full anon CRUD (`event_partners` among them, the sponsor links on event pages).
 
 **Supabase-only tables** (no Drizzle schema, no local migration — a committed `supabase/migrations/` file, deployed by the CI pipeline on merge; see [docs/supabase-release-runbook.md](docs/supabase-release-runbook.md)):
 - `event_secrets` — per-event check-in PINs

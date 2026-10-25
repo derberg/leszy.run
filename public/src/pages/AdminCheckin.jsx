@@ -551,8 +551,10 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
       p_documents: docPayload,
     })
 
-    if (error) {
-      onError(`Błąd: ${error.message}`)
+    // A wrong PIN comes back as data.error, not as an RPC error, so the
+    // attempt is recorded for the lockout. It used to read as a success.
+    if (error || data?.error) {
+      onError(`Błąd: ${error?.message ?? data.error}`)
       setSubmitting(false)
       return
     }

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import mqtt from 'mqtt'
 import { loadConfig } from './config.js'
 import { buildApp } from './app.js'
+import { createEdgeWriter } from './edgeWriter.js'
 import { createR700 } from './r700.js'
 import { clockStatus, detectLanIp, listLanIpsWithIface } from './clock.js'
 
@@ -30,6 +31,7 @@ async function fetchRoster({ eventId, pin }) {
 const app = await buildApp({
   config,
   supabase,
+  createWriter: ({ getPin }) => createEdgeWriter({ supabaseUrl: config.supabaseUrl, anonKey: config.supabaseAnonKey, getPin }),
   fetchRoster,
   createReader: createR700,
   connectMqtt: (url) => mqtt.connect(url, { clientId: 'checkpoint-agent', reconnectPeriod: 3000 }),

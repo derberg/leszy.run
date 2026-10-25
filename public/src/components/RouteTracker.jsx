@@ -10,8 +10,10 @@ const IS_DEV = import.meta.env.DEV
  */
 export default function RouteTracker() {
   const location = useLocation()
-  // trackedPath drops what names a person: a searched bib (?nr=) and a magic
-  // link's address and code (?email=, ?code=).
+  // trackedPath drops what names a person or is a credential: a searched bib
+  // (?nr=), the check-in link's participant and token (?p=, ?t=), the
+  // volunteer link's checkpoint PIN (?pin=) and a magic link's address and
+  // code (?email=, ?code=).
   const path = trackedPath(location.pathname, location.search)
 
   useEffect(() => {

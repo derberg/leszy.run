@@ -133,6 +133,12 @@ export default function EventDetail() {
     queryKey: ['checkpointPin', id],
     queryFn: () => api.secrets.getCheckpointPin(id),
   })
+  // The volunteer page needs this PIN to send entries (checkpoint-write), so
+  // the link carries it; the page moves it off the address bar on arrival.
+  const volunteerLink = (cp) => {
+    const pin = checkpointPinData?.checkpointPin
+    return `https://leszy.run/events/${event?.slug || ''}/volunteer?checkpoint=${cp.id}${pin ? `&pin=${pin}` : ''}`
+  }
   const [rpiCp, setRpiCp] = useState(null)
   const [rpiReaderIp, setRpiReaderIp] = useState(RPI_READER_IP_DEFAULT)
   const [rpiMqttHost, setRpiMqttHost] = useState(RPI_MQTT_HOST_DEFAULT)
@@ -337,7 +343,7 @@ export default function EventDetail() {
                 {checkpoints.length > 0 && (
                   <Button size="sm" variant="outline" onClick={() => {
                     const text = checkpoints.map(cp =>
-                      `${cp.name}${cp.kmMarker ? ` (km ${cp.kmMarker})` : ''}: https://leszy.run/events/${event?.slug || ''}/volunteer?checkpoint=${cp.id}`
+                      `${cp.name}${cp.kmMarker ? ` (km ${cp.kmMarker})` : ''}: ${volunteerLink(cp)}`
                     ).join('\n')
                     navigator.clipboard.writeText(text)
                   }}>
@@ -375,13 +381,19 @@ export default function EventDetail() {
               )}
             </div>
 
+            {checkpoints.length > 0 && !checkpointPinData?.checkpointPin && (
+              <p className="text-xs text-apex-yellow border border-apex-yellow/30 bg-apex-yellow/10 px-2 py-1.5">
+                Najpierw wygeneruj PIN punktów kontrolnych w zakładce Ustawienia
+              </p>
+            )}
+
             {checkpoints.length === 0 && (
               <p className="text-sm text-apex-muted py-4">Brak punktów kontrolnych. Dodaj punkt, aby wolontariusze mogli rejestrować przejścia.</p>
             )}
 
             <div className="space-y-2">
               {checkpoints.map(cp => {
-                const volunteerUrl = `https://leszy.run/events/${event?.slug || ''}/volunteer?checkpoint=${cp.id}`
+                const volunteerUrl = volunteerLink(cp)
                 return (
                   <div key={cp.id} className="border border-apex-border bg-apex-surface px-4 py-3 flex items-center justify-between gap-4">
                     <div>

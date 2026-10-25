@@ -205,3 +205,11 @@ entrypoint = "./functions/list-event-registrations/index.js"
 [functions.preview-registration-event]
 verify_jwt = false
 entrypoint = "./functions/preview-registration-event/index.js"
+
+[functions.checkpoint-write]
+verify_jwt = false
+entrypoint = "./functions/checkpoint-write/index.js"
+
+[functions.self-checkin]
+verify_jwt = false
+entrypoint = "./functions/self-checkin/index.js"

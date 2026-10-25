@@ -3,6 +3,8 @@ import { useEvent } from '../hooks/useEvent.js'
 import { supabase } from '../lib/supabase.js'
 import useSeo from '../hooks/useSeo.js'
 import { useCheckpointOutbox } from '../hooks/useCheckpointOutbox.js'
+import { FUNCTIONS_BASE } from '../lib/auth.js'
+import { checkpointWrite, pinCheckOutcome, readPin, savePin, clearPin } from '../lib/checkpointWrite.js'
 
 const NUMPAD = [
   ['1', '2', '3'],
@@ -15,13 +17,35 @@ export default function Volunteer() {
   useSeo({ title: 'Wolontariat', noindex: true })
   const { event, loading: eventLoading, error: eventError } = useEvent()
   const checkpointId = new URLSearchParams(window.location.search).get('checkpoint')
+  const [pin, setPin] = useState(() => (checkpointId ? takePinFromUrl(checkpointId) : null))
+  // 'checking' until the stored PIN is confirmed, 'needed' shows the PIN pad.
+  const [pinState, setPinState] = useState(pin ? 'checking' : 'needed')
   const [checkpoint, setCheckpoint] = useState(null)
   const [loadError, setLoadError] = useState(null)
   const [bib, setBib] = useState('')
   const [flash, setFlash] = useState(null)
   const flashTimer = useRef(null)
   const [eventEnded, setEventEnded] = useState(false)
-  const outbox = useCheckpointOutbox(checkpointId)
+  const outbox = useCheckpointOutbox(checkpointId, pinState === 'needed' ? null : pin)
+
+  // A stored PIN is checked once on load. No answer (no signal at the
+  // checkpoint) keeps it: entries queue on the phone and go out when the
+  // signal returns. Only a definite "wrong PIN" asks again.
+  useEffect(() => {
+    if (!checkpointId || !pin || pinState !== 'checking') return
+    let cancelled = false
+    checkpointWrite(FUNCTIONS_BASE, { action: 'verify', checkpoint_id: checkpointId, pin }).then(res => {
+      if (cancelled) return
+      if (pinCheckOutcome(res) === 'invalid') {
+        clearPin(checkpointId)
+        setPin(null)
+        setPinState('needed')
+      } else {
+        setPinState('ok')
+      }
+    })
+    return () => { cancelled = true }
+  }, [checkpointId, pin, pinState])
 
   useEffect(() => {
     if (!checkpointId) { setLoadError('Brak ID punktu kontrolnego w URL.'); return }
@@ -75,6 +99,19 @@ export default function Volunteer() {
   if (eventError) return <ErrorScreen message={eventError} />
   if (loadError) return <ErrorScreen message={loadError} />
   if (!checkpoint) return <LoadingScreen />
+  if (pinState === 'needed') {
+    return (
+      <PinScreen
+        checkpoint={checkpoint}
+        onAccepted={(value) => {
+          savePin(checkpointId, value)
+          setPin(value)
+          setPinState('ok')
+        }}
+        verify={(value) => checkpointWrite(FUNCTIONS_BASE, { action: 'verify', checkpoint_id: checkpointId, pin: value })}
+      />
+    )
+  }
   // Keep the keypad while anything is unsent or rejected, so the queue stays
   // visible and keeps draining after the race is closed.
   if (eventEnded && outbox.pending === 0 && outbox.failed === 0) {
@@ -156,6 +193,91 @@ export default function Volunteer() {
 
       <QueueStatus outbox={outbox} />
       <RecentEntries outbox={outbox} />
+    </div>
+  )
+}
+
+// The organiser's link carries the PIN (&pin=). It is moved to this phone's
+// storage and taken out of the address bar, so it is not left in the history
+// or in a shared screenshot.
+function takePinFromUrl(checkpointId) {
+  const url = new URL(window.location.href)
+  const fromUrl = url.searchParams.get('pin')
+  if (fromUrl) {
+    savePin(checkpointId, fromUrl)
+    url.searchParams.delete('pin')
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+    return fromUrl
+  }
+  return readPin(checkpointId)
+}
+
+function PinScreen({ checkpoint, verify, onAccepted }) {
+  const [value, setValue] = useState('')
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const press = (key) => {
+    setError(null)
+    if (key === 'WYCZYSC') { setValue(''); return }
+    if (key === '⌫') { setValue(v => v.slice(0, -1)); return }
+    if (value.length >= 6) return
+    setValue(v => v + key)
+  }
+
+  const submit = async () => {
+    if (value.length !== 6 || busy) return
+    setBusy(true)
+    const outcome = pinCheckOutcome(await verify(value))
+    setBusy(false)
+    if (outcome === 'invalid') { setError('Nieprawidłowy PIN.'); setValue(''); return }
+    if (outcome === 'locked') { setError('Zbyt wiele prób. Spróbuj ponownie za 15 minut.'); return }
+    // 'ok', or no signal: accept it, the entries wait on the phone.
+    onAccepted(value)
+  }
+
+  return (
+    <div className="flex flex-col min-h-dvh p-5 select-none bg-apex-bg">
+      <div className="mb-5 text-center">
+        <div className="text-[13px] uppercase tracking-[0.15em] text-apex-dim mb-1.5">Punkt kontrolny</div>
+        <div className="text-[26px] font-bold text-apex-text-bright leading-tight">{checkpoint.name}</div>
+      </div>
+      <div className="text-center mb-4">
+        <div className="text-[11px] uppercase tracking-[0.15em] text-apex-dim mb-2">PIN od organizatora</div>
+        <div className={`text-[56px] font-bold tabular-nums tracking-[0.3em] leading-none border-b-[3px] border-apex-yellow pb-2 min-h-[72px] ${value ? 'text-apex-text-bright' : 'text-apex-border-mid'}`}>
+          {value ? '•'.repeat(value.length) : '––––––'}
+        </div>
+      </div>
+      <div className="min-h-[42px] mb-2">
+        {error && (
+          <div className="border border-apex-red/50 bg-apex-red/10 text-apex-red px-3 py-2 text-center text-sm">{error}</div>
+        )}
+      </div>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {NUMPAD.flat().map((key) => {
+          const isAction = key === 'WYCZYSC' || key === '⌫'
+          return (
+            <button
+              key={key}
+              onClick={() => press(key)}
+              className={`py-[18px] font-bold border border-apex-border-mid cursor-pointer tabular-nums
+                ${isAction ? 'text-base bg-apex-surface-3 text-apex-dim' : 'text-[26px] bg-apex-surface-2 text-apex-text-bright'}`}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              {key}
+            </button>
+          )
+        })}
+      </div>
+      <button
+        onClick={submit}
+        disabled={value.length !== 6 || busy}
+        className={`w-full py-[18px] text-lg font-bold uppercase tracking-wide border-none transition-all
+          ${value.length === 6 && !busy ? 'bg-apex-yellow text-apex-ink cursor-pointer' : 'bg-apex-surface-3 text-apex-dim cursor-default'}`}
+        style={{ WebkitTapHighlightColor: 'transparent' }}
+      >
+        {busy ? 'Sprawdzanie…' : 'Dalej'}
+      </button>
     </div>
   )
 }

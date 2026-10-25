@@ -31,9 +31,15 @@ export const EMPTY_ROSTER_ERROR =
 // Fastify app factory — dependency-injected so tests can stub every side
 // effect (Supabase, MQTT, the R700 reader, roster download, clock check,
 // LAN IP detection). See task-10-brief.md for the endpoint contract.
-export async function buildApp({ config, supabase, fetchRoster, createReader, connectMqtt, clockStatus, detectLanIp }) {
+export async function buildApp({ config, supabase, createWriter, fetchRoster, createReader, connectMqtt, clockStatus, detectLanIp }) {
   const app = Fastify({ logger: false })
   const store = new FileStore(config.dataDir)
+  // Observations and heartbeats go out through `writer`. In production that is
+  // the checkpoint-write edge function (edgeWriter.js), authorised by the
+  // stored checkpoint PIN; tests inject a stub supabase and get it directly.
+  const writer = createWriter
+    ? createWriter({ getPin: async () => (await store.load('pin'))?.pin })
+    : supabase
 
   const state = {
     session: await store.load('session'),
@@ -98,7 +104,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
     state.heartbeat?.stop()
     state.heartbeatCheckpointId = state.session.checkpointId
     state.heartbeat = createHeartbeat({
-      supabase,
+      supabase: writer,
       checkpointId: state.session.checkpointId,
       intervalMs: config.heartbeatMs,
       getStatus: () => ({
@@ -297,7 +303,7 @@ export async function buildApp({ config, supabase, fetchRoster, createReader, co
       },
     })
     state.confirmer.seed(state.queue.epcs()) // restart recovery: don't re-record
-    state.uploader = new Uploader({ queue: state.queue, supabase, intervalMs: config.uploadIntervalMs })
+    state.uploader = new Uploader({ queue: state.queue, supabase: writer, intervalMs: config.uploadIntervalMs })
     state.uploader.start()
 
     // Arm-at-start: 'immediate' arms right away (testing / events not
