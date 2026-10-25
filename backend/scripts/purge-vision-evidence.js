@@ -64,8 +64,26 @@ async function main() {
     return
   }
 
-  let images = 0
+  // A session whose queue directory this process cannot see is never deleted.
+  // readdir() failing is otherwise indistinguishable from "no images", and the
+  // rows would go while the photographs stayed: the scheduler runs this in a
+  // one-shot container that mounts none of the frame directories.
+  const missing = []
   for (const session of expired) {
+    try {
+      if (!(await stat(session.queue_dir)).isDirectory()) throw new Error('not a directory')
+    } catch (err) {
+      missing.push(session)
+      console.error(
+        `[purge-vision] SKIPPED ${session.label || session.id}: queue_dir ${session.queue_dir} ` +
+        `is not reachable here (${err.code || err.message}). Run this where the frames live.`,
+      )
+    }
+  }
+  const reachable = expired.filter(s => !missing.includes(s))
+
+  let images = 0
+  for (const session of reachable) {
     const n = await purgeImages(session.queue_dir)
     images += n
     console.log(
@@ -79,20 +97,26 @@ async function main() {
     // Only now: a crash before this point leaves rows pointing at missing
     // files, which is visible. The reverse leaves photographs nothing knows
     // about, which is not.
-    const ids = expired.map(r => r.id)
-    const deleted = await sql`delete from vision_sessions where id in ${sql(ids)}`
-    console.log(`[purge-vision] deleted ${deleted.count} sessions, ${images} images`)
+    if (reachable.length) {
+      const ids = reachable.map(r => r.id)
+      const deleted = await sql`delete from vision_sessions where id in ${sql(ids)}`
+      console.log(`[purge-vision] deleted ${deleted.count} sessions, ${images} images`)
+    }
   } else {
     console.log(
-      `[purge-vision] DRY RUN — ${expired.length} sessions, ${images} images. ` +
+      `[purge-vision] DRY RUN — ${reachable.length} sessions, ${images} images. ` +
       'Pass --apply to delete.',
     )
   }
+  return missing.length
 }
 
+let skipped = 0
 main()
+  .then((n) => { skipped = n || 0 })
   .then(() => sql.end())
-  .then(() => process.exit(0))
+  // A skipped session is a retention promise not kept: fail so it gets noticed.
+  .then(() => process.exit(skipped ? 1 : 0))
   .catch((err) => {
     console.error('[purge-vision] error:', err)
     process.exit(1)

@@ -1,20 +1,13 @@
-import { runCommand } from '../exec.js'
-import { backendArgv } from '../backendArgv.js'
-
-const COMPOSE_DIR = process.env.COMPOSE_DIR || '/workspace'
+import { runBackendScript } from '../notifications.js'
 
 /**
  * Purge gate_events and gate_crossings rows tied to races that finished
  * more than 90 days ago. Delegates to the backend script so no DB
- * connection is needed in this container.
+ * connection is needed in this container. A failure is logged to logs/ and
+ * emailed, like every other backend job.
  */
 export async function purgeRfidLogs() {
-  const argv = backendArgv(['node', 'scripts/purge-rfid-logs.js'])
-
-  const result = await runCommand({
-    argv,
-    cwd: COMPOSE_DIR,
-    logWrite: (line) => process.stdout.write(line),
+  const result = await runBackendScript('purge-rfid-logs', ['scripts/purge-rfid-logs.js'], {
     timeoutMs: 5 * 60 * 1000,
   })
 

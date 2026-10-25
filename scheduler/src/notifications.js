@@ -17,7 +17,7 @@ function todayStampLocal() {
   return `${y}${m}${day}`;
 }
 
-async function runBackendScript(name, scriptArgs) {
+export async function runBackendScript(name, scriptArgs, { timeoutMs = 10 * 60 * 1000 } = {}) {
   await mkdir(LOG_DIR, { recursive: true });
   const logFileName = `${name}-${todayStampLocal()}.log`;
   const logPath = path.join(LOG_DIR, logFileName);
@@ -29,7 +29,7 @@ async function runBackendScript(name, scriptArgs) {
     argv: backendArgv(['node', ...scriptArgs]),
     cwd: COMPOSE_DIR,
     logWrite,
-    timeoutMs: 10 * 60 * 1000,
+    timeoutMs,
   });
 
   logStream.end();
