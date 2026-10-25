@@ -74,23 +74,29 @@ export default function Zaproszenia() {
     }
   }
 
-  function copyLink(invite) {
+  async function copyLink(invite) {
     const url = `${window.location.origin}/klub/${club.slug}/dolacz?kod=${invite.code}`
-    navigator.clipboard?.writeText(url)
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      return // nothing copied, so do not say "Skopiowano"
+    }
     setCopiedId(invite.id)
     setTimeout(() => setCopiedId((id) => (id === invite.id ? null : id)), 2000)
   }
 
-  // The phone's own share sheet (WhatsApp, Messenger, SMS, mail). Desktop
-  // browsers mostly lack it, so the button is only rendered where it exists.
+  // The system share sheet (WhatsApp, Messenger, SMS, mail). Phones and most
+  // desktop browsers have it; where it is missing (Firefox desktop) only
+  // "Kopiuj" is rendered.
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
   async function shareLink(invite) {
     const url = `${window.location.origin}/klub/${club.slug}/dolacz?kod=${invite.code}`
     try {
-      await navigator.share({ title: `Zaproszenie do klubu ${club.name}`, text: `Dołącz do klubu ${club.name} na leszy.run`, url })
-    } catch (err) {
-      if (err?.name !== 'AbortError') copyLink(invite)
+      await navigator.share({ title: `Zaproszenie do klubu ${club.name}`, url })
+    } catch {
+      // Cancelled or refused. Copying here would run without the click's user
+      // activation, which the clipboard rejects; "Kopiuj" is right next to it.
     }
   }
 
