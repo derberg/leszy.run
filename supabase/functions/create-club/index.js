@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
   if (!session) return json({ error: 'Authorization required' }, 401, req)
 
   try {
-    const { name, description = null, city = null, voivodeship = null, hidden_public = false } = await req.json()
+    const { name, description = null, city = null, voivodeship = null, hidden_public = true } = await req.json()
     const trimmed = (name ?? '').trim()
     if (trimmed.length < 2 || trimmed.length > 120) {
       return json({ error: 'Nazwa klubu jest wymagana (2–120 znaków).' }, 400, req)

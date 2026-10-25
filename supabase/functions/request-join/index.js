@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       .upsert(
         {
           club_id, user_id: session.userId, role: 'member', status: 'pending',
-          joined_at: null, left_at: null, hidden_public: !!hidden_public,
+          joined_at: null, left_at: null, hidden_public: hidden_public !== false,
         },
         { onConflict: 'club_id,user_id', ignoreDuplicates: false }
       )

@@ -786,7 +786,7 @@ describe('export-my-data — clubs section', () => {
       assert.equal(m.role, 'owner')
       assert.equal(m.status, 'active')
       assert.ok(m.joined_at)
-      assert.equal(m.hidden_public, false)
+      assert.equal(m.hidden_public, true) // clubmates-only unless the person chose otherwise
       assert.equal(m.club_public_name, 'nickname')
     } finally {
       await cleanupClub(clubId)

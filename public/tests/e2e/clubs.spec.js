@@ -95,9 +95,9 @@ test.describe('Clubs', () => {
       await page.getByTestId('club-search-input').fill(clubName.slice(0, 20))
       await expect(page.getByTestId('club-option').first()).toBeVisible({ timeout: 5000 })
       await page.getByTestId('club-option').first().click()
-      // The join-confirm box offers the roster-visibility choice before
-      // sending the request — present on all four join entry points.
-      await expect(page.getByTestId('visibility-choice')).toBeVisible()
+      // The roster-visibility choice is hidden while the public club page is
+      // parked; the request goes in as clubmates-only.
+      await expect(page.getByTestId('visibility-choice')).toHaveCount(0)
       await page.getByTestId('confirm-join').click()
       await expect(page.getByTestId('club-pending-note')).toBeVisible()
 

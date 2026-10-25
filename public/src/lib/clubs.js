@@ -18,7 +18,7 @@ export async function createClub(body) {
   return (await callFunction('create-club', body)).data
 }
 
-export async function requestJoin(clubId, { hiddenPublic = false } = {}) {
+export async function requestJoin(clubId, { hiddenPublic = true } = {}) {
   return (await callFunction('request-join', { club_id: clubId, hidden_public: hiddenPublic })).data
 }
 
