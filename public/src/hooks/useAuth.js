@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { getMe, readCachedUser, clearCachedUser } from '../lib/auth.js'
-import useBeta from './useBeta.js'
 
 // Two layers of caching keep /auth-me invocations low:
 //   1. localStorage (survives full page loads — the SEO static pages navigate
@@ -31,13 +30,10 @@ export function clearAuthCache() {
 }
 
 export default function useAuth() {
-  const beta = useBeta()
   const [user, setUser] = useState(cachedUser === undefined ? null : cachedUser)
   const [loading, setLoading] = useState(cachedUser === undefined)
 
   useEffect(() => {
-    // Accounts dark-launched off → treat everyone as anonymous, no /auth-me call.
-    if (!beta) return
     const stored = readCachedUser()
     const fresh = stored && (Date.now() - stored.ts) < REVALIDATE_MS
     // Fresh cache and we already know the user → trust it, skip /auth-me.
@@ -65,8 +61,7 @@ export default function useAuth() {
       }
     })
     return () => { active = false }
-  }, [beta])
+  }, [])
 
-  if (!beta) return { user: null, loading: false }
   return { user, loading }
 }

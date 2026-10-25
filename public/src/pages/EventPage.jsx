@@ -10,7 +10,6 @@ import NearbyEvents from '../components/NearbyEvents.jsx'
 import LeszyrunBanner from '../components/LeszyrunBanner.jsx'
 import ReportEventModal from '../components/ReportEventModal.jsx'
 import StarButton from '../components/StarButton.jsx'
-import useBeta from '../hooks/useBeta.js'
 
 const EventMap = lazy(() => import('../components/EventMap.jsx'))
 
@@ -157,7 +156,6 @@ export default function EventPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [showReport, setShowReport] = useState(false)
-  const beta = useBeta() // dark-launch: hide report button when off
 
   // Load event data — reset when slug changes
   useEffect(() => {
@@ -426,17 +424,15 @@ export default function EventPage() {
           </div>
 
           {/* Report button */}
-          {beta && (
-            <div className="flex justify-end mt-6">
-              <button
-                data-testid="report-event-btn"
-                onClick={() => setShowReport(true)}
-                className="font-display font-bold text-[10px] tracking-widest uppercase px-4 py-2 border border-apex-border text-apex-muted hover:border-apex-text hover:text-apex-text-bright transition-all"
-              >
-                Zgłoś poprawkę
-              </button>
-            </div>
-          )}
+          <div className="flex justify-end mt-6">
+            <button
+              data-testid="report-event-btn"
+              onClick={() => setShowReport(true)}
+              className="font-display font-bold text-[10px] tracking-widest uppercase px-4 py-2 border border-apex-border text-apex-muted hover:border-apex-text hover:text-apex-text-bright transition-all"
+            >
+              Zgłoś poprawkę
+            </button>
+          </div>
 
           {/* Nearby events */}
           <NearbyEvents event={event} />

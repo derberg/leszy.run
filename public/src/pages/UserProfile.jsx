@@ -134,7 +134,7 @@ export default function UserProfile() {
                   target to link to from here without a view/RPC change.
                   The member-facing club area (ClubLayout, /klub/:slug/panel
                   etc.) does link to the club, but those routes are session-
-                  and beta-gated, so they don't count as a crawlable inbound
+                  gated, so they don't count as a crawlable inbound
                   link — the crawlable link to /klub/:slug still has to come
                   from the public static club page/roster, not from here. */}
               {profile.club && (

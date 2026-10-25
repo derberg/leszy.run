@@ -3,10 +3,10 @@ import assert from 'node:assert/strict'
 import { inviteUrl, inviteFromPath, postAuthPath } from '../../src/lib/inviteLink.js'
 
 describe('inviteUrl', () => {
-  it('carries the beta flag, so a browser that never opted in still reaches the page', () => {
+  it('builds the invite address', () => {
     assert.equal(
       inviteUrl('https://www.leszy.run', 'zatyrani', '982e0cb01e'),
-      'https://www.leszy.run/klub/zatyrani/dolacz?kod=982e0cb01e&beta=1',
+      'https://www.leszy.run/klub/zatyrani/dolacz?kod=982e0cb01e',
     )
   })
 })

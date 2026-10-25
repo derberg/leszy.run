@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useAuth from '../hooks/useAuth.js'
 import useFavorites from '../hooks/useFavorites.js'
-import useBeta from '../hooks/useBeta.js'
 
 function StarIcon({ filled, size = 14 }) {
   return (
@@ -52,7 +51,6 @@ function FirstStarModal({ onClose }) {
 // `labeled` renders a full CTA-sized "Obserwuj" button (event page), the default
 // is the compact icon-only star used in list rows.
 export default function StarButton({ eventId, className = '', labeled = false }) {
-  const beta = useBeta()
   const { user } = useAuth()
   const { ready, isStarred, toggle } = useFavorites()
   const navigate = useNavigate()
@@ -60,9 +58,6 @@ export default function StarButton({ eventId, className = '', labeled = false })
   const [showFirstStar, setShowFirstStar] = useState(false)
 
   const starred = isStarred(eventId)
-
-  // Dark-launched — no star UI until the accounts feature is live.
-  if (!beta) return null
 
   const handleClick = async (e) => {
     e.stopPropagation()
