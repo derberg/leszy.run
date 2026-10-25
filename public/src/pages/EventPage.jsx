@@ -340,7 +340,6 @@ export default function EventPage() {
                 {days === 0 ? 'Dziś!' : days === 1 ? 'Jutro!' : `za ${days} dni`}
               </span>
             )}
-            <StarButton eventId={event.id} />
           </div>
 
           {/* Title */}
@@ -408,6 +407,7 @@ export default function EventPage() {
                 Regulamin
               </a>
             )}
+            <StarButton eventId={event.id} labeled />
           </div>
 
           {/* Info grid */}
