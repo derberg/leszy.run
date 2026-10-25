@@ -81,6 +81,19 @@ export default function Zaproszenia() {
     setTimeout(() => setCopiedId((id) => (id === invite.id ? null : id)), 2000)
   }
 
+  // The phone's own share sheet (WhatsApp, Messenger, SMS, mail). Desktop
+  // browsers mostly lack it, so the button is only rendered where it exists.
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
+  async function shareLink(invite) {
+    const url = `${window.location.origin}/klub/${club.slug}/dolacz?kod=${invite.code}`
+    try {
+      await navigator.share({ title: `Zaproszenie do klubu ${club.name}`, text: `Dołącz do klubu ${club.name} na leszy.run`, url })
+    } catch (err) {
+      if (err?.name !== 'AbortError') copyLink(invite)
+    }
+  }
+
   async function sendDirect(e) {
     e.preventDefault()
     const target = directTarget.trim()
@@ -122,10 +135,15 @@ export default function Zaproszenia() {
                 <code className="block break-all bg-apex-surface border border-apex-border px-2 py-1 font-mono text-[10px] text-apex-muted">
                   {`${window.location.origin}/klub/${club.slug}/dolacz?kod=${inv.code}`}
                 </code>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-[9px] text-apex-muted flex-shrink-0">
                     {inv.uses}{inv.max_uses != null ? `/${inv.max_uses}` : ''} użyć
                   </span>
+                  {canShare && (
+                    <button data-testid="share-invite" onClick={() => shareLink(inv)} className={btnOk}>
+                      Udostępnij
+                    </button>
+                  )}
                   <button data-testid="copy-invite" onClick={() => copyLink(inv)} className={btnGhost}>
                     {copiedId === inv.id ? 'Skopiowano' : 'Kopiuj'}
                   </button>
@@ -152,7 +170,7 @@ export default function Zaproszenia() {
       </form>
       {directSent && (
         <p className="font-sans text-xs text-apex-yellow mb-2">
-          Zaproszenie utworzone. Nie wysyłamy go mailem — skopiuj link poniżej i wyślij go tej osobie.
+          Zaproszenie utworzone. Nie wysyłamy go mailem — udostępnij albo skopiuj link poniżej i wyślij go tej osobie.
         </p>
       )}
 
@@ -166,11 +184,16 @@ export default function Zaproszenia() {
                   {`${window.location.origin}/klub/${club.slug}/dolacz?kod=${inv.code}`}
                 </code>
               )}
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[9px] text-apex-muted flex-shrink-0">
-                  {/* Only the named person can use it, so passing the link on is safe. */}
-                  tylko dla tej osoby · jednorazowe
-                </span>
+              <span className="block font-mono text-[9px] text-apex-muted">
+                {/* Only the named person can use it, so passing the link on is safe. */}
+                tylko dla tej osoby · jednorazowe
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {inv.code && canShare && (
+                  <button data-testid="share-direct-invite" onClick={() => shareLink(inv)} className={btnOk}>
+                    Udostępnij
+                  </button>
+                )}
                 {inv.code && (
                   <button data-testid="copy-direct-invite" onClick={() => copyLink(inv)} className={btnGhost}>
                     {copiedId === inv.id ? 'Skopiowano' : 'Kopiuj'}
