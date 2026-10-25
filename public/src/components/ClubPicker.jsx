@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { searchClubs, requestJoin } from '../lib/clubs.js'
 import CreateClubForm from './CreateClubForm.jsx'
 import MembershipVisibilityChoice from './MembershipVisibilityChoice.jsx'
+import { DEFAULT_HIDDEN_PUBLIC } from '../lib/clubPage.js'
 
 // Search-existing→request-join / "Utwórz klub" / leave-blank picker. Replaces
 // the old free-text club input (a debounced-search_clubs combobox that pinned
@@ -26,7 +27,7 @@ export default function ClubPicker({ onJoined, onCreated, onCancel }) {
   const [pending, setPending] = useState(null) // { club, status: 'pending' } after a successful request-join
   const [error, setError] = useState(null)
   const [creating, setCreating] = useState(false)
-  const [hiddenPublic, setHiddenPublic] = useState(false)
+  const [hiddenPublic, setHiddenPublic] = useState(DEFAULT_HIDDEN_PUBLIC)
   const queryRef = useRef(query)
   queryRef.current = query
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createClub } from '../lib/clubs.js'
 import MembershipVisibilityChoice from './MembershipVisibilityChoice.jsx'
+import { DEFAULT_HIDDEN_PUBLIC } from '../lib/clubPage.js'
 
 // Standalone create-club form, extracted from ClubPicker.jsx so it can be
 // reused both inline inside the picker's "Utwórz klub" branch and standalone
@@ -20,7 +21,7 @@ export default function CreateClubForm({ onCreated, onCancel }) {
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
-  const [hiddenPublic, setHiddenPublic] = useState(false)
+  const [hiddenPublic, setHiddenPublic] = useState(DEFAULT_HIDDEN_PUBLIC)
 
   async function handleSubmit(e) {
     e.preventDefault()

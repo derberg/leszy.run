@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
         status: 'active',
         joined_at: new Date().toISOString(),
         left_at: null,
-        hidden_public: !!hidden_public,
+        hidden_public: hidden_public !== false,
       }, { onConflict: 'club_id,user_id' })
     if (memErr) {
       // The one-active-membership index caught what the check above cannot: a

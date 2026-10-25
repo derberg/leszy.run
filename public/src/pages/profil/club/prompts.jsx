@@ -3,6 +3,7 @@ import { useProfil } from '../context.js'
 import { transferOwnership, acceptInvite } from '../../../lib/clubs.js'
 import { actionBtnClass } from '../fields.jsx'
 import MembershipVisibilityChoice from '../../../components/MembershipVisibilityChoice.jsx'
+import { DEFAULT_HIDDEN_PUBLIC } from '../../../lib/clubPage.js'
 
 // Nominee / pending-join / direct-invite prompts, rendered at the top of
 // Klub.jsx regardless of which club branch (no-club / member / manage) is
@@ -67,7 +68,7 @@ function InvitePrompt({ invite, onDone }) {
   const [busy, setBusy] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [error, setError] = useState(null)
-  const [hiddenPublic, setHiddenPublic] = useState(false)
+  const [hiddenPublic, setHiddenPublic] = useState(DEFAULT_HIDDEN_PUBLIC)
 
   async function accept() {
     setBusy(true)

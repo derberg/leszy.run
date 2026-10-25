@@ -5,6 +5,7 @@ import { useProfil } from './context.js'
 import useClub from '../../hooks/useClub.js'
 import { manageMember } from '../../lib/clubs.js'
 import DangerZone from './DangerZone.jsx'
+import { PUBLIC_CLUB_PAGE_SHIPPED } from '../../lib/clubPage.js'
 import {
   sectionTitle,
   EditableField,
@@ -187,34 +188,39 @@ export default function Ustawienia() {
             Pokazuj opis o mnie
           </span>
         </label>
-        <label className="flex items-start gap-2 cursor-pointer mt-3">
-          <input
-            data-testid="toggle-club-nickname"
-            type="checkbox"
-            checked={profile?.privacy_settings?.club_public_name === 'nickname'}
-            onChange={(e) => savePrivacy({ club_public_name: e.target.checked ? 'nickname' : 'display' })}
-            className="mt-0.5 accent-[#BBDD00]"
-          />
-          <span className="font-sans text-xs text-apex-text">
-            Na publicznej stronie klubu pokazuj tylko pseudonim
-            <span className="block text-[10px] text-apex-muted">Zamiast Twojego imienia i nazwiska.</span>
-          </span>
-        </label>
-        {club && (
-          <label className="flex items-start gap-2 cursor-pointer mt-3">
-            <input
-              data-testid="toggle-hidden-public"
-              type="checkbox"
-              checked={!!me?.hidden_public}
-              disabled={visBusy}
-              onChange={(e) => toggleHiddenPublic(e.target.checked)}
-              className="mt-0.5 accent-[#BBDD00]"
-            />
-            <span className="font-sans text-xs text-apex-text">
-              Nie pokazuj mnie na publicznej stronie klubu
-              <span className="block text-[10px] text-apex-muted">Twój wpis zniknie z listy członków na publicznej stronie klubu.</span>
-            </span>
-          </label>
+        {/* Both decide only what the parked public club page shows. */}
+        {PUBLIC_CLUB_PAGE_SHIPPED && (
+          <>
+            <label className="flex items-start gap-2 cursor-pointer mt-3">
+              <input
+                data-testid="toggle-club-nickname"
+                type="checkbox"
+                checked={profile?.privacy_settings?.club_public_name === 'nickname'}
+                onChange={(e) => savePrivacy({ club_public_name: e.target.checked ? 'nickname' : 'display' })}
+                className="mt-0.5 accent-[#BBDD00]"
+              />
+              <span className="font-sans text-xs text-apex-text">
+                Na publicznej stronie klubu pokazuj tylko pseudonim
+                <span className="block text-[10px] text-apex-muted">Zamiast Twojego imienia i nazwiska.</span>
+              </span>
+            </label>
+            {club && (
+              <label className="flex items-start gap-2 cursor-pointer mt-3">
+                <input
+                  data-testid="toggle-hidden-public"
+                  type="checkbox"
+                  checked={!!me?.hidden_public}
+                  disabled={visBusy}
+                  onChange={(e) => toggleHiddenPublic(e.target.checked)}
+                  className="mt-0.5 accent-[#BBDD00]"
+                />
+                <span className="font-sans text-xs text-apex-text">
+                  Nie pokazuj mnie na publicznej stronie klubu
+                  <span className="block text-[10px] text-apex-muted">Twój wpis zniknie z listy członków na publicznej stronie klubu.</span>
+                </span>
+              </label>
+            )}
+          </>
         )}
         {visError && <p className="text-apex-red font-sans text-xs mt-2">{visError}</p>}
         {prefError && <p data-testid="pref-error" className="text-apex-red font-sans text-xs mt-2">{prefError}</p>}
