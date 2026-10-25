@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import path from 'node:path';
 import { runCommand } from './exec.js';
+import { backendArgv } from './backendArgv.js';
 import { sendFailureEmail } from './mailer.js';
 
 const LOG_DIR = process.env.LOG_DIR || '/app/logs';
@@ -24,11 +25,8 @@ async function runBackendScript(name, scriptArgs) {
   const logWrite = (line) => { logStream.write(line); };
   logWrite(`\n==== ${new Date().toISOString()} ${name} starting ====\n`);
 
-  // Run inside the long-running backend container, in the backend workdir.
-  // Mirrors pipeline.js dockerArgv() for type 'backend': backend's WORKDIR is /app,
-  // scripts live at /app/backend/scripts/.
   const result = await runCommand({
-    argv: ['docker', 'compose', 'exec', '-T', '--workdir', '/app/backend', 'backend', 'node', ...scriptArgs],
+    argv: backendArgv(['node', ...scriptArgs]),
     cwd: COMPOSE_DIR,
     logWrite,
     timeoutMs: 10 * 60 * 1000,

@@ -1,4 +1,5 @@
 import { runCommand } from '../exec.js'
+import { backendArgv } from '../backendArgv.js'
 
 const COMPOSE_DIR = process.env.COMPOSE_DIR || '/workspace'
 
@@ -15,12 +16,7 @@ const COMPOSE_DIR = process.env.COMPOSE_DIR || '/workspace'
  * needs no database connection AND no access to the frame volume.
  */
 export async function purgeVisionEvidence() {
-  const argv = [
-    'docker', 'compose', 'exec', '-T',
-    '--workdir', '/app/backend',
-    'backend',
-    'node', 'scripts/purge-vision-evidence.js', '--apply',
-  ]
+  const argv = backendArgv(['node', 'scripts/purge-vision-evidence.js', '--apply'])
 
   const result = await runCommand({
     argv,
