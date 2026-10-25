@@ -16,7 +16,7 @@ function safeStorage() {
  * The volunteer page's send queue for one checkpoint. Entries are accepted
  * instantly and delivered in the background; see lib/checkpointOutbox.js.
  */
-export function useCheckpointOutbox(checkpointId, pin) {
+export function useCheckpointOutbox(checkpointId, pin, onPinRejected) {
   // Created in the effect, not in useMemo: StrictMode runs effects twice, and a
   // memoised outbox would be destroyed by the first cleanup and then reused.
   const [outbox, setOutbox] = useState(null)
@@ -25,10 +25,12 @@ export function useCheckpointOutbox(checkpointId, pin) {
   // one) applies to entries already waiting in the queue.
   const pinRef = useRef(pin)
   pinRef.current = pin
+  const rejectedRef = useRef(onPinRejected)
+  rejectedRef.current = onPinRejected
 
   useEffect(() => {
     if (!checkpointId) return
-    const ob = makeOutbox(checkpointId, () => pinRef.current)
+    const ob = makeOutbox(checkpointId, () => pinRef.current, () => rejectedRef.current?.())
     setOutbox(ob)
     const off = ob.subscribe(() => setVersion(v => v + 1))
     // The browser knows before we do that the signal came back.
@@ -76,18 +78,30 @@ export function useCheckpointOutbox(checkpointId, pin) {
   }
 }
 
-function makeOutbox(checkpointId, getPin) {
+// Not a rejection of the entry: it waits until a PIN the server accepts.
+function waitForPin(message) {
+  const err = new Error(message)
+  err.permanent = false
+  return err
+}
+
+function makeOutbox(checkpointId, getPin, pinRejected) {
   return createOutbox({
     storage: safeStorage(),
     key: outboxKey(checkpointId),
     send: async (entry, signal) => {
+      // No PIN yet, or the last one was refused: send nothing. Every wrong
+      // PIN counts towards the event's lockout, which would stop every other
+      // volunteer and Pi too.
+      const pin = getPin()
+      if (!pin) throw waitForPin('Brak PIN-u')
       // checkpoint-write answers a dropped row (the trg_checkpoint_obs_priority
       // trigger returns NULL when the (checkpoint_id, bib_number) slot is
       // taken) with an empty list, so a discarded entry never looks saved.
       const res = await checkpointWrite(FUNCTIONS_BASE, {
         action: 'observe',
         checkpoint_id: checkpointId,
-        pin: getPin(),
+        pin,
         observation: {
           id: entry.id,
           bib_number: entry.bib,
@@ -95,6 +109,10 @@ function makeOutbox(checkpointId, getPin) {
           source: 'manual',
         },
       }, { signal })
+      if (res.status === 401) {
+        pinRejected()
+        throw waitForPin('Nieprawidłowy PIN')
+      }
       return classifyInsertResult(res)
     },
   })

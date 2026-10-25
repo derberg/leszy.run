@@ -62,3 +62,17 @@ test('upsert on checkpoint_agents posts a heartbeat with the counters only', asy
     action: 'heartbeat', checkpoint_id: 'cp-1', status: 'listening', reads_total: 3, queue_pending: 1, unknown_count: 0, pin: '1',
   })
 })
+
+test('a refused PIN is not sent again until a different one is stored', async () => {
+  let pin = 'old'
+  const fetchImpl = fakeFetch(401, { error: 'Invalid PIN', code: 'invalid_pin' })
+  const w = createEdgeWriter({ supabaseUrl: 'u', anonKey: 'a', getPin: async () => pin, fetchImpl })
+  await w.from('checkpoint_observations').insert(row)
+  const again = await w.from('checkpoint_observations').insert(row)
+  await w.from('checkpoint_agents').upsert({ checkpoint_id: 'cp-1', status: 'listening' })
+  assert.equal(fetchImpl.calls.length, 1)
+  assert.equal(again.error.code, 'invalid_pin')
+  pin = 'new'
+  await w.from('checkpoint_observations').insert(row)
+  assert.equal(fetchImpl.calls.length, 2)
+})

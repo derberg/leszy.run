@@ -32,6 +32,6 @@ test('sameToken compares exactly', () => {
   assert.equal(sameToken(undefined, 'abc'), false)
 })
 
-test('generatePin is always six digits', () => {
-  for (let i = 0; i < 1000; i++) assert.match(generatePin(), /^[1-9]\d{5}$/)
+test('generatePin is always ten digits', () => {
+  for (let i = 0; i < 1000; i++) assert.match(generatePin(), /^[1-9]\d{9}$/)
 })

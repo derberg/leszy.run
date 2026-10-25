@@ -25,7 +25,7 @@ describe('checkpoint-write edge function', () => {
     await supabaseAdmin.from('checkpoint_observations').delete().eq('checkpoint_id', checkpointId)
     await supabaseAdmin.from('checkpoint_agents').delete().eq('checkpoint_id', checkpointId)
     await supabaseAdmin.from('event_secrets').delete().eq('event_id', eventId)
-    await supabaseAdmin.from('otp_throttle').delete().like('key', `pin:%:${eventId}`)
+    await supabaseAdmin.from('pin_attempts').delete().eq('event_id', eventId)
     await supabaseAdmin.from('events').delete().eq('id', eventId)
   })
 

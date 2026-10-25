@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useEvent } from '../hooks/useEvent.js'
 import { supabase } from '../lib/supabase.js'
 import useSeo from '../hooks/useSeo.js'
@@ -17,7 +17,9 @@ export default function Volunteer() {
   useSeo({ title: 'Wolontariat', noindex: true })
   const { event, loading: eventLoading, error: eventError } = useEvent()
   const checkpointId = new URLSearchParams(window.location.search).get('checkpoint')
-  const [pin, setPin] = useState(() => (checkpointId ? takePinFromUrl(checkpointId) : null))
+  // Reading only; moving the PIN to storage and off the address bar happens
+  // in an effect, so a second StrictMode run of this initialiser loses nothing.
+  const [pin, setPin] = useState(() => (checkpointId ? pinFromUrlOrStorage(checkpointId) : null))
   // 'checking' until the stored PIN is confirmed, 'needed' shows the PIN pad.
   const [pinState, setPinState] = useState(pin ? 'checking' : 'needed')
   const [checkpoint, setCheckpoint] = useState(null)
@@ -26,7 +28,19 @@ export default function Volunteer() {
   const [flash, setFlash] = useState(null)
   const flashTimer = useRef(null)
   const [eventEnded, setEventEnded] = useState(false)
-  const outbox = useCheckpointOutbox(checkpointId, pinState === 'needed' ? null : pin)
+  const askForPin = useCallback(() => {
+    clearPin(checkpointId)
+    setPin(null)
+    setPinState('needed')
+  }, [checkpointId])
+  // The queue only sends with a PIN the server has accepted (or one it could
+  // not check for lack of signal). A refused PIN brings the PIN pad back and
+  // keeps the entries waiting, instead of failing them one by one.
+  const outbox = useCheckpointOutbox(checkpointId, pinState === 'ok' ? pin : null, askForPin)
+
+  useEffect(() => {
+    if (checkpointId) movePinOffUrl(checkpointId)
+  }, [checkpointId])
 
   // A stored PIN is checked once on load. No answer (no signal at the
   // checkpoint) keeps it: entries queue on the phone and go out when the
@@ -37,15 +51,13 @@ export default function Volunteer() {
     checkpointWrite(FUNCTIONS_BASE, { action: 'verify', checkpoint_id: checkpointId, pin }).then(res => {
       if (cancelled) return
       if (pinCheckOutcome(res) === 'invalid') {
-        clearPin(checkpointId)
-        setPin(null)
-        setPinState('needed')
+        askForPin()
       } else {
         setPinState('ok')
       }
     })
     return () => { cancelled = true }
-  }, [checkpointId, pin, pinState])
+  }, [checkpointId, pin, pinState, askForPin])
 
   useEffect(() => {
     if (!checkpointId) { setLoadError('Brak ID punktu kontrolnego w URL.'); return }
@@ -200,17 +212,22 @@ export default function Volunteer() {
 // The organiser's link carries the PIN (&pin=). It is moved to this phone's
 // storage and taken out of the address bar, so it is not left in the history
 // or in a shared screenshot.
-function takePinFromUrl(checkpointId) {
+function pinFromUrlOrStorage(checkpointId) {
+  return new URLSearchParams(window.location.search).get('pin') || readPin(checkpointId)
+}
+
+function movePinOffUrl(checkpointId) {
   const url = new URL(window.location.href)
   const fromUrl = url.searchParams.get('pin')
-  if (fromUrl) {
-    savePin(checkpointId, fromUrl)
-    url.searchParams.delete('pin')
-    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
-    return fromUrl
-  }
-  return readPin(checkpointId)
+  if (!fromUrl) return
+  savePin(checkpointId, fromUrl)
+  url.searchParams.delete('pin')
+  window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
 }
+
+// New PINs are 10 digits; 6-digit ones generated before 2026-10-25 still work.
+const PIN_MIN = 6
+const PIN_MAX = 12
 
 function PinScreen({ checkpoint, verify, onAccepted }) {
   const [value, setValue] = useState('')
@@ -221,12 +238,12 @@ function PinScreen({ checkpoint, verify, onAccepted }) {
     setError(null)
     if (key === 'WYCZYSC') { setValue(''); return }
     if (key === '⌫') { setValue(v => v.slice(0, -1)); return }
-    if (value.length >= 6) return
+    if (value.length >= PIN_MAX) return
     setValue(v => v + key)
   }
 
   const submit = async () => {
-    if (value.length !== 6 || busy) return
+    if (value.length < PIN_MIN || busy) return
     setBusy(true)
     const outcome = pinCheckOutcome(await verify(value))
     setBusy(false)
@@ -244,8 +261,8 @@ function PinScreen({ checkpoint, verify, onAccepted }) {
       </div>
       <div className="text-center mb-4">
         <div className="text-[11px] uppercase tracking-[0.15em] text-apex-dim mb-2">PIN od organizatora</div>
-        <div className={`text-[56px] font-bold tabular-nums tracking-[0.3em] leading-none border-b-[3px] border-apex-yellow pb-2 min-h-[72px] ${value ? 'text-apex-text-bright' : 'text-apex-border-mid'}`}>
-          {value ? '•'.repeat(value.length) : '––––––'}
+        <div className={`text-[40px] font-bold tabular-nums tracking-[0.15em] leading-none border-b-[3px] border-apex-yellow pb-2 min-h-[56px] break-all ${value ? 'text-apex-text-bright' : 'text-apex-border-mid'}`}>
+          {value ? '•'.repeat(value.length) : '––––––––––'}
         </div>
       </div>
       <div className="min-h-[42px] mb-2">
@@ -271,9 +288,9 @@ function PinScreen({ checkpoint, verify, onAccepted }) {
       </div>
       <button
         onClick={submit}
-        disabled={value.length !== 6 || busy}
+        disabled={value.length < PIN_MIN || busy}
         className={`w-full py-[18px] text-lg font-bold uppercase tracking-wide border-none transition-all
-          ${value.length === 6 && !busy ? 'bg-apex-yellow text-apex-ink cursor-pointer' : 'bg-apex-surface-3 text-apex-dim cursor-default'}`}
+          ${value.length >= PIN_MIN && !busy ? 'bg-apex-yellow text-apex-ink cursor-pointer' : 'bg-apex-surface-3 text-apex-dim cursor-default'}`}
         style={{ WebkitTapHighlightColor: 'transparent' }}
       >
         {busy ? 'Sprawdzanie…' : 'Dalej'}

@@ -36,7 +36,11 @@ export async function getCheckinLinkKey(supabase, eventId) {
   return data.checkin_link_key
 }
 
-/** A 6-digit PIN from the CSPRNG (Math.random is predictable). */
+/**
+ * A 10-digit PIN from the CSPRNG (Math.random is predictable). The lockout in
+ * event_pin_ok() allows 100 wrong guesses per 15 minutes per event, which
+ * against 9e9 values never finds the PIN; with 6 digits it would within weeks.
+ */
 export function generatePin() {
-  return String(randomInt(100000, 1000000))
+  return String(randomInt(1_000_000_000, 10_000_000_000))
 }

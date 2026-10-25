@@ -27,15 +27,22 @@ DROP POLICY IF EXISTS "Anon insert" ON public.checkin_documents;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.checkins, public.checkin_documents FROM anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 2. Check-in PIN: lockout after repeated failures
+-- 2. PIN lockout, for both event PINs
 -- ---------------------------------------------------------------------------
 
 -- 6 digits and no limit at all: about 900k guesses through /rest/v1/rpc.
--- 30 failures per event per 15 minutes locks the PIN for everyone, attacker
--- included. The advisory lock serialises attempts for one event, so parallel
--- requests cannot all read the same failure count. A failure is only RECORDED
--- if the transaction commits, so no caller below may RAISE on a wrong PIN.
-CREATE OR REPLACE FUNCTION public.checkin_pin_ok(p_event_id uuid, p_pin text)
+-- 100 failures per event per 15 minutes lock that PIN for everyone, attacker
+-- included; there is no caller identity a forger cannot change. New PINs are
+-- 10 digits (backend generatePin), so the lock is what a guesser hits, never
+-- what finds the PIN. The advisory lock serialises attempts on one PIN, so
+-- parallel requests cannot all read the same count: the check, the compare and
+-- the record are one critical section. A failure is only RECORDED if the
+-- transaction commits, so no caller below may RAISE on a wrong PIN.
+-- checkpoint-write and checkpoint-roster call it for the checkpoint PIN
+-- (service role, _shared/pinGuard.js).
+ALTER TABLE public.pin_attempts ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'checkin';
+
+CREATE OR REPLACE FUNCTION public.event_pin_ok(p_event_id uuid, p_kind text, p_pin text)
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -45,30 +52,43 @@ DECLARE
   v_failures integer;
   v_ok boolean;
 BEGIN
-  PERFORM pg_advisory_xact_lock(hashtextextended('checkin_pin:' || p_event_id::text, 0));
+  IF p_kind NOT IN ('checkin', 'checkpoint') THEN
+    RAISE EXCEPTION 'Unknown PIN kind %', p_kind;
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_kind || '_pin:' || p_event_id::text, 0));
 
   SELECT count(*) INTO v_failures
     FROM pin_attempts
    WHERE event_id = p_event_id
+     AND kind = p_kind
      AND NOT success
      AND attempted_at > now() - interval '15 minutes';
-  IF v_failures >= 30 THEN
+  IF v_failures >= 100 THEN
     RAISE EXCEPTION 'Too many attempts';
   END IF;
 
   SELECT EXISTS (
     SELECT 1 FROM event_secrets
      WHERE event_id = p_event_id
-       AND checkin_pin IS NOT NULL
-       AND checkin_pin = p_pin
+       AND p_pin IS NOT NULL AND p_pin <> ''
+       AND CASE p_kind WHEN 'checkin' THEN checkin_pin ELSE checkpoint_pin END = p_pin
   ) INTO v_ok;
 
   IF NOT v_ok THEN
-    INSERT INTO pin_attempts (event_id, success) VALUES (p_event_id, false);
+    INSERT INTO pin_attempts (event_id, kind, success) VALUES (p_event_id, p_kind, false);
   END IF;
   RETURN v_ok;
 END;
 $$;
+REVOKE ALL ON FUNCTION public.event_pin_ok(uuid, text, text) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.checkin_pin_ok(p_event_id uuid, p_pin text)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$ SELECT event_pin_ok(p_event_id, 'checkin', p_pin) $$;
 REVOKE ALL ON FUNCTION public.checkin_pin_ok(uuid, text) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.verify_checkin_pin(p_event_id uuid, p_pin text)

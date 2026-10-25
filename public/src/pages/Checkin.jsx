@@ -31,6 +31,7 @@ export default function Checkin() {
   const [checkedIn, setCheckedIn] = useState(false)
   const [acknowledged, setAcknowledged] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [confirmError, setConfirmError] = useState(null)
   const [loadError, setLoadError] = useState(null)
   const [loading, setLoading] = useState(true)
   const qrRef = useRef(null)
@@ -88,6 +89,7 @@ export default function Checkin() {
   const handleConfirm = async () => {
     if (!allAcknowledged || submitting) return
     setSubmitting(true)
+    setConfirmError(null)
 
     const { error } = await selfCheckin({
       action: 'confirm',
@@ -98,6 +100,7 @@ export default function Checkin() {
     })
     if (error) {
       console.error('[checkin] confirm error', error)
+      setConfirmError('Nie udało się zameldować. Spróbuj ponownie albo zgłoś się do biura zawodów.')
       setSubmitting(false)
       return
     }
@@ -339,6 +342,9 @@ export default function Checkin() {
         >
           {submitting ? 'Wysyłanie...' : 'Potwierdzam'}
         </button>
+        {confirmError && (
+          <div className="mt-3 border border-apex-red/50 bg-apex-red/10 text-apex-red px-3 py-2 text-sm text-center">{confirmError}</div>
+        )}
       </div>
     </div>
   )

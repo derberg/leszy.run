@@ -30,11 +30,13 @@ const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOStrin
 // A session is dead the moment it expires; the week of grace is only so a
 // support question ("was I logged in on Tuesday?") is still answerable.
 // A code is single-use and lives ten minutes, so a day is generous.
-// A throttle window is 15 minutes, so a day is very generous.
+// A throttle window and a PIN lockout are 15 minutes, so a day is very generous.
 const TARGETS = [
   { table: 'auth_sessions', column: 'expires_at', cutoff: daysAgo(7) },
   { table: 'auth_codes', column: 'expires_at', cutoff: daysAgo(1) },
   { table: 'otp_throttle', column: 'window_started_at', cutoff: daysAgo(1) },
+  // One row per wrong event PIN (check-in or checkpoint); the lockout reads 15 minutes.
+  { table: 'pin_attempts', column: 'attempted_at', cutoff: daysAgo(1) },
 ]
 
 let failed = false

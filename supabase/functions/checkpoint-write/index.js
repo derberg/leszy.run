@@ -13,11 +13,13 @@
 //   heartbeat → 200 { data: null }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
-import { checkEventPin } from '../_shared/pinGuard.js'
+import { checkCheckpointPin } from '../_shared/pinGuard.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SOURCES = new Set(['manual', 'rfid'])
 const AGENT_STATUS_MAX = 40
+const OBSERVED_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000
+const OBSERVED_MAX_AHEAD_MS = 10 * 60 * 1000
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -38,6 +40,10 @@ function observationRow(checkpointId, o) {
   if (!Number.isInteger(bib) || bib < 1 || bib > 99999) return { error: 'Invalid bib_number' }
   const observedAt = new Date(o.observed_at)
   if (typeof o.observed_at !== 'string' || Number.isNaN(observedAt.getTime())) return { error: 'Invalid observed_at' }
+  // A Pi can upload a queue it kept through a long outage, so the past is
+  // generous; the future is not, beyond clock skew.
+  const ageMs = Date.now() - observedAt.getTime()
+  if (ageMs > OBSERVED_MAX_AGE_MS || ageMs < -OBSERVED_MAX_AHEAD_MS) return { error: 'observed_at out of range' }
   const source = o.source ?? 'manual'
   if (!SOURCES.has(source)) return { error: 'Invalid source' }
   const row = { checkpoint_id: checkpointId, bib_number: bib, observed_at: observedAt.toISOString(), source }
@@ -71,7 +77,7 @@ Deno.serve(async (req) => {
   if (cpErr) return json({ error: 'Lookup failed' }, 500, req)
   if (!checkpoint) return json({ error: 'Checkpoint not found', code: 'not_found' }, 404, req)
 
-  const check = await checkEventPin(admin, { eventId: checkpoint.event_id, column: 'checkpoint_pin', pin: String(pin) })
+  const check = await checkCheckpointPin(admin, { eventId: checkpoint.event_id, pin: String(pin) })
   if (!check.ok) {
     return json({ error: check.error, code: check.status === 401 ? 'invalid_pin' : '' }, check.status, req)
   }

@@ -695,8 +695,9 @@ into local PostgreSQL. Admin check-in from the backend also writes to Supabase f
 local), so all check-in data has a single source of truth in Supabase.
 
 **Anon key lockdown (security review 2026-10-25, migration `20261025210000_anon_lockdown.sql`).**
-The publishable key is in every browser, so whatever it may do, anyone may do. It now only
-reads. Every write a public page or a Pi makes goes through an edge function on the service role:
+The publishable key is in every browser, so whatever it may do, anyone may do. It reads, and
+writes only through the check-in-PIN RPCs (`checkin_confirm` for the bib office). Every other
+write a public page or a Pi makes goes through an edge function on the service role:
 - `self-checkin` — the runner's check-in from the SMS link. The link carries `t`, an HMAC of the
   participant id under `event_secrets.checkin_link_key` (`backend/src/lib/checkinLink.js` builds
   it for the SMS, `_shared/checkinToken.js` checks it). A participant id alone is public
@@ -707,11 +708,15 @@ reads. Every write a public page or a Pi makes goes through an edge function on 
   event's `checkpoint_pin`. The admin's volunteer link carries `&pin=`; the volunteer page moves
   it to localStorage and off the address bar, and asks for it when it is missing. The Pi agent
   sends the PIN it already stores for `checkpoint-roster` (`checkpoint-agent/src/edgeWriter.js`).
-- PIN guesses are counted per event, not per caller, because there is no caller identity a forger
-  cannot change: 30 failures in 15 minutes lock the PIN. `_shared/pinGuard.js` does it for the
-  checkpoint PIN, `checkin_pin_ok()` in SQL for the check-in PIN. A lockout also blocks the real
-  volunteers, whose entries then wait in the outbox and go out afterwards. A PIN function must
-  never RAISE on a wrong PIN, or the rollback erases the recorded failure.
+- Both event PINs go through `event_pin_ok(event, kind, pin)` in SQL: an advisory lock, a count
+  of recent failures in `pin_attempts`, the compare and the record in one critical section, so
+  parallel guesses cannot share a count (`_shared/pinGuard.js` calls it for the checkpoint PIN).
+  Failures are counted per event, not per caller, because there is no caller identity a forger
+  cannot change: 100 in 15 minutes lock that PIN for everyone. New PINs are 10 digits
+  (`generatePin()`), which that rate never finds. A PIN function must never RAISE on a wrong PIN,
+  or the rollback erases the recorded failure. A client holding a refused PIN must stop sending
+  it, or it locks out everybody else: the Pi's `edgeWriter` stops until a different PIN is
+  stored, and the volunteer page returns to the PIN pad with its entries still queued.
 - A new table needs RLS on and `REVOKE ALL … FROM anon, authenticated` in the migration that
   creates it, then a GRANT and a policy only for what the public app reads. Six tables had RLS
   off with full anon CRUD (`event_partners` among them, the sponsor links on event pages).

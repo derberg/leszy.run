@@ -27,6 +27,7 @@ describe('checkpoint-roster edge function', () => {
 
   after(async () => {
     await supabaseAdmin.from('event_secrets').delete().eq('event_id', eventId)
+    await supabaseAdmin.from('pin_attempts').delete().eq('event_id', eventId)
     await supabaseAdmin.from('events').delete().eq('id', eventId) // participants cascade
   })
 
