@@ -6,7 +6,7 @@
 
 // Per-user caches. Listed here so signOut() can drop them without importing the
 // hooks that own them (they import lib/auth.js, so that would be a cycle).
-export const USER_CACHE_KEYS = ['leszy.favorites', 'leszy.notifications']
+export const USER_CACHE_KEYS = ['leszy.favorites', 'leszy.notifications', 'leszy.clubStarts']
 
 export function readCache(key) {
   try {

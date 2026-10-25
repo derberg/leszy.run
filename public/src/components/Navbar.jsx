@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, Fragment } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle.jsx'
 import useAuth from '../hooks/useAuth.js'
 import useNotifications from '../hooks/useNotifications.js'
 import { signOut } from '../lib/auth.js'
+import AccountMenu from './AccountMenu.jsx'
 
 const navLinks = [
   { to: '/', label: 'Start', hash: '' },
@@ -22,6 +24,8 @@ export default function Navbar() {
   const { unseenCount } = useNotifications()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef(null)
+  // Phone: the username chip opens the account menu as a bottom sheet.
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const isActive = (link) => {
     if (link.to === '/kalendarz') return location.pathname === '/kalendarz' || location.pathname.startsWith('/listy')
@@ -58,6 +62,20 @@ export default function Navbar() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  useEffect(() => {
+    setUserMenuOpen(false)
+    setSheetOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!userMenuOpen && !sheetOpen) return
+    function onKey(e) {
+      if (e.key === 'Escape') { setUserMenuOpen(false); setSheetOpen(false) }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [userMenuOpen, sheetOpen])
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-14 bg-apex-bg/85 backdrop-blur-md border-b border-apex-border" role="navigation" aria-label="Nawigacja główna">
@@ -132,23 +150,8 @@ export default function Navbar() {
               )}
             </button>
             {userMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-44 bg-apex-bg border border-apex-border shadow-lg z-50">
-                <Link
-                  to="/profil"
-                  onClick={() => setUserMenuOpen(false)}
-                  className="block px-4 py-2.5 font-sans text-sm text-apex-text hover:text-apex-yellow hover:bg-apex-surface transition-colors no-underline"
-                >
-                  Mój profil
-                </Link>
-                <button
-                  onClick={async () => {
-                    setUserMenuOpen(false)
-                    try { await signOut() } finally { window.location.href = '/' }
-                  }}
-                  className="w-full text-left px-4 py-2.5 font-sans text-sm text-apex-muted hover:text-apex-red hover:bg-apex-surface transition-colors border-t border-apex-border"
-                >
-                  Wyloguj się
-                </button>
+              <div className="absolute right-0 top-full mt-2 w-80 bg-apex-bg border border-apex-border shadow-lg z-50">
+                <AccountMenu user={user} onNavigate={() => setUserMenuOpen(false)} />
               </div>
             )}
           </div>
@@ -178,9 +181,11 @@ export default function Navbar() {
       <div className="md:hidden flex items-center gap-3">
         <ThemeToggle />
         {user ? (
-          <Link
-            to="/profil"
-            className="flex items-center gap-1.5 min-w-0 font-mono text-[11px] text-apex-yellow border border-apex-yellow px-2.5 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all no-underline"
+          <button
+            type="button"
+            onClick={() => { setMenuOpen(false); setSheetOpen(v => !v) }}
+            aria-expanded={sheetOpen}
+            className="flex items-center gap-1.5 min-w-0 font-mono text-[11px] text-apex-yellow border border-apex-yellow px-2.5 py-1 hover:bg-apex-yellow hover:text-apex-ink transition-all"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-apex-yellow inline-block flex-shrink-0" />
             {/* Truncated: without a shrink floor a long username pushed the
@@ -191,7 +196,7 @@ export default function Navbar() {
                 {unseenCount}
               </span>
             )}
-          </Link>
+          </button>
         ) : authLoading ? (
           <span aria-hidden="true" className="font-mono text-[11px] border border-transparent px-2.5 py-1 invisible select-none">
             Zaloguj się
@@ -206,7 +211,7 @@ export default function Navbar() {
         )}
         <button
           className="p-2 -m-2 text-apex-text-bright"
-          onClick={() => setMenuOpen(!menuOpen)}
+          onClick={() => { setSheetOpen(false); setMenuOpen(!menuOpen) }}
           aria-label={menuOpen ? 'Zamknij menu' : 'Otwórz menu'}
           aria-expanded={menuOpen}
         >
@@ -268,6 +273,24 @@ export default function Navbar() {
             Organizujesz bieg?
           </Link>
         </div>
+      )}
+
+      {/* The nav's backdrop-blur makes it the containing block of fixed
+          children, so the sheet is portalled to <body> to cover the screen. */}
+      {sheetOpen && user && createPortal(
+        <div className="md:hidden fixed inset-0 z-[60]">
+          <div className="absolute inset-0 bg-apex-ink/45" onClick={() => setSheetOpen(false)} aria-hidden="true" />
+          <div
+            role="dialog"
+            aria-label="Menu konta"
+            className="absolute left-0 right-0 bottom-0 max-h-[86%] overflow-y-auto bg-apex-bg border-t-2 border-apex-yellow pb-[env(safe-area-inset-bottom)]"
+          >
+            <div className="w-10 h-1 bg-apex-border-mid mx-auto mt-2 mb-1" aria-hidden="true" />
+            <div className="px-4 pt-1 pb-2 font-mono text-xs text-apex-muted truncate">{user.username || user.email?.split('@')[0]}</div>
+            <AccountMenu user={user} onNavigate={() => setSheetOpen(false)} large />
+          </div>
+        </div>,
+        document.body
       )}
     </nav>
   )

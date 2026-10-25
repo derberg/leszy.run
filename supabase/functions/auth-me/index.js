@@ -27,13 +27,13 @@ Deno.serve(async (req) => {
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('id, email, username, display_name, club_id, clubs!profiles_club_id_fkey(name), gender, phone, date_of_birth, city, voivodeship')
+    .select('id, email, username, display_name, club_id, clubs!profiles_club_id_fkey(name, slug), gender, phone, date_of_birth, city, voivodeship')
     .eq('id', session.userId)
     .single()
 
   if (!profile) return json({ error: 'Profile not found' }, 404, req)
 
-  const user = { ...profile, club: profile.clubs?.name ?? null }
+  const user = { ...profile, club: profile.clubs?.name ?? null, club_slug: profile.clubs?.slug ?? null }
   delete user.clubs
 
   return json({ user }, 200, req)

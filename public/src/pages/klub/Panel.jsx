@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import StarButton from '../../components/StarButton.jsx'
 import MembershipVisibilityChoice from '../../components/MembershipVisibilityChoice.jsx'
 import { slugify } from '../../lib/slugify.js'
 import { manageMember } from '../../lib/clubs.js'
 import { followerNames, splitFollowers } from '../../lib/clubFollowers.js'
+import { CLUB_STARTS_ANCHOR } from '../../lib/accountMenu.js'
 import { sectionTitle, actionBtnClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
 
@@ -107,12 +108,19 @@ function FollowedEvent({ entry, members }) {
 export default function Panel() {
   const { club, me, followedEvents, members } = useKlub()
   const navigate = useNavigate()
+  const { hash } = useLocation()
   const [leaving, setLeaving] = useState(false)
   const [error, setError] = useState(null)
 
   useSeo({ title: `Panel — ${club.name} — Leszy.run`, noindex: true })
 
   const activeMembers = (members ?? []).filter((m) => m.status === 'active')
+
+  // The account menu's "Starty klubowiczów" lands here; the router does not
+  // scroll to a hash by itself.
+  useEffect(() => {
+    if (hash === `#${CLUB_STARTS_ANCHOR}`) document.getElementById(CLUB_STARTS_ANCHOR)?.scrollIntoView()
+  }, [hash])
 
   async function handleLeave() {
     setLeaving(true)
@@ -141,7 +149,7 @@ export default function Panel() {
 
       <MyMembership />
 
-      <div>
+      <div id={CLUB_STARTS_ANCHOR} className="scroll-mt-20">
         <div className={sectionTitle}>Nadchodzące biegi, które śledzą klubowicze</div>
         <p className="font-sans text-xs text-apex-muted -mt-2 mb-2">
           To biegi, które obserwują członkowie klubu — nie potwierdzone zapisy.
