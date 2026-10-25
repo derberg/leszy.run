@@ -6,6 +6,7 @@ import useSeo from '../hooks/useSeo.js'
 import { acceptInvite } from '../lib/clubs.js'
 import MembershipVisibilityChoice from '../components/MembershipVisibilityChoice.jsx'
 import useInvitePreview from '../hooks/useInvitePreview.js'
+import { DEFAULT_HIDDEN_PUBLIC } from '../lib/clubPage.js'
 
 const primaryBtnClass = 'font-display font-bold text-sm tracking-widest uppercase px-6 py-3 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed'
 
@@ -33,7 +34,7 @@ export default function InviteAccept() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [done, setDone] = useState(false)
-  const [hiddenPublic, setHiddenPublic] = useState(false)
+  const [hiddenPublic, setHiddenPublic] = useState(DEFAULT_HIDDEN_PUBLIC)
 
   const returnPath = `/klub/${slug}/dolacz${kod ? `?kod=${encodeURIComponent(kod)}` : ''}`
 
