@@ -12,5 +12,8 @@ RUN npm ci --workspace=backend --omit=dev
 RUN npx playwright install chromium
 # Copy backend source
 COPY backend/ backend/
+# run-weekly-digest.js imports the edge functions' deadline rule so the email and
+# the in-app badge agree. Without it the digest crashed at import in the image.
+COPY supabase/functions/_shared/deadlineSoon.js supabase/functions/_shared/
 EXPOSE 3001
 CMD ["node", "--watch", "backend/src/server.js"]

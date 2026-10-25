@@ -1,4 +1,5 @@
 import { runCommand } from '../exec.js'
+import { backendArgv } from '../backendArgv.js'
 
 const COMPOSE_DIR = process.env.COMPOSE_DIR || '/workspace'
 
@@ -8,12 +9,7 @@ const COMPOSE_DIR = process.env.COMPOSE_DIR || '/workspace'
  * connection is needed in this container.
  */
 export async function purgeRfidLogs() {
-  const argv = [
-    'docker', 'compose', 'exec', '-T',
-    '--workdir', '/app/backend',
-    'backend',
-    'node', 'scripts/purge-rfid-logs.js',
-  ]
+  const argv = backendArgv(['node', 'scripts/purge-rfid-logs.js'])
 
   const result = await runCommand({
     argv,
