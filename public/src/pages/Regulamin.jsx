@@ -17,6 +17,7 @@ export default function Regulamin() {
           <li><strong>Konto:</strong> indywidualny profil Użytkownika, identyfikowany adresem email.</li>
           <li><strong>Organizator:</strong> podmiot organizujący zawody biegowe, korzystający z usług pomiaru czasu Usługodawcy.</li>
           <li><strong>Uczestnik:</strong> osoba startująca w zawodach obsługiwanych przez LESZY.RUN.</li>
+          <li><strong>Operator płatności:</strong> Payments Lab sp. z o.o. z siedzibą w Warszawie (KRS 0000845085), operator serwisu dpay.pl, za którego pośrednictwem przyjmowane są płatności w Serwisie.</li>
         </ul>
       </section>
 
@@ -27,7 +28,7 @@ export default function Regulamin() {
           <li>rejestrację i prowadzenie Konta,</li>
           <li>prezentację kalendarza biegów i wyników zawodów,</li>
           <li>tworzenie klubów i zarządzanie nimi,</li>
-          <li>przyjmowanie zapisów na zawody, bez obsługi płatności online,</li>
+          <li>przyjmowanie zapisów na zawody oraz opłat startowych w imieniu i na rzecz Organizatora,</li>
           <li>składanie zgłoszeń wydarzeń i innych wkładów społecznościowych.</li>
         </ul>
         <p className="mt-3">Usługodawca może świadczyć Organizatorowi usługi dodatkowe, w tym odpłatne. Ich zakres, cenę i warunki Usługodawca przekazuje Organizatorowi przed włączeniem usługi, a usługa jest świadczona dopiero po zaakceptowaniu tych warunków.</p>
@@ -56,6 +57,8 @@ export default function Regulamin() {
         <h2 className="font-display text-2xl uppercase">§5. Zapisy na zawody</h2>
         <ol className="mt-3 list-decimal space-y-2 pl-6">
           <li>Zapisując się na zawody, Uczestnik zawiera umowę o udział w zawodach z Organizatorem. Usługodawca przyjmuje zapisy w imieniu Organizatora i nie jest stroną tej umowy.</li>
+          <li>Opłatę startową Usługodawca przyjmuje za pośrednictwem Operatora płatności, wyłącznie w imieniu i na rzecz Organizatora. Zapłata na rzecz Usługodawcy jest zapłatą na rzecz Organizatora.</li>
+          <li>Zgłoszenie jest ważne po potwierdzeniu adresu email i opłaceniu w terminie podanym przy zapisie.</li>
           <li>Za przebieg zawodów, ich odwołanie lub zmianę oraz zwrot opłat odpowiada Organizator, na zasadach określonych w regulaminie zawodów.</li>
           <li>Uczestnikowi nie przysługuje ustawowe prawo odstąpienia od umowy o udział w zawodach (art. 38 pkt 12 ustawy o prawach konsumenta). Zasady rezygnacji i ewentualnego zwrotu opłaty określa Organizator w regulaminie zawodów.</li>
         </ol>
