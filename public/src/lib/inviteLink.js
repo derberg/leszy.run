@@ -6,13 +6,9 @@
 
 const INVITE_PATH_RE = /^\/klub\/([^/?#]+)\/dolacz$/
 
-/**
- * The address a manager shares. `beta=1` is there because the invite page is
- * still behind the accounts beta flag: a browser that never opened ?beta=1 was
- * sent to the home page, and the invite looked broken.
- */
+/** The address a manager shares. */
 export function inviteUrl(origin, slug, code) {
-  return `${origin}/klub/${slug}/dolacz?kod=${code}&beta=1`
+  return `${origin}/klub/${slug}/dolacz?kod=${code}`
 }
 
 /** @returns {{ slug: string, code: string } | null} */

@@ -1,8 +1,6 @@
 import { Link } from 'react-router-dom'
-import useBeta from '../hooks/useBeta.js'
 
 export default function Footer() {
-  const beta = useBeta() // dark-launch: hide add-event link when off
   function openCookieBanner() {
     window.dispatchEvent(new CustomEvent('leszy:cookies:open'))
   }
@@ -27,7 +25,7 @@ export default function Footer() {
             <ul className="list-none p-0 m-0">
               <li><Link to="/" className="inline-block py-1.5 text-xs text-apex-muted no-underline hover:text-apex-yellow transition-colors">Strona główna</Link></li>
               <li><Link to="/kalendarz" className="inline-block py-1.5 text-xs text-apex-muted no-underline hover:text-apex-yellow transition-colors">Kalendarz biegów</Link></li>
-              {beta && <li><Link to="/kalendarz/dodaj" className="inline-block py-1.5 text-xs text-apex-muted no-underline hover:text-apex-yellow transition-colors">Dodaj wydarzenie</Link></li>}
+              <li><Link to="/kalendarz/dodaj" className="inline-block py-1.5 text-xs text-apex-muted no-underline hover:text-apex-yellow transition-colors">Dodaj wydarzenie</Link></li>
               <li><Link to="/events" className="inline-block py-1.5 text-xs text-apex-muted no-underline hover:text-apex-yellow transition-colors">Wydarzenia Leszy.run</Link></li>
             </ul>
           </nav>

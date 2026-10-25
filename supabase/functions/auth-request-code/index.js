@@ -125,9 +125,7 @@ Deno.serve(async (req) => {
     if (apiKey) {
       const linkBase = magicLinkBase(req)
       const fromQs = safeFrom ? `&from=${encodeURIComponent(safeFrom)}` : ''
-      // beta=1 while accounts are dark-launched: /login is behind that flag, and
-      // a mail app's own browser has never seen it, so the link went home.
-      const magicLink = `${linkBase}/login?email=${encodeURIComponent(normalizedEmail)}&code=${code}${fromQs}&beta=1`
+      const magicLink = `${linkBase}/login?email=${encodeURIComponent(normalizedEmail)}&code=${code}${fromQs}`
       const plainText = `Twój kod logowania do Leszy.run:\n\n${code}\n\nLub kliknij ten link, aby zalogować się od razu:\n${magicLink}\n\nKod jest ważny przez 10 minut. Jeśli to nie Ty, zignoruj tę wiadomość.\n\nLeszy.run — kalendarz biegów w Polsce\nhttps://www.leszy.run`
       const html = `<!DOCTYPE html>
 <html lang="pl">

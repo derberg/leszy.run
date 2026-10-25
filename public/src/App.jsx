@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import useBeta from './hooks/useBeta.js'
 import CookieBanner from './components/CookieBanner.jsx'
 import Footer from './components/Footer.jsx'
 import RouteTracker from './components/RouteTracker.jsx'
@@ -54,9 +53,6 @@ function PageLoader() {
 }
 
 export default function App() {
-  // Accounts/community product is dark-launched behind ?beta=1 — its routes
-  // redirect home until the flag is on. Legal pages stay live (compliance).
-  const beta = useBeta()
   return (
     <>
       <ScrollToTop />
@@ -64,7 +60,7 @@ export default function App() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/kalendarz/dodaj" element={beta ? <DodajWydarzenie /> : <Navigate to="/kalendarz" replace />} />
+          <Route path="/kalendarz/dodaj" element={<DodajWydarzenie />} />
           <Route path="/kalendarz/:slug" element={<EventPage />} />
           <Route path="/kalendarz" element={<Kalendarz />} />
           <Route path="/events" element={<Home />} />
@@ -77,21 +73,21 @@ export default function App() {
           <Route path="/events/:slug/admin/checkin" element={<AdminCheckin />} />
           <Route path="/listy" element={<BieguHub />} />
           <Route path="/listy/*" element={<LandingPage />} />
-          <Route path="/login" element={beta ? <Login /> : <Navigate to="/" replace />} />
-          <Route path="/onboarding" element={beta ? <Onboarding /> : <Navigate to="/" replace />} />
-          <Route path="/profil" element={beta ? <Profil /> : <Navigate to="/" replace />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/profil" element={<Profil />}>
             <Route index element={<Navigate to="obserwowane" replace />} />
             <Route path="obserwowane" element={<Obserwowane />} />
             <Route path="zgloszenia" element={<Zgloszenia />} />
             <Route path="klub" element={<Klub />} />
             <Route path="ustawienia" element={<Ustawienia />} />
           </Route>
-          <Route path="/u/:username" element={beta ? <UserProfile /> : <Navigate to="/" replace />} />
+          <Route path="/u/:username" element={<UserProfile />} />
           {/* Bare /klub/:slug is a STATIC public page (Vercel-served) — the SPA
               only owns sub-paths. The index redirect fires solely for client-side
               navigations / clubs without a static page. */}
-          <Route path="/klub/:slug/dolacz" element={beta ? <InviteAccept /> : <Navigate to="/" replace />} />
-          <Route path="/klub/:slug" element={beta ? <ClubLayout /> : <Navigate to="/" replace />}>
+          <Route path="/klub/:slug/dolacz" element={<InviteAccept />} />
+          <Route path="/klub/:slug" element={<ClubLayout />}>
             <Route index element={<Navigate to="panel" replace />} />
             <Route path="panel" element={<KlubPanel />} />
             <Route path="czlonkowie" element={<KlubCzlonkowie />} />
