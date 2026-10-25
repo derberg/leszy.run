@@ -712,6 +712,8 @@ Club invite links come from `inviteUrl()` in `public/src/lib/inviteLink.js`. A l
 
 **Browser APIs are gated by `Permissions-Policy` in `public/vercel.json`.** A feature that uses the camera, the microphone, geolocation or another gated API needs `<feature>=(self)` there, or Chrome blocks it on www.leszy.run and shows no reason. It happened twice: `geolocation=()` broke "Blisko mnie" for two weeks, and `camera=()` kept the bib-office QR scanner from opening the camera until 2026-10-15. The Vite dev and preview servers copy these headers from `vercel.json`, so the breakage shows up locally too.
 
+**A tab opened before a deploy reloads itself on its first in-app navigation to a page it has not loaded yet.** It still runs the old entry bundle, which asks for page chunks by hashes the new deployment no longer has. Before `public/src/lib/staleChunkReload.js`, that left a white page with "Failed to fetch dynamically imported module" until a manual refresh. The SPA rewrite in `vercel.json` skips `/assets/`, so a missing chunk is a 404, not `index.html` served as a script.
+
 ### Logo
 - `public/public/logo-bez-napisu.svg` — Leszy character without text. Two green leaves (top-left, top-right), black body/roots.
 - `public/public/logo.svg` — full logo with text (used as watermark in `app.css`)
