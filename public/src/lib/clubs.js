@@ -1,5 +1,6 @@
 import { callFunction } from './auth.js'
 import { supabase } from './supabase.js'
+import { clearAuthCache } from '../hooks/useAuth.js'
 
 // Thin client wrappers over the club edge functions + the anon search_clubs
 // RPC. callFunction() already returns the parsed body and throws on non-2xx,
@@ -14,8 +15,16 @@ export async function searchClubs(q) {
   return data // [{ id, name, member_count }]
 }
 
+// The cached auth-me user carries club_id / club_slug, which the account menu
+// links with. It is revalidated only once a day, so every call that changes the
+// caller's own club drops it and the next render asks auth-me again.
+function withFreshUser(result) {
+  clearAuthCache()
+  return result
+}
+
 export async function createClub(body) {
-  return (await callFunction('create-club', body)).data
+  return withFreshUser((await callFunction('create-club', body)).data)
 }
 
 export async function requestJoin(clubId, { hiddenPublic = true } = {}) {
@@ -27,7 +36,8 @@ export async function respondJoin(clubId, userId, action) {
 }
 
 export async function manageMember(clubId, action, extra = {}) {
-  return (await callFunction('manage-member', { club_id: clubId, action, ...extra })).data
+  const data = (await callFunction('manage-member', { club_id: clubId, action, ...extra })).data
+  return action === 'leave' ? withFreshUser(data) : data
 }
 
 export async function manageClubInvite(clubId, op, extra = {}) {
@@ -40,7 +50,7 @@ export async function previewInvite(code) {
 }
 
 export async function acceptInvite(payload) {
-  return (await callFunction('accept-invite', payload)).data
+  return withFreshUser((await callFunction('accept-invite', payload)).data)
 }
 
 export async function uploadClubLogo(clubId, dataUrl) {
@@ -64,5 +74,5 @@ export async function updateClub(clubId, body) {
 }
 
 export async function deleteClub(clubId) {
-  return (await callFunction('delete-club', { club_id: clubId })).data
+  return withFreshUser((await callFunction('delete-club', { club_id: clubId })).data)
 }
