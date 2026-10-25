@@ -27,7 +27,7 @@ export default function InviteAccept() {
   const [searchParams] = useSearchParams()
   const kod = searchParams.get('kod')
   const { user, loading: authLoading } = useAuth()
-  const { preview, error: previewError, loading: previewLoading } = useInvitePreview(kod)
+  const { preview, errorStatus: previewStatus, loading: previewLoading } = useInvitePreview(kod)
   const loading = authLoading || previewLoading
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
@@ -58,7 +58,11 @@ export default function InviteAccept() {
   }
 
   const clubName = preview?.club?.name
-  const deadReason = previewError || (preview && DEAD_INVITE[preview.state])
+  // Only a 404 or a dead state settles it. A throttled or failed preview leaves
+  // the old flow in place: no club name, and accept-invite has the last word.
+  const deadReason = previewStatus === 404
+    ? 'Nieprawidłowy kod zaproszenia.'
+    : (preview && DEAD_INVITE[preview.state])
 
   let body
   if (loading) {

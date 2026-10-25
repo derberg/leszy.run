@@ -24,6 +24,11 @@ const attempts = new Map()
 
 function throttled(ip) {
   const now = Date.now()
+  if (attempts.size > 10_000) {
+    for (const [key, entry] of attempts) {
+      if (now - entry.windowStart > WINDOW_MS) attempts.delete(key)
+    }
+  }
   const entry = attempts.get(ip)
   if (!entry || now - entry.windowStart > WINDOW_MS) {
     attempts.set(ip, { count: 1, windowStart: now })
@@ -45,7 +50,7 @@ Deno.serve(async (req) => {
   if (guard) return guard
 
   const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown'
-  if (throttled(ip)) return json({ error: 'Too many attempts' }, 429, req)
+  if (throttled(ip)) return json({ error: 'Zbyt wiele prób. Spróbuj za kilka minut.' }, 429, req)
 
   try {
     const { code } = await req.json().catch(() => ({}))
@@ -60,22 +65,21 @@ Deno.serve(async (req) => {
     )
 
     const { data: invite } = await supabaseAdmin.from('club_invites')
-      .select('club_id, kind, expires_at, max_uses, uses, revoked')
+      .select('club_id, expires_at, max_uses, uses, revoked')
       .eq('code', code)
       .maybeSingle()
     if (!invite) return json({ error: 'Nieprawidłowy kod zaproszenia.' }, 404, req)
 
     const { data: club } = await supabaseAdmin.from('clubs')
-      .select('name, slug')
+      .select('name')
       .eq('id', invite.club_id)
       .maybeSingle()
     if (!club) return json({ error: 'Nieprawidłowy kod zaproszenia.' }, 404, req)
 
     return json({
       data: {
-        club: { name: club.name, slug: club.slug },
+        club: { name: club.name },
         state: inviteState(invite),
-        direct: invite.kind === 'direct',
       },
     }, 200, req)
   } catch (err) {
