@@ -27,3 +27,18 @@ export function inviteIsForCaller(invite, caller) {
   if (username && norm(caller?.username) && username === norm(caller.username)) return true
   return false
 }
+
+/**
+ * Whether an invite can still be used, judged on the row alone. accept-invite
+ * and preview-invite both read this, so the page that shows an invite and the
+ * call that redeems it cannot disagree about whether it is alive.
+ *
+ * @param invite {{ revoked?: boolean, expires_at?: string|null, max_uses?: number|null, uses?: number }}
+ * @returns {'valid'|'revoked'|'expired'|'exhausted'}
+ */
+export function inviteState(invite, now = new Date()) {
+  if (invite.revoked) return 'revoked'
+  if (invite.expires_at && new Date(invite.expires_at) < now) return 'expired'
+  if (invite.max_uses != null && invite.uses >= invite.max_uses) return 'exhausted'
+  return 'valid'
+}

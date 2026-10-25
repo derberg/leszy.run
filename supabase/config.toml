@@ -108,6 +108,10 @@ entrypoint = "./functions/manage-club-invite/index.js"
 verify_jwt = false
 entrypoint = "./functions/manage-member/index.js"
 
+[functions.preview-invite]
+verify_jwt = false
+entrypoint = "./functions/preview-invite/index.js"
+
 [functions.request-join]
 verify_jwt = false
 entrypoint = "./functions/request-join/index.js"

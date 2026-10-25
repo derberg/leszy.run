@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
-import { inviteIsForCaller } from '../_shared/clubInvites.js'
+import { inviteIsForCaller, inviteState } from '../_shared/clubInvites.js'
 import { checkAndAwardBadges } from '../_shared/badge-check.js'
 import { logMembershipEvent } from '../_shared/membershipLog.js'
 
@@ -37,13 +37,10 @@ Deno.serve(async (req) => {
     const { data: invite } = await query.maybeSingle()
 
     if (!invite) return json({ error: 'Nieprawidłowy kod zaproszenia.' }, 404, req)
-    if (invite.revoked) return json({ error: 'Zaproszenie zostało cofnięte.' }, 410, req)
-    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-      return json({ error: 'Zaproszenie wygasło.' }, 410, req)
-    }
-    if (invite.max_uses != null && invite.uses >= invite.max_uses) {
-      return json({ error: 'Zaproszenie wyczerpane.' }, 409, req)
-    }
+    const state = inviteState(invite)
+    if (state === 'revoked') return json({ error: 'Zaproszenie zostało cofnięte.' }, 410, req)
+    if (state === 'expired') return json({ error: 'Zaproszenie wygasło.' }, 410, req)
+    if (state === 'exhausted') return json({ error: 'Zaproszenie wyczerpane.' }, 409, req)
 
     // A direct invite names one person. Nothing used to check that, so its id
     // was a transferable key to the club — see _shared/clubInvites.js.

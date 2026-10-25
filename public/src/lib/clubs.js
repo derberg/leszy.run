@@ -34,6 +34,11 @@ export async function manageClubInvite(clubId, op, extra = {}) {
   return (await callFunction('manage-club-invite', { club_id: clubId, op, ...extra })).data
 }
 
+// Needs no session: it is what a logged-out visitor sees behind an invite link.
+export async function previewInvite(code) {
+  return (await callFunction('preview-invite', { code })).data
+}
+
 export async function acceptInvite(payload) {
   return (await callFunction('accept-invite', payload)).data
 }

@@ -6,6 +6,8 @@ import useAuth, { clearAuthCache } from '../hooks/useAuth.js'
 import { clearFavoritesCache } from '../hooks/useFavorites.js'
 import { clearNotificationsCache } from '../hooks/useNotifications.js'
 import useSeo from '../hooks/useSeo.js'
+import useInvitePreview from '../hooks/useInvitePreview.js'
+import { inviteFromPath, postAuthPath as nextPathAfterAuth } from '../lib/inviteLink.js'
 
 const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-base md:text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const labelClass = 'block font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-1.5'
@@ -30,8 +32,11 @@ export default function Login() {
   const fromParam = sanitizeFrom(searchParams.get('from'))
   const hasMagicLink = !!linkEmail && /^\d{6}$/.test(linkCode || '')
 
-  // Where to land after successful auth, in priority order.
-  const postAuthPath = (hasUsername) => fromParam || (hasUsername ? '/profil' : '/onboarding')
+  const postAuthPath = (hasUsername) => nextPathAfterAuth({ from: fromParam, hasUsername })
+
+  // Arriving from an invite link: say which club is waiting.
+  const { preview: invitePreview } = useInvitePreview(inviteFromPath(fromParam)?.code)
+  const inviteClubName = invitePreview?.state === 'valid' ? invitePreview.club?.name : null
 
   const [step, setStep] = useState('email') // 'email' | 'code'
   const [email, setEmail] = useState('')
@@ -132,6 +137,12 @@ export default function Login() {
           <h1 className="font-display font-extrabold text-3xl text-apex-text-bright uppercase tracking-wider mb-2">
             Zaloguj się
           </h1>
+          {inviteClubName && (
+            <p data-testid="login-invite-note" className="font-sans text-sm text-apex-text border-l-2 border-apex-yellow pl-3 mb-4">
+              Zaproszenie do klubu <strong className="text-apex-text-bright">{inviteClubName}</strong>.
+              {' '}Po zalogowaniu dołączysz do niego jednym kliknięciem. Nie masz konta? Podaj email, założymy je.
+            </p>
+          )}
           <p className="font-sans text-apex-muted text-sm mb-8">
             {step === 'email'
               ? 'Podaj email — wyślemy Ci kod logowania.'

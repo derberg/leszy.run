@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { inviteIsForCaller } from '../_shared/clubInvites.js'
+import { inviteIsForCaller, inviteState } from '../_shared/clubInvites.js'
 
 // Pure — runs locally, no deployed function involved.
 
@@ -30,5 +30,20 @@ describe('inviteIsForCaller', () => {
 
   it('refuses when the caller has no identity to match', () => {
     assert.equal(inviteIsForCaller({ kind: 'direct', target_email: 'ania@example.pl' }, { email: null, username: null }), false)
+  })
+})
+
+describe('inviteState', () => {
+  const now = new Date('2026-10-25T12:00:00Z')
+
+  it('calls a fresh invite valid', () => {
+    assert.equal(inviteState({ revoked: false, expires_at: null, max_uses: null, uses: 3 }, now), 'valid')
+    assert.equal(inviteState({ revoked: false, expires_at: '2026-11-01T00:00:00Z', max_uses: 5, uses: 4 }, now), 'valid')
+  })
+
+  it('names why an invite is dead, revocation first', () => {
+    assert.equal(inviteState({ revoked: true, expires_at: '2026-10-01T00:00:00Z', max_uses: 1, uses: 1 }, now), 'revoked')
+    assert.equal(inviteState({ revoked: false, expires_at: '2026-10-01T00:00:00Z', max_uses: 1, uses: 1 }, now), 'expired')
+    assert.equal(inviteState({ revoked: false, expires_at: null, max_uses: 1, uses: 1 }, now), 'exhausted')
   })
 })
