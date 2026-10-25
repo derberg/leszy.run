@@ -4,6 +4,7 @@ import useSeo from '../../hooks/useSeo.js'
 import { manageClubInvite } from '../../lib/clubs.js'
 import { sectionTitle, actionBtnClass, inputClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
+import { inviteUrl } from '../../lib/inviteLink.js'
 
 // Copied verbatim from public/src/pages/profil/club/ManagePanel.jsx:135-272
 // (InvitesSection) — that file is deleted in a later task, so this page owns
@@ -75,7 +76,7 @@ export default function Zaproszenia() {
   }
 
   function copyLink(invite) {
-    const url = `${window.location.origin}/klub/${club.slug}/dolacz?kod=${invite.code}`
+    const url = inviteUrl(window.location.origin, club.slug, invite.code)
     navigator.clipboard?.writeText(url)
     setCopiedId(invite.id)
     setTimeout(() => setCopiedId((id) => (id === invite.id ? null : id)), 2000)
@@ -86,7 +87,7 @@ export default function Zaproszenia() {
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
   async function shareLink(invite) {
-    const url = `${window.location.origin}/klub/${club.slug}/dolacz?kod=${invite.code}`
+    const url = inviteUrl(window.location.origin, club.slug, invite.code)
     try {
       await navigator.share({ title: `Zaproszenie do klubu ${club.name}`, text: `Dołącz do klubu ${club.name} na leszy.run`, url })
     } catch (err) {
@@ -133,7 +134,7 @@ export default function Zaproszenia() {
             {linkInvites.map((inv) => (
               <div key={inv.id} className="space-y-1.5 text-xs pb-1.5">
                 <code className="block break-all bg-apex-surface border border-apex-border px-2 py-1 font-mono text-[10px] text-apex-muted">
-                  {`${window.location.origin}/klub/${club.slug}/dolacz?kod=${inv.code}`}
+                  {inviteUrl(window.location.origin, club.slug, inv.code)}
                 </code>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-[9px] text-apex-muted flex-shrink-0">
@@ -181,7 +182,7 @@ export default function Zaproszenia() {
               <span className="block truncate text-apex-text">{inv.target_email || `@${inv.target_username}`}</span>
               {inv.code && (
                 <code className="block break-all bg-apex-surface border border-apex-border px-2 py-1 font-mono text-[10px] text-apex-muted">
-                  {`${window.location.origin}/klub/${club.slug}/dolacz?kod=${inv.code}`}
+                  {inviteUrl(window.location.origin, club.slug, inv.code)}
                 </code>
               )}
               <span className="block font-mono text-[9px] text-apex-muted">

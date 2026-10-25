@@ -3,11 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import AuthGuard from '../components/AuthGuard.jsx'
 import ClubPicker from '../components/ClubPicker.jsx'
 import Navbar from '../components/Navbar.jsx'
-import useAuth from '../hooks/useAuth.js'
+import useAuth, { clearAuthCache } from '../hooks/useAuth.js'
 import { callFunction } from '../lib/auth.js'
 import useSeo from '../hooks/useSeo.js'
 import { supabase } from '../lib/supabase.js'
 import { logConsentServerSide } from '../lib/logConsent.js'
+import useInvitePreview from '../hooks/useInvitePreview.js'
+import { inviteFromPath } from '../lib/inviteLink.js'
 
 function OnboardingForm() {
   useSeo({ title: 'Ustaw profil — Leszy.run', path: '/onboarding', noindex: true })
@@ -18,6 +20,14 @@ function OnboardingForm() {
   const rawFrom = searchParams.get('from')
   const fromParam = rawFrom && rawFrom.startsWith('/') && !rawFrom.startsWith('//') && !rawFrom.includes('\\') ? rawFrom : null
   const nextPath = fromParam || '/profil'
+  // On the way to an invite, the club is already chosen: offering the picker
+  // here would let a new account join or found another club first, and the
+  // invite would then refuse them for already having one.
+  const invite = inviteFromPath(fromParam)
+  const { preview: invitePreview, errorStatus: inviteErrorStatus } = useInvitePreview(invite?.code)
+  const inviteDead = (invitePreview && invitePreview.state !== 'valid') || inviteErrorStatus === 404
+  const joiningByInvite = !!invite && !inviteDead
+  const inviteClubName = invitePreview?.state === 'valid' ? invitePreview.club?.name : null
 
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -64,6 +74,10 @@ function OnboardingForm() {
         ...(displayName ? { display_name: displayName } : {}),
       })
       await logConsentServerSide('accepted')
+      // The cached user still has no username, and it counts as fresh for a
+      // day. Left in place, the invite page read it and sent the new account
+      // back here, round and round.
+      clearAuthCache()
       navigate(nextPath, { replace: true })
     } catch (err) {
       setError(/already taken/i.test(err.message) ? 'Ta nazwa jest już zajęta.' : err.message)
@@ -128,11 +142,19 @@ function OnboardingForm() {
               />
             </div>
             <div>
-              <label className={labelClass}>Klub (opcjonalnie)</label>
-              <p className="font-sans text-xs text-apex-muted mb-1.5">
-                Możesz to też zrobić później, w profilu.
-              </p>
-              {clubCreated ? (
+              <label className={labelClass}>{joiningByInvite ? 'Klub' : 'Klub (opcjonalnie)'}</label>
+              {!joiningByInvite && (
+                <p className="font-sans text-xs text-apex-muted mb-1.5">
+                  Możesz to też zrobić później, w profilu.
+                </p>
+              )}
+              {joiningByInvite ? (
+                <p data-testid="onboarding-invite-note" className="font-sans text-sm text-apex-text border border-apex-border px-3 py-2">
+                  {inviteClubName
+                    ? <>Po zapisaniu dołączysz do klubu <strong className="text-apex-text-bright">{inviteClubName}</strong>.</>
+                    : 'Po zapisaniu wrócisz do zaproszenia do klubu.'}
+                </p>
+              ) : clubCreated ? (
                 <p className="font-sans text-sm text-apex-yellow border border-apex-yellow-dim px-3 py-2">
                   Utworzono klub «{clubCreated.name}» — jesteś jego właścicielem.
                 </p>

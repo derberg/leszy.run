@@ -44,7 +44,9 @@ async function callEdge(name, body) {
     // Session died server-side (expired / logged out elsewhere) — drop the
     // stale cached user so the next page load reflects the logged-out state.
     if (res.status === 401) clearCachedUser()
-    throw new Error(data.error || `${name} failed`)
+    const err = new Error(data.error || `${name} failed`)
+    err.status = res.status
+    throw err
   }
   return data
 }
