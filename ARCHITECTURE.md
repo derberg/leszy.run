@@ -60,10 +60,10 @@ Mosquitto (native macOS) ←── Impinj R700(s)
 
 ### Additional Apps
 
-- **`public/`** — Public-facing app combining live results, volunteer bib entry, and participant self-service check-in. Reads/writes directly to Supabase (anon key + RLS). Runs on port 5173. Deployed to Vercel.
+- **`public/`** — Public-facing app combining live results, volunteer bib entry, and participant self-service check-in. Reads Supabase directly with the anon key (RLS); every write goes through an edge function: `self-checkin` for the participant check-in (signed SMS link), `checkpoint-write` for volunteer entries (checkpoint PIN). Runs on port 5173. Deployed to Vercel.
 - **`packages/ui/`** — Shared UI component library (`@leszyrun/ui`). Contains `Podium`, `CheckpointTrackingTable`, `PositionBadge`, and `estimatePositions` algorithm. **All race result rendering (status badges, position estimation, podium, results tables) MUST use these shared components.** Never duplicate result display logic in `frontend/` or `public/` — if a component is missing from `@leszyrun/ui`, add it there first, then import it in both apps.
 - **`volunteer/`** and **`liveresults/`** — Legacy apps, migrated into `public/`. Pending removal.
-- **`checkpoint-agent/`** — Standalone Node/Fastify agent for a Raspberry Pi + Impinj R700 at a trail checkpoint. Confirms tag passes (closed 2 s after the last stronger read, at most 6 s after the first, timed at the peak RSSI), resolves EPC → bib from a PIN-guarded roster (`checkpoint-roster` edge function, bib+EPC only), queues observations on disk, and inserts them into Supabase `checkpoint_observations` — indistinguishable from volunteer entries downstream. See checkpoint-agent/README.md.
+- **`checkpoint-agent/`** — Standalone Node/Fastify agent for a Raspberry Pi + Impinj R700 at a trail checkpoint. Confirms tag passes (closed 2 s after the last stronger read, at most 6 s after the first, timed at the peak RSSI), resolves EPC → bib from a PIN-guarded roster (`checkpoint-roster` edge function, bib+EPC only), queues observations on disk, and sends them to Supabase `checkpoint_observations` through the PIN-checked `checkpoint-write` edge function — indistinguishable from volunteer entries downstream. See checkpoint-agent/README.md.
 
 ### Supabase Realtime (bidirectional sync)
 
