@@ -8,7 +8,7 @@ import { sectionTitle } from './fields.jsx'
 export default function Obserwowane() {
   useSeo({ title: 'Obserwowane biegi — Leszy.run', path: '/profil/obserwowane', noindex: true })
 
-  const { starredEvents } = useFavorites()
+  const { starredEvents } = useFavorites({ fresh: true })
   const { notifications } = useNotifications({ markSeen: true })
 
   return (

@@ -51,9 +51,10 @@ test.describe('Event favorites', () => {
     const event = await createTestEvent('active')
     const testUser = await createTestUser('fav-star')
     // Username required, otherwise /profil redirects to /onboarding.
+    const username = `fav_e2e_${Date.now()}`.toLowerCase().slice(0, 28)
     await supabaseAdmin
       .from('profiles')
-      .update({ username: `fav_e2e_${Date.now()}`.toLowerCase().slice(0, 28) })
+      .update({ username })
       .eq('id', testUser.user.id)
     try {
       await testUser.injectSession(context)
@@ -82,9 +83,11 @@ test.describe('Event favorites', () => {
 
       await expect(star).toHaveAttribute('aria-pressed', 'true')
 
-      // Fresh page load resets the favorites module cache → /profil refetches
-      // get-favorites, which now includes the just-starred event.
-      await page.goto('/profil')
+      // Open the profile in-app, the way a user does. A full page.goto would
+      // reload the favorites module and hide the bug this guards against: the
+      // list loaded with the kalendarz did not include the event starred there.
+      await page.getByRole('button', { name: username }).click()
+      await page.getByRole('link', { name: 'Mój profil' }).click()
       const starredList = page.getByTestId('starred-list')
       await expect(starredList).toBeVisible({ timeout: 15000 })
       await expect(starredList).toContainText(event.name)
