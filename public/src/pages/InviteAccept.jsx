@@ -76,8 +76,11 @@ export default function InviteAccept() {
   } else if (!user) {
     body = (
       <>
-        <p className="font-sans text-sm text-apex-text mb-5">
-          {kod ? 'Zaloguj się albo załóż konto, aby dołączyć do klubu.' : 'Zaloguj się, aby dołączyć do klubu.'}
+        <p className="font-sans text-sm text-apex-text mb-3">
+          Zaloguj się, aby dołączyć do klubu. Przy pierwszym logowaniu konto zostanie założone automatycznie.
+        </p>
+        <p className="font-sans text-xs text-apex-muted mb-5">
+          Dla bezpieczeństwa nie ustawiasz hasła, które ktoś mógłby wykraść. Na Twój email wyślemy jednorazowy kod logowania.
         </p>
         <Link
           data-testid="invite-login"

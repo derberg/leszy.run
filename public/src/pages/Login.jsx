@@ -140,7 +140,7 @@ export default function Login() {
           {inviteClubName && (
             <p data-testid="login-invite-note" className="font-sans text-sm text-apex-text border-l-2 border-apex-yellow pl-3 mb-4">
               Zaproszenie do klubu <strong className="text-apex-text-bright">{inviteClubName}</strong>.
-              {' '}Po zalogowaniu dołączysz do niego jednym kliknięciem. Nie masz konta? Podaj email, założymy je.
+              {' '}Po zalogowaniu dołączysz do niego jednym kliknięciem. Przy pierwszym logowaniu konto zostanie założone automatycznie.
             </p>
           )}
           <p className="font-sans text-apex-muted text-sm mb-8">
