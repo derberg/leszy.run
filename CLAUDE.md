@@ -19,8 +19,9 @@ not a state to leave the repo in.
 - Before editing OR before answering "what does the code do", run `git status -sb`.
   If HEAD is behind `origin/main`, reason about `origin/main`, not the stale tree.
 - Flow: `scripts/worktree.sh new feature/<name>` → edit in `.worktrees/<name>` →
-  `git push -u origin feature/<name>` → `gh pr create --fill` → `gh pr merge --squash --delete-branch`
-  → `scripts/worktree.sh rm feature/<name>`.
+  `git push -u origin feature/<name>` → `gh pr create --fill` → `gh pr merge --squash` → confirm `gh pr view --json state` says
+  `MERGED` → `git push origin --delete feature/<name>` → `scripts/worktree.sh rm feature/<name>`.
+  Never delete the branch before `MERGED`: a deleted head branch closes the PR unmerged.
 - This is enforced by hooks: a PreToolUse **branch-guard** denies edits in the
   main checkout and on `main`/`master` anywhere, and a SessionStart reminder
   front-loads the `dev-workflow` skill. The full rules, deploy model, and
