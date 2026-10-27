@@ -7,6 +7,7 @@ import { writeRunLog } from './lib/run-log.js'
 import { pickFillable, fieldsNeedingFill, applyRegistryUpdates } from './lib/ai-fillable.js'
 import { resolveDostartuRegulamin } from './lib/dostartu-regulamin.js'
 import { resolveRegistrationPageRegulamin } from './lib/registration-page-regulamin.js'
+import { resolveRaceresultRegulamin } from './lib/raceresult-regulamin.js'
 import { verifySearchUrls } from './lib/verify-url.js'
 
 // This script has ONE job: find the two source-of-truth URLs for an event —
@@ -290,21 +291,27 @@ async function main() {
     // Which URL(s) are still missing on this row
     const fieldsToFill = fieldsNeedingFill(row, SEARCH_FILLABLE)
 
-    // Two ways to get a regulamin for free, tried before spending a web
+    // Three ways to get a regulamin for free, tried before spending a web
     // search. If they cover the only missing field, we skip Claude entirely.
     //   1. dostartu derives it: dostartu.pl/statute_files/<id>_pl.pdf.
-    //   2. The registration page we already know links it as a FILE, and the
+    //   2. raceresult shows it in a "Regulamin" tab whose document is only
+    //      reachable through the tab's JSON config, never in the HTML.
+    //   3. The registration page we already know links it as a FILE, and the
     //      link is attributable to this row — b4sport, which publishes .odt
     //      under each edition. A platform that serves its rules from an
     //      extensionless download URL (elektronicznezapisy) is out of reach
     //      here and still goes to search.
-    // Both fetch-verify before returning, so neither writes a 404.
+    // All three fetch-verify before returning, so none writes a 404.
     const updates = {}
     const deterministicKeys = new Map()
     let calledClaude = false
     if (fieldsToFill.includes('regulamin_url')) {
       let detUrl = await resolveDostartuRegulamin(row)
       let origin = 'dostartu'
+      if (!detUrl) {
+        detUrl = await resolveRaceresultRegulamin(row)
+        origin = 'raceresult'
+      }
       if (!detUrl) {
         detUrl = await resolveRegistrationPageRegulamin(row)
         origin = 'registration page'
