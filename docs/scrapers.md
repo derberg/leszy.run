@@ -586,7 +586,7 @@ Each scraper writes raw data into its own table. These are the raw scraper outpu
 | distances | text | From classifications API — see distance formats below |
 | event_type | text | Mapped from numeric type |
 | registration_url | text | websitePl or dostartu permalink |
-| regulamin_url | text | statuteFilePl (hosted PDF) or statuteLinkPl (external) |
+| regulamin_url | text | statuteLinkPl, else statuteFilePl; either can be a bare `statute_files/<id>_pl.pdf` path, which `statuteUrl()` prefixes with `https://dostartu.pl/` |
 | is_kids | boolean | NOT NULL, default false — true when all classifications are kids-only |
 | source_id | text | UNIQUE, API id |
 | source_url | text | dostartu permalink (`/permalink-v{id}`) |

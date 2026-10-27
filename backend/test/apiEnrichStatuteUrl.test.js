@@ -36,3 +36,15 @@ test('a regulamin the scraper already set is kept', async () => {
   const out = await enrichFromUrl({ name: 'X', registration_url: 'https://dostartu.pl/x-v1', regulamin_url: 'https://a.pl/r.pdf' })
   assert.equal(out.regulamin_url, 'https://a.pl/r.pdf')
 })
+
+test('the API\'s real shape (bare statuteLinkPl, absolute statuteFilePl) gives an absolute URL', async () => {
+  stubDostartu({ statuteLinkPl: 'statute_files/17510_pl.pdf', statuteFilePl: 'https://dostartu.pl/statute_files/17510_pl.pdf' })
+  const out = await enrichFromUrl({ name: 'X', registration_url: 'https://dostartu.pl/x-v17510' })
+  assert.equal(out.regulamin_url, 'https://dostartu.pl/statute_files/17510_pl.pdf')
+})
+
+test('a failed competition fetch leaves regulamin_url empty', async () => {
+  globalThis.fetch = async () => ({ ok: false, json: async () => ({}) })
+  const out = await enrichFromUrl({ name: 'X', registration_url: 'https://dostartu.pl/x-v1' })
+  assert.equal(out.regulamin_url, null)
+})

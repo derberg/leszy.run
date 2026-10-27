@@ -42,3 +42,35 @@ test('no statute at all is null', () => {
   assert.equal(statuteUrl({ statuteFilePl: '   ' }), null)
   assert.equal(statuteUrl(), null)
 })
+
+test('a bare statuteLinkPl is made absolute too (the shape the API returns today)', () => {
+  // Checked on 2026-10-27 against 17510 and 17498: the API now gives
+  // statuteLinkPl as the bare "statute_files/<id>_pl.pdf" and statuteFilePl as
+  // the absolute URL. Returning statuteLinkPl verbatim kept writing bare paths:
+  // 81 scraper_dostartu rows held one that day.
+  assert.equal(
+    statuteUrl({ statuteLinkPl: 'statute_files/17510_pl.pdf', statuteFilePl: 'https://dostartu.pl/statute_files/17510_pl.pdf' }),
+    'https://dostartu.pl/statute_files/17510_pl.pdf'
+  )
+  assert.equal(statuteUrl({ statuteLinkPl: 'statute_files/17510_pl.pdf' }), 'https://dostartu.pl/statute_files/17510_pl.pdf')
+})
+
+test('a blank statuteLinkPl falls back to statuteFilePl', () => {
+  assert.equal(
+    statuteUrl({ statuteLinkPl: '  ', statuteFilePl: 'https://dostartu.pl/statute_files/1_pl.pdf' }),
+    'https://dostartu.pl/statute_files/1_pl.pdf'
+  )
+})
+
+test('an organizer link without a scheme keeps its own host', () => {
+  assert.equal(statuteUrl({ statuteLinkPl: 'www.klub.pl/regulamin.pdf' }), 'https://www.klub.pl/regulamin.pdf')
+  assert.equal(statuteUrl({ statuteLinkPl: 'regulamin.pdf' }), 'https://dostartu.pl/regulamin.pdf')
+})
+
+test('a bare document name is a dostartu path, not a host', () => {
+  assert.equal(statuteUrl({ statuteLinkPl: 'regulamin.docx' }), 'https://dostartu.pl/regulamin.docx')
+  assert.equal(
+    statuteUrl({ statuteLinkPl: 'www.klub.pl/r.pdf', statuteFilePl: 'https://dostartu.pl/statute_files/1_pl.pdf' }),
+    'https://www.klub.pl/r.pdf'
+  )
+})

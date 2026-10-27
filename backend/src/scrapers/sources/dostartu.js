@@ -181,23 +181,29 @@ function distancesFromDescription(description) {
 
 // The regulamin of one competition.
 //
-// statuteLinkPl is the organizer's own link and is used verbatim. statuteFilePl
-// is dostartu's own copy and the API gives it as a bare path
-// ("statute_files/17343_pl.pdf"), which is not a URL: stored as-is, nothing can
+// statuteLinkPl wins over statuteFilePl, but EITHER field can be a bare path
+// ("statute_files/17510_pl.pdf"), which is not a URL: stored as-is, nothing can
 // fetch it, so run-enrich-from-regulamin skips the row and the race keeps no
-// price, no deadline and no distances. Verified on 2026-09-29 against 17343:
-// https://dostartu.pl/statute_files/17343_pl.pdf answers 200 application/pdf
-// with no redirect, and the document is that race's regulamin. A /files/ prefix
-// also answers 200, but with text/html, so it is a soft 404 and not the base.
+// price, no deadline and no distances. On 2026-09-29 the bare one was
+// statuteFilePl (#181 handled only that field). On 2026-10-27 the API returned
+// it the other way round, for 17510 and 17498: statuteLinkPl bare, statuteFilePl
+// absolute, so 81 scraper_dostartu rows still held a bare path. Both fields go
+// through the same absolutising now. Verified against 17343 and 17498:
+// https://dostartu.pl/statute_files/<id>_pl.pdf answers 200 application/pdf
+// with no redirect. A /files/ prefix also answers 200, but with text/html, so it
+// is a soft 404 and not the base.
 export function statuteUrl(ev = {}) {
-  const external = ev.statuteLinkPl?.trim()
-  if (external) return external
+  return absoluteStatute(ev.statuteLinkPl) || absoluteStatute(ev.statuteFilePl)
+}
 
-  const file = ev.statuteFilePl?.trim()
-  if (!file) return null
-  if (/^https?:\/\//i.test(file)) return file
-  if (file.startsWith('//')) return `https:${file}`
-  return `https://dostartu.pl/${file.replace(/^\/+/, '')}`
+function absoluteStatute(value) {
+  const v = typeof value === 'string' ? value.trim() : ''
+  if (!v) return null
+  if (/^https?:\/\//i.test(v)) return v
+  if (v.startsWith('//')) return `https:${v}`
+  // An organizer's link typed without a scheme names its own host.
+  if (/^[^/]+\.[a-z]{2,}(\/|$)/i.test(v) && !/\.(pdf|docx?|odt|html?)$/i.test(v.split('/')[0])) return `https://${v}`
+  return `https://dostartu.pl/${v.replace(/^\/+/, '')}`
 }
 
 function makeUrl(permaLink, id) {

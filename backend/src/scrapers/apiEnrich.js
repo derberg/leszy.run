@@ -50,8 +50,8 @@ async function enrichFromUrl(event) {
 
   const deadlineIso = latestEndedTime || comp?.provisionTime || comp?.endDate
   const registration_deadline = deadlineIso ? deadlineIso.split('T')[0] : null
-  // statuteFilePl is a bare "statute_files/<id>_pl.pdf" path; statuteUrl makes it
-  // absolute, the same way the dostartu scraper does (#181).
+  // Either statute field can be a bare "statute_files/<id>_pl.pdf" path;
+  // statuteUrl makes it absolute, the same way the dostartu scraper does.
   const regulamin_url = statuteUrl(comp || {})
   const website = comp?.websitePl || null
   const location = comp?.location || null
