@@ -66,3 +66,11 @@ test('an organizer link without a scheme keeps its own host', () => {
   assert.equal(statuteUrl({ statuteLinkPl: 'www.klub.pl/regulamin.pdf' }), 'https://www.klub.pl/regulamin.pdf')
   assert.equal(statuteUrl({ statuteLinkPl: 'regulamin.pdf' }), 'https://dostartu.pl/regulamin.pdf')
 })
+
+test('a bare document name is a dostartu path, not a host', () => {
+  assert.equal(statuteUrl({ statuteLinkPl: 'regulamin.docx' }), 'https://dostartu.pl/regulamin.docx')
+  assert.equal(
+    statuteUrl({ statuteLinkPl: 'www.klub.pl/r.pdf', statuteFilePl: 'https://dostartu.pl/statute_files/1_pl.pdf' }),
+    'https://www.klub.pl/r.pdf'
+  )
+})

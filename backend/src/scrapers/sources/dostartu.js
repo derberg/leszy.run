@@ -202,7 +202,7 @@ function absoluteStatute(value) {
   if (/^https?:\/\//i.test(v)) return v
   if (v.startsWith('//')) return `https:${v}`
   // An organizer's link typed without a scheme names its own host.
-  if (/^[^/]+\.[a-z]{2,}(\/|$)/i.test(v) && !/\.pdf$/i.test(v.split('/')[0])) return `https://${v}`
+  if (/^[^/]+\.[a-z]{2,}(\/|$)/i.test(v) && !/\.(pdf|docx?|odt|html?)$/i.test(v.split('/')[0])) return `https://${v}`
   return `https://dostartu.pl/${v.replace(/^\/+/, '')}`
 }
 
