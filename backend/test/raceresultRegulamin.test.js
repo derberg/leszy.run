@@ -19,6 +19,9 @@ const ROW = {
   registration_url: 'https://my.raceresult.com/412049/registration',
 }
 const DOC = 'http://s-time.pl/regulamin/2027/zut_regulamin.pdf'
+// The resolver's PDF text, as pdftotext reads the real document.
+const TEXT_2027 = async () => 'Bieg Zimowy Ultra Turnicki odbędzie się 16 stycznia 2027 r.'
+const resolve = (row, opts = {}) => resolveRaceresultRegulamin(row, { extractText: TEXT_2027, ...opts })
 
 function stub({ menu = MENU, configs = { extcontent: { Data: DOC, Subtype: '' } }, pdf = true } = {}) {
   const calls = []
@@ -46,35 +49,74 @@ test('the event id comes from the registration URL or the website', () => {
   assert.equal(raceresultEventId({ registration_url: 'https://dostartu.pl/x-v1' }), null)
 })
 
-test('only a tab labelled as the rules counts', () => {
+test('only a tab labelled as this race\'s rules counts', () => {
   assert.deepEqual(rulesTabKeys(MENU, '412049'), ['extcontent'])
-  assert.deepEqual(rulesTabKeys('<a href="/412049/extcontent">Mapa trasy</a>', '412049'), [])
+  // The real markup also carries an onclick with escaped slashes.
+  const real = `<div class="selected" onclick="window.location.href='\\/412049\\/extcontent'"><a href="/412049/extcontent">Regulamin</a></div>`
+  assert.deepEqual(rulesTabKeys(real, '412049'), ['extcontent'])
+  for (const label of ['Mapa trasy', 'Regulamin cyklu', 'Regulamin Grand Prix', 'Regulamin klasyfikacji', 'Regulamin RODO', 'Polityka prywatności']) {
+    assert.deepEqual(rulesTabKeys(`<a href="/412049/extcontent">${label}</a>`, '412049'), [], label)
+  }
 })
 
-test('a document URL naming another year is last edition\'s', () => {
-  assert.equal(namesOtherYear('https://x.pl/regulamin/2022/r.pdf', '2027-01-16'), true)
+test('a file name naming another year is last edition\'s; an upload folder is not', () => {
+  assert.equal(namesOtherYear('https://x.pl/uploads/2027/01/regulamin-2026.pdf', '2027-01-16'), true)
+  assert.equal(namesOtherYear('https://x.pl/uploads/2026/11/regulamin.pdf', '2027-01-16'), false)
   assert.equal(namesOtherYear(DOC, '2027-01-16'), false)
+  assert.equal(namesOtherYear('https://x.pl/regulamin_2027.pdf', '2027-01-16'), false)
   assert.equal(namesOtherYear('https://x.pl/r.pdf', '2027-01-16'), false)
 })
 
 test('ZIMOWY ULTRA TURNICKI: the Regulamin tab yields the 2027 PDF', async () => {
   stub()
-  assert.equal(await resolveRaceresultRegulamin(ROW), DOC)
+  assert.equal(await resolve(ROW), DOC)
 })
 
 test('a rules tab that is not a PDF is dropped', async () => {
   stub({ pdf: false })
-  assert.equal(await resolveRaceresultRegulamin(ROW), null)
+  assert.equal(await resolve(ROW), null)
 })
 
 test('a video in the rules tab is dropped', async () => {
   stub({ configs: { extcontent: { Data: 'abc123', Subtype: 'youtube' } } })
-  assert.equal(await resolveRaceresultRegulamin(ROW), null)
+  assert.equal(await resolve(ROW), null)
 })
 
-test('a rules tab pointing at last year\'s document is dropped', async () => {
-  stub({ configs: { extcontent: { Data: 'http://s-time.pl/regulamin/2026/zut_regulamin.pdf', Subtype: '' } } })
-  assert.equal(await resolveRaceresultRegulamin(ROW), null)
+test('a rules tab pointing at last year\'s file name is dropped', async () => {
+  stub({ configs: { extcontent: { Data: 'http://s-time.pl/regulamin/zut_regulamin_2026.pdf', Subtype: '' } } })
+  assert.equal(await resolve(ROW), null)
+})
+
+test('a stable URL still holding last year\'s text is dropped', async () => {
+  stub({ configs: { extcontent: { Data: 'https://org.pl/files/regulamin.pdf', Subtype: '' } } })
+  const text2026 = async () => 'Bieg odbędzie się 17 stycznia 2026 r.'
+  assert.equal(await resolve(ROW, { extractText: text2026 }), null)
+})
+
+test('an unreadable PDF is dropped', async () => {
+  stub()
+  assert.equal(await resolve(ROW, { extractText: async () => '' }), null)
+})
+
+test('a throttled event page is a miss, not an error', async () => {
+  globalThis.fetch = async () => ({ ok: false, status: 429, text: async () => '' })
+  assert.equal(await resolve(ROW), null)
+})
+
+test('a tab config without a Data field is skipped', async () => {
+  stub({ configs: { extcontent: { key: 'x', contests: [] } } })
+  assert.equal(await resolve(ROW), null)
+})
+
+test('two rules tabs pointing at the same document give that document', async () => {
+  const menu = MENU + '<a href="/412049/extcontent2">Regulamin zawodów</a>'
+  stub({ menu, configs: { extcontent: { Data: DOC, Subtype: '' }, extcontent2: { Data: DOC, Subtype: '' } } })
+  assert.equal(await resolve(ROW), DOC)
+})
+
+test('the event id can come from the website alone', async () => {
+  stub()
+  assert.equal(await resolve({ date: '2027-01-16', website: 'https://my.raceresult.com/412049/' }), DOC)
 })
 
 test('two rules tabs with two different documents are left to the search', async () => {
@@ -83,11 +125,11 @@ test('two rules tabs with two different documents are left to the search', async
     extcontent: { Data: DOC, Subtype: '' },
     extcontent2: { Data: 'http://s-time.pl/regulamin/2027/other.pdf', Subtype: '' },
   } })
-  assert.equal(await resolveRaceresultRegulamin(ROW), null)
+  assert.equal(await resolve(ROW), null)
 })
 
 test('a row with no raceresult link never touches the network', async () => {
   const calls = stub()
-  assert.equal(await resolveRaceresultRegulamin({ registration_url: 'https://dostartu.pl/x-v1', date: '2027-01-16' }), null)
+  assert.equal(await resolve({ registration_url: 'https://dostartu.pl/x-v1', date: '2027-01-16' }), null)
   assert.deepEqual(calls, [])
 })
