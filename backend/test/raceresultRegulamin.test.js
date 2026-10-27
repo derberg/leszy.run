@@ -1,7 +1,7 @@
 import { test, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  raceresultEventId, rulesTabKeys, namesOtherYear, resolveRaceresultRegulamin,
+  raceresultEventId, rulesTabKeys, namesOtherYear, namesRaceDate, resolveRaceresultRegulamin,
 } from '../scripts/lib/raceresult-regulamin.js'
 
 const realFetch = globalThis.fetch
@@ -65,6 +65,31 @@ test('a file name naming another year is last edition\'s; an upload folder is no
   assert.equal(namesOtherYear(DOC, '2027-01-16'), false)
   assert.equal(namesOtherYear('https://x.pl/regulamin_2027.pdf', '2027-01-16'), false)
   assert.equal(namesOtherYear('https://x.pl/r.pdf', '2027-01-16'), false)
+})
+
+test('labels a loose filter would wrongly refuse still count', () => {
+  for (const label of ['Regulamin Biegu Ligowego', 'Regulamin obligatoryjny', 'Regulamin zawodów']) {
+    assert.deepEqual(rulesTabKeys(`<a href="/412049/extcontent">${label}</a>`, '412049'), ['extcontent'], label)
+  }
+})
+
+test('a malformed file name never throws', () => {
+  assert.equal(namesOtherYear('https://x.pl/r%2.pdf', '2027-01-16'), false)
+})
+
+test('the document must name the race date, not just the year', () => {
+  assert.equal(namesRaceDate('odbędzie się 16 stycznia 2027 r.', '2027-01-16'), true)
+  assert.equal(namesRaceDate('termin: 16.01.2027', '2027-01-16'), true)
+  assert.equal(namesRaceDate('16\nstycznia\n2027', '2027-01-16'), true)
+  assert.equal(namesRaceDate('dane przechowywane do 31.12.2027', '2027-01-16'), false)
+  assert.equal(namesRaceDate('17 stycznia 2026', '2027-01-16'), false)
+  assert.equal(namesRaceDate('116 stycznia 2027', '2027-01-16'), false)
+})
+
+test('a row with no date is left to the search', async () => {
+  const calls = stub()
+  assert.equal(await resolve({ registration_url: ROW.registration_url }), null)
+  assert.deepEqual(calls, [])
 })
 
 test('ZIMOWY ULTRA TURNICKI: the Regulamin tab yields the 2027 PDF', async () => {
