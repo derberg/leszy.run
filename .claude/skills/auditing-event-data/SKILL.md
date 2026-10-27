@@ -126,6 +126,8 @@ new.
 | A city the geocoder cannot resolve | biegigorskie publishes `Żegiestó Zdrój`, one letter short of Żegiestów, so no voivodeship | the source's own typo, not the scraper |
 | A venue name where a city belongs | `Muzeum ... w Stawisku` carries `mazowieckie` in its Nominatim hit, which the settlement filter drops | `backend/src/scrapers/geocoder.js` |
 | An enricher locked out by a scraper value | A scraper-written `0` price blocked the regulamin from correcting it | the scalar merge treats `0` as provisional |
+| A regulamin only a script can reach | raceresult shows it in a "Regulamin" tab loaded from `/<id>/<key>/config`, so ZIMOWY ULTRA TURNICKI published without one | `scripts/lib/raceresult-regulamin.js` in step 8 |
+| An API that swapped which field is bare | dostartu moved the bare `statute_files/<id>_pl.pdf` from `statuteFilePl` to `statuteLinkPl`; 81 rows kept unfetchable links after #181 | `statuteUrl()` in `sources/dostartu.js` absolutises both |
 
 ## Traps
 
