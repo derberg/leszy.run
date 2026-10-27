@@ -1,4 +1,4 @@
-import { fetchCompetition, fetchClassifications, parseClassifications } from './sources/dostartu.js'
+import { fetchCompetition, fetchClassifications, parseClassifications, statuteUrl } from './sources/dostartu.js'
 
 // Domains that share the dostartu API (same -v{id} URL pattern, same api.dostartu.pl).
 // Note: zapisy.mktime.pl and zapisy.o-timing.pl use the same -v{id} URL scheme as dostartu.
@@ -50,7 +50,9 @@ async function enrichFromUrl(event) {
 
   const deadlineIso = latestEndedTime || comp?.provisionTime || comp?.endDate
   const registration_deadline = deadlineIso ? deadlineIso.split('T')[0] : null
-  const regulamin_url = comp?.statuteLinkPl || comp?.statuteFilePl || null
+  // statuteFilePl is a bare "statute_files/<id>_pl.pdf" path; statuteUrl makes it
+  // absolute, the same way the dostartu scraper does (#181).
+  const regulamin_url = statuteUrl(comp || {})
   const website = comp?.websitePl || null
   const location = comp?.location || null
   const lat = comp?.locationLat ?? null
