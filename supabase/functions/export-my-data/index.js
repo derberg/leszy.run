@@ -7,11 +7,16 @@ const POLICY_VERSION = '2026-06-04'
 
 // PostgREST answers at most 1000 rows per request, so a list that can grow is
 // read in pages; a bare select would silently truncate an Art. 15 export.
-async function fetchAll(buildQuery) {
+// Like the other lists in this export, a failing query degrades to an empty
+// list with a log line instead of failing the whole Art. 15 export.
+async function fetchAll(buildQuery, label) {
   const rows = []
   for (let from = 0; ; from += 1000) {
     const { data, error } = await buildQuery().range(from, from + 999)
-    if (error) throw new Error(error.message)
+    if (error) {
+      console.error(`export-my-data: ${label} failed:`, error.code, error.message)
+      return []
+    }
     rows.push(...(data ?? []))
     if ((data ?? []).length < 1000) break
   }
@@ -86,19 +91,19 @@ Deno.serve(async (req) => {
     // Organizer records the person produced. Stable order keeps .range() paging exact.
     fetchAll(() => supabaseAdmin.from('organizer_agreements')
       .select('id, club_name, version, accepted_at, ip, user_agent')
-      .eq('accepted_by', userId).order('accepted_at').order('id')),
+      .eq('accepted_by', userId).order('accepted_at').order('id'), 'organizer_agreements'),
     fetchAll(() => supabaseAdmin.from('organizer_actions')
       .select('id, action, target, payload, ip, user_agent, created_at, clubs(name)')
-      .eq('actor_id', userId).order('created_at').order('id')),
+      .eq('actor_id', userId).order('created_at').order('id'), 'organizer_actions'),
     // old/new hold the full IBAN and NIP exactly as stored: the person who made
     // the change already sees them in the club's payout screen, so the export
     // does not mask them.
     fetchAll(() => supabaseAdmin.from('club_payout_history')
       .select('id, club_name, old, new, changed_at')
-      .eq('changed_by', userId).order('changed_at').order('id')),
+      .eq('changed_by', userId).order('changed_at').order('id'), 'club_payout_history'),
     fetchAll(() => supabaseAdmin.from('registration_waitlist')
       .select('created_at, clubs(name)')
-      .eq('requested_by', userId).order('created_at').order('club_id')),
+      .eq('requested_by', userId).order('created_at').order('club_id'), 'registration_waitlist'),
   ])
 
   const memberships = (clubMemberships.data ?? []).map((m) => ({
