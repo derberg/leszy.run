@@ -6,6 +6,7 @@ Everything here runs against a local Supabase stack, never production.
 ```bash
 # from the repo root; needs Docker and the Supabase CLI
 node tests/registration/helpers/emailCaptureServer.js &      # email capture on :54399
+node tests/registration/helpers/dpayMock.js &               # mocked dpay on :54398
 tests/registration/start-stack.sh && supabase db reset                          # applies migrations + supabase/seed.sql
 supabase functions serve --env-file tests/registration/functions.env &
 node --test --test-concurrency=1 "tests/registration/**/*.test.js"
@@ -15,6 +16,9 @@ npx playwright test -c tests/registration/playwright.config.js
 `start-stack.sh` holds the list of Supabase services the tests do not need (the one copy).
 
 Emails the functions send land in the capture server (`messagesTo`, `lastCodeFor`).
+dpay is never called: `functions.env` points the functions at the mock (`helpers/dpayMock.js`), which checks
+every checksum, serves a pay page („Zapłać (mock)” / „Odrzuć (mock)”), posts signed IPNs and refunds without
+deduplicating. Tests drive it through `helpers/dpayControl.js` (`dpayReset`, `dpayMode`, `payMock`, `replayIpn`, …).
 `sessionFor(email)` logs a test user in without email; `loginViaEmail` does the real flow.
 `helpers/hostPull.js` is a scratch timing host: a `postgres:16` on `127.0.0.1:55432`, migrated with the
 backend's Drizzle migrations, pulled into by the backend's `pullConfig()`. CI runs it as a service; locally

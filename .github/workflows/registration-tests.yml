@@ -48,6 +48,9 @@ jobs:
       - name: Start email capture server
         run: node tests/registration/helpers/emailCaptureServer.js &
 
+      - name: Start mocked dpay server
+        run: node tests/registration/helpers/dpayMock.js &
+
       # setup-cli points the CLI at ghcr.io (SUPABASE_INTERNAL_IMAGE_REGISTRY). Anonymous pulls
       # there share a rate limit across runners ("toomanyrequests"); logged in, they do not.
       - name: Log in to ghcr.io
