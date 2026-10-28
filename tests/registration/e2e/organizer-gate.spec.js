@@ -119,7 +119,10 @@ test('F-20 zatyrani-test: the owner saves payout details, the admin sees the mas
   await expect(owner.getByTestId('payout-saved')).toBeVisible()
 
   await owner.reload()
-  await expect(owner.getByLabel('Numer rachunku', { exact: true })).toHaveValue('PL61109010140000071219812874')
+  // Shown in 4-character groups; the stored value is normalized (checked below).
+  await expect(owner.getByLabel('Numer rachunku', { exact: true })).toHaveValue('PL61 1090 1014 0000 0712 1981 2874')
+  const { data: stored } = await admin().from('club_payout_details').select('iban').eq('club_id', ZT).single()
+  expect(stored.iban).toBe('PL61109010140000071219812874')
 
   const adm = await open(actors.admin, '/klub/zatyrani-test/ustawienia')
   const section = adm.getByTestId('payout-details')
@@ -131,7 +134,7 @@ test('F-20 zatyrani-test: the owner saves payout details, the admin sees the mas
 
 test('F-20 a wrong account number shows the server message and saves nothing', async ({ actors }) => {
   const owner = await open(actors.owner, '/klub/zatyrani-test/ustawienia')
-  await expect(owner.getByLabel('Numer rachunku', { exact: true })).toHaveValue('PL61109010140000071219812874')
+  await expect(owner.getByLabel('Numer rachunku', { exact: true })).toHaveValue('PL61 1090 1014 0000 0712 1981 2874')
   await owner.getByLabel('Numer rachunku', { exact: true }).fill('PL61109010140000071219812875')
   await owner.getByRole('button', { name: 'Zapisz dane do wypłat' }).click()
   await expect(owner.getByText('Nieprawidłowy numer rachunku.')).toBeVisible()
