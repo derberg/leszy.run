@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test" xmlns="http://www.topografix.com/GPX/1/1">
+<rte><name>Trasa</name>
+<rtept lat="50.000000" lon="19.0"><ele>200</ele></rtept>
+<rtept lat="50.001000" lon="19.0"><ele>201</ele></rtept>
+<rtept lat="50.002000" lon="19.0"><ele>202</ele></rtept>
+<rtept lat="50.003000" lon="19.0"><ele>203</ele></rtept>
+<rtept lat="50.004000" lon="19.0"><ele>204</ele></rtept>
+</rte>
+</gpx>
