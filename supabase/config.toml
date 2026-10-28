@@ -201,3 +201,7 @@ entrypoint = "./functions/my-event-registrations/index.js"
 [functions.list-event-registrations]
 verify_jwt = false
 entrypoint = "./functions/list-event-registrations/index.js"
+
+[functions.preview-registration-event]
+verify_jwt = false
+entrypoint = "./functions/preview-registration-event/index.js"

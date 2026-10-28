@@ -28,6 +28,10 @@ function vercelApi(env) {
         const { default: handler } = await server.ssrLoadModule('/api/results.js')
         await handler(req, res)
       })
+      server.middlewares.use('/api/event', async (req, res) => {
+        const { default: handler } = await server.ssrLoadModule('/api/event.js')
+        await handler(req, res)
+      })
     },
   }
 }
