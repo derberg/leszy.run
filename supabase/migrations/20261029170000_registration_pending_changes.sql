@@ -31,8 +31,11 @@
 --   the new limit. Hide/unhide is written WHERE taken = 0. A changed
 --   regulamin bumps regulamin_version. Then registration_write_public_rows
 --   rewrites the events, categories and calendar rows, and the pending row is
---   deleted. With p_claim_notice the change notice's throttle slot
---   (notice:<event>, one per hour) is claimed inside the same transaction, so
+--   deleted. Before that the applied state must still have a registration
+--   window, closing no later than the day after the race, and a regulamin
+--   (invalid_state:window | closes_after_event | regulamin).
+--   With p_claim_notice the change notice's throttle slot (notice:<event>,
+--   one per hour) is claimed inside the same transaction, so
 --   a refused publish never uses up the slot and a throttled one applies
 --   nothing. Errors: not_found, not_published, forbidden, no_changes,
 --   changed, notice_throttled, and the lock errors above,
@@ -288,6 +291,18 @@ BEGIN
   END LOOP;
 
   SELECT * INTO v_after FROM public.registration_settings WHERE event_id = p_event_id;
+  -- What the first publish's checklist required still holds (the edge function
+  -- checks the whole checklist first; a direct call cannot skip these).
+  IF v_after.opens_at IS NULL OR v_after.closes_at IS NULL OR v_after.event_date IS NULL THEN
+    RAISE EXCEPTION 'invalid_state:window';
+  END IF;
+  IF v_after.closes_at > ((v_after.event_date + 1)::timestamp AT TIME ZONE 'Europe/Warsaw') THEN
+    RAISE EXCEPTION 'invalid_state:closes_after_event';
+  END IF;
+  IF NOT ((v_after.regulamin_kind = 'pdf' AND v_after.regulamin_upload_id IS NOT NULL)
+       OR (v_after.regulamin_kind = 'link' AND nullif(btrim(v_after.regulamin_url), '') IS NOT NULL)) THEN
+    RAISE EXCEPTION 'invalid_state:regulamin';
+  END IF;
   IF (v_after.regulamin_kind, v_after.regulamin_url, v_after.regulamin_upload_id)
      IS DISTINCT FROM (v_rs.regulamin_kind, v_rs.regulamin_url, v_rs.regulamin_upload_id) THEN
     UPDATE public.registration_settings SET regulamin_version = regulamin_version + 1 WHERE event_id = p_event_id;

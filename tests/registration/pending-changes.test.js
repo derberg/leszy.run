@@ -7,7 +7,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
-import { messagesTo, startCapture } from './helpers/emailCapture.js'
+import { captureRequests, messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, callFn, createPublishedFreeEvent } from './helpers/registrationFixtures.js'
 
 const ZT = '00000000-0000-4000-8000-0000000000c1'
@@ -15,6 +15,8 @@ const rand = () => crypto.randomBytes(4).toString('hex')
 const db = () => admin()
 const runnerEmail = (tag) => `runner-${tag}-${rand()}@test.local`
 const NO_NOTICE = { send: false }
+// The fixture's basics.contactEmail (createPublishedFreeEvent).
+const CONTACT = 'zapisy@klub.example'
 
 let owner, member, stopCapture, club
 before(async () => {
@@ -22,10 +24,9 @@ before(async () => {
   await resetThrottle()
   await acceptAgreement('zatyrani-test')
   ;[owner, member] = await Promise.all(['owner@zatyrani-test.local', 'member@zatyrani-test.local'].map(sessionFor))
-  const { data, error } = await db().from('clubs').select('name, owner_id').eq('id', ZT).single()
+  const { data, error } = await db().from('clubs').select('name').eq('id', ZT).single()
   if (error) throw error
-  const { data: p } = await db().from('profiles').select('email').eq('id', data.owner_id).single()
-  club = { name: data.name, ownerEmail: p.email }
+  club = { name: data.name }
 })
 after(async () => { if (stopCapture) await stopCapture() })
 
@@ -80,8 +81,8 @@ async function registerMany(event, categoryId, n, tag = 'r') {
 // Direct RPC calls, the way the edge functions make them.
 const stage = (eventId, section, value) =>
   db().rpc('stage_registration_section', { p_event_id: eventId, p_section: section, p_value: value, p_actor: owner.profileId })
-const applyChanges = (eventId) =>
-  db().rpc('publish_registration_changes', { p_event_id: eventId, p_actor: owner.profileId })
+const applyChanges = (eventId, expectedUpdatedAt = null) =>
+  db().rpc('publish_registration_changes', { p_event_id: eventId, p_actor: owner.profileId, p_expected_updated_at: expectedUpdatedAt })
 
 /** The validated snake_case competition item, as stage_registration_section receives it. */
 const stagedItem = (categoryId, over = {}) => ({
@@ -130,9 +131,13 @@ test('W-21 a save on a published event is staged: live tables unchanged, changed
   assert.equal(await pendingOf(event.eventId), null)
   assert.equal((await settingsOf(event.eventId)).place_details, before.place_details)
 
-  const { data: log } = await db().from('organizer_actions').select('action')
-    .eq('event_id', event.eventId).in('action', ['changes_staged', 'changes_discarded'])
-  assert.ok(log.some((a) => a.action === 'changes_discarded'))
+  const { data: log } = await db().from('organizer_actions').select('action, payload')
+    .eq('event_id', event.eventId).in('action', ['section_staged', 'changes_discarded'])
+  const staged = log.filter((a) => a.action === 'section_staged')
+  assert.equal(staged.length, 4, 'one per staged save')
+  assert.deepEqual([...new Set(staged.map((a) => a.payload.section))].sort(), ['basics', 'competitions'])
+  assert.ok(staged.every((a) => Object.keys(a.payload).join() === 'section'), 'the section name only, never the values')
+  assert.equal(log.filter((a) => a.action === 'changes_discarded').length, 1)
 })
 
 test('W-21 publish_changes: notify required, nothing pending → 409, member → 403', async () => {
@@ -430,7 +435,7 @@ test('W-24 change notice: off → no email; on → one per confirmed registrant 
     assert.equal(msgs[0].subject, notice.subject)
     assert.equal(msgs[0].text, notice.body)
     assert.ok(msgs[0].fromName.includes(club.name), msgs[0].fromName)
-    assert.equal(msgs[0].replyTo, club.ownerEmail)
+    assert.equal(msgs[0].replyTo, CONTACT)
     assert.equal(msgs[0].html, undefined, 'plain text only')
   }
   assert.equal((await messagesTo(marszRunner)).length, 0, 'other competition not told')
@@ -463,7 +468,7 @@ test('W-24 a date change tells every confirmed registrant of the event', async (
   const event = await published([BIEG, MARSZ])
   const runners = [...await registerMany(event, event.categoryIds[0], 1, 'date'), ...await registerMany(event, event.categoryIds[1], 1, 'date')]
   const s = await settingsOf(event.eventId)
-  const next = new Date(Date.parse(s.event_date) - 86400000).toISOString().slice(0, 10)
+  const next = new Date(Date.parse(s.event_date) + 86400000).toISOString().slice(0, 10)
   const r0 = await save(event.eventId, 'basics', { eventDate: next })
   assert.equal(r0.status, 200, JSON.stringify(r0.body))
   const r = await publishChanges(event.eventId, { send: true, subject: 'Nowa data', body: `Zawody odbędą się ${next}.` })
@@ -471,4 +476,89 @@ test('W-24 a date change tells every confirmed registrant of the event', async (
   assert.equal(r.body.data.affected.all, true)
   assert.equal(r.body.data.notice.recipientCount, 2)
   for (const email of runners) assert.equal((await messagesTo(email)).length, 1, email)
+})
+
+test('W-21 a stale expected_updated_at → changed, nothing applied', async () => {
+  const event = await published()
+  await save(event.eventId, 'basics', { name: 'Bieg po zmianie' })
+  const r = await applyChanges(event.eventId, '2000-01-01T00:00:00Z')
+  assert.equal(r.error?.message, 'changed')
+  assert.notEqual((await settingsOf(event.eventId)).name, 'Bieg po zmianie')
+  assert.ok(await pendingOf(event.eventId))
+})
+
+// ---------------------------------------------------------------- merged state (fix round 1)
+
+for (const [label, staged, blockingKey, rpcError] of [
+  ['the registration window removed', { opensOn: null, closesOn: null }, 'registration_dates', 'invalid_state:window'],
+  ['the regulamin removed', { regulaminUrl: null }, 'regulamin', 'invalid_state:regulamin'],
+  ['the race moved before registration closes', 'earlier', 'registration_dates', 'invalid_state:closes_after_event'],
+]) {
+  test(`W-21 ${label}: publish_changes 409 with the checklist item; the RPC refuses ${rpcError}`, async () => {
+    const event = await published()
+    const s = await settingsOf(event.eventId)
+    const value = staged === 'earlier'
+      ? { eventDate: new Date(Date.parse(s.event_date) - 86400000).toISOString().slice(0, 10) }
+      : staged
+    const saved = await save(event.eventId, 'basics', value)
+    assert.equal(saved.status, 200, JSON.stringify(saved.body))
+
+    const r = await publishChanges(event.eventId)
+    assert.equal(r.status, 409, JSON.stringify(r.body))
+    assert.deepEqual(r.body.blocking.map((b) => b.key), [blockingKey])
+    assert.match(r.body.error, /^Uzupełnij: /)
+
+    const direct = await applyChanges(event.eventId)
+    assert.equal(direct.error?.message, rpcError)
+    const after = await settingsOf(event.eventId)
+    assert.equal(after.closes_at, s.closes_at)
+    assert.equal(after.event_date, s.event_date)
+    assert.equal(after.regulamin_url, s.regulamin_url)
+    assert.ok(await pendingOf(event.eventId), 'pending kept')
+  })
+}
+
+test('W-24 send=true with nobody concerned: applied, nothing sent, the hourly slot stays free', async () => {
+  const event = await published()
+  const [runner] = await registerMany(event, event.categoryIds[0], 1, 'quiet')
+  await save(event.eventId, 'basics', { name: 'Bieg Leszego nowa nazwa' })
+  const notice = { send: true, subject: 'Zmiana', body: 'Treść.' }
+  let r = await publishChanges(event.eventId, notice)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data.notice, { sent: false, recipientCount: 0 })
+  assert.equal((await messagesTo(runner)).length, 0)
+  assert.equal(await one('organizer_messages', { event_id: event.eventId }), null)
+
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG], [{ startTime: '10:20' }]) })
+  r = await publishChanges(event.eventId, notice)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.notice.recipientCount, 1)
+  assert.equal((await messagesTo(runner)).length, 1)
+})
+
+test('W-24 1500 recipients: two batched requests (1000 + 500), every address its own, the count right', async () => {
+  const event = await published()
+  const cat = event.categoryIds[0]
+  const tag = rand()
+  const rows = Array.from({ length: 1500 }, (_, i) => ({
+    event_id: event.eventId, category_id: cat, status: 'confirmed', first_name: 'Ola', last_name: `Leśna ${i}`,
+    email: `bulk-${tag}-${i}@test.local`, consent_state: 'accepted',
+  }))
+  for (let i = 0; i < rows.length; i += 750) {
+    const { error } = await db().from('registrations').insert(rows.slice(i, i + 750))
+    assert.equal(error, null, error?.message)
+  }
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG], [{ startTime: '10:40' }]) })
+  const subject = `Zmiana godziny ${tag}`
+  const r = await publishChanges(event.eventId, { send: true, subject, body: 'Start o 10:40.' })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.notice.recipientCount, 1500)
+
+  const requests = (await captureRequests()).filter((q) => q.subject === subject)
+  assert.deepEqual(requests.map((q) => q.recipients), [1000, 500])
+  const one1 = await messagesTo(`bulk-${tag}-1499@test.local`)
+  assert.equal(one1.length, 1)
+  assert.equal(one1[0].to, `bulk-${tag}-1499@test.local`)
+  const msg = await one('organizer_messages', { event_id: event.eventId })
+  assert.equal(msg.recipient_count, 1500)
 })

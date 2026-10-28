@@ -5,9 +5,9 @@ import { logOrganizerAction } from '../_shared/organizer.js'
 import { AGREEMENT_REQUIRED, clubHasAgreement, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM } from '../_shared/registration/checklist.js'
 import { eventPageUrl } from '../_shared/registration/slug.js'
-import { changeDiff, noticeAudience } from '../_shared/registration/changeDiff.js'
+import { changeDiff, mergedChecklistInput, noticeAudience } from '../_shared/registration/changeDiff.js'
 import { PAID_REGISTRATION_ENABLED } from '../_shared/registration/flags.js'
-import { sendEmail } from '../_shared/email.js'
+import { sendBulkEmail } from '../_shared/email.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -102,12 +102,12 @@ async function noticeRecipients(admin, eventId, audience) {
   return [...new Set(rows.map((r) => (r.email ?? r.guardian_email)?.toLowerCase()).filter(Boolean))]
 }
 
-// Sent as the club (display name, reply-to its owner), from the LESZY.RUN domain.
-async function clubSender(admin, clubId) {
-  const { data: club, error } = await admin.from('clubs').select('name, owner_id').eq('id', clubId).single()
+// Sent from the LESZY.RUN domain with the club as display name and the event's
+// contact address as reply-to (ruling P2-R19: never a member's own address).
+async function clubSender(admin, settings) {
+  const { data: club, error } = await admin.from('clubs').select('name').eq('id', settings.club_id).single()
   if (error) throw error
-  const { data: owner } = await admin.from('profiles').select('email').eq('id', club.owner_id).maybeSingle()
-  return { fromName: `${club.name} przez LESZY.RUN`, replyTo: owner?.email ?? undefined }
+  return { fromName: `${club.name} przez LESZY.RUN`, replyTo: settings.contact_email ?? undefined }
 }
 
 const changeRefusal = (error) => {
@@ -124,10 +124,38 @@ const changeRefusal = (error) => {
   }
   if (msg === 'price_locked') return [409, { error: 'Nie można opublikować: opłaty nie można zmienić, są już zapisy.', code: 'price_locked' }]
   if (msg === 'immutable') return [409, { error: 'Nie można opublikować: adresu i pomiaru czasu nie można zmienić.', code: 'immutable' }]
+  if (msg.startsWith('invalid_state:')) {
+    return [409, { error: 'Nie można opublikować: zmiany zostawiłyby wydarzenie bez dat zapisów albo regulaminu.', code: 'invalid_state', what: msg.slice('invalid_state:'.length) }]
+  }
   if (msg === 'foreign_id' || ['23514', '22P02', '22007', '22008', '22003'].includes(error?.code)) {
     return [422, { error: 'Nieprawidłowe dane.', code: 'invalid' }]
   }
   return null
+}
+
+// The message row is written first and its count after sending: a crash in
+// between leaves a row saying 0, never mail with no record.
+async function sendChangeNotice(admin, req, session, settings, notify, affected) {
+  const eventId = settings.event_id
+  const { data: message, error } = await admin.from('organizer_messages').insert({
+    event_id: eventId, sent_by: session.userId, subject: notify.subject, body: notify.body,
+    filter: { kind: 'change_notice', ...affected }, recipient_count: 0,
+  }).select('id').single()
+  if (error) {
+    console.error('organizer_messages insert failed, notice not sent:', error.message)
+    return { sent: false, recipientCount: 0 }
+  }
+  const recipients = await noticeRecipients(admin, eventId, affected)
+  const { sent, failed } = await sendBulkEmail(recipients, {
+    subject: notify.subject, text: notify.body, ...(await clubSender(admin, settings)),
+  })
+  const { error: uErr } = await admin.from('organizer_messages').update({ recipient_count: sent }).eq('id', message.id)
+  if (uErr) console.error('organizer_messages count update failed:', uErr.message)
+  await logOrganizerAction(admin, req, {
+    actorId: session.userId, clubId: settings.club_id, eventId, action: 'change_notice_sent',
+    target: message.id, payload: { recipientCount: sent, failed, ...affected },
+  })
+  return { sent: true, recipientCount: sent, failed }
 }
 
 async function publishChanges(admin, req, session, settings, notifyInput) {
@@ -146,11 +174,18 @@ async function publishChanges(admin, req, session, settings, notifyInput) {
     return json({ error: 'Nie można opublikować: płatności online — wkrótce.', code: 'payments' }, 409, req)
   }
 
-  const diff = changeDiff(await liveSnapshot(admin, settings), pending.payload)
+  const live = await liveSnapshot(admin, settings)
+  // The event as it will be must pass the first publish's checklist too.
+  const { blocking } = publishChecklist({ ...mergedChecklistInput(live, pending.payload), hasAgreement: true })
+  if (blocking.length) return refused(blocking, req)
+
+  const diff = changeDiff(live, pending.payload)
   const affected = noticeAudience(diff)
+  // Nobody to tell: no notice, and the hourly slot stays free.
+  const noticeWanted = notify.send && (affected.all || affected.categoryIds.length > 0)
 
   const { error } = await admin.rpc('publish_registration_changes', {
-    p_event_id: eventId, p_actor: session.userId, p_expected_updated_at: pending.updated_at, p_claim_notice: notify.send,
+    p_event_id: eventId, p_actor: session.userId, p_expected_updated_at: pending.updated_at, p_claim_notice: noticeWanted,
   })
   if (error) {
     const msg = error.message ?? ''
@@ -162,8 +197,8 @@ async function publishChanges(admin, req, session, settings, notifyInput) {
         code: 'capacity_below_taken', categoryId,
       }, 409, req)
     }
-    const refused = changeRefusal(error)
-    if (refused) return json(refused[1], refused[0], req)
+    const mapped = changeRefusal(error)
+    if (mapped) return json(mapped[1], mapped[0], req)
     throw error
   }
 
@@ -173,29 +208,7 @@ async function publishChanges(admin, req, session, settings, notifyInput) {
   })
 
   let notice = { sent: false, recipientCount: 0 }
-  if (notify.send) {
-    const recipients = await noticeRecipients(admin, eventId, affected)
-    const sender = await clubSender(admin, settings.club_id)
-    let sent = 0
-    for (const to of recipients) {
-      try {
-        await sendEmail({ to, subject: notify.subject, text: notify.body, ...sender })
-        sent++
-      } catch (err) {
-        console.error('change notice email failed:', err?.message)
-      }
-    }
-    const { data: message, error: mErr } = await admin.from('organizer_messages').insert({
-      event_id: eventId, sent_by: session.userId, subject: notify.subject, body: notify.body,
-      filter: { kind: 'change_notice', ...affected }, recipient_count: sent,
-    }).select('id').single()
-    if (mErr) console.error('organizer_messages insert failed:', mErr.message)
-    await logOrganizerAction(admin, req, {
-      actorId: session.userId, clubId: settings.club_id, eventId, action: 'change_notice_sent',
-      target: message?.id ?? null, payload: { recipientCount: sent, ...affected },
-    })
-    notice = { sent: true, recipientCount: sent }
-  }
+  if (noticeWanted) notice = await sendChangeNotice(admin, req, session, settings, notify, affected)
   return json({ data: { diff, affected, notice } }, 200, req)
 }
 
@@ -219,11 +232,15 @@ async function discardChanges(admin, req, session, settings) {
 //
 // POST { eventId, action: 'publish_changes', notify: { send, subject?, body? } }
 //   → 200 { data: { diff, affected: { all, categoryIds }, notice: { sent, recipientCount } } }.
-// Applies the staged changes (publish_registration_changes: locks re-checked,
-// limit ≥ taken in the writing statement). `notify.send` is required; with
-// true, a plain-text email goes to every confirmed registrant the changes
-// concern (date/place: all; start time/distance: that competition), as the
-// club, at most once an hour per event (429 otherwise, nothing applied).
+// The event as it will be must pass publishChecklist (409 { error, blocking }
+// like the first publish), then publish_registration_changes applies it
+// (locks re-checked, limit ≥ taken in the writing statement, window and
+// regulamin re-checked). `notify.send` is required; with true, a plain-text
+// email goes to every confirmed registrant the changes concern (date/place:
+// all; start time/distance: that competition), in batches of 1000, as the
+// club with the event's contact_email as reply-to, at most once an hour per
+// event (429 otherwise, nothing applied). No one concerned: nothing is sent
+// and the hour is not used up.
 // 409 { error, code } when a lock refuses: capacity_below_taken (names the
 // competition), competition_locked, price_locked, immutable, no_changes.
 // POST { eventId, action: 'discard_changes' } → 200 { data: { discarded } }.

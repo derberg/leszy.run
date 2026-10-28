@@ -40,7 +40,7 @@ test('W-17 a draft is absent on the host; after publish it is there with its cat
   await save(eventId, 'basics', {
     eventDate: '2027-04-18', opensOn: '2027-02-01', closesOn: '2027-04-16',
     townLabel: 'Nieborowice', townArea: 'GM. PILCHOWICE · ŚLĄSKIE', lat: 50.2381, lng: 18.5412,
-    regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf',
+    regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf', contactEmail: 'zapisy@klub.example',
   })
   const { categoryIds } = await save(eventId, 'competitions', { pricingMode: 'free', items: [
     { name: 'Bieg 9 km', kind: 'individual', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50, timed: true },

@@ -116,7 +116,7 @@ export async function createPublishedFreeEvent(owner, {
   await save('basics', {
     eventDate, opensOn, closesOn, firstStartTime: '10:00',
     townLabel: 'Nieborowice', townArea: 'GM. PILCHOWICE · ŚLĄSKIE', lat: 50.2381, lng: 18.5412,
-    regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf',
+    regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf', contactEmail: 'zapisy@klub.example',
   })
   const { categoryIds } = await save('competitions', {
     pricingMode: 'free', items: competitions.map((c) => ({ kind: 'individual', timed: true, isKids: false, ...c })),

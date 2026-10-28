@@ -44,7 +44,7 @@ async function completeEvent({ session = owner, clubId = ZT, items = [comp()] } 
   await save(ev.eventId, 'basics', {
     eventDate: '2027-03-14', opensOn: '2027-01-10', closesOn: '2027-03-12',
     townLabel: 'Nieborowice', townArea: 'GM. PILCHOWICE · ŚLĄSKIE', lat: 50.2381, lng: 18.5412,
-    regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf',
+    regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf', contactEmail: 'zapisy@klub.example',
   }, session)
   const { categoryIds } = await save(ev.eventId, 'competitions', { pricingMode: 'free', items }, session)
   return { ...ev, categoryIds }

@@ -91,3 +91,19 @@ test('noticeAudience: date or place → everyone; start time or distance → tha
     assert.equal(noticeAudience([{ field }]).all, true, field)
   }
 })
+
+test('mergedChecklistInput: the event as it will be, in publishChecklist\'s shape', async () => {
+  const { mergedChecklistInput } = await import('../../../supabase/functions/_shared/registration/changeDiff.js')
+  const { publishChecklist } = await import('../../../supabase/functions/_shared/registration/checklist.js')
+  const settled = { ...live, settings: { ...live.settings, name: 'Bieg', slug: 'bieg', contact_email: 'zapisy@klub.example' } }
+  const ok = mergedChecklistInput(settled, { basics: { name: 'Bieg 2' } })
+  assert.equal(ok.settings.name, 'Bieg 2')
+  assert.deepEqual(publishChecklist({ ...ok, hasAgreement: true }).blocking, [])
+
+  const keys = (pending) => publishChecklist({ ...mergedChecklistInput(settled, pending), hasAgreement: true }).blocking.map((b) => b.key)
+  assert.deepEqual(keys({ basics: { opens_at: null, closes_at: null } }), ['registration_dates'])
+  assert.deepEqual(keys({ basics: { regulamin_url: null } }), ['regulamin'])
+  assert.deepEqual(keys({ basics: { event_date: '2026-12-01' } }), ['registration_dates'])
+  // Hiding every competition leaves none visible.
+  assert.deepEqual(keys({ competitions: { pricing_mode: 'free', items: live.competitions.map((c) => item(c, { hidden: true })) } }), ['competitions'])
+})

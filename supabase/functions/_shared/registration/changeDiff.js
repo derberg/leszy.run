@@ -15,6 +15,9 @@
 //
 // noticeAudience(diff) → { all, categoryIds }: a change of date or place is
 // for everyone registered; a start time or distance only for that competition.
+//
+// mergedChecklistInput(live, pending) → what publishChecklist() reads, for the
+// event as it will be once the staged changes are applied.
 
 const SETTINGS_LABELS = {
   basics: {
@@ -22,7 +25,7 @@ const SETTINGS_LABELS = {
     opens_at: 'Otwarcie zapisów', closes_at: 'Koniec zapisów', is_charity: 'Wydarzenie charytatywne',
     charity_goal: 'Cel zbiórki', donations_enabled: 'Wpłaty na cel', town_label: 'Miejscowość',
     town_area: 'Gmina i województwo', place_details: 'Miejsce startu', lat: 'Pinezka (szerokość)',
-    lng: 'Pinezka (długość)', regulamin_kind: 'Rodzaj regulaminu', regulamin_url: 'Regulamin (link)',
+    lng: 'Pinezka (długość)', contact_email: 'Adres kontaktowy', regulamin_kind: 'Rodzaj regulaminu', regulamin_url: 'Regulamin (link)',
     regulamin_upload_id: 'Regulamin (PDF)', poster_upload_id: 'Plakat',
   },
   office: {
@@ -149,4 +152,34 @@ export function noticeAudience(diff) {
   const all = diff.some((d) => NOTICE_ALL.has(d.field))
   const categoryIds = [...new Set(diff.filter((d) => NOTICE_COMPETITION.has(d.field) && d.categoryId).map((d) => d.categoryId))]
   return { all, categoryIds }
+}
+
+const camelKey = (k) => k.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase())
+const camel = (row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [camelKey(k), v]))
+const LIST_KEYS = new Set(['hours', 'items', 'age_groups', 'kids_groups', 'consents'])
+
+/**
+ * @param {object} live see the module comment
+ * @param {object|null} pending registration_pending_changes.payload
+ * @returns {{ settings: object, competitions: object[], officeHours: object[] }} camelCase
+ */
+export function mergedChecklistInput(live, pending) {
+  const settings = { ...live.settings }
+  for (const value of Object.values(pending ?? {})) {
+    if (!value || typeof value !== 'object') continue
+    for (const [key, v] of Object.entries(value)) if (!LIST_KEYS.has(key)) settings[key] = v
+  }
+  let competitions = live.competitions ?? []
+  const items = pending?.competitions?.items
+  if (items) {
+    const byId = new Map(competitions.map((c) => [c.category_id, c]))
+    competitions = items.map((i) => {
+      const base = byId.get(i.category_id) ?? {}
+      const { hidden, ...fields } = i
+      const hiddenAt = hidden === undefined ? (base.hidden_at ?? null) : (hidden ? 'staged' : null)
+      return { ...base, ...fields, hidden_at: hiddenAt }
+    })
+  }
+  const officeHours = pending?.office?.hours ?? live.officeHours ?? []
+  return { settings: camel(settings), competitions: competitions.map(camel), officeHours }
 }

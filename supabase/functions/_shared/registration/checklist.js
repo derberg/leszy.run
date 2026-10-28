@@ -64,6 +64,7 @@ export function publishChecklist(event) {
   }
 
   if (!regulaminGiven(s)) block('regulamin', 'Regulamin (PDF albo link)')
+  if (blank(s.contactEmail)) block('contact_email', 'Adres kontaktowy organizatora')
   if (!event?.hasAgreement) block('agreement', 'Akceptacja umowy organizatora')
   if (!PAID_REGISTRATION_ENABLED && (s.pricingMode ?? 'free') !== 'free') block('payments', 'Płatności online — wkrótce')
 

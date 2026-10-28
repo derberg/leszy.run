@@ -22,7 +22,7 @@ function complete(over = {}) {
       ...window('2026-11-01', '2026-12-06'),
       townLabel: 'Nieborowice', lat: 50.2381, lng: 18.5412,
       regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin', regulaminUploadId: null,
-      posterUploadId: 'p1', pricingMode: 'free',
+      posterUploadId: 'p1', pricingMode: 'free', contactEmail: 'zapisy@klub.example',
       ...over.settings,
     },
     competitions: over.competitions ?? [comp(), comp({ categoryId: 'c2', name: 'Bieg dzieci', distanceLabel: '400 m', isKids: true })],
@@ -39,7 +39,7 @@ test('W-13 a complete event has nothing blocking and nothing missing', () => {
 
 test('W-13 an empty draft lists every required item', () => {
   const r = publishChecklist({ settings: { pricingMode: 'free' }, competitions: [], officeHours: [], hasAgreement: false })
-  assert.deepEqual(keys(r.blocking), ['name', 'slug', 'event_date', 'registration_dates', 'place', 'competitions', 'regulamin', 'agreement'])
+  assert.deepEqual(keys(r.blocking), ['name', 'slug', 'event_date', 'registration_dates', 'place', 'competitions', 'regulamin', 'contact_email', 'agreement'])
   assert.deepEqual(keys(r.missing), ['office_hours', 'poster', 'kids'])
 })
 
@@ -73,6 +73,11 @@ test('W-13 a competition without distance, start time or limit blocks, naming wh
 test('W-13 a hidden competition does not count, so only hidden ones means none', () => {
   const r = publishChecklist(complete({ competitions: [comp({ hiddenAt: '2026-11-02T10:00:00Z', distanceLabel: null })] }))
   assert.deepEqual(keys(r.blocking), ['competitions'])
+})
+
+test('W-13 the organizer contact address is required (ruling P2-R19)', () => {
+  const r = publishChecklist(complete({ settings: { contactEmail: '  ' } }))
+  assert.deepEqual(r.blocking, [{ key: 'contact_email', label: 'Adres kontaktowy organizatora' }])
 })
 
 test('W-13 the regulamin is a PDF upload or a link, matching its kind', () => {

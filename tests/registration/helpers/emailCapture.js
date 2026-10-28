@@ -18,6 +18,12 @@ export async function lastCodeFor(email) {
   return null
 }
 
+/** One entry per request the functions made: { batch, recipients, subject }. */
+export async function captureRequests() {
+  const res = await fetch(`${base}/requests`)
+  return (await res.json()).data
+}
+
 export async function clearMessages() {
   await fetch(`${base}/messages`, { method: 'DELETE' })
 }

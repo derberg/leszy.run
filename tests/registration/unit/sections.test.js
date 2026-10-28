@@ -230,3 +230,11 @@ test('hidden: accepted per competition only once published, as a boolean', () =>
   assert.equal(bad.ok, false)
   assert.ok(bad.errors.hidden)
 })
+
+test('basics.contactEmail: stored lower-cased as contact_email, a bad address refused, null clears it', () => {
+  const ok = validateSection('basics', { contactEmail: ' Zapisy@Klub.Example ' }, PUBLISHED)
+  assert.equal(ok.ok, true, JSON.stringify(ok.errors))
+  assert.equal(ok.value.contact_email, 'zapisy@klub.example')
+  assert.equal(validateSection('basics', { contactEmail: 'nie-adres' }, DRAFT).errors.contactEmail, 'Podaj poprawny adres e-mail.')
+  assert.equal(validateSection('basics', { contactEmail: null }, DRAFT).value.contact_email, null)
+})

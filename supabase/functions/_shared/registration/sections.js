@@ -19,6 +19,8 @@ const SOON = 'Wkrótce.'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
+// Same rule as registration_settings_contact_email_check.
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const MAX_ITEMS = 50
 const MAX_CAPACITY = 100000
 const MAX_PRICE_GROSZE = 10_000_000 // 100 000 zł
@@ -83,6 +85,11 @@ const rules = {
       return c.fail(field, 'Podaj adres zaczynający się od https://.')
     }
   },
+  email: () => (v, field, c) => {
+    if (v === null || v === '') return null
+    const t = typeof v === 'string' ? v.trim().toLowerCase() : ''
+    return t.length <= 254 && EMAIL_RE.test(t) ? t : c.fail(field, 'Podaj poprawny adres e-mail.')
+  },
   oneOf: (values, message = 'Nieprawidłowa wartość.') => (v, field, c) => (values.includes(v) ? v : c.fail(field, message)),
   int: (min, max, message) => (v, field, c) => (v === null || v === undefined ? null
     : Number.isInteger(v) && v >= min && v <= max ? v : c.fail(field, message)),
@@ -115,6 +122,7 @@ const BASICS = {
   regulaminUrl: ['regulamin_url', rules.url()],
   regulaminUploadId: ['regulamin_upload_id', rules.uuid()],
   posterUploadId: ['poster_upload_id', rules.uuid()],
+  contactEmail: ['contact_email', rules.email()],
 }
 
 function validateBasics(value, ctx, c) {
