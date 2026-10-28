@@ -81,6 +81,13 @@ test('F-18 agreement: admin 403, non-member 403, stale version 409, disabled clu
   assert.equal((await call('accept-organizer-agreement', owner, { clubId: ZT, version: 'old' })).status, 409)
   const ikOwner = await sessionFor('owner@inny-klub.local')
   assert.equal((await call('accept-organizer-agreement', ikOwner, { clubId: IK, version: VERSION })).status, 404)
+  // a non-member cannot tell enabled from disabled
+  const [a, b] = await Promise.all([
+    call('accept-organizer-agreement', outsider, { clubId: ZT, version: VERSION }),
+    call('accept-organizer-agreement', await sessionFor('member@zatyrani-test.local'), { clubId: IK, version: VERSION }),
+  ])
+  assert.equal(a.status, 403)
+  assert.equal(b.status, a.status)
   const { data } = await admin().from('organizer_agreements').select('id').in('club_id', [ZT, IK])
   assert.equal(data.length, 0)
 })
@@ -100,4 +107,33 @@ test('F-18 agreement accepted by the owner of an enabled club, with evidence and
   assert.equal(acts[0].actor_id, owner.profileId)
   const status = await call('organizer-status', owner, { clubId: ZT })
   assert.equal(status.body.data.agreementAccepted, true)
+})
+
+test('F-18 a repeat acceptance of the current version is 200 with the same row and no second action', async () => {
+  const owner = await sessionFor('owner@zatyrani-test.local')
+  const r = await call('accept-organizer-agreement', owner, { clubId: ZT, version: VERSION })
+  assert.equal(r.status, 200)
+  assert.equal((await admin().from('organizer_agreements').select('id').eq('club_id', ZT)).data.length, 1)
+  assert.equal((await admin().from('organizer_actions').select('id').eq('club_id', ZT).eq('action', 'agreement_accepted')).data.length, 1)
+})
+
+test('F-17 a member who has left gets 403 from organizer-status', async () => {
+  const s = await sessionFor('member@zatyrani-test.local')
+  const db = admin()
+  await db.from('club_members').update({ status: 'left' }).eq('club_id', ZT).eq('user_id', s.profileId)
+  try {
+    assert.equal((await call('organizer-status', s, { clubId: ZT })).status, 403)
+  } finally {
+    await db.from('club_members').update({ status: 'active' }).eq('club_id', ZT).eq('user_id', s.profileId)
+  }
+})
+
+test('F-17 waitlist join on an already enabled club: no row, no email', async () => {
+  await clearMessages()
+  const s = await sessionFor('admin@zatyrani-test.local')
+  const r = await call('join-registration-waitlist', s, { clubId: ZT })
+  assert.equal(r.status, 200)
+  assert.deepEqual(r.body.data, { waitlisted: false, enabled: true })
+  assert.equal((await admin().from('registration_waitlist').select('club_id').eq('club_id', ZT)).data.length, 0)
+  assert.equal((await messagesTo(OPERATOR)).length, 0)
 })

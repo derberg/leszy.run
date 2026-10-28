@@ -24,11 +24,20 @@ Deno.serve(async (req) => {
     const { clubId, version } = await req.json()
     if (!clubId || !version) return json({ error: 'clubId, version required' }, 400, req)
 
-    if (!(await clubRegistrationEnabled(admin, clubId))) return json({ error: 'Not found' }, 404, req)
+    // Role first: a non-member gets 403 whether the club is disabled, enabled or absent.
     const role = await clubRole(admin, clubId, session.userId)
+    if (!role) return json({ error: 'Brak uprawnień.' }, 403, req)
+    if (!(await clubRegistrationEnabled(admin, clubId))) return json({ error: 'Not found' }, 404, req)
     if (role !== 'owner') return json({ error: 'Umowę przyjmuje właściciel klubu.' }, 403, req)
     if (version !== ORGANIZER_AGREEMENT_VERSION) {
       return json({ error: 'Umowa została zaktualizowana. Odśwież stronę.', version: ORGANIZER_AGREEMENT_VERSION }, 409, req)
+    }
+
+    const { data: existing } = await admin.from('organizer_agreements')
+      .select('id, version, accepted_at').eq('club_id', clubId).eq('version', version)
+      .order('accepted_at', { ascending: true }).limit(1)
+    if (existing && existing.length > 0) {
+      return json({ data: { accepted: true, version: existing[0].version, acceptedAt: existing[0].accepted_at } }, 200, req)
     }
 
     const { data: club } = await admin.from('clubs').select('name').eq('id', clubId).single()
