@@ -10,3 +10,10 @@ export function nextOrganizerStep({ enabled, agreementAccepted, role }) {
   if (!agreementAccepted) return 'agreement'
   return 'wizard'
 }
+
+// The payout form and the organizer agreement exist only for a club with online
+// registration switched on. A waitlisted or disabled club sees the waitlist copy only:
+// no payout data is collected and no draft agreement is offered before that.
+export function organizerFeaturesShown(status) {
+  return status?.enabled === true
+}

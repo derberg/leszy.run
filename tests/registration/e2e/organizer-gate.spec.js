@@ -50,6 +50,28 @@ test('F-20 inny-klub: waitlist copy for everyone, the admin joins, the operator 
   await expect(owner.getByRole('button', { name: 'Dopisz klub do listy oczekujących' })).toHaveCount(0)
 })
 
+test('F-20 inny-klub: no payout section and no agreement while the club is not enabled', async ({ actors }) => {
+  for (const actor of [actors.innyOwner, actors.innyAdmin]) {
+    const settings = await actor.newPage()
+    const statusRead = settings.waitForResponse((r) => r.url().includes('/organizer-status'))
+    await settings.goto('/klub/inny-klub/ustawienia')
+    expect((await (await statusRead).json()).data.enabled).toBe(false)
+    await expect(settings.getByTestId('save-club')).toBeVisible()
+    await expect(settings.getByText('Dane do wypłat')).toHaveCount(0)
+    await expect(settings.getByTestId('payout-details')).toHaveCount(0)
+    await expect(settings.getByLabel('Numer rachunku', { exact: true })).toHaveCount(0)
+
+    const umowa = await open(actor, '/klub/inny-klub/wydarzenia/umowa')
+    await expect(umowa).toHaveURL(/\/klub\/inny-klub\/wydarzenia$/)
+    await expect(umowa.getByTestId('waitlist')).toBeVisible()
+    await expect(umowa.getByTestId('organizer-agreement')).toHaveCount(0)
+    await expect(umowa.getByRole('button', { name: 'Akceptuję umowę' })).toHaveCount(0)
+    await expect(umowa.getByRole('link', { name: 'Umowa organizatora' })).toHaveCount(0)
+  }
+  const { data } = await admin().from('organizer_agreements').select('id').eq('club_id', IK)
+  expect(data.length).toBe(0)
+})
+
 test('F-20 zatyrani-test: the owner accepts the agreement, then the admin sees the disabled wizard button', async ({ actors }) => {
   const adm = await open(actors.admin, '/klub/zatyrani-test/wydarzenia')
   await expect(adm.getByText('Umowę akceptuje właściciel klubu')).toBeVisible()

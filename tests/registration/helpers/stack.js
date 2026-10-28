@@ -17,7 +17,7 @@ export function localEnv() {
   if (!url || !url.startsWith('http://127.0.0.1')) {
     throw new Error(`Refusing to run: API_URL is "${url}", not the local stack (http://127.0.0.1...)`)
   }
-  cached = { url, anonKey: env.ANON_KEY, serviceKey: env.SERVICE_ROLE_KEY, functionsUrl: `${url}/functions/v1` }
+  cached = { url, anonKey: env.ANON_KEY, serviceKey: env.SERVICE_ROLE_KEY, jwtSecret: env.JWT_SECRET, functionsUrl: `${url}/functions/v1` }
   return cached
 }
 
@@ -74,4 +74,18 @@ export async function resetThrottle() {
   localEnv()
   const { error } = await admin().from('otp_throttle').delete().neq('key', '')
   if (error) throw error
+}
+
+/** A PostgREST client acting as the `authenticated` role (HS256 JWT signed with the local JWT secret). */
+export function authenticatedClient() {
+  const { url, anonKey, jwtSecret } = localEnv()
+  if (!jwtSecret) throw new Error('supabase status printed no JWT_SECRET')
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url')
+  const now = Math.floor(Date.now() / 1000)
+  const unsigned = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ role: 'authenticated', sub: crypto.randomUUID(), iat: now, exp: now + 600 })}`
+  const sig = crypto.createHmac('sha256', jwtSecret).update(unsigned).digest('base64url')
+  return createClient(url, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${unsigned}.${sig}` } },
+  })
 }

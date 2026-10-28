@@ -4,6 +4,7 @@ import useSeo from '../../hooks/useSeo.js'
 import useOrganizerStatus from '../../hooks/useOrganizerStatus.js'
 import { acceptOrganizerAgreement } from '../../lib/organizer.js'
 import { organizerAgreement } from '../../legal/organizerAgreement.js'
+import { organizerFeaturesShown } from '../../lib/organizerGate.js'
 import { primaryBtnClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
 
@@ -26,7 +27,11 @@ export default function UmowaOrganizatora() {
 
   const back = `/klub/${club.slug}/wydarzenia`
   if (!canManage) return <Navigate to={back} replace />
-  if (ready && status && !status.enabled) return <Navigate to={back} replace />
+  // The agreement exists only for a club with online registration switched on:
+  // nothing of it renders until organizer-status says so.
+  if (ready && status && !organizerFeaturesShown(status)) return <Navigate to={back} replace />
+  if (!ready) return <p className="font-mono text-sm text-apex-muted animate-pulse">Ładowanie…</p>
+  if (!status) return <p className="text-apex-red font-sans text-xs">{error}</p>
 
   async function accept() {
     setBusy(true)
@@ -52,18 +57,16 @@ export default function UmowaOrganizatora() {
         ))}
       </div>
 
-      {!ready && <p className="font-mono text-sm text-apex-muted animate-pulse">Ładowanie…</p>}
-      {ready && error && <p className="text-apex-red font-sans text-xs">{error}</p>}
-      {status?.agreementAccepted ? (
+      {status.agreementAccepted ? (
         <p data-testid="agreement-accepted" className="font-sans text-sm font-semibold text-apex-yellow">Umowa zaakceptowana</p>
-      ) : status && !isOwner ? (
+      ) : !isOwner ? (
         <p className="font-sans text-sm text-apex-text">Umowę akceptuje właściciel klubu</p>
-      ) : status ? (
+      ) : (
         <div>
           <button type="button" onClick={accept} disabled={busy} className={primaryBtnClass}>Akceptuję umowę</button>
           {acceptError && <p className="text-apex-red font-sans text-xs mt-1.5">{acceptError}</p>}
         </div>
-      ) : null}
+      )}
     </article>
   )
 }

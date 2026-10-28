@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
-import { clubRole, logOrganizerAction } from '../_shared/organizer.js'
+import { clubRole, clubRegistrationEnabled, logOrganizerAction } from '../_shared/organizer.js'
 import { sendEmail } from '../_shared/email.js'
 import { maskIban } from '../_shared/maskIban.js'
 import {
@@ -37,10 +37,12 @@ Deno.serve(async (req) => {
     const { clubId, legalName, nip, krs, iban, address } = await req.json()
     if (!clubId) return json({ error: 'clubId required' }, 400, req)
 
-    // Owner only. Payout details may be entered while the club is still on the waitlist.
+    // Owner only, and only once the club has online registration: a waitlisted
+    // club gives no payout data. Role first, so a non-member cannot probe enablement.
     const role = await clubRole(admin, clubId, session.userId)
     if (!role) return json({ error: 'Brak uprawnień.' }, 403, req)
     if (role !== 'owner') return json({ error: 'Dane do wypłat zmienia właściciel klubu.' }, 403, req)
+    if (!(await clubRegistrationEnabled(admin, clubId))) return json({ error: 'Not found' }, 404, req)
 
     const name = String(legalName ?? '').trim()
     const addr = String(address ?? '').trim()

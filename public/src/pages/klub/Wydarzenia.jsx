@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import useOrganizerStatus from '../../hooks/useOrganizerStatus.js'
 import { joinRegistrationWaitlist } from '../../lib/organizer.js'
-import { nextOrganizerStep } from '../../lib/organizerGate.js'
+import { nextOrganizerStep, organizerFeaturesShown } from '../../lib/organizerGate.js'
 import { primaryBtnClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
 
@@ -100,7 +100,7 @@ export default function Wydarzenia() {
 
       {!ready && <p className="font-mono text-sm text-apex-muted animate-pulse">Ładowanie…</p>}
       {ready && error && <p className="text-apex-red font-sans text-xs">{error}</p>}
-      {status && !status.enabled && (
+      {status && !organizerFeaturesShown(status) && (
         <WaitlistCard club={club} status={status} canJoin={step === 'waitlist'} onJoined={reload} />
       )}
       {step === 'agreement' && <AgreementCard club={club} isOwner={isOwner} version={status.version} />}

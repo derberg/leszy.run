@@ -7,6 +7,8 @@ import { updateClub, deleteClub, transferOwnership } from '../../lib/clubs.js'
 import { sectionTitle, actionBtnClass, inputClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
 import PayoutDetails from './sections/PayoutDetails.jsx'
+import useOrganizerStatus from '../../hooks/useOrganizerStatus.js'
+import { organizerFeaturesShown } from '../../lib/organizerGate.js'
 
 // Club settings page. Edit form (name/slug/description/is_public + logo) is a
 // labeled rework of the old profil/club/ManagePanel.jsx EditClubSection
@@ -25,6 +27,13 @@ const btnDanger = `${actionBtnClass} border-apex-red text-apex-red hover:bg-apex
 
 const fieldLabel = 'block font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted mb-1'
 const fieldInput = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-base md:text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
+
+// "Dane do wypłat" only for a club with online registration switched on.
+function OrganizerPayout({ clubId, isOwner }) {
+  const { status } = useOrganizerStatus(clubId)
+  if (!organizerFeaturesShown(status)) return null
+  return <PayoutDetails clubId={clubId} isOwner={isOwner} />
+}
 
 function displayNameFor(m) {
   return m?.display_name || m?.nickname || 'Uczestnik anonimowy'
@@ -184,7 +193,7 @@ export default function Ustawienia() {
         </form>
       </div>
 
-      <PayoutDetails clubId={club.id} isOwner={isOwner} />
+      <OrganizerPayout clubId={club.id} isOwner={isOwner} />
 
       {isOwner && (
         <div>

@@ -10,6 +10,10 @@ AS $$
 DECLARE
   v_old jsonb;
 BEGIN
+  -- Serialise saves per club. FOR UPDATE below locks nothing on a club's first
+  -- save (no row yet), so two concurrent first saves would both read old = NULL.
+  PERFORM pg_advisory_xact_lock(hashtext(p_club_id::text));
+
   SELECT to_jsonb(d) - 'club_id' - 'updated_by' - 'updated_at' INTO v_old
     FROM public.club_payout_details d
    WHERE d.club_id = p_club_id

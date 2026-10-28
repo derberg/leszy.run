@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
-import { clubRole } from '../_shared/organizer.js'
+import { clubRole, clubRegistrationEnabled } from '../_shared/organizer.js'
 import { maskIban } from '../_shared/maskIban.js'
 
 function json(body, status, req) {
@@ -13,6 +13,7 @@ function json(body, status, req) {
 
 // Payout details for the club settings page. The owner gets every field to
 // edit; an admin gets the name and a masked account number; anyone else 403.
+// A club without online registration (registration_enabled = false) answers 404.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -28,6 +29,8 @@ Deno.serve(async (req) => {
 
     const role = await clubRole(admin, clubId, session.userId)
     if (role !== 'owner' && role !== 'admin') return json({ error: 'Brak uprawnień.' }, 403, req)
+    // Role first, so a non-member cannot probe enablement; a club without online registration has no payout section.
+    if (!(await clubRegistrationEnabled(admin, clubId))) return json({ error: 'Not found' }, 404, req)
 
     const { data: row, error } = await admin.from('club_payout_details')
       .select('legal_name, nip, krs, iban, address').eq('club_id', clubId).maybeSingle()
