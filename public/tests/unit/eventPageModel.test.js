@@ -20,7 +20,7 @@ const comp = (over) => ({
 // registered (84 confirmed) of 200 places, registration through 2.12.
 const RA1 = {
   eventId: 'e1', slug: 'charytatywny-bieg-leszego', state: 'published',
-  club: { name: 'ZATYRANI' },
+  club: { name: 'ZATYRANI' }, contactEmail: 'biuro@zatyrani.pl',
   name: 'Charytatywny Bieg Leszego', eventDate: '2026-12-06', firstStartTime: '10:00',
   opensAt: '2026-09-30T22:00:00Z', closesAt: '2026-12-02T23:00:00Z',
   isCharity: true, charityGoal: 'Cały dochód na leczenie Zuzi.', donationsEnabled: true,
@@ -98,6 +98,32 @@ describe('eventPageModel (RA1)', () => {
     const m = model()
     assert.equal(m.showFeeNote, true)
     assert.equal(m.regulaminUrl, fileUrl('e1/regulamin/r.pdf'))
+  })
+})
+
+describe('eventPageModel organizer and places (RA1, RA2, RA5)', () => {
+  it('the organizer is the club; the contact is the event address, never a person', () => {
+    const m = model()
+    assert.equal(m.organizerName, 'ZATYRANI')
+    assert.equal(m.contactEmail, 'biuro@zatyrani.pl')
+    assert.equal(model({ ...RA1, contactEmail: undefined }).contactEmail, null)
+  })
+
+  it('office place: its own address and pin, with an OpenStreetMap link', () => {
+    assert.deepEqual(model().officePlace, {
+      label: 'Szkoła Podstawowa, ul. Szkolna 4',
+      mapUrl: 'https://www.openstreetmap.org/?mlat=50.24&mlon=18.54#map=17/50.24/18.54',
+    })
+  })
+
+  it('office at the event: the event place and pin; nothing known → null', () => {
+    const same = model({ ...RA1, office: { ...RA1.office, sameAsEvent: true, address: null, lat: null, lng: null } })
+    assert.deepEqual(same.officePlace, {
+      label: 'Nieborowice, Boisko przy szkole',
+      mapUrl: 'https://www.openstreetmap.org/?mlat=50.2381&mlon=18.5412#map=17/50.2381/18.5412',
+    })
+    assert.equal(model({ ...RA1, office: { sameAsEvent: false, hours: [] } }).officePlace, null)
+    assert.equal(same.eventPlace, 'Nieborowice, Boisko przy szkole')
   })
 })
 
@@ -233,5 +259,12 @@ describe('mergePending', () => {
     assert.equal(merged.slug, 'bieg-leszego-2026')
     assert.equal(merged.timing.mode, 'external')
     assert.equal(RA1.slug, 'charytatywny-bieg-leszego', 'input untouched')
+  })
+})
+
+describe('mergePending contact address', () => {
+  it('a staged contact address shows in the preview', () => {
+    const out = mergePending(RA1, { payload: { basics: { contact_email: 'nowy@zatyrani.pl' } } })
+    assert.equal(out.contactEmail, 'nowy@zatyrani.pl')
   })
 })

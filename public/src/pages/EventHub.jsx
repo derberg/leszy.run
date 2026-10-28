@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useEvent } from '../hooks/useEvent.js'
 import useSeo from '../hooks/useSeo.js'
 import Navbar from '../components/Navbar.jsx'
+import usePublicRegistrationEvent from '../hooks/usePublicRegistrationEvent.js'
+import RegistrationEventPage from './zapisy/RegistrationEventPage.jsx'
 
 // Read the static page's embedded stats (baked by generate-leszyrun-event-pages.js).
 // Returns the manifest entry ({ ...event, stats }) or null on a plain SPA hit.
@@ -89,8 +91,42 @@ function UpcomingEventView({ event }) {
   )
 }
 
+// /events/:slug. A past event baked into a static page renders from that.
+// Otherwise the registration snapshot (/api/event, CDN-cached) is asked first:
+// an event with online registration renders RA1 from it, and the direct
+// `events` query below never runs for it. Anything else (404) is an ordinary
+// event and keeps today's view.
 export default function EventHub() {
+  const { slug } = useParams()
   const [embedded] = useState(() => readEmbeddedEvent())
+  const registration = usePublicRegistrationEvent(embedded ? null : slug)
+
+  if (!embedded && registration.status === 'loading') {
+    return (
+      <>
+        <Navbar />
+        <main id="main-content" className="min-h-[70vh] bg-apex-bg" aria-busy="true">
+          <div className="max-w-2xl mx-auto px-4 pt-[78px] flex flex-col gap-4">
+            <div className="h-4 w-1/2 bg-apex-surface" />
+            <div className="h-12 w-3/4 bg-apex-surface" />
+            <div className="h-20 bg-apex-surface" />
+          </div>
+        </main>
+      </>
+    )
+  }
+  if (!embedded && registration.status === 'ok') {
+    return (
+      <>
+        <Navbar />
+        <main id="main-content"><RegistrationEventPage raw={registration.raw} /></main>
+      </>
+    )
+  }
+  return <OrdinaryEventHub embedded={embedded} />
+}
+
+function OrdinaryEventHub({ embedded }) {
   const { event: liveEvent, loading, error } = useEvent()
 
   // Past event with baked stats → render from embedded data (no live query needed).

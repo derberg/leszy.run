@@ -169,13 +169,18 @@ test('W-19 anon: registration_raw refused, registration_public null for drafts, 
   const pub = await anon.rpc('registration_public', { p_slug: event.slug })
   assert.ifError(pub.error)
   const keys = keysDeep(pub.data)
-  for (const k of keys) assert.doesNotMatch(k, /payout|email|iban|profile|club_?id|upload/i, k)
+  // contactEmail is the one address on the page: the one the organizer gave for
+  // runners (registration_settings.contact_email, P2-R19), never a person's.
+  assert.equal(pub.data.contactEmail, 'zapisy@klub.example')
+  for (const k of keys) if (k !== 'contactEmail') assert.doesNotMatch(k, /payout|email|iban|profile|club_?id|upload/i, k)
   const ids = [...keys].filter((k) => /id$/i.test(k)).sort()
   assert.deepEqual([...new Set(ids)], ['categoryId', 'eventId', 'id'], 'only event, category and consent ids')
   const text = JSON.stringify(pub.data)
   for (const personal of ['Leśna', '600100200', '1990-05-01']) assert.equal(text.includes(personal), false, `no runner data: ${personal}`)
   const r = await getEvent(`?slug=${event.slug}`)
-  for (const k of keysDeep(r.body)) assert.doesNotMatch(k, /payout|email|iban|Path$/i, k)
+  for (const k of keysDeep(r.body)) if (k !== 'contactEmail') assert.doesNotMatch(k, /payout|email|iban|Path$/i, k)
+  const ownerEmail = 'owner@zatyrani-test.local'
+  assert.equal(JSON.stringify(r.body).includes(ownerEmail), false, 'never the owner\'s own address')
 })
 
 // ---------------------------------------------------------------- W-20

@@ -30,7 +30,19 @@ export function inviteFromPath(path) {
  * account that started at an invite link joined the club without a username
  * and without having accepted the terms.
  */
-export function postAuthPath({ from, hasUsername }) {
+export function postAuthPath({ from, hasUsername, skipOnboarding = false }) {
   if (hasUsername) return from || '/profil'
+  // Spec 14.17: an account that registration just created (the e-mail code is
+  // the login) lands on the registration page itself; onboarding waits for the
+  // next ordinary login.
+  if (skipOnboarding && from) return from
   return from ? `/onboarding?from=${encodeURIComponent(from)}` : '/onboarding'
+}
+
+const REGISTRATION_PATH_RE = /^\/events\/[^/?#]+\/(?:zapis\/[^/?#]+|zapisano)$/
+
+/** The registration form and its confirmation page: logins on the way there skip onboarding. */
+export function isRegistrationPath(path) {
+  if (typeof path !== 'string') return false
+  return REGISTRATION_PATH_RE.test(path.split('?', 1)[0])
 }

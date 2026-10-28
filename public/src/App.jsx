@@ -13,6 +13,9 @@ const DodajWydarzenie = lazy(() => import('./pages/DodajWydarzenie.jsx'))
 const Home = lazy(() => import('./pages/Home.jsx'))
 const EventHub = lazy(() => import('./pages/EventHub.jsx'))
 const Results = lazy(() => import('./pages/Results.jsx'))
+const ZapisyTrasa = lazy(() => import('./pages/zapisy/Trasa.jsx'))
+const ZapisyZapis = lazy(() => import('./pages/zapisy/Zapis.jsx'))
+const ZapisyZapisano = lazy(() => import('./pages/zapisy/Zapisano.jsx'))
 const Volunteer = lazy(() => import('./pages/Volunteer.jsx'))
 const Checkin = lazy(() => import('./pages/Checkin.jsx'))
 const AdminCheckin = lazy(() => import('./pages/AdminCheckin.jsx'))
@@ -69,6 +72,9 @@ export default function App() {
           <Route path="/kalendarz" element={<Kalendarz />} />
           <Route path="/events" element={<Home />} />
           <Route path="/events/:slug" element={<EventHub />} />
+          <Route path="/events/:slug/trasa" element={<ZapisyTrasa />} />
+          <Route path="/events/:slug/zapis/:categoryId" element={<ZapisyZapis />} />
+          <Route path="/events/:slug/zapisano" element={<ZapisyZapisano />} />
           <Route path="/events/:slug/results" element={<Results />} />
           <Route path="/events/:slug/results/live" element={<Results />} />
           <Route path="/events/:slug/results/:categoryId" element={<Results />} />

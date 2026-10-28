@@ -3,8 +3,16 @@
 // file that needs one calls acceptAgreement() itself; tests that need a club in
 // another state get a club of their own from makeClub() rather than mutating the seed.
 import crypto from 'node:crypto'
+import { createClient } from '@supabase/supabase-js'
 import { admin, localEnv } from './stack.js'
-import { ORGANIZER_AGREEMENT_VERSION } from '../../../supabase/functions/_shared/organizer.js'
+
+// Loaded lazily so the Playwright specs can import this file: Playwright loads
+// the Deno-side modules as CommonJS and cannot parse them. Specs therefore never
+// call acceptAgreement(); they accept through accept-organizer-agreement.
+async function agreementVersion() {
+  const m = await import('../../../supabase/functions/_shared/organizer.js')
+  return m.ORGANIZER_AGREEMENT_VERSION ?? m.default.ORGANIZER_AGREEMENT_VERSION
+}
 
 async function clubBySlug(slug) {
   const { data, error } = await admin().from('clubs').select('id, name').eq('slug', slug).single()
@@ -16,7 +24,7 @@ async function clubBySlug(slug) {
 export async function acceptAgreement(clubSlug) {
   const club = await clubBySlug(clubSlug)
   const { error } = await admin().from('organizer_agreements').upsert(
-    { club_id: club.id, club_name: club.name, version: ORGANIZER_AGREEMENT_VERSION },
+    { club_id: club.id, club_name: club.name, version: await agreementVersion() },
     { onConflict: 'club_id,version', ignoreDuplicates: true },
   )
   if (error) throw error
@@ -84,6 +92,23 @@ export async function callFn(fn, session, body) {
   return { status: res.status, body: json }
 }
 
+/**
+ * A GPX through upload-registration-file as the browser does it: start →
+ * signed PUT into the private bucket → finish. → { uploadId, url, meta }
+ */
+export async function uploadGpx(session, eventId, bytes, fileName = 'trasa.gpx') {
+  const start = await callFn('upload-registration-file', session, { eventId, kind: 'gpx', fileName, action: 'start' })
+  if (start.status !== 200) throw new Error(`gpx start: ${start.status} ${JSON.stringify(start.body)}`)
+  const { pendingPath, token } = start.body.data
+  const { url, anonKey } = localEnv()
+  const anon = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  const put = await anon.storage.from('registration-pending').uploadToSignedUrl(pendingPath, token, bytes, { contentType: 'application/gpx+xml' })
+  if (put.error) throw put.error
+  const finish = await callFn('upload-registration-file', session, { eventId, kind: 'gpx', pendingPath, action: 'finish' })
+  if (finish.status !== 201) throw new Error(`gpx finish: ${finish.status} ${JSON.stringify(finish.body)}`)
+  return finish.body.data
+}
+
 const DAY_MS = 24 * 3600 * 1000
 const isoDay = (offsetDays) => new Date(Date.now() + offsetDays * DAY_MS).toISOString().slice(0, 10)
 
@@ -93,7 +118,8 @@ const isoDay = (offsetDays) => new Date(Date.now() + offsetDays * DAY_MS).toISOS
  * in 30 days, registration open from yesterday through race day, one 9 km
  * competition, a regulamin link. The club needs the current agreement
  * (acceptAgreement or makeClub). `owner` is a session ({ cookie }) or a cookie
- * string. → { eventId, slug, categoryIds }
+ * string. Optional: `gpx` (file bytes) becomes the first competition's course,
+ * `office` is saved as the Biuro zawodów section. → { eventId, slug, categoryIds, gpx }
  */
 export async function createPublishedFreeEvent(owner, {
   clubSlug = 'zatyrani-test',
@@ -103,6 +129,8 @@ export async function createPublishedFreeEvent(owner, {
   opensOn = isoDay(-1),
   closesOn = eventDate,
   timingMode = 'leszyrun',
+  gpx = null,
+  office = null,
 } = {}) {
   const session = typeof owner === 'string' ? { cookie: owner } : owner
   const club = await clubBySlug(clubSlug)
@@ -118,11 +146,16 @@ export async function createPublishedFreeEvent(owner, {
     townLabel: 'Nieborowice', townArea: 'GM. PILCHOWICE · ŚLĄSKIE', lat: 50.2381, lng: 18.5412,
     regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf', contactEmail: 'zapisy@klub.example',
   })
+  if (office) await save('office', office)
+  const course = gpx ? await uploadGpx(session, eventId, gpx) : null
   const { categoryIds } = await save('competitions', {
-    pricingMode: 'free', items: competitions.map((c) => ({ kind: 'individual', timed: true, isKids: false, ...c })),
+    pricingMode: 'free',
+    items: competitions.map((c, i) => ({
+      kind: 'individual', timed: true, isKids: false, ...(course && i === 0 ? { gpxUploadId: course.uploadId } : {}), ...c,
+    })),
   })
   if (timingMode !== 'leszyrun') await save('timing', { timingMode })
   const published = expect(await callFn('publish-registration-event', session, { eventId, action: 'publish' }), 200, 'publish')
   const slug = new URL(published.url).pathname.split('/').pop()
-  return { eventId, slug, categoryIds }
+  return { eventId, slug, categoryIds, gpx: course }
 }

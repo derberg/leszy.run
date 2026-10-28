@@ -97,6 +97,20 @@ function courses(competitions) {
   }))
 }
 
+const osmUrl = (lat, lng) => `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`
+const join = (...parts) => parts.filter(Boolean).join(', ') || null
+
+/** Where the race office is: its own address and pin, or the event's. */
+function officePlace(raw) {
+  const o = raw.office ?? {}
+  const t = raw.town ?? {}
+  const [label, lat, lng] = o.sameAsEvent
+    ? [join(t.label, t.placeDetails), t.lat, t.lng]
+    : [o.address || null, o.lat, o.lng]
+  if (!label && lat == null) return null
+  return { label, mapUrl: lat != null && lng != null ? osmUrl(lat, lng) : null }
+}
+
 /**
  * @param {object} raw a registration_raw snapshot with file URLs
  * @param {Date} now
@@ -109,6 +123,11 @@ export function eventPageModel(raw, now = new Date()) {
     title: raw.name,
     dateLabel: date ? `${date.d}.${date.m}.${date.y} · ${WEEKDAYS[weekday(raw.eventDate)]}` : null,
     placeLabel: raw.town?.label ?? null,
+    eventPlace: join(raw.town?.label, raw.town?.placeDetails),
+    organizerName: raw.club?.name ?? null,
+    // registration_settings.contact_email: the address the organizer gave for runners.
+    contactEmail: raw.contactEmail ?? null,
+    officePlace: officePlace(raw),
     charityGoal: raw.isCharity ? (raw.charityGoal ?? null) : null,
     stats: {
       registered: competitions.reduce((n, c) => n + c.taken, 0),
@@ -193,6 +212,7 @@ export function mergePending(raw, pending) {
     pick(out, b, {
       name: 'name', slug: 'slug', event_date: 'eventDate', first_start_time: 'firstStartTime', opens_at: 'opensAt', closes_at: 'closesAt',
       is_charity: 'isCharity', charity_goal: 'charityGoal', donations_enabled: 'donationsEnabled',
+      contact_email: 'contactEmail',
     })
     out.town = pick({ ...raw.town }, b, { town_label: 'label', town_area: 'area', place_details: 'placeDetails', lat: 'lat', lng: 'lng' })
     const reg = pick({ ...raw.regulamin }, b, { regulamin_kind: 'kind' })
