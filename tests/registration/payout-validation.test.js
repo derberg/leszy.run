@@ -22,6 +22,8 @@ test('F-19 isValidNip: valid, bad checksum, bad shape', () => {
   assert.equal(isValidNip('5260250275'), false)
   assert.equal(isValidNip('526025027'), false)
   assert.equal(isValidNip('abcdefghij'), false)
+  assert.equal(isValidNip('0000000000'), false)
+  assert.equal(isValidNip('1111111111'), false)
 })
 
 test('F-19 isValidKrs: ten digits, optional', () => {

@@ -23,7 +23,7 @@ export function normalizeNip(s) {
 
 export function isValidNip(s) {
   const nip = normalizeNip(s)
-  if (!/^\d{10}$/.test(nip)) return false
+  if (!/^\d{10}$/.test(nip) || /^(\d)\1{9}$/.test(nip)) return false
   const weights = [6, 5, 7, 2, 3, 4, 5, 6, 7]
   const sum = weights.reduce((acc, w, i) => acc + w * Number(nip[i]), 0)
   const check = sum % 11

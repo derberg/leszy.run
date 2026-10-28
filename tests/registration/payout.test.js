@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { localEnv, admin, sessionFor } from './helpers/stack.js'
+import { createClient } from '@supabase/supabase-js'
 import { startCapture, messagesTo, clearMessages } from './helpers/emailCapture.js'
 
 const IK = '00000000-0000-4000-8000-0000000000c2' // registration NOT enabled: payout still allowed
@@ -107,4 +108,29 @@ test('F-19 a changed IBAN is listed by field in the owner email', async () => {
   assert.deepEqual(r.body.data.changed, ['iban'])
   const mails = await messagesTo(OWNER)
   assert.match(mails[0].text, /Rachunek: PL61 … 2874 → PL27 … 5387/)
+})
+
+test('F-19 over-long name or address is 400', async () => {
+  const s = await sessionFor(OWNER)
+  assert.equal((await call(s, { ...GOOD, legalName: 'x'.repeat(201) })).status, 400)
+  assert.equal((await call(s, { ...GOOD, address: 'x'.repeat(301) })).status, 400)
+})
+
+test('F-19 save_club_payout: anon and authenticated cannot execute it', async () => {
+  const { url, anonKey } = localEnv()
+  const c = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  const { error } = await c.rpc('save_club_payout', { p_club_id: IK, p_actor: null, p_club_name: 'x', p_new: {} })
+  assert.ok(error, 'anon must be refused')
+})
+
+test('F-19 one save writes exactly one history row with the right old and new', async () => {
+  const s = await sessionFor(OWNER)
+  const before = (await admin().from('club_payout_history').select('id').eq('club_id', IK)).data.length
+  const r = await call(s, { ...GOOD, address: 'ul. Nowa 2, 00-002 Warszawa' })
+  assert.equal(r.status, 200)
+  const { data: hist } = await admin().from('club_payout_history').select('*').eq('club_id', IK).order('changed_at', { ascending: false })
+  assert.equal(hist.length, before + 1)
+  assert.equal(hist[0].old.address, GOOD.address)
+  assert.equal(hist[0].new.address, 'ul. Nowa 2, 00-002 Warszawa')
+  assert.equal(hist[0].old.iban, 'PL27114020040000300201355387')
 })

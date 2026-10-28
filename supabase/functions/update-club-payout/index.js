@@ -50,6 +50,8 @@ Deno.serve(async (req) => {
     const addr = String(address ?? '').trim()
     if (!name) return json({ error: 'Podaj nazwę podmiotu.' }, 400, req)
     if (!addr) return json({ error: 'Podaj adres.' }, 400, req)
+    if (name.length > 200) return json({ error: 'Nazwa podmiotu jest za długa (maks. 200 znaków).' }, 400, req)
+    if (addr.length > 300) return json({ error: 'Adres jest za długi (maks. 300 znaków).' }, 400, req)
     if (!isValidNip(nip)) return json({ error: 'Nieprawidłowy NIP.' }, 400, req)
     if (!isValidKrs(krs)) return json({ error: 'Nieprawidłowy KRS.' }, 400, req)
     if (!isValidPolishIban(iban)) return json({ error: 'Nieprawidłowy numer rachunku.' }, 400, req)
@@ -65,19 +67,12 @@ Deno.serve(async (req) => {
     const { data: club } = await admin.from('clubs').select('name, owner_id').eq('id', clubId).maybeSingle()
     if (!club) return json({ error: 'Not found' }, 404, req)
 
-    const { data: prev } = await admin.from('club_payout_details')
-      .select('legal_name, nip, krs, iban, address').eq('club_id', clubId).maybeSingle()
-
-    const { error: upErr } = await admin.from('club_payout_details').upsert({
-      club_id: clubId, ...next, updated_by: session.userId, updated_at: new Date().toISOString(),
+    // One transaction: details row + history row (history is appended even when nothing changed).
+    const { data: saved, error: saveErr } = await admin.rpc('save_club_payout', {
+      p_club_id: clubId, p_actor: session.userId, p_club_name: club.name, p_new: next,
     })
-    if (upErr) throw upErr
-
-    // History is appended even when nothing changed: it records who confirmed what and when.
-    const { error: histErr } = await admin.from('club_payout_history').insert({
-      club_id: clubId, club_name: club.name, changed_by: session.userId, old: prev ?? null, new: next,
-    })
-    if (histErr) throw histErr
+    if (saveErr) throw saveErr
+    const prev = saved?.old ?? null
 
     const changed = Object.keys(next).filter((f) => (prev?.[f] ?? null) !== next[f])
     // Field names only: the audit table must never hold the values.
@@ -108,7 +103,8 @@ Deno.serve(async (req) => {
 
     return json({ data: { saved: true, changed } }, 200, req)
   } catch (err) {
-    console.error('update-club-payout error:', err)
+    // Never the whole error: PostgREST details can echo the IBAN or NIP.
+    console.error('update-club-payout error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)
   }
 })
