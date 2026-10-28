@@ -25,13 +25,15 @@ const WINDOW_SECONDS = 15 * 60
  *     The cost of being wrong is "you cannot start a new login for a few
  *     minutes"; existing sessions are untouched.
  *
+ * `windowSeconds` defaults to 15 minutes; register-free counts per hour.
+ *
  * @returns {Promise<{ allowed: boolean, retryAfterSec?: number }>}
  */
-export async function checkAndIncrement(supabaseAdmin, key, limit, { failOpen = false } = {}) {
+export async function checkAndIncrement(supabaseAdmin, key, limit, { failOpen = false, windowSeconds = WINDOW_SECONDS } = {}) {
   const { data, error } = await supabaseAdmin.rpc('claim_throttle_slot', {
     p_key: key,
     p_limit: limit,
-    p_window_seconds: WINDOW_SECONDS,
+    p_window_seconds: windowSeconds,
   })
   if (error) {
     console.error(`throttle: claim_throttle_slot unavailable for ${key}, ${failOpen ? 'allowing' : 'refusing'}:`, error.message)
