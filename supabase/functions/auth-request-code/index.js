@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest, isAllowed } from '../_shared/cors.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
-import { isEmailRetired } from '../_shared/deletedEmails.js'
+import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from '../_shared/deletedEmails.js'
 import { emailConfigured, sendEmail } from '../_shared/email.js'
 
 async function sha256hex(text) {
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     // of mailing a code that would silently create a second, empty account
     // under the same address (see _shared/deletedEmails.js).
     if (await isEmailRetired(supabaseAdmin, normalizedEmail)) {
-      return json({ error: 'To konto zostało usunięte. Ten adres email nie może być ponownie użyty.' }, 403, req)
+      return json({ error: RETIRED_EMAIL_MESSAGE, code: 'email_retired' }, 403, req)
     }
 
     // Rate limiting: 5 requests per email and 20 per IP within a 15-minute window
