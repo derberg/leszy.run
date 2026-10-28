@@ -146,7 +146,10 @@ function courseFrom(upload) {
 function mergeCompetitions(raw, value, uploads) {
   const pricingMode = value.pricing_mode ?? raw.pricingMode
   const live = new Map(raw.competitions.map((c) => [c.categoryId, c]))
-  const competitions = (value.items ?? []).filter((i) => !i.hidden).map((i) => {
+  // The raw leaves hidden competitions out, so an item with an id the raw lacks
+  // and no `hidden` flag is one that stays hidden.
+  const shown = (i) => (has(i, 'hidden') ? !i.hidden : !i.category_id || live.has(i.category_id))
+  const competitions = (value.items ?? []).filter(shown).map((i) => {
     const base = live.get(i.category_id) ?? {
       categoryId: null, kind: 'individual', taken: 0, confirmed: 0, priceGrosze: null, nextPrice: null,
       ageGroups: [], kidsGroups: [], course: null,
@@ -176,6 +179,8 @@ function groupsBy(rows, toItem) {
  * each the validated snake_case value save-registration-section stages) over
  * the live raw. `pending.uploads` maps the upload ids the payload names to
  * { path, meta }. Returns a new raw; the input is not changed.
+ * `payload.competitions.items[].hidden` (published events only): true hides that
+ * competition from the preview, false or absent shows it.
  */
 export function mergePending(raw, pending) {
   const payload = pending?.payload
@@ -186,7 +191,7 @@ export function mergePending(raw, pending) {
   if (payload.basics) {
     const b = payload.basics
     pick(out, b, {
-      name: 'name', event_date: 'eventDate', first_start_time: 'firstStartTime', opens_at: 'opensAt', closes_at: 'closesAt',
+      name: 'name', slug: 'slug', event_date: 'eventDate', first_start_time: 'firstStartTime', opens_at: 'opensAt', closes_at: 'closesAt',
       is_charity: 'isCharity', charity_goal: 'charityGoal', donations_enabled: 'donationsEnabled',
     })
     out.town = pick({ ...raw.town }, b, { town_label: 'label', town_area: 'area', place_details: 'placeDetails', lat: 'lat', lng: 'lng' })
@@ -220,7 +225,7 @@ export function mergePending(raw, pending) {
   }
   if (payload.timing) {
     out.timing = pick({ ...raw.timing }, payload.timing, {
-      timing_company: 'company', results_url: 'resultsUrl', live_results_url: 'liveResultsUrl',
+      timing_mode: 'mode', timing_company: 'company', results_url: 'resultsUrl', live_results_url: 'liveResultsUrl',
     })
   }
   if (payload.form) {

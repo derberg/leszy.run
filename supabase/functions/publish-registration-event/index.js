@@ -5,6 +5,9 @@ import { logOrganizerAction } from '../_shared/organizer.js'
 import { AGREEMENT_REQUIRED, clubHasAgreement, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM } from '../_shared/registration/checklist.js'
 import { eventPageUrl } from '../_shared/registration/slug.js'
+import { changeDiff, noticeAudience } from '../_shared/registration/changeDiff.js'
+import { PAID_REGISTRATION_ENABLED } from '../_shared/registration/flags.js'
+import { sendEmail } from '../_shared/email.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -14,7 +17,11 @@ function json(body, status, req) {
 }
 
 const NOT_DRAFT = { error: 'Wydarzenie jest już opublikowane.', code: 'not_draft' }
-const ACTIONS = ['publish']
+const NOT_PUBLISHED = { error: 'Wydarzenie nie jest opublikowane.', code: 'not_published' }
+const ACTIONS = ['publish', 'publish_changes', 'discard_changes']
+const PAGE = 1000
+const SUBJECT_MAX = 200
+const BODY_MAX = 5000
 
 const refused = (blocking, req) => json({ error: blockingMessage(blocking), blocking }, 409, req)
 
@@ -32,12 +39,194 @@ async function checklistInput(admin, settings) {
   return { settings: camel(settings), competitions: competitions.data.map(camel), officeHours: hours.data }
 }
 
+/** Every row of a query, 1000 at a time (PostgREST caps one response at 1000). */
+async function allRows(query) {
+  const out = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await query().range(from, from + PAGE - 1)
+    if (error) throw error
+    out.push(...data)
+    if (data.length < PAGE) return out
+  }
+}
+
+// The live rows changeDiff() compares the staged payload with.
+async function liveSnapshot(admin, settings) {
+  const eventId = settings.event_id
+  const competitions = await allRows(() => admin.from('competitions').select('*').eq('event_id', eventId).order('category_id'))
+  const ids = competitions.map((c) => c.category_id)
+  const byCategory = (table, cols) => (ids.length
+    ? allRows(() => admin.from(table).select(cols).in('category_id', ids).order('category_id'))
+    : [])
+  const [prices, hours, ageGroups, kidsGroups, consents] = await Promise.all([
+    byCategory('competition_prices', 'category_id, amount, price_tiers!inner(ends_on)'),
+    allRows(() => admin.from('office_hours').select('starts_at, ends_at').eq('event_id', eventId).order('starts_at')),
+    byCategory('age_groups', '*'),
+    byCategory('kids_groups', '*'),
+    allRows(() => admin.from('event_consents').select('kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
+  ])
+  const fixedPrice = new Map(prices.filter((p) => p.price_tiers?.ends_on == null).map((p) => [p.category_id, p.amount]))
+  return {
+    settings,
+    competitions: competitions.map((c) => ({ ...c, price: settings.pricing_mode === 'fixed' ? (fixedPrice.get(c.category_id) ?? null) : null })),
+    officeHours: hours, ageGroups, kidsGroups, consents,
+  }
+}
+
+/** notify = { send: boolean, subject?, body? } → { send, subject, body } | { error, fields? } */
+function checkNotify(notify) {
+  if (!notify || typeof notify !== 'object' || typeof notify.send !== 'boolean') {
+    return { status: 400, body: { error: 'Zdecyduj, czy wysłać powiadomienie o zmianach.' } }
+  }
+  if (!notify.send) return { send: false }
+  const fields = {}
+  const subject = typeof notify.subject === 'string' ? notify.subject.trim() : ''
+  const body = typeof notify.body === 'string' ? notify.body.trim() : ''
+  if (!subject) fields.subject = 'Podaj temat wiadomości.'
+  else if (subject.length > SUBJECT_MAX) fields.subject = `Najwyżej ${SUBJECT_MAX} znaków.`
+  if (!body) fields.body = 'Podaj treść wiadomości.'
+  else if (body.length > BODY_MAX) fields.body = `Najwyżej ${BODY_MAX} znaków.`
+  if (Object.keys(fields).length) return { status: 422, body: { error: 'Popraw zaznaczone pola.', fields } }
+  return { send: true, subject, body }
+}
+
+/** Confirmed registrants in the audience, one address each. */
+async function noticeRecipients(admin, eventId, audience) {
+  if (!audience.all && !audience.categoryIds.length) return []
+  const rows = await allRows(() => {
+    let q = admin.from('registrations').select('id, email, guardian_email')
+      .eq('event_id', eventId).eq('status', 'confirmed').order('id')
+    if (!audience.all) q = q.in('category_id', audience.categoryIds)
+    return q
+  })
+  return [...new Set(rows.map((r) => (r.email ?? r.guardian_email)?.toLowerCase()).filter(Boolean))]
+}
+
+// Sent as the club (display name, reply-to its owner), from the LESZY.RUN domain.
+async function clubSender(admin, clubId) {
+  const { data: club, error } = await admin.from('clubs').select('name, owner_id').eq('id', clubId).single()
+  if (error) throw error
+  const { data: owner } = await admin.from('profiles').select('email').eq('id', club.owner_id).maybeSingle()
+  return { fromName: `${club.name} przez LESZY.RUN`, replyTo: owner?.email ?? undefined }
+}
+
+const changeRefusal = (error) => {
+  const msg = error?.message ?? ''
+  if (msg === 'no_changes') return [409, { error: 'Brak zmian do opublikowania.', code: 'no_changes' }]
+  if (msg === 'not_published') return [409, NOT_PUBLISHED]
+  if (msg === 'changed') return [409, { error: 'Zmiany zmieniły się w trakcie publikacji. Spróbuj jeszcze raz.', code: 'changed' }]
+  if (msg === 'forbidden') return [403, { error: 'Brak uprawnień.' }]
+  if (msg === 'notice_throttled') {
+    return [429, { error: 'Powiadomienie o zmianach można wysłać raz na godzinę. Odznacz wysyłkę albo spróbuj później.', code: 'notice_throttled' }]
+  }
+  if (msg === 'competition_locked') {
+    return [409, { error: 'Nie można opublikować: konkurencji nie można usunąć, a z zapisami także ukryć ani zmienić jej rodzaju.', code: 'competition_locked' }]
+  }
+  if (msg === 'price_locked') return [409, { error: 'Nie można opublikować: opłaty nie można zmienić, są już zapisy.', code: 'price_locked' }]
+  if (msg === 'immutable') return [409, { error: 'Nie można opublikować: adresu i pomiaru czasu nie można zmienić.', code: 'immutable' }]
+  if (msg === 'foreign_id' || ['23514', '22P02', '22007', '22008', '22003'].includes(error?.code)) {
+    return [422, { error: 'Nieprawidłowe dane.', code: 'invalid' }]
+  }
+  return null
+}
+
+async function publishChanges(admin, req, session, settings, notifyInput) {
+  const notify = checkNotify(notifyInput)
+  if (notify.status) return json(notify.body, notify.status, req)
+  if (settings.state !== 'published') return json(NOT_PUBLISHED, 409, req)
+  if (!(await clubHasAgreement(admin, settings.club_id))) return json(AGREEMENT_REQUIRED, 409, req)
+
+  const eventId = settings.event_id
+  const { data: pending, error: pErr } = await admin.from('registration_pending_changes')
+    .select('payload, changed_fields, updated_at').eq('event_id', eventId).maybeSingle()
+  if (pErr) throw pErr
+  if (!pending) return json({ error: 'Brak zmian do opublikowania.', code: 'no_changes' }, 409, req)
+  const mode = pending.payload.competitions?.pricing_mode
+  if (!PAID_REGISTRATION_ENABLED && mode && mode !== 'free') {
+    return json({ error: 'Nie można opublikować: płatności online — wkrótce.', code: 'payments' }, 409, req)
+  }
+
+  const diff = changeDiff(await liveSnapshot(admin, settings), pending.payload)
+  const affected = noticeAudience(diff)
+
+  const { error } = await admin.rpc('publish_registration_changes', {
+    p_event_id: eventId, p_actor: session.userId, p_expected_updated_at: pending.updated_at, p_claim_notice: notify.send,
+  })
+  if (error) {
+    const msg = error.message ?? ''
+    if (msg.startsWith('capacity_below_taken:')) {
+      const categoryId = msg.slice('capacity_below_taken:'.length)
+      const { data: c } = await admin.from('competitions').select('name, taken').eq('category_id', categoryId).maybeSingle()
+      return json({
+        error: `Nie można opublikować: limit „${c?.name ?? ''}” jest mniejszy niż liczba zapisanych (${c?.taken ?? '?'}).`,
+        code: 'capacity_below_taken', categoryId,
+      }, 409, req)
+    }
+    const refused = changeRefusal(error)
+    if (refused) return json(refused[1], refused[0], req)
+    throw error
+  }
+
+  await logOrganizerAction(admin, req, {
+    actorId: session.userId, clubId: settings.club_id, eventId, action: 'changes_published', target: eventId,
+    payload: { changedFields: pending.changed_fields },
+  })
+
+  let notice = { sent: false, recipientCount: 0 }
+  if (notify.send) {
+    const recipients = await noticeRecipients(admin, eventId, affected)
+    const sender = await clubSender(admin, settings.club_id)
+    let sent = 0
+    for (const to of recipients) {
+      try {
+        await sendEmail({ to, subject: notify.subject, text: notify.body, ...sender })
+        sent++
+      } catch (err) {
+        console.error('change notice email failed:', err?.message)
+      }
+    }
+    const { data: message, error: mErr } = await admin.from('organizer_messages').insert({
+      event_id: eventId, sent_by: session.userId, subject: notify.subject, body: notify.body,
+      filter: { kind: 'change_notice', ...affected }, recipient_count: sent,
+    }).select('id').single()
+    if (mErr) console.error('organizer_messages insert failed:', mErr.message)
+    await logOrganizerAction(admin, req, {
+      actorId: session.userId, clubId: settings.club_id, eventId, action: 'change_notice_sent',
+      target: message?.id ?? null, payload: { recipientCount: sent, ...affected },
+    })
+    notice = { sent: true, recipientCount: sent }
+  }
+  return json({ data: { diff, affected, notice } }, 200, req)
+}
+
+async function discardChanges(admin, req, session, settings) {
+  const { data, error } = await admin.from('registration_pending_changes')
+    .delete().eq('event_id', settings.event_id).select('event_id')
+  if (error) throw error
+  await logOrganizerAction(admin, req, {
+    actorId: session.userId, clubId: settings.club_id, eventId: settings.event_id, action: 'changes_discarded',
+    target: settings.event_id,
+  })
+  return json({ data: { discarded: data.length > 0 } }, 200, req)
+}
+
 // POST { eventId, action: 'publish' } → 200 { data: { state: 'published', url } }.
 // Owner or admin of the owning club, with the current organizer agreement.
 // 409 { error: 'Uzupełnij: …', blocking } while the checklist has blocking
 // items (or an ordinary event took the slug meanwhile); 409 not_draft once
 // published. The RPC flips the state and writes the events, categories and
 // calendar rows in one transaction.
+//
+// POST { eventId, action: 'publish_changes', notify: { send, subject?, body? } }
+//   → 200 { data: { diff, affected: { all, categoryIds }, notice: { sent, recipientCount } } }.
+// Applies the staged changes (publish_registration_changes: locks re-checked,
+// limit ≥ taken in the writing statement). `notify.send` is required; with
+// true, a plain-text email goes to every confirmed registrant the changes
+// concern (date/place: all; start time/distance: that competition), as the
+// club, at most once an hour per event (429 otherwise, nothing applied).
+// 409 { error, code } when a lock refuses: capacity_below_taken (names the
+// competition), competition_locked, price_locked, immutable, no_changes.
+// POST { eventId, action: 'discard_changes' } → 200 { data: { discarded } }.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -56,6 +245,8 @@ Deno.serve(async (req) => {
     if (loaded instanceof Response) return loaded
     const { settings } = loaded
     if (!ACTIONS.includes(action)) return json({ error: 'Nieznana akcja.' }, 400, req)
+    if (action === 'publish_changes') return await publishChanges(admin, req, session, settings, body.notify)
+    if (action === 'discard_changes') return await discardChanges(admin, req, session, settings)
     if (settings.state !== 'draft') return json(NOT_DRAFT, 409, req)
     if (!(await clubHasAgreement(admin, settings.club_id))) return json(AGREEMENT_REQUIRED, 409, req)
 

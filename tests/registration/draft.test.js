@@ -405,9 +405,9 @@ test('W-11 office hours are Warsaw local times; timing and form sections save', 
   assert.deepEqual(after.map((c) => c.kind).sort(), ['data_info', 'regulamin'])
 })
 
-test('W-11 a published event refuses draft saves with 409 not_draft', async () => {
+test('W-11 a closed event refuses saves with 409 not_draft (a published one stages them, W-21)', async () => {
   const { eventId } = await createEvent()
-  await db().from('registration_settings').update({ state: 'published' }).eq('event_id', eventId)
+  await db().from('registration_settings').update({ state: 'closed' }).eq('event_id', eventId)
   const r = await callFn('save-registration-section', owner, { eventId, section: 'office', value: { notes: 'x' } })
   assert.equal(r.status, 409)
   assert.equal(r.body.code, 'not_draft')

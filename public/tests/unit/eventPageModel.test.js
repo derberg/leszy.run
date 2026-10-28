@@ -213,9 +213,25 @@ describe('mergePending', () => {
     assert.deepEqual(merged.competitions[0].ageGroups, [{ gender: 'K', label: 'K20', minAge: 20, maxAge: 29 }])
     assert.deepEqual(merged.competitions[4].kidsGroups, [])
     assert.equal(merged.timing.company, 'Firma')
+    assert.equal(merged.timing.mode, 'leszyrun', 'live mode kept when not staged')
     assert.equal(merged.formFields.phone, 'required')
     assert.deepEqual(merged.consents.map((k) => [k.kind, k.text]), [
       ['regulamin', 'Akceptuję regulamin.'], ['data_info', 'Zapoznałem się.'], ['custom', 'Zgoda na zdjęcia.'],
     ])
+  })
+
+  it('a competition hidden live stays hidden unless the staged item unhides it', () => {
+    const item = (over) => ({ category_id: 'hid', name: 'Ukryty 1 km', start_time: '09:00', capacity: 10, min_age: null, max_age: null, is_kids: false, timed: true, discipline: 'run', distance_label: '1 km', gpx_upload_id: null, ...over })
+    const names = (it) => mergePending(RA1, { payload: { competitions: { pricing_mode: 'free', items: [it] } } }).competitions.map((c) => c.name)
+    assert.deepEqual(names(item({})), [])
+    assert.deepEqual(names(item({ hidden: false })), ['Ukryty 1 km'])
+    assert.deepEqual(names(item({ category_id: 'c1', name: 'Bieg 9 km' })), ['Bieg 9 km'])
+  })
+
+  it('a draft preview shows a staged slug and timing mode', () => {
+    const merged = mergePending(RA1, { payload: { basics: { slug: 'bieg-leszego-2026' }, timing: { timing_mode: 'external' } } })
+    assert.equal(merged.slug, 'bieg-leszego-2026')
+    assert.equal(merged.timing.mode, 'external')
+    assert.equal(RA1.slug, 'charytatywny-bieg-leszego', 'input untouched')
   })
 })

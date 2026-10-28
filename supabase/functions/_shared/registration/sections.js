@@ -181,10 +181,13 @@ function validateOffice(value, ctx, c) {
 
 const ITEM_KEYS = ['categoryId', 'name', 'kind', 'discipline', 'distanceLabel', 'startTime', 'capacity',
   'minAge', 'maxAge', 'isKids', 'timed', 'gpxUploadId', 'price']
+// After publish a competition is hidden, never deleted (applied by
+// „Opublikuj zmiany” only while nobody is registered for it).
+const PUBLISHED_ITEM_KEYS = [...ITEM_KEYS, 'hidden']
 
-function validateItem(item, pricingMode, c) {
+function validateItem(item, pricingMode, ctx, c) {
   if (!isPlainObject(item)) return c.fail('items', 'Nieprawidłowa konkurencja.')
-  checkKeys(item, ITEM_KEYS, c)
+  checkKeys(item, ctx.state === 'draft' ? ITEM_KEYS : PUBLISHED_ITEM_KEYS, c)
   const name = rules.text(120, { required: true, emptyMsg: 'Podaj nazwę konkurencji.' })(item.name, 'name', c)
   const kind = item.kind ?? 'individual'
   if (kind === 'team') c.fail('kind', SOON)
@@ -202,7 +205,9 @@ function validateItem(item, pricingMode, c) {
     price = parsePriceGrosze(item.price)
     if (price === null) c.fail('price', 'Podaj cenę w złotych, np. 60 albo 60,50.')
   }
+  const hidden = ctx.state !== 'draft' && 'hidden' in item ? rules.bool()(item.hidden, 'hidden', c) : undefined
   return {
+    ...(typeof hidden === 'boolean' ? { hidden } : {}),
     category_id: rules.uuid()(item.categoryId, 'categoryId', c) ?? null,
     name: name ?? null,
     kind: 'individual',
@@ -230,7 +235,7 @@ function validateCompetitions(value, ctx, c) {
   }
   const ids = value.items.map((i) => i?.categoryId).filter(Boolean)
   if (new Set(ids).size !== ids.length) c.fail('categoryId', 'Ta sama konkurencja występuje dwa razy.')
-  const items = value.items.map((item) => validateItem(item, pricingMode, c))
+  const items = value.items.map((item) => validateItem(item, pricingMode, ctx, c))
   return { pricing_mode: pricingMode, items }
 }
 

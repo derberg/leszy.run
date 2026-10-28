@@ -212,3 +212,21 @@ test('form: field modes and custom consents', () => {
   assert.ok(validateSection('form', { formFields: { phone: 'maybe' } }, DRAFT).errors.phone)
   assert.ok(validateSection('form', { consents: [{ text: ' ' }] }, DRAFT).errors.text)
 })
+
+test('hidden: accepted per competition only once published, as a boolean', () => {
+  const draft = validateSection('competitions', { pricingMode: 'free', items: [item({ hidden: true })] }, DRAFT)
+  assert.equal(draft.ok, false)
+  assert.ok(draft.errors.hidden)
+
+  const pub = validateSection('competitions', {
+    pricingMode: 'free',
+    items: [item({ categoryId: '11111111-1111-4111-8111-111111111111', hidden: true }), item({ name: 'Bieg 3 km' })],
+  }, PUBLISHED)
+  assert.equal(pub.ok, true, JSON.stringify(pub.errors))
+  assert.equal(pub.value.items[0].hidden, true)
+  assert.equal('hidden' in pub.value.items[1], false, 'not sent → not staged')
+
+  const bad = validateSection('competitions', { pricingMode: 'free', items: [item({ hidden: 'yes' })] }, PUBLISHED)
+  assert.equal(bad.ok, false)
+  assert.ok(bad.errors.hidden)
+})

@@ -23,8 +23,15 @@ function rpcErrorResponse(error, req) {
   }
   if (msg === 'foreign_id') return json({ error: INVALID, fields: {} }, 422, req)
   if (msg === 'competition_locked') {
-    return json({ error: 'Tej konkurencji nie można już usunąć.', code: 'competition_locked' }, 409, req)
+    return json({ error: 'Tej konkurencji nie można już usunąć ani zmienić. Bez zapisów możesz ją ukryć.', code: 'competition_locked' }, 409, req)
   }
+  if (msg === 'price_locked') {
+    return json({ error: 'Opłaty nie można zmienić: są już zapisy.', code: 'price_locked' }, 409, req)
+  }
+  if (msg === 'immutable') {
+    return json({ error: 'Adresu i pomiaru czasu nie można zmienić po publikacji.', code: 'immutable' }, 409, req)
+  }
+  if (msg === 'not_published') return json({ error: 'Wydarzenie nie jest opublikowane.', code: 'not_published' }, 409, req)
   if (msg.startsWith('capacity_below_taken:')) {
     return json({
       error: 'Limit nie może być mniejszy niż liczba zapisanych.', code: 'capacity_below_taken',
@@ -37,7 +44,9 @@ function rpcErrorResponse(error, req) {
 }
 
 // POST { eventId, section, value } → 200 { data: { savedAt, …ids } }.
-// Draft events only in this step (published events stage changes: Task 7).
+// A draft is written straight to the tables. A published event is staged in
+// registration_pending_changes → 200 { data: { savedAt, changedFields } }; the
+// live tables change only at „Opublikuj zmiany” (publish-registration-event).
 // The audit row records the section name, never the values.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -56,24 +65,31 @@ Deno.serve(async (req) => {
     const loaded = await loadOrganizerEvent(admin, eventId, session, { write: true, req })
     if (loaded instanceof Response) return loaded
     const { settings } = loaded
-    if (settings.state !== 'draft') {
-      return json({ error: 'Wydarzenie jest już opublikowane.', code: 'not_draft' }, 409, req)
+    const staged = settings.state === 'published'
+    if (settings.state !== 'draft' && !staged) {
+      return json({ error: 'Wydarzenie jest zamknięte.', code: 'not_draft' }, 409, req)
     }
 
     const checked = validateSection(section, value, { state: settings.state, eventDate: settings.event_date })
     if (!checked.ok) return json({ error: 'Popraw zaznaczone pola.', fields: checked.errors }, 422, req)
 
-    const { data, error } = await admin.rpc('save_registration_section', {
-      p_event_id: eventId, p_section: section, p_value: checked.value,
-    })
+    const { data, error } = staged
+      ? await admin.rpc('stage_registration_section', {
+        p_event_id: eventId, p_section: section, p_value: checked.value, p_actor: session.userId,
+      })
+      : await admin.rpc('save_registration_section', {
+        p_event_id: eventId, p_section: section, p_value: checked.value,
+      })
     if (error) {
+      if (error.message === 'forbidden') return json({ error: 'Brak uprawnień.' }, 403, req)
       const mapped = rpcErrorResponse(error, req)
       if (mapped) return mapped
       throw error
     }
 
     await logOrganizerAction(admin, req, {
-      actorId: session.userId, clubId: settings.club_id, eventId, action: 'section_saved', payload: { section },
+      actorId: session.userId, clubId: settings.club_id, eventId,
+      action: staged ? 'section_staged' : 'section_saved', payload: { section },
     })
     return json({ data }, 200, req)
   } catch (err) {

@@ -34,9 +34,10 @@ export async function sendEmail({ to, subject, text, html, replyTo, fromName = '
     personalizations: [{ to: [{ email: to }] }],
     from: { email: Deno.env.get('SENDGRID_FROM_EMAIL'), name: fromName },
     subject,
+    // Organizer messages are plain text only (spec 12.10): no html part then.
     content: [
       { type: 'text/plain', value: text },
-      { type: 'text/html', value: html },
+      ...(html ? [{ type: 'text/html', value: html }] : []),
     ],
   }
   if (replyTo) body.reply_to = { email: replyTo }
