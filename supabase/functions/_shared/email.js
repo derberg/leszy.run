@@ -2,8 +2,11 @@
 //   EMAIL_CAPTURE_URL set  -> POST the message there (local test stack only)
 //   SENDGRID_API_KEY set   -> SendGrid, text + html parts
 //   neither                -> does nothing (the code/link is still stored in the DB)
-// Never throws on a delivery failure: callers treat email as best effort, as
-// auth-request-code always did.
+// A non-2xx answer (SendGrid or the capture server) is logged, not thrown, and an
+// unreachable capture server is swallowed. A network failure reaching SendGrid DOES
+// throw (the fetch rejects): callers that treat email as best effort wrap the call
+// (update-club-payout, join-registration-waitlist); auth-request-code lets it become
+// a 500, as it always did.
 export function emailConfigured() {
   return Boolean(Deno.env.get('EMAIL_CAPTURE_URL') || Deno.env.get('SENDGRID_API_KEY'))
 }
