@@ -171,14 +171,14 @@ export function initConfigSync(db) {
 }
 
 // Every page of one remote table, in order. A fetch error ends the walk and keeps what was read,
-// exactly as the page-by-page loop always did.
+// exactly as the page-by-page loop always did, and returns false.
 async function fetchPages(client, name, onPage) {
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await client.from(name).select('*').range(offset, offset + PAGE - 1)
-    if (error) { console.error(`[ConfigSync] fetch ${name}:`, error.message); return }
-    if (!data?.length) return
+    if (error) { console.error(`[ConfigSync] fetch ${name}:`, error.message); return false }
+    if (!data?.length) return true
     await onPage(data)
-    if (data.length < PAGE) return
+    if (data.length < PAGE) return true
   }
 }
 
@@ -237,7 +237,9 @@ export async function pullConfig(db, client = supabase) {
         // pass as pre-registration, be pulled, and never leave the host (deletes do not
         // propagate). Read in this order, any event we see already has its settings visible.
         const remoteEvents = []
-        await fetchPages(client, name, (data) => { remoteEvents.push(...data) })
+        // A partial events read leaves the unread events unjudged, and their children would
+        // pass as not refused. Without a complete event decision, pull nothing this poll.
+        if (!(await fetchPages(client, name, (data) => { remoteEvents.push(...data) }))) return
         try {
           filter = await loadHostFilter(client, db)
         } catch (err) {

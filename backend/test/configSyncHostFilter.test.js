@@ -39,7 +39,7 @@ test('F-08: an event with no registration_settings row is pulled as today', () =
   assert.deepEqual(pull([{ name: 'events', rows: [{ id: 'legacy', name: 'Nocny Zew Wilka' }] }]), ['events:legacy'])
 })
 
-test('F-09: draft and externally timed events are skipped; published/closed leszyrun ones pulled', () => {
+test('F-08: draft and externally timed events are skipped; published/closed leszyrun ones pulled', () => {
   const kept = pull([{ name: 'events', rows: [
     { id: 'draft', name: 'A' },
     { id: 'ext', name: 'B' },
@@ -56,7 +56,7 @@ test('F-09: draft and externally timed events are skipped; published/closed lesz
   assert.deepEqual(kept, ['events:pub', 'events:closed'])
 })
 
-test('F-10: a skipped event drops every child table', () => {
+test('F-09: a skipped event drops every child table', () => {
   const kept = pull([
     { name: 'events', rows: [{ id: 'ev-ok', name: 'OK' }, { id: 'ev-draft', name: 'Draft' }] },
     { name: 'categories', rows: [{ id: 'cat-ok', event_id: 'ev-ok' }, { id: 'cat-d', event_id: 'ev-draft' }] },
@@ -72,13 +72,13 @@ test('F-10: a skipped event drops every child table', () => {
   ])
 })
 
-test('F-10: the e2e marker quarantine still applies alongside the host filter', () => {
+test('F-09: the e2e marker quarantine still applies alongside the host filter', () => {
   const kept = pull([{ name: 'events', rows: [{ id: 't', name: '[e2e-test] x' }, { id: 'ok', name: 'OK' }] }],
     { settingsByEvent: settings([['ok', 'published', 'leszyrun']]) })
   assert.deepEqual(kept, ['events:ok'])
 })
 
-test('F-11: a refusal is per poll — a draft skipped on poll 1 is pulled on poll 2 once published', () => {
+test('F-10: a refusal is per poll — a draft skipped on poll 1 is pulled on poll 2 once published', () => {
   const tables = [
     { name: 'events', rows: [{ id: 'ev', name: 'Bieg' }] },
     { name: 'categories', rows: [{ id: 'cat', event_id: 'ev' }] },
@@ -254,4 +254,40 @@ test('pullConfig pulls the same fresh event once its settings say published', as
   const db = recordingDb()
   await pullConfig(db, racingSupabase('published'))
   assert.deepEqual(db.inserted, ['ev-new'])
+})
+
+// An events read that fails part-way leaves the events after the failure unjudged, so their
+// children would pass as "not refused". The whole poll stops instead: nothing is pulled.
+function failingEventsSupabase() {
+  return {
+    from(table) {
+      return {
+        select() {
+          return {
+            order() { return this },
+            range(from) {
+              if (table === 'events') return Promise.resolve({ data: null, error: { message: 'boom' } })
+              if (from > 0) return Promise.resolve({ data: [], error: null })
+              if (table === 'registration_settings') {
+                return Promise.resolve({ data: [{ event_id: 'ev-draft', state: 'draft', timing_mode: 'leszyrun' }], error: null })
+              }
+              if (table === 'categories') {
+                return Promise.resolve({ data: [{ id: 'cat-1', event_id: 'ev-draft', name: '10 km' }], error: null })
+              }
+              return Promise.resolve({ data: [], error: null })
+            },
+          }
+        },
+      }
+    },
+  }
+}
+
+test('pullConfig: an events read error fails the whole poll, no child row is pulled', async (t) => {
+  t.mock.method(console, 'log', () => {})
+  const errors = t.mock.method(console, 'error', () => {})
+  const db = recordingDb()
+  await pullConfig(db, failingEventsSupabase())
+  assert.deepEqual(db.inserted, [])
+  assert.ok(errors.mock.calls.some((c) => String(c.arguments.join(' ')).includes('boom')))
 })
