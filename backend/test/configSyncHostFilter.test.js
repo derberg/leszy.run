@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { newSkipSets, isTestRow, rememberSkipped, hostSkipsEvent, loadHostFilter } from '../src/sync/configSync.js'
+import { newSkipSets, isTestRow, rememberSkipped, hostSkipsEvent, loadHostFilter, pullConfig } from '../src/sync/configSync.js'
 import { linksToPull } from '../src/sync/checkpointLinks.js'
 
 // A timing host (the Mac, a race Pi) pulls an event only when LESZY.RUN times it and its
@@ -113,9 +113,11 @@ function stubSupabase(pages) {
     from(table) {
       return {
         select(cols) {
+          let order = null
           return {
+            order(col) { order = col; return this },
             range(from, to) {
-              calls.push({ table, cols, from, to })
+              calls.push({ table, cols, order, from, to })
               const i = Math.floor(from / 1000)
               const p = pages[i]
               if (p instanceof Error) return Promise.reject(p)
@@ -151,6 +153,8 @@ test('loadHostFilter returns every row across two full pages', async () => {
     ['registration_settings', 0, 999], ['registration_settings', 1000, 1999], ['registration_settings', 2000, 2999],
   ])
   assert.match(sb.calls[0].cols, /event_id/)
+  // A stable order, so a row inserted mid-walk cannot shift another across a page boundary.
+  assert.ok(sb.calls.every((c) => c.order === 'event_id'))
 })
 
 test('loadHostFilter stops on a short page', async () => {
@@ -160,7 +164,8 @@ test('loadHostFilter stops on a short page', async () => {
   assert.equal(sb.calls.length, 1)
 })
 
-test('loadHostFilter: an error on page 2 sets settingsFailed and discards the partial map', async () => {
+test('loadHostFilter: an error on page 2 sets settingsFailed and discards the partial map', async (t) => {
+  const logged = t.mock.method(console, 'error', () => {})
   const sb = stubSupabase([
     { data: rows(1000, 0), error: null },
     { data: null, error: { message: 'boom' } },
@@ -169,13 +174,16 @@ test('loadHostFilter: an error on page 2 sets settingsFailed and discards the pa
   assert.equal(f.settingsFailed, true)
   assert.equal(f.settingsByEvent.size, 0)
   assert.deepEqual([...f.knownLocalEventIds], ['a'])
+  assert.match(logged.mock.calls[0].arguments[0], /registration_settings: boom/)
 })
 
-test('loadHostFilter: a thrown fetch also sets settingsFailed', async () => {
+test('loadHostFilter: a thrown fetch also sets settingsFailed', async (t) => {
+  const logged = t.mock.method(console, 'error', () => {})
   const sb = stubSupabase([new Error('network down')])
   const f = await loadHostFilter(sb, stubDb(['a']))
   assert.equal(f.settingsFailed, true)
   assert.equal(f.settingsByEvent.size, 0)
+  assert.match(logged.mock.calls[0].arguments[0], /network down/)
 })
 
 test('checkpoint links never touch a checkpoint absent locally', () => {
@@ -187,4 +195,63 @@ test('checkpoint links never touch a checkpoint absent locally', () => {
     remoteLinks: new Map([['cp-local', ['a']], ['cp-skipped', ['x']]]),
   })
   assert.deepEqual(out, [])
+})
+
+// --- pullConfig read order ------------------------------------------------------------------
+
+// Supabase where the event row is visible from the start but its draft settings row becomes
+// visible only once the events table has been read: the registration flow inserts the event
+// first, so a settings read made BEFORE the events read can miss the settings of an event that
+// read then sees. pullConfig must read the settings after the events.
+function racingSupabase(settingsState) {
+  let eventsRead = false
+  return {
+    from(table) {
+      return {
+        select() {
+          return {
+            order() { return this },
+            range(from) {
+              if (from > 0) return Promise.resolve({ data: [], error: null })
+              if (table === 'events') {
+                eventsRead = true
+                return Promise.resolve({ data: [{ id: 'ev-new', name: 'Nowy bieg' }], error: null })
+              }
+              if (table === 'registration_settings') {
+                const data = eventsRead ? [{ event_id: 'ev-new', state: settingsState, timing_mode: 'leszyrun' }] : []
+                return Promise.resolve({ data, error: null })
+              }
+              return Promise.resolve({ data: [], error: null })
+            },
+          }
+        },
+      }
+    },
+  }
+}
+
+function recordingDb() {
+  const inserted = []
+  const rows = () => Object.assign(Promise.resolve([]), { where: () => Promise.resolve([]) })
+  return {
+    inserted,
+    select: () => ({ from: rows }),
+    insert: () => ({
+      values: (v) => ({ onConflictDoUpdate: () => { inserted.push(v.id); return Promise.resolve() } }),
+    }),
+  }
+}
+
+test('pullConfig reads registration settings after the events, so a fresh draft is skipped', async (t) => {
+  t.mock.method(console, 'log', () => {})
+  const db = recordingDb()
+  await pullConfig(db, racingSupabase('draft'))
+  assert.deepEqual(db.inserted, [])
+})
+
+test('pullConfig pulls the same fresh event once its settings say published', async (t) => {
+  t.mock.method(console, 'log', () => {})
+  const db = recordingDb()
+  await pullConfig(db, racingSupabase('published'))
+  assert.deepEqual(db.inserted, ['ev-new'])
 })

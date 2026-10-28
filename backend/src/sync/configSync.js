@@ -144,6 +144,7 @@ export async function loadHostFilter(supabase, db) {
     for (let offset = 0; ; offset += PAGE) {
       const { data, error } = await supabase.from('registration_settings')
         .select('event_id, state, timing_mode')
+        .order('event_id')
         .range(offset, offset + PAGE - 1)
       if (error) throw new Error(error.message)
       for (const r of data || []) settingsByEvent.set(r.event_id, r)
@@ -169,32 +170,33 @@ export function initConfigSync(db) {
   setTimeout(() => pullConfig(db), 8_000)
 }
 
-export async function pullConfig(db) {
-  if (!supabase) return
-  let filter
-  try {
-    filter = await loadHostFilter(supabase, db)
-  } catch (err) {
-    // Without the local event list the host filter cannot decide; skip this poll.
-    console.error(`[ConfigSync] local events: ${err.message}`)
-    return
+// Every page of one remote table, in order. A fetch error ends the walk and keeps what was read,
+// exactly as the page-by-page loop always did.
+async function fetchPages(client, name, onPage) {
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await client.from(name).select('*').range(offset, offset + PAGE - 1)
+    if (error) { console.error(`[ConfigSync] fetch ${name}:`, error.message); return }
+    if (!data?.length) return
+    await onPage(data)
+    if (data.length < PAGE) return
   }
-  const { settingsByEvent, knownLocalEventIds, settingsFailed } = filter
+}
+
+// `client` defaults to the worker's own Supabase client; tests pass a stub.
+export async function pullConfig(db, client = supabase) {
+  if (!client) return
   const skip = newSkipSets()
+  let filter = null
   for (const { name, table } of PULL_TABLES) {
     try {
       const cols = columnMeta(table)
-      let offset = 0
       let examined = 0
       let skipped = 0
-      for (;;) {
-        const { data, error } = await supabase.from(name).select('*').range(offset, offset + PAGE - 1)
-        if (error) { console.error(`[ConfigSync] fetch ${name}:`, error.message); break }
-        if (!data?.length) break
 
+      const upsertRows = async (data) => {
         for (const remote of data) {
           if (!remote.id) continue
-          if (isTestRow(name, remote, skip, settingsByEvent, knownLocalEventIds, settingsFailed)) {
+          if (isTestRow(name, remote, skip, filter.settingsByEvent, filter.knownLocalEventIds, filter.settingsFailed)) {
             rememberSkipped(name, remote, skip)
             skipped++
             continue
@@ -225,21 +227,41 @@ export async function pullConfig(db) {
             console.error(`[ConfigSync] upsert ${name} ${remote.id}: ${e.message}`)
           }
         }
-
         examined += data.length
-        if (data.length < PAGE) break
-        offset += PAGE
       }
+
+      if (name === 'events') {
+        // Read every remote event FIRST, then the registration settings. A registration
+        // creates its events row before its settings row, so settings read before the events
+        // could miss the settings of an event the events read then sees: that event would
+        // pass as pre-registration, be pulled, and never leave the host (deletes do not
+        // propagate). Read in this order, any event we see already has its settings visible.
+        const remoteEvents = []
+        await fetchPages(client, name, (data) => { remoteEvents.push(...data) })
+        try {
+          filter = await loadHostFilter(client, db)
+        } catch (err) {
+          // Without the local event list the host filter cannot decide; skip this poll.
+          console.error(`[ConfigSync] local events: ${err.message}`)
+          return
+        }
+        if (remoteEvents.length) await upsertRows(remoteEvents)
+      } else {
+        await fetchPages(client, name, upsertRows)
+      }
+
       if (examined) {
         const note = skipped ? ` (${skipped} row(s) refused: test data or not for this host)` : ''
         console.log(`[ConfigSync] ${name}: examined ${examined} remote row(s)${note}`)
       }
     } catch (err) {
       console.error(`[ConfigSync] ${name}: ${err.message}`)
+      // No decision about events means no child table can be judged either.
+      if (!filter) return
     }
   }
   try {
-    await pullCheckpointLinks(supabase, db)
+    await pullCheckpointLinks(client, db)
   } catch (err) {
     console.error(`[ConfigSync] checkpoint_categories: ${err.message}`)
   }
