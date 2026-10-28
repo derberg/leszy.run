@@ -10,9 +10,26 @@ let supabase = null
 const toSnake = (str) => str.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`)
 // __xmin is our own optimistic-concurrency token (see markSynced) and is not a
 // real column — it must never be sent to Supabase.
-const rowToSnake = (row) => Object.fromEntries(
+export const rowToSnake = (row) => Object.fromEntries(
   Object.entries(row).filter(([k]) => k !== '__xmin').map(([k, v]) => [toSnake(k), v])
 )
+
+// Columns Supabase owns: hosts never set them, they only ever pull them. A
+// PostgREST upsert updates only the columns present in the payload, so leaving
+// them out preserves Supabase's value. Sending them would let a participant row
+// that went dirty on a host before Supabase set removed_at push removed_at = NULL
+// and silently un-remove the runner. The pull (configSync) still maps them.
+export const PUSH_EXCLUDED_COLUMNS = {
+  events: ['club_id'],
+  participants: ['registration_id', 'removed_at'],
+}
+
+// Payload for pushing one local row to Supabase table `name`.
+export function toPushRow(name, row) {
+  const snake = rowToSnake(row)
+  for (const c of PUSH_EXCLUDED_COLUMNS[name] ?? []) delete snake[c]
+  return snake
+}
 
 // LOST UPDATE GUARD.
 //
@@ -269,7 +286,7 @@ async function runSync(db) {
       const rows = await selectDirty(db, table)
       if (!rows.length) continue
 
-      const snakeRows = rows.map(rowToSnake)
+      const snakeRows = rows.map(r => toPushRow(name, r))
 
       // Categories have a (event_id, slug) unique constraint in addition to id.
       // If a category was recreated locally (new UUID, same slug), delete the stale Supabase row first.

@@ -90,7 +90,7 @@ export function rememberSkipped(name, remote, skip) {
 }
 
 // [{ prop, name, dataType }] for every real column of a Drizzle table.
-function columnMeta(table) {
+export function columnMeta(table) {
   const cols = []
   for (const [prop, col] of Object.entries(table)) {
     if (col && typeof col === 'object' && typeof col.name === 'string' && col.dataType) {
@@ -101,7 +101,7 @@ function columnMeta(table) {
 }
 
 // Supabase row (snake_case, JSON values) → Drizzle values (camelCase props, Date for timestamps).
-function toLocalRow(cols, remote) {
+export function toLocalRow(cols, remote) {
   const row = {}
   for (const { prop, name, dataType } of cols) {
     if (!(name in remote)) continue
