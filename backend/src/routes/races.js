@@ -206,6 +206,7 @@ export async function racesRoutes(fastify) {
             eq(participants.categoryId, run.categoryId),
             isNotNull(checkins.checkedInAt),
             isNotNull(participants.rfidEpc),
+            isNull(participants.removedAt),
           )
         )
 
@@ -237,7 +238,14 @@ export async function racesRoutes(fastify) {
     const gunStartTime = new Date(run.startedAt)
     let assigned = 0
 
+    // A participant removed online never gets a result row.
+    const removedRows = await db.select({ id: participants.id }).from(participants)
+      .where(and(inArray(participants.id, participantIds), isNotNull(participants.removedAt)))
+    const skipped = removedRows.map(r => r.id)
+    const removedIds = new Set(skipped)
+
     for (const participantId of participantIds) {
+      if (removedIds.has(participantId)) continue
       // Don't overwrite existing chip start
       const existing = await db.query.results.findFirst({
         where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, participantId)),
@@ -263,11 +271,11 @@ export async function racesRoutes(fastify) {
     if (detector) {
       const race = detector.activeRaces.get(raceRunId)
       if (race) {
-        for (const pid of participantIds) race.startedParticipants.add(pid)
+        for (const pid of participantIds) if (!removedIds.has(pid)) race.startedParticipants.add(pid)
       }
     }
 
     broadcast('race:update', { raceRunId, status: run.status })
-    return { data: { assigned } }
+    return { data: { assigned, skipped } }
   })
 }

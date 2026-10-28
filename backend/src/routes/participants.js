@@ -77,7 +77,7 @@ export async function participantsRoutes(fastify) {
 
   async function setWithdrawn(req, reply, withdrawnAt) {
     const current = await db.query.participants.findFirst({ where: eq(participants.id, req.params.id) })
-    if (isRemoved(current)) return reply.code(409).send({ error: 'Participant was removed online' })
+    if (isRemoved(current)) return reply.code(409).send({ error: 'Zawodnik wycofany z zapisów online.' })
     const refusal = withdrawalRefusal(await liveResultCount(db, req.params.id))
     if (refusal) return reply.code(409).send({ error: refusal })
     const [row] = await db.update(participants).set({ withdrawnAt, updatedAt: new Date() })
@@ -318,6 +318,7 @@ export async function participantsRoutes(fastify) {
   })
 }
 
+// Counts removed rows too, on purpose: a bib or emoji is never reused.
 async function nextBibNumber(db, eventId) {
   const [row] = await db
     .select({ max: sql`COALESCE(MAX(bib_number), 0)` })
