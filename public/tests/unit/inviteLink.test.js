@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { inviteUrl, inviteFromPath, postAuthPath, isRegistrationPath } from '../../src/lib/inviteLink.js'
+import { inviteUrl, inviteFromPath, postAuthPath, afterRegistrationPath } from '../../src/lib/inviteLink.js'
 
 describe('inviteUrl', () => {
   it('builds the invite address', () => {
@@ -39,31 +39,20 @@ describe('postAuthPath', () => {
   })
 })
 
-describe('postAuthPath for registration pages (spec 14.17)', () => {
-  it('skipOnboarding sends a new account straight to the registration page', () => {
-    assert.equal(postAuthPath({ from: '/events/x/zapisano', hasUsername: false, skipOnboarding: true }), '/events/x/zapisano')
+describe('onboarding after registration (spec 14.17, ruling P2-R22)', () => {
+  it('a successful registration lands on the confirmation page, account with no username or not', () => {
+    assert.equal(afterRegistrationPath({ slug: 'bieg-leszego', hasUsername: false }), '/events/bieg-leszego/zapisano')
+    assert.equal(afterRegistrationPath({ slug: 'bieg-leszego', hasUsername: true }), '/events/bieg-leszego/zapisano')
   })
 
-  it('without the flag a new account still goes through onboarding', () => {
-    assert.equal(postAuthPath({ from: '/events/x/zapisano', hasUsername: false }), `/onboarding?from=${encodeURIComponent('/events/x/zapisano')}`)
-    assert.equal(postAuthPath({ from: '/events/x/zapisano', hasUsername: false, skipOnboarding: false }), `/onboarding?from=${encodeURIComponent('/events/x/zapisano')}`)
+  it('a plain /login visit with a registration page in ?from= still goes through onboarding', () => {
+    for (const from of ['/events/x/zapisano', '/events/x/zapis/0b6f2b0e-6c1a-4f43-9a51-6a9a1b2c3d4e']) {
+      assert.equal(postAuthPath({ from, hasUsername: false }), `/onboarding?from=${encodeURIComponent(from)}`)
+    }
   })
 
-  it('skipOnboarding with nowhere to go falls back to onboarding', () => {
+  it('skipOnboarding without a destination falls back to onboarding', () => {
     assert.equal(postAuthPath({ from: null, hasUsername: false, skipOnboarding: true }), '/onboarding')
   })
 })
 
-describe('isRegistrationPath', () => {
-  it('the form and the confirmation page are registration pages', () => {
-    assert.equal(isRegistrationPath('/events/bieg-leszego/zapis/0b6f2b0e-6c1a-4f43-9a51-6a9a1b2c3d4e'), true)
-    assert.equal(isRegistrationPath('/events/bieg-leszego/zapisano'), true)
-  })
-
-  it('anything else is not', () => {
-    for (const p of [null, '', '/events/bieg-leszego', '/events/bieg-leszego/trasa', '/events/bieg-leszego/results',
-      '/klub/zatyrani/dolacz?kod=1', '/events/a/zapisano/extra', '//evil.example/events/a/zapisano']) {
-      assert.equal(isRegistrationPath(p), false, String(p))
-    }
-  })
-})

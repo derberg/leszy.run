@@ -32,17 +32,14 @@ export function inviteFromPath(path) {
  */
 export function postAuthPath({ from, hasUsername, skipOnboarding = false }) {
   if (hasUsername) return from || '/profil'
-  // Spec 14.17: an account that registration just created (the e-mail code is
-  // the login) lands on the registration page itself; onboarding waits for the
-  // next ordinary login.
+  // Spec 14.17 / ruling P2-R22: only the registration flow itself passes this,
+  // after register-free succeeded (the e-mail code was the login); onboarding
+  // waits for the next ordinary login. A plain /login never does.
   if (skipOnboarding && from) return from
   return from ? `/onboarding?from=${encodeURIComponent(from)}` : '/onboarding'
 }
 
-const REGISTRATION_PATH_RE = /^\/events\/[^/?#]+\/(?:zapis\/[^/?#]+|zapisano)$/
-
-/** The registration form and its confirmation page: logins on the way there skip onboarding. */
-export function isRegistrationPath(path) {
-  if (typeof path !== 'string') return false
-  return REGISTRATION_PATH_RE.test(path.split('?', 1)[0])
+/** Where the registration form goes after register-free succeeded: the confirmation page, never onboarding. */
+export function afterRegistrationPath({ slug, hasUsername }) {
+  return postAuthPath({ from: `/events/${slug}/zapisano`, hasUsername, skipOnboarding: true })
 }

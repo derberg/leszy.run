@@ -24,7 +24,7 @@ function kmIcon(km) {
 function EndMarker({ position, label, color }) {
   return (
     <CircleMarker center={position} radius={8} pathOptions={{ color, weight: 3, fillColor: '#0A0A10', fillOpacity: 1 }}>
-      <Tooltip permanent direction="right" offset={[10, 0]} className="leszy-course-label">{label}</Tooltip>
+      <Tooltip permanent direction="auto" offset={[10, 0]} className="leszy-course-label">{label}</Tooltip>
     </CircleMarker>
   )
 }
@@ -40,10 +40,10 @@ export default function CourseMap({ points, km }) {
   const loop = isLoop(points)
   return (
     <div className={`relative h-[360px] md:h-[440px] border border-apex-border-mid overflow-hidden ${isDark ? 'map-dark' : ''}`} data-testid="course-map">
-      <MapContainer bounds={bounds} boundsOptions={{ padding: [24, 24] }} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+      <MapContainer bounds={bounds} boundsOptions={{ paddingTopLeft: [40, 32], paddingBottomRight: [40, 32] }} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <Polyline positions={points} pathOptions={{ color, weight: 4, lineJoin: 'round' }} />
         {markers.map((m) => <Marker key={m.km} position={[m.lat, m.lng]} icon={kmIcon(m.km)} interactive={false} />)}

@@ -163,6 +163,18 @@ test.describe.serial('a new runner registers with an e-mail code', () => {
     expect(visited.some((u) => /nowa|biegaczka|test\.local/i.test(decodeURIComponent(u)))).toBe(false)
   })
 
+  test('W-37b a plain /login with a registration page in ?from= still sends the new account through onboarding (P2-R22)', async ({ actors }) => {
+    await clearMessages()
+    const page = await offline(await actors.viewer.newPage())
+    const from = `/events/${event.slug}/zapisano`
+    await page.goto(`/login?from=${encodeURIComponent(from)}`)
+    await page.getByLabel('Email').fill(email)
+    await page.locator('form button[type="submit"]').click()
+    await page.getByLabel('Kod (6 cyfr)').fill(await codeFor(email))
+    await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL((u) => u.pathname === '/onboarding' && u.searchParams.get('from') === from)
+  })
+
   test('W-38 the registration is a participants row, and the timing host pulls it', async () => {
     const { data: regs } = await admin().from('registrations').select('id').eq('event_id', event.eventId).eq('email', email)
     expect(regs).toHaveLength(1)

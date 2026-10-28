@@ -3,17 +3,25 @@
 // below), with the event, the organizer and the organizer's contact address
 // filled in from the event page snapshot. Drafting notes and the „Do
 // weryfikacji” list of the source stay in the source; the organizer's postal
-// address and NIP/KRS are not in the snapshot and are left out.
+// address and NIP/KRS are not in the snapshot and are left out. Ruling
+// P2-R21: lines about payment (dpay, paid status, payment records, unpaid
+// entries) appear only for a paid event, the team name only with team
+// competitions.
 //
 // Keep in step with the source document when it changes.
 
 export const RUNNER_DATA_INFO_VERSION = '2026-11-v1'
 
 /**
- * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null }} p
+ * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean }} p
  * @returns {{ title: string, sections: Array<{ heading: string, blocks: Array<string | { list: string[] } | { table: string[][] }> }> }}
  */
-export function runnerDataInfo({ eventName, organizerName, contactEmail }) {
+export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = false, teams = false }) {
+  const listed = ['imię', 'nazwisko', 'miejscowość', 'klub', 'konkurencja', 'kategoria wiekowa', ...(teams ? ['nazwa drużyny'] : [])]
+  const listedText = paid
+    ? `${listed.join(', ')} i informacja, czy zgłoszenie jest opłacone`
+    : `${listed.slice(0, -1).join(', ')} i ${listed.at(-1)}`
+  const only = (cond, x) => (cond ? [x] : [])
   const organizer = organizerName || 'Organizator zawodów'
   const contact = contactEmail
     ? `W sprawach danych możesz pisać do Organizatora: ${contactEmail}.`
@@ -47,15 +55,15 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail }) {
       {
         heading: 'Co jest publikowane',
         blocks: [
-          'Na publicznej liście startowej: imię, nazwisko, miejscowość, klub, konkurencja, kategoria wiekowa, nazwa drużyny i informacja, czy zgłoszenie jest opłacone. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. Data urodzenia, adres e-mail, numer telefonu i dane osoby do kontaktu w nagłych wypadkach nie są publikowane.',
+          `Na publicznej liście startowej: ${listedText}. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. Data urodzenia, adres e-mail, numer telefonu i dane osoby do kontaktu w nagłych wypadkach nie są publikowane.`,
         ],
       },
       {
         heading: 'Kto otrzymuje dane',
         blocks: [{
           list: [
-            'LESZY.RUN, który prowadzi zapisy w imieniu Organizatora, oraz jego dostawcy usług: Supabase, Inc. (baza danych), Vercel, Inc. (hosting), Twilio Inc. / SendGrid (e-mail), SMSAPI sp. z o.o. (SMS przed zawodami, jeżeli Organizator z niego korzysta). Część z nich ma siedzibę w USA. Aktualna lista: www.leszy.run/podmioty-przetwarzajace.',
-            'Payments Lab sp. z o.o. (dpay.pl) — operator płatności, w zakresie potrzebnym do przeprowadzenia płatności i zwrotu.',
+            'LESZY.RUN, który prowadzi zapisy w imieniu Organizatora, oraz jego dostawcy usług: Supabase, Inc. (baza danych), Vercel, Inc. (hosting), Twilio Inc. / SendGrid (e-mail), SMSAPI sp. z o.o. (SMS przed zawodami, jeżeli Organizator z niego korzysta). Część z nich ma siedzibę w USA; dane są przekazywane na podstawie: standardowe klauzule umowne Komisji Europejskiej lub EU-US Data Privacy Framework (art. 46 ust. 2 lit. c / art. 45 RODO). Aktualna lista: www.leszy.run/podmioty-przetwarzajace.',
+            ...only(paid, 'Payments Lab sp. z o.o. (dpay.pl) — operator płatności, w zakresie potrzebnym do przeprowadzenia płatności i zwrotu.'),
             'Osoby upoważnione przez Organizatora (np. obsługa biura zawodów).',
             'Wszyscy odwiedzający stronę zawodów — w zakresie listy startowej i wyników.',
             'Organy publiczne, jeżeli wymaga tego prawo.',
@@ -67,9 +75,9 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail }) {
         blocks: [{
           list: [
             'Numer telefonu i dane osoby do kontaktu w nagłych wypadkach: 30 dni po dniu zawodów.',
-            'Zgłoszenie, które nie zostało opłacone w terminie: 30 dni po jego wygaśnięciu.',
+            ...only(paid, 'Zgłoszenie, które nie zostało opłacone w terminie: 30 dni po jego wygaśnięciu.'),
             'Pozostałe dane zgłoszenia: 12 miesięcy po dniu zawodów, a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.',
-            'Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).',
+            ...only(paid, 'Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).'),
             'Wyniki zawodów: bezterminowo, w archiwum wyników.',
           ],
         }],

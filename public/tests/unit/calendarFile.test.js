@@ -31,3 +31,30 @@ describe('icsFor („Dodaj do kalendarza”)', () => {
     assert.ok(allDay.includes('DTEND;VALUE=DATE:20260615'))
   })
 })
+
+describe('icsFor across the Warsaw clock changes', () => {
+  const start = (eventDate, startTime) => lines(icsFor({ uid: 'x', title: 'X', eventDate, startTime, now: new Date(0) }))
+    .find((l) => l.startsWith('DTSTART'))
+
+  it('2026-10-25 (CEST → CET at 03:00): 10:00 is 09:00 UTC', () => {
+    assert.equal(start('2026-10-25', '10:00'), 'DTSTART:20261025T090000Z')
+  })
+
+  it('2027-03-28 (CET → CEST at 02:00): 10:00 is 08:00 UTC', () => {
+    assert.equal(start('2027-03-28', '10:00'), 'DTSTART:20270328T080000Z')
+  })
+
+  it('an ordinary winter and summer day', () => {
+    assert.equal(start('2026-12-06', '10:00'), 'DTSTART:20261206T090000Z')
+    assert.equal(start('2026-07-05', '10:00'), 'DTSTART:20260705T080000Z')
+  })
+})
+
+describe('icsFor text escaping (RFC 5545 §3.3.11)', () => {
+  it('backslash, semicolon, comma and line breaks are escaped', () => {
+    const l = lines(icsFor({ uid: 'x', title: 'A;B,C\\D\nE', eventDate: '2026-12-06', startTime: null, location: 'Sala; 2, piętro', now: new Date(0) }))
+    assert.ok(l.includes('SUMMARY:A\\;B\\,C\\\\D\\nE'), l.join('|'))
+    assert.ok(l.includes('LOCATION:Sala\\; 2\\, piętro'))
+  })
+})
+

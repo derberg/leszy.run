@@ -6,6 +6,7 @@ import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import useSeo from '../../hooks/useSeo.js'
 import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction, requestCode } from '../../lib/auth.js'
+import { afterRegistrationPath } from '../../lib/inviteLink.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import {
   EMPTY_PERSON, profilePrefill, fieldModes, personContext, checkPerson, needsCode, consentsComplete, registerBody,
@@ -108,7 +109,10 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const open = row.state === 'open'
   const codeNeeded = needsCode(user?.email, person.email)
   const ready = consentsComplete(consents, accepted, serviceAccepted)
-  const dataInfo = runnerDataInfo({ eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail })
+  const dataInfo = runnerDataInfo({
+    eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail,
+    paid: raw.pricingMode !== 'free', teams: raw.competitions.some((c) => c.kind === 'team'),
+  })
 
   const change = (patch) => {
     touched.current = true
@@ -120,8 +124,16 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     })
   }
 
-  const fail = (err) => {
+  const fail = (err, value) => {
     const f = registrationFailure(err)
+    if (f.step === 'code' && !sentTo) {
+      // The session ended between page load and submit: no code was ever sent.
+      // Stay on the form and send one now.
+      if (value) return startCode(value.email)
+      setStep('form')
+      setMessage(f.fields.code)
+      return undefined
+    }
     setStep(f.step)
     setMessage(f.message)
     if (f.step === 'code') setErrors((e) => ({ ...e, code: f.fields.code }))
@@ -137,10 +149,11 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
       clearFavoritesCache()
       clearNotificationsCache()
       forgetPublicRegistrationEvent(raw.slug)
-      navigate(donePath(raw.slug), { replace: true })
+      // Spec 14.17: the account register-free just opened skips onboarding here, and only here.
+      navigate(afterRegistrationPath({ slug: raw.slug, hasUsername: !!user?.username }), { replace: true })
     } catch (err) {
-      fail(err)
       setBusy(false)
+      await fail(err, value)
     }
   }
 
@@ -159,16 +172,23 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
       return
     }
     if (!codeNeeded) return register(r.value, null)
+    return startCode(r.value.email)
+  }
+
+  async function startCode(email) {
     setBusy(true)
     try {
-      await sendCode(r.value.email)
-      setSentTo(r.value.email)
+      await sendCode(email)
+      setSentTo(email)
       setCode('')
       setResent(false)
       setErrors({})
       setStep('code')
     } catch (err) {
-      fail(err)
+      setStep('form')
+      const f = registrationFailure(err)
+      setErrors(f.fields)
+      setMessage(f.message)
     } finally {
       setBusy(false)
     }
@@ -183,6 +203,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
 
   async function onResend() {
     setErrors((x) => ({ ...x, code: undefined }))
+    if (!sentTo) { setStep('form'); return }
     try {
       await sendCode(sentTo)
       setResent(true)
@@ -191,7 +212,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     }
   }
 
-  if (step === 'code') {
+  if (step === 'code' && sentTo) {
     return (
       <div className="flex flex-col gap-4">
         <PageTop right="KROK 2/3" />

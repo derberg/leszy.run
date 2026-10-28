@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
+import { trackedPath } from '../lib/trackedPath.js'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -9,27 +10,24 @@ const IS_DEV = import.meta.env.DEV
  */
 export default function RouteTracker() {
   const location = useLocation()
-  // The results page keeps the searched bib in ?nr=. It is not a new page, and
-  // a bib names a runner, so it never reaches analytics.
-  const search = (() => {
-    const params = new URLSearchParams(location.search)
-    params.delete('nr')
-    const s = params.toString()
-    return s ? `?${s}` : ''
-  })()
+  // trackedPath drops what names a person: a searched bib (?nr=) and a magic
+  // link's address and code (?email=, ?code=).
+  const path = trackedPath(location.pathname, location.search)
 
   useEffect(() => {
     if (IS_DEV) {
-      console.log('[DEV] Page view (not tracked):', location.pathname + search)
+      console.log('[DEV] Page view (not tracked):', path)
       return
     }
     if (typeof window.gtag === 'function') {
       window.gtag('event', 'page_view', {
-        page_path: location.pathname + search,
+        page_path: path,
+        // GA4 reads page_location (by default the full address bar), so it gets the cleaned one too.
+        page_location: window.location.origin + path,
         page_title: document.title,
       })
     }
-  }, [location.pathname, search])
+  }, [path])
 
   return null
 }

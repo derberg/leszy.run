@@ -7,7 +7,7 @@ import { clearFavoritesCache } from '../hooks/useFavorites.js'
 import { clearNotificationsCache } from '../hooks/useNotifications.js'
 import useSeo from '../hooks/useSeo.js'
 import useInvitePreview from '../hooks/useInvitePreview.js'
-import { inviteFromPath, isRegistrationPath, postAuthPath as nextPathAfterAuth } from '../lib/inviteLink.js'
+import { inviteFromPath, postAuthPath as nextPathAfterAuth } from '../lib/inviteLink.js'
 
 const inputClass = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-base md:text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
 const labelClass = 'block font-display font-bold text-xs tracking-widest uppercase text-apex-muted mb-1.5'
@@ -32,8 +32,7 @@ export default function Login() {
   const fromParam = sanitizeFrom(searchParams.get('from'))
   const hasMagicLink = !!linkEmail && /^\d{6}$/.test(linkCode || '')
 
-  // A login on the way to a registration page goes straight back there (spec 14.17).
-  const postAuthPath = (hasUsername) => nextPathAfterAuth({ from: fromParam, hasUsername, skipOnboarding: isRegistrationPath(fromParam) })
+  const postAuthPath = (hasUsername) => nextPathAfterAuth({ from: fromParam, hasUsername })
 
   // Arriving from an invite link: say which club is waiting.
   const { preview: invitePreview } = useInvitePreview(inviteFromPath(fromParam)?.code)
