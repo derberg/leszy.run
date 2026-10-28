@@ -1,5 +1,6 @@
 import { eq, and, inArray, isNull, isNotNull } from 'drizzle-orm'
 import { raceRuns, results, participants, categories, events, settings, checkpoints, checkins } from '../db/schema.js'
+import { startListFor, seedStatus } from '../lib/registrationGuards.js'
 import { getDetector } from '../mqtt/client.js'
 import { broadcast } from '../ws/broadcaster.js'
 
@@ -53,17 +54,17 @@ export async function racesRoutes(fastify) {
     }).returning()
 
     // Seed result records for all participants in this category
-    const allParticipants = await db.query.participants.findMany({
+    const allParticipants = startListFor(await db.query.participants.findMany({
       where: eq(participants.categoryId, req.params.categoryId),
       with: { checkin: true },
-    })
+    }))
 
     if (allParticipants.length > 0) {
       await db.insert(results).values(
         allParticipants.map(p => ({
           raceRunId: run.id,
           participantId: p.id,
-          status: p.withdrawnAt ? 'dns' : p.checkin ? 'checked_in' : 'registered',
+          status: seedStatus(p),
         }))
       ).onConflictDoNothing()
     }
