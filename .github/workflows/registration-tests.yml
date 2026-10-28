@@ -33,11 +33,11 @@ jobs:
         # ghcr.io rate-limits image pulls from shared runners; layers already pulled are
         # kept, so each retry has less to download.
         run: |
-          for attempt in 1 2 3 4 5; do
+          for attempt in 1 2 3 4 5 6; do
             supabase start -x studio,imgproxy,postgres-meta,logflare,vector,mailpit,storage-api,realtime && exit 0
-            echo "supabase start failed (attempt $attempt), retrying in 30s"
+            echo "supabase start failed (attempt $attempt), retrying in 90s"
             supabase stop --no-backup >/dev/null 2>&1 || true
-            sleep 30
+            sleep 90
           done
           exit 1
 
