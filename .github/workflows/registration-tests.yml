@@ -10,6 +10,9 @@ jobs:
   registration:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read # authenticated ghcr.io pulls (see the login step)
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -29,17 +32,23 @@ jobs:
       - name: Start email capture server
         run: node tests/registration/helpers/emailCaptureServer.js &
 
+      # setup-cli points the CLI at ghcr.io (SUPABASE_INTERNAL_IMAGE_REGISTRY). Anonymous pulls
+      # there share a rate limit across runners ("toomanyrequests"); logged in, they do not.
+      - name: Log in to ghcr.io
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Start local Supabase stack
-        # ghcr.io rate-limits image pulls from shared runners; layers already pulled are
-        # kept, so each retry has less to download.
+        # One retry for a transient pull error; layers already pulled are kept.
         run: |
-          for attempt in 1 2 3 4 5 6; do
-            supabase start -x studio,imgproxy,postgres-meta,logflare,vector,mailpit,storage-api,realtime && exit 0
-            echo "supabase start failed (attempt $attempt), retrying in 90s"
-            supabase stop --no-backup >/dev/null 2>&1 || true
-            sleep 90
-          done
-          exit 1
+          tests/registration/start-stack.sh && exit 0
+          echo "supabase start failed, retrying once in 30s"
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          sleep 30
+          tests/registration/start-stack.sh
 
       - name: Apply migrations and seed
         run: supabase db reset
