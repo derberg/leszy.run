@@ -1,6 +1,6 @@
 import { createReadStream, promises as fs } from 'fs'
 import path from 'path'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, isNull } from 'drizzle-orm'
 import { visionSessions, visionSightings, participants } from '../db/schema.js'
 import { broadcast } from '../ws/broadcaster.js'
 import { readRecording } from './recording.js'
@@ -225,7 +225,7 @@ async function rosterFor(db, eventId) {
   const rows = await db
     .select({ id: participants.id, bib: participants.bibNumber })
     .from(participants)
-    .where(eq(participants.eventId, eventId))
+    .where(and(eq(participants.eventId, eventId), isNull(participants.removedAt)))
   return new Map(rows.filter(r => r.bib != null).map(r => [String(r.bib), r.id]))
 }
 

@@ -22,7 +22,7 @@ export async function smsRoutes(fastify) {
     if (!event) return reply.code(404).send({ error: 'Event not found' })
     if (!event.slug) return reply.code(400).send({ error: 'Event has no slug — set one in event settings first' })
     const rows = await db.query.participants.findMany({
-      where: and(eq(participants.eventId, req.params.eventId), isNull(participants.smsSentAt)),
+      where: and(eq(participants.eventId, req.params.eventId), isNull(participants.smsSentAt), isNull(participants.removedAt)),
     })
     return await sendCheckinSms(db, event, rows)
   })

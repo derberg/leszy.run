@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
     .not('rfid_epc', 'is', null)
     .not('bib_number', 'is', null)
     .is('deleted_at', null)
+    .is('removed_at', null)
   if (rosterErr) return json({ error: 'Roster query failed' }, 500, req)
 
   return json({ data: roster }, 200, req)

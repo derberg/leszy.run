@@ -1,6 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm'
 import { categories, events } from '../db/schema.js'
 import { syncDelete } from '../sync/supabase.js'
+import { isRegistrationEvent, REGISTRATION_DELETE_REFUSAL } from '../lib/registrationGuards.js'
 import Papa from 'papaparse'
 
 export async function categoriesRoutes(fastify) {
@@ -11,7 +12,7 @@ export async function categoriesRoutes(fastify) {
     const rows = await db
       .select({
         category: categories,
-        participantCount: sql`(select count(*) from participants where category_id = categories.id)`.as('participant_count'),
+        participantCount: sql`(select count(*) from participants where category_id = categories.id and removed_at is null)`.as('participant_count'),
       })
       .from(categories)
       .where(eq(categories.eventId, req.params.eventId))
@@ -50,6 +51,11 @@ export async function categoriesRoutes(fastify) {
 
   // Delete category
   fastify.delete('/categories/:id', async (req, reply) => {
+    const current = await db.query.categories.findFirst({ where: eq(categories.id, req.params.id), columns: { eventId: true } })
+    if (current) {
+      const event = await db.query.events.findFirst({ where: eq(events.id, current.eventId) })
+      if (isRegistrationEvent(event)) return reply.code(409).send({ error: REGISTRATION_DELETE_REFUSAL })
+    }
     const [row] = await db.delete(categories).where(eq(categories.id, req.params.id)).returning()
     if (!row) return reply.code(404).send({ error: 'Category not found' })
     syncDelete('categories', row.id)
