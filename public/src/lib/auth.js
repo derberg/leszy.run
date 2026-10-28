@@ -46,6 +46,8 @@ async function callEdge(name, body) {
     if (res.status === 401) clearCachedUser()
     const err = new Error(data.error || `${name} failed`)
     err.status = res.status
+    if (data.code) err.code = data.code
+    if (data.fields) err.fields = data.fields
     throw err
   }
   return data

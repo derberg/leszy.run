@@ -80,7 +80,7 @@ test('F-20 inny-klub: no payout section and no agreement while the club is not e
   expect(data.length).toBe(0)
 })
 
-test('F-20 zatyrani-test: the owner accepts the agreement, then the admin sees the disabled wizard button', async ({ actors }) => {
+test('F-20 zatyrani-test: the owner accepts the agreement, then owner and admin get the new-event button', async ({ actors }) => {
   const adm = await open(actors.admin, '/klub/zatyrani-test/wydarzenia')
   await expect(adm.getByText('Umowę akceptuje właściciel klubu')).toBeVisible()
   await expect(adm.getByRole('button', { name: /Nowe wydarzenie/ })).toHaveCount(0)
@@ -99,13 +99,18 @@ test('F-20 zatyrani-test: the owner accepts the agreement, then the admin sees t
   await expect(owner).toHaveURL(/\/klub\/zatyrani-test\/wydarzenia\/umowa$/)
   await owner.getByRole('button', { name: 'Akceptuję umowę' }).click()
   await expect(owner).toHaveURL(/\/klub\/zatyrani-test\/wydarzenia$/)
-  await expect(owner.getByRole('button', { name: /Nowe wydarzenie/ })).toBeDisabled()
+  await expect(owner.getByRole('button', { name: '+ Nowe wydarzenie' })).toBeEnabled()
 
   await adm.reload()
-  const wizard = adm.getByRole('button', { name: /Nowe wydarzenie/ })
-  await expect(wizard).toBeDisabled()
-  await expect(wizard).toContainText('wkrótce')
+  const wizard = adm.getByRole('button', { name: '+ Nowe wydarzenie' })
+  await expect(wizard).toBeEnabled()
+  await expect(wizard).not.toContainText('wkrótce')
   await expect(adm.getByText('Umowę akceptuje właściciel klubu')).toHaveCount(0)
+
+  // A member never gets the button, before or after the agreement.
+  await member.reload()
+  await expect(member.getByRole('heading', { name: 'Wydarzenia klubu' })).toBeVisible()
+  await expect(member.getByRole('button', { name: /Nowe wydarzenie/ })).toHaveCount(0)
 })
 
 test('F-20 zatyrani-test: the owner saves payout details, the admin sees the masked account', async ({ actors }) => {

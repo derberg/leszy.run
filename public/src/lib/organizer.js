@@ -24,3 +24,45 @@ export async function getClubPayout(clubId) {
 export async function updateClubPayout(clubId, fields) {
   return (await callFunction('update-club-payout', { clubId, ...fields })).data
 }
+
+// ---- Registration events (Plan 2) ----
+
+/** → [{ eventId, name, state, eventDate, taken, capacity, hasPending }], newest first. */
+export async function listClubRegistrationEvents(clubId) {
+  return (await callFunction('list-club-registration-events', { clubId })).data
+}
+
+/** → { eventId } */
+export async function createRegistrationEvent(clubId, name) {
+  return (await callFunction('create-registration-event', { clubId, name })).data
+}
+
+/** → { settings, competitions, officeHours, ageGroups, kidsGroups, consents, uploads, pending, registeredCount, role, checklist } */
+export async function getRegistrationEvent(eventId) {
+  return (await callFunction('get-registration-event', { eventId })).data
+}
+
+/** Throws with `fields` (422) when the server refuses a value. */
+export async function saveRegistrationSection(eventId, section, value) {
+  return (await callFunction('save-registration-section', { eventId, section, value })).data
+}
+
+/** Poster: an already resized JPEG as a data URL. → { uploadId, url, meta } */
+export async function uploadPoster(eventId, dataUrl, fileName) {
+  return (await callFunction('upload-registration-file', { eventId, kind: 'poster', dataUrl, fileName })).data
+}
+
+/**
+ * Regulamin PDF or GPX: too big for a JSON body, so start → PUT straight to
+ * the private pending bucket through the signed token → finish.
+ * → { uploadId, url, meta }
+ */
+export async function uploadDocument(eventId, kind, file) {
+  const { supabase } = await import('./supabase.js')
+  const start = (await callFunction('upload-registration-file', { eventId, kind, fileName: file.name, action: 'start' })).data
+  const { error } = await supabase.storage.from('registration-pending')
+    .uploadToSignedUrl(start.pendingPath, start.token, file, { contentType: file.type || 'application/octet-stream' })
+  // A PUT over the bucket's limit is refused here; finish then answers with the size message.
+  if (error) console.warn('registration upload PUT failed:', error.message)
+  return (await callFunction('upload-registration-file', { eventId, kind, pendingPath: start.pendingPath, action: 'finish' })).data
+}
