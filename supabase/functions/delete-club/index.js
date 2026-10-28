@@ -33,6 +33,16 @@ Deno.serve(async (req) => {
       return json({ error: 'Brak uprawnień.' }, 403, req)
     }
 
+    // A club that owns an online-registration event cannot go: the event and
+    // its entries are tied to it (registration_settings.club_id is ON DELETE
+    // RESTRICT, so the delete below would fail with an opaque FK error).
+    const { count, error: regErr } = await supabaseAdmin
+      .from('registration_settings').select('event_id', { count: 'exact', head: true }).eq('club_id', club_id)
+    if (regErr) throw regErr
+    if (count > 0) {
+      return json({ error: 'Klub ma wydarzenia z zapisami — nie można go usunąć.' }, 409, req)
+    }
+
     // FKs cascade: club_members/club_invites ON DELETE CASCADE; profiles.club_id
     // is ON DELETE SET NULL, so members' club_id clears automatically.
     const { error: deleteErr } = await supabaseAdmin.from('clubs').delete().eq('id', club_id)

@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { events, categories, participants, raceRuns } from '../db/schema.js'
 import { syncDeleteEvent } from '../sync/supabase.js'
+import { isRegistrationEvent, REGISTRATION_DELETE_REFUSAL } from '../lib/registrationGuards.js'
 
 export async function eventsRoutes(fastify) {
   const { db } = fastify
@@ -11,7 +12,7 @@ export async function eventsRoutes(fastify) {
       .select({
         event: events,
         categoryCount: sql`(select count(*) from categories where event_id = events.id)`.as('category_count'),
-        participantCount: sql`(select count(*) from participants where event_id = events.id)`.as('participant_count'),
+        participantCount: sql`(select count(*) from participants where event_id = events.id and removed_at is null)`.as('participant_count'),
       })
       .from(events)
       .orderBy(events.createdAt)
@@ -56,6 +57,8 @@ export async function eventsRoutes(fastify) {
 
   // Delete event
   fastify.delete('/events/:id', async (req, reply) => {
+    const current = await db.query.events.findFirst({ where: eq(events.id, req.params.id) })
+    if (isRegistrationEvent(current)) return reply.code(409).send({ error: REGISTRATION_DELETE_REFUSAL })
     const [row] = await db.delete(events).where(eq(events.id, req.params.id)).returning()
     if (!row) return reply.code(404).send({ error: 'Event not found' })
     syncDeleteEvent(row.id)

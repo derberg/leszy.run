@@ -1,0 +1,78 @@
+name: Registration tests
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  registration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read # authenticated ghcr.io pulls (see the login step)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - run: npm ci
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.109.1
+
+      - name: Start email capture server
+        run: node tests/registration/helpers/emailCaptureServer.js &
+
+      # setup-cli points the CLI at ghcr.io (SUPABASE_INTERNAL_IMAGE_REGISTRY). Anonymous pulls
+      # there share a rate limit across runners ("toomanyrequests"); logged in, they do not.
+      - name: Log in to ghcr.io
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start local Supabase stack
+        # One retry for a transient pull error; layers already pulled are kept.
+        run: |
+          tests/registration/start-stack.sh && exit 0
+          echo "supabase start failed, retrying once in 30s"
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          sleep 30
+          tests/registration/start-stack.sh
+
+      - name: Apply migrations and seed
+        run: supabase db reset
+
+      - name: Serve edge functions
+        run: |
+          supabase functions serve --env-file tests/registration/functions.env > functions.log 2>&1 &
+          sleep 15
+
+      - name: Backend tests
+        run: npm test --workspace=backend
+
+      - name: Public unit tests
+        run: npm run test:unit --prefix public
+
+      - name: Registration integration tests
+        run: node --test --test-concurrency=1 "tests/registration/**/*.test.js"
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Registration Playwright tests
+        run: npx playwright test -c tests/registration/playwright.config.js --pass-with-no-tests
+
+      - name: Functions log on failure
+        if: failure()
+        run: tail -n 200 functions.log || true

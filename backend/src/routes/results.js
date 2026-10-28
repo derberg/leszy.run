@@ -1,6 +1,7 @@
 import { eq, and, asc, desc } from 'drizzle-orm'
 import { results, participants, raceRuns, categories, events, checkpointImports, checkpointReadings } from '../db/schema.js'
 import { broadcast } from '../ws/broadcaster.js'
+import { isRemoved } from '../lib/registrationGuards.js'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import Papa from 'papaparse'
 import { recalcPositions, UNRANKED } from '../lib/positions.js'
@@ -266,7 +267,7 @@ export async function resultsRoutes(fastify) {
 
     const epcMap = new Map()
     for (const p of run.category.participants) {
-      if (p.rfidEpc) epcMap.set(p.rfidEpc, p.id)
+      if (p.rfidEpc && !isRemoved(p)) epcMap.set(p.rfidEpc, p.id)
     }
 
     let resolved = 0

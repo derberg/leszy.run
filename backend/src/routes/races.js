@@ -1,5 +1,6 @@
 import { eq, and, inArray, isNull, isNotNull } from 'drizzle-orm'
 import { raceRuns, results, participants, categories, events, settings, checkpoints, checkins } from '../db/schema.js'
+import { startListFor, seedStatus } from '../lib/registrationGuards.js'
 import { getDetector } from '../mqtt/client.js'
 import { broadcast } from '../ws/broadcaster.js'
 
@@ -53,17 +54,17 @@ export async function racesRoutes(fastify) {
     }).returning()
 
     // Seed result records for all participants in this category
-    const allParticipants = await db.query.participants.findMany({
+    const allParticipants = startListFor(await db.query.participants.findMany({
       where: eq(participants.categoryId, req.params.categoryId),
       with: { checkin: true },
-    })
+    }))
 
     if (allParticipants.length > 0) {
       await db.insert(results).values(
         allParticipants.map(p => ({
           raceRunId: run.id,
           participantId: p.id,
-          status: p.withdrawnAt ? 'dns' : p.checkin ? 'checked_in' : 'registered',
+          status: seedStatus(p),
         }))
       ).onConflictDoNothing()
     }
@@ -205,6 +206,7 @@ export async function racesRoutes(fastify) {
             eq(participants.categoryId, run.categoryId),
             isNotNull(checkins.checkedInAt),
             isNotNull(participants.rfidEpc),
+            isNull(participants.removedAt),
           )
         )
 
@@ -236,7 +238,14 @@ export async function racesRoutes(fastify) {
     const gunStartTime = new Date(run.startedAt)
     let assigned = 0
 
+    // A participant removed online never gets a result row.
+    const removedRows = await db.select({ id: participants.id }).from(participants)
+      .where(and(inArray(participants.id, participantIds), isNotNull(participants.removedAt)))
+    const skipped = removedRows.map(r => r.id)
+    const removedIds = new Set(skipped)
+
     for (const participantId of participantIds) {
+      if (removedIds.has(participantId)) continue
       // Don't overwrite existing chip start
       const existing = await db.query.results.findFirst({
         where: and(eq(results.raceRunId, raceRunId), eq(results.participantId, participantId)),
@@ -262,11 +271,11 @@ export async function racesRoutes(fastify) {
     if (detector) {
       const race = detector.activeRaces.get(raceRunId)
       if (race) {
-        for (const pid of participantIds) race.startedParticipants.add(pid)
+        for (const pid of participantIds) if (!removedIds.has(pid)) race.startedParticipants.add(pid)
       }
     }
 
     broadcast('race:update', { raceRunId, status: run.status })
-    return { data: { assigned } }
+    return { data: { assigned, skipped } }
   })
 }

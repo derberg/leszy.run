@@ -32,6 +32,8 @@ const KlubPanel = lazy(() => import('./pages/klub/Panel.jsx'))
 const KlubCzlonkowie = lazy(() => import('./pages/klub/Czlonkowie.jsx'))
 const KlubZaproszenia = lazy(() => import('./pages/klub/Zaproszenia.jsx'))
 const KlubUstawienia = lazy(() => import('./pages/klub/Ustawienia.jsx'))
+const KlubWydarzenia = lazy(() => import('./pages/klub/Wydarzenia.jsx'))
+const KlubUmowaOrganizatora = lazy(() => import('./pages/klub/UmowaOrganizatora.jsx'))
 const PolitykaPrywatnosci = lazy(() => import('./pages/PolitykaPrywatnosci.jsx'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'))
 const Regulamin = lazy(() => import('./pages/Regulamin.jsx'))
@@ -91,6 +93,8 @@ export default function App() {
             <Route index element={<Navigate to="panel" replace />} />
             <Route path="panel" element={<KlubPanel />} />
             <Route path="czlonkowie" element={<KlubCzlonkowie />} />
+            <Route path="wydarzenia" element={<KlubWydarzenia />} />
+            <Route path="wydarzenia/umowa" element={<KlubUmowaOrganizatora />} />
             <Route path="zaproszenia" element={<KlubZaproszenia />} />
             <Route path="ustawienia" element={<KlubUstawienia />} />
           </Route>

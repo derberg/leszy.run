@@ -4,7 +4,7 @@ import AuthGuard from '../../components/AuthGuard.jsx'
 import useClub from '../../hooks/useClub.js'
 import { KlubContext } from './context.js'
 
-// Slug-scoped club area shell: /klub/:slug/{panel,czlonkowie,zaproszenia,ustawienia}.
+// Slug-scoped club area shell: /klub/:slug/{panel,czlonkowie,wydarzenia,zaproszenia,ustawienia}.
 // The bare /klub/:slug is the static public page served by Vercel — this layout
 // only owns the sub-paths (the index route redirects to panel for client-side
 // navigations that land on the bare path). Guards here are UX only; the edge
@@ -12,6 +12,7 @@ import { KlubContext } from './context.js'
 const TABS = [
   { to: 'panel', label: 'Panel', manage: false },
   { to: 'czlonkowie', label: 'Członkowie', manage: false },
+  { to: 'wydarzenia', label: 'Wydarzenia', manage: false },
   { to: 'zaproszenia', label: 'Zaproszenia', manage: true },
   { to: 'ustawienia', label: 'Ustawienia', manage: true },
 ]
@@ -51,7 +52,7 @@ function ClubShell() {
   const tabs = TABS.filter((t) => !t.manage || canManage)
 
   const navItemClass = ({ isActive }) =>
-    `whitespace-nowrap font-display font-bold text-sm uppercase tracking-wide px-3 py-2.5 no-underline transition-all border-b-2 ${
+    `whitespace-nowrap font-display font-bold text-xs md:text-sm uppercase tracking-normal md:tracking-wide px-1.5 md:px-3 py-2.5 no-underline transition-all border-b-2 ${
       isActive
         ? 'text-apex-yellow border-apex-yellow bg-apex-surface/40'
         : 'text-apex-muted border-transparent hover:text-apex-text-bright hover:border-apex-border'
@@ -81,7 +82,7 @@ function ClubShell() {
       </header>
 
       <nav data-testid="klub-nav" aria-label="Sekcje klubu"
-        className="flex gap-1 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 border-b border-apex-border mb-6">
+        className="flex justify-between md:justify-start md:gap-1 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 border-b border-apex-border mb-6">
         {tabs.map((t) => (
           <NavLink key={t.to} to={t.to} className={navItemClass}>{t.label}</NavLink>
         ))}

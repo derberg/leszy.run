@@ -5,6 +5,24 @@ import { getSession } from '../_shared/session.js'
 
 const POLICY_VERSION = '2026-06-04'
 
+// PostgREST answers at most 1000 rows per request, so a list that can grow is
+// read in pages; a bare select would silently truncate an Art. 15 export.
+// Like the other lists in this export, a failing query degrades to an empty
+// list with a log line instead of failing the whole Art. 15 export.
+async function fetchAll(buildQuery, label) {
+  const rows = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await buildQuery().range(from, from + 999)
+    if (error) {
+      console.error(`export-my-data: ${label} failed:`, error.code, error.message)
+      return []
+    }
+    rows.push(...(data ?? []))
+    if ((data ?? []).length < 1000) break
+  }
+  return rows
+}
+
 function json(body, status, req, extraHeaders = {}) {
   return new Response(JSON.stringify(body, null, 2), {
     status,
@@ -36,6 +54,7 @@ Deno.serve(async (req) => {
   const [
     profile, userBadges, consentLog, eventReports, websiteFeedback, submittedEvents, favorites,
     clubMemberships, ownedClubsRaw, membershipLog, raceEntries, invitesToMe,
+    organizerAgreements, organizerActions, payoutHistory, waitlistRequests,
   ] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').eq('id', userId).single(),
     supabaseAdmin.from('user_badges').select('*').eq('user_id', userId),
@@ -69,6 +88,22 @@ Deno.serve(async (req) => {
         .select('kind, target_email, target_username, created_at, expires_at, revoked, clubs(name)')
         .eq('target_email', session.email)
       : Promise.resolve({ data: [] }),
+    // Organizer records the person produced. Stable order keeps .range() paging exact.
+    fetchAll(() => supabaseAdmin.from('organizer_agreements')
+      .select('id, club_name, version, accepted_at, ip, user_agent')
+      .eq('accepted_by', userId).order('accepted_at').order('id'), 'organizer_agreements'),
+    fetchAll(() => supabaseAdmin.from('organizer_actions')
+      .select('id, action, target, payload, ip, user_agent, created_at, clubs(name)')
+      .eq('actor_id', userId).order('created_at').order('id'), 'organizer_actions'),
+    // old/new hold the full IBAN and NIP exactly as stored: the person who made
+    // the change already sees them in the club's payout screen, so the export
+    // does not mask them.
+    fetchAll(() => supabaseAdmin.from('club_payout_history')
+      .select('id, club_name, old, new, changed_at')
+      .eq('changed_by', userId).order('changed_at').order('id'), 'club_payout_history'),
+    fetchAll(() => supabaseAdmin.from('registration_waitlist')
+      .select('created_at, clubs(name)')
+      .eq('requested_by', userId).order('created_at').order('club_id'), 'registration_waitlist'),
   ])
 
   const memberships = (clubMemberships.data ?? []).map((m) => ({
@@ -136,6 +171,34 @@ Deno.serve(async (req) => {
       checked_in_at: p.checked_in_at,
       anonymised_at: p.deleted_at,
     })),
+    organizer: {
+      agreements_accepted: organizerAgreements.map((a) => ({
+        club_name: a.club_name,
+        version: a.version,
+        accepted_at: a.accepted_at,
+        ip: a.ip,
+        user_agent: a.user_agent,
+      })),
+      actions: organizerActions.map((a) => ({
+        club_name: a.clubs?.name ?? null,
+        action: a.action,
+        target: a.target,
+        payload: a.payload,
+        ip: a.ip,
+        user_agent: a.user_agent,
+        created_at: a.created_at,
+      })),
+      payout_changes: payoutHistory.map((h) => ({
+        club_name: h.club_name,
+        old: h.old,
+        new: h.new,
+        changed_at: h.changed_at,
+      })),
+      waitlist_requests: waitlistRequests.map((w) => ({
+        club_name: w.clubs?.name ?? null,
+        requested_at: w.created_at,
+      })),
+    },
     club_invitations_received: (invitesToMe.data ?? []).map((i) => ({
       club_name: i.clubs?.name ?? null,
       kind: i.kind,

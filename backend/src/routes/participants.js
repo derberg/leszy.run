@@ -1,11 +1,13 @@
 import { eq, and, isNull, sql, max, ne } from 'drizzle-orm'
-import { participants, categories, results, raceRuns, checkins } from '../db/schema.js'
+import { participants, categories, results, raceRuns, checkins, events } from '../db/schema.js'
 import { setScanMode } from '../mqtt/client.js'
 import Papa from 'papaparse'
 import { pickEmoji } from '../lib/emoji.js'
 import { syncDelete } from '../sync/supabase.js'
 import { createClient } from '@supabase/supabase-js'
 import { withdrawalRefusal } from '../lib/withdrawal.js'
+import { isRemoved, isRegistrationEvent, REGISTRATION_DELETE_REFUSAL } from '../lib/registrationGuards.js'
+import { checkinParticipantRow } from '../lib/checkinParticipantRow.js'
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL
@@ -20,7 +22,7 @@ export async function participantsRoutes(fastify) {
   // List participants for event (with category info)
   fastify.get('/events/:eventId/participants', async (req) => {
     const rows = await db.query.participants.findMany({
-      where: eq(participants.eventId, req.params.eventId),
+      where: and(eq(participants.eventId, req.params.eventId), isNull(participants.removedAt)),
       with: { category: true, checkin: true },
       orderBy: participants.bibNumber,
     })
@@ -75,6 +77,8 @@ export async function participantsRoutes(fastify) {
   fastify.delete('/participants/:id/withdraw', (req, reply) => setWithdrawn(req, reply, null))
 
   async function setWithdrawn(req, reply, withdrawnAt) {
+    const current = await db.query.participants.findFirst({ where: eq(participants.id, req.params.id) })
+    if (isRemoved(current)) return reply.code(409).send({ error: 'Zawodnik wycofany z zapisów online.' })
     const refusal = withdrawalRefusal(await liveResultCount(db, req.params.id))
     if (refusal) return reply.code(409).send({ error: refusal })
     const [row] = await db.update(participants).set({ withdrawnAt, updatedAt: new Date() })
@@ -103,6 +107,11 @@ export async function participantsRoutes(fastify) {
 
   // Delete participant
   fastify.delete('/participants/:id', async (req, reply) => {
+    const owner = await db.query.participants.findFirst({ where: eq(participants.id, req.params.id), columns: { eventId: true } })
+    if (owner) {
+      const event = await db.query.events.findFirst({ where: eq(events.id, owner.eventId) })
+      if (isRegistrationEvent(event)) return reply.code(409).send({ error: REGISTRATION_DELETE_REFUSAL })
+    }
     const [row] = await db.delete(participants).where(eq(participants.id, req.params.id)).returning()
     if (!row) return reply.code(404).send({ error: 'Participant not found' })
     syncDelete('participants', row.id)
@@ -162,6 +171,7 @@ export async function participantsRoutes(fastify) {
         ? await db.query.participants.findFirst({
             where: and(
               eq(participants.eventId, req.params.eventId),
+              isNull(participants.removedAt),
               eq(participants.email, row.email),
               eq(participants.firstName, row.first_name),
               eq(participants.lastName, row.last_name)
@@ -215,23 +225,10 @@ export async function participantsRoutes(fastify) {
     const supabase = getSupabase()
     if (!supabase) return reply.code(503).send({ error: 'Supabase not configured' })
 
-    // Ensure participant exists in Supabase before creating checkin (FK constraint)
-    const { error: partError } = await supabase.from('participants').upsert({
-      id: participant.id,
-      event_id: participant.eventId,
-      first_name: participant.firstName,
-      last_name: participant.lastName,
-      bib_number: participant.bibNumber,
-      category_id: participant.categoryId,
-      email: participant.email,
-      phone: participant.phone,
-      gender: participant.gender,
-      birth_date: participant.birthDate,
-      club: participant.club,
-      rfid_epc: participant.rfidEpc,
-      emoji: participant.emoji,
-      tshirt_size: participant.tshirtSize,
-    }, { onConflict: 'id' })
+    // Ensure participant exists in Supabase before creating checkin (FK constraint).
+    // checkinParticipantRow never sends a Supabase-owned column (registration_id, removed_at).
+    const { error: partError } = await supabase.from('participants')
+      .upsert(checkinParticipantRow(participant), { onConflict: 'id' })
     if (partError) return reply.code(500).send({ error: `Supabase participant sync failed: ${partError.message}` })
 
     const { data: checkin, error: checkinError } = await supabase
@@ -309,6 +306,7 @@ export async function participantsRoutes(fastify) {
   })
 }
 
+// Counts removed rows too, on purpose: a bib or emoji is never reused.
 async function nextBibNumber(db, eventId) {
   const [row] = await db
     .select({ max: sql`COALESCE(MAX(bib_number), 0)` })

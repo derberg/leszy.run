@@ -288,6 +288,13 @@
       "when": 1792300000000,
       "tag": "0040_vision_sighting_log_offset",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792310000000,
+      "tag": "0041_registration_bridge",
+      "breakpoints": true
     }
   ]
 }

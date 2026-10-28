@@ -4,8 +4,14 @@ import useSeo from '../../hooks/useSeo.js'
 import useAuth from '../../hooks/useAuth.js'
 import ClubLogoUpload from '../../components/ClubLogoUpload.jsx'
 import { updateClub, deleteClub, transferOwnership } from '../../lib/clubs.js'
-import { sectionTitle, actionBtnClass, inputClass } from '../profil/fields.jsx'
+import {
+  panelClass, dangerPanelClass, panelTitle, dangerPanelTitle, formWidth, fieldLabel, fieldInput,
+  hintClass, errorClass, savedClass, btnPrimary, btnDanger, btnGhost,
+} from './settingsUi.js'
 import { useKlub } from './context.js'
+import PayoutDetails from './sections/PayoutDetails.jsx'
+import useOrganizerStatus from '../../hooks/useOrganizerStatus.js'
+import { organizerFeaturesShown } from '../../lib/organizerGate.js'
 
 // Club settings page. Edit form (name/slug/description/is_public + logo) is a
 // labeled rework of the old profil/club/ManagePanel.jsx EditClubSection
@@ -17,13 +23,12 @@ import { useKlub } from './context.js'
 // That file is deleted in a later task, so this page owns its own copy
 // rather than importing from it.
 
-const primaryBtnClass = 'font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed'
-const btnOk = `${actionBtnClass} border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`
-const btnGhost = `${actionBtnClass} border-apex-border text-apex-muted hover:text-apex-text-bright`
-const btnDanger = `${actionBtnClass} border-apex-red text-apex-red hover:bg-apex-red hover:text-apex-ink`
-
-const fieldLabel = 'block font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted mb-1'
-const fieldInput = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-base md:text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
+// "Dane do wypłat" only for a club with online registration switched on.
+function OrganizerPayout({ clubId, isOwner }) {
+  const { status } = useOrganizerStatus(clubId)
+  if (!organizerFeaturesShown(status)) return null
+  return <PayoutDetails clubId={clubId} isOwner={isOwner} />
+}
 
 function displayNameFor(m) {
   return m?.display_name || m?.nickname || 'Uczestnik anonimowy'
@@ -120,13 +125,13 @@ export default function Ustawienia() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <div className={sectionTitle}>Edytuj klub</div>
-        <div className="mb-4">
+    <div className="space-y-6 sm:space-y-8 max-w-3xl">
+      <section className={panelClass}>
+        <h2 className={panelTitle}>Klub</h2>
+        <div className="mb-6">
           <ClubLogoUpload clubId={club.id} currentUrl={club.logo_url} onUploaded={() => reload()} />
         </div>
-        <form onSubmit={save} className="space-y-3 max-w-sm">
+        <form onSubmit={save} className={`space-y-5 ${formWidth}`}>
           <div>
             <label htmlFor="club-name" className={fieldLabel}>Nazwa klubu</label>
             <input id="club-name" data-testid="edit-club-name" type="text" value={name}
@@ -137,19 +142,20 @@ export default function Ustawienia() {
               it repoints every published link and parks the old one forever. */}
           <div>
             <label htmlFor="club-slug" className={fieldLabel}>Adres klubu</label>
-            <div className="flex items-center gap-1">
-              <span className="font-mono text-xs text-apex-muted shrink-0">leszy.run/klub/</span>
+            <div className="flex items-stretch min-w-0 border border-apex-border-mid bg-apex-surface-2 opacity-70 cursor-not-allowed">
+              <span className="flex items-center font-mono text-sm text-apex-muted pl-3.5 shrink-0">leszy.run/klub/</span>
               <input id="club-slug" data-testid="edit-club-slug" type="text" value={club.slug}
-                readOnly disabled className={`${fieldInput} opacity-50 cursor-not-allowed`} />
+                readOnly disabled
+                className="flex-1 min-w-0 bg-transparent font-mono text-sm text-apex-text-bright py-2.5 pr-3.5 outline-none cursor-not-allowed" />
             </div>
-            <p className="font-sans text-[11px] text-apex-muted mt-1">
+            <p className={hintClass}>
               Adresu nie można zmienić. Napisz do nas, jeśli potrzebujesz zmiany.
             </p>
           </div>
           <div>
             <label htmlFor="club-description" className={fieldLabel}>Opis klubu</label>
             <textarea id="club-description" data-testid="edit-club-description" value={description}
-              onChange={(e) => setDescription(e.target.value)} rows={3}
+              onChange={(e) => setDescription(e.target.value)} rows={4}
               placeholder="Napisz kilka zdań o klubie — kto biega, skąd jesteście, jak dołączyć…"
               className={`${fieldInput} resize-none`} />
           </div>
@@ -158,79 +164,89 @@ export default function Ustawienia() {
               says why it does nothing. `isPublic` keeps the stored value, so
               saving anything else here does not silently flip it. */}
           <div>
-            <label className="flex items-center gap-2 opacity-50 cursor-not-allowed">
+            <label className="flex items-start gap-2.5 opacity-60 cursor-not-allowed">
               <input
                 data-testid="toggle-club-public"
                 type="checkbox"
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
                 disabled
-                className="accent-[#BBDD00]"
+                className="accent-[#BBDD00] w-4 h-4 mt-0.5 shrink-0"
               />
-              <span className="font-sans text-xs text-apex-text">Publiczna strona klubu widoczna dla wszystkich</span>
+              <span className="font-sans text-base font-medium text-apex-text leading-snug">Publiczna strona klubu widoczna dla wszystkich</span>
             </label>
-            <p className="font-sans text-[11px] text-apex-muted mt-1">
+            <p className={`${hintClass} pl-[26px]`}>
               Wkrótce — publiczna strona klubu jest w przygotowaniu.
             </p>
           </div>
-          {saveError && <p className="text-apex-red font-sans text-xs">{saveError}</p>}
-          <div className="flex items-center gap-2">
-            <button type="submit" data-testid="save-club" disabled={saving} className={primaryBtnClass}>
+          {saveError && <p className={errorClass}>{saveError}</p>}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button type="submit" data-testid="save-club" disabled={saving} className={btnPrimary}>
               {saving ? 'Zapisywanie…' : 'Zapisz zmiany'}
             </button>
-            {saved && <span className="font-mono text-xs text-apex-yellow">Zapisano</span>}
+            {saved && <span className={savedClass}>Zapisano</span>}
           </div>
         </form>
-      </div>
+      </section>
+
+      <OrganizerPayout clubId={club.id} isOwner={isOwner} />
 
       {isOwner && (
-        <div>
-          <div className={sectionTitle}>Przekaż własność</div>
+        <section className={panelClass}>
+          <h2 className={panelTitle}>Właściciel</h2>
           {club.pending_owner_id ? (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="flex-1 text-apex-text">
-                Oczekuje na akceptację: <strong>{nominee ? displayNameFor(nominee) : 'nowy właściciel'}</strong>
+            <div className={`flex flex-col sm:flex-row sm:items-center gap-3 ${formWidth}`}>
+              <span className="flex-1 min-w-0 font-sans text-base text-apex-text">
+                Oczekuje na akceptację: <strong className="text-apex-text-bright">{nominee ? displayNameFor(nominee) : 'nowy właściciel'}</strong>
               </span>
-              <button data-testid="cancel-nomination" onClick={cancelNomination} disabled={transferBusy} className={btnDanger}>
-                Anuluj nominację
-              </button>
+              <div>
+                <button data-testid="cancel-nomination" onClick={cancelNomination} disabled={transferBusy} className={btnDanger}>
+                  Anuluj nominację
+                </button>
+              </div>
             </div>
           ) : candidates.length === 0 ? (
-            <p className="font-sans text-xs text-apex-muted">Brak innych aktywnych członków do nominacji.</p>
+            <p className="font-sans text-base text-apex-muted">Brak innych aktywnych członków do nominacji.</p>
           ) : (
-            <div className="flex items-center gap-2">
-              <select
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                className={`${inputClass} appearance-none cursor-pointer max-w-xs`}
-              >
-                <option value="">— wybierz członka —</option>
-                {candidates.map((m) => (
-                  <option key={m.user_id} value={m.user_id}>{displayNameFor(m)}</option>
-                ))}
-              </select>
-              <button data-testid={target ? `nominate-${target}` : 'nominate'} onClick={nominate} disabled={transferBusy || !target} className={btnOk}>
-                Nominuj na właściciela
-              </button>
+            <div className={formWidth}>
+              <label htmlFor="club-transfer-target" className={fieldLabel}>Przekaż własność</label>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <select
+                  id="club-transfer-target"
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                  className={`${fieldInput} appearance-none cursor-pointer sm:flex-1`}
+                >
+                  <option value="">— wybierz członka —</option>
+                  {candidates.map((m) => (
+                    <option key={m.user_id} value={m.user_id}>{displayNameFor(m)}</option>
+                  ))}
+                </select>
+                <div>
+                  <button data-testid={target ? `nominate-${target}` : 'nominate'} onClick={nominate} disabled={transferBusy || !target} className={btnPrimary}>
+                    Nominuj na właściciela
+                  </button>
+                </div>
+              </div>
             </div>
           )}
-          {transferError && <p className="text-apex-red font-sans text-xs mt-1.5">{transferError}</p>}
-        </div>
+          {transferError && <p className={`${errorClass} mt-3`}>{transferError}</p>}
+        </section>
       )}
 
       {isOwner && (
-        <div>
-          <div className={sectionTitle}>Usuń klub</div>
+        <section className={dangerPanelClass}>
+          <h2 className={dangerPanelTitle}>Usuń klub</h2>
           {!confirming ? (
             <button data-testid="delete-club-btn" onClick={() => setConfirming(true)} className={btnDanger}>
               Usuń klub
             </button>
           ) : (
-            <div className="border border-apex-red p-3 max-w-sm">
-              <p className="font-sans text-xs text-apex-text mb-2">
+            <div className={formWidth}>
+              <p className="font-sans text-base text-apex-text-bright mb-4">
                 Usunięcie klubu «{club.name}» jest nieodwracalne. Wszyscy członkowie stracą przypisanie do klubu.
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-3">
                 <button data-testid="confirm-delete-club" onClick={doDelete} disabled={deleteBusy} className={btnDanger}>
                   {deleteBusy ? 'Usuwanie…' : 'Tak, usuń klub'}
                 </button>
@@ -238,8 +254,8 @@ export default function Ustawienia() {
               </div>
             </div>
           )}
-          {deleteError && <p className="text-apex-red font-sans text-xs mt-1.5">{deleteError}</p>}
-        </div>
+          {deleteError && <p className={`${errorClass} mt-3`}>{deleteError}</p>}
+        </section>
       )}
     </div>
   )

@@ -29,3 +29,6 @@ test-results/public-tests-e2e*
 
 # Local backup of race results changed by hand; holds personal data, never committed
 runs-backup.md
+supabase/.branches/
+supabase/.temp/
+tests/registration/test-results/

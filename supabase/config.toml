@@ -4,9 +4,11 @@
 # and `supabase functions deploy` (run by .github/workflows/supabase-release.yml
 # on push to main) target the right project.
 #
-# This repo does NOT run a local Supabase stack — only the CLI's link + migrations
-# + functions-deploy features are used. The one-time baseline is created by the
-# operator via `supabase db pull` (see docs/supabase-release-runbook.md).
+# Production uses only the CLI's link + migrations + functions-deploy features
+# (the one-time baseline was created via `supabase db pull`, see
+# docs/supabase-release-runbook.md). A LOCAL stack (`supabase start`, seeded by
+# supabase/seed.sql) is also used for the registration tests in
+# tests/registration/ — see its README. No sections here exist for it.
 project_id = "kojoxazlnxncrpxmnxiq"
 
 # --- Edge functions -----------------------------------------------------------
@@ -143,3 +145,23 @@ entrypoint = "./functions/update-profile/index.js"
 [functions.upload-club-logo]
 verify_jwt = false
 entrypoint = "./functions/upload-club-logo/index.js"
+
+[functions.organizer-status]
+verify_jwt = false
+entrypoint = "./functions/organizer-status/index.js"
+
+[functions.join-registration-waitlist]
+verify_jwt = false
+entrypoint = "./functions/join-registration-waitlist/index.js"
+
+[functions.accept-organizer-agreement]
+verify_jwt = false
+entrypoint = "./functions/accept-organizer-agreement/index.js"
+
+[functions.update-club-payout]
+verify_jwt = false
+entrypoint = "./functions/update-club-payout/index.js"
+
+[functions.get-club-payout]
+verify_jwt = false
+entrypoint = "./functions/get-club-payout/index.js"

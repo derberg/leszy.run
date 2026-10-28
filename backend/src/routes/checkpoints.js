@@ -1,4 +1,4 @@
-import { eq, inArray, and, desc, ne } from 'drizzle-orm'
+import { eq, inArray, and, desc, ne, isNull } from 'drizzle-orm'
 import { createClient } from '@supabase/supabase-js'
 import { checkpoints, checkpointCategories, checkpointObservations, raceRuns, categories, participants, results } from '../db/schema.js'
 import { syncDelete } from '../sync/supabase.js'
@@ -143,7 +143,7 @@ export async function checkpointsRoutes(fastify) {
     // Resolve participantId from bibNumber + eventId
     const [p] = await db.select({ id: participants.id, categoryId: participants.categoryId })
       .from(participants)
-      .where(and(eq(participants.eventId, checkpoint.eventId), eq(participants.bibNumber, bibNumber)))
+      .where(and(eq(participants.eventId, checkpoint.eventId), eq(participants.bibNumber, bibNumber), isNull(participants.removedAt)))
 
     // Insert observation (participantId may be null if bib not found — record it anyway)
     const [obs] = await db.insert(checkpointObservations).values({
@@ -243,7 +243,7 @@ export async function checkpointsRoutes(fastify) {
     // (volunteer may enter a bib from the wrong category by mistake)
     const categoryParticipants = await db.select({ id: participants.id })
       .from(participants)
-      .where(eq(participants.categoryId, run.categoryId))
+      .where(and(eq(participants.categoryId, run.categoryId), isNull(participants.removedAt)))
     const validParticipantIds = new Set(categoryParticipants.map(p => p.id))
 
     const filtered = rows.filter(o =>

@@ -53,6 +53,8 @@ This project is RODO/GDPR-compliant. Reference documents:
 
 **Admin actions:** every admin write (calendar event approval, club merge, contribution review, etc.) is logged to `admin_actions` table with admin_user_id, target, payload, ip, user_agent. Append-only, service_role only.
 
+**Organizer actions:** every organizer write (agreement acceptance, payout change, waitlist join) is logged to `organizer_actions` (`actor_id`, `club_id`, `event_id`, `action`, `target`, `payload`, `ip`, `user_agent`). Append-only, service_role only, written by `logOrganizerAction`. `export-my-data` returns the person's `organizer` block (agreements, actions, payout changes, waitlist requests). `delete-my-account` keeps `organizer_agreements` including ip and user agent (evidence of the contract, Art. 17(3)(e)), `club_payout_history` and `registration_waitlist`, and nulls `ip`/`user_agent` on the person's `organizer_actions` rows.
+
 **Club membership lifecycle log:** every join/leave/remove/role-change on a club is appended to `club_membership_log` (`club_id`, `user_id`, `event` — `joined`/`left`/`removed`/`role_changed`, `role`, `actor_id`, `occurred_at`). Append-only, service_role only — same access pattern as `admin_actions`, but scoped to club membership rather than admin actions.
 
 ## Race devices: read `readme-internal.md` first
@@ -153,6 +155,27 @@ The compose `backend`/`frontend` services sit behind `profiles: [docker]` — no
 by default. The scheduler's nightly pipeline runs each backend step as a one-shot
 container (`docker compose --profile docker run --rm backend …`), so after backend code
 changes rebuild its image: `docker compose --profile docker build backend`.
+
+## Registration test stack (local Supabase, never production)
+
+Online-registration tests live in `tests/registration/` and run against a local Supabase stack
+(`supabase start` + `supabase functions serve`). `localEnv()` refuses any URL that is not
+`http://127.0.0.1`; the older `supabase/functions/tests/` suite (production smoke) is not extended.
+Emails the functions send go to an email capture server on `:54399` (`helpers/emailCaptureServer.js`,
+`messagesTo` / `lastCodeFor`); `sessionFor(email)` logs a test user in without email. Playwright
+actors (`tests/registration/e2e/`) drive the public app against the same stack. Needs Docker and the
+Supabase CLI. Full instructions: [tests/registration/README.md](tests/registration/README.md).
+
+```bash
+node tests/registration/helpers/emailCaptureServer.js &
+tests/registration/start-stack.sh && supabase db reset && (supabase functions serve --env-file tests/registration/functions.env &)
+node --test --test-concurrency=1 "tests/registration/**/*.test.js" && npx playwright test -c tests/registration/playwright.config.js
+```
+
+CI runs the same steps (plus backend and public unit tests) in `.github/workflows/registration-tests.yml`
+on every pull request. Every scenario and the test that covers it is listed in
+[docs/registration/scenario-matrix.md](docs/registration/scenario-matrix.md): add a row for each new one.
+Never run the backend from a worktree against the Mac's real database or a production `SUPABASE_URL`.
 
 ## Environment variables
 
@@ -560,6 +583,17 @@ A `dns`, `dnf` or `dsq` result never gets a stored `position` or a place in the 
 
 A runner who came but will not start, because they handed the bib back, gets **Nie startuje** in the NS column of the participants table before the race. That calls `POST /api/participants/:id/withdraw`, and `DELETE` on the same path undoes it. It sets `participants.withdrawn_at`, and race start seeds their result as `dns`. Both calls answer 409 once the runner has a result in a race run that was not cancelled: during the race, the status is changed in `Przegląd trasy`. The detector ignores every crossing of a runner whose result is `dns`, so a returned bib near the gate gives nobody a start or a finish. This also covers a DNS set in `Przegląd trasy`, which a chip start used to overwrite.
 
+**`participants.removed_at`** is set only in Supabase (a runner removed from the online registration;
+the row is kept, a bib or emoji is never reused). A host treats the runner as absent: no result row at race
+start (`seedStatus` returns null), not in the detector start list (`startListFor`, at race start and when a
+restarted host reloads its active races in `lib/reloadActiveRaces.js`), SMS lists, roster, audit,
+gun-time backfill and manual `assign-gun-start` (reported in `skipped`), vision, checkpoint bib lookups or
+`epcMap`; participant counts exclude them, and `POST`/`DELETE /participants/:id/withdraw` of one answer 409
+(`PATCH /participants/:id` has no such guard). An event with `events.club_id`
+set is a registration event (`isRegistrationEvent` in `backend/src/lib/registrationGuards.js`): deleting it,
+its categories or its participants answers 409 locally. The Supabase trigger below is the authority.
+
+
 ## Race run lifecycle
 
 - `pending` → `active` (on start) → `finished` or `cancelled`
@@ -572,6 +606,43 @@ never propagated by the sync workers**, so the run must be removed on each host 
 Supabase or it reappears (and re-pushes). Invoke the `resetting-race-test-data` skill —
 it covers host enumeration, the `gate_events` `SET NULL` orphan trap, and what must
 survive (check-ins, participants, tag assignments, event config).
+
+## Online race registration (Plan 1, foundation)
+
+- **Delete refusal trigger** (`refuse_registration_event_deletes`, BEFORE DELETE) refuses deleting an event
+  that has a `registration_settings` row and its `categories`, `participants`, `checkins`,
+  `checkin_documents`, `checkpoints`, `race_runs` and `event_documents`. It also covers an old host's
+  `syncDeleteEvent`. Deliberately unguarded: `checkpoint_categories` (`pushCheckpointLinks` replaces a
+  checkpoint's links by delete + insert), `results`, `gate_crossings`, `checkpoint_observations` (resetting
+  race data must keep working). `delete-club` answers 409 for a club owning a registration event and
+  `merge_clubs` refuses a club that owns registration data.
+- **`clubs.registration_enabled`** (default false). For a disabled club `accept-organizer-agreement`,
+  `update-club-payout` and `get-club-payout` answer 404 (after the role check, so a non-member still gets 403
+  and cannot tell a disabled club from an enabled one). `organizer-status` and `join-registration-waitlist`
+  are deliberately not gated: they are how a disabled club learns its state and asks to be switched on. The
+  public app shows the payout form ("Dane do wypłat") and the agreement only when `organizer-status` says
+  `enabled: true` (`organizerFeaturesShown` in `public/src/lib/organizerGate.js`); a waitlisted or disabled
+  club sees the waitlist copy only. The ZATYRANI club (slug `zatyrani`) is enabled by the migration. Enable another club with
+  one statement, run only with the operator's confirmation per the database write safety rule:
+  `UPDATE clubs SET registration_enabled = true WHERE slug = '<slug>';`. Event authorization uses
+  `registration_settings.club_id` (immutable by trigger), never `events.club_id`.
+- **Organizer agreement.** The text is `public/src/legal/organizerAgreement.js` (draft in
+  `docs/legal/zapisy/umowa-organizatora.md`); the version constant exists in two places,
+  `ORGANIZER_AGREEMENT_VERSION` in `supabase/functions/_shared/organizer.js` and `version` in that file.
+  Bump both: `public/tests/unit/agreementVersion.test.js` fails otherwise. Only the club `owner` accepts;
+  a stale version answers 409. `organizer_agreements` is UNIQUE (club_id, version); a concurrent second
+  accept gets the existing row. **Bump `ORGANIZER_AGREEMENT_VERSION` (both places) when the agreement
+  text is finalised** (it still carries `[DO UZUPEŁNIENIA]`/`[DO WERYFIKACJI]` markers): an acceptance
+  stored now points at the draft, and only a new version makes every owner re-accept the final text.
+- **Organizer edge functions:** `organizer-status`, `join-registration-waitlist`,
+  `accept-organizer-agreement`, `update-club-payout` (owner only; writes through the `save_club_payout`
+  RPC, which takes a per-club advisory lock, updates the details and appends `club_payout_history` in one
+  transaction), `get-club-payout` (owner full, admin masked IBAN, member 403).
+- **Login refusal of a retired address** answers 403 `{ error: RETIRED_EMAIL_MESSAGE, code: 'email_retired' }`
+  from both `auth-request-code` and `auth-verify-code` (`_shared/deletedEmails.js`). Code verification and
+  session opening live in `_shared/verifyCode.js`; any form that logs a person in on the way must use it,
+  not a copy.
+
 
 ## Supabase project
 
@@ -601,6 +672,20 @@ everything descending from it: the edge-function suite seeds throwaway events in
 Supabase project, they outlive the 30 s poll, and once pulled the suite's own cleanup can never
 reach them again. Keep that marker in step with `E2E_MARKER` in `supabase/functions/tests/helpers.js`.
 
+**configSync host filter (online registration).** An event sold online has a `registration_settings`
+row (Supabase-only). A host pulls an event only when that row is absent (every pre-registration event:
+syncs as before) or `state <> 'draft'` AND `timing_mode = 'leszyrun'` (`hostSkipsEvent`). Drafts and
+`external`/`none` events are refused, with the same cascade as `[e2e-test]` data: their categories,
+participants, checkpoints, race_runs, results and event_documents are refused too. The refusal is
+recomputed on every poll and never remembered, so a draft skipped on poll 1 is pulled on the poll after
+it is published. Remote events are read first and `registration_settings` after them (`loadHostFilter`),
+so an event the read sees already has its settings visible. If the settings read fails (`settingsFailed`,
+logged as `[ConfigSync] registration_settings: …`), events already on this host keep syncing and unknown
+events wait one poll; a half-read settings map is discarded, never used. If the events read itself fails,
+the whole poll pulls nothing: a child row is never judged without a complete event decision. A host on code from before this
+filter pulls drafts, so update every host before the first club event is created.
+
+
 **Reverse sync — checkins (`src/sync/checkinSync.js`):** `checkins` and `checkin_documents`
 flow Supabase → local. The public self-service check-in page and volunteer app write directly
 to Supabase. A reverse sync worker polls Supabase every 30s and pulls new/updated checkin rows
@@ -620,6 +705,11 @@ local), so all check-in data has a single source of truth in Supabase.
 - `prepublish_verdicts` — what the pre-publish review proved about one field of one event (`absent-at-source` / `needs-human`), one row per source+source_id+field. Read by the review step to skip settled fields and by `GET /api/calendar-events` to explain blank columns in the admin queue.
 - `deleted_email_hashes` — SHA-256 of every deleted account's address, so the address cannot be re-registered. Holds no plaintext.
 - `club_slug_history` — former club slugs (old_slug → club_id) backing get-club's slug fallback. **Renaming a club's slug is no longer possible** (`update-club` returns 409, the field is read-only in Ustawienia) — for the same reason usernames cannot be renamed: it repoints every published link and parks the old address forever. The table stays because it still resolves the renames that already happened, and `create-club`'s `uniqueSlug` must keep refusing to reissue a parked slug. Someone who needs a different address writes in.
+- `registration_waitlist` — one row per club that asked to be switched on (`club_id` primary key); joining sends one operator email.
+- `organizer_agreements` — one row per accepted agreement (club, version, accepting user, ip, user agent).
+- `club_payout_details` / `club_payout_history` — a club's IBAN and NIP, and every change to them; written only by the `save_club_payout` RPC (SECURITY DEFINER, service_role).
+- `registration_settings` — per-event online registration settings (`club_id` immutable, `state`, `timing_mode`); read by configSync's host filter.
+- `organizer_actions` — append-only audit of organizer writes (see GDPR section). All six tables: RLS on, `REVOKE ALL … FROM anon, authenticated`.
 
 ## Supabase sync — how it works
 
@@ -657,6 +747,16 @@ dirty, will re-push next cycle)`. `__xmin` is stripped in `rowToSnake` so it nev
 reaches Supabase. The one deliberate exception is the `checkpoint_observations`
 23505 retirement path, which stamps unconditionally because that row is being retired
 rather than pushed.
+
+**Push excludes Supabase-owned columns** (`PUSH_EXCLUDED_COLUMNS` / `toPushRow` in `supabase.js`):
+`events.club_id`, `participants.registration_id`, `participants.removed_at`. Supabase sets them, hosts only
+pull them (configSync still maps them). A PostgREST upsert only updates the columns in the payload, so
+omitting them preserves Supabase's value; sending them would let a participant row that went dirty on a
+host before Supabase set `removed_at` push `NULL` and silently un-remove the runner. A new column that
+only Supabase writes goes in that map. The admin check-in's participant upsert (`checkinParticipantRow` in
+`backend/src/lib/checkinParticipantRow.js`) obeys the same map. The push's stale-category cleanup
+(`deleteStaleCategories`) skips registration events, whose category deletes the Supabase trigger refuses.
+
 
 **Rules when adding new tables or mutation paths:**
 - Every new table that syncs to Supabase needs a `trg_reset_synced_at_<table>` trigger added to the migration
