@@ -150,8 +150,8 @@ export default function Login() {
           </p>
           {step === 'code' && (
             <p data-testid="login-spam-hint" className="font-sans text-sm text-apex-text border-l-2 border-apex-yellow pl-3 -mt-5 mb-8">
-              Nie widzisz maila? Zajrzyj do spamu i zakładek typu Oferty, Promocje czy Newslettery,
-              albo wyszukaj w skrzynce <strong className="text-apex-text-bright">Leszy.run</strong>.
+              Nie widzisz maila? Zajrzyj do spamu i zakładek typu Oferty, Promocje czy Newslettery.
+              Przepraszamy za kłopot, ale nie mamy wpływu na to, gdzie Twoja skrzynka odłoży wiadomość od nas.
             </p>
           )}
 
