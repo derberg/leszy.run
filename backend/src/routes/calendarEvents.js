@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js'
-import { jaccardSimilarity, citiesMatch } from '../scrapers/dedup.js'
+import { groupDuplicates } from '../lib/duplicateGroups.js'
 import { logAdminAction } from '../lib/adminAudit.js'
 
 function capitalizeVoivodeship(s) {
@@ -28,21 +28,6 @@ export async function calendarEventsRoutes(fastify) {
       from += PAGE
     }
 
-    // Group by date
-    const byDate = {}
-    for (const e of allEvents) {
-      if (!byDate[e.date]) byDate[e.date] = []
-      byDate[e.date].push(e)
-    }
-
-    // Union-Find to cluster duplicates
-    const parent = {}
-    const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x] } return x }
-    const union = (a, b) => { parent[find(a)] = find(b) }
-
-    for (const e of allEvents) parent[e.id] = e.id
-
-    // Fetch dismissed pairs
     const { data: dismissed } = await supabase
       .from('dismissed_duplicates')
       .select('event_id_1, event_id_2')
@@ -53,45 +38,7 @@ export async function calendarEventsRoutes(fastify) {
       ])
     )
 
-    // Remove dismissed pairs from union-find by re-building without them
-    // Reset parent
-    for (const e of allEvents) parent[e.id] = e.id
-
-    for (const events of Object.values(byDate)) {
-      if (events.length < 2) continue
-      for (let i = 0; i < events.length; i++) {
-        for (let j = i + 1; j < events.length; j++) {
-          const a = events[i], b = events[j]
-          if (dismissedSet.has(`${a.id}:${b.id}`)) continue
-
-          // Tiered match. This is a manual-review tab — false positives are
-          // dismissable, missed duplicates are not — so the same-city bar is
-          // deliberately low (0.15). Real duplicates cluster at jaccard
-          // 0.25–0.33 (one name is a short variant of the other, e.g.
-          // "Wataha 7 km" vs "Wataha 7 km Nordic Walking"), so a single
-          // 0.35 cutoff silently hid every duplicate. The 0.6 location-
-          // independent tier catches mis-geocoded same-event pairs.
-          const sim = jaccardSimilarity(a.name, b.name)
-          const locMatch = citiesMatch(a.location, b.location)
-          if (sim > 0.6) { union(a.id, b.id); continue }
-          if (locMatch && sim > 0.35) { union(a.id, b.id); continue }
-          if (locMatch && sim > 0.15) { union(a.id, b.id); continue }
-        }
-      }
-    }
-
-    // Build clusters
-    const filteredClusters = {}
-    for (const e of allEvents) {
-      const root = find(e.id)
-      if (!filteredClusters[root]) filteredClusters[root] = []
-      filteredClusters[root].push(e)
-    }
-
-    // Return only clusters with 2+ events
-    const groups = Object.values(filteredClusters)
-      .filter(g => g.length > 1)
-      .sort((a, b) => a[0].date.localeCompare(b[0].date))
+    const groups = groupDuplicates(allEvents, dismissedSet)
 
     return { data: groups }
   })
