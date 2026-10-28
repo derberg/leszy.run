@@ -627,6 +627,7 @@ survive (check-ins, participants, tag assignments, event config).
   one statement, run only with the operator's confirmation per the database write safety rule:
   `UPDATE clubs SET registration_enabled = true WHERE slug = '<slug>';`. Event authorization uses
   `registration_settings.club_id` (immutable by trigger), never `events.club_id`.
+- **Operator tasks** (waitlist, status, enable/disable a club, new agreement version): invoke the `registration-operator` skill (`.claude/skills/registration-operator/SKILL.md`).
 - **Organizer agreement.** The text is `public/src/legal/organizerAgreement.js` (draft in
   `docs/legal/zapisy/umowa-organizatora.md`); the version constant exists in two places,
   `ORGANIZER_AGREEMENT_VERSION` in `supabase/functions/_shared/organizer.js` and `version` in that file.
