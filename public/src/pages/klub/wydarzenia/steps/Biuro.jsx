@@ -9,19 +9,27 @@ const num = (v) => (v == null ? null : Number(v))
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 let rowSeq = 0
-const row = (h = {}) => ({ key: ++rowSeq, date: h.date ?? '', from: h.from ?? '', to: h.to ?? '' })
+// `saved`: the row's last whole value (as loaded, or as last sent). A saved
+// row being edited keeps that value on the server until the edit is whole.
+const row = (h = {}, saved = null) => ({ key: ++rowSeq, date: h.date ?? '', from: h.from ?? '', to: h.to ?? '', saved })
+const savedRow = (h) => row(h, { date: h.date, from: h.from, to: h.to })
+
+const blankRow = (r) => !r.date && !r.from && !r.to
 
 function rowError(r) {
   if (TIME_RE.test(r.from) && TIME_RE.test(r.to) && r.to <= r.from) return 'Godzina zamknięcia musi być po otwarciu.'
+  // A new row prefilled with a date only is not an error yet; a row being typed into is.
+  const started = r.saved || r.from || r.to
+  if (started && !blankRow(r) && !(r.date && TIME_RE.test(r.from) && TIME_RE.test(r.to))) return 'Podaj dzień i obie godziny.'
   return null
 }
-const complete = (r) => r.date && TIME_RE.test(r.from) && TIME_RE.test(r.to) && !rowError(r)
+const complete = (r) => !!r.date && TIME_RE.test(r.from) && TIME_RE.test(r.to) && !rowError(r)
 
 const orNull = (v) => (v === '' ? null : v)
 
 // The office section as save-registration-section takes it. Hours are the
-// whole list; a row still being typed (or with closing before opening) stays
-// on screen and out of the save until it is whole.
+// whole list: a whole row as it is now, a saved row mid-edit as it was last
+// saved (never deleted by a half-typed edit), a new unfinished row not at all.
 function officeValue(f, rows) {
   return {
     sameAsEvent: f.sameAsEvent,
@@ -29,9 +37,12 @@ function officeValue(f, rows) {
     notes: orNull(f.notes),
     lat: f.lat,
     lng: f.lng,
-    hours: rows.filter(complete).map(({ date, from, to }) => ({ date, from, to })),
+    hours: rows.map((r) => (complete(r) ? { date: r.date, from: r.from, to: r.to } : r.saved)).filter(Boolean),
   }
 }
+
+// Whole rows become the saved value for later half-edits.
+const settle = (rows) => rows.map((r) => (complete(r) ? { ...r, saved: { date: r.date, from: r.from, to: r.to } } : r))
 
 export default function Biuro({ event, queue, saveState, readOnly }) {
   const s = event.settings
@@ -42,12 +53,13 @@ export default function Biuro({ event, queue, saveState, readOnly }) {
     lat: num(s.officeLat),
     lng: num(s.officeLng),
   }))
-  const [rows, setRows] = useState(() => (event.officeHours ?? []).map(row))
+  const [rows, setRows] = useState(() => (event.officeHours ?? []).map(savedRow))
   const [localErrors, setLocalErrors] = useState({})
   const latest = useRef({ form, rows })
   const errors = { ...sectionErrors(saveState, 'office'), ...localErrors }
 
-  function apply(nextForm, nextRows) {
+  function apply(nextForm, rowsIn) {
+    const nextRows = settle(rowsIn)
     latest.current = { form: nextForm, rows: nextRows }
     setForm(nextForm)
     setRows(nextRows)

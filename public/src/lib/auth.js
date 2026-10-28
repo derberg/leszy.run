@@ -32,12 +32,18 @@ export function clearCachedUser() {
   try { localStorage.removeItem(USER_CACHE_KEY) } catch { /* ignore */ }
 }
 
-async function callEdge(name, body) {
+// Browsers cap the bodies of all in-flight keepalive requests at 64 KB together.
+const KEEPALIVE_MAX_BYTES = 60_000
+
+async function callEdge(name, body, { keepalive = false } = {}) {
+  const payload = JSON.stringify(body)
   const res = await fetch(`${FUNCTIONS_BASE}/${name}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify(body),
+    body: payload,
+    // keepalive lets a save started while the page unloads finish.
+    keepalive: keepalive && payload.length < KEEPALIVE_MAX_BYTES,
   })
   const data = await res.json()
   if (!res.ok) {
@@ -88,6 +94,6 @@ export async function getMe() {
   return user
 }
 
-export async function callFunction(name, body) {
-  return callEdge(name, body)
+export async function callFunction(name, body, options) {
+  return callEdge(name, body, options)
 }

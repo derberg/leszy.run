@@ -33,12 +33,22 @@ export default function useRegistrationEvent(eventId) {
 
   useEffect(() => { fetchEvent() }, [fetchEvent])
 
-  // Leaving the editor or the tab saves what is queued.
+  // Leaving the editor or the tab saves what is queued (keepalive requests
+  // survive the unload). While anything is unsaved, a reload or close asks
+  // first, so an edit typed a moment before is not lost silently.
   useEffect(() => {
     const onHide = () => { if (document.visibilityState === 'hidden') autosave.flush() }
+    const onBeforeUnload = (e) => {
+      if (!autosave.hasPending()) return
+      autosave.flush()
+      e.preventDefault()
+      e.returnValue = ''
+    }
     document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('beforeunload', onBeforeUnload)
     return () => {
       document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('beforeunload', onBeforeUnload)
       autosave.flush()
     }
   }, [autosave])

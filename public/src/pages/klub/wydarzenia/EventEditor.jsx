@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import useSeo from '../../../hooks/useSeo.js'
 import useRegistrationEvent from '../../../hooks/useRegistrationEvent.js'
@@ -12,6 +13,20 @@ import Biuro from './steps/Biuro.jsx'
 // arrive with the rest of the wizard.
 
 const STEP_COMPONENTS = { podstawy: Podstawy, biuro: Biuro }
+
+// The section each step saves (steps 3–6 arrive with the rest of the wizard).
+const SECTIONS_OF = { podstawy: 'basics', biuro: 'office', konkurencje: 'competitions', kategorie: 'categories', pomiar: 'timing', formularz: 'form' }
+
+const SECTION_STEP = {
+  basics: 'Podstawy', office: 'Biuro zawodów', competitions: 'Konkurencje',
+  categories: 'Kategorie', timing: 'Pomiar czasu', form: 'Formularz',
+}
+
+/** „Nie zapisano: Podstawy — Ten adres jest już zajęty.” */
+function unsavedMessage(error) {
+  const detail = error.fields ? Object.values(error.fields).join(' ') : error.message
+  return `Nie zapisano: ${SECTION_STEP[error.section] ?? error.section} — ${detail}`
+}
 
 const warsawTime = new Intl.DateTimeFormat('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
@@ -74,6 +89,7 @@ function Editor({ eventId, stepParam }) {
   const { club } = useKlub()
   const navigate = useNavigate()
   const { ready, event, notFound, error, saveState, queue, flush, reload } = useRegistrationEvent(eventId)
+  const [blocked, setBlocked] = useState(false) // a step change refused because something did not save
   const back = `/klub/${club.slug}/wydarzenia`
   const base = `${back}/${eventId}`
 
@@ -90,6 +106,8 @@ function Editor({ eventId, stepParam }) {
   }
   if (notFound) return <NotFoundBlock back={back} />
   if (!event) return <p className="text-apex-red font-sans text-sm">{error}</p>
+  // An event of another club opened under this club's address.
+  if (event.settings.clubId !== club.id) return <NotFoundBlock back={back} />
 
   const current = stepParam ?? 'podstawy'
   const steps = wizardSteps({
@@ -106,7 +124,12 @@ function Editor({ eventId, stepParam }) {
   const StepBody = STEP_COMPONENTS[current]
 
   async function go(key) {
-    await flush()
+    // Leaving a step with an unsaved value would hide its error: stay and say what failed.
+    if (!(await flush())) {
+      setBlocked(true)
+      return
+    }
+    setBlocked(false)
     navigate(`${base}/${key}`)
     window.scrollTo(0, 0)
   }
@@ -121,8 +144,10 @@ function Editor({ eventId, stepParam }) {
         </div>
         <SaveStatus settings={event.settings} saveState={saveState} />
       </div>
-      {saveState.error && !saveState.error.fields && (
-        <p className="text-apex-red font-sans text-sm">{saveState.error.message}</p>
+      {saveState.error && (saveState.error.section !== SECTIONS_OF[current] || !saveState.error.fields || blocked) && (
+        <p role="alert" data-testid="unsaved" className="border border-apex-red px-3.5 py-2.5 text-apex-red font-sans text-sm">
+          {unsavedMessage(saveState.error)}
+        </p>
       )}
 
       <Stepper steps={steps} current={current} base={base} onGo={go} />

@@ -125,6 +125,19 @@ test('W-25 owner creates an event, fills Podstawy and Biuro zawodów, and a relo
   await expect(page.getByTestId('regulamin-file')).toBeVisible()
   await expect(page.getByTestId('poster-file')).toHaveText('plakat-leszy.png')
 
+  // An edit typed just before a reload is not lost: the page asks first
+  // (beforeunload) and the save it starts outlives the unload (keepalive).
+  const dialogs = []
+  page.on('dialog', (d) => { dialogs.push(d.type()); d.accept() })
+  await page.getByLabel('Szczegóły miejsca').fill('Boisko LKS, ul. Szkolna 12. Wejście od parku.')
+  await page.reload()
+  expect(dialogs.every((t) => t === 'beforeunload')).toBe(true)
+  await expect.poll(async () => (await settingsOf(eventId)).place_details, { timeout: 15_000 })
+    .toBe('Boisko LKS, ul. Szkolna 12. Wejście od parku.')
+  await page.reload()
+  await expect(page.getByLabel('Szczegóły miejsca')).toHaveValue('Boisko LKS, ul. Szkolna 12. Wejście od parku.')
+  page.removeAllListeners('dialog')
+
   // A2b: Biuro zawodów. Podstawy has no gaps left, so it is ticked.
   await page.getByRole('button', { name: 'Dalej: biuro zawodów' }).click()
   await expect(page).toHaveURL(new RegExp(`/wydarzenia/${eventId}/biuro$`))

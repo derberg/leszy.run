@@ -1,17 +1,24 @@
 // Autosave for the registration wizard: one pending value per section (the
 // latest wins), each section saved on its own timer, never two saves of one
 // section at once. A failed save keeps its value queued and surfaces the
-// error; the next queue() or flush() retries it. There is no automatic retry
-// loop: a 422 would only fail again until the organizer changes the value.
+// error; the next queue() or flush() retries it. A failure that is not a
+// refusal of the value (network, 5xx) is also retried on its own after
+// 2 s, 5 s and 15 s. A 4xx is not: it would only fail again until the
+// organizer changes the value.
 //
-// createAutosave({ save, delayMs }) → { queue, flush, hasPending, subscribe, dispose, state }
+// createAutosave({ save, delayMs, retryDelaysMs }) → { queue, flush, hasPending, subscribe, dispose, state }
 //   state: { savingSections: string[], savedAt: Date|null, error: { section, message, fields }|null }
 
-export function createAutosave({ save, delayMs = 1500 }) {
+const RETRY_DELAYS_MS = [2000, 5000, 15000]
+
+const retryable = (err) => !(err?.status >= 400 && err?.status < 500)
+
+export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DELAYS_MS }) {
   const pending = new Map() // section → latest unsaved value
   const timers = new Map() // section → timeout id
   const running = new Map() // section → promise of the save in flight
   const errors = new Map() // section → { section, message, fields }
+  const attempts = new Map() // section → automatic retries used since the last success
   const listeners = new Set()
   let savedAt = null
   let state = snapshot()
@@ -37,10 +44,16 @@ export function createAutosave({ save, delayMs = 1500 }) {
       try {
         await save(section, value)
         errors.delete(section)
+        attempts.delete(section)
         savedAt = new Date()
       } catch (err) {
         if (!pending.has(section)) pending.set(section, value)
         errors.set(section, { section, message: err?.message ?? 'Nie udało się zapisać.', fields: err?.fields ?? null })
+        const used = attempts.get(section) ?? 0
+        if (retryable(err) && used < retryDelaysMs.length && !timers.has(section)) {
+          attempts.set(section, used + 1)
+          schedule(section, retryDelaysMs[used])
+        }
       }
     })()
     running.set(section, attempt)
@@ -50,13 +63,18 @@ export function createAutosave({ save, delayMs = 1500 }) {
     emit()
   }
 
-  function queue(section, value) {
-    pending.set(section, value)
+  function schedule(section, ms) {
     clearTimeout(timers.get(section))
     timers.set(section, setTimeout(() => {
       timers.delete(section)
       run(section)
-    }, delayMs))
+    }, ms))
+  }
+
+  function queue(section, value) {
+    pending.set(section, value)
+    attempts.delete(section)
+    schedule(section, delayMs)
   }
 
   /** Saves everything queued now. Resolves true when nothing failed. */

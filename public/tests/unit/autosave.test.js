@@ -134,4 +134,39 @@ test('dispose drops a queued save', async (t) => {
   assert.equal(calls.length, 0)
 })
 
+test('a network or server failure is retried on its own after 2 s, 5 s and 15 s, a 422 is not', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const calls = []
+  const save = async (section, value) => {
+    calls.push(value)
+    const err = new Error(value.status === 422 ? 'Zła wartość.' : 'Błąd serwera.')
+    err.status = value.status
+    throw err
+  }
+  const autosave = createAutosave({ save, delayMs: 1500 })
+
+  autosave.queue('basics', { status: 500 })
+  t.mock.timers.tick(1500)
+  await settle()
+  assert.equal(calls.length, 1)
+  for (const [wait, expected] of [[2000, 2], [5000, 3], [15000, 4]]) {
+    t.mock.timers.tick(wait - 1)
+    await settle()
+    assert.equal(calls.length, expected - 1)
+    t.mock.timers.tick(1)
+    await settle()
+    assert.equal(calls.length, expected)
+  }
+  t.mock.timers.tick(60000)
+  await settle()
+  assert.equal(calls.length, 4, 'three retries, then it waits for the next edit')
+
+  autosave.queue('office', { status: 422 })
+  t.mock.timers.tick(1500)
+  await settle()
+  t.mock.timers.tick(60000)
+  await settle()
+  assert.equal(calls.filter((c) => c.status === 422).length, 1)
+})
+
 mock.reset()

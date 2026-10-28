@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { slugify } from '@registration/slug.js'
 import { validateSection } from '@registration/sections.js'
 import TownSearch from '../../../../components/registration/TownSearch.jsx'
@@ -39,9 +39,11 @@ function initialForm(s) {
 const orNull = (v) => (v === '' ? null : v)
 
 // The whole basics section as save-registration-section takes it. The slug
-// goes only when it differs from the stored one (a taken slug must not hold
-// back every other field), and the registration window only as a pair.
-function basicsValue(f, { state, savedSlug }) {
+// goes only when it differs from the stored one and is not the one the
+// server just refused as taken: save_registration_section applies the
+// section in one transaction, so a refused slug would hold back every other
+// basics field with it. The registration window goes only as a pair.
+function basicsValue(f, { state, savedSlug, refusedSlug }) {
   const value = {
     name: f.name,
     eventDate: orNull(f.eventDate),
@@ -59,7 +61,7 @@ function basicsValue(f, { state, savedSlug }) {
     regulaminUploadId: f.regulaminUploadId,
     posterUploadId: f.posterUploadId,
   }
-  if (state === 'draft' && f.slug !== savedSlug) value.slug = f.slug
+  if (state === 'draft' && f.slug !== savedSlug && f.slug !== refusedSlug) value.slug = f.slug
   if (!!f.opensOn === !!f.closesOn) {
     value.opensOn = orNull(f.opensOn)
     value.closesOn = orNull(f.closesOn)
@@ -100,14 +102,35 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload }) 
   const isDraft = settings.state === 'draft'
   const uploads = new Map((event.uploads ?? []).map((u) => [u.id, u]))
 
+  // A slug the server refused (taken) or the shape check refuses: shown under
+  // the field until it changes, and left out of the saves meanwhile.
+  const refusedRef = useRef(null) // { slug, message }
+
   function apply(next) {
     formRef.current = next
     setForm(next)
-    const value = basicsValue(next, { state: settings.state, savedSlug: settings.slug })
-    const result = validateSection('basics', value, { state: settings.state })
-    setLocalErrors(result.ok ? {} : result.errors)
+    const ctx = { state: settings.state }
+    const refused = refusedRef.current?.slug === next.slug ? refusedRef.current : null
+    let value = basicsValue(next, { state: settings.state, savedSlug: settings.slug, refusedSlug: refused?.slug })
+    let result = validateSection('basics', value, ctx)
+    let slugError = refused?.message ?? null
+    if (!result.ok && result.errors.slug && 'slug' in value) {
+      slugError = result.errors.slug
+      const { slug: _dropped, ...rest } = value
+      value = rest
+      result = validateSection('basics', value, ctx)
+    }
+    setLocalErrors({ ...(result.ok ? {} : result.errors), ...(slugError ? { slug: slugError } : {}) })
     if (result.ok) queue('basics', value)
   }
+
+  // The server refused the slug: save everything else without it.
+  const serverSlugError = saveState.error?.section === 'basics' ? saveState.error.fields?.slug : null
+  useEffect(() => {
+    if (!serverSlugError || formRef.current.slug === settings.slug) return
+    refusedRef.current = { slug: formRef.current.slug, message: serverSlugError }
+    apply(formRef.current)
+  }, [serverSlugError]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (field) => (e) => {
     const v = e?.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e
@@ -161,7 +184,7 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload }) 
 
   return (
     <fieldset disabled={readOnly} className="space-y-8 min-w-0">
-      <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,160px),1fr))] items-end">
+      <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] items-end">
         <div className="col-span-full">
           <label htmlFor="ev-name" className={fieldLabel}>Nazwa</label>
           <input id="ev-name" className={fieldInput} value={form.name} onChange={set('name')} />

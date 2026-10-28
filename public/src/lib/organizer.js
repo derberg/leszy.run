@@ -44,7 +44,8 @@ export async function getRegistrationEvent(eventId) {
 
 /** Throws with `fields` (422) when the server refuses a value. */
 export async function saveRegistrationSection(eventId, section, value) {
-  return (await callFunction('save-registration-section', { eventId, section, value })).data
+  // keepalive: an autosave flushed as the tab closes or reloads still arrives.
+  return (await callFunction('save-registration-section', { eventId, section, value }, { keepalive: true })).data
 }
 
 /** Poster: an already resized JPEG as a data URL. → { uploadId, url, meta } */
