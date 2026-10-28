@@ -1,5 +1,5 @@
-import { pgTable, uuid, text, integer, real, boolean, timestamp, bigint, jsonb, unique, date, numeric, doublePrecision } from 'drizzle-orm/pg-core'
-import { relations } from 'drizzle-orm'
+import { pgTable, uuid, text, integer, real, boolean, timestamp, bigint, jsonb, unique, date, numeric, doublePrecision, uniqueIndex } from 'drizzle-orm/pg-core'
+import { relations, sql } from 'drizzle-orm'
 
 export const events = pgTable('events', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -29,6 +29,8 @@ export const events = pgTable('events', {
   publicResultsUrl: text('public_results_url'),
   eventUrl: text('event_url'),
   visibility: text('visibility').notNull().default('private'),  // 'private' | 'public'
+  // Owning club. `clubs` lives only in Supabase, so there is no local foreign key.
+  clubId: uuid('club_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
 })
@@ -63,6 +65,10 @@ export const participants = pgTable('participants', {
   tshirtSize: text('tshirt_size'),
   // Set when the runner came but will not start. Their result is DNS and their tag is ignored.
   withdrawnAt: timestamp('withdrawn_at', { withTimezone: true }),
+  // The online registration this row came from (Supabase `registrations`, no local FK). Unique when set.
+  registrationId: uuid('registration_id'),
+  // Set when the registration was cancelled or refunded after the row reached this host.
+  removedAt: timestamp('removed_at', { withTimezone: true }),
   updatedAt: timestamp('updated_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
@@ -70,6 +76,7 @@ export const participants = pgTable('participants', {
 }, (t) => [
   unique().on(t.eventId, t.rfidEpc),
   unique().on(t.eventId, t.bibNumber),
+  uniqueIndex('participants_registration_id_unique').on(t.registrationId).where(sql`${t.registrationId} IS NOT NULL`),
 ])
 
 export const raceRuns = pgTable('race_runs', {
