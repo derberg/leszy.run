@@ -623,9 +623,9 @@ survive (check-ins, participants, tag assignments, event config).
   are deliberately not gated: they are how a disabled club learns its state and asks to be switched on. The
   public app shows the payout form ("Dane do wypłat") and the agreement only when `organizer-status` says
   `enabled: true` (`organizerFeaturesShown` in `public/src/lib/organizerGate.js`); a waitlisted or disabled
-  club sees the waitlist copy only. The ZATYRANI club (slug `zatyrani`) is enabled by the migration. Enable another club with
-  one statement, run only with the operator's confirmation per the database write safety rule:
-  `UPDATE clubs SET registration_enabled = true WHERE slug = '<slug>';`. Event authorization uses
+  club sees the waitlist copy only. The ZATYRANI club (slug `zatyrani`) is enabled by the migration. Enable or disable another club
+  only through the `registration-operator` skill: one row filtered by id, after the operator's explicit
+  confirmation, with an `admin_actions` audit row. Event authorization uses
   `registration_settings.club_id` (immutable by trigger), never `events.club_id`.
 - **Operator tasks** (waitlist, status, enable/disable a club, new agreement version): invoke the `registration-operator` skill (`.claude/skills/registration-operator/SKILL.md`).
 - **Organizer agreement.** The text is `public/src/legal/organizerAgreement.js` (draft in

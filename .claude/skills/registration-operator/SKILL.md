@@ -1,6 +1,6 @@
 ---
 name: registration-operator
-description: Use when the LeszyRun operator asks about online race registration (zapisy) for clubs — "who is on the waitlist", "which clubs have zapisy", "has <club> accepted the agreement", "are payout details in", "enable / switch on zapisy for <club>", "disable <club>", "new agreement version". Covers the read-only status queries, the confirmed one-row enable/disable write with its admin_actions audit row, and the PR procedure for a new organizer agreement version.
+description: Use when the LeszyRun operator asks about online race registration (zapisy) for clubs — "who is on the waitlist", "which clubs have zapisy", "has <club> accepted the agreement", "are payout details in", "enable / switch on zapisy for <club>", "disable <club>", "new agreement version", „kto czeka na zapisy", „lista oczekujących", „status zapisów klubów", „włącz zapisy klubowi", „wyłącz zapisy", „nowa wersja umowy organizatora". Covers the read-only status queries, the confirmed one-row enable/disable write with its admin_actions audit row, and the PR procedure for a new organizer agreement version.
 ---
 
 # Registration operator
@@ -100,9 +100,10 @@ reaches the terminal:
 SELECT c.id, c.name, c.slug, o.username AS owner,
        a.version AS latest_agreement, a.accepted_at,
        (d.club_id IS NOT NULL) AS has_payout,
-       CASE WHEN d.iban IS NULL THEN NULL ELSE
-         left(regexp_replace(d.iban, '\s', '', 'g'), 4) || ' … ' ||
-         right(regexp_replace(d.iban, '\s', '', 'g'), 4) END AS iban_masked,
+       CASE WHEN d.iban IS NULL THEN NULL
+            WHEN length(regexp_replace(d.iban, '\s', '', 'g')) < 12 THEN '••••'
+            ELSE left(regexp_replace(d.iban, '\s', '', 'g'), 4) || ' … ' ||
+                 right(regexp_replace(d.iban, '\s', '', 'g'), 4) END AS iban_masked,
        d.updated_at AS payout_updated_at
 FROM clubs c
 LEFT JOIN profiles o ON o.id = c.owner_id
@@ -117,6 +118,9 @@ ORDER BY c.name;
 Compare `latest_agreement` with the current version and report "aktualna" or
 "nieaktualna (<version>)" or "brak".
 
+A stored value shorter than 12 characters prints only `••••`: first four plus
+last four of a short string would show most of it.
+
 With curl, PostgREST cannot mask, so the IBAN is masked by a filter before
 anything is printed. Never run the payout GET without the filter:
 
@@ -126,7 +130,7 @@ curl -s "$SUPABASE_URL/rest/v1/organizer_agreements?select=club_id,version,accep
 curl -s "$SUPABASE_URL/rest/v1/club_payout_details?select=club_id,iban,updated_at&club_id=in.(<CLUB_IDS>)" "${AUTH[@]}" \
   | python3 -c "import sys,json
 for r in json.load(sys.stdin):
-    i=''.join((r.pop('iban') or '').split()); r['iban_masked']=f'{i[:4]} … {i[-4:]}' if i else None; print(r)"
+    i=''.join((r.pop('iban') or '').split()); r['iban_masked']=(f'{i[:4]} … {i[-4:]}' if len(i)>=12 else '••••') if i else None; print(r)"
 ```
 
 Recent activity, **dates and action names only, no values**:
@@ -171,7 +175,11 @@ Do not select `organizer_actions.payload`/`ip`/`user_agent` or
      -H "Content-Type: application/json" -H "Prefer: return=representation" \
      -d '{"registration_enabled": true}'
    ```
-   SQL equivalent: `UPDATE clubs SET registration_enabled = true WHERE id = '<CLUB_ID>' RETURNING id, slug, registration_enabled;`
+   SQL equivalent: `UPDATE clubs SET registration_enabled = true WHERE id = '<CLUB_ID>' AND registration_enabled = false RETURNING id, slug, registration_enabled;`
+
+   **If the response is `[]` (or the SQL returns no row), nothing changed: stop,
+   write NO `admin_actions` row**, re-read the club and report its current state.
+   The audit row records a change that happened, never an attempt.
 5. **Audit row** in `admin_actions` (columns: `admin_user_id`, `action`,
    `target_table`, `target_id`, `payload`, `ip_inet`, `user_agent`):
    ```bash
@@ -204,7 +212,9 @@ read back), with these differences:
   ```
   Any row returned: stop, list the event ids and states, change nothing.
 - Write `{"registration_enabled": false}` with filter
-  `id=eq.<CLUB_ID>&registration_enabled=is.true`.
+  `id=eq.<CLUB_ID>&registration_enabled=is.true`; SQL equivalent:
+  `UPDATE clubs SET registration_enabled = false WHERE id = '<CLUB_ID>' AND registration_enabled = true RETURNING id, slug, registration_enabled;`.
+  An empty response means nothing changed: stop, no `admin_actions` row.
 - Audit `action` is `registration_disabled`.
 - Effect to state: `accept-organizer-agreement`, `update-club-payout` and
   `get-club-payout` answer 404 for this club; its agreement rows and payout
