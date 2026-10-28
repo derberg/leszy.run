@@ -157,3 +157,7 @@ entrypoint = "./functions/join-registration-waitlist/index.js"
 [functions.accept-organizer-agreement]
 verify_jwt = false
 entrypoint = "./functions/accept-organizer-agreement/index.js"
+
+[functions.update-club-payout]
+verify_jwt = false
+entrypoint = "./functions/update-club-payout/index.js"
