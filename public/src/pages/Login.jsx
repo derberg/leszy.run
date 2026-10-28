@@ -148,6 +148,12 @@ export default function Login() {
               ? 'Podaj email — wyślemy Ci kod logowania.'
               : `Podaj 6-cyfrowy kod wysłany na ${email}.`}
           </p>
+          {step === 'code' && (
+            <p data-testid="login-spam-hint" className="font-sans text-sm text-apex-text border-l-2 border-apex-yellow pl-3 -mt-5 mb-8">
+              Nie widzisz maila? Zajrzyj do spamu i zakładek typu Oferty, Promocje czy Newslettery,
+              albo wyszukaj w skrzynce <strong className="text-apex-text-bright">Leszy.run</strong>.
+            </p>
+          )}
 
           {step === 'email' ? (
             <form onSubmit={handleEmailSubmit} className="space-y-5">
