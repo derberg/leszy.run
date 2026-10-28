@@ -100,7 +100,10 @@ export default function Wydarzenia() {
 
       {!ready && <p className="font-mono text-sm text-apex-muted animate-pulse">Ładowanie…</p>}
       {ready && error && <p className="text-apex-red font-sans text-xs">{error}</p>}
-      {status && !organizerFeaturesShown(status) && (
+      {status && step === null && (
+        <p data-testid="member-no-events" className="font-sans text-sm text-apex-text">Ten klub jeszcze nie organizuje żadnych wydarzeń.</p>
+      )}
+      {status && step !== null && !organizerFeaturesShown(status) && (
         <WaitlistCard club={club} status={status} canJoin={step === 'waitlist'} onJoined={reload} />
       )}
       {step === 'agreement' && <AgreementCard club={club} isOwner={isOwner} version={status.version} />}

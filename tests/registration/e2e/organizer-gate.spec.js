@@ -27,15 +27,23 @@ async function open(context, path) {
   return page
 }
 
-test('F-20 inny-klub: waitlist copy for everyone, the admin joins, the operator is emailed', async ({ actors }) => {
+test('F-20 inny-klub: a member sees one line, the admin sees the waitlist copy and joins, the operator is emailed', async ({ actors }) => {
   const member = await open(actors.innyMember, '/klub/inny-klub/wydarzenia')
-  await expect(member.getByRole('heading', { name: 'Zapisy online na LESZY.RUN' })).toBeVisible()
-  await expect(member.getByText('Organizujesz zawody? Niedługo przeprowadzisz je tutaj od początku do końca: zapisy, płatności, lista startowa i pomiar czasu.')).toBeVisible()
-  await expect(member.getByText('Na razie włączamy zapisy klubom po kolei. Płatności i obsługa zawodów to realne koszty, a LESZY.RUN prowadzi mały zespół, więc najpierw chcemy mieć pewność, że wszystko działa, jak trzeba.')).toBeVisible()
-  await expect(member.getByTestId('waitlist').getByRole('link', { name: '+48 784 640 977' })).toHaveAttribute('href', 'tel:+48784640977')
+  await expect(member.getByText('Ten klub jeszcze nie organizuje żadnych wydarzeń.')).toBeVisible()
+  await expect(member.getByTestId('waitlist')).toHaveCount(0)
+  await expect(member.getByRole('heading', { name: 'Zapisy online na LESZY.RUN' })).toHaveCount(0)
+  await expect(member.getByText('Organizujesz zawody?')).toHaveCount(0)
+  await expect(member.getByText('Chcesz ruszyć wcześniej?')).toHaveCount(0)
+  await expect(member.getByTestId('klub-wydarzenia').getByText('784 640 977')).toHaveCount(0)
+  await expect(member.getByTestId('klub-wydarzenia').getByRole('link', { name: /784/ })).toHaveCount(0)
   await expect(member.getByRole('button', { name: 'Dopisz klub do listy oczekujących' })).toHaveCount(0)
 
   const adm = await open(actors.innyAdmin, '/klub/inny-klub/wydarzenia')
+  await expect(adm.getByRole('heading', { name: 'Zapisy online na LESZY.RUN' })).toBeVisible()
+  await expect(adm.getByText('Organizujesz zawody? Niedługo przeprowadzisz je tutaj od początku do końca: zapisy, płatności, lista startowa i pomiar czasu.')).toBeVisible()
+  await expect(adm.getByText('Na razie włączamy zapisy klubom po kolei. Płatności i obsługa zawodów to realne koszty, a LESZY.RUN prowadzi mały zespół, więc najpierw chcemy mieć pewność, że wszystko działa, jak trzeba.')).toBeVisible()
+  await expect(adm.getByTestId('waitlist').getByRole('link', { name: '+48 784 640 977' })).toHaveAttribute('href', 'tel:+48784640977')
+  await expect(adm.getByText('Ten klub jeszcze nie organizuje żadnych wydarzeń.')).toHaveCount(0)
   await expect(adm.getByText('Chcesz ruszyć wcześniej? Zadzwoń:')).toBeVisible()
   await adm.getByRole('button', { name: 'Dopisz klub do listy oczekujących' }).click()
   await expect(adm.getByText('Klub jest na liście. Odezwiemy się, gdy przyjdzie jego kolej.')).toBeVisible()
@@ -81,6 +89,9 @@ test('F-20 zatyrani-test: the owner accepts the agreement, then the admin sees t
   await expect(member.getByRole('navigation', { name: 'Sekcje klubu' }).getByRole('link', { name: 'Wydarzenia' })).toBeVisible()
   await expect(member.getByRole('heading', { name: 'Wydarzenia klubu' })).toBeVisible()
   await expect(member.getByTestId('klub-wydarzenia').getByRole('button')).toHaveCount(0)
+  await expect(member.getByText('Ten klub jeszcze nie organizuje żadnych wydarzeń.')).toBeVisible()
+  await expect(member.getByTestId('waitlist')).toHaveCount(0)
+  await expect(member.getByTestId('klub-wydarzenia').getByText('784 640 977')).toHaveCount(0)
   await expect(member.getByText('Umowę akceptuje właściciel klubu')).toHaveCount(0)
 
   const owner = await open(actors.owner, '/klub/zatyrani-test/wydarzenia')
