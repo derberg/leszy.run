@@ -117,6 +117,22 @@ test('F-18 a repeat acceptance of the current version is 200 with the same row a
   assert.equal((await admin().from('organizer_actions').select('id').eq('club_id', ZT).eq('action', 'agreement_accepted')).data.length, 1)
 })
 
+test('F-18 concurrent acceptances store one row per club and version, and every caller gets it', async () => {
+  const db = admin()
+  await db.from('organizer_agreements').delete().eq('club_id', ZT)
+  await db.from('organizer_actions').delete().eq('club_id', ZT).eq('action', 'agreement_accepted')
+  const owner = await sessionFor('owner@zatyrani-test.local')
+  const results = await Promise.all(Array.from({ length: 6 }, () =>
+    call('accept-organizer-agreement', owner, { clubId: ZT, version: VERSION })))
+  assert.deepEqual(results.map((r) => r.status), [200, 200, 200, 200, 200, 200])
+  const { data: rows } = await db.from('organizer_agreements').select('accepted_at').eq('club_id', ZT)
+  assert.equal(rows.length, 1)
+  for (const r of results) assert.equal(new Date(r.body.data.acceptedAt).getTime(), new Date(rows[0].accepted_at).getTime())
+  // The constraint itself: a second row for the same club and version is refused.
+  const { error } = await db.from('organizer_agreements').insert({ club_id: ZT, club_name: 'Zatyrani Test', version: VERSION })
+  assert.equal(error?.code, '23505')
+})
+
 test('F-17 a member who has left gets 403 from organizer-status', async () => {
   const s = await sessionFor('member@zatyrani-test.local')
   const db = admin()
@@ -181,7 +197,8 @@ test('GDPR erasure: organizer records stay, the deleted person\'s IP and browser
   const db = admin()
   const sha = async (t) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))).map((b) => b.toString(16).padStart(2, '0')).join('')
   const { data: ag } = await db.from('organizer_agreements').insert({
-    club_id: ZT, club_name: 'Zatyrani Test', version: VERSION, accepted_by: s.profileId, ip: '198.51.100.9', user_agent: 'UA-erase',
+    // Its own version: UNIQUE (club_id, version) and the owner's acceptance of VERSION already exists.
+    club_id: ZT, club_name: 'Zatyrani Test', version: 'erase-test', accepted_by: s.profileId, ip: '198.51.100.9', user_agent: 'UA-erase',
   }).select('id').single()
   const { data: ac } = await db.from('organizer_actions').insert({
     actor_id: s.profileId, club_id: ZT, action: 'test_erase', ip: '198.51.100.9', user_agent: 'UA-erase',
@@ -198,7 +215,7 @@ test('GDPR erasure: organizer records stay, the deleted person\'s IP and browser
     const r = await call('delete-my-account', s, { action: 'confirm', code: '123456' })
     assert.equal(r.status, 200)
     const { data: a } = await db.from('organizer_agreements').select('accepted_by, ip, user_agent, version').eq('id', ag.id).single()
-    assert.deepEqual(a, { accepted_by: s.profileId, ip: '198.51.100.9', user_agent: 'UA-erase', version: VERSION })
+    assert.deepEqual(a, { accepted_by: s.profileId, ip: '198.51.100.9', user_agent: 'UA-erase', version: 'erase-test' })
     const { data: b } = await db.from('organizer_actions').select('actor_id, ip, user_agent').eq('id', ac.id).single()
     assert.deepEqual(b, { actor_id: s.profileId, ip: null, user_agent: null })
     assert.equal((await db.from('club_payout_history').select('id').eq('id', hi.id)).data.length, 1)

@@ -33,18 +33,27 @@ Deno.serve(async (req) => {
       return json({ error: 'Umowa została zaktualizowana. Odśwież stronę.', version: ORGANIZER_AGREEMENT_VERSION }, 409, req)
     }
 
-    const { data: existing } = await admin.from('organizer_agreements')
-      .select('id, version, accepted_at').eq('club_id', clubId).eq('version', version)
-      .order('accepted_at', { ascending: true }).limit(1)
-    if (existing && existing.length > 0) {
-      return json({ data: { accepted: true, version: existing[0].version, acceptedAt: existing[0].accepted_at } }, 200, req)
+    const findExisting = async () => {
+      const { data, error } = await admin.from('organizer_agreements')
+        .select('id, version, accepted_at').eq('club_id', clubId).eq('version', version).maybeSingle()
+      if (error) throw error
+      return data
     }
+    const accepted = (r) => json({ data: { accepted: true, version: r.version, acceptedAt: r.accepted_at } }, 200, req)
+
+    const existing = await findExisting()
+    if (existing) return accepted(existing)
 
     const { data: club } = await admin.from('clubs').select('name').eq('id', clubId).single()
     const { data: row, error } = await admin.from('organizer_agreements').insert({
       club_id: clubId, club_name: club.name, version, accepted_by: session.userId,
       ip: clientIp(req), user_agent: req.headers.get('user-agent') || null,
     }).select('id, version, accepted_at').single()
+    if (error?.code === '23505') {
+      // A concurrent accept won the UNIQUE (club_id, version) race: its row is the record.
+      const winner = await findExisting()
+      if (winner) return accepted(winner)
+    }
     if (error) throw error
 
     await logOrganizerAction(admin, req, {

@@ -38,9 +38,10 @@ CREATE TABLE public.organizer_agreements (
   accepted_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   accepted_at timestamptz NOT NULL DEFAULT now(),
   ip          inet,
-  user_agent  text
+  user_agent  text,
+  -- One acceptance per club and version; accept-organizer-agreement returns the existing row on a race.
+  CONSTRAINT organizer_agreements_club_version_key UNIQUE (club_id, version)
 );
-CREATE INDEX organizer_agreements_club_id_idx ON public.organizer_agreements (club_id);
 CREATE INDEX organizer_agreements_accepted_by_idx ON public.organizer_agreements (accepted_by);
 
 CREATE TABLE public.club_payout_details (
