@@ -38,6 +38,15 @@ import { pullCheckpointLinks } from './checkpointLinks.js'
 // DELETE NEVER REACHES US — the rows are stranded locally forever (observed: two
 // `[e2e-test] roster test` events + participants, gone from Supabase, still local). So refuse
 // to pull marker-tagged events at all, and cascade the refusal to everything hanging off them.
+//
+// Registration host filter: an event that sells entries online has a registration_settings
+// row (Supabase-only, service role). A timing host has no business with a draft (nothing is
+// decided yet) or with an event LESZY.RUN does not time (timing_mode external/none), so both
+// are refused with the same cascade as test data. An event with NO settings row is every
+// event that predates online registration, and it syncs exactly as before. The refusal is
+// recomputed on every poll, never remembered: a draft refused now is pulled on the first poll
+// after it is published. If the settings cannot be read, events this host already has keep
+// syncing (race day must not stall on a Supabase hiccup) and unknown events wait a poll.
 
 let supabase = null
 
@@ -62,12 +71,23 @@ export function newSkipSets() {
   return { events: new Set(), categories: new Set(), raceRuns: new Set() }
 }
 
-// True if this remote row is test junk — either marker-tagged itself, or descended from a row
-// that was. PULL_TABLES is ordered parents-first, so the parent's id is already in `skip`.
-export function isTestRow(name, remote, skip) {
+// True when a timing host must not pull an event with these registration settings.
+// `settings` undefined = no registration_settings row = a pre-registration event → pulled.
+export function hostSkipsEvent(settings) {
+  if (!settings) return false
+  if (settings.state === 'draft') return true
+  return settings.timing_mode !== 'leszyrun'
+}
+
+// True if this remote row must not be pulled: test junk (marker-tagged), an event the host
+// filter refuses, or a row descended from either. PULL_TABLES is ordered parents-first, so
+// the parent's id is already in `skip`.
+export function isTestRow(name, remote, skip, settingsByEvent = new Map(), knownLocalEventIds = new Set(), settingsFailed = false) {
   switch (name) {
     case 'events':
-      return typeof remote.name === 'string' && remote.name.startsWith(E2E_MARKER)
+      if (typeof remote.name === 'string' && remote.name.startsWith(E2E_MARKER)) return true
+      if (hostSkipsEvent(settingsByEvent.get(remote.id))) return true
+      return settingsFailed && !knownLocalEventIds.has(remote.id)
     case 'categories':
     case 'participants':
     case 'checkpoints':
@@ -112,6 +132,30 @@ export function toLocalRow(cols, remote) {
   return row
 }
 
+// Read once per poll: every registration_settings row, and the ids of events this host has.
+// Any failure on the Supabase side discards what was read and reports settingsFailed, so a
+// half-read map can never let a draft through. A local read failure throws to the caller.
+export async function loadHostFilter(supabase, db) {
+  const rows = await db.select({ id: events.id }).from(events)
+  const knownLocalEventIds = new Set(rows.map((r) => r.id))
+
+  const settingsByEvent = new Map()
+  try {
+    for (let offset = 0; ; offset += PAGE) {
+      const { data, error } = await supabase.from('registration_settings')
+        .select('event_id, state, timing_mode')
+        .range(offset, offset + PAGE - 1)
+      if (error) throw new Error(error.message)
+      for (const r of data || []) settingsByEvent.set(r.event_id, r)
+      if (!data || data.length < PAGE) break
+    }
+  } catch (err) {
+    console.error(`[ConfigSync] registration_settings: ${err.message} — pulling only events already on this host`)
+    return { settingsByEvent: new Map(), knownLocalEventIds, settingsFailed: true }
+  }
+  return { settingsByEvent, knownLocalEventIds, settingsFailed: false }
+}
+
 export function initConfigSync(db) {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -127,6 +171,15 @@ export function initConfigSync(db) {
 
 export async function pullConfig(db) {
   if (!supabase) return
+  let filter
+  try {
+    filter = await loadHostFilter(supabase, db)
+  } catch (err) {
+    // Without the local event list the host filter cannot decide; skip this poll.
+    console.error(`[ConfigSync] local events: ${err.message}`)
+    return
+  }
+  const { settingsByEvent, knownLocalEventIds, settingsFailed } = filter
   const skip = newSkipSets()
   for (const { name, table } of PULL_TABLES) {
     try {
@@ -141,7 +194,7 @@ export async function pullConfig(db) {
 
         for (const remote of data) {
           if (!remote.id) continue
-          if (isTestRow(name, remote, skip)) {
+          if (isTestRow(name, remote, skip, settingsByEvent, knownLocalEventIds, settingsFailed)) {
             rememberSkipped(name, remote, skip)
             skipped++
             continue
@@ -178,7 +231,7 @@ export async function pullConfig(db) {
         offset += PAGE
       }
       if (examined) {
-        const note = skipped ? ` (${skipped} test row(s) refused)` : ''
+        const note = skipped ? ` (${skipped} row(s) refused: test data or not for this host)` : ''
         console.log(`[ConfigSync] ${name}: examined ${examined} remote row(s)${note}`)
       }
     } catch (err) {
