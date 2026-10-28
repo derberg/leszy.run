@@ -175,7 +175,7 @@ test('GDPR export: the owner gets their agreement, actions, payout change and wa
   }
 })
 
-test('GDPR erasure: organizer records stay, the deleted person\'s IP and browser are cleared', async () => {
+test('GDPR erasure: organizer records stay, the deleted person\'s IP and browser are cleared from actions only', async () => {
   const email = `erase-${Date.now()}@zatyrani-test.local`
   const s = await sessionFor(email)
   const db = admin()
@@ -198,7 +198,7 @@ test('GDPR erasure: organizer records stay, the deleted person\'s IP and browser
     const r = await call('delete-my-account', s, { action: 'confirm', code: '123456' })
     assert.equal(r.status, 200)
     const { data: a } = await db.from('organizer_agreements').select('accepted_by, ip, user_agent, version').eq('id', ag.id).single()
-    assert.deepEqual(a, { accepted_by: s.profileId, ip: null, user_agent: null, version: VERSION })
+    assert.deepEqual(a, { accepted_by: s.profileId, ip: '198.51.100.9', user_agent: 'UA-erase', version: VERSION })
     const { data: b } = await db.from('organizer_actions').select('actor_id, ip, user_agent').eq('id', ac.id).single()
     assert.deepEqual(b, { actor_id: s.profileId, ip: null, user_agent: null })
     assert.equal((await db.from('club_payout_history').select('id').eq('id', hi.id)).data.length, 1)
