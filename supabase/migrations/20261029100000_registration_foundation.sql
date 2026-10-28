@@ -7,7 +7,7 @@
 -- * events.club_id, participants.registration_id, participants.removed_at:
 --   columns that also exist on the timing hosts (Drizzle side is task 2).
 -- * A BEFORE DELETE trigger refuses deletes of a registration event and of its
---   rows (incl. checkin_documents and checkpoint_categories), which covers an old host's syncDeleteEvent
+--   rows (incl. checkin_documents), which covers an old host's syncDeleteEvent
 --   (backend/src/sync/supabase.js), which deletes the children before the event.
 -- * Removed participants disappear from participants_public and the three PIN
 --   RPCs. merge_clubs refuses a club that owns registration data.
@@ -144,12 +144,13 @@ CREATE UNIQUE INDEX participants_registration_id_key
 
 -- Refuses a delete of an event with a registration_settings row, or of one of
 -- its rows. The event is found via id (events), category_id -> categories
--- (race_runs), checkin_id -> checkins (checkin_documents), checkpoint_id ->
--- checkpoints (checkpoint_categories) or event_id (everything else).
--- syncDeleteEvent deletes checkin_documents and checkpoint_categories first and
--- ignores errors, so those two are guarded too. results, gate_crossings and
--- checkpoint_observations are deliberately NOT guarded: resetting race data
--- must keep working. Only bypass-RLS roles delete these tables (none has a
+-- (race_runs), checkin_id -> checkins (checkin_documents) or event_id
+-- (everything else). syncDeleteEvent deletes checkin_documents first and
+-- ignores errors, so it is guarded too.
+-- Deliberately NOT guarded: checkpoint_categories (pushCheckpointLinks replaces
+-- a checkpoint's links by delete + insert), results, gate_crossings and
+-- checkpoint_observations (resetting race data must keep working).
+-- Only bypass-RLS roles delete these tables (none has a
 -- DELETE policy), so SECURITY INVOKER reads registration_settings fine.
 CREATE FUNCTION public.refuse_registration_event_deletes() RETURNS trigger
   LANGUAGE plpgsql
@@ -164,8 +165,6 @@ BEGIN
     SELECT c.event_id INTO v_event FROM public.categories c WHERE c.id = OLD.category_id;
   ELSIF TG_TABLE_NAME = 'checkin_documents' THEN
     SELECT ck.event_id INTO v_event FROM public.checkins ck WHERE ck.id = OLD.checkin_id;
-  ELSIF TG_TABLE_NAME = 'checkpoint_categories' THEN
-    SELECT cp.event_id INTO v_event FROM public.checkpoints cp WHERE cp.id = OLD.checkpoint_id;
   ELSE
     v_event := OLD.event_id;
   END IF;
@@ -195,8 +194,6 @@ CREATE TRIGGER trg_refuse_registration_event_deletes BEFORE DELETE ON public.rac
 CREATE TRIGGER trg_refuse_registration_event_deletes BEFORE DELETE ON public.event_documents
   FOR EACH ROW EXECUTE FUNCTION public.refuse_registration_event_deletes();
 CREATE TRIGGER trg_refuse_registration_event_deletes BEFORE DELETE ON public.checkin_documents
-  FOR EACH ROW EXECUTE FUNCTION public.refuse_registration_event_deletes();
-CREATE TRIGGER trg_refuse_registration_event_deletes BEFORE DELETE ON public.checkpoint_categories
   FOR EACH ROW EXECUTE FUNCTION public.refuse_registration_event_deletes();
 
 -- ---------------------------------------------------------------- removed participants

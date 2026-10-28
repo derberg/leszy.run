@@ -73,7 +73,6 @@ test('F-02 registration_settings.club_id cannot be changed; other columns can', 
 // [table, key in seedEvent's result, column that identifies the row]
 const GUARDED = [
   ['checkin_documents', 'checkinDocument'],
-  ['checkpoint_categories', 'checkpointCategory', 'checkpoint_id'],
   ['participants', 'participant'],
   ['checkins', 'checkin'],
   ['checkpoints', 'checkpoint'],
@@ -92,6 +91,15 @@ test('F-03 deletes of a registration event and its rows are refused', async () =
     const { data } = await admin().from(table).select(col).eq(col, rows[key][col])
     assert.equal(data.length, 1, `${table} row is gone`)
   }
+})
+
+test('F-03 a checkpoint_categories link of a registration event can be deleted (pushCheckpointLinks replaces links)', async () => {
+  const { checkpoint, category } = await seedEvent({ registration: true })
+  const { error } = await admin().from('checkpoint_categories').delete().eq('checkpoint_id', checkpoint.id)
+  assert.equal(error, null, error?.message)
+  const { data } = await admin().from('checkpoint_categories').select('checkpoint_id').eq('checkpoint_id', checkpoint.id)
+  assert.equal(data.length, 0)
+  await insert('checkpoint_categories', { checkpoint_id: checkpoint.id, category_id: category.id })
 })
 
 test('F-03 the same deletes on an event without registration succeed', async () => {
