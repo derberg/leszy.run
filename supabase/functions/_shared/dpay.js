@@ -196,14 +196,25 @@ export async function transactionDetails(cfg, txnId) {
  * must never send the same refund twice.
  * POST {panelBase}/api/v1/pbl/refund { service, transaction_id, value?, checksum }
  * https://docs.dpay.pl/docs/cykl-platnosci/zwroty/
- * Outcome: 200 with refund:true → accepted; 406 → insufficient_balance; any other 4xx → rejected
- * (400 exceeds/refused, 402 unpaid, 410 already refunded, 401 checksum, 404 unknown);
- * timeout, network, 5xx — and a 200 without refund:true (undocumented) — → unknown.
+ * Outcome:
+ *   accepted              HTTP 200 with status 'success' and refund: true (the body the docs show and the
+ *                         official Node SDK's parseRefund checks)
+ *   insufficient_balance  406: the merchant balance is too low; the only outcome worth retrying later
+ *   pending               409: a refund form for this transaction was already submitted (GUESS from the
+ *                         SDK's outcome list; the docs page does not describe 409)
+ *   rejected              any other 4xx (400 exceeds/refused, 401 checksum, 402 unpaid, 404 unknown,
+ *                         410 already refunded)
+ *   unknown               timeout, network error, 5xx, 3xx, or a 200 without the success body
+ * Only `accepted` is known to have moved money. Callers must NOT read rejected, pending or unknown as
+ * "no money moved": a 410 means an earlier refund went through, a 409 means one is in progress, and an
+ * unknown may have been carried out. None of them may be retried automatically or offered again
+ * without a person checking the dpay panel.
  */
 export async function refundTransaction(cfg, { transactionId, grosze, messageId }) {
   if (messageId !== undefined && (typeof messageId !== 'string' || messageId.length > MAX_MESSAGE_ID)) {
     throw new TypeError(`messageId must be a string of at most ${MAX_MESSAGE_ID} characters`)
   }
+  if (grosze === 0) throw new MoneyError('invalid_amount:grosze') // a zero refund is never sent
   const value = grosze === undefined ? undefined : formatDpayValue(grosze)
   const body = { service: cfg.service, transaction_id: transactionId }
   if (value !== undefined) body.value = value
@@ -220,8 +231,9 @@ export async function refundTransaction(cfg, { transactionId, grosze, messageId 
   const { status, text, json } = res
   const message = messageOf(json, text)
   let outcome
-  if (status === 200) outcome = json?.refund === true ? 'accepted' : 'unknown'
+  if (status === 200) outcome = json?.status === 'success' && json?.refund === true ? 'accepted' : 'unknown'
   else if (status === 406) outcome = 'insufficient_balance'
+  else if (status === 409) outcome = 'pending'
   else if (status >= 400 && status < 500) outcome = 'rejected'
   else outcome = 'unknown'
   return { outcome, httpStatus: status, message }

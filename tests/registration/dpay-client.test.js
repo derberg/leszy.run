@@ -112,14 +112,14 @@ test('P-08 HTTP 200 with error:true → DpayError(200), never a redirect', async
   })
 })
 
-test('P-08 a wrong secret is refused by the mock with 401', async () => {
+test('P-08 a wrong secret is refused by the mock with 400 (merchant error)', async () => {
   await assert.rejects(registerTransaction({ ...cfg, secret: 'nope' }, { orderId: ORDER, grosze: 1000 }), {
     name: 'DpayError',
-    httpStatus: 401,
+    httpStatus: 400,
   })
 })
 
-test('mock: channel without payer data → 422', async () => {
+test('P-08 mock: channel without payer data → 422', async () => {
   const res = await fetch(`${MOCK}/api/v1_0/payments/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -128,7 +128,7 @@ test('mock: channel without payer data → 422', async () => {
   assert.equal(res.status, 422)
 })
 
-test('mock: paying delivers a signed IPN that verifyIpn accepts, retried until the body is OK', async () => {
+test('P-08 mock: paying delivers a signed IPN that verifyIpn accepts, retried until the body is OK', async () => {
   answers = ['NOPE', 'still no']
   const txnId = await paidTransaction(10091)
   assert.equal(received.length, 3)
@@ -142,7 +142,7 @@ test('mock: paying delivers a signed IPN that verifyIpn accepts, retried until t
   assert.deepEqual(ipns.map((i) => i.responseText), ['NOPE', 'still no', 'OK'])
 })
 
-test('mock: modes ipnWithoutEmail, corruptSignature, duplicateIpn, ipnAmountOverride, dropIpn, replay', async () => {
+test('P-08 mock: modes ipnWithoutEmail, corruptSignature, duplicateIpn, ipnAmountOverride, dropIpn, replay', async () => {
   await dpayMode({ ipnWithoutEmail: true, ipnAmountOverride: '100.9' })
   await paidTransaction()
   const plain = JSON.parse(received.at(-1).raw)
@@ -170,7 +170,7 @@ test('mock: modes ipnWithoutEmail, corruptSignature, duplicateIpn, ipnAmountOver
   assert.equal(received.length, 0)
 })
 
-test('mock: declined payment sends no IPN and the pay page redirects to url_fail', async () => {
+test('P-08 mock: declined payment sends no IPN and the pay page redirects to url_fail', async () => {
   const { transactionId, redirectUrl } = await registerTransaction(cfg, { orderId: ORDER, grosze: 1000 })
   const res = await fetch(`${redirectUrl}/declined`, { method: 'POST', redirect: 'manual' })
   assert.equal(res.status, 303)
@@ -237,7 +237,7 @@ test('P-09 refunds: partial 1000 twice accepted, over the rest rejected 400, unp
   assert.deepEqual([u.outcome, u.httpStatus], ['rejected', 402])
 })
 
-test('P-09 refund outcomes: 406 insufficient_balance, 500 unknown, hang unknown after the timeout', async () => {
+test('P-09 refund outcomes: 406 insufficient_balance, 500 unknown, 409 pending, hang unknown after the timeout', async () => {
   const txnId = await paidTransaction(5000)
   await dpayMode({ refundInsufficient: true })
   const ins = await refundTransaction(cfg, { transactionId: txnId, grosze: 100, messageId: 'x' })
@@ -247,7 +247,11 @@ test('P-09 refund outcomes: 406 insufficient_balance, 500 unknown, hang unknown 
   const fail = await refundTransaction(cfg, { transactionId: txnId, grosze: 100, messageId: 'x' })
   assert.deepEqual([fail.outcome, fail.httpStatus], ['unknown', 500])
 
-  await dpayMode({ refundFails: false, refundHang: true })
+  await dpayMode({ refundFails: false, refundPending: true })
+  const pend = await refundTransaction(cfg, { transactionId: txnId, grosze: 100, messageId: 'x' })
+  assert.deepEqual([pend.outcome, pend.httpStatus], ['pending', 409])
+
+  await dpayMode({ refundPending: false, refundHang: true })
   const started = Date.now()
   const hang = await refundTransaction({ ...cfg, timeoutMs: 300 }, { transactionId: txnId, grosze: 100, messageId: 'x' })
   assert.deepEqual([hang.outcome, hang.httpStatus], ['unknown', null])
@@ -255,9 +259,24 @@ test('P-09 refund outcomes: 406 insufficient_balance, 500 unknown, hang unknown 
   assert.equal((await dpayRefunds()).length, 0)
 })
 
-test('refund with a messageId over 24 characters is refused before any call', async () => {
+test('P-09 refund with a messageId over 24 characters is refused before any call', async () => {
   await assert.rejects(
     refundTransaction(cfg, { transactionId: 't', messageId: 'x'.repeat(25) }),
     /messageId/,
   )
+})
+
+test('P-09 a 0-grosze refund is refused locally and never reaches dpay', async () => {
+  const txnId = await paidTransaction(5000)
+  await assert.rejects(refundTransaction(cfg, { transactionId: txnId, grosze: 0, messageId: 'z' }), { name: 'MoneyError' })
+  assert.equal((await dpayRefunds()).length, 0)
+})
+
+test('P-09 a 200 refund answer without the success body is unknown, not accepted', async () => {
+  const txnId = await paidTransaction(5000)
+  for (const body of [{ status: 'error', refund: true }, { status: 'success', refund: false }, { refund: true }]) {
+    await dpayMode({ refundBodyOverride: body })
+    const r = await refundTransaction(cfg, { transactionId: txnId, grosze: 100, messageId: 'y' })
+    assert.deepEqual([r.outcome, r.httpStatus], ['unknown', 200], JSON.stringify(body))
+  }
 })

@@ -63,6 +63,8 @@ const DEFAULT_MODE = {
   detailsBodyOverride: null,
   refundFails: false,
   refundInsufficient: false,
+  refundPending: false,
+  refundBodyOverride: null,
   refundHang: false,
 }
 
@@ -181,9 +183,10 @@ export async function startDpayMock({ port = DPAY_MOCK_PORT, publicUrl = `http:/
     const grosze = toGrosze(body.value)
     if (body.value !== undefined && (grosze === null || grosze === 0)) errors.value = ['Invalid value.']
     if (Object.keys(errors).length) return [422, { message: 'The given data was invalid.', errors }]
-    if (body.service !== MOCK_SERVICE) return [401, { status: 'failed', message: 'Unknown service', errors: {} }]
+    // A merchant error is HTTP 400 with status 'failed' (rejestracja-transakcji, "Merchant error").
+    if (body.service !== MOCK_SERVICE) return [400, { status: 'failed', message: 'Unknown service', errors: {} }]
     const expected = sha([body.service, MOCK_SECRET, toValue(grosze), body.url_success, body.url_fail, body.url_ipn ?? ''].join('|'))
-    if (body.checksum !== expected) return [401, { status: 'failed', message: 'Invalid checksum', errors: {} }]
+    if (body.checksum !== expected) return [400, { status: 'failed', message: 'Invalid checksum', errors: {} }]
     const id = randomUUID().toUpperCase()
     txns.set(id, { id, request: body, grosze, status: 'created', refunded: 0, ipn: null, createdAt: new Date().toISOString() })
     return [200, { error: false, status: true, msg: `${publicUrl}/pay/${id}`, transactionId: id }]
@@ -220,11 +223,15 @@ export async function startDpayMock({ port = DPAY_MOCK_PORT, publicUrl = `http:/
   function refund(body, messageId) {
     if (mode.refundFails) return [500, { status: 'error', refund: false, message: 'Refund failed' }]
     if (!signedPbl(body)) return [401, { status: 'error', refund: false, message: 'Unauthorized request' }]
+    if (mode.refundBodyOverride) return [200, mode.refundBodyOverride] // HTTP 200 with this body, nothing refunded
     const txn = txns.get(body.transaction_id)
     if (!txn) return [404, 'Transaction does not exist']
     if (txn.status !== 'paid') return [402, { status: 'error', refund: false, message: 'Transaction has not been paid' }]
     const remaining = txn.grosze - txn.refunded
     if (remaining === 0) return [410, { status: 'error', refund: false, message: 'Transaction has already been refunded' }]
+    // 409: a refund form for this transaction was already submitted and is still being processed
+    // (the official Node SDK lists 409 among the refund outcomes; the docs page does not describe it).
+    if (mode.refundPending) return [409, { status: 'error', refund: false, message: 'Refund already in progress' }]
     if (mode.refundInsufficient) return [406, { status: 'error', refund: false, message: 'Insufficient balance to process the refund' }]
     const grosze = body.value === undefined ? remaining : toGrosze(body.value)
     if (grosze === null || grosze === 0) return [400, { status: 'error', refund: false, message: 'Invalid refund amount' }]

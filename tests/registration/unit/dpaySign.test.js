@@ -93,7 +93,7 @@ test('P-06 verifyIpn refuses a payload missing a required field or not an object
   assert.equal(await verifyIpn(cfg, { ...signed, amount: { v: 1 } }), false)
 })
 
-test('safeEqualHex compares equal-length strings only', () => {
+test('P-06 safeEqualHex compares equal-length strings only', () => {
   assert.equal(safeEqualHex('ab12', 'ab12'), true)
   assert.equal(safeEqualHex('ab12', 'ab13'), false)
   assert.equal(safeEqualHex('ab12', 'ab1'), false)
