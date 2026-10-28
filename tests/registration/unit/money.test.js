@@ -97,12 +97,35 @@ test('P-04 formatDpayValue shape', () => {
   }
 })
 
-test('P-04 parseDpayAmount rejects anything but N.NN', () => {
-  for (const bad of ['1,00', '1.001', '-1.00', '1e3', '', ' 1.00', '1.00 ', '1000000.00', '1', '1.0', '.50', '01.00', '+1.00', 'abc', null, undefined, 100]) {
+test('P-04 parseDpayAmount accepts zero, one or two decimals', () => {
+  assert.equal(parseDpayAmount('1'), 100)
+  assert.equal(parseDpayAmount('1.0'), 100)
+  assert.equal(parseDpayAmount('1.5'), 150)
+  assert.equal(parseDpayAmount('60'), 6000)
+  assert.equal(parseDpayAmount('60.5'), 6050)
+  assert.equal(parseDpayAmount('60.05'), 6005)
+  assert.equal(parseDpayAmount('999999'), 99999900)
+  assert.equal(parseDpayAmount('999999.99'), 99999999)
+})
+
+test('P-04 parseDpayAmount rejects anything else', () => {
+  for (const bad of ['1,00', '1.001', '-1.00', '1e3', '', ' 1.00', '1.00 ', '1000000.00', '1000000', '1.', '.50', '01.00', '+1.00', 'abc', null, undefined, 100]) {
     assert.throws(() => parseDpayAmount(bad), MoneyError, JSON.stringify(bad))
   }
   assert.equal(parseDpayAmount('0.00'), 0)
   assert.equal(parseDpayAmount('100.91'), 10091)
+})
+
+test('amounts above 99 999 999 grosze throw everywhere', () => {
+  const big = 100_000_000
+  assert.throws(() => paymentFee(big), MoneyError)
+  assert.throws(() => supportFee(big, true), MoneyError)
+  assert.throws(() => formatPln(big), MoneyError)
+  assert.throws(() => formatDpayValue(big), MoneyError)
+  assert.throws(() => orderAmounts({ entryPrices: [big], supportChoice: false }), MoneyError)
+  assert.throws(() => orderAmounts({ entryPrices: [99_999_999, 1], supportChoice: false }), MoneyError)
+  assert.throws(() => orderAmounts({ entryPrices: [0], donation: 99_999_999, supportChoice: null }), MoneyError) // total = subtotal + fee passes the cap
+  assert.equal(paymentFee(99_999_999), Math.floor((99_999_999 * 9 + 990) / 991))
 })
 
 test('formatPln', () => {

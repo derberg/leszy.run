@@ -12,10 +12,11 @@ export class MoneyError extends Error {
 // dpay rejects 1000000.00 and above; the largest amount it takes is 999999.99 zł.
 export const MAX_DPAY_GROSZE = 99_999_999
 const MIN_PAYMENT_FEE = 20
-const DPAY_VALUE_RE = /^(0|[1-9]\d{0,5})\.(\d{2})$/
+const DPAY_VALUE_RE = /^(0|[1-9]\d{0,5})(?:\.(\d{1,2}))?$/
 
+// Every amount is capped at dpay's limit, which also keeps 2e+50 and 9s+990 far below 2^53.
 function grosze(value, name) {
-  if (!Number.isSafeInteger(value) || value < 0) throw new MoneyError(`invalid_amount:${name}`)
+  if (!Number.isSafeInteger(value) || value < 0 || value > MAX_DPAY_GROSZE) throw new MoneyError(`invalid_amount:${name}`)
   return value
 }
 
@@ -55,7 +56,7 @@ export function orderAmounts({ entryPrices, extrasTotal = 0, donation = 0, suppo
     supportFee: fee,
     subtotal,
     paymentFee: pFee,
-    total: subtotal + pFee,
+    total: grosze(subtotal + pFee, 'total'), // the amount dpay charges, so the same cap
     supportChoiceShown,
   }
 }
@@ -72,16 +73,14 @@ export function formatPln(amount) {
 
 // '100.91', the value format dpay expects.
 export function formatDpayValue(amount) {
-  grosze(amount, 'amount')
-  if (amount > MAX_DPAY_GROSZE) throw new MoneyError('invalid_amount:amount')
-  const [zl, gr] = splitZloty(amount)
+  const [zl, gr] = splitZloty(grosze(amount, 'amount'))
   return `${zl}.${gr}`
 }
 
-// Inverse of formatDpayValue. Anything that is not exactly N.NN (no sign, spaces, exponent,
-// comma, leading zero or third decimal) throws.
+// Inverse of formatDpayValue. dpay may send '60', '60.5' or '60.50': zero, one or two decimals.
+// Sign, spaces, exponent, comma, leading zero, a third decimal or 1000000 and above throw.
 export function parseDpayAmount(str) {
   const m = typeof str === 'string' ? DPAY_VALUE_RE.exec(str) : null
   if (!m) throw new MoneyError('invalid_dpay_amount')
-  return Number(m[1]) * 100 + Number(m[2])
+  return Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'))
 }
