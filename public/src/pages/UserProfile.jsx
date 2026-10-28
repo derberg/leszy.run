@@ -121,7 +121,7 @@ export default function UserProfile() {
           <aside className="w-full md:w-52 md:flex-shrink-0">
             <div className="flex flex-col items-center gap-3 mb-6">
               <div className="w-14 h-14 bg-apex-surface border-2 border-apex-yellow flex items-center justify-center font-display font-bold text-xl text-apex-yellow">
-                {profile.username[0].toUpperCase()}
+                {profile.avatar_emoji || profile.username[0].toUpperCase()}
               </div>
               <div className="font-display font-bold text-sm text-apex-yellow">@{profile.username}</div>
               {profile.display_name && (

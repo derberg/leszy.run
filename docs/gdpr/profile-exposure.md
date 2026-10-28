@@ -49,7 +49,7 @@ No DB query runs for unauthenticated callers. The function then exclusively quer
 ### `profiles_public` view (used by `/u/:username`)
 
 The view only exposes:
-`id, username, display_name (conditional on privacy_settings.display_name), club (conditional), bio (conditional), avatar_url, created_at`
+`id, username, display_name (conditional on privacy_settings.display_name), club (conditional), bio (conditional), avatar_url, created_at, avatar_emoji` (an animal emoji drawn at account creation, not personal data)
 
 | Field | Anon caller | OK? |
 |---|---|---|

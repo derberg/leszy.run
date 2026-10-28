@@ -2,7 +2,10 @@
 // Excludes: plants, food, weather, objects, non-animal emojis
 // Blacklisted: skunk (🦨), pig variants (🐷🐽🐖), ugly insects (ant, cricket,
 // cockroach, mosquito, fly, worm, spider, web), microbe (🦠)
-const POOL = [
+// random_avatar_emoji() in supabase/migrations/20261028120000_profiles_avatar_emoji.sql
+// draws account avatars from a copy of this pool; test/avatarEmojiPool.test.js
+// keeps the two in step.
+export const POOL = [
   // Mammals - Domestic & common
   '🐶','🐕','🐕‍🦺','🐩','🐱','🐈','🐈‍⬛','🐭','🐹','🐰','🐇',
   '🐿️','🦫','🦔','🦇','🐻','🐻‍❄️','🐼','🐨','🦘','🦡','🐁',
