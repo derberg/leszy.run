@@ -185,3 +185,7 @@ entrypoint = "./functions/list-club-registration-events/index.js"
 [functions.upload-registration-file]
 verify_jwt = false
 entrypoint = "./functions/upload-registration-file/index.js"
+
+[functions.publish-registration-event]
+verify_jwt = false
+entrypoint = "./functions/publish-registration-event/index.js"

@@ -83,3 +83,46 @@ export async function callFn(fn, session, body) {
   try { json = JSON.parse(text) } catch { json = { raw: text } }
   return { status: res.status, body: json }
 }
+
+const DAY_MS = 24 * 3600 * 1000
+const isoDay = (offsetDays) => new Date(Date.now() + offsetDays * DAY_MS).toISOString().slice(0, 10)
+
+/**
+ * A published FREE event, built only through the edge functions (create →
+ * basics → competitions → publish), never by direct inserts. Defaults: the race
+ * in 30 days, registration open from yesterday through race day, one 9 km
+ * competition, a regulamin link. The club needs the current agreement
+ * (acceptAgreement or makeClub). `owner` is a session ({ cookie }) or a cookie
+ * string. → { eventId, slug, categoryIds }
+ */
+export async function createPublishedFreeEvent(owner, {
+  clubSlug = 'zatyrani-test',
+  name = `Bieg Leszego ${crypto.randomBytes(4).toString('hex')}`,
+  competitions = [{ name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 }],
+  eventDate = isoDay(30),
+  opensOn = isoDay(-1),
+  closesOn = eventDate,
+  timingMode = 'leszyrun',
+} = {}) {
+  const session = typeof owner === 'string' ? { cookie: owner } : owner
+  const club = await clubBySlug(clubSlug)
+  const expect = (r, status, what) => {
+    if (r.status !== status) throw new Error(`${what}: ${r.status} ${JSON.stringify(r.body)}`)
+    return r.body.data
+  }
+  const { eventId } = expect(await callFn('create-registration-event', session, { clubId: club.id, name }), 201, 'create')
+  const save = async (section, value) => expect(
+    await callFn('save-registration-section', session, { eventId, section, value }), 200, `save ${section}`)
+  await save('basics', {
+    eventDate, opensOn, closesOn, firstStartTime: '10:00',
+    townLabel: 'Nieborowice', townArea: 'GM. PILCHOWICE · ŚLĄSKIE', lat: 50.2381, lng: 18.5412,
+    regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf',
+  })
+  const { categoryIds } = await save('competitions', {
+    pricingMode: 'free', items: competitions.map((c) => ({ kind: 'individual', timed: true, isKids: false, ...c })),
+  })
+  if (timingMode !== 'leszyrun') await save('timing', { timingMode })
+  const published = expect(await callFn('publish-registration-event', session, { eventId, action: 'publish' }), 200, 'publish')
+  const slug = new URL(published.url).pathname.split('/').pop()
+  return { eventId, slug, categoryIds }
+}

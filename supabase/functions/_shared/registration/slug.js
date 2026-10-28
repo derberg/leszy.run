@@ -22,3 +22,8 @@ export function slugify(name) {
 export function isValidSlug(s) {
   return typeof s === 'string' && s.length >= SLUG_MIN && s.length <= SLUG_MAX && SLUG_RE.test(s)
 }
+
+/** The public event page of a registration event. */
+export function eventPageUrl(slug) {
+  return `https://www.leszy.run/events/${slug}`
+}

@@ -1,7 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
-import { loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
+import { clubHasAgreement, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
+import { publishChecklist } from '../_shared/registration/checklist.js'
 import { warsawToday } from '../_shared/registration/dates.js'
 
 function json(body, status, req) {
@@ -27,8 +28,9 @@ async function rows(query) {
 
 // POST { eventId } → the wizard's whole event: settings, competitions (with the
 // fixed price in grosze), office hours as Warsaw days and times, age and kids
-// groups, consents, uploads, pending changes, registered count and the
-// caller's role. Any active member of the owning club may read it.
+// groups, consents, uploads, pending changes, registered count, the caller's
+// role and the publish checklist. Any active member of the owning club may
+// read it.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -47,7 +49,7 @@ Deno.serve(async (req) => {
     const { settings, role } = loaded
     const eventId = settings.event_id
 
-    const [competitions, hours, consents, uploads, pendingRows, registered] = await Promise.all([
+    const [competitions, hours, consents, uploads, pendingRows, registered, hasAgreement] = await Promise.all([
       rows(admin.from('competitions').select('*').eq('event_id', eventId).order('sort_order')),
       rows(admin.from('office_hours').select('id, starts_at, ends_at').eq('event_id', eventId).order('starts_at')),
       rows(admin.from('event_consents').select('id, kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
@@ -55,6 +57,7 @@ Deno.serve(async (req) => {
       rows(admin.from('registration_pending_changes').select('payload, changed_fields, updated_at').eq('event_id', eventId)),
       admin.from('registrations').select('id', { count: 'exact', head: true })
         .eq('event_id', eventId).in('status', ['confirmed', 'pending_payment']),
+      clubHasAgreement(admin, settings.club_id),
     ])
     if (registered.error) throw registered.error
 
@@ -70,7 +73,7 @@ Deno.serve(async (req) => {
     // Fixed pricing has exactly one open-ended tier; that is the price shown.
     const priceOf = new Map(prices.filter((p) => p.price_tiers?.ends_on == null).map((p) => [p.category_id, p.amount]))
 
-    return json({ data: {
+    const event = {
       settings: {
         ...camel(settings),
         opensOn: settings.opens_at ? warsawToday(new Date(settings.opens_at)) : null,
@@ -81,6 +84,10 @@ Deno.serve(async (req) => {
         id: h.id, date: warsawToday(new Date(h.starts_at)), from: hhmm(h.starts_at), to: hhmm(h.ends_at),
         startsAt: h.starts_at, endsAt: h.ends_at,
       })),
+    }
+
+    return json({ data: {
+      ...event,
       ageGroups: ageGroups.map(camel),
       kidsGroups: kidsGroups.map(camel),
       consents: consents.map(camel),
@@ -88,6 +95,7 @@ Deno.serve(async (req) => {
       pending: pendingRows[0] ? camel(pendingRows[0]) : null,
       registeredCount: registered.count ?? 0,
       role,
+      checklist: publishChecklist({ ...event, hasAgreement }),
     } }, 200, req)
   } catch (err) {
     console.error('get-registration-event error:', err?.message, err?.code)

@@ -13,6 +13,22 @@ jobs:
     permissions:
       contents: read
       packages: read # authenticated ghcr.io pulls (see the login step)
+    # The scratch timing host for tests/registration/helpers/hostPull.js: the backend's
+    # pullConfig() runs against it, never against a real database.
+    services:
+      scratch-host:
+        image: postgres:16
+        env:
+          POSTGRES_USER: leszyrun
+          POSTGRES_PASSWORD: leszyrun
+          POSTGRES_DB: leszyrun
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U leszyrun"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
