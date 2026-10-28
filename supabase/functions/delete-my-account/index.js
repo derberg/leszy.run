@@ -339,6 +339,22 @@ Deno.serve(async (req) => {
     // 2d. Clear stale owner-transfer nominations pointing at the deleted user
     await supabaseAdmin.from('clubs').update({ pending_owner_id: null }).eq('pending_owner_id', session.userId)
 
+    // 2d-bis. Organizer records are kept, with the person's device traces cut.
+    // organizer_agreements, organizer_actions, club_payout_history and
+    // registration_waitlist hold the legal and financial trail of a club
+    // (who accepted which agreement version, who changed the payout account),
+    // so the rows stay and accepted_by / actor_id / changed_by / requested_by
+    // keep pointing at the profile, which survives anonymised. A soft delete
+    // fires no ON DELETE SET NULL either. Only the IP address and browser
+    // string of the deleted person are erased: they identify a device, not the
+    // act. club_payout_history (the club's IBAN/NIP, not the person's) and the
+    // waitlist row (club id + timestamp) carry nothing else to strip.
+    for (const table of ['organizer_agreements', 'organizer_actions']) {
+      const col = table === 'organizer_agreements' ? 'accepted_by' : 'actor_id'
+      const { error } = await supabaseAdmin.from(table).update({ ip: null, user_agent: null }).eq(col, session.userId)
+      if (error) console.error(`delete-my-account: ${table} trace cleanup failed:`, error.message)
+    }
+
     // 2e. Revoke every session. A soft delete never fires the ON DELETE CASCADE
     // from auth_sessions, so without this the browser that just deleted the
     // account keeps a valid 90-day cookie: auth-me still answers, and

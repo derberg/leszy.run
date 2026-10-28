@@ -137,3 +137,76 @@ test('F-17 waitlist join on an already enabled club: no row, no email', async ()
   assert.equal((await admin().from('registration_waitlist').select('club_id').eq('club_id', ZT)).data.length, 0)
   assert.equal((await messagesTo(OPERATOR)).length, 0)
 })
+
+test('GDPR export: the owner gets their agreement, actions, payout change and waitlist request', async () => {
+  const owner = await sessionFor('owner@zatyrani-test.local')
+  const db = admin()
+  const { error } = await db.from('club_payout_history').insert({
+    club_id: ZT, club_name: 'Zatyrani Test', changed_by: owner.profileId,
+    old: null, new: { iban: 'PL61109010140000071219812874', nip: '5260250995' },
+  })
+  assert.equal(error, null)
+  const { error: wErr } = await db.from('registration_waitlist').upsert({ club_id: IK, requested_by: owner.profileId })
+  assert.equal(wErr, null)
+  try {
+    const res = await fetch(`${localEnv().functionsUrl}/export-my-data`, {
+      method: 'POST', headers: { 'content-type': 'application/json', cookie: owner.cookie },
+    })
+    assert.equal(res.status, 200)
+    const { organizer } = await res.json()
+    assert.equal(organizer.agreements_accepted.length, 1)
+    assert.equal(organizer.agreements_accepted[0].version, VERSION)
+    assert.equal(organizer.agreements_accepted[0].club_name, 'Zatyrani Test')
+    assert.ok(organizer.actions.some((a) => a.action === 'agreement_accepted'))
+    assert.equal(organizer.payout_changes.length, 1)
+    assert.equal(organizer.payout_changes[0].new.iban, 'PL61109010140000071219812874')
+    assert.equal(organizer.waitlist_requests.length, 1)
+
+    // Someone else's export holds none of it.
+    const other = await sessionFor('member@zatyrani-test.local')
+    const r2 = await fetch(`${localEnv().functionsUrl}/export-my-data`, {
+      method: 'POST', headers: { 'content-type': 'application/json', cookie: other.cookie },
+    })
+    const o2 = (await r2.json()).organizer
+    assert.deepEqual([o2.agreements_accepted, o2.actions, o2.payout_changes, o2.waitlist_requests], [[], [], [], []])
+  } finally {
+    await db.from('club_payout_history').delete().eq('changed_by', owner.profileId)
+    await db.from('registration_waitlist').delete().eq('club_id', IK).eq('requested_by', owner.profileId)
+  }
+})
+
+test('GDPR erasure: organizer records stay, the deleted person\'s IP and browser are cleared', async () => {
+  const email = `erase-${Date.now()}@zatyrani-test.local`
+  const s = await sessionFor(email)
+  const db = admin()
+  const sha = async (t) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))).map((b) => b.toString(16).padStart(2, '0')).join('')
+  const { data: ag } = await db.from('organizer_agreements').insert({
+    club_id: ZT, club_name: 'Zatyrani Test', version: VERSION, accepted_by: s.profileId, ip: '198.51.100.9', user_agent: 'UA-erase',
+  }).select('id').single()
+  const { data: ac } = await db.from('organizer_actions').insert({
+    actor_id: s.profileId, club_id: ZT, action: 'test_erase', ip: '198.51.100.9', user_agent: 'UA-erase',
+  }).select('id').single()
+  const { data: hi } = await db.from('club_payout_history').insert({
+    club_id: ZT, club_name: 'Zatyrani Test', changed_by: s.profileId, new: { nip: '5260250995' },
+  }).select('id').single()
+  await db.from('registration_waitlist').upsert({ club_id: IK, requested_by: s.profileId })
+  await db.from('auth_codes').insert({
+    email, code_hash: await sha('123456'), purpose: 'delete_account',
+    expires_at: new Date(Date.now() + 600000).toISOString(),
+  })
+  try {
+    const r = await call('delete-my-account', s, { action: 'confirm', code: '123456' })
+    assert.equal(r.status, 200)
+    const { data: a } = await db.from('organizer_agreements').select('accepted_by, ip, user_agent, version').eq('id', ag.id).single()
+    assert.deepEqual(a, { accepted_by: s.profileId, ip: null, user_agent: null, version: VERSION })
+    const { data: b } = await db.from('organizer_actions').select('actor_id, ip, user_agent').eq('id', ac.id).single()
+    assert.deepEqual(b, { actor_id: s.profileId, ip: null, user_agent: null })
+    assert.equal((await db.from('club_payout_history').select('id').eq('id', hi.id)).data.length, 1)
+    assert.equal((await db.from('registration_waitlist').select('club_id').eq('club_id', IK).eq('requested_by', s.profileId)).data.length, 1)
+  } finally {
+    await db.from('organizer_agreements').delete().eq('id', ag.id)
+    await db.from('organizer_actions').delete().eq('id', ac.id)
+    await db.from('club_payout_history').delete().eq('id', hi.id)
+    await db.from('registration_waitlist').delete().eq('club_id', IK).eq('requested_by', s.profileId)
+  }
+})
