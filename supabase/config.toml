@@ -145,3 +145,15 @@ entrypoint = "./functions/update-profile/index.js"
 [functions.upload-club-logo]
 verify_jwt = false
 entrypoint = "./functions/upload-club-logo/index.js"
+
+[functions.organizer-status]
+verify_jwt = false
+entrypoint = "./functions/organizer-status/index.js"
+
+[functions.join-registration-waitlist]
+verify_jwt = false
+entrypoint = "./functions/join-registration-waitlist/index.js"
+
+[functions.accept-organizer-agreement]
+verify_jwt = false
+entrypoint = "./functions/accept-organizer-agreement/index.js"
