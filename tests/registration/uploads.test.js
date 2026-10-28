@@ -6,6 +6,7 @@ import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import zlib from 'node:zlib'
 import { createClient } from '@supabase/supabase-js'
 import sharp from 'sharp'
 import { admin, localEnv, sessionFor } from './helpers/stack.js'
@@ -135,6 +136,34 @@ test('W-12 poster that is not an image → 400, nothing stored', async () => {
   await assertNothingStored(eventId)
 })
 
+/** A real PNG whose IHDR then claims width × height (CRC fixed, so only the size is a lie). */
+async function pngDeclaring(width, height) {
+  const png = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#000000' } }).png().toBuffer()
+  png.writeUInt32BE(width, 16)
+  png.writeUInt32BE(height, 20)
+  png.writeUInt32BE(zlib.crc32(png.subarray(12, 29)), 29)
+  return png
+}
+
+test('W-12 poster declaring 30000×30000 px (or taller than 6000) → 400 before decoding, nothing stored', async () => {
+  const eventId = await newEvent()
+  for (const [w, h] of [[30000, 30000], [1300, 7000]]) {
+    const r = await callFn(FN, owner, { eventId, kind: 'poster', dataUrl: dataUrl(await pngDeclaring(w, h), 'image/png'), fileName: 'bomba.png' })
+    assert.equal(r.status, 400, JSON.stringify(r.body))
+    assert.equal(r.body.error, 'Plakat ma zbyt duże wymiary.')
+  }
+  await assertNothingStored(eventId)
+})
+
+test('W-12 an upper-case eventId is stored under the lower-case event path', async () => {
+  const eventId = await newEvent()
+  const src = await jpegWithExif(1300, 1800)
+  const r = await callFn(FN, owner, { eventId: eventId.toUpperCase(), kind: 'poster', dataUrl: dataUrl(src), fileName: 'p.jpg' })
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const [row] = await uploadsOf(eventId)
+  assert.ok(row.path.startsWith(`${eventId}/poster/`), row.path)
+})
+
 // ---------------------------------------------------------------- regulamin
 
 test('W-12 regulamin PDF: two-step upload lands in the public bucket, pending object removed', async () => {
@@ -185,6 +214,22 @@ test('W-12 GPX: a 9 km loop is parsed and its course stored in meta', async () =
   assert.equal(row.kind, 'gpx')
   assert.deepEqual(row.meta, meta)
   assert.deepEqual(await objectsUnder('registration-pending', eventId), [])
+})
+
+test('W-12 GPX carrying an XHTML <script> is served as a download, never as XML or HTML', async () => {
+  const eventId = await newEvent()
+  const gpx = fx('loop-9km.gpx').toString('utf8')
+    .replace('</gpx>', '<h:script xmlns:h="http://www.w3.org/1999/xhtml">alert(1)</h:script></gpx>')
+  assert.ok(gpx.includes('alert(1)'))
+  const { finish } = await twoStep(owner, eventId, 'gpx', Buffer.from(gpx), 'trasa.gpx', 'application/gpx+xml')
+  assert.equal(finish.status, 201, JSON.stringify(finish.body))
+  const [row] = await uploadsOf(eventId)
+  const res = await fetch(`${localEnv().url}/storage/v1/object/public/registration-files/${row.path}`)
+  assert.equal(res.status, 200)
+  const type = res.headers.get('content-type') ?? ''
+  assert.equal(type.split(';')[0].trim(), 'application/octet-stream')
+  assert.doesNotMatch(type, /xml|html|svg/i)
+  assert.ok((await res.text()).includes('alert(1)'), 'the bytes are kept, only the type is defused')
 })
 
 test('W-12 GPX that does not parse → 400 with the parser message, nothing stored', async () => {

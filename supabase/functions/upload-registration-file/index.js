@@ -26,6 +26,8 @@ const MB = 1024 * 1024
 const POSTER_MAX_BYTES = 5 * MB
 const POSTER_MIN_WIDTH = 1200
 const POSTER_MAX_WIDTH = 1600
+const POSTER_MAX_PIXELS = 40_000_000
+const POSTER_MAX_HEIGHT = 6000
 const POSTER_JPEG_QUALITY = 85
 const REGULAMIN_MAX_BYTES = 10 * MB
 const GPX_MAX_BYTES = 5 * MB
@@ -34,6 +36,8 @@ const INVALID = 'Nieprawidłowe dane.'
 const POSTER_TYPE = 'Plakat musi być plikiem JPG lub PNG.'
 const POSTER_TOO_BIG = 'Plakat może mieć najwyżej 5 MB.'
 const POSTER_WIDTH = 'Plakat musi mieć co najmniej 1200 px szerokości.'
+const POSTER_DIMENSIONS = 'Plakat ma zbyt duże wymiary.'
+const SERVER_ERROR = 'Błąd serwera.'
 const REGULAMIN_BAD = 'Regulamin musi być plikiem PDF do 10 MB.'
 const GPX_TOO_BIG = 'Plik GPX może mieć najwyżej 5 MB.'
 
@@ -46,7 +50,10 @@ const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d] // %PDF-
 // happens when Storage refused the PUT over the bucket's size limit.
 const TWO_STEP = {
   regulamin: { maxBytes: REGULAMIN_MAX_BYTES, tooBig: REGULAMIN_BAD, ext: 'pdf', contentType: 'application/pdf' },
-  gpx: { maxBytes: GPX_MAX_BYTES, tooBig: GPX_TOO_BIG, ext: 'gpx', contentType: 'application/gpx+xml' },
+  // Never an XML type: a browser renders application/gpx+xml (any +xml) as a
+  // document and runs an XHTML-namespaced <script> in it, which parseGpx does
+  // not refuse. Served as octet-stream, the public file is only ever downloaded.
+  gpx: { maxBytes: GPX_MAX_BYTES, tooBig: GPX_TOO_BIG, ext: 'gpx', contentType: 'application/octet-stream' },
 }
 
 class Rejected extends Error {}
@@ -58,6 +65,34 @@ function json(body, status, req) {
   })
 }
 
+/**
+ * Width and height from the PNG IHDR or the JPEG SOFn header, read without
+ * decoding, so a small file declaring a huge canvas is refused before
+ * imagescript allocates it. null when neither header is found.
+ */
+function imageHeaderSize(b) {
+  if (b.length >= 24 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) {
+    const u32 = (o) => ((b[o] << 24) >>> 0) + (b[o + 1] << 16) + (b[o + 2] << 8) + b[o + 3]
+    return { width: u32(16), height: u32(20) }
+  }
+  if (b.length >= 4 && b[0] === 0xff && b[1] === 0xd8) {
+    let o = 2
+    while (o + 9 < b.length) {
+      if (b[o] !== 0xff) return null
+      const marker = b[o + 1]
+      if (marker === 0xff) { o += 1; continue } // fill byte
+      if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { o += 2; continue }
+      const len = (b[o + 2] << 8) + b[o + 3]
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        return { height: (b[o + 5] << 8) + b[o + 6], width: (b[o + 7] << 8) + b[o + 8] }
+      }
+      if (len < 2) return null
+      o += 2 + len
+    }
+  }
+  return null
+}
+
 const cleanFileName = (v) => (typeof v === 'string' ? v.trim().slice(0, 200) : '') || null
 
 async function poster(dataUrl) {
@@ -66,9 +101,20 @@ async function poster(dataUrl) {
   const base64 = dataUrl.slice(match[0].length)
   // Checked before decoding so an oversized body never becomes a buffer.
   if (base64.length > Math.ceil(POSTER_MAX_BYTES / 3) * 4) throw new Rejected(POSTER_TOO_BIG)
+  let raw
+  try {
+    raw = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+  } catch {
+    throw new Rejected(POSTER_TYPE)
+  }
+  const declared = imageHeaderSize(raw)
+  if (!declared) throw new Rejected(POSTER_TYPE)
+  if (declared.height > POSTER_MAX_HEIGHT || declared.width * declared.height > POSTER_MAX_PIXELS) {
+    throw new Rejected(POSTER_DIMENSIONS)
+  }
   let img
   try {
-    img = await Image.decode(Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)))
+    img = await Image.decode(raw)
   } catch {
     throw new Rejected(POSTER_TYPE)
   }
@@ -113,6 +159,14 @@ async function store(admin, { eventId, kind, bytes, ext, contentType, meta, user
   return { uploadId: data.id, url: pub.publicUrl, meta }
 }
 
+/** true when the pending object is there; a failed listing counts as there (→ 500, not a misleading 400). */
+async function pendingExists(admin, path) {
+  const [dir, name] = path.split('/')
+  const { data, error } = await admin.storage.from(PENDING).list(dir, { search: name, limit: 10 })
+  if (error) return true
+  return (data ?? []).some((o) => o.name === name)
+}
+
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -124,17 +178,26 @@ Deno.serve(async (req) => {
 
   let body
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON' }, 400, req) }
-  const { eventId, kind, action, fileName, dataUrl, pendingPath } = body ?? {}
+  const { kind, action, fileName, dataUrl, pendingPath } = body ?? {}
 
   let pendingToRemove = null
   try {
-    const loaded = await loadOrganizerEvent(admin, eventId, session, { write: true, req })
+    const loaded = await loadOrganizerEvent(admin, body?.eventId, session, { write: true, req })
     if (loaded instanceof Response) return loaded
     const { settings } = loaded
+    // Validated as a uuid above; one spelling for paths, the regex and the row.
+    const eventId = body.eventId.toLowerCase()
 
-    const audit = (target, payload) => logOrganizerAction(admin, req, {
-      actorId: session.userId, clubId: settings.club_id, eventId, action: 'file_uploaded', target, payload,
-    })
+    // The file is stored by now: a failed audit write must not turn that into a 500.
+    const audit = async (target, payload) => {
+      try {
+        await logOrganizerAction(admin, req, {
+          actorId: session.userId, clubId: settings.club_id, eventId, action: 'file_uploaded', target, payload,
+        })
+      } catch (err) {
+        console.error('upload-registration-file: audit failed:', err?.message)
+      }
+    }
 
     if (kind === 'poster' && action === undefined) {
       const file = await poster(dataUrl)
@@ -155,12 +218,20 @@ Deno.serve(async (req) => {
 
     if (action === 'finish') {
       // Only this event's own pending objects: never read or delete another event's.
-      if (typeof pendingPath !== 'string' || !new RegExp(`^${eventId}/${UUID}$`, 'i').test(pendingPath)) {
+      if (typeof pendingPath !== 'string' || !new RegExp(`^${eventId}/${UUID}$`).test(pendingPath)) {
         return json({ error: INVALID }, 400, req)
       }
       pendingToRemove = pendingPath
       const { data: blob, error: dlErr } = await admin.storage.from(PENDING).download(pendingPath)
-      if (dlErr || !blob) throw new Rejected(TWO_STEP[kind].tooBig)
+      if (dlErr || !blob) {
+        // The error's shape differs between storage-js versions, so ask
+        // Storage whether the object exists rather than parsing the error.
+        if (await pendingExists(admin, pendingPath)) {
+          console.error('upload-registration-file: pending download failed:', dlErr?.message)
+          return json({ error: SERVER_ERROR }, 500, req)
+        }
+        throw new Rejected(TWO_STEP[kind].tooBig)
+      }
       if (blob.size > TWO_STEP[kind].maxBytes) throw new Rejected(TWO_STEP[kind].tooBig)
       const bytes = new Uint8Array(await blob.arrayBuffer())
       const { meta } = checkTwoStep(kind, bytes)
