@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { eq, isNull, sql, getTableColumns } from 'drizzle-orm'
+import { eq, isNull, isNotNull, inArray, and, sql, getTableColumns } from 'drizzle-orm'
 import { events, categories, participants, raceRuns, gateCrossings, results,
          checkpoints, checkpointObservations, eventDocuments } from '../db/schema.js'
 import { broadcast } from '../ws/broadcaster.js'
@@ -29,6 +29,24 @@ export function toPushRow(name, row) {
   const snake = rowToSnake(row)
   for (const c of PUSH_EXCLUDED_COLUMNS[name] ?? []) delete snake[c]
   return snake
+}
+
+// Categories have a (event_id, slug) unique constraint in addition to id. If a category
+// was recreated locally (new UUID, same slug), delete the stale Supabase row first.
+// Not for a registration event (events.club_id set): Supabase's delete trigger refuses
+// it, and the local routes refuse deleting its categories, so there is nothing stale to
+// clear and the refused delete would only add noise every cycle.
+export async function deleteStaleCategories(client, db, snakeRows) {
+  const eventIds = [...new Set(snakeRows.map((r) => r.event_id).filter(Boolean))]
+  if (!eventIds.length) return
+  const registration = new Set((await db.select({ id: events.id }).from(events)
+    .where(and(inArray(events.id, eventIds), isNotNull(events.clubId)))).map((r) => r.id))
+  for (const row of snakeRows) {
+    if (registration.has(row.event_id)) continue
+    const { error } = await client.from('categories').delete()
+      .eq('event_id', row.event_id).eq('slug', row.slug).neq('id', row.id)
+    if (error) console.error(`[Sync] stale category cleanup for ${row.id}: ${error.message}`)
+  }
 }
 
 // LOST UPDATE GUARD.
@@ -288,14 +306,7 @@ async function runSync(db) {
 
       const snakeRows = rows.map(r => toPushRow(name, r))
 
-      // Categories have a (event_id, slug) unique constraint in addition to id.
-      // If a category was recreated locally (new UUID, same slug), delete the stale Supabase row first.
-      if (name === 'categories') {
-        for (const row of snakeRows) {
-          await supabase.from('categories').delete()
-            .eq('event_id', row.event_id).eq('slug', row.slug).neq('id', row.id)
-        }
-      }
+      if (name === 'categories') await deleteStaleCategories(supabase, db, snakeRows)
 
       const { error } = await supabase.from(name).upsert(snakeRows, { onConflict: 'id' })
       if (error) {
