@@ -168,7 +168,7 @@ Supabase CLI. Full instructions: [tests/registration/README.md](tests/registrati
 
 ```bash
 node tests/registration/helpers/emailCaptureServer.js &
-supabase start && supabase db reset && (supabase functions serve --env-file tests/registration/functions.env &)
+supabase start -x studio,imgproxy,postgres-meta,logflare,vector,mailpit,storage-api,realtime && supabase db reset && (supabase functions serve --env-file tests/registration/functions.env &)
 node --test --test-concurrency=1 "tests/registration/**/*.test.js" && npx playwright test -c tests/registration/playwright.config.js
 ```
 

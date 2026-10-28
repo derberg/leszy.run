@@ -30,7 +30,7 @@ jobs:
         run: node tests/registration/helpers/emailCaptureServer.js &
 
       - name: Start local Supabase stack
-        run: supabase start
+        run: supabase start -x studio,imgproxy,postgres-meta,logflare,vector,mailpit,storage-api,realtime
 
       - name: Apply migrations and seed
         run: supabase db reset

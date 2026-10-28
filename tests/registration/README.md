@@ -6,7 +6,7 @@ Everything here runs against a local Supabase stack, never production.
 ```bash
 # from the repo root; needs Docker and the Supabase CLI
 node tests/registration/helpers/emailCaptureServer.js &      # email capture on :54399
-supabase start && supabase db reset                          # applies migrations + supabase/seed.sql
+supabase start -x studio,imgproxy,postgres-meta,logflare,vector,mailpit,storage-api,realtime && supabase db reset                          # applies migrations + supabase/seed.sql
 supabase functions serve --env-file tests/registration/functions.env &
 node --test --test-concurrency=1 "tests/registration/**/*.test.js"
 npx playwright test -c tests/registration/playwright.config.js
