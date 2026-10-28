@@ -123,7 +123,7 @@ function ProfilLayout() {
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-12 h-12 flex-shrink-0 bg-apex-surface border-2 border-apex-yellow flex items-center justify-center font-display font-bold text-xl text-apex-yellow">
-                  {profile?.username?.[0]?.toUpperCase() || '?'}
+                  {profile?.avatar_emoji || profile?.username?.[0]?.toUpperCase() || '?'}
                 </div>
                 <div className="min-w-0">
                   <div className="font-display font-bold text-lg text-apex-yellow truncate">@{profile?.username}</div>
