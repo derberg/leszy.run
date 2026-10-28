@@ -14,6 +14,7 @@ import { initCheckinSync } from './sync/checkinSync.js'
 import { initConfigSync } from './sync/configSync.js'
 import { resumeIngest } from './vision/ingest.js'
 import { initMqttHostHeal } from './reader/mqttHostHeal.js'
+import { reloadActiveRaces as reloadActiveRacesInto } from './lib/reloadActiveRaces.js'
 
 import { eventsRoutes } from './routes/events.js'
 import { categoriesRoutes } from './routes/categories.js'
@@ -118,29 +119,9 @@ const start = async () => {
 }
 
 async function reloadActiveRaces() {
-  const { eq } = await import('drizzle-orm')
-  const { raceRuns, participants, categories, events } = await import('./db/schema.js')
   const { getDetector } = await import('./mqtt/client.js')
-
-  const activeRuns = await db.query.raceRuns.findMany({
-    where: eq(raceRuns.status, 'active'),
-    with: {
-      category: {
-        with: {
-          event: true,
-          participants: true,
-        },
-      },
-    },
-  })
-
-  const detector = getDetector()
-  if (!detector || !activeRuns.length) return
-
-  for (const run of activeRuns) {
-    await detector.startRace(run, run.category.event, run.category.participants)
-  }
-  console.log(`[Server] Reloaded ${activeRuns.length} active race(s) into detector`)
+  const reloaded = await reloadActiveRacesInto(db, getDetector())
+  if (reloaded) console.log(`[Server] Reloaded ${reloaded} active race(s) into detector`)
 }
 
 start()
