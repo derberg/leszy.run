@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest, isAllowed } from '../_shared/cors.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
 import { isEmailRetired } from '../_shared/deletedEmails.js'
+import { emailConfigured, sendEmail } from '../_shared/email.js'
 
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -121,8 +122,7 @@ Deno.serve(async (req) => {
       .insert({ email: normalizedEmail, code_hash: codeHash, expires_at: expiresAt })
     if (insertError) throw insertError
 
-    const apiKey = Deno.env.get('SENDGRID_API_KEY')
-    if (apiKey) {
+    if (emailConfigured()) {
       const linkBase = magicLinkBase(req)
       const fromQs = safeFrom ? `&from=${encodeURIComponent(safeFrom)}` : ''
       const magicLink = `${linkBase}/login?email=${encodeURIComponent(normalizedEmail)}&code=${code}${fromQs}`
@@ -211,27 +211,15 @@ Deno.serve(async (req) => {
 </body>
 </html>`
 
-      const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: normalizedEmail }] }],
-          from: { email: Deno.env.get('SENDGRID_FROM_EMAIL'), name: 'Łukasz z LESZY.RUN' },
-          subject: `${code} — Twój kod logowania do Leszy.run`,
-          content: [
-            { type: 'text/plain', value: plainText },
-            { type: 'text/html', value: html },
-          ],
-        }),
+      await sendEmail({
+        to: normalizedEmail,
+        subject: `${code} — Twój kod logowania do Leszy.run`,
+        text: plainText,
+        html,
+        fromName: 'Łukasz z LESZY.RUN',
       })
-      if (!sgRes.ok) {
-        console.error('SendGrid error:', await sgRes.text())
-      }
     } else {
-      console.warn('SENDGRID_API_KEY not set — email not sent (code stored in DB)')
+      console.warn('No email transport configured — email not sent (code stored in DB)')
     }
 
     return json({ success: true }, 200, req)
