@@ -4,9 +4,9 @@ import useSeo from '../../hooks/useSeo.js'
 import useOrganizerStatus from '../../hooks/useOrganizerStatus.js'
 import { joinRegistrationWaitlist } from '../../lib/organizer.js'
 import { nextOrganizerStep } from '../../lib/organizerGate.js'
+import { primaryBtnClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
 
-const primaryBtnClass = 'whitespace-nowrap font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-apex-yellow'
 const cardClass = 'border border-apex-border bg-apex-surface p-5 space-y-3'
 const eyebrowClass = 'font-mono text-[10px] tracking-widest uppercase text-apex-muted'
 

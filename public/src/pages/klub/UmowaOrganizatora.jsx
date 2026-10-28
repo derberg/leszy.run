@@ -4,9 +4,9 @@ import useSeo from '../../hooks/useSeo.js'
 import useOrganizerStatus from '../../hooks/useOrganizerStatus.js'
 import { acceptOrganizerAgreement } from '../../lib/organizer.js'
 import { organizerAgreement } from '../../legal/organizerAgreement.js'
+import { primaryBtnClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
 
-const primaryBtnClass = 'whitespace-nowrap font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-apex-yellow'
 const eyebrowClass = 'font-mono text-[10px] tracking-widest uppercase text-apex-muted'
 
 // The organizer agreement, readable by owner and admin; only the owner accepts.

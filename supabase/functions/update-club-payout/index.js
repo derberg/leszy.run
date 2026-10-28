@@ -3,6 +3,7 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { clubRole, logOrganizerAction } from '../_shared/organizer.js'
 import { sendEmail } from '../_shared/email.js'
+import { maskIban } from '../_shared/maskIban.js'
 import {
   normalizeIban, normalizeNip, isValidPolishIban, isValidNip, isValidKrs,
 } from '../_shared/payoutValidation.js'
@@ -16,13 +17,8 @@ function json(body, status, req) {
 
 const FIELD_LABELS = { legal_name: 'Nazwa', nip: 'NIP', krs: 'KRS', iban: 'Rachunek', address: 'Adres' }
 
-/** PL61109010140000071219812874 -> "PL61 … 2874" (first 4 + last 4). */
-function maskIban(iban) {
-  return iban ? `${iban.slice(0, 4)} … ${iban.slice(-4)}` : '—'
-}
-
 function shown(field, value) {
-  if (field === 'iban') return maskIban(value)
+  if (field === 'iban') return maskIban(value) ?? '—'
   return value || '—'
 }
 

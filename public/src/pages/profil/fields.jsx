@@ -6,6 +6,7 @@ import { useState } from 'react'
 export const inputClass = 'flex-1 min-w-0 bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-base md:text-sm font-medium py-1.5 px-2.5 outline-none focus:border-apex-yellow-dim transition-colors'
 export const sectionTitle = 'font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted border-b border-apex-border pb-1 mb-3'
 export const actionBtnClass = 'font-mono text-xs px-2 py-1.5 border transition-all leading-none'
+export const primaryBtnClass = 'whitespace-nowrap font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-apex-yellow'
 
 export function PencilIcon() {
   return (

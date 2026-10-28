@@ -2,17 +2,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { clubRole } from '../_shared/organizer.js'
+import { maskIban } from '../_shared/maskIban.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
   })
-}
-
-/** PL61109010140000071219812874 -> "PL61 … 2874", the same mask update-club-payout emails. */
-function maskIban(iban) {
-  return iban ? `${iban.slice(0, 4)} … ${iban.slice(-4)}` : null
 }
 
 // Payout details for the club settings page. The owner gets every field to

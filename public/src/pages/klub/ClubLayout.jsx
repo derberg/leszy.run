@@ -52,7 +52,7 @@ function ClubShell() {
   const tabs = TABS.filter((t) => !t.manage || canManage)
 
   const navItemClass = ({ isActive }) =>
-    `whitespace-nowrap font-display font-bold text-sm uppercase tracking-wide px-3 py-2.5 no-underline transition-all border-b-2 ${
+    `whitespace-nowrap font-display font-bold text-xs md:text-sm uppercase tracking-normal md:tracking-wide px-1.5 md:px-3 py-2.5 no-underline transition-all border-b-2 ${
       isActive
         ? 'text-apex-yellow border-apex-yellow bg-apex-surface/40'
         : 'text-apex-muted border-transparent hover:text-apex-text-bright hover:border-apex-border'
@@ -82,7 +82,7 @@ function ClubShell() {
       </header>
 
       <nav data-testid="klub-nav" aria-label="Sekcje klubu"
-        className="flex gap-1 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 border-b border-apex-border mb-6">
+        className="flex justify-between md:justify-start md:gap-1 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 border-b border-apex-border mb-6">
         {tabs.map((t) => (
           <NavLink key={t.to} to={t.to} className={navItemClass}>{t.label}</NavLink>
         ))}

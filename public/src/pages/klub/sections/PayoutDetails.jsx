@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import { getClubPayout, updateClubPayout } from '../../../lib/organizer.js'
-import { sectionTitle } from '../../profil/fields.jsx'
+import { sectionTitle, primaryBtnClass } from '../../profil/fields.jsx'
 
 // "Dane do wypłat" in club settings. The owner edits; an admin sees the name
 // and the account masked as "PL61 … 2874" (get-club-payout masks it server-side,
 // so the full number never reaches an admin's browser).
 
-const primaryBtnClass = 'whitespace-nowrap font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed'
 const fieldLabel = 'block font-display font-bold text-[10px] tracking-widest uppercase text-apex-muted mb-1'
 const fieldInput = 'w-full bg-apex-surface border border-apex-border text-apex-text-bright font-sans text-base md:text-sm font-medium py-2.5 px-3.5 outline-none focus:border-apex-yellow-dim transition-colors'
 
