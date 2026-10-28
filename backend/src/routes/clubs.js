@@ -35,7 +35,8 @@ export async function clubsRoutes(fastify) {
     await logAdminAction({ action: 'merge_clubs', targetTable: 'clubs', targetId: id, payload: { sourceIds }, req: request.raw })
     const { data: moved, error } = await supabase.rpc('merge_clubs', { target: id, sources: sourceIds })
     if (error) {
-      const status = /not found|unknown|cannot be/.test(error.message) ? 400 : 500
+      const status = /online registration/.test(error.message) ? 409
+        : /not found|unknown|cannot be/.test(error.message) ? 400 : 500
       return reply.status(status).send({ error: error.message })
     }
     return { data: { movedMembers: moved } }

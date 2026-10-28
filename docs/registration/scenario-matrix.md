@@ -5,13 +5,13 @@ Every scenario, its expected result and where it is tested. Later plans append r
 
 | ID | Scenario | Expected | Layer | Test | manual ✔ |
 |----|----------|----------|-------|------|----------|
-| F-01 | Anon cannot select any of the six new registration tables | denied | DB | Task 1 (pending) |  |
-| F-02 | Updating registration_settings.club_id | raises | DB | Task 1 (pending) |  |
-| F-03 | Deleting participant/category/event/check-in/checkpoint/race run/document of an event with registration_settings | raises; same deletes without it succeed | DB | Task 1 (pending) |  |
-| F-04 | Participant with removed_at | absent from participants_public and search_participants_admin; anon access otherwise intact | DB | Task 1 (pending) |  |
-| F-05 | delete-club on a club without events / owning a registration event | 200 / 409 | edge function | Task 1 (pending) |  |
-| F-06 | Seed club zatyrani-test vs inny-klub | registration_enabled true / false | DB | Task 1 (pending) |  |
-| F-07 | registration_waitlist rows per club | one | DB | Task 1 (pending) |  |
+| F-01 | Anon cannot select any of the six new registration tables | denied | DB | `tests/registration/schema.test.js` › F-01 anon cannot select any of the six new registration tables |  |
+| F-02 | Updating registration_settings.club_id | raises | DB | `tests/registration/schema.test.js` › F-02 registration_settings.club_id cannot be changed; other columns can |  |
+| F-03 | Deleting participant/category/event/check-in/checkpoint/race run/document of an event with registration_settings | raises; same deletes without it succeed | DB | `tests/registration/schema.test.js` › F-03 deletes of a registration event and its rows are refused; F-03 the same deletes on an event without registration succeed |  |
+| F-04 | Participant with removed_at | absent from participants_public and search_participants_admin; anon access otherwise intact | DB | `tests/registration/schema.test.js` › F-04 a removed participant is hidden from participants_public and the PIN RPCs |  |
+| F-05 | delete-club on a club without events / owning a registration event | 200 / 409 | edge function | `tests/registration/schema.test.js` › F-05 delete-club: 200 for a club without events, 409 for a club owning a registration event; F-05 merge_clubs refuses …; F-05 merge_clubs is not callable by anon |  |
+| F-06 | Seed club zatyrani-test vs inny-klub | registration_enabled true / false | DB | `tests/registration/schema.test.js` › F-06 seed: zatyrani-test has registration enabled, inny-klub does not |  |
+| F-07 | registration_waitlist rows per club | one | DB | `tests/registration/schema.test.js` › F-07 registration_waitlist holds one row per club |  |
 | F-08 | configSync pulls legacy, published and closed leszyrun events; skips draft and external | as stated | unit | Task 2 (pending) |  |
 | F-09 | A skipped event | drops its categories, participants, checkpoints, race_runs, results, event_documents | unit | Task 2 (pending) |  |
 | F-10 | Draft skipped on poll 1, published by poll 2 | pulled on poll 2 | unit | Task 2 (pending) |  |

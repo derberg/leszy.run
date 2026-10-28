@@ -1,8 +1,7 @@
 -- LOCAL test stack only (`supabase db reset`). Never applied to production:
 -- `supabase db push` does not run seed.sql.
--- Two clubs with an owner, an admin and a member each. Task 1 of the race
--- registration plan adds clubs.registration_enabled and updates this seed so
--- `zatyrani-test` has it on and `inny-klub` does not.
+-- Two clubs with an owner, an admin and a member each. `zatyrani-test` has
+-- online registration enabled, `inny-klub` does not.
 
 INSERT INTO profiles (id, email, username, display_name) VALUES
   ('00000000-0000-4000-8000-0000000000a1', 'owner@zatyrani-test.local',  'zt-owner',  'ZT Owner'),
@@ -12,9 +11,9 @@ INSERT INTO profiles (id, email, username, display_name) VALUES
   ('00000000-0000-4000-8000-0000000000b2', 'admin@inny-klub.local',      'ik-admin',  'IK Admin'),
   ('00000000-0000-4000-8000-0000000000b3', 'member@inny-klub.local',     'ik-member', 'IK Member');
 
-INSERT INTO clubs (id, name, normalized_name, slug, owner_id, is_public) VALUES
-  ('00000000-0000-4000-8000-0000000000c1', 'Zatyrani Test', 'zatyrani test', 'zatyrani-test', '00000000-0000-4000-8000-0000000000a1', true),
-  ('00000000-0000-4000-8000-0000000000c2', 'Inny Klub',     'inny klub',     'inny-klub',     '00000000-0000-4000-8000-0000000000b1', true);
+INSERT INTO clubs (id, name, normalized_name, slug, owner_id, is_public, registration_enabled) VALUES
+  ('00000000-0000-4000-8000-0000000000c1', 'Zatyrani Test', 'zatyrani test', 'zatyrani-test', '00000000-0000-4000-8000-0000000000a1', true, true),
+  ('00000000-0000-4000-8000-0000000000c2', 'Inny Klub',     'inny klub',     'inny-klub',     '00000000-0000-4000-8000-0000000000b1', true, false);
 
 INSERT INTO club_members (club_id, user_id, role, status, joined_at) VALUES
   ('00000000-0000-4000-8000-0000000000c1', '00000000-0000-4000-8000-0000000000a1', 'owner',  'active', now()),
