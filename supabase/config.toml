@@ -161,3 +161,7 @@ entrypoint = "./functions/accept-organizer-agreement/index.js"
 [functions.update-club-payout]
 verify_jwt = false
 entrypoint = "./functions/update-club-payout/index.js"
+
+[functions.get-club-payout]
+verify_jwt = false
+entrypoint = "./functions/get-club-payout/index.js"

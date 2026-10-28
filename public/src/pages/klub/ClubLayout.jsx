@@ -4,7 +4,7 @@ import AuthGuard from '../../components/AuthGuard.jsx'
 import useClub from '../../hooks/useClub.js'
 import { KlubContext } from './context.js'
 
-// Slug-scoped club area shell: /klub/:slug/{panel,czlonkowie,zaproszenia,ustawienia}.
+// Slug-scoped club area shell: /klub/:slug/{panel,czlonkowie,wydarzenia,zaproszenia,ustawienia}.
 // The bare /klub/:slug is the static public page served by Vercel — this layout
 // only owns the sub-paths (the index route redirects to panel for client-side
 // navigations that land on the bare path). Guards here are UX only; the edge
@@ -12,6 +12,7 @@ import { KlubContext } from './context.js'
 const TABS = [
   { to: 'panel', label: 'Panel', manage: false },
   { to: 'czlonkowie', label: 'Członkowie', manage: false },
+  { to: 'wydarzenia', label: 'Wydarzenia', manage: false },
   { to: 'zaproszenia', label: 'Zaproszenia', manage: true },
   { to: 'ustawienia', label: 'Ustawienia', manage: true },
 ]

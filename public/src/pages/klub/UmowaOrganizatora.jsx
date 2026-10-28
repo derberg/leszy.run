@@ -1,0 +1,69 @@
+import { useState } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
+import useSeo from '../../hooks/useSeo.js'
+import useOrganizerStatus from '../../hooks/useOrganizerStatus.js'
+import { acceptOrganizerAgreement } from '../../lib/organizer.js'
+import { organizerAgreement } from '../../legal/organizerAgreement.js'
+import { useKlub } from './context.js'
+
+const primaryBtnClass = 'whitespace-nowrap font-display font-bold text-[11px] tracking-widest uppercase px-3 py-1.5 border-2 border-apex-yellow text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-apex-yellow'
+const eyebrowClass = 'font-mono text-[10px] tracking-widest uppercase text-apex-muted'
+
+// The organizer agreement, readable by owner and admin; only the owner accepts.
+// The body is plain text: paragraphs separated by a blank line.
+function paragraphs(body) {
+  return (body || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
+}
+
+export default function UmowaOrganizatora() {
+  const { club, canManage, isOwner } = useKlub()
+  const navigate = useNavigate()
+  const { ready, status, error } = useOrganizerStatus(club.id)
+  const [busy, setBusy] = useState(false)
+  const [acceptError, setAcceptError] = useState(null)
+
+  useSeo({ title: `Umowa organizatora — ${club.name} — Leszy.run`, noindex: true })
+
+  const back = `/klub/${club.slug}/wydarzenia`
+  if (!canManage) return <Navigate to={back} replace />
+  if (ready && status && !status.enabled) return <Navigate to={back} replace />
+
+  async function accept() {
+    setBusy(true)
+    setAcceptError(null)
+    try {
+      await acceptOrganizerAgreement(club.id, organizerAgreement.version)
+      navigate(back)
+    } catch (err) {
+      setAcceptError(err.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <article data-testid="organizer-agreement" className="space-y-4 max-w-3xl">
+      <div>
+        <div className={eyebrowClass}>Wersja <span className="normal-case">{organizerAgreement.version}</span></div>
+        <h1 className="font-display font-extrabold text-2xl uppercase text-apex-text-bright">{organizerAgreement.title}</h1>
+      </div>
+      <div className="space-y-3">
+        {paragraphs(organizerAgreement.body).map((p, i) => (
+          <p key={i} className="font-sans text-sm text-apex-text whitespace-pre-line">{p}</p>
+        ))}
+      </div>
+
+      {!ready && <p className="font-mono text-sm text-apex-muted animate-pulse">Ładowanie…</p>}
+      {ready && error && <p className="text-apex-red font-sans text-xs">{error}</p>}
+      {status?.agreementAccepted ? (
+        <p data-testid="agreement-accepted" className="font-sans text-sm font-semibold text-apex-yellow">Umowa zaakceptowana</p>
+      ) : status && !isOwner ? (
+        <p className="font-sans text-sm text-apex-text">Umowę akceptuje właściciel klubu</p>
+      ) : status ? (
+        <div>
+          <button type="button" onClick={accept} disabled={busy} className={primaryBtnClass}>Akceptuję umowę</button>
+          {acceptError && <p className="text-apex-red font-sans text-xs mt-1.5">{acceptError}</p>}
+        </div>
+      ) : null}
+    </article>
+  )
+}

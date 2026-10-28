@@ -134,3 +134,40 @@ test('F-19 one save writes exactly one history row with the right old and new', 
   assert.equal(hist[0].new.address, 'ul. Nowa 2, 00-002 Warszawa')
   assert.equal(hist[0].old.iban, 'PL27114020040000300201355387')
 })
+
+async function read(session, clubId) {
+  const res = await fetch(`${localEnv().functionsUrl}/get-club-payout`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: session.cookie },
+    body: JSON.stringify({ clubId }),
+  })
+  return { status: res.status, body: await res.json() }
+}
+
+test('F-19 get-club-payout: the owner reads every field', async () => {
+  const r = await read(await sessionFor(OWNER), IK)
+  assert.equal(r.status, 200)
+  assert.deepEqual(r.body.data, {
+    legalName: GOOD.legalName, nip: '5260250274', krs: '0000123456',
+    iban: 'PL61109010140000071219812874', address: 'ul. Nowa 2, 00-002 Warszawa',
+  })
+})
+
+test('F-19 get-club-payout: an admin reads the name and the masked account only', async () => {
+  const r = await read(await sessionFor('admin@inny-klub.local'), IK)
+  assert.equal(r.status, 200)
+  assert.deepEqual(r.body.data, { legalName: GOOD.legalName, ibanMasked: 'PL61 … 2874' })
+})
+
+test('F-19 get-club-payout: a member and a non-member get 403', async () => {
+  assert.equal((await read(await sessionFor('member@inny-klub.local'), IK)).status, 403)
+  assert.equal((await read(await sessionFor('member@zatyrani-test.local'), IK)).status, 403)
+})
+
+test('F-19 get-club-payout: a club without details answers data null', async () => {
+  const ZT = '00000000-0000-4000-8000-0000000000c1'
+  await admin().from('club_payout_details').delete().eq('club_id', ZT)
+  const r = await read(await sessionFor('owner@zatyrani-test.local'), ZT)
+  assert.equal(r.status, 200)
+  assert.equal(r.body.data, null)
+})

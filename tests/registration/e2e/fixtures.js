@@ -3,11 +3,15 @@ import { sessionFor } from '../helpers/stack.js'
 
 // Independent browser contexts, one per audience, each logged in as that
 // person (no email round trip). Emails match supabase/seed.sql club members
-// so owner/admin/member really hold those roles in zatyrani-test.
+// so owner/admin/member really hold those roles in zatyrani-test (registration
+// enabled), and innyOwner/innyAdmin/innyMember in inny-klub (not enabled).
 export const ACTOR_EMAILS = {
   owner: 'owner@zatyrani-test.local',
   admin: 'admin@zatyrani-test.local',
   member: 'member@zatyrani-test.local',
+  innyOwner: 'owner@inny-klub.local',
+  innyAdmin: 'admin@inny-klub.local',
+  innyMember: 'member@inny-klub.local',
   runner: 'runner@test.local',
   viewer: null, // anonymous
 }

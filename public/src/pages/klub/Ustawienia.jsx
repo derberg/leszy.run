@@ -6,6 +6,7 @@ import ClubLogoUpload from '../../components/ClubLogoUpload.jsx'
 import { updateClub, deleteClub, transferOwnership } from '../../lib/clubs.js'
 import { sectionTitle, actionBtnClass, inputClass } from '../profil/fields.jsx'
 import { useKlub } from './context.js'
+import PayoutDetails from './sections/PayoutDetails.jsx'
 
 // Club settings page. Edit form (name/slug/description/is_public + logo) is a
 // labeled rework of the old profil/club/ManagePanel.jsx EditClubSection
@@ -182,6 +183,8 @@ export default function Ustawienia() {
           </div>
         </form>
       </div>
+
+      <PayoutDetails clubId={club.id} isOwner={isOwner} />
 
       {isOwner && (
         <div>
