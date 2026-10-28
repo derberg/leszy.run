@@ -42,10 +42,12 @@ async function seedEvent({ registration, clubId = ZT_CLUB }) {
   const checkpoint = await insert('checkpoints', { event_id: event.id, name: 'PK1' })
   const raceRun = await insert('race_runs', { category_id: category.id })
   const document = await insert('event_documents', { event_id: event.id, name: 'Regulamin', type: 'acknowledgement' })
+  const checkinDocument = await insert('checkin_documents', { checkin_id: checkin.id, document_id: document.id })
+  const checkpointCategory = await insert('checkpoint_categories', { checkpoint_id: checkpoint.id, category_id: category.id })
   if (registration) {
     await insert('registration_settings', { event_id: event.id, club_id: clubId })
   }
-  return { event, category, participant, checkin, checkpoint, raceRun, document }
+  return { event, category, participant, checkin, checkpoint, raceRun, document, checkinDocument, checkpointCategory }
 }
 
 test('F-01 anon cannot select any of the six new registration tables', async () => {
@@ -68,7 +70,10 @@ test('F-02 registration_settings.club_id cannot be changed; other columns can', 
   assert.deepEqual(data, { club_id: ZT_CLUB, state: 'published' })
 })
 
+// [table, key in seedEvent's result, column that identifies the row]
 const GUARDED = [
+  ['checkin_documents', 'checkinDocument'],
+  ['checkpoint_categories', 'checkpointCategory', 'checkpoint_id'],
   ['participants', 'participant'],
   ['checkins', 'checkin'],
   ['checkpoints', 'checkpoint'],
@@ -80,21 +85,21 @@ const GUARDED = [
 
 test('F-03 deletes of a registration event and its rows are refused', async () => {
   const rows = await seedEvent({ registration: true })
-  for (const [table, key] of GUARDED) {
-    const { error } = await admin().from(table).delete().eq('id', rows[key].id)
+  for (const [table, key, col = 'id'] of GUARDED) {
+    const { error } = await admin().from(table).delete().eq(col, rows[key][col])
     assert.ok(error, `delete from ${table} succeeded on a registration event`)
     assert.match(error.message, /registration/i, `${table}: ${error.message}`)
-    const { data } = await admin().from(table).select('id').eq('id', rows[key].id)
+    const { data } = await admin().from(table).select(col).eq(col, rows[key][col])
     assert.equal(data.length, 1, `${table} row is gone`)
   }
 })
 
 test('F-03 the same deletes on an event without registration succeed', async () => {
   const rows = await seedEvent({ registration: false })
-  for (const [table, key] of GUARDED) {
-    const { error } = await admin().from(table).delete().eq('id', rows[key].id)
+  for (const [table, key, col = 'id'] of GUARDED) {
+    const { error } = await admin().from(table).delete().eq(col, rows[key][col])
     assert.equal(error, null, `${table}: ${error?.message}`)
-    const { data } = await admin().from(table).select('id').eq('id', rows[key].id)
+    const { data } = await admin().from(table).select(col).eq(col, rows[key][col])
     assert.equal(data.length, 0, `${table} row survived`)
   }
 })
