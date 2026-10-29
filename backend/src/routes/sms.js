@@ -31,6 +31,10 @@ export async function smsRoutes(fastify) {
 }
 
 async function sendCheckinSms(db, event, participantRows, reply) {
+  // Nobody to text: answer without asking Supabase for the link key.
+  if (!participantRows.some((p) => p.phone)) {
+    return { data: { sent: 0, skipped: participantRows.length, errors: [] } }
+  }
   // The link is signed with the event's key from Supabase, so without Supabase
   // there is no link that the check-in page would accept.
   if (!supabase) return reply.code(503).send({ error: 'Supabase not configured' })

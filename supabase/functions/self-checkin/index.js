@@ -67,12 +67,12 @@ Deno.serve(async (req) => {
 
   const [{ data: p, error: pErr }, { data: secret, error: sErr }] = await Promise.all([
     admin.from('participants')
-      .select('id, event_id, bib_number, first_name, last_name, category_id, emoji, tshirt_size, birth_date, deleted_at')
+      .select('id, event_id, bib_number, first_name, last_name, category_id, emoji, tshirt_size, birth_date, deleted_at, removed_at')
       .eq('id', participantId).maybeSingle(),
     admin.from('event_secrets').select('checkin_link_key').eq('event_id', eventId).maybeSingle(),
   ])
   if (pErr || sErr) return json({ error: 'Lookup failed' }, 500, req)
-  if (!p || p.deleted_at || p.event_id !== eventId || !secret?.checkin_link_key) return notFound()
+  if (!p || p.deleted_at || p.removed_at || p.event_id !== eventId || !secret?.checkin_link_key) return notFound()
   if (!sameToken(await checkinToken(secret.checkin_link_key, participantId), token)) return notFound()
 
   const { data: event, error: eErr } = await admin.from('events').select('date').eq('id', eventId).maybeSingle()

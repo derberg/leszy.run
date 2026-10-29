@@ -694,7 +694,7 @@ the `self-checkin` edge function, never with the publishable key (see "Anon key 
 into local PostgreSQL. Admin check-in from the backend also writes to Supabase first (not
 local), so all check-in data has a single source of truth in Supabase.
 
-**Anon key lockdown (security review 2026-10-25, migration `20261025210000_anon_lockdown.sql`).**
+**Anon key lockdown (security review 2026-10-25, migration `20261030020000_anon_lockdown.sql`).**
 The publishable key is in every browser, so whatever it may do, anyone may do. It reads, and
 writes only through the check-in-PIN RPCs (`checkin_confirm` for the bib office). Every other
 write a public page or a Pi makes goes through an edge function on the service role:

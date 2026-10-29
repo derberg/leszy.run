@@ -114,6 +114,9 @@ END;
 $$;
 
 -- Wrong PIN now returns NULL instead of raising, so the failure is recorded.
+-- get_participant_admin and search_participants_admin keep the
+-- "p.removed_at IS NULL" filter that 20261029100000_registration_foundation
+-- added: a participant removed from a registration event stays hidden.
 CREATE OR REPLACE FUNCTION public.get_participant_admin(p_event_id uuid, p_pin text, p_participant_id uuid)
 RETURNS json
 LANGUAGE plpgsql
@@ -138,7 +141,8 @@ BEGIN
   ) INTO result
   FROM participants p
   WHERE p.id = p_participant_id
-    AND p.event_id = p_event_id;
+    AND p.event_id = p_event_id
+    AND p.removed_at IS NULL;
 
   RETURN result;
 END;
@@ -169,6 +173,7 @@ BEGIN
       SELECT p.id, p.first_name, p.last_name, p.bib_number, p.category_id, p.birth_date, p.tshirt_size
       FROM participants p
       WHERE p.category_id = ANY(cat_ids)
+        AND p.removed_at IS NULL
         AND p.bib_number = p_query::int
     ) t;
   ELSE
@@ -177,6 +182,7 @@ BEGIN
       SELECT p.id, p.first_name, p.last_name, p.bib_number, p.category_id, p.birth_date, p.tshirt_size
       FROM participants p
       WHERE p.category_id = ANY(cat_ids)
+        AND p.removed_at IS NULL
         AND (p.first_name ILIKE '%' || p_query || '%' OR p.last_name ILIKE '%' || p_query || '%')
       LIMIT 20
     ) t;

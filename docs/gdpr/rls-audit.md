@@ -7,7 +7,7 @@
 ---
 
 
-> **Superseded in part on 2026-10-25** (migration `20261025210000_anon_lockdown.sql`, security
+> **Superseded in part on 2026-10-25** (migration `20261030020000_anon_lockdown.sql`, security
 > review). The verdicts below that accept anon writes or `get_participant_for_checkin` no longer
 > hold: `get_participant_for_checkin` was dropped (it returned phone and birth date for any id,
 > and the ids are public via `participants_public`), anon INSERT was removed from

@@ -4,7 +4,7 @@
 // anyone who rotated that header.
 //
 // The whole check is event_pin_ok() in SQL (migration
-// 20261025210000_anon_lockdown.sql): it takes an advisory lock on the PIN,
+// 20261030020000_anon_lockdown.sql): it takes an advisory lock on the PIN,
 // counts the recent failures, compares and records, so concurrent guesses
 // cannot all read the same count. The lockout is per event, not per caller,
 // because there is no caller identity a forger cannot change: 100 wrong PINs in
