@@ -4,7 +4,7 @@
 -- by service_role only (the edge functions); the internal helpers by nobody.
 --
 --   insert_registration_participant  the participant bridge (idempotent; never updates a row)
---   create_order                     one checkout: refusals as register_free, price from the
+--   create_order                     one checkout of a signed-in account: refusals as register_free, price from the
 --                                    current tier, amounts from the SQL fee functions, slot claim,
 --                                    order + registrations (pending_payment) + consents + lines;
 --                                    a total of 0 is paid at once with no dpay
@@ -266,6 +266,17 @@ BEGIN
   END IF;
   v_n := jsonb_array_length(p_people);
 
+  -- Ruling P3-R4: an order belongs to a signed-in account, and its buyer
+  -- address is that account's address (reminders, refund and expiry mail go
+  -- there). p_buyer_email is only checked against it, never stored as given.
+  SELECT p.id, lower(btrim(p.email)) INTO v_profile, v_buyer FROM public.profiles p WHERE p.id = p_profile_id;
+  IF v_profile IS NULL OR v_buyer IS NULL OR v_buyer = '' THEN
+    RAISE EXCEPTION 'session_required';
+  END IF;
+  IF p_buyer_email IS NOT NULL AND lower(btrim(p_buyer_email)) IS DISTINCT FROM v_buyer THEN
+    RAISE EXCEPTION 'invalid_buyer_email';
+  END IF;
+
   -- D3-1: the competition, then the settings, as register_free.
   SELECT * INTO v_comp FROM public.competitions WHERE category_id = p_category_id FOR UPDATE;
   IF NOT FOUND THEN
@@ -291,13 +302,14 @@ BEGIN
 
   -- The current tier: the first whose last day (a Warsaw date) is today or later,
   -- an open-ended one last (the same choice as registration_raw).
-  SELECT t.id, t.ends_on, p.amount INTO v_tier, v_tier_ends, v_price
+  SELECT t.id, t.ends_on INTO v_tier, v_tier_ends
     FROM public.price_tiers t
-    JOIN public.competition_prices p ON p.tier_id = t.id AND p.category_id = p_category_id
    WHERE t.event_id = v_rs.event_id
      AND (t.ends_on IS NULL OR t.ends_on >= (now() AT TIME ZONE 'Europe/Warsaw')::date)
    ORDER BY t.ends_on NULLS LAST, t.sort_order, t.id
    LIMIT 1;
+  SELECT p.amount INTO v_price FROM public.competition_prices p
+   WHERE p.tier_id = v_tier AND p.category_id = p_category_id;
   IF v_price IS NULL THEN
     RAISE EXCEPTION 'no_price';
   END IF;
@@ -330,19 +342,13 @@ BEGIN
     RAISE EXCEPTION 'consents_changed';
   END IF;
 
-  v_buyer := lower(btrim(p_buyer_email));
-  IF v_buyer IS NULL OR v_buyer = '' THEN
-    RAISE EXCEPTION 'invalid_buyer_email';
-  END IF;
-  SELECT p.id INTO v_profile FROM public.profiles p WHERE p.id = p_profile_id;
-
-  -- At most two pending orders per buyer (the account, else the address) and
-  -- event. The lock makes the count and the insert one step.
-  PERFORM pg_advisory_xact_lock(hashtext('create_order:' || coalesce(v_profile::text, v_buyer) || ':' || v_rs.event_id::text));
+  -- At most two payable orders per account and event (an overdue one the job
+  -- has not swept yet no longer counts). The lock makes the count and the
+  -- insert one step, also across competitions of the event.
+  PERFORM pg_advisory_xact_lock(hashtext('create_order:' || v_profile::text || ':' || v_rs.event_id::text));
   IF (SELECT count(*) FROM public.orders o
-       WHERE o.event_id = v_rs.event_id AND o.status = 'pending'
-         AND CASE WHEN v_profile IS NOT NULL THEN o.buyer_profile_id = v_profile
-                  ELSE o.buyer_profile_id IS NULL AND o.buyer_email = v_buyer END) >= 2 THEN
+       WHERE o.event_id = v_rs.event_id AND o.status = 'pending' AND o.expires_at > now()
+         AND o.buyer_profile_id = v_profile) >= 2 THEN
     RAISE EXCEPTION 'too_many_pending';
   END IF;
 
@@ -391,11 +397,11 @@ BEGIN
 
     INSERT INTO public.consent_acceptances (
       registration_id, consent_id, consent_kind, accepted_by_profile_id, accepted_as, regulamin_version, ip, user_agent)
-    SELECT v_reg, ec.id, ec.kind, p_profile_id, 'self',
+    SELECT v_reg, ec.id, ec.kind, v_profile, 'self',
            CASE WHEN ec.kind = 'regulamin' THEN v_rs.regulamin_version END, v_ip, v_ua
       FROM public.event_consents ec WHERE ec.event_id = v_rs.event_id
     UNION ALL
-    SELECT v_reg, NULL, 'service_regulamin', p_profile_id, 'self', NULL, v_ip, v_ua;
+    SELECT v_reg, NULL, 'service_regulamin', v_profile, 'self', NULL, v_ip, v_ua;
 
     INSERT INTO public.order_lines (order_id, kind, registration_id, qty, amount, tier_label, tier_ends_on)
     VALUES (v_order, 'entry', v_reg, 1, v_price, v_label, v_tier_ends);
@@ -468,6 +474,10 @@ BEGIN
   IF p_grosze IS NULL OR p_grosze <= 0 THEN
     RAISE EXCEPTION 'invalid_amount';
   END IF;
+  -- D3-1: the order before the attempt, as confirm_order takes them.
+  PERFORM 1 FROM public.orders o
+   WHERE o.id = (SELECT pa.order_id FROM public.payment_attempts pa WHERE pa.id = p_attempt_id)
+     FOR UPDATE;
   SELECT * INTO a FROM public.payment_attempts WHERE id = p_attempt_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'not_found';
@@ -483,9 +493,13 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.record_refund(uuid, integer, text, text) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.record_refund(uuid, integer, text, text) TO service_role;
 
--- The dpay outcome of a refund call. Only insufficient_balance (406) is retried,
--- an hour later; unknown is left for a person (ruling 8).
-CREATE FUNCTION public.settle_refund(p_refund_id uuid, p_outcome text) RETURNS void
+-- The dpay outcome of a refund call (ruling P3-R6) → 'settled' or
+-- 'already_settled'. accepted and rejected are final and never overwritten:
+-- money that left cannot be un-sent, and a rejected refund is the operator's
+-- call. pending (dpay 409), insufficient_balance (406, retried an hour later)
+-- and unknown (left for a person, ruling 8) can still move. The attempts
+-- counter belongs to the retry job's claim (task 7), never to this function.
+CREATE FUNCTION public.settle_refund(p_refund_id uuid, p_outcome text) RETURNS text
   LANGUAGE plpgsql
   SECURITY DEFINER
   SET search_path = ''
@@ -493,21 +507,24 @@ AS $$
 DECLARE
   v_attempt uuid;
 BEGIN
-  IF p_outcome IS NULL OR p_outcome NOT IN ('accepted', 'rejected', 'insufficient_balance', 'unknown') THEN
+  IF p_outcome IS NULL OR p_outcome NOT IN ('pending', 'accepted', 'rejected', 'insufficient_balance', 'unknown') THEN
     RAISE EXCEPTION 'invalid_outcome';
   END IF;
   UPDATE public.refunds
      SET dpay_status = p_outcome,
-         attempts = attempts + 1,
          next_retry_at = CASE WHEN p_outcome = 'insufficient_balance' THEN now() + interval '1 hour' END
-   WHERE id = p_refund_id
+   WHERE id = p_refund_id AND dpay_status NOT IN ('accepted', 'rejected')
   RETURNING payment_attempt_id INTO v_attempt;
   IF NOT FOUND THEN
+    IF EXISTS (SELECT 1 FROM public.refunds WHERE id = p_refund_id) THEN
+      RETURN 'already_settled';
+    END IF;
     RAISE EXCEPTION 'not_found';
   END IF;
   IF p_outcome = 'accepted' THEN
     UPDATE public.payment_attempts SET status = 'refunded' WHERE id = v_attempt;
   END IF;
+  RETURN 'settled';
 END $$;
 REVOKE EXECUTE ON FUNCTION public.settle_refund(uuid, text) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.settle_refund(uuid, text) TO service_role;
@@ -601,6 +618,16 @@ BEGIN
      WHERE c.category_id IN (SELECT r.category_id FROM public.registrations r WHERE r.order_id = o.id)
      ORDER BY c.category_id
        FOR UPDATE;
+    -- Ruling P3-R5: no re-claim into a competition hidden meanwhile, nor into
+    -- an event no longer published; the payment is refunded, nothing claimed.
+    IF EXISTS (SELECT 1 FROM public.competitions c
+                WHERE c.hidden_at IS NOT NULL
+                  AND c.category_id IN (SELECT r.category_id FROM public.registrations r WHERE r.order_id = o.id))
+       OR NOT EXISTS (SELECT 1 FROM public.registration_settings rs
+                       WHERE rs.event_id = o.event_id AND rs.state = 'published') THEN
+      v_refund := public.registration_refund_attempt(o.id, a.id, p_grosze, 'late_refund', 'unavailable', p_source);
+      RETURN jsonb_build_object('outcome', 'late_refund', 'refund', v_refund);
+    END IF;
   ELSE
     PERFORM 1 FROM public.competitions c
      WHERE c.category_id IN (SELECT r.category_id FROM public.registrations r WHERE r.order_id = o.id)
@@ -663,6 +690,10 @@ GRANT EXECUTE ON FUNCTION public.confirm_order(uuid, text, integer, text) TO ser
 
 -- ---------------------------------------------------------------- expire / cancel
 
+-- Every writer of an order-backed registration's status holds the order's
+-- row lock first (expire, cancel, confirm; Plan 6's organizer cancel must too):
+-- counting the units and flipping the registrations are separate statements.
+--
 -- The payment window job. One statement flips every due order; orders another
 -- transaction holds (a confirm in flight, a second run of this job) are skipped
 -- and picked up by the next run. Then the slots go back (competitions in

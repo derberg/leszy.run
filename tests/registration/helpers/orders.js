@@ -30,20 +30,42 @@ export async function consentIds(eventId) {
 
 export const rpc = (fn, args) => db().rpc(fn, args)
 
+/** The profile id for an address (created when missing): every order needs an account (P3-R4). */
+export async function profileFor(email) {
+  const normalized = email.toLowerCase().trim()
+  const { data: found, error } = await db().from('profiles').select('id').eq('email', normalized).maybeSingle()
+  if (error) throw error
+  if (found) return found.id
+  // Two concurrent orders of one buyer can both miss the select: the loser re-reads.
+  const { data, error: insErr } = await db().from('profiles')
+    .insert({ id: crypto.randomUUID(), email: normalized }).select('id').single()
+  if (insErr) {
+    const again = await db().from('profiles').select('id').eq('email', normalized).single()
+    if (again.error) throw insErr
+    return again.data.id
+  }
+  return data.id
+}
+
 /**
- * create_order for one competition. `displayed` defaults to the right total for
- * `price`; `buyerEmail` defaults to the first person's address.
+ * create_order for one competition. The buyer is an account: `profileId`, or
+ * by default the profile of `buyerEmail` (the first person's address unless
+ * given). `buyerEmail` is sent as p_buyer_email; pass `sendBuyerEmail` to send
+ * something else. `profileId: null` sends no account. `displayed` defaults to
+ * the right total for `price`.
  */
 export async function createOrder(event, {
-  categoryId = event.categoryIds[0], people, emails, profileId = null, buyerEmail, support = false,
+  categoryId = event.categoryIds[0], people, emails, profileId, buyerEmail, sendBuyerEmail, support = false,
   displayed, price = event.prices?.[categoryId] ?? 6000, consents, meta,
 } = {}) {
   const list = people ?? (emails ?? [runnerEmail()]).map((e) => person(e))
+  const buyer = buyerEmail ?? list[0]?.email ?? runnerEmail('buyer')
+  const profile = profileId === undefined ? await profileFor(buyer) : profileId
   return rpc('create_order', {
     p_category_id: categoryId,
     p_people: list,
-    p_profile_id: profileId,
-    p_buyer_email: buyerEmail ?? list[0]?.email ?? 'kupujacy@test.local',
+    p_profile_id: profile,
+    p_buyer_email: sendBuyerEmail !== undefined ? sendBuyerEmail : buyer,
     p_support_choice: support,
     p_displayed_total: displayed ?? totalFor(price, list.length, support === true),
     p_meta: meta ?? { consentIds: consents ?? await consentIds(event.eventId), ip: '203.0.113.9', userAgent: 'test' },

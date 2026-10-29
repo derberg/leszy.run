@@ -192,6 +192,46 @@ test('P-14 late payment after the same address registered again → late_refund 
   assert.equal((await registrationsOf(out.orderId))[0].status, 'expired')
 })
 
+test('P-14 late payment into a competition hidden meanwhile → late_refund unavailable, nothing claimed (P3-R5)', async () => {
+  const event = await paid({ competitions: BIEG(10) })
+  const cat = event.categoryIds[0]
+  const out = await orderOk(event)
+  const att = await attemptFor(out.orderId, out.total)
+  await expireNow(out.orderId)
+  assert.equal((await competitionOf(cat)).taken, 0)
+  await db().from('competitions').update({ hidden_at: new Date().toISOString() }).eq('category_id', cat)
+
+  const r = await confirmOk(out.orderId, att.txn, out.total)
+  assert.equal(r.outcome, 'late_refund')
+  assert.equal(r.refund.reason, 'unavailable')
+  assert.equal(r.refund.grosze, out.total)
+  assert.equal((await competitionOf(cat)).taken, 0)
+  assert.equal((await orderOf(out.orderId)).status, 'expired')
+  assert.equal((await registrationsOf(out.orderId))[0].status, 'expired')
+  assert.equal((await rows('refunds', { payment_attempt_id: att.id })).length, 1)
+  assert.equal((await alertsFor(out.orderId, 'late_refund')).length, 1)
+})
+
+test('P-14 late payment after the event stopped being published → late_refund unavailable, nothing claimed (P3-R5)', async () => {
+  const event = await paid({ competitions: BIEG(10) })
+  const cat = event.categoryIds[0]
+  const out = await orderOk(event)
+  const att = await attemptFor(out.orderId, out.total)
+  await expireNow(out.orderId)
+  const { data: st } = await db().from('registration_settings').select('state').eq('event_id', event.eventId).single()
+  const { error } = await db().from('registration_settings').update({ state: 'closed' }).eq('event_id', event.eventId)
+  assert.equal(error, null, error?.message)
+  try {
+    const r = await confirmOk(out.orderId, att.txn, out.total)
+    assert.equal(r.outcome, 'late_refund')
+    assert.equal(r.refund.reason, 'unavailable')
+    assert.equal((await competitionOf(cat)).taken, 0)
+    assert.equal((await registrationsOf(out.orderId))[0].status, 'expired')
+  } finally {
+    await db().from('registration_settings').update({ state: st.state }).eq('event_id', event.eventId)
+  }
+})
+
 // ---------------------------------------------------------------- P-15
 
 test('P-15 a total-0 order is paid at once: registration confirmed, participant inserted, no attempt', async () => {
@@ -233,39 +273,52 @@ test('P-16 paid orders stop one hour before closes_at; expires_at never past clo
   assert.equal(Date.parse(out.expiresAt), Date.parse(closes))
 })
 
-test('P-16 at most two pending orders per account and event (and per buyer address for a guest)', async () => {
+test('P-16 an order needs an account; the buyer address is the account\'s; at most two payable orders per account and event', async () => {
   const event = await paid()
-  const buyer = await sessionFor(runnerEmail('buyer'))
-  const opts = () => ({ profileId: buyer.profileId, buyerEmail: 'kupujacy@test.local' })
-  await orderOk(event, opts())
-  await orderOk(event, opts())
-  assert.equal((await createOrder(event, opts())).error?.message, 'too_many_pending')
+  const email = runnerEmail('buyer')
+  const buyer = await sessionFor(email)
+  const opts = () => ({ profileId: buyer.profileId, buyerEmail: email, emails: [runnerEmail('kid')] })
 
-  const guest = runnerEmail('guest')
-  await orderOk(event, { buyerEmail: guest })
-  await orderOk(event, { buyerEmail: guest })
-  assert.equal((await createOrder(event, { buyerEmail: guest.toUpperCase() })).error?.message, 'too_many_pending')
-  assert.equal((await competitionOf(event.categoryIds[0])).taken, 4)
+  assert.equal((await createOrder(event, { profileId: null })).error?.message, 'session_required')
+  assert.equal((await createOrder(event, { profileId: crypto.randomUUID() })).error?.message, 'session_required')
+  assert.equal((await createOrder(event, { ...opts(), sendBuyerEmail: 'ktos-inny@test.local' })).error?.message, 'invalid_buyer_email')
+
+  // p_buyer_email may be omitted or differ in case only; the stored address is the account's.
+  const first = await orderOk(event, { ...opts(), sendBuyerEmail: null })
+  assert.equal((await orderOf(first.orderId)).buyer_email, email)
+  assert.equal((await orderOf(first.orderId)).buyer_profile_id, buyer.profileId)
+  await orderOk(event, { ...opts(), sendBuyerEmail: email.toUpperCase() })
+  assert.equal((await createOrder(event, opts())).error?.message, 'too_many_pending')
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 2)
+
+  // An overdue order the job has not swept yet no longer counts (M4).
+  await db().from('orders').update({ expires_at: minutesFromNow(-1) }).eq('id', first.orderId)
+  const third = await orderOk(event, opts())
 
   // A paid order no longer counts.
-  const g2 = runnerEmail('guest2')
-  const a = await orderOk(event, { buyerEmail: g2 })
-  await orderOk(event, { buyerEmail: g2 })
-  const att = await attemptFor(a.orderId, a.total)
-  await confirmOk(a.orderId, att.txn, a.total)
-  assert.equal((await createOrder(event, { buyerEmail: g2 })).error, null)
+  const att = await attemptFor(third.orderId, third.total)
+  await confirmOk(third.orderId, att.txn, third.total)
+  assert.equal((await createOrder(event, opts())).error, null)
 })
 
-test('P-16 two concurrent creates as the second and third pending order: exactly one succeeds', async () => {
-  for (let round = 0; round < 5; round++) {
-    const event = await paid()
-    const buyer = await sessionFor(runnerEmail('conc'))
-    const opts = { profileId: buyer.profileId, buyerEmail: 'kupujacy@test.local' }
-    await orderOk(event, opts)
-    const [a, b] = await Promise.all([createOrder(event, opts), createOrder(event, opts)])
+test('P-16 two concurrent creates in two competitions as the second and third pending order: exactly one succeeds', async () => {
+  // Different competitions, so no competition lock orders them: only the
+  // per-account advisory lock makes the count and the insert one step.
+  for (let round = 0; round < 10; round++) {
+    const event = await createPublishedPaidEvent(owner, {
+      prices: { 'Bieg 9 km': 6000, 'Marsz 5 km': 4000 },
+      competitions: [...BIEG(50), { name: 'Marsz 5 km', discipline: 'nw', distanceLabel: '5 km', startTime: '10:05', capacity: 50 }],
+    })
+    const [c1, c2] = event.categoryIds
+    const email = runnerEmail('conc')
+    const buyer = await sessionFor(email)
+    const opts = (categoryId) => ({ categoryId, profileId: buyer.profileId, buyerEmail: email, emails: [runnerEmail('p')] })
+    await orderOk(event, opts(c1))
+    const [a, b] = await Promise.all([createOrder(event, opts(c1)), createOrder(event, opts(c2))])
     const errors = [a, b].map((x) => x.error?.message ?? null)
     assert.deepEqual(errors.filter(Boolean), ['too_many_pending'], JSON.stringify(errors))
-    assert.equal((await competitionOf(event.categoryIds[0])).taken, 2)
+    assert.equal((await rows('orders', { event_id: event.eventId })).length, 2)
+    assert.equal((await competitionOf(c1)).taken + (await competitionOf(c2)).taken, 2)
   }
 })
 
@@ -279,7 +332,8 @@ test('P-16 refusals reuse register_free\'s codes', async () => {
   assert.equal((await createOrder(event, { categoryId: crypto.randomUUID() })).error?.message, 'not_found')
   assert.equal((await createOrder(event, { consents: ids.filter((x) => x !== image.id) })).error?.message, 'consents_changed')
   assert.equal((await createOrder(event, { support: null })).error?.message, 'support_choice_required')
-  assert.equal((await createOrder(event, { buyerEmail: '  ' })).error?.message, 'invalid_buyer_email')
+  assert.equal((await createOrder(event, { sendBuyerEmail: 'ktos-inny@test.local' })).error?.message, 'invalid_buyer_email')
+  assert.equal((await createOrder(event, { profileId: null })).error?.message, 'session_required')
 
   const email = runnerEmail('twice')
   await orderOk(event, { emails: [email] })
@@ -437,30 +491,56 @@ test('cancel_order releases a pending order once; a later payment is refunded', 
   assert.equal((await competitionOf(cat)).taken, 0)
 })
 
-test('record_refund / settle_refund: message id from the refund id; accepted marks the attempt refunded; 406 retries in an hour', async () => {
+test('record_refund / settle_refund (P3-R6): message id from the refund id; 406 retries in an hour; pending moves; accepted and rejected are final', async () => {
   const event = await paid()
   const out = await orderOk(event)
   const att = await attemptFor(out.orderId, out.total)
   await confirmOk(out.orderId, att.txn, out.total)
 
-  const r = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: 1000, p_kind: 'organizer', p_reason: 'rezygnacja' })
+  const r = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: out.total, p_kind: 'organizer', p_reason: 'rezygnacja' })
   assert.equal(r.error, null, r.error?.message)
   assert.equal(r.data.messageId, r.data.refundId.replaceAll('-', '').slice(0, 24))
-  const s1 = await rpc('settle_refund', { p_refund_id: r.data.refundId, p_outcome: 'insufficient_balance' })
-  assert.equal(s1.error, null, s1.error?.message)
-  const pendingRetry = await one('refunds', { id: r.data.refundId })
-  assert.equal(pendingRetry.dpay_status, 'insufficient_balance')
-  assert.ok(Math.abs(Date.parse(pendingRetry.next_retry_at) - (Date.now() + 3600e3)) < 120e3)
-  assert.equal(pendingRetry.attempts, 1)
 
-  await rpc('settle_refund', { p_refund_id: r.data.refundId, p_outcome: 'accepted' })
+  let s1 = await rpc('settle_refund', { p_refund_id: r.data.refundId, p_outcome: 'insufficient_balance' })
+  assert.equal(s1.data, 'settled', s1.error?.message)
+  const retry = await one('refunds', { id: r.data.refundId })
+  assert.equal(retry.dpay_status, 'insufficient_balance')
+  assert.ok(Math.abs(Date.parse(retry.next_retry_at) - (Date.now() + 3600e3)) < 120e3)
+  assert.equal(retry.attempts, 0, 'the retry claim (task 7) owns the counter')
+
+  s1 = await rpc('settle_refund', { p_refund_id: r.data.refundId, p_outcome: 'pending' })
+  assert.equal(s1.data, 'settled', s1.error?.message)
+  const pend = await one('refunds', { id: r.data.refundId })
+  assert.equal(pend.dpay_status, 'pending')
+  assert.equal(pend.next_retry_at, null)
+
+  assert.equal((await rpc('settle_refund', { p_refund_id: r.data.refundId, p_outcome: 'accepted' })).data, 'settled')
+  assert.equal((await one('payment_attempts', { id: att.id })).status, 'refunded')
+  for (const later of ['rejected', 'unknown', 'pending', 'accepted']) {
+    const again = await rpc('settle_refund', { p_refund_id: r.data.refundId, p_outcome: later })
+    assert.equal(again.data, 'already_settled', later)
+  }
   const done = await one('refunds', { id: r.data.refundId })
   assert.equal(done.dpay_status, 'accepted')
-  assert.equal(done.next_retry_at, null)
-  assert.equal((await one('payment_attempts', { id: att.id })).status, 'refunded')
+  assert.equal(done.attempts, 0)
+  // The money left once: no second refund of it.
+  const twice = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: out.total, p_kind: 'organizer', p_reason: 'x' })
+  assert.equal(twice.error?.message, 'invalid_amount')
+
+  // A rejected refund is final too, and frees its amount for a new attempt.
+  const out2 = await orderOk(event)
+  const att2 = await attemptFor(out2.orderId, out2.total)
+  await confirmOk(out2.orderId, att2.txn, out2.total)
+  const r2 = await rpc('record_refund', { p_attempt_id: att2.id, p_grosze: out2.total, p_kind: 'organizer', p_reason: 'x' })
+  assert.equal((await rpc('settle_refund', { p_refund_id: r2.data.refundId, p_outcome: 'rejected' })).data, 'settled')
+  assert.equal((await rpc('settle_refund', { p_refund_id: r2.data.refundId, p_outcome: 'accepted' })).data, 'already_settled')
+  assert.equal((await one('refunds', { id: r2.data.refundId })).dpay_status, 'rejected')
+  assert.equal((await one('payment_attempts', { id: att2.id })).status, 'paid')
 
   const bad = await rpc('settle_refund', { p_refund_id: r.data.refundId, p_outcome: 'maybe' })
   assert.equal(bad.error?.message, 'invalid_outcome')
+  const missing = await rpc('settle_refund', { p_refund_id: crypto.randomUUID(), p_outcome: 'accepted' })
+  assert.equal(missing.error?.message, 'not_found')
   const zero = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: 0, p_kind: 'organizer', p_reason: 'x' })
   assert.equal(zero.error?.message, 'invalid_amount')
 })
