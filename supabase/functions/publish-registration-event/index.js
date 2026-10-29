@@ -132,7 +132,7 @@ const changeRefusal = (error) => {
   if (msg.startsWith('invalid_state:')) {
     return [409, { error: 'Nie można opublikować: zmiany zostawiłyby wydarzenie bez dat zapisów albo regulaminu.', code: 'invalid_state', what: msg.slice('invalid_state:'.length) }]
   }
-  if (msg === 'foreign_id' || ['23514', '22P02', '22007', '22008', '22003'].includes(error?.code)) {
+  if (msg === 'foreign_id' || msg === 'duplicate_id' || ['23514', '22P02', '22007', '22008', '22003'].includes(error?.code)) {
     return [422, { error: 'Nieprawidłowe dane.', code: 'invalid' }]
   }
   return null

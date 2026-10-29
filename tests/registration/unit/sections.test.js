@@ -238,3 +238,11 @@ test('basics.contactEmail: stored lower-cased as contact_email, a bad address re
   assert.equal(validateSection('basics', { contactEmail: 'nie-adres' }, DRAFT).errors.contactEmail, 'Podaj poprawny adres e-mail.')
   assert.equal(validateSection('basics', { contactEmail: null }, DRAFT).value.contact_email, null)
 })
+
+test('W-63 form: a consents list naming one consent twice is refused', () => {
+  const id = '44444444-4444-4444-8444-444444444444'
+  const r = validateSection('form', { consents: [{ id, text: 'Stara.' }, { id, text: 'Nowa.' }] }, PUBLISHED)
+  assert.equal(r.ok, false)
+  assert.ok(r.errors.consents)
+  assert.equal(validateSection('form', { consents: [{ text: 'A.' }, { text: 'A.' }] }, DRAFT).ok, true, 'new consents carry no id')
+})

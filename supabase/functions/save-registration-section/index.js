@@ -21,7 +21,7 @@ function rpcErrorResponse(error, req) {
   if (msg === 'slug_taken') {
     return json({ error: 'Ten adres jest już zajęty.', fields: { slug: 'Ten adres jest już zajęty.' } }, 422, req)
   }
-  if (msg === 'foreign_id') return json({ error: INVALID, fields: {} }, 422, req)
+  if (msg === 'foreign_id' || msg === 'duplicate_id') return json({ error: INVALID, fields: {} }, 422, req)
   if (msg === 'competition_locked') {
     return json({ error: 'Tej konkurencji nie można już usunąć ani zmienić. Bez zapisów możesz ją ukryć.', code: 'competition_locked' }, 409, req)
   }

@@ -355,6 +355,10 @@ function validateForm(value, ctx, c) {
           text: rules.text(500, { required: true, emptyMsg: 'Podaj treść zgody.' })(k.text, 'text', c),
         }
       })
+      // One entry per consent: a repeated id would let a list keep an accepted
+      // text in one entry and rewrite it in the other (consent_locked, P2-R30).
+      const ids = out.consents.map((k) => k?.id).filter(Boolean)
+      if (new Set(ids).size !== ids.length) c.fail('consents', 'Ta sama zgoda występuje dwa razy.')
     }
   }
   return out

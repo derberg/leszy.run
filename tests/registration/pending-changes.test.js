@@ -484,6 +484,49 @@ test('W-63 staged while nobody had accepted, a registration lands before publish
   assert.equal(error?.message, 'consent_locked')
 })
 
+test('W-63 a list naming an accepted consent twice (old text + new text): 422 at save, refused at publish, text unchanged', async () => {
+  const { event, consent } = await publishedWithConsent()
+  await registerMany(event, event.categoryIds[0], 1, 'consent')
+  const dup = [{ id: consent.id, text: consent.text }, { id: consent.id, text: 'Przepisana treść.' }]
+  const r = await save(event.eventId, 'form', { consents: dup })
+  assert.equal(r.status, 422, JSON.stringify(r.body))
+  assert.ok(r.body.fields.consents)
+  assert.equal(await pendingOf(event.eventId), null, 'nothing staged')
+
+  // Straight into the RPC the lock check passes (one entry is unchanged); the apply refuses it.
+  const { error } = await stage(event.eventId, 'form', { consents: dup })
+  assert.equal(error, null)
+  const p = await publishChanges(event.eventId)
+  assert.equal(p.status, 422, JSON.stringify(p.body))
+  assert.equal(p.body.code, 'invalid')
+  assert.deepEqual(await customConsents(event.eventId), [consent])
+})
+
+test('W-63 duplicate ids on a consent nobody accepted: 422 at save, duplicate_id from the draft RPC and at publish', async () => {
+  const { event, consent } = await publishedWithConsent()
+  const dup = [{ id: consent.id, text: 'A.' }, { id: consent.id, text: 'B.' }]
+  const r = await save(event.eventId, 'form', { consents: dup })
+  assert.equal(r.status, 422, JSON.stringify(r.body))
+  assert.equal((await stage(event.eventId, 'form', { consents: dup })).error, null)
+  const { error } = await applyChanges(event.eventId)
+  assert.equal(error?.message, 'duplicate_id')
+  assert.deepEqual(await customConsents(event.eventId), [consent])
+
+  // The draft path goes through the same apply.
+  const c = await callFn('create-registration-event', owner, { clubId: ZT, name: `Szkic ${rand()}` })
+  assert.equal(c.status, 201, JSON.stringify(c.body))
+  const draftId = c.body.data.eventId
+  const first = await save(draftId, 'form', { consents: [{ text: 'Szkic zgody.' }] })
+  assert.equal(first.status, 200, JSON.stringify(first.body))
+  const [draftConsent] = await customConsents(draftId)
+  const { error: dErr } = await db().rpc('save_registration_section', {
+    p_event_id: draftId, p_section: 'form',
+    p_value: { consents: [{ id: draftConsent.id, text: 'A.' }, { id: draftConsent.id, text: 'B.' }] },
+  })
+  assert.equal(dErr?.message, 'duplicate_id')
+  assert.deepEqual(await customConsents(draftId), [draftConsent])
+})
+
 test('W-63 get-registration-event marks custom consents somebody accepted', async () => {
   const { event, consent } = await publishedWithConsent()
   let r = await callFn('get-registration-event', owner, { eventId: event.eventId })
