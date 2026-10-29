@@ -87,10 +87,28 @@ export function setGuardianConsent(draft, key, value) {
   return mapCard(draft, key, (c) => ({ ...c, guardianConsent: value === true }))
 }
 
-/** „Nie startuję — zapisuję tylko inne osoby” (D4-23). Switched on with nobody else, a card opens. */
+/** Nothing typed or ticked on the card yet. */
+export function cardEmpty(c) {
+  return !!c && c.guardianConsent !== true && Object.keys(EMPTY_PERSON).every((k) => (c.person?.[k] ?? '') === '')
+}
+
+/**
+ * „Nie startuję — zapisuję tylko inne osoby” (D4-23). Switched on with nobody else, a card opens
+ * (its key is `autoCard`, so the form can focus it). Switched off again, that card goes while it
+ * is still empty; once anything is typed into it, it stays.
+ */
 export function setNotRunning(draft, value) {
-  const next = { ...draft, notRunning: value === true }
-  return next.notRunning && next.cards.length === 1 ? addPerson(next, { categoryId: next.cards[0].categoryId }) : next
+  const on = value === true
+  const { autoCard, ...rest } = draft
+  if (on) {
+    const next = { ...rest, notRunning: true }
+    if (next.cards.length !== 1) return next
+    const added = addPerson(next, { categoryId: next.cards[0].categoryId })
+    return { ...added, autoCard: added.cards[1].key }
+  }
+  const next = { ...rest, notRunning: false }
+  const auto = autoCard && next.cards.find((c) => c.key === autoCard)
+  return auto && cardEmpty(auto) ? { ...next, cards: next.cards.filter((c) => c.key !== autoCard) } : next
 }
 
 /** 'minor' when the birth date is under 18 on today's Warsaw date, otherwise 'adult'. */
@@ -167,7 +185,45 @@ export function checkDraft(draft, { contexts, now = new Date() }) {
     // card 1's own field errors win over the buyer block's (the same field, worded alike)
     errors[key] = k === 'buyer' ? { ...v, ...(errors[key] ?? {}) } : { ...(errors[key] ?? {}), ...v }
   }
-  return { ok: r.ok, errors, groupError: r.groupError }
+  const shown = withoutHiddenFields(draft, errors, now)
+  const ok = r.ok || (!r.groupError && Object.keys(shown).length === 0)
+  return { ok, errors: shown, groupError: r.groupError }
+}
+
+/**
+ * A child's card has no e-mail field, so an e-mail error on it can neither be seen nor fixed:
+ * it is dropped (and a card left with no error drops out). validatePerson treats a child as
+ * a minor only when the birth date fits the competition; outside it, the birth date error is
+ * the one the person can act on.
+ */
+export function withoutHiddenFields(draft, errors, today) {
+  const day = dayOf(today)
+  const out = {}
+  for (const [key, fields] of Object.entries(errors ?? {})) {
+    const i = draft.cards.findIndex((c) => c.key === key)
+    const minor = i > 0 && cardVariant(draft.cards[i].person, day) === 'minor'
+    const kept = { ...fields }
+    if (minor) delete kept.email
+    if (Object.keys(kept).length) out[key] = kept
+  }
+  return out
+}
+
+/** How a card is named in a message: imię nazwisko, or „osoba N” while both are empty. */
+export function cardName(draft, index) {
+  const p = draft.cards[index]?.person ?? {}
+  return [p.firstName, p.lastName].map((s) => (s ?? '').trim()).filter(Boolean).join(' ') || `osoba ${index + 1}`
+}
+
+/** The cards with an error, in form order. */
+export function erroredCards(draft, errors) {
+  return draft.cards.filter((c) => errors?.[c.key] && Object.keys(errors[c.key]).length).map((c) => c.key)
+}
+
+/** „Popraw dane: Piotr Leśny, Zosia Leśna.” for the cards with an error; null when none has one. */
+export function fixMessage(draft, errors) {
+  const names = erroredCards(draft, errors).map((key) => cardName(draft, draft.cards.findIndex((c) => c.key === key)))
+  return names.length ? `Popraw dane: ${names.join(', ')}.` : null
 }
 
 /** „Dalej” is on when every consent, the service regulamin and each child's guardian box are ticked. */
@@ -180,14 +236,22 @@ const ON_PERSON = new Set(['duplicate', 'email_retired'])
 
 /**
  * Where a refusal from register-free, create-order or the code step shows:
- * { step: 'form'|'code', errors: { [cardKey]: { field: message } }, code: message|null, message }.
+ * { step: 'form'|'code', errors: { [cardKey]: { field: message } }, code: message|null, message, focus: cardKey|null }.
  * An `index` names request person `index` (D4-6); without one an address refusal is card 1's.
+ * A refusal that lands on a card also gets a form message naming the person, and `focus` is
+ * the first such card: on a form of ten people the field itself can be screens away.
+ * `full` with a `categoryId` lands on the competition select of every added card in that
+ * competition (card 1's competition is the page's own and cannot be changed there).
  */
 export function groupFailure(err, draft, today) {
   const errors = {}
   const put = (ci, field, message) => {
     const key = draft.cards[ci]?.key
     if (key) errors[key] = { ...(errors[key] ?? {}), [field]: message }
+  }
+  const routed = (message) => {
+    const shown = withoutHiddenFields(draft, errors, today)
+    return { step: 'form', errors: shown, code: null, message: fixMessage(draft, shown) ?? message, focus: erroredCards(draft, shown)[0] ?? null }
   }
   if (err?.status != null && ON_PERSON.has(err.code)) {
     if (Number.isInteger(err.index)) {
@@ -197,7 +261,7 @@ export function groupFailure(err, draft, today) {
     } else {
       put(0, 'email', err.message)
     }
-    return { step: 'form', errors, code: null, message: null }
+    return routed(null)
   }
   if (err?.status != null && err.code === 'invalid_person') {
     if (err.people && typeof err.people === 'object') {
@@ -208,8 +272,15 @@ export function groupFailure(err, draft, today) {
       for (const [f, m] of Object.entries(err.fields ?? {})) put(cardIndexOf(draft, 0), f, m)
     }
     for (const [f, m] of Object.entries(err.buyer ?? {})) put(0, f, m)
-    return { step: 'form', errors, code: null, message: err.message }
+    return routed(err.message)
+  }
+  if (err?.status != null && err.code === 'full' && err.categoryId) {
+    draft.cards.forEach((c, i) => { if (i > 0 && c.categoryId === err.categoryId) put(i, 'competition', err.message) })
+    if (Object.keys(errors).length) {
+      const names = erroredCards(draft, errors).map((key) => cardName(draft, draft.cards.findIndex((c) => c.key === key)))
+      return { step: 'form', errors, code: null, message: `${err.message} Zmień konkurencję: ${names.join(', ')}.`, focus: erroredCards(draft, errors)[0] }
+    }
   }
   const f = registrationFailure(err)
-  return { step: f.step, errors, code: f.fields.code ?? null, message: f.message }
+  return { step: f.step, errors, code: f.fields.code ?? null, message: f.message, focus: null }
 }

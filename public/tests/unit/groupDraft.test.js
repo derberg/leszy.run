@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   newDraft, addPerson, removePerson, updatePerson, setGuardianConsent, setNotRunning, cardVariant, cardVariants,
-  effectivePerson, peopleCount, canAdd, toRequest, checkDraft, draftReady, groupFailure,
+  effectivePerson, peopleCount, canAdd, toRequest, checkDraft, draftReady, groupFailure, cardName, fixMessage, cardEmpty,
 } from '../../src/lib/groupDraft.js'
 import { EMPTY_PERSON, personContext } from '../../src/lib/personFormModel.js'
 
@@ -196,10 +196,13 @@ describe('groupFailure: a server refusal lands on its card', () => {
     const d = setNotRunning(family(), true)
     let f = groupFailure({ status: 400, code: 'invalid_person', message: 'Popraw zaznaczone pola.', people: { 1: { phone: 'Podaj numer telefonu.' } }, buyer: { email: 'E' } }, d, TODAY)
     assert.deepEqual(f.errors, { [d.cards[2].key]: { phone: 'Podaj numer telefonu.' }, [d.cards[0].key]: { email: 'E' } })
-    assert.equal(f.message, 'Popraw zaznaczone pola.')
-    f = groupFailure({ status: 409, code: 'full', categoryId: 'ck', message: 'Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.' }, d, TODAY)
+    assert.equal(f.message, 'Popraw dane: Ola Leśna, Zosia Leśna.')
+    assert.equal(f.focus, d.cards[0].key)
+    // full without a competition any added card is in: the form's message only
+    f = groupFailure({ status: 409, code: 'full', categoryId: 'cx', message: 'Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.' }, d, TODAY)
     assert.deepEqual(f.errors, {})
     assert.equal(f.message, 'Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.')
+    assert.equal(f.focus, null)
     f = groupFailure({ status: 409, code: 'refused', message: 'Nie udało się zapisać tej grupy. Sprawdź dane i spróbuj ponownie.' }, d, TODAY)
     assert.equal(f.message, 'Nie udało się zapisać tej grupy. Sprawdź dane i spróbuj ponownie.')
     f = groupFailure({ status: 429, message: 'Zbyt wiele prób. Spróbuj ponownie później.' }, d, TODAY)
@@ -207,5 +210,80 @@ describe('groupFailure: a server refusal lands on its card', () => {
     f = groupFailure({ status: 401, code: 'code_required', message: 'Wpisz kod.' }, d, TODAY)
     assert.equal(f.step, 'code')
     assert.equal(groupFailure(new Error('offline'), d, TODAY).message, 'Nie udało się połączyć. Spróbuj ponownie.')
+  })
+})
+
+describe('I-1: a refusal routed to a card names the person and says where to look', () => {
+  it('a duplicate on person 2 → „Popraw dane: Piotr Leśny.” and focus on that card', () => {
+    const d = family()
+    const f = groupFailure({ status: 409, code: 'duplicate', index: 1, message: 'Ten adres e-mail jest już zapisany na te zawody.' }, d, TODAY)
+    assert.equal(f.message, 'Popraw dane: Piotr Leśny.')
+    assert.equal(f.focus, d.cards[1].key)
+  })
+  it('„Nie startuję” shifts the index: people[1] is card 3, the child', () => {
+    const d = setNotRunning(family(), true)
+    const f = groupFailure({ status: 409, code: 'duplicate', index: 1, message: 'Ta osoba jest już zapisana na te zawody.' }, d, TODAY)
+    assert.deepEqual(f.errors, { [d.cards[2].key]: { firstName: 'Ta osoba jest już zapisana na te zawody.' } })
+    assert.equal(f.message, 'Popraw dane: Zosia Leśna.')
+    assert.equal(f.focus, d.cards[2].key)
+  })
+  it('full with a categoryId lands on the competition select of each added card in it', () => {
+    const d = family()
+    const f = groupFailure({ status: 409, code: 'full', categoryId: 'ck', message: 'Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.' }, d, TODAY)
+    assert.deepEqual(f.errors, { [d.cards[2].key]: { competition: 'Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.' } })
+    assert.equal(f.message, 'Brak wolnych miejsc w konkurencji Bieg dzieci 1 km. Zmień konkurencję: Zosia Leśna.')
+    assert.equal(f.focus, d.cards[2].key)
+  })
+  it('a card with no name yet is „osoba N”', () => {
+    const d = addPerson(family(), { categoryId: 'c9' })
+    assert.equal(cardName(d, 3), 'osoba 4')
+    assert.equal(fixMessage(d, { [d.cards[3].key]: { firstName: 'Podaj imię.' } }), 'Popraw dane: osoba 4.')
+    assert.equal(fixMessage(d, {}), null)
+  })
+})
+
+describe('M-3: a child\'s card never shows or blocks on an e-mail error', () => {
+  it('invalid_person with an e-mail error on a child\'s card drops it', () => {
+    const d = family()
+    const f = groupFailure({ status: 400, code: 'invalid_person', message: 'Popraw zaznaczone pola.', people: { 2: { email: 'Podaj adres e-mail.' } } }, d, TODAY)
+    assert.deepEqual(f.errors, {})
+    assert.equal(f.message, 'Popraw zaznaczone pola.')
+    assert.equal(f.focus, null)
+  })
+  it('a child in a competition for adults: the birth date error shows, the e-mail one does not', () => {
+    const raw = { ...RAW, competitions: [{ ...RAW.competitions[0], minAge: 18 }, RAW.competitions[1]] }
+    const ctx = new Map(raw.competitions.map((c) => [c.categoryId, personContext(raw, c, NOW)]))
+    let d = family()
+    d = updatePerson(d, d.cards[2].key, { phone: '600100200' })
+    d = { ...d, cards: d.cards.map((c, i) => (i === 2 ? { ...c, categoryId: 'c9', guardianConsent: true } : c)) }
+    const r = checkDraft(d, { contexts: ctx, now: NOW })
+    assert.equal(r.ok, false)
+    assert.ok(r.errors[d.cards[2].key].birthDate)
+    assert.equal('email' in r.errors[d.cards[2].key], false)
+  })
+})
+
+describe('M-2: „Nie startuję” and the card it opens', () => {
+  it('on opens card 2 (autoCard); off removes it while it is empty', () => {
+    const d = setNotRunning(newDraft('c9'), true)
+    assert.equal(d.cards.length, 2)
+    assert.equal(d.autoCard, d.cards[1].key)
+    assert.equal(cardEmpty(d.cards[1]), true)
+    const off = setNotRunning(d, false)
+    assert.equal(off.cards.length, 1)
+    assert.equal(off.notRunning, false)
+  })
+  it('off keeps card 2 once anything was typed into it', () => {
+    let d = setNotRunning(newDraft('c9'), true)
+    d = updatePerson(d, d.cards[1].key, { firstName: 'Zosia' })
+    const off = setNotRunning(d, false)
+    assert.equal(off.cards.length, 2)
+    assert.equal(off.cards[1].person.firstName, 'Zosia')
+  })
+  it('a card the person added themselves is never removed by the toggle', () => {
+    let d = addPerson(newDraft('c9'), { categoryId: 'c9' })
+    d = setNotRunning(d, true)
+    assert.equal(d.autoCard, undefined)
+    assert.equal(setNotRunning(d, false).cards.length, 2)
   })
 })

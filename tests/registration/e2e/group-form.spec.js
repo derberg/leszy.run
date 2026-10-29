@@ -132,6 +132,10 @@ for (const [mode, width] of [['free', 1440], ['paid', 390]]) {
 
     await expect(page.locator('#p2-email-error')).toHaveText(DUPLICATE_TEXT)
     await expect(page.getByTestId('registration-form')).toBeVisible()
+    // I-1: the form says whose data to fix, and the field is where the person is looking.
+    await expect(page.getByRole('alert')).toHaveText('Popraw dane: Piotr Wcześniej.')
+    await expect(page.locator('#p2-email')).toBeFocused()
+    await expect(page.locator('#p2-email')).toBeInViewport()
     await expect(page.locator('#p-first')).toHaveValue('Ola')
     await expect(page.locator('#p-email')).toHaveValue(ACTOR_EMAILS.runner)
     await expect(page.locator('#p3-first')).toHaveValue('Ewa')
@@ -172,7 +176,16 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     if (width === 390) await fitsNarrow(page)
     await submit(page, mode)
 
-    await expect(page.getByRole('alert')).toHaveText('Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.')
+    if (mode === 'free') {
+      // The refusal names the competition and lands on the card in it (I-1).
+      await expect(page.getByRole('alert')).toHaveText('Brak wolnych miejsc w konkurencji Bieg dzieci 1 km. Zmień konkurencję: Zosia Leśna.')
+      await expect(page.locator('#p2-competition-error')).toHaveText('Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.')
+      await expect(page.locator('#p2-competition')).toBeFocused()
+      await expect(page.locator('#p2-competition')).toBeInViewport()
+    } else {
+      // On RA4 a full competition stays Podsumowanie's message (task 5b routes RA4 refusals).
+      await expect(page.getByRole('alert')).toHaveText('Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.')
+    }
     expect((await competition(c9)).data.taken).toBe(0)
     expect((await competition(kids)).data.taken).toBe(5)
     expect(await registrationsOf(event.eventId)).toEqual([])
@@ -189,6 +202,23 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await page.goto(`/events/${event.slug}/zapis/${c9}`)
     const add = page.getByTestId('add-person')
     await expect(add).toHaveText('+ Zapisz kolejną osobę')
+
+    // M-2: „Nie startuję” alone opens card 2 with the focus on it; off again, the empty card goes.
+    await page.getByTestId('not-running').check()
+    await expect(page.locator('#p2-first')).toBeFocused()
+    await page.getByTestId('not-running').uncheck()
+    await expect(page.getByTestId('person-card')).toHaveCount(0)
+    // M-6: „Usuń” on a card with data asks first, in the page.
+    await add.click()
+    await page.locator('#p2-first').fill('Zosia')
+    await page.getByRole('button', { name: 'Usuń — Zosia' }).click()
+    await expect(page.getByTestId('remove-confirm')).toContainText('Usunąć Zosia?')
+    await page.getByTestId('remove-no').click()
+    await expect(page.locator('#p2-first')).toHaveValue('Zosia')
+    await page.getByRole('button', { name: 'Usuń — Zosia' }).click()
+    await page.getByTestId('remove-yes').click()
+    await expect(page.getByTestId('person-card')).toHaveCount(0)
+
     for (let i = 0; i < 9; i++) await add.click()
     await expect(page.getByTestId('person-card')).toHaveCount(9)
     await expect(add).toBeDisabled()
@@ -212,5 +242,13 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await expect(page.locator('#p-email')).toBeVisible()
     await expect(add).toBeEnabled() // 9 people now
     if (width === 390) await fitsNarrow(page)
+
+    // M-1: the back link asks before it drops the group; declined, the form stays.
+    let asked = null
+    page.once('dialog', (d) => { asked = d.message(); d.dismiss() })
+    await page.getByRole('link', { name: '← Konkurencje' }).click()
+    await expect.poll(() => asked).toBe('Opuścić formularz? Wpisane dane osób przepadną.')
+    await expect(page.getByTestId('registration-form')).toBeVisible()
+    await expect(page.getByTestId('person-card')).toHaveCount(9)
   })
 }

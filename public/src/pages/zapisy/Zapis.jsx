@@ -14,7 +14,9 @@ import {
 import {
   newDraft, addPerson, removePerson, updatePerson, setCardCompetition, setCardOpen, setGuardianConsent, setNotRunning,
   cardVariants, effectivePerson, peopleCount, canAdd, toRequest, claimedEmail, checkDraft, draftReady, groupFailure,
+  cardEmpty, cardName, erroredCards, fixMessage,
 } from '../../lib/groupDraft.js'
+import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
 import { countPl } from '../../lib/plural.js'
 import { warsawToday } from '@registration/dates.js'
 import { runnerDataInfo } from '../../legal/runnerDataInfo.js'
@@ -77,21 +79,44 @@ function CodeStep({ email, code, onCode, error, busy, onSubmit, onResend, onChan
 }
 
 const ADULT_NOTE = 'Ta osoba dostanie e-mail z prośbą o akceptację regulaminu.'
-const smallBtn = 'min-h-11 px-3 text-base whitespace-nowrap'
+// OVERDRIVE border buttons (border + text, fills on hover), small enough to sit beside a name.
+const smallBtn = 'min-h-11 px-3 border font-sans font-bold text-base whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed'
+const editBtn = `${smallBtn} border-apex-yellow-dim text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`
+const removeBtn = `${smallBtn} border-apex-border-bright text-apex-text hover:border-apex-red hover:bg-apex-red hover:text-apex-ink`
+
+/** „Usunąć <imię>?” Tak / Nie, in place of the buttons, for a card that holds anything. */
+function RemoveConfirm({ id, name, onYes, onNo }) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-labelledby={id} data-testid="remove-confirm">
+      <span id={id} className="font-sans font-semibold text-base text-apex-text-bright">Usunąć {name}?</span>
+      <span className="flex gap-2">
+        <button type="button" onClick={onYes} className={removeBtn} data-testid="remove-yes">Tak</button>
+        <button type="button" onClick={onNo} className={`${smallBtn} border-apex-border-bright text-apex-text-bright hover:bg-apex-surface-2`} autoFocus data-testid="remove-no">Nie</button>
+      </span>
+    </div>
+  )
+}
 
 /** An added person's card when it is folded: name, competition and group, „Zmień” and „Usuń”. */
-function FoldedCard({ n, person, competitionName, group, onEdit, onRemove, disabled }) {
+function FoldedCard({ cardKey, n, person, competitionName, group, onEdit, onRemove, confirming, onConfirm, onCancel, disabled }) {
+  const name = [person.firstName, person.lastName].filter(Boolean).join(' ') || `osoba ${n}`
   return (
-    <div className="border border-apex-border-mid bg-apex-surface px-3.5 py-2.5 flex justify-between items-center gap-3" data-testid="person-card-folded">
-      <span className="min-w-0">
-        <span className="block font-mono text-xs text-apex-muted uppercase">Osoba {n}</span>
-        <span className="block text-[17px] text-apex-text-bright truncate">{person.firstName} {person.lastName}</span>
-        <span className="block font-mono text-[13px] text-apex-muted uppercase truncate">{[competitionName, group].filter(Boolean).join(' · ')}</span>
-      </span>
-      <span className="flex gap-1 shrink-0">
-        <button type="button" onClick={onEdit} disabled={disabled} className={`${smallBtn} text-apex-yellow`}>Zmień</button>
-        <button type="button" onClick={onRemove} disabled={disabled} className={`${smallBtn} text-apex-muted`}>Usuń</button>
-      </span>
+    <div className="border border-apex-border-mid bg-apex-surface px-3.5 py-2.5 flex flex-col gap-2 outline-none" data-testid="person-card-folded"
+      data-card-key={cardKey} tabIndex={-1}>
+      <div className="flex justify-between items-center gap-3">
+        <span className="min-w-0">
+          <span className="block font-mono text-xs text-apex-muted uppercase">Osoba {n}</span>
+          <span className="block text-[17px] text-apex-text-bright truncate">{person.firstName} {person.lastName}</span>
+          <span className="block font-mono text-[13px] text-apex-muted uppercase truncate">{[competitionName, group].filter(Boolean).join(' · ')}</span>
+        </span>
+        {!confirming && (
+          <span className="flex gap-2 shrink-0">
+            <button type="button" onClick={onEdit} disabled={disabled} className={editBtn} aria-label={`Zmień — ${name}`}>Zmień</button>
+            <button type="button" id={`p${n}-remove`} onClick={onRemove} disabled={disabled} className={removeBtn} aria-label={`Usuń — ${name}`}>Usuń</button>
+          </span>
+        )}
+      </div>
+      {confirming && <RemoveConfirm id={`p${n}-remove-q`} name={person.firstName?.trim() || `osobę ${n}`} onYes={onConfirm} onNo={onCancel} />}
     </div>
   )
 }
@@ -138,6 +163,10 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   // on a slow phone the sign-in check can arrive well after the first keystroke.
   const touched = useRef(new Set())
   const focusKey = useRef(null)
+  // The card whose first invalid field takes the focus once the errors are on screen (I-1).
+  const errorFocus = useRef(null)
+  // The card asking „Usunąć <imię>?” (M-6).
+  const [removing, setRemoving] = useState(null)
 
   // The logged-in person's own profile fills card 1, field by field, and nobody else's.
   const prefill = useMemo(() => (user ? profilePrefill(user) : null), [user])
@@ -150,13 +179,9 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   }, [prefill])
 
   // A second person exists: closing the tab or reloading would lose the group (memory only).
-  const guard = draft.cards.length > 1 && (step === 'form' || step === 'code') && !preview
-  useEffect(() => {
-    if (!guard) return undefined
-    const onLeave = (e) => { e.preventDefault(); e.returnValue = '' }
-    window.addEventListener('beforeunload', onLeave)
-    return () => window.removeEventListener('beforeunload', onLeave)
-  }, [guard])
+  // It holds on RA4 too; Podsumowanie lifts it right before the redirect to dpay.
+  const guard = draft.cards.length > 1 && !preview
+  useLeaveGuard(guard)
 
   // A card just added gets the focus on its first field.
   useEffect(() => {
@@ -166,6 +191,20 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     const i = draft.cards.findIndex((c) => c.key === key)
     if (i > 0) document.getElementById(`p${i + 1}-first`)?.focus()
   }, [draft])
+
+  // A refusal landed on a card: bring its first invalid field into view and focus it. On a
+  // form of ten people the error can be screens away from „Dalej”, and RA4 sent the person
+  // back here scrolled to the top.
+  useEffect(() => {
+    const key = errorFocus.current
+    if (!key || step !== 'form') return
+    errorFocus.current = null
+    const root = document.querySelector(`[data-card-key="${key}"]`)
+    if (!root) return
+    const target = root.querySelector('[aria-invalid="true"], [data-invalid="true"] button') ?? root
+    target.focus({ preventScroll: true })
+    target.scrollIntoView?.({ block: 'center' })
+  }, [draft, errors, step])
 
   if (!competition || !row) {
     return (
@@ -212,8 +251,9 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     clearErrors(key, Object.keys(patch))
   }
 
-  const showErrors = (errs) => {
+  const showErrors = (errs, focus = erroredCards(draft, errs)[0] ?? null) => {
     setErrors(errs)
+    errorFocus.current = focus
     // A folded card with an error opens again, so the error can be seen.
     setDraft((d) => ({ ...d, cards: d.cards.map((c) => (errs[c.key] && Object.keys(errs[c.key]).length ? { ...c, open: true } : c)) }))
   }
@@ -233,7 +273,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     setStep(f.step)
     setMessage(f.message)
     if (f.step === 'code') setCodeError(f.code)
-    else showErrors(f.errors)
+    else showErrors(f.errors, f.focus)
     return undefined
   }
 
@@ -273,8 +313,10 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
       toSummary()
     } catch (err) {
       if (err.code === 'email_retired') {
+        const errs = { [draft.cards[0].key]: { email: err.message } }
         setStep('form')
-        showErrors({ [draft.cards[0].key]: { email: err.message } })
+        setMessage(fixMessage(draft, errs))
+        showErrors(errs)
         return
       }
       setCodeError(err.status == null ? 'Nie udało się połączyć. Spróbuj ponownie.' : err.message)
@@ -292,7 +334,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     const r = checkDraft(draft, { contexts, now: new Date() })
     if (r.ok) return true
     showErrors(r.errors)
-    setMessage(r.groupError ?? 'Popraw zaznaczone pola.')
+    setMessage(r.groupError ?? fixMessage(draft, r.errors) ?? 'Popraw zaznaczone pola.')
     return false
   }
 
@@ -318,7 +360,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     } catch (err) {
       setStep('form')
       const f = groupFailure(err, draft, today)
-      showErrors(f.errors)
+      showErrors(f.errors, f.focus)
       setMessage(f.message)
     } finally {
       setBusy(false)
@@ -356,6 +398,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     const own = checkDraft(draft, { contexts, now: new Date() }).errors[key]
     if (own && Object.keys(own).length) {
       setErrors((e) => ({ ...e, [key]: own }))
+      errorFocus.current = key
       return
     }
     setDraft((d) => {
@@ -366,6 +409,43 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
       return next
     })
   }
+
+  // „Nie startuję”: on, the card it opens takes the focus; off, that card goes while still empty.
+  function toggleNotRunning(on) {
+    setDraft((d) => {
+      const next = setNotRunning(d, on)
+      if (on && next.autoCard && !d.autoCard) focusKey.current = next.autoCard
+      return next
+    })
+  }
+
+  // „Usuń”: an empty card goes at once; one holding anything asks „Usunąć <imię>?” first.
+  function askRemove(c) {
+    if (cardEmpty(c)) return confirmRemove(c.key)
+    return setRemoving(c.key)
+  }
+  function confirmRemove(key) {
+    setRemoving(null)
+    setDraft((d) => removePerson(d, key))
+    setErrors((e) => { const { [key]: _gone, ...rest } = e; return rest })
+  }
+  function cancelRemove(n) {
+    setRemoving(null)
+    requestAnimationFrame(() => document.getElementById(`p${n}-remove`)?.focus())
+  }
+
+  // An in-page link away (the back link, „Zaloguj się”) would drop the group too: beforeunload
+  // never sees it, so it asks here.
+  function onLinkAway(e) {
+    if (!guard) return
+    const a = e.target.closest?.('a[href]')
+    if (!a || a.target === '_blank' || a.origin !== window.location.origin) return
+    if (!confirmLeave()) { e.preventDefault(); e.stopPropagation() }
+  }
+
+  // The competitions of everybody the request registers, for the banner on top.
+  const groupRows = [...new Set(draft.cards.filter((_, i) => i > 0 || !draft.notRunning).map((c) => c.categoryId))]
+    .map(rowOf).filter(Boolean)
 
   if (step === 'summary' && !preview) {
     const lines = draft.cards.flatMap((c, i) => {
@@ -405,7 +485,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
           loginHref: `/login?from=${encodeURIComponent(formPath(raw.slug, categoryId))}`,
           codeNote: codeNeeded ? 'Wyślemy na niego kod potwierdzający zapis.' : 'Jesteś zalogowany na ten adres — bez kodu.',
           notRunning: draft.notRunning,
-          onNotRunning: (on) => setDraft((d) => setNotRunning(d, on)),
+          onNotRunning: toggleNotRunning,
         } : {
           prefill: null,
           codeNote: variant === 'adult' ? ADULT_NOTE : undefined,
@@ -418,11 +498,15 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   }
 
   return (
-    <form onSubmit={onSubmitForm} noValidate className="flex flex-col gap-[18px]" data-testid="registration-form">
+    <form onSubmit={onSubmitForm} onClickCapture={onLinkAway} noValidate className="flex flex-col gap-[18px]" data-testid="registration-form">
       <PageTop back={backTo ? { to: backTo, label: 'Konkurencje' } : null} right="KROK 1/3" />
-      <div className="border border-apex-yellow px-3.5 py-3 flex justify-between items-center gap-3">
-        <span className="text-lg font-bold text-apex-text-bright">{row.name}</span>
-        <span className="font-mono text-apex-yellow whitespace-nowrap">{row.priceLabel}</span>
+      <div className="border border-apex-yellow px-3.5 py-3 flex flex-col gap-1" data-testid="group-competitions">
+        {(groupRows.length ? groupRows : [row]).map((r) => (
+          <div key={r.categoryId} className="flex justify-between items-center gap-3">
+            <span className="text-lg font-bold text-apex-text-bright">{r.name}</span>
+            <span className="font-mono text-apex-yellow whitespace-nowrap">{r.priceLabel}</span>
+          </div>
+        ))}
       </div>
       {!open && !preview && <p className="text-apex-red text-base">Zapisy na tę konkurencję są zamknięte.</p>}
 
@@ -431,33 +515,45 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
         <input type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
       </div>
 
-      {personForm(draft.cards[0], 0)}
+      <div data-card-key={draft.cards[0].key} tabIndex={-1} className="outline-none">{personForm(draft.cards[0], 0)}</div>
 
       {draft.cards.slice(1).map((c, j) => {
         const i = j + 1
+        const n = i + 1
+        const name = cardName(draft, i)
         if (!c.open) {
           return (
-            <FoldedCard key={c.key} n={i + 1} person={effectivePerson(draft, i, today)} competitionName={rowOf(c.categoryId)?.name}
+            <FoldedCard key={c.key} cardKey={c.key} n={n} person={effectivePerson(draft, i, today)} competitionName={rowOf(c.categoryId)?.name}
               group={groupOf(i)} disabled={busy}
               onEdit={() => setDraft((d) => setCardOpen(d, c.key, true))}
-              onRemove={() => setDraft((d) => removePerson(d, c.key))} />
+              onRemove={() => askRemove(c)} confirming={removing === c.key}
+              onConfirm={() => confirmRemove(c.key)} onCancel={() => cancelRemove(n)} />
           )
         }
         const minor = variants[i] === 'minor'
+        const compError = errors[c.key]?.competition
         return (
-          <section key={c.key} className="border border-apex-border-mid p-3.5 flex flex-col gap-[18px]" data-testid="person-card"
-            data-variant={variants[i]} aria-label={`Osoba ${i + 1}`}>
+          <section key={c.key} className="border border-apex-border-mid p-3.5 flex flex-col gap-[18px] outline-none" data-testid="person-card"
+            data-variant={variants[i]} data-card-key={c.key} tabIndex={-1} aria-labelledby={`p${n}-heading`}>
             <div className="flex justify-between items-center gap-3">
-              <h2 className="font-display font-extrabold text-xl uppercase text-apex-text-bright">Osoba {i + 1}</h2>
-              <button type="button" onClick={() => setDraft((d) => removePerson(d, c.key))} disabled={busy}
-                className={`${smallBtn} text-apex-muted hover:text-apex-text-bright`}>Usuń</button>
+              <h2 id={`p${n}-heading`} className="font-display font-extrabold text-xl uppercase text-apex-text-bright">Osoba {n}</h2>
+              {removing !== c.key && (
+                <button type="button" id={`p${n}-remove`} onClick={() => askRemove(c)} disabled={busy} className={removeBtn}
+                  aria-label={`Usuń — ${name}`}>Usuń</button>
+              )}
             </div>
+            {removing === c.key && (
+              <RemoveConfirm id={`p${n}-remove-q`} name={c.person.firstName?.trim() || `osobę ${n}`}
+                onYes={() => confirmRemove(c.key)} onNo={() => cancelRemove(n)} />
+            )}
             <div className="flex flex-col gap-1.5">
-              <label htmlFor={`p${i + 1}-competition`} className={labelCls}>Konkurencja</label>
-              <select id={`p${i + 1}-competition`} className={inputCls} value={c.categoryId} disabled={busy}
-                onChange={(e) => setDraft((d) => setCardCompetition(d, c.key, e.target.value))}>
+              <label htmlFor={`p${n}-competition`} className={labelCls}>Konkurencja</label>
+              <select id={`p${n}-competition`} className={`${inputCls} ${compError ? 'border-apex-red' : ''}`} value={c.categoryId} disabled={busy}
+                aria-invalid={compError ? 'true' : undefined} aria-describedby={compError ? `p${n}-competition-error` : undefined}
+                onChange={(e) => { setDraft((d) => setCardCompetition(d, c.key, e.target.value)); clearErrors(c.key, ['competition']) }}>
                 {choices.map((k) => <option key={k.categoryId} value={k.categoryId}>{k.name} · {k.priceLabel}</option>)}
               </select>
+              {compError && <p id={`p${n}-competition-error`} className="text-apex-red font-sans text-sm">{compError}</p>}
             </div>
             {personForm(c, i)}
             <div className="flex flex-col min-[400px]:flex-row gap-2">

@@ -5,6 +5,7 @@ import { clearFavoritesCache } from '../../hooks/useFavorites.js'
 import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction } from '../../lib/auth.js'
+import { releaseLeaveGuard } from '../../lib/leaveGuard.js'
 import { checkoutModel, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS } from '../../lib/checkout.js'
 import { formatPln } from '@registration/money.js'
 import PageTop from '../../components/registration/PageTop.jsx'
@@ -91,6 +92,8 @@ export default function Podsumowanie({ raw, open, lines, body, choice, onChoice,
         // Back from dpay must land on the order, not on this step (React Router does not
         // see replaceState, and this page is left at once).
         window.history.replaceState(null, '', orderPath(r.data.orderId))
+        // The group form's leave guard must not hold up the payment (Zapis.jsx).
+        releaseLeaveGuard()
         window.location.assign(r.data.redirectUrl)
         return
       }
@@ -110,6 +113,7 @@ export default function Podsumowanie({ raw, open, lines, body, choice, onChoice,
         }
         // The server could not say the new price: start again from a fresh event page.
         forgetPublicRegistrationEvent(raw.slug)
+        releaseLeaveGuard()
         window.location.assign(`/events/${raw.slug}`)
         return
       }

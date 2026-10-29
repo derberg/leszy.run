@@ -122,23 +122,6 @@ export function consentsComplete(consents, accepted, serviceAccepted) {
   return !!serviceAccepted && (consents ?? []).every((c) => accepted?.[c.id] === true)
 }
 
-/** The register-free request. `person` is checkPerson(...).value. */
-export function registerBody({ categoryId, person, consents, code }) {
-  const body = {
-    categoryId,
-    person: {
-      firstName: person.firstName, lastName: person.lastName, birthDate: person.birthDate, gender: person.gender,
-      email: person.email, phone: person.phone, city: person.city, club: person.club,
-      iceName: person.iceName, icePhone: person.icePhone, nationality: person.nationality,
-    },
-    acceptedConsentIds: (consents ?? []).map((c) => c.id),
-    serviceRegulamin: true,
-  }
-  const c = typeof code === 'string' ? code.trim() : ''
-  if (c) body.code = c
-  return body
-}
-
 const OFFLINE = 'Nie udało się połączyć. Spróbuj ponownie.'
 const ON_EMAIL = new Set(['email_retired', 'duplicate'])
 

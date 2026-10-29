@@ -60,15 +60,16 @@ function GuardianConsent({ id, guardian }) {
     <div className="flex flex-col gap-2 border border-apex-border bg-apex-surface p-3.5" data-testid="guardian">
       <span className="font-sans text-base text-apex-text">
         Opiekunem jestem ja — <strong className="text-apex-text-bright break-words">{guardian.name || '—'}</strong>
-        {guardian.email ? <>, <span className="break-all">{guardian.email}</span></> : null}
+        {guardian.email ? <>, <span className="[overflow-wrap:anywhere]">{guardian.email}</span></> : null}
       </span>
       <label className="flex gap-3 items-start font-sans text-[15px] leading-snug text-apex-text cursor-pointer">
         <input id={id} type="checkbox" className="mt-0.5 w-5 h-5 shrink-0 accent-apex-yellow rounded-none" required
           checked={guardian.checked === true} onChange={(e) => guardian.onChange(e.target.checked)}
-          aria-invalid={guardian.error ? 'true' : undefined} data-testid="guardian-consent" />
+          aria-invalid={guardian.error ? 'true' : undefined} aria-describedby={guardian.error ? `${id}-error` : undefined}
+          data-testid="guardian-consent" />
         <span><span className="text-apex-red" aria-hidden="true">*</span> Jako opiekun prawny zgadzam się na udział dziecka i akceptuję regulamin.</span>
       </label>
-      {guardian.error && <p className="text-apex-red font-sans text-sm">{guardian.error}</p>}
+      {guardian.error && <p id={`${id}-error`} className="text-apex-red font-sans text-sm">{guardian.error}</p>}
     </div>
   )
 }
@@ -144,7 +145,8 @@ export default function PersonForm({
             </Field>
             <div className="flex flex-col gap-1.5">
               <span id={id('gender-label')} className={labelCls}>Płeć</span>
-              <div className="flex gap-2" role="group" aria-labelledby={id('gender-label')}>
+              <div className="flex gap-2" role="group" aria-labelledby={id('gender-label')}
+                aria-describedby={errors.gender ? id('gender-error') : undefined} data-invalid={errors.gender ? 'true' : undefined}>
                 {GENDERS[minor ? 'minor' : 'other'].map(([g, label]) => (
                   <button key={g} type="button" aria-pressed={value.gender === g} onClick={() => onChange({ gender: g })}
                     className={`flex-1 min-h-11 border font-sans font-bold text-[17px] whitespace-nowrap ${value.gender === g
@@ -153,7 +155,7 @@ export default function PersonForm({
                   </button>
                 ))}
               </div>
-              {errors.gender && <p className="text-apex-red font-sans text-sm">{errors.gender}</p>}
+              {errors.gender && <p id={id('gender-error')} className="text-apex-red font-sans text-sm">{errors.gender}</p>}
             </div>
             <div className="flex justify-between items-center gap-3 px-3 py-2.5 bg-apex-surface-2 border border-apex-border" data-testid="category-preview">
               <span className={labelCls}>{categoryLabel}</span>
@@ -180,7 +182,7 @@ export default function PersonForm({
 
       {!buyer && (
         <div className="flex flex-col gap-3">
-          <h2 className={sectionCls}>Kontakt</h2>
+          {own ? <h2 className={sectionCls}>Kontakt</h2> : <h3 className={sectionCls}>Kontakt</h3>}
           {!minor && emailField}
           {phoneField}
           {fields.ice !== 'off' && (

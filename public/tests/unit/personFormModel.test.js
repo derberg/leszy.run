@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   EMPTY_PERSON, profilePrefill, mergePrefill, fieldModes, personContext, categoryPreview, checkPerson,
-  needsCode, consentsComplete, registerBody, registrationFailure,
+  needsCode, consentsComplete, registrationFailure,
 } from '../../src/lib/personFormModel.js'
 
 const RETIRED = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: kontakt@leszy.run.'
@@ -127,21 +127,6 @@ describe('consentsComplete', () => {
     assert.equal(consentsComplete(RAW.consents, { k1: true, k2: true }, false), false)
     assert.equal(consentsComplete(RAW.consents, { k1: true }, true), false)
     assert.equal(consentsComplete([], {}, true), true)
-  })
-})
-
-describe('registerBody', () => {
-  it('posts the checked person, every consent id, the service regulamin and the code when there is one', () => {
-    const { value } = checkPerson({ ...grazyna, nationality: 'PL' }, ctx)
-    assert.deepEqual(registerBody({ categoryId: 'c1', person: value, consents: RAW.consents, code: ' 123456 ' }), {
-      categoryId: 'c1',
-      person: {
-        firstName: 'Grażyna', lastName: 'Wiśniewska', birthDate: '1971-05-02', gender: 'K', email: 'grazyna.w@wp.pl',
-        phone: '+48 605 222 333', city: 'Pyskowice', club: null, iceName: null, icePhone: null, nationality: 'PL',
-      },
-      acceptedConsentIds: ['k1', 'k2'], serviceRegulamin: true, code: '123456',
-    })
-    assert.equal('code' in registerBody({ categoryId: 'c1', person: value, consents: RAW.consents }), false)
   })
 })
 
