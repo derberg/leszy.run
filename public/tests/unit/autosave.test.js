@@ -169,4 +169,75 @@ test('a network or server failure is retried on its own after 2 s, 5 s and 15 s,
   assert.equal(calls.filter((c) => c.status === 422).length, 1)
 })
 
+test('dispose after the final flush: a save failing in flight is neither re-queued nor retried', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let reject
+  const calls = []
+  const save = (section, value) => {
+    calls.push(value)
+    return new Promise((_, rej) => { reject = rej })
+  }
+  const autosave = createAutosave({ save, delayMs: 1500 })
+  autosave.queue('basics', { name: 'x' })
+  autosave.flush() // the unmount's final flush starts the save
+  autosave.dispose()
+  const err = new Error('Błąd serwera.')
+  err.status = 500
+  reject(err)
+  await settle()
+  t.mock.timers.tick(60000)
+  await settle()
+  assert.equal(calls.length, 1)
+  assert.equal(autosave.hasPending(), false)
+})
+
+test('dispose clears a retry already scheduled, and nothing queued afterwards is saved', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const calls = []
+  const save = async (section, value) => {
+    calls.push(value)
+    const err = new Error('Błąd serwera.')
+    err.status = 503
+    throw err
+  }
+  const autosave = createAutosave({ save, delayMs: 1500 })
+  autosave.queue('basics', { name: 'x' })
+  t.mock.timers.tick(1500)
+  await settle()
+  assert.equal(calls.length, 1) // the first retry is now waiting 2 s
+  autosave.dispose()
+  autosave.queue('office', { notes: 'po' })
+  assert.equal(await autosave.flush(), true)
+  t.mock.timers.tick(60000)
+  await settle()
+  assert.equal(calls.length, 1)
+  assert.equal(autosave.hasPending(), false)
+})
+
+test('a queued function is read when the save starts, so ids learned from the previous save go along', async () => {
+  let release
+  const calls = []
+  const save = (section, value) => {
+    calls.push(value)
+    return calls.length === 1 ? new Promise((resolve) => { release = resolve }) : Promise.resolve()
+  }
+  const autosave = createAutosave({ save, delayMs: 1500 })
+  const rows = [{ name: 'Bieg 9 km', categoryId: null }]
+  const value = () => ({ items: rows.map((r) => ({ ...r })) })
+
+  autosave.queue('competitions', value)
+  const first = autosave.flush()
+  await settle()
+  rows[0].name = 'Bieg 10 km'
+  autosave.queue('competitions', value) // queued while the first save is in flight
+  rows[0].categoryId = 'c1' // the first save's answer arrives before the next one starts
+  release()
+  await first
+  await autosave.flush()
+  assert.deepEqual(calls, [
+    { items: [{ name: 'Bieg 9 km', categoryId: null }] },
+    { items: [{ name: 'Bieg 10 km', categoryId: 'c1' }] },
+  ])
+})
+
 mock.reset()

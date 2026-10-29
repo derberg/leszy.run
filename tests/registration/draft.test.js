@@ -412,3 +412,24 @@ test('W-11 a closed event refuses saves with 409 not_draft (a published one stag
   assert.equal(r.status, 409)
   assert.equal(r.body.code, 'not_draft')
 })
+
+test('W-11 every section save moves registration_settings.updated_at (the wizard\'s „ZAPISANO” time after a reload)', async () => {
+  const { eventId } = await createEvent()
+  const values = {
+    basics: { placeDetails: 'Boisko' },
+    office: { notes: 'Uwagi' },
+    competitions: { pricingMode: 'free', items: [comp()] },
+    // These two only touch child tables: nothing else would move the settings row.
+    categories: { ageGroups: [], kidsGroups: [] },
+    timing: { timingCompany: 'Pomiar' },
+    form: { consents: [] },
+  }
+  for (const [section, value] of Object.entries(values)) {
+    const before = (await settingsOf(eventId)).updated_at
+    await new Promise((r) => setTimeout(r, 15))
+    const r = await callFn('save-registration-section', owner, { eventId, section, value })
+    assert.equal(r.status, 200, `${section}: ${JSON.stringify(r.body)}`)
+    const after = (await settingsOf(eventId)).updated_at
+    assert.ok(Date.parse(after) > Date.parse(before), `${section}: ${before} → ${after}`)
+  }
+})
