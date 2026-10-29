@@ -1,6 +1,6 @@
 // Shared by the organizer-side registration functions.
 // Bump together with public/src/legal/organizerAgreement.js (public/tests/unit/agreementVersion.test.js checks it).
-export const ORGANIZER_AGREEMENT_VERSION = '2026-11-v1'
+export const ORGANIZER_AGREEMENT_VERSION = '2026-11-v2'
 
 /** The caller's active role in the club ('owner' | 'admin' | 'member'), or null. */
 export async function clubRole(admin, clubId, userId) {
