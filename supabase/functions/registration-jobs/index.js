@@ -51,6 +51,9 @@ const CHECK_GAP_MS = 10 * 60_000
 const ATTEMPT_AGE_MS = 15_000 // as order-status: dpay's IPN normally lands first
 const CHECK_WIDTH = 5
 const DPAY_CALL_MS = 8_000
+// dpay calls per order and run. An order holding more unpaid attempts is checked on its newest
+// ones but never gets the proof stamp (re-review I2-a): it falls back to the 2 h cutoff.
+const MAX_ATTEMPTS_CHECKED = 3
 const MAX_RETRIES = 24
 // Share of the budget after which a step that calls dpay starts nothing new.
 const RETRY_SHARE = 0.3
@@ -152,10 +155,11 @@ async function checkAtDpay(admin, cfg, time) {
   let checked = 0
   let confirmed = 0
   let cut = false
+  let aborted = false
   const worker = async () => {
     for (;;) {
       const left = time.until(CHECK_SHARE)
-      if (!queue.length) return
+      if (aborted || !queue.length) return
       if (left < DPAY_CALL_MS + 1_000) { cut = true; return }
       const id = queue.shift()
       // The claim: of overlapping runs (and order-status's own poll) one asks dpay per CHECK_GAP.
@@ -168,16 +172,19 @@ async function checkAtDpay(admin, cfg, time) {
       if (!claimed?.length) continue
       checked++
       const callCfg = { ...cfg, timeoutMs: Math.min(DPAY_CALL_MS, Math.max(1_000, left - 1_000)) }
-      const { settled } = await checkAttemptsAtDpay(admin, callCfg, id, byOrder.get(id).slice(0, 3))
+      const all = byOrder.get(id)
+      const { settled } = await checkAttemptsAtDpay(admin, callCfg, id, all.slice(0, MAX_ATTEMPTS_CHECKED))
       const { data: o } = await admin.from('orders').select('status').eq('id', id).maybeSingle()
       if (o?.status === 'paid') confirmed++
-      else if (settled) {
+      // The proof covers the whole set of unpaid attempts, never just the ones asked about.
+      else if (settled && all.length <= MAX_ATTEMPTS_CHECKED) {
         const { error: sErr } = await admin.from('orders').update({ dpay_checked_at: new Date().toISOString() }).eq('id', id)
         if (sErr) throw sErr
       }
     }
   }
-  await Promise.all(Array.from({ length: CHECK_WIDTH }, worker))
+  // One worker failing stops the others: the step then counts as failed and skips the notices.
+  await Promise.all(Array.from({ length: CHECK_WIDTH }, () => worker().catch((err) => { aborted = true; throw err })))
   return { checked, confirmed, cut: cut || queue.length > 0 }
 }
 

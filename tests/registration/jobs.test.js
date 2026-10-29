@@ -676,6 +676,31 @@ test('I2 dpay answering processing → no notice and no proof; once dpay says ex
   assert.deepEqual(subjects(await messagesTo(email)), ['Zgłoszenie wygasło'])
 })
 
+test('I2-a an order with 4 unpaid attempts, the oldest paid with the IPN lost: the 3 checked are declined, yet no proof and no „Zgłoszenie wygasło”', async () => {
+  const { orderId, runner, email } = await pendingOrder({ tag: 'fourattempts' })
+  for (let i = 0; i < 3; i++) assert.equal((await call('pay-order', { orderId }, runner)).status, 200)
+  await dpayMode({ dropIpn: true })
+  const { data: attempts, error } = await db().from('payment_attempts').select('dpay_transaction_id')
+    .eq('order_id', orderId).order('created_at')
+  assert.ifError(error)
+  assert.equal(attempts.length, 4)
+  const [oldest, ...newer] = attempts.map((a) => a.dpay_transaction_id)
+  await payMock(oldest, 'paid')
+  for (const txn of newer) await payMock(txn, 'declined')
+  // Oldest first, a minute apart, all past the 15 s age filter.
+  for (const [i, txn] of [oldest, ...newer].entries()) {
+    await db().from('payment_attempts').update({ created_at: ago((10 - i) * MIN) }).eq('dpay_transaction_id', txn)
+  }
+  await expireNow(orderId)
+  await jobsOk()
+  const o = await orderOf(orderId)
+  assert.ok(o.last_status_check_at, 'checked this run')
+  assert.equal(o.dpay_checked_at, null, 'three of four attempts is no proof')
+  assert.equal(o.expired_notified_at, null)
+  await sleep(300)
+  assert.deepEqual(await messagesTo(email), [])
+})
+
 // ---------------------------------------------------------------- I3 time budget
 
 test('I3 a hanging dpay: the run answers inside its budget, the operator digest and reminders still go out, unchecked orders get no notice', async () => {

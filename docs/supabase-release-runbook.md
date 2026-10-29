@@ -130,11 +130,12 @@ body:
 SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'registration-%';  -- 4 rows, active
 SELECT created, status_code, left(content, 300)
   FROM net._http_response
- WHERE content LIKE '{"data":{"checked"%' OR status_code <> 200
+ WHERE content LIKE '{"data":{"checked"%' OR status_code IS DISTINCT FROM 200
  ORDER BY created DESC LIMIT 5;
 ```
 
-Expect `status_code = 200` with a body starting `{"data":{"checked"`. A 404 means the two
+Expect `status_code = 200` with a body starting `{"data":{"checked"`. A NULL `status_code` (with
+`timed_out` or `error_msg` set) is a failure too: pg_net could not reach the function or gave up. A 404 means the two
 secret values differ, and a 503 means a function secret is missing (the function logs which one).
 
 **4. Rotation.** Set the function secret first, then Vault. Runs between the two steps answer
