@@ -12,7 +12,7 @@ import { acceptAgreement, createPublishedPaidEvent } from './helpers/registratio
 import { dpayMode, dpayRefunds, dpayReset, dpayTransactions, payMock, startDpayMock } from './helpers/dpayControl.js'
 import { DPAY_MOCK_PORT } from './helpers/dpayMock.js'
 import {
-  competitionOf, confirmOk, consentIds, db, expireNow, minutesFromNow, one, orderOf, orderOk, registrationsOf, rows,
+  competitionOf, confirmOk, consentIds, db, expireNow, minutesFromNow, one, orderOf, orderOk, paidOrderOk, registrationsOf, rows,
   runnerEmail, setSettings, totalFor,
 } from './helpers/orders.js'
 import { formatDpayValue, formatPln, orderAmounts } from '../../supabase/functions/_shared/registration/money.js'
@@ -286,7 +286,7 @@ test('P-22 pay-order twice → two more attempts and two more mock transactions;
   const anon = await call('pay-order', { orderId })
   assert.equal(anon.status, 401)
   assert.equal((await attemptsOf(orderId)).length, 3)
-  assert.equal((await competitionOf(event.categoryIds[0])).taken, 1)
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 0, 'an unpaid order holds no place (P3-R15)')
 })
 
 test('P-22 pay-order on an expired order → 409 expired; after closes_at → 409 „Zapisy są zamknięte.”; a paid order → 409', async () => {
@@ -308,7 +308,7 @@ test('P-22 pay-order on an expired order → 409 expired; after closes_at → 40
 
 // ---------------------------------------------------------------- P-23 dpay down
 
-test('P-23 dpay register fails → 502, the order cancelled and its slot back; a retry succeeds', async () => {
+test('P-23 dpay register fails → 502, the order cancelled; a retry succeeds', async () => {
   const event = await paidEvent()
   const email = runnerEmail('down')
   const runner = await sessionFor(email)
@@ -333,7 +333,7 @@ test('P-23 dpay register fails → 502, the order cancelled and its slot back; a
   const ok = await call('create-order', await orderBody(event, email), runner)
   assert.equal(ok.status, 201, JSON.stringify(ok.body))
   assert.equal((await orderOf(ok.body.data.orderId)).status, 'pending')
-  assert.equal((await competitionOf(event.categoryIds[0])).taken, 1)
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
 })
 
 // ---------------------------------------------------------------- P-24 poll fallback
@@ -505,7 +505,7 @@ test('P-21b submitting again while the first order is unpaid → 409 pending_ord
   assert.equal(r.body.error, PENDING_ORDER)
   assert.equal(r.body.orderId, orderId)
   assert.equal((await ordersOf(event.eventId)).length, 1)
-  assert.equal((await competitionOf(event.categoryIds[0])).taken, 1)
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
 })
 
 test('P-21b a double submit at once → one 201 and one 409 pending_order naming the same order', async () => {
@@ -560,4 +560,34 @@ test('P-24b a refund dpay does not confirm (HTTP 500 → unknown) → refund_unk
   await new Promise((r2) => setTimeout(r2, 500))
   assert.deepEqual((await messagesTo(email)).map((m) => m.subject.split(' — ')[0]), ['Opłacone'])
   assert.equal(msgs.length, 1)
+})
+
+// ---------------------------------------------------------------- P-58 (P3-R15) the limit counts paid entries only
+
+test('P-58 the paid entries fill the competition: order-status says full, pay-order is 409 full with no dpay call, create-order is 409 full', async () => {
+  const BIEG1 = [{ name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 1 }]
+  const event = await paidEvent({ competitions: BIEG1 })
+  const first = await pendingOrder({ event, tag: 'fullwait' })
+  // A second runner's order is accepted although the first is unpaid: it holds no place.
+  const second = await pendingOrder({ event, tag: 'fullwait2' })
+  let st = await call('order-status', { orderId: first.orderId }, first.runner)
+  assert.equal(st.body.data.full, false)
+
+  await paidOrderOk(event) // a third runner pays for the only place
+  st = await call('order-status', { orderId: first.orderId }, first.runner)
+  assert.equal(st.status, 200)
+  assert.equal(st.body.data.full, true)
+  assert.equal(st.body.data.cancelledReason, null)
+
+  const before = (await dpayTransactions()).length
+  const r = await call('pay-order', { orderId: second.orderId }, second.runner)
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'full')
+  assert.equal(r.body.error, 'Brak wolnych miejsc w tej konkurencji.')
+  assert.equal((await dpayTransactions()).length, before, 'no dpay transaction for a full competition')
+
+  const email = runnerEmail('fullnew')
+  const c = await call('create-order', await orderBody(event, email), await sessionFor(email))
+  assert.equal(c.status, 409, JSON.stringify(c.body))
+  assert.equal(c.body.code, 'full')
 })

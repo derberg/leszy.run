@@ -13,7 +13,7 @@ import {
 } from './helpers/dpayControl.js'
 import { MOCK_SECRET } from './helpers/dpayMock.js'
 import {
-  competitionOf, consentIds, db, expireNow, liveSlots, orderOf, orderOk, registrationsOf, rows, runnerEmail, totalFor,
+  competitionOf, consentIds, db, expireNow, liveSlots, orderOf, orderOk, paidOrderOk, registrationsOf, rows, runnerEmail, totalFor,
 } from './helpers/orders.js'
 
 const BIEG = (capacity) => [{ name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity }]
@@ -200,7 +200,7 @@ test('P-31 the IPN lands after expiry and someone took the slot: refunded in ful
   await dpayMode({ ipnDelayMs: 1500 })
   await payMock(txn, 'paid')
   await expireNow(orderId)
-  await orderOk(event) // another runner takes the only slot
+  await paidOrderOk(event) // another runner pays for the only slot
   assert.equal((await competitionOf(cat)).taken, 1)
 
   await waitFor(async () => (await rows('refunds', { order_id: orderId }))[0]?.dpay_status === 'accepted', { what: 'late refund' })

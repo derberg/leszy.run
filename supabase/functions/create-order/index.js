@@ -63,10 +63,10 @@ async function ownPendingOrder(admin, eventId, email, profileId) {
 //   → 201 { data: { orderId, redirectUrl } }, or { data: { orderId, status: 'paid' } } when the total is 0.
 // register-free's body plus the support choice (a boolean, nothing preselected) and the total the
 // page showed, which is only compared with the server's (409 price_changed with the amounts). Every
-// check before the RPC is register-free's (prepareRegistration). create_order claims the slot and
-// writes the order, then dpay registers the transaction. An order that leaves this function without
-// a redirect handed out (a dpay failure, a refused attempt, any error) is cancelled and its slot
-// given back (P3-R7). A resubmit that finds this buyer's own pending order answers 409
+// check before the RPC is register-free's (prepareRegistration). create_order writes the order (409
+// full when the paid entries fill the competition; an unpaid order claims no slot, P3-R15), then dpay
+// registers the transaction. An order that leaves this function without a redirect handed out (a dpay
+// failure, a refused attempt, any error) is cancelled (P3-R7). A resubmit that finds this buyer's own pending order answers 409
 // pending_order with its id (P3-R8). No e-mail goes out before payment.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -173,6 +173,10 @@ Deno.serve(async (req) => {
       if (aErr) {
         // A transaction we never hand out: nobody can pay it.
         console.error('create-order: add_payment_attempt failed:', aErr.message)
+        if (aErr.message === 'full') {
+          cancelReason = 'attempt_refused'
+          return answer({ error: REFUSALS.full[1], code: 'full' }, 409)
+        }
         if (aErr.message === 'not_payable') {
           cancelReason = 'attempt_refused'
           return answer({ error: REFUSALS.closed[1], code: 'closed' }, 409)

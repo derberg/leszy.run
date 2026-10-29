@@ -32,7 +32,7 @@ async function allRows(makeQuery) {
 }
 
 // POST { eventId } → 200 { data: [{ id, name, competition, ageGroupLabel,
-// status, createdAt, paymentStatus, expiresAt }], counts: { paid, awaiting, free } },
+// status, createdAt, paymentStatus, expiresAt }], counts: { paid, awaiting, free, placesLeft } },
 // every registration of the event in sign-up order. paymentStatus: 'paid' (confirmed
 // through an order with money in it), 'free' (confirmed with nothing to pay),
 // 'awaiting' (pending_payment; expiresAt is its order's payment deadline), or null
@@ -64,13 +64,17 @@ Deno.serve(async (req) => {
       allRows(() => admin.from('registrations')
         .select('id, category_id, order_id, first_name, last_name, age_group_label, status, created_at')
         .eq('event_id', eventId).order('created_at').order('id')),
-      allRows(() => admin.from('competitions').select('category_id, name').eq('event_id', eventId).order('category_id')),
+      allRows(() => admin.from('competitions').select('category_id, name, capacity, taken, hidden_at').eq('event_id', eventId).order('category_id')),
       allRows(() => admin.from('orders').select('id, total, expires_at').eq('event_id', eventId).order('id')),
     ])
     const nameOf = new Map(comps.map((c) => [c.category_id, c.name]))
     const orderOf = new Map(orders.map((o) => [o.id, o]))
 
-    const counts = { paid: 0, awaiting: 0, free: 0 }
+    // placesLeft: capacity minus confirmed entries over the visible competitions. Entries
+    // awaiting payment hold no place (P3-R15), so they do not lower it.
+    const placesLeft = comps.filter((c) => !c.hidden_at)
+      .reduce((n, c) => n + Math.max(0, (c.capacity ?? 0) - (c.taken ?? 0)), 0)
+    const counts = { paid: 0, awaiting: 0, free: 0, placesLeft }
     const data = regs.map((r) => {
       const order = r.order_id ? orderOf.get(r.order_id) : null
       const paymentStatus = paymentStatusOf(r, order)

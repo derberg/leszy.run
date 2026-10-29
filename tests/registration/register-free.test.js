@@ -217,7 +217,8 @@ test('W-29 my-event-registrations returns the session’s confirmed registration
     id: r.body.data.registrations[0].id, name: 'Ola Leśna', competition: 'Bieg 9 km', ageGroupLabel: 'K open',
     status: 'confirmed', createdAt: 'string', paymentStatus: 'free', expiresAt: null,
   })
-  assert.deepEqual(list.body.counts, { paid: 0, awaiting: 0, free: 1 })
+  const { data: caps } = await admin().from('competitions').select('capacity, taken').eq('event_id', event.eventId)
+  assert.deepEqual(list.body.counts, { paid: 0, awaiting: 0, free: 1, placesLeft: caps.reduce((n, c) => n + c.capacity - c.taken, 0) })
   assert.equal((await callFn('list-event-registrations', outsider, { eventId: event.eventId })).status, 404)
   assert.equal((await callFn('list-event-registrations', null, { eventId: event.eventId })).status, 401)
 })

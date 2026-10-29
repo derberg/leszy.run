@@ -151,7 +151,8 @@ const REFUND_REASONS = {
   double: 'Zgłoszenie było już opłacone, a ta płatność była kolejną.',
   double_payment: 'Zgłoszenie było już opłacone, a ta płatność była kolejną.',
   closed: 'Płatność dotarła po zamknięciu zapisów.',
-  full: 'Płatność dotarła po wygaśnięciu zgłoszenia, a ostatnie miejsce zajęła w tym czasie inna osoba.',
+  // P3-R15: the limit counts paid entries only, so the last place may go to whoever pays first.
+  full: 'Zanim płatność dotarła, inne osoby opłaciły ostatnie wolne miejsca. Limit miejsc liczy tylko opłacone zgłoszenia.',
   duplicate: 'Płatność dotarła po wygaśnięciu zgłoszenia, a ten adres e-mail został w tym czasie zapisany ponownie.',
   cancelled: 'Płatność dotarła po anulowaniu zgłoszenia.',
   unavailable: 'Płatność dotarła, gdy zapisy na tę konkurencję nie były już prowadzone.',

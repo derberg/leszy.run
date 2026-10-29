@@ -7,6 +7,10 @@
 // counted („+N czeka na wpłatę”), and a minor's town never arrives. An entry
 // is 'paid' (money moved) or 'free' (nothing to pay: a free event or a 0 zł
 // entry); only 'paid' reads „opłacone”. A free event never mentions payment.
+//
+// Ruling P3-R15: the limit counts paid entries only, so „N / limit” and the bar
+// are paid + free; an entry awaiting payment holds no place and is only named
+// beside them („+N czeka na wpłatę”).
 
 import { countPl, pluralPl } from './plural.js'
 
@@ -42,11 +46,10 @@ export function startListView(snapshot, { paidEvent }) {
       return {
         categoryId: c.categoryId,
         name: c.name,
-        taken: cPaid + cFree + cAwaiting,
+        taken: cPaid + cFree,
         capacity: c.capacity,
         paidPct,
         freePct,
-        awaitingPct: Math.min(100 - paidPct - freePct, pct(cAwaiting, c.capacity)),
         paidLabel: paidEvent && cPaid > 0 ? paidText(cPaid) : null,
         freeLabel: paidEvent && cFree > 0 ? freeText(cFree) : null,
         awaitingLabel: cAwaiting > 0 ? awaitingText(cAwaiting) : null,

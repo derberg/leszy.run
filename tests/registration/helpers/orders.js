@@ -97,6 +97,19 @@ export async function confirmOk(orderId, txn, grosze) {
   return r.data
 }
 
+/**
+ * create_order, a dpay attempt and its confirmation → the create_order result. Since P3-R15 an order
+ * claims its slot only when paid, so this is how a test fills a competition.
+ */
+export async function paidOrderOk(event, opts) {
+  const out = await orderOk(event, opts)
+  if (out.status === 'paid') return out
+  const att = await attemptFor(out.orderId, out.total)
+  const r = await confirmOk(out.orderId, att.txn, out.total)
+  if (r.outcome !== 'confirmed') throw new Error(`paidOrderOk: ${r.outcome}`)
+  return out
+}
+
 /** Moves the order's expiry into the past (the job then picks it up). */
 export async function overdue(orderId) {
   const { error } = await db().from('orders')
@@ -140,9 +153,11 @@ export async function setSettings(eventId, values) {
 export const minutesFromNow = (m) => new Date(Date.now() + m * 60_000).toISOString()
 
 /** taken must equal the live (pending_payment + confirmed) registrations, teams counted once. */
+// The slots a competition's confirmed registrations hold, a team counted once. Since P3-R15 only
+// confirmed entries (paid, free, 0 zł) hold one: an entry awaiting payment holds nothing.
 export async function liveSlots(categoryId) {
   const { data, error } = await db().from('registrations').select('team_id, status').eq('category_id', categoryId)
-    .in('status', ['pending_payment', 'confirmed'])
+    .eq('status', 'confirmed')
   if (error) throw error
   const teams = new Set(data.filter((r) => r.team_id).map((r) => r.team_id))
   return data.filter((r) => !r.team_id).length + teams.size

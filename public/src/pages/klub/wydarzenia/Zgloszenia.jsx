@@ -46,6 +46,7 @@ export default function Zgloszenia({ eventId }) {
         <p className="font-mono text-xs uppercase text-apex-muted" data-testid="registrations-counts">
           <span className="text-apex-yellow">{countPl(counts.paid, ['opłacone', 'opłacone', 'opłaconych'])}</span> · <span className="text-apex-cyan">{counts.awaiting} {pluralPl(counts.awaiting, 'czeka', 'czekają', 'czeka')} na wpłatę</span>
           {counts.free > 0 && <> · {counts.free} bez opłaty</>}
+          {counts.placesLeft != null && <> · <span className="text-apex-text-bright" data-testid="registrations-places-left">{countPl(counts.placesLeft, ['wolne miejsce', 'wolne miejsca', 'wolnych miejsc'])}</span></>}
         </p>
       )}
       <div className="border border-apex-border overflow-x-auto" data-testid="registrations">

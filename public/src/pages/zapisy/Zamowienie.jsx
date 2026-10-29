@@ -25,7 +25,8 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // paid      → „OPŁACONE · <razem>”, „Jesteście na liście”, the people, „Co dalej”
 // pending   → „Opłać do <data, godzina>” and „Zapłać” (pay-order: a new dpay
 //             transaction at the frozen price), none from the server's closesAt
-//             on (order-status returns it; the page re-checks at that moment)
+//             on (order-status returns it; the page re-checks at that moment), and
+//             „Brak wolnych miejsc” instead when the paid entries fill it (full, P3-R15)
 // expired / cancelled → „Zgłoszenie wygasło” / „…anulowane” and „Zapisz się ponownie”
 
 const warsaw = new Intl.DateTimeFormat('pl-PL', {
@@ -196,11 +197,13 @@ function Pending({ orderId, order, raw, polling, onAgain }) {
       <Amounts amounts={order.amounts} />
       {closed
         ? <p className="text-apex-red text-base" data-testid="order-closed">Zapisy są zamknięte.</p>
-        : (
+        : order.full
+          ? <p className="text-apex-red text-base" data-testid="order-full">Brak wolnych miejsc. Inne osoby opłaciły już wszystkie miejsca w tej konkurencji.</p>
+          : (
           <button type="button" onClick={pay} disabled={busy} className={primaryBtn} data-testid="order-pay">
             {busy ? 'Chwileczkę…' : 'Zapłać'}
           </button>
-        )}
+          )}
       {message && <p className="text-apex-red text-base" role="alert">{message}</p>}
       {polling
         ? <span className="font-mono text-xs uppercase text-apex-muted" data-testid="order-checking" aria-live="polite">Sprawdzamy płatność…</span>
@@ -208,10 +211,18 @@ function Pending({ orderId, order, raw, polling, onAgain }) {
           <button type="button" onClick={onAgain} className={secondaryBtn} data-testid="order-recheck">Sprawdź ponownie</button>
         )}
       <p className="text-sm text-apex-muted">
-        Jeśli wpłata nie dotrze do tego terminu, zgłoszenie wygaśnie, a miejsce wróci do puli.
+        Miejsce jest Twoje dopiero po wpłacie: limit liczy tylko opłacone zgłoszenia. Jeśli wpłata nie dotrze do tego terminu, zgłoszenie wygaśnie.
       </p>
     </div>
   )
+}
+
+// A cancelled order whose payment arrived but could not be accepted: the money goes back
+// in full (confirm_order's late_refund, P3-R15), and the refund e-mail says the same.
+const ENDED_REASONS = {
+  full: 'Zanim Twoja wpłata dotarła, inne osoby opłaciły ostatnie wolne miejsca. Zwracamy całą wpłatę.',
+  unavailable: 'Zapisy na tę konkurencję nie są już prowadzone. Zwracamy całą wpłatę.',
+  closed: 'Wpłata dotarła po zamknięciu zapisów. Zwracamy całą wpłatę.',
 }
 
 function Ended({ order, raw }) {
@@ -228,8 +239,8 @@ function Ended({ order, raw }) {
       </div>
       <p className="text-lg">
         {expired
-          ? 'Nie dostaliśmy wpłaty w terminie, więc miejsce wróciło do puli. Możesz zapisać się jeszcze raz, po aktualnej cenie.'
-          : 'To zgłoszenie nie jest już ważne. Możesz zapisać się jeszcze raz.'}
+          ? 'Nie dostaliśmy wpłaty w terminie. Możesz zapisać się jeszcze raz, po aktualnej cenie.'
+          : ENDED_REASONS[order.cancelledReason] ?? 'To zgłoszenie nie jest już ważne. Możesz zapisać się jeszcze raz.'}
       </p>
       <Link to={href} className={`${primaryBtn} flex items-center justify-center`} data-testid="order-again">Zapisz się ponownie</Link>
     </div>

@@ -11,7 +11,7 @@ import { sessionFor } from './helpers/stack.js'
 import { acceptAgreement, callFn, createPublishedFreeEvent, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import {
   attemptFor, competitionOf, confirm, confirmOk, consentIds, createOrder, db, expireNow, minutesFromNow,
-  newTxn, one, orderOf, orderOk, person, registrationsOf, rows, rpc, runnerEmail, setSettings, totalFor,
+  newTxn, one, orderOf, orderOk, paidOrderOk, person, registrationsOf, rows, rpc, runnerEmail, setSettings, totalFor,
 } from './helpers/orders.js'
 
 let owner
@@ -35,7 +35,7 @@ async function alertsFor(orderId, kind) {
 
 // ---------------------------------------------------------------- P-13b
 
-test('P-13b happy path: amounts frozen, slot claimed, one line, pending registration; confirm inserts the participant once', async () => {
+test('P-13b happy path: amounts frozen, no slot until paid (P3-R15), one line, pending registration; confirm claims the slot and inserts the participant once', async () => {
   const event = await paid({ paymentWindowHours: 24 })
   const cat = event.categoryIds[0]
   const email = runnerEmail('happy')
@@ -56,7 +56,7 @@ test('P-13b happy path: amounts frozen, slot claimed, one line, pending registra
   assert.equal(order.payment_fee, 55)
   assert.equal(order.total, 6055)
   assert.equal(order.tier_id, event.tierId)
-  assert.equal((await competitionOf(cat)).taken, 1)
+  assert.equal((await competitionOf(cat)).taken, 0, 'a pending order holds no slot')
 
   const lines = await rows('order_lines', { order_id: out.orderId })
   assert.equal(lines.length, 1)
@@ -80,6 +80,7 @@ test('P-13b happy path: amounts frozen, slot claimed, one line, pending registra
   const att = await attemptFor(out.orderId, 6055)
   const first = await confirmOk(out.orderId, att.txn, 6055)
   assert.equal(first.outcome, 'confirmed')
+  assert.equal((await competitionOf(cat)).taken, 1, 'the payment claimed it')
 
   const paidOrder = await orderOf(out.orderId)
   assert.equal(paidOrder.status, 'paid')
@@ -113,13 +114,16 @@ test('P-13b the registration gets the buyer account only when its address is the
   assert.equal((await orderOf(other.orderId)).buyer_email, self)
 })
 
-test('P-13b two people in one order: amounts for both, two lines, one claim of two slots', async () => {
+test('P-13b two people in one order: amounts for both, two lines, one claim of two slots at payment', async () => {
   const event = await paid()
   const out = await orderOk(event, { emails: [runnerEmail('a'), runnerEmail('b')], support: true })
   // entry 12000, support 240, fee ceil(12240*9/991) = 112
   assert.equal(out.total, 12352)
   assert.equal(out.amounts.supportFee, 240)
   assert.equal((await rows('order_lines', { order_id: out.orderId })).length, 2)
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
+  const att = await attemptFor(out.orderId, out.total)
+  assert.equal((await confirmOk(out.orderId, att.txn, out.total)).outcome, 'confirmed')
   assert.equal((await competitionOf(event.categoryIds[0])).taken, 2)
 })
 
@@ -152,8 +156,8 @@ test('P-14 late payment into a full competition → late_refund full, taken unch
   const out = await orderOk(event)
   const att = await attemptFor(out.orderId, out.total)
   await expireNow(out.orderId)
-  await orderOk(event)
-  await orderOk(event)
+  await paidOrderOk(event)
+  await paidOrderOk(event)
   assert.equal((await competitionOf(cat)).taken, 2)
 
   const r = await confirmOk(out.orderId, att.txn, out.total)
@@ -182,7 +186,7 @@ test('P-14 late payment after the same address registered again → late_refund 
   const out = await orderOk(event, { emails: [email] })
   const att = await attemptFor(out.orderId, out.total)
   await expireNow(out.orderId)
-  await orderOk(event, { emails: [email] })
+  await paidOrderOk(event, { emails: [email] })
   assert.equal((await competitionOf(cat)).taken, 1)
 
   const r = await confirmOk(out.orderId, att.txn, out.total)
@@ -290,7 +294,7 @@ test('P-16 an order needs an account; the buyer address is the account\'s; at mo
   assert.equal((await orderOf(first.orderId)).buyer_profile_id, buyer.profileId)
   await orderOk(event, { ...opts(), sendBuyerEmail: email.toUpperCase() })
   assert.equal((await createOrder(event, opts())).error?.message, 'too_many_pending')
-  assert.equal((await competitionOf(event.categoryIds[0])).taken, 2)
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
 
   // An overdue order the job has not swept yet no longer counts (M4).
   await db().from('orders').update({ expires_at: minutesFromNow(-1) }).eq('id', first.orderId)
@@ -319,7 +323,7 @@ test('P-16 two concurrent creates in two competitions as the second and third pe
     const errors = [a, b].map((x) => x.error?.message ?? null)
     assert.deepEqual(errors.filter(Boolean), ['too_many_pending'], JSON.stringify(errors))
     assert.equal((await rows('orders', { event_id: event.eventId })).length, 2)
-    assert.equal((await competitionOf(c1)).taken + (await competitionOf(c2)).taken, 2)
+    assert.equal((await competitionOf(c1)).taken + (await competitionOf(c2)).taken, 0)
   }
 })
 
@@ -353,6 +357,8 @@ test('P-16 refusals reuse register_free\'s codes', async () => {
 
   const full = await paid({ competitions: BIEG(1) })
   await orderOk(full)
+  assert.equal((await createOrder(full)).error, null, 'a pending order holds no place (P3-R15)')
+  await paidOrderOk(full)
   assert.equal((await createOrder(full)).error?.message, 'full')
 })
 
@@ -640,6 +646,9 @@ test('P-54 delete-my-account: the order keeps its amounts, status and transactio
   const email = runnerEmail('erase')
   const { session, out, att, second } = await paidRunner(event, email)
   const [reg] = await registrationsOf(out.orderId)
+  // A second, unpaid order of the same account (final review M5).
+  const waiting = await orderOk(event, { people: [person(runnerEmail('friend'))], profileId: session.profileId, buyerEmail: email })
+  const waitingAtt = await attemptFor(waiting.orderId, waiting.total)
   // An alert whose text carries the address (a mail provider's error message).
   const { error: aErr } = await db().from('operator_alerts')
     .insert({ kind: 'email_failed', order_id: out.orderId, payload: { template: 'reminder', error: `rejected ${email}` } })
@@ -683,4 +692,14 @@ test('P-54 delete-my-account: the order keeps its amounts, status and transactio
   assert.equal(p.first_name, 'Uczestnik')
   assert.notEqual(p.deleted_at, null)
   assert.equal((await competitionOf(event.categoryIds[0])).taken, 1, 'the slot stays taken')
+
+  // M5: the pending order is cancelled, and a payment that still arrives is refunded, never confirmed.
+  const w = await orderOf(waiting.orderId)
+  assert.equal(w.status, 'cancelled')
+  assert.equal(w.cancelled_reason, 'account_deleted')
+  assert.equal(w.buyer_email, null)
+  const late = await confirmOk(waiting.orderId, waitingAtt.txn, waiting.total)
+  assert.equal(late.outcome, 'late_refund')
+  assert.equal(late.refund.reason, 'cancelled')
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 1)
 })

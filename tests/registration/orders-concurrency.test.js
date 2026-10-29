@@ -1,8 +1,8 @@
 // Plan 3, task 4: concurrency of the order RPCs (P-19 a–j in
 // docs/registration/scenario-matrix.md). Every pair of calls runs on its own
 // PostgREST connection at the same time. The invariant checked throughout:
-// competitions.taken equals the live (pending_payment + confirmed)
-// registrations, a team counted once. LOCAL stack only.
+// competitions.taken equals the confirmed registrations, a team counted once
+// (P3-R15: an entry awaiting payment holds no place). LOCAL stack only.
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
@@ -10,7 +10,7 @@ import { sessionFor } from './helpers/stack.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import {
   attemptFor, competitionOf, confirm, confirmOk, createOrder, db, expireNow, liveSlots, minutesFromNow,
-  newTxn, orderOf, orderOk, overdue, person, registrationsOf, rows, rpc, runnerEmail, setSettings,
+  newTxn, orderOf, orderOk, overdue, paidOrderOk, person, registrationsOf, rows, rpc, runnerEmail, setSettings,
 } from './helpers/orders.js'
 
 let owner
@@ -31,17 +31,25 @@ async function assertInvariant(categoryId, label = '') {
 
 // ---------------------------------------------------------------- (a)
 
-test('P-19a capacity 5, 20 parallel create_order → exactly 5 orders, taken 5', async () => {
+test('P-19a capacity 5: 20 parallel create_order are all accepted (none holds a place); all 20 pay at once → 5 confirmed, 15 refunded full, taken 5 (P3-R15)', async () => {
   const event = await paid(5)
   const cat = event.categoryIds[0]
   const results = await Promise.all(Array.from({ length: 20 }, () => createOrder(event)))
-  const ok = results.filter((r) => !r.error)
-  const errors = results.filter((r) => r.error).map((r) => r.error.message)
-  assert.equal(ok.length, 5, JSON.stringify(errors))
-  assert.ok(errors.every((m) => m === 'full'), JSON.stringify(errors))
+  assert.deepEqual(results.filter((r) => r.error).map((r) => r.error.message), [])
+  assert.equal((await competitionOf(cat)).taken, 0)
+  const orders = await Promise.all(results.map(async (r) => ({ ...r.data, att: await attemptFor(r.data.orderId, r.data.total) })))
+  const rs = await Promise.all(orders.map((o) => confirm(o.orderId, o.att.txn, o.total)))
+  assert.deepEqual(rs.filter((r) => r.error).map((r) => r.error.message), [])
+  const outcomes = rs.map((r) => r.data.outcome)
+  assert.equal(outcomes.filter((o) => o === 'confirmed').length, 5, JSON.stringify(outcomes))
+  assert.equal(outcomes.filter((o) => o === 'late_refund').length, 15, JSON.stringify(outcomes))
+  assert.ok(rs.filter((r) => r.data.outcome === 'late_refund').every((r) => r.data.refund.reason === 'full'))
   assert.equal((await competitionOf(cat)).taken, 5)
-  assert.equal((await rows('orders', { event_id: event.eventId })).length, 5)
   await assertInvariant(cat)
+
+  // Full: 20 more parallel creates are all refused.
+  const more = await Promise.all(Array.from({ length: 20 }, () => createOrder(event)))
+  assert.deepEqual([...new Set(more.map((r) => r.error?.message))], ['full'])
 })
 
 // ---------------------------------------------------------------- (b)
@@ -88,12 +96,13 @@ test('P-19c two concurrent confirms of the same txn → one confirmed, one alrea
 
 // ---------------------------------------------------------------- (d)
 
-test('P-19d two concurrent expire_orders release an order once', async () => {
+test('P-19d two concurrent expire_orders expire an order once and leave taken alone (P3-R15)', async () => {
   const event = await paid()
   const cat = event.categoryIds[0]
+  await paidOrderOk(event)
   const stays = await orderOk(event)
   const goes = await orderOk(event)
-  assert.equal((await competitionOf(cat)).taken, 2)
+  assert.equal((await competitionOf(cat)).taken, 1)
   await overdue(goes.orderId)
   const [a, b] = await Promise.all([rpc('expire_orders', {}), rpc('expire_orders', {})])
   assert.equal(a.error, null, a.error?.message)
@@ -232,7 +241,7 @@ test('P-19i slot units: two registrations sharing a team_id are one slot on expi
   })
   assert.equal(insErr, null, insErr?.message)
   await db().from('registrations').update({ team_id: team }).eq('id', reg.id)
-  assert.equal((await competitionOf(cat)).taken, 1)
+  assert.equal((await competitionOf(cat)).taken, 0)
 
   const units = await rpc('registration_slot_units', { p_order_id: out.orderId, p_statuses: ['pending_payment'] })
   assert.deepEqual(units.data, [{ category_id: cat, n: 1 }])
@@ -295,7 +304,7 @@ test('P-19j 50 rounds: publish_registration_changes racing create_order and conf
     assert.equal(conf.data?.outcome, 'confirmed', JSON.stringify(conf))
   }
   await assertInvariant(cat)
-  assert.equal((await competitionOf(cat)).taken, 100)
+  assert.equal((await competitionOf(cat)).taken, 50)
 })
 
 test('P-19 invariant after the paying window closes mid-flight: an expired order cannot be paid again', async () => {
@@ -320,8 +329,6 @@ const paidTwo = (bieg = 200, marsz = 200) => createPublishedPaidEvent(owner, {
 async function orderAcross(event) {
   const [c1, c2] = event.categoryIds
   const out = await orderOk(event, { categoryId: c1 })
-  const claim = await rpc('claim_competition_slots', { p_category_id: c2, p_n: 1 })
-  assert.ok(claim.data != null, 'claim in c2')
   const { error } = await db().from('registrations').insert({
     event_id: event.eventId, category_id: c2, order_id: out.orderId, status: 'pending_payment',
     first_name: 'Ala', last_name: 'Leśna', email: runnerEmail('c2'), consent_state: 'accepted', list_price: 0, price: 0,
@@ -330,14 +337,14 @@ async function orderAcross(event) {
   return out
 }
 
-test('P-19k an order spanning two competitions: expiry releases each, the late re-claim takes each back', async () => {
+test('P-19k an order spanning two competitions: nothing held while unpaid, the late claim takes each', async () => {
   const event = await paidTwo()
   const [c1, c2] = event.categoryIds
   const out = await orderAcross(event)
   const units = await rpc('registration_slot_units', { p_order_id: out.orderId, p_statuses: ['pending_payment'] })
   assert.deepEqual(units.data, [c1, c2].sort().map((c) => ({ category_id: c, n: 1 })))
-  assert.equal((await competitionOf(c1)).taken, 1)
-  assert.equal((await competitionOf(c2)).taken, 1)
+  assert.equal((await competitionOf(c1)).taken, 0)
+  assert.equal((await competitionOf(c2)).taken, 0)
 
   const att = await attemptFor(out.orderId, out.total)
   await expireNow(out.orderId)
@@ -360,7 +367,7 @@ test('P-19k a late re-claim across two competitions where the second is full: bo
   const out = await orderAcross(event)
   const att = await attemptFor(out.orderId, out.total)
   await expireNow(out.orderId)
-  await orderOk(event, { categoryId: c2 })
+  await paidOrderOk(event, { categoryId: c2 })
   const before = [(await competitionOf(c1)).taken, (await competitionOf(c2)).taken]
   assert.deepEqual(before, [0, 1])
 
@@ -396,44 +403,38 @@ test('P-19l 50 rounds: one expire run over orders in two competitions racing a c
   await assertInvariant(c2, `created ${created}`)
 })
 
-test('P-19l the per-order expiry the set-based expire_orders replaced does deadlock (forced timing, scratch function)', async () => {
-  // A scratch copy of the brief's literal shape: per order, release its slots,
-  // then flip its registrations, then the next order. A pause between the two
-  // orders lets a create in c2 take c2 and wait on order A's address, while the
-  // expiry run holds A's registration and then needs c2. Postgres must abort one.
+test('P-19l expire_orders touches no competition row (P3-R15): it finishes while another transaction holds the competition lock', async () => {
+  // The per-order release that could deadlock against create_order is gone: an unpaid
+  // order holds no slot, so expiry never locks a competition.
   const { localEnv } = await import('./helpers/stack.js')
   const postgres = (await import('postgres')).default
   const sql = postgres(localEnv().dbUrl, { max: 2, onnotice: () => {} })
-  const fn = `zz_test_expire_per_order_${crypto.randomBytes(3).toString('hex')}`
   try {
-    await sql.unsafe(`
-      CREATE FUNCTION public.${fn}(p_ids uuid[]) RETURNS void LANGUAGE plpgsql SET search_path = '' AS $$
-      DECLARE v uuid; u record; first boolean := true;
-      BEGIN
-        FOREACH v IN ARRAY p_ids LOOP
-          IF NOT first THEN PERFORM pg_sleep(0.6); END IF;
-          first := false;
-          UPDATE public.orders SET status = 'expired' WHERE id = v AND status = 'pending';
-          FOR u IN SELECT * FROM public.registration_slot_units(v, ARRAY['pending_payment']) LOOP
-            UPDATE public.competitions SET taken = taken - u.n WHERE category_id = u.category_id;
-          END LOOP;
-          UPDATE public.registrations SET status = 'expired' WHERE order_id = v AND status = 'pending_payment';
-        END LOOP;
-      END $$;
-      REVOKE EXECUTE ON FUNCTION public.${fn}(uuid[]) FROM public, anon, authenticated, service_role;`)
     const event = await paidTwo()
     const [c1, c2] = event.categoryIds
-    const email = runnerEmail('dl')
-    const a = await orderOk(event, { categoryId: c1, emails: [email] })
+    const a = await orderOk(event, { categoryId: c1 })
     const b = await orderOk(event, { categoryId: c2 })
-    const run = sql`select public.${sql(fn)}(${[a.orderId, b.orderId]}::uuid[])`.then(() => null, (e) => e)
-    await new Promise((r) => setTimeout(r, 200))
-    const cre = await createOrder(event, { categoryId: c2, emails: [email] })
-    const expErr = await run
-    const codes = [expErr?.code, cre.error?.code].filter(Boolean)
-    assert.ok(codes.includes('40P01'), `expected a deadlock, got ${JSON.stringify([expErr?.message, cre.error?.message])}`)
+    await overdue(a.orderId)
+    await overdue(b.orderId)
+    let release
+    const held = new Promise((r) => { release = r })
+    const locker = sql.begin(async (tx) => {
+      await tx`select 1 from public.competitions where category_id in ${tx([c1, c2])} for update`
+      await held
+    })
+    await new Promise((r) => setTimeout(r, 100))
+    const exp = await Promise.race([
+      rpc('expire_orders', {}),
+      new Promise((r) => setTimeout(() => r({ error: { message: 'expire_orders waited on the competition lock' } }), 5000)),
+    ])
+    release()
+    await locker
+    assert.equal(exp.error, null, exp.error?.message)
+    assert.equal((await orderOf(a.orderId)).status, 'expired')
+    assert.equal((await orderOf(b.orderId)).status, 'expired')
+    assert.equal((await competitionOf(c1)).taken, 0)
+    assert.equal((await competitionOf(c2)).taken, 0)
   } finally {
-    await sql.unsafe(`DROP FUNCTION IF EXISTS public.${fn}(uuid[])`)
     await sql.end()
   }
 })

@@ -195,12 +195,23 @@ test('P-45 api/startlist: one event id or 400; the snapshot with a version, cach
   assert.match(missing.headers['vercel-cdn-cache-control'], /max-age=60/)
 })
 
+// What list-event-registrations reports as placesLeft: capacity minus confirmed entries over the
+// visible competitions (P3-R15: entries awaiting payment hold no place).
+async function placesLeft(eventId) {
+  const { data, error } = await db().from('competitions').select('capacity, taken, hidden_at').eq('event_id', eventId)
+  assert.ifError(error)
+  return data.filter((c) => !c.hidden_at).reduce((n, c) => n + Math.max(0, c.capacity - c.taken), 0)
+}
+
 test('P-45 list-event-registrations: paymentStatus and expiresAt per row, counts beside data; owner and admin only', async () => {
   const { event, orders, people } = await eventWithOrders()
   assert.equal((await callFn('list-event-registrations', member, { eventId: event.eventId })).status, 404)
   const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
   assert.equal(r.status, 200, JSON.stringify(r.body))
-  assert.deepEqual(r.body.counts, { paid: 4, awaiting: 1, free: 1 })
+  const left = await placesLeft(event.eventId)
+  assert.deepEqual(r.body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left })
+  const { data: caps } = await db().from('competitions').select('capacity').eq('event_id', event.eventId)
+  assert.equal(left, caps.reduce((n, c) => n + c.capacity, 0) - 5, 'the 5 confirmed entries, not the awaiting one')
   const byName = Object.fromEntries(r.body.data.map((x) => [x.name, x]))
   assert.equal(byName['Anna Zielna'].paymentStatus, 'paid')
   assert.equal(byName['Anna Zielna'].expiresAt, null)
@@ -212,7 +223,7 @@ test('P-45 list-event-registrations: paymentStatus and expiresAt per row, counts
   assert.equal(byName['Celina Wygasła'].paymentStatus, null)
   assert.equal(byName['Damian Anulowany'].paymentStatus, null)
   assert.ok(!JSON.stringify(r.body).includes(people.paid.email))
-  assert.deepEqual((await callFn('list-event-registrations', clubAdmin, { eventId: event.eventId })).body.counts, { paid: 4, awaiting: 1, free: 1 })
+  assert.deepEqual((await callFn('list-event-registrations', clubAdmin, { eventId: event.eventId })).body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left })
 })
 
 test('P-45 a free event: list-event-registrations and the start list count its entries as free', async () => {
@@ -228,7 +239,7 @@ test('P-45 a free event: list-event-registrations and the start list count its e
   })
   assert.equal(reg.status, 201, JSON.stringify(reg.body))
   const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
-  assert.deepEqual(r.body.counts, { paid: 0, awaiting: 0, free: 1 })
+  assert.deepEqual(r.body.counts, { paid: 0, awaiting: 0, free: 1, placesLeft: await placesLeft(event.eventId) })
   assert.equal(r.body.data[0].paymentStatus, 'free')
   assert.equal(r.body.data[0].expiresAt, null)
 

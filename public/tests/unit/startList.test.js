@@ -24,10 +24,10 @@ const FREE_EVENT = {
 }
 
 describe('startListView (RA8 columns, ruling P3-R14)', () => {
-  it('per competition: taken of capacity, the bars, „+N czeka na wpłatę” as a count only', () => {
+  it('per competition: paid entries of capacity (P3-R15), the bars, „+N czeka na wpłatę” as a count only', () => {
     const v = startListView(SNAP, { paidEvent: true })
     assert.deepEqual(v.competitions[0], {
-      categoryId: 'c1', name: 'Bieg 9 km', taken: 34, capacity: 80, paidPct: 40, freePct: 0, awaitingPct: 2.5,
+      categoryId: 'c1', name: 'Bieg 9 km', taken: 32, capacity: 80, paidPct: 40, freePct: 0,
       paidLabel: '32 opłacone', freeLabel: null, awaitingLabel: '+2 czekają na wpłatę',
     })
     assert.equal(v.competitions[1].awaitingLabel, null)
@@ -78,6 +78,15 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
   it('the bars never go past 100 percent', () => {
     const v = startListView({ competitions: [{ categoryId: 'x', name: 'X', capacity: 10, paid: 9, free: 2, awaiting: 1 }], entries: [] }, { paidEvent: true })
     const c = v.competitions[0]
-    assert.ok(c.paidPct + c.freePct + c.awaitingPct <= 100)
+    assert.ok(c.paidPct + c.freePct <= 100)
+  })
+
+  it('P3-R15 entries awaiting payment hold no place: „N / limit” and the bar leave them out', () => {
+    const v = startListView({ competitions: [{ categoryId: 'x', name: 'X', capacity: 2, paid: 0, free: 0, awaiting: 5 }], entries: [] }, { paidEvent: true })
+    const c = v.competitions[0]
+    assert.equal(c.taken, 0)
+    assert.equal(c.paidPct + c.freePct, 0)
+    assert.equal(c.awaitingLabel, '+5 czeka na wpłatę')
+    assert.ok(!('awaitingPct' in c))
   })
 })

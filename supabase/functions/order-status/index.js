@@ -74,7 +74,7 @@ async function poll(admin, req, orderId) {
 }
 
 // POST { orderId } → 200 { data: { status, expiresAt, lines: [{ name, competition, ageGroupLabel,
-//   startTime, amount }], amounts, event: { slug, name }, closesAt } }
+//   startTime, amount }], amounts, event: { slug, name }, closesAt, full, cancelledReason } }
 // The order page's state, for the buyer only (401 without a session, 404 otherwise). While the
 // order is pending and dpay may have taken the money without an IPN reaching us, it asks dpay
 // (see poll) before answering.
@@ -113,6 +113,14 @@ Deno.serve(async (req) => {
     }
 
     const view = await loadOrderView(admin, orderId)
+    // P3-R15: an unpaid order holds no place. When the paid entries already fill the
+    // competition the page says so instead of offering „Zapłać” (pay-order refuses too).
+    let full = false
+    if (view.order.status === 'pending') {
+      const { data: fits, error: fitErr } = await admin.rpc('registration_order_fits', { p_order_id: orderId })
+      if (fitErr) console.error('order-status: registration_order_fits failed:', fitErr.message)
+      else full = fits === false
+    }
     return json({
       data: {
         status: view.order.status,
@@ -128,6 +136,10 @@ Deno.serve(async (req) => {
         event: { slug: view.settings?.slug ?? null, name: view.settings?.name ?? null },
         // The order page stops offering „Zapłać” at closes_at, as pay-order does.
         closesAt: view.settings?.closes_at ?? null,
+        full,
+        // Why a cancelled order ended: 'full' / 'unavailable' / 'closed' when a payment
+        // arrived that could not be accepted (and is refunded), else the cancel reason.
+        cancelledReason: view.order.status === 'cancelled' ? view.order.cancelled_reason ?? null : null,
       },
     }, 200, req)
   } catch (err) {
