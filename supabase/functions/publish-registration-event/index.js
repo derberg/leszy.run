@@ -158,7 +158,9 @@ async function sendChangeNotice(admin, req, session, settings, notify, affected)
   return { sent: true, recipientCount: sent, failed }
 }
 
-async function publishChanges(admin, req, session, settings, notifyInput) {
+const CHANGED = { error: 'Zmiany zmieniły się od podglądu. Sprawdź je jeszcze raz.', code: 'changed' }
+
+async function publishChanges(admin, req, session, settings, notifyInput, expectedUpdatedAt) {
   const notify = checkNotify(notifyInput)
   if (notify.status) return json(notify.body, notify.status, req)
   if (settings.state !== 'published') return json(NOT_PUBLISHED, 409, req)
@@ -169,6 +171,9 @@ async function publishChanges(admin, req, session, settings, notifyInput) {
     .select('payload, changed_fields, updated_at').eq('event_id', eventId).maybeSingle()
   if (pErr) throw pErr
   if (!pending) return json({ error: 'Brak zmian do opublikowania.', code: 'no_changes' }, 409, req)
+  // P2-R28: what the organizer confirmed (preview_changes' stamp) is what is
+  // published; staged again since, the dialog must show the new diff first.
+  if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== pending.updated_at) return json(CHANGED, 409, req)
   const mode = pending.payload.competitions?.pricing_mode
   if (!PAID_REGISTRATION_ENABLED && mode && mode !== 'free') {
     return json({ error: 'Nie można opublikować: płatności online — wkrótce.', code: 'payments' }, 409, req)
@@ -216,13 +221,15 @@ async function publishChanges(admin, req, session, settings, notifyInput) {
 // the A8a dialog. Reads only; nothing staged: an empty diff.
 async function previewChanges(admin, req, settings) {
   const { data: pending, error } = await admin.from('registration_pending_changes')
-    .select('payload').eq('event_id', settings.event_id).maybeSingle()
+    .select('payload, updated_at').eq('event_id', settings.event_id).maybeSingle()
   if (error) throw error
-  if (!pending) return json({ data: { diff: [], affected: { all: false, categoryIds: [] }, recipientCount: 0 } }, 200, req)
+  if (!pending) {
+    return json({ data: { diff: [], affected: { all: false, categoryIds: [] }, recipientCount: 0, updatedAt: null } }, 200, req)
+  }
   const diff = changeDiff(await liveSnapshot(admin, settings), pending.payload)
   const affected = noticeAudience(diff)
   const recipients = await noticeRecipients(admin, settings.event_id, affected)
-  return json({ data: { diff, affected, recipientCount: recipients.length } }, 200, req)
+  return json({ data: { diff, affected, recipientCount: recipients.length, updatedAt: pending.updated_at } }, 200, req)
 }
 
 async function discardChanges(admin, req, session, settings) {
@@ -243,7 +250,7 @@ async function discardChanges(admin, req, session, settings) {
 // published. The RPC flips the state and writes the events, categories and
 // calendar rows in one transaction.
 //
-// POST { eventId, action: 'publish_changes', notify: { send, subject?, body? } }
+// POST { eventId, action: 'publish_changes', notify: { send, subject?, body? }, expectedUpdatedAt? }
 //   → 200 { data: { diff, affected: { all, categoryIds }, notice: { sent, recipientCount, failed? } } }.
 // The event as it will be must pass publishChecklist (409 { error, blocking }
 // like the first publish), then publish_registration_changes applies it
@@ -255,10 +262,12 @@ async function discardChanges(admin, req, session, settings) {
 // event (429 otherwise, nothing applied). No one concerned: nothing is sent
 // and the hour is not used up.
 // 409 { error, code } when a lock refuses: capacity_below_taken (names the
-// competition), competition_locked, price_locked, immutable, no_changes.
+// competition), competition_locked, price_locked, immutable, no_changes, and
+// changed when expectedUpdatedAt (preview_changes' updatedAt, ruling P2-R28)
+// is no longer the staged row's updated_at: nothing applied, nothing sent.
 // POST { eventId, action: 'discard_changes' } → 200 { data: { discarded } }.
 // POST { eventId, action: 'preview_changes' }
-//   → 200 { data: { diff, affected: { all, categoryIds }, recipientCount } }:
+//   → 200 { data: { diff, affected: { all, categoryIds }, recipientCount, updatedAt } }:
 // what publish_changes would apply and how many confirmed registrants a
 // notice would reach (one per address). Writes nothing; nothing staged gives
 // an empty diff and 0.
@@ -280,7 +289,7 @@ Deno.serve(async (req) => {
     if (loaded instanceof Response) return loaded
     const { settings } = loaded
     if (!ACTIONS.includes(action)) return json({ error: 'Nieznana akcja.' }, 400, req)
-    if (action === 'publish_changes') return await publishChanges(admin, req, session, settings, body.notify)
+    if (action === 'publish_changes') return await publishChanges(admin, req, session, settings, body.notify, body.expectedUpdatedAt)
     if (action === 'discard_changes') return await discardChanges(admin, req, session, settings)
     if (action === 'preview_changes') return await previewChanges(admin, req, settings)
     if (settings.state !== 'draft') return json(NOT_DRAFT, 409, req)

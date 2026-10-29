@@ -71,6 +71,10 @@ export const peopleLabel = (n) => countLabel(n, PEOPLE)
 /** The suggested e-mail: the event's name and the rows that concern runners. */
 export function defaultNotice(eventName, diff) {
   const lines = noticeRows(diff).map((d) => `- ${d.label}: ${changeValue(d, d.before)} → ${changeValue(d, d.after)}`)
+  // The pin alone concerns everyone too, but its numbers say nothing (M4).
+  if (!lines.length && diff.some((d) => d.field === 'basics.lat' || d.field === 'basics.lng')) {
+    lines.push('- Miejsce startu: nowa pinezka na mapie')
+  }
   return {
     subject: `${eventName}: zmiany`,
     body: `Cześć,\n\nzmieniamy:\n${lines.join('\n')}\n\nPozostałe informacje bez zmian.`,
@@ -100,3 +104,29 @@ export function registeredLine(registered, competitions) {
 
 /** The last day of registration ('YYYY-MM-DD') → „3.12”. */
 export const closesLabel = (closesOn) => (closesOn ? warsawDay.format(new Date(`${closesOn}T12:00:00Z`)) : null)
+
+/** A ticked notice's subject and body, before the request (the server checks them too). */
+export function noticeCheck({ subject, body }) {
+  const fields = {}
+  if (!subject.trim()) fields.subject = 'Podaj temat wiadomości.'
+  if (!body.trim()) fields.body = 'Podaj treść wiadomości.'
+  return fields
+}
+
+/**
+ * „Brakuje” after publish (ruling P2-R29): the kids' race is a suggestion, not
+ * missing data, so it stays in Publikacja only; the GPX of each competition is
+ * one item.
+ */
+export function missingAfterPublish(missing) {
+  const out = []
+  for (const m of missing) {
+    if (m.key === 'kids') continue
+    if (m.key.startsWith('gpx:')) {
+      if (!out.some((o) => o.key === 'gpx')) out.push({ key: 'gpx', label: 'Ślad GPX', step: m.step })
+      continue
+    }
+    out.push(m)
+  }
+  return out
+}

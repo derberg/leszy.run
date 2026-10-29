@@ -92,6 +92,8 @@ export default function useRegistrationEvent(eventId) {
     saveState,
     queue: autosave ? autosave.queue : noop,
     flush: autosave ? autosave.flush : resolvedTrue,
+    // Forgets queued and failed values: after the staged changes are discarded.
+    clear: autosave ? autosave.clear : resolvedTrue,
     reload: fetchEvent,
     onSaved,
     reportInvalid,

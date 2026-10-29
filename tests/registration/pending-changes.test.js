@@ -414,7 +414,7 @@ test('W-56 preview_changes: the diff, the audience and how many people a notice 
   // Nothing staged: an empty diff, nobody to tell.
   let r = await preview()
   assert.equal(r.status, 200, JSON.stringify(r.body))
-  assert.deepEqual(r.body.data, { diff: [], affected: { all: false, categoryIds: [] }, recipientCount: 0 })
+  assert.deepEqual(r.body.data, { diff: [], affected: { all: false, categoryIds: [] }, recipientCount: 0, updatedAt: null })
 
   await registerMany(event, bieg, 2, 'preview')
   await registerMany(event, marsz, 1, 'preview')
@@ -441,6 +441,39 @@ test('W-56 preview_changes: the diff, the audience and how many people a notice 
   assert.ok(await pendingOf(event.eventId))
   assert.equal((await competitionOf(bieg)).start_time, '10:00:00')
   assert.equal((await preview(member)).status, 403)
+})
+
+test('W-60 publish_changes with the preview\'s stamp (P2-R28): staged again since → 409 changed, nothing applied, no mail; the fresh stamp → 200', async () => {
+  const event = await published([BIEG, MARSZ])
+  const [bieg] = event.categoryIds
+  const [runner] = await registerMany(event, bieg, 1, 'stamp')
+  const preview = async () => (await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'preview_changes' })).body.data
+  const mails = async () => (await messagesTo(runner)).length
+  const before = await mails()
+
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{ startTime: '10:15' }]) })
+  const seen = await preview()
+  assert.equal(seen.updatedAt, (await pendingOf(event.eventId)).updated_at)
+  // Someone stages a date change while the dialog is open.
+  await save(event.eventId, 'basics', { placeDetails: 'Inne miejsce' })
+
+  const notice = { send: true, subject: 'Zmiana godziny', body: 'Start 10:15.' }
+  let r = await callFn('publish-registration-event', owner, {
+    eventId: event.eventId, action: 'publish_changes', notify: notice, expectedUpdatedAt: seen.updatedAt,
+  })
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'changed')
+  assert.ok(await pendingOf(event.eventId), 'still staged')
+  assert.equal((await competitionOf(bieg)).start_time, '10:00:00')
+  assert.equal(await mails(), before, 'no mail')
+
+  const fresh = await preview()
+  assert.equal(fresh.affected.all, true)
+  r = await callFn('publish-registration-event', owner, {
+    eventId: event.eventId, action: 'publish_changes', notify: { send: false }, expectedUpdatedAt: fresh.updatedAt,
+  })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal((await competitionOf(bieg)).start_time, '10:15:00')
 })
 
 // ---------------------------------------------------------------- W-24

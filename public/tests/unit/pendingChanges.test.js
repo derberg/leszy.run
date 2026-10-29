@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   changeValue, changesSummary, noticeTarget, defaultNotice, peopleLabel, noticeResult, registeredLine, closesLabel,
+  missingAfterPublish, noticeCheck,
 } from '../../src/lib/pendingChanges.js'
 
 const C1 = '11111111-1111-4111-8111-111111111111'
@@ -82,4 +83,30 @@ test('registeredLine and closesLabel for the published header', () => {
   assert.equal(closesLabel('2026-12-03'), '3.12')
   assert.equal(closesLabel('2026-01-05'), '5.01')
   assert.equal(closesLabel(null), null)
+})
+
+test('M1 (P2-R29): after publish no „Dystanse dzieci”, and the GPX items fold into one „Ślad GPX”', () => {
+  const missing = [
+    { key: 'office_hours', label: 'Godziny otwarcia biura zawodów', step: 'biuro' },
+    { key: `gpx:${C1}`, label: 'Ślad GPX: Bieg 9 km', step: 'konkurencje' },
+    { key: `gpx:${C2}`, label: 'Ślad GPX: Nordic walking 3 km', step: 'konkurencje' },
+    { key: 'poster', label: 'Plakat', step: 'podstawy' },
+    { key: 'kids', label: 'Dystanse dzieci', step: 'konkurencje' },
+  ]
+  assert.deepEqual(missingAfterPublish(missing), [
+    { key: 'office_hours', label: 'Godziny otwarcia biura zawodów', step: 'biuro' },
+    { key: 'gpx', label: 'Ślad GPX', step: 'konkurencje' },
+    { key: 'poster', label: 'Plakat', step: 'podstawy' },
+  ])
+  assert.deepEqual(missingAfterPublish([{ key: 'kids', label: 'Dystanse dzieci', step: 'konkurencje' }]), [])
+})
+
+test('M4: a pin-only move still gets a line in the suggested body', () => {
+  const n = defaultNotice('Bieg Leszego', [{ field: 'basics.lat', label: 'Pinezka (szerokość)', before: 50.1, after: 50.2 }])
+  assert.equal(n.body, 'Cześć,\n\nzmieniamy:\n- Miejsce startu: nowa pinezka na mapie\n\nPozostałe informacje bez zmian.')
+})
+
+test('M6: a ticked notice needs a subject and a body (spaces do not count)', () => {
+  assert.deepEqual(noticeCheck({ subject: 'Zmiana', body: 'Treść' }), {})
+  assert.deepEqual(noticeCheck({ subject: '   ', body: '' }), { subject: 'Podaj temat wiadomości.', body: 'Podaj treść wiadomości.' })
 })

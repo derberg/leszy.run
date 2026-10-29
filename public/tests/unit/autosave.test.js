@@ -267,3 +267,60 @@ test('a queued function is read when the save starts, so ids learned from the pr
 })
 
 mock.reset()
+
+test('clear (I1): a failed save waiting for its retry is dropped, the error goes, nothing is saved again', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const calls = []
+  const save = async (section, value) => {
+    calls.push(value)
+    const err = new Error('Błąd serwera.')
+    err.status = 500
+    throw err
+  }
+  const autosave = createAutosave({ save, delayMs: 1500 })
+  autosave.queue('competitions', { start: '10:15' })
+  t.mock.timers.tick(1500)
+  await settle()
+  assert.equal(calls.length, 1)
+  assert.ok(autosave.state.error)
+  assert.equal(autosave.hasPending(), true)
+
+  await autosave.clear()
+  assert.equal(autosave.state.error, null)
+  assert.equal(autosave.hasPending(), false)
+  t.mock.timers.tick(60000)
+  await settle()
+  assert.equal(calls.length, 1, 'no retry after clear')
+  assert.equal(await autosave.flush(), true)
+  assert.equal(calls.length, 1)
+
+  // It keeps working for new edits.
+  autosave.queue('competitions', { capacity: 60 })
+  t.mock.timers.tick(1500)
+  await settle()
+  assert.deepEqual(calls.at(-1), { capacity: 60 })
+})
+
+test('clear (I1): a save in flight that fails after clear is not queued again', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let reject
+  const calls = []
+  const save = (section, value) => {
+    calls.push(value)
+    return new Promise((_, rej) => { reject = rej })
+  }
+  const autosave = createAutosave({ save, delayMs: 1500 })
+  autosave.queue('basics', { name: 'x' })
+  autosave.flush()
+  await settle()
+  const done = autosave.clear()
+  const err = new Error('Błąd serwera.')
+  err.status = 500
+  reject(err)
+  await done
+  t.mock.timers.tick(60000)
+  await settle()
+  assert.equal(calls.length, 1)
+  assert.equal(autosave.hasPending(), false)
+  assert.equal(autosave.state.error, null)
+})

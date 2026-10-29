@@ -624,3 +624,68 @@ test('W-58 the „Nie zapisano” alert of a refused tab change goes once the in
   await page.getByLabel('Limit 1').fill('45')
   await expect(page.getByTestId('unsaved')).toHaveCount(0)
 })
+
+test('W-61 „Odrzuć” after a failed save (I1): the value that failed is dropped with the rest, and the editor moves on', async ({ actors }) => {
+  test.setTimeout(90_000)
+  const owner = await sessionFor(ACTOR_EMAILS.owner)
+  const { eventId } = await createPublishedFreeEvent(owner)
+  const page = await actors.owner.newPage()
+  await offline(page)
+  await page.goto(`/klub/zatyrani-test/wydarzenia/${eventId}/konkurencje`)
+  await page.getByLabel('Limit 1').fill('60')
+  const bar = page.getByTestId('pending-bar')
+  await expect(bar).toContainText('Niezapisane zmiany: 1', { timeout: 15_000 })
+
+  // The next save fails (server error): its value stays queued for a retry.
+  await page.route('**/save-registration-section', (route) => route.fulfill({ status: 500, json: { error: 'Internal server error' } }))
+  await page.getByLabel('Start 1').fill('10:15')
+  await expect(page.getByTestId('save-status')).toContainText('NIE ZAPISANO', { timeout: 15_000 })
+
+  await bar.getByRole('button', { name: 'Odrzuć' }).click()
+  await bar.getByRole('button', { name: 'Tak, odrzuć' }).click()
+  await expect(page.getByTestId('pending-bar')).toHaveCount(0)
+  await page.unroute('**/save-registration-section')
+  await expect(page.getByLabel('Start 1')).toHaveValue('10:00')
+  await expect(page.getByLabel('Limit 1')).toHaveValue('50')
+  await expect(page.getByTestId('save-status')).not.toContainText('NIE ZAPISANO')
+
+  // A tab change saves what is queued: nothing, so it goes through and nothing is staged.
+  await page.getByRole('tablist', { name: 'Zakładki' }).getByRole('tab', { name: /Podstawy/ }).click()
+  await expect(page).toHaveURL(/\/podstawy$/)
+  await page.waitForTimeout(3000)
+  expect(await pendingPayload(eventId)).toBeNull()
+})
+
+test('W-62 A8a publishes only what it showed (P2-R28): staged again meanwhile, it shows the new rows and asks again; Tab stays inside', async ({ actors }) => {
+  test.setTimeout(90_000)
+  const owner = await sessionFor(ACTOR_EMAILS.owner)
+  const { eventId, categoryIds } = await createPublishedFreeEvent(owner)
+  const page = await actors.owner.newPage()
+  await offline(page)
+  await page.goto(`/klub/zatyrani-test/wydarzenia/${eventId}/konkurencje`)
+  await page.getByLabel('Start 1').fill('10:15')
+  const bar = page.getByTestId('pending-bar')
+  await expect(bar).toContainText('Niezapisane zmiany: 1', { timeout: 15_000 })
+  await bar.getByRole('button', { name: 'Opublikuj zmiany' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Opublikować zmiany?' })
+  await expect(dialog.getByTestId('change-row')).toHaveCount(1)
+
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press('Tab')
+    expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true)
+  }
+
+  // Another admin stages a place change while the dialog is open.
+  const r = await callFn('save-registration-section', owner, { eventId, section: 'basics', value: { placeDetails: 'Hala sportowa' } })
+  expect(r.status).toBe(200)
+  await dialog.getByRole('button', { name: 'Opublikuj', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toHaveText('Zmiany zmieniły się od podglądu. Sprawdź je jeszcze raz.')
+  await expect(dialog.getByTestId('change-row')).toHaveCount(2)
+  await expect(dialog.getByTestId('change-row').filter({ hasText: 'Miejsce startu' })).toContainText('Hala sportowa')
+  const { data: live } = await admin().from('competitions').select('start_time').eq('category_id', categoryIds[0]).single()
+  expect(live.start_time).toBe('10:00:00')
+
+  await dialog.getByRole('button', { name: 'Opublikuj', exact: true }).click()
+  await expect(page.getByTestId('changes-result')).toHaveText('Opublikowano zmiany.')
+  expect((await settingsOf(eventId)).place_details).toBe('Hala sportowa')
+})

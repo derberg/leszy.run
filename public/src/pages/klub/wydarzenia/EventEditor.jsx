@@ -4,7 +4,7 @@ import useSeo from '../../../hooks/useSeo.js'
 import useRegistrationEvent from '../../../hooks/useRegistrationEvent.js'
 import usePendingChanges from '../../../hooks/usePendingChanges.js'
 import { discardRegistrationChanges } from '../../../lib/organizer.js'
-import { closesLabel, noticeResult, registeredLine } from '../../../lib/pendingChanges.js'
+import { closesLabel, missingAfterPublish, noticeResult, registeredLine } from '../../../lib/pendingChanges.js'
 import { STEP_KEYS, wizardSteps } from '../../../lib/wizardSteps.js'
 import { stagedEvent } from '../../../lib/stagedEvent.js'
 import { btnGhost, btnPrimary } from '../settingsUi.js'
@@ -146,11 +146,11 @@ const eventDay = (iso) => {
 function MissingBanner({ missing, onFill }) {
   const text = missing.map((m) => m.label.charAt(0).toLocaleLowerCase('pl-PL') + m.label.slice(1)).join(', ')
   return (
-    <div data-testid="missing-banner" className="border border-apex-red bg-apex-surface-2 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-      <span className="min-w-0 font-sans text-[17px] text-apex-text-bright"><span className="font-mono text-apex-red">●</span> Brakuje: {text}</span>
+    <div data-testid="missing-banner" className="border border-apex-yellow-dim bg-apex-surface-2 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <span className="min-w-0 font-sans text-[17px] text-apex-text-bright"><span className="font-mono text-apex-yellow">●</span> Brakuje: {text}</span>
       {onFill && (
         <Link to={onFill.href} onClick={(e) => { e.preventDefault(); onFill.go() }}
-          className={`${btnGhost} !border-apex-red no-underline inline-block`}>Uzupełnij</Link>
+          className={`${btnGhost} !border-apex-yellow-dim no-underline inline-block`}>Uzupełnij</Link>
       )}
     </div>
   )
@@ -190,17 +190,20 @@ function NotFoundBlock({ back }) {
 function Editor({ eventId, stepParam }) {
   const { club } = useKlub()
   const navigate = useNavigate()
-  const { ready, event, notFound, error, saveState, queue, flush, reload, onSaved, reportInvalid, invalidInput } = useRegistrationEvent(eventId)
+  const { ready, event, notFound, error, saveState, queue, flush, clear, reload, onSaved, reportInvalid, invalidInput } = useRegistrationEvent(eventId)
   // Why a step change was refused: { section, fields } (input that does not validate) or { flush: true }.
   const [blocked, setBlocked] = useState(null)
   // Bumped after the staged changes are discarded or published, so every step
   // re-seeds from the event as it now is instead of re-staging what it held.
   const [generation, setGeneration] = useState(0)
   const [dialog, setDialog] = useState(null) // the preview A8a opened with
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(false) // discarding (the steps are disabled meanwhile)
+  const [opening, setOpening] = useState(false) // „Opublikuj zmiany” checks before A8a opens
   const [result, setResult] = useState(null) // line after „Opublikuj zmiany”
   const [barError, setBarError] = useState(null)
   const [copied, setCopied] = useState(false)
+  const copyTimer = useRef(null)
+  useEffect(() => () => clearTimeout(copyTimer.current), [])
   const back = `/klub/${club.slug}/wydarzenia`
   const base = `${back}/${eventId}`
 
@@ -252,7 +255,7 @@ function Editor({ eventId, stepParam }) {
     ? [...(writer ? [{ key: 'zgloszenia', label: 'Zgłoszenia', available: true }] : []),
       ...steps.filter((s) => s.key !== 'publikacja').map((s) => ({ ...s, available: s.available || s.key === 'dodatki' }))]
     : null
-  const missing = published ? (event.checklist?.missing ?? []) : []
+  const missing = published ? missingAfterPublish(event.checklist?.missing ?? []) : []
   const diff = preview?.diff ?? []
   // Input that does not validate yet, while the alert about it is up (N3: it goes once fixed).
   const stillBad = blocked?.fields ? invalidInput() : null
@@ -282,17 +285,25 @@ function Editor({ eventId, stepParam }) {
 
   async function openPublish() {
     setBarError(null)
-    if (!(await settle())) return
-    const fresh = await refresh()
-    if (fresh?.diff?.length) setDialog(fresh)
+    setOpening(true)
+    try {
+      if (!(await settle())) return
+      const fresh = await refresh()
+      if (fresh?.diff?.length) setDialog(fresh)
+    } finally {
+      setOpening(false)
+    }
   }
 
   async function discard() {
     setBarError(null)
     setBusy(true)
     try {
+      // Whatever was typed is staged first, so the discard takes it too.
       await flush()
       await discardRegistrationChanges(eventId)
+      // A value that failed to save is still queued: it must not stage again (I1).
+      await clear()
       await reload()
       setGeneration((g) => g + 1)
       setBlocked(null)
@@ -314,7 +325,8 @@ function Editor({ eventId, stepParam }) {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/events/${event.settings.slug}`)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      clearTimeout(copyTimer.current)
+      copyTimer.current = setTimeout(() => setCopied(false), 2000)
     } catch {
       setCopied(false)
     }
@@ -360,7 +372,7 @@ function Editor({ eventId, stepParam }) {
 
       {onRegistrations && <Zgloszenia eventId={eventId} />}
       {StepBody && (
-        <StepBody key={`${current}:${generation}`} event={stagedEvent(event)} queue={queue} saveState={saveState} readOnly={readOnly} reload={reload}
+        <StepBody key={`${current}:${generation}`} event={stagedEvent(event)} queue={queue} saveState={saveState} readOnly={readOnly || busy} reload={reload}
           onSaved={onSaved} reportInvalid={reportInvalid} base={base} previewHref={`${base}/podglad`} />
       )}
 
@@ -377,11 +389,11 @@ function Editor({ eventId, stepParam }) {
 
       {barError && <p role="alert" className="text-apex-red font-sans text-sm">{barError}</p>}
       {staged && diff.length > 0 && (
-        <PendingChangesBar diff={diff} previewHref={`${base}/podglad`} busy={busy} onDiscard={discard} onPublish={openPublish} />
+        <PendingChangesBar diff={diff} previewHref={`${base}/podglad`} busy={busy || opening} onDiscard={discard} onPublish={openPublish} />
       )}
       {dialog && (
         <PublishChangesDialog eventId={eventId} eventName={event.settings.name} competitions={event.competitions}
-          preview={dialog} onCancel={() => setDialog(null)} onPublished={published_} />
+          preview={dialog} refresh={refresh} onCancel={() => setDialog(null)} onPublished={published_} />
       )}
     </div>
   )

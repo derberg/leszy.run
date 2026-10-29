@@ -1,15 +1,21 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { publishRegistrationChanges } from '../../../lib/organizer.js'
-import { changeValue, defaultNotice, noticeTarget, peopleLabel } from '../../../lib/pendingChanges.js'
+import { changeValue, defaultNotice, noticeCheck, noticeTarget, peopleLabel } from '../../../lib/pendingChanges.js'
 import { btnGhost, btnPrimary, fieldInput } from '../settingsUi.js'
 import { FieldError, monoLabel } from './wizardUi.jsx'
 
 // A8a: what „Opublikuj zmiany” changes (before → after) and the optional
 // e-mail to the registrants concerned. The box starts unticked; the subject
 // and body show only once it is ticked. Offered only when someone would get it.
+// What is published is what this dialog showed (P2-R28): the preview's stamp
+// goes with the request, and if anything was staged since, the dialog shows
+// the new rows and audience, unticked, and asks again. Tab stays inside it.
 
-export default function PublishChangesDialog({ eventId, eventName, competitions, preview, onCancel, onPublished }) {
+const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+
+export default function PublishChangesDialog({ eventId, eventName, competitions, preview: initial, refresh, onCancel, onPublished }) {
   const titleId = useId()
+  const [preview, setPreview] = useState(initial)
   const { diff, affected, recipientCount } = preview
   const [send, setSend] = useState(false)
   const [notice, setNotice] = useState(() => defaultNotice(eventName, diff))
@@ -22,7 +28,22 @@ export default function PublishChangesDialog({ eventId, eventName, competitions,
 
   useEffect(() => {
     dialog.current?.focus()
-    const onKey = (e) => { if (e.key === 'Escape' && !busy) onCancel() }
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !busy) onCancel()
+      if (e.key !== 'Tab' || !dialog.current) return
+      const items = [...dialog.current.querySelectorAll(FOCUSABLE)]
+      if (!items.length) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      const inside = dialog.current.contains(document.activeElement)
+      if (e.shiftKey && (document.activeElement === first || !inside)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (document.activeElement === last || !inside)) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [busy, onCancel])
@@ -32,10 +53,29 @@ export default function PublishChangesDialog({ eventId, eventName, competitions,
     setError(null)
     setFields({})
     const wanted = offered && send
+    if (wanted) {
+      const missing = noticeCheck(notice)
+      if (Object.keys(missing).length) {
+        setFields(missing)
+        setError('Popraw zaznaczone pola.')
+        setBusy(false)
+        return
+      }
+    }
     try {
-      const result = await publishRegistrationChanges(eventId, wanted ? { send: true, ...notice } : { send: false })
+      const result = await publishRegistrationChanges(eventId, wanted ? { send: true, ...notice } : { send: false }, preview.updatedAt)
       await onPublished(result, wanted)
     } catch (err) {
+      if (err.code === 'changed') {
+        const fresh = await refresh()
+        if (!fresh?.diff?.length) {
+          onCancel()
+          return
+        }
+        setPreview(fresh)
+        setSend(false)
+        setNotice(defaultNotice(eventName, fresh.diff))
+      }
       if (err.fields) setFields(err.fields)
       setError(err.message)
       setBusy(false)

@@ -7,13 +7,18 @@
 // 2 s, 5 s and 15 s. A 4xx is not: it would only fail again until the
 // organizer changes the value.
 //
-// createAutosave({ save, delayMs, retryDelaysMs }) → { queue, flush, hasPending, subscribe, dispose, state }
+// createAutosave({ save, delayMs, retryDelaysMs }) → { queue, flush, clear, hasPending, subscribe, dispose, state }
 //   state: { savingSections: string[], savedAt: Date|null, error: { section, message, fields }|null }
 //
 // dispose() ends it (on unmount): it stops new edits and timers, then saves
 // everything still queued, a value waiting behind a save in flight included,
 // once and without retries; it resolves when that is done. Nothing is
 // scheduled afterwards.
+//
+// clear() forgets everything queued, failed or waiting for a retry (after the
+// server dropped what was staged: a value queued before must not stage it
+// again). A save in flight is waited for, and if it fails it is not queued
+// again. The autosave keeps working for new edits.
 
 const RETRY_DELAYS_MS = [2000, 5000, 15000]
 
@@ -27,6 +32,7 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
   const attempts = new Map() // section → automatic retries used since the last success
   const listeners = new Set()
   let closing = false // dispose() started: no new edits, timers or retries
+  let epoch = 0 // bumped by clear(): a save started before it is not retried
   let savedAt = null
   let state = snapshot()
 
@@ -49,6 +55,7 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
     // A function is read now, so it sees what the previous save taught the
     // caller (ids of rows it created).
     const value = typeof queued === 'function' ? queued() : queued
+    const startedIn = epoch
 
     const attempt = (async () => {
       try {
@@ -58,6 +65,7 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
         savedAt = new Date()
       } catch (err) {
         if (closing) return // the final attempt failed: nothing retries it
+        if (startedIn !== epoch) return // cleared meanwhile: the value is gone
         if (!pending.has(section)) pending.set(section, queued)
         errors.set(section, { section, message: err?.message ?? 'Nie udało się zapisać.', fields: err?.fields ?? null })
         const used = attempts.get(section) ?? 0
@@ -102,6 +110,18 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
   return {
     queue,
     flush,
+    async clear() {
+      epoch++
+      for (const id of timers.values()) clearTimeout(id)
+      timers.clear()
+      pending.clear()
+      attempts.clear()
+      errors.clear()
+      emit()
+      await Promise.all([...running.values()])
+      errors.clear()
+      emit()
+    },
     hasPending: () => pending.size > 0 || running.size > 0,
     subscribe(listener) {
       listeners.add(listener)
