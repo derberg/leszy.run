@@ -47,25 +47,45 @@ describe('runnerDataInfo version', () => {
   })
 })
 
-describe('runnerDataInfo image publication (P2-R33, review I1)', () => {
-  it('names the purpose, the contract and legitimate-interest basis, art. 81, the right to object and the retention; never calls it consent', () => {
-    const info = runnerDataInfo(base)
-    const table = info.sections.find((s) => s.heading === 'Po co i na jakiej podstawie').blocks[0].table
-    const row = table.find(([cel]) => cel.includes('wizerunku'))
-    assert.ok(row, 'an image row in the purposes table')
-    assert.match(row[1], /art\. 6 ust\. 1 lit\. b RODO/)
-    assert.match(row[1], /art\. 6 ust\. 1 lit\. f RODO/)
-    assert.match(row[1], /art\. 81 ustawy o prawie autorskim/)
-    assert.doesNotMatch(row[1], /lit\. a|zgod/)
-    const published = JSON.stringify(info.sections.find((s) => s.heading === 'Co jest publikowane'))
-    assert.ok(published.includes('wizerunek (zdjęcia, wideo)') && published.includes('a nie zgoda') && published.includes('art. 21 RODO'))
-    assert.ok(JSON.stringify(info.sections.find((s) => s.heading === 'Jak długo')).includes('Zdjęcia i nagrania z zawodów'))
+describe('runnerDataInfo image publication (P2-R33, reviews U1 I1 and U2 I1)', () => {
+  const table = () => runnerDataInfo(base).sections.find((s) => s.heading === 'Po co i na jakiej podstawie').blocks[0].table
+
+  it('the name and the result in the results lists rest on the contract', () => {
+    const row = table().find(([cel]) => cel.includes('imię, nazwisko i wynik na listach wyników'))
+    assert.ok(row)
+    assert.equal(row[1], 'art. 6 ust. 1 lit. b RODO (umowa)')
   })
 
-  it('the source document carries the same image row', async () => {
+  it('photo and video reports rest on legitimate interest alone, with the right to object', () => {
+    const row = table().find(([cel]) => cel.includes('Zdjęcia i nagrania wideo'))
+    assert.ok(row)
+    assert.match(row[1], /^art\. 6 ust\. 1 lit\. f RODO/)
+    assert.match(row[1], /art\. 21 RODO/)
+    assert.doesNotMatch(row[1], /lit\. [abd]\b/)
+  })
+
+  it('the image rests on the regulamin permission under art. 81 ust. 1, crowd shots on ust. 2 pkt 2, and it is not GDPR consent', () => {
+    const published = JSON.stringify(runnerDataInfo(base).sections.find((s) => s.heading === 'Co jest publikowane'))
+    assert.ok(published.includes('art. 81 ust. 1 ustawy o prawie autorskim i prawach pokrewnych'))
+    assert.ok(published.includes('art. 81 ust. 2 pkt 2'))
+    assert.ok(published.includes('nie jest zgodą w rozumieniu RODO'))
+    assert.ok(published.includes('art. 6 ust. 1 lit. f RODO') && published.includes('art. 21 RODO'))
+    assert.doesNotMatch(published, /a nie zgoda/)
+  })
+
+  it('the retention line is shown to runners without a verification marker', () => {
+    const t = JSON.stringify(runnerDataInfo(base))
+    assert.ok(t.includes('Zdjęcia i nagrania z zawodów'))
+    assert.doesNotMatch(t, /WERYFIKACJI|weryfikacji/)
+  })
+
+  it('the source document carries the same rows and the same image paragraph', async () => {
     const { readFile } = await import('node:fs/promises')
     const md = await readFile(new URL('../../../docs/legal/zapisy/informacja-o-danych-zawodnika.md', import.meta.url), 'utf8')
-    const [cel, basis] = runnerDataInfo(base).sections[1].blocks[0].table.find(([c]) => c.includes('wizerunku'))
-    assert.ok(md.includes(`| ${cel} | ${basis} |`))
+    for (const [cel, basis] of table().filter(([c]) => c.includes('wyników') || c.includes('Zdjęcia'))) {
+      assert.ok(md.includes(`| ${cel} | ${basis} |`), cel)
+    }
+    const published = runnerDataInfo(base).sections.find((s) => s.heading === 'Co jest publikowane').blocks[1]
+    assert.ok(md.includes(published))
   })
 })

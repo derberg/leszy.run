@@ -28,6 +28,7 @@ const NOMINATIM = [
 ]
 
 const GPX = readFileSync(new URL('../fixtures/gpx/loop-9km.gpx', import.meta.url))
+const GPX_HILLS = readFileSync(new URL('../fixtures/gpx/loop-9km-hills.gpx', import.meta.url))
 const PDF = Buffer.concat([Buffer.from('%PDF-1.4\n% LESZY.RUN regulamin\n'), Buffer.alloc(2048, 0x20), Buffer.from('\n%%EOF\n')])
 
 async function offline(page) {
@@ -435,7 +436,7 @@ test('W-26 outsiders: inny-klub admin and the admin of another enabled club get 
 
 test('W-70 „Podgląd jako zawodnik” shows the course inline, the deadline, the start, the regulamin and the contact', async ({ actors }) => {
   const owner = await sessionFor(ACTOR_EMAILS.owner)
-  const event = await createPublishedFreeEvent(owner, { gpx: GPX })
+  const event = await createPublishedFreeEvent(owner, { gpx: GPX_HILLS })
   const page = await actors.owner.newPage()
   await offline(page)
   await page.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/podglad`)
@@ -444,6 +445,7 @@ test('W-70 „Podgląd jako zawodnik” shows the course inline, the deadline, t
   await expect(ra1.getByTestId('deadline')).toContainText('23:59')
   await expect(ra1.getByTestId('start-place')).toHaveText('Nieborowice · mapa ↗')
   const course = ra1.getByTestId('event-course')
+  await course.scrollIntoViewIfNeeded()
   await expect(course.getByTestId('course-map').locator('path.leaflet-interactive').first()).toBeVisible()
   await expect(course.getByTestId('elevation-profile')).toBeVisible()
   await expect(ra1.getByTestId('regulamin-link')).toHaveAttribute('href', 'https://example.org/regulamin.pdf')

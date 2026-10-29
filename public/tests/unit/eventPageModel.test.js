@@ -300,3 +300,24 @@ describe('eventPageModel start place and deadline (W-67, W-68)', () => {
     assert.equal(model(RA1, new Date('2026-12-03T10:00:00Z')).registrationState, 'closed')
   })
 })
+
+describe('eventPageModel course elevation (review U2 M2)', () => {
+  const withCourse = (c) => model({ ...RA1, competitions: [comp({ categoryId: 'c1', name: 'Bieg 9 km', distanceLabel: '9 km', course: c })] }).courses[0]
+
+  it('a GPX with varying elevation keeps its profile and climb', () => {
+    const c = withCourse({ km: 9.1, upM: 80, downM: 80, points: 10, profile: [[0, 250], [4.5, 290], [9.1, 250]], gpxPath: GPX9 })
+    assert.equal(c.hasElevation, true)
+    assert.equal(c.upM, 80)
+    assert.equal(c.profile.length, 3)
+  })
+
+  it('no elevation, or a flat one, hides the profile and the climb', () => {
+    for (const profile of [[], [[0, 250], [9.1, 250]]]) {
+      const c = withCourse({ km: 9.1, upM: 0, downM: 0, points: 10, profile, gpxPath: GPX9 })
+      assert.equal(c.hasElevation, false)
+      assert.equal(c.upM, null)
+      assert.equal(c.downM, null)
+      assert.deepEqual(c.profile, [])
+    }
+  })
+})

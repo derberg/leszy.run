@@ -75,6 +75,13 @@ function competitionRow(c, win) {
 
 const kmLabel = (km) => (km == null ? '' : `${String(km).replace('.', ',')} km`)
 
+/** At least two profile points and some difference in height. */
+function hasElevation(profile) {
+  if (!Array.isArray(profile) || profile.length < 2) return false
+  const eles = profile.map((p) => p[1])
+  return Math.max(...eles) > Math.min(...eles)
+}
+
 /** One tab per GPX file, in competition order. */
 function courses(competitions) {
   const groups = new Map()
@@ -84,17 +91,23 @@ function courses(competitions) {
     if (!groups.has(id)) groups.set(id, { course: c.course, label: c.distanceLabel || kmLabel(c.course.km), names: [] })
     groups.get(id).names.push(c.name)
   }
-  return [...groups.values()].map(({ course, label, names }, i) => ({
-    key: `trasa-${i + 1}`,
-    label,
-    competitionNames: names.join(' · ').toLocaleUpperCase('pl'),
-    km: course.km ?? null,
-    upM: course.upM ?? null,
-    downM: course.downM ?? null,
-    points: course.points ?? null,
-    profile: course.profile ?? [],
-    gpxUrl: course.gpxUrl ?? null,
-  }))
+  return [...groups.values()].map(({ course, label, names }, i) => {
+    const elevation = hasElevation(course.profile)
+    return {
+      key: `trasa-${i + 1}`,
+      label,
+      competitionNames: names.join(' · ').toLocaleUpperCase('pl'),
+      km: course.km ?? null,
+      // A GPX without <ele>, or with one constant value, says nothing about
+      // the climb: no profile and no up/down rather than a flat line and „0 m”.
+      hasElevation: elevation,
+      upM: elevation ? (course.upM ?? null) : null,
+      downM: elevation ? (course.downM ?? null) : null,
+      points: course.points ?? null,
+      profile: elevation ? course.profile : [],
+      gpxUrl: course.gpxUrl ?? null,
+    }
+  })
 }
 
 const osmUrl = (lat, lng) => `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`

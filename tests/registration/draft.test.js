@@ -469,7 +469,8 @@ test('W-71 the backfill is not callable by clients', async () => {
   const { createClient } = await import('@supabase/supabase-js')
   const anon = createClient(localEnv().url, localEnv().anonKey)
   const r = await anon.rpc('registration_backfill_form_rulings')
-  assert.ok(r.error, 'anon must be refused')
+  assert.equal(r.error?.code, '42501', JSON.stringify(r.error))
+  assert.match(r.error.message, /permission denied for function registration_backfill_form_rulings/)
 })
 
 test('W-11 a closed event refuses saves with 409 not_draft (a published one stages them, W-21)', async () => {

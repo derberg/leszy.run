@@ -13,7 +13,8 @@ import { startScratchHost } from '../helpers/hostPull.js'
 // locally: tests never leave the machine.
 
 const ZT = '00000000-0000-4000-8000-0000000000c1'
-const GPX = readFileSync(new URL('../fixtures/gpx/loop-9km.gpx', import.meta.url))
+const GPX = readFileSync(new URL('../fixtures/gpx/loop-9km.gpx', import.meta.url)) // flat: one <ele> value throughout
+const GPX_HILLS = readFileSync(new URL('../fixtures/gpx/loop-9km-hills.gpx', import.meta.url))
 const RETIRED_TEXT = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie może zostać użyty ponownie. Podaj inny adres albo napisz do nas: kontakt@leszy.run.'
 const DUPLICATE_TEXT = 'Ten adres e-mail jest już zapisany na te zawody.'
 
@@ -100,7 +101,9 @@ test('W-36 viewer sees the event page and the course of a published free event',
   expect(km).toBe('9,1 km')
   await expect(page.getByTestId('course-stats')).toContainText(km)
   await expect(page.getByTestId('course-map').locator('path.leaflet-interactive').first()).toBeVisible()
-  await expect(page.getByTestId('elevation-profile')).toBeVisible()
+  // A flat file says nothing about the climb: no profile, no „−0 m” (review U2 M2).
+  await expect(page.getByTestId('elevation-profile')).toHaveCount(0)
+  await expect(page.getByTestId('course-up')).toContainText('—')
   const download = page.getByRole('link', { name: 'Pobierz GPX' })
   // The stored file, by the upload row (the function's own `url` names the edge runtime's internal host locally).
   const { data: upload } = await admin().from('registration_uploads').select('path').eq('id', event.gpx.uploadId).single()
@@ -117,7 +120,7 @@ const dmy = (iso) => { const [y, m, d] = iso.split('-'); return `${Number(d)}.${
 
 test('W-67 W-68 W-69 W-70 the event page shows the deadline, the start, the course inline, the regulamin and the contact', async ({ actors }) => {
   const event = await createPublishedFreeEvent(owner, {
-    competitions: [BIEG, MARSZ], gpx: GPX, placeDetails: 'Boisko przy szkole',
+    competitions: [BIEG, MARSZ], gpx: GPX_HILLS, placeDetails: 'Boisko przy szkole',
     office: { ...OFFICE, sameAsEvent: true, address: null, lat: null, lng: null },
   })
   const page = await offline(await actors.viewer.newPage())
@@ -136,11 +139,13 @@ test('W-67 W-68 W-69 W-70 the event page shows the deadline, the start, the cour
 
   // W-70: the course of the competition with a GPX, inline under the competitions, map and profile.
   const course = page.getByTestId('event-course')
+  await course.scrollIntoViewIfNeeded()
   await expect(course.getByTestId('course-tab')).toHaveText('9 km')
   await expect(course.getByTestId('course-names')).toHaveText('BIEG 9 KM')
   await expect(course.getByTestId('course-map').locator('path.leaflet-interactive').first()).toBeVisible()
   await expect(course.getByTestId('elevation-profile')).toBeVisible()
   await expect(course.getByTestId('course-stats')).toContainText('9,1 km')
+  await expect(course.getByTestId('course-up')).toContainText('+')
 
   // W-69: the regulamin and the organizer contact, always.
   await expect(ra1.getByTestId('regulamin-link')).toHaveAttribute('href', 'https://example.org/regulamin.pdf')
@@ -158,6 +163,7 @@ test('W-67 W-68 W-69 W-70 the event page shows the deadline, the start, the cour
   // Nothing scrolls sideways at 390 px.
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`/events/${event.slug}`)
+  await page.getByTestId('event-course').scrollIntoViewIfNeeded()
   await expect(page.getByTestId('event-course').getByTestId('course-map')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
