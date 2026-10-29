@@ -29,7 +29,7 @@ function EndMarker({ position, label, color }) {
   )
 }
 
-export default function CourseMap({ points, km }) {
+export default function CourseMap({ points, km, height = 'h-[360px] md:h-[440px]' }) {
   const { isDark } = useTheme()
   const color = isDark ? LINE : LINE_LIGHT
   const markers = useMemo(() => kmMarkers(points, markerStepKm(km ?? 0)), [points, km])
@@ -39,7 +39,7 @@ export default function CourseMap({ points, km }) {
   const finish = points.at(-1)
   const loop = isLoop(points)
   return (
-    <div className={`relative h-[360px] md:h-[440px] border border-apex-border-mid overflow-hidden ${isDark ? 'map-dark' : ''}`} data-testid="course-map">
+    <div className={`relative isolate ${height} border border-apex-border-mid overflow-hidden ${isDark ? 'map-dark' : ''}`} data-testid="course-map">
       <MapContainer bounds={bounds} boundsOptions={{ paddingTopLeft: [40, 32], paddingBottomRight: [40, 32] }} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

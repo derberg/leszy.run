@@ -113,3 +113,14 @@ test('W-13 the refusal message lists the labels', () => {
   assert.equal(blockingMessage([{ key: 'a', label: 'Data zawodów' }, SLUG_TAKEN_ITEM]),
     'Uzupełnij: Data zawodów, Adres zawodów jest zajęty')
 })
+
+test('W-69 the regulamin and the organizer contact both block publish, each on its own', () => {
+  const none = publishChecklist(complete({ settings: { regulaminKind: null, regulaminUrl: null, contactEmail: null } }))
+  assert.deepEqual(none.blocking, [
+    { key: 'regulamin', label: 'Regulamin (PDF albo link)' },
+    { key: 'contact_email', label: 'Adres kontaktowy organizatora' },
+  ])
+  assert.equal(blockingMessage(none.blocking), 'Uzupełnij: Regulamin (PDF albo link), Adres kontaktowy organizatora')
+  assert.deepEqual(keys(publishChecklist(complete({ settings: { regulaminKind: 'link', regulaminUrl: '  ' } })).blocking), ['regulamin'])
+  assert.deepEqual(keys(publishChecklist(complete({ settings: { contactEmail: null } })).blocking), ['contact_email'])
+})

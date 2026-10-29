@@ -268,3 +268,35 @@ describe('mergePending contact address', () => {
     assert.equal(out.contactEmail, 'nowy@zatyrani.pl')
   })
 })
+
+describe('eventPageModel start place and deadline (W-67, W-68)', () => {
+  it('W-67 start: the event place and pin from Podstawy, with an OpenStreetMap link', () => {
+    assert.deepEqual(model().startPlace, {
+      label: 'Nieborowice, Boisko przy szkole',
+      mapUrl: 'https://www.openstreetmap.org/?mlat=50.2381&mlon=18.5412#map=17/50.2381/18.5412',
+    })
+    assert.equal(model().officeAtStart, false)
+  })
+
+  it('W-67 an office at the event is flagged as at the start; no town and no pin → no start place', () => {
+    const same = model({ ...RA1, office: { ...RA1.office, sameAsEvent: true } })
+    assert.equal(same.officeAtStart, true)
+    assert.deepEqual(model({ ...RA1, town: { label: 'Nieborowice', lat: null, lng: null } }).startPlace, { label: 'Nieborowice', mapUrl: null })
+    assert.equal(model({ ...RA1, town: null }).startPlace, null)
+  })
+
+  it('W-68 registration closes on the last day at 23:59 Warsaw time, winter and summer', () => {
+    // closesAt is exclusive: the Warsaw midnight after the last day.
+    assert.equal(model().closesLabel, '2.12.2026, 23:59')
+    assert.equal(model({ ...RA1, closesAt: '2026-06-30T22:00:00Z' }, new Date('2026-06-01T10:00:00Z')).closesLabel, '30.06.2026, 23:59')
+    // The night the clocks go back: 25.10 ends at 23:00Z.
+    assert.equal(model({ ...RA1, closesAt: '2026-10-25T23:00:00Z' }, new Date('2026-10-01T10:00:00Z')).closesLabel, '25.10.2026, 23:59')
+    assert.equal(model({ ...RA1, closesAt: null }).closesLabel, null)
+  })
+
+  it('W-68 the window state is exposed for the deadline line', () => {
+    assert.equal(model().registrationState, 'open')
+    assert.equal(model(RA1, new Date('2026-09-01T10:00:00Z')).registrationState, 'soon')
+    assert.equal(model(RA1, new Date('2026-12-03T10:00:00Z')).registrationState, 'closed')
+  })
+})

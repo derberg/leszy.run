@@ -100,6 +100,26 @@ function courses(competitions) {
 const osmUrl = (lat, lng) => `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`
 const join = (...parts) => parts.filter(Boolean).join(', ') || null
 
+/** Where the start is: the event place and pin set in Podstawy. */
+function startPlace(raw) {
+  const t = raw.town ?? {}
+  const label = join(t.label, t.placeDetails)
+  if (!label && t.lat == null) return null
+  return { label, mapUrl: t.lat != null && t.lng != null ? osmUrl(t.lat, t.lng) : null }
+}
+
+// „2.12.2026, 23:59”: the last Warsaw minute of registration. closesAt is
+// exclusive (the Warsaw midnight after the last day), so the label reads the
+// minute before it.
+const warsawParts = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+})
+function closesLabel(closesAt) {
+  if (!closesAt) return null
+  const p = Object.fromEntries(warsawParts.formatToParts(new Date(Date.parse(closesAt) - 60 * 1000)).map((x) => [x.type, x.value]))
+  return `${p.day}.${p.month}.${p.year}, ${p.hour}:${p.minute}`
+}
+
 /** Where the race office is: its own address and pin, or the event's. */
 function officePlace(raw) {
   const o = raw.office ?? {}
@@ -128,6 +148,11 @@ export function eventPageModel(raw, now = new Date()) {
     // registration_settings.contact_email: the address the organizer gave for runners.
     contactEmail: raw.contactEmail ?? null,
     officePlace: officePlace(raw),
+    startPlace: startPlace(raw),
+    // The office set „at the event place”: the page says so instead of repeating the address.
+    officeAtStart: !!raw.office?.sameAsEvent,
+    registrationState: win,
+    closesLabel: closesLabel(raw.closesAt),
     charityGoal: raw.isCharity ? (raw.charityGoal ?? null) : null,
     stats: {
       registered: competitions.reduce((n, c) => n + c.taken, 0),

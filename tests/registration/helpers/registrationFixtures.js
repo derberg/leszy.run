@@ -131,6 +131,7 @@ export async function createPublishedFreeEvent(owner, {
   timingMode = 'leszyrun',
   gpx = null,
   office = null,
+  placeDetails = null,
 } = {}) {
   const session = typeof owner === 'string' ? { cookie: owner } : owner
   const club = await clubBySlug(clubSlug)
@@ -145,6 +146,7 @@ export async function createPublishedFreeEvent(owner, {
     eventDate, opensOn, closesOn, firstStartTime: '10:00',
     townLabel: 'Nieborowice', townArea: 'GM. PILCHOWICE · ŚLĄSKIE', lat: 50.2381, lng: 18.5412,
     regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf', contactEmail: 'zapisy@klub.example',
+    ...(placeDetails ? { placeDetails } : {}),
   })
   if (office) await save('office', office)
   const course = gpx ? await uploadGpx(session, eventId, gpx) : null

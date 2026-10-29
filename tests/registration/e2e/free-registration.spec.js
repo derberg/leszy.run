@@ -92,7 +92,7 @@ test('W-36 viewer sees the event page and the course of a published free event',
   await expect(page.getByText('Do płatności doliczamy')).toHaveCount(0)
   await expect(page.getByTestId('registration-event-page').getByRole('link', { name: 'Regulamin' })).toHaveAttribute('href', 'https://example.org/regulamin.pdf')
 
-  await page.getByTestId('registration-event-page').getByRole('link', { name: 'Trasa', exact: true }).click()
+  await page.getByTestId('event-course').getByRole('link', { name: 'Pełny widok i GPX →' }).click()
   await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/trasa$`))
   await expect(page.getByRole('heading', { name: 'Trasa' })).toBeVisible()
   await expect(page.getByTestId('course-tab')).toHaveText('9 km')
@@ -110,6 +110,56 @@ test('W-36 viewer sees the event page and the course of a published free event',
   const file = await fetch(stored)
   expect(file.status).toBe(200)
   expect(await file.text()).toContain('<gpx')
+})
+
+// Warsaw „d.mm.rrrr” of an ISO day, as the deadline line prints it.
+const dmy = (iso) => { const [y, m, d] = iso.split('-'); return `${Number(d)}.${m}.${y}` }
+
+test('W-67 W-68 W-69 W-70 the event page shows the deadline, the start, the course inline, the regulamin and the contact', async ({ actors }) => {
+  const event = await createPublishedFreeEvent(owner, {
+    competitions: [BIEG, MARSZ], gpx: GPX, placeDetails: 'Boisko przy szkole',
+    office: { ...OFFICE, sameAsEvent: true, address: null, lat: null, lng: null },
+  })
+  const page = await offline(await actors.viewer.newPage())
+  await page.goto(`/events/${event.slug}`)
+  const ra1 = page.getByTestId('registration-event-page')
+
+  // W-68: the last minute of registration, Warsaw time.
+  await expect(page.getByTestId('deadline')).toHaveText(`Zapisy do ${dmy(event.closesOn)}, 23:59`)
+
+  // W-67: the start is the event place and pin; an office at the event says so instead of repeating it.
+  await expect(page.getByTestId('start-place')).toHaveText('Nieborowice, Boisko przy szkole · mapa ↗')
+  await expect(page.getByTestId('start-place')).toHaveAttribute('href', 'https://www.openstreetmap.org/?mlat=50.2381&mlon=18.5412#map=17/50.2381/18.5412')
+  await expect(page.getByTestId('office')).toContainText('8:00–9:30')
+  await expect(page.getByTestId('office-at-start')).toHaveText('W miejscu startu')
+  await expect(page.getByTestId('office-place')).toHaveCount(0)
+
+  // W-70: the course of the competition with a GPX, inline under the competitions, map and profile.
+  const course = page.getByTestId('event-course')
+  await expect(course.getByTestId('course-tab')).toHaveText('9 km')
+  await expect(course.getByTestId('course-names')).toHaveText('BIEG 9 KM')
+  await expect(course.getByTestId('course-map').locator('path.leaflet-interactive').first()).toBeVisible()
+  await expect(course.getByTestId('elevation-profile')).toBeVisible()
+  await expect(course.getByTestId('course-stats')).toContainText('9,1 km')
+
+  // W-69: the regulamin and the organizer contact, always.
+  await expect(ra1.getByTestId('regulamin-link')).toHaveAttribute('href', 'https://example.org/regulamin.pdf')
+  await expect(ra1.getByTestId('contact-link')).toHaveText('zapisy@klub.example')
+  await expect(ra1.getByTestId('contact-link')).toHaveAttribute('href', 'mailto:zapisy@klub.example')
+
+  // The office with its own address keeps its own place line.
+  const other = await createPublishedFreeEvent(owner, { office: OFFICE })
+  await page.goto(`/events/${other.slug}`)
+  await expect(page.getByTestId('start-place')).toHaveText('Nieborowice · mapa ↗')
+  await expect(page.getByTestId('office-place')).toHaveText('Szkoła Podstawowa, ul. Szkolna 4 · mapa ↗')
+  await expect(page.getByTestId('office-at-start')).toHaveCount(0)
+  await expect(page.getByTestId('event-course')).toHaveCount(0)
+
+  // Nothing scrolls sideways at 390 px.
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/events/${event.slug}`)
+  await expect(page.getByTestId('event-course').getByTestId('course-map')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
 test.describe.serial('a new runner registers with an e-mail code', () => {

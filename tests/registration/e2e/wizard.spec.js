@@ -433,6 +433,27 @@ test('W-26 outsiders: inny-klub admin and the admin of another enabled club get 
   await context.close()
 })
 
+test('W-70 „Podgląd jako zawodnik” shows the course inline, the deadline, the start, the regulamin and the contact', async ({ actors }) => {
+  const owner = await sessionFor(ACTOR_EMAILS.owner)
+  const event = await createPublishedFreeEvent(owner, { gpx: GPX })
+  const page = await actors.owner.newPage()
+  await offline(page)
+  await page.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/podglad`)
+  const ra1 = page.getByTestId('registration-event-page')
+  await expect(ra1.getByTestId('deadline')).toContainText('Zapisy do')
+  await expect(ra1.getByTestId('deadline')).toContainText('23:59')
+  await expect(ra1.getByTestId('start-place')).toHaveText('Nieborowice · mapa ↗')
+  const course = ra1.getByTestId('event-course')
+  await expect(course.getByTestId('course-map').locator('path.leaflet-interactive').first()).toBeVisible()
+  await expect(course.getByTestId('elevation-profile')).toBeVisible()
+  await expect(ra1.getByTestId('regulamin-link')).toHaveAttribute('href', 'https://example.org/regulamin.pdf')
+  await expect(ra1.getByTestId('contact-link')).toHaveText('zapisy@klub.example')
+  // The full course view stays on the preview's own address.
+  await course.getByRole('link', { name: 'Pełny widok i GPX →' }).click()
+  await expect(page).toHaveURL(new RegExp(`/wydarzenia/${event.eventId}/podglad\\?trasa`))
+  await expect(page.getByTestId('course-page')).toBeVisible()
+})
+
 test('W-52 after publish Konkurencje sends every competition, hidden ones included; no delete; locks only with entries', async ({ actors }) => {
   test.setTimeout(90_000)
   const owner = await sessionFor(ACTOR_EMAILS.owner)

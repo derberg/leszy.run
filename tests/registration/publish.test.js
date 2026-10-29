@@ -82,6 +82,29 @@ test('W-14 publishing an incomplete draft → 409 listing what is missing; nothi
   assert.equal((await calendarRows(eventId)).length, 0)
 })
 
+test('W-69 a draft complete but for the regulamin and the contact address → 409 naming both; each one filled in lifts its item', async () => {
+  const ev = await createEvent()
+  await save(ev.eventId, 'basics', {
+    eventDate: '2027-03-14', opensOn: '2027-01-10', closesOn: '2027-03-12',
+    townLabel: 'Nieborowice', townArea: 'GM. PILCHOWICE · ŚLĄSKIE', lat: 50.2381, lng: 18.5412,
+  })
+  await save(ev.eventId, 'competitions', { pricingMode: 'free', items: [comp()] })
+  let r = await publish(ev.eventId)
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.deepEqual(r.body.blocking.map((b) => b.key), ['regulamin', 'contact_email'])
+  assert.equal(r.body.error, 'Uzupełnij: Regulamin (PDF albo link), Adres kontaktowy organizatora')
+
+  await save(ev.eventId, 'basics', { regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf' })
+  r = await publish(ev.eventId)
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.deepEqual(r.body.blocking.map((b) => b.key), ['contact_email'])
+  assert.equal((await settingsOf(ev.eventId)).state, 'draft')
+
+  await save(ev.eventId, 'basics', { contactEmail: 'zapisy@klub.example' })
+  r = await publish(ev.eventId)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+})
+
 test('W-14 registration closing after race day blocks publish', async () => {
   const { eventId } = await completeEvent()
   await save(eventId, 'basics', { eventDate: '2027-03-14', opensOn: '2027-01-10', closesOn: '2027-03-15' })
