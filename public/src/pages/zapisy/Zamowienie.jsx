@@ -26,7 +26,10 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // pending   → „Opłać do <data, godzina>” and „Zapłać” (pay-order: a new dpay
 //             transaction at the frozen price), none from the server's closesAt
 //             on (order-status returns it; the page re-checks at that moment), and
-//             „Brak wolnych miejsc” instead when the paid entries fill it (full, P3-R15)
+//             „Brak wolnych miejsc” instead when the paid entries fill it (full, P3-R15);
+//             „Anuluj zgłoszenie” (cancel-my-order, after a confirm step in the page)
+//             always, and as the main action once full: until it is cancelled or
+//             expires, the address cannot register again (409 pending_order)
 // expired / cancelled → „Zgłoszenie wygasło” / „…anulowane” and „Zapisz się ponownie”
 
 const warsaw = new Intl.DateTimeFormat('pl-PL', {
@@ -143,6 +146,51 @@ function Paid({ order, raw, model }) {
   )
 }
 
+/**
+ * „Anuluj zgłoszenie” with its confirm step in the page (never window.confirm). The order holds
+ * no money, so nothing is refunded; a payment still on its way is refunded in full by the server.
+ */
+function CancelOrder({ orderId, prominent, onDone }) {
+  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function cancel() {
+    setBusy(true)
+    setError(null)
+    try {
+      await callFunction('cancel-my-order', { orderId })
+      onDone()
+    } catch (err) {
+      setBusy(false)
+      setError(err.status == null ? 'Nie udało się połączyć. Spróbuj ponownie.' : err.message)
+      if (err.status === 409) onDone()
+    }
+  }
+
+  if (!asking) {
+    return (
+      <button type="button" onClick={() => setAsking(true)} className={prominent ? primaryBtn : secondaryBtn}
+        data-testid="order-cancel" data-variant={prominent ? 'primary' : 'secondary'}>
+        Anuluj zgłoszenie
+      </button>
+    )
+  }
+  return (
+    <div className="border border-apex-red p-[18px] flex flex-col gap-3" data-testid="order-cancel-confirm" role="group" aria-labelledby="order-cancel-q">
+      <span id="order-cancel-q" className="font-display font-extrabold text-2xl leading-none uppercase text-apex-text-bright">Na pewno anulować zgłoszenie?</span>
+      <p className="text-base">
+        Zgłoszenie zniknie z listy, a Ty możesz od razu zapisać się ponownie. Nie pobraliśmy żadnej opłaty; jeśli wpłata jest właśnie w drodze, zwrócimy ją w całości.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button type="button" onClick={cancel} disabled={busy} className={primaryBtn}>{busy ? 'Chwileczkę…' : 'Tak, anuluj'}</button>
+        <button type="button" onClick={() => { setAsking(false); setError(null) }} disabled={busy} className={secondaryBtn}>Nie, zostaw</button>
+      </div>
+      {error && <p className="text-apex-red text-base" role="alert">{error}</p>}
+    </div>
+  )
+}
+
 function Pending({ orderId, order, raw, polling, onAgain }) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
@@ -198,7 +246,13 @@ function Pending({ orderId, order, raw, polling, onAgain }) {
       {closed
         ? <p className="text-apex-red text-base" data-testid="order-closed">Zapisy są zamknięte.</p>
         : order.full
-          ? <p className="text-apex-red text-base" data-testid="order-full">Brak wolnych miejsc. Inne osoby opłaciły już wszystkie miejsca w tej konkurencji.</p>
+          ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-apex-red text-base" data-testid="order-full">Brak wolnych miejsc. Inne osoby opłaciły już wszystkie miejsca w tej konkurencji.</p>
+              <p className="text-base" data-testid="order-full-cancel-hint">Tego zgłoszenia nie można już opłacić. Anuluj je, żeby zapisać się ponownie, np. na inną konkurencję.</p>
+              <CancelOrder orderId={orderId} prominent onDone={onAgain} />
+            </div>
+            )
           : (
           <button type="button" onClick={pay} disabled={busy} className={primaryBtn} data-testid="order-pay">
             {busy ? 'Chwileczkę…' : 'Zapłać'}
@@ -213,6 +267,7 @@ function Pending({ orderId, order, raw, polling, onAgain }) {
       <p className="text-sm text-apex-muted">
         Miejsce jest Twoje dopiero po wpłacie: limit liczy tylko opłacone zgłoszenia. Jeśli wpłata nie dotrze do tego terminu, zgłoszenie wygaśnie.
       </p>
+      {!order.full && <CancelOrder orderId={orderId} onDone={onAgain} />}
     </div>
   )
 }
@@ -223,6 +278,7 @@ const ENDED_REASONS = {
   full: 'Zanim Twoja wpłata dotarła, inne osoby opłaciły ostatnie wolne miejsca. Zwracamy całą wpłatę.',
   unavailable: 'Zapisy na tę konkurencję nie są już prowadzone. Zwracamy całą wpłatę.',
   closed: 'Wpłata dotarła po zamknięciu zapisów. Zwracamy całą wpłatę.',
+  buyer_cancelled: 'Anulowano zgłoszenie na Twoją prośbę. Możesz zapisać się jeszcze raz.',
 }
 
 function Ended({ order, raw }) {

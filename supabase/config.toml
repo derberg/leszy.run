@@ -206,6 +206,10 @@ entrypoint = "./functions/pay-order/index.js"
 verify_jwt = false
 entrypoint = "./functions/order-status/index.js"
 
+[functions.cancel-my-order]
+verify_jwt = false
+entrypoint = "./functions/cancel-my-order/index.js"
+
 [functions.dpay-ipn]
 verify_jwt = false
 entrypoint = "./functions/dpay-ipn/index.js"

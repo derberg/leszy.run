@@ -302,6 +302,67 @@ test('P-50 an unpaid order expires: „Zgłoszenie wygasło”, the runner leave
   expect(await taken()).toBe(0)
 })
 
+// P3-R15 re-review I1: the buyer cancels their own unpaid order. Once the paid entries fill its
+// competition the order cannot be paid, and its live entry keeps every new submit on that order.
+test('P-61 „Anuluj zgłoszenie”: offered while pending, prominent once full; a confirm step; afterwards the runner registers elsewhere', async ({ actors }) => {
+  const MARSZ = { name: 'Marsz 5 km', discipline: 'nw', distanceLabel: '5 km', startTime: '10:05', capacity: 20 }
+  const event = await createPublishedPaidEvent(owner, { competitions: [{ ...BIEG, capacity: 1 }, MARSZ], prices: { 'Bieg 9 km': 6000, 'Marsz 5 km': 4000 } })
+  await clearMessages()
+  const runner = { first: 'Ewa', last: 'Utknięta', email: runnerEmail('cancel') }
+  const page = await offline(await actors.runner.newPage())
+  await toCheckout(page, event, runner)
+  await page.getByTestId('support-choice').getByRole('button', { name: 'Nie tym razem' }).click()
+  await page.getByTestId('pay').click()
+  await expect(page).toHaveURL(PAY_PAGE)
+  const order = await orderOf(runner.email)
+
+  // Pending with free places: „Zapłać” first, the cancel offered quietly below.
+  await page.goto(`/zamowienie/${order.id}`)
+  await expect(page.getByTestId('order-pay')).toBeVisible()
+  await expect(page.getByTestId('order-cancel')).toHaveText('Anuluj zgłoszenie')
+  await expect(page.getByTestId('order-cancel')).toHaveAttribute('data-variant', 'secondary')
+
+  // Somebody else's payment takes the only place (the API suite pays for real; here only the count moves).
+  const db = admin()
+  await db.from('competitions').update({ taken: 1 }).eq('category_id', event.categoryIds[0])
+  await page.goto(`/zamowienie/${order.id}`)
+  await expect(page.getByTestId('order-full')).toContainText('Brak wolnych miejsc')
+  await expect(page.getByTestId('order-pay')).toHaveCount(0)
+  const cancel = page.getByTestId('order-cancel')
+  await expect(cancel).toHaveAttribute('data-variant', 'primary')
+  await expect(page.getByTestId('order-full-cancel-hint')).toContainText('Anuluj je, żeby zapisać się ponownie')
+
+  // The confirm step lives in the page: „Nie” goes back, nothing is cancelled.
+  await cancel.click()
+  const confirm = page.getByTestId('order-cancel-confirm')
+  await expect(confirm).toContainText('Na pewno anulować zgłoszenie?')
+  await confirm.getByRole('button', { name: 'Nie, zostaw' }).click()
+  await expect(confirm).toHaveCount(0)
+  expect((await db.from('orders').select('status').eq('id', order.id).single()).data.status).toBe('pending')
+
+  await page.getByTestId('order-cancel').click()
+  await page.getByTestId('order-cancel-confirm').getByRole('button', { name: 'Tak, anuluj' }).click()
+  await expect(page.getByTestId('order-ended')).toBeVisible()
+  await expect(page.getByTestId('order-ended')).toContainText('Anulowano zgłoszenie na Twoją prośbę.')
+  await expect(page.getByTestId('order-again')).toHaveText('Zapisz się ponownie')
+  const after = (await db.from('orders').select('status, cancelled_reason').eq('id', order.id).single()).data
+  expect(after).toEqual({ status: 'cancelled', cancelled_reason: 'buyer_cancelled' })
+  const { data: refunds } = await db.from('refunds').select('id').eq('order_id', order.id)
+  expect(refunds).toEqual([])
+
+  // The address is free again: „Marsz 5 km” goes to dpay with a new order, not back to the old one.
+  await page.goto(`/events/${event.slug}`)
+  await page.getByTestId('competition').filter({ hasText: 'Marsz 5 km' }).click()
+  await fillPerson(page, runner)
+  await tickAll(page)
+  await page.getByTestId('registration-submit').click()
+  await page.getByTestId('support-choice').getByRole('button', { name: 'Nie tym razem' }).click()
+  await page.getByTestId('pay').click()
+  await expect(page).toHaveURL(PAY_PAGE)
+  const { data: orders } = await db.from('orders').select('id, status').eq('buyer_email', runner.email)
+  expect(orders.map((o) => o.status).sort()).toEqual(['cancelled', 'pending'])
+})
+
 test('P-46 RA4 and the order page fit 390 px: no sideways scroll, no wrapped button', async ({ actors }) => {
   const event = await createPublishedPaidEvent(owner, { competitions: [BIEG], prices: { 'Bieg 9 km': 6000 } })
   await clearMessages()
