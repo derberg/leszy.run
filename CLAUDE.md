@@ -1124,7 +1124,7 @@ generators) loads them via:
 ```html
 <link rel="stylesheet" href="/fonts.css">
 ```
-The admin `frontend/` app still uses the Google Fonts link — it is not public-facing.
+The admin `frontend/` app self-hosts its own set the same way (`frontend/public/fonts/` + `frontend/public/fonts.css`): it used to load Google Fonts, and on 2026-10-28 fonts.googleapis.com accepted connections and never answered, so that render-blocking stylesheet left the admin panel blank.
 
 ## RFID Audit Queries
 
