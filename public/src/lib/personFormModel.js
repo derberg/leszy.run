@@ -6,7 +6,7 @@
 // relative path so node --test can load this module too; Vite serves the same
 // files through the @registration alias elsewhere.
 import { validatePerson } from '../../../supabase/functions/_shared/registration/person.js'
-import { ageGroupLabel } from '../../../supabase/functions/_shared/registration/ageGroups.js'
+import { ageGroupLabel, kidsGroupFor } from '../../../supabase/functions/_shared/registration/ageGroups.js'
 import { FORM_FIELD_DEFAULTS } from '../../../supabase/functions/_shared/registration/sections.js'
 
 export const EMPTY_PERSON = Object.freeze({
@@ -85,6 +85,18 @@ export function categoryPreview(person, ctx) {
   return ageGroupLabel({
     birthDate: person.birthDate, gender: person.gender, raceDate: ctx.raceDate, reckoning: ctx.reckoning, groups: ctx.ageGroups,
   })
+}
+
+/**
+ * A child's „Grupa” in a kids' competition: the kids' group of the birth year (and gender, when
+ * the group has one), or null (then the age class shows, as for everyone).
+ */
+export function kidsGroupLabel(person, competition) {
+  const groups = competition?.isKids ? (competition.kidsGroups ?? []) : []
+  if (!groups.length || !realDate(person.birthDate)) return null
+  const pool = groups.filter((g) => g.gender == null || g.gender === person.gender)
+    .map((g) => ({ label: g.label, minYear: g.birthYearFrom, maxYear: g.birthYearTo }))
+  return kidsGroupFor(person.birthDate, pool)?.label ?? null
 }
 
 /** The server's validatePerson, run in the browser so errors show before any e-mail is sent. */

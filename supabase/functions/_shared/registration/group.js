@@ -127,3 +127,19 @@ export function validateGroup({ people = [], buyer = null } = {}, { sessionEmail
   const value = people.map((p, i) => ({ categoryId: p.categoryId, role: roles[i], ...results[i].value }))
   return { ok: true, buyerEmail, value, errors, groupError: null }
 }
+
+/**
+ * A stored registration's role in its group, from the row (registrations has no role column).
+ * A child carries guardian fields (delete-my-account renames, never nulls, guardian_name); the
+ * person registering is the row whose account is the one that submitted it (a row from before
+ * groups has no registered_by_profile_id and was always the person's own); anyone else is an
+ * added adult.
+ * @param {{ profile_id?: string|null, registered_by_profile_id?: string|null,
+ *   guardian_name?: string|null, guardian_profile_id?: string|null }} row
+ * @returns {'self'|'adult'|'minor'}
+ */
+export function registrationRole(row) {
+  if (row.guardian_name != null || row.guardian_profile_id != null) return 'minor'
+  if (row.registered_by_profile_id == null) return 'self'
+  return row.profile_id != null && row.profile_id === row.registered_by_profile_id ? 'self' : 'adult'
+}

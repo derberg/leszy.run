@@ -12,6 +12,7 @@ import { sendEmail } from '../email.js'
 import { redactDpay } from './redactDpay.js'
 import { orderConfirmationEmail, paymentRefundedEmail } from './emails.js'
 import { issueOrderConsentRequests } from './consentRequests.js'
+import { registrationRole } from './group.js'
 
 /**
  * Inserts an operator_alerts row → true when it is stored (or already was, by its key).
@@ -87,7 +88,8 @@ export async function loadOrderView(admin, orderId) {
   const regIds = lineRows.filter((l) => l.registration_id).map((l) => l.registration_id)
   const regs = regIds.length
     ? await rows(admin.from('registrations')
-      .select('id, first_name, last_name, email, category_id, age_group_label').in('id', regIds))
+      .select('id, first_name, last_name, email, category_id, age_group_label, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id')
+      .in('id', regIds))
     : []
   const catIds = [...new Set(regs.map((r) => r.category_id))]
   const comps = catIds.length
@@ -111,6 +113,8 @@ export async function loadOrderView(admin, orderId) {
       ageGroupLabel: r.age_group_label ?? null,
       startTime: (c.start_time ?? settings?.first_start_time)?.slice(0, 5) ?? null,
       amount: l.amount,
+      role: l.registration_id ? registrationRole(r) : null,
+      consentState: r.consent_state ?? null,
     }
   })
   return { order, settings, club, lines }

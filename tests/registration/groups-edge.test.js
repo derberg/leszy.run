@@ -573,3 +573,58 @@ test('G-35 the registered-by fallback ignores the buyer\'s cancelled entry', asy
   const mails = await waitForMail(partner, 2)
   assert.ok(mails[1].text.includes('Konto Oli zapisał(a) Cię'), mails[1].text)
 })
+
+// ---------------------------------------------------------------- G-45 the payer's view of a group (task 5a)
+
+test('G-45 my-event-registrations lists the people the payer registered, each with role and consent state', async () => {
+  const event = await freeFamily()
+  const me = runnerEmail('mine')
+  const partner = runnerEmail('mineadult')
+  const payer = await sessionFor(me)
+  const r = await call('register-free', await groupBody(event, family(event, me, partner)), payer)
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const { slug } = await one('registration_settings', { event_id: event.eventId })
+
+  const mine = await call('my-event-registrations', { slug }, payer)
+  assert.equal(mine.status, 200, JSON.stringify(mine.body))
+  const byName = Object.fromEntries(mine.body.data.map((x) => [x.firstName, x]))
+  assert.deepEqual(Object.keys(byName).sort(), ['Ola', 'Piotr', 'Zosia'])
+  assert.deepEqual([byName.Ola.role, byName.Ola.consentState], ['self', 'accepted'])
+  assert.deepEqual([byName.Piotr.role, byName.Piotr.consentState], ['adult', 'awaiting'])
+  assert.deepEqual([byName.Zosia.role, byName.Zosia.consentState], ['minor', 'accepted'])
+  const regs = await byEvent(event.eventId)
+  assert.deepEqual(mine.body.data.map((x) => x.id).sort(), regs.map((x) => x.id).sort())
+  for (const x of mine.body.data) assert.equal('email' in x, false)
+
+  // The added adult's entry joins their account only when they accept (consent page), so
+  // before that they see none; a stranger sees nothing either.
+  const own = await call('my-event-registrations', { slug }, await sessionFor(partner))
+  assert.deepEqual(own.body.data, [])
+  const stranger = await call('my-event-registrations', { slug }, await sessionFor(runnerEmail('nobody')))
+  assert.deepEqual(stranger.body.data, [])
+})
+
+test('G-45 order-status lines carry registrationId, role and consent state', async () => {
+  const event = await paidFamily()
+  const me = runnerEmail('ostat')
+  const partner = runnerEmail('ostatadult')
+  const payer = await sessionFor(me)
+  const people = family(event, me, partner)
+  const total = groupTotal(event, people.map((p) => ({ categoryId: p.categoryId })))
+  const r = await call('create-order', await groupBody(event, people, { supportChoice: false, displayedTotal: total }), payer)
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const { orderId } = r.body.data
+  const regs = await registrationsOf(orderId)
+
+  const st = await call('order-status', { orderId }, payer)
+  assert.equal(st.status, 200, JSON.stringify(st.body))
+  const lines = st.body.data.lines
+  assert.equal(lines.length, 3)
+  const byFirst = Object.fromEntries(lines.map((l) => [l.firstName, l]))
+  assert.deepEqual([byFirst.Ola.role, byFirst.Ola.consentState], ['self', 'accepted'])
+  assert.deepEqual([byFirst.Piotr.role, byFirst.Piotr.consentState], ['adult', 'awaiting'])
+  assert.deepEqual([byFirst.Zosia.role, byFirst.Zosia.consentState], ['minor', 'accepted'])
+  assert.equal(byFirst.Piotr.registrationId, regs.find((x) => x.email === partner).id)
+  assert.equal(byFirst.Piotr.name, 'Piotr Leśny')
+  for (const l of lines) assert.equal('email' in l, false)
+})

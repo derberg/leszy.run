@@ -6,7 +6,7 @@ import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction } from '../../lib/auth.js'
 import { checkoutModel, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS } from '../../lib/checkout.js'
-import { registerBody } from '../../lib/personFormModel.js'
+import { formatPln } from '@registration/money.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import SupportChoice from '../../components/registration/SupportChoice.jsx'
 import { primaryBtn } from '../../components/registration/ui.js'
@@ -34,18 +34,20 @@ const BACK_TO_FORM = new Set(['invalid_person', 'email_retired', 'duplicate', 'c
 const row = 'flex justify-between gap-2.5 py-2 border-b border-apex-border text-base'
 
 /**
- * @param {{ raw: object, categoryId: string, competitionName: string, priceGrosze: number, open: boolean,
- *   person: object, ageGroupLabel: string|null, consents: object[], choice: boolean|null,
+ * @param {{ raw: object, open: boolean, lines: Array<{ key, name, competitionName, ageGroupLabel, priceGrosze }>,
+ *   body: object (groupDraft's toRequest, without a code), choice: boolean|null,
  *   onChoice: (v: boolean) => void, onBack: () => void, onFailure: (err: Error) => void }} p
  */
-export default function Podsumowanie({ raw, categoryId, competitionName, priceGrosze, open, person, ageGroupLabel, consents, choice, onChoice, onBack, onFailure }) {
+export default function Podsumowanie({ raw, open, lines, body, choice, onChoice, onBack, onFailure }) {
   const navigate = useNavigate()
-  const [price, setPrice] = useState(priceGrosze)
+  // The server's entry total after a price_changed (the tier moved under the page), else each line's price.
+  const [entryTotal, setEntryTotal] = useState(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
   const [, tick] = useState(0)
   const payable = newOrderPayable(raw.closesAt)
-  const m = checkoutModel({ entryPrices: [price], choice, busy, closed: !open || !payable })
+  const entryPrices = entryTotal != null ? [entryTotal] : lines.map((l) => l.priceGrosze)
+  const m = checkoutModel({ entryPrices, choice, busy, closed: !open || !payable })
 
   // The form above it was scrolled to its end: the summary starts at its top.
   useEffect(() => { window.scrollTo(0, 0) }, [])
@@ -80,7 +82,7 @@ export default function Podsumowanie({ raw, categoryId, competitionName, priceGr
     setMessage(null)
     try {
       const r = await callFunction('create-order', {
-        ...registerBody({ categoryId, person, consents, code: null }),
+        ...body,
         supportChoice: m.supportChoice,
         displayedTotal: m.displayedTotal,
       })
@@ -102,7 +104,7 @@ export default function Podsumowanie({ raw, categoryId, competitionName, priceGr
       }
       if (err.code === 'price_changed') {
         if (Number.isSafeInteger(err.amounts?.entryTotal)) {
-          setPrice(err.amounts.entryTotal)
+          setEntryTotal(err.amounts.entryTotal)
           setMessage(err.message)
           return
         }
@@ -124,13 +126,15 @@ export default function Podsumowanie({ raw, categoryId, competitionName, priceGr
       <PageTop back={{ label: 'Wróć', onClick: onBack }} right="KROK 2/3" />
       <h1 className="font-display font-extrabold text-[32px] leading-none uppercase text-apex-text-bright">Podsumowanie</h1>
       <div>
-        <div className={row} data-testid="checkout-line">
-          <span className="min-w-0">
-            <span className="block text-apex-text-bright text-[17px]">{person.firstName} {person.lastName}</span>
-            <span className="block font-mono text-[13px] text-apex-muted uppercase">{[competitionName, ageGroupLabel].filter(Boolean).join(' · ')}</span>
-          </span>
-          <span className="font-mono text-apex-text-bright whitespace-nowrap">{m.entryLabel}</span>
-        </div>
+        {lines.map((l) => (
+          <div key={l.key} className={row} data-testid="checkout-line">
+            <span className="min-w-0">
+              <span className="block text-apex-text-bright text-[17px]">{l.name}</span>
+              <span className="block font-mono text-[13px] text-apex-muted uppercase">{[l.competitionName, l.ageGroupLabel].filter(Boolean).join(' · ')}</span>
+            </span>
+            <span className="font-mono text-apex-text-bright whitespace-nowrap">{lines.length === 1 ? m.entryLabel : formatPln(l.priceGrosze)}</span>
+          </div>
+        ))}
       </div>
       <div data-testid="checkout-amounts">
         <div className={row}><span>Opłaty startowe</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{m.entryLabel}</span></div>
