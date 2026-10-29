@@ -32,7 +32,7 @@ export function Soon() {
 /** One button of a segmented choice. */
 export function Seg({ on, className = '', ...props }) {
   return (
-    <button type="button" aria-pressed={!!on} {...props}
+    <button type="button" aria-pressed={props.role ? undefined : !!on} {...props}
       className={`whitespace-nowrap min-h-9 px-3 border font-sans font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
         on ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-bright text-apex-muted hover:text-apex-text-bright'} ${className}`} />
   )

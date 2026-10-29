@@ -12,7 +12,7 @@ import crypto from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { admin, authenticatedClient, localEnv, sessionFor } from './helpers/stack.js'
 import { clearMessages, messagesTo, startCapture } from './helpers/emailCapture.js'
-import { callFn, createPublishedFreeEvent, makeClub } from './helpers/registrationFixtures.js'
+import { callFn, createPublishedFreeEvent, createPublishedPaidEvent, makeClub } from './helpers/registrationFixtures.js'
 
 const rand = () => crypto.randomBytes(4).toString('hex')
 const db = () => admin()
@@ -352,4 +352,101 @@ test('P-42 an incomplete other account stored directly (no edge function) blocks
   const r = await callFn('get-registration-event', owner, { eventId })
   assert.deepEqual(r.body.data.checklist.blocking.filter((b) => b.key === 'payout'),
     [{ key: 'payout', label: 'Dane do wypłat tego wydarzenia' }])
+})
+
+// ---------------------------------------------------------------- review fixes
+
+/** A fresh club with no club payout details, its owner and admin sessions. */
+async function freshClub(tag) {
+  const slug_ = `p3-${tag}-${rand()}`
+  const c = await makeClub({ slug: slug_ })
+  const [o, a] = await Promise.all([c.ownerEmail, c.adminEmail].map(sessionFor))
+  return { ...c, slug: slug_, owner: o, admin: a }
+}
+
+// M-1: a published paid event never switches to a club account that has no
+// payout details: runners would pay with nowhere to pay out to.
+test('M-1 a published paid event: „Konto klubu” without club payout details is 409 payout_not_ready; with them 200', async () => {
+  const c = await freshClub('m1')
+  const event = await createPublishedPaidEvent(c.owner, { clubSlug: c.slug })
+  assert.equal((await setPayout(event.eventId, CUSTOM, c.owner)).status, 200)
+  const refused = await setPayout(event.eventId, { mode: 'club' }, c.owner)
+  assert.equal(refused.status, 409, JSON.stringify(refused.body))
+  assert.deepEqual(refused.body, { error: 'Uzupełnij dane do wypłat w ustawieniach klubu', code: 'payout_not_ready' })
+  assert.equal((await rowsOf('event_payout_details', event.eventId))[0].payout_mode, 'custom')
+  assert.equal((await rowsOf('event_payout_history', event.eventId)).length, 1)
+
+  // The RPC refuses it too, whoever calls it.
+  const direct = await db().rpc('save_event_payout', {
+    p_event_id: event.eventId, p_actor: c.owner.profileId, p_mode: 'club', p_recipient: null, p_tax_id: null, p_iban: null, p_title: null,
+  })
+  assert.equal(direct.error?.message, 'payout_not_ready')
+
+  const { error } = await db().from('club_payout_details').insert({
+    club_id: c.clubId, legal_name: 'Klub', nip: NIP, iban: IBAN, address: 'ul. Leśna 1',
+  })
+  assert.ifError(error)
+  assert.equal((await setPayout(event.eventId, { mode: 'club' }, c.owner)).status, 200)
+  assert.equal((await rowsOf('event_payout_details', event.eventId))[0].payout_mode, 'club')
+})
+
+test('M-1 a published free event with a staged paid pricing counts as paid; a draft and a free published event may pick the club account', async () => {
+  const c = await freshClub('m1b')
+  const event = await createPublishedFreeEvent(c.owner, { clubSlug: c.slug })
+  assert.equal((await setPayout(event.eventId, { mode: 'club' }, c.owner)).status, 200, 'free and published: allowed')
+  assert.equal((await setPayout(event.eventId, CUSTOM, c.owner)).status, 200)
+  const staged = await callFn('save-registration-section', c.owner, { eventId: event.eventId, section: 'competitions', value: {
+    pricingMode: 'fixed', items: [{ categoryId: event.categoryIds[0], name: 'Bieg 9 km', kind: 'individual', discipline: 'run',
+      distanceLabel: '9 km', startTime: '10:00', capacity: 50, price: '60' }],
+  } })
+  assert.equal(staged.status, 200, JSON.stringify(staged.body))
+  const refused = await setPayout(event.eventId, { mode: 'club' }, c.owner)
+  assert.equal(refused.status, 409)
+  assert.equal(refused.body.code, 'payout_not_ready')
+
+  // A paid draft: the checklist blocks publish, so the choice is free.
+  const created = await callFn('create-registration-event', c.owner, { clubId: c.clubId, name: `Szkic ${rand()}` })
+  const draftId = created.body.data.eventId
+  assert.equal((await callFn('save-registration-section', c.owner, { eventId: draftId, section: 'competitions', value: {
+    pricingMode: 'fixed', items: [{ name: 'Bieg', kind: 'individual', distanceLabel: '9 km', startTime: '10:00', capacity: 5, price: '60' }],
+  } })).status, 200)
+  assert.equal((await setPayout(draftId, CUSTOM, c.owner)).status, 200)
+  assert.equal((await setPayout(draftId, { mode: 'club' }, c.owner)).status, 200)
+})
+
+// M-3, M-10: a club without online registration.
+test('M-3 M-10 a disabled club: both payout functions 404 and save_event_payout refuses', async () => {
+  const c = await freshClub('m3')
+  const created = await callFn('create-registration-event', c.owner, { clubId: c.clubId, name: `Bieg ${rand()}` })
+  const eventId = created.body.data.eventId
+  await makeClub({ slug: c.slug, enabled: false })
+  assert.equal((await setPayout(eventId, CUSTOM, c.owner)).status, 404)
+  assert.equal((await readPayout(eventId, c.owner)).status, 404)
+  assert.equal((await readPayout(eventId, c.admin)).status, 404)
+  const direct = await db().rpc('save_event_payout', {
+    p_event_id: eventId, p_actor: c.owner.profileId, p_mode: 'club', p_recipient: null, p_tax_id: null, p_iban: null, p_title: null,
+  })
+  assert.equal(direct.error?.message, 'forbidden')
+  assert.equal((await rowsOf('event_payout_details', eventId)).length, 0)
+})
+
+test('M-10 a null or non-object body is refused, never a 500', async () => {
+  for (const fn of ['update-event-payout', 'get-event-payout']) {
+    for (const body of [null, 'x', 7, []]) {
+      const r = await callFn(fn, owner, body)
+      assert.ok([400, 404].includes(r.status), `${fn} ${JSON.stringify(body)}: ${r.status}`)
+    }
+  }
+})
+
+// M-2: saving what is already stored writes no history and sends no email.
+test('M-2 saving unchanged values: 200, no history row, no email', async () => {
+  const eventId = await draft()
+  assert.equal((await setPayout(eventId, CUSTOM)).status, 200)
+  await clearMessages()
+  const again = await setPayout(eventId, CUSTOM)
+  assert.equal(again.status, 200)
+  assert.deepEqual(again.body.data.changed, [])
+  assert.equal((await rowsOf('event_payout_history', eventId)).length, 1)
+  assert.equal((await messagesTo(club.ownerEmail)).length, 0)
 })

@@ -28,7 +28,10 @@ function shown(field, value) {
 const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 // POST { eventId, mode: 'club'|'custom', recipient?, taxId?, iban?, title? }
-//   → 200 { data: { saved: true, changed } }.
+//   → 200 { data: { saved: true, changed } } (changed [] when nothing changed:
+//   no history row, no email). 409 payout_not_ready: a published event that
+//   collects money (live or staged pricing) cannot switch to a club account
+//   the club has no payout details for.
 // The payout account of one event: the club's own (club_payout_details) or
 // another one, e.g. a charity's. Club owner only (spec §14.8): an admin or a
 // member gets 403, an outsider or a disabled club 404. Applied at once, in a
@@ -63,8 +66,13 @@ Deno.serve(async (req) => {
     if (error) {
       if (error.message === 'forbidden') return json({ error: 'Dane do wypłat zmienia właściciel klubu.' }, 403, req)
       if (error.message === 'invalid_payout') return json({ error: 'Nieprawidłowe dane do wypłat.' }, 400, req)
+      if (error.message === 'payout_not_ready') {
+        return json({ error: 'Uzupełnij dane do wypłat w ustawieniach klubu', code: 'payout_not_ready' }, 409, req)
+      }
       throw error
     }
+    // Saved again unchanged: no history row was written, no audit row, no email.
+    if (saved?.unchanged) return json({ data: { saved: true, changed: [] } }, 200, req)
     const prev = saved?.old ?? null
     const next = saved.new
     const changed = Object.keys(FIELD_LABELS).filter((f) => (prev?.[f] ?? (f === 'payout_mode' ? 'club' : null)) !== next[f])

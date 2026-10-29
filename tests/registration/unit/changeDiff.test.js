@@ -131,3 +131,13 @@ test('P-42 mergedChecklistInput carries the payout state through', async () => {
   assert.deepEqual(mergedChecklistInput({ ...live, payout }, { basics: { name: 'X' } }).payout, payout)
   assert.deepEqual(mergedChecklistInput({ ...live, payout }, { payments: { payment_window_hours: 24 } }).settings.paymentWindowHours, 24)
 })
+
+test('M-1 the checklist on staged values: a staged paid pricing with a payout not ready blocks', async () => {
+  const { mergedChecklistInput } = await import('../../../supabase/functions/_shared/registration/changeDiff.js')
+  const { publishChecklist } = await import('../../../supabase/functions/_shared/registration/checklist.js')
+  const settled = { ...live, settings: { ...live.settings, name: 'Bieg', slug: 'bieg', contact_email: 'zapisy@klub.example' } }
+  const paid = { competitions: { pricing_mode: 'fixed', items: live.competitions.map((c) => item(c, { price: 6000 })) } }
+  const keys = (payout) => publishChecklist({ ...mergedChecklistInput({ ...settled, payout }, paid), hasAgreement: true }).blocking.map((b) => b.key)
+  assert.deepEqual(keys({ mode: 'club', ready: false }), ['payments', 'payout'])
+  assert.deepEqual(keys({ mode: 'club', ready: true }), ['payments'])
+})

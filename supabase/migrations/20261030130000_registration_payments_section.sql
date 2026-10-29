@@ -485,21 +485,39 @@ CREATE OR REPLACE FUNCTION public.save_event_payout(
   SET search_path = ''
 AS $$
 DECLARE
-  v_club uuid;
-  v_old  jsonb;
-  v_new  jsonb;
+  v_club   uuid;
+  v_state  text;
+  v_live   text;
+  v_staged text;
+  v_old    jsonb;
+  v_new    jsonb;
 BEGIN
-  SELECT rs.club_id INTO v_club FROM public.registration_settings rs WHERE rs.event_id = p_event_id;
+  SELECT rs.club_id, rs.state, rs.pricing_mode, pc.payload->'competitions'->>'pricing_mode'
+    INTO v_club, v_state, v_live, v_staged
+    FROM public.registration_settings rs
+    LEFT JOIN public.registration_pending_changes pc ON pc.event_id = rs.event_id
+   WHERE rs.event_id = p_event_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'not_found';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.club_members m
                   WHERE m.club_id = v_club AND m.user_id = p_actor
-                    AND m.status = 'active' AND m.role = 'owner') THEN
+                    AND m.status = 'active' AND m.role = 'owner')
+     OR NOT EXISTS (SELECT 1 FROM public.clubs c WHERE c.id = v_club AND c.registration_enabled) THEN
     RAISE EXCEPTION 'forbidden';
   END IF;
+  -- A published event that collects money (live or staged pricing) never
+  -- switches to a club account with no payout details: runners would pay with
+  -- nowhere to pay out to. A draft may: its publish checklist blocks.
+  IF p_mode = 'club' AND v_state <> 'draft'
+     AND (coalesce(v_live, 'free') <> 'free' OR coalesce(v_staged, 'free') <> 'free')
+     AND NOT EXISTS (SELECT 1 FROM public.club_payout_details d WHERE d.club_id = v_club) THEN
+    RAISE EXCEPTION 'payout_not_ready';
+  END IF;
   -- The club account keeps no event-level details; another account needs all
-  -- three identifying fields (update-event-payout checked their format).
+  -- three identifying fields. Only the format is checked here: the NIP and
+  -- IBAN checksums are update-event-payout's (payoutValidation.js), and the
+  -- checklist re-checks them on read (customPayoutReady).
   IF p_mode = 'club' THEN
     v_new := jsonb_build_object('payout_mode', 'club', 'payout_recipient', NULL, 'payout_tax_id', NULL,
                                 'payout_iban', NULL, 'payout_title', NULL);
@@ -520,6 +538,11 @@ BEGIN
     FROM public.event_payout_details d
    WHERE d.event_id = p_event_id
    FOR UPDATE;
+
+  -- Saved again unchanged: nothing to record.
+  IF v_old IS NOT DISTINCT FROM v_new THEN
+    RETURN jsonb_build_object('old', v_old, 'new', v_new, 'clubId', v_club, 'unchanged', true);
+  END IF;
 
   INSERT INTO public.event_payout_details AS t
          (event_id, payout_mode, payout_recipient, payout_tax_id, payout_iban, payout_title, updated_by, updated_at)

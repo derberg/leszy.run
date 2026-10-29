@@ -55,7 +55,7 @@ function ClubAccount({ club, payout, isOwner }) {
   )
 }
 
-function Payout({ eventId, role, reload }) {
+function Payout({ eventId, role, readOnly, reload }) {
   const { club } = useKlub()
   const isOwner = role === 'owner'
   const [state, setState] = useState({ ready: false, error: null, event: null, club: null })
@@ -109,12 +109,17 @@ function Payout({ eventId, role, reload }) {
 
   const ev = state.event
   const choose = (m) => { setMode(m); setSaved(false) }
+  // Nothing to save while the choice and the fields are what is stored (M-2).
+  const stored = ev?.mode ?? 'club'
+  const unchanged = mode === stored && (mode === 'club' || (
+    form.recipient.trim() === (ev?.recipient ?? '') && form.taxId.replace(/[\s-]/g, '') === (ev?.taxId ?? '')
+    && form.iban.replace(/\s+/g, '').toUpperCase() === (ev?.iban ?? '') && form.title.trim() === (ev?.title ?? '')))
 
   return (
     <form onSubmit={save} className="flex flex-col gap-3.5" data-testid="event-payout">
       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Konto do wypłat">
-        <Seg on={mode === 'club'} disabled={!isOwner} role="radio" aria-checked={mode === 'club'} onClick={() => choose('club')}>Konto klubu</Seg>
-        <Seg on={mode === 'custom'} disabled={!isOwner} role="radio" aria-checked={mode === 'custom'} onClick={() => choose('custom')}>Inne konto</Seg>
+        <Seg on={mode === 'club'} disabled={!isOwner || readOnly} role="radio" aria-checked={mode === 'club'} onClick={() => choose('club')}>Konto klubu</Seg>
+        <Seg on={mode === 'custom'} disabled={!isOwner || readOnly} role="radio" aria-checked={mode === 'custom'} onClick={() => choose('custom')}>Inne konto</Seg>
       </div>
 
       {mode === 'club' && <ClubAccount club={club} payout={state.club} isOwner={isOwner} />}
@@ -144,7 +149,7 @@ function Payout({ eventId, role, reload }) {
         <>
           {saveError && <p role="alert" className={errorClass}>{saveError}</p>}
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" disabled={saving} className={btnPrimary}>{saving ? 'Zapisywanie…' : 'Zapisz konto do wypłat'}</button>
+            <button type="submit" disabled={saving || readOnly || unchanged} className={btnPrimary}>{saving ? 'Zapisywanie…' : 'Zapisz konto do wypłat'}</button>
             {saved && <span data-testid="event-payout-saved" className={savedClass}>Zapisano</span>}
           </div>
         </>
@@ -180,7 +185,7 @@ export default function Platnosci({ event, queue, saveState, readOnly, reload })
         <section className={cardClass}>
           <h2 className={cardTitle}>Konto do wypłat</h2>
           <span className="font-mono text-xs uppercase tracking-wide text-apex-yellow">KLUB DOSTAJE 100% OPŁAT STARTOWYCH, DODATKÓW I DAROWIZN</span>
-          <Payout eventId={s.eventId} role={event.role} reload={reload} />
+          <Payout eventId={s.eventId} role={event.role} readOnly={readOnly} reload={reload} />
         </section>
       )}
 
