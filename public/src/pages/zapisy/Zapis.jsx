@@ -155,6 +155,9 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const [busy, setBusy] = useState(false)
   // RA4 (paid events): the support choice, kept here so it survives a trip back to the code step.
   const [supportChoice, setSupportChoice] = useState(null)
+  // RA4's prices after a price_changed, per competition (N-3): a trip back to the form and on
+  // to RA4 again shows the server's prices, not the page's older ones.
+  const [priceOf, setPriceOf] = useState({})
   // The address the code step verified (paid events): the session it opened may not be in the
   // auth cache yet, and „Wróć” then „Dalej” must not send another code (N1).
   const [verifiedEmail, setVerifiedEmail] = useState(null)
@@ -452,13 +455,15 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
       if (i === 0 && draft.notRunning) return []
       const p = effectivePerson(draft, i, today)
       return [{
-        key: c.key, name: `${p.firstName} ${p.lastName}`, competitionName: rowOf(c.categoryId)?.name ?? '',
-        ageGroupLabel: groupOf(i), priceGrosze: compOf(c.categoryId)?.priceGrosze ?? 0,
+        key: c.key, categoryId: c.categoryId, name: `${p.firstName} ${p.lastName}`, competitionName: rowOf(c.categoryId)?.name ?? '',
+        ageGroupLabel: groupOf(i), priceGrosze: priceOf[c.categoryId] ?? compOf(c.categoryId)?.priceGrosze ?? 0,
       }]
     })
     return (
       <Podsumowanie raw={raw} open={open} lines={lines} body={toRequest(draft, { consents, today })}
         choice={supportChoice} onChoice={setSupportChoice}
+        addedCategoryIds={draft.cards.slice(1).map((c) => c.categoryId)}
+        onRepriced={(byCategory) => setPriceOf((m) => ({ ...m, ...byCategory }))}
         onBack={() => setStep('form')} onFailure={(err) => fail(err)} />
     )
   }

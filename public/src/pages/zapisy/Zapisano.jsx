@@ -6,7 +6,7 @@ import { eventPageModel } from '../../lib/eventPageModel.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import DoneActions from '../../components/registration/DoneActions.jsx'
 import RegisteredPerson from '../../components/registration/RegisteredPerson.jsx'
-import { orderPeople, showsConsentTags } from '../../lib/consentTag.js'
+import { orderPeople, personGroupLabel, showsConsentTags } from '../../lib/consentTag.js'
 import { linkCls } from '../../components/registration/ui.js'
 import RegistrationShell from './RegistrationShell.jsx'
 import { eventPath } from './RegistrationEventPage.jsx'
@@ -68,7 +68,7 @@ function Done({ raw }) {
       {rows.map((r) => (
         <RegisteredPerson key={r.id} person={r} registrationId={r.id} name={`${r.firstName} ${r.lastName}`} showTag={tags}
           onStale={() => setReads((n) => n + 1)} testId="done-person"
-          meta={[r.competition, r.ageGroupLabel, r.startTime ? `start ${r.startTime}` : null].filter(Boolean).join(' · ')} />
+          meta={[r.competition, personGroupLabel(r), r.startTime ? `start ${r.startTime}` : null]} />
       ))}
       <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)}
         first={{ uid: first.id, name: `${first.firstName} ${first.lastName}`, competition: first.competition, startTime: first.startTime }} />

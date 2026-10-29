@@ -10,7 +10,7 @@ import { payLinkOpen } from '../../lib/checkout.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import DoneActions from '../../components/registration/DoneActions.jsx'
 import RegisteredPerson from '../../components/registration/RegisteredPerson.jsx'
-import { orderPeople, showsConsentTags } from '../../lib/consentTag.js'
+import { orderPeople, personGroupLabel, showsConsentTags } from '../../lib/consentTag.js'
 import { labelCls, linkCls, primaryBtn, secondaryBtn } from '../../components/registration/ui.js'
 import { formatPln } from '@registration/money.js'
 import { eventPath } from './RegistrationEventPage.jsx'
@@ -106,7 +106,7 @@ function Person({ line, showTag = false, onStale }) {
   return (
     <RegisteredPerson person={line} registrationId={line.registrationId} name={line.name} showTag={showTag}
       onStale={onStale} testId="order-person"
-      meta={[line.competition, line.ageGroupLabel, line.startTime ? `start ${line.startTime}` : null].filter(Boolean).join(' · ')} />
+      meta={[line.competition, personGroupLabel(line), line.startTime ? `start ${line.startTime}` : null]} />
   )
 }
 

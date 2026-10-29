@@ -13,6 +13,7 @@ import { redactDpay } from './redactDpay.js'
 import { orderConfirmationEmail, paymentRefundedEmail } from './emails.js'
 import { issueOrderConsentRequests } from './consentRequests.js'
 import { registrationRole } from './group.js'
+import { kidsGroupLabels } from './kidsGroupLabels.js'
 
 /**
  * Inserts an operator_alerts row → true when it is stored (or already was, by its key).
@@ -88,7 +89,7 @@ export async function loadOrderView(admin, orderId) {
   const regIds = lineRows.filter((l) => l.registration_id).map((l) => l.registration_id)
   const regs = regIds.length
     ? await rows(admin.from('registrations')
-      .select('id, first_name, last_name, email, category_id, age_group_label, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id')
+      .select('id, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id')
       .in('id', regIds))
     : []
   const catIds = [...new Set(regs.map((r) => r.category_id))]
@@ -99,6 +100,7 @@ export async function loadOrderView(admin, orderId) {
     ? await admin.from('clubs').select('name').eq('id', settings.club_id).maybeSingle()
     : { data: null }
 
+  const kidsLabel = await kidsGroupLabels(admin, regs)
   const regById = new Map(regs.map((r) => [r.id, r]))
   const compById = new Map(comps.map((c) => [c.category_id, c]))
   const lines = lineRows.filter((l) => l.kind === 'entry').map((l) => {
@@ -111,6 +113,8 @@ export async function loadOrderView(admin, orderId) {
       email: r.email ?? null,
       competition: c.name ?? null,
       ageGroupLabel: r.age_group_label ?? null,
+      kidsGroupLabel: (r.kids_group_id && kidsLabel.get(r.kids_group_id)) || null,
+      profileId: r.profile_id ?? null,
       startTime: (c.start_time ?? settings?.first_start_time)?.slice(0, 5) ?? null,
       amount: l.amount,
       role: l.registration_id ? registrationRole(r) : null,

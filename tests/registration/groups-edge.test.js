@@ -395,6 +395,45 @@ test('G-46 create-order price_changed for a group carries each person\'s price i
   assert.equal(off.body.amounts.total, total)
 })
 
+test('G-46 fix round 1: order-status and my-event-registrations carry the kids\' group label and whether the row is the viewer\'s own', async () => {
+  const kidsOf = async (event) => {
+    const kids = event.categoryIds[1]
+    const { error } = await db().from('kids_groups').insert([
+      { category_id: kids, label: 'Dzieci 2015–2017', birth_year_from: 2015, birth_year_to: 2017, gender: null },
+      { category_id: kids, label: 'Dzieci 2018–2020', birth_year_from: 2018, birth_year_to: 2020, gender: null },
+    ])
+    assert.ifError(error)
+  }
+  const free = await createPublishedFreeEvent(owner, { competitions: [BIEG(), { ...DZIECI(), maxAge: 17, isKids: true }] })
+  await kidsOf(free)
+  const me = runnerEmail('kgl')
+  const payer = await sessionFor(me)
+  const r = await call('register-free', await groupBody(free, family(free, me, runnerEmail('kgladult'))), payer)
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const { slug } = await one('registration_settings', { event_id: free.eventId })
+  const mine = await call('my-event-registrations', { slug }, payer)
+  const byName = Object.fromEntries(mine.body.data.map((x) => [x.firstName, x]))
+  assert.equal(byName.Zosia.kidsGroupLabel, 'Dzieci 2015–2017')
+  assert.equal(byName.Ola.kidsGroupLabel, null)
+  assert.deepEqual([byName.Ola.mine, byName.Piotr.mine, byName.Zosia.mine], [true, false, false])
+
+  const paid = await createPublishedPaidEvent(owner, {
+    competitions: [BIEG(), { ...DZIECI(), maxAge: 17, isKids: true }], prices: { 'Bieg 9 km': 6000, 'Bieg dzieci 1 km': 2000 },
+  })
+  await kidsOf(paid)
+  const me2 = runnerEmail('kglp')
+  const payer2 = await sessionFor(me2)
+  const people = family(paid, me2, runnerEmail('kglpadult'))
+  const total = groupTotal(paid, people.map((p) => ({ categoryId: p.categoryId })))
+  const o = await call('create-order', await groupBody(paid, people, { supportChoice: false, displayedTotal: total }), payer2)
+  assert.equal(o.status, 201, JSON.stringify(o.body))
+  const st = await call('order-status', { orderId: o.body.data.orderId }, payer2)
+  const byFirst = Object.fromEntries(st.body.data.lines.map((l) => [l.firstName, l]))
+  assert.equal(byFirst.Zosia.kidsGroupLabel, 'Dzieci 2015–2017')
+  assert.equal(byFirst.Piotr.kidsGroupLabel, null)
+  assert.deepEqual([byFirst.Ola.mine, byFirst.Piotr.mine, byFirst.Zosia.mine], [true, false, false])
+})
+
 // ---------------------------------------------------------------- G-30 retired address
 
 test('G-30 an added adult whose address is retired → 403 email_retired with that person\'s index, no rows', async () => {

@@ -76,24 +76,42 @@ export function repriceLines(lines, amounts) {
   if (!amounts || !Array.isArray(lines) || lines.length === 0) return null
   const { entryPrices, entryTotal } = amounts
   if (Array.isArray(entryPrices)) {
-    if (entryPrices.length !== lines.length || !entryPrices.every(Number.isSafeInteger)) return null
+    if (entryPrices.length !== lines.length || !entryPrices.every(grosze)) return null
     if (entryTotal != null && entryPrices.reduce((s, p) => s + p, 0) !== entryTotal) return null
     return lines.map((l, i) => ({ ...l, priceGrosze: entryPrices[i] }))
   }
-  if (lines.length === 1 && Number.isSafeInteger(entryTotal)) return [{ ...lines[0], priceGrosze: entryTotal }]
+  if (lines.length === 1 && grosze(entryTotal)) return [{ ...lines[0], priceGrosze: entryTotal }]
   return null
 }
 
+const grosze = (n) => Number.isSafeInteger(n) && n >= 0
+
+/** Re-priced lines as { categoryId: price }, so „Wróć” keeps the server's prices on the form. */
+export function repricedByCategory(lines) {
+  const out = {}
+  for (const l of lines ?? []) if (l.categoryId && grosze(l.priceGrosze)) out[l.categoryId] = l.priceGrosze
+  return out
+}
+
 // Refusals that belong to the form's cards or the code step (ZapisView's groupFailure routes
-// them: `index` to that person's card, `full` with a `categoryId` to the competition select of
-// the cards in it, `refused` as the form's message). Everything else is about the payment and
-// stays on RA4.
+// them: `index` to that person's card, `full` to the competition select of the added cards in
+// that competition, `refused` as the form's message). `full` goes back only when an added card
+// can change its competition there: for a single runner, or when only card 1 is in it, the form
+// has nothing to change, so it stays Plan 3's RA4 message. Everything else is about the payment
+// and stays on RA4.
 const BACK_TO_FORM = new Set(['invalid_person', 'email_retired', 'duplicate', 'consents_required', 'consents_changed', 'refused'])
 
-/** Does this create-order refusal send the payer back to the form? */
-export function backToForm(err) {
+/**
+ * Does this create-order refusal send the payer back to the form?
+ * @param {Error & { status?, code?, categoryId? }} err
+ * @param {string[]} addedCategoryIds the competitions of the added cards (card 2 on)
+ */
+export function backToForm(err, addedCategoryIds = []) {
   if (!err || err.status == null) return false
   if (err.status === 401) return true
-  if (err.code === 'full') return typeof err.categoryId === 'string' && err.categoryId !== ''
+  if (err.code === 'full') {
+    const id = typeof err.categoryId === 'string' ? err.categoryId.toLowerCase() : ''
+    return id !== '' && addedCategoryIds.some((c) => String(c).toLowerCase() === id)
+  }
   return BACK_TO_FORM.has(err.code)
 }

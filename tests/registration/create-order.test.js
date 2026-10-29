@@ -347,10 +347,11 @@ test('P-24 order-status: buyer only, with the event\'s closesAt; a fresh pending
   assert.equal(d.status, 'pending')
   assert.ok(d.expiresAt)
   const [reg] = await registrationsOf(orderId)
-  // Plan 4 task 5a (G-45): each line also names its registration, role and consent state.
+  // Plan 4 task 5a (G-45): each line also names its registration, role and consent state;
+  // task 5b fix round 1 (G-46): the kids' group label and whether the line is the buyer's own.
   assert.deepEqual(d.lines, [{
     registrationId: reg.id, name: 'Ola Leśna', firstName: 'Ola', role: 'self', consentState: 'accepted',
-    competition: 'Bieg 9 km', ageGroupLabel: 'K open', startTime: '10:00', amount: 6000,
+    competition: 'Bieg 9 km', ageGroupLabel: 'K open', kidsGroupLabel: null, mine: true, startTime: '10:00', amount: 6000,
   }])
   const expected = orderAmounts({ entryPrices: [6000], supportChoice: false })
   assert.deepEqual(d.amounts, {

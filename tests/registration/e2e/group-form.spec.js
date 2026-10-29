@@ -285,10 +285,20 @@ async function fillFamily(page, kids, partner) {
   await tickAll(page)
 }
 
+const KIDS = { ...DZIECI, maxAge: 17, isKids: true }
+async function kidsGroups(kids) {
+  const { error } = await admin().from('kids_groups').insert([
+    { category_id: kids, label: 'Dzieci 2015–2017', birth_year_from: 2015, birth_year_to: 2017, gender: null },
+    { category_id: kids, label: 'Dzieci 2018–2020', birth_year_from: 2018, birth_year_to: 2020, gender: null },
+  ])
+  expect(error).toBeNull()
+}
+
 for (const [mode, width] of [['free', 390], ['free', 1440], ['paid', 390], ['paid', 1440]]) {
-  test(`G-44 (d) ${mode} ${width} px: RA5 tags each person; „Wyślij przypomnienie do Piotr →” sends one more consent e-mail`, async ({ actors }) => {
-    const event = await EVENTS[mode]([BIEG, DZIECI])
+  test(`G-44 (d) ${mode} ${width} px: RA5 tags the others; „Wyślij przypomnienie →” in Piotr's row sends one more consent e-mail`, async ({ actors }) => {
+    const event = await EVENTS[mode]([BIEG, KIDS])
     const [c9, kids] = event.categoryIds
+    await kidsGroups(kids)
     const partner = email('partner')
     const page = await offline(await actors.runner.newPage())
     await page.setViewportSize({ width, height: 900 })
@@ -313,24 +323,30 @@ for (const [mode, width] of [['free', 390], ['free', 1440], ['paid', 390], ['pai
       person = (name) => page.getByTestId('order-person').filter({ hasText: name })
     }
 
-    await expect(person('Ola Leśna').getByTestId('consent-tag')).toHaveText('✓ REGULAMIN')
-    await expect(person('Piotr Leśny').getByTestId('consent-tag')).toHaveText('CZEKA NA ZGODĘ')
-    await expect(person('Zosia Leśna').getByTestId('consent-tag')).toHaveText('✓ OPIEKUN')
-    // Only the adult who has not accepted can be reminded.
+    // The viewer's own row carries no tag (N-4); the others do, with a spoken meaning (N-5).
+    await expect(person('Ola Leśna').getByTestId('consent-tag')).toHaveCount(0)
+    await expect(person('Piotr Leśny').getByTestId('consent-tag')).toHaveText('CZEKA NA ZGODĘczeka na zgodę na regulamin')
+    await expect(person('Zosia Leśna').getByTestId('consent-tag')).toHaveText('✓ OPIEKUNzgoda opiekuna')
+    // The child is shown by her kids' group, as the form showed her (ruling).
+    await expect(person('Zosia Leśna')).toContainText('Dzieci 2015–2017')
+    // Only the adult who has not accepted can be reminded, from inside their row.
     await expect(page.getByTestId('remind-consent')).toHaveCount(1)
-    const remind = person('Piotr Leśny').getByTestId('remind-consent')
-    await expect(remind).toHaveText('Wyślij przypomnienie do Piotr →')
+    const remind = person('Piotr Leśny').getByRole('button', { name: 'Wyślij przypomnienie do: Piotr Leśny' })
+    await expect(remind).toHaveText('Wyślij przypomnienie →')
+    await expect(person('Piotr Leśny').getByTestId('remind-status')).toHaveAttribute('aria-live', 'polite')
     if (width === 390) await fitsNarrow(page)
 
     // The consent request went out with the registration (free) or the payment (paid).
     expect(await mailsTo(partner, 1)).toHaveLength(1)
     await remind.click()
     await expect(person('Piotr Leśny').getByTestId('remind-status')).toHaveText('Przypomnienie wysłane.')
+    // M-2: one send per page: a second click would spend a slot and kill the link just sent.
+    await expect(remind).toBeDisabled()
     const mails = await mailsTo(partner, 2)
     expect(mails).toHaveLength(2)
     expect(mails[1].subject).toMatch(/^Przypomnienie: /)
-    // No e-mail to the child or anyone else on the payer's behalf.
-    expect(await messagesTo(ACTOR_EMAILS.runner).then((m) => m.filter((x) => /regulamin/i.test(x.subject)))).toEqual([])
+    // Neither the consent request nor the reminder goes to the payer.
+    expect((await messagesTo(ACTOR_EMAILS.runner)).filter((x) => /^Przypomnienie:|regulamin/i.test(x.subject ?? ''))).toEqual([])
   })
 }
 
@@ -371,4 +387,55 @@ test('G-47 RA4 390 px: one line per person at its own price; the price moves →
   await expect(page).toHaveURL(PAY_PAGE)
   const { data: order } = await admin().from('orders').select('entry_total').eq('event_id', event.eventId).single()
   expect(order.entry_total).toBe(15000)
+})
+
+test('G-47 RA5 1440 px: the reminder\'s refusals read in Polish; a 409 reads the people again', async ({ actors }) => {
+  const event = await EVENTS.free([BIEG, DZIECI])
+  const [c9, kids] = event.categoryIds
+  const page = await offline(await actors.runner.newPage())
+  await page.goto(`/events/${event.slug}/zapis/${c9}`)
+  await fillFamily(page, kids, email('partner'))
+  await page.getByTestId('registration-submit').click()
+  await expect(page.getByTestId('done')).toBeVisible()
+  const row = page.getByTestId('done-person').filter({ hasText: 'Piotr Leśny' })
+
+  const cases = [
+    [429, { error: 'Przypomnienie zostało już wysłane. Spróbuj jutro.', code: 'throttled' }, 'Przypomnienie zostało już wysłane. Spróbuj jutro.'],
+    [502, { error: 'Nie udało się wysłać przypomnienia. Spróbuj ponownie później.', code: 'email_failed' }, 'Nie udało się wysłać przypomnienia. Spróbuj ponownie później.'],
+    [401, { error: 'Authorization required' }, 'Zaloguj się ponownie, żeby wysłać przypomnienie.'],
+    [500, { error: 'Internal server error' }, 'Nie udało się wysłać przypomnienia. Spróbuj ponownie później.'],
+    [409, { error: 'To zgłoszenie nie czeka na akceptację regulaminu.', code: 'not_awaiting' }, 'To zgłoszenie nie czeka na akceptację regulaminu.'],
+  ]
+  for (const [status, body, shown] of cases) {
+    await page.unroute('**/remind-consent')
+    await page.route('**/remind-consent', (route) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }))
+    let reads = 0
+    const count = (req) => { if (req.url().endsWith('/my-event-registrations')) reads += 1 }
+    page.on('request', count)
+    await row.getByTestId('remind-consent').click()
+    await expect(row.getByTestId('remind-error')).toHaveText(shown)
+    await expect(row.getByTestId('remind-consent')).toBeEnabled()
+    if (status === 409) await expect.poll(() => reads).toBe(1)
+    else expect(reads).toBe(0)
+    page.off('request', count)
+  }
+})
+
+test('G-47 RA4 1440 px (I-1): a single paid runner whose competition fills stays on RA4 with Plan 3\'s message', async ({ actors }) => {
+  const event = await EVENTS.paid([BIEG])
+  const [c9] = event.categoryIds
+  const page = await offline(await actors.runner.newPage())
+  await page.goto(`/events/${event.slug}/zapis/${c9}`)
+  await fillMe(page)
+  await tickAll(page)
+  await page.getByTestId('registration-submit').click()
+  await expect(page.getByTestId('checkout')).toBeVisible()
+  const { error } = await admin().from('competitions').update({ capacity: 1, taken: 1 }).eq('category_id', c9)
+  expect(error).toBeNull()
+  await page.getByRole('button', { name: 'Nie tym razem' }).click()
+  await page.getByTestId('pay').click()
+  await expect(page.getByRole('alert')).toHaveText('Brak wolnych miejsc w konkurencji Bieg 9 km.')
+  await expect(page.getByTestId('checkout')).toBeVisible()
+  await expect(page.getByTestId('registration-form')).toHaveCount(0)
+  expect(await ordersOf(event.eventId)).toEqual([])
 })

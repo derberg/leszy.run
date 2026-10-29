@@ -39,7 +39,7 @@ async function currentAmounts(admin, settings, people, supportChoice, total) {
   try {
     const { data } = await admin.rpc('registration_raw', { p_event_id: settings.event_id })
     const priceOf = new Map((data?.competitions ?? []).map((c) => [String(c.categoryId).toLowerCase(), c.priceGrosze]))
-    const entryPrices = people.map((p) => priceOf.get(p.categoryId))
+    const entryPrices = people.map((p) => priceOf.get(String(p.categoryId).toLowerCase()))
     if (entryPrices.every(Number.isSafeInteger)) {
       const a = orderAmounts({ entryPrices, supportChoice })
       if (a.total === total) {

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { backToForm, checkoutModel, repriceLines } from '../../src/lib/checkout.js'
-import { canRemind, consentTag, orderPeople, remindLabel, showsConsentTags } from '../../src/lib/consentTag.js'
+import { backToForm, checkoutModel, repricedByCategory, repriceLines } from '../../src/lib/checkout.js'
+import { canRemind, consentTag, orderPeople, personGroupLabel, remindAriaLabel, remindError, remindLabel, showsConsentTags } from '../../src/lib/consentTag.js'
 
 // G-46 (Plan 4 task 5b): RA4 for a group and the RA5 consent tags.
 // RA4: one line per person at that person's competition price, the amounts over every
@@ -53,7 +53,7 @@ describe('G-46 RA4 for a group', () => {
     assert.equal(backToForm(err(400, 'invalid_person', { people: { 1: { phone: 'x' } } })), true)
     assert.equal(backToForm(err(400, 'consents_required')), true)
     assert.equal(backToForm(err(400, 'consents_changed')), true)
-    assert.equal(backToForm(err(409, 'full', { categoryId: '11111111-1111-4111-8111-111111111111' })), true)
+    assert.equal(backToForm(err(409, 'full', { categoryId: '11111111-1111-4111-8111-111111111111' }), ['11111111-1111-4111-8111-111111111111']), true)
     assert.equal(backToForm(err(409, 'refused')), true)
     assert.equal(backToForm(err(401, undefined)), true)
     // These stay on RA4: they are about the payment, not about a person.
@@ -67,20 +67,19 @@ describe('G-46 RA4 for a group', () => {
 
 describe('G-46 RA5 consent tags', () => {
   it('the person registering, an added adult who accepted, or signed in the office → „✓ REGULAMIN”', () => {
-    assert.deepEqual(consentTag({ role: 'self', consentState: 'accepted' }), { kind: 'accepted', label: '✓ REGULAMIN' })
-    assert.deepEqual(consentTag({ role: 'adult', consentState: 'accepted' }), { kind: 'accepted', label: '✓ REGULAMIN' })
-    assert.deepEqual(consentTag({ role: 'adult', consentState: 'office' }), { kind: 'accepted', label: '✓ REGULAMIN' })
+    assert.deepEqual(consentTag({ role: 'self', consentState: 'accepted' }), { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' })
+    assert.deepEqual(consentTag({ role: 'adult', consentState: 'accepted' }), { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' })
+    assert.deepEqual(consentTag({ role: 'adult', consentState: 'office' }), { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' })
   })
 
   it('a child → „✓ OPIEKUN”', () => {
-    assert.deepEqual(consentTag({ role: 'minor', consentState: 'accepted' }), { kind: 'guardian', label: '✓ OPIEKUN' })
+    assert.deepEqual(consentTag({ role: 'minor', consentState: 'accepted' }), { kind: 'guardian', label: '✓ OPIEKUN', srLabel: 'zgoda opiekuna' })
   })
 
   it('an added adult still awaiting → „CZEKA NA ZGODĘ” and the reminder', () => {
     const line = { role: 'adult', consentState: 'awaiting', firstName: 'Piotr' }
-    assert.deepEqual(consentTag(line), { kind: 'awaiting', label: 'CZEKA NA ZGODĘ' })
+    assert.deepEqual(consentTag(line), { kind: 'awaiting', label: 'CZEKA NA ZGODĘ', srLabel: 'czeka na zgodę na regulamin' })
     assert.equal(canRemind(line), true)
-    assert.equal(remindLabel('Piotr'), 'Wyślij przypomnienie do Piotr →')
   })
 
   it('no reminder for anybody else, and no tag without a known state', () => {
@@ -106,5 +105,74 @@ describe('G-46 RA5 order and tags shown', () => {
     assert.equal(showsConsentTags([{ role: 'self' }, { role: 'minor' }]), true)
     assert.equal(showsConsentTags([{ role: 'adult' }]), true)
     assert.equal(showsConsentTags([]), false)
+  })
+})
+
+const CAT = '11111111-1111-4111-8111-111111111111'
+const OTHER = '22222222-2222-4222-8222-222222222222'
+const refusal = (status, code, extra = {}) => Object.assign(new Error('Brak wolnych miejsc w konkurencji X.'), { status, code, ...extra })
+
+describe('G-46 fix round 1: RA4', () => {
+  it('I-1: `full` goes back to the form only when an added card is in that competition', () => {
+    assert.equal(backToForm(refusal(409, 'full', { categoryId: CAT }), [CAT]), true)
+    assert.equal(backToForm(refusal(409, 'full', { categoryId: CAT.toUpperCase() }), [CAT]), true)
+    // a single runner, or a group whose full competition holds only card 1: Plan 3's RA4 message
+    assert.equal(backToForm(refusal(409, 'full', { categoryId: CAT }), []), false)
+    assert.equal(backToForm(refusal(409, 'full', { categoryId: CAT }), [OTHER]), false)
+    assert.equal(backToForm(refusal(409, 'full', { categoryId: CAT })), false)
+    // a person's refusal still goes back without the list
+    assert.equal(backToForm(refusal(409, 'duplicate', { index: 0 })), true)
+  })
+
+  it('N-2: a negative price never re-prices a line', () => {
+    const one = [{ key: 'a', categoryId: CAT, priceGrosze: 6000 }]
+    assert.equal(repriceLines(one, { entryPrices: [-1], entryTotal: -1 }), null)
+    assert.equal(repriceLines(one, { entryTotal: -6000 }), null)
+  })
+
+  it('N-3: the re-priced lines as a price per competition, for the form to keep', () => {
+    const lines = [
+      { key: 'a', categoryId: CAT, priceGrosze: 6500 }, { key: 'b', categoryId: CAT, priceGrosze: 6500 },
+      { key: 'c', categoryId: OTHER, priceGrosze: 2000 },
+    ]
+    assert.deepEqual(repricedByCategory(lines), { [CAT]: 6500, [OTHER]: 2000 })
+  })
+})
+
+describe('G-46 fix round 1: RA5', () => {
+  it('the reminder reads „Wyślij przypomnienie →”, its accessible name carries the person', () => {
+    assert.equal(remindLabel(), 'Wyślij przypomnienie →')
+    assert.equal(remindAriaLabel('Piotr Leśny'), 'Wyślij przypomnienie do: Piotr Leśny')
+  })
+
+  it('M-1: every reminder refusal reads in Polish', () => {
+    const e = (status, message, code) => Object.assign(new Error(message), { status, code })
+    assert.equal(remindError(new Error('offline')), 'Nie udało się połączyć. Spróbuj ponownie.')
+    assert.equal(remindError(e(401, 'Authorization required')), 'Zaloguj się ponownie, żeby wysłać przypomnienie.')
+    assert.equal(remindError(e(500, 'Internal server error')), 'Nie udało się wysłać przypomnienia. Spróbuj ponownie później.')
+    assert.equal(remindError(e(502, 'Nie udało się wysłać przypomnienia. Spróbuj ponownie później.', 'email_failed')),
+      'Nie udało się wysłać przypomnienia. Spróbuj ponownie później.')
+    assert.equal(remindError(e(429, 'Przypomnienie zostało już wysłane. Spróbuj jutro.', 'throttled')), 'Przypomnienie zostało już wysłane. Spróbuj jutro.')
+    assert.equal(remindError(e(409, 'To zgłoszenie nie czeka na akceptację regulaminu.', 'not_awaiting')), 'To zgłoszenie nie czeka na akceptację regulaminu.')
+    assert.equal(remindError(e(404, 'Not found')), 'Nie znaleźliśmy tego zgłoszenia.')
+  })
+
+  it('N-5: each tag has a spoken meaning', () => {
+    assert.equal(consentTag({ role: 'self', consentState: 'accepted' }).srLabel, 'regulamin zaakceptowany')
+    assert.equal(consentTag({ role: 'minor', consentState: 'accepted' }).srLabel, 'zgoda opiekuna')
+    assert.equal(consentTag({ role: 'adult', consentState: 'awaiting' }).srLabel, 'czeka na zgodę na regulamin')
+  })
+
+  it('N-4: no tag on the viewer\'s own row; a page of only the viewer\'s own rows shows none', () => {
+    assert.equal(consentTag({ role: 'self', consentState: 'accepted', mine: true }), null)
+    assert.equal(consentTag({ role: 'adult', consentState: 'accepted', mine: true }), null)
+    assert.equal(showsConsentTags([{ role: 'adult', consentState: 'accepted', mine: true }]), false)
+    assert.equal(showsConsentTags([{ role: 'self', mine: true }, { role: 'adult', mine: false }]), true)
+  })
+
+  it('ruling: the kids\' group label wins over the age class', () => {
+    assert.equal(personGroupLabel({ kidsGroupLabel: 'Dzieci 2015–2017', ageGroupLabel: 'K open' }), 'Dzieci 2015–2017')
+    assert.equal(personGroupLabel({ kidsGroupLabel: null, ageGroupLabel: 'K open' }), 'K open')
+    assert.equal(personGroupLabel({}), null)
   })
 })

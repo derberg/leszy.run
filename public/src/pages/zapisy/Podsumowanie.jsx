@@ -6,10 +6,11 @@ import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction } from '../../lib/auth.js'
 import { releaseLeaveGuard } from '../../lib/leaveGuard.js'
-import { backToForm, checkoutModel, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS, repriceLines } from '../../lib/checkout.js'
+import { backToForm, checkoutModel, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS, repricedByCategory, repriceLines } from '../../lib/checkout.js'
 import { formatPln } from '@registration/money.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import SupportChoice from '../../components/registration/SupportChoice.jsx'
+import MetaLine from '../../components/registration/MetaLine.jsx'
 import { primaryBtn } from '../../components/registration/ui.js'
 
 // RA4 (paid events): one line per person (name, competition · group, that competition's
@@ -29,20 +30,24 @@ import { primaryBtn } from '../../components/registration/ui.js'
 // create_order does: „Zapłać” is off from then, with the server's wording.
 // A price_changed answer re-prices every line from the server's per-person prices
 // (repriceLines), never a new total beside stale lines; one the lines cannot be priced
-// from starts again from a fresh event page. A refusal about a person (their card's
-// `index`, a full competition the server names, the generic group refusal, no session)
-// goes back to the form, which routes it to the card (backToForm, groupFailure).
+// from starts again from a fresh event page; the new prices go back to the form too
+// (`onRepriced`), so „Wróć” then „Dalej” does not show the old ones again. A refusal about a
+// person (their card's `index`, the generic group refusal, no session, or a full competition
+// an added card is in) goes back to the form, which routes it to the card (backToForm,
+// groupFailure). A full competition only card 1 is in stays Plan 3's RA4 message: the form
+// cannot change card 1's competition.
 
 export const orderPath = (orderId) => `/zamowienie/${orderId}`
 
 const row = 'flex justify-between gap-2.5 py-2 border-b border-apex-border text-base'
 
 /**
- * @param {{ raw: object, open: boolean, lines: Array<{ key, name, competitionName, ageGroupLabel, priceGrosze }>,
- *   body: object (groupDraft's toRequest, without a code), choice: boolean|null,
- *   onChoice: (v: boolean) => void, onBack: () => void, onFailure: (err: Error) => void }} p
+ * @param {{ raw: object, open: boolean, lines: Array<{ key, categoryId, name, competitionName, ageGroupLabel, priceGrosze }>,
+ *   body: object (groupDraft's toRequest, without a code), choice: boolean|null, addedCategoryIds: string[],
+ *   onChoice: (v: boolean) => void, onBack: () => void, onFailure: (err: Error) => void,
+ *   onRepriced: (byCategory: Record<string, number>) => void }} p
  */
-export default function Podsumowanie({ raw, open, lines: formLines, body, choice, onChoice, onBack, onFailure }) {
+export default function Podsumowanie({ raw, open, lines: formLines, body, choice, addedCategoryIds = [], onChoice, onBack, onFailure, onRepriced }) {
   const navigate = useNavigate()
   // The lines as the server last priced them: the form's, until a price_changed re-prices them.
   const [lines, setLines] = useState(formLines)
@@ -111,6 +116,7 @@ export default function Podsumowanie({ raw, open, lines: formLines, body, choice
         const repriced = repriceLines(lines, err.amounts)
         if (repriced) {
           setLines(repriced)
+          onRepriced?.(repricedByCategory(repriced))
           setMessage(err.message)
           return
         }
@@ -120,7 +126,7 @@ export default function Podsumowanie({ raw, open, lines: formLines, body, choice
         window.location.assign(`/events/${raw.slug}`)
         return
       }
-      if (backToForm(err)) {
+      if (backToForm(err, addedCategoryIds)) {
         onFailure(err)
         return
       }
@@ -137,7 +143,7 @@ export default function Podsumowanie({ raw, open, lines: formLines, body, choice
           <div key={l.key} className={row} data-testid="checkout-line">
             <span className="min-w-0">
               <span className="block text-apex-text-bright text-[17px]">{l.name}</span>
-              <span className="block font-mono text-[13px] text-apex-muted uppercase">{[l.competitionName, l.ageGroupLabel].filter(Boolean).join(' · ')}</span>
+              <MetaLine parts={[l.competitionName, l.ageGroupLabel]} />
             </span>
             <span className="font-mono text-apex-text-bright whitespace-nowrap" data-testid="checkout-line-price">{formatPln(l.priceGrosze)}</span>
           </div>
