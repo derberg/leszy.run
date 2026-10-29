@@ -172,6 +172,13 @@ tests/registration/start-stack.sh && supabase db reset && (supabase functions se
 node --test --test-concurrency=1 "tests/registration/**/*.test.js" && npx playwright test -c tests/registration/playwright.config.js
 ```
 
+**Parallel agents each take their own slot.** The commands above are slot 0, shared by every
+worktree: never reset or re-serve it while another agent may be testing on it. Take a free slot n (1..9)
+instead, a fully separate stack on ports moved up by n x 100:
+`scripts/test-slot.sh n start && scripts/test-slot.sh n db reset && (scripts/test-slot.sh n functions serve &)`,
+then prefix every test command with `REG_TEST_SLOT=n`, and `scripts/test-slot.sh n stop` when done.
+See the README's "Parallel stacks".
+
 CI runs the same steps (plus backend and public unit tests) in `.github/workflows/registration-tests.yml`
 on every pull request. Every scenario and the test that covers it is listed in
 [docs/registration/scenario-matrix.md](docs/registration/scenario-matrix.md): add a row for each new one.

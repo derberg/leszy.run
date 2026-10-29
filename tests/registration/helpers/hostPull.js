@@ -1,5 +1,5 @@
 // A scratch timing host for the registration tests: its own postgres:16 on
-// 127.0.0.1:55432, migrated with the backend's Drizzle migrations, pulling from
+// 127.0.0.1:55432 (55432 + n x 100 in test slot n), migrated with the backend's Drizzle migrations, pulling from
 // the LOCAL Supabase stack with the backend's pullConfig().
 //
 // Never initConfigSync() (it starts the 30 s poll timer, so node --test would
@@ -19,17 +19,20 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { createClient } from '@supabase/supabase-js'
 import { localEnv } from './stack.js'
+import { SCRATCH_PG_BASE_PORT, slotPort, testSlot } from './slot.js'
 import * as schema from '../../../backend/src/db/schema.js'
 import { pullConfig } from '../../../backend/src/sync/configSync.js'
 
-const SCRATCH_URL = process.env.SCRATCH_HOST_DATABASE_URL || 'postgres://leszyrun:leszyrun@127.0.0.1:55432/leszyrun'
+// 55432 in slot 0, 55432 + n x 100 in slot n (REG_TEST_SLOT).
+const SCRATCH_PORT = slotPort(SCRATCH_PG_BASE_PORT)
+const SCRATCH_URL = process.env.SCRATCH_HOST_DATABASE_URL || `postgres://leszyrun:leszyrun@127.0.0.1:${SCRATCH_PORT}/leszyrun`
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '../../../backend/src/db/migrations')
-const CONTAINER = 'leszyrun-hostpull-scratch'
+const CONTAINER = testSlot() === 0 ? 'leszyrun-hostpull-scratch' : `leszyrun-hostpull-scratch-s${testSlot()}`
 
 function assertScratch(url) {
   const u = new URL(url)
-  if (!['127.0.0.1', 'localhost'].includes(u.hostname) || u.port !== '55432') {
-    throw new Error(`Refusing to run: the scratch host must be 127.0.0.1:55432, got ${u.hostname}:${u.port}`)
+  if (!['127.0.0.1', 'localhost'].includes(u.hostname) || u.port !== String(SCRATCH_PORT)) {
+    throw new Error(`Refusing to run: the scratch host must be 127.0.0.1:${SCRATCH_PORT}, got ${u.hostname}:${u.port}`)
   }
 }
 
@@ -46,7 +49,7 @@ async function reachable(url) {
 }
 
 function startContainer() {
-  execFileSync('docker', ['run', '-d', '--rm', '--name', CONTAINER, '-p', '127.0.0.1:55432:5432',
+  execFileSync('docker', ['run', '-d', '--rm', '--name', CONTAINER, '-p', `127.0.0.1:${SCRATCH_PORT}:5432`,
     '-e', 'POSTGRES_USER=leszyrun', '-e', 'POSTGRES_PASSWORD=leszyrun', '-e', 'POSTGRES_DB=leszyrun',
     'postgres:16'], { stdio: 'ignore' })
 }

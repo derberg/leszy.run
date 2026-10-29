@@ -32,3 +32,6 @@ runs-backup.md
 supabase/.branches/
 supabase/.temp/
 tests/registration/test-results/
+
+# Test-stack slots made by scripts/test-slot.sh (generated config + symlinks)
+.supabase-slots/
