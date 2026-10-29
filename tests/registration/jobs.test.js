@@ -1,5 +1,5 @@
 // Plan 3, task 7: the payment window jobs (P-36…P-39h in docs/registration/scenario-matrix.md),
-// and task 11's heartbeats the scheduler's watchdog reads (P-55).
+// and task 11's heartbeats the registration-watchdog function reads (P-55; the watchdog itself: watchdog.test.js).
 //   pg_cron: expire_orders and release_orphan_orders every 5 min, registration-jobs every 15 min
 //            (pg_net → the function, both Vault secrets), purge_expired_registrations daily.
 //   registration-jobs: dpay check before expiry (M6), reminders, „Zgłoszenie wygasło”, lost
@@ -789,6 +789,7 @@ const HEARTBEAT_JOBS = {
   'registration-release-orphan-orders': 300,
   'registration-jobs': 900,
   'registration-purge-expired': 86400,
+  'registration-watchdog': 3600, // P3-R18, stamped by the watchdog when pg_cron calls it
 }
 
 async function heartbeat(job) {

@@ -234,6 +234,10 @@ entrypoint = "./functions/self-checkin/index.js"
 verify_jwt = false
 entrypoint = "./functions/registration-jobs/index.js"
 
+[functions.registration-watchdog]
+verify_jwt = false
+entrypoint = "./functions/registration-watchdog/index.js"
+
 [functions.update-event-payout]
 verify_jwt = false
 entrypoint = "./functions/update-event-payout/index.js"

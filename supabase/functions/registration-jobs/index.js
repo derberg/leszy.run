@@ -1,21 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
+import { sameSecret } from '../_shared/sameSecret.js'
 import { json, NOT_FOUND } from '../_shared/registration/registrationRequest.js'
 import { jobsSettings, runJobsAndBeat } from '../_shared/registration/jobsRun.js'
 
 // pg_cron POSTs here every 15 minutes through pg_net (job `registration-jobs`) with the header
 // x-jobs-secret = REGISTRATION_JOBS_SECRET; anything else gets 404, as if the function did not
 // exist (also when the secret is not configured). What a run does: _shared/registration/jobsRun.js.
-
-const encoder = new TextEncoder()
-async function sameSecret(given, expected) {
-  const [a, b] = await Promise.all([given, expected].map((s) => crypto.subtle.digest('SHA-256', encoder.encode(s))))
-  const x = new Uint8Array(a)
-  const y = new Uint8Array(b)
-  let diff = 0
-  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i]
-  return diff === 0
-}
 
 Deno.serve(async (req) => {
   const guard = guardRequest(req)

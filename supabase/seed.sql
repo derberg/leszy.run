@@ -32,7 +32,11 @@ UPDATE profiles SET club_id = '00000000-0000-4000-8000-0000000000c2' WHERE email
 -- tests/registration/functions.env. Production sets both once (docs/supabase-release-runbook.md).
 SELECT vault.create_secret('http://host.docker.internal:54321/functions/v1/registration-jobs', 'registration_jobs_url');
 SELECT vault.create_secret('local-registration-jobs-secret', 'registration_jobs_secret');
+-- P3-R18: the registration-watchdog cron call, the same way; the secret equals
+-- REGISTRATION_WATCHDOG_SECRET in tests/registration/functions.env.
+SELECT vault.create_secret('http://host.docker.internal:54321/functions/v1/registration-watchdog', 'registration_watchdog_url');
+SELECT vault.create_secret('local-registration-watchdog-secret', 'registration_watchdog_secret');
 -- The registration-* cron jobs stay defined but never fire on a local or CI stack: a test owns
--- the moment orders expire and the job runs (it calls expire_orders() and registration-jobs
--- itself). The seed never runs in production, where they stay active.
+-- the moment orders expire and the job runs (it calls expire_orders(), registration-jobs and
+-- registration-watchdog itself). The seed never runs in production, where they stay active.
 SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname LIKE 'registration-%';

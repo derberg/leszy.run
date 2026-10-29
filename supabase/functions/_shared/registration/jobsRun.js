@@ -31,8 +31,8 @@ import {
 //      hands out orders with that proof, with no unpaid transaction, or expired over 2 h ago
 //   7. lost confirmations (P3-R10): a paid order with no confirmation_sent_at 10 min after payment
 //   8. the operator digest again, for the alerts this run raised
-// A finished run stamps registration_job_heartbeats ('registration-jobs'); the scheduler
-// container alerts when that stamp is older than 3 runs (scheduler/src/registrationWatchdog.js).
+// A finished run stamps registration_job_heartbeats ('registration-jobs'); the
+// registration-watchdog function (hourly, P3-R18) alerts when that stamp is older than 3 runs.
 //
 // Every runner-facing item is claimed before it is acted on (claim_* RPCs: one UPDATE … WHERE
 // <stamp> IS NULL over rows locked SKIP LOCKED), so overlapping runs never send the same thing
@@ -85,7 +85,7 @@ export function jobsSettings(env) {
   return { cfg, dpayMissing: !cfg, site, alertTo }
 }
 
-/** One run, then the heartbeat the scheduler's watchdog reads (P3-R11). */
+/** One run, then the heartbeat the registration-watchdog function reads (P3-R11, P3-R18). */
 export async function runJobsAndBeat(admin, { cfg, site, alertTo }, { budgetMs } = {}) {
   const asked = Number(budgetMs)
   const budget = Number.isFinite(asked) ? Math.max(MIN_BUDGET_MS, Math.min(BUDGET_MS, asked)) : BUDGET_MS
