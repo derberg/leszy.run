@@ -176,7 +176,7 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
 
     const org = await offline(await actors.owner.newPage())
     await org.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/zgloszenia`)
-    await expect(org.getByTestId('registrations-counts')).toHaveText('0 opłaconych · 1 czeka na wpłatę')
+    await expect(org.getByTestId('registrations-counts')).toHaveText('0 opłaconych · 1 czeka na wpłatę · 50 wolnych miejsc')
     await expect(org.getByTestId('registration-payment')).toContainText('czeka na wpłatę do ')
 
     // P3-R8: the same buyer filling the form again lands on the unpaid order, not on a second one.
@@ -211,7 +211,7 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
 
     const org = await offline(await actors.owner.newPage())
     await org.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/zgloszenia`)
-    await expect(org.getByTestId('registrations-counts')).toHaveText('1 opłacone · 0 czeka na wpłatę')
+    await expect(org.getByTestId('registrations-counts')).toHaveText('1 opłacone · 0 czeka na wpłatę · 49 wolnych miejsc')
 
     await expect.poll(async () => (await messagesTo(runner.email)).map((m) => m.subject).join('|')).toMatch(/Opłacone — /)
 
@@ -269,7 +269,7 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
   })
 })
 
-test('P-50 an unpaid order expires: „Zgłoszenie wygasło”, the runner leaves the list, the slot comes back', async ({ actors }) => {
+test('P-50 an unpaid order expires: „Zgłoszenie wygasło”, the runner leaves the list; it never held a place (P3-R15)', async ({ actors }) => {
   const event = await createPublishedPaidEvent(owner, { competitions: [BIEG], prices: { 'Bieg 9 km': 6000 } })
   await clearMessages()
   const runner = { first: 'Iga', last: 'Spóźniona', email: runnerEmail('late') }
@@ -280,7 +280,7 @@ test('P-50 an unpaid order expires: „Zgłoszenie wygasło”, the runner leave
   await expect(page).toHaveURL(PAY_PAGE)
   const order = await orderOf(runner.email)
   const taken = async () => (await admin().from('competitions').select('taken').eq('category_id', event.categoryIds[0]).single()).data.taken
-  expect(await taken()).toBe(1)
+  expect(await taken()).toBe(0)
 
   // The window ran out (only this order's expiry moves: other tests' orders stay as they are),
   // and the job runs.
