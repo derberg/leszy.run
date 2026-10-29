@@ -75,6 +75,37 @@ describe('G-38 toRequest', () => {
     assert.equal('code' in body, false)
     assert.equal(toRequest(d, { consents: RAW.consents, today: TODAY, code: ' 123456 ' }).code, '123456')
   })
+  it('G-63 a group of one with no buyer sends Plan 3\'s body { categoryId, person }, so functions still on Plan 3 accept it (M-1)', () => {
+    let d = newDraft('c9')
+    d = updatePerson(d, d.cards[0].key, me)
+    const body = toRequest(d, { consents: RAW.consents, today: TODAY, code: ' 123456 ' })
+    assert.equal('people' in body, false)
+    assert.equal('buyer' in body, false)
+    assert.equal(body.categoryId, 'c9')
+    assert.deepEqual(body.person, {
+      firstName: 'Ola', lastName: 'Leśna', birthDate: '1988-03-01', gender: 'K', email: 'ola@x.pl', phone: '600100200',
+      city: me.city, club: me.club, iceName: me.iceName, icePhone: me.icePhone, nationality: me.nationality,
+    })
+    assert.deepEqual(body.acceptedConsentIds, ['k1', 'k2'])
+    assert.equal(body.serviceRegulamin, true)
+    assert.equal(body.code, '123456')
+  })
+  it('G-63 two people, or one person with „Nie startuję” (a buyer), send people[]', () => {
+    let d = newDraft('c9')
+    d = updatePerson(d, d.cards[0].key, me)
+    d = addPerson(d, { categoryId: 'c9' })
+    d = updatePerson(d, d.cards[1].key, partner)
+    const two = toRequest(d, { consents: RAW.consents, today: TODAY })
+    assert.equal('categoryId' in two, false)
+    assert.equal(two.people.length, 2)
+    let b = setNotRunning(newDraft('c9'), true)
+    b = updatePerson(b, b.cards[0].key, me)
+    b = updatePerson(b, b.cards[1].key, partner)
+    const bought = toRequest(b, { consents: RAW.consents, today: TODAY })
+    assert.equal('categoryId' in bought, false)
+    assert.equal(bought.people.length, 1)
+    assert.deepEqual(bought.buyer, { firstName: 'Ola', lastName: 'Leśna', email: 'ola@x.pl' })
+  })
   it('„Nie startuję” turns card 1 into `buyer` (imię, nazwisko, e-mail) and registers nobody for it', () => {
     const d = setNotRunning(family(), true)
     const body = toRequest(d, { consents: RAW.consents, today: TODAY })

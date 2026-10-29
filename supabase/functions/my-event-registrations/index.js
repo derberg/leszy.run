@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     if (!settings || settings.state === 'draft') return json({ error: 'Not found' }, 404, req)
 
     const regs = await allRows(() => admin.from('registrations')
-      .select('id, category_id, first_name, last_name, age_group_label, kids_group_id, status, created_at, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id')
+      .select('id, category_id, first_name, last_name, age_group_label, kids_group_id, status, created_at, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
       .eq('event_id', settings.event_id).eq('status', 'confirmed')
       .or(`profile_id.eq.${session.userId},registered_by_profile_id.eq.${session.userId}`)
       .order('created_at').order('id'))

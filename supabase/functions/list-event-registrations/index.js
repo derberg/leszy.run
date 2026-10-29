@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
+import { registrationRole } from '../_shared/registration/group.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -22,17 +23,9 @@ function paymentStatusOf(reg, order) {
   return order && order.total > 0 && reg.price > 0 ? 'paid' : 'free'
 }
 
-// A child's row always has a guardian: guardian_profile_id until the guardian deletes the account
-// (the contact purge keeps it), guardian_removed_at after. An added adult was registered by an
-// account that is not theirs, or still waits for their acceptance or was signed in the office:
-// delete-my-account nulls registered_by when the payer deletes their account, and only an added
-// adult is ever 'awaiting' or 'office'. Plan 2 and 3 rows (no registered_by) registered themselves.
-function roleOf(r) {
-  if (r.guardian_profile_id || r.guardian_removed_at) return 'minor'
-  if (r.registered_by_profile_id && r.profile_id !== r.registered_by_profile_id) return 'adult'
-  if (r.consent_state === 'awaiting' || r.consent_state === 'office') return 'adult'
-  return 'self'
-}
+// The role derivation is registrationRole's (group.js), shared with order-status and
+// my-event-registrations (final review M-2).
+const roleOf = registrationRole
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
 const ID_CHUNK = 100

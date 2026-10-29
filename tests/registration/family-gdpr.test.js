@@ -10,10 +10,12 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
-import { sessionFor } from './helpers/stack.js'
-import { acceptAgreement, callFn, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
-import { attemptFor, confirmOk, db, one, rows, runnerEmail } from './helpers/orders.js'
-import { BIEG, DZIECI, adult, groupMeta, minor, orderGroupOk } from './helpers/groups.js'
+import { createClient } from '@supabase/supabase-js'
+import { localEnv, sessionFor } from './helpers/stack.js'
+import { acceptAgreement, callFn, createPublishedFreeEvent, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
+import { attemptFor, confirmOk, consentIds, db, one, profileFor, rows, rpc, runnerEmail } from './helpers/orders.js'
+import { BIEG, DZIECI, adult, groupMeta, minor, orderGroupOk, registerGroup } from './helpers/groups.js'
+import { buildResultsSnapshot } from '../../public/src/lib/resultsSnapshot.js'
 
 let owner
 before(async () => {
@@ -191,4 +193,115 @@ test('G-61 the added adult deletes the account: the consent request goes, the en
   // A reminder now finds nothing to send.
   const remind = await callFn('remind-consent', f.payer, { registrationId: f.ids.adult })
   assert.notEqual(remind.status, 200, JSON.stringify(remind.body))
+})
+
+// ---------------------------------------------------------------- final review I-1, I-2, M-3
+
+const anon = () => {
+  const { url, anonKey } = localEnv()
+  return createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+}
+
+/** A free group: the payer (self) and the given added adults and children. → { event, payer, payerEmail, regs } */
+async function freeGroup(extra, { self = true, buyerName = 'Ola Leśna' } = {}) {
+  const event = await createPublishedFreeEvent(owner, { competitions: [BIEG(), DZIECI()] })
+  const [bieg, dzieci] = event.categoryIds
+  const payerEmail = runnerEmail('free-payer')
+  const payer = await sessionFor(payerEmail)
+  const people = [
+    ...(self ? [adult(bieg, 'self', payerEmail, { firstName: 'Ola', lastName: 'Leśna' })] : []),
+    ...extra({ bieg, dzieci }),
+  ]
+  const r = await registerGroup(event, people, { profileId: payer.profileId, meta: await groupMeta(event.eventId, { buyerName }) })
+  assert.equal(r.error, null, r.error?.message)
+  return { event, payer, payerEmail, regs: r.data.registrations }
+}
+
+test('G-64 an added adult awaiting consent is not in participants_public (read as anon) nor in the results snapshot; accepted or signed in the office, they are (final review I-1)', async () => {
+  const anna = runnerEmail('anna')
+  const piotr = runnerEmail('piotr')
+  const f = await freeGroup(({ bieg }) => [
+    adult(bieg, 'adult', anna, { firstName: 'Anna', lastName: 'Wrzosowa' }),
+    adult(bieg, 'adult', piotr, { firstName: 'Piotr', lastName: 'Borowy', gender: 'M', ageGroupLabel: 'M open' }),
+  ])
+  const byEmail = async (email) => one('registrations', { email })
+  const annaReg = await byEmail(anna)
+  const piotrReg = await byEmail(piotr)
+  const selfReg = await byEmail(f.payerEmail)
+  assert.ok(annaReg.participant_id && piotrReg.participant_id, 'the participant rows exist (the timing host needs them)')
+  assert.equal((await one('participants', { id: piotrReg.participant_id })).first_name, 'Piotr')
+  // The registration categories are timed, so the results page would show them.
+  await db().from('categories').update({ untimed: false }).in('id', f.event.categoryIds)
+
+  const publicIds = async () => {
+    const { data, error } = await anon().from('participants_public').select('id, first_name')
+      .in('category_id', f.event.categoryIds)
+    assert.equal(error, null, error?.message)
+    return data.map((p) => p.id).sort()
+  }
+  const snapshotNames = async () => {
+    const snap = await buildResultsSnapshot(anon(), f.event.eventId)
+    return snap.participants.map((p) => p.first_name).sort()
+  }
+
+  assert.deepEqual(await publicIds(), [selfReg.participant_id].sort(), 'before acceptance: only the payer')
+  assert.deepEqual(await snapshotNames(), ['Ola'])
+
+  // Anna accepts through her link.
+  const { newToken } = await import('../../supabase/functions/_shared/registration/tokens.js')
+  const t = await newToken()
+  assert.equal((await rpc('issue_consent_request', { p_registration_id: annaReg.id, p_token_hash: t.hash })).data, true)
+  const accepted = await rpc('accept_consent_request', {
+    p_token_hash: t.hash, p_profile_id: await profileFor(anna), p_edits: null,
+    p_meta: { consentIds: await consentIds(f.event.eventId), ip: '198.51.100.7', userAgent: 'g64' },
+  })
+  assert.equal(accepted.error, null, accepted.error?.message)
+  assert.deepEqual(await publicIds(), [selfReg.participant_id, annaReg.participant_id].sort())
+  assert.deepEqual(await snapshotNames(), ['Anna', 'Ola'])
+
+  // Piotr signs in the office.
+  const office = await callFn('mark-consent-office', owner, { registrationId: piotrReg.id })
+  assert.equal(office.status, 200, JSON.stringify(office.body))
+  assert.deepEqual(await publicIds(), [selfReg.participant_id, annaReg.participant_id, piotrReg.participant_id].sort())
+  assert.deepEqual(await snapshotNames(), ['Anna', 'Ola', 'Piotr'])
+})
+
+test('G-65 export-my-data on a free group: an added adult\'s registered_by names the payer by their own entry, or by the guardian name the children carry (final review I-2)', async () => {
+  const piotr = runnerEmail('free-piotr')
+  await freeGroup(({ bieg }) => [adult(bieg, 'adult', piotr, { firstName: 'Piotr', lastName: 'Borowy', gender: 'M', ageGroupLabel: 'M open' })])
+  const his = await callFn('export-my-data', await sessionFor(piotr), {})
+  assert.equal(his.status, 200, JSON.stringify(his.body))
+  assert.deepEqual(his.body.registrations.map((r) => r.registered_by), [{ name: 'Ola Leśna' }])
+
+  // „Nie startuję”: the payer has no entry; the name they typed is on the child's guardian fields.
+  const marta = runnerEmail('free-marta')
+  await freeGroup(({ bieg, dzieci }) => [
+    adult(bieg, 'adult', marta, { firstName: 'Marta', lastName: 'Borowa' }),
+    minor(dzieci, { firstName: 'Zosia', lastName: 'Kowalska' }),
+  ], { self: false, buyerName: 'Jan Kowalski' })
+  const hers = await callFn('export-my-data', await sessionFor(marta), {})
+  assert.equal(hers.status, 200, JSON.stringify(hers.body))
+  assert.deepEqual(hers.body.registrations.map((r) => r.registered_by), [{ name: 'Jan Kowalski' }])
+})
+
+test('G-66 a guardian deletes the account: the child\'s phone goes when it is the guardian\'s own, a phone typed for the child stays (final review M-3)', async () => {
+  const f = await freeGroup(({ dzieci }) => [
+    minor(dzieci, { firstName: 'Zosia', lastName: 'Leśna', phone: '+48500100200' }),
+    minor(dzieci, { firstName: 'Kuba', lastName: 'Leśny', birthDate: '2015-02-02', gender: 'M', ageGroupLabel: 'M dzieci', phone: '+48511222333' }),
+  ])
+  const kids = (await rows('registrations', { event_id: f.event.eventId })).filter((r) => r.guardian_profile_id)
+  const zosia = kids.find((r) => r.first_name === 'Zosia')
+  const kuba = kids.find((r) => r.first_name === 'Kuba')
+  assert.equal(zosia.phone, '+48500100200', 'prefilled from the payer (D4-26)')
+  assert.equal((await one('participants', { id: zosia.participant_id })).phone, '+48500100200')
+
+  await deleteAccount(f.payerEmail, f.payer)
+
+  const z = await one('registrations', { id: zosia.id })
+  assert.equal(z.phone, null, 'the deleted guardian\'s number is gone from the child')
+  assert.equal(z.first_name, 'Zosia', 'the entry stays')
+  assert.equal((await one('participants', { id: zosia.participant_id })).phone, null)
+  const k = await one('registrations', { id: kuba.id })
+  assert.equal(k.phone, '+48511222333', 'a number typed for the child is the child\'s')
+  assert.equal((await one('participants', { id: kuba.participant_id })).phone, '+48511222333')
 })

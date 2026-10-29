@@ -1,7 +1,7 @@
 // POST { token, acceptedConsentIds, shownConsentIds?, serviceRegulamin, edits? } — the added
 // adult accepts the regulamin (Plan 4). Needs a session whose address is the registration's
-// (consent-request's code opens one); the payer's session is not enough. consent-token:<hash>
-// 30/h, shared with consent-request.
+// (consent-request's code opens one); the payer's session is not enough. consent-ip:<ip> 30/h and
+// consent-token:<hash> 30/h, both shared with consent-request.
 //
 // The boxes (review I1): acceptedConsentIds are the ticked ones, shownConsentIds the ones the page
 // displayed (optional; without it the ticked set stands for it). A shown set that is not the
@@ -38,8 +38,8 @@ import { ADULT_AGE, validatePerson } from '../_shared/registration/person.js'
 import { ageOn } from '../_shared/registration/ageGroups.js'
 import { warsawToday } from '../_shared/registration/dates.js'
 import {
-  EDITS_CLOSED, GONE_ENTRY, GONE_LINK, loadByToken, personContext, personOf, sessionMatches, throttled, TOKEN_LIMIT,
-  tokenHash, WRONG_SESSION,
+  EDITS_CLOSED, GONE_ENTRY, GONE_LINK, IP_LIMIT, ipKey, loadByToken, personContext, personOf, sessionMatches, throttled,
+  TOKEN_LIMIT, tokenHash, WRONG_SESSION,
 } from '../_shared/registration/consentAccess.js'
 
 const EDITABLE = ['firstName', 'lastName', 'phone', 'city', 'club', 'iceName', 'icePhone', 'nationality', 'birthDate', 'gender']
@@ -108,7 +108,12 @@ Deno.serve(async (req) => {
   let registrationId = null
   try {
     const hash = await tokenHash(body?.token)
-    const limited = await throttled(admin, req, [{ key: `consent-token:${hash}`, limit: TOKEN_LIMIT }])
+    // consent-ip:<ip> is consent-request's counter too (final review M-5): one per-IP budget for the page.
+    const ipThrottle = ipKey(req)
+    const limited = await throttled(admin, req, [
+      ...(ipThrottle ? [{ key: ipThrottle, limit: IP_LIMIT }] : []),
+      { key: `consent-token:${hash}`, limit: TOKEN_LIMIT },
+    ])
     if (limited) return limited
 
     const found = await loadByToken(admin, req, body?.token, hash, { strict: false })

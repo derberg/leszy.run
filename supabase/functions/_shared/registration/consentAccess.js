@@ -58,6 +58,9 @@ export async function throttled(admin, req, limits) {
   return null
 }
 
+/** consent-ip:<ip> per hour, one counter for consent-request and accept-consent (final review M-5). */
+export const IP_LIMIT = 30
+
 export const ipKey = (req) => {
   const ip = clientIp(req)
   return ip ? `consent-ip:${ip}` : null

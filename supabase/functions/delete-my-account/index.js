@@ -14,6 +14,14 @@ async function sha256hex(text) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
+// A phone number compared as digits with its leading +: „+48 500-100-200” and „+48500100200” match.
+const phoneKey = (v) => {
+  const s = typeof v === 'string' ? v.trim() : ''
+  if (!s) return null
+  const digits = s.replace(/\D/g, '')
+  return digits ? (s.startsWith('+') ? '+' : '') + digits : null
+}
+
 function json(body, status, req, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -218,7 +226,7 @@ Deno.serve(async (req) => {
     // Get profile (need email BEFORE we null it)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('id, email')
+      .select('id, email, phone')
       .eq('id', session.userId)
       .is('deleted_at', null)
       .single()
@@ -303,12 +311,19 @@ Deno.serve(async (req) => {
     // person goes, and the consent acceptances lose the device traces (ip,
     // user_agent) while the acceptance itself stays as the record.
     const regIds = new Set()
+    // The person's own phone numbers, read before they are nulled: step 1c clears a child's phone
+    // that is one of them (the group form prefills the child's phone from the guardian's, D4-26).
+    const ownPhones = new Set([phoneKey(profile.phone)].filter(Boolean))
     const runnerKeys = [['profile_id', profile.id]]
     if (originalEmail) runnerKeys.push(['email', originalEmail])
     for (const [column, value] of runnerKeys) {
-      const { data: found, error: findErr } = await supabaseAdmin.from('registrations').select('id').eq(column, value)
+      const { data: found, error: findErr } = await supabaseAdmin.from('registrations').select('id, phone').eq(column, value)
       if (findErr) console.error('delete-my-account: registrations lookup failed:', column, findErr.message)
-      for (const r of found ?? []) regIds.add(r.id)
+      for (const r of found ?? []) {
+        regIds.add(r.id)
+        const k = phoneKey(r.phone)
+        if (k) ownPhones.add(k)
+      }
     }
     if (regIds.size > 0) {
       const ids = [...regIds]
@@ -343,6 +358,38 @@ Deno.serve(async (req) => {
     // their device traces.
     const guardianKeys = [['guardian_profile_id', profile.id]]
     if (originalEmail) guardianKeys.push(['guardian_email', originalEmail])
+    // A child's phone that is the guardian's own number is the guardian's data (final review
+    // M-3): it goes from the entry and from its participant; a number typed for the child stays.
+    if (ownPhones.size > 0) {
+      const childIds = new Set()
+      const participantIds = new Set()
+      for (const [column, value] of guardianKeys) {
+        const { data: kids, error: kErr } = await supabaseAdmin.from('registrations')
+          // A child's row has no e-mail (Plan 4: a minor never has one); a row with its own
+          // address is a person who gave their own number, even when it is the same one.
+          .select('id, phone, participant_id').eq(column, value).is('email', null).not('phone', 'is', null)
+        if (kErr) console.error('delete-my-account: guardian phone lookup failed:', column, kErr.message)
+        for (const k of kids ?? []) {
+          if (!ownPhones.has(phoneKey(k.phone))) continue
+          childIds.add(k.id)
+          if (k.participant_id) participantIds.add(k.participant_id)
+        }
+      }
+      if (childIds.size > 0) {
+        const { error: cpErr } = await supabaseAdmin.from('registrations').update({ phone: null }).in('id', [...childIds])
+        if (cpErr) console.error('delete-my-account: child phone cleanup failed:', cpErr.message)
+      }
+      if (participantIds.size > 0) {
+        const { data: parts, error: pErr } = await supabaseAdmin.from('participants')
+          .select('id, phone').in('id', [...participantIds])
+        if (pErr) console.error('delete-my-account: child participant lookup failed:', pErr.message)
+        const same = (parts ?? []).filter((x) => ownPhones.has(phoneKey(x.phone))).map((x) => x.id)
+        if (same.length > 0) {
+          const { error: ppErr } = await supabaseAdmin.from('participants').update({ phone: null }).in('id', same)
+          if (ppErr) console.error('delete-my-account: child participant phone cleanup failed:', ppErr.message)
+        }
+      }
+    }
     for (const [column, value] of guardianKeys) {
       const { error: gErr } = await supabaseAdmin.from('registrations')
         // guardian_removed_at is the organizer's „kontakt opiekuna usunięty” (D4-25): the 30-day

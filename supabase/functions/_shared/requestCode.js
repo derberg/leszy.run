@@ -15,9 +15,36 @@ async function sha256hex(text) {
 
 const fail = (status, error, extra = {}) => ({ ok: false, status, error, ...extra })
 
-/** The login e-mail: the code, and a link to /login that signs in with one click. */
+/**
+ * The login e-mail: the code, and a link to /login that signs in with one click. With no
+ * `magicLink` (null) the e-mail carries the code only, for a page that waits for the code typed
+ * into it (the consent page: a link would open a new tab without the page's state and spend the
+ * code, final review M-4).
+ */
 export function loginCodeEmail(code, magicLink) {
-  const plainText = `Twój kod logowania do Leszy.run:\n\n${code}\n\nLub kliknij ten link, aby zalogować się od razu:\n${magicLink}\n\nKod jest ważny przez 10 minut. Jeśli to nie Ty, zignoruj tę wiadomość.\n\nLeszy.run — kalendarz biegów w Polsce\nhttps://www.leszy.run`
+  const linkText = magicLink ? `\n\nLub kliknij ten link, aby zalogować się od razu:\n${magicLink}` : ''
+  const validity = magicLink ? 'Kod jest ważny przez 10 minut.' : 'Wpisz go na stronie, która o niego prosi. Kod jest ważny przez 10 minut.'
+  const plainText = `Twój kod logowania do Leszy.run:\n\n${code}${linkText}\n\n${validity} Jeśli to nie Ty, zignoruj tę wiadomość.\n\nLeszy.run — kalendarz biegów w Polsce\nhttps://www.leszy.run`
+  const linkRow = magicLink ? `
+      <tr>
+        <td align="center" style="padding:24px 32px 8px 32px;">
+          <p style="margin:0 0 12px 0;font-size:13px;line-height:1.5;color:#525266;">
+            Albo zaloguj się jednym kliknięciem:
+          </p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td align="center" style="background:#BBDD00;">
+                <a href="${magicLink}" style="display:inline-block;padding:14px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#0A0A10;text-decoration:none;">
+                  Zaloguj się
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>` : ''
+  const validityHtml = magicLink
+    ? 'Kod i link są ważne przez <strong style="color:#1a1a28;">10 minut</strong>.'
+    : 'Wpisz go na stronie, która o niego prosi. Kod jest ważny przez <strong style="color:#1a1a28;">10 minut</strong>.'
   const html = `<!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -56,26 +83,11 @@ export function loginCodeEmail(code, magicLink) {
           </table>
         </td>
       </tr>
-      <tr>
-        <td align="center" style="padding:24px 32px 8px 32px;">
-          <p style="margin:0 0 12px 0;font-size:13px;line-height:1.5;color:#525266;">
-            Albo zaloguj się jednym kliknięciem:
-          </p>
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td align="center" style="background:#BBDD00;">
-                <a href="${magicLink}" style="display:inline-block;padding:14px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#0A0A10;text-decoration:none;">
-                  Zaloguj się
-                </a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
+${linkRow}
       <tr>
         <td style="padding:24px 32px 8px 32px;">
           <p style="margin:0;font-size:14px;line-height:1.6;color:#525266;">
-            Kod i link są ważne przez <strong style="color:#1a1a28;">10 minut</strong>.
+            ${validityHtml}
           </p>
         </td>
       </tr>
@@ -107,12 +119,12 @@ export function loginCodeEmail(code, magicLink) {
 
 /**
  * @param {object} supabaseAdmin
- * @param {{ email: string, ip?: string|null, linkBase: string, from?: string|null }} args
+ * @param {{ email: string, ip?: string|null, linkBase: string, from?: string|null, link?: boolean }} args
  *   email is already validated; linkBase is the site the magic link points at; from an internal
- *   path (sanitised by the caller) the login page goes on to.
+ *   path (sanitised by the caller) the login page goes on to; link: false sends the code only.
  * @returns {Promise<{ ok: true } | { ok: false, status: number, error: string, code?: string, retryAfterSec?: number }>}
  */
-export async function requestLoginCode(supabaseAdmin, { email, ip = null, linkBase, from = null }) {
+export async function requestLoginCode(supabaseAdmin, { email, ip = null, linkBase, from = null, link = true }) {
   const normalizedEmail = String(email).toLowerCase().trim()
 
   // A deleted account's address is retired for good — say so plainly instead
@@ -153,7 +165,7 @@ export async function requestLoginCode(supabaseAdmin, { email, ip = null, linkBa
 
   if (emailConfigured()) {
     const fromQs = from ? `&from=${encodeURIComponent(from)}` : ''
-    const magicLink = `${linkBase}/login?email=${encodeURIComponent(normalizedEmail)}&code=${code}${fromQs}`
+    const magicLink = link ? `${linkBase}/login?email=${encodeURIComponent(normalizedEmail)}&code=${code}${fromQs}` : null
     await sendEmail({ to: normalizedEmail, ...loginCodeEmail(code, magicLink), fromName: 'Łukasz z LESZY.RUN' })
   } else {
     console.warn('No email transport configured — email not sent (code stored in DB)')

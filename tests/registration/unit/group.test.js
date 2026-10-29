@@ -1,7 +1,7 @@
 // Plan 4, task 1: G-01…G-05, the group rules (roles, guardian rule, in-group duplicates).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeGroupRequest, validateGroup } from '../../../supabase/functions/_shared/registration/group.js'
+import { normalizeGroupRequest, registrationRole, validateGroup } from '../../../supabase/functions/_shared/registration/group.js'
 import { warsawToday } from '../../../supabase/functions/_shared/registration/dates.js'
 
 // 2026-10-28 10:00 in Warsaw.
@@ -147,4 +147,19 @@ test('G-05 a session with a minor-only group and a buyer: ok, the buyer pays', (
 test('G-01 a self whose own fields fail gets no buyer error on top', () => {
   const r = validateGroup({ people: [entry({ phone: '' })], buyer: null }, { sessionEmail: 'ola@example.pl', competitions, now: NOW })
   assert.deepEqual(r.errors, { 0: { phone: 'Podaj numer telefonu.' } })
+})
+
+test('G-62 registrationRole agrees with the organizer view: guardian_removed_at keeps a child a minor after the purge, awaiting/office keep an added adult', () => {
+  const payer = 'p1'
+  // A child whose guardian deleted the account, past the 30-day contact purge: every guardian
+  // field is null, only the stamp is left (final review M-2).
+  assert.equal(registrationRole({ profile_id: null, registered_by_profile_id: null, guardian_name: null, guardian_profile_id: null, guardian_removed_at: '2026-10-01T00:00:00Z' }), 'minor')
+  assert.equal(registrationRole({ guardian_profile_id: payer, registered_by_profile_id: payer }), 'minor')
+  // An added adult whose payer deleted the account (registered_by nulled) is still an added adult.
+  assert.equal(registrationRole({ profile_id: null, registered_by_profile_id: null, consent_state: 'awaiting' }), 'adult')
+  assert.equal(registrationRole({ profile_id: null, registered_by_profile_id: null, consent_state: 'office' }), 'adult')
+  assert.equal(registrationRole({ profile_id: 'a1', registered_by_profile_id: payer, consent_state: 'accepted' }), 'adult')
+  // The payer's own row, and a Plan 2–3 row.
+  assert.equal(registrationRole({ profile_id: payer, registered_by_profile_id: payer, consent_state: 'accepted' }), 'self')
+  assert.equal(registrationRole({ profile_id: payer, registered_by_profile_id: null, consent_state: 'accepted' }), 'self')
 })

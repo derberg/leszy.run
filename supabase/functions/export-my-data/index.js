@@ -2,6 +2,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { registeredByNames } from '../_shared/registration/registeredBy.js'
 
 const POLICY_VERSION = '2026-06-04'
 
@@ -206,30 +207,33 @@ Deno.serve(async (req) => {
 
   const ownRegs = [...new Map([...registrationsByProfile, ...registrationsByEmail].map((r) => [r.id, r])).values()]
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
-  // Rows registered by another account: the name that buyer typed on the order is the source of
-  // the data. Read by order id; the buyer's own rows and their order stay out of this export.
-  // An added adult's row always has a consent request; registered_by_profile_id alone is not
-  // enough, because delete-my-account nulls it when the buyer deletes their account.
+  // Rows registered by another account: who that was is the source of the data (Art. 14(2)(f)),
+  // named by registeredByNames, the consent e-mail's rule (final review I-2): the name the buyer
+  // typed on the order, else (a free group has no order) the buyer's own entry, the guardian name
+  // their children carry, the display name. The buyer's own rows and their order stay out of this
+  // export. An added adult's row always has a consent request; registered_by_profile_id alone is
+  // not enough, because delete-my-account nulls it when the buyer deletes their account.
   const consentRequestOf = (r) => (Array.isArray(r.consent_requests) ? r.consent_requests[0] : r.consent_requests) ?? null
   const addedBySomebody = (r) => (r.registered_by_profile_id && r.registered_by_profile_id !== userId) || consentRequestOf(r) != null
   const byOthers = ownRegs.filter(addedBySomebody)
-  const sourceOrderIds = [...new Set(byOthers.map((r) => r.order_id).filter(Boolean))]
-  const buyerNames = new Map()
-  if (sourceOrderIds.length > 0) {
-    const { data, error } = await supabaseAdmin.from('orders').select('id, buyer_name').in('id', sourceOrderIds)
-    if (error) console.error('export-my-data: buyer names failed:', error.message)
-    for (const o of data ?? []) buyerNames.set(o.id, o.buyer_name?.trim() || null)
+  let registeredBy = () => null
+  if (byOthers.length > 0) {
+    try {
+      registeredBy = await registeredByNames(supabaseAdmin, byOthers)
+    } catch (err) {
+      console.error('export-my-data: registered_by names failed:', err?.message)
+    }
   }
   const registrations = ownRegs
     .map((row) => {
-      const { registration_settings: rs, consent_requests: _cr, order_id: orderId, registered_by_profile_id: _by, ...r } = row
+      const { registration_settings: rs, consent_requests: _cr, order_id: _order, registered_by_profile_id: _by, ...r } = row
       return {
         ...r,
         event_name: rs?.name ?? null,
         event_date: rs?.event_date ?? null,
-        // null: the person registered themself. Otherwise { name }: the name is null when the
-        // buyer typed none or deleted their account (delete-my-account nulls buyer_name).
-        registered_by: addedBySomebody(row) ? { name: buyerNames.get(orderId) ?? null } : null,
+        // null: the person registered themself. Otherwise { name }: the name is null when nothing
+        // names the buyer any more (they deleted their account: registered_by and buyer_name go).
+        registered_by: addedBySomebody(row) ? { name: registeredBy(row) } : null,
         consent_request: consentRequestOf(row),
       }
     })

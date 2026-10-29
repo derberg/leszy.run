@@ -15,6 +15,7 @@
 import { sendEmail } from '../email.js'
 import { newToken } from './tokens.js'
 import { consentRequestEmail } from './emails.js'
+import { registeredByNames } from './registeredBy.js'
 
 async function rows(query) {
   const { data, error } = await query
@@ -41,49 +42,6 @@ export const consentLink = (site, token) => `${site}/zgoda#${token}`
 export const dataInfoUrl = (site, slug) => `${site}/events/${encodeURIComponent(slug)}/informacja-o-danych`
 
 const REG_COLUMNS = 'id, event_id, category_id, order_id, first_name, email, status, consent_state, registered_by_profile_id'
-
-/**
- * Who provided the added adult's data, for the e-mail → (registration) → name | null, in this
- * order: the name the buyer typed for the registration's order (m-1), the buyer's own live entry
- * in the event (the latest one), the guardian name their children carry, the account's display
- * name. Never the address: a null reads „Inna osoba” in the e-mail. Cancelled and expired entries
- * are not read (m-6).
- */
-async function registeredByNames(admin, regs) {
-  const ids = [...new Set(regs.map((r) => r.registered_by_profile_id).filter(Boolean))]
-  const orderIds = [...new Set(regs.map((r) => r.order_id).filter(Boolean))]
-  const events = [...new Set(regs.map((r) => r.event_id))]
-  const [orders, own, kids, profiles] = await Promise.all([
-    orderIds.length ? rows(admin.from('orders').select('id, buyer_name').in('id', orderIds)) : [],
-    ids.length
-      ? rows(admin.from('registrations').select('profile_id, first_name, last_name')
-        .in('event_id', events).in('profile_id', ids).in('status', ['confirmed', 'pending_payment'])
-        .order('created_at', { ascending: false }).order('id'))
-      : [],
-    ids.length
-      ? rows(admin.from('registrations').select('guardian_profile_id, guardian_name')
-        .in('event_id', events).in('guardian_profile_id', ids).in('status', ['confirmed', 'pending_payment'])
-        .not('guardian_name', 'is', null).order('created_at', { ascending: false }).order('id'))
-      : [],
-    ids.length ? rows(admin.from('profiles').select('id, display_name').in('id', ids)) : [],
-  ])
-  const byOrder = new Map(orders.filter((o) => o.buyer_name?.trim()).map((o) => [o.id, o.buyer_name.trim()]))
-  const byProfile = new Map()
-  // Lowest precedence first; a later set overrides. Within a list the first row (the latest) wins.
-  for (const p of profiles) if (p.display_name?.trim()) byProfile.set(p.id, p.display_name.trim())
-  const firstOf = (list, key, name) => {
-    const seen = new Set()
-    for (const x of list) {
-      const n = name(x)
-      if (!n || seen.has(x[key])) continue
-      seen.add(x[key])
-      byProfile.set(x[key], n)
-    }
-  }
-  firstOf(kids, 'guardian_profile_id', (k) => k.guardian_name?.trim())
-  firstOf(own, 'profile_id', (o) => `${o.first_name ?? ''} ${o.last_name ?? ''}`.trim())
-  return (r) => byOrder.get(r.order_id) ?? byProfile.get(r.registered_by_profile_id) ?? null
-}
 
 /** Everything the e-mails of `regs` need besides the token: → (registration) → mail builder. */
 async function mailContext(admin, regs, { registeredBy = null, site = null } = {}) {

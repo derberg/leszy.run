@@ -434,7 +434,7 @@ test('G-47 RA4 1440 px (I-1): a single paid runner whose competition fills stays
   expect(error).toBeNull()
   await page.getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
-  await expect(page.getByRole('alert')).toHaveText('Brak wolnych miejsc w konkurencji Bieg 9 km.')
+  await expect(page.getByRole('alert')).toHaveText('Brak wolnych miejsc w tej konkurencji.')
   await expect(page.getByTestId('checkout')).toBeVisible()
   await expect(page.getByTestId('registration-form')).toHaveCount(0)
   expect(await ordersOf(event.eventId)).toEqual([])

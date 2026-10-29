@@ -646,3 +646,36 @@ test('G-36 nits: consentEmailsResent counts e-mails sent, not claims; the consen
   const short = await jobsInProcess(db(), { budgetMs: 5_000 })
   assert.ok(short.deferred.includes('consent_reminders'), JSON.stringify(short))
 })
+
+// ---------------------------------------------------------------- final review M-4, M-5
+
+test('G-67 the code e-mail requested from the consent page carries the code and no login link (final review M-4)', async () => {
+  await resetThrottle()
+  const ctx = await awaitingAdult()
+  assert.equal((await call('consent-request', { token: ctx.token, sendCode: true })).status, 200)
+  const [mail] = await waitForMail(ctx.email, 1, (m) => /^\d{6} — /.test(m.subject))
+  assert.ok(mail, 'a code e-mail went out')
+  const code = mail.subject.slice(0, 6)
+  assert.ok(mail.text.includes(code))
+  assert.ok(!/\/login\?/.test(mail.text), 'no magic link in the text: it would open a tab without the token and spend the code')
+  assert.ok(!/\/login\?/.test(mail.html ?? ''), 'no magic link in the HTML either')
+  // The code still works on the page.
+  const ok = await call('consent-request', { token: ctx.token, code })
+  assert.equal(ok.status, 200, JSON.stringify(ok.body))
+  assert.ok(ok.body.data.person)
+})
+
+test('G-68 accept-consent counts per IP like consent-request: the 31st call from one IP in an hour → 429 (final review M-5)', async () => {
+  await resetThrottle()
+  const from = `203.0.113.${crypto.randomInt(1, 255)}`
+  for (let i = 0; i < 30; i++) {
+    const r = await call('accept-consent', { token: (await newToken()).token }, { from })
+    assert.notEqual(r.status, 429, `call ${i + 1}: ${JSON.stringify(r.body)}`)
+  }
+  const capped = await call('accept-consent', { token: (await newToken()).token }, { from })
+  assert.equal(capped.status, 429, JSON.stringify(capped.body))
+  assert.equal(capped.body.code, 'throttled')
+  // The counter is the consent page's: consent-request from that IP is capped too.
+  const read = await call('consent-request', { token: (await newToken()).token }, { from })
+  assert.equal(read.status, 429)
+})

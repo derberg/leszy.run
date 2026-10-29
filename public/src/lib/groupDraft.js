@@ -140,9 +140,8 @@ const PERSON_KEYS = ['firstName', 'lastName', 'birthDate', 'gender', 'email', 'p
 /** Card index of request person `i` (people[] skips card 1 with „Nie startuję”). */
 const cardIndexOf = (draft, i) => i + (draft.notRunning ? 1 : 0)
 
-/** The register-free / create-order body (create-order adds the support choice and total). */
-export function toRequest(draft, { consents, code, today } = {}) {
-  const day = dayOf(today)
+/** people[] of the request: every card but card 1 under „Nie startuję”, each with its own competition. */
+function requestPeople(draft, day) {
   const people = []
   draft.cards.forEach((c, i) => {
     if (i === 0 && draft.notRunning) return
@@ -155,7 +154,21 @@ export function toRequest(draft, { consents, code, today } = {}) {
     }
     people.push(minor ? { categoryId: c.categoryId, person, guardianConsent: c.guardianConsent === true } : { categoryId: c.categoryId, person })
   })
-  const body = { people, acceptedConsentIds: (consents ?? []).map((k) => k.id), serviceRegulamin: true }
+  return people
+}
+
+/**
+ * The register-free / create-order body (create-order adds the support choice and total).
+ * A group of one with no buyer is sent as Plan 3's `{ categoryId, person }` (final review M-1):
+ * the functions read it as a group of one with the same answers, and the functions still in
+ * production while Vercel deploys ahead of `supabase functions deploy` read nothing else.
+ */
+export function toRequest(draft, { consents, code, today } = {}) {
+  const people = requestPeople(draft, dayOf(today))
+  const shared = { acceptedConsentIds: (consents ?? []).map((k) => k.id), serviceRegulamin: true }
+  const body = people.length === 1 && !draft.notRunning
+    ? { categoryId: people[0].categoryId, person: people[0].person, ...shared }
+    : { people, ...shared }
   if (draft.notRunning) {
     const b = draft.cards[0].person
     body.buyer = { firstName: b.firstName, lastName: b.lastName, email: b.email }
@@ -176,7 +189,7 @@ export function claimedEmail(draft) {
  */
 export function checkDraft(draft, { contexts, now = new Date() }) {
   const body = toRequest(draft, { today: now })
-  const r = validateGroup({ people: body.people, buyer: body.buyer ?? null }, {
+  const r = validateGroup({ people: requestPeople(draft, dayOf(now)), buyer: body.buyer ?? null }, {
     sessionEmail: claimedEmail(draft).trim().toLowerCase() || null, competitions: contexts, now,
   })
   const errors = {}

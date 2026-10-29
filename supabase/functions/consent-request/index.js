@@ -7,7 +7,7 @@
 //       competition: { categoryId, name, startTime }, firstName, emailHint } } (emailHint:
 //       p***@g***.com, consentAccess.js)
 //   sendCode: true → a login code to the REGISTRATION's address (_shared/requestCode.js: its
-//       per-address and per-IP limits); the client never names an address. Same answer, plus
+//       per-address and per-IP limits), the code only, with no login link; the client never names an address. Same answer, plus
 //       codeSent: true. A retired address → 403 email_retired.
 //   code → verifyCodeAndOpenSession for the registration's address (a new account when there is
 //       none), the session cookie set, then the full answer.
@@ -27,10 +27,9 @@ import { requestLoginCode } from '../_shared/requestCode.js'
 import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from '../_shared/deletedEmails.js'
 import { json } from '../_shared/registration/registrationRequest.js'
 import {
-  emailHint, ipKey, loadByToken, personContext, personOf, sessionMatches, throttled, TOKEN_LIMIT, tokenHash, TOO_MANY,
+  emailHint, IP_LIMIT, ipKey, loadByToken, personContext, personOf, sessionMatches, throttled, TOKEN_LIMIT, tokenHash, TOO_MANY,
 } from '../_shared/registration/consentAccess.js'
 
-const IP_LIMIT = 30
 const KIND_ORDER = { regulamin: 0, data_info: 1, image: 2 }
 
 function siteFor(req) {
@@ -129,7 +128,10 @@ Deno.serve(async (req) => {
     }
 
     if (sendCode === true) {
-      const sent = await requestLoginCode(admin, { email: registration.email, ip: clientIp(req), linkBase: siteFor(req) })
+      // The code only, no magic link (final review M-4): the token lives in this tab's
+      // sessionStorage, so a link opened from the e-mail lands in a new tab without it, and
+      // would spend the code the person is about to type here.
+      const sent = await requestLoginCode(admin, { email: registration.email, ip: clientIp(req), linkBase: siteFor(req), link: false })
       if (!sent.ok) {
         if (sent.status === 429) {
           return json({ error: TOO_MANY, code: 'throttled' }, 429, req, { 'retry-after': String(sent.retryAfterSec ?? 60) })

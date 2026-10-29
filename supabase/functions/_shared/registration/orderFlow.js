@@ -89,7 +89,7 @@ export async function loadOrderView(admin, orderId) {
   const regIds = lineRows.filter((l) => l.registration_id).map((l) => l.registration_id)
   const regs = regIds.length
     ? await rows(admin.from('registrations')
-      .select('id, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id')
+      .select('id, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
       .in('id', regIds))
     : []
   const catIds = [...new Set(regs.map((r) => r.category_id))]

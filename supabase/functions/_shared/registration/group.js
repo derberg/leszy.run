@@ -130,16 +130,22 @@ export function validateGroup({ people = [], buyer = null } = {}, { sessionEmail
 
 /**
  * A stored registration's role in its group, from the row (registrations has no role column).
- * A child carries guardian fields (delete-my-account renames, never nulls, guardian_name); the
- * person registering is the row whose account is the one that submitted it (a row from before
- * groups has no registered_by_profile_id and was always the person's own); anyone else is an
- * added adult.
- * @param {{ profile_id?: string|null, registered_by_profile_id?: string|null,
- *   guardian_name?: string|null, guardian_profile_id?: string|null }} row
+ * The one derivation for every reader (order-status, my-event-registrations,
+ * list-event-registrations), final review M-2.
+ * - A child's row always has a guardian: guardian_profile_id (or guardian_name) until the
+ *   guardian deletes the account, guardian_removed_at after. The 30-day contact purge nulls the
+ *   other guardian fields of every past child entry, so null guardian fields alone prove nothing.
+ * - An added adult was registered by an account that is not theirs, or still waits for their
+ *   acceptance or was signed in the office: delete-my-account nulls registered_by when the payer
+ *   deletes their account, and only an added adult is ever 'awaiting' or 'office'.
+ * - A row from before groups has no registered_by_profile_id and was always the person's own.
+ * @param {{ profile_id?: string|null, registered_by_profile_id?: string|null, guardian_name?: string|null,
+ *   guardian_profile_id?: string|null, guardian_removed_at?: string|null, consent_state?: string|null }} row
  * @returns {'self'|'adult'|'minor'}
  */
 export function registrationRole(row) {
-  if (row.guardian_name != null || row.guardian_profile_id != null) return 'minor'
-  if (row.registered_by_profile_id == null) return 'self'
-  return row.profile_id != null && row.profile_id === row.registered_by_profile_id ? 'self' : 'adult'
+  if (row.guardian_name != null || row.guardian_profile_id != null || row.guardian_removed_at != null) return 'minor'
+  if (row.registered_by_profile_id != null && row.profile_id !== row.registered_by_profile_id) return 'adult'
+  if (row.consent_state === 'awaiting' || row.consent_state === 'office') return 'adult'
+  return 'self'
 }

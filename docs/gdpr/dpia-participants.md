@@ -95,7 +95,7 @@ Pełna ocena zapisów online jest w `docs/legal/zapisy/dpia-uzupelnienie.md`. Te
 - Na stronie z linku osoba potwierdza adres kodem, sprawdza i może poprawić swoje dane, a potem akceptuje regulamin zawodów i warunki serwisu.
 - Token jest tylko w części `#` adresu, więc nie trafia do serwera, logów ani analityki. Strona usuwa go z paska adresu przed pierwszym zapytaniem. Baza przechowuje tylko skrót SHA-256 tokenu.
 - Przypomnienia: jedno automatyczne 72 h przed końcem zapisów oraz ręczne, od zapisującego lub Organizatora, łącznie 3 na dobę. Każde przypomnienie unieważnia poprzedni link.
-- Dopóki osoba nie zaakceptuje regulaminu, publiczna lista startowa jej nie pokazuje z imienia i nazwiska, a tylko ją liczy. Powód: nie zna jeszcze informacji o danych.
+- Dopóki osoba nie zaakceptuje regulaminu, publiczna lista startowa jej nie pokazuje z imienia i nazwiska, a tylko ją liczy. Powód: nie zna jeszcze informacji o danych. Z tego samego powodu nie ma jej w publicznym widoku `participants_public` ani w wynikach (`/api/results`), choć jej wiersz uczestnika już istnieje dla hosta pomiaru czasu.
 
 **Podpis w biurze zawodów.** Osoba, która nie kliknęła linku, może podpisać regulamin w biurze. Organizator odnotowuje to w panelu „Zgłoszenia” przyciskiem „Podpisany w biurze”, który wymaga potwierdzenia w miejscu. Wpis trafia do `organizer_actions`. Odnotowanie zapisuje akceptacje regulaminu i warunków zawodów, nigdy regulaminu serwisu LESZY.RUN, bo tego osoba nie zaakceptowała. **Ryzyko:** Organizator może kliknąć bez podpisu. Odpowiada za to jako administrator (umowa organizatora), a wpis w `organizer_actions` jest dowodem kto i kiedy.
 
@@ -106,7 +106,7 @@ Pełna ocena zapisów online jest w `docs/legal/zapisy/dpia-uzupelnienie.md`. Te
 - 20 zapisów na adres IP na godzinę.
 
 **Usunięcie konta.**
-- Opiekun usuwa konto: zgłoszenie dziecka zostaje, bez danych kontaktowych opiekuna (`guardian_removed_at`), a Organizator widzi „kontakt opiekuna usunięty”. Organizator ustala kontakt w biurze zawodów.
+- Opiekun usuwa konto: zgłoszenie dziecka zostaje, bez danych kontaktowych opiekuna (`guardian_removed_at`), a Organizator widzi „kontakt opiekuna usunięty”. Telefon dziecka jest usuwany, jeśli to numer opiekuna (formularz domyślnie wpisuje dziecku telefon opiekuna); numer wpisany dla dziecka zostaje. Organizator ustala kontakt w biurze zawodów.
 - Zapisujący usuwa konto: zgłoszenia innych dorosłych zostają, a `registered_by_profile_id` jest czyszczone.
 - Osoba dorosła usuwa konto: jej prośba o akceptację (`consent_requests`) jest usuwana.
 
