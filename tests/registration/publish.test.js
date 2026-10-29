@@ -119,7 +119,9 @@ test('W-14 a paid event cannot be published yet', async () => {
   await save(eventId, 'competitions', { pricingMode: 'fixed', items: [comp({ categoryId: categoryIds[0], price: '60' })] })
   const r = await publish(eventId)
   assert.equal(r.status, 409)
-  assert.deepEqual(r.body.blocking, [{ key: 'payments', label: 'Płatności online — wkrótce' }])
+  // The payout item (P-42) depends on whether the seed club has payout
+  // details at this point of the run; payments-section.test.js covers it.
+  assert.deepEqual(r.body.blocking.filter((b) => b.key !== 'payout'), [{ key: 'payments', label: 'Płatności online — wkrótce' }])
 })
 
 test('W-14 get-registration-event returns the checklist', async () => {

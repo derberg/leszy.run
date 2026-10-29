@@ -3,6 +3,7 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { clubHasAgreement, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { publishChecklist } from '../_shared/registration/checklist.js'
+import { payoutState } from '../_shared/registration/eventPayout.js'
 import { warsawToday } from '../_shared/registration/dates.js'
 
 function json(body, status, req) {
@@ -50,7 +51,7 @@ Deno.serve(async (req) => {
     const { settings, role } = loaded
     const eventId = settings.event_id
 
-    const [competitions, hours, consents, uploads, pendingRows, registered, hasAgreement] = await Promise.all([
+    const [competitions, hours, consents, uploads, pendingRows, registered, hasAgreement, payout] = await Promise.all([
       rows(admin.from('competitions').select('*').eq('event_id', eventId).order('sort_order')),
       rows(admin.from('office_hours').select('id, starts_at, ends_at').eq('event_id', eventId).order('starts_at')),
       rows(admin.from('event_consents').select('id, kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
@@ -59,6 +60,7 @@ Deno.serve(async (req) => {
       admin.from('registrations').select('id', { count: 'exact', head: true })
         .eq('event_id', eventId).in('status', ['confirmed', 'pending_payment']),
       clubHasAgreement(admin, settings.club_id),
+      payoutState(admin, settings),
     ])
     if (registered.error) throw registered.error
 
@@ -106,7 +108,9 @@ Deno.serve(async (req) => {
       pending: pendingRows[0] ? camel(pendingRows[0]) : null,
       registeredCount: registered.count ?? 0,
       role,
-      checklist: publishChecklist({ ...event, hasAgreement }),
+      // Only the checklist sees the payout, as { mode, ready }; the account
+      // itself is get-event-payout's alone (ruling P3-R1).
+      checklist: publishChecklist({ ...event, hasAgreement, payout }),
     } }, 200, req)
   } catch (err) {
     console.error('get-registration-event error:', err?.message, err?.code)

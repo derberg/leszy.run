@@ -196,7 +196,7 @@ test('W-10 member write 403 but read 200; inny-klub admin 404; invalid section 4
   const bad = await callFn('save-registration-section', owner, { eventId, section: 'timing', value: { taken: 3 } })
   assert.equal(bad.status, 422)
   assert.ok(bad.body.fields.taken)
-  assert.equal((await callFn('save-registration-section', owner, { eventId, section: 'payments', value: {} })).status, 422)
+  assert.equal((await callFn('save-registration-section', owner, { eventId, section: 'bogus', value: {} })).status, 422)
 })
 
 test('W-10 the admin of another enabled club with an agreement gets 404 on this event', async () => {

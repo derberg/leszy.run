@@ -12,7 +12,7 @@
 import { isValidSlug } from './slug.js'
 import { registrationWindow } from './dates.js'
 
-export const SECTIONS = ['basics', 'office', 'competitions', 'categories', 'timing', 'form']
+export const SECTIONS = ['basics', 'office', 'competitions', 'categories', 'timing', 'form', 'payments']
 
 const UNKNOWN = 'Nieznane pole.'
 const SOON = 'Wkrótce.'
@@ -370,6 +370,23 @@ function validateForm(value, ctx, c) {
   return out
 }
 
+// ---------------------------------------------------------------- payments
+
+// How long a runner has to pay: 24 hours, 7 days or 14 days. The payout
+// account is not part of this section: only the club owner sets it, through
+// update-event-payout (ruling P3-R1).
+export const PAYMENT_WINDOW_HOURS = Object.freeze([24, 168, 336])
+
+function validatePayments(value, ctx, c) {
+  checkKeys(value, ['paymentWindowHours'], c)
+  const out = {}
+  if ('paymentWindowHours' in value) {
+    const v = rules.oneOf(PAYMENT_WINDOW_HOURS, 'Wybierz czas na opłacenie zgłoszenia.')(value.paymentWindowHours, 'paymentWindowHours', c)
+    if (v !== undefined) out.payment_window_hours = v
+  }
+  return out
+}
+
 const VALIDATORS = {
   basics: validateBasics,
   office: validateOffice,
@@ -377,6 +394,7 @@ const VALIDATORS = {
   categories: validateCategories,
   timing: validateTiming,
   form: validateForm,
+  payments: validatePayments,
 }
 
 /**

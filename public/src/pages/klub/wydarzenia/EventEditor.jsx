@@ -16,6 +16,7 @@ import Kategorie from './steps/Kategorie.jsx'
 import Pomiar from './steps/Pomiar.jsx'
 import Formularz from './steps/Formularz.jsx'
 import Dodatki from './steps/Dodatki.jsx'
+import Platnosci from './steps/Platnosci.jsx'
 import Publikacja from './steps/Publikacja.jsx'
 import Zgloszenia from './Zgloszenia.jsx'
 import PendingChangesBar from './PendingChangesBar.jsx'
@@ -29,15 +30,15 @@ import PublishChangesDialog from './PublishChangesDialog.jsx'
 
 const STEP_COMPONENTS = {
   podstawy: Podstawy, biuro: Biuro, konkurencje: Konkurencje, kategorie: Kategorie, pomiar: Pomiar,
-  formularz: Formularz, dodatki: Dodatki, platnosci: Dodatki, publikacja: Publikacja,
+  formularz: Formularz, dodatki: Dodatki, platnosci: Platnosci, publikacja: Publikacja,
 }
 
 // The section each step saves.
-const SECTIONS_OF = { podstawy: 'basics', biuro: 'office', konkurencje: 'competitions', kategorie: 'categories', pomiar: 'timing', formularz: 'form' }
+const SECTIONS_OF = { podstawy: 'basics', biuro: 'office', konkurencje: 'competitions', kategorie: 'categories', pomiar: 'timing', formularz: 'form', platnosci: 'payments' }
 
 const SECTION_STEP = {
   basics: 'Podstawy', office: 'Biuro zawodów', competitions: 'Konkurencje',
-  categories: 'Kategorie', timing: 'Pomiar czasu', form: 'Formularz',
+  categories: 'Kategorie', timing: 'Pomiar czasu', form: 'Formularz', payments: 'Płatności',
 }
 
 /** „Nie zapisano: Podstawy — Ten adres jest już zajęty.” */

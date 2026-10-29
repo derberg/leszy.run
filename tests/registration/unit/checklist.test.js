@@ -28,6 +28,7 @@ function complete(over = {}) {
     competitions: over.competitions ?? [comp(), comp({ categoryId: 'c2', name: 'Bieg dzieci', distanceLabel: '400 m', isKids: true })],
     officeHours: over.officeHours ?? [{ date: '2026-12-06', from: '08:00', to: '09:30' }],
     hasAgreement: over.hasAgreement ?? true,
+    payout: over.payout ?? { mode: 'club', ready: true },
   }
 }
 
@@ -123,4 +124,34 @@ test('W-69 the regulamin and the organizer contact both block publish, each on i
   assert.equal(blockingMessage(none.blocking), 'Uzupełnij: Regulamin (PDF albo link), Adres kontaktowy organizatora')
   assert.deepEqual(keys(publishChecklist(complete({ settings: { regulaminKind: 'link', regulaminUrl: '  ' } })).blocking), ['regulamin'])
   assert.deepEqual(keys(publishChecklist(complete({ settings: { contactEmail: null } })).blocking), ['contact_email'])
+})
+
+// P-42: a paid event needs somewhere to pay the money out (ruling P3-R1: the
+// checklist sees only { mode, ready }, never the account itself).
+const paid = (payout) => publishChecklist(complete({ settings: { pricingMode: 'fixed' }, payout }))
+const PAYMENTS_SOON = { key: 'payments', label: 'Płatności online — wkrótce' }
+
+test('P-42 paid, club account, the club has payout details: only the payments flag item', () => {
+  assert.deepEqual(paid({ mode: 'club', ready: true }).blocking, [PAYMENTS_SOON])
+})
+
+test('P-42 paid, club account, the club has no payout details: blocks and says where to fill them', () => {
+  assert.deepEqual(paid({ mode: 'club', ready: false }).blocking,
+    [PAYMENTS_SOON, { key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' }])
+})
+
+test('P-42 paid, another account: blocks until every field is valid', () => {
+  assert.deepEqual(paid({ mode: 'custom', ready: false }).blocking,
+    [PAYMENTS_SOON, { key: 'payout', label: 'Dane do wypłat tego wydarzenia' }])
+  assert.deepEqual(paid({ mode: 'custom', ready: true }).blocking, [PAYMENTS_SOON])
+})
+
+test('P-42 paid with no payout state at all blocks (fail closed)', () => {
+  const r = publishChecklist({ ...complete({ settings: { pricingMode: 'fixed' } }), payout: undefined })
+  assert.deepEqual(keys(r.blocking), ['payments', 'payout'])
+})
+
+test('P-42 a free event never asks for payout details', () => {
+  assert.deepEqual(publishChecklist({ ...complete(), payout: undefined }).blocking, [])
+  assert.deepEqual(publishChecklist(complete({ payout: { mode: 'club', ready: false } })).blocking, [])
 })

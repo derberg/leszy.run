@@ -10,12 +10,12 @@ const item = (over = {}) => ({
   capacity: 80, minAge: 16, maxAge: null, isKids: false, timed: true, ...over,
 })
 
-test('SECTIONS lists the six wizard sections', () => {
-  assert.deepEqual(SECTIONS, ['basics', 'office', 'competitions', 'categories', 'timing', 'form'])
+test('SECTIONS lists the seven wizard sections', () => {
+  assert.deepEqual(SECTIONS, ['basics', 'office', 'competitions', 'categories', 'timing', 'form', 'payments'])
 })
 
 test('an unknown section is refused', () => {
-  const r = validateSection('payments', {}, DRAFT)
+  const r = validateSection('bogus', {}, DRAFT)
   assert.equal(r.ok, false)
   assert.ok(r.errors.section)
 })
@@ -261,4 +261,32 @@ test('W-63 form: a consents list naming one consent twice is refused', () => {
   assert.equal(r.ok, false)
   assert.ok(r.errors.consents)
   assert.equal(validateSection('form', { consents: [{ text: 'A.' }, { text: 'A.' }] }, DRAFT).ok, true, 'new consents carry no id')
+})
+
+// P-40: the payment window is the payments section (D3-4). The payout is not:
+// it goes through update-event-payout, owner only.
+test('P-40 payments: the window is 24 h, 7 days or 14 days, in a draft and after publish', () => {
+  for (const hours of [24, 168, 336]) {
+    for (const ctx of [DRAFT, PUBLISHED]) {
+      assert.deepEqual(validateSection('payments', { paymentWindowHours: hours }, ctx), { ok: true, value: { payment_window_hours: hours } })
+    }
+  }
+  assert.deepEqual(validateSection('payments', {}, DRAFT), { ok: true, value: {} })
+})
+
+test('P-40 payments: any other window is refused, 337 included', () => {
+  for (const hours of [337, 0, 1, 48, 167, -24, 24.5, '168', null, true]) {
+    const r = validateSection('payments', { paymentWindowHours: hours }, DRAFT)
+    assert.equal(r.ok, false, String(hours))
+    assert.equal(r.errors.paymentWindowHours, 'Wybierz czas na opłacenie zgłoszenia.')
+  }
+})
+
+test('P-40 payments: taken and every payout key are refused; the payout is not a section', () => {
+  for (const key of ['taken', 'payoutMode', 'payoutRecipient', 'payoutTaxId', 'payoutIban', 'payoutTitle',
+    'payout_mode', 'payout_iban', 'iban', 'payment_window_hours']) {
+    const r = validateSection('payments', { paymentWindowHours: 168, [key]: 'PL61109010140000071219812874' }, DRAFT)
+    assert.equal(r.ok, false, key)
+    assert.equal(r.errors[key], 'Nieznane pole.', key)
+  }
 })

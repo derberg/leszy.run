@@ -10,7 +10,9 @@
 //
 // `event` is the shape get-registration-event returns ({ settings,
 // competitions, officeHours }, camelCase) plus `hasAgreement`: whether the
-// owning club accepted the current organizer agreement.
+// owning club accepted the current organizer agreement, and `payout`:
+// { mode: 'club'|'custom', ready } from eventPayout.js (never the account
+// itself). A paid event with no `payout` given is not ready.
 
 import { warsawDayAfter } from './dates.js'
 import { PAID_REGISTRATION_ENABLED } from './flags.js'
@@ -37,7 +39,7 @@ function regulaminGiven(s) {
 }
 
 /**
- * @param {{ settings: object, competitions?: object[], officeHours?: object[], hasAgreement: boolean }} event
+ * @param {{ settings: object, competitions?: object[], officeHours?: object[], hasAgreement: boolean, payout?: { mode: string, ready: boolean } }} event
  * @returns {{ blocking: { key: string, label: string }[], missing: { key: string, label: string, step: string }[] }}
  */
 export function publishChecklist(event) {
@@ -66,7 +68,11 @@ export function publishChecklist(event) {
   if (!regulaminGiven(s)) block('regulamin', 'Regulamin (PDF albo link)')
   if (blank(s.contactEmail)) block('contact_email', 'Adres kontaktowy organizatora')
   if (!event?.hasAgreement) block('agreement', 'Akceptacja umowy organizatora')
-  if (!PAID_REGISTRATION_ENABLED && (s.pricingMode ?? 'free') !== 'free') block('payments', 'Płatności online — wkrótce')
+  const paid = (s.pricingMode ?? 'free') !== 'free'
+  if (!PAID_REGISTRATION_ENABLED && paid) block('payments', 'Płatności online — wkrótce')
+  if (paid && !event?.payout?.ready) {
+    block('payout', event?.payout?.mode === 'custom' ? 'Dane do wypłat tego wydarzenia' : 'Uzupełnij dane do wypłat w ustawieniach klubu')
+  }
 
   if (!(event?.officeHours ?? []).length) {
     missing.push({ key: 'office_hours', label: 'Godziny otwarcia biura zawodów', step: 'biuro' })

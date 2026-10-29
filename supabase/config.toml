@@ -233,3 +233,11 @@ entrypoint = "./functions/self-checkin/index.js"
 [functions.registration-jobs]
 verify_jwt = false
 entrypoint = "./functions/registration-jobs/index.js"
+
+[functions.update-event-payout]
+verify_jwt = false
+entrypoint = "./functions/update-event-payout/index.js"
+
+[functions.get-event-payout]
+verify_jwt = false
+entrypoint = "./functions/get-event-payout/index.js"
