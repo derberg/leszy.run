@@ -95,7 +95,7 @@ The other three jobs (`registration-expire-orders`, `registration-release-orphan
 
 **1. Function secrets.** `PIPELINE_ALERT_EMAIL` and `REGISTRATION_JOBS_SECRET` are needed from the
 day of merge: without the first the function answers 503, without the second 404, and the
-watchdog then alerts every day. The `DPAY_*` values are needed only once paid registration is
+watchdog then alerts once that `registration-jobs` stopped. The `DPAY_*` values are needed only once paid registration is
 switched on (P3-R16): until they are set, a run skips the two steps that call dpay (refund retries
 and the dpay check), reports them as `"skipped": {"refund_retries": "dpay_not_configured", …}`
 with no alert, does everything else and stamps its heartbeat.
@@ -131,7 +131,7 @@ stored. pg_net keeps responses about 6 hours, and other callers share the table,
 body:
 
 ```sql
-SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'registration-%';  -- 4 rows, every one active = true
+SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'registration-%';  -- 5 rows (with registration-watchdog), every one active = true
 SELECT job, interval_seconds, last_ok_at FROM registration_job_heartbeats ORDER BY job;  -- each last_ok_at within 3 intervals
 SELECT created, status_code, left(content, 300)
   FROM net._http_response
@@ -139,7 +139,7 @@ SELECT created, status_code, left(content, 300)
  ORDER BY created DESC LIMIT 5;
 ```
 
-In production all four jobs must be `active = true`. `supabase/seed.sql` deactivates every
+In production all five registration jobs (with `registration-watchdog`, next section) must be `active = true`. `supabase/seed.sql` deactivates every
 `registration-*` job, but the seed only runs on a local or CI stack (`supabase db reset`); a
 production job that reads `false` was switched off by hand and nothing expires or gets sent.
 
@@ -150,13 +150,9 @@ secret values differ, and a 503 means a function secret is missing (the function
 
 **Heartbeats and the watchdog.** Every finished run stamps `registration_job_heartbeats.last_ok_at`
 (the three SQL jobs in their cron command, `registration-jobs` at the end of the function). The
-scheduler container (`scheduler/src/registrationWatchdog.js`, every 15 minutes) reads the table with
-`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` and e-mails `[ALERT] LeszyRun registration jobs stopped`
-to `PIPELINE_ALERT_EMAIL` when one is older than 3 × `interval_seconds`: once per outage, again every
-24 hours while it lasts. A table it cannot read, or an empty one, is alerted too. The scheduler runs
-on the operator's machine, so the watchdog is only as awake as that machine.
+watchdog runs in Supabase (P3-R18) and is set up in the next section.
 
-**`cron.job_run_details` grows.** The four registration jobs add about 680 rows a day and Supabase
+**`cron.job_run_details` grows.** The five registration jobs add about 700 rows a day and Supabase
 does not prune the table. Once a quarter, or when it gets large:
 
 ```sql
@@ -172,6 +168,82 @@ supabase secrets set REGISTRATION_JOBS_SECRET='<new>' --project-ref kojoxazlnxnc
 
 ```sql
 SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name = 'registration_jobs_secret'), '<new>');
+```
+
+## Registration watchdog: secrets and the check (operator, once)
+
+The `registration-watchdog` pg_cron job (`20261030180000_registration_watchdog.sql`) POSTs to the
+`registration-watchdog` edge function every hour (minute 17, UTC) through pg_net. The function reads
+`registration_job_heartbeats` and e-mails `PIPELINE_ALERT_EMAIL` through SendGrid:
+
+- `[ALERT] LeszyRun registration jobs stopped` once when a job's `last_ok_at` is older than
+  3 × `interval_seconds` (one e-mail per outage, bookkept in `alerted_at`);
+- `[OK] LeszyRun registration jobs running again` once when it is fresh again.
+
+It needs no dpay settings, and it keeps working while `PAID_REGISTRATION_ENABLED` is false,
+because the jobs still run and stamp their heartbeats then (P3-R16). A mail that could not be sent
+is retried the next hour, and the function answers 502.
+
+The watchdog has its own heartbeat row, `registration-watchdog`, stamped only when pg_cron calls it.
+pg_cron cannot report that pg_cron or pg_net stopped, so a GitHub Actions workflow
+(`.github/workflows/registration-watchdog.yml`, daily at 05:23 UTC, also runnable by hand) calls the
+function from outside. The run fails when the function does not answer 200, or when that row is
+older than 3 hours. GitHub then e-mails the repository owner. The workflow is skipped, not failed,
+until its variable is set.
+
+**1. Function secrets** (besides `PIPELINE_ALERT_EMAIL`, set above, and `SENDGRID_API_KEY` /
+`SENDGRID_FROM_EMAIL`, which the login e-mails already use):
+
+| Secret | Value |
+|---|---|
+| `REGISTRATION_WATCHDOG_SECRET` | a random value of 32+ characters, different from `REGISTRATION_JOBS_SECRET`; the same value goes into Vault and into GitHub below |
+
+```bash
+supabase secrets set REGISTRATION_WATCHDOG_SECRET='<random>' --project-ref kojoxazlnxncrpxmnxiq
+```
+
+**2. Vault** (names exactly these, run once):
+
+```sql
+-- Supabase SQL editor (production)
+SELECT vault.create_secret('https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/registration-watchdog', 'registration_watchdog_url');
+SELECT vault.create_secret('<the REGISTRATION_WATCHDOG_SECRET value>', 'registration_watchdog_secret');
+```
+
+**3. GitHub** (repository settings → Secrets and variables → Actions):
+
+| Kind | Name | Value |
+|---|---|---|
+| Repository secret | `REGISTRATION_WATCHDOG_SECRET` | the same value as the function secret |
+| Repository variable | `REGISTRATION_WATCHDOG_URL` | `https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/registration-watchdog` |
+
+Then run the workflow once by hand (Actions → Registration watchdog backstop → Run workflow) after
+the next minute 17 has passed. It prints the answer and the age of the watchdog's own heartbeat.
+
+**4. Check in production:**
+
+```sql
+SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'registration-watchdog';  -- 1 row, '17 * * * *', active = true
+SELECT job, last_ok_at, alerted_at FROM registration_job_heartbeats WHERE job = 'registration-watchdog';  -- last_ok_at under an hour old
+SELECT created, status_code, left(content, 300)
+  FROM net._http_response
+ WHERE content LIKE '{"ok":%' OR status_code IS DISTINCT FROM 200
+ ORDER BY created DESC LIMIT 5;  -- 200, {"ok":true,"stale":[],…}
+```
+
+`supabase/seed.sql` deactivates the job on a local or CI stack only. A 404 in
+`net._http_response` means the Vault secret and the function secret differ; a 503 means
+`PIPELINE_ALERT_EMAIL` is missing.
+
+**5. Rotation.** Set the function secret, then Vault, then the GitHub secret. A call between the
+steps answers 404: the hourly one is simply missed, and a GitHub run in that window fails.
+
+```bash
+supabase secrets set REGISTRATION_WATCHDOG_SECRET='<new>' --project-ref kojoxazlnxncrpxmnxiq
+```
+
+```sql
+SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name = 'registration_watchdog_secret'), '<new>');
 ```
 
 ## Day-to-day: making a schema change
