@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { POLICY_VERSION } from '../lib/policyVersion'
 import { logConsentServerSide } from '../lib/logConsent'
+import { initGa } from '../lib/trackedPath.js'
 
 const GA_ID = 'G-8JRNXVX5Z9'
 const CONSENT_KEY = 'leszy-cookie-consent'
@@ -21,7 +22,8 @@ function loadGA() {
   function gtag() { window.dataLayer.push(arguments) }
   window.gtag = gtag
   gtag('js', new Date())
-  gtag('config', GA_ID, { send_page_view: false })
+  // Never the raw address: a magic link carries ?email= and ?code=.
+  initGa(gtag, GA_ID, window.location)
 }
 
 function removeGA() {

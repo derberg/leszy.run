@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { trackedPath } from '../lib/trackedPath.js'
+import { sendPageView, trackedPath } from '../lib/trackedPath.js'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -20,12 +20,8 @@ export default function RouteTracker() {
       return
     }
     if (typeof window.gtag === 'function') {
-      window.gtag('event', 'page_view', {
-        page_path: path,
-        // GA4 reads page_location (by default the full address bar), so it gets the cleaned one too.
-        page_location: window.location.origin + path,
-        page_title: document.title,
-      })
+      // Sets the cleaned page_location for every later hit too, not just this one.
+      sendPageView(window.gtag, window.location, document.title)
     }
   }, [path])
 
