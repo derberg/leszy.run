@@ -13,11 +13,13 @@ function json(body, status, req) {
 const PAGE = 1000
 const READERS = ['owner', 'admin']
 
-// 'paid' | 'awaiting' | 'free' for a live registration, null otherwise.
+// 'paid' | 'awaiting' | 'free' for a live registration, null otherwise. A 0 zł entry
+// inside a paid group order (a free kids race beside a parent's paid one) is 'free':
+// nothing was paid for that person. start_list() applies the same rule.
 function paymentStatusOf(reg, order) {
   if (reg.status === 'pending_payment') return 'awaiting'
   if (reg.status !== 'confirmed') return null
-  return order && order.total > 0 ? 'paid' : 'free'
+  return order && order.total > 0 && reg.price > 0 ? 'paid' : 'free'
 }
 
 // PostgREST caps a response at 1000 rows, so every list read pages.
@@ -62,7 +64,7 @@ Deno.serve(async (req) => {
 
     const [regs, comps, orders] = await Promise.all([
       allRows(() => admin.from('registrations')
-        .select('id, category_id, order_id, first_name, last_name, age_group_label, status, created_at')
+        .select('id, category_id, order_id, first_name, last_name, age_group_label, status, created_at, price')
         .eq('event_id', eventId).order('created_at').order('id')),
       allRows(() => admin.from('competitions').select('category_id, name, capacity, taken, hidden_at').eq('event_id', eventId).order('category_id')),
       allRows(() => admin.from('orders').select('id, total, expires_at').eq('event_id', eventId).order('id')),

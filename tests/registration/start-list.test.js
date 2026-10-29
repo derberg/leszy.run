@@ -106,9 +106,9 @@ test('P-45 start_list: name, town, club, competition, age group and payment; not
   const { data, error } = await anon.rpc('start_list', { p_event_id: event.eventId })
   assert.equal(error, null, error?.message)
   assert.deepEqual(data.competitions, [
-    { categoryId: bieg, name: 'Bieg 9 km', capacity: 50, paid: 3, free: 0, awaiting: 1 },
-    { categoryId: marsz, name: 'Marsz 5 km', capacity: 30, paid: 1, free: 0, awaiting: 0 },
-    { categoryId: dzieci, name: 'Dzieci 1 km', capacity: 20, paid: 0, free: 1, awaiting: 0 },
+    { categoryId: bieg, name: 'Bieg 9 km', capacity: 50, isKids: false, paid: 3, free: 0, awaiting: 1 },
+    { categoryId: marsz, name: 'Marsz 5 km', capacity: 30, isKids: false, paid: 1, free: 0, awaiting: 0 },
+    { categoryId: dzieci, name: 'Dzieci 1 km', capacity: 20, isKids: false, paid: 0, free: 1, awaiting: 0 },
   ])
   const byName = Object.fromEntries(data.entries.map((e) => [e.name, e]))
   // P3-R14: the runner awaiting payment and the deleted account are not listed; only counted.
@@ -313,8 +313,9 @@ test('G-40 start_list: gender and the kids-group label; no birth, @, phone, bib,
   })
   assert.equal(byName['Marta Opiekuńcza'].gender, 'K')
   assert.equal(byName['Marta Opiekuńcza'].kidsGroupLabel, null, 'not a kids competition')
-  assert.equal(byName['Jan Dodany'].gender, 'M')
-  assert.equal(byName['Jan Dodany'].town, 'Zabrze')
+  // Review F2: an added adult awaiting consent is counted, never listed by name.
+  assert.equal(byName['Jan Dodany'], undefined)
+  assert.equal(data.competitions.find((c) => c.categoryId === f.bieg).paid, 2)
 
   // The walk: no forbidden key, by substring, at any depth.
   for (const k of keysOf(data)) {
@@ -339,6 +340,14 @@ test('G-40 start_list: gender and the kids-group label; no birth, @, phone, bib,
   }
   assert.ok(!text.includes('Pilchowice'), "a minor's town leaked")
   assert.ok(!text.includes('500777888') && !text.includes('500999111'), 'a phone number leaked')
+
+  // The office records his consent: now he is listed.
+  const { error: oErr } = await db().from('registrations').update({ consent_state: 'office' })
+    .eq('order_id', fam.orderId).eq('first_name', 'Jan')
+  assert.equal(oErr, null)
+  const jan = (await anon.rpc('start_list', { p_event_id: f.event.eventId })).data.entries.find((e) => e.name === 'Jan Dodany')
+  assert.equal(jan.gender, 'M')
+  assert.equal(jan.town, 'Zabrze')
 
   // The parent deletes their account (what delete-my-account writes): their own entry is
   // anonymised and leaves the list; the child's entry only loses the guardian fields.
@@ -384,4 +393,67 @@ test('G-41 start_list counts after a family with one paid and one pending order:
   }
   assert.deepEqual(data.entries.map((e) => e.name).sort(), ['Marta Płacąca', 'Ola Płacąca'])
   assert.ok(!JSON.stringify(data).includes('Czekający'), 'a pending person is listed')
+})
+
+// ---------------------------------------------------------------- Task 7 review fix round 1 (G-50, G-51)
+
+test('G-50 a 0 zł kids competition inside a paid family order: the child is free, the parent paid, on the start list and in Zgłoszenia', async () => {
+  const event = await createPublishedPaidEvent(owner, {
+    competitions: [BIEG, KIDS], prices: { 'Bieg 9 km': 6000, 'Bieg dzieci 1 km': 0 },
+  })
+  const [bieg, kids] = event.categoryIds
+  const { error: kErr } = await db().from('competitions').update({ is_kids: true }).eq('category_id', kids)
+  assert.equal(kErr, null)
+  const o = await orderGroupOk(event, [
+    adult(bieg, 'self', runnerEmail('fam0'), { firstName: 'Marta', lastName: 'Płatna', gender: 'K' }),
+    minor(kids, { firstName: 'Ola', lastName: 'Darmowa', birthDate: '2016-03-03', gender: 'K' }),
+  ], { meta: await groupMeta(event.eventId, { buyerName: 'Marta Płatna' }) })
+  assert.ok(o.total > 0)
+  const { txn } = await attemptFor(o.orderId, o.total)
+  assert.equal((await confirmOk(o.orderId, txn, o.total)).outcome, 'confirmed')
+
+  const { data } = await anon.rpc('start_list', { p_event_id: event.eventId })
+  const byName = Object.fromEntries(data.entries.map((e) => [e.name, e]))
+  assert.equal(byName['Marta Płatna'].payment, 'paid')
+  assert.equal(byName['Ola Darmowa'].payment, 'free')
+  assert.deepEqual(data.competitions.map(({ isKids, paid, free, awaiting }) => ({ isKids, paid, free, awaiting })), [
+    { isKids: false, paid: 1, free: 0, awaiting: 0 },
+    { isKids: true, paid: 0, free: 1, awaiting: 0 },
+  ])
+
+  const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const org = Object.fromEntries(r.body.data.map((x) => [x.name, x]))
+  assert.equal(org['Marta Płatna'].paymentStatus, 'paid')
+  assert.equal(org['Ola Darmowa'].paymentStatus, 'free')
+  assert.equal(r.body.counts.paid, 1)
+  assert.equal(r.body.counts.free, 1)
+  assert.ok(!('price' in org['Ola Darmowa']), 'the price is not returned')
+})
+
+test('G-51 an added adult is counted but listed only once they accept online or the office records consent', async () => {
+  const f = await familyEvent()
+  const fam = await familyOrder(f, {
+    parent: { firstName: 'Ewa', lastName: 'Kupująca', city: 'Gliwice', gender: 'K' },
+    child: { firstName: 'Ala', lastName: 'Kupująca', birthDate: '2016-04-04', gender: 'K' },
+    added: { firstName: 'Piotr', lastName: 'Dopisany', city: 'Rybnik', gender: 'M', ageGroupLabel: 'M open' },
+    pay: true,
+  })
+  const list = async () => (await anon.rpc('start_list', { p_event_id: f.event.eventId })).data
+  const { data: comps } = await db().from('competitions').select('category_id, taken').eq('event_id', f.event.eventId)
+  const taken = Object.fromEntries(comps.map((c) => [c.category_id, c.taken]))
+
+  const before = await list()
+  assert.ok(!JSON.stringify(before).includes('Dopisany'), 'listed before consent')
+  for (const c of before.competitions) assert.equal(c.paid + c.free, taken[c.categoryId], c.name)
+  assert.equal(before.competitions.find((c) => c.categoryId === f.bieg).paid, 2)
+
+  for (const state of ['accepted', 'office']) {
+    const { error } = await db().from('registrations').update({ consent_state: state })
+      .eq('order_id', fam.orderId).eq('last_name', 'Dopisany')
+    assert.equal(error, null)
+    const after = await list()
+    assert.equal(after.entries.find((e) => e.name === 'Piotr Dopisany')?.town, 'Rybnik', state)
+    assert.equal(after.competitions.find((c) => c.categoryId === f.bieg).paid, 2)
+  }
 })

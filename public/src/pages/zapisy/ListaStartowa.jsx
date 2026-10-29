@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
-import { filterStartList, startListFilterOptions, startListView } from '../../lib/startList.js'
+import { activeFilterCount, filterStartList, startListFilterOptions, startListView } from '../../lib/startList.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import { inputCls, labelCls } from '../../components/registration/ui.js'
 import RegistrationShell from './RegistrationShell.jsx'
@@ -84,6 +84,7 @@ function Select({ id, label, value, onChange, options, all, testId }) {
 function Filters({ options, filters, setFilters, desktop }) {
   const [open, setOpen] = useState(false)
   const set = (key) => (value) => setFilters((f) => ({ ...f, [key]: value }))
+  const active = activeFilterCount(filters)
   const fields = (
     <div className="flex flex-col gap-3" data-testid="start-list-filter-fields">
       <label htmlFor="sl-q" className="flex flex-col gap-1.5">
@@ -115,9 +116,10 @@ function Filters({ options, filters, setFilters, desktop }) {
       <button type="button" aria-expanded={open} aria-controls="sl-filter-panel" data-testid="filter-toggle"
         onClick={() => setOpen((o) => !o)}
         className="w-full min-h-12 px-3.5 flex justify-between items-center text-apex-text-bright font-sans font-bold text-[17px] whitespace-nowrap">
-        Filtry<span className="font-mono text-apex-muted" aria-hidden="true">{open ? '▴' : '▾'}</span>
+        <span>Filtry{!open && active > 0 && <span className="font-mono text-apex-yellow" data-testid="filter-count"> ({active})</span>}</span>
+        <span className="font-mono text-apex-muted" aria-hidden="true">{open ? '▴' : '▾'}</span>
       </button>
-      {open && <div id="sl-filter-panel" className="px-3.5 pb-3.5">{fields}</div>}
+      <div id="sl-filter-panel" className="px-3.5 pb-3.5" hidden={!open}>{fields}</div>
     </div>
   )
 }
@@ -183,7 +185,7 @@ function StartList({ raw }) {
   }, [raw.eventId, raw.pricingMode])
 
   const { view } = state
-  const options = useMemo(() => (view ? startListFilterOptions(view) : null), [view])
+  const options = useMemo(() => (view ? startListFilterOptions(view, { categoryId: filters.categoryId }) : null), [view, filters.categoryId])
   const shown = useMemo(() => (view ? filterStartList(view, filters) : null), [view, filters])
   const filtered = shown && shown.entries.length !== shown.total
   return (

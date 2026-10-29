@@ -50,6 +50,7 @@ export function startListView(snapshot, { paidEvent }) {
       return {
         categoryId: c.categoryId,
         name: c.name,
+        isKids: c.isKids === true,
         taken: cPaid + cFree,
         capacity: c.capacity,
         paidPct,
@@ -95,9 +96,13 @@ export function foldPl(text) {
 /**
  * The choices of RA8's selects, from the list itself: competitions in card order,
  * categories and clubs in Polish order, „Bez klubu” only when somebody has no club.
+ * With a kids competition selected the genders read „Dziewczynki” / „Chłopcy”.
  * @param {ReturnType<typeof startListView>} view
+ * @param {{ categoryId?: string }} [selected] the viewer's current filters
  */
-export function startListFilterOptions(view) {
+export function startListFilterOptions(view, { categoryId = '' } = {}) {
+  const kids = (view?.competitions ?? []).some((c) => c.categoryId === categoryId && c.isKids)
+  const genderLabels = kids ? { K: 'Dziewczynki', M: 'Chłopcy' } : { K: 'Kobiety', M: 'Mężczyźni' }
   const entries = view?.entries ?? []
   const uniq = (xs) => [...new Set(xs.filter(Boolean))].sort(collator.compare)
   const genders = new Set(entries.map((e) => e.gender))
@@ -106,7 +111,7 @@ export function startListFilterOptions(view) {
   return {
     competitions: (view?.competitions ?? []).map((c) => ({ value: c.categoryId, label: c.name })),
     categories: uniq(entries.map((e) => e.category)),
-    genders: [['K', 'Kobiety'], ['M', 'Mężczyźni']].filter(([g]) => genders.has(g)).map(([value, label]) => ({ value, label })),
+    genders: ['K', 'M'].filter((g) => genders.has(g)).map((value) => ({ value, label: genderLabels[value] })),
     clubs,
   }
 }
@@ -128,4 +133,9 @@ export function filterStartList(view, { categoryId = '', category = '', gender =
     && (!club || (club === NO_CLUB ? !e.club : e.club === club))
     && (!needle || [e.name, e.town, e.club].some((f) => f && foldPl(f).includes(needle))))
   return { entries, total: all.length }
+}
+
+/** How many of the viewer's filters are set (the collapsed „Filtry (N)” toggle). */
+export function activeFilterCount({ categoryId = '', category = '', gender = '', club = '', q = '' } = {}) {
+  return [categoryId, category, gender, club, q.trim()].filter(Boolean).length
 }

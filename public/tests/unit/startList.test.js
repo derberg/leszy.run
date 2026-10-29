@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { filterStartList, startListFilterOptions, startListView } from '../../src/lib/startList.js'
+import { activeFilterCount, filterStartList, startListFilterOptions, startListView } from '../../src/lib/startList.js'
 
 // The snapshot start_list() returns. Entries awaiting payment are never in it
 // (ruling P3-R14): only the per-competition `awaiting` count.
@@ -27,7 +27,7 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
   it('per competition: paid entries of capacity (P3-R15), the bars, „+N czeka na wpłatę” as a count only', () => {
     const v = startListView(SNAP, { paidEvent: true })
     assert.deepEqual(v.competitions[0], {
-      categoryId: 'c1', name: 'Bieg 9 km', taken: 32, capacity: 80, paidPct: 40, freePct: 0,
+      categoryId: 'c1', name: 'Bieg 9 km', isKids: false, taken: 32, capacity: 80, paidPct: 40, freePct: 0,
       paidLabel: '32 opłacone', freeLabel: null, awaitingLabel: '+2 czekają na wpłatę',
     })
     assert.equal(v.competitions[1].awaitingLabel, null)
@@ -100,7 +100,7 @@ const FULL = {
   competitions: [
     { categoryId: 'c1', name: 'Bieg 9 km', capacity: 80, paid: 3, free: 0, awaiting: 1 },
     { categoryId: 'c2', name: 'NW 9 km', capacity: 40, paid: 1, free: 0, awaiting: 0 },
-    { categoryId: 'c3', name: 'Bieg dzieci', capacity: 20, paid: 0, free: 1, awaiting: 0 },
+    { categoryId: 'c3', name: 'Bieg dzieci', capacity: 20, isKids: true, paid: 0, free: 1, awaiting: 0 },
   ],
   entries: [
     { name: 'Agnieszka Mazur', town: 'Zabrze', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'K40–49', kidsGroupLabel: null, gender: 'K', payment: 'paid' },
@@ -185,5 +185,22 @@ describe('G-43 a free event never mentions payment', () => {
     assert.ok(v.entries.every((e) => e.badge === null))
     const text = JSON.stringify([v, startListFilterOptions(v), filterStartList(v, {})])
     assert.ok(!/opłac|wpłat|płatn/i.test(text), text)
+  })
+})
+
+describe('task 7 review fix round 1 (F4, F5)', () => {
+  const v = startListView(FULL, { paidEvent: true })
+
+  it('F5 a kids competition selected: „Dziewczynki” / „Chłopcy”; any other or none: „Kobiety” / „Mężczyźni”', () => {
+    assert.deepEqual(startListFilterOptions(v, { categoryId: 'c3' }).genders, [{ value: 'K', label: 'Dziewczynki' }, { value: 'M', label: 'Chłopcy' }])
+    assert.deepEqual(startListFilterOptions(v, { categoryId: 'c1' }).genders, [{ value: 'K', label: 'Kobiety' }, { value: 'M', label: 'Mężczyźni' }])
+    assert.deepEqual(startListFilterOptions(v).genders.map((g) => g.label), ['Kobiety', 'Mężczyźni'])
+    assert.equal(v.competitions[2].isKids, true)
+  })
+
+  it('F4 the active filter count: blank search and empty selects count for nothing', () => {
+    assert.equal(activeFilterCount({}), 0)
+    assert.equal(activeFilterCount({ q: '   ', categoryId: '', category: '', gender: '', club: '' }), 0)
+    assert.equal(activeFilterCount({ q: 'ola', categoryId: 'c1', category: '', gender: 'K', club: '__none' }), 4)
   })
 })
