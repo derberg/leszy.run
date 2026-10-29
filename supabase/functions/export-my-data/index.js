@@ -32,6 +32,44 @@ const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_
   + 'registration_settings(name, event_date), '
   + 'consent_acceptances(consent_kind, accepted_as, accepted_by_profile_id, regulamin_version, accepted_at, ip, user_agent)'
 
+// Paid registration (plan 3): the order with its frozen amounts, its lines, every dpay
+// transaction started for it and every refund. The operator alerts raised about the order are
+// included too: they are about this person's payment, even if they are an internal note.
+// payment_events (the raw dpay log) is not: it holds the same transaction ids and amounts, and
+// the payer address only as a SHA-256.
+const ORDER_COLUMNS = 'id, status, buyer_email, support_choice, entry_total, extras_total, donation, support_fee, '
+  + 'payment_fee, total, created_at, expires_at, paid_at, paid_transaction_id, cancelled_at, cancelled_reason, '
+  + 'registration_settings(name, event_date), '
+  + 'order_lines(kind, registration_id, qty, amount, refunded, tier_label, tier_ends_on), '
+  + 'payment_attempts(id, dpay_transaction_id, grosze, status, created_at, paid_at), '
+  + 'refunds(id, payment_attempt_id, amount, kind, reason, dpay_status, created_at), '
+  + 'operator_alerts(kind, payload, created_at)'
+
+function orderView(o) {
+  return {
+    id: o.id,
+    event_name: o.registration_settings?.name ?? null,
+    event_date: o.registration_settings?.event_date ?? null,
+    status: o.status,
+    buyer_email: o.buyer_email,
+    support_choice: o.support_choice,
+    amounts: {
+      entry_total: o.entry_total, extras_total: o.extras_total, donation: o.donation,
+      support_fee: o.support_fee, payment_fee: o.payment_fee, total: o.total,
+    },
+    created_at: o.created_at,
+    expires_at: o.expires_at,
+    paid_at: o.paid_at,
+    paid_transaction_id: o.paid_transaction_id,
+    cancelled_at: o.cancelled_at,
+    cancelled_reason: o.cancelled_reason,
+    lines: o.order_lines ?? [],
+    payment_attempts: o.payment_attempts ?? [],
+    refunds: o.refunds ?? [],
+    alerts: o.operator_alerts ?? [],
+  }
+}
+
 function json(body, status, req, extraHeaders = {}) {
   return new Response(JSON.stringify(body, null, 2), {
     status,
@@ -65,6 +103,7 @@ Deno.serve(async (req) => {
     clubMemberships, ownedClubsRaw, membershipLog, raceEntries, invitesToMe,
     organizerAgreements, organizerActions, payoutHistory, waitlistRequests,
     registrationsByProfile, registrationsByEmail, guardianByProfile, guardianByEmail,
+    ordersByProfile, ordersByEmail, eventPayoutHistory,
   ] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').eq('id', userId).single(),
     supabaseAdmin.from('user_badges').select('*').eq('user_id', userId),
@@ -130,7 +169,25 @@ Deno.serve(async (req) => {
       ? fetchAll(() => supabaseAdmin.from('registrations')
         .select(GUARDIAN_COLUMNS).eq('guardian_email', session.email.toLowerCase().trim()).order('created_at').order('id'), 'guardian registrations by email')
       : Promise.resolve([]),
+    // Orders they placed: by account, and by the address (as registrations above).
+    fetchAll(() => supabaseAdmin.from('orders')
+      .select(ORDER_COLUMNS).eq('buyer_profile_id', userId).order('created_at').order('id'), 'orders by profile'),
+    session.email
+      ? fetchAll(() => supabaseAdmin.from('orders')
+        .select(ORDER_COLUMNS).eq('buyer_email', session.email.toLowerCase().trim()).order('created_at').order('id'), 'orders by email')
+      : Promise.resolve([]),
+    // Payout changes of one event, made by this person as the club owner. Like
+    // club_payout_history, old/new are the club's account (or the recipient the
+    // club named) exactly as stored. The current event_payout_details row belongs
+    // to the club's event, not to the person, so it is not exported.
+    fetchAll(() => supabaseAdmin.from('event_payout_history')
+      .select('id, event_id, old, new, changed_at, registration_settings(name)')
+      .eq('changed_by', userId).order('changed_at').order('id'), 'event_payout_history'),
   ])
+
+  const orders = [...new Map([...ordersByProfile, ...ordersByEmail].map((o) => [o.id, o])).values()]
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+    .map(orderView)
 
   const registrationsAsGuardian = [...new Map([...guardianByProfile, ...guardianByEmail].map((r) => [r.id, r])).values()]
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
@@ -202,6 +259,7 @@ Deno.serve(async (req) => {
     clubs: { membership, memberships, membership_history, owned },
     registrations,
     registrations_as_guardian: registrationsAsGuardian,
+    orders,
     race_entries: (raceEntries.data ?? []).map((p) => ({
       event_name: p.events?.name ?? null,
       event_date: p.events?.date ?? null,
@@ -234,6 +292,13 @@ Deno.serve(async (req) => {
       })),
       payout_changes: payoutHistory.map((h) => ({
         club_name: h.club_name,
+        old: h.old,
+        new: h.new,
+        changed_at: h.changed_at,
+      })),
+      event_payout_changes: eventPayoutHistory.map((h) => ({
+        event_id: h.event_id,
+        event_name: h.registration_settings?.name ?? null,
         old: h.old,
         new: h.new,
         changed_at: h.changed_at,

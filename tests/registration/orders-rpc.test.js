@@ -1,13 +1,14 @@
 // Plan 3, task 4: the order RPCs (create_order, add_payment_attempt,
 // confirm_order, expire_orders, cancel_order, record_refund, settle_refund,
 // insert_registration_participant, registration_slot_units). Scenario ids
-// P-13b…P-18 in docs/registration/scenario-matrix.md (P-13 is redactDpay).
+// P-13b…P-18 in docs/registration/scenario-matrix.md (P-13 is redactDpay),
+// and P-53 / P-54: orders in export-my-data and delete-my-account (task 11).
 // LOCAL stack only; every event and address is random, so reruns pass.
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { sessionFor } from './helpers/stack.js'
-import { acceptAgreement, createPublishedFreeEvent, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
+import { acceptAgreement, callFn, createPublishedFreeEvent, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import {
   attemptFor, competitionOf, confirm, confirmOk, consentIds, createOrder, db, expireNow, minutesFromNow,
   newTxn, one, orderOf, orderOk, person, registrationsOf, rows, rpc, runnerEmail, setSettings, totalFor,
@@ -563,4 +564,123 @@ test('confirm on an unknown order id → unknown_attempt and an alert without an
   assert.equal(r.data.outcome, 'unknown_attempt')
   const { data } = await db().from('operator_alerts').select('*').eq('kind', 'unknown_attempt').is('order_id', null)
   assert.ok(data.some((a) => a.payload?.txn === txn))
+})
+
+// ---------------------------------------------------------------- P-53 / P-54 (task 11, GDPR)
+
+/** A paid order of `email` (the P-48 runner: paid once) plus a double payment refunded automatically. */
+async function paidRunner(event, email) {
+  const session = await sessionFor(email)
+  const out = await orderOk(event, { people: [person(email)], support: true })
+  const att = await attemptFor(out.orderId, out.total)
+  const second = await attemptFor(out.orderId, out.total)
+  await confirmOk(out.orderId, att.txn, out.total)
+  const dbl = await confirmOk(out.orderId, second.txn, out.total)
+  assert.equal(dbl.outcome, 'double_payment', JSON.stringify(dbl))
+  return { session, out, att, second }
+}
+
+test('P-53 export-my-data holds the runner\'s order with every amount, its lines, attempts and refund, and nobody else\'s', async () => {
+  const event = await paid()
+  const email = runnerEmail('export')
+  const other = runnerEmail('other')
+  const { session, out, att, second } = await paidRunner(event, email)
+  const otherOrder = await orderOk(event, { people: [person(other)] })
+
+  const res = await callFn('export-my-data', session, {})
+  assert.equal(res.status, 200, JSON.stringify(res.body))
+  const orders = res.body.orders
+  assert.equal(orders.length, 1, JSON.stringify(orders))
+  const [o] = orders
+  assert.equal(o.id, out.orderId)
+  assert.equal(o.status, 'paid')
+  assert.equal(o.buyer_email, email)
+  assert.equal(o.paid_transaction_id, att.txn)
+  assert.equal(o.support_choice, true)
+  assert.deepEqual(o.amounts, {
+    entry_total: 6000, extras_total: 0, donation: 0, support_fee: 120, payment_fee: 56, total: 6176,
+  })
+  assert.equal(o.event_name, (await one('registration_settings', { event_id: event.eventId })).name)
+  assert.equal(o.lines.length, 1)
+  assert.equal(o.lines[0].kind, 'entry')
+  assert.equal(o.lines[0].amount, 6000)
+  assert.ok(o.lines[0].tier_label)
+  assert.deepEqual(o.payment_attempts.map((a) => [a.dpay_transaction_id, a.status, a.grosze]).sort(),
+    [[att.txn, 'paid', 6176], [second.txn, 'paid', 6176]].sort())
+  assert.ok(o.payment_attempts.every((a) => a.id))
+  assert.equal(o.refunds.length, 1)
+  assert.equal(o.refunds[0].amount, 6176)
+  assert.equal(o.refunds[0].kind, 'automatic')
+  assert.equal(o.refunds[0].reason, 'double_payment')
+  assert.equal(o.refunds[0].payment_attempt_id, o.payment_attempts.find((a) => a.dpay_transaction_id === second.txn).id)
+
+  const text = JSON.stringify(res.body)
+  assert.equal(text.includes(other), false, 'no other person\'s address')
+  assert.equal(text.includes(otherOrder.orderId), false, 'no other person\'s order')
+})
+
+test('P-53 the club owner\'s export lists the event payout changes they made', async () => {
+  const event = await paid()
+  const r = await callFn('update-event-payout', owner, {
+    eventId: event.eventId, mode: 'custom', recipient: 'Fundacja Leśna Pomoc', taxId: '5260250274',
+    iban: 'PL61109010140000071219812874', title: 'Wpisowe',
+  })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const res = await callFn('export-my-data', owner, {})
+  assert.equal(res.status, 200, JSON.stringify(res.body))
+  const mine = res.body.organizer.event_payout_changes.filter((c) => c.event_id === event.eventId)
+  assert.equal(mine.length, 1)
+  assert.equal(mine[0].old, null)
+  assert.equal(mine[0].new.payout_iban, 'PL61109010140000071219812874')
+  assert.ok(mine[0].changed_at)
+})
+
+test('P-54 delete-my-account: the order keeps its amounts, status and transaction ids, buyer_email is null, the person is anonymised', async () => {
+  const event = await paid()
+  const email = runnerEmail('erase')
+  const { session, out, att, second } = await paidRunner(event, email)
+  const [reg] = await registrationsOf(out.orderId)
+  // An alert whose text carries the address (a mail provider's error message).
+  const { error: aErr } = await db().from('operator_alerts')
+    .insert({ kind: 'email_failed', order_id: out.orderId, payload: { template: 'reminder', error: `rejected ${email}` } })
+  assert.ifError(aErr)
+  const sha = crypto.createHash('sha256').update('123456').digest('hex')
+  const { error: cErr } = await db().from('auth_codes').insert({
+    email, code_hash: sha, purpose: 'delete_account', expires_at: new Date(Date.now() + 600000).toISOString(),
+  })
+  assert.ifError(cErr)
+
+  const r = await callFn('delete-my-account', session, { action: 'confirm', code: '123456' })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+
+  const order = await orderOf(out.orderId)
+  assert.equal(order.buyer_email, null)
+  assert.equal(order.status, 'paid')
+  assert.equal(order.total, 6176)
+  assert.equal(order.support_fee, 120)
+  assert.equal(order.payment_fee, 56)
+  assert.equal(order.paid_transaction_id, att.txn)
+  assert.notEqual(order.paid_at, null)
+  const attempts = await rows('payment_attempts', { order_id: out.orderId })
+  assert.deepEqual(attempts.map((a) => a.dpay_transaction_id).sort(), [att.txn, second.txn].sort())
+  const refunds = await rows('refunds', { order_id: out.orderId })
+  assert.equal(refunds.length, 1)
+  assert.equal(refunds[0].amount, 6176)
+
+  const alerts = await alertsFor(out.orderId, 'email_failed')
+  assert.equal(alerts.length, 1)
+  assert.equal(JSON.stringify(alerts[0].payload).includes(email), false, 'the address is masked in alert payloads')
+  assert.equal(alerts[0].payload.template, 'reminder')
+
+  const after = await one('registrations', { id: reg.id })
+  assert.equal(after.first_name, 'Usunięte konto')
+  assert.equal(after.email, null)
+  assert.equal(after.phone, null)
+  assert.equal(after.status, 'confirmed')
+  const [p] = await participantsOf(reg.id)
+  assert.equal(p.email, null)
+  assert.equal(p.phone, null)
+  assert.equal(p.first_name, 'Uczestnik')
+  assert.notEqual(p.deleted_at, null)
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 1, 'the slot stays taken')
 })

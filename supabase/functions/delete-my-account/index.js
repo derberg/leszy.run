@@ -6,6 +6,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { retireEmail } from '../_shared/deletedEmails.js'
+import { redactDpay } from '../_shared/registration/redactDpay.js'
 import { getSession } from '../_shared/session.js'
 
 async function sha256hex(text) {
@@ -344,6 +345,37 @@ Deno.serve(async (req) => {
     const { error: actedErr } = await supabaseAdmin.from('consent_acceptances')
       .update({ ip: null, user_agent: null }).eq('accepted_by_profile_id', profile.id)
     if (actedErr) console.error('delete-my-account: acceptances by person cleanup failed:', actedErr.message)
+
+    // 1d. Orders (paid registration). Payment records are accounting records,
+    // kept 5 years from the end of the year of payment (tax law, Art. 17(3)(b)):
+    // amounts, statuses, dpay transaction ids, attempts and refunds all stay.
+    // Only the buyer's address goes. buyer_profile_id keeps pointing at the
+    // anonymised profile, like registrations.profile_id. payment_events holds
+    // the payer address only as email_sha256 and is left as the accounting
+    // trail. An operator alert about one of these orders keeps its kind and
+    // amounts, and loses any address in its text (a mail provider's error).
+    const orderIds = new Set()
+    const buyerKeys = [['buyer_profile_id', profile.id]]
+    if (originalEmail) buyerKeys.push(['buyer_email', originalEmail])
+    for (const [column, value] of buyerKeys) {
+      const { data: found, error: findErr } = await supabaseAdmin.from('orders').select('id').eq(column, value)
+      if (findErr) console.error('delete-my-account: orders lookup failed:', column, findErr.message)
+      for (const o of found ?? []) orderIds.add(o.id)
+    }
+    if (orderIds.size > 0) {
+      const ids = [...orderIds]
+      const { error: ordErr } = await supabaseAdmin.from('orders').update({ buyer_email: null }).in('id', ids)
+      if (ordErr) console.error('delete-my-account: orders buyer_email cleanup failed:', ordErr.message)
+      const { data: alerts, error: alErr } = await supabaseAdmin.from('operator_alerts')
+        .select('id, payload').in('order_id', ids)
+      if (alErr) console.error('delete-my-account: operator_alerts lookup failed:', alErr.message)
+      for (const a of alerts ?? []) {
+        const clean = redactDpay(a.payload)
+        if (JSON.stringify(clean) === JSON.stringify(a.payload ?? null)) continue
+        const { error: upErr } = await supabaseAdmin.from('operator_alerts').update({ payload: clean }).eq('id', a.id)
+        if (upErr) console.error('delete-my-account: operator_alerts redaction failed:', upErr.message)
+      }
+    }
 
     // 2. Soft-delete profile (username must be unique — use first 8 chars of UUID)
     const { error: updateError } = await supabaseAdmin

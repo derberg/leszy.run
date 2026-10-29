@@ -127,16 +127,29 @@ stored. pg_net keeps responses about 6 hours, and other callers share the table,
 body:
 
 ```sql
-SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'registration-%';  -- 4 rows, active
+SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'registration-%';  -- 4 rows, every one active = true
+SELECT job, interval_seconds, last_ok_at FROM registration_job_heartbeats ORDER BY job;  -- each last_ok_at within 3 intervals
 SELECT created, status_code, left(content, 300)
   FROM net._http_response
  WHERE content LIKE '{"data":{"checked"%' OR status_code IS DISTINCT FROM 200
  ORDER BY created DESC LIMIT 5;
 ```
 
+In production all four jobs must be `active = true`. `supabase/seed.sql` deactivates every
+`registration-*` job, but the seed only runs on a local or CI stack (`supabase db reset`); a
+production job that reads `false` was switched off by hand and nothing expires or gets sent.
+
 Expect `status_code = 200` with a body starting `{"data":{"checked"`. A NULL `status_code` (with
 `timed_out` or `error_msg` set) is a failure too: pg_net could not reach the function or gave up. A 404 means the two
 secret values differ, and a 503 means a function secret is missing (the function logs which one).
+
+**Heartbeats and the watchdog.** Every finished run stamps `registration_job_heartbeats.last_ok_at`
+(the three SQL jobs in their cron command, `registration-jobs` at the end of the function). The
+scheduler container (`scheduler/src/registrationWatchdog.js`, every 15 minutes) reads the table with
+`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` and e-mails `[ALERT] LeszyRun registration jobs stopped`
+to `PIPELINE_ALERT_EMAIL` when one is older than 3 × `interval_seconds`: once per outage, again every
+24 hours while it lasts. A table it cannot read, or an empty one, is alerted too. The scheduler runs
+on the operator's machine, so the watchdog is only as awake as that machine.
 
 **4. Rotation.** Set the function secret first, then Vault. Runs between the two steps answer
 404 and do nothing, and the next run after both are set catches up.
