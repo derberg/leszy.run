@@ -74,3 +74,13 @@ test('the event limit is the sum of the visible competitions\' limits', () => {
     { ...newCompetitionRow(), capacity: '20' }]
   assert.equal(eventCapacity(rows), 100)
 })
+
+// P3-R15 re-review I3: kind, price and hiding lock on the server's inUse (confirmed entries or a
+// live unpaid order), not on taken, which counts paid entries only.
+test('inUse comes from the server; without it a row is in use only when it has confirmed entries', () => {
+  assert.equal(competitionRow(server({ taken: 0, inUse: true })).inUse, true)
+  assert.equal(competitionRow(server({ taken: 3, inUse: false })).inUse, false)
+  assert.equal(competitionRow(server({ taken: 2 })).inUse, true)
+  assert.equal(competitionRow(server({ taken: 0 })).inUse, false)
+  assert.equal(newCompetitionRow().inUse, false)
+})

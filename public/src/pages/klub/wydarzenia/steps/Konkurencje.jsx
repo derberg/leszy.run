@@ -9,10 +9,13 @@ import {
 } from '../wizardUi.jsx'
 
 // A3: the event's competitions and the entry fee. A draft competition can be
-// removed; after publish none can (ruling P2-R8): one without entries can be
+// removed; after publish none can (ruling P2-R8): one not in use can be
 // hidden and shown again, and every competition, hidden ones included, goes
-// with each save. With entries its kind, price and a limit under the number
-// registered are locked.
+// with each save. In use (`inUse` from get-registration-event: confirmed entries
+// or a live order awaiting payment, P3-R15) its kind, price and hiding are
+// locked, as the server's registration_check_locks refuses them. The limit may
+// not go under the confirmed entries (`taken`, „MIN.”): an unpaid order holds
+// no place.
 
 const GPX_MAX = 5 * 1024 * 1024
 
@@ -143,7 +146,7 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
           </thead>
           <tbody>
             {rows.map((r, i) => {
-              const locked = published && r.taken > 0
+              const locked = published && r.inUse
               const n = i + 1
               return [
                 <tr key={r.key} data-testid="competition-row" className={r.hidden ? 'opacity-60' : r.isKids ? 'bg-apex-surface' : ''}>
@@ -157,7 +160,7 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
                         <option value="individual">Indywidualna</option>
                         <option value="team" disabled>Drużyna · wkrótce</option>
                       </select>
-                      {locked && <Lock title="Są zapisy: rodzaju nie można zmienić" />}
+                      {locked && <Lock title="Są zgłoszenia: rodzaju nie można zmienić" />}
                     </div>
                   </td>
                   <td className={tdClass}>
@@ -174,7 +177,7 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
                   </td>
                   <td className={tdClass}>
                     <input aria-label={`Limit ${n}`} inputMode="numeric" className={`${cellInput} w-[76px]`} value={r.capacity} onChange={setRow(r.key, 'capacity')} />
-                    {locked && <span className="block mt-1 font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-min">MIN. {r.taken}</span>}
+                    {published && r.taken > 0 && <span className="block mt-1 font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-min">MIN. {r.taken}</span>}
                   </td>
                   <td className={tdClass}>
                     <div className="flex items-center gap-1">
@@ -194,7 +197,7 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
                     {!published && (
                       <button type="button" aria-label={`Usuń konkurencję ${n}`} className={`${btnGhost} text-base px-3`} onClick={() => removeRow(r.key)}>×</button>
                     )}
-                    {published && r.taken === 0 && (
+                    {published && !r.inUse && (
                       <button type="button" className={btnGhost} onClick={() => toggleHidden(r.key)}>
                         {r.hidden ? 'Pokaż konkurencję' : 'Ukryj konkurencję'}
                       </button>
@@ -254,9 +257,9 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
                     <td className={tdClass}>
                       <div className="flex items-center gap-1.5">
                         <input aria-label={`Cena ${r.name || i + 1}`} inputMode="decimal" className={`${cellInput} w-[100px]`}
-                          value={r.price} disabled={published && r.taken > 0} onChange={setRow(r.key, 'price')} />
+                          value={r.price} disabled={published && r.inUse} onChange={setRow(r.key, 'price')} />
                         <span className="font-mono text-sm text-apex-muted">zł</span>
-                        {published && r.taken > 0 && <Lock title="Są zapisy: opłaty nie można zmienić" />}
+                        {published && r.inUse && <Lock title="Są zgłoszenia: opłaty nie można zmienić" />}
                       </div>
                     </td>
                   </tr>

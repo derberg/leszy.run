@@ -215,3 +215,28 @@ test('P-58 a 0 zł order is confirmed at once and claims its place at creation',
   assert.equal((await competitionOf(cat)).taken, 1)
   assert.equal((await createOrder(event, { price: 0 })).error?.message, 'full')
 })
+
+// P3-R15 re-review I3: the wizard locks kind, price and hiding on registration_competition_in_use,
+// so get-registration-event hands it to owner and admin per competition.
+test('P-58 get-registration-event: inUse per competition for owner and admin (a live unpaid order counts, taken stays 0); none for a member', async () => {
+  const event = await createPublishedPaidEvent(owner, {
+    prices: { 'Bieg 9 km': 6000, 'Marsz 5 km': 4000 }, competitions: [...BIEG(50), MARSZ(20)],
+  })
+  const [bieg, marsz] = event.categoryIds
+  const inUse = async (session) => {
+    const r = await callFn('get-registration-event', session, { eventId: event.eventId })
+    assert.equal(r.status, 200, JSON.stringify(r.body))
+    return Object.fromEntries(r.body.data.competitions.map((c) => [c.categoryId, [c.inUse, c.taken]]))
+  }
+  assert.deepEqual(await inUse(owner), { [bieg]: [false, 0], [marsz]: [false, 0] })
+  const o = await orderOk(event)
+  assert.deepEqual(await inUse(owner), { [bieg]: [true, 0], [marsz]: [false, 0] })
+  assert.deepEqual(await inUse(await sessionFor('admin@zatyrani-test.local')), { [bieg]: [true, 0], [marsz]: [false, 0] })
+  const member = await inUse(await sessionFor('member@zatyrani-test.local'))
+  assert.deepEqual(member, { [bieg]: [undefined, 0], [marsz]: [undefined, 0] })
+  // Cancelled, the order no longer holds the lock.
+  assert.equal((await rpc('cancel_order', { p_order_id: o.orderId, p_reason: 'test' })).data, true)
+  assert.deepEqual(await inUse(owner), { [bieg]: [false, 0], [marsz]: [false, 0] })
+  await paidOrderOk(event, { categoryId: marsz })
+  assert.deepEqual(await inUse(owner), { [bieg]: [false, 0], [marsz]: [true, 1] })
+})

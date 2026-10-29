@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import sharp from 'sharp'
 import { test, expect, ACTOR_EMAILS } from './fixtures.js'
 import { admin, localEnv, sessionFor } from '../helpers/stack.js'
-import { callFn, createPublishedFreeEvent, makeClub } from '../helpers/registrationFixtures.js'
+import { callFn, createPublishedFreeEvent, createPublishedPaidEvent, makeClub } from '../helpers/registrationFixtures.js'
 import { clearMessages, messagesTo } from '../helpers/emailCapture.js'
 
 // Plan 2 task 8: the organizer wizard. W-25 (owner: every step, reloads, the
@@ -498,6 +498,53 @@ test('W-52 after publish Konkurencje sends every competition, hidden ones includ
   await expect.poll(staged, { timeout: 15_000 }).toEqual([
     [categoryIds[0], '10:15', false], [categoryIds[1], '10:05', false], [categoryIds[2], '10:10', false],
   ])
+})
+
+// P3-R15 re-review I3: a competition held only by a live unpaid order has taken 0, but the
+// server refuses hiding it and changing its kind or price. The step locks the same controls
+// on inUse, and keeps „MIN.” on the confirmed entries only.
+test('W-71 after publish a competition with only an unpaid order is locked (kind, price, no „Ukryj”), with no „MIN.”', async ({ actors }) => {
+  test.setTimeout(90_000)
+  const owner = await sessionFor(ACTOR_EMAILS.owner)
+  const event = await createPublishedPaidEvent(owner, {
+    prices: { 'Bieg 9 km': 6000, 'Marsz 5 km': 4000 },
+    competitions: [
+      { name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 },
+      { name: 'Marsz 5 km', discipline: 'nw', distanceLabel: '5 km', startTime: '10:05', capacity: 30 },
+    ],
+  })
+  const db = admin()
+  const email = `runner-inuse-${crypto.randomBytes(4).toString('hex')}@test.local`
+  const { data: profile } = await db.from('profiles').insert({ id: crypto.randomUUID(), email }).select('id').single()
+  const { data: consents } = await db.from('event_consents').select('id').eq('event_id', event.eventId)
+  const created = await db.rpc('create_order', {
+    p_category_id: event.categoryIds[0],
+    p_people: [{ firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email, phone: '600100200' }],
+    p_profile_id: profile.id, p_buyer_email: email, p_support_choice: false,
+    p_displayed_total: 6055, // 60 zł + 0,55 zł dpay (money.js; Playwright cannot import it)
+    p_meta: { consentIds: consents.map((c) => c.id), ip: '203.0.113.9', userAgent: 'test' },
+  })
+  expect(created.error).toBeNull()
+  expect((await competitionsOf(event.eventId)).map((c) => c.taken)).toEqual([0, 0])
+
+  const page = await actors.owner.newPage()
+  await offline(page)
+  await page.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/konkurencje`)
+  const rows = page.getByTestId('competition-row')
+  await expect(rows).toHaveCount(2)
+  // Bieg: an unpaid order only.
+  await expect(rows.nth(0).getByRole('img', { name: /rodzaju nie można zmienić/ })).toBeVisible()
+  await expect(rows.nth(0).getByLabel('Rodzaj 1')).toBeDisabled()
+  await expect(rows.nth(0).getByRole('button', { name: /konkurencję/ })).toHaveCount(0)
+  await expect(rows.nth(0).getByTestId('capacity-min')).toHaveCount(0)
+  await expect(page.getByLabel('Cena Bieg 9 km')).toBeDisabled()
+  await expect(page.getByRole('img', { name: /Są zgłoszenia: opłaty nie można zmienić/ })).toHaveCount(1)
+  // Marsz: nobody.
+  await expect(rows.nth(1).getByRole('img', { name: /rodzaju nie można zmienić/ })).toHaveCount(0)
+  await expect(rows.nth(1).getByRole('button', { name: 'Ukryj konkurencję' })).toBeVisible()
+  await expect(page.getByLabel('Cena Marsz 5 km')).toBeEnabled()
+  // The limit itself stays editable: it may go down to the confirmed entries (0 here).
+  await expect(page.getByLabel('Limit 1')).toBeEnabled()
 })
 
 test('W-55 after publish a staged change is what the step shows, after leaving it and after a reload, and a further edit keeps it', async ({ actors }) => {

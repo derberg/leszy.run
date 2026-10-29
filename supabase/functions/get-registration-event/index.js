@@ -31,7 +31,7 @@ async function rows(query) {
 // fixed price in grosze), office hours as Warsaw days and times, age and kids
 // groups, consents (a custom one carries `accepted` for owner/admin),
 // uploads, pending changes, registered count, the caller's role and the
-// publish checklist. Any active member of the owning club may
+// publish checklist. Each competition carries `inUse` for owner/admin. Any active member of the owning club may
 // read it.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -75,6 +75,17 @@ Deno.serve(async (req) => {
       }))).filter(Boolean))
       : null
 
+    // Owner/admin only: whether each competition is in use (confirmed entries, or a live order
+    // awaiting payment: registration_competition_in_use, P3-R15). The wizard locks kind, price
+    // and hiding on it, as registration_check_locks does; taken alone misses unpaid orders.
+    const inUse = writer
+      ? new Map(await Promise.all(competitions.map(async (c) => {
+        const { data, error } = await admin.rpc('registration_competition_in_use', { p_category_id: c.category_id })
+        if (error) throw error
+        return [c.category_id, data === true]
+      })))
+      : null
+
     const categoryIds = competitions.map((c) => c.category_id)
     const [prices, ageGroups, kidsGroups] = categoryIds.length
       ? await Promise.all([
@@ -93,7 +104,9 @@ Deno.serve(async (req) => {
         opensOn: settings.opens_at ? warsawToday(new Date(settings.opens_at)) : null,
         closesOn: settings.closes_at ? warsawToday(new Date(new Date(settings.closes_at).getTime() - 1)) : null,
       },
-      competitions: competitions.map((c) => ({ ...camel(c), priceGrosze: priceOf.get(c.category_id) ?? null })),
+      competitions: competitions.map((c) => ({
+        ...camel(c), priceGrosze: priceOf.get(c.category_id) ?? null, ...(inUse ? { inUse: inUse.get(c.category_id) } : {}),
+      })),
       officeHours: hours.map((h) => ({
         id: h.id, date: warsawToday(new Date(h.starts_at)), from: hhmm(h.starts_at), to: hhmm(h.ends_at),
         startsAt: h.starts_at, endsAt: h.ends_at,
