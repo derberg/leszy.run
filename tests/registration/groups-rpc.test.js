@@ -221,6 +221,18 @@ test('G-13 every person at their own price: 60 + 60 + 20 → entry_total 14000, 
     `price_changed:${groupTotal(event, [{ categoryId: c9 }, { categoryId: kids }])}`)
 })
 
+test('G-13 an uppercase categoryId is priced like a lowercase one (no 500)', async () => {
+  const event = await paid2()
+  const [c9, kids] = event.categoryIds
+  const people = [adult(c9.toUpperCase(), 'self'), minor(kids.toUpperCase())]
+  const r = await orderGroup(event, people, { displayed: groupTotal(event, [{ categoryId: c9 }, { categoryId: kids }]) })
+  assert.equal(r.error, null, r.error?.message)
+  assert.equal(r.data.amounts.entryTotal, 8000)
+  assert.deepEqual(r.data.registrations.map((x) => x.categoryId), [c9, kids])
+  const lines = await rows('order_lines', { order_id: r.data.orderId })
+  assert.deepEqual(lines.map((l) => l.amount).sort(), [2000, 6000])
+})
+
 test('G-13 a 0 zł group claims like a free one and is paid at once', async () => {
   const event = await createPublishedPaidEvent(owner, {
     prices: { 'Bieg 9 km': 0, 'Bieg dzieci 1 km': 0 }, competitions: [BIEG(), DZIECI()],
@@ -310,7 +322,7 @@ test('G-15 malformed groups are refused: no categoryId, an unknown role, an adul
 
 // ---------------------------------------------------------------- G-16
 
-test('G-16 both overloads of register_free and create_order: SECURITY DEFINER, empty search_path, service_role only', async () => {
+test('G-16 both overloads of register_free and create_order: SECURITY DEFINER, empty search_path, service_role only; the internal helpers executable by nobody', async () => {
   const postgres = (await import('postgres')).default
   const sql = postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} })
   try {
@@ -334,6 +346,21 @@ test('G-16 both overloads of register_free and create_order: SECURITY DEFINER, e
       assert.equal(f.anon, false, `${f.sig} anon`)
       assert.equal(f.authd, false, `${f.sig} authenticated`)
       assert.equal(f.svc, true, `${f.sig} service_role`)
+    }
+    // The internal helpers run only inside the SECURITY DEFINER RPCs: nobody else may call them.
+    const helpers = await sql`
+      select p.oid::regprocedure::text as sig,
+             has_function_privilege('anon', p.oid, 'execute') as anon,
+             has_function_privilege('authenticated', p.oid, 'execute') as authd,
+             has_function_privilege('service_role', p.oid, 'execute') as svc
+        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public'
+         and p.proname in ('registration_group_lock', 'registration_group_insert', 'registration_group_claim')`
+    assert.equal(helpers.length, 3, helpers.map((f) => f.sig).join())
+    for (const f of helpers) {
+      assert.equal(f.anon, false, `${f.sig} anon`)
+      assert.equal(f.authd, false, `${f.sig} authenticated`)
+      assert.equal(f.svc, false, `${f.sig} service_role`)
     }
   } finally {
     await sql.end()

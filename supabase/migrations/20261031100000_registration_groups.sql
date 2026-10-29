@@ -378,6 +378,8 @@ BEGIN
   END IF;
 
   -- The current tier, as before; every person at their own competition's price in it.
+  -- v_prices is keyed by the canonical uuid text, so every lookup casts the person's
+  -- categoryId through uuid (an uppercase id prices like a lowercase one).
   SELECT t.id, t.ends_on INTO v_tier, v_tier_ends
     FROM public.price_tiers t
    WHERE t.event_id = v_rs.event_id
@@ -395,7 +397,7 @@ BEGIN
   v_label := CASE WHEN v_tier_ends IS NULL THEN 'do zamknięcia zapisów'
                   ELSE 'do ' || to_char(v_tier_ends, 'DD.MM.YYYY') END;
 
-  SELECT sum((v_prices->>(e->>'categoryId'))::bigint) INTO v_entry FROM jsonb_array_elements(p_people) AS e;
+  SELECT sum((v_prices->>((e->>'categoryId')::uuid::text))::bigint) INTO v_entry FROM jsonb_array_elements(p_people) AS e;
   IF v_entry > 99999999 THEN
     RAISE EXCEPTION 'invalid_amount:total' USING ERRCODE = '22023';
   END IF;
@@ -461,7 +463,7 @@ BEGIN
                         FROM jsonb_array_elements(p_people) e WHERE e->>'role' = 'self' LIMIT 1));
 
   FOR v_person, v_idx IN SELECT value, ordinality FROM jsonb_array_elements(p_people) WITH ORDINALITY LOOP
-    v_price := (v_prices->>(v_person->>'categoryId'))::integer;
+    v_price := (v_prices->>((v_person->>'categoryId')::uuid::text))::integer;
     v_reg := public.registration_group_insert(v_rs, v_person, (v_idx - 1)::integer, v_profile, v_buyer, v_name,
                                               v_order, CASE WHEN v_free THEN 'confirmed' ELSE 'pending_payment' END,
                                               v_price, v_ip, v_ua);
