@@ -7,11 +7,13 @@
 // P2-R21: lines about payment (dpay, paid status, payment records, unpaid
 // entries) appear only for a paid event, the team name only with team
 // competitions. Ruling P2-R31: nationality is named only when the event's
-// form asks for it.
+// form asks for it. Ruling P2-R33: image publication is a term of the
+// regulamin (contract + legitimate interest, art. 81 of the copyright act),
+// never described as consent.
 //
 // Keep in step with the source document when it changes.
 
-export const RUNNER_DATA_INFO_VERSION = '2026-11-v1'
+export const RUNNER_DATA_INFO_VERSION = '2026-11-v2'
 
 /**
  * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
@@ -46,6 +48,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
               ['Cel', 'Podstawa prawna'],
               ['Przyjęcie zapisu, zawarcie i wykonanie umowy o udział w zawodach: lista startowa, przydział do kategorii, kontakt w sprawie zawodów, przekazanie pakietu innej osobie, zwrot opłaty', 'art. 6 ust. 1 lit. b RODO (umowa)'],
               ['Pomiar czasu i publikacja listy startowej oraz wyników w zakresie określonym w regulaminie zawodów', 'art. 6 ust. 1 lit. b RODO (umowa)'],
+              ['Utrwalenie wizerunku podczas zawodów (zdjęcia, wideo) i jego publikacja przez Organizatora w relacjach i wynikach zawodów, zgodnie z regulaminem zawodów', 'art. 6 ust. 1 lit. b RODO (umowa: postanowienie regulaminu zawodów) oraz art. 6 ust. 1 lit. f RODO (prawnie uzasadniony interes Organizatora: relacjonowanie zawodów); rozpowszechnianie wizerunku — art. 81 ustawy o prawie autorskim i prawach pokrewnych'],
               ['Kontakt z osobą wskazaną na wypadek nagłego zdarzenia w trakcie zawodów', 'art. 6 ust. 1 lit. f RODO (prawnie uzasadniony interes Organizatora: bezpieczeństwo uczestników); w razie zagrożenia życia lub zdrowia — art. 6 ust. 1 lit. d RODO (żywotny interes)'],
               ['Rozliczenia, rachunkowość i podatki', 'art. 6 ust. 1 lit. c RODO (obowiązek prawny, w szczególności przepisy podatkowe)'],
               ['Ustalenie, dochodzenie i obrona roszczeń', 'art. 6 ust. 1 lit. f RODO (prawnie uzasadniony interes Organizatora)'],
@@ -58,6 +61,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
         heading: 'Co jest publikowane',
         blocks: [
           `Na publicznej liście startowej: ${listedText}. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. ${unpublished.join(', ')} i dane osoby do kontaktu w nagłych wypadkach nie są publikowane.`,
+          'Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i publikować go w relacjach i wynikach zawodów. Jest to warunek udziału określony w regulaminie zawodów, a nie zgoda. Wobec publikacji opartej na prawnie uzasadnionym interesie Organizatora możesz wnieść sprzeciw (art. 21 RODO): napisz do Organizatora.',
         ],
       },
       {
@@ -81,6 +85,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
             'Pozostałe dane zgłoszenia: 12 miesięcy po dniu zawodów, a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.',
             ...only(paid, 'Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).'),
             'Wyniki zawodów: bezterminowo, w archiwum wyników.',
+            'Zdjęcia i nagrania z zawodów: przez czas publikacji relacji i wyników albo do uwzględnienia Twojego sprzeciwu.',
           ],
         }],
       },

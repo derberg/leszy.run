@@ -436,6 +436,42 @@ test('W-66 the organizer can neither delete nor retype the image acceptance (P2-
   assert.equal(second.error?.code, '23505', 'one image acceptance per event')
 })
 
+test('W-66 W-71 the form-rulings backfill gives an older event its image acceptance and the new form_fields shape, once', async () => {
+  const { eventId } = await createEvent()
+  // An event as it looked before 20261030000000: no image row, a phone key, no nationality key.
+  const del = await db().from('event_consents').delete().eq('event_id', eventId).eq('kind', 'image')
+  assert.equal(del.error, null)
+  const old = await db().from('registration_settings')
+    .update({ form_fields: { phone: 'optional', city: 'required', club: 'off', ice: 'optional' } }).eq('event_id', eventId)
+  assert.equal(old.error, null)
+  // A form that already chose a nationality mode keeps it.
+  const { eventId: chosen } = await createEvent()
+  await db().from('registration_settings')
+    .update({ form_fields: { phone: 'off', city: 'optional', club: 'optional', ice: 'off', nationality: 'required' } }).eq('event_id', chosen)
+
+  const run = await db().rpc('registration_backfill_form_rulings')
+  assert.equal(run.error, null, run.error?.message)
+  assert.ok(run.data.images >= 1 && run.data.formFields >= 2, JSON.stringify(run.data))
+
+  const { data: images } = await db().from('event_consents').select('kind, text, sort_order').eq('event_id', eventId).eq('kind', 'image')
+  assert.deepEqual(images, [{ kind: 'image', text: IMAGE_TEXT, sort_order: 1 }])
+  assert.deepEqual((await settingsOf(eventId)).form_fields, { city: 'required', club: 'off', ice: 'optional', nationality: 'off' })
+  assert.deepEqual((await settingsOf(chosen)).form_fields, { city: 'optional', club: 'optional', ice: 'off', nationality: 'required' })
+
+  const again = await db().rpc('registration_backfill_form_rulings')
+  assert.deepEqual(again.data, { images: 0, formFields: 0 })
+  const { count } = await db().from('event_consents').select('id', { count: 'exact', head: true }).eq('event_id', eventId).eq('kind', 'image')
+  assert.equal(count, 1)
+})
+
+test('W-71 the backfill is not callable by clients', async () => {
+  const { localEnv } = await import('./helpers/stack.js')
+  const { createClient } = await import('@supabase/supabase-js')
+  const anon = createClient(localEnv().url, localEnv().anonKey)
+  const r = await anon.rpc('registration_backfill_form_rulings')
+  assert.ok(r.error, 'anon must be refused')
+})
+
 test('W-11 a closed event refuses saves with 409 not_draft (a published one stages them, W-21)', async () => {
   const { eventId } = await createEvent()
   await db().from('registration_settings').update({ state: 'closed' }).eq('event_id', eventId)
