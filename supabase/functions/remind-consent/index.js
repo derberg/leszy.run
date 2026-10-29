@@ -5,8 +5,9 @@
 // stops working, and the e-mail goes out as „Przypomnienie: …”. consent-remind:<id> allows 3 per
 // registration per 24 h, whoever asks; the automatic reminder does not count (D4-24). Every
 // refusal that can be decided first (not authorized, not awaiting, the link used or expired) is
-// answered before a slot is claimed, and a send that put nothing in the inbox (the link went
-// meanwhile, or the e-mail was refused: 502) gives its slot back (release_throttle_slot).
+// answered before a slot is claimed, and a link that went meanwhile (409) gives its slot back
+// (release_throttle_slot). A refused e-mail (502) keeps it: every retry rotates the token and
+// calls the sender, so it stays under the 3 per 24 h.
 //
 // → 200 { data: { status: 'sent' } }
 //   401 no session; 404 unknown, not yours, or a member; 409 not_awaiting (accepted, signed in
@@ -72,7 +73,7 @@ Deno.serve(async (req) => {
     }
 
     const outcome = await rotateAndSend(admin, reg.id, { reminder: true })
-    if (outcome !== 'sent') {
+    if (outcome === 'not_awaiting') {
       const { error: rErr } = await admin.rpc('release_throttle_slot', { p_key: slot })
       if (rErr) console.error(`remind-consent ${reg.id}: slot not released:`, rErr.message)
     }

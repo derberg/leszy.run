@@ -24,8 +24,8 @@
 --                                        10 minutes ago (so a first send still in flight is
 --                                        left alone); the job rotates the token and re-sends
 --   release_throttle_slot(key)           gives back one claim_throttle_slot slot: remind-consent
---                                        calls it when nothing was sent (link gone meanwhile,
---                                        e-mail refused)
+--                                        calls it when the link went meanwhile (409); a refused
+--                                        e-mail (502) keeps its slot
 --
 -- All are read, claimed and written by the service role only.
 

@@ -592,7 +592,7 @@ test('G-36 m2 only changed fields are validated: a field made required later doe
   assert.equal(reg.city, null)
 })
 
-test('G-36 m6 remind-consent spends no slot on an expired link (409) or on an e-mail the sender refused (502)', async () => {
+test('G-36 m6 remind-consent spends no slot on an expired link (409); an e-mail the sender refused (502) keeps its slot', async () => {
   await resetThrottle()
   const expired = await awaitingAdult()
   await db().from('consent_requests').update({ expires_at: ago(HOUR) }).eq('registration_id', expired.regId)
@@ -605,7 +605,7 @@ test('G-36 m6 remind-consent spends no slot on an expired link (409) or on an e-
   const failed = await call('remind-consent', { registrationId: bounce.regId }, { session: bounce.payer })
   assert.equal(failed.status, 502, JSON.stringify(failed.body))
   assert.equal(failed.body.code, 'email_failed')
-  assert.equal(await throttleAttempts(`consent-remind:${bounce.regId}`), 0)
+  assert.equal(await throttleAttempts(`consent-remind:${bounce.regId}`), 1, 'a 502 spends its slot')
 })
 
 test('G-36 m7 a missing request that keeps failing: one operator alert after the 3rd run, and newer rows are swept before it', async () => {
