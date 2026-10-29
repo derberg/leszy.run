@@ -316,9 +316,11 @@ export function consentRequestEmail({ event, person, registeredBy, competition, 
     ['Start', start || null],
     ['Miejsce', event.place],
   ].filter(([, v]) => v)
+  // Nobody named: „Inna osoba” opens a sentence, „inna osoba” sits inside one.
   const who = registeredBy || 'Inna osoba'
+  const whoInside = registeredBy || 'inna osoba'
   const office = 'Jeśli nie zaakceptujesz online, podpiszesz regulamin w biurze zawodów.'
-  const dataNote = `Twoje dane (imię, nazwisko, datę urodzenia, płeć, e-mail, telefon i pozostałe pola zgłoszenia) podał(a) ${who}. Kto je przetwarza, w jakim celu i jakie masz prawa:`
+  const dataNote = `Twoje dane (imię, nazwisko, datę urodzenia, płeć, e-mail, telefon i pozostałe pola zgłoszenia) podał(a) ${whoInside}. Kto je przetwarza, w jakim celu i jakie masz prawa:`
   const greeting = person?.firstName ? `Cześć ${person.firstName},` : 'Cześć,'
   const text = [
     greeting,

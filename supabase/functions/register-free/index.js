@@ -9,8 +9,10 @@ import {
   json, NOT_FOUND, REFUSALS, groupRefusal, prepareRegistration, rpcPeople,
 } from '../_shared/registration/registrationRequest.js'
 
-// Throttle: registrations per address, 10 per hour (claim_throttle_slot).
+// Throttles (claim_throttle_slot): requests per address, 10 per hour, and per client IP, 20 per
+// hour (fix round 1, I-2). prepareRegistration adds the buyer's 30 people a day.
 const REGISTER_LIMIT = 10
+const REGISTER_IP_LIMIT = 20
 const REGISTER_WINDOW_SECONDS = 3600
 
 async function rows(query) {
@@ -31,8 +33,9 @@ async function rows(query) {
 // consents (the buyer's own, and as guardian for every child), slot claims (every competition,
 // all or nothing) and participant rows are one transaction (register_free). 404 for a draft, an
 // unknown competition, two events or a disabled club; 409 full (categoryId) / closed / not_open
-// / not_free / duplicate (index); 400 invalid_person (people, fields), invalid_group or consents;
-// 401 code missing or wrong; 403 a retired address (index). One confirmation e-mail, to the
+// / not_free / duplicate (index; past the buyer's daily cap `refused`, naming nobody); 400 invalid_person (people, fields), invalid_group or consents;
+// 401 code missing or wrong; 403 a retired address (index, only to a verified buyer); 429 per
+// address, per IP, or past the buyer's 30 people a day. One confirmation e-mail, to the
 // buyer, listing everybody; one consent request e-mail to each added adult.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -46,9 +49,13 @@ Deno.serve(async (req) => {
 
   let withCookie = {}
   try {
+    const ip = clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
       pricing: (settings) => (settings.pricing_mode !== 'free' ? 'not_free' : null),
-      throttles: (email) => [{ key: `register:${email}`, limit: REGISTER_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS }],
+      throttles: (email) => [
+        ...(ip ? [{ key: `register-ip:${ip}`, limit: REGISTER_IP_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS }] : []),
+        { key: `register:${email}`, limit: REGISTER_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS },
+      ],
     })
     if (prepared.response) return prepared.response
     const { competitions, settings, people, consentIds, profileId, email, buyerName, buyerFirstName, legacy } = prepared
@@ -58,13 +65,13 @@ Deno.serve(async (req) => {
     const { data, error } = await admin.rpc('register_free', {
       p_people: rpcPeople(people),
       p_profile_id: profileId,
-      p_meta: { consentIds, buyerName, ip: clientIp(req), userAgent: req.headers.get('user-agent') || null },
+      p_meta: { consentIds, buyerName, ip, userAgent: req.headers.get('user-agent') || null },
     })
     if (error) {
       const msg = error.message ?? ''
       if (msg === 'not_found') return json(NOT_FOUND, 404, req, withCookie)
       if (msg === 'session_required') return json({ error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }, 401, req, withCookie)
-      const group = groupRefusal(msg, { competitions, legacy })
+      const group = await groupRefusal(admin, msg, { competitions, people, legacy, email })
       if (group) return json(group[1], group[0], req, withCookie)
       if (REFUSALS[msg]) {
         const [status, text] = REFUSALS[msg]

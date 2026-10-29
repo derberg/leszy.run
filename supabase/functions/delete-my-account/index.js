@@ -351,7 +351,7 @@ Deno.serve(async (req) => {
     // 1d. Orders (paid registration). Payment records are accounting records,
     // kept 5 years from the end of the year of payment (tax law, Art. 17(3)(b)):
     // amounts, statuses, dpay transaction ids, attempts and refunds all stay.
-    // Only the buyer's address goes. buyer_profile_id keeps pointing at the
+    // Only the buyer's address and typed name go. buyer_profile_id keeps pointing at the
     // anonymised profile, like registrations.profile_id. payment_events holds
     // the payer address only as email_sha256 and is left as the accounting
     // trail. An operator alert about one of these orders keeps its kind and
@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
         const { error: cErr } = await supabaseAdmin.rpc('cancel_order', { p_order_id: o.id, p_reason: 'account_deleted' })
         if (cErr) console.error('delete-my-account: cancel_order failed:', cErr.message)
       }
-      const { error: ordErr } = await supabaseAdmin.from('orders').update({ buyer_email: null }).in('id', ids)
+      const { error: ordErr } = await supabaseAdmin.from('orders').update({ buyer_email: null, buyer_name: null }).in('id', ids)
       if (ordErr) console.error('delete-my-account: orders buyer_email cleanup failed:', ordErr.message)
       const { data: alerts, error: alErr } = await supabaseAdmin.from('operator_alerts')
         .select('id, payload').in('order_id', ids)

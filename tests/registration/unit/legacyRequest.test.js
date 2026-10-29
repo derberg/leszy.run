@@ -74,3 +74,27 @@ test('G-33 one adult still passes the people step', async () => {
   assert.equal(r.response?.status, 400)
   assert.equal((await r.response.json()).code, 'consents_required')
 })
+
+test('G-35 no buyer sent → no `buyer` error block, in a legacy body and in a people body (m-2)', async () => {
+  const legacyBody = await (await run({ person: { ...adult, email: '' } })).response.json()
+  assert.equal(legacyBody.code, 'invalid_person')
+  assert.equal('buyer' in legacyBody, false, JSON.stringify(legacyBody))
+  assert.ok(legacyBody.fields.email)
+  const peopleBody = await (await run({ people: [{ ...adult, email: '' }] })).response.json()
+  assert.equal('buyer' in peopleBody, false, JSON.stringify(peopleBody))
+  // A buyer that was sent keeps its errors.
+  const sent = await (await run({ people: [{ ...adult, email: '' }], buyer: { firstName: '', lastName: 'X', email: 'x@example.pl' } })).response.json()
+  assert.deepEqual(sent.buyer, { firstName: 'Podaj imię.' })
+})
+
+test('G-35 fullRefusal names the competition a group no longer fits, or none when it is not known (m-5)', async () => {
+  const { fullRefusal } = await import('../../../supabase/functions/_shared/registration/registrationRequest.js')
+  const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  const comps = [{ category_id: A, name: 'Bieg 9 km', taken: 1, capacity: 5 }, { category_id: B, name: 'Bieg dzieci', taken: 4, capacity: 5 }]
+  const people = [{ categoryId: A }, { categoryId: B }, { categoryId: B }]
+  assert.deepEqual(fullRefusal(comps, people, { legacy: false }),
+    { error: 'Brak wolnych miejsc w konkurencji Bieg dzieci.', code: 'full', categoryId: B })
+  assert.deepEqual(fullRefusal(comps, [{ categoryId: A }], { legacy: false }), { error: 'Brak wolnych miejsc.', code: 'full' })
+  assert.deepEqual(fullRefusal(comps, people, { legacy: true }), { error: 'Brak wolnych miejsc w tej konkurencji.', code: 'full' })
+})

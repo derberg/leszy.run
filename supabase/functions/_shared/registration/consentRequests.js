@@ -22,7 +22,17 @@ async function rows(query) {
   return data ?? []
 }
 
-const envSite = () => (globalThis.Deno?.env.get('PUBLIC_SITE_URL') ?? '').replace(/\/+$/, '')
+const DEFAULT_SITE = 'https://www.leszy.run'
+
+/**
+ * The site the e-mail links point at: `site` when given, else PUBLIC_SITE_URL, else
+ * https://www.leszy.run (as jobsRun.js does, m-3). A relative link in an e-mail goes nowhere, and
+ * the request it carries is claimed already, so it would never be sent again.
+ */
+export function publicSite(site = null) {
+  const raw = (site ?? globalThis.Deno?.env.get('PUBLIC_SITE_URL') ?? '').trim().replace(/\/+$/, '')
+  return raw || DEFAULT_SITE
+}
 
 /** The consent page: the token travels in the fragment, never in the path or the query. */
 export const consentLink = (site, token) => `${site}/zgoda#${token}`
@@ -30,31 +40,49 @@ export const consentLink = (site, token) => `${site}/zgoda#${token}`
 /** The runner data information of the event, which the consent e-mail links (Art. 14). */
 export const dataInfoUrl = (site, slug) => `${site}/events/${encodeURIComponent(slug)}/informacja-o-danych`
 
-const REG_COLUMNS = 'id, event_id, category_id, first_name, email, status, consent_state, registered_by_profile_id'
+const REG_COLUMNS = 'id, event_id, category_id, order_id, first_name, email, status, consent_state, registered_by_profile_id'
 
 /**
- * Who provided the added adult's data, for the e-mail: the registering person's own entry in the
- * event, else the guardian name their children carry, else the account's display name or address.
+ * Who provided the added adult's data, for the e-mail → (registration) → name | null, in this
+ * order: the name the buyer typed for the registration's order (m-1), the buyer's own live entry
+ * in the event (the latest one), the guardian name their children carry, the account's display
+ * name. Never the address: a null reads „Inna osoba” in the e-mail. Cancelled and expired entries
+ * are not read (m-6).
  */
 async function registeredByNames(admin, regs) {
-  const byProfile = new Map()
   const ids = [...new Set(regs.map((r) => r.registered_by_profile_id).filter(Boolean))]
-  if (!ids.length) return byProfile
+  const orderIds = [...new Set(regs.map((r) => r.order_id).filter(Boolean))]
   const events = [...new Set(regs.map((r) => r.event_id))]
-  const [own, kids, profiles] = await Promise.all([
-    rows(admin.from('registrations').select('profile_id, first_name, last_name')
-      .in('event_id', events).in('profile_id', ids)),
-    rows(admin.from('registrations').select('guardian_profile_id, guardian_name')
-      .in('event_id', events).in('guardian_profile_id', ids).not('guardian_name', 'is', null)),
-    rows(admin.from('profiles').select('id, display_name, email').in('id', ids)),
+  const [orders, own, kids, profiles] = await Promise.all([
+    orderIds.length ? rows(admin.from('orders').select('id, buyer_name').in('id', orderIds)) : [],
+    ids.length
+      ? rows(admin.from('registrations').select('profile_id, first_name, last_name')
+        .in('event_id', events).in('profile_id', ids).in('status', ['confirmed', 'pending_payment'])
+        .order('created_at', { ascending: false }).order('id'))
+      : [],
+    ids.length
+      ? rows(admin.from('registrations').select('guardian_profile_id, guardian_name')
+        .in('event_id', events).in('guardian_profile_id', ids).in('status', ['confirmed', 'pending_payment'])
+        .not('guardian_name', 'is', null).order('created_at', { ascending: false }).order('id'))
+      : [],
+    ids.length ? rows(admin.from('profiles').select('id, display_name').in('id', ids)) : [],
   ])
-  for (const p of profiles) byProfile.set(p.id, p.display_name || p.email || null)
-  for (const k of kids) byProfile.set(k.guardian_profile_id, k.guardian_name)
-  for (const o of own) {
-    const name = `${o.first_name ?? ''} ${o.last_name ?? ''}`.trim()
-    if (name) byProfile.set(o.profile_id, name)
+  const byOrder = new Map(orders.filter((o) => o.buyer_name?.trim()).map((o) => [o.id, o.buyer_name.trim()]))
+  const byProfile = new Map()
+  // Lowest precedence first; a later set overrides. Within a list the first row (the latest) wins.
+  for (const p of profiles) if (p.display_name?.trim()) byProfile.set(p.id, p.display_name.trim())
+  const firstOf = (list, key, name) => {
+    const seen = new Set()
+    for (const x of list) {
+      const n = name(x)
+      if (!n || seen.has(x[key])) continue
+      seen.add(x[key])
+      byProfile.set(x[key], n)
+    }
   }
-  return byProfile
+  firstOf(kids, 'guardian_profile_id', (k) => k.guardian_name?.trim())
+  firstOf(own, 'profile_id', (o) => `${o.first_name ?? ''} ${o.last_name ?? ''}`.trim())
+  return (r) => byOrder.get(r.order_id) ?? byProfile.get(r.registered_by_profile_id) ?? null
 }
 
 /** Everything the e-mails of `regs` need besides the token: → (registration) → mail builder. */
@@ -65,11 +93,11 @@ async function mailContext(admin, regs, { registeredBy = null, site = null } = {
     rows(admin.from('registration_settings')
       .select('event_id, name, slug, event_date, first_start_time, town_label, place_details').in('event_id', events)),
     rows(admin.from('competitions').select('category_id, name, start_time').in('category_id', cats)),
-    registeredBy ? Promise.resolve(new Map()) : registeredByNames(admin, regs),
+    registeredBy ? Promise.resolve(() => null) : registeredByNames(admin, regs),
   ])
   const settingsBy = new Map(settingsRows.map((s) => [s.event_id, s]))
   const compBy = new Map(comps.map((c) => [c.category_id, c]))
-  const base = (site ?? envSite()).replace(/\/+$/, '')
+  const base = publicSite(site)
   return (r, token, { reminder = false } = {}) => {
     const settings = settingsBy.get(r.event_id)
     if (!settings) return null
@@ -81,7 +109,7 @@ async function mailContext(admin, regs, { registeredBy = null, site = null } = {
         place: [settings.town_label, settings.place_details].filter(Boolean).join(', ') || null,
       },
       person: { firstName: r.first_name },
-      registeredBy: registeredBy ?? names.get(r.registered_by_profile_id) ?? null,
+      registeredBy: registeredBy ?? names(r),
       competition: { name: comp.name ?? null, startTime: (comp.start_time ?? settings.first_start_time)?.slice(0, 5) ?? null },
       link: consentLink(base, token),
       dataInfoUrl: dataInfoUrl(base, settings.slug),

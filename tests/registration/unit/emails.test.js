@@ -245,3 +245,28 @@ test('G-28 freeConfirmationEmail for one other person (the payer does not run): 
   assert.ok(m.text.startsWith('Cześć Ola,'))
   assert.ok(m.text.includes('Zosia Leśna'))
 })
+
+test('G-35 consentRequestEmail with nobody named: „Inna osoba” starts a sentence, „inna osoba” sits inside one', () => {
+  const m = consentRequestEmail({ ...consentArgs, registeredBy: null })
+  assert.ok(m.text.includes('Inna osoba zapisał(a) Cię na zawody'))
+  assert.ok(m.text.includes('podał(a) inna osoba.'), m.text)
+  assert.ok(!m.text.includes('podał(a) Inna osoba'))
+  assert.ok(m.html.includes('podał(a) inna osoba.'))
+})
+
+test('G-35 the consent link is absolute without PUBLIC_SITE_URL: it falls back to https://www.leszy.run (m-3)', async () => {
+  const { publicSite } = await import('../../../supabase/functions/_shared/registration/consentRequests.js')
+  const prev = globalThis.Deno
+  try {
+    globalThis.Deno = { env: { get: () => undefined } }
+    assert.equal(publicSite(), 'https://www.leszy.run')
+    globalThis.Deno = { env: { get: (k) => (k === 'PUBLIC_SITE_URL' ? '  ' : undefined) } }
+    assert.equal(publicSite(), 'https://www.leszy.run')
+    globalThis.Deno = { env: { get: (k) => (k === 'PUBLIC_SITE_URL' ? 'http://localhost:5173/' : undefined) } }
+    assert.equal(publicSite(), 'http://localhost:5173')
+    assert.equal(publicSite(''), 'https://www.leszy.run', 'an empty override falls back too')
+  } finally {
+    if (prev === undefined) delete globalThis.Deno
+    else globalThis.Deno = prev
+  }
+})

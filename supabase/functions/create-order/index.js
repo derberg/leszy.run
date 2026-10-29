@@ -4,14 +4,15 @@ import { clientIp } from '../_shared/organizer.js'
 import { dpayConfig, registerTransaction } from '../_shared/dpay.js'
 import { orderAmounts } from '../_shared/registration/money.js'
 import {
-  json, NOT_FOUND, REFUSALS, groupRefusal, prepareRegistration, rpcPeople,
+  json, NOT_FOUND, REFUSALS, fullRefusal, groupRefusal, prepareRegistration, rpcPeople,
 } from '../_shared/registration/registrationRequest.js'
 import { logPaymentEvent, raiseAlert, sendOrderConfirmation } from '../_shared/registration/orderFlow.js'
 import { issueOrderConsentRequests } from '../_shared/registration/consentRequests.js'
 
-// Throttles (claim_throttle_slot): orders per address and per client IP, per hour.
+// Throttles (claim_throttle_slot): orders per address and per client IP, per hour (the IP limit
+// is register-free's 20, fix round 1). prepareRegistration adds the buyer's 30 people a day.
 const ORDER_LIMIT = 10
-const ORDER_IP_LIMIT = 30
+const ORDER_IP_LIMIT = 20
 const HOUR = 3600
 
 // create_order's refusals beyond register_free's, and what the runner reads.
@@ -119,8 +120,8 @@ Deno.serve(async (req) => {
       pricing: (settings) => (settings.pricing_mode === 'free' ? 'free_event' : null),
       refusals: ORDER_REFUSALS,
       throttles: (email) => [
-        { key: `order:${email}`, limit: ORDER_LIMIT, windowSeconds: HOUR },
         ...(ip ? [{ key: `order-ip:${ip}`, limit: ORDER_IP_LIMIT, windowSeconds: HOUR }] : []),
+        { key: `order:${email}`, limit: ORDER_LIMIT, windowSeconds: HOUR },
       ],
     })
     if (prepared.response) return prepared.response
@@ -158,7 +159,7 @@ Deno.serve(async (req) => {
         const pendingId = await ownPendingOrder(admin, settings.event_id, people, profileId)
         if (pendingId) return answer({ error: PENDING_ORDER, code: 'pending_order', orderId: pendingId }, 409)
       }
-      const group = groupRefusal(msg, { competitions, legacy })
+      const group = await groupRefusal(admin, msg, { competitions, people, legacy, email })
       if (group) return answer(group[1], group[0])
       if (ORDER_REFUSALS[msg]) {
         const [status, text] = ORDER_REFUSALS[msg]
@@ -168,9 +169,13 @@ Deno.serve(async (req) => {
     }
 
     const orderId = created.orderId
+    // The name the buyer typed, for the consent e-mails that go out when the payment lands (m-1).
+    // Best effort: without it they name the buyer's own entry or account, never the address.
+    const { error: nameErr } = await admin.from('orders').update({ buyer_name: buyerName }).eq('id', orderId)
+    if (nameErr) console.error('create-order: buyer_name not stored:', nameErr.message)
     if (created.status === 'paid') {
       await sendOrderConfirmation(admin, orderId)
-      await issueOrderConsentRequests(admin, orderId)
+      await issueOrderConsentRequests(admin, orderId, { registeredBy: buyerName })
       return answer({ data: { orderId, status: 'paid' } }, 201)
     }
 
@@ -203,11 +208,13 @@ Deno.serve(async (req) => {
         console.error('create-order: add_payment_attempt failed:', aErr.message)
         if (aErr.message === 'full') {
           cancelReason = 'attempt_refused'
-          return answer({ error: REFUSALS.full[1], code: 'full' }, 409)
+          const { data: comps } = await admin.from('competitions')
+            .select('category_id, name, taken, capacity').in('category_id', [...competitions.keys()])
+          return answer(fullRefusal(comps ?? [], people, { legacy }), 409)
         }
         if (aErr.message === 'not_payable') {
           cancelReason = 'attempt_refused'
-          return answer({ error: REFUSALS.closed[1], code: 'closed' }, 409)
+          return answer({ error: ORDER_REFUSALS.closed[1], code: 'closed' }, 409)
         }
         throw aErr
       }

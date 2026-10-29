@@ -42,10 +42,10 @@ const paidFamily = (c1 = 50, c2 = 50) => createPublishedPaidEvent(owner, {
 // A random documentation-range address per call keeps the per-IP throttles out of the way.
 const ip = () => `198.51.100.${crypto.randomInt(1, 255)}`
 
-async function call(fn, body, session = null) {
+async function call(fn, body, session = null, from = ip()) {
   const res = await fetch(`${localEnv().functionsUrl}/${fn}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip(), ...(session ? { cookie: session.cookie } : {}) },
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': from, ...(session ? { cookie: session.cookie } : {}) },
     body: JSON.stringify(body),
   })
   const text = await res.text()
@@ -427,4 +427,149 @@ test('G-33 the legacy one-person bodies keep their answers: field errors under `
   const full = await call('register-free', await legacy(grownUp(other)), await sessionFor(other))
   assert.equal(full.status, 409)
   assert.deepEqual(full.body, { error: 'Brak wolnych miejsc w tej konkurencji.', code: 'full' })
+})
+
+// ---------------------------------------------------------------- fix round 1: abuse caps (I-1, I-2, I-3)
+
+const GROUP_REFUSED = 'Nie udało się zapisać tej grupy. Sprawdź dane i spróbuj ponownie.'
+const CHILD_DUPLICATE = 'Ta osoba jest już zapisana na te zawody.'
+// A documentation-range address of its own per test, so these counters start at zero.
+const fixedIp = () => `192.0.2.${crypto.randomInt(1, 255)}`
+
+test('G-34 the per-IP throttle: 20 requests an hour from one address, on register-free and on create-order', async () => {
+  for (const [fn, event, extra] of [
+    ['register-free', await freeFamily(), () => ({})],
+    ['create-order', await paidFamily(), (people, ev) => ({
+      supportChoice: false, displayedTotal: groupTotal(ev, people.map((p) => ({ categoryId: p.categoryId }))),
+    })],
+  ]) {
+    const from = fixedIp()
+    let last
+    for (let i = 0; i < 21; i++) {
+      // A different buyer each time, no session, no code: each request stops at code_required.
+      const people = [{ categoryId: event.categoryIds[0], person: grownUp(runnerEmail(`ip${i}`)) }]
+      last = await call(fn, await groupBody(event, people, extra(people, event)), null, from)
+      if (i < 20) assert.equal(last.status, 401, `${fn} request ${i + 1}: ${JSON.stringify(last.body)}`)
+    }
+    assert.equal(last.status, 429, `${fn}: ${JSON.stringify(last.body)}`)
+  }
+})
+
+test('G-34 the per-buyer cap counts people, not requests: 30 people a day, the 31st person is refused', async () => {
+  // Capacity 1: every 10-person group is refused `full` at the RPC, so the test writes no rows.
+  const event = await freeFamily(1)
+  const [c9] = event.categoryIds
+  const me = runnerEmail('cap')
+  const session = await sessionFor(me)
+  const ten = () => [
+    { categoryId: c9, person: grownUp(me) },
+    ...Array.from({ length: 9 }, (_, i) => ({ categoryId: c9, person: grownUp(runnerEmail(`cap${i}`), { firstName: `Osoba${i}` }) })),
+  ]
+  for (let i = 0; i < 3; i++) {
+    const r = await call('register-free', await groupBody(event, ten()), session)
+    assert.equal(r.status, 409, `group ${i + 1}: ${JSON.stringify(r.body)}`)
+    assert.equal(r.body.code, 'full')
+  }
+  // 30 people counted; one more person (a legacy body of one) is over the cap.
+  const over = await call('register-free', {
+    categoryId: c9, person: grownUp(me), acceptedConsentIds: await consentIds(event.eventId), serviceRegulamin: true,
+  }, session)
+  assert.equal(over.status, 429, JSON.stringify(over.body))
+  assert.equal((await byEvent(event.eventId)).length, 0)
+})
+
+test('G-34 duplicate answers name the card 5 times a day per buyer, then a generic refusal with no index', async () => {
+  const event = await freeFamily()
+  const [c9] = event.categoryIds
+  const partner = runnerEmail('dupcap')
+  assert.equal((await call('register-free', await groupBody(event, [{ categoryId: c9, person: grownUp(partner) }]), await sessionFor(partner))).status, 201)
+
+  const me = runnerEmail('prober')
+  const session = await sessionFor(me)
+  const probe = async () => call('register-free', await groupBody(event, [
+    { categoryId: c9, person: grownUp(me) }, { categoryId: c9, person: grownUp(partner, { firstName: 'Piotr' }) },
+  ]), session)
+  for (let i = 0; i < 5; i++) {
+    const r = await probe()
+    assert.equal(r.status, 409, JSON.stringify(r.body))
+    assert.deepEqual(r.body, { error: DUPLICATE, code: 'duplicate', index: 1 })
+  }
+  const sixth = await probe()
+  assert.equal(sixth.status, 409, JSON.stringify(sixth.body))
+  assert.deepEqual(sixth.body, { error: GROUP_REFUSED, code: 'refused' })
+  assert.equal((await byEvent(event.eventId)).length, 1)
+})
+
+test('G-34 a duplicate child is worded for a person, not an address', async () => {
+  const event = await freeFamily()
+  const [c9, kids] = event.categoryIds
+  const parent = runnerEmail('parent1')
+  const first = await call('register-free', await groupBody(event, [
+    { categoryId: c9, person: grownUp(parent) }, { categoryId: kids, person: child(), guardianConsent: true },
+  ]), await sessionFor(parent))
+  assert.equal(first.status, 201, JSON.stringify(first.body))
+
+  const other = runnerEmail('parent2')
+  const again = await call('register-free', await groupBody(event, [
+    { categoryId: c9, person: grownUp(other) }, { categoryId: kids, person: child(), guardianConsent: true },
+  ]), await sessionFor(other))
+  assert.equal(again.status, 409, JSON.stringify(again.body))
+  assert.deepEqual(again.body, { error: CHILD_DUPLICATE, code: 'duplicate', index: 1 })
+})
+
+test('G-34 the retired-address check runs after the session/code step: no session and no code → 401, not which address is retired', async () => {
+  const event = await freeFamily()
+  const gone = runnerEmail('gone2')
+  const hash = crypto.createHash('sha256').update(gone).digest('hex')
+  const { error } = await db().from('deleted_email_hashes').upsert({ email_hash: hash }, { onConflict: 'email_hash' })
+  assert.ifError(error)
+  const r = await call('register-free', await groupBody(event, family(event, runnerEmail('anon'), gone)))
+  assert.equal(r.status, 401, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'code_required')
+})
+
+// ---------------------------------------------------------------- fix round 1: who registered (m-1, m-6)
+
+test('G-35 a paid „Nie startuję” group of adults: the consent e-mail names the typed buyer, never the payer\'s address', async () => {
+  const event = await paidFamily()
+  const [c9] = event.categoryIds
+  const buyerEmail = runnerEmail('nsbuyer')
+  const partner = runnerEmail('nsadult')
+  const people = [{ categoryId: c9, person: grownUp(partner, { firstName: 'Piotr', lastName: 'Leśny', gender: 'M' }) }]
+  const r = await call('create-order', await groupBody(event, people, {
+    buyer: { firstName: 'Ewa', lastName: 'Kowalska', email: buyerEmail },
+    supportChoice: false, displayedTotal: groupTotal(event, [{ categoryId: c9 }]),
+  }), await sessionFor(buyerEmail))
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const [txn] = await dpayTransactions()
+  await payMock(txn.id, 'paid')
+  await waitFor(async () => (await orderOf(r.body.data.orderId)).status === 'paid', 'payment')
+  const asked = await waitForMail(partner)
+  assert.equal(asked.length, 1)
+  assert.ok(asked[0].text.includes('Ewa Kowalska zapisał(a) Cię'), asked[0].text)
+  assert.ok(!asked[0].text.includes(buyerEmail), 'the payer\'s address never appears in the body')
+})
+
+test('G-35 the registered-by fallback ignores the buyer\'s cancelled entry', async () => {
+  const event = await freeFamily()
+  const [c9] = event.categoryIds
+  const me = runnerEmail('fb')
+  const partner = runnerEmail('fbadult')
+  const session = await sessionFor(me)
+  const r = await call('register-free', await groupBody(event, [
+    { categoryId: c9, person: grownUp(me) },
+    { categoryId: c9, person: grownUp(partner, { firstName: 'Piotr', lastName: 'Leśny', gender: 'M' }) },
+  ]), session)
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  await waitForMail(partner)
+  const regs = await byEvent(event.eventId)
+  const self = regs.find((x) => x.email === me)
+  const added = regs.find((x) => x.email === partner)
+  // The buyer's own entry is cancelled; the request is re-issued by the job's sweep (no registeredBy).
+  assert.ifError((await db().from('registrations').update({ status: 'cancelled' }).eq('id', self.id)).error)
+  assert.ifError((await db().from('profiles').update({ display_name: 'Konto Oli' }).eq('id', session.profileId)).error)
+  assert.ifError((await db().from('consent_requests').delete().eq('registration_id', added.id)).error)
+  assert.equal(await replayIssue([added.id]), 1)
+  const mails = await waitForMail(partner, 2)
+  assert.ok(mails[1].text.includes('Konto Oli zapisał(a) Cię'), mails[1].text)
 })

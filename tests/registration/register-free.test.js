@@ -1,7 +1,7 @@
 // Plan 2, task 9: free registration (W-29…W-35 in docs/registration/scenario-matrix.md).
 // LOCAL stack only. Every event and runner address is random, so reruns on a
 // stack holding earlier data still pass.
-import { test, before, after } from 'node:test'
+import { test, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
@@ -31,12 +31,21 @@ before(async () => {
   ].map(sessionFor))
 })
 after(async () => { if (stopCapture) await stopCapture() })
+beforeEach(async () => { await resetThrottle() })
 
-/** POST register-free; keeps the Set-Cookie header (callFn drops headers). */
+/**
+ * POST register-free; keeps the Set-Cookie header (callFn drops headers). The client address is
+ * `RUNNER_IP` for every call, which the acceptance rows are checked against; the per-IP throttle
+ * (20 an hour) is reset before each test, so the file's calls never add up to it.
+ */
+const RUNNER_IP = '203.0.113.9'
 async function register(body, session = null) {
   const res = await fetch(`${localEnv().functionsUrl}/register-free`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9', ...(session ? { cookie: session.cookie } : {}) },
+    headers: {
+      'content-type': 'application/json', 'x-forwarded-for': RUNNER_IP,
+      ...(session ? { cookie: session.cookie } : {}),
+    },
     body: JSON.stringify(body),
   })
   const text = await res.text()
