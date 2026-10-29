@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { validateSection } from '@registration/sections.js'
 import {
   ageIdsFrom, ageModeOf, ageTemplate, ageTemplateFrom, categoriesSection, countLabel, kidsModeOf, kidsRow, kidsRowsFor,
-  reconcileRowIds, settleKids,
+  kidsRowIncomplete, reconcileRowIds, settleKids,
 } from '../../../../lib/categoryRows.js'
 import { btnGhost } from '../../settingsUi.js'
 import {
@@ -98,9 +98,7 @@ export default function Kategorie({ event, queue, saveState, readOnly, onSaved, 
   }
 
   // Kids rows typed into but not whole would not be saved: say so (P2-R27).
-  const kidsIncomplete = (k) => kidsComps.some((c) => (k[c.categoryId] ?? []).some((r) =>
-    (r.label.trim() || r.birthYearFrom != null || r.birthYearTo != null || r.distanceLabel.trim())
-    && !(r.label.trim() && Number.isInteger(r.birthYearFrom) && Number.isInteger(r.birthYearTo) && r.birthYearTo >= r.birthYearFrom)))
+  const kidsIncomplete = (k) => kidsComps.some((c) => (k[c.categoryId] ?? []).some(kidsRowIncomplete))
 
   function apply(next) {
     if (next.kids) next = { ...next, kids: Object.fromEntries(Object.entries(next.kids).map(([cid, rows]) => [cid, settleKids(rows)])) }

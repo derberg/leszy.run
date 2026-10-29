@@ -404,6 +404,45 @@ test('W-48 the internal functions are not callable by the service role; the new 
   }
 })
 
+// ---------------------------------------------------------------- W-56
+
+test('W-56 preview_changes: the diff, the audience and how many people a notice would reach; nothing applied', async () => {
+  const event = await published([BIEG, MARSZ])
+  const [bieg, marsz] = event.categoryIds
+  const preview = (session = owner) => callFn('publish-registration-event', session, { eventId: event.eventId, action: 'preview_changes' })
+
+  // Nothing staged: an empty diff, nobody to tell.
+  let r = await preview()
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data, { diff: [], affected: { all: false, categoryIds: [] }, recipientCount: 0 })
+
+  await registerMany(event, bieg, 2, 'preview')
+  await registerMany(event, marsz, 1, 'preview')
+  const [cancelled] = await registerMany(event, bieg, 1, 'preview')
+  await db().from('registrations').update({ status: 'cancelled' }).eq('email', cancelled)
+
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{ startTime: '10:15' }, { capacity: 40 }]) })
+  r = await preview()
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data.diff.map(({ field, before, after, categoryId }) => ({ field, before, after, categoryId })), [
+    { field: 'competitions.start_time', before: '10:00', after: '10:15', categoryId: bieg },
+    { field: 'competitions.capacity', before: 30, after: 40, categoryId: marsz },
+  ])
+  assert.deepEqual(r.body.data.affected, { all: false, categoryIds: [bieg] })
+  assert.equal(r.body.data.recipientCount, 2, 'confirmed registrants of Bieg 9 km only')
+
+  // A date change concerns everyone confirmed.
+  await save(event.eventId, 'basics', { placeDetails: 'Hala sportowa' })
+  r = await preview()
+  assert.equal(r.body.data.affected.all, true)
+  assert.equal(r.body.data.recipientCount, 3)
+
+  // Previewing applies nothing and keeps the staged row.
+  assert.ok(await pendingOf(event.eventId))
+  assert.equal((await competitionOf(bieg)).start_time, '10:00:00')
+  assert.equal((await preview(member)).status, 403)
+})
+
 // ---------------------------------------------------------------- W-24
 
 test('W-24 change notice: off → no email; on → one per confirmed registrant of that competition, from the club; throttled', async () => {

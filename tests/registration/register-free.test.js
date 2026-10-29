@@ -21,13 +21,13 @@ const rand = () => crypto.randomBytes(4).toString('hex')
 const db = () => admin()
 const runnerEmail = (tag) => `runner-${tag}-${rand()}@test.local`
 
-let owner, member, outsider, stopCapture
+let owner, clubAdmin, member, outsider, stopCapture
 before(async () => {
   stopCapture = await startCapture()
   await resetThrottle()
   await acceptAgreement('zatyrani-test')
-  ;[owner, member, outsider] = await Promise.all([
-    'owner@zatyrani-test.local', 'member@zatyrani-test.local', 'owner@inny-klub.local',
+  ;[owner, clubAdmin, member, outsider] = await Promise.all([
+    'owner@zatyrani-test.local', 'admin@zatyrani-test.local', 'member@zatyrani-test.local', 'owner@inny-klub.local',
   ].map(sessionFor))
 })
 after(async () => { if (stopCapture) await stopCapture() })
@@ -180,7 +180,7 @@ test('W-29 a new address with its captured code → 201, cookie, confirmed regis
   assert.doesNotMatch(mail.text, /numer startowy|\bnr\b/i)
 })
 
-test('W-29 my-event-registrations returns the session’s confirmed registrations; list-event-registrations for members', async () => {
+test('W-29 my-event-registrations returns the session’s confirmed registrations; list-event-registrations for owner and admin only', async () => {
   const event = await publishedEvent()
   const email = runnerEmail('mine')
   const runner = await sessionFor(email)
@@ -198,7 +198,11 @@ test('W-29 my-event-registrations returns the session’s confirmed registration
   assert.equal((await callFn('my-event-registrations', null, { slug })).status, 401)
   assert.equal((await callFn('my-event-registrations', runner, { slug: 'nie-ma-takiego-wydarzenia' })).status, 404)
 
-  const list = await callFn('list-event-registrations', member, { eventId: event.eventId })
+  // Runner personal data is for the club's owner and admins (ruling P2-R20):
+  // a member is answered like an outsider (P2-R9).
+  assert.equal((await callFn('list-event-registrations', member, { eventId: event.eventId })).status, 404)
+  assert.equal((await callFn('list-event-registrations', clubAdmin, { eventId: event.eventId })).status, 200)
+  const list = await callFn('list-event-registrations', owner, { eventId: event.eventId })
   assert.equal(list.status, 200, JSON.stringify(list.body))
   assert.equal(list.body.data.length, 1)
   const [row] = list.body.data

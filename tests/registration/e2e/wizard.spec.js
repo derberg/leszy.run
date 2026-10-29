@@ -4,10 +4,12 @@ import sharp from 'sharp'
 import { test, expect, ACTOR_EMAILS } from './fixtures.js'
 import { admin, localEnv, sessionFor } from '../helpers/stack.js'
 import { callFn, createPublishedFreeEvent, makeClub } from '../helpers/registrationFixtures.js'
+import { clearMessages, messagesTo } from '../helpers/emailCapture.js'
 
 // Plan 2 task 8: the organizer wizard. W-25 (owner: every step, reloads, the
 // checklist, the runner preview and publish), W-26 (admin edits, member reads,
-// outsiders get 404) and W-52 (Konkurencje after publish).
+// outsiders get 404), W-52 (Konkurencje after publish), W-27 (A8 pending bar
+// and the A8a dialog), W-57 (discard) and W-58 (the refused-step alert).
 // Nominatim and the map tiles are answered locally: tests never leave the machine.
 // Playwright loads the Deno-side modules as CommonJS, so nothing here imports
 // supabase/functions/_shared: the agreement goes through its own edge function.
@@ -481,21 +483,144 @@ test('W-55 after publish a staged change is what the step shows, after leaving i
   await page.getByLabel('Start 1').fill('10:15')
   await expect.poll(async () => (await staged()).items, { timeout: 15_000 }).toEqual([[categoryIds[0], '10:15', 50]])
 
-  // Leave the step and come back: the step remounts from the staged value.
-  const steps = page.getByRole('navigation', { name: 'Kroki' })
-  await steps.getByRole('link', { name: /Podstawy/ }).click()
+  // Leave the tab and come back: the step remounts from the staged value.
+  const steps = page.getByRole('tablist', { name: 'Zakładki' })
+  await steps.getByRole('tab', { name: /Podstawy/ }).click()
   await page.getByLabel('Szczegóły miejsca').fill('Hala sportowa')
   await expect.poll(async () => (await staged()).place, { timeout: 15_000 }).toBe('Hala sportowa')
-  await steps.getByRole('link', { name: /Konkurencje/ }).click()
+  await steps.getByRole('tab', { name: /Konkurencje/ }).click()
   await expect(page.getByLabel('Start 1')).toHaveValue('10:15')
 
   await page.reload()
   await expect(page.getByLabel('Start 1')).toHaveValue('10:15')
   await page.getByLabel('Limit 1').fill('60')
   await expect.poll(staged, { timeout: 15_000 }).toEqual({ items: [[categoryIds[0], '10:15', 60]], place: 'Hala sportowa' })
-  await steps.getByRole('link', { name: /Podstawy/ }).click()
+  await steps.getByRole('tab', { name: /Podstawy/ }).click()
   await expect(page.getByLabel('Szczegóły miejsca')).toHaveValue('Hala sportowa')
   // Nothing was published: the live competition still starts at 10:00.
   const { data: live } = await admin().from('competitions').select('start_time').eq('category_id', categoryIds[0]).single()
   expect(live.start_time).toBe('10:00:00')
+})
+
+// One confirmed runner, through the same RPC register-free uses.
+async function registerRunner(eventId, categoryId, email) {
+  const { data: consents, error: cErr } = await admin().from('event_consents').select('id').eq('event_id', eventId)
+  if (cErr) throw cErr
+  const { error } = await admin().rpc('register_free', {
+    p_category_id: categoryId,
+    p_people: [{ firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-01-01', gender: 'K', email, ageGroupLabel: 'K open' }],
+    p_profile_id: null,
+    p_meta: { consentIds: consents.map((c) => c.id), ip: null, userAgent: 'test' },
+  })
+  if (error) throw new Error(`register_free: ${error.message}`)
+}
+
+async function pendingPayload(eventId) {
+  const { data } = await admin().from('registration_pending_changes').select('payload').eq('event_id', eventId).maybeSingle()
+  return data?.payload ?? null
+}
+
+test('W-27 after publish the owner moves Bieg 9 km to 10:15, sees the pending bar, publishes from A8a with the box unchecked; a notice reports whom it reached', async ({ actors }) => {
+  test.setTimeout(120_000)
+  const owner = await sessionFor(ACTOR_EMAILS.owner)
+  const { eventId, slug, categoryIds } = await createPublishedFreeEvent(owner)
+  const runner = `runner-w27-${crypto.randomUUID().slice(0, 8)}@test.local`
+  await registerRunner(eventId, categoryIds[0], runner)
+  await clearMessages()
+
+  const page = await actors.owner.newPage()
+  await offline(page)
+  await page.goto(`/klub/zatyrani-test/wydarzenia/${eventId}/konkurencje`)
+  await expect(page.getByTestId('pending-bar')).toHaveCount(0)
+  await page.getByLabel('Start 1').fill('10:15')
+  const bar = page.getByTestId('pending-bar')
+  await expect(bar).toContainText('Niezapisane zmiany: 1', { timeout: 15_000 })
+  await expect(bar).toContainText('Bieg 9 km: godzina startu')
+  await expect(bar.getByRole('link', { name: 'Podgląd' })).toHaveAttribute('href', `/klub/zatyrani-test/wydarzenia/${eventId}/podglad`)
+
+  // A8a: the row before → after, the notice offered but not ticked.
+  await bar.getByRole('button', { name: 'Opublikuj zmiany' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Opublikować zmiany?' })
+  await expect(dialog).toBeVisible()
+  const row = dialog.getByTestId('change-row')
+  await expect(row).toHaveCount(1)
+  await expect(row).toContainText('Bieg 9 km: godzina startu')
+  await expect(row.getByTestId('change-before')).toHaveText('10:00')
+  await expect(row.getByTestId('change-after')).toHaveText('10:15')
+  const notify = dialog.getByRole('checkbox', { name: /Powiadom mailem zapisanych na Bieg 9 km · 1 osoba/ })
+  await expect(notify).not.toBeChecked()
+  await expect(dialog.getByLabel('Temat')).toHaveCount(0)
+  await expect(dialog.getByLabel('Treść')).toHaveCount(0)
+  // Ticked, the e-mail is shown and editable; unticked again, it goes away.
+  await notify.check()
+  await expect(dialog.getByLabel('Temat')).toHaveValue(/: zmiany$/)
+  await expect(dialog.getByLabel('Treść')).toHaveValue(/Bieg 9 km: godzina startu: 10:00 → 10:15/)
+  await expect(dialog.getByRole('button', { name: 'Opublikuj i wyślij' })).toBeVisible()
+  await notify.uncheck()
+  await expect(dialog.getByLabel('Temat')).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Opublikuj', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page.getByTestId('changes-result')).toHaveText('Opublikowano zmiany.')
+  await expect(page.getByTestId('pending-bar')).toHaveCount(0)
+  expect(await messagesTo(runner)).toHaveLength(0)
+
+  // The runner's page shows the new time after a reload.
+  const viewer = await actors.viewer.newPage()
+  await offline(viewer)
+  await viewer.goto(`/events/${slug}`)
+  await viewer.reload()
+  await expect(viewer.getByTestId('competition').filter({ hasText: 'Bieg 9 km' })).toContainText('start 10:15')
+
+  // With the box ticked the result says how many were told.
+  await page.getByLabel('Start 1').fill('10:20')
+  await expect(page.getByTestId('pending-bar')).toContainText('Niezapisane zmiany: 1', { timeout: 15_000 })
+  await page.getByTestId('pending-bar').getByRole('button', { name: 'Opublikuj zmiany' }).click()
+  await dialog.getByRole('checkbox', { name: /Powiadom mailem/ }).check()
+  await dialog.getByLabel('Temat').fill('Bieg 9 km: start 10:20')
+  await dialog.getByRole('button', { name: 'Opublikuj i wyślij' }).click()
+  await expect(page.getByTestId('changes-result')).toHaveText('Opublikowano zmiany. Powiadomiono 1 osobę.')
+  await expect.poll(async () => (await messagesTo(runner)).map((m) => m.subject), { timeout: 15_000 }).toEqual(['Bieg 9 km: start 10:20'])
+})
+
+test('W-57 „Odrzuć” drops the staged change, and the next edit of the same step does not bring it back', async ({ actors }) => {
+  test.setTimeout(90_000)
+  const owner = await sessionFor(ACTOR_EMAILS.owner)
+  const { eventId, categoryIds } = await createPublishedFreeEvent(owner)
+  const page = await actors.owner.newPage()
+  await offline(page)
+  await page.goto(`/klub/zatyrani-test/wydarzenia/${eventId}/konkurencje`)
+  await page.getByLabel('Start 1').fill('10:15')
+  const bar = page.getByTestId('pending-bar')
+  await expect(bar).toContainText('Niezapisane zmiany: 1', { timeout: 15_000 })
+
+  await bar.getByRole('button', { name: 'Odrzuć' }).click()
+  await bar.getByRole('button', { name: 'Tak, odrzuć' }).click()
+  await expect(page.getByTestId('pending-bar')).toHaveCount(0)
+  await expect.poll(() => pendingPayload(eventId), { timeout: 15_000 }).toBeNull()
+  await expect(page.getByLabel('Start 1')).toHaveValue('10:00')
+
+  // Another field of the same section: only that change is staged.
+  await page.getByLabel('Limit 1').fill('60')
+  await expect.poll(async () => (await pendingPayload(eventId))?.competitions?.items?.map((i) => [i.category_id, i.start_time, i.capacity]),
+    { timeout: 15_000 }).toEqual([[categoryIds[0], '10:00', 60]])
+  await expect(bar).toContainText('Niezapisane zmiany: 1')
+  await expect(bar).toContainText('Bieg 9 km: limit miejsc')
+  await page.reload()
+  await expect(page.getByLabel('Start 1')).toHaveValue('10:00')
+  await expect(page.getByLabel('Limit 1')).toHaveValue('60')
+})
+
+test('W-58 the „Nie zapisano” alert of a refused tab change goes once the input is valid', async ({ actors }) => {
+  test.setTimeout(90_000)
+  const owner = await sessionFor(ACTOR_EMAILS.owner)
+  const { eventId } = await createPublishedFreeEvent(owner)
+  const page = await actors.owner.newPage()
+  await offline(page)
+  await page.goto(`/klub/zatyrani-test/wydarzenia/${eventId}/konkurencje`)
+  await page.getByLabel('Limit 1').fill('')
+  await page.getByRole('tablist', { name: 'Zakładki' }).getByRole('tab', { name: /Podstawy/ }).click()
+  await expect(page).toHaveURL(/\/konkurencje$/)
+  await expect(page.getByTestId('unsaved')).toContainText('Podaj limit miejsc.')
+  await page.getByLabel('Limit 1').fill('45')
+  await expect(page.getByTestId('unsaved')).toHaveCount(0)
 })

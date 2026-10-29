@@ -18,7 +18,7 @@ function json(body, status, req) {
 
 const NOT_DRAFT = { error: 'Wydarzenie jest już opublikowane.', code: 'not_draft' }
 const NOT_PUBLISHED = { error: 'Wydarzenie nie jest opublikowane.', code: 'not_published' }
-const ACTIONS = ['publish', 'publish_changes', 'discard_changes']
+const ACTIONS = ['publish', 'publish_changes', 'discard_changes', 'preview_changes']
 const PAGE = 1000
 const SUBJECT_MAX = 200
 const BODY_MAX = 5000
@@ -212,6 +212,19 @@ async function publishChanges(admin, req, session, settings, notifyInput) {
   return json({ data: { diff, affected, notice } }, 200, req)
 }
 
+// What „Opublikuj zmiany” would change and whom a notice would reach, for
+// the A8a dialog. Reads only; nothing staged: an empty diff.
+async function previewChanges(admin, req, settings) {
+  const { data: pending, error } = await admin.from('registration_pending_changes')
+    .select('payload').eq('event_id', settings.event_id).maybeSingle()
+  if (error) throw error
+  if (!pending) return json({ data: { diff: [], affected: { all: false, categoryIds: [] }, recipientCount: 0 } }, 200, req)
+  const diff = changeDiff(await liveSnapshot(admin, settings), pending.payload)
+  const affected = noticeAudience(diff)
+  const recipients = await noticeRecipients(admin, settings.event_id, affected)
+  return json({ data: { diff, affected, recipientCount: recipients.length } }, 200, req)
+}
+
 async function discardChanges(admin, req, session, settings) {
   const { data, error } = await admin.from('registration_pending_changes')
     .delete().eq('event_id', settings.event_id).select('event_id')
@@ -231,7 +244,7 @@ async function discardChanges(admin, req, session, settings) {
 // calendar rows in one transaction.
 //
 // POST { eventId, action: 'publish_changes', notify: { send, subject?, body? } }
-//   → 200 { data: { diff, affected: { all, categoryIds }, notice: { sent, recipientCount } } }.
+//   → 200 { data: { diff, affected: { all, categoryIds }, notice: { sent, recipientCount, failed? } } }.
 // The event as it will be must pass publishChecklist (409 { error, blocking }
 // like the first publish), then publish_registration_changes applies it
 // (locks re-checked, limit ≥ taken in the writing statement, window and
@@ -244,6 +257,11 @@ async function discardChanges(admin, req, session, settings) {
 // 409 { error, code } when a lock refuses: capacity_below_taken (names the
 // competition), competition_locked, price_locked, immutable, no_changes.
 // POST { eventId, action: 'discard_changes' } → 200 { data: { discarded } }.
+// POST { eventId, action: 'preview_changes' }
+//   → 200 { data: { diff, affected: { all, categoryIds }, recipientCount } }:
+// what publish_changes would apply and how many confirmed registrants a
+// notice would reach (one per address). Writes nothing; nothing staged gives
+// an empty diff and 0.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -264,6 +282,7 @@ Deno.serve(async (req) => {
     if (!ACTIONS.includes(action)) return json({ error: 'Nieznana akcja.' }, 400, req)
     if (action === 'publish_changes') return await publishChanges(admin, req, session, settings, body.notify)
     if (action === 'discard_changes') return await discardChanges(admin, req, session, settings)
+    if (action === 'preview_changes') return await previewChanges(admin, req, settings)
     if (settings.state !== 'draft') return json(NOT_DRAFT, 409, req)
     if (!(await clubHasAgreement(admin, settings.club_id))) return json(AGREEMENT_REQUIRED, 409, req)
 

@@ -34,9 +34,14 @@ export default function useRegistrationEvent(eventId) {
   const savedHandlers = useRef(new Map())
   // section → field errors of input a step holds but cannot save yet (P2-R27)
   const invalid = useRef(new Map())
+  // Bumped when that map changes, so the editor re-reads it: an alert about
+  // input that could not be saved goes once the input is valid (N3).
+  const [, setInvalidVersion] = useState(0)
   const reportInvalid = useCallback((section, errors) => {
+    const before = JSON.stringify(invalid.current.get(section) ?? null)
     if (errors && Object.keys(errors).length) invalid.current.set(section, errors)
     else invalid.current.delete(section)
+    if (JSON.stringify(invalid.current.get(section) ?? null) !== before) setInvalidVersion((v) => v + 1)
   }, [])
   const invalidInput = useCallback(() => {
     const [first] = invalid.current.entries()

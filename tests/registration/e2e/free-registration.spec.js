@@ -191,6 +191,38 @@ test.describe.serial('a new runner registers with an e-mail code', () => {
       await host.stop()
     }
   })
+
+  test('W-38 tabs: the owner\'s „Zgłoszenia” lists the runner, the header counts „1 / 50 zapisanych”; a member has no such tab', async ({ actors }) => {
+    const base = `/klub/zatyrani-test/wydarzenia/${event.eventId}`
+    const page = await offline(await actors.owner.newPage())
+    await page.goto(base)
+    await expect(page).toHaveURL(new RegExp(`${base}/zgloszenia$`))
+    const tabs = page.getByRole('tablist', { name: 'Zakładki' })
+    await expect(tabs.getByRole('tab', { name: 'Zgłoszenia' })).toHaveAttribute('aria-selected', 'true')
+    await expect(tabs.getByRole('tab', { name: /Podstawy/ })).toBeVisible()
+    await expect(tabs.getByRole('tab', { name: /Publikacja/ })).toHaveCount(0)
+    await expect(page.getByTestId('save-status')).toHaveText(new RegExp(`OPUBLIKOWANE · ZAPISY DO ${Number(event.closesOn.slice(8))}\\.${event.closesOn.slice(5, 7)}`))
+    await expect(page.getByTestId('registered-count')).toHaveText('1 / 50 zapisanych')
+    const list = page.getByTestId('registrations')
+    await expect(list).toContainText('Nowa Biegaczka')
+    await expect(list).toContainText('Bieg 9 km')
+    await expect(list).toContainText('K open')
+    await expect(page.getByRole('link', { name: 'Strona zawodów ↗' })).toHaveAttribute('href', `/events/${event.slug}`)
+    await expect(page.getByRole('button', { name: 'Kopiuj link' })).toBeVisible()
+    // No office hours yet: flagged, and „Uzupełnij” opens Biuro zawodów.
+    await expect(page.getByTestId('missing-banner')).toContainText('Brakuje: godziny otwarcia biura zawodów')
+    await page.getByTestId('missing-banner').getByRole('link', { name: 'Uzupełnij' }).click()
+    await expect(page).toHaveURL(new RegExp(`${base}/biuro$`))
+    await expect(tabs.getByRole('tab', { name: /Biuro zawodów/ })).toHaveAttribute('aria-selected', 'true')
+
+    // Runner personal data is owner/admin only (P2-R20).
+    const mem = await offline(await actors.member.newPage())
+    await mem.goto(`${base}/zgloszenia`)
+    await expect(mem).toHaveURL(new RegExp(`${base}/podstawy$`))
+    await expect(mem.getByRole('tab', { name: 'Zgłoszenia' })).toHaveCount(0)
+    await expect(mem.getByTestId('registrations')).toHaveCount(0)
+    await expect(mem.getByTestId('registered-count')).toHaveText('1 / 50 zapisanych')
+  })
 })
 
 test('W-39 a logged-in runner gets their own e-mail prefilled, registers without a code, and a second time is refused', async ({ actors }) => {

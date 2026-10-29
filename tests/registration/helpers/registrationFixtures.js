@@ -157,5 +157,5 @@ export async function createPublishedFreeEvent(owner, {
   if (timingMode !== 'leszyrun') await save('timing', { timingMode })
   const published = expect(await callFn('publish-registration-event', session, { eventId, action: 'publish' }), 200, 'publish')
   const slug = new URL(published.url).pathname.split('/').pop()
-  return { eventId, slug, categoryIds, gpx: course }
+  return { eventId, slug, categoryIds, gpx: course, eventDate, closesOn }
 }

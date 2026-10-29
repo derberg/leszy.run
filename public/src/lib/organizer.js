@@ -77,3 +77,21 @@ export async function publishRegistrationEvent(eventId) {
 export async function previewRegistrationEvent(eventId, withPending = true) {
   return (await callFunction('preview-registration-event', { eventId, withPending })).data
 }
+
+/** What „Opublikuj zmiany” would apply. → { diff, affected: { all, categoryIds }, recipientCount } */
+export async function previewRegistrationChanges(eventId) {
+  return (await callFunction('publish-registration-event', { eventId, action: 'preview_changes' })).data
+}
+
+/**
+ * Applies the staged changes. notify = { send: false } | { send: true, subject, body }.
+ * → { diff, affected, notice: { sent, recipientCount, failed? } }; 422 `fields` for subject/body.
+ */
+export async function publishRegistrationChanges(eventId, notify) {
+  return (await callFunction('publish-registration-event', { eventId, action: 'publish_changes', notify })).data
+}
+
+/** Drops everything staged. → { discarded } */
+export async function discardRegistrationChanges(eventId) {
+  return (await callFunction('publish-registration-event', { eventId, action: 'discard_changes' })).data
+}

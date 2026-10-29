@@ -2,7 +2,7 @@
 // optional change notice goes to (W-24).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { changeDiff, noticeAudience } from '../../../supabase/functions/_shared/registration/changeDiff.js'
+import { changeDiff, noticeAudience, noticeRows } from '../../../supabase/functions/_shared/registration/changeDiff.js'
 
 const C1 = '11111111-1111-4111-8111-111111111111'
 const C2 = '22222222-2222-4222-8222-222222222222'
@@ -90,6 +90,14 @@ test('noticeAudience: date or place → everyone; start time or distance → tha
   for (const field of ['basics.event_date', 'basics.town_label', 'basics.place_details', 'basics.first_start_time']) {
     assert.equal(noticeAudience([{ field }]).all, true, field)
   }
+})
+
+test('noticeRows: the rows that put someone on the notice, the pin left out of the text', () => {
+  const rows = [
+    { field: 'basics.name' }, { field: 'basics.event_date' }, { field: 'basics.lat' }, { field: 'basics.lng' },
+    { field: 'competitions.capacity', categoryId: C1 }, { field: 'competitions.start_time', categoryId: C1 },
+  ]
+  assert.deepEqual(noticeRows(rows).map((r) => r.field), ['basics.event_date', 'competitions.start_time'])
 })
 
 test('mergedChecklistInput: the event as it will be, in publishChecklist\'s shape', async () => {

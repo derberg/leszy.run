@@ -11,6 +11,7 @@ function json(body, status, req) {
 }
 
 const PAGE = 1000
+const READERS = ['owner', 'admin']
 
 // PostgREST caps a response at 1000 rows, so every list read pages.
 async function allRows(makeQuery) {
@@ -25,8 +26,10 @@ async function allRows(makeQuery) {
 
 // POST { eventId } → 200 { data: [{ id, name, competition, ageGroupLabel,
 // status, createdAt }] }, every registration of the event in sign-up order.
-// Any active member of the owning club (registration_settings.club_id); an
-// outsider or a disabled club gets 404, no session 401.
+// The owner and admins of the owning club (registration_settings.club_id)
+// only: runner personal data is not for every member (ruling P2-R20). A
+// member, an outsider or a disabled club gets 404 (event-scoped, P2-R9), no
+// session 401.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -42,6 +45,7 @@ Deno.serve(async (req) => {
   try {
     const loaded = await loadOrganizerEvent(admin, body?.eventId, session, { write: false, req })
     if (loaded instanceof Response) return loaded
+    if (!READERS.includes(loaded.role)) return json({ error: 'Not found' }, 404, req)
     const eventId = loaded.settings.event_id
 
     const [regs, comps] = await Promise.all([

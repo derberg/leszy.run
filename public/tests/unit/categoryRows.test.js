@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ageTemplateFrom, ageModeOf, ageGroupsValue, kidsRowsFor, kidsModeOf, kidsGroupsValue, countLabel,
-  categoriesSection, ageIdsFrom, reconcileRowIds, kidsRow, settleKids,
+  categoriesSection, ageIdsFrom, reconcileRowIds, kidsRow, settleKids, kidsRowIncomplete,
 } from '../../src/lib/categoryRows.js'
 
 const C1 = '11111111-1111-4111-8111-111111111111'
@@ -129,4 +129,16 @@ test('I1: a saved kids group being retyped sends its last whole value, so nothin
   const { items, sentKeys } = kidsGroupsValue(KIDS, [{ ...row, label: '' }])
   assert.deepEqual(items, [{ id: G1, categoryId: KIDS, label: 'Maluchy', birthYearFrom: 2021, birthYearTo: 2022, gender: null, distanceLabel: null }])
   assert.deepEqual(sentKeys, [row.key])
+})
+
+test('N1: a kids row typed into but not whole is incomplete, including a year outside 1900–2200', () => {
+  assert.equal(kidsRowIncomplete(kidsRow()), false, 'an untouched row is not flagged')
+  assert.equal(kidsRowIncomplete(kidsRow({ label: 'Maluchy', birthYearFrom: 2020, birthYearTo: 2021 })), false)
+  assert.equal(kidsRowIncomplete(kidsRow({ label: 'Maluchy', birthYearFrom: 2020 })), true)
+  assert.equal(kidsRowIncomplete(kidsRow({ label: 'Maluchy', birthYearFrom: 215, birthYearTo: 2021 })), true)
+  assert.equal(kidsRowIncomplete(kidsRow({ label: 'Maluchy', birthYearFrom: 2020, birthYearTo: 2201 })), true)
+  assert.equal(kidsRowIncomplete(kidsRow({ label: 'Maluchy', birthYearFrom: 2021, birthYearTo: 2020 })), true)
+  // The same year check decides what is saved: an incomplete row is never sent.
+  const { items } = kidsGroupsValue(KIDS, [kidsRow({ label: 'Maluchy', birthYearFrom: 215, birthYearTo: 2021 })])
+  assert.deepEqual(items, [])
 })

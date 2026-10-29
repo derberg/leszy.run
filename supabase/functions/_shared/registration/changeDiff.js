@@ -15,6 +15,7 @@
 //
 // noticeAudience(diff) → { all, categoryIds }: a change of date or place is
 // for everyone registered; a start time or distance only for that competition.
+// noticeRows(diff) → those rows, for the notice's suggested text (no pin).
 //
 // mergedChecklistInput(live, pending) → what publishChecklist() reads, for the
 // event as it will be once the staged changes are applied.
@@ -152,6 +153,14 @@ export function noticeAudience(diff) {
   const all = diff.some((d) => NOTICE_ALL.has(d.field))
   const categoryIds = [...new Set(diff.filter((d) => NOTICE_COMPETITION.has(d.field) && d.categoryId).map((d) => d.categoryId))]
   return { all, categoryIds }
+}
+
+// The pin moves with the place, whose own row already says what changed.
+const NOTICE_TEXT_SKIP = new Set(['basics.lat', 'basics.lng'])
+
+/** The rows of a diff the change notice is about, for its suggested text. */
+export function noticeRows(diff) {
+  return diff.filter((d) => (NOTICE_ALL.has(d.field) || NOTICE_COMPETITION.has(d.field)) && !NOTICE_TEXT_SKIP.has(d.field))
 }
 
 const camelKey = (k) => k.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase())

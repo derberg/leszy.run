@@ -96,6 +96,16 @@ function wholeKids(r) {
   }
 }
 
+/**
+ * A row typed into that would not be saved: missing a name or a year, a year
+ * outside 1900–2200, or the years reversed. The same check as the save's
+ * (wholeKids), so a row is either sent or flagged, never dropped silently.
+ */
+export function kidsRowIncomplete(r) {
+  const touched = r.label.trim() || r.birthYearFrom != null || r.birthYearTo != null || r.distanceLabel.trim()
+  return Boolean(touched) && wholeKids(r) === null
+}
+
 /** Whole rows remember their value, for when they are next edited half-way. */
 export const settleKids = (rows) => rows.map((r) => {
   const whole = wholeKids(r)
