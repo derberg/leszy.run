@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getMe, readCachedUser, clearCachedUser } from '../lib/auth.js'
+import { getMeWithRetry, readCachedUser, clearCachedUser } from '../lib/auth.js'
 
 // Two layers of caching keep /auth-me invocations low:
 //   1. localStorage (survives full page loads — the SEO static pages navigate
@@ -43,9 +43,11 @@ export default function useAuth() {
     }
 
     // Missing or stale cache → (re)validate. If a cached user is already shown
-    // it stays visible until the call lands (stale-while-revalidate).
+    // it stays visible until the call lands (stale-while-revalidate). A failed
+    // call is retried (getMeWithRetry) and `loading` stays true meanwhile: only
+    // when every attempt failed does the page settle on what it had.
     if (!inflight) {
-      inflight = getMe()
+      inflight = getMeWithRetry()
         .catch(() => cachedUser ?? null)
         .then(u => {
           cachedUser = u

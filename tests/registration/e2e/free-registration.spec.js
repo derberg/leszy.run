@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { test, expect, ACTOR_EMAILS } from './fixtures.js'
-import { admin, localEnv, sessionFor } from '../helpers/stack.js'
+import { admin, localEnv, resetThrottle, sessionFor } from '../helpers/stack.js'
 import { clearMessages, lastCodeFor } from '../helpers/emailCapture.js'
 import { callFn, createPublishedFreeEvent } from '../helpers/registrationFixtures.js'
 import { startScratchHost } from '../helpers/hostPull.js'
@@ -292,6 +292,8 @@ test('W-39 a logged-in runner gets their own e-mail prefilled, registers without
   const { error } = await admin().from('profiles').update({ gender: 'F', date_of_birth: '1988-06-01' }).eq('email', ACTOR_EMAILS.runner)
   expect(error).toBeNull()
   await clearMessages()
+  // register-free allows 10 registrations per address an hour; this test makes two.
+  await resetThrottle()
   const page = await offline(await actors.runner.newPage())
   const form = `/events/${event.slug}/zapis/${event.categoryIds[0]}`
 
@@ -320,6 +322,54 @@ test('W-39 a logged-in runner gets their own e-mail prefilled, registers without
   await page.getByTestId('registration-submit').click()
   await expect(page.locator('#p-email-error')).toHaveText(DUPLICATE_TEXT)
   await expect(page).toHaveURL(new RegExp(`${form}$`))
+})
+
+// The sign-in check (auth-me) is held back until the form is on screen, which
+// is what a slow phone or a cold edge function does. `answer` decides what the
+// first check gets; later checks go through.
+async function holdFirstAuthCheck(page, answer) {
+  let release
+  const released = new Promise((r) => { release = r })
+  let calls = 0
+  await page.route('**/edge/auth-me', async (route) => {
+    calls += 1
+    if (calls > 1) return route.continue()
+    await released
+    return answer(route)
+  })
+  return { release: () => release(), calls: () => calls }
+}
+
+test('W-39b a runner who types before the slow sign-in check lands keeps what they typed and still gets their e-mail', async ({ actors }) => {
+  const event = await createPublishedFreeEvent(owner, { competitions: [BIEG] })
+  const { error } = await admin().from('profiles').update({ gender: 'F', date_of_birth: '1988-06-01' }).eq('email', ACTOR_EMAILS.runner)
+  expect(error).toBeNull()
+  const page = await offline(await actors.runner.newPage())
+  const auth = await holdFirstAuthCheck(page, (route) => route.continue())
+
+  await page.goto(`/events/${event.slug}/zapis/${event.categoryIds[0]}`)
+  await page.locator('#p-first').fill('Ola')
+  await page.locator('#p-birth').fill('1990-01-02')
+  auth.release()
+
+  await expect(page.locator('#p-email')).toHaveValue(ACTOR_EMAILS.runner)
+  await expect(page.getByRole('button', { name: 'Kobieta', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('#p-first')).toHaveValue('Ola')
+  await expect(page.locator('#p-birth')).toHaveValue('1990-01-02')
+})
+
+test('W-39c a sign-in check that fails once is retried: the runner is not taken for a visitor', async ({ actors }) => {
+  const event = await createPublishedFreeEvent(owner, { competitions: [BIEG] })
+  const page = await offline(await actors.runner.newPage())
+  const auth = await holdFirstAuthCheck(page, (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
+
+  await page.goto(`/events/${event.slug}/zapis/${event.categoryIds[0]}`)
+  await expect(page.locator('#p-first')).toBeVisible()
+  auth.release()
+
+  await expect(page.locator('#p-email')).toHaveValue(ACTOR_EMAILS.runner)
+  await expect(page.getByTestId('login-offer')).toHaveCount(0)
+  expect(auth.calls()).toBeGreaterThan(1)
 })
 
 test('W-40 a draft slug opened by a viewer shows the ordinary not-found view, never draft data', async ({ actors }) => {

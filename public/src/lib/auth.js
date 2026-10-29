@@ -85,13 +85,40 @@ export async function getMe() {
     credentials: 'include',
     body: JSON.stringify({}),
   })
-  // Transient failure (network / 5xx): leave the existing cache untouched.
-  if (!res.ok) return null
+  // Transient failure (5xx, a cold or recycled edge worker): this says nothing
+  // about who is signed in, so throw rather than answer „anonymous” — the
+  // caller retries (getMeWithRetry). The cache is left untouched.
+  if (!res.ok) {
+    const err = new Error(`auth-me failed (${res.status})`)
+    err.status = res.status
+    throw err
+  }
   const data = await res.json()
   const user = data.user ?? null
   // Authoritative result (including anon = null) → refresh the cache + timestamp.
   writeCachedUser(user)
   return user
+}
+
+// Waits before the 2nd, 3rd… attempt of getMeWithRetry.
+export const AUTH_RETRY_DELAYS_MS = [500, 1500, 4000]
+
+/**
+ * getMe, retried while it fails. A failed /auth-me is not „anonymous”: taking
+ * it for that showed a signed-in runner the visitor's form (no prefill, a code
+ * to their own address) for the rest of the page load. Rejects only when every
+ * attempt failed.
+ * @param {{ load?: () => Promise<object|null>, delays?: number[], sleep?: (ms: number) => Promise<void> }} [o]
+ */
+export async function getMeWithRetry({ load = getMe, delays = AUTH_RETRY_DELAYS_MS, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await load()
+    } catch (err) {
+      if (attempt >= delays.length) throw err
+      await sleep(delays[attempt])
+    }
+  }
 }
 
 export async function callFunction(name, body, options) {
