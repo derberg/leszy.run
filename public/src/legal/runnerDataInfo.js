@@ -87,9 +87,6 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
             'Pozostałe dane zgłoszenia: 12 miesięcy po dniu zawodów, a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.',
             ...only(paid, 'Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).'),
             'Wyniki zawodów: bezterminowo, w archiwum wyników.',
-            // TODO: the retention period for photo and video reports is marked
-            // [DO WERYFIKACJI] in docs/legal/zapisy/informacja-o-danych-zawodnika.md;
-            // settle it there and here before this text is final.
             'Zdjęcia i nagrania z zawodów: przez czas publikacji relacji i wyników albo do uwzględnienia Twojego sprzeciwu.',
           ],
         }],

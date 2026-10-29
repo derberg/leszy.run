@@ -48,7 +48,7 @@ Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i
 - Pozostałe dane zgłoszenia: [DO UZUPEŁNIENIA: proponowane 12 miesięcy po dniu zawodów], a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.
 - Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).
 - Wyniki zawodów: bezterminowo, w archiwum wyników. [DO WERYFIKACJI: zob. „Do weryfikacji”, pkt 1.]
-- Zdjęcia i nagrania z zawodów: przez czas publikacji relacji i wyników albo do uwzględnienia Twojego sprzeciwu. [DO WERYFIKACJI: okres przechowywania materiałów z relacji.]
+- Zdjęcia i nagrania z zawodów: przez czas publikacji relacji i wyników albo do uwzględnienia Twojego sprzeciwu.
 
 ## Twoje prawa
 
