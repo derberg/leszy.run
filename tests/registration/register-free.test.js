@@ -505,3 +505,72 @@ test('W-35 the timing host pulls the new participant', async () => {
     await host.stop()
   }
 })
+
+// ---------------------------------------------------------------- W-41, W-42 GDPR
+
+/** Registers a runner by email with a captured code; → { event, email, reg, session }. */
+async function registeredRunner(tag) {
+  const event = await publishedEvent()
+  const email = runnerEmail(tag)
+  const code = await requestCode(email)
+  const r = await register({ ...(await body(event, email)), code })
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const token = r.setCookie.match(/^leszy_session=([0-9a-f]{64})/)[1]
+  return { event, email, regId: r.body.data.registrations[0].id, session: { cookie: `leszy_session=${token}` } }
+}
+
+test('W-41 export-my-data holds the registration and its three acceptances', async () => {
+  const { email, regId, session } = await registeredRunner('export')
+  const res = await callFn('export-my-data', session, {})
+  assert.equal(res.status, 200, JSON.stringify(res.body))
+  const regs = res.body.registrations
+  assert.equal(regs.length, 1)
+  const [reg] = regs
+  assert.equal(reg.id, regId)
+  assert.equal(reg.email, email)
+  assert.equal(reg.phone, '600100200')
+  assert.equal(reg.first_name, 'Ola')
+  assert.equal(reg.birth_date, '1990-05-01')
+  assert.equal(reg.status, 'confirmed')
+  assert.equal(reg.consent_acceptances.length, 3)
+  assert.deepEqual(reg.consent_acceptances.map((a) => a.consent_kind).sort(), ['data_info', 'regulamin', 'service_regulamin'])
+  assert.equal(reg.consent_acceptances[0].ip, '203.0.113.9')
+})
+
+test('W-42 delete-my-account anonymises the registration, keeps the slot, retires the address', async () => {
+  const { event, email, regId, session } = await registeredRunner('erase')
+  assert.equal(await taken(event.categoryIds[0]), 1)
+  const sha = async (t) => crypto.createHash('sha256').update(t).digest('hex')
+  const { error: codeErr } = await db().from('auth_codes').insert({
+    email, code_hash: await sha('123456'), purpose: 'delete_account',
+    expires_at: new Date(Date.now() + 600000).toISOString(),
+  })
+  assert.ifError(codeErr)
+
+  const r = await callFn('delete-my-account', session, { action: 'confirm', code: '123456' })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+
+  const { data: reg } = await db().from('registrations').select('*').eq('id', regId).single()
+  assert.equal(reg.first_name, 'Usunięte konto')
+  assert.equal(reg.last_name, 'Usunięte konto')
+  for (const col of ['email', 'phone', 'birth_date', 'ice_name', 'ice_phone', 'city', 'club', 'guardian_name', 'guardian_email']) {
+    assert.equal(reg[col], null, col)
+  }
+  assert.equal(reg.status, 'confirmed')
+  assert.equal(reg.price, 0)
+  assert.equal(await taken(event.categoryIds[0]), 1, 'the slot stays taken')
+
+  const { data: acc } = await db().from('consent_acceptances').select('ip, user_agent').eq('registration_id', regId)
+  assert.equal(acc.length, 3)
+  for (const a of acc) assert.deepEqual(a, { ip: null, user_agent: null })
+
+  const [p] = await participantsOf(event.categoryIds[0])
+  assert.equal(p.email, null)
+  assert.equal(p.phone, null)
+  assert.equal(p.first_name, 'Uczestnik')
+  assert.notEqual(p.deleted_at, null)
+
+  const again = await register({ ...(await body(event, email)), code: '123456' })
+  assert.equal(again.status, 403, JSON.stringify(again.body))
+  assert.equal(again.body.code, 'email_retired')
+})

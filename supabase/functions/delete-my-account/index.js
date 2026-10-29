@@ -296,6 +296,39 @@ Deno.serve(async (req) => {
       // by participant-side failures. The error is logged so a human can investigate orphan PII.
     }
 
+    // 1b. Anonymise the person's online registrations (by profile or by the
+    // address). The row stays and so does the slot it holds (status, price and
+    // competition are not personal data), but everything that identifies the
+    // person goes, and the consent acceptances lose the device traces (ip,
+    // user_agent) while the acceptance itself stays as the record.
+    const regIds = new Set()
+    for (const [column, value] of [['profile_id', profile.id], ['email', originalEmail]]) {
+      const { data: found, error: findErr } = await supabaseAdmin.from('registrations').select('id').eq(column, value)
+      if (findErr) console.error('delete-my-account: registrations lookup failed:', column, findErr.message)
+      for (const r of found ?? []) regIds.add(r.id)
+    }
+    if (regIds.size > 0) {
+      const ids = [...regIds]
+      const { error: regErr } = await supabaseAdmin.from('registrations').update({
+        first_name: 'Usunięte konto',
+        last_name: 'Usunięte konto',
+        email: null,
+        phone: null,
+        birth_date: null,
+        city: null,
+        club: null,
+        ice_name: null,
+        ice_phone: null,
+        guardian_profile_id: null,
+        guardian_name: null,
+        guardian_email: null,
+      }).in('id', ids)
+      if (regErr) console.error('delete-my-account: registrations anonymization failed:', regErr.message)
+      const { error: accErr } = await supabaseAdmin.from('consent_acceptances')
+        .update({ ip: null, user_agent: null }).in('registration_id', ids)
+      if (accErr) console.error('delete-my-account: consent_acceptances trace cleanup failed:', accErr.message)
+    }
+
     // 2. Soft-delete profile (username must be unique — use first 8 chars of UUID)
     const { error: updateError } = await supabaseAdmin
       .from('profiles')

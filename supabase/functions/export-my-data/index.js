@@ -23,6 +23,11 @@ async function fetchAll(buildQuery, label) {
   return rows
 }
 
+const REGISTRATION_COLUMNS = 'id, event_id, category_id, status, first_name, last_name, birth_date, gender, email, phone, city, club, '
+  + 'ice_name, ice_phone, guardian_name, guardian_email, age_group_label, list_price, price, refunded, consent_state, created_at, '
+  + 'registration_settings(name, event_date), '
+  + 'consent_acceptances(consent_kind, accepted_as, regulamin_version, accepted_at, ip, user_agent)'
+
 function json(body, status, req, extraHeaders = {}) {
   return new Response(JSON.stringify(body, null, 2), {
     status,
@@ -55,6 +60,7 @@ Deno.serve(async (req) => {
     profile, userBadges, consentLog, eventReports, websiteFeedback, submittedEvents, favorites,
     clubMemberships, ownedClubsRaw, membershipLog, raceEntries, invitesToMe,
     organizerAgreements, organizerActions, payoutHistory, waitlistRequests,
+    registrationsByProfile, registrationsByEmail,
   ] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').eq('id', userId).single(),
     supabaseAdmin.from('user_badges').select('*').eq('user_id', userId),
@@ -104,7 +110,24 @@ Deno.serve(async (req) => {
     fetchAll(() => supabaseAdmin.from('registration_waitlist')
       .select('created_at, clubs(name)')
       .eq('requested_by', userId).order('created_at').order('club_id'), 'registration_waitlist'),
+    // Online registrations, by profile or by the address they were made with
+    // (delete-my-account anonymises by the same two keys), with the consents
+    // accepted for each one.
+    fetchAll(() => supabaseAdmin.from('registrations')
+      .select(REGISTRATION_COLUMNS).eq('profile_id', userId).order('created_at').order('id'), 'registrations by profile'),
+    session.email
+      ? fetchAll(() => supabaseAdmin.from('registrations')
+        .select(REGISTRATION_COLUMNS).eq('email', session.email.toLowerCase().trim()).order('created_at').order('id'), 'registrations by email')
+      : Promise.resolve([]),
   ])
+
+  const registrations = [...new Map([...registrationsByProfile, ...registrationsByEmail].map((r) => [r.id, r])).values()]
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+    .map(({ registration_settings: rs, ...r }) => ({
+      ...r,
+      event_name: rs?.name ?? null,
+      event_date: rs?.event_date ?? null,
+    }))
 
   const memberships = (clubMemberships.data ?? []).map((m) => ({
     club_name: m.clubs?.name ?? null,
@@ -158,6 +181,7 @@ Deno.serve(async (req) => {
       submitted_calendar_events: submittedEvents.data || [],
     },
     clubs: { membership, memberships, membership_history, owned },
+    registrations,
     race_entries: (raceEntries.data ?? []).map((p) => ({
       event_name: p.events?.name ?? null,
       event_date: p.events?.date ?? null,
