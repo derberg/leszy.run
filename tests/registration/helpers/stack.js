@@ -17,7 +17,11 @@ export function localEnv() {
   if (!url || !url.startsWith('http://127.0.0.1')) {
     throw new Error(`Refusing to run: API_URL is "${url}", not the local stack (http://127.0.0.1...)`)
   }
-  cached = { url, anonKey: env.ANON_KEY, serviceKey: env.SERVICE_ROLE_KEY, jwtSecret: env.JWT_SECRET, functionsUrl: `${url}/functions/v1` }
+  const dbUrl = env.DB_URL
+  if (!dbUrl || !/^postgres(ql)?:\/\/[^@]+@127\.0\.0\.1:/.test(dbUrl)) {
+    throw new Error(`Refusing to run: DB_URL is not the local stack (127.0.0.1)`)
+  }
+  cached = { url, dbUrl, anonKey: env.ANON_KEY, serviceKey: env.SERVICE_ROLE_KEY, jwtSecret: env.JWT_SECRET, functionsUrl: `${url}/functions/v1` }
   return cached
 }
 

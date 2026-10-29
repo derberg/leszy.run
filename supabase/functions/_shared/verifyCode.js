@@ -84,7 +84,16 @@ export async function verifyCodeAndOpenSession(supabaseAdmin, { email, code }) {
     return fail(401, 'Nieprawidłowy kod.')
   }
 
-  await supabaseAdmin.from('auth_codes').update({ used: true }).eq('id', loginCode.id)
+  // The flip is the gate: two requests carrying the same code (a double
+  // submit) both pass the attempt claim, and only the one whose UPDATE flips
+  // `used` goes on. Unconditional, both opened a session, and both tried to
+  // create the same new profile (profiles_email_key, a 500).
+  const { data: consumed, error: useErr } = await supabaseAdmin.from('auth_codes')
+    .update({ used: true }).eq('id', loginCode.id).eq('used', false).select('id')
+  if (useErr) throw useErr
+  if (!consumed?.length) {
+    return fail(403, 'Ten kod jest już nieaktualny. Poproś o nowy.')
+  }
 
   // Find or create profile
   const { data: existingProfile } = await supabaseAdmin
@@ -107,8 +116,16 @@ export async function verifyCodeAndOpenSession(supabaseAdmin, { email, code }) {
       .insert({ id: newId, email: normalizedEmail })
       .select('id, username')
       .single()
-    if (insertError) throw insertError
-    profile = newProfile
+    if (insertError?.code === '23505') {
+      // Created meanwhile by another login for this address: use that one.
+      const { data: raced, error: reErr } = await supabaseAdmin
+        .from('profiles').select('id, username').eq('email', normalizedEmail).single()
+      if (reErr) throw reErr
+      profile = raced
+    } else {
+      if (insertError) throw insertError
+      profile = newProfile
+    }
   }
 
   // Create session

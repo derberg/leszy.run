@@ -30,7 +30,16 @@ export function inviteFromPath(path) {
  * account that started at an invite link joined the club without a username
  * and without having accepted the terms.
  */
-export function postAuthPath({ from, hasUsername }) {
+export function postAuthPath({ from, hasUsername, skipOnboarding = false }) {
   if (hasUsername) return from || '/profil'
+  // Spec 14.17 / ruling P2-R22: only the registration flow itself passes this,
+  // after register-free succeeded (the e-mail code was the login); onboarding
+  // waits for the next ordinary login. A plain /login never does.
+  if (skipOnboarding && from) return from
   return from ? `/onboarding?from=${encodeURIComponent(from)}` : '/onboarding'
+}
+
+/** Where the registration form goes after register-free succeeded: the confirmation page, never onboarding. */
+export function afterRegistrationPath({ slug, hasUsername }) {
+  return postAuthPath({ from: `/events/${slug}/zapisano`, hasUsername, skipOnboarding: true })
 }

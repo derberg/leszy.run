@@ -16,4 +16,7 @@ npx playwright test -c tests/registration/playwright.config.js
 
 Emails the functions send land in the capture server (`messagesTo`, `lastCodeFor`).
 `sessionFor(email)` logs a test user in without email; `loginViaEmail` does the real flow.
+`helpers/hostPull.js` is a scratch timing host: a `postgres:16` on `127.0.0.1:55432`, migrated with the
+backend's Drizzle migrations, pulled into by the backend's `pullConfig()`. CI runs it as a service; locally
+the helper starts a throwaway container when nothing answers on 55432 and removes it afterwards.
 The scenario list is `docs/registration/scenario-matrix.md`.

@@ -1,0 +1,769 @@
+// Plan 2, task 7: edits after publish (W-21…W-24, W-23b, W-46…W-48 in
+// docs/registration/scenario-matrix.md). A save on a published event is
+// staged in registration_pending_changes; „Opublikuj zmiany” applies it under
+// the server-side locks, optionally with a change notice. LOCAL stack only;
+// every event and runner address is random, so reruns pass.
+import { test, before, after } from 'node:test'
+import assert from 'node:assert/strict'
+import crypto from 'node:crypto'
+import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { captureRequests, messagesTo, startCapture } from './helpers/emailCapture.js'
+import { acceptAgreement, callFn, createPublishedFreeEvent } from './helpers/registrationFixtures.js'
+
+const ZT = '00000000-0000-4000-8000-0000000000c1'
+const rand = () => crypto.randomBytes(4).toString('hex')
+const db = () => admin()
+const runnerEmail = (tag) => `runner-${tag}-${rand()}@test.local`
+const NO_NOTICE = { send: false }
+// The fixture's basics.contactEmail (createPublishedFreeEvent).
+const CONTACT = 'zapisy@klub.example'
+
+let owner, member, stopCapture, club
+before(async () => {
+  stopCapture = await startCapture()
+  await resetThrottle()
+  await acceptAgreement('zatyrani-test')
+  ;[owner, member] = await Promise.all(['owner@zatyrani-test.local', 'member@zatyrani-test.local'].map(sessionFor))
+  const { data, error } = await db().from('clubs').select('name').eq('id', ZT).single()
+  if (error) throw error
+  club = { name: data.name }
+})
+after(async () => { if (stopCapture) await stopCapture() })
+
+const BIEG = { name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 }
+const MARSZ = { name: 'Marsz 5 km', discipline: 'nw', distanceLabel: '5 km', startTime: '10:05', capacity: 30 }
+
+const published = (competitions = [BIEG]) => createPublishedFreeEvent(owner, { competitions })
+
+/** The competitions section as the wizard sends it: every competition, with its id. */
+const items = (event, comps, over = []) => comps.map((c, i) => ({
+  kind: 'individual', timed: true, isKids: false, ...c, categoryId: event.categoryIds[i], ...(over[i] ?? {}),
+}))
+
+const save = (eventId, section, value, session = owner) =>
+  callFn('save-registration-section', session, { eventId, section, value })
+const publishChanges = (eventId, notify = NO_NOTICE, session = owner) =>
+  callFn('publish-registration-event', session, { eventId, action: 'publish_changes', notify })
+
+async function one(table, filter) {
+  let q = db().from(table).select('*')
+  for (const [k, v] of Object.entries(filter)) q = q.eq(k, v)
+  const { data, error } = await q.maybeSingle()
+  if (error) throw error
+  return data
+}
+const settingsOf = (eventId) => one('registration_settings', { event_id: eventId })
+const pendingOf = (eventId) => one('registration_pending_changes', { event_id: eventId })
+const competitionOf = (categoryId) => one('competitions', { category_id: categoryId })
+
+async function consentIds(eventId) {
+  const { data, error } = await db().from('event_consents').select('id').eq('event_id', eventId)
+  if (error) throw error
+  return data.map((c) => c.id)
+}
+
+/** n confirmed registrations through register_free itself; → their emails. */
+async function registerMany(event, categoryId, n, tag = 'r') {
+  const ids = await consentIds(event.eventId)
+  const emails = Array.from({ length: n }, () => runnerEmail(tag))
+  for (let i = 0; i < emails.length; i += 10) {
+    const out = await Promise.all(emails.slice(i, i + 10).map((email) => db().rpc('register_free', {
+      p_category_id: categoryId,
+      p_people: [{ firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-01-01', gender: 'K', email, ageGroupLabel: 'K open' }],
+      p_profile_id: null,
+      p_meta: { consentIds: ids, ip: null, userAgent: 'test' },
+    })))
+    for (const r of out) if (r.error) throw new Error(`register_free: ${r.error.message}`)
+  }
+  return emails
+}
+
+// Direct RPC calls, the way the edge functions make them.
+const stage = (eventId, section, value) =>
+  db().rpc('stage_registration_section', { p_event_id: eventId, p_section: section, p_value: value, p_actor: owner.profileId })
+const applyChanges = (eventId, expectedUpdatedAt = null) =>
+  db().rpc('publish_registration_changes', { p_event_id: eventId, p_actor: owner.profileId, p_expected_updated_at: expectedUpdatedAt })
+
+/** The validated snake_case competition item, as stage_registration_section receives it. */
+const stagedItem = (categoryId, over = {}) => ({
+  category_id: categoryId, name: 'Bieg 9 km', kind: 'individual', discipline: 'run', distance_label: '9 km',
+  start_time: '10:00', capacity: 50, min_age: null, max_age: null, is_kids: false, timed: true,
+  gpx_upload_id: null, price: null, ...over,
+})
+
+// ---------------------------------------------------------------- W-21
+
+test('W-21 a save on a published event is staged: live tables unchanged, changed_fields recorded; discard clears it', async () => {
+  const event = await published()
+  const before = await settingsOf(event.eventId)
+
+  const r = await save(event.eventId, 'basics', { name: 'Bieg Leszego po zmianie' })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data.changedFields, ['basics.name'])
+
+  const moved = await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG], [{ startTime: '10:30' }]) })
+  assert.equal(moved.status, 200, JSON.stringify(moved.body))
+
+  const after = await settingsOf(event.eventId)
+  assert.equal(after.name, before.name, 'registration_settings untouched')
+  const { data: ev } = await db().from('events').select('name').eq('id', event.eventId).single()
+  assert.equal(ev.name, before.name, 'events untouched')
+  assert.equal((await competitionOf(event.categoryIds[0])).start_time, '10:00:00', 'competition untouched')
+
+  const pending = await pendingOf(event.eventId)
+  assert.deepEqual(pending.changed_fields, ['basics.name', 'competitions.items'])
+  assert.equal(pending.payload.basics.name, 'Bieg Leszego po zmianie')
+  assert.equal(pending.payload.competitions.items[0].start_time, '10:30')
+  assert.equal(pending.updated_by, owner.profileId)
+
+  // A second basics save merges into the staged section.
+  await save(event.eventId, 'basics', { placeDetails: 'Boisko szkolne' })
+  const merged = await pendingOf(event.eventId)
+  assert.equal(merged.payload.basics.name, 'Bieg Leszego po zmianie')
+  assert.equal(merged.payload.basics.place_details, 'Boisko szkolne')
+
+  // Staging a value back to the live one drops it from changed_fields.
+  await save(event.eventId, 'basics', { name: before.name })
+  assert.deepEqual((await pendingOf(event.eventId)).changed_fields, ['basics.place_details', 'competitions.items'])
+
+  const d = await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'discard_changes' })
+  assert.equal(d.status, 200, JSON.stringify(d.body))
+  assert.equal(await pendingOf(event.eventId), null)
+  assert.equal((await settingsOf(event.eventId)).place_details, before.place_details)
+
+  const { data: log } = await db().from('organizer_actions').select('action, payload')
+    .eq('event_id', event.eventId).in('action', ['section_staged', 'changes_discarded'])
+  const staged = log.filter((a) => a.action === 'section_staged')
+  assert.equal(staged.length, 4, 'one per staged save')
+  assert.deepEqual([...new Set(staged.map((a) => a.payload.section))].sort(), ['basics', 'competitions'])
+  assert.ok(staged.every((a) => Object.keys(a.payload).join() === 'section'), 'the section name only, never the values')
+  assert.equal(log.filter((a) => a.action === 'changes_discarded').length, 1)
+})
+
+test('W-21 publish_changes: notify required, nothing pending → 409, member → 403', async () => {
+  const event = await published()
+  assert.equal((await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'publish_changes' })).status, 400)
+  const none = await publishChanges(event.eventId)
+  assert.equal(none.status, 409)
+  assert.equal(none.body.code, 'no_changes')
+  assert.equal((await save(event.eventId, 'basics', { name: 'Inna nazwa' }, member)).status, 403)
+  assert.equal((await publishChanges(event.eventId, NO_NOTICE, member)).status, 403)
+  const notice = await save(event.eventId, 'basics', { name: 'Inna nazwa' })
+  assert.equal(notice.status, 200)
+  const noSubject = await publishChanges(event.eventId, { send: true, subject: '', body: 'x' })
+  assert.equal(noSubject.status, 422, JSON.stringify(noSubject.body))
+  assert.ok(noSubject.body.fields.subject)
+})
+
+test('W-21 publish_changes applies basics, office and the regulamin (version bumped) and clears the pending row', async () => {
+  const event = await published()
+  await save(event.eventId, 'basics', { name: 'Bieg Leszego 2027', regulaminUrl: 'https://example.org/regulamin-v2.pdf' })
+  await save(event.eventId, 'office', { address: 'Hala, ul. Leśna 1', hours: [{ date: '2026-12-01', from: '08:00', to: '09:00' }] })
+  const r = await publishChanges(event.eventId)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data.diff.map((d) => d.field).sort(),
+    ['basics.name', 'basics.regulamin_url', 'office.hours', 'office.office_address'].sort())
+  assert.deepEqual(r.body.data.affected, { all: false, categoryIds: [] })
+
+  const s = await settingsOf(event.eventId)
+  assert.equal(s.name, 'Bieg Leszego 2027')
+  assert.equal(s.regulamin_url, 'https://example.org/regulamin-v2.pdf')
+  assert.equal(s.regulamin_version, 2)
+  assert.equal(s.office_address, 'Hala, ul. Leśna 1')
+  const { data: ev } = await db().from('events').select('name').eq('id', event.eventId).single()
+  assert.equal(ev.name, 'Bieg Leszego 2027')
+  assert.equal(await pendingOf(event.eventId), null)
+  const { data: log } = await db().from('organizer_actions').select('action').eq('event_id', event.eventId).eq('action', 'changes_published')
+  assert.equal(log.length, 1)
+})
+
+// ---------------------------------------------------------------- W-22
+
+test('W-22 refused at validation: kind team → 422 „Wkrótce.”, slug and timing mode → 422', async () => {
+  const event = await published()
+  const team = await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG], [{ kind: 'team' }]) })
+  assert.equal(team.status, 422)
+  assert.equal(team.body.fields.kind, 'Wkrótce.')
+  const slug = await save(event.eventId, 'basics', { slug: `inny-adres-${rand()}` })
+  assert.equal(slug.status, 422)
+  assert.ok(slug.body.fields.slug)
+  const timing = await save(event.eventId, 'timing', { timingMode: 'external' })
+  assert.equal(timing.status, 422)
+  assert.ok(timing.body.fields.timingMode)
+  assert.equal(await pendingOf(event.eventId), null)
+})
+
+test('W-22 removing a competition after publish → 409 competition_locked, even with nobody registered', async () => {
+  const event = await published([BIEG, MARSZ])
+  assert.equal((await competitionOf(event.categoryIds[1])).taken, 0)
+  const r = await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG]) })
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'competition_locked')
+  // The RPC refuses it too, staged or applied.
+  const { error } = await stage(event.eventId, 'competitions', { pricing_mode: 'free', items: [stagedItem(event.categoryIds[0])] })
+  assert.equal(error?.message, 'competition_locked')
+})
+
+test('W-22 kind lock at apply time: taken > 0 → competition_locked (nothing applied), taken = 0 → applied', async () => {
+  const event = await published()
+  const cat = event.categoryIds[0]
+  const team = { pricing_mode: 'free', items: [stagedItem(cat, { kind: 'team', start_time: '10:30' })] }
+
+  let r = await stage(event.eventId, 'competitions', team)
+  assert.equal(r.error, null, r.error?.message)
+  await registerMany(event, cat, 1, 'kind')
+  r = await applyChanges(event.eventId)
+  assert.equal(r.error?.message, 'competition_locked')
+  const c = await competitionOf(cat)
+  assert.equal(c.kind, 'individual')
+  assert.equal(c.start_time, '10:00:00', 'the whole publish rolled back')
+  assert.ok(await pendingOf(event.eventId), 'pending row kept')
+
+  const fresh = await published()
+  r = await stage(fresh.eventId, 'competitions', { pricing_mode: 'free', items: [stagedItem(fresh.categoryIds[0], { kind: 'team' })] })
+  assert.equal(r.error, null, r.error?.message)
+  r = await applyChanges(fresh.eventId)
+  assert.equal(r.error, null, r.error?.message)
+  assert.equal((await competitionOf(fresh.categoryIds[0])).kind, 'team')
+})
+
+test('W-22 price lock: pricing mode and price apply with taken = 0, price_locked once taken > 0', async () => {
+  const event = await published()
+  const cat = event.categoryIds[0]
+  const fixed = (price) => ({ pricing_mode: 'fixed', items: [stagedItem(cat, { price })] })
+  const amount = async () => {
+    const { data } = await db().from('competition_prices').select('amount').eq('category_id', cat)
+    return data.map((p) => p.amount)
+  }
+
+  let r = await stage(event.eventId, 'competitions', fixed(5000))
+  assert.equal(r.error, null, r.error?.message)
+  r = await applyChanges(event.eventId)
+  assert.equal(r.error, null, r.error?.message)
+  assert.equal((await settingsOf(event.eventId)).pricing_mode, 'fixed')
+  assert.deepEqual(await amount(), [5000])
+
+  // Staged while nobody was registered, applied after someone was.
+  r = await stage(event.eventId, 'competitions', fixed(6000))
+  assert.equal(r.error, null, r.error?.message)
+  await db().from('competitions').update({ taken: 1 }).eq('category_id', cat)
+  r = await applyChanges(event.eventId)
+  assert.equal(r.error?.message, 'price_locked')
+  assert.deepEqual(await amount(), [5000])
+
+  // Staging it now is refused straight away, and so is going back to free.
+  r = await stage(event.eventId, 'competitions', fixed(7000))
+  assert.equal(r.error?.message, 'price_locked')
+  r = await stage(event.eventId, 'competitions', { pricing_mode: 'free', items: [stagedItem(cat)] })
+  assert.equal(r.error?.message, 'price_locked')
+  // The same price is no change.
+  r = await stage(event.eventId, 'competitions', fixed(5000))
+  assert.equal(r.error, null, r.error?.message)
+})
+
+test('W-22 slug and timing mode staged straight into the RPC → immutable', async () => {
+  const event = await published()
+  let r = await stage(event.eventId, 'basics', { slug: `inny-${rand()}` })
+  assert.equal(r.error?.message, 'immutable')
+  r = await stage(event.eventId, 'timing', { timing_mode: 'none' })
+  assert.equal(r.error?.message, 'immutable')
+})
+
+// ---------------------------------------------------------------- W-23
+
+test('W-23 a limit below the confirmed count: 409 naming the competition, nothing applied, pending kept', async () => {
+  const event = await published()
+  const cat = event.categoryIds[0]
+  const s = await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG], [{ capacity: 30, startTime: '10:30' }]) })
+  assert.equal(s.status, 200, JSON.stringify(s.body))
+  await registerMany(event, cat, 31, 'cap')
+
+  const r = await publishChanges(event.eventId)
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'capacity_below_taken')
+  assert.equal(r.body.error, 'Nie można opublikować: limit „Bieg 9 km” jest mniejszy niż liczba zapisanych (31).')
+  const c = await competitionOf(cat)
+  assert.equal(c.capacity, 50)
+  assert.equal(c.start_time, '10:00:00')
+  assert.ok(await pendingOf(event.eventId))
+})
+
+test('W-23b publishing a lower limit while two registrations land: taken never above the live limit, no deadlock', async () => {
+  for (let round = 0; round < 3; round++) {
+    const event = await published()
+    const cat = event.categoryIds[0]
+    await registerMany(event, cat, 29, 'race')
+    const s = await stage(event.eventId, 'competitions', { pricing_mode: 'free', items: [stagedItem(cat, { capacity: 30 })] })
+    assert.equal(s.error, null, s.error?.message)
+
+    const ids = await consentIds(event.eventId)
+    const reg = () => db().rpc('register_free', {
+      p_category_id: cat,
+      p_people: [{ firstName: 'A', lastName: 'B', birthDate: '1990-01-01', gender: 'M', email: runnerEmail('race'), ageGroupLabel: 'M open' }],
+      p_profile_id: null, p_meta: { consentIds: ids, ip: null, userAgent: 'test' },
+    })
+    const [pub, a, b] = await Promise.all([applyChanges(event.eventId), reg(), reg()])
+    const errors = [pub, a, b].map((x) => x.error?.message).filter(Boolean)
+    assert.ok(!errors.some((m) => /deadlock/i.test(m)), errors.join())
+
+    const c = await competitionOf(cat)
+    assert.ok(c.taken <= c.capacity || c.capacity === 50, `taken ${c.taken} capacity ${c.capacity}`)
+    if (c.capacity === 30) {
+      assert.equal(pub.error, null)
+      assert.equal(c.taken, 30, 'exactly one more runner')
+      assert.deepEqual(errors, ['full'])
+    } else {
+      assert.equal(pub.error?.message, `capacity_below_taken:${cat}`)
+      assert.equal(c.taken, 31, 'both runners in, the change refused')
+    }
+  }
+})
+
+test('W-23 calendar row: locked name kept, admin rejection kept, kids competition adds „dzieci”', async () => {
+  const event = await published()
+  const { error } = await db().from('calendar_events').update({ locked_fields: ['name'], status: 'rejected' })
+    .eq('source', 'leszyrun').eq('source_id', event.eventId)
+  assert.equal(error, null)
+  await save(event.eventId, 'basics', { name: 'Bieg Leszego zmieniony' })
+  await save(event.eventId, 'competitions', {
+    pricingMode: 'free',
+    items: [...items(event, [BIEG]), { name: 'Bieg dzieci 400 m', kind: 'individual', discipline: 'run', distanceLabel: '400 m',
+      startTime: '09:00', capacity: 40, isKids: true, timed: false, maxAge: 12 }],
+  })
+  const r = await publishChanges(event.eventId)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+
+  const cal = await one('calendar_events', { source: 'leszyrun', source_id: event.eventId })
+  assert.notEqual(cal.name, 'Bieg Leszego zmieniony')
+  assert.equal(cal.status, 'rejected')
+  assert.ok(cal.event_type?.includes('dzieci'), JSON.stringify(cal.event_type))
+  assert.deepEqual(cal.distances, ['9 km', '400 m'])
+  const { data: ev } = await db().from('events').select('name').eq('id', event.eventId).single()
+  assert.equal(ev.name, 'Bieg Leszego zmieniony')
+  const { data: cats } = await db().from('categories').select('name').eq('event_id', event.eventId)
+  assert.deepEqual(cats.map((c) => c.name).sort(), ['Bieg 9 km', 'Bieg dzieci 400 m'])
+})
+
+// ---------------------------------------------------------------- hide (W-46…W-48)
+
+test('W-46 hiding a competition nobody registered for: hidden_at set after publish, unhide clears it', async () => {
+  const event = await published([BIEG, MARSZ])
+  const marsz = event.categoryIds[1]
+  let r = await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{}, { hidden: true }]) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal((await competitionOf(marsz)).hidden_at, null, 'staged only')
+  r = await publishChanges(event.eventId)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.ok((await competitionOf(marsz)).hidden_at)
+  const cal = await one('calendar_events', { source: 'leszyrun', source_id: event.eventId })
+  assert.deepEqual(cal.distances, ['9 km'])
+
+  r = await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{}, { hidden: false }]) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  r = await publishChanges(event.eventId)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal((await competitionOf(marsz)).hidden_at, null)
+})
+
+test('W-47 hiding a competition with registrations → 409 competition_locked, at save and at publish', async () => {
+  const event = await published([BIEG, MARSZ])
+  const [bieg, marsz] = event.categoryIds
+  await registerMany(event, bieg, 1, 'hide')
+  const r = await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{ hidden: true }]) })
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'competition_locked')
+
+  // Staged while empty, a registration lands before „Opublikuj zmiany”.
+  const s = await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{}, { hidden: true }]) })
+  assert.equal(s.status, 200, JSON.stringify(s.body))
+  await registerMany(event, marsz, 1, 'hide')
+  const p = await publishChanges(event.eventId)
+  assert.equal(p.status, 409, JSON.stringify(p.body))
+  assert.equal(p.body.code, 'competition_locked')
+  assert.equal((await competitionOf(marsz)).hidden_at, null)
+})
+
+test('W-48 the internal functions are not callable by the service role; the new RPCs not by anon', async () => {
+  const event = await published()
+  const { error } = await db().rpc('apply_registration_section', {
+    p_event_id: event.eventId, p_section: 'basics', p_value: { name: 'x' }, p_allow_delete: true,
+  })
+  assert.match(error?.message ?? '', /permission denied/)
+  const { error: e2 } = await db().rpc('registration_check_upload', { p_event_id: event.eventId, p_upload: null, p_kind: 'gpx' })
+  assert.match(e2?.message ?? '', /permission denied/)
+
+  const { createClient } = await import('@supabase/supabase-js')
+  const { url, anonKey } = localEnv()
+  const anon = createClient(url, anonKey, { auth: { persistSession: false } })
+  for (const [fn, args] of [
+    ['stage_registration_section', { p_event_id: event.eventId, p_section: 'basics', p_value: {}, p_actor: owner.profileId }],
+    ['publish_registration_changes', { p_event_id: event.eventId, p_actor: owner.profileId }],
+  ]) {
+    const { error: e } = await anon.rpc(fn, args)
+    assert.ok(e, `${fn} refused for anon`)
+  }
+})
+
+// ---------------------------------------------------------------- W-63 (P2-R30)
+
+async function customConsents(eventId) {
+  const { data, error } = await db().from('event_consents').select('id, text')
+    .eq('event_id', eventId).eq('kind', 'custom').order('sort_order')
+  if (error) throw error
+  return data
+}
+
+/** A published event with one custom consent, published through „Opublikuj zmiany”. */
+async function publishedWithConsent(text = 'Startuję na własną odpowiedzialność.') {
+  const event = await published()
+  let r = await save(event.eventId, 'form', { consents: [{ text }] })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  r = await publishChanges(event.eventId)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const [consent] = await customConsents(event.eventId)
+  return { event, consent }
+}
+
+test('W-63 a consent somebody accepted cannot be deleted or retyped after publish: 409 consent_locked, nothing changes', async () => {
+  const { event, consent } = await publishedWithConsent()
+  await registerMany(event, event.categoryIds[0], 1, 'consent')
+  const { count } = await db().from('consent_acceptances').select('id', { count: 'exact', head: true }).eq('consent_id', consent.id)
+  assert.equal(count, 1)
+
+  // A basics change is staged first: the refused consent must not block it.
+  assert.equal((await save(event.eventId, 'basics', { name: 'Bieg Leszego po zgodzie' })).status, 200)
+  const pendingBefore = await pendingOf(event.eventId)
+
+  const del = await save(event.eventId, 'form', { consents: [] })
+  assert.equal(del.status, 409, JSON.stringify(del.body))
+  assert.equal(del.body.code, 'consent_locked')
+  const retype = await save(event.eventId, 'form', { consents: [{ id: consent.id, text: 'Inna treść zgody.' }] })
+  assert.equal(retype.status, 409, JSON.stringify(retype.body))
+  assert.equal(retype.body.code, 'consent_locked')
+
+  assert.deepEqual(await customConsents(event.eventId), [consent], 'live consent untouched')
+  assert.deepEqual((await pendingOf(event.eventId)).payload, pendingBefore.payload, 'nothing staged')
+
+  // Keeping it word for word and adding a new one is allowed.
+  const add = await save(event.eventId, 'form', { consents: [{ id: consent.id, text: consent.text }, { text: 'Nowa zgoda.' }] })
+  assert.equal(add.status, 200, JSON.stringify(add.body))
+  const p = await publishChanges(event.eventId)
+  assert.equal(p.status, 200, JSON.stringify(p.body))
+  assert.deepEqual((await customConsents(event.eventId)).map((k) => k.text), [consent.text, 'Nowa zgoda.'])
+  assert.equal((await settingsOf(event.eventId)).name, 'Bieg Leszego po zgodzie')
+})
+
+test('W-63 a consent nobody accepted can still be retyped and deleted after publish', async () => {
+  const { event, consent } = await publishedWithConsent()
+  let r = await save(event.eventId, 'form', { consents: [{ id: consent.id, text: 'Poprawiona treść.' }] })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal((await publishChanges(event.eventId)).status, 200)
+  assert.deepEqual((await customConsents(event.eventId)).map((k) => k.text), ['Poprawiona treść.'])
+
+  r = await save(event.eventId, 'form', { consents: [] })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal((await publishChanges(event.eventId)).status, 200)
+  assert.deepEqual(await customConsents(event.eventId), [])
+})
+
+test('W-63 staged while nobody had accepted, a registration lands before publishing: 409 consent_locked, nothing applied', async () => {
+  const { event, consent } = await publishedWithConsent()
+  const r = await save(event.eventId, 'form', { consents: [{ id: consent.id, text: 'Poprawiona treść.' }] })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  await registerMany(event, event.categoryIds[0], 1, 'consent')
+  const p = await publishChanges(event.eventId)
+  assert.equal(p.status, 409, JSON.stringify(p.body))
+  assert.equal(p.body.code, 'consent_locked')
+  assert.deepEqual(await customConsents(event.eventId), [consent])
+  assert.ok(await pendingOf(event.eventId), 'pending kept for the organizer to fix or discard')
+
+  // Deleting it the same way.
+  const d = await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'discard_changes' })
+  assert.equal(d.status, 200)
+  const { error } = await stage(event.eventId, 'form', { consents: [] })
+  assert.equal(error?.message, 'consent_locked')
+})
+
+test('W-63 a list naming an accepted consent twice (old text + new text): 422 at save, refused at publish, text unchanged', async () => {
+  const { event, consent } = await publishedWithConsent()
+  await registerMany(event, event.categoryIds[0], 1, 'consent')
+  const dup = [{ id: consent.id, text: consent.text }, { id: consent.id, text: 'Przepisana treść.' }]
+  const r = await save(event.eventId, 'form', { consents: dup })
+  assert.equal(r.status, 422, JSON.stringify(r.body))
+  assert.ok(r.body.fields.consents)
+  assert.equal(await pendingOf(event.eventId), null, 'nothing staged')
+
+  // Straight into the RPC the lock check passes (one entry is unchanged); the apply refuses it.
+  const { error } = await stage(event.eventId, 'form', { consents: dup })
+  assert.equal(error, null)
+  const p = await publishChanges(event.eventId)
+  assert.equal(p.status, 422, JSON.stringify(p.body))
+  assert.equal(p.body.code, 'invalid')
+  assert.deepEqual(await customConsents(event.eventId), [consent])
+})
+
+test('W-63 duplicate ids on a consent nobody accepted: 422 at save, duplicate_id from the draft RPC and at publish', async () => {
+  const { event, consent } = await publishedWithConsent()
+  const dup = [{ id: consent.id, text: 'A.' }, { id: consent.id, text: 'B.' }]
+  const r = await save(event.eventId, 'form', { consents: dup })
+  assert.equal(r.status, 422, JSON.stringify(r.body))
+  assert.equal((await stage(event.eventId, 'form', { consents: dup })).error, null)
+  const { error } = await applyChanges(event.eventId)
+  assert.equal(error?.message, 'duplicate_id')
+  assert.deepEqual(await customConsents(event.eventId), [consent])
+
+  // The draft path goes through the same apply.
+  const c = await callFn('create-registration-event', owner, { clubId: ZT, name: `Szkic ${rand()}` })
+  assert.equal(c.status, 201, JSON.stringify(c.body))
+  const draftId = c.body.data.eventId
+  const first = await save(draftId, 'form', { consents: [{ text: 'Szkic zgody.' }] })
+  assert.equal(first.status, 200, JSON.stringify(first.body))
+  const [draftConsent] = await customConsents(draftId)
+  const { error: dErr } = await db().rpc('save_registration_section', {
+    p_event_id: draftId, p_section: 'form',
+    p_value: { consents: [{ id: draftConsent.id, text: 'A.' }, { id: draftConsent.id, text: 'B.' }] },
+  })
+  assert.equal(dErr?.message, 'duplicate_id')
+  assert.deepEqual(await customConsents(draftId), [draftConsent])
+})
+
+test('W-63 get-registration-event marks custom consents somebody accepted', async () => {
+  const { event, consent } = await publishedWithConsent()
+  let r = await callFn('get-registration-event', owner, { eventId: event.eventId })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.consents.find((k) => k.id === consent.id).accepted, false)
+  await registerMany(event, event.categoryIds[0], 1, 'consent')
+  r = await callFn('get-registration-event', owner, { eventId: event.eventId })
+  assert.equal(r.body.data.consents.find((k) => k.id === consent.id).accepted, true)
+})
+
+// ---------------------------------------------------------------- W-56
+
+test('W-56 preview_changes: the diff, the audience and how many people a notice would reach; nothing applied', async () => {
+  const event = await published([BIEG, MARSZ])
+  const [bieg, marsz] = event.categoryIds
+  const preview = (session = owner) => callFn('publish-registration-event', session, { eventId: event.eventId, action: 'preview_changes' })
+
+  // Nothing staged: an empty diff, nobody to tell.
+  let r = await preview()
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data, { diff: [], affected: { all: false, categoryIds: [] }, recipientCount: 0, updatedAt: null })
+
+  await registerMany(event, bieg, 2, 'preview')
+  await registerMany(event, marsz, 1, 'preview')
+  const [cancelled] = await registerMany(event, bieg, 1, 'preview')
+  await db().from('registrations').update({ status: 'cancelled' }).eq('email', cancelled)
+
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{ startTime: '10:15' }, { capacity: 40 }]) })
+  r = await preview()
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data.diff.map(({ field, before, after, categoryId }) => ({ field, before, after, categoryId })), [
+    { field: 'competitions.start_time', before: '10:00', after: '10:15', categoryId: bieg },
+    { field: 'competitions.capacity', before: 30, after: 40, categoryId: marsz },
+  ])
+  assert.deepEqual(r.body.data.affected, { all: false, categoryIds: [bieg] })
+  assert.equal(r.body.data.recipientCount, 2, 'confirmed registrants of Bieg 9 km only')
+
+  // A date change concerns everyone confirmed.
+  await save(event.eventId, 'basics', { placeDetails: 'Hala sportowa' })
+  r = await preview()
+  assert.equal(r.body.data.affected.all, true)
+  assert.equal(r.body.data.recipientCount, 3)
+
+  // Previewing applies nothing and keeps the staged row.
+  assert.ok(await pendingOf(event.eventId))
+  assert.equal((await competitionOf(bieg)).start_time, '10:00:00')
+  assert.equal((await preview(member)).status, 403)
+})
+
+test('W-60 publish_changes with the preview\'s stamp (P2-R28): staged again since → 409 changed, nothing applied, no mail; the fresh stamp → 200', async () => {
+  const event = await published([BIEG, MARSZ])
+  const [bieg] = event.categoryIds
+  const [runner] = await registerMany(event, bieg, 1, 'stamp')
+  const preview = async () => (await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'preview_changes' })).body.data
+  const mails = async () => (await messagesTo(runner)).length
+  const before = await mails()
+
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{ startTime: '10:15' }]) })
+  const seen = await preview()
+  assert.equal(seen.updatedAt, (await pendingOf(event.eventId)).updated_at)
+  // Someone stages a date change while the dialog is open.
+  await save(event.eventId, 'basics', { placeDetails: 'Inne miejsce' })
+
+  const notice = { send: true, subject: 'Zmiana godziny', body: 'Start 10:15.' }
+  let r = await callFn('publish-registration-event', owner, {
+    eventId: event.eventId, action: 'publish_changes', notify: notice, expectedUpdatedAt: seen.updatedAt,
+  })
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'changed')
+  assert.ok(await pendingOf(event.eventId), 'still staged')
+  assert.equal((await competitionOf(bieg)).start_time, '10:00:00')
+  assert.equal(await mails(), before, 'no mail')
+
+  const fresh = await preview()
+  assert.equal(fresh.affected.all, true)
+  r = await callFn('publish-registration-event', owner, {
+    eventId: event.eventId, action: 'publish_changes', notify: { send: false }, expectedUpdatedAt: fresh.updatedAt,
+  })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal((await competitionOf(bieg)).start_time, '10:15:00')
+})
+
+// ---------------------------------------------------------------- W-24
+
+test('W-24 change notice: off → no email; on → one per confirmed registrant of that competition, from the club; throttled', async () => {
+  const event = await published([BIEG, MARSZ])
+  const [bieg, marsz] = event.categoryIds
+  const biegRunners = await registerMany(event, bieg, 2, 'notice')
+  const [marszRunner] = await registerMany(event, marsz, 1, 'notice')
+  const [cancelled] = await registerMany(event, bieg, 1, 'notice')
+  await db().from('registrations').update({ status: 'cancelled' }).eq('email', cancelled)
+  const all = [...biegRunners, marszRunner, cancelled]
+  const count = async () => (await Promise.all(all.map(messagesTo))).reduce((n, m) => n + m.length, 0)
+  const start = await count()
+
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{ startTime: '10:30' }]) })
+  let r = await publishChanges(event.eventId, { send: false })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data.affected, { all: false, categoryIds: [bieg] })
+  assert.equal((await competitionOf(bieg)).start_time, '10:30:00')
+  assert.equal(await count(), start, 'no email without send')
+
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{ startTime: '10:45' }]) })
+  const notice = { send: true, subject: 'Zmiana godziny startu', body: 'Bieg 9 km startuje o 10:45.\nDo zobaczenia!' }
+  r = await publishChanges(event.eventId, notice)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.notice.recipientCount, 2)
+  for (const email of biegRunners) {
+    const msgs = await messagesTo(email)
+    assert.equal(msgs.length, 1, email)
+    assert.equal(msgs[0].subject, notice.subject)
+    assert.equal(msgs[0].text, notice.body)
+    assert.ok(msgs[0].fromName.includes(club.name), msgs[0].fromName)
+    assert.equal(msgs[0].replyTo, CONTACT)
+    assert.equal(msgs[0].html, undefined, 'plain text only')
+  }
+  assert.equal((await messagesTo(marszRunner)).length, 0, 'other competition not told')
+  assert.equal((await messagesTo(cancelled)).length, 0, 'cancelled registration not told')
+
+  const msg = await one('organizer_messages', { event_id: event.eventId })
+  assert.equal(msg.recipient_count, 2)
+  assert.equal(msg.subject, notice.subject)
+  assert.equal(msg.body, notice.body)
+  assert.equal(msg.sent_by, owner.profileId)
+  const { data: log } = await db().from('organizer_actions').select('action').eq('event_id', event.eventId)
+    .in('action', ['changes_published', 'change_notice_sent'])
+  assert.deepEqual(log.map((a) => a.action).sort(), ['change_notice_sent', 'changes_published', 'changes_published'])
+
+  // A second notice inside the window: 429, nothing applied, nothing sent.
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG, MARSZ], [{ startTime: '11:00' }]) })
+  const before = await count()
+  r = await publishChanges(event.eventId, notice)
+  assert.equal(r.status, 429, JSON.stringify(r.body))
+  assert.equal(await count(), before)
+  assert.equal((await competitionOf(bieg)).start_time, '10:45:00')
+  assert.ok(await pendingOf(event.eventId))
+  // Without the notice the same changes publish.
+  r = await publishChanges(event.eventId, { send: false })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal((await competitionOf(bieg)).start_time, '11:00:00')
+})
+
+test('W-24 a date change tells every confirmed registrant of the event', async () => {
+  const event = await published([BIEG, MARSZ])
+  const runners = [...await registerMany(event, event.categoryIds[0], 1, 'date'), ...await registerMany(event, event.categoryIds[1], 1, 'date')]
+  const s = await settingsOf(event.eventId)
+  const next = new Date(Date.parse(s.event_date) + 86400000).toISOString().slice(0, 10)
+  const r0 = await save(event.eventId, 'basics', { eventDate: next })
+  assert.equal(r0.status, 200, JSON.stringify(r0.body))
+  const r = await publishChanges(event.eventId, { send: true, subject: 'Nowa data', body: `Zawody odbędą się ${next}.` })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.affected.all, true)
+  assert.equal(r.body.data.notice.recipientCount, 2)
+  for (const email of runners) assert.equal((await messagesTo(email)).length, 1, email)
+})
+
+test('W-21 a stale expected_updated_at → changed, nothing applied', async () => {
+  const event = await published()
+  await save(event.eventId, 'basics', { name: 'Bieg po zmianie' })
+  const r = await applyChanges(event.eventId, '2000-01-01T00:00:00Z')
+  assert.equal(r.error?.message, 'changed')
+  assert.notEqual((await settingsOf(event.eventId)).name, 'Bieg po zmianie')
+  assert.ok(await pendingOf(event.eventId))
+})
+
+// ---------------------------------------------------------------- merged state (fix round 1)
+
+for (const [label, staged, blockingKey, rpcError] of [
+  ['the registration window removed', { opensOn: null, closesOn: null }, 'registration_dates', 'invalid_state:window'],
+  ['the regulamin removed', { regulaminUrl: null }, 'regulamin', 'invalid_state:regulamin'],
+  ['the race moved before registration closes', 'earlier', 'registration_dates', 'invalid_state:closes_after_event'],
+]) {
+  test(`W-21 ${label}: publish_changes 409 with the checklist item; the RPC refuses ${rpcError}`, async () => {
+    const event = await published()
+    const s = await settingsOf(event.eventId)
+    const value = staged === 'earlier'
+      ? { eventDate: new Date(Date.parse(s.event_date) - 86400000).toISOString().slice(0, 10) }
+      : staged
+    const saved = await save(event.eventId, 'basics', value)
+    assert.equal(saved.status, 200, JSON.stringify(saved.body))
+
+    const r = await publishChanges(event.eventId)
+    assert.equal(r.status, 409, JSON.stringify(r.body))
+    assert.deepEqual(r.body.blocking.map((b) => b.key), [blockingKey])
+    assert.match(r.body.error, /^Uzupełnij: /)
+
+    const direct = await applyChanges(event.eventId)
+    assert.equal(direct.error?.message, rpcError)
+    const after = await settingsOf(event.eventId)
+    assert.equal(after.closes_at, s.closes_at)
+    assert.equal(after.event_date, s.event_date)
+    assert.equal(after.regulamin_url, s.regulamin_url)
+    assert.ok(await pendingOf(event.eventId), 'pending kept')
+  })
+}
+
+test('W-24 send=true with nobody concerned: applied, nothing sent, the hourly slot stays free', async () => {
+  const event = await published()
+  const [runner] = await registerMany(event, event.categoryIds[0], 1, 'quiet')
+  await save(event.eventId, 'basics', { name: 'Bieg Leszego nowa nazwa' })
+  const notice = { send: true, subject: 'Zmiana', body: 'Treść.' }
+  let r = await publishChanges(event.eventId, notice)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data.notice, { sent: false, recipientCount: 0 })
+  assert.equal((await messagesTo(runner)).length, 0)
+  assert.equal(await one('organizer_messages', { event_id: event.eventId }), null)
+
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG], [{ startTime: '10:20' }]) })
+  r = await publishChanges(event.eventId, notice)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.notice.recipientCount, 1)
+  assert.equal((await messagesTo(runner)).length, 1)
+})
+
+test('W-24 1500 recipients: two batched requests (1000 + 500), every address its own, the count right', async () => {
+  const event = await published()
+  const cat = event.categoryIds[0]
+  const tag = rand()
+  const rows = Array.from({ length: 1500 }, (_, i) => ({
+    event_id: event.eventId, category_id: cat, status: 'confirmed', first_name: 'Ola', last_name: `Leśna ${i}`,
+    email: `bulk-${tag}-${i}@test.local`, consent_state: 'accepted',
+  }))
+  for (let i = 0; i < rows.length; i += 750) {
+    const { error } = await db().from('registrations').insert(rows.slice(i, i + 750))
+    assert.equal(error, null, error?.message)
+  }
+  await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG], [{ startTime: '10:40' }]) })
+  const subject = `Zmiana godziny ${tag}`
+  const r = await publishChanges(event.eventId, { send: true, subject, body: 'Start o 10:40.' })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.notice.recipientCount, 1500)
+
+  const requests = (await captureRequests()).filter((q) => q.subject === subject)
+  assert.deepEqual(requests.map((q) => q.recipients), [1000, 500])
+  const one1 = await messagesTo(`bulk-${tag}-1499@test.local`)
+  assert.equal(one1.length, 1)
+  assert.equal(one1[0].to, `bulk-${tag}-1499@test.local`)
+  const msg = await one('organizer_messages', { event_id: event.eventId })
+  assert.equal(msg.recipient_count, 1500)
+})

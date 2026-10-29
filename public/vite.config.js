@@ -28,6 +28,10 @@ function vercelApi(env) {
         const { default: handler } = await server.ssrLoadModule('/api/results.js')
         await handler(req, res)
       })
+      server.middlewares.use('/api/event', async (req, res) => {
+        const { default: handler } = await server.ssrLoadModule('/api/event.js')
+        await handler(req, res)
+      })
     },
   }
 }
@@ -40,12 +44,15 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss(), vercelApi(env)],
     envDir: path.resolve(__dirname, '..'),
+    // Pure registration rules shared with the edge functions (plain ESM, no runtime APIs).
+    resolve: { alias: { '@registration': path.resolve(__dirname, '../supabase/functions/_shared/registration') } },
     preview: { headers: prodHeaders },
     // Mirror the production Vercel rewrite (public/vercel.json): proxy the
     // same-origin `/edge/*` path to the Supabase functions host so auth cookies
     // stay first-party in local dev too. Without this, `/edge` 404s under vite.
     server: {
       headers: prodHeaders,
+      fs: { allow: [path.resolve(__dirname, '..'), path.resolve(__dirname, '../supabase/functions/_shared/registration')] },
       ...(supabaseUrl
         ? {
           proxy: {

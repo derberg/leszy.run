@@ -13,6 +13,9 @@ const DodajWydarzenie = lazy(() => import('./pages/DodajWydarzenie.jsx'))
 const Home = lazy(() => import('./pages/Home.jsx'))
 const EventHub = lazy(() => import('./pages/EventHub.jsx'))
 const Results = lazy(() => import('./pages/Results.jsx'))
+const ZapisyTrasa = lazy(() => import('./pages/zapisy/Trasa.jsx'))
+const ZapisyZapis = lazy(() => import('./pages/zapisy/Zapis.jsx'))
+const ZapisyZapisano = lazy(() => import('./pages/zapisy/Zapisano.jsx'))
 const Volunteer = lazy(() => import('./pages/Volunteer.jsx'))
 const Checkin = lazy(() => import('./pages/Checkin.jsx'))
 const AdminCheckin = lazy(() => import('./pages/AdminCheckin.jsx'))
@@ -34,6 +37,8 @@ const KlubZaproszenia = lazy(() => import('./pages/klub/Zaproszenia.jsx'))
 const KlubUstawienia = lazy(() => import('./pages/klub/Ustawienia.jsx'))
 const KlubWydarzenia = lazy(() => import('./pages/klub/Wydarzenia.jsx'))
 const KlubUmowaOrganizatora = lazy(() => import('./pages/klub/UmowaOrganizatora.jsx'))
+const KlubEventEditor = lazy(() => import('./pages/klub/wydarzenia/EventEditor.jsx'))
+const KlubEventPodglad = lazy(() => import('./pages/klub/wydarzenia/Podglad.jsx'))
 const PolitykaPrywatnosci = lazy(() => import('./pages/PolitykaPrywatnosci.jsx'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'))
 const Regulamin = lazy(() => import('./pages/Regulamin.jsx'))
@@ -67,6 +72,9 @@ export default function App() {
           <Route path="/kalendarz" element={<Kalendarz />} />
           <Route path="/events" element={<Home />} />
           <Route path="/events/:slug" element={<EventHub />} />
+          <Route path="/events/:slug/trasa" element={<ZapisyTrasa />} />
+          <Route path="/events/:slug/zapis/:categoryId" element={<ZapisyZapis />} />
+          <Route path="/events/:slug/zapisano" element={<ZapisyZapisano />} />
           <Route path="/events/:slug/results" element={<Results />} />
           <Route path="/events/:slug/results/live" element={<Results />} />
           <Route path="/events/:slug/results/:categoryId" element={<Results />} />
@@ -95,6 +103,9 @@ export default function App() {
             <Route path="czlonkowie" element={<KlubCzlonkowie />} />
             <Route path="wydarzenia" element={<KlubWydarzenia />} />
             <Route path="wydarzenia/umowa" element={<KlubUmowaOrganizatora />} />
+            <Route path="wydarzenia/:eventId" element={<KlubEventEditor />} />
+            <Route path="wydarzenia/:eventId/podglad" element={<KlubEventPodglad />} />
+            <Route path="wydarzenia/:eventId/:step" element={<KlubEventEditor />} />
             <Route path="zaproszenia" element={<KlubZaproszenia />} />
             <Route path="ustawienia" element={<KlubUstawienia />} />
           </Route>

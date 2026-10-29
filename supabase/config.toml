@@ -165,3 +165,43 @@ entrypoint = "./functions/update-club-payout/index.js"
 [functions.get-club-payout]
 verify_jwt = false
 entrypoint = "./functions/get-club-payout/index.js"
+
+[functions.create-registration-event]
+verify_jwt = false
+entrypoint = "./functions/create-registration-event/index.js"
+
+[functions.save-registration-section]
+verify_jwt = false
+entrypoint = "./functions/save-registration-section/index.js"
+
+[functions.get-registration-event]
+verify_jwt = false
+entrypoint = "./functions/get-registration-event/index.js"
+
+[functions.list-club-registration-events]
+verify_jwt = false
+entrypoint = "./functions/list-club-registration-events/index.js"
+
+[functions.upload-registration-file]
+verify_jwt = false
+entrypoint = "./functions/upload-registration-file/index.js"
+
+[functions.publish-registration-event]
+verify_jwt = false
+entrypoint = "./functions/publish-registration-event/index.js"
+
+[functions.register-free]
+verify_jwt = false
+entrypoint = "./functions/register-free/index.js"
+
+[functions.my-event-registrations]
+verify_jwt = false
+entrypoint = "./functions/my-event-registrations/index.js"
+
+[functions.list-event-registrations]
+verify_jwt = false
+entrypoint = "./functions/list-event-registrations/index.js"
+
+[functions.preview-registration-event]
+verify_jwt = false
+entrypoint = "./functions/preview-registration-event/index.js"

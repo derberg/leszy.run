@@ -187,3 +187,15 @@ html.light .hero-scanlines::before {
 .map-dark .leaflet-tile-pane {
   filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(1.1) saturate(0.3);
 }
+
+/* ─── REGISTRATION COURSE MAP (RA1b) ─── */
+.leaflet-tooltip.leszy-course-label {
+  background: #0A0A10;
+  color: #DDDCEC;
+  border: 1px solid #343450;
+  border-radius: 0;
+  box-shadow: none;
+  font: 500 11px 'IBM Plex Mono', monospace;
+  padding: 1px 5px;
+}
+.leaflet-tooltip.leszy-course-label::before { display: none; }

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { inviteUrl, inviteFromPath, postAuthPath } from '../../src/lib/inviteLink.js'
+import { inviteUrl, inviteFromPath, postAuthPath, afterRegistrationPath } from '../../src/lib/inviteLink.js'
 
 describe('inviteUrl', () => {
   it('builds the invite address', () => {
@@ -38,3 +38,21 @@ describe('postAuthPath', () => {
     assert.equal(postAuthPath({ from: null, hasUsername: false }), '/onboarding')
   })
 })
+
+describe('onboarding after registration (spec 14.17, ruling P2-R22)', () => {
+  it('a successful registration lands on the confirmation page, account with no username or not', () => {
+    assert.equal(afterRegistrationPath({ slug: 'bieg-leszego', hasUsername: false }), '/events/bieg-leszego/zapisano')
+    assert.equal(afterRegistrationPath({ slug: 'bieg-leszego', hasUsername: true }), '/events/bieg-leszego/zapisano')
+  })
+
+  it('a plain /login visit with a registration page in ?from= still goes through onboarding', () => {
+    for (const from of ['/events/x/zapisano', '/events/x/zapis/0b6f2b0e-6c1a-4f43-9a51-6a9a1b2c3d4e']) {
+      assert.equal(postAuthPath({ from, hasUsername: false }), `/onboarding?from=${encodeURIComponent(from)}`)
+    }
+  })
+
+  it('skipOnboarding without a destination falls back to onboarding', () => {
+    assert.equal(postAuthPath({ from: null, hasUsername: false, skipOnboarding: true }), '/onboarding')
+  })
+})
+

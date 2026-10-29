@@ -1,8 +1,11 @@
 // Standalone email capture for the local test stack. The edge functions POST
 // every outgoing email here (EMAIL_CAPTURE_URL) instead of SendGrid.
-//   POST /send         store { to, subject, text, html, replyTo, fromName }
+//   POST /send         store { to, subject, text, html, replyTo, fromName }; `to`
+//                      may be a list (one batched request): stored once per
+//                      address, each carrying the request's `batch` number
 //   GET /messages?to=  list (optionally for one recipient)
-//   DELETE /messages   clear
+//   GET /requests      one entry per POST: { batch, recipients, subject }
+//   DELETE /messages   clear both
 import http from 'node:http'
 import { fileURLToPath } from 'node:url'
 
@@ -23,6 +26,7 @@ function listening(port) {
 export async function startCapture(port = CAPTURE_PORT) {
   if (await listening(port)) return null
   const messages = []
+  const requests = []
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://x')
     const send = (status, body) => {
@@ -35,15 +39,22 @@ export async function startCapture(port = CAPTURE_PORT) {
       req.on('end', () => {
         try {
           const m = JSON.parse(raw)
-          messages.push({ ...m, receivedAt: new Date().toISOString() })
+          const batch = requests.length + 1
+          const to = Array.isArray(m.to) ? m.to : [m.to]
+          requests.push({ batch, recipients: to.length, subject: m.subject })
+          const receivedAt = new Date().toISOString()
+          for (const address of to) messages.push({ ...m, to: address, batch, receivedAt })
           send(200, { ok: true })
         } catch { send(400, { error: 'bad json' }) }
       })
     } else if (req.method === 'GET' && url.pathname === '/messages') {
       const to = url.searchParams.get('to')
       send(200, { data: to ? messages.filter((m) => m.to?.toLowerCase() === to.toLowerCase()) : messages })
+    } else if (req.method === 'GET' && url.pathname === '/requests') {
+      send(200, { data: requests })
     } else if (req.method === 'DELETE' && url.pathname === '/messages') {
       messages.length = 0
+      requests.length = 0
       send(200, { ok: true })
     } else send(404, { error: 'not found' })
   })

@@ -1,6 +1,6 @@
 # Informacja o przetwarzaniu danych zawodnika
 
-**Wersja:** 2026-11-v1
+**Wersja:** 2026-11-v2
 **Status:** projekt do weryfikacji prawnej, nieobowiązujący
 **Zastosowanie:** domyślna treść dokumentu „Informacja o danych” (`event_consents.kind = 'data_info'`), tworzonego z każdym Wydarzeniem. Organizator może ją zastąpić własną. Pola w nawiasach klamrowych `{…}` Serwis wypełnia danymi Wydarzenia i Organizatora.
 
@@ -19,7 +19,8 @@ Zapisy, płatności i — jeżeli tak podano na stronie zawodów — pomiar czas
 | Cel | Podstawa prawna |
 |---|---|
 | Przyjęcie zapisu, zawarcie i wykonanie umowy o udział w zawodach: lista startowa, przydział do kategorii, kontakt w sprawie zawodów, przekazanie pakietu innej osobie, zwrot opłaty | art. 6 ust. 1 lit. b RODO (umowa) |
-| Pomiar czasu i publikacja listy startowej oraz wyników w zakresie określonym w regulaminie zawodów | art. 6 ust. 1 lit. b RODO (umowa) |
+| Pomiar czasu i publikacja listy startowej oraz wyników (imię, nazwisko i wynik na listach wyników) w zakresie określonym w regulaminie zawodów | art. 6 ust. 1 lit. b RODO (umowa) |
+| Zdjęcia i nagrania wideo z zawodów: utrwalenie wizerunku uczestników i publikacja w relacjach z zawodów | art. 6 ust. 1 lit. f RODO (prawnie uzasadniony interes Organizatora: relacjonowanie zawodów); możesz wnieść sprzeciw (art. 21 RODO) |
 | Kontakt z osobą wskazaną na wypadek nagłego zdarzenia w trakcie zawodów | art. 6 ust. 1 lit. f RODO (prawnie uzasadniony interes Organizatora: bezpieczeństwo uczestników); w razie zagrożenia życia lub zdrowia — art. 6 ust. 1 lit. d RODO (żywotny interes) |
 | Rozliczenia, rachunkowość i podatki | art. 6 ust. 1 lit. c RODO (obowiązek prawny, w szczególności przepisy podatkowe) |
 | Ustalenie, dochodzenie i obrona roszczeń | art. 6 ust. 1 lit. f RODO (prawnie uzasadniony interes Organizatora) |
@@ -28,7 +29,9 @@ Podanie danych oznaczonych w formularzu jako wymagane jest warunkiem zapisu. Bez
 
 ## Co jest publikowane
 
-Na publicznej liście startowej: imię, nazwisko, miejscowość, klub, konkurencja, kategoria wiekowa, nazwa drużyny i informacja, czy zgłoszenie jest opłacone. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. Data urodzenia, adres e-mail, numer telefonu i dane osoby do kontaktu w nagłych wypadkach nie są publikowane. [DO WERYFIKACJI: publikacja statusu płatności — zob. „Do weryfikacji”, pkt 3.]
+Na publicznej liście startowej: imię, nazwisko, miejscowość, klub, konkurencja, kategoria wiekowa, nazwa drużyny i informacja, czy zgłoszenie jest opłacone. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. Data urodzenia, adres e-mail, numer telefonu, narodowość (jeżeli formularz o nią prosi) i dane osoby do kontaktu w nagłych wypadkach nie są publikowane. [DO WERYFIKACJI: publikacja statusu płatności — zob. „Do weryfikacji”, pkt 3.]
+
+Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i publikować go w relacjach z zawodów. Podstawą przetwarzania danych jest prawnie uzasadniony interes Organizatora w relacjonowaniu zawodów (art. 6 ust. 1 lit. f RODO); możesz wnieść sprzeciw wobec takiej publikacji (art. 21 RODO): napisz do Organizatora. Rozpowszechnianie Twojego wizerunku opiera się na zezwoleniu, którego udzielasz, akceptując to postanowienie regulaminu zawodów (art. 81 ust. 1 ustawy o prawie autorskim i prawach pokrewnych). Zezwolenia nie wymaga wizerunek, który jest jedynie szczegółem całości, np. tłumu uczestników lub publiczności (art. 81 ust. 2 pkt 2 tej ustawy). To zezwolenie nie jest zgodą w rozumieniu RODO.
 
 ## Kto otrzymuje dane
 
@@ -45,6 +48,7 @@ Na publicznej liście startowej: imię, nazwisko, miejscowość, klub, konkurenc
 - Pozostałe dane zgłoszenia: [DO UZUPEŁNIENIA: proponowane 12 miesięcy po dniu zawodów], a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.
 - Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).
 - Wyniki zawodów: bezterminowo, w archiwum wyników. [DO WERYFIKACJI: zob. „Do weryfikacji”, pkt 1.]
+- Zdjęcia i nagrania z zawodów: przez czas publikacji relacji i wyników albo do uwzględnienia Twojego sprzeciwu.
 
 ## Twoje prawa
 
