@@ -7,7 +7,7 @@ import { operatorAlertEmail, orderExpiredEmail, paymentReminderEmail } from './e
 import {
   checkAttemptsAtDpay, executeRefund, loadOrderView, orderEmailArgs, raiseAlert, sendOrderConfirmation,
 } from './orderFlow.js'
-import { issueConsentRequests, rotateAndSend } from './consentRequests.js'
+import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
 
 // The payment window jobs (plan 3, task 7). pg_cron POSTs here every 15 minutes through pg_net
 // (job `registration-jobs`) with the header x-jobs-secret = REGISTRATION_JOBS_SECRET; anything
@@ -33,12 +33,18 @@ import { issueConsentRequests, rotateAndSend } from './consentRequests.js'
 //   7. lost confirmations (P3-R10): a paid order with no confirmation_sent_at 10 min after payment
 //   8. consent requests (plan 4, D4-24; no dpay, so it runs under P3-R16):
 //      a. a confirmed adult awaiting consent with no request (the function died after the commit)
-//         is issued one (issueConsentRequests: issue_consent_request is the claim, so idempotent);
+//         is issued one (issueConsentRequests: issue_consent_request is the claim, so idempotent).
+//         Oldest first; a row that cannot be issued is counted (consent_issue_failed), alerted
+//         once at its 3rd failure (consent_issue_failed, deduplicated per registration), and from
+//         then on swept after every other row, so it cannot starve newer ones;
 //      b. a request whose first e-mail never went out (emailed_at NULL, issued 10+ min ago) gets
 //         its link re-sent once (claim_consent_resends, a new token);
 //      c. the automatic reminder 72 h before closes_at (claim_consent_reminders, once per request,
 //         never within 24 h of the last e-mail), „Przypomnienie: …” with a rotated token.
-//      A failed send is alerted and never retried by the same sub-step (claim-then-send).
+//      A failed send is alerted and never retried by the same sub-step (claim-then-send). The
+//      step needs CONSENT_STEP_MS to start, and each sub-step starts (claims) only with
+//      CONSENT_PART_MS left, so a claim is never made that the run has no time to send; what
+//      does not fit waits, unclaimed, for the next run. Its counts are e-mails sent, not claims.
 //   9. the operator digest again, for the alerts this run raised
 // A finished run stamps registration_job_heartbeats ('registration-jobs'); the
 // registration-watchdog function (hourly, P3-R18) alerts when that stamp is older than 3 runs.
@@ -78,6 +84,12 @@ export const DPAY_NOT_CONFIGURED = 'dpay_not_configured'
 // The steps that call dpay: skipped without its settings.
 export const DPAY_STEPS = ['refund_retries', 'dpay_check']
 const DEFAULT_SITE = 'https://www.leszy.run'
+// Step 8 claims up to LIMIT.consent rows three times and sends 5 at a time: up to 30 rounds of
+// e-mail, about 1 s each through SendGrid.
+const CONSENT_STEP_MS = 15_000
+const CONSENT_PART_MS = 10_000
+// The run at which a missing request that keeps failing is alerted (m7).
+const CONSENT_ISSUE_ALERT_AT = 3
 
 /**
  * What a run needs from the environment (Deno.env, or anything with get(), or a plain object).
@@ -150,6 +162,20 @@ async function consentMail(admin, registrationId, { reminder, site, template }) 
     await raiseAlert(admin, 'email_failed', null, { template, registrationId, error: String(err?.message ?? err) })
   }
   return false
+}
+
+// Step 8a: one more failed attempt at issuing a missing request. The 3rd is alerted, once
+// (deduplicated per registration); a count that cannot be stored is logged and never fails the step.
+async function countIssueFailure(admin, registrationId) {
+  const { data: failures, error } = await admin.rpc('consent_issue_failed', { p_registration_id: registrationId })
+  if (error) {
+    console.error(`registration-jobs: consent issue failure of ${registrationId} not counted:`, error.message)
+    return
+  }
+  if (failures >= CONSENT_ISSUE_ALERT_AT) {
+    await raiseAlert(admin, 'consent_issue_failed', null, { registrationId, failures },
+      { dedupeKey: `consent_issue_failed:${registrationId}` })
+  }
 }
 
 async function eachLimited(items, fn, width = 5) {
@@ -322,15 +348,28 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
       await eachLimited(ids, (id) => sendOrderConfirmation(admin, id, { claimed: true }))
       counts.confirmationsResent = ids.length
     }],
-    ['consent_reminders', 2_000, async () => {
+    ['consent_reminders', CONSENT_STEP_MS, async () => {
+      const fits = () => {
+        if (time.left() >= CONSENT_PART_MS) return true
+        counts.deferred.push('consent_reminders')
+        return false
+      }
       const missing = await rpcRows(admin, 'consent_requests_missing', { p_limit: LIMIT.consent })
-      if (missing.length) counts.consentRequestsIssued = await issueConsentRequests(admin, missing, { site })
+      if (missing.length) {
+        const { sent, failed } = await issueConsentRequestsReport(admin, missing, { site })
+        counts.consentRequestsIssued = sent
+        for (const id of failed) await countIssueFailure(admin, id)
+      }
+      if (!fits()) return
       const resends = await rpcRows(admin, 'claim_consent_resends', { p_limit: LIMIT.consent })
-      await eachLimited(resends, (id) => consentMail(admin, id, { reminder: false, site, template: 'consent_resend' }))
-      counts.consentEmailsResent = resends.length
+      await eachLimited(resends, async (id) => {
+        if (await consentMail(admin, id, { reminder: false, site, template: 'consent_resend' })) counts.consentEmailsResent++
+      })
+      if (!fits()) return
       const due = await rpcRows(admin, 'claim_consent_reminders', { p_limit: LIMIT.consent })
-      await eachLimited(due, (id) => consentMail(admin, id, { reminder: true, site, template: 'consent_reminder' }))
-      counts.consentReminders = due.length
+      await eachLimited(due, async (id) => {
+        if (await consentMail(admin, id, { reminder: true, site, template: 'consent_reminder' })) counts.consentReminders++
+      })
     }],
     ['digest', 1_000, async () => { counts.alertsEmailed += await digest(admin, alertTo) }],
   ]

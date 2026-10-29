@@ -3,7 +3,10 @@
 // of the event's club (loadOrganizerEvent on the registration's event: an outsider or a disabled
 // club gets 404, and so does a plain member, P2-R20). The token is rotated, so the previous link
 // stops working, and the e-mail goes out as „Przypomnienie: …”. consent-remind:<id> allows 3 per
-// registration per 24 h, whoever asks; the automatic reminder does not count (D4-24).
+// registration per 24 h, whoever asks; the automatic reminder does not count (D4-24). Every
+// refusal that can be decided first (not authorized, not awaiting, the link used or expired) is
+// answered before a slot is claimed, and a send that put nothing in the inbox (the link went
+// meanwhile, or the e-mail was refused: 502) gives its slot back (release_throttle_slot).
 //
 // → 200 { data: { status: 'sent' } }
 //   401 no session; 404 unknown, not yours, or a member; 409 not_awaiting (accepted, signed in
@@ -53,15 +56,26 @@ Deno.serve(async (req) => {
     }
 
     if (reg.status !== 'confirmed' || reg.consent_state !== 'awaiting' || !reg.email) return json(NOT_AWAITING, 409, req)
+    // A spent or expired link cannot be rotated (rotate_consent_request); no request at all is the
+    // crash window, which rotateAndSend issues.
+    const { data: request, error: qErr } = await admin.from('consent_requests')
+      .select('used_at, expires_at').eq('registration_id', reg.id).maybeSingle()
+    if (qErr) throw qErr
+    if (request && (request.used_at || Date.parse(request.expires_at) <= Date.now())) return json(NOT_AWAITING, 409, req)
 
     // Fail closed: this sends e-mail to a third party.
-    const throttle = await checkAndIncrement(admin, `consent-remind:${reg.id}`, REMIND_LIMIT, { windowSeconds: DAY })
+    const slot = `consent-remind:${reg.id}`
+    const throttle = await checkAndIncrement(admin, slot, REMIND_LIMIT, { windowSeconds: DAY })
     if (!throttle.allowed) {
       return json({ error: 'Przypomnienie zostało już wysłane. Spróbuj jutro.', code: 'throttled' }, 429, req,
         { 'retry-after': String(throttle.retryAfterSec) })
     }
 
     const outcome = await rotateAndSend(admin, reg.id, { reminder: true })
+    if (outcome !== 'sent') {
+      const { error: rErr } = await admin.rpc('release_throttle_slot', { p_key: slot })
+      if (rErr) console.error(`remind-consent ${reg.id}: slot not released:`, rErr.message)
+    }
     if (outcome === 'not_awaiting') return json(NOT_AWAITING, 409, req)
     if (organizer) {
       await logOrganizerAction(admin, req, {

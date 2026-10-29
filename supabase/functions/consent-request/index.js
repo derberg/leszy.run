@@ -4,7 +4,8 @@
 // session whose address is the registration's, or after the e-mail code sent to that address.
 //
 //   no matching session, no code → 200 { data: { needsCode: true, event: { name, date, slug },
-//       competition: { categoryId, name, startTime }, firstName, emailHint } }
+//       competition: { categoryId, name, startTime }, firstName, emailHint } } (emailHint:
+//       p***@g***.com, consentAccess.js)
 //   sendCode: true → a login code to the REGISTRATION's address (_shared/requestCode.js: its
 //       per-address and per-IP limits); the client never names an address. Same answer, plus
 //       codeSent: true. A retired address → 403 email_retired.
@@ -15,22 +16,21 @@
 //       formFields, consents: [{ id, kind, text }], regulaminUrl, regulaminPath, editable } }
 //
 // Refusals: 410 { code: invalid | used | expired } „Ten link został już użyty albo wygasł.”,
-// 409 gone (the entry was cancelled), 429 (consent-ip:<ip> 30/h, consent-token:<hash> 10/h, on
+// 409 gone (the entry was cancelled), 429 (consent-ip:<ip> 30/h, consent-token:<hash> 30/h, on
 // every call). The token is never logged and never returned.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest, isAllowed } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
-import { clientIp } from '../_shared/organizer.js'
+import { clientIp } from '../_shared/clientIp.js'
 import { verifyCodeAndOpenSession } from '../_shared/verifyCode.js'
 import { requestLoginCode } from '../_shared/requestCode.js'
 import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from '../_shared/deletedEmails.js'
 import { json } from '../_shared/registration/registrationRequest.js'
 import {
-  emailHint, ipKey, loadByToken, personContext, personOf, sessionMatches, throttled, tokenHash, TOO_MANY,
+  emailHint, ipKey, loadByToken, personContext, personOf, sessionMatches, throttled, TOKEN_LIMIT, tokenHash, TOO_MANY,
 } from '../_shared/registration/consentAccess.js'
 
 const IP_LIMIT = 30
-const TOKEN_LIMIT = 10
 const KIND_ORDER = { regulamin: 0, data_info: 1, image: 2 }
 
 function siteFor(req) {

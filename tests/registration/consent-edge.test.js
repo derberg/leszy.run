@@ -95,11 +95,10 @@ const codeMails = async (email) => (await messagesTo(email)).filter((m) => /^\d{
  * A free event with a payer (self) and an added adult (confirmed, awaiting consent), and an issued
  * request whose token the test knows. → { event, regId, email, payerEmail, payer, token, participantId }
  */
-async function awaitingAdult({ issue = true } = {}) {
+async function awaitingAdult({ issue = true, email = runnerEmail('adult') } = {}) {
   const event = await createPublishedFreeEvent(owner, { competitions: [BIEG()] })
   const cat = event.categoryIds[0]
   const payerEmail = runnerEmail('payer')
-  const email = runnerEmail('adult')
   const payer = await sessionFor(payerEmail)
   const r = await registerGroup(event, [
     adult(cat, 'self', payerEmail),
@@ -131,7 +130,7 @@ function assertNeedsCodeOnly(body, ctx) {
   const d = body.data
   assert.equal(d.needsCode, true)
   assert.equal(d.firstName, 'Piotr')
-  assert.match(d.emailHint, /^r\*\*\*@test\.local$/)
+  assert.match(d.emailHint, /^r\*\*\*@t\*\*\*\.local$/, 'the domain is masked but its TLD (m3)')
   assert.equal(d.event.slug, ctx.event.slug)
   assert.ok(d.event.name)
   assert.equal(d.competition.name, 'Bieg 9 km')
@@ -210,7 +209,7 @@ test('G-31 the link alone (no session, or the payer\'s) shows the first name and
   assert.equal(used.status, 410)
 })
 
-test('G-31 accept-consent: no session or the payer\'s → 403; boxes missing → 400 consents_required; an unknown token → 410', async () => {
+test('G-31 accept-consent: no session or the payer\'s → 403; a box left unticked on the set shown → 400 consents_required; an unknown token → 410', async () => {
   const ctx = await awaitingAdult()
   const ids = await consentIds(ctx.event.eventId)
   const body = { token: ctx.token, acceptedConsentIds: ids, serviceRegulamin: true }
@@ -220,9 +219,12 @@ test('G-31 accept-consent: no session or the payer\'s → 403; boxes missing →
   const noService = await call('accept-consent', { ...body, serviceRegulamin: false }, { session: me })
   assert.equal(noService.status, 400)
   assert.equal(noService.body.code, 'consents_required')
-  const missing = await call('accept-consent', { ...body, acceptedConsentIds: ids.slice(1) }, { session: me })
+  const missing = await call('accept-consent', { ...body, acceptedConsentIds: ids.slice(1), shownConsentIds: ids }, { session: me })
   assert.equal(missing.status, 400)
   assert.equal(missing.body.code, 'consents_required')
+  const none = await call('accept-consent', { ...body, acceptedConsentIds: [] }, { session: me })
+  assert.equal(none.status, 400)
+  assert.equal(none.body.code, 'consents_required')
   assert.equal((await regOf(ctx.regId)).consent_state, 'awaiting')
   const unknown = await call('accept-consent', { ...body, token: (await newToken()).token }, { session: me })
   assert.equal(unknown.status, 410)
@@ -294,7 +296,7 @@ test('G-27 after closes_at: accept with edits.phone → 422 edits_closed; accept
 
 // ---------------------------------------------------------------- G-32b throttles
 
-test('G-32b the 31st consent-request from one IP in an hour → 429; the 11th call for one token → 429', async () => {
+test('G-32b the 31st consent-request from one IP in an hour → 429; the 31st call for one token → 429 (m4)', async () => {
   await resetThrottle()
   const from = `203.0.113.${crypto.randomInt(1, 255)}`
   for (let i = 0; i < 30; i++) {
@@ -306,7 +308,7 @@ test('G-32b the 31st consent-request from one IP in an hour → 429; the 11th ca
   assert.ok(ipCapped.body.error)
 
   const ctx = await awaitingAdult()
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 30; i++) {
     const r = await call('consent-request', { token: ctx.token })
     assert.equal(r.status, 200, `call ${i + 1}: ${JSON.stringify(r.body)}`)
   }
@@ -498,4 +500,149 @@ test('G-32c the new job functions are executable by the service role only', asyn
     const r = await anon.rpc(fn, { p_limit: 1 })
     assert.ok(r.error, `anon must not run ${fn}`)
   }
+})
+
+// ---------------------------------------------------------------- fix round 1 (task 4b review)
+
+/** The jobs in this process (as P3-R16's test), with `admin` standing in for the service client. */
+async function jobsInProcess(admin, opts = {}) {
+  const env = { PIPELINE_ALERT_EMAIL: OPERATOR, EMAIL_CAPTURE_URL: `http://127.0.0.1:${CAPTURE_PORT}/send`, PUBLIC_SITE_URL: 'http://localhost:5173' }
+  const hadDeno = 'Deno' in globalThis
+  const prev = globalThis.Deno
+  globalThis.Deno = { env: { get: (k) => env[k] } }
+  try {
+    return await runJobsAndBeat(admin, jobsSettings(env), opts)
+  } finally {
+    if (hadDeno) globalThis.Deno = prev
+    else delete globalThis.Deno
+  }
+}
+
+/** The service client, except that issue_consent_request fails for the given registrations. */
+function failingIssue(failIds) {
+  const real = db()
+  return new Proxy(real, {
+    get(target, prop) {
+      if (prop === 'rpc') {
+        return (fn, args) => (fn === 'issue_consent_request' && failIds.includes(args?.p_registration_id)
+          ? Promise.resolve({ data: null, error: { message: 'simulated failure' } })
+          : target.rpc(fn, args))
+      }
+      const v = target[prop]
+      return typeof v === 'function' ? v.bind(target) : v
+    },
+  })
+}
+
+const throttleAttempts = async (key) => (await db().from('otp_throttle').select('attempts').eq('key', key).maybeSingle()).data?.attempts ?? 0
+
+test('G-36 I1 a consent published while the page is open: the old full set → 400 consents_changed (with or without shownConsentIds); the new set → 200', async () => {
+  await resetThrottle()
+  const ctx = await awaitingAdult()
+  const me = await sessionFor(ctx.email)
+  const page = await call('consent-request', { token: ctx.token }, { session: me })
+  assert.equal(page.status, 200, JSON.stringify(page.body))
+  const shown = page.body.data.consents.map((c) => c.id)
+
+  // The organizer adds a custom consent after the page was read.
+  const added = await db().from('event_consents')
+    .insert({ event_id: ctx.event.eventId, kind: 'custom', text: 'Nowa zgoda', sort_order: 9 }).select('id').single()
+  assert.equal(added.error, null, added.error?.message)
+
+  const stale = await call('accept-consent', {
+    token: ctx.token, acceptedConsentIds: shown, shownConsentIds: shown, serviceRegulamin: true,
+  }, { session: me })
+  assert.equal(stale.status, 400, JSON.stringify(stale.body))
+  assert.equal(stale.body.code, 'consents_changed')
+  const staleNoShown = await call('accept-consent', {
+    token: ctx.token, acceptedConsentIds: shown, serviceRegulamin: true,
+  }, { session: me })
+  assert.equal(staleNoShown.status, 400, JSON.stringify(staleNoShown.body))
+  assert.equal(staleNoShown.body.code, 'consents_changed')
+  assert.equal((await regOf(ctx.regId)).consent_state, 'awaiting')
+  assert.equal((await requestOf(ctx.regId)).used_at, null)
+
+  const reread = await call('consent-request', { token: ctx.token }, { session: me })
+  const now = reread.body.data.consents.map((c) => c.id)
+  assert.ok(now.includes(added.data.id))
+  const ok = await call('accept-consent', {
+    token: ctx.token, acceptedConsentIds: now, shownConsentIds: now, serviceRegulamin: true,
+  }, { session: me })
+  assert.equal(ok.status, 200, JSON.stringify(ok.body))
+  const acc = await rows('consent_acceptances', { registration_id: ctx.regId })
+  assert.ok(acc.some((a) => a.consent_id === added.data.id), 'the new consent is recorded')
+})
+
+test('G-36 m2 only changed fields are validated: a field made required later does not block a phone fix; an edit to a switched-off field names that field', async () => {
+  await resetThrottle()
+  const ctx = await awaitingAdult()
+  const me = await sessionFor(ctx.email)
+  await setSettings(ctx.event.eventId, { form_fields: { city: 'required', club: 'optional', ice: 'optional', nationality: 'off' } })
+  const base = { token: ctx.token, acceptedConsentIds: await consentIds(ctx.event.eventId), serviceRegulamin: true }
+
+  const off = await call('accept-consent', { ...base, edits: { nationality: 'DE' } }, { session: me })
+  assert.equal(off.status, 422, JSON.stringify(off.body))
+  assert.equal(off.body.code, 'edit_invalid')
+  assert.ok(off.body.fields?.nationality, 'the switched-off field is named')
+
+  const phone = await call('accept-consent', { ...base, edits: { phone: '+48 600 700 801', city: null } }, { session: me })
+  assert.equal(phone.status, 200, JSON.stringify(phone.body))
+  const reg = await regOf(ctx.regId)
+  assert.equal(reg.phone, '+48 600 700 801')
+  assert.equal(reg.city, null)
+})
+
+test('G-36 m6 remind-consent spends no slot on an expired link (409) or on an e-mail the sender refused (502)', async () => {
+  await resetThrottle()
+  const expired = await awaitingAdult()
+  await db().from('consent_requests').update({ expires_at: ago(HOUR) }).eq('registration_id', expired.regId)
+  const r = await call('remind-consent', { registrationId: expired.regId }, { session: expired.payer })
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'not_awaiting')
+  assert.equal(await throttleAttempts(`consent-remind:${expired.regId}`), 0)
+
+  const bounce = await awaitingAdult({ email: runnerEmail('bounce') })
+  const failed = await call('remind-consent', { registrationId: bounce.regId }, { session: bounce.payer })
+  assert.equal(failed.status, 502, JSON.stringify(failed.body))
+  assert.equal(failed.body.code, 'email_failed')
+  assert.equal(await throttleAttempts(`consent-remind:${bounce.regId}`), 0)
+})
+
+test('G-36 m7 a missing request that keeps failing: one operator alert after the 3rd run, and newer rows are swept before it', async () => {
+  await drainConsentJobs()
+  const stuck = await awaitingAdult({ issue: false })
+  const newer = await awaitingAdult({ issue: false })
+  const admin = failingIssue([stuck.regId])
+
+  for (let i = 1; i <= 4; i++) {
+    await jobsInProcess(admin)
+    const alerts = await rows('operator_alerts', { dedupe_key: `consent_issue_failed:${stuck.regId}` })
+    assert.equal(alerts.length, i >= 3 ? 1 : 0, `run ${i}`)
+    if (alerts.length) {
+      assert.equal(alerts[0].kind, 'consent_issue_failed')
+      assert.equal(alerts[0].payload.registrationId, stuck.regId)
+      assert.ok(!JSON.stringify(alerts[0].payload).includes(stuck.email), 'no address in the alert')
+    }
+  }
+  assert.ok(await requestOf(newer.regId), 'the newer row was issued')
+  assert.equal(await requestOf(stuck.regId), null)
+
+  // Another missing row, newer than the stuck one, comes first.
+  const third = await awaitingAdult({ issue: false })
+  const { data: order, error } = await db().rpc('consent_requests_missing', { p_limit: 500 })
+  assert.equal(error, null, error?.message)
+  assert.ok(order.indexOf(third.regId) >= 0 && order.indexOf(third.regId) < order.indexOf(stuck.regId), JSON.stringify(order))
+  await jobs() // issues the remaining rows
+})
+
+test('G-36 nits: consentEmailsResent counts e-mails sent, not claims; the consent step needs a realistic budget', async () => {
+  await drainConsentJobs()
+  const bounce = await awaitingAdult({ email: runnerEmail('bounce') })
+  await db().from('consent_requests').update({ sent_at: ago(HOUR) }).eq('registration_id', bounce.regId)
+  const data = await jobsInProcess(db())
+  assert.equal(data.consentEmailsResent, 0, JSON.stringify(data))
+  assert.ok((await requestOf(bounce.regId)).resend_claimed_at, 'it was claimed')
+
+  const short = await jobsInProcess(db(), { budgetMs: 5_000 })
+  assert.ok(short.deferred.includes('consent_reminders'), JSON.stringify(short))
 })

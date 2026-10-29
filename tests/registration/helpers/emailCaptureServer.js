@@ -6,6 +6,8 @@
 //   GET /messages?to=  list (optionally for one recipient)
 //   GET /requests      one entry per POST: { batch, recipients, subject }
 //   DELETE /messages   clear both
+// An address whose local part starts with `runner-bounce-` (runnerEmail('bounce')) is refused
+// with a 500 and stored nowhere: the tests' way to make the sender reject an e-mail.
 import http from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { EMAIL_CAPTURE_BASE_PORT, slotPort } from './slot.js'
@@ -43,6 +45,7 @@ export async function startCapture(port = CAPTURE_PORT) {
           const m = JSON.parse(raw)
           const batch = requests.length + 1
           const to = Array.isArray(m.to) ? m.to : [m.to]
+          if (to.some((a) => /^runner-bounce-/i.test(String(a)))) { send(500, { error: 'bounced' }); return }
           requests.push({ batch, recipients: to.length, subject: m.subject })
           const receivedAt = new Date().toISOString()
           for (const address of to) messages.push({ ...m, to: address, batch, receivedAt })

@@ -4,7 +4,7 @@
 // appears in a response only after the person proved it (session or e-mail code). Logs name
 // registrations by id, never by address.
 import { checkAndIncrement } from '../throttle.js'
-import { clientIp } from '../organizer.js'
+import { clientIp } from '../clientIp.js'
 import { hashToken } from './tokens.js'
 import { json } from './registrationRequest.js'
 
@@ -18,11 +18,30 @@ export const TOO_MANY = 'Zbyt wiele prób. Spróbuj ponownie później.'
 export const WRONG_SESSION = 'Zaloguj się adresem e-mail, na który przyszedł link.'
 export const EDITS_CLOSED = 'Po zamknięciu zapisów dane poprawisz w biurze zawodów.'
 
-/** p***@test.local: the first character of the local part and the whole domain. */
+/**
+ * p***@g***.com: the first character of the local part, the first character of the domain and
+ * its last label (the TLD). A one-character local part shows nothing of it (`*@x***.pl`), so the
+ * hint never spells out a whole address; a personal or company domain stays hidden too (m3).
+ */
 export function emailHint(email) {
-  const [local = '', domain = ''] = String(email ?? '').split('@')
-  return `${local.slice(0, 1)}***@${domain}`
+  const s = String(email ?? '')
+  const at = s.lastIndexOf('@')
+  const local = at >= 0 ? s.slice(0, at) : s
+  const domain = at >= 0 ? s.slice(at + 1) : ''
+  const head = local.length > 1 ? `${local.slice(0, 1)}***` : '*'
+  const dot = domain.lastIndexOf('.')
+  const tail = !domain ? '*'
+    : dot > 0 ? `${domain.slice(0, 1)}***${domain.slice(dot)}`
+      : `${domain.slice(0, 1)}***`
+  return `${head}@${tail}`
 }
+
+/**
+ * consent-token:<hash>, per hour, shared by consent-request and accept-consent. 30, not 10 (m4):
+ * one ordinary visit (page load, sendCode, a mistyped code, the code, a correction or two,
+ * accept, a reload) used most of 10.
+ */
+export const TOKEN_LIMIT = 30
 
 /** The hash of whatever the client sent as the token (a non-string hashes as ''). */
 export const tokenHash = (token) => hashToken(typeof token === 'string' ? token : '')

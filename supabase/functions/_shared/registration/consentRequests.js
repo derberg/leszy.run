@@ -136,22 +136,35 @@ async function deliver(admin, r, hash, mail) {
  * PUBLIC_SITE_URL (the jobs pass theirs). Never throws: the registrations stand whatever
  * happens here; a failure is logged without address or token.
  */
-export async function issueConsentRequests(admin, registrationIds, { registeredBy = null, site = null } = {}) {
+export async function issueConsentRequests(admin, registrationIds, opts = {}) {
+  return (await issueConsentRequestsReport(admin, registrationIds, opts)).sent
+}
+
+/**
+ * issueConsentRequests, reporting → { sent, failed: [registrationId] }. `failed` lists the ids
+ * whose request could not be issued (a database error before or in issue_consent_request), so
+ * they are still without one; the registration-jobs sweep counts those (consent_issue_failed).
+ * A request issued whose e-mail then failed is not in it: the job's re-send covers that one.
+ */
+export async function issueConsentRequestsReport(admin, registrationIds, { registeredBy = null, site = null } = {}) {
   const ids = [...new Set((registrationIds ?? []).filter(Boolean))]
-  if (!ids.length) return 0
+  const failed = []
+  if (!ids.length) return { sent: 0, failed }
   let sent = 0
   try {
     const regs = await rows(admin.from('registrations').select(REG_COLUMNS)
       .in('id', ids).eq('status', 'confirmed').eq('consent_state', 'awaiting').not('email', 'is', null))
-    if (!regs.length) return 0
+    if (!regs.length) return { sent: 0, failed }
     const build = await mailContext(admin, regs, { registeredBy, site })
 
     for (const r of regs) {
+      let issued = false
       try {
         const { token, hash } = await newToken()
-        const { data: issued, error } = await admin.rpc('issue_consent_request', { p_registration_id: r.id, p_token_hash: hash })
+        const { data, error } = await admin.rpc('issue_consent_request', { p_registration_id: r.id, p_token_hash: hash })
         if (error) throw error
-        if (issued !== true) continue // already issued (a replay), or no longer confirmed + awaiting
+        issued = true
+        if (data !== true) continue // already issued (a replay), or no longer confirmed + awaiting
         const mail = build(r, token)
         if (!mail) continue
         await deliver(admin, r, hash, mail)
@@ -159,13 +172,16 @@ export async function issueConsentRequests(admin, registrationIds, { registeredB
       } catch (err) {
         // At most once here: emailed_at stays NULL, and registration-jobs re-sends the link
         // once (claim_consent_resends) after 10 minutes.
+        if (!issued) failed.push(r.id)
         console.error(`consent request ${r.id} not sent:`, err?.message)
       }
     }
   } catch (err) {
     console.error('consent requests failed:', err?.message)
+    // Nothing was issued past this point that we know of: count every id not reported yet.
+    for (const id of ids) if (!failed.includes(id)) failed.push(id)
   }
-  return sent
+  return { sent, failed }
 }
 
 /** issueConsentRequests for every registration of an order (a paid group, on confirmation). */
