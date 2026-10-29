@@ -21,6 +21,9 @@ env:
 
 jobs:
   sandbox:
+    # Skipped (not failed) until the dpay-sandbox environment has its settings: the schedule stays,
+    # and the first nightly run after DPAY_SANDBOX_API_BASE is set is the first real one (P3-R17).
+    if: ${{ vars.DPAY_SANDBOX_API_BASE != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: dpay-sandbox

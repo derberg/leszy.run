@@ -344,7 +344,8 @@ test.describe.serial('the code step of a paid event', () => {
     await fillPerson(page, person)
     await tickAll(page)
     await page.getByTestId('registration-submit').click()
-    await expect(page.getByTestId('code-step')).toBeVisible()
+    // An auth-request-code round trip: the default 5 s is too short on a loaded machine (M9).
+    await expect(page.getByTestId('code-step')).toBeVisible({ timeout: 15_000 })
     return codeFor(person.email)
   }
   const other = (code) => code.split('').map((d) => String((Number(d) + 1) % 10)).join('')

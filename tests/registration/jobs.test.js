@@ -15,15 +15,17 @@ import { createClient } from '@supabase/supabase-js'
 import postgres from 'postgres'
 import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
+import { CAPTURE_PORT } from './helpers/emailCaptureServer.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { dpayMode, dpayRefunds, dpayReset, payMock, startDpayMock } from './helpers/dpayControl.js'
 import { DPAY_MOCK_PORT } from './helpers/dpayMock.js'
 import {
-  attemptFor, competitionOf, confirm, confirmOk, consentIds, db, expireNow, orderOf, orderOk, registrationsOf, rows,
+  attemptFor, competitionOf, confirm, confirmOk, consentIds, db, expireNow, orderOf, orderOk, paidOrderOk, registrationsOf, rows,
   runnerEmail, totalFor,
 } from './helpers/orders.js'
 import { dpayConfig } from '../../supabase/functions/_shared/dpay.js'
-import { settleConfirmOutcome } from '../../supabase/functions/_shared/registration/orderFlow.js'
+import { raiseAlert, settleConfirmOutcome } from '../../supabase/functions/_shared/registration/orderFlow.js'
+import { jobsSettings, runJobsAndBeat } from '../../supabase/functions/_shared/registration/jobsRun.js'
 
 const OPERATOR = 'operator@leszy.test' // PIPELINE_ALERT_EMAIL in functions.env
 const BIEG = (capacity) => [{ name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity }]
@@ -218,7 +220,28 @@ test('P-36 the registration-jobs cron command, run by hand, reaches the function
 
 // ---------------------------------------------------------------- P3-R7 orphan release
 
-test('P3-R7 release_orphan_orders cancels a pending order with no payment attempt after 15 min and gives the slot back; younger or attempted orders stay', async () => {
+// A forced failure for one order (a registrations trigger raising for its rows), the stand-in for
+// any defect that makes one order's update fail. Since P3-R15 no slot count is touched on
+// expiry or orphan release, so a broken count can no longer be the cause.
+async function withBrokenOrder(orderId, fn) {
+  const sql = postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} })
+  const name = `zz_test_fail_${crypto.randomBytes(3).toString('hex')}`
+  try {
+    await sql.unsafe(`
+      CREATE FUNCTION public.${name}() RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
+      BEGIN
+        IF NEW.order_id = '${orderId}'::uuid THEN RAISE EXCEPTION 'forced failure'; END IF;
+        RETURN NEW;
+      END $$;
+      CREATE TRIGGER ${name} BEFORE UPDATE ON public.registrations FOR EACH ROW EXECUTE FUNCTION public.${name}();`)
+    await fn()
+  } finally {
+    await sql.unsafe(`DROP TRIGGER IF EXISTS ${name} ON public.registrations; DROP FUNCTION IF EXISTS public.${name}();`)
+    await sql.end({ timeout: 1 })
+  }
+}
+
+test('P3-R7 release_orphan_orders cancels a pending order with no payment attempt after 15 min (taken untouched, P3-R15); younger or attempted orders stay', async () => {
   const event = await paidEvent()
   const cat = event.categoryIds[0]
   const orphan = await orderOk(event)
@@ -228,7 +251,7 @@ test('P3-R7 release_orphan_orders cancels a pending order with no payment attemp
   await setOrder(orphan.orderId, { created_at: ago(16 * MIN) })
   await setOrder(young.orderId, { created_at: ago(14 * MIN) })
   await setOrder(attempted.orderId, { created_at: ago(16 * MIN) })
-  assert.equal((await competitionOf(cat)).taken, 3)
+  assert.equal((await competitionOf(cat)).taken, 0)
 
   const r = await db().rpc('release_orphan_orders')
   assert.ifError(r.error)
@@ -240,28 +263,20 @@ test('P3-R7 release_orphan_orders cancels a pending order with no payment attemp
   assert.deepEqual((await registrationsOf(orphan.orderId)).map((x) => x.status), ['cancelled'])
   assert.equal((await orderOf(young.orderId)).status, 'pending')
   assert.equal((await orderOf(attempted.orderId)).status, 'pending')
-  assert.equal((await competitionOf(cat)).taken, 2)
-
-  await db().rpc('release_orphan_orders')
-  assert.equal((await competitionOf(cat)).taken, 2, 'a second run releases nothing twice')
+  assert.equal((await competitionOf(cat)).taken, 0)
 })
 
-test('P3-R7 an orphan whose slot count is broken stays pending with one orphan_release_failed alert, and never blocks the others', async () => {
-  const brokenEvent = await paidEvent()
-  const broken = await orderOk(brokenEvent)
+test('P3-R7 an orphan whose release fails stays pending with one orphan_release_failed alert, and never blocks the others', async () => {
+  const broken = await orderOk(await paidEvent())
   const fine = await orderOk(await paidEvent())
   await setOrder(broken.orderId, { created_at: ago(16 * MIN) })
   await setOrder(fine.orderId, { created_at: ago(16 * MIN) })
-  // A slot count below what the order holds (only a hand edit can do that): releasing it would go negative.
-  const { error } = await db().from('competitions').update({ taken: 0 }).eq('category_id', brokenEvent.categoryIds[0])
-  assert.ifError(error)
-
-  for (let i = 0; i < 2; i++) assert.ifError((await db().rpc('release_orphan_orders')).error)
+  await withBrokenOrder(broken.orderId, async () => {
+    for (let i = 0; i < 2; i++) assert.ifError((await db().rpc('release_orphan_orders')).error)
+  })
   assert.equal((await orderOf(broken.orderId)).status, 'pending')
   assert.equal((await orderOf(fine.orderId)).status, 'cancelled')
   assert.deepEqual(await alertsOf(broken.orderId), ['orphan_release_failed'])
-  // Leave the stack consistent for later runs.
-  await db().from('competitions').update({ taken: 1 }).eq('category_id', brokenEvent.categoryIds[0])
 })
 
 // ---------------------------------------------------------------- P-37 reminders
@@ -317,7 +332,7 @@ test('P-38 an expired order whose late payment was refunded gets no „Zgłoszen
   await dpayMode({ dropIpn: true })
   await payMock(txn, 'paid')
   await expireNow(orderId)
-  await orderOk(event) // the only slot is taken meanwhile
+  await paidOrderOk(event) // the only slot is paid for meanwhile
   const out = await confirm(orderId, txn, (await orderOf(orderId)).total, 'ipn')
   assert.ifError(out.error)
   assert.equal(out.data.outcome, 'late_refund')
@@ -585,15 +600,14 @@ test('P3-R12 the purge anonymises cancelled unpaid registrations 30 days after c
 
 // ---------------------------------------------------------------- C1 expire_orders isolation
 
-test('C1 expire_orders: one order whose competition count is broken stays pending with one expire_failed alert; every other due order expires', async () => {
+test('C1 expire_orders: one order whose expiry fails stays pending with one expire_failed alert; every other due order expires', async () => {
   const brokenEvent = await paidEvent()
   const healthyEvent = await paidEvent()
   const broken = await orderOk(brokenEvent)
   const healthy = await orderOk(healthyEvent)
   await setOrder(broken.orderId, { expires_at: ago(MIN) })
   await setOrder(healthy.orderId, { expires_at: ago(MIN) })
-  assert.ifError((await db().from('competitions').update({ taken: 0 }).eq('category_id', brokenEvent.categoryIds[0])).error)
-  try {
+  await withBrokenOrder(broken.orderId, async () => {
     for (let i = 0; i < 2; i++) {
       const r = await db().rpc('expire_orders')
       assert.ifError(r.error)
@@ -603,11 +617,9 @@ test('C1 expire_orders: one order whose competition count is broken stays pendin
     assert.deepEqual((await registrationsOf(healthy.orderId)).map((x) => x.status), ['expired'])
     assert.equal((await orderOf(broken.orderId)).status, 'pending')
     assert.deepEqual(await alertsOf(broken.orderId), ['expire_failed'])
-  } finally {
-    await db().from('competitions').update({ taken: 1 }).eq('category_id', brokenEvent.categoryIds[0])
-  }
+  })
   assert.ifError((await db().rpc('expire_orders')).error)
-  assert.equal((await orderOf(broken.orderId)).status, 'expired', 'expires once the count is repaired')
+  assert.equal((await orderOf(broken.orderId)).status, 'expired', 'expires once the defect is gone')
 })
 
 // ---------------------------------------------------------------- I1 stalled refunds
@@ -830,4 +842,61 @@ test('P-55 a registration-jobs run stamps its heartbeat; a refused call (wrong s
   assert.ok(Date.now() - Date.parse((await heartbeat('registration-jobs')).last_ok_at) > 30 * MIN, 'not stamped by a refused call')
   await jobsOk()
   assert.ok(Date.now() - Date.parse((await heartbeat('registration-jobs')).last_ok_at) < 60_000, 'stamped by a run')
+})
+
+// ---------------------------------------------------------------- P3-R16 no dpay settings
+
+test('P3-R16 jobsSettings: no dpay settings is not an error (cfg null); no PIPELINE_ALERT_EMAIL is', () => {
+  const none = jobsSettings({ PIPELINE_ALERT_EMAIL: OPERATOR, PUBLIC_SITE_URL: 'https://example.test/' })
+  assert.equal(none.cfg, null)
+  assert.equal(none.dpayMissing, true)
+  assert.equal(none.site, 'https://example.test')
+  assert.equal(jobsSettings({ PIPELINE_ALERT_EMAIL: OPERATOR }).site, 'https://www.leszy.run')
+  assert.ok(jobsSettings({ DPAY_SERVICE: 'x' }).error)
+  const full = jobsSettings({
+    PIPELINE_ALERT_EMAIL: OPERATOR, DPAY_SERVICE: 's', DPAY_SECRET: 'k', DPAY_API_BASE: 'http://a.test',
+    DPAY_PANEL_BASE: 'http://a.test', DPAY_IPN_URL: 'http://a.test/ipn', PUBLIC_SITE_URL: 'http://s.test',
+  })
+  assert.equal(full.dpayMissing, false)
+  assert.equal(full.site, 'http://s.test')
+})
+
+test('P3-R16 a run without dpay settings skips the dpay steps (reported, no alert), runs the digest and notices, and stamps the heartbeat', async () => {
+  // The function's code, run here with an environment that has no DPAY_* (the served functions
+  // always have the mock's): e-mail goes to this slot's capture.
+  const env = { PIPELINE_ALERT_EMAIL: OPERATOR, EMAIL_CAPTURE_URL: `http://127.0.0.1:${CAPTURE_PORT}/send`, PUBLIC_SITE_URL: 'http://localhost:5173' }
+  const hadDeno = 'Deno' in globalThis
+  const prev = globalThis.Deno
+  globalThis.Deno = { env: { get: (k) => env[k] } }
+  try {
+    await drain()
+    const event = await paidEvent()
+    const email = runnerEmail('nodpay')
+    const { orderId } = await orderOk(event, { emails: [email] })
+    assert.ok(await expireNow(orderId) >= 1)
+    const marker = `nodpay-${crypto.randomBytes(4).toString('hex')}`
+    assert.ok(await raiseAlert(db(), 'jobs_step_failed', null, { step: marker }))
+    await ageHeartbeat('registration-jobs')
+    const startedAt = new Date().toISOString()
+
+    const settings = jobsSettings(env)
+    assert.equal(settings.dpayMissing, true)
+    const data = await runJobsAndBeat(db(), settings, {})
+
+    assert.deepEqual(data.skipped, { refund_retries: 'dpay_not_configured', dpay_check: 'dpay_not_configured' })
+    assert.equal(data.checked, 0)
+    assert.equal(data.refundRetries, 0)
+    assert.ok(data.expiredNotices >= 1)
+    assert.ok(data.alertsEmailed >= 1)
+    assert.deepEqual(subjects(await waitForMail(email)), ['Zgłoszenie wygasło'])
+    const digests = await messagesTo(OPERATOR)
+    assert.ok(digests.some((m) => m.text.includes(marker)), 'the digest went out')
+    const { data: fresh, error } = await db().from('operator_alerts').select('kind, payload').gte('created_at', startedAt)
+    assert.ifError(error)
+    assert.deepEqual(fresh, [], 'a skipped dpay step raises no alert')
+    assert.ok(Date.now() - Date.parse((await heartbeat('registration-jobs')).last_ok_at) < 60_000, 'heartbeat stamped')
+  } finally {
+    if (hadDeno) globalThis.Deno = prev
+    else delete globalThis.Deno
+  }
 })

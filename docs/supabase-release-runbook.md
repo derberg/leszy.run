@@ -93,8 +93,12 @@ The `registration-jobs` pg_cron job (`20261030125000_registration_jobs_cron.sql`
 The other three jobs (`registration-expire-orders`, `registration-release-orphan-orders`,
 `registration-purge-expired`) are SQL only and need nothing below.
 
-**1. Function secrets.** Without every one of these, the function answers 503 and none of the
-work above happens:
+**1. Function secrets.** `PIPELINE_ALERT_EMAIL` and `REGISTRATION_JOBS_SECRET` are needed from the
+day of merge: without the first the function answers 503, without the second 404, and the
+watchdog then alerts every day. The `DPAY_*` values are needed only once paid registration is
+switched on (P3-R16): until they are set, a run skips the two steps that call dpay (refund retries
+and the dpay check), reports them as `"skipped": {"refund_retries": "dpay_not_configured", …}`
+with no alert, does everything else and stamps its heartbeat.
 
 | Secret | Value |
 |---|---|
@@ -139,7 +143,8 @@ In production all four jobs must be `active = true`. `supabase/seed.sql` deactiv
 `registration-*` job, but the seed only runs on a local or CI stack (`supabase db reset`); a
 production job that reads `false` was switched off by hand and nothing expires or gets sent.
 
-Expect `status_code = 200` with a body starting `{"data":{"checked"`. A NULL `status_code` (with
+Expect `status_code = 200` with a body starting `{"data":{"checked"` (before dpay is configured
+it carries `"skipped"` for the two dpay steps; that is expected). A NULL `status_code` (with
 `timed_out` or `error_msg` set) is a failure too: pg_net could not reach the function or gave up. A 404 means the two
 secret values differ, and a 503 means a function secret is missing (the function logs which one).
 
@@ -150,6 +155,13 @@ scheduler container (`scheduler/src/registrationWatchdog.js`, every 15 minutes) 
 to `PIPELINE_ALERT_EMAIL` when one is older than 3 × `interval_seconds`: once per outage, again every
 24 hours while it lasts. A table it cannot read, or an empty one, is alerted too. The scheduler runs
 on the operator's machine, so the watchdog is only as awake as that machine.
+
+**`cron.job_run_details` grows.** The four registration jobs add about 680 rows a day and Supabase
+does not prune the table. Once a quarter, or when it gets large:
+
+```sql
+DELETE FROM cron.job_run_details WHERE end_time < now() - interval '7 days';
+```
 
 **4. Rotation.** Set the function secret first, then Vault. Runs between the two steps answer
 404 and do nothing, and the next run after both are set catches up.

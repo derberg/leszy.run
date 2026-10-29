@@ -203,9 +203,12 @@ async function sendRefundNotice(admin, orderId, grosze, reason) {
     const build = (r) => paymentRefundedEmail({ event: args.event, order: args.order, amount: grosze, reason: r })
     let mail
     try { mail = build(reason) } catch { mail = build('late') } // a reason the e-mail has no sentence for
-    await sendEmail({ to: view.order.buyer_email, ...mail })
+    const res = await sendEmail({ to: view.order.buyer_email, ...mail })
+    if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
   } catch (err) {
+    // Nobody else tells the runner the money came back: the operator must (final review M6).
     console.error('refund email failed:', err?.message)
+    await raiseAlert(admin, 'email_failed', orderId, { template: 'refund', error: String(err?.message ?? err) })
   }
 }
 

@@ -313,6 +313,8 @@ Deno.serve(async (req) => {
     if (regIds.size > 0) {
       const ids = [...regIds]
       const { error: regErr } = await supabaseAdmin.from('registrations').update({
+        // start_list (20261030140000_start_list.sql) finds deleted accounts by this exact pair:
+        // rename it in both places together (final review M10).
         first_name: 'Usunięte konto',
         last_name: 'Usunięte konto',
         email: null,
@@ -364,6 +366,16 @@ Deno.serve(async (req) => {
     }
     if (orderIds.size > 0) {
       const ids = [...orderIds]
+      // A pending order is cancelled first (final review M5): a checkout tab still open could
+      // otherwise pay it and confirm an anonymised registration nobody can be told about. A
+      // payment that still arrives is refunded in full (confirm_order: cancelled → late_refund).
+      const { data: pending, error: pendErr } = await supabaseAdmin.from('orders').select('id')
+        .in('id', ids).eq('status', 'pending')
+      if (pendErr) console.error('delete-my-account: pending orders lookup failed:', pendErr.message)
+      for (const o of pending ?? []) {
+        const { error: cErr } = await supabaseAdmin.rpc('cancel_order', { p_order_id: o.id, p_reason: 'account_deleted' })
+        if (cErr) console.error('delete-my-account: cancel_order failed:', cErr.message)
+      }
       const { error: ordErr } = await supabaseAdmin.from('orders').update({ buyer_email: null }).in('id', ids)
       if (ordErr) console.error('delete-my-account: orders buyer_email cleanup failed:', ordErr.message)
       const { data: alerts, error: alErr } = await supabaseAdmin.from('operator_alerts')
