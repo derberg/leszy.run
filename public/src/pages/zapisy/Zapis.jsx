@@ -10,7 +10,7 @@ import { afterRegistrationPath } from '../../lib/inviteLink.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import {
   EMPTY_PERSON, profilePrefill, mergePrefill, fieldModes, personContext, checkPerson, needsCode, consentsComplete, registerBody,
-  registrationFailure,
+  registrationFailure, categoryPreview,
 } from '../../lib/personFormModel.js'
 import { runnerDataInfo } from '../../legal/runnerDataInfo.js'
 import PersonForm from '../../components/registration/PersonForm.jsx'
@@ -18,17 +18,20 @@ import ConsentList from '../../components/registration/ConsentList.jsx'
 import PageTop from '../../components/registration/PageTop.jsx'
 import { inputCls, labelCls, primaryBtn } from '../../components/registration/ui.js'
 import RegistrationShell from './RegistrationShell.jsx'
+import Podsumowanie from './Podsumowanie.jsx'
 import { eventPath, formPath } from './RegistrationEventPage.jsx'
 
-// RA2 (free events): the person form and the consents → „Dalej” → the e-mail
-// code (auth-request-code, with the login form's honeypot) → register-free →
-// RA5. A session holding the person's own address skips the code: the button
-// reads „Zapisz się” and registers at once. Nothing about the person goes in
-// the address bar.
+// RA2: the person form and the consents → „Dalej” → the e-mail code
+// (auth-request-code, with the login form's honeypot). A free event then calls
+// register-free → RA5. A paid event (pricingMode !== 'free') goes on to RA4
+// (Podsumowanie), whose „Zapłać” calls create-order with the same body plus
+// the support choice, and hands the browser to dpay; the order page
+// (/zamowienie/:orderId) is RA5 for it. A session holding the person's own
+// address skips the code. Nothing about the person goes in the address bar.
 
 export const donePath = (slug) => `/events/${slug}/zapisano`
 
-function CodeStep({ email, code, onCode, error, busy, onSubmit, onResend, onChangeAddress, resent }) {
+function CodeStep({ email, code, onCode, error, busy, onSubmit, onResend, onChangeAddress, resent, submitLabel }) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5" data-testid="code-step">
       <h1 className="font-display font-extrabold text-[38px] leading-none uppercase text-apex-text-bright">Sprawdź skrzynkę</h1>
@@ -46,7 +49,7 @@ function CodeStep({ email, code, onCode, error, busy, onSubmit, onResend, onChan
         {error && <p className="text-apex-red text-sm">{error}</p>}
       </div>
       <button type="submit" disabled={busy || code.length !== 6} className={primaryBtn}>
-        {busy ? 'Zapisujemy…' : 'Zapisz się'}
+        {busy ? 'Zapisujemy…' : submitLabel}
       </button>
       <div className="flex justify-between gap-3">
         <button type="button" onClick={onResend} disabled={busy} className="min-h-11 text-base text-apex-yellow whitespace-nowrap disabled:opacity-40">
@@ -89,6 +92,8 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const [sentTo, setSentTo] = useState(null)
   const [resent, setResent] = useState(false)
   const [busy, setBusy] = useState(false)
+  // RA4 (paid events): the checked person and the code they typed, sent with create-order.
+  const [checkout, setCheckout] = useState(null)
   // Fields the person has typed into or picked. The profile never overwrites
   // them, and fills every other field even when it lands after they started:
   // on a slow phone the sign-in check can arrive well after the first keystroke.
@@ -110,6 +115,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   }
 
   const open = row.state === 'open'
+  const paid = raw.pricingMode !== 'free'
   const codeNeeded = needsCode(user?.email, person.email)
   const ready = consentsComplete(consents, accepted, serviceAccepted)
   const dataInfo = runnerDataInfo({
@@ -161,6 +167,13 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     }
   }
 
+  function toSummary(value, withCode) {
+    setMessage(null)
+    setErrors({})
+    setCheckout({ person: value, code: withCode })
+    setStep('summary')
+  }
+
   async function sendCode(email) {
     await requestCode(email, honeypot, formPath(raw.slug, categoryId))
   }
@@ -175,7 +188,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
       setMessage('Popraw zaznaczone pola.')
       return
     }
-    if (!codeNeeded) return register(r.value, null)
+    if (!codeNeeded) return paid ? toSummary(r.value, null) : register(r.value, null)
     return startCode(r.value.email)
   }
 
@@ -202,6 +215,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     e.preventDefault()
     const r = checkPerson(person, ctx)
     if (!r.ok) { setErrors(r.errors); setStep('form'); return }
+    if (paid) { toSummary(r.value, code); return }
     await register(r.value, code)
   }
 
@@ -216,11 +230,21 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     }
   }
 
+  if (step === 'summary' && checkout && !preview) {
+    return (
+      <Podsumowanie raw={raw} categoryId={categoryId} competitionName={row.name} priceGrosze={competition.priceGrosze ?? 0}
+        open={open} person={checkout.person} ageGroupLabel={categoryPreview(checkout.person, ctx)} consents={consents}
+        code={checkout.code} onBack={() => setStep(checkout.code && sentTo ? 'code' : 'form')}
+        onFailure={(err) => fail(err, checkout.person)} />
+    )
+  }
+
   if (step === 'code' && sentTo) {
     return (
       <div className="flex flex-col gap-4">
         <PageTop right="KROK 2/3" />
         <CodeStep email={sentTo} code={code} onCode={setCode} error={errors.code} busy={busy} resent={resent}
+          submitLabel={paid ? 'Dalej' : 'Zapisz się'}
           onSubmit={onSubmitCode} onResend={onResend} onChangeAddress={() => { setStep('form'); setErrors({}) }} />
       </div>
     )
@@ -251,7 +275,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
 
       {message && <p className="text-apex-red text-base" role="alert">{message}</p>}
       <button type="submit" data-testid="registration-submit" disabled={preview || busy || !ready || !open} className={primaryBtn}>
-        {busy ? 'Chwileczkę…' : codeNeeded ? 'Dalej' : 'Zapisz się'}
+        {busy ? 'Chwileczkę…' : codeNeeded || paid ? 'Dalej' : 'Zapisz się'}
       </button>
     </form>
   )

@@ -54,6 +54,11 @@ async function callEdge(name, body, { keepalive = false } = {}) {
     err.status = res.status
     if (data.code) err.code = data.code
     if (data.fields) err.fields = data.fields
+    // create-order: the buyer's own pending order (409 pending_order) and the new amounts (409 price_changed).
+    if (data.orderId) err.orderId = data.orderId
+    if (data.amounts) err.amounts = data.amounts
+    const retryAfter = Number(res.headers.get('retry-after'))
+    if (Number.isFinite(retryAfter) && retryAfter > 0) err.retryAfterSec = retryAfter
     throw err
   }
   return data

@@ -8,6 +8,11 @@ describe('trackedPath (what GA sees)', () => {
     assert.equal(trackedPath('/login', '?email=ola%40x.pl&code=123456'), '/login')
   })
 
+  it('the order page keeps its id: opaque, and only the buyer’s session can open it (task 9 ruling)', () => {
+    const path = '/zamowienie/0f8fad5b-d9cb-469f-a165-70867728950e'
+    assert.equal(trackedPath(path, ''), path)
+  })
+
   it('the searched bib stays out, other parameters stay in', () => {
     assert.equal(trackedPath('/events/x/results', '?nr=12&kategoria=k'), '/events/x/results?kategoria=k')
     assert.equal(trackedPath('/kalendarz', ''), '/kalendarz')

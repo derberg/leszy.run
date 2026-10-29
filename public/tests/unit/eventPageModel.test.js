@@ -94,6 +94,11 @@ describe('eventPageModel (RA1)', () => {
     assert.equal(courses[0].gpxUrl, fileUrl(GPX9))
   })
 
+  it('the start list is linked once the event has a competition', () => {
+    assert.equal(model().showStartList, true)
+    assert.equal(model({ ...RA1, competitions: [] }).showStartList, false)
+  })
+
   it('a paid event shows the fee note and the regulamin file', () => {
     const m = model()
     assert.equal(m.showFeeNote, true)

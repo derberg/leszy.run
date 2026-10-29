@@ -179,6 +179,8 @@ export function eventPageModel(raw, now = new Date()) {
     }),
     competitions: competitions.map((c) => competitionRow(c, win)),
     showFeeNote: raw.pricingMode !== 'free' && competitions.some((c) => c.priceGrosze > 0),
+    // „Lista startowa” (/events/:slug/lista, the /api/startlist snapshot).
+    showStartList: competitions.length > 0,
     regulaminUrl: raw.regulamin?.url ?? null,
     courses: courses(competitions),
   }

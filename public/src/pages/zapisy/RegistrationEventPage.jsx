@@ -15,6 +15,7 @@ const warsawDay = new Intl.DateTimeFormat('pl-PL', { timeZone: 'Europe/Warsaw', 
 export const eventPath = (slug) => `/events/${slug}`
 export const coursePath = (slug) => `/events/${slug}/trasa`
 export const formPath = (slug, categoryId) => `/events/${slug}/zapis/${categoryId}`
+export const startListPath = (slug) => `/events/${slug}/lista`
 
 function Stat({ label, value, sub, accent, testId }) {
   return (
@@ -102,12 +103,15 @@ function jsonLd(raw, m, url) {
 }
 
 /**
- * @param {{ raw: object, now?: Date, preview?: boolean, links?: { course: string|null, form: (categoryId) => string|null } }} p
+ * @param {{ raw: object, now?: Date, preview?: boolean, links?: { course: string|null, form: (categoryId) => string|null, startList?: string|null } }} p
+ * `links.startList` is left out (null) in the organizer preview, like the course: the
+ * list is the live event's.
  */
 export default function RegistrationEventPage({ raw, now, preview = false, links }) {
   const m = eventPageModel(raw, now ?? new Date())
   const course = links ? links.course : coursePath(raw.slug)
   const form = links ? links.form : (id) => formPath(raw.slug, id)
+  const startList = links ? (links.startList ?? null) : startListPath(raw.slug)
   const opensLabel = raw.opensAt ? warsawDay.format(new Date(raw.opensAt)) : null
   const anyOpen = m.competitions.some((c) => c.state === 'open')
 
@@ -170,7 +174,12 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
           </div>
         )}
 
-        <span className={labelCls}>{anyOpen ? 'Wybierz konkurencję' : 'Konkurencje'}</span>
+        <div className="flex justify-between items-baseline gap-3">
+          <span className={labelCls}>{anyOpen ? 'Wybierz konkurencję' : 'Konkurencje'}</span>
+          {m.showStartList && startList && (
+            <Link to={startList} className={`text-base whitespace-nowrap ${linkCls}`} data-testid="start-list-link">Lista startowa →</Link>
+          )}
+        </div>
         <div className="flex flex-col gap-2">
           {m.competitions.map((c) => (
             <CompetitionRow key={c.categoryId} c={c} opensLabel={opensLabel}
