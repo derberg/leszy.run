@@ -67,3 +67,13 @@ export async function uploadDocument(eventId, kind, file) {
   if (error) console.warn('registration upload PUT failed:', error.message)
   return (await callFunction('upload-registration-file', { eventId, kind, pendingPath: start.pendingPath, action: 'finish' })).data
 }
+
+/** Draft → published. 409 { error: 'Uzupełnij: …', blocking } while something blocks. → { state, url } */
+export async function publishRegistrationEvent(eventId) {
+  return (await callFunction('publish-registration-event', { eventId, action: 'publish' })).data
+}
+
+/** The event as a runner would see it, for club members. → { raw, pending } */
+export async function previewRegistrationEvent(eventId, withPending = true) {
+  return (await callFunction('preview-registration-event', { eventId, withPending })).data
+}

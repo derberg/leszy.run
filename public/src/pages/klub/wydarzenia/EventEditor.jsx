@@ -7,14 +7,22 @@ import { btnGhost, btnPrimary } from '../settingsUi.js'
 import { useKlub } from '../context.js'
 import Podstawy from './steps/Podstawy.jsx'
 import Biuro from './steps/Biuro.jsx'
+import Konkurencje from './steps/Konkurencje.jsx'
+import Kategorie from './steps/Kategorie.jsx'
+import Pomiar from './steps/Pomiar.jsx'
+import Formularz from './steps/Formularz.jsx'
+import Dodatki from './steps/Dodatki.jsx'
+import Publikacja from './steps/Publikacja.jsx'
 
 // A registration event in the organizer's hands (mockups A2–A7): the draft
-// wizard with its stepper and autosave. Steps 3–9 and the published tabs
-// arrive with the rest of the wizard.
+// wizard with its stepper and autosave. The published tabs arrive with A8.
 
-const STEP_COMPONENTS = { podstawy: Podstawy, biuro: Biuro }
+const STEP_COMPONENTS = {
+  podstawy: Podstawy, biuro: Biuro, konkurencje: Konkurencje, kategorie: Kategorie, pomiar: Pomiar,
+  formularz: Formularz, dodatki: Dodatki, platnosci: Dodatki, publikacja: Publikacja,
+}
 
-// The section each step saves (steps 3–6 arrive with the rest of the wizard).
+// The section each step saves.
 const SECTIONS_OF = { podstawy: 'basics', biuro: 'office', konkurencje: 'competitions', kategorie: 'categories', pomiar: 'timing', formularz: 'form' }
 
 const SECTION_STEP = {
@@ -88,7 +96,7 @@ function NotFoundBlock({ back }) {
 function Editor({ eventId, stepParam }) {
   const { club } = useKlub()
   const navigate = useNavigate()
-  const { ready, event, notFound, error, saveState, queue, flush, reload } = useRegistrationEvent(eventId)
+  const { ready, event, notFound, error, saveState, queue, flush, reload, onSaved } = useRegistrationEvent(eventId)
   const [blocked, setBlocked] = useState(false) // a step change refused because something did not save
   const back = `/klub/${club.slug}/wydarzenia`
   const base = `${back}/${eventId}`
@@ -116,7 +124,10 @@ function Editor({ eventId, stepParam }) {
     state: { checklist: event.checklist, current },
   })
   const index = steps.findIndex((s) => s.key === current)
-  if (!STEP_KEYS.includes(current) || index < 0 || !steps[index].available) return <Navigate to={`${base}/podstawy`} replace />
+  // Dodatki is listed but not built: its page only says so.
+  if (!STEP_KEYS.includes(current) || index < 0 || (!steps[index].available && current !== 'dodatki')) {
+    return <Navigate to={`${base}/podstawy`} replace />
+  }
 
   const readOnly = event.role !== 'owner' && event.role !== 'admin'
   const prev = steps.slice(0, index).reverse().find((s) => s.available)
@@ -155,7 +166,8 @@ function Editor({ eventId, stepParam }) {
       <h1 className="font-display font-extrabold text-3xl md:text-4xl uppercase leading-none text-apex-text-bright">{steps[index].label}</h1>
 
       {StepBody && (
-        <StepBody key={current} event={event} queue={queue} saveState={saveState} readOnly={readOnly} reload={reload} />
+        <StepBody key={current} event={event} queue={queue} saveState={saveState} readOnly={readOnly} reload={reload}
+          onSaved={onSaved} base={base} previewHref={`${base}/podglad`} />
       )}
 
       <div className="flex flex-wrap gap-3 pt-2">

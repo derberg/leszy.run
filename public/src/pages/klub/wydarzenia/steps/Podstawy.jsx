@@ -33,6 +33,8 @@ function initialForm(s) {
     regulaminUrl: s.regulaminUrl ?? '',
     regulaminUploadId: s.regulaminUploadId ?? null,
     posterUploadId: s.posterUploadId ?? null,
+    // Typed by the organizer, never prefilled from anyone's profile (P2-R19).
+    contactEmail: s.contactEmail ?? '',
   }
 }
 
@@ -60,6 +62,7 @@ function basicsValue(f, { state, savedSlug, refusedSlug }) {
     regulaminUrl: orNull(f.regulaminUrl),
     regulaminUploadId: f.regulaminUploadId,
     posterUploadId: f.posterUploadId,
+    contactEmail: orNull(f.contactEmail.trim()),
   }
   if (state === 'draft' && f.slug !== savedSlug && f.slug !== refusedSlug) value.slug = f.slug
   if (!!f.opensOn === !!f.closesOn) {
@@ -120,7 +123,19 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload }) 
       value = rest
       result = validateSection('basics', value, ctx)
     }
-    setLocalErrors({ ...(result.ok ? {} : result.errors), ...(slugError ? { slug: slugError } : {}) })
+    // An address still being typed waits; everything else saves meanwhile.
+    let emailError = null
+    if (!result.ok && result.errors.contactEmail) {
+      emailError = result.errors.contactEmail
+      const { contactEmail: _dropped, ...rest } = value
+      value = rest
+      result = validateSection('basics', value, ctx)
+    }
+    setLocalErrors({
+      ...(result.ok ? {} : result.errors),
+      ...(slugError ? { slug: slugError } : {}),
+      ...(emailError ? { contactEmail: emailError } : {}),
+    })
     if (result.ok) queue('basics', value)
   }
 
@@ -324,6 +339,13 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload }) 
           <MonoHint>JPG · PNG · WEBP · do 15 MB · min. 1200 px</MonoHint>
           {uploadError.poster && <p className={`${errorClass} mt-1.5`}>{uploadError.poster}</p>}
         </div>
+      </div>
+
+      <div className="max-w-[640px]">
+        <label htmlFor="ev-contact" className={fieldLabel}>E-mail kontaktowy organizatora</label>
+        <input id="ev-contact" type="email" autoComplete="off" className={fieldInput} value={form.contactEmail}
+          onChange={set('contactEmail')} required />
+        <FieldError message={errors.contactEmail} />
       </div>
     </fieldset>
   )

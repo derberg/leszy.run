@@ -33,6 +33,7 @@ const BLOCKING_STEP = {
   registration_dates: 'podstawy',
   place: 'podstawy',
   regulamin: 'podstawy',
+  contact_email: 'podstawy',
   competitions: 'konkurencje',
   payments: 'platnosci',
   agreement: 'publikacja',

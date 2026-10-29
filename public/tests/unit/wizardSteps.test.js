@@ -61,6 +61,7 @@ test('a blocking item about the basics keeps Podstawy open', () => {
 
 test('blocking items map to the step that fixes them', () => {
   assert.equal(stepForBlocking('event_date'), 'podstawy')
+  assert.equal(stepForBlocking('contact_email'), 'podstawy')
   assert.equal(stepForBlocking('competition:6b8c…'), 'konkurencje')
   assert.equal(stepForBlocking('payments'), 'platnosci')
   assert.equal(stepForBlocking('agreement'), 'publikacja')
