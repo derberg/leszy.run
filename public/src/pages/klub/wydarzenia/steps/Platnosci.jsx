@@ -178,7 +178,7 @@ export default function Platnosci({ event, queue, saveState, readOnly, reload })
   return (
     <div className="space-y-5 min-w-0 max-w-[900px]" data-testid="platnosci-step">
       <section className={cardClass}>
-        <div className="relative flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <h2 className={cardTitle}>Czas na opłacenie zgłoszenia</h2>
           <InfoTip label="Co oznacza czas na opłacenie" testId="payment-window-tip">{WINDOW_TIP}</InfoTip>
         </div>

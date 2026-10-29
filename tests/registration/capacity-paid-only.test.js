@@ -5,7 +5,7 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { sessionFor } from './helpers/stack.js'
-import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
+import { acceptAgreement, callFn, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import {
   attemptFor, competitionOf, confirm, confirmOk, createOrder, db, expireNow, liveSlots, orderOf, orderOk,
   paidOrderOk, registrationsOf, rows, rpc, runnerEmail,
@@ -86,6 +86,12 @@ test('P-58 a pending order does not reduce the free places', async () => {
   assert.equal(comp.taken, 0)
   assert.equal(comp.capacity, 1)
   assert.equal((await rpc('registration_order_fits', { p_order_id: (await orderOk(event)).orderId })).data, true)
+  // The organizer's „N / limit zapisanych” counts confirmed entries only.
+  const ed = await callFn('get-registration-event', owner, { eventId: event.eventId })
+  assert.equal(ed.status, 200, JSON.stringify(ed.body))
+  assert.equal(ed.body.data.registeredCount, 0)
+  await paidOrderOk(event)
+  assert.equal((await callFn('get-registration-event', owner, { eventId: event.eventId })).body.data.registeredCount, 1)
 })
 
 test('P-58 a new registration is refused once the paid entries reach capacity; pay-order is refused before dpay', async () => {

@@ -46,36 +46,39 @@ export function Lock({ title }) {
 }
 
 /**
- * ⓘ beside a setting: a tap or click shows the explanation under it, a second one, Escape or a
- * click elsewhere hides it. A button, so it works by keyboard and on a phone (no hover there).
- * The panel is placed against the nearest positioned ancestor (give the setting's header
- * `relative`), so on a narrow screen it spans the header instead of running off the edge.
+ * ⓘ beside a setting: a tap or click shows the explanation, a second one, Escape or a click
+ * elsewhere hides it. A button, so it works by keyboard and on a phone (no hover there). It
+ * returns the button and the note as two children for a `flex flex-wrap` header row: the note
+ * takes a full line under the heading and pushes the setting down, so it never covers it.
  */
 export function InfoTip({ label, children, testId }) {
   const [open, setOpen] = useState(false)
   const id = useId()
-  const box = useRef(null)
+  const btn = useRef(null)
+  const note = useRef(null)
   useEffect(() => {
     if (!open) return undefined
     const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
-    const onDown = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false) }
+    const onDown = (e) => {
+      if (!btn.current?.contains(e.target) && !note.current?.contains(e.target)) setOpen(false)
+    }
     document.addEventListener('keydown', onKey)
     document.addEventListener('pointerdown', onDown)
     return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onDown) }
   }, [open])
   return (
-    <span ref={box} className="inline-flex">
-      <button type="button" aria-label={label} aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center justify-center w-7 h-7 border font-mono text-sm leading-none rounded-none ${
+    <>
+      <button ref={btn} type="button" aria-label={label} aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)}
+        className={`inline-flex items-center justify-center w-7 h-7 shrink-0 border font-mono text-sm leading-none rounded-none ${
           open ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-bright text-apex-muted hover:text-apex-text-bright'}`}>
         ⓘ
       </button>
       {open && (
-        <span id={id} role="note" data-testid={testId}
-          className="absolute left-0 right-0 top-full mt-2 z-20 max-w-[440px] border border-apex-yellow-dim bg-apex-surface-2 p-3 font-sans text-[15px] font-medium leading-snug text-apex-text-bright normal-case tracking-normal">
+        <p ref={note} id={id} role="note" data-testid={testId}
+          className="basis-full max-w-[560px] border-l-2 border-apex-yellow-dim bg-apex-surface-2 px-3 py-2.5 font-sans text-[15px] font-medium leading-snug text-apex-text-bright">
           {children}
-        </span>
+        </p>
       )}
-    </span>
+    </>
   )
 }

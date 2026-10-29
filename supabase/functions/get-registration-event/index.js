@@ -57,8 +57,9 @@ Deno.serve(async (req) => {
       rows(admin.from('event_consents').select('id, kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
       rows(admin.from('registration_uploads').select('id, kind, path, meta, created_at').eq('event_id', eventId).order('created_at')),
       rows(admin.from('registration_pending_changes').select('payload, changed_fields, updated_at').eq('event_id', eventId)),
+      // „N / limit zapisanych” counts confirmed entries only: an unpaid one holds no place (P3-R15).
       admin.from('registrations').select('id', { count: 'exact', head: true })
-        .eq('event_id', eventId).in('status', ['confirmed', 'pending_payment']),
+        .eq('event_id', eventId).eq('status', 'confirmed'),
       clubHasAgreement(admin, settings.club_id),
       payoutState(admin, settings),
     ])
