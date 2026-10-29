@@ -28,6 +28,10 @@ const REGISTRATION_COLUMNS = 'id, event_id, category_id, status, first_name, las
   + 'registration_settings(name, event_date), '
   + 'consent_acceptances(consent_kind, accepted_as, regulamin_version, accepted_at, ip, user_agent)'
 
+const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_name, guardian_email, created_at, '
+  + 'registration_settings(name, event_date), '
+  + 'consent_acceptances(consent_kind, accepted_as, accepted_by_profile_id, regulamin_version, accepted_at, ip, user_agent)'
+
 function json(body, status, req, extraHeaders = {}) {
   return new Response(JSON.stringify(body, null, 2), {
     status,
@@ -60,7 +64,7 @@ Deno.serve(async (req) => {
     profile, userBadges, consentLog, eventReports, websiteFeedback, submittedEvents, favorites,
     clubMemberships, ownedClubsRaw, membershipLog, raceEntries, invitesToMe,
     organizerAgreements, organizerActions, payoutHistory, waitlistRequests,
-    registrationsByProfile, registrationsByEmail,
+    registrationsByProfile, registrationsByEmail, guardianByProfile, guardianByEmail,
   ] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').eq('id', userId).single(),
     supabaseAdmin.from('user_badges').select('*').eq('user_id', userId),
@@ -119,7 +123,22 @@ Deno.serve(async (req) => {
       ? fetchAll(() => supabaseAdmin.from('registrations')
         .select(REGISTRATION_COLUMNS).eq('email', session.email.toLowerCase().trim()).order('created_at').order('id'), 'registrations by email')
       : Promise.resolve([]),
+    // Registrations they made as guardian of somebody else.
+    fetchAll(() => supabaseAdmin.from('registrations')
+      .select(GUARDIAN_COLUMNS).eq('guardian_profile_id', userId).order('created_at').order('id'), 'guardian registrations by profile'),
+    session.email
+      ? fetchAll(() => supabaseAdmin.from('registrations')
+        .select(GUARDIAN_COLUMNS).eq('guardian_email', session.email.toLowerCase().trim()).order('created_at').order('id'), 'guardian registrations by email')
+      : Promise.resolve([]),
   ])
+
+  const registrationsAsGuardian = [...new Map([...guardianByProfile, ...guardianByEmail].map((r) => [r.id, r])).values()]
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+    .map(({ registration_settings: rs, ...r }) => ({
+      ...r,
+      event_name: rs?.name ?? null,
+      event_date: rs?.event_date ?? null,
+    }))
 
   const registrations = [...new Map([...registrationsByProfile, ...registrationsByEmail].map((r) => [r.id, r])).values()]
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
@@ -182,6 +201,7 @@ Deno.serve(async (req) => {
     },
     clubs: { membership, memberships, membership_history, owned },
     registrations,
+    registrations_as_guardian: registrationsAsGuardian,
     race_entries: (raceEntries.data ?? []).map((p) => ({
       event_name: p.events?.name ?? null,
       event_date: p.events?.date ?? null,

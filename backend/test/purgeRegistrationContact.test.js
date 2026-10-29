@@ -18,7 +18,11 @@ const u = new URL(URL_)
 const isScratch = ['127.0.0.1', 'localhost'].includes(u.hostname) && u.port === '55432'
 
 let sql, db, reachable = false
-const isoDay = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10)
+// Fixtures count days from the same Warsaw cutoff the purge uses, so the test does not flake near midnight UTC.
+const dayFromCutoff = (offset) => {
+  const [y, m, d] = cutoffDate().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + offset)).toISOString().slice(0, 10)
+}
 const made = { events: [], participants: [] }
 
 before(async () => {
@@ -37,8 +41,9 @@ after(async () => {
   await sql.end({ timeout: 1 })
 })
 
+/** daysFromCutoff: 0 = exactly 30 days ago (due), 1 = 29 days ago (not due), -1 = 31 days ago. */
 async function seed(daysAgo) {
-  const [ev] = await db.insert(schema.events).values({ name: `purge ${daysAgo}`, slug: `purge-${crypto.randomUUID()}`, date: isoDay(-daysAgo) }).returning()
+  const [ev] = await db.insert(schema.events).values({ name: `purge ${daysAgo}`, slug: `purge-${crypto.randomUUID()}`, date: dayFromCutoff(daysAgo) }).returning()
   made.events.push(ev.id)
   const mk = async (registrationId) => {
     const [p] = await db.insert(schema.participants).values({
@@ -56,21 +61,26 @@ test('W-44 the cutoff is Warsaw today minus 30 days', () => {
   assert.equal(cutoffDate(new Date('2026-11-30T23:30:00Z')), '2026-11-01') // already 1 Dec in Warsaw
 })
 
-test('W-44 a dry run changes nothing and reports the count; --apply nulls only registration participants of old events', { skip: !isScratch }, async (t) => {
+test('W-44 a dry run changes nothing and reports the count; --apply nulls only registration participants of due events', { skip: !isScratch }, async (t) => {
   if (!reachable) return t.skip('no scratch Postgres on 127.0.0.1:55432')
-  const old = await seed(31)
-  const recent = await seed(29)
+  const old = await seed(-1)
+  const boundary = await seed(0)
+  const recent = await seed(1)
 
   const dry = await purgeRegistrationContact(db)
   assert.equal(dry.applied, false)
-  assert.equal(dry.count, 1)
+  assert.ok(dry.count >= 2, `the two due registration participants are counted, got ${dry.count}`)
   assert.equal(await phoneOf(old.viaRegistration), '600100200')
+  assert.equal(await phoneOf(boundary.viaRegistration), '600100200')
 
-  const done = await purgeRegistrationContact(db, { apply: true })
-  assert.equal(done.count, 1)
+  await purgeRegistrationContact(db, { apply: true })
   assert.equal(await phoneOf(old.viaRegistration), null)
+  assert.equal(await phoneOf(boundary.viaRegistration), null, 'exactly 30 days ago is purged')
   assert.equal(await phoneOf(old.manual), '600100200', 'a participant with no registration is untouched')
+  assert.equal(await phoneOf(boundary.manual), '600100200')
   assert.equal(await phoneOf(recent.viaRegistration), '600100200', 'an event 29 days ago is untouched')
 
-  assert.equal((await purgeRegistrationContact(db, { apply: true })).count, 0)
+  await purgeRegistrationContact(db, { apply: true })
+  assert.equal(await phoneOf(recent.viaRegistration), '600100200', 'a second run changes nothing more')
+  assert.equal(await phoneOf(old.viaRegistration), null)
 })

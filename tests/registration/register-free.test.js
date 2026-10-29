@@ -574,3 +574,55 @@ test('W-42 delete-my-account anonymises the registration, keeps the slot, retire
   assert.equal(again.status, 403, JSON.stringify(again.body))
   assert.equal(again.body.code, 'email_retired')
 })
+
+/** Makes A the guardian of B's registration, directly in SQL (register_free does not write guardian_* yet). */
+async function makeGuardian(a, b) {
+  const { data: pa } = await db().from('profiles').select('id').eq('email', a.email).single()
+  const u1 = await db().from('registrations')
+    .update({ guardian_profile_id: pa.id, guardian_email: a.email, guardian_name: 'Tata Leśny' }).eq('id', b.regId)
+  assert.ifError(u1.error)
+  const u2 = await db().from('consent_acceptances')
+    .update({ accepted_by_profile_id: pa.id, accepted_as: 'guardian' }).eq('registration_id', b.regId)
+  assert.ifError(u2.error)
+  return pa.id
+}
+
+test('W-41 export-my-data returns the registrations made as guardian, with their acceptances', async () => {
+  const a = await registeredRunner('guardian-export-a')
+  const b = await registeredRunner('guardian-export-b')
+  await makeGuardian(a, b)
+  const res = await callFn('export-my-data', a.session, {})
+  assert.equal(res.status, 200, JSON.stringify(res.body))
+  const g = res.body.registrations_as_guardian
+  assert.equal(g.length, 1)
+  assert.equal(g[0].id, b.regId)
+  assert.equal(g[0].guardian_name, 'Tata Leśny')
+  assert.equal(g[0].guardian_email, a.email)
+  assert.equal(g[0].consent_acceptances.length, 3)
+  assert.equal(g[0].consent_acceptances[0].accepted_as, 'guardian')
+})
+
+test('W-42 deleting the guardian clears the guardian fields and device traces, and leaves the child\'s row alone', async () => {
+  const a = await registeredRunner('guardian-erase-a')
+  const b = await registeredRunner('guardian-erase-b')
+  await makeGuardian(a, b)
+  const sha = async (t) => crypto.createHash('sha256').update(t).digest('hex')
+  const { error: codeErr } = await db().from('auth_codes').insert({
+    email: a.email, code_hash: await sha('123456'), purpose: 'delete_account',
+    expires_at: new Date(Date.now() + 600000).toISOString(),
+  })
+  assert.ifError(codeErr)
+  const r = await callFn('delete-my-account', a.session, { action: 'confirm', code: '123456' })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+
+  const { data: reg } = await db().from('registrations').select('*').eq('id', b.regId).single()
+  assert.equal(reg.guardian_profile_id, null)
+  assert.equal(reg.guardian_email, null)
+  assert.equal(reg.guardian_name, 'Usunięte konto')
+  assert.equal(reg.first_name, 'Ola')
+  assert.equal(reg.email, b.email)
+  assert.equal(reg.phone, '600100200')
+  const { data: acc } = await db().from('consent_acceptances').select('ip, user_agent').eq('registration_id', b.regId)
+  assert.equal(acc.length, 3)
+  for (const x of acc) assert.deepEqual(x, { ip: null, user_agent: null })
+})

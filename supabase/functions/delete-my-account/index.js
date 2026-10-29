@@ -302,7 +302,9 @@ Deno.serve(async (req) => {
     // person goes, and the consent acceptances lose the device traces (ip,
     // user_agent) while the acceptance itself stays as the record.
     const regIds = new Set()
-    for (const [column, value] of [['profile_id', profile.id], ['email', originalEmail]]) {
+    const runnerKeys = [['profile_id', profile.id]]
+    if (originalEmail) runnerKeys.push(['email', originalEmail])
+    for (const [column, value] of runnerKeys) {
       const { data: found, error: findErr } = await supabaseAdmin.from('registrations').select('id').eq(column, value)
       if (findErr) console.error('delete-my-account: registrations lookup failed:', column, findErr.message)
       for (const r of found ?? []) regIds.add(r.id)
@@ -319,15 +321,28 @@ Deno.serve(async (req) => {
         club: null,
         ice_name: null,
         ice_phone: null,
-        guardian_profile_id: null,
-        guardian_name: null,
-        guardian_email: null,
       }).in('id', ids)
       if (regErr) console.error('delete-my-account: registrations anonymization failed:', regErr.message)
       const { error: accErr } = await supabaseAdmin.from('consent_acceptances')
         .update({ ip: null, user_agent: null }).in('registration_id', ids)
       if (accErr) console.error('delete-my-account: consent_acceptances trace cleanup failed:', accErr.message)
     }
+
+    // 1c. The person as GUARDIAN of someone else's registration (a child, later
+    // a group): the guardian fields on that row are THEIR data, the rest of the
+    // row is the child's and stays. The acceptances they gave for anyone lose
+    // their device traces.
+    const guardianKeys = [['guardian_profile_id', profile.id]]
+    if (originalEmail) guardianKeys.push(['guardian_email', originalEmail])
+    for (const [column, value] of guardianKeys) {
+      const { error: gErr } = await supabaseAdmin.from('registrations')
+        .update({ guardian_profile_id: null, guardian_name: 'Usunięte konto', guardian_email: null })
+        .eq(column, value)
+      if (gErr) console.error('delete-my-account: guardian fields cleanup failed:', column, gErr.message)
+    }
+    const { error: actedErr } = await supabaseAdmin.from('consent_acceptances')
+      .update({ ip: null, user_agent: null }).eq('accepted_by_profile_id', profile.id)
+    if (actedErr) console.error('delete-my-account: acceptances by person cleanup failed:', actedErr.message)
 
     // 2. Soft-delete profile (username must be unique — use first 8 chars of UUID)
     const { error: updateError } = await supabaseAdmin
