@@ -24,10 +24,13 @@ function paymentStatusOf(reg, order) {
 
 // A child's row always has a guardian: guardian_profile_id until the guardian deletes the account
 // (the contact purge keeps it), guardian_removed_at after. An added adult was registered by an
-// account that is not theirs. Plan 2 and 3 rows (no registered_by) registered themselves.
+// account that is not theirs, or still waits for their acceptance or was signed in the office:
+// delete-my-account nulls registered_by when the payer deletes their account, and only an added
+// adult is ever 'awaiting' or 'office'. Plan 2 and 3 rows (no registered_by) registered themselves.
 function roleOf(r) {
   if (r.guardian_profile_id || r.guardian_removed_at) return 'minor'
   if (r.registered_by_profile_id && r.profile_id !== r.registered_by_profile_id) return 'adult'
+  if (r.consent_state === 'awaiting' || r.consent_state === 'office') return 'adult'
   return 'self'
 }
 
@@ -147,7 +150,8 @@ Deno.serve(async (req) => {
       if (r.status === 'confirmed' && r.consent_state === 'awaiting') counts.awaitingConsent += 1
       return {
         id: r.id,
-        name: `${r.first_name} ${r.last_name}`,
+        // A deleted account's entry carries the pair „Usunięte konto” „Usunięte konto”: shown once.
+        name: r.first_name === DELETED ? DELETED : `${r.first_name} ${r.last_name}`,
         competition: nameOf.get(r.category_id) ?? null,
         ageGroupLabel: r.age_group_label,
         status: r.status,

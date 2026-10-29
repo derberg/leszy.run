@@ -81,3 +81,33 @@ DPIA podlega przeglądowi:
 - co najmniej raz na 12 miesięcy,
 - przy każdej istotnej zmianie zakresu przetwarzania (nowa kategoria danych, nowy procesor, zmiana podstawy prawnej),
 - po każdym incydencie naruszenia danych.
+
+## 9. Uzupełnienie 2026-10-29: zapisy grupowe (zapisy online, Plan 4)
+
+Pełna ocena zapisów online jest w `docs/legal/zapisy/dpia-uzupelnienie.md`. Ten punkt opisuje, co zmieniają zapisy grupowe: jedna osoba zapisuje siebie, inne osoby dorosłe i dzieci jednym zgłoszeniem.
+
+**Dziecko.** Zapisuje je rodzic lub opiekun ze swojego konta i składa za nie oświadczenia (`accepted_as = guardian`). Dziecko nie ma adresu e-mail, konta i nie dostaje wiadomości.
+
+**Miejscowość dziecka.** Na publicznej liście startowej nie ma miejscowości osoby poniżej 18 lat (P3-R14). **Ryzyko rezydualne:** nazwa klubu dziecka, np. „UKS Sokół Pilchowice”, często wskazuje miejscowość, której lista nie podaje. Przyjęto (decyzja T7-F6), że klub zostaje na liście, bo jest częścią klasyfikacji klubowej, a wybór i nazwę klubu podaje opiekun. Opiekun może zostawić klub pusty, chyba że Organizator ustawił to pole jako wymagane. Rekomendacja dla Organizatorów: nie wymagać klubu w konkurencjach dziecięcych.
+
+**Osoba dorosła zapisana przez kogoś innego (art. 14 RODO).**
+- Zapisujący podaje jej dane, a ona dostaje jeden e-mail z linkiem do strony `/zgoda` i z informacją o danych. E-mail wskazuje zapisującego z imienia i nazwiska jako źródło danych (art. 14 ust. 2 lit. f).
+- Na stronie z linku osoba potwierdza adres kodem, sprawdza i może poprawić swoje dane, a potem akceptuje regulamin zawodów i warunki serwisu.
+- Token jest tylko w części `#` adresu, więc nie trafia do serwera, logów ani analityki. Strona usuwa go z paska adresu przed pierwszym zapytaniem. Baza przechowuje tylko skrót SHA-256 tokenu.
+- Przypomnienia: jedno automatyczne 72 h przed końcem zapisów oraz ręczne, od zapisującego lub Organizatora, łącznie 3 na dobę. Każde przypomnienie unieważnia poprzedni link.
+- Dopóki osoba nie zaakceptuje regulaminu, publiczna lista startowa jej nie pokazuje z imienia i nazwiska, a tylko ją liczy. Powód: nie zna jeszcze informacji o danych.
+
+**Podpis w biurze zawodów.** Osoba, która nie kliknęła linku, może podpisać regulamin w biurze. Organizator odnotowuje to w panelu „Zgłoszenia” przyciskiem „Podpisany w biurze”, który wymaga potwierdzenia w miejscu. Wpis trafia do `organizer_actions`. Odnotowanie zapisuje akceptacje regulaminu i warunków zawodów, nigdy regulaminu serwisu LESZY.RUN, bo tego osoba nie zaakceptowała. **Ryzyko:** Organizator może kliknąć bez podpisu. Odpowiada za to jako administrator (umowa organizatora), a wpis w `organizer_actions` jest dowodem kto i kiedy.
+
+**Wyrocznia „czy ta osoba jest zapisana”.** Odpowiedź „ta osoba jest już zapisana” ujawnia, że ktoś o danym adresie, albo dziecko o danym imieniu, nazwisku i dacie urodzenia, startuje w zawodach. Środki:
+- odpowiedź wymaga potwierdzonego adresu zapisującego;
+- najwyżej 5 takich odpowiedzi wskazujących osobę na zapisującego na dobę, potem odmowa bez wskazania osoby;
+- 30 osób na zapisującego na dobę;
+- 20 zapisów na adres IP na godzinę.
+
+**Usunięcie konta.**
+- Opiekun usuwa konto: zgłoszenie dziecka zostaje, bez danych kontaktowych opiekuna (`guardian_removed_at`), a Organizator widzi „kontakt opiekuna usunięty”. Organizator ustala kontakt w biurze zawodów.
+- Zapisujący usuwa konto: zgłoszenia innych dorosłych zostają, a `registered_by_profile_id` jest czyszczone.
+- Osoba dorosła usuwa konto: jej prośba o akceptację (`consent_requests`) jest usuwana.
+
+**Ocena.** Ryzyko rezydualne dla tych operacji: **niskie**, z wyjątkiem klubu dziecka, ocenionego jako **niskie do średniego** i przyjętego świadomie.

@@ -330,6 +330,11 @@ Deno.serve(async (req) => {
       const { error: accErr } = await supabaseAdmin.from('consent_acceptances')
         .update({ ip: null, user_agent: null }).in('registration_id', ids)
       if (accErr) console.error('delete-my-account: consent_acceptances trace cleanup failed:', accErr.message)
+      // An added adult's consent request (Plan 4): the token hash, its dates and nothing else
+      // useful once the person is gone. consent_requests.registration_id is ON DELETE RESTRICT,
+      // so these rows must go before any registration of theirs could ever be deleted.
+      const { error: crErr } = await supabaseAdmin.from('consent_requests').delete().in('registration_id', ids)
+      if (crErr) console.error('delete-my-account: consent_requests cleanup failed:', crErr.message)
     }
 
     // 1c. The person as GUARDIAN of someone else's registration (a child, later
@@ -349,6 +354,12 @@ Deno.serve(async (req) => {
     const { error: actedErr } = await supabaseAdmin.from('consent_acceptances')
       .update({ ip: null, user_agent: null }).eq('accepted_by_profile_id', profile.id)
     if (actedErr) console.error('delete-my-account: acceptances by person cleanup failed:', actedErr.message)
+    // The entries they registered for other people (Plan 4 groups): those rows are the other
+    // people's and stay, but nothing may keep pointing at this account. A soft delete fires no
+    // FK, so ON DELETE SET NULL never runs; this is it, by hand.
+    const { error: byErr } = await supabaseAdmin.from('registrations')
+      .update({ registered_by_profile_id: null }).eq('registered_by_profile_id', profile.id)
+    if (byErr) console.error('delete-my-account: registered_by cleanup failed:', byErr.message)
 
     // 1d. Orders (paid registration). Payment records are accounting records,
     // kept 5 years from the end of the year of payment (tax law, Art. 17(3)(b)):

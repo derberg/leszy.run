@@ -23,12 +23,18 @@ async function fetchAll(buildQuery, label) {
   return rows
 }
 
+// Plan 4 (groups): an entry somebody else made for this person (an added adult) says who provided
+// the data (Art. 14(2)(f), Art. 15(1)(g)) as `registered_by` (the name the buyer typed on the
+// order, never their account id or address), and carries the consent request's dates. The token
+// hash is never exported: it is a credential, not information about the person.
 const REGISTRATION_COLUMNS = 'id, event_id, category_id, status, first_name, last_name, birth_date, gender, email, phone, city, club, nationality, '
-  + 'ice_name, ice_phone, guardian_name, guardian_email, age_group_label, list_price, price, refunded, consent_state, created_at, '
+  + 'ice_name, ice_phone, guardian_name, guardian_email, guardian_removed_at, age_group_label, list_price, price, refunded, consent_state, created_at, '
+  + 'order_id, registered_by_profile_id, '
   + 'registration_settings(name, event_date), '
-  + 'consent_acceptances(consent_kind, accepted_as, regulamin_version, accepted_at, ip, user_agent)'
+  + 'consent_acceptances(consent_kind, accepted_as, regulamin_version, accepted_at, ip, user_agent), '
+  + 'consent_requests(sent_at, emailed_at, last_reminded_at, auto_reminded_at, used_at, expires_at)'
 
-const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_name, guardian_email, created_at, '
+const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_name, guardian_email, guardian_removed_at, created_at, '
   + 'registration_settings(name, event_date), '
   + 'consent_acceptances(consent_kind, accepted_as, accepted_by_profile_id, regulamin_version, accepted_at, ip, user_agent)'
 
@@ -198,13 +204,35 @@ Deno.serve(async (req) => {
       event_date: rs?.event_date ?? null,
     }))
 
-  const registrations = [...new Map([...registrationsByProfile, ...registrationsByEmail].map((r) => [r.id, r])).values()]
+  const ownRegs = [...new Map([...registrationsByProfile, ...registrationsByEmail].map((r) => [r.id, r])).values()]
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
-    .map(({ registration_settings: rs, ...r }) => ({
-      ...r,
-      event_name: rs?.name ?? null,
-      event_date: rs?.event_date ?? null,
-    }))
+  // Rows registered by another account: the name that buyer typed on the order is the source of
+  // the data. Read by order id; the buyer's own rows and their order stay out of this export.
+  // An added adult's row always has a consent request; registered_by_profile_id alone is not
+  // enough, because delete-my-account nulls it when the buyer deletes their account.
+  const consentRequestOf = (r) => (Array.isArray(r.consent_requests) ? r.consent_requests[0] : r.consent_requests) ?? null
+  const addedBySomebody = (r) => (r.registered_by_profile_id && r.registered_by_profile_id !== userId) || consentRequestOf(r) != null
+  const byOthers = ownRegs.filter(addedBySomebody)
+  const sourceOrderIds = [...new Set(byOthers.map((r) => r.order_id).filter(Boolean))]
+  const buyerNames = new Map()
+  if (sourceOrderIds.length > 0) {
+    const { data, error } = await supabaseAdmin.from('orders').select('id, buyer_name').in('id', sourceOrderIds)
+    if (error) console.error('export-my-data: buyer names failed:', error.message)
+    for (const o of data ?? []) buyerNames.set(o.id, o.buyer_name?.trim() || null)
+  }
+  const registrations = ownRegs
+    .map((row) => {
+      const { registration_settings: rs, consent_requests: _cr, order_id: orderId, registered_by_profile_id: _by, ...r } = row
+      return {
+        ...r,
+        event_name: rs?.name ?? null,
+        event_date: rs?.event_date ?? null,
+        // null: the person registered themself. Otherwise { name }: the name is null when the
+        // buyer typed none or deleted their account (delete-my-account nulls buyer_name).
+        registered_by: addedBySomebody(row) ? { name: buyerNames.get(orderId) ?? null } : null,
+        consent_request: consentRequestOf(row),
+      }
+    })
 
   const memberships = (clubMemberships.data ?? []).map((m) => ({
     club_name: m.clubs?.name ?? null,

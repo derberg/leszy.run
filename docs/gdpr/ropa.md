@@ -3,7 +3,7 @@
 **Administrator:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
 **Data ostatniej aktualizacji:** 2026-10-29
-**Wersja:** 1.3
+**Wersja:** 1.4
 
 ## Rola Leszy.run
 
@@ -126,10 +126,42 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 - **Prawa osób:** eksport (`export-my-data`) obejmuje zamówienia kupującego z kwotami, pozycjami, próbami płatności, zwrotami i zgłoszeniami operatora dotyczącymi zamówienia; dla właściciela klubu — historię zmian rachunku do wypłat wydarzenia (`event_payout_history`), które sam wprowadził. Bieżący rachunek do wypłat wydarzenia (`event_payout_details`) należy do klubu, nie do osoby; gdy odbiorcą jest osoba fizyczna bez konta, jej żądanie z art. 15 obsługiwane jest ręcznie.
 - **Środki bezpieczeństwa:** wszystkie tabele z RLS i `REVOKE ALL … FROM anon, authenticated`, dostęp wyłącznie przez funkcje z kluczem usługi; kwoty liczone wyłącznie po stronie serwera, w całkowitych groszach; podpis każdego powiadomienia dpay weryfikowany przed decyzją; idempotencja potwierdzeń i zwrotów po stronie LESZY.RUN; sekrety dpay tylko w sekretach funkcji Supabase; zadania okresowe z sygnałem życia (`registration_job_heartbeats`) i alarmem e-mail przy zatrzymaniu.
 
+## 11. Zapisy grupowe: opiekunowie, osoby dorosłe zapisane przez kogoś innego, prośby o akceptację regulaminu
+
+- **Rola:** jak w pkt 10 — dane zgłoszeń LESZY.RUN przetwarza w imieniu Organizatora (art. 28 RODO, rejestr z art. 30 ust. 2); konto zapisującego i dane płatności — LESZY.RUN jako administrator.
+- **Cel:** zapisanie jednym zgłoszeniem kilku osób (do 10): siebie, innych osób dorosłych i dzieci, w różnych konkurencjach; uzyskanie od każdej dorosłej osoby zapisanej przez kogoś innego akceptacji regulaminu zawodów i przekazanie jej informacji z art. 14 RODO; przypomnienia o akceptacji; odnotowanie podpisu złożonego w biurze zawodów.
+- **Podstawa prawna:** art. 6(1)(b) RODO — umowa o udział w zawodach (za dziecko zawiera ją rodzic lub opiekun prawny, art. 98 KRO; osoba dorosła zawiera ją sama, akceptując regulamin po kliknięciu linku albo w biurze zawodów); art. 6(1)(f) — ochrona formularza przed nadużyciem (limity zapytań).
+- **Kategorie danych:**
+  - `registrations.registered_by_profile_id` — konto osoby, która złożyła zgłoszenie za innych;
+  - dane opiekuna przy zgłoszeniu dziecka: `guardian_profile_id`, `guardian_name`, `guardian_email`, a po usunięciu konta opiekuna znacznik `guardian_removed_at`;
+  - `orders.buyer_name` — imię i nazwisko wpisane przez zapisującego, podawane osobie dorosłej jako źródło jej danych (art. 14 ust. 2 lit. f);
+  - `registrations.consent_state` (`awaiting` / `accepted` / `office`);
+  - `consent_requests` — skrót SHA-256 tokenu z linku (sam token istnieje tylko w e-mailu), daty wysłania, przypomnień (ręcznego i automatycznego), użycia i wygaśnięcia;
+  - `consent_acceptances` z `accepted_as = guardian` (oświadczenia opiekuna za dziecko, z IP i przeglądarką) albo złożone przez samą osobę dorosłą przez link;
+  - liczniki limitów w `otp_throttle` (adres IP, konto zapisującego).
+  Dziecko nie ma adresu e-mail ani konta.
+- **Kategorie osób:** opiekunowie (rodzice) i zapisane przez nich dzieci; osoby dorosłe zapisane przez członka rodziny lub drużyny; osoby zapisujące innych bez własnego startu („Nie startuję — zapisuję tylko inne osoby”).
+- **Odbiorcy:** jak w pkt 10. Osoba dorosła zapisana przez kogoś innego dostaje dokładnie jeden e-mail z linkiem do strony `/zgoda` i z informacją o danych (`/events/<slug>/informacja-o-danych`), jedno automatyczne przypomnienie 72 h przed końcem zapisów i przypomnienia na żądanie zapisującego lub Organizatora (łącznie 3 na dobę na zgłoszenie). Dziecko nie dostaje żadnych wiadomości. Organizator widzi w panelu stan akceptacji, imię i nazwisko zapisującego i opiekuna, nigdy ich adresów. Publiczna lista startowa nie pokazuje osoby dorosłej z imienia i nazwiska, dopóki nie zaakceptuje regulaminu (jest tylko liczona), ani miejscowości osoby poniżej 18 lat.
+- **Transfery poza EOG:** jak w pkt 1.
+- **Okres przechowywania:**
+  - `consent_requests` — przez czas istnienia zgłoszenia; link wygasa z końcem zapisów, a każde przypomnienie unieważnia poprzedni token;
+  - dane opiekuna (`guardian_name`, `guardian_email`) — usuwane razem z kontaktami 30 dni po zawodach (`purge_registration_contact_data`), `guardian_removed_at` zostaje jako informacja dla Organizatora;
+  - pozostałe dane zgłoszeń — jak w pkt 10.
+- **Prawa osób:**
+  - eksport (`export-my-data`) zawiera zgłoszenia osoby (z polem `registered_by` — imię i nazwisko zapisującego — oraz datami prośby o akceptację, bez skrótu tokenu), zgłoszenia dzieci, dla których jest opiekunem (`registrations_as_guardian`), i zamówienia z `buyer_name`; zgłoszenia innych dorosłych zapisanych przez tę osobę są danymi tamtych osób i nie są eksportowane;
+  - usunięcie konta (`delete-my-account`) anonimizuje własne zgłoszenia osoby i usuwa ich `consent_requests` (klucz obcy RESTRICT — przed ewentualnym usunięciem zgłoszenia); przy zgłoszeniach dzieci usuwa dane opiekuna i ustawia `guardian_removed_at` (zgłoszenie dziecka zostaje, Organizator widzi „kontakt opiekuna usunięty”); przy zgłoszeniach innych osób czyści `registered_by_profile_id`; w zamówieniach usuwa `buyer_email` i `buyer_name`.
+- **Środki bezpieczeństwa:**
+  - token w linku tylko w części `#` adresu (nie trafia do serwera, logów ani analityki); strona usuwa go z paska adresu przed pierwszym zapytaniem;
+  - dostęp do danych po linku dopiero po kodzie z e-maila;
+  - limity: 20 zapisów na adres IP na godzinę, 30 osób na zapisującego na dobę, 5 odpowiedzi ujawniających, że osoba jest już zapisana, na zapisującego na dobę (potem odmowa bez wskazania osoby), 30 odczytów strony zgody na token na godzinę;
+  - podpis w biurze zawodów Organizator potwierdza w panelu, z wpisem do `organizer_actions`;
+  - tabele z RLS i `REVOKE ALL … FROM anon, authenticated`.
+
 ## Historia zmian
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.4 | 2026-10-29 | Dodano sekcję 11 (zapisy grupowe: opiekunowie, osoby dorosłe zapisane przez kogoś innego, prośby o akceptację regulaminu, podpis w biurze; eksport i usuwanie konta). |
 | 1.3 | 2026-10-29 | Dodano sekcję 10 (zapisy online z płatnością przez dpay: zamówienia, płatności, zwroty, retencja 5 lat / 30 dni). |
 | 1.2 | 2026-10-03 | Dodano sekcję 9 (rozpoznawanie numerów startowych z obrazu) — wdrożenie ekranu „Audyt kamery" i automatycznego purge po 30 dniach. |
 | 1.1 | 2026-07-23 | Dodano sekcję 8 (członkostwo w klubach: `club_members`, `club_membership_log`) — pokrycie eksportu i usuwania danych po wdrożeniu soft-delete członkostwa. |

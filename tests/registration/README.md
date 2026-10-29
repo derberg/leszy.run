@@ -48,3 +48,11 @@ and seed. `REG_TEST_SLOT=n` moves the ports the tests own the same way: email ca
 scratch Postgres 55432+100n (container `leszyrun-hostpull-scratch-s<n>`), Vite 5174+100n. No
 `REG_TEST_SLOT` means slot 0, which is what CI runs. Slot numbers are per machine (Docker names), so two
 worktrees must not take the same one. A slot holds about 1.3 GiB of memory and 85 MB of volumes.
+
+**Stop only your own slot.** Never `pkill -f emailCaptureServer`, `pkill -f dpayMock` or `pkill -f vite`:
+those match every slot's servers, and another agent's run dies mid-test. Stop yours by the port it
+LISTENS on, e.g. for slot 2: `lsof -ti tcp:54599 -sTCP:LISTEN | xargs kill` and the same for 54598
+(capture 54399+100n, dpay mock 54398+100n), then `scripts/test-slot.sh 2 stop`. Keep `-sTCP:LISTEN`:
+without it `lsof` also lists every process with a connection to that port, which includes Docker
+Desktop's port forwarder (the slot's functions reach the mocks through `host.docker.internal`), and
+killing it stops Docker and every stack on the machine. Playwright starts and stops its own Vite.
