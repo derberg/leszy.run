@@ -32,6 +32,16 @@ export default function useRegistrationEvent(eventId) {
   const [autosave, setAutosave] = useState(null)
   // section → what a step does with the save's answer (ids of rows it created)
   const savedHandlers = useRef(new Map())
+  // section → field errors of input a step holds but cannot save yet (P2-R27)
+  const invalid = useRef(new Map())
+  const reportInvalid = useCallback((section, errors) => {
+    if (errors && Object.keys(errors).length) invalid.current.set(section, errors)
+    else invalid.current.delete(section)
+  }, [])
+  const invalidInput = useCallback(() => {
+    const [first] = invalid.current.entries()
+    return first ? { section: first[0], fields: first[1] } : null
+  }, [])
   const onSaved = useCallback((section, handler) => {
     savedHandlers.current.set(section, handler)
     return () => { if (savedHandlers.current.get(section) === handler) savedHandlers.current.delete(section) }
@@ -42,7 +52,7 @@ export default function useRegistrationEvent(eventId) {
   // Leaving the editor or the tab saves what is queued (keepalive requests
   // survive the unload). While anything is unsaved, a reload or close asks
   // first, so an edit typed a moment before is not lost silently. Unmounting
-  // flushes once more and then disposes, so no retry fires afterwards.
+  // disposes: the last values are saved, then no retry fires.
   useEffect(() => {
     const a = createAutosave({
       save: async (section, value) => {
@@ -55,7 +65,7 @@ export default function useRegistrationEvent(eventId) {
     setAutosave(a)
     const onHide = () => { if (document.visibilityState === 'hidden') a.flush() }
     const onBeforeUnload = (e) => {
-      if (!a.hasPending()) return
+      if (!a.hasPending() && !invalid.current.size) return
       a.flush()
       e.preventDefault()
       e.returnValue = ''
@@ -65,8 +75,7 @@ export default function useRegistrationEvent(eventId) {
     return () => {
       document.removeEventListener('visibilitychange', onHide)
       window.removeEventListener('beforeunload', onBeforeUnload)
-      a.flush()
-      a.dispose()
+      a.dispose() // saves what is queued, then stops
     }
   }, [eventId, fetchEvent])
 
@@ -80,5 +89,7 @@ export default function useRegistrationEvent(eventId) {
     flush: autosave ? autosave.flush : resolvedTrue,
     reload: fetchEvent,
     onSaved,
+    reportInvalid,
+    invalidInput,
   }
 }

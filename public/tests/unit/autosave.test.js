@@ -123,15 +123,17 @@ test('subscribers see the section saving, then saved', async () => {
   assert.equal(seen.at(-1), '')
 })
 
-test('dispose drops a queued save', async (t) => {
+test('dispose saves what is queued once, then nothing more is scheduled', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const { calls, save } = recorder()
   const autosave = createAutosave({ save, delayMs: 1500 })
   autosave.queue('basics', { name: 'x' })
-  autosave.dispose()
-  t.mock.timers.tick(5000)
+  await autosave.dispose()
+  assert.deepEqual(calls, [{ section: 'basics', value: { name: 'x' } }])
+  autosave.queue('basics', { name: 'y' })
+  t.mock.timers.tick(60000)
   await settle()
-  assert.equal(calls.length, 0)
+  assert.equal(calls.length, 1)
 })
 
 test('a network or server failure is retried on its own after 2 s, 5 s and 15 s, a 422 is not', async (t) => {
@@ -169,7 +171,7 @@ test('a network or server failure is retried on its own after 2 s, 5 s and 15 s,
   assert.equal(calls.filter((c) => c.status === 422).length, 1)
 })
 
-test('dispose after the final flush: a save failing in flight is neither re-queued nor retried', async (t) => {
+test('dispose: a save failing in flight is neither re-queued nor retried', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   let reject
   const calls = []
@@ -179,19 +181,44 @@ test('dispose after the final flush: a save failing in flight is neither re-queu
   }
   const autosave = createAutosave({ save, delayMs: 1500 })
   autosave.queue('basics', { name: 'x' })
-  autosave.flush() // the unmount's final flush starts the save
-  autosave.dispose()
+  autosave.flush() // the save is in flight
+  await settle()
+  const done = autosave.dispose()
   const err = new Error('Błąd serwera.')
   err.status = 500
   reject(err)
-  await settle()
+  await done
   t.mock.timers.tick(60000)
   await settle()
   assert.equal(calls.length, 1)
   assert.equal(autosave.hasPending(), false)
 })
 
-test('dispose clears a retry already scheduled, and nothing queued afterwards is saved', async (t) => {
+test('dispose (I3): a value queued behind a save in flight is still saved, once, and nothing is scheduled after', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let releaseA
+  const calls = []
+  const save = (section, value) => {
+    calls.push(value)
+    return calls.length === 1 ? new Promise((resolve) => { releaseA = resolve }) : Promise.resolve()
+  }
+  const autosave = createAutosave({ save, delayMs: 1500 })
+  autosave.queue('basics', { name: 'A' })
+  autosave.flush()
+  await settle()
+  autosave.queue('basics', { name: 'B' }) // typed while A is in flight
+  const done = autosave.dispose() // the editor unmounts
+  releaseA()
+  await done
+  assert.deepEqual(calls, [{ name: 'A' }, { name: 'B' }])
+  autosave.queue('basics', { name: 'C' })
+  t.mock.timers.tick(60000)
+  await settle()
+  assert.equal(calls.length, 2)
+  assert.equal(autosave.hasPending(), false)
+})
+
+test('dispose: a retry already waiting gets the final attempt, then no more', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const calls = []
   const save = async (section, value) => {
@@ -205,12 +232,11 @@ test('dispose clears a retry already scheduled, and nothing queued afterwards is
   t.mock.timers.tick(1500)
   await settle()
   assert.equal(calls.length, 1) // the first retry is now waiting 2 s
-  autosave.dispose()
-  autosave.queue('office', { notes: 'po' })
-  assert.equal(await autosave.flush(), true)
+  await autosave.dispose()
+  assert.equal(calls.length, 2)
   t.mock.timers.tick(60000)
   await settle()
-  assert.equal(calls.length, 1)
+  assert.equal(calls.length, 2)
   assert.equal(autosave.hasPending(), false)
 })
 

@@ -41,13 +41,14 @@ function GpxCell({ row, meta, disabled, busy, onFile }) {
   )
 }
 
-export default function Konkurencje({ event, queue, saveState, readOnly, onSaved }) {
+export default function Konkurencje({ event, queue, saveState, readOnly, onSaved, reportInvalid }) {
   const settings = event.settings
   const state = settings.state
   const published = state !== 'draft'
   const [rows, setRows] = useState(() => (event.competitions ?? []).map(competitionRow))
   const [pricingMode, setPricingMode] = useState(settings.pricingMode ?? 'free')
   const [rowErrors, setRowErrors] = useState({})
+  const [sectionError, setSectionError] = useState(null) // whole section not savable (e.g. a missing price)
   const [uploading, setUploading] = useState(null) // row key
   const [uploadError, setUploadError] = useState(null)
   const [gpxMeta, setGpxMeta] = useState({}) // uploads made here, before the event is read again
@@ -76,6 +77,7 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
     setRows(s.rows)
     setPricingMode(mode)
     setRowErrors(s.rowErrors)
+    setSectionError(s.ok ? null : 'Uzupełnij konkurencje: nazwa, limit miejsc i cena przy opłacie stałej.')
     if (s.ok) queue('competitions', sectionNow)
   }
 
@@ -108,6 +110,14 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
       setUploading(null)
     }
   }
+
+  // Input that does not validate yet keeps the organizer on this step (P2-R27).
+  const firstRowError = Object.values(rowErrors).map((e) => Object.values(e).join(' ')).find(Boolean)
+  useEffect(() => {
+    const message = firstRowError ?? sectionError
+    reportInvalid?.('competitions', message ? { items: message } : null)
+  }, [firstRowError, sectionError, reportInvalid])
+  useEffect(() => () => reportInvalid?.('competitions', null), [reportInvalid])
 
   const total = eventCapacity(rows)
   const radio = 'flex items-center gap-2.5 min-h-9 font-sans text-base text-apex-text-bright'
@@ -212,6 +222,7 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
         {uploadError && <span className="text-apex-red font-sans text-sm">{uploadError}</span>}
       </div>
       {Object.keys(serverErrors).length > 0 && <FieldError message={Object.values(serverErrors).join(' ')} />}
+      {sectionError && !firstRowError && <FieldError message={sectionError} />}
 
       <section className={cardClass}>
         <span className={monoLabel}>Opłata startowa</span>

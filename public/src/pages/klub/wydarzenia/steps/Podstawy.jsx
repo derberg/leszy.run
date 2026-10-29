@@ -94,7 +94,7 @@ function FilePick({ label, accept, onFile, disabled, testId }) {
   )
 }
 
-export default function Podstawy({ event, queue, saveState, readOnly, reload }) {
+export default function Podstawy({ event, queue, saveState, readOnly, reload, reportInvalid }) {
   const settings = event.settings
   const [form, setForm] = useState(() => initialForm(settings))
   const formRef = useRef(form) // the latest form, for writes that finish after an await
@@ -104,6 +104,12 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload }) 
   const errors = { ...sectionErrors(saveState, 'basics'), ...localErrors }
   const isDraft = settings.state === 'draft'
   const uploads = new Map((event.uploads ?? []).map((u) => [u.id, u]))
+
+  // Input that does not validate yet keeps the organizer on this step (P2-R27).
+  useEffect(() => {
+    reportInvalid?.('basics', Object.keys(localErrors).length ? localErrors : null)
+  }, [localErrors, reportInvalid])
+  useEffect(() => () => reportInvalid?.('basics', null), [reportInvalid])
 
   // A slug the server refused (taken) or the shape check refuses: shown under
   // the field until it changes, and left out of the saves meanwhile.

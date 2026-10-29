@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { validateSection } from '@registration/sections.js'
+import { reconcileRowIds } from '../../../../lib/categoryRows.js'
 import { btnGhost } from '../../settingsUi.js'
 import { FieldError, Seg, Soon, cardTitle, cellInput, monoLabel, sectionErrors } from '../wizardUi.jsx'
 
@@ -49,7 +50,7 @@ function Row({ children, right }) {
 }
 const Always = ({ children = 'ZAWSZE' }) => <span className="font-mono text-xs text-apex-muted">{children}</span>
 
-export default function Formularz({ event, queue, saveState, readOnly, onSaved, previewHref }) {
+export default function Formularz({ event, queue, saveState, readOnly, onSaved, previewHref, reportInvalid }) {
   const s = event.settings
   const [fields, setFields] = useState(() => ({ phone: 'optional', city: 'optional', club: 'optional', ice: 'optional', ...(s.formFields ?? {}) }))
   const [rows, setRows] = useState(() => (event.consents ?? []).filter((k) => k.kind === 'custom').map(consentRow))
@@ -58,30 +59,38 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
   const sentKeys = useRef([])
   const serverErrors = sectionErrors(saveState, 'form')
 
+  // Ids from the latest answer only: a consent it left out was deleted.
   useEffect(() => onSaved('form', (data) => {
-    const ids = data?.consentIds ?? []
-    const next = latest.current.rows.map((r) => {
-      const i = sentKeys.current.indexOf(r.key)
-      return i >= 0 && !r.id && ids[i] ? { ...r, id: ids[i] } : r
-    })
+    const next = reconcileRowIds(latest.current.rows, sentKeys.current, data?.consentIds)
+    if (next === latest.current.rows) return
     latest.current = { ...latest.current, rows: next }
     setRows(next)
   }), [onSaved])
 
-  const sectionNow = () => {
+  // Pure; what was sent is recorded only when the save starts (I2).
+  const build = () => {
     const { items, keys } = consentsValue(latest.current.rows)
+    return { value: { formFields: latest.current.fields, consents: items }, keys }
+  }
+  const sectionNow = () => {
+    const { value, keys } = build()
     sentKeys.current = keys
-    return { formFields: latest.current.fields, consents: items }
+    return value
   }
 
   function apply(next) {
     latest.current = { ...latest.current, ...next }
     if (next.fields) setFields(next.fields)
     if (next.rows) setRows(next.rows)
-    const check = validateSection('form', sectionNow(), { state: s.state })
+    const check = validateSection('form', build().value, { state: s.state })
     setLocalError(check.ok ? null : Object.values(check.errors).join(' '))
     if (check.ok) queue('form', sectionNow)
   }
+
+  useEffect(() => {
+    reportInvalid?.('form', localError ? { consents: localError } : null)
+  }, [localError, reportInvalid])
+  useEffect(() => () => reportInvalid?.('form', null), [reportInvalid])
 
   const setMode = (key, mode) => apply({ fields: { ...latest.current.fields, [key]: mode } })
   const settle = (list) => list.map((r) => (r.text.trim() ? { ...r, saved: r.text.trim() } : r))

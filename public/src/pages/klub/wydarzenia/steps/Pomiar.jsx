@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { validateSection } from '@registration/sections.js'
 import { fieldInput } from '../../settingsUi.js'
 import { FieldError, Lock, sectionErrors } from '../wizardUi.jsx'
@@ -14,7 +14,7 @@ const MODES = [
 
 const orNull = (v) => (v.trim() === '' ? null : v.trim())
 
-export default function Pomiar({ event, queue, saveState, readOnly }) {
+export default function Pomiar({ event, queue, saveState, readOnly, reportInvalid }) {
   const s = event.settings
   const published = s.state !== 'draft'
   const [form, setForm] = useState(() => ({
@@ -49,6 +49,12 @@ export default function Pomiar({ event, queue, saveState, readOnly }) {
     setLocalErrors({ ...(result.ok ? {} : result.errors), ...waiting })
     if (result.ok) queue('timing', value)
   }
+
+  // Input that does not validate yet keeps the organizer on this step (P2-R27).
+  useEffect(() => {
+    reportInvalid?.('timing', Object.keys(localErrors).length ? localErrors : null)
+  }, [localErrors, reportInvalid])
+  useEffect(() => () => reportInvalid?.('timing', null), [reportInvalid])
 
   const set = (field) => (e) => apply({ ...latest.current, [field]: e.target.value })
   const label = 'block font-mono text-xs uppercase tracking-wide text-apex-muted mb-1.5'

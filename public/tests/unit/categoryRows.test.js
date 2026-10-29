@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ageTemplateFrom, ageModeOf, ageGroupsValue, kidsRowsFor, kidsModeOf, kidsGroupsValue, countLabel,
+  categoriesSection, ageIdsFrom, reconcileRowIds, kidsRow, settleKids,
 } from '../../src/lib/categoryRows.js'
 
 const C1 = '11111111-1111-4111-8111-111111111111'
@@ -74,4 +75,58 @@ test('Polish counts', () => {
   assert.equal(countLabel(12, ['KONKURENCJA', 'KONKURENCJE', 'KONKURENCJI']), '12 KONKURENCJI')
   assert.equal(countLabel(22, ['KONKURENCJA', 'KONKURENCJE', 'KONKURENCJI']), '22 KONKURENCJE')
   assert.equal(countLabel(40, ['KLASYFIKACJA', 'KLASYFIKACJE', 'KLASYFIKACJI']), '40 KLASYFIKACJI')
+})
+
+const G2 = '55555555-5555-4555-8555-555555555555'
+const G3 = '66666666-6666-4666-8666-666666666666'
+
+test('I4: a hidden competition keeps its stored age and kids groups, unchanged and with their ids', () => {
+  const template = [{ gender: 'K', label: 'K16+', minAge: 16, maxAge: null }]
+  const competitions = [
+    { categoryId: C1, isKids: false, hidden: false }, { categoryId: C2, isKids: false, hidden: true },
+    { categoryId: KIDS, isKids: true, hidden: true },
+  ]
+  const stored = {
+    ageGroups: [stored0(C2, 'M', 'M18–39', 18, 39, G2)],
+    kidsGroups: [{ id: G3, categoryId: KIDS, label: 'Maluchy', birthYearFrom: 2021, birthYearTo: 2022, gender: null, distanceLabel: null }],
+  }
+  const s = categoriesSection({ reckoning: 'race_day', template, competitions, kids: {}, stored, idOf: new Map() })
+  assert.deepEqual(s.value.ageGroups, [
+    { categoryId: C1, gender: 'K', label: 'K16+', minAge: 16, maxAge: null },
+    { id: G2, categoryId: C2, gender: 'M', label: 'M18–39', minAge: 18, maxAge: 39 },
+  ])
+  assert.deepEqual(s.value.kidsGroups, [
+    { id: G3, categoryId: KIDS, label: 'Maluchy', birthYearFrom: 2021, birthYearTo: 2022, gender: null, distanceLabel: null },
+  ])
+  assert.deepEqual(s.ageKeys, [`${C1}|K|K16+`, `${C2}|M|M18–39`])
+})
+function stored0(categoryId, gender, label, minAge, maxAge, id) { return { id, categoryId, gender, label, minAge, maxAge } }
+
+test('I2: building the section is pure (the caller sets what was sent, only when the save starts)', () => {
+  const kids = { [KIDS]: [kidsRow({ label: 'A', birthYearFrom: 2020, birthYearTo: 2021 })] }
+  const input = { reckoning: 'race_day', template: [], competitions: [{ categoryId: KIDS, isKids: true, hidden: false }], kids, stored: {}, idOf: new Map() }
+  const before = JSON.stringify(input.kids)
+  const a = categoriesSection(input)
+  const b = categoriesSection(input)
+  assert.deepEqual(a, b)
+  assert.equal(JSON.stringify(input.kids), before)
+})
+
+test('I1: ids come only from the latest answer; a group the server deleted loses its id', () => {
+  // Co 10 lat saved (ids X), then Co 5 lat saved: K16–29 is gone from the answer.
+  let idOf = ageIdsFrom([`${C1}|K|K16–29`], [G1])
+  idOf = ageIdsFrom([`${C1}|K|K16–20`], [G2])
+  assert.equal(idOf.get(`${C1}|K|K16–29`), undefined)
+  assert.equal(idOf.get(`${C1}|K|K16–20`), G2)
+  // A staged save (published) answers no ids: nothing changes.
+  const rows = [{ key: 1, id: G1 }, { key: 2, id: G2 }]
+  assert.equal(reconcileRowIds(rows, [1], undefined), rows)
+  assert.deepEqual(reconcileRowIds(rows, [2], [G3]).map((r) => r.id), [null, G3])
+})
+
+test('I1: a saved kids group being retyped sends its last whole value, so nothing is deleted', () => {
+  const [row] = settleKids([kidsRow({ id: G1, label: 'Maluchy', birthYearFrom: 2021, birthYearTo: 2022, gender: null, distanceLabel: '' })])
+  const { items, sentKeys } = kidsGroupsValue(KIDS, [{ ...row, label: '' }])
+  assert.deepEqual(items, [{ id: G1, categoryId: KIDS, label: 'Maluchy', birthYearFrom: 2021, birthYearTo: 2022, gender: null, distanceLabel: null }])
+  assert.deepEqual(sentKeys, [row.key])
 })

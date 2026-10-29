@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { validateSection } from '@registration/sections.js'
 import { btnGhost, fieldInput, fieldLabel } from '../../settingsUi.js'
 import { FieldError, MonoHint, sectionErrors } from '../wizardUi.jsx'
@@ -44,7 +44,7 @@ function officeValue(f, rows) {
 // Whole rows become the saved value for later half-edits.
 const settle = (rows) => rows.map((r) => (complete(r) ? { ...r, saved: { date: r.date, from: r.from, to: r.to } } : r))
 
-export default function Biuro({ event, queue, saveState, readOnly }) {
+export default function Biuro({ event, queue, saveState, readOnly, reportInvalid }) {
   const s = event.settings
   const [form, setForm] = useState(() => ({
     sameAsEvent: s.officeSameAsEvent ?? true,
@@ -57,6 +57,14 @@ export default function Biuro({ event, queue, saveState, readOnly }) {
   const [localErrors, setLocalErrors] = useState({})
   const latest = useRef({ form, rows })
   const errors = { ...sectionErrors(saveState, 'office'), ...localErrors }
+
+  // Input that does not validate yet keeps the organizer on this step (P2-R27).
+  const rowProblem = rows.map(rowError).find(Boolean)
+  useEffect(() => {
+    const e = { ...localErrors, ...(rowProblem ? { hours: rowProblem } : {}) }
+    reportInvalid?.('office', Object.keys(e).length ? e : null)
+  }, [localErrors, rowProblem, reportInvalid])
+  useEffect(() => () => reportInvalid?.('office', null), [reportInvalid])
 
   function apply(nextForm, rowsIn) {
     const nextRows = settle(rowsIn)

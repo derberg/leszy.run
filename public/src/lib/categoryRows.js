@@ -51,10 +51,15 @@ export function ageGroupsValue(template, competitions, idOf = new Map()) {
 }
 
 let rowSeq = 0
-export const kidsRow = (g = {}) => ({
-  key: ++rowSeq, id: g.id ?? null, label: g.label ?? '', birthYearFrom: g.birthYearFrom ?? null,
-  birthYearTo: g.birthYearTo ?? null, gender: g.gender ?? null, distanceLabel: g.distanceLabel ?? '',
-})
+/** A kids group row. One loaded with an id starts with `saved`, its last whole value. */
+export const kidsRow = (g = {}) => {
+  const row = {
+    key: ++rowSeq, id: g.id ?? null, label: g.label ?? '', birthYearFrom: g.birthYearFrom ?? null,
+    birthYearTo: g.birthYearTo ?? null, gender: g.gender ?? null, distanceLabel: g.distanceLabel ?? '', saved: null,
+  }
+  if (row.id) row.saved = wholeKids(row)
+  return row
+}
 
 /** Default groups for a kids competition: its age range turned into birth years of the race year. */
 export function kidsRowsFor(competition, eventDate, mode) {
@@ -82,19 +87,96 @@ export function kidsModeOf(rows) {
 
 const yearOk = (y) => Number.isInteger(y) && y >= 1900 && y <= 2200
 
-/** → { items, sentKeys }: whole rows only (a label and both years in order). */
+// The row's item without categoryId, or null while it is not whole.
+function wholeKids(r) {
+  if (!r.label.trim() || !yearOk(r.birthYearFrom) || !yearOk(r.birthYearTo) || r.birthYearTo < r.birthYearFrom) return null
+  return {
+    label: r.label.trim(), birthYearFrom: r.birthYearFrom, birthYearTo: r.birthYearTo,
+    gender: r.gender ?? null, distanceLabel: r.distanceLabel.trim() || null,
+  }
+}
+
+/** Whole rows remember their value, for when they are next edited half-way. */
+export const settleKids = (rows) => rows.map((r) => {
+  const whole = wholeKids(r)
+  return whole ? { ...r, saved: whole } : r
+})
+
+/**
+ * → { items, sentKeys }: whole rows; a saved row being retyped goes with its
+ * last whole value, so a half-typed edit never deletes it.
+ */
 export function kidsGroupsValue(categoryId, rows) {
   const items = []
   const sentKeys = []
   for (const r of rows) {
-    if (!r.label.trim() || !yearOk(r.birthYearFrom) || !yearOk(r.birthYearTo) || r.birthYearTo < r.birthYearFrom) continue
-    items.push({
-      ...(r.id ? { id: r.id } : {}), categoryId, label: r.label.trim(), birthYearFrom: r.birthYearFrom,
-      birthYearTo: r.birthYearTo, gender: r.gender ?? null, distanceLabel: r.distanceLabel.trim() || null,
-    })
+    const whole = wholeKids(r) ?? (r.id ? r.saved : null)
+    if (!whole) continue
+    items.push({ ...(r.id ? { id: r.id } : {}), categoryId, ...whole })
     sentKeys.push(r.key)
   }
   return { items, sentKeys }
+}
+
+/**
+ * The whole categories section, without side effects (I2): the caller records
+ * ageKeys / kidsKeys only when a save starts. Visible adult competitions get
+ * the template; a hidden competition keeps its stored groups unchanged (I4),
+ * because the list replaces every group of the event.
+ * → { value: { ageReckoning, ageGroups, kidsGroups }, ageKeys, kidsKeys }
+ */
+export function categoriesSection({ reckoning, template, competitions, kids, stored = {}, idOf = new Map() }) {
+  const ageGroups = []
+  const kidsGroups = []
+  const kidsKeys = []
+  for (const c of competitions) {
+    if (!c.categoryId) continue
+    if (c.hidden) {
+      const own = (list) => (list ?? []).filter((g) => g.categoryId === c.categoryId)
+      if (!c.isKids) {
+        ageGroups.push(...own(stored.ageGroups).map((g) => ({
+          ...(g.id ? { id: g.id } : {}), categoryId: c.categoryId, gender: g.gender, label: g.label, minAge: g.minAge, maxAge: g.maxAge ?? null,
+        })))
+      } else {
+        for (const g of own(stored.kidsGroups)) {
+          kidsGroups.push({
+            ...(g.id ? { id: g.id } : {}), categoryId: c.categoryId, label: g.label, birthYearFrom: g.birthYearFrom,
+            birthYearTo: g.birthYearTo, gender: g.gender ?? null, distanceLabel: g.distanceLabel ?? null,
+          })
+          kidsKeys.push(null)
+        }
+      }
+      continue
+    }
+    if (!c.isKids) ageGroups.push(...ageGroupsValue(template, [c], idOf))
+    else {
+      const { items, sentKeys } = kidsGroupsValue(c.categoryId, kids[c.categoryId] ?? [])
+      kidsGroups.push(...items)
+      kidsKeys.push(...sentKeys)
+    }
+  }
+  const ageKeys = ageGroups.map((g) => `${g.categoryId}|${g.gender}|${g.label}`)
+  return { value: { ageReckoning: reckoning, ageGroups, kidsGroups }, ageKeys, kidsKeys }
+}
+
+/** The age group ids, from the latest answer only (I1): a group it left out was deleted. */
+export function ageIdsFrom(ageKeys, ids) {
+  return new Map(ageKeys.map((k, i) => [k, ids?.[i]]).filter(([k, id]) => k && id))
+}
+
+/**
+ * Row ids after a save (I1). A draft save answers the ids of the rows it was
+ * sent, in order; any other row was deleted (or never stored) and has none.
+ * A staged save (published event) answers no ids: rows stay as they are.
+ */
+export function reconcileRowIds(rows, sentKeys, ids) {
+  if (!Array.isArray(ids)) return rows
+  return rows.map((r) => {
+    const i = sentKeys.indexOf(r.key)
+    const id = i >= 0 ? ids[i] ?? null : null
+    if (id === r.id) return r
+    return { ...r, id, saved: id ? r.saved : null }
+  })
 }
 
 /** „4 KONKURENCJE”, „12 KONKURENCJI”: forms = [one, few (2–4), many]. */

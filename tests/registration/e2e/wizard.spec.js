@@ -213,6 +213,10 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await expect(page.getByRole('radio', { name: /Rośnie z datą zapisu/ })).toBeDisabled()
   await page.getByRole('button', { name: '+ Konkurencja' }).click()
   await page.getByLabel('Nazwa konkurencji 3').fill('Do usunięcia')
+  // P2-R27: a row that cannot be saved yet keeps the organizer on the step.
+  await page.getByRole('button', { name: 'Dalej: kategorie' }).click()
+  await expect(page).toHaveURL(new RegExp(`/wydarzenia/${eventId}/konkurencje$`))
+  await expect(page.getByTestId('unsaved')).toContainText('Podaj limit miejsc.')
   await page.getByLabel('Limit 3').fill('5')
   await expect.poll(async () => (await competitionsOf(eventId)).map((c) => c.name), { timeout: 15_000 })
     .toEqual(['Bieg 9 km', 'Bieg dzieci', 'Do usunięcia'])
@@ -241,6 +245,15 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await page.getByTestId('add-age-classes').click()
   await expect(page.getByTestId('age-chips').getByText('K16–29')).toBeVisible()
   await expect(page.getByTestId('age-count')).toHaveText('× 1 KONKURENCJA = 10 KLASYFIKACJI')
+  // I1: switching back and forth never sends an id the server deleted.
+  const ageGroupsOf = async () => (await admin().from('age_groups').select('label').in('category_id', ids)).data.map((g) => g.label).sort()
+  await expect.poll(ageGroupsOf, { timeout: 15_000 }).toHaveLength(10)
+  await page.getByRole('button', { name: 'Co 5 lat' }).click()
+  await expect.poll(async () => (await ageGroupsOf()).includes('K16–24'), { timeout: 15_000 }).toBe(true)
+  await page.getByRole('button', { name: 'Co 10 lat' }).click()
+  await expect.poll(async () => (await ageGroupsOf()).join(','), { timeout: 15_000 })
+    .toBe('K16–29,K30–39,K40–49,K50–59,K60+,M16–29,M30–39,M40–49,M50–59,M60+')
+  await expect(page.getByTestId('unsaved')).toHaveCount(0)
   await page.getByRole('button', { name: 'Usuń K60+' }).click()
   await expect(page.getByTestId('age-count')).toHaveText('× 1 KONKURENCJA = 9 KLASYFIKACJI')
   await page.getByTestId('add-kids-groups').click()
@@ -449,4 +462,40 @@ test('W-52 after publish Konkurencje sends every competition, hidden ones includ
   await expect.poll(staged, { timeout: 15_000 }).toEqual([
     [categoryIds[0], '10:15', false], [categoryIds[1], '10:05', false], [categoryIds[2], '10:10', false],
   ])
+})
+
+test('W-55 after publish a staged change is what the step shows, after leaving it and after a reload, and a further edit keeps it', async ({ actors }) => {
+  test.setTimeout(90_000)
+  const owner = await sessionFor(ACTOR_EMAILS.owner)
+  const { eventId, categoryIds } = await createPublishedFreeEvent(owner)
+  const staged = async () => {
+    const { data } = await admin().from('registration_pending_changes').select('payload').eq('event_id', eventId).maybeSingle()
+    return {
+      items: (data?.payload?.competitions?.items ?? []).map((i) => [i.category_id, i.start_time, i.capacity]),
+      place: data?.payload?.basics?.place_details ?? null,
+    }
+  }
+  const page = await actors.owner.newPage()
+  await offline(page)
+  await page.goto(`/klub/zatyrani-test/wydarzenia/${eventId}/konkurencje`)
+  await page.getByLabel('Start 1').fill('10:15')
+  await expect.poll(async () => (await staged()).items, { timeout: 15_000 }).toEqual([[categoryIds[0], '10:15', 50]])
+
+  // Leave the step and come back: the step remounts from the staged value.
+  const steps = page.getByRole('navigation', { name: 'Kroki' })
+  await steps.getByRole('link', { name: /Podstawy/ }).click()
+  await page.getByLabel('Szczegóły miejsca').fill('Hala sportowa')
+  await expect.poll(async () => (await staged()).place, { timeout: 15_000 }).toBe('Hala sportowa')
+  await steps.getByRole('link', { name: /Konkurencje/ }).click()
+  await expect(page.getByLabel('Start 1')).toHaveValue('10:15')
+
+  await page.reload()
+  await expect(page.getByLabel('Start 1')).toHaveValue('10:15')
+  await page.getByLabel('Limit 1').fill('60')
+  await expect.poll(staged, { timeout: 15_000 }).toEqual({ items: [[categoryIds[0], '10:15', 60]], place: 'Hala sportowa' })
+  await steps.getByRole('link', { name: /Podstawy/ }).click()
+  await expect(page.getByLabel('Szczegóły miejsca')).toHaveValue('Hala sportowa')
+  // Nothing was published: the live competition still starts at 10:00.
+  const { data: live } = await admin().from('competitions').select('start_time').eq('category_id', categoryIds[0]).single()
+  expect(live.start_time).toBe('10:00:00')
 })

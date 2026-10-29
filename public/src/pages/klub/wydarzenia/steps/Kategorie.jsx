@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { validateSection } from '@registration/sections.js'
 import {
-  ageGroupsValue, ageModeOf, ageTemplate, ageTemplateFrom, countLabel, kidsGroupsValue, kidsModeOf, kidsRow, kidsRowsFor,
+  ageIdsFrom, ageModeOf, ageTemplate, ageTemplateFrom, categoriesSection, countLabel, kidsModeOf, kidsRow, kidsRowsFor,
+  reconcileRowIds, settleKids,
 } from '../../../../lib/categoryRows.js'
 import { btnGhost } from '../../settingsUi.js'
 import {
@@ -45,7 +46,7 @@ function ConfirmRemove({ text, onCancel, onConfirm }) {
   )
 }
 
-export default function Kategorie({ event, queue, saveState, readOnly, onSaved }) {
+export default function Kategorie({ event, queue, saveState, readOnly, onSaved, reportInvalid }) {
   const settings = event.settings
   const comps = (event.competitions ?? []).map((c) => ({
     categoryId: c.categoryId, name: c.name, isKids: !!c.isKids, hidden: !!c.hiddenAt, minAge: c.minAge, maxAge: c.maxAge,
@@ -54,8 +55,11 @@ export default function Kategorie({ event, queue, saveState, readOnly, onSaved }
   const kidsComps = comps.filter((c) => c.isKids && !c.hidden)
 
   const [reckoning, setReckoning] = useState(settings.ageReckoning ?? 'race_day')
-  const [template, setTemplate] = useState(() => ageTemplateFrom(event.ageGroups))
-  const [ageMode, setAgeMode] = useState(() => ageModeOf(ageTemplateFrom(event.ageGroups)))
+  // The template is read from the visible adult competitions; a hidden one keeps its own groups.
+  const adultIds = new Set(adults.map((c) => c.categoryId))
+  const visibleGroups = (event.ageGroups ?? []).filter((g) => adultIds.has(g.categoryId))
+  const [template, setTemplate] = useState(() => ageTemplateFrom(visibleGroups))
+  const [ageMode, setAgeMode] = useState(() => ageModeOf(ageTemplateFrom(visibleGroups)))
   const [kids, setKids] = useState(() => Object.fromEntries(kidsComps.map((c) => [
     c.categoryId, (event.kidsGroups ?? []).filter((g) => g.categoryId === c.categoryId).map(kidsRow),
   ])))
@@ -63,44 +67,58 @@ export default function Kategorie({ event, queue, saveState, readOnly, onSaved }
   const [confirm, setConfirm] = useState(null) // 'age' | categoryId
   const [localError, setLocalError] = useState(null)
   const latest = useRef({ reckoning, template, kids })
-  const idOf = useRef(new Map((event.ageGroups ?? []).map((g) => [groupKey(g.categoryId, g.gender, g.label), g.id])))
+  const idOf = useRef(new Map((event.ageGroups ?? []).filter((g) => g.id).map((g) => [groupKey(g.categoryId, g.gender, g.label), g.id])))
   const sent = useRef({ age: [], kids: [] })
   const serverErrors = sectionErrors(saveState, 'categories')
 
+  // The groups of hidden competitions, as stored: they go along unchanged.
+  const stored = useRef({ ageGroups: event.ageGroups ?? [], kidsGroups: event.kidsGroups ?? [] })
+
+  // Ids come from the latest answer only (I1): a group it left out is gone.
   useEffect(() => onSaved('categories', (data) => {
-    ;(data?.ageGroupIds ?? []).forEach((id, i) => { if (sent.current.age[i]) idOf.current.set(sent.current.age[i], id) })
-    const ids = new Map(sent.current.kids.map((key, i) => [key, data?.kidsGroupIds?.[i]]))
+    if (Array.isArray(data?.ageGroupIds)) idOf.current = ageIdsFrom(sent.current.age, data.ageGroupIds)
+    if (!Array.isArray(data?.kidsGroupIds)) return
     const next = Object.fromEntries(Object.entries(latest.current.kids).map(([cid, rows]) => [
-      cid, rows.map((r) => (!r.id && ids.get(r.key) ? { ...r, id: ids.get(r.key) } : r)),
+      cid, reconcileRowIds(rows, sent.current.kids, data.kidsGroupIds),
     ]))
     latest.current = { ...latest.current, kids: next }
     setKids(next)
   }), [onSaved])
 
-  // Read when the save starts: ids from the previous save go along.
+  const build = () => categoriesSection({
+    reckoning: latest.current.reckoning, template: latest.current.template, competitions: comps,
+    kids: latest.current.kids, stored: stored.current, idOf: idOf.current,
+  })
+
+  // Read when the save starts; only then is what was sent recorded (I2).
   function sectionNow() {
-    const { reckoning: r, template: t, kids: k } = latest.current
-    const ageGroups = ageGroupsValue(t, adults, idOf.current)
-    const kidsGroups = []
-    const kidsKeys = []
-    for (const c of kidsComps) {
-      const { items, sentKeys } = kidsGroupsValue(c.categoryId, k[c.categoryId] ?? [])
-      kidsGroups.push(...items)
-      kidsKeys.push(...sentKeys)
-    }
-    sent.current = { age: ageGroups.map((g) => groupKey(g.categoryId, g.gender, g.label)), kids: kidsKeys }
-    return { ageReckoning: r, ageGroups, kidsGroups }
+    const s = build()
+    sent.current = { age: s.ageKeys, kids: s.kidsKeys }
+    return s.value
   }
 
+  // Kids rows typed into but not whole would not be saved: say so (P2-R27).
+  const kidsIncomplete = (k) => kidsComps.some((c) => (k[c.categoryId] ?? []).some((r) =>
+    (r.label.trim() || r.birthYearFrom != null || r.birthYearTo != null || r.distanceLabel.trim())
+    && !(r.label.trim() && Number.isInteger(r.birthYearFrom) && Number.isInteger(r.birthYearTo) && r.birthYearTo >= r.birthYearFrom)))
+
   function apply(next) {
+    if (next.kids) next = { ...next, kids: Object.fromEntries(Object.entries(next.kids).map(([cid, rows]) => [cid, settleKids(rows)])) }
     latest.current = { ...latest.current, ...next }
     if ('reckoning' in next) setReckoning(next.reckoning)
     if ('template' in next) setTemplate(next.template)
     if ('kids' in next) setKids(next.kids)
-    const check = validateSection('categories', sectionNow(), { state: settings.state })
-    setLocalError(check.ok ? null : Object.values(check.errors).join(' '))
+    const check = validateSection('categories', build().value, { state: settings.state })
+    const message = !check.ok ? Object.values(check.errors).join(' ')
+      : kidsIncomplete(latest.current.kids) ? 'Podaj nazwę grupy i oba roczniki.' : null
+    setLocalError(message)
     if (check.ok) queue('categories', sectionNow)
   }
+
+  useEffect(() => {
+    reportInvalid?.('categories', localError ? { groups: localError } : null)
+  }, [localError, reportInvalid])
+  useEffect(() => () => reportInvalid?.('categories', null), [reportInvalid])
 
   // ---- age classes
   function chooseAgeMode(mode) {

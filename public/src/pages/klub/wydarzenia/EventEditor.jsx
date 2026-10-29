@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import useSeo from '../../../hooks/useSeo.js'
 import useRegistrationEvent from '../../../hooks/useRegistrationEvent.js'
 import { STEP_KEYS, wizardSteps } from '../../../lib/wizardSteps.js'
+import { stagedEvent } from '../../../lib/stagedEvent.js'
 import { btnGhost, btnPrimary } from '../settingsUi.js'
 import { useKlub } from '../context.js'
 import Podstawy from './steps/Podstawy.jsx'
@@ -96,8 +97,9 @@ function NotFoundBlock({ back }) {
 function Editor({ eventId, stepParam }) {
   const { club } = useKlub()
   const navigate = useNavigate()
-  const { ready, event, notFound, error, saveState, queue, flush, reload, onSaved } = useRegistrationEvent(eventId)
-  const [blocked, setBlocked] = useState(false) // a step change refused because something did not save
+  const { ready, event, notFound, error, saveState, queue, flush, reload, onSaved, reportInvalid, invalidInput } = useRegistrationEvent(eventId)
+  // Why a step change was refused: { section, fields } (input that does not validate) or { flush: true }.
+  const [blocked, setBlocked] = useState(null)
   const back = `/klub/${club.slug}/wydarzenia`
   const base = `${back}/${eventId}`
 
@@ -135,12 +137,18 @@ function Editor({ eventId, stepParam }) {
   const StepBody = STEP_COMPONENTS[current]
 
   async function go(key) {
-    // Leaving a step with an unsaved value would hide its error: stay and say what failed.
-    if (!(await flush())) {
-      setBlocked(true)
+    // Input that does not validate yet would be lost: stay and say what (P2-R27).
+    const bad = invalidInput()
+    if (bad) {
+      setBlocked({ section: bad.section, fields: bad.fields })
       return
     }
-    setBlocked(false)
+    // Leaving a step with an unsaved value would hide its error: stay and say what failed.
+    if (!(await flush())) {
+      setBlocked({ flush: true })
+      return
+    }
+    setBlocked(null)
     navigate(`${base}/${key}`)
     window.scrollTo(0, 0)
   }
@@ -155,6 +163,11 @@ function Editor({ eventId, stepParam }) {
         </div>
         <SaveStatus settings={event.settings} saveState={saveState} />
       </div>
+      {blocked?.fields && !saveState.error && (
+        <p role="alert" data-testid="unsaved" className="border border-apex-red px-3.5 py-2.5 text-apex-red font-sans text-sm">
+          {unsavedMessage(blocked)}
+        </p>
+      )}
       {saveState.error && (saveState.error.section !== SECTIONS_OF[current] || !saveState.error.fields || blocked) && (
         <p role="alert" data-testid="unsaved" className="border border-apex-red px-3.5 py-2.5 text-apex-red font-sans text-sm">
           {unsavedMessage(saveState.error)}
@@ -166,8 +179,8 @@ function Editor({ eventId, stepParam }) {
       <h1 className="font-display font-extrabold text-3xl md:text-4xl uppercase leading-none text-apex-text-bright">{steps[index].label}</h1>
 
       {StepBody && (
-        <StepBody key={current} event={event} queue={queue} saveState={saveState} readOnly={readOnly} reload={reload}
-          onSaved={onSaved} base={base} previewHref={`${base}/podglad`} />
+        <StepBody key={current} event={stagedEvent(event)} queue={queue} saveState={saveState} readOnly={readOnly} reload={reload}
+          onSaved={onSaved} reportInvalid={reportInvalid} base={base} previewHref={`${base}/podglad`} />
       )}
 
       <div className="flex flex-wrap gap-3 pt-2">

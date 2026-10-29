@@ -10,9 +10,10 @@
 // createAutosave({ save, delayMs, retryDelaysMs }) → { queue, flush, hasPending, subscribe, dispose, state }
 //   state: { savingSections: string[], savedAt: Date|null, error: { section, message, fields }|null }
 //
-// dispose() ends it: call it right after the final flush() (on unmount). A
-// save still in flight then finishes without being re-queued or retried,
-// pending retries are cancelled, and queue()/flush() do nothing afterwards.
+// dispose() ends it (on unmount): it stops new edits and timers, then saves
+// everything still queued, a value waiting behind a save in flight included,
+// once and without retries; it resolves when that is done. Nothing is
+// scheduled afterwards.
 
 const RETRY_DELAYS_MS = [2000, 5000, 15000]
 
@@ -25,7 +26,7 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
   const errors = new Map() // section → { section, message, fields }
   const attempts = new Map() // section → automatic retries used since the last success
   const listeners = new Set()
-  let disposed = false
+  let closing = false // dispose() started: no new edits, timers or retries
   let savedAt = null
   let state = snapshot()
 
@@ -56,7 +57,7 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
         attempts.delete(section)
         savedAt = new Date()
       } catch (err) {
-        if (disposed) return
+        if (closing) return // the final attempt failed: nothing retries it
         if (!pending.has(section)) pending.set(section, queued)
         errors.set(section, { section, message: err?.message ?? 'Nie udało się zapisać.', fields: err?.fields ?? null })
         const used = attempts.get(section) ?? 0
@@ -74,7 +75,7 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
   }
 
   function schedule(section, ms) {
-    if (disposed) return
+    if (closing) return
     clearTimeout(timers.get(section))
     timers.set(section, setTimeout(() => {
       timers.delete(section)
@@ -83,7 +84,7 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
   }
 
   function queue(section, value) {
-    if (disposed) return
+    if (closing) return
     pending.set(section, value)
     attempts.delete(section)
     schedule(section, delayMs)
@@ -106,12 +107,15 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
-    dispose() {
-      disposed = true
+    async dispose() {
+      if (closing) return
+      closing = true
       for (const id of timers.values()) clearTimeout(id)
       timers.clear()
-      pending.clear()
       attempts.clear()
+      const sections = new Set([...pending.keys(), ...running.keys()])
+      await Promise.all([...sections].map(run))
+      pending.clear()
       errors.clear()
       listeners.clear()
     },
