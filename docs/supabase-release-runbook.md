@@ -85,32 +85,68 @@ Add under **Settings → Secrets and variables → Actions → Repository secret
 | `VITE_SUPABASE_URL` | Project URL | smoke tests |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service-role key | smoke tests |
 
-## Registration jobs: Vault secrets and the function secret (operator, once)
+## Registration jobs: secrets and the check (operator, once)
 
-The `registration-jobs` pg_cron job (`20261030125000_registration_jobs_cron.sql`) calls the
-`registration-jobs` edge function every 15 minutes through pg_net. It reads the URL and the
-shared secret from Vault, and the function compares that secret with its own
-`REGISTRATION_JOBS_SECRET`. Until both are set, the cron run fails (visible in
-`cron.job_run_details`) and nothing is sent. Set them once, with one random value used twice:
+The `registration-jobs` pg_cron job (`20261030125000_registration_jobs_cron.sql`) POSTs to the
+`registration-jobs` edge function every 15 minutes through pg_net. It sends payment reminders,
+„Zgłoszenie wygasło” notices, lost confirmations, refund retries, and the operator alert digest.
+The other three jobs (`registration-expire-orders`, `registration-release-orphan-orders`,
+`registration-purge-expired`) are SQL only and need nothing below.
+
+**1. Function secrets.** Without every one of these, the function answers 503 and none of the
+work above happens:
+
+| Secret | Value |
+|---|---|
+| `DPAY_SERVICE`, `DPAY_SECRET` | the dpay service name and secret |
+| `DPAY_API_BASE`, `DPAY_PANEL_BASE` | the dpay API and panel base URLs |
+| `DPAY_IPN_URL` | `https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/dpay-ipn` |
+| `PUBLIC_SITE_URL` | `https://www.leszy.run` |
+| `PIPELINE_ALERT_EMAIL` | the operator address for alerts |
+| `REGISTRATION_JOBS_SECRET` | a random value of 32+ characters; the same value goes into Vault below |
+
+```bash
+supabase secrets set REGISTRATION_JOBS_SECRET='<random>' PIPELINE_ALERT_EMAIL='<operator>' \
+  PUBLIC_SITE_URL='https://www.leszy.run' --project-ref kojoxazlnxncrpxmnxiq
+```
+
+**2. Vault.** The names must be exactly these, because the cron command reads them by name.
+`vault.create_secret` refuses a name that already exists, so run this once, and use step 4 to
+change a value later.
 
 ```sql
 -- Supabase SQL editor (production)
 SELECT vault.create_secret('https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/registration-jobs', 'registration_jobs_url');
-SELECT vault.create_secret('<random 32+ characters>', 'registration_jobs_secret');
+SELECT vault.create_secret('<the REGISTRATION_JOBS_SECRET value>', 'registration_jobs_secret');
 ```
 
-```bash
-supabase secrets set REGISTRATION_JOBS_SECRET='<the same value>' --project-ref kojoxazlnxncrpxmnxiq
-```
-
-Check after the next quarter hour:
+**3. Check the HTTP outcome, not only the cron run.** `cron.job_run_details` says `succeeded`
+even when the function answered 404 (wrong secret) or 503 (a function secret missing), because
+`net.http_post` only queues the request. After the next quarter hour, read the answer pg_net
+stored. pg_net keeps responses about 6 hours, and other callers share the table, so filter on the
+body:
 
 ```sql
-SELECT jobname, schedule FROM cron.job WHERE jobname LIKE 'registration-%';
-SELECT status_code, left(content, 200) FROM net._http_response ORDER BY created DESC LIMIT 3;
+SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'registration-%';  -- 4 rows, active
+SELECT created, status_code, left(content, 300)
+  FROM net._http_response
+ WHERE content LIKE '{"data":{"checked"%' OR status_code <> 200
+ ORDER BY created DESC LIMIT 5;
 ```
 
-To rotate, change both values (`vault.update_secret`, `supabase secrets set`) together.
+Expect `status_code = 200` with a body starting `{"data":{"checked"`. A 404 means the two
+secret values differ, and a 503 means a function secret is missing (the function logs which one).
+
+**4. Rotation.** Set the function secret first, then Vault. Runs between the two steps answer
+404 and do nothing, and the next run after both are set catches up.
+
+```bash
+supabase secrets set REGISTRATION_JOBS_SECRET='<new>' --project-ref kojoxazlnxncrpxmnxiq
+```
+
+```sql
+SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name = 'registration_jobs_secret'), '<new>');
+```
 
 ## Day-to-day: making a schema change
 

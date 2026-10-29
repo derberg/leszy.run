@@ -59,11 +59,11 @@ const ago = (ms) => new Date(Date.now() - ms).toISOString()
 const paidEvent = (capacity = 50, paymentWindowHours = 168) =>
   createPublishedPaidEvent(owner, { prices: { 'Bieg 9 km': 6000 }, competitions: BIEG(capacity), paymentWindowHours })
 
-async function jobs({ secret = JOBS_SECRET, method = 'POST', headers } = {}) {
+async function jobs({ secret = JOBS_SECRET, method = 'POST', headers, body: payload = {} } = {}) {
   const res = await fetch(`${localEnv().functionsUrl}/registration-jobs`, {
     method,
     headers: headers ?? { 'content-type': 'application/json', ...(secret === null ? {} : { 'x-jobs-secret': secret }) },
-    body: method === 'POST' ? '{}' : undefined,
+    body: method === 'POST' ? JSON.stringify(payload) : undefined,
   })
   const text = await res.text()
   let body
@@ -168,11 +168,11 @@ test('P-36 cron.job holds the expiry, orphan release, jobs call and purge with t
   try {
     const [has] = await sql`select to_regclass('cron.job') as t`
     if (!has.t) return t.skip('no cron.job on this stack')
-    const jobsRows = await sql`select jobname, schedule, command from cron.job where jobname like 'registration-%' order by jobname`
+    const jobsRows = await sql`select jobname, schedule, command, active from cron.job where jobname like 'registration-%' order by jobname`
     const byName = Object.fromEntries(jobsRows.map((j) => [j.jobname, j]))
     assert.equal(byName['registration-expire-orders']?.schedule, '*/5 * * * *')
     assert.match(byName['registration-expire-orders'].command, /public\.expire_orders\(\)/)
-    assert.equal(byName['registration-release-orphan-orders']?.schedule, '*/5 * * * *')
+    assert.equal(byName['registration-release-orphan-orders']?.schedule, '2-59/5 * * * *')
     assert.match(byName['registration-release-orphan-orders'].command, /public\.release_orphan_orders\(\)/)
     assert.equal(byName['registration-jobs']?.schedule, '*/15 * * * *')
     assert.match(byName['registration-jobs'].command, /net\.http_post/)
@@ -183,6 +183,9 @@ test('P-36 cron.job holds the expiry, orphan release, jobs call and purge with t
     assert.match(byName['registration-purge-expired'].command, /public\.purge_expired_registrations\(\)/)
     // cron.schedule by name replaces: each job exactly once.
     assert.equal(jobsRows.filter((j) => j.jobname === 'registration-jobs').length, 1)
+    // seed.sql deactivates them on a test stack (production keeps them active).
+    const flags = await sql`select jobname, active from cron.job where jobname like 'registration-%'`
+    assert.ok(flags.every((j) => j.active === false), JSON.stringify(flags))
   } finally {
     await sql.end({ timeout: 1 })
   }
@@ -290,7 +293,9 @@ test('P-37 a 168 h window: no reminder at 83 h, one at 84 h, none on the next ru
 // ---------------------------------------------------------------- P-38 expired notices
 
 test('P-38 an expired order → one „Zgłoszenie wygasło” with a link to register again, even with two concurrent runs', async () => {
-  const { orderId, email, event } = await pendingOrder({ tag: 'expired' })
+  const { orderId, email, event, txn } = await pendingOrder({ tag: 'expired' })
+  await payMock(txn, 'declined') // dpay says 'expired': the proof the notice needs
+  await db().from('payment_attempts').update({ created_at: ago(MIN) }).eq('dpay_transaction_id', txn)
   assert.ok(await expireNow(orderId) >= 1)
   assert.equal((await orderOf(orderId)).status, 'expired')
   await Promise.all([jobsOk(), jobsOk(), jobsOk()])
@@ -365,7 +370,8 @@ test('P-39 a wrong or missing secret, or a GET → 404 and no e-mail', async () 
 test('P-39 an alert from a double payment (P-30) → one operator e-mail naming the order; the next run sends it again to nobody', async () => {
   const { orderId } = await recordedDoubleRefund('alertmail')
   assert.ok((await alertsOf(orderId)).includes('double_payment'))
-  await Promise.all([jobsOk(), jobsOk()])
+  await jobsOk()
+  await jobsOk()
   await jobsOk()
   const digests = (await messagesTo(OPERATOR)).filter((m) => m.text.includes(orderId))
   assert.equal(digests.length, 1)
@@ -418,6 +424,7 @@ test('P-39b the 24th failed retry raises refund_retry_exhausted and nothing retr
   let [refund] = await rows('refunds', { order_id: orderId })
   assert.equal(refund.attempts, 24)
   assert.equal(refund.dpay_status, 'insufficient_balance')
+  assert.equal(refund.next_retry_at, null, 'an exhausted refund no longer looks due (M4)')
   assert.ok((await alertsOf(orderId)).includes('refund_retry_exhausted'))
 
   await dpayMode({ refundInsufficient: false })
@@ -489,7 +496,7 @@ test('P3-R10 the IPN path stamps confirmation_sent_at; a confirmed order with no
 
 // ---------------------------------------------------------------- D3-8 purge
 
-test('D3-8 purge_expired_registrations anonymises registrations of orders expired 30+ days ago; 29 days, confirmed and cancelled untouched; a second run returns 0', async () => {
+test('D3-8 purge_expired_registrations anonymises registrations of orders expired 30+ days ago; 29 days, confirmed and freshly cancelled untouched; a second run returns 0', async () => {
   const event = await paidEvent()
   const old = await orderOk(event)
   const recent = await orderOk(event)
@@ -516,14 +523,15 @@ test('D3-8 purge_expired_registrations anonymises registrations of orders expire
   const [r] = await registrationsOf(old.orderId)
   assert.equal(r.first_name, 'Usunięte zgłoszenie')
   assert.equal(r.last_name, 'Usunięte zgłoszenie')
-  for (const k of ['email', 'phone', 'birth_date', 'city', 'club', 'ice_name', 'ice_phone', 'nationality', 'guardian_name', 'guardian_email']) {
+  for (const k of ['email', 'phone', 'birth_date', 'city', 'club', 'ice_name', 'ice_phone', 'nationality', 'guardian_name', 'guardian_email', 'profile_id']) {
     assert.equal(r[k], null, k)
   }
   assert.equal(r.status, 'expired')
   const acc = await rows('consent_acceptances', { registration_id: r.id })
   assert.ok(acc.length > 0)
   assert.ok(acc.every((a) => a.ip === null && a.user_agent === null))
-  assert.deepEqual(await orderOf(old.orderId), oldOrderBefore, 'the order is untouched')
+  // No money moved (the attempt was never paid): the buyer's address goes too, nothing else (P3-R12).
+  assert.deepEqual(await orderOf(old.orderId), { ...oldOrderBefore, buyer_email: null })
   assert.equal((await rows('payment_attempts', { dpay_transaction_id: txn })).length, 1)
 
   for (const o of [recent, paid, cancelled]) {
@@ -536,6 +544,172 @@ test('D3-8 purge_expired_registrations anonymises registrations of orders expire
   const second = await db().rpc('purge_expired_registrations')
   assert.ifError(second.error)
   assert.equal(second.data, 0)
+})
+
+test('P3-R12 the purge anonymises cancelled unpaid registrations 30 days after cancellation and nulls buyer_email only where no money moved', async () => {
+  const event = await paidEvent()
+  const orphan = await orderOk(event)
+  const fresh = await orderOk(event)
+  const moved = await orderOk(event)
+  await setOrder(orphan.orderId, { created_at: ago(31 * 24 * HOUR) })
+  assert.equal(await (async () => { const r = await db().rpc('release_orphan_orders'); assert.ifError(r.error); return (await orderOf(orphan.orderId)).cancelled_reason })(), 'no_payment_attempt')
+  assert.ifError((await db().rpc('cancel_order', { p_order_id: fresh.orderId, p_reason: 'test' })).error)
+  // An expired order whose late payment was refunded: money moved, the order is an accounting record.
+  const a = await attemptFor(moved.orderId, moved.total)
+  await expireNow(moved.orderId)
+  assert.ifError((await db().from('payment_attempts').update({ status: 'refunded', paid_at: ago(31 * 24 * HOUR) }).eq('id', a.id)).error)
+  await setOrder(orphan.orderId, { cancelled_at: ago(30 * 24 * HOUR + HOUR) })
+  await setOrder(fresh.orderId, { cancelled_at: ago(29 * 24 * HOUR) })
+  await setOrder(moved.orderId, { expires_at: ago(31 * 24 * HOUR) })
+  const freshReg = (await registrationsOf(fresh.orderId))[0]
+  const movedBuyer = (await orderOf(moved.orderId)).buyer_email
+
+  assert.ifError((await db().rpc('purge_expired_registrations')).error)
+
+  const [o] = await registrationsOf(orphan.orderId)
+  assert.equal(o.status, 'cancelled')
+  assert.equal(o.first_name, 'Usunięte zgłoszenie')
+  assert.equal(o.email, null)
+  assert.ok((await rows('consent_acceptances', { registration_id: o.id })).every((x) => x.ip === null && x.user_agent === null))
+  assert.equal((await orderOf(orphan.orderId)).buyer_email, null)
+
+  assert.deepEqual((await registrationsOf(fresh.orderId))[0], freshReg, '29 days after cancellation: untouched')
+  assert.ok((await orderOf(fresh.orderId)).buyer_email)
+
+  assert.equal((await registrationsOf(moved.orderId))[0].first_name, 'Usunięte zgłoszenie')
+  assert.equal((await orderOf(moved.orderId)).buyer_email, movedBuyer, 'money moved: the buyer stays')
+})
+
+// ---------------------------------------------------------------- C1 expire_orders isolation
+
+test('C1 expire_orders: one order whose competition count is broken stays pending with one expire_failed alert; every other due order expires', async () => {
+  const brokenEvent = await paidEvent()
+  const healthyEvent = await paidEvent()
+  const broken = await orderOk(brokenEvent)
+  const healthy = await orderOk(healthyEvent)
+  await setOrder(broken.orderId, { expires_at: ago(MIN) })
+  await setOrder(healthy.orderId, { expires_at: ago(MIN) })
+  assert.ifError((await db().from('competitions').update({ taken: 0 }).eq('category_id', brokenEvent.categoryIds[0])).error)
+  try {
+    for (let i = 0; i < 2; i++) {
+      const r = await db().rpc('expire_orders')
+      assert.ifError(r.error)
+    }
+    assert.equal((await orderOf(healthy.orderId)).status, 'expired')
+    assert.equal((await competitionOf(healthyEvent.categoryIds[0])).taken, 0)
+    assert.deepEqual((await registrationsOf(healthy.orderId)).map((x) => x.status), ['expired'])
+    assert.equal((await orderOf(broken.orderId)).status, 'pending')
+    assert.deepEqual(await alertsOf(broken.orderId), ['expire_failed'])
+  } finally {
+    await db().from('competitions').update({ taken: 1 }).eq('category_id', brokenEvent.categoryIds[0])
+  }
+  assert.ifError((await db().rpc('expire_orders')).error)
+  assert.equal((await orderOf(broken.orderId)).status, 'expired', 'expires once the count is repaired')
+})
+
+// ---------------------------------------------------------------- I1 stalled refunds
+
+test('I1 a refund claimed 15+ min ago with no dpay answer → one refund_stalled alert, no dpay call; a 406 whose retry claim crashed → one alert; a real 409 → none', async () => {
+  const crashed = await recordedDoubleRefund('stall')
+  const retry = await recordedDoubleRefund('stallretry')
+  const answered = await recordedDoubleRefund('stall409')
+  const set = (id, v) => db().from('refunds').update(v).eq('id', id)
+  assert.ifError((await set(crashed.refund.id, { created_at: ago(20 * MIN), requested_at: ago(16 * MIN), responded_at: null })).error)
+  assert.ifError((await set(retry.refund.id, {
+    created_at: ago(3 * HOUR), dpay_status: 'insufficient_balance', next_retry_at: null, attempts: 3,
+    requested_at: ago(16 * MIN), responded_at: ago(HOUR),
+  })).error)
+  assert.ifError((await set(answered.refund.id, { created_at: ago(20 * MIN), requested_at: ago(16 * MIN), responded_at: ago(16 * MIN - 2000) })).error)
+
+  for (let i = 0; i < 3; i++) await jobsOk()
+  assert.equal((await alertsOf(crashed.orderId)).filter((k) => k === 'refund_stalled').length, 1)
+  assert.equal((await alertsOf(retry.orderId)).filter((k) => k === 'refund_stalled').length, 1)
+  assert.equal((await alertsOf(answered.orderId)).filter((k) => k.startsWith('refund_stalled') || k === 'refund_never_sent').length, 0)
+  assert.equal((await dpayRefunds()).length, 0, 'a stall is alerted, never re-sent')
+  assert.equal((await rows('refunds', { order_id: crashed.orderId }))[0].dpay_status, 'pending')
+})
+
+// ---------------------------------------------------------------- I2 notices need proof
+
+test('I2 an expired order checked by order-status 2 min ago and paid at dpay with the IPN lost gets no „Zgłoszenie wygasło”; the next check confirms it late', async () => {
+  const { orderId, txn, email } = await pendingOrder({ tag: 'recent' })
+  await dpayMode({ dropIpn: true })
+  await payMock(txn, 'paid')
+  await db().from('payment_attempts').update({ created_at: ago(MIN) }).eq('dpay_transaction_id', txn)
+  await expireNow(orderId)
+  await setOrder(orderId, { last_status_check_at: ago(2 * MIN) })
+  await jobsOk()
+  let o = await orderOf(orderId)
+  assert.equal(o.status, 'expired')
+  assert.equal(o.expired_notified_at, null)
+  assert.equal(o.dpay_checked_at, null)
+
+  await setOrder(orderId, { last_status_check_at: ago(11 * MIN) })
+  for (let i = 0; i < 3; i++) await jobsOk()
+  o = await orderOf(orderId)
+  assert.equal(o.status, 'paid')
+  await waitForMail(email)
+  await sleep(300)
+  assert.deepEqual(subjects(await messagesTo(email)), ['Opłacone'])
+})
+
+test('I2 dpay answering processing → no notice and no proof; once dpay says expired, one notice', async () => {
+  const { orderId, txn, email } = await pendingOrder({ tag: 'processing' })
+  await db().from('payment_attempts').update({ created_at: ago(MIN) }).eq('dpay_transaction_id', txn)
+  await expireNow(orderId)
+  await dpayMode({ detailsStatus: 'processing' })
+  await jobsOk()
+  let o = await orderOf(orderId)
+  assert.equal(o.expired_notified_at, null)
+  assert.equal(o.dpay_checked_at, null)
+  await sleep(300)
+  assert.deepEqual(await messagesTo(email), [])
+
+  await dpayMode({ detailsStatus: null })
+  await payMock(txn, 'declined')
+  await setOrder(orderId, { last_status_check_at: ago(11 * MIN) })
+  await jobsOk()
+  o = await orderOf(orderId)
+  assert.ok(o.dpay_checked_at)
+  assert.ok(o.expired_notified_at)
+  await waitForMail(email)
+  assert.deepEqual(subjects(await messagesTo(email)), ['Zgłoszenie wygasło'])
+})
+
+// ---------------------------------------------------------------- I3 time budget
+
+test('I3 a hanging dpay: the run answers inside its budget, the operator digest and reminders still go out, unchecked orders get no notice', async () => {
+  await dpayMode({ detailsHang: true })
+  const event = await paidEvent()
+  const waiting = []
+  for (let i = 0; i < 12; i++) {
+    const o = await orderOk(event)
+    const { txn } = await attemptFor(o.orderId, o.total)
+    await db().from('payment_attempts').update({ created_at: ago(MIN) }).eq('dpay_transaction_id', txn)
+    await expireNow(o.orderId)
+    const { data: reg } = await db().from('registrations').select('email').eq('order_id', o.orderId).single()
+    waiting.push({ orderId: o.orderId, email: reg.email })
+  }
+  const remind = await orderOk(event)
+  const created = Date.now() - 84 * HOUR - MIN
+  await setOrder(remind.orderId, { created_at: new Date(created).toISOString(), expires_at: new Date(created + 168 * HOUR).toISOString() })
+  const { data: remindReg } = await db().from('registrations').select('email').eq('order_id', remind.orderId).single()
+  assert.ifError((await db().from('operator_alerts').insert({ kind: 'budget_probe', order_id: remind.orderId, payload: { probe: true } })).error)
+
+  const t0 = Date.now()
+  const r = await jobs({ body: { budgetMs: 30_000 } })
+  const took = Date.now() - t0
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.ok(took < 40_000, `answered in ${took} ms`)
+  assert.ok(r.body.data.deferred.includes('dpay_check'), JSON.stringify(r.body.data))
+
+  await waitForMail(remindReg.email)
+  assert.deepEqual(subjects(await messagesTo(remindReg.email)), ['Zgłoszenie czeka na wpłatę'])
+  assert.ok((await messagesTo(OPERATOR)).some((m) => m.text.includes('budget_probe') && m.text.includes(remind.orderId)))
+  for (const w of waiting) {
+    assert.equal((await orderOf(w.orderId)).expired_notified_at, null)
+    assert.deepEqual(await messagesTo(w.email), [])
+  }
 })
 
 // ---------------------------------------------------------------- grants
@@ -553,7 +727,7 @@ test('P-36 anon and authenticated cannot execute the new job functions', async (
   })
   const calls = [
     ['release_orphan_orders', {}], ['purge_expired_registrations', {}], ['claim_payment_reminders', {}],
-    ['claim_expired_notices', {}], ['claim_confirmation_resends', {}], ['claim_operator_alerts', {}],
+    ['claim_expired_notices', {}], ['claim_confirmation_resends', {}], ['stalled_refunds', {}],
     ['claim_refund_retries', {}],
   ]
   for (const client of [anon, authed]) {

@@ -23,7 +23,7 @@ export const dpayReset = () => call('POST', 'reset')
  * Merges modes: registerFails, registerErrorBody (HTTP 200 + error:true), ipnDelayMs, dropIpn,
  * corruptSignature, duplicateIpn (true: twice in a row; n: n copies at once), ipnAmountOverride, ipnWithoutEmail, detailsStatus,
  * detailsBodyOverride (the whole details answer), refundFails (500), refundInsufficient (406), refundPending (409), refundRejected (400),
- * refundBodyOverride (HTTP 200 with that body, nothing refunded), refundHang.
+ * refundBodyOverride (HTTP 200 with that body, nothing refunded), refundHang, detailsHang (details never answers).
  */
 export const dpayMode = (modes) => call('POST', 'mode', modes)
 

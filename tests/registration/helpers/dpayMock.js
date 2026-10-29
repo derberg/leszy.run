@@ -67,6 +67,7 @@ const DEFAULT_MODE = {
   refundRejected: false,
   refundBodyOverride: null,
   refundHang: false,
+  detailsHang: false,
 }
 
 function listening(port) {
@@ -282,7 +283,14 @@ export async function startDpayMock({ port = DPAY_MOCK_PORT, publicUrl = `http:/
         if (!json) return send(400, { status: 'failed', message: 'Invalid JSON', errors: {} })
         return send(...register(json))
       }
-      if (req.method === 'POST' && path === '/api/v1/pbl/details') return send(...details(json))
+      if (req.method === 'POST' && path === '/api/v1/pbl/details') {
+        if (mode.detailsHang) {
+          hanging.add(res)
+          req.on('close', () => hanging.delete(res))
+          return
+        }
+        return send(...details(json))
+      }
       if (req.method === 'POST' && path === '/api/v1/pbl/refund') {
         if (mode.refundHang) {
           hanging.add(res)

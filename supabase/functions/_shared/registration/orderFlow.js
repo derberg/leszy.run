@@ -313,21 +313,30 @@ export async function executeRefund(admin, cfg, { orderId, txn, refundId, messag
 // dpay statuses meaning the money arrived (the official SDK's isPaid reads both).
 const DPAY_PAID = new Set(['paid', 'captured'])
 
+// A dpay 'created' transaction this old can no longer be paid (PBL lives at most 15 minutes,
+// BLIK about 2): it counts as a definitive "not paid".
+const DEAD_CREATED_MS = 30 * 60_000
+
 /**
  * Asks dpay about an order's unpaid attempts and confirms a paid one through confirm_order,
  * exactly as an IPN would (source 'poll'; confirm_order is idempotent per attempt), then
  * settleConfirmOutcome. Fail closed: an unrecognised status or amount never confirms.
- * `attempts`: [{ id, dpay_transaction_id }]. → { failed: number of dpay or RPC failures }.
- * Never throws.
+ * `attempts`: [{ id, dpay_transaction_id, created_at }].
+ * → { failed: dpay or RPC failures, settled: true only when EVERY attempt got a definitive
+ *     non-paid answer ('expired', or 'created' older than DEAD_CREATED_MS) }. 'processing', a
+ *     paid status, an unknown status or a failure leave settled false (Task 7 review I2: the
+ *     „Zgłoszenie wygasło” notice needs that proof). Never throws.
  */
 export async function checkAttemptsAtDpay(admin, cfg, orderId, attempts) {
   let failed = 0
+  let settled = attempts.length > 0
   for (const a of attempts) {
     let details
     try {
       details = await transactionDetails(cfg, a.dpay_transaction_id)
     } catch (err) {
       failed++
+      settled = false
       await logPaymentEvent(admin, {
         kind: 'status_check', orderId, attemptId: a.id,
         payload: { txn: a.dpay_transaction_id, ok: false, httpStatus: err?.httpStatus ?? null, message: err?.message ?? null, source: 'job' },
@@ -338,6 +347,9 @@ export async function checkAttemptsAtDpay(admin, cfg, orderId, attempts) {
       kind: 'status_check', orderId, attemptId: a.id,
       payload: { txn: a.dpay_transaction_id, status: details.status, grosze: details.grosze, raw: details.raw, source: 'job' },
     })
+    const age = Date.now() - Date.parse(a.created_at ?? 0)
+    const dead = details.status === 'expired' || (details.status === 'created' && age >= DEAD_CREATED_MS)
+    if (!dead) settled = false
     if (!DPAY_PAID.has(details.status) || !Number.isSafeInteger(details.grosze)) continue
     const { data: outcome, error } = await admin.rpc('confirm_order', {
       p_order_id: orderId, p_txn: a.dpay_transaction_id, p_grosze: details.grosze, p_source: 'poll',
@@ -349,5 +361,5 @@ export async function checkAttemptsAtDpay(admin, cfg, orderId, attempts) {
     }
     await settleConfirmOutcome(admin, cfg, { ...outcome, orderId, txn: a.dpay_transaction_id })
   }
-  return { failed }
+  return { failed, settled }
 }
