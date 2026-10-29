@@ -520,6 +520,39 @@ async function pendingPayload(eventId) {
   return data?.payload ?? null
 }
 
+test('W-63 after publish a consent somebody accepted is read-only with no delete; one nobody accepted stays editable', async ({ actors }) => {
+  test.setTimeout(90_000)
+  const owner = await sessionFor(ACTOR_EMAILS.owner)
+  const { eventId, categoryIds } = await createPublishedFreeEvent(owner)
+  const insert = async (text, sortOrder) => {
+    const { error } = await admin().from('event_consents').insert({ event_id: eventId, kind: 'custom', text, sort_order: sortOrder })
+    if (error) throw error
+  }
+  await insert('Startuję na własną odpowiedzialność.', 2)
+  await insert('Zgadzam się na pomiar czasu chipem.', 3)
+  await registerRunner(eventId, categoryIds[0], `w63-${crypto.randomBytes(4).toString('hex')}@test.local`)
+  await insert('Zgoda dodana po zapisie.', 4)
+
+  const page = await actors.owner.newPage()
+  await offline(page)
+  await page.goto(`/klub/zatyrani-test/wydarzenia/${eventId}/formularz`)
+  const preset = page.getByRole('group', { name: 'Start na własną odpowiedzialność' })
+  await expect(preset.getByRole('button', { name: 'Dodaj' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(preset.getByRole('button', { name: 'Nie' })).toBeDisabled()
+  const rows = page.getByTestId('custom-consent')
+  await expect(rows).toHaveCount(2)
+  await expect(rows.nth(0).getByTestId('consent-locked-text')).toHaveText('Zgadzam się na pomiar czasu chipem.')
+  await expect(rows.nth(0).getByRole('textbox')).toHaveCount(0)
+  await expect(rows.nth(0).getByRole('button', { name: /Usuń zgodę/ })).toHaveCount(0)
+  await expect(rows.nth(0).getByRole('img', { name: /zaakceptowali/i })).toBeVisible()
+  await expect(rows.nth(1).getByRole('textbox')).toHaveValue('Zgoda dodana po zapisie.')
+
+  // Deleting the one nobody accepted stages a list that still holds the accepted two.
+  await rows.nth(1).getByRole('button', { name: /Usuń zgodę/ }).click()
+  await expect.poll(async () => ((await pendingPayload(eventId))?.form?.consents ?? []).map((k) => k.text), { timeout: 15_000 })
+    .toEqual(['Startuję na własną odpowiedzialność.', 'Zgadzam się na pomiar czasu chipem.'])
+})
+
 test('W-27 after publish the owner moves Bieg 9 km to 10:15, sees the pending bar, publishes from A8a with the box unchecked; a notice reports whom it reached', async ({ actors }) => {
   test.setTimeout(120_000)
   const owner = await sessionFor(ACTOR_EMAILS.owner)

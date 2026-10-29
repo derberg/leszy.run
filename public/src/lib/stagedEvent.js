@@ -57,7 +57,11 @@ export function stagedEvent(event) {
     if (payload.form.consents) {
       out.consents = [
         ...(event.consents ?? []).filter((k) => k.kind !== 'custom'),
-        ...payload.form.consents.map((k) => ({ id: k.id ?? null, kind: 'custom', text: k.text })),
+        // `accepted` is the live consent's: a staged list cannot unlock it.
+        ...payload.form.consents.map((k) => ({
+          id: k.id ?? null, kind: 'custom', text: k.text,
+          accepted: !!(k.id && (event.consents ?? []).some((l) => l.id === k.id && l.accepted)),
+        })),
       ]
     }
   }

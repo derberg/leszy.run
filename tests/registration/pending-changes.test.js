@@ -404,6 +404,96 @@ test('W-48 the internal functions are not callable by the service role; the new 
   }
 })
 
+// ---------------------------------------------------------------- W-63 (P2-R30)
+
+async function customConsents(eventId) {
+  const { data, error } = await db().from('event_consents').select('id, text')
+    .eq('event_id', eventId).eq('kind', 'custom').order('sort_order')
+  if (error) throw error
+  return data
+}
+
+/** A published event with one custom consent, published through „Opublikuj zmiany”. */
+async function publishedWithConsent(text = 'Startuję na własną odpowiedzialność.') {
+  const event = await published()
+  let r = await save(event.eventId, 'form', { consents: [{ text }] })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  r = await publishChanges(event.eventId)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const [consent] = await customConsents(event.eventId)
+  return { event, consent }
+}
+
+test('W-63 a consent somebody accepted cannot be deleted or retyped after publish: 409 consent_locked, nothing changes', async () => {
+  const { event, consent } = await publishedWithConsent()
+  await registerMany(event, event.categoryIds[0], 1, 'consent')
+  const { count } = await db().from('consent_acceptances').select('id', { count: 'exact', head: true }).eq('consent_id', consent.id)
+  assert.equal(count, 1)
+
+  // A basics change is staged first: the refused consent must not block it.
+  assert.equal((await save(event.eventId, 'basics', { name: 'Bieg Leszego po zgodzie' })).status, 200)
+  const pendingBefore = await pendingOf(event.eventId)
+
+  const del = await save(event.eventId, 'form', { consents: [] })
+  assert.equal(del.status, 409, JSON.stringify(del.body))
+  assert.equal(del.body.code, 'consent_locked')
+  const retype = await save(event.eventId, 'form', { consents: [{ id: consent.id, text: 'Inna treść zgody.' }] })
+  assert.equal(retype.status, 409, JSON.stringify(retype.body))
+  assert.equal(retype.body.code, 'consent_locked')
+
+  assert.deepEqual(await customConsents(event.eventId), [consent], 'live consent untouched')
+  assert.deepEqual((await pendingOf(event.eventId)).payload, pendingBefore.payload, 'nothing staged')
+
+  // Keeping it word for word and adding a new one is allowed.
+  const add = await save(event.eventId, 'form', { consents: [{ id: consent.id, text: consent.text }, { text: 'Nowa zgoda.' }] })
+  assert.equal(add.status, 200, JSON.stringify(add.body))
+  const p = await publishChanges(event.eventId)
+  assert.equal(p.status, 200, JSON.stringify(p.body))
+  assert.deepEqual((await customConsents(event.eventId)).map((k) => k.text), [consent.text, 'Nowa zgoda.'])
+  assert.equal((await settingsOf(event.eventId)).name, 'Bieg Leszego po zgodzie')
+})
+
+test('W-63 a consent nobody accepted can still be retyped and deleted after publish', async () => {
+  const { event, consent } = await publishedWithConsent()
+  let r = await save(event.eventId, 'form', { consents: [{ id: consent.id, text: 'Poprawiona treść.' }] })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal((await publishChanges(event.eventId)).status, 200)
+  assert.deepEqual((await customConsents(event.eventId)).map((k) => k.text), ['Poprawiona treść.'])
+
+  r = await save(event.eventId, 'form', { consents: [] })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal((await publishChanges(event.eventId)).status, 200)
+  assert.deepEqual(await customConsents(event.eventId), [])
+})
+
+test('W-63 staged while nobody had accepted, a registration lands before publishing: 409 consent_locked, nothing applied', async () => {
+  const { event, consent } = await publishedWithConsent()
+  const r = await save(event.eventId, 'form', { consents: [{ id: consent.id, text: 'Poprawiona treść.' }] })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  await registerMany(event, event.categoryIds[0], 1, 'consent')
+  const p = await publishChanges(event.eventId)
+  assert.equal(p.status, 409, JSON.stringify(p.body))
+  assert.equal(p.body.code, 'consent_locked')
+  assert.deepEqual(await customConsents(event.eventId), [consent])
+  assert.ok(await pendingOf(event.eventId), 'pending kept for the organizer to fix or discard')
+
+  // Deleting it the same way.
+  const d = await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'discard_changes' })
+  assert.equal(d.status, 200)
+  const { error } = await stage(event.eventId, 'form', { consents: [] })
+  assert.equal(error?.message, 'consent_locked')
+})
+
+test('W-63 get-registration-event marks custom consents somebody accepted', async () => {
+  const { event, consent } = await publishedWithConsent()
+  let r = await callFn('get-registration-event', owner, { eventId: event.eventId })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.consents.find((k) => k.id === consent.id).accepted, false)
+  await registerMany(event, event.categoryIds[0], 1, 'consent')
+  r = await callFn('get-registration-event', owner, { eventId: event.eventId })
+  assert.equal(r.body.data.consents.find((k) => k.id === consent.id).accepted, true)
+})
+
 // ---------------------------------------------------------------- W-56
 
 test('W-56 preview_changes: the diff, the audience and how many people a notice would reach; nothing applied', async () => {

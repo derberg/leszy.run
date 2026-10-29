@@ -50,3 +50,10 @@ test('a staged hidden flag shows as hidden, a staged unhide as visible', () => {
   assert.equal(stagedEvent({ ...live, ...item(true) }).competitions[0].hiddenAt != null, true)
   assert.equal(stagedEvent({ ...hiddenLive, ...item(false) }).competitions[0].hiddenAt, null)
 })
+
+test('W-63 a staged consent list keeps the live `accepted` flag of each consent it lists', () => {
+  const K2 = '33333333-3333-4333-8333-333333333333'
+  const withCustom = { ...live, consents: [...live.consents, { id: K2, kind: 'custom', text: 'Zgoda.', accepted: true }] }
+  const e = stagedEvent({ ...withCustom, pending: { payload: { form: { consents: [{ id: K2, text: 'Zgoda.' }, { id: null, text: 'Nowa.' }] } } } })
+  assert.deepEqual(e.consents.filter((k) => k.kind === 'custom').map((k) => [k.text, k.accepted]), [['Zgoda.', true], ['Nowa.', false]])
+})

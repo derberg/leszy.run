@@ -123,6 +123,11 @@ const changeRefusal = (error) => {
     return [409, { error: 'Nie można opublikować: konkurencji nie można usunąć, a z zapisami także ukryć ani zmienić jej rodzaju.', code: 'competition_locked' }]
   }
   if (msg === 'price_locked') return [409, { error: 'Nie można opublikować: opłaty nie można zmienić, są już zapisy.', code: 'price_locked' }]
+  if (msg === 'consent_locked') {
+    return [409, { error: 'Nie można opublikować: zgody zaakceptowanej przez zapisanych nie można usunąć ani zmienić. Odrzuć zmiany i dodaj nową zgodę.', code: 'consent_locked' }]
+  }
+  // A row something else still points at (a foreign key): refused, never a 500.
+  if (error?.code === '23503') return [409, { error: 'Nie można opublikować: zmiany usuwają dane, z których korzystają zapisy.', code: 'locked' }]
   if (msg === 'immutable') return [409, { error: 'Nie można opublikować: adresu i pomiaru czasu nie można zmienić.', code: 'immutable' }]
   if (msg.startsWith('invalid_state:')) {
     return [409, { error: 'Nie można opublikować: zmiany zostawiłyby wydarzenie bez dat zapisów albo regulaminu.', code: 'invalid_state', what: msg.slice('invalid_state:'.length) }]
@@ -262,7 +267,8 @@ async function discardChanges(admin, req, session, settings) {
 // event (429 otherwise, nothing applied). No one concerned: nothing is sent
 // and the hour is not used up.
 // 409 { error, code } when a lock refuses: capacity_below_taken (names the
-// competition), competition_locked, price_locked, immutable, no_changes, and
+// competition), competition_locked, price_locked, consent_locked, immutable,
+// locked (a foreign key still points at the row), no_changes, and
 // changed when expectedUpdatedAt (preview_changes' updatedAt, ruling P2-R28)
 // is no longer the staged row's updated_at: nothing applied, nothing sent.
 // POST { eventId, action: 'discard_changes' } → 200 { data: { discarded } }.

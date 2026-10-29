@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom'
 import { validateSection } from '@registration/sections.js'
 import { reconcileRowIds } from '../../../../lib/categoryRows.js'
 import { btnGhost } from '../../settingsUi.js'
-import { FieldError, Seg, Soon, cardTitle, cellInput, monoLabel, sectionErrors } from '../wizardUi.jsx'
+import { FieldError, Lock, Seg, Soon, cardTitle, cellInput, monoLabel, sectionErrors } from '../wizardUi.jsx'
 
 // A5: which runner fields the form asks for (Wymagane / Opcjonalne / Brak)
 // and the consents. Name, birth date, gender, e-mail, guardian data, the
 // regulamin and the data information are always there. Every added consent
-// is its own required checkbox, unticked by default.
+// is its own required checkbox, unticked by default. A consent somebody
+// accepted (`accepted`, from get-registration-event) is read-only with no
+// delete: the server refuses it with consent_locked (P2-R30).
 
 const FIELDS = [
   { key: 'phone', label: 'Telefon' },
@@ -25,7 +27,8 @@ const PRESETS = [
 ]
 
 let rowSeq = 0
-const consentRow = (k = {}) => ({ key: ++rowSeq, id: k.id ?? null, text: k.text ?? '', saved: k.text ?? null })
+const consentRow = (k = {}) => ({ key: ++rowSeq, id: k.id ?? null, text: k.text ?? '', saved: k.text ?? null, locked: !!k.accepted })
+const LOCKED = 'Zaakceptowali ją zapisani: nie można jej zmienić ani usunąć.'
 
 // Whole consents only; a saved one being retyped keeps its last text.
 function consentsValue(rows) {
@@ -94,8 +97,8 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
 
   const setMode = (key, mode) => apply({ fields: { ...latest.current.fields, [key]: mode } })
   const settle = (list) => list.map((r) => (r.text.trim() ? { ...r, saved: r.text.trim() } : r))
-  const setText = (key) => (e) => apply({ rows: settle(latest.current.rows.map((r) => (r.key === key ? { ...r, text: e.target.value } : r))) })
-  const remove = (key) => apply({ rows: latest.current.rows.filter((r) => r.key !== key) })
+  const setText = (key) => (e) => apply({ rows: settle(latest.current.rows.map((r) => (r.key === key && !r.locked ? { ...r, text: e.target.value } : r))) })
+  const remove = (key) => apply({ rows: latest.current.rows.filter((r) => r.key !== key || r.locked) })
   const addCustom = () => {
     const next = [...latest.current.rows, consentRow()]
     latest.current = { ...latest.current, rows: next }
@@ -105,8 +108,9 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
   const togglePreset = (p, on) => {
     const cur = latest.current.rows
     if (on && !cur.some((r) => r.text.trim() === p.text)) apply({ rows: [...cur, consentRow({ text: p.text })] })
-    if (!on) apply({ rows: cur.filter((r) => r.text.trim() !== p.text) })
+    if (!on) apply({ rows: cur.filter((r) => r.text.trim() !== p.text || r.locked) })
   }
+  const presetLocked = (p) => rows.some((r) => r.locked && r.text.trim() === p.text)
   const customRows = rows.filter((r) => !PRESETS.some((p) => p.text === r.text.trim()))
 
   const panel = 'flex-1 border border-apex-border-mid bg-apex-surface min-w-0'
@@ -149,14 +153,23 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
             <Row key={p.text} right={(
               <span className="flex gap-1" role="group" aria-label={p.label}>
                 <Seg on={presetOn(p)} onClick={() => togglePreset(p, true)}>Dodaj</Seg>
-                <Seg on={!presetOn(p)} onClick={() => togglePreset(p, false)}>Nie</Seg>
+                <Seg on={!presetOn(p)} disabled={presetLocked(p)} title={presetLocked(p) ? LOCKED : undefined} onClick={() => togglePreset(p, false)}>Nie</Seg>
               </span>
             )}>{p.label}</Row>
           ))}
           {customRows.map((r, i) => (
             <div key={r.key} className="flex gap-2 items-start px-3.5 py-2 border-b border-apex-border" data-testid="custom-consent">
-              <textarea aria-label={`Treść zgody ${i + 1}`} rows={2} className={`${cellInput} w-full h-auto py-2 resize-y`} value={r.text} onChange={setText(r.key)} />
-              <button type="button" aria-label={`Usuń zgodę ${i + 1}`} className={`${btnGhost} text-base px-3`} onClick={() => remove(r.key)}>×</button>
+              {r.locked ? (
+                <>
+                  <p className="w-full min-w-0 py-2 text-[17px] text-apex-text-bright break-words" data-testid="consent-locked-text">{r.text}</p>
+                  <span className="py-2"><Lock title={LOCKED} /></span>
+                </>
+              ) : (
+                <>
+                  <textarea aria-label={`Treść zgody ${i + 1}`} rows={2} className={`${cellInput} w-full h-auto py-2 resize-y`} value={r.text} onChange={setText(r.key)} />
+                  <button type="button" aria-label={`Usuń zgodę ${i + 1}`} className={`${btnGhost} text-base px-3`} onClick={() => remove(r.key)}>×</button>
+                </>
+              )}
             </div>
           ))}
           <div className="p-3.5"><button type="button" className={btnGhost} onClick={addCustom}>+ Własna zgoda</button></div>

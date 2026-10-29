@@ -28,8 +28,9 @@ async function rows(query) {
 
 // POST { eventId } → the wizard's whole event: settings, competitions (with the
 // fixed price in grosze), office hours as Warsaw days and times, age and kids
-// groups, consents, uploads, pending changes, registered count, the caller's
-// role and the publish checklist. Any active member of the owning club may
+// groups, consents (a custom one carries `accepted` for owner/admin),
+// uploads, pending changes, registered count, the caller's role and the
+// publish checklist. Any active member of the owning club may
 // read it.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -61,6 +62,16 @@ Deno.serve(async (req) => {
     ])
     if (registered.error) throw registered.error
 
+    // Owner/admin only: whether anybody accepted each custom consent. Such a
+    // consent is locked (consent_locked, P2-R30) and the wizard shows it read-only.
+    const writer = role === 'owner' || role === 'admin'
+    const accepted = writer
+      ? new Set((await Promise.all(consents.filter((k) => k.kind === 'custom').map(async (k) => {
+        const found = await rows(admin.from('consent_acceptances').select('id').eq('consent_id', k.id).limit(1))
+        return found.length ? k.id : null
+      }))).filter(Boolean))
+      : null
+
     const categoryIds = competitions.map((c) => c.category_id)
     const [prices, ageGroups, kidsGroups] = categoryIds.length
       ? await Promise.all([
@@ -90,7 +101,7 @@ Deno.serve(async (req) => {
       ...event,
       ageGroups: ageGroups.map(camel),
       kidsGroups: kidsGroups.map(camel),
-      consents: consents.map(camel),
+      consents: consents.map((k) => (writer && k.kind === 'custom' ? { ...camel(k), accepted: accepted.has(k.id) } : camel(k))),
       uploads: uploads.map(camel),
       pending: pendingRows[0] ? camel(pendingRows[0]) : null,
       registeredCount: registered.count ?? 0,

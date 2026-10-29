@@ -28,6 +28,11 @@ function rpcErrorResponse(error, req) {
   if (msg === 'price_locked') {
     return json({ error: 'Opłaty nie można zmienić: są już zapisy.', code: 'price_locked' }, 409, req)
   }
+  if (msg === 'consent_locked') {
+    return json({ error: 'Tej zgody nie można już usunąć ani zmienić: zaakceptowali ją zapisani. Możesz dodać nową.', code: 'consent_locked' }, 409, req)
+  }
+  // A row something else still points at (a foreign key), never a 500.
+  if (error?.code === '23503') return json({ error: 'Tych danych nie można już usunąć: korzystają z nich zapisy.', code: 'locked' }, 409, req)
   if (msg === 'immutable') {
     return json({ error: 'Adresu i pomiaru czasu nie można zmienić po publikacji.', code: 'immutable' }, 409, req)
   }
