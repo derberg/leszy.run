@@ -161,3 +161,37 @@ export async function createPublishedFreeEvent(owner, {
   const slug = new URL(published.url).pathname.split('/').pop()
   return { eventId, slug, categoryIds, gpx: course, eventDate, closesOn }
 }
+
+/**
+ * A published PAID event (fixed pricing). While PAID_REGISTRATION_ENABLED is
+ * false the checklist refuses a paid publish, so it is published as free
+ * through the edge functions and then, LOCAL stack only (localEnv() guards
+ * admin()), switched to pricing_mode 'fixed' with the one open-ended
+ * price_tiers row apply_registration_section writes for fixed pricing, one
+ * competition_prices row per competition and the payment window.
+ * Options as createPublishedFreeEvent, plus `prices` ({ [competition name]:
+ * grosze }, default 6000 for each) and `paymentWindowHours` (default 168).
+ * → as createPublishedFreeEvent, plus tierId and prices (by category id).
+ */
+export async function createPublishedPaidEvent(owner, { prices = {}, paymentWindowHours = 168, ...options } = {}) {
+  localEnv()
+  const event = await createPublishedFreeEvent(owner, options)
+  const db = admin()
+  const { data: comps, error: cErr } = await db.from('competitions')
+    .select('category_id, name').in('category_id', event.categoryIds)
+  if (cErr) throw cErr
+  const { error: dErr } = await db.from('price_tiers').delete().eq('event_id', event.eventId)
+  if (dErr) throw dErr
+  const { data: tier, error: tErr } = await db.from('price_tiers')
+    .insert({ event_id: event.eventId, ends_on: null, sort_order: 0 }).select('id').single()
+  if (tErr) throw tErr
+  const byCategory = {}
+  for (const c of comps) byCategory[c.category_id] = prices[c.name] ?? 6000
+  const { error: pErr } = await db.from('competition_prices').insert(
+    Object.entries(byCategory).map(([categoryId, amount]) => ({ category_id: categoryId, tier_id: tier.id, amount })))
+  if (pErr) throw pErr
+  const { error: sErr } = await db.from('registration_settings')
+    .update({ pricing_mode: 'fixed', payment_window_hours: paymentWindowHours }).eq('event_id', event.eventId)
+  if (sErr) throw sErr
+  return { ...event, tierId: tier.id, prices: byCategory }
+}
