@@ -90,7 +90,7 @@ export function validatePerson(person, {
 
   // A minor has no e-mail of their own (the guardian is the contact), but one that is
   // given must still be an address.
-  if (isMinor && !email) { /* stored as null */ } else if (!emailOk) errors.email = 'Podaj poprawny adres e-mail.'
+  if (!(isMinor && !email) && !emailOk) errors.email = 'Podaj poprawny adres e-mail.'
 
   const optional = {}
   for (const { key, fields, max, phone, always, label } of SWITCHED) {

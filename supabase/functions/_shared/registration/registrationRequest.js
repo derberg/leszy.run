@@ -14,7 +14,11 @@ import { clubRegistrationEnabled } from '../organizer.js'
 import { isUuid } from './organizerEvent.js'
 import { isOpen } from './dates.js'
 import { validatePerson } from './person.js'
-import { MAX_PEOPLE_PER_REQUEST } from './flags.js'
+
+// Until Task 4 wires validateGroup in, these paths keep their one-person, adults-only
+// behaviour; the group limit in flags.js must not leak into them.
+const LEGACY_MAX_PEOPLE = 1
+const LEGACY_MINOR_MESSAGE = 'Zapis osoby niepełnoletniej będzie możliwy wkrótce.'
 
 export function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -59,7 +63,7 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
   const { categoryId, acceptedConsentIds, serviceRegulamin, code } = body ?? {}
   const people = Array.isArray(body?.people) ? body.people : body?.person ? [body.person] : []
   if (people.length === 0) return { response: json({ error: 'Brak danych osoby.' }, 400, req) }
-  if (people.length > MAX_PEOPLE_PER_REQUEST) {
+  if (people.length > LEGACY_MAX_PEOPLE) {
     return { response: json({ error: 'Można zapisać jedną osobę naraz.', code: 'too_many_people' }, 400, req) }
   }
 
@@ -104,6 +108,9 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
   for (const p of people) {
     const r = validatePerson(p, ctx)
     if (!r.ok) return { response: json({ error: 'Popraw zaznaczone pola.', code: 'invalid_person', fields: r.errors }, 400, req) }
+    if (r.value.isMinor) {
+      return { response: json({ error: 'Popraw zaznaczone pola.', code: 'invalid_person', fields: { birthDate: LEGACY_MINOR_MESSAGE } }, 400, req) }
+    }
     valid.push(r.value)
   }
   if (new Set(valid.map((p) => p.email)).size !== valid.length) return { response: refusal('duplicate', req) }

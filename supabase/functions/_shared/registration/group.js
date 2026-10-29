@@ -10,6 +10,7 @@ export const GUARDIAN_CONSENT_MESSAGE = 'Zaznacz zgodę opiekuna.'
 export const MINOR_SELF_MESSAGE = 'Osobę niepełnoletnią zapisuje rodzic lub opiekun.'
 export const DUPLICATE_MESSAGE = 'Ten adres jest już w tym zgłoszeniu.'
 export const TOO_MANY_MESSAGE = `W jednym zgłoszeniu możesz zapisać najwyżej ${MAX_PEOPLE_PER_REQUEST} osób.`
+export const EMPTY_GROUP_MESSAGE = 'Dodaj co najmniej jedną osobę.'
 export const UNKNOWN_COMPETITION_MESSAGE = 'Ta konkurencja nie przyjmuje zapisów.'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -48,6 +49,8 @@ const addError = (errors, index, field, message) => {
  * @param {{ people: object[], buyer: object|null }} group  (normalizeGroupRequest's result)
  * @param {{ sessionEmail: string|null, competitions: Map<string, object>, now?: Date }} ctx
  *   competitions: categoryId → validatePerson's context (formFields, competition, raceDate, …)
+ * errors: { [personIndex]: { [field]: message } } (a minor without consent: `guardianConsent`),
+ *   plus `errors.buyer: { firstName|lastName|email: message }` when the payer is not in the group.
  * @returns {{ ok: boolean, buyerEmail: string|null, value: object[]|null,
  *   errors: Record<string, Record<string, string>>, groupError: string|null }}
  */
@@ -55,7 +58,7 @@ export function validateGroup({ people = [], buyer = null } = {}, { sessionEmail
   const errors = {}
   const fail = (groupError) => ({ ok: false, buyerEmail: null, value: null, errors, groupError })
 
-  if (people.length === 0) return fail('Dodaj co najmniej jedną osobę.')
+  if (people.length === 0) return fail(EMPTY_GROUP_MESSAGE)
   if (people.length > MAX_PEOPLE_PER_REQUEST) return fail(TOO_MANY_MESSAGE)
   for (const p of people) {
     if (!competitions?.get(p.categoryId)) return fail(UNKNOWN_COMPETITION_MESSAGE)
@@ -81,7 +84,12 @@ export function validateGroup({ people = [], buyer = null } = {}, { sessionEmail
     }
 
     const isSelf = Boolean(session) && email === session
-    if (!r.ok) { roles.push(null); return }
+    if (!r.ok) {
+      // A self whose own fields fail still counts as self: no buyer error on top of theirs.
+      if (isSelf && selfIndex === -1) selfIndex = i
+      roles.push(null)
+      return
+    }
     const minor = r.value.isMinor
     let role = minor ? 'minor' : 'adult'
 

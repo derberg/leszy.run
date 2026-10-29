@@ -128,3 +128,23 @@ test('G-05 buyer-only payer (not a participant): needs name and a valid email', 
   assert.equal(r.ok, false)
   assert.deepEqual(Object.keys(r.errors.buyer).sort(), ['email', 'firstName'])
 })
+
+test('G-05 a minor with a malformed email is refused; a minor email equal to another person is a duplicate', () => {
+  const kid = { firstName: 'Kuba', birthDate: yearsAgo(10) }
+  const bad = run([entry({ ...kid, email: 'zly' }, { guardianConsent: true })], { buyer })
+  assert.deepEqual(bad.errors[0], { email: 'Podaj poprawny adres e-mail.' })
+  const dup = run([entry({ ...kid, email: 'ola@example.pl' }, { guardianConsent: true }), entry()], { buyer })
+  assert.deepEqual(dup.errors[1], { email: 'Ten adres jest już w tym zgłoszeniu.' })
+})
+
+test('G-05 a session with a minor-only group and a buyer: ok, the buyer pays', () => {
+  const r = validateGroup({ people: [entry({ email: '', birthDate: yearsAgo(10) }, { guardianConsent: true })], buyer },
+    { sessionEmail: 'other@example.pl', competitions, now: NOW })
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.equal(r.buyerEmail, 'jan@example.pl')
+})
+
+test('G-01 a self whose own fields fail gets no buyer error on top', () => {
+  const r = validateGroup({ people: [entry({ phone: '' })], buyer: null }, { sessionEmail: 'ola@example.pl', competitions, now: NOW })
+  assert.deepEqual(r.errors, { 0: { phone: 'Podaj numer telefonu.' } })
+})
