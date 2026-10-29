@@ -8,8 +8,10 @@
 //   DELETE /messages   clear both
 import http from 'node:http'
 import { fileURLToPath } from 'node:url'
+import { EMAIL_CAPTURE_BASE_PORT, slotPort } from './slot.js'
 
-export const CAPTURE_PORT = 54399
+// 54399 in slot 0, 54399 + n x 100 in slot n (REG_TEST_SLOT).
+export const CAPTURE_PORT = slotPort(EMAIL_CAPTURE_BASE_PORT)
 
 function listening(port) {
   return new Promise((resolve) => {

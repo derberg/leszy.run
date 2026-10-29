@@ -13,9 +13,11 @@ import { eq, inArray } from 'drizzle-orm'
 import * as schema from '../src/db/schema.js'
 import { purgeRegistrationContact, cutoffDate } from '../scripts/lib/purgeRegistrationContact.js'
 
-const URL_ = process.env.SCRATCH_HOST_DATABASE_URL || 'postgres://leszyrun:leszyrun@127.0.0.1:55432/leszyrun'
+// 55432 + n x 100 under REG_TEST_SLOT=n (tests/registration/helpers/slot.js).
+const SCRATCH_PORT = String(55432 + Number(process.env.REG_TEST_SLOT || 0) * 100)
+const URL_ = process.env.SCRATCH_HOST_DATABASE_URL || `postgres://leszyrun:leszyrun@127.0.0.1:${SCRATCH_PORT}/leszyrun`
 const u = new URL(URL_)
-const isScratch = ['127.0.0.1', 'localhost'].includes(u.hostname) && u.port === '55432'
+const isScratch = ['127.0.0.1', 'localhost'].includes(u.hostname) && u.port === SCRATCH_PORT
 
 let sql, db, reachable = false
 // Fixtures count days from the same Warsaw cutoff the purge uses, so the test does not flake near midnight UTC.
@@ -62,7 +64,7 @@ test('W-44 the cutoff is Warsaw today minus 30 days', () => {
 })
 
 test('W-44 a dry run changes nothing and reports the count; --apply nulls only registration participants of due events', { skip: !isScratch }, async (t) => {
-  if (!reachable) return t.skip('no scratch Postgres on 127.0.0.1:55432')
+  if (!reachable) return t.skip(`no scratch Postgres on 127.0.0.1:${SCRATCH_PORT}`)
   const old = await seed(-1)
   const boundary = await seed(0)
   const recent = await seed(1)

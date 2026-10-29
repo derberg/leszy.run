@@ -3,11 +3,16 @@ import { execFileSync } from 'node:child_process'
 import crypto from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { lastCodeFor } from './emailCapture.js'
+import { REPO_ROOT, slotWorkdir } from './slot.js'
 
 let cached
 export function localEnv() {
   if (cached) return cached
-  const out = execFileSync('supabase', ['status', '-o', 'env'], { encoding: 'utf8' })
+  // REG_TEST_SLOT picks the stack: slot 0 is the repo's own, slot n the one
+  // scripts/test-slot.sh made in .supabase-slots/<n>.
+  const workdir = slotWorkdir()
+  const args = ['status', '-o', 'env', ...(workdir ? ['--workdir', workdir] : [])]
+  const out = execFileSync('supabase', args, { encoding: 'utf8', cwd: REPO_ROOT })
   const env = {}
   for (const line of out.split('\n')) {
     const m = line.match(/^([A-Z_]+)="?(.*?)"?$/)
