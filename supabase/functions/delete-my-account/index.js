@@ -340,7 +340,9 @@ Deno.serve(async (req) => {
     if (originalEmail) guardianKeys.push(['guardian_email', originalEmail])
     for (const [column, value] of guardianKeys) {
       const { error: gErr } = await supabaseAdmin.from('registrations')
-        .update({ guardian_profile_id: null, guardian_name: 'Usunięte konto', guardian_email: null })
+        // guardian_removed_at is the organizer's „kontakt opiekuna usunięty” (D4-25): the 30-day
+        // contact purge nulls the other guardian fields of every past child entry too.
+        .update({ guardian_profile_id: null, guardian_name: 'Usunięte konto', guardian_email: null, guardian_removed_at: new Date().toISOString() })
         .eq(column, value)
       if (gErr) console.error('delete-my-account: guardian fields cleanup failed:', column, gErr.message)
     }

@@ -66,3 +66,22 @@ describe('GA setup: every hit carries the cleaned page_location (final review M6
     ])
   })
 })
+
+describe('G-48 the consent link: its token travels in the fragment and GA never sees it (D4-7, D4-20)', () => {
+  const token = 'Zx9_abcDEFghiJKLmnoPQRstuVWXyz0123456789-_A'
+
+  it('sendPageView on /zgoda#<token> sends page_path /zgoda and a page_location with no #', () => {
+    const calls = []
+    const gtag = (...args) => calls.push(args)
+    sendPageView(gtag, { origin: 'https://www.leszy.run', pathname: '/zgoda', search: '', hash: `#${token}` }, 'Zgoda')
+    const view = calls.find((c) => c[0] === 'event')[2]
+    assert.equal(view.page_path, '/zgoda')
+    assert.equal(view.page_location, 'https://www.leszy.run/zgoda')
+    assert.ok(!JSON.stringify(calls).includes('#'), JSON.stringify(calls))
+    assert.ok(!JSON.stringify(calls).includes(token))
+  })
+
+  it('trackedLocation ignores a hash even when given one', () => {
+    assert.equal(trackedLocation({ origin: 'https://www.leszy.run', pathname: '/zgoda', search: '', hash: '#abc' }), 'https://www.leszy.run/zgoda')
+  })
+})
