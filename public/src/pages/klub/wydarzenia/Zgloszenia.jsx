@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { callFunction } from '../../../lib/auth.js'
 import { countPl, pluralPl } from '../../../lib/plural.js'
 
@@ -18,6 +18,10 @@ const when = new Intl.DateTimeFormat('pl-PL', {
 
 const PAYMENT = { paid: 'opłacone', free: 'bez opłaty' }
 const LIVE = new Set(['confirmed', 'pending_payment'])
+
+function paymentColour(r) {
+  return r.paymentStatus === 'paid' ? 'text-apex-yellow' : r.paymentStatus === 'awaiting' ? 'text-apex-cyan' : 'text-apex-muted'
+}
 
 function paymentText(r) {
   if (r.paymentStatus === 'awaiting') return r.expiresAt ? `czeka na wpłatę do ${when.format(new Date(r.expiresAt))}` : 'czeka na wpłatę'
@@ -39,10 +43,16 @@ const smallBtn = 'min-h-9 px-2.5 border font-sans font-bold text-sm whitespace-n
 const remindBtn = `${smallBtn} border-apex-border-bright text-apex-text-bright hover:border-apex-yellow-dim`
 const officeBtn = `${smallBtn} border-apex-yellow-dim text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`
 
+/**
+ * „Przypomnij” and „Podpisany w biurze” for a row still waiting. The office mark records an acceptance
+ * for good and ends the person's link, so it asks „Potwierdzić podpis w biurze: <imię nazwisko>?” first.
+ */
 function ConsentActions({ row, onOffice }) {
   const [busy, setBusy] = useState(null)
   const [reminded, setReminded] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState(null)
+  const officeRef = useRef(null)
 
   async function run(kind) {
     setBusy(kind)
@@ -59,19 +69,53 @@ function ConsentActions({ row, onOffice }) {
       setError(err.status == null ? 'Brak połączenia.' : err.message)
     } finally {
       setBusy(null)
+      setConfirming(false)
     }
   }
 
+  function cancel() {
+    setConfirming(false)
+    requestAnimationFrame(() => officeRef.current?.focus())
+  }
+
+  const qid = `office-q-${row.id}`
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex gap-1.5">
-        {reminded
-          ? <span className="min-h-9 px-2.5 flex items-center font-mono text-xs uppercase text-apex-muted whitespace-nowrap" data-testid="reminded">Wysłano</span>
-          : <button type="button" className={remindBtn} disabled={busy !== null} onClick={() => run('remind')}>Przypomnij</button>}
-        <button type="button" className={officeBtn} disabled={busy !== null} onClick={() => run('office')}>Podpisany w biurze</button>
-      </div>
+      {confirming ? (
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby={qid} data-testid="office-confirm">
+          <span id={qid} className="font-sans font-semibold text-sm text-apex-text-bright">Potwierdzić podpis w biurze: {row.name}?</span>
+          <span className="flex gap-1.5">
+            <button type="button" className={officeBtn} disabled={busy !== null} onClick={() => run('office')}>Tak</button>
+            <button type="button" className={remindBtn} disabled={busy !== null} onClick={cancel} autoFocus>Nie</button>
+          </span>
+        </div>
+      ) : (
+        <div className="flex gap-1.5">
+          {reminded
+            ? <span className="min-h-9 px-2.5 flex items-center font-mono text-xs uppercase text-apex-muted whitespace-nowrap" data-testid="reminded">Wysłano</span>
+            : <button type="button" className={remindBtn} disabled={busy !== null} onClick={() => run('remind')}
+                aria-label={`Przypomnij — ${row.name}`}>Przypomnij</button>}
+          <button type="button" ref={officeRef} className={officeBtn} disabled={busy !== null} onClick={() => setConfirming(true)}
+            aria-label={`Podpisany w biurze — ${row.name}`}>Podpisany w biurze</button>
+        </div>
+      )}
       {error && <span className="text-apex-red text-xs" role="alert">{error}</span>}
     </div>
+  )
+}
+
+/** The sub-line under a name: the guardian of a child, or who added an adult. */
+function subLine(r) {
+  if (r.role === 'minor') return r.guardianRemoved ? 'kontakt opiekuna usunięty' : r.guardianName ? `opiekun: ${r.guardianName}` : null
+  return r.registeredBy ? `zapisał(a): ${r.registeredBy}` : null
+}
+
+function SubLine({ r }) {
+  const sub = subLine(r)
+  if (!sub) return null
+  return (
+    <span className={`block text-xs ${r.guardianRemoved ? 'text-apex-red' : 'text-apex-muted'}`}
+      data-testid={r.guardianRemoved ? 'guardian-removed' : 'registration-sub'}>{sub}</span>
   )
 }
 
@@ -127,7 +171,30 @@ export default function Zgloszenia({ eventId }) {
           </button>
         </div>
       )}
-      <div className="relative border border-apex-border overflow-x-auto max-w-full" data-testid="registrations">
+      {/* Under 640 px every person is a card: the state and the buttons stay in view, nothing scrolls sideways. */}
+      <ul className="sm:hidden flex flex-col gap-2" data-testid="registrations-cards">
+        {rows.map((r) => {
+          const [consentText, consentColour] = consentCell(r)
+          return (
+            <li key={r.id} className="border border-apex-border bg-apex-surface p-3 flex flex-col gap-1.5" data-testid="registration-card">
+              <div className="flex justify-between items-start gap-3">
+                <span className="min-w-0">
+                  <span className="block text-apex-text-bright font-semibold">{r.name}</span>
+                  <SubLine r={r} />
+                </span>
+                <span className="font-mono text-xs text-apex-muted whitespace-nowrap">{when.format(new Date(r.createdAt))}</span>
+              </div>
+              <span className="font-mono text-xs uppercase text-apex-muted">{[r.competition, r.ageGroupLabel].filter(Boolean).join(' · ')}</span>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-sm">
+                {payments && <span className={paymentColour(r)}>{paymentText(r)}</span>}
+                <span className={consentColour} data-testid="registration-consent">{consentText}</span>
+              </div>
+              {waiting(r) && <ConsentActions row={r} onOffice={markedOffice} />}
+            </li>
+          )
+        })}
+      </ul>
+      <div className="hidden sm:block relative border border-apex-border overflow-x-auto max-w-full" data-testid="registrations">
         <table className="w-full text-sm">
           <thead className="bg-apex-surface-2 font-mono text-[10px] tracking-widest uppercase text-apex-muted text-left">
             <tr>
@@ -143,23 +210,16 @@ export default function Zgloszenia({ eventId }) {
           <tbody>
             {rows.map((r) => {
               const [consentText, consentColour] = consentCell(r)
-              const sub = r.role === 'minor'
-                ? (r.guardianRemoved ? 'kontakt opiekuna usunięty' : r.guardianName ? `opiekun: ${r.guardianName}` : null)
-                : r.registeredBy ? `zapisał(a): ${r.registeredBy}` : null
               return (
                 <tr key={r.id} className="border-t border-apex-border align-top">
                   <td className="px-3 py-2.5">
                     <span className="block text-apex-text-bright font-semibold">{r.name}</span>
-                    {sub && (
-                      <span className={`block text-xs ${r.guardianRemoved ? 'text-apex-red' : 'text-apex-muted'}`}
-                        data-testid={r.guardianRemoved ? 'guardian-removed' : 'registration-sub'}>{sub}</span>
-                    )}
+                    <SubLine r={r} />
                   </td>
                   <td className="px-3 py-2.5">{r.competition}</td>
                   <td className="px-3 py-2.5 font-mono">{r.ageGroupLabel}</td>
                   {payments && (
-                    <td className={`px-3 py-2.5 font-mono whitespace-nowrap ${r.paymentStatus === 'paid' ? 'text-apex-yellow' : r.paymentStatus === 'awaiting' ? 'text-apex-cyan' : 'text-apex-muted'}`}
-                      data-testid="registration-payment">
+                    <td className={`px-3 py-2.5 font-mono whitespace-nowrap ${paymentColour(r)}`} data-testid="registration-payment">
                       {paymentText(r)}
                     </td>
                   )}

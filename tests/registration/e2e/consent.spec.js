@@ -101,6 +101,8 @@ test.describe('the consent page', () => {
 
       await page.getByRole('button', { name: 'Wyślij kod' }).click()
       await expect(page.locator('#consent-code')).toBeVisible()
+      await expect(step.getByTestId('consent-code-hint')).toHaveText('Wpisz kod z e-maila w polu poniżej.')
+      await expect(page.locator('header, nav').first()).toContainText('Zaloguj się')
       let code = null
       for (let i = 0; i < 40 && !code; i++) { code = await lastCodeFor(adultEmail); if (!code) await page.waitForTimeout(250) }
       expect(code).toMatch(/^\d{6}$/)
@@ -109,6 +111,8 @@ test.describe('the consent page', () => {
 
       const form = page.getByTestId('consent-form')
       await expect(form).toBeVisible()
+      // The code signed the person in, and the navbar says so without a reload (M-1).
+      await expect(page.locator('header, nav').first()).not.toContainText('Zaloguj się')
       await expect(page.locator('#p-last')).toHaveValue('Borowy')
       await expect(page.locator('#p-email')).toHaveValue(adultEmail)
       await expect(page.locator('#p-email')).toHaveJSProperty('readOnly', true)
@@ -143,6 +147,8 @@ test.describe('the consent page', () => {
     await page.locator('#consent-code').fill('000000')
     await page.getByRole('button', { name: 'Dalej' }).click()
     await expect(page.getByTestId('consent-code-error')).toHaveText('Nieprawidłowy kod.')
+    await expect(page.locator('#consent-code')).toHaveAttribute('aria-invalid', 'true')
+    await expect(page.locator('#consent-code')).toHaveAttribute('aria-describedby', 'consent-code-error')
 
     const bare = await offline(await actors.invitee.newPage())
     const calls = []
@@ -189,8 +195,91 @@ test('G-55 a consent published while the page is open: the boxes are shown again
   expect(acc.map((a) => a.consent_kind).sort()).toEqual(['custom', 'data_info', 'image', 'regulamin', 'service_regulamin'])
 })
 
-test('G-52 owner: „Czeka na zgody: 1”, the filter, „Podpisany w biurze” → the row reads „podpisany w biurze” and the count is 0', async ({ actors }) => {
-  const { event } = await awaitingAdult()
+/** Opens the link as `invitee`, sends the code and enters it: → the page on the consent form. */
+async function throughCode(actors, token, adultEmail, { before } = {}) {
+  const page = await offline(await actors.invitee.newPage())
+  if (before) await before(page)
+  await page.goto(`/zgoda#${token}`)
+  await page.getByRole('button', { name: 'Wyślij kod' }).click()
+  let code = null
+  for (let i = 0; i < 40 && !code; i++) { code = await lastCodeFor(adultEmail); if (!code) await page.waitForTimeout(250) }
+  await page.locator('#consent-code').fill(code)
+  await page.getByRole('button', { name: 'Dalej' }).click()
+  return page
+}
+
+test('G-56 a consent published while the person has corrected their data: only the boxes are shown again; the corrections stay and are saved', async ({ actors }) => {
+  const { event, regId, adultEmail, token } = await awaitingAdult()
+  await clearMessages()
+  const page = await throughCode(actors, token, adultEmail)
+  const boxes = page.getByTestId('consents').getByRole('checkbox')
+  await expect(boxes).toHaveCount(4)
+  await page.locator('#p-phone').fill('+48600111222')
+  await page.locator('#p-city').fill('Zabrze')
+
+  const added = await admin().from('event_consents').insert({ event_id: event.eventId, kind: 'custom', text: 'Zgoda dopisana w trakcie', sort_order: 9 }).select('id').single()
+  expect(added.error).toBeNull()
+  for (let i = 0; i < 4; i++) await boxes.nth(i).check()
+  await page.getByRole('button', { name: 'Akceptuję regulamin' }).click()
+
+  await expect(boxes).toHaveCount(5)
+  await expect(page.getByTestId('consents')).toContainText('Zaznacz wymagane zgody.')
+  for (let i = 0; i < 5; i++) await expect(boxes.nth(i)).not.toBeChecked()
+  await expect(page.locator('#p-phone')).toHaveValue('+48600111222')
+  await expect(page.locator('#p-city')).toHaveValue('Zabrze')
+  await expect(page.locator('#p-phone')).toBeEnabled()
+
+  for (let i = 0; i < 5; i++) await boxes.nth(i).check()
+  await page.getByRole('button', { name: 'Akceptuję regulamin' }).click()
+  await expect(page.getByTestId('consent-done')).toBeVisible()
+  const { data: reg } = await admin().from('registrations').select('phone, city, consent_state').eq('id', regId).single()
+  expect(reg).toEqual({ phone: '+48600111222', city: 'Zabrze', consent_state: 'accepted' })
+})
+
+test('G-57 the first read or the event data fails: no consent form, „Spróbuj ponownie” loads it', async ({ actors }) => {
+  const { adultEmail, token } = await awaitingAdult()
+  await clearMessages()
+
+  // The first consent-request fails: the error step, then a retry.
+  const first = await offline(await actors.invitee.newPage())
+  let failRead = true
+  await first.route('**/edge/consent-request', (route) => (failRead
+    ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Internal server error' }) })
+    : route.continue()))
+  await first.goto(`/zgoda#${token}`)
+  await expect(first.getByTestId('consent-load-error')).toContainText('Internal server error')
+  failRead = false
+  await first.getByRole('button', { name: 'Spróbuj ponownie' }).click()
+  await expect(first.getByTestId('consent-code-step')).toBeVisible()
+  await first.close()
+
+  // /api/event fails after the code: no form, an error with a retry, then the form.
+  let failEvent = true
+  const page = await throughCode(actors, token, adultEmail, {
+    before: (p) => p.route(/\/api\/event\?slug=/, (route) => (failEvent ? route.fulfill({ status: 503, body: '' }) : route.continue())),
+  })
+  await expect(page.getByTestId('consent-event-error')).toContainText('Nie udało się wczytać danych zawodów.')
+  await expect(page.getByTestId('consent-form')).toHaveCount(0)
+  failEvent = false
+  await page.getByTestId('consent-event-error').getByRole('button', { name: 'Spróbuj ponownie' }).click()
+  await expect(page.getByTestId('consent-form')).toBeVisible()
+  await expect(page.getByTestId('consents').getByRole('checkbox')).toHaveCount(4)
+})
+
+test('G-57b a retired address: the code step says so and the tab no longer keeps the link', async ({ actors }) => {
+  const { adultEmail, token } = await awaitingAdult()
+  const hash = crypto.createHash('sha256').update(adultEmail.toLowerCase()).digest('hex')
+  const retired = await admin().from('deleted_email_hashes').insert({ email_hash: hash })
+  expect(retired.error).toBeNull()
+  const page = await offline(await actors.invitee.newPage())
+  await page.goto(`/zgoda#${token}`)
+  await page.getByRole('button', { name: 'Wyślij kod' }).click()
+  await expect(page.getByTestId('consent-code-error')).toBeVisible()
+  expect(await page.evaluate(() => sessionStorage.getItem('leszy.consent.token'))).toBeNull()
+})
+
+test('G-52 owner: „Czeka na zgody: 1”, the filter, cards at 390 px, „Podpisany w biurze” asks first (Nie keeps it, Tak marks it) → „podpisany w biurze” and the count is 0', async ({ actors }) => {
+  const { event, regId } = await awaitingAdult()
   const page = await offline(await actors.owner.newPage())
   await page.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/zgloszenia`)
   const list = page.getByTestId('registrations')
@@ -200,9 +289,15 @@ test('G-52 owner: „Czeka na zgody: 1”, the filter, „Podpisany w biurze” 
 
   const rows = list.locator('tbody tr')
   await expect(rows).toHaveCount(2)
-  // At 390 px the table scrolls inside its box; the page itself never scrolls sideways.
+  // At 390 px every person is a card with the state and the buttons in view; the page never scrolls sideways.
   await page.setViewportSize({ width: 390, height: 900 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
+  const card = page.getByTestId('registration-card').filter({ hasText: 'Piotr Borowy' })
+  await expect(card.getByTestId('registration-consent')).toHaveText('czeka na zgodę')
+  const cardBtn = card.getByRole('button', { name: 'Podpisany w biurze — Piotr Borowy' })
+  await cardBtn.scrollIntoViewIfNeeded()
+  const box = await cardBtn.boundingBox()
+  expect(box.x + box.width).toBeLessThanOrEqual(390)
   await page.setViewportSize({ width: 1280, height: 900 })
   await pending.getByRole('button').click()
   await expect(rows).toHaveCount(1)
@@ -216,8 +311,24 @@ test('G-52 owner: „Czeka na zgody: 1”, the filter, „Podpisany w biurze” 
   await expect(list.locator('tr', { hasText: 'Piotr Borowy' }).getByTestId('registration-sub')).toHaveText('zapisał(a): Ola Leśna')
 
   const adultRow = list.locator('tr', { hasText: 'Piotr Borowy' })
-  await expect(adultRow.getByRole('button', { name: 'Przypomnij' })).toBeVisible()
-  await adultRow.getByRole('button', { name: 'Podpisany w biurze' }).click()
+  // Each row's buttons name their person (M-7).
+  await expect(adultRow.getByRole('button', { name: 'Przypomnij — Piotr Borowy', exact: true })).toBeVisible()
+  const office = adultRow.getByRole('button', { name: 'Podpisany w biurze — Piotr Borowy', exact: true })
+
+  // I-1: the office mark asks first; „Nie” changes nothing.
+  await office.click()
+  const confirm = adultRow.getByTestId('office-confirm')
+  await expect(confirm).toContainText('Potwierdzić podpis w biurze: Piotr Borowy?')
+  await confirm.getByRole('button', { name: 'Nie' }).click()
+  await expect(confirm).toHaveCount(0)
+  await expect(office).toBeFocused()
+  await expect(adultRow.getByTestId('registration-consent')).toHaveText('czeka na zgodę')
+  await expect(pending).toContainText('Czeka na zgody: 1')
+  const { data: still } = await admin().from('registrations').select('consent_state').eq('id', regId).single()
+  expect(still.consent_state).toBe('awaiting')
+
+  await office.click()
+  await adultRow.getByTestId('office-confirm').getByRole('button', { name: 'Tak' }).click()
   await expect(adultRow.getByTestId('registration-consent')).toHaveText('podpisany w biurze')
   await expect(pending).toContainText('Czeka na zgody: 0')
   await expect(adultRow.getByRole('button', { name: 'Podpisany w biurze' })).toHaveCount(0)

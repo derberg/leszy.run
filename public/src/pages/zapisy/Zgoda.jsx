@@ -12,7 +12,6 @@ import { dataInfoOf } from '../../lib/dataInfo.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import { postAuthPath } from '../../lib/inviteLink.js'
 import { fieldModes, personContext } from '../../lib/personFormModel.js'
-import { runnerDataInfo } from '../../legal/runnerDataInfo.js'
 import PersonForm from '../../components/registration/PersonForm.jsx'
 import ConsentList from '../../components/registration/ConsentList.jsx'
 import PageTop from '../../components/registration/PageTop.jsx'
@@ -35,10 +34,10 @@ import { eventPath } from './RegistrationEventPage.jsx'
 const GONE_LINK = 'Ten link został już użyty albo wygasł.'
 const EDIT_KEYS = ['firstName', 'lastName', 'birthDate', 'gender', 'phone', 'city', 'club', 'iceName', 'icePhone', 'nationality']
 
-function Shell({ children }) {
+function Shell({ authKey = 0, children }) {
   return (
     <>
-      <Navbar />
+      <Navbar key={authKey} />
       <main id="main-content" className="bg-apex-bg text-apex-text font-sans min-h-[70vh]">
         <div className="max-w-2xl mx-auto px-4 sm:px-5 pt-[70px] pb-12 flex flex-col gap-4">{children}</div>
       </main>
@@ -88,6 +87,7 @@ function CodeStep({ info, sent, code, onCode, error, busy, stale, onSend, onSubm
           <p className="text-lg leading-snug">
             Wysłaliśmy 6-cyfrowy kod na <strong className="text-apex-text-bright break-all">{info.emailHint}</strong>.
           </p>
+          <p className="text-lg leading-snug" data-testid="consent-code-hint">Wpisz kod z e-maila w polu poniżej.</p>
           <p className="text-sm text-apex-text border-l-2 border-apex-yellow pl-3">
             Nie widzisz maila? Zajrzyj do spamu i zakładek typu Oferty, Promocje czy Newslettery.
           </p>
@@ -95,8 +95,9 @@ function CodeStep({ info, sent, code, onCode, error, busy, stale, onSend, onSubm
             <label htmlFor="consent-code" className={labelCls}>Kod (6 cyfr)</label>
             <input id="consent-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="\d{6}" required autoFocus
               value={code} onChange={(e) => onCode(e.target.value.replace(/\D/g, ''))}
+              aria-invalid={error ? 'true' : undefined} aria-describedby={error ? 'consent-code-error' : undefined}
               className={`${inputCls} font-mono text-2xl tracking-[0.5em] h-14 ${error ? 'border-apex-red' : ''}`} />
-            {error && <p className="text-apex-red text-sm" role="alert" data-testid="consent-code-error">{error}</p>}
+            {error && <p id="consent-code-error" className="text-apex-red text-sm" role="alert" data-testid="consent-code-error">{error}</p>}
           </div>
           <button type="submit" disabled={busy || code.length !== 6} className={primaryBtn}>{busy ? 'Sprawdzamy…' : 'Dalej'}</button>
           <button type="button" onClick={onSend} disabled={busy}
@@ -167,27 +168,56 @@ function editsOf(original, current) {
   return out
 }
 
-function ConsentForm({ token, answer, notice, onAccepted, onRefused, onSessionGone, onReloaded }) {
-  const { status, raw } = usePublicRegistrationEvent(answer.event.slug)
-  const snapshot = status === 'ok' ? raw : null
-  const model = useMemo(() => (snapshot ? eventPageModel(snapshot) : null), [snapshot])
-  const comp = snapshot?.competitions?.find((c) => c.categoryId === answer.competition.categoryId) ?? null
-  const ctx = snapshot && comp ? personContext(snapshot, comp) : null
+/**
+ * The event's public snapshot (/api/event) is what the data information, the regulamin link and the
+ * age-group preview come from. Without it the person would tick „Znam informację o danych” against
+ * an incomplete text, so the form waits for it, and a failure offers „Spróbuj ponownie”.
+ */
+function SnapshotLoader({ slug, onRetry, children }) {
+  const { status, raw } = usePublicRegistrationEvent(slug)
+  if (status === 'loading') {
+    return <div className="flex flex-col gap-4" aria-busy="true"><div className="h-24 bg-apex-surface" /><div className="h-64 bg-apex-surface" /></div>
+  }
+  if (status !== 'ok') {
+    return (
+      <div className="flex flex-col gap-4" data-testid="consent-event-error">
+        <PageTop right="Akceptacja regulaminu" />
+        <p className="text-apex-red text-lg" role="alert">Nie udało się wczytać danych zawodów.</p>
+        <button type="button" onClick={onRetry} className={secondaryBtn}>Spróbuj ponownie</button>
+      </div>
+    )
+  }
+  return children(raw)
+}
+
+function ConsentStep(props) {
+  // A failed snapshot is not cached (usePublicRegistrationEvent), so mounting the loader again retries it.
+  const [attempt, setAttempt] = useState(0)
+  return (
+    <SnapshotLoader key={attempt} slug={props.answer.event.slug} onRetry={() => setAttempt((a) => a + 1)}>
+      {(snapshot) => <ConsentForm {...props} snapshot={snapshot} />}
+    </SnapshotLoader>
+  )
+}
+
+function ConsentForm({ token, answer, snapshot, onAccepted, onRefused, onSessionGone, onReread }) {
+  const model = useMemo(() => eventPageModel(snapshot), [snapshot])
+  const comp = snapshot.competitions?.find((c) => c.categoryId === answer.competition.categoryId) ?? null
+  const ctx = comp ? personContext(snapshot, comp) : null
   const fields = fieldModes(answer.formFields)
-  const dataInfo = snapshot ? dataInfoOf(snapshot, model)
-    : runnerDataInfo({ eventName: answer.event.name, organizerName: null, contactEmail: null, nationality: fields.nationality !== 'off' })
+  const dataInfo = dataInfoOf(snapshot, model)
 
   const original = useMemo(() => asForm(answer.person), [answer.person])
   const [person, setPerson] = useState(original)
   const [editable, setEditable] = useState(answer.editable)
+  const [consents, setConsents] = useState(answer.consents)
   const [errors, setErrors] = useState({})
   const [accepted, setAccepted] = useState({})
   const [serviceAccepted, setServiceAccepted] = useState(false)
-  const [consentError, setConsentError] = useState(notice ?? null)
+  const [consentError, setConsentError] = useState(null)
   const [message, setMessage] = useState(null)
   const [busy, setBusy] = useState(false)
 
-  const consents = answer.consents
   const ready = serviceAccepted && consents.every((c) => accepted[c.id] === true)
 
   const change = (patch) => {
@@ -197,6 +227,24 @@ function ConsentForm({ token, answer, notice, onAccepted, onRefused, onSessionGo
       for (const k of Object.keys(patch)) delete next[k]
       return next
     })
+  }
+
+  const closeEdits = () => {
+    setEditable(false)
+    setPerson(original)
+    setErrors({})
+  }
+
+  // The organizer changed the consents while the page was open: the current ones, all unticked,
+  // in place of the old ones. The person's data stays as they typed it.
+  async function consentsChanged(notice) {
+    const fresh = await onReread()
+    if (!fresh) return
+    setConsents(fresh.consents)
+    setAccepted({})
+    setServiceAccepted(false)
+    setConsentError(notice)
+    if (!fresh.editable) closeEdits()
   }
 
   async function onSubmit(e) {
@@ -219,15 +267,10 @@ function ConsentForm({ token, answer, notice, onAccepted, onRefused, onSessionGo
       setBusy(false)
       if (err.status === 410 || err.status === 409) return onRefused(err)
       if (err.status === 403 && err.code === 'session_required') return onSessionGone()
-      if (err.code === 'consents_changed') {
-        // The organizer changed the consents while the page was open: show the current ones, unticked.
-        return onReloaded(err.message)
-      }
+      if (err.code === 'consents_changed') return consentsChanged(err.message)
       if (err.code === 'consents_required') return setConsentError(err.message)
       if (err.code === 'edits_closed') {
-        setEditable(false)
-        setPerson(original)
-        setErrors({})
+        closeEdits()
         return setMessage(err.message)
       }
       if (err.code === 'edit_invalid' && err.fields) {
@@ -254,12 +297,14 @@ function ConsentForm({ token, answer, notice, onAccepted, onRefused, onSessionGo
         prefill={null} disabled={busy || !editable} variant="self" idPrefix="p" emailReadOnly />
       <ConsentList consents={consents} accepted={accepted} onToggle={(id, v) => { setAccepted((a) => ({ ...a, [id]: v })); setConsentError(null) }}
         serviceAccepted={serviceAccepted} onService={(v) => { setServiceAccepted(v); setConsentError(null) }}
-        regulaminUrl={model?.regulaminUrl ?? answer.regulaminUrl ?? null} dataInfo={dataInfo} error={consentError} />
+        regulaminUrl={model.regulaminUrl ?? answer.regulaminUrl ?? null} dataInfo={dataInfo} error={consentError} />
       {message && <p className="text-apex-red text-base" role="alert" data-testid="consent-error">{message}</p>}
       <button type="submit" disabled={busy || !ready} className={primaryBtn}>{busy ? 'Zapisujemy…' : 'Akceptuję regulamin'}</button>
     </form>
   )
 }
+
+const OFFLINE = 'Nie udało się połączyć. Spróbuj ponownie.'
 
 function useConsentPage() {
   const token = useMemo(() => consentToken(), [])
@@ -282,27 +327,42 @@ function useConsentPage() {
     }
   }
 
-  const show = (data, extra = {}) => setState(data.needsCode ? { step: 'code', info: data, ...extra } : { step: 'form', answer: data, notice: extra.notice })
+  const show = (data, extra = {}) => setState(data.needsCode ? { step: 'code', info: data, ...extra } : { step: 'form', answer: data })
+
+  /** The page's read: on load, and from „Spróbuj ponownie” on the error step. */
+  function load() {
+    setState({ step: 'loading' })
+    read()
+      .then((data) => { if (data) show(data) })
+      .catch((err) => setState({ step: 'error', message: err.status == null ? OFFLINE : err.message }))
+  }
 
   useEffect(() => {
     // One read on load, even under React's development double effects (the token's limit is 30 an hour).
     if (!token || started.current) return
     started.current = true
-    read()
-      .then((data) => { if (data) show(data) })
-      .catch((err) => setState({ step: 'error', message: err.status == null ? 'Nie udało się połączyć. Odśwież stronę.' : err.message }))
+    load()
   }, [token])
 
-  return { token, state, setState, read, show, refuse }
+  return { token, state, setState, read, show, refuse, load }
 }
 
 export default function Zgoda() {
   useSeo({ title: 'Akceptacja regulaminu', path: '/zgoda', noindex: true })
-  const { token, state, setState, read, show, refuse } = useConsentPage()
+  const { token, state, setState, read, show, refuse, load } = useConsentPage()
   const [code, setCode] = useState('')
   const [codeError, setCodeError] = useState(null)
   const [stale, setStale] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Bumped when the code opens the session: the Navbar mounts again and reads who is signed in,
+  // as it does after every navigation from /login.
+  const [authKey, setAuthKey] = useState(0)
+
+  const codeFailed = (err) => {
+    // A retired address can never finish this link: the tab need not keep it.
+    if (err.code === 'email_retired') forgetConsentToken()
+    setCodeError(err.status == null ? OFFLINE : err.message)
+  }
 
   async function sendCode() {
     setBusy(true)
@@ -315,7 +375,7 @@ export default function Zgoda() {
         show(data, { sent: true })
       }
     } catch (err) {
-      setCodeError(err.status == null ? 'Nie udało się połączyć. Spróbuj ponownie.' : err.message)
+      codeFailed(err)
     } finally {
       setBusy(false)
     }
@@ -333,23 +393,28 @@ export default function Zgoda() {
         clearAuthCache()
         clearFavoritesCache()
         clearNotificationsCache()
+        setAuthKey((k) => k + 1)
         show(data, { sent: true })
       }
     } catch (err) {
       // After three wrong codes the right one is refused too (403): a new code is the way on.
       setStale(err.status === 403 && err.code !== 'email_retired')
-      setCodeError(err.status == null ? 'Nie udało się połączyć. Spróbuj ponownie.' : err.message)
+      codeFailed(err)
     } finally {
       setBusy(false)
     }
   }
 
-  async function reload(notice) {
+  /** consent-request again for the form: → the full answer, or null (code step, refusal or error shown instead). */
+  async function reread() {
     try {
       const data = await read()
-      if (data) show(data, { sent: false, notice })
+      if (!data) return null
+      if (data.needsCode) { show(data); return null }
+      return data
     } catch (err) {
-      setState({ step: 'error', message: err.message })
+      setState({ step: 'error', message: err.status == null ? OFFLINE : err.message })
+      return null
     }
   }
 
@@ -363,7 +428,13 @@ export default function Zgoda() {
   } else if (state.step === 'gone') {
     body = <Gone message={state.message} />
   } else if (state.step === 'error') {
-    body = <p className="text-apex-red text-lg" role="alert" data-testid="consent-error">{state.message}</p>
+    body = (
+      <div className="flex flex-col gap-4" data-testid="consent-load-error">
+        <PageTop right="Akceptacja regulaminu" />
+        <p className="text-apex-red text-lg" role="alert" data-testid="consent-error">{state.message}</p>
+        <button type="button" onClick={load} className={secondaryBtn}>Spróbuj ponownie</button>
+      </div>
+    )
   } else if (state.step === 'code') {
     body = (
       <CodeStep info={state.info} sent={!!state.sent} code={code} onCode={setCode} error={codeError} busy={busy} stale={stale}
@@ -371,13 +442,13 @@ export default function Zgoda() {
     )
   } else if (state.step === 'form') {
     body = (
-      <ConsentForm key={state.answer.consents.map((c) => c.id).join()} token={token} answer={state.answer} notice={state.notice}
+      <ConsentStep token={token} answer={state.answer}
         onAccepted={(answer) => { forgetConsentToken(); setState({ step: 'done', answer }) }}
-        onRefused={refuse} onReloaded={reload}
-        onSessionGone={() => reload()} />
+        onRefused={refuse} onReread={reread}
+        onSessionGone={async () => { const d = await reread(); if (d) show(d) }} />
     )
   } else {
     body = <Done info={state.answer} />
   }
-  return <Shell>{body}</Shell>
+  return <Shell authKey={authKey}>{body}</Shell>
 }

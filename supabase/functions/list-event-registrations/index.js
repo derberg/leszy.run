@@ -32,6 +32,7 @@ function roleOf(r) {
 }
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
+const ID_CHUNK = 100
 // An entry whose person deleted the account reads „Usunięte konto Usunięte konto”: not a name.
 const DELETED = 'Usunięte konto'
 const fullName = (r) => (r.first_name === DELETED ? null : `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim())
@@ -43,8 +44,10 @@ async function registeredByNames(admin, regs, orderOf) {
   // Lowest precedence first; a later set overrides. Within a list the latest row wins.
   const latestFirst = regs.filter((r) => LIVE.has(r.status)).reverse()
   const ids = [...new Set(regs.filter((r) => roleOf(r) !== 'self').map((r) => r.registered_by_profile_id).filter(Boolean))]
-  if (ids.length) {
-    const profiles = await allRows(() => admin.from('profiles').select('id, display_name').in('id', ids).is('deleted_at', null).order('id'))
+  // One request per ID_CHUNK ids: every id travels in the GET URL, and a large event has hundreds of payers.
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const chunk = ids.slice(i, i + ID_CHUNK)
+    const profiles = await allRows(() => admin.from('profiles').select('id, display_name').in('id', chunk).is('deleted_at', null).order('id'))
     // A deleted account's display name („Uczestnik anonimowy”) names nobody: left out above.
     for (const p of profiles) if (p.display_name?.trim()) byProfile.set(p.id, p.display_name.trim())
   }
