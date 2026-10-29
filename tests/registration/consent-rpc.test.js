@@ -153,6 +153,85 @@ test('G-21 an unknown hash → invalid; a profile whose address is not the regis
   assert.equal((await regOf(ctx.regId)).consent_state, 'awaiting')
 })
 
+test('G-21 a consentIds entry that is not a uuid, or no list at all → consents_changed (never 22P02), the token still valid', async () => {
+  const ctx = await awaitingAdult()
+  const t = await issued(ctx)
+  const ids = await consentIds(ctx.event.eventId)
+  for (const bad of [[...ids, 'nie-uuid'], [...ids.slice(1), 42], [...ids.slice(1), null], 'abc', { a: 1 }]) {
+    const r = await accept(ctx, t.hash, { meta: await acceptMeta(ctx.event.eventId, { consentIds: bad }) })
+    assert.equal(r.error?.message, 'consents_changed', JSON.stringify(bad))
+    assert.notEqual(r.error?.code, '22P02')
+  }
+  assert.equal((await requestOf(ctx.regId)).used_at, null)
+  assert.equal((await accept(ctx, t.hash)).data.status, 'accepted')
+})
+
+/**
+ * Runs `work` inside a transaction that holds the event's settings row FOR UPDATE (as
+ * publish_registration_changes does), starts `call` while it is held, and commits after
+ * 800 ms. → the call's result.
+ */
+async function duringPublish(eventId, work, call) {
+  const postgres = (await import('postgres')).default
+  const sql = postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} })
+  try {
+    let pending
+    await sql.begin(async (tx) => {
+      await tx`select 1 from public.registration_settings where event_id = ${eventId} for update`
+      await work(tx)
+      // A PostgREST builder is lazy: await it here so the request leaves while the lock is held.
+      pending = (async () => await call())()
+      await new Promise((resolve) => setTimeout(resolve, 800))
+    })
+    return await pending
+  } finally {
+    await sql.end()
+  }
+}
+
+test('G-21 a publish landing mid-accept: a consent removed → consents_changed (never 23503); a regulamin bump → the new version recorded', async () => {
+  const ctx = await awaitingAdult()
+  const { data: custom, error } = await db().from('event_consents')
+    .insert({ event_id: ctx.event.eventId, kind: 'custom', text: 'Zgoda dodatkowa', sort_order: 9 }).select('id').single()
+  assert.ifError(error)
+  const t = await issued(ctx)
+  const meta = await acceptMeta(ctx.event.eventId)
+  assert.ok(meta.consentIds.includes(custom.id))
+  const before = (await one('registration_settings', { event_id: ctx.event.eventId })).regulamin_version
+
+  const r = await duringPublish(ctx.event.eventId, async (tx) => {
+    await tx`delete from public.event_consents where id = ${custom.id}`
+    await tx`update public.registration_settings set regulamin_version = regulamin_version + 1 where event_id = ${ctx.event.eventId}`
+  }, () => accept(ctx, t.hash, { meta }))
+  assert.equal(r.error?.message, 'consents_changed', JSON.stringify(r.error))
+  assert.notEqual(r.error?.code, '23503')
+  assert.equal((await requestOf(ctx.regId)).used_at, null)
+  assert.equal((await acceptancesOf(ctx.regId)).length, 0)
+
+  // The page re-reads the consents; meanwhile another publish bumps the regulamin only.
+  const fresh = await acceptMeta(ctx.event.eventId)
+  const ok = await duringPublish(ctx.event.eventId, async (tx) => {
+    await tx`update public.registration_settings set regulamin_version = regulamin_version + 1 where event_id = ${ctx.event.eventId}`
+  }, () => accept(ctx, t.hash, { meta: fresh }))
+  assert.equal(ok.error, null, ok.error?.message)
+  assert.equal(ok.data.status, 'accepted')
+  const reg = (await acceptancesOf(ctx.regId)).find((a) => a.consent_kind === 'regulamin')
+  assert.equal(reg.regulamin_version, before + 2, 'the version current when the accept committed')
+})
+
+test('G-25 mark_consent_office during a regulamin bump records the new version', async () => {
+  const ctx = await awaitingAdult()
+  await issued(ctx)
+  const actor = await profileFor('owner@zatyrani-test.local')
+  const before = (await one('registration_settings', { event_id: ctx.event.eventId })).regulamin_version
+  const r = await duringPublish(ctx.event.eventId, async (tx) => {
+    await tx`update public.registration_settings set regulamin_version = regulamin_version + 1 where event_id = ${ctx.event.eventId}`
+  }, () => office(ctx.regId, actor))
+  assert.deepEqual([r.error, r.data], [null, true])
+  const reg = (await acceptancesOf(ctx.regId)).find((a) => a.consent_kind === 'regulamin')
+  assert.equal(reg.regulamin_version, before + 1)
+})
+
 // ---------------------------------------------------------------- G-22
 
 test('G-22 rotate → the old hash invalid, the new one accepted; rotate after use → false', async () => {

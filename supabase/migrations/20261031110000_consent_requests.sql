@@ -18,10 +18,13 @@
 --   registration_age_on(birth, on, reckoning)   ageOn() of ageGroups.js, internal
 --   purge_registration_contact_data()   D4-30: also clears guardian_name / guardian_email
 --
--- Lock order: the registrations row first, then consent_requests, in every function that
--- touches both (accept, office, issue). rotate and claim lock consent_requests only. The
--- settings row is read without a lock (D3-1 puts settings before registrations, so taking
--- it after the registration lock could deadlock against publish_registration_changes).
+-- Lock order (D3-1): the settings row FOR SHARE, then the registrations row, then
+-- consent_requests, in every function that touches both tables (accept, office; issue
+-- reads settings unlocked, it writes nothing an organizer publishes). The settings lock is
+-- taken BEFORE the registration, never after it, so publish_registration_changes (which
+-- takes settings FOR UPDATE) waits for an accept or runs entirely before it: the consent
+-- set and regulamin_version an accept checks and records cannot change underneath it.
+-- rotate and claim lock consent_requests only.
 
 -- ---------------------------------------------------------------- table
 
@@ -138,6 +141,7 @@ DECLARE
                                      'nationality', 'birthDate', 'gender'];
   c_phone   constant text := '^\+?[0-9][0-9 -]{5,19}$';
   v_reg_id  uuid;
+  v_event   uuid;
   v_req_id  uuid;
   r         public.registrations%ROWTYPE;
   v_rs      public.registration_settings%ROWTYPE;
@@ -172,11 +176,15 @@ BEGIN
     RETURN jsonb_build_object('status', 'invalid');
   END IF;
 
-  -- The registration first (lock order), found through the hash without a lock.
-  SELECT cr.registration_id INTO v_reg_id FROM public.consent_requests cr WHERE cr.token_hash = p_token_hash;
+  -- Found through the hash without a lock; then the settings FOR SHARE (a publish waits
+  -- for us, or finished before), then the registration (lock order).
+  SELECT cr.registration_id, rg.event_id INTO v_reg_id, v_event
+    FROM public.consent_requests cr JOIN public.registrations rg ON rg.id = cr.registration_id
+   WHERE cr.token_hash = p_token_hash;
   IF v_reg_id IS NULL THEN
     RETURN jsonb_build_object('status', 'invalid');
   END IF;
+  SELECT * INTO v_rs FROM public.registration_settings WHERE event_id = v_event FOR SHARE;
   SELECT * INTO r FROM public.registrations WHERE id = v_reg_id FOR UPDATE;
 
   -- The gate: one statement spends the token. A rotation or an office signature that
@@ -201,10 +209,16 @@ BEGIN
     RAISE EXCEPTION 'profile_mismatch';
   END IF;
 
-  SELECT * INTO v_rs FROM public.registration_settings WHERE event_id = r.event_id;
   SELECT * INTO v_comp FROM public.competitions WHERE category_id = r.category_id;
 
-  -- D4-5: exactly the consents the page showed, image included.
+  -- D4-5: exactly the consents the page showed, image included. Anything that is not a
+  -- list of uuids is a consent set we do not have, never a raw cast error.
+  IF jsonb_typeof(coalesce(p_meta->'consentIds', '[]'::jsonb)) <> 'array'
+     OR EXISTS (SELECT 1 FROM jsonb_array_elements(coalesce(p_meta->'consentIds', '[]'::jsonb)) AS t(e)
+                 WHERE jsonb_typeof(e) <> 'string'
+                    OR (e #>> '{}') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') THEN
+    RAISE EXCEPTION 'consents_changed';
+  END IF;
   SELECT coalesce(array_agg(DISTINCT x::uuid ORDER BY x::uuid), '{}') INTO v_sent
     FROM jsonb_array_elements_text(coalesce(p_meta->'consentIds', '[]'::jsonb)) AS t(x);
   SELECT coalesce(array_agg(ec.id ORDER BY ec.id), '{}') INTO v_have
@@ -376,17 +390,23 @@ CREATE FUNCTION public.mark_consent_office(p_registration_id uuid, p_actor uuid)
 AS $$
 DECLARE
   v_event   uuid;
+  v_done    uuid;
   v_version integer;
 BEGIN
-  PERFORM 1 FROM public.registrations WHERE id = p_registration_id FOR UPDATE;
-  UPDATE public.registrations SET consent_state = 'office'
-   WHERE id = p_registration_id AND consent_state = 'awaiting' AND status = 'confirmed'
-  RETURNING event_id INTO v_event;
+  -- Lock order: settings FOR SHARE, then the registration (as accept_consent_request).
+  SELECT event_id INTO v_event FROM public.registrations WHERE id = p_registration_id;
   IF v_event IS NULL THEN
     RETURN false;
   END IF;
+  SELECT rs.regulamin_version INTO v_version FROM public.registration_settings rs WHERE rs.event_id = v_event FOR SHARE;
+  PERFORM 1 FROM public.registrations WHERE id = p_registration_id FOR UPDATE;
+  UPDATE public.registrations SET consent_state = 'office'
+   WHERE id = p_registration_id AND consent_state = 'awaiting' AND status = 'confirmed'
+  RETURNING id INTO v_done;
+  IF v_done IS NULL THEN
+    RETURN false;
+  END IF;
 
-  SELECT rs.regulamin_version INTO v_version FROM public.registration_settings rs WHERE rs.event_id = v_event;
   INSERT INTO public.consent_acceptances (
     registration_id, consent_id, consent_kind, accepted_by_profile_id, accepted_as, regulamin_version, ip, user_agent)
   SELECT p_registration_id, ec.id, ec.kind, p_actor, 'office',
