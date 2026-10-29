@@ -107,3 +107,26 @@ export async function sendMissedRunEmail({ reason, lastSeenAt }) {
   `;
   return send({ subject, html });
 }
+
+export async function sendRegistrationJobsAlert({ reason, jobs }) {
+  const subject = `[ALERT] LeszyRun registration jobs stopped`;
+  const rows = jobs.map((j) => `
+        <li><code>${escapeHtml(j.job)}</code>: last run ${escapeHtml(j.lastOkAt)}
+          (${j.ageMinutes} min ago, runs every ${Math.round(j.intervalSeconds / 60)} min)</li>`).join('');
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto;">
+      <h2 style="color: #dc2626;">⏰ Registration jobs are not running</h2>
+      <p><strong>Reason:</strong> ${escapeHtml(reason)}</p>
+      ${rows ? `<ul>${rows}</ul>` : ''}
+      <p>While they are stopped, unpaid orders keep their slots, and no reminders, „Zgłoszenie wygasło”
+         notices, refund retries or operator digests go out.</p>
+      <p>Check in the Supabase SQL editor (production):</p>
+      <pre style="background:#f5f5f5; padding:12px;">SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'registration-%';
+SELECT job, last_ok_at FROM registration_job_heartbeats ORDER BY job;
+SELECT jobid, status, return_message, start_time FROM cron.job_run_details ORDER BY start_time DESC LIMIT 20;</pre>
+      <p>See docs/supabase-release-runbook.md, „Registration jobs”.</p>
+      <p style="color:#666; font-size:12px;">LeszyRun registration watchdog · sent ${new Date().toISOString()}</p>
+    </div>
+  `;
+  return send({ subject, html });
+}

@@ -83,6 +83,9 @@ jobs:
       - name: Public unit tests
         run: npm run test:unit --prefix public
 
+      - name: Scheduler unit tests (registration jobs watchdog)
+        run: npm test --workspace=scheduler
+
       - name: Registration integration tests
         run: node --test --test-concurrency=1 "tests/registration/**/*.test.js"
 

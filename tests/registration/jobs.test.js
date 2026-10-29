@@ -1,4 +1,5 @@
-// Plan 3, task 7: the payment window jobs (P-36…P-39b in docs/registration/scenario-matrix.md).
+// Plan 3, task 7: the payment window jobs (P-36…P-39h in docs/registration/scenario-matrix.md),
+// and task 11's heartbeats the scheduler's watchdog reads (P-55).
 //   pg_cron: expire_orders and release_orphan_orders every 5 min, registration-jobs every 15 min
 //            (pg_net → the function, both Vault secrets), purge_expired_registrations daily.
 //   registration-jobs: dpay check before expiry (M6), reminders, „Zgłoszenie wygasło”, lost
@@ -172,6 +173,7 @@ test('P-36 cron.job holds the expiry, orphan release, jobs call and purge with t
     const byName = Object.fromEntries(jobsRows.map((j) => [j.jobname, j]))
     assert.equal(byName['registration-expire-orders']?.schedule, '*/5 * * * *')
     assert.match(byName['registration-expire-orders'].command, /public\.expire_orders\(\)/)
+    assert.match(byName['registration-expire-orders'].command, /registration_job_heartbeat\('registration-expire-orders'\)/)
     assert.equal(byName['registration-release-orphan-orders']?.schedule, '2-59/5 * * * *')
     assert.match(byName['registration-release-orphan-orders'].command, /public\.release_orphan_orders\(\)/)
     assert.equal(byName['registration-jobs']?.schedule, '*/15 * * * *')
@@ -753,7 +755,7 @@ test('P-36 anon and authenticated cannot execute the new job functions', async (
   const calls = [
     ['release_orphan_orders', {}], ['purge_expired_registrations', {}], ['claim_payment_reminders', {}],
     ['claim_expired_notices', {}], ['claim_confirmation_resends', {}], ['stalled_refunds', {}],
-    ['claim_refund_retries', {}],
+    ['claim_refund_retries', {}], ['registration_job_heartbeat', { p_job: 'registration-jobs' }],
   ]
   for (const client of [anon, authed]) {
     for (const [fn, args] of calls) {
@@ -765,4 +767,66 @@ test('P-36 anon and authenticated cannot execute the new job functions', async (
   // service_role may (the claims are exercised through the function above).
   assert.ifError((await admin().rpc('release_orphan_orders')).error)
   assert.ifError((await admin().rpc('purge_expired_registrations')).error)
+})
+
+// ---------------------------------------------------------------- P-55 heartbeats (task 11, P3-R11 I6)
+
+const HEARTBEAT_JOBS = {
+  'registration-expire-orders': 300,
+  'registration-release-orphan-orders': 300,
+  'registration-jobs': 900,
+  'registration-purge-expired': 86400,
+}
+
+async function heartbeat(job) {
+  const { data, error } = await db().from('registration_job_heartbeats').select('*').eq('job', job).single()
+  if (error) throw error
+  return data
+}
+
+async function ageHeartbeat(job) {
+  const { error } = await db().from('registration_job_heartbeats').update({ last_ok_at: ago(HOUR) }).eq('job', job)
+  if (error) throw error
+}
+
+test('P-55 one heartbeat row per registration job with its interval; anon and authenticated read nothing; an unknown job is refused', async () => {
+  const { data, error } = await db().from('registration_job_heartbeats').select('job, interval_seconds, last_ok_at')
+  assert.ifError(error)
+  assert.deepEqual(Object.fromEntries(data.map((r) => [r.job, r.interval_seconds])), HEARTBEAT_JOBS)
+  assert.ok(data.every((r) => r.last_ok_at))
+
+  const { url, anonKey } = localEnv()
+  const anon = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  const read = await anon.from('registration_job_heartbeats').select('job')
+  assert.ok(read.error, 'anon cannot select')
+
+  const unknown = await admin().rpc('registration_job_heartbeat', { p_job: 'no-such-job' })
+  assert.equal(unknown.error?.message, 'unknown_job')
+})
+
+test('P-55 each SQL job\'s cron command, run by hand, stamps its heartbeat (where pg_cron is installed)', async (t) => {
+  const sql = postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} })
+  try {
+    const [has] = await sql`select to_regclass('cron.job') as t`
+    if (!has.t) return t.skip('no cron.job on this stack')
+    for (const job of ['registration-expire-orders', 'registration-release-orphan-orders', 'registration-purge-expired']) {
+      await ageHeartbeat(job)
+      const [row] = await sql`select command from cron.job where jobname = ${job}`
+      assert.match(row.command, new RegExp(`registration_job_heartbeat\\('${job}'\\)`), job)
+      await sql.unsafe(row.command)
+      const beat = await heartbeat(job)
+      assert.ok(Date.now() - Date.parse(beat.last_ok_at) < 60_000, `${job} stamped: ${beat.last_ok_at}`)
+    }
+  } finally {
+    await sql.end({ timeout: 1 })
+  }
+})
+
+test('P-55 a registration-jobs run stamps its heartbeat; a refused call (wrong secret) does not', async () => {
+  await ageHeartbeat('registration-jobs')
+  const refused = await jobs({ secret: 'wrong' })
+  assert.equal(refused.status, 404)
+  assert.ok(Date.now() - Date.parse((await heartbeat('registration-jobs')).last_ok_at) > 30 * MIN, 'not stamped by a refused call')
+  await jobsOk()
+  assert.ok(Date.now() - Date.parse((await heartbeat('registration-jobs')).last_ok_at) < 60_000, 'stamped by a run')
 })

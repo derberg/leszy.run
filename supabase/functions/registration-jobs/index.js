@@ -31,6 +31,8 @@ import {
 //      hands out orders with that proof, with no unpaid transaction, or expired over 2 h ago
 //   7. lost confirmations (P3-R10): a paid order with no confirmation_sent_at 10 min after payment
 //   8. the operator digest again, for the alerts this run raised
+// A finished run stamps registration_job_heartbeats ('registration-jobs'); the scheduler
+// container alerts when that stamp is older than 3 runs (scheduler/src/registrationWatchdog.js).
 //
 // Every runner-facing item is claimed before it is acted on (claim_* RPCs: one UPDATE … WHERE
 // <stamp> IS NULL over rows locked SKIP LOCKED), so overlapping runs never send the same thing
@@ -321,6 +323,10 @@ Deno.serve(async (req) => {
     { auth: { autoRefreshToken: false, persistSession: false } })
   try {
     const data = await runJobs(admin, cfg, { site: cfg.publicSiteUrl, alertTo, budgetMs })
+    // The heartbeat the scheduler's watchdog reads (P3-R11): this run happened. A failed step
+    // still stamps; it raised its own alert. A failed stamp is logged and never fails the run.
+    const { error: beatErr } = await admin.rpc('registration_job_heartbeat', { p_job: 'registration-jobs' })
+    if (beatErr) console.error('registration-jobs: heartbeat not stamped:', beatErr.message)
     return json({ data }, 200, req)
   } catch (err) {
     console.error('registration-jobs error:', err?.message)
