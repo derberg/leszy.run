@@ -35,9 +35,13 @@ else
   dir="$root/.supabase-slots/$slot"
   mkdir -p "$dir/supabase"
   node "$reg/helpers/slotConfig.js" "$slot" "$root/supabase/config.toml" "$dir/supabase/config.toml"
-  for f in migrations functions seed.sql tests; do
+  for f in migrations functions tests; do
     if [ -e "$root/supabase/$f" ]; then ln -sfn "$root/supabase/$f" "$dir/supabase/$f"; fi
   done
+  # The seed writes slot 0's functions URL into the Vault; pg_net inside this slot's database
+  # must reach this slot's own functions port, so the slot gets a copy with the port shifted.
+  rm -f "$dir/supabase/seed.sql"
+  sed "s#host.docker.internal:54321/#host.docker.internal:$((54321 + slot * 100))/#g" "$root/supabase/seed.sql" > "$dir/supabase/seed.sql"
   capture=$((54399 + slot * 100))
   mock=$((54398 + slot * 100))
   api=$((54321 + slot * 100))
