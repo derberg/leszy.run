@@ -382,6 +382,19 @@ test('G-29 create-order for a group: price_changed prices each person by their o
   assert.equal((await rows('orders', { event_id: event.eventId })).length, 1)
 })
 
+test('G-46 create-order price_changed for a group carries each person\'s price in request order (RA4 re-prices every line)', async () => {
+  const event = await paidFamily()
+  const me = runnerEmail('pcl')
+  const people = family(event, me, runnerEmail('pcladult'))
+  const total = groupTotal(event, people.map((p) => ({ categoryId: p.categoryId })))
+  const off = await call('create-order', await groupBody(event, people, { supportChoice: false, displayedTotal: total - 1 }), await sessionFor(me))
+  assert.equal(off.status, 409, JSON.stringify(off.body))
+  assert.equal(off.body.code, 'price_changed')
+  assert.deepEqual(off.body.amounts.entryPrices, [6000, 6000, 2000])
+  assert.equal(off.body.amounts.entryTotal, 14000)
+  assert.equal(off.body.amounts.total, total)
+})
+
 // ---------------------------------------------------------------- G-30 retired address
 
 test('G-30 an added adult whose address is retired → 403 email_retired with that person\'s index, no rows', async () => {

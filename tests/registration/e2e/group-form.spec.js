@@ -2,11 +2,14 @@ import crypto from 'node:crypto'
 import { test, expect, ACTOR_EMAILS } from './fixtures.js'
 import { admin, resetThrottle, sessionFor } from '../helpers/stack.js'
 import { callFn, createPublishedFreeEvent, createPublishedPaidEvent } from '../helpers/registrationFixtures.js'
-import { dpayReset } from '../helpers/dpayControl.js'
+import { dpayReset, payMock } from '../helpers/dpayControl.js'
+import { messagesTo } from '../helpers/emailCapture.js'
+import { DPAY_MOCK_PORT } from '../helpers/dpayMock.js'
 
 // Plan 4 task 5a: the group form (RA2 + RA3) as the runner uses it, on a free and a paid
 // event, at 390 and 1440 px: G-44 (a)…(c) in docs/registration/scenario-matrix.md.
-// (d), the consent tags on RA5, is task 5b's.
+// Task 5b: (d), the consent tags and the reminder on RA5, and G-47, RA4 for a group (one line
+// per person, re-priced from the server's answer after price_changed).
 
 const ZT = '00000000-0000-4000-8000-0000000000c1'
 const BIEG = { name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 }
@@ -176,16 +179,12 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     if (width === 390) await fitsNarrow(page)
     await submit(page, mode)
 
-    if (mode === 'free') {
-      // The refusal names the competition and lands on the card in it (I-1).
-      await expect(page.getByRole('alert')).toHaveText('Brak wolnych miejsc w konkurencji Bieg dzieci 1 km. Zmień konkurencję: Zosia Leśna.')
-      await expect(page.locator('#p2-competition-error')).toHaveText('Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.')
-      await expect(page.locator('#p2-competition')).toBeFocused()
-      await expect(page.locator('#p2-competition')).toBeInViewport()
-    } else {
-      // On RA4 a full competition stays Podsumowanie's message (task 5b routes RA4 refusals).
-      await expect(page.getByRole('alert')).toHaveText('Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.')
-    }
+    // The refusal names the competition and lands on the card in it (I-1); from RA4 too (5b).
+    await expect(page.getByTestId('registration-form')).toBeVisible()
+    await expect(page.getByRole('alert')).toHaveText('Brak wolnych miejsc w konkurencji Bieg dzieci 1 km. Zmień konkurencję: Zosia Leśna.')
+    await expect(page.locator('#p2-competition-error')).toHaveText('Brak wolnych miejsc w konkurencji Bieg dzieci 1 km.')
+    await expect(page.locator('#p2-competition')).toBeFocused()
+    await expect(page.locator('#p2-competition')).toBeInViewport()
     expect((await competition(c9)).data.taken).toBe(0)
     expect((await competition(kids)).data.taken).toBe(5)
     expect(await registrationsOf(event.eventId)).toEqual([])
@@ -252,3 +251,124 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await expect(page.getByTestId('person-card')).toHaveCount(9)
   })
 }
+
+const PAY_PAGE = new RegExp(`localhost:${DPAY_MOCK_PORT}\\/pay\\/`)
+
+/** The newest dpay transaction of the event's one order. */
+async function orderAndTxn(eventId) {
+  const orders = await ordersOf(eventId)
+  expect(orders).toHaveLength(1)
+  const { data } = await admin().from('payment_attempts').select('dpay_transaction_id, created_at')
+    .eq('order_id', orders[0].id).order('created_at', { ascending: false }).limit(1)
+  return { orderId: orders[0].id, txnId: data[0].dpay_transaction_id }
+}
+
+async function mailsTo(address, n) {
+  for (let i = 0; i < 60; i++) {
+    const msgs = await messagesTo(address)
+    if (msgs.length >= n) return msgs
+    await new Promise((r) => setTimeout(r, 250))
+  }
+  return messagesTo(address)
+}
+
+/** Ola (the runner), Piotr (an added adult) and Zosia (a child in the kids' run), all ticked. */
+async function fillFamily(page, kids, partner) {
+  await fillMe(page)
+  await page.getByTestId('add-person').click()
+  await fillCard(page, 'p2', { first: 'Piotr', last: 'Leśny', birth: '1987-01-01', gender: 'Mężczyzna', email: partner, phone: '600300400' })
+  await page.getByTestId('fold-card').click()
+  await page.getByTestId('add-person').click()
+  await page.locator('#p3-competition').selectOption(kids)
+  await fillCard(page, 'p3', { first: 'Zosia', last: 'Leśna', birth: birthFor(9), gender: 'Dziewczynka', phone: undefined })
+  await page.getByTestId('person-card').getByTestId('guardian-consent').check()
+  await tickAll(page)
+}
+
+for (const [mode, width] of [['free', 390], ['free', 1440], ['paid', 390], ['paid', 1440]]) {
+  test(`G-44 (d) ${mode} ${width} px: RA5 tags each person; „Wyślij przypomnienie do Piotr →” sends one more consent e-mail`, async ({ actors }) => {
+    const event = await EVENTS[mode]([BIEG, DZIECI])
+    const [c9, kids] = event.categoryIds
+    const partner = email('partner')
+    const page = await offline(await actors.runner.newPage())
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto(`/events/${event.slug}/zapis/${c9}`)
+    await fillFamily(page, kids, partner)
+    await page.getByTestId('registration-submit').click()
+
+    let person
+    if (mode === 'free') {
+      await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/zapisano$`))
+      await expect(page.getByTestId('done')).toBeVisible()
+      person = (name) => page.getByTestId('done-person').filter({ hasText: name })
+    } else {
+      await expect(page.getByTestId('checkout-line')).toHaveCount(3)
+      await page.getByRole('button', { name: 'Nie tym razem' }).click()
+      await page.getByTestId('pay').click()
+      await expect(page).toHaveURL(PAY_PAGE)
+      const { orderId, txnId } = await orderAndTxn(event.eventId)
+      await payMock(txnId, 'paid')
+      await page.goto(`/zamowienie/${orderId}`)
+      await expect(page.getByTestId('order-paid')).toBeVisible()
+      person = (name) => page.getByTestId('order-person').filter({ hasText: name })
+    }
+
+    await expect(person('Ola Leśna').getByTestId('consent-tag')).toHaveText('✓ REGULAMIN')
+    await expect(person('Piotr Leśny').getByTestId('consent-tag')).toHaveText('CZEKA NA ZGODĘ')
+    await expect(person('Zosia Leśna').getByTestId('consent-tag')).toHaveText('✓ OPIEKUN')
+    // Only the adult who has not accepted can be reminded.
+    await expect(page.getByTestId('remind-consent')).toHaveCount(1)
+    const remind = person('Piotr Leśny').getByTestId('remind-consent')
+    await expect(remind).toHaveText('Wyślij przypomnienie do Piotr →')
+    if (width === 390) await fitsNarrow(page)
+
+    // The consent request went out with the registration (free) or the payment (paid).
+    expect(await mailsTo(partner, 1)).toHaveLength(1)
+    await remind.click()
+    await expect(person('Piotr Leśny').getByTestId('remind-status')).toHaveText('Przypomnienie wysłane.')
+    const mails = await mailsTo(partner, 2)
+    expect(mails).toHaveLength(2)
+    expect(mails[1].subject).toMatch(/^Przypomnienie: /)
+    // No e-mail to the child or anyone else on the payer's behalf.
+    expect(await messagesTo(ACTOR_EMAILS.runner).then((m) => m.filter((x) => /regulamin/i.test(x.subject)))).toEqual([])
+  })
+}
+
+test('G-47 RA4 390 px: one line per person at its own price; the price moves → every line re-priced from the server, then the payment goes through', async ({ actors }) => {
+  const event = await EVENTS.paid([BIEG, DZIECI])
+  const [c9, kids] = event.categoryIds
+  const page = await offline(await actors.runner.newPage())
+  await page.setViewportSize({ width: 390, height: 900 })
+  await page.goto(`/events/${event.slug}/zapis/${c9}`)
+  await fillFamily(page, kids, email('partner'))
+  await page.getByTestId('registration-submit').click()
+
+  const lines = page.getByTestId('checkout-line')
+  await expect(lines).toHaveCount(3)
+  await expect(lines.nth(0)).toContainText('Ola Leśna')
+  await expect(lines.nth(0)).toContainText('60,00 zł')
+  await expect(lines.nth(1)).toContainText('Piotr Leśny')
+  await expect(lines.nth(1)).toContainText('60,00 zł')
+  await expect(lines.nth(2)).toContainText('Zosia Leśna')
+  await expect(lines.nth(2)).toContainText('Bieg dzieci 1 km')
+  await expect(lines.nth(2)).toContainText('20,00 zł')
+  await expect(page.getByTestId('checkout-amounts')).toContainText('140,00 zł')
+  await page.getByRole('button', { name: 'Nie tym razem' }).click()
+  await fitsNarrow(page)
+
+  // The organizer raises the 9 km price while RA4 is open.
+  const { error } = await admin().from('competition_prices').update({ amount: 6500 }).eq('category_id', c9).eq('tier_id', event.tierId)
+  expect(error).toBeNull()
+  await page.getByTestId('pay').click()
+  await expect(page.getByRole('alert')).toHaveText('Cena się zmieniła. Sprawdź podsumowanie.')
+  await expect(lines.nth(0)).toContainText('65,00 zł')
+  await expect(lines.nth(1)).toContainText('65,00 zł')
+  await expect(lines.nth(2)).toContainText('20,00 zł')
+  await expect(page.getByTestId('checkout-amounts')).toContainText('150,00 zł')
+  expect(await ordersOf(event.eventId)).toEqual([])
+
+  await page.getByTestId('pay').click()
+  await expect(page).toHaveURL(PAY_PAGE)
+  const { data: order } = await admin().from('orders').select('entry_total').eq('event_id', event.eventId).single()
+  expect(order.entry_total).toBe(15000)
+})

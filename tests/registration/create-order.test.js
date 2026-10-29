@@ -140,8 +140,9 @@ test('P-20 displayedTotal off by one → 409 price_changed with the server amoun
   assert.equal(r.body.code, 'price_changed')
   assert.equal(r.body.error, PRICE_CHANGED)
   const expected = orderAmounts({ entryPrices: [6000], supportChoice: true })
+  // Plan 4 task 5b (G-46): the price of each person too, so RA4 re-prices every line.
   assert.deepEqual(r.body.amounts, {
-    entryTotal: expected.entryTotal, extrasTotal: 0, donation: 0,
+    entryPrices: [6000], entryTotal: expected.entryTotal, extrasTotal: 0, donation: 0,
     supportFee: expected.supportFee, paymentFee: expected.paymentFee, total: expected.total,
   })
   assert.equal(r.body.amounts.total, right)

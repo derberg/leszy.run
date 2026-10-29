@@ -6,13 +6,14 @@ import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction } from '../../lib/auth.js'
 import { releaseLeaveGuard } from '../../lib/leaveGuard.js'
-import { checkoutModel, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS } from '../../lib/checkout.js'
+import { backToForm, checkoutModel, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS, repriceLines } from '../../lib/checkout.js'
 import { formatPln } from '@registration/money.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import SupportChoice from '../../components/registration/SupportChoice.jsx'
 import { primaryBtn } from '../../components/registration/ui.js'
 
-// RA4 (paid events): the person's line, „Opłaty startowe”, the required
+// RA4 (paid events): one line per person (name, competition · group, that competition's
+// price), „Opłaty startowe” over every line, the required
 // LESZY.RUN 2% choice (nothing preselected, „Zapłać” disabled until chosen),
 // the dpay fee and „Razem”. „Zapłać” calls create-order with register-free's
 // body plus the choice and the total shown here (the server only compares it
@@ -26,11 +27,13 @@ import { primaryBtn } from '../../components/registration/ui.js'
 // the back/forward cache reloads, which then shows that order page.
 // A new paid order stops one hour before closes_at (plan ruling 7), as
 // create_order does: „Zapłać” is off from then, with the server's wording.
+// A price_changed answer re-prices every line from the server's per-person prices
+// (repriceLines), never a new total beside stale lines; one the lines cannot be priced
+// from starts again from a fresh event page. A refusal about a person (their card's
+// `index`, a full competition the server names, the generic group refusal, no session)
+// goes back to the form, which routes it to the card (backToForm, groupFailure).
 
 export const orderPath = (orderId) => `/zamowienie/${orderId}`
-
-// Refusals that belong to the form or the code step (ZapisView shows them there).
-const BACK_TO_FORM = new Set(['invalid_person', 'email_retired', 'duplicate', 'consents_required', 'consents_changed'])
 
 const row = 'flex justify-between gap-2.5 py-2 border-b border-apex-border text-base'
 
@@ -39,16 +42,15 @@ const row = 'flex justify-between gap-2.5 py-2 border-b border-apex-border text-
  *   body: object (groupDraft's toRequest, without a code), choice: boolean|null,
  *   onChoice: (v: boolean) => void, onBack: () => void, onFailure: (err: Error) => void }} p
  */
-export default function Podsumowanie({ raw, open, lines, body, choice, onChoice, onBack, onFailure }) {
+export default function Podsumowanie({ raw, open, lines: formLines, body, choice, onChoice, onBack, onFailure }) {
   const navigate = useNavigate()
-  // The server's entry total after a price_changed (the tier moved under the page), else each line's price.
-  const [entryTotal, setEntryTotal] = useState(null)
+  // The lines as the server last priced them: the form's, until a price_changed re-prices them.
+  const [lines, setLines] = useState(formLines)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
   const [, tick] = useState(0)
   const payable = newOrderPayable(raw.closesAt)
-  const entryPrices = entryTotal != null ? [entryTotal] : lines.map((l) => l.priceGrosze)
-  const m = checkoutModel({ entryPrices, choice, busy, closed: !open || !payable })
+  const m = checkoutModel({ entryPrices: lines.map((l) => l.priceGrosze), choice, busy, closed: !open || !payable })
 
   // The form above it was scrolled to its end: the summary starts at its top.
   useEffect(() => { window.scrollTo(0, 0) }, [])
@@ -106,8 +108,9 @@ export default function Podsumowanie({ raw, open, lines, body, choice, onChoice,
         return
       }
       if (err.code === 'price_changed') {
-        if (Number.isSafeInteger(err.amounts?.entryTotal)) {
-          setEntryTotal(err.amounts.entryTotal)
+        const repriced = repriceLines(lines, err.amounts)
+        if (repriced) {
+          setLines(repriced)
           setMessage(err.message)
           return
         }
@@ -117,7 +120,7 @@ export default function Podsumowanie({ raw, open, lines, body, choice, onChoice,
         window.location.assign(`/events/${raw.slug}`)
         return
       }
-      if (err.status === 401 || BACK_TO_FORM.has(err.code)) {
+      if (backToForm(err)) {
         onFailure(err)
         return
       }
@@ -136,7 +139,7 @@ export default function Podsumowanie({ raw, open, lines, body, choice, onChoice,
               <span className="block text-apex-text-bright text-[17px]">{l.name}</span>
               <span className="block font-mono text-[13px] text-apex-muted uppercase">{[l.competitionName, l.ageGroupLabel].filter(Boolean).join(' · ')}</span>
             </span>
-            <span className="font-mono text-apex-text-bright whitespace-nowrap">{lines.length === 1 ? m.entryLabel : formatPln(l.priceGrosze)}</span>
+            <span className="font-mono text-apex-text-bright whitespace-nowrap" data-testid="checkout-line-price">{formatPln(l.priceGrosze)}</span>
           </div>
         ))}
       </div>

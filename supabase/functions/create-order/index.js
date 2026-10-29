@@ -32,8 +32,9 @@ const PENDING_ORDER = 'Masz już nieopłacone zgłoszenie na te zawody.'
 
 // The amounts behind a price_changed refusal: each person at their own competition's current
 // price from the public read model (the same tier choice create_order makes, D4-27) through
-// money.js. When they do not reproduce the RPC's total (the price moved again in between) only
-// the total goes back.
+// money.js, with `entryPrices` one per person in request order, so RA4 re-prices every line.
+// When they do not reproduce the RPC's total (the price moved again in between) only the total
+// goes back.
 async function currentAmounts(admin, settings, people, supportChoice, total) {
   try {
     const { data } = await admin.rpc('registration_raw', { p_event_id: settings.event_id })
@@ -42,7 +43,7 @@ async function currentAmounts(admin, settings, people, supportChoice, total) {
     if (entryPrices.every(Number.isSafeInteger)) {
       const a = orderAmounts({ entryPrices, supportChoice })
       if (a.total === total) {
-        return { entryTotal: a.entryTotal, extrasTotal: 0, donation: 0, supportFee: a.supportFee, paymentFee: a.paymentFee, total }
+        return { entryPrices, entryTotal: a.entryTotal, extrasTotal: 0, donation: 0, supportFee: a.supportFee, paymentFee: a.paymentFee, total }
       }
     }
   } catch (err) {
