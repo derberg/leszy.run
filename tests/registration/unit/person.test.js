@@ -8,10 +8,11 @@ import { validatePerson, MINOR_MESSAGE } from '../../../supabase/functions/_shar
 const NOW = new Date('2026-10-28T09:00:00Z')
 const RACE = '2027-03-14'
 
-const ALL_OPTIONAL = { phone: 'optional', city: 'optional', club: 'optional', ice: 'optional' }
+const ALL_OPTIONAL = { city: 'optional', club: 'optional', ice: 'optional' }
 
 const person = (over = {}) => ({
-  firstName: ' Ola ', lastName: ' Leśna ', birthDate: '1990-05-01', gender: 'K', email: ' Ola@Example.PL ', ...over,
+  firstName: ' Ola ', lastName: ' Leśna ', birthDate: '1990-05-01', gender: 'K', email: ' Ola@Example.PL ',
+  phone: '600100200', ...over,
 })
 
 const ctx = (over = {}) => ({
@@ -31,15 +32,15 @@ test('W-28 a complete adult is accepted and normalised', () => {
   assert.deepEqual(r.errors, {})
   assert.deepEqual(r.value, {
     firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email: 'ola@example.pl',
-    phone: '+48 600 100 200', city: 'Gliwice', club: null, iceName: null, icePhone: null,
+    phone: '+48 600 100 200', city: 'Gliwice', club: null, iceName: null, icePhone: null, nationality: null,
     ageGroupLabel: 'K open', kidsGroupId: null,
   })
 })
 
-test('W-28 first name, last name, birth date, gender and email are always required', () => {
+test('W-28 first name, last name, birth date, gender, email and phone are always required', () => {
   const r = validatePerson({}, ctx())
   assert.equal(r.ok, false)
-  assert.deepEqual(Object.keys(r.errors).sort(), ['birthDate', 'email', 'firstName', 'gender', 'lastName'])
+  assert.deepEqual(Object.keys(r.errors).sort(), ['birthDate', 'email', 'firstName', 'gender', 'lastName', 'phone'])
   const blank = validatePerson(person({ firstName: '  ', lastName: '', email: 'nie-email', birthDate: '1990-02-30' }), ctx())
   assert.deepEqual(Object.keys(blank.errors).sort(), ['birthDate', 'email', 'firstName', 'lastName'])
 })
@@ -59,8 +60,8 @@ test('W-28 a birth date in the future or before 1900 is refused', () => {
 })
 
 test('W-28 formFields: required fields must be filled, off fields are dropped', () => {
-  const formFields = { phone: 'required', city: 'off', club: 'optional', ice: 'required' }
-  const missing = validatePerson(person({ city: 'Gliwice' }), ctx({ formFields }))
+  const formFields = { city: 'off', club: 'optional', ice: 'required' }
+  const missing = validatePerson(person({ city: 'Gliwice', phone: '' }), ctx({ formFields }))
   assert.equal(missing.ok, false)
   assert.deepEqual(Object.keys(missing.errors).sort(), ['iceName', 'icePhone', 'phone'])
 
@@ -137,4 +138,33 @@ test('W-28 kids group id only in a kids competition, matching birth year and gen
 test('W-28 overlong text is refused', () => {
   assert.ok(validatePerson(person({ lastName: 'x'.repeat(101) }), ctx()).errors.lastName)
   assert.ok(validatePerson(person({ club: 'x'.repeat(201) }), ctx()).errors.club)
+})
+
+test('W-65 the phone is always required, whatever form_fields says (P2-R32)', () => {
+  for (const mode of ['optional', 'off', undefined]) {
+    const r = validatePerson(person({ phone: '' }), ctx({ formFields: { ...ALL_OPTIONAL, phone: mode } }))
+    assert.equal(r.ok, false, String(mode))
+    assert.equal(r.errors.phone, 'Podaj numer telefonu.')
+  }
+  const ok = validatePerson(person({ phone: ' 600 100 200 ' }), ctx({ formFields: { phone: 'off' } }))
+  assert.equal(ok.ok, true, JSON.stringify(ok.errors))
+  assert.equal(ok.value.phone, '600 100 200', 'a stored off mode never drops the phone')
+})
+
+test('W-64 nationality: off by default and never stored; an ISO code when asked; required means required', () => {
+  const off = validatePerson(person({ nationality: 'DE' }), ctx())
+  assert.equal(off.ok, true, JSON.stringify(off.errors))
+  assert.equal(off.value.nationality, null, 'missing form_fields entry = off')
+
+  const optional = ctx({ formFields: { ...ALL_OPTIONAL, nationality: 'optional' } })
+  assert.equal(validatePerson(person({ nationality: 'DE' }), optional).value.nationality, 'DE')
+  assert.equal(validatePerson(person({ nationality: '' }), optional).value.nationality, null)
+  assert.equal(validatePerson(person({ nationality: ' de ' }), optional).value.nationality, 'DE', 'trimmed and upper-cased')
+  for (const bad of ['XX', 'POL', 'Polska', 12, 'X1']) {
+    assert.equal(validatePerson(person({ nationality: bad }), optional).errors.nationality, 'Wybierz kraj z listy.', String(bad))
+  }
+
+  const required = ctx({ formFields: { ...ALL_OPTIONAL, nationality: 'required' } })
+  assert.equal(validatePerson(person(), required).errors.nationality, 'Wybierz narodowość.')
+  assert.equal(validatePerson(person({ nationality: 'PL' }), required).value.nationality, 'PL')
 })

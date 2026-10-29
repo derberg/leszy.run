@@ -321,6 +321,7 @@ Deno.serve(async (req) => {
         club: null,
         ice_name: null,
         ice_phone: null,
+        nationality: null,
       }).in('id', ids)
       if (regErr) console.error('delete-my-account: registrations anonymization failed:', regErr.message)
       const { error: accErr } = await supabaseAdmin.from('consent_acceptances')

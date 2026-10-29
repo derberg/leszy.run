@@ -101,6 +101,13 @@ const setSettings = async (eventId, values) => {
   assert.ifError(error)
 }
 
+/** Merges keys into registration_settings.form_fields, as a published event holds them. */
+async function setFormFields(eventId, fields) {
+  const { data, error } = await db().from('registration_settings').select('form_fields').eq('event_id', eventId).single()
+  assert.ifError(error)
+  await setSettings(eventId, { form_fields: { ...data.form_fields, ...fields } })
+}
+
 async function waitForMail(email, n = 1) {
   for (let i = 0; i < 20; i++) {
     const msgs = await messagesTo(email)
@@ -146,8 +153,8 @@ test('W-29 a new address with its captured code → 201, cookie, confirmed regis
   assert.equal(await taken(event.categoryIds[0]), 1)
 
   const { data: acc } = await db().from('consent_acceptances').select('*').eq('registration_id', reg.id)
-  assert.equal(acc.length, 3)
-  assert.deepEqual(acc.map((a) => a.consent_kind).sort(), ['data_info', 'regulamin', 'service_regulamin'])
+  assert.equal(acc.length, 4)
+  assert.deepEqual(acc.map((a) => a.consent_kind).sort(), ['data_info', 'image', 'regulamin', 'service_regulamin'])
   for (const a of acc) {
     assert.equal(a.accepted_as, 'self')
     assert.equal(a.accepted_by_profile_id, profile.id)
@@ -513,18 +520,19 @@ test('W-35 the timing host pulls the new participant', async () => {
 // ---------------------------------------------------------------- W-41, W-42 GDPR
 
 /** Registers a runner by email with a captured code; → { event, email, reg, session }. */
-async function registeredRunner(tag) {
+async function registeredRunner(tag, formFields = null, personOver = {}) {
   const event = await publishedEvent()
+  if (formFields) await setFormFields(event.eventId, formFields)
   const email = runnerEmail(tag)
   const code = await requestCode(email)
-  const r = await register({ ...(await body(event, email)), code })
+  const r = await register({ ...(await body(event, email)), person: person(email, personOver), code })
   assert.equal(r.status, 201, JSON.stringify(r.body))
   const token = r.setCookie.match(/^leszy_session=([0-9a-f]{64})/)[1]
   return { event, email, regId: r.body.data.registrations[0].id, session: { cookie: `leszy_session=${token}` } }
 }
 
-test('W-41 export-my-data holds the registration and its three acceptances', async () => {
-  const { email, regId, session } = await registeredRunner('export')
+test('W-41 export-my-data holds the registration, its four acceptances and the nationality', async () => {
+  const { email, regId, session } = await registeredRunner('export', { nationality: 'optional' }, { nationality: 'DE' })
   const res = await callFn('export-my-data', session, {})
   assert.equal(res.status, 200, JSON.stringify(res.body))
   const regs = res.body.registrations
@@ -536,13 +544,15 @@ test('W-41 export-my-data holds the registration and its three acceptances', asy
   assert.equal(reg.first_name, 'Ola')
   assert.equal(reg.birth_date, '1990-05-01')
   assert.equal(reg.status, 'confirmed')
-  assert.equal(reg.consent_acceptances.length, 3)
-  assert.deepEqual(reg.consent_acceptances.map((a) => a.consent_kind).sort(), ['data_info', 'regulamin', 'service_regulamin'])
+  assert.equal(reg.consent_acceptances.length, 4)
+  assert.deepEqual(reg.consent_acceptances.map((a) => a.consent_kind).sort(), ['data_info', 'image', 'regulamin', 'service_regulamin'])
+  assert.equal(reg.nationality, 'DE', 'nationality is exported (P2-R31)')
   assert.equal(reg.consent_acceptances[0].ip, '203.0.113.9')
 })
 
 test('W-42 delete-my-account anonymises the registration, keeps the slot, retires the address', async () => {
-  const { event, email, regId, session } = await registeredRunner('erase')
+  const { event, email, regId, session } = await registeredRunner('erase', { nationality: 'required' }, { nationality: 'CZ' })
+  assert.equal((await db().from('registrations').select('nationality').eq('id', regId).single()).data.nationality, 'CZ')
   assert.equal(await taken(event.categoryIds[0]), 1)
   const sha = async (t) => crypto.createHash('sha256').update(t).digest('hex')
   const { error: codeErr } = await db().from('auth_codes').insert({
@@ -557,7 +567,7 @@ test('W-42 delete-my-account anonymises the registration, keeps the slot, retire
   const { data: reg } = await db().from('registrations').select('*').eq('id', regId).single()
   assert.equal(reg.first_name, 'Usunięte konto')
   assert.equal(reg.last_name, 'Usunięte konto')
-  for (const col of ['email', 'phone', 'birth_date', 'ice_name', 'ice_phone', 'city', 'club', 'guardian_name', 'guardian_email']) {
+  for (const col of ['email', 'phone', 'birth_date', 'ice_name', 'ice_phone', 'city', 'club', 'nationality', 'guardian_name', 'guardian_email']) {
     assert.equal(reg[col], null, col)
   }
   assert.equal(reg.status, 'confirmed')
@@ -565,7 +575,7 @@ test('W-42 delete-my-account anonymises the registration, keeps the slot, retire
   assert.equal(await taken(event.categoryIds[0]), 1, 'the slot stays taken')
 
   const { data: acc } = await db().from('consent_acceptances').select('ip, user_agent').eq('registration_id', regId)
-  assert.equal(acc.length, 3)
+  assert.equal(acc.length, 4)
   for (const a of acc) assert.deepEqual(a, { ip: null, user_agent: null })
 
   const [p] = await participantsOf(event.categoryIds[0])
@@ -574,7 +584,7 @@ test('W-42 delete-my-account anonymises the registration, keeps the slot, retire
   assert.equal(p.first_name, 'Uczestnik')
   assert.notEqual(p.deleted_at, null)
 
-  const again = await register({ ...(await body(event, email)), code: '123456' })
+  const again = await register({ ...(await body(event, email)), person: person(email, { nationality: 'CZ' }), code: '123456' })
   assert.equal(again.status, 403, JSON.stringify(again.body))
   assert.equal(again.body.code, 'email_retired')
 })
@@ -602,7 +612,7 @@ test('W-41 export-my-data returns the registrations made as guardian, with their
   assert.equal(g[0].id, b.regId)
   assert.equal(g[0].guardian_name, 'Tata Leśny')
   assert.equal(g[0].guardian_email, a.email)
-  assert.equal(g[0].consent_acceptances.length, 3)
+  assert.equal(g[0].consent_acceptances.length, 4)
   assert.equal(g[0].consent_acceptances[0].accepted_as, 'guardian')
 })
 
@@ -627,6 +637,97 @@ test('W-42 deleting the guardian clears the guardian fields and device traces, a
   assert.equal(reg.email, b.email)
   assert.equal(reg.phone, '600100200')
   const { data: acc } = await db().from('consent_acceptances').select('ip, user_agent').eq('registration_id', b.regId)
-  assert.equal(acc.length, 3)
+  assert.equal(acc.length, 4)
   for (const x of acc) assert.deepEqual(x, { ip: null, user_agent: null })
+})
+
+// ---------------------------------------------------------------- W-64…W-66 form rulings (P2-R31…R33)
+
+test('W-64 nationality: stored as the ISO code when asked; a code off the list → 400; required and missing → 400', async () => {
+  const event = await publishedEvent()
+  await setFormFields(event.eventId, { nationality: 'required' })
+  const email = runnerEmail('nat')
+  const runner = await sessionFor(email)
+
+  for (const [nationality, message] of [['XX', 'Wybierz kraj z listy.'], ['Polska', 'Wybierz kraj z listy.'], [undefined, 'Wybierz narodowość.'], ['', 'Wybierz narodowość.']]) {
+    const r = await register({ ...(await body(event, email)), person: person(email, { nationality }) }, runner)
+    assert.equal(r.status, 400, JSON.stringify([nationality, r.body]))
+    assert.equal(r.body.code, 'invalid_person')
+    assert.equal(r.body.fields.nationality, message)
+  }
+  assert.equal(await taken(event.categoryIds[0]), 0)
+
+  const ok = await register({ ...(await body(event, email)), person: person(email, { nationality: 'ua' }) }, runner)
+  assert.equal(ok.status, 201, JSON.stringify(ok.body))
+  const [reg] = await registrationsOf(event.categoryIds[0])
+  assert.equal(reg.nationality, 'UA')
+  const [p] = await participantsOf(event.categoryIds[0])
+  assert.equal('nationality' in p, false, 'participants has no nationality column: the timing host never gets it')
+})
+
+test('W-64 nationality off (the default): a sent value is not stored', async () => {
+  const event = await publishedEvent()
+  const email = runnerEmail('nat-off')
+  const r = await register({ ...(await body(event, email)), person: person(email, { nationality: 'DE' }) }, await sessionFor(email))
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const [reg] = await registrationsOf(event.categoryIds[0])
+  assert.equal(reg.nationality, null)
+})
+
+test('W-64 the column refuses anything but two upper-case letters', async () => {
+  const event = await publishedEvent()
+  const email = runnerEmail('nat-col')
+  const r = await register(await body(event, email), await sessionFor(email))
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const id = r.body.data.registrations[0].id
+  for (const bad of ['pl', 'POL', 'P']) {
+    const u = await db().from('registrations').update({ nationality: bad }).eq('id', id)
+    assert.equal(u.error?.code, '23514', bad)
+  }
+})
+
+test('W-65 a missing phone → 400 even when the stored mode says optional or off (P2-R32)', async () => {
+  const event = await publishedEvent()
+  const email = runnerEmail('phone')
+  const runner = await sessionFor(email)
+  for (const mode of ['optional', 'off']) {
+    await setFormFields(event.eventId, { phone: mode })
+    const r = await register({ ...(await body(event, email)), person: person(email, { phone: '' }) }, runner)
+    assert.equal(r.status, 400, JSON.stringify([mode, r.body]))
+    assert.equal(r.body.code, 'invalid_person')
+    assert.equal(r.body.fields.phone, 'Podaj numer telefonu.')
+  }
+  assert.equal(await taken(event.categoryIds[0]), 0)
+  const ok = await register(await body(event, email), runner)
+  assert.equal(ok.status, 201, JSON.stringify(ok.body))
+  assert.equal((await registrationsOf(event.categoryIds[0]))[0].phone, '600100200', 'stored even with a stored off mode')
+})
+
+test('W-66 every published event carries the image acceptance; registering without it is refused (P2-R33)', async () => {
+  const event = await publishedEvent()
+  const { data: image } = await db().from('event_consents').select('id, sort_order').eq('event_id', event.eventId).eq('kind', 'image')
+  assert.equal(image.length, 1)
+
+  const email = runnerEmail('image')
+  const runner = await sessionFor(email)
+  const all = await consentIds(event.eventId)
+  const r = await register({ ...(await body(event, email)), acceptedConsentIds: all.filter((id) => id !== image[0].id) }, runner)
+  assert.equal(r.status, 400, JSON.stringify(r.body))
+  assert.equal(r.body.error, CONSENTS)
+
+  // The RPC itself refuses a consent list without it.
+  const rpc = await db().rpc('register_free', {
+    p_category_id: event.categoryIds[0],
+    p_people: [{ firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email, phone: '600100200' }],
+    p_profile_id: null,
+    p_meta: { consentIds: all.filter((id) => id !== image[0].id) },
+  })
+  assert.equal(rpc.error?.message, 'consents_changed')
+  assert.equal(await taken(event.categoryIds[0]), 0)
+
+  const ok = await register(await body(event, email), runner)
+  assert.equal(ok.status, 201, JSON.stringify(ok.body))
+  const { data: acc } = await db().from('consent_acceptances').select('consent_id, consent_kind')
+    .eq('registration_id', ok.body.data.registrations[0].id).eq('consent_kind', 'image')
+  assert.deepEqual(acc, [{ consent_id: image[0].id, consent_kind: 'image' }])
 })

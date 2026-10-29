@@ -23,7 +23,7 @@ async function fetchAll(buildQuery, label) {
   return rows
 }
 
-const REGISTRATION_COLUMNS = 'id, event_id, category_id, status, first_name, last_name, birth_date, gender, email, phone, city, club, '
+const REGISTRATION_COLUMNS = 'id, event_id, category_id, status, first_name, last_name, birth_date, gender, email, phone, city, club, nationality, '
   + 'ice_name, ice_phone, guardian_name, guardian_email, age_group_label, list_price, price, refunded, consent_state, created_at, '
   + 'registration_settings(name, event_date), '
   + 'consent_acceptances(consent_kind, accepted_as, regulamin_version, accepted_at, ip, user_agent)'

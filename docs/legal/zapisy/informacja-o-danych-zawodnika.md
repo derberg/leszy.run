@@ -28,7 +28,7 @@ Podanie danych oznaczonych w formularzu jako wymagane jest warunkiem zapisu. Bez
 
 ## Co jest publikowane
 
-Na publicznej liście startowej: imię, nazwisko, miejscowość, klub, konkurencja, kategoria wiekowa, nazwa drużyny i informacja, czy zgłoszenie jest opłacone. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. Data urodzenia, adres e-mail, numer telefonu i dane osoby do kontaktu w nagłych wypadkach nie są publikowane. [DO WERYFIKACJI: publikacja statusu płatności — zob. „Do weryfikacji”, pkt 3.]
+Na publicznej liście startowej: imię, nazwisko, miejscowość, klub, konkurencja, kategoria wiekowa, nazwa drużyny i informacja, czy zgłoszenie jest opłacone. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. Data urodzenia, adres e-mail, numer telefonu, narodowość (jeżeli formularz o nią prosi) i dane osoby do kontaktu w nagłych wypadkach nie są publikowane. [DO WERYFIKACJI: publikacja statusu płatności — zob. „Do weryfikacji”, pkt 3.]
 
 ## Kto otrzymuje dane
 

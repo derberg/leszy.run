@@ -6,22 +6,24 @@
 // address and NIP/KRS are not in the snapshot and are left out. Ruling
 // P2-R21: lines about payment (dpay, paid status, payment records, unpaid
 // entries) appear only for a paid event, the team name only with team
-// competitions.
+// competitions. Ruling P2-R31: nationality is named only when the event's
+// form asks for it.
 //
 // Keep in step with the source document when it changes.
 
 export const RUNNER_DATA_INFO_VERSION = '2026-11-v1'
 
 /**
- * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean }} p
+ * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
  * @returns {{ title: string, sections: Array<{ heading: string, blocks: Array<string | { list: string[] } | { table: string[][] }> }> }}
  */
-export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = false, teams = false }) {
+export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = false, teams = false, nationality = false }) {
   const listed = ['imię', 'nazwisko', 'miejscowość', 'klub', 'konkurencja', 'kategoria wiekowa', ...(teams ? ['nazwa drużyny'] : [])]
   const listedText = paid
     ? `${listed.join(', ')} i informacja, czy zgłoszenie jest opłacone`
     : `${listed.slice(0, -1).join(', ')} i ${listed.at(-1)}`
   const only = (cond, x) => (cond ? [x] : [])
+  const unpublished = ['Data urodzenia', 'adres e-mail', 'numer telefonu', ...only(nationality, 'narodowość')]
   const organizer = organizerName || 'Organizator zawodów'
   const contact = contactEmail
     ? `W sprawach danych możesz pisać do Organizatora: ${contactEmail}.`
@@ -55,7 +57,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
       {
         heading: 'Co jest publikowane',
         blocks: [
-          `Na publicznej liście startowej: ${listedText}. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. Data urodzenia, adres e-mail, numer telefonu i dane osoby do kontaktu w nagłych wypadkach nie są publikowane.`,
+          `Na publicznej liście startowej: ${listedText}. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. ${unpublished.join(', ')} i dane osoby do kontaktu w nagłych wypadkach nie są publikowane.`,
         ],
       },
       {

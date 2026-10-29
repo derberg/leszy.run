@@ -118,7 +118,7 @@ test('W-18 published → 200 with cache headers and a version that changes only 
     { categoryId: c.categoryId, name: c.name, startTime: c.startTime, capacity: c.capacity, taken: c.taken, confirmed: c.confirmed, priceGrosze: c.priceGrosze, nextPrice: c.nextPrice },
     { categoryId: event.categoryIds[0], name: 'Bieg 9 km', startTime: '10:00', capacity: 50, taken: 0, confirmed: 0, priceGrosze: 0, nextPrice: null },
   )
-  assert.deepEqual(a.body.consents.map((k) => k.kind).sort(), ['data_info', 'regulamin'])
+  assert.deepEqual(a.body.consents.map((k) => k.kind), ['regulamin', 'data_info', 'image'], 'system acceptances, in this order')
 
   const b = await getEvent(`?slug=${event.slug}`)
   assert.equal(b.body.version, a.body.version, 'nothing changed → same version')

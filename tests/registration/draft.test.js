@@ -95,12 +95,17 @@ test('W-09 the draft events row carries placeholders and the timing defaults', a
   assert.equal(s.state, 'draft')
 })
 
-test('W-09 two default consents and an event_created action', async () => {
+const IMAGE_TEXT = 'Akceptuję, że mój wizerunek utrwalony podczas zawodów (zdjęcia, wideo) może zostać opublikowany w relacjach i wynikach zawodów, zgodnie z regulaminem.'
+
+test('W-09 W-66 three system acceptances (regulamin, data information, image) and an event_created action', async () => {
   const { eventId } = await createEvent()
-  const { data: consents } = await db().from('event_consents').select('kind, text, sort_order').eq('event_id', eventId).order('sort_order')
+  const { data: consents } = await db().from('event_consents').select('kind, text, sort_order').eq('event_id', eventId)
+  const rank = { regulamin: 0, data_info: 1, image: 2 }
+  consents.sort((a, b) => rank[a.kind] - rank[b.kind])
   assert.deepEqual(consents.map((c) => [c.kind, c.text]), [
     ['regulamin', 'Akceptuję regulamin zawodów.'],
     ['data_info', 'Znam informację o danych osobowych.'],
+    ['image', IMAGE_TEXT],
   ])
   const { data: acts } = await db().from('organizer_actions').select('actor_id, club_id, action')
     .eq('event_id', eventId)
@@ -255,7 +260,7 @@ test('W-10 get-registration-event returns the editor payload', async () => {
   assert.equal(d.competitions[0].priceGrosze, 6000)
   assert.equal(d.competitions[0].taken, 0)
   assert.deepEqual(d.officeHours.map((h) => [h.date, h.from, h.to]), [['2026-12-05', '17:00', '19:00']])
-  assert.equal(d.consents.length, 2)
+  assert.equal(d.consents.length, 3)
   assert.deepEqual(d.ageGroups, [])
   assert.deepEqual(d.kidsGroups, [])
   assert.deepEqual(d.uploads, [])
@@ -390,19 +395,45 @@ test('W-11 office hours are Warsaw local times; timing and form sections save', 
   const t = await callFn('save-registration-section', owner, { eventId, section: 'timing', value: { timingMode: 'external', timingCompany: 'Time-Sport' } })
   assert.equal(t.status, 200)
   const f = await callFn('save-registration-section', owner, { eventId, section: 'form', value: {
-    formFields: { phone: 'required', city: 'optional', club: 'off', ice: 'optional' },
+    formFields: { phone: 'required', city: 'optional', club: 'off', ice: 'optional', nationality: 'required' },
     consents: [{ text: 'Startuję na własną odpowiedzialność.' }],
   } })
-  assert.equal(f.status, 200)
+  assert.equal(f.status, 200, JSON.stringify(f.body))
   const s = await settingsOf(eventId)
   assert.equal(s.timing_mode, 'external')
-  assert.equal(s.form_fields.phone, 'required')
+  assert.deepEqual(s.form_fields, { city: 'optional', club: 'off', ice: 'optional', nationality: 'required' }, 'phone is never stored (P2-R32)')
   const { data: consents } = await db().from('event_consents').select('id, kind').eq('event_id', eventId)
-  assert.equal(consents.length, 3)
-  // dropping the custom consent keeps the two defaults
+  assert.equal(consents.length, 4)
+  // dropping the custom consent keeps the three system acceptances
   await callFn('save-registration-section', owner, { eventId, section: 'form', value: { consents: [] } })
   const { data: after } = await db().from('event_consents').select('kind').eq('event_id', eventId)
-  assert.deepEqual(after.map((c) => c.kind).sort(), ['data_info', 'regulamin'])
+  assert.deepEqual(after.map((c) => c.kind).sort(), ['data_info', 'image', 'regulamin'])
+})
+
+test('W-64 a new event asks for no nationality: form_fields defaults to nationality off', async () => {
+  const { eventId } = await createEvent()
+  const s = await settingsOf(eventId)
+  assert.equal(s.form_fields.nationality, 'off')
+  assert.equal('phone' in s.form_fields, false)
+})
+
+test('W-66 the organizer can neither delete nor retype the image acceptance (P2-R33)', async () => {
+  const { eventId } = await createEvent()
+  const { data: [image] } = await db().from('event_consents').select('id, text').eq('event_id', eventId).eq('kind', 'image')
+  assert.equal(image.text, IMAGE_TEXT)
+
+  const emptied = await callFn('save-registration-section', owner, { eventId, section: 'form', value: { consents: [] } })
+  assert.equal(emptied.status, 200, JSON.stringify(emptied.body))
+  const retyped = await callFn('save-registration-section', owner, { eventId, section: 'form', value: {
+    consents: [{ id: image.id, text: 'Zgadzam się na wszystko.' }],
+  } })
+  assert.equal(retyped.status, 422, JSON.stringify(retyped.body))
+
+  const { data: still } = await db().from('event_consents').select('id, kind, text').eq('event_id', eventId).eq('kind', 'image')
+  assert.deepEqual(still, [{ id: image.id, kind: 'image', text: IMAGE_TEXT }])
+
+  const second = await db().from('event_consents').insert({ event_id: eventId, kind: 'image', text: 'Druga.' })
+  assert.equal(second.error?.code, '23505', 'one image acceptance per event')
 })
 
 test('W-11 a closed event refuses saves with 409 not_draft (a published one stages them, W-21)', async () => {

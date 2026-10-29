@@ -287,7 +287,15 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
 
   // A5: Formularz.
   await page.getByRole('button', { name: 'Dalej: formularz' }).click()
-  await page.getByRole('group', { name: 'Telefon' }).getByRole('button', { name: 'Wymagane' }).click()
+  // The phone is always required, the image acceptance always there: neither has a switch (P2-R32, P2-R33).
+  const formFields = page.getByTestId('form-fields')
+  await expect(formFields.getByText('Telefon', { exact: true })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Telefon' })).toHaveCount(0)
+  await expect(page.getByTestId('form-consents').getByText('Publikacja wizerunku', { exact: true })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Publikacja wizerunku' })).toHaveCount(0)
+  // Nationality starts at „Brak” (P2-R31).
+  await expect(page.getByRole('group', { name: 'Narodowość' }).getByRole('button', { name: 'Brak' })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('group', { name: 'Narodowość' }).getByRole('button', { name: 'Wymagane' }).click()
   await page.getByRole('group', { name: 'Klub / drużyna' }).getByRole('button', { name: 'Brak' }).click()
   await page.getByRole('group', { name: 'Start na własną odpowiedzialność' }).getByRole('button', { name: 'Dodaj' }).click()
   await page.getByRole('button', { name: '+ Własna zgoda' }).click()
@@ -296,13 +304,16 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await expect.poll(async () => {
     const s = await settingsOf(eventId)
     const { data: k } = await admin().from('event_consents').select('kind, text').eq('event_id', eventId).order('sort_order')
-    return [s.form_fields, k.map((c) => c.text)]
+    const rank = { regulamin: 0, data_info: 1, image: 2, custom: 3 }
+    return [s.form_fields, k.sort((a, b) => rank[a.kind] - rank[b.kind]).map((c) => c.text)]
   }, { timeout: 15_000 }).toEqual([
-    { phone: 'required', city: 'optional', club: 'off', ice: 'optional' },
-    ['Akceptuję regulamin zawodów.', 'Znam informację o danych osobowych.', 'Startuję na własną odpowiedzialność.', 'Zgadzam się na pomiar czasu chipem.'],
+    { city: 'optional', club: 'off', ice: 'optional', nationality: 'required' },
+    ['Akceptuję regulamin zawodów.', 'Znam informację o danych osobowych.',
+      'Akceptuję, że mój wizerunek utrwalony podczas zawodów (zdjęcia, wideo) może zostać opublikowany w relacjach i wynikach zawodów, zgodnie z regulaminem.',
+      'Startuję na własną odpowiedzialność.', 'Zgadzam się na pomiar czasu chipem.'],
   ])
   await page.reload()
-  await expect(page.getByRole('group', { name: 'Telefon' }).getByRole('button', { name: 'Wymagane' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('group', { name: 'Narodowość' }).getByRole('button', { name: 'Wymagane' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('group', { name: 'Start na własną odpowiedzialność' }).getByRole('button', { name: 'Dodaj' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByLabel('Treść zgody 1')).toHaveValue('Zgadzam się na pomiar czasu chipem.')
 

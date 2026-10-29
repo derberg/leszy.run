@@ -9,7 +9,7 @@ const RETIRED = 'Ten adres e-mail należał do usuniętego konta LESZY.RUN i nie
 
 const RAW = {
   eventDate: '2026-12-06', ageReckoning: 'race_day',
-  formFields: { phone: 'required', city: 'optional', club: 'off' },
+  formFields: { phone: 'off', city: 'optional', club: 'off', nationality: 'optional' },
   consents: [{ id: 'k1', kind: 'regulamin', text: 'Akceptuję regulamin zawodów.' }, { id: 'k2', kind: 'data_info', text: 'Znam informację o danych osobowych.' }],
   competitions: [{
     categoryId: 'c1', name: 'Nordic walking 9 km', minAge: 16, maxAge: null, isKids: false,
@@ -19,6 +19,7 @@ const RAW = {
 }
 const NOW = new Date('2026-11-06T10:00:00Z')
 const ctx = personContext(RAW, RAW.competitions[0], NOW)
+assert.equal(EMPTY_PERSON.nationality, '')
 const grazyna = {
   ...EMPTY_PERSON, firstName: 'Grażyna', lastName: 'Wiśniewska', birthDate: '1971-05-02', gender: 'K',
   email: 'Grazyna.W@wp.pl ', phone: '+48 605 222 333', city: 'Pyskowice',
@@ -47,9 +48,10 @@ describe('profilePrefill (the logged-in person only)', () => {
 })
 
 describe('fieldModes', () => {
-  it('missing means optional; ice is one switch', () => {
-    assert.deepEqual(fieldModes({ phone: 'required', club: 'off' }), { phone: 'required', city: 'optional', club: 'off', ice: 'optional' })
-    assert.deepEqual(fieldModes(null), { phone: 'optional', city: 'optional', club: 'optional', ice: 'optional' })
+  it('missing means optional, nationality missing means off; ice is one switch; the phone is no switch (P2-R32)', () => {
+    assert.deepEqual(fieldModes({ phone: 'off', club: 'off' }), { city: 'optional', club: 'off', ice: 'optional', nationality: 'off' })
+    assert.deepEqual(fieldModes({ nationality: 'required' }), { city: 'optional', club: 'optional', ice: 'optional', nationality: 'required' })
+    assert.deepEqual(fieldModes(null), { city: 'optional', club: 'optional', ice: 'optional', nationality: 'off' })
   })
 })
 
@@ -76,8 +78,9 @@ describe('checkPerson (the server rules, run before „Dalej”)', () => {
     assert.equal(r.value.club, null, 'off field dropped')
   })
 
-  it('a required phone, the competition age and the adults-only rule (age on the registration day)', () => {
+  it('W-65 the phone is required even where the stored mode says off; the competition age and the adults-only rule (age on the registration day)', () => {
     assert.equal(checkPerson({ ...grazyna, phone: '' }, ctx).errors.phone, 'Podaj numer telefonu.')
+    assert.equal(checkPerson({ ...grazyna, nationality: 'XX' }, ctx).errors.nationality, 'Wybierz kraj z listy.')
     assert.equal(checkPerson({ ...grazyna, birthDate: '2012-01-01' }, ctx).errors.birthDate, 'Ta konkurencja jest dla osób w wieku 16+.')
     // 17 on 6 Nov 2026, 18 by race day: still refused, adulthood is judged today.
     assert.equal(checkPerson({ ...grazyna, birthDate: '2008-12-01' }, ctx).errors.birthDate, 'Zapis osoby niepełnoletniej będzie możliwy wkrótce.')
@@ -106,12 +109,12 @@ describe('consentsComplete', () => {
 
 describe('registerBody', () => {
   it('posts the checked person, every consent id, the service regulamin and the code when there is one', () => {
-    const { value } = checkPerson(grazyna, ctx)
+    const { value } = checkPerson({ ...grazyna, nationality: 'PL' }, ctx)
     assert.deepEqual(registerBody({ categoryId: 'c1', person: value, consents: RAW.consents, code: ' 123456 ' }), {
       categoryId: 'c1',
       person: {
         firstName: 'Grażyna', lastName: 'Wiśniewska', birthDate: '1971-05-02', gender: 'K', email: 'grazyna.w@wp.pl',
-        phone: '+48 605 222 333', city: 'Pyskowice', club: null, iceName: null, icePhone: null,
+        phone: '+48 605 222 333', city: 'Pyskowice', club: null, iceName: null, icePhone: null, nationality: 'PL',
       },
       acceptedConsentIds: ['k1', 'k2'], serviceRegulamin: true, code: '123456',
     })

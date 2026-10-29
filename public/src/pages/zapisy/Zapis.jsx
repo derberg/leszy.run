@@ -112,6 +112,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const dataInfo = runnerDataInfo({
     eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail,
     paid: raw.pricingMode !== 'free', teams: raw.competitions.some((c) => c.kind === 'team'),
+    nationality: fields.nationality !== 'off',
   })
 
   const change = (patch) => {

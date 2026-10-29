@@ -3,6 +3,7 @@
 
 import { ageOn, ageGroupLabel, kidsGroupFor } from './ageGroups.js'
 import { warsawToday } from './dates.js'
+import { isCountryCode } from './countries.js'
 
 // Plan 4 replaces this refusal with the guardian form.
 export const MINOR_MESSAGE = 'Zapis osoby niepełnoletniej będzie możliwy wkrótce.'
@@ -15,10 +16,11 @@ const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 const NAME_MAX = 100
 const TEXT_MAX = 200
 
-// Optional fields the event can switch on, off or make required (registration_settings.form_fields).
-// ice is one switch for two inputs.
+// Fields the event can switch on, off or make required (registration_settings.form_fields).
+// ice is one switch for two inputs. The phone is always required (P2-R32):
+// `always` ignores whatever mode is stored. Nationality is handled below.
 const SWITCHED = [
-  { key: 'phone', fields: ['phone'], max: 40, phone: true, label: 'Podaj numer telefonu.' },
+  { key: 'phone', fields: ['phone'], max: 40, phone: true, always: true, label: 'Podaj numer telefonu.' },
   { key: 'city', fields: ['city'], max: TEXT_MAX, label: 'Podaj miejscowość.' },
   { key: 'club', fields: ['club'], max: TEXT_MAX, label: 'Podaj klub.' },
   { key: 'ice', fields: ['iceName', 'icePhone'], max: TEXT_MAX, label: 'Podaj kontakt w razie wypadku.' },
@@ -40,9 +42,10 @@ function rangeMessage(minAge, maxAge) {
 }
 
 /**
- * @param {object} person  { firstName, lastName, birthDate, gender, email, phone?, city?, club?, iceName?, icePhone? }
+ * @param {object} person  { firstName, lastName, birthDate, gender, email, phone, city?, club?, iceName?, icePhone?, nationality? }
  * @param {object} ctx
- *   formFields  { phone|city|club|ice: 'required'|'optional'|'off' } (missing = optional)
+ *   formFields  { city|club|ice: 'required'|'optional'|'off' } (missing = optional),
+ *               nationality (missing = off); a stored phone mode is ignored
  *   competition { minAge, maxAge, isKids }
  *   raceDate    'YYYY-MM-DD'
  *   reckoning   'race_day' | 'year_end' (registration_settings.age_reckoning)
@@ -87,8 +90,8 @@ export function validatePerson(person, {
   }
 
   const optional = {}
-  for (const { key, fields, max, phone, label } of SWITCHED) {
-    const mode = formFields[key] ?? 'optional'
+  for (const { key, fields, max, phone, always, label } of SWITCHED) {
+    const mode = always ? 'required' : formFields[key] ?? 'optional'
     for (const field of fields) {
       const v = text(p[field])
       if (mode === 'off') { optional[field] = null; continue }
@@ -101,6 +104,21 @@ export function validatePerson(person, {
       if (v.length > max) errors[field] = 'Za długi tekst.'
       else if (isPhone && !PHONE_RE.test(v)) errors[field] = 'Podaj poprawny numer telefonu.'
       optional[field] = v
+    }
+  }
+
+  // Nationality (P2-R31): an ISO 3166-1 alpha-2 code from the list, off unless the event asks for it.
+  const nationalityMode = formFields.nationality ?? 'off'
+  let nationality = null
+  if (nationalityMode !== 'off') {
+    const raw = p.nationality
+    const code = typeof raw === 'string' ? raw.trim().toUpperCase() : raw
+    if (code === '' || code == null) {
+      if (nationalityMode === 'required') errors.nationality = 'Wybierz narodowość.'
+    } else if (!isCountryCode(code)) {
+      errors.nationality = 'Wybierz kraj z listy.'
+    } else {
+      nationality = code
     }
   }
 
@@ -117,7 +135,7 @@ export function validatePerson(person, {
     value: {
       firstName, lastName, birthDate, gender, email,
       phone: optional.phone, city: optional.city, club: optional.club,
-      iceName: optional.iceName, icePhone: optional.icePhone,
+      iceName: optional.iceName, icePhone: optional.icePhone, nationality,
       ageGroupLabel: label, kidsGroupId: kidsGroup?.id ?? null,
     },
   }

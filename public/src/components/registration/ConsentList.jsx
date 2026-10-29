@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { labelCls, linkCls } from './ui.js'
 
 // The registration consents (RA2): the event's own (regulamin, data
-// information, the organizer's extra ones) and the LESZY.RUN service
+// information, the image acceptance, the organizer's extra ones) and the LESZY.RUN service
 // regulamin. Every box starts unticked and every one is required (spec §2:
 // red asterisk, „* wymagane do zapisu”); the form's button stays disabled
 // until all are ticked.
@@ -14,10 +14,12 @@ function Asterisk() {
 /** The consent text with its document linked where the text names it. */
 function ConsentText({ consent, regulaminUrl, onDataInfo, dataInfoOpen }) {
   const { kind, text } = consent
-  const target = kind === 'regulamin' ? /regulamin\p{L}*/iu : kind === 'data_info' ? /informacj\p{L}* o danych( osobowych)?/iu : null
+  // The image acceptance (P2-R33) is a term of the regulamin: its „regulaminem” links there too.
+  const namesRegulamin = kind === 'regulamin' || kind === 'image'
+  const target = namesRegulamin ? /regulamin\p{L}*/iu : kind === 'data_info' ? /informacj\p{L}* o danych( osobowych)?/iu : null
   const m = target ? target.exec(text) : null
   let link = null
-  if (kind === 'regulamin' && regulaminUrl) {
+  if (namesRegulamin && regulaminUrl) {
     link = (label) => <a href={regulaminUrl} target="_blank" rel="noopener noreferrer" className={linkCls}>{label}</a>
   } else if (kind === 'data_info') {
     link = (label) => (
@@ -25,7 +27,7 @@ function ConsentText({ consent, regulaminUrl, onDataInfo, dataInfoOpen }) {
     )
   }
   if (!link) return <>{text}</>
-  if (!m) return <>{text} ({link(kind === 'regulamin' ? 'regulamin' : 'informacja o danych')})</>
+  if (!m) return kind === 'image' ? <>{text}</> : <>{text} ({link(kind === 'regulamin' ? 'regulamin' : 'informacja o danych')})</>
   return <>{text.slice(0, m.index)}{link(m[0])}{text.slice(m.index + m[0].length)}</>
 }
 

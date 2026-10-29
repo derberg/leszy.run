@@ -54,12 +54,13 @@ async function codeFor(email) {
 
 const consentBoxes = (page) => page.getByTestId('consents').getByRole('checkbox')
 
-async function fillPerson(page, { first, last, birth, gender = 'Kobieta', email }) {
+async function fillPerson(page, { first, last, birth, gender = 'Kobieta', email, phone = '600100200' }) {
   await page.locator('#p-first').fill(first)
   await page.locator('#p-last').fill(last)
   await page.locator('#p-birth').fill(birth)
   await page.getByRole('button', { name: gender, exact: true }).click()
   if (email !== undefined) await page.locator('#p-email').fill(email)
+  if (phone !== undefined) await page.locator('#p-phone').fill(phone)
 }
 
 async function tickAll(page) {
@@ -128,8 +129,12 @@ test.describe.serial('a new runner registers with an e-mail code', () => {
     await expect(page.getByTestId('login-offer')).toBeVisible()
 
     const boxes = consentBoxes(page)
-    await expect(boxes).toHaveCount(3) // regulamin, data information, LESZY.RUN service regulamin
-    for (let i = 0; i < 3; i++) await expect(boxes.nth(i)).not.toBeChecked()
+    await expect(boxes).toHaveCount(4) // regulamin, data information, image (P2-R33), LESZY.RUN service regulamin
+    for (let i = 0; i < 4; i++) await expect(boxes.nth(i)).not.toBeChecked()
+    await expect(page.getByTestId('consents')).toContainText('mój wizerunek utrwalony podczas zawodów')
+    await expect(page.getByTestId('consents').getByRole('link', { name: 'regulaminem' })).toHaveAttribute('href', 'https://example.org/regulamin.pdf')
+    await expect(page.locator('#p-nationality')).toHaveCount(0) // off by default (P2-R31)
+    await expect(page.locator('label[for="p-phone"]')).toHaveText('Telefon') // always required (P2-R32)
     await expect(page.getByText('wymagane do zapisu')).toBeVisible()
     const submit = page.getByTestId('registration-submit')
     await expect(submit).toBeDisabled()
@@ -138,7 +143,8 @@ test.describe.serial('a new runner registers with an e-mail code', () => {
     await expect(page.getByTestId('category-preview')).toContainText('K open')
     await boxes.nth(0).check()
     await boxes.nth(1).check()
-    await expect(submit).toBeDisabled()
+    await boxes.nth(3).check()
+    await expect(submit).toBeDisabled() // the image acceptance is still unticked
     await boxes.nth(2).check()
     await expect(submit).toBeEnabled()
     await expect(submit).toHaveText('Dalej')
@@ -242,6 +248,7 @@ test('W-39 a logged-in runner gets their own e-mail prefilled, registers without
 
   await page.locator('#p-first').fill('Ola')
   await page.locator('#p-last').fill('Leśna')
+  await page.locator('#p-phone').fill('600100200')
   await tickAll(page)
   await expect(page.getByTestId('registration-submit')).toHaveText('Zapisz się')
   await page.getByTestId('registration-submit').click()
@@ -252,6 +259,7 @@ test('W-39 a logged-in runner gets their own e-mail prefilled, registers without
   await page.goto(form)
   await page.locator('#p-first').fill('Ola')
   await page.locator('#p-last').fill('Leśna')
+  await page.locator('#p-phone').fill('600100200')
   await tickAll(page)
   await page.getByTestId('registration-submit').click()
   await expect(page.locator('#p-email-error')).toHaveText(DUPLICATE_TEXT)
@@ -314,4 +322,39 @@ test('W-50 a deleted account\'s address in the form shows Plan 1\'s message unde
   await expect(page.locator('#p-email-error')).toHaveText(RETIRED_TEXT)
   await expect(page.getByTestId('code-step')).toHaveCount(0)
   expect(await lastCodeFor(email)).toBeNull()
+})
+
+test('W-64 W-65 nationality asked as required: a Polish-named select, Polska first; an empty phone and no country are refused on the form; the ISO code is stored', async ({ actors }) => {
+  const event = await createPublishedFreeEvent(owner, { competitions: [BIEG] })
+  const { data: rs } = await admin().from('registration_settings').select('form_fields').eq('event_id', event.eventId).single()
+  const { error } = await admin().from('registration_settings')
+    .update({ form_fields: { ...rs.form_fields, nationality: 'required', phone: 'off' } }).eq('event_id', event.eventId)
+  expect(error).toBeNull()
+  const email = `narodowosc-${crypto.randomBytes(4).toString('hex')}@test.local`
+  const page = await offline(await actors.viewer.newPage())
+  await page.goto(`/events/${event.slug}/zapis/${event.categoryIds[0]}`)
+
+  const select = page.locator('#p-nationality')
+  await expect(page.locator('label[for="p-nationality"]')).toHaveText('Narodowość')
+  const options = select.locator('option')
+  await expect(options).toHaveCount(250) // an empty choice and 249 ISO countries
+  await expect(options.nth(0)).toHaveText('— wybierz —')
+  await expect(options.nth(1)).toHaveText('Polska')
+  await expect(options.nth(1)).toHaveAttribute('value', 'PL')
+  await expect(page.locator('#p-phone')).toBeVisible() // a stored phone: 'off' is ignored
+
+  await fillPerson(page, { first: 'Anna', last: 'Nowak', birth: '1990-04-12', email, phone: '' })
+  await tickAll(page)
+  await page.getByTestId('registration-submit').click()
+  await expect(page.locator('#p-phone-error')).toHaveText('Podaj numer telefonu.')
+  await expect(page.locator('#p-nationality-error')).toHaveText('Wybierz narodowość.')
+
+  await page.locator('#p-phone').fill('600100200')
+  await select.selectOption({ label: 'Niemcy' })
+  await page.getByTestId('registration-submit').click()
+  await page.getByLabel('Kod (6 cyfr)').fill(await codeFor(email))
+  await page.getByRole('button', { name: 'Zapisz się' }).click()
+  await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/zapisano$`))
+  const { data: reg } = await admin().from('registrations').select('nationality, phone').eq('category_id', event.categoryIds[0]).single()
+  expect(reg).toEqual({ nationality: 'DE', phone: '600100200' })
 })

@@ -7,10 +7,11 @@
 // files through the @registration alias elsewhere.
 import { validatePerson } from '../../../supabase/functions/_shared/registration/person.js'
 import { ageGroupLabel } from '../../../supabase/functions/_shared/registration/ageGroups.js'
+import { FORM_FIELD_DEFAULTS } from '../../../supabase/functions/_shared/registration/sections.js'
 
 export const EMPTY_PERSON = Object.freeze({
   firstName: '', lastName: '', birthDate: '', gender: '', email: '',
-  phone: '', city: '', club: '', iceName: '', icePhone: '',
+  phone: '', city: '', club: '', iceName: '', icePhone: '', nationality: '',
 })
 
 const GENDER_FROM_PROFILE = { F: 'K', M: 'M' }
@@ -32,14 +33,16 @@ export function profilePrefill(user) {
   return out
 }
 
-const SWITCHED = ['phone', 'city', 'club', 'ice']
-
-/** registration_settings.form_fields with the default filled in: missing = optional. */
+/**
+ * registration_settings.form_fields with the defaults filled in (missing =
+ * optional, nationality missing = off). The phone is no switch: it is always
+ * required (P2-R32), so a stored phone mode is left out.
+ */
 export function fieldModes(formFields) {
   const out = {}
-  for (const k of SWITCHED) {
+  for (const [k, fallback] of Object.entries(FORM_FIELD_DEFAULTS)) {
     const v = formFields?.[k]
-    out[k] = v === 'required' || v === 'off' ? v : 'optional'
+    out[k] = v === 'required' || v === 'optional' || v === 'off' ? v : fallback
   }
   return out
 }
@@ -96,7 +99,7 @@ export function registerBody({ categoryId, person, consents, code }) {
     person: {
       firstName: person.firstName, lastName: person.lastName, birthDate: person.birthDate, gender: person.gender,
       email: person.email, phone: person.phone, city: person.city, club: person.club,
-      iceName: person.iceName, icePhone: person.icePhone,
+      iceName: person.iceName, icePhone: person.icePhone, nationality: person.nationality,
     },
     acceptedConsentIds: (consents ?? []).map((c) => c.id),
     serviceRegulamin: true,

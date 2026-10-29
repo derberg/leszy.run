@@ -28,4 +28,11 @@ describe('runnerDataInfo (ruling P2-R21)', () => {
     assert.ok(teamsOnly.includes('nazwa drużyny'))
     assert.equal(teamsOnly.includes('dpay'), false)
   })
+
+  it('W-64 nationality is named only when the event collects it, and never as published', () => {
+    assert.equal(text(runnerDataInfo(base)).includes('narodowość'), false)
+    const t = text(runnerDataInfo({ ...base, nationality: true }))
+    assert.ok(t.includes('narodowość'))
+    assert.ok(/numer telefonu, narodowość i dane osoby do kontaktu w nagłych wypadkach nie są publikowane/.test(t))
+  })
 })

@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { categoryPreview } from '../../lib/personFormModel.js'
+import { countryOptions } from '@registration/countries.js'
 import { inputCls, labelCls, sectionCls } from './ui.js'
 
 // The one person form of online registration (spec §2 UI rules: RA2 now; RA3,
@@ -29,8 +31,21 @@ function TextInput({ id, value, onChange, error, ...rest }) {
 
 const optional = (label, mode) => (mode === 'optional' ? `${label} (opcjonalnie)` : label)
 
+// Nationality (P2-R31): the ISO code is the value, the Polish name the label.
+function CountrySelect({ id, value, onChange, error, mode }) {
+  const options = useMemo(() => countryOptions('pl'), [])
+  return (
+    <select id={id} className={`${inputCls} ${error ? 'border-apex-red' : ''}`} value={value ?? ''}
+      aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : undefined}
+      onChange={(e) => onChange(e.target.value)}>
+      <option value="">{mode === 'optional' ? '— nie podaję —' : '— wybierz —'}</option>
+      {options.map((o) => <option key={o.code} value={o.code}>{o.name}</option>)}
+    </select>
+  )
+}
+
 /**
- * @param {{ fields: { phone, city, club, ice }, value: object, onChange: (patch) => void, errors: Record<string, string>,
+ * @param {{ fields: { city, club, ice, nationality }, value: object, onChange: (patch) => void, errors: Record<string, string>,
  *   competition: object, raceDate: string, reckoning: string, ageGroups: object[], prefill: object|null,
  *   loginHref?: string, codeNote?: string, disabled?: boolean }} p
  */
@@ -91,6 +106,11 @@ export default function PersonForm({
             <TextInput id="p-club" value={value.club} onChange={set('club')} error={errors.club} maxLength={200} />
           </Field>
         )}
+        {fields.nationality !== 'off' && (
+          <Field id="p-nationality" label={optional('Narodowość', fields.nationality)} error={errors.nationality}>
+            <CountrySelect id="p-nationality" value={value.nationality} onChange={set('nationality')} error={errors.nationality} mode={fields.nationality} />
+          </Field>
+        )}
       </div>
 
       <div className="flex flex-col gap-3">
@@ -99,11 +119,9 @@ export default function PersonForm({
           <TextInput id="p-email" type="email" value={value.email} onChange={set('email')} error={errors.email} autoComplete="email" maxLength={254} />
           {codeNote && <span className="font-sans text-sm text-apex-muted">{codeNote}</span>}
         </Field>
-        {fields.phone !== 'off' && (
-          <Field id="p-phone" label={optional('Telefon', fields.phone)} error={errors.phone}>
-            <TextInput id="p-phone" type="tel" value={value.phone} onChange={set('phone')} error={errors.phone} autoComplete="tel" maxLength={40} />
-          </Field>
-        )}
+        <Field id="p-phone" label="Telefon" error={errors.phone}>
+          <TextInput id="p-phone" type="tel" value={value.phone} onChange={set('phone')} error={errors.phone} autoComplete="tel" maxLength={40} />
+        </Field>
         {fields.ice !== 'off' && (
           <>
             <span className={`${labelCls} mt-1.5 normal-case tracking-normal font-sans text-sm`}>

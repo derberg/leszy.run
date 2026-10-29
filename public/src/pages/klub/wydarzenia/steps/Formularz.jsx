@@ -2,27 +2,28 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { validateSection } from '@registration/sections.js'
 import { reconcileRowIds } from '../../../../lib/categoryRows.js'
+import { fieldModes } from '../../../../lib/personFormModel.js'
 import { btnGhost } from '../../settingsUi.js'
 import { FieldError, Lock, Seg, Soon, cardTitle, cellInput, monoLabel, sectionErrors } from '../wizardUi.jsx'
 
 // A5: which runner fields the form asks for (Wymagane / Opcjonalne / Brak)
-// and the consents. Name, birth date, gender, e-mail, guardian data, the
-// regulamin and the data information are always there. Every added consent
+// and the consents. Name, birth date, gender, e-mail, phone (P2-R32), guardian
+// data, the regulamin, the data information and the image acceptance (P2-R33)
+// are always there. Nationality is off by default (P2-R31). Every added consent
 // is its own required checkbox, unticked by default. A consent somebody
 // accepted (`accepted`, from get-registration-event) is read-only with no
 // delete: the server refuses it with consent_locked (P2-R30).
 
 const FIELDS = [
-  { key: 'phone', label: 'Telefon' },
   { key: 'city', label: 'Miejscowość' },
   { key: 'club', label: 'Klub / drużyna' },
+  { key: 'nationality', label: 'Narodowość' },
   { key: 'ice', label: 'Kontakt w nagłych wypadkach' },
 ]
 const MODES = [['required', 'Wymagane'], ['optional', 'Opcjonalne'], ['off', 'Brak']]
 
 const PRESETS = [
   { label: 'Start na własną odpowiedzialność', text: 'Startuję na własną odpowiedzialność.' },
-  { label: 'Publikacja wizerunku', text: 'Zgadzam się na publikację mojego wizerunku w relacjach z zawodów.' },
   { label: 'Zgoda opiekuna · dzieci', text: 'Jako opiekun zgadzam się na udział dziecka w zawodach.' },
 ]
 
@@ -55,7 +56,7 @@ const Always = ({ children = 'ZAWSZE' }) => <span className="font-mono text-xs t
 
 export default function Formularz({ event, queue, saveState, readOnly, onSaved, previewHref, reportInvalid }) {
   const s = event.settings
-  const [fields, setFields] = useState(() => ({ phone: 'optional', city: 'optional', club: 'optional', ice: 'optional', ...(s.formFields ?? {}) }))
+  const [fields, setFields] = useState(() => fieldModes(s.formFields))
   const [rows, setRows] = useState(() => (event.consents ?? []).filter((k) => k.kind === 'custom').map(consentRow))
   const [localError, setLocalError] = useState(null)
   const latest = useRef({ fields, rows })
@@ -128,6 +129,7 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
           <Row right={<Always>ZAWSZE · KATEGORIA</Always>}>Data urodzenia</Row>
           <Row right={<Always>ZAWSZE · KATEGORIA</Always>}>Płeć</Row>
           <Row right={<Always>ZAWSZE · NA NIEGO IDZIE KOD POTWIERDZAJĄCY</Always>}>E-mail</Row>
+          <Row right={<Always />}>Telefon</Row>
           {FIELDS.map((f) => (
             <Row key={f.key} right={(
               <span className="flex gap-1" role="group" aria-label={f.label}>
@@ -148,6 +150,7 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
           <div className="p-3.5"><h2 className={cardTitle}>Zgody</h2></div>
           <Row right={<Always />}>Akceptacja regulaminu zawodów</Row>
           <Row right={<Always />}>Informacja o danych osobowych</Row>
+          <Row right={<Always />}>Publikacja wizerunku</Row>
           <div className="px-3.5 pt-2 pb-1"><span className={monoLabel}>Dodatkowe zgody · osobny checkbox, wymagany do zapisu</span></div>
           {PRESETS.map((p) => (
             <Row key={p.text} right={(
@@ -174,7 +177,7 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
           ))}
           <div className="p-3.5"><button type="button" className={btnGhost} onClick={addCustom}>+ Własna zgoda</button></div>
           <div className="mx-3.5 mb-3.5 pt-2.5 border-t border-apex-border text-sm text-apex-muted leading-snug">
-            <span className="font-mono text-xs">ⓘ</span> Zalecamy, by regulamin zawodów obejmował start na własną odpowiedzialność, publikację wizerunku i udział dzieci za zgodą opiekuna.
+            <span className="font-mono text-xs">ⓘ</span> Regulamin zawodów powinien opisywać publikację wizerunku, start na własną odpowiedzialność i udział dzieci za zgodą opiekuna.
           </div>
         </section>
       </fieldset>

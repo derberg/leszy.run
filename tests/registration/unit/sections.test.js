@@ -202,15 +202,31 @@ test('categories: reckoning, age groups and kids groups', () => {
 
 test('form: field modes and custom consents', () => {
   const r = validateSection('form', {
-    formFields: { phone: 'required', city: 'optional', club: 'off', ice: 'optional' },
+    formFields: { city: 'optional', club: 'off', ice: 'optional', nationality: 'required' },
     consents: [{ text: 'Startuję na własną odpowiedzialność.' }],
   }, DRAFT)
   assert.equal(r.ok, true, JSON.stringify(r.errors))
-  assert.deepEqual(r.value.form_fields, { phone: 'required', city: 'optional', club: 'off', ice: 'optional' })
+  assert.deepEqual(r.value.form_fields, { city: 'optional', club: 'off', ice: 'optional', nationality: 'required' })
   assert.deepEqual(r.value.consents, [{ id: null, text: 'Startuję na własną odpowiedzialność.' }])
   assert.ok(validateSection('form', { formFields: { email: 'off' } }, DRAFT).errors.email)
-  assert.ok(validateSection('form', { formFields: { phone: 'maybe' } }, DRAFT).errors.phone)
+  assert.ok(validateSection('form', { formFields: { club: 'maybe' } }, DRAFT).errors.club)
+  assert.ok(validateSection('form', { formFields: { nationality: 'maybe' } }, DRAFT).errors.nationality)
   assert.ok(validateSection('form', { consents: [{ text: ' ' }] }, DRAFT).errors.text)
+})
+
+test('W-64 form: nationality defaults to off (Brak); the other switches to optional', () => {
+  const r = validateSection('form', { formFields: {} }, DRAFT)
+  assert.equal(r.ok, true, JSON.stringify(r.errors))
+  assert.deepEqual(r.value.form_fields, { city: 'optional', club: 'optional', ice: 'optional', nationality: 'off' })
+})
+
+test('W-65 form: phone is not a switch any more; a stored or sent phone mode is dropped, never stored', () => {
+  for (const mode of ['required', 'optional', 'off']) {
+    const r = validateSection('form', { formFields: { phone: mode, city: 'off' } }, DRAFT)
+    assert.equal(r.ok, true, JSON.stringify(r.errors))
+    assert.equal('phone' in r.value.form_fields, false, mode)
+    assert.equal(r.value.form_fields.city, 'off')
+  }
 })
 
 test('hidden: accepted per competition only once published, as a boolean', () => {

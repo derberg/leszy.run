@@ -21,7 +21,8 @@ const CHOICES = {
   kind: { individual: 'indywidualna', team: 'drużyna' },
   regulamin_kind: { pdf: 'PDF', link: 'link' },
 }
-const FORM_FIELDS = { phone: 'telefon', city: 'miejscowość', club: 'klub', ice: 'kontakt ICE' }
+// The phone is no switch since P2-R32 (always required): a stored phone mode is not shown.
+const FORM_FIELDS = { city: 'miejscowość', club: 'klub', ice: 'kontakt ICE', nationality: 'narodowość' }
 const FORM_MODES = { required: 'wymagane', optional: 'opcjonalne', off: 'brak' }
 
 /** 'YYYY-MM-DD' → '6.12.2026' (no time zone shift: it is a calendar day). */
@@ -42,7 +43,7 @@ export function changeValue({ field }, v) {
   if (v === null || v === undefined || v === '') return '—'
   if (Array.isArray(v)) return v.length ? v.map(listItem).join(', ') : '—'
   if (key === 'form_fields' && typeof v === 'object') {
-    return Object.entries(v).map(([k, m]) => `${FORM_FIELDS[k] ?? k}: ${FORM_MODES[m] ?? m}`).join(', ')
+    return Object.entries(v).filter(([k]) => k !== 'phone').map(([k, m]) => `${FORM_FIELDS[k] ?? k}: ${FORM_MODES[m] ?? m}`).join(', ')
   }
   if (typeof v === 'boolean') return v ? 'tak' : 'nie'
   if (key === 'price') return `${(v / 100).toLocaleString('pl-PL')} zł`

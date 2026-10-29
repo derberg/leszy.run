@@ -35,7 +35,8 @@ test('changeValue: files, choices and lists', () => {
   assert.equal(changeValue({ field: 'categories.age_groups' }, [{ label: 'M20' }, { label: 'K20' }]), 'M20, K20')
   assert.equal(changeValue({ field: 'form.consents' }, ['Zgoda A']), 'Zgoda A')
   assert.equal(changeValue({ field: 'office.hours' }, []), '—')
-  assert.equal(changeValue({ field: 'form.form_fields' }, { phone: 'required', club: 'off' }), 'telefon: wymagane, klub: brak')
+  assert.equal(changeValue({ field: 'form.form_fields' }, { phone: 'required', club: 'off', nationality: 'required' }), 'klub: brak, narodowość: wymagane',
+    'a phone mode from before P2-R32 is not shown: the phone is always required')
 })
 
 test('changesSummary: the labels, in order', () => {
