@@ -7,6 +7,7 @@ import { operatorAlertEmail, orderExpiredEmail, paymentReminderEmail } from './e
 import {
   checkAttemptsAtDpay, executeRefund, loadOrderView, orderEmailArgs, raiseAlert, sendOrderConfirmation,
 } from './orderFlow.js'
+import { issueConsentRequests, rotateAndSend } from './consentRequests.js'
 
 // The payment window jobs (plan 3, task 7). pg_cron POSTs here every 15 minutes through pg_net
 // (job `registration-jobs`) with the header x-jobs-secret = REGISTRATION_JOBS_SECRET; anything
@@ -30,7 +31,15 @@ import {
 //   6. „Zgłoszenie wygasło” (skipped for the run when step 5 failed): claim_expired_notices only
 //      hands out orders with that proof, with no unpaid transaction, or expired over 2 h ago
 //   7. lost confirmations (P3-R10): a paid order with no confirmation_sent_at 10 min after payment
-//   8. the operator digest again, for the alerts this run raised
+//   8. consent requests (plan 4, D4-24; no dpay, so it runs under P3-R16):
+//      a. a confirmed adult awaiting consent with no request (the function died after the commit)
+//         is issued one (issueConsentRequests: issue_consent_request is the claim, so idempotent);
+//      b. a request whose first e-mail never went out (emailed_at NULL, issued 10+ min ago) gets
+//         its link re-sent once (claim_consent_resends, a new token);
+//      c. the automatic reminder 72 h before closes_at (claim_consent_reminders, once per request,
+//         never within 24 h of the last e-mail), „Przypomnienie: …” with a rotated token.
+//      A failed send is alerted and never retried by the same sub-step (claim-then-send).
+//   9. the operator digest again, for the alerts this run raised
 // A finished run stamps registration_job_heartbeats ('registration-jobs'); the
 // registration-watchdog function (hourly, P3-R18) alerts when that stamp is older than 3 runs.
 //
@@ -45,11 +54,12 @@ import {
 // no alert; everything else runs and the heartbeat is still stamped.
 // POST body: {} from cron; { budgetMs } may only shorten the budget (tests).
 // → 200 { data: { checked, confirmed, reminders, expiredNotices, confirmationsResent,
-//   refundRetries, stalledRefunds, alertsEmailed, deferred: [step…], skipped: { step: reason } } }
+//   refundRetries, stalledRefunds, consentRequestsIssued, consentEmailsResent, consentReminders,
+//   alertsEmailed, deferred: [step…], skipped: { step: reason } } }
 
 const BUDGET_MS = 90_000
 const MIN_BUDGET_MS = 5_000
-const LIMIT = { check: 50, reminders: 100, notices: 100, confirmations: 50, retries: 20, stalled: 100, alerts: 200 }
+const LIMIT = { check: 50, reminders: 100, notices: 100, confirmations: 50, retries: 20, stalled: 100, alerts: 200, consent: 50 }
 const CHECK_AHEAD_MS = 20 * 60_000 // a run every 15 min sees each order at least once before expiry
 const CHECK_BEHIND_MS = 2 * 3_600_000 // after this an expired order is told without a dpay check
 const CHECK_GAP_MS = 10 * 60_000
@@ -126,6 +136,20 @@ async function mailClaimed(admin, orderId, kind, build) {
     await raiseAlert(admin, 'email_failed', orderId, { template: kind, error: String(err?.message ?? err) })
     return false
   }
+}
+
+// One consent link for a claimed request (rotateAndSend). A request accepted or signed in the
+// office meanwhile gets nothing; a failure is alerted, never resent by this claim.
+async function consentMail(admin, registrationId, { reminder, site, template }) {
+  try {
+    const outcome = await rotateAndSend(admin, registrationId, { reminder, site })
+    if (outcome !== 'failed') return outcome === 'sent'
+    await raiseAlert(admin, 'email_failed', null, { template, registrationId })
+  } catch (err) {
+    console.error(`registration-jobs: ${template} failed:`, err?.message)
+    await raiseAlert(admin, 'email_failed', null, { template, registrationId, error: String(err?.message ?? err) })
+  }
+  return false
 }
 
 async function eachLimited(items, fn, width = 5) {
@@ -220,7 +244,8 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
   const time = clock(budgetMs)
   const counts = {
     checked: 0, confirmed: 0, reminders: 0, expiredNotices: 0, confirmationsResent: 0,
-    refundRetries: 0, stalledRefunds: 0, alertsEmailed: 0, deferred: [], skipped: {},
+    refundRetries: 0, stalledRefunds: 0, consentRequestsIssued: 0, consentEmailsResent: 0, consentReminders: 0,
+    alertsEmailed: 0, deferred: [], skipped: {},
   }
   const hour = new Date().toISOString().slice(0, 13)
   const budgetAlert = (step) => raiseAlert(admin, 'jobs_step_failed', null,
@@ -296,6 +321,16 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
       const ids = await rpcRows(admin, 'claim_confirmation_resends', { p_limit: LIMIT.confirmations })
       await eachLimited(ids, (id) => sendOrderConfirmation(admin, id, { claimed: true }))
       counts.confirmationsResent = ids.length
+    }],
+    ['consent_reminders', 2_000, async () => {
+      const missing = await rpcRows(admin, 'consent_requests_missing', { p_limit: LIMIT.consent })
+      if (missing.length) counts.consentRequestsIssued = await issueConsentRequests(admin, missing, { site })
+      const resends = await rpcRows(admin, 'claim_consent_resends', { p_limit: LIMIT.consent })
+      await eachLimited(resends, (id) => consentMail(admin, id, { reminder: false, site, template: 'consent_resend' }))
+      counts.consentEmailsResent = resends.length
+      const due = await rpcRows(admin, 'claim_consent_reminders', { p_limit: LIMIT.consent })
+      await eachLimited(due, (id) => consentMail(admin, id, { reminder: true, site, template: 'consent_reminder' }))
+      counts.consentReminders = due.length
     }],
     ['digest', 1_000, async () => { counts.alertsEmailed += await digest(admin, alertTo) }],
   ]

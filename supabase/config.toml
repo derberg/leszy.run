@@ -210,6 +210,22 @@ entrypoint = "./functions/order-status/index.js"
 verify_jwt = false
 entrypoint = "./functions/cancel-my-order/index.js"
 
+[functions.consent-request]
+verify_jwt = false
+entrypoint = "./functions/consent-request/index.js"
+
+[functions.accept-consent]
+verify_jwt = false
+entrypoint = "./functions/accept-consent/index.js"
+
+[functions.remind-consent]
+verify_jwt = false
+entrypoint = "./functions/remind-consent/index.js"
+
+[functions.mark-consent-office]
+verify_jwt = false
+entrypoint = "./functions/mark-consent-office/index.js"
+
 [functions.dpay-ipn]
 verify_jwt = false
 entrypoint = "./functions/dpay-ipn/index.js"
