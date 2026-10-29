@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sandboxConfig } from './guard.js'
+import { EMAIL_CAPTURE_BASE_PORT, slotPort } from '../helpers/slot.js'
 
 const out = process.argv[2]
 if (!out) throw new Error('usage: node write-functions-env.js <output path>')
@@ -15,6 +16,8 @@ if (path.resolve(out).startsWith(repoRoot + path.sep)) throw new Error('refusing
 const cfg = sandboxConfig()
 const base = fs.readFileSync(path.join(repoRoot, 'tests/registration/functions.env'), 'utf8')
   .split('\n').filter((l) => l.trim() && !l.startsWith('#') && !l.startsWith('DPAY_'))
+  // The e-mail capture of this test slot (REG_TEST_SLOT), as scripts/test-slot.sh does.
+  .map((l) => l.replace(`:${EMAIL_CAPTURE_BASE_PORT}/`, `:${slotPort(EMAIL_CAPTURE_BASE_PORT)}/`))
 const lines = [
   ...base,
   `DPAY_SERVICE=${cfg.service}`, `DPAY_SECRET=${cfg.secret}`, `DPAY_API_BASE=${cfg.apiBase}`,

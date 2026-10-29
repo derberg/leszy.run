@@ -5,6 +5,8 @@ import { clearMessages, lastCodeFor, messagesTo } from '../helpers/emailCapture.
 import { callFn, createPublishedPaidEvent } from '../helpers/registrationFixtures.js'
 import { dpayReset, dpayTransactions, payMock } from '../helpers/dpayControl.js'
 import { startScratchHost } from '../helpers/hostPull.js'
+import { DPAY_MOCK_PORT } from '../helpers/dpayMock.js'
+import { VITE_BASE_PORT, slotPort } from '../helpers/slot.js'
 
 // Plan 3, task 9: the paid checkout RA2 → RA4 → dpay (the mock, never real
 // dpay) → the order page, the public start list and the organizer's counts,
@@ -14,8 +16,11 @@ import { startScratchHost } from '../helpers/hostPull.js'
 
 const ZT = '00000000-0000-4000-8000-0000000000c1'
 const BIEG = { name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 }
-// functions.env sends dpay back to PUBLIC_SITE_URL (5173); this suite's Vite runs on 5174.
+// functions.env sends dpay back to PUBLIC_SITE_URL (5173); this suite's Vite runs on 5174 (+100n in slot n).
 const SITE = 'http://localhost:5173'
+const VITE = `http://localhost:${slotPort(VITE_BASE_PORT)}`
+// The mock's pay page, on the slot's port (REG_TEST_SLOT).
+const PAY_PAGE = new RegExp(`localhost:${DPAY_MOCK_PORT}\\/pay\\/`)
 // helpers/orders.js imports money.js, which Playwright's loader reads as CommonJS.
 const runnerEmail = (tag) => `runner-${tag}-${crypto.randomBytes(4).toString('hex')}@test.local`
 
@@ -33,10 +38,10 @@ test.beforeAll(async () => {
 async function offline(page) {
   await page.route(/tile\.openstreetmap\.org|unpkg\.com/, (route) => route.fulfill({ status: 204, body: '' }))
   // The mock sends the payer back to PUBLIC_SITE_URL (5173) with a 303, and a route never sees a
-  // redirect's target: the pay/decline POST is carried out here and its redirect sent to 5174.
-  await page.route(/localhost:54398\/pay\/[^/]+\/(paid|declined)$/, async (route) => {
+  // redirect's target: the pay/decline POST is carried out here and its redirect sent to this suite's Vite.
+  await page.route(new RegExp(`localhost:${DPAY_MOCK_PORT}\\/pay\\/[^/]+\\/(paid|declined)$`), async (route) => {
     const res = await route.fetch({ maxRedirects: 0 })
-    const to = (res.headers().location ?? '').replace(SITE, 'http://localhost:5174')
+    const to = (res.headers().location ?? '').replace(SITE, VITE)
     return route.fulfill({ status: 200, contentType: 'text/html', body: `<script>location.replace(${JSON.stringify(to)})</script>` })
   })
   return page
@@ -137,7 +142,7 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
     await expect(page.getByTestId('support-hint')).toHaveCount(0)
     await expect(page.getByTestId('pay')).toBeEnabled()
     await page.getByTestId('pay').click()
-    await expect(page).toHaveURL(/localhost:54398\/pay\//)
+    await expect(page).toHaveURL(PAY_PAGE)
     await expect(page.getByRole('heading', { name: 'dpay (mock)' })).toBeVisible()
     await expect(page.getByTestId('amount')).toHaveText('60.55')
 
@@ -239,26 +244,26 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
 
     // Review I3: Back from the dpay page is the order page, never a stuck RA4 or an empty form.
     await page.goBack()
-    await expect(page).toHaveURL(new RegExp(`localhost:5174/zamowienie/${order.id}$`))
+    await expect(page).toHaveURL(new RegExp(`${VITE}/zamowienie/${order.id}$`))
     await expect(page.getByTestId('order-pending')).toBeVisible()
     await expect(page.getByTestId('order-pay')).toBeEnabled()
     await page.getByTestId('order-pay').click()
-    await expect(page).toHaveURL(/localhost:54398\/pay\//)
+    await expect(page).toHaveURL(PAY_PAGE)
     await page.goBack()
     await expect(page.getByTestId('order-pay')).toHaveText('Zapłać')
     await expect(page.getByTestId('order-pay')).toBeEnabled()
     await page.getByTestId('order-pay').click()
-    await expect(page).toHaveURL(/localhost:54398\/pay\//)
+    await expect(page).toHaveURL(PAY_PAGE)
 
     await page.getByRole('button', { name: 'Odrzuć (mock)' }).click()
-    await expect(page).toHaveURL(new RegExp(`localhost:5174/zamowienie/${order.id}$`))
+    await expect(page).toHaveURL(new RegExp(`${VITE}/zamowienie/${order.id}$`))
     await expect(page.getByTestId('order-pending')).toBeVisible()
     await page.getByTestId('order-pay').click()
-    await expect(page).toHaveURL(/localhost:54398\/pay\//)
+    await expect(page).toHaveURL(PAY_PAGE)
     const { data: attempts } = await admin().from('payment_attempts').select('id').eq('order_id', order.id)
     expect(attempts).toHaveLength(4)
     await page.getByRole('button', { name: 'Zapłać (mock)' }).click()
-    await expect(page).toHaveURL(new RegExp(`localhost:5174/zamowienie/${order.id}$`))
+    await expect(page).toHaveURL(new RegExp(`${VITE}/zamowienie/${order.id}$`))
     await expect(page.getByTestId('order-paid-label')).toHaveText(/Opłacone · 61,76 zł/i)
     expect((await dpayTransactions()).filter((t) => t.status === 'paid')).toHaveLength(2)
   })
@@ -272,7 +277,7 @@ test('P-50 an unpaid order expires: „Zgłoszenie wygasło”, the runner leave
   await toCheckout(page, event, runner)
   await page.getByTestId('support-choice').getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
-  await expect(page).toHaveURL(/localhost:54398\/pay\//)
+  await expect(page).toHaveURL(PAY_PAGE)
   const order = await orderOf(runner.email)
   const taken = async () => (await admin().from('competitions').select('taken').eq('category_id', event.categoryIds[0]).single()).data.taken
   expect(await taken()).toBe(1)
@@ -316,7 +321,7 @@ test('P-46 RA4 and the order page fit 390 px: no sideways scroll, no wrapped but
   expect(await overflowing()).toEqual([])
   await page.getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
-  await expect(page).toHaveURL(/localhost:54398\/pay\//)
+  await expect(page).toHaveURL(PAY_PAGE)
   await page.goto(`/zamowienie/${(await orderOf((await admin().from('orders').select('buyer_email').eq('event_id', event.eventId).single()).data.buyer_email)).id}`)
   await expect(page.getByTestId('order-pending')).toBeVisible()
   expect(await fits()).toBe(true)
@@ -466,7 +471,7 @@ test('M1 the last hour before closing: RA4 refuses to start an online payment; a
   await toCheckout(page, event, person)
   await page.getByTestId('support-choice').getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
-  await expect(page).toHaveURL(/localhost:54398\/pay\//)
+  await expect(page).toHaveURL(PAY_PAGE)
   const order = await orderOf(person.email)
 
   // Half an hour before closing: a new runner's RA4 says why „Zapłać” is off.

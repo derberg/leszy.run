@@ -36,5 +36,7 @@ export function slotWorkdir(slot = testSlot()) {
 
 // Slot-0 ports of the processes the tests start themselves.
 export const EMAIL_CAPTURE_BASE_PORT = 54399
+export const DPAY_MOCK_BASE_PORT = 54398
+export const API_BASE_PORT = 54321
 export const SCRATCH_PG_BASE_PORT = 55432
 export const VITE_BASE_PORT = 5174

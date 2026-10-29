@@ -65,6 +65,10 @@ npx playwright test -c tests/registration/sandbox/playwright.sandbox.config.js
 rm "$TMPDIR/functions.sandbox.env"
 ```
 
+In test slot n (`scripts/test-slot.sh`, see `../README.md`) the gateway is on 54321 + n x 100: tunnel that
+port, export `REG_TEST_SLOT=n` before step 4 (the env file then points at the slot's e-mail capture), and
+use `scripts/test-slot.sh n functions serve --env-file …`.
+
 The unit part needs no sandbox: `node --test tests/registration/sandbox/guard.test.js`.
 
 ## Known unknowns

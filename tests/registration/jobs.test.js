@@ -17,6 +17,7 @@ import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { dpayMode, dpayRefunds, dpayReset, payMock, startDpayMock } from './helpers/dpayControl.js'
+import { DPAY_MOCK_PORT } from './helpers/dpayMock.js'
 import {
   attemptFor, competitionOf, confirm, confirmOk, consentIds, db, expireNow, orderOf, orderOk, registrationsOf, rows,
   runnerEmail, totalFor,
@@ -36,8 +37,8 @@ const JOBS_SECRET = readFileSync(new URL('./functions.env', import.meta.url), 'u
 // The same mock dpay the functions use, reached from the host.
 const nodeCfg = () => dpayConfig({
   DPAY_SERVICE: 'mock-service', DPAY_SECRET: 'mock-secret',
-  DPAY_API_BASE: 'http://127.0.0.1:54398', DPAY_PANEL_BASE: 'http://127.0.0.1:54398',
-  DPAY_IPN_URL: 'http://127.0.0.1:54321/functions/v1/dpay-ipn', PUBLIC_SITE_URL: 'http://localhost:5173',
+  DPAY_API_BASE: `http://127.0.0.1:${DPAY_MOCK_PORT}`, DPAY_PANEL_BASE: `http://127.0.0.1:${DPAY_MOCK_PORT}`,
+  DPAY_IPN_URL: `${localEnv().url}/functions/v1/dpay-ipn`, PUBLIC_SITE_URL: 'http://localhost:5173',
 })
 
 let owner, stopCapture, stopMock

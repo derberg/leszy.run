@@ -34,6 +34,7 @@ worktree or agent is using it, take your own slot n (1..9) and run everything th
 scripts/test-slot.sh 2 start && scripts/test-slot.sh 2 db reset
 (scripts/test-slot.sh 2 functions serve &)                      # this worktree's functions, slot 2's functions.env
 (REG_TEST_SLOT=2 node tests/registration/helpers/emailCaptureServer.js &)
+(REG_TEST_SLOT=2 node tests/registration/helpers/dpayMock.js &)
 REG_TEST_SLOT=2 node --test --test-concurrency=1 "tests/registration/**/*.test.js"
 REG_TEST_SLOT=2 npx playwright test -c tests/registration/playwright.config.js
 scripts/test-slot.sh 2 stop
@@ -42,7 +43,8 @@ scripts/test-slot.sh 2 stop
 Slot n is a separate Supabase project (`<project_id>-s<n>`) in `.supabase-slots/<n>/` (gitignored):
 a `config.toml` regenerated from `supabase/config.toml` on every call, with every port moved up by
 n x 100 (API 54321+100n, DB 54322+100n, ...), and symlinks to this worktree's migrations, functions
-and seed. `REG_TEST_SLOT=n` moves the ports the tests own the same way: email capture 54399+100n,
+and seed. `REG_TEST_SLOT=n` moves the ports the tests own the same way: email capture 54399+100n, dpay mock
+54398+100n (and `DPAY_IPN_URL` in the slot's `functions.env` follows the API port),
 scratch Postgres 55432+100n (container `leszyrun-hostpull-scratch-s<n>`), Vite 5174+100n. No
 `REG_TEST_SLOT` means slot 0, which is what CI runs. Slot numbers are per machine (Docker names), so two
 worktrees must not take the same one. A slot holds about 1.3 GiB of memory and 85 MB of volumes.

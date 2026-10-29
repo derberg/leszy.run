@@ -10,6 +10,7 @@ import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { dpayMode, dpayRefunds, dpayReset, dpayTransactions, payMock, startDpayMock } from './helpers/dpayControl.js'
+import { DPAY_MOCK_PORT } from './helpers/dpayMock.js'
 import {
   competitionOf, confirmOk, consentIds, db, expireNow, minutesFromNow, one, orderOf, orderOk, registrationsOf, rows,
   runnerEmail, setSettings, totalFor,
@@ -216,7 +217,7 @@ test('P-21 create-order → one dpay register for the total, redirect to the moc
   assert.equal(txns[0].request.custom, orderId)
   assert.equal(txns[0].request.channel, undefined, 'never a preselected channel')
   assert.equal(txns[0].request.url_success, `http://localhost:5173/zamowienie/${orderId}`)
-  assert.equal(redirectUrl, `http://localhost:54398/pay/${txns[0].id}`)
+  assert.equal(redirectUrl, `http://localhost:${DPAY_MOCK_PORT}/pay/${txns[0].id}`)
 
   const order = await orderOf(orderId)
   assert.equal(order.status, 'pending')

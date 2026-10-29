@@ -17,8 +17,10 @@
 import http from 'node:http'
 import { createHash, randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { DPAY_MOCK_BASE_PORT, slotPort } from './slot.js'
 
-export const DPAY_MOCK_PORT = 54398
+// 54398 in slot 0, 54398 + n x 100 in slot n (REG_TEST_SLOT).
+export const DPAY_MOCK_PORT = slotPort(DPAY_MOCK_BASE_PORT)
 export const MOCK_SERVICE = 'mock-service'
 export const MOCK_SECRET = 'mock-secret'
 const IPN_RETRIES = 3
