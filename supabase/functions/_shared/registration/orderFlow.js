@@ -12,15 +12,26 @@ import { sendEmail } from '../email.js'
 import { redactDpay } from './redactDpay.js'
 import { orderConfirmationEmail, paymentRefundedEmail } from './emails.js'
 
-/** Inserts an operator_alerts row. Never throws. */
-export async function raiseAlert(admin, kind, orderId, payload = null) {
+/**
+ * Inserts an operator_alerts row → true when it is stored (or already was, by its key).
+ * Never throws. With `dedupeKey` (operator_alerts.dedupe_key,
+ * unique) a second alert with the same key is dropped: dpay retries an IPN it did not get
+ * `OK` for, and a replay must not page the operator again. confirm_order keys its
+ * unknown_attempt / amount_mismatch alerts as '<kind>:<txn>'; use the same form.
+ */
+export async function raiseAlert(admin, kind, orderId, payload = null, { dedupeKey = null } = {}) {
   try {
-    const { error } = await admin.from('operator_alerts')
-      .insert({ kind, order_id: orderId ?? null, payload: payload ? redactDpay(payload) : null })
-    if (error) console.error(`operator alert ${kind} not stored:`, error.message)
+    const row = { kind, order_id: orderId ?? null, payload: payload ? redactDpay(payload) : null }
+    const table = admin.from('operator_alerts')
+    const { error } = dedupeKey
+      ? await table.upsert({ ...row, dedupe_key: dedupeKey }, { onConflict: 'dedupe_key', ignoreDuplicates: true })
+      : await table.insert(row)
+    if (!error) return true
+    console.error(`operator alert ${kind} not stored:`, error.message)
   } catch (err) {
     console.error(`operator alert ${kind} not stored:`, err?.message)
   }
+  return false
 }
 
 /**

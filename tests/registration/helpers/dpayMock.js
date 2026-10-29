@@ -145,9 +145,14 @@ export async function startDpayMock({ port = DPAY_MOCK_PORT, publicUrl = `http:/
     if (mode.dropIpn) return
     const body = ipnBodyFor(txn)
     txn.ipn = body
-    const copies = mode.duplicateIpn ? 2 : 1
+    // duplicateIpn: true → the same IPN twice, one after the other; a number n → n deliveries
+    // at the same moment (each still retried until OK), the way overlapping dpay retries land.
     const run = async () => {
-      for (let i = 0; i < copies; i++) await deliver(txn, body)
+      if (Number.isInteger(mode.duplicateIpn) && mode.duplicateIpn > 1) {
+        await Promise.all(Array.from({ length: mode.duplicateIpn }, () => deliver(txn, body)))
+        return
+      }
+      for (let i = 0; i < (mode.duplicateIpn ? 2 : 1); i++) await deliver(txn, body)
     }
     if (mode.ipnDelayMs > 0) {
       const t = setTimeout(() => { timers.delete(t); run() }, mode.ipnDelayMs)
