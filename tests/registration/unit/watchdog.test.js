@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  STALE_FACTOR, WATCHDOG_JOB, runWatchdog, staleJobs, watchdogAlertEmail, watchdogRecoveryEmail,
+  STALE_FACTOR, WATCHDOG_JOB, reportWatchdogError, runWatchdog, staleJobs, watchdogAlertEmail, watchdogRecoveryEmail,
 } from '../../../supabase/functions/_shared/registration/watchdog.js'
 import { sameSecret } from '../../../supabase/functions/_shared/sameSecret.js'
 
@@ -57,8 +57,10 @@ test('P-60 sameSecret: equal only for the same value; an empty or missing config
 
 // A fake service-role client: the claim RPC hands out transitions, the heartbeat RPC records
 // stamps, the table read returns rows, updates are recorded.
-function fakeAdmin({ claims = [], rows = [], claimError = null, readError = null } = {}) {
-  const calls = { rpc: [], updates: [] }
+// operator_alerts holds the error-mail dedupe keys (`dedupeKeys`, shared between runs to model
+// one database); `alertsError` makes that table fail too.
+function fakeAdmin({ claims = [], rows = [], claimError = null, readError = null, dedupeKeys = new Set(), alertsError = null } = {}) {
+  const calls = { rpc: [], updates: [], alerts: [], deletes: [] }
   return {
     calls,
     rpc: async (fn, args) => {
@@ -70,6 +72,18 @@ function fakeAdmin({ claims = [], rows = [], claimError = null, readError = null
       select: async () => (readError ? { data: null, error: readError } : { data: rows, error: null }),
       update: (values) => ({
         eq: async (col, val) => { calls.updates.push({ table, values, [col]: val }); return { error: null } },
+      }),
+      upsert: (row, opts) => ({
+        select: async () => {
+          calls.alerts.push({ table, row, opts })
+          if (alertsError) return { data: null, error: alertsError }
+          if (dedupeKeys.has(row.dedupe_key)) return { data: [], error: null }
+          dedupeKeys.add(row.dedupe_key)
+          return { data: [{ id: 'a1' }], error: null }
+        },
+      }),
+      delete: () => ({
+        eq: async (col, val) => { calls.deletes.push({ table, [col]: val }); dedupeKeys.delete(val); return { error: null } },
       }),
     }),
   }
@@ -127,12 +141,63 @@ test('P-60 runWatchdog: a mail that did not go out reverts its claim and answers
   assert.equal(thrown.calls.updates.length, 1)
 })
 
-test('P-60 runWatchdog: a failed claim or read is 500 and sends nothing', async () => {
-  const send = async () => { throw new Error('must not send') }
-  const a = await runWatchdog(fakeAdmin({ claimError: { message: 'boom' } }), { alertTo: 'op@x.test', now: NOW, send })
+const ERROR_SUBJECT = '[ALERT] LeszyRun registration watchdog failing'
+
+test('P-60 runWatchdog: a failed claim or read is 500 and still mails the operator, once per error kind and hour', async () => {
+  const sent = []
+  const send = async (m) => { sent.push(m); return { ok: true } }
+  const keys = new Set()
+  const a = await runWatchdog(fakeAdmin({ claimError: { message: 'boom' }, dedupeKeys: keys }), { alertTo: 'op@x.test', now: NOW, send })
   assert.equal(a.status, 500)
-  const b = await runWatchdog(fakeAdmin({ readError: { message: 'boom' } }), { alertTo: 'op@x.test', now: NOW, send })
+  assert.equal(a.body.error, 'heartbeats_unreadable')
+  assert.equal(a.body.mailed, true)
+  assert.deepEqual(sent.map((m) => [m.to, m.subject]), [['op@x.test', ERROR_SUBJECT]])
+  assert.match(sent[0].text, /heartbeats_unreadable/)
+  assert.match(sent[0].text, /boom/)
+  assert.match(sent[0].text, /registration_job_heartbeats/)
+  assert.doesNotMatch(sent[0].html, /<script/i)
+
+  // The same kind within the hour (a read failure is the same kind as a claim failure): no mail.
+  const b = await runWatchdog(fakeAdmin({ readError: { message: 'boom' }, dedupeKeys: keys }), { alertTo: 'op@x.test', now: NOW + 20 * MIN, send })
   assert.equal(b.status, 500)
-  const c = await runWatchdog(fakeAdmin({ rows: [] }), { alertTo: 'op@x.test', now: NOW, send })
+  assert.equal(b.body.mailed, false)
+  assert.equal(sent.length, 1)
+  // Another kind in the same hour mails; the first kind mails again in the next hour.
+  const c = await runWatchdog(fakeAdmin({ rows: [], dedupeKeys: keys }), { alertTo: 'op@x.test', now: NOW + 20 * MIN, send })
   assert.equal(c.status, 500, 'no heartbeat rows at all')
+  assert.equal(c.body.error, 'no_heartbeats')
+  assert.equal(sent.length, 2)
+  const d = await runWatchdog(fakeAdmin({ claimError: { message: 'boom' }, dedupeKeys: keys }), { alertTo: 'op@x.test', now: NOW + 61 * MIN, send })
+  assert.equal(d.status, 500)
+  assert.equal(sent.length, 3)
+})
+
+test('P-60 reportWatchdogError: the dedupe key is the kind and the UTC hour, stored already e-mailed so the digest skips it', async () => {
+  const admin = fakeAdmin()
+  const r = await reportWatchdogError(admin, { alertTo: 'op@x.test', kind: 'internal_error', message: 'x', now: NOW, send: async () => ({ ok: true }) })
+  assert.equal(r.mailed, true)
+  const [{ table, row, opts }] = admin.calls.alerts
+  assert.equal(table, 'operator_alerts')
+  assert.equal(row.kind, 'watchdog_error')
+  assert.equal(row.dedupe_key, 'watchdog_error:internal_error:2026-10-29T12')
+  assert.equal(row.order_id, undefined)
+  assert.ok(row.emailed_at, 'the operator digest must not mail it a second time')
+  assert.deepEqual(row.payload, { kind: 'internal_error', message: 'x' })
+  assert.deepEqual(opts, { onConflict: 'dedupe_key', ignoreDuplicates: true })
+})
+
+test('P-60 reportWatchdogError: a mail that did not go out drops its dedupe key (the next run retries); a dedupe table that fails still mails', async () => {
+  const keys = new Set()
+  const failed = fakeAdmin({ dedupeKeys: keys })
+  const r = await reportWatchdogError(failed, { alertTo: 'op@x.test', kind: 'internal_error', message: 'x', now: NOW, send: async () => ({ ok: false }) })
+  assert.equal(r.mailed, false)
+  assert.deepEqual(failed.calls.deletes, [{ table: 'operator_alerts', dedupe_key: 'watchdog_error:internal_error:2026-10-29T12' }])
+  assert.equal(keys.size, 0)
+  const sent = []
+  const thrown = await reportWatchdogError(fakeAdmin({ dedupeKeys: keys }), { alertTo: 'op@x.test', kind: 'internal_error', message: 'x', now: NOW, send: async () => { throw new Error('network') } })
+  assert.equal(thrown.mailed, false)
+  const down = fakeAdmin({ alertsError: { message: 'relation does not exist' } })
+  const d = await reportWatchdogError(down, { alertTo: 'op@x.test', kind: 'heartbeats_unreadable', message: 'x', now: NOW, send: async (m) => { sent.push(m); return { ok: true } } })
+  assert.equal(d.mailed, true, 'better a second mail than silence')
+  assert.equal(sent.length, 1)
 })

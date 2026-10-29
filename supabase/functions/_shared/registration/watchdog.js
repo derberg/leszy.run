@@ -16,6 +16,14 @@
 //   recovered → fresh again with alerted_at set; alerted_at := null
 // A mail that did not go out puts the claimed alerted_at back and answers 502, so the next run
 // tries again (and the GitHub run, if it was the caller, fails).
+//
+// When the watchdog cannot do its own job (the heartbeats unreadable, no rows, any internal
+// error) it still mails the operator before answering 500: a watchdog that only answers 500 to
+// pg_cron is heard by nobody until the daily GitHub run. One mail per error kind and UTC hour,
+// deduped on operator_alerts.dedupe_key (`watchdog_error:<kind>:<YYYY-MM-DDTHH>`, stored with
+// emailed_at set so the operator digest does not mail it again). When that table cannot be
+// written either (the database is the problem), it mails anyway: pg_cron calls hourly, so that
+// is still about one mail an hour.
 
 export const STALE_FACTOR = 3
 export const WATCHDOG_JOB = 'registration-watchdog'
@@ -85,6 +93,67 @@ export function watchdogRecoveryEmail({ jobs, now = Date.now() }) {
   return { subject: '[OK] LeszyRun registration jobs running again', text, html }
 }
 
+const ERROR_CHECKS = [
+  'SELECT job, interval_seconds, last_ok_at, alerted_at FROM registration_job_heartbeats ORDER BY job;',
+  "SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE 'registration-%';",
+]
+
+/** [ALERT] the watchdog itself failed: kind (heartbeats_unreadable / no_heartbeats / internal_error) and the error text. */
+export function watchdogErrorEmail({ kind, message, now = Date.now() }) {
+  const what = `The registration watchdog could not check the registration jobs: ${kind}${message ? ` (${message})` : ''}.`
+  const consequence = 'Until it can, nobody is told when a registration job stops. It answers 500, and it mails again at most once an hour for the same error.'
+  const text = [
+    what, '', consequence, '',
+    'Check in the Supabase SQL editor (production):', ...ERROR_CHECKS, '',
+    'and the registration-watchdog function logs. See docs/supabase-release-runbook.md, „Registration jobs”.',
+    `LeszyRun registration watchdog · ${iso(now)}`,
+  ].join('\n')
+  const html = [
+    `<p><strong>${escapeHtml(what)}</strong></p>`,
+    `<p>${escapeHtml(consequence)}</p>`,
+    '<p>Check in the Supabase SQL editor (production):</p>',
+    `<pre>${escapeHtml(ERROR_CHECKS.join('\n'))}</pre>`,
+    '<p>and the registration-watchdog function logs. See docs/supabase-release-runbook.md, „Registration jobs”.</p>',
+    `<p style="color:#666;font-size:12px">LeszyRun registration watchdog · ${iso(now)}</p>`,
+  ].join('')
+  return { subject: '[ALERT] LeszyRun registration watchdog failing', text, html }
+}
+
+/**
+ * Mails the operator that the watchdog failed, at most once per kind and UTC hour.
+ * → { mailed, deduped }. Never throws.
+ */
+export async function reportWatchdogError(admin, { alertTo, send, kind, message = null, now = Date.now() }) {
+  const dedupeKey = `watchdog_error:${kind}:${iso(now).slice(0, 13)}`
+  let claimed = false
+  try {
+    const { data, error } = await admin.from('operator_alerts').upsert(
+      { kind: 'watchdog_error', payload: { kind, message }, dedupe_key: dedupeKey, emailed_at: iso(now) },
+      { onConflict: 'dedupe_key', ignoreDuplicates: true },
+    ).select('id')
+    if (error) {
+      console.error('registration-watchdog: error dedupe not stored, mailing anyway:', error.message)
+    } else if (!data?.length) {
+      return { mailed: false, deduped: true }
+    } else {
+      claimed = true
+    }
+  } catch (err) {
+    console.error('registration-watchdog: error dedupe failed, mailing anyway:', err?.message)
+  }
+
+  const ok = await mailed(send, { to: alertTo, ...watchdogErrorEmail({ kind, message, now }) })
+  if (!ok && claimed) {
+    try {
+      const { error } = await admin.from('operator_alerts').delete().eq('dedupe_key', dedupeKey)
+      if (error) console.error('registration-watchdog: error dedupe not released:', error.message)
+    } catch (err) {
+      console.error('registration-watchdog: error dedupe not released:', err?.message)
+    }
+  }
+  return { mailed: ok, deduped: false }
+}
+
 async function mailed(send, message) {
   try {
     const res = await send(message)
@@ -100,8 +169,8 @@ async function mailed(send, message) {
  * mailer ({ to, subject, text, html } → { ok }); caller: 'pg_cron' stamps the watchdog's own
  * heartbeat first, anything else only checks.
  * → { status, body }: 200 { ok: true, stale, alerted, recovered, watchdog: { last_run_at } },
- *   502 the same with ok: false and error 'alert_not_sent', 500 { ok: false, error } when the
- *   heartbeats could not be read.
+ *   502 the same with ok: false and error 'alert_not_sent', 500 { ok: false, error, mailed } when
+ *   the heartbeats could not be read (after reportWatchdogError).
  */
 export async function runWatchdog(admin, { alertTo, send, caller, now = Date.now() }) {
   if (caller === 'pg_cron') {
@@ -110,16 +179,20 @@ export async function runWatchdog(admin, { alertTo, send, caller, now = Date.now
   }
 
   const { data: claims, error: claimErr } = await admin.rpc('registration_watchdog_claim')
+  const failure = async (error, message) => {
+    const { mailed: sent } = await reportWatchdogError(admin, { alertTo, send, kind: error, message, now })
+    return { status: 500, body: { ok: false, error, mailed: sent } }
+  }
   if (claimErr) {
     console.error('registration-watchdog: claim failed:', claimErr.message)
-    return { status: 500, body: { ok: false, error: 'heartbeats_unreadable' } }
+    return failure('heartbeats_unreadable', claimErr.message)
   }
   const { data: rows, error: readErr } = await admin.from(TABLE).select('job, interval_seconds, last_ok_at, alerted_at')
   if (readErr || !rows?.length) {
     console.error('registration-watchdog: heartbeats unreadable:', readErr?.message ?? 'no rows')
     // Put back what was claimed: nothing was mailed.
     for (const c of claims ?? []) await admin.from(TABLE).update({ alerted_at: c.previous_alerted_at }).eq('job', c.job)
-    return { status: 500, body: { ok: false, error: readErr ? 'heartbeats_unreadable' : 'no_heartbeats' } }
+    return readErr ? failure('heartbeats_unreadable', readErr.message) : failure('no_heartbeats', null)
   }
 
   const stale = staleJobs(rows, now)

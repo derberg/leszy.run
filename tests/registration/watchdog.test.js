@@ -172,3 +172,37 @@ test('P-60 anon and authenticated cannot execute registration_watchdog_claim', a
     assert.match(error?.message ?? '', /permission denied/)
   }
 })
+
+const FAILING = '[ALERT] LeszyRun registration watchdog failing'
+
+test('P-60 the heartbeats unreadable: 500, and the operator is mailed once for that error within the hour', async () => {
+  const sql = postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} })
+  const key = `watchdog_error:heartbeats_unreadable:${new Date().toISOString().slice(0, 13)}`
+  const before = (await messagesTo(OPERATOR)).filter((m) => m.subject === FAILING).length
+  try {
+    await sql`delete from public.operator_alerts where dedupe_key = ${key}`
+    await sql`alter table public.registration_job_heartbeats rename to registration_job_heartbeats_away`
+    const first = await watchdog()
+    assert.equal(first.status, 500, JSON.stringify(first.body))
+    assert.equal(first.body.error, 'heartbeats_unreadable')
+    assert.equal(first.body.mailed, true)
+    const second = await watchdog({ caller: 'pg_cron' })
+    assert.equal(second.status, 500)
+    assert.equal(second.body.mailed, false, 'the same error within the hour is not mailed again')
+    let mails = []
+    for (let i = 0; i < 20; i++) {
+      mails = (await messagesTo(OPERATOR)).filter((m) => m.subject === FAILING)
+      if (mails.length > before) break
+      await new Promise((r) => setTimeout(r, 250))
+    }
+    assert.equal(mails.length - before, 1)
+    assert.match(mails.at(-1).text, /heartbeats_unreadable/)
+    const [row] = await sql`select kind, emailed_at from public.operator_alerts where dedupe_key = ${key}`
+    assert.equal(row.kind, 'watchdog_error')
+    assert.ok(row.emailed_at, 'stored as already e-mailed: the digest skips it')
+  } finally {
+    await sql`alter table if exists public.registration_job_heartbeats_away rename to registration_job_heartbeats`
+    await sql`delete from public.operator_alerts where dedupe_key = ${key}`
+    await sql.end()
+  }
+})

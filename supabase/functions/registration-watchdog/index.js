@@ -3,7 +3,7 @@ import { guardRequest } from '../_shared/cors.js'
 import { sameSecret } from '../_shared/sameSecret.js'
 import { sendEmail } from '../_shared/email.js'
 import { json, NOT_FOUND } from '../_shared/registration/registrationRequest.js'
-import { runWatchdog } from '../_shared/registration/watchdog.js'
+import { reportWatchdogError, runWatchdog } from '../_shared/registration/watchdog.js'
 
 // The registration jobs watchdog (P3-R18). pg_cron POSTs here every hour through pg_net (job
 // `registration-watchdog`, body { caller: 'pg_cron' }), and a daily GitHub Actions run
@@ -14,7 +14,9 @@ import { runWatchdog } from '../_shared/registration/watchdog.js'
 // PIPELINE_ALERT_EMAIL (SendGrid, through _shared/email.js). What a run does:
 // _shared/registration/watchdog.js.
 // → 200 { ok: true, stale, alerted, recovered, watchdog: { last_run_at } }; 502 when an alert
-//   could not be sent; 500 when the heartbeats could not be read; 503 without PIPELINE_ALERT_EMAIL.
+//   could not be sent; 500 when the heartbeats could not be read or anything else failed, after
+//   mailing the operator (once per error kind and hour, reportWatchdogError); 503 without
+//   PIPELINE_ALERT_EMAIL.
 
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -42,6 +44,7 @@ Deno.serve(async (req) => {
     return json(out, status, req)
   } catch (err) {
     console.error('registration-watchdog error:', err?.message)
-    return json({ ok: false, error: 'Internal server error' }, 500, req)
+    const { mailed } = await reportWatchdogError(admin, { alertTo, send: sendEmail, kind: 'internal_error', message: err?.message ?? null })
+    return json({ ok: false, error: 'Internal server error', mailed }, 500, req)
   }
 })
