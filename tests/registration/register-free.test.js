@@ -223,7 +223,7 @@ test('W-29 my-event-registrations returns the session’s confirmed registration
   assert.equal((await callFn('list-event-registrations', null, { eventId: event.eventId })).status, 401)
 })
 
-test('W-29 an invalid person → 400 with field errors; a minor → 400 with the minor message; more than one person → 400', async () => {
+test('W-29 an invalid person → 400 with field errors; a minor registering themself → 400 invalid_group; two adults are a group (G-33)', async () => {
   const event = await publishedEvent()
   const email = runnerEmail('bad')
   const runner = await sessionFor(email)
@@ -231,14 +231,18 @@ test('W-29 an invalid person → 400 with field errors; a minor → 400 with the
   assert.equal(bad.status, 400)
   assert.deepEqual(Object.keys(bad.body.fields).sort(), ['firstName', 'gender'])
 
+  // Plan 4 (G-33): a minor is registered by a parent or guardian, never by themself.
   const minor = await register({ ...(await body(event, email)), person: person(email, { birthDate: '2012-01-01' }) }, runner)
   assert.equal(minor.status, 400)
-  assert.equal(minor.body.fields.birthDate, 'Zapis osoby niepełnoletniej będzie możliwy wkrótce.')
-
-  const two = await register({ ...(await body(event, email)), person: undefined, people: [person(email), person(runnerEmail('b'))] }, runner)
-  assert.equal(two.status, 400)
+  assert.deepEqual(minor.body, { error: 'Osobę niepełnoletnią zapisuje rodzic lub opiekun.', code: 'invalid_group' })
   assert.equal(await taken(event.categoryIds[0]), 0)
   assert.equal((await registrationsOf(event.categoryIds[0])).length, 0)
+
+  // Plan 4 (G-33): two adults in one body are a valid group.
+  const two = await register({ ...(await body(event, email)), person: undefined, people: [person(email), person(runnerEmail('b'))] }, runner)
+  assert.equal(two.status, 201, JSON.stringify(two.body))
+  assert.equal(await taken(event.categoryIds[0]), 2)
+  assert.equal((await registrationsOf(event.categoryIds[0])).length, 2)
 })
 
 // ---------------------------------------------------------------- W-30 last place

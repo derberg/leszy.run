@@ -161,3 +161,87 @@ test('P-58 the reminder and the expiry notice never say an unpaid entry holds or
   assert.ok(reminder.text.includes('Bez wpłaty do 05.11.2026, 11:15 zgłoszenie wygaśnie.'), reminder.text)
   for (const part of [expired.text, expired.html]) assert.match(part, /wygasło, bo nie zostało opłacone w terminie/)
 })
+
+// ---------------------------------------------------------------- Plan 4: groups (G-28)
+
+import { consentRequestEmail, freeConfirmationEmail } from '../../../supabase/functions/_shared/registration/emails.js'
+
+const consentArgs = {
+  event: { name: 'Bieg Leszego <2026>', eventDate: '2026-11-28', place: 'Nieborowice' },
+  person: { firstName: 'Piotr' },
+  registeredBy: 'Ola Leśna',
+  competition: { name: 'Bieg 9 km', startTime: '10:00' },
+  link: 'https://www.leszy.run/zgoda#TOKEN_abc-123',
+  dataInfoUrl: 'https://www.leszy.run/events/bieg-leszego-2026/informacja-o-danych',
+}
+
+test('G-28 consentRequestEmail: subject, who registered, the competition and start, the link, the office line, the data information', () => {
+  const m = consentRequestEmail(consentArgs)
+  assert.equal(m.subject, 'Zapisano Cię na Bieg Leszego <2026> — zaakceptuj regulamin')
+  for (const part of [m.text, m.html]) {
+    assert.ok(part.includes('Piotr'))
+    assert.ok(part.includes('Ola Leśna'), 'names who provided the data (Art. 14)')
+    assert.ok(part.includes('Bieg 9 km'))
+    assert.ok(part.includes('28.11.2026'))
+    assert.ok(part.includes('10:00'))
+    assert.ok(part.includes('Zaakceptuj regulamin'))
+    assert.ok(part.includes('Jeśli nie zaakceptujesz online, podpiszesz regulamin w biurze zawodów.'))
+    assert.ok(part.includes(consentArgs.dataInfoUrl))
+    assert.doesNotMatch(part, /\bbib\b|numer startowy|\bnr\b/i)
+  }
+  assert.ok(m.text.includes('https://www.leszy.run/zgoda#TOKEN_abc-123'))
+  assert.ok(m.html.includes('href="https://www.leszy.run/zgoda#TOKEN_abc-123"'))
+  assert.ok(m.html.includes('Bieg Leszego &lt;2026&gt;'), 'html escaped')
+  assert.ok(!m.html.includes('<2026>'))
+})
+
+test('G-28 consentRequestEmail as a reminder: the subject starts with „Przypomnienie: ”', () => {
+  const m = consentRequestEmail({ ...consentArgs, reminder: true })
+  assert.equal(m.subject, 'Przypomnienie: Zapisano Cię na Bieg Leszego <2026> — zaakceptuj regulamin')
+})
+
+const freeEvent = {
+  name: 'Bieg Leszego <2026>', eventDate: '2026-11-28', place: 'Nieborowice, Polana', officePlace: 'Nieborowice, Polana',
+  url: 'https://www.leszy.run/events/bieg-leszego-2026',
+}
+const hours = [{ starts_at: '2026-11-28T07:00:00Z', ends_at: '2026-11-28T09:00:00Z' }]
+const self = { role: 'self', firstName: 'Ola', lastName: 'Leśna', competition: 'Bieg 9 km', ageGroupLabel: 'K open', startTime: '10:00' }
+
+test('G-33 freeConfirmationEmail for one runner registering themself: Plan 2\'s „Jesteś na liście”', () => {
+  const m = freeConfirmationEmail({ event: freeEvent, people: [self], payerFirstName: 'Ola', officeHours: hours })
+  assert.equal(m.subject, 'Jesteś na liście — Bieg Leszego <2026>')
+  assert.ok(m.text.startsWith('Cześć Ola,\n\njesteś na liście startowej zawodów Bieg Leszego <2026>.'))
+  for (const s of ['Konkurencja: Bieg 9 km', 'Kategoria: K open', 'Start: 28.11.2026, godz. 10:00', 'Miejsce: Nieborowice, Polana',
+    'Biuro zawodów (Nieborowice, Polana):', '- 28.11.2026 08:00–10:00', `Strona zawodów: ${freeEvent.url}`]) {
+    assert.ok(m.text.includes(s), s)
+  }
+  assert.doesNotMatch(m.text, /numer startowy|\bnr\b/i)
+})
+
+test('G-28 freeConfirmationEmail for a family: „Jesteście na liście”, every person with their competition, the adult awaiting consent', () => {
+  const people = [
+    self,
+    { role: 'adult', firstName: 'Piotr', lastName: 'Leśny', competition: 'Bieg 9 km', ageGroupLabel: 'M open', startTime: '10:00' },
+    { role: 'minor', firstName: 'Zosia', lastName: 'Leśna', competition: 'Bieg dzieci 1 km', ageGroupLabel: null, startTime: '09:00' },
+  ]
+  const m = freeConfirmationEmail({ event: freeEvent, people, payerFirstName: 'Ola', officeHours: hours })
+  assert.equal(m.subject, 'Jesteście na liście — Bieg Leszego <2026>')
+  for (const part of [m.text, m.html]) {
+    for (const s of ['Ola Leśna', 'Piotr Leśny', 'Zosia Leśna', 'Bieg 9 km', 'Bieg dzieci 1 km', 'M open', '09:00', '28.11.2026']) {
+      assert.ok(part.includes(s), s)
+    }
+    assert.match(part, /Piotr Leśny[^\n<]*regulamin/, 'the added adult is told to accept the regulamin')
+    assert.doesNotMatch(part, /\bbib\b|numer startowy/i)
+  }
+  assert.ok(m.html.includes('Bieg Leszego &lt;2026&gt;'))
+})
+
+test('G-28 freeConfirmationEmail for one other person (the payer does not run): named in the subject, sent to the payer', () => {
+  const m = freeConfirmationEmail({
+    event: freeEvent, payerFirstName: 'Ola', officeHours: [],
+    people: [{ role: 'minor', firstName: 'Zosia', lastName: 'Leśna', competition: 'Bieg dzieci 1 km', ageGroupLabel: null, startTime: '09:00' }],
+  })
+  assert.equal(m.subject, 'Zosia Leśna jest na liście — Bieg Leszego <2026>')
+  assert.ok(m.text.startsWith('Cześć Ola,'))
+  assert.ok(m.text.includes('Zosia Leśna'))
+})

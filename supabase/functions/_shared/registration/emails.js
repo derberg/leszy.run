@@ -211,3 +211,140 @@ export function operatorAlertEmail({ alerts }) {
   ].join('')
   return { subject: `[ALERT] Płatności: ${kinds.join(', ')}`, text, html }
 }
+
+// ---------------------------------------------------------------- free sign-up and consent requests (Plan 4)
+
+const fullName = (p) => `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim()
+
+function officeLines(officeHours = []) {
+  return officeHours.map((h) => `${dayFmt.format(new Date(h.starts_at))} ${timeFmt.format(new Date(h.starts_at))}–${timeFmt.format(new Date(h.ends_at))}`)
+}
+
+/**
+ * The free registration confirmation, one e-mail to whoever registered (Plan 2's „Jesteś na
+ * liście”, moved here from register-free). event { name, eventDate, place, officePlace, url },
+ * people [{ role: self|adult|minor, firstName, lastName, competition, ageGroupLabel, startTime }],
+ * payerFirstName, officeHours [{ starts_at, ends_at }].
+ *   one person who is the payer      → „Jesteś na liście — <nazwa>”, Plan 2's text unchanged
+ *   more than one person             → „Jesteście na liście — <nazwa>”, every person listed
+ *   one other person (payer does not run) → „<Imię Nazwisko> jest na liście — <nazwa>”
+ * An added adult is told they will get the regulamin to accept. No bib is ever mentioned.
+ */
+export function freeConfirmationEmail({ event, people, payerFirstName, officeHours = [] }) {
+  const office = officeLines(officeHours)
+  const officeText = office.length
+    ? ['', `Biuro zawodów${event.officePlace ? ` (${event.officePlace})` : ''}:`, ...office.map((o) => `- ${o}`)]
+    : []
+  const officeHtml = office.length
+    ? `<p>Biuro zawodów${event.officePlace ? ` (${escapeHtml(event.officePlace)})` : ''}:</p><ul>${office.map((o) => `<li>${escapeHtml(o)}</li>`).join('')}</ul>`
+    : ''
+  const day = isoDay(event.eventDate)
+  const footerText = ['', `Strona zawodów: ${event.url}`, '', 'LESZY.RUN']
+  const footerHtml = [link(event.url, 'Strona zawodów'), '<p>LESZY.RUN</p>']
+
+  if (people.length === 1 && people[0].role === 'self') {
+    const person = people[0]
+    const facts = [
+      ['Konkurencja', person.competition],
+      ['Kategoria', person.ageGroupLabel],
+      ['Start', day ? `${day}${person.startTime ? `, godz. ${person.startTime}` : ''}` : null],
+      ['Miejsce', event.place],
+    ].filter(([, v]) => v)
+    const text = [
+      `Cześć ${person.firstName},`,
+      '',
+      `jesteś na liście startowej zawodów ${event.name}.`,
+      '',
+      ...textBlock(facts),
+      ...officeText,
+      ...footerText,
+    ].join('\n')
+    const html = [
+      `<p>Cześć ${escapeHtml(person.firstName)},</p>`,
+      `<p>jesteś na liście startowej zawodów <strong>${escapeHtml(event.name)}</strong>.</p>`,
+      htmlBlock(facts),
+      officeHtml,
+      ...footerHtml,
+    ].join('')
+    return { subject: `Jesteś na liście — ${event.name}`, text, html }
+  }
+
+  const lines = personLines(people)
+  const awaiting = people.filter((p) => p.role === 'adult').map(fullName)
+  const awaitingNote = awaiting.map((n) => `${n} dostanie osobny e-mail z prośbą o akceptację regulaminu.`)
+  const facts = [['Data', day], ['Miejsce', event.place]].filter(([, v]) => v)
+  const subject = people.length > 1
+    ? `Jesteście na liście — ${event.name}`
+    : `${fullName(people[0])} jest na liście — ${event.name}`
+  const lead = people.length > 1 ? 'zgłoszone osoby są na liście startowej zawodów' : 'zgłoszona osoba jest na liście startowej zawodów'
+  const greeting = payerFirstName ? `Cześć ${payerFirstName},` : 'Cześć,'
+  const text = [
+    greeting,
+    '',
+    `${lead} ${event.name}.`,
+    '',
+    ...lines.map((l) => `- ${l}`),
+    ...(facts.length ? ['', ...textBlock(facts)] : []),
+    ...(awaitingNote.length ? ['', ...awaitingNote] : []),
+    ...officeText,
+    ...footerText,
+  ].join('\n')
+  const html = [
+    `<p>${escapeHtml(greeting)}</p>`,
+    `<p>${escapeHtml(lead)} <strong>${escapeHtml(event.name)}</strong>.</p>`,
+    `<ul>${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`,
+    facts.length ? htmlBlock(facts) : '',
+    awaitingNote.length ? `<p>${awaitingNote.map(escapeHtml).join('<br>')}</p>` : '',
+    officeHtml,
+    ...footerHtml,
+  ].join('')
+  return { subject, text, html }
+}
+
+/**
+ * The consent request to an adult somebody else registered (ruling 10: the Art. 14 notice,
+ * the data did not come from them). event { name, eventDate, place? }, person { firstName },
+ * registeredBy (who provided the data), competition { name, startTime }, link (the consent
+ * page, `/zgoda#<token>`), dataInfoUrl (the runner data information). `reminder: true` prefixes
+ * the subject with „Przypomnienie: ”. The link is the only place the token appears.
+ */
+export function consentRequestEmail({ event, person, registeredBy, competition, link: url, dataInfoUrl, reminder = false }) {
+  const day = isoDay(event.eventDate)
+  const start = [day, competition?.startTime ? `godz. ${competition.startTime}` : null].filter(Boolean).join(', ')
+  const facts = [
+    ['Konkurencja', competition?.name],
+    ['Start', start || null],
+    ['Miejsce', event.place],
+  ].filter(([, v]) => v)
+  const who = registeredBy || 'Inna osoba'
+  const office = 'Jeśli nie zaakceptujesz online, podpiszesz regulamin w biurze zawodów.'
+  const dataNote = `Twoje dane (imię, nazwisko, datę urodzenia, płeć, e-mail, telefon i pozostałe pola zgłoszenia) podał(a) ${who}. Kto je przetwarza, w jakim celu i jakie masz prawa:`
+  const greeting = person?.firstName ? `Cześć ${person.firstName},` : 'Cześć,'
+  const text = [
+    greeting,
+    '',
+    `${who} zapisał(a) Cię na zawody ${event.name}.`,
+    '',
+    ...textBlock(facts),
+    '',
+    `Zaakceptuj regulamin: ${url}`,
+    '',
+    office,
+    '',
+    dataNote,
+    dataInfoUrl,
+    '',
+    'LESZY.RUN',
+  ].join('\n')
+  const html = [
+    `<p>${escapeHtml(greeting)}</p>`,
+    `<p>${escapeHtml(who)} zapisał(a) Cię na zawody <strong>${escapeHtml(event.name)}</strong>.</p>`,
+    htmlBlock(facts),
+    link(url, 'Zaakceptuj regulamin'),
+    `<p>${escapeHtml(office)}</p>`,
+    `<p>${escapeHtml(dataNote)} <a href="${escapeHtml(dataInfoUrl)}">${escapeHtml(dataInfoUrl)}</a></p>`,
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  const subject = `Zapisano Cię na ${event.name} — zaakceptuj regulamin`
+  return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html }
+}

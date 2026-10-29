@@ -11,6 +11,7 @@ import { refundTransaction, transactionDetails } from '../dpay.js'
 import { sendEmail } from '../email.js'
 import { redactDpay } from './redactDpay.js'
 import { orderConfirmationEmail, paymentRefundedEmail } from './emails.js'
+import { issueOrderConsentRequests } from './consentRequests.js'
 
 /**
  * Inserts an operator_alerts row → true when it is stored (or already was, by its key).
@@ -219,7 +220,8 @@ const SETTLED = new Set(['accepted', 'rejected', 'insufficient_balance', 'pendin
 /**
  * Acts on one confirm_order result. `outcome` is that result ({ outcome, refund? }) plus
  * the `orderId` and `txn` it was called with.
- *   confirmed / late_confirmed  → the confirmation e-mail
+ *   confirmed / late_confirmed  → the confirmation e-mail, then the consent requests to the
+ *     group's added adults (issueOrderConsentRequests, at most once each)
  *   double_payment / late_refund → the full refund at dpay (no value: everything left),
  *     logged, settled (settle_refund), the refund e-mail when dpay accepted it, and an
  *     operator alert for an outcome nobody may retry automatically (rejected, pending,
@@ -235,7 +237,10 @@ export async function settleConfirmOutcome(admin, cfg, outcome) {
   const kind = outcome?.outcome
   if (kind === 'confirmed' || kind === 'late_confirmed') {
     await sendOrderConfirmation(admin, orderId)
-    return { emailed: true }
+    // Plan 4 ruling 4: the added adults of a paid group are asked now that it is paid, never
+    // before. issue_consent_request claims each request once, so a replay sends nothing.
+    const consentRequests = await issueOrderConsentRequests(admin, orderId)
+    return { emailed: true, consentRequests }
   }
   if ((kind !== 'double_payment' && kind !== 'late_refund') || !refund) return {}
 
