@@ -9,7 +9,7 @@ import { callFunction, requestCode } from '../../lib/auth.js'
 import { afterRegistrationPath } from '../../lib/inviteLink.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import {
-  EMPTY_PERSON, profilePrefill, fieldModes, personContext, checkPerson, needsCode, consentsComplete, registerBody,
+  EMPTY_PERSON, profilePrefill, mergePrefill, fieldModes, personContext, checkPerson, needsCode, consentsComplete, registerBody,
   registrationFailure,
 } from '../../lib/personFormModel.js'
 import { runnerDataInfo } from '../../legal/runnerDataInfo.js'
@@ -89,12 +89,15 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const [sentTo, setSentTo] = useState(null)
   const [resent, setResent] = useState(false)
   const [busy, setBusy] = useState(false)
-  const touched = useRef(false)
+  // Fields the person has typed into or picked. The profile never overwrites
+  // them, and fills every other field even when it lands after they started:
+  // on a slow phone the sign-in check can arrive well after the first keystroke.
+  const touched = useRef(new Set())
 
-  // The logged-in person's own profile fills the form once, before they type.
+  // The logged-in person's own profile fills the form, field by field.
   const prefill = useMemo(() => (user ? profilePrefill(user) : null), [user])
   useEffect(() => {
-    if (prefill && !touched.current) setPerson((p) => ({ ...p, ...prefill }))
+    if (prefill) setPerson((p) => mergePrefill(p, prefill, touched.current))
   }, [prefill])
 
   if (!competition || !row) {
@@ -116,7 +119,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   })
 
   const change = (patch) => {
-    touched.current = true
+    for (const k of Object.keys(patch)) touched.current.add(k)
     setPerson((p) => ({ ...p, ...patch }))
     setErrors((e) => {
       const next = { ...e }

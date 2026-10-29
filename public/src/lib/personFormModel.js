@@ -34,6 +34,18 @@ export function profilePrefill(user) {
 }
 
 /**
+ * The person with the profile's values filled in, except in the fields the
+ * person already touched (a Set of keys): what they typed or picked stays.
+ */
+export function mergePrefill(person, prefill, touched) {
+  const out = { ...person }
+  for (const [k, v] of Object.entries(prefill ?? {})) {
+    if (!touched.has(k)) out[k] = v
+  }
+  return out
+}
+
+/**
  * registration_settings.form_fields with the defaults filled in (missing =
  * optional, nationality missing = off). The phone is no switch: it is always
  * required (P2-R32), so a stored phone mode is left out.

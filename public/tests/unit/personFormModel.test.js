@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  EMPTY_PERSON, profilePrefill, fieldModes, personContext, categoryPreview, checkPerson,
+  EMPTY_PERSON, profilePrefill, mergePrefill, fieldModes, personContext, categoryPreview, checkPerson,
   needsCode, consentsComplete, registerBody, registrationFailure,
 } from '../../src/lib/personFormModel.js'
 
@@ -24,6 +24,23 @@ const grazyna = {
   ...EMPTY_PERSON, firstName: 'Grażyna', lastName: 'Wiśniewska', birthDate: '1971-05-02', gender: 'K',
   email: 'Grazyna.W@wp.pl ', phone: '+48 605 222 333', city: 'Pyskowice',
 }
+
+describe('mergePrefill (the profile lands after the person started typing)', () => {
+  it('fills every field the person has not touched', () => {
+    const p = mergePrefill({ ...EMPTY_PERSON, firstName: 'Ola' }, { email: 'ola@x.pl', gender: 'K' }, new Set(['firstName']))
+    assert.equal(p.firstName, 'Ola')
+    assert.equal(p.email, 'ola@x.pl')
+    assert.equal(p.gender, 'K')
+  })
+  it('never overwrites a touched field, even one the person cleared', () => {
+    const p = mergePrefill({ ...EMPTY_PERSON, birthDate: '1990-01-02', email: '' }, { birthDate: '1988-06-01', email: 'ola@x.pl' }, new Set(['birthDate', 'email']))
+    assert.equal(p.birthDate, '1990-01-02')
+    assert.equal(p.email, '')
+  })
+  it('a null prefill changes nothing', () => {
+    assert.deepEqual(mergePrefill(grazyna, null, new Set()), grazyna)
+  })
+})
 
 describe('profilePrefill (the logged-in person only)', () => {
   it('copies e-mail, birth date, phone, city and club; F becomes K', () => {
