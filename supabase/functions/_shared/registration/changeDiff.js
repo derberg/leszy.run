@@ -47,6 +47,10 @@ const WINDOW_WORDS = { 24: '24 godziny', 168: '7 dni', 336: '14 dni' }
 const VALUE_WORDS = {
   'payments.payment_window_hours': (v) => WINDOW_WORDS[v] ?? (v == null ? null : `${v} godz.`),
 }
+// The payment window as the organizer chose it: „do końca zapisów” hides the hours behind it.
+const windowWords = (s) => (s.payment_window_until_close === true
+  ? 'do końca zapisów'
+  : VALUE_WORDS['payments.payment_window_hours'](s.payment_window_hours ?? null))
 
 const ITEM_LABELS = {
   name: 'nazwa', discipline: 'dyscyplina', distance_label: 'dystans', start_time: 'godzina startu',
@@ -138,6 +142,15 @@ export function changeDiff(live, pending) {
   const settings = live.settings ?? {}
   for (const [section, value] of Object.entries(pending ?? {})) {
     if (!value || typeof value !== 'object') continue
+    // One row for the payment window, whichever of its two columns is staged.
+    if (section === 'payments') {
+      const before = windowWords(settings)
+      const after = windowWords({ ...settings, ...value })
+      if (before !== after) {
+        out.push({ field: 'payments.payment_window_hours', label: SETTINGS_LABELS.payments.payment_window_hours, before, after })
+      }
+      continue
+    }
     for (const [key, after] of Object.entries(value)) {
       const field = `${section}.${key}`
       if (section === 'competitions' && key === 'items') { competitionDiff(live, value, out); continue }

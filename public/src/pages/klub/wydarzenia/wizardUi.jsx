@@ -1,3 +1,5 @@
+import { useEffect, useId, useRef, useState } from 'react'
+
 // Small shared pieces of the organizer wizard's steps.
 
 export function FieldError({ message }) {
@@ -41,4 +43,39 @@ export function Seg({ on, className = '', ...props }) {
 /** 🔒 on a control locked after publish. */
 export function Lock({ title }) {
   return <span role="img" aria-label={title} title={title} className="text-sm">🔒</span>
+}
+
+/**
+ * ⓘ beside a setting: a tap or click shows the explanation under it, a second one, Escape or a
+ * click elsewhere hides it. A button, so it works by keyboard and on a phone (no hover there).
+ * The panel is placed against the nearest positioned ancestor (give the setting's header
+ * `relative`), so on a narrow screen it spans the header instead of running off the edge.
+ */
+export function InfoTip({ label, children, testId }) {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  const box = useRef(null)
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    const onDown = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('pointerdown', onDown)
+    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onDown) }
+  }, [open])
+  return (
+    <span ref={box} className="inline-flex">
+      <button type="button" aria-label={label} aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)}
+        className={`inline-flex items-center justify-center w-7 h-7 border font-mono text-sm leading-none rounded-none ${
+          open ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-bright text-apex-muted hover:text-apex-text-bright'}`}>
+        ⓘ
+      </button>
+      {open && (
+        <span id={id} role="note" data-testid={testId}
+          className="absolute left-0 right-0 top-full mt-2 z-20 max-w-[440px] border border-apex-yellow-dim bg-apex-surface-2 p-3 font-sans text-[15px] font-medium leading-snug text-apex-text-bright normal-case tracking-normal">
+          {children}
+        </span>
+      )}
+    </span>
+  )
 }

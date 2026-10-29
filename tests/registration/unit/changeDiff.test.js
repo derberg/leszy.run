@@ -125,6 +125,20 @@ test('P-40 a staged payment window is listed as „Czas na opłacenie zgłoszeni
   assert.deepEqual(changeDiff(withWindow, { payments: { payment_window_hours: 168 } }), [])
 })
 
+test('P-59 „do końca zapisów” is one row of „Czas na opłacenie zgłoszenia”, both ways', () => {
+  const days7 = { ...live, settings: { ...live.settings, payment_window_hours: 168, payment_window_until_close: false } }
+  assert.deepEqual(changeDiff(days7, { payments: { payment_window_until_close: true } }), [
+    { field: 'payments.payment_window_hours', label: 'Czas na opłacenie zgłoszenia', before: '7 dni', after: 'do końca zapisów' },
+  ])
+  const untilClose = { ...live, settings: { ...live.settings, payment_window_hours: 168, payment_window_until_close: true } }
+  assert.deepEqual(changeDiff(untilClose, { payments: { payment_window_hours: 24, payment_window_until_close: false } }), [
+    { field: 'payments.payment_window_hours', label: 'Czas na opłacenie zgłoszenia', before: 'do końca zapisów', after: '24 godziny' },
+  ])
+  assert.deepEqual(changeDiff(untilClose, { payments: { payment_window_until_close: true } }), [])
+  // The hours behind „do końca zapisów” are not shown: switching them changes nothing the runner sees.
+  assert.deepEqual(changeDiff(untilClose, { payments: { payment_window_hours: 336, payment_window_until_close: true } }), [])
+})
+
 test('P-42 mergedChecklistInput carries the payout state through', async () => {
   const { mergedChecklistInput } = await import('../../../supabase/functions/_shared/registration/changeDiff.js')
   const payout = { mode: 'club', ready: false }

@@ -282,6 +282,22 @@ test('P-40 payments: any other window is refused, 337 included', () => {
   }
 })
 
+test('P-59 payments: „do końca zapisów” is paymentWindowUntilClose, a boolean, alone or beside the hours', () => {
+  for (const ctx of [DRAFT, PUBLISHED]) {
+    assert.deepEqual(validateSection('payments', { paymentWindowUntilClose: true }, ctx),
+      { ok: true, value: { payment_window_until_close: true } })
+    assert.deepEqual(validateSection('payments', { paymentWindowHours: 24, paymentWindowUntilClose: false }, ctx),
+      { ok: true, value: { payment_window_hours: 24, payment_window_until_close: false } })
+  }
+  for (const v of ['true', 1, null, 'close']) {
+    const r = validateSection('payments', { paymentWindowUntilClose: v }, DRAFT)
+    assert.equal(r.ok, false, String(v))
+    assert.equal(r.errors.paymentWindowUntilClose, 'Wybierz czas na opłacenie zgłoszenia.')
+  }
+  const snake = validateSection('payments', { payment_window_until_close: true }, DRAFT)
+  assert.equal(snake.errors.payment_window_until_close, 'Nieznane pole.')
+})
+
 test('P-40 payments: taken and every payout key are refused; the payout is not a section', () => {
   for (const key of ['taken', 'payoutMode', 'payoutRecipient', 'payoutTaxId', 'payoutIban', 'payoutTitle',
     'payout_mode', 'payout_iban', 'iban', 'payment_window_hours']) {

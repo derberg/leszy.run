@@ -4,15 +4,19 @@ import { getClubPayout, getEventPayout, updateEventPayout } from '../../../../li
 import { groupIban } from '../../../../lib/iban.js'
 import { btnPrimary, errorClass, fieldInput, savedClass } from '../../settingsUi.js'
 import { useKlub } from '../../context.js'
-import { FieldError, Seg, Soon, cardClass, cardTitle, monoLabel, sectionErrors } from '../wizardUi.jsx'
+import { FieldError, InfoTip, Seg, Soon, cardClass, cardTitle, monoLabel, sectionErrors } from '../wizardUi.jsx'
 
-// A6: the payment window (the `payments` section: autosaved in a draft,
+// A6: the payment window (24 h, 7 or 14 days, or „do końca zapisów”, with an ⓘ saying an unpaid
+// entry expires and holds no place; the `payments` section: autosaved in a draft,
 // staged after publish), the payout account and the package transfer (Plan 7).
 // The payout is not a section (ruling P3-R1): the club owner sets it through
 // update-event-payout and it applies at once; an admin sees it masked
 // (get-event-payout); a member never loads it.
 
-const WINDOWS = [[24, '24 godziny'], [168, '7 dni'], [336, '14 dni']]
+// „do końca zapisów” is its own column (payment_window_until_close): the hours stay stored.
+const UNTIL_CLOSE = 'close'
+const WINDOWS = [[24, '24 godziny'], [168, '7 dni'], [336, '14 dni'], [UNTIL_CLOSE, 'do końca zapisów']]
+const WINDOW_TIP = 'Jeśli zgłoszenie nie zostanie opłacone w tym czasie, wygasa i znika z listy zapisanych. Nieopłacone zgłoszenie nie zajmuje miejsca — limit liczy tylko opłacone.'
 const EMPTY = { recipient: '', taxId: '', iban: '', title: '' }
 const FIELDS = [
   { key: 'recipient', id: 'event-payout-recipient', label: 'Odbiorca', maxLength: 200, wide: true },
@@ -161,24 +165,29 @@ function Payout({ eventId, role, readOnly, reload }) {
 export default function Platnosci({ event, queue, saveState, readOnly, reload }) {
   const s = event.settings
   const writer = event.role === 'owner' || event.role === 'admin'
-  const [hours, setHours] = useState(s.paymentWindowHours ?? 168)
+  const [choice, setChoice] = useState(s.paymentWindowUntilClose ? UNTIL_CLOSE : (s.paymentWindowHours ?? 168))
   const errors = sectionErrors(saveState, 'payments')
 
   function pick(value) {
-    setHours(value)
-    queue('payments', { paymentWindowHours: value })
+    setChoice(value)
+    queue('payments', value === UNTIL_CLOSE
+      ? { paymentWindowUntilClose: true }
+      : { paymentWindowHours: value, paymentWindowUntilClose: false })
   }
 
   return (
     <div className="space-y-5 min-w-0 max-w-[900px]" data-testid="platnosci-step">
       <section className={cardClass}>
-        <h2 className={cardTitle}>Czas na opłacenie zgłoszenia</h2>
+        <div className="relative flex items-center gap-2.5">
+          <h2 className={cardTitle}>Czas na opłacenie zgłoszenia</h2>
+          <InfoTip label="Co oznacza czas na opłacenie" testId="payment-window-tip">{WINDOW_TIP}</InfoTip>
+        </div>
         <fieldset disabled={readOnly} className="flex flex-wrap gap-2 min-w-0" role="radiogroup" aria-label="Czas na opłacenie zgłoszenia">
           {WINDOWS.map(([value, text]) => (
-            <Seg key={value} on={hours === value} role="radio" aria-checked={hours === value} onClick={() => pick(value)}>{text}</Seg>
+            <Seg key={value} on={choice === value} role="radio" aria-checked={choice === value} onClick={() => pick(value)}>{text}</Seg>
           ))}
         </fieldset>
-        <FieldError message={errors.paymentWindowHours} />
+        <FieldError message={errors.paymentWindowHours ?? errors.paymentWindowUntilClose} />
       </section>
 
       {writer && (

@@ -372,17 +372,23 @@ function validateForm(value, ctx, c) {
 
 // ---------------------------------------------------------------- payments
 
-// How long a runner has to pay: 24 hours, 7 days or 14 days. The payout
+// How long a runner has to pay: 24 hours, 7 days, 14 days, or „do końca zapisów”
+// (paymentWindowUntilClose: expires_at = closes_at; the hours are then kept but
+// unused, so switching back restores them). The payout
 // account is not part of this section: only the club owner sets it, through
 // update-event-payout (ruling P3-R1).
 export const PAYMENT_WINDOW_HOURS = Object.freeze([24, 168, 336])
 
 function validatePayments(value, ctx, c) {
-  checkKeys(value, ['paymentWindowHours'], c)
+  checkKeys(value, ['paymentWindowHours', 'paymentWindowUntilClose'], c)
   const out = {}
   if ('paymentWindowHours' in value) {
     const v = rules.oneOf(PAYMENT_WINDOW_HOURS, 'Wybierz czas na opłacenie zgłoszenia.')(value.paymentWindowHours, 'paymentWindowHours', c)
     if (v !== undefined) out.payment_window_hours = v
+  }
+  if ('paymentWindowUntilClose' in value) {
+    if (typeof value.paymentWindowUntilClose === 'boolean') out.payment_window_until_close = value.paymentWindowUntilClose
+    else c.fail('paymentWindowUntilClose', 'Wybierz czas na opłacenie zgłoszenia.')
   }
   return out
 }

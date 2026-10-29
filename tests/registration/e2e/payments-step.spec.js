@@ -92,6 +92,33 @@ test('P-43 Płatności renders A6; the payout checklist item opens it; the owner
   }, { timeout: 15_000 }).toBe(24)
   await shoot(page, 'platnosci-club-owner')
 
+  // P-59: „do końca zapisów”, with the tooltip explaining what an unpaid entry means.
+  const windowRow = async () => {
+    const { data } = await admin().from('registration_settings')
+      .select('payment_window_hours, payment_window_until_close').eq('event_id', eventId).single()
+    return data
+  }
+  await page.getByRole('radio', { name: 'do końca zapisów' }).click()
+  await expect(page.getByRole('radio', { name: 'do końca zapisów' })).toHaveAttribute('aria-checked', 'true')
+  await expect.poll(windowRow, { timeout: 15_000 }).toEqual({ payment_window_hours: 24, payment_window_until_close: true })
+  const tip = page.getByTestId('payment-window-tip')
+  await expect(tip).toHaveCount(0)
+  await page.getByRole('button', { name: 'Co oznacza czas na opłacenie' }).click()
+  await expect(tip).toHaveText('Jeśli zgłoszenie nie zostanie opłacone w tym czasie, wygasa i znika z listy zapisanych. Nieopłacone zgłoszenie nie zajmuje miejsca — limit liczy tylko opłacone.')
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 844 })
+    // Every choice on one line: a wrapped label would make its button taller than the others.
+    const heights = await page.getByRole('radiogroup', { name: 'Czas na opłacenie zgłoszenia' }).getByRole('radio')
+      .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))
+    expect(new Set(heights).size, JSON.stringify(heights)).toBe(1)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  }
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.keyboard.press('Escape')
+  await expect(tip).toHaveCount(0)
+  await page.getByRole('radio', { name: '7 dni' }).click()
+  await expect.poll(windowRow, { timeout: 15_000 }).toEqual({ payment_window_hours: 168, payment_window_until_close: false })
+
   // Another account, owner only.
   await page.getByRole('radio', { name: 'Inne konto' }).click()
   await page.getByLabel('Odbiorca').fill('Fundacja Leśna Pomoc')

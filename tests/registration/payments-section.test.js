@@ -450,3 +450,64 @@ test('M-2 saving unchanged values: 200, no history row, no email', async () => {
   assert.equal((await rowsOf('event_payout_history', eventId)).length, 1)
   assert.equal((await messagesTo(club.ownerEmail)).length, 0)
 })
+
+// ---------------------------------------------------------------- P-59 „do końca zapisów”
+
+test('P-59 a draft saves „do końca zapisów” and back; the column defaults to false; the SQL refuses a non-boolean', async () => {
+  const eventId = await draft()
+  assert.equal((await settingsOf(eventId)).payment_window_until_close, false)
+  let r = await save(eventId, { paymentWindowUntilClose: true })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  let s = await settingsOf(eventId)
+  assert.equal(s.payment_window_until_close, true)
+  assert.equal(s.payment_window_hours, 168, 'the hours stay as they were')
+  r = await save(eventId, { paymentWindowHours: 24, paymentWindowUntilClose: false })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  s = await settingsOf(eventId)
+  assert.deepEqual([s.payment_window_hours, s.payment_window_until_close], [24, false])
+  const bad = await save(eventId, { paymentWindowUntilClose: 'tak' })
+  assert.equal(bad.status, 422)
+  const { error } = await db().rpc('save_registration_section', {
+    p_event_id: eventId, p_section: 'payments', p_value: { payment_window_until_close: 'nie-bool' },
+  })
+  assert.ok(error, 'a non-boolean never reaches the column')
+})
+
+test('P-59 after publish: „do końca zapisów” is staged (changedFields), previewed in words, applied by publish_changes with expectedUpdatedAt', async () => {
+  const event = await createPublishedFreeEvent(owner, { clubSlug: slug })
+  const staged = await save(event.eventId, { paymentWindowUntilClose: true })
+  assert.equal(staged.status, 200, JSON.stringify(staged.body))
+  assert.deepEqual(staged.body.data.changedFields, ['payments.payment_window_until_close'])
+  assert.equal((await settingsOf(event.eventId)).payment_window_until_close, false, 'nothing live before „Opublikuj zmiany”')
+  const preview = await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'preview_changes' })
+  assert.equal(preview.status, 200, JSON.stringify(preview.body))
+  assert.deepEqual(preview.body.data.diff, [
+    { field: 'payments.payment_window_hours', label: 'Czas na opłacenie zgłoszenia', before: '7 dni', after: 'do końca zapisów' },
+  ])
+  const ok = await callFn('publish-registration-event', owner, {
+    eventId: event.eventId, action: 'publish_changes', notify: { send: false }, expectedUpdatedAt: preview.body.data.updatedAt,
+  })
+  assert.equal(ok.status, 200, JSON.stringify(ok.body))
+  assert.equal((await settingsOf(event.eventId)).payment_window_until_close, true)
+})
+
+test('P-59 an order on a „do końca zapisów” event expires at closes_at, even three weeks away; the reminder comes at half the window', async () => {
+  const { createPublishedPaidEvent } = await import('./helpers/registrationFixtures.js')
+  const { orderOk, setSettings, rpc } = await import('./helpers/orders.js')
+  const event = await createPublishedPaidEvent(owner, { clubSlug: slug, prices: { 'Bieg 9 km': 6000 } })
+  const closes = new Date(Date.now() + 21 * 24 * 3600e3)
+  closes.setUTCSeconds(0, 0)
+  await setSettings(event.eventId, { payment_window_until_close: true, closes_at: closes.toISOString() })
+  const out = await orderOk(event)
+  assert.equal(Date.parse(out.expiresAt), closes.getTime())
+  // Not before half the window ...
+  let claimed = await rpc('claim_payment_reminders', { p_limit: 1000 })
+  assert.ifError(claimed.error)
+  assert.ok(!claimed.data.includes(out.orderId))
+  // ... and once the half has passed (created 30 days before a close 21 days away: the half was 4.5 days ago).
+  const { error } = await db().from('orders').update({ created_at: new Date(Date.now() - 30 * 24 * 3600e3).toISOString() }).eq('id', out.orderId)
+  assert.ifError(error)
+  claimed = await rpc('claim_payment_reminders', { p_limit: 1000 })
+  assert.ifError(claimed.error)
+  assert.ok(claimed.data.includes(out.orderId))
+})
