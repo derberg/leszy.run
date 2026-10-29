@@ -42,52 +42,61 @@ function personLines(lines) {
 /**
  * The payment confirmation. event { name, slug?, eventDate?, place? }, order { id, entryTotal,
  * supportFee, paymentFee, total, paidTransactionId, paidAt }, lines [{ firstName, lastName,
- * competition, ageGroupLabel, startTime }], organizer { name }.
+ * competition, ageGroupLabel, startTime }], organizer { name }, orderUrl (optional: the order page).
+ * A 0 zł order paid nothing, so it is a registration confirmation (P3-R9): „Zapis potwierdzony”,
+ * no payment wording and no amount lines.
  */
-export function orderConfirmationEmail({ event, order, lines, organizer }) {
+export function orderConfirmationEmail({ event, order, lines, organizer, orderUrl = null }) {
   const people = personLines(lines)
   const when = [isoDay(event.eventDate), event.place].filter(Boolean).join(', ')
-  const amounts = [
+  const whenText = when ? ` (${when})` : ''
+  const free = order.total === 0
+  const amounts = free ? [] : [
     [`Opłaty startowe (pobrane w imieniu i na rzecz Organizatora: ${organizer.name})`, formatPln(order.entryTotal)],
     ['Wsparcie LESZY.RUN', formatPln(order.supportFee)],
     ['Obsługa płatności dpay', formatPln(order.paymentFee)],
     ['Razem', formatPln(order.total)],
   ]
-  const payment = [
+  const payment = free ? [] : [
     ...(order.paidTransactionId ? [['Transakcja dpay', order.paidTransactionId]] : []),
     ...(warsawDateTime(order.paidAt) ? [['Data płatności', warsawDateTime(order.paidAt)]] : []),
   ]
-  const note = 'To potwierdzenie płatności, nie jest paragonem ani fakturą.'
+  const note = free ? null : 'To potwierdzenie płatności, nie jest paragonem ani fakturą.'
+  const lead = (name) => free
+    ? `Twoje zgłoszenie na zawody ${name}${whenText} zostało potwierdzone.`
+    : `płatność za zgłoszenie na zawody ${name}${whenText} została przyjęta.`
+  const leadHtml = free
+    ? `Twoje zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong>${escapeHtml(whenText)} zostało potwierdzone.`
+    : `płatność za zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong>${escapeHtml(whenText)} została przyjęta.`
 
   const text = [
     'Cześć,',
     '',
-    `płatność za zgłoszenie na zawody ${event.name} została przyjęta.${when ? ` (${when})` : ''}`,
+    lead(event.name),
     '',
     'Zgłoszone osoby:',
     ...people.map((p) => `- ${p}`),
-    '',
-    ...textBlock(amounts),
-    '',
-    ...textBlock(payment),
-    '',
-    note,
+    ...(amounts.length ? ['', ...textBlock(amounts)] : []),
+    ...(payment.length ? ['', ...textBlock(payment)] : []),
+    ...(note ? ['', note] : []),
+    ...(orderUrl ? ['', `Twoje zgłoszenie: ${orderUrl}`] : []),
     '',
     'LESZY.RUN',
   ].join('\n')
 
   const html = [
     '<p>Cześć,</p>',
-    `<p>płatność za zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong> została przyjęta.${when ? ` (${escapeHtml(when)})` : ''}</p>`,
+    `<p>${leadHtml}</p>`,
     '<p>Zgłoszone osoby:</p>',
     `<ul>${people.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>`,
-    htmlBlock(amounts),
+    amounts.length ? htmlBlock(amounts) : '',
     payment.length ? htmlBlock(payment) : '',
-    `<p>${escapeHtml(note)}</p>`,
+    note ? `<p>${escapeHtml(note)}</p>` : '',
+    orderUrl ? link(orderUrl, 'Twoje zgłoszenie') : '',
     '<p>LESZY.RUN</p>',
   ].join('')
 
-  return { subject: `Opłacone — ${event.name}`, text, html }
+  return { subject: `${free ? 'Zapis potwierdzony' : 'Opłacone'} — ${event.name}`, text, html }
 }
 
 /** The order is still unpaid: pay link and the moment it expires. */
@@ -135,12 +144,20 @@ export function orderExpiredEmail({ event, order, eventUrl }) {
   return { subject: `Zgłoszenie wygasło — ${event.name}`, text, html }
 }
 
+// 'late' and 'double' are the two kinds; the late kinds also take confirm_order's own reason
+// (refunds.reason) for a sentence that says what actually happened.
 const REFUND_REASONS = {
-  late: 'Płatność dotarła po zamknięciu zgłoszenia albo po zajęciu ostatniego miejsca, więc nie mogliśmy jej przyjąć.',
+  late: 'Płatność dotarła, gdy zgłoszenie nie mogło już zostać przyjęte.',
   double: 'Zgłoszenie było już opłacone, a ta płatność była kolejną.',
+  double_payment: 'Zgłoszenie było już opłacone, a ta płatność była kolejną.',
+  closed: 'Płatność dotarła po zamknięciu zapisów.',
+  full: 'Płatność dotarła po wygaśnięciu zgłoszenia, a ostatnie miejsce zajęła w tym czasie inna osoba.',
+  duplicate: 'Płatność dotarła po wygaśnięciu zgłoszenia, a ten adres e-mail został w tym czasie zapisany ponownie.',
+  cancelled: 'Płatność dotarła po anulowaniu zgłoszenia.',
+  unavailable: 'Płatność dotarła, gdy zapisy na tę konkurencję nie były już prowadzone.',
 }
 
-/** A payment refunded in full: reason 'late' or 'double'. */
+/** A payment refunded in full: reason 'late', 'double', or confirm_order's refund reason. */
 export function paymentRefundedEmail({ event, order, amount, reason }) {
   const why = REFUND_REASONS[reason]
   if (!why) throw new Error(`unknown refund reason: ${reason}`)

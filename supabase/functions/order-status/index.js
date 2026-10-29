@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { checkAndIncrement } from '../_shared/throttle.js'
 import { dpayConfig, transactionDetails } from '../_shared/dpay.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
 import { json, NOT_FOUND } from '../_shared/registration/registrationRequest.js'
@@ -13,6 +14,8 @@ const CHECK_GAP_MS = 10_000
 const MAX_CHECKS = 3
 // dpay statuses meaning the money arrived (the official SDK's isPaid reads both).
 const PAID = new Set(['paid', 'captured'])
+// Status reads per order and hour (the order page polls while it waits).
+const STATUS_LIMIT = 120
 
 // Asks dpay about the newest unpaid attempts and confirms a paid one, exactly as an IPN
 // would (confirm_order is idempotent per attempt, so a late IPN for the same transaction
@@ -95,6 +98,11 @@ Deno.serve(async (req) => {
       .select('id, buyer_profile_id, status').eq('id', orderId).maybeSingle()
     if (error) throw error
     if (!head || head.buyer_profile_id !== session.userId) return json(NOT_FOUND, 404, req)
+    const throttle = await checkAndIncrement(admin, `status:${orderId}`, STATUS_LIMIT, { failOpen: true, windowSeconds: 3600 })
+    if (!throttle.allowed) {
+      return json({ error: 'Zbyt wiele prób. Spróbuj ponownie później.' }, 429, req,
+        { 'retry-after': String(throttle.retryAfterSec) })
+    }
 
     if (head.status === 'pending') {
       try {

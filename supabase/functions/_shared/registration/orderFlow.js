@@ -39,16 +39,16 @@ export async function raiseAlert(admin, kind, orderId, payload = null, { dedupeK
  * any object (parsed first, never a raw body); it is redacted here. Never throws.
  */
 export async function logPaymentEvent(admin, { kind, orderId = null, attemptId = null, payload = {}, emailSha256 = null, checksumOk = null, response = null }) {
-  const row = {
-    kind,
-    order_id: orderId,
-    payment_attempt_id: attemptId,
-    payload: redactDpay(payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : { value: payload }) ?? {},
-    email_sha256: emailSha256,
-    checksum_ok: checksumOk,
-    response: typeof response === 'string' ? redactDpay(response) : null,
-  }
   try {
+    const row = {
+      kind,
+      order_id: orderId,
+      payment_attempt_id: attemptId,
+      payload: redactDpay(payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : { value: payload }) ?? {},
+      email_sha256: emailSha256,
+      checksum_ok: checksumOk,
+      response: typeof response === 'string' ? redactDpay(response) : null,
+    }
     const { error } = await admin.from('payment_events').insert(row)
     if (!error) return true
     console.error(`payment_events ${kind} not stored:`, error.message)
@@ -127,6 +127,12 @@ export function orderAmountsOf(order) {
   }
 }
 
+// The order page dpay returns the runner to (the same URL the dpay client builds).
+function orderPageUrl(orderId) {
+  const base = (globalThis.Deno?.env.get('PUBLIC_SITE_URL') ?? '').replace(/\/+$/, '')
+  return base ? `${base}/zamowienie/${encodeURIComponent(orderId)}` : null
+}
+
 function emailArgs(view) {
   const { order, settings, club, lines } = view
   return {
@@ -148,6 +154,7 @@ function emailArgs(view) {
     },
     lines,
     organizer: { name: club?.name ?? 'Organizator' },
+    orderUrl: orderPageUrl(order.id),
   }
 }
 
@@ -169,10 +176,10 @@ async function sendRefundNotice(admin, orderId, grosze, reason) {
     const view = await loadOrderView(admin, orderId)
     if (!view?.order.buyer_email) return
     const args = emailArgs(view)
-    await sendEmail({
-      to: view.order.buyer_email,
-      ...paymentRefundedEmail({ event: args.event, order: args.order, amount: grosze, reason }),
-    })
+    const build = (r) => paymentRefundedEmail({ event: args.event, order: args.order, amount: grosze, reason: r })
+    let mail
+    try { mail = build(reason) } catch { mail = build('late') } // a reason the e-mail has no sentence for
+    await sendEmail({ to: view.order.buyer_email, ...mail })
   } catch (err) {
     console.error('refund email failed:', err?.message)
   }
@@ -192,8 +199,8 @@ const SETTLED = new Set(['accepted', 'rejected', 'insufficient_balance', 'pendin
  *     unknown); insufficient_balance is retried by the job
  *   anything else (already_*, unknown_attempt, amount_mismatch) → nothing more; the RPC
  *     already raised its alert
- * A late_refund's reason (full, duplicate, closed, cancelled, unavailable) reaches the runner
- * as 'late'; double_payment as 'double'.
+ * The refund e-mail states the refund's own reason (full, duplicate, closed, cancelled,
+ * unavailable, double_payment); an unknown one falls back to the neutral 'late' sentence.
  * Never throws: the payment is already decided in the database.
  */
 export async function settleConfirmOutcome(admin, cfg, outcome) {
@@ -228,7 +235,7 @@ export async function settleConfirmOutcome(admin, cfg, outcome) {
     await raiseAlert(admin, 'refund_settle_failed', orderId, { refundId: refund.refundId, outcome: result.outcome })
   }
   if (result.outcome === 'accepted') {
-    await sendRefundNotice(admin, orderId, refund.grosze, refund.reason === 'double_payment' ? 'double' : 'late')
+    await sendRefundNotice(admin, orderId, refund.grosze, refund.reason === 'double_payment' ? 'double' : (refund.reason ?? 'late'))
   } else if (result.outcome !== 'insufficient_balance') {
     await raiseAlert(admin, `refund_${result.outcome}`, orderId, {
       refundId: refund.refundId, txn, grosze: refund.grosze, reason: refund.reason, httpStatus: result.httpStatus,

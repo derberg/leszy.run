@@ -90,13 +90,15 @@ Deno.serve(async (req) => {
   let body
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON' }, 400, req) }
 
+  let withCookie = {}
   try {
     const prepared = await prepareRegistration(req, admin, body, {
       pricing: (settings) => (settings.pricing_mode !== 'free' ? 'not_free' : null),
       throttles: (email) => [{ key: `register:${email}`, limit: REGISTER_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS }],
     })
     if (prepared.response) return prepared.response
-    const { competition, settings, people: valid, consentIds, profileId, withCookie } = prepared
+    const { competition, settings, people: valid, consentIds, profileId } = prepared
+    withCookie = prepared.withCookie
     const categoryId = competition.category_id
 
     // ---- one transaction
@@ -140,6 +142,6 @@ Deno.serve(async (req) => {
     }, 201, req, withCookie)
   } catch (err) {
     console.error('register-free error:', err?.message, err?.code)
-    return json({ error: 'Internal server error' }, 500, req)
+    return json({ error: 'Internal server error' }, 500, req, withCookie)
   }
 })

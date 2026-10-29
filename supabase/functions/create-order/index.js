@@ -24,6 +24,7 @@ const ORDER_REFUSALS = {
 }
 const PRICE_CHANGED = 'Cena się zmieniła. Sprawdź podsumowanie.'
 const DPAY_DOWN = 'Nie udało się połączyć z operatorem płatności. Spróbuj ponownie.'
+const PENDING_ORDER = 'Masz już nieopłacone zgłoszenie na te zawody.'
 
 // The amounts behind a price_changed refusal: the competition's current price from the
 // public read model (the same tier choice create_order makes) through money.js. When they
@@ -44,24 +45,32 @@ async function currentAmounts(admin, settings, categoryId, people, supportChoice
   return { total }
 }
 
+// The live registration for this address is in this buyer's own pending order (a resubmit
+// after leaving the dpay page, or a double click) → that order's id, else null (P3-R8).
+async function ownPendingOrder(admin, eventId, email, profileId) {
+  const { data: regs, error } = await admin.from('registrations')
+    .select('order_id').eq('event_id', eventId).eq('email', email).eq('status', 'pending_payment')
+  if (error) throw error
+  const ids = (regs ?? []).map((r) => r.order_id).filter(Boolean)
+  if (!ids.length) return null
+  const { data: orders, error: oErr } = await admin.from('orders')
+    .select('id').in('id', ids).eq('status', 'pending').eq('buyer_profile_id', profileId).limit(1)
+  if (oErr) throw oErr
+  return orders?.[0]?.id ?? null
+}
+
 // POST { categoryId, person, acceptedConsentIds, serviceRegulamin, supportChoice, displayedTotal, code? }
 //   → 201 { data: { orderId, redirectUrl } }, or { data: { orderId, status: 'paid' } } when the total is 0.
 // register-free's body plus the support choice (a boolean, nothing preselected) and the total the
 // page showed, which is only compared with the server's (409 price_changed with the amounts). Every
 // check before the RPC is register-free's (prepareRegistration). create_order claims the slot and
-// writes the order, then dpay registers the transaction; a dpay failure cancels the order and gives
-// the slot back (502). No e-mail goes out before payment.
+// writes the order, then dpay registers the transaction. An order that leaves this function without
+// a redirect handed out (a dpay failure, a refused attempt, any error) is cancelled and its slot
+// given back (P3-R7). A resubmit that finds this buyer's own pending order answers 409
+// pending_order with its id (P3-R8). No e-mail goes out before payment.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
-
-  let cfg
-  try {
-    cfg = dpayConfig(Deno.env)
-  } catch (err) {
-    console.error('create-order:', err?.message)
-    return json({ error: 'Płatności online są chwilowo niedostępne.' }, 503, req)
-  }
 
   const admin = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
     { auth: { autoRefreshToken: false, persistSession: false } })
@@ -77,6 +86,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Odśwież stronę i sprawdź podsumowanie.', code: 'invalid_total' }, 400, req)
   }
 
+  let withCookie = {}
   try {
     const ip = clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
@@ -88,8 +98,18 @@ Deno.serve(async (req) => {
       ],
     })
     if (prepared.response) return prepared.response
-    const { competition, settings, people, consentIds, email, profileId, withCookie } = prepared
+    const { competition, settings, people, consentIds, email, profileId } = prepared
+    withCookie = prepared.withCookie
     const answer = (payload, status) => json(payload, status, req, withCookie)
+
+    // A total-0 order never reaches dpay, so missing dpay settings only refuse a paid order
+    // (503, and the order is cancelled below like any other that got no redirect).
+    let cfg = null
+    try {
+      cfg = dpayConfig(Deno.env)
+    } catch (err) {
+      console.error('create-order:', err?.message)
+    }
 
     const { data: created, error } = await admin.rpc('create_order', {
       p_category_id: competition.category_id,
@@ -109,6 +129,10 @@ Deno.serve(async (req) => {
         const amounts = await currentAmounts(admin, settings, competition.category_id, people.length, supportChoice, Number(changed[1]))
         return answer({ error: PRICE_CHANGED, code: 'price_changed', amounts }, 409)
       }
+      if (msg === 'duplicate') {
+        const pendingId = await ownPendingOrder(admin, settings.event_id, email, profileId)
+        if (pendingId) return answer({ error: PENDING_ORDER, code: 'pending_order', orderId: pendingId }, 409)
+      }
       if (ORDER_REFUSALS[msg]) {
         const [status, text] = ORDER_REFUSALS[msg]
         return answer({ error: text, code: msg }, status)
@@ -122,39 +146,58 @@ Deno.serve(async (req) => {
       return answer({ data: { orderId, status: 'paid' } }, 201)
     }
 
-    let txn
+    // From here the order holds a slot. Unless a redirect is handed out, it is cancelled.
+    let handedOut = false
+    let cancelReason = 'create_order_aborted'
     try {
-      txn = await registerTransaction(cfg, { orderId, grosze: created.total })
-    } catch (err) {
-      console.error('create-order: dpay register failed:', err?.httpStatus ?? null, err?.message)
-      await logPaymentEvent(admin, {
-        kind: 'register', orderId,
-        payload: { ok: false, httpStatus: err?.httpStatus ?? null, message: err?.message ?? null, grosze: created.total },
-      })
-      const { error: cErr } = await admin.rpc('cancel_order', { p_order_id: orderId, p_reason: 'dpay_register_failed' })
-      if (cErr) {
-        console.error('create-order: cancel_order failed:', cErr.message)
-        await raiseAlert(admin, 'cancel_failed', orderId, { reason: 'dpay_register_failed' })
+      if (!cfg) {
+        cancelReason = 'dpay_unconfigured'
+        return answer({ error: 'Płatności online są chwilowo niedostępne.' }, 503)
       }
-      return answer({ error: DPAY_DOWN, code: 'dpay_unavailable' }, 502)
-    }
+      let txn
+      try {
+        txn = await registerTransaction(cfg, { orderId, grosze: created.total })
+      } catch (err) {
+        console.error('create-order: dpay register failed:', err?.httpStatus ?? null, err?.message)
+        await logPaymentEvent(admin, {
+          kind: 'register', orderId,
+          payload: { ok: false, httpStatus: err?.httpStatus ?? null, message: err?.message ?? null, grosze: created.total },
+        })
+        cancelReason = 'dpay_register_failed'
+        return answer({ error: DPAY_DOWN, code: 'dpay_unavailable' }, 502)
+      }
 
-    const { data: attemptId, error: aErr } = await admin.rpc('add_payment_attempt', {
-      p_order_id: orderId, p_txn: txn.transactionId, p_grosze: created.total,
-    })
-    if (aErr) {
-      // A transaction we never hand out: nobody can pay it. The order cannot take one.
-      console.error('create-order: add_payment_attempt failed:', aErr.message)
-      await admin.rpc('cancel_order', { p_order_id: orderId, p_reason: 'attempt_refused' })
-      return answer({ error: REFUSALS.closed[1], code: 'closed' }, 409)
+      const { data: attemptId, error: aErr } = await admin.rpc('add_payment_attempt', {
+        p_order_id: orderId, p_txn: txn.transactionId, p_grosze: created.total,
+      })
+      if (aErr) {
+        // A transaction we never hand out: nobody can pay it.
+        console.error('create-order: add_payment_attempt failed:', aErr.message)
+        if (aErr.message === 'not_payable') {
+          cancelReason = 'attempt_refused'
+          return answer({ error: REFUSALS.closed[1], code: 'closed' }, 409)
+        }
+        throw aErr
+      }
+      await logPaymentEvent(admin, {
+        kind: 'register', orderId, attemptId,
+        payload: { ok: true, transactionId: txn.transactionId, redirectUrl: txn.redirectUrl, grosze: created.total },
+      })
+      handedOut = true
+      return answer({ data: { orderId, redirectUrl: txn.redirectUrl } }, 201)
+    } finally {
+      if (!handedOut) {
+        try {
+          const { error: cErr } = await admin.rpc('cancel_order', { p_order_id: orderId, p_reason: cancelReason })
+          if (cErr) throw cErr
+        } catch (err) {
+          console.error('create-order: cancel_order failed:', err?.message)
+          await raiseAlert(admin, 'cancel_failed', orderId, { reason: cancelReason })
+        }
+      }
     }
-    await logPaymentEvent(admin, {
-      kind: 'register', orderId, attemptId,
-      payload: { ok: true, transactionId: txn.transactionId, redirectUrl: txn.redirectUrl, grosze: created.total },
-    })
-    return answer({ data: { orderId, redirectUrl: txn.redirectUrl } }, 201)
   } catch (err) {
     console.error('create-order error:', err?.message, err?.code)
-    return json({ error: 'Internal server error' }, 500, req)
+    return json({ error: 'Internal server error' }, 500, req, withCookie)
   }
 })

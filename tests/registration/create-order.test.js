@@ -5,13 +5,14 @@
 import { test, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
+import postgres from 'postgres'
 import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { dpayMode, dpayRefunds, dpayReset, dpayTransactions, payMock, startDpayMock } from './helpers/dpayControl.js'
 import {
-  competitionOf, consentIds, db, expireNow, minutesFromNow, one, orderOf, registrationsOf, rows, runnerEmail,
-  setSettings, totalFor,
+  competitionOf, confirmOk, consentIds, db, expireNow, minutesFromNow, one, orderOf, orderOk, registrationsOf, rows,
+  runnerEmail, setSettings, totalFor,
 } from './helpers/orders.js'
 import { formatDpayValue, formatPln, orderAmounts } from '../../supabase/functions/_shared/registration/money.js'
 
@@ -20,6 +21,8 @@ const CONSENTS = 'Zaznacz wymagane zgody.'
 const PRICE_CHANGED = 'Cena się zmieniła. Sprawdź podsumowanie.'
 const DPAY_DOWN = 'Nie udało się połączyć z operatorem płatności. Spróbuj ponownie.'
 const PAYING_CLOSED = 'Zapisy z płatnością online kończą się godzinę przed zamknięciem zapisów.'
+const DUPLICATE = 'Ten adres e-mail jest już zapisany na te zawody.'
+const PENDING_ORDER = 'Masz już nieopłacone zgłoszenie na te zawody.'
 
 let owner, stopCapture, stopMock
 before(async () => {
@@ -248,6 +251,11 @@ test('P-21 a total-0 order (price 0) is paid at once without dpay: 201 { orderId
   const regs = await registrationsOf(r.body.data.orderId)
   assert.equal(regs[0].status, 'confirmed')
   assert.equal((await participantsOf(regs[0].id)).length, 1)
+  // P3-R9: nothing was paid, so the e-mail confirms the registration, not a payment.
+  const msgs = await waitForMail(email)
+  assert.equal(msgs.length, 1)
+  assert.match(msgs[0].subject, /^Zapis potwierdzony — /)
+  assert.doesNotMatch(msgs[0].text, /Opłacone|Razem|dpay|płatnoś/)
 })
 
 // ---------------------------------------------------------------- P-22 pay again
@@ -440,4 +448,112 @@ test('P-24 the poll finds two paid attempts: one confirmation, the other refunde
   assert.deepEqual(msgs.map((m) => m.subject.split(' — ')[0]).sort(), ['Opłacone', 'Płatność zwrócona'])
   const [reg] = await registrationsOf(orderId)
   assert.equal((await participantsOf(reg.id)).length, 1)
+})
+
+// ---------------------------------------------------------------- P-23b (P3-R7) no redirect → cancelled
+
+let sqlClient
+const sql = () => (sqlClient ??= postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} }))
+after(async () => { if (sqlClient) await sqlClient.end() })
+
+test('P-23b a failure after create_order with no redirect handed out (add_payment_attempt errors) → 500, the order cancelled, the slot back', async () => {
+  // LOCAL stack only: a trigger refuses the attempt of orders whose buyer address carries the
+  // marker, so nothing else running against this stack is touched; it is dropped afterwards.
+  await sql().unsafe(`
+    CREATE OR REPLACE FUNCTION public.test_inject_attempt_failure() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM public.orders o WHERE o.id = NEW.order_id AND o.buyer_email LIKE 'inject-fail-%') THEN
+        RAISE EXCEPTION 'injected_failure';
+      END IF;
+      RETURN NEW;
+    END $$;
+    DROP TRIGGER IF EXISTS test_inject_attempt_failure ON public.payment_attempts;
+    CREATE TRIGGER test_inject_attempt_failure BEFORE INSERT ON public.payment_attempts
+      FOR EACH ROW EXECUTE FUNCTION public.test_inject_attempt_failure();`)
+  try {
+    const event = await paidEvent()
+    const email = `inject-fail-${crypto.randomBytes(4).toString('hex')}@test.local`
+    const runner = await sessionFor(email)
+    const r = await call('create-order', await orderBody(event, email), runner)
+    assert.equal(r.status, 500, JSON.stringify(r.body))
+    assert.equal(r.body.error, 'Internal server error', 'not „Zapisy są zamknięte.”')
+
+    const [order] = await ordersOf(event.eventId)
+    assert.equal(order.status, 'cancelled')
+    assert.equal(order.cancelled_reason, 'create_order_aborted')
+    assert.deepEqual((await registrationsOf(order.id)).map((x) => x.status), ['cancelled'])
+    assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
+    assert.equal((await attemptsOf(order.id)).length, 0)
+  } finally {
+    await sql().unsafe(`
+      DROP TRIGGER IF EXISTS test_inject_attempt_failure ON public.payment_attempts;
+      DROP FUNCTION IF EXISTS public.test_inject_attempt_failure();`)
+  }
+})
+
+// ---------------------------------------------------------------- P-21b (P3-R8) the buyer's own pending order
+
+test('P-21b submitting again while the first order is unpaid → 409 pending_order with that order id; one order', async () => {
+  const { event, email, runner, orderId } = await pendingOrder({ tag: 'again' })
+  const r = await call('create-order', await orderBody(event, email), runner)
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'pending_order')
+  assert.equal(r.body.error, PENDING_ORDER)
+  assert.equal(r.body.orderId, orderId)
+  assert.equal((await ordersOf(event.eventId)).length, 1)
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 1)
+})
+
+test('P-21b a double submit at once → one 201 and one 409 pending_order naming the same order', async () => {
+  const event = await paidEvent()
+  const email = runnerEmail('double')
+  const runner = await sessionFor(email)
+  const b = await orderBody(event, email)
+  const results = await Promise.all([call('create-order', b, runner), call('create-order', b, runner)])
+  const ok = results.filter((x) => x.status === 201)
+  const pending = results.filter((x) => x.status === 409)
+  assert.equal(ok.length, 1, JSON.stringify(results.map((x) => x.body)))
+  assert.equal(pending.length, 1)
+  assert.equal(pending[0].body.code, 'pending_order')
+  assert.equal(pending[0].body.orderId, ok[0].body.data.orderId)
+  assert.equal((await ordersOf(event.eventId)).length, 1)
+})
+
+test('P-21b a confirmed registration, or the address on someone else\'s order → 409 duplicate, never pending_order', async () => {
+  const { event, email, runner, orderId } = await pendingOrder({ tag: 'paidalready' })
+  const [attempt] = await attemptsOf(orderId)
+  await confirmOk(orderId, attempt.dpay_transaction_id, attempt.grosze)
+  const paid = await call('create-order', await orderBody(event, email), runner)
+  assert.equal(paid.status, 409, JSON.stringify(paid.body))
+  assert.equal(paid.body.code, 'duplicate')
+  assert.equal(paid.body.error, DUPLICATE)
+
+  const other = await paidEvent()
+  const victim = runnerEmail('victim')
+  await orderOk(other, { emails: [victim], buyerEmail: runnerEmail('someone') })
+  const mine = await call('create-order', await orderBody(other, victim), await sessionFor(victim))
+  assert.equal(mine.status, 409, JSON.stringify(mine.body))
+  assert.equal(mine.body.code, 'duplicate')
+  assert.equal(mine.body.orderId, undefined)
+})
+
+// ---------------------------------------------------------------- refund outcomes nobody may retry
+
+test('P-24b a refund dpay does not confirm (HTTP 500 → unknown) → refund_unknown alert, no refund e-mail', async () => {
+  const { orderId, runner, email } = await pendingOrder({ tag: 'refundfail' })
+  assert.equal((await call('pay-order', { orderId }, runner)).status, 200)
+  await dpayMode({ dropIpn: true, refundFails: true })
+  for (const t of await dpayTransactions()) await payMock(t.id, 'paid')
+  await pollable(orderId)
+
+  const r = await call('order-status', { orderId }, runner)
+  assert.equal(r.body.data.status, 'paid')
+  const [refund] = await rows('refunds', { order_id: orderId })
+  assert.equal(refund.dpay_status, 'unknown')
+  assert.equal(refund.next_retry_at, null, 'never retried automatically')
+  assert.equal((await rows('operator_alerts', { order_id: orderId, kind: 'refund_unknown' })).length, 1)
+  const msgs = await waitForMail(email)
+  await new Promise((r2) => setTimeout(r2, 500))
+  assert.deepEqual((await messagesTo(email)).map((m) => m.subject.split(' — ')[0]), ['Opłacone'])
+  assert.equal(msgs.length, 1)
 })

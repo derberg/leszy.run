@@ -54,10 +54,10 @@ test('P-24 orderConfirmationEmail: subject, every person, the four amount lines,
   assert.match(m.text, /nie jest paragonem/)
 })
 
-test('P-24 orderConfirmationEmail: support declined still lists the support line at 0,00 zł; a free order has no transaction line', () => {
+test('P-24 orderConfirmationEmail: support declined still lists the support line at 0,00 zł; no transaction id, no transaction line', () => {
   const m = orderConfirmationEmail({
     event, organizer, lines,
-    order: { ...order, supportFee: 0, paymentFee: 0, entryTotal: 0, total: 0, paidTransactionId: null },
+    order: { ...order, supportFee: 0, paymentFee: 55, total: 6055, paidTransactionId: null },
   })
   assert.ok(m.text.includes(`Wsparcie LESZY.RUN: ${formatPln(0)}`))
   assert.ok(!m.text.includes('Transakcja dpay'))
@@ -109,4 +109,35 @@ test('P-24 the operator alert lists every alert with its kind and order', () => 
   ] })
   assert.match(m.subject, /^\[ALERT\]/)
   for (const s of ['late_refund', 'o-1', 'amount_mismatch']) assert.ok(m.text.includes(s))
+})
+
+test('P-24 (P3-R9) a 0 zł order: „Zapis potwierdzony”, no payment wording and no amount lines', () => {
+  const m = orderConfirmationEmail({
+    event, organizer, lines,
+    order: { ...order, entryTotal: 0, supportFee: 0, paymentFee: 0, total: 0, paidTransactionId: null },
+  })
+  assert.equal(m.subject, 'Zapis potwierdzony — Bieg Leszego <2026>')
+  for (const part of [m.text, m.html]) {
+    assert.match(part, /zostało potwierdzone/)
+    assert.match(part, /Ola Leśna/)
+    assert.doesNotMatch(part, /Opłacone|Opłaty startowe|Wsparcie|dpay|Razem|płatnoś|paragon/i)
+  }
+})
+
+test('P-24 the confirmation puts the date and place before the full stop and links the order page', () => {
+  const m = orderConfirmationEmail({ event, order, lines, organizer, orderUrl: 'https://www.leszy.run/zamowienie/abc' })
+  assert.ok(m.text.includes('na zawody Bieg Leszego <2026> (28.11.2026, Nieborowice) została przyjęta.'))
+  assert.ok(m.text.includes('https://www.leszy.run/zamowienie/abc'))
+  assert.ok(m.html.includes('href="https://www.leszy.run/zamowienie/abc"'))
+})
+
+test('P-24 the refund e-mail says what happened for each confirm_order reason', () => {
+  const texts = new Set()
+  for (const reason of ['late', 'double', 'double_payment', 'closed', 'full', 'duplicate', 'cancelled', 'unavailable']) {
+    const m = paymentRefundedEmail({ event, order, amount: 6176, reason })
+    assert.match(m.subject, /^Płatność zwrócona — /)
+    texts.add(m.text)
+  }
+  assert.ok(texts.size >= 7, 'a sentence per reason (double and double_payment share one)')
+  assert.match(paymentRefundedEmail({ event, order, amount: 6176, reason: 'cancelled' }).text, /anulowaniu/)
 })
