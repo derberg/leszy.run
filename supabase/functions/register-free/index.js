@@ -1,38 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
-import { getSession } from '../_shared/session.js'
-import { checkAndIncrement } from '../_shared/throttle.js'
-import { verifyCodeAndOpenSession } from '../_shared/verifyCode.js'
-import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from '../_shared/deletedEmails.js'
+import { guardRequest } from '../_shared/cors.js'
 import { sendEmail } from '../_shared/email.js'
-import { clientIp, clubRegistrationEnabled } from '../_shared/organizer.js'
-import { isUuid } from '../_shared/registration/organizerEvent.js'
-import { isOpen } from '../_shared/registration/dates.js'
-import { validatePerson } from '../_shared/registration/person.js'
-import { MAX_PEOPLE_PER_REQUEST } from '../_shared/registration/flags.js'
+import { clientIp } from '../_shared/organizer.js'
 import { eventPageUrl } from '../_shared/registration/slug.js'
-
-function json(body, status, req, headers = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json', ...headers },
-  })
-}
-
-const NOT_FOUND = { error: 'Not found' }
-// The RPC's refusals (exception messages) and what the runner reads.
-const REFUSALS = {
-  full: [409, 'Brak wolnych miejsc w tej konkurencji.'],
-  closed: [409, 'Zapisy są zamknięte.'],
-  not_open: [409, 'Zapisy jeszcze się nie rozpoczęły.'],
-  not_free: [409, 'Zapisy na te zawody są płatne. Płatności online będą dostępne wkrótce.'],
-  duplicate: [409, 'Ten adres e-mail jest już zapisany na te zawody.'],
-  consents_changed: [400, 'Zaznacz wymagane zgody.'],
-}
-const refusal = (code, req) => {
-  const [status, error] = REFUSALS[code]
-  return json({ error, code }, status, req)
-}
+import { json, NOT_FOUND, REFUSALS, prepareRegistration } from '../_shared/registration/registrationRequest.js'
 
 // Throttle: registrations per address, 10 per hour (claim_throttle_slot).
 const REGISTER_LIMIT = 10
@@ -43,8 +14,6 @@ async function rows(query) {
   if (error) throw error
   return data ?? []
 }
-
-const sameSet = (a, b) => a.length === b.length && new Set(a).size === a.length && a.every((x) => b.includes(x))
 
 // ---------------------------------------------------------------- email
 
@@ -122,96 +91,13 @@ Deno.serve(async (req) => {
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON' }, 400, req) }
 
   try {
-    const { categoryId, acceptedConsentIds, serviceRegulamin, code } = body ?? {}
-    const people = Array.isArray(body?.people) ? body.people : body?.person ? [body.person] : []
-    if (people.length === 0) return json({ error: 'Brak danych osoby.' }, 400, req)
-    if (people.length > MAX_PEOPLE_PER_REQUEST) {
-      return json({ error: 'Można zapisać jedną osobę naraz.', code: 'too_many_people' }, 400, req)
-    }
-
-    // ---- the event, derived from the competition
-    if (!isUuid(categoryId)) return json(NOT_FOUND, 404, req)
-    const { data: competition, error: compErr } = await admin.from('competitions')
-      .select('*').eq('category_id', categoryId).maybeSingle()
-    if (compErr) throw compErr
-    if (!competition) return json(NOT_FOUND, 404, req)
-    const { data: settings, error: rsErr } = await admin.from('registration_settings')
-      .select('*').eq('event_id', competition.event_id).maybeSingle()
-    if (rsErr) throw rsErr
-    if (!settings || settings.state === 'draft') return json(NOT_FOUND, 404, req)
-    if (!(await clubRegistrationEnabled(admin, settings.club_id))) return json(NOT_FOUND, 404, req)
-
-    // Early answers; register_free re-checks all of them under its locks.
-    if (settings.state !== 'published' || competition.hidden_at) return refusal('closed', req)
-    if (settings.pricing_mode !== 'free') return refusal('not_free', req)
-    const window = settings.opens_at && settings.closes_at
-      ? isOpen({ opensAt: settings.opens_at, closesAt: settings.closes_at })
-      : 'not_yet'
-    if (window === 'not_yet') return refusal('not_open', req)
-    if (window === 'closed') return refusal('closed', req)
-
-    // ---- people
-    const [ageGroups, kidsGroups, consents] = await Promise.all([
-      rows(admin.from('age_groups').select('gender, label, min_age, max_age').eq('category_id', categoryId)),
-      rows(admin.from('kids_groups').select('id, gender, birth_year_from, birth_year_to').eq('category_id', categoryId)),
-      rows(admin.from('event_consents').select('id').eq('event_id', settings.event_id)),
-    ])
-    const ctx = {
-      formFields: settings.form_fields ?? {},
-      competition: { minAge: competition.min_age, maxAge: competition.max_age, isKids: competition.is_kids },
-      raceDate: settings.event_date,
-      reckoning: settings.age_reckoning,
-      ageGroups: ageGroups.map((g) => ({ gender: g.gender, label: g.label, minAge: g.min_age, maxAge: g.max_age })),
-      kidsGroups: kidsGroups.map((g) => ({ id: g.id, gender: g.gender, minYear: g.birth_year_from, maxYear: g.birth_year_to })),
-      now: new Date(),
-    }
-    const valid = []
-    for (const p of people) {
-      const r = validatePerson(p, ctx)
-      if (!r.ok) return json({ error: 'Popraw zaznaczone pola.', code: 'invalid_person', fields: r.errors }, 400, req)
-      valid.push(r.value)
-    }
-    if (new Set(valid.map((p) => p.email)).size !== valid.length) {
-      return refusal('duplicate', req)
-    }
-
-    // ---- consents: every event consent and the LESZY.RUN service regulamin
-    const consentIds = consents.map((c) => c.id)
-    if (serviceRegulamin !== true || !Array.isArray(acceptedConsentIds) || !sameSet(acceptedConsentIds, consentIds)) {
-      return json({ error: REFUSALS.consents_changed[1], code: 'consents_required' }, 400, req)
-    }
-
-    // ---- who registers: a retired address never does (spec 13.3)
-    const email = valid[0].email
-    for (const p of valid) {
-      if (await isEmailRetired(admin, p.email)) {
-        return json({ error: RETIRED_EMAIL_MESSAGE, code: 'email_retired' }, 403, req)
-      }
-    }
-
-    const throttle = await checkAndIncrement(admin, `register:${email}`, REGISTER_LIMIT,
-      { failOpen: true, windowSeconds: REGISTER_WINDOW_SECONDS })
-    if (!throttle.allowed) {
-      return json({ error: 'Zbyt wiele prób. Spróbuj ponownie później.' }, 429, req,
-        { 'retry-after': String(throttle.retryAfterSec) })
-    }
-
-    let profileId
-    let cookie = null
-    const session = await getSession(req, admin)
-    if (session && session.email?.toLowerCase() === email) {
-      profileId = session.userId
-    } else {
-      if (!code) return json({ error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }, 401, req)
-      const verified = await verifyCodeAndOpenSession(admin, { email, code })
-      if (!verified.ok) {
-        const extra = verified.retryAfterSec ? { 'retry-after': String(verified.retryAfterSec) } : {}
-        return json({ error: verified.error, ...(verified.code ? { code: verified.code } : {}) }, verified.status, req, extra)
-      }
-      profileId = verified.profile.id
-      cookie = verified.cookie
-    }
-    const withCookie = cookie ? { 'Set-Cookie': cookie } : {}
+    const prepared = await prepareRegistration(req, admin, body, {
+      pricing: (settings) => (settings.pricing_mode !== 'free' ? 'not_free' : null),
+      throttles: (email) => [{ key: `register:${email}`, limit: REGISTER_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS }],
+    })
+    if (prepared.response) return prepared.response
+    const { competition, settings, people: valid, consentIds, profileId, withCookie } = prepared
+    const categoryId = competition.category_id
 
     // ---- one transaction
     const { data, error } = await admin.rpc('register_free', {

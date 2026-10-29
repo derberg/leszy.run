@@ -194,6 +194,18 @@ entrypoint = "./functions/publish-registration-event/index.js"
 verify_jwt = false
 entrypoint = "./functions/register-free/index.js"
 
+[functions.create-order]
+verify_jwt = false
+entrypoint = "./functions/create-order/index.js"
+
+[functions.pay-order]
+verify_jwt = false
+entrypoint = "./functions/pay-order/index.js"
+
+[functions.order-status]
+verify_jwt = false
+entrypoint = "./functions/order-status/index.js"
+
 [functions.my-event-registrations]
 verify_jwt = false
 entrypoint = "./functions/my-event-registrations/index.js"
