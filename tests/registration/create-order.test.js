@@ -337,7 +337,7 @@ test('P-23 dpay register fails → 502, the order cancelled and its slot back; a
 
 // ---------------------------------------------------------------- P-24 poll fallback
 
-test('P-24 order-status: buyer only; a fresh pending order is not polled', async () => {
+test('P-24 order-status: buyer only, with the event\'s closesAt; a fresh pending order is not polled', async () => {
   const { orderId, runner, event } = await pendingOrder({ tag: 'status' })
   const r = await call('order-status', { orderId }, runner)
   assert.equal(r.status, 200, JSON.stringify(r.body))
@@ -351,6 +351,9 @@ test('P-24 order-status: buyer only; a fresh pending order is not polled', async
   })
   assert.equal(d.event.slug, event.slug)
   assert.ok(d.event.name)
+  // Task 9 review M1: the order page decides „Zapłać” from the server's closesAt, not the snapshot's.
+  const settings = await one('registration_settings', { event_id: event.eventId })
+  assert.equal(Date.parse(d.closesAt), Date.parse(settings.closes_at))
   assert.equal((await rows('payment_events', { order_id: orderId, kind: 'status_check' })).length, 0, 'attempt younger than 15 s')
 
   const stranger = await sessionFor(runnerEmail('peek'))

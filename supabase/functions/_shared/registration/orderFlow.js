@@ -78,7 +78,7 @@ export async function loadOrderView(admin, orderId) {
   const [lineRows, settingsRow] = await Promise.all([
     rows(admin.from('order_lines').select('id, kind, amount, registration_id').eq('order_id', orderId).order('id')),
     admin.from('registration_settings')
-      .select('event_id, name, slug, event_date, first_start_time, town_label, place_details, club_id')
+      .select('event_id, name, slug, event_date, first_start_time, town_label, place_details, club_id, closes_at')
       .eq('event_id', order.event_id).maybeSingle(),
   ])
   if (settingsRow.error) throw settingsRow.error

@@ -5,7 +5,7 @@ import { clearFavoritesCache } from '../../hooks/useFavorites.js'
 import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction } from '../../lib/auth.js'
-import { checkoutModel } from '../../lib/checkout.js'
+import { checkoutModel, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS } from '../../lib/checkout.js'
 import { registerBody } from '../../lib/personFormModel.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import SupportChoice from '../../components/registration/SupportChoice.jsx'
@@ -16,7 +16,15 @@ import { primaryBtn } from '../../components/registration/ui.js'
 // the dpay fee and „Razem”. „Zapłać” calls create-order with register-free's
 // body plus the choice and the total shown here (the server only compares it
 // with its own), then hands the browser to dpay. The amounts are money.js's,
-// the same module the server uses.
+// the same module the server uses. The person reaches it with their own
+// session (the code step opened it), so no code is sent here.
+//
+// Before leaving for dpay the current history entry becomes the order page, so
+// Back from dpay lands on /zamowienie/<id> (pending, with „Zapłać”), never on
+// this step frozen at „Chwileczkę…” or on an empty form. A page restored from
+// the back/forward cache reloads, which then shows that order page.
+// A new paid order stops one hour before closes_at (plan ruling 7), as
+// create_order does: „Zapłać” is off from then, with the server's wording.
 
 export const orderPath = (orderId) => `/zamowienie/${orderId}`
 
@@ -27,19 +35,36 @@ const row = 'flex justify-between gap-2.5 py-2 border-b border-apex-border text-
 
 /**
  * @param {{ raw: object, categoryId: string, competitionName: string, priceGrosze: number, open: boolean,
- *   person: object, ageGroupLabel: string|null, consents: object[], code: string|null,
- *   onBack: () => void, onFailure: (err: Error) => void }} p
+ *   person: object, ageGroupLabel: string|null, consents: object[], choice: boolean|null,
+ *   onChoice: (v: boolean) => void, onBack: () => void, onFailure: (err: Error) => void }} p
  */
-export default function Podsumowanie({ raw, categoryId, competitionName, priceGrosze, open, person, ageGroupLabel, consents, code, onBack, onFailure }) {
+export default function Podsumowanie({ raw, categoryId, competitionName, priceGrosze, open, person, ageGroupLabel, consents, choice, onChoice, onBack, onFailure }) {
   const navigate = useNavigate()
-  const [choice, setChoice] = useState(null)
   const [price, setPrice] = useState(priceGrosze)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
-  const m = checkoutModel({ entryPrices: [price], choice, busy, closed: !open })
+  const [, tick] = useState(0)
+  const payable = newOrderPayable(raw.closesAt)
+  const m = checkoutModel({ entryPrices: [price], choice, busy, closed: !open || !payable })
 
   // The form above it was scrolled to its end: the summary starts at its top.
   useEffect(() => { window.scrollTo(0, 0) }, [])
+
+  // A page left open into the last hour turns „Zapłać” off when it starts.
+  useEffect(() => {
+    const until = Date.parse(raw.closesAt ?? '') - PAYING_CLOSES_BEFORE_MS - Date.now()
+    if (!(until > 0) || until > 2 ** 31 - 1) return undefined
+    const t = setTimeout(() => tick((n) => n + 1), until + 50)
+    return () => clearTimeout(t)
+  }, [raw.closesAt])
+
+  // Restored from the back/forward cache after leaving for dpay: the address is
+  // already the order page, so load it.
+  useEffect(() => {
+    const onShow = (e) => { if (e.persisted) window.location.reload() }
+    window.addEventListener('pageshow', onShow)
+    return () => window.removeEventListener('pageshow', onShow)
+  }, [])
 
   function settled() {
     // create-order set the session cookie: drop whatever the browser cached about the previous visitor.
@@ -55,12 +80,15 @@ export default function Podsumowanie({ raw, categoryId, competitionName, priceGr
     setMessage(null)
     try {
       const r = await callFunction('create-order', {
-        ...registerBody({ categoryId, person, consents, code }),
+        ...registerBody({ categoryId, person, consents, code: null }),
         supportChoice: m.supportChoice,
         displayedTotal: m.displayedTotal,
       })
       settled()
       if (r.data?.redirectUrl) {
+        // Back from dpay must land on the order, not on this step (React Router does not
+        // see replaceState, and this page is left at once).
+        window.history.replaceState(null, '', orderPath(r.data.orderId))
         window.location.assign(r.data.redirectUrl)
         return
       }
@@ -73,8 +101,14 @@ export default function Podsumowanie({ raw, categoryId, competitionName, priceGr
         return
       }
       if (err.code === 'price_changed') {
-        if (Number.isSafeInteger(err.amounts?.entryTotal)) setPrice(err.amounts.entryTotal)
-        setMessage(err.message)
+        if (Number.isSafeInteger(err.amounts?.entryTotal)) {
+          setPrice(err.amounts.entryTotal)
+          setMessage(err.message)
+          return
+        }
+        // The server could not say the new price: start again from a fresh event page.
+        forgetPublicRegistrationEvent(raw.slug)
+        window.location.assign(`/events/${raw.slug}`)
         return
       }
       if (err.status === 401 || BACK_TO_FORM.has(err.code)) {
@@ -100,7 +134,7 @@ export default function Podsumowanie({ raw, categoryId, competitionName, priceGr
       </div>
       <div data-testid="checkout-amounts">
         <div className={row}><span>Opłaty startowe</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{m.entryLabel}</span></div>
-        {m.askSupport && <SupportChoice options={m.options} onChoose={setChoice} disabled={busy} />}
+        {m.askSupport && <SupportChoice options={m.options} onChoose={onChoice} disabled={busy} />}
         {m.askSupport && choice === true && (
           <div className={row}><span>Wsparcie LESZY.RUN</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{m.supportLabel}</span></div>
         )}
@@ -110,6 +144,7 @@ export default function Podsumowanie({ raw, categoryId, competitionName, priceGr
         </div>
       </div>
       {!open && <p className="text-apex-red text-base">Zapisy są zamknięte.</p>}
+      {open && !payable && <p className="text-apex-red text-base" data-testid="paying-closed">{PAYING_CLOSED_TEXT}</p>}
       {message && <p className="text-apex-red text-base" role="alert">{message}</p>}
       <div className="flex flex-col gap-1.5">
         <button type="button" onClick={pay} disabled={m.payDisabled} className={primaryBtn} data-testid="pay">

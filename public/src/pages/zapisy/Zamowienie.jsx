@@ -6,6 +6,7 @@ import usePublicRegistrationEvent from '../../hooks/usePublicRegistrationEvent.j
 import { callFunction } from '../../lib/auth.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import { pollDelayMs } from '../../lib/orderPolling.js'
+import { payLinkOpen } from '../../lib/checkout.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import DoneActions from '../../components/registration/DoneActions.jsx'
 import { labelCls, linkCls, primaryBtn, secondaryBtn } from '../../components/registration/ui.js'
@@ -23,7 +24,8 @@ import { eventPath } from './RegistrationEventPage.jsx'
 //
 // paid      → „OPŁACONE · <razem>”, „Jesteście na liście”, the people, „Co dalej”
 // pending   → „Opłać do <data, godzina>” and „Zapłać” (pay-order: a new dpay
-//             transaction at the frozen price), none once registration has closed
+//             transaction at the frozen price), none from the server's closesAt
+//             on (order-status returns it; the page re-checks at that moment)
 // expired / cancelled → „Zgłoszenie wygasło” / „…anulowane” and „Zapisz się ponownie”
 
 const warsaw = new Intl.DateTimeFormat('pl-PL', {
@@ -36,23 +38,28 @@ function useOrderStatus(orderId) {
   const timer = useRef(null)
   const reads = useRef(0)
   const alive = useRef(true)
+  // Each chain of reads has a number; a read from an older chain arms nothing, so
+  // „Sprawdź ponownie” during a read never leaves two chains polling.
+  const chain = useRef(0)
 
-  const read = useCallback(async () => {
+  const read = useCallback(async (gen = chain.current) => {
     clearTimeout(timer.current)
-    if (!alive.current) return
+    if (!alive.current || gen !== chain.current) return
     let next = null
+    const current = () => alive.current && gen === chain.current
     try {
       const r = await callFunction('order-status', { orderId })
+      if (!current()) return
       setState({ status: 'ok', order: r.data, polling: r.data.status === 'pending' })
       if (r.data.status === 'pending') next = pollDelayMs(++reads.current)
     } catch (err) {
-      if (!alive.current) return
+      if (!current()) return
       if (err.status === 401) { setState({ status: 'anon', order: null, polling: false }); return }
       if (err.status === 404) { setState({ status: 'missing', order: null, polling: false }); return }
       next = pollDelayMs(++reads.current, { retryAfterSec: err.retryAfterSec })
       setState((s) => (s.order ? { ...s, polling: next != null } : { status: 'error', order: null, polling: false }))
     }
-    if (!alive.current) return
+    if (!current()) return
     if (next == null) {
       setState((s) => ({ ...s, polling: false }))
       return
@@ -60,11 +67,11 @@ function useOrderStatus(orderId) {
     timer.current = setTimeout(function tick() {
       // A hidden tab reads nothing: the next read waits until it is shown again.
       if (document.hidden) {
-        const shown = () => { document.removeEventListener('visibilitychange', shown); read() }
+        const shown = () => { document.removeEventListener('visibilitychange', shown); read(gen) }
         document.addEventListener('visibilitychange', shown)
         return
       }
-      read()
+      read(gen)
     }, next)
   }, [orderId])
 
@@ -76,9 +83,10 @@ function useOrderStatus(orderId) {
   }, [read])
 
   const again = useCallback(() => {
+    chain.current += 1
     reads.current = 0
     setState((s) => ({ ...s, polling: true }))
-    read()
+    read(chain.current)
   }, [read])
 
   return { ...state, again }
@@ -137,7 +145,29 @@ function Paid({ order, raw, model }) {
 function Pending({ orderId, order, raw, polling, onAgain }) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
-  const closed = raw?.closesAt ? Date.now() >= Date.parse(raw.closesAt) : false
+  const [, tick] = useState(0)
+  const closesAt = order.closesAt ?? raw?.closesAt ?? null
+  const closed = !payLinkOpen(closesAt)
+
+  // A page left open across closes_at drops „Zapłać” at that moment.
+  useEffect(() => {
+    const until = Date.parse(closesAt ?? '') - Date.now()
+    if (!(until > 0) || until > 2 ** 31 - 1) return undefined
+    const t = setTimeout(() => tick((n) => n + 1), until + 50)
+    return () => clearTimeout(t)
+  }, [closesAt])
+
+  // Back from dpay into a page kept in the back/forward cache: not stuck at „Chwileczkę…”,
+  // and the status read again.
+  useEffect(() => {
+    const onShow = (e) => {
+      if (!e.persisted) return
+      setBusy(false)
+      onAgain()
+    }
+    window.addEventListener('pageshow', onShow)
+    return () => window.removeEventListener('pageshow', onShow)
+  }, [onAgain])
 
   async function pay() {
     setBusy(true)

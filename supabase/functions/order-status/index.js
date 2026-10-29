@@ -74,7 +74,7 @@ async function poll(admin, req, orderId) {
 }
 
 // POST { orderId } → 200 { data: { status, expiresAt, lines: [{ name, competition, ageGroupLabel,
-//   startTime, amount }], amounts, event: { slug, name } } }
+//   startTime, amount }], amounts, event: { slug, name }, closesAt } }
 // The order page's state, for the buyer only (401 without a session, 404 otherwise). While the
 // order is pending and dpay may have taken the money without an IPN reaching us, it asks dpay
 // (see poll) before answering.
@@ -126,6 +126,8 @@ Deno.serve(async (req) => {
         })),
         amounts: orderAmountsOf(view.order),
         event: { slug: view.settings?.slug ?? null, name: view.settings?.name ?? null },
+        // The order page stops offering „Zapłać” at closes_at, as pay-order does.
+        closesAt: view.settings?.closes_at ?? null,
       },
     }, 200, req)
   } catch (err) {

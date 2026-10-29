@@ -14,7 +14,7 @@ export default function SupportChoice({ options, onChoose, disabled = false }) {
         {options.map((o) => (
           <button key={String(o.value)} type="button" aria-pressed={o.pressed} disabled={disabled}
             onClick={() => onChoose(o.value)}
-            className={`flex-1 min-w-0 min-h-11 px-2 border bg-apex-surface font-mono text-sm whitespace-nowrap disabled:opacity-40 ${o.pressed ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-mid text-apex-text hover:border-apex-yellow-dim'}`}>
+            className={`flex-1 min-w-0 min-h-11 px-1.5 border bg-apex-surface font-mono text-xs sm:text-sm whitespace-nowrap disabled:opacity-40 ${o.pressed ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-mid text-apex-text hover:border-apex-yellow-dim'}`}>
             {o.label}
           </button>
         ))}

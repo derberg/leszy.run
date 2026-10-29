@@ -54,8 +54,8 @@ export default function Zgloszenia({ eventId }) {
               <th className="px-3 py-2 font-normal">Imię i nazwisko</th>
               <th className="px-3 py-2 font-normal">Konkurencja</th>
               <th className="px-3 py-2 font-normal">Kategoria</th>
-              <th className="px-3 py-2 font-normal whitespace-nowrap">Data zapisu</th>
               {payments && <th className="px-3 py-2 font-normal">Płatność</th>}
+              <th className="px-3 py-2 font-normal whitespace-nowrap">Data zapisu</th>
             </tr>
           </thead>
           <tbody>
@@ -64,13 +64,13 @@ export default function Zgloszenia({ eventId }) {
                 <td className="px-3 py-2.5 text-apex-text-bright font-semibold">{r.name}</td>
                 <td className="px-3 py-2.5">{r.competition}</td>
                 <td className="px-3 py-2.5 font-mono">{r.ageGroupLabel}</td>
-                <td className="px-3 py-2.5 font-mono whitespace-nowrap">{when.format(new Date(r.createdAt))}</td>
                 {payments && (
                   <td className={`px-3 py-2.5 font-mono whitespace-nowrap ${r.paymentStatus === 'paid' ? 'text-apex-yellow' : r.paymentStatus === 'awaiting' ? 'text-apex-cyan' : 'text-apex-muted'}`}
                     data-testid="registration-payment">
                     {paymentText(r)}
                   </td>
                 )}
+                <td className="px-3 py-2.5 font-mono whitespace-nowrap">{when.format(new Date(r.createdAt))}</td>
               </tr>
             ))}
           </tbody>

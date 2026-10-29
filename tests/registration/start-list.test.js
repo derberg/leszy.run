@@ -56,25 +56,34 @@ const FORBIDDEN_KEYS = [
   'ice_name', 'icephone', 'ice_phone', 'gender', 'expiresat', 'expires_at',
 ]
 
+const DZIECI = { name: 'Dzieci 1 km', discipline: 'run', distanceLabel: '1 km', startTime: '11:00', capacity: 20 }
+
 /**
- * A paid event with four people in „Bieg 9 km”: paid (confirmed), awaiting
- * (pending order), expired and cancelled; and one paid in „Marsz 5 km”.
+ * A paid event: in „Bieg 9 km” an adult who paid, a minor who paid, a paid
+ * entry whose account was deleted, one awaiting payment, one expired and one
+ * cancelled; one paid in „Marsz 5 km”; a minor in the 0 zł „Dzieci 1 km”.
  */
 async function eventWithOrders() {
-  const event = await createPublishedPaidEvent(owner, { competitions: [BIEG, MARSZ], prices: { 'Bieg 9 km': 6000, 'Marsz 5 km': 4000 } })
-  const [bieg, marsz] = event.categoryIds
+  const event = await createPublishedPaidEvent(owner, {
+    competitions: [BIEG, MARSZ, DZIECI], prices: { 'Bieg 9 km': 6000, 'Marsz 5 km': 4000, 'Dzieci 1 km': 0 },
+  })
+  const [bieg, marsz, dzieci] = event.categoryIds
   const people = {
     paid: person(runnerEmail('paid'), { firstName: 'Anna', lastName: 'Zielna', city: 'Gliwice', club: 'ZATYRANI', phone: '+48500111222', birthDate: '1985-03-14' }),
+    minor: person(runnerEmail('minor'), { firstName: 'Kuba', lastName: 'Młody', city: 'Gierałtowice', club: 'UKS Sokół', birthDate: '2012-06-01', gender: 'M', ageGroupLabel: 'M open' }),
+    deleted: person(runnerEmail('del'), { firstName: 'Piotr', lastName: 'Skasowany', city: 'Rybnik' }),
     awaiting: person(runnerEmail('wait'), { firstName: 'Bartek', lastName: 'Czekaj', city: 'Zabrze', club: null }),
     expired: person(runnerEmail('exp'), { firstName: 'Celina', lastName: 'Wygasła', city: 'Bytom' }),
     cancelled: person(runnerEmail('canc'), { firstName: 'Damian', lastName: 'Anulowany', city: 'Pyskowice' }),
     marsz: person(runnerEmail('nw'), { firstName: 'Ewa', lastName: 'Kijek', city: 'Knurów', club: 'Kijki', ageGroupLabel: 'K40' }),
+    kid: person(runnerEmail('kid'), { firstName: 'Zosia', lastName: 'Mała', city: 'Pilchowice', birthDate: '2017-02-02', ageGroupLabel: 'Dzieci I' }),
   }
+  const categoryOf = { marsz, kid: dzieci }
   const orders = {}
   for (const [key, p] of Object.entries(people)) {
-    orders[key] = await orderOk(event, { people: [p], categoryId: key === 'marsz' ? marsz : bieg })
+    orders[key] = await orderOk(event, { people: [p], categoryId: categoryOf[key] ?? bieg })
   }
-  for (const key of ['paid', 'marsz']) {
+  for (const key of ['paid', 'minor', 'deleted', 'marsz']) {
     const o = orders[key]
     const { txn } = await attemptFor(o.orderId, o.total)
     await confirmOk(o.orderId, txn, o.total)
@@ -82,49 +91,76 @@ async function eventWithOrders() {
   await expireNow(orders.expired.orderId)
   const c = await rpc('cancel_order', { p_order_id: orders.cancelled.orderId, p_reason: 'test' })
   if (c.error) throw new Error(c.error.message)
-  return { event, bieg, marsz, people, orders }
+  // What delete-my-account leaves of a registration.
+  const { error: dErr } = await db().from('registrations')
+    .update({ first_name: 'Usunięte konto', last_name: 'Usunięte konto', city: null, club: null })
+    .eq('order_id', orders.deleted.orderId)
+  if (dErr) throw dErr
+  return { event, bieg, marsz, dzieci, people, orders }
 }
 
-test('P-45 start_list: name, town, club, competition, age group and paid; nothing personal; expired and cancelled held out', async () => {
-  const { event, bieg, marsz, people, orders } = await eventWithOrders()
+test('P-45 start_list: name, town, club, competition, age group and payment; nothing personal; awaiting, expired and cancelled never listed by person', async () => {
+  const { event, bieg, marsz, dzieci, people, orders } = await eventWithOrders()
 
   const { data, error } = await anon.rpc('start_list', { p_event_id: event.eventId })
   assert.equal(error, null, error?.message)
   assert.deepEqual(data.competitions, [
-    { categoryId: bieg, name: 'Bieg 9 km', capacity: 50, paid: 1, awaiting: 1 },
-    { categoryId: marsz, name: 'Marsz 5 km', capacity: 30, paid: 1, awaiting: 0 },
+    { categoryId: bieg, name: 'Bieg 9 km', capacity: 50, paid: 3, free: 0, awaiting: 1 },
+    { categoryId: marsz, name: 'Marsz 5 km', capacity: 30, paid: 1, free: 0, awaiting: 0 },
+    { categoryId: dzieci, name: 'Dzieci 1 km', capacity: 20, paid: 0, free: 1, awaiting: 0 },
   ])
   const byName = Object.fromEntries(data.entries.map((e) => [e.name, e]))
-  assert.deepEqual(Object.keys(byName).sort(), ['Anna Zielna', 'Bartek Czekaj', 'Ewa Kijek'])
+  // P3-R14: the runner awaiting payment and the deleted account are not listed; only counted.
+  assert.deepEqual(Object.keys(byName).sort(), ['Anna Zielna', 'Ewa Kijek', 'Kuba Młody', 'Zosia Mała'])
   assert.deepEqual(byName['Anna Zielna'], {
-    name: 'Anna Zielna', town: 'Gliwice', club: 'ZATYRANI', categoryId: bieg, competition: 'Bieg 9 km', ageGroupLabel: 'K open', paid: true,
-  })
-  assert.deepEqual(byName['Bartek Czekaj'], {
-    name: 'Bartek Czekaj', town: 'Zabrze', club: null, categoryId: bieg, competition: 'Bieg 9 km', ageGroupLabel: 'K open', paid: false,
+    name: 'Anna Zielna', town: 'Gliwice', club: 'ZATYRANI', categoryId: bieg, competition: 'Bieg 9 km', ageGroupLabel: 'K open', payment: 'paid',
   })
   assert.equal(byName['Ewa Kijek'].competition, 'Marsz 5 km')
   assert.equal(byName['Ewa Kijek'].ageGroupLabel, 'K40')
+  // P3-R14: no town for a runner under 18 on the event date; the club stays.
+  assert.equal(byName['Kuba Młody'].town, null)
+  assert.equal(byName['Kuba Młody'].club, 'UKS Sokół')
+  assert.equal(byName['Kuba Młody'].payment, 'paid')
+  // I1: a 0 zł entry of a paid event is free, never „opłacone”.
+  assert.equal(byName['Zosia Mała'].payment, 'free')
+  assert.equal(byName['Zosia Mała'].town, null)
+  assert.ok(data.entries.every((e) => e.payment === 'paid' || e.payment === 'free'))
 
   // Nothing personal or financial at any depth, by key and by value.
   const keys = keysOf(data)
   for (const k of FORBIDDEN_KEYS) assert.ok(!keys.has(k), `start_list exposes ${k}`)
   const text = JSON.stringify(data)
   for (const p of Object.values(people)) assert.ok(!text.includes(p.email), 'an e-mail address leaked')
+  for (const t of ['Gierałtowice', 'Pilchowice', 'Zabrze', 'Czekaj', 'Usunięte konto', 'Skasowany']) assert.ok(!text.includes(t), `${t} leaked`)
   assert.ok(!text.includes('500111222'), 'a phone number leaked')
   assert.ok(!text.includes('1985-03-14'), 'a birth date leaked')
   for (const o of Object.values(orders)) assert.ok(!text.includes(o.orderId), 'an order id leaked')
 })
 
+test('P-45 start_list: names sort in Polish (Ł after L, Ś after S, Ż after Z)', async () => {
+  const event = await createPublishedPaidEvent(owner, { competitions: [BIEG], prices: { 'Bieg 9 km': 6000 } })
+  for (const last of ['Żak', 'Sowa', 'Zieliński', 'Łuczak', 'Śliwa', 'Mazur', 'Lewandowski']) {
+    const o = await orderOk(event, { people: [person(runnerEmail('sort'), { lastName: last })] })
+    const { txn } = await attemptFor(o.orderId, o.total)
+    await confirmOk(o.orderId, txn, o.total)
+  }
+  const { data } = await anon.rpc('start_list', { p_event_id: event.eventId })
+  assert.deepEqual(data.entries.map((e) => e.name.split(' ')[1]),
+    ['Lewandowski', 'Łuczak', 'Mazur', 'Sowa', 'Śliwa', 'Zieliński', 'Żak'])
+})
+
 test('P-45 start_list: hidden competitions left out; null for a draft; a closed event still listed; anon cannot read orders', async () => {
-  const { event, marsz } = await eventWithOrders()
+  const { event, marsz, dzieci } = await eventWithOrders()
   const { error: hErr } = await db().from('competitions').update({ hidden_at: new Date().toISOString() }).eq('category_id', marsz)
   assert.equal(hErr, null)
+  const { error: h2 } = await db().from('competitions').update({ hidden_at: new Date().toISOString() }).eq('category_id', dzieci)
+  assert.equal(h2, null)
   const hidden = (await anon.rpc('start_list', { p_event_id: event.eventId })).data
   assert.deepEqual(hidden.competitions.map((c) => c.name), ['Bieg 9 km'])
   assert.ok(hidden.entries.every((e) => e.competition === 'Bieg 9 km'))
 
   await setSettings(event.eventId, { state: 'closed' })
-  assert.equal((await anon.rpc('start_list', { p_event_id: event.eventId })).data.entries.length, 2)
+  assert.equal((await anon.rpc('start_list', { p_event_id: event.eventId })).data.entries.length, 2) // Anna and Kuba
   await setSettings(event.eventId, { state: 'draft' })
   const draft = await anon.rpc('start_list', { p_event_id: event.eventId })
   assert.equal(draft.error, null)
@@ -147,7 +183,7 @@ test('P-45 api/startlist: one event id or 400; the snapshot with a version, cach
   const ok = await getStartList(`?event=${event.eventId}`)
   assert.equal(ok.status, 200, JSON.stringify(ok.body))
   assert.match(ok.body.version, /^[0-9a-f]{40}$/)
-  assert.equal(ok.body.entries.length, 3)
+  assert.equal(ok.body.entries.length, 4)
   assert.match(ok.headers['vercel-cdn-cache-control'], /max-age=60/)
   assert.equal(ok.headers.etag, `"${ok.body.version}"`)
   // The same data, the same version.
@@ -164,7 +200,7 @@ test('P-45 list-event-registrations: paymentStatus and expiresAt per row, counts
   assert.equal((await callFn('list-event-registrations', member, { eventId: event.eventId })).status, 404)
   const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
   assert.equal(r.status, 200, JSON.stringify(r.body))
-  assert.deepEqual(r.body.counts, { paid: 2, awaiting: 1, free: 0 })
+  assert.deepEqual(r.body.counts, { paid: 4, awaiting: 1, free: 1 })
   const byName = Object.fromEntries(r.body.data.map((x) => [x.name, x]))
   assert.equal(byName['Anna Zielna'].paymentStatus, 'paid')
   assert.equal(byName['Anna Zielna'].expiresAt, null)
@@ -176,10 +212,10 @@ test('P-45 list-event-registrations: paymentStatus and expiresAt per row, counts
   assert.equal(byName['Celina Wygasła'].paymentStatus, null)
   assert.equal(byName['Damian Anulowany'].paymentStatus, null)
   assert.ok(!JSON.stringify(r.body).includes(people.paid.email))
-  assert.deepEqual((await callFn('list-event-registrations', clubAdmin, { eventId: event.eventId })).body.counts, { paid: 2, awaiting: 1, free: 0 })
+  assert.deepEqual((await callFn('list-event-registrations', clubAdmin, { eventId: event.eventId })).body.counts, { paid: 4, awaiting: 1, free: 1 })
 })
 
-test('P-45 list-event-registrations: a free event counts its confirmed entries as free', async () => {
+test('P-45 a free event: list-event-registrations and the start list count its entries as free', async () => {
   const event = await createPublishedFreeEvent(owner)
   const email = runnerEmail('free')
   const runner = await sessionFor(email)
@@ -195,4 +231,9 @@ test('P-45 list-event-registrations: a free event counts its confirmed entries a
   assert.deepEqual(r.body.counts, { paid: 0, awaiting: 0, free: 1 })
   assert.equal(r.body.data[0].paymentStatus, 'free')
   assert.equal(r.body.data[0].expiresAt, null)
+
+  // I1: the public list says the same — free, never „opłacone”.
+  const { data: list } = await anon.rpc('start_list', { p_event_id: event.eventId })
+  assert.deepEqual(list.competitions.map(({ paid, free, awaiting }) => ({ paid, free, awaiting })), [{ paid: 0, free: 1, awaiting: 0 }])
+  assert.deepEqual(list.entries.map((e) => [e.name, e.payment]), [['Ola Leśna', 'free']])
 })

@@ -27,8 +27,8 @@
 | Telefon | OPCJONALNE (decyzja Organizatora) | Kontakt w dniu zawodów. Usuwany 30 dni po zawodach. |
 | Dane płatności | TAK dla zawodów płatnych | Tylko kwoty, status, identyfikator transakcji. Dane kart i bankowości wyłącznie u dpay (strona dpay). |
 | IP i przeglądarka przy akceptacji | TAK | Dowód złożenia oświadczenia (rozliczalność, art. 5 ust. 2). |
-| Status płatności na publicznej liście | WĄTPLIWE | Zob. ryzyko R6. |
-| Miejscowość dziecka na publicznej liście | WĄTPLIWE | Zob. ryzyko R2. |
+| Status płatności na publicznej liście | OK po decyzji P3-R14 | Na liście publicznej tylko liczba nieopłaconych; zob. R6. |
+| Miejscowość dziecka na publicznej liście | OK po decyzji P3-R14 | Miejscowość osób poniżej 18 lat nie jest publikowana; zob. R2. |
 | Partner (przypisanie) | OPCJONALNE | Widoczne wyłącznie dla Organizatora; nigdy publicznie ani w wiadomościach do uczestnika. |
 
 Formularz nie ma pól wolnego tekstu do danych o zdrowiu, a umowa organizatora zakazuje zbierania danych z art. 9 (§9 ust. 5).
@@ -40,11 +40,11 @@ Skala: prawdopodobieństwo / skutek — niskie, średnie, wysokie.
 | # | Ryzyko | P | S | Środki (w Specyfikacji lub umowie) | Ryzyko rezydualne |
 |---|---|---|---|---|---|
 | R1 | Wyciek tabel zapisów (Supabase) — dane osobowe, daty urodzenia, kontakty awaryjne, dane dzieci | niskie | wysoki | RLS + `REVOKE ALL … FROM anon, authenticated` na każdej nowej tabeli; dostęp tylko przez funkcje z kluczem usługi; **blokada anon na tabelach wyścigowych (`feature/supabase-lockdown`) jako warunek uruchomienia płatności**; szyfrowanie w spoczynku; retencja 30 dni dla telefonu i kontaktu awaryjnego | średnie do czasu wdrożenia lockdownu, potem niskie |
-| R2 | Dziecko identyfikowalne publicznie z miejscem i czasem obecności (imię, nazwisko, miejscowość, kategoria, godzina startu na liście startowej przed zawodami) | średnie | wysoki | lista bez daty urodzenia i numeru startowego; regulamin zawodów akceptowany przez opiekuna | **średnie** — rekomendacja: ukryć miejscowość (i rozważyć skrót nazwiska) osób niepełnoletnich na liście startowej |
+| R2 | Dziecko identyfikowalne publicznie z miejscem i czasem obecności (imię, nazwisko, miejscowość, kategoria, godzina startu na liście startowej przed zawodami) | średnie | wysoki | lista bez daty urodzenia i numeru startowego; regulamin zawodów akceptowany przez opiekuna | **niskie** — przyjęto (P3-R14): `start_list()` nie zwraca miejscowości osoby, która w dniu zawodów nie ma 18 lat (ani gdy brak daty urodzenia); skrót nazwiska do rozważenia |
 | R3 | Opiekun lub kupujący podaje dane innych osób bez ich wiedzy (grupa, drużyna, kontakt awaryjny) | średnie | niski | e-mail do każdej dorosłej osoby z prośbą o potwierdzenie regulaminu i z informacją z art. 14; oświadczenie zapisującego o umocowaniu; jedna aktywna rejestracja na adres e-mail na zawody | niskie |
 | R4 | Przejęcie konta właściciela klubu → zmiana rachunku do wypłat → kradzież środków Organizatora | niskie | wysoki | zmiany tylko przez właściciela; historia zmian; e-mail do właściciela przy każdej zmianie; kontrola historii przez operatora przed wypłatą; możliwość wstrzymania wypłaty (umowa §7 ust. 4) | niskie |
 | R5 | Nadużycie panelu Organizatora: masowy eksport CSV, wiadomości o treści marketingowej lub phishingowej do uczestników | średnie | średni | kontrola roli w każdej funkcji; `organizer_actions` z treścią; wiadomości tylko tekstowe, z domeny Serwisu, z limitem na wydarzenie; zakaz informacji handlowych w umowie (§9 ust. 6); odpowiedzialność Organizatora za pobrane dane (§9 ust. 8) | średnie (eksport CSV poza kontrolą Serwisu) |
-| R6 | Publiczny status „czeka na wpłatę” przy imieniu i nazwisku | wysokie (z założenia) | niski | brak | **do decyzji** — rekomendacja: na liście publicznej tylko liczby opłaconych/nieopłaconych na konkurencję, status per osoba tylko dla Organizatora i samego uczestnika |
+| R6 | Publiczny status „czeka na wpłatę” przy imieniu i nazwisku | wysokie (z założenia) | niski | `start_list()` nie zwraca zgłoszeń czekających na wpłatę, tylko ich liczbę na konkurencję | **niskie** — przyjęto (P3-R14): status per osoba widzą tylko Organizator (Zgłoszenia) i sam uczestnik (strona zamówienia); użytkownik może złagodzić (Plan 4 Q3) |
 | R7 | Dane płatnika w logach powiadomień dpay (`payment_events.payload`) przechowywane 5 lat | średnie | niski | weryfikacja sumy kontrolnej; tylko klucz usługi | **do sprawdzenia** — ustalić pola powiadomienia; jeżeli zawiera dane rachunku płatnika, przechowywać tylko pola potrzebne do rozliczeń |
 | R8 | Przekazanie pakietu przez link „dla każdego, kto go ma” — link przechwycony przez osobę trzecią | niskie | niski | link jednorazowy, ważny do terminu przekazania, token jako SHA-256; e-mail do przekazującego z nazwiskiem osoby, która przyjęła; anulowanie do chwili przyjęcia | niskie |
 | R9 | Masowe zakładanie kont na cudze adresy / wysyłanie kodów | niskie | niski | konto powstaje dopiero po wpisaniu kodu; limity kodów (5/e-mail, 20/IP, 3 próby/kod); pole-pułapka (honeypot); blokada adresów usuniętych kont | niskie |
@@ -59,7 +59,7 @@ Skala: prawdopodobieństwo / skutek — niskie, średnie, wysokie.
 - Osobę poniżej 18 lat zapisuje rodzic lub opiekun prawny ze swojego konta; składa za nią oświadczenia (`accepted_as = guardian`). Podstawą przetwarzania jest umowa (art. 6 ust. 1 lit. b RODO) zawierana przez przedstawiciela ustawowego, nie zgoda — art. 8 RODO nie ma zastosowania.
 - Dziecko nie ma konta i nie dostaje wiadomości.
 - Wyniki dzieci są publiczne jak wyniki dorosłych (regulamin zawodów podpisany przez opiekuna obejmuje publikację); konkurencje dziecięce domyślnie bez pomiaru czasu, a migawka wyników pomija konkurencje bez pomiaru.
-- Do decyzji: miejscowość na liście startowej (R2), status płatności (R6).
+- Rozstrzygnięte decyzją P3-R14: miejscowość osób niepełnoletnich nie jest publikowana (R2), nieopłacone zgłoszenia są na liście publicznej tylko liczbą (R6).
 
 ## 5. Ryzyko rezydualne i decyzja
 

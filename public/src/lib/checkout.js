@@ -43,3 +43,24 @@ export function checkoutModel({ entryPrices, choice, busy = false, closed = fals
     hint: chosen ? null : SUPPORT_HINT,
   }
 }
+
+// When an online payment may start (both mirror the server, which decides):
+// plan ruling 7, a new paid order stops one hour before closes_at (create_order
+// raises paying_closed); the user decision, an existing order's pay link starts
+// no new payment from closes_at on (pay-order answers „Zapisy są zamknięte.”).
+export const PAYING_CLOSES_BEFORE_MS = 60 * 60 * 1000
+export const PAYING_CLOSED_TEXT = 'Zapisy z płatnością online kończą się godzinę przed zamknięciem zapisów.'
+
+const closesMs = (closesAt) => (closesAt ? Date.parse(closesAt) : NaN)
+
+/** RA4: may a new paid order start now? Unknown closesAt → yes (the server still refuses). */
+export function newOrderPayable(closesAt, now = new Date()) {
+  const t = closesMs(closesAt)
+  return Number.isNaN(t) || now.getTime() < t - PAYING_CLOSES_BEFORE_MS
+}
+
+/** The order page: may „Zapłać” start a new dpay transaction now? */
+export function payLinkOpen(closesAt, now = new Date()) {
+  const t = closesMs(closesAt)
+  return Number.isNaN(t) || now.getTime() < t
+}

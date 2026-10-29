@@ -37,6 +37,25 @@ describe('runnerDataInfo (ruling P2-R21)', () => {
   })
 })
 
+describe('runnerDataInfo start list (ruling P3-R14)', () => {
+  it('a paid event: an unpaid entry is only a number, never a name', () => {
+    const t = text(runnerDataInfo({ ...base, paid: true }))
+    assert.ok(t.includes('Zgłoszenia czekające na wpłatę pokazujemy tylko jako liczbę, bez imienia i nazwiska.'))
+    assert.equal(t.includes('informacja, czy zgłoszenie jest opłacone'), false)
+  })
+
+  it('every event: no town for a runner under 18', () => {
+    for (const paid of [false, true]) {
+      assert.ok(text(runnerDataInfo({ ...base, paid })).includes('Miejscowości osób niepełnoletnich nie publikujemy.'))
+    }
+  })
+
+  it('the version moved past v2 with these lines', async () => {
+    const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
+    assert.equal(RUNNER_DATA_INFO_VERSION, '2026-11-v3')
+  })
+})
+
 describe('runnerDataInfo version', () => {
   it('matches the „Wersja” of the source document, and moved past v1 with the nationality line', async () => {
     const { readFile } = await import('node:fs/promises')

@@ -8,7 +8,10 @@ import RegistrationShell from './RegistrationShell.jsx'
 import { eventPath, startListPath } from './RegistrationEventPage.jsx'
 
 // RA8 (columns only; Plan 4 adds the filters, groups and teams): everyone on
-// the list of a published event, with „opłacone” / „czeka na wpłatę”. The
+// the list of a published event. Ruling P3-R14: an entry awaiting payment is
+// only counted („+N czeka na wpłatę”), never listed by name, and a minor's
+// town is never shown; „opłacone” marks an entry that was paid (never a free
+// event or a 0 zł entry). The
 // event id comes from the /api/event snapshot, the list from /api/startlist:
 // both CDN-cached, never a per-viewer Supabase query. No birth date, contact,
 // bib or price: start_list() does not return them.
@@ -19,11 +22,11 @@ async function loadStartList(eventId) {
   return res.json()
 }
 
-function Badge({ paid }) {
+function Badge({ text }) {
   return (
-    <span className={`font-mono text-[11px] px-[7px] py-[3px] border uppercase whitespace-nowrap shrink-0 ${paid ? 'border-apex-yellow text-apex-yellow' : 'border-apex-cyan text-apex-cyan'}`}
+    <span className="font-mono text-[11px] px-[7px] py-[3px] border uppercase whitespace-nowrap shrink-0 border-apex-yellow text-apex-yellow"
       data-testid="payment-badge">
-      {paid ? 'opłacone' : 'czeka na wpłatę'}
+      {text}
     </span>
   )
 }
@@ -37,9 +40,11 @@ function CompetitionCount({ c }) {
       </div>
       <div className="flex h-1 bg-apex-border my-1.5" aria-hidden="true">
         <div className="bg-apex-yellow" style={{ width: `${c.paidPct}%` }} />
+        <div className="bg-apex-text" style={{ width: `${c.freePct}%` }} />
         <div className="bg-apex-cyan" style={{ width: `${c.awaitingPct}%` }} />
       </div>
-      <div className="font-mono text-xs text-apex-yellow">{c.paidLabel}</div>
+      {c.paidLabel && <div className="font-mono text-xs text-apex-yellow">{c.paidLabel}</div>}
+      {c.freeLabel && <div className="font-mono text-xs text-apex-text">{c.freeLabel}</div>}
       {c.awaitingLabel && <div className="font-mono text-xs text-apex-cyan">{c.awaitingLabel}</div>}
     </div>
   )
@@ -51,10 +56,10 @@ function StartList({ raw }) {
   useEffect(() => {
     let active = true
     loadStartList(raw.eventId)
-      .then((snap) => { if (active) setState({ status: 'ok', view: startListView(snap) }) })
+      .then((snap) => { if (active) setState({ status: 'ok', view: startListView(snap, { paidEvent: raw.pricingMode !== 'free' }) }) })
       .catch(() => { if (active) setState({ status: 'error', view: null }) })
     return () => { active = false }
-  }, [raw.eventId])
+  }, [raw.eventId, raw.pricingMode])
 
   const { view } = state
   return (
@@ -74,7 +79,7 @@ function StartList({ raw }) {
           </div>
           <span className="font-mono text-[13px] text-apex-muted uppercase" data-testid="start-list-header">{view.header}</span>
           {view.entries.length === 0
-            ? <p className="text-lg text-apex-text-bright" data-testid="start-list-empty">Nikt jeszcze się nie zapisał.</p>
+            ? <p className="text-lg text-apex-text-bright" data-testid="start-list-empty">Na liście nie ma jeszcze nikogo.</p>
             : (
               <ul className="flex flex-col gap-1.5" data-testid="start-list-entries">
                 {view.entries.map((e, i) => (
@@ -84,7 +89,7 @@ function StartList({ raw }) {
                         <span className="block text-[17px] font-bold text-apex-text-bright break-words">{e.name}</span>
                         {e.where && <span className="block text-sm text-apex-muted break-words">{e.where}</span>}
                       </span>
-                      <Badge paid={e.paid} />
+                      {e.badge && <Badge text={e.badge} />}
                     </div>
                     <span className="font-mono text-xs text-apex-muted uppercase">{e.what}</span>
                   </li>
