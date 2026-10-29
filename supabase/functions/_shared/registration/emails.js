@@ -99,14 +99,19 @@ export function orderConfirmationEmail({ event, order, lines, organizer, orderUr
   return { subject: `${free ? 'Zapis potwierdzony' : 'Opłacone'} — ${event.name}`, text, html }
 }
 
-/** The order is still unpaid: pay link and the moment it expires. */
+/**
+ * The order is still unpaid: pay link and the moment it expires. An unpaid entry holds no place
+ * (P3-R15): the paid entries fill the limit, so the runner is told that, never that a place waits.
+ */
 export function paymentReminderEmail({ event, order, payUrl }) {
   const until = warsawDateTime(order.expiresAt)
+  const expiry = until ? `Bez wpłaty do ${until} zgłoszenie wygaśnie.` : 'Bez wpłaty w terminie zgłoszenie wygaśnie.'
+  const placeNote = 'Miejsce zajmuje dopiero opłacone zgłoszenie — jeśli inne osoby opłacą wcześniej wszystkie miejsca, nie będzie można go już opłacić.'
   const facts = [['Do zapłaty', formatPln(order.total)], ...(until ? [['Termin', until]] : [])]
   const text = [
     'Cześć,',
     '',
-    `Twoje zgłoszenie na zawody ${event.name} czeka na wpłatę. Bez niej miejsce zostanie zwolnione.`,
+    `Twoje zgłoszenie na zawody ${event.name} czeka na wpłatę. ${placeNote} ${expiry}`,
     '',
     ...textBlock(facts),
     '',
@@ -116,7 +121,7 @@ export function paymentReminderEmail({ event, order, payUrl }) {
   ].join('\n')
   const html = [
     '<p>Cześć,</p>',
-    `<p>Twoje zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong> czeka na wpłatę. Bez niej miejsce zostanie zwolnione.</p>`,
+    `<p>Twoje zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong> czeka na wpłatę. ${escapeHtml(placeNote)} ${escapeHtml(expiry)}</p>`,
     htmlBlock(facts),
     link(payUrl, 'Zapłać'),
     '<p>LESZY.RUN</p>',
@@ -124,12 +129,12 @@ export function paymentReminderEmail({ event, order, payUrl }) {
   return { subject: `Zgłoszenie czeka na wpłatę — ${event.name}`, text, html }
 }
 
-/** The payment window passed without a payment; the slot is free again. */
+/** The payment window passed without a payment. The order never held a place (P3-R15), so nothing is said about one. */
 export function orderExpiredEmail({ event, order, eventUrl }) {
   const text = [
     'Cześć,',
     '',
-    `Twoje zgłoszenie na zawody ${event.name} wygasło, bo nie zostało opłacone w terminie (${formatPln(order.total)}). Miejsce zostało zwolnione.`,
+    `Twoje zgłoszenie na zawody ${event.name} wygasło, bo nie zostało opłacone w terminie (${formatPln(order.total)}).`,
     '',
     `Zapisz się ponownie: ${eventUrl}`,
     '',
@@ -137,7 +142,7 @@ export function orderExpiredEmail({ event, order, eventUrl }) {
   ].join('\n')
   const html = [
     '<p>Cześć,</p>',
-    `<p>Twoje zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong> wygasło, bo nie zostało opłacone w terminie (${escapeHtml(formatPln(order.total))}). Miejsce zostało zwolnione.</p>`,
+    `<p>Twoje zgłoszenie na zawody <strong>${escapeHtml(event.name)}</strong> wygasło, bo nie zostało opłacone w terminie (${escapeHtml(formatPln(order.total))}).</p>`,
     link(eventUrl, 'Zapisz się ponownie'),
     '<p>LESZY.RUN</p>',
   ].join('')

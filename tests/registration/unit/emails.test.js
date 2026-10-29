@@ -141,3 +141,23 @@ test('P-24 the refund e-mail says what happened for each confirm_order reason', 
   assert.ok(texts.size >= 7, 'a sentence per reason (double and double_payment share one)')
   assert.match(paymentRefundedEmail({ event, order, amount: 6176, reason: 'cancelled' }).text, /anulowaniu/)
 })
+
+// P3-R15 re-review I2: an unpaid entry holds no place, so neither the reminder nor the expiry
+// notice may say a place is kept or released (CLAUDE.md: copy never says an unpaid entry holds a place).
+test('P-58 the reminder and the expiry notice never say an unpaid entry holds or releases a place', () => {
+  const reminder = paymentReminderEmail({ event, order, payUrl: 'https://www.leszy.run/zamowienie/x' })
+  const expired = orderExpiredEmail({ event, order, eventUrl: 'https://www.leszy.run/events/bieg-leszego-2026' })
+  for (const m of [reminder, expired]) {
+    for (const part of [m.text, m.html]) {
+      assert.doesNotMatch(part, /zwolni/i)
+      assert.doesNotMatch(part, /zarezerw/i)
+    }
+  }
+  for (const part of [reminder.text, reminder.html]) {
+    assert.ok(part.includes('Miejsce zajmuje dopiero opłacone zgłoszenie'), 'a place is taken only by a paid entry')
+    assert.ok(part.includes('nie będzie można go już opłacić'))
+    assert.ok(part.includes('zgłoszenie wygaśnie'))
+  }
+  assert.ok(reminder.text.includes('Bez wpłaty do 05.11.2026, 11:15 zgłoszenie wygaśnie.'), reminder.text)
+  for (const part of [expired.text, expired.html]) assert.match(part, /wygasło, bo nie zostało opłacone w terminie/)
+})
