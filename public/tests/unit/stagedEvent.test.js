@@ -57,3 +57,18 @@ test('W-63 a staged consent list keeps the live `accepted` flag of each consent 
   const e = stagedEvent({ ...withCustom, pending: { payload: { form: { consents: [{ id: K2, text: 'Zgoda.' }, { id: null, text: 'Nowa.' }] } } } })
   assert.deepEqual(e.consents.filter((k) => k.kind === 'custom').map((k) => [k.text, k.accepted]), [['Zgoda.', true], ['Nowa.', false]])
 })
+
+test('P-40 a staged payment window is what the Płatności step shows', () => {
+  const e = stagedEvent({ ...live, settings: { ...live.settings, paymentWindowHours: 168 }, pending: { payload: { payments: { payment_window_hours: 24 } } } })
+  assert.equal(e.settings.paymentWindowHours, 24)
+})
+
+test('P-59 a staged „do końca zapisów” is what the Płatności step shows, and switching back clears it', () => {
+  const base = { ...live, settings: { ...live.settings, paymentWindowHours: 168, paymentWindowUntilClose: false } }
+  const on = stagedEvent({ ...base, pending: { payload: { payments: { payment_window_until_close: true } } } })
+  assert.equal(on.settings.paymentWindowUntilClose, true)
+  assert.equal(on.settings.paymentWindowHours, 168)
+  const off = stagedEvent({ ...base, settings: { ...base.settings, paymentWindowUntilClose: true },
+    pending: { payload: { payments: { payment_window_hours: 24, payment_window_until_close: false } } } })
+  assert.deepEqual([off.settings.paymentWindowHours, off.settings.paymentWindowUntilClose], [24, false])
+})

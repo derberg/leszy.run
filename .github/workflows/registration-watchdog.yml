@@ -1,0 +1,70 @@
+name: Registration watchdog backstop
+
+# P3-R18. The registration jobs watchdog runs inside Supabase: pg_cron calls the
+# registration-watchdog edge function every hour through pg_net, and the function e-mails the
+# operator when a registration job stops. Nothing inside Supabase can report that pg_cron or pg_net
+# themselves stopped, so this daily run calls the same function from outside and fails, which makes
+# GitHub e-mail the repository owner, when
+#   - the function does not answer 200 (down, wrong secret, heartbeats unreadable, alert not sent), or
+#   - the watchdog's own heartbeat (stamped only when pg_cron calls it) is older than 3 hours.
+# The call itself also runs the check, so a stale job is mailed even with pg_cron dead.
+# Never on a pull request. Skipped (not failed) until the variable REGISTRATION_WATCHDOG_URL is set.
+# No actions are used: curl, python3 and the runner image only.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * *' # 05:23 UTC: 06:23 Warsaw in winter, 07:23 in summer
+
+permissions: {}
+
+concurrency:
+  group: registration-watchdog
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: ${{ vars.REGISTRATION_WATCHDOG_URL != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Call the watchdog and check that pg_cron is calling it
+        env:
+          WATCHDOG_URL: ${{ vars.REGISTRATION_WATCHDOG_URL }}
+          WATCHDOG_SECRET: ${{ secrets.REGISTRATION_WATCHDOG_SECRET }}
+          MAX_AGE_SECONDS: '10800' # 3 × the hourly schedule
+        run: |
+          set -euo pipefail
+          if [ -z "$WATCHDOG_SECRET" ]; then
+            echo "::error::The repository secret REGISTRATION_WATCHDOG_SECRET is not set"
+            exit 1
+          fi
+          body="$RUNNER_TEMP/watchdog.json"
+          status=$(curl -sS -o "$body" -w '%{http_code}' --max-time 60 --retry 2 --retry-all-errors \
+            -X POST -H 'Content-Type: application/json' -H "x-watchdog-secret: $WATCHDOG_SECRET" \
+            -d '{"caller":"github"}' "$WATCHDOG_URL") || status=000
+          echo "HTTP $status"
+          cat "$body" 2>/dev/null || true
+          echo
+          if [ "$status" != 200 ]; then
+            echo "::error::registration-watchdog answered HTTP $status (expected 200)"
+            exit 1
+          fi
+          python3 - "$body" "$MAX_AGE_SECONDS" <<'PY'
+          import json, sys
+          from datetime import datetime, timezone
+          data = json.load(open(sys.argv[1]))
+          limit = int(sys.argv[2])
+          last = (data.get('watchdog') or {}).get('last_run_at')
+          if not last:
+              print('::error::the response has no watchdog.last_run_at')
+              sys.exit(1)
+          age = (datetime.now(timezone.utc) - datetime.fromisoformat(last.replace('Z', '+00:00'))).total_seconds()
+          print(f'watchdog last run by pg_cron: {last} ({int(age // 60)} min ago)')
+          if age > limit:
+              print(f'::error::pg_cron has not called registration-watchdog for {int(age // 60)} min (limit {limit // 60} min): check cron.job, cron.job_run_details, net._http_response and the Vault secrets')
+              sys.exit(1)
+          stale = data.get('stale') or []
+          if stale:
+              print('::warning::stale registration jobs (the operator was e-mailed): ' + ', '.join(j['job'] for j in stale))
+          PY

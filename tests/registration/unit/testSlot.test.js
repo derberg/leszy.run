@@ -1,7 +1,9 @@
 // Test-stack slots (scripts/test-slot.sh): slot 0 is today's stack, slot n moves every port by n x 100.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { testSlot, slotPort, slotWorkdir, REPO_ROOT } from '../helpers/slot.js'
@@ -49,16 +51,30 @@ test('a port the config already sets is moved in place, not duplicated', () => {
   assert.match(out, /\[db\]\nport = 54422\nshadow_port = 54420\nmajor_version = 17/)
 })
 
-test('no slot port lands on another slot family (email capture, scratch Postgres, Vite)', () => {
+test('no slot port lands on another slot family (email capture, dpay mock, scratch Postgres, Vite)', () => {
   const ports = new Map()
   for (let n = 0; n <= 9; n++) {
     const own = [
       ...DEFAULT_PORTS.map(([, , base]) => slotPort(base, n)),
-      slotPort(54399, n), slotPort(55432, n), slotPort(5174, n),
+      slotPort(54399, n), slotPort(54398, n), slotPort(55432, n), slotPort(5174, n),
     ]
     for (const p of own) {
       assert.ok(!ports.has(p), `port ${p} of slot ${n} also belongs to slot ${ports.get(p)}`)
       ports.set(p, n)
     }
   }
+})
+
+test('the slot functions.env moves the e-mail capture, the dpay mock and the IPN URL', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'slot-env-'))
+  const out = execFileSync('bash', ['-c', `sed -n '/^  capture=/,/functions.env"$/p' "${join(REPO_ROOT, 'scripts/test-slot.sh')}"`], { encoding: 'utf8' })
+  assert.match(out, /54398/)
+  const script = `slot=2; reg="${join(REPO_ROOT, 'tests/registration')}"; dir="${dir}"\n${out}`
+  execFileSync('bash', ['-c', script])
+  const env = readFileSync(join(dir, 'functions.env'), 'utf8')
+  assert.match(env, /^EMAIL_CAPTURE_URL=http:\/\/host\.docker\.internal:54599\/send$/m)
+  assert.match(env, /^DPAY_API_BASE=http:\/\/host\.docker\.internal:54598$/m)
+  assert.match(env, /^DPAY_PANEL_BASE=http:\/\/host\.docker\.internal:54598$/m)
+  assert.match(env, /^DPAY_IPN_URL=http:\/\/127\.0\.0\.1:54521\/functions\/v1\/dpay-ipn$/m)
+  rmSync(dir, { recursive: true, force: true })
 })

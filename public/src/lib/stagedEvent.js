@@ -52,6 +52,7 @@ export function stagedEvent(event) {
     if (v.kids_groups) out.kidsGroups = v.kids_groups.map(camel)
   }
   if (payload.timing) Object.assign(out.settings, camel(payload.timing))
+  if (payload.payments) Object.assign(out.settings, camel(payload.payments))
   if (payload.form) {
     if ('form_fields' in payload.form) out.settings.formFields = payload.form.form_fields
     if (payload.form.consents) {

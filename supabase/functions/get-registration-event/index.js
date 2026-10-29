@@ -3,6 +3,7 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { clubHasAgreement, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { publishChecklist } from '../_shared/registration/checklist.js'
+import { payoutState } from '../_shared/registration/eventPayout.js'
 import { warsawToday } from '../_shared/registration/dates.js'
 
 function json(body, status, req) {
@@ -30,7 +31,7 @@ async function rows(query) {
 // fixed price in grosze), office hours as Warsaw days and times, age and kids
 // groups, consents (a custom one carries `accepted` for owner/admin),
 // uploads, pending changes, registered count, the caller's role and the
-// publish checklist. Any active member of the owning club may
+// publish checklist. Each competition carries `inUse` for owner/admin. Any active member of the owning club may
 // read it.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -50,15 +51,17 @@ Deno.serve(async (req) => {
     const { settings, role } = loaded
     const eventId = settings.event_id
 
-    const [competitions, hours, consents, uploads, pendingRows, registered, hasAgreement] = await Promise.all([
+    const [competitions, hours, consents, uploads, pendingRows, registered, hasAgreement, payout] = await Promise.all([
       rows(admin.from('competitions').select('*').eq('event_id', eventId).order('sort_order')),
       rows(admin.from('office_hours').select('id, starts_at, ends_at').eq('event_id', eventId).order('starts_at')),
       rows(admin.from('event_consents').select('id, kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
       rows(admin.from('registration_uploads').select('id, kind, path, meta, created_at').eq('event_id', eventId).order('created_at')),
       rows(admin.from('registration_pending_changes').select('payload, changed_fields, updated_at').eq('event_id', eventId)),
+      // „N / limit zapisanych” counts confirmed entries only: an unpaid one holds no place (P3-R15).
       admin.from('registrations').select('id', { count: 'exact', head: true })
-        .eq('event_id', eventId).in('status', ['confirmed', 'pending_payment']),
+        .eq('event_id', eventId).eq('status', 'confirmed'),
       clubHasAgreement(admin, settings.club_id),
+      payoutState(admin, settings),
     ])
     if (registered.error) throw registered.error
 
@@ -70,6 +73,17 @@ Deno.serve(async (req) => {
         const found = await rows(admin.from('consent_acceptances').select('id').eq('consent_id', k.id).limit(1))
         return found.length ? k.id : null
       }))).filter(Boolean))
+      : null
+
+    // Owner/admin only: whether each competition is in use (confirmed entries, or a live order
+    // awaiting payment: registration_competition_in_use, P3-R15). The wizard locks kind, price
+    // and hiding on it, as registration_check_locks does; taken alone misses unpaid orders.
+    const inUse = writer
+      ? new Map(await Promise.all(competitions.map(async (c) => {
+        const { data, error } = await admin.rpc('registration_competition_in_use', { p_category_id: c.category_id })
+        if (error) throw error
+        return [c.category_id, data === true]
+      })))
       : null
 
     const categoryIds = competitions.map((c) => c.category_id)
@@ -90,7 +104,9 @@ Deno.serve(async (req) => {
         opensOn: settings.opens_at ? warsawToday(new Date(settings.opens_at)) : null,
         closesOn: settings.closes_at ? warsawToday(new Date(new Date(settings.closes_at).getTime() - 1)) : null,
       },
-      competitions: competitions.map((c) => ({ ...camel(c), priceGrosze: priceOf.get(c.category_id) ?? null })),
+      competitions: competitions.map((c) => ({
+        ...camel(c), priceGrosze: priceOf.get(c.category_id) ?? null, ...(inUse ? { inUse: inUse.get(c.category_id) } : {}),
+      })),
       officeHours: hours.map((h) => ({
         id: h.id, date: warsawToday(new Date(h.starts_at)), from: hhmm(h.starts_at), to: hhmm(h.ends_at),
         startsAt: h.starts_at, endsAt: h.ends_at,
@@ -106,7 +122,9 @@ Deno.serve(async (req) => {
       pending: pendingRows[0] ? camel(pendingRows[0]) : null,
       registeredCount: registered.count ?? 0,
       role,
-      checklist: publishChecklist({ ...event, hasAgreement }),
+      // Only the checklist sees the payout, as { mode, ready }; the account
+      // itself is get-event-payout's alone (ruling P3-R1).
+      checklist: publishChecklist({ ...event, hasAgreement, payout }),
     } }, 200, req)
   } catch (err) {
     console.error('get-registration-event error:', err?.message, err?.code)

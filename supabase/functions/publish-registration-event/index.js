@@ -7,6 +7,7 @@ import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM } from '../_shared/r
 import { eventPageUrl } from '../_shared/registration/slug.js'
 import { changeDiff, mergedChecklistInput, noticeAudience } from '../_shared/registration/changeDiff.js'
 import { PAID_REGISTRATION_ENABLED } from '../_shared/registration/flags.js'
+import { payoutState } from '../_shared/registration/eventPayout.js'
 import { sendBulkEmail } from '../_shared/email.js'
 
 function json(body, status, req) {
@@ -30,13 +31,14 @@ const camel = (row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [c
 
 // What publishChecklist() reads, in get-registration-event's shape.
 async function checklistInput(admin, settings) {
-  const [competitions, hours] = await Promise.all([
+  const [competitions, hours, payout] = await Promise.all([
     admin.from('competitions').select('*').eq('event_id', settings.event_id),
     admin.from('office_hours').select('id').eq('event_id', settings.event_id).limit(1),
+    payoutState(admin, settings),
   ])
   if (competitions.error) throw competitions.error
   if (hours.error) throw hours.error
-  return { settings: camel(settings), competitions: competitions.data.map(camel), officeHours: hours.data }
+  return { settings: camel(settings), competitions: competitions.data.map(camel), officeHours: hours.data, payout }
 }
 
 /** Every row of a query, 1000 at a time (PostgREST caps one response at 1000). */
@@ -58,18 +60,19 @@ async function liveSnapshot(admin, settings) {
   const byCategory = (table, cols) => (ids.length
     ? allRows(() => admin.from(table).select(cols).in('category_id', ids).order('category_id'))
     : [])
-  const [prices, hours, ageGroups, kidsGroups, consents] = await Promise.all([
+  const [prices, hours, ageGroups, kidsGroups, consents, payout] = await Promise.all([
     byCategory('competition_prices', 'category_id, amount, price_tiers!inner(ends_on)'),
     allRows(() => admin.from('office_hours').select('starts_at, ends_at').eq('event_id', eventId).order('starts_at')),
     byCategory('age_groups', '*'),
     byCategory('kids_groups', '*'),
     allRows(() => admin.from('event_consents').select('kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
+    payoutState(admin, settings),
   ])
   const fixedPrice = new Map(prices.filter((p) => p.price_tiers?.ends_on == null).map((p) => [p.category_id, p.amount]))
   return {
     settings,
     competitions: competitions.map((c) => ({ ...c, price: settings.pricing_mode === 'fixed' ? (fixedPrice.get(c.category_id) ?? null) : null })),
-    officeHours: hours, ageGroups, kidsGroups, consents,
+    officeHours: hours, ageGroups, kidsGroups, consents, payout,
   }
 }
 

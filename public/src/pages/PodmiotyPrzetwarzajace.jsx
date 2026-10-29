@@ -3,6 +3,7 @@ const PROCESSORS = [
   { name: 'Vercel, Inc.', country: 'USA (EU SCC)', purpose: 'Hosting frontendu, CDN, serverless funkcje', dpa: 'https://vercel.com/legal/dpa' },
   { name: 'SMSAPI sp. z o.o.', country: 'Polska', purpose: 'Wysyłka wiadomości SMS check-in', dpa: 'https://www.smsapi.pl/dokumenty-prawne' },
   { name: 'Twilio Inc. / SendGrid', country: 'USA (EU SCC)', purpose: 'Wysyłka wiadomości email', dpa: 'https://www.twilio.com/legal/data-protection-addendum' },
+  { name: 'Payments Lab sp. z o.o. (dpay.pl)', country: 'Polska', purpose: 'Płatności online za zapisy na zawody i ich zwroty (operator płatności, odrębny administrator danych płatności)', dpa: 'Regulamin dpay.pl' },
   { name: 'Google Ireland Ltd.', country: 'Irlandia / USA (EU SCC)', purpose: 'Analityka GA4 (tylko po wyrażeniu zgody)', dpa: 'https://support.google.com/analytics/answer/9012600' },
 ]
 

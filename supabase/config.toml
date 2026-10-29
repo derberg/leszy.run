@@ -194,6 +194,26 @@ entrypoint = "./functions/publish-registration-event/index.js"
 verify_jwt = false
 entrypoint = "./functions/register-free/index.js"
 
+[functions.create-order]
+verify_jwt = false
+entrypoint = "./functions/create-order/index.js"
+
+[functions.pay-order]
+verify_jwt = false
+entrypoint = "./functions/pay-order/index.js"
+
+[functions.order-status]
+verify_jwt = false
+entrypoint = "./functions/order-status/index.js"
+
+[functions.cancel-my-order]
+verify_jwt = false
+entrypoint = "./functions/cancel-my-order/index.js"
+
+[functions.dpay-ipn]
+verify_jwt = false
+entrypoint = "./functions/dpay-ipn/index.js"
+
 [functions.my-event-registrations]
 verify_jwt = false
 entrypoint = "./functions/my-event-registrations/index.js"
@@ -213,3 +233,19 @@ entrypoint = "./functions/checkpoint-write/index.js"
 [functions.self-checkin]
 verify_jwt = false
 entrypoint = "./functions/self-checkin/index.js"
+
+[functions.registration-jobs]
+verify_jwt = false
+entrypoint = "./functions/registration-jobs/index.js"
+
+[functions.registration-watchdog]
+verify_jwt = false
+entrypoint = "./functions/registration-watchdog/index.js"
+
+[functions.update-event-payout]
+verify_jwt = false
+entrypoint = "./functions/update-event-payout/index.js"
+
+[functions.get-event-payout]
+verify_jwt = false
+entrypoint = "./functions/get-event-payout/index.js"

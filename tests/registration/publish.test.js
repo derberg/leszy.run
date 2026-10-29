@@ -115,11 +115,17 @@ test('W-14 registration closing after race day blocks publish', async () => {
 })
 
 test('W-14 a paid event cannot be published yet', async () => {
-  const { eventId, categoryIds } = await completeEvent()
-  await save(eventId, 'competitions', { pricingMode: 'fixed', items: [comp({ categoryId: categoryIds[0], price: '60' })] })
-  const r = await publish(eventId)
+  // A club of its own: no club payout details, whatever other files left in the seed club.
+  const own = await makeClub({ slug: `w14-${rand()}` })
+  const session = await sessionFor(own.ownerEmail)
+  const { eventId, categoryIds } = await completeEvent({ session, clubId: own.clubId })
+  await save(eventId, 'competitions', { pricingMode: 'fixed', items: [comp({ categoryId: categoryIds[0], price: '60' })] }, session)
+  const r = await publish(eventId, session)
   assert.equal(r.status, 409)
-  assert.deepEqual(r.body.blocking, [{ key: 'payments', label: 'Płatności online — wkrótce' }])
+  assert.deepEqual(r.body.blocking, [
+    { key: 'payments', label: 'Płatności online — wkrótce' },
+    { key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' },
+  ])
 })
 
 test('W-14 get-registration-event returns the checklist', async () => {

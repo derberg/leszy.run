@@ -1,0 +1,137 @@
+name: Registration dpay sandbox
+
+# The dpay sandbox acceptance suite (tests/registration/sandbox/). It talks to the real dpay
+# sandbox, so it never runs on a pull request: by hand, or nightly. The sandbox credentials live in
+# the GitHub environment `dpay-sandbox`.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 2 * * *' # 02:17 UTC, nightly
+
+permissions:
+  contents: read
+
+concurrency:
+  group: registration-sandbox
+  cancel-in-progress: false
+
+env:
+  CLOUDFLARED_VERSION: 2026.10.1
+  CLOUDFLARED_SHA256: 3bfc539f45d2620c71debb7a86be0efa737ed5ccbad9eb85c787116900e5c586
+
+jobs:
+  sandbox:
+    # Skipped (not failed) until the dpay-sandbox environment has its settings: the schedule stays,
+    # and the first nightly run after DPAY_SANDBOX_API_BASE is set is the first real one (P3-R17).
+    if: ${{ vars.DPAY_SANDBOX_API_BASE != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: dpay-sandbox
+    permissions:
+      contents: read
+      packages: read # authenticated ghcr.io pulls (see the login step)
+    env:
+      DPAY_ENV: sandbox
+      DPAY_SANDBOX_SERVICE: ${{ secrets.DPAY_SANDBOX_SERVICE }}
+      DPAY_SANDBOX_SECRET: ${{ secrets.DPAY_SANDBOX_SECRET }}
+      DPAY_SANDBOX_BLIK_CODE: ${{ secrets.DPAY_SANDBOX_BLIK_CODE }}
+      DPAY_SANDBOX_CARD_NUMBER: ${{ secrets.DPAY_SANDBOX_CARD_NUMBER }}
+      DPAY_SANDBOX_CARD_EXPIRY: ${{ secrets.DPAY_SANDBOX_CARD_EXPIRY }}
+      DPAY_SANDBOX_CARD_CVC: ${{ secrets.DPAY_SANDBOX_CARD_CVC }}
+      DPAY_SANDBOX_DECLINE_CARD_NUMBER: ${{ secrets.DPAY_SANDBOX_DECLINE_CARD_NUMBER }}
+      DPAY_SANDBOX_API_BASE: ${{ vars.DPAY_SANDBOX_API_BASE }}
+      DPAY_SANDBOX_PANEL_BASE: ${{ vars.DPAY_SANDBOX_PANEL_BASE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - run: npm ci
+
+      - name: Refuse a production dpay host
+        run: |
+          node --test tests/registration/sandbox/guard.test.js
+          node -e "import('./tests/registration/sandbox/guard.js').then((g) => g.sandboxConfig({ ...process.env, SANDBOX_PUBLIC_IPN_URL: 'https://placeholder.invalid' }))"
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.109.1
+
+      # A pinned release, verified against its published sha256 (the release API's asset digest).
+      - name: Install cloudflared
+        run: |
+          curl -fsSL -o cloudflared "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64"
+          echo "${CLOUDFLARED_SHA256}  cloudflared" | sha256sum --check --strict
+          sudo install -m 0755 cloudflared /usr/local/bin/cloudflared
+
+      - name: Start email capture server
+        run: node tests/registration/helpers/emailCaptureServer.js &
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start local Supabase stack
+        run: |
+          tests/registration/start-stack.sh && exit 0
+          echo "supabase start failed, retrying once in 30s"
+          supabase stop --no-backup >/dev/null 2>&1 || true
+          sleep 30
+          tests/registration/start-stack.sh
+
+      - name: Apply migrations and seed
+        run: supabase db reset
+
+      # A quick tunnel to the local functions gateway: dpay's IPN reaches dpay-ipn through it.
+      - name: Open the IPN tunnel
+        run: |
+          cloudflared tunnel --no-autoupdate --url http://127.0.0.1:54321 > "$RUNNER_TEMP/cloudflared.log" 2>&1 &
+          for i in $(seq 1 30); do
+            url=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$RUNNER_TEMP/cloudflared.log" | head -n 1 || true)
+            [ -n "$url" ] && break
+            sleep 2
+          done
+          [ -n "$url" ] || { cat "$RUNNER_TEMP/cloudflared.log"; echo "no tunnel URL"; exit 1; }
+          echo "SANDBOX_PUBLIC_IPN_URL=${url}/functions/v1/dpay-ipn" >> "$GITHUB_ENV"
+
+      # The sandbox secret goes into this file only, outside the checkout.
+      - name: Serve edge functions with the sandbox settings
+        run: |
+          node tests/registration/sandbox/write-functions-env.js "$RUNNER_TEMP/functions.sandbox.env"
+          supabase functions serve --env-file "$RUNNER_TEMP/functions.sandbox.env" > functions.log 2>&1 &
+          sleep 15
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Sandbox acceptance suite
+        run: npx playwright test -c tests/registration/sandbox/playwright.sandbox.config.js
+
+      - name: Upload the run log
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: sandbox-run-log
+          # The run log holds field names and statuses only (values redacted); traces and screenshots
+          # carry no secret either: the card number is typed into dpay's own page, not logged.
+          path: |
+            tests/registration/test-results/sandbox-run-log.json
+            tests/registration/test-results/sandbox-report.json
+            tests/registration/test-results/sandbox/
+          if-no-files-found: ignore
+
+      - name: Functions log on failure
+        if: failure()
+        run: tail -n 200 functions.log || true
+
+      - name: Remove the secrets file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/functions.sandbox.env"

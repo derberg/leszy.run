@@ -36,6 +36,7 @@ const BLOCKING_STEP = {
   contact_email: 'podstawy',
   competitions: 'konkurencje',
   payments: 'platnosci',
+  payout: 'platnosci',
   agreement: 'publikacja',
 }
 

@@ -6,7 +6,8 @@
 // address and NIP/KRS are not in the snapshot and are left out. Ruling
 // P2-R21: lines about payment (dpay, paid status, payment records, unpaid
 // entries) appear only for a paid event, the team name only with team
-// competitions. Ruling P2-R31: nationality is named only when the event's
+// competitions. Ruling P3-R14: an unpaid entry is only a number on the public
+// start list, and a minor's town is never published. Ruling P2-R31: nationality is named only when the event's
 // form asks for it. Ruling P2-R33 and review U2 I1: the name and result in the
 // results lists rest on Art. 6(1)(b); photo and video reports on Art. 6(1)(f),
 // with the right to object; disseminating the image rests on the permission
@@ -15,7 +16,7 @@
 //
 // Keep in step with the source document when it changes.
 
-export const RUNNER_DATA_INFO_VERSION = '2026-11-v2'
+export const RUNNER_DATA_INFO_VERSION = '2026-11-v3'
 
 /**
  * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
@@ -24,7 +25,7 @@ export const RUNNER_DATA_INFO_VERSION = '2026-11-v2'
 export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = false, teams = false, nationality = false }) {
   const listed = ['imię', 'nazwisko', 'miejscowość', 'klub', 'konkurencja', 'kategoria wiekowa', ...(teams ? ['nazwa drużyny'] : [])]
   const listedText = paid
-    ? `${listed.join(', ')} i informacja, czy zgłoszenie jest opłacone`
+    ? `${listed.join(', ')}, a przy opłaconym zgłoszeniu informacja, że jest opłacone. Zgłoszenia czekające na wpłatę pokazujemy tylko jako liczbę, bez imienia i nazwiska`
     : `${listed.slice(0, -1).join(', ')} i ${listed.at(-1)}`
   const only = (cond, x) => (cond ? [x] : [])
   const unpublished = ['Data urodzenia', 'adres e-mail', 'numer telefonu', ...only(nationality, 'narodowość')]
@@ -62,7 +63,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
       {
         heading: 'Co jest publikowane',
         blocks: [
-          `Na publicznej liście startowej: ${listedText}. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. ${unpublished.join(', ')} i dane osoby do kontaktu w nagłych wypadkach nie są publikowane.`,
+          `Na publicznej liście startowej: ${listedText}. Miejscowości osób niepełnoletnich nie publikujemy. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. ${unpublished.join(', ')} i dane osoby do kontaktu w nagłych wypadkach nie są publikowane.`,
           'Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i publikować go w relacjach z zawodów. Podstawą przetwarzania danych jest prawnie uzasadniony interes Organizatora w relacjonowaniu zawodów (art. 6 ust. 1 lit. f RODO); możesz wnieść sprzeciw wobec takiej publikacji (art. 21 RODO): napisz do Organizatora. Rozpowszechnianie Twojego wizerunku opiera się na zezwoleniu, którego udzielasz, akceptując to postanowienie regulaminu zawodów (art. 81 ust. 1 ustawy o prawie autorskim i prawach pokrewnych). Zezwolenia nie wymaga wizerunek, który jest jedynie szczegółem całości, np. tłumu uczestników lub publiczności (art. 81 ust. 2 pkt 2 tej ustawy). To zezwolenie nie jest zgodą w rozumieniu RODO.',
         ],
       },

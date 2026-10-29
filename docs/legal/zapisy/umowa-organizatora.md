@@ -1,6 +1,6 @@
 # Umowa organizatora LESZY.RUN
 
-**Wersja:** 2026-11-v1
+**Wersja:** 2026-11-v2
 **Status:** projekt do weryfikacji prawnej, nieobowiązujący
 
 Umowę zawiera się w Serwisie: właściciel klubu wybiera „Akceptuję umowę organizatora” na ekranie „Klub → Wydarzenia → Umowa”. Serwis zapisuje wersję umowy, nazwę klubu, konto osoby akceptującej, datę i godzinę, adres IP oraz identyfikator przeglądarki (tabela `organizer_agreements`). Bez akceptacji bieżącej wersji klub nie może utworzyć żadnego wydarzenia, płatnego ani bezpłatnego.
@@ -43,7 +43,7 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 1. Organizator udziela Usługodawcy umocowania do zawierania w jego imieniu umów o udział w Wydarzeniu z osobami, które wypełnią formularz zapisu i opłacą Zgłoszenie na warunkach ustalonych przez Organizatora w Serwisie i w regulaminie Wydarzenia. Usługodawca działa wyłącznie w imieniu Organizatora (odbiorcy płatności), nigdy w imieniu Uczestnika (art. 6 pkt 2 ustawy z dnia 19 sierpnia 2011 r. o usługach płatniczych).
 2. Strony kwalifikują umowę w zakresie §3 ust. 2 lit. a i b jako umowę agencyjną (art. 758 i nast. Kodeksu cywilnego), a jeżeli Organizator nie jest przedsiębiorcą — jako umowę zlecenia z pełnomocnictwem (art. 734 i nast. oraz art. 750 Kodeksu cywilnego). [DO WERYFIKACJI: zob. „Do weryfikacji”, pkt 1.]
 3. Warunki Zgłoszenia (konkurencje, limity miejsc, opłaty i ich progi czasowe, termin zapisów, czas na opłacenie, możliwość przekazania pakietu i jego opłata, kody rabatowe) ustala Organizator w Serwisie. Usługodawca przyjmuje Zgłoszenia ściśle według tych ustawień.
-4. Usługodawca nie przyjmuje Zgłoszeń ponad limit miejsc. Wyjątek stanowi przekazanie pakietu innej osobie do innej konkurencji o tej samej cenie, które może przekroczyć limit tej konkurencji, bo miejsce zostało już sprzedane.
+4. Usługodawca nie przyjmuje Zgłoszeń ponad limit miejsc. Wyjątek stanowi przekazanie pakietu innej osobie do innej konkurencji o tej samej cenie, które może przekroczyć limit tej konkurencji, bo miejsce zostało już sprzedane. Limit miejsc obejmuje wyłącznie Zgłoszenia opłacone oraz Zgłoszenia niewymagające opłaty. Zgłoszenie oczekujące na płatność nie zajmuje miejsca; miejsce przypada temu, czyja płatność wpłynie wcześniej.
 5. Opłacona przez Uczestnika kwota obejmuje ceny ustalone przez Organizatora, Opłatę za obsługę płatności i — jeżeli Uczestnik ją wybrał — Wsparcie LESZY.RUN. Uczestnik widzi każdą z tych pozycji osobno przed zapłatą.
 
 ## §5. Przyjmowanie Opłat od Uczestników
@@ -61,7 +61,7 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 3. Zwroty są możliwe do Dnia zawodów włącznie [DO UZUPEŁNIENIA: „do końca dnia poprzedzającego Dzień zawodów” czy „do końca Dnia zawodów”]. Po tym terminie Usługodawca nie realizuje zwrotów, a ewentualne rozliczenia z Uczestnikami Organizator prowadzi sam, ze środków już wypłaconych.
 4. Zwrot nie obejmuje Opłaty za obsługę płatności ani Wsparcia LESZY.RUN.
 5. Usługodawca zwraca Uczestnikowi całą zapłaconą kwotę, łącznie z Opłatą za obsługę płatności i Wsparciem LESZY.RUN, bez dyspozycji Organizatora i niezależnie od terminu z ust. 3, gdy:
-   a) płatność wpłynęła po upływie czasu na opłacenie, a w konkurencji nie ma już wolnego miejsca,
+   a) w chwili wpływu płatności nie można przyjąć Zgłoszenia: opłacone wcześniej Zgłoszenia innych osób wyczerpały limit miejsc w konkurencji, konkurencja została ukryta albo zapisy zostały zamknięte; zwrot obejmuje całe zamówienie, także gdy brak miejsca dotyczy tylko jednej z objętych nim konkurencji,
    b) ta sama osoba ma już opłacone Zgłoszenie w tym Wydarzeniu,
    c) płatność nie może zostać przypisana do Zgłoszenia z innych przyczyn technicznych.
 6. Pełny zwrot opłaty startowej anuluje Zgłoszenie. Zwrot opłaty za Zgłoszenie drużyny anuluje Zgłoszenie całej drużyny.

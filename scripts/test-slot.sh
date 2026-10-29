@@ -13,7 +13,8 @@
 # supabase/config.toml on every call, with project_id "<id>-s<n>" and every port
 # moved up by n x 100, plus symlinks to this worktree's migrations, functions and
 # seed.sql. Then run the tests with REG_TEST_SLOT=<n> so every helper port
-# (email capture 54399+100n, scratch Postgres 55432+100n, Vite 5174+100n)
+# (email capture 54399+100n, dpay mock 54398+100n, scratch Postgres 55432+100n,
+# Vite 5174+100n)
 # follows. Slot numbers are machine-wide (Docker container names): two
 # worktrees must not take the same slot.
 set -euo pipefail
@@ -38,7 +39,11 @@ else
     if [ -e "$root/supabase/$f" ]; then ln -sfn "$root/supabase/$f" "$dir/supabase/$f"; fi
   done
   capture=$((54399 + slot * 100))
-  sed "s#host.docker.internal:54399#host.docker.internal:$capture#" "$reg/functions.env" > "$dir/functions.env"
+  mock=$((54398 + slot * 100))
+  api=$((54321 + slot * 100))
+  sed -e "s#host.docker.internal:54399#host.docker.internal:$capture#" \
+      -e "s#host.docker.internal:54398#host.docker.internal:$mock#g" \
+      -e "s#127.0.0.1:54321/#127.0.0.1:$api/#" "$reg/functions.env" > "$dir/functions.env"
   workdir_args=(--workdir "$dir")
   env_file="$dir/functions.env"
 fi

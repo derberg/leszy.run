@@ -39,6 +39,9 @@ export function competitionRow(c) {
     price: priceText(c.priceGrosze),
     hidden: !!c.hiddenAt,
     taken: c.taken ?? 0,
+    // Locks kind, price and hiding (get-registration-event, owner/admin): confirmed entries or a
+    // live unpaid order. Older payloads without it fall back to confirmed entries.
+    inUse: c.inUse ?? (c.taken ?? 0) > 0,
     saved: null,
   }
   row.saved = baseItem(row)
@@ -49,7 +52,7 @@ export function newCompetitionRow(over = {}) {
   return {
     key: ++rowSeq, categoryId: null, name: '', discipline: 'run', distanceLabel: '', startTime: '',
     capacity: '', minAge: '', maxAge: '', isKids: false, timed: true, gpxUploadId: null, price: '',
-    hidden: false, taken: 0, saved: null, ...over,
+    hidden: false, taken: 0, inUse: false, saved: null, ...over,
   }
 }
 

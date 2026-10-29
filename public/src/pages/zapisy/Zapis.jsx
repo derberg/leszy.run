@@ -5,12 +5,12 @@ import { clearFavoritesCache } from '../../hooks/useFavorites.js'
 import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import useSeo from '../../hooks/useSeo.js'
 import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
-import { callFunction, requestCode } from '../../lib/auth.js'
+import { callFunction, requestCode, verifyCode } from '../../lib/auth.js'
 import { afterRegistrationPath } from '../../lib/inviteLink.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import {
   EMPTY_PERSON, profilePrefill, mergePrefill, fieldModes, personContext, checkPerson, needsCode, consentsComplete, registerBody,
-  registrationFailure,
+  registrationFailure, categoryPreview,
 } from '../../lib/personFormModel.js'
 import { runnerDataInfo } from '../../legal/runnerDataInfo.js'
 import PersonForm from '../../components/registration/PersonForm.jsx'
@@ -18,17 +18,24 @@ import ConsentList from '../../components/registration/ConsentList.jsx'
 import PageTop from '../../components/registration/PageTop.jsx'
 import { inputCls, labelCls, primaryBtn } from '../../components/registration/ui.js'
 import RegistrationShell from './RegistrationShell.jsx'
+import Podsumowanie from './Podsumowanie.jsx'
 import { eventPath, formPath } from './RegistrationEventPage.jsx'
 
-// RA2 (free events): the person form and the consents → „Dalej” → the e-mail
-// code (auth-request-code, with the login form's honeypot) → register-free →
-// RA5. A session holding the person's own address skips the code: the button
-// reads „Zapisz się” and registers at once. Nothing about the person goes in
-// the address bar.
+// RA2: the person form and the consents → „Dalej” → the e-mail code
+// (auth-request-code, with the login form's honeypot). A free event then calls
+// register-free → RA5. A paid event (pricingMode !== 'free') goes on to RA4
+// (Podsumowanie), whose „Zapłać” calls create-order with the same body plus
+// the support choice, and hands the browser to dpay; the order page
+// (/zamowienie/:orderId) is RA5 for it. For a paid event the code is checked
+// at the code step itself (auth-verify-code opens the session there), so a
+// wrong, expired, used-up or throttled code is answered where „Wyślij
+// ponownie” is, and RA4 always runs on the person's own session. A session
+// holding the person's own address skips the code. Nothing about the person
+// goes in the address bar.
 
 export const donePath = (slug) => `/events/${slug}/zapisano`
 
-function CodeStep({ email, code, onCode, error, busy, onSubmit, onResend, onChangeAddress, resent }) {
+function CodeStep({ email, code, onCode, error, busy, onSubmit, onResend, onChangeAddress, resent, submitLabel }) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5" data-testid="code-step">
       <h1 className="font-display font-extrabold text-[38px] leading-none uppercase text-apex-text-bright">Sprawdź skrzynkę</h1>
@@ -43,10 +50,10 @@ function CodeStep({ email, code, onCode, error, busy, onSubmit, onResend, onChan
         <input id="reg-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="\d{6}" required autoFocus
           value={code} onChange={(e) => onCode(e.target.value.replace(/\D/g, ''))}
           className={`${inputCls} font-mono text-2xl tracking-[0.5em] h-14 ${error ? 'border-apex-red' : ''}`} />
-        {error && <p className="text-apex-red text-sm">{error}</p>}
+        {error && <p className="text-apex-red text-sm" data-testid="code-error" role="alert">{error}</p>}
       </div>
       <button type="submit" disabled={busy || code.length !== 6} className={primaryBtn}>
-        {busy ? 'Zapisujemy…' : 'Zapisz się'}
+        {busy ? (submitLabel === 'Dalej' ? 'Sprawdzamy…' : 'Zapisujemy…') : submitLabel}
       </button>
       <div className="flex justify-between gap-3">
         <button type="button" onClick={onResend} disabled={busy} className="min-h-11 text-base text-apex-yellow whitespace-nowrap disabled:opacity-40">
@@ -89,6 +96,13 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const [sentTo, setSentTo] = useState(null)
   const [resent, setResent] = useState(false)
   const [busy, setBusy] = useState(false)
+  // RA4 (paid events): the checked person, and the support choice, kept here so it
+  // survives a trip back to the code step.
+  const [checkout, setCheckout] = useState(null)
+  const [supportChoice, setSupportChoice] = useState(null)
+  // The address the code step verified (paid events): the session it opened may not be in the
+  // auth cache yet, and „Wróć” then „Dalej” must not send another code (N1).
+  const [verifiedEmail, setVerifiedEmail] = useState(null)
   // Fields the person has typed into or picked. The profile never overwrites
   // them, and fills every other field even when it lands after they started:
   // on a slow phone the sign-in check can arrive well after the first keystroke.
@@ -110,7 +124,8 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   }
 
   const open = row.state === 'open'
-  const codeNeeded = needsCode(user?.email, person.email)
+  const paid = raw.pricingMode !== 'free'
+  const codeNeeded = needsCode(user?.email, person.email, verifiedEmail)
   const ready = consentsComplete(consents, accepted, serviceAccepted)
   const dataInfo = runnerDataInfo({
     eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail,
@@ -130,6 +145,8 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
 
   const fail = (err, value) => {
     const f = registrationFailure(err)
+    // The server wants a code again (the session is gone): the earlier verification no longer counts.
+    if (f.step === 'code') setVerifiedEmail(null)
     if (f.step === 'code' && !sentTo) {
       // The session ended between page load and submit: no code was ever sent.
       // Stay on the form and send one now.
@@ -161,6 +178,36 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     }
   }
 
+  function toSummary(value) {
+    setMessage(null)
+    setErrors({})
+    setCheckout({ person: value })
+    setStep('summary')
+  }
+
+  // Paid events: the code opens the session here (the same verification register-free
+  // and create-order use), and every refusal stays on the code step.
+  async function verifyThenSummary(value) {
+    setBusy(true)
+    try {
+      await verifyCode(sentTo ?? value.email, code)
+      setVerifiedEmail(sentTo ?? value.email)
+      clearAuthCache()
+      clearFavoritesCache()
+      clearNotificationsCache()
+      toSummary(value)
+    } catch (err) {
+      if (err.code === 'email_retired') {
+        setStep('form')
+        setErrors({ email: err.message })
+        return
+      }
+      setErrors((x) => ({ ...x, code: err.status == null ? 'Nie udało się połączyć. Spróbuj ponownie.' : err.message }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function sendCode(email) {
     await requestCode(email, honeypot, formPath(raw.slug, categoryId))
   }
@@ -175,7 +222,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
       setMessage('Popraw zaznaczone pola.')
       return
     }
-    if (!codeNeeded) return register(r.value, null)
+    if (!codeNeeded) return paid ? toSummary(r.value) : register(r.value, null)
     return startCode(r.value.email)
   }
 
@@ -202,6 +249,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     e.preventDefault()
     const r = checkPerson(person, ctx)
     if (!r.ok) { setErrors(r.errors); setStep('form'); return }
+    if (paid) { await verifyThenSummary(r.value); return }
     await register(r.value, code)
   }
 
@@ -216,11 +264,21 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     }
   }
 
+  if (step === 'summary' && checkout && !preview) {
+    return (
+      <Podsumowanie raw={raw} categoryId={categoryId} competitionName={row.name} priceGrosze={competition.priceGrosze ?? 0}
+        open={open} person={checkout.person} ageGroupLabel={categoryPreview(checkout.person, ctx)} consents={consents}
+        choice={supportChoice} onChoice={setSupportChoice}
+        onBack={() => setStep('form')} onFailure={(err) => fail(err, checkout.person)} />
+    )
+  }
+
   if (step === 'code' && sentTo) {
     return (
       <div className="flex flex-col gap-4">
         <PageTop right="KROK 2/3" />
         <CodeStep email={sentTo} code={code} onCode={setCode} error={errors.code} busy={busy} resent={resent}
+          submitLabel={paid ? 'Dalej' : 'Zapisz się'}
           onSubmit={onSubmitCode} onResend={onResend} onChangeAddress={() => { setStep('form'); setErrors({}) }} />
       </div>
     )
@@ -251,7 +309,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
 
       {message && <p className="text-apex-red text-base" role="alert">{message}</p>}
       <button type="submit" data-testid="registration-submit" disabled={preview || busy || !ready || !open} className={primaryBtn}>
-        {busy ? 'Chwileczkę…' : codeNeeded ? 'Dalej' : 'Zapisz się'}
+        {busy ? 'Chwileczkę…' : codeNeeded || paid ? 'Dalej' : 'Zapisz się'}
       </button>
     </form>
   )

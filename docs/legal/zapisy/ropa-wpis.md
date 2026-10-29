@@ -63,7 +63,7 @@ Rozszerzenie czynności 1.
 - **Kategorie przetwarzania (art. 30 ust. 2 lit. b):**
   1. przyjmowanie zgłoszeń przez formularz, potwierdzanie adresów e-mail;
   2. prowadzenie listy zgłoszeń w panelu Organizatora, eksport CSV na polecenie Organizatora;
-  3. publikacja listy startowej (imię, nazwisko, miejscowość, klub, konkurencja, kategoria, drużyna, status opłacenia);
+  3. publikacja listy startowej (imię, nazwisko, miejscowość — nie dla osób niepełnoletnich, klub, konkurencja, kategoria, drużyna, oznaczenie opłaconego zgłoszenia; nieopłacone tylko jako liczba);
   4. wysyłka wiadomości: potwierdzenia, przypomnienia o płatności, prośby o potwierdzenie regulaminu, przekazania pakietów, zwroty, wiadomości Organizatora;
   5. przekazanie do dpay danych niezbędnych do płatności i zwrotu;
   6. przekazywanie pakietów między osobami;

@@ -1,3 +1,5 @@
+import { useEffect, useId, useRef, useState } from 'react'
+
 // Small shared pieces of the organizer wizard's steps.
 
 export function FieldError({ message }) {
@@ -32,7 +34,7 @@ export function Soon() {
 /** One button of a segmented choice. */
 export function Seg({ on, className = '', ...props }) {
   return (
-    <button type="button" aria-pressed={!!on} {...props}
+    <button type="button" aria-pressed={props.role ? undefined : !!on} {...props}
       className={`whitespace-nowrap min-h-9 px-3 border font-sans font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
         on ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-bright text-apex-muted hover:text-apex-text-bright'} ${className}`} />
   )
@@ -41,4 +43,42 @@ export function Seg({ on, className = '', ...props }) {
 /** 🔒 on a control locked after publish. */
 export function Lock({ title }) {
   return <span role="img" aria-label={title} title={title} className="text-sm">🔒</span>
+}
+
+/**
+ * ⓘ beside a setting: a tap or click shows the explanation, a second one, Escape or a click
+ * elsewhere hides it. A button, so it works by keyboard and on a phone (no hover there). It
+ * returns the button and the note as two children for a `flex flex-wrap` header row: the note
+ * takes a full line under the heading and pushes the setting down, so it never covers it.
+ */
+export function InfoTip({ label, children, testId }) {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  const btn = useRef(null)
+  const note = useRef(null)
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    const onDown = (e) => {
+      if (!btn.current?.contains(e.target) && !note.current?.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('pointerdown', onDown)
+    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onDown) }
+  }, [open])
+  return (
+    <>
+      <button ref={btn} type="button" aria-label={label} aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)}
+        className={`inline-flex items-center justify-center w-7 h-7 shrink-0 border font-mono text-sm leading-none rounded-none ${
+          open ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-bright text-apex-muted hover:text-apex-text-bright'}`}>
+        ⓘ
+      </button>
+      {open && (
+        <p ref={note} id={id} role="note" data-testid={testId}
+          className="basis-full max-w-[560px] border-l-2 border-apex-yellow-dim bg-apex-surface-2 px-3 py-2.5 font-sans text-[15px] font-medium leading-snug text-apex-text-bright">
+          {children}
+        </p>
+      )}
+    </>
+  )
 }

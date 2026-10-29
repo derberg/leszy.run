@@ -11,6 +11,8 @@
 //                   tier, or null)
 //     officeHours   office_hours rows (starts_at, ends_at)
 //     ageGroups, kidsGroups, consents  their rows (consents: custom ones are compared)
+//     payout        { mode, ready } of the event's payout account (eventPayout.js),
+//                   carried into mergedChecklistInput; never the account itself
 // → [{ field: '<section>.<key>', label, before, after, categoryId? }]
 //
 // noticeAudience(diff) → { all, categoryIds }: a change of date or place is
@@ -37,7 +39,18 @@ const SETTINGS_LABELS = {
   categories: { age_reckoning: 'Liczenie wieku' },
   timing: { timing_company: 'Firma pomiaru czasu', results_url: 'Wyniki', live_results_url: 'Wyniki na żywo' },
   form: { form_fields: 'Pola formularza' },
+  payments: { payment_window_hours: 'Czas na opłacenie zgłoszenia' },
 }
+
+// Values shown in words rather than as stored.
+const WINDOW_WORDS = { 24: '24 godziny', 168: '7 dni', 336: '14 dni' }
+const VALUE_WORDS = {
+  'payments.payment_window_hours': (v) => WINDOW_WORDS[v] ?? (v == null ? null : `${v} godz.`),
+}
+// The payment window as the organizer chose it: „do końca zapisów” hides the hours behind it.
+const windowWords = (s) => (s.payment_window_until_close === true
+  ? 'do końca zapisów'
+  : VALUE_WORDS['payments.payment_window_hours'](s.payment_window_hours ?? null))
 
 const ITEM_LABELS = {
   name: 'nazwa', discipline: 'dyscyplina', distance_label: 'dystans', start_time: 'godzina startu',
@@ -129,6 +142,15 @@ export function changeDiff(live, pending) {
   const settings = live.settings ?? {}
   for (const [section, value] of Object.entries(pending ?? {})) {
     if (!value || typeof value !== 'object') continue
+    // One row for the payment window, whichever of its two columns is staged.
+    if (section === 'payments') {
+      const before = windowWords(settings)
+      const after = windowWords({ ...settings, ...value })
+      if (before !== after) {
+        out.push({ field: 'payments.payment_window_hours', label: SETTINGS_LABELS.payments.payment_window_hours, before, after })
+      }
+      continue
+    }
     for (const [key, after] of Object.entries(value)) {
       const field = `${section}.${key}`
       if (section === 'competitions' && key === 'items') { competitionDiff(live, value, out); continue }
@@ -142,7 +164,8 @@ export function changeDiff(live, pending) {
       const label = SETTINGS_LABELS[section]?.[key]
       if (!label) continue
       if (same(settings[key] ?? null, after)) continue
-      out.push({ field, label, before: shown(settings[key] ?? null), after: shown(after) })
+      const words = VALUE_WORDS[field] ?? shown
+      out.push({ field, label, before: words(settings[key] ?? null), after: words(after) })
     }
   }
   return out
@@ -170,7 +193,7 @@ const LIST_KEYS = new Set(['hours', 'items', 'age_groups', 'kids_groups', 'conse
 /**
  * @param {object} live see the module comment
  * @param {object|null} pending registration_pending_changes.payload
- * @returns {{ settings: object, competitions: object[], officeHours: object[] }} camelCase
+ * @returns {{ settings: object, competitions: object[], officeHours: object[], payout?: object }} camelCase
  */
 export function mergedChecklistInput(live, pending) {
   const settings = { ...live.settings }
@@ -190,5 +213,6 @@ export function mergedChecklistInput(live, pending) {
     })
   }
   const officeHours = pending?.office?.hours ?? live.officeHours ?? []
-  return { settings: camel(settings), competitions: competitions.map(camel), officeHours }
+  // The payout is never staged: it is the live state, { mode, ready } only.
+  return { settings: camel(settings), competitions: competitions.map(camel), officeHours, payout: live.payout }
 }

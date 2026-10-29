@@ -115,3 +115,43 @@ test('mergedChecklistInput: the event as it will be, in publishChecklist\'s shap
   // Hiding every competition leaves none visible.
   assert.deepEqual(keys({ competitions: { pricing_mode: 'free', items: live.competitions.map((c) => item(c, { hidden: true })) } }), ['competitions'])
 })
+
+test('P-40 a staged payment window is listed as „Czas na opłacenie zgłoszenia”, in days', () => {
+  const withWindow = { ...live, settings: { ...live.settings, payment_window_hours: 168 } }
+  assert.deepEqual(changeDiff(withWindow, { payments: { payment_window_hours: 336 } }), [
+    { field: 'payments.payment_window_hours', label: 'Czas na opłacenie zgłoszenia', before: '7 dni', after: '14 dni' },
+  ])
+  assert.deepEqual(changeDiff(withWindow, { payments: { payment_window_hours: 24 } })[0].after, '24 godziny')
+  assert.deepEqual(changeDiff(withWindow, { payments: { payment_window_hours: 168 } }), [])
+})
+
+test('P-59 „do końca zapisów” is one row of „Czas na opłacenie zgłoszenia”, both ways', () => {
+  const days7 = { ...live, settings: { ...live.settings, payment_window_hours: 168, payment_window_until_close: false } }
+  assert.deepEqual(changeDiff(days7, { payments: { payment_window_until_close: true } }), [
+    { field: 'payments.payment_window_hours', label: 'Czas na opłacenie zgłoszenia', before: '7 dni', after: 'do końca zapisów' },
+  ])
+  const untilClose = { ...live, settings: { ...live.settings, payment_window_hours: 168, payment_window_until_close: true } }
+  assert.deepEqual(changeDiff(untilClose, { payments: { payment_window_hours: 24, payment_window_until_close: false } }), [
+    { field: 'payments.payment_window_hours', label: 'Czas na opłacenie zgłoszenia', before: 'do końca zapisów', after: '24 godziny' },
+  ])
+  assert.deepEqual(changeDiff(untilClose, { payments: { payment_window_until_close: true } }), [])
+  // The hours behind „do końca zapisów” are not shown: switching them changes nothing the runner sees.
+  assert.deepEqual(changeDiff(untilClose, { payments: { payment_window_hours: 336, payment_window_until_close: true } }), [])
+})
+
+test('P-42 mergedChecklistInput carries the payout state through', async () => {
+  const { mergedChecklistInput } = await import('../../../supabase/functions/_shared/registration/changeDiff.js')
+  const payout = { mode: 'club', ready: false }
+  assert.deepEqual(mergedChecklistInput({ ...live, payout }, { basics: { name: 'X' } }).payout, payout)
+  assert.deepEqual(mergedChecklistInput({ ...live, payout }, { payments: { payment_window_hours: 24 } }).settings.paymentWindowHours, 24)
+})
+
+test('M-1 the checklist on staged values: a staged paid pricing with a payout not ready blocks', async () => {
+  const { mergedChecklistInput } = await import('../../../supabase/functions/_shared/registration/changeDiff.js')
+  const { publishChecklist } = await import('../../../supabase/functions/_shared/registration/checklist.js')
+  const settled = { ...live, settings: { ...live.settings, name: 'Bieg', slug: 'bieg', contact_email: 'zapisy@klub.example' } }
+  const paid = { competitions: { pricing_mode: 'fixed', items: live.competitions.map((c) => item(c, { price: 6000 })) } }
+  const keys = (payout) => publishChecklist({ ...mergedChecklistInput({ ...settled, payout }, paid), hasAgreement: true }).blocking.map((b) => b.key)
+  assert.deepEqual(keys({ mode: 'club', ready: false }), ['payments', 'payout'])
+  assert.deepEqual(keys({ mode: 'club', ready: true }), ['payments'])
+})

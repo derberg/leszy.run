@@ -1,6 +1,6 @@
 # Informacja o przetwarzaniu danych zawodnika
 
-**Wersja:** 2026-11-v2
+**Wersja:** 2026-11-v3
 **Status:** projekt do weryfikacji prawnej, nieobowiązujący
 **Zastosowanie:** domyślna treść dokumentu „Informacja o danych” (`event_consents.kind = 'data_info'`), tworzonego z każdym Wydarzeniem. Organizator może ją zastąpić własną. Pola w nawiasach klamrowych `{…}` Serwis wypełnia danymi Wydarzenia i Organizatora.
 
@@ -29,7 +29,7 @@ Podanie danych oznaczonych w formularzu jako wymagane jest warunkiem zapisu. Bez
 
 ## Co jest publikowane
 
-Na publicznej liście startowej: imię, nazwisko, miejscowość, klub, konkurencja, kategoria wiekowa, nazwa drużyny i informacja, czy zgłoszenie jest opłacone. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. Data urodzenia, adres e-mail, numer telefonu, narodowość (jeżeli formularz o nią prosi) i dane osoby do kontaktu w nagłych wypadkach nie są publikowane. [DO WERYFIKACJI: publikacja statusu płatności — zob. „Do weryfikacji”, pkt 3.]
+Na publicznej liście startowej: imię, nazwisko, miejscowość, klub, konkurencja, kategoria wiekowa, nazwa drużyny, a przy opłaconym zgłoszeniu informacja, że jest opłacone. Zgłoszenia czekające na wpłatę pokazujemy tylko jako liczbę, bez imienia i nazwiska. Miejscowości osób niepełnoletnich nie publikujemy. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. Data urodzenia, adres e-mail, numer telefonu, narodowość (jeżeli formularz o nią prosi) i dane osoby do kontaktu w nagłych wypadkach nie są publikowane.
 
 Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i publikować go w relacjach z zawodów. Podstawą przetwarzania danych jest prawnie uzasadniony interes Organizatora w relacjonowaniu zawodów (art. 6 ust. 1 lit. f RODO); możesz wnieść sprzeciw wobec takiej publikacji (art. 21 RODO): napisz do Organizatora. Rozpowszechnianie Twojego wizerunku opiera się na zezwoleniu, którego udzielasz, akceptując to postanowienie regulaminu zawodów (art. 81 ust. 1 ustawy o prawie autorskim i prawach pokrewnych). Zezwolenia nie wymaga wizerunek, który jest jedynie szczegółem całości, np. tłumu uczestników lub publiczności (art. 81 ust. 2 pkt 2 tej ustawy). To zezwolenie nie jest zgodą w rozumieniu RODO.
 
@@ -78,8 +78,8 @@ Potwierdzając zapis kodem z e-maila, zakładasz konto w serwisie LESZY.RUN (alb
 
 1. **Archiwum wyników.** Obecna Polityka prywatności LESZY.RUN opiera bezterminowe archiwum wyników na uzasadnionym interesie LESZY.RUN jako administratora. W modelu powierzenia Organizator jest administratorem wyników z zawodów. Rozstrzygnąć, kto i na jakiej podstawie przechowuje wyniki po zawodach, i zapisać to tu, w umowie organizatora (§10 ust. 15 lit. d) i w Polityce prywatności tak samo.
 2. **Kontakt w nagłych wypadkach.** Czy art. 6 ust. 1 lit. f jest właściwą podstawą zbierania danych osoby trzeciej, czy wystarczy lit. b (część organizacji bezpiecznych zawodów)? Czy obowiązek informacyjny wobec tej osoby (art. 14) można spełnić przez zobowiązanie zapisującego do przekazania informacji, czy LESZY.RUN powinien wysłać jej SMS?
-3. **Status płatności na liście startowej.** Publiczne „czeka na wpłatę” przy imieniu i nazwisku ujawnia informację o zachowaniu płatniczym konkretnej osoby. Czy jest to niezbędne do wykonania umowy (zasada minimalizacji, art. 5 ust. 1 lit. c RODO)? Alternatywa: tylko liczby opłaconych i nieopłaconych zgłoszeń, bez przypisania do osoby.
-4. **Miejscowość osób niepełnoletnich na liście startowej.** Imię, nazwisko, miejscowość i godzina startu dziecka są publiczne przed zawodami. Rozważyć ukrywanie miejscowości dla osób niepełnoletnich.
+3. **Status płatności na liście startowej.** Przyjęto wariant ostrożny (decyzja P3-R14, wersja 2026-11-v3): zgłoszenia czekające na wpłatę są na liście publicznej tylko liczbą („+N czeka na wpłatę”), bez imienia i nazwiska; status osoby widzą tylko ona sama i Organizator. Użytkownik może tę decyzję złagodzić (pytanie otwarte Plan 4 Q3).
+4. **Miejscowość osób niepełnoletnich na liście startowej.** Przyjęto (P3-R14): miejscowość osoby, która w dniu zawodów nie ma 18 lat, nie jest publikowana. Skrót nazwiska pozostaje do rozważenia.
 5. **Okres 12 miesięcy** dla danych zgłoszenia — potwierdzić z Organizatorami i z terminami przedawnienia roszczeń z umowy o udział w zawodach (art. 118 KC).
 6. **Podstawa dla 16–17-latków.** Formularz traktuje każdą osobę poniżej 18 lat jako zapisywaną przez opiekuna, a Regulamin serwisu pozwala założyć konto od 16 lat. Ustalić, czy 16–17-latek może zapisać się sam (art. 17 i art. 20 KC — umowy w drobnych bieżących sprawach życia codziennego), czy zawsze przez opiekuna.
 7. **Zastępowanie treści przez Organizatora.** Jeżeli Organizator zastąpi tę informację własną, czy LESZY.RUN powinien wymuszać obecność sekcji o odbiorcach i o koncie LESZY.RUN?

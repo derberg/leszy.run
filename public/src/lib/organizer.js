@@ -25,6 +25,16 @@ export async function updateClubPayout(clubId, fields) {
   return (await callFunction('update-club-payout', { clubId, ...fields })).data
 }
 
+/** Owner: { mode, recipient, taxId, iban, title }. Admin: { mode, recipient, ibanMasked }. A member gets 403. */
+export async function getEventPayout(eventId) {
+  return (await callFunction('get-event-payout', { eventId })).data
+}
+
+/** Club owner only. fields = { mode: 'club'|'custom', recipient?, taxId?, iban?, title? } */
+export async function updateEventPayout(eventId, fields) {
+  return (await callFunction('update-event-payout', { eventId, ...fields })).data
+}
+
 // ---- Registration events (Plan 2) ----
 
 /** → [{ eventId, name, state, eventDate, taken, capacity, hasPending }], newest first. */
