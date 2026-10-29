@@ -15,12 +15,13 @@ import { logPaymentEvent, raiseAlert, settleConfirmOutcome } from '../_shared/re
 // times, 2^n minutes apart). So:
 //   OK       the IPN is decided and that decision is committed (confirm_order is one
 //            transaction), or there is nothing to decide (not a transfer, no such order:
-//            alerted once per transaction). A replay of a handled IPN gets OK again and
+//            alerted once per transaction; a non-transfer for one of our orders too). A replay of a handled IPN gets OK again and
 //            changes nothing: confirm_order answers already_confirmed / already_handled, and
 //            only the statement that moves an attempt created → paid can lead to an e-mail or
 //            a refund (ruling 8).
-//   INVALID  a body that is not a signed JSON object (400), or one over 8 KB (413). dpay will
-//            retry it; it stays invalid.
+//   INVALID  a body that is not a signed JSON object or has an empty id (400), or one over
+//            8 KB (413). dpay will retry it; it stays invalid. An unsigned body is logged
+//            trimmed to the documented fields (forgedPayload), never as sent.
 //   ERROR    we could not decide (503 unconfigured, 500 a database error): dpay retries.
 //
 // Every IPN that is not oversized is written to payment_events BEFORE any decision, with
@@ -62,6 +63,25 @@ async function readCapped(req, max) {
   let at = 0
   for (const c of chunks) { bytes.set(c, at); at += c.byteLength }
   return new TextDecoder().decode(bytes)
+}
+
+// What an unsigned body may leave in payment_events (kept 5 years): only the documented
+// IPN fields, each cut short, and how many other keys there were. A forged POST can
+// otherwise write 8 KB of any JSON, keys included, into the log.
+const IPN_FIELDS = ['id', 'amount', 'type', 'attempt', 'version', 'custom']
+const FORGED_FIELD_MAX = 100
+function forgedPayload(body) {
+  const out = {}
+  for (const key of IPN_FIELDS) {
+    const v = body[key]
+    if (v === undefined || v === null) continue
+    out[key] = typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'
+      ? String(v).slice(0, FORGED_FIELD_MAX)
+      : `[${Array.isArray(v) ? 'array' : typeof v}]`
+  }
+  const extraKeys = Object.keys(body).filter((k) => !IPN_FIELDS.includes(k) && k !== 'signature' && k !== 'email').length
+  if (extraKeys) out.extraKeys = extraKeys
+  return out
 }
 
 const scalarText = (v) => (typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : null)
@@ -114,32 +134,57 @@ Deno.serve(async (req) => {
     const custom = body?.custom
 
     // Which order and attempt the IPN names, only to link the log row; nothing is decided yet.
+    // A failed lookup still logs the delivery (without the link) before answering ERROR.
     let order = null
     let attemptId = null
+    let lookupFailed = false
     if (isUuid(custom)) {
-      const { data, error } = await admin.from('orders').select('id').eq('id', custom.toLowerCase()).maybeSingle()
-      if (error) throw error
-      order = data
-      if (order && txn) {
-        const { data: attempt, error: aErr } = await admin.from('payment_attempts').select('id')
-          .eq('order_id', order.id).eq('dpay_transaction_id', txn).maybeSingle()
-        if (aErr) throw aErr
-        attemptId = attempt?.id ?? null
+      try {
+        const { data, error } = await admin.from('orders').select('id').eq('id', custom.toLowerCase()).maybeSingle()
+        if (error) throw error
+        order = data
+        if (order && txn) {
+          const { data: attempt, error: aErr } = await admin.from('payment_attempts').select('id')
+            .eq('order_id', order.id).eq('dpay_transaction_id', txn).maybeSingle()
+          if (aErr) throw aErr
+          attemptId = attempt?.id ?? null
+        }
+      } catch (err) {
+        console.error('dpay-ipn: order lookup failed:', err?.message, err?.code)
+        lookupFailed = true
+        order = null
+        attemptId = null
       }
     }
 
-    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
+    const email = checksumOk && typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
+    let payload
+    if (!body) payload = { unparsable: true, bytes: encoder.encode(raw).byteLength }
+    else if (!checksumOk) payload = forgedPayload(body)
+    else payload = body
     await logPaymentEvent(admin, {
       kind: 'ipn',
       orderId: order?.id ?? null,
       attemptId,
-      payload: body ?? { unparsable: true, bytes: encoder.encode(raw).byteLength },
+      payload,
       emailSha256: email ? await sha256Hex(email) : null,
       checksumOk,
     })
 
     if (!body || !checksumOk) return INVALID()
-    if (body.type !== 'transfer') return OK()
+    // An empty transaction id would share one dedupe key with every other such IPN.
+    if (!txn) return INVALID()
+    if (lookupFailed) return ERROR()
+
+    // A signed IPN of another type: answered OK (nothing to confirm), but when it names one of
+    // our orders a person is told once, because money of an unexpected kind may sit with dpay.
+    if (body.type !== 'transfer') {
+      if (!order) return OK()
+      const stored = await raiseAlert(admin, 'unexpected_ipn_type', order.id, {
+        attemptId, txn, type: scalarText(body.type), amount: scalarText(body.amount), source: 'ipn',
+      }, { dedupeKey: `unexpected_ipn_type:${txn}` })
+      return stored ? OK() : ERROR()
+    }
 
     // Money received that names no order of ours: a person has to find it. One alert per
     // transaction however often dpay retries (the key confirm_order uses for the same case).
@@ -147,7 +192,7 @@ Deno.serve(async (req) => {
       const stored = await raiseAlert(admin, 'unknown_attempt', null, {
         txn, custom: scalarText(custom), amount: scalarText(body.amount), source: 'ipn',
         reason: isUuid(custom) ? 'no_such_order' : 'custom_not_an_order_id',
-      }, { dedupeKey: `unknown_attempt:${txn ?? ''}` })
+      }, { dedupeKey: `unknown_attempt:${txn}` })
       return stored ? OK() : ERROR()
     }
 

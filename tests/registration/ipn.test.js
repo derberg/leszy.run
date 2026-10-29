@@ -66,7 +66,11 @@ function signedIpn({ id, amount, custom, email, type = 'transfer', attempt = 1, 
   Object.assign(ipn, { type, attempt, version })
   if (custom !== undefined) ipn.custom = custom
   const s = (v) => (v === undefined || v === null ? '' : String(v))
-  const signature = sha256([s(id), MOCK_SECRET, s(amount), s(email), s(type), s(attempt), s(version), s(custom)].join(''))
+  // For type 'dcb' the email is left out of the formula (obsluga-ipn).
+  const parts = [s(id), MOCK_SECRET, s(amount)]
+  if (type !== 'dcb') parts.push(s(email))
+  parts.push(s(type), s(attempt), s(version), s(custom))
+  const signature = sha256(parts.join(''))
   return JSON.stringify({ ...ipn, signature })
 }
 
@@ -174,7 +178,7 @@ test('P-31 the IPN lands after expire_orders: the slot is re-claimed and the ord
   const cat = event.categoryIds[0]
   await dpayMode({ ipnDelayMs: 1500 })
   await payMock(txn, 'paid')
-  assert.equal(await expireNow(orderId), 1)
+  assert.ok(await expireNow(orderId) >= 1, 'expire_orders is global: other overdue orders may go with it')
   assert.equal((await orderOf(orderId)).status, 'expired')
   assert.equal((await competitionOf(cat)).taken, 0)
 
@@ -323,13 +327,80 @@ test('P-34 custom not a uuid, or an order that does not exist → OK, one alert 
   assert.ok(logged.every((e) => e.order_id === null && e.checksum_ok === true && e.email_sha256 === sha256(PAYER)))
 })
 
-test('P-34 a type other than transfer → logged, OK, nothing confirmed', async () => {
+test('P-34 a signed dcb IPN (email left out of the signature) and another type for our order → OK, checksum_ok, nothing confirmed, one unexpected_ipn_type alert per transaction', async () => {
   const { orderId, txn } = await pendingOrder({ tag: 'dcb' })
   const total = (await orderOf(orderId)).total
-  const r = await postIpn(signedIpn({ id: txn, amount: dpayValue(total), custom: orderId, type: 'refund' }))
-  assert.equal(r.text, 'OK')
+  const dcb = signedIpn({ id: txn, amount: dpayValue(total), custom: orderId, type: 'dcb', email: PAYER })
+  const answers = await Promise.all(Array.from({ length: 3 }, () => postIpn(dcb)))
+  assert.deepEqual(answers.map((r) => r.text), ['OK', 'OK', 'OK'])
+  const other = await postIpn(signedIpn({ id: txn, amount: dpayValue(total), custom: orderId, type: 'refund' }))
+  assert.equal(other.text, 'OK')
+
   assert.equal((await orderOf(orderId)).status, 'pending')
-  assert.equal((await ipnEventsOf(orderId)).length, 1)
+  assert.deepEqual((await rows('payment_attempts', { order_id: orderId })).map((x) => x.status), ['created'])
+  const events = await ipnEventsOf(orderId)
+  assert.equal(events.length, 4)
+  assert.ok(events.every((e) => e.checksum_ok === true), 'the dcb formula verifies')
+  const alerts = await alertsOf(orderId)
+  assert.deepEqual(alerts.map((a) => a.kind), ['unexpected_ipn_type'])
+  assert.equal(alerts[0].payload.type, 'dcb')
+  assert.equal(alerts[0].payload.txn, txn)
+})
+
+test('P-34 a type other than transfer that names no order of ours → OK, logged, no alert', async () => {
+  const txn = `TXN-${crypto.randomUUID()}`
+  const r = await postIpn(signedIpn({ id: txn, amount: '1.00', custom: crypto.randomUUID(), type: 'dcb' }))
+  assert.equal(r.text, 'OK')
+  const { data, error } = await db().from('operator_alerts').select('id').eq('payload->>txn', txn)
+  assert.ifError(error)
+  assert.equal(data.length, 0)
+})
+
+test('P-34 amount edge cases: comma or three decimals → amount_mismatch once; integer grosze read as złote → amount_mismatch; a JSON number equal to the total confirms', async () => {
+  const a = await pendingOrder({ tag: 'amtfmt' })
+  const total = (await orderOf(a.orderId)).total
+  const comma = dpayValue(total).replace('.', ',')
+  for (const amount of [comma, `${dpayValue(total)}5`, String(total)]) {
+    assert.equal((await postIpn(signedIpn({ id: a.txn, amount, custom: a.orderId, email: PAYER }))).text, 'OK', amount)
+  }
+  assert.equal((await orderOf(a.orderId)).status, 'pending')
+  assert.deepEqual((await rows('payment_attempts', { order_id: a.orderId })).map((x) => x.status), ['created'])
+  assert.deepEqual((await alertsOf(a.orderId)).map((x) => x.kind), ['amount_mismatch'], 'one alert for the transaction')
+
+  const b = await pendingOrder({ tag: 'amtnum', event: a.event })
+  const t = (await orderOf(b.orderId)).total
+  const asNumber = Number(dpayValue(t))
+  assert.equal(String(asNumber), dpayValue(t).replace(/\.?0+$/, ''), 'the number stringifies like dpay would')
+  const ipn = { id: b.txn, amount: asNumber, email: PAYER, type: 'transfer', attempt: 1, version: 1, custom: b.orderId }
+  const sig = sha256([b.txn, MOCK_SECRET, String(asNumber), PAYER, 'transfer', '1', '1', b.orderId].join(''))
+  assert.equal((await postIpn(JSON.stringify({ ...ipn, signature: sig }))).text, 'OK')
+  assert.equal((await orderOf(b.orderId)).status, 'paid')
+})
+
+test('P-32 a forged body is logged trimmed to the documented fields; a signed IPN with an empty id → INVALID', async () => {
+  const marker = crypto.randomUUID()
+  const forged = {
+    id: marker, amount: '1.00', type: 'transfer', attempt: 1, version: 1, custom: 'x'.repeat(500),
+    signature: 'f'.repeat(64), 'evil@attacker.example': 'k', note: 'a'.repeat(4000), nested: { deep: 1 },
+  }
+  const r = await postIpn(JSON.stringify(forged))
+  assert.equal(r.status, 400)
+  assert.equal(r.text, 'INVALID')
+  const { data, error } = await db().from('payment_events').select('payload, checksum_ok, email_sha256')
+    .eq('kind', 'ipn').eq('payload->>id', marker)
+  assert.ifError(error)
+  assert.equal(data.length, 1)
+  const [row] = data
+  assert.equal(row.checksum_ok, false)
+  assert.equal(row.email_sha256, null)
+  assert.deepEqual(Object.keys(row.payload).sort(), ['amount', 'attempt', 'custom', 'extraKeys', 'id', 'type', 'version'])
+  assert.equal(row.payload.custom.length, 100)
+  assert.equal(row.payload.extraKeys, 3)
+  assert.doesNotMatch(JSON.stringify(row.payload), /@/)
+
+  const empty = await postIpn(signedIpn({ id: '', amount: '1.00', custom: crypto.randomUUID(), email: PAYER }))
+  assert.equal(empty.status, 400)
+  assert.equal(empty.text, 'INVALID')
 })
 
 // ---------------------------------------------------------------- P-35 privacy, retries
@@ -438,3 +509,32 @@ test('P-35b refundHang → refunds.dpay_status unknown, no retry scheduled, an a
   assert.equal((await dpayRefunds()).length, 0)
   assert.deepEqual(subjects(await messagesTo(email)), ['Opłacone'])
 })
+
+/** A paid order whose second transaction is paid under `modes` → { orderId, email }. */
+async function doublePaidUnder(tag, modes) {
+  const { orderId, runner, email } = await pendingOrder({ tag })
+  assert.equal((await call('pay-order', { orderId }, runner)).status, 200)
+  const [first, second] = await dpayTransactions()
+  await payMock(first.id, 'paid')
+  await dpayMode(modes)
+  await payMock(second.id, 'paid')
+  assert.ok((await dpayIpns()).every((i) => i.responseText === 'OK'))
+  return { orderId, email }
+}
+
+for (const [label, modes, status] of [
+  ['refundPending (409)', { refundPending: true }, 'pending'],
+  ['refundRejected (400)', { refundRejected: true }, 'rejected'],
+  ['a 200 without the success body', { refundBodyOverride: { status: 'ok' } }, 'unknown'],
+]) {
+  test(`P-35b ${label} → refunds.dpay_status ${status}, no retry, an alert refund_${status}, no refund e-mail`, async () => {
+    const { orderId, email } = await doublePaidUnder(`ref${status}`, modes)
+    const [refund] = await rows('refunds', { order_id: orderId })
+    assert.equal(refund.dpay_status, status)
+    assert.equal(refund.next_retry_at, null)
+    assert.deepEqual((await alertsOf(orderId)).map((a) => a.kind).sort(), ['double_payment', `refund_${status}`])
+    assert.equal((await dpayRefunds()).length, 0)
+    await sleep(500)
+    assert.deepEqual(subjects(await messagesTo(email)), ['Opłacone'])
+  })
+}

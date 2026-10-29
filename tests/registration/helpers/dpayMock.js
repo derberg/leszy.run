@@ -64,6 +64,7 @@ const DEFAULT_MODE = {
   refundFails: false,
   refundInsufficient: false,
   refundPending: false,
+  refundRejected: false,
   refundBodyOverride: null,
   refundHang: false,
 }
@@ -237,6 +238,8 @@ export async function startDpayMock({ port = DPAY_MOCK_PORT, publicUrl = `http:/
     // 409: a refund form for this transaction was already submitted and is still being processed
     // (the official Node SDK lists 409 among the refund outcomes; the docs page does not describe it).
     if (mode.refundPending) return [409, { status: 'error', refund: false, message: 'Refund already in progress' }]
+    // Any other 4xx, here a refusal (400): the client reads it as rejected, final.
+    if (mode.refundRejected) return [400, { status: 'error', refund: false, message: 'Refund refused' }]
     if (mode.refundInsufficient) return [406, { status: 'error', refund: false, message: 'Insufficient balance to process the refund' }]
     const grosze = body.value === undefined ? remaining : toGrosze(body.value)
     if (grosze === null || grosze === 0) return [400, { status: 'error', refund: false, message: 'Invalid refund amount' }]
