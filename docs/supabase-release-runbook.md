@@ -178,7 +178,11 @@ The `registration-watchdog` pg_cron job (`20261030180000_registration_watchdog.s
 
 - `[ALERT] LeszyRun registration jobs stopped` once when a job's `last_ok_at` is older than
   3 × `interval_seconds` (one e-mail per outage, bookkept in `alerted_at`);
-- `[OK] LeszyRun registration jobs running again` once when it is fresh again.
+- `[OK] LeszyRun registration jobs running again` once when it is fresh again;
+- `[ALERT] LeszyRun registration watchdog failing` when the watchdog itself cannot check (the
+  heartbeats unreadable, no heartbeat rows, any internal error), at most once per error kind and
+  UTC hour (`operator_alerts.dedupe_key` `watchdog_error:<kind>:<hour>`, stored already e-mailed so
+  the digest skips it). It then answers 500. If even that row cannot be written, it mails anyway.
 
 It needs no dpay settings, and it keeps working while `PAID_REGISTRATION_ENABLED` is false,
 because the jobs still run and stamp their heartbeats then (P3-R16). A mail that could not be sent
