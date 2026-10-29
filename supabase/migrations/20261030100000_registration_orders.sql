@@ -9,11 +9,19 @@
 --   (plan 3 ruling 1).
 -- * payment_events: append-only log of every dpay request, IPN, status check
 --   and refund. The payer e-mail is stored only as email_sha256 (ruling 5).
+--   The payload must be an object with no `email` key at any depth, in any
+--   case, and the response text must hold no address (ruling P3-R2). Callers
+--   pass every payload through _shared/registration/redactDpay.js first; the
+--   checks are only the backstop.
 -- * refunds: one row per dpay refund call. Idempotency is ours: at most one
 --   automatic refund per payment attempt (ruling 8), message_id unique.
 -- * operator_alerts: things a person has to resolve (amount mismatch, an
 --   unknown refund outcome, ...).
--- * registration_settings gains the payment window and the per-event payout;
+-- * registration_settings gains the payment window (a public wizard field).
+-- * event_payout_details holds the per-event payout (recipient, NIP, IBAN, title)
+--   in its own table, never on registration_settings: get-registration-event
+--   returns the settings row whole to every club member (ruling P3-R1). Task 8
+--   reads it owner-only, admin masked, like club_payout_details.
 --   event_payout_history logs payout changes.
 -- * registrations.order_id gets its FK (plan 2 left it bare).
 -- * registration_support_fee / registration_payment_fee mirror money.js
@@ -67,13 +75,24 @@ GRANT  EXECUTE ON FUNCTION public.registration_payment_fee(integer)          TO 
 
 ALTER TABLE public.registration_settings
   ADD COLUMN payment_window_hours integer NOT NULL DEFAULT 168,
-  ADD COLUMN payout_mode          text    NOT NULL DEFAULT 'club',
-  ADD COLUMN payout_recipient     text,
-  ADD COLUMN payout_tax_id        text,
-  ADD COLUMN payout_iban          text,
-  ADD COLUMN payout_title         text,
-  ADD CONSTRAINT registration_settings_payment_window_hours_check CHECK (payment_window_hours BETWEEN 1 AND 336),
-  ADD CONSTRAINT registration_settings_payout_mode_check CHECK (payout_mode IN ('club', 'custom'));
+  ADD CONSTRAINT registration_settings_payment_window_hours_check CHECK (payment_window_hours BETWEEN 1 AND 336);
+
+-- ---------------------------------------------------------------- per-event payout
+
+-- 'club' pays out to club_payout_details; 'custom' to the recipient here. No row
+-- means 'club'. Personal data when the recipient is a person: owner-only reads.
+CREATE TABLE public.event_payout_details (
+  event_id         uuid PRIMARY KEY REFERENCES public.registration_settings(event_id) ON DELETE RESTRICT,
+  payout_mode      text NOT NULL DEFAULT 'club',
+  payout_recipient text,
+  payout_tax_id    text,
+  payout_iban      text,
+  payout_title     text,
+  updated_by       uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT event_payout_details_payout_mode_check CHECK (payout_mode IN ('club', 'custom'))
+);
+CREATE INDEX event_payout_details_updated_by_idx ON public.event_payout_details (updated_by);
 
 CREATE TABLE public.event_payout_history (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -115,19 +134,25 @@ CREATE TABLE public.orders (
   CONSTRAINT orders_support_choice_check CHECK (entry_total = 0 OR support_choice IS NOT NULL),
   CONSTRAINT orders_amounts_add_up_check
     CHECK (total = entry_total + extras_total + donation + support_fee + payment_fee),
+  -- A free order (total 0) is paid with no dpay transaction.
   CONSTRAINT orders_paid_check
-    CHECK (status <> 'paid' OR (paid_at IS NOT NULL AND paid_transaction_id IS NOT NULL))
+    CHECK (status <> 'paid' OR (paid_at IS NOT NULL AND (paid_transaction_id IS NOT NULL OR total = 0)))
 );
 CREATE INDEX orders_event_id_idx          ON public.orders (event_id);
 CREATE INDEX orders_buyer_profile_id_idx  ON public.orders (buyer_profile_id);
 CREATE INDEX orders_tier_id_idx           ON public.orders (tier_id);
 CREATE INDEX orders_status_expires_at_idx ON public.orders (status, expires_at);
+-- The "Zgłoszenie wygasło" notice scan; expired orders are kept for years.
+CREATE INDEX orders_expired_unnotified_idx ON public.orders (expires_at)
+  WHERE status = 'expired' AND expired_notified_at IS NULL;
 
 ALTER TABLE public.registrations
   ADD CONSTRAINT registrations_order_id_fkey
     FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE RESTRICT;
 
 -- extra_variant_id is a plain uuid: the extras tables come in a later plan.
+-- tier_label / tier_ends_on snapshot the price tier the amount came from
+-- (ruling P3-R3): repricing deletes price_tiers rows, and a dispute needs them.
 CREATE TABLE public.order_lines (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id         uuid NOT NULL REFERENCES public.orders(id) ON DELETE RESTRICT,
@@ -136,7 +161,10 @@ CREATE TABLE public.order_lines (
   extra_variant_id uuid,
   qty              integer NOT NULL DEFAULT 1 CHECK (qty >= 1),
   amount           integer NOT NULL CHECK (amount >= 0),
-  refunded         integer NOT NULL DEFAULT 0 CHECK (refunded BETWEEN 0 AND amount),
+  refunded         integer NOT NULL DEFAULT 0,
+  tier_label       text,
+  tier_ends_on     date,
+  CONSTRAINT order_lines_refunded_check CHECK (refunded BETWEEN 0 AND amount),
   CONSTRAINT order_lines_entry_registration_check CHECK (kind <> 'entry' OR registration_id IS NOT NULL)
 );
 CREATE INDEX order_lines_order_id_idx         ON public.order_lines (order_id);
@@ -169,8 +197,13 @@ CREATE TABLE public.payment_events (
   checksum_ok        boolean,
   response           text,
   received_at        timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT payment_events_no_plain_email_check
-    CHECK (jsonb_typeof(payload) <> 'object' OR NOT (payload ? 'email'))
+  CONSTRAINT payment_events_payload_object_check CHECK (jsonb_typeof(payload) = 'object'),
+  -- jsonb_path_exists (not the _tz variant) is immutable, so it may sit in a CHECK.
+  CONSTRAINT payment_events_no_plain_email_check CHECK (NOT jsonb_path_exists(payload,
+    'lax $.** ? (@.type() == "object").keyvalue() ? (@.key like_regex "^email$" flag "i")')),
+  CONSTRAINT payment_events_response_no_email_check CHECK (response IS NULL OR (
+    response !~* '"email"[[:space:]]*:'
+    AND response !~* '[^[:space:]@"]+@[^[:space:]@"]+\.[a-z]{2,}'))
 );
 CREATE INDEX payment_events_order_id_idx           ON public.payment_events (order_id);
 CREATE INDEX payment_events_payment_attempt_id_idx ON public.payment_events (payment_attempt_id);
@@ -202,6 +235,8 @@ CREATE INDEX refunds_order_id_idx           ON public.refunds (order_id);
 CREATE INDEX refunds_payment_attempt_id_idx ON public.refunds (payment_attempt_id);
 CREATE INDEX refunds_order_line_id_idx      ON public.refunds (order_line_id);
 CREATE INDEX refunds_requested_by_idx       ON public.refunds (requested_by);
+-- The 406 (insufficient_balance) retry job.
+CREATE INDEX refunds_next_retry_at_idx      ON public.refunds (next_retry_at) WHERE next_retry_at IS NOT NULL;
 
 CREATE TABLE public.operator_alerts (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -212,6 +247,8 @@ CREATE TABLE public.operator_alerts (
   emailed_at timestamptz
 );
 CREATE INDEX operator_alerts_order_id_idx ON public.operator_alerts (order_id);
+-- The alert mailer.
+CREATE INDEX operator_alerts_unsent_idx   ON public.operator_alerts (created_at) WHERE emailed_at IS NULL;
 
 -- ---------------------------------------------------------------- lockdown
 
@@ -224,6 +261,7 @@ ALTER TABLE public.payment_events       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.refunds              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.operator_alerts      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.event_payout_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.event_payout_details ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.orders               FROM anon, authenticated;
 REVOKE ALL ON public.order_lines          FROM anon, authenticated;
 REVOKE ALL ON public.payment_attempts     FROM anon, authenticated;
@@ -231,3 +269,4 @@ REVOKE ALL ON public.payment_events       FROM anon, authenticated;
 REVOKE ALL ON public.refunds              FROM anon, authenticated;
 REVOKE ALL ON public.operator_alerts      FROM anon, authenticated;
 REVOKE ALL ON public.event_payout_history FROM anon, authenticated;
+REVOKE ALL ON public.event_payout_details FROM anon, authenticated;

@@ -10,6 +10,7 @@ import postgres from 'postgres'
 import { createClient } from '@supabase/supabase-js'
 import { localEnv, admin, authenticatedClient } from './helpers/stack.js'
 import { paymentFee, supportFee } from '../../supabase/functions/_shared/registration/money.js'
+import { redactDpay } from '../../supabase/functions/_shared/registration/redactDpay.js'
 
 const ZT_CLUB = '00000000-0000-4000-8000-0000000000c1'
 
@@ -21,6 +22,7 @@ const NEW_TABLES = [
   'refunds',
   'operator_alerts',
   'event_payout_history',
+  'event_payout_details',
 ]
 
 const NEW_FUNCTIONS = [
@@ -78,9 +80,11 @@ function orderRow(eventId, overrides = {}) {
   }
 }
 
-async function expectCode(promise, code, what) {
+/** Rejects with `code`; when `constraint` is given, it must be the constraint that fired. */
+async function expectCode(promise, code, what, constraint) {
   await assert.rejects(promise, (err) => {
     assert.equal(err.code, code, `${what}: expected ${code}, got ${err.code} ${err.message}`)
+    if (constraint) assert.equal(err.constraint_name, constraint, `${what}: fired ${err.constraint_name}`)
     return true
   }, what)
 }
@@ -93,7 +97,7 @@ test('P-10 anon and authenticated cannot select or insert into any new order tab
       const read = await client.from(table).select('*').limit(1)
       assert.ok(read.error, `${who} read ${table} (data: ${JSON.stringify(read.data)})`)
       assert.match(read.error.message, /permission denied/, `${who} ${table}: ${read.error.message}`)
-      const write = await client.from(table).insert({ id: crypto.randomUUID() })
+      const write = await client.from(table).insert({})
       assert.ok(write.error, `${who} inserted into ${table}`)
       assert.match(write.error.message, /permission denied/, `${who} insert ${table}: ${write.error.message}`)
     }
@@ -166,7 +170,7 @@ test('P-11 the SQL fee functions refuse what money.js refuses: null choice, nega
 test('P-12 an order with entry fees and no support choice is refused; a free order needs none', async () => {
   const sql = db()
   const { event } = await seedEvent()
-  await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { support_choice: null }))}`, '23514', 'entry 6000, choice null')
+  await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { support_choice: null }))}`, '23514', 'entry 6000, choice null', 'orders_support_choice_check')
   const [free] = await db()`insert into public.orders ${sql(orderRow(event.id, { entry_total: 0, support_choice: null }))} returning status, support_choice`
   assert.deepEqual({ ...free }, { status: 'pending', support_choice: null })
   const [paid] = await db()`insert into public.orders ${sql(orderRow(event.id, { support_choice: true }))} returning support_fee, total`
@@ -176,12 +180,27 @@ test('P-12 an order with entry fees and no support choice is refused; a free ord
 test('P-12 order amounts: negative refused, total must add up, unknown status refused, paid needs paid_at and a transaction', async () => {
   const sql = db()
   const { event } = await seedEvent()
-  for (const col of ['entry_total', 'extras_total', 'donation', 'support_fee', 'payment_fee', 'total']) {
-    await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { [col]: -1 }))}`, '23514', `${col} -1`)
+  // Each negative row still adds up (total adjusted by the same -1 - base), so only the
+  // column's own >= 0 check can refuse it.
+  const base = orderRow(event.id)
+  for (const col of ['entry_total', 'extras_total', 'donation', 'support_fee', 'payment_fee']) {
+    const row = { ...base, [col]: -1, total: base.total - base[col] - 1 }
+    await expectCode(sql`insert into public.orders ${sql(row)}`, '23514', `${col} -1`, `orders_${col}_check`)
   }
-  await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { total: 1 }))}`, '23514', 'total that does not add up')
-  await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { status: 'refunded' }))}`, '23514', 'status refunded')
-  await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { status: 'paid' }))}`, '23514', 'paid without paid_at')
+  // A negative total cannot add up from non-negative parts, so it trips either check.
+  await assert.rejects(sql`insert into public.orders ${sql({ ...base, total: -1 })}`, (err) =>
+    err.code === '23514' && ['orders_total_check', 'orders_amounts_add_up_check'].includes(err.constraint_name))
+  await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { total: 1 }))}`, '23514', 'total that does not add up', 'orders_amounts_add_up_check')
+  await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { status: 'refunded' }))}`, '23514', 'status refunded', 'orders_status_check')
+  await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { status: 'paid' }))}`, '23514', 'paid without paid_at', 'orders_paid_check')
+  await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { status: 'paid', paid_at: new Date().toISOString() }))}`,
+    '23514', 'paid, total > 0, no transaction', 'orders_paid_check')
+  // C1: a free order (total 0) is paid with no dpay transaction at all.
+  const free = orderRow(event.id, { entry_total: 0, support_choice: null, status: 'paid', paid_at: new Date().toISOString() })
+  assert.equal(free.total, 0)
+  const [paidFree] = await sql`insert into public.orders ${sql(free)} returning status, paid_transaction_id`
+  assert.deepEqual({ ...paidFree }, { status: 'paid', paid_transaction_id: null })
+  await expectCode(sql`insert into public.orders ${sql({ ...free, paid_at: null })}`, '23514', 'free paid order without paid_at', 'orders_paid_check')
   const { expires_at, ...noExpiry } = orderRow(event.id)
   await expectCode(sql`insert into public.orders ${sql(noExpiry)}`, '23502', 'no expires_at')
   const txn = `T${crypto.randomUUID().slice(0, 12)}`
@@ -194,31 +213,49 @@ test('P-12 order_lines: refunded above amount, negative or an entry without a re
   const { event } = await seedEvent()
   const [order] = await db()`insert into public.orders ${sql(orderRow(event.id))} returning id`
   const line = { order_id: order.id, kind: 'donation', amount: 2000 }
-  await expectCode(sql`insert into public.order_lines ${sql({ ...line, refunded: 2001 })}`, '23514', 'refunded > amount')
-  await expectCode(sql`insert into public.order_lines ${sql({ ...line, refunded: -1 })}`, '23514', 'refunded < 0')
-  await expectCode(sql`insert into public.order_lines ${sql({ ...line, amount: -1 })}`, '23514', 'amount < 0')
+  await expectCode(sql`insert into public.order_lines ${sql({ ...line, refunded: 2001 })}`, '23514', 'refunded > amount', 'order_lines_refunded_check')
+  await expectCode(sql`insert into public.order_lines ${sql({ ...line, refunded: -1 })}`, '23514', 'refunded < 0', 'order_lines_refunded_check')
+  await expectCode(sql`insert into public.order_lines ${sql({ ...line, amount: -1 })}`, '23514', 'amount < 0', 'order_lines_amount_check')
   await expectCode(sql`insert into public.order_lines ${sql({ ...line, kind: 'tip' })}`, '23514', 'kind tip')
   await expectCode(sql`insert into public.order_lines ${sql({ ...line, qty: 0 })}`, '23514', 'qty 0')
   await expectCode(sql`insert into public.order_lines ${sql({ ...line, kind: 'entry' })}`, '23514', 'entry without registration')
-  const [ok] = await db()`insert into public.order_lines ${sql({ ...line, refunded: 2000 })} returning qty, refunded`
-  assert.deepEqual({ ...ok }, { qty: 1, refunded: 2000 })
+  const [ok] = await db()`insert into public.order_lines ${sql({ ...line, refunded: 2000 })} returning qty, refunded, tier_label, tier_ends_on`
+  assert.deepEqual({ ...ok }, { qty: 1, refunded: 2000, tier_label: null, tier_ends_on: null })
   await expectCode(sql`update public.order_lines set refunded = amount + 1 where order_id = ${order.id}`, '23514', 'update refunded > amount')
 })
 
-test('P-12 payment_window_hours: default 168, 1 and 336 accepted, 0 and 337 refused; payout_mode club|custom', async () => {
+test('P-12 payment_window_hours: default 168, 1 and 336 accepted, 0, 337 and null refused', async () => {
   const sql = db()
   const { event, settings } = await seedEvent()
   assert.equal(settings.payment_window_hours, 168)
-  assert.equal(settings.payout_mode, 'club')
   for (const h of [1, 24, 336]) {
-    await db()`update public.registration_settings set payment_window_hours = ${h} where event_id = ${event.id}`
+    await sql`update public.registration_settings set payment_window_hours = ${h} where event_id = ${event.id}`
   }
-  await expectCode(sql`update public.registration_settings set payment_window_hours = 337 where event_id = ${event.id}`, '23514', '337 h')
-  await expectCode(sql`update public.registration_settings set payment_window_hours = 0 where event_id = ${event.id}`, '23514', '0 h')
+  await expectCode(sql`update public.registration_settings set payment_window_hours = 337 where event_id = ${event.id}`, '23514', '337 h', 'registration_settings_payment_window_hours_check')
+  await expectCode(sql`update public.registration_settings set payment_window_hours = 0 where event_id = ${event.id}`, '23514', '0 h', 'registration_settings_payment_window_hours_check')
   await expectCode(sql`update public.registration_settings set payment_window_hours = null where event_id = ${event.id}`, '23502', 'null h')
-  await expectCode(sql`update public.registration_settings set payout_mode = 'bank' where event_id = ${event.id}`, '23514', 'payout_mode bank')
-  await db()`update public.registration_settings set payout_mode = 'custom', payout_recipient = 'Fundacja X',
+})
+
+// Ruling P3-R1: the per-event payout (IBAN, NIP, recipient) never sits on registration_settings,
+// which get-registration-event returns whole to every club member.
+test('P-12 per-event payout lives in event_payout_details, not on registration_settings', async () => {
+  const sql = db()
+  const cols = await sql`
+    select column_name from information_schema.columns
+     where table_schema = 'public' and table_name = 'registration_settings' and column_name like 'payout%'`
+  assert.deepEqual(cols.map((r) => r.column_name), [])
+
+  const { event } = await seedEvent()
+  const [row] = await sql`insert into public.event_payout_details ${sql({ event_id: event.id })} returning payout_mode, payout_iban, updated_at`
+  assert.equal(row.payout_mode, 'club')
+  assert.equal(row.payout_iban, null)
+  assert.ok(row.updated_at)
+  await expectCode(sql`insert into public.event_payout_details ${sql({ event_id: event.id })}`, '23505', 'second payout row for one event')
+  await expectCode(sql`update public.event_payout_details set payout_mode = 'bank' where event_id = ${event.id}`, '23514', 'payout_mode bank', 'event_payout_details_payout_mode_check')
+  await expectCode(sql`update public.event_payout_details set payout_mode = null where event_id = ${event.id}`, '23502', 'payout_mode null')
+  await sql`update public.event_payout_details set payout_mode = 'custom', payout_recipient = 'Fundacja X',
     payout_tax_id = '5260250995', payout_iban = 'PL61109010140000071219812874', payout_title = 'Zbiórka' where event_id = ${event.id}`
+  await expectCode(sql`insert into public.event_payout_details ${sql({ event_id: crypto.randomUUID() })}`, '23503', 'payout for no event')
 })
 
 test('P-12 payment attempts, events and refunds: their checks, and one automatic refund per attempt', async () => {
@@ -232,7 +269,19 @@ test('P-12 payment attempts, events and refunds: their checks, and one automatic
   await expectCode(sql`insert into public.payment_attempts ${sql({ order_id: order.id, dpay_transaction_id: `${txn}b`, grosze: order.total, status: 'expired' })}`, '23514', 'attempt status expired')
 
   // Ruling 5: the payer e-mail is never stored in plaintext.
-  await expectCode(sql`insert into public.payment_events ${sql({ order_id: order.id, kind: 'ipn', payload: sql.json({ id: txn, email: 'a@b.pl' }) })}`, '23514', 'payload with email')
+  const ev = (payload, extra = {}) => sql`insert into public.payment_events ${sql({ order_id: order.id, kind: 'ipn', payload: sql.json(payload), ...extra })}`
+  await expectCode(ev({ id: txn, email: 'a@b.pl' }), '23514', 'payload with email', 'payment_events_no_plain_email_check')
+  // Ruling P3-R2: any depth, any case, and the payload must be an object.
+  await expectCode(ev({ id: txn, body: { payer: { Email: 'a@b.pl' } } }), '23514', 'nested Email key', 'payment_events_no_plain_email_check')
+  await expectCode(ev({ list: [{ EMAIL: 'a@b.pl' }] }), '23514', 'EMAIL inside an array', 'payment_events_no_plain_email_check')
+  await expectCode(ev('{"id":"x","email":"a@b.pl"}'), '23514', 'a raw string payload', 'payment_events_payload_object_check')
+  await expectCode(ev([{ id: txn }]), '23514', 'an array payload', 'payment_events_payload_object_check')
+  await expectCode(ev({ id: txn }, { response: '{"email":"a@b.pl"}' }), '23514', 'response with an email', 'payment_events_response_no_email_check')
+  await expectCode(ev({ id: txn }, { response: 'paid by a@b.pl' }), '23514', 'response with an address', 'payment_events_response_no_email_check')
+  // A key that merely contains the word is not refused: email_sha256 lives in its own column anyway.
+  await ev({ id: txn, emailVerified: true }, { response: '{"status":true,"msg":"https://secure.dpay.pl/x"}' })
+  // What redactDpay leaves is always accepted.
+  await ev(redactDpay({ id: txn, body: { payer: { Email: 'a@b.pl', note: 'from a@b.pl' } }, list: [{ email: 'x@y.pl' }] }))
   await expectCode(sql`insert into public.payment_events ${sql({ order_id: order.id, kind: 'webhook', payload: sql.json({}) })}`, '23514', 'kind webhook')
   await expectCode(sql`insert into public.payment_events ${sql({ order_id: order.id, kind: 'ipn', payload: sql.json({}), email_sha256: 'a@b.pl' })}`, '23514', 'email_sha256 not a digest')
   const sha = crypto.createHash('sha256').update('a@b.pl').digest('hex')
@@ -289,4 +338,30 @@ test('P-12 every foreign key on the new tables is indexed, and orders (status, e
     select count(*)::int as n from pg_indexes
      where schemaname = 'public' and tablename = 'orders' and indexdef like '%(status, expires_at)%'`
   assert.equal(idx.n, 1)
+})
+
+test('P-12 the job scans have partial indexes: expired-notice, refund retry, unsent alerts', async () => {
+  const rows = await db()`
+    select tablename, indexdef from pg_indexes
+     where schemaname = 'public' and tablename in ('orders', 'refunds', 'operator_alerts') and indexdef like '% WHERE %'`
+  const has = (table, ...parts) => rows.some((r) => r.tablename === table && parts.every((p) => r.indexdef.includes(p)))
+  assert.ok(has('orders', 'expired_notified_at IS NULL', "'expired'"), 'orders expired-notice index')
+  assert.ok(has('refunds', '(next_retry_at)', 'next_retry_at IS NOT NULL'), 'refunds next_retry_at index')
+  assert.ok(has('operator_alerts', 'emailed_at IS NULL'), 'operator_alerts unsent index')
+})
+
+// Ruling P3-R3: an order line keeps the tier its price came from, since price_tiers rows are
+// deleted on repricing (orders.tier_id is ON DELETE SET NULL).
+test('P-12 order lines snapshot the tier label and end date; the line survives the tier', async () => {
+  const sql = db()
+  const { event } = await seedEvent()
+  const [tier] = await sql`insert into public.price_tiers ${sql({ event_id: event.id, ends_on: '2026-11-30', sort_order: 0 })} returning id`
+  const [order] = await sql`insert into public.orders ${sql(orderRow(event.id, { tier_id: tier.id }))} returning id`
+  const [line] = await sql`insert into public.order_lines ${sql({ order_id: order.id, kind: 'donation', amount: 6000, tier_label: 'Do 30 listopada', tier_ends_on: '2026-11-30' })}
+    returning id, tier_label, to_char(tier_ends_on, 'YYYY-MM-DD') as tier_ends_on`
+  assert.deepEqual({ tier_label: line.tier_label, tier_ends_on: line.tier_ends_on }, { tier_label: 'Do 30 listopada', tier_ends_on: '2026-11-30' })
+  await sql`delete from public.price_tiers where id = ${tier.id}`
+  const [after] = await sql`select o.tier_id, l.tier_label, to_char(l.tier_ends_on, 'YYYY-MM-DD') as tier_ends_on
+    from public.orders o join public.order_lines l on l.order_id = o.id where l.id = ${line.id}`
+  assert.deepEqual({ ...after }, { tier_id: null, tier_label: 'Do 30 listopada', tier_ends_on: '2026-11-30' })
 })
