@@ -376,7 +376,8 @@ test('P-16 create_order and the other order RPCs are callable by service_role on
        where n.nspname = 'public' and p.proname in ('create_order', 'add_payment_attempt', 'confirm_order',
          'expire_orders', 'cancel_order', 'record_refund', 'settle_refund', 'insert_registration_participant',
          'registration_slot_units', 'register_free')`
-    assert.equal(fns.length, 10, fns.map((f) => f.sig).join())
+    // Plan 4 (G-16): register_free and create_order each have a group overload beside the old signature.
+    assert.equal(fns.length, 12, fns.map((f) => f.sig).join())
     for (const f of fns) {
       assert.equal(f.prosecdef, true, `${f.sig} security definer`)
       assert.deepEqual(f.proconfig, ['search_path=""'], `${f.sig} search_path`)
