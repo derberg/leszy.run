@@ -5,7 +5,7 @@ import MetaLine from './MetaLine.jsx'
 
 // One registered person on RA5 (Zamowienie for a paid order, Zapisano for a free one): the
 // name, competition · group · start, and in a group the regulamin tag of RB4 („✓ REGULAMIN” /
-// „✓ OPIEKUN” / „CZEKA NA ZGODĘ”; none on the viewer's own row). An added adult still awaiting
+// „✓ OPIEKUN” / „CZEKA NA ZGODĘ”). An added adult still awaiting
 // gets „Wyślij przypomnienie →” in their row (remind-consent: a new link, the old one stops
 // working; 3 per registration per 24 h). After a send the control stays off for the page's
 // life: a second click would spend another of the 3 and kill the link just sent. A 409 means

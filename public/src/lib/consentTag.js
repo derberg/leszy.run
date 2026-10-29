@@ -5,11 +5,10 @@
 // `role` and `consentState` come from order-status lines and my-event-registrations rows.
 
 /**
- * The viewer's own row (`mine`) carries no tag: the tags tell the payer about the others.
- * @param {{ role?: string, consentState?: string, mine?: boolean }} p → { kind, label, srLabel } | null
+ * Every person of a group carries a tag, the payer's own row too (RB4).
+ * @param {{ role?: string, consentState?: string }} p → { kind, label, srLabel } | null
  */
-export function consentTag({ role, consentState, mine } = {}) {
-  if (mine === true) return null
+export function consentTag({ role, consentState } = {}) {
   if (role === 'minor') return { kind: 'guardian', label: '✓ OPIEKUN', srLabel: 'zgoda opiekuna' }
   if (consentState === 'awaiting') return { kind: 'awaiting', label: 'CZEKA NA ZGODĘ', srLabel: 'czeka na zgodę na regulamin' }
   if (consentState === 'accepted' || consentState === 'office') return { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' }

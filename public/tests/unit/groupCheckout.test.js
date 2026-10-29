@@ -163,9 +163,8 @@ describe('G-46 fix round 1: RA5', () => {
     assert.equal(consentTag({ role: 'adult', consentState: 'awaiting' }).srLabel, 'czeka na zgodę na regulamin')
   })
 
-  it('N-4: no tag on the viewer\'s own row; a page of only the viewer\'s own rows shows none', () => {
-    assert.equal(consentTag({ role: 'self', consentState: 'accepted', mine: true }), null)
-    assert.equal(consentTag({ role: 'adult', consentState: 'accepted', mine: true }), null)
+  it('N-4 (ruled): the payer\'s own row keeps its tag (RB4); only an added adult whose list holds just their own row sees none', () => {
+    assert.equal(consentTag({ role: 'self', consentState: 'accepted', mine: true }).label, '✓ REGULAMIN')
     assert.equal(showsConsentTags([{ role: 'adult', consentState: 'accepted', mine: true }]), false)
     assert.equal(showsConsentTags([{ role: 'self', mine: true }, { role: 'adult', mine: false }]), true)
   })

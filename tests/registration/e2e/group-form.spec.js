@@ -323,8 +323,8 @@ for (const [mode, width] of [['free', 390], ['free', 1440], ['paid', 390], ['pai
       person = (name) => page.getByTestId('order-person').filter({ hasText: name })
     }
 
-    // The viewer's own row carries no tag (N-4); the others do, with a spoken meaning (N-5).
-    await expect(person('Ola Leśna').getByTestId('consent-tag')).toHaveCount(0)
+    // Every person of the group carries a tag, the payer's own row too (RB4), with a spoken meaning (N-5).
+    await expect(person('Ola Leśna').getByTestId('consent-tag')).toHaveText('✓ REGULAMINregulamin zaakceptowany')
     await expect(person('Piotr Leśny').getByTestId('consent-tag')).toHaveText('CZEKA NA ZGODĘczeka na zgodę na regulamin')
     await expect(person('Zosia Leśna').getByTestId('consent-tag')).toHaveText('✓ OPIEKUNzgoda opiekuna')
     // The child is shown by her kids' group, as the form showed her (ruling).
