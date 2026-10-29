@@ -1,7 +1,6 @@
 import cron from 'node-cron';
 import { runPipeline } from './pipeline.js';
 import { runWatchdog } from './watchdog.js';
-import { runRegistrationWatchdog } from './registrationWatchdog.js';
 import { purgeRfidLogs } from './jobs/purgeRfidLogs.js';
 import { purgeVisionEvidence } from './jobs/purgeVisionEvidence.js';
 import { runPurgeAuthTables, runWeeklyDigest } from './notifications.js';
@@ -13,14 +12,10 @@ const PURGE_RFID_CRON = process.env.PURGE_RFID_CRON || '0 3 * * *';
 const DIGEST_CRON = process.env.DIGEST_CRON || '0 9 * * 1';       // Monday 09:00
 const PURGE_AUTH_CRON = process.env.PURGE_AUTH_CRON || '40 3 * * *';   // daily 03:40, after the RFID purge
 const PURGE_VISION_CRON = process.env.PURGE_VISION_CRON || '20 3 * * *'; // daily 03:20, between the RFID and auth purges
-// The payment jobs' heartbeats in Supabase (registrationWatchdog.js). 15 minutes: the shortest
-// job runs every 5, so an outage is noticed within half an hour of its 3-interval threshold.
-const REGISTRATION_WATCHDOG_CRON = process.env.REGISTRATION_WATCHDOG_CRON || '7-59/15 * * * *';
 
 let pipelineRunning = false;
 let watchdogRunning = false;
 let digestRunning = false;
-let registrationWatchdogRunning = false;
 
 cron.schedule(
   PIPELINE_CRON,
@@ -56,23 +51,6 @@ cron.schedule(
       console.error(`[cron] watchdog threw:`, err);
     } finally {
       watchdogRunning = false;
-    }
-  },
-  { timezone: TZ }
-);
-
-cron.schedule(
-  REGISTRATION_WATCHDOG_CRON,
-  async () => {
-    if (registrationWatchdogRunning) return;
-    registrationWatchdogRunning = true;
-    try {
-      const result = await runRegistrationWatchdog();
-      if (result.alerted) console.log(`[cron] registration-watchdog alerted:`, JSON.stringify(result));
-    } catch (err) {
-      console.error(`[cron] registration-watchdog threw:`, err);
-    } finally {
-      registrationWatchdogRunning = false;
     }
   },
   { timezone: TZ }
@@ -157,8 +135,7 @@ cron.schedule(
 
 console.log(
   `[scheduler] up. pipeline="${PIPELINE_CRON}" watchdog="${WATCHDOG_CRON}" purge="${PURGE_RFID_CRON}" ` +
-  `digest="${DIGEST_CRON}" purge-auth="${PURGE_AUTH_CRON}" purge-vision="${PURGE_VISION_CRON}" ` +
-  `registration-watchdog="${REGISTRATION_WATCHDOG_CRON}" tz=${TZ} ` +
+  `digest="${DIGEST_CRON}" purge-auth="${PURGE_AUTH_CRON}" purge-vision="${PURGE_VISION_CRON}" tz=${TZ} ` +
   `now=${new Date().toLocaleString('sv-SE', { timeZone: TZ })}`
 );
 

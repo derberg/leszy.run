@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "pipeline": "node src/run-pipeline.js",
-    "watchdog": "node src/run-watchdog.js",
-    "test": "node --test test/*.test.js"
+    "watchdog": "node src/run-watchdog.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.4",
