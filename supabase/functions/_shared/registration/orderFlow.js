@@ -7,7 +7,7 @@
 // payment_events insert is reported to the console (no payload) and as an operator alert.
 // Every payload goes through redactDpay first, because the database refuses an `email`
 // key at any depth and an address anywhere in the response text.
-import { refundTransaction } from '../dpay.js'
+import { refundTransaction, transactionDetails } from '../dpay.js'
 import { sendEmail } from '../email.js'
 import { redactDpay } from './redactDpay.js'
 import { orderConfirmationEmail, paymentRefundedEmail } from './emails.js'
@@ -133,7 +133,8 @@ function orderPageUrl(orderId) {
   return base ? `${base}/zamowienie/${encodeURIComponent(orderId)}` : null
 }
 
-function emailArgs(view) {
+/** The arguments every order e-mail builder takes, from loadOrderView's result. */
+export function orderEmailArgs(view) {
   const { order, settings, club, lines } = view
   return {
     event: {
@@ -158,15 +159,38 @@ function emailArgs(view) {
   }
 }
 
-/** The payment confirmation to the buyer. Best effort: never throws. */
-export async function sendOrderConfirmation(admin, orderId) {
+/**
+ * The payment confirmation to the buyer, at most once (P3-R10). Best effort: never throws.
+ * Claim, then send: orders.confirmation_sent_at is stamped by one UPDATE … WHERE it is null
+ * before the e-mail goes out, and a second caller that finds it stamped sends nothing.
+ * A send that fails here gives the claim back, so registration-jobs sends it 10 minutes after
+ * payment; if this function dies between the claim and the send, nothing is resent (at most
+ * once beats twice). `claimed: true` is the job, which claimed already: a failure there is
+ * alerted, never resent.
+ */
+export async function sendOrderConfirmation(admin, orderId, { claimed = false } = {}) {
+  let mine = claimed
   try {
+    if (!claimed) {
+      const { data, error } = await admin.from('orders').update({ confirmation_sent_at: new Date().toISOString() })
+        .eq('id', orderId).is('confirmation_sent_at', null).select('id')
+      if (error) throw error
+      if (!data?.length) return false
+      mine = true
+    }
     const view = await loadOrderView(admin, orderId)
     if (!view?.order.buyer_email) return false
-    await sendEmail({ to: view.order.buyer_email, ...orderConfirmationEmail(emailArgs(view)) })
+    const res = await sendEmail({ to: view.order.buyer_email, ...orderConfirmationEmail(orderEmailArgs(view)) })
+    if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
     return true
   } catch (err) {
     console.error('order confirmation email failed:', err?.message)
+    if (claimed) {
+      await raiseAlert(admin, 'confirmation_email_failed', orderId, { error: String(err?.message ?? err) })
+    } else if (mine) {
+      const { error } = await admin.from('orders').update({ confirmation_sent_at: null }).eq('id', orderId)
+      if (error) console.error('confirmation claim not released:', error.message)
+    }
     return false
   }
 }
@@ -175,7 +199,7 @@ async function sendRefundNotice(admin, orderId, grosze, reason) {
   try {
     const view = await loadOrderView(admin, orderId)
     if (!view?.order.buyer_email) return
-    const args = emailArgs(view)
+    const args = orderEmailArgs(view)
     const build = (r) => paymentRefundedEmail({ event: args.event, order: args.order, amount: grosze, reason: r })
     let mail
     try { mail = build(reason) } catch { mail = build('late') } // a reason the e-mail has no sentence for
@@ -212,34 +236,118 @@ export async function settleConfirmOutcome(admin, cfg, outcome) {
   }
   if ((kind !== 'double_payment' && kind !== 'late_refund') || !refund) return {}
 
+  // P3-R10: claim the call. Of two callers holding the same refund (a crash replay, a second
+  // isolate), only the one whose UPDATE stamps requested_at calls dpay.
+  try {
+    if (!(await claimRefundRequest(admin, refund.refundId))) return { refund: 'already_requested' }
+  } catch (err) {
+    console.error('refund claim failed:', err?.message)
+    await raiseAlert(admin, 'refund_claim_failed', orderId, { refundId: refund.refundId, error: String(err?.message ?? err) })
+    return { refund: 'not_requested' }
+  }
+  const sent = await executeRefund(admin, cfg, {
+    orderId, txn, refundId: refund.refundId, messageId: refund.messageId, attemptId: refund.attemptId ?? null,
+    grosze: refund.grosze, reason: refund.reason,
+  })
+  return { refund: sent }
+}
+
+/**
+ * P3-R10: stamps refunds.requested_at for one refund → true when this caller stamped it (and so
+ * may call dpay), false when it was stamped already. Throws on a database error.
+ */
+export async function claimRefundRequest(admin, refundId) {
+  const { data, error } = await admin.from('refunds').update({ requested_at: new Date().toISOString() })
+    .eq('id', refundId).is('requested_at', null).select('id')
+  if (error) throw error
+  return Boolean(data?.length)
+}
+
+/**
+ * One dpay refund call for a refund this caller has CLAIMED (claimRefundRequest, or the retry
+ * job's claim_refund_retries), then its log row, settle_refund, and the follow-up: the refund
+ * e-mail when dpay accepted, an operator alert for an outcome nobody may retry automatically
+ * (rejected, pending, unknown). insufficient_balance is left to the retry job.
+ * `grosze` is sent as the refund value only with `partial: true`; otherwise dpay refunds what is
+ * left of the transaction (an automatic refund is always the whole payment).
+ * → the outcome string. Never throws.
+ */
+export async function executeRefund(admin, cfg, { orderId, txn, refundId, messageId, attemptId = null, grosze, reason, partial = false, source = null }) {
   let result
   try {
-    result = await refundTransaction(cfg, { transactionId: txn, messageId: refund.messageId })
+    result = await refundTransaction(cfg, { transactionId: txn, messageId, ...(partial ? { grosze } : {}) })
   } catch (err) {
     result = { outcome: 'unknown', httpStatus: null, message: String(err?.message ?? err) }
   }
   await logPaymentEvent(admin, {
     kind: 'refund',
     orderId,
-    attemptId: refund.attemptId ?? null,
+    attemptId,
     payload: {
-      refundId: refund.refundId, reason: refund.reason, grosze: refund.grosze, txn,
+      refundId, reason, grosze, txn, ...(source ? { source } : {}),
       outcome: result.outcome, httpStatus: result.httpStatus, message: result.message,
     },
   })
+  let settled = null
   try {
-    const { error } = await admin.rpc('settle_refund', { p_refund_id: refund.refundId, p_outcome: SETTLED.has(result.outcome) ? result.outcome : 'unknown' })
+    const { data, error } = await admin.rpc('settle_refund', { p_refund_id: refundId, p_outcome: SETTLED.has(result.outcome) ? result.outcome : 'unknown' })
     if (error) throw error
+    settled = data
   } catch (err) {
     console.error('settle_refund failed:', err?.message)
-    await raiseAlert(admin, 'refund_settle_failed', orderId, { refundId: refund.refundId, outcome: result.outcome })
+    await raiseAlert(admin, 'refund_settle_failed', orderId, { refundId, outcome: result.outcome })
   }
+  // 'already_settled': a final state (accepted / rejected) was recorded by someone else; the
+  // follow-up belongs to them.
+  if (settled === 'already_settled') return result.outcome
   if (result.outcome === 'accepted') {
-    await sendRefundNotice(admin, orderId, refund.grosze, refund.reason === 'double_payment' ? 'double' : (refund.reason ?? 'late'))
+    await sendRefundNotice(admin, orderId, grosze, reason === 'double_payment' ? 'double' : (reason ?? 'late'))
   } else if (result.outcome !== 'insufficient_balance') {
     await raiseAlert(admin, `refund_${result.outcome}`, orderId, {
-      refundId: refund.refundId, txn, grosze: refund.grosze, reason: refund.reason, httpStatus: result.httpStatus,
+      refundId, txn, grosze, reason, httpStatus: result.httpStatus,
     })
   }
-  return { refund: result.outcome }
+  return result.outcome
+}
+
+// dpay statuses meaning the money arrived (the official SDK's isPaid reads both).
+const DPAY_PAID = new Set(['paid', 'captured'])
+
+/**
+ * Asks dpay about an order's unpaid attempts and confirms a paid one through confirm_order,
+ * exactly as an IPN would (source 'poll'; confirm_order is idempotent per attempt), then
+ * settleConfirmOutcome. Fail closed: an unrecognised status or amount never confirms.
+ * `attempts`: [{ id, dpay_transaction_id }]. → { failed: number of dpay or RPC failures }.
+ * Never throws.
+ */
+export async function checkAttemptsAtDpay(admin, cfg, orderId, attempts) {
+  let failed = 0
+  for (const a of attempts) {
+    let details
+    try {
+      details = await transactionDetails(cfg, a.dpay_transaction_id)
+    } catch (err) {
+      failed++
+      await logPaymentEvent(admin, {
+        kind: 'status_check', orderId, attemptId: a.id,
+        payload: { txn: a.dpay_transaction_id, ok: false, httpStatus: err?.httpStatus ?? null, message: err?.message ?? null, source: 'job' },
+      })
+      continue
+    }
+    await logPaymentEvent(admin, {
+      kind: 'status_check', orderId, attemptId: a.id,
+      payload: { txn: a.dpay_transaction_id, status: details.status, grosze: details.grosze, raw: details.raw, source: 'job' },
+    })
+    if (!DPAY_PAID.has(details.status) || !Number.isSafeInteger(details.grosze)) continue
+    const { data: outcome, error } = await admin.rpc('confirm_order', {
+      p_order_id: orderId, p_txn: a.dpay_transaction_id, p_grosze: details.grosze, p_source: 'poll',
+    })
+    if (error) {
+      failed++
+      console.error('confirm_order (job) failed:', error.message)
+      continue
+    }
+    await settleConfirmOutcome(admin, cfg, { ...outcome, orderId, txn: a.dpay_transaction_id })
+  }
+  return { failed }
 }

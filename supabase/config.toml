@@ -229,3 +229,7 @@ entrypoint = "./functions/checkpoint-write/index.js"
 [functions.self-checkin]
 verify_jwt = false
 entrypoint = "./functions/self-checkin/index.js"
+
+[functions.registration-jobs]
+verify_jwt = false
+entrypoint = "./functions/registration-jobs/index.js"

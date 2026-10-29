@@ -85,6 +85,33 @@ Add under **Settings → Secrets and variables → Actions → Repository secret
 | `VITE_SUPABASE_URL` | Project URL | smoke tests |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service-role key | smoke tests |
 
+## Registration jobs: Vault secrets and the function secret (operator, once)
+
+The `registration-jobs` pg_cron job (`20261030125000_registration_jobs_cron.sql`) calls the
+`registration-jobs` edge function every 15 minutes through pg_net. It reads the URL and the
+shared secret from Vault, and the function compares that secret with its own
+`REGISTRATION_JOBS_SECRET`. Until both are set, the cron run fails (visible in
+`cron.job_run_details`) and nothing is sent. Set them once, with one random value used twice:
+
+```sql
+-- Supabase SQL editor (production)
+SELECT vault.create_secret('https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/registration-jobs', 'registration_jobs_url');
+SELECT vault.create_secret('<random 32+ characters>', 'registration_jobs_secret');
+```
+
+```bash
+supabase secrets set REGISTRATION_JOBS_SECRET='<the same value>' --project-ref kojoxazlnxncrpxmnxiq
+```
+
+Check after the next quarter hour:
+
+```sql
+SELECT jobname, schedule FROM cron.job WHERE jobname LIKE 'registration-%';
+SELECT status_code, left(content, 200) FROM net._http_response ORDER BY created DESC LIMIT 3;
+```
+
+To rotate, change both values (`vault.update_secret`, `supabase secrets set`) together.
+
 ## Day-to-day: making a schema change
 
 1. Create a migration file: `supabase migration new <name>` → edit the generated

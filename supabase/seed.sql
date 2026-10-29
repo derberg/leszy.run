@@ -25,3 +25,10 @@ INSERT INTO club_members (club_id, user_id, role, status, joined_at) VALUES
 
 UPDATE profiles SET club_id = '00000000-0000-4000-8000-0000000000c1' WHERE email LIKE '%@zatyrani-test.local';
 UPDATE profiles SET club_id = '00000000-0000-4000-8000-0000000000c2' WHERE email LIKE '%@inny-klub.local';
+
+-- Plan 3, task 7: the registration-jobs cron call (pg_net) reads its URL and secret from Vault.
+-- Locally the function runs under `supabase functions serve`, reached from the database
+-- container through the host; the secret equals REGISTRATION_JOBS_SECRET in
+-- tests/registration/functions.env. Production sets both once (docs/supabase-release-runbook.md).
+SELECT vault.create_secret('http://host.docker.internal:54321/functions/v1/registration-jobs', 'registration_jobs_url');
+SELECT vault.create_secret('local-registration-jobs-secret', 'registration_jobs_secret');
