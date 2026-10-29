@@ -100,6 +100,9 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   // survives a trip back to the code step.
   const [checkout, setCheckout] = useState(null)
   const [supportChoice, setSupportChoice] = useState(null)
+  // The address the code step verified (paid events): the session it opened may not be in the
+  // auth cache yet, and „Wróć” then „Dalej” must not send another code (N1).
+  const [verifiedEmail, setVerifiedEmail] = useState(null)
   // Fields the person has typed into or picked. The profile never overwrites
   // them, and fills every other field even when it lands after they started:
   // on a slow phone the sign-in check can arrive well after the first keystroke.
@@ -122,7 +125,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
 
   const open = row.state === 'open'
   const paid = raw.pricingMode !== 'free'
-  const codeNeeded = needsCode(user?.email, person.email)
+  const codeNeeded = needsCode(user?.email, person.email, verifiedEmail)
   const ready = consentsComplete(consents, accepted, serviceAccepted)
   const dataInfo = runnerDataInfo({
     eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail,
@@ -142,6 +145,8 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
 
   const fail = (err, value) => {
     const f = registrationFailure(err)
+    // The server wants a code again (the session is gone): the earlier verification no longer counts.
+    if (f.step === 'code') setVerifiedEmail(null)
     if (f.step === 'code' && !sentTo) {
       // The session ended between page load and submit: no code was ever sent.
       // Stay on the form and send one now.
@@ -186,6 +191,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     setBusy(true)
     try {
       await verifyCode(sentTo ?? value.email, code)
+      setVerifiedEmail(sentTo ?? value.email)
       clearAuthCache()
       clearFavoritesCache()
       clearNotificationsCache()

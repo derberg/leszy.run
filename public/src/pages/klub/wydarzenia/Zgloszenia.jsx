@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { callFunction } from '../../../lib/auth.js'
+import { countPl, pluralPl } from '../../../lib/plural.js'
 
 // The „Zgłoszenia” tab of a published event (A8): every registration, read
 // only — imię i nazwisko, konkurencja, kategoria, data zapisu — from
 // list-event-registrations. Plan 6's panel (B3) replaces it. The editor mounts
 // it (Task 8c); runner data is for the club's owner and admins only.
 // Once anybody has paid or owes a payment, the header carries B3's counts
-// („X opłaconych · Y czeka na wpłatę”) and a „Płatność” column appears.
+// („X opłaconych · Y czeka na wpłatę”, in the count's Polish form) and a „Płatność” column appears.
 
 const when = new Intl.DateTimeFormat('pl-PL', {
   timeZone: 'Europe/Warsaw', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -43,7 +44,7 @@ export default function Zgloszenia({ eventId }) {
     <div className="flex flex-col gap-2">
       {payments && (
         <p className="font-mono text-xs uppercase text-apex-muted" data-testid="registrations-counts">
-          <span className="text-apex-yellow">{counts.paid} opłaconych</span> · <span className="text-apex-cyan">{counts.awaiting} czeka na wpłatę</span>
+          <span className="text-apex-yellow">{countPl(counts.paid, ['opłacone', 'opłacone', 'opłaconych'])}</span> · <span className="text-apex-cyan">{counts.awaiting} {pluralPl(counts.awaiting, 'czeka', 'czekają', 'czeka')} na wpłatę</span>
           {counts.free > 0 && <> · {counts.free} bez opłaty</>}
         </p>
       )}

@@ -8,11 +8,14 @@
 // is 'paid' (money moved) or 'free' (nothing to pay: a free event or a 0 zł
 // entry); only 'paid' reads „opłacone”. A free event never mentions payment.
 
+import { countPl, pluralPl } from './plural.js'
+
 const pct = (n, of) => (of > 0 ? Math.round((n / of) * 1000) / 10 : 0)
 
-const paidText = (n) => `${n} opłaconych`
+const paidText = (n) => countPl(n, ['opłacone', 'opłacone', 'opłaconych'])
 const freeText = (n) => `${n} bez opłaty`
-const awaitingText = (n) => `+${n} czeka na wpłatę`
+const awaitingText = (n) => `+${n} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
+const registeredText = (n) => countPl(n, ['osoba zapisana', 'osoby zapisane', 'osób zapisanych'])
 
 /**
  * @param {object} snapshot the /api/startlist answer
@@ -27,7 +30,7 @@ export function startListView(snapshot, { paidEvent }) {
   const awaiting = sum('awaiting')
   const header = paidEvent
     ? [paidText(paid), free > 0 ? freeText(free) : null, awaiting > 0 ? awaitingText(awaiting) : null].filter(Boolean).join(' · ')
-    : `${free + paid} zapisanych`
+    : registeredText(free + paid)
   return {
     header,
     competitions: comps.map((c) => {

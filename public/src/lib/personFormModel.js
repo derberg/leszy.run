@@ -94,9 +94,15 @@ export function checkPerson(person, ctx) {
 
 const norm = (e) => (typeof e === 'string' ? e.trim().toLowerCase() : '')
 
-/** register-free needs an e-mail code unless the session holds the person's own address. */
-export function needsCode(sessionEmail, personEmail) {
-  return !sessionEmail || norm(sessionEmail) !== norm(personEmail)
+/**
+ * An e-mail code is needed unless the session holds the person's own address, or this form
+ * already verified that address at its code step (`verifiedEmail`, task 9 re-review N1: „Wróć”
+ * from RA4 and the form sent again must not spend another of the address's codes).
+ */
+export function needsCode(sessionEmail, personEmail, verifiedEmail = null) {
+  const person = norm(personEmail)
+  if (verifiedEmail && norm(verifiedEmail) === person) return false
+  return !sessionEmail || norm(sessionEmail) !== person
 }
 
 /** Every event consent ticked, and the LESZY.RUN service regulamin. */

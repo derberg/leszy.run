@@ -28,7 +28,7 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
     const v = startListView(SNAP, { paidEvent: true })
     assert.deepEqual(v.competitions[0], {
       categoryId: 'c1', name: 'Bieg 9 km', taken: 34, capacity: 80, paidPct: 40, freePct: 0, awaitingPct: 2.5,
-      paidLabel: '32 opłaconych', freeLabel: null, awaitingLabel: '+2 czeka na wpłatę',
+      paidLabel: '32 opłacone', freeLabel: null, awaitingLabel: '+2 czekają na wpłatę',
     })
     assert.equal(v.competitions[1].awaitingLabel, null)
   })
@@ -41,14 +41,25 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
     assert.equal(c.freePct, 25)
   })
 
-  it('the header of a paid event: opłaconych, the free ones and the awaiting count', () => {
-    assert.equal(startListView(SNAP, { paidEvent: true }).header, '53 opłaconych · 5 bez opłaty · +2 czeka na wpłatę')
+  it('the header of a paid event: opłacone, the free ones and the awaiting count', () => {
+    assert.equal(startListView(SNAP, { paidEvent: true }).header, '53 opłacone · 5 bez opłaty · +2 czekają na wpłatę')
     assert.equal(startListView({ competitions: [], entries: [] }, { paidEvent: true }).header, '0 opłaconych')
   })
 
-  it('a free event: „N zapisanych”, no badge, nothing about payment anywhere', () => {
+  it('counts take their Polish form (M5): 1 opłacone / +1 czeka, 5 opłaconych / +5 czeka, 12 opłaconych', () => {
+    const snap = (paid, awaiting) => ({ competitions: [{ categoryId: 'c', name: 'B', capacity: 50, paid, free: 0, awaiting }], entries: [] })
+    assert.equal(startListView(snap(1, 1), { paidEvent: true }).header, '1 opłacone · +1 czeka na wpłatę')
+    assert.equal(startListView(snap(5, 5), { paidEvent: true }).header, '5 opłaconych · +5 czeka na wpłatę')
+    assert.equal(startListView(snap(12, 3), { paidEvent: true }).header, '12 opłaconych · +3 czekają na wpłatę')
+    assert.equal(startListView(snap(1, 1), { paidEvent: true }).competitions[0].paidLabel, '1 opłacone')
+    const free = (n) => ({ competitions: [{ categoryId: 'f', name: 'B', capacity: 50, paid: 0, free: n, awaiting: 0 }], entries: [] })
+    assert.equal(startListView(free(1), { paidEvent: false }).header, '1 osoba zapisana')
+    assert.equal(startListView(free(5), { paidEvent: false }).header, '5 osób zapisanych')
+  })
+
+  it('a free event: „N osoby zapisane”, no badge, nothing about payment anywhere', () => {
     const v = startListView(FREE_EVENT, { paidEvent: false })
-    assert.equal(v.header, '3 zapisanych')
+    assert.equal(v.header, '3 osoby zapisane')
     assert.equal(v.entries[0].badge, null)
     assert.equal(v.competitions[0].paidLabel, null)
     assert.equal(v.competitions[0].freeLabel, null)

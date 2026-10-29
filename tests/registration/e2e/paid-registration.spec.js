@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { test, expect, ACTOR_EMAILS } from './fixtures.js'
-import { admin, sessionFor } from '../helpers/stack.js'
+import { admin, resetThrottle, sessionFor } from '../helpers/stack.js'
 import { clearMessages, lastCodeFor, messagesTo } from '../helpers/emailCapture.js'
 import { callFn, createPublishedPaidEvent } from '../helpers/registrationFixtures.js'
 import { dpayReset, dpayTransactions, payMock } from '../helpers/dpayControl.js'
@@ -201,12 +201,12 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
 
     const viewer = await offline(await actors.viewer.newPage())
     await viewer.goto(`/events/${event.slug}/lista`)
-    await expect(listHeader(viewer)).toHaveText('1 opłaconych')
+    await expect(listHeader(viewer)).toHaveText('1 opłacone')
     await expect(viewer.getByTestId('payment-badge')).toHaveText(/opłacone/i)
 
     const org = await offline(await actors.owner.newPage())
     await org.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/zgloszenia`)
-    await expect(org.getByTestId('registrations-counts')).toHaveText('1 opłaconych · 0 czeka na wpłatę')
+    await expect(org.getByTestId('registrations-counts')).toHaveText('1 opłacone · 0 czeka na wpłatę')
 
     await expect.poll(async () => (await messagesTo(runner.email)).map((m) => m.subject).join('|')).toMatch(/Opłacone — /)
 
@@ -429,6 +429,32 @@ test.describe.serial('the code step of a paid event', () => {
     await expect(page.getByRole('button', { name: 'Wspieram · 1,20 zł' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*61,76 zł/)
   })
+})
+
+// Task 9 re-review N1: „Wróć” from RA4 and the form submitted again must not send another code
+// (a code e-mail costs one of the address's five per window). The address verified at the code
+// step counts until the person changes it.
+test('N1 „Wróć” from RA4, then „Dalej” again: straight back to RA4, no second code e-mail; a changed address gets its code', async ({ actors }) => {
+  // Every code request of the suite comes from one IP (20 an hour): start this test's two afresh.
+  await resetThrottle()
+  const event = await createPublishedPaidEvent(owner, { competitions: [BIEG], prices: { 'Bieg 9 km': 6000 } })
+  const person = { first: 'Ola', last: 'Wraca', email: runnerEmail('back') }
+  const page = await offline(await actors.viewer.newPage())
+  await toCheckout(page, event, person)
+  const codes = (await messagesTo(person.email)).length
+  await page.getByRole('button', { name: 'Wróć' }).click()
+  await expect(page.getByTestId('registration-form')).toBeVisible()
+  await page.getByTestId('registration-submit').click()
+  await expect(page.getByTestId('checkout')).toBeVisible()
+  await expect(page.getByTestId('code-step')).toHaveCount(0)
+  expect((await messagesTo(person.email)).length).toBe(codes)
+
+  const other = runnerEmail('back2')
+  await page.getByRole('button', { name: 'Wróć' }).click()
+  await page.locator('#p-email').fill(other)
+  await page.getByTestId('registration-submit').click()
+  await expect(page.getByTestId('code-step')).toBeVisible()
+  await expect.poll(async () => (await messagesTo(other)).length).toBe(1)
 })
 
 // Review M1. Ruling 7: a new paid order stops one hour before closes_at (create_order's

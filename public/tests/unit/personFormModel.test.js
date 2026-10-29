@@ -113,6 +113,12 @@ describe('needsCode', () => {
     assert.equal(needsCode(null, 'runner@test.local'), true)
     assert.equal(needsCode('owner@x.pl', 'runner@test.local'), true)
   })
+  it('N1: no second code for an address this form already verified, whatever the session cache says', () => {
+    assert.equal(needsCode(null, 'runner@test.local', 'Runner@Test.local '), false)
+    assert.equal(needsCode('owner@x.pl', 'runner@test.local', 'runner@test.local'), false)
+    assert.equal(needsCode(null, 'other@test.local', 'runner@test.local'), true)
+    assert.equal(needsCode(null, 'runner@test.local', null), true)
+  })
 })
 
 describe('consentsComplete', () => {
