@@ -142,14 +142,14 @@ test('F-04 a removed participant is hidden from participants_public and the PIN 
   const { data: adminKept } = await anon().rpc('get_participant_admin', { p_event_id: event.id, p_pin: pin, p_participant_id: kept.id })
   assert.equal(adminKept.id, kept.id)
 
-  const { data: checkinRow, error: checkinErr } = await anon().rpc('get_participant_for_checkin', { p_participant_id: removed.id })
-  assert.equal(checkinErr, null, checkinErr?.message)
-  assert.deepEqual(checkinRow, [])
-  const { data: checkinKept } = await anon().rpc('get_participant_for_checkin', { p_participant_id: kept.id })
-  assert.equal(checkinKept[0].id, kept.id)
+  // get_participant_for_checkin was dropped by the anon lockdown
+  // (20261030020000); self-checkin refuses a removed participant instead.
 
-  const { error: badPin } = await anon().rpc('search_participants_admin', { p_event_id: event.id, p_pin: 'zly', p_query: tag })
-  assert.match(badPin.message, /Invalid PIN/)
+  // A wrong PIN answers an empty list rather than raising, so the failure is
+  // recorded towards the lockout (event_pin_ok).
+  const { data: badPin, error: badPinErr } = await anon().rpc('search_participants_admin', { p_event_id: event.id, p_pin: 'zly', p_query: tag })
+  assert.equal(badPinErr, null, badPinErr?.message)
+  assert.deepEqual(badPin, [])
 })
 
 test('F-05 delete-club: 200 for a club without events, 409 for a club owning a registration event', async () => {

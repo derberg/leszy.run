@@ -6,6 +6,18 @@
 
 ---
 
+
+> **Superseded in part on 2026-10-25** (migration `20261030020000_anon_lockdown.sql`, security
+> review). The verdicts below that accept anon writes or `get_participant_for_checkin` no longer
+> hold: `get_participant_for_checkin` was dropped (it returned phone and birth date for any id,
+> and the ids are public via `participants_public`), anon INSERT was removed from
+> `checkpoint_observations`, `checkpoint_agents`, `checkins`, `checkin_documents`,
+> `calendar_events`, `calendar_event_reports` and `website_feedback` (writes now go through the
+> `self-checkin` and `checkpoint-write` edge functions), RLS was enabled on `event_partners`,
+> `badge_definitions`, `gate_events`, `checkpoint_readings`, `checkpoint_imports` and
+> `dismissed_duplicates`, the `partner-logos` storage write policies (`TO public`) were dropped,
+> and TRUNCATE was revoked from anon and authenticated on every public table.
+
 ## Supabase Security Advisor findings
 
 Total lints: **97** across 8 categories.

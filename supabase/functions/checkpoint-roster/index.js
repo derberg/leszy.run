@@ -1,9 +1,14 @@
 // PIN-guarded roster download for checkpoint-agent devices (Raspberry Pi RFID
 // readers). Returns ONLY bib_number + rfid_epc — never names or personal data;
 // the roster lives on a Pi in a forest. Auth: per-event checkpoint_pin from
-// event_secrets (NOT the check-in PIN, which participants know).
+// event_secrets, the same PIN the volunteer links carry for checkpoint-write.
+// Whoever holds a volunteer link can therefore download bib→EPC pairs; no
+// names or contact data ever leave here.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
+import { checkCheckpointPin } from '../_shared/pinGuard.js'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -12,34 +17,16 @@ function json(body, status, req) {
   })
 }
 
-// In-memory per-IP throttle (instance-local; good enough to stop dumb brute force)
-const attempts = new Map() // ip -> { count, windowStart }
-const WINDOW_MS = 60_000
-const MAX_ATTEMPTS = 5
-
-function throttled(ip) {
-  const now = Date.now()
-  const entry = attempts.get(ip)
-  if (!entry || now - entry.windowStart > WINDOW_MS) {
-    attempts.set(ip, { count: 1, windowStart: now })
-    return false
-  }
-  entry.count += 1
-  return entry.count > MAX_ATTEMPTS
-}
-
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, req)
 
-  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown'
-  if (throttled(ip)) return json({ error: 'Too many attempts' }, 429, req)
-
   let body
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON' }, 400, req) }
   const { event_id, pin } = body ?? {}
   if (!event_id || !pin) return json({ error: 'event_id and pin are required' }, 400, req)
+  if (!UUID_RE.test(String(event_id))) return json({ error: 'Invalid event_id' }, 400, req)
 
   const admin = createClient(
     Deno.env.get('SUPABASE_URL'),
@@ -47,12 +34,8 @@ Deno.serve(async (req) => {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  const { data: secret, error: secErr } = await admin
-    .from('event_secrets').select('checkpoint_pin').eq('event_id', event_id).maybeSingle()
-  if (secErr) return json({ error: 'Lookup failed' }, 500, req)
-  if (!secret?.checkpoint_pin || secret.checkpoint_pin !== String(pin)) {
-    return json({ error: 'Invalid PIN' }, 401, req)
-  }
+  const check = await checkCheckpointPin(admin, { eventId: event_id, pin: String(pin) })
+  if (!check.ok) return json({ error: check.error }, check.status, req)
 
   const { data: roster, error: rosterErr } = await admin
     .from('participants')

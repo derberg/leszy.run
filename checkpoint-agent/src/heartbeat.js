@@ -1,5 +1,5 @@
 // Periodically upserts this checkpoint's live status to Supabase
-// (checkpoint_agents, anon key, display-only) so the admin checkpoints tab
+// (checkpoint_agents, through the checkpoint-write edge function, display-only) so the admin checkpoints tab
 // can show configured/armed_waiting/listening + basic counters per Pi. Never
 // lets an upsert failure (network blip, RLS surprise) escape the interval —
 // a heartbeat write failure must not crash the agent or interrupt recording.

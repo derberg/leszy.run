@@ -20,8 +20,10 @@ export default function AdminCheckin() {
     if (!event || !pin) return
     supabase.rpc('check_checkin_pin', { p_event_id: event.id, p_pin: pin })
       .then(({ data, error }) => {
+        // Only a definite "wrong PIN" forgets it. An error (a lockout someone
+        // else caused, no signal) keeps the tablet's PIN for the next try.
         if (!error && data === true) setPinVerified(true)
-        else { localStorage.removeItem(PIN_KEY); setPin('') }
+        else if (!error && data === false) { localStorage.removeItem(PIN_KEY); setPin('') }
       })
   }, [event, pin])
 
@@ -65,7 +67,7 @@ export default function AdminCheckin() {
             <input
               type="password"
               inputMode="numeric"
-              maxLength={6}
+              maxLength={12}
               value={pinInput}
               onChange={(e) => setPinInput(e.target.value)}
               className="w-full bg-apex-surface border border-apex-border px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] text-apex-text-bright focus:outline-none focus:border-apex-yellow"
@@ -551,8 +553,10 @@ function ParticipantCheckin({ event, participant, pin, onComplete, onError, onBa
       p_documents: docPayload,
     })
 
-    if (error) {
-      onError(`Błąd: ${error.message}`)
+    // A wrong PIN comes back as data.error, not as an RPC error, so the
+    // attempt is recorded for the lockout. It used to read as a success.
+    if (error || data?.error) {
+      onError(`Błąd: ${error?.message ?? data.error}`)
       setSubmitting(false)
       return
     }

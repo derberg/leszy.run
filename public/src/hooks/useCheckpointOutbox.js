@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { useEffect, useRef, useState } from 'react'
+import { FUNCTIONS_BASE } from '../lib/auth.js'
 import { createOutbox, classifyInsertResult, outboxKey } from '../lib/checkpointOutbox.js'
+import { checkpointWrite } from '../lib/checkpointWrite.js'
 
 function safeStorage() {
   try {
@@ -15,15 +16,21 @@ function safeStorage() {
  * The volunteer page's send queue for one checkpoint. Entries are accepted
  * instantly and delivered in the background; see lib/checkpointOutbox.js.
  */
-export function useCheckpointOutbox(checkpointId) {
+export function useCheckpointOutbox(checkpointId, pin, onPinRejected) {
   // Created in the effect, not in useMemo: StrictMode runs effects twice, and a
   // memoised outbox would be destroyed by the first cleanup and then reused.
   const [outbox, setOutbox] = useState(null)
   const [, setVersion] = useState(0)
+  // Read at send time, so a PIN typed after the page opened (or a corrected
+  // one) applies to entries already waiting in the queue.
+  const pinRef = useRef(pin)
+  pinRef.current = pin
+  const rejectedRef = useRef(onPinRejected)
+  rejectedRef.current = onPinRejected
 
   useEffect(() => {
     if (!checkpointId) return
-    const ob = makeOutbox(checkpointId)
+    const ob = makeOutbox(checkpointId, () => pinRef.current, () => rejectedRef.current?.())
     setOutbox(ob)
     const off = ob.subscribe(() => setVersion(v => v + 1))
     // The browser knows before we do that the signal came back.
@@ -43,6 +50,9 @@ export function useCheckpointOutbox(checkpointId) {
       setOutbox(null)
     }
   }, [checkpointId])
+
+  // A PIN arriving after entries were queued sends them straight away.
+  useEffect(() => { if (pin) outbox?.flush() }, [pin, outbox])
 
   const pending = outbox ? outbox.pendingCount() : 0
 
@@ -68,27 +78,41 @@ export function useCheckpointOutbox(checkpointId) {
   }
 }
 
-function makeOutbox(checkpointId) {
+// Not a rejection of the entry: it waits until a PIN the server accepts.
+function waitForPin(message) {
+  const err = new Error(message)
+  err.permanent = false
+  return err
+}
+
+function makeOutbox(checkpointId, getPin, pinRejected) {
   return createOutbox({
     storage: safeStorage(),
     key: outboxKey(checkpointId),
     send: async (entry, signal) => {
-      // .select() is what makes the outcome observable at all. The
-      // trg_checkpoint_obs_priority BEFORE INSERT trigger returns NULL when a
-      // row for (checkpoint_id, bib_number) already exists: the insert is
-      // dropped and PostgREST reports NO error. Without asking for the row
-      // back, a discarded entry looks exactly like a saved one.
-      const res = await supabase
-        .from('checkpoint_observations')
-        .insert({
+      // No PIN yet, or the last one was refused: send nothing. Every wrong
+      // PIN counts towards the event's lockout, which would stop every other
+      // volunteer and Pi too.
+      const pin = getPin()
+      if (!pin) throw waitForPin('Brak PIN-u')
+      // checkpoint-write answers a dropped row (the trg_checkpoint_obs_priority
+      // trigger returns NULL when the (checkpoint_id, bib_number) slot is
+      // taken) with an empty list, so a discarded entry never looks saved.
+      const res = await checkpointWrite(FUNCTIONS_BASE, {
+        action: 'observe',
+        checkpoint_id: checkpointId,
+        pin,
+        observation: {
           id: entry.id,
-          checkpoint_id: checkpointId,
           bib_number: entry.bib,
           observed_at: entry.observedAt,
           source: 'manual',
-        })
-        .select('id')
-        .abortSignal(signal)
+        },
+      }, { signal })
+      if (res.status === 401) {
+        pinRejected()
+        throw waitForPin('Nieprawidłowy PIN')
+      }
       return classifyInsertResult(res)
     },
   })

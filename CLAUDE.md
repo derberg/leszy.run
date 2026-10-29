@@ -49,7 +49,7 @@ This project is RODO/GDPR-compliant. Reference documents:
 
 **Consent audit trail:** every accept/reject choice on the cookie banner is logged client-side (localStorage with timestamp + policyVersion + userAgent) and, for authenticated users, server-side to the `consent_log` table via the `log-consent` edge function.
 
-**Retention:** `gate_events` and `gate_crossings` are purged 90 days post-race by the scheduler container's daily cron job at 03:00 Europe/Warsaw. At 03:40 the same container runs `backend/scripts/purge-auth-tables.js --apply`, which deletes `auth_sessions` more than 7 days past expiry, `auth_codes` more than a day past expiry and `otp_throttle` windows older than a day — nothing used to delete them, so every session token and code hash ever issued accumulated, and `auth_sessions` rows carry the plaintext email of accounts since deleted. Run it by hand without `--apply` to see the counts. **Registration contact data:** the `purge_registration_contact_data()` pg_cron job `purge-registration-contact` runs at 01:30 UTC (02:30 Warsaw in winter, 03:30 in summer) and nulls the registration phone and ICE (emergency contact) data, plus `participants.phone` for registration participants, for events whose Warsaw event date is at least 30 days past. What it guarantees: Supabase holds no such phone after the night's run. What it does not: a timing host's copy. configSync carries the null to every host row that is clean (`synced_at` set); a host row that is dirty when the job runs (an operator edited that participant) is not overwritten, and its next push sends the old phone back to Supabase, where it stays until the next night's run nulls it again. A host that is offline or has sync disabled keeps its copy indefinitely. So after the race the operator runs `cd backend && node --env-file=../.env scripts/purge-registration-contact.js` on each host (dry run by default, `--apply` writes). It nulls the phone on that host whether the row is clean or dirty, and the push then sends the null. No other automatic retention purges.
+**Retention:** `gate_events` and `gate_crossings` are purged 90 days post-race by the scheduler container's daily cron job at 03:00 Europe/Warsaw. At 03:40 the same container runs `backend/scripts/purge-auth-tables.js --apply`, which deletes `auth_sessions` more than 7 days past expiry, `auth_codes` more than a day past expiry and `otp_throttle` windows older than a day and `pin_attempts` (wrong event PINs) older than a day — nothing used to delete them, so every session token and code hash ever issued accumulated, and `auth_sessions` rows carry the plaintext email of accounts since deleted. Run it by hand without `--apply` to see the counts. **Registration contact data:** the `purge_registration_contact_data()` pg_cron job `purge-registration-contact` runs at 01:30 UTC (02:30 Warsaw in winter, 03:30 in summer) and nulls the registration phone and ICE (emergency contact) data, plus `participants.phone` for registration participants, for events whose Warsaw event date is at least 30 days past. What it guarantees: Supabase holds no such phone after the night's run. What it does not: a timing host's copy. configSync carries the null to every host row that is clean (`synced_at` set); a host row that is dirty when the job runs (an operator edited that participant) is not overwritten, and its next push sends the old phone back to Supabase, where it stays until the next night's run nulls it again. A host that is offline or has sync disabled keeps its copy indefinitely. So after the race the operator runs `cd backend && node --env-file=../.env scripts/purge-registration-contact.js` on each host (dry run by default, `--apply` writes). It nulls the phone on that host whether the row is clean or dirty, and the push then sends the null. No other automatic retention purges.
 
 **Admin actions:** every admin write (calendar event approval, club merge, contribution review, etc.) is logged to `admin_actions` table with admin_user_id, target, payload, ip, user_agent. Append-only, service_role only.
 
@@ -689,10 +689,37 @@ filter pulls drafts, so update every host before the first club event is created
 
 
 **Reverse sync — checkins (`src/sync/checkinSync.js`):** `checkins` and `checkin_documents`
-flow Supabase → local. The public self-service check-in page and volunteer app write directly
-to Supabase. A reverse sync worker polls Supabase every 30s and pulls new/updated checkin rows
+flow Supabase → local. The public self-service check-in page writes them to Supabase through
+the `self-checkin` edge function, never with the publishable key (see "Anon key lockdown" below). A reverse sync worker polls Supabase every 30s and pulls new/updated checkin rows
 into local PostgreSQL. Admin check-in from the backend also writes to Supabase first (not
 local), so all check-in data has a single source of truth in Supabase.
+
+**Anon key lockdown (security review 2026-10-25, migration `20261030020000_anon_lockdown.sql`).**
+The publishable key is in every browser, so whatever it may do, anyone may do. It reads, and
+writes only through the check-in-PIN RPCs (`checkin_confirm` for the bib office). Every other
+write a public page or a Pi makes goes through an edge function on the service role:
+- `self-checkin` — the runner's check-in from the SMS link. The link carries `t`, an HMAC of the
+  participant id under `event_secrets.checkin_link_key` (`backend/src/lib/checkinLink.js` builds
+  it for the SMS, `_shared/checkinToken.js` checks it). A participant id alone is public
+  (`participants_public`, `results`), so it is not a credential. It replaced
+  `get_participant_for_checkin`, which handed anyone the phone and birth date of every
+  participant, and the anon INSERT on `checkins`.
+- `checkpoint-write` — volunteer entries, Pi agent passes and Pi heartbeats, authorised by the
+  event's `checkpoint_pin`. The admin's volunteer link carries `&pin=`; the volunteer page moves
+  it to localStorage and off the address bar, and asks for it when it is missing. The Pi agent
+  sends the PIN it already stores for `checkpoint-roster` (`checkpoint-agent/src/edgeWriter.js`).
+- Both event PINs go through `event_pin_ok(event, kind, pin)` in SQL: an advisory lock, a count
+  of recent failures in `pin_attempts`, the compare and the record in one critical section, so
+  parallel guesses cannot share a count (`_shared/pinGuard.js` calls it for the checkpoint PIN).
+  Failures are counted per event, not per caller, because there is no caller identity a forger
+  cannot change: 100 in 15 minutes lock that PIN for everyone. New PINs are 10 digits
+  (`generatePin()`), which that rate never finds. A PIN function must never RAISE on a wrong PIN,
+  or the rollback erases the recorded failure. A client holding a refused PIN must stop sending
+  it, or it locks out everybody else: the Pi's `edgeWriter` stops until a different PIN is
+  stored, and the volunteer page returns to the PIN pad with its entries still queued.
+- A new table needs RLS on and `REVOKE ALL … FROM anon, authenticated` in the migration that
+  creates it, then a GRANT and a policy only for what the public app reads. Six tables had RLS
+  off with full anon CRUD (`event_partners` among them, the sponsor links on event pages).
 
 **Supabase-only tables** (no Drizzle schema, no local migration — a committed `supabase/migrations/` file, deployed by the CI pipeline on merge; see [docs/supabase-release-runbook.md](docs/supabase-release-runbook.md)):
 - `event_secrets` — per-event check-in PINs
@@ -831,7 +858,7 @@ Club invite links come from `inviteUrl()` in `public/src/lib/inviteLink.js`. A l
 
 **Auth transport — edge functions go through same-origin `/edge`, NEVER raw `VITE_SUPABASE_URL`.** The session is an httpOnly cookie the edge functions set. A cookie set by `*.supabase.co` while the page is on `leszy.run` is a THIRD-PARTY cookie that browsers block (Safari always, Chrome/Firefox increasingly) — login "succeeds" but the session never persists. So `public/vercel.json` (and the vite dev-server proxy in `public/vite.config.js`) rewrites `/edge/*` → `<project>.supabase.co/functions/v1/*`, making the cookie first-party. **Rule:** any client call to an edge function that depends on the session cookie MUST use the `FUNCTIONS_BASE` (`/edge`) constant from `public/src/lib/auth.js` — never build the URL from `VITE_SUPABASE_URL` directly. (The `supabase-js` DB client in `lib/supabase.js` is exempt: it uses bearer tokens, not cookies, so it hits `*.supabase.co` directly.)
 
-**Analytics never sees a runner.** `RouteTracker` (`public/src/components/RouteTracker.jsx`) sends `pathname + search` to GA as `page_path` and `page_location`, minus `nr`, `email` and `code` (`trackedPath()` in `public/src/lib/trackedPath.js`). The cleaned `page_location` is also a global `gtag('set')`, made before `config` (`initGa`, from `CookieBanner`) and on every route change (`sendPageView`), so GA4's automatic events (scroll, outbound click) never carry the raw address either: the results page keeps the searched bib in `?nr=`, a bib names a runner, and the registration magic link carries the address and the login code. A new query parameter that identifies a person must be stripped there too, and a page that rewrites its address while someone types must do it once per pause, not per keystroke, or every keystroke becomes a page view.
+**Analytics never sees a runner.** `RouteTracker` (`public/src/components/RouteTracker.jsx`) sends `pathname + search` to GA as `page_path` and `page_location`, minus `PRIVATE_PARAMS` in `public/src/lib/trackedPath.js` (`nr`, the bib; `p`/`t`, the check-in link's participant and token; `pin`, the volunteer link's checkpoint PIN; `email`/`code`, the login link). The cleaned `page_location` is also a global `gtag('set')`, made before `config` (`initGa`, from `CookieBanner`) and on every route change (`sendPageView`), so GA4's automatic events (scroll, outbound click) never carry the raw address either: gtag otherwise sends `document.location.href` as `page_location`, so cleaning `page_path` alone still leaked the check-in token. A new query parameter that identifies a person or carries a secret must go into that list, and a page that rewrites its address while someone types must do it once per pause, not per keystroke, or every keystroke becomes a page view.
 
 **Browser APIs are gated by `Permissions-Policy` in `public/vercel.json`.** A feature that uses the camera, the microphone, geolocation or another gated API needs `<feature>=(self)` there, or Chrome blocks it on www.leszy.run and shows no reason. It happened twice: `geolocation=()` broke "Blisko mnie" for two weeks, and `camera=()` kept the bib-office QR scanner from opening the camera until 2026-10-15. The Vite dev and preview servers copy these headers from `vercel.json`, so the breakage shows up locally too.
 

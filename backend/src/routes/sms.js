@@ -1,6 +1,8 @@
 import { eq, and, isNull, inArray } from 'drizzle-orm'
 import { participants, events } from '../db/schema.js'
 import { sendSms } from '../sms/smsapi.js'
+import { supabase } from '../lib/supabaseClient.js'
+import { checkinUrl, getCheckinLinkKey } from '../lib/checkinLink.js'
 
 export async function smsRoutes(fastify) {
   const { db } = fastify
@@ -14,7 +16,7 @@ export async function smsRoutes(fastify) {
     const rows = await db.query.participants.findMany({
       where: and(eq(participants.eventId, req.params.eventId), inArray(participants.id, participantIds)),
     })
-    return await sendCheckinSms(db, event, rows)
+    return await sendCheckinSms(db, event, rows, reply)
   })
 
   fastify.post('/events/:eventId/sms/checkin-all', async (req, reply) => {
@@ -24,16 +26,29 @@ export async function smsRoutes(fastify) {
     const rows = await db.query.participants.findMany({
       where: and(eq(participants.eventId, req.params.eventId), isNull(participants.smsSentAt), isNull(participants.removedAt)),
     })
-    return await sendCheckinSms(db, event, rows)
+    return await sendCheckinSms(db, event, rows, reply)
   })
 }
 
-async function sendCheckinSms(db, event, participantRows) {
+async function sendCheckinSms(db, event, participantRows, reply) {
+  // Nobody to text: answer without asking Supabase for the link key.
+  if (!participantRows.some((p) => p.phone)) {
+    return { data: { sent: 0, skipped: participantRows.length, errors: [] } }
+  }
+  // The link is signed with the event's key from Supabase, so without Supabase
+  // there is no link that the check-in page would accept.
+  if (!supabase) return reply.code(503).send({ error: 'Supabase not configured' })
+  let linkKey
+  try {
+    linkKey = await getCheckinLinkKey(supabase, event.id)
+  } catch (err) {
+    return reply.code(500).send({ error: err.message })
+  }
   let sent = 0, skipped = 0
   const errors = []
   for (const p of participantRows) {
     if (!p.phone) { skipped++; continue }
-    const message = `Cześć ${p.firstName}! Zamelduj się na ${event.name}: https://leszy.run/events/${event.slug}/checkin?p=${p.id}`
+    const message = `Cześć ${p.firstName}! Zamelduj się na ${event.name}: ${checkinUrl(event, p.id, linkKey)}`
     try {
       const result = await sendSms(p.phone, message)
       if (result.success) {

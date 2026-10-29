@@ -1,30 +1,37 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useEvent } from '../hooks/useEvent.js'
 import { supabase } from '../lib/supabase.js'
+import { FUNCTIONS_BASE } from '../lib/auth.js'
 import { QRCodeCanvas } from 'qrcode.react'
 import useSeo from '../hooks/useSeo.js'
 import { cardContent, cardFileName, renderCheckinCard, shareMode, downloadFile } from '../lib/checkinCard.js'
 
-function isMinor(birthDate, eventDate) {
-  if (!birthDate) return false
-  const birth = new Date(birthDate)
-  const event = new Date(eventDate)
-  const age = event.getFullYear() - birth.getFullYear()
-  const monthDiff = event.getMonth() - birth.getMonth()
-  if (monthDiff < 0 || (monthDiff === 0 && event.getDate() < birth.getDate())) return age - 1 < 18
-  return age < 18
+// Every participant read and the check-in write go through the self-checkin
+// edge function. The link's `t` proves it came from the SMS; the participant
+// id alone is public, so it no longer checks anybody in.
+async function selfCheckin(body) {
+  const res = await fetch(`${FUNCTIONS_BASE}/self-checkin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const json = await res.json().catch(() => ({}))
+  return res.ok ? { data: json.data } : { error: json.error || `HTTP ${res.status}`, status: res.status }
 }
 
 export default function Checkin() {
   useSeo({ title: 'Check-in', noindex: true })
   const { event, loading: eventLoading, error: eventError } = useEvent()
-  const participantId = new URLSearchParams(window.location.search).get('p')
+  const linkParams = new URLSearchParams(window.location.search)
+  const participantId = linkParams.get('p')
+  const token = linkParams.get('t')
 
   const [participant, setParticipant] = useState(null)
   const [documents, setDocuments] = useState([])
   const [checkedIn, setCheckedIn] = useState(false)
   const [acknowledged, setAcknowledged] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [confirmError, setConfirmError] = useState(null)
   const [loadError, setLoadError] = useState(null)
   const [loading, setLoading] = useState(true)
   const qrRef = useRef(null)
@@ -33,35 +40,27 @@ export default function Checkin() {
   const loadData = useCallback(async () => {
     if (!event || !participantId) return
 
-    // Fetch participant via RPC (PII not exposed through direct table access)
-    const { data: pData, error: pErr } = await supabase
-      .rpc('get_participant_for_checkin', { p_participant_id: participantId })
-      .single()
-
-    if (pErr || !pData) {
-      setLoadError('Nie znaleziono uczestnika.')
+    const { data: found, error: findErr } = await selfCheckin({
+      action: 'get', event_id: event.id, participant_id: participantId, token,
+    })
+    if (findErr || !found) {
+      setLoadError(findErr && findErr.status !== 404
+        ? 'Nie udało się wczytać danych. Odśwież stronę.'
+        : 'Nieprawidłowy lub nieaktualny link. Poproś organizatora o nowy.')
       setLoading(false)
       return
     }
+    const pData = found.participant
 
-    // Validate participant belongs to this event's categories
     const { data: cats } = await supabase
       .from('categories')
       .select('id, name')
       .eq('event_id', event.id)
-
-    const catIds = (cats || []).map(c => c.id)
-    if (!catIds.includes(pData.category_id)) {
-      setLoadError('Uczestnik nie należy do tego wydarzenia.')
-      setLoading(false)
-      return
-    }
-
     const category = (cats || []).find(c => c.id === pData.category_id)
     setParticipant({ ...pData, categoryName: category?.name })
 
     // Fetch event documents (needed for both check-in form and confirmation screen info links)
-    const minor = isMinor(pData.birth_date, event.date)
+    const minor = pData.minor
     const { data: docs } = await supabase
       .from('event_documents')
       .select('id, name, url, type, required_for')
@@ -76,21 +75,9 @@ export default function Checkin() {
 
     setDocuments(applicableDocs)
 
-    // Check if already checked in
-    const { data: checkinData } = await supabase
-      .from('checkins')
-      .select('id')
-      .eq('participant_id', participantId)
-      .limit(1)
-
-    if (checkinData && checkinData.length > 0) {
-      setCheckedIn(true)
-      setLoading(false)
-      return
-    }
-
+    if (found.checkedIn) setCheckedIn(true)
     setLoading(false)
-  }, [event, participantId])
+  }, [event, participantId, token])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -102,30 +89,20 @@ export default function Checkin() {
   const handleConfirm = async () => {
     if (!allAcknowledged || submitting) return
     setSubmitting(true)
+    setConfirmError(null)
 
-    // Insert checkin
-    const { data: checkinRow, error: checkinErr } = await supabase
-      .from('checkins')
-      .insert({ participant_id: participantId, event_id: event.id })
-      .select('id')
-      .single()
-
-    if (checkinErr) {
-      console.error('[checkin] insert error', checkinErr)
+    const { error } = await selfCheckin({
+      action: 'confirm',
+      event_id: event.id,
+      participant_id: participantId,
+      token,
+      acknowledged: acknowledgeDocs.map(d => d.id),
+    })
+    if (error) {
+      console.error('[checkin] confirm error', error)
+      setConfirmError('Nie udało się zameldować. Spróbuj ponownie albo zgłoś się do biura zawodów.')
       setSubmitting(false)
       return
-    }
-
-    // Insert checkin_documents (skip info docs — they're non-interactive)
-    const docRows = documents.filter(d => d.type !== 'info').map(d => ({
-      checkin_id: checkinRow.id,
-      document_id: d.id,
-      status: d.type === 'acknowledge' ? 'accepted' : 'pending',
-    }))
-
-    if (docRows.length > 0) {
-      const { error: docErr } = await supabase.from('checkin_documents').insert(docRows)
-      if (docErr) console.error('[checkin] doc insert error', docErr)
     }
 
     setCheckedIn(true)
@@ -140,7 +117,7 @@ export default function Checkin() {
     let cancelled = false
     const qrCanvas = qrRef.current?.querySelector('canvas')
     if (!qrCanvas) return
-    const content = cardContent({ event, participant, minor: isMinor(participant.birth_date, event.date) })
+    const content = cardContent({ event, participant, minor: participant.minor })
     renderCheckinCard(qrCanvas, content, cardFileName(participant, participantId))
       .then(file => { if (!cancelled) setCardFile(file) })
       .catch(err => console.error('[checkin] card render error', err))
@@ -176,7 +153,7 @@ export default function Checkin() {
     return <div className="flex items-center justify-center min-h-screen text-apex-red">{loadError}</div>
   }
 
-  const minor = isMinor(participant?.birth_date, event?.date)
+  const minor = !!participant?.minor
 
   // Already checked in — show QR
   if (checkedIn) {
@@ -365,6 +342,9 @@ export default function Checkin() {
         >
           {submitting ? 'Wysyłanie...' : 'Potwierdzam'}
         </button>
+        {confirmError && (
+          <div className="mt-3 border border-apex-red/50 bg-apex-red/10 text-apex-red px-3 py-2 text-sm text-center">{confirmError}</div>
+        )}
       </div>
     </div>
   )

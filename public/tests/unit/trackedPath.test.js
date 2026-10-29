@@ -12,6 +12,22 @@ describe('trackedPath (what GA sees)', () => {
     assert.equal(trackedPath('/events/x/results', '?nr=12&kategoria=k'), '/events/x/results?kategoria=k')
     assert.equal(trackedPath('/kalendarz', ''), '/kalendarz')
   })
+
+  it('check-in and volunteer credentials stay out: p, t, pin', () => {
+    assert.equal(trackedPath('/events/x/checkin', '?p=id&t=token'), '/events/x/checkin')
+    assert.equal(trackedPath('/events/x/volunteer', '?checkpoint=cp&pin=1234567890'), '/events/x/volunteer?checkpoint=cp')
+    assert.equal(
+      trackedPath('/x', '?p=abc&t=tok&pin=123&email=a%40b.pl&code=1&nr=12&from=x'),
+      '/x?from=x',
+    )
+  })
+
+  it('trackedLocation drops them from page_location too', () => {
+    assert.equal(
+      trackedLocation({ origin: 'https://www.leszy.run', pathname: '/events/x/checkin', search: '?p=id&t=token' }),
+      'https://www.leszy.run/events/x/checkin',
+    )
+  })
 })
 
 describe('GA setup: every hit carries the cleaned page_location (final review M6)', () => {

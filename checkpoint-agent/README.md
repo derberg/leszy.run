@@ -12,7 +12,9 @@ strongest read, the same rule as the finish in the backend's
 `crossingDetector.js`, one confirmed pass per EPC per session), resolves
 confirmed EPCs to bib numbers against the roster (downloaded at setup and
 **re-downloaded on every start**, so last-minute registrations are picked up),
-and uploads the results straight to Supabase's `checkpoint_observations` table.
+and uploads the results to Supabase's `checkpoint_observations` table through the
+`checkpoint-write` edge function, authorised by the event's checkpoint PIN (the same
+PIN the roster download uses; the publishable key alone can no longer insert).
 It has no dependency on the local backend or local Postgres — it talks to
 Supabase directly so it keeps working on a trail with no route back to the
 race HQ network. See `ARCHITECTURE.md` (`checkpoint_observations` schema) and
