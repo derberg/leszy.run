@@ -5,8 +5,6 @@ import { ageOn, ageGroupLabel, kidsGroupFor } from './ageGroups.js'
 import { warsawToday } from './dates.js'
 import { isCountryCode } from './countries.js'
 
-// Plan 4 replaces this refusal with the guardian form.
-export const MINOR_MESSAGE = 'Zapis osoby niepełnoletniej będzie możliwy wkrótce.'
 export const ADULT_AGE = 18
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -68,13 +66,16 @@ export function validatePerson(person, {
   else if (lastName.length > NAME_MAX) errors.lastName = 'Nazwisko jest za długie.'
 
   const email = text(p.email).toLowerCase()
-  if (!EMAIL_RE.test(email) || email.length > 254) errors.email = 'Podaj poprawny adres e-mail.'
+  const emailOk = EMAIL_RE.test(email) && email.length <= 254
 
   const gender = p.gender === 'K' || p.gender === 'M' ? p.gender : null
   if (!gender) errors.gender = 'Wybierz płeć.'
 
   const birthDate = text(p.birthDate)
   const today = warsawToday(now)
+  // Adulthood is judged today, whatever the event's age reckoning says about race
+  // categories: the person accepts the regulamin now.
+  let isMinor = false
   if (!validDate(birthDate) || birthDate < '1900-01-01' || birthDate > today) {
     errors.birthDate = 'Podaj poprawną datę urodzenia.'
   } else {
@@ -82,12 +83,14 @@ export function validatePerson(person, {
     const age = ageOn(birthDate, raceDate, reckoning)
     if ((minAge != null && age < minAge) || (maxAge != null && age > maxAge)) {
       errors.birthDate = rangeMessage(minAge, maxAge)
-    } else if (ageOn(birthDate, today, 'race_day') < ADULT_AGE) {
-      // The person accepts the regulamin now, so adulthood is judged today,
-      // whatever the event's age reckoning says about race categories.
-      errors.birthDate = MINOR_MESSAGE
+    } else {
+      isMinor = ageOn(birthDate, today, 'race_day') < ADULT_AGE
     }
   }
+
+  // A minor has no e-mail of their own (the guardian is the contact), but one that is
+  // given must still be an address.
+  if (isMinor && !email) { /* stored as null */ } else if (!emailOk) errors.email = 'Podaj poprawny adres e-mail.'
 
   const optional = {}
   for (const { key, fields, max, phone, always, label } of SWITCHED) {
@@ -133,7 +136,7 @@ export function validatePerson(person, {
     ok: true,
     errors,
     value: {
-      firstName, lastName, birthDate, gender, email,
+      firstName, lastName, birthDate, gender, email: email || null, isMinor,
       phone: optional.phone, city: optional.city, club: optional.club,
       iceName: optional.iceName, icePhone: optional.icePhone, nationality,
       ageGroupLabel: label, kidsGroupId: kidsGroup?.id ?? null,

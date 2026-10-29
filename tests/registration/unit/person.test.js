@@ -2,7 +2,7 @@
 // on the server before register_free).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { validatePerson, MINOR_MESSAGE } from '../../../supabase/functions/_shared/registration/person.js'
+import { validatePerson } from '../../../supabase/functions/_shared/registration/person.js'
 
 // 2026-10-28 10:00 in Warsaw.
 const NOW = new Date('2026-10-28T09:00:00Z')
@@ -33,7 +33,7 @@ test('W-28 a complete adult is accepted and normalised', () => {
   assert.deepEqual(r.value, {
     firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email: 'ola@example.pl',
     phone: '+48 600 100 200', city: 'Gliwice', club: null, iceName: null, icePhone: null, nationality: null,
-    ageGroupLabel: 'K open', kidsGroupId: null,
+    ageGroupLabel: 'K open', kidsGroupId: null, isMinor: false,
   })
 })
 
@@ -94,20 +94,31 @@ test('W-28 age outside the competition range → message from the range', () => 
   assert.equal(validatePerson(b, ctx({ ...forty, reckoning: 'year_end' })).ok, true)
 })
 
-test('W-28 a minor (under 18 today in Warsaw) is refused whatever the reckoning says', () => {
-  assert.equal(MINOR_MESSAGE, 'Zapis osoby niepełnoletniej będzie możliwy wkrótce.')
+test('W-28 a minor (under 18 today in Warsaw) is accepted with isMinor, whatever the reckoning says', () => {
   // 17 today, 18 on race day (2027-03-14) and by year end.
   const turns18BeforeRace = person({ birthDate: '2009-01-15' })
   for (const reckoning of ['race_day', 'year_end']) {
     const r = validatePerson(turns18BeforeRace, ctx({ reckoning }))
-    assert.deepEqual(r.errors, { birthDate: MINOR_MESSAGE }, reckoning)
+    assert.equal(r.ok, true, reckoning)
+    assert.equal(r.value.isMinor, true, reckoning)
   }
+  assert.equal(validatePerson(person(), ctx()).value.isMinor, false)
 })
 
-test('W-28 the 18th birthday is today in Warsaw (still the 27th in UTC) → accepted', () => {
+test('W-28 a minor needs no email (stored null), still needs a phone; a given email must be valid', () => {
+  const kid = person({ birthDate: '2015-01-01', email: '' })
+  const r = validatePerson(kid, ctx())
+  assert.equal(r.ok, true, JSON.stringify(r.errors))
+  assert.equal(r.value.email, null)
+  assert.deepEqual(validatePerson({ ...kid, phone: '' }, ctx()).errors, { phone: 'Podaj numer telefonu.' })
+  assert.deepEqual(validatePerson({ ...kid, email: 'zly' }, ctx()).errors, { email: 'Podaj poprawny adres e-mail.' })
+  assert.deepEqual(validatePerson(person({ email: '' }), ctx()).errors, { email: 'Podaj poprawny adres e-mail.' })
+})
+
+test('W-28 the 18th birthday is today in Warsaw (still the 27th in UTC) → adult', () => {
   const now = new Date('2026-10-27T23:30:00Z') // 2026-10-28 00:30 in Warsaw
-  assert.equal(validatePerson(person({ birthDate: '2008-10-28' }), ctx({ now })).ok, true)
-  assert.deepEqual(validatePerson(person({ birthDate: '2008-10-29' }), ctx({ now })).errors, { birthDate: MINOR_MESSAGE })
+  assert.equal(validatePerson(person({ birthDate: '2008-10-28' }), ctx({ now })).value.isMinor, false)
+  assert.equal(validatePerson(person({ birthDate: '2008-10-29' }), ctx({ now })).value.isMinor, true)
 })
 
 test('W-28 age group label from the competition groups and the event reckoning', () => {

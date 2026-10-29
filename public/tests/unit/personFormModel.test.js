@@ -99,8 +99,8 @@ describe('checkPerson (the server rules, run before „Dalej”)', () => {
     assert.equal(checkPerson({ ...grazyna, phone: '' }, ctx).errors.phone, 'Podaj numer telefonu.')
     assert.equal(checkPerson({ ...grazyna, nationality: 'XX' }, ctx).errors.nationality, 'Wybierz kraj z listy.')
     assert.equal(checkPerson({ ...grazyna, birthDate: '2012-01-01' }, ctx).errors.birthDate, 'Ta konkurencja jest dla osób w wieku 16+.')
-    // 17 on 6 Nov 2026, 18 by race day: still refused, adulthood is judged today.
-    assert.equal(checkPerson({ ...grazyna, birthDate: '2008-12-01' }, ctx).errors.birthDate, 'Zapis osoby niepełnoletniej będzie możliwy wkrótce.')
+    // 17 on 6 Nov 2026, 18 by race day: a minor, adulthood is judged today (the group rules decide what a minor needs).
+    assert.equal(checkPerson({ ...grazyna, birthDate: '2008-12-01' }, ctx).value.isMinor, true)
     assert.deepEqual(Object.keys(checkPerson(EMPTY_PERSON, ctx).errors).sort(), ['birthDate', 'email', 'firstName', 'gender', 'lastName', 'phone'])
   })
 })
