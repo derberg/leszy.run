@@ -108,13 +108,12 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
     return offline(await actors.runner.newPage())
   }
 
-  test('P-46 the list starts empty; RA4 holds „Zapłać” until the support choice; „Nie tym razem” → 60,55 zł → the mock page', async ({ actors }) => {
+  test('P-46 the list starts empty; RA4 shows the entry price and the total, nothing more, „Zapłać” → 60,00 zł → the mock page (G-76)', async ({ actors }) => {
     event = await createPublishedPaidEvent(owner, { competitions: [BIEG], prices: { 'Bieg 9 km': 6000 } })
     await clearMessages()
 
     const viewer = await offline(await actors.viewer.newPage())
     await viewer.goto(`/events/${event.slug}`)
-    await expect(viewer.getByText('Do płatności doliczamy jej koszt (0,9%)')).toBeVisible()
     await viewer.getByTestId('start-list-link').click()
     await expect(viewer).toHaveURL(new RegExp(`/events/${event.slug}/lista$`))
     await expect(listHeader(viewer)).toHaveText('0 opłaconych')
@@ -122,35 +121,21 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
 
     const page = await offline(await actors.runner.newPage())
     await toCheckout(page, event, runner)
-    const choice = page.getByTestId('support-choice')
-    await expect(choice).toContainText('Wesprzesz LESZY.RUN 2%? Z tego utrzymujemy stronę, zapisy i kalendarz.')
-    const yes = choice.getByRole('button', { name: 'Wspieram · 1,20 zł' })
-    const no = choice.getByRole('button', { name: 'Nie tym razem' })
-    await expect(yes).toHaveAttribute('aria-pressed', 'false')
-    await expect(no).toHaveAttribute('aria-pressed', 'false')
-    await expect(page.getByTestId('pay')).toBeDisabled()
-    await expect(page.getByTestId('support-hint')).toHaveText('* wybierz, czy wspierasz LESZY.RUN')
     await expect(page.getByTestId('checkout-line')).toContainText('Ola Płacąca')
     await expect(page.getByTestId('checkout-line')).toContainText('Bieg 9 km')
-    await expect(page.getByTestId('checkout-amounts')).toContainText('Opłaty startowe')
-    await expect(page.getByTestId('checkout-amounts')).toContainText('Obsługa płatności dpay · 0,9%')
-
-    await no.click()
-    await expect(no).toHaveAttribute('aria-pressed', 'true')
-    await expect(yes).toHaveAttribute('aria-pressed', 'false')
-    await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*60,55 zł/)
-    await expect(page.getByTestId('support-hint')).toHaveCount(0)
+    await expect(page.getByTestId('checkout-line-price')).toHaveText('60,00 zł')
+    await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*60,00 zł/)
+    await expect(page.locator('#main-content')).not.toContainText(/Wspieram|Nie tym razem|Obsługa płatności|Wsparcie LESZY/)
     await expect(page.getByTestId('pay')).toBeEnabled()
     await page.getByTestId('pay').click()
     await expect(page).toHaveURL(PAY_PAGE)
     await expect(page.getByRole('heading', { name: 'dpay (mock)' })).toBeVisible()
-    await expect(page.getByTestId('amount')).toHaveText('60.55')
+    await expect(page.getByTestId('amount')).toHaveText('60.00')
 
     const order = await orderOf(runner.email)
     orderId = order.id
     buyerCookies = (await page.context().cookies()).filter((c) => c.name === 'leszy_session')
-    expect(order.support_choice).toBe(false)
-    expect(order.total).toBe(6055)
+    expect(order.total).toBe(6000)
   })
 
   test('P-47 the runner leaves unpaid: only a count on the public list (P3-R14), „czeka na wpłatę” for the owner; a resubmit goes to the order', async ({ actors }) => {
@@ -185,20 +170,19 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
     await fillPerson(page, runner)
     await tickAll(page)
     await page.getByTestId('registration-submit').click()
-    await page.getByTestId('support-choice').getByRole('button', { name: 'Nie tym razem' }).click()
     await page.getByTestId('pay').click()
     await expect(page).toHaveURL(new RegExp(`/zamowienie/${orderId}$`))
     await expect(page.getByTestId('order-pending')).toBeVisible()
     await orderOf(runner.email) // still exactly one
   })
 
-  test('P-48 the IPN pays it: „OPŁACONE · 60,55 zł”, the list flips, the owner counts 1, the e-mail, the participant reaches the host', async ({ actors }) => {
+  test('P-48 the IPN pays it: „OPŁACONE · 60,00 zł”, the list flips, the owner counts 1, the e-mail, the participant reaches the host', async ({ actors }) => {
     await payMock(await latestTxn(orderId), 'paid')
 
     const page = await asBuyer(actors)
     await page.goto(`/zamowienie/${orderId}`)
     await expect(page.getByTestId('order-paid')).toBeVisible()
-    await expect(page.getByTestId('order-paid-label')).toHaveText(/Opłacone · 60,55 zł/i)
+    await expect(page.getByTestId('order-paid-label')).toHaveText(/Opłacone · 60,00 zł/i)
     await expect(page.getByText('Jesteście na liście')).toBeVisible()
     await expect(page.getByTestId('order-person')).toContainText('Bieg 9 km')
     await expect(page.getByTestId('order-person')).toContainText('start 10:00')
@@ -230,17 +214,15 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
     }
   })
 
-  test('P-49 a second runner picks „Wspieram”: 61,76 zł; Back from dpay lands on the order page; declines, „Zapłać” again works', async ({ actors }) => {
-    const second = { first: 'Ewa', last: 'Wspierająca', email: runnerEmail('support') }
+  test('P-49 a second runner: 60,00 zł; Back from dpay lands on the order page; declines, „Zapłać” again works', async ({ actors }) => {
+    const second = { first: 'Ewa', last: 'Druga', email: runnerEmail('second') }
     const page = await offline(await actors.runner.newPage())
     await toCheckout(page, event, second)
-    await page.getByTestId('support-choice').getByRole('button', { name: 'Wspieram · 1,20 zł' }).click()
-    await expect(page.getByTestId('checkout-amounts')).toContainText('Wsparcie LESZY.RUN')
-    await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*61,76 zł/)
+    await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*60,00 zł/)
     await page.getByTestId('pay').click()
-    await expect(page.getByTestId('amount')).toHaveText('61.76')
+    await expect(page.getByTestId('amount')).toHaveText('60.00')
     const order = await orderOf(second.email)
-    expect([order.support_choice, order.support_fee, order.payment_fee, order.total]).toEqual([true, 120, 56, 6176])
+    expect(order.total).toBe(6000)
 
     // Review I3: Back from the dpay page is the order page, never a stuck RA4 or an empty form.
     await page.goBack()
@@ -264,7 +246,7 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
     expect(attempts).toHaveLength(4)
     await page.getByRole('button', { name: 'Zapłać (mock)' }).click()
     await expect(page).toHaveURL(new RegExp(`${VITE}/zamowienie/${order.id}$`))
-    await expect(page.getByTestId('order-paid-label')).toHaveText(/Opłacone · 61,76 zł/i)
+    await expect(page.getByTestId('order-paid-label')).toHaveText(/Opłacone · 60,00 zł/i)
     expect((await dpayTransactions()).filter((t) => t.status === 'paid')).toHaveLength(2)
   })
 })
@@ -275,7 +257,6 @@ test('P-50 an unpaid order expires: „Zgłoszenie wygasło”, the runner leave
   const runner = { first: 'Iga', last: 'Spóźniona', email: runnerEmail('late') }
   const page = await offline(await actors.runner.newPage())
   await toCheckout(page, event, runner)
-  await page.getByTestId('support-choice').getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
   await expect(page).toHaveURL(PAY_PAGE)
   const order = await orderOf(runner.email)
@@ -311,7 +292,6 @@ test('P-61 „Anuluj zgłoszenie”: offered while pending, prominent once full;
   const runner = { first: 'Ewa', last: 'Utknięta', email: runnerEmail('cancel') }
   const page = await offline(await actors.runner.newPage())
   await toCheckout(page, event, runner)
-  await page.getByTestId('support-choice').getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
   await expect(page).toHaveURL(PAY_PAGE)
   const order = await orderOf(runner.email)
@@ -356,7 +336,6 @@ test('P-61 „Anuluj zgłoszenie”: offered while pending, prominent once full;
   await fillPerson(page, runner)
   await tickAll(page)
   await page.getByTestId('registration-submit').click()
-  await page.getByTestId('support-choice').getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
   await expect(page).toHaveURL(PAY_PAGE)
   const { data: orders } = await db.from('orders').select('id, status').eq('buyer_email', runner.email)
@@ -375,12 +354,7 @@ test('P-46 RA4 and the order page fit 390 px: no sideways scroll, no wrapped but
   const overflowing = () => page.evaluate(() => [...document.querySelectorAll('#main-content button, #main-content a')]
     .filter((el) => el.offsetParent && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1))
     .map((el) => el.textContent.trim()))
-  for (const name of ['Wspieram · 1,20 zł', 'Nie tym razem']) {
-    const box = await page.getByRole('button', { name }).boundingBox()
-    expect(box.height).toBeLessThan(60)
-  }
   expect(await overflowing()).toEqual([])
-  await page.getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
   await expect(page).toHaveURL(PAY_PAGE)
   await page.goto(`/zamowienie/${(await orderOf((await admin().from('orders').select('buyer_email').eq('event_id', event.eventId).single()).data.buyer_email)).id}`)
@@ -483,18 +457,16 @@ test.describe.serial('the code step of a paid event', () => {
     await stuckOnCode(page, 'Zbyt wiele prób. Spróbuj ponownie później.')
   })
 
-  test('I4 the session lost on RA4: back to the code step, and the support choice survives the round trip', async ({ actors }) => {
+  test('I4 the session lost on RA4: back to the code step, then RA4 again with the same total', async ({ actors }) => {
     const person = { first: 'Nina', last: 'Wylogowana', email: runnerEmail('lost') }
     const page = await offline(await actors.viewer.newPage())
     await submitCode(page, await toCode(page, person))
     await expect(page.getByTestId('checkout')).toBeVisible()
-    await page.getByTestId('support-choice').getByRole('button', { name: 'Wspieram · 1,20 zł' }).click()
     await admin().from('auth_sessions').delete().eq('email', person.email)
     await page.getByTestId('pay').click()
     await expect(page.getByTestId('code-step')).toBeVisible()
     await resendAndPass(page, person.email)
-    await expect(page.getByRole('button', { name: 'Wspieram · 1,20 zł' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*61,76 zł/)
+    await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*60,00 zł/)
   })
 })
 
@@ -531,7 +503,6 @@ test('M1 the last hour before closing: RA4 refuses to start an online payment; a
   const person = { first: 'Ola', last: 'Ostatnia', email: runnerEmail('lasthour') }
   const page = await offline(await actors.runner.newPage())
   await toCheckout(page, event, person)
-  await page.getByTestId('support-choice').getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
   await expect(page).toHaveURL(PAY_PAGE)
   const order = await orderOf(person.email)
@@ -540,7 +511,6 @@ test('M1 the last hour before closing: RA4 refuses to start an online payment; a
   await admin().from('registration_settings').update({ closes_at: new Date(Date.now() + 30 * 60_000).toISOString() }).eq('event_id', event.eventId)
   const late = await offline(await actors.viewer.newPage())
   await toCheckout(late, event, { first: 'Ula', last: 'Zapóźna', email: runnerEmail('tooLate') })
-  await late.getByTestId('support-choice').getByRole('button', { name: 'Nie tym razem' }).click()
   await expect(late.getByTestId('pay')).toBeDisabled()
   await expect(late.getByTestId('paying-closed')).toHaveText('Zapisy z płatnością online kończą się godzinę przed zamknięciem zapisów.')
 

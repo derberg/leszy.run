@@ -90,7 +90,6 @@ test('W-36 viewer sees the event page and the course of a published free event',
   await expect(row).toContainText('Bieg 9 km')
   await expect(row).toContainText('start 10:00')
   await expect(row).toContainText('Bezpłatne')
-  await expect(page.getByText('Do płatności doliczamy')).toHaveCount(0)
   await expect(page.getByTestId('registration-event-page').getByRole('link', { name: 'Regulamin' })).toHaveAttribute('href', 'https://example.org/regulamin.pdf')
 
   await page.getByTestId('event-course').getByRole('link', { name: 'Pełny widok i GPX →' }).click()

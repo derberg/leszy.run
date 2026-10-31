@@ -12,18 +12,21 @@
 // results lists rest on Art. 6(1)(b); photo and video reports on Art. 6(1)(f),
 // with the right to object; disseminating the image rests on the permission
 // given by accepting the regulamin term (art. 81 ust. 1 of the copyright act,
-// crowd shots art. 81 ust. 2 pkt 2), which is not GDPR consent.
+// crowd shots art. 81 ust. 2 pkt 2), which is not GDPR consent. Plan 4 (groups): the
+// added adult's data come from the person who registered them (Art. 14(2)(f)), who is named in
+// the consent e-mail; the consent link, its reminders and the office override are described; the
+// start list shows gender (filters) and no added adult by name before they accept.
 //
 // Keep in step with the source document when it changes.
 
-export const RUNNER_DATA_INFO_VERSION = '2026-11-v3'
+export const RUNNER_DATA_INFO_VERSION = '2026-11-v5'
 
 /**
  * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
  * @returns {{ title: string, sections: Array<{ heading: string, blocks: Array<string | { list: string[] } | { table: string[][] }> }> }}
  */
 export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = false, teams = false, nationality = false }) {
-  const listed = ['imię', 'nazwisko', 'miejscowość', 'klub', 'konkurencja', 'kategoria wiekowa', ...(teams ? ['nazwa drużyny'] : [])]
+  const listed = ['imię', 'nazwisko', 'płeć', 'miejscowość', 'klub', 'konkurencja', 'kategoria wiekowa', ...(teams ? ['nazwa drużyny'] : [])]
   const listedText = paid
     ? `${listed.join(', ')}, a przy opłaconym zgłoszeniu informacja, że jest opłacone. Zgłoszenia czekające na wpłatę pokazujemy tylko jako liczbę, bez imienia i nazwiska`
     : `${listed.slice(0, -1).join(', ')} i ${listed.at(-1)}`
@@ -98,6 +101,14 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
           'Masz prawo: dostępu do swoich danych i otrzymania ich kopii (art. 15 RODO), ich sprostowania (art. 16), usunięcia (art. 17), ograniczenia przetwarzania (art. 18), przenoszenia danych przetwarzanych na podstawie umowy (art. 20) oraz sprzeciwu wobec przetwarzania opartego na prawnie uzasadnionym interesie (art. 21). Napisz do Organizatora. Jeżeli masz konto LESZY.RUN, swoje zgłoszenia pobierzesz też w profilu („Pobierz moje dane”).',
           'Masz prawo wnieść skargę do Prezesa Urzędu Ochrony Danych Osobowych, ul. Stawki 2, 00-193 Warszawa (uodo.gov.pl).',
           'Twoje dane nie służą do zautomatyzowanego podejmowania decyzji ani profilowania w rozumieniu art. 22 RODO. Przydział do kategorii wiekowej na podstawie daty urodzenia jest wyliczeniem według regulaminu zawodów, a nie oceną.',
+        ],
+      },
+      {
+        heading: 'Gdy zapisujesz inną osobę',
+        blocks: [
+          'Zapisując inną osobę dorosłą (członka rodziny, drużyny), podajesz jej dane w jej imieniu. Źródłem jej danych jesteś Ty (art. 14 ust. 2 lit. f RODO): w e-mailu do tej osoby podajemy Twoje imię i nazwisko jako osoby, która ją zapisała. Przekaż jej, że dane podałeś.',
+          'Ta osoba dostaje jeden e-mail z linkiem i z tą informacją. Na stronie z linku potwierdza swój adres kodem wysłanym e-mailem, sprawdza i może poprawić swoje dane, a potem akceptuje regulamin zawodów. Jeżeli tego nie zrobi, przed końcem zapisów dostanie jedno automatyczne przypomnienie; Ty i Organizator możecie wysłać kolejne (łącznie najwyżej trzy na dobę). Każde przypomnienie unieważnia poprzedni link. Organizator może też przyjąć jej podpis pod regulaminem w biurze zawodów. Dopóki ta osoba nie zaakceptuje regulaminu, nie pokazujemy jej na publicznej liście startowej z imienia i nazwiska.',
+          'Osobę niepełnoletnią zapisuje jej rodzic lub opiekun prawny, który podaje swoje imię, nazwisko i adres e-mail. Oświadczenia za osobę niepełnoletnią składa opiekun. Dziecko nie dostaje od LESZY.RUN żadnych wiadomości. Jeżeli opiekun usunie konto LESZY.RUN, zgłoszenie dziecka zostaje, bez danych kontaktowych opiekuna.',
         ],
       },
       {

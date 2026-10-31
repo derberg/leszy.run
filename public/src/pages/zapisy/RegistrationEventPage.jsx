@@ -187,9 +187,6 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
           ))}
         </div>
 
-        {m.showFeeNote && (
-          <span className="text-[15px] text-apex-muted">Do płatności doliczamy jej koszt (0,9%). Wsparcie LESZY.RUN (2%) jest dobrowolne.</span>
-        )}
         {m.courses.length > 0 && (
           <section className="flex flex-col gap-3" data-testid="event-course">
             <div className="flex justify-between items-baseline gap-3">

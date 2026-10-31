@@ -9,6 +9,8 @@ import { pollDelayMs } from '../../lib/orderPolling.js'
 import { payLinkOpen } from '../../lib/checkout.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import DoneActions from '../../components/registration/DoneActions.jsx'
+import RegisteredPerson from '../../components/registration/RegisteredPerson.jsx'
+import { orderPeople, personGroupLabel, showsConsentTags } from '../../lib/consentTag.js'
 import { labelCls, linkCls, primaryBtn, secondaryBtn } from '../../components/registration/ui.js'
 import { formatPln } from '@registration/money.js'
 import { eventPath } from './RegistrationEventPage.jsx'
@@ -22,7 +24,11 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // hidden. The order id in the address is opaque and needs the buyer's session,
 // so analytics may see it (trackedPath). No bib anywhere (spec §2).
 //
-// paid      → „OPŁACONE · <razem>”, „Jesteście na liście”, the people, „Co dalej”
+// paid      → „OPŁACONE · <razem>”, „Jesteście na liście”, the people, „Co dalej”; in a
+//             group each person's regulamin tag („✓ REGULAMIN” / „✓ OPIEKUN” /
+//             „CZEKA NA ZGODĘ”) and „Wyślij przypomnienie do <imię> →” for an added
+//             adult who has not accepted (the consent e-mail goes out on payment, so
+//             a pending order shows no tags)
 // pending   → „Opłać do <data, godzina>” and „Zapłać” (pay-order: a new dpay
 //             transaction at the frozen price), none from the server's closesAt
 //             on (order-status returns it; the page re-checks at that moment), and
@@ -96,14 +102,11 @@ function useOrderStatus(orderId) {
   return { ...state, again }
 }
 
-function Person({ line }) {
+function Person({ line, showTag = false, onStale }) {
   return (
-    <div className="border border-apex-border-mid bg-apex-surface p-3.5" data-testid="order-person">
-      <span className="block text-lg font-bold text-apex-text-bright">{line.name}</span>
-      <span className="block font-mono text-[13px] text-apex-muted uppercase">
-        {[line.competition, line.ageGroupLabel, line.startTime ? `start ${line.startTime}` : null].filter(Boolean).join(' · ')}
-      </span>
-    </div>
+    <RegisteredPerson person={line} registrationId={line.registrationId} name={line.name} showTag={showTag}
+      onStale={onStale} testId="order-person"
+      meta={[line.competition, personGroupLabel(line), line.startTime ? `start ${line.startTime}` : null]} />
   )
 }
 
@@ -112,10 +115,6 @@ function Amounts({ amounts }) {
   return (
     <div data-testid="order-amounts">
       <div className={row}><span>Opłaty startowe</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(amounts.entryTotal)}</span></div>
-      {amounts.supportFee > 0 && (
-        <div className={row}><span>Wsparcie LESZY.RUN</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(amounts.supportFee)}</span></div>
-      )}
-      <div className={row}><span>Obsługa płatności dpay</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(amounts.paymentFee)}</span></div>
       <div className="flex justify-between gap-2.5 py-1.5 text-lg font-bold text-apex-text-bright">
         <span>Razem</span><span className="font-mono text-apex-yellow whitespace-nowrap">{formatPln(amounts.total)}</span>
       </div>
@@ -123,10 +122,12 @@ function Amounts({ amounts }) {
   )
 }
 
-function Paid({ order, raw, model }) {
+function Paid({ order, raw, model, onAgain }) {
   const title = model?.title ?? order.event.name
   const day = model?.dateLabel?.split(' · ')[0]
-  const first = order.lines[0]
+  const people = orderPeople(order.lines)
+  const first = people[0]
+  const tags = showsConsentTags(people)
   return (
     <div className="flex flex-col gap-4" data-testid="order-paid">
       <PageTop right="KROK 3/3" />
@@ -137,7 +138,7 @@ function Paid({ order, raw, model }) {
         <span className="font-display font-extrabold text-4xl leading-none uppercase">Jesteście na liście</span>
         <span className="text-base font-semibold">{[title, day].filter(Boolean).join(' · ')}</span>
       </div>
-      {order.lines.map((l, i) => <Person key={`${l.name}-${i}`} line={l} />)}
+      {people.map((l, i) => <Person key={l.registrationId ?? `${l.name}-${i}`} line={l} showTag={tags} onStale={onAgain} />)}
       {raw && first && (
         <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)}
           first={{ uid: `${order.event.slug}-${first.name}`, name: first.name, competition: first.competition, startTime: first.startTime }} />
@@ -241,7 +242,7 @@ function Pending({ orderId, order, raw, polling, onAgain }) {
           <span className="text-base font-semibold text-apex-text-bright" data-testid="order-deadline">Opłać do {warsaw.format(new Date(order.expiresAt))}</span>
         )}
       </div>
-      {order.lines.map((l, i) => <Person key={`${l.name}-${i}`} line={l} />)}
+      {orderPeople(order.lines).map((l, i) => <Person key={l.registrationId ?? `${l.name}-${i}`} line={l} />)}
       <Amounts amounts={order.amounts} />
       {closed
         ? <p className="text-apex-red text-base" data-testid="order-closed">Zapisy są zamknięte.</p>
@@ -340,7 +341,7 @@ export default function Zamowienie() {
   } else if (order.status === 'error') {
     body = <Message>Nie udało się wczytać zgłoszenia. Odśwież stronę.</Message>
   } else if (order.order.status === 'paid') {
-    body = <Paid order={order.order} raw={raw} model={model} />
+    body = <Paid order={order.order} raw={raw} model={model} onAgain={order.again} />
   } else if (order.order.status === 'pending') {
     body = <Pending orderId={orderId} order={order.order} raw={raw} polling={order.polling} onAgain={order.again} />
   } else {

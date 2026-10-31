@@ -60,7 +60,7 @@ test('P-58 capacity 2, 5 pending orders that all pay at once → exactly 2 confi
       continue
     }
     assert.equal(r.data.refund.reason, 'full')
-    assert.equal(r.data.refund.grosze, orders[i].total, 'refunded in full, fees included')
+    assert.equal(r.data.refund.grosze, orders[i].total, 'refunded in full')
     // A refunded pending order is cancelled, so it cannot be paid a second time.
     assert.equal(order.status, 'cancelled')
     assert.equal(order.cancelled_reason, 'full')

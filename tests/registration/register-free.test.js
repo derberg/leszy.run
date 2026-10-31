@@ -1,7 +1,7 @@
 // Plan 2, task 9: free registration (W-29…W-35 in docs/registration/scenario-matrix.md).
 // LOCAL stack only. Every event and runner address is random, so reruns on a
 // stack holding earlier data still pass.
-import { test, before, after } from 'node:test'
+import { test, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
@@ -31,12 +31,21 @@ before(async () => {
   ].map(sessionFor))
 })
 after(async () => { if (stopCapture) await stopCapture() })
+beforeEach(async () => { await resetThrottle() })
 
-/** POST register-free; keeps the Set-Cookie header (callFn drops headers). */
+/**
+ * POST register-free; keeps the Set-Cookie header (callFn drops headers). The client address is
+ * `RUNNER_IP` for every call, which the acceptance rows are checked against; the per-IP throttle
+ * (20 an hour) is reset before each test, so the file's calls never add up to it.
+ */
+const RUNNER_IP = '203.0.113.9'
 async function register(body, session = null) {
   const res = await fetch(`${localEnv().functionsUrl}/register-free`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9', ...(session ? { cookie: session.cookie } : {}) },
+    headers: {
+      'content-type': 'application/json', 'x-forwarded-for': RUNNER_IP,
+      ...(session ? { cookie: session.cookie } : {}),
+    },
     body: JSON.stringify(body),
   })
   const text = await res.text()
@@ -216,14 +225,16 @@ test('W-29 my-event-registrations returns the session’s confirmed registration
   assert.deepEqual({ ...row, createdAt: typeof row.createdAt }, {
     id: r.body.data.registrations[0].id, name: 'Ola Leśna', competition: 'Bieg 9 km', ageGroupLabel: 'K open',
     status: 'confirmed', createdAt: 'string', paymentStatus: 'free', expiresAt: null,
+    // Plan 4 task 6: the consent columns (G-53).
+    role: 'self', consentState: 'accepted', guardianName: null, guardianRemoved: false, registeredBy: null,
   })
   const { data: caps } = await admin().from('competitions').select('capacity, taken').eq('event_id', event.eventId)
-  assert.deepEqual(list.body.counts, { paid: 0, awaiting: 0, free: 1, placesLeft: caps.reduce((n, c) => n + c.capacity - c.taken, 0) })
+  assert.deepEqual(list.body.counts, { paid: 0, awaiting: 0, free: 1, placesLeft: caps.reduce((n, c) => n + c.capacity - c.taken, 0), awaitingConsent: 0 })
   assert.equal((await callFn('list-event-registrations', outsider, { eventId: event.eventId })).status, 404)
   assert.equal((await callFn('list-event-registrations', null, { eventId: event.eventId })).status, 401)
 })
 
-test('W-29 an invalid person → 400 with field errors; a minor → 400 with the minor message; more than one person → 400', async () => {
+test('W-29 an invalid person → 400 with field errors; a minor registering themself → 400 invalid_group; two adults are a group (G-33)', async () => {
   const event = await publishedEvent()
   const email = runnerEmail('bad')
   const runner = await sessionFor(email)
@@ -231,14 +242,18 @@ test('W-29 an invalid person → 400 with field errors; a minor → 400 with the
   assert.equal(bad.status, 400)
   assert.deepEqual(Object.keys(bad.body.fields).sort(), ['firstName', 'gender'])
 
+  // Plan 4 (G-33): a minor is registered by a parent or guardian, never by themself.
   const minor = await register({ ...(await body(event, email)), person: person(email, { birthDate: '2012-01-01' }) }, runner)
   assert.equal(minor.status, 400)
-  assert.equal(minor.body.fields.birthDate, 'Zapis osoby niepełnoletniej będzie możliwy wkrótce.')
-
-  const two = await register({ ...(await body(event, email)), person: undefined, people: [person(email), person(runnerEmail('b'))] }, runner)
-  assert.equal(two.status, 400)
+  assert.deepEqual(minor.body, { error: 'Osobę niepełnoletnią zapisuje rodzic lub opiekun.', code: 'invalid_group' })
   assert.equal(await taken(event.categoryIds[0]), 0)
   assert.equal((await registrationsOf(event.categoryIds[0])).length, 0)
+
+  // Plan 4 (G-33): two adults in one body are a valid group.
+  const two = await register({ ...(await body(event, email)), person: undefined, people: [person(email), person(runnerEmail('b'))] }, runner)
+  assert.equal(two.status, 201, JSON.stringify(two.body))
+  assert.equal(await taken(event.categoryIds[0]), 2)
+  assert.equal((await registrationsOf(event.categoryIds[0])).length, 2)
 })
 
 // ---------------------------------------------------------------- W-30 last place

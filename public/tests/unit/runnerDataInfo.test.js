@@ -52,7 +52,7 @@ describe('runnerDataInfo start list (ruling P3-R14)', () => {
 
   it('the version moved past v2 with these lines', async () => {
     const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
-    assert.equal(RUNNER_DATA_INFO_VERSION, '2026-11-v3')
+    assert.ok(!['2026-11-v1', '2026-11-v2'].includes(RUNNER_DATA_INFO_VERSION))
   })
 })
 
@@ -106,5 +106,44 @@ describe('runnerDataInfo image publication (P2-R33, reviews U1 I1 and U2 I1)', (
     }
     const published = runnerDataInfo(base).sections.find((s) => s.heading === 'Co jest publikowane').blocks[1]
     assert.ok(md.includes(published))
+  })
+})
+
+describe('runnerDataInfo group registration (Plan 4, task 8)', () => {
+  const section = () => runnerDataInfo(base).sections.find((s) => s.heading === 'Gdy zapisujesz inną osobę')
+
+  it('names the person who registered an added adult as the source of the data (Art. 14(2)(f))', () => {
+    assert.ok(section(), 'the section is shown to runners')
+    const t = JSON.stringify(section())
+    assert.ok(t.includes('art. 14 ust. 2 lit. f RODO'))
+    assert.ok(t.includes('podajemy Twoje imię i nazwisko jako osoby, która ją zapisała'))
+  })
+
+  it('describes the consent link: the code, the data to check, the regulamin, the reminders, the office', () => {
+    const t = JSON.stringify(section())
+    for (const s of ['kod', 'poprawić swoje dane', 'akceptuje regulamin', 'przypomnienie', 'unieważnia poprzedni link', 'w biurze zawodów',
+      'nie pokazujemy jej na publicznej liście startowej z imienia i nazwiska']) assert.ok(t.includes(s), s)
+  })
+
+  it('a child is registered by the guardian and gets no message; a deleted guardian leaves the entry', () => {
+    const t = JSON.stringify(section())
+    assert.ok(t.includes('Dziecko nie dostaje od LESZY.RUN żadnych wiadomości.'))
+    assert.ok(t.includes('Jeżeli opiekun usunie konto LESZY.RUN, zgłoszenie dziecka zostaje'))
+  })
+
+  it('the start list names gender among what is published', () => {
+    const published = JSON.stringify(runnerDataInfo(base).sections.find((s) => s.heading === 'Co jest publikowane'))
+    assert.ok(published.includes('płeć'))
+  })
+
+  it('the source document carries the same section, word for word', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const md = await readFile(new URL('../../../docs/legal/zapisy/informacja-o-danych-zawodnika.md', import.meta.url), 'utf8')
+    for (const block of section().blocks) assert.ok(md.includes(block), block.slice(0, 60))
+  })
+
+  it('the version moved past v3 with the section', async () => {
+    const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
+    assert.notEqual(RUNNER_DATA_INFO_VERSION, '2026-11-v3')
   })
 })

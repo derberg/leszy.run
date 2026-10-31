@@ -14,6 +14,7 @@ export const ACTOR_EMAILS = {
   innyMember: 'member@inny-klub.local',
   runner: 'runner@test.local',
   viewer: null, // anonymous
+  invitee: null, // anonymous: an added adult holding only the consent link from the e-mail
 }
 
 async function actorContext(browser, email) {

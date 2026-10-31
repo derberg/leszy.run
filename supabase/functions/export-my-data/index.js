@@ -2,6 +2,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { registeredByNames } from '../_shared/registration/registeredBy.js'
 
 const POLICY_VERSION = '2026-06-04'
 
@@ -23,12 +24,18 @@ async function fetchAll(buildQuery, label) {
   return rows
 }
 
+// Plan 4 (groups): an entry somebody else made for this person (an added adult) says who provided
+// the data (Art. 14(2)(f), Art. 15(1)(g)) as `registered_by` (the name the buyer typed on the
+// order, never their account id or address), and carries the consent request's dates. The token
+// hash is never exported: it is a credential, not information about the person.
 const REGISTRATION_COLUMNS = 'id, event_id, category_id, status, first_name, last_name, birth_date, gender, email, phone, city, club, nationality, '
-  + 'ice_name, ice_phone, guardian_name, guardian_email, age_group_label, list_price, price, refunded, consent_state, created_at, '
+  + 'ice_name, ice_phone, guardian_name, guardian_email, guardian_removed_at, age_group_label, list_price, price, refunded, consent_state, created_at, '
+  + 'order_id, registered_by_profile_id, '
   + 'registration_settings(name, event_date), '
-  + 'consent_acceptances(consent_kind, accepted_as, regulamin_version, accepted_at, ip, user_agent)'
+  + 'consent_acceptances(consent_kind, accepted_as, regulamin_version, accepted_at, ip, user_agent), '
+  + 'consent_requests(sent_at, emailed_at, last_reminded_at, auto_reminded_at, used_at, expires_at)'
 
-const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_name, guardian_email, created_at, '
+const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_name, guardian_email, guardian_removed_at, created_at, '
   + 'registration_settings(name, event_date), '
   + 'consent_acceptances(consent_kind, accepted_as, accepted_by_profile_id, regulamin_version, accepted_at, ip, user_agent)'
 
@@ -37,8 +44,8 @@ const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_
 // included too: they are about this person's payment, even if they are an internal note.
 // payment_events (the raw dpay log) is not: it holds the same transaction ids and amounts, and
 // the payer address only as a SHA-256.
-const ORDER_COLUMNS = 'id, status, buyer_email, support_choice, entry_total, extras_total, donation, support_fee, '
-  + 'payment_fee, total, created_at, expires_at, paid_at, paid_transaction_id, cancelled_at, cancelled_reason, '
+const ORDER_COLUMNS = 'id, status, buyer_email, buyer_name, entry_total, extras_total, donation, '
+  + 'total, created_at, expires_at, paid_at, paid_transaction_id, cancelled_at, cancelled_reason, '
   + 'registration_settings(name, event_date), '
   + 'order_lines(kind, registration_id, qty, amount, refunded, tier_label, tier_ends_on), '
   + 'payment_attempts(id, dpay_transaction_id, grosze, status, created_at, paid_at), '
@@ -52,10 +59,10 @@ function orderView(o) {
     event_date: o.registration_settings?.event_date ?? null,
     status: o.status,
     buyer_email: o.buyer_email,
-    support_choice: o.support_choice,
+    buyer_name: o.buyer_name ?? null,
     amounts: {
       entry_total: o.entry_total, extras_total: o.extras_total, donation: o.donation,
-      support_fee: o.support_fee, payment_fee: o.payment_fee, total: o.total,
+      total: o.total,
     },
     created_at: o.created_at,
     expires_at: o.expires_at,
@@ -197,13 +204,38 @@ Deno.serve(async (req) => {
       event_date: rs?.event_date ?? null,
     }))
 
-  const registrations = [...new Map([...registrationsByProfile, ...registrationsByEmail].map((r) => [r.id, r])).values()]
+  const ownRegs = [...new Map([...registrationsByProfile, ...registrationsByEmail].map((r) => [r.id, r])).values()]
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
-    .map(({ registration_settings: rs, ...r }) => ({
-      ...r,
-      event_name: rs?.name ?? null,
-      event_date: rs?.event_date ?? null,
-    }))
+  // Rows registered by another account: who that was is the source of the data (Art. 14(2)(f)),
+  // named by registeredByNames, the consent e-mail's rule (final review I-2): the name the buyer
+  // typed on the order, else (a free group has no order) the buyer's own entry, the guardian name
+  // their children carry, the display name. The buyer's own rows and their order stay out of this
+  // export. An added adult's row always has a consent request; registered_by_profile_id alone is
+  // not enough, because delete-my-account nulls it when the buyer deletes their account.
+  const consentRequestOf = (r) => (Array.isArray(r.consent_requests) ? r.consent_requests[0] : r.consent_requests) ?? null
+  const addedBySomebody = (r) => (r.registered_by_profile_id && r.registered_by_profile_id !== userId) || consentRequestOf(r) != null
+  const byOthers = ownRegs.filter(addedBySomebody)
+  let registeredBy = () => null
+  if (byOthers.length > 0) {
+    try {
+      registeredBy = await registeredByNames(supabaseAdmin, byOthers)
+    } catch (err) {
+      console.error('export-my-data: registered_by names failed:', err?.message)
+    }
+  }
+  const registrations = ownRegs
+    .map((row) => {
+      const { registration_settings: rs, consent_requests: _cr, order_id: _order, registered_by_profile_id: _by, ...r } = row
+      return {
+        ...r,
+        event_name: rs?.name ?? null,
+        event_date: rs?.event_date ?? null,
+        // null: the person registered themself. Otherwise { name }: the name is null when nothing
+        // names the buyer any more (they deleted their account: registered_by and buyer_name go).
+        registered_by: addedBySomebody(row) ? { name: registeredBy(row) } : null,
+        consent_request: consentRequestOf(row),
+      }
+    })
 
   const memberships = (clubMemberships.data ?? []).map((m) => ({
     club_name: m.clubs?.name ?? null,

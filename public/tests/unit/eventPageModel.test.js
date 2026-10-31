@@ -99,9 +99,8 @@ describe('eventPageModel (RA1)', () => {
     assert.equal(model({ ...RA1, competitions: [] }).showStartList, false)
   })
 
-  it('a paid event shows the fee note and the regulamin file', () => {
+  it('a paid event shows the regulamin file', () => {
     const m = model()
-    assert.equal(m.showFeeNote, true)
     assert.equal(m.regulaminUrl, fileUrl('e1/regulamin/r.pdf'))
   })
 })
@@ -142,7 +141,6 @@ describe('eventPageModel states', () => {
     const m = model(free)
     assert.equal(m.competitions[0].priceLabel, 'Bezpłatne')
     assert.equal(m.competitions[0].nextPriceLabel, null)
-    assert.equal(m.showFeeNote, false)
     assert.equal(m.regulaminUrl, 'https://example.org/r.pdf')
   })
 

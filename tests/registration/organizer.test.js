@@ -6,7 +6,7 @@ import { startCapture, messagesTo, clearMessages } from './helpers/emailCapture.
 const OPERATOR = 'operator@leszy.test' // PIPELINE_ALERT_EMAIL in functions.env
 const ZT = '00000000-0000-4000-8000-0000000000c1' // enabled
 const IK = '00000000-0000-4000-8000-0000000000c2' // disabled
-const VERSION = '2026-11-v2'
+const VERSION = '2026-11-v3'
 
 let stopCapture
 before(async () => {

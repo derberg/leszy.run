@@ -11,6 +11,9 @@ import { refundTransaction, transactionDetails } from '../dpay.js'
 import { sendEmail } from '../email.js'
 import { redactDpay } from './redactDpay.js'
 import { orderConfirmationEmail, paymentRefundedEmail } from './emails.js'
+import { issueOrderConsentRequests } from './consentRequests.js'
+import { registrationRole } from './group.js'
+import { kidsGroupLabels } from './kidsGroupLabels.js'
 
 /**
  * Inserts an operator_alerts row → true when it is stored (or already was, by its key).
@@ -86,7 +89,8 @@ export async function loadOrderView(admin, orderId) {
   const regIds = lineRows.filter((l) => l.registration_id).map((l) => l.registration_id)
   const regs = regIds.length
     ? await rows(admin.from('registrations')
-      .select('id, first_name, last_name, email, category_id, age_group_label').in('id', regIds))
+      .select('id, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
+      .in('id', regIds))
     : []
   const catIds = [...new Set(regs.map((r) => r.category_id))]
   const comps = catIds.length
@@ -96,6 +100,7 @@ export async function loadOrderView(admin, orderId) {
     ? await admin.from('clubs').select('name').eq('id', settings.club_id).maybeSingle()
     : { data: null }
 
+  const kidsLabel = await kidsGroupLabels(admin, regs)
   const regById = new Map(regs.map((r) => [r.id, r]))
   const compById = new Map(comps.map((c) => [c.category_id, c]))
   const lines = lineRows.filter((l) => l.kind === 'entry').map((l) => {
@@ -108,8 +113,12 @@ export async function loadOrderView(admin, orderId) {
       email: r.email ?? null,
       competition: c.name ?? null,
       ageGroupLabel: r.age_group_label ?? null,
+      kidsGroupLabel: (r.kids_group_id && kidsLabel.get(r.kids_group_id)) || null,
+      profileId: r.profile_id ?? null,
       startTime: (c.start_time ?? settings?.first_start_time)?.slice(0, 5) ?? null,
       amount: l.amount,
+      role: l.registration_id ? registrationRole(r) : null,
+      consentState: r.consent_state ?? null,
     }
   })
   return { order, settings, club, lines }
@@ -121,8 +130,6 @@ export function orderAmountsOf(order) {
     entryTotal: order.entry_total,
     extrasTotal: order.extras_total,
     donation: order.donation,
-    supportFee: order.support_fee,
-    paymentFee: order.payment_fee,
     total: order.total,
   }
 }
@@ -146,8 +153,6 @@ export function orderEmailArgs(view) {
     order: {
       id: order.id,
       entryTotal: order.entry_total,
-      supportFee: order.support_fee,
-      paymentFee: order.payment_fee,
       total: order.total,
       paidTransactionId: order.paid_transaction_id,
       paidAt: order.paid_at,
@@ -219,7 +224,8 @@ const SETTLED = new Set(['accepted', 'rejected', 'insufficient_balance', 'pendin
 /**
  * Acts on one confirm_order result. `outcome` is that result ({ outcome, refund? }) plus
  * the `orderId` and `txn` it was called with.
- *   confirmed / late_confirmed  → the confirmation e-mail
+ *   confirmed / late_confirmed  → the confirmation e-mail, then the consent requests to the
+ *     group's added adults (issueOrderConsentRequests, at most once each)
  *   double_payment / late_refund → the full refund at dpay (no value: everything left),
  *     logged, settled (settle_refund), the refund e-mail when dpay accepted it, and an
  *     operator alert for an outcome nobody may retry automatically (rejected, pending,
@@ -235,7 +241,10 @@ export async function settleConfirmOutcome(admin, cfg, outcome) {
   const kind = outcome?.outcome
   if (kind === 'confirmed' || kind === 'late_confirmed') {
     await sendOrderConfirmation(admin, orderId)
-    return { emailed: true }
+    // Plan 4 ruling 4: the added adults of a paid group are asked now that it is paid, never
+    // before. issue_consent_request claims each request once, so a replay sends nothing.
+    const consentRequests = await issueOrderConsentRequests(admin, orderId)
+    return { emailed: true, consentRequests }
   }
   if ((kind !== 'double_payment' && kind !== 'late_refund') || !refund) return {}
 

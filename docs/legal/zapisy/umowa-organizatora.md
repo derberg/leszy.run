@@ -1,6 +1,6 @@
 # Umowa organizatora LESZY.RUN
 
-**Wersja:** 2026-11-v2
+**Wersja:** 2026-11-v3
 **Status:** projekt do weryfikacji prawnej, nieobowiązujący
 
 Umowę zawiera się w Serwisie: właściciel klubu wybiera „Akceptuję umowę organizatora” na ekranie „Klub → Wydarzenia → Umowa”. Serwis zapisuje wersję umowy, nazwę klubu, konto osoby akceptującej, datę i godzinę, adres IP oraz identyfikator przeglądarki (tabela `organizer_agreements`). Bez akceptacji bieżącej wersji klub nie może utworzyć żadnego wydarzenia, płatnego ani bezpłatnego.
@@ -22,11 +22,9 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 3. **Uczestnik** — osoba zapisana na Wydarzenie, a w przypadku osoby niepełnoletniej także jej opiekun prawny, który dokonuje zapisu.
 4. **Zgłoszenie** — zapis jednej osoby lub jednej drużyny na jedną konkurencję Wydarzenia.
 5. **Opłaty od Uczestników** — opłaty startowe, ceny produktów dodatkowych (np. koszulek) i darowizny na cel Wydarzenia, ustalane przez Organizatora.
-6. **Opłata za obsługę płatności** — opłata pobierana przez Usługodawcę od Uczestnika, pokrywająca koszt Operatora płatności, doliczana do każdej płatności.
-7. **Wsparcie LESZY.RUN** — dobrowolna opłata Uczestnika na rzecz Usługodawcy, wybierana przez Uczestnika przy każdej płatności, której częścią jest opłata startowa.
-8. **Operator płatności** — Payments Lab sp. z o.o. z siedzibą w Warszawie (KRS 0000845085), operator serwisu dpay.pl.
-9. **Rachunek do wypłat** — rachunek bankowy Organizatora wskazany w ustawieniach klubu albo inny rachunek wskazany przez Organizatora dla danego Wydarzenia (np. rachunek beneficjenta zbiórki charytatywnej).
-10. **Dzień zawodów** — data Wydarzenia podana w Serwisie; dla Wydarzeń wielodniowych pierwszy dzień.
+6. **Operator płatności** — Payments Lab sp. z o.o. z siedzibą w Warszawie (KRS 0000845085), operator serwisu dpay.pl.
+7. **Rachunek do wypłat** — rachunek bankowy Organizatora wskazany w ustawieniach klubu albo inny rachunek wskazany przez Organizatora dla danego Wydarzenia (np. rachunek beneficjenta zbiórki charytatywnej).
+8. **Dzień zawodów** — data Wydarzenia podana w Serwisie; dla Wydarzeń wielodniowych pierwszy dzień.
 
 ## §3. Przedmiot umowy
 
@@ -44,7 +42,7 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 2. Strony kwalifikują umowę w zakresie §3 ust. 2 lit. a i b jako umowę agencyjną (art. 758 i nast. Kodeksu cywilnego), a jeżeli Organizator nie jest przedsiębiorcą — jako umowę zlecenia z pełnomocnictwem (art. 734 i nast. oraz art. 750 Kodeksu cywilnego). [DO WERYFIKACJI: zob. „Do weryfikacji”, pkt 1.]
 3. Warunki Zgłoszenia (konkurencje, limity miejsc, opłaty i ich progi czasowe, termin zapisów, czas na opłacenie, możliwość przekazania pakietu i jego opłata, kody rabatowe) ustala Organizator w Serwisie. Usługodawca przyjmuje Zgłoszenia ściśle według tych ustawień.
 4. Usługodawca nie przyjmuje Zgłoszeń ponad limit miejsc. Wyjątek stanowi przekazanie pakietu innej osobie do innej konkurencji o tej samej cenie, które może przekroczyć limit tej konkurencji, bo miejsce zostało już sprzedane. Limit miejsc obejmuje wyłącznie Zgłoszenia opłacone oraz Zgłoszenia niewymagające opłaty. Zgłoszenie oczekujące na płatność nie zajmuje miejsca; miejsce przypada temu, czyja płatność wpłynie wcześniej.
-5. Opłacona przez Uczestnika kwota obejmuje ceny ustalone przez Organizatora, Opłatę za obsługę płatności i — jeżeli Uczestnik ją wybrał — Wsparcie LESZY.RUN. Uczestnik widzi każdą z tych pozycji osobno przed zapłatą.
+5. Opłacona przez Uczestnika kwota obejmuje wyłącznie Opłaty od Uczestników. Uczestnik widzi każdą z tych pozycji osobno przed zapłatą. Usługodawca nie pobiera od Uczestników żadnych opłat na swoją rzecz.
 
 ## §5. Przyjmowanie Opłat od Uczestników
 
@@ -59,17 +57,16 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 1. Zasady rezygnacji i zwrotu opłaty startowej określa Organizator w regulaminie Wydarzenia. Uczestnikowi nie przysługuje ustawowe prawo odstąpienia od umowy o udział w Wydarzeniu (art. 38 ust. 1 pkt 12 ustawy z dnia 30 maja 2014 r. o prawach konsumenta).
 2. Zwrotu dokonuje Organizator w panelu Wydarzenia, dla jednego Zgłoszenia, w wybranej przez siebie kwocie, nie wyższej niż kwota zapłacona za to Zgłoszenie i niezwrócona wcześniej. Usługodawca realizuje zwrot przez Operatora płatności na rachunek lub instrument, z którego dokonano płatności.
 3. Zwroty są możliwe do Dnia zawodów włącznie [DO UZUPEŁNIENIA: „do końca dnia poprzedzającego Dzień zawodów” czy „do końca Dnia zawodów”]. Po tym terminie Usługodawca nie realizuje zwrotów, a ewentualne rozliczenia z Uczestnikami Organizator prowadzi sam, ze środków już wypłaconych.
-4. Zwrot nie obejmuje Opłaty za obsługę płatności ani Wsparcia LESZY.RUN.
-5. Usługodawca zwraca Uczestnikowi całą zapłaconą kwotę, łącznie z Opłatą za obsługę płatności i Wsparciem LESZY.RUN, bez dyspozycji Organizatora i niezależnie od terminu z ust. 3, gdy:
+4. Usługodawca zwraca Uczestnikowi całą zapłaconą kwotę bez dyspozycji Organizatora i niezależnie od terminu z ust. 3, gdy:
    a) w chwili wpływu płatności nie można przyjąć Zgłoszenia: opłacone wcześniej Zgłoszenia innych osób wyczerpały limit miejsc w konkurencji, konkurencja została ukryta albo zapisy zostały zamknięte; zwrot obejmuje całe zamówienie, także gdy brak miejsca dotyczy tylko jednej z objętych nim konkurencji,
    b) ta sama osoba ma już opłacone Zgłoszenie w tym Wydarzeniu,
    c) płatność nie może zostać przypisana do Zgłoszenia z innych przyczyn technicznych.
-6. Pełny zwrot opłaty startowej anuluje Zgłoszenie. Zwrot opłaty za Zgłoszenie drużyny anuluje Zgłoszenie całej drużyny.
-7. Odwołanie Wydarzenia nie jest obsługiwane w Serwisie. Jeżeli Organizator odwoła Wydarzenie przed Dniem zawodów, niezwłocznie powiadamia Usługodawcę, a strony ustalają w formie dokumentowej, czy zwroty zrealizuje Usługodawca przed wypłatą, czy Organizator po wypłacie. [DO UZUPEŁNIENIA: domyślne rozstrzygnięcie.]
+5. Pełny zwrot opłaty startowej anuluje Zgłoszenie. Zwrot opłaty za Zgłoszenie drużyny anuluje Zgłoszenie całej drużyny.
+6. Odwołanie Wydarzenia nie jest obsługiwane w Serwisie. Jeżeli Organizator odwoła Wydarzenie przed Dniem zawodów, niezwłocznie powiadamia Usługodawcę, a strony ustalają w formie dokumentowej, czy zwroty zrealizuje Usługodawca przed wypłatą, czy Organizator po wypłacie. [DO UZUPEŁNIENIA: domyślne rozstrzygnięcie.]
 
 ## §7. Wypłata
 
-1. Usługodawca wypłaca Organizatorowi, przelewem na Rachunek do wypłat, sumę opłat startowych, cen produktów dodatkowych i darowizn zapłaconych za Wydarzenie, pomniejszoną o zwroty. Opłaty za obsługę płatności i Wsparcie LESZY.RUN nie wchodzą do wypłaty i nie są potrącane z kwot należnych Organizatorowi.
+1. Usługodawca wypłaca Organizatorowi, przelewem na Rachunek do wypłat, sumę opłat startowych, cen produktów dodatkowych i darowizn zapłaconych za Wydarzenie, pomniejszoną o zwroty. Organizator otrzymuje te kwoty w całości. Prowizję Operatora płatności ponosi Usługodawca. Wynagrodzenie Usługodawcy z §8 nie jest potrącane z wypłaty; Organizator płaci je osobno na podstawie faktury.
 2. Wypłata następuje jednorazowo, w terminie 7 dni od Dnia zawodów. [DO UZUPEŁNIENIA: czy Usługodawca dopuszcza wypłaty częściowe przed Dniem zawodów — Specyfikacja przewiduje wyłącznie wypłatę po zawodach.]
 3. Wraz z wypłatą Usługodawca udostępnia Organizatorowi zestawienie: liczba i kwota opłaconych Zgłoszeń, produktów i darowizn, zwroty, kwota wypłaty, Rachunek do wypłat.
 4. Rachunek do wypłat i dane odbiorcy może ustawić i zmienić wyłącznie właściciel klubu. Każda zmiana jest zapisywana w historii i potwierdzana wiadomością e-mail do właściciela klubu. Przed wypłatą Usługodawca sprawdza historię zmian i może wstrzymać wypłatę do czasu potwierdzenia rachunku przez właściciela klubu innym kanałem, jeżeli rachunek zmieniono w ciągu [DO UZUPEŁNIENIA: np. 7] dni przed wypłatą.
@@ -79,9 +76,10 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 
 ## §8. Wynagrodzenie Usługodawcy
 
-1. Organizator nie płaci Usługodawcy za usługi z §3 ust. 2. Usługodawca otrzymuje wyłącznie Opłaty za obsługę płatności i Wsparcie LESZY.RUN, płacone przez Uczestników na jego własny rachunek.
-2. Dla Wydarzeń bezpłatnych Usługodawca nie pobiera żadnych opłat ani od Organizatora, ani od Uczestników.
-3. [DO WERYFIKACJI: czy brak wynagrodzenia od Organizatora jest zgodny z kwalifikacją umowy jako agencyjnej — art. 758 § 1 KC zakłada odpłatność; zob. „Do weryfikacji”, pkt 1.]
+1. Za usługi z §3 ust. 2 Organizator płaci Usługodawcy wynagrodzenie w wysokości określonej w odrębnej umowie pisemnej zawartej przez strony.
+2. Wynagrodzenie jest płatne na podstawie faktury wystawionej przez Usługodawcę po Wydarzeniu, w terminie wskazanym na fakturze.
+3. Usługodawca nie pobiera od Uczestników żadnych opłat na swoją rzecz.
+4. Dla Wydarzeń bezpłatnych Usługodawca nie pobiera żadnych opłat ani od Organizatora, ani od Uczestników.
 
 ## §9. Obowiązki Organizatora
 
@@ -142,8 +140,7 @@ Organizator:
 15. **Dane przetwarzane przez Usługodawcę jako administratora.** Powierzenie nie obejmuje danych, które Usługodawca przetwarza we własnych celach jako odrębny administrator, o czym informuje Uczestników w Polityce prywatności:
     a) dane konta w Serwisie, zakładanego przy zapisie (art. 6 ust. 1 lit. b RODO),
     b) dane o płatnościach, zwrotach i wypłatach, przechowywane w celu rozliczeń i obowiązków podatkowych Usługodawcy przez 5 lat od końca roku kalendarzowego, w którym dokonano płatności (art. 6 ust. 1 lit. c i f RODO),
-    c) dane dotyczące Opłaty za obsługę płatności i Wsparcia LESZY.RUN (art. 6 ust. 1 lit. b RODO),
-    d) wyniki opublikowane po Wydarzeniu (imię, nazwisko, klub, kategoria, czas, miejsce) prowadzone w archiwum wyników Serwisu (art. 6 ust. 1 lit. f RODO). [DO WERYFIKACJI: zob. „Do weryfikacji”, pkt 2.]
+    c) wyniki opublikowane po Wydarzeniu (imię, nazwisko, klub, kategoria, czas, miejsce) prowadzone w archiwum wyników Serwisu (art. 6 ust. 1 lit. f RODO). [DO WERYFIKACJI: zob. „Do weryfikacji”, pkt 2.]
 16. **Audyt.** Usługodawca udostępnia Organizatorowi informacje niezbędne do wykazania spełnienia obowiązków z art. 28 RODO i umożliwia audyty, w tym inspekcje, przeprowadzane przez Organizatora lub upoważnionego audytora (art. 28 ust. 3 lit. h RODO). Organizator zapowiada audyt co najmniej 14 dni wcześniej, w pierwszej kolejności w formie pytań na piśmie, nie częściej niż raz w roku, chyba że doszło do naruszenia ochrony danych; audyt nie może naruszać tajemnicy przedsiębiorstwa Usługodawcy ani danych innych Organizatorów. Koszty audytu ponosi Organizator.
 17. **Rejestr.** Usługodawca prowadzi rejestr kategorii czynności przetwarzania dokonywanych w imieniu administratorów (art. 30 ust. 2 RODO).
 
@@ -157,7 +154,7 @@ Organizator:
 
 1. Usługodawca odpowiada za niewykonanie lub nienależyte wykonanie umowy na zasadach ogólnych, z zastrzeżeniem ust. 2–4.
 2. Usługodawca nie odpowiada za: przebieg, zmianę lub odwołanie Wydarzenia; treść regulaminu Wydarzenia i informacji podanych przez Organizatora; przerwy w działaniu Operatora płatności i innych dostawców niezależne od Usługodawcy; skutki nieprawdziwych danych podanych przez Organizatora lub Uczestników; dane pobrane przez Organizatora z Serwisu.
-3. Odpowiedzialność Usługodawcy wobec Organizatora jest ograniczona do szkody rzeczywistej i do kwoty [DO UZUPEŁNIENIA: np. sumy Opłat za obsługę płatności i Wsparcia LESZY.RUN pobranych w związku z Wydarzeniami Organizatora w ostatnich 12 miesiącach, nie mniej niż X zł]. Ograniczenie nie dotyczy szkody wyrządzonej umyślnie (art. 473 § 2 Kodeksu cywilnego), obowiązku wypłaty środków należnych Organizatorowi ani odpowiedzialności wobec osób, których dane dotyczą (art. 82 RODO).
+3. Odpowiedzialność Usługodawcy wobec Organizatora jest ograniczona do szkody rzeczywistej i do kwoty [DO UZUPEŁNIENIA: np. sumy wynagrodzenia zapłaconego przez Organizatora w ostatnich 12 miesiącach, nie mniej niż X zł]. Ograniczenie nie dotyczy szkody wyrządzonej umyślnie (art. 473 § 2 Kodeksu cywilnego), obowiązku wypłaty środków należnych Organizatorowi ani odpowiedzialności wobec osób, których dane dotyczą (art. 82 RODO).
 4. Strona, która zapłaciła odszkodowanie Uczestnikowi za szkodę wyrządzoną przetwarzaniem danych, może dochodzić od drugiej strony zwrotu części odszkodowania odpowiadającej jej udziałowi w odpowiedzialności (art. 82 ust. 5 RODO).
 5. Organizator zwalnia Usługodawcę z odpowiedzialności wobec Uczestników i osób trzecich za roszczenia wynikające z przebiegu Wydarzenia lub z naruszenia przez Organizatora §9, i zwraca Usługodawcy uzasadnione koszty obrony.
 
@@ -180,10 +177,10 @@ Organizator:
 
 ## Do weryfikacji
 
-1. **Kwalifikacja umowy a art. 6 pkt 2 UUP.** Art. 758 § 1 KC dotyczy umowy z „dającym zlecenie przedsiębiorcą” i zakłada wynagrodzenie agenta. Wiele klubów to stowarzyszenia lub grupy, które nie są przedsiębiorcami, a §8 przewiduje brak wynagrodzenia od Organizatora. Czy umowa zlecenia z pełnomocnictwem (art. 734, 750 KC), nieodpłatna wobec Organizatora, spełnia przesłankę „agenta handlowego upoważnionego w drodze umowy do negocjowania lub zawierania umów (…) wyłącznie w imieniu (…) odbiorcy” z art. 6 pkt 2 UUP? Czy pobieranie od Uczestników Opłaty za obsługę płatności i Wsparcia LESZY.RUN na rachunek Usługodawcy nie podważa przesłanki działania „wyłącznie w imieniu odbiorcy”? Czy potrzebne jest symboliczne wynagrodzenie od Organizatora?
-2. **Archiwum wyników jako własny cel Usługodawcy (§10 ust. 15 lit. d).** Podmiot przetwarzający, który przetwarza dane we własnym celu, staje się administratorem (art. 28 ust. 10 RODO). Czy przejęcie wyników do archiwum Serwisu na podstawie uzasadnionego interesu Usługodawcy jest dopuszczalne i wystarczająco opisane, czy wymaga udostępnienia danych przez Organizatora (Organizator jako źródło, art. 14 RODO)? Obecna Polityka prywatności nazywa Usługodawcę jedynym administratorem także danych z importów — to wymaga spójnego rozstrzygnięcia.
+1. **Kwalifikacja umowy a art. 6 pkt 2 UUP.** Art. 758 § 1 KC dotyczy umowy z „dającym zlecenie przedsiębiorcą”. Wiele klubów to stowarzyszenia lub grupy, które nie są przedsiębiorcami. Czy umowa zlecenia z pełnomocnictwem (art. 734, 750 KC) spełnia przesłankę „agenta handlowego upoważnionego w drodze umowy do negocjowania lub zawierania umów (…) wyłącznie w imieniu (…) odbiorcy” z art. 6 pkt 2 UUP?
+2. **Archiwum wyników jako własny cel Usługodawcy (§10 ust. 15 lit. c).** Podmiot przetwarzający, który przetwarza dane we własnym celu, staje się administratorem (art. 28 ust. 10 RODO). Czy przejęcie wyników do archiwum Serwisu na podstawie uzasadnionego interesu Usługodawcy jest dopuszczalne i wystarczająco opisane, czy wymaga udostępnienia danych przez Organizatora (Organizator jako źródło, art. 14 RODO)? Obecna Polityka prywatności nazywa Usługodawcę jedynym administratorem także danych z importów — to wymaga spójnego rozstrzygnięcia.
 3. **Przechowywanie środków Organizatorów.** Środki do wypłaty leżą na rachunku jednoosobowej działalności Usługodawcy, bez ochrony przewidzianej dla instytucji płatniczych. Czy potrzebny jest wydzielony rachunek, ubezpieczenie lub zapis o charakterze powierniczym? Co z roszczeniami Organizatorów w razie egzekucji lub śmierci przedsiębiorcy?
-4. **Podatki i ewidencja.** Czy Usługodawca, przyjmując opłaty jako pośrednik, ma obowiązek ewidencji sprzedaży na kasie fiskalnej albo wystawiania dokumentów za Opłatę za obsługę płatności i Wsparcie LESZY.RUN? Jak kwalifikować Wsparcie LESZY.RUN dla VAT i PIT? Czy przychód z opłat Organizatora nie jest przychodem Usługodawcy (pośrednictwo w imieniu i na rzecz)?
+4. **Podatki i ewidencja.** Czy Usługodawca, przyjmując opłaty jako pośrednik, ma obowiązek ewidencji sprzedaży na kasie fiskalnej? Czy przychód z opłat Organizatora nie jest przychodem Usługodawcy (pośrednictwo w imieniu i na rzecz)? Przychodem jest wtedy wyłącznie wynagrodzenie z §8. Czy i jak ma ono być potrącane z wypłaty (§7 ust. 1)?
 5. **Umowa z Operatorem płatności.** Czy umowa z Payments Lab sp. z o.o. dopuszcza przyjmowanie płatności za usługi osób trzecich i wypłatę na ich rachunki (w tym na rachunek beneficjenta charytatywnego)?
 6. **Forma umowy powierzenia.** Art. 28 ust. 9 RODO wymaga formy pisemnej, „w tym elektronicznej”. Czy akceptacja kliknięciem z zapisem IP i identyfikatora przeglądarki wystarczy, czy potrzebny jest e-mail potwierdzający z treścią umowy (forma dokumentowa)?
 7. **dpay jako podmiot przetwarzający czy odrębny administrator.** Ustalić z umowy z Payments Lab, w jakiej roli przetwarza dane płatników, i odpowiednio opisać ją w tabeli z §10 ust. 11.

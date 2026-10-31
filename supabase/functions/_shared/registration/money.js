@@ -11,7 +11,6 @@ export class MoneyError extends Error {
 
 // dpay rejects 1000000.00 and above; the largest amount it takes is 999999.99 zł.
 export const MAX_DPAY_GROSZE = 99_999_999
-const MIN_PAYMENT_FEE = 20
 const DPAY_VALUE_RE = /^(0|[1-9]\d{0,5})(?:\.(\d{1,2}))?$/
 
 // Every amount is capped at dpay's limit, which also keeps 2e+50 and 9s+990 far below 2^53.
@@ -20,44 +19,20 @@ function grosze(value, name) {
   return value
 }
 
-// LESZY.RUN 2% of the entry fees (not extras or donations), rounded half up.
-export function supportFee(entryTotal, choice) {
-  grosze(entryTotal, 'entryTotal')
-  if (typeof choice !== 'boolean') throw new MoneyError('support_choice_required')
-  return choice ? Math.floor((2 * entryTotal + 50) / 100) : 0
-}
-
-// dpay takes 0.9% of the whole charged amount (min 0.20 zł), so the fee is grossed up:
-// the smallest f >= 20 with f * 991 >= 9 * subtotal, i.e. ceil(subtotal * 9 / 991).
-export function paymentFee(subtotal) {
-  grosze(subtotal, 'subtotal')
-  if (subtotal === 0) return 0
-  return Math.max(MIN_PAYMENT_FEE, Math.floor((subtotal * 9 + 990) / 991))
-}
-
-// The support choice is asked only when entry fees are due; nothing is preselected (Art. 10
-// ustawy o prawach konsumenta), so a paid order without a boolean choice is refused.
-export function orderAmounts({ entryPrices, extrasTotal = 0, donation = 0, supportChoice } = {}) {
+// What a runner pays: the entry prices, plus optional extras and a donation (Plan 7). Nothing in
+// it is payable to LESZY.RUN, which invoices the organizer afterwards (legal decision, 2026-10-31).
+export function orderAmounts({ entryPrices, extrasTotal = 0, donation = 0 } = {}) {
   if (!Array.isArray(entryPrices)) throw new MoneyError('invalid_amount:entryPrices')
   let entryTotal = 0
   for (const price of entryPrices) entryTotal += grosze(price, 'entryPrices')
   grosze(entryTotal, 'entryTotal')
   grosze(extrasTotal, 'extrasTotal')
   grosze(donation, 'donation')
-
-  const supportChoiceShown = entryTotal > 0
-  const fee = supportChoiceShown ? supportFee(entryTotal, supportChoice) : 0
-  const subtotal = grosze(entryTotal + extrasTotal + donation + fee, 'subtotal')
-  const pFee = paymentFee(subtotal)
   return {
     entryTotal,
     extrasTotal,
     donation,
-    supportFee: fee,
-    subtotal,
-    paymentFee: pFee,
-    total: grosze(subtotal + pFee, 'total'), // the amount dpay charges, so the same cap
-    supportChoiceShown,
+    total: grosze(entryTotal + extrasTotal + donation, 'total'), // the amount dpay charges, so the same cap
   }
 }
 

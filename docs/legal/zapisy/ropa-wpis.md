@@ -29,9 +29,9 @@ Rozszerzenie czynności 1.
 ### 11. Płatności, zwroty i wypłaty dla Organizatorów
 
 - **Cel:** przyjmowanie opłat w imieniu Organizatorów, zwroty, rozliczenie i wypłata Organizatorom, wykazanie przepływów środków, obowiązki podatkowe Leszy.run, obrona przed roszczeniami.
-- **Podstawa prawna:** art. 6 ust. 1 lit. c RODO (przepisy podatkowe — przechowywanie dokumentacji), art. 6 ust. 1 lit. b RODO (umowa organizatora; umowa z Uczestnikiem o obsługę płatności), art. 6 ust. 1 lit. f RODO (ustalenie, dochodzenie i obrona roszczeń).
+- **Podstawa prawna:** art. 6 ust. 1 lit. c RODO (przepisy podatkowe — przechowywanie dokumentacji), art. 6 ust. 1 lit. b RODO (umowa organizatora), art. 6 ust. 1 lit. f RODO (ustalenie, dochodzenie i obrona roszczeń).
 - **Kategorie osób:** płatnicy (osoby zapisujące), osoby, za które zapłacono, przedstawiciele Organizatorów, odbiorcy wypłat (także beneficjenci zbiórek charytatywnych).
-- **Kategorie danych:** `orders` (kwoty, wybór Wsparcia LESZY.RUN, e-mail kupującego, status, identyfikator transakcji dpay, daty), `order_lines`, `refunds` (kwota, kto zlecił), `payment_events` (pełna treść żądań i powiadomień dpay), zestawienia wypłat, dane odbiorcy wypłaty (nazwa, NIP/KRS, adres, IBAN).
+- **Kategorie danych:** `orders` (kwoty, e-mail kupującego, status, identyfikator transakcji dpay, daty), `order_lines`, `refunds` (kwota, kto zlecił), `payment_events` (pełna treść żądań i powiadomień dpay), zestawienia wypłat, dane odbiorcy wypłaty (nazwa, NIP/KRS, adres, IBAN).
 - **Odbiorcy:** Payments Lab sp. z o.o. (dpay.pl) — odrębny administrator [DO WERYFIKACJI]; bank Leszy.run; biuro rachunkowe [DO UZUPEŁNIENIA, jeżeli jest]; Supabase, Inc.
 - **Transfery poza EOG:** jak czynność 1 (Supabase).
 - **Okres przechowywania:** 5 lat od końca roku kalendarzowego, w którym dokonano płatności. [DO WERYFIKACJI: termin z art. 86 Ordynacji podatkowej / art. 74 ustawy o rachunkowości dla formy opodatkowania Leszy.run.]

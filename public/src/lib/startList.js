@@ -1,7 +1,11 @@
-// The public start list (RA8's columns, no filters yet) as display values,
-// from the /api/startlist snapshot (start_list() in Supabase). Pure, so the
-// page and the unit tests call the same function. No birth date, contact,
-// bib or price ever reaches it: start_list() does not return them.
+// The public start list (RA8 / RA8d) as display values, from the /api/startlist
+// snapshot (start_list() in Supabase), and its filters. Pure, so the page and the
+// unit tests call the same functions. No birth date, contact, bib or price ever
+// reaches it: start_list() does not return them.
+//
+// An entry's category is its kids group in a kids competition, else its age group.
+// The filters live in the page's state, never in the URL: a search names a person,
+// and the address is what analytics sees.
 //
 // Ruling P3-R14: entries awaiting payment are never listed by person, only
 // counted („+N czeka na wpłatę”), and a minor's town never arrives. An entry
@@ -46,6 +50,7 @@ export function startListView(snapshot, { paidEvent }) {
       return {
         categoryId: c.categoryId,
         name: c.name,
+        isKids: c.isKids === true,
         taken: cPaid + cFree,
         capacity: c.capacity,
         paidPct,
@@ -55,11 +60,82 @@ export function startListView(snapshot, { paidEvent }) {
         awaitingLabel: cAwaiting > 0 ? awaitingText(cAwaiting) : null,
       }
     }),
-    entries: entries.map((e) => ({
-      name: e.name,
-      where: [e.town, e.club].filter(Boolean).join(' · '),
-      what: [e.competition, e.ageGroupLabel].filter(Boolean).join(' · '),
-      badge: paidEvent && e.payment === 'paid' ? 'opłacone' : null,
-    })),
+    entries: entries.map((e) => {
+      const category = e.kidsGroupLabel ?? e.ageGroupLabel ?? null
+      return {
+        name: e.name,
+        town: e.town ?? null,
+        club: e.club ?? null,
+        categoryId: e.categoryId,
+        competition: e.competition,
+        category,
+        gender: e.gender ?? null,
+        where: [e.town, e.club].filter(Boolean).join(' · '),
+        what: [e.competition, category].filter(Boolean).join(' · '),
+        badge: paidEvent && e.payment === 'paid' ? 'opłacone' : null,
+      }
+    }),
   }
+}
+
+/** „Bez klubu” in the club filter. */
+export const NO_CLUB = '__none'
+
+const collator = new Intl.Collator('pl-PL')
+
+/** Lower case, no diacritics („Wiśniewska” → „wisniewska”, „Łoś” → „los”). */
+export function foldPl(text) {
+  return String(text ?? '')
+    .toLowerCase()
+    .replace(/ł/g, 'l')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+/**
+ * The choices of RA8's selects, from the list itself: competitions in card order,
+ * categories and clubs in Polish order, „Bez klubu” only when somebody has no club.
+ * With a kids competition selected the genders read „Dziewczynki” / „Chłopcy”.
+ * @param {ReturnType<typeof startListView>} view
+ * @param {{ categoryId?: string }} [selected] the viewer's current filters
+ */
+export function startListFilterOptions(view, { categoryId = '' } = {}) {
+  const kids = (view?.competitions ?? []).some((c) => c.categoryId === categoryId && c.isKids)
+  const genderLabels = kids ? { K: 'Dziewczynki', M: 'Chłopcy' } : { K: 'Kobiety', M: 'Mężczyźni' }
+  const entries = view?.entries ?? []
+  const uniq = (xs) => [...new Set(xs.filter(Boolean))].sort(collator.compare)
+  const genders = new Set(entries.map((e) => e.gender))
+  const clubs = uniq(entries.map((e) => e.club)).map((c) => ({ value: c, label: c }))
+  if (entries.some((e) => !e.club)) clubs.push({ value: NO_CLUB, label: 'Bez klubu' })
+  return {
+    competitions: (view?.competitions ?? []).map((c) => ({ value: c.categoryId, label: c.name })),
+    categories: uniq(entries.map((e) => e.category)),
+    genders: ['K', 'M'].filter((g) => genders.has(g)).map((value) => ({ value, label: genderLabels[value] })),
+    clubs,
+  }
+}
+
+/**
+ * The entries a viewer's filters keep, in start_list's order. Every empty filter
+ * keeps everyone; `club` '__none' keeps those with no club; `q` matches name, town
+ * and club, ignoring case and Polish diacritics. `total` is the whole list.
+ * @param {ReturnType<typeof startListView>} view
+ * @param {{ categoryId?: string, category?: string, gender?: string, club?: string, q?: string }} filters
+ */
+export function filterStartList(view, { categoryId = '', category = '', gender = '', club = '', q = '' } = {}) {
+  const all = view?.entries ?? []
+  const needle = foldPl(q)
+  const entries = all.filter((e) =>
+    (!categoryId || e.categoryId === categoryId)
+    && (!category || e.category === category)
+    && (!gender || e.gender === gender)
+    && (!club || (club === NO_CLUB ? !e.club : e.club === club))
+    && (!needle || [e.name, e.town, e.club].some((f) => f && foldPl(f).includes(needle))))
+  return { entries, total: all.length }
+}
+
+/** How many of the viewer's filters are set (the collapsed „Filtry (N)” toggle). */
+export function activeFilterCount({ categoryId = '', category = '', gender = '', club = '', q = '' } = {}) {
+  return [categoryId, category, gender, club, q.trim()].filter(Boolean).length
 }

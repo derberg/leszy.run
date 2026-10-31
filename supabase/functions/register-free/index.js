@@ -3,10 +3,16 @@ import { guardRequest } from '../_shared/cors.js'
 import { sendEmail } from '../_shared/email.js'
 import { clientIp } from '../_shared/organizer.js'
 import { eventPageUrl } from '../_shared/registration/slug.js'
-import { json, NOT_FOUND, REFUSALS, prepareRegistration } from '../_shared/registration/registrationRequest.js'
+import { freeConfirmationEmail } from '../_shared/registration/emails.js'
+import { issueConsentRequests } from '../_shared/registration/consentRequests.js'
+import {
+  json, NOT_FOUND, REFUSALS, groupRefusal, prepareRegistration, rpcPeople,
+} from '../_shared/registration/registrationRequest.js'
 
-// Throttle: registrations per address, 10 per hour (claim_throttle_slot).
+// Throttles (claim_throttle_slot): requests per address, 10 per hour, and per client IP, 20 per
+// hour (fix round 1, I-2). prepareRegistration adds the buyer's 30 people a day.
 const REGISTER_LIMIT = 10
+const REGISTER_IP_LIMIT = 20
 const REGISTER_WINDOW_SECONDS = 3600
 
 async function rows(query) {
@@ -15,71 +21,22 @@ async function rows(query) {
   return data ?? []
 }
 
-// ---------------------------------------------------------------- email
-
-const TZ = 'Europe/Warsaw'
-const dayFmt = new Intl.DateTimeFormat('pl-PL', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' })
-const timeFmt = new Intl.DateTimeFormat('pl-PL', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-const isoDay = (iso) => {
-  const [y, m, d] = iso.split('-')
-  return `${d}.${m}.${y}`
-}
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-
-function confirmationEmail({ settings, competition, person, startTime, hours }) {
-  const place = [settings.town_label, settings.place_details].filter(Boolean).join(', ')
-  const office = hours.map((h) => `${dayFmt.format(new Date(h.starts_at))} ${timeFmt.format(new Date(h.starts_at))}–${timeFmt.format(new Date(h.ends_at))}`)
-  const officePlace = settings.office_same_as_event ? place : settings.office_address
-  const facts = [
-    ['Konkurencja', competition.name],
-    ['Kategoria', person.ageGroupLabel],
-    ['Start', `${isoDay(settings.event_date)}${startTime ? `, godz. ${startTime}` : ''}`],
-    ['Miejsce', place],
-  ].filter(([, v]) => v)
-  const url = eventPageUrl(settings.slug)
-
-  const text = [
-    `Cześć ${person.firstName},`,
-    '',
-    `jesteś na liście startowej zawodów ${settings.name}.`,
-    '',
-    ...facts.map(([k, v]) => `${k}: ${v}`),
-    ...(office.length
-      ? ['', `Biuro zawodów${officePlace ? ` (${officePlace})` : ''}:`, ...office.map((o) => `- ${o}`)]
-      : []),
-    '',
-    `Strona zawodów: ${url}`,
-    '',
-    'LESZY.RUN',
-  ].join('\n')
-
-  const html = [
-    `<p>Cześć ${escapeHtml(person.firstName)},</p>`,
-    `<p>jesteś na liście startowej zawodów <strong>${escapeHtml(settings.name)}</strong>.</p>`,
-    `<p>${facts.map(([k, v]) => `${escapeHtml(k)}: <strong>${escapeHtml(v)}</strong>`).join('<br>')}</p>`,
-    office.length
-      ? `<p>Biuro zawodów${officePlace ? ` (${escapeHtml(officePlace)})` : ''}:</p><ul>${office.map((o) => `<li>${escapeHtml(o)}</li>`).join('')}</ul>`
-      : '',
-    `<p><a href="${escapeHtml(url)}">Strona zawodów</a></p>`,
-    '<p>LESZY.RUN</p>',
-  ].join('')
-
-  return { subject: `Jesteś na liście — ${settings.name}`, text, html }
-}
-
 // ---------------------------------------------------------------- handler
 
-// POST { categoryId, person, acceptedConsentIds, serviceRegulamin, code? }
-//   → 201 { data: { registrations: [{ id, competition, ageGroupLabel, startTime }] } }
-// A free event only. The event comes from the competition (categoryId), never
-// from the client. A session whose address is the person's needs no code;
-// otherwise the e-mail code is verified first (spec 14.7: no registration
-// exists before it), which logs the person in, and the response sets that
-// cookie. The registration, consents, slot claim and participant row are one
-// transaction (register_free). 404 for a draft, an unknown competition or a
-// disabled club; 409 full / closed / not_open / not_free / duplicate; 400 for
-// person fields (fields) or consents; 401 code missing or wrong; 403 a retired
-// address. One confirmation e-mail per person.
+// POST { people: [{ categoryId, person, guardianConsent? }], buyer?, acceptedConsentIds, serviceRegulamin, code? }
+//   or Plan 2's { categoryId, person, … } (a group of one)
+//   → 201 { data: { registrations: [{ id, competition, ageGroupLabel, startTime }] } } (request order)
+// A free event only. The event comes from the competitions, never from the client. Who
+// registers is the `buyer` of the body, or card 1 („Twoje dane”) without one: a session with that
+// address needs no code; otherwise the e-mail code is verified first (spec 14.7: no registration
+// exists before it), which logs them in, and the response sets that cookie. The registrations,
+// consents (the buyer's own, and as guardian for every child), slot claims (every competition,
+// all or nothing) and participant rows are one transaction (register_free). 404 for a draft, an
+// unknown competition, two events or a disabled club; 409 full (categoryId) / closed / not_open
+// / not_free / duplicate (index; past the buyer's daily cap `refused`, naming nobody); 400 invalid_person (people, fields), invalid_group or consents;
+// 401 code missing or wrong; 403 a retired address (index, only to a verified buyer); 429 per
+// address, per IP, or past the buyer's 30 people a day. One confirmation e-mail, to the
+// buyer, listing everybody; one consent request e-mail to each added adult.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -92,25 +49,30 @@ Deno.serve(async (req) => {
 
   let withCookie = {}
   try {
+    const ip = clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
       pricing: (settings) => (settings.pricing_mode !== 'free' ? 'not_free' : null),
-      throttles: (email) => [{ key: `register:${email}`, limit: REGISTER_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS }],
+      throttles: (email) => [
+        ...(ip ? [{ key: `register-ip:${ip}`, limit: REGISTER_IP_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS }] : []),
+        { key: `register:${email}`, limit: REGISTER_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS },
+      ],
     })
     if (prepared.response) return prepared.response
-    const { competition, settings, people: valid, consentIds, profileId } = prepared
+    const { competitions, settings, people, consentIds, profileId, email, buyerName, buyerFirstName, legacy } = prepared
     withCookie = prepared.withCookie
-    const categoryId = competition.category_id
 
     // ---- one transaction
     const { data, error } = await admin.rpc('register_free', {
-      p_category_id: categoryId,
-      p_people: valid,
+      p_people: rpcPeople(people),
       p_profile_id: profileId,
-      p_meta: { consentIds, ip: clientIp(req), userAgent: req.headers.get('user-agent') || null },
+      p_meta: { consentIds, buyerName, ip, userAgent: req.headers.get('user-agent') || null },
     })
     if (error) {
       const msg = error.message ?? ''
       if (msg === 'not_found') return json(NOT_FOUND, 404, req, withCookie)
+      if (msg === 'session_required') return json({ error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }, 401, req, withCookie)
+      const group = await groupRefusal(admin, msg, { competitions, people, legacy, email })
+      if (group) return json(group[1], group[0], req, withCookie)
       if (REFUSALS[msg]) {
         const [status, text] = REFUSALS[msg]
         return json({ error: text, code: msg }, status, req, withCookie)
@@ -118,25 +80,42 @@ Deno.serve(async (req) => {
       throw error
     }
 
-    const startTime = (competition.start_time ?? settings.first_start_time)?.slice(0, 5) ?? null
-    const created = data.registrations.map((r, i) => ({ ...r, person: valid[i] }))
-
-    // Best effort: the registration stands whether or not the e-mail goes out.
-    const hours = await rows(admin.from('office_hours').select('starts_at, ends_at')
-      .eq('event_id', settings.event_id).order('starts_at')).catch(() => [])
-    for (const r of created) {
-      try {
-        const mail = confirmationEmail({ settings, competition, person: r.person, startTime, hours })
-        await sendEmail({ to: r.person.email, ...mail })
-      } catch (err) {
-        console.error('register-free: confirmation email failed:', err?.message)
-      }
+    const startOf = (categoryId) => {
+      const c = competitions.get(categoryId)
+      return (c?.start_time ?? settings.first_start_time)?.slice(0, 5) ?? null
     }
+    const created = [...data.registrations].sort((a, b) => a.index - b.index)
+      .map((r) => ({ ...r, person: people[r.index] }))
+
+    // Best effort: the registrations stand whether or not the e-mails go out.
+    try {
+      const hours = await rows(admin.from('office_hours').select('starts_at, ends_at')
+        .eq('event_id', settings.event_id).order('starts_at')).catch(() => [])
+      const place = [settings.town_label, settings.place_details].filter(Boolean).join(', ')
+      const mail = freeConfirmationEmail({
+        event: {
+          name: settings.name, eventDate: settings.event_date, place,
+          officePlace: settings.office_same_as_event ? place : settings.office_address, url: eventPageUrl(settings.slug),
+        },
+        people: created.map((r) => ({
+          role: r.person.role, firstName: r.person.firstName, lastName: r.person.lastName,
+          competition: competitions.get(r.person.categoryId)?.name, ageGroupLabel: r.person.ageGroupLabel,
+          startTime: startOf(r.person.categoryId),
+        })),
+        payerFirstName: buyerFirstName,
+        officeHours: hours,
+      })
+      await sendEmail({ to: email, ...mail })
+    } catch (err) {
+      console.error('register-free: confirmation email failed:', err?.message)
+    }
+    await issueConsentRequests(admin, created.filter((r) => r.person.role === 'adult').map((r) => r.id), { registeredBy: buyerName })
 
     return json({
       data: {
         registrations: created.map((r) => ({
-          id: r.id, competition: competition.name, ageGroupLabel: r.person.ageGroupLabel, startTime,
+          id: r.id, competition: competitions.get(r.person.categoryId)?.name ?? null,
+          ageGroupLabel: r.person.ageGroupLabel, startTime: startOf(r.person.categoryId),
         })),
       },
     }, 201, req, withCookie)

@@ -40,21 +40,19 @@ test('P-13b happy path: amounts frozen, no slot until paid (P3-R15), one line, p
   const cat = event.categoryIds[0]
   const email = runnerEmail('happy')
   const before = Date.now()
-  const out = await orderOk(event, { people: [person(email, { nationality: 'DE' })], support: false })
+  const out = await orderOk(event, { people: [person(email, { nationality: 'DE' })] })
 
   assert.equal(out.status, 'pending')
-  assert.equal(out.total, 6055)
-  assert.deepEqual(out.amounts, { entryTotal: 6000, extrasTotal: 0, donation: 0, supportFee: 0, paymentFee: 55, total: 6055 })
+  assert.equal(out.total, 6000)
+  assert.deepEqual(out.amounts, { entryTotal: 6000, extrasTotal: 0, donation: 0, total: 6000 })
   const exp = Date.parse(out.expiresAt)
   assert.ok(Math.abs(exp - (before + 24 * 3600e3)) < 120e3, `expiresAt ${out.expiresAt}`)
 
   const order = await orderOf(out.orderId)
   assert.equal(order.status, 'pending')
   assert.equal(order.buyer_email, email)
-  assert.equal(order.support_choice, false)
   assert.equal(order.entry_total, 6000)
-  assert.equal(order.payment_fee, 55)
-  assert.equal(order.total, 6055)
+  assert.equal(order.total, 6000)
   assert.equal(order.tier_id, event.tierId)
   assert.equal((await competitionOf(cat)).taken, 0, 'a pending order holds no slot')
 
@@ -77,8 +75,8 @@ test('P-13b happy path: amounts frozen, no slot until paid (P3-R15), one line, p
   assert.equal(acc.length, (await consentIds(event.eventId)).length + 1)
   assert.ok(acc.some((a) => a.consent_kind === 'service_regulamin'))
 
-  const att = await attemptFor(out.orderId, 6055)
-  const first = await confirmOk(out.orderId, att.txn, 6055)
+  const att = await attemptFor(out.orderId, 6000)
+  const first = await confirmOk(out.orderId, att.txn, 6000)
   assert.equal(first.outcome, 'confirmed')
   assert.equal((await competitionOf(cat)).taken, 1, 'the payment claimed it')
 
@@ -95,7 +93,7 @@ test('P-13b happy path: amounts frozen, no slot until paid (P3-R15), one line, p
   assert.equal(parts[0].category_id, cat)
   assert.equal((await one('payment_attempts', { id: att.id })).status, 'paid')
 
-  const again = await confirmOk(out.orderId, att.txn, 6055)
+  const again = await confirmOk(out.orderId, att.txn, 6000)
   assert.equal(again.outcome, 'already_confirmed')
   assert.equal((await participantsOf(reg.id)).length, 1)
   assert.equal((await competitionOf(cat)).taken, 1)
@@ -116,10 +114,9 @@ test('P-13b the registration gets the buyer account only when its address is the
 
 test('P-13b two people in one order: amounts for both, two lines, one claim of two slots at payment', async () => {
   const event = await paid()
-  const out = await orderOk(event, { emails: [runnerEmail('a'), runnerEmail('b')], support: true })
-  // entry 12000, support 240, fee ceil(12240*9/991) = 112
-  assert.equal(out.total, 12352)
-  assert.equal(out.amounts.supportFee, 240)
+  const out = await orderOk(event, { emails: [runnerEmail('a'), runnerEmail('b')] })
+  assert.equal(out.total, 12000)
+  assert.equal(out.amounts.entryTotal, 12000)
   assert.equal((await rows('order_lines', { order_id: out.orderId })).length, 2)
   assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
   const att = await attemptFor(out.orderId, out.total)
@@ -241,7 +238,7 @@ test('P-14 late payment after the event stopped being published → late_refund 
 
 test('P-15 a total-0 order is paid at once: registration confirmed, participant inserted, no attempt', async () => {
   const event = await paid({ prices: { 'Bieg 9 km': 0 } })
-  const out = await orderOk(event, { support: null, displayed: 0 })
+  const out = await orderOk(event, { displayed: 0 })
   assert.equal(out.status, 'paid')
   assert.equal(out.total, 0)
   const order = await orderOf(out.orderId)
@@ -261,10 +258,10 @@ test('P-15 a total-0 order is paid at once: registration confirmed, participant 
 
 test('P-16 price_changed carries the server total; nothing is claimed', async () => {
   const event = await paid()
-  const r = await createOrder(event, { support: true, displayed: 6000 })
-  assert.equal(r.error?.message, 'price_changed:6176')
+  const r = await createOrder(event, { displayed: 6055 })
+  assert.equal(r.error?.message, 'price_changed:6000')
   assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
-  const ok = await createOrder(event, { support: true, displayed: 6176 })
+  const ok = await createOrder(event, { displayed: 6000 })
   assert.equal(ok.error, null, ok.error?.message)
 })
 
@@ -336,7 +333,6 @@ test('P-16 refusals reuse register_free\'s codes', async () => {
   assert.equal((await createOrder(event, { people: [] })).error?.message, 'invalid_people')
   assert.equal((await createOrder(event, { categoryId: crypto.randomUUID() })).error?.message, 'not_found')
   assert.equal((await createOrder(event, { consents: ids.filter((x) => x !== image.id) })).error?.message, 'consents_changed')
-  assert.equal((await createOrder(event, { support: null })).error?.message, 'support_choice_required')
   assert.equal((await createOrder(event, { sendBuyerEmail: 'ktos-inny@test.local' })).error?.message, 'invalid_buyer_email')
   assert.equal((await createOrder(event, { profileId: null })).error?.message, 'session_required')
 
@@ -376,7 +372,8 @@ test('P-16 create_order and the other order RPCs are callable by service_role on
        where n.nspname = 'public' and p.proname in ('create_order', 'add_payment_attempt', 'confirm_order',
          'expire_orders', 'cancel_order', 'record_refund', 'settle_refund', 'insert_registration_participant',
          'registration_slot_units', 'register_free')`
-    assert.equal(fns.length, 10, fns.map((f) => f.sig).join())
+    // Plan 4 (G-16): register_free and create_order each have a group overload beside the old signature.
+    assert.equal(fns.length, 12, fns.map((f) => f.sig).join())
     for (const f of fns) {
       assert.equal(f.prosecdef, true, `${f.sig} security definer`)
       assert.deepEqual(f.proconfig, ['search_path=""'], `${f.sig} search_path`)
@@ -389,18 +386,18 @@ test('P-16 create_order and the other order RPCs are callable by service_role on
   }
 })
 
-test('P-16 the total is capped at the dpay limit and support_fee follows support_choice', async () => {
+test('P-16 the total is capped at the dpay limit and is the sum of the entries, extras and donation', async () => {
   const event = await paid()
   const base = {
     event_id: event.eventId, buyer_email: 'x@test.local', entry_total: 6000, extras_total: 0, donation: 0,
     expires_at: minutesFromNow(60),
   }
-  const cap = await db().from('orders').insert({ ...base, entry_total: 99999990, support_choice: false, support_fee: 0, payment_fee: 20, total: 100000010 })
+  const cap = await db().from('orders').insert({ ...base, entry_total: 100000000, total: 100000000 })
   assert.equal(cap.error?.code, '23514', JSON.stringify(cap.error))
   assert.match(cap.error.message, /orders_total_cap_check/)
-  const tie = await db().from('orders').insert({ ...base, support_choice: false, support_fee: 120, payment_fee: 56, total: 6176 })
-  assert.equal(tie.error?.code, '23514')
-  assert.match(tie.error.message, /orders_support_fee_choice_check/)
+  const extra = await db().from('orders').insert({ ...base, total: 6055 })
+  assert.equal(extra.error?.code, '23514')
+  assert.match(extra.error.message, /orders_amounts_add_up_check/)
 })
 
 // ---------------------------------------------------------------- P-17
@@ -560,12 +557,12 @@ test('add_payment_attempt only for a pending order before expires_at', async () 
   assert.equal(r.error?.message, 'not_payable')
   const missing = await rpc('add_payment_attempt', { p_order_id: crypto.randomUUID(), p_txn: newTxn(), p_grosze: 100 })
   assert.equal(missing.error?.message, 'not_payable')
-  assert.equal(totalFor(6000), 6055)
+  assert.equal(totalFor(6000), 6000)
 })
 
 test('confirm on an unknown order id → unknown_attempt and an alert without an order', async () => {
   const txn = newTxn()
-  const r = await confirm(crypto.randomUUID(), txn, 6055)
+  const r = await confirm(crypto.randomUUID(), txn, 6000)
   assert.equal(r.error, null, r.error?.message)
   assert.equal(r.data.outcome, 'unknown_attempt')
   const { data } = await db().from('operator_alerts').select('*').eq('kind', 'unknown_attempt').is('order_id', null)
@@ -577,7 +574,7 @@ test('confirm on an unknown order id → unknown_attempt and an alert without an
 /** A paid order of `email` (the P-48 runner: paid once) plus a double payment refunded automatically. */
 async function paidRunner(event, email) {
   const session = await sessionFor(email)
-  const out = await orderOk(event, { people: [person(email)], support: true })
+  const out = await orderOk(event, { people: [person(email)] })
   const att = await attemptFor(out.orderId, out.total)
   const second = await attemptFor(out.orderId, out.total)
   await confirmOk(out.orderId, att.txn, out.total)
@@ -602,9 +599,8 @@ test('P-53 export-my-data holds the runner\'s order with every amount, its lines
   assert.equal(o.status, 'paid')
   assert.equal(o.buyer_email, email)
   assert.equal(o.paid_transaction_id, att.txn)
-  assert.equal(o.support_choice, true)
   assert.deepEqual(o.amounts, {
-    entry_total: 6000, extras_total: 0, donation: 0, support_fee: 120, payment_fee: 56, total: 6176,
+    entry_total: 6000, extras_total: 0, donation: 0, total: 6000,
   })
   assert.equal(o.event_name, (await one('registration_settings', { event_id: event.eventId })).name)
   assert.equal(o.lines.length, 1)
@@ -612,10 +608,10 @@ test('P-53 export-my-data holds the runner\'s order with every amount, its lines
   assert.equal(o.lines[0].amount, 6000)
   assert.ok(o.lines[0].tier_label)
   assert.deepEqual(o.payment_attempts.map((a) => [a.dpay_transaction_id, a.status, a.grosze]).sort(),
-    [[att.txn, 'paid', 6176], [second.txn, 'paid', 6176]].sort())
+    [[att.txn, 'paid', 6000], [second.txn, 'paid', 6000]].sort())
   assert.ok(o.payment_attempts.every((a) => a.id))
   assert.equal(o.refunds.length, 1)
-  assert.equal(o.refunds[0].amount, 6176)
+  assert.equal(o.refunds[0].amount, 6000)
   assert.equal(o.refunds[0].kind, 'automatic')
   assert.equal(o.refunds[0].reason, 'double_payment')
   assert.equal(o.refunds[0].payment_attempt_id, o.payment_attempts.find((a) => a.dpay_transaction_id === second.txn).id)
@@ -665,16 +661,14 @@ test('P-54 delete-my-account: the order keeps its amounts, status and transactio
   const order = await orderOf(out.orderId)
   assert.equal(order.buyer_email, null)
   assert.equal(order.status, 'paid')
-  assert.equal(order.total, 6176)
-  assert.equal(order.support_fee, 120)
-  assert.equal(order.payment_fee, 56)
+  assert.equal(order.total, 6000)
   assert.equal(order.paid_transaction_id, att.txn)
   assert.notEqual(order.paid_at, null)
   const attempts = await rows('payment_attempts', { order_id: out.orderId })
   assert.deepEqual(attempts.map((a) => a.dpay_transaction_id).sort(), [att.txn, second.txn].sort())
   const refunds = await rows('refunds', { order_id: out.orderId })
   assert.equal(refunds.length, 1)
-  assert.equal(refunds[0].amount, 6176)
+  assert.equal(refunds[0].amount, 6000)
 
   const alerts = await alertsFor(out.orderId, 'email_failed')
   assert.equal(alerts.length, 1)

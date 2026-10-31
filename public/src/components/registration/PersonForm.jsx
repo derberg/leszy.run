@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { categoryPreview } from '../../lib/personFormModel.js'
+import { categoryPreview, kidsGroupLabel } from '../../lib/personFormModel.js'
 import { countryOptions } from '@registration/countries.js'
 import { inputCls, labelCls, sectionCls } from './ui.js'
 
@@ -10,6 +10,17 @@ import { inputCls, labelCls, sectionCls } from './ui.js'
 // wraps. `prefill` is what the logged-in person's own profile gave (null for a
 // visitor, who gets the „Zaloguj się” offer instead); nobody else is ever
 // looked up.
+//
+// `variant` (Plan 4, RA2/RA3): 'self' is the person registering („Twoje dane”); 'buyer' the
+// same card with „Nie startuję” on: imię, nazwisko, e-mail and the phone the children's cards
+// take (D4-23, D4-28); 'adult' another grown-up, told they get the consent e-mail; 'minor' a
+// child: no e-mail, Dziewczynka/Chłopiec, „Grupa”, and the guardian's consent box. `idPrefix`
+// keeps the input ids unique when several cards are on one page (card 1 keeps `p`).
+
+const GENDERS = {
+  minor: [['K', 'Dziewczynka'], ['M', 'Chłopiec']],
+  other: [['K', 'Kobieta'], ['M', 'Mężczyzna']],
+}
 
 function Field({ id, label, error, children, className = '' }) {
   return (
@@ -44,100 +55,157 @@ function CountrySelect({ id, value, onChange, error, mode }) {
   )
 }
 
+function GuardianConsent({ id, guardian }) {
+  return (
+    <div className="flex flex-col gap-2 border border-apex-border bg-apex-surface p-3.5" data-testid="guardian">
+      <span className="font-sans text-base text-apex-text">
+        Opiekunem jestem ja — <strong className="text-apex-text-bright break-words">{guardian.name || '—'}</strong>
+        {guardian.email ? <>, <span className="[overflow-wrap:anywhere]">{guardian.email}</span></> : null}
+      </span>
+      <label className="flex gap-3 items-start font-sans text-[15px] leading-snug text-apex-text cursor-pointer">
+        <input id={id} type="checkbox" className="mt-0.5 w-5 h-5 shrink-0 accent-apex-yellow rounded-none" required
+          checked={guardian.checked === true} onChange={(e) => guardian.onChange(e.target.checked)}
+          aria-invalid={guardian.error ? 'true' : undefined} aria-describedby={guardian.error ? `${id}-error` : undefined}
+          data-testid="guardian-consent" />
+        <span><span className="text-apex-red" aria-hidden="true">*</span> Jako opiekun prawny zgadzam się na udział dziecka i akceptuję regulamin.</span>
+      </label>
+      {guardian.error && <p id={`${id}-error`} className="text-apex-red font-sans text-sm">{guardian.error}</p>}
+    </div>
+  )
+}
+
 /**
  * @param {{ fields: { city, club, ice, nationality }, value: object, onChange: (patch) => void, errors: Record<string, string>,
  *   competition: object, raceDate: string, reckoning: string, ageGroups: object[], prefill: object|null,
- *   loginHref?: string, codeNote?: string, disabled?: boolean }} p
+ *   loginHref?: string, codeNote?: string, disabled?: boolean, variant?: 'self'|'buyer'|'adult'|'minor',
+ *   idPrefix?: string, guardian?: { name, email, checked, onChange, error },
+ *   notRunning?: boolean, onNotRunning?: (on: boolean) => void, emailReadOnly?: boolean }} p
+ * `emailReadOnly`: the consent page (/zgoda) shows the address the link was sent to; it is never edited there.
  */
 export default function PersonForm({
-  fields, value, onChange, errors = {}, raceDate, reckoning, ageGroups, prefill, loginHref, codeNote, disabled = false,
+  fields, value, onChange, errors = {}, competition, raceDate, reckoning, ageGroups, prefill, loginHref, codeNote, disabled = false,
+  variant = 'self', idPrefix = 'p', guardian, notRunning = false, onNotRunning, emailReadOnly = false,
 }) {
-  const category = categoryPreview(value, { raceDate, reckoning, ageGroups })
+  const minor = variant === 'minor'
+  const buyer = variant === 'buyer'
+  const own = variant === 'self' || buyer
+  const category = (minor && kidsGroupLabel(value, competition)) || categoryPreview(value, { raceDate, reckoning, ageGroups })
   const set = (key) => (v) => onChange({ [key]: v })
   const today = new Date().toISOString().slice(0, 10)
+  const id = (name) => `${idPrefix}-${name}`
+  const categoryLabel = minor ? 'Grupa' : own ? 'Twoja kategoria' : 'Kategoria'
+
+  const phoneField = (
+    <Field id={id('phone')} label="Telefon" error={errors.phone}>
+      <TextInput id={id('phone')} type="tel" value={value.phone} onChange={set('phone')} error={errors.phone} autoComplete={own ? 'tel' : 'off'} maxLength={40} />
+    </Field>
+  )
+  const emailField = (
+    <Field id={id('email')} label="E-mail" error={errors.email}>
+      <TextInput id={id('email')} type="email" value={value.email} onChange={set('email')} error={errors.email} autoComplete={own ? 'email' : 'off'} maxLength={254}
+        readOnly={emailReadOnly} {...(emailReadOnly ? { className: `${inputCls} text-apex-muted` } : {})} />
+      {codeNote && <span className="font-sans text-sm text-apex-muted" data-testid={own ? undefined : 'consent-request-note'}>{codeNote}</span>}
+    </Field>
+  )
+  const names = (
+    <div className="grid grid-cols-2 gap-2.5 items-end">
+      <Field id={id('first')} label="Imię" error={errors.firstName}>
+        <TextInput id={id('first')} value={value.firstName} onChange={set('firstName')} error={errors.firstName} autoComplete={own ? 'given-name' : 'off'} maxLength={100} />
+      </Field>
+      <Field id={id('last')} label="Nazwisko" error={errors.lastName}>
+        <TextInput id={id('last')} value={value.lastName} onChange={set('lastName')} error={errors.lastName} autoComplete={own ? 'family-name' : 'off'} maxLength={100} />
+      </Field>
+    </div>
+  )
 
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-[18px] min-w-0">
       <div className="flex flex-col gap-3">
-        <h2 className={sectionCls}>Twoje dane</h2>
-        {!prefill && loginHref && (
+        {own && <h2 className={sectionCls}>Twoje dane</h2>}
+        {own && !prefill && loginHref && (
           <Link to={loginHref} data-testid="login-offer"
             className="flex justify-between items-center gap-3 min-h-12 px-3.5 py-2 border border-apex-border-bright text-apex-text-bright font-sans font-semibold text-base hover:border-apex-yellow-dim">
             <span>Masz konto? Zaloguj się, wypełnimy za Ciebie</span>
             <span className="font-mono text-apex-muted" aria-hidden="true">→</span>
           </Link>
         )}
-        <div className="grid grid-cols-2 gap-2.5 items-end">
-          <Field id="p-first" label="Imię" error={errors.firstName}>
-            <TextInput id="p-first" value={value.firstName} onChange={set('firstName')} error={errors.firstName} autoComplete="given-name" maxLength={100} />
-          </Field>
-          <Field id="p-last" label="Nazwisko" error={errors.lastName}>
-            <TextInput id="p-last" value={value.lastName} onChange={set('lastName')} error={errors.lastName} autoComplete="family-name" maxLength={100} />
-          </Field>
-        </div>
-        <Field id="p-birth" label="Data urodzenia" error={errors.birthDate}>
-          <TextInput id="p-birth" type="date" min="1900-01-01" max={today} value={value.birthDate} onChange={set('birthDate')}
-            error={errors.birthDate} autoComplete="bday" />
-        </Field>
-        <div className="flex flex-col gap-1.5">
-          <span id="p-gender-label" className={labelCls}>Płeć</span>
-          <div className="flex gap-2" role="group" aria-labelledby="p-gender-label">
-            {[['K', 'Kobieta'], ['M', 'Mężczyzna']].map(([g, label]) => (
-              <button key={g} type="button" aria-pressed={value.gender === g} onClick={() => onChange({ gender: g })}
-                className={`flex-1 min-h-11 border font-sans font-bold text-[17px] whitespace-nowrap ${value.gender === g
-                  ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-mid text-apex-text bg-apex-surface'}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-          {errors.gender && <p className="text-apex-red font-sans text-sm">{errors.gender}</p>}
-        </div>
-        <div className="flex justify-between items-center gap-3 px-3 py-2.5 bg-apex-surface-2 border border-apex-border" data-testid="category-preview">
-          <span className={labelCls}>Twoja kategoria</span>
-          <span className="font-mono text-xl text-apex-yellow whitespace-nowrap">{category ?? '—'}</span>
-        </div>
-        {fields.city !== 'off' && (
-          <Field id="p-city" label={optional('Miejscowość', fields.city)} error={errors.city}>
-            <TextInput id="p-city" value={value.city} onChange={set('city')} error={errors.city} autoComplete="address-level2" maxLength={200} />
-          </Field>
+        {own && onNotRunning && (
+          <label className="flex gap-3 items-center min-h-11 font-sans text-base font-semibold text-apex-text-bright cursor-pointer">
+            <input type="checkbox" className="w-5 h-5 shrink-0 accent-apex-yellow rounded-none" checked={notRunning === true}
+              onChange={(e) => onNotRunning(e.target.checked)} data-testid="not-running" />
+            <span>Nie startuję — zapisuję tylko inne osoby</span>
+          </label>
         )}
-        {fields.club !== 'off' && (
-          <Field id="p-club" label={optional('Klub', fields.club)} error={errors.club}>
-            <TextInput id="p-club" value={value.club} onChange={set('club')} error={errors.club} maxLength={200} />
-          </Field>
-        )}
-        {fields.nationality !== 'off' && (
-          <Field id="p-nationality" label={optional('Narodowość', fields.nationality)} error={errors.nationality}>
-            <CountrySelect id="p-nationality" value={value.nationality} onChange={set('nationality')} error={errors.nationality} mode={fields.nationality} />
-          </Field>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <h2 className={sectionCls}>Kontakt</h2>
-        <Field id="p-email" label="E-mail" error={errors.email}>
-          <TextInput id="p-email" type="email" value={value.email} onChange={set('email')} error={errors.email} autoComplete="email" maxLength={254} />
-          {codeNote && <span className="font-sans text-sm text-apex-muted">{codeNote}</span>}
-        </Field>
-        <Field id="p-phone" label="Telefon" error={errors.phone}>
-          <TextInput id="p-phone" type="tel" value={value.phone} onChange={set('phone')} error={errors.phone} autoComplete="tel" maxLength={40} />
-        </Field>
-        {fields.ice !== 'off' && (
+        {names}
+        {buyer && emailField}
+        {buyer && phoneField}
+        {!buyer && (
           <>
-            <span className={`${labelCls} mt-1.5 normal-case tracking-normal font-sans text-sm`}>
-              Do kogo dzwonić, gdyby coś Ci się stało na trasie{fields.ice === 'optional' ? ' (opcjonalnie)' : ''}
-            </span>
-            <div className="grid grid-cols-2 gap-2 items-end">
-              <Field id="p-ice-name" label="Imię" error={errors.iceName}>
-                <TextInput id="p-ice-name" aria-label="Imię osoby do kontaktu" value={value.iceName} onChange={set('iceName')} error={errors.iceName} maxLength={200} />
-              </Field>
-              <Field id="p-ice-phone" label="Telefon" error={errors.icePhone}>
-                <TextInput id="p-ice-phone" aria-label="Telefon osoby do kontaktu" type="tel" value={value.icePhone} onChange={set('icePhone')} error={errors.icePhone} maxLength={40} />
-              </Field>
+            <Field id={id('birth')} label="Data urodzenia" error={errors.birthDate}>
+              <TextInput id={id('birth')} type="date" min="1900-01-01" max={today} value={value.birthDate} onChange={set('birthDate')}
+                error={errors.birthDate} autoComplete={own ? 'bday' : 'off'} />
+            </Field>
+            <div className="flex flex-col gap-1.5">
+              <span id={id('gender-label')} className={labelCls}>Płeć</span>
+              <div className="flex gap-2" role="group" aria-labelledby={id('gender-label')}
+                aria-describedby={errors.gender ? id('gender-error') : undefined} data-invalid={errors.gender ? 'true' : undefined}>
+                {GENDERS[minor ? 'minor' : 'other'].map(([g, label]) => (
+                  <button key={g} type="button" aria-pressed={value.gender === g} onClick={() => onChange({ gender: g })}
+                    className={`flex-1 min-h-11 border font-sans font-bold text-[17px] whitespace-nowrap ${value.gender === g
+                      ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-mid text-apex-text bg-apex-surface'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {errors.gender && <p id={id('gender-error')} className="text-apex-red font-sans text-sm">{errors.gender}</p>}
             </div>
+            <div className="flex justify-between items-center gap-3 px-3 py-2.5 bg-apex-surface-2 border border-apex-border" data-testid="category-preview">
+              <span className={labelCls}>{categoryLabel}</span>
+              <span className="font-mono text-xl text-apex-yellow whitespace-nowrap">{category ?? '—'}</span>
+            </div>
+            {fields.city !== 'off' && (
+              <Field id={id('city')} label={optional('Miejscowość', fields.city)} error={errors.city}>
+                <TextInput id={id('city')} value={value.city} onChange={set('city')} error={errors.city} autoComplete={own ? 'address-level2' : 'off'} maxLength={200} />
+              </Field>
+            )}
+            {fields.club !== 'off' && (
+              <Field id={id('club')} label={optional('Klub', fields.club)} error={errors.club}>
+                <TextInput id={id('club')} value={value.club} onChange={set('club')} error={errors.club} maxLength={200} />
+              </Field>
+            )}
+            {fields.nationality !== 'off' && (
+              <Field id={id('nationality')} label={optional('Narodowość', fields.nationality)} error={errors.nationality}>
+                <CountrySelect id={id('nationality')} value={value.nationality} onChange={set('nationality')} error={errors.nationality} mode={fields.nationality} />
+              </Field>
+            )}
           </>
         )}
       </div>
+
+      {!buyer && (
+        <div className="flex flex-col gap-3">
+          {own ? <h2 className={sectionCls}>Kontakt</h2> : <h3 className={sectionCls}>Kontakt</h3>}
+          {!minor && emailField}
+          {phoneField}
+          {fields.ice !== 'off' && (
+            <>
+              <span className={`${labelCls} mt-1.5 normal-case tracking-normal font-sans text-sm`}>
+                {own ? 'Do kogo dzwonić, gdyby coś Ci się stało na trasie' : 'Do kogo dzwonić, gdyby coś się stało na trasie'}
+                {fields.ice === 'optional' ? ' (opcjonalnie)' : ''}
+              </span>
+              <div className="grid grid-cols-2 gap-2 items-end">
+                <Field id={id('ice-name')} label="Imię" error={errors.iceName}>
+                  <TextInput id={id('ice-name')} aria-label="Imię osoby do kontaktu" value={value.iceName} onChange={set('iceName')} error={errors.iceName} maxLength={200} />
+                </Field>
+                <Field id={id('ice-phone')} label="Telefon" error={errors.icePhone}>
+                  <TextInput id={id('ice-phone')} aria-label="Telefon osoby do kontaktu" type="tel" value={value.icePhone} onChange={set('icePhone')} error={errors.icePhone} maxLength={40} />
+                </Field>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      {minor && guardian && <GuardianConsent id={id('guardian')} guardian={{ ...guardian, error: guardian.error ?? errors.guardianConsent }} />}
     </fieldset>
   )
 }

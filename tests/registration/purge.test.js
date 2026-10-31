@@ -85,6 +85,42 @@ test('W-43 an event 31 days ago loses phone and ICE; an event 29 days ago is unt
   assert.equal(second.data, 0)
 })
 
+test('W-43b (D4-30) the purge also clears a child\'s guardian name and address 30 days after the event; guardian_profile_id stays', async () => {
+  const { registerGroup, adult, minor } = await import('./helpers/groups.js')
+  const { profileFor, runnerEmail } = await import('./helpers/orders.js')
+  const make = async (daysAgo) => {
+    const event = await createPublishedFreeEvent(owner, {
+      competitions: [{ name: 'Bieg dzieci 1 km', discipline: 'run', distanceLabel: '1 km', startTime: '09:00', capacity: 50 }],
+    })
+    const buyer = runnerEmail('guardian')
+    const profileId = await profileFor(buyer)
+    const r = await registerGroup(event, [adult(event.categoryIds[0], 'self', buyer), minor(event.categoryIds[0])], { profileId })
+    assert.ifError(r.error)
+    const moved = await db().from('registration_settings').update({ event_date: isoDay(-daysAgo) }).eq('event_id', event.eventId)
+    assert.ifError(moved.error)
+    return { childId: r.data.registrations.find((x) => x.role === 'minor').id, profileId, buyer }
+  }
+  const old = await make(31)
+  const recent = await make(29)
+  const run = await db().rpc('purge_registration_contact_data')
+  assert.ifError(run.error)
+
+  const { data: o } = await db().from('registrations').select('*').eq('id', old.childId).single()
+  assert.equal(o.guardian_name, null)
+  assert.equal(o.guardian_email, null)
+  assert.equal(o.phone, null)
+  assert.equal(o.guardian_profile_id, old.profileId, 'the link to the guardian\'s account is not contact data')
+  assert.equal(o.first_name, 'Zosia')
+
+  const { data: n } = await db().from('registrations').select('*').eq('id', recent.childId).single()
+  assert.equal(n.guardian_name, 'Ola Leśna')
+  assert.equal(n.guardian_email, recent.buyer)
+
+  const again = await db().rpc('purge_registration_contact_data')
+  assert.ifError(again.error)
+  assert.equal(again.data, 0)
+})
+
 test('W-43 public, anon and authenticated cannot execute the purge; service_role can', async () => {
   const { url, anonKey } = localEnv()
   const anon = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })

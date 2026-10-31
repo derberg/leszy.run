@@ -3,12 +3,16 @@ import { guardRequest } from '../_shared/cors.js'
 import { clientIp } from '../_shared/organizer.js'
 import { dpayConfig, registerTransaction } from '../_shared/dpay.js'
 import { orderAmounts } from '../_shared/registration/money.js'
-import { json, NOT_FOUND, REFUSALS, prepareRegistration } from '../_shared/registration/registrationRequest.js'
+import {
+  json, NOT_FOUND, REFUSALS, fullRefusal, groupRefusal, prepareRegistration, rpcPeople,
+} from '../_shared/registration/registrationRequest.js'
 import { logPaymentEvent, raiseAlert, sendOrderConfirmation } from '../_shared/registration/orderFlow.js'
+import { issueOrderConsentRequests } from '../_shared/registration/consentRequests.js'
 
-// Throttles (claim_throttle_slot): orders per address and per client IP, per hour.
+// Throttles (claim_throttle_slot): orders per address and per client IP, per hour (the IP limit
+// is register-free's 20, fix round 1). prepareRegistration adds the buyer's 30 people a day.
 const ORDER_LIMIT = 10
-const ORDER_IP_LIMIT = 30
+const ORDER_IP_LIMIT = 20
 const HOUR = 3600
 
 // create_order's refusals beyond register_free's, and what the runner reads.
@@ -18,7 +22,6 @@ const ORDER_REFUSALS = {
   no_price: [409, 'Ta konkurencja nie ma jeszcze ceny. Spróbuj później.'],
   paying_closed: [409, 'Zapisy z płatnością online kończą się godzinę przed zamknięciem zapisów.'],
   too_many_pending: [409, 'Masz już dwa nieopłacone zgłoszenia na te zawody.'],
-  support_choice_required: [400, 'Wybierz, czy wspierasz LESZY.RUN.'],
   invalid_buyer_email: [400, 'Popraw adres e-mail.'],
   'invalid_amount:total': [400, 'Kwota zamówienia przekracza limit płatności online.'],
 }
@@ -26,17 +29,20 @@ const PRICE_CHANGED = 'Cena się zmieniła. Sprawdź podsumowanie.'
 const DPAY_DOWN = 'Nie udało się połączyć z operatorem płatności. Spróbuj ponownie.'
 const PENDING_ORDER = 'Masz już nieopłacone zgłoszenie na te zawody.'
 
-// The amounts behind a price_changed refusal: the competition's current price from the
-// public read model (the same tier choice create_order makes) through money.js. When they
-// do not reproduce the RPC's total (the price moved again in between) only the total goes back.
-async function currentAmounts(admin, settings, categoryId, people, supportChoice, total) {
+// The amounts behind a price_changed refusal: each person at their own competition's current
+// price from the public read model (the same tier choice create_order makes, D4-27) through
+// money.js, with `entryPrices` one per person in request order, so RA4 re-prices every line.
+// When they do not reproduce the RPC's total (the price moved again in between) only the total
+// goes back.
+async function currentAmounts(admin, settings, people, total) {
   try {
     const { data } = await admin.rpc('registration_raw', { p_event_id: settings.event_id })
-    const price = data?.competitions?.find((c) => c.categoryId === categoryId)?.priceGrosze
-    if (Number.isSafeInteger(price)) {
-      const a = orderAmounts({ entryPrices: Array(people).fill(price), supportChoice })
+    const priceOf = new Map((data?.competitions ?? []).map((c) => [String(c.categoryId).toLowerCase(), c.priceGrosze]))
+    const entryPrices = people.map((p) => priceOf.get(String(p.categoryId).toLowerCase()))
+    if (entryPrices.every(Number.isSafeInteger)) {
+      const a = orderAmounts({ entryPrices })
       if (a.total === total) {
-        return { entryTotal: a.entryTotal, extrasTotal: 0, donation: 0, supportFee: a.supportFee, paymentFee: a.paymentFee, total }
+        return { entryPrices, entryTotal: a.entryTotal, extrasTotal: 0, donation: 0, total }
       }
     }
   } catch (err) {
@@ -45,13 +51,21 @@ async function currentAmounts(admin, settings, categoryId, people, supportChoice
   return { total }
 }
 
-// The live registration for this address is in this buyer's own pending order (a resubmit
-// after leaving the dpay page, or a double click) → that order's id, else null (P3-R8).
-async function ownPendingOrder(admin, eventId, email, profileId) {
-  const { data: regs, error } = await admin.from('registrations')
-    .select('order_id').eq('event_id', eventId).eq('email', email).eq('status', 'pending_payment')
-  if (error) throw error
-  const ids = (regs ?? []).map((r) => r.order_id).filter(Boolean)
+// A live registration of the group (any adult's address, or a child by name and birth date) in
+// this buyer's own pending order (a resubmit after leaving the dpay page, or a double click) →
+// that order's id, else null (P3-R8, D4-27).
+async function ownPendingOrder(admin, eventId, people, profileId) {
+  const emails = people.map((p) => p.email).filter(Boolean)
+  const found = emails.length
+    ? await rowsOf(admin.from('registrations').select('order_id')
+      .eq('event_id', eventId).in('email', emails).eq('status', 'pending_payment'))
+    : []
+  for (const m of people.filter((p) => p.role === 'minor')) {
+    found.push(...await rowsOf(admin.from('registrations').select('order_id, first_name, last_name')
+      .eq('event_id', eventId).is('email', null).eq('birth_date', m.birthDate).eq('status', 'pending_payment')
+      .ilike('first_name', likeLiteral(m.firstName)).ilike('last_name', likeLiteral(m.lastName))))
+  }
+  const ids = [...new Set(found.map((r) => r.order_id).filter(Boolean))]
   if (!ids.length) return null
   const { data: orders, error: oErr } = await admin.from('orders')
     .select('id').in('id', ids).eq('status', 'pending').eq('buyer_profile_id', profileId).limit(1)
@@ -59,15 +73,28 @@ async function ownPendingOrder(admin, eventId, email, profileId) {
   return orders?.[0]?.id ?? null
 }
 
-// POST { categoryId, person, acceptedConsentIds, serviceRegulamin, supportChoice, displayedTotal, code? }
+// A name matched case-insensitively and literally (a % or _ in it is not a wildcard).
+const likeLiteral = (v) => String(v).replace(/[\\%_]/g, (c) => `\\${c}`)
+
+async function rowsOf(query) {
+  const { data, error } = await query
+  if (error) throw error
+  return data ?? []
+}
+
+// POST { people: [{ categoryId, person, guardianConsent? }], buyer?, acceptedConsentIds, serviceRegulamin,
+//        displayedTotal, code? }, or Plan 3's { categoryId, person, … } (a group of one)
 //   → 201 { data: { orderId, redirectUrl } }, or { data: { orderId, status: 'paid' } } when the total is 0.
-// register-free's body plus the support choice (a boolean, nothing preselected) and the total the
-// page showed, which is only compared with the server's (409 price_changed with the amounts). Every
-// check before the RPC is register-free's (prepareRegistration). create_order writes the order (409
-// full when the paid entries fill the competition; an unpaid order claims no slot, P3-R15), then dpay
-// registers the transaction. An order that leaves this function without a redirect handed out (a dpay
-// failure, a refused attempt, any error) is cancelled (P3-R7). A resubmit that finds this buyer's own pending order answers 409
-// pending_order with its id (P3-R8). No e-mail goes out before payment.
+// A group is one order, each person at their own competition's price (D4-27). register-free's body
+// plus the total the page showed, which is only compared with the server's (409 price_changed with
+// the amounts). A supportChoice from a page opened before 2026-10-31 is ignored. Every check before the RPC
+// is register-free's (prepareRegistration). create_order writes the order (409 full when the paid
+// entries fill a competition; an unpaid order claims no slot, P3-R15), then dpay registers the
+// transaction. An order that leaves this function without a redirect handed out (a dpay failure, a
+// refused attempt, any error) is cancelled (P3-R7). A resubmit that finds this buyer's own pending
+// order answers 409 pending_order with its id (P3-R8; any person of the group, D4-27). No e-mail goes
+// out before payment: the consent requests to the group's added adults go out on confirmation
+// (settleConfirmOutcome), or here for a 0 zł order, which is confirmed at once.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -78,10 +105,7 @@ Deno.serve(async (req) => {
   let body
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON' }, 400, req) }
 
-  const { supportChoice, displayedTotal } = body ?? {}
-  if (typeof supportChoice !== 'boolean') {
-    return json({ error: ORDER_REFUSALS.support_choice_required[1], code: 'support_choice_required' }, 400, req)
-  }
+  const { displayedTotal } = body ?? {}
   if (!Number.isSafeInteger(displayedTotal) || displayedTotal < 0) {
     return json({ error: 'Odśwież stronę i sprawdź podsumowanie.', code: 'invalid_total' }, 400, req)
   }
@@ -93,12 +117,12 @@ Deno.serve(async (req) => {
       pricing: (settings) => (settings.pricing_mode === 'free' ? 'free_event' : null),
       refusals: ORDER_REFUSALS,
       throttles: (email) => [
-        { key: `order:${email}`, limit: ORDER_LIMIT, windowSeconds: HOUR },
         ...(ip ? [{ key: `order-ip:${ip}`, limit: ORDER_IP_LIMIT, windowSeconds: HOUR }] : []),
+        { key: `order:${email}`, limit: ORDER_LIMIT, windowSeconds: HOUR },
       ],
     })
     if (prepared.response) return prepared.response
-    const { competition, settings, people, consentIds, email, profileId } = prepared
+    const { competitions, settings, people, consentIds, email, profileId, buyerName, legacy } = prepared
     withCookie = prepared.withCookie
     const answer = (payload, status) => json(payload, status, req, withCookie)
 
@@ -112,13 +136,11 @@ Deno.serve(async (req) => {
     }
 
     const { data: created, error } = await admin.rpc('create_order', {
-      p_category_id: competition.category_id,
-      p_people: people,
+      p_people: rpcPeople(people),
       p_profile_id: profileId,
       p_buyer_email: email,
-      p_support_choice: supportChoice,
       p_displayed_total: displayedTotal,
-      p_meta: { consentIds, ip, userAgent: req.headers.get('user-agent') || null },
+      p_meta: { consentIds, buyerName, ip, userAgent: req.headers.get('user-agent') || null },
     })
     if (error) {
       const msg = error.message ?? ''
@@ -126,13 +148,15 @@ Deno.serve(async (req) => {
       if (msg === 'session_required') return answer({ error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }, 401)
       const changed = /^price_changed:(\d+)$/.exec(msg)
       if (changed) {
-        const amounts = await currentAmounts(admin, settings, competition.category_id, people.length, supportChoice, Number(changed[1]))
+        const amounts = await currentAmounts(admin, settings, people, Number(changed[1]))
         return answer({ error: PRICE_CHANGED, code: 'price_changed', amounts }, 409)
       }
-      if (msg === 'duplicate') {
-        const pendingId = await ownPendingOrder(admin, settings.event_id, email, profileId)
+      if (/^duplicate:\d+$/.test(msg)) {
+        const pendingId = await ownPendingOrder(admin, settings.event_id, people, profileId)
         if (pendingId) return answer({ error: PENDING_ORDER, code: 'pending_order', orderId: pendingId }, 409)
       }
+      const group = await groupRefusal(admin, msg, { competitions, people, legacy, email })
+      if (group) return answer(group[1], group[0])
       if (ORDER_REFUSALS[msg]) {
         const [status, text] = ORDER_REFUSALS[msg]
         return answer({ error: text, code: msg }, status)
@@ -141,8 +165,13 @@ Deno.serve(async (req) => {
     }
 
     const orderId = created.orderId
+    // The name the buyer typed, for the consent e-mails that go out when the payment lands (m-1).
+    // Best effort: without it they name the buyer's own entry or account, never the address.
+    const { error: nameErr } = await admin.from('orders').update({ buyer_name: buyerName }).eq('id', orderId)
+    if (nameErr) console.error('create-order: buyer_name not stored:', nameErr.message)
     if (created.status === 'paid') {
       await sendOrderConfirmation(admin, orderId)
+      await issueOrderConsentRequests(admin, orderId, { registeredBy: buyerName })
       return answer({ data: { orderId, status: 'paid' } }, 201)
     }
 
@@ -175,11 +204,13 @@ Deno.serve(async (req) => {
         console.error('create-order: add_payment_attempt failed:', aErr.message)
         if (aErr.message === 'full') {
           cancelReason = 'attempt_refused'
-          return answer({ error: REFUSALS.full[1], code: 'full' }, 409)
+          const { data: comps } = await admin.from('competitions')
+            .select('category_id, name, taken, capacity').in('category_id', [...competitions.keys()])
+          return answer(fullRefusal(comps ?? [], people, { legacy }), 409)
         }
         if (aErr.message === 'not_payable') {
           cancelReason = 'attempt_refused'
-          return answer({ error: REFUSALS.closed[1], code: 'closed' }, 409)
+          return answer({ error: ORDER_REFUSALS.closed[1], code: 'closed' }, 409)
         }
         throw aErr
       }

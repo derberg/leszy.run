@@ -14,6 +14,14 @@ async function sha256hex(text) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
+// A phone number compared as digits with its leading +: „+48 500-100-200” and „+48500100200” match.
+const phoneKey = (v) => {
+  const s = typeof v === 'string' ? v.trim() : ''
+  if (!s) return null
+  const digits = s.replace(/\D/g, '')
+  return digits ? (s.startsWith('+') ? '+' : '') + digits : null
+}
+
 function json(body, status, req, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -218,7 +226,7 @@ Deno.serve(async (req) => {
     // Get profile (need email BEFORE we null it)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('id, email')
+      .select('id, email, phone')
       .eq('id', session.userId)
       .is('deleted_at', null)
       .single()
@@ -303,12 +311,19 @@ Deno.serve(async (req) => {
     // person goes, and the consent acceptances lose the device traces (ip,
     // user_agent) while the acceptance itself stays as the record.
     const regIds = new Set()
+    // The person's own phone numbers, read before they are nulled: step 1c clears a child's phone
+    // that is one of them (the group form prefills the child's phone from the guardian's, D4-26).
+    const ownPhones = new Set([phoneKey(profile.phone)].filter(Boolean))
     const runnerKeys = [['profile_id', profile.id]]
     if (originalEmail) runnerKeys.push(['email', originalEmail])
     for (const [column, value] of runnerKeys) {
-      const { data: found, error: findErr } = await supabaseAdmin.from('registrations').select('id').eq(column, value)
+      const { data: found, error: findErr } = await supabaseAdmin.from('registrations').select('id, phone').eq(column, value)
       if (findErr) console.error('delete-my-account: registrations lookup failed:', column, findErr.message)
-      for (const r of found ?? []) regIds.add(r.id)
+      for (const r of found ?? []) {
+        regIds.add(r.id)
+        const k = phoneKey(r.phone)
+        if (k) ownPhones.add(k)
+      }
     }
     if (regIds.size > 0) {
       const ids = [...regIds]
@@ -330,6 +345,11 @@ Deno.serve(async (req) => {
       const { error: accErr } = await supabaseAdmin.from('consent_acceptances')
         .update({ ip: null, user_agent: null }).in('registration_id', ids)
       if (accErr) console.error('delete-my-account: consent_acceptances trace cleanup failed:', accErr.message)
+      // An added adult's consent request (Plan 4): the token hash, its dates and nothing else
+      // useful once the person is gone. consent_requests.registration_id is ON DELETE RESTRICT,
+      // so these rows must go before any registration of theirs could ever be deleted.
+      const { error: crErr } = await supabaseAdmin.from('consent_requests').delete().in('registration_id', ids)
+      if (crErr) console.error('delete-my-account: consent_requests cleanup failed:', crErr.message)
     }
 
     // 1c. The person as GUARDIAN of someone else's registration (a child, later
@@ -338,20 +358,60 @@ Deno.serve(async (req) => {
     // their device traces.
     const guardianKeys = [['guardian_profile_id', profile.id]]
     if (originalEmail) guardianKeys.push(['guardian_email', originalEmail])
+    // A child's phone that is the guardian's own number is the guardian's data (final review
+    // M-3): it goes from the entry and from its participant; a number typed for the child stays.
+    if (ownPhones.size > 0) {
+      const childIds = new Set()
+      const participantIds = new Set()
+      for (const [column, value] of guardianKeys) {
+        const { data: kids, error: kErr } = await supabaseAdmin.from('registrations')
+          // A child's row has no e-mail (Plan 4: a minor never has one); a row with its own
+          // address is a person who gave their own number, even when it is the same one.
+          .select('id, phone, participant_id').eq(column, value).is('email', null).not('phone', 'is', null)
+        if (kErr) console.error('delete-my-account: guardian phone lookup failed:', column, kErr.message)
+        for (const k of kids ?? []) {
+          if (!ownPhones.has(phoneKey(k.phone))) continue
+          childIds.add(k.id)
+          if (k.participant_id) participantIds.add(k.participant_id)
+        }
+      }
+      if (childIds.size > 0) {
+        const { error: cpErr } = await supabaseAdmin.from('registrations').update({ phone: null }).in('id', [...childIds])
+        if (cpErr) console.error('delete-my-account: child phone cleanup failed:', cpErr.message)
+      }
+      if (participantIds.size > 0) {
+        const { data: parts, error: pErr } = await supabaseAdmin.from('participants')
+          .select('id, phone').in('id', [...participantIds])
+        if (pErr) console.error('delete-my-account: child participant lookup failed:', pErr.message)
+        const same = (parts ?? []).filter((x) => ownPhones.has(phoneKey(x.phone))).map((x) => x.id)
+        if (same.length > 0) {
+          const { error: ppErr } = await supabaseAdmin.from('participants').update({ phone: null }).in('id', same)
+          if (ppErr) console.error('delete-my-account: child participant phone cleanup failed:', ppErr.message)
+        }
+      }
+    }
     for (const [column, value] of guardianKeys) {
       const { error: gErr } = await supabaseAdmin.from('registrations')
-        .update({ guardian_profile_id: null, guardian_name: 'Usunięte konto', guardian_email: null })
+        // guardian_removed_at is the organizer's „kontakt opiekuna usunięty” (D4-25): the 30-day
+        // contact purge nulls the other guardian fields of every past child entry too.
+        .update({ guardian_profile_id: null, guardian_name: 'Usunięte konto', guardian_email: null, guardian_removed_at: new Date().toISOString() })
         .eq(column, value)
       if (gErr) console.error('delete-my-account: guardian fields cleanup failed:', column, gErr.message)
     }
     const { error: actedErr } = await supabaseAdmin.from('consent_acceptances')
       .update({ ip: null, user_agent: null }).eq('accepted_by_profile_id', profile.id)
     if (actedErr) console.error('delete-my-account: acceptances by person cleanup failed:', actedErr.message)
+    // The entries they registered for other people (Plan 4 groups): those rows are the other
+    // people's and stay, but nothing may keep pointing at this account. A soft delete fires no
+    // FK, so ON DELETE SET NULL never runs; this is it, by hand.
+    const { error: byErr } = await supabaseAdmin.from('registrations')
+      .update({ registered_by_profile_id: null }).eq('registered_by_profile_id', profile.id)
+    if (byErr) console.error('delete-my-account: registered_by cleanup failed:', byErr.message)
 
     // 1d. Orders (paid registration). Payment records are accounting records,
     // kept 5 years from the end of the year of payment (tax law, Art. 17(3)(b)):
     // amounts, statuses, dpay transaction ids, attempts and refunds all stay.
-    // Only the buyer's address goes. buyer_profile_id keeps pointing at the
+    // Only the buyer's address and typed name go. buyer_profile_id keeps pointing at the
     // anonymised profile, like registrations.profile_id. payment_events holds
     // the payer address only as email_sha256 and is left as the accounting
     // trail. An operator alert about one of these orders keeps its kind and
@@ -376,7 +436,7 @@ Deno.serve(async (req) => {
         const { error: cErr } = await supabaseAdmin.rpc('cancel_order', { p_order_id: o.id, p_reason: 'account_deleted' })
         if (cErr) console.error('delete-my-account: cancel_order failed:', cErr.message)
       }
-      const { error: ordErr } = await supabaseAdmin.from('orders').update({ buyer_email: null }).in('id', ids)
+      const { error: ordErr } = await supabaseAdmin.from('orders').update({ buyer_email: null, buyer_name: null }).in('id', ids)
       if (ordErr) console.error('delete-my-account: orders buyer_email cleanup failed:', ordErr.message)
       const { data: alerts, error: alErr } = await supabaseAdmin.from('operator_alerts')
         .select('id, payload').in('order_id', ids)

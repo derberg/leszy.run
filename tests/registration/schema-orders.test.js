@@ -1,7 +1,6 @@
 // Plan 3, task 3: the order schema (orders, order_lines, payment_attempts,
 // payment_events, refunds, operator_alerts, event_payout_history, the payment
-// settings on registration_settings) and the two SQL fee functions that mirror
-// money.js. Runs against the LOCAL stack only (`supabase db reset` first).
+// settings on registration_settings). Runs against the LOCAL stack only (`supabase db reset` first).
 // Scenario ids P-10…P-12 are in docs/registration/scenario-matrix.md.
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -9,7 +8,6 @@ import crypto from 'node:crypto'
 import postgres from 'postgres'
 import { createClient } from '@supabase/supabase-js'
 import { localEnv, admin, authenticatedClient } from './helpers/stack.js'
-import { paymentFee, supportFee } from '../../supabase/functions/_shared/registration/money.js'
 import { redactDpay } from '../../supabase/functions/_shared/registration/redactDpay.js'
 
 const ZT_CLUB = '00000000-0000-4000-8000-0000000000c1'
@@ -23,11 +21,6 @@ const NEW_TABLES = [
   'operator_alerts',
   'event_payout_history',
   'event_payout_details',
-]
-
-const NEW_FUNCTIONS = [
-  ['registration_support_fee', 'integer, boolean', { p_entry: 6000, p_choice: true }],
-  ['registration_payment_fee', 'integer', { p_subtotal: 10000 }],
 ]
 
 function anon() {
@@ -58,23 +51,16 @@ async function seedEvent() {
   return { tag, event, settings, category }
 }
 
-/** A consistent pending order: entry 6000, support declined, payment fee 55. */
+/** A consistent pending order: entry 6000. */
 function orderRow(eventId, overrides = {}) {
   const entry = Number.isInteger(overrides.entry_total) && overrides.entry_total >= 0 ? overrides.entry_total : 6000
-  const choice = 'support_choice' in overrides ? overrides.support_choice : false
-  const support = entry > 0 && choice ? supportFee(entry, true) : 0
-  const subtotal = entry + support
-  const fee = paymentFee(subtotal)
   return {
     event_id: eventId,
     buyer_email: 'kupujacy@x.pl',
     entry_total: entry,
     extras_total: 0,
     donation: 0,
-    support_choice: choice,
-    support_fee: support,
-    payment_fee: fee,
-    total: subtotal + fee,
+    total: entry,
     expires_at: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
     ...overrides,
   }
@@ -116,66 +102,23 @@ test('P-10 anon and authenticated hold no privilege on the new tables, RLS is on
   }
 })
 
-test('P-10 anon and authenticated cannot execute the fee functions; service_role can', async () => {
-  for (const [name, args, params] of NEW_FUNCTIONS) {
-    const [row] = await db()`
-      select has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
-             has_function_privilege('authenticated', p.oid, 'EXECUTE') as auth,
-             has_function_privilege('service_role', p.oid, 'EXECUTE') as service,
-             p.provolatile = 'i' as immutable,
-             coalesce(array_to_string(p.proconfig, ','), '') as config
-        from pg_proc p where p.oid = to_regprocedure(${`public.${name}(${args})`})`
-    assert.ok(row, `${name}(${args}) does not exist`)
-    assert.deepEqual({ ...row }, { anon: false, auth: false, service: true, immutable: true, config: 'search_path=""' }, name)
-    for (const [who, client] of [['anon', anon()], ['authenticated', authenticatedClient()]]) {
-      const { error } = await client.rpc(name, params)
-      assert.ok(error, `${who} executed ${name}`)
-      assert.match(error.message, /permission denied/, `${who} ${name}: ${error.message}`)
-    }
-    const { error } = await admin().rpc(name, params)
-    assert.equal(error, null, error?.message)
-  }
-})
+// ---------------------------------------------------------------- G-76
 
-// ---------------------------------------------------------------- P-11
-
-test('P-11 registration_payment_fee equals money.js paymentFee for every subtotal 0…100 000', async () => {
-  const rows = await db()`select s, public.registration_payment_fee(s) as fee from generate_series(0, 100000) s order by s`
-  assert.equal(rows.length, 100001)
-  const diffs = rows.filter((r) => r.fee !== paymentFee(r.s))
-  assert.deepEqual(diffs.slice(0, 5).map((r) => ({ ...r })), [], `${diffs.length} differences`)
-})
-
-test('P-11 registration_support_fee equals money.js supportFee for every entry 0…100 000, both choices', async () => {
-  const rows = await db()`
-    select s, public.registration_support_fee(s, true) as yes, public.registration_support_fee(s, false) as no
-      from generate_series(0, 100000) s order by s`
-  assert.equal(rows.length, 100001)
-  const diffs = rows.filter((r) => r.yes !== supportFee(r.s, true) || r.no !== supportFee(r.s, false))
-  assert.deepEqual(diffs.slice(0, 5).map((r) => ({ ...r })), [], `${diffs.length} differences`)
-})
-
-test('P-11 the SQL fee functions refuse what money.js refuses: null choice, negative, above the dpay cap', async () => {
-  await assert.rejects(db()`select public.registration_support_fee(6000, null)`, /support_choice_required/)
-  await assert.rejects(db()`select public.registration_support_fee(-1, true)`, /invalid_amount/)
-  await assert.rejects(db()`select public.registration_payment_fee(-1)`, /invalid_amount/)
-  await assert.rejects(db()`select public.registration_payment_fee(100000000)`, /invalid_amount/)
-  await assert.rejects(db()`select public.registration_payment_fee(null)`, /invalid_amount/)
-  const [top] = await db()`select public.registration_payment_fee(99999999) as fee`
-  assert.equal(top.fee, paymentFee(99_999_999))
+test('G-76 the fee columns and the fee functions are gone; the total is the amounts owed and nothing else', async () => {
+  const cols = await db()`select column_name from information_schema.columns
+    where table_schema = 'public' and table_name = 'orders' and column_name in ('support_choice', 'support_fee', 'payment_fee', 'legacy_fees')`
+  assert.deepEqual(cols.map((c) => c.column_name), [])
+  const fns = await db()`select proname from pg_proc where proname in ('registration_support_fee', 'registration_payment_fee')`
+  assert.deepEqual(fns.map((f) => f.proname), [])
+  const fee = await db()`select p.oid::regprocedure::text as fn from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.prokind = 'f' and p.prosrc ~ 'support_fee|payment_fee|support_choice|registration_support|registration_payment_fee'`
+  assert.deepEqual(fee.map((f) => f.fn), [])
+  const [check] = await db()`select pg_get_constraintdef(oid) as def from pg_constraint
+    where conrelid = 'public.orders'::regclass and conname = 'orders_amounts_add_up_check'`
+  assert.equal(check.def, 'CHECK ((total = ((entry_total + extras_total) + donation)))')
 })
 
 // ---------------------------------------------------------------- P-12
-
-test('P-12 an order with entry fees and no support choice is refused; a free order needs none', async () => {
-  const sql = db()
-  const { event } = await seedEvent()
-  await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { support_choice: null }))}`, '23514', 'entry 6000, choice null', 'orders_support_choice_check')
-  const [free] = await db()`insert into public.orders ${sql(orderRow(event.id, { entry_total: 0, support_choice: null }))} returning status, support_choice`
-  assert.deepEqual({ ...free }, { status: 'pending', support_choice: null })
-  const [paid] = await db()`insert into public.orders ${sql(orderRow(event.id, { support_choice: true }))} returning support_fee, total`
-  assert.deepEqual({ ...paid }, { support_fee: 120, total: 6120 + paymentFee(6120) })
-})
 
 test('P-12 order amounts: negative refused, total must add up, unknown status refused, paid needs paid_at and a transaction', async () => {
   const sql = db()
@@ -183,7 +126,7 @@ test('P-12 order amounts: negative refused, total must add up, unknown status re
   // Each negative row still adds up (total adjusted by the same -1 - base), so only the
   // column's own >= 0 check can refuse it.
   const base = orderRow(event.id)
-  for (const col of ['entry_total', 'extras_total', 'donation', 'support_fee', 'payment_fee']) {
+  for (const col of ['entry_total', 'extras_total', 'donation']) {
     const row = { ...base, [col]: -1, total: base.total - base[col] - 1 }
     await expectCode(sql`insert into public.orders ${sql(row)}`, '23514', `${col} -1`, `orders_${col}_check`)
   }
@@ -196,7 +139,7 @@ test('P-12 order amounts: negative refused, total must add up, unknown status re
   await expectCode(sql`insert into public.orders ${sql(orderRow(event.id, { status: 'paid', paid_at: new Date().toISOString() }))}`,
     '23514', 'paid, total > 0, no transaction', 'orders_paid_check')
   // C1: a free order (total 0) is paid with no dpay transaction at all.
-  const free = orderRow(event.id, { entry_total: 0, support_choice: null, status: 'paid', paid_at: new Date().toISOString() })
+  const free = orderRow(event.id, { entry_total: 0, status: 'paid', paid_at: new Date().toISOString() })
   assert.equal(free.total, 0)
   const [paidFree] = await sql`insert into public.orders ${sql(free)} returning status, paid_transaction_id`
   assert.deepEqual({ ...paidFree }, { status: 'paid', paid_transaction_id: null })

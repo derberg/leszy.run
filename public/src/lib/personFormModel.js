@@ -6,7 +6,7 @@
 // relative path so node --test can load this module too; Vite serves the same
 // files through the @registration alias elsewhere.
 import { validatePerson } from '../../../supabase/functions/_shared/registration/person.js'
-import { ageGroupLabel } from '../../../supabase/functions/_shared/registration/ageGroups.js'
+import { ageGroupLabel, kidsGroupFor } from '../../../supabase/functions/_shared/registration/ageGroups.js'
 import { FORM_FIELD_DEFAULTS } from '../../../supabase/functions/_shared/registration/sections.js'
 
 export const EMPTY_PERSON = Object.freeze({
@@ -87,6 +87,18 @@ export function categoryPreview(person, ctx) {
   })
 }
 
+/**
+ * A child's „Grupa” in a kids' competition: the kids' group of the birth year (and gender, when
+ * the group has one), or null (then the age class shows, as for everyone).
+ */
+export function kidsGroupLabel(person, competition) {
+  const groups = competition?.isKids ? (competition.kidsGroups ?? []) : []
+  if (!groups.length || !realDate(person.birthDate)) return null
+  const pool = groups.filter((g) => g.gender == null || g.gender === person.gender)
+    .map((g) => ({ label: g.label, minYear: g.birthYearFrom, maxYear: g.birthYearTo }))
+  return kidsGroupFor(person.birthDate, pool)?.label ?? null
+}
+
 /** The server's validatePerson, run in the browser so errors show before any e-mail is sent. */
 export function checkPerson(person, ctx) {
   return validatePerson(person, ctx)
@@ -108,23 +120,6 @@ export function needsCode(sessionEmail, personEmail, verifiedEmail = null) {
 /** Every event consent ticked, and the LESZY.RUN service regulamin. */
 export function consentsComplete(consents, accepted, serviceAccepted) {
   return !!serviceAccepted && (consents ?? []).every((c) => accepted?.[c.id] === true)
-}
-
-/** The register-free request. `person` is checkPerson(...).value. */
-export function registerBody({ categoryId, person, consents, code }) {
-  const body = {
-    categoryId,
-    person: {
-      firstName: person.firstName, lastName: person.lastName, birthDate: person.birthDate, gender: person.gender,
-      email: person.email, phone: person.phone, city: person.city, club: person.club,
-      iceName: person.iceName, icePhone: person.icePhone, nationality: person.nationality,
-    },
-    acceptedConsentIds: (consents ?? []).map((c) => c.id),
-    serviceRegulamin: true,
-  }
-  const c = typeof code === 'string' ? code.trim() : ''
-  if (c) body.code = c
-  return body
 }
 
 const OFFLINE = 'Nie udało się połączyć. Spróbuj ponownie.'

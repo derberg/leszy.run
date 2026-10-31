@@ -22,6 +22,8 @@
   --color-apex-red-dim: #5C0A0A;
   --color-apex-cyan: #00BFEF;
   --color-apex-cyan-dim: #004458;
+  /* Cyan for small text (tags): the plain cyan is 3.7:1 on the light surface, below AA. */
+  --color-apex-cyan-text: #00BFEF;
   --color-apex-text: #9896B4;
   --color-apex-text-bright: #C4C2D8;
   --color-apex-muted: #8886A0;
@@ -62,6 +64,7 @@ body {
     --color-apex-red-dim: #FEF2F2;
     --color-apex-cyan: #0891B2;
     --color-apex-cyan-dim: #ECFEFF;
+    --color-apex-cyan-text: #0E7490;
     --color-apex-text: #4A4860;
     --color-apex-text-bright: #1A1830;
     --color-apex-muted: #6B6980;
@@ -88,6 +91,7 @@ html.light {
   --color-apex-red-dim: #FEF2F2;
   --color-apex-cyan: #0891B2;
   --color-apex-cyan-dim: #ECFEFF;
+  --color-apex-cyan-text: #0E7490;
   --color-apex-text: #4A4860;
   --color-apex-text-bright: #1A1830;
   --color-apex-muted: #6B6980;

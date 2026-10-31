@@ -57,6 +57,12 @@ async function callEdge(name, body, { keepalive = false } = {}) {
     // create-order: the buyer's own pending order (409 pending_order) and the new amounts (409 price_changed).
     if (data.orderId) err.orderId = data.orderId
     if (data.amounts) err.amounts = data.amounts
+    // register-free / create-order for a group (Plan 4, D4-6): which person (`index`), which
+    // competition (`categoryId`), and the per-person and buyer field errors.
+    if (Number.isInteger(data.index)) err.index = data.index
+    if (data.categoryId) err.categoryId = data.categoryId
+    if (data.people) err.people = data.people
+    if (data.buyer) err.buyer = data.buyer
     const retryAfter = Number(res.headers.get('retry-after'))
     if (Number.isFinite(retryAfter) && retryAfter > 0) err.retryAfterSec = retryAfter
     throw err

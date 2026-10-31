@@ -1,6 +1,8 @@
 // Shared by the organizer-side registration functions.
+import { clientIp } from './clientIp.js'
+
 // Bump together with public/src/legal/organizerAgreement.js (public/tests/unit/agreementVersion.test.js checks it).
-export const ORGANIZER_AGREEMENT_VERSION = '2026-11-v2'
+export const ORGANIZER_AGREEMENT_VERSION = '2026-11-v3'
 
 /** The caller's active role in the club ('owner' | 'admin' | 'member'), or null. */
 export async function clubRole(admin, clubId, userId) {
@@ -14,13 +16,8 @@ export async function clubRegistrationEnabled(admin, clubId) {
   return data?.registration_enabled === true
 }
 
-const IP_RE = /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]+)$/
-
-/** First x-forwarded-for element, or null when empty or not an IP (inet column). */
-export function clientIp(req) {
-  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
-  return ip && IP_RE.test(ip) && (ip.includes('.') || ip.includes(':')) ? ip : null
-}
+// The one validated parser (clientIp.js); re-exported for the functions that import it from here.
+export { clientIp }
 
 export async function logOrganizerAction(admin, req, { actorId, clubId, eventId = null, action, target = null, payload = null }) {
   const { error } = await admin.from('organizer_actions').insert({
