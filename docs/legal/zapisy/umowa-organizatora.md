@@ -66,7 +66,7 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 
 ## §7. Wypłata
 
-1. Usługodawca wypłaca Organizatorowi, przelewem na Rachunek do wypłat, sumę opłat startowych, cen produktów dodatkowych i darowizn zapłaconych za Wydarzenie, pomniejszoną o zwroty. Organizator otrzymuje te kwoty w całości, z zastrzeżeniem rozstrzygnięcia o potrąceniu wskazanego w tym ustępie. [DO UZUPEŁNIENIA: czy wynagrodzenie Usługodawcy z §8 jest potrącane z wypłaty, czy Organizator płaci je osobno.] [DO UZUPEŁNIENIA: kto ponosi prowizję operatora płatności]
+1. Usługodawca wypłaca Organizatorowi, przelewem na Rachunek do wypłat, sumę opłat startowych, cen produktów dodatkowych i darowizn zapłaconych za Wydarzenie, pomniejszoną o zwroty. Organizator otrzymuje te kwoty w całości. Prowizję Operatora płatności ponosi Usługodawca. Wynagrodzenie Usługodawcy z §8 nie jest potrącane z wypłaty; Organizator płaci je osobno na podstawie faktury.
 2. Wypłata następuje jednorazowo, w terminie 7 dni od Dnia zawodów. [DO UZUPEŁNIENIA: czy Usługodawca dopuszcza wypłaty częściowe przed Dniem zawodów — Specyfikacja przewiduje wyłącznie wypłatę po zawodach.]
 3. Wraz z wypłatą Usługodawca udostępnia Organizatorowi zestawienie: liczba i kwota opłaconych Zgłoszeń, produktów i darowizn, zwroty, kwota wypłaty, Rachunek do wypłat.
 4. Rachunek do wypłat i dane odbiorcy może ustawić i zmienić wyłącznie właściciel klubu. Każda zmiana jest zapisywana w historii i potwierdzana wiadomością e-mail do właściciela klubu. Przed wypłatą Usługodawca sprawdza historię zmian i może wstrzymać wypłatę do czasu potwierdzenia rachunku przez właściciela klubu innym kanałem, jeżeli rachunek zmieniono w ciągu [DO UZUPEŁNIENIA: np. 7] dni przed wypłatą.
@@ -76,8 +76,8 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 
 ## §8. Wynagrodzenie Usługodawcy
 
-1. Za usługi z §3 ust. 2 Organizator płaci Usługodawcy wynagrodzenie w wysokości [DO UZUPEŁNIENIA: stawka].
-2. Wynagrodzenie jest płatne na podstawie faktury wystawionej przez Usługodawcę po Wydarzeniu, w terminie [DO UZUPEŁNIENIA: termin płatności faktury].
+1. Za usługi z §3 ust. 2 Organizator płaci Usługodawcy wynagrodzenie w wysokości określonej w odrębnej umowie pisemnej zawartej przez strony.
+2. Wynagrodzenie jest płatne na podstawie faktury wystawionej przez Usługodawcę po Wydarzeniu, w terminie wskazanym na fakturze.
 3. Usługodawca nie pobiera od Uczestników żadnych opłat na swoją rzecz.
 4. Dla Wydarzeń bezpłatnych Usługodawca nie pobiera żadnych opłat ani od Organizatora, ani od Uczestników.
 
