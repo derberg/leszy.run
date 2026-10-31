@@ -727,6 +727,7 @@ write a public page or a Pi makes goes through an edge function on the service r
 - A new table needs RLS on and `REVOKE ALL … FROM anon, authenticated` in the migration that
   creates it, then a GRANT and a policy only for what the public app reads. Six tables had RLS
   off with full anon CRUD (`event_partners` among them, the sponsor links on event pages).
+- Views too: `anon` and `authenticated` hold only SELECT on a view (`20261030200000_revoke_client_view_writes.sql`). A simple view is automatically updatable and runs as `postgres`, which bypasses RLS, so `UPDATE participants_public` as anon changed `participants`. The migration also revokes INSERT, UPDATE, DELETE, REFERENCES and TRIGGER from the `postgres` default privileges, which have one class for tables and views: a new table that clients must write needs an explicit GRANT.
 
 **Supabase-only tables** (no Drizzle schema, no local migration — a committed `supabase/migrations/` file, deployed by the CI pipeline on merge; see [docs/supabase-release-runbook.md](docs/supabase-release-runbook.md)):
 - `event_secrets` — per-event check-in PINs
