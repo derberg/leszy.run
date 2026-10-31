@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   newDraft, addPerson, removePerson, updatePerson, setGuardianConsent, setNotRunning, cardVariant, cardVariants,
   effectivePerson, peopleCount, canAdd, toRequest, checkDraft, draftReady, groupFailure, cardName, fixMessage, cardEmpty,
+  setCardOpen, formStep, stepAfter, LIST_STEP,
 } from '../../src/lib/groupDraft.js'
 import { EMPTY_PERSON, personContext } from '../../src/lib/personFormModel.js'
 
@@ -168,18 +169,13 @@ describe('G-39 the guardian box and „Dalej”', () => {
     const d = family()
     assert.equal(d.cards[2].guardianConsent, false)
   })
-  it('„Dalej” stays off until every consent, the service regulamin and each child\'s guardian box are ticked', () => {
-    let d = family()
+  it('„Dalej” waits for every consent and the service regulamin only; a child\'s box is on another step, so checkDraft sends the person there', () => {
+    const d = family()
     const all = { k1: true, k2: true }
-    assert.equal(draftReady(d, { consents: RAW.consents, accepted: all, serviceAccepted: true, today: TODAY }), false)
-    d = setGuardianConsent(d, d.cards[2].key, true)
-    assert.equal(draftReady(d, { consents: RAW.consents, accepted: { k1: true }, serviceAccepted: true, today: TODAY }), false)
-    assert.equal(draftReady(d, { consents: RAW.consents, accepted: all, serviceAccepted: false, today: TODAY }), false)
-    assert.equal(draftReady(d, { consents: RAW.consents, accepted: all, serviceAccepted: true, today: TODAY }), true)
-    // a second child, box unticked: off again
-    d = addPerson(d, { after: d.cards[2].key })
-    d = updatePerson(d, d.cards[3].key, { firstName: 'Janek', birthDate: '2018-02-02', gender: 'M' })
-    assert.equal(draftReady(d, { consents: RAW.consents, accepted: all, serviceAccepted: true, today: TODAY }), false)
+    assert.equal(draftReady(d, { consents: RAW.consents, accepted: { k1: true }, serviceAccepted: true }), false)
+    assert.equal(draftReady(d, { consents: RAW.consents, accepted: all, serviceAccepted: false }), false)
+    assert.equal(draftReady(d, { consents: RAW.consents, accepted: all, serviceAccepted: true }), true)
+    assert.equal(checkDraft(d, { contexts, now: NOW }).errors[d.cards[2].key].guardianConsent, 'Zaznacz zgodę opiekuna.')
   })
   it('checkDraft answers per card, with the server\'s own rules (validateGroup)', () => {
     let d = family()
@@ -316,5 +312,43 @@ describe('M-2: „Nie startuję” and the card it opens', () => {
     d = setNotRunning(d, true)
     assert.equal(d.autoCard, undefined)
     assert.equal(setNotRunning(d, false).cards.length, 2)
+  })
+})
+
+describe('G-69 one person on screen at a time', () => {
+  const done = (d, ...keys) => keys.reduce((x, k) => setCardOpen(x, k, false), d)
+
+  it('formStep: one card is the single form, whatever `at` says; otherwise the person named, or the list', () => {
+    const one = newDraft('c9')
+    assert.deepEqual(formStep(one, null), { kind: 'single' })
+    assert.deepEqual(formStep(one, LIST_STEP), { kind: 'single' })
+    const d = family()
+    assert.deepEqual(formStep(d, d.cards[1].key), { kind: 'person', index: 1 })
+    assert.deepEqual(formStep(d, d.cards[0].key), { kind: 'person', index: 0 })
+    assert.deepEqual(formStep(d, LIST_STEP), { kind: 'list' })
+    // the person shown was removed
+    assert.deepEqual(formStep(d, 'card-gone'), { kind: 'list' })
+    assert.deepEqual(formStep(removePerson(removePerson(d, d.cards[1].key), d.cards[2].key), d.cards[1].key), { kind: 'single' })
+  })
+
+  it('stepAfter: a person with no one waiting goes to the list', () => {
+    const d = done(family(), ...family().cards.map((c) => c.key))
+    const all = done(d, ...d.cards.map((c) => c.key))
+    assert.equal(stepAfter(all, all.cards[1].key, {}), LIST_STEP)
+  })
+
+  it('stepAfter: „Nie startuję”, the payer done → the person still to fill in', () => {
+    let d = setNotRunning(newDraft('c9'), true)
+    d = setCardOpen(d, d.cards[0].key, false)
+    assert.equal(stepAfter(d, d.cards[0].key, {}), d.cards[1].key)
+  })
+
+  it('stepAfter: another refused person comes first, then the list', () => {
+    let d = family()
+    d = done(d, ...d.cards.map((c) => c.key))
+    const [, second, third] = d.cards.map((c) => c.key)
+    const errors = { [second]: { email: 'X' }, [third]: { firstName: 'Y' } }
+    assert.equal(stepAfter(d, second, errors), third)
+    assert.equal(stepAfter(d, third, { [third]: { firstName: 'Y' } }), LIST_STEP)
   })
 })

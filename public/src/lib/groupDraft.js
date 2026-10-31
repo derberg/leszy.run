@@ -239,10 +239,39 @@ export function fixMessage(draft, errors) {
   return names.length ? `Popraw dane: ${names.join(', ')}.` : null
 }
 
-/** „Dalej” is on when every consent, the service regulamin and each child's guardian box are ticked. */
-export function draftReady(draft, { consents, accepted, serviceAccepted, today }) {
-  if (!consentsComplete(consents, accepted, serviceAccepted)) return false
-  return cardVariants(draft, today).every((v, i) => v !== 'minor' || draft.cards[i].guardianConsent === true)
+/**
+ * „Dalej” is on when every consent and the service regulamin are ticked. A child's guardian box
+ * sits on that child's step, where checkDraft sends the person with the reason; a button that is
+ * merely off on the list could not say which child it waits for.
+ */
+export function draftReady(draft, { consents, accepted, serviceAccepted }) {
+  return consentsComplete(consents, accepted, serviceAccepted)
+}
+
+/** `at` of the group list step; any other `at` is a card key. */
+export const LIST_STEP = 'list'
+
+/**
+ * What the form shows. One person on screen at a time (the user, after the Plan 4 screenshots:
+ * two people on one page are hard to tell apart). One card is the plain form, with the consents
+ * and „Dalej” under it; with more, it is one person's step or the list, which holds the consents.
+ * → { kind: 'single' } | { kind: 'person', index } | { kind: 'list' }
+ */
+export function formStep(draft, at) {
+  if (draft.cards.length === 1) return { kind: 'single' }
+  const index = draft.cards.findIndex((c) => c.key === at)
+  return index >= 0 ? { kind: 'person', index } : { kind: 'list' }
+}
+
+/**
+ * Where finishing card `key` leads: the next person the server or checkDraft refused; from card 1
+ * a person 2 who is still to be filled in („Nie startuję”); otherwise the list.
+ */
+export function stepAfter(draft, key, errors) {
+  const refused = erroredCards(draft, errors).find((k) => k !== key)
+  if (refused) return refused
+  const next = draft.cards[1]
+  return key === draft.cards[0].key && next?.open ? next.key : LIST_STEP
 }
 
 const ON_PERSON = new Set(['duplicate', 'email_retired'])

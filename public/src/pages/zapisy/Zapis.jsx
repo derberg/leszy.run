@@ -14,7 +14,7 @@ import {
 import {
   newDraft, addPerson, removePerson, updatePerson, setCardCompetition, setCardOpen, setGuardianConsent, setNotRunning,
   cardVariants, effectivePerson, peopleCount, canAdd, toRequest, claimedEmail, checkDraft, draftReady, groupFailure,
-  cardEmpty, cardName, erroredCards, fixMessage,
+  cardEmpty, cardName, erroredCards, fixMessage, formStep, stepAfter, LIST_STEP,
 } from '../../lib/groupDraft.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
 import { countPl } from '../../lib/plural.js'
@@ -23,13 +23,15 @@ import { runnerDataInfo } from '../../legal/runnerDataInfo.js'
 import PersonForm from '../../components/registration/PersonForm.jsx'
 import ConsentList from '../../components/registration/ConsentList.jsx'
 import PageTop from '../../components/registration/PageTop.jsx'
-import { inputCls, labelCls, primaryBtn, secondaryBtn } from '../../components/registration/ui.js'
+import { inputCls, labelCls, primaryBtn, sectionCls, secondaryBtn } from '../../components/registration/ui.js'
 import RegistrationShell from './RegistrationShell.jsx'
 import Podsumowanie from './Podsumowanie.jsx'
 import { eventPath, formPath } from './RegistrationEventPage.jsx'
 
-// RA2: the person cards and the consents → „Dalej” → the e-mail code
-// (auth-request-code, with the login form's honeypot). A free event then calls
+// RA2: one runner sees their card and the consents on one page. A group goes one person at
+// a time (`formStep` in groupDraft.js): each person's step shows that person alone, and the
+// list step shows who is in the request, with „Zmień” / „Usuń” and the consents. „Dalej” → the
+// e-mail code (auth-request-code, with the login form's honeypot). A free event then calls
 // register-free → RA5. A paid event (pricingMode !== 'free') goes on to RA4
 // (Podsumowanie), whose „Zapłać” calls create-order with the same body plus
 // the support choice, and hands the browser to dpay; the order page
@@ -97,37 +99,37 @@ function RemoveConfirm({ id, name, onYes, onNo }) {
   )
 }
 
-/** An added person's card when it is folded: name, competition and group, „Zmień” and „Usuń”. */
-function FoldedCard({ cardKey, n, person, competitionName, group, onEdit, onRemove, confirming, onConfirm, onCancel, disabled }) {
+/** One person on the list step: name, competition and group, „Zmień”, and „Usuń” for an added person. */
+function PersonRow({ cardKey, n, label, person, detail, onEdit, onRemove, confirming, onConfirm, onCancel, disabled }) {
   const name = [person.firstName, person.lastName].filter(Boolean).join(' ') || `osoba ${n}`
   return (
-    <div className="border border-apex-border-mid bg-apex-surface px-3.5 py-2.5 flex flex-col gap-2 outline-none" data-testid="person-card-folded"
-      data-card-key={cardKey} tabIndex={-1}>
+    <li className="border border-apex-border-mid bg-apex-surface px-3.5 py-2.5 flex flex-col gap-2" data-testid="person-row" data-card-key={cardKey}>
       <div className="flex justify-between items-center gap-3">
         <span className="min-w-0">
-          <span className="block font-mono text-xs text-apex-muted uppercase">Osoba {n}</span>
-          <span className="block text-[17px] text-apex-text-bright truncate">{person.firstName} {person.lastName}</span>
-          <span className="block font-mono text-[13px] text-apex-muted uppercase truncate">{[competitionName, group].filter(Boolean).join(' · ')}</span>
+          <span className="block font-mono text-xs text-apex-muted uppercase">{label}</span>
+          <span className="block text-[17px] text-apex-text-bright [overflow-wrap:anywhere]">{name}</span>
+          <span className="block font-mono text-[13px] text-apex-muted uppercase [overflow-wrap:anywhere]">{detail}</span>
         </span>
         {!confirming && (
           <span className="flex gap-2 shrink-0">
             <button type="button" onClick={onEdit} disabled={disabled} className={editBtn} aria-label={`Zmień — ${name}`}>Zmień</button>
-            <button type="button" id={`p${n}-remove`} onClick={onRemove} disabled={disabled} className={removeBtn} aria-label={`Usuń — ${name}`}>Usuń</button>
+            {onRemove && <button type="button" id={`p${n}-remove`} onClick={onRemove} disabled={disabled} className={removeBtn} aria-label={`Usuń — ${name}`}>Usuń</button>}
           </span>
         )}
       </div>
       {confirming && <RemoveConfirm id={`p${n}-remove-q`} name={person.firstName?.trim() || `osobę ${n}`} onYes={onConfirm} onNo={onCancel} />}
-    </div>
+    </li>
   )
 }
 
 /**
  * The form for one competition, and the group built on it (RA2, RA3): card 1 is „Twoje dane”
  * (or, with „Nie startuję”, only the payer and guardian), „+ Zapisz kolejną osobę” adds a
- * card with its own competition, a child's card (under 18 today, Warsaw) drops the e-mail and
- * asks for the guardian's box. The draft is in memory only (groupDraft.js); a page with a
- * second person asks before it is closed. `preview` (organizer „Podgląd jako zawodnik”)
- * renders everything with the submit disabled.
+ * person with their own competition on a step of their own, a child's card (under 18 today,
+ * Warsaw) drops the e-mail and asks for the guardian's box. Leaving a person forward checks them
+ * first, so an error is answered on that person's own step. The draft is in memory only
+ * (groupDraft.js); a page with a second person asks before it is closed. `preview` (organizer
+ * „Podgląd jako zawodnik”) renders everything with the submit disabled.
  */
 export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const navigate = useNavigate()
@@ -143,6 +145,8 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
 
   const [step, setStep] = useState('form')
   const [draft, setDraft] = useState(() => newDraft(categoryId))
+  // Which step of the group form is on screen: LIST_STEP or a card's key (see formStep).
+  const [at, setAt] = useState(LIST_STEP)
   const [errors, setErrors] = useState({})
   const [codeError, setCodeError] = useState(null)
   const [message, setMessage] = useState(null)
@@ -165,7 +169,8 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   // them, and fills every other field even when it lands after they started:
   // on a slow phone the sign-in check can arrive well after the first keystroke.
   const touched = useRef(new Set())
-  const focusKey = useRef(null)
+  // The step last on screen; a change of it scrolls to the top and moves the focus.
+  const shownStep = useRef(undefined)
   // The card whose first invalid field takes the focus once the errors are on screen (I-1).
   const errorFocus = useRef(null)
   // The card asking „Usunąć <imię>?” (M-6).
@@ -186,18 +191,21 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const guard = draft.cards.length > 1 && !preview
   useLeaveGuard(guard)
 
-  // A card just added gets the focus on its first field.
+  // A new step starts at the top, on its first field; the list on its heading. A refusal
+  // moves the focus itself, in the next effect.
+  const view = formStep(draft, at)
+  const stepId = view.kind === 'list' ? LIST_STEP : draft.cards[view.index ?? 0].key
   useEffect(() => {
-    const key = focusKey.current
-    if (!key) return
-    focusKey.current = null
-    const i = draft.cards.findIndex((c) => c.key === key)
-    if (i > 0) document.getElementById(`p${i + 1}-first`)?.focus()
-  }, [draft])
+    const before = shownStep.current
+    const id = step === 'form' ? stepId : null
+    shownStep.current = id
+    if (before === undefined || id === null || id === before || errorFocus.current) return
+    window.scrollTo({ top: 0, behavior: 'instant' })
+    const target = view.kind === 'list' ? 'group-list-heading' : `${view.index ? `p${view.index + 1}` : 'p'}-first`
+    document.getElementById(target)?.focus({ preventScroll: true })
+  }, [step, stepId])
 
-  // A refusal landed on a card: bring its first invalid field into view and focus it. On a
-  // form of ten people the error can be screens away from „Dalej”, and RA4 sent the person
-  // back here scrolled to the top.
+  // A refusal landed on a card, whose step is on screen now: focus its first invalid field.
   useEffect(() => {
     const key = errorFocus.current
     if (!key || step !== 'form') return
@@ -206,8 +214,10 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     if (!root) return
     const target = root.querySelector('[aria-invalid="true"], [data-invalid="true"] button') ?? root
     target.focus({ preventScroll: true })
-    target.scrollIntoView?.({ block: 'center' })
-  }, [draft, errors, step])
+    // From the top, so „Popraw dane: …” is read too, unless the field is below the fold then.
+    window.scrollTo({ top: 0, behavior: 'instant' })
+    if (target.getBoundingClientRect().bottom > window.innerHeight) target.scrollIntoView({ block: 'center' })
+  }, [draft, errors, step, at])
 
   if (!competition || !row) {
     return (
@@ -224,7 +234,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const paid = raw.pricingMode !== 'free'
   const email = claimedEmail(draft).trim()
   const codeNeeded = needsCode(user?.email, email, verifiedEmail)
-  const ready = draftReady(draft, { consents, accepted, serviceAccepted, today })
+  const ready = draftReady(draft, { consents, accepted, serviceAccepted })
   const people = peopleCount(draft)
   const first = draft.cards[0].person
   const dataInfo = runnerDataInfo({
@@ -257,8 +267,8 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const showErrors = (errs, focus = erroredCards(draft, errs)[0] ?? null) => {
     setErrors(errs)
     errorFocus.current = focus
-    // A folded card with an error opens again, so the error can be seen.
-    setDraft((d) => ({ ...d, cards: d.cards.map((c) => (errs[c.key] && Object.keys(errs[c.key]).length ? { ...c, open: true } : c)) }))
+    // A refused person's step replaces whatever was on screen.
+    if (focus) setAt(focus)
   }
 
   const fail = (err) => {
@@ -343,6 +353,8 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
 
   async function onSubmitForm(e) {
     e.preventDefault()
+    // On a person's step „Dodaj” (or Enter in a field) ends that step; the request starts on the list.
+    if (view.kind === 'person') { if (!busy) finishCard(draft.cards[view.index].key); return undefined }
     if (preview || busy || !ready) return undefined
     setMessage(null)
     if (!checked()) return undefined
@@ -388,38 +400,43 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     }
   }
 
-  function addCard() {
-    setDraft((d) => {
-      const next = addPerson(d, { categoryId })
-      if (next !== d) focusKey.current = next.cards[next.cards.length - 1].key
-      return next
-    })
+  function go(to) {
+    setMessage(null)
+    setAt(to)
   }
 
-  // „Dodaj · N osoby” folds a card the server would accept; „+ Kolejne dziecko” also opens the next child's.
-  function foldCard(key, { nextChild = false } = {}) {
+  /** The list's „+ Zapisz kolejną osobę”: nobody to check on the way. */
+  function addPersonStep() {
+    const next = addPerson(draft, { categoryId })
+    setDraft(next)
+    go(next.cards[next.cards.length - 1].key)
+  }
+
+  // Leaves a person forward, once the server would accept them. `add` opens a new person's step:
+  // 'person' („+ Zapisz kolejną osobę”) or 'child' („+ Kolejne dziecko”, same competition and
+  // surname); without it („Dodaj · N osoby”) the next step is `stepAfter`'s.
+  function finishCard(key, add = null) {
     const own = checkDraft(draft, { contexts, now: new Date() }).errors[key]
     if (own && Object.keys(own).length) {
       setErrors((e) => ({ ...e, [key]: own }))
       errorFocus.current = key
       return
     }
-    setDraft((d) => {
-      const folded = setCardOpen(d, key, false)
-      if (!nextChild) return folded
-      const next = addPerson(folded, { after: key })
-      if (next !== folded) focusKey.current = next.cards[next.cards.length - 1].key
-      return next
-    })
+    const finished = setCardOpen(draft, key, false)
+    const next = add ? addPerson(finished, add === 'child' ? { after: key } : { categoryId }) : finished
+    setDraft(next)
+    go(add ? next.cards[next.cards.length - 1].key : stepAfter(next, key, errors))
   }
 
-  // „Nie startuję”: on, the card it opens takes the focus; off, that card goes while still empty.
+  // „Nie startuję”: it needs a card for somebody else, and goes straight there unless the payer
+  // still has to give their own name and address, which only this card asks for. Off, that card
+  // goes while still empty.
   function toggleNotRunning(on) {
-    setDraft((d) => {
-      const next = setNotRunning(d, on)
-      if (on && next.autoCard && !d.autoCard) focusKey.current = next.autoCard
-      return next
-    })
+    const next = setNotRunning(draft, on)
+    setDraft(next)
+    if (!on || !next.autoCard) return setAt(draft.cards[0].key)
+    const payerDone = !checkDraft(next, { contexts, now: new Date() }).errors[next.cards[0].key]
+    return setAt(payerDone ? next.autoCard : next.cards[0].key)
   }
 
   // „Usuń”: an empty card goes at once; one holding anything asks „Usunąć <imię>?” first.
@@ -431,6 +448,9 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     setRemoving(null)
     setDraft((d) => removePerson(d, key))
     setErrors((e) => { const { [key]: _gone, ...rest } = e; return rest })
+    go(LIST_STEP)
+    // The row that had the focus is gone.
+    requestAnimationFrame(() => document.getElementById('group-list-heading')?.focus({ preventScroll: true }))
   }
   function cancelRemove(n) {
     setRemoving(null)
@@ -474,7 +494,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
         <PageTop right="KROK 2/3" />
         <CodeStep email={sentTo} code={code} onCode={setCode} error={codeError} busy={busy} resent={resent}
           submitLabel={paid ? 'Dalej' : 'Zapisz się'}
-          onSubmit={onSubmitCode} onResend={onResend} onChangeAddress={() => { setStep('form'); setCodeError(null) }} />
+          onSubmit={onSubmitCode} onResend={onResend} onChangeAddress={() => { setStep('form'); setCodeError(null); setAt(draft.cards[0].key) }} />
       </div>
     )
   }
@@ -502,17 +522,82 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     )
   }
 
+  const firstCard = <div data-card-key={draft.cards[0].key} tabIndex={-1} className="outline-none">{personForm(draft.cards[0], 0)}</div>
+
+  // The one person of a person's step, past card 1: their competition, their form, the way on.
+  const personStep = (c, i) => {
+    const n = i + 1
+    const minor = variants[i] === 'minor'
+    const compError = errors[c.key]?.competition
+    return (
+      <section key={c.key} className="border border-apex-border-mid p-3.5 flex flex-col gap-[18px] outline-none" data-testid="person-card"
+        data-variant={variants[i]} data-card-key={c.key} tabIndex={-1} aria-labelledby={`p${n}-heading`}>
+        <div className="flex justify-between items-center gap-3">
+          <h2 id={`p${n}-heading`} className="font-display font-extrabold text-xl uppercase text-apex-text-bright">Osoba {n}</h2>
+          {removing !== c.key && (
+            <button type="button" id={`p${n}-remove`} onClick={() => askRemove(c)} disabled={busy} className={removeBtn}
+              aria-label={`Usuń — ${cardName(draft, i)}`}>Usuń</button>
+          )}
+        </div>
+        {removing === c.key && (
+          <RemoveConfirm id={`p${n}-remove-q`} name={c.person.firstName?.trim() || `osobę ${n}`}
+            onYes={() => confirmRemove(c.key)} onNo={() => cancelRemove(n)} />
+        )}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={`p${n}-competition`} className={labelCls}>Konkurencja</label>
+          <select id={`p${n}-competition`} className={`${inputCls} ${compError ? 'border-apex-red' : ''}`} value={c.categoryId} disabled={busy}
+            aria-invalid={compError ? 'true' : undefined} aria-describedby={compError ? `p${n}-competition-error` : undefined}
+            onChange={(e) => { setDraft((d) => setCardCompetition(d, c.key, e.target.value)); clearErrors(c.key, ['competition']) }}>
+            {choices.map((k) => <option key={k.categoryId} value={k.categoryId}>{k.name} · {k.priceLabel}</option>)}
+          </select>
+          {compError && <p id={`p${n}-competition-error`} className="text-apex-red font-sans text-sm">{compError}</p>}
+        </div>
+        {personForm(c, i)}
+        <div className="flex flex-col gap-2">
+          <button type="submit" disabled={busy} className={primaryBtn} data-testid="person-done">
+            {c.open ? 'Dodaj' : 'Gotowe'} · {countPl(people, ['osoba', 'osoby', 'osób'])}
+          </button>
+          {minor
+            ? <button type="button" onClick={() => finishCard(c.key, 'child')} disabled={busy || !canAdd(draft)}
+                className={`${secondaryBtn} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="next-child">+ Kolejne dziecko</button>
+            : <button type="button" onClick={() => finishCard(c.key, 'person')} disabled={busy || !canAdd(draft)}
+                className={`${secondaryBtn} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="add-person">+ Zapisz kolejną osobę</button>}
+        </div>
+      </section>
+    )
+  }
+
+  const onPerson = view.kind === 'person'
+  // Card 1 as a step of a group: on to person 2 when they are still to be filled in, or back to the list.
+  const afterFirst = onPerson && view.index === 0 ? stepAfter(draft, draft.cards[0].key, errors) : null
+  const afterFirstIndex = draft.cards.findIndex((c) => c.key === afterFirst)
+  // The banner: an added person's step has its own competition select; the one on top would be somebody else's.
+  const bannerRows = onPerson && view.index > 0 ? []
+    : onPerson && !draft.notRunning ? [rowOf(draft.cards[0].categoryId)].filter(Boolean)
+      : groupRows.length ? groupRows : [row]
+  const errorLine = message && <p className="text-apex-red text-base" role="alert" data-testid="form-error">{message}</p>
+  // A person's step is taller than a screen: the line stays under the navbar while the field is in view.
+  const stepError = message && <div className="sticky top-14 z-10 bg-apex-bg py-2">{errorLine}</div>
+
   return (
     <form onSubmit={onSubmitForm} onClickCapture={onLinkAway} noValidate className="flex flex-col gap-[18px]" data-testid="registration-form">
       <PageTop back={backTo ? { to: backTo, label: 'Konkurencje' } : null} right="KROK 1/3" />
-      <div className="border border-apex-yellow px-3.5 py-3 flex flex-col gap-1" data-testid="group-competitions">
-        {(groupRows.length ? groupRows : [row]).map((r) => (
-          <div key={r.categoryId} className="flex justify-between items-center gap-3">
-            <span className="text-lg font-bold text-apex-text-bright">{r.name}</span>
-            <span className="font-mono text-apex-yellow whitespace-nowrap">{r.priceLabel}</span>
-          </div>
-        ))}
-      </div>
+      {onPerson && (
+        <button type="button" onClick={() => go(LIST_STEP)} disabled={busy} data-testid="group-link"
+          className="self-start min-h-11 font-sans font-bold text-base text-apex-yellow whitespace-nowrap hover:text-apex-yellow-bright">
+          Osoby w zgłoszeniu: {people} →
+        </button>
+      )}
+      {bannerRows.length > 0 && (
+        <div className="border border-apex-yellow px-3.5 py-3 flex flex-col gap-1" data-testid="group-competitions">
+          {bannerRows.map((r) => (
+            <div key={r.categoryId} className="flex justify-between items-center gap-3">
+              <span className="text-lg font-bold text-apex-text-bright">{r.name}</span>
+              <span className="font-mono text-apex-yellow whitespace-nowrap">{r.priceLabel}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {!open && !preview && <p className="text-apex-red text-base">Zapisy na tę konkurencję są zamknięte.</p>}
 
       {/* Honeypot, as on the login form: hidden from people, filled by bots. */}
@@ -520,74 +605,54 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
         <input type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
       </div>
 
-      <div data-card-key={draft.cards[0].key} tabIndex={-1} className="outline-none">{personForm(draft.cards[0], 0)}</div>
+      {onPerson && stepError}
+      {view.kind === 'single' && firstCard}
+      {onPerson && view.index > 0 && personStep(draft.cards[view.index], view.index)}
+      {onPerson && view.index === 0 && (
+        <>
+          {firstCard}
+          <button type="submit" disabled={busy} className={primaryBtn} data-testid="person-done">
+            {afterFirstIndex > 0 ? `Dalej · osoba ${afterFirstIndex + 1}` : `Gotowe · ${countPl(people, ['osoba', 'osoby', 'osób'])}`}
+          </button>
+        </>
+      )}
 
-      {draft.cards.slice(1).map((c, j) => {
-        const i = j + 1
-        const n = i + 1
-        const name = cardName(draft, i)
-        if (!c.open) {
-          return (
-            <FoldedCard key={c.key} cardKey={c.key} n={n} person={effectivePerson(draft, i, today)} competitionName={rowOf(c.categoryId)?.name}
-              group={groupOf(i)} disabled={busy}
-              onEdit={() => setDraft((d) => setCardOpen(d, c.key, true))}
-              onRemove={() => askRemove(c)} confirming={removing === c.key}
-              onConfirm={() => confirmRemove(c.key)} onCancel={() => cancelRemove(n)} />
-          )
-        }
-        const minor = variants[i] === 'minor'
-        const compError = errors[c.key]?.competition
-        return (
-          <section key={c.key} className="border border-apex-border-mid p-3.5 flex flex-col gap-[18px] outline-none" data-testid="person-card"
-            data-variant={variants[i]} data-card-key={c.key} tabIndex={-1} aria-labelledby={`p${n}-heading`}>
-            <div className="flex justify-between items-center gap-3">
-              <h2 id={`p${n}-heading`} className="font-display font-extrabold text-xl uppercase text-apex-text-bright">Osoba {n}</h2>
-              {removing !== c.key && (
-                <button type="button" id={`p${n}-remove`} onClick={() => askRemove(c)} disabled={busy} className={removeBtn}
-                  aria-label={`Usuń — ${name}`}>Usuń</button>
-              )}
-            </div>
-            {removing === c.key && (
-              <RemoveConfirm id={`p${n}-remove-q`} name={c.person.firstName?.trim() || `osobę ${n}`}
-                onYes={() => confirmRemove(c.key)} onNo={() => cancelRemove(n)} />
-            )}
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={`p${n}-competition`} className={labelCls}>Konkurencja</label>
-              <select id={`p${n}-competition`} className={`${inputCls} ${compError ? 'border-apex-red' : ''}`} value={c.categoryId} disabled={busy}
-                aria-invalid={compError ? 'true' : undefined} aria-describedby={compError ? `p${n}-competition-error` : undefined}
-                onChange={(e) => { setDraft((d) => setCardCompetition(d, c.key, e.target.value)); clearErrors(c.key, ['competition']) }}>
-                {choices.map((k) => <option key={k.categoryId} value={k.categoryId}>{k.name} · {k.priceLabel}</option>)}
-              </select>
-              {compError && <p id={`p${n}-competition-error`} className="text-apex-red font-sans text-sm">{compError}</p>}
-            </div>
-            {personForm(c, i)}
-            <div className="flex flex-col min-[400px]:flex-row gap-2">
-              <button type="button" onClick={() => foldCard(c.key)} disabled={busy} className={secondaryBtn} data-testid="fold-card">
-                Dodaj · {countPl(people, ['osoba', 'osoby', 'osób'])}
-              </button>
-              {minor && (
-                <button type="button" onClick={() => foldCard(c.key, { nextChild: true })} disabled={busy || !canAdd(draft)}
-                  className={`${secondaryBtn} disabled:opacity-40`} data-testid="next-child">
-                  + Kolejne dziecko
-                </button>
-              )}
-            </div>
-          </section>
-        )
-      })}
+      {view.kind === 'list' && (
+        <div className="flex flex-col gap-3" data-testid="group-list">
+          <h2 id="group-list-heading" tabIndex={-1} className={`${sectionCls} outline-none`}>Osoby w zgłoszeniu: {people}</h2>
+          <ul className="flex flex-col gap-2">
+            {draft.cards.map((c, i) => {
+              const n = i + 1
+              const buyerRow = i === 0 && draft.notRunning
+              return (
+                <PersonRow key={c.key} cardKey={c.key} n={n} person={effectivePerson(draft, i, today)} disabled={busy}
+                  label={buyerRow ? 'Ty · nie startujesz' : i === 0 ? 'Osoba 1 · Ty' : `Osoba ${n}`}
+                  detail={buyerRow ? first.email : [rowOf(c.categoryId)?.name, groupOf(i)].filter(Boolean).join(' · ')}
+                  onEdit={() => go(c.key)} onRemove={i > 0 ? () => askRemove(c) : null} confirming={removing === c.key}
+                  onConfirm={() => confirmRemove(c.key)} onCancel={() => cancelRemove(n)} />
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
-      <button type="button" onClick={addCard} disabled={busy || !canAdd(draft)} className={`${secondaryBtn} disabled:opacity-40 disabled:cursor-not-allowed`}
-        data-testid="add-person">
-        + Zapisz kolejną osobę
-      </button>
+      {!onPerson && (
+        <>
+          <button type="button" onClick={() => (view.kind === 'single' ? finishCard(draft.cards[0].key, 'person') : addPersonStep())}
+            disabled={busy || !canAdd(draft)} className={`${secondaryBtn} disabled:opacity-40 disabled:cursor-not-allowed`}
+            data-testid="add-person">
+            + Zapisz kolejną osobę
+          </button>
 
-      <ConsentList consents={consents} accepted={accepted} onToggle={(id, v) => setAccepted((a) => ({ ...a, [id]: v }))}
-        serviceAccepted={serviceAccepted} onService={setServiceAccepted} regulaminUrl={model.regulaminUrl} dataInfo={dataInfo} />
+          <ConsentList consents={consents} accepted={accepted} onToggle={(id, v) => setAccepted((a) => ({ ...a, [id]: v }))}
+            serviceAccepted={serviceAccepted} onService={setServiceAccepted} regulaminUrl={model.regulaminUrl} dataInfo={dataInfo} />
 
-      {message && <p className="text-apex-red text-base" role="alert" data-testid="form-error">{message}</p>}
-      <button type="submit" data-testid="registration-submit" disabled={preview || busy || !ready || !open} className={primaryBtn}>
-        {busy ? 'Chwileczkę…' : codeNeeded || paid ? 'Dalej' : 'Zapisz się'}
-      </button>
+          {errorLine}
+          <button type="submit" data-testid="registration-submit" disabled={preview || busy || !ready || !open} className={primaryBtn}>
+            {busy ? 'Chwileczkę…' : codeNeeded || paid ? 'Dalej' : 'Zapisz się'}
+          </button>
+        </>
+      )}
     </form>
   )
 }

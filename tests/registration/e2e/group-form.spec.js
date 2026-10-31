@@ -10,6 +10,7 @@ import { DPAY_MOCK_PORT } from '../helpers/dpayMock.js'
 // event, at 390 and 1440 px: G-44 (a)…(c) in docs/registration/scenario-matrix.md.
 // Task 5b: (d), the consent tags and the reminder on RA5, and G-47, RA4 for a group (one line
 // per person, re-priced from the server's answer after price_changed).
+// G-69: one person on screen at a time, the rest behind the list step.
 
 const ZT = '00000000-0000-4000-8000-0000000000c1'
 const BIEG = { name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 }
@@ -54,6 +55,21 @@ async function fillCard(page, prefix, { first, last, birth, gender = 'Kobieta', 
 async function tickAll(page) {
   const boxes = page.getByTestId('consents').getByRole('checkbox')
   for (let i = 0; i < await boxes.count(); i++) await boxes.nth(i).check()
+}
+
+/** The only input ids of a person on the page: `prefix` alone, nobody else's. */
+async function onlyPerson(page, prefix) {
+  const firsts = await page.locator('input[id$="-first"]').evaluateAll((els) => els.map((e) => e.id))
+  expect(firsts).toEqual([`${prefix}-first`])
+  await expect(page.getByTestId('person-row')).toHaveCount(0)
+  await expect(page.getByTestId('consents')).toHaveCount(0)
+  await expect(page.getByTestId('registration-submit')).toHaveCount(0)
+}
+
+/** The step just opened starts at the top, on the person's first field. */
+async function atStepTop(page, prefix) {
+  await expect(page.locator(`#${prefix}-first`)).toBeFocused()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 }
 
 /** The runner's own card, logged in: the session holds this address, so no code is asked. */
@@ -129,6 +145,7 @@ for (const [mode, width] of [['free', 1440], ['paid', 390]]) {
     await fillCard(page, 'p2', { first: 'Piotr', last: 'Wcześniej', birth: '1987-01-01', gender: 'Mężczyzna', email: taken, phone: '600300400' })
     await page.getByTestId('add-person').click()
     await fillCard(page, 'p3', { first: 'Ewa', last: 'Leśna', birth: '1990-06-06', email: email('ewa'), phone: '600500600' })
+    await page.getByTestId('person-done').click()
     await tickAll(page)
     if (width === 390) await fitsNarrow(page)
     await submit(page, mode)
@@ -139,10 +156,19 @@ for (const [mode, width] of [['free', 1440], ['paid', 390]]) {
     await expect(page.getByRole('alert')).toHaveText('Popraw dane: Piotr Wcześniej.')
     await expect(page.locator('#p2-email')).toBeFocused()
     await expect(page.locator('#p2-email')).toBeInViewport()
-    await expect(page.locator('#p-first')).toHaveValue('Ola')
-    await expect(page.locator('#p-email')).toHaveValue(ACTOR_EMAILS.runner)
-    await expect(page.locator('#p3-first')).toHaveValue('Ewa')
+    await onlyPerson(page, 'p2')
     await expect(page.locator('#p2-first')).toHaveValue('Piotr')
+    // The other two are kept, one „Zmień” away.
+    await page.getByTestId('group-link').click()
+    await expect(page.getByTestId('person-row')).toHaveCount(3)
+    await expect(page.getByTestId('person-row').nth(0)).toContainText('Ola Leśna')
+    await expect(page.getByTestId('person-row').nth(2)).toContainText('Ewa Leśna')
+    await page.getByRole('button', { name: 'Zmień — Ewa Leśna' }).click()
+    await onlyPerson(page, 'p3')
+    await expect(page.locator('#p3-first')).toHaveValue('Ewa')
+    await page.getByTestId('group-link').click()
+    await page.getByRole('button', { name: 'Zmień — Ola Leśna' }).click()
+    await expect(page.locator('#p-email')).toHaveValue(ACTOR_EMAILS.runner)
     await expect(page.locator('#p-email-error')).toHaveCount(0)
     expect((await competition(c9)).data.taken).toBe(before)
     expect((await registrationsOf(event.eventId)).map((r) => r.email)).toEqual([taken])
@@ -168,9 +194,14 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await expect(card.getByTestId('guardian')).toContainText(`Opiekunem jestem ja — Ola Leśna, ${ACTOR_EMAILS.runner}`)
     const guardianBox = card.getByTestId('guardian-consent')
     await expect(guardianBox).not.toBeChecked()
-    await tickAll(page)
-    await expect(page.getByTestId('registration-submit')).toBeDisabled() // the guardian box is required too
+    // The guardian box is required: the step does not end without it.
+    await page.getByTestId('person-done').click()
+    await expect(page.locator('#p2-guardian-error')).toHaveText('Zaznacz zgodę opiekuna.')
+    await expect(guardianBox).toBeFocused()
     await guardianBox.check()
+    await expect(page.locator('#p2-guardian-error')).toHaveCount(0)
+    await page.getByTestId('person-done').click()
+    await tickAll(page)
     await expect(page.getByTestId('registration-submit')).toBeEnabled()
 
     // The kids' run fills (the organizer's admin, a group elsewhere) after the page loaded.
@@ -202,11 +233,25 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     const add = page.getByTestId('add-person')
     await expect(add).toHaveText('+ Zapisz kolejną osobę')
 
-    // M-2: „Nie startuję” alone opens card 2 with the focus on it; off again, the empty card goes.
+    // M-2: „Nie startuję” first needs the payer's own data; „Dalej” goes on to person 2, alone.
     await page.getByTestId('not-running').check()
-    await expect(page.locator('#p2-first')).toBeFocused()
-    await page.getByTestId('not-running').uncheck()
+    await expect(page.locator('#p-birth')).toHaveCount(0)
     await expect(page.getByTestId('person-card')).toHaveCount(0)
+    await expect(page.getByTestId('person-done')).toHaveText('Dalej · osoba 2')
+    await page.getByTestId('person-done').click()
+    await expect(page.locator('#p-first')).toBeFocused() // nobody is asked about a payer with no name
+    await page.getByTestId('not-running').uncheck()
+    await expect(page.getByTestId('group-link')).toHaveCount(0) // the empty person went with it
+    await expect(page.getByTestId('registration-submit')).toBeVisible()
+    await fillMe(page)
+    await page.getByTestId('not-running').click() // the payer is complete: straight to person 2
+    await onlyPerson(page, 'p2')
+    await atStepTop(page, 'p2')
+    await page.getByTestId('group-link').click()
+    await page.getByRole('button', { name: 'Zmień — Ola Leśna' }).click()
+    await page.getByTestId('not-running').uncheck()
+    await expect(page.getByTestId('registration-submit')).toBeVisible()
+
     // M-6: „Usuń” on a card with data asks first, in the page.
     await add.click()
     await page.locator('#p2-first').fill('Zosia')
@@ -216,14 +261,31 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await expect(page.locator('#p2-first')).toHaveValue('Zosia')
     await page.getByRole('button', { name: 'Usuń — Zosia' }).click()
     await page.getByTestId('remove-yes').click()
+    // That was the only other person: back to the one-person form.
+    await expect(page.getByTestId('registration-submit')).toBeVisible()
     await expect(page.getByTestId('person-card')).toHaveCount(0)
 
-    for (let i = 0; i < 9; i++) await add.click()
-    await expect(page.getByTestId('person-card')).toHaveCount(9)
+    // Each next person is alone on the screen; card 1 stays behind the list.
+    for (let n = 2; n <= 10; n++) {
+      await add.click()
+      await expect(page.getByTestId('person-card')).toHaveCount(1)
+      await onlyPerson(page, `p${n}`)
+      await expect(page.getByRole('heading', { name: `Osoba ${n}` })).toBeVisible()
+      await atStepTop(page, `p${n}`)
+      await expect(page.getByTestId('group-link')).toHaveText(`Osoby w zgłoszeniu: ${n} →`)
+      await fillCard(page, `p${n}`, { first: `Osoba${n}`, last: 'Leśna', birth: '1990-06-06', email: email(`n${n}`) })
+    }
     await expect(add).toBeDisabled()
-    await expect(page.getByTestId('fold-card').first()).toHaveText('Dodaj · 10 osób')
+    await expect(page.getByTestId('person-done')).toHaveText('Dodaj · 10 osób')
 
-    const second = page.getByTestId('person-card').first()
+    // „Zmień” opens that one person, on a birth date one day short of 18 it is a child's card.
+    await page.getByTestId('group-link').click()
+    await expect(page.getByTestId('person-row')).toHaveCount(10)
+    await expect(add).toBeDisabled()
+    if (width === 390) await fitsNarrow(page)
+    await page.getByRole('button', { name: 'Zmień — Osoba2 Leśna' }).click()
+    await onlyPerson(page, 'p2')
+    const second = page.getByTestId('person-card')
     await page.locator('#p2-birth').fill(birthFor(18, 1))
     await expect(second).toHaveAttribute('data-variant', 'minor')
     await expect(page.locator('#p2-email')).toHaveCount(0)
@@ -231,14 +293,19 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await expect(second.getByTestId('category-preview')).toContainText('Grupa')
     await expect(second.getByTestId('guardian-consent')).not.toBeChecked()
     await expect(second.getByTestId('next-child')).toHaveText('+ Kolejne dziecko')
+    await expect(second.getByTestId('next-child')).toBeDisabled()
     await page.locator('#p2-birth').fill(birthFor(18))
     await expect(second).toHaveAttribute('data-variant', 'adult')
     await expect(page.locator('#p2-email')).toBeVisible()
+    await page.getByTestId('person-done').click()
 
-    // „Nie startuję” makes card 1 the payer only: imię, nazwisko, e-mail (and the phone the children take).
+    // „Nie startuję” on the list's card 1 makes it the payer only: imię, nazwisko, e-mail (and the phone the children take).
+    await page.getByRole('button', { name: 'Zmień — Ola Leśna' }).click()
     await page.getByTestId('not-running').check()
     await expect(page.locator('#p-birth')).toHaveCount(0)
     await expect(page.locator('#p-email')).toBeVisible()
+    await page.getByTestId('person-done').click()
+    await expect(page.getByTestId('person-row').first()).toContainText('nie startujesz')
     await expect(add).toBeEnabled() // 9 people now
     if (width === 390) await fitsNarrow(page)
 
@@ -248,9 +315,124 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await page.getByRole('link', { name: '← Konkurencje' }).click()
     await expect.poll(() => asked).toBe('Opuścić formularz? Wpisane dane osób przepadną.')
     await expect(page.getByTestId('registration-form')).toBeVisible()
-    await expect(page.getByTestId('person-card')).toHaveCount(9)
+    await expect(page.getByTestId('person-row')).toHaveCount(10)
   })
 }
+
+for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
+  test(`G-69 ${mode} ${width} px: one person per step, the list holds the consents; a refusal for person 3 opens person 3 alone; the code step's „Zmień adres” opens card 1`, async ({ actors }) => {
+    const event = await EVENTS[mode]([BIEG, DZIECI])
+    const [c9, kids] = event.categoryIds
+    const taken = email('taken')
+    const { error } = await admin().from('registrations').insert({
+      event_id: event.eventId, category_id: c9, status: 'confirmed', first_name: 'Ewa', last_name: 'Wcześniej',
+      birth_date: '1990-06-06', gender: 'K', email: taken, phone: '600500600', consent_state: 'accepted',
+      list_price: mode === 'paid' ? 6000 : 0, price: mode === 'paid' ? 6000 : 0,
+    })
+    expect(error).toBeNull()
+
+    const page = await offline(await actors.runner.newPage())
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto(`/events/${event.slug}/zapis/${c9}`)
+
+    // One runner: the page is as it was, with the consents and „Dalej” under the one card.
+    await expect(page.getByTestId('consents')).toBeVisible()
+    await expect(page.getByTestId('group-link')).toHaveCount(0)
+    await expect(page.getByTestId('registration-submit')).toBeVisible()
+
+    // „+ Zapisz kolejną osobę” will not leave a card that would be refused, and says why there.
+    await page.getByTestId('add-person').click()
+    await expect(page.locator('#p-first-error')).toHaveText('Podaj imię.')
+    await expect(page.locator('#p-first')).toBeFocused()
+    await fillMe(page)
+    await page.mouse.wheel(0, 2000)
+    await page.getByTestId('add-person').click()
+    await onlyPerson(page, 'p2')
+    await atStepTop(page, 'p2')
+    await expect(page.getByRole('heading', { name: 'Osoba 2' })).toBeVisible()
+    await page.locator('#p2-first').press('Enter') // Enter ends the step, as the button does
+    await expect(page.locator('#p2-last-error')).toHaveText('Podaj nazwisko.')
+    await onlyPerson(page, 'p2')
+    await fillCard(page, 'p2', { first: 'Piotr', last: 'Leśny', birth: '1987-01-01', gender: 'Mężczyzna', email: email('piotr'), phone: '600300400' })
+    await page.getByTestId('add-person').click()
+    await onlyPerson(page, 'p3')
+    await page.locator('#p3-competition').selectOption(kids)
+    await fillCard(page, 'p3', { first: 'Zosia', last: 'Leśna', birth: birthFor(9), gender: 'Dziewczynka', phone: undefined })
+    await page.getByTestId('guardian-consent').check()
+    if (width === 390) await fitsNarrow(page)
+    await page.getByTestId('next-child').click()
+    await onlyPerson(page, 'p4')
+    await expect(page.locator('#p4-last')).toHaveValue('Leśna') // „+ Kolejne dziecko” keeps the surname
+    await expect(page.locator('#p4-competition')).toHaveValue(kids) // and the competition
+    await page.locator('#p4-first').fill('Janek')
+
+    // A child with no guardian's tick cannot slip through the list: „Dalej” opens that child.
+    await page.getByTestId('group-link').click()
+    await expect(page.getByRole('heading', { name: 'Osoby w zgłoszeniu: 4' })).toBeFocused()
+    await expect(page.locator('input[id$="-first"]')).toHaveCount(0)
+    await tickAll(page)
+    if (width === 390) await fitsNarrow(page)
+    await page.getByTestId('registration-submit').click()
+    await onlyPerson(page, 'p4')
+    await expect(page.getByRole('alert')).toHaveText('Popraw dane: Janek Leśna.')
+
+    // Usuń on the list, with the confirmation in the row.
+    await page.getByTestId('group-link').click()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Usuń — Janek Leśna' }).click()
+    await expect(page.getByTestId('remove-confirm')).toContainText('Usunąć Janek?')
+    await page.getByTestId('remove-yes').click()
+    await expect(page.getByTestId('person-row')).toHaveCount(3)
+
+    // Person 3, added next, is the one the server refuses.
+    await page.getByTestId('add-person').click()
+    await onlyPerson(page, 'p4')
+    await fillCard(page, 'p4', { first: 'Ewa', last: 'Wcześniej', birth: '1990-06-06', email: taken, phone: '600500600' })
+    await page.getByTestId('person-done').click()
+    await page.getByRole('button', { name: 'Zmień — Zosia Leśna' }).click()
+    await page.getByRole('button', { name: 'Usuń — Zosia Leśna' }).click()
+    await page.getByTestId('remove-yes').click()
+    await expect(page.getByTestId('person-row')).toHaveCount(3)
+    await page.mouse.wheel(0, 2000)
+    await submit(page, mode)
+
+    await expect(page.locator('#p3-email-error')).toHaveText(DUPLICATE_TEXT)
+    await onlyPerson(page, 'p3')
+    await expect(page.getByRole('alert')).toHaveText('Popraw dane: Ewa Wcześniej.')
+    await expect(page.getByRole('alert')).toBeInViewport()
+    await expect(page.locator('#p3-email')).toBeFocused()
+    await expect(page.locator('#p3-email')).toBeInViewport()
+    if (width === 390) await fitsNarrow(page)
+
+    // Fixed, the list comes back with the consents still ticked.
+    await page.locator('#p3-email').fill(email('ewa'))
+    await page.getByTestId('person-done').click()
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(page.getByTestId('registration-submit')).toBeEnabled()
+    await expect(page.getByTestId('consents').getByRole('checkbox').first()).toBeChecked()
+  })
+}
+
+test('G-69 1440 px: a visitor changes the address from the code step and lands on card 1 of the group', async ({ actors }) => {
+  const event = await EVENTS.free([BIEG])
+  const [c9] = event.categoryIds
+  const page = await offline(await actors.viewer.newPage())
+  await page.goto(`/events/${event.slug}/zapis/${c9}`)
+  await fillCard(page, 'p', { first: 'Ola', last: 'Gość', birth: '1988-03-01', email: email('guest') })
+  await page.getByTestId('add-person').click()
+  await fillCard(page, 'p2', { first: 'Piotr', last: 'Gość', birth: '1987-01-01', gender: 'Mężczyzna', email: email('p2') })
+  await page.getByTestId('person-done').click()
+  await tickAll(page)
+  await page.getByTestId('registration-submit').click()
+  await expect(page.getByTestId('code-step')).toBeVisible()
+  await page.getByRole('button', { name: 'Zmień adres' }).click()
+  await onlyPerson(page, 'p')
+  await expect(page.locator('#p-email')).toBeVisible()
+  await expect(page.getByTestId('person-done')).toHaveText('Gotowe · 2 osoby')
+  await page.getByTestId('person-done').click()
+  await expect(page.getByTestId('person-row')).toHaveCount(2)
+  await expect(page.getByTestId('consents').getByRole('checkbox').first()).toBeChecked()
+})
 
 const PAY_PAGE = new RegExp(`localhost:${DPAY_MOCK_PORT}\\/pay\\/`)
 
@@ -277,11 +459,11 @@ async function fillFamily(page, kids, partner) {
   await fillMe(page)
   await page.getByTestId('add-person').click()
   await fillCard(page, 'p2', { first: 'Piotr', last: 'Leśny', birth: '1987-01-01', gender: 'Mężczyzna', email: partner, phone: '600300400' })
-  await page.getByTestId('fold-card').click()
   await page.getByTestId('add-person').click()
   await page.locator('#p3-competition').selectOption(kids)
   await fillCard(page, 'p3', { first: 'Zosia', last: 'Leśna', birth: birthFor(9), gender: 'Dziewczynka', phone: undefined })
   await page.getByTestId('person-card').getByTestId('guardian-consent').check()
+  await page.getByTestId('person-done').click()
   await tickAll(page)
 }
 
