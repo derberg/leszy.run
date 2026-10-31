@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { uploadDocument } from '../../../../lib/organizer.js'
 import {
-  assignIds, competitionRow, competitionsSection, eventCapacity, newCompetitionRow,
+  assignIds, capacityLabel, competitionRow, competitionsSection, newCompetitionRow,
 } from '../../../../lib/competitionRows.js'
 import { btnGhost } from '../../settingsUi.js'
 import {
@@ -12,10 +12,10 @@ import {
 // removed; after publish none can (ruling P2-R8): one not in use can be
 // hidden and shown again, and every competition, hidden ones included, goes
 // with each save. In use (`inUse` from get-registration-event: confirmed entries
-// or a live order awaiting payment, P3-R15) its kind, price and hiding are
-// locked, as the server's registration_check_locks refuses them. The limit may
-// not go under the confirmed entries (`taken`, „MIN.”): an unpaid order holds
-// no place.
+// or a live order awaiting payment, P3-R15) its kind, team size, price and hiding
+// are locked, as the server's registration_check_locks refuses them. The limit
+// may not go under the confirmed entries (`taken`, „MIN.”): an unpaid order holds
+// no place. A team competition's limit and fee are per team.
 
 const GPX_MAX = 5 * 1024 * 1024
 
@@ -122,7 +122,6 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
   }, [firstRowError, sectionError, reportInvalid])
   useEffect(() => () => reportInvalid?.('competitions', null), [reportInvalid])
 
-  const total = eventCapacity(rows)
   const radio = 'flex items-center gap-2.5 min-h-9 font-sans text-base text-apex-text-bright'
   const errorsOf = (key) => Object.values(rowErrors[key] ?? {})
 
@@ -156,12 +155,21 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
                   </td>
                   <td className={tdClass}>
                     <div className="flex items-center gap-1.5">
-                      <select aria-label={`Rodzaj ${n}`} className={`${cellInput} w-[170px]`} value="individual" disabled={locked} onChange={() => {}}>
+                      <select aria-label={`Rodzaj ${n}`} className={`${cellInput} w-[170px]`} value={r.kind} disabled={locked} onChange={setRow(r.key, 'kind')}>
                         <option value="individual">Indywidualna</option>
-                        <option value="team" disabled>Drużyna · wkrótce</option>
+                        <option value="team">Drużyna</option>
                       </select>
                       {locked && <Lock title="Są zgłoszenia: rodzaju nie można zmienić" />}
                     </div>
+                    {r.kind === 'team' && (
+                      <div className="flex items-center gap-1 mt-1.5" data-testid="team-size">
+                        <input aria-label={`Skład od ${n}`} inputMode="numeric" placeholder="min" className={`${cellInput} w-[56px] text-center`} value={r.teamMin} disabled={locked} onChange={setRow(r.key, 'teamMin')} />
+                        <span>–</span>
+                        <input aria-label={`Skład do ${n}`} inputMode="numeric" placeholder="max" className={`${cellInput} w-[56px] text-center`} value={r.teamMax} disabled={locked} onChange={setRow(r.key, 'teamMax')} />
+                        <span className="font-mono text-[11px] text-apex-muted whitespace-nowrap">OSÓB</span>
+                        {locked && <Lock title="Są zgłoszenia: składu nie można zmienić" />}
+                      </div>
+                    )}
                   </td>
                   <td className={tdClass}>
                     <select aria-label={`Dyscyplina ${n}`} className={`${cellInput} w-[150px]`} value={r.discipline ?? 'run'} onChange={setRow(r.key, 'discipline')}>
@@ -176,7 +184,10 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
                     <input aria-label={`Start ${n}`} type="time" className={`${cellInput} w-[110px]`} value={r.startTime} onChange={setRow(r.key, 'startTime')} />
                   </td>
                   <td className={tdClass}>
-                    <input aria-label={`Limit ${n}`} inputMode="numeric" className={`${cellInput} w-[76px]`} value={r.capacity} onChange={setRow(r.key, 'capacity')} />
+                    <div className="flex items-center gap-1.5">
+                      <input aria-label={`Limit ${n}`} inputMode="numeric" className={`${cellInput} w-[76px]`} value={r.capacity} onChange={setRow(r.key, 'capacity')} />
+                      {r.kind === 'team' && <span className="font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-unit">DRUŻYN</span>}
+                    </div>
                     {published && r.taken > 0 && <span className="block mt-1 font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-min">MIN. {r.taken}</span>}
                   </td>
                   <td className={tdClass}>
@@ -214,8 +225,12 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={5} className="px-2.5 py-2.5 font-mono text-[13px] text-apex-muted text-right">LIMIT WYDARZENIA</td>
-              <td colSpan={5} className="px-2.5 py-2.5 font-mono text-sm text-apex-yellow" data-testid="event-capacity">{total} OSÓB</td>
+              <td colSpan={10} className="px-2.5 py-2.5">
+                <div className="sticky left-2.5 w-fit flex items-baseline gap-3 whitespace-nowrap">
+                  <span className="font-mono text-[13px] text-apex-muted">LIMIT WYDARZENIA</span>
+                  <span className="font-mono text-sm text-apex-yellow" data-testid="event-capacity">{capacityLabel(rows)}</span>
+                </div>
+              </td>
             </tr>
           </tfoot>
         </table>
@@ -261,6 +276,7 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
                         <span className="font-mono text-sm text-apex-muted">zł</span>
                         {published && r.inUse && <Lock title="Są zgłoszenia: opłaty nie można zmienić" />}
                       </div>
+                      {r.kind === 'team' && <span className="block mt-1 font-mono text-[11px] text-apex-muted whitespace-nowrap">ZA DRUŻYNĘ</span>}
                     </td>
                   </tr>
                 ))}

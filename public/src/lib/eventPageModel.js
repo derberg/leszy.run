@@ -209,11 +209,13 @@ function mergeCompetitions(raw, value, uploads) {
   const shown = (i) => (has(i, 'hidden') ? !i.hidden : !i.category_id || live.has(i.category_id))
   const competitions = (value.items ?? []).filter(shown).map((i) => {
     const base = live.get(i.category_id) ?? {
-      categoryId: null, kind: 'individual', taken: 0, confirmed: 0, priceGrosze: null, nextPrice: null,
+      categoryId: null, kind: 'individual', teamMin: null, teamMax: null, legOrderEnabled: false,
+      taken: 0, confirmed: 0, priceGrosze: null, nextPrice: null,
       ageGroups: [], kidsGroups: [], course: null,
     }
     const c = pick({ ...base }, i, {
-      name: 'name', discipline: 'discipline', distance_label: 'distanceLabel', start_time: 'startTime',
+      name: 'name', kind: 'kind', team_min: 'teamMin', team_max: 'teamMax',
+      discipline: 'discipline', distance_label: 'distanceLabel', start_time: 'startTime',
       capacity: 'capacity', min_age: 'minAge', max_age: 'maxAge', is_kids: 'isKids', timed: 'timed',
     })
     if (has(i, 'gpx_upload_id')) c.course = i.gpx_upload_id ? (courseFrom(uploads[i.gpx_upload_id]) ?? base.course) : null
@@ -289,6 +291,10 @@ export function mergePending(raw, pending) {
   }
   if (payload.form) {
     pick(out, payload.form, { form_fields: 'formFields' })
+    const legs = payload.form.leg_order
+    if (legs) {
+      out.competitions = out.competitions.map((c) => (c.categoryId in legs ? { ...c, legOrderEnabled: legs[c.categoryId] } : c))
+    }
     if (has(payload.form, 'consents')) {
       out.consents = [
         ...(raw.consents ?? []).filter((k) => k.kind !== 'custom'),

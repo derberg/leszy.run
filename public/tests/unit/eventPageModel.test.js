@@ -209,6 +209,17 @@ describe('mergePending', () => {
     assert.equal(mergePending(RA1, null), RA1)
   })
 
+  it('T-51 the runner preview shows a staged kind, team size and leg order', () => {
+    const raw = { pricingMode: 'free', competitions: [{ categoryId: 'c1', name: 'Bieg', kind: 'individual', teamMin: null, teamMax: null, legOrderEnabled: false }] }
+    const out = mergePending(raw, { payload: {
+      competitions: { pricing_mode: 'free', items: [{ category_id: 'c1', name: 'Bieg', kind: 'team', team_min: 2, team_max: 4 }] },
+      form: { leg_order: { c1: true } },
+    } })
+    const c = out.competitions[0]
+    assert.deepEqual([c.kind, c.teamMin, c.teamMax, c.legOrderEnabled], ['team', 2, 4, true])
+    assert.equal(raw.competitions[0].kind, 'individual', 'the raw is never changed')
+  })
+
   it('shows staged basics, office and competitions the way the public page will', () => {
     const merged = mergePending(RA1, pending)
     assert.equal(merged.name, 'Bieg Leszego 2026')

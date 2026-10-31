@@ -51,7 +51,7 @@ export function Lock({ title }) {
  * returns the button and the note as two children for a `flex flex-wrap` header row: the note
  * takes a full line under the heading and pushes the setting down, so it never covers it.
  */
-export function InfoTip({ label, children, testId }) {
+export function InfoTip({ label, children, testId, mark = 'ⓘ' }) {
   const [open, setOpen] = useState(false)
   const id = useId()
   const btn = useRef(null)
@@ -71,7 +71,7 @@ export function InfoTip({ label, children, testId }) {
       <button ref={btn} type="button" aria-label={label} aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)}
         className={`inline-flex items-center justify-center w-7 h-7 shrink-0 border font-mono text-sm leading-none rounded-none ${
           open ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-bright text-apex-muted hover:text-apex-text-bright'}`}>
-        ⓘ
+        {mark}
       </button>
       {open && (
         <p ref={note} id={id} role="note" data-testid={testId}

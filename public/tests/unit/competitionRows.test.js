@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  competitionRow, newCompetitionRow, competitionsSection, assignIds, eventCapacity, priceText,
+  competitionRow, newCompetitionRow, competitionsSection, assignIds, capacityLabel, eventCapacity, priceText,
 } from '../../src/lib/competitionRows.js'
 
 const ID1 = '11111111-1111-4111-8111-111111111111'
@@ -72,7 +72,54 @@ test('ids from a save reach the rows that were sent without one, and their saved
 test('the event limit is the sum of the visible competitions\' limits', () => {
   const rows = [competitionRow(server()), competitionRow(server({ categoryId: ID2, capacity: 40, hiddenAt: 'x' })),
     { ...newCompetitionRow(), capacity: '20' }]
-  assert.equal(eventCapacity(rows), 100)
+  assert.deepEqual(eventCapacity(rows), { people: 100, teams: 0 })
+  assert.equal(capacityLabel(rows), '100 OSÓB')
+})
+
+// ---------------------------------------------------------------- teams (plan 5, task 6)
+
+const team = (over = {}) => server({ kind: 'team', teamMin: 2, teamMax: 6, capacity: 20, name: 'Sztafeta', ...over })
+
+test('T-50 a team competition keeps its kind and size through a save: a kind-less item would flip it back', () => {
+  const r = competitionRow(team())
+  assert.deepEqual([r.kind, r.teamMin, r.teamMax], ['team', '2', '6'])
+  const { value, rows } = competitionsSection([r], { pricingMode: 'free', state: 'draft' })
+  assert.deepEqual([value.items[0].kind, value.items[0].teamMin, value.items[0].teamMax], ['team', 2, 6])
+  assert.equal(rows[0].saved.kind, 'team')
+  // a server row with no kind and a new row are individual
+  assert.equal(competitionRow(server({ kind: undefined })).kind, 'individual')
+  assert.deepEqual([newCompetitionRow().kind, newCompetitionRow().teamMin, newCompetitionRow().teamMax], ['individual', '', ''])
+})
+
+test('T-50 a team row needs its size; a saved one mid-edit still sends its last whole value', () => {
+  const fresh = { ...newCompetitionRow(), name: 'Sztafeta', capacity: '20', kind: 'team' }
+  const s = competitionsSection([fresh], { pricingMode: 'free', state: 'draft' })
+  assert.equal(s.value.items.length, 0)
+  assert.ok(s.rowErrors[fresh.key].teamMin)
+
+  const saved = competitionRow(team())
+  const edit = competitionsSection([{ ...saved, teamMax: '1' }], { pricingMode: 'free', state: 'draft' })
+  assert.deepEqual([edit.value.items[0].kind, edit.value.items[0].teamMax], ['team', 6])
+  assert.ok(edit.rowErrors[saved.key].teamMax)
+})
+
+test('T-50 a row switched back to individual sends no size', () => {
+  const r = { ...competitionRow(team()), kind: 'individual' }
+  const item = competitionsSection([r], { pricingMode: 'free', state: 'draft' }).value.items[0]
+  assert.equal(item.kind, 'individual')
+  assert.equal('teamMin' in item, false)
+  assert.equal('teamMax' in item, false)
+})
+
+test('T-50 the event limit counts people and teams apart, hidden competitions in neither', () => {
+  const rows = [competitionRow(server({ capacity: 200 })), competitionRow(team({ categoryId: ID2 })),
+    competitionRow(team({ categoryId: ID2, capacity: 7, hiddenAt: 'x' }))]
+  assert.deepEqual(eventCapacity(rows), { people: 200, teams: 20 })
+  assert.equal(capacityLabel(rows), '200 OSÓB + 20 DRUŻYN')
+  assert.equal(capacityLabel([rows[1]]), '20 DRUŻYN')
+  assert.equal(capacityLabel([competitionRow(team({ capacity: 1 }))]), '1 DRUŻYNA')
+  assert.equal(capacityLabel([competitionRow(team({ capacity: 3 }))]), '3 DRUŻYNY')
+  assert.equal(capacityLabel([]), '0 OSÓB')
 })
 
 // P3-R15 re-review I3: kind, price and hiding lock on the server's inUse (confirmed entries or a

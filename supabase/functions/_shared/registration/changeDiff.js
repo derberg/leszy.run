@@ -56,6 +56,7 @@ const ITEM_LABELS = {
   name: 'nazwa', discipline: 'dyscyplina', distance_label: 'dystans', start_time: 'godzina startu',
   capacity: 'limit miejsc', min_age: 'wiek od', max_age: 'wiek do', is_kids: 'konkurencja dla dzieci',
   timed: 'pomiar czasu', gpx_upload_id: 'trasa (GPX)', price: 'opłata', kind: 'rodzaj',
+  team_min: 'skład od', team_max: 'skład do',
 }
 
 const NOTICE_ALL = new Set(['basics.event_date', 'basics.first_start_time', 'basics.town_label',
@@ -132,6 +133,18 @@ function competitionDiff(live, value, out) {
   }
 }
 
+// The staged map holds every team competition, so only the ones that change are rows. A
+// competition staged back to individual in the same round is skipped at publish, and here.
+function legOrderDiff(live, map, pending, out) {
+  const kinds = new Map((pending?.competitions?.items ?? []).map((i) => [i.category_id, i.kind]))
+  for (const c of live.competitions ?? []) {
+    if (!(c.category_id in map) || (kinds.get(c.category_id) ?? c.kind) !== 'team') continue
+    const before = c.leg_order_enabled === true
+    if (map[c.category_id] === before) continue
+    out.push({ field: 'form.leg_order', label: `${c.name}: kolejność zmian`, before, after: map[c.category_id], categoryId: c.category_id })
+  }
+}
+
 /**
  * @param {object} live see the module comment
  * @param {object|null} pending registration_pending_changes.payload
@@ -154,6 +167,7 @@ export function changeDiff(live, pending) {
     for (const [key, after] of Object.entries(value)) {
       const field = `${section}.${key}`
       if (section === 'competitions' && key === 'items') { competitionDiff(live, value, out); continue }
+      if (field === 'form.leg_order') { legOrderDiff(live, after, pending, out); continue }
       if (LISTS[field]) {
         const { label, live: fromLive, staged } = LISTS[field]
         const before = fromLive(live)
@@ -188,7 +202,7 @@ export function noticeRows(diff) {
 
 const camelKey = (k) => k.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase())
 const camel = (row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [camelKey(k), v]))
-const LIST_KEYS = new Set(['hours', 'items', 'age_groups', 'kids_groups', 'consents'])
+const LIST_KEYS = new Set(['hours', 'items', 'age_groups', 'kids_groups', 'consents', 'leg_order'])
 
 /**
  * @param {object} live see the module comment

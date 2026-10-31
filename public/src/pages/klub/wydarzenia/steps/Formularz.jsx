@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { validateSection } from '@registration/sections.js'
 import { reconcileRowIds } from '../../../../lib/categoryRows.js'
+import { legOrderChoices, legOrderToSend, teamCompetitions } from '../../../../lib/legOrder.js'
 import { fieldModes } from '../../../../lib/personFormModel.js'
 import { btnGhost } from '../../settingsUi.js'
-import { FieldError, Lock, Seg, Soon, cardTitle, cellInput, monoLabel, sectionErrors } from '../wizardUi.jsx'
+import { FieldError, InfoTip, Lock, Seg, Soon, cardTitle, cellInput, monoLabel, sectionErrors } from '../wizardUi.jsx'
 
 // A5: which runner fields the form asks for (Wymagane / Opcjonalne / Brak)
 // and the consents. Name, birth date, gender, e-mail, phone (P2-R32), guardian
@@ -12,7 +13,9 @@ import { FieldError, Lock, Seg, Soon, cardTitle, cellInput, monoLabel, sectionEr
 // are always there. Nationality is off by default (P2-R31). Every added consent
 // is its own required checkbox, unticked by default. A consent somebody
 // accepted (`accepted`, from get-registration-event) is read-only with no
-// delete: the server refuses it with consent_locked (P2-R30).
+// delete: the server refuses it with consent_locked (P2-R30). Every team
+// competition gets its own section: the team name is always asked, leg order
+// is a choice until the competition is in use (registration_check_locks).
 
 const FIELDS = [
   { key: 'city', label: 'Miejscowość' },
@@ -30,6 +33,7 @@ const PRESETS = [
 let rowSeq = 0
 const consentRow = (k = {}) => ({ key: ++rowSeq, id: k.id ?? null, text: k.text ?? '', saved: k.text ?? null, locked: !!k.accepted })
 const LOCKED = 'Zaakceptowali ją zapisani: nie można jej zmienić ani usunąć.'
+const LEG_ORDER_TIP = 'Kapitan ustala kolejność zmian i może ją zmieniać do ostatniego dnia zapisów. Wyłączone: kolejność nie jest zbierana, pomiar LESZY.RUN jej nie potrzebuje.'
 
 // Whole consents only; a saved one being retyped keeps its last text.
 function consentsValue(rows) {
@@ -58,9 +62,14 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
   const s = event.settings
   const [fields, setFields] = useState(() => fieldModes(s.formFields))
   const [rows, setRows] = useState(() => (event.consents ?? []).filter((k) => k.kind === 'custom').map(consentRow))
+  const [teams] = useState(() => teamCompetitions(event.competitions))
+  const [legOrder, setLegOrder] = useState(() => legOrderChoices(teams))
   const [localError, setLocalError] = useState(null)
-  const latest = useRef({ fields, rows })
+  const latest = useRef({ fields, rows, legOrder })
   const sentKeys = useRef([])
+  // A map once staged stays until another replaces it, so it can never just stop being sent.
+  const legOrderStaged = useRef(!!event.pending?.payload?.form?.leg_order)
+  const teamCategoryIds = teams.map((c) => c.categoryId).filter(Boolean)
   const serverErrors = sectionErrors(saveState, 'form')
 
   // Ids from the latest answer only: a consent it left out was deleted.
@@ -74,11 +83,13 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
   // Pure; what was sent is recorded only when the save starts (I2).
   const build = () => {
     const { items, keys } = consentsValue(latest.current.rows)
-    return { value: { formFields: latest.current.fields, consents: items }, keys }
+    const legs = legOrderToSend({ state: s.state, teams, choices: latest.current.legOrder, staged: legOrderStaged.current })
+    return { value: { formFields: latest.current.fields, consents: items, ...(legs ? { legOrder: legs } : {}) }, keys }
   }
   const sectionNow = () => {
     const { value, keys } = build()
     sentKeys.current = keys
+    if (value.legOrder) legOrderStaged.current = true
     return value
   }
 
@@ -86,7 +97,8 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
     latest.current = { ...latest.current, ...next }
     if (next.fields) setFields(next.fields)
     if (next.rows) setRows(next.rows)
-    const check = validateSection('form', build().value, { state: s.state })
+    if (next.legOrder) setLegOrder(next.legOrder)
+    const check = validateSection('form', build().value, { state: s.state, teamCategoryIds })
     setLocalError(check.ok ? null : Object.values(check.errors).join(' '))
     if (check.ok) queue('form', sectionNow)
   }
@@ -97,6 +109,7 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
   useEffect(() => () => reportInvalid?.('form', null), [reportInvalid])
 
   const setMode = (key, mode) => apply({ fields: { ...latest.current.fields, [key]: mode } })
+  const setLeg = (categoryId, on) => apply({ legOrder: { ...latest.current.legOrder, [categoryId]: on } })
   const settle = (list) => list.map((r) => (r.text.trim() ? { ...r, saved: r.text.trim() } : r))
   const setText = (key) => (e) => apply({ rows: settle(latest.current.rows.map((r) => (r.key === key && !r.locked ? { ...r, text: e.target.value } : r))) })
   const remove = (key) => apply({ rows: latest.current.rows.filter((r) => r.key !== key || r.locked) })
@@ -180,6 +193,27 @@ export default function Formularz({ event, queue, saveState, readOnly, onSaved, 
             <span className="font-mono text-xs">ⓘ</span> Regulamin zawodów powinien opisywać publikację wizerunku, start na własną odpowiedzialność i udział dzieci za zgodą opiekuna.
           </div>
         </section>
+
+        {teams.filter((c) => !c.hiddenAt).map((c) => {
+          const locked = s.state !== 'draft' && (c.inUse ?? (c.taken ?? 0) > 0)
+          // A competition staged as new has no id yet: its leg order waits for „Opublikuj zmiany”.
+          const off = locked || !c.categoryId
+          return (
+            <section key={c.categoryId ?? c.name} className={`${panel} basis-full`} data-testid="team-section">
+              <div className="p-3.5"><h2 className={cardTitle}>{c.name}</h2></div>
+              <Row right={<Always />}>Nazwa drużyny</Row>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 min-h-[46px] px-3.5 py-1.5 text-[17px] text-apex-text-bright">
+                <span className="whitespace-nowrap">Kolejność zmian</span>
+                <InfoTip mark="?" label="Co oznacza kolejność zmian" testId="leg-order-tip">{LEG_ORDER_TIP}</InfoTip>
+                <span className="ml-auto flex items-center gap-1" role="group" aria-label={`Kolejność zmian: ${c.name}`}>
+                  <Seg on={legOrder[c.categoryId] === true} disabled={off} onClick={() => setLeg(c.categoryId, true)}>Zbieraj</Seg>
+                  <Seg on={legOrder[c.categoryId] !== true} disabled={off} onClick={() => setLeg(c.categoryId, false)}>Nie</Seg>
+                  {locked && <Lock title="Są zgłoszenia: kolejności zmian nie można zmienić" />}
+                </span>
+              </div>
+            </section>
+          )
+        })}
       </fieldset>
       <FieldError message={localError ?? (Object.keys(serverErrors).length ? Object.values(serverErrors).join(' ') : null)} />
     </div>

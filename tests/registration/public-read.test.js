@@ -150,6 +150,22 @@ test('W-45 a hidden competition is absent from the public snapshot', async () =>
   assert.deepEqual(data.competitions.map((c) => c.categoryId), [event.categoryIds[0]])
 })
 
+// ---------------------------------------------------------------- T-52
+
+test('T-52 the public snapshot carries teamMin, teamMax and legOrderEnabled beside kind', async () => {
+  const event = await createPublishedFreeEvent(owner, { competitions: [
+    { name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 },
+    { name: 'Sztafeta', discipline: 'run', distanceLabel: '4 x 5 km', startTime: '10:00', capacity: 20, kind: 'team', teamMin: 2, teamMax: 6 },
+  ] })
+  const { error } = await db().from('competitions').update({ leg_order_enabled: true }).eq('category_id', event.categoryIds[1])
+  assert.ifError(error)
+  const { status, body } = await getEvent(`?slug=${event.slug}`)
+  assert.equal(status, 200)
+  const [solo, team] = body.competitions
+  assert.deepEqual([team.kind, team.teamMin, team.teamMax, team.legOrderEnabled], ['team', 2, 6, true])
+  assert.deepEqual([solo.kind, solo.teamMin, solo.teamMax, solo.legOrderEnabled], ['individual', null, null, false])
+})
+
 // ---------------------------------------------------------------- W-19
 
 test('W-19 anon: registration_raw refused, registration_public null for drafts, no private keys in the payload', async () => {

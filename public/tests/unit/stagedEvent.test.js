@@ -72,3 +72,39 @@ test('P-59 a staged „do końca zapisów” is what the Płatności step shows,
     pending: { payload: { payments: { payment_window_hours: 24, payment_window_until_close: false } } } })
   assert.deepEqual([off.settings.paymentWindowHours, off.settings.paymentWindowUntilClose], [24, false])
 })
+
+// ---------------------------------------------------------------- teams (plan 5, task 6)
+
+const liveTeam = {
+  ...live,
+  competitions: [{
+    categoryId: C1, name: 'Sztafeta', kind: 'team', teamMin: 2, teamMax: 6, legOrderEnabled: false,
+    capacity: 20, taken: 0, inUse: true, hiddenAt: null, priceGrosze: null,
+  }],
+}
+const stagedItem = { category_id: C1, name: 'Sztafeta', kind: 'team', team_min: 2, team_max: 8, capacity: 20, hidden: false, price: null }
+
+test('T-50 a staged team size is what the step shows (P2-R25)', () => {
+  const e = stagedEvent({ ...liveTeam, pending: { payload: { competitions: { pricing_mode: 'free', items: [stagedItem] } } } })
+  assert.deepEqual([e.competitions[0].kind, e.competitions[0].teamMin, e.competitions[0].teamMax], ['team', 2, 8])
+})
+
+test('T-52 a staged list keeps the live lock and leg order: a pending team has taken 0, only inUse knows', () => {
+  const e = stagedEvent({ ...liveTeam, pending: { payload: { competitions: { pricing_mode: 'free', items: [stagedItem] } } } })
+  assert.equal(e.competitions[0].inUse, true)
+  assert.equal(e.competitions[0].legOrderEnabled, false)
+  const fresh = stagedEvent({ ...liveTeam, pending: { payload: { competitions: { pricing_mode: 'free', items: [{ ...stagedItem, category_id: null }] } } } })
+  assert.equal(fresh.competitions[0].inUse, false)
+})
+
+test('T-51 a staged leg order is what the step shows, with the live value beside it (P2-R25)', () => {
+  const e = stagedEvent({ ...liveTeam, pending: { payload: { form: { leg_order: { [C1]: true } } } } })
+  assert.equal(e.competitions[0].legOrderEnabled, true)
+  assert.equal(e.competitions[0].legOrderLive, false)
+  assert.equal(liveTeam.competitions[0].legOrderEnabled, false, 'the input is never changed')
+
+  const both = stagedEvent({ ...liveTeam, pending: { payload: {
+    competitions: { pricing_mode: 'free', items: [stagedItem] }, form: { leg_order: { [C1]: true } },
+  } } })
+  assert.deepEqual([both.competitions[0].legOrderEnabled, both.competitions[0].legOrderLive, both.competitions[0].teamMax], [true, false, 8])
+})
