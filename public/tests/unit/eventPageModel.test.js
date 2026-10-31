@@ -75,7 +75,7 @@ describe('eventPageModel (RA1)', () => {
     const [bieg9, , , , kids] = model().competitions
     assert.deepEqual(bieg9, {
       categoryId: 'c1', name: 'Bieg 9 km', startLabel: 'start 10:00 · od 16 lat', ageLabel: 'od 16 lat',
-      priceLabel: '60 zł', nextPriceLabel: 'od 16.11: 70 zł', full: false, state: 'open',
+      priceLabel: '60 zł', teamLine: null, nextPriceLabel: 'od 16.11: 70 zł', full: false, state: 'open',
     })
     assert.equal(kids.startLabel, 'start 11:30 · do 15 lat · dystans wg wieku')
     assert.equal(kids.priceLabel, '20 zł')
@@ -333,5 +333,21 @@ describe('eventPageModel course elevation (review U2 M2)', () => {
       assert.equal(c.downM, null)
       assert.deepEqual(c.profile, [])
     }
+  })
+})
+
+describe('T-62 RA1: the team card', () => {
+  const team = (over = {}) => comp({ categoryId: 't1', name: 'Sztafeta', kind: 'team', teamMin: 2, teamMax: 5, capacity: 20, taken: 3, priceGrosze: 24000, ...over })
+  const line = (c) => eventPageModel({ ...RA1, competitions: [c] }).competitions[0].teamLine
+
+  it('„Drużyny N–M osób · <cena> / drużyna · X / Y DRUŻYN”', () => {
+    assert.equal(line(team()), 'Drużyny 2–5 osób · 240 zł / drużyna · 3 / 20 DRUŻYN')
+  })
+  it('a free team has no „/ drużyna”, one fixed size reads as one', () => {
+    assert.equal(line(team({ priceGrosze: 0 })), 'Drużyny 2–5 osób · Bezpłatne · 3 / 20 DRUŻYN')
+    assert.equal(line(team({ teamMin: 4, teamMax: 4 })), 'Drużyny 4-osobowe · 240 zł / drużyna · 3 / 20 DRUŻYN')
+  })
+  it('an individual competition has none', () => {
+    assert.equal(line(comp({ categoryId: 'c', name: 'Bieg' })), null)
   })
 })

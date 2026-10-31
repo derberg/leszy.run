@@ -56,6 +56,7 @@ function Done({ raw }) {
   const rows = orderPeople(state.rows)
   const first = rows[0]
   const tags = showsConsentTags(rows)
+  const teamName = rows.find((r) => r.teamName)?.teamName ?? null
 
   return (
     <div className="flex flex-col gap-4" data-testid="done">
@@ -65,6 +66,7 @@ function Done({ raw }) {
         <span className="font-display font-extrabold text-4xl leading-none uppercase">Jesteście na liście</span>
         <span className="text-base font-semibold">{[model.title, model.dateLabel?.split(' · ')[0]].filter(Boolean).join(' · ')}</span>
       </div>
+      {teamName && <p className="text-lg text-apex-text-bright" data-testid="done-team">Drużyna: <strong className="[overflow-wrap:anywhere]">{teamName}</strong></p>}
       {rows.map((r) => (
         <RegisteredPerson key={r.id} person={r} registrationId={r.id} name={`${r.firstName} ${r.lastName}`} showTag={tags}
           onStale={() => setReads((n) => n + 1)} testId="done-person"

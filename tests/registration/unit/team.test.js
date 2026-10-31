@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  normalizeTeamRequest, teamNameKey, validateSquadMember, validateTeam,
+  TEAM_NAME_CHARS_MESSAGE, TEAM_NAME_MESSAGE, normalizeTeamRequest, teamNameKey, validateSquadMember, validateTeam,
 } from '../../../supabase/functions/_shared/registration/team.js'
 import { warsawToday } from '../../../supabase/functions/_shared/registration/dates.js'
 
@@ -271,4 +271,19 @@ test('T-05 the stored name is the collapsed spelling: no line break or tab reach
   const r = run(request(squad(3), { teamName: '  Wilki\r\n  Stado\t ÓW ' }))
   assert.equal(r.ok, true, JSON.stringify(r))
   assert.equal(r.value.teamName, 'Wilki Stado ÓW')
+})
+
+// ---------------------------------------------------------------- task 7a
+
+test('T-05 a control character whitespace does not collapse is refused: BEL, ESC, DEL, NEL', () => {
+  for (const c of ['\u0007', '\u001b', '\u007f', '\u0085', '\u0000']) {
+    const r = run(request(squad(3), { teamName: `Wilki${c}Stado` }))
+    assert.equal(r.ok, false, JSON.stringify(c))
+    assert.equal(r.fieldErrors.teamName, TEAM_NAME_CHARS_MESSAGE)
+  }
+})
+
+test('T-05 whitespace is still collapsed, not refused, and a name too short keeps the length message', () => {
+  assert.equal(run(request(squad(3), { teamName: 'Wilki\tStado' })).ok, true)
+  assert.equal(run(request(squad(3), { teamName: 'W' })).fieldErrors.teamName, TEAM_NAME_MESSAGE)
 })

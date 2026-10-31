@@ -9,6 +9,7 @@ import { isMinorToday, validatePerson } from './person.js'
 export const TEAM_NAME_MIN = 2
 export const TEAM_NAME_MAX = 40
 export const TEAM_NAME_MESSAGE = `Nazwa drużyny musi mieć od ${TEAM_NAME_MIN} do ${TEAM_NAME_MAX} znaków.`
+export const TEAM_NAME_CHARS_MESSAGE = 'Nazwa drużyny nie może zawierać znaków sterujących.'
 export const CAPTAIN_MESSAGE = 'Kapitanem drużyny może być tylko osoba pełnoletnia.'
 export const CAPTAIN_SELF_MESSAGE = 'Kapitanem drużyny może być tylko osoba, która zapisuje drużynę.'
 export const LEG_ORDER_MESSAGE = 'Ustal kolejność zmian.'
@@ -68,6 +69,8 @@ export function validateTeam(req, { sessionEmail = null, competition = null, now
   // Code points, as char_length counts them: a single emoji is two UTF-16 units.
   const nameLength = [...collapsed(teamName)].length
   if (nameLength < TEAM_NAME_MIN || nameLength > TEAM_NAME_MAX) fieldErrors.teamName = TEAM_NAME_MESSAGE
+  // What collapsed() leaves: BEL, ESC, DEL, NEL and the like reach e-mails and the start list otherwise.
+  else if (/\p{Cc}/u.test(collapsed(teamName))) fieldErrors.teamName = TEAM_NAME_CHARS_MESSAGE
   if (membersConsent !== true) fieldErrors.membersConsent = MEMBERS_CONSENT_MESSAGE
 
   const refuse = (errors, groupError) => ({ ok: false, value: null, errors, fieldErrors, groupError })

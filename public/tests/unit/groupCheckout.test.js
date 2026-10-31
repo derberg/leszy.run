@@ -60,6 +60,13 @@ describe('G-46 RA4 for a group', () => {
     assert.equal(backToForm(err(409, 'full')), false)
     assert.equal(backToForm(err(409, 'paying_closed')), false)
     assert.equal(backToForm(err(429, 'throttled')), false)
+    // A team's own refusals go back to the form; an individual order never gets them.
+    assert.equal(backToForm(err(409, 'team_name_taken'), [], { team: true }), true)
+    assert.equal(backToForm(err(400, 'invalid_team_name'), [], { team: true }), true)
+    assert.equal(backToForm(err(400, 'invalid_group'), [], { team: true }), true)
+    assert.equal(backToForm(err(409, 'team_size'), [], { team: true }), true)
+    assert.equal(backToForm(err(409, 'try_again'), [], { team: true }), false)
+    assert.equal(backToForm(err(400, 'invalid_group')), false)
     assert.equal(backToForm(err(502, 'dpay_unavailable')), false)
     assert.equal(backToForm(new Error('offline')), false)
   })

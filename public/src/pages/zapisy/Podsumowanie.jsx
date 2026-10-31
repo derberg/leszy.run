@@ -10,7 +10,7 @@ import { backToForm, checkoutModel, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_
 import { formatPln } from '@registration/money.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import MetaLine from '../../components/registration/MetaLine.jsx'
-import { primaryBtn } from '../../components/registration/ui.js'
+import { primaryBtn, sectionCls } from '../../components/registration/ui.js'
 
 // RA4 (paid events): one line per person (name, competition · group, that competition's
 // price) and „Razem”. „Zapłać” calls create-order with register-free's body plus
@@ -33,6 +33,10 @@ import { primaryBtn } from '../../components/registration/ui.js'
 // an added card is in) goes back to the form, which routes it to the card (backToForm,
 // groupFailure). A full competition only card 1 is in stays Plan 3's RA4 message: the form
 // cannot change card 1's competition.
+//
+// RB3 is this page with `team`: one fee line, the squad numbered above it, „Zapłać” calling
+// register-team (`endpoint`). A paid team's answer always carries a redirect; a 2xx with no
+// `data` is the honeypot's, which is answered as if nothing happened (D5-26, D5-27).
 
 export const orderPath = (orderId) => `/zamowienie/${orderId}`
 
@@ -42,9 +46,12 @@ const row = 'flex justify-between gap-2.5 py-2 border-b border-apex-border text-
  * @param {{ raw: object, open: boolean, lines: Array<{ key, categoryId, name, competitionName, ageGroupLabel, priceGrosze }>,
  *   body: object (groupDraft's toRequest, without a code), addedCategoryIds: string[],
  *   onBack: () => void, onFailure: (err: Error) => void,
- *   onRepriced: (byCategory: Record<string, number>) => void }} p
+ *   onRepriced: (byCategory: Record<string, number>) => void, endpoint?: string, stepLabel?: string,
+ *   team?: { name: string, members: Array<{ key, name, detail }> } }} p
  */
-export default function Podsumowanie({ raw, open, lines: formLines, body, addedCategoryIds = [], onBack, onFailure, onRepriced }) {
+export default function Podsumowanie({
+  raw, open, lines: formLines, body, addedCategoryIds = [], onBack, onFailure, onRepriced, endpoint = 'create-order', stepLabel = 'KROK 2/3', team = null,
+}) {
   const navigate = useNavigate()
   // The lines as the server last priced them: the form's, until a price_changed re-prices them.
   const [lines, setLines] = useState(formLines)
@@ -86,7 +93,7 @@ export default function Podsumowanie({ raw, open, lines: formLines, body, addedC
     setBusy(true)
     setMessage(null)
     try {
-      const r = await callFunction('create-order', {
+      const r = await callFunction(endpoint, {
         ...body,
         displayedTotal: m.displayedTotal,
       })
@@ -100,7 +107,7 @@ export default function Podsumowanie({ raw, open, lines: formLines, body, addedC
         window.location.assign(r.data.redirectUrl)
         return
       }
-      navigate(orderPath(r.data.orderId), { replace: true })
+      navigate(r.data ? orderPath(r.data.orderId) : `/events/${raw.slug}`, { replace: true })
     } catch (err) {
       setBusy(false)
       if (err.code === 'pending_order' && err.orderId) {
@@ -122,7 +129,7 @@ export default function Podsumowanie({ raw, open, lines: formLines, body, addedC
         window.location.assign(`/events/${raw.slug}`)
         return
       }
-      if (backToForm(err, addedCategoryIds)) {
+      if (backToForm(err, addedCategoryIds, { team: team != null })) {
         onFailure(err)
         return
       }
@@ -132,8 +139,24 @@ export default function Podsumowanie({ raw, open, lines: formLines, body, addedC
 
   return (
     <div className="flex flex-col gap-[18px]" data-testid="checkout">
-      <PageTop back={{ label: 'Wróć', onClick: onBack }} right="KROK 2/3" />
-      <h1 className="font-display font-extrabold text-[32px] leading-none uppercase text-apex-text-bright">Podsumowanie</h1>
+      <PageTop back={{ label: 'Wróć', onClick: onBack }} right={stepLabel} />
+      <h1 className="font-display font-extrabold text-[32px] leading-none uppercase text-apex-text-bright">{team ? 'Jedna opłata za drużynę' : 'Podsumowanie'}</h1>
+      {team && (
+        <div className="flex flex-col gap-2">
+          <span className={sectionCls}><span className="[overflow-wrap:anywhere]">{team.name}</span></span>
+          <ol className="flex flex-col">
+            {team.members.map((m, i) => (
+              <li key={m.key} className="flex gap-3 py-1.5" data-testid="team-member">
+                <span className="font-mono text-apex-muted">{i + 1}.</span>
+                <span className="min-w-0">
+                  <span className="block text-apex-text-bright text-[17px] [overflow-wrap:anywhere]">{m.name}</span>
+                  <MetaLine parts={[m.detail]} />
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
       <div>
         {lines.map((l) => (
           <div key={l.key} className={row} data-testid="checkout-line">
@@ -156,6 +179,7 @@ export default function Podsumowanie({ raw, open, lines: formLines, body, addedC
       <button type="button" onClick={pay} disabled={m.payDisabled} className={primaryBtn} data-testid="pay">
         {busy ? 'Chwileczkę…' : 'Zapłać'}
       </button>
+      {team && <p className="text-base text-apex-text">Skład możesz zmieniać do zamknięcia zapisów.</p>}
       <p className="text-sm text-apex-muted">
         Płatność obsługuje dpay. Opłaty startowe pobieramy w imieniu i na rzecz organizatora: {raw.club?.name ?? 'klubu'}.
       </p>

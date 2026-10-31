@@ -62,6 +62,8 @@ async function callEdge(name, body, { keepalive = false } = {}) {
     if (Number.isInteger(data.index)) err.index = data.index
     if (data.categoryId) err.categoryId = data.categoryId
     if (data.people) err.people = data.people
+    // register-team keys the same field errors by member.
+    if (data.errors) err.errors = data.errors
     if (data.buyer) err.buyer = data.buyer
     const retryAfter = Number(res.headers.get('retry-after'))
     if (Number.isFinite(retryAfter) && retryAfter > 0) err.retryAfterSec = retryAfter

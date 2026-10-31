@@ -57,6 +57,14 @@ function daysLeftLabel(raw, now) {
   return n === 1 ? '1 dzień' : `${n} dni`
 }
 
+// RA1's line of a team competition. The count is teams, the limit too: a team takes one place.
+function teamLine(c) {
+  if (c.kind !== 'team') return null
+  const size = c.teamMin === c.teamMax ? `Drużyny ${c.teamMin}-osobowe` : `Drużyny ${c.teamMin}–${c.teamMax} osób`
+  const price = c.priceGrosze == null ? null : c.priceGrosze === 0 ? 'Bezpłatne' : `${money(c.priceGrosze)} / drużyna`
+  return [size, price, `${c.taken} / ${c.capacity} DRUŻYN`].filter(Boolean).join(' · ')
+}
+
 function competitionRow(c, win) {
   const age = ageLabel(c.minAge, c.maxAge)
   const byAge = c.isKids && c.kidsGroups?.some((g) => g.distanceLabel) ? 'dystans wg wieku' : null
@@ -67,6 +75,7 @@ function competitionRow(c, win) {
     startLabel: [c.startTime ? `start ${hm(c.startTime)}` : null, age, byAge].filter(Boolean).join(' · '),
     ageLabel: age,
     priceLabel: c.priceGrosze == null ? null : c.priceGrosze === 0 ? 'Bezpłatne' : money(c.priceGrosze),
+    teamLine: teamLine(c),
     nextPriceLabel: c.nextPrice ? `od ${ymd(c.nextPrice.from).d}.${ymd(c.nextPrice.from).m}: ${money(c.nextPrice.grosze)}` : null,
     full,
     state: win === 'open' && full ? 'full' : win,

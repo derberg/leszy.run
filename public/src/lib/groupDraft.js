@@ -141,7 +141,7 @@ const PERSON_KEYS = ['firstName', 'lastName', 'birthDate', 'gender', 'email', 'p
 const cardIndexOf = (draft, i) => i + (draft.notRunning ? 1 : 0)
 
 /** people[] of the request: every card but card 1 under „Nie startuję”, each with its own competition. */
-function requestPeople(draft, day) {
+export function requestPeople(draft, day) {
   const people = []
   draft.cards.forEach((c, i) => {
     if (i === 0 && draft.notRunning) return

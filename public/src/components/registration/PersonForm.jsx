@@ -79,12 +79,15 @@ function GuardianConsent({ id, guardian }) {
  *   competition: object, raceDate: string, reckoning: string, ageGroups: object[], prefill: object|null,
  *   loginHref?: string, codeNote?: string, disabled?: boolean, variant?: 'self'|'buyer'|'adult'|'minor',
  *   idPrefix?: string, guardian?: { name, email, checked, onChange, error },
- *   notRunning?: boolean, onNotRunning?: (on: boolean) => void, emailReadOnly?: boolean }} p
+ *   notRunning?: boolean, onNotRunning?: (on: boolean) => void, emailReadOnly?: boolean,
+ *   ownHeading?: string, emailLabel?: string }} p
  * `emailReadOnly`: the consent page (/zgoda) shows the address the link was sent to; it is never edited there.
+ * `ownHeading` / `emailLabel`: the team form's „Kapitan” and the adult member's e-mail label.
  */
 export default function PersonForm({
   fields, value, onChange, errors = {}, competition, raceDate, reckoning, ageGroups, prefill, loginHref, codeNote, disabled = false,
   variant = 'self', idPrefix = 'p', guardian, notRunning = false, onNotRunning, emailReadOnly = false,
+  ownHeading = 'Twoje dane', emailLabel = 'E-mail',
 }) {
   const minor = variant === 'minor'
   const buyer = variant === 'buyer'
@@ -101,7 +104,7 @@ export default function PersonForm({
     </Field>
   )
   const emailField = (
-    <Field id={id('email')} label="E-mail" error={errors.email}>
+    <Field id={id('email')} label={emailLabel} error={errors.email}>
       <TextInput id={id('email')} type="email" value={value.email} onChange={set('email')} error={errors.email} autoComplete={own ? 'email' : 'off'} maxLength={254}
         readOnly={emailReadOnly} {...(emailReadOnly ? { className: `${inputCls} text-apex-muted` } : {})} />
       {codeNote && <span className="font-sans text-sm text-apex-muted" data-testid={own ? undefined : 'consent-request-note'}>{codeNote}</span>}
@@ -121,7 +124,7 @@ export default function PersonForm({
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-[18px] min-w-0">
       <div className="flex flex-col gap-3">
-        {own && <h2 className={sectionCls}>Twoje dane</h2>}
+        {own && <h2 className={sectionCls}>{ownHeading}</h2>}
         {own && !prefill && loginHref && (
           <Link to={loginHref} data-testid="login-offer"
             className="flex justify-between items-center gap-3 min-h-12 px-3.5 py-2 border border-apex-border-bright text-apex-text-bright font-sans font-semibold text-base hover:border-apex-yellow-dim">

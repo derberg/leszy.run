@@ -50,11 +50,12 @@ function CompetitionRow({ c, href, opensLabel }) {
       <span className="min-w-0">
         <strong className="block text-[19px] text-apex-text-bright font-bold">{c.name}</strong>
         {c.startLabel && <small className="block text-sm text-apex-muted font-medium">{c.startLabel}</small>}
+        {c.teamLine && <small className="block text-sm text-apex-text font-medium" data-testid="team-line">{c.teamLine}</small>}
       </span>
       <span className="text-right shrink-0">
         {c.state === 'open' && (
           <>
-            <span className="font-mono text-apex-yellow whitespace-nowrap">{c.priceLabel} →</span>
+            <span className="font-mono text-apex-yellow whitespace-nowrap">{c.teamLine ? '→' : `${c.priceLabel} →`}</span>
             {c.nextPriceLabel && <span className="block font-mono text-[11px] text-apex-muted uppercase">{c.nextPriceLabel}</span>}
           </>
         )}
