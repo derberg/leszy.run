@@ -62,3 +62,10 @@ export async function teamOk(event, opts) {
   if (r.error) throw new Error(`create_team_registration: ${r.error.message}`)
   return r.data
 }
+
+/** team_squad_edit, as the captain unless `actor` says otherwise. `meta` defaults to the event's consents. */
+export async function squadEdit(event, teamId, actor, op, meta) {
+  return rpc('team_squad_edit', {
+    p_team_id: teamId, p_actor_profile_id: actor, p_op: op, p_meta: meta ?? await groupMeta(event.eventId),
+  })
+}
