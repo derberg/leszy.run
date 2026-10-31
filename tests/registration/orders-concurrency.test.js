@@ -5,7 +5,6 @@
 // (P3-R15: an entry awaiting payment holds no place). LOCAL stack only.
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
-import crypto from 'node:crypto'
 import { sessionFor } from './helpers/stack.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import {
@@ -233,7 +232,10 @@ test('P-19i slot units: two registrations sharing a team_id are one slot on expi
   const cat = event.categoryIds[0]
   const out = await orderOk(event)
   const [reg] = await registrationsOf(out.orderId)
-  const team = crypto.randomUUID()
+  const { data: teamRow, error: teamErr } = await db().from('teams')
+    .insert({ event_id: event.eventId, category_id: cat, name: 'Sztafeta P-19i' }).select('id').single()
+  assert.equal(teamErr, null, teamErr?.message)
+  const team = teamRow.id
   const { error: insErr } = await db().from('registrations').insert({
     event_id: event.eventId, category_id: cat, order_id: out.orderId, status: 'pending_payment', team_id: team,
     first_name: 'Ala', last_name: 'Leśna', email: runnerEmail('team'), consent_state: 'accepted',
