@@ -1,6 +1,6 @@
 # Informacja o przetwarzaniu danych zawodnika
 
-**Wersja:** 2026-11-v4
+**Wersja:** 2026-11-v5
 **Status:** projekt do weryfikacji prawnej, nieobowiązujący
 **Zastosowanie:** domyślna treść dokumentu „Informacja o danych” (`event_consents.kind = 'data_info'`), tworzonego z każdym Wydarzeniem. Organizator może ją zastąpić własną. Pola w nawiasach klamrowych `{…}` Serwis wypełnia danymi Wydarzenia i Organizatora.
 
@@ -72,7 +72,7 @@ Jeżeli formularz o nią prosi, podajesz imię i numer telefonu innej osoby. Pow
 
 ## Konto LESZY.RUN
 
-Potwierdzając zapis kodem z e-maila, zakładasz konto w serwisie LESZY.RUN (albo logujesz się do istniejącego). Za dane konta odpowiada LESZY.RUN jako odrębny administrator — zasady opisuje Polityka prywatności: www.leszy.run/polityka-prywatnosci. Tam też znajdziesz informacje o dobrowolnym wsparciu LESZY.RUN i opłacie za obsługę płatności, które płacisz LESZY.RUN, a nie Organizatorowi.
+Potwierdzając zapis kodem z e-maila, zakładasz konto w serwisie LESZY.RUN (albo logujesz się do istniejącego). Za dane konta odpowiada LESZY.RUN jako odrębny administrator — zasady opisuje Polityka prywatności: www.leszy.run/polityka-prywatnosci.
 
 ---
 

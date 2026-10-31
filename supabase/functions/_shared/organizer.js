@@ -2,7 +2,7 @@
 import { clientIp } from './clientIp.js'
 
 // Bump together with public/src/legal/organizerAgreement.js (public/tests/unit/agreementVersion.test.js checks it).
-export const ORGANIZER_AGREEMENT_VERSION = '2026-11-v2'
+export const ORGANIZER_AGREEMENT_VERSION = '2026-11-v3'
 
 /** The caller's active role in the club ('owner' | 'admin' | 'member'), or null. */
 export async function clubRole(admin, clubId, userId) {
