@@ -16,6 +16,7 @@ const yearsAgo = (n) => {
 
 const SESSION = 'kapitan@example.pl'
 const CAPTAIN_MESSAGE = 'Kapitanem drużyny może być tylko osoba pełnoletnia.'
+const CAPTAIN_SELF_MESSAGE = 'Kapitanem drużyny może być tylko osoba, która zapisuje drużynę.'
 
 const competition = (over = {}) => ({
   teamMin: 3, teamMax: 5, legOrderEnabled: false,
@@ -111,18 +112,39 @@ test('T-02 a captain who turns 18 today is an adult', () => {
   assert.equal(run(request([captain({ birthDate: yearsAgo(18) }), adult(1), adult(2)])).ok, true)
 })
 
-test('T-02 a captain who is not the signed-in person → ruling 2, with no buyer error', () => {
+test('T-02 a captain who is not the signed-in person → their own copy, with no buyer error', () => {
   for (const sessionEmail of ['ktos@example.pl', null]) {
     const r = run(request(squad(3)), competition(), { sessionEmail })
     assert.equal(r.ok, false)
-    assert.equal(r.groupError, CAPTAIN_MESSAGE)
+    assert.equal(r.groupError, CAPTAIN_SELF_MESSAGE)
     assert.deepEqual(r.errors, {})
   }
 })
 
 test('T-02 the session address on a later member does not make the first member the captain', () => {
   const r = run(request([adult(1), captain(), adult(2)]))
-  assert.equal(r.groupError, CAPTAIN_MESSAGE)
+  assert.equal(r.groupError, CAPTAIN_SELF_MESSAGE)
+})
+
+test('T-02 a minor captain is told so whatever else is wrong with the form', () => {
+  const minorCaptain = (over) => [captain({ birthDate: yearsAgo(16), ...over }), adult(1), adult(2)]
+  for (const over of [{ phone: '' }, { firstName: '' }, { gender: '' }, { email: 'zly-adres' }]) {
+    const r = run(request(minorCaptain(over)))
+    assert.equal(r.ok, false)
+    assert.equal(r.groupError, CAPTAIN_MESSAGE, JSON.stringify(over))
+  }
+  // Outside the competition's ages too: the range error stays, the captain rule still answers.
+  const ranged = competition({ competition: { minAge: 30, maxAge: null, isKids: false } })
+  assert.equal(run(request(minorCaptain({})), ranged).groupError, CAPTAIN_MESSAGE)
+  // Minor and not signed in: being a minor cannot be fixed by logging in, so it is what they read.
+  assert.equal(run(request(minorCaptain({})), competition(), { sessionEmail: null }).groupError, CAPTAIN_MESSAGE)
+})
+
+test('T-02 the minimum is never below MIN_TEAM_SIZE, whatever a raw row holds', () => {
+  const raw = competition({ teamMin: 0, teamMax: 5 })
+  assert.equal(run(request([]), raw).groupError, 'Drużyna musi mieć od 2 do 5 osób.')
+  assert.equal(run(request(squad(1)), raw).groupError, 'Drużyna musi mieć od 2 do 5 osób.')
+  assert.equal(run(request(squad(2)), raw).ok, true)
 })
 
 test('T-03 leg order on: legs must be exactly 1…n, in any order across members', () => {
@@ -163,6 +185,18 @@ test('T-04 the name is trimmed and 2–40 characters', () => {
 test('T-04 the name is measured in characters, as the database counts them', () => {
   assert.equal(run(request(squad(3), { teamName: '🐺' })).fieldErrors.teamName, 'Nazwa drużyny musi mieć od 2 do 40 znaków.')
   assert.equal(run(request(squad(3), { teamName: '🐺'.repeat(40) })).ok, true)
+})
+
+test('T-04 the length is counted after whitespace is collapsed and the text composed', () => {
+  assert.equal(run(request(squad(3), { teamName: `A${' '.repeat(39)}B` })).ok, true)
+  assert.equal(run(request(squad(3), { teamName: `A${' '.repeat(60)}B` })).ok, true)
+  assert.equal(run(request(squad(3), { teamName: 'x '.repeat(20).trim() + 'y' })).ok, true)
+  assert.equal(run(request(squad(3), { teamName: 'Ż'.normalize('NFD').repeat(40) })).ok, true)
+  assert.equal(run(request(squad(3), { teamName: 'x'.repeat(41) })).ok, false)
+})
+
+test('T-04 teamNameKey composes the text: two spellings of one letter are one name', () => {
+  assert.equal(teamNameKey('Żółte Łosie'.normalize('NFD')), teamNameKey('Żółte Łosie'))
 })
 
 test('T-04 teamNameKey: lower case, whitespace collapsed, trimmed', () => {

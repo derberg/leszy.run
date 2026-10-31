@@ -184,6 +184,56 @@ test('T-11 the name index agrees with teamNameKey on NBSP, tabs, CJK space and P
   }
 })
 
+test('T-11 every code point JavaScript calls whitespace is whitespace to the index, and only those', async () => {
+  const event = await paidEvent()
+  const cat = event.categoryIds[0]
+  await asTeamCompetition(cat)
+  const spaces = []
+  for (let cp = 0; cp <= 0xffff; cp++) {
+    if (cp >= 0xd800 && cp <= 0xdfff) continue
+    if (/\s/.test(String.fromCodePoint(cp))) spaces.push(cp)
+  }
+  assert.equal(spaces.length, 25, spaces.map((c) => c.toString(16)).join())
+  for (const cp of spaces) {
+    const hex = cp.toString(16)
+    const c = String.fromCodePoint(cp)
+    for (const [i, typed] of [`Rysie${c}${hex}`, `${c}Rysie ${hex}b${c}`].entries()) {
+      const plain = i === 0 ? `rysie ${hex}` : `rysie ${hex}b`
+      assert.equal(teamNameKey(typed), plain, `U+${hex}`)
+      await insertTeam(event, cat, typed)
+      const r = await db().from('teams').insert({ event_id: event.eventId, category_id: cat, name: plain })
+      assert.equal(r.error?.code, '23505', `U+${hex}: ${r.error?.message ?? 'no conflict'}`)
+    }
+  }
+  // Not whitespace to JavaScript, so not to the index either.
+  for (const cp of [0x85, 0x180e]) {
+    const c = String.fromCodePoint(cp)
+    const hex = cp.toString(16)
+    assert.notEqual(teamNameKey(`Sowy${c}${hex}`), teamNameKey(`Sowy ${hex}`))
+    await insertTeam(event, cat, `Sowy${c}${hex}`)
+    await insertTeam(event, cat, `Sowy ${hex}`)
+  }
+})
+
+test('T-11 an NFD paste is the same name as the composed one', async () => {
+  const event = await paidEvent()
+  const cat = event.categoryIds[0]
+  await asTeamCompetition(cat)
+  const name = 'Zażółć Gęślą Jaźń'
+  assert.notEqual(name.normalize('NFD'), name)
+  assert.equal(teamNameKey(name.normalize('NFD')), teamNameKey(name))
+  await insertTeam(event, cat, name)
+  const r = await db().from('teams').insert({ event_id: event.eventId, category_id: cat, name: name.normalize('NFD') })
+  assert.equal(r.error?.code, '23505', r.error?.message)
+})
+
+test('T-11 the key is compared bytewise: lower() runs under ICU, the index under "C"', async () => {
+  const [{ def }] = await sql()`SELECT pg_get_indexdef('public.teams_category_name_live_key'::regclass) AS def`
+  assert.match(def, /normalize\(name, NFC\)/i)
+  assert.match(def, /COLLATE "C"/)
+  assert.match(def, /COLLATE "und-x-icu"/)
+})
+
 test('T-11 one name in two competitions of an event is fine; a live leg is unique in a team', async () => {
   const event = await paidEvent()
   const cat = event.categoryIds[0]

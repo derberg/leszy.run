@@ -232,6 +232,10 @@ test('P-19i slot units: two registrations sharing a team_id are one slot on expi
   const cat = event.categoryIds[0]
   const out = await orderOk(event)
   const [reg] = await registrationsOf(out.orderId)
+  // After the order: an individual order into a team competition is refused (D5-12).
+  const { error: kindErr } = await db().from('competitions')
+    .update({ kind: 'team', team_min: 2, team_max: 5 }).eq('category_id', cat)
+  assert.equal(kindErr, null, kindErr?.message)
   const { data: teamRow, error: teamErr } = await db().from('teams')
     .insert({ event_id: event.eventId, category_id: cat, name: 'Sztafeta P-19i' }).select('id').single()
   assert.equal(teamErr, null, teamErr?.message)

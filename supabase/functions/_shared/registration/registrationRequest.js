@@ -55,6 +55,7 @@ export const REFUSALS = {
   not_free: [409, 'Zapisy na te zawody są płatne. Płatności online będą dostępne wkrótce.'],
   duplicate: [409, 'Ten adres e-mail jest już zapisany na te zawody.'],
   consents_changed: [400, 'Zaznacz wymagane zgody.'],
+  team_competition: [409, 'W tej konkurencji startują tylko drużyny.'],
 }
 
 export const refusal = (code, req, headers = {}, table = REFUSALS) => {

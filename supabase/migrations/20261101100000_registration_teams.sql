@@ -45,15 +45,18 @@ CREATE INDEX teams_category_id_idx ON public.teams (category_id);
 CREATE INDEX teams_captain_registration_id_idx ON public.teams (captain_registration_id);
 
 -- The same key as teamNameKey (_shared/registration/team.js): a change there is a change here.
--- JavaScript's \s and toLowerCase do not depend on a locale, and PostgreSQL's do, so the key
--- spells out what \s means in JavaScript (NBSP included) and names an ICU collation for lower().
--- The whitespace goes to one space before the trim, because btrim strips only what it is told to.
+-- NFC first, so a letter typed as a base and a combining mark is the same letter. JavaScript's \s
+-- and toLowerCase do not depend on a locale, and PostgreSQL's do, so the key spells out what \s
+-- means in JavaScript (NBSP included, every code point escaped so that no invisible byte sits in
+-- this file) and names an ICU collation for lower(). The whitespace goes to one space before the
+-- trim, because btrim strips only what it is told to. The outer COLLATE "C" keeps ICU to lower():
+-- only equality is ever asked of this index, so its order must not depend on the ICU version.
 CREATE UNIQUE INDEX teams_category_name_live_key ON public.teams (
   category_id,
-  lower(btrim(
-    regexp_replace(name COLLATE "und-x-icu",
-      '[\u0009-\u000d    -     　﻿]+', ' ', 'g'),
-    ' '))
+  (lower(btrim(
+    regexp_replace(normalize(name, NFC) COLLATE "und-x-icu",
+      '[\u0009-\u000d\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+', ' ', 'g'),
+    ' ')) COLLATE "C")
 ) WHERE released_at IS NULL;
 
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
