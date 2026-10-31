@@ -149,3 +149,16 @@ export function registrationRole(row) {
   if (row.consent_state === 'awaiting' || row.consent_state === 'office') return 'adult'
   return 'self'
 }
+
+/**
+ * 'paid' | 'awaiting' | 'free' for a live registration, null otherwise. A 0 zł entry inside a paid
+ * group order (a free kids race beside a parent's paid one) is 'free': nothing was paid for that
+ * person. A team has one fee, on the captain's row, and members carry 0 (ruling 4), so a member
+ * passes `teamFee`, the captain's price: the fee covered all of them. start_list() applies the same
+ * rule. `reg` carries status and price, `order` its total, or null.
+ */
+export function paymentStatusOf(reg, order, teamFee = null) {
+  if (reg.status === 'pending_payment') return 'awaiting'
+  if (reg.status !== 'confirmed') return null
+  return order && order.total > 0 && (teamFee ?? reg.price) > 0 ? 'paid' : 'free'
+}

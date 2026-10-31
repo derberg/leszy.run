@@ -3,8 +3,8 @@
 // Plain ESM: runs in Deno, Node and the public app (the `@registration` alias).
 
 import { MIN_TEAM_SIZE } from './flags.js'
-import { UNKNOWN_COMPETITION_MESSAGE, validateGroup } from './group.js'
-import { isMinorToday } from './person.js'
+import { GUARDIAN_CONSENT_MESSAGE, UNKNOWN_COMPETITION_MESSAGE, validateGroup } from './group.js'
+import { isMinorToday, validatePerson } from './person.js'
 
 export const TEAM_NAME_MIN = 2
 export const TEAM_NAME_MAX = 40
@@ -106,11 +106,29 @@ export function validateTeam(req, { sessionEmail = null, competition = null, now
   return {
     ok: true,
     value: {
-      teamName: text(teamName),
+      teamName: collapsed(teamName),
       members: group.value.map((v, i) => ({ ...v, leg: legOrderEnabled ? members[i].leg : null })),
     },
     errors: {},
     fieldErrors,
     groupError: null,
   }
+}
+
+/**
+ * One person joining a squad (team-squad's add and swap). The role comes from the birth date, never
+ * from the request, and a child needs the captain's guardian consent. A bad date stops here, because
+ * the RPC would raise a raw 22007 on it.
+ * @param {{ person?: object, guardianConsent?: boolean }} request
+ * @param {object} context validatePerson's context
+ * @returns {{ ok: boolean, value: object|null, errors: Record<string, string> }}
+ */
+export function validateSquadMember({ person, guardianConsent } = {}, context = {}) {
+  const checked = validatePerson(person, context)
+  if (!checked.ok) return checked
+  const { isMinor, ...value } = checked.value
+  if (isMinor && guardianConsent !== true) {
+    return { ok: false, value: null, errors: { guardianConsent: GUARDIAN_CONSENT_MESSAGE } }
+  }
+  return { ok: true, value: { role: isMinor ? 'minor' : 'adult', ...value }, errors: {} }
 }

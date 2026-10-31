@@ -183,9 +183,14 @@ export async function loadOrderView(admin, orderId) {
   const regIds = lineRows.filter((l) => l.registration_id).map((l) => l.registration_id)
   const regs = regIds.length
     ? await rows(admin.from('registrations')
-      .select('id, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
+      .select('id, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at, team_id')
       .in('id', regIds))
     : []
+  const teamIds = [...new Set(regs.map((r) => r.team_id).filter(Boolean))]
+  const teams = teamIds.length
+    ? await rows(admin.from('teams').select('id, name, captain_registration_id').in('id', teamIds))
+    : []
+  const teamById = new Map(teams.map((t) => [t.id, t]))
   const catIds = [...new Set(regs.map((r) => r.category_id))]
   const comps = catIds.length
     ? await rows(admin.from('competitions').select('category_id, name, start_time').in('category_id', catIds))
@@ -213,6 +218,9 @@ export async function loadOrderView(admin, orderId) {
       amount: l.amount,
       role: l.registration_id ? registrationRole(r) : null,
       consentState: r.consent_state ?? null,
+      teamId: r.team_id ?? null,
+      teamName: teamById.get(r.team_id)?.name ?? null,
+      isCaptain: teamById.get(r.team_id)?.captain_registration_id === l.registration_id,
     }
   })
   return { order, settings, club, lines }
@@ -262,14 +270,14 @@ export function orderEmailArgs(view) {
  * Everything teamConfirmationEmail needs but `paid`, from the stored team: its live members,
  * the captain first, then by leg, then by name (a team's rows share one created_at).
  */
-async function teamEmailArgs(admin, teamId) {
+export async function teamEmailArgs(admin, teamId) {
   const { data: team, error } = await admin.from('teams')
     .select('id, name, event_id, category_id, captain_registration_id').eq('id', teamId).single()
   if (error) throw error
   const [regs, settingsRow, compRow] = await Promise.all([
     rows(admin.from('registrations')
       .select('id, first_name, last_name, age_group_label, team_leg, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
-      .eq('team_id', teamId).eq('status', 'confirmed')),
+      .eq('team_id', teamId).in('status', ['confirmed', 'pending_payment'])),
     admin.from('registration_settings').select('name, slug, event_date, town_label, place_details').eq('event_id', team.event_id).single(),
     admin.from('competitions').select('name').eq('category_id', team.category_id).single(),
   ])

@@ -439,3 +439,40 @@ export function squadRemovedEmail({ event, team, firstName }) {
   ].join('')
   return { subject: `Nie jesteś już w składzie drużyny ${team.name}`, text, html }
 }
+
+/**
+ * To the captain, after a swap or an add. event { name }, team { name }, members as in
+ * teamConfirmationEmail, link (the squad page). removedName (first name) is null on an add.
+ * consentAsked is the first name of an adult whose consent e-mail goes out now, else null.
+ */
+export function squadChangedEmail({ event, team, members, link: url, removedName = null, addedName, consentAsked = null }) {
+  const lines = members.map(memberLine)
+  const changes = [removedName ? `Wypisano: ${removedName}` : null, `Dopisano: ${addedName}`].filter(Boolean)
+  const asked = consentAsked ? `${consentAsked} dostanie osobny e-mail z prośbą o akceptację regulaminu.` : null
+  const text = [
+    'Cześć,',
+    '',
+    `skład drużyny ${team.name} na zawody ${event.name} został zmieniony.`,
+    '',
+    ...changes,
+    ...(asked ? ['', asked] : []),
+    '',
+    'Skład:',
+    ...lines.map((l) => `- ${l}`),
+    '',
+    `Zarządzaj składem: ${url}`,
+    '',
+    'LESZY.RUN',
+  ].join('\n')
+  const html = [
+    '<p>Cześć,</p>',
+    `<p>skład drużyny <strong>${escapeHtml(team.name)}</strong> na zawody <strong>${escapeHtml(event.name)}</strong> został zmieniony.</p>`,
+    `<p>${changes.map(escapeHtml).join('<br>')}</p>`,
+    asked ? `<p>${escapeHtml(asked)}</p>` : '',
+    '<p>Skład:</p>',
+    `<ul>${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`,
+    link(url, 'Zarządzaj składem'),
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  return { subject: `Zmiana składu drużyny ${team.name} — ${event.name}`, text, html }
+}

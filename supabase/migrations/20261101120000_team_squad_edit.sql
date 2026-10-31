@@ -157,7 +157,7 @@ BEGIN
     FROM public.registrations r WHERE r.team_id = p_team_id AND r.status = ANY (c_live);
 
   IF v_op = 'reorder' THEN
-    IF NOT v_comp.leg_order_enabled THEN
+    IF v_comp.leg_order_enabled IS NOT TRUE THEN
       RAISE EXCEPTION 'leg_order_off';
     END IF;
     IF jsonb_typeof(p_op->'legs') IS DISTINCT FROM 'array' THEN

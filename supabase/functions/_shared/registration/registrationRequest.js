@@ -21,6 +21,7 @@ import { clubRegistrationEnabled } from '../organizer.js'
 import { isUuid } from './organizerEvent.js'
 import { isOpen } from './dates.js'
 import { normalizeGroupRequest, validateGroup } from './group.js'
+import { DPAY_DOWN, PAYMENTS_OFF } from './orderFlow.js'
 import { TEAM_NAME_MESSAGE, normalizeTeamRequest, teamSizeMessage, validateTeam } from './team.js'
 
 export function json(body, status, req, headers = {}) {
@@ -39,6 +40,16 @@ const DAY = 86400
 // claimed, counted per person (a group of 10 takes 10), after the session/code step so nobody
 // can spend another address's allowance. A group refused later (full, duplicate) keeps its claim.
 export const PEOPLE_PER_DAY = 30
+// Per address and per client IP, per hour: a team and an order share one allowance. The IP limit
+// is register-free's 20 (fix round 1).
+export const ORDER_LIMIT = 10
+export const ORDER_IP_LIMIT = 20
+const HOUR = 3600
+/** prepareRegistration's `throttles` for create-order and register-team. */
+export const orderThrottles = (ip) => (email) => [
+  ...(ip ? [{ key: `order-ip:${ip}`, limit: ORDER_IP_LIMIT, windowSeconds: HOUR }] : []),
+  { key: `order:${email}`, limit: ORDER_LIMIT, windowSeconds: HOUR },
+]
 // Duplicate answers that say which card (`index`) per buyer per 24 h (I-1): the form needs the
 // card, an enumerator needs many. Past the cap a duplicate is answered GROUP_REFUSED, naming none.
 export const DUPLICATE_REVEALS_PER_DAY = 5
@@ -46,7 +57,7 @@ export const GROUP_REFUSED = 'Nie udało się zapisać tej grupy. Sprawdź dane 
 // A child has no address field: their duplicate is worded for the person.
 export const PERSON_DUPLICATE = 'Ta osoba jest już zapisana na te zawody.'
 
-const throttled = (req, retryAfterSec, headers = {}) =>
+export const throttled = (req, retryAfterSec, headers = {}) =>
   json({ error: THROTTLED }, 429, req, { ...headers, 'retry-after': String(retryAfterSec) })
 
 // The RPCs' refusals (exception messages) and what the runner reads.
@@ -82,6 +93,23 @@ export const TEAM_REFUSALS = {
 const TEAM_NAME_TAKEN = 'Ta nazwa drużyny jest już zajęta.'
 const TEAM_TRY_AGAIN = 'Nie udało się zapisać drużyny. Spróbuj ponownie.'
 
+// team_squad_edit's refusals. edits_closed is accept_consent_request's: same answer if a future
+// path through the squad editor raises it.
+export const SQUAD_REFUSALS = {
+  consents_changed: REFUSALS.consents_changed,
+  squad_closed: [409, 'Zapisy są zamknięte — skład zmienisz w biurze zawodów.'],
+  team_full: [409, 'Skład jest pełny.'],
+  captain_fixed: [409, 'Kapitana nie można wymienić.'],
+  team_inactive: [409, 'To zgłoszenie nie jest już aktywne.'],
+  leg_order_off: [409, 'W tej konkurencji nie ustala się kolejności zmian.'],
+  invalid_legs: [409, 'Skład się zmienił. Odśwież stronę i ustaw kolejność jeszcze raz.'],
+  not_member: [409, 'Tej osoby nie ma już w składzie. Odśwież stronę.'],
+  invalid_op: [422, 'Nie rozpoznano tej zmiany składu.'],
+  invalid_people: [422, 'Popraw zaznaczone pola.'],
+  edits_closed: [422, 'Po zamknięciu zapisów dane poprawisz w biurze zawodów.'],
+}
+const SQUAD_TRY_AGAIN = 'Nie udało się zmienić składu. Spróbuj ponownie.'
+
 export const refusal = (code, req, headers = {}, table = REFUSALS) => {
   const [status, error] = table[code]
   return json({ error, code }, status, req, headers)
@@ -94,6 +122,25 @@ async function rows(query) {
 }
 
 const sameSet = (a, b) => a.length === b.length && new Set(a).size === a.length && a.every((x) => b.includes(x))
+
+/** validatePerson's context per competition: category_id → context. `compRows` are competitions rows. */
+export async function personContexts(admin, settings, compRows) {
+  const ids = compRows.map((c) => c.category_id)
+  const [ageGroups, kidsGroups] = await Promise.all([
+    rows(admin.from('age_groups').select('category_id, gender, label, min_age, max_age').in('category_id', ids)),
+    rows(admin.from('kids_groups').select('id, category_id, gender, birth_year_from, birth_year_to').in('category_id', ids)),
+  ])
+  return new Map(compRows.map((c) => [c.category_id, {
+    formFields: settings.form_fields ?? {},
+    competition: { minAge: c.min_age, maxAge: c.max_age, isKids: c.is_kids },
+    raceDate: settings.event_date,
+    reckoning: settings.age_reckoning,
+    ageGroups: ageGroups.filter((g) => g.category_id === c.category_id)
+      .map((g) => ({ gender: g.gender, label: g.label, minAge: g.min_age, maxAge: g.max_age })),
+    kidsGroups: kidsGroups.filter((g) => g.category_id === c.category_id)
+      .map((g) => ({ id: g.id, gender: g.gender, minYear: g.birth_year_from, maxYear: g.birth_year_to })),
+  }]))
+}
 
 /**
  * Runs the shared steps. → { response } for an early answer, or
@@ -142,22 +189,11 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
   if (window === 'closed') return { response: refusal('closed', req) }
 
   // ---- the group
-  const [ageGroups, kidsGroups, consents] = await Promise.all([
-    rows(admin.from('age_groups').select('category_id, gender, label, min_age, max_age').in('category_id', ids)),
-    rows(admin.from('kids_groups').select('id, category_id, gender, birth_year_from, birth_year_to').in('category_id', ids)),
+  const [contexts, consents] = await Promise.all([
+    personContexts(admin, settings, compRows),
     rows(admin.from('event_consents').select('id').eq('event_id', settings.event_id)),
   ])
   const now = new Date()
-  const contexts = new Map(compRows.map((c) => [c.category_id, {
-    formFields: settings.form_fields ?? {},
-    competition: { minAge: c.min_age, maxAge: c.max_age, isKids: c.is_kids },
-    raceDate: settings.event_date,
-    reckoning: settings.age_reckoning,
-    ageGroups: ageGroups.filter((g) => g.category_id === c.category_id)
-      .map((g) => ({ gender: g.gender, label: g.label, minAge: g.min_age, maxAge: g.max_age })),
-    kidsGroups: kidsGroups.filter((g) => g.category_id === c.category_id)
-      .map((g) => ({ id: g.id, gender: g.gender, minYear: g.birth_year_from, maxYear: g.birth_year_to })),
-  }]))
 
   // Who registers: the body's buyer, otherwise card 1 („Twoje dane”). That address is the
   // `self` of validateGroup, so at most one person is self and it is always the buyer.
@@ -371,6 +407,35 @@ export async function teamRefusal(admin, error, { competition, people, email }) 
   }
   if (TEAM_REFUSALS[msg]) {
     const [status, text] = TEAM_REFUSALS[msg]
+    return [status, { error: text, code: msg }]
+  }
+  return null
+}
+
+/** startPaymentAttempt's `refused` as register-team's answer → [status, body]. */
+export function teamAttemptRefusal(refused) {
+  if (refused === 'dpay_unconfigured') return [503, { error: PAYMENTS_OFF }]
+  if (refused === 'dpay_unavailable') return [502, { error: DPAY_DOWN, code: 'dpay_unavailable' }]
+  if (refused === 'full') return [409, { error: TEAM_REFUSALS.full[1], code: 'full' }]
+  return [409, { error: REFUSALS.closed[1], code: 'closed' }]
+}
+
+/**
+ * team_squad_edit's refusal as the captain's answer → [status, body], or null for an error that is
+ * no refusal. Somebody who is not the captain never learns the team exists. A duplicate spends the
+ * same daily reveal as a sign-up (groupRefusal), because it says a person is registered: past the
+ * cap it is GROUP_REFUSED. `person` is the one joining, `email` the captain's.
+ */
+export async function squadRefusal(admin, error, { person, email }) {
+  if (error?.code === '40P01') return [409, { error: SQUAD_TRY_AGAIN, code: 'try_again' }]
+  const msg = error?.message ?? ''
+  if (msg === 'not_found' || msg === 'not_captain') return [404, NOT_FOUND]
+  if (msg === 'duplicate') {
+    const [status, { index: _index, ...body }] = await groupRefusal(admin, 'duplicate:0', { people: [person], legacy: false, email })
+    return [status, body.code === 'duplicate' && person?.role !== 'minor' ? { ...body, fields: { email: body.error } } : body]
+  }
+  if (SQUAD_REFUSALS[msg]) {
+    const [status, text] = SQUAD_REFUSALS[msg]
     return [status, { error: text, code: msg }]
   }
   return null

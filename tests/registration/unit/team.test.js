@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  normalizeTeamRequest, teamNameKey, validateTeam,
+  normalizeTeamRequest, teamNameKey, validateSquadMember, validateTeam,
 } from '../../../supabase/functions/_shared/registration/team.js'
 import { warsawToday } from '../../../supabase/functions/_shared/registration/dates.js'
 
@@ -230,4 +230,45 @@ test('normalizeTeamRequest: the request shape, garbage included', () => {
   for (const body of [null, undefined, 'x', {}]) {
     assert.deepEqual(normalizeTeamRequest(body), { categoryId: null, teamName: '', members: [], membersConsent: false })
   }
+})
+
+// ---------------------------------------------------------------- T-42 one new squad member
+
+const MEMBER_NOW = new Date('2026-06-01T10:00:00Z')
+const memberContext = { formFields: {}, competition: {}, raceDate: '2026-09-01', reckoning: 'race_day', ageGroups: [], kidsGroups: [], now: MEMBER_NOW }
+const newAdult = { firstName: 'Anna', lastName: 'Nowa', birthDate: '1990-05-01', gender: 'K', email: 'Anna@Example.pl', phone: '600100200' }
+const newChild = { firstName: 'Lena', lastName: 'Nowa', birthDate: '2016-05-05', gender: 'K', phone: '600100200' }
+
+test('T-42 validateSquadMember: the role comes from the date, never from the request', () => {
+  const adult = validateSquadMember({ person: { ...newAdult, role: 'minor' } }, memberContext)
+  assert.equal(adult.ok, true)
+  assert.equal(adult.value.role, 'adult')
+  assert.equal(adult.value.email, 'anna@example.pl')
+  assert.equal('isMinor' in adult.value, false)
+
+  const child = validateSquadMember({ person: { ...newChild, role: 'adult' }, guardianConsent: true }, memberContext)
+  assert.equal(child.ok, true)
+  assert.equal(child.value.role, 'minor')
+  // A day short of 18 is a child, the day itself an adult.
+  assert.equal(validateSquadMember({ person: { ...newAdult, birthDate: '2008-06-02' }, guardianConsent: true }, memberContext).value.role, 'minor')
+  assert.equal(validateSquadMember({ person: { ...newAdult, birthDate: '2008-06-01' } }, memberContext).value.role, 'adult')
+})
+
+test('T-42 validateSquadMember: a child needs the guardian consent; a bad date, an age outside the competition and no person are field errors', () => {
+  assert.deepEqual(validateSquadMember({ person: newChild }, memberContext).errors, { guardianConsent: 'Zaznacz zgodę opiekuna.' })
+  for (const birthDate of ['2016-02-31', 'jutro', '', null, 20160505]) {
+    assert.equal(validateSquadMember({ person: { ...newAdult, birthDate } }, memberContext).errors.birthDate, 'Podaj poprawną datę urodzenia.')
+  }
+  const old = validateSquadMember({ person: newAdult }, { ...memberContext, competition: { maxAge: 30 } })
+  assert.equal(old.errors.birthDate, 'Ta konkurencja jest dla osób w wieku do 30 lat.')
+  assert.equal(validateSquadMember({}, memberContext).ok, false)
+  assert.equal(validateSquadMember(undefined, memberContext).ok, false)
+})
+
+// ---------------------------------------------------------------- task-5a-review.md item 1
+
+test('T-05 the stored name is the collapsed spelling: no line break or tab reaches an e-mail subject', () => {
+  const r = run(request(squad(3), { teamName: '  Wilki\r\n  Stado\t ÓW ' }))
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.equal(r.value.teamName, 'Wilki Stado ÓW')
 })

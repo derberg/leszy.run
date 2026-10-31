@@ -4,18 +4,12 @@ import { clientIp } from '../_shared/organizer.js'
 import { dpayConfig } from '../_shared/dpay.js'
 import { orderAmounts } from '../_shared/registration/money.js'
 import {
-  json, NOT_FOUND, ORDER_REFUSALS, PENDING_ORDER, PRICE_CHANGED, fullRefusal, groupRefusal, prepareRegistration, rpcPeople,
+  json, NOT_FOUND, ORDER_REFUSALS, PENDING_ORDER, PRICE_CHANGED, fullRefusal, groupRefusal, orderThrottles, prepareRegistration, rpcPeople,
 } from '../_shared/registration/registrationRequest.js'
 import {
   DPAY_DOWN, PAYMENTS_OFF, ownPendingOrder, sendOrderConfirmation, startPaymentAttempt,
 } from '../_shared/registration/orderFlow.js'
 import { issueOrderConsentRequests } from '../_shared/registration/consentRequests.js'
-
-// Throttles (claim_throttle_slot): orders per address and per client IP, per hour (the IP limit
-// is register-free's 20, fix round 1). prepareRegistration adds the buyer's 30 people a day.
-const ORDER_LIMIT = 10
-const ORDER_IP_LIMIT = 20
-const HOUR = 3600
 
 // The amounts behind a price_changed refusal: each person at their own competition's current
 // price from the public read model (the same tier choice create_order makes, D4-27) through
@@ -73,10 +67,7 @@ Deno.serve(async (req) => {
     const prepared = await prepareRegistration(req, admin, body, {
       pricing: (settings) => (settings.pricing_mode === 'free' ? 'free_event' : null),
       refusals: ORDER_REFUSALS,
-      throttles: (email) => [
-        ...(ip ? [{ key: `order-ip:${ip}`, limit: ORDER_IP_LIMIT, windowSeconds: HOUR }] : []),
-        { key: `order:${email}`, limit: ORDER_LIMIT, windowSeconds: HOUR },
-      ],
+      throttles: orderThrottles(ip),
     })
     if (prepared.response) return prepared.response
     const { competitions, settings, people, consentIds, email, profileId, buyerName, legacy } = prepared

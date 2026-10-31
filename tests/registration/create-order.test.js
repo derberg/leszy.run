@@ -352,6 +352,8 @@ test('P-24 order-status: buyer only, with the event\'s closesAt; a fresh pending
   assert.deepEqual(d.lines, [{
     registrationId: reg.id, name: 'Ola Leśna', firstName: 'Ola', role: 'self', consentState: 'accepted',
     competition: 'Bieg 9 km', ageGroupLabel: 'K open', kidsGroupLabel: null, mine: true, startTime: '10:00', amount: 6000,
+    // Plan 5 task 5b (T-43).
+    teamId: null, teamName: null, isCaptain: false,
   }])
   assert.deepEqual(d.amounts, { entryTotal: 6000, extrasTotal: 0, donation: 0, total: 6000 })
   assert.equal(d.event.slug, event.slug)

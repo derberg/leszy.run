@@ -3,7 +3,8 @@
 // here reaches a real stack.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { teamRefusal } from '../../../supabase/functions/_shared/registration/registrationRequest.js'
+import { readFileSync } from 'node:fs'
+import { ORDER_IP_LIMIT, ORDER_LIMIT, orderThrottles, squadRefusal, teamAttemptRefusal, teamRefusal } from '../../../supabase/functions/_shared/registration/registrationRequest.js'
 import { startPaymentAttempt } from '../../../supabase/functions/_shared/registration/orderFlow.js'
 import { TEAM_NAME_MESSAGE, teamSizeMessage } from '../../../supabase/functions/_shared/registration/team.js'
 
@@ -84,4 +85,58 @@ test('D5-24 no dpay settings: refused; cancelled only with cancelOnFailure, with
   const alert = stuck.calls.find(([t]) => t === 'operator_alerts')
   assert.equal(alert[1].kind, 'cancel_failed')
   assert.equal(alert[1].order_id, 'o1')
+})
+
+// ---------------------------------------------------------------- T-42 team_squad_edit's refusals
+
+const squadRefuse = (message, code = 'P0001') => squadRefusal(null, { message, code }, { person: { role: 'adult' }, email: 'a@b.pl' })
+
+test('T-42 every refusal of team_squad_edit has an answer in Polish, with no raw code in the text', async () => {
+  const expected = {
+    squad_closed: [409, 'Zapisy są zamknięte — skład zmienisz w biurze zawodów.'],
+    team_full: [409, 'Skład jest pełny.'],
+    captain_fixed: [409, 'Kapitana nie można wymienić.'],
+    team_inactive: [409, 'To zgłoszenie nie jest już aktywne.'],
+    leg_order_off: [409, 'W tej konkurencji nie ustala się kolejności zmian.'],
+    invalid_legs: [409, 'Skład się zmienił. Odśwież stronę i ustaw kolejność jeszcze raz.'],
+    not_member: [409, 'Tej osoby nie ma już w składzie. Odśwież stronę.'],
+    invalid_op: [422, 'Nie rozpoznano tej zmiany składu.'],
+    invalid_people: [422, 'Popraw zaznaczone pola.'],
+    edits_closed: [422, 'Po zamknięciu zapisów dane poprawisz w biurze zawodów.'],
+    consents_changed: [400, 'Zaznacz wymagane zgody.'],
+  }
+  for (const [message, [status, text]] of Object.entries(expected)) {
+    assert.deepEqual(await squadRefuse(message), [status, { error: text, code: message }], message)
+  }
+})
+
+test('T-42 not_found and not_captain are one 404; a deadlock asks for a retry; anything else is no refusal', async () => {
+  assert.deepEqual(await squadRefuse('not_found'), [404, { error: 'Not found' }])
+  assert.deepEqual(await squadRefuse('not_captain'), [404, { error: 'Not found' }])
+  assert.deepEqual(await squadRefuse('deadlock detected', '40P01'), [409, { error: 'Nie udało się zmienić składu. Spróbuj ponownie.', code: 'try_again' }])
+  assert.equal(await squadRefuse('something else'), null)
+})
+
+// ---------------------------------------------------------------- task-5a-review.md items 2 and 3
+
+test('T-46 register-team\'s answer to each startPaymentAttempt refusal, the 503 without dpay settings included', () => {
+  assert.deepEqual(teamAttemptRefusal('dpay_unconfigured'), [503, { error: 'Płatności online są chwilowo niedostępne.' }])
+  assert.deepEqual(teamAttemptRefusal('dpay_unavailable'), [502, { error: 'Nie udało się połączyć z operatorem płatności. Spróbuj ponownie.', code: 'dpay_unavailable' }])
+  assert.deepEqual(teamAttemptRefusal('full'), [409, { error: 'Brak wolnych miejsc dla drużyn.', code: 'full' }])
+  assert.deepEqual(teamAttemptRefusal('not_payable'), [409, { error: 'Zapisy są zamknięte.', code: 'closed' }])
+})
+
+test('T-46 create-order and register-team share one definition of the order counters', () => {
+  assert.equal(ORDER_LIMIT, 10)
+  assert.equal(ORDER_IP_LIMIT, 20)
+  assert.deepEqual(orderThrottles('1.2.3.4')('a@b.pl'), [
+    { key: 'order-ip:1.2.3.4', limit: 20, windowSeconds: 3600 },
+    { key: 'order:a@b.pl', limit: 10, windowSeconds: 3600 },
+  ])
+  assert.deepEqual(orderThrottles(null)('a@b.pl'), [{ key: 'order:a@b.pl', limit: 10, windowSeconds: 3600 }])
+  for (const fn of ['create-order', 'register-team']) {
+    const source = readFileSync(new URL(`../../../supabase/functions/${fn}/index.js`, import.meta.url), 'utf8')
+    assert.ok(source.includes('orderThrottles(ip)'), fn)
+    assert.doesNotMatch(source, /const ORDER_(IP_)?LIMIT/, fn)
+  }
 })

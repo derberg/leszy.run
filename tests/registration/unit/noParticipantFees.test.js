@@ -20,6 +20,7 @@ const RUNNER_FACING = [
   'supabase/functions/_shared/registration/emails.js',
   'supabase/functions/create-order/index.js',
   'supabase/functions/register-team/index.js',
+  'supabase/functions/team-squad/index.js',
   'supabase/functions/order-status/index.js',
 ]
 const FORBIDDEN = /wspieram|nie tym razem|wesprzesz|wspierasz|wsparci|obsługa płatności|opłat\p{L}* za obsług|doliczamy/iu

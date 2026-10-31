@@ -268,7 +268,7 @@ test('G-35 the consent link is absolute without PUBLIC_SITE_URL: it falls back t
 
 // ---------------------------------------------------------------- teams (Plan 5)
 
-import { squadRemovedEmail, teamConfirmationEmail } from '../../../supabase/functions/_shared/registration/emails.js'
+import { squadChangedEmail, squadRemovedEmail, teamConfirmationEmail } from '../../../supabase/functions/_shared/registration/emails.js'
 
 const teamArgs = {
   event,
@@ -326,6 +326,22 @@ test('T-42 squadRemovedEmail: subject, the event, no address, no bib', () => {
   assert.ok(m.text.includes('Bieg Leszego <2026>'))
   assert.ok(m.html.includes('Wilcze &lt;Stado&gt;'))
   assert.ok(!m.html.includes('<Stado>'))
+})
+
+test('T-42 squadChangedEmail: who left, who came, the squad and the link; a request promised only when one goes out; no address, no bib, no leg', () => {
+  const { paid: _paid, ...args } = teamArgs
+  const m = squadChangedEmail({ ...args, removedName: 'Piotr', addedName: 'Anna <Nowa>', consentAsked: 'Anna' })
+  assert.equal(m.subject, 'Zmiana składu drużyny Wilcze <Stado> — Bieg Leszego <2026>')
+  for (const part of ['Wypisano: Piotr', 'Dopisano: Anna <Nowa>', 'Staś Leśna — opiekun: kapitan', 'Anna dostanie osobny e-mail', `Zarządzaj składem: ${args.link}`, 'LESZY.RUN']) {
+    assert.ok(m.text.includes(part), part)
+  }
+  assert.ok(m.html.includes('Anna &lt;Nowa&gt;'))
+  assert.ok(!m.html.includes('<Nowa>'))
+  assert.doesNotMatch(m.text, /numer startowy|@|zmiana \d/i)
+
+  const added = squadChangedEmail({ ...args, addedName: 'Lena Nowa' })
+  assert.doesNotMatch(added.text, /Wypisano|osobny e-mail/)
+  assert.ok(added.text.includes('Dopisano: Lena Nowa'))
 })
 
 test('T-40 consentRequestEmail with a team: „w drużynie <nazwa>”; without one the sentence is unchanged', () => {

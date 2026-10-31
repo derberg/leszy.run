@@ -202,6 +202,10 @@ entrypoint = "./functions/create-order/index.js"
 verify_jwt = false
 entrypoint = "./functions/register-team/index.js"
 
+[functions.team-squad]
+verify_jwt = false
+entrypoint = "./functions/team-squad/index.js"
+
 [functions.pay-order]
 verify_jwt = false
 entrypoint = "./functions/pay-order/index.js"

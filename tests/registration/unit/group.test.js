@@ -1,7 +1,7 @@
 // Plan 4, task 1: G-01…G-05, the group rules (roles, guardian rule, in-group duplicates).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeGroupRequest, registrationRole, validateGroup } from '../../../supabase/functions/_shared/registration/group.js'
+import { normalizeGroupRequest, paymentStatusOf, registrationRole, validateGroup } from '../../../supabase/functions/_shared/registration/group.js'
 import { warsawToday } from '../../../supabase/functions/_shared/registration/dates.js'
 
 // 2026-10-28 10:00 in Warsaw.
@@ -162,4 +162,24 @@ test('G-62 registrationRole agrees with the organizer view: guardian_removed_at 
   // The payer's own row, and a Plan 2–3 row.
   assert.equal(registrationRole({ profile_id: payer, registered_by_profile_id: payer, consent_state: 'accepted' }), 'self')
   assert.equal(registrationRole({ profile_id: payer, registered_by_profile_id: null, consent_state: 'accepted' }), 'self')
+})
+
+// ---------------------------------------------------------------- T-43 paymentStatusOf
+
+test('T-43 paymentStatusOf: a team member reads the order\'s money and the team fee, never their own 0', () => {
+  const member = { status: 'confirmed', price: 0, team_id: 't1' }
+  const paidOrder = { total: 24000 }
+  assert.equal(paymentStatusOf(member, paidOrder, 24000), 'paid')
+  assert.equal(paymentStatusOf({ ...member, price: 24000 }, paidOrder, 24000), 'paid')
+  assert.equal(paymentStatusOf(member, { total: 0 }, 0), 'free')
+  assert.equal(paymentStatusOf(member, null, 0), 'free')
+  assert.equal(paymentStatusOf({ ...member, status: 'pending_payment' }, paidOrder, 24000), 'awaiting')
+  assert.equal(paymentStatusOf({ ...member, status: 'cancelled' }, paidOrder, 24000), null)
+})
+
+test('T-43 paymentStatusOf: an individual keeps the old rule, a 0 zł entry in a paid group order reads free', () => {
+  assert.equal(paymentStatusOf({ status: 'confirmed', price: 5000 }, { total: 5000 }), 'paid')
+  assert.equal(paymentStatusOf({ status: 'confirmed', price: 0 }, { total: 5000 }), 'free')
+  assert.equal(paymentStatusOf({ status: 'confirmed', price: 0 }, null), 'free')
+  assert.equal(paymentStatusOf({ status: 'expired', price: 5000 }, { total: 5000 }), null)
 })

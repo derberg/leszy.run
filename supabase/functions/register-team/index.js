@@ -3,18 +3,12 @@ import { guardRequest } from '../_shared/cors.js'
 import { clientIp } from '../_shared/organizer.js'
 import { dpayConfig } from '../_shared/dpay.js'
 import {
-  json, PENDING_ORDER, REFUSALS, TEAM_REFUSALS, prepareRegistration, rpcPeople, teamRefusal,
+  json, PENDING_ORDER, TEAM_REFUSALS, orderThrottles, prepareRegistration, rpcPeople, teamAttemptRefusal, teamRefusal,
 } from '../_shared/registration/registrationRequest.js'
 import {
-  DPAY_DOWN, PAYMENTS_OFF, ownPendingOrder, sendOrderConfirmation, sendTeamConfirmation, startPaymentAttempt,
+  ownPendingOrder, sendOrderConfirmation, sendTeamConfirmation, startPaymentAttempt,
 } from '../_shared/registration/orderFlow.js'
 import { issueConsentRequests, issueOrderConsentRequests } from '../_shared/registration/consentRequests.js'
-
-// Throttles (claim_throttle_slot): the same counters as create-order, so a team and an order
-// share one allowance. prepareRegistration adds the buyer's 30 people a day.
-const ORDER_LIMIT = 10
-const ORDER_IP_LIMIT = 20
-const HOUR = 3600
 
 // POST { categoryId, teamName, members: [{ person, leg?, guardianConsent? }], membersConsent,
 //        acceptedConsentIds, serviceRegulamin, displayedTotal, code?, website? }
@@ -53,10 +47,7 @@ Deno.serve(async (req) => {
       team: true,
       pricing: () => null,
       refusals: TEAM_REFUSALS,
-      throttles: (email) => [
-        ...(ip ? [{ key: `order-ip:${ip}`, limit: ORDER_IP_LIMIT, windowSeconds: HOUR }] : []),
-        { key: `order:${email}`, limit: ORDER_LIMIT, windowSeconds: HOUR },
-      ],
+      throttles: orderThrottles(ip),
     })
     if (prepared.response) return prepared.response
     const { competition, settings, people, teamName, consentIds, email, profileId, buyerName } = prepared
@@ -106,10 +97,8 @@ Deno.serve(async (req) => {
 
     const attempt = await startPaymentAttempt(admin, cfg, { orderId, total: created.total, cancelOnFailure: true })
     if (attempt.redirectUrl) return answer({ data: { orderId, teamId, redirectUrl: attempt.redirectUrl } }, 201)
-    if (attempt.refused === 'dpay_unconfigured') return answer({ error: PAYMENTS_OFF }, 503)
-    if (attempt.refused === 'dpay_unavailable') return answer({ error: DPAY_DOWN, code: 'dpay_unavailable' }, 502)
-    if (attempt.refused === 'full') return answer({ error: TEAM_REFUSALS.full[1], code: 'full' }, 409)
-    return answer({ error: REFUSALS.closed[1], code: 'closed' }, 409)
+    const [status, refusedBody] = teamAttemptRefusal(attempt.refused)
+    return answer(refusedBody, status)
   } catch (err) {
     console.error('register-team error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req, withCookie)

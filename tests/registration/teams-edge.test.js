@@ -5,9 +5,10 @@ import { test, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import postgres from 'postgres'
 import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { lastCodeFor, messagesTo, startCapture } from './helpers/emailCapture.js'
-import { acceptAgreement } from './helpers/registrationFixtures.js'
+import { acceptAgreement, makeClub } from './helpers/registrationFixtures.js'
 import { dpayMode, dpayRefunds, dpayReset, dpayTransactions, payMock, replayIpn, startDpayMock } from './helpers/dpayControl.js'
 import { competitionOf, consentIds, db, one, orderOf, orderOk, rows, runnerEmail } from './helpers/orders.js'
 import { assertSlotInvariant } from './helpers/slotInvariant.js'
@@ -512,3 +513,632 @@ test('T-45 D5-24 pay-order on a team order: a new transaction at the frozen fee;
   assert.equal((await rows('payment_attempts', { order_id: orderId })).length, 2)
   assert.equal((await dpayTransactions()).at(-1).grosze, 24000)
 })
+
+// ---------------------------------------------------------------- Task 5b helpers
+
+const SQUAD_CLOSED = 'Zapisy są zamknięte — skład zmienisz w biurze zawodów.'
+const REMOVED_SUBJECT = (name) => `Nie jesteś już w składzie drużyny ${name}`
+const CHANGED_SUBJECT = (name, event) => `Zmiana składu drużyny ${name} — ${event}`
+const TOKEN_RE = /\/zgoda#([A-Za-z0-9_-]{43})(?![A-Za-z0-9_-])/
+
+const squadCall = (teamId, action, session, over = {}) => call('team-squad', { teamId, action, ...over }, session)
+const swapIn = (email, over = {}) => grownUp(email, { firstName: 'Anna', lastName: 'Nowa', ...over })
+
+/** A confirmed free team through register-team; the mail from signing up is waited for and cleared by the tests' own counts. */
+async function freeTeam(opts = {}) {
+  const event = opts.event ?? await freeTeamEvent(owner, opts.eventOpts)
+  const me = runnerEmail('capt')
+  const partner = runnerEmail('adult')
+  const session = await sessionFor(me)
+  const body = await teamBody(event, opts.members?.(me, partner) ?? fourOf(me, partner))
+  const r = await call('register-team', body, session)
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  await waitForMail(partner)
+  return { event, me, partner, session, body, teamId: r.body.data.teamId }
+}
+
+/** A paid team, paid in full. */
+async function paidTeam(opts = {}) {
+  const t = await pendingTeam(opts)
+  await payMock(t.txn.id, 'paid')
+  await waitFor(async () => (await orderOf(t.orderId)).status === 'paid', 'the payment')
+  await waitForMail(t.partner)
+  return t
+}
+
+const live = (regs) => regs.filter((r) => ['confirmed', 'pending_payment'].includes(r.status))
+const walk = (v, path = '') => (v && typeof v === 'object'
+  ? Object.entries(v).flatMap(([k, x]) => [`${path}.${k}`, ...walk(x, `${path}.${k}`)])
+  : [])
+
+// ---------------------------------------------------------------- T-42 get
+
+test('T-42 get: no session 401; a stranger, a team member, the owner, a bad id and an unknown team → 404', async () => {
+  const { teamId, partner } = await freeTeam()
+  assert.equal((await squadCall(teamId, 'get', null)).status, 401)
+  for (const session of [await sessionFor(runnerEmail('stranger')), await sessionFor(partner), owner]) {
+    const r = await squadCall(teamId, 'get', session)
+    assert.equal(r.status, 404, JSON.stringify(r.body))
+    assert.deepEqual(r.body, { error: 'Not found' })
+  }
+  const me = await sessionFor(runnerEmail('capt'))
+  assert.equal((await squadCall('nie-uuid', 'get', me)).status, 404)
+  assert.equal((await squadCall(crypto.randomUUID(), 'get', me)).status, 404)
+})
+
+test('T-42 get: the captain sees the team, its limits and the live squad, and no address, phone or birth date anywhere', async () => {
+  const { event, session, teamId, body, partner } = await freeTeam({ eventOpts: { legOrder: false } })
+  const r = await squadCall(teamId, 'get', session)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const { team, members, competition, event: ev } = r.body.data
+  assert.deepEqual({ ...team, closesAt: undefined }, {
+    name: body.teamName, status: 'confirmed', paymentStatus: 'free', orderId: null, closesAt: undefined,
+    legOrderEnabled: false, teamMin: 2, teamMax: 6,
+  })
+  const settings = await one('registration_settings', { event_id: event.eventId })
+  assert.equal(Date.parse(team.closesAt), Date.parse(settings.closes_at))
+  assert.equal(competition.name, 'Sztafeta')
+  assert.equal(ev.slug, settings.slug)
+  assert.equal(ev.name, settings.name)
+
+  assert.equal(members.length, 4)
+  const [captain, ...rest] = members
+  assert.equal(captain.isCaptain, true)
+  assert.equal(captain.role, 'self')
+  assert.equal(captain.consentState, 'accepted')
+  assert.equal(captain.age, new Date(settings.event_date).getUTCFullYear() - 1990 - (settings.event_date.slice(5) < '05-01' ? 1 : 0))
+  assert.deepEqual(rest.map((m) => m.isCaptain), [false, false, false])
+  assert.deepEqual(rest.map((m) => m.role).sort(), ['adult', 'minor', 'minor'])
+  const adult = rest.find((m) => m.role === 'adult')
+  assert.equal(adult.consentState, 'awaiting')
+  assert.deepEqual(Object.keys(adult).sort(), ['age', 'ageGroupLabel', 'consentState', 'firstName', 'isCaptain', 'lastName', 'leg', 'registrationId', 'role'])
+  assert.equal(adult.leg, null)
+
+  const keys = walk(r.body).join(' ')
+  assert.doesNotMatch(keys, /email|phone|birth|ice|guardian/i)
+  assert.ok(!JSON.stringify(r.body).includes(partner))
+})
+
+test('T-42 get: a pending team carries its order and reads as awaiting; a released team has no live members', async () => {
+  const { teamId, orderId, session } = await pendingTeam()
+  const r = await squadCall(teamId, 'get', session)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.team.status, 'pending_payment')
+  assert.equal(r.body.data.team.paymentStatus, 'awaiting')
+  assert.equal(r.body.data.team.orderId, orderId)
+
+  const cancelled = await call('cancel-my-order', { orderId }, session)
+  assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body))
+  const gone = await squadCall(teamId, 'get', session)
+  assert.equal(gone.status, 200, JSON.stringify(gone.body))
+  assert.equal(gone.body.data.team.status, 'cancelled')
+  assert.deepEqual(gone.body.data.members, [])
+  const edit = await squadCall(teamId, 'add', session, { person: swapIn(runnerEmail('late')) })
+  assert.equal(edit.status, 409, JSON.stringify(edit.body))
+  assert.deepEqual(edit.body, { error: 'To zgłoszenie nie jest już aktywne.', code: 'team_inactive' })
+})
+
+test('T-42 a disabled club: 404 to the captain, for a read and an edit', async () => {
+  const slug = `squad-${crypto.randomBytes(4).toString('hex')}`
+  const club = await makeClub({ slug })
+  const { teamId, session } = await freeTeam({ event: await freeTeamEvent(await sessionFor(club.ownerEmail), { clubSlug: slug }) })
+  assert.equal((await squadCall(teamId, 'get', session)).status, 200)
+  await makeClub({ slug, enabled: false })
+  assert.equal((await squadCall(teamId, 'get', session)).status, 404)
+  assert.equal((await squadCall(teamId, 'add', session, { person: swapIn(runnerEmail('x')) })).status, 404)
+})
+
+test('T-42 the throttle: squad:<teamId> allows 30 calls an hour; a stranger spends none of it', async () => {
+  const { teamId, session } = await freeTeam()
+  const stranger = await sessionFor(runnerEmail('stranger'))
+  for (let i = 0; i < 5; i++) assert.equal((await squadCall(teamId, 'get', stranger)).status, 404)
+  for (let i = 0; i < 30; i++) {
+    const ok = await squadCall(teamId, 'get', session)
+    assert.equal(ok.status, 200, `call ${i + 1}: ${JSON.stringify(ok.body)}`)
+  }
+  const r = await squadCall(teamId, 'get', session)
+  assert.equal(r.status, 429, JSON.stringify(r.body))
+  assert.equal(r.body.error, 'Zbyt wiele prób. Spróbuj ponownie później.')
+})
+
+// ---------------------------------------------------------------- T-42 swap
+
+test('T-42 a swap on a confirmed team: the adult out gets „Nie jesteś już w składzie”, the adult in a consent e-mail, the captain a summary; the old link is gone', async () => {
+  const { event, me, partner, session, teamId, body } = await freeTeam()
+  const [askedOld] = await waitForMail(partner)
+  const oldToken = TOKEN_RE.exec(askedOld.text)[1]
+  const before = await byEvent(event.eventId)
+  const old = before.find((r) => r.email === partner)
+  const next = runnerEmail('next')
+
+  const r = await squadCall(teamId, 'swap', session, { registrationId: old.id, person: swapIn(next) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.members.length, 4)
+  assert.ok(r.body.data.members.some((m) => m.firstName === 'Anna' && m.consentState === 'awaiting'))
+  assert.ok(!r.body.data.members.some((m) => m.registrationId === old.id))
+
+  const name = await eventName(event.eventId)
+  const out = await waitForMail(partner, 2)
+  assert.deepEqual(out.map((m) => m.subject).sort(), [askedOld.subject, REMOVED_SUBJECT(body.teamName)].sort())
+  assert.ok(out.find((m) => m.subject === REMOVED_SUBJECT(body.teamName)).text.includes('Piotr'))
+
+  const asked = await waitForMail(next)
+  assert.equal(asked.length, 1)
+  assert.match(asked[0].subject, CONSENT_SUBJECT)
+  assert.ok(asked[0].text.includes(`w drużynie ${body.teamName}`))
+  assert.ok(asked[0].text.includes('Ola Leśna zapisał(a) Cię'))
+
+  const mine = (await waitForMail(me, 2)).filter((m) => m.subject === CHANGED_SUBJECT(body.teamName, name))
+  assert.equal(mine.length, 1)
+  for (const part of ['Piotr', 'Anna Nowa', 'Zarządzaj składem']) assert.ok(mine[0].text.includes(part), part)
+  assert.match(mine[0].text, new RegExp(`/druzyna/${teamId}\\b`))
+  assert.ok(!mine[0].text.includes(next), 'no address in the captain summary')
+
+  const after = await byEvent(event.eventId)
+  assert.equal(after.find((x) => x.id === old.id).status, 'cancelled')
+  assert.equal(live(after).length, 4)
+  const added = after.find((x) => x.email === next)
+  assert.equal(added.status, 'confirmed')
+  assert.equal(added.registered_by_profile_id, before.find((x) => x.email === me).profile_id)
+  const { removed_at: removedAt } = await one('participants', { id: old.participant_id })
+  assert.ok(removedAt, 'the participant left the start list')
+  assert.ok(added.participant_id)
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 1)
+  await assertSlotInvariant(event.categoryIds[0])
+
+  const dead = await call('consent-request', { token: oldToken })
+  assert.equal(dead.status, 409, JSON.stringify(dead.body))
+  assert.deepEqual(dead.body, { error: 'To zgłoszenie nie jest już aktywne.', code: 'gone' })
+})
+
+test('T-42 a swap of a child tells only the captain; the child in needs the guardian consent and the event consents', async () => {
+  const { event, me, session, teamId, body, partner } = await freeTeam()
+  const regs = await byEvent(event.eventId)
+  const out = regs.find((r) => r.first_name === 'Staś')
+  const newChild = child({ firstName: 'Janek', lastName: `Nowy${crypto.randomBytes(3).toString('hex')}`, gender: 'M' })
+
+  const noConsent = await squadCall(teamId, 'swap', session, {
+    registrationId: out.id, person: newChild, acceptedConsentIds: body.acceptedConsentIds, serviceRegulamin: true,
+  })
+  assert.equal(noConsent.status, 400, JSON.stringify(noConsent.body))
+  assert.equal(noConsent.body.fields.guardianConsent, 'Zaznacz zgodę opiekuna.')
+
+  const noIds = await squadCall(teamId, 'swap', session, {
+    registrationId: out.id, person: newChild, guardianConsent: true, acceptedConsentIds: [], serviceRegulamin: true,
+  })
+  assert.equal(noIds.status, 400, JSON.stringify(noIds.body))
+  assert.deepEqual(noIds.body, { error: 'Zaznacz wymagane zgody.', code: 'consents_changed' })
+  const noService = await squadCall(teamId, 'swap', session, {
+    registrationId: out.id, person: newChild, guardianConsent: true, acceptedConsentIds: body.acceptedConsentIds,
+  })
+  assert.equal(noService.status, 400, JSON.stringify(noService.body))
+  assert.equal(noService.body.code, 'consents_required')
+  assert.equal((await byEvent(event.eventId)).find((r) => r.id === out.id).status, 'confirmed', 'a refused swap cancels nobody')
+
+  const ok = await squadCall(teamId, 'swap', session, {
+    registrationId: out.id, person: newChild, guardianConsent: true,
+    acceptedConsentIds: body.acceptedConsentIds, serviceRegulamin: true,
+  })
+  assert.equal(ok.status, 200, JSON.stringify(ok.body))
+  const added = (await byEvent(event.eventId)).find((r) => r.first_name === 'Janek')
+  assert.equal(added.email, null)
+  assert.equal(added.consent_state, 'accepted')
+  assert.ok(added.guardian_profile_id)
+  const acceptances = await rows('consent_acceptances', { registration_id: added.id })
+  assert.equal(acceptances.length, body.acceptedConsentIds.length + 1)
+  assert.ok(acceptances.every((a) => a.accepted_as === 'guardian'))
+
+  const name = await eventName(event.eventId)
+  const summary = (await waitForMail(me, 2)).filter((m) => m.subject === CHANGED_SUBJECT(body.teamName, name))
+  assert.equal(summary.length, 1)
+  assert.ok(summary[0].text.includes('Staś'))
+  assert.ok(summary[0].text.includes('Janek'))
+  await sleep(300)
+  assert.equal((await messagesTo(partner)).length, 1, 'the other adult hears nothing')
+})
+
+test('T-42 a swap on a pending team: nobody but the captain is told; the adult in is asked when the fee lands, once', async () => {
+  const { event, me, partner, session, teamId, txn, orderId, body } = await pendingTeam()
+  const old = (await byEvent(event.eventId)).find((r) => r.email === partner)
+  const next = runnerEmail('next')
+  const r = await squadCall(teamId, 'swap', session, { registrationId: old.id, person: swapIn(next) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+
+  const name = await eventName(event.eventId)
+  assert.equal((await waitForMail(me)).filter((m) => m.subject === CHANGED_SUBJECT(body.teamName, name)).length, 1)
+  await sleep(400)
+  assert.deepEqual(await messagesTo(partner), [], 'an adult who was never told gets no „removed” e-mail')
+  assert.deepEqual(await messagesTo(next), [], 'no consent e-mail while the fee is unpaid')
+  const added = (await byEvent(event.eventId)).find((x) => x.email === next)
+  assert.equal(added.status, 'pending_payment')
+  assert.equal(added.order_id, orderId)
+
+  await payMock(txn.id, 'paid')
+  await waitFor(async () => (await messagesTo(next)).length === 1, 'the consent e-mail')
+  await replayIpn(txn.id)
+  await sleep(300)
+  assert.equal((await messagesTo(next)).length, 1)
+  assert.deepEqual(await messagesTo(partner), [])
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 1)
+  await assertSlotInvariant(event.categoryIds[0])
+})
+
+test('T-42 a swap keeping the same address sends no „removed” e-mail, only a new consent request', async () => {
+  const { event, partner, session, teamId, body } = await freeTeam()
+  const old = (await byEvent(event.eventId)).find((r) => r.email === partner)
+  const r = await squadCall(teamId, 'swap', session, { registrationId: old.id, person: swapIn(partner, { firstName: 'Piotrek' }) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const mails = await waitForMail(partner, 2)
+  assert.equal(mails.length, 2)
+  assert.ok(!mails.some((m) => m.subject === REMOVED_SUBJECT(body.teamName)))
+})
+
+test('T-42 refusals of a swap: the captain, a stranger\'s row, a duplicate; nothing changes and the second address hears nothing', async () => {
+  const { event, me, partner, session, teamId } = await freeTeam()
+  const regs = await byEvent(event.eventId)
+  const captainRow = regs.find((r) => r.email === me)
+  const person = swapIn(runnerEmail('next'))
+
+  const fixed = await squadCall(teamId, 'swap', session, { registrationId: captainRow.id, person })
+  assert.equal(fixed.status, 409, JSON.stringify(fixed.body))
+  assert.deepEqual(fixed.body, { error: 'Kapitana nie można wymienić.', code: 'captain_fixed' })
+
+  const stranger = await squadCall(teamId, 'swap', session, { registrationId: crypto.randomUUID(), person })
+  assert.equal(stranger.status, 409, JSON.stringify(stranger.body))
+  assert.deepEqual(stranger.body, { error: 'Tej osoby nie ma już w składzie. Odśwież stronę.', code: 'not_member' })
+
+  const old = regs.find((r) => r.email === partner)
+  const dup = await squadCall(teamId, 'swap', session, { registrationId: old.id, person: swapIn(me) })
+  assert.equal(dup.status, 409, JSON.stringify(dup.body))
+  assert.equal(dup.body.code, 'duplicate')
+  assert.equal(dup.body.fields.email, 'Ten adres e-mail jest już zapisany na te zawody.')
+  const after = await byEvent(event.eventId)
+  assert.equal(after.find((r) => r.id === old.id).status, 'confirmed')
+  assert.equal(live(after).length, 4)
+})
+
+test('T-42 a duplicate past the daily reveal cap names nobody', async () => {
+  const { event, me, partner, session, teamId } = await freeTeam()
+  const { error } = await db().rpc('claim_throttle_slot', { p_key: `register-duplicate:${me}`, p_limit: 5, p_window_seconds: 86400 })
+  if (error) throw error
+  for (let i = 0; i < 4; i++) await db().rpc('claim_throttle_slot', { p_key: `register-duplicate:${me}`, p_limit: 5, p_window_seconds: 86400 })
+  const old = (await byEvent(event.eventId)).find((r) => r.email === partner)
+  const r = await squadCall(teamId, 'swap', session, { registrationId: old.id, person: swapIn(me) })
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'refused')
+  assert.equal(r.body.fields, undefined)
+})
+
+test('T-42 age against role is decided here, never by the client; a bad date is a field error, not a 500', async () => {
+  const { event, session, teamId } = await freeTeam()
+  const lied = await squadCall(teamId, 'add', session, {
+    person: { ...child({ firstName: 'Jurek', email: runnerEmail('kid') }), role: 'adult' },
+  })
+  assert.equal(lied.status, 400, JSON.stringify(lied.body))
+  assert.equal(lied.body.fields.guardianConsent, 'Zaznacz zgodę opiekuna.')
+
+  for (const birthDate of ['2016-02-31', 'jutro', '', null, '20160505']) {
+    const bad = await squadCall(teamId, 'add', session, { person: swapIn(runnerEmail('bad'), { birthDate }) })
+    assert.equal(bad.status, 400, `${birthDate}: ${JSON.stringify(bad.body)}`)
+    assert.equal(bad.body.code, 'invalid_person')
+    assert.equal(bad.body.fields.birthDate, 'Podaj poprawną datę urodzenia.')
+  }
+  const missing = await squadCall(teamId, 'add', session, {})
+  assert.equal(missing.status, 400, JSON.stringify(missing.body))
+  assert.equal(missing.body.code, 'invalid_person')
+
+  const claimedMinor = await squadCall(teamId, 'add', session, { person: { ...swapIn(runnerEmail('grown')), role: 'minor' } })
+  assert.equal(claimedMinor.status, 200, JSON.stringify(claimedMinor.body))
+  const stored = (await byEvent(event.eventId)).find((r) => r.first_name === 'Anna')
+  assert.equal(stored.guardian_profile_id, null, 'a claimed role never makes a grown-up a child')
+  assert.equal(stored.consent_state, 'awaiting')
+})
+
+test('T-42 a retired address is refused for the verified captain, with nothing written', async () => {
+  const { event, session, teamId } = await freeTeam()
+  const email = runnerEmail('gone')
+  const hash = crypto.createHash('sha256').update(email).digest('hex')
+  const { error } = await db().from('deleted_email_hashes').upsert({ email_hash: hash }, { onConflict: 'email_hash' })
+  if (error) throw error
+  const r = await squadCall(teamId, 'add', session, { person: swapIn(email) })
+  assert.equal(r.status, 403, JSON.stringify(r.body))
+  assert.deepEqual(r.body, { error: RETIRED_EMAIL_MESSAGE, code: 'email_retired' })
+  assert.equal(live(await byEvent(event.eventId)).length, 4)
+})
+
+test('T-42 the buyer\'s daily people cap counts squad changes: mail to third parties is not free', async () => {
+  const { event, me, session, teamId } = await freeTeam()
+  for (let i = 0; i < 30; i++) {
+    await db().rpc('claim_throttle_slot', { p_key: `register-people:${me}`, p_limit: 30, p_window_seconds: 86400 })
+  }
+  const next = runnerEmail('next')
+  const r = await squadCall(teamId, 'add', session, { person: swapIn(next) })
+  assert.equal(r.status, 429, JSON.stringify(r.body))
+  assert.equal(live(await byEvent(event.eventId)).length, 4)
+  assert.deepEqual(await messagesTo(next), [])
+})
+
+// ---------------------------------------------------------------- T-42 add, reorder, close
+
+test('T-42 add: an adult up to team_max gets a consent e-mail, then „Skład jest pełny.”', async () => {
+  const { event, me, session, teamId, body } = await freeTeam()
+  const third = runnerEmail('third')
+  const r = await squadCall(teamId, 'add', session, { person: swapIn(third) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.members.length, 5)
+  assert.equal((await waitForMail(third)).length, 1)
+  const name = await eventName(event.eventId)
+  assert.equal((await waitForMail(me, 2)).filter((m) => m.subject === CHANGED_SUBJECT(body.teamName, name)).length, 1)
+
+  assert.equal((await squadCall(teamId, 'add', session, { person: swapIn(runnerEmail('sixth')) })).status, 200)
+  const full = await squadCall(teamId, 'add', session, { person: swapIn(runnerEmail('seventh')) })
+  assert.equal(full.status, 409, JSON.stringify(full.body))
+  assert.deepEqual(full.body, { error: 'Skład jest pełny.', code: 'team_full' })
+  assert.equal(live(await byEvent(event.eventId)).length, 6)
+  assert.equal((await competitionOf(event.categoryIds[0])).taken, 1)
+  await assertSlotInvariant(event.categoryIds[0])
+})
+
+test('T-42 add a child: the guardian consent and the event consents are required; the captain is the guardian, no e-mail but the summary', async () => {
+  const { event, me, session, teamId, body } = await freeTeam()
+  const kid = child({ firstName: 'Lena', lastName: `Nowa${crypto.randomBytes(3).toString('hex')}` })
+  const refused = await squadCall(teamId, 'add', session, { person: kid, guardianConsent: true, serviceRegulamin: true })
+  assert.equal(refused.status, 400, JSON.stringify(refused.body))
+  assert.equal(refused.body.code, 'consents_changed')
+
+  const r = await squadCall(teamId, 'add', session, {
+    person: kid, guardianConsent: true, acceptedConsentIds: body.acceptedConsentIds, serviceRegulamin: true,
+  })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const stored = (await byEvent(event.eventId)).find((x) => x.first_name === 'Lena')
+  assert.equal(stored.guardian_name, 'Ola Leśna')
+  assert.ok(r.body.data.members.some((m) => m.firstName === 'Lena' && m.role === 'minor' && m.consentState === 'accepted'))
+  const name = await eventName(event.eventId)
+  assert.equal((await waitForMail(me, 2)).filter((m) => m.subject === CHANGED_SUBJECT(body.teamName, name)).length, 1)
+})
+
+test('T-42 reorder: the legs move and nobody gets an e-mail; a stale list and a competition without leg order are refused', async () => {
+  const legs = (me, partner) => fourOf(me, partner).map((m, i) => ({ ...m, leg: i + 1 }))
+  const { event, me, partner, session, teamId } = await freeTeam({ eventOpts: { legOrder: true }, members: legs })
+  const got = await squadCall(teamId, 'get', session)
+  assert.deepEqual(got.body.data.members.map((m) => m.leg), [1, 2, 3, 4])
+  const ids = got.body.data.members.map((m) => m.registrationId)
+
+  const reversed = [...ids].reverse()
+  const r = await squadCall(teamId, 'reorder', session, { legs: reversed })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.deepEqual(r.body.data.members.map((m) => m.registrationId), reversed)
+  assert.deepEqual(r.body.data.members.map((m) => m.leg), [1, 2, 3, 4])
+
+  const stale = await squadCall(teamId, 'reorder', session, { legs: ids.slice(1) })
+  assert.equal(stale.status, 409, JSON.stringify(stale.body))
+  assert.equal(stale.body.code, 'invalid_legs')
+  await sleep(300)
+  assert.equal((await messagesTo(me)).length, 1, 'the sign-up confirmation only')
+  assert.equal((await messagesTo(partner)).length, 1)
+
+  await setLegOrder(event.categoryIds[0], false)
+  const off = await squadCall(teamId, 'reorder', session, { legs: ids })
+  assert.equal(off.status, 409, JSON.stringify(off.body))
+  assert.equal(off.body.code, 'leg_order_off')
+})
+
+test('T-42 an unknown action is refused in Polish', async () => {
+  const { teamId, session } = await freeTeam()
+  const r = await squadCall(teamId, 'remove', session)
+  assert.equal(r.status, 422, JSON.stringify(r.body))
+  assert.deepEqual(r.body, { error: 'Nie rozpoznano tej zmiany składu.', code: 'invalid_op' })
+})
+
+test('T-42 squad_closed: every edit → 409 with the copy, no participant written, no e-mail; get still answers', async () => {
+  const { event, partner, session, teamId } = await freeTeam()
+  const { error } = await db().from('registration_settings')
+    .update({ closes_at: new Date(Date.now() - 60_000).toISOString() }).eq('event_id', event.eventId)
+  if (error) throw error
+  const before = await rows('participants', { event_id: event.eventId })
+  const regs = await byEvent(event.eventId)
+  const old = regs.find((r) => r.email === partner)
+  const next = runnerEmail('late')
+  const person = swapIn(next)
+  for (const [action, over] of [['swap', { registrationId: old.id, person }], ['add', { person }], ['reorder', { legs: regs.map((r) => r.id) }]]) {
+    const r = await squadCall(teamId, action, session, over)
+    assert.equal(r.status, 409, `${action}: ${JSON.stringify(r.body)}`)
+    assert.deepEqual(r.body, { error: SQUAD_CLOSED, code: 'squad_closed' })
+  }
+  assert.equal((await rows('participants', { event_id: event.eventId })).length, before.length)
+  assert.deepEqual(await messagesTo(next), [])
+  assert.equal((await squadCall(teamId, 'get', session)).status, 200)
+})
+
+// ---------------------------------------------------------------- T-43 reads
+
+const listFor = (eventId, session = owner) => call('list-event-registrations', { eventId }, session)
+
+test('T-43 list-event-registrations: one team, size 4, consentAccepted 3, the captain named, and a member account still gets 404', async () => {
+  const { event, body, teamId } = await freeTeam()
+  const r = await listFor(event.eventId)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.teams.length, 1)
+  assert.deepEqual(r.body.teams[0], {
+    id: teamId, name: body.teamName, competition: 'Sztafeta', size: 4, consentAccepted: 3,
+    captain: 'Ola Leśna', status: 'confirmed', paymentStatus: 'free',
+  })
+  assert.equal(r.body.data.length, 4)
+  for (const row of r.body.data) {
+    assert.deepEqual(row.team, { id: teamId, name: body.teamName, size: 4, consentAccepted: 3 })
+    assert.equal(row.paymentStatus, 'free')
+  }
+  assert.equal(r.body.counts.free, 4, 'counts stay per person (D5-32)')
+
+  const member = await sessionFor('member@zatyrani-test.local')
+  const denied = await listFor(event.eventId, member)
+  assert.equal(denied.status, 404, JSON.stringify(denied.body))
+})
+
+test('T-43 an individual row has team null, and a team of a paid event reads paid on every member, the swapped-in one too', async () => {
+  const { event, session, teamId, partner } = await paidTeam()
+  const old = (await byEvent(event.eventId)).find((r) => r.email === partner)
+  const swapped = await squadCall(teamId, 'swap', session, { registrationId: old.id, person: swapIn(runnerEmail('next')) })
+  assert.equal(swapped.status, 200, JSON.stringify(swapped.body))
+
+  const r = await listFor(event.eventId)
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const liveRows = r.body.data.filter((x) => x.status === 'confirmed')
+  assert.equal(liveRows.length, 4)
+  assert.deepEqual(liveRows.map((x) => x.paymentStatus), ['paid', 'paid', 'paid', 'paid'])
+  assert.equal(r.body.counts.paid, 4)
+  assert.equal(r.body.counts.free, 0)
+  assert.equal(r.body.teams[0].paymentStatus, 'paid')
+
+  const empty = await listFor((await freeTeamEvent(owner)).eventId)
+  assert.deepEqual(empty.body.teams, [])
+})
+
+test('T-43 a 0 zł fee on a paid event reads free on every member; a pending team reads awaiting', async () => {
+  const event = await paidTeamEvent(owner, { price: 0 })
+  const me = runnerEmail('capt')
+  const body = await teamBody(event, fourOf(me, runnerEmail('adult')))
+  assert.equal((await call('register-team', body, await sessionFor(me))).status, 201)
+  const zero = await listFor(event.eventId)
+  assert.deepEqual(zero.body.data.map((x) => x.paymentStatus), ['free', 'free', 'free', 'free'])
+
+  const { event: other } = await pendingTeam()
+  const pending = await listFor(other.eventId)
+  assert.deepEqual(pending.body.data.map((x) => x.paymentStatus), ['awaiting', 'awaiting', 'awaiting', 'awaiting'])
+  assert.equal(pending.body.teams[0].status, 'pending_payment')
+  assert.equal(pending.body.teams[0].paymentStatus, 'awaiting')
+})
+
+test('T-43 ZGODY a/b counts live members only: a swap cannot inflate b, an accepted-then-swapped member leaves a, a signature in the office counts', async () => {
+  const { event, partner, session, teamId } = await freeTeam()
+  const regs = await byEvent(event.eventId)
+  const old = regs.find((r) => r.email === partner)
+  const next = runnerEmail('next')
+  assert.equal((await squadCall(teamId, 'swap', session, { registrationId: old.id, person: swapIn(next) })).status, 200)
+
+  let r = await listFor(event.eventId)
+  assert.equal(r.body.data.length, 5, 'the swapped-out row stays in the list')
+  assert.equal(r.body.teams[0].size, 4)
+  assert.equal(r.body.teams[0].consentAccepted, 3)
+
+  const added = (await byEvent(event.eventId)).find((x) => x.email === next)
+  const office = await call('mark-consent-office', { registrationId: added.id }, owner)
+  assert.equal(office.status, 200, JSON.stringify(office.body))
+  r = await listFor(event.eventId)
+  assert.equal(r.body.teams[0].size, 4)
+  assert.equal(r.body.teams[0].consentAccepted, 4)
+})
+
+test('T-43 a team whose order was cancelled leaves `teams`; its rows keep a team of size 0', async () => {
+  const { event, orderId, session } = await pendingTeam()
+  assert.equal((await call('cancel-my-order', { orderId }, session)).status, 200)
+  const r = await listFor(event.eventId)
+  assert.deepEqual(r.body.teams, [])
+  assert.ok(r.body.data.every((x) => x.team.size === 0 && x.paymentStatus === null))
+})
+
+test('T-43 my-event-registrations and order-status carry teamId, teamName and isCaptain; individual rows carry null and false', async () => {
+  const { event, session, teamId, orderId, body, partner } = await paidTeam()
+  const { slug } = await one('registration_settings', { event_id: event.eventId })
+  const mine = await call('my-event-registrations', { slug }, session)
+  assert.equal(mine.status, 200, JSON.stringify(mine.body))
+  assert.equal(mine.body.data.length, 4)
+  assert.ok(mine.body.data.every((x) => x.teamId === teamId && x.teamName === body.teamName))
+  assert.deepEqual(mine.body.data.map((x) => x.isCaptain).sort(), [false, false, false, true])
+  assert.equal(mine.body.data.find((x) => x.isCaptain).mine, true)
+
+  const theirs = await call('my-event-registrations', { slug }, await sessionFor(partner))
+  assert.equal(theirs.status, 200, JSON.stringify(theirs.body))
+
+  const status = await call('order-status', { orderId }, session)
+  assert.equal(status.status, 200, JSON.stringify(status.body))
+  assert.equal(status.body.data.lines.length, 1, 'one fee, one line (D5-26)')
+  const [line] = status.body.data.lines
+  assert.equal(line.teamId, teamId)
+  assert.equal(line.teamName, body.teamName)
+  assert.equal(line.isCaptain, true)
+})
+
+test('T-43 individual registrations: team null in the organizer list, null and false in the runner reads', async () => {
+  const event = await paidTeamEvent(owner, {
+    competitions: [BIEG(), STAFETA()], prices: { 'Bieg 9 km': 5000, Sztafeta: 24000 },
+  })
+  const me = runnerEmail('solo')
+  const session = await sessionFor(me)
+  const categoryId = (await one('competitions', { event_id: event.eventId, name: 'Bieg 9 km' })).category_id
+  const created = await call('create-order', {
+    categoryId, person: grownUp(me), acceptedConsentIds: await consentIds(event.eventId), serviceRegulamin: true,
+    displayedTotal: 5000,
+  }, session)
+  assert.equal(created.status, 201, JSON.stringify(created.body))
+  const { orderId } = created.body.data
+  const r = await listFor(event.eventId)
+  assert.equal(r.body.data[0].team, null)
+  const status = await call('order-status', { orderId }, session)
+  assert.equal(status.body.data.lines[0].teamId, null)
+  assert.equal(status.body.data.lines[0].teamName, null)
+  assert.equal(status.body.data.lines[0].isCaptain, false)
+})
+
+// ---------------------------------------------------------------- task-5a-review.md items 1 and 2
+
+test('T-45 a team name with line breaks is stored and mailed as one line (task-5a-review.md item 1)', async () => {
+  const event = await freeTeamEvent(owner)
+  const me = runnerEmail('capt')
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const body = await teamBody(event, fourOf(me, runnerEmail('adult')), { teamName: `Wilki\r\n  Stado\t${suffix}` })
+  const r = await call('register-team', body, await sessionFor(me))
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const clean = `Wilki Stado ${suffix}`
+  assert.equal((await teamsOf(event.eventId))[0].name, clean)
+  const [mail] = await waitForMail(me)
+  assert.doesNotMatch(mail.subject, /[\r\n\t]/)
+  assert.ok(mail.subject.includes(clean))
+})
+
+let injectSql
+const injectDb = () => (injectSql ??= postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} }))
+after(async () => { if (injectSql) await injectSql.end() })
+
+/** LOCAL stack only: add_payment_attempt raises `message` for orders of a marked buyer. Dropped afterwards. */
+async function withAttemptRefused(message, run) {
+  await injectDb().unsafe(`
+    CREATE OR REPLACE FUNCTION public.test_refuse_team_attempt() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM public.orders o WHERE o.id = NEW.order_id AND o.buyer_email LIKE 'refuse-attempt-%') THEN
+        RAISE EXCEPTION '${message}';
+      END IF;
+      RETURN NEW;
+    END $$;
+    DROP TRIGGER IF EXISTS test_refuse_team_attempt ON public.payment_attempts;
+    CREATE TRIGGER test_refuse_team_attempt BEFORE INSERT ON public.payment_attempts
+      FOR EACH ROW EXECUTE FUNCTION public.test_refuse_team_attempt();`)
+  try {
+    await run()
+  } finally {
+    await injectDb().unsafe(`
+      DROP TRIGGER IF EXISTS test_refuse_team_attempt ON public.payment_attempts;
+      DROP FUNCTION IF EXISTS public.test_refuse_team_attempt();`)
+  }
+}
+
+for (const [message, status, expected] of [
+  ['full', 409, { error: NO_PLACES, code: 'full' }],
+  ['not_payable', 409, { error: 'Zapisy są zamknięte.', code: 'closed' }],
+]) {
+  test(`T-45 add_payment_attempt refuses with ${message}: ${status}, the order cancelled attempt_refused, the name free (task-5a-review.md item 2)`, async () => {
+    await withAttemptRefused(message, async () => {
+      const event = await paidTeamEvent(owner)
+      const me = `refuse-attempt-${crypto.randomBytes(4).toString('hex')}@test.local`
+      const body = await teamBody(event, fourOf(me, runnerEmail('adult')))
+      const r = await call('register-team', body, await sessionFor(me))
+      assert.equal(r.status, status, JSON.stringify(r.body))
+      assert.deepEqual(r.body, expected)
+      const [order] = await rows('orders', { event_id: event.eventId })
+      assert.equal(order.status, 'cancelled')
+      assert.equal(order.cancelled_reason, 'attempt_refused')
+      assert.ok((await teamsOf(event.eventId))[0].released_at)
+      assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
+    })
+  })
+}
