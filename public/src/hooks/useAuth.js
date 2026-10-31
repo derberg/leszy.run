@@ -30,6 +30,18 @@ export function clearAuthCache() {
   store.clear()
 }
 
+/**
+ * The user once the session check has answered, for a click that arrives while `loading` is
+ * still true. A failed check settles as a visitor (the store does that itself), and so does one
+ * that outlasts `timeoutMs`, so a caller never hangs on it.
+ */
+export function resolveUser(timeoutMs = 8000) {
+  return Promise.race([
+    store.load().catch(() => null),
+    new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ])
+}
+
 export default function useAuth() {
   const [user, setUser] = useState(store.current() === undefined ? null : store.current())
   const [loading, setLoading] = useState(store.current() === undefined)

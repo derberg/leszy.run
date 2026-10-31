@@ -434,6 +434,41 @@ test('G-69 1440 px: a visitor changes the address from the code step and lands o
   await expect(page.getByTestId('consents').getByRole('checkbox').first()).toBeChecked()
 })
 
+// G-75: „Dalej” pressed while the session check is still on its way waits for it. `user` is null
+// then, which used to read as „signed out” and sent a signed-in runner to the code step.
+for (const [label, answer] of [
+  ['answers late', (route) => route.continue()],
+  ['fails', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })],
+]) {
+  test(`G-75 1440 px: „Dalej” before the sign-in check ${label} ${label === 'fails' ? 'asks for the code like a visitor' : 'goes straight to the summary, no code'}`, async ({ actors }) => {
+    const event = await EVENTS.paid([BIEG])
+    const page = await offline(await actors.runner.newPage())
+    let release
+    const released = new Promise((r) => { release = r })
+    let calls = 0
+    await page.route('**/edge/auth-me', async (route) => {
+      calls += 1
+      if (label === 'fails' || calls === 1) { await released; return answer(route) }
+      return route.continue()
+    })
+    await page.goto(`/events/${event.slug}/zapis/${event.categoryIds[0]}`)
+    await fillCard(page, 'p', { first: 'Ola', last: 'Leśna', birth: '1988-03-01', email: ACTOR_EMAILS.runner })
+    await tickAll(page)
+    await page.getByTestId('registration-submit').click()
+    // Held: neither the code step nor the summary yet, the button is busy.
+    await expect(page.getByTestId('registration-submit')).toBeDisabled()
+    await expect(page.getByTestId('code-step')).toHaveCount(0)
+    await expect(page.getByTestId('checkout')).toHaveCount(0)
+    release()
+    if (label === 'fails') {
+      await expect(page.getByTestId('code-step')).toBeVisible({ timeout: 30000 })
+    } else {
+      await expect(page.getByTestId('checkout')).toBeVisible()
+      await expect(page.getByTestId('code-step')).toHaveCount(0)
+    }
+  })
+}
+
 test('G-70 390 px: the phone\'s Back walks the steps with every person intact; on the first step it asks before it drops the group', async ({ actors }) => {
   const event = await EVENTS.free([BIEG])
   const [c9] = event.categoryIds

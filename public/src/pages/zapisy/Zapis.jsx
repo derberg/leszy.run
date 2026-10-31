@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import useAuth, { clearAuthCache } from '../../hooks/useAuth.js'
+import useAuth, { clearAuthCache, resolveUser } from '../../hooks/useAuth.js'
 import { clearFavoritesCache } from '../../hooks/useFavorites.js'
 import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import useSeo from '../../hooks/useSeo.js'
@@ -408,7 +408,15 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     if (preview || busy || !ready) return undefined
     setMessage(null)
     if (!checked()) return undefined
-    if (!codeNeeded) return paid ? toSummary() : register(null)
+    // The session check may still be on its way: `user` is null then, which is not „signed out”.
+    let needCode = codeNeeded
+    if (authLoading) {
+      setBusy(true)
+      const resolved = await resolveUser()
+      setBusy(false)
+      needCode = needsCode(resolved?.email, email, verifiedEmail)
+    }
+    if (!needCode) return paid ? toSummary() : register(null)
     return startCode(email)
   }
 
