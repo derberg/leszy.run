@@ -171,6 +171,12 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const touched = useRef(new Set())
   // The step last on screen; a change of it scrolls to the top and moves the focus.
   const shownStep = useRef(undefined)
+  // This form's history entries; an older form's in the same tab held another draft.
+  const formId = useRef(Math.random().toString(36).slice(2))
+  // The step on its way to the screen came from Back or Forward: it has an entry already.
+  const restoring = useRef(false)
+  // The entry under the first step is the way out of a group (set with the second person).
+  const exitEntry = useRef(false)
   // The card whose first invalid field takes the focus once the errors are on screen (I-1).
   const errorFocus = useRef(null)
   // The card asking „Usunąć <imię>?” (M-6).
@@ -197,13 +203,57 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const stepId = view.kind === 'list' ? LIST_STEP : draft.cards[view.index ?? 0].key
   useEffect(() => {
     const before = shownStep.current
-    const id = step === 'form' ? stepId : null
+    const id = step === 'form' ? stepId : step
     shownStep.current = id
-    if (before === undefined || id === null || id === before || errorFocus.current) return
+    // Each step is a history entry, in history.state and never in the address, so a phone's
+    // Back goes to the previous step. The router's own keys stay in the entry.
+    const entry = { ...window.history.state, zapis: { form: formId.current, id, step, at: stepId } }
+    if (before === undefined) window.history.replaceState(entry, '')
+    if (before === undefined || id === before) return
+    if (restoring.current) {
+      restoring.current = false
+    } else {
+      // The second person is coming: the entry under the first step becomes the way out.
+      if (guard && !exitEntry.current) {
+        exitEntry.current = true
+        window.history.replaceState({ ...entry, zapis: { form: formId.current, exit: true } }, '')
+        window.history.pushState({ ...entry, zapis: { ...entry.zapis, id: before, step: 'form', at: before } }, '')
+      }
+      window.history.pushState(entry, '')
+    }
+    if (step !== 'form' || errorFocus.current) return
     window.scrollTo({ top: 0, behavior: 'instant' })
     const target = view.kind === 'list' ? 'group-list-heading' : `${view.index ? `p${view.index + 1}` : 'p'}-first`
     document.getElementById(target)?.focus({ preventScroll: true })
   }, [step, stepId])
+
+  // Back or Forward. An entry of this form restores its step. Its exit entry asks first, since
+  // beforeunload does not fire for an in-app page, and passes on to the page before the form;
+  // the router hears every popstate, and none of this form's entries changes the address.
+  useEffect(() => {
+    const onPop = (e) => {
+      const s = e.state?.zapis
+      if (s?.form !== formId.current) return
+      if (s.exit) {
+        if (!guard || confirmLeave()) window.history.back()
+        else window.history.forward()
+        return
+      }
+      restoring.current = s.id !== shownStep.current
+      setMessage(null)
+      setRemoving(null)
+      setStep(s.step)
+      setAt(s.at)
+    }
+    // The browser would put a step back at its old scroll, over the top the step opens at.
+    const scrolling = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.history.scrollRestoration = scrolling
+      window.removeEventListener('popstate', onPop)
+    }
+  }, [guard])
 
   // A refusal landed on a card, whose step is on screen now: focus its first invalid field.
   useEffect(() => {

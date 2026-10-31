@@ -10,7 +10,7 @@ import { DPAY_MOCK_PORT } from '../helpers/dpayMock.js'
 // event, at 390 and 1440 px: G-44 (a)…(c) in docs/registration/scenario-matrix.md.
 // Task 5b: (d), the consent tags and the reminder on RA5, and G-47, RA4 for a group (one line
 // per person, re-priced from the server's answer after price_changed).
-// G-69: one person on screen at a time, the rest behind the list step.
+// G-69: one person on screen at a time, the rest behind the list step. G-70: Back walks those steps.
 
 const ZT = '00000000-0000-4000-8000-0000000000c1'
 const BIEG = { name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 }
@@ -432,6 +432,64 @@ test('G-69 1440 px: a visitor changes the address from the code step and lands o
   await page.getByTestId('person-done').click()
   await expect(page.getByTestId('person-row')).toHaveCount(2)
   await expect(page.getByTestId('consents').getByRole('checkbox').first()).toBeChecked()
+})
+
+test('G-70 390 px: the phone\'s Back walks the steps with every person intact; on the first step it asks before it drops the group', async ({ actors }) => {
+  const event = await EVENTS.free([BIEG])
+  const [c9] = event.categoryIds
+  const page = await offline(await actors.runner.newPage())
+  await page.setViewportSize({ width: 390, height: 900 })
+  await page.goto(`/events/${event.slug}`)
+  await page.getByTestId('competition').first().click()
+  await expect(page).toHaveURL(new RegExp(`/zapis/${c9}$`))
+  const form = page.url()
+
+  await fillMe(page)
+  await page.getByTestId('add-person').click()
+  await fillCard(page, 'p2', { first: 'Piotr', last: 'Leśny', birth: '1987-01-01', gender: 'Mężczyzna', email: email('piotr'), phone: '600300400' })
+  await page.getByTestId('add-person').click()
+  await fillCard(page, 'p3', { first: 'Ewa', last: 'Leśna', birth: '1990-06-06', email: email('ewa'), phone: '600500600' })
+
+  await page.goBack()
+  await onlyPerson(page, 'p2')
+  await atStepTop(page, 'p2')
+  await expect(page.locator('#p2-first')).toHaveValue('Piotr')
+  await expect(page.locator('#p2-phone')).toHaveValue('600300400')
+  expect(page.url()).toBe(form) // the step is in history.state, never in the address
+
+  await page.goForward()
+  await onlyPerson(page, 'p3')
+  await expect(page.locator('#p3-first')).toHaveValue('Ewa')
+
+  // The list is still reachable, and Back from it returns to the person it was opened from.
+  await page.getByTestId('group-link').click()
+  await expect(page.getByTestId('person-row')).toHaveCount(3)
+  await page.goBack()
+  await onlyPerson(page, 'p3')
+  await page.getByTestId('group-link').click()
+  await expect(page.getByTestId('person-row').nth(2)).toContainText('Ewa Leśna')
+  await page.goBack() // p3
+  await page.goBack() // p2
+  await page.goBack() // card 1, the first step
+  await onlyPerson(page, 'p')
+  await expect(page.locator('#p-first')).toHaveValue('Ola')
+
+  // Back past the first step asks; declined, the form and everybody on it stay.
+  let asked = null
+  page.once('dialog', (d) => { asked = d.message(); d.dismiss() })
+  await page.goBack()
+  await expect.poll(() => asked).toBe('Opuścić formularz? Wpisane dane osób przepadną.')
+  await expect(page).toHaveURL(new RegExp(`/zapis/${c9}$`))
+  await expect(page.locator('#p-first')).toHaveValue('Ola')
+  await page.getByTestId('group-link').click()
+  await expect(page.getByTestId('person-row')).toHaveCount(3)
+
+  // Accepted, it leaves.
+  await page.goBack()
+  await onlyPerson(page, 'p')
+  page.once('dialog', (d) => d.accept())
+  await page.goBack()
+  await expect(page.getByTestId('registration-event-page')).toBeVisible()
 })
 
 const PAY_PAGE = new RegExp(`localhost:${DPAY_MOCK_PORT}\\/pay\\/`)
