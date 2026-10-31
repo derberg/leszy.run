@@ -9,7 +9,8 @@
 // and a retired address per added adult. Everything that answers about somebody else's address or registration runs only for a
 // verified buyer and behind the throttles (fix round 1, I-1…I-3). The legacy
 // `{ categoryId, person }` body is a group of one whose person is the one registering, and keeps
-// its Plan 2 answers (`fields`, no `index`). Deno only
+// its Plan 2 answers (`fields`, no `index`). With `team: true` the body is register-team's: one
+// competition, its members a team (normalizeTeamRequest + validateTeam), member 0 the buyer. Deno only
 // (session, throttle and code verification touch the database through the admin client).
 import { getCorsHeaders } from '../cors.js'
 import { getSession } from '../session.js'
@@ -20,6 +21,7 @@ import { clubRegistrationEnabled } from '../organizer.js'
 import { isUuid } from './organizerEvent.js'
 import { isOpen } from './dates.js'
 import { normalizeGroupRequest, validateGroup } from './group.js'
+import { TEAM_NAME_MESSAGE, normalizeTeamRequest, teamSizeMessage, validateTeam } from './team.js'
 
 export function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -58,6 +60,28 @@ export const REFUSALS = {
   team_competition: [409, 'W tej konkurencji startują tylko drużyny.'],
 }
 
+// create_order's refusals beyond register_free's. create_team_registration raises them too.
+export const ORDER_REFUSALS = {
+  ...REFUSALS,
+  free_event: [409, 'Zapisy na te zawody są bezpłatne.'],
+  no_price: [409, 'Ta konkurencja nie ma jeszcze ceny. Spróbuj później.'],
+  paying_closed: [409, 'Zapisy z płatnością online kończą się godzinę przed zamknięciem zapisów.'],
+  too_many_pending: [409, 'Masz już dwa nieopłacone zgłoszenia na te zawody.'],
+  invalid_buyer_email: [400, 'Popraw adres e-mail.'],
+  'invalid_amount:total': [400, 'Kwota zamówienia przekracza limit płatności online.'],
+}
+export const PRICE_CHANGED = 'Cena się zmieniła. Sprawdź podsumowanie.'
+export const PENDING_ORDER = 'Masz już nieopłacone zgłoszenie na te zawody.'
+
+export const TEAM_REFUSALS = {
+  ...ORDER_REFUSALS,
+  full: [409, 'Brak wolnych miejsc dla drużyn.'],
+  not_team: [409, 'Ta konkurencja nie jest dla drużyn.'],
+  invalid_people: [400, 'Popraw zaznaczone pola.'],
+}
+const TEAM_NAME_TAKEN = 'Ta nazwa drużyny jest już zajęta.'
+const TEAM_TRY_AGAIN = 'Nie udało się zapisać drużyny. Spróbuj ponownie.'
+
 export const refusal = (code, req, headers = {}, table = REFUSALS) => {
   const [status, error] = table[code]
   return json({ error, code }, status, req, headers)
@@ -75,15 +99,18 @@ const sameSet = (a, b) => a.length === b.length && new Set(a).size === a.length 
  * Runs the shared steps. → { response } for an early answer, or
  * { competitions: Map<categoryId, competition>, competition (the first person's), settings,
  *   people: [{ categoryId, role: self|adult|minor, …validatePerson value }], buyer, buyerName,
- *   consentIds, email (the buyer's address), profileId, withCookie, legacy }.
+ *   consentIds, email (the buyer's address), profileId, withCookie, legacy, teamName }.
  * `pricing(settings)` returns a refusal code (a key of `refusals`) for an event this path does
  * not serve, or null.
  * `throttles(email)` lists the counters to claim: [{ key, limit, windowSeconds }].
  */
-export async function prepareRegistration(req, admin, body, { pricing, throttles, refusals = REFUSALS }) {
+export async function prepareRegistration(req, admin, body, { pricing, throttles, refusals = REFUSALS, team = false }) {
   const { acceptedConsentIds, serviceRegulamin, code } = body ?? {}
-  const legacy = !Array.isArray(body?.people) // Plan 2's `{ categoryId, person }`
-  const group = normalizeGroupRequest(body)
+  const legacy = !team && !Array.isArray(body?.people) // Plan 2's `{ categoryId, person }`
+  const teamRequest = team ? normalizeTeamRequest(body) : null
+  const group = team
+    ? { people: teamRequest.members.map((m) => ({ categoryId: teamRequest.categoryId, person: m.person })), buyer: null }
+    : normalizeGroupRequest(body)
   if (group.people.length === 0) return { response: json({ error: 'Brak danych osoby.' }, 400, req) }
 
   // ---- the event, derived from the competitions: every one known and of one event
@@ -105,6 +132,7 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
 
   // Early answers; the RPC re-checks all of them under its locks.
   if (settings.state !== 'published' || compRows.some((c) => c.hidden_at)) return { response: refusal('closed', req) }
+  if (team && competition.kind !== 'team') return { response: refusal('not_team', req, {}, refusals) }
   const priced = pricing(settings)
   if (priced) return { response: refusal(priced, req, {}, refusals) }
   const window = settings.opens_at && settings.closes_at
@@ -135,7 +163,31 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
   // `self` of validateGroup, so at most one person is self and it is always the buyer.
   const claimed = (group.buyer ? group.buyer.email : group.people[0].person?.email ?? '')
   const claimedEmail = typeof claimed === 'string' ? claimed.trim().toLowerCase() : ''
-  const checked = validateGroup(group, { sessionEmail: claimedEmail || null, competitions: contexts, now })
+  let teamValue = null
+  if (team) {
+    const validated = validateTeam({ ...teamRequest, categoryId: competition.category_id }, {
+      sessionEmail: claimedEmail || null,
+      competition: {
+        ...contexts.get(competition.category_id),
+        teamMin: competition.team_min, teamMax: competition.team_max, legOrderEnabled: competition.leg_order_enabled,
+      },
+      now,
+    })
+    if (!validated.ok) {
+      return {
+        response: json({
+          error: validated.groupError ?? 'Popraw zaznaczone pola.',
+          code: validated.groupError ? 'invalid_group' : 'invalid_person',
+          errors: validated.errors,
+          fields: validated.fieldErrors,
+        }, 400, req),
+      }
+    }
+    teamValue = validated.value
+  }
+  const checked = team
+    ? { ok: true, value: teamValue.members, buyerEmail: claimedEmail }
+    : validateGroup(group, { sessionEmail: claimedEmail || null, competitions: contexts, now })
   if (!checked.ok) {
     if (checked.groupError) return { response: json({ error: checked.groupError, code: 'invalid_group' }, 400, req) }
     const { buyer: buyerErrors, ...perPerson } = checked.errors
@@ -234,6 +286,7 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
     profileId,
     legacy,
     withCookie,
+    teamName: teamValue?.teamName ?? null,
   }
 }
 
@@ -284,5 +337,41 @@ export async function groupRefusal(admin, msg, { competitions, people, legacy, e
     return [409, { error, code: 'duplicate', index }]
   }
   if (msg === 'mixed_events') return [404, NOT_FOUND]
+  return null
+}
+
+/**
+ * create_team_registration's refusal as the captain's answer → [status, body], or null for an
+ * error that is no refusal. A deadlock (40P01; two teams sharing members in opposite order, which
+ * no lock serialises) wrote nothing and goes through on a retry. `duplicate:<i>` keeps the daily
+ * reveal cap of groupRefusal. `competition` is the competitions row, for the size in the message.
+ */
+export async function teamRefusal(admin, error, { competition, people, email }) {
+  if (error?.code === '40P01') return [409, { error: TEAM_TRY_AGAIN, code: 'try_again' }]
+  const msg = error?.message ?? ''
+  if (msg === 'not_found') return [404, NOT_FOUND]
+  if (msg === 'session_required') return [401, { error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }]
+  if (msg === 'team_name_taken') return [409, { error: TEAM_NAME_TAKEN, code: msg, fields: { teamName: TEAM_NAME_TAKEN } }]
+  if (msg === 'invalid_team_name') return [400, { error: TEAM_NAME_MESSAGE, code: msg, fields: { teamName: TEAM_NAME_MESSAGE } }]
+  if (msg === 'team_size') {
+    return [409, { error: teamSizeMessage(competition.team_min, competition.team_max), code: msg }]
+  }
+  const changed = /^price_changed:(\d+)$/.exec(msg)
+  if (changed) {
+    const total = Number(changed[1])
+    return [409, {
+      error: PRICE_CHANGED, code: 'price_changed',
+      amounts: { entryPrices: [total], entryTotal: total, extrasTotal: 0, donation: 0, total },
+    }]
+  }
+  if (/^duplicate:\d+$/.test(msg)) {
+    const [status, body] = await groupRefusal(admin, msg, { people, legacy: false, email })
+    if (body.code !== 'duplicate') return [status, body]
+    return [status, { error: PERSON_DUPLICATE, code: 'duplicate', index: body.index, errors: { [body.index]: { email: PERSON_DUPLICATE } } }]
+  }
+  if (TEAM_REFUSALS[msg]) {
+    const [status, text] = TEAM_REFUSALS[msg]
+    return [status, { error: text, code: msg }]
+  }
   return null
 }

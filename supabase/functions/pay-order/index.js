@@ -2,10 +2,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
-import { dpayConfig, registerTransaction } from '../_shared/dpay.js'
+import { dpayConfig } from '../_shared/dpay.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
 import { json, NOT_FOUND, REFUSALS } from '../_shared/registration/registrationRequest.js'
-import { logPaymentEvent } from '../_shared/registration/orderFlow.js'
+import { DPAY_DOWN, PAYMENTS_OFF, startPaymentAttempt } from '../_shared/registration/orderFlow.js'
 
 // New payments per order, per hour (claim_throttle_slot).
 const PAY_LIMIT = 10
@@ -17,7 +17,6 @@ const STATE_REFUSALS = {
   cancelled: [409, 'To zgłoszenie zostało anulowane. Zapisz się ponownie.'],
   expired: EXPIRED,
 }
-const DPAY_DOWN = 'Nie udało się połączyć z operatorem płatności. Spróbuj ponownie.'
 
 // POST { orderId } → 200 { data: { redirectUrl } }
 // A new dpay transaction for a pending order at its frozen total (a dpay transaction lives
@@ -34,7 +33,7 @@ Deno.serve(async (req) => {
     cfg = dpayConfig(Deno.env)
   } catch (err) {
     console.error('pay-order:', err?.message)
-    return json({ error: 'Płatności online są chwilowo niedostępne.' }, 503, req)
+    return json({ error: PAYMENTS_OFF }, 503, req)
   }
 
   const admin = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
@@ -74,35 +73,14 @@ Deno.serve(async (req) => {
         { 'retry-after': String(throttle.retryAfterSec) })
     }
 
-    let txn
-    try {
-      txn = await registerTransaction(cfg, { orderId: order.id, grosze: order.total })
-    } catch (err) {
-      console.error('pay-order: dpay register failed:', err?.httpStatus ?? null, err?.message)
-      await logPaymentEvent(admin, {
-        kind: 'register', orderId: order.id,
-        payload: { ok: false, httpStatus: err?.httpStatus ?? null, message: err?.message ?? null, grosze: order.total },
-      })
-      return json({ error: DPAY_DOWN, code: 'dpay_unavailable' }, 502, req)
-    }
-
-    // The RPC re-checks under the order lock: still pending, not past expiry, registration open.
-    const { data: attemptId, error: aErr } = await admin.rpc('add_payment_attempt', {
-      p_order_id: order.id, p_txn: txn.transactionId, p_grosze: order.total,
-    })
-    if (aErr) {
-      if (aErr.message === 'full') return refuse(REFUSALS.full, 'full')
-      if (aErr.message === 'not_payable') {
-        const { data: now } = await admin.from('orders').select('status').eq('id', order.id).maybeSingle()
-        return now?.status === 'pending' ? refuse(REFUSALS.closed, 'closed') : refuse(STATE_REFUSALS[now?.status] ?? EXPIRED, now?.status ?? 'expired')
-      }
-      throw aErr
-    }
-    await logPaymentEvent(admin, {
-      kind: 'register', orderId: order.id, attemptId,
-      payload: { ok: true, transactionId: txn.transactionId, redirectUrl: txn.redirectUrl, grosze: order.total },
-    })
-    return json({ data: { redirectUrl: txn.redirectUrl } }, 200, req)
+    // add_payment_attempt re-checks under the order lock: still pending, not past expiry,
+    // registration open. A failure leaves the order pending: it keeps its window (D5-24).
+    const attempt = await startPaymentAttempt(admin, cfg, { orderId: order.id, total: order.total })
+    if (attempt.redirectUrl) return json({ data: { redirectUrl: attempt.redirectUrl } }, 200, req)
+    if (attempt.refused === 'dpay_unavailable') return json({ error: DPAY_DOWN, code: 'dpay_unavailable' }, 502, req)
+    if (attempt.refused === 'full') return refuse(REFUSALS.full, 'full')
+    const { data: now } = await admin.from('orders').select('status').eq('id', order.id).maybeSingle()
+    return now?.status === 'pending' ? refuse(REFUSALS.closed, 'closed') : refuse(STATE_REFUSALS[now?.status] ?? EXPIRED, now?.status ?? 'expired')
   } catch (err) {
     console.error('pay-order error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)

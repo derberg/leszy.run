@@ -41,20 +41,23 @@ export const consentLink = (site, token) => `${site}/zgoda#${token}`
 /** The runner data information of the event, which the consent e-mail links (Art. 14). */
 export const dataInfoUrl = (site, slug) => `${site}/events/${encodeURIComponent(slug)}/informacja-o-danych`
 
-const REG_COLUMNS = 'id, event_id, category_id, order_id, first_name, email, status, consent_state, registered_by_profile_id'
+const REG_COLUMNS = 'id, event_id, category_id, order_id, team_id, first_name, email, status, consent_state, registered_by_profile_id'
 
 /** Everything the e-mails of `regs` need besides the token: → (registration) → mail builder. */
 async function mailContext(admin, regs, { registeredBy = null, site = null } = {}) {
   const events = [...new Set(regs.map((r) => r.event_id))]
   const cats = [...new Set(regs.map((r) => r.category_id))]
-  const [settingsRows, comps, names] = await Promise.all([
+  const teamIds = [...new Set(regs.map((r) => r.team_id).filter(Boolean))]
+  const [settingsRows, comps, names, teams] = await Promise.all([
     rows(admin.from('registration_settings')
       .select('event_id, name, slug, event_date, first_start_time, town_label, place_details').in('event_id', events)),
     rows(admin.from('competitions').select('category_id, name, start_time').in('category_id', cats)),
     registeredBy ? Promise.resolve(() => null) : registeredByNames(admin, regs),
+    teamIds.length ? rows(admin.from('teams').select('id, name').in('id', teamIds)) : [],
   ])
   const settingsBy = new Map(settingsRows.map((s) => [s.event_id, s]))
   const compBy = new Map(comps.map((c) => [c.category_id, c]))
+  const teamBy = new Map(teams.map((t) => [t.id, t]))
   const base = publicSite(site)
   return (r, token, { reminder = false } = {}) => {
     const settings = settingsBy.get(r.event_id)
@@ -72,6 +75,7 @@ async function mailContext(admin, regs, { registeredBy = null, site = null } = {
       link: consentLink(base, token),
       dataInfoUrl: dataInfoUrl(base, settings.slug),
       reminder,
+      team: teamBy.get(r.team_id) ?? null,
     })
   }
 }

@@ -265,3 +265,73 @@ test('G-35 the consent link is absolute without PUBLIC_SITE_URL: it falls back t
     else globalThis.Deno = prev
   }
 })
+
+// ---------------------------------------------------------------- teams (Plan 5)
+
+import { squadRemovedEmail, teamConfirmationEmail } from '../../../supabase/functions/_shared/registration/emails.js'
+
+const teamArgs = {
+  event,
+  team: { name: 'Wilcze <Stado>', competition: 'Sztafeta' },
+  members: [
+    { firstName: 'Ola', lastName: 'Leśna', role: 'self', ageGroupLabel: 'K open' },
+    { firstName: 'Piotr', lastName: 'Borowy', role: 'adult', ageGroupLabel: 'M open' },
+    { firstName: 'Zosia', lastName: 'Leśna', role: 'minor', ageGroupLabel: null },
+    { firstName: 'Staś', lastName: 'Leśna', role: 'minor', ageGroupLabel: null },
+  ],
+  link: 'https://www.leszy.run/events/bieg-leszego-2026/druzyna/t1',
+  paid: null,
+}
+
+test('T-40 teamConfirmationEmail, free: subject, every member, „opiekun: kapitan” for minors only, the squad link, no payment wording, no bib, no leg', () => {
+  const m = teamConfirmationEmail(teamArgs)
+  assert.equal(m.subject, 'Drużyna Wilcze <Stado> jest na liście — Bieg Leszego <2026>')
+  for (const part of [m.text, m.html]) {
+    for (const name of ['Ola Leśna', 'Piotr Borowy', 'Zosia Leśna', 'Staś Leśna']) assert.ok(part.includes(name), name)
+    assert.ok(part.includes('Zarządzaj składem'))
+    assert.ok(part.includes(teamArgs.link))
+    assert.ok(part.includes('Sztafeta'))
+    assert.doesNotMatch(part, /Razem|paragonem|Transakcja|Opłaty startowe/)
+    assert.doesNotMatch(part, /numer startow|\bbib\b|zmiana \d|\d\. zmiana/i)
+  }
+  assert.equal(m.text.match(/opiekun: kapitan/g).length, 2)
+  assert.match(m.text, /Staś Leśna.*opiekun: kapitan/)
+  assert.ok(m.html.includes('Wilcze &lt;Stado&gt;'))
+  assert.ok(!m.html.includes('<Stado>'))
+})
+
+test('T-41 teamConfirmationEmail, paid: the amounts, the organizer, the transaction, the order page', () => {
+  const m = teamConfirmationEmail({
+    ...teamArgs,
+    paid: { order: { ...order, entryTotal: 24000, total: 24000 }, organizer, orderUrl: 'https://www.leszy.run/zamowienie/o1' },
+  })
+  assert.equal(m.subject, 'Drużyna Wilcze <Stado> jest na liście — Bieg Leszego <2026>')
+  for (const part of [m.text, m.html]) {
+    assert.ok(part.includes('w imieniu i na rzecz Organizatora: Klub ZATYRANI'))
+    assert.ok(part.includes('Razem'))
+    assert.ok(part.includes(formatPln(24000)))
+    assert.ok(part.includes('TXN-ABC-123'))
+    assert.ok(part.includes('29.10.2026'))
+    assert.ok(part.includes('https://www.leszy.run/zamowienie/o1'))
+    assert.ok(part.includes('Zarządzaj składem'))
+  }
+  assert.match(m.text, /nie jest paragonem/)
+})
+
+test('T-42 squadRemovedEmail: subject, the event, no address, no bib', () => {
+  const m = squadRemovedEmail({ event, team: { name: 'Wilcze <Stado>' }, firstName: 'Piotr' })
+  assert.equal(m.subject, 'Nie jesteś już w składzie drużyny Wilcze <Stado>')
+  assert.ok(m.text.startsWith('Cześć Piotr,'))
+  for (const part of [m.text, m.html]) assert.ok(part.includes('LESZY.RUN'))
+  assert.ok(m.text.includes('Bieg Leszego <2026>'))
+  assert.ok(m.html.includes('Wilcze &lt;Stado&gt;'))
+  assert.ok(!m.html.includes('<Stado>'))
+})
+
+test('T-40 consentRequestEmail with a team: „w drużynie <nazwa>”; without one the sentence is unchanged', () => {
+  const m = consentRequestEmail({ ...consentArgs, team: { name: 'Wilcze <Stado>' } })
+  assert.ok(m.text.includes(`zapisał(a) Cię na zawody ${event.name} w drużynie Wilcze <Stado>.`))
+  assert.ok(m.html.includes('w drużynie Wilcze &lt;Stado&gt;'))
+  assert.ok(!m.html.includes('<Stado>'))
+  assert.doesNotMatch(consentRequestEmail(consentArgs).text, /drużyn/)
+})

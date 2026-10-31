@@ -198,6 +198,10 @@ entrypoint = "./functions/register-free/index.js"
 verify_jwt = false
 entrypoint = "./functions/create-order/index.js"
 
+[functions.register-team]
+verify_jwt = false
+entrypoint = "./functions/register-team/index.js"
+
 [functions.pay-order]
 verify_jwt = false
 entrypoint = "./functions/pay-order/index.js"

@@ -1,12 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
 import { clientIp } from '../_shared/organizer.js'
-import { dpayConfig, registerTransaction } from '../_shared/dpay.js'
+import { dpayConfig } from '../_shared/dpay.js'
 import { orderAmounts } from '../_shared/registration/money.js'
 import {
-  json, NOT_FOUND, REFUSALS, fullRefusal, groupRefusal, prepareRegistration, rpcPeople,
+  json, NOT_FOUND, ORDER_REFUSALS, PENDING_ORDER, PRICE_CHANGED, fullRefusal, groupRefusal, prepareRegistration, rpcPeople,
 } from '../_shared/registration/registrationRequest.js'
-import { logPaymentEvent, raiseAlert, sendOrderConfirmation } from '../_shared/registration/orderFlow.js'
+import {
+  DPAY_DOWN, PAYMENTS_OFF, ownPendingOrder, sendOrderConfirmation, startPaymentAttempt,
+} from '../_shared/registration/orderFlow.js'
 import { issueOrderConsentRequests } from '../_shared/registration/consentRequests.js'
 
 // Throttles (claim_throttle_slot): orders per address and per client IP, per hour (the IP limit
@@ -14,20 +16,6 @@ import { issueOrderConsentRequests } from '../_shared/registration/consentReques
 const ORDER_LIMIT = 10
 const ORDER_IP_LIMIT = 20
 const HOUR = 3600
-
-// create_order's refusals beyond register_free's, and what the runner reads.
-const ORDER_REFUSALS = {
-  ...REFUSALS,
-  free_event: [409, 'Zapisy na te zawody są bezpłatne.'],
-  no_price: [409, 'Ta konkurencja nie ma jeszcze ceny. Spróbuj później.'],
-  paying_closed: [409, 'Zapisy z płatnością online kończą się godzinę przed zamknięciem zapisów.'],
-  too_many_pending: [409, 'Masz już dwa nieopłacone zgłoszenia na te zawody.'],
-  invalid_buyer_email: [400, 'Popraw adres e-mail.'],
-  'invalid_amount:total': [400, 'Kwota zamówienia przekracza limit płatności online.'],
-}
-const PRICE_CHANGED = 'Cena się zmieniła. Sprawdź podsumowanie.'
-const DPAY_DOWN = 'Nie udało się połączyć z operatorem płatności. Spróbuj ponownie.'
-const PENDING_ORDER = 'Masz już nieopłacone zgłoszenie na te zawody.'
 
 // The amounts behind a price_changed refusal: each person at their own competition's current
 // price from the public read model (the same tier choice create_order makes, D4-27) through
@@ -49,37 +37,6 @@ async function currentAmounts(admin, settings, people, total) {
     console.error('create-order: amounts for price_changed:', err?.message)
   }
   return { total }
-}
-
-// A live registration of the group (any adult's address, or a child by name and birth date) in
-// this buyer's own pending order (a resubmit after leaving the dpay page, or a double click) →
-// that order's id, else null (P3-R8, D4-27).
-async function ownPendingOrder(admin, eventId, people, profileId) {
-  const emails = people.map((p) => p.email).filter(Boolean)
-  const found = emails.length
-    ? await rowsOf(admin.from('registrations').select('order_id')
-      .eq('event_id', eventId).in('email', emails).eq('status', 'pending_payment'))
-    : []
-  for (const m of people.filter((p) => p.role === 'minor')) {
-    found.push(...await rowsOf(admin.from('registrations').select('order_id, first_name, last_name')
-      .eq('event_id', eventId).is('email', null).eq('birth_date', m.birthDate).eq('status', 'pending_payment')
-      .ilike('first_name', likeLiteral(m.firstName)).ilike('last_name', likeLiteral(m.lastName))))
-  }
-  const ids = [...new Set(found.map((r) => r.order_id).filter(Boolean))]
-  if (!ids.length) return null
-  const { data: orders, error: oErr } = await admin.from('orders')
-    .select('id').in('id', ids).eq('status', 'pending').eq('buyer_profile_id', profileId).limit(1)
-  if (oErr) throw oErr
-  return orders?.[0]?.id ?? null
-}
-
-// A name matched case-insensitively and literally (a % or _ in it is not a wildcard).
-const likeLiteral = (v) => String(v).replace(/[\\%_]/g, (c) => `\\${c}`)
-
-async function rowsOf(query) {
-  const { data, error } = await query
-  if (error) throw error
-  return data ?? []
 }
 
 // POST { people: [{ categoryId, person, guardianConsent? }], buyer?, acceptedConsentIds, serviceRegulamin,
@@ -175,62 +132,17 @@ Deno.serve(async (req) => {
       return answer({ data: { orderId, status: 'paid' } }, 201)
     }
 
-    // From here the order holds a slot. Unless a redirect is handed out, it is cancelled.
-    let handedOut = false
-    let cancelReason = 'create_order_aborted'
-    try {
-      if (!cfg) {
-        cancelReason = 'dpay_unconfigured'
-        return answer({ error: 'Płatności online są chwilowo niedostępne.' }, 503)
-      }
-      let txn
-      try {
-        txn = await registerTransaction(cfg, { orderId, grosze: created.total })
-      } catch (err) {
-        console.error('create-order: dpay register failed:', err?.httpStatus ?? null, err?.message)
-        await logPaymentEvent(admin, {
-          kind: 'register', orderId,
-          payload: { ok: false, httpStatus: err?.httpStatus ?? null, message: err?.message ?? null, grosze: created.total },
-        })
-        cancelReason = 'dpay_register_failed'
-        return answer({ error: DPAY_DOWN, code: 'dpay_unavailable' }, 502)
-      }
-
-      const { data: attemptId, error: aErr } = await admin.rpc('add_payment_attempt', {
-        p_order_id: orderId, p_txn: txn.transactionId, p_grosze: created.total,
-      })
-      if (aErr) {
-        // A transaction we never hand out: nobody can pay it.
-        console.error('create-order: add_payment_attempt failed:', aErr.message)
-        if (aErr.message === 'full') {
-          cancelReason = 'attempt_refused'
-          const { data: comps } = await admin.from('competitions')
-            .select('category_id, name, taken, capacity').in('category_id', [...competitions.keys()])
-          return answer(fullRefusal(comps ?? [], people, { legacy }), 409)
-        }
-        if (aErr.message === 'not_payable') {
-          cancelReason = 'attempt_refused'
-          return answer({ error: ORDER_REFUSALS.closed[1], code: 'closed' }, 409)
-        }
-        throw aErr
-      }
-      await logPaymentEvent(admin, {
-        kind: 'register', orderId, attemptId,
-        payload: { ok: true, transactionId: txn.transactionId, redirectUrl: txn.redirectUrl, grosze: created.total },
-      })
-      handedOut = true
-      return answer({ data: { orderId, redirectUrl: txn.redirectUrl } }, 201)
-    } finally {
-      if (!handedOut) {
-        try {
-          const { error: cErr } = await admin.rpc('cancel_order', { p_order_id: orderId, p_reason: cancelReason })
-          if (cErr) throw cErr
-        } catch (err) {
-          console.error('create-order: cancel_order failed:', err?.message)
-          await raiseAlert(admin, 'cancel_failed', orderId, { reason: cancelReason })
-        }
-      }
+    // Unless a redirect is handed out, the order is cancelled (P3-R7).
+    const attempt = await startPaymentAttempt(admin, cfg, { orderId, total: created.total, cancelOnFailure: true })
+    if (attempt.redirectUrl) return answer({ data: { orderId, redirectUrl: attempt.redirectUrl } }, 201)
+    if (attempt.refused === 'dpay_unconfigured') return answer({ error: PAYMENTS_OFF }, 503)
+    if (attempt.refused === 'dpay_unavailable') return answer({ error: DPAY_DOWN, code: 'dpay_unavailable' }, 502)
+    if (attempt.refused === 'full') {
+      const { data: comps } = await admin.from('competitions')
+        .select('category_id, name, taken, capacity').in('category_id', [...competitions.keys()])
+      return answer(fullRefusal(comps ?? [], people, { legacy }), 409)
     }
+    return answer({ error: ORDER_REFUSALS.closed[1], code: 'closed' }, 409)
   } catch (err) {
     console.error('create-order error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req, withCookie)
