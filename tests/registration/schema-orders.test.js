@@ -104,18 +104,18 @@ test('P-10 anon and authenticated hold no privilege on the new tables, RLS is on
 
 // ---------------------------------------------------------------- G-70
 
-test('G-70 the fee columns and the fee functions are gone; a new order carries no legacy fee', async () => {
+test('G-70 the fee columns and the fee functions are gone; the total is the amounts owed and nothing else', async () => {
   const cols = await db()`select column_name from information_schema.columns
-    where table_schema = 'public' and table_name = 'orders' and column_name in ('support_choice', 'support_fee', 'payment_fee')`
+    where table_schema = 'public' and table_name = 'orders' and column_name in ('support_choice', 'support_fee', 'payment_fee', 'legacy_fees')`
   assert.deepEqual(cols.map((c) => c.column_name), [])
   const fns = await db()`select proname from pg_proc where proname in ('registration_support_fee', 'registration_payment_fee')`
   assert.deepEqual(fns.map((f) => f.proname), [])
   const fee = await db()`select p.oid::regprocedure::text as fn from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.prokind = 'f' and p.prosrc ~ 'support_fee|payment_fee|support_choice|registration_support|registration_payment_fee'`
   assert.deepEqual(fee.map((f) => f.fn), [])
-  const { event } = await seedEvent()
-  const [row] = await db()`insert into public.orders ${db()(orderRow(event.id))} returning legacy_fees, total`
-  assert.deepEqual({ ...row }, { legacy_fees: 0, total: 6000 })
+  const [check] = await db()`select pg_get_constraintdef(oid) as def from pg_constraint
+    where conrelid = 'public.orders'::regclass and conname = 'orders_amounts_add_up_check'`
+  assert.equal(check.def, 'CHECK ((total = ((entry_total + extras_total) + donation)))')
 })
 
 // ---------------------------------------------------------------- P-12

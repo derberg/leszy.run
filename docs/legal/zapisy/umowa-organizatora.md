@@ -42,7 +42,7 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 2. Strony kwalifikują umowę w zakresie §3 ust. 2 lit. a i b jako umowę agencyjną (art. 758 i nast. Kodeksu cywilnego), a jeżeli Organizator nie jest przedsiębiorcą — jako umowę zlecenia z pełnomocnictwem (art. 734 i nast. oraz art. 750 Kodeksu cywilnego). [DO WERYFIKACJI: zob. „Do weryfikacji”, pkt 1.]
 3. Warunki Zgłoszenia (konkurencje, limity miejsc, opłaty i ich progi czasowe, termin zapisów, czas na opłacenie, możliwość przekazania pakietu i jego opłata, kody rabatowe) ustala Organizator w Serwisie. Usługodawca przyjmuje Zgłoszenia ściśle według tych ustawień.
 4. Usługodawca nie przyjmuje Zgłoszeń ponad limit miejsc. Wyjątek stanowi przekazanie pakietu innej osobie do innej konkurencji o tej samej cenie, które może przekroczyć limit tej konkurencji, bo miejsce zostało już sprzedane. Limit miejsc obejmuje wyłącznie Zgłoszenia opłacone oraz Zgłoszenia niewymagające opłaty. Zgłoszenie oczekujące na płatność nie zajmuje miejsca; miejsce przypada temu, czyja płatność wpłynie wcześniej.
-5. Opłacona przez Uczestnika kwota obejmuje wyłącznie ceny ustalone przez Organizatora. Uczestnik widzi każdą z tych pozycji osobno przed zapłatą. Usługodawca nie pobiera od Uczestników żadnych opłat na swoją rzecz.
+5. Opłacona przez Uczestnika kwota obejmuje wyłącznie Opłaty od Uczestników. Uczestnik widzi każdą z tych pozycji osobno przed zapłatą. Usługodawca nie pobiera od Uczestników żadnych opłat na swoją rzecz.
 
 ## §5. Przyjmowanie Opłat od Uczestników
 
@@ -66,7 +66,7 @@ Pojęcia pisane wielką literą, niezdefiniowane poniżej, mają znaczenie nadan
 
 ## §7. Wypłata
 
-1. Usługodawca wypłaca Organizatorowi, przelewem na Rachunek do wypłat, sumę opłat startowych, cen produktów dodatkowych i darowizn zapłaconych za Wydarzenie, pomniejszoną o zwroty. [DO UZUPEŁNIENIA: czy wynagrodzenie Usługodawcy z §8 jest potrącane z wypłaty, czy Organizator płaci je osobno.]
+1. Usługodawca wypłaca Organizatorowi, przelewem na Rachunek do wypłat, sumę opłat startowych, cen produktów dodatkowych i darowizn zapłaconych za Wydarzenie, pomniejszoną o zwroty. Organizator otrzymuje te kwoty w całości, z zastrzeżeniem rozstrzygnięcia o potrąceniu wskazanego w tym ustępie. [DO UZUPEŁNIENIA: czy wynagrodzenie Usługodawcy z §8 jest potrącane z wypłaty, czy Organizator płaci je osobno.] [DO UZUPEŁNIENIA: kto ponosi prowizję operatora płatności]
 2. Wypłata następuje jednorazowo, w terminie 7 dni od Dnia zawodów. [DO UZUPEŁNIENIA: czy Usługodawca dopuszcza wypłaty częściowe przed Dniem zawodów — Specyfikacja przewiduje wyłącznie wypłatę po zawodach.]
 3. Wraz z wypłatą Usługodawca udostępnia Organizatorowi zestawienie: liczba i kwota opłaconych Zgłoszeń, produktów i darowizn, zwroty, kwota wypłaty, Rachunek do wypłat.
 4. Rachunek do wypłat i dane odbiorcy może ustawić i zmienić wyłącznie właściciel klubu. Każda zmiana jest zapisywana w historii i potwierdzana wiadomością e-mail do właściciela klubu. Przed wypłatą Usługodawca sprawdza historię zmian i może wstrzymać wypłatę do czasu potwierdzenia rachunku przez właściciela klubu innym kanałem, jeżeli rachunek zmieniono w ciągu [DO UZUPEŁNIENIA: np. 7] dni przed wypłatą.

@@ -68,7 +68,7 @@ Obecne ust. 1–5 **zastąpić** ust. 1–9:
 
 ## §5a. Serwis nieodpłatny dla Uczestników (nowy)
 
-> 1. Korzystanie z Serwisu jest dla Uczestników nieodpłatne. Uczestnik płaci wyłącznie Opłatę startową ustaloną przez Organizatora. Usługodawca nie pobiera od Uczestników żadnych opłat na swoją rzecz.
+> 1. Korzystanie z Serwisu jest dla Uczestników nieodpłatne. Uczestnik płaci wyłącznie kwoty należne Organizatorowi: Opłatę startową oraz, jeżeli je wybierze, produkty dodatkowe i darowiznę. Żadna kwota nie jest należna Usługodawcy.
 > 2. Darowiznę na cel zawodów charytatywnych Uczestnik wybiera sam; żadna kwota nie jest zaznaczona z góry. Darowizna należy do Organizatora (lub wskazanego przez niego beneficjenta).
 
 ## §5b. Płatności i zwroty (nowy)

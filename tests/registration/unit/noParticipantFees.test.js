@@ -16,15 +16,25 @@ const RUNNER_FACING = [
   'public/src/lib/checkout.js',
   'public/src/lib/eventPageModel.js',
   'public/src/legal/runnerDataInfo.js',
+  'public/src/legal/organizerAgreement.js',
   'supabase/functions/_shared/registration/emails.js',
   'supabase/functions/create-order/index.js',
+  'supabase/functions/order-status/index.js',
 ]
-const FORBIDDEN = /Wspieram|Nie tym razem|Wesprzesz|Obsługa płatności|Wsparcie LESZY|wspierasz LESZY|doliczamy/
+const FORBIDDEN = /wspieram|nie tym razem|wesprzesz|wspierasz|wsparci|obsługa płatności|opłat\p{L}* za obsług|doliczamy/iu
 
 function filesUnder(path) {
   if (statSync(path).isFile()) return [path]
   return readdirSync(path).flatMap((name) => filesUnder(join(path, name)))
 }
+
+test('G-70 the guard itself catches every form of the wording, in any case', () => {
+  for (const s of ['Wspieram', 'WSPIERAM', 'nie tym razem', 'Obsługa płatności dpay', 'obsługa płatności',
+    'Opłata za obsługę płatności', 'opłaty za obsługę', 'Wsparcie LESZY.RUN', 'wsparcie', 'dobrowolnym wsparciu', 'Do płatności doliczamy']) {
+    assert.match(s, FORBIDDEN, s)
+  }
+  assert.doesNotMatch('Płatność obsługuje dpay', FORBIDDEN)
+})
 
 test('G-70 no runner-facing page, e-mail or refusal words a charge payable to LESZY.RUN', () => {
   const hits = RUNNER_FACING.flatMap((p) => filesUnder(join(ROOT, p)))

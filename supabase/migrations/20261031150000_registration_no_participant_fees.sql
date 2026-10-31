@@ -5,30 +5,22 @@
 --
 -- * orders.support_choice, support_fee and payment_fee go, with their CHECKs, and so do the SQL
 --   mirrors of the two fee formulas.
--- * Rows written before this migration may carry a fee. PAID_REGISTRATION_ENABLED is false, so
---   none is expected, but the migration does not rely on that:
---   - a pending order that carries a fee is cancelled (and its registrations), because paying it
---     would charge the fee. A payment already under way lands on a cancelled order, and
---     confirm_order refunds that in full. The runner registers again at the entry price.
---   - any other row keeps its `total`, the amount actually charged, and that amount has to keep
---     adding up. A NOT VALID CHECK would not do it: it refuses later UPDATEs of the old row too.
---     So the fees of such a row move to orders.legacy_fees, which is 0 for every new order and
---     which nothing reads or writes. Refunds work from what was paid, so they need no change.
+-- * The guard below refuses to run if any order carries a fee. Production had 0 orders when this
+--   was written and a paid event cannot be published while PAID_REGISTRATION_ENABLED is false. An
+--   order with a fee means that assumption broke, and a person must decide what happens to it:
+--   the release should stop rather than rewrite money.
 -- * create_order loses p_support_choice in both overloads. The old signature cannot be replaced
 --   in place, so both are dropped and created again, with their REVOKEs and GRANTs.
 
-UPDATE public.orders
-   SET status = 'cancelled', cancelled_reason = 'participant_fees_removed', cancelled_at = now()
- WHERE status = 'pending' AND (support_fee > 0 OR payment_fee > 0);
-UPDATE public.registrations r
-   SET status = 'cancelled'
-  FROM public.orders o
- WHERE r.order_id = o.id AND r.status = 'pending_payment'
-   AND o.status = 'cancelled' AND o.cancelled_reason = 'participant_fees_removed';
-
-ALTER TABLE public.orders
-  ADD COLUMN legacy_fees integer NOT NULL DEFAULT 0 CHECK (legacy_fees >= 0);
-UPDATE public.orders SET legacy_fees = support_fee + payment_fee WHERE support_fee > 0 OR payment_fee > 0;
+DO $$
+DECLARE
+  v_count bigint;
+BEGIN
+  SELECT count(*) INTO v_count FROM public.orders WHERE support_fee <> 0 OR payment_fee <> 0;
+  IF v_count > 0 THEN
+    RAISE EXCEPTION '% order(s) carry a participant fee: decide what happens to them before removing the fee columns', v_count;
+  END IF;
+END $$;
 
 ALTER TABLE public.orders
   DROP CONSTRAINT orders_support_choice_check,
@@ -40,7 +32,7 @@ ALTER TABLE public.orders
   DROP COLUMN payment_fee;
 ALTER TABLE public.orders
   ADD CONSTRAINT orders_amounts_add_up_check
-    CHECK (total = entry_total + extras_total + donation + legacy_fees);
+    CHECK (total = entry_total + extras_total + donation);
 
 DROP FUNCTION public.create_order(uuid, jsonb, uuid, text, boolean, integer, jsonb);
 DROP FUNCTION public.create_order(jsonb, uuid, text, boolean, integer, jsonb);

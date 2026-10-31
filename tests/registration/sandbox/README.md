@@ -17,6 +17,10 @@ Without `DPAY_ENV=sandbox` every test is skipped ("DPAY_ENV is not sandbox").
 | S-06 | records the real `details` shape before and after a partial refund, the refund response, and whether a repeated `DigitalPayments-PSP-Message-ID` refunds twice |
 
 Until S-05 and S-06 pass against the sandbox, the poll path is unproven against dpay.
+
+**Before `PAID_REGISTRATION_ENABLED` flips:** confirm dpay's minimum transaction amount here. The total is
+now the entry prices alone, so an organizer's 0,01 zł price (`sections.js` accepts it) reaches dpay as 0,01 zł,
+where it used to be at least 0,21 zł. No document in this repo states dpay's minimum, and no test covers it yet.
 The run log is `tests/registration/test-results/sandbox-run-log.json` (field names, types and lengths only).
 
 ## Production hosts (the suite refuses these)
