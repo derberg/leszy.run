@@ -130,8 +130,6 @@ export function orderAmountsOf(order) {
     entryTotal: order.entry_total,
     extrasTotal: order.extras_total,
     donation: order.donation,
-    supportFee: order.support_fee,
-    paymentFee: order.payment_fee,
     total: order.total,
   }
 }
@@ -155,8 +153,6 @@ export function orderEmailArgs(view) {
     order: {
       id: order.id,
       entryTotal: order.entry_total,
-      supportFee: order.support_fee,
-      paymentFee: order.payment_fee,
       total: order.total,
       paidTransactionId: order.paid_transaction_id,
       paidAt: order.paid_at,

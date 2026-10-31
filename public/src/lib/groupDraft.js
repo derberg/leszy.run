@@ -158,7 +158,7 @@ function requestPeople(draft, day) {
 }
 
 /**
- * The register-free / create-order body (create-order adds the support choice and total).
+ * The register-free / create-order body (create-order adds the total).
  * A group of one with no buyer is sent as Plan 3's `{ categoryId, person }` (final review M-1):
  * the functions read it as a group of one with the same answers, and the functions still in
  * production while Vercel deploys ahead of `supabase functions deploy` read nothing else.

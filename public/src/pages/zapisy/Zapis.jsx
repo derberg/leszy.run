@@ -34,7 +34,7 @@ import { eventPath, formPath } from './RegistrationEventPage.jsx'
 // e-mail code (auth-request-code, with the login form's honeypot). A free event then calls
 // register-free → RA5. A paid event (pricingMode !== 'free') goes on to RA4
 // (Podsumowanie), whose „Zapłać” calls create-order with the same body plus
-// the support choice, and hands the browser to dpay; the order page
+// the total, and hands the browser to dpay; the order page
 // (/zamowienie/:orderId) is RA5 for it. For a paid event the code is checked
 // at the code step itself (auth-verify-code opens the session there), so a
 // wrong, expired, used-up or throttled code is answered where „Wyślij
@@ -157,8 +157,6 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const [sentTo, setSentTo] = useState(null)
   const [resent, setResent] = useState(false)
   const [busy, setBusy] = useState(false)
-  // RA4 (paid events): the support choice, kept here so it survives a trip back to the code step.
-  const [supportChoice, setSupportChoice] = useState(null)
   // RA4's prices after a price_changed, per competition (N-3): a trip back to the form and on
   // to RA4 again shows the server's prices, not the page's older ones.
   const [priceOf, setPriceOf] = useState({})
@@ -539,7 +537,6 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     })
     return (
       <Podsumowanie raw={raw} open={open} lines={lines} body={toRequest(draft, { consents, today })}
-        choice={supportChoice} onChoice={setSupportChoice}
         addedCategoryIds={draft.cards.slice(1).map((c) => c.categoryId)}
         onRepriced={(byCategory) => setPriceOf((m) => ({ ...m, ...byCategory }))}
         onBack={() => setStep('form')} onFailure={(err) => fail(err)} />

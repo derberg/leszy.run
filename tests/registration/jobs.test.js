@@ -132,7 +132,6 @@ async function pendingOrder({ event, tag = 'job' } = {}) {
     person: { firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email, phone: '600100200' },
     acceptedConsentIds: await consentIds(ev.eventId),
     serviceRegulamin: true,
-    supportChoice: false,
     displayedTotal: totalFor(6000, 1, false),
   }, runner)
   assert.equal(r.status, 201, JSON.stringify(r.body))

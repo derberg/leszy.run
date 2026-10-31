@@ -125,7 +125,7 @@ test('G-11b two paid groups for the last places: both ordered, both pay → the 
   const second = await confirmOk(g2.orderId, a2.txn, g2.total)
   assert.equal(second.outcome, 'late_refund')
   assert.equal(second.refund.reason, 'full')
-  assert.equal(second.refund.grosze, g2.total, 'the whole order, fees included')
+  assert.equal(second.refund.grosze, g2.total, 'the whole order')
   assert.deepEqual((await registrationsOf(g2.orderId)).map((x) => x.status), ['cancelled', 'cancelled'], 'nobody of the group confirmed')
   assert.ok((await registrationsOf(g2.orderId)).every((x) => x.participant_id === null))
   assert.equal(await taken(c9), 1)
@@ -335,8 +335,8 @@ test('G-16 both overloads of register_free and create_order: SECURITY DEFINER, e
        where n.nspname = 'public' and p.proname in ('register_free', 'create_order')
        order by 1`
     assert.deepEqual(fns.map((f) => f.sig), [
-      'create_order(jsonb,uuid,text,boolean,integer,jsonb)',
-      'create_order(uuid,jsonb,uuid,text,boolean,integer,jsonb)',
+      'create_order(jsonb,uuid,text,integer,jsonb)',
+      'create_order(uuid,jsonb,uuid,text,integer,jsonb)',
       'register_free(jsonb,uuid,jsonb)',
       'register_free(uuid,jsonb,uuid,jsonb)',
     ])
@@ -372,7 +372,7 @@ test('G-16 both overloads of register_free and create_order: SECURITY DEFINER, e
   const f = await anon.rpc('register_free', { p_people: [], p_profile_id: null, p_meta: {} })
   assert.match(f.error?.message ?? '', /permission denied/)
   const o = await anon.rpc('create_order', {
-    p_people: [], p_profile_id: null, p_buyer_email: null, p_support_choice: false, p_displayed_total: 0, p_meta: {},
+    p_people: [], p_profile_id: null, p_buyer_email: null, p_displayed_total: 0, p_meta: {},
   })
   assert.match(o.error?.message ?? '', /permission denied/)
 })

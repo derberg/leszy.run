@@ -77,12 +77,11 @@ async function fillMe(page) {
   await fillCard(page, 'p', { first: 'Ola', last: 'Leśna', birth: '1988-03-01', email: ACTOR_EMAILS.runner })
 }
 
-/** „Dalej” / „Zapisz się”; on a paid event through RA4 („Nie tym razem”, „Zapłać”). */
+/** „Dalej” / „Zapisz się”; on a paid event through RA4 („Zapłać”). */
 async function submit(page, mode) {
   await page.getByTestId('registration-submit').click()
   if (mode === 'paid') {
     await expect(page.getByTestId('checkout')).toBeVisible()
-    await page.getByRole('button', { name: 'Nie tym razem' }).click()
     await page.getByTestId('pay').click()
   }
 }
@@ -588,7 +587,6 @@ for (const [mode, width] of [['free', 390], ['free', 1440], ['paid', 390], ['pai
       person = (name) => page.getByTestId('done-person').filter({ hasText: name })
     } else {
       await expect(page.getByTestId('checkout-line')).toHaveCount(3)
-      await page.getByRole('button', { name: 'Nie tym razem' }).click()
       await page.getByTestId('pay').click()
       await expect(page).toHaveURL(PAY_PAGE)
       const { orderId, txnId } = await orderAndTxn(event.eventId)
@@ -644,7 +642,6 @@ test('G-47 RA4 390 px: one line per person at its own price; the price moves →
   await expect(lines.nth(2)).toContainText('Bieg dzieci 1 km')
   await expect(lines.nth(2)).toContainText('20,00 zł')
   await expect(page.getByTestId('checkout-amounts')).toContainText('140,00 zł')
-  await page.getByRole('button', { name: 'Nie tym razem' }).click()
   await fitsNarrow(page)
 
   // The organizer raises the 9 km price while RA4 is open.
@@ -707,7 +704,6 @@ test('G-47 RA4 1440 px (I-1): a single paid runner whose competition fills stays
   await expect(page.getByTestId('checkout')).toBeVisible()
   const { error } = await admin().from('competitions').update({ capacity: 1, taken: 1 }).eq('category_id', c9)
   expect(error).toBeNull()
-  await page.getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
   await expect(page.getByRole('alert')).toHaveText('Brak wolnych miejsc w tej konkurencji.')
   await expect(page.getByTestId('checkout')).toBeVisible()

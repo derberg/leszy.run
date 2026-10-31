@@ -178,7 +178,6 @@ export function eventPageModel(raw, now = new Date()) {
       return { label: `${WEEKDAYS_SHORT[weekday(h.date)]} ${d}.${m}`, hours: `${hm(h.from)}–${hm(h.to)}` }
     }),
     competitions: competitions.map((c) => competitionRow(c, win)),
-    showFeeNote: raw.pricingMode !== 'free' && competitions.some((c) => c.priceGrosze > 0),
     // „Lista startowa” (/events/:slug/lista, the /api/startlist snapshot).
     showStartList: competitions.length > 0,
     regulaminUrl: raw.regulamin?.url ?? null,

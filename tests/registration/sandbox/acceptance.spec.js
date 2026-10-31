@@ -84,7 +84,7 @@ test.describe('dpay sandbox acceptance', () => {
     const consents = (await rows('event_consents', { event_id: event.eventId })).map((c) => c.id)
     const res = await h.fx.callFn('create-order', runner, {
       categoryId: event.categoryIds[0], person: person(email), acceptedConsentIds: consents, serviceRegulamin: true,
-      supportChoice: false, displayedTotal: total(),
+      displayedTotal: total(),
     })
     expect(res.status, JSON.stringify(res.body)).toBe(201)
     return { email, runner, ...res.body.data }

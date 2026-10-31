@@ -66,7 +66,6 @@ async function orderBody(event, email, over = {}) {
     person: person(email),
     acceptedConsentIds: await consentIds(event.eventId),
     serviceRegulamin: true,
-    supportChoice: false,
     displayedTotal: totalFor(6000, 1, false),
     ...over,
   }
@@ -109,18 +108,11 @@ async function waitForMail(email, n = 1) {
 
 // ---------------------------------------------------------------- P-20 refusals
 
-test('P-20 the support choice missing or not a boolean → 400; displayedTotal not an integer → 400; nothing created', async () => {
+test('P-20 displayedTotal not an integer → 400; nothing created', async () => {
   const event = await paidEvent()
-  const email = runnerEmail('nochoice')
+  const email = runnerEmail('nototal')
   const runner = await sessionFor(email)
-  for (const over of [{ supportChoice: undefined }, { supportChoice: null }, { supportChoice: 'tak' }]) {
-    const body = await orderBody(event, email, over)
-    if (over.supportChoice === undefined) delete body.supportChoice
-    const r = await call('create-order', body, runner)
-    assert.equal(r.status, 400, JSON.stringify(r.body))
-    assert.equal(r.body.code, 'support_choice_required')
-  }
-  for (const displayedTotal of [undefined, '6055', 60.55, null]) {
+  for (const displayedTotal of [undefined, '6000', 60.5, null]) {
     const body = await orderBody(event, email, { displayedTotal })
     const r = await call('create-order', body, runner)
     assert.equal(r.status, 400, JSON.stringify(r.body))
@@ -130,20 +122,29 @@ test('P-20 the support choice missing or not a boolean → 400; displayedTotal n
   assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
 })
 
+test('G-70 a supportChoice from a page opened before the fees went is ignored: 201 at the entry price', async () => {
+  const event = await paidEvent()
+  for (const supportChoice of [true, 'tak']) {
+    const email = runnerEmail('stale')
+    const r = await call('create-order', await orderBody(event, email, { supportChoice }), await sessionFor(email))
+    assert.equal(r.status, 201, JSON.stringify(r.body))
+    assert.equal((await orderOf(r.body.data.orderId)).total, 6000)
+  }
+})
+
 test('P-20 displayedTotal off by one → 409 price_changed with the server amounts, no order row, nothing claimed', async () => {
   const event = await paidEvent()
   const email = runnerEmail('price')
   const runner = await sessionFor(email)
-  const right = totalFor(6000, 1, true)
-  const r = await call('create-order', await orderBody(event, email, { supportChoice: true, displayedTotal: right - 1 }), runner)
+  const right = totalFor(6000, 1)
+  const r = await call('create-order', await orderBody(event, email, { displayedTotal: right - 1 }), runner)
   assert.equal(r.status, 409, JSON.stringify(r.body))
   assert.equal(r.body.code, 'price_changed')
   assert.equal(r.body.error, PRICE_CHANGED)
-  const expected = orderAmounts({ entryPrices: [6000], supportChoice: true })
+  const expected = orderAmounts({ entryPrices: [6000] })
   // Plan 4 task 5b (G-46): the price of each person too, so RA4 re-prices every line.
   assert.deepEqual(r.body.amounts, {
-    entryPrices: [6000], entryTotal: expected.entryTotal, extrasTotal: 0, donation: 0,
-    supportFee: expected.supportFee, paymentFee: expected.paymentFee, total: expected.total,
+    entryPrices: [6000], entryTotal: expected.entryTotal, extrasTotal: 0, donation: 0, total: expected.total,
   })
   assert.equal(r.body.amounts.total, right)
   assert.equal((await ordersOf(event.eventId)).length, 0)
@@ -207,8 +208,8 @@ test('P-21 create-order → one dpay register for the total, redirect to the moc
   const event = await paidEvent()
   const email = runnerEmail('happy')
   const runner = await sessionFor(email)
-  const total = totalFor(6000, 1, true)
-  const r = await call('create-order', await orderBody(event, email, { supportChoice: true, displayedTotal: total }), runner)
+  const total = totalFor(6000, 1)
+  const r = await call('create-order', await orderBody(event, email, { displayedTotal: total }), runner)
   assert.equal(r.status, 201, JSON.stringify(r.body))
   const { orderId, redirectUrl } = r.body.data
 
@@ -223,7 +224,6 @@ test('P-21 create-order → one dpay register for the total, redirect to the moc
   const order = await orderOf(orderId)
   assert.equal(order.status, 'pending')
   assert.equal(order.total, total)
-  assert.equal(order.support_choice, true)
   assert.equal(order.buyer_profile_id, runner.profileId)
   const attempts = await attemptsOf(orderId)
   assert.deepEqual(attempts.map((a) => [a.dpay_transaction_id, a.grosze, a.status]), [[txns[0].id, total, 'created']])
@@ -353,10 +353,7 @@ test('P-24 order-status: buyer only, with the event\'s closesAt; a fresh pending
     registrationId: reg.id, name: 'Ola Leśna', firstName: 'Ola', role: 'self', consentState: 'accepted',
     competition: 'Bieg 9 km', ageGroupLabel: 'K open', kidsGroupLabel: null, mine: true, startTime: '10:00', amount: 6000,
   }])
-  const expected = orderAmounts({ entryPrices: [6000], supportChoice: false })
-  assert.deepEqual(d.amounts, {
-    entryTotal: 6000, extrasTotal: 0, donation: 0, supportFee: 0, paymentFee: expected.paymentFee, total: expected.total,
-  })
+  assert.deepEqual(d.amounts, { entryTotal: 6000, extrasTotal: 0, donation: 0, total: 6000 })
   assert.equal(d.event.slug, event.slug)
   assert.ok(d.event.name)
   // Task 9 review M1: the order page decides „Zapłać” from the server's closesAt, not the snapshot's.
@@ -373,8 +370,8 @@ test('P-24 poll fallback with dropIpn: paid at dpay → order-status confirms, o
   const event = await paidEvent()
   const email = runnerEmail('poll')
   const runner = await sessionFor(email)
-  const total = totalFor(6000, 1, true)
-  const created = await call('create-order', await orderBody(event, email, { supportChoice: true, displayedTotal: total }), runner)
+  const total = totalFor(6000, 1)
+  const created = await call('create-order', await orderBody(event, email, { displayedTotal: total }), runner)
   assert.equal(created.status, 201, JSON.stringify(created.body))
   const { orderId } = created.body.data
 
@@ -402,11 +399,8 @@ test('P-24 poll fallback with dropIpn: paid at dpay → order-status confirms, o
   assert.equal(msgs.length, 1)
   const m = msgs[0]
   assert.equal(m.subject, `Opłacone — ${(await one('registration_settings', { event_id: event.eventId })).name}`)
-  const amounts = orderAmounts({ entryPrices: [6000], supportChoice: true })
-  for (const [label, grosze] of [
-    ['Opłaty startowe', amounts.entryTotal], ['Wsparcie LESZY.RUN', amounts.supportFee],
-    ['Obsługa płatności dpay', amounts.paymentFee], ['Razem', amounts.total],
-  ]) {
+  const amounts = orderAmounts({ entryPrices: [6000] })
+  for (const [label, grosze] of [['Opłaty startowe', amounts.entryTotal], ['Razem', amounts.total]]) {
     assert.ok(m.text.includes(label), label)
     assert.ok(m.text.includes(formatPln(grosze)), `${label} ${formatPln(grosze)}`)
   }

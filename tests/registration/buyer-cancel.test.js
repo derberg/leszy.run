@@ -59,8 +59,7 @@ async function orderBody(event, email, categoryId = event.categoryIds[0]) {
     person: { firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email, phone: '600100200' },
     acceptedConsentIds: await consentIds(event.eventId),
     serviceRegulamin: true,
-    supportChoice: false,
-    displayedTotal: totalFor(event.prices[categoryId], 1, false),
+    displayedTotal: totalFor(event.prices[categoryId], 1),
   }
 }
 

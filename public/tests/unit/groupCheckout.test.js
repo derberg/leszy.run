@@ -18,14 +18,14 @@ const lines = [
 
 describe('G-46 RA4 for a group', () => {
   it('the amounts run over every person\'s price', () => {
-    const m = checkoutModel({ entryPrices: lines.map((l) => l.priceGrosze), choice: false })
+    const m = checkoutModel({ entryPrices: lines.map((l) => l.priceGrosze) })
     assert.equal(m.amounts.entryTotal, 14000)
-    assert.equal(m.entryLabel, '140,00 zł')
+    assert.equal(m.totalLabel, '140,00 zł')
     assert.equal(m.payDisabled, false)
   })
 
   it('price_changed with each person\'s new price re-prices every line, in order', () => {
-    const next = repriceLines(lines, { entryTotal: 15000, entryPrices: [6500, 6500, 2000], total: 15135 })
+    const next = repriceLines(lines, { entryTotal: 15000, entryPrices: [6500, 6500, 2000], total: 15000 })
     assert.deepEqual(next.map((l) => l.priceGrosze), [6500, 6500, 2000])
     assert.deepEqual(next.map((l) => l.name), lines.map((l) => l.name))
     // the input is not changed
@@ -38,11 +38,11 @@ describe('G-46 RA4 for a group', () => {
   })
 
   it('a group answer the lines cannot be priced from → null (the page starts again), never stale lines', () => {
-    assert.equal(repriceLines(lines, { total: 15135 }), null)
-    assert.equal(repriceLines(lines, { entryTotal: 15000, total: 15135 }), null)
-    assert.equal(repriceLines(lines, { entryTotal: 15000, entryPrices: [6500, 6500], total: 15135 }), null)
-    assert.equal(repriceLines(lines, { entryTotal: 99, entryPrices: [6500, 6500, 2000], total: 15135 }), null)
-    assert.equal(repriceLines(lines, { entryTotal: 15000, entryPrices: [6500, '6500', 2000], total: 15135 }), null)
+    assert.equal(repriceLines(lines, { total: 15000 }), null)
+    assert.equal(repriceLines(lines, { entryTotal: 15000, total: 15000 }), null)
+    assert.equal(repriceLines(lines, { entryTotal: 15000, entryPrices: [6500, 6500], total: 15000 }), null)
+    assert.equal(repriceLines(lines, { entryTotal: 99, entryPrices: [6500, 6500, 2000], total: 15000 }), null)
+    assert.equal(repriceLines(lines, { entryTotal: 15000, entryPrices: [6500, '6500', 2000], total: 15000 }), null)
     assert.equal(repriceLines(lines, null), null)
   })
 

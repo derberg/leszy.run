@@ -15,7 +15,7 @@ import { formatPln } from '../../../supabase/functions/_shared/registration/mone
 const event = { name: 'Bieg Leszego <2026>', slug: 'bieg-leszego-2026', eventDate: '2026-11-28', place: 'Nieborowice' }
 const order = {
   id: '6f1c2a54-0000-4000-8000-000000000001',
-  entryTotal: 6000, supportFee: 120, paymentFee: 56, total: 6176,
+  entryTotal: 6000, total: 6000,
   paidTransactionId: 'TXN-ABC-123', paidAt: '2026-10-29T10:15:00Z',
   expiresAt: '2026-11-05T10:15:00Z',
 }
@@ -28,10 +28,10 @@ const all = () => [
   orderExpiredEmail({ event, order, eventUrl: 'https://www.leszy.run/events/bieg-leszego-2026' }),
   paymentRefundedEmail({ event, order, amount: order.total, reason: 'late' }),
   paymentRefundedEmail({ event, order, amount: order.total, reason: 'double' }),
-  operatorAlertEmail({ alerts: [{ kind: 'late_refund', orderId: order.id, payload: { grosze: 6176 }, createdAt: '2026-10-29T10:15:00Z' }] }),
+  operatorAlertEmail({ alerts: [{ kind: 'late_refund', orderId: order.id, payload: { grosze: 6000 }, createdAt: '2026-10-29T10:15:00Z' }] }),
 ]
 
-test('P-24 orderConfirmationEmail: subject, every person, the four amount lines, the organizer, the transaction and date', () => {
+test('P-24 orderConfirmationEmail: subject, every person, the amount lines, the organizer, the transaction and date', () => {
   const m = orderConfirmationEmail({ event, order, lines, organizer })
   assert.equal(m.subject, 'Opłacone — Bieg Leszego <2026>')
   for (const part of [m.text, m.html]) {
@@ -41,25 +41,20 @@ test('P-24 orderConfirmationEmail: subject, every person, the four amount lines,
     assert.match(part, /10:00/)
     assert.ok(part.includes(`Opłaty startowe`), 'entry fees line')
     assert.ok(part.includes('w imieniu i na rzecz Organizatora: Klub ZATYRANI'))
-    assert.ok(part.includes('Wsparcie LESZY.RUN'))
-    assert.ok(part.includes('Obsługa płatności dpay'))
+    assert.doesNotMatch(part, /Wsparcie|Obsługa płatności/) // G-70
     assert.ok(part.includes('Razem'))
-    for (const g of [6000, 120, 56, 6176]) assert.ok(part.includes(formatPln(g)), `amount ${g}`)
+    assert.ok(part.includes(formatPln(6000)), 'amount')
     assert.ok(part.includes('TXN-ABC-123'))
     assert.ok(part.includes('29.10.2026'), 'payment date (Warsaw)')
   }
-  assert.ok(m.text.includes(`Razem: ${formatPln(6176)}`))
+  assert.ok(m.text.includes(`Razem: ${formatPln(6000)}`))
   assert.ok(m.html.includes('Bieg Leszego &lt;2026&gt;'), 'html escaped')
   assert.ok(!m.html.includes('<2026>'))
   assert.match(m.text, /nie jest paragonem/)
 })
 
-test('P-24 orderConfirmationEmail: support declined still lists the support line at 0,00 zł; no transaction id, no transaction line', () => {
-  const m = orderConfirmationEmail({
-    event, organizer, lines,
-    order: { ...order, supportFee: 0, paymentFee: 55, total: 6055, paidTransactionId: null },
-  })
-  assert.ok(m.text.includes(`Wsparcie LESZY.RUN: ${formatPln(0)}`))
+test('P-24 orderConfirmationEmail: no transaction id, no transaction line', () => {
+  const m = orderConfirmationEmail({ event, organizer, lines, order: { ...order, paidTransactionId: null } })
   assert.ok(!m.text.includes('Transakcja dpay'))
 })
 
@@ -78,8 +73,8 @@ test('P-24 every payment e-mail has text and html, a subject, and never mentions
 
 test('P-24 amounts are formatted with formatPln, never a dot or a float', () => {
   const [conf, remind, , late] = all()
-  assert.ok(remind.text.includes(formatPln(6176)))
-  assert.ok(late.text.includes(formatPln(6176)))
+  assert.ok(remind.text.includes(formatPln(6000)))
+  assert.ok(late.text.includes(formatPln(6000)))
   for (const m of [conf, remind, late]) assert.doesNotMatch(m.text, /\d+\.\d{2} ?zł|61\.76/)
 })
 
@@ -94,17 +89,17 @@ test('P-24 the reminder links the pay page and says when the order expires; the 
 })
 
 test('P-24 the refund e-mail names the full amount and the reason, late or double', () => {
-  const late = paymentRefundedEmail({ event, order, amount: 6176, reason: 'late' })
-  const double = paymentRefundedEmail({ event, order, amount: 6176, reason: 'double' })
+  const late = paymentRefundedEmail({ event, order, amount: 6000, reason: 'late' })
+  const double = paymentRefundedEmail({ event, order, amount: 6000, reason: 'double' })
   assert.match(late.subject, /^Płatność zwrócona — /)
   assert.notEqual(late.text, double.text)
-  assert.ok(late.text.includes(formatPln(6176)))
-  assert.throws(() => paymentRefundedEmail({ event, order, amount: 6176, reason: 'other' }))
+  assert.ok(late.text.includes(formatPln(6000)))
+  assert.throws(() => paymentRefundedEmail({ event, order, amount: 6000, reason: 'other' }))
 })
 
 test('P-24 the operator alert lists every alert with its kind and order', () => {
   const m = operatorAlertEmail({ alerts: [
-    { kind: 'late_refund', orderId: 'o-1', payload: { grosze: 6176 }, createdAt: '2026-10-29T10:15:00Z' },
+    { kind: 'late_refund', orderId: 'o-1', payload: { grosze: 6000 }, createdAt: '2026-10-29T10:15:00Z' },
     { kind: 'amount_mismatch', orderId: null, payload: null, createdAt: '2026-10-29T10:16:00Z' },
   ] })
   assert.match(m.subject, /^\[ALERT\]/)
@@ -114,13 +109,13 @@ test('P-24 the operator alert lists every alert with its kind and order', () => 
 test('P-24 (P3-R9) a 0 zł order: „Zapis potwierdzony”, no payment wording and no amount lines', () => {
   const m = orderConfirmationEmail({
     event, organizer, lines,
-    order: { ...order, entryTotal: 0, supportFee: 0, paymentFee: 0, total: 0, paidTransactionId: null },
+    order: { ...order, entryTotal: 0, total: 0, paidTransactionId: null },
   })
   assert.equal(m.subject, 'Zapis potwierdzony — Bieg Leszego <2026>')
   for (const part of [m.text, m.html]) {
     assert.match(part, /zostało potwierdzone/)
     assert.match(part, /Ola Leśna/)
-    assert.doesNotMatch(part, /Opłacone|Opłaty startowe|Wsparcie|dpay|Razem|płatnoś|paragon/i)
+    assert.doesNotMatch(part, /Opłacone|Opłaty startowe|dpay|Razem|płatnoś|paragon/i)
   }
 })
 
@@ -134,12 +129,12 @@ test('P-24 the confirmation puts the date and place before the full stop and lin
 test('P-24 the refund e-mail says what happened for each confirm_order reason', () => {
   const texts = new Set()
   for (const reason of ['late', 'double', 'double_payment', 'closed', 'full', 'duplicate', 'cancelled', 'unavailable']) {
-    const m = paymentRefundedEmail({ event, order, amount: 6176, reason })
+    const m = paymentRefundedEmail({ event, order, amount: 6000, reason })
     assert.match(m.subject, /^Płatność zwrócona — /)
     texts.add(m.text)
   }
   assert.ok(texts.size >= 7, 'a sentence per reason (double and double_payment share one)')
-  assert.match(paymentRefundedEmail({ event, order, amount: 6176, reason: 'cancelled' }).text, /anulowaniu/)
+  assert.match(paymentRefundedEmail({ event, order, amount: 6000, reason: 'cancelled' }).text, /anulowaniu/)
 })
 
 // P3-R15 re-review I2: an unpaid entry holds no place, so neither the reminder nor the expiry

@@ -22,7 +22,6 @@ const ORDER_REFUSALS = {
   no_price: [409, 'Ta konkurencja nie ma jeszcze ceny. Spróbuj później.'],
   paying_closed: [409, 'Zapisy z płatnością online kończą się godzinę przed zamknięciem zapisów.'],
   too_many_pending: [409, 'Masz już dwa nieopłacone zgłoszenia na te zawody.'],
-  support_choice_required: [400, 'Wybierz, czy wspierasz LESZY.RUN.'],
   invalid_buyer_email: [400, 'Popraw adres e-mail.'],
   'invalid_amount:total': [400, 'Kwota zamówienia przekracza limit płatności online.'],
 }
@@ -35,15 +34,15 @@ const PENDING_ORDER = 'Masz już nieopłacone zgłoszenie na te zawody.'
 // money.js, with `entryPrices` one per person in request order, so RA4 re-prices every line.
 // When they do not reproduce the RPC's total (the price moved again in between) only the total
 // goes back.
-async function currentAmounts(admin, settings, people, supportChoice, total) {
+async function currentAmounts(admin, settings, people, total) {
   try {
     const { data } = await admin.rpc('registration_raw', { p_event_id: settings.event_id })
     const priceOf = new Map((data?.competitions ?? []).map((c) => [String(c.categoryId).toLowerCase(), c.priceGrosze]))
     const entryPrices = people.map((p) => priceOf.get(String(p.categoryId).toLowerCase()))
     if (entryPrices.every(Number.isSafeInteger)) {
-      const a = orderAmounts({ entryPrices, supportChoice })
+      const a = orderAmounts({ entryPrices })
       if (a.total === total) {
-        return { entryPrices, entryTotal: a.entryTotal, extrasTotal: 0, donation: 0, supportFee: a.supportFee, paymentFee: a.paymentFee, total }
+        return { entryPrices, entryTotal: a.entryTotal, extrasTotal: 0, donation: 0, total }
       }
     }
   } catch (err) {
@@ -84,11 +83,11 @@ async function rowsOf(query) {
 }
 
 // POST { people: [{ categoryId, person, guardianConsent? }], buyer?, acceptedConsentIds, serviceRegulamin,
-//        supportChoice, displayedTotal, code? }, or Plan 3's { categoryId, person, … } (a group of one)
+//        displayedTotal, code? }, or Plan 3's { categoryId, person, … } (a group of one)
 //   → 201 { data: { orderId, redirectUrl } }, or { data: { orderId, status: 'paid' } } when the total is 0.
 // A group is one order, each person at their own competition's price (D4-27). register-free's body
-// plus the support choice (a boolean, nothing preselected) and the total the page showed, which is
-// only compared with the server's (409 price_changed with the amounts). Every check before the RPC
+// plus the total the page showed, which is only compared with the server's (409 price_changed with
+// the amounts). A supportChoice from a page opened before 2026-10-31 is ignored. Every check before the RPC
 // is register-free's (prepareRegistration). create_order writes the order (409 full when the paid
 // entries fill a competition; an unpaid order claims no slot, P3-R15), then dpay registers the
 // transaction. An order that leaves this function without a redirect handed out (a dpay failure, a
@@ -106,10 +105,7 @@ Deno.serve(async (req) => {
   let body
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON' }, 400, req) }
 
-  const { supportChoice, displayedTotal } = body ?? {}
-  if (typeof supportChoice !== 'boolean') {
-    return json({ error: ORDER_REFUSALS.support_choice_required[1], code: 'support_choice_required' }, 400, req)
-  }
+  const { displayedTotal } = body ?? {}
   if (!Number.isSafeInteger(displayedTotal) || displayedTotal < 0) {
     return json({ error: 'Odśwież stronę i sprawdź podsumowanie.', code: 'invalid_total' }, 400, req)
   }
@@ -143,7 +139,6 @@ Deno.serve(async (req) => {
       p_people: rpcPeople(people),
       p_profile_id: profileId,
       p_buyer_email: email,
-      p_support_choice: supportChoice,
       p_displayed_total: displayedTotal,
       p_meta: { consentIds, buyerName, ip, userAgent: req.headers.get('user-agent') || null },
     })
@@ -153,7 +148,7 @@ Deno.serve(async (req) => {
       if (msg === 'session_required') return answer({ error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }, 401)
       const changed = /^price_changed:(\d+)$/.exec(msg)
       if (changed) {
-        const amounts = await currentAmounts(admin, settings, people, supportChoice, Number(changed[1]))
+        const amounts = await currentAmounts(admin, settings, people, Number(changed[1]))
         return answer({ error: PRICE_CHANGED, code: 'price_changed', amounts }, 409)
       }
       if (/^duplicate:\d+$/.test(msg)) {

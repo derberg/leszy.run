@@ -520,8 +520,8 @@ test('W-71 after publish a competition with only an unpaid order is locked (kind
   const created = await db.rpc('create_order', {
     p_category_id: event.categoryIds[0],
     p_people: [{ firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email, phone: '600100200' }],
-    p_profile_id: profile.id, p_buyer_email: email, p_support_choice: false,
-    p_displayed_total: 6055, // 60 zł + 0,55 zł dpay (money.js; Playwright cannot import it)
+    p_profile_id: profile.id, p_buyer_email: email,
+    p_displayed_total: 6000,
     p_meta: { consentIds: consents.map((c) => c.id), ip: '203.0.113.9', userAgent: 'test' },
   })
   expect(created.error).toBeNull()

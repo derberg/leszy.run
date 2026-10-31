@@ -2,7 +2,6 @@
 // through PostgREST as service_role, the way the edge functions make it.
 import crypto from 'node:crypto'
 import { admin, localEnv } from './stack.js'
-import { paymentFee, supportFee } from '../../../supabase/functions/_shared/registration/money.js'
 
 export const rand = () => crypto.randomBytes(4).toString('hex')
 export const runnerEmail = (tag = 'o') => `runner-${tag}-${rand()}@test.local`
@@ -16,11 +15,7 @@ export function person(email, over = {}) {
 }
 
 /** The total the checkout shows for n entries at `price` grosze. */
-export function totalFor(price, n = 1, support = false) {
-  const entry = price * n
-  const s = entry > 0 ? supportFee(entry, support) : 0
-  return entry + s + paymentFee(entry + s)
-}
+export const totalFor = (price, n = 1) => price * n
 
 export async function consentIds(eventId) {
   const { data, error } = await db().from('event_consents').select('id').eq('event_id', eventId)
@@ -55,7 +50,7 @@ export async function profileFor(email) {
  * the right total for `price`.
  */
 export async function createOrder(event, {
-  categoryId = event.categoryIds[0], people, emails, profileId, buyerEmail, sendBuyerEmail, support = false,
+  categoryId = event.categoryIds[0], people, emails, profileId, buyerEmail, sendBuyerEmail,
   displayed, price = event.prices?.[categoryId] ?? 6000, consents, meta,
 } = {}) {
   const list = people ?? (emails ?? [runnerEmail()]).map((e) => person(e))
@@ -66,8 +61,7 @@ export async function createOrder(event, {
     p_people: list,
     p_profile_id: profile,
     p_buyer_email: sendBuyerEmail !== undefined ? sendBuyerEmail : buyer,
-    p_support_choice: support,
-    p_displayed_total: displayed ?? totalFor(price, list.length, support === true),
+    p_displayed_total: displayed ?? totalFor(price, list.length),
     p_meta: meta ?? { consentIds: consents ?? await consentIds(event.eventId), ip: '203.0.113.9', userAgent: 'test' },
   })
 }

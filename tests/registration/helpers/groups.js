@@ -2,7 +2,6 @@
 // one request: every person carries their own categoryId and role ('self' | 'adult' |
 // 'minor'), and p_meta carries the buyer's name for the minors' guardian fields.
 import { consentIds, person, profileFor, rpc, runnerEmail } from './orders.js'
-import { paymentFee, supportFee } from '../../../supabase/functions/_shared/registration/money.js'
 
 export const BIEG = (capacity = 50) =>
   ({ name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity })
@@ -35,19 +34,15 @@ export async function registerGroup(event, people, { buyerEmail, profileId, meta
 }
 
 /** The checkout total for a group: each person at their own competition's price. */
-export function groupTotal(event, people, support = false) {
-  const entry = people.reduce((sum, p) => sum + event.prices[p.categoryId], 0)
-  const s = entry > 0 ? supportFee(entry, support) : 0
-  return entry + s + paymentFee(entry + s)
-}
+export const groupTotal = (event, people) => people.reduce((sum, p) => sum + event.prices[p.categoryId], 0)
 
-/** The new create_order(p_people, p_profile_id, p_buyer_email, p_support_choice, p_displayed_total, p_meta). */
-export async function orderGroup(event, people, { buyerEmail, profileId, support = false, displayed, meta } = {}) {
+/** The new create_order(p_people, p_profile_id, p_buyer_email, p_displayed_total, p_meta). */
+export async function orderGroup(event, people, { buyerEmail, profileId, displayed, meta } = {}) {
   const buyer = buyerOf(people, buyerEmail)
   const profile = profileId === undefined ? await profileFor(buyer) : profileId
   return rpc('create_order', {
-    p_people: people, p_profile_id: profile, p_buyer_email: buyer, p_support_choice: support,
-    p_displayed_total: displayed ?? groupTotal(event, people, support),
+    p_people: people, p_profile_id: profile, p_buyer_email: buyer,
+    p_displayed_total: displayed ?? groupTotal(event, people),
     p_meta: meta ?? await groupMeta(event.eventId),
   })
 }

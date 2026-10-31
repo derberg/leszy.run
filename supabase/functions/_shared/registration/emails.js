@@ -41,7 +41,7 @@ function personLines(lines) {
 
 /**
  * The payment confirmation. event { name, slug?, eventDate?, place? }, order { id, entryTotal,
- * supportFee, paymentFee, total, paidTransactionId, paidAt }, lines [{ firstName, lastName,
+ * total, paidTransactionId, paidAt }, lines [{ firstName, lastName,
  * competition, ageGroupLabel, startTime }], organizer { name }, orderUrl (optional: the order page).
  * A 0 zł order paid nothing, so it is a registration confirmation (P3-R9): „Zapis potwierdzony”,
  * no payment wording and no amount lines.
@@ -53,8 +53,6 @@ export function orderConfirmationEmail({ event, order, lines, organizer, orderUr
   const free = order.total === 0
   const amounts = free ? [] : [
     [`Opłaty startowe (pobrane w imieniu i na rzecz Organizatora: ${organizer.name})`, formatPln(order.entryTotal)],
-    ['Wsparcie LESZY.RUN', formatPln(order.supportFee)],
-    ['Obsługa płatności dpay', formatPln(order.paymentFee)],
     ['Razem', formatPln(order.total)],
   ]
   const payment = free ? [] : [

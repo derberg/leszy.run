@@ -82,7 +82,7 @@ test('G-58 a family across every audience: one payment for three people, one con
   const piotr = `piotr-${rand()}@test.local`
   await clearMessages()
 
-  // runner: themself (NW 9 km), Piotr (Bieg 9 km) and Zosia (the kids' run), „Nie tym razem”, paid on the mock.
+  // runner: themself (NW 9 km), Piotr (Bieg 9 km) and Zosia (the kids' run), paid on the mock.
   const page = await offline(await actors.runner.newPage())
   await page.goto(`/events/${event.slug}/zapis/${nw}`)
   await fillCard(page, 'p', { first: 'Ola', last: 'Leśna', birth: '1988-03-01', email: ACTOR_EMAILS.runner, phone: '600100200', city: 'Leszno' })
@@ -100,7 +100,6 @@ test('G-58 a family across every audience: one payment for three people, one con
 
   await expect(page.getByTestId('checkout-line')).toHaveCount(3)
   await expect(page.getByTestId('checkout-amounts')).toContainText('140,00 zł')
-  await page.getByRole('button', { name: 'Nie tym razem' }).click()
   await page.getByTestId('pay').click()
   await expect(page).toHaveURL(PAY_PAGE)
   const { data: order } = await admin().from('orders').select('id').eq('event_id', event.eventId).single()

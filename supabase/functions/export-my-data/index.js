@@ -44,8 +44,8 @@ const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_
 // included too: they are about this person's payment, even if they are an internal note.
 // payment_events (the raw dpay log) is not: it holds the same transaction ids and amounts, and
 // the payer address only as a SHA-256.
-const ORDER_COLUMNS = 'id, status, buyer_email, buyer_name, support_choice, entry_total, extras_total, donation, support_fee, '
-  + 'payment_fee, total, created_at, expires_at, paid_at, paid_transaction_id, cancelled_at, cancelled_reason, '
+const ORDER_COLUMNS = 'id, status, buyer_email, buyer_name, entry_total, extras_total, donation, '
+  + 'total, created_at, expires_at, paid_at, paid_transaction_id, cancelled_at, cancelled_reason, '
   + 'registration_settings(name, event_date), '
   + 'order_lines(kind, registration_id, qty, amount, refunded, tier_label, tier_ends_on), '
   + 'payment_attempts(id, dpay_transaction_id, grosze, status, created_at, paid_at), '
@@ -60,10 +60,9 @@ function orderView(o) {
     status: o.status,
     buyer_email: o.buyer_email,
     buyer_name: o.buyer_name ?? null,
-    support_choice: o.support_choice,
     amounts: {
       entry_total: o.entry_total, extras_total: o.extras_total, donation: o.donation,
-      support_fee: o.support_fee, payment_fee: o.payment_fee, total: o.total,
+      total: o.total,
     },
     created_at: o.created_at,
     expires_at: o.expires_at,

@@ -82,7 +82,6 @@ async function orderBody(event, email, over = {}) {
     person: { firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email, phone: '600100200' },
     acceptedConsentIds: await consentIds(event.eventId),
     serviceRegulamin: true,
-    supportChoice: false,
     displayedTotal: totalFor(6000, 1, false),
     ...over,
   }
@@ -193,7 +192,7 @@ test('P-31 the IPN lands after expire_orders: the slot is re-claimed and the ord
   assert.equal((await dpayRefunds()).length, 0)
 })
 
-test('P-31 the IPN lands after expiry and someone took the slot: refunded in full including fees, „Płatność zwrócona”, taken unchanged', async () => {
+test('P-31 the IPN lands after expiry and someone took the slot: refunded in full, „Płatność zwrócona”, taken unchanged', async () => {
   const event = await paidEvent(1)
   const cat = event.categoryIds[0]
   const { orderId, email, txn } = await pendingOrder({ event, tag: 'lateful' })
@@ -208,7 +207,6 @@ test('P-31 the IPN lands after expiry and someone took the slot: refunded in ful
   assert.equal(order.status, 'expired')
   const [refund] = await rows('refunds', { order_id: orderId })
   assert.equal(refund.amount, order.total)
-  assert.ok(order.payment_fee > 0)
   assert.equal(refund.reason, 'full')
   assert.deepEqual((await dpayRefunds()).map((r) => [r.txnId, r.grosze]), [[txn, order.total]])
   assert.equal((await competitionOf(cat)).taken, 1)
@@ -307,11 +305,11 @@ test('P-34 ipnAmountOverride → amount_mismatch alert once (replays too), still
 
 test('P-34 custom not a uuid, or an order that does not exist → OK, one alert per transaction, logged without an order', async () => {
   const txnA = `TXN-${crypto.randomUUID()}`
-  const unknown = signedIpn({ id: txnA, amount: '60.55', custom: crypto.randomUUID(), email: PAYER })
+  const unknown = signedIpn({ id: txnA, amount: '60.00', custom: crypto.randomUUID(), email: PAYER })
   const r1 = await Promise.all(Array.from({ length: 3 }, () => postIpn(unknown)))
   assert.deepEqual(r1.map((r) => r.text), ['OK', 'OK', 'OK'])
   const txnB = `TXN-${crypto.randomUUID()}`
-  const junk = signedIpn({ id: txnB, amount: '60.55', custom: 'not-a-uuid' })
+  const junk = signedIpn({ id: txnB, amount: '60.00', custom: 'not-a-uuid' })
   assert.equal((await postIpn(junk)).text, 'OK')
   assert.equal((await postIpn(junk)).text, 'OK')
 

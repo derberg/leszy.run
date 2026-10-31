@@ -115,10 +115,6 @@ function Amounts({ amounts }) {
   return (
     <div data-testid="order-amounts">
       <div className={row}><span>Opłaty startowe</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(amounts.entryTotal)}</span></div>
-      {amounts.supportFee > 0 && (
-        <div className={row}><span>Wsparcie LESZY.RUN</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(amounts.supportFee)}</span></div>
-      )}
-      <div className={row}><span>Obsługa płatności dpay</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(amounts.paymentFee)}</span></div>
       <div className="flex justify-between gap-2.5 py-1.5 text-lg font-bold text-apex-text-bright">
         <span>Razem</span><span className="font-mono text-apex-yellow whitespace-nowrap">{formatPln(amounts.total)}</span>
       </div>

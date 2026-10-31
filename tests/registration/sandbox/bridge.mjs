@@ -19,7 +19,7 @@ function cfg(over = {}) {
 
 const ops = {
   parse: async ({ str }) => { try { return { grosze: parseDpayAmount(str) } } catch (e) { return { error: e.message } } },
-  total: async ({ price, n = 1, support = false }) => (await import('../helpers/orders.js')).totalFor(price, n, support),
+  total: async ({ price, n = 1 }) => (await import('../helpers/orders.js')).totalFor(price, n),
   details: ({ txn }) => transactionDetails(cfg(), txn),
   refund: ({ txn, grosze, messageId }) => refundTransaction(cfg(), { transactionId: txn, grosze, messageId }),
   // An order whose dpay transaction was registered with an unreachable IPN URL (S-05).

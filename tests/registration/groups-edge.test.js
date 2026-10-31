@@ -301,7 +301,7 @@ test('G-29 a paid family: no consent e-mail while pending; paid → one; a repla
   const payer = await sessionFor(me)
   const people = family(event, me, partner)
   const total = groupTotal(event, [{ categoryId: people[0].categoryId }, { categoryId: people[1].categoryId }, { categoryId: people[2].categoryId }])
-  const r = await call('create-order', await groupBody(event, people, { supportChoice: false, displayedTotal: total }), payer)
+  const r = await call('create-order', await groupBody(event, people, { displayedTotal: total }), payer)
   assert.equal(r.status, 201, JSON.stringify(r.body))
   const { orderId } = r.body.data
   const order = await orderOf(orderId)
@@ -335,13 +335,13 @@ test('G-29 a paid family: no consent e-mail while pending; paid → one; a repla
   // A second family whose order expires unpaid: no consent request, no e-mail.
   const other = runnerEmail('exp')
   const late = await call('create-order', await groupBody(event, family(event, runnerEmail('epay'), other), {
-    supportChoice: false, displayedTotal: total,
+    displayedTotal: total,
   }), await sessionFor(runnerEmail('ebuyer')))
   // The session is not card 1's address: card 1 is „Twoje dane”, so the code is asked for.
   assert.equal(late.status, 401)
   const me2 = runnerEmail('epay2')
   const late2 = await call('create-order', await groupBody(event, family(event, me2, other, { firstName: 'Jaś', gender: 'M' }), {
-    supportChoice: false, displayedTotal: total,
+    displayedTotal: total,
   }), await sessionFor(me2))
   assert.equal(late2.status, 201, JSON.stringify(late2.body))
   assert.ok(await expireNow(late2.body.data.orderId) >= 1)
@@ -359,13 +359,13 @@ test('G-29 create-order for a group: price_changed prices each person by their o
   const people = family(event, me, partner)
   const total = groupTotal(event, people.map((p) => ({ categoryId: p.categoryId })))
 
-  const off = await call('create-order', await groupBody(event, people, { supportChoice: false, displayedTotal: total + 1 }), payer)
+  const off = await call('create-order', await groupBody(event, people, { displayedTotal: total + 1 }), payer)
   assert.equal(off.status, 409, JSON.stringify(off.body))
   assert.equal(off.body.code, 'price_changed')
   assert.equal(off.body.amounts.entryTotal, 14000)
   assert.equal(off.body.amounts.total, total)
 
-  const ok = await call('create-order', await groupBody(event, people, { supportChoice: false, displayedTotal: total }), payer)
+  const ok = await call('create-order', await groupBody(event, people, { displayedTotal: total }), payer)
   assert.equal(ok.status, 201, JSON.stringify(ok.body))
 
   // The same buyer, a new group whose second person is the partner already in that pending order.
@@ -375,7 +375,7 @@ test('G-29 create-order for a group: price_changed prices each person by their o
   ]
   const twoTotal = groupTotal(event, again.map((p) => ({ categoryId: p.categoryId })))
   const pending = await call('create-order', await groupBody(event, [again[1], { categoryId: event.categoryIds[0], person: grownUp(runnerEmail('new'), { firstName: 'Nowa' }) }], {
-    buyer: { firstName: 'Ola', lastName: 'Leśna', email: me }, supportChoice: false, displayedTotal: twoTotal,
+    buyer: { firstName: 'Ola', lastName: 'Leśna', email: me }, displayedTotal: twoTotal,
   }), payer)
   assert.equal(pending.status, 409, JSON.stringify(pending.body))
   assert.deepEqual(pending.body, { error: PENDING_ORDER, code: 'pending_order', orderId: ok.body.data.orderId })
@@ -387,7 +387,7 @@ test('G-46 create-order price_changed for a group carries each person\'s price i
   const me = runnerEmail('pcl')
   const people = family(event, me, runnerEmail('pcladult'))
   const total = groupTotal(event, people.map((p) => ({ categoryId: p.categoryId })))
-  const off = await call('create-order', await groupBody(event, people, { supportChoice: false, displayedTotal: total - 1 }), await sessionFor(me))
+  const off = await call('create-order', await groupBody(event, people, { displayedTotal: total - 1 }), await sessionFor(me))
   assert.equal(off.status, 409, JSON.stringify(off.body))
   assert.equal(off.body.code, 'price_changed')
   assert.deepEqual(off.body.amounts.entryPrices, [6000, 6000, 2000])
@@ -425,7 +425,7 @@ test('G-46 fix round 1: order-status and my-event-registrations carry the kids\'
   const payer2 = await sessionFor(me2)
   const people = family(paid, me2, runnerEmail('kglpadult'))
   const total = groupTotal(paid, people.map((p) => ({ categoryId: p.categoryId })))
-  const o = await call('create-order', await groupBody(paid, people, { supportChoice: false, displayedTotal: total }), payer2)
+  const o = await call('create-order', await groupBody(paid, people, { displayedTotal: total }), payer2)
   assert.equal(o.status, 201, JSON.stringify(o.body))
   const st = await call('order-status', { orderId: o.body.data.orderId }, payer2)
   const byFirst = Object.fromEntries(st.body.data.lines.map((l) => [l.firstName, l]))
@@ -453,7 +453,7 @@ test('G-30 an added adult whose address is retired → 403 email_retired with th
   const me2 = runnerEmail('ret2')
   const people = family(paid, me2, gone)
   const o = await call('create-order', await groupBody(paid, people, {
-    supportChoice: false, displayedTotal: groupTotal(paid, people.map((p) => ({ categoryId: p.categoryId }))),
+    displayedTotal: groupTotal(paid, people.map((p) => ({ categoryId: p.categoryId }))),
   }), await sessionFor(me2))
   assert.equal(o.status, 403, JSON.stringify(o.body))
   assert.deepEqual(o.body, { error: RETIRED_EMAIL_MESSAGE, code: 'email_retired', index: 1 })
@@ -492,7 +492,7 @@ test('G-34 the per-IP throttle: 20 requests an hour from one address, on registe
   for (const [fn, event, extra] of [
     ['register-free', await freeFamily(), () => ({})],
     ['create-order', await paidFamily(), (people, ev) => ({
-      supportChoice: false, displayedTotal: groupTotal(ev, people.map((p) => ({ categoryId: p.categoryId }))),
+      displayedTotal: groupTotal(ev, people.map((p) => ({ categoryId: p.categoryId }))),
     })],
   ]) {
     const from = fixedIp()
@@ -590,7 +590,7 @@ test('G-35 a paid „Nie startuję” group of adults: the consent e-mail names 
   const people = [{ categoryId: c9, person: grownUp(partner, { firstName: 'Piotr', lastName: 'Leśny', gender: 'M' }) }]
   const r = await call('create-order', await groupBody(event, people, {
     buyer: { firstName: 'Ewa', lastName: 'Kowalska', email: buyerEmail },
-    supportChoice: false, displayedTotal: groupTotal(event, [{ categoryId: c9 }]),
+    displayedTotal: groupTotal(event, [{ categoryId: c9 }]),
   }), await sessionFor(buyerEmail))
   assert.equal(r.status, 201, JSON.stringify(r.body))
   const [txn] = await dpayTransactions()
@@ -663,7 +663,7 @@ test('G-45 order-status lines carry registrationId, role and consent state', asy
   const payer = await sessionFor(me)
   const people = family(event, me, partner)
   const total = groupTotal(event, people.map((p) => ({ categoryId: p.categoryId })))
-  const r = await call('create-order', await groupBody(event, people, { supportChoice: false, displayedTotal: total }), payer)
+  const r = await call('create-order', await groupBody(event, people, { displayedTotal: total }), payer)
   assert.equal(r.status, 201, JSON.stringify(r.body))
   const { orderId } = r.body.data
   const regs = await registrationsOf(orderId)
