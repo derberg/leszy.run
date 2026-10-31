@@ -155,3 +155,21 @@ test('P-42 a free event never asks for payout details', () => {
   assert.deepEqual(publishChecklist({ ...complete(), payout: undefined }).blocking, [])
   assert.deepEqual(publishChecklist(complete({ payout: { mode: 'club', ready: false } })).blocking, [])
 })
+
+test('T-06 a visible team competition with no size blocks, inside its own competition item', () => {
+  const noSize = comp({ kind: 'team', teamMin: null, teamMax: null })
+  const r = publishChecklist(complete({ competitions: [noSize, comp({ categoryId: 'c2', isKids: true })] }))
+  assert.deepEqual(r.blocking, [{ key: 'competition:c1', label: 'Konkurencja „Bieg 9 km”: skład drużyny' }])
+})
+
+test('T-06 the size gap joins the competition\'s other gaps, and either bound missing counts', () => {
+  const r = publishChecklist(complete({ competitions: [comp({ kind: 'team', teamMin: 3, teamMax: null, distanceLabel: ' ' }), comp({ categoryId: 'c2', isKids: true })] }))
+  assert.deepEqual(r.blocking, [{ key: 'competition:c1', label: 'Konkurencja „Bieg 9 km”: dystans, skład drużyny' }])
+})
+
+test('T-06 a team with a size, a hidden team and an individual competition do not block', () => {
+  const teams = [comp({ kind: 'team', teamMin: 3, teamMax: 5 }), comp({ categoryId: 'c2', isKids: true })]
+  assert.deepEqual(publishChecklist(complete({ competitions: teams })).blocking, [])
+  const hidden = [comp({ kind: 'team', hiddenAt: '2026-10-01' }), comp({ categoryId: 'c2', isKids: true })]
+  assert.deepEqual(publishChecklist(complete({ competitions: hidden })).blocking, [])
+})

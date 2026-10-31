@@ -1,0 +1,199 @@
+// Plan 5, task 1: T-01…T-05, the team rules (squad size, adult captain, leg order, team name).
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  normalizeTeamRequest, teamNameKey, validateTeam,
+} from '../../../supabase/functions/_shared/registration/team.js'
+import { warsawToday } from '../../../supabase/functions/_shared/registration/dates.js'
+
+// 2026-10-28 10:00 in Warsaw.
+const NOW = new Date('2026-10-28T09:00:00Z')
+const TODAY = warsawToday(NOW)
+const yearsAgo = (n) => {
+  const [y, m, d] = TODAY.split('-').map(Number)
+  return new Date(Date.UTC(y - n, m - 1, d)).toISOString().slice(0, 10)
+}
+
+const SESSION = 'kapitan@example.pl'
+const CAPTAIN_MESSAGE = 'Kapitanem drużyny może być tylko osoba pełnoletnia.'
+
+const competition = (over = {}) => ({
+  teamMin: 3, teamMax: 5, legOrderEnabled: false,
+  formFields: {}, competition: { minAge: null, maxAge: null, isKids: false },
+  raceDate: '2027-03-14', reckoning: 'race_day', ageGroups: [], kidsGroups: [], ...over,
+})
+
+const person = (over = {}) => ({
+  firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email: 'ola@example.pl', phone: '600100200', ...over,
+})
+const captain = (over = {}, member = {}) => ({ person: person({ firstName: 'Kasia', email: SESSION, ...over }), leg: null, guardianConsent: false, ...member })
+const adult = (i, over = {}) => ({ person: person({ firstName: `Ala${i}`, email: `ala${i}@example.pl`, ...over }), leg: null, guardianConsent: false })
+const minor = (i, age) => ({ person: person({ firstName: `Ela${i}`, email: '', birthDate: yearsAgo(age) }), leg: null, guardianConsent: true })
+
+const request = (members, over = {}) => ({ categoryId: 'c1', teamName: 'Wilcze Stado', members, membersConsent: true, ...over })
+const run = (req, comp = competition(), ctx = {}) => validateTeam(req, { sessionEmail: SESSION, competition: comp, now: NOW, ...ctx })
+const squad = (n) => [captain(), ...Array.from({ length: n - 1 }, (_, i) => adult(i))]
+
+test('T-01 a 4-person squad → roles self, adult, minor, minor; every member in the team category', () => {
+  const r = run(request([captain(), adult(1), minor(1, 17), minor(2, 16)]))
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.deepEqual(r.value.members.map((m) => m.role), ['self', 'adult', 'minor', 'minor'])
+  assert.deepEqual(r.value.members.map((m) => m.categoryId), ['c1', 'c1', 'c1', 'c1'])
+  assert.deepEqual(r.value.members.map((m) => m.leg), [null, null, null, null])
+  assert.equal(r.value.teamName, 'Wilcze Stado')
+  assert.equal(r.value.members[2].isMinor, true)
+  assert.equal(r.value.members[0].firstName, 'Kasia')
+  assert.deepEqual(r.errors, {})
+  assert.deepEqual(r.fieldErrors, {})
+  assert.equal(r.groupError, null)
+})
+
+test('T-01 a minor member still needs the guardian consent; a member error sits on that index', () => {
+  const r = run(request([captain(), adult(1), { ...minor(1, 16), guardianConsent: false }]))
+  assert.equal(r.ok, false)
+  assert.equal(r.value, null)
+  assert.deepEqual(r.errors, { 2: { guardianConsent: 'Zaznacz zgodę opiekuna.' } })
+  assert.equal(r.groupError, null)
+})
+
+test('T-01 a member with the captain\'s address is the group rule\'s duplicate', () => {
+  const r = run(request([captain(), adult(1), adult(2, { email: 'KAPITAN@example.pl' })]))
+  assert.equal(r.ok, false)
+  assert.deepEqual(r.errors, { 2: { email: 'Ten adres jest już w tym zgłoszeniu.' } })
+})
+
+test('T-01 a person error comes from validatePerson under the member index', () => {
+  const r = run(request([captain(), adult(1, { phone: '' }), adult(2)]))
+  assert.equal(r.ok, false)
+  assert.ok(r.errors[1].phone)
+})
+
+test('T-02 sizes 2 and 6 against min 3 / max 5 → groupError, sizes 3 and 5 pass', () => {
+  for (const n of [2, 6]) {
+    const r = run(request(squad(n)))
+    assert.equal(r.ok, false)
+    assert.equal(r.groupError, 'Drużyna musi mieć od 3 do 5 osób.')
+    assert.equal(r.value, null)
+  }
+  for (const n of [3, 5]) assert.equal(run(request(squad(n))).ok, true)
+})
+
+test('T-02 an empty or oversized squad never reaches the person rules', () => {
+  assert.equal(run(request([])).groupError, 'Drużyna musi mieć od 3 do 5 osób.')
+  const huge = run(request(Array.from({ length: 500 }, () => null)))
+  assert.equal(huge.groupError, 'Drużyna musi mieć od 3 do 5 osób.')
+  assert.deepEqual(huge.errors, {})
+})
+
+test('T-02 a size error still reports the name and the consent', () => {
+  const r = run(request(squad(2), { teamName: 'A', membersConsent: false }))
+  assert.equal(r.groupError, 'Drużyna musi mieć od 3 do 5 osób.')
+  assert.equal(r.fieldErrors.teamName, 'Nazwa drużyny musi mieć od 2 do 40 znaków.')
+  assert.equal(r.fieldErrors.membersConsent, 'Zaznacz zgodę członków drużyny.')
+})
+
+test('T-02 a competition with no size, or no category id, takes no team', () => {
+  const noSize = run(request(squad(3)), competition({ teamMin: null, teamMax: null }))
+  assert.equal(noSize.ok, false)
+  assert.equal(noSize.groupError, 'Ta konkurencja nie przyjmuje zapisów.')
+  assert.equal(run(request(squad(3), { categoryId: null })).groupError, 'Ta konkurencja nie przyjmuje zapisów.')
+  assert.equal(validateTeam(request(squad(3)), { sessionEmail: SESSION, now: NOW }).groupError, 'Ta konkurencja nie przyjmuje zapisów.')
+})
+
+test('T-02 a 17-year-old captain → ruling 2, not the group rule and not the guardian consent', () => {
+  const r = run(request([captain({ birthDate: yearsAgo(17) }), adult(1), adult(2)]))
+  assert.equal(r.ok, false)
+  assert.equal(r.groupError, CAPTAIN_MESSAGE)
+  assert.deepEqual(r.errors, {})
+})
+
+test('T-02 a captain who turns 18 today is an adult', () => {
+  assert.equal(run(request([captain({ birthDate: yearsAgo(18) }), adult(1), adult(2)])).ok, true)
+})
+
+test('T-02 a captain who is not the signed-in person → ruling 2, with no buyer error', () => {
+  for (const sessionEmail of ['ktos@example.pl', null]) {
+    const r = run(request(squad(3)), competition(), { sessionEmail })
+    assert.equal(r.ok, false)
+    assert.equal(r.groupError, CAPTAIN_MESSAGE)
+    assert.deepEqual(r.errors, {})
+  }
+})
+
+test('T-02 the session address on a later member does not make the first member the captain', () => {
+  const r = run(request([adult(1), captain(), adult(2)]))
+  assert.equal(r.groupError, CAPTAIN_MESSAGE)
+})
+
+test('T-03 leg order on: legs must be exactly 1…n, in any order across members', () => {
+  const on = competition({ legOrderEnabled: true })
+  const withLegs = (legs) => request(squad(legs.length).map((m, i) => ({ ...m, leg: legs[i] })))
+  const ok = run(withLegs([3, 1, 2, 4]), on)
+  assert.equal(ok.ok, true, JSON.stringify(ok))
+  assert.deepEqual(ok.value.members.map((m) => m.leg), [3, 1, 2, 4])
+  for (const legs of [[1, 2, 2, 4], [0, 1, 2, 3], [2, 3, 4, 5], [1, 2, 3, null], [1, 2, 3, 4.5]]) {
+    const r = run(withLegs(legs), on)
+    assert.equal(r.ok, false, String(legs))
+    assert.equal(r.groupError, 'Ustal kolejność zmian.', String(legs))
+  }
+})
+
+test('T-03 leg order off: legs sent are dropped, for every member', () => {
+  const members = squad(4).map((m, i) => ({ ...m, leg: i + 1 }))
+  const r = run(request(members))
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.deepEqual(r.value.members.map((m) => m.leg), [null, null, null, null])
+  const bad = run(request(squad(4).map((m) => ({ ...m, leg: 2 }))))
+  assert.equal(bad.ok, true, 'a repeated leg means nothing with leg order off')
+})
+
+test('T-04 the name is trimmed and 2–40 characters', () => {
+  const message = 'Nazwa drużyny musi mieć od 2 do 40 znaków.'
+  for (const teamName of [' A ', 'x'.repeat(41), '', '   ', undefined, 12]) {
+    const r = run(normalizeTeamRequest(request(squad(3), { teamName })))
+    assert.equal(r.ok, false, String(teamName))
+    assert.equal(r.fieldErrors.teamName, message, String(teamName))
+  }
+  const ok = run(normalizeTeamRequest(request(squad(3), { teamName: `  ${'x'.repeat(40)}  ` })))
+  assert.equal(ok.ok, true, JSON.stringify(ok))
+  assert.equal(ok.value.teamName, 'x'.repeat(40))
+  assert.equal(run(normalizeTeamRequest(request(squad(3), { teamName: 'AB' }))).ok, true)
+})
+
+test('T-04 the name is measured in characters, as the database counts them', () => {
+  assert.equal(run(request(squad(3), { teamName: '🐺' })).fieldErrors.teamName, 'Nazwa drużyny musi mieć od 2 do 40 znaków.')
+  assert.equal(run(request(squad(3), { teamName: '🐺'.repeat(40) })).ok, true)
+})
+
+test('T-04 teamNameKey: lower case, whitespace collapsed, trimmed', () => {
+  assert.equal(teamNameKey('  Wilcze   Stado '), 'wilcze stado')
+  assert.equal(teamNameKey('WILCZE\t\nSTADO'), 'wilcze stado')
+  assert.equal(teamNameKey('Żółte Łosie'), 'żółte łosie')
+  assert.equal(teamNameKey(null), '')
+})
+
+test('T-05 membersConsent missing or not exactly true → error', () => {
+  for (const membersConsent of [undefined, false, 'true', 1]) {
+    const r = run(normalizeTeamRequest(request(squad(3), { membersConsent })))
+    assert.equal(r.ok, false, String(membersConsent))
+    assert.equal(r.fieldErrors.membersConsent, 'Zaznacz zgodę członków drużyny.')
+    assert.equal(r.groupError, null)
+  }
+})
+
+test('normalizeTeamRequest: the request shape, garbage included', () => {
+  assert.deepEqual(normalizeTeamRequest({
+    categoryId: 'c1', teamName: '  Wilcze Stado ', membersConsent: true,
+    members: [{ person: { firstName: 'Ola' }, leg: 2, guardianConsent: true }, { person: { firstName: 'Ala' }, leg: '3', guardianConsent: 'yes' }, null],
+  }), {
+    categoryId: 'c1', teamName: 'Wilcze Stado', membersConsent: true,
+    members: [
+      { person: { firstName: 'Ola' }, leg: 2, guardianConsent: true },
+      { person: { firstName: 'Ala' }, leg: null, guardianConsent: false },
+      { person: {}, leg: null, guardianConsent: false },
+    ],
+  })
+  for (const body of [null, undefined, 'x', {}]) {
+    assert.deepEqual(normalizeTeamRequest(body), { categoryId: null, teamName: '', members: [], membersConsent: false })
+  }
+})

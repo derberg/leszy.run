@@ -155,3 +155,16 @@ test('M-1 the checklist on staged values: a staged paid pricing with a payout no
   assert.deepEqual(keys({ mode: 'club', ready: false }), ['payments', 'payout'])
   assert.deepEqual(keys({ mode: 'club', ready: true }), ['payments'])
 })
+
+test('T-06 mergedChecklistInput: a staged team reads as sized, a live team stays sized, a staged one with no size blocks', async () => {
+  const { mergedChecklistInput } = await import('../../../supabase/functions/_shared/registration/changeDiff.js')
+  const { publishChecklist } = await import('../../../supabase/functions/_shared/registration/checklist.js')
+  const row = { category_id: 'c1', name: 'Sztafeta', distance_label: '4 × 5 km', start_time: '10:00:00', capacity: 20 }
+  const live = { settings: {}, competitions: [row] }
+  const blocked = (pending, l = live) => publishChecklist({ ...mergedChecklistInput(l, pending), hasAgreement: true })
+    .blocking.filter((b) => b.key === 'competition:c1').map((b) => b.label)
+
+  assert.deepEqual(blocked({ competitions: { items: [{ ...row, kind: 'team', team_min: 3, team_max: 5 }] } }), [])
+  assert.deepEqual(blocked({ basics: { name: 'X' } }, { ...live, competitions: [{ ...row, kind: 'team', team_min: 3, team_max: 5 }] }), [])
+  assert.deepEqual(blocked({ competitions: { items: [{ ...row, kind: 'team', team_min: null, team_max: null }] } }), ['Konkurencja „Sztafeta”: skład drużyny'])
+})

@@ -7,10 +7,13 @@
 // keys sent are written. Lists (competition items, office hours, groups,
 // custom consents) are the whole list. Required-ness is the publish
 // checklist's job (Task 5), so a draft may hold blanks. `eventDate` is the
-// stored event date, for rules that need it (none in this task).
+// stored event date, for rules that need it (none in this task). `teamCategoryIds`
+// lists the event's team competitions, as the event will be once staged changes
+// apply: the form section's leg order is refused for any other competition.
 
 import { isValidSlug } from './slug.js'
 import { registrationWindow } from './dates.js'
+import { MAX_PEOPLE_PER_REQUEST, MIN_TEAM_SIZE } from './flags.js'
 
 export const SECTIONS = ['basics', 'office', 'competitions', 'categories', 'timing', 'form', 'payments']
 
@@ -188,18 +191,26 @@ function validateOffice(value, ctx, c) {
 // ---------------------------------------------------------------- competitions
 
 const ITEM_KEYS = ['categoryId', 'name', 'kind', 'discipline', 'distanceLabel', 'startTime', 'capacity',
-  'minAge', 'maxAge', 'isKids', 'timed', 'gpxUploadId', 'price']
+  'minAge', 'maxAge', 'isKids', 'timed', 'gpxUploadId', 'price', 'teamMin', 'teamMax']
 // After publish a competition is hidden, never deleted (applied by
 // „Opublikuj zmiany” only while nobody is registered for it).
 const PUBLISHED_ITEM_KEYS = [...ITEM_KEYS, 'hidden']
+const TEAM_SIZE_MESSAGE = `Skład: od ${MIN_TEAM_SIZE} do ${MAX_PEOPLE_PER_REQUEST} osób, min ≤ max.`
+
+const isTeamSize = (v) => Number.isInteger(v) && v >= MIN_TEAM_SIZE && v <= MAX_PEOPLE_PER_REQUEST
+
+function validateTeamSize({ teamMin, teamMax }, c) {
+  if (!isTeamSize(teamMin)) c.fail('teamMin', TEAM_SIZE_MESSAGE)
+  else if (!isTeamSize(teamMax) || teamMax < teamMin) c.fail('teamMax', TEAM_SIZE_MESSAGE)
+  else return { team_min: teamMin, team_max: teamMax }
+  return { team_min: null, team_max: null }
+}
 
 function validateItem(item, pricingMode, ctx, c) {
   if (!isPlainObject(item)) return c.fail('items', 'Nieprawidłowa konkurencja.')
   checkKeys(item, ctx.state === 'draft' ? ITEM_KEYS : PUBLISHED_ITEM_KEYS, c)
   const name = rules.text(120, { required: true, emptyMsg: 'Podaj nazwę konkurencji.' })(item.name, 'name', c)
-  const kind = item.kind ?? 'individual'
-  if (kind === 'team') c.fail('kind', SOON)
-  else if (kind !== 'individual') c.fail('kind', 'Nieprawidłowa wartość.')
+  const kind = rules.oneOf(['individual', 'team'])(item.kind ?? 'individual', 'kind', c)
   const discipline = item.discipline == null ? null : rules.oneOf(['run', 'nw'])(item.discipline, 'discipline', c)
   const capacity = Number.isInteger(item.capacity) && item.capacity >= 1 && item.capacity <= MAX_CAPACITY ? item.capacity
     : c.fail('capacity', Number.isInteger(item.capacity) && item.capacity < 1 ? 'Limit musi być większy od zera.' : 'Podaj limit miejsc.')
@@ -218,7 +229,7 @@ function validateItem(item, pricingMode, ctx, c) {
     ...(typeof hidden === 'boolean' ? { hidden } : {}),
     category_id: rules.uuid()(item.categoryId, 'categoryId', c) ?? null,
     name: name ?? null,
-    kind: 'individual',
+    kind: kind ?? 'individual',
     discipline: discipline ?? null,
     distance_label: rules.text(40)(item.distanceLabel ?? null, 'distanceLabel', c) ?? null,
     start_time: rules.time()(item.startTime ?? null, 'startTime', c) ?? null,
@@ -229,6 +240,8 @@ function validateItem(item, pricingMode, ctx, c) {
     timed: timed ?? true,
     gpx_upload_id: rules.uuid()(item.gpxUploadId, 'gpxUploadId', c) ?? null,
     price,
+    // A size sent with an individual competition (the row was switched back) is dropped.
+    ...(kind === 'team' ? validateTeamSize(item, c) : { team_min: null, team_max: null }),
   }
 }
 
@@ -336,8 +349,15 @@ const FORM_FIELDS = Object.keys(FORM_FIELD_DEFAULTS)
 const RETIRED_FORM_FIELDS = ['phone']
 
 function validateForm(value, ctx, c) {
-  checkKeys(value, ['formFields', 'consents'], c)
+  checkKeys(value, ['formFields', 'consents', 'legOrder'], c)
   const out = {}
+  if ('legOrder' in value) {
+    const teams = new Set(ctx.teamCategoryIds ?? [])
+    const entries = isPlainObject(value.legOrder) ? Object.entries(value.legOrder) : null
+    if (!entries || entries.some(([, on]) => typeof on !== 'boolean')) c.fail('legOrder', 'Nieprawidłowa wartość.')
+    else if (entries.some(([id]) => !teams.has(id))) c.fail('legOrder', 'Kolejność zmian ustawisz tylko w konkurencji drużynowej.')
+    else out.leg_order = value.legOrder
+  }
   if ('formFields' in value) {
     if (!isPlainObject(value.formFields)) c.fail('formFields', 'Nieprawidłowa wartość.')
     else {
@@ -406,7 +426,7 @@ const VALIDATORS = {
 /**
  * @param {string} section one of SECTIONS
  * @param {object} value the section's input (camelCase)
- * @param {{ state: 'draft'|'published'|'closed', eventDate?: string|null }} ctx
+ * @param {{ state: 'draft'|'published'|'closed', eventDate?: string|null, teamCategoryIds?: string[] }} ctx
  * @returns {{ ok: true, value: object } | { ok: false, errors: Record<string, string> }}
  */
 export function validateSection(section, value, ctx = { state: 'draft' }) {
