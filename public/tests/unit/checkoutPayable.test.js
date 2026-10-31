@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { checkoutModel, newOrderPayable, payLinkOpen, PAYING_CLOSES_BEFORE_MS } from '../../src/lib/checkout.js'
 
 describe('checkoutModel', () => {
-  it('„Zapłać” is enabled at once, the total being the sum of the entry prices (G-70)', () => {
+  it('„Zapłać” is enabled at once, the total being the sum of the entry prices (G-76)', () => {
     const m = checkoutModel({ entryPrices: [6000, 2500] })
     assert.equal(m.payDisabled, false)
     assert.equal(m.displayedTotal, 8500)

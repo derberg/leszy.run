@@ -102,9 +102,9 @@ test('P-10 anon and authenticated hold no privilege on the new tables, RLS is on
   }
 })
 
-// ---------------------------------------------------------------- G-70
+// ---------------------------------------------------------------- G-76
 
-test('G-70 the fee columns and the fee functions are gone; the total is the amounts owed and nothing else', async () => {
+test('G-76 the fee columns and the fee functions are gone; the total is the amounts owed and nothing else', async () => {
   const cols = await db()`select column_name from information_schema.columns
     where table_schema = 'public' and table_name = 'orders' and column_name in ('support_choice', 'support_fee', 'payment_fee', 'legacy_fees')`
   assert.deepEqual(cols.map((c) => c.column_name), [])

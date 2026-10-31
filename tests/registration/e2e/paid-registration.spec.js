@@ -108,7 +108,7 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
     return offline(await actors.runner.newPage())
   }
 
-  test('P-46 the list starts empty; RA4 shows the entry price and the total, nothing more, „Zapłać” → 60,00 zł → the mock page (G-70)', async ({ actors }) => {
+  test('P-46 the list starts empty; RA4 shows the entry price and the total, nothing more, „Zapłać” → 60,00 zł → the mock page (G-76)', async ({ actors }) => {
     event = await createPublishedPaidEvent(owner, { competitions: [BIEG], prices: { 'Bieg 9 km': 6000 } })
     await clearMessages()
 

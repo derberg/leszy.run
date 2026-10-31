@@ -122,7 +122,7 @@ test('P-20 displayedTotal not an integer → 400; nothing created', async () => 
   assert.equal((await competitionOf(event.categoryIds[0])).taken, 0)
 })
 
-test('G-70 a supportChoice from a page opened before the fees went is ignored: 201 at the entry price', async () => {
+test('G-76 a supportChoice from a page opened before the fees went is ignored: 201 at the entry price', async () => {
   const event = await paidEvent()
   for (const supportChoice of [true, 'tak']) {
     const email = runnerEmail('stale')

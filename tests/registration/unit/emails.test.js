@@ -41,7 +41,7 @@ test('P-24 orderConfirmationEmail: subject, every person, the amount lines, the 
     assert.match(part, /10:00/)
     assert.ok(part.includes(`Opłaty startowe`), 'entry fees line')
     assert.ok(part.includes('w imieniu i na rzecz Organizatora: Klub ZATYRANI'))
-    assert.doesNotMatch(part, /Wsparcie|Obsługa płatności/) // G-70
+    assert.doesNotMatch(part, /Wsparcie|Obsługa płatności/) // G-76
     assert.ok(part.includes('Razem'))
     assert.ok(part.includes(formatPln(6000)), 'amount')
     assert.ok(part.includes('TXN-ABC-123'))
