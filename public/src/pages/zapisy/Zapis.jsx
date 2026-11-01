@@ -4,7 +4,7 @@ import useAuth, { clearAuthCache, resolveUser } from '../../hooks/useAuth.js'
 import { clearFavoritesCache } from '../../hooks/useFavorites.js'
 import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import useSeo from '../../hooks/useSeo.js'
-import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
+import { forgetPublicRegistrationEvent, reloadPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction, requestCode, verifyCode } from '../../lib/auth.js'
 import { afterRegistrationPath } from '../../lib/inviteLink.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
@@ -18,6 +18,7 @@ import {
   setCardVoucher, setCardExtra, uncheckedCodes, draftOrdersExtras,
 } from '../../lib/groupDraft.js'
 import { donationsOffered, orderableExtras, pickedExtras } from '../../lib/cartModel.js'
+import { checkVoucherCode } from '../../lib/voucherCheck.js'
 import { discountedPrice, voucherLineLabel } from '@registration/pricing.js'
 import { normalizeCode } from '@registration/vouchers.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
@@ -68,7 +69,11 @@ const ADULT_NOTE = 'Ta osoba dostanie e-mail z prośbą o akceptację regulaminu
  * (groupDraft.js); a page with a second person asks before it is closed. `preview` (organizer
  * „Podgląd jako zawodnik”) renders everything with the submit disabled.
  */
-function PersonSignup({ raw, categoryId, preview = false, backTo }) {
+function PersonSignup({ raw: rawProp, categoryId, preview = false, backTo }) {
+  // The snapshot read again after the server said it is stale (a sold-out extra, a code priced at
+  // another tier; review M-1, M-3). The CDN may answer its copy for up to a minute.
+  const [freshRaw, setFreshRaw] = useState(null)
+  const raw = freshRaw ?? rawProp
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const model = useMemo(() => eventPageModel(raw), [raw])
@@ -97,6 +102,8 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
   // RA4's prices after a price_changed, per competition (N-3): a trip back to the form and on
   // to RA4 again shows the server's prices, not the page's older ones.
   const [priceOf, setPriceOf] = useState({})
+  // check-voucher's note on a code it could not judge (429, no connection), per card.
+  const [voucherNotes, setVoucherNotes] = useState({})
   // The address the code step verified (paid events): the session it opened may not be in the
   // auth cache yet, and „Wróć” then „Dalej” must not send another code (N1).
   const [verifiedEmail, setVerifiedEmail] = useState(null)
@@ -168,7 +175,11 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
   const open = row.state === 'open'
   const paid = raw.pricingMode !== 'free'
   // Through RA4 (and create-order unless a free event's total stays 0), Plan 7.
-  const checkout = paid || draftOrdersExtras(draft) || donationsOffered(raw)
+  // What each card orders, of what the page still offers: RA4 shows it and the request carries it (M-2).
+  const picksOf = (c) => pickedExtras(c.extras, orderableExtras(raw.extras, c.categoryId))
+  const extrasOf = (c) => picksOf(c).map((x) => ({ variantId: x.variantId, qty: x.qty }))
+  const ordersExtras = draftOrdersExtras(draft, extrasOf)
+  const checkout = paid || ordersExtras || donationsOffered(raw)
   const email = claimedEmail(draft).trim()
   const codeNeeded = needsCode(user?.email, email, verifiedEmail)
   const ready = draftReady(draft, { consents, accepted, serviceAccepted })
@@ -197,9 +208,15 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
 
   const listPriceOf = (categoryId) => priceOf[categoryId] ?? compOf(categoryId)?.priceGrosze ?? 0
 
+  function refreshRaw() {
+    reloadPublicRegistrationEvent(raw.slug).then((r) => { if (r.status === 'ok') setFreshRaw(r.raw) })
+  }
+
   /**
    * „Sprawdź”: check-voucher for the card's code in its competition. The answer applies only while
-   * the card still holds that code and competition. → { ok, error }
+   * the card still holds that code and competition. A 429 or no connection leaves the code
+   * unchecked with a note, and never blocks „Dalej”: create-order decides it (review I-1).
+   * → { ok, error }
    */
   async function checkVoucher(key) {
     const c = draft.cards.find((x) => x.key === key)
@@ -210,17 +227,24 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
       return now && now.categoryId === c.categoryId && now.voucher.code.trim() === code
     }
     setDraft((d) => (same(d) ? setCardVoucher(d, key, { state: 'checking' }) : d))
-    try {
-      const r = await callFunction('check-voucher', { slug: raw.slug, categoryId: c.categoryId, code })
-      setDraft((d) => (same(d) ? setCardVoucher(d, key, { state: 'ok', percent: r.data.percent, price: r.data.price }) : d))
+    setVoucherNotes((n) => ({ ...n, [key]: null }))
+    const r = await checkVoucherCode({ slug: raw.slug, categoryId: c.categoryId, code })
+    if (r.state === 'ok') {
+      setDraft((d) => (same(d) ? setCardVoucher(d, key, { state: 'ok', percent: r.percent, price: r.price }) : d))
       clearErrors(key, ['voucherCode'])
+      // The server priced it at another list price (a tier ended since the page loaded).
+      if (r.price !== discountedPrice(listPriceOf(c.categoryId), r.percent)) refreshRaw()
       return { ok: true }
-    } catch (err) {
-      const error = err.status == null ? 'Nie udało się połączyć. Spróbuj ponownie.' : err.message
-      setDraft((d) => (same(d) ? setCardVoucher(d, key, { state: 'error' }) : d))
-      setErrors((e) => ({ ...e, [key]: { ...(e[key] ?? {}), voucherCode: error } }))
-      return { ok: false, error }
     }
+    if (r.state === 'unchecked') {
+      setDraft((d) => (same(d) ? setCardVoucher(d, key, { state: 'idle' }) : d))
+      clearErrors(key, ['voucherCode'])
+      setVoucherNotes((n) => ({ ...n, [key]: r.note }))
+      return { ok: true, unchecked: true }
+    }
+    setDraft((d) => (same(d) ? setCardVoucher(d, key, { state: 'error' }) : d))
+    setErrors((e) => ({ ...e, [key]: { ...(e[key] ?? {}), voucherCode: r.error } }))
+    return { ok: false, error: r.error }
   }
 
   /** The codes typed on `keys` and not yet accepted, checked now; false (errors shown) when one is refused. */
@@ -261,6 +285,8 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
       const refusedCard = draft.cards[err.index + (draft.notRunning ? 1 : 0)]
       if (refusedCard) setDraft((d) => setCardVoucher(d, refusedCard.key, { state: 'error' }))
     }
+    // A sold-out or withdrawn extra: the page's copy of the stock is stale (M-1).
+    if (err?.field === 'extras') refreshRaw()
     const f = groupFailure(err, draft, today)
     // The server wants a code again (the session is gone): the earlier verification no longer counts.
     if (f.step === 'code') setVerifiedEmail(null)
@@ -282,7 +308,7 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
   async function register(withCode) {
     setBusy(true)
     try {
-      await callFunction('register-free', toRequest(draft, { consents, code: withCode, today }))
+      await callFunction('register-free', toRequest(draft, { consents, code: withCode, today, extrasOf }))
       // register-free set the session cookie: drop whatever the browser cached about the previous visitor.
       clearAuthCache()
       clearFavoritesCache()
@@ -477,13 +503,13 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
         key: c.key, categoryId: c.categoryId, name: `${p.firstName} ${p.lastName}`, competitionName: rowOf(c.categoryId)?.name ?? '',
         ageGroupLabel: groupOf(i), priceGrosze: listPriceOf(c.categoryId),
         voucher: c.voucher.state === 'ok' ? { code: normalizeCode(c.voucher.code) ?? c.voucher.code.trim(), percent: c.voucher.percent } : null,
-        extras: pickedExtras(c.extras, orderableExtras(raw.extras, c.categoryId)),
+        extras: picksOf(c),
       }]
     })
     // A free event whose RA4 total stays 0 (no extra, no donation) registers free from there.
-    const freeFromSummary = !paid && !draftOrdersExtras(draft)
+    const freeFromSummary = !paid && !ordersExtras
     return (
-      <Podsumowanie raw={raw} open={open} lines={lines} body={toRequest(draft, { consents, today })}
+      <Podsumowanie raw={raw} open={open} lines={lines} body={toRequest(draft, { consents, today, extrasOf })}
         addedCategoryIds={draft.cards.slice(1).map((c) => c.categoryId)}
         donation={donationsOffered(raw) ? { goal: raw.charityGoal ?? null } : null}
         onRegisterFree={freeFromSummary ? () => register(null) : null}
@@ -515,9 +541,14 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
       })
       : null
     return {
-      voucher: listPrice > 0 ? {
-        value: c.voucher, okLabel,
-        onCode: (code) => { setDraft((d) => setCardVoucher(d, c.key, { code })); clearErrors(c.key, ['voucherCode']) },
+      // A card holding a code always shows it, so a refusal has a visible home (review I-2).
+      voucher: listPrice > 0 || c.voucher.code.trim() ? {
+        value: c.voucher, okLabel, note: voucherNotes[c.key] ?? null,
+        onCode: (code) => {
+          setDraft((d) => setCardVoucher(d, c.key, { code }))
+          clearErrors(c.key, ['voucherCode'])
+          setVoucherNotes((n) => ({ ...n, [c.key]: null }))
+        },
         onCheck: () => { checkVoucher(c.key) },
       } : null,
       extras: offered.length ? {
@@ -576,7 +607,11 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
           <label htmlFor={`p${n}-competition`} className={labelCls}>Konkurencja</label>
           <select id={`p${n}-competition`} className={`${inputCls} ${compError ? 'border-apex-red' : ''}`} value={c.categoryId} disabled={busy}
             aria-invalid={compError ? 'true' : undefined} aria-describedby={compError ? `p${n}-competition-error` : undefined}
-            onChange={(e) => { setDraft((d) => setCardCompetition(d, c.key, e.target.value)); clearErrors(c.key, ['competition']) }}>
+            onChange={(e) => {
+              const to = e.target.value
+              setDraft((d) => setCardCompetition(d, c.key, to, { priced: listPriceOf(to) > 0 }))
+              clearErrors(c.key, ['competition', 'voucherCode', 'extras'])
+            }}>
             {choices.map((k) => <option key={k.categoryId} value={k.categoryId}>{k.name} · {k.priceLabel}</option>)}
           </select>
           {compError && <p id={`p${n}-competition-error`} className="text-apex-red font-sans text-sm">{compError}</p>}

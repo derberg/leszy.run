@@ -85,8 +85,9 @@ const TEAM_BACK_TO_FORM = new Set(['team_name_taken', 'invalid_team_name', 'inva
 export function backToForm(err, addedCategoryIds = [], { team = false } = {}) {
   if (!err || err.status == null) return false
   if (err.status === 401) return true
-  // Plan 7: a person's code or extras (create-order's cart refusals carry the person's index).
-  if (!team && Number.isInteger(err.index) && (err.field === 'voucherCode' || err.field === 'extras')) return true
+  // Plan 7: a person's code or extras (the cart refusals carry the person's index; a team's code is
+  // the team line, index 0, the captain's step).
+  if (Number.isInteger(err.index) && (err.field === 'voucherCode' || err.field === 'extras')) return true
   if (team && TEAM_BACK_TO_FORM.has(err.code)) return true
   if (err.code === 'full' || err.code === 'team_competition') {
     const id = typeof err.categoryId === 'string' ? err.categoryId.toLowerCase() : ''

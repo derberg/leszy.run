@@ -80,10 +80,14 @@ export function updatePerson(draft, key, patch) {
   }))
 }
 
-/** Another competition: a checked code is checked again (its competitions and price differ), the extras start over. */
-export function setCardCompetition(draft, key, categoryId) {
+/**
+ * Another competition: a checked code is checked again (its competitions and price differ), the
+ * extras start over. `priced: false` (the new competition costs 0 zł) drops the code: it would
+ * discount nothing and be refused (voucher_not_applicable) on a card with no code field (review I-2).
+ */
+export function setCardCompetition(draft, key, categoryId, { priced = true } = {}) {
   return mapCard(draft, key, (c) => (c.categoryId === categoryId ? c : {
-    ...c, categoryId, voucher: { ...EMPTY_VOUCHER, code: c.voucher?.code ?? '' }, extras: {},
+    ...c, categoryId, voucher: { ...EMPTY_VOUCHER, code: priced ? (c.voucher?.code ?? '') : '' }, extras: {},
   }))
 }
 
@@ -107,9 +111,12 @@ export function uncheckedCodes(draft) {
   return draft.cards.filter((c) => (c.voucher?.code ?? '').trim() && c.voucher.state !== 'ok').map((c) => c.key)
 }
 
-/** Whether any card orders an extra (qty above 0): such a request is an order (ruling 7). */
-export function draftOrdersExtras(draft) {
-  return draft.cards.some((c, i) => !(i === 0 && draft.notRunning) && Object.values(c.extras ?? {}).some((e) => e.qty > 0))
+/**
+ * Whether any card orders an extra (qty above 0): such a request is an order (ruling 7).
+ * `extrasOf(card)` (cartOfCard's) counts only what the page still offers.
+ */
+export function draftOrdersExtras(draft, extrasOf = rawExtras) {
+  return draft.cards.some((c, i) => !(i === 0 && draft.notRunning) && extrasOf(c).length > 0)
 }
 
 export function setCardOpen(draft, key, open) {
@@ -196,13 +203,13 @@ export function requestPeople(draft, day) {
  * the functions read it as a group of one with the same answers, and the functions still in
  * production while Vercel deploys ahead of `supabase functions deploy` read nothing else.
  */
-export function toRequest(draft, { consents, code, today } = {}) {
+export function toRequest(draft, { consents, code, today, extrasOf } = {}) {
   const people = requestPeople(draft, dayOf(today))
   // Plan 7: each person's code and extras (qty above 0 only), in the same order as people[].
-  draft.cards.filter((_, i) => !(i === 0 && draft.notRunning)).forEach((c, i) => Object.assign(people[i], cartOfCard(c)))
+  draft.cards.filter((_, i) => !(i === 0 && draft.notRunning)).forEach((c, i) => Object.assign(people[i], cartOfCard(c, extrasOf)))
   const shared = { acceptedConsentIds: (consents ?? []).map((k) => k.id), serviceRegulamin: true }
   const body = people.length === 1 && !draft.notRunning
-    ? { categoryId: people[0].categoryId, person: people[0].person, ...cartOfCard(draft.cards[0]), ...shared }
+    ? { categoryId: people[0].categoryId, person: people[0].person, ...cartOfCard(draft.cards[0], extrasOf), ...shared }
     : { people, ...shared }
   if (draft.notRunning) {
     const b = draft.cards[0].person
@@ -213,12 +220,19 @@ export function toRequest(draft, { consents, code, today } = {}) {
   return body
 }
 
-/** A card's cart fields as the request carries them: `voucherCode` and `extras`, each only when there is one. */
-function cartOfCard(c) {
+/** A card's picks with qty above 0 as [{ variantId, qty }], unfiltered (the page passes its own filter). */
+const rawExtras = (c) => Object.values(c.extras ?? {}).filter((e) => e.qty > 0 && e.variantId).map((e) => ({ variantId: e.variantId, qty: e.qty }))
+
+/**
+ * A card's cart fields as the request carries them: `voucherCode` and `extras`, each only when there
+ * is one. `extrasOf(card)` → [{ variantId, qty }] is the page's filter (cartModel's pickedExtras over
+ * what it still offers), so the request orders exactly what RA4 shows (review M-2).
+ */
+export function cartOfCard(c, extrasOf = rawExtras) {
   const out = {}
   const voucherCode = (c.voucher?.code ?? '').trim()
   if (voucherCode) out.voucherCode = voucherCode
-  const extras = Object.values(c.extras ?? {}).filter((e) => e.qty > 0 && e.variantId).map((e) => ({ variantId: e.variantId, qty: e.qty }))
+  const extras = (extrasOf ?? rawExtras)(c)
   if (extras.length) out.extras = extras
   return out
 }

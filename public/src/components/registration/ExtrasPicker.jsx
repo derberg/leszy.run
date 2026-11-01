@@ -3,7 +3,8 @@ import { inputCls, labelCls } from './ui.js'
 
 // RA2/RA3 (Plan 7, ruling 6): the extras one person orders, one row per extra with a variant
 // select and a quantity 0–10. A sold-out variant stays in the list as „brak” and cannot be picked;
-// an extra with nothing left shows „brak” and no controls. `extras` are cartModel's orderableExtras
+// an extra with nothing left shows „brak” and no controls. An extra with one variant has no select:
+// that variant is ordered, its label beside the name when it says more than the name. `extras` are cartModel's orderableExtras
 // for the person's competition, `picks` the card's { [extraId]: { variantId, qty } }.
 
 const QTYS = Array.from({ length: MAX_EXTRA_QTY + 1 }, (_, i) => i)
@@ -26,18 +27,22 @@ export default function ExtrasPicker({ idPrefix, extras, picks, onPick, error, d
           const variantId = x.variants.some((v) => v.id === pick.variantId && !v.soldOut) ? pick.variantId : firstLeft?.id
           const qty = pick.qty ?? 0
           const invalid = !!error && qty > 0
+          const single = x.variants.length === 1
+          const singleLabel = single && x.variants[0].label !== x.name ? x.variants[0].label : null
           return (
             <li key={x.id} className="border border-apex-border bg-apex-surface px-3 py-2.5 flex flex-col gap-2" data-testid="extra">
               <div className="flex items-center gap-3">
                 {x.imageUrl && <img src={x.imageUrl} alt="" className="w-12 h-12 object-cover shrink-0 border border-apex-border" />}
-                <span id={`${id}-name`} className="min-w-0 flex-1 text-[17px] font-bold text-apex-text-bright [overflow-wrap:anywhere]">{x.name}</span>
+                <span id={`${id}-name`} className="min-w-0 flex-1 text-[17px] font-bold text-apex-text-bright [overflow-wrap:anywhere]">
+                  {x.name}{singleLabel && <span className="font-medium text-apex-text"> · {singleLabel}</span>}
+                </span>
                 <span className="font-mono text-apex-yellow whitespace-nowrap">{x.priceLabel}</span>
               </div>
               {gone
                 ? <span className="font-mono text-sm uppercase text-apex-muted" data-testid="extra-sold-out">brak</span>
                 : (
-                  <div className="grid grid-cols-[1fr_6rem] gap-2.5 items-end">
-                    <div className="flex flex-col gap-1.5 min-w-0">
+                  <div className={`grid ${single ? 'grid-cols-[6rem]' : 'grid-cols-[1fr_6rem]'} gap-2.5 items-end`}>
+                    {!single && <div className="flex flex-col gap-1.5 min-w-0">
                       <label htmlFor={`${id}-variant`} className={labelCls}>Wariant</label>
                       <select id={`${id}-variant`} className={inputCls} value={variantId ?? ''} disabled={disabled}
                         aria-describedby={`${id}-name`}
@@ -46,7 +51,7 @@ export default function ExtrasPicker({ idPrefix, extras, picks, onPick, error, d
                           <option key={v.id} value={v.id} disabled={v.soldOut}>{v.soldOut ? `${v.label} · brak` : v.label}</option>
                         ))}
                       </select>
-                    </div>
+                    </div>}
                     <div className="flex flex-col gap-1.5">
                       <label htmlFor={`${id}-qty`} className={labelCls}>Ilość</label>
                       <select id={`${id}-qty`} className={`${inputCls} font-mono ${invalid ? 'border-apex-red' : ''}`} value={qty} disabled={disabled}

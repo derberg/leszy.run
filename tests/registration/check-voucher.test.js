@@ -150,3 +150,26 @@ test('V-68 check-voucher throttles per IP: 10 refused codes an hour, 30 checks a
   for (let i = 0; i < 31; i++) answers.push((await check({ slug: event.slug, categoryId: c9, code: v.code }, { ip: busy })).status)
   assert.deepEqual(answers, [...Array(30).fill(200), 429])
 })
+
+test('V-68 (I-1) a guesser rotating x-forwarded-for meets the event cap: 50 refused codes an hour per event, then 429 for everyone there; another event is unaffected', async () => {
+  const event = await twoEvents()
+  const other = await twoEvents()
+  const [c9] = event.categoryIds
+  const v = await makeVoucher(event.eventId, { percent: 15, max_uses: 5 })
+  const w = await makeVoucher(other.eventId, { percent: 15, max_uses: 5 })
+
+  // An accepted code and a request that judged no code (404) spend no event slot.
+  assert.equal((await check({ slug: event.slug, categoryId: c9, code: v.code })).status, 200)
+  assert.equal((await check({ slug: event.slug, categoryId: other.categoryIds[0], code: 'ZLY-KOD' })).status, 404)
+
+  // Every guess from a fresh address, as a direct caller of the function can send.
+  const statuses = []
+  for (let i = 0; i < 50; i++) statuses.push((await check({ slug: event.slug, categoryId: c9, code: `ZGADUJE-${i}` })).status)
+  assert.deepEqual(statuses, Array(50).fill(422))
+  const locked = await check({ slug: event.slug, categoryId: c9, code: `ZGADUJE-X` })
+  assert.equal(locked.status, 429, JSON.stringify(locked.body))
+  assert.equal((await check({ slug: event.slug, categoryId: c9, code: v.code })).status, 429)
+  // The cap is per event.
+  assert.deepEqual((await check({ slug: other.slug, categoryId: other.categoryIds[0], code: w.code })).body, { data: { percent: 15, price: 5100 } })
+  assert.equal((await one('vouchers', { id: v.id })).used, 0)
+})

@@ -58,7 +58,7 @@ const row = 'flex justify-between gap-2.5 py-2 border-b border-apex-border text-
  *   body: object (groupDraft's toRequest, without a code), addedCategoryIds: string[],
  *   onBack: () => void, onFailure: (err: Error) => void,
  *   onRepriced: (byCategory: Record<string, number>) => void, endpoint?: string, stepLabel?: string,
- *   team?: { name: string, members: Array<{ key, name, detail }> },
+ *   team?: { name: string, members: Array<{ key, name, detail, extras? }> },
  *   donation?: { goal: string|null }|null, onRegisterFree?: (() => Promise<void>)|null }} p
  * A line's `priceGrosze` is its list price, `voucher` { code, percent } and `extras`
  * [{ name, variantLabel, price, qty }] (cartModel's pickedExtras).
@@ -190,6 +190,11 @@ export default function Podsumowanie({
                 <span className="min-w-0">
                   <span className="block text-apex-text-bright text-[17px] [overflow-wrap:anywhere]">{m.name}</span>
                   <MetaLine parts={[m.detail]} />
+                  {(m.extras ?? []).map((x) => (
+                    <span key={x.variantId ?? x.name} className="block text-[15px] text-apex-text [overflow-wrap:anywhere]" data-testid="checkout-extra">
+                      {extraLineLabel(x)}
+                    </span>
+                  ))}
                 </span>
               </li>
             ))}
@@ -209,7 +214,8 @@ export default function Podsumowanie({
             {cart.voucherLabels[i] && (
               <span className="font-mono text-sm text-apex-yellow [overflow-wrap:anywhere]" data-testid="checkout-voucher">{cart.voucherLabels[i]}</span>
             )}
-            {(l.extras ?? []).map((x) => (
+            {/* RB3 lists each member's extras under the member, above; the fee line carries them for the amounts. */}
+            {!team && (l.extras ?? []).map((x) => (
               <span key={x.variantId ?? x.name} className="text-[15px] text-apex-text [overflow-wrap:anywhere]" data-testid="checkout-extra">
                 {extraLineLabel(x)}
               </span>
@@ -250,9 +256,9 @@ export default function Podsumowanie({
         {busy ? 'Chwileczkę…' : free ? 'Zapisz się' : 'Zapłać'}
       </button>
       {team && <p className="text-base text-apex-text">Skład możesz zmieniać do zamknięcia zapisów.</p>}
-      <p className="text-sm text-apex-muted">
+      {!free && <p className="text-sm text-apex-muted">
         Płatność obsługuje dpay. Opłaty startowe pobieramy w imieniu i na rzecz organizatora: {raw.club?.name ?? 'klubu'}.
-      </p>
+      </p>}
     </div>
   )
 }

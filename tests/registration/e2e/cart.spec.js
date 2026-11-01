@@ -13,7 +13,8 @@ import { makeExtra, makeVoucher, setCharity } from '../helpers/cart.js'
 // code („Sprawdź”, check-voucher) and the extras per person, RA4 shows the voucher line, the
 // extras under the person, the donation chips and the summary lines, and its total is
 // cartAmounts'. A total above 0 goes to create-order, a free event with nothing picked to
-// register-free. Scenarios V-60…V-62 and V-66 (RA2, RA4) in docs/registration/scenario-matrix.md.
+// register-free. RB1 takes the team line's code and each member's extras. Scenarios V-60…V-62, V-61b,
+// V-66 (RA2, RA4), V-68 (the form's fallback) and V-69 in docs/registration/scenario-matrix.md.
 
 const ZT = '00000000-0000-4000-8000-0000000000c1'
 const NINE = { name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 }
@@ -309,4 +310,172 @@ test('a code typed and never checked is checked on „Dalej”: a wrong one stop
   await codeToCheckout(page, email)
   await expect(page.getByTestId('checkout-voucher')).toHaveText(`60,00 zł − 50% (${voucher.code}) = 30,00 zł`)
   await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*30,00 zł/)
+})
+
+// ---------------------------------------------------------------- fix round 1
+
+test('I-1 a 429 or no connection from check-voucher does not hold „Dalej”: create-order decides the code', async ({ actors }) => {
+  const event = await charityEvent()
+  const voucher = await makeVoucher(event.eventId, { percent: 15, max_uses: 5 })
+  const email = runnerEmail('throttled')
+  const page = await offline(await actors.viewer.newPage())
+  let answer = 'abort'
+  await page.route('**/edge/check-voucher', (route) => (answer === 'abort'
+    ? route.abort()
+    : route.fulfill({ status: 429, contentType: 'application/json', headers: { 'retry-after': '3600' }, body: JSON.stringify({ error: 'Zbyt wiele prób. Spróbuj ponownie później.' }) })))
+  await page.goto(`/events/${event.slug}`)
+  await page.getByTestId('competition').filter({ hasText: 'Bieg 9 km' }).click()
+  await fillPerson(page, { email })
+  await page.getByLabel('Kod rabatowy').fill(voucher.code)
+  // No connection on „Sprawdź”: a note, not an error.
+  await page.getByRole('button', { name: 'Sprawdź' }).click()
+  await expect(page.getByTestId('voucher-note')).toHaveText('Nie udało się połączyć. Spróbuj ponownie.')
+  await expect(page.locator('#p-voucher')).not.toHaveAttribute('aria-invalid', 'true')
+  // A 429 on „Dalej”: the form goes on to the e-mail code all the same.
+  answer = '429'
+  await tickAll(page)
+  await codeToCheckout(page, email)
+  // RA4 could not apply the code; create-order does, and answers with its price.
+  await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*60,00 zł/)
+  await page.getByTestId('pay').click()
+  await expect(page.getByRole('alert')).toHaveText('Cena się zmieniła. Sprawdź podsumowanie.')
+  await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*51,00 zł/)
+  await page.getByTestId('pay').click()
+  await expect(page).toHaveURL(PAY_PAGE)
+  const [order] = await ordersOf(email)
+  expect(order.total).toBe(5100)
+})
+
+test('I-1 a code check-voucher could not judge, and that is wrong, comes back from create-order onto the field', async ({ actors }) => {
+  const event = await charityEvent()
+  const email = runnerEmail('throttledbad')
+  const page = await offline(await actors.viewer.newPage())
+  await page.route('**/edge/check-voucher', (route) => route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'Zbyt wiele prób. Spróbuj ponownie później.' }) }))
+  await page.goto(`/events/${event.slug}`)
+  await page.getByTestId('competition').filter({ hasText: 'Bieg 9 km' }).click()
+  await fillPerson(page, { email })
+  await page.getByLabel('Kod rabatowy').fill('ZLY-KOD-3')
+  await tickAll(page)
+  await codeToCheckout(page, email)
+  await page.getByTestId('pay').click()
+  await errorOf(page, '#p-voucher', 'Nieprawidłowy kod.')
+  expect(await ordersOf(email)).toEqual([])
+})
+
+test('I-2 a code typed on a card that then moves to a 0 zł competition is dropped with its field; the order carries no code', async ({ actors }) => {
+  const event = await createPublishedPaidEvent(owner, { competitions: [NINE, THREE], prices: { 'Bieg 9 km': 6000, 'Bieg 3 km': 0 } })
+  const voucher = await makeVoucher(event.eventId, { percent: 15, max_uses: 5 })
+  const email = runnerEmail('zero')
+  const page = await offline(await actors.viewer.newPage())
+  await page.goto(`/events/${event.slug}`)
+  await page.getByTestId('competition').filter({ hasText: 'Bieg 9 km' }).click()
+  await fillPerson(page, { email })
+  await page.getByTestId('add-person').click()
+  await fillPerson(page, { prefix: 'p2', first: 'Piotr', email: runnerEmail('zero2'), gender: 'Mężczyzna' })
+  await page.locator('#p2-voucher').fill(voucher.code)
+  await page.getByTestId('person-card').getByRole('button', { name: 'Sprawdź' }).click()
+  await expect(page.getByTestId('voucher-ok')).toBeVisible()
+  await page.locator('#p2-competition').selectOption({ label: 'Bieg 3 km · Bezpłatne' })
+  await expect(page.locator('#p2-voucher')).toHaveCount(0)
+  await page.getByTestId('person-done').click()
+  await tickAll(page)
+  await codeToCheckout(page, email)
+  await expect(page.getByTestId('checkout-voucher')).toHaveCount(0)
+  await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*60,00 zł/)
+  await page.getByTestId('pay').click()
+  await expect(page).toHaveURL(PAY_PAGE)
+  const [order] = await ordersOf(email)
+  const { data: regs } = await admin().from('registrations').select('voucher_id, price').eq('order_id', order.id)
+  expect(regs.map((r) => r.voucher_id)).toEqual([null, null])
+  expect(order.total).toBe(6000)
+})
+
+const STAFETA = { name: 'Sztafeta', discipline: 'run', distanceLabel: '4 x 5 km', startTime: '10:00', capacity: 20, kind: 'team', teamMin: 2, teamMax: 4 }
+
+async function fillMember(page, prefix, { first, last = 'Leśny', birth = '1987-01-01', gender = 'Mężczyzna', email, phone = '600300400' }) {
+  await page.locator(`#${prefix}-first`).fill(first)
+  await page.locator(`#${prefix}-last`).fill(last)
+  await page.locator(`#${prefix}-birth`).fill(birth)
+  await page.locator(`[aria-labelledby="${prefix}-gender-label"]`).getByRole('button', { name: gender, exact: true }).click()
+  await page.locator(`#${prefix}-email`).fill(email)
+  await page.locator(`#${prefix}-phone`).fill(phone)
+}
+
+for (const width of [1440, 390]) {
+  test(`RB1 ${width} px: the team code on the captain's step, a member's shirt → RB3's fee line and total are cartAmounts', register-team charges it`, async ({ actors }) => {
+    const event = await createPublishedPaidEvent(owner, { competitions: [STAFETA], prices: { Sztafeta: 24000 } })
+    await makeExtra(event, { name: 'Koszulka', price: 4500, variants: [['S', 0], ['M', 10]] })
+    const voucher = await makeVoucher(event.eventId, { percent: 15, max_uses: 5 })
+    const teamName = `Wilcze Stado ${crypto.randomBytes(4).toString('hex')}`
+    const page = await offline(await actors.runner.newPage())
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto(`/events/${event.slug}`)
+    // RA1 lists the shirt under the team competition, and the team form now sells it.
+    await expect(page.getByTestId('competition-extra')).toHaveText(['Koszulka 45,00 zł'])
+    await page.getByTestId('competition').first().click()
+    await page.getByLabel('Nazwa drużyny').fill(teamName)
+    await fillMember(page, 'p', { first: 'Ola', last: 'Leśna', birth: '1988-03-01', gender: 'Kobieta', email: ACTOR_EMAILS.runner, phone: '600100200' })
+    await page.getByLabel('Kod rabatowy').fill(voucher.code)
+    await page.getByRole('button', { name: 'Sprawdź' }).click()
+    await expect(page.getByTestId('voucher-ok')).toHaveText(`240,00 zł − 15% (${voucher.code}) = 204,00 zł`)
+    await tickAll(page)
+    if (width === 390) await fitsNarrow(page)
+    await page.getByRole('button', { name: 'Dalej: skład' }).click()
+    await expect(page.getByTestId('member-card')).toBeVisible()
+    await fillMember(page, 'p2', { first: 'Piotr', email: runnerEmail('piotr') })
+    const shirt = page.getByTestId('member-card').getByTestId('extra')
+    await shirt.getByLabel('Wariant').selectOption({ label: 'M' })
+    await shirt.getByLabel('Ilość').selectOption('1')
+    if (width === 390) await fitsNarrow(page)
+    await page.getByTestId('person-done').click()
+    await page.getByTestId('members-consent').check()
+    await page.getByRole('button', { name: 'Dalej: płatność' }).click()
+
+    const expected = cartAmounts({ people: [{ listPrice: 24000, voucherPercent: 15, extras: [{ price: 4500, qty: 1 }] }], donation: 0 })
+    expect(expected.total).toBe(24900)
+    await expect(page.getByTestId('checkout-voucher')).toHaveText(`240,00 zł − 15% (${voucher.code}) = 204,00 zł`)
+    await expect(page.getByTestId('checkout-line-price')).toHaveText('204,00 zł')
+    await expect(page.getByTestId('team-member').nth(1).getByTestId('checkout-extra')).toHaveText(['Koszulka · M · 45,00 zł'])
+    await expect(page.getByTestId('checkout-extra')).toHaveCount(1)
+    await expect(page.getByTestId('amount-entries')).toHaveText(/Opłaty startowe\s*204,00 zł/)
+    await expect(page.getByTestId('amount-extras')).toHaveText(/Dodatki\s*45,00 zł/)
+    await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*249,00 zł/)
+    if (width === 390) await fitsNarrow(page)
+    await page.getByTestId('pay').click()
+    await expect(page).toHaveURL(PAY_PAGE)
+    await expect(page.getByTestId('amount')).toHaveText('249.00')
+    const { data: team } = await admin().from('teams').select('id').eq('name', teamName).single()
+    const { data: regs } = await admin().from('registrations').select('order_id, voucher_id, price').eq('team_id', team.id)
+    const { data: order } = await admin().from('orders').select('*').eq('id', regs[0].order_id).single()
+    expect([order.entry_total, order.extras_total, order.donation, order.total])
+      .toEqual([expected.entryTotal, expected.extrasTotal, expected.donation, expected.total])
+    expect(regs.filter((r) => r.voucher_id === voucher.id)).toHaveLength(1)
+  })
+}
+
+test('RB1: a wrong team code stops RB1 on the field; register-team refusing it sends the captain back to it', async ({ actors }) => {
+  const event = await createPublishedPaidEvent(owner, { competitions: [STAFETA], prices: { Sztafeta: 24000 } })
+  const voucher = await makeVoucher(event.eventId, { percent: 15, max_uses: 5 })
+  const page = await offline(await actors.runner.newPage())
+  await page.goto(`/events/${event.slug}`)
+  await page.getByTestId('competition').first().click()
+  await page.getByLabel('Nazwa drużyny').fill(`Wilcze Stado ${crypto.randomBytes(4).toString('hex')}`)
+  await fillMember(page, 'p', { first: 'Ola', last: 'Leśna', birth: '1988-03-01', gender: 'Kobieta', email: ACTOR_EMAILS.runner, phone: '600100200' })
+  await page.getByLabel('Kod rabatowy').fill('ZLY-KOD-4')
+  await tickAll(page)
+  await page.getByRole('button', { name: 'Dalej: skład' }).click()
+  await errorOf(page, '#p-voucher', 'Nieprawidłowy kod.')
+  await expect(page.getByTestId('member-card')).toHaveCount(0)
+
+  await page.getByLabel('Kod rabatowy').fill(voucher.code)
+  await page.getByRole('button', { name: 'Dalej: skład' }).click()
+  await fillMember(page, 'p2', { first: 'Piotr', email: runnerEmail('piotr2') })
+  await page.getByTestId('person-done').click()
+  await page.getByTestId('members-consent').check()
+  await page.getByRole('button', { name: 'Dalej: płatność' }).click()
+  await expect(page.getByTestId('checkout-total')).toHaveText(/Razem\s*204,00 zł/)
+  await admin().from('vouchers').update({ disabled_at: new Date().toISOString() }).eq('id', voucher.id)
+  await page.getByTestId('pay').click()
+  await expect(page.getByTestId('team-captain')).toBeVisible()
+  await errorOf(page, '#p-voucher', 'Nieprawidłowy kod.')
 })

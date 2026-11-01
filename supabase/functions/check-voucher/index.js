@@ -17,13 +17,22 @@ import { CART_REFUSALS, NOT_FOUND, ORDER_REFUSALS, json, throttled } from '../_s
 // create_order (voucherCheck.js); a code of another event is voucher_invalid, nothing more. 404 for
 // an unknown, draft, closed-down or hidden competition and a disabled club; 409 no_price.
 // The answer never names the voucher, its partner, its note or its uses: only percent and price.
-// Throttles per client IP and hour (claim_throttle_slot, one statement): voucher-ip:<ip> 30 checks,
-// voucher-wrong-ip:<ip> 10 refused codes. The wrong slot is claimed before the check and given back
-// when the code is accepted, so ten parallel guesses cannot all pass the cap.
+// Throttles (claim_throttle_slot, one statement each), per hour: voucher-ip:<ip> 30 checks and
+// voucher-wrong-ip:<ip> 10 refused codes, and voucher-wrong-event:<eventId> 50 refused codes for
+// the whole event. The IP is the first x-forwarded-for element (clientIp.js), which a caller of
+// *.supabase.co sets to anything, so the IP caps only slow a browser; the event cap is the one a
+// guesser cannot rotate around. 50 an hour: a dictionary of memorable codes („BIEG”, „WILK2026”)
+// takes days instead of minutes, while an event's honest typos stay well below it (a runner who
+// mistypes tries once or twice). A guesser can exhaust it for an hour, so the form never treats a
+// 429 as a wrong code: „Dalej” goes on and create-order, behind the e-mail code, decides
+// (Zapis.jsx, TeamSignup.jsx). Wrong slots are claimed before the check and given back for an
+// accepted code and for an answer that was not a code judged (404, 409, 500), so parallel
+// guesses cannot all pass a cap and a failing server spends nobody's attempts.
 
 const HOUR = 3600
 const CHECKS_PER_HOUR = 30
 const WRONG_PER_HOUR = 10
+const WRONG_PER_EVENT_HOUR = 50
 
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -37,6 +46,16 @@ Deno.serve(async (req) => {
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON' }, 400, req) }
   const { slug, categoryId, code } = body ?? {}
 
+  // The wrong-code slots this request holds, and the answer after giving them back.
+  const claimed = []
+  const giveBack = async (response) => {
+    for (const key of claimed.splice(0)) {
+      const { error } = await admin.rpc('release_throttle_slot', { p_key: key })
+      if (error) console.error('check-voucher: release_throttle_slot:', error.message)
+    }
+    return response
+  }
+
   try {
     const ip = clientIp(req) ?? 'unknown'
     const checks = await checkAndIncrement(admin, `voucher-ip:${ip}`, CHECKS_PER_HOUR, { windowSeconds: HOUR })
@@ -44,18 +63,23 @@ Deno.serve(async (req) => {
     const wrongKey = `voucher-wrong-ip:${ip}`
     const wrong = await checkAndIncrement(admin, wrongKey, WRONG_PER_HOUR, { windowSeconds: HOUR })
     if (!wrong.allowed) return throttled(req, wrong.retryAfterSec)
+    claimed.push(wrongKey)
 
-    if (typeof slug !== 'string' || !isValidSlug(slug) || !isUuid(categoryId)) return json(NOT_FOUND, 404, req)
+    if (typeof slug !== 'string' || !isValidSlug(slug) || !isUuid(categoryId)) return giveBack(json(NOT_FOUND, 404, req))
     const { data: settings, error: sErr } = await admin.from('registration_settings')
       .select('event_id, club_id, state, pricing_mode').eq('slug', slug).maybeSingle()
     if (sErr) throw sErr
-    if (!settings || settings.state !== 'published') return json(NOT_FOUND, 404, req)
-    if (!(await clubRegistrationEnabled(admin, settings.club_id))) return json(NOT_FOUND, 404, req)
+    if (!settings || settings.state !== 'published') return giveBack(json(NOT_FOUND, 404, req))
+    if (!(await clubRegistrationEnabled(admin, settings.club_id))) return giveBack(json(NOT_FOUND, 404, req))
+    const eventKey = `voucher-wrong-event:${settings.event_id}`
+    const eventWrong = await checkAndIncrement(admin, eventKey, WRONG_PER_EVENT_HOUR, { windowSeconds: HOUR })
+    if (!eventWrong.allowed) return giveBack(throttled(req, eventWrong.retryAfterSec))
+    claimed.push(eventKey)
     const { data: competition, error: cErr } = await admin.from('competitions')
       .select('category_id').eq('category_id', categoryId.toLowerCase()).eq('event_id', settings.event_id)
       .is('hidden_at', null).maybeSingle()
     if (cErr) throw cErr
-    if (!competition) return json(NOT_FOUND, 404, req)
+    if (!competition) return giveBack(json(NOT_FOUND, 404, req))
 
     // The list price create_order would charge now: the public read model's current tier.
     let listPrice = 0
@@ -65,7 +89,7 @@ Deno.serve(async (req) => {
       listPrice = (raw?.competitions ?? []).find((c) => String(c.categoryId).toLowerCase() === competition.category_id)?.priceGrosze
       if (!Number.isSafeInteger(listPrice)) {
         const [status, error] = ORDER_REFUSALS.no_price
-        return json({ error, code: 'no_price' }, status, req)
+        return giveBack(json({ error, code: 'no_price' }, status, req))
       }
     }
 
@@ -90,12 +114,10 @@ Deno.serve(async (req) => {
       const [, error] = CART_REFUSALS[reason]
       return json({ error, code: reason, field: 'voucherCode' }, 422, req)
     }
-    // An accepted code is not a wrong guess: its slot goes back.
-    const { error: relErr } = await admin.rpc('release_throttle_slot', { p_key: wrongKey })
-    if (relErr) console.error('check-voucher: release_throttle_slot:', relErr.message)
-    return json({ data: voucherAnswer({ percent: voucher.percent, listPrice }) }, 200, req)
+    // An accepted code is not a wrong guess: its slots go back.
+    return giveBack(json({ data: voucherAnswer({ percent: voucher.percent, listPrice }) }, 200, req))
   } catch (err) {
     console.error('check-voucher error:', err?.message, err?.code)
-    return json({ error: 'Internal server error' }, 500, req)
+    return giveBack(json({ error: 'Internal server error' }, 500, req))
   }
 })
