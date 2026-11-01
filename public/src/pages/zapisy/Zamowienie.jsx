@@ -37,7 +37,9 @@ import { eventPath } from './RegistrationEventPage.jsx'
 //             „Anuluj zgłoszenie” (cancel-my-order, after a confirm step in the page)
 //             always, and as the main action once full: until it is cancelled or
 //             expires, the address cannot register again (409 pending_order)
-// expired / cancelled → „Zgłoszenie wygasło” / „…anulowane” and „Zapisz się ponownie”
+// expired / cancelled → „Zgłoszenie wygasło” / „…anulowane” and „Zapisz się ponownie”; a
+//             cancellation because the buyer took somebody's package (transfer_accepted) says so
+//             and links to the entry instead
 
 const warsaw = new Intl.DateTimeFormat('pl-PL', {
   timeZone: 'Europe/Warsaw', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -285,7 +287,12 @@ const ENDED_REASONS = {
   voucher: 'Zanim Twoja wpłata dotarła, kod rabatowy został wykorzystany. Zwracamy całą wpłatę.',
   stock: 'Zanim Twoja wpłata dotarła, wybrany dodatek się wyprzedał. Zwracamy całą wpłatę.',
   buyer_cancelled: 'Anulowano zgłoszenie na Twoją prośbę. Możesz zapisać się jeszcze raz.',
+  // Plan 7: the buyer accepted somebody's package for this event, which replaced this unpaid order.
+  transfer_accepted: 'Przejąłeś(-ęłaś) pakiet od innej osoby, więc to nieopłacone zgłoszenie anulowaliśmy.',
 }
+
+// A reason after which registering again would make a second entry: no „Zapisz się ponownie”.
+const NO_AGAIN = new Set(['transfer_accepted'])
 
 function Ended({ order, raw }) {
   const expired = order.status === 'expired'
@@ -304,7 +311,9 @@ function Ended({ order, raw }) {
           ? 'Nie dostaliśmy wpłaty w terminie. Możesz zapisać się jeszcze raz, po aktualnej cenie.'
           : ENDED_REASONS[order.cancelledReason] ?? 'To zgłoszenie nie jest już ważne. Możesz zapisać się jeszcze raz.'}
       </p>
-      <Link to={href} className={`${primaryBtn} flex items-center justify-center`} data-testid="order-again">Zapisz się ponownie</Link>
+      {NO_AGAIN.has(order.cancelledReason)
+        ? <Link to={href === '/' ? '/' : `${href}/zapisano`} className={secondaryBtn} data-testid="order-own-entry">Twój zapis</Link>
+        : <Link to={href} className={`${primaryBtn} flex items-center justify-center`} data-testid="order-again">Zapisz się ponownie</Link>}
     </div>
   )
 }

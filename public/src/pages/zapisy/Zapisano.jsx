@@ -9,6 +9,7 @@ import RegisteredPerson from '../../components/registration/RegisteredPerson.jsx
 import { orderPeople, personGroupLabel, showsConsentTags } from '../../lib/consentTag.js'
 import { captainTeamPath } from '../../lib/teamPage.js'
 import { linkCls } from '../../components/registration/ui.js'
+import { transferAction } from '../../lib/transferCopy.js'
 import RegistrationShell from './RegistrationShell.jsx'
 import { eventPath } from './RegistrationEventPage.jsx'
 
@@ -18,8 +19,25 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // „Dodaj do kalendarza” and „Napisz do organizatora” (the event's contact
 // address, never a person's). In a group each person carries the regulamin tag
 // („✓ REGULAMIN” / „✓ OPIEKUN” / „CZEKA NA ZGODĘ”), and an added adult who has not
-// accepted gets „Wyślij przypomnienie do <imię> →”. Editing, adding people, changing
-// competition and passing the entry on belong to later plans.
+// accepted gets „Wyślij przypomnienie do <imię> →”. A row the server lets the session hand on
+// (its own adult entry, a team's as captain, transfers on and today ≤ the organizer's last day;
+// Plan 7 ruling 3) carries „Przekaż pakiet innej osobie →” to RA6, and „Czeka na <adres>” while an
+// invite is open. A child's row never does. Editing, adding people and changing competition belong
+// to later plans.
+
+/** RA5's transfer action under one person, or nothing. */
+function TransferLink({ row, slug }) {
+  const action = transferAction(row, slug)
+  if (!action) return null
+  return (
+    <div className="flex flex-col gap-1 pt-2.5 mt-2.5 border-t border-apex-border" data-testid="transfer-action">
+      <Link to={action.href} className="self-start whitespace-nowrap text-base font-bold text-apex-yellow hover:text-apex-yellow-bright underline-offset-2 hover:underline">
+        {action.label}
+      </Link>
+      {action.pending && <span className="text-sm text-apex-text-bright [overflow-wrap:anywhere]">{action.pending}</span>}
+    </div>
+  )
+}
 
 function Done({ raw }) {
   const model = eventPageModel(raw)
@@ -70,7 +88,7 @@ function Done({ raw }) {
       {teamName && <p className="text-lg text-apex-text-bright" data-testid="done-team">Drużyna: <strong className="[overflow-wrap:anywhere]">{teamName}</strong></p>}
       {rows.map((r) => (
         <RegisteredPerson key={r.id} person={r} registrationId={r.id} name={`${r.firstName} ${r.lastName}`} showTag={tags}
-          onStale={() => setReads((n) => n + 1)} testId="done-person"
+          onStale={() => setReads((n) => n + 1)} testId="done-person" footer={<TransferLink row={r} slug={raw.slug} />}
           meta={[r.competition, personGroupLabel(r), r.startTime ? `start ${r.startTime}` : null]} />
       ))}
       <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)} teamHref={captainTeamPath(raw.slug, rows)}

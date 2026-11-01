@@ -20,6 +20,8 @@ const ZapisyDruzyna = lazy(() => import('./pages/zapisy/Druzyna.jsx'))
 const ZapisyListaStartowa = lazy(() => import('./pages/zapisy/ListaStartowa.jsx'))
 const ZapisyZamowienie = lazy(() => import('./pages/zapisy/Zamowienie.jsx'))
 const ZapisyZgoda = lazy(() => import('./pages/zapisy/Zgoda.jsx'))
+const ZapisyPrzekaz = lazy(() => import('./pages/zapisy/Przekaz.jsx'))
+const ZapisyPrzekazanie = lazy(() => import('./pages/zapisy/Przekazanie.jsx'))
 const ZapisyInformacja = lazy(() => import('./pages/zapisy/InformacjaODanych.jsx'))
 const Volunteer = lazy(() => import('./pages/Volunteer.jsx'))
 const Checkin = lazy(() => import('./pages/Checkin.jsx'))
@@ -80,11 +82,13 @@ export default function App() {
           <Route path="/events/:slug/trasa" element={<ZapisyTrasa />} />
           <Route path="/events/:slug/zapis/:categoryId" element={<ZapisyZapis />} />
           <Route path="/events/:slug/zapisano" element={<ZapisyZapisano />} />
+          <Route path="/events/:slug/przekaz/:registrationId" element={<ZapisyPrzekaz />} />
           <Route path="/events/:slug/druzyna/:teamId" element={<ZapisyDruzyna />} />
           <Route path="/events/:slug/lista" element={<ZapisyListaStartowa />} />
           <Route path="/events/:slug/informacja-o-danych" element={<ZapisyInformacja />} />
           <Route path="/zamowienie/:orderId" element={<ZapisyZamowienie />} />
           <Route path="/zgoda" element={<ZapisyZgoda />} />
+          <Route path="/przekazanie" element={<ZapisyPrzekazanie />} />
           <Route path="/events/:slug/results" element={<Results />} />
           <Route path="/events/:slug/results/live" element={<Results />} />
           <Route path="/events/:slug/results/:categoryId" element={<Results />} />
