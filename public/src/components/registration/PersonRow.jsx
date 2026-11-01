@@ -15,10 +15,10 @@ export function MoveButtons({ moveKey, name, place, count, disabled, onMove }) {
 }
 
 /** „Usunąć <imię>?” Tak / Nie, in place of the buttons, for a card that holds anything. */
-export function RemoveConfirm({ id, name, onYes, onNo }) {
+export function RemoveConfirm({ id, question = 'Usunąć tę osobę?', onYes, onNo }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-labelledby={id} data-testid="remove-confirm">
-      <span id={id} className="font-sans font-semibold text-base text-apex-text-bright">Usunąć {name}?</span>
+      <span id={id} className="font-sans font-semibold text-base text-apex-text-bright">{question}</span>
       <span className="flex gap-2">
         <button type="button" onClick={onYes} className={removeBtn} data-testid="remove-yes">Tak</button>
         <button type="button" onClick={onNo} className={`${smallBtn} border-apex-border-bright text-apex-text-bright hover:bg-apex-surface-2`} autoFocus data-testid="remove-no">Nie</button>
@@ -46,7 +46,7 @@ export function PersonRow({ cardKey, n, label, person, detail, onEdit, onRemove,
           </span>
         )}
       </div>
-      {confirming && <RemoveConfirm id={`p${n}-remove-q`} name={person.firstName?.trim() || `osobę ${n}`} onYes={onConfirm} onNo={onCancel} />}
+      {confirming && <RemoveConfirm id={`p${n}-remove-q`} onYes={onConfirm} onNo={onCancel} />}
     </li>
   )
 }

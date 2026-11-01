@@ -324,7 +324,8 @@ test('T-66 390 px: one member on screen at a time; the list step changes, remove
   expect(await firsts()).toEqual(['p2-first'])
   await expect(page.getByTestId('person-row')).toHaveCount(0)
   await expect(page.locator('#p2-first')).toBeFocused()
-  await expect(page.getByLabel('E-mail — wyślemy prośbę o akceptację regulaminu')).toBeVisible()
+  await expect(page.getByLabel('E-mail', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('consent-request-note')).toHaveText('Wyślemy prośbę o akceptację regulaminu.')
   await expect(page.getByTestId('members-consent')).toHaveCount(0)
 
   // A member's error is answered on their own step.
@@ -351,7 +352,7 @@ test('T-66 390 px: one member on screen at a time; the list step changes, remove
   expect((await firsts()).length).toBe(1)
   await page.getByTestId('squad-link').click()
   await page.getByRole('button', { name: 'Usuń — Piotr Leśny' }).click()
-  await expect(page.getByTestId('remove-confirm')).toContainText('Usunąć Piotr?')
+  await expect(page.getByTestId('remove-confirm')).toHaveText(/^Usunąć tę osobę\?/)
   await page.getByTestId('remove-no').click()
   await expect(page.getByTestId('person-row')).toHaveCount(3)
   await page.getByRole('button', { name: 'Usuń — Piotr Leśny' }).click()
@@ -371,7 +372,7 @@ test('T-66 RB1: a smaller size asks before it drops somebody typed in, a larger 
 
   const size = page.getByTestId('team-size')
   await size.getByRole('button', { name: '2', exact: true }).click()
-  await expect(page.getByTestId('remove-confirm')).toContainText('Usunąć Ewa?')
+  await expect(page.getByTestId('remove-confirm')).toContainText('Usunąć z drużyny: Ewa?')
   await page.getByTestId('remove-no').click()
   await expect(size.getByRole('button', { name: '3', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await size.getByRole('button', { name: '4', exact: true }).click()

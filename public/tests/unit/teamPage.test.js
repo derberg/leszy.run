@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  addLabel, checkMember, lastChangeDay, memberMeta, memberName, moveLeg, newMember, squadFailure, teamStatusLabel, toMemberRequest,
+  addLabel, captainTeamPath, checkMember, lastChangeDay, memberMeta, memberName, moveLeg, newMember, squadFailure, teamStatusLabel, toMemberRequest,
 } from '../../src/lib/teamPage.js'
 import { teamContext } from '../../src/lib/teamDraft.js'
 import { EMPTY_PERSON } from '../../src/lib/personFormModel.js'
@@ -107,5 +107,26 @@ describe('T-64 the rest of the page', () => {
   it('moveLeg moves one place and leaves the ends alone', () => {
     assert.deepEqual(moveLeg(['a', 'b', 'c'], 1, -1), ['b', 'a', 'c'])
     assert.deepEqual(moveLeg(['a', 'b', 'c'], 2, 1), ['a', 'b', 'c'])
+  })
+})
+
+describe('captainTeamPath (RA5 and the order page → RB4)', () => {
+  it('the captain\'s line links to the team; anybody else\'s does not', () => {
+    const lines = [{ teamId: 't1', isCaptain: false }, { teamId: 't1', isCaptain: true }]
+    assert.equal(captainTeamPath('wilcza-16', lines), '/events/wilcza-16/druzyna/t1')
+    assert.equal(captainTeamPath('wilcza-16', [{ teamId: 't1', isCaptain: false }]), null)
+    assert.equal(captainTeamPath('wilcza-16', [{ teamId: null, isCaptain: false }]), null)
+    assert.equal(captainTeamPath('wilcza-16', []), null)
+    assert.equal(captainTeamPath(null, lines), null)
+  })
+})
+
+describe('squadFailure: consents that changed', () => {
+  it('asks for the snapshot again and stays on the form with the server\'s message', () => {
+    const f = squadFailure(Object.assign(new Error('Zaznacz wymagane zgody.'), { status: 400, code: 'consents_changed' }))
+    assert.equal(f.consentsChanged, true)
+    assert.equal(f.message, 'Zaznacz wymagane zgody.')
+    assert.equal(f.stale, false)
+    assert.equal(f.closed, false)
   })
 })

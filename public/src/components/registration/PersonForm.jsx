@@ -80,14 +80,14 @@ function GuardianConsent({ id, guardian }) {
  *   loginHref?: string, codeNote?: string, disabled?: boolean, variant?: 'self'|'buyer'|'adult'|'minor',
  *   idPrefix?: string, guardian?: { name, email, checked, onChange, error },
  *   notRunning?: boolean, onNotRunning?: (on: boolean) => void, emailReadOnly?: boolean,
- *   ownHeading?: string, emailLabel?: string }} p
+ *   ownHeading?: string }} p
  * `emailReadOnly`: the consent page (/zgoda) shows the address the link was sent to; it is never edited there.
- * `ownHeading` / `emailLabel`: the team form's „Kapitan” and the adult member's e-mail label.
+ * `ownHeading`: the team form's „Kapitan”.
  */
 export default function PersonForm({
   fields, value, onChange, errors = {}, competition, raceDate, reckoning, ageGroups, prefill, loginHref, codeNote, disabled = false,
   variant = 'self', idPrefix = 'p', guardian, notRunning = false, onNotRunning, emailReadOnly = false,
-  ownHeading = 'Twoje dane', emailLabel = 'E-mail',
+  ownHeading = 'Twoje dane',
 }) {
   const minor = variant === 'minor'
   const buyer = variant === 'buyer'
@@ -104,7 +104,7 @@ export default function PersonForm({
     </Field>
   )
   const emailField = (
-    <Field id={id('email')} label={emailLabel} error={errors.email}>
+    <Field id={id('email')} label="E-mail" error={errors.email}>
       <TextInput id={id('email')} type="email" value={value.email} onChange={set('email')} error={errors.email} autoComplete={own ? 'email' : 'off'} maxLength={254}
         readOnly={emailReadOnly} {...(emailReadOnly ? { className: `${inputCls} text-apex-muted` } : {})} />
       {codeNote && <span className="font-sans text-sm text-apex-muted" data-testid={own ? undefined : 'consent-request-note'}>{codeNote}</span>}

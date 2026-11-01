@@ -472,7 +472,7 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
           )}
         </div>
         {removing === c.key && (
-          <RemoveConfirm id={`p${n}-remove-q`} name={c.person.firstName?.trim() || `osobę ${n}`}
+          <RemoveConfirm id={`p${n}-remove-q`}
             onYes={() => confirmRemove(c.key)} onNo={() => cancelRemove(n)} />
         )}
         <div className="flex flex-col gap-1.5">

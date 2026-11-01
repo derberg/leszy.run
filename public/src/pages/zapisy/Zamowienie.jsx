@@ -7,6 +7,7 @@ import { callFunction } from '../../lib/auth.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import { pollDelayMs } from '../../lib/orderPolling.js'
 import { payLinkOpen } from '../../lib/checkout.js'
+import { captainTeamPath } from '../../lib/teamPage.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import DoneActions from '../../components/registration/DoneActions.jsx'
 import RegisteredPerson from '../../components/registration/RegisteredPerson.jsx'
@@ -140,7 +141,7 @@ function Paid({ order, raw, model, onAgain }) {
       </div>
       {people.map((l, i) => <Person key={l.registrationId ?? `${l.name}-${i}`} line={l} showTag={tags} onStale={onAgain} />)}
       {raw && first && (
-        <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)}
+        <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)} teamHref={captainTeamPath(order.event.slug, order.lines)}
           first={{ uid: `${order.event.slug}-${first.name}`, name: first.name, competition: first.competition, startTime: first.startTime }} />
       )}
     </div>
@@ -198,6 +199,7 @@ function Pending({ orderId, order, raw, polling, onAgain }) {
   const [, tick] = useState(0)
   const closesAt = order.closesAt ?? raw?.closesAt ?? null
   const closed = !payLinkOpen(closesAt)
+  const teamHref = captainTeamPath(order.event.slug, order.lines)
 
   // A page left open across closes_at drops „Zapłać” at that moment.
   useEffect(() => {
@@ -243,6 +245,7 @@ function Pending({ orderId, order, raw, polling, onAgain }) {
         )}
       </div>
       {orderPeople(order.lines).map((l, i) => <Person key={l.registrationId ?? `${l.name}-${i}`} line={l} />)}
+      {teamHref && <Link to={teamHref} className={linkCls} data-testid="order-team-link">Zarządzaj składem</Link>}
       <Amounts amounts={order.amounts} />
       {closed
         ? <p className="text-apex-red text-base" data-testid="order-closed">Zapisy są zamknięte.</p>

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  competitionRow, newCompetitionRow, competitionsSection, assignIds, capacityLabel, eventCapacity, priceText,
+  competitionRow, newCompetitionRow, competitionsSection, assignIds, capacityLabel, capacityUnit, eventCapacity, priceText,
 } from '../../src/lib/competitionRows.js'
 
 const ID1 = '11111111-1111-4111-8111-111111111111'
@@ -130,4 +130,9 @@ test('inUse comes from the server; without it a row is in use only when it has c
   assert.equal(competitionRow(server({ taken: 2 })).inUse, true)
   assert.equal(competitionRow(server({ taken: 0 })).inUse, false)
   assert.equal(newCompetitionRow().inUse, false)
+})
+
+test('capacityUnit: the word beside a team limit agrees with the number, and an unfinished number reads as many', () => {
+  assert.deepEqual(['1', '2', '4', '5', '12', '22', '20'].map(capacityUnit), ['DRUŻYNA', 'DRUŻYNY', 'DRUŻYNY', 'DRUŻYN', 'DRUŻYN', 'DRUŻYNY', 'DRUŻYN'])
+  assert.deepEqual(['', 'x', null, undefined].map(capacityUnit), ['DRUŻYN', 'DRUŻYN', 'DRUŻYN', 'DRUŻYN'])
 })

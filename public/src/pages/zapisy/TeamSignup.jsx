@@ -15,7 +15,7 @@ import {
   erroredCards, fixMessage, formStep, LIST_STEP,
 } from '../../lib/groupDraft.js'
 import {
-  initTeam, setSize, droppedBy, moveMember, removeMember, squadCards, toTeamRequest, teamContext, checkTeam, checkCaptain,
+  ADULT_EMAIL_NOTE, initTeam, setSize, droppedBy, moveMember, removeMember, squadCards, toTeamRequest, teamContext, checkTeam, checkCaptain,
   firstOpenMember, memberAfter, memberAgeLabel, teamFailure,
 } from '../../lib/teamDraft.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
@@ -43,7 +43,6 @@ import { formPath } from './RegistrationEventPage.jsx'
 // and once RB1 is left the page asks before it is closed. `preview` (organizer „Podgląd jako
 // zawodnik”) renders RB1 with the way on disabled.
 
-const ADULT_EMAIL_LABEL = 'E-mail — wyślemy prośbę o akceptację regulaminu'
 const stepTitle = (legOrder, n) => (legOrder ? `Zmiana ${n}` : `Osoba ${n}`)
 
 export default function TeamSignup({ raw, categoryId, preview = false, backTo }) {
@@ -458,7 +457,7 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
               ))}
             </div>
             {shrinking.length > 0 && (
-              <RemoveConfirm id="team-size-q" name={shrinking.map((c) => c.person.firstName?.trim() || 'osobę').join(', ')}
+              <RemoveConfirm id="team-size-q" question={`Usunąć z drużyny: ${shrinking.map((c) => c.person.firstName?.trim() || 'pusta osoba').join(', ')}?`}
                 onYes={() => { setDraft((d) => setSize(d, shrinkTo)); setShrinkTo(null) }} onNo={() => setShrinkTo(null)} />
             )}
           </div>
@@ -495,12 +494,12 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
           )}
         </div>
         {removing === c.key && (
-          <RemoveConfirm id={`p${n}-remove-q`} name={c.person.firstName?.trim() || `osobę ${n}`}
+          <RemoveConfirm id={`p${n}-remove-q`}
             onYes={() => confirmRemove(c.key)} onNo={() => cancelRemove(n)} />
         )}
         <PersonForm fields={fields} value={effectivePerson(draft, i, today)} onChange={change(c.key, i)} errors={errors[c.key] ?? {}}
           competition={competition} raceDate={context.raceDate} reckoning={context.reckoning} ageGroups={context.ageGroups} disabled={busy}
-          variant={variants[i]} idPrefix={`p${n}`} prefill={null} emailLabel={ADULT_EMAIL_LABEL}
+          variant={variants[i]} idPrefix={`p${n}`} prefill={null} codeNote={variants[i] === 'adult' ? ADULT_EMAIL_NOTE : undefined}
           guardian={{
             name: cardName(draft, 0), email: draft.cards[0].person.email, checked: c.guardianConsent,
             onChange: (v) => { setDraft((d) => setGuardianConsent(d, c.key, v)); clearErrors(c.key, ['guardianConsent']) },

@@ -42,6 +42,15 @@ async function single(query) {
 const memberColumns = 'id, first_name, last_name, birth_date, age_group_label, team_leg, consent_state, created_at, ' +
   'profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at'
 
+/** Whether „Zapłać” can still lead anywhere: an open, unexpired order that still fits the limit (P3-R15). */
+async function orderPayable(admin, order, captain, open) {
+  if (!open || captain.status !== 'pending_payment' || order?.status !== 'pending') return false
+  if (order.expires_at && Date.now() >= Date.parse(order.expires_at)) return false
+  const { data, error } = await admin.rpc('registration_order_fits', { p_order_id: captain.order_id })
+  if (error) console.error('team-squad: registration_order_fits failed:', error.message)
+  return data !== false
+}
+
 /** What the captain's page shows: the live squad, with no address, phone or birth date. */
 async function squadView(admin, team, settings, competition) {
   const captain = await single(admin.from('registrations')
@@ -49,8 +58,9 @@ async function squadView(admin, team, settings, competition) {
   const [regs, order] = await Promise.all([
     rows(admin.from('registrations').select(memberColumns).eq('team_id', team.id).in('status', LIVE)
       .order('created_at').order('id')),
-    captain.order_id ? single(admin.from('orders').select('total').eq('id', captain.order_id).single()) : null,
+    captain.order_id ? single(admin.from('orders').select('total, status, expires_at').eq('id', captain.order_id).single()) : null,
   ])
+  const editsOpen = settings.state === 'published' && !!settings.closes_at && Date.now() < Date.parse(settings.closes_at)
   const isCaptain = (r) => r.id === team.captain_registration_id
   const rank = (r) => (competition.leg_order_enabled ? r.team_leg ?? Number.MAX_SAFE_INTEGER : isCaptain(r) ? 0 : 1)
   const members = [...regs].sort((a, b) => rank(a) - rank(b)).map((r) => ({
@@ -72,7 +82,9 @@ async function squadView(admin, team, settings, competition) {
       orderId: captain.order_id,
       closesAt: settings.closes_at,
       // team_squad_edit's own rule, so the page never offers an edit it would refuse.
-      editsOpen: settings.state === 'published' && !!settings.closes_at && Date.now() < Date.parse(settings.closes_at),
+      editsOpen,
+      // The same for „Zapłać”: the order page explains a refusal, and this page only stops offering it.
+      payable: await orderPayable(admin, order, captain, editsOpen),
       legOrderEnabled: competition.leg_order_enabled === true,
       teamMin: competition.team_min,
       teamMax: competition.team_max,
@@ -119,7 +131,7 @@ async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName,
 }
 
 // POST { teamId, action, … } → 200 { data: { team: { name, status, paymentStatus, orderId, closesAt,
-//   editsOpen, legOrderEnabled, teamMin, teamMax }, members: [{ registrationId, firstName, lastName,
+//   editsOpen, payable, legOrderEnabled, teamMin, teamMax }, members: [{ registrationId, firstName, lastName,
 //   ageGroupLabel, age, role, consentState, leg, isCaptain }], competition: { categoryId, name },
 //   event: { id, slug, name, eventDate } } }, the same answer for a read and an edit.
 //   get
@@ -162,6 +174,12 @@ Deno.serve(async (req) => {
     ])
     if (!(await clubRegistrationEnabled(admin, settings.club_id))) return json(NOT_FOUND, 404, req)
 
+    // Before the throttle: a request that names no action is no edit, and spends none of the 30.
+    if (!ACTIONS.includes(action)) {
+      const [status, error] = SQUAD_REFUSALS.invalid_op
+      return json({ error, code: 'invalid_op' }, status, req)
+    }
+
     // After the captain check, so nobody else can spend this team's allowance.
     const read = action === 'get'
     if (read && team.released_at) return json(NOT_FOUND, 404, req)
@@ -169,10 +187,6 @@ Deno.serve(async (req) => {
       read ? SQUAD_READ_LIMIT : SQUAD_LIMIT, { windowSeconds: HOUR })
     if (!throttle.allowed) return throttled(req, throttle.retryAfterSec)
 
-    if (!ACTIONS.includes(action)) {
-      const [status, error] = SQUAD_REFUSALS.invalid_op
-      return json({ error, code: 'invalid_op' }, status, req)
-    }
     if (read) return json({ data: await squadView(admin, team, settings, competition) }, 200, req)
 
     const email = session.email.toLowerCase()

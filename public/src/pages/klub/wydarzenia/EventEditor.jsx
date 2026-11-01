@@ -4,7 +4,7 @@ import useSeo from '../../../hooks/useSeo.js'
 import useRegistrationEvent from '../../../hooks/useRegistrationEvent.js'
 import usePendingChanges from '../../../hooks/usePendingChanges.js'
 import { discardRegistrationChanges } from '../../../lib/organizer.js'
-import { closesLabel, missingAfterPublish, noticeResult, registeredLine } from '../../../lib/pendingChanges.js'
+import { closesLabel, missingAfterPublish, noticeResult, registeredParts } from '../../../lib/pendingChanges.js'
 import { STEP_KEYS, wizardSteps } from '../../../lib/wizardSteps.js'
 import { stagedEvent } from '../../../lib/stagedEvent.js'
 import { btnGhost, btnPrimary } from '../settingsUi.js'
@@ -160,14 +160,18 @@ function MissingBanner({ missing, onFill }) {
 function PublishedHeader({ event, onCopy, copied }) {
   const s = event.settings
   const line = [eventDay(s.eventDate), s.townLabel].filter(Boolean).join(' · ')
-  const [count, ...rest] = registeredLine(event.registeredCount ?? 0, event.competitions ?? []).split(' zapisanych')
+  const registered = registeredParts(event.registeredCount ?? 0, event.competitions ?? [])
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0 flex flex-col gap-1.5">
         <h1 className="font-display font-extrabold text-3xl md:text-4xl uppercase leading-none text-apex-text-bright break-words">{s.name}</h1>
         <span className="font-sans text-[17px]">
           {line && <>{line} · </>}
-          <span data-testid="registered-count"><span className="font-mono text-apex-yellow">{count}</span> zapisanych{rest.join('')}</span>
+          <span data-testid="registered-count">
+            {registered.map((p, i) => (
+              <span key={p.unit}>{i > 0 && ' · '}<span className="whitespace-nowrap"><span className="font-mono text-apex-yellow">{p.count}</span> {p.unit}</span></span>
+            ))}
+          </span>
         </span>
       </div>
       <div className="flex flex-wrap gap-2">

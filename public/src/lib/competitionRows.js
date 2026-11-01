@@ -10,7 +10,7 @@
 //   with its `hidden` flag: a competition left out of the list would mean
 //   deleting it, and the server refuses that (409).
 import { validateSection } from '../../../supabase/functions/_shared/registration/sections.js'
-import { countPl } from './plural.js'
+import { countPl, pluralPl } from './plural.js'
 
 let rowSeq = 0
 
@@ -145,6 +145,12 @@ export function eventCapacity(rows) {
     if (!r.hidden && Number.isInteger(n)) sum[r.kind === 'team' ? 'teams' : 'people'] += n
   }
   return sum
+}
+
+/** The word beside a team competition's limit. A number still being typed reads as many. */
+export function capacityUnit(capacity) {
+  const n = int(capacity)
+  return pluralPl(Number.isInteger(n) && n >= 0 ? n : 0, 'DRUŻYNA', 'DRUŻYNY', 'DRUŻYN')
 }
 
 /** „200 OSÓB + 20 DRUŻYN”. */

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  changeValue, changesSummary, noticeTarget, defaultNotice, peopleLabel, noticeResult, registeredLine, closesLabel,
+  changeValue, changesSummary, noticeTarget, defaultNotice, peopleLabel, noticeResult, registeredLine, registeredParts, closesLabel,
   missingAfterPublish, noticeCheck,
 } from '../../src/lib/pendingChanges.js'
 
@@ -84,6 +84,17 @@ test('registeredLine and closesLabel for the published header', () => {
   assert.equal(closesLabel('2026-12-03'), '3.12')
   assert.equal(closesLabel('2026-01-05'), '5.01')
   assert.equal(closesLabel(null), null)
+})
+
+test('registeredParts: people against the people limit, teams against the teams limit, never summed (T-76)', () => {
+  const comps = [
+    { kind: 'individual', capacity: 50, taken: 12, hiddenAt: null }, { kind: 'team', capacity: 20, taken: 2, hiddenAt: null },
+    { kind: 'team', capacity: 9, taken: 1, hiddenAt: '2026-10-01T00:00:00Z' },
+  ]
+  assert.deepEqual(registeredParts(12, comps), [{ count: '12 / 50', unit: 'zapisanych' }, { count: '3 / 20', unit: 'drużyn' }])
+  assert.equal(registeredLine(12, comps), '12 / 50 zapisanych · 3 / 20 drużyn')
+  assert.equal(registeredLine(0, [{ kind: 'team', capacity: 22, taken: 1, hiddenAt: null }]), '1 / 22 drużyny')
+  assert.equal(registeredLine(0, [{ kind: 'team', capacity: 1, taken: 0, hiddenAt: null }]), '0 / 1 drużyna')
 })
 
 test('M1 (P2-R29): after publish no „Dystanse dzieci”, and the GPX items fold into one „Ślad GPX”', () => {

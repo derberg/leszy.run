@@ -67,7 +67,7 @@ async function allRows(makeQuery) {
 // status, createdAt, paymentStatus, expiresAt, role, consentState, guardianName,
 // guardianRemoved, registeredBy, team }], counts: { paid, awaiting, free, placesLeft,
 // awaitingConsent }, teams: [{ id, name, competition, size, consentAccepted, captain, status,
-// paymentStatus }] }, every registration of the event in sign-up order. paymentStatus: 'paid' (confirmed
+// paymentStatus, fee, expiresAt }] }, every registration of the event in sign-up order. paymentStatus: 'paid' (confirmed
 // through an order with money in it), 'free' (confirmed with nothing to pay),
 // 'awaiting' (pending_payment; expiresAt is its order's payment deadline), or null
 // for a registration that is no longer live (expired, cancelled, transferred), which
@@ -92,6 +92,7 @@ async function allRows(makeQuery) {
 //                   member's row keeps it, with the team's current numbers.
 //   teams           the teams not released, for „<nazwa> · N os. / kapitan: …” with „ZGODY a/b”
 //   size            live members only: a swapped-out row never inflates „b”
+//   fee, expiresAt  the one fee in grosze, and its order's deadline while it is unpaid
 //   consentAccepted live members who need no more acceptance: accepted, or signed in the office
 //   a member's paymentStatus follows the order's money and the team's one fee, not their own 0.
 //   counts stay per person (D5-32).
@@ -175,14 +176,16 @@ Deno.serve(async (req) => {
       }
     })
     const teams = teamRows.filter((t) => !t.released_at).map((t) => {
-      const { fee, ...team } = teamOf.get(t.id)
+      const team = teamOf.get(t.id)
       const captain = regOf.get(t.captain_registration_id)
+      const paymentStatus = captain ? paymentStatusOf(captain, orderOfReg(captain), team.fee) : null
       return {
         ...team,
         competition: nameOf.get(t.category_id) ?? null,
         captain: captain ? fullName(captain) : null,
         status: captain?.status ?? null,
-        paymentStatus: captain ? paymentStatusOf(captain, orderOfReg(captain), fee) : null,
+        paymentStatus,
+        expiresAt: paymentStatus === 'awaiting' ? (orderOfReg(captain)?.expires_at ?? null) : null,
       }
     })
     return json({ data, counts, teams }, 200, req)

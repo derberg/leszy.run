@@ -26,6 +26,18 @@ export function forgetPublicRegistrationEvent(slug) {
   cache.delete(slug)
 }
 
+/**
+ * Read a slug's snapshot again, past this page's copy (the server refused consents the page was
+ * showing). The CDN may still answer its copy for up to a minute; a page that then gets refused
+ * again simply asks again. → { status, raw }
+ */
+export async function reloadPublicRegistrationEvent(slug) {
+  cache.delete(slug)
+  const r = await load(slug)
+  if (r.status === 'ok') cache.set(slug, r)
+  return r
+}
+
 export default function usePublicRegistrationEvent(slug) {
   const [state, setState] = useState(() => {
     const hit = cache.get(slug)

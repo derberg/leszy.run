@@ -14,6 +14,14 @@ const STATUS = { paid: 'OPŁACONA', awaiting: 'CZEKA NA WPŁATĘ', free: 'ZAPISA
 
 const warsawDay = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Warsaw', day: 'numeric', month: '2-digit' })
 
+export const teamPath = (slug, teamId) => `/events/${slug}/druzyna/${teamId}`
+
+/** The way to RB4 from RA5 and the order page: only for the line that is the captain's. */
+export function captainTeamPath(slug, lines) {
+  const line = (lines ?? []).find((l) => l.isCaptain && l.teamId)
+  return line && slug ? teamPath(slug, line.teamId) : null
+}
+
 /** „Zmiany do d.mm”: closes_at is exclusive, so the last day holds the millisecond before it. */
 export function lastChangeDay(closesAt) {
   if (!closesAt) return null
@@ -65,15 +73,17 @@ export function checkMember(member, { context, today, now = new Date() }) {
 
 /**
  * A refused edit: { closed } the page goes to its closed state; { login } no session; { missing } the
- * team is gone; { stale } the squad is read again; otherwise { fields, message } stay on the form.
+ * team is gone; { stale } the squad is read again; { consentsChanged } the event's consents moved on
+ * from the page, so it reads them again and asks anew; otherwise { fields, message } stay on the form.
  */
 export function squadFailure(err) {
-  const base = { closed: false, login: false, missing: false, stale: false, fields: {}, message: null }
+  const base = { closed: false, login: false, missing: false, stale: false, consentsChanged: false, fields: {}, message: null }
   if (err?.status == null) return { ...base, message: OFFLINE }
   if (err.code === 'squad_closed') return { ...base, closed: true }
   if (err.status === 401) return { ...base, login: true }
   if (err.status === 404) return { ...base, missing: true }
   if (STALE.has(err.code)) return { ...base, stale: true, message: err.message }
+  if (err.code === 'consents_changed') return { ...base, consentsChanged: true, message: err.message }
   if (err.code === 'email_retired') return { ...base, fields: { email: err.message } }
   if (err.fields) return { ...base, fields: err.fields, message: err.code === 'invalid_person' ? err.message : null }
   return { ...base, message: err.status >= 500 ? 'Nie udało się zmienić składu. Spróbuj ponownie.' : err.message }

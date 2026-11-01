@@ -15,6 +15,9 @@ import {
 import { personContext } from './personFormModel.js'
 import { countPl } from './plural.js'
 
+/** The hint under an adult member's e-mail: the label itself stays „E-mail”, so it never wraps. */
+export const ADULT_EMAIL_NOTE = 'Wyślemy prośbę o akceptację regulaminu.'
+
 /** The captain and `size - 1` empty cards. */
 export function initTeam(size, categoryId = null) {
   const first = newDraft(categoryId)

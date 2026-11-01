@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import useAuth from '../../hooks/useAuth.js'
 import useSeo from '../../hooks/useSeo.js'
 import { callFunction } from '../../lib/auth.js'
+import { reloadPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import { canRemind } from '../../lib/consentTag.js'
 import { cardVariant } from '../../lib/groupDraft.js'
@@ -10,9 +11,9 @@ import { useLeaveGuard } from '../../lib/leaveGuard.js'
 import { useMoveFocus } from '../../lib/useMoveFocus.jsx'
 import { useStepHistory } from '../../lib/useStepHistory.js'
 import { consentsComplete, fieldModes } from '../../lib/personFormModel.js'
-import { teamContext } from '../../lib/teamDraft.js'
+import { ADULT_EMAIL_NOTE, teamContext } from '../../lib/teamDraft.js'
 import {
-  addLabel, checkMember, lastChangeDay, memberMeta, memberName, moveLeg, newMember, squadFailure, teamStatusLabel, toMemberRequest,
+  addLabel, checkMember, lastChangeDay, memberMeta, memberName, moveLeg, newMember, squadFailure, teamPath, teamStatusLabel, toMemberRequest,
 } from '../../lib/teamPage.js'
 import { warsawToday } from '@registration/dates.js'
 import { runnerDataInfo } from '../../legal/runnerDataInfo.js'
@@ -31,15 +32,19 @@ import { orderPath } from './Podsumowanie.jsx'
 // consents come from the public snapshot. A step at a time, in browser history like the forms:
 // 'view' the squad and its actions, 'order' ↑/↓, 'pick' who is swapped, 'member' one person's form
 // (a swap or an add). A child's form carries the guardian's box and the event's consents: an adult
-// accepts from the e-mail, a child's acceptances are the captain's. A swap asks „Usunąć <imię>?”
+// accepts from the e-mail, a child's acceptances are the captain's. A swap asks „Usunąć tę osobę?”
 // in place only when it is about to happen, because it is what writes somebody off the team.
-// No session goes to login and back (D5-7). After closes_at the actions give way to one line.
+// No session goes to login and back (D5-7). After closes_at the squad actions give way to one line;
+// the consent reminders stay, because an adult can still accept after close. A reminder sent is held
+// here and survives the steps, since sending another would kill the link just sent.
 
 const CLOSED = 'Zapisy są zamknięte — skład zmienisz w biurze zawodów.'
-const ADULT_EMAIL_LABEL = 'E-mail — wyślemy prośbę o akceptację regulaminu'
 
-function Team({ raw, teamId }) {
+function Team({ raw: shellRaw, teamId, notice, setNotice }) {
   const navigate = useNavigate()
+  // The snapshot read again after the server said the consents moved on.
+  const [freshRaw, setFreshRaw] = useState(null)
+  const raw = freshRaw ?? shellRaw
   const { user } = useAuth()
   const model = useMemo(() => eventPageModel(raw), [raw])
   const [state, setState] = useState({ status: 'loading', data: null })
@@ -49,7 +54,7 @@ function Team({ raw, teamId }) {
   const [form, setForm] = useState(null)
   const [errors, setErrors] = useState({})
   const [message, setMessage] = useState(null)
-  const [notice, setNotice] = useState(null)
+  const [reminded, setReminded] = useState(() => new Set())
   const [confirming, setConfirming] = useState(false)
   const [refusedClosed, setRefusedClosed] = useState(false)
   const [accepted, setAccepted] = useState({})
@@ -57,7 +62,7 @@ function Team({ raw, teamId }) {
   const [busy, setBusy] = useState(false)
   const inFlight = useRef(false)
   const moves = useMoveFocus()
-  const path = `/events/${raw.slug}/druzyna/${teamId}`
+  const path = teamPath(raw.slug, teamId)
 
   const toLogin = useCallback(() => navigate(`/login?from=${encodeURIComponent(path)}`, { replace: true }), [navigate, path])
 
@@ -123,7 +128,7 @@ function Team({ raw, teamId }) {
   const lastDay = lastChangeDay(team.closesAt)
 
   // Only a confirmed team has asked anybody yet: a pending team's adults are asked when the fee lands.
-  const reminders = team.status === 'confirmed' && !closed
+  const reminders = team.status === 'confirmed'
 
   function back() {
     setMessage(null)
@@ -175,6 +180,12 @@ function Team({ raw, teamId }) {
         setOrder(null)
         setStep('view')
         await read()
+      } else if (f.consentsChanged) {
+        setMessage(f.message)
+        setAccepted({})
+        setServiceAccepted(false)
+        const next = await reloadPublicRegistrationEvent(raw.slug)
+        if (next.status === 'ok') setFreshRaw(next.raw)
       } else {
         setErrors(f.fields)
         setMessage(f.message ?? (Object.keys(f.fields).length ? 'Popraw zaznaczone pola.' : null))
@@ -261,7 +272,6 @@ function Team({ raw, teamId }) {
     const minor = variant === 'minor'
     const ready = !minor || consentsComplete(consents, accepted, serviceAccepted)
     const label = form.kind === 'swap' ? 'Wymień zawodnika' : add
-    const firstName = form.target?.firstName
     const dataInfo = runnerDataInfo({
       eventName: model.title, organizerName: model.organizerName, contactEmail: model.contactEmail,
       paid: raw.pricingMode !== 'free', teams: true, nationality: fields.nationality !== 'off',
@@ -281,7 +291,7 @@ function Team({ raw, teamId }) {
         <h1 className={sectionCls}>{form.kind === 'swap' ? `Nowa osoba za: ${memberName(form.target)}` : label}</h1>
         <PersonForm fields={fields} value={form.person} onChange={change} errors={errors} competition={competition}
           raceDate={context.raceDate} reckoning={context.reckoning} ageGroups={context.ageGroups} disabled={busy}
-          variant={variant} idPrefix="m" prefill={null} emailLabel={ADULT_EMAIL_LABEL}
+          variant={variant} idPrefix="m" prefill={null} codeNote={variant === 'adult' ? ADULT_EMAIL_NOTE : undefined}
           guardian={{
             name: memberName(members.find((m) => m.isCaptain) ?? {}), email: user?.email, checked: form.guardianConsent,
             onChange: (v) => {
@@ -295,7 +305,7 @@ function Team({ raw, teamId }) {
         )}
         {errorLine}
         {confirming
-          ? <RemoveConfirm id="m-remove-q" name={firstName} onYes={saveMember} onNo={() => setConfirming(false)} />
+          ? <RemoveConfirm id="m-remove-q" onYes={saveMember} onNo={() => setConfirming(false)} />
           : (
             <button type="submit" disabled={busy || !ready} className={primaryBtn}>
               {busy ? 'Chwileczkę…' : label}
@@ -323,7 +333,7 @@ function Team({ raw, teamId }) {
 
       {team.status === 'pending_payment' && team.orderId && (
         <div className="flex flex-col gap-2">
-          <Link to={orderPath(team.orderId)} data-action className={`${primaryBtn} flex items-center justify-center`}>Zapłać</Link>
+          {team.payable && <Link to={orderPath(team.orderId)} data-action className={`${primaryBtn} flex items-center justify-center`}>Zapłać</Link>}
           <Link to={orderPath(team.orderId)} data-action className={secondaryBtn}>Anuluj zgłoszenie</Link>
         </div>
       )}
@@ -332,10 +342,10 @@ function Team({ raw, teamId }) {
       {members.map((m) => (
         <RegisteredPerson key={m.registrationId} person={m} registrationId={reminders && canRemind(m) ? m.registrationId : undefined}
           name={memberName(m)} showTag testId="team-member" meta={memberMeta(m, legOrder)} onStale={read}
-          remindText={`Wyślij przypomnienie do ${m.firstName}`} />
+          reminded={reminded.has(m.registrationId)}
+          onReminded={(id) => setReminded((ids) => new Set(ids).add(id))} />
       ))}
 
-      <span className="sr-only" role="status" aria-live="polite">{notice}</span>
       {notice && <p className="text-base text-apex-text-bright" aria-hidden="true" data-testid="team-notice">{notice}</p>}
       {message && <p className="text-apex-red text-base" role="alert" data-testid="form-error">{message}</p>}
 
@@ -343,13 +353,24 @@ function Team({ raw, teamId }) {
         ? <p className="text-lg text-apex-text-bright" role="status" data-testid="team-closed">{CLOSED}</p>
         : (
           <div className="flex flex-col gap-2">
-            {lastDay && <h2 className="font-mono text-xs tracking-wider uppercase text-apex-muted">Zmiany do {lastDay}</h2>}
+            {lastDay && <p className="font-mono text-xs tracking-wider uppercase text-apex-muted">Zmiany do {lastDay}</p>}
             {legOrder && <button type="button" onClick={openOrder} className={secondaryBtn}>Zmień kolejność zmian</button>}
             {canSwap && <button type="button" onClick={() => { setNotice(null); setStep('pick') }} className={secondaryBtn}>Wymień zawodnika</button>}
             {add && <button type="button" onClick={() => openForm('add')} className={secondaryBtn}>{add}</button>}
           </div>
         )}
     </div>
+  )
+}
+
+/** The live region sits above Team's steps: one inserted already holding its text is not announced. */
+function TeamWithStatus({ raw, teamId }) {
+  const [notice, setNotice] = useState(null)
+  return (
+    <>
+      <span className="sr-only" role="status" aria-live="polite" data-testid="team-live">{notice}</span>
+      <Team raw={raw} teamId={teamId} notice={notice} setNotice={setNotice} />
+    </>
   )
 }
 
@@ -362,7 +383,7 @@ export default function Druzyna() {
   const { slug, teamId } = useParams()
   return (
     <RegistrationShell slug={slug}>
-      {(raw) => <><Seo raw={raw} /><Team raw={raw} teamId={teamId} /></>}
+      {(raw) => <><Seo raw={raw} /><TeamWithStatus raw={raw} teamId={teamId} /></>}
     </RegistrationShell>
   )
 }

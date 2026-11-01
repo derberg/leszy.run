@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { activeFilterCount, filterStartList, startListFilterOptions, startListView } from '../../src/lib/startList.js'
+import { NO_CLUB, activeFilterCount, filterStartList, startListFilterOptions, startListView } from '../../src/lib/startList.js'
 
 // The snapshot start_list() returns. Entries awaiting payment are never in it
 // (ruling P3-R14): only the per-competition `awaiting` count.
@@ -27,7 +27,7 @@ describe('startListView (RA8 columns, ruling P3-R14)', () => {
   it('per competition: paid entries of capacity (P3-R15), the bars, „+N czeka na wpłatę” as a count only', () => {
     const v = startListView(SNAP, { paidEvent: true })
     assert.deepEqual(v.competitions[0], {
-      categoryId: 'c1', name: 'Bieg 9 km', isKids: false, taken: 32, capacity: 80, paidPct: 40, freePct: 0,
+      categoryId: 'c1', name: 'Bieg 9 km', label: 'Bieg 9 km', isKids: false, taken: 32, capacity: 80, paidPct: 40, freePct: 0,
       paidLabel: '32 opłacone', freeLabel: null, awaitingLabel: '+2 czekają na wpłatę',
     })
     assert.equal(v.competitions[1].awaitingLabel, null)
@@ -202,5 +202,86 @@ describe('task 7 review fix round 1 (F4, F5)', () => {
     assert.equal(activeFilterCount({}), 0)
     assert.equal(activeFilterCount({ q: '   ', categoryId: '', category: '', gender: '', club: '' }), 0)
     assert.equal(activeFilterCount({ q: 'ola', categoryId: 'c1', category: '', gender: 'K', club: '__none' }), 4)
+  })
+})
+
+// Plan 5 task 8 (T-72): a confirmed team is one entry, with the first names of its people.
+const TEAMS = {
+  competitions: [
+    { categoryId: 'c1', name: 'Bieg 9 km', kind: 'individual', capacity: 80, paid: 2, free: 0, awaiting: 0 },
+    { categoryId: 't1', name: 'Sztafeta', kind: 'team', capacity: 20, paid: 2, free: 1, awaiting: 1 },
+  ],
+  entries: [
+    { name: 'Anna Mazur', town: 'Zabrze', club: 'ZATYRANI', categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'K40', kidsGroupLabel: null, gender: 'K', payment: 'paid' },
+    { name: 'Tomasz Łoś', town: 'Gliwice', club: null, categoryId: 'c1', competition: 'Bieg 9 km', ageGroupLabel: 'M30', kidsGroupLabel: null, gender: 'M', payment: 'paid' },
+    { kind: 'team', name: 'Wilcze Stado', members: ['Ola', 'Piotr', 'Zosia', 'Staś'], size: 4, town: 'Gliwice', categoryId: 't1', competition: 'Sztafeta', payment: 'paid' },
+    { kind: 'team', name: 'Żubry', members: ['Ewa', 'Jan'], size: 5, town: null, categoryId: 't1', competition: 'Sztafeta', payment: 'free' },
+  ],
+}
+
+describe('T-72 teams on the start list', () => {
+  const view = startListView(TEAMS, { paidEvent: true })
+  const team = view.entries[2]
+
+  it('a team competition counts drużyny, and its card says so', () => {
+    const c = view.competitions[1]
+    assert.equal(c.label, 'Sztafeta · drużyny')
+    assert.equal(c.taken, 3)
+    assert.equal(c.capacity, 20)
+    assert.equal(c.awaitingLabel, '+1 czeka na wpłatę')
+    assert.equal(view.competitions[0].label, 'Bieg 9 km')
+  })
+
+  it('a team row: its name, the first names, „SZTAFETA · 4 OSOBY”, and one place for the size on desktop', () => {
+    assert.deepEqual(team, {
+      kind: 'team', name: 'Wilcze Stado', membersText: 'Ola, Piotr, Zosia, Staś', members: ['Ola', 'Piotr', 'Zosia', 'Staś'],
+      town: 'Gliwice', club: null, categoryId: 't1', competition: 'Sztafeta', category: null, gender: null,
+      size: '4 osoby', where: 'Ola, Piotr, Zosia, Staś', what: 'Sztafeta · 4 osoby', badge: 'opłacone',
+    })
+  })
+
+  it('the size is the squad, not the names listed: a person waiting to accept is still in it', () => {
+    assert.equal(view.entries[3].membersText, 'Ewa, Jan')
+    assert.equal(view.entries[3].size, '5 osób')
+    assert.equal(view.entries[3].badge, null)
+  })
+
+  it('osoba / osoby / osób for 1, 2, 5, 12, 22, 25', () => {
+    const size = (n) => startListView({ competitions: [], entries: [{ kind: 'team', name: 'X', members: [], size: n, categoryId: 't', competition: 'S', payment: 'free' }] }, { paidEvent: false }).entries[0].size
+    assert.deepEqual([1, 2, 5, 12, 22, 25].map(size), ['1 osoba', '2 osoby', '5 osób', '12 osób', '22 osoby', '25 osób'])
+  })
+
+  it('Kategoria, Płeć and Klub each hide teams; a competition keeps them', () => {
+    for (const f of [{ category: 'K40' }, { gender: 'K' }, { club: 'ZATYRANI' }, { club: NO_CLUB }]) {
+      assert.ok(filterStartList(view, f).entries.every((e) => e.kind !== 'team'), JSON.stringify(f))
+    }
+    assert.deepEqual(names(filterStartList(view, { categoryId: 't1' })), ['Wilcze Stado', 'Żubry'])
+    assert.equal(filterStartList(view, {}).total, 4)
+  })
+
+  it('search matches a team by its name and by a first name, ignoring case and diacritics', () => {
+    assert.deepEqual(names(filterStartList(view, { q: 'piotr' })), ['Wilcze Stado'])
+    assert.deepEqual(names(filterStartList(view, { q: 'stas' })), ['Wilcze Stado'])
+    assert.deepEqual(names(filterStartList(view, { q: 'zubry' })), ['Żubry'])
+  })
+
+  it('a team has no town to search and no club to offer: „Bez klubu” comes from people only', () => {
+    assert.deepEqual(names(filterStartList(view, { q: 'gliwice' })), ['Tomasz Łoś'])
+    const onlyTeams = startListView({ competitions: TEAMS.competitions, entries: TEAMS.entries.slice(2) }, { paidEvent: true })
+    assert.deepEqual(startListFilterOptions(onlyTeams).clubs, [])
+    assert.deepEqual(startListFilterOptions(onlyTeams).genders, [])
+    assert.deepEqual(startListFilterOptions(onlyTeams).categories, [])
+    assert.ok(startListFilterOptions(view).clubs.some((c) => c.value === NO_CLUB), 'Tomasz has no club')
+  })
+
+  it('a free event counts people and teams apart, each in its own words', () => {
+    const free = { competitions: [
+      { categoryId: 'c1', name: 'Bieg', kind: 'individual', capacity: 50, paid: 0, free: 5, awaiting: 0 },
+      { categoryId: 't1', name: 'Sztafeta', kind: 'team', capacity: 20, paid: 0, free: 2, awaiting: 0 },
+    ], entries: [] }
+    assert.equal(startListView(free, { paidEvent: false }).header, '5 osób zapisanych · 2 drużyny zapisane')
+    free.competitions.shift()
+    assert.equal(startListView(free, { paidEvent: false }).header, '2 drużyny zapisane')
+    assert.equal(startListView({ competitions: [{ ...free.competitions[0], free: 1 }], entries: [] }, { paidEvent: false }).header, '1 drużyna zapisana')
   })
 })

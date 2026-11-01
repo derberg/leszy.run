@@ -573,7 +573,7 @@ test('T-42 get: the captain sees the team, its limits and the live squad, and no
   const { team, members, competition, event: ev } = r.body.data
   assert.deepEqual({ ...team, closesAt: undefined }, {
     name: body.teamName, status: 'confirmed', paymentStatus: 'free', orderId: null, closesAt: undefined,
-    legOrderEnabled: false, teamMin: 2, teamMax: 6, editsOpen: true,
+    legOrderEnabled: false, teamMin: 2, teamMax: 6, editsOpen: true, payable: false,
   })
   const settings = await one('registration_settings', { event_id: event.eventId })
   assert.equal(Date.parse(team.closesAt), Date.parse(settings.closes_at))
@@ -632,11 +632,13 @@ test('T-42 the throttle: squad:<teamId> allows 30 edits an hour, a stranger spen
   const stranger = await sessionFor(runnerEmail('stranger'))
   for (let i = 0; i < 5; i++) assert.equal((await squadCall(teamId, 'remove', stranger)).status, 404)
   for (let i = 0; i < 40; i++) assert.equal((await squadCall(teamId, 'get', session)).status, 200, `read ${i + 1}`)
+  // 7b review: an unknown action is refused before the allowance, so it spends none of it.
+  for (let i = 0; i < 40; i++) assert.equal((await squadCall(teamId, 'remove', session)).status, 422, `unknown ${i + 1}`)
   for (let i = 0; i < 30; i++) {
-    const ok = await squadCall(teamId, 'remove', session)
-    assert.equal(ok.status, 422, `edit ${i + 1}: ${JSON.stringify(ok.body)}`)
+    const ok = await squadCall(teamId, 'reorder', session, { legs: [] })
+    assert.equal(ok.status, 409, `edit ${i + 1}: ${JSON.stringify(ok.body)}`)
   }
-  const r = await squadCall(teamId, 'remove', session)
+  const r = await squadCall(teamId, 'reorder', session, { legs: [] })
   assert.equal(r.status, 429, JSON.stringify(r.body))
   assert.equal(r.body.error, 'Zbyt wiele prób. Spróbuj ponownie później.')
   assert.equal((await squadCall(teamId, 'get', session)).status, 200, 'an edit limit reached leaves the page readable')
@@ -647,6 +649,24 @@ test('T-42 the read limit: 120 reads an hour, then 429, and edits keep their own
   for (let i = 0; i < 120; i++) assert.equal((await squadCall(teamId, 'get', session)).status, 200, `read ${i + 1}`)
   assert.equal((await squadCall(teamId, 'get', session)).status, 429)
   assert.equal((await squadCall(teamId, 'remove', session)).status, 422)
+})
+
+test('T-77 team.payable: a pending order that can still be paid; not once the competition is full, nor past close', async () => {
+  const { event, session, teamId } = await pendingTeam()
+  const payable = async () => (await squadCall(teamId, 'get', session)).body.data.team.payable
+  assert.equal(await payable(), true)
+  const cat = event.categoryIds[0]
+  const { capacity } = await competitionOf(cat)
+  const set = async (table, key, id, values) => {
+    const { error } = await db().from(table).update(values).eq(key, id)
+    assert.equal(error, null, error?.message)
+  }
+  await set('competitions', 'category_id', cat, { taken: capacity })
+  assert.equal(await payable(), false, 'P3-R15: paid entries filled the competition')
+  await set('competitions', 'category_id', cat, { taken: 0 })
+  assert.equal(await payable(), true)
+  await set('registration_settings', 'event_id', event.eventId, { closes_at: new Date(Date.now() - 60_000).toISOString() })
+  assert.equal(await payable(), false)
 })
 
 // ---------------------------------------------------------------- T-42 swap
@@ -983,7 +1003,7 @@ test('T-43 list-event-registrations: one team, size 4, consentAccepted 3, the ca
   assert.equal(r.body.teams.length, 1)
   assert.deepEqual(r.body.teams[0], {
     id: teamId, name: body.teamName, competition: 'Sztafeta', size: 4, consentAccepted: 3,
-    captain: 'Ola Leśna', status: 'confirmed', paymentStatus: 'free',
+    captain: 'Ola Leśna', status: 'confirmed', paymentStatus: 'free', fee: 0, expiresAt: null,
   })
   assert.equal(r.body.data.length, 4)
   for (const row of r.body.data) {
@@ -1029,6 +1049,8 @@ test('T-43 a 0 zł fee on a paid event reads free on every member; a pending tea
   assert.deepEqual(pending.body.data.map((x) => x.paymentStatus), ['awaiting', 'awaiting', 'awaiting', 'awaiting'])
   assert.equal(pending.body.teams[0].status, 'pending_payment')
   assert.equal(pending.body.teams[0].paymentStatus, 'awaiting')
+  assert.ok(pending.body.teams[0].fee > 0, 'the one fee, for „Zgłoszenia”')
+  assert.ok(Date.parse(pending.body.teams[0].expiresAt) > Date.now(), 'and its deadline')
 })
 
 test('T-43 ZGODY a/b counts live members only: a swap cannot inflate b, an accepted-then-swapped member leaves a, a signature in the office counts', async () => {

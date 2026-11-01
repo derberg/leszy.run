@@ -5,6 +5,7 @@
 // fields, values as the database spells them.
 import { noticeRows } from '../../../supabase/functions/_shared/registration/changeDiff.js'
 import { countLabel } from './categoryRows.js'
+import { pluralPl } from './plural.js'
 
 const PEOPLE = ['osoba', 'osoby', 'osób']
 // „Powiadomiono 34 osoby”, „nie udało się wysłać do 4 osób”.
@@ -97,11 +98,29 @@ export function noticeResult(notice, requested = false) {
   return out.join(' ')
 }
 
-/** „1 / 70 zapisanych”: the limit counts visible competitions only. */
-export function registeredLine(registered, competitions) {
-  const limit = competitions.filter((c) => !c.hiddenAt).reduce((sum, c) => sum + (c.capacity ?? 0), 0)
-  return `${registered} / ${limit} zapisanych`
+/**
+ * The published header's numbers: people against the people limit, teams against the teams limit,
+ * because a team competition's limit counts teams and the two never add up. `registered` counts
+ * people outside teams. A limit counts visible competitions only.
+ * → [{ count: '1 / 70', unit: 'zapisanych' }, { count: '2 / 20', unit: 'drużyn' }]
+ */
+export function registeredParts(registered, competitions) {
+  const teamRows = competitions.filter((c) => c.kind === 'team')
+  const limit = (rows) => rows.filter((c) => !c.hiddenAt).reduce((sum, c) => sum + (c.capacity ?? 0), 0)
+  const peopleLimit = limit(competitions.filter((c) => c.kind !== 'team'))
+  const parts = []
+  if (!teamRows.length || peopleLimit > 0 || registered > 0) parts.push({ count: `${registered} / ${peopleLimit}`, unit: 'zapisanych' })
+  if (teamRows.length) {
+    const teams = teamRows.reduce((sum, c) => sum + (c.taken ?? 0), 0)
+    const teamLimit = limit(teamRows)
+    parts.push({ count: `${teams} / ${teamLimit}`, unit: pluralPl(teamLimit, 'drużyna', 'drużyny', 'drużyn') })
+  }
+  return parts
 }
+
+/** „1 / 70 zapisanych”, „12 / 50 zapisanych · 3 / 20 drużyn”. */
+export const registeredLine = (registered, competitions) =>
+  registeredParts(registered, competitions).map((p) => `${p.count} ${p.unit}`).join(' · ')
 
 /** The last day of registration ('YYYY-MM-DD') → „3.12”. */
 export const closesLabel = (closesOn) => (closesOn ? warsawDay.format(new Date(`${closesOn}T12:00:00Z`)) : null)

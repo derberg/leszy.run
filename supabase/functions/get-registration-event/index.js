@@ -58,8 +58,9 @@ Deno.serve(async (req) => {
       rows(admin.from('registration_uploads').select('id, kind, path, meta, created_at').eq('event_id', eventId).order('created_at')),
       rows(admin.from('registration_pending_changes').select('payload, changed_fields, updated_at').eq('event_id', eventId)),
       // „N / limit zapisanych” counts confirmed entries only: an unpaid one holds no place (P3-R15).
+      // Team members are left out: a team competition's limit counts teams, read from `taken`.
       admin.from('registrations').select('id', { count: 'exact', head: true })
-        .eq('event_id', eventId).eq('status', 'confirmed'),
+        .eq('event_id', eventId).eq('status', 'confirmed').is('team_id', null),
       clubHasAgreement(admin, settings.club_id),
       payoutState(admin, settings),
     ])

@@ -136,7 +136,7 @@ for (const width of WIDTHS) {
     await page.getByTestId('remove-no').click()
     await expect(page.locator('#m-first')).toHaveValue('Anna')
     await page.getByRole('button', { name: 'Wymień zawodnika' }).click()
-    await expect(page.getByTestId('remove-confirm')).toContainText('Usunąć Piotr?')
+    await expect(page.getByTestId('remove-confirm')).toHaveText(/^Usunąć tę osobę\?/)
     await page.getByTestId('remove-yes').click()
     await expect(rows(page).nth(0)).toContainText('Anna Nowa')
     await expect(page.getByText('Piotr Leśny')).toHaveCount(0)
@@ -154,7 +154,7 @@ for (const width of WIDTHS) {
   })
 }
 
-test('T-64 „Wyślij przypomnienie do <imię>”: one consent e-mail; once sent the control is off, and after a reload a second click rotates the token', async ({ actors }) => {
+test('T-64 „Wyślij przypomnienie →”: one consent e-mail; once sent the control is off, and after a reload a second click rotates the token', async ({ actors }) => {
   const piotr = address('piotr')
   const event = await freeEvent()
   const { teamId } = await team(event, [{ person: person({ firstName: 'Piotr', email: piotr }) }])
@@ -164,10 +164,10 @@ test('T-64 „Wyślij przypomnienie do <imię>”: one consent e-mail; once sent
 
   await expect(page.getByRole('heading', { name: 'Skład', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Zmień kolejność zmian' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Wyślij przypomnienie do Ola' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Wyślij przypomnienie do Piotr' }).click()
+  await expect(page.getByRole('button', { name: 'Wyślij przypomnienie do: Ola Leśna' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Wyślij przypomnienie do: Piotr Leśny' }).click()
   await expect(page.getByTestId('remind-status')).toHaveText('Przypomnienie wysłane.')
-  await expect(page.getByRole('button', { name: 'Wyślij przypomnienie do Piotr' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Wyślij przypomnienie do: Piotr Leśny' })).toBeDisabled()
   const reminded = await mails(piotr, 2)
   expect(reminded).toHaveLength(2)
   const second = TOKEN.exec(reminded[1].text)[1]
@@ -175,7 +175,7 @@ test('T-64 „Wyślij przypomnienie do <imię>”: one consent e-mail; once sent
   expect((await callFn('consent-request', null, { token: first })).status).toBe(410)
 
   await page.reload()
-  await page.getByRole('button', { name: 'Wyślij przypomnienie do Piotr' }).click()
+  await page.getByRole('button', { name: 'Wyślij przypomnienie do: Piotr Leśny' }).click()
   await expect(page.getByTestId('remind-status')).toHaveText('Przypomnienie wysłane.')
   const third = TOKEN.exec((await mails(piotr, 3))[2].text)[1]
   expect((await callFn('consent-request', null, { token: second })).status).toBe(410)
@@ -204,7 +204,91 @@ test('T-64 a child added: the form asks for the guardian\'s box and the event\'s
   await expect(rows(page).nth(2)).toContainText('Zosia Leśna')
   await expect(rows(page).nth(2).getByTestId('consent-tag')).toContainText('✓ OPIEKUN')
   await expect(rows(page).nth(2)).toContainText('12 LAT')
-  await expect(page.getByRole('button', { name: 'Wyślij przypomnienie do Zosia' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Wyślij przypomnienie do: Zosia Leśna' })).toHaveCount(0)
+})
+
+test('T-64 7b review: a reminder already sent stays off across the page\'s views, and the live region outlives them', async ({ actors }) => {
+  const event = await freeEvent()
+  const piotr = address('piotr')
+  const { teamId } = await team(event, [{ person: person({ firstName: 'Piotr', email: piotr }) }])
+  await mails(piotr, 1)
+  const page = await open(actors.runner, event, teamId, 390)
+  const remind = page.getByRole('button', { name: 'Wyślij przypomnienie do: Piotr Leśny' })
+  await expect(remind).toHaveText('Wyślij przypomnienie →')
+  await remind.click()
+  await expect(remind).toBeDisabled()
+  await mails(piotr, 2)
+
+  await page.getByRole('button', { name: 'Wymień zawodnika' }).click()
+  await expect(page.getByRole('heading', { name: 'Kogo wymieniasz?' })).toBeVisible()
+  await expect(page.getByTestId('team-live')).toHaveCount(1)
+  await page.goBack()
+  await expect(remind).toBeDisabled()
+  expect(await messagesTo(piotr)).toHaveLength(2)
+
+  await page.getByRole('button', { name: 'Dodaj 3. osobę' }).click()
+  await expect(page.getByTestId('team-live')).toHaveText('')
+  await fillMember(page, { first: 'Anna', email: address('anna') })
+  await page.getByRole('button', { name: 'Dodaj 3. osobę' }).click()
+  await expect(rows(page)).toHaveCount(3)
+  await expect(page.getByTestId('team-live')).toHaveText('Skład zmieniony.')
+  await expect(remind).toBeDisabled()
+})
+
+test('T-64 7b review: a consent added while a child\'s form is open: the boxes come back, unticked, with the new one, and the add then succeeds', async ({ actors }) => {
+  const event = await freeEvent()
+  const { teamId } = await team(event, [{ person: person({ firstName: 'Piotr', email: address('piotr') }) }])
+  const page = await open(actors.runner, event, teamId, 390)
+  await page.getByRole('button', { name: 'Dodaj 3. osobę' }).click()
+  await fillMember(page, { first: 'Zosia', last: 'Leśna', birth: '2014-05-05', gender: 'Dziewczynka', email: undefined })
+  const boxes = page.getByTestId('consents').getByRole('checkbox')
+  const before = await boxes.count()
+  for (let i = 0; i < before; i++) await boxes.nth(i).check()
+  await page.getByTestId('guardian-consent').check()
+
+  const { error } = await admin().from('event_consents').insert({ event_id: event.eventId, kind: 'custom', text: 'Nowa zgoda organizatora', sort_order: 99 })
+  if (error) throw error
+  const submit = page.getByRole('button', { name: 'Dodaj 3. osobę' })
+  await submit.click()
+  await expect(page.getByTestId('form-error')).toHaveText('Zaznacz wymagane zgody.')
+  await expect(boxes).toHaveCount(before + 1)
+  for (let i = 0; i < before + 1; i++) await expect(boxes.nth(i)).not.toBeChecked()
+  await expect(submit).toBeDisabled()
+  await expect(page.locator('#m-first')).toHaveValue('Zosia')
+
+  for (let i = 0; i < before + 1; i++) await boxes.nth(i).check()
+  await submit.click()
+  await expect(rows(page)).toHaveCount(3)
+})
+
+test('T-64 7b review: swapping a deleted account\'s entry never reads „Usunąć Usunięte konto?”', async ({ actors }) => {
+  const event = await freeEvent()
+  const { teamId } = await team(event, [{ person: person({ firstName: 'Piotr', email: address('piotr') }) }])
+  const { error } = await admin().from('registrations').update({ first_name: 'Usunięte konto', last_name: 'Usunięte konto' })
+    .eq('team_id', teamId).eq('first_name', 'Piotr')
+  if (error) throw error
+  const page = await open(actors.runner, event, teamId, 390)
+  await page.getByRole('button', { name: 'Wymień zawodnika' }).click()
+  await page.getByRole('button', { name: 'Wymień — Usunięte konto' }).click()
+  await fillMember(page, { first: 'Anna', email: address('anna') })
+  await page.getByRole('button', { name: 'Wymień zawodnika' }).click()
+  await expect(page.getByTestId('remove-confirm')).toHaveText(/^Usunąć tę osobę\?/)
+})
+
+test('T-64 7b review: „Zmiany do …” is a caption, not a heading; a pending team past close has no „Zapłać”', async ({ actors }) => {
+  const event = await createPublishedPaidEvent(owner, { competitions: [STAFETA()], prices: { Sztafeta: 24000 } })
+  const { teamId, orderId } = await team(event, [{ person: person({ firstName: 'Piotr', email: address('piotr') }) }], { displayedTotal: 24000 })
+  const page = await open(actors.runner, event, teamId, 390)
+  await expect(page.getByText(/^Zmiany do/)).toBeVisible()
+  await expect(page.getByRole('heading', { name: /^Zmiany do/ })).toHaveCount(0)
+
+  const { error } = await admin().from('registration_settings')
+    .update({ closes_at: new Date(Date.now() - 60_000).toISOString() }).eq('event_id', event.eventId)
+  if (error) throw error
+  await page.reload()
+  await expect(page.getByTestId('team-status')).toHaveText('CZEKA NA WPŁATĘ')
+  await expect(page.getByRole('link', { name: 'Zapłać' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Anuluj zgłoszenie' })).toHaveAttribute('href', `/zamowienie/${orderId}`)
 })
 
 test('T-64 a member already registered: the error under the form\'s e-mail, nothing changed, and the leave guard is on while it holds data', async ({ actors }) => {
@@ -241,7 +325,7 @@ test('T-64 a pending team reads CZEKA NA WPŁATĘ, links to its order and offers
   await expect(page.getByTestId('team-status')).toHaveText('CZEKA NA WPŁATĘ')
   await expect(page.getByRole('link', { name: 'Zapłać' })).toHaveAttribute('href', `/zamowienie/${orderId}`)
   await expect(page.getByRole('link', { name: 'Anuluj zgłoszenie' })).toHaveAttribute('href', `/zamowienie/${orderId}`)
-  await expect(page.getByRole('button', { name: 'Wyślij przypomnienie do Piotr' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Wyślij przypomnienie do: Piotr Leśny' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Wymień zawodnika' })).toBeVisible()
   await noButtonWraps(page)
 
@@ -281,9 +365,11 @@ for (const width of WIDTHS) {
     await page.getByRole('button', { name: 'Zapisz kolejność' }).click()
 
     await expect(page.getByTestId('team-closed')).toHaveText(CLOSED)
-    for (const name of ['Zmień kolejność zmian', 'Wymień zawodnika', 'Dodaj 4. osobę', 'Wyślij przypomnienie do Piotr']) {
+    for (const name of ['Zmień kolejność zmian', 'Wymień zawodnika', 'Dodaj 4. osobę']) {
       await expect(page.getByRole('button', { name })).toHaveCount(0)
     }
+    // Acceptance still works after close, so the reminder stays (7b review ruling).
+    await expect(page.getByRole('button', { name: 'Wyślij przypomnienie do: Piotr Leśny' })).toBeVisible()
     await expect(page.getByText(/^Zmiany do/)).toHaveCount(0)
     await expect(rows(page).nth(0)).toContainText('Ola Leśna')
     await noButtonWraps(page)

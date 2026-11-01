@@ -7,6 +7,7 @@ import PageTop from '../../components/registration/PageTop.jsx'
 import DoneActions from '../../components/registration/DoneActions.jsx'
 import RegisteredPerson from '../../components/registration/RegisteredPerson.jsx'
 import { orderPeople, personGroupLabel, showsConsentTags } from '../../lib/consentTag.js'
+import { captainTeamPath } from '../../lib/teamPage.js'
 import { linkCls } from '../../components/registration/ui.js'
 import RegistrationShell from './RegistrationShell.jsx'
 import { eventPath } from './RegistrationEventPage.jsx'
@@ -72,7 +73,7 @@ function Done({ raw }) {
           onStale={() => setReads((n) => n + 1)} testId="done-person"
           meta={[r.competition, personGroupLabel(r), r.startTime ? `start ${r.startTime}` : null]} />
       ))}
-      <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)}
+      <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)} teamHref={captainTeamPath(raw.slug, rows)}
         first={{ uid: first.id, name: `${first.firstName} ${first.lastName}`, competition: first.competition, startTime: first.startTime }} />
     </div>
   )

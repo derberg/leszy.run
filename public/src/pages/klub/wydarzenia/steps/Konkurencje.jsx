@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { uploadDocument } from '../../../../lib/organizer.js'
 import {
-  assignIds, capacityLabel, competitionRow, competitionsSection, newCompetitionRow,
+  assignIds, capacityLabel, capacityUnit, competitionRow, competitionsSection, newCompetitionRow,
 } from '../../../../lib/competitionRows.js'
 import { btnGhost } from '../../settingsUi.js'
 import {
@@ -186,7 +186,7 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
                   <td className={tdClass}>
                     <div className="flex items-center gap-1.5">
                       <input aria-label={`Limit ${n}`} inputMode="numeric" className={`${cellInput} w-[76px]`} value={r.capacity} onChange={setRow(r.key, 'capacity')} />
-                      {r.kind === 'team' && <span className="font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-unit">DRUŻYN</span>}
+                      {r.kind === 'team' && <span className="font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-unit">{capacityUnit(r.capacity)}</span>}
                     </div>
                     {published && r.taken > 0 && <span className="block mt-1 font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-min">MIN. {r.taken}</span>}
                   </td>

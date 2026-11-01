@@ -255,7 +255,7 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await add.click()
     await page.locator('#p2-first').fill('Zosia')
     await page.getByRole('button', { name: 'Usuń — Zosia' }).click()
-    await expect(page.getByTestId('remove-confirm')).toContainText('Usunąć Zosia?')
+    await expect(page.getByTestId('remove-confirm')).toHaveText(/^Usunąć tę osobę\?/)
     await page.getByTestId('remove-no').click()
     await expect(page.locator('#p2-first')).toHaveValue('Zosia')
     await page.getByRole('button', { name: 'Usuń — Zosia' }).click()
@@ -379,7 +379,7 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await page.getByTestId('group-link').click()
     await expect(page.getByRole('alert')).toHaveCount(0)
     await page.getByRole('button', { name: 'Usuń — Janek Leśna' }).click()
-    await expect(page.getByTestId('remove-confirm')).toContainText('Usunąć Janek?')
+    await expect(page.getByTestId('remove-confirm')).toHaveText(/^Usunąć tę osobę\?/)
     await page.getByTestId('remove-yes').click()
     await expect(page.getByTestId('person-row')).toHaveCount(3)
 
