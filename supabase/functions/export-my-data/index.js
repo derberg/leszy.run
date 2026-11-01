@@ -77,6 +77,23 @@ function orderView(o) {
   }
 }
 
+// „Napisz do zawodnika” (Plan 6): a message to one person stores their registration id in
+// organizer_messages.filter, so it is their data. sent_by stays out: the export says the message
+// came from the event's organizer and nothing about which member of the club wrote it. A bulk
+// message is stored per event, never per recipient, so it belongs to nobody's export.
+const ORGANIZER_MESSAGE_FROM = 'Organizator wydarzenia'
+
+function organizerMessageView(m) {
+  return {
+    event_name: m.registration_settings?.name ?? null,
+    event_date: m.registration_settings?.event_date ?? null,
+    from: ORGANIZER_MESSAGE_FROM,
+    subject: m.subject,
+    body: m.body,
+    sent_at: m.sent_at,
+  }
+}
+
 function json(body, status, req, extraHeaders = {}) {
   return new Response(JSON.stringify(body, null, 2), {
     status,
@@ -264,6 +281,15 @@ Deno.serve(async (req) => {
       }
     })
 
+  // A message on a child's entry went to the guardian (resolveAudience), so it is theirs too.
+  const messagedRegistrationIds = [...ownRegs, ...registrationsAsGuardian].map((r) => r.id)
+  const organizerMessages = messagedRegistrationIds.length > 0
+    ? await fetchAll(() => supabaseAdmin.from('organizer_messages')
+      .select('id, subject, body, sent_at, registration_settings(name, event_date)')
+      .eq('filter->>kind', 'single').in('filter->>registrationId', messagedRegistrationIds)
+      .order('sent_at').order('id'), 'organizer_messages')
+    : []
+
   const memberships = (clubMemberships.data ?? []).map((m) => ({
     club_name: m.clubs?.name ?? null,
     role: m.role,
@@ -320,6 +346,7 @@ Deno.serve(async (req) => {
     registrations_as_guardian: registrationsAsGuardian,
     teams,
     orders,
+    organizer_messages_received: organizerMessages.map(organizerMessageView),
     race_entries: (raceEntries.data ?? []).map((p) => ({
       event_name: p.events?.name ?? null,
       event_date: p.events?.date ?? null,

@@ -3,7 +3,7 @@
 **Administrator:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
 **Data ostatniej aktualizacji:** 2026-11-01
-**Wersja:** 1.6
+**Wersja:** 1.7
 
 ## Rola Leszy.run
 
@@ -194,8 +194,8 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 - **Kategorie osób:** zawodnicy i osoby zapisujące, opiekunowie dzieci (odbiorcy wiadomości i osoby w eksporcie); właściciele i administratorzy klubów (nadawcy, autorzy eksportu).
 - **Odbiorcy:** Twilio / SendGrid (wysyłka wiadomości, nadawca „<klub> przez LESZY.RUN”, odpowiedź na adres kontaktowy wydarzenia, nigdy na prywatny adres członka klubu); Supabase, Inc.; Organizator — plik CSV pobrany przez właściciela lub administratora klubu, od tej chwili w jego posiadaniu i na jego odpowiedzialność jako administratora danych zgłoszeń.
 - **Transfery poza EOG:** jak w pkt 1 (Supabase, SendGrid).
-- **Okres przechowywania:** `organizer_messages` i `organizer_actions` — razem z wydarzeniem, bez automatycznego usuwania (do wdrożenia razem z retencją zgłoszeń); przy usunięciu konta autora wpisy `organizer_actions` tracą adres IP i user agent. Adresów odbiorców wiadomości nie ma czego usuwać — nie są zapisywane.
-- **Prawa osób:** eksport (`export-my-data`) zawiera wpisy `organizer_actions` osoby, która działała jako Organizator (w tym wysyłki i eksporty CSV). Wiadomości otrzymane przez zawodnika nie są zapisane per odbiorca, więc nie ma ich w eksporcie danych zawodnika.
+- **Okres przechowywania:** `organizer_messages` i `organizer_actions` — razem z wydarzeniem, bez automatycznego usuwania (do wdrożenia razem z retencją zgłoszeń); przy usunięciu konta autora wpisy `organizer_actions` tracą adres IP i user agent. Przy usunięciu konta zawodnika wiadomości napisane tylko do niego (a także te do zgłoszenia jego dziecka, które dostał jako opiekun) są usuwane w całości, bo treść może go wskazywać; zostaje wpis `message_sent` w `organizer_actions` (identyfikatory i liczby, bez tematu i treści), wskazujący zgłoszenie już zanonimizowane. Wiadomość do wielu osób zostaje — nie wskazuje nikogo. Adresów odbiorców wiadomości nie ma czego usuwać — nie są zapisywane.
+- **Prawa osób:** eksport (`export-my-data`) zawiera wpisy `organizer_actions` osoby, która działała jako Organizator (w tym wysyłki i eksporty CSV). Eksport zawodnika zawiera wiadomości napisane tylko do niego („Napisz do zawodnika”): wydarzenie, temat, treść i datę wysłania, z informacją, że pochodzą od Organizatora wydarzenia, bez wskazania osoby nadawcy; wiadomość do zgłoszenia dziecka trafia do eksportu opiekuna, który ją dostał. Wiadomości do wielu osób nie są zapisane per odbiorca, więc nie ma ich w eksporcie.
 - **Środki bezpieczeństwa:**
   - dostęp tylko dla właściciela i administratora klubu, wydarzenie ustalane po stronie serwera z rekordu zgłoszenia, nigdy z żądania;
   - limity wysyłki (licznik w `otp_throttle`, przy awarii licznika wysyłka jest odmawiana): wiadomość zbiorcza 5 na wydarzenie na dobę, „Napisz do zawodnika” 30 na wydarzenie na godzinę, wiadomość próbna 10 na nadawcę na godzinę;
@@ -207,6 +207,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.7 | 2026-11-01 | Sekcja 13: wiadomość do jednego zawodnika zawiera identyfikator jego zgłoszenia, więc jest w jego eksporcie (bez wskazania osoby nadawcy) i jest usuwana przy usunięciu konta; to samo dotyczy opiekuna przy wiadomości do zgłoszenia dziecka. |
 | 1.6 | 2026-11-01 | Dodano sekcję 13 (panel zgłoszeń Organizatora: wiadomości do zawodników — adresy ustalane przy wysyłce, nie zapisywane per odbiorca — oraz eksport CSV z wpisem `csv_exported` w `organizer_actions`, bez tekstu wyszukiwania); w sekcji 11 doprecyzowano, że adres opiekuna dziecka zawiera eksport CSV. |
 | 1.5 | 2026-11-01 | Dodano sekcję 12 (drużyny i sztafety: nazwa drużyny jako dana osobowa i jej usuwanie po 30 dniach oraz przy usunięciu konta kapitana, eksport, dane członków podawane przez kapitana, anonimizacja osoby usuniętej ze składu w chwili wymiany, nazwa drużyny przy zamówieniu wygasłym lub anulowanym). |
 | 1.4 | 2026-10-29 | Dodano sekcję 11 (zapisy grupowe: opiekunowie, osoby dorosłe zapisane przez kogoś innego, prośby o akceptację regulaminu, podpis w biurze; eksport i usuwanie konta). |
