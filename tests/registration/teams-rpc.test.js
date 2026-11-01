@@ -523,7 +523,7 @@ test('T-24 nobody but service_role runs it; the price helpers run for nobody', a
   const [def] = await sql()`SELECT prosecdef, proconfig FROM pg_proc WHERE oid = ${fn}::regprocedure`
   assert.equal(def.prosecdef, true)
   assert.deepEqual(def.proconfig, ['search_path=""'])
-  for (const helper of ['public.registration_current_tier(uuid)', 'public.registration_current_price(uuid)']) {
+  for (const helper of ['public.registration_current_tier(uuid, timestamptz)', 'public.registration_current_price(uuid)']) {
     for (const role of ['anon', 'authenticated', 'service_role']) {
       const [{ can }] = await sql()`SELECT has_function_privilege(${role}, ${helper}, 'EXECUTE') AS can`
       assert.equal(can, false, `${role} may execute ${helper}`)

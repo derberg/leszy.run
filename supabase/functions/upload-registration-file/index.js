@@ -10,7 +10,8 @@ import { loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { parseGpx, GpxError } from '../_shared/registration/gpx.js'
 
 // POST upload-registration-file (owner or admin of the event's club)
-//   poster:          { eventId, kind: 'poster', dataUrl, fileName }            → 201 { data: { uploadId, url, meta } }
+//   poster, extra:   { eventId, kind: 'poster' | 'extra', dataUrl, fileName }  → 201 { data: { uploadId, url, meta } }
+//                    (extra: the image of an extra on sale, Plan 7)
 //   regulamin, gpx:  { eventId, kind, fileName, action: 'start' }               → 200 { data: { pendingPath, signedUrl, token } }
 //                    the browser PUTs the file to the PRIVATE registration-pending bucket, then
 //                    { eventId, kind, pendingPath, action: 'finish' }           → 201 { data: { uploadId, url, meta } }
@@ -29,6 +30,9 @@ const POSTER_MAX_WIDTH = 1600
 const POSTER_MAX_PIXELS = 40_000_000
 const POSTER_MAX_HEIGHT = 6000
 const POSTER_JPEG_QUALITY = 85
+// An extra's image is shown small on the event page and the form: a product photo, not a poster.
+const EXTRA_MIN_WIDTH = 400
+const EXTRA_MAX_WIDTH = 1200
 const REGULAMIN_MAX_BYTES = 10 * MB
 const GPX_MAX_BYTES = 5 * MB
 
@@ -42,6 +46,21 @@ const REGULAMIN_BAD = 'Regulamin musi być plikiem PDF do 10 MB.'
 const GPX_TOO_BIG = 'Plik GPX może mieć najwyżej 5 MB.'
 
 const DATA_URL_RE = /^data:image\/(png|jpe?g);base64,/
+
+// The one-step images: decoded, scaled to maxWidth at most, re-encoded as JPEG (which drops EXIF).
+const IMAGES = {
+  poster: {
+    minWidth: POSTER_MIN_WIDTH, maxWidth: POSTER_MAX_WIDTH,
+    type: POSTER_TYPE, tooBig: POSTER_TOO_BIG, width: POSTER_WIDTH, dimensions: POSTER_DIMENSIONS,
+  },
+  extra: {
+    minWidth: EXTRA_MIN_WIDTH, maxWidth: EXTRA_MAX_WIDTH,
+    type: 'Zdjęcie dodatku musi być plikiem JPG lub PNG.',
+    tooBig: 'Zdjęcie dodatku może mieć najwyżej 5 MB.',
+    width: `Zdjęcie dodatku musi mieć co najmniej ${EXTRA_MIN_WIDTH} px szerokości.`,
+    dimensions: 'Zdjęcie dodatku ma zbyt duże wymiary.',
+  },
+}
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d] // %PDF-
 
@@ -95,33 +114,33 @@ function imageHeaderSize(b) {
 
 const cleanFileName = (v) => (typeof v === 'string' ? v.trim().slice(0, 200) : '') || null
 
-async function poster(dataUrl) {
+async function image(dataUrl, rule) {
   const match = typeof dataUrl === 'string' ? dataUrl.match(DATA_URL_RE) : null
-  if (!match) throw new Rejected(POSTER_TYPE)
+  if (!match) throw new Rejected(rule.type)
   const base64 = dataUrl.slice(match[0].length)
   // Checked before decoding so an oversized body never becomes a buffer.
-  if (base64.length > Math.ceil(POSTER_MAX_BYTES / 3) * 4) throw new Rejected(POSTER_TOO_BIG)
+  if (base64.length > Math.ceil(POSTER_MAX_BYTES / 3) * 4) throw new Rejected(rule.tooBig)
   let raw
   try {
     raw = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
   } catch {
-    throw new Rejected(POSTER_TYPE)
+    throw new Rejected(rule.type)
   }
   const declared = imageHeaderSize(raw)
-  if (!declared) throw new Rejected(POSTER_TYPE)
+  if (!declared) throw new Rejected(rule.type)
   if (declared.height > POSTER_MAX_HEIGHT || declared.width * declared.height > POSTER_MAX_PIXELS) {
-    throw new Rejected(POSTER_DIMENSIONS)
+    throw new Rejected(rule.dimensions)
   }
   let img
   try {
     img = await Image.decode(raw)
   } catch {
-    throw new Rejected(POSTER_TYPE)
+    throw new Rejected(rule.type)
   }
-  if (img.width < POSTER_MIN_WIDTH) throw new Rejected(POSTER_WIDTH)
-  // resizePoster already caps the width; a client that skipped it is scaled here.
-  if (img.width > POSTER_MAX_WIDTH) {
-    img = img.resize(POSTER_MAX_WIDTH, Math.round((img.height * POSTER_MAX_WIDTH) / img.width))
+  if (img.width < rule.minWidth) throw new Rejected(rule.width)
+  // resizePoster already caps a poster's width; a client that skipped it is scaled here.
+  if (img.width > rule.maxWidth) {
+    img = img.resize(rule.maxWidth, Math.round((img.height * rule.maxWidth) / img.width))
   }
   const bytes = await img.encodeJPEG(POSTER_JPEG_QUALITY)
   return { bytes, ext: 'jpg', contentType: 'image/jpeg', meta: { width: img.width, height: img.height } }
@@ -199,8 +218,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (kind === 'poster' && action === undefined) {
-      const file = await poster(dataUrl)
+    if (Object.hasOwn(IMAGES, kind ?? '') && action === undefined) {
+      const file = await image(dataUrl, IMAGES[kind])
       const meta = { ...file.meta, fileName: cleanFileName(fileName) }
       const data = await store(admin, { eventId, kind, ...file, meta, userId: session.userId })
       await audit(data.uploadId, { kind })

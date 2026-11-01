@@ -164,6 +164,45 @@ test('W-12 an upper-case eventId is stored under the lower-case event path', asy
   assert.ok(row.path.startsWith(`${eventId}/poster/`), row.path)
 })
 
+// ---------------------------------------------------------------- extra image (Plan 7)
+
+test('V-13 extra image: one step like a poster, re-encoded without EXIF, under <event>/extra/', async () => {
+  const eventId = await newEvent()
+  const src = await jpegWithExif(600, 600)
+  const r = await callFn(FN, owner, { eventId, kind: 'extra', dataUrl: dataUrl(src), fileName: 'koszulka.jpg' })
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  const { uploadId, url, meta } = r.body.data
+  assert.match(url, new RegExp(`/registration-files/${eventId}/extra/[0-9a-f-]{36}\\.jpg$`))
+  assert.deepEqual({ width: meta.width, height: meta.height, fileName: meta.fileName }, { width: 600, height: 600, fileName: 'koszulka.jpg' })
+  const [row] = await uploadsOf(eventId)
+  assert.equal(row.id, uploadId)
+  assert.equal(row.kind, 'extra')
+  const bytes = await stored(row.path)
+  assert.ok(!bytes.includes('LESZY-EXIF-MARK'), 'EXIF value gone')
+  assert.equal((await sharp(bytes).metadata()).format, 'jpeg')
+})
+
+test('V-13 extra image: wider than 1200 px is scaled down; narrower than 400 px, not an image or the two-step path → 400', async () => {
+  const eventId = await newEvent()
+  const big = await sharp({ create: { width: 2400, height: 1600, channels: 3, background: '#bbdd00' } }).png().toBuffer()
+  const r = await callFn(FN, owner, { eventId, kind: 'extra', dataUrl: dataUrl(big, 'image/png'), fileName: 'k.png' })
+  assert.equal(r.status, 201, JSON.stringify(r.body))
+  assert.deepEqual({ w: r.body.data.meta.width, h: r.body.data.meta.height }, { w: 1200, h: 800 })
+
+  const other = await newEvent()
+  const small = await callFn(FN, owner, { eventId: other, kind: 'extra', dataUrl: dataUrl(await jpegWithExif(300, 300)), fileName: 'm.jpg' })
+  assert.equal(small.status, 400)
+  assert.equal(small.body.error, 'Zdjęcie dodatku musi mieć co najmniej 400 px szerokości.')
+  const notImage = await callFn(FN, owner, { eventId: other, kind: 'extra', dataUrl: dataUrl(pdf(), 'application/pdf'), fileName: 'x.pdf' })
+  assert.equal(notImage.status, 400)
+  assert.equal(notImage.body.error, 'Zdjęcie dodatku musi być plikiem JPG lub PNG.')
+  const twoStepTry = await callFn(FN, owner, { eventId: other, kind: 'extra', fileName: 'k.jpg', action: 'start' })
+  assert.equal(twoStepTry.status, 400)
+  const member_ = await callFn(FN, member, { eventId: other, kind: 'extra', dataUrl: dataUrl(await jpegWithExif(600, 600)), fileName: 'k.jpg' })
+  assert.notEqual(member_.status, 201)
+  await assertNothingStored(other)
+})
+
 // ---------------------------------------------------------------- regulamin
 
 test('W-12 regulamin PDF: two-step upload lands in the public bucket, pending object removed', async () => {
