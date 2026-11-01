@@ -10,6 +10,7 @@ const LIVE = new Set(['confirmed', 'pending_payment'])
 const ID_CHUNK = 100
 // An entry whose person deleted the account reads „Usunięte konto Usunięte konto”: not a name.
 const DELETED = 'Usunięte konto'
+const ORGANIZER = 'Organizator'
 const fullName = (r) => (r.first_name === DELETED ? null : `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim())
 const roleOf = registrationRole
 
@@ -19,7 +20,12 @@ const REG_COLUMNS = 'id, category_id, order_id, first_name, last_name, birth_dat
 
 // Who registered each added adult and child, by the rule consentRequests.js names the buyer
 // in the consent e-mail; everything but the display name comes from rows already read.
-async function registeredByNames(admin, regs, orderOf) {
+async function registeredByNames(admin, regs, orderOf, eventId) {
+  // Carry T7 (c): an entry the organizer's own transfer created came from the organizer, not from
+  // the original buyer whose order it keeps (registeredBy.js names the club the same way).
+  const moved = await allRows(() => admin.from('transfers').select('id, new_registration_id')
+    .eq('event_id', eventId).eq('kind', 'organizer').order('id'))
+  const byOrganizer = new Set(moved.map((t) => t.new_registration_id))
   const byProfile = new Map()
   // Lowest precedence first; a later set overrides. Within a list the latest row wins.
   const latestFirst = regs.filter((r) => LIVE.has(r.status)).reverse()
@@ -42,7 +48,8 @@ async function registeredByNames(admin, regs, orderOf) {
   }
   setFirst(latestFirst.filter((r) => r.guardian_profile_id), 'guardian_profile_id', (r) => r.guardian_name?.trim())
   setFirst(latestFirst.filter((r) => r.profile_id && roleOf(r) === 'self'), 'profile_id', fullName)
-  return (r) => orderOf.get(r.order_id)?.buyer_name?.trim() || byProfile.get(r.registered_by_profile_id) || null
+  return (r) => (byOrganizer.has(r.id) ? ORGANIZER : null)
+    || orderOf.get(r.order_id)?.buyer_name?.trim() || byProfile.get(r.registered_by_profile_id) || null
 }
 
 const groupBy = (items, key) => {
@@ -136,7 +143,7 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
   const placesLeft = teamComps.length && teamComps.length === comps.length ? null : left(comps.filter((c) => !isTeam(c)))
   const teamPlacesLeft = teamComps.length ? left(teamComps) : null
   const counts = { paid: 0, awaiting: 0, free: 0, placesLeft, teamPlacesLeft, awaitingConsent: 0 }
-  const registeredBy = await registeredByNames(admin, regs, orderOf)
+  const registeredBy = await registeredByNames(admin, regs, orderOf, eventId)
   const sum = (list, key) => list.reduce((n, x) => n + (x[key] ?? 0), 0)
 
   const rows = regs.map((r) => {

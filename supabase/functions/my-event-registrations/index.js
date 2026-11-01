@@ -5,6 +5,7 @@ import { allRows } from '../_shared/registration/allRows.js'
 import { isValidSlug } from '../_shared/registration/slug.js'
 import { registrationRole } from '../_shared/registration/group.js'
 import { kidsGroupLabels } from '../_shared/registration/kidsGroupLabels.js'
+import { transferViews } from '../_shared/registration/transfers.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -18,10 +19,16 @@ function json(body, status, req) {
 // POST { slug } → 200 { data: [{ id, competition, ageGroupLabel, startTime,
 // firstName, lastName, status, createdAt, role: self|adult|minor, consentState,
 // kidsGroupLabel (a child's kids' group, else null), mine (the session's own entry),
-// teamId, teamName, isCaptain }] }:
+// teamId, teamName, isCaptain, transfer: { allowed, until, pending: { transferId, toEmail,
+// createdAt, expiresAt } | null } }] }:
 // the confirmed registrations of that published (or closed) event that are the
 // session's own or that the session registered (a group's payer sees every person
 // of it, Plan 4). 401 without a session, 404 for an unknown slug or a draft.
+// transfer (Plan 7): whether the session may hand this entry on now (its own adult entry, a
+// team's only as captain, transfers on and today ≤ until), the organizer's last day (`until`,
+// null when transfers are off) and the session's own open invite (an invite past expires_at is
+// not open). Another person's entry the session registered always reads { allowed: false,
+// pending: null }: only the holder transfers.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -38,12 +45,12 @@ Deno.serve(async (req) => {
     const slug = body?.slug
     if (!isValidSlug(slug)) return json({ error: 'Not found' }, 404, req)
     const { data: settings, error } = await admin.from('registration_settings')
-      .select('event_id, state, first_start_time').eq('slug', slug).maybeSingle()
+      .select('event_id, state, first_start_time, event_date, transfer_enabled, transfer_until').eq('slug', slug).maybeSingle()
     if (error) throw error
     if (!settings || settings.state === 'draft') return json({ error: 'Not found' }, 404, req)
 
     const regs = await allRows(() => admin.from('registrations')
-      .select('id, category_id, first_name, last_name, age_group_label, kids_group_id, status, created_at, consent_state, team_id, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
+      .select('id, category_id, first_name, last_name, age_group_label, kids_group_id, status, created_at, consent_state, team_id, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at, email, birth_date')
       .eq('event_id', settings.event_id).eq('status', 'confirmed')
       .or(`profile_id.eq.${session.userId},registered_by_profile_id.eq.${session.userId}`)
       .order('created_at').order('id'))
@@ -58,6 +65,7 @@ Deno.serve(async (req) => {
       ? await allRows(() => admin.from('teams').select('id, name, captain_registration_id').in('id', teamIds).order('id'))
       : []
     const teamOf = new Map(teams.map((t) => [t.id, t]))
+    const transfers = await transferViews(admin, regs, settings, session.userId)
 
     return json({
       data: regs.map((r) => {
@@ -79,6 +87,7 @@ Deno.serve(async (req) => {
           teamId: team?.id ?? null,
           teamName: team?.name ?? null,
           isCaptain: team?.captain_registration_id === r.id,
+          transfer: transfers.get(r.id),
         }
       }),
     }, 200, req)

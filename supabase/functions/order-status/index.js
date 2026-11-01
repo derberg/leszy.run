@@ -76,7 +76,8 @@ async function poll(admin, req, orderId) {
 // POST { orderId } → 200 { data: { status, expiresAt, lines: [{ registrationId, name, firstName,
 //   role: self|adult|minor, consentState: accepted|awaiting|office, competition, ageGroupLabel,
 //   kidsGroupLabel (a child's kids' group, else null), mine (the line is the buyer's own entry),
-//   startTime, amount, teamId, teamName, isCaptain }], amounts, event: { slug, name }, closesAt, full, cancelledReason } }
+//   startTime, amount, teamId, teamName, isCaptain, transferred (Plan 7: the package was handed on;
+//   then role, consentState and ageGroupLabel are null and mine false) }], amounts, event: { slug, name }, closesAt, full, cancelledReason } }
 // The order page's state, for the buyer only (401 without a session, 404 otherwise). While the
 // order is pending and dpay may have taken the money without an IPN reaching us, it asks dpay
 // (see poll) before answering.
@@ -129,6 +130,8 @@ Deno.serve(async (req) => {
         expiresAt: view.order.expires_at,
         lines: view.lines.map((l) => ({
           registrationId: l.registrationId,
+          // Plan 7: a package handed on. The line keeps the recipient's name and nothing else of theirs.
+          transferred: l.transferred === true,
           name: [l.firstName, l.lastName].filter(Boolean).join(' '),
           firstName: l.firstName,
           role: l.role,

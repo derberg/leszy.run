@@ -13,6 +13,7 @@ import { sendEmail } from '../email.js'
 import { redactDpay } from './redactDpay.js'
 import { orderConfirmationEmail, paymentRefundedEmail, teamConfirmationEmail } from './emails.js'
 import { issueOrderConsentRequests, publicSite } from './consentRequests.js'
+import { transferredRegistrationIds } from './transfers.js'
 import { registrationRole } from './group.js'
 import { kidsGroupLabels } from './kidsGroupLabels.js'
 
@@ -202,10 +203,35 @@ export async function loadOrderView(admin, orderId) {
   const kidsLabel = await kidsGroupLabels(admin, regs)
   const regById = new Map(regs.map((r) => [r.id, r]))
   const compById = new Map(comps.map((c) => [c.category_id, c]))
+  // Carry T7 (b): a line whose package was handed on points at the recipient's registration. The
+  // buyer sees it as transferred, with the recipient's name only: no address, role, consent state
+  // or account, so nothing of theirs but the name reaches the order page or a confirmation re-send.
+  const transferred = await transferredRegistrationIds(admin, regIds)
   const lines = lineRows.filter((l) => l.kind === 'entry').map((l) => {
     const r = regById.get(l.registration_id) ?? {}
     const c = compById.get(r.category_id) ?? {}
+    if (transferred.has(l.registration_id)) {
+      return {
+        registrationId: l.registration_id,
+        transferred: true,
+        firstName: r.first_name ?? null,
+        lastName: r.last_name ?? null,
+        email: null,
+        competition: c.name ?? null,
+        ageGroupLabel: null,
+        kidsGroupLabel: null,
+        profileId: null,
+        startTime: (c.start_time ?? settings?.first_start_time)?.slice(0, 5) ?? null,
+        amount: l.amount,
+        role: null,
+        consentState: null,
+        teamId: r.team_id ?? null,
+        teamName: teamById.get(r.team_id)?.name ?? null,
+        isCaptain: false,
+      }
+    }
     return {
+      transferred: false,
       registrationId: l.registration_id,
       firstName: r.first_name ?? null,
       lastName: r.last_name ?? null,
@@ -285,6 +311,8 @@ export async function teamEmailArgs(admin, teamId) {
   if (compRow.error) throw compRow.error
   const settings = settingsRow.data
   const rank = (r) => (r.id === team.captain_registration_id ? -1 : r.team_leg ?? Number.MAX_SAFE_INTEGER)
+  // A captain's package handed on (Plan 7) keeps the captain role on the new row: the line says so.
+  const transferred = await transferredRegistrationIds(admin, regs.map((r) => r.id))
   const members = regs
     .sort((a, b) => rank(a) - rank(b) || (a.team_position ?? Number.MAX_SAFE_INTEGER) - (b.team_position ?? Number.MAX_SAFE_INTEGER))
     .map((r) => ({
@@ -292,6 +320,7 @@ export async function teamEmailArgs(admin, teamId) {
       lastName: r.last_name,
       ageGroupLabel: r.age_group_label,
       role: r.id === team.captain_registration_id ? 'self' : registrationRole(r),
+      transferred: transferred.has(r.id),
     }))
   return {
     event: {

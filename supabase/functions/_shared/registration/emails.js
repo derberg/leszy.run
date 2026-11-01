@@ -9,10 +9,10 @@ const TZ = 'Europe/Warsaw'
 const dayFmt = new Intl.DateTimeFormat('pl-PL', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' })
 const timeFmt = new Intl.DateTimeFormat('pl-PL', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+export const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
 /** '2026-11-28' → '28.11.2026' (a calendar date, no time zone involved). */
-function isoDay(iso) {
+export function isoDay(iso) {
   if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return null
   const [y, m, d] = iso.slice(0, 10).split('-')
   return `${d}.${m}.${y}`
@@ -26,13 +26,15 @@ function warsawDateTime(iso) {
   return `${dayFmt.format(d)}, ${timeFmt.format(d)}`
 }
 
-const textBlock = (pairs) => pairs.map(([k, v]) => `${k}: ${v}`)
-const htmlBlock = (pairs) => `<p>${pairs.map(([k, v]) => `${escapeHtml(k)}: <strong>${escapeHtml(v)}</strong>`).join('<br>')}</p>`
-const link = (url, label) => `<p><a href="${escapeHtml(url)}">${escapeHtml(label)}</a></p>`
+export const textBlock = (pairs) => pairs.map(([k, v]) => `${k}: ${v}`)
+export const htmlBlock = (pairs) => `<p>${pairs.map(([k, v]) => `${escapeHtml(k)}: <strong>${escapeHtml(v)}</strong>`).join('<br>')}</p>`
+export const link = (url, label) => `<p><a href="${escapeHtml(url)}">${escapeHtml(label)}</a></p>`
 
 function personLines(lines) {
   return lines.map((l) => {
     const name = `${l.firstName ?? ''} ${l.lastName ?? ''}`.trim()
+    // A line whose package was handed on (Plan 7): the holder's name only, nothing else of theirs.
+    if (l.transferred) return `${name} — pakiet przekazany`
     const facts = [l.competition, l.ageGroupLabel ? `kategoria ${l.ageGroupLabel}` : null, l.startTime ? `start ${l.startTime}` : null]
       .filter(Boolean).join(', ')
     return `${name} — ${facts}`
@@ -420,6 +422,7 @@ function memberLine(m) {
     m.ageGroupLabel ? `kategoria ${m.ageGroupLabel}` : null,
     m.role === 'self' ? 'kapitan' : null,
     m.role === 'minor' ? 'opiekun: kapitan' : null,
+    m.transferred ? 'pakiet przekazany' : null,
   ].filter(Boolean).join(', ')
   return facts ? `${fullName(m)} — ${facts}` : fullName(m)
 }
