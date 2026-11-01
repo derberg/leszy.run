@@ -172,7 +172,7 @@ function TransferForm({ preview, snapshot, draft, setDraft, errors, setErrors, c
           className={`${inputCls} ${errors.categoryId ? 'border-apex-red' : ''}`}>
           {preview.competitions.map((c) => <option key={c.categoryId} value={c.categoryId}>{optionLabel(c)}</option>)}
         </select>
-        {errors.categoryId && <p id={`${CATEGORY}-error`} className="text-apex-red text-sm" role="alert">{errors.categoryId}</p>}
+        {errors.categoryId && <p id={`${CATEGORY}-error`} className="text-apex-red text-sm">{errors.categoryId}</p>}
       </div>
       <PersonForm fields={fields} value={draft.person} onChange={change} errors={errors} competition={comp}
         raceDate={ctx.raceDate} reckoning={ctx.reckoning} ageGroups={ctx.ageGroups} prefill={user ? profilePrefill(user) : null}
