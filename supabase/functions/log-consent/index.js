@@ -2,6 +2,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { clientIp } from '../_shared/clientIp.js'
 
 const VALID_DECISIONS = ['accepted', 'rejected', 'withdrawn']
 
@@ -48,9 +49,7 @@ Deno.serve(async (req) => {
     return json({ error: 'policyVersion is required and must be a non-empty string' }, 400, req)
   }
 
-  // Extract first hop from x-forwarded-for (may be undefined if not proxied)
-  const forwardedFor = req.headers.get('x-forwarded-for') ?? ''
-  const ipInet = forwardedFor.split(',')[0].trim() || null
+  const ipInet = clientIp(req)
 
   const userAgent = req.headers.get('user-agent') ?? null
 

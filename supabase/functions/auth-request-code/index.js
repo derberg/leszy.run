@@ -1,7 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest, isAllowed } from '../_shared/cors.js'
 import { requestLoginCode } from '../_shared/requestCode.js'
-import { clientIp } from '../_shared/clientIp.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -50,7 +49,7 @@ Deno.serve(async (req) => {
 
     // The retired-address refusal, the limits, the code and the e-mail: _shared/requestCode.js.
     const result = await requestLoginCode(supabaseAdmin, {
-      email, ip: clientIp(req), linkBase: magicLinkBase(req), from: safeFrom,
+      email, req, linkBase: magicLinkBase(req), from: safeFrom,
     })
     if (!result.ok) {
       const headers = { ...getCorsHeaders(req), 'Content-Type': 'application/json' }

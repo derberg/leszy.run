@@ -15,6 +15,7 @@
 import { getCorsHeaders } from '../cors.js'
 import { getSession } from '../session.js'
 import { checkAndIncrement } from '../throttle.js'
+import { ipThrottles } from '../clientIp.js'
 import { verifyCodeAndOpenSession } from '../verifyCode.js'
 import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from '../deletedEmails.js'
 import { clubRegistrationEnabled } from '../organizer.js'
@@ -40,14 +41,15 @@ const DAY = 86400
 // claimed, counted per person (a group of 10 takes 10), after the session/code step so nobody
 // can spend another address's allowance. A group refused later (full, duplicate) keeps its claim.
 export const PEOPLE_PER_DAY = 30
-// Per address and per client IP, per hour: a team and an order share one allowance. The IP limit
-// is register-free's 20 (fix round 1).
+// Per address, per client IP and per peer (clientIp.js), per hour: a team and an order share one
+// allowance. The IP limits are register-free's (fix round 1).
 export const ORDER_LIMIT = 10
 export const ORDER_IP_LIMIT = 20
+export const ORDER_PEER_LIMIT = 600
 const HOUR = 3600
 /** prepareRegistration's `throttles` for create-order and register-team. */
-export const orderThrottles = (ip) => (email) => [
-  ...(ip ? [{ key: `order-ip:${ip}`, limit: ORDER_IP_LIMIT, windowSeconds: HOUR }] : []),
+export const orderThrottles = (req) => (email) => [
+  ...ipThrottles(req, 'order-ip', { limit: ORDER_IP_LIMIT, peerLimit: ORDER_PEER_LIMIT, windowSeconds: HOUR }),
   { key: `order:${email}`, limit: ORDER_LIMIT, windowSeconds: HOUR },
 ]
 // Duplicate answers that say which card (`index`) per buyer per 24 h (I-1): the form needs the

@@ -129,14 +129,21 @@ test('T-46 register-team\'s answer to each startPaymentAttempt refusal, the 503 
 test('T-46 create-order and register-team share one definition of the order counters', () => {
   assert.equal(ORDER_LIMIT, 10)
   assert.equal(ORDER_IP_LIMIT, 20)
-  assert.deepEqual(orderThrottles('1.2.3.4')('a@b.pl'), [
+  const req = (h) => ({ headers: { get: (k) => h[k] ?? null } })
+  assert.deepEqual(orderThrottles(req({ 'x-forwarded-for': '1.2.3.4, 198.51.100.7' }))('a@b.pl'), [
     { key: 'order-ip:1.2.3.4', limit: 20, windowSeconds: 3600 },
+    { key: 'order-ip-peer:198.51.100.7', limit: 600, windowSeconds: 3600 },
     { key: 'order:a@b.pl', limit: 10, windowSeconds: 3600 },
   ])
-  assert.deepEqual(orderThrottles(null)('a@b.pl'), [{ key: 'order:a@b.pl', limit: 10, windowSeconds: 3600 }])
+  // SEC-1: no address is a shared bucket, never a skipped limit.
+  assert.deepEqual(orderThrottles(req({}))('a@b.pl'), [
+    { key: 'order-ip:unknown', limit: 20, windowSeconds: 3600 },
+    { key: 'order-ip-peer:unknown', limit: 600, windowSeconds: 3600 },
+    { key: 'order:a@b.pl', limit: 10, windowSeconds: 3600 },
+  ])
   for (const fn of ['create-order', 'register-team']) {
     const source = readFileSync(new URL(`../../../supabase/functions/${fn}/index.js`, import.meta.url), 'utf8')
-    assert.ok(source.includes('orderThrottles(ip)'), fn)
+    assert.ok(source.includes('orderThrottles(req)'), fn)
     assert.doesNotMatch(source, /const ORDER_(IP_)?LIMIT/, fn)
   }
 })

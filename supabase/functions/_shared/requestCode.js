@@ -1,12 +1,17 @@
 // Issuing a login code by e-mail, shared by auth-request-code and any form that logs a person
 // in on the way (consent-request, Plan 4), as verifyCode.js is for checking one. The caller
-// validates the address; this refuses a retired one, applies the per-address (5) and per-IP (20)
-// limits of a 15-minute window, invalidates the address's earlier unused login codes, stores the
+// validates the address; this refuses a retired one, applies the per-address (5), per-IP (20) and
+// per-peer (300, clientIp.js) limits of a 15-minute window, invalidates the address's earlier unused login codes, stores the
 // new one as a SHA-256 and mails it. It never builds a Response. A database failure throws, and
 // the caller answers 500.
 import { checkAndIncrement } from './throttle.js'
+import { ipThrottles } from './clientIp.js'
 import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from './deletedEmails.js'
 import { emailConfigured, sendEmail } from './email.js'
+
+export const LOGIN_IP_LIMIT = 20
+export const LOGIN_PEER_LIMIT = 300
+const NO_REQUEST = { headers: new Headers() }
 
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -119,12 +124,13 @@ ${linkRow}
 
 /**
  * @param {object} supabaseAdmin
- * @param {{ email: string, ip?: string|null, linkBase: string, from?: string|null, link?: boolean }} args
+ * @param {{ email: string, req?: Request|null, linkBase: string, from?: string|null, link?: boolean }} args
+ *   req supplies the caller's address for the per-IP limits (clientIp.js); without it they count as `unknown`.
  *   email is already validated; linkBase is the site the magic link points at; from an internal
  *   path (sanitised by the caller) the login page goes on to; link: false sends the code only.
  * @returns {Promise<{ ok: true } | { ok: false, status: number, error: string, code?: string, retryAfterSec?: number }>}
  */
-export async function requestLoginCode(supabaseAdmin, { email, ip = null, linkBase, from = null, link = true }) {
+export async function requestLoginCode(supabaseAdmin, { email, req = null, linkBase, from = null, link = true }) {
   const normalizedEmail = String(email).toLowerCase().trim()
 
   // A deleted account's address is retired for good — say so plainly instead
@@ -134,11 +140,12 @@ export async function requestLoginCode(supabaseAdmin, { email, ip = null, linkBa
     return fail(403, RETIRED_EMAIL_MESSAGE, { code: 'email_retired' })
   }
 
-  // Rate limiting: 5 requests per email and 20 per IP within a 15-minute window
+  // Rate limiting within a 15-minute window: 5 requests per email, 20 per client IP and 300 per
+  // peer (the address a caller cannot forge; for the /edge path it is Vercel's, shared by the site).
   const emailThrottle = await checkAndIncrement(supabaseAdmin, `email:${normalizedEmail}`, 5)
   if (!emailThrottle.allowed) return fail(429, 'Too many requests', { retryAfterSec: emailThrottle.retryAfterSec })
-  if (ip) {
-    const ipThrottle = await checkAndIncrement(supabaseAdmin, `ip:${ip}`, 20)
+  for (const { key, limit } of ipThrottles(req ?? NO_REQUEST, 'ip', { limit: LOGIN_IP_LIMIT, peerLimit: LOGIN_PEER_LIMIT })) {
+    const ipThrottle = await checkAndIncrement(supabaseAdmin, key, limit)
     if (!ipThrottle.allowed) return fail(429, 'Too many requests', { retryAfterSec: ipThrottle.retryAfterSec })
   }
 

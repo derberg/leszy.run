@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { clientIp } from '../_shared/clientIp.js'
 import { guardRequest } from '../_shared/cors.js'
-import { clientIp } from '../_shared/organizer.js'
 import { dpayConfig } from '../_shared/dpay.js'
 import {
   json, PENDING_ORDER, TEAM_REFUSALS, orderThrottles, prepareRegistration, rpcPeople, teamAttemptRefusal, teamRefusal,
@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       team: true,
       pricing: () => null,
       refusals: TEAM_REFUSALS,
-      throttles: orderThrottles(ip),
+      throttles: orderThrottles(req),
     })
     if (prepared.response) return prepared.response
     const { competition, settings, people, teamName, consentIds, email, profileId, buyerName } = prepared

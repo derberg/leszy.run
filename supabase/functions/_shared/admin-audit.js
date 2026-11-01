@@ -1,5 +1,7 @@
+import { clientIp } from './clientIp.js'
+
 export async function logAdminAction(supabaseAdmin, { userId, action, targetTable, targetId, payload, req }) {
-  const ip = (req?.headers?.get?.('x-forwarded-for') || '').split(',')[0].trim() || null
+  const ip = req?.headers?.get ? clientIp(req) : null
   const ua = req?.headers?.get?.('user-agent') || null
   const { error } = await supabaseAdmin.from('admin_actions').insert({
     admin_user_id: userId || null,

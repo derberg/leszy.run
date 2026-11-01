@@ -753,3 +753,37 @@ test('W-66 every published event carries the image acceptance; registering witho
     .eq('registration_id', ok.body.data.registrations[0].id).eq('consent_kind', 'image')
   assert.deepEqual(acc, [{ consent_id: image[0].id, consent_kind: 'image' }])
 })
+
+// ---------------------------------------------------------------- SEC-1 forged x-forwarded-for
+
+test('SEC-1 a fresh forged x-forwarded-for per request no longer resets the per-IP limit: the peer counter refuses', async () => {
+  const event = await publishedEvent()
+  const octet = () => crypto.randomInt(1, 255)
+  // Called directly, as a script would call <project>.supabase.co: no Origin, a made-up first element.
+  // The local gateway (like Cloudflare in production) appends the address it really saw.
+  const send = async () => {
+    const res = await fetch(`${localEnv().functionsUrl}/register-free`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': `198.18.${octet()}.${octet()}` },
+      body: JSON.stringify(await body(event, runnerEmail('forged'))),
+    })
+    await res.text()
+    return res.status
+  }
+  const peerCounters = async () => {
+    const { data, error } = await db().from('otp_throttle').select('key, attempts').like('key', 'register-ip-peer:%')
+    assert.ifError(error)
+    return data
+  }
+
+  assert.notEqual(await send(), 429)
+  assert.notEqual(await send(), 429)
+  const counters = await peerCounters()
+  assert.equal(counters.length, 1, 'two different forged addresses, one peer counter')
+  assert.equal(counters[0].attempts, 2)
+
+  // As 600 requests in the hour would leave it. A forged address the limiter has never seen is still refused.
+  const { error } = await db().from('otp_throttle').update({ attempts: 600 }).eq('key', counters[0].key)
+  assert.ifError(error)
+  assert.equal(await send(), 429)
+})
