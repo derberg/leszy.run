@@ -3,7 +3,7 @@
 **Administrator:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
 **Data ostatniej aktualizacji:** 2026-11-01
-**Wersja:** 1.8
+**Wersja:** 1.9
 
 ## Rola Leszy.run
 
@@ -225,7 +225,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 - **Okres przechowywania:** wiersz `transfers` zostaje jako zapis tego, gdzie trafił pakiet (opłata zostaje przy pierwotnym zamówieniu, pkt 10). Link wygasa z końcem dnia `transfer_until` (czas warszawski). Dane zgłoszeń — jak w pkt 10 i 11.
 - **Prawa osób:**
   - eksport (`export-my-data`) zawiera `transfers.sent` (przekazania pakietów tej osoby: rodzaj, stan, daty, wydarzenie; adres, który sama wpisała — przy przekazaniu przez Organizatora bez danych osoby przejmującej) i `transfers.received` (zaproszenia na jej adres i pakiety przez nią przejęte, z `from_name` — imieniem przekazującego albo nazwą klubu Organizatora — jako źródłem jej adresu; adres zaproszenia tylko wtedy, gdy jest jej własny). Skrót tokenu, partner, kod i notatki nie są eksportowane;
-  - usunięcie konta (`delete-my-account`, funkcja `forget_transfer_parties`): jako przekazujący — otwarte zaproszenia zgłoszeń, które są anonimizowane, są cofane, a ich linki przestają działać; jako osoba zaproszona — otwarte zaproszenia na jej adres są cofane, a potem `to_email` jest usuwany ze wszystkich przekazań na ten adres. Wiersze przekazań zostają bez adresu.
+  - usunięcie konta (`delete-my-account`, funkcja `forget_transfer_parties`): jako przekazujący — otwarte zaproszenia zgłoszeń, które są anonimizowane, są cofane, a ich linki przestają działać; osoba zaproszona dostaje jeden e-mail „Zaproszenie cofnięte”, który nie wskazuje przekazującego (nieudana wysyłka nie wstrzymuje usunięcia konta); jako osoba zaproszona — otwarte zaproszenia na jej adres są cofane, a potem `to_email` jest usuwany ze wszystkich przekazań na ten adres. Wiersze przekazań zostają bez adresu.
 - **Środki bezpieczeństwa:**
   - tabele `vouchers`, `registration_partners` i `transfers` z RLS i `REVOKE ALL … FROM anon, authenticated`, dostęp tylko przez funkcje brzegowe i funkcje bazy dla service_role;
   - jedno przekazanie oczekujące na zgłoszenie; przyjęcie w jednej transakcji, warunkowane `UPDATE … WHERE status = 'pending' AND expires_at > now()`;
@@ -236,6 +236,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.9 | 2026-11-01 | Sekcja 14: przy usunięciu konta przekazującego osoba zaproszona dostaje e-mail o cofnięciu zaproszenia, bez danych przekazującego. |
 | 1.8 | 2026-11-01 | Dodano sekcję 14 (kody rabatowe i partnerzy widoczni tylko dla Organizatora; przekazanie pakietu: adres osoby zaproszonej podany przez przekazującego, przekazujący widzi imię i nazwisko osoby przejmującej, przy przekazaniu przez Organizatora dotychczasowy zawodnik nie dostaje danych osoby przejmującej; eksport i usuwanie konta). |
 | 1.7 | 2026-11-01 | Sekcja 13: wiadomość do jednego zawodnika zawiera identyfikator jego zgłoszenia, więc jest w jego eksporcie (bez wskazania osoby nadawcy) i jest usuwana przy usunięciu konta; to samo dotyczy opiekuna przy wiadomości do zgłoszenia dziecka. Sekcja 10: `refunds.resolved_by` (notatka operatora przy ręcznym rozstrzygnięciu zwrotu) wskazuje operatora. |
 | 1.6 | 2026-11-01 | Dodano sekcję 13 (panel zgłoszeń Organizatora: wiadomości do zawodników — adresy ustalane przy wysyłce, nie zapisywane per odbiorca — oraz eksport CSV z wpisem `csv_exported` w `organizer_actions`, bez tekstu wyszukiwania); w sekcji 11 doprecyzowano, że adres opiekuna dziecka zawiera eksport CSV. |

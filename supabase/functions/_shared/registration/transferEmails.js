@@ -80,16 +80,20 @@ export function transferAcceptedEmail({ event, senderFirstName, recipient }) {
   return { subject: `Pakiet przejęła ${who} — ${event.name}`, text, html }
 }
 
-/** To the invited address, when the sender took the invite back. event { name }, senderFirstName. */
-export function transferCancelledEmail({ event, senderFirstName }) {
-  const sender = senderFirstName || 'Osoba, która Cię zaprosiła,'
-  const lead = `${sender} cofnął(-ęła) zaproszenie do przejęcia pakietu na zawody ${event.name}. Link z poprzedniej wiadomości już nie działa.`
+/**
+ * To the invited address, when the invite was taken back. event { name }, senderFirstName. With no
+ * senderFirstName (the sender deleted the account, V-88) it names nobody.
+ */
+export function transferCancelledEmail({ event, senderFirstName = null }) {
+  const DEAD = 'Link z poprzedniej wiadomości już nie działa.'
+  const lead = senderFirstName
+    ? `${senderFirstName} cofnął(-ęła) zaproszenie do przejęcia pakietu na zawody ${event.name}. ${DEAD}`
+    : `Zaproszenie do przejęcia pakietu na zawody ${event.name} zostało cofnięte. ${DEAD}`
+  const leadHtml = senderFirstName
+    ? `${escapeHtml(senderFirstName)} cofnął(-ęła) zaproszenie do przejęcia pakietu na zawody <strong>${escapeHtml(event.name)}</strong>. ${DEAD}`
+    : `Zaproszenie do przejęcia pakietu na zawody <strong>${escapeHtml(event.name)}</strong> zostało cofnięte. ${DEAD}`
   const text = ['Cześć,', '', lead, ...signature.text].join('\n')
-  const html = [
-    '<p>Cześć,</p>',
-    `<p>${escapeHtml(sender)} cofnął(-ęła) zaproszenie do przejęcia pakietu na zawody <strong>${escapeHtml(event.name)}</strong>. Link z poprzedniej wiadomości już nie działa.</p>`,
-    signature.html,
-  ].join('')
+  const html = ['<p>Cześć,</p>', `<p>${leadHtml}</p>`, signature.html].join('')
   return { subject: `Zaproszenie cofnięte — ${event.name}`, text, html }
 }
 

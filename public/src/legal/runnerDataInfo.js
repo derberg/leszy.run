@@ -24,7 +24,7 @@
 //
 // Keep in step with the source document when it changes.
 
-export const RUNNER_DATA_INFO_VERSION = '2026-11-v7'
+export const RUNNER_DATA_INFO_VERSION = '2026-11-v8'
 
 /**
  * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
@@ -125,7 +125,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
           'Jeżeli Organizator na to pozwala, możesz przekazać swój pakiet innej osobie dorosłej. Podajesz wtedy jej adres e-mail, na który wysyłamy link do przejęcia pakietu. Źródłem tego adresu jesteś Ty (art. 14 ust. 2 lit. f RODO): w e-mailu i na stronie z linku podajemy osobie zaproszonej Twoje imię, bez nazwiska i danych kontaktowych. Przekaż jej, że podałeś jej adres.',
           'Osoba, która przyjmuje pakiet, sama podaje swoje dane, potwierdza swój adres kodem wysłanym e-mailem i akceptuje regulamin zawodów. Gdy to zrobi, dostajesz e-mail z jej imieniem i nazwiskiem, bez jej adresu e-mail, a ona zajmuje Twoje miejsce na liście startowej. Link działa raz i przestaje działać po cofnięciu zaproszenia albo z końcem ostatniego dnia przekazywania pakietów.',
           'Organizator może też sam przekazać Twój pakiet innej osobie, wpisując jej dane. Dostajesz wtedy e-mail, że pakiet został przekazany, bez danych osoby, która go przejęła. Ta osoba dostaje e-mail z prośbą o akceptację regulaminu, w którym jako źródło jej danych wskazujemy Organizatora.',
-          'Jeżeli usuniesz konto LESZY.RUN, otwarte zaproszenia do przejęcia Twoich pakietów i zaproszenia wysłane na Twój adres są cofane, a Twój adres e-mail jest usuwany z zapisów o przekazaniach.',
+          'Jeżeli usuniesz konto LESZY.RUN, otwarte zaproszenia do przejęcia Twoich pakietów i zaproszenia wysłane na Twój adres są cofane, a Twój adres e-mail jest usuwany z zapisów o przekazaniach. Osoba zaproszona dostaje wtedy e-mail, że zaproszenie cofnięto, bez Twojego imienia.',
         ],
       },
       {

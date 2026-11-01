@@ -20,6 +20,8 @@ function cfg(over = {}) {
 const ops = {
   parse: async ({ str }) => { try { return { grosze: parseDpayAmount(str) } } catch (e) { return { error: e.message } } },
   total: async ({ price, n = 1 }) => (await import('../helpers/orders.js')).totalFor(price, n),
+  // cartAmounts (pricing.js), the function create-order prices with (S-08).
+  cart: async ({ cart }) => (await import('../../../supabase/functions/_shared/registration/pricing.js')).cartAmounts(cart),
   details: ({ txn }) => transactionDetails(cfg(), txn),
   refund: ({ txn, grosze, messageId }) => refundTransaction(cfg(), { transactionId: txn, grosze, messageId }),
   // An order whose dpay transaction was registered with an unreachable IPN URL (S-05).

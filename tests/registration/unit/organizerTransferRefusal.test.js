@@ -22,5 +22,12 @@ describe('organizerTransferRefusal', () => {
       status: 409, body: { error: 'Pakiet może przejąć tylko osoba pełnoletnia.', code: 'recipient_minor' },
     })
   })
+  it('V-87 refund_pending → 409 in the organizer\'s wording, and the runner\'s copy is the user\'s', async () => {
+    assert.deepEqual(organizerTransferRefusal('refund_pending'), {
+      status: 409, body: { error: 'Trwa zwrot wpłaty za to zgłoszenie — przekazanie pakietu jest niemożliwe do czasu odpowiedzi operatora płatności.', code: 'refund_pending' },
+    })
+    const { TRANSFER_REFUSALS } = await import('../../../supabase/functions/_shared/registration/transfers.js')
+    assert.deepEqual(TRANSFER_REFUSALS.refund_pending, [409, 'Trwa zwrot wpłaty za ten pakiet — przekazanie jest niemożliwe.'])
+  })
   it('an unknown code → null (the caller throws, a 500)', () => assert.equal(organizerTransferRefusal('nope'), null))
 })

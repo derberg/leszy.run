@@ -155,20 +155,20 @@ test('V-40 a package can be handed on again: the voucher, the lines and the slot
   assert.equal(c.senderEmail, bEmail)
 })
 
-test('V-40 a partly refunded entry: the refunded amount goes with the line, so a rejected refund lands on the new row', async () => {
+test('V-40 a partly refunded entry: once dpay accepted the partial refund, the refunded amount goes with the line (V-87: never while it is in flight)', async () => {
   const event = await paidEvent()
   const a = await paidEntry(event)
   const [line] = await rows('order_lines', { order_id: a.orderId })
   const res = ok(await rpc('reserve_organizer_refund', {
     p_line_id: line.id, p_grosze: 1000, p_actor: ownerId, p_request_key: crypto.randomUUID(),
   }))
+  ok(await rpc('finish_organizer_refund', { p_refund_id: res.refundId, p_outcome: 'accepted' }))
+  assert.equal((await reg(a.reg.id)).status, 'confirmed', 'a partial refund leaves the entry')
   const t = await inviteOk(a.reg.id, a.profileId)
   const out = ok(await accept(event, t.hash))
   assert.equal((await reg(out.registrationId)).refunded, 1000)
   assert.equal((await reg(a.reg.id)).refunded, 0)
-  ok(await rpc('finish_organizer_refund', { p_refund_id: res.refundId, p_outcome: 'rejected' }))
-  assert.equal((await reg(out.registrationId)).refunded, 0)
-  assert.equal((await reg(out.registrationId)).status, 'confirmed')
+  assert.equal((await one('order_lines', { id: line.id })).registration_id, out.registrationId)
 })
 
 test('V-40 a free entry with no order: 0 zł to 0 zł, nothing to move', async () => {
@@ -624,6 +624,50 @@ test('V-48 organizer_transfer keeps every recipient rule', async () => {
   assert.equal(await taken(cat), 2)
 })
 
+// ---------------------------------------------------------------- V-87 a refund in flight
+
+/** reserve_organizer_refund on one of the entry's lines → the refund id (dpay_status 'pending'). */
+async function reserve(registrationId, kind, grosze) {
+  const [line] = (await rows('order_lines', { registration_id: registrationId })).filter((l) => l.kind === kind)
+  return ok(await rpc('reserve_organizer_refund', {
+    p_line_id: line.id, p_grosze: grosze, p_actor: ownerId, p_request_key: crypto.randomUUID(),
+  })).refundId
+}
+const finish = async (refundId, outcome) => ok(await rpc('finish_organizer_refund', { p_refund_id: refundId, p_outcome: outcome }))
+
+test('V-87 a refund in flight on the entry or its extra blocks create_transfer, the accept of an open invite and organizer_transfer (refund_pending)', async () => {
+  const event = await paidEvent()
+  const { variants: { M } } = await makeExtra(event, { variants: [['M', 10]] })
+  const a = await paidEntry(event, { variant: M, displayed: 6000 + 4500 })
+  // An invite sent before the refund was asked for.
+  const open = await inviteOk(a.reg.id, a.profileId, runnerEmail('open'))
+
+  const onEntry = await reserve(a.reg.id, 'entry', 1000)
+  refused((await invite(a.reg.id, a.profileId, runnerEmail('new'))).result, 'refund_pending')
+  // The open invite cannot be taken while dpay has not answered.
+  refused(await accept(event, open.hash, { email: open.toEmail }), 'refund_pending')
+  refused(await organizerTransfer(event, a.reg.id, ownerId), 'refund_pending')
+  // No answer yet from dpay is still in flight.
+  await finish(onEntry, 'unknown')
+  refused(await accept(event, open.hash, { email: open.toEmail }), 'refund_pending')
+  refused(await organizerTransfer(event, a.reg.id, ownerId), 'refund_pending')
+  // Rejected: the reservation came back, the package can move again.
+  await finish(onEntry, 'rejected')
+  ok(await rpc('cancel_transfer', { p_transfer_id: open.transferId, p_actor: a.profileId }))
+
+  // A refund of the extra line alone blocks a new invite too.
+  const onExtra = await reserve(a.reg.id, 'extra', 4500)
+  refused((await invite(a.reg.id, a.profileId, runnerEmail('extra'))).result, 'refund_pending')
+  refused(await organizerTransfer(event, a.reg.id, ownerId), 'refund_pending')
+  // Accepted (today's rule, kept): a refund dpay accepted is settled; the shirt's money is back,
+  // the entry stands and still transfers.
+  await finish(onExtra, 'accepted')
+  assert.equal((await reg(a.reg.id)).status, 'confirmed')
+  const again = await inviteOk(a.reg.id, a.profileId, runnerEmail('after'))
+  ok(await accept(event, again.hash, { email: again.toEmail }))
+  assert.equal((await reg(a.reg.id)).status, 'transferred_out')
+})
+
 // ---------------------------------------------------------------- V-49 cancel, and the grants
 
 test('V-49 cancel_registration of an entry with a pending invite cancels the invite: the link is gone', async () => {
@@ -664,13 +708,13 @@ test('V-49 service_role only, internals nobody, search_path empty', async () => 
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
        and p.proname in ('create_transfer', 'cancel_transfer', 'accept_transfer', 'organizer_transfer', 'apply_transfer',
-                         'forget_transfer_parties')`
-  assert.equal(fns.length, 6)
+                         'forget_transfer_parties', 'registration_refund_in_flight')`
+  assert.equal(fns.length, 7)
   for (const f of fns) {
     assert.deepEqual(f.proconfig, ['search_path=""'], f.sig)
     assert.equal(f.anon, false, f.sig)
     assert.equal(f.auth, false, f.sig)
-    const internal = f.proname === 'apply_transfer'
+    const internal = f.proname === 'apply_transfer' || f.proname === 'registration_refund_in_flight'
     assert.equal(f.prosecdef, !internal, f.sig)
     assert.equal(f.service, !internal, f.sig)
   }

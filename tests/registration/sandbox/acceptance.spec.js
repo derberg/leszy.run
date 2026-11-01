@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { test, expect } from '@playwright/test'
 import { sandboxConfig, shapeOf } from './guard.js'
 
-// dpay sandbox acceptance, S-01…S-06 (plan 3, task 10) and S-07 (plan 6, task 5: the organizer's refund). Real dpay sandbox, the LOCAL Supabase stack, the
+// dpay sandbox acceptance, S-01…S-06 (plan 3, task 10), S-07 (plan 6, task 5: the organizer's refund) and S-08 (plan 7, task 10: a cart). Real dpay sandbox, the LOCAL Supabase stack, the
 // real edge functions and a public tunnel for the IPN. Never in PR CI: see README.md.
 // Everything is skipped unless DPAY_ENV=sandbox.
 
@@ -321,5 +321,49 @@ test.describe('dpay sandbox acceptance', () => {
     record('S-07', 'details after the organizer refunds: refund-looking fields', { found: refunded.map(([k]) => k), shape: shapeOf(details.raw) })
     const sums = refunded.map(([, v]) => bridge('parse', { str: String(v) }).grosze ?? null)
     expect(sums, 'transactionDetails shows the refunded sum').toContain(line.amount)
+  })
+
+  test('S-08 a voucher, an extra and a donation: the real IPN amount equals orders.total; an organizer refund of the extra line alone is accepted', async ({ page }) => {
+    // Plan 7's cart on the real gateway. A charity event of its own: a 15 % code, a 45 zł shirt.
+    const cartEvent = await h.fx.createPublishedPaidEvent(owner, { prices: { 'Bieg 9 km': PRICE } })
+    const cart = await import('../helpers/cart.js')
+    await cart.setCharity(cartEvent.eventId, true)
+    const voucher = await cart.makeVoucher(cartEvent.eventId, { percent: 15, max_uses: 5 })
+    const { variants: { M } } = await cart.makeExtra(cartEvent, { name: 'Koszulka', price: 4500, variants: [['M', 10]] })
+    const expected = bridge('cart', { cart: { people: [{ listPrice: PRICE, voucherPercent: 15, extras: [{ price: 4500, qty: 1 }] }], donation: 2000 } })
+
+    const email = `runner-sbx-cart-${rand()}@test.local`
+    const runner = await h.stack.sessionFor(email)
+    const consents = (await rows('event_consents', { event_id: cartEvent.eventId })).map((c) => c.id)
+    const res = await h.fx.callFn('create-order', runner, {
+      people: [{ categoryId: cartEvent.categoryIds[0], person: person(email), voucherCode: voucher.code, extras: [{ variantId: M.id, qty: 1 }] }],
+      donation: 2000, acceptedConsentIds: consents, serviceRegulamin: true, displayedTotal: expected.total,
+    })
+    expect(res.status, JSON.stringify(res.body)).toBe(201)
+    const { orderId, redirectUrl } = res.body.data
+    const created = await orderRow(orderId)
+    expect([created.entry_total, created.extras_total, created.donation, created.total])
+      .toEqual([expected.entryTotal, expected.extrasTotal, expected.donation, expected.total])
+
+    await openGateway(page, redirectUrl)
+    await payBlik(page)
+    await waitPaid(orderId)
+    const order = await orderRow(orderId)
+    expect(order.total).toBe(expected.total)
+    const events = (await rows('payment_events', { order_id: orderId })).filter((e) => e.kind === 'ipn' && e.checksum_ok)
+    expect(events.length, 'a signed IPN reached the tunnel').toBeGreaterThan(0)
+    const raw = events[0].payload?.amount
+    record('S-08', 'ipn amount of a cart, raw format', { amount: raw, type: typeof raw, total: order.total })
+    expect(bridge('parse', { str: String(raw) }).grosze, 'the IPN amount is orders.total').toBe(order.total)
+
+    // The organizer gives back the shirt alone: accepted, the entry stands.
+    const [extraLine] = (await rows('order_lines', { order_id: orderId })).filter((l) => l.kind === 'extra')
+    const refund = await h.fx.callFn('organizer-refund', owner, { lineId: extraLine.id, grosze: extraLine.amount, requestKey: crypto.randomUUID() })
+    record('S-08', 'organizer refund of the extra line', { status: refund.status, body: refund.body })
+    expect(refund.status, JSON.stringify(refund.body)).toBe(200)
+    expect(refund.body.data.status).toBe('accepted')
+    expect(refund.body.data.cancelled).toEqual([])
+    const [reg] = await rows('registrations', { order_id: orderId })
+    expect(reg.status).toBe('confirmed')
   })
 })

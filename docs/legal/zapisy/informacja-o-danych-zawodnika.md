@@ -1,6 +1,6 @@
 # Informacja o przetwarzaniu danych zawodnika
 
-**Wersja:** 2026-11-v7
+**Wersja:** 2026-11-v8
 **Status:** projekt do weryfikacji prawnej, nieobowiązujący
 **Zastosowanie:** domyślna treść dokumentu „Informacja o danych” (`event_consents.kind = 'data_info'`), tworzonego z każdym Wydarzeniem. Organizator może ją zastąpić własną. Pola w nawiasach klamrowych `{…}` Serwis wypełnia danymi Wydarzenia i Organizatora.
 
@@ -79,7 +79,7 @@ Osoba, która przyjmuje pakiet, sama podaje swoje dane, potwierdza swój adres k
 
 Organizator może też sam przekazać Twój pakiet innej osobie, wpisując jej dane. Dostajesz wtedy e-mail, że pakiet został przekazany, bez danych osoby, która go przejęła. Ta osoba dostaje e-mail z prośbą o akceptację regulaminu, w którym jako źródło jej danych wskazujemy Organizatora.
 
-Jeżeli usuniesz konto LESZY.RUN, otwarte zaproszenia do przejęcia Twoich pakietów i zaproszenia wysłane na Twój adres są cofane, a Twój adres e-mail jest usuwany z zapisów o przekazaniach.
+Jeżeli usuniesz konto LESZY.RUN, otwarte zaproszenia do przejęcia Twoich pakietów i zaproszenia wysłane na Twój adres są cofane, a Twój adres e-mail jest usuwany z zapisów o przekazaniach. Osoba zaproszona dostaje wtedy e-mail, że zaproszenie cofnięto, bez Twojego imienia.
 
 ## Osoba do kontaktu w nagłych wypadkach
 

@@ -46,11 +46,33 @@
 -- Error codes (RAISE messages): not_found, not_owner, not_transferable, transfer_off, same_person,
 -- pending_exists, invalid_email, invalid_token, gone, recipient_minor, price_differs, duplicate,
 -- pending_elsewhere, team_competition, unavailable, consents_required, consents_changed,
--- profile_mismatch, invalid_person, race_day, transferred (cancel_registration of a transferred_out row); transfer_retry (SQLSTATE 40001) when the recipient
+-- profile_mismatch, invalid_person, race_day, refund_pending, transferred (cancel_registration of a transferred_out row); transfer_retry (SQLSTATE 40001) when the recipient
 -- opened another unpaid order between the plain read and the locks, which the caller may retry.
 --
+-- A refund in flight (user decision 2026-11-01): an entry with a refund row on one of its lines
+-- (entry or extra) that dpay has not settled (dpay_status pending: reserved, claimed or awaiting
+-- the answer; or unknown) is refund_pending for create_transfer, the accept of an open invite and
+-- organizer_transfer. Otherwise the lines would move to the new holder and an accepted refund would
+-- then cancel the new holder's entry. A refund already accepted, rejected or refused for balance is
+-- settled and changes nothing here. apply_transfer reads it with the order and the lines locked, and
+-- reserve_organizer_refund takes the order lock first, so the two serialize.
+
 -- Grants: the four entry points are SECURITY DEFINER for service_role only; apply_transfer runs as
 -- its caller and nobody may execute it. CREATE OR REPLACE keeps cancel_registration's grants.
+
+-- ---------------------------------------------------------------- registration_refund_in_flight
+
+-- True while a refund of one of the registration's lines waits for dpay (see the header).
+CREATE FUNCTION public.registration_refund_in_flight(p_registration_id uuid) RETURNS boolean
+  LANGUAGE sql
+  STABLE
+  SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.refunds f JOIN public.order_lines l ON l.id = f.order_line_id
+     WHERE l.registration_id = p_registration_id AND f.dpay_status IN ('pending', 'unknown'))
+$$;
+REVOKE EXECUTE ON FUNCTION public.registration_refund_in_flight(uuid) FROM public, anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------- create_transfer
 
@@ -101,6 +123,9 @@ BEGIN
   IF NOT v_rs.transfer_enabled OR v_rs.transfer_until IS NULL
      OR (p_now AT TIME ZONE 'Europe/Warsaw')::date > v_rs.transfer_until THEN
     RAISE EXCEPTION 'transfer_off';
+  END IF;
+  IF public.registration_refund_in_flight(r.id) THEN
+    RAISE EXCEPTION 'refund_pending';
   END IF;
   IF v_email IS NULL OR v_email = '' THEN
     RAISE EXCEPTION 'invalid_email';
@@ -288,6 +313,9 @@ BEGIN
   END IF;
   IF r.status <> 'confirmed' THEN
     RAISE EXCEPTION 'gone';
+  END IF;
+  IF public.registration_refund_in_flight(r.id) THEN
+    RAISE EXCEPTION 'refund_pending';
   END IF;
   -- I-1: an open invite follows the organizer's switch and date (§5.4). The settings row is held FOR
   -- SHARE, so a save of the payments section waits for this accept or this accept sees it.

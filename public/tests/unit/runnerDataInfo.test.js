@@ -194,6 +194,13 @@ describe('runnerDataInfo transfers (Plan 7, task 10)', () => {
     assert.ok(t.includes('otwarte zaproszenia do przejęcia Twoich pakietów i zaproszenia wysłane na Twój adres są cofane'))
   })
 
+  it('V-88 on account deletion the invited person is told the invitation was withdrawn, without the sender\'s name; the version moved past v7', async () => {
+    const t = JSON.stringify(section())
+    assert.ok(t.includes('Osoba zaproszona dostaje wtedy e-mail, że zaproszenie cofnięto, bez Twojego imienia.'))
+    const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
+    assert.equal(RUNNER_DATA_INFO_VERSION, '2026-11-v8')
+  })
+
   it('never mentions a partner or a discount code', () => {
     assert.doesNotMatch(JSON.stringify(runnerDataInfo({ ...base, paid: true, teams: true })), /partner/i)
   })

@@ -8,7 +8,9 @@
 --       keep an address (transfers_pending_has_address); then every other transfer addressed to
 --       p_email (accepted, cancelled, expired, either kind) loses to_email. The rows stay: they
 --       are the record of where a package went, and nothing in them names the person any more.
---     → { cancelledSent, cancelledReceived, addressCleared }.
+--     → { cancelledSent, cancelledReceived, addressCleared, sentInvites }. sentInvites lists the
+--       invites cancelled as sender, [{ id, toEmail, eventName }], so delete-my-account can tell
+--       each invited person (V-88) without naming the sender.
 --
 -- Lock order: registrations, then transfers, the suffix that cancel_transfer and accept_transfer
 -- take, so an accept racing the deletion either lands first (the invite is accepted, and its
@@ -31,6 +33,7 @@ DECLARE
   v_sent      integer := 0;
   v_received  integer := 0;
   v_cleared   integer := 0;
+  v_invites   jsonb;
 BEGIN
   SELECT coalesce(array_agg(DISTINCT t.registration_id ORDER BY t.registration_id), '{}') INTO v_regs
     FROM public.transfers t
@@ -40,10 +43,16 @@ BEGIN
           OR (v_email IS NOT NULL AND t.to_email = v_email));
   PERFORM 1 FROM public.registrations WHERE id = ANY (v_regs) ORDER BY id FOR UPDATE;
 
-  UPDATE public.transfers SET status = 'cancelled', cancelled_at = now()
-   WHERE status = 'pending'
-     AND (registration_id = ANY (v_ids) OR (p_profile_id IS NOT NULL AND from_profile_id = p_profile_id));
-  GET DIAGNOSTICS v_sent = ROW_COUNT;
+  WITH c AS (
+    UPDATE public.transfers SET status = 'cancelled', cancelled_at = now()
+     WHERE status = 'pending'
+       AND (registration_id = ANY (v_ids) OR (p_profile_id IS NOT NULL AND from_profile_id = p_profile_id))
+    RETURNING id, to_email, event_id
+  )
+  SELECT count(*), coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'toEmail', c.to_email, 'eventName', rs.name)
+                                      ORDER BY c.id) FILTER (WHERE c.to_email IS NOT NULL), '[]'::jsonb)
+    INTO v_sent, v_invites
+    FROM c LEFT JOIN public.registration_settings rs ON rs.event_id = c.event_id;
 
   IF v_email IS NOT NULL THEN
     UPDATE public.transfers SET status = 'cancelled', cancelled_at = now()
@@ -54,7 +63,8 @@ BEGIN
     GET DIAGNOSTICS v_cleared = ROW_COUNT;
   END IF;
 
-  RETURN jsonb_build_object('cancelledSent', v_sent, 'cancelledReceived', v_received, 'addressCleared', v_cleared);
+  RETURN jsonb_build_object('cancelledSent', v_sent, 'cancelledReceived', v_received, 'addressCleared', v_cleared,
+                            'sentInvites', v_invites);
 END $$;
 REVOKE EXECUTE ON FUNCTION public.forget_transfer_parties(uuid[], uuid, text) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.forget_transfer_parties(uuid[], uuid, text) TO service_role;

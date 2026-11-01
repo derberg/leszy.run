@@ -115,6 +115,7 @@ describe('the transfer pages answer every refusal in Polish', () => {
     assert.equal(TRANSFER_MESSAGES.transfer_off, 'Przekazanie pakietu nie jest już możliwe.')
     assert.equal(TRANSFER_MESSAGES.pending_exists, 'Zaproszenie już wysłane. Cofnij je, aby wysłać nowe.')
     assert.equal(TRANSFER_MESSAGES.recipient_minor, 'Pakiet może przejąć tylko osoba pełnoletnia.')
+    assert.equal(TRANSFER_MESSAGES.refund_pending, 'Trwa zwrot wpłaty za ten pakiet — przekazanie jest niemożliwe.')
   })
 
   it('inviteError and acceptError never hand an English server text to the page', () => {

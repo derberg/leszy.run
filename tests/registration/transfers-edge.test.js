@@ -16,7 +16,7 @@ import { lastCodeFor, messagesTo, startCapture } from './helpers/emailCapture.js
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { attemptFor, confirmOk, consentIds, db, one, orderOf, person, profileFor, rows, runnerEmail, setSettings } from './helpers/orders.js'
 import { BIEG, DZIECI, adult, minor, orderGroupOk } from './helpers/groups.js'
-import { dayBefore, enableTransfers, hashToken, paidEntry } from './helpers/transfers.js'
+import { dayBefore, enableTransfers, hashToken, inviteOk, paidEntry } from './helpers/transfers.js'
 import { warsawToday } from '../../supabase/functions/_shared/registration/dates.js'
 
 const GONE = 'Ten link został już użyty, cofnięty albo wygasł.'
@@ -741,6 +741,65 @@ test('V-83 the recipient deletes the account: live invites to them are cancelled
   // The cancelled link is gone; the sender's entry is untouched.
   assert.equal((await call('transfer-accept', { token: inv2.token })).body.error, GONE)
   assert.equal((await one('registrations', { id: two.a.reg.id })).status, 'confirmed')
+})
+
+// ---------------------------------------------------------------- V-87 a refund in flight
+
+test('V-87 a refund in flight: transfer-invite, transfer-accept and organizer-entry-action answer 409 refund_pending in Polish', async () => {
+  const event = await paidEvent()
+  const { a, holder } = await holderOf(event)
+  const open = await invited(a, holder)
+  const [line] = (await rows('order_lines', { registration_id: a.reg.id })).filter((l) => l.kind === 'entry')
+  const { error } = await db().rpc('reserve_organizer_refund', {
+    p_line_id: line.id, p_grosze: 1000, p_actor: await profileFor('owner@zatyrani-test.local'), p_request_key: crypto.randomUUID(),
+  })
+  assert.ifError(error)
+  const RUNNER = 'Trwa zwrot wpłaty za ten pakiet — przekazanie jest niemożliwe.'
+
+  const inv = await call('transfer-invite', { action: 'create', registrationId: a.reg.id, toEmail: runnerEmail('later') }, { session: holder })
+  assert.equal(inv.status, 409, inv.text)
+  assert.deepEqual([inv.body.code, inv.body.error], ['refund_pending', RUNNER])
+  // The invite sent before the refund cannot be taken while dpay has not answered.
+  const took = await acceptWithCode(event, open.token, open.toEmail)
+  assert.equal(took.status, 409, took.text)
+  assert.deepEqual([took.body.code, took.body.error], ['refund_pending', RUNNER])
+
+  const org = await call('organizer-entry-action', {
+    action: 'transfer', registrationId: a.reg.id, categoryId: event.categoryIds[0], person: recipientPerson(runnerEmail('org87')),
+  }, { session: owner })
+  assert.equal(org.status, 409, org.text)
+  assert.equal(org.body.code, 'refund_pending')
+  assert.equal(org.body.error, 'Trwa zwrot wpłaty za to zgłoszenie — przekazanie pakietu jest niemożliwe do czasu odpowiedzi operatora płatności.')
+  assert.equal((await one('registrations', { id: a.reg.id })).status, 'confirmed')
+})
+
+// ---------------------------------------------------------------- V-88 the invitee is told
+
+test('V-88 the sender deletes the account: the invited address gets „Zaproszenie cofnięte” once, naming nobody; a bounced send does not stop the deletion', async () => {
+  const { event, a, holder } = await holderOf()
+  const inv = await invited(a, holder)
+  const { name } = await one('registration_settings', { event_id: event.eventId })
+  await deleteAccount(a.email, holder)
+
+  const [mail, extra] = await waitForMail(inv.toEmail, 1, bySubject(/^Zaproszenie cofnięte/))
+  assert.ok(mail, 'the invitee is told')
+  assert.equal(extra, undefined)
+  assert.equal(mail.subject, `Zaproszenie cofnięte — ${name}`)
+  assert.match(mail.text, /zostało cofnięte\. Link z poprzedniej wiadomości już nie działa\./)
+  for (const word of ['Ola', 'Leśna', a.email]) assert.ok(!`${mail.text}\n${mail.html}`.includes(word), `names ${word}`)
+  const t = await transferOf(inv.transferId)
+  assert.equal(t.status, 'cancelled')
+  assert.ok(t.cancel_emailed_at, 'claimed, so it goes once')
+  await sleep(500)
+  assert.equal((await messagesTo(inv.toEmail)).filter(bySubject(/^Zaproszenie cofnięte/)).length, 1)
+
+  // A send the mail server refuses: the account is deleted all the same, the invite cancelled.
+  const two = await holderOf()
+  // Straight through the RPC: the invite e-mail to this address would bounce too.
+  const bounce = await inviteOk(two.a.reg.id, two.a.profileId, runnerEmail('bounce'))
+  await deleteAccount(two.a.email, two.holder)
+  assert.equal((await transferOf(bounce.transferId)).status, 'cancelled')
+  assert.equal((await one('registrations', { id: two.a.reg.id })).first_name, 'Usunięte konto')
 })
 
 // ---------------------------------------------------------------- V-86 B3's same-price list

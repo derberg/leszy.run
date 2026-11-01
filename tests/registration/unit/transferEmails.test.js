@@ -71,6 +71,16 @@ describe('transferCancelledEmail (V-53)', () => {
   it('names no bib, partner or fee', () => assertNothingExtra(mail))
 })
 
+describe('transferCancelledEmail without a sender (V-88: the sender deleted the account)', () => {
+  const mail = transferCancelledEmail({ event: EVENT })
+  it('same subject', () => assert.equal(mail.subject, 'Zaproszenie cofnięte — Wilczy Bieg <Nocny>'))
+  it('says the invitation was withdrawn and the link is dead, naming nobody', () => {
+    assert.match(mail.text, /^Cześć,\n\nZaproszenie do przejęcia pakietu na zawody Wilczy Bieg <Nocny> zostało cofnięte\. Link z poprzedniej wiadomości już nie działa\./)
+    assert.doesNotMatch(all(mail), /cofnął|Osoba, która/)
+  })
+  it('names no bib, partner or fee', () => assertNothingExtra(mail))
+})
+
 describe('transferConfirmationEmail', () => {
   const mail = transferConfirmationEmail({
     event: { ...EVENT, url: 'https://www.leszy.run/events/wilczy' },

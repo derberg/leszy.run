@@ -45,6 +45,7 @@ export const TRANSFER_REFUSALS = {
   invalid_kind: [400, TRY_AGAIN],
   race_day: [409, 'W dniu zawodów pakiet przekazuje się w biurze zawodów.'],
   transfer_retry: [409, TRY_AGAIN],
+  refund_pending: [409, 'Trwa zwrot wpłaty za ten pakiet — przekazanie jest niemożliwe.'],
 }
 
 // organizer_transfer's refusals (Plan 7, ruling 4), worded for the organizer where the runner's copy
@@ -57,6 +58,7 @@ const ORGANIZER_TRANSFER_REFUSALS = {
   same_person: [409, 'To jest osoba, która ma ten pakiet.'],
   recipient_minor: [409, 'Pakiet może przejąć tylko osoba pełnoletnia.'],
   invalid_person: [422, 'Popraw zaznaczone pola.'],
+  refund_pending: [409, 'Trwa zwrot wpłaty za to zgłoszenie — przekazanie pakietu jest niemożliwe do czasu odpowiedzi operatora płatności.'],
 }
 
 // The field a 422 is about. Every 422 of organizer-entry-action carries `fields` (Plan 6's

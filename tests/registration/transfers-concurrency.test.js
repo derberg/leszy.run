@@ -116,10 +116,10 @@ test('V-47b 50 rounds: two recipients accept one token → one registration, one
   }
 })
 
-test('V-47c 50 rounds: accept vs finish_organizer_refund(accepted) on the same line → never two live rows', async (t) => {
+test('V-47c 50 rounds: accept vs finish_organizer_refund(accepted) on the same line → never two live rows; the accept never moves a package with a refund in flight (V-87)', async (t) => {
   const event = await paidEvent()
   const [cat] = event.categoryIds
-  const counts = { refundFirst: 0, transferFirst: 0 }
+  const counts = { refundFirst: 0, acceptFirst: 0 }
   for (let round = 0; round < 50; round++) {
     const a = await paidEntry(event)
     const inv = await inviteOk(a.reg.id, a.profileId)
@@ -137,21 +137,15 @@ test('V-47c 50 rounds: accept vs finish_organizer_refund(accepted) on the same l
     noDeadlock(fin, `round ${round}`)
     const done = ok(fin)
     assert.equal(done.settled, 'settled')
-    const row = await one('transfers', { id: inv.transferId })
-    if (acc.error) {
-      assert.equal(acc.error.message, 'gone', `round ${round}`)
-      assert.equal(row.status, 'cancelled')
-      assert.equal((await reg(a.reg.id)).status, 'cancelled')
-      assert.deepEqual(done.cancelled, [a.reg.id])
-      counts.refundFirst++
-    } else {
-      assert.equal(row.status, 'accepted')
-      assert.equal((await reg(a.reg.id)).status, 'transferred_out')
-      assert.equal((await reg(acc.data.registrationId)).status, 'cancelled')
-      assert.deepEqual(done.cancelled, [acc.data.registrationId])
-      assert.equal((await reg(acc.data.registrationId)).refunded, a.total)
-      counts.transferFirst++
-    }
+    // Either way the accept is refused: refund_pending while dpay had not answered, gone once the
+    // accepted refund had cancelled the entry. The refund cancels the old entry, never a new one.
+    assert.ok(acc.error, `round ${round}: the accept went through`)
+    assert.ok(['refund_pending', 'gone'].includes(acc.error.message), `round ${round}: ${acc.error.message}`)
+    if (acc.error.message === 'gone') counts.refundFirst++
+    else counts.acceptFirst++
+    assert.equal((await one('transfers', { id: inv.transferId })).status, 'cancelled')
+    assert.equal((await reg(a.reg.id)).status, 'cancelled')
+    assert.deepEqual(done.cancelled, [a.reg.id])
     assert.equal((await competitionOf(cat)).taken, before - 1)
   }
   t.diagnostic(`outcomes ${JSON.stringify(counts)}`)

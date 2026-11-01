@@ -7,6 +7,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { retireEmail } from '../_shared/deletedEmails.js'
 import { redactDpay } from '../_shared/registration/redactDpay.js'
+import { sendTransferEmail } from '../_shared/registration/transfers.js'
+import { transferCancelledEmail } from '../_shared/registration/transferEmails.js'
 import { getSession } from '../_shared/session.js'
 
 async function sha256hex(text) {
@@ -362,10 +364,21 @@ Deno.serve(async (req) => {
     //   as RECIPIENT, the open invites to their address are cancelled first (a pending invite must
     //   keep an address, transfers_pending_has_address), then every transfer addressed to them loses
     //   to_email. The rows stay: they are the record of where a package went.
-    const { error: trErr } = await supabaseAdmin.rpc('forget_transfer_parties', {
+    const { data: forgotten, error: trErr } = await supabaseAdmin.rpc('forget_transfer_parties', {
       p_registration_ids: [...regIds], p_profile_id: profile.id, p_email: originalEmail,
     })
     if (trErr) console.error('delete-my-account: transfers cleanup failed:', trErr.message)
+    // V-88: each person whose invite died here is told, once (claimed on cancel_emailed_at), in the
+    // „Zaproszenie cofnięte” e-mail without the sender's name: the account is being erased. A send
+    // that fails is logged by sendTransferEmail and never stops the deletion.
+    for (const inv of forgotten?.sentInvites ?? []) {
+      try {
+        await sendTransferEmail(supabaseAdmin, inv.id, 'cancel_emailed_at', inv.toEmail,
+          transferCancelledEmail({ event: { name: inv.eventName ?? 'zawody' } }))
+      } catch (err) {
+        console.error('delete-my-account: invite-cancelled e-mail failed:', inv.id, err?.message)
+      }
+    }
 
     // 1c. The person as GUARDIAN of someone else's registration (a child, later
     // a group): the guardian fields on that row are THEIR data, the rest of the
