@@ -1,6 +1,7 @@
 // The organizer panel's model (B3): filters, counts and the actions of one entry, over the rows
 // of list-event-registrations. Money is integer grosze.
 import { AWAITING_CONSENT, awaitingConsent, filterEntries } from '../../../supabase/functions/_shared/registration/entriesFilter.js'
+import { pluralPl } from './plural.js'
 
 // The filter is shared with export-event-registrations, so the CSV holds the rows the panel shows.
 export { AWAITING_CONSENT, filterEntries }
@@ -89,4 +90,85 @@ export function entryActions(row, { closed = false, raceDay = false, isTeamRow =
     ['rename_team', live && isTeamRow],
     ['squad', live && isTeamRow],
   ].filter(([, offered]) => offered).map(([action]) => action)
+}
+
+/**
+ * The value of the „NA LIŚCIE” tile: people and teams each against their own limit, never one
+ * sum (Plan 5). With both kinds of competition: „31 / 50 · 2 / 10 DRUŻYN”; with one kind, that one.
+ * @param {{ listed: { people: number, teams: number }, capacity: { people: number, teams: number },
+ *   perCompetition: { kind: string }[] }} counts  entryCounts'
+ */
+export function listedTile(counts) {
+  const kinds = new Set(counts.perCompetition.map((c) => (c.kind === 'team' ? 'teams' : 'people')))
+  const parts = []
+  if (kinds.has('people') || kinds.size === 0) parts.push(`${counts.listed.people} / ${counts.capacity.people}`)
+  if (kinds.has('teams')) {
+    const cap = counts.capacity.teams
+    parts.push(`${counts.listed.teams} / ${cap} ${pluralPl(cap, 'DRUŻYNA', 'DRUŻYNY', 'DRUŻYN')}`)
+  }
+  return parts.join(' · ')
+}
+
+/**
+ * „ · BRAK MIEJSC” on the „CZEKA NA WPŁATĘ” tile (D6-15): some competition holding an unpaid
+ * entry is already full, so that payment would be refunded.
+ */
+export const noPlacesForAwaiting = (counts) => counts.perCompetition
+  .some((c) => c.awaiting > 0 && c.capacity != null && c.listed >= c.capacity)
+
+/**
+ * The competition chips: „Wszystkie” and one per visible competition, each with the number of rows
+ * it shows; a team competition counts its teams („Sztafeta · 5 drużyn”), never its people.
+ * @returns {{ id: string|null, label: string }[]}
+ */
+export function competitionChips(rows, competitions) {
+  const chips = [{ id: null, label: `Wszystkie · ${rows.length}` }]
+  for (const c of competitions) {
+    const own = rows.filter((row) => row.categoryId === c.id)
+    if (c.kind === 'team') {
+      const n = new Set(own.map((row) => row.team?.id ?? row.id)).size
+      chips.push({ id: c.id, label: `${c.name} · ${n} ${pluralPl(n, 'drużyna', 'drużyny', 'drużyn')}` })
+    } else {
+      chips.push({ id: c.id, label: `${c.name} · ${own.length}` })
+    }
+  }
+  return chips
+}
+
+/**
+ * The status chips, each counting the rows its filter shows. „Do wycofania w pomiarze” only while
+ * somebody is to be withdrawn.
+ * @returns {{ key: string|null, label: string }[]}
+ */
+export function statusChips(counts) {
+  const n = (key) => counts.byStatus[key] ?? 0
+  return [
+    { key: null, label: 'Wszystkie' },
+    { key: 'paid', label: `Opłacone · ${n('paid')}` },
+    { key: 'awaiting', label: `Czeka na wpłatę · ${n('awaiting')}` },
+    ...(n('withdraw_on_host') > 0 ? [{ key: 'withdraw_on_host', label: `Do wycofania w pomiarze · ${n('withdraw_on_host')}` }] : []),
+    { key: AWAITING_CONSENT, label: `Czeka na zgody · ${counts.awaitingConsent}` },
+    { key: 'expired', label: `Wygasłe · ${n('expired')}` },
+    { key: 'cancelled', label: `Anulowane · ${n('cancelled')}` },
+  ]
+}
+
+/**
+ * The ⋯ label of an action from entryActions. A team row writes to its captain; an unpaid entry's
+ * cancel is „Anuluj nieopłacone zgłoszenie” (D6-16): it cancels the whole order and refunds nothing.
+ */
+export function actionLabel(action, row, { isTeamRow = false } = {}) {
+  switch (action) {
+    case 'edit': return 'Edytuj dane'
+    case 'remind_payment': return 'Przypomnij o wpłacie'
+    case 'extend': return 'Przedłuż termin wpłaty'
+    case 'remind_consent': return 'Przypomnij o akceptacji regulaminu'
+    case 'consent_office': return 'Regulamin podpisany w biurze'
+    case 'message': return isTeamRow ? 'Napisz do kapitana' : 'Napisz do zawodnika'
+    case 'refund': return 'Zwróć wpłatę'
+    case 'cancel': return row.statusKey === 'awaiting' ? 'Anuluj nieopłacone zgłoszenie' : 'Anuluj zgłoszenie'
+    case 'rename_team': return 'Zmień nazwę drużyny'
+    case 'squad': return 'Skład drużyny'
+    default: throw new Error(`unknown action: ${action}`)
+  }
 }

@@ -1,114 +1,49 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { formatPln } from '@registration/money.js'
+import { statusLabel } from '@registration/entries.js'
+import { warsawToday } from '@registration/dates.js'
 import { callFunction } from '../../../lib/auth.js'
-import { countPl, pluralPl } from '../../../lib/plural.js'
+import { downloadCsv } from '../../../lib/csvDownload.js'
+import {
+  AWAITING_CONSENT, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, statusChips,
+} from '../../../lib/entriesModel.js'
 import { teamStatusLabel } from '../../../lib/teamPage.js'
+import { btnGhost, btnPrimary } from '../settingsUi.js'
+import EntryMenu from './entries/EntryMenu.jsx'
 
-// The „Zgłoszenia” tab of a published event (A8): every registration, read
-// only — imię i nazwisko, konkurencja, kategoria, regulamin, data zapisu — from
-// list-event-registrations. Plan 6's panel (B3) replaces it. The editor mounts
-// it (Task 8c); runner data is for the club's owner and admins only.
-// Once anybody has paid or owes a payment, the header carries B3's counts
-// („X opłaconych · Y czeka na wpłatę”, in the count's Polish form) and a „Płatność” column appears.
-// Plan 4 task 6: the „Regulamin” column (each person's consent state), „Czeka na zgody: N” with
-// a filter, and on a row still waiting „Przypomnij” (remind-consent) and „Podpisany w biurze”
-// (mark-consent-office). Plan 6 moves the two buttons into the row's ⋯ menu.
-// Plan 5 task 8: a team not released is one row, „<nazwa> · N os.” / „kapitan: <imię nazwisko>”, with
-// its status, „ZGODY a/b” and the one fee, and it opens to its members, who keep every control
-// of a person's row. It stands where its first member signed up. A row of a released team, or of
-// somebody swapped out, is an ordinary row, read-only history. „Tylko czekające” keeps the teams
-// holding somebody waiting, opened to just those people.
+// The „Zgłoszenia” tab of a published event: the organizer's entries panel (B3). Plan 2's
+// PublishedHeader above the tabs carries the event name, date and state; this adds no second
+// header (D6-8). From list-event-registrations (owner and admins only, P2-R20): the tiles, the
+// competition and status chips, the search, the table (cards under 640 px), the CSV export and each
+// row's ⋯ menu (entryActions). Plan 4's „Przypomnij” and „Podpisany w biurze” live in that menu now.
+// A team not released is one row, „<nazwa> · N os.” / „kapitan: …” / „ZGODY a/b”, standing where
+// its first member signed up, and opens to its members, who keep every action of a person's row.
+// Every action re-reads the list. The dialogs (refund, extend, cancel, edit, message, rename) are
+// Task 6b's; until then `onDialog` only records the request.
 
-const when = new Intl.DateTimeFormat('pl-PL', {
-  timeZone: 'Europe/Warsaw', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
-})
-
-const PAYMENT = { paid: 'opłacone', free: 'bez opłaty' }
 const LIVE = new Set(['confirmed', 'pending_payment'])
 
-function paymentColour(r) {
-  return r.paymentStatus === 'paid' ? 'text-apex-yellow' : r.paymentStatus === 'awaiting' ? 'text-apex-cyan' : 'text-apex-muted'
+const STATUS_COLOUR = {
+  paid: 'text-apex-yellow',
+  free: 'text-apex-yellow',
+  awaiting: 'text-apex-cyan',
+  refund_unconfirmed: 'text-apex-red',
+  withdraw_on_host: 'text-apex-red',
 }
+const statusColour = (key) => STATUS_COLOUR[key] ?? 'text-apex-muted'
 
-function paymentText(r) {
-  if (r.paymentStatus === 'awaiting') return r.expiresAt ? `czeka na wpłatę do ${when.format(new Date(r.expiresAt))}` : 'czeka na wpłatę'
-  return PAYMENT[r.paymentStatus] ?? '—'
-}
+const teamColour = (t) => (t.paymentStatus === 'paid' || t.paymentStatus === 'free' ? 'text-apex-yellow'
+  : t.paymentStatus === 'awaiting' ? 'text-apex-cyan' : 'text-apex-muted')
 
-/** → [text, colour class] of the „Regulamin” cell. */
-function consentCell(r) {
-  if (!LIVE.has(r.status)) return ['—', 'text-apex-muted']
+/** → [text, colour class] of a person's consent line, or null when there is nothing to say. */
+function consentLine(r) {
+  if (!LIVE.has(r.status)) return null
   if (r.consentState === 'awaiting') return ['czeka na zgodę', 'text-apex-cyan']
   if (r.consentState === 'office') return ['podpisany w biurze', 'text-apex-text-bright']
+  // A runner who signed up themselves accepted on the form: nothing to show.
   if (r.role === 'minor') return ['✓ opiekun', 'text-apex-yellow']
-  return ['✓ zaakceptowany', 'text-apex-yellow']
-}
-
-const waiting = (r) => r.status === 'confirmed' && r.consentState === 'awaiting'
-
-const smallBtn = 'min-h-9 px-2.5 border font-sans font-bold text-sm whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed'
-const remindBtn = `${smallBtn} border-apex-border-bright text-apex-text-bright hover:border-apex-yellow-dim`
-const officeBtn = `${smallBtn} border-apex-yellow-dim text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`
-
-/**
- * „Przypomnij” and „Podpisany w biurze” for a row still waiting. The office mark records an acceptance
- * for good and ends the person's link, so it asks „Potwierdzić podpis w biurze: <imię nazwisko>?” first.
- */
-function ConsentActions({ row, onOffice }) {
-  const [busy, setBusy] = useState(null)
-  const [reminded, setReminded] = useState(false)
-  const [confirming, setConfirming] = useState(false)
-  const [error, setError] = useState(null)
-  const officeRef = useRef(null)
-
-  async function run(kind) {
-    setBusy(kind)
-    setError(null)
-    try {
-      if (kind === 'remind') {
-        await callFunction('remind-consent', { registrationId: row.id })
-        setReminded(true)
-      } else {
-        await callFunction('mark-consent-office', { registrationId: row.id })
-        onOffice(row.id)
-      }
-    } catch (err) {
-      setError(err.status == null ? 'Brak połączenia.' : err.message)
-    } finally {
-      setBusy(null)
-      setConfirming(false)
-    }
-  }
-
-  function cancel() {
-    setConfirming(false)
-    requestAnimationFrame(() => officeRef.current?.focus())
-  }
-
-  const qid = `office-q-${row.id}`
-  return (
-    <div className="flex flex-col gap-1">
-      {confirming ? (
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby={qid} data-testid="office-confirm">
-          <span id={qid} className="font-sans font-semibold text-sm text-apex-text-bright">Potwierdzić podpis w biurze: {row.name}?</span>
-          <span className="flex gap-1.5">
-            <button type="button" className={officeBtn} disabled={busy !== null} onClick={() => run('office')}>Tak</button>
-            <button type="button" className={remindBtn} disabled={busy !== null} onClick={cancel} autoFocus>Nie</button>
-          </span>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {reminded
-            ? <span className="min-h-9 px-2.5 flex items-center font-mono text-xs uppercase text-apex-muted whitespace-nowrap" data-testid="reminded">Wysłano</span>
-            : <button type="button" className={remindBtn} disabled={busy !== null} onClick={() => run('remind')}
-                aria-label={`Przypomnij — ${row.name}`}>Przypomnij</button>}
-          <button type="button" ref={officeRef} className={officeBtn} disabled={busy !== null} onClick={() => setConfirming(true)}
-            aria-label={`Podpisany w biurze — ${row.name}`}>Podpisany w biurze</button>
-        </div>
-      )}
-      {error && <span className="text-apex-red text-xs" role="alert">{error}</span>}
-    </div>
-  )
+  if (r.role === 'adult') return ['✓ zaakceptowany', 'text-apex-yellow']
+  return null
 }
 
 /** The sub-line under a name: the guardian of a child, or who added an adult. */
@@ -126,16 +61,16 @@ function SubLine({ r }) {
   )
 }
 
-/** The one fee and, while it is unpaid, its deadline. */
-/** The fee and the deadline, each kept on one line (L-3); the cell may break between them only. */
-function TeamFee({ team: t }) {
-  const parts = [t.fee > 0 ? formatPln(t.fee) : null, t.expiresAt ? `do ${when.format(new Date(t.expiresAt))}` : null].filter(Boolean)
-  if (!parts.length) return '—'
-  return parts.map((p, i) => <Fragment key={p}>{i > 0 && ' · '}<span className="whitespace-nowrap">{p}</span></Fragment>)
+function ConsentLine({ r }) {
+  const line = consentLine(r)
+  if (!line) return null
+  return <span className={`block font-mono text-xs ${line[1]}`} data-testid="registration-consent">{line[0]}</span>
 }
 
-function teamFeeText(t) {
-  return [t.fee > 0 ? formatPln(t.fee) : null, t.expiresAt ? `do ${when.format(new Date(t.expiresAt))}` : null].filter(Boolean).join(' · ') || '—'
+function payment(r) {
+  if (r.paidAmount > 0) return [formatPln(r.paidAmount), 'text-apex-text-bright']
+  if (r.statusKey === 'awaiting' && r.price > 0) return [formatPln(r.price), 'text-apex-muted']
+  return ['—', 'text-apex-muted']
 }
 
 const zgodyText = (t) => `ZGODY ${t.consentAccepted}/${t.size}`
@@ -157,6 +92,8 @@ function listItems(rows, teams) {
   return items
 }
 
+const smallBtn = 'min-h-9 px-2.5 border font-sans font-bold text-sm whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed'
+
 function TeamToggle({ team, open, onToggle }) {
   return (
     <button type="button" aria-expanded={open} onClick={onToggle} aria-label={`Skład — ${team.name}`}
@@ -166,29 +103,97 @@ function TeamToggle({ team, open, onToggle }) {
   )
 }
 
-function PersonCard({ r, payments, onOffice, testId = 'registration-card' }) {
-  const [consentText, consentColour] = consentCell(r)
+function Tile({ label, value, extra, tone = 'text-apex-text-bright', testId }) {
+  return (
+    <div className="border border-apex-border-mid bg-apex-surface px-3.5 py-3 min-w-0" data-testid={testId}>
+      <span className="block font-mono text-[11px] tracking-widest uppercase text-apex-muted">{label}</span>
+      {/* Each part keeps to one line; a narrow tile breaks only between them. */}
+      <span className={`block mt-1 font-mono text-base sm:text-lg leading-6 ${tone}`}>
+        {value.split(' · ').map((part, i) => (
+          <Fragment key={part + i}>{i > 0 && ' '}<span className="whitespace-nowrap">{i > 0 && '· '}{part}</span></Fragment>
+        ))}
+        {extra && <> <span className="whitespace-nowrap text-apex-red">{extra}</span></>}
+      </span>
+    </div>
+  )
+}
+
+function Chips({ label, chips, selected, onPick, testId }) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-wrap gap-1.5" data-testid={testId}>
+      {chips.map((c) => {
+        const on = c.id === selected
+        return (
+          <button key={c.id ?? 'all'} type="button" aria-pressed={on} onClick={() => onPick(c.id)}
+            className={`min-h-9 px-3 border font-sans font-semibold text-sm whitespace-nowrap ${on
+              ? 'border-apex-yellow bg-apex-surface-2 text-apex-yellow'
+              : 'border-apex-border-bright text-apex-text hover:border-apex-yellow-dim hover:text-apex-text-bright'}`}>
+            {c.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Asks before the office mark: it records an acceptance for good and ends the person's link. */
+function OfficeConfirm({ row, busy, onYes, onNo }) {
+  const titleId = useId()
+  const no = useRef(null)
+  useEffect(() => { no.current?.focus() }, [])
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !busy) onNo() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [busy, onNo])
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div role="alertdialog" aria-modal="true" aria-labelledby={titleId} data-testid="office-confirm"
+        className="w-full max-w-[420px] border border-apex-border-bright bg-apex-surface p-5 flex flex-col gap-4">
+        <p id={titleId} className="font-sans font-semibold text-base text-apex-text-bright">Potwierdzić podpis w biurze: {row.name}?</p>
+        <div className="flex gap-2 justify-end">
+          <button type="button" ref={no} className={btnGhost} disabled={busy} onClick={onNo}>Nie</button>
+          <button type="button" className={btnPrimary} disabled={busy} onClick={onYes}>Tak</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function rowMenu(r, ctx, { isTeamRow = false, menuRow = r, name = r.name, squadHref = null } = {}) {
+  const actions = entryActions(menuRow, { closed: ctx.closed, raceDay: ctx.raceDay, isTeamRow })
+  return (
+    <EntryMenu name={name} row={menuRow} actions={actions} isTeamRow={isTeamRow} squadHref={squadHref}
+      onSelect={(action, trigger) => ctx.onAction(action, menuRow, { isTeamRow, trigger })} />
+  )
+}
+
+function PersonCard({ r, ctx, testId = 'registration-card' }) {
+  const [amount, amountColour] = payment(r)
   return (
     <li className="border border-apex-border bg-apex-surface p-3 flex flex-col gap-1.5" data-testid={testId}>
       <div className="flex justify-between items-start gap-3">
         <span className="min-w-0">
-          <span className="block text-apex-text-bright font-semibold">{r.name}</span>
+          <span className="block text-apex-text-bright font-semibold [overflow-wrap:anywhere]">
+            {r.bib != null && <span className="font-mono text-apex-muted mr-1.5">{r.bib}</span>}{r.name}
+          </span>
           <SubLine r={r} />
         </span>
-        <span className="font-mono text-xs text-apex-muted whitespace-nowrap">{when.format(new Date(r.createdAt))}</span>
+        {rowMenu(r, ctx)}
       </div>
       <span className="font-mono text-xs uppercase text-apex-muted">{[r.competition, r.ageGroupLabel].filter(Boolean).join(' · ')}</span>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-sm">
-        {payments && <span className={paymentColour(r)}>{paymentText(r)}</span>}
-        <span className={consentColour} data-testid="registration-consent">{consentText}</span>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 font-mono text-sm">
+        <span className={statusColour(r.statusKey)} data-testid="registration-status">{statusLabel(r.statusKey, r)}</span>
+        <span className={amountColour}>{amount}</span>
       </div>
-      {waiting(r) && <ConsentActions row={r} onOffice={onOffice} />}
+      <ConsentLine r={r} />
     </li>
   )
 }
 
-function TeamCard({ item, payments, open, onToggle, toggles, onOffice }) {
+function TeamCard({ item, ctx, open, onToggle, toggles }) {
   const { team: t, members } = item
+  const captain = ctx.rowOf(t.captainId)
   return (
     <li className="flex flex-col gap-1.5">
       <div className="border border-apex-border-mid bg-apex-surface p-3 flex flex-col gap-1.5" data-testid="team-row">
@@ -196,87 +201,115 @@ function TeamCard({ item, payments, open, onToggle, toggles, onOffice }) {
           <span className="min-w-0">
             <span className="block text-apex-text-bright font-semibold [overflow-wrap:anywhere]">{t.name} · {t.size} os.</span>
             {t.captain && <span className="block text-xs text-apex-muted">kapitan: {t.captain}</span>}
+            <span className={`block font-mono text-xs ${zgodyColour(t)}`}>{zgodyText(t)}</span>
           </span>
-          {toggles && <TeamToggle team={t} open={open} onToggle={onToggle} />}
+          <span className="flex gap-1.5 shrink-0">
+            {toggles && <TeamToggle team={t} open={open} onToggle={onToggle} />}
+            {captain && rowMenu(captain, ctx, { isTeamRow: true, name: t.name, squadHref: ctx.squadHref(t.id) })}
+          </span>
         </div>
         <span className="font-mono text-xs uppercase text-apex-muted">{t.competition}</span>
         <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-sm">
-          <span className={paymentColour(t)}>{teamStatusLabel(t.paymentStatus)}</span>
-          <span className={zgodyColour(t)}>{zgodyText(t)}</span>
-          {payments && <span className={paymentColour(t)}>{teamFeeText(t)}</span>}
+          <span className={teamColour(t)}>{teamStatusLabel(t.paymentStatus)}</span>
+          {t.fee > 0 && <span className="text-apex-text-bright">{formatPln(t.fee)}</span>}
         </div>
       </div>
       {open && (
         <ul className="flex flex-col gap-1.5 pl-3 border-l-2 border-apex-border-mid">
-          {members.map((r) => <PersonCard key={r.id} r={r} payments={false} onOffice={onOffice} testId="team-member" />)}
+          {members.map((r) => <PersonCard key={r.id} r={r} ctx={ctx} testId="team-member" />)}
         </ul>
       )}
     </li>
   )
 }
 
-function PersonTableRow({ r, payments, actions, onOffice, member = false }) {
-  const [consentText, consentColour] = consentCell(r)
+const td = 'px-3 py-2.5'
+
+function PersonTableRow({ r, ctx, member = false }) {
+  const [amount, amountColour] = payment(r)
   return (
-    <tr className={`border-t border-apex-border align-top ${member ? 'bg-apex-surface' : ''}`} {...(member ? { 'data-testid': 'team-member' } : {})}>
-      <td className={`py-2.5 ${member ? 'pl-7 pr-3 min-w-[300px]' : 'px-3'}`}>
+    <tr className={`border-t border-apex-border align-top ${member ? 'bg-apex-surface' : ''}`}
+      data-testid={member ? 'team-member' : 'registration-row'}>
+      <td className={`${td} font-mono text-apex-muted whitespace-nowrap`}>{r.bib ?? '—'}</td>
+      <td className={`py-2.5 ${member ? 'pl-7 pr-3' : 'px-3'} min-w-[200px]`}>
         <span className="block text-apex-text-bright font-semibold">{r.name}</span>
         <SubLine r={r} />
-        {/* In the name cell, not a column of its own: a team's table has no room left for one. */}
-        {member && waiting(r) && <div className="mt-1.5"><ConsentActions row={r} onOffice={onOffice} /></div>}
       </td>
-      <td className="px-3 py-2.5">{r.competition}</td>
-      <td className="px-3 py-2.5 font-mono">{r.ageGroupLabel}</td>
-      {payments && (
-        <td className={`px-3 py-2.5 font-mono whitespace-nowrap ${member ? 'text-apex-muted' : paymentColour(r)}`} data-testid="registration-payment">
-          {member ? '' : paymentText(r)}
-        </td>
-      )}
-      <td className={`px-3 py-2.5 font-mono whitespace-nowrap ${consentColour}`} data-testid="registration-consent">{consentText}</td>
-      <td className="px-3 py-2.5 font-mono whitespace-nowrap">{when.format(new Date(r.createdAt))}</td>
-      {actions && <td className="px-3 py-2">{!member && waiting(r) && <ConsentActions row={r} onOffice={onOffice} />}</td>}
+      <td className={td}>
+        <span className="block">{r.competition}</span>
+        {r.ageGroupLabel && <span className="block font-mono text-xs text-apex-muted">{r.ageGroupLabel}</span>}
+      </td>
+      <td className={td}>
+        <span className={`block font-mono text-xs whitespace-nowrap ${statusColour(r.statusKey)}`} data-testid="registration-status">
+          {statusLabel(r.statusKey, r)}
+        </span>
+        <ConsentLine r={r} />
+      </td>
+      <td className={`${td} font-mono whitespace-nowrap ${member ? 'text-apex-muted' : amountColour}`} data-testid="registration-payment">
+        {member && r.paidAmount === 0 ? '' : amount}
+      </td>
+      <td className="px-3 py-2 text-right">{rowMenu(r, ctx)}</td>
     </tr>
   )
 }
 
-function TeamTableRows({ item, payments, actions, open, onToggle, toggles, onOffice }) {
+function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
   const { team: t, members } = item
+  const captain = ctx.rowOf(t.captainId)
   return (
     <>
       <tr className="border-t border-apex-border-mid align-top" data-testid="team-row">
-        <td className="px-3 py-2.5 min-w-[260px]">
+        <td className={`${td} font-mono text-apex-muted`}>—</td>
+        <td className={`${td} min-w-[240px]`}>
           <div className="flex items-start justify-between gap-3">
             <span className="min-w-0">
               <span className="block text-apex-text-bright font-semibold break-words">{t.name} · {t.size} os.</span>
               {t.captain && <span className="block text-xs text-apex-muted">kapitan: {t.captain}</span>}
+              <span className={`block font-mono text-xs ${zgodyColour(t)}`}>{zgodyText(t)}</span>
             </span>
             {toggles && <TeamToggle team={t} open={open} onToggle={onToggle} />}
           </div>
         </td>
-        <td className="px-3 py-2.5">{t.competition}</td>
-        <td className={`px-3 py-2.5 font-mono text-xs whitespace-nowrap ${paymentColour(t)}`}>{teamStatusLabel(t.paymentStatus)}</td>
-        {payments && <td className={`px-3 py-2.5 font-mono ${paymentColour(t)}`}><TeamFee team={t} /></td>}
-        <td className={`px-3 py-2.5 font-mono whitespace-nowrap ${zgodyColour(t)}`}>{zgodyText(t)}</td>
-        <td className="px-3 py-2.5 font-mono whitespace-nowrap">{when.format(new Date(members[0].createdAt))}</td>
-        {actions && <td className="px-3 py-2" />}
+        <td className={td}>{t.competition}</td>
+        <td className={`${td} font-mono text-xs whitespace-nowrap ${teamColour(t)}`}>{teamStatusLabel(t.paymentStatus)}</td>
+        <td className={`${td} font-mono whitespace-nowrap text-apex-text-bright`}>{t.fee > 0 ? formatPln(t.fee) : '—'}</td>
+        <td className="px-3 py-2 text-right">
+          {captain && rowMenu(captain, ctx, { isTeamRow: true, name: t.name, squadHref: ctx.squadHref(t.id) })}
+        </td>
       </tr>
-      {open && members.map((r) => <PersonTableRow key={r.id} r={r} payments={payments} actions={actions} onOffice={onOffice} member />)}
+      {open && members.map((r) => <PersonTableRow key={r.id} r={r} ctx={ctx} member />)}
     </>
   )
 }
 
-export default function Zgloszenia({ eventId }) {
-  const [state, setState] = useState({ status: 'loading', rows: [], counts: null, teams: [] })
-  const [onlyWaiting, setOnlyWaiting] = useState(false)
-  const [openTeams, setOpenTeams] = useState(() => new Set())
+const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null }
 
-  useEffect(() => {
-    let active = true
-    callFunction('list-event-registrations', { eventId })
-      .then((r) => { if (active) setState({ status: 'ok', rows: r.data ?? [], counts: r.counts ?? null, teams: r.teams ?? [] }) })
-      .catch(() => { if (active) setState({ status: 'error', rows: [], counts: null, teams: [] }) })
-    return () => { active = false }
+export default function Zgloszenia({ eventId }) {
+  const [state, setState] = useState(EMPTY)
+  const [categoryId, setCategoryId] = useState(null)
+  const [statusKey, setStatusKey] = useState(null)
+  const [q, setQ] = useState('')
+  const [openTeams, setOpenTeams] = useState(() => new Set())
+  const [notice, setNotice] = useState(null)
+  const [exporting, setExporting] = useState(false)
+  const [office, setOffice] = useState(null)
+  const [officeBusy, setOfficeBusy] = useState(false)
+  // Task 6b's dialogs read this: { kind, row, isTeamRow, trigger }; closing one focuses `trigger`.
+  const [, setDialog] = useState(null)
+  const searchId = useId()
+
+  const load = useCallback(async () => {
+    try {
+      const r = await callFunction('list-event-registrations', { eventId })
+      setState({ status: 'ok', rows: r.data ?? [], teams: r.teams ?? [], competitions: r.competitions ?? [], event: r.event ?? null })
+    } catch {
+      setState((s) => (s.status === 'ok' ? s : { ...EMPTY, status: 'error' }))
+    }
   }, [eventId])
+
+  useEffect(() => { load() }, [load])
+
+  const counts = useMemo(() => entryCounts(state.rows, state.competitions), [state.rows, state.competitions])
 
   if (state.status === 'loading') {
     return <div className="flex flex-col gap-1.5" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="h-11 bg-apex-surface" />)}</div>
@@ -284,80 +317,152 @@ export default function Zgloszenia({ eventId }) {
   if (state.status === 'error') return <p className="text-apex-red text-sm">Nie udało się wczytać zgłoszeń.</p>
   if (state.rows.length === 0) return <p className="text-apex-muted text-sm" data-testid="registrations-empty">Brak zgłoszeń.</p>
 
-  const counts = state.counts
-  const payments = !!counts && counts.paid + counts.awaiting > 0
-  const awaitingConsent = counts?.awaitingConsent ?? state.rows.filter(waiting).length
-  // The consent header appears once anybody was added by somebody else, and stays at 0 after the last one is settled.
-  const consentHeader = awaitingConsent > 0 || state.rows.some((r) => r.role === 'adult')
-  const liveTeams = new Set(state.teams.map((t) => t.id))
-  const actions = state.rows.some((r) => waiting(r) && !liveTeams.has(r.team?.id))
-  const items = listItems(onlyWaiting ? state.rows.filter(waiting) : state.rows, state.teams)
-  const isOpen = (id) => onlyWaiting || openTeams.has(id)
+  const failed = (err) => setNotice({ text: err.status == null ? 'Brak połączenia.' : err.message, error: true })
+  const event = state.event ?? {}
+  const now = new Date()
+  const closed = event.closesAt ? now >= new Date(event.closesAt) : false
+  const raceDay = event.eventDate ? warsawToday(now) >= event.eventDate : false
+  const byId = new Map(state.rows.map((r) => [r.id, r]))
+  const filter = { categoryId: categoryId ?? undefined, statusKey: statusKey ?? undefined, q }
+  const consentView = statusKey === AWAITING_CONSENT
+  const items = listItems(filterEntries(state.rows, filter), state.teams)
+  const isOpen = (id) => consentView || openTeams.has(id)
   const toggle = (id) => setOpenTeams((ids) => {
     const next = new Set(ids)
     if (!next.delete(id)) next.add(id)
     return next
   })
 
-  function markedOffice(id) {
-    setState((s) => {
-      const teamId = s.rows.find((r) => r.id === id)?.team?.id
-      return {
-        ...s,
-        rows: s.rows.map((r) => (r.id === id ? { ...r, consentState: 'office' } : r)),
-        counts: s.counts ? { ...s.counts, awaitingConsent: Math.max(0, (s.counts.awaitingConsent ?? 0) - 1) } : s.counts,
-        teams: s.teams.map((t) => (t.id === teamId ? { ...t, consentAccepted: t.consentAccepted + 1 } : t)),
-      }
-    })
+  async function remind(fn, body, row, trigger) {
+    setNotice(null)
+    trigger?.focus()
+    try {
+      await callFunction(fn, body)
+      setNotice({ text: `Przypomnienie wysłane — ${row.name}.` })
+      await load()
+    } catch (err) {
+      failed(err)
+    }
   }
 
+  function onAction(action, row, { isTeamRow, trigger }) {
+    if (action === 'remind_payment') return remind('organizer-entry-action', { action: 'remind_payment', registrationId: row.id }, row, trigger)
+    if (action === 'remind_consent') return remind('remind-consent', { registrationId: row.id }, row, trigger)
+    if (action === 'consent_office') return setOffice({ row, trigger })
+    setDialog({ kind: action, row, isTeamRow, trigger })
+    return undefined
+  }
+
+  function closeOffice() {
+    const back = office?.trigger
+    setOffice(null)
+    requestAnimationFrame(() => back?.focus())
+  }
+
+  async function markOffice() {
+    setOfficeBusy(true)
+    setNotice(null)
+    try {
+      await callFunction('mark-consent-office', { registrationId: office.row.id })
+      await load()
+    } catch (err) {
+      failed(err)
+    } finally {
+      setOfficeBusy(false)
+      closeOffice()
+    }
+  }
+
+  async function exportCsv() {
+    setExporting(true)
+    setNotice(null)
+    try {
+      const filterBody = Object.fromEntries(Object.entries(filter).filter(([, v]) => typeof v === 'string' && v !== ''))
+      const r = await callFunction('export-event-registrations', { eventId, filter: filterBody })
+      downloadCsv(r.data.filename, r.data.csv)
+    } catch (err) {
+      failed(err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const ctx = {
+    closed,
+    raceDay,
+    onAction,
+    rowOf: (id) => byId.get(id) ?? null,
+    squadHref: (teamId) => (event.slug ? `/events/${event.slug}/druzyna/${teamId}` : null),
+  }
+  const blocked = noPlacesForAwaiting(counts) && counts.awaiting > 0
+
   return (
-    <div className="flex flex-col gap-2 min-w-0 max-w-full">
-      {payments && (
-        <p className="font-mono text-xs uppercase text-apex-muted" data-testid="registrations-counts">
-          <span className="text-apex-yellow">{countPl(counts.paid, ['opłacone', 'opłacone', 'opłaconych'])}</span> · <span className="text-apex-cyan">{counts.awaiting} {pluralPl(counts.awaiting, 'czeka', 'czekają', 'czeka')} na wpłatę</span>
-          {counts.free > 0 && <> · {counts.free} bez opłaty</>}
-          {counts.placesLeft != null && <> · <span className="text-apex-text-bright" data-testid="registrations-places-left">{countPl(counts.placesLeft, ['wolne miejsce', 'wolne miejsca', 'wolnych miejsc'])}</span></>}
-          {counts.teamPlacesLeft != null && <> · <span className="text-apex-text-bright" data-testid="registrations-team-places-left">{countPl(counts.teamPlacesLeft, ['wolne miejsce', 'wolne miejsca', 'wolnych miejsc'])} dla drużyn</span></>}
-        </p>
-      )}
-      {consentHeader && (
-        <div className="flex flex-wrap items-center justify-between gap-2" data-testid="awaiting-consent">
-          <span className={`font-mono text-xs uppercase ${awaitingConsent > 0 ? 'text-apex-cyan' : 'text-apex-muted'}`}>Czeka na zgody: {awaitingConsent}</span>
-          <button type="button" aria-pressed={onlyWaiting} onClick={() => setOnlyWaiting((v) => !v)}
-            className={`${smallBtn} ${onlyWaiting ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-bright text-apex-text'}`}>
-            Tylko czekające
-          </button>
-        </div>
-      )}
-      {/* Under 640 px every person is a card: the state and the buttons stay in view, nothing scrolls sideways. */}
-      <ul className="sm:hidden flex flex-col gap-2" data-testid="registrations-cards">
-        {items.map((item) => (item.team
-          ? <TeamCard key={item.key} item={item} payments={payments} open={isOpen(item.key)} toggles={!onlyWaiting}
-              onToggle={() => toggle(item.key)} onOffice={markedOffice} />
-          : <PersonCard key={item.key} r={item.person} payments={payments} onOffice={markedOffice} />))}
-      </ul>
-      <div className="hidden sm:block relative border border-apex-border overflow-x-auto max-w-full" data-testid="registrations">
-        <table className="w-full text-sm">
-          <thead className="bg-apex-surface-2 font-mono text-[10px] tracking-widest uppercase text-apex-muted text-left">
-            <tr>
-              <th className="px-3 py-2 font-normal">Imię i nazwisko</th>
-              <th className="px-3 py-2 font-normal">Konkurencja</th>
-              <th className="px-3 py-2 font-normal">Kategoria</th>
-              {payments && <th className="px-3 py-2 font-normal">Płatność</th>}
-              <th className="px-3 py-2 font-normal">Regulamin</th>
-              <th className="px-3 py-2 font-normal whitespace-nowrap">Data zapisu</th>
-              {actions && <th className="px-3 py-2 font-normal"><span className="sr-only">Akcje</span></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (item.team
-              ? <TeamTableRows key={item.key} item={item} payments={payments} actions={actions} open={isOpen(item.key)} toggles={!onlyWaiting}
-                  onToggle={() => toggle(item.key)} onOffice={markedOffice} />
-              : <PersonTableRow key={item.key} r={item.person} payments={payments} actions={actions} onOffice={markedOffice} />))}
-          </tbody>
-        </table>
+    <div className="flex flex-col gap-3 min-w-0 max-w-full">
+      <div className="flex flex-wrap gap-2" data-testid="entries-actions">
+        <button type="button" className={btnGhost}
+          onClick={(e) => setDialog({ kind: 'message', row: null, isTeamRow: false, trigger: e.currentTarget })}>
+          Wiadomość do uczestników
+        </button>
+        <button type="button" className={btnGhost} disabled={exporting} onClick={exportCsv}>Eksport CSV</button>
       </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <Tile testId="tile-listed" label="NA LIŚCIE" value={listedTile(counts)} tone="text-apex-yellow" />
+        <Tile testId="tile-awaiting" label="CZEKA NA WPŁATĘ" value={String(counts.awaiting)}
+          extra={blocked ? '· BRAK MIEJSC' : null} tone="text-apex-cyan" />
+        <Tile testId="tile-consent" label="CZEKA NA ZGODY" value={String(counts.awaitingConsent)}
+          tone={counts.awaitingConsent > 0 ? 'text-apex-cyan' : 'text-apex-text-bright'} />
+        <Tile testId="tile-income" label="WPŁYWY DLA KLUBU" value={formatPln(counts.clubIncome)} />
+      </div>
+
+      <Chips testId="competition-chips" label="Konkurencja" chips={competitionChips(state.rows, state.competitions)}
+        selected={categoryId} onPick={setCategoryId} />
+      <Chips testId="status-chips" label="Status" chips={statusChips(counts).map((c) => ({ id: c.key, label: c.label }))}
+        selected={statusKey} onPick={setStatusKey} />
+      <div className="max-w-[360px]">
+        <label htmlFor={searchId} className="sr-only">Szukaj</label>
+        <input id={searchId} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Szukaj"
+          className="w-full min-w-0 bg-apex-bg border border-apex-border-mid text-apex-text-bright font-sans text-base font-medium py-2 px-3 outline-none focus:border-apex-yellow-dim" />
+      </div>
+
+      {notice && (
+        <p role={notice.error ? 'alert' : 'status'} data-testid="entries-notice"
+          className={`font-sans text-sm ${notice.error ? 'text-apex-red' : 'text-apex-yellow'}`}>{notice.text}</p>
+      )}
+
+      {items.length === 0 ? <p className="text-apex-muted text-sm" data-testid="registrations-none">Brak wyników.</p> : (
+        <>
+          {/* Under 640 px every entry is a card: the state and the ⋯ stay in view, nothing scrolls sideways. */}
+          <ul className="sm:hidden flex flex-col gap-2" data-testid="registrations-cards">
+            {items.map((item) => (item.team
+              ? <TeamCard key={item.key} item={item} ctx={ctx} open={isOpen(item.key)} toggles={!consentView}
+                  onToggle={() => toggle(item.key)} />
+              : <PersonCard key={item.key} r={item.person} ctx={ctx} />))}
+          </ul>
+          <div className="hidden sm:block relative border border-apex-border overflow-x-auto max-w-full" data-testid="registrations">
+            <table className="w-full text-sm">
+              <thead className="bg-apex-surface-2 font-mono text-[10px] tracking-widest uppercase text-apex-muted text-left">
+                <tr>
+                  <th className="px-3 py-2 font-normal">Nr</th>
+                  <th className="px-3 py-2 font-normal whitespace-nowrap">Zawodnik / drużyna</th>
+                  <th className="px-3 py-2 font-normal">Konkurencja</th>
+                  <th className="px-3 py-2 font-normal">Status</th>
+                  <th className="px-3 py-2 font-normal">Wpłata</th>
+                  <th className="px-3 py-2 font-normal"><span className="sr-only">Akcje</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (item.team
+                  ? <TeamTableRows key={item.key} item={item} ctx={ctx} open={isOpen(item.key)} toggles={!consentView}
+                      onToggle={() => toggle(item.key)} />
+                  : <PersonTableRow key={item.key} r={item.person} ctx={ctx} />))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {office && <OfficeConfirm row={office.row} busy={officeBusy} onYes={markOffice} onNo={closeOffice} />}
     </div>
   )
 }

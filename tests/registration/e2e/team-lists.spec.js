@@ -131,7 +131,7 @@ for (const width of WIDTHS) {
   })
 }
 
-test('T-73 an expanded team keeps Plan 4\'s reminder and office mark; „Tylko czekające” opens the team that holds them', async ({ actors }) => {
+test('T-73 an expanded team keeps Plan 4\'s reminder and office mark in each member\'s ⋯; „Czeka na zgody” opens the team that holds them', async ({ actors }) => {
   const event = await createPublishedFreeEvent(owner, { competitions: [STAFETA] })
   await team(event, 'Czekający')
   const org = await open(actors.owner, 1440, zgloszenia(event.eventId))
@@ -139,10 +139,13 @@ test('T-73 an expanded team keeps Plan 4\'s reminder and office mark; „Tylko c
   const row = scope.getByTestId('team-row')
   await expect(row).toContainText('ZGODY 1/4')
   await expect(row).toContainText('ZAPISANA')
-  await org.getByRole('button', { name: 'Tylko czekające' }).click()
+  await org.getByTestId('status-chips').getByRole('button', { name: 'Czeka na zgody · 3' }).click()
   await expect(scope.getByTestId('team-member')).toHaveCount(3)
-  await expect(org.getByRole('button', { name: 'Przypomnij — Piotr Leśny' })).toBeVisible()
-  expect(await scope.evaluate((e) => e.scrollWidth <= e.clientWidth), 'a member\'s buttons stay in view').toBe(true)
+  await org.getByRole('button', { name: 'Akcje — Piotr Leśny' }).click()
+  await expect(org.getByRole('menuitem', { name: 'Przypomnij o akceptacji regulaminu' })).toBeVisible()
+  await expect(org.getByRole('menuitem', { name: 'Regulamin podpisany w biurze' })).toBeVisible()
+  await org.keyboard.press('Escape')
+  expect(await scope.evaluate((e) => e.scrollWidth <= e.clientWidth), 'a member\'s ⋯ stays in view').toBe(true)
 })
 
 test('T-73 a pending team reads CZEKA NA WPŁATĘ with its fee in Zgłoszenia, and only as a count on the list', async ({ actors }) => {
@@ -158,7 +161,7 @@ test('T-73 a pending team reads CZEKA NA WPŁATĘ with its fee in Zgłoszenia, a
   await org.setViewportSize({ width: 1440, height: 900 })
   const table = org.getByTestId('registrations')
   await expect(table.getByTestId('team-row')).toBeVisible()
-  expect(await table.evaluate((e) => e.scrollWidth <= e.clientWidth), 'the fee and deadline must not push „Data zapisu” out').toBe(true)
+  expect(await table.evaluate((e) => e.scrollWidth <= e.clientWidth), 'the fee must not push ⋯ out').toBe(true)
 })
 
 test('T-75 the captain gets from RA5 and from the order page, pending or paid, to the team page; a member\'s RA5 has no such link', async ({ actors }) => {

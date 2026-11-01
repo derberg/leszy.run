@@ -278,65 +278,71 @@ test('G-57b a retired address: the code step says so and the tab no longer keeps
   expect(await page.evaluate(() => sessionStorage.getItem('leszy.consent.token'))).toBeNull()
 })
 
-test('G-52 owner: „Czeka na zgody: 1”, the filter, cards at 390 px, „Podpisany w biurze” asks first (Nie keeps it, Tak marks it) → „podpisany w biurze” and the count is 0', async ({ actors }) => {
+test('G-52 owner: „CZEKA NA ZGODY 1”, the filter, cards at 390 px, „Regulamin podpisany w biurze” in ⋯ asks first (Nie keeps it, Tak marks it) → „podpisany w biurze” and the count is 0', async ({ actors }) => {
   const { event, regId } = await awaitingAdult()
   const page = await offline(await actors.owner.newPage())
   await page.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/zgloszenia`)
   const list = page.getByTestId('registrations')
   await expect(list).toContainText('Piotr Borowy')
-  const pending = page.getByTestId('awaiting-consent')
-  await expect(pending).toContainText('Czeka na zgody: 1')
+  const pending = page.getByTestId('tile-consent')
+  await expect(pending).toHaveText('CZEKA NA ZGODY1')
+  const chip = page.getByTestId('status-chips').getByRole('button', { name: 'Czeka na zgody · 1' })
 
-  const rows = list.locator('tbody tr')
+  const rows = list.getByTestId('registration-row')
   await expect(rows).toHaveCount(2)
-  // At 390 px every person is a card with the state and the buttons in view; the page never scrolls sideways.
+  // At 390 px every person is a card with the state and the ⋯ in view; the page never scrolls sideways.
   await page.setViewportSize({ width: 390, height: 900 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   const card = page.getByTestId('registration-card').filter({ hasText: 'Piotr Borowy' })
   await expect(card.getByTestId('registration-consent')).toHaveText('czeka na zgodę')
-  const cardBtn = card.getByRole('button', { name: 'Podpisany w biurze — Piotr Borowy' })
+  const cardBtn = card.getByRole('button', { name: 'Akcje — Piotr Borowy' })
   await cardBtn.scrollIntoViewIfNeeded()
   const box = await cardBtn.boundingBox()
   expect(box.x + box.width).toBeLessThanOrEqual(390)
   await page.setViewportSize({ width: 1280, height: 900 })
-  await pending.getByRole('button').click()
+  await chip.click()
   await expect(rows).toHaveCount(1)
   await expect(rows.first()).toContainText('Piotr Borowy')
   await expect(rows.first().getByTestId('registration-consent')).toHaveText('czeka na zgodę')
-  await pending.getByRole('button').click()
+  await page.getByTestId('status-chips').getByRole('button', { name: 'Wszystkie', exact: true }).click()
   await expect(rows).toHaveCount(2)
   await expect(list.getByText('Ola Leśna', { exact: true })).toBeVisible()
-  await expect(list.locator('tr', { hasText: /^Ola Leśna/ }).getByTestId('registration-consent')).toHaveText('✓ zaakceptowany')
+  // Ola signed up herself and accepted on the form: her row says nothing about the regulamin.
+  await expect(rows.filter({ has: page.getByText('Ola Leśna', { exact: true }) }).getByTestId('registration-consent')).toHaveCount(0)
   // Who added Piotr, from the server's registeredBy.
-  await expect(list.locator('tr', { hasText: 'Piotr Borowy' }).getByTestId('registration-sub')).toHaveText('zapisał(a): Ola Leśna')
+  await expect(rows.filter({ hasText: 'Piotr Borowy' }).getByTestId('registration-sub')).toHaveText('zapisał(a): Ola Leśna')
 
-  const adultRow = list.locator('tr', { hasText: 'Piotr Borowy' })
-  // Each row's buttons name their person (M-7).
-  await expect(adultRow.getByRole('button', { name: 'Przypomnij — Piotr Borowy', exact: true })).toBeVisible()
-  const office = adultRow.getByRole('button', { name: 'Podpisany w biurze — Piotr Borowy', exact: true })
+  // Each row's menu names its person (M-7), and holds Plan 4's two consent actions.
+  const menuBtn = list.getByRole('button', { name: 'Akcje — Piotr Borowy', exact: true })
+  await menuBtn.click()
+  await expect(page.getByRole('menuitem', { name: 'Przypomnij o akceptacji regulaminu' })).toBeVisible()
 
-  // I-1: the office mark asks first; „Nie” changes nothing.
-  await office.click()
-  const confirm = adultRow.getByTestId('office-confirm')
+  // I-1: the office mark asks first; „Nie” changes nothing and gives the focus back to ⋯.
+  await page.getByRole('menuitem', { name: 'Regulamin podpisany w biurze' }).click()
+  const confirm = page.getByTestId('office-confirm')
   await expect(confirm).toContainText('Potwierdzić podpis w biurze: Piotr Borowy?')
   await confirm.getByRole('button', { name: 'Nie' }).click()
   await expect(confirm).toHaveCount(0)
-  await expect(office).toBeFocused()
-  await expect(adultRow.getByTestId('registration-consent')).toHaveText('czeka na zgodę')
-  await expect(pending).toContainText('Czeka na zgody: 1')
+  await expect(menuBtn).toBeFocused()
+  await expect(rows.filter({ hasText: 'Piotr Borowy' }).getByTestId('registration-consent')).toHaveText('czeka na zgodę')
+  await expect(pending).toHaveText('CZEKA NA ZGODY1')
   const { data: still } = await admin().from('registrations').select('consent_state').eq('id', regId).single()
   expect(still.consent_state).toBe('awaiting')
 
-  await office.click()
-  await adultRow.getByTestId('office-confirm').getByRole('button', { name: 'Tak' }).click()
-  await expect(adultRow.getByTestId('registration-consent')).toHaveText('podpisany w biurze')
-  await expect(pending).toContainText('Czeka na zgody: 0')
-  await expect(adultRow.getByRole('button', { name: 'Podpisany w biurze' })).toHaveCount(0)
+  await menuBtn.click()
+  await page.getByRole('menuitem', { name: 'Regulamin podpisany w biurze' }).click()
+  await page.getByTestId('office-confirm').getByRole('button', { name: 'Tak' }).click()
+  await expect(rows.filter({ hasText: 'Piotr Borowy' }).getByTestId('registration-consent')).toHaveText('podpisany w biurze')
+  await expect(pending).toHaveText('CZEKA NA ZGODY0')
+  await menuBtn.click()
+  await expect(page.getByRole('menu')).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Regulamin podpisany w biurze' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
 
   // It holds after a reload (the server's state, not the page's).
   await page.reload()
-  await expect(page.getByTestId('awaiting-consent')).toContainText('Czeka na zgody: 0')
-  await expect(page.getByTestId('registrations').locator('tr', { hasText: 'Piotr Borowy' }).getByTestId('registration-consent'))
+  await expect(page.getByTestId('tile-consent')).toHaveText('CZEKA NA ZGODY0')
+  await expect(page.getByTestId('registrations').getByTestId('registration-row').filter({ hasText: 'Piotr Borowy' }).getByTestId('registration-consent'))
     .toHaveText('podpisany w biurze')
 })
 

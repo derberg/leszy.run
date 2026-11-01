@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { AWAITING_CONSENT, entryActions, entryCounts, filterEntries } from '../../src/lib/entriesModel.js'
+import {
+  AWAITING_CONSENT, actionLabel, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, statusChips,
+} from '../../src/lib/entriesModel.js'
 
 const row = (over = {}) => ({
   id: 'r', name: 'Anna Nowak', firstName: 'Anna', lastName: 'Nowak', email: 'anna@example.pl', bib: null, categoryId: 'c1',
@@ -147,5 +149,55 @@ describe('entryActions (O-06)', () => {
       assert.deepEqual(entryActions(row({ status, statusKey, paidAmount: 0 }), open), [])
     }
     assert.deepEqual(entryActions(row({ status: 'pending_payment', statusKey: 'expired', paidAmount: 0 }), { ...open, isTeamRow: true }), [])
+  })
+})
+
+describe('the panel\'s tiles and chips (O-50)', () => {
+  const counts = (over = {}) => ({
+    listed: { people: 31, teams: 2 }, capacity: { people: 50, teams: 10 }, awaitingConsent: 3,
+    byStatus: { paid: 30, awaiting: 4, free: 1 },
+    perCompetition: [{ kind: 'individual', capacity: 50, listed: 31, awaiting: 4 }, { kind: 'team', capacity: 10, listed: 2, awaiting: 0 }],
+    ...over,
+  })
+
+  it('„NA LIŚCIE” keeps people and teams apart, and shows one kind alone', () => {
+    assert.equal(listedTile(counts()), '31 / 50 · 2 / 10 DRUŻYN')
+    assert.equal(listedTile(counts({ perCompetition: [{ kind: 'individual' }] })), '31 / 50')
+    assert.equal(listedTile(counts({ perCompetition: [{ kind: 'team' }], capacity: { people: 0, teams: 1 } })), '2 / 1 DRUŻYNA')
+    assert.equal(listedTile(counts({ perCompetition: [{ kind: 'team' }], capacity: { people: 0, teams: 3 } })), '2 / 3 DRUŻYNY')
+  })
+
+  it('„BRAK MIEJSC” only where a full competition holds an unpaid entry', () => {
+    assert.equal(noPlacesForAwaiting(counts()), false)
+    assert.equal(noPlacesForAwaiting(counts({ perCompetition: [{ kind: 'individual', capacity: 2, listed: 2, awaiting: 1 }] })), true)
+    assert.equal(noPlacesForAwaiting(counts({ perCompetition: [{ kind: 'individual', capacity: 2, listed: 2, awaiting: 0 }] })), false)
+  })
+
+  it('competition chips count rows, and a team competition its teams', () => {
+    const rows = [
+      row({ id: 'a' }), row({ id: 'b' }),
+      row({ id: 'c', categoryId: 'c2', team: { id: 't1' } }), row({ id: 'd', categoryId: 'c2', team: { id: 't1' } }),
+      row({ id: 'e', categoryId: 'c2', team: { id: 't2' } }),
+    ]
+    assert.deepEqual(competitionChips(rows, COMPETITIONS).map((c) => c.label), ['Wszystkie · 5', 'Bieg 9 km · 2', 'Sztafeta · 2 drużyny'])
+    assert.deepEqual(competitionChips([], COMPETITIONS).map((c) => c.label), ['Wszystkie · 0', 'Bieg 9 km · 0', 'Sztafeta · 0 drużyn'])
+  })
+
+  it('status chips: „Do wycofania w pomiarze” only when somebody is to be withdrawn', () => {
+    const labels = (c) => statusChips(c).map((x) => x.label)
+    assert.deepEqual(labels(counts()), ['Wszystkie', 'Opłacone · 30', 'Czeka na wpłatę · 4', 'Czeka na zgody · 3', 'Wygasłe · 0', 'Anulowane · 0'])
+    assert.ok(labels(counts({ byStatus: { withdraw_on_host: 2 } })).includes('Do wycofania w pomiarze · 2'))
+    assert.equal(statusChips(counts()).find((c) => c.label.startsWith('Czeka na zgody')).key, AWAITING_CONSENT)
+  })
+
+  it('⋯ labels: the captain for a team row, the unpaid cancel by its own name', () => {
+    assert.equal(actionLabel('message', row()), 'Napisz do zawodnika')
+    assert.equal(actionLabel('message', row(), { isTeamRow: true }), 'Napisz do kapitana')
+    assert.equal(actionLabel('cancel', row()), 'Anuluj zgłoszenie')
+    assert.equal(actionLabel('cancel', row({ statusKey: 'awaiting' })), 'Anuluj nieopłacone zgłoszenie')
+    for (const a of ['edit', 'remind_payment', 'extend', 'remind_consent', 'consent_office', 'refund', 'rename_team', 'squad']) {
+      assert.ok(actionLabel(a, row()))
+    }
+    assert.throws(() => actionLabel('nope', row()))
   })
 })

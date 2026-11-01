@@ -140,7 +140,7 @@ test('G-58 a family across every audience: one payment for three people, one con
   // owner: one consent outstanding.
   const org = await offline(await actors.owner.newPage())
   await org.goto(zgloszenia(event.eventId))
-  await expect(org.getByTestId('awaiting-consent')).toContainText('Czeka na zgody: 1')
+  await expect(org.getByTestId('tile-consent')).toHaveText('CZEKA NA ZGODY1')
   const piotrRow = () => org.locator('tr').filter({ hasText: 'Piotr Borowy' })
   await expect(piotrRow().getByTestId('registration-consent')).toHaveText('czeka na zgodę')
 
@@ -166,7 +166,7 @@ test('G-58 a family across every audience: one payment for three people, one con
 
   // owner reloads: 0 outstanding, Piotr accepted. runner's RA5: ✓ REGULAMIN for Piotr. viewer: three names.
   await org.reload()
-  await expect(org.getByTestId('awaiting-consent')).toContainText('Czeka na zgody: 0')
+  await expect(org.getByTestId('tile-consent')).toHaveText('CZEKA NA ZGODY0')
   await expect(piotrRow().getByTestId('registration-consent')).toHaveText('✓ zaakceptowany')
   await page.reload()
   await expect(person('Piotr Borowy').getByTestId('consent-tag')).toHaveText('✓ REGULAMINregulamin zaakceptowany')

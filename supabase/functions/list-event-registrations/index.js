@@ -22,10 +22,10 @@ const READERS = ['owner', 'admin']
 // statusKey, autoRefundReason, partnerId, partnerName).
 //   counts        { paid, awaiting, free, placesLeft, teamPlacesLeft, awaitingConsent }, per person
 //                 (D5-32); placesLeft and teamPlacesLeft are people's and teams' places apart
-//   teams         the teams not released: { id, name, size, consentAccepted, fee, competition,
-//                 captain, status, paymentStatus, expiresAt }
-//   competitions  the visible ones: [{ id, name, capacity, taken, kind }]
-//   event         { name, eventDate, closesAt, state }
+//   teams         the teams not released: { id, name, size, consentAccepted, fee, captainId,
+//                 competition, captain, status, paymentStatus, expiresAt }
+//   competitions  the visible ones, in the event's order: [{ id, name, capacity, taken, kind }]
+//   event         { name, slug, eventDate, closesAt, state }
 // A child's guardian address is not returned (the CSV export has it).
 //
 // The owner and admins of the owning club (registration_settings.club_id)

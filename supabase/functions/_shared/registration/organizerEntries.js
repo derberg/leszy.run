@@ -76,7 +76,8 @@ const groupBy = (items, key) => {
  *   autoRefundReason    'full' when the order was refunded automatically for a full competition
  *   partnerId, partnerName (null: no partner names yet)
  * counts are per person (D5-32), with people's places (placesLeft) and teams' (teamPlacesLeft) apart;
- * competitions are the visible ones (entryCounts' limit).
+ * competitions are the visible ones (entryCounts' limit), in the event's order; a team carries
+ * `captainId` (the row its ⋯ acts on) and the event its `slug` (the squad page's address).
  */
 export async function loadEntries(admin, settings, { guardianEmail = false, now = new Date() } = {}) {
   const eventId = settings.event_id
@@ -84,8 +85,9 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
   const [regs, comps, orders, teamRows, lineRows, refundRows, participants] = await Promise.all([
     allRows(() => admin.from('registrations').select(regColumns)
       .eq('event_id', eventId).order('created_at').order('id')),
-    allRows(() => admin.from('competitions').select('category_id, name, capacity, taken, hidden_at, kind')
-      .eq('event_id', eventId).order('category_id')),
+    // In the event's own order (the wizard's), which the panel's chips follow.
+    allRows(() => admin.from('competitions').select('category_id, name, capacity, taken, hidden_at, kind, sort_order')
+      .eq('event_id', eventId).order('sort_order').order('category_id')),
     allRows(() => admin.from('orders').select('id, total, status, expires_at, buyer_name').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('teams').select('id, name, category_id, captain_registration_id, released_at').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('order_lines').select('id, order_id, kind, registration_id, amount, refunded, orders!inner(event_id)')
@@ -194,6 +196,7 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     const paymentStatus = captain ? paymentStatusOf(captain, orderOfReg(captain), team.fee) : null
     return {
       ...team,
+      captainId: t.captain_registration_id,
       competition: nameOf.get(t.category_id) ?? null,
       captain: captain ? fullName(captain) : null,
       status: captain?.status ?? null,
@@ -207,6 +210,6 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     counts,
     teams,
     competitions: visible.map((c) => ({ id: c.category_id, name: c.name, capacity: c.capacity, taken: c.taken, kind: c.kind })),
-    event: { name: settings.name, eventDate: settings.event_date, closesAt: settings.closes_at, state: settings.state },
+    event: { name: settings.name, slug: settings.slug ?? null, eventDate: settings.event_date, closesAt: settings.closes_at, state: settings.state },
   }
 }
