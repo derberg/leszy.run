@@ -60,7 +60,8 @@ function daysLeftLabel(raw, now) {
 // RA1's line of a team competition. The count is teams, the limit too: a team takes one place.
 function teamLine(c) {
   if (c.kind !== 'team') return null
-  const size = c.teamMin === c.teamMax ? `Drużyny ${c.teamMin}-osobowe` : `Drużyny ${c.teamMin}–${c.teamMax} osób`
+  const sized = c.teamMin != null && c.teamMax != null
+  const size = !sized ? null : c.teamMin === c.teamMax ? `Drużyny ${c.teamMin}-osobowe` : `Drużyny ${c.teamMin}–${c.teamMax} osób`
   const price = c.priceGrosze == null ? null : c.priceGrosze === 0 ? 'Bezpłatne' : `${money(c.priceGrosze)} / drużyna`
   return [size, price, `${c.taken} / ${c.capacity} DRUŻYN`].filter(Boolean).join(' · ')
 }

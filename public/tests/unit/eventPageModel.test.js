@@ -347,6 +347,11 @@ describe('T-62 RA1: the team card', () => {
     assert.equal(line(team({ priceGrosze: 0 })), 'Drużyny 2–5 osób · Bezpłatne · 3 / 20 DRUŻYN')
     assert.equal(line(team({ teamMin: 4, teamMax: 4 })), 'Drużyny 4-osobowe · 240 zł / drużyna · 3 / 20 DRUŻYN')
   })
+  it('a team competition with no size yet says nothing about one, never „undefined”', () => {
+    assert.equal(line(team({ teamMin: null, teamMax: null })), '240 zł / drużyna · 3 / 20 DRUŻYN')
+    assert.equal(line(team({ teamMin: undefined, teamMax: undefined })), '240 zł / drużyna · 3 / 20 DRUŻYN')
+    assert.equal(line(team({ teamMin: 2, teamMax: null })), '240 zł / drużyna · 3 / 20 DRUŻYN')
+  })
   it('an individual competition has none', () => {
     assert.equal(line(comp({ categoryId: 'c', name: 'Bieg' })), null)
   })

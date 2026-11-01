@@ -9,3 +9,5 @@ export const linkCls = 'text-apex-yellow hover:text-apex-yellow-bright underline
 export const smallBtn = 'min-h-11 px-3 border font-sans font-bold text-base whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed'
 export const editBtn = `${smallBtn} border-apex-yellow-dim text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`
 export const removeBtn = `${smallBtn} border-apex-border-bright text-apex-text hover:border-apex-red hover:bg-apex-red hover:text-apex-ink`
+// ↑/↓ of a squad's order, on RB2 and RB4.
+export const moveBtn = 'w-11 h-11 flex items-center justify-center border border-apex-border-bright text-apex-text-bright font-mono text-base hover:border-apex-yellow-dim disabled:opacity-30 disabled:cursor-not-allowed'

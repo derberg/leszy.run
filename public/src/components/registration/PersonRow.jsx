@@ -1,6 +1,18 @@
-import { editBtn, removeBtn, smallBtn } from './ui.js'
+import { editBtn, moveBtn, removeBtn, smallBtn } from './ui.js'
 
-// The list step of the group form (RA3) and of the team form (RB2).
+// The list step of the group form (RA3) and of the team form (RB2), and RB4's order step.
+
+/** ↑/↓ beside a person. `moveKey` names them for useMoveFocus; `onMove` gets -1 or 1. */
+export function MoveButtons({ moveKey, name, place, count, disabled, onMove }) {
+  return (
+    <span className="flex flex-col gap-1 shrink-0">
+      <button type="button" className={moveBtn} disabled={disabled || place === 1} aria-label={`Wyżej — ${name}`}
+        data-move={`${moveKey}:-1`} onClick={() => onMove(-1)}>↑</button>
+      <button type="button" className={moveBtn} disabled={disabled || place === count} aria-label={`Niżej — ${name}`}
+        data-move={`${moveKey}:1`} onClick={() => onMove(1)}>↓</button>
+    </span>
+  )
+}
 
 /** „Usunąć <imię>?” Tak / Nie, in place of the buttons, for a card that holds anything. */
 export function RemoveConfirm({ id, name, onYes, onNo }) {

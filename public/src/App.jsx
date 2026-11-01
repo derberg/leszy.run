@@ -16,6 +16,7 @@ const Results = lazy(() => import('./pages/Results.jsx'))
 const ZapisyTrasa = lazy(() => import('./pages/zapisy/Trasa.jsx'))
 const ZapisyZapis = lazy(() => import('./pages/zapisy/Zapis.jsx'))
 const ZapisyZapisano = lazy(() => import('./pages/zapisy/Zapisano.jsx'))
+const ZapisyDruzyna = lazy(() => import('./pages/zapisy/Druzyna.jsx'))
 const ZapisyListaStartowa = lazy(() => import('./pages/zapisy/ListaStartowa.jsx'))
 const ZapisyZamowienie = lazy(() => import('./pages/zapisy/Zamowienie.jsx'))
 const ZapisyZgoda = lazy(() => import('./pages/zapisy/Zgoda.jsx'))
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="/events/:slug/trasa" element={<ZapisyTrasa />} />
           <Route path="/events/:slug/zapis/:categoryId" element={<ZapisyZapis />} />
           <Route path="/events/:slug/zapisano" element={<ZapisyZapisano />} />
+          <Route path="/events/:slug/druzyna/:teamId" element={<ZapisyDruzyna />} />
           <Route path="/events/:slug/lista" element={<ZapisyListaStartowa />} />
           <Route path="/events/:slug/informacja-o-danych" element={<ZapisyInformacja />} />
           <Route path="/zamowienie/:orderId" element={<ZapisyZamowienie />} />

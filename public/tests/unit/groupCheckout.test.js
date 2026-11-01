@@ -73,10 +73,10 @@ describe('G-46 RA4 for a group', () => {
 })
 
 describe('G-46 RA5 consent tags', () => {
-  it('the person registering, an added adult who accepted, or signed in the office → „✓ REGULAMIN”', () => {
+  it('the person registering, an added adult who accepted → „✓ REGULAMIN”, one who signed in the office → „PODPISANY W BIURZE”', () => {
     assert.deepEqual(consentTag({ role: 'self', consentState: 'accepted' }), { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' })
     assert.deepEqual(consentTag({ role: 'adult', consentState: 'accepted' }), { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' })
-    assert.deepEqual(consentTag({ role: 'adult', consentState: 'office' }), { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' })
+    assert.deepEqual(consentTag({ role: 'adult', consentState: 'office' }), { kind: 'office', label: 'PODPISANY W BIURZE', srLabel: 'regulamin podpisany w biurze zawodów' })
   })
 
   it('a child → „✓ OPIEKUN”', () => {

@@ -573,7 +573,7 @@ test('T-42 get: the captain sees the team, its limits and the live squad, and no
   const { team, members, competition, event: ev } = r.body.data
   assert.deepEqual({ ...team, closesAt: undefined }, {
     name: body.teamName, status: 'confirmed', paymentStatus: 'free', orderId: null, closesAt: undefined,
-    legOrderEnabled: false, teamMin: 2, teamMax: 6,
+    legOrderEnabled: false, teamMin: 2, teamMax: 6, editsOpen: true,
   })
   const settings = await one('registration_settings', { event_id: event.eventId })
   assert.equal(Date.parse(team.closesAt), Date.parse(settings.closes_at))
@@ -599,7 +599,7 @@ test('T-42 get: the captain sees the team, its limits and the live squad, and no
   assert.ok(!JSON.stringify(r.body).includes(partner))
 })
 
-test('T-42 get: a pending team carries its order and reads as awaiting; a released team has no live members', async () => {
+test('T-42 get: a pending team carries its order and reads as awaiting; a released team answers 404 to a read and team_inactive to an edit', async () => {
   const { teamId, orderId, session } = await pendingTeam()
   const r = await squadCall(teamId, 'get', session)
   assert.equal(r.status, 200, JSON.stringify(r.body))
@@ -610,9 +610,8 @@ test('T-42 get: a pending team carries its order and reads as awaiting; a releas
   const cancelled = await call('cancel-my-order', { orderId }, session)
   assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body))
   const gone = await squadCall(teamId, 'get', session)
-  assert.equal(gone.status, 200, JSON.stringify(gone.body))
-  assert.equal(gone.body.data.team.status, 'cancelled')
-  assert.deepEqual(gone.body.data.members, [])
+  assert.equal(gone.status, 404, JSON.stringify(gone.body))
+  assert.deepEqual(gone.body, { error: 'Not found' })
   const edit = await squadCall(teamId, 'add', session, { person: swapIn(runnerEmail('late')) })
   assert.equal(edit.status, 409, JSON.stringify(edit.body))
   assert.deepEqual(edit.body, { error: 'To zgłoszenie nie jest już aktywne.', code: 'team_inactive' })
@@ -628,17 +627,26 @@ test('T-42 a disabled club: 404 to the captain, for a read and an edit', async (
   assert.equal((await squadCall(teamId, 'add', session, { person: swapIn(runnerEmail('x')) })).status, 404)
 })
 
-test('T-42 the throttle: squad:<teamId> allows 30 calls an hour; a stranger spends none of it', async () => {
+test('T-42 the throttle: squad:<teamId> allows 30 edits an hour, a stranger spends none, and a read spends none of them', async () => {
   const { teamId, session } = await freeTeam()
   const stranger = await sessionFor(runnerEmail('stranger'))
-  for (let i = 0; i < 5; i++) assert.equal((await squadCall(teamId, 'get', stranger)).status, 404)
+  for (let i = 0; i < 5; i++) assert.equal((await squadCall(teamId, 'remove', stranger)).status, 404)
+  for (let i = 0; i < 40; i++) assert.equal((await squadCall(teamId, 'get', session)).status, 200, `read ${i + 1}`)
   for (let i = 0; i < 30; i++) {
-    const ok = await squadCall(teamId, 'get', session)
-    assert.equal(ok.status, 200, `call ${i + 1}: ${JSON.stringify(ok.body)}`)
+    const ok = await squadCall(teamId, 'remove', session)
+    assert.equal(ok.status, 422, `edit ${i + 1}: ${JSON.stringify(ok.body)}`)
   }
-  const r = await squadCall(teamId, 'get', session)
+  const r = await squadCall(teamId, 'remove', session)
   assert.equal(r.status, 429, JSON.stringify(r.body))
   assert.equal(r.body.error, 'Zbyt wiele prób. Spróbuj ponownie później.')
+  assert.equal((await squadCall(teamId, 'get', session)).status, 200, 'an edit limit reached leaves the page readable')
+})
+
+test('T-42 the read limit: 120 reads an hour, then 429, and edits keep their own allowance', async () => {
+  const { teamId, session } = await freeTeam()
+  for (let i = 0; i < 120; i++) assert.equal((await squadCall(teamId, 'get', session)).status, 200, `read ${i + 1}`)
+  assert.equal((await squadCall(teamId, 'get', session)).status, 429)
+  assert.equal((await squadCall(teamId, 'remove', session)).status, 422)
 })
 
 // ---------------------------------------------------------------- T-42 swap
@@ -770,6 +778,18 @@ test('T-42 a swap keeping the same address sends no „removed” e-mail, only a
   assert.equal(r.status, 200, JSON.stringify(r.body))
   const mails = await waitForMail(partner, 2)
   assert.equal(mails.length, 2)
+  assert.ok(!mails.some((m) => m.subject === REMOVED_SUBJECT(body.teamName)))
+})
+
+test('T-42 a swap keeping the address in another case sends no „removed” e-mail', async () => {
+  const { event, partner, session, teamId, body } = await freeTeam()
+  const old = (await byEvent(event.eventId)).find((r) => r.email === partner)
+  const { error } = await db().from('registrations').update({ email: partner.toUpperCase() }).eq('id', old.id)
+  if (error) throw error
+  const r = await squadCall(teamId, 'swap', session, { registrationId: old.id, person: swapIn(partner, { firstName: 'Piotrek' }) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  await waitForMail(partner, 2)
+  const mails = [...await messagesTo(partner), ...await messagesTo(partner.toUpperCase())]
   assert.ok(!mails.some((m) => m.subject === REMOVED_SUBJECT(body.teamName)))
 })
 
@@ -947,7 +967,9 @@ test('T-42 squad_closed: every edit → 409 with the copy, no participant writte
   }
   assert.equal((await rows('participants', { event_id: event.eventId })).length, before.length)
   assert.deepEqual(await messagesTo(next), [])
-  assert.equal((await squadCall(teamId, 'get', session)).status, 200)
+  const read = await squadCall(teamId, 'get', session)
+  assert.equal(read.status, 200)
+  assert.equal(read.body.data.team.editsOpen, false)
 })
 
 // ---------------------------------------------------------------- T-43 reads

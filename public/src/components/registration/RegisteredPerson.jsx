@@ -3,9 +3,10 @@ import { callFunction } from '../../lib/auth.js'
 import { canRemind, consentTag, remindAriaLabel, remindError, remindLabel } from '../../lib/consentTag.js'
 import MetaLine from './MetaLine.jsx'
 
-// One registered person on RA5 (Zamowienie for a paid order, Zapisano for a free one): the
-// name, competition · group · start, and in a group the regulamin tag of RB4 („✓ REGULAMIN” /
-// „✓ OPIEKUN” / „CZEKA NA ZGODĘ”). An added adult still awaiting
+// One registered person on RA5 (Zamowienie for a paid order, Zapisano for a free one) and RB4: the
+// name, competition · group · start, and in a group the regulamin tag („✓ REGULAMIN” / „✓ OPIEKUN” /
+// „CZEKA NA ZGODĘ” / „PODPISANY W BIURZE”). `remindText` replaces the reminder's label: RB4 names
+// the person in it, and then the visible text is the button's whole name. An added adult still awaiting
 // gets „Wyślij przypomnienie →” in their row (remind-consent: a new link, the old one stops
 // working; 3 per registration per 24 h). After a send the control stays off for the page's
 // life: a second click would spend another of the 3 and kill the link just sent. A 409 means
@@ -15,9 +16,10 @@ const TAG_CLS = {
   accepted: 'border-apex-yellow-dim text-apex-yellow',
   guardian: 'border-apex-yellow-dim text-apex-yellow',
   awaiting: 'border-apex-cyan text-apex-cyan-text',
+  office: 'border-apex-border-bright text-apex-text-bright',
 }
 
-function RemindConsent({ registrationId, name, onStale }) {
+function RemindConsent({ registrationId, name, text, onStale }) {
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState(null)
@@ -42,9 +44,9 @@ function RemindConsent({ registrationId, name, onStale }) {
 
   return (
     <div className="flex flex-col gap-1 pt-2.5 mt-2.5 border-t border-apex-border">
-      <button type="button" onClick={send} disabled={busy || sent} data-testid="remind-consent" aria-label={remindAriaLabel(name)}
-        className="self-start whitespace-nowrap text-left text-base font-bold text-apex-yellow hover:text-apex-yellow-bright underline-offset-2 hover:underline disabled:opacity-50 disabled:no-underline disabled:cursor-default">
-        {remindLabel()}
+      <button type="button" onClick={send} disabled={busy || sent} data-testid="remind-consent" aria-label={text ? undefined : remindAriaLabel(name)}
+        className="self-start max-w-full truncate whitespace-nowrap text-left text-base font-bold text-apex-yellow hover:text-apex-yellow-bright underline-offset-2 hover:underline disabled:opacity-50 disabled:no-underline disabled:cursor-default">
+        {text ?? remindLabel()}
       </button>
       {/* Always in the tree, so its text is announced when it changes. */}
       <span className="text-sm text-apex-text-bright" role="status" aria-live="polite" data-testid="remind-status">
@@ -57,9 +59,9 @@ function RemindConsent({ registrationId, name, onStale }) {
 
 /**
  * @param {{ person: { role?, consentState?, mine? }, registrationId?: string, name: string,
- *   meta: Array<string|null>, showTag: boolean, testId: string, onStale?: () => void }} p
+ *   meta: Array<string|null>, showTag: boolean, testId: string, onStale?: () => void, remindText?: string }} p
  */
-export default function RegisteredPerson({ person, registrationId, name, meta, showTag, testId, onStale }) {
+export default function RegisteredPerson({ person, registrationId, name, meta, showTag, testId, onStale, remindText }) {
   const tag = showTag ? consentTag(person) : null
   return (
     <div className="border border-apex-border-mid bg-apex-surface p-3.5" data-testid={testId}>
@@ -75,7 +77,7 @@ export default function RegisteredPerson({ person, registrationId, name, meta, s
       </div>
       <MetaLine parts={meta} />
       {tag && canRemind(person) && registrationId && (
-        <RemindConsent registrationId={registrationId} name={name} onStale={onStale} />
+        <RemindConsent registrationId={registrationId} name={name} text={remindText} onStale={onStale} />
       )}
     </div>
   )

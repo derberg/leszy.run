@@ -20,6 +20,7 @@ import {
 } from '../../lib/teamDraft.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
 import { focusCardError, useStepHistory } from '../../lib/useStepHistory.js'
+import { useMoveFocus } from '../../lib/useMoveFocus.jsx'
 import { warsawToday } from '@registration/dates.js'
 import { MIN_TEAM_SIZE } from '@registration/flags.js'
 import { TEAM_NAME_MAX } from '@registration/team.js'
@@ -28,7 +29,7 @@ import CodeStep from '../../components/registration/CodeStep.jsx'
 import ConsentList from '../../components/registration/ConsentList.jsx'
 import PageTop from '../../components/registration/PageTop.jsx'
 import PersonForm from '../../components/registration/PersonForm.jsx'
-import { PersonRow, RemoveConfirm } from '../../components/registration/PersonRow.jsx'
+import { MoveButtons, PersonRow, RemoveConfirm } from '../../components/registration/PersonRow.jsx'
 import { inputCls, labelCls, primaryBtn, removeBtn, secondaryBtn, sectionCls } from '../../components/registration/ui.js'
 import Podsumowanie, { orderPath } from './Podsumowanie.jsx'
 import { formPath } from './RegistrationEventPage.jsx'
@@ -43,7 +44,6 @@ import { formPath } from './RegistrationEventPage.jsx'
 // zawodnik”) renders RB1 with the way on disabled.
 
 const ADULT_EMAIL_LABEL = 'E-mail — wyślemy prośbę o akceptację regulaminu'
-const moveBtn = 'w-11 h-11 flex items-center justify-center border border-apex-border-bright text-apex-text-bright font-mono text-base hover:border-apex-yellow-dim disabled:opacity-30 disabled:cursor-not-allowed'
 const stepTitle = (legOrder, n) => (legOrder ? `Zmiana ${n}` : `Osoba ${n}`)
 
 export default function TeamSignup({ raw, categoryId, preview = false, backTo }) {
@@ -86,6 +86,7 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
   const touched = useRef(new Set())
   // The card whose first invalid field takes the focus once the errors are on screen.
   const errorFocus = useRef(null)
+  const moves = useMoveFocus()
 
   const prefill = useMemo(() => (user ? profilePrefill(user) : null), [user])
   useEffect(() => {
@@ -238,6 +239,14 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
       needCode = needsCode(resolved?.email, email, verifiedEmail)
     }
     return needCode ? startCode(email) : enterSquad()
+  }
+
+  // RB1's way back to the squad is RB1's way forward: an edited captain is checked and, with a
+  // changed address, verified. Boxes unticked meanwhile are said out loud.
+  function backToSquad() {
+    if (consentsComplete(consents, accepted, serviceAccepted)) return leaveCaptain()
+    setMessage('Zaznacz wymagane zgody, żeby wrócić do składu.')
+    return undefined
   }
 
   async function onSubmitCode(e) {
@@ -425,7 +434,7 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
     const shrinking = shrinkTo == null ? [] : droppedBy(draft, shrinkTo)
     return (
       <form onSubmit={onSubmit} onClickCapture={onLinkAway} noValidate className="flex flex-col gap-[18px]" data-testid="team-captain">
-        <PageTop back={backTo && !leftCaptain ? { to: backTo, label: 'Konkurencje' } : leftCaptain ? { label: 'Skład', onClick: () => setStep('squad') } : null} right="KROK 1/3" />
+        <PageTop back={backTo && !leftCaptain ? { to: backTo, label: 'Konkurencje' } : leftCaptain ? { label: 'Skład', onClick: backToSquad } : null} right="KROK 1/3" />
         {banner}
         {!open && !preview && <p className="text-apex-red text-base">Zapisy na tę konkurencję są zamknięte.</p>}
         {trap}
@@ -531,16 +540,15 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
                     onEdit={() => (index === 0 ? toCaptain() : go(card.key))} onRemove={index > 0 && members > teamMin ? () => askRemove(card) : null}
                     confirming={removing === card.key} onConfirm={() => confirmRemove(card.key)} onCancel={() => cancelRemove(n)}
                     lead={legOrder && (
-                      <span className="flex flex-col gap-1 shrink-0">
-                        <button type="button" className={moveBtn} disabled={busy || leg === 1} aria-label={`Wyżej — ${name}`}
-                          onClick={() => setDraft((d) => moveMember(d, leg - 1, leg - 2))}>↑</button>
-                        <button type="button" className={moveBtn} disabled={busy || leg === members} aria-label={`Niżej — ${name}`}
-                          onClick={() => setDraft((d) => moveMember(d, leg - 1, leg))}>↓</button>
-                      </span>
+                      <MoveButtons moveKey={card.key} name={name} place={leg} count={members} disabled={busy} onMove={(dir) => {
+                        setDraft((d) => moveMember(d, leg - 1, leg - 1 + dir))
+                        moves.moved(card.key, dir, `${name}: zmiana ${leg + dir}`)
+                      }} />
                     )} />
                 )
               })}
             </ul>
+            {moves.status}
           </div>
           {members < teamMax && (
             <button type="button" onClick={addMember} disabled={busy} className={`${secondaryBtn} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="add-person">

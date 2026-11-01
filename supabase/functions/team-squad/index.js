@@ -16,8 +16,10 @@ import {
   NOT_FOUND, PEOPLE_PER_DAY, REFUSALS, SQUAD_REFUSALS, json, personContexts, rpcPeople, squadRefusal, throttled,
 } from '../_shared/registration/registrationRequest.js'
 
-// Reads and edits per team per hour (ruling: 30/h, whoever of the captain's tabs asks).
+// Per team per hour, whoever of the captain's tabs asks. Edits 30/h (the ruling). Reads have their
+// own limit, order-status's 120/h: a refresh must never use up the captain's edits.
 const SQUAD_LIMIT = 30
+const SQUAD_READ_LIMIT = 120
 const HOUR = 3600
 const DAY = 86400
 const LIVE = ['confirmed', 'pending_payment']
@@ -69,6 +71,8 @@ async function squadView(admin, team, settings, competition) {
       paymentStatus: paymentStatusOf(captain, order, captain.price),
       orderId: captain.order_id,
       closesAt: settings.closes_at,
+      // team_squad_edit's own rule, so the page never offers an edit it would refuse.
+      editsOpen: settings.state === 'published' && !!settings.closes_at && Date.now() < Date.parse(settings.closes_at),
       legOrderEnabled: competition.leg_order_enabled === true,
       teamMin: competition.team_min,
       teamMax: competition.team_max,
@@ -100,7 +104,7 @@ async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName,
   if (adult) await issueConsentRequests(admin, [added.id], { registeredBy: captainName })
   try {
     const args = await teamEmailArgs(admin, teamId)
-    if (confirmed && removed?.email && removed.email !== person.email) {
+    if (confirmed && removed?.email && removed.email.toLowerCase() !== person.email?.toLowerCase()) {
       await mail('removed', removed.email, squadRemovedEmail({ event: args.event, team: args.team, firstName: removed.firstName }))
     }
     await mail('summary', captainEmail, squadChangedEmail({
@@ -115,14 +119,15 @@ async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName,
 }
 
 // POST { teamId, action, … } → 200 { data: { team: { name, status, paymentStatus, orderId, closesAt,
-//   legOrderEnabled, teamMin, teamMax }, members: [{ registrationId, firstName, lastName,
+//   editsOpen, legOrderEnabled, teamMin, teamMax }, members: [{ registrationId, firstName, lastName,
 //   ageGroupLabel, age, role, consentState, leg, isCaptain }], competition: { categoryId, name },
 //   event: { id, slug, name, eventDate } } }, the same answer for a read and an edit.
 //   get
 //   reorder { legs: [registrationId…] }  every live member, in running order
 //   swap    { registrationId, person, guardianConsent?, acceptedConsentIds?, serviceRegulamin? }
 //   add     { person, guardianConsent?, acceptedConsentIds?, serviceRegulamin? }
-// The captain's session only: 401 without one, 404 for anybody else and for a disabled club.
+// The captain's session only: 401 without one, 404 for anybody else and for a disabled club. A
+// read of a released team is 404 too: its squad is gone. An edit there is 409 team_inactive.
 // A person is checked here and their role comes from the birth date, never from the request. A
 // child's acceptances are the captain's as guardian, so they carry the event's consents and the
 // service regulamin; an adult accepts for themself from the e-mail, so an adult's edit needs neither.
@@ -146,7 +151,7 @@ Deno.serve(async (req) => {
     const { teamId, action } = body ?? {}
     if (!isUuid(teamId)) return json(NOT_FOUND, 404, req)
     const team = await single(admin.from('teams')
-      .select('id, name, event_id, category_id, captain_registration_id').eq('id', teamId).maybeSingle())
+      .select('id, name, event_id, category_id, captain_registration_id, released_at').eq('id', teamId).maybeSingle())
     if (!team) return json(NOT_FOUND, 404, req)
     const captain = await single(admin.from('registrations')
       .select('profile_id, first_name, last_name').eq('id', team.captain_registration_id).single())
@@ -158,14 +163,17 @@ Deno.serve(async (req) => {
     if (!(await clubRegistrationEnabled(admin, settings.club_id))) return json(NOT_FOUND, 404, req)
 
     // After the captain check, so nobody else can spend this team's allowance.
-    const throttle = await checkAndIncrement(admin, `squad:${team.id}`, SQUAD_LIMIT, { windowSeconds: HOUR })
+    const read = action === 'get'
+    if (read && team.released_at) return json(NOT_FOUND, 404, req)
+    const throttle = await checkAndIncrement(admin, read ? `squad-read:${team.id}` : `squad:${team.id}`,
+      read ? SQUAD_READ_LIMIT : SQUAD_LIMIT, { windowSeconds: HOUR })
     if (!throttle.allowed) return throttled(req, throttle.retryAfterSec)
 
     if (!ACTIONS.includes(action)) {
       const [status, error] = SQUAD_REFUSALS.invalid_op
       return json({ error, code: 'invalid_op' }, status, req)
     }
-    if (action === 'get') return json({ data: await squadView(admin, team, settings, competition) }, 200, req)
+    if (read) return json({ data: await squadView(admin, team, settings, competition) }, 200, req)
 
     const email = session.email.toLowerCase()
     const meta = { ip: clientIp(req), userAgent: req.headers.get('user-agent') || null }

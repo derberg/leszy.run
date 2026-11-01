@@ -399,6 +399,14 @@ test('T-67 leg order on: ↑/↓ set the legs, the captain may run any of them, 
   await expect(page.getByTestId('person-row').nth(0)).toContainText('Ewa Leśny')
   await noButtonWraps(page)
 
+  // The review of 7a: the focus survives a button going disabled, and the new place is announced.
+  await page.getByRole('button', { name: 'Niżej — Ewa Leśny' }).click()
+  await expect(page.getByRole('button', { name: 'Niżej — Ewa Leśny' })).toBeFocused()
+  await expect(page.getByTestId('move-status')).toHaveText('Ewa Leśny: zmiana 2')
+  await page.getByRole('button', { name: 'Wyżej — Ewa Leśny' }).click()
+  await expect(page.getByRole('button', { name: 'Niżej — Ewa Leśny' })).toBeFocused()
+  await expect(page.getByTestId('move-status')).toHaveText('Ewa Leśny: zmiana 1')
+
   await page.getByTestId('members-consent').check()
   await page.getByRole('button', { name: 'Zapisz drużynę' }).click()
   await expect(page.getByTestId('done')).toBeVisible()
@@ -466,4 +474,67 @@ test('T-68 Back walks the steps with the squad intact, and the page asks before 
   expect(page.url()).toBe(form)
   await page.goForward()
   await expect(page.locator('#p2-first')).toHaveValue('Piotr')
+})
+
+test('T-67 leg order off: RB2 reads „Skład”, with no arrows and no legs stored', async ({ actors }) => {
+  const event = await freeEvent()
+  const page = await setUp(actors.runner, 390)
+  const teamName = name()
+  await toSquad(page, event, { teamName, size: 2 })
+  await nextMember(page, 'p2', { first: 'Piotr', email: address('piotr') })
+  await expect(page.getByRole('heading', { name: 'Skład', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^(Wyżej|Niżej) — / })).toHaveCount(0)
+  await expect(page.getByTestId('person-row').nth(1)).toContainText('Osoba 2')
+  await noButtonWraps(page)
+  await page.getByTestId('members-consent').check()
+  await page.getByRole('button', { name: 'Zapisz drużynę' }).click()
+  await expect(page.getByTestId('done')).toBeVisible()
+  const { data: team } = await admin().from('teams').select('id').eq('name', teamName).single()
+  const { data: rows } = await admin().from('registrations').select('team_leg').eq('team_id', team.id)
+  expect(rows.map((r) => r.team_leg)).toEqual([null, null])
+})
+
+test('T-68 RB1\'s „Skład” validates the captain again: a bad date stays, a changed address asks for the code', async ({ actors }) => {
+  const event = await freeEvent()
+  const page = await setUp(actors.runner, 390)
+  await toSquad(page, event, { teamName: name(), size: 2 })
+  await page.getByRole('button', { name: '← Drużyna' }).click()
+  await expect(page.getByTestId('team-captain')).toBeVisible()
+
+  await page.locator('#p-birth').fill('2015-01-01')
+  await page.getByRole('button', { name: '← Skład' }).click()
+  await expect(page.getByTestId('team-captain')).toBeVisible()
+  await expect(page.getByTestId('form-error')).toHaveText('Kapitanem drużyny może być tylko osoba pełnoletnia.')
+
+  await page.locator('#p-birth').fill(CAPTAIN.birth)
+  await page.locator('#p-email').fill(address('moved'))
+  await page.getByRole('button', { name: '← Skład' }).click()
+  await expect(page.getByTestId('code-step')).toBeVisible()
+})
+
+test('T-68 the leave dialog on a team: Back past the first step asks, „Anuluj” keeps the squad, „OK” leaves', async ({ actors }) => {
+  const event = await freeEvent()
+  const page = await setUp(actors.runner, 390)
+  await toSquad(page, event, { teamName: 'Wilki' })
+  const questions = []
+  let answer = false
+  page.on('dialog', async (d) => {
+    questions.push(d.message())
+    if (answer) await d.accept()
+    else await d.dismiss()
+  })
+  const back = () => page.evaluate(() => window.history.back())
+
+  await back()
+  await expect(page.getByTestId('team-captain')).toBeVisible()
+  await back()
+  await expect.poll(() => questions.length).toBe(1)
+  expect(questions[0]).toBe('Opuścić formularz? Wpisane dane osób przepadną.')
+  await expect(page.locator('#team-name')).toHaveValue('Wilki')
+
+  answer = true
+  await back()
+  await expect.poll(() => questions.length).toBe(2)
+  await expect(page.getByTestId('team-captain')).toHaveCount(0)
+  await expect(page).toHaveURL(new RegExp(`/events/${event.slug}$`))
 })
