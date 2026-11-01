@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
-import { eventPageModel } from '../../lib/eventPageModel.js'
+import { eventPageModel, statParts } from '../../lib/eventPageModel.js'
 import { labelCls, linkCls } from '../../components/registration/ui.js'
 import CoursePanel from '../../components/registration/CoursePanel.jsx'
 
@@ -16,6 +16,16 @@ export const eventPath = (slug) => `/events/${slug}`
 export const coursePath = (slug) => `/events/${slug}/trasa`
 export const formPath = (slug, categoryId) => `/events/${slug}/zapis/${categoryId}`
 export const startListPath = (slug) => `/events/${slug}/lista`
+
+/** „Zapisani” / „Wolne”: one bare number, or with team competitions one line per unit (people, teams). */
+function StatLines({ parts }) {
+  if (parts.length === 1 && parts[0].unit == null) return parts[0].count
+  return parts.map((p) => (
+    <span key={p.unit} className="block whitespace-nowrap">
+      {p.count} <span className="text-xs text-apex-muted uppercase">{p.unit}</span>
+    </span>
+  ))
+}
 
 function Stat({ label, value, sub, accent, testId }) {
   return (
@@ -146,8 +156,8 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
         </div>
 
         <div className="grid grid-cols-3 border border-apex-border">
-          <Stat testId="stat-registered" label="Zapisani" value={m.stats.registered} accent />
-          <Stat testId="stat-free" label="Wolne" value={m.stats.free} />
+          <Stat testId="stat-registered" label="Zapisani" value={<StatLines parts={statParts(m.stats).registered} />} accent />
+          <Stat testId="stat-free" label="Wolne" value={<StatLines parts={statParts(m.stats).free} />} />
           <Stat testId="stat-days" label={thirdStat.label} value={thirdStat.value} />
         </div>
 

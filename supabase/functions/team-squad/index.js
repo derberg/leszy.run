@@ -39,7 +39,7 @@ async function single(query) {
   return data
 }
 
-const memberColumns = 'id, first_name, last_name, birth_date, age_group_label, team_leg, consent_state, created_at, ' +
+const memberColumns = 'id, first_name, last_name, birth_date, age_group_label, team_leg, team_position, consent_state, created_at, ' +
   'profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at'
 
 /** Whether „Zapłać” can still lead anywhere: an open, unexpired order that still fits the limit (P3-R15). */
@@ -62,8 +62,11 @@ async function squadView(admin, team, settings, competition) {
   ])
   const editsOpen = settings.state === 'published' && !!settings.closes_at && Date.now() < Date.parse(settings.closes_at)
   const isCaptain = (r) => r.id === team.captain_registration_id
-  const rank = (r) => (competition.leg_order_enabled ? r.team_leg ?? Number.MAX_SAFE_INTEGER : isCaptain(r) ? 0 : 1)
-  const members = [...regs].sort((a, b) => rank(a) - rank(b)).map((r) => ({
+  // Leg order on: the legs. Off: team_position, the order the captain gave (final review M-2).
+  // Never created_at alone: one sign-up shares it, and the next key would be a random uuid.
+  const last = Number.MAX_SAFE_INTEGER
+  const rank = (r) => (competition.leg_order_enabled ? r.team_leg ?? last : r.team_position ?? last)
+  const members = [...regs].sort((a, b) => rank(a) - rank(b) || (a.team_position ?? last) - (b.team_position ?? last)).map((r) => ({
     registrationId: r.id,
     firstName: r.first_name,
     lastName: r.first_name === DELETED ? null : r.last_name,

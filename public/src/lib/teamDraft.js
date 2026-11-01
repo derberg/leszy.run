@@ -171,3 +171,14 @@ export function teamFailure(err, draft, today) {
   if (f.focus === captainKey(draft)) return { step: 'captain', errors: f.errors, nameError: null, message: null, focus: f.focus }
   return { step: 'squad', errors: f.errors, nameError: null, message: f.message, focus: f.focus }
 }
+
+/**
+ * register-team's 409 price_changed carries the new fee (`amounts.entryTotal`, 0 zł included): the
+ * form keeps it, so the next „Zapisz” sends the server's fee instead of the page's (final review
+ * L-1). → grosze, or null for any other answer.
+ */
+export function repricedFee(err) {
+  if (err?.code !== 'price_changed') return null
+  const fee = err.amounts?.entryTotal
+  return Number.isSafeInteger(fee) && fee >= 0 ? fee : null
+}

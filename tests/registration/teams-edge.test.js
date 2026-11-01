@@ -592,6 +592,8 @@ test('T-42 get: the captain sees the team, its limits and the live squad, and no
   assert.equal(captain.age, new Date(settings.event_date).getUTCFullYear() - 1990 - (settings.event_date.slice(5) < '05-01' ? 1 : 0))
   assert.deepEqual(rest.map((m) => m.isCaptain), [false, false, false])
   assert.deepEqual(rest.map((m) => m.role).sort(), ['adult', 'minor', 'minor'])
+  // M-2: with leg order off, the order the captain gave (team_position), never a random id.
+  assert.deepEqual(members.map((m) => m.firstName), body.members.map((m) => m.person.firstName))
   const adult = rest.find((m) => m.role === 'adult')
   assert.equal(adult.consentState, 'awaiting')
   assert.deepEqual(Object.keys(adult).sort(), ['age', 'ageGroupLabel', 'consentState', 'firstName', 'isCaptain', 'lastName', 'leg', 'registrationId', 'role'])

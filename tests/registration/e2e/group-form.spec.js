@@ -259,7 +259,9 @@ for (const [mode, width] of [['free', 390], ['paid', 1440]]) {
     await page.getByTestId('remove-no').click()
     await expect(page.locator('#p2-first')).toHaveValue('Zosia')
     await page.getByRole('button', { name: 'Usuń — Zosia' }).click()
-    await page.getByTestId('remove-yes').click()
+    // Final review L-4: „Tak” says whom it removes to a screen reader; the screen does not.
+    await expect(page.getByRole('group', { name: 'Usunąć tę osobę? Zosia' })).toBeVisible()
+    await page.getByRole('button', { name: 'Tak, usuń — Zosia' }).click()
     // That was the only other person: back to the one-person form.
     await expect(page.getByTestId('registration-submit')).toBeVisible()
     await expect(page.getByTestId('person-card')).toHaveCount(0)
@@ -709,4 +711,27 @@ test('G-47 RA4 1440 px (I-1): a single paid runner whose competition fills stays
   await expect(page.getByTestId('checkout')).toBeVisible()
   await expect(page.getByTestId('registration-form')).toHaveCount(0)
   expect(await ordersOf(event.eventId)).toEqual([])
+})
+
+// Final review I-1, I-5: an event with a relay beside the runs. An added person's card never
+// offers the relay (a person there would only end in 409 team_competition), and RA1 counts people
+// and teams apart.
+test('G-44 (e) a relay beside the runs: the group form never offers it; RA1 says osób and drużyny apart', async ({ actors }) => {
+  const relay = { name: 'Sztafeta', discipline: 'run', distanceLabel: '4 x 5 km', startTime: '10:00', capacity: 20, kind: 'team', teamMin: 2, teamMax: 4 }
+  const event = await EVENTS.free([BIEG, DZIECI, relay])
+  const [c9, kids, sztafeta] = event.categoryIds
+  const page = await offline(await actors.runner.newPage())
+  await page.setViewportSize({ width: 390, height: 900 })
+  await page.goto(`/events/${event.slug}`)
+  await expect(page.getByTestId('stat-registered')).toContainText('0 osób')
+  await expect(page.getByTestId('stat-registered')).toContainText('0 drużyn')
+  await expect(page.getByTestId('stat-free')).toContainText('100 miejsc')
+  await expect(page.getByTestId('stat-free')).toContainText('20 dla drużyn')
+  await page.goto(`/events/${event.slug}/zapis/${c9}`)
+  await fillMe(page)
+  await page.getByTestId('add-person').click()
+  const values = await page.locator('#p2-competition option').evaluateAll((os) => os.map((o) => o.value))
+  expect([...values].sort()).toEqual([c9, kids].sort())
+  expect(values).not.toContain(sztafeta)
+  await expect(page.locator('#p2-competition')).not.toContainText('Sztafeta')
 })

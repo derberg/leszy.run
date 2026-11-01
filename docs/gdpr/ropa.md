@@ -171,8 +171,8 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 - **Odbiorcy:** jak w pkt 10. Publiczna lista startowa pokazuje nazwę drużyny, imiona członków bez nazwisk, liczbę osób i miejscowość kapitana; dorosła osoba, która nie zaakceptowała regulaminu, jest tylko liczona. Drużyna czekająca na wpłatę jest tylko liczbą. Kapitan widzi w składzie imiona, nazwiska, wiek i stan zgody członków, bez adresów, telefonów i dat urodzenia. Do hostów pomiaru czasu trafiają uczestnicy (`participants`); tabela `teams` i nazwa drużyny nie opuszczają Supabase.
 - **Transfery poza EOG:** jak w pkt 1.
 - **Okres przechowywania:**
-  - `teams.name` — 30 dni po zawodach; `purge_registration_contact_data` zastępuje ją neutralną nazwą („Drużyna” i osiem znaków identyfikatora drużyny), także przy drużynie zwolnionej;
-  - osoba usunięta ze składu: zgłoszenie zostaje jako anulowane, a uczestnik ze znacznikiem `removed_at` zachowuje numer startowy i chip na hoście, bo tych nie wolno użyć ponownie;
+  - `teams.name` — 30 dni po zawodach; `purge_registration_contact_data` zastępuje ją neutralną nazwą („Drużyna” i osiem znaków identyfikatora drużyny albo, gdy ta nazwa jest już zajęta w konkurencji, cały identyfikator), także przy drużynie zwolnionej. Przy zamówieniu wygasłym lub anulowanym — 30 dni po wygaśnięciu lub anulowaniu; `purge_expired_registrations` zastępuje nazwę razem z anonimizacją zgłoszeń;
+  - osoba usunięta ze składu: dane osobowe zgłoszenia (imię, nazwisko, e-mail, telefon, data urodzenia, miejscowość, klub, narodowość, kontakt ICE, dane opiekuna, powiązanie z kontem) oraz adres IP i user agent akceptacji są anonimizowane w chwili wymiany, w tej samej transakcji (`team_squad_edit`), na drużynie czekającej na wpłatę i na potwierdzonej. Zgłoszenie zostaje jako anulowane, przy drużynie i zamówieniu, bo opłata jest rozliczana na zamówieniu. Uczestnik ze znacznikiem `removed_at` traci imię, nazwisko, e-mail, telefon, datę urodzenia i klub, a zachowuje numer startowy i chip na hoście, bo tych nie wolno użyć ponownie;
   - pozostałe dane zgłoszeń — jak w pkt 10 i 11.
 - **Prawa osób:**
   - eksport (`export-my-data`) daje kapitanowi listę `teams` (nazwa, konkurencja, wydarzenie, liczba osób, stan), a członkowi nazwę drużyny przy jego zgłoszeniu (`team_name`). Zgłoszenia dzieci są w `registrations_as_guardian`; zgłoszenia innych dorosłych członków są danymi tamtych osób i nie są eksportowane;
@@ -186,7 +186,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 
 | Wersja | Data | Opis |
 |---|---|---|
-| 1.5 | 2026-11-01 | Dodano sekcję 12 (drużyny i sztafety: nazwa drużyny jako dana osobowa i jej usuwanie po 30 dniach oraz przy usunięciu konta kapitana, eksport, dane członków podawane przez kapitana). |
+| 1.5 | 2026-11-01 | Dodano sekcję 12 (drużyny i sztafety: nazwa drużyny jako dana osobowa i jej usuwanie po 30 dniach oraz przy usunięciu konta kapitana, eksport, dane członków podawane przez kapitana, anonimizacja osoby usuniętej ze składu w chwili wymiany, nazwa drużyny przy zamówieniu wygasłym lub anulowanym). |
 | 1.4 | 2026-10-29 | Dodano sekcję 11 (zapisy grupowe: opiekunowie, osoby dorosłe zapisane przez kogoś innego, prośby o akceptację regulaminu, podpis w biurze; eksport i usuwanie konta). |
 | 1.3 | 2026-10-29 | Dodano sekcję 10 (zapisy online z płatnością przez dpay: zamówienia, płatności, zwroty, retencja 5 lat / 30 dni). |
 | 1.2 | 2026-10-03 | Dodano sekcję 9 (rozpoznawanie numerów startowych z obrazu) — wdrożenie ekranu „Audyt kamery" i automatycznego purge po 30 dniach. |

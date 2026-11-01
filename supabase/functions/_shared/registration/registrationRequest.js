@@ -349,7 +349,8 @@ export function fullRefusal(comps, people, { legacy }) {
 
 /**
  * The group RPCs' refusals that carry a person or a competition (D4-6), as answers; null for
- * any other message. `full:<categoryId>` names the competition (the legacy body keeps Plan 2's
+ * any other message. `team_competition` names the first team competition of the group.
+ * `full:<categoryId>` names the competition (the legacy body keeps Plan 2's
  * „w tej konkurencji”). `duplicate:<i>` points at the person, worded for an address or, for a
  * child, for the person, while the buyer (`email`) has duplicate answers left today; past
  * DUPLICATE_REVEALS_PER_DAY it is GROUP_REFUSED with no index (I-1). The legacy body keeps Plan 2's
@@ -373,6 +374,14 @@ export async function groupRefusal(admin, msg, { competitions, people, legacy, e
     return [409, { error, code: 'duplicate', index }]
   }
   if (msg === 'mixed_events') return [404, NOT_FOUND]
+  // D5-12: a person into a team competition. The group's answer names it, so the form puts the
+  // message on the cards in it (final review I-1); the legacy body keeps the bare answer.
+  if (msg === 'team_competition') {
+    const [status, error] = REFUSALS.team_competition
+    if (legacy) return [status, { error, code: msg }]
+    const team = people?.map((p) => competitions?.get(String(p.categoryId).toLowerCase())).find((c) => c?.kind === 'team')
+    return [status, { error, code: msg, ...(team ? { categoryId: team.category_id } : {}) }]
+  }
   return null
 }
 

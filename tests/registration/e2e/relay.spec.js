@@ -278,8 +278,10 @@ test('T-80 a relay across every audience: built in the wizard, paid once, one co
     const after = (await host.sql`select first_name, bib_number, removed_at from participants where category_id = ${event.categoryIds[0]} order by first_name`)
       .map((p) => ({ first: p.first_name, bib: p.bib_number, removed: p.removed_at !== null }))
     expect(after).toHaveLength(5)
-    expect(after.filter((p) => p.removed).map((p) => p.first)).toEqual(['Staś'])
-    expect(after.find((p) => p.first === 'Staś').bib).toBe(3)
+    // Final review I-3: the swapped-out participant keeps its bib and EPC, never its name.
+    expect(after.filter((p) => p.removed).map((p) => p.first)).toEqual(['Usunięte zgłoszenie'])
+    expect(after.find((p) => p.removed).bib).toBe(3)
+    expect(after.some((p) => p.first === 'Staś')).toBe(false)
     expect(after.find((p) => p.first === 'Kuba').bib).toBeNull()
 
     // A timing host never learns a team's name: no table, no column, no value.

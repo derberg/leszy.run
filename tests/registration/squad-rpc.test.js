@@ -389,3 +389,16 @@ test('T-37 EXECUTE: service_role only, SECURITY DEFINER with an empty search_pat
       from pg_proc p where p.proname = 'team_squad_insert'`
   assert.deepEqual({ ...helper }, { anon: false, authed: false, service: false })
 })
+
+// ---------------------------------------------------------------- final review M-2: team_position
+
+test('T-38 M-2 team_position: the request\'s order at sign-up, an added member last, a swapped-in member in the old place', async () => {
+  const event = await free()
+  const { cat, teamId, ids, actor } = await setup(event, { size: 4 })
+  const position = async (id) => (await reg(id)).team_position
+  assert.deepEqual(await Promise.all(ids.map(position)), [1, 2, 3, 4])
+  const added = ok(await squadEdit(event, teamId, actor, { op: 'add', person: newAdult(cat) })).added[0].id
+  assert.equal(await position(added), 5)
+  const swapped = ok(await squadEdit(event, teamId, actor, { op: 'swap', registrationId: ids[2], person: newAdult(cat) })).added[0].id
+  assert.equal(await position(swapped), 3)
+})

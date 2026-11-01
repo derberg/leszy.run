@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   newDraft, addPerson, removePerson, updatePerson, setGuardianConsent, setNotRunning, cardVariant, cardVariants,
   effectivePerson, peopleCount, canAdd, toRequest, checkDraft, draftReady, groupFailure, cardName, fixMessage, cardEmpty,
-  setCardOpen, formStep, stepAfter, LIST_STEP,
+  setCardOpen, formStep, stepAfter, LIST_STEP, addableCompetitions,
 } from '../../src/lib/groupDraft.js'
 import { EMPTY_PERSON, personContext } from '../../src/lib/personFormModel.js'
 
@@ -350,5 +350,30 @@ describe('G-69 one person on screen at a time', () => {
     const errors = { [second]: { email: 'X' }, [third]: { firstName: 'Y' } }
     assert.equal(stepAfter(d, second, errors), third)
     assert.equal(stepAfter(d, third, { [third]: { firstName: 'Y' } }), LIST_STEP)
+  })
+})
+
+describe('Final review I-1: an added person never picks a team competition', () => {
+  it('addableCompetitions keeps the open individual competitions, in the page\'s order', () => {
+    const rows = [
+      { categoryId: 'c9', state: 'open', kind: 'individual' },
+      { categoryId: 't1', state: 'open', kind: 'team' },
+      { categoryId: 'ck', state: 'open', kind: 'individual' },
+      { categoryId: 'cz', state: 'full', kind: 'individual' },
+    ]
+    assert.deepEqual(addableCompetitions({ competitions: rows }).map((c) => c.categoryId), ['c9', 'ck'])
+  })
+  it('a 409 team_competition naming the competition lands on the added cards in it', () => {
+    const d = family()
+    const f = groupFailure({ status: 409, code: 'team_competition', categoryId: 'ck', message: 'W tej konkurencji startują tylko drużyny.' }, d, TODAY)
+    assert.deepEqual(f.errors, { [d.cards[2].key]: { competition: 'W tej konkurencji startują tylko drużyny.' } })
+    assert.equal(f.message, 'W tej konkurencji startują tylko drużyny. Zmień konkurencję: Zosia Leśna.')
+    assert.equal(f.focus, d.cards[2].key)
+    assert.equal(f.step, 'form')
+  })
+  it('without a card in it, the Polish message is the form\'s, never a code', () => {
+    const f = groupFailure({ status: 409, code: 'team_competition', message: 'W tej konkurencji startują tylko drużyny.' }, family(), TODAY)
+    assert.deepEqual(f.errors, {})
+    assert.equal(f.message, 'W tej konkurencji startują tylko drużyny.')
   })
 })

@@ -268,7 +268,7 @@ export function orderEmailArgs(view) {
 
 /**
  * Everything teamConfirmationEmail needs but `paid`, from the stored team: its live members,
- * the captain first, then by leg, then by name (a team's rows share one created_at).
+ * the captain first, then by leg, then in team_position (a team's rows share one created_at).
  */
 export async function teamEmailArgs(admin, teamId) {
   const { data: team, error } = await admin.from('teams')
@@ -276,7 +276,7 @@ export async function teamEmailArgs(admin, teamId) {
   if (error) throw error
   const [regs, settingsRow, compRow] = await Promise.all([
     rows(admin.from('registrations')
-      .select('id, first_name, last_name, age_group_label, team_leg, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
+      .select('id, first_name, last_name, age_group_label, team_leg, team_position, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
       .eq('team_id', teamId).in('status', ['confirmed', 'pending_payment'])),
     admin.from('registration_settings').select('name, slug, event_date, town_label, place_details').eq('event_id', team.event_id).single(),
     admin.from('competitions').select('name').eq('category_id', team.category_id).single(),
@@ -286,7 +286,7 @@ export async function teamEmailArgs(admin, teamId) {
   const settings = settingsRow.data
   const rank = (r) => (r.id === team.captain_registration_id ? -1 : r.team_leg ?? Number.MAX_SAFE_INTEGER)
   const members = regs
-    .sort((a, b) => rank(a) - rank(b) || `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'pl'))
+    .sort((a, b) => rank(a) - rank(b) || (a.team_position ?? Number.MAX_SAFE_INTEGER) - (b.team_position ?? Number.MAX_SAFE_INTEGER))
     .map((r) => ({
       firstName: r.first_name,
       lastName: r.last_name,
@@ -330,16 +330,29 @@ async function confirmationMail(admin, view) {
   return teamConfirmationEmail({ ...(await teamEmailArgs(admin, held.team_id)), paid })
 }
 
+/** The order's confirmation, built and sent. → false with no buyer address; throws when not sent. */
+async function deliverConfirmation(admin, orderId) {
+  const view = await loadOrderView(admin, orderId)
+  if (!view?.order.buyer_email) return false
+  const res = await sendEmail({ to: view.order.buyer_email, ...await confirmationMail(admin, view) })
+  if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
+  return true
+}
+
 /**
  * The payment confirmation to the buyer, at most once (P3-R10). Best effort: never throws.
  * Claim, then send: orders.confirmation_sent_at is stamped by one UPDATE … WHERE it is null
  * before the e-mail goes out, and a second caller that finds it stamped sends nothing.
- * A send that fails here gives the claim back, so registration-jobs sends it 10 minutes after
- * payment; if this function dies between the claim and the send, nothing is resent (at most
- * once beats twice). `claimed: true` is the job, which claimed already: a failure there is
- * alerted, never resent.
+ * A send that certainly failed (an error before the send, or SendGrid's own non-2xx answer)
+ * gives the claim back, so registration-jobs sends it 10 minutes after payment. A send whose
+ * fate is unknown (`deliveryUnknown`: the 10 s timeout or a broken connection, postToSendGrid)
+ * keeps the claim and alerts the operator instead: SendGrid may have taken the mail and answered
+ * late, it has no idempotency key, and a second confirmation of a payment is worse than one the
+ * operator resends by hand (final review I-4). If this function dies between the claim and the
+ * send, nothing is resent either (at most once beats twice). `claimed: true` is the job, which
+ * claimed already: a failure there is alerted, never resent. `deliver` is for the unit tests.
  */
-export async function sendOrderConfirmation(admin, orderId, { claimed = false } = {}) {
+export async function sendOrderConfirmation(admin, orderId, { claimed = false, deliver = deliverConfirmation } = {}) {
   let mine = claimed
   try {
     if (!claimed) {
@@ -349,15 +362,13 @@ export async function sendOrderConfirmation(admin, orderId, { claimed = false } 
       if (!data?.length) return false
       mine = true
     }
-    const view = await loadOrderView(admin, orderId)
-    if (!view?.order.buyer_email) return false
-    const res = await sendEmail({ to: view.order.buyer_email, ...await confirmationMail(admin, view) })
-    if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
-    return true
+    return await deliver(admin, orderId)
   } catch (err) {
     console.error('order confirmation email failed:', err?.message)
     if (claimed) {
       await raiseAlert(admin, 'confirmation_email_failed', orderId, { error: String(err?.message ?? err) })
+    } else if (mine && err?.deliveryUnknown) {
+      await raiseAlert(admin, 'confirmation_email_unknown', orderId, { error: String(err?.message ?? err) })
     } else if (mine) {
       const { error } = await admin.from('orders').update({ confirmation_sent_at: null }).eq('id', orderId)
       if (error) console.error('confirmation claim not released:', error.message)

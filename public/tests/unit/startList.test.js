@@ -285,3 +285,19 @@ describe('T-72 teams on the start list', () => {
     assert.equal(startListView({ competitions: [{ ...free.competitions[0], free: 1 }], entries: [] }, { paidEvent: false }).header, '1 drużyna zapisana')
   })
 })
+
+describe('Final review I-5: a paid event\'s header never adds people and teams', () => {
+  it('a mixed paid event: people, then teams, each in its own words', () => {
+    assert.equal(startListView(TEAMS, { paidEvent: true }).header,
+      '2 osoby opłacone · 2 drużyny opłacone · 1 drużyna bez opłaty · +1 drużyna czeka na wpłatę')
+  })
+  it('only teams: drużyny alone; no teams: unchanged', () => {
+    const onlyTeams = { competitions: [{ ...TEAMS.competitions[1], paid: 5, free: 0, awaiting: 2 }], entries: [] }
+    assert.equal(startListView(onlyTeams, { paidEvent: true }).header, '5 drużyn opłaconych · +2 drużyny czekają na wpłatę')
+    assert.equal(startListView(SNAP, { paidEvent: true }).header, '53 opłacone · 5 bez opłaty · +2 czekają na wpłatę')
+  })
+  it('a mixed paid event with no person yet still says 0 people, never folds teams into them', () => {
+    const v = startListView({ competitions: [{ ...TEAMS.competitions[0], paid: 0 }, TEAMS.competitions[1]], entries: [] }, { paidEvent: true })
+    assert.equal(v.header, '0 osób opłaconych · 2 drużyny opłacone · 1 drużyna bez opłaty · +1 drużyna czeka na wpłatę')
+  })
+})

@@ -8,7 +8,9 @@
 
 // The Warsaw calendar date (YYYY-MM-DD) of an instant; same rule as
 // warsawToday() in _shared/registration/dates.js, kept here so this module has
-// no imports.
+// no imports from there.
+import { pluralPl } from './plural.js'
+
 const warsawDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' })
 const warsawToday = (d) => warsawDate.format(d)
 
@@ -63,7 +65,8 @@ function teamLine(c) {
   const sized = c.teamMin != null && c.teamMax != null
   const size = !sized ? null : c.teamMin === c.teamMax ? `Drużyny ${c.teamMin}-osobowe` : `Drużyny ${c.teamMin}–${c.teamMax} osób`
   const price = c.priceGrosze == null ? null : c.priceGrosze === 0 ? 'Bezpłatne' : `${money(c.priceGrosze)} / drużyna`
-  return [size, price, `${c.taken} / ${c.capacity} DRUŻYN`].filter(Boolean).join(' · ')
+  const limit = Number.isInteger(c.capacity) && c.capacity >= 0 ? pluralPl(c.capacity, 'DRUŻYNA', 'DRUŻYNY', 'DRUŻYN') : 'DRUŻYN'
+  return [size, price, `${c.taken} / ${c.capacity} ${limit}`].filter(Boolean).join(' · ')
 }
 
 function competitionRow(c, win) {
@@ -73,6 +76,7 @@ function competitionRow(c, win) {
   return {
     categoryId: c.categoryId,
     name: c.name,
+    kind: c.kind === 'team' ? 'team' : 'individual',
     startLabel: [c.startTime ? `start ${hm(c.startTime)}` : null, age, byAge].filter(Boolean).join(' · '),
     ageLabel: age,
     priceLabel: c.priceGrosze == null ? null : c.priceGrosze === 0 ? 'Bezpłatne' : money(c.priceGrosze),
@@ -154,6 +158,41 @@ function officePlace(raw) {
   return { label, mapUrl: lat != null && lng != null ? osmUrl(lat, lng) : null }
 }
 
+// A team competition's taken and capacity count teams (D5-28), so people and teams are never
+// added into one number: registered / confirmed / free are the individual competitions', and
+// `teams` holds the team competitions' own (`only`: the event has no individual competition), or
+// null when the event has none.
+function stats(competitions, daysLeft) {
+  const sum = (rows, f) => rows.reduce((n, c) => n + f(c), 0)
+  const people = competitions.filter((c) => c.kind !== 'team')
+  const teams = competitions.filter((c) => c.kind === 'team')
+  const free = (c) => Math.max(0, c.capacity - c.taken)
+  return {
+    registered: sum(people, (c) => c.taken),
+    confirmed: sum(people, (c) => c.confirmed),
+    free: sum(people, free),
+    teams: teams.length ? { registered: sum(teams, (c) => c.taken), free: sum(teams, free), only: !people.length } : null,
+    daysLeft,
+  }
+}
+
+/**
+ * RA1's „Zapisani” and „Wolne” as lines of { count, unit }. With no team competition each is one
+ * bare number, as it always was. Otherwise people and teams are separate lines with their units,
+ * and the people line is left out when the event has only team competitions.
+ */
+export function statParts(s) {
+  if (!s.teams) return { registered: [{ count: s.registered, unit: null }], free: [{ count: s.free, unit: null }] }
+  const people = (n, unit) => (s.teams.only ? [] : [{ count: n, unit }])
+  return {
+    registered: [
+      ...people(s.registered, pluralPl(s.registered, 'osoba', 'osoby', 'osób')),
+      { count: s.teams.registered, unit: pluralPl(s.teams.registered, 'drużyna', 'drużyny', 'drużyn') },
+    ],
+    free: [...people(s.free, pluralPl(s.free, 'miejsce', 'miejsca', 'miejsc')), { count: s.teams.free, unit: 'dla drużyn' }],
+  }
+}
+
 /**
  * @param {object} raw a registration_raw snapshot with file URLs
  * @param {Date} now
@@ -177,12 +216,7 @@ export function eventPageModel(raw, now = new Date()) {
     registrationState: win,
     closesLabel: closesLabel(raw.closesAt),
     charityGoal: raw.isCharity ? (raw.charityGoal ?? null) : null,
-    stats: {
-      registered: competitions.reduce((n, c) => n + c.taken, 0),
-      confirmed: competitions.reduce((n, c) => n + c.confirmed, 0),
-      free: competitions.reduce((n, c) => n + Math.max(0, c.capacity - c.taken), 0),
-      daysLeft: win === 'closed' ? null : daysLeftLabel(raw, now),
-    },
+    stats: stats(competitions, win === 'closed' ? null : daysLeftLabel(raw, now)),
     office: (raw.office?.hours ?? []).map((h) => {
       const { d, m } = ymd(h.date)
       return { label: `${WEEKDAYS_SHORT[weekday(h.date)]} ${d}.${m}`, hours: `${hm(h.from)}–${hm(h.to)}` }

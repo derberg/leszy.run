@@ -14,13 +14,19 @@ export function MoveButtons({ moveKey, name, place, count, disabled, onMove }) {
   )
 }
 
-/** „Usunąć <imię>?” Tak / Nie, in place of the buttons, for a card that holds anything. */
-export function RemoveConfirm({ id, question = 'Usunąć tę osobę?', onYes, onNo }) {
+/**
+ * „Usunąć tę osobę?” Tak / Nie, in place of the buttons, for a card that holds anything. The screen
+ * never names the person (a deleted account would read „Usunąć Usunięte konto?”), but `name` gives
+ * the group and „Tak” a per-person accessible name, so a screen reader hears whom it removes.
+ */
+export function RemoveConfirm({ id, question = 'Usunąć tę osobę?', name = null, onYes, onNo }) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-labelledby={id} data-testid="remove-confirm">
+    <div className="flex flex-wrap items-center justify-end gap-2" role="group" data-testid="remove-confirm"
+      {...(name ? { 'aria-label': `${question} ${name}` } : { 'aria-labelledby': id })}>
       <span id={id} className="font-sans font-semibold text-base text-apex-text-bright">{question}</span>
       <span className="flex gap-2">
-        <button type="button" onClick={onYes} className={removeBtn} data-testid="remove-yes">Tak</button>
+        <button type="button" onClick={onYes} className={removeBtn} data-testid="remove-yes"
+          aria-label={name ? `Tak, usuń — ${name}` : undefined}>Tak</button>
         <button type="button" onClick={onNo} className={`${smallBtn} border-apex-border-bright text-apex-text-bright hover:bg-apex-surface-2`} autoFocus data-testid="remove-no">Nie</button>
       </span>
     </div>
@@ -46,7 +52,7 @@ export function PersonRow({ cardKey, n, label, person, detail, onEdit, onRemove,
           </span>
         )}
       </div>
-      {confirming && <RemoveConfirm id={`p${n}-remove-q`} onYes={onConfirm} onNo={onCancel} />}
+      {confirming && <RemoveConfirm id={`p${n}-remove-q`} name={name} onYes={onConfirm} onNo={onCancel} />}
     </li>
   )
 }

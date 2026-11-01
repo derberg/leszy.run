@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { formatPln } from '@registration/money.js'
 import { callFunction } from '../../../lib/auth.js'
 import { countPl, pluralPl } from '../../../lib/plural.js'
@@ -127,6 +127,13 @@ function SubLine({ r }) {
 }
 
 /** The one fee and, while it is unpaid, its deadline. */
+/** The fee and the deadline, each kept on one line (L-3); the cell may break between them only. */
+function TeamFee({ team: t }) {
+  const parts = [t.fee > 0 ? formatPln(t.fee) : null, t.expiresAt ? `do ${when.format(new Date(t.expiresAt))}` : null].filter(Boolean)
+  if (!parts.length) return '—'
+  return parts.map((p, i) => <Fragment key={p}>{i > 0 && ' · '}<span className="whitespace-nowrap">{p}</span></Fragment>)
+}
+
 function teamFeeText(t) {
   return [t.fee > 0 ? formatPln(t.fee) : null, t.expiresAt ? `do ${when.format(new Date(t.expiresAt))}` : null].filter(Boolean).join(' · ') || '—'
 }
@@ -248,7 +255,7 @@ function TeamTableRows({ item, payments, actions, open, onToggle, toggles, onOff
         </td>
         <td className="px-3 py-2.5">{t.competition}</td>
         <td className={`px-3 py-2.5 font-mono text-xs whitespace-nowrap ${paymentColour(t)}`}>{teamStatusLabel(t.paymentStatus)}</td>
-        {payments && <td className={`px-3 py-2.5 font-mono ${paymentColour(t)}`}>{teamFeeText(t)}</td>}
+        {payments && <td className={`px-3 py-2.5 font-mono ${paymentColour(t)}`}><TeamFee team={t} /></td>}
         <td className={`px-3 py-2.5 font-mono whitespace-nowrap ${zgodyColour(t)}`}>{zgodyText(t)}</td>
         <td className="px-3 py-2.5 font-mono whitespace-nowrap">{when.format(new Date(members[0].createdAt))}</td>
         {actions && <td className="px-3 py-2" />}
@@ -311,6 +318,7 @@ export default function Zgloszenia({ eventId }) {
           <span className="text-apex-yellow">{countPl(counts.paid, ['opłacone', 'opłacone', 'opłaconych'])}</span> · <span className="text-apex-cyan">{counts.awaiting} {pluralPl(counts.awaiting, 'czeka', 'czekają', 'czeka')} na wpłatę</span>
           {counts.free > 0 && <> · {counts.free} bez opłaty</>}
           {counts.placesLeft != null && <> · <span className="text-apex-text-bright" data-testid="registrations-places-left">{countPl(counts.placesLeft, ['wolne miejsce', 'wolne miejsca', 'wolnych miejsc'])}</span></>}
+          {counts.teamPlacesLeft != null && <> · <span className="text-apex-text-bright" data-testid="registrations-team-places-left">{countPl(counts.teamPlacesLeft, ['wolne miejsce', 'wolne miejsca', 'wolnych miejsc'])} dla drużyn</span></>}
         </p>
       )}
       {consentHeader && (

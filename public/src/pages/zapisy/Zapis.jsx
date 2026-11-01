@@ -14,7 +14,7 @@ import {
 import {
   newDraft, addPerson, removePerson, updatePerson, setCardCompetition, setCardOpen, setGuardianConsent, setNotRunning,
   cardVariants, effectivePerson, peopleCount, canAdd, toRequest, claimedEmail, checkDraft, draftReady, groupFailure,
-  cardEmpty, cardName, erroredCards, fixMessage, formStep, stepAfter, LIST_STEP,
+  cardEmpty, cardName, erroredCards, fixMessage, formStep, stepAfter, LIST_STEP, addableCompetitions,
 } from '../../lib/groupDraft.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
 import { focusCardError, useStepHistory } from '../../lib/useStepHistory.js'
@@ -67,8 +67,8 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
   const contexts = useMemo(() => new Map(raw.competitions.map((c) => [c.categoryId, personContext(raw, c)])), [raw])
   const fields = fieldModes(raw.formFields)
   const consents = raw.consents ?? []
-  // Competitions a further person may pick: the open ones, in the event page's order.
-  const choices = useMemo(() => model.competitions.filter((c) => c.state === 'open'), [model])
+  // Competitions a further person may pick: the open individual ones, in the event page's order.
+  const choices = useMemo(() => addableCompetitions(model), [model])
 
   const [step, setStep] = useState('form')
   const [draft, setDraft] = useState(() => newDraft(categoryId))
@@ -96,7 +96,7 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
   const touched = useRef(new Set())
   // The card whose first invalid field takes the focus once the errors are on screen (I-1).
   const errorFocus = useRef(null)
-  // The card asking „Usunąć <imię>?” (M-6).
+  // The card asking „Usunąć tę osobę?” (M-6).
   const [removing, setRemoving] = useState(null)
 
   // The logged-in person's own profile fills card 1, field by field, and nobody else's.
@@ -372,7 +372,7 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
     return setAt(payerDone ? next.autoCard : next.cards[0].key)
   }
 
-  // „Usuń”: an empty card goes at once; one holding anything asks „Usunąć <imię>?” first.
+  // „Usuń”: an empty card goes at once; one holding anything asks „Usunąć tę osobę?” first.
   function askRemove(c) {
     if (cardEmpty(c)) return confirmRemove(c.key)
     return setRemoving(c.key)
@@ -472,7 +472,7 @@ function PersonSignup({ raw, categoryId, preview = false, backTo }) {
           )}
         </div>
         {removing === c.key && (
-          <RemoveConfirm id={`p${n}-remove-q`}
+          <RemoveConfirm id={`p${n}-remove-q`} name={cardName(draft, i)}
             onYes={() => confirmRemove(c.key)} onNo={() => cancelRemove(n)} />
         )}
         <div className="flex flex-col gap-1.5">

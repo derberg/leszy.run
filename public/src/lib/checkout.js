@@ -66,8 +66,8 @@ export function repricedByCategory(lines) {
 }
 
 // Refusals that belong to the form's cards or the code step (ZapisView's groupFailure routes
-// them: `index` to that person's card, `full` to the competition select of the added cards in
-// that competition, `refused` as the form's message). `full` goes back only when an added card
+// them: `index` to that person's card, `full` and `team_competition` to the competition select of
+// the added cards in that competition, `refused` as the form's message). `full` goes back only when an added card
 // can change its competition there: for a single runner, or when only card 1 is in it, the form
 // has nothing to change, so it stays Plan 3's RA4 message. Everything else is about the payment
 // and stays on RA4.
@@ -85,7 +85,7 @@ export function backToForm(err, addedCategoryIds = [], { team = false } = {}) {
   if (!err || err.status == null) return false
   if (err.status === 401) return true
   if (team && TEAM_BACK_TO_FORM.has(err.code)) return true
-  if (err.code === 'full') {
+  if (err.code === 'full' || err.code === 'team_competition') {
     const id = typeof err.categoryId === 'string' ? err.categoryId.toLowerCase() : ''
     return id !== '' && addedCategoryIds.some((c) => String(c).toLowerCase() === id)
   }

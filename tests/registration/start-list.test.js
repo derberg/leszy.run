@@ -212,7 +212,7 @@ test('P-45 list-event-registrations: paymentStatus and expiresAt per row, counts
   const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
   assert.equal(r.status, 200, JSON.stringify(r.body))
   const left = await placesLeft(event.eventId)
-  assert.deepEqual(r.body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left, awaitingConsent: 0 })
+  assert.deepEqual(r.body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left, teamPlacesLeft: null, awaitingConsent: 0 })
   const { data: caps } = await db().from('competitions').select('capacity').eq('event_id', event.eventId)
   assert.equal(left, caps.reduce((n, c) => n + c.capacity, 0) - 5, 'the 5 confirmed entries, not the awaiting one')
   const byName = Object.fromEntries(r.body.data.map((x) => [x.name, x]))
@@ -226,7 +226,7 @@ test('P-45 list-event-registrations: paymentStatus and expiresAt per row, counts
   assert.equal(byName['Celina Wygasła'].paymentStatus, null)
   assert.equal(byName['Damian Anulowany'].paymentStatus, null)
   assert.ok(!JSON.stringify(r.body).includes(people.paid.email))
-  assert.deepEqual((await callFn('list-event-registrations', clubAdmin, { eventId: event.eventId })).body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left, awaitingConsent: 0 })
+  assert.deepEqual((await callFn('list-event-registrations', clubAdmin, { eventId: event.eventId })).body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left, teamPlacesLeft: null, awaitingConsent: 0 })
 })
 
 test('P-45 a free event: list-event-registrations and the start list count its entries as free', async () => {
@@ -242,7 +242,7 @@ test('P-45 a free event: list-event-registrations and the start list count its e
   })
   assert.equal(reg.status, 201, JSON.stringify(reg.body))
   const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
-  assert.deepEqual(r.body.counts, { paid: 0, awaiting: 0, free: 1, placesLeft: await placesLeft(event.eventId), awaitingConsent: 0 })
+  assert.deepEqual(r.body.counts, { paid: 0, awaiting: 0, free: 1, placesLeft: await placesLeft(event.eventId), teamPlacesLeft: null, awaitingConsent: 0 })
   assert.equal(r.body.data[0].paymentStatus, 'free')
   assert.equal(r.body.data[0].expiresAt, null)
 
@@ -514,16 +514,15 @@ test('T-70 a team entry carries its name, first names, size, the captain\'s town
   }
 })
 
-test('T-70 with the legs off the captain is named first, then the others as they registered; a captain under the town rule gives no town', async () => {
+test('T-70 with the legs off the names follow the order the captain gave them (team_position); a captain under the town rule gives no town', async () => {
   const event = await freeTeamEvent(owner)
   const cat = event.categoryIds[0]
   const [cap, ...rest] = namedSquad(cat)
   const out = await teamOk(event, { members: [cap, ...rest], name: 'Bez Zmian' })
   await accept({ team_id: out.teamId })
   const [e] = (await list(event)).entries
-  // One sign-up shares one created_at, so the others keep a stable order, the same one RB4 shows.
-  assert.equal(e.members[0], 'Ola')
-  assert.deepEqual([...e.members].sort(), ['Ola', 'Piotr', 'Staś', 'Zosia'])
+  // M-2: one sign-up shares one created_at, so the stored team_position keeps the request's order.
+  assert.deepEqual(e.members, ['Ola', 'Piotr', 'Zosia', 'Staś'])
   assert.equal(e.payment, 'free')
 
   // A pair with no birth date is the town rule's own edge: no proof of age, no town.
@@ -600,6 +599,16 @@ test('T-71 teams beside individuals: each competition counts its own unit, and a
   assert.deepEqual(count, { team: 3, individual: 1 })
   assert.deepEqual(data.entries.map((e) => e.name), ['Łosie', 'Sarny', 'Żubry', 'Ala Solo'])
   assert.equal(data.entries[3].kind, undefined, 'a person\'s entry keeps its shape')
+
+  // Final review I-5: Zgłoszenia's free places are people's and teams' apart, never one sum.
+  const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.counts.placesLeft, 49)
+  assert.equal(r.body.counts.teamPlacesLeft, 47)
+  const teamsOnly = await freeTeamEvent(owner)
+  await teamOk(teamsOnly)
+  const t = await callFn('list-event-registrations', owner, { eventId: teamsOnly.eventId })
+  assert.deepEqual([t.body.counts.placesLeft, t.body.counts.teamPlacesLeft], [null, 49])
 })
 
 test('T-74 an added adult is left out of the names until they accept, on the start list and in participants_public, on a paid team too; size and the count do not change', async () => {

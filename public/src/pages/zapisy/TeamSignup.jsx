@@ -16,7 +16,7 @@ import {
 } from '../../lib/groupDraft.js'
 import {
   ADULT_EMAIL_NOTE, initTeam, setSize, droppedBy, moveMember, removeMember, squadCards, toTeamRequest, teamContext, checkTeam, checkCaptain,
-  firstOpenMember, memberAfter, memberAgeLabel, teamFailure,
+  firstOpenMember, memberAfter, memberAgeLabel, teamFailure, repricedFee,
 } from '../../lib/teamDraft.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
 import { focusCardError, useStepHistory } from '../../lib/useStepHistory.js'
@@ -78,7 +78,7 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
   const [verifiedEmail, setVerifiedEmail] = useState(null)
   // RB1 has been left: from here on closing the tab loses a squad.
   const [leftCaptain, setLeftCaptain] = useState(false)
-  // The card asking „Usunąć <imię>?”, and the smaller size asking the same on RB1.
+  // The card asking „Usunąć tę osobę?”, and the smaller size asking „Usunąć z drużyny: …?” on RB1.
   const [removing, setRemoving] = useState(null)
   const [shrinkTo, setShrinkTo] = useState(null)
   // Fields of the captain's card the person typed into: the profile never overwrites them.
@@ -345,6 +345,9 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
         navigate(orderPath(err.orderId), { replace: true })
         return
       }
+      // A 0 zł fee that changed before „Zapisz”: keep the server's, or every retry sends 0 (L-1).
+      const newFee = repricedFee(err)
+      if (newFee != null) setFee(newFee)
       await fail(err)
     }
   }
@@ -441,9 +444,10 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
           <div className="flex flex-col gap-1.5">
             <label htmlFor="team-name" className={labelCls}>Nazwa drużyny</label>
             <input id="team-name" className={`${inputCls} ${nameError ? 'border-apex-red' : ''}`} value={draft.teamName} maxLength={TEAM_NAME_MAX} autoComplete="off"
-              aria-invalid={nameError ? 'true' : undefined} aria-describedby={nameError ? 'team-name-error' : undefined} disabled={busy}
+              aria-invalid={nameError ? 'true' : undefined} aria-describedby={nameError ? 'team-name-error team-name-note' : 'team-name-note'} disabled={busy}
               onChange={(e) => { const v = e.target.value; setDraft((d) => ({ ...d, teamName: v })); setNameError(null) }} />
             {nameError && <p id="team-name-error" className="text-apex-red font-sans text-sm">{nameError}</p>}
+            <p id="team-name-note" className="font-sans text-sm text-apex-muted" data-testid="team-name-public">Nazwa drużyny będzie widoczna na publicznej liście startowej.</p>
           </div>
           <div className="flex flex-col gap-1.5">
             <span id="team-size-label" className={labelCls}>Ile osób w składzie</span>
@@ -494,7 +498,7 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
           )}
         </div>
         {removing === c.key && (
-          <RemoveConfirm id={`p${n}-remove-q`}
+          <RemoveConfirm id={`p${n}-remove-q`} name={cardName(draft, i)}
             onYes={() => confirmRemove(c.key)} onNo={() => cancelRemove(n)} />
         )}
         <PersonForm fields={fields} value={effectivePerson(draft, i, today)} onChange={change(c.key, i)} errors={errors[c.key] ?? {}}

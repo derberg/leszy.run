@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   initTeam, setSize, droppedBy, moveMember, removeMember, memberVariant, toTeamRequest, legOf, squadCards, checkTeam, checkCaptain,
-  teamContext, teamFailure, memberAfter, firstOpenMember, memberAgeLabel,
+  teamContext, teamFailure, memberAfter, firstOpenMember, memberAgeLabel, repricedFee,
 } from '../../src/lib/teamDraft.js'
 import { setCardOpen, setGuardianConsent, updatePerson, LIST_STEP } from '../../src/lib/groupDraft.js'
 import { EMPTY_PERSON } from '../../src/lib/personFormModel.js'
@@ -268,5 +268,20 @@ describe('T-62 teamFailure: where a refusal shows', () => {
   it('anything else is a message on the list', () => {
     const f = teamFailure(err(409, 'team_size', { message: 'Drużyna musi mieć od 2 do 5 osób.' }), team(), today)
     assert.deepEqual([f.step, f.focus, f.message], ['squad', null, 'Drużyna musi mieć od 2 do 5 osób.'])
+  })
+})
+
+describe('Final review L-1: a price_changed keeps the server\'s fee', () => {
+  const err = (amounts, code = 'price_changed') => Object.assign(new Error('Cena się zmieniła. Sprawdź podsumowanie.'), { status: 409, code, amounts })
+  it('the new fee from entryTotal, 0 zł included', () => {
+    assert.equal(repricedFee(err({ entryPrices: [3000], entryTotal: 3000, total: 3000 })), 3000)
+    assert.equal(repricedFee(err({ entryPrices: [0], entryTotal: 0, total: 0 })), 0)
+  })
+  it('anything else → null', () => {
+    assert.equal(repricedFee(err(undefined)), null)
+    assert.equal(repricedFee(err({ entryTotal: -1 })), null)
+    assert.equal(repricedFee(err({ entryTotal: '3000' })), null)
+    assert.equal(repricedFee(err({ entryTotal: 3000 }, 'full')), null)
+    assert.equal(repricedFee(new Error('offline')), null)
   })
 })

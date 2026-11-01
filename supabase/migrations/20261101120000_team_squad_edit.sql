@@ -27,7 +27,18 @@
 -- because team_leg has CHECK (team_leg >= 1).
 --
 -- The added leg is the highest leg + 1. Squads have no gaps today, so that is n + 1. It stays right
--- if Plan 6's organizer removal leaves one, where n + 1 could land on a leg in use.
+-- if Plan 6's organizer removal leaves one, where n + 1 could land on a leg in use. team_position
+-- follows the same rule: an added member goes after the highest live position, and a swapped-in
+-- member takes the old one's (final review M-2).
+--
+-- A swap anonymises the old row in the same transaction (final review I-3): name, contact, birth
+-- date, town, club, nationality, ICE and guardian fields, the profile links, and the consent
+-- acceptances' ip and user agent, as purge_expired_registrations does, and the participant's name
+-- and contact on a confirmed team. The row itself stays, cancelled, with its team, order and price,
+-- so the money keeps its trail; the participant keeps its bib and EPC on the hosts, which must not
+-- be reused. Nothing personal is left to keep: on a pending team the person was never told they
+-- were entered (no Art. 14 notice), and on a confirmed one the e-mail that tells them is sent from
+-- the address this function returns, read before the row is cleared.
 --
 -- A child's acceptances are the captain's as guardian, so an edit bringing in a child must carry
 -- the consents the captain was shown, as create_team_registration does. An adult accepts for
@@ -37,7 +48,7 @@
 -- team. The team's order and status come from the captain's row. Internal, like
 -- registration_group_insert: it runs as its caller.
 CREATE FUNCTION public.team_squad_insert(p_rs public.registration_settings, p_captain public.registrations,
-                                         p_person jsonb, p_leg integer, p_actor uuid, p_meta jsonb)
+                                         p_person jsonb, p_leg integer, p_position integer, p_actor uuid, p_meta jsonb)
   RETURNS uuid
   LANGUAGE plpgsql
   SET search_path = ''
@@ -95,13 +106,13 @@ BEGIN
     RAISE;
   END;
 
-  UPDATE public.registrations SET team_id = p_captain.team_id, team_leg = p_leg WHERE id = v_reg;
+  UPDATE public.registrations SET team_id = p_captain.team_id, team_leg = p_leg, team_position = p_position WHERE id = v_reg;
   IF p_captain.status = 'confirmed' THEN
     PERFORM public.insert_registration_participant(v_reg);
   END IF;
   RETURN v_reg;
 END $$;
-REVOKE EXECUTE ON FUNCTION public.team_squad_insert(public.registration_settings, public.registrations, jsonb, integer, uuid, jsonb)
+REVOKE EXECUTE ON FUNCTION public.team_squad_insert(public.registration_settings, public.registrations, jsonb, integer, integer, uuid, jsonb)
   FROM public, anon, authenticated, service_role;
 
 CREATE FUNCTION public.team_squad_edit(p_team_id uuid, p_actor_profile_id uuid, p_op jsonb, p_meta jsonb)
@@ -121,6 +132,8 @@ DECLARE
   v_order uuid;
   v_count integer;
   v_max   integer;
+  v_pos   integer;
+  v_gone  constant text := 'Usunięte zgłoszenie';
   v_id    uuid;
   v_new   uuid;
 BEGIN
@@ -153,7 +166,7 @@ BEGIN
     RAISE EXCEPTION 'squad_closed';
   END IF;
 
-  SELECT count(*), max(r.team_leg) INTO v_count, v_max
+  SELECT count(*), max(r.team_leg), max(r.team_position) INTO v_count, v_max, v_pos
     FROM public.registrations r WHERE r.team_id = p_team_id AND r.status = ANY (c_live);
 
   IF v_op = 'reorder' THEN
@@ -184,7 +197,7 @@ BEGIN
     END IF;
     v_new := public.team_squad_insert(v_rs, v_cap, p_op->'person',
                                       CASE WHEN v_comp.leg_order_enabled THEN coalesce(v_max, 0) + 1 END,
-                                      p_actor_profile_id, p_meta);
+                                      coalesce(v_pos, 0) + 1, p_actor_profile_id, p_meta);
     RETURN jsonb_build_object(
       'added', jsonb_build_array(jsonb_build_object('id', v_new, 'role', p_op#>>'{person,role}')),
       'removed', '[]'::jsonb);
@@ -204,11 +217,23 @@ BEGIN
     RAISE EXCEPTION 'not_member';
   END IF;
 
-  UPDATE public.registrations SET status = 'cancelled' WHERE id = v_old.id;
+  UPDATE public.registrations
+     SET status = 'cancelled',
+         first_name = v_gone, last_name = v_gone, profile_id = NULL,
+         email = NULL, phone = NULL, birth_date = NULL, city = NULL, club = NULL,
+         ice_name = NULL, ice_phone = NULL, nationality = NULL,
+         guardian_profile_id = NULL, guardian_name = NULL, guardian_email = NULL
+   WHERE id = v_old.id;
+  UPDATE public.consent_acceptances SET ip = NULL, user_agent = NULL
+   WHERE registration_id = v_old.id AND (ip IS NOT NULL OR user_agent IS NOT NULL);
   IF v_old.participant_id IS NOT NULL THEN
-    UPDATE public.participants SET removed_at = now(), updated_at = now() WHERE id = v_old.participant_id;
+    UPDATE public.participants
+       SET removed_at = now(), updated_at = now(),
+           first_name = v_gone, last_name = v_gone, email = NULL, phone = NULL, birth_date = NULL, club = NULL
+     WHERE id = v_old.participant_id;
   END IF;
-  v_new := public.team_squad_insert(v_rs, v_cap, p_op->'person', v_old.team_leg, p_actor_profile_id, p_meta);
+  v_new := public.team_squad_insert(v_rs, v_cap, p_op->'person', v_old.team_leg, v_old.team_position,
+                                    p_actor_profile_id, p_meta);
 
   RETURN jsonb_build_object(
     'added', jsonb_build_array(jsonb_build_object('id', v_new, 'role', p_op#>>'{person,role}')),

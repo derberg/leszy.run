@@ -232,6 +232,20 @@ test('T-62 RA1: the team card reads „Drużyny N–M osób · <cena> / drużyna
   const page = await setUp(actors.viewer, 390)
   await page.goto(`/events/${event.slug}`)
   await expect(page.getByTestId('team-line')).toHaveText('Drużyny 2–4 osób · 240 zł / drużyna · 0 / 20 DRUŻYN')
+  // Final review I-5: an event of teams only counts drużyny, never people.
+  await expect(page.getByTestId('stat-registered')).toContainText('0 drużyn')
+  await expect(page.getByTestId('stat-registered')).not.toContainText('osób')
+  await expect(page.getByTestId('stat-free')).toContainText('20 dla drużyn')
+})
+
+test('T-62 M-1 RB1 says under the name that it is public', async ({ actors }) => {
+  const event = await freeEvent()
+  const page = await setUp(actors.runner, 390)
+  await page.goto(`/events/${event.slug}`)
+  await page.getByTestId('competition').first().click()
+  const note = page.getByTestId('team-name-public')
+  await expect(note).toHaveText('Nazwa drużyny będzie widoczna na publicznej liście startowej.')
+  await expect(page.getByLabel('Nazwa drużyny')).toHaveAccessibleDescription('Nazwa drużyny będzie widoczna na publicznej liście startowej.')
 })
 
 for (const width of WIDTHS) {
@@ -356,7 +370,7 @@ test('T-66 390 px: one member on screen at a time; the list step changes, remove
   await page.getByTestId('remove-no').click()
   await expect(page.getByTestId('person-row')).toHaveCount(3)
   await page.getByRole('button', { name: 'Usuń — Piotr Leśny' }).click()
-  await page.getByTestId('remove-yes').click()
+  await page.getByRole('button', { name: 'Tak, usuń — Piotr Leśny' }).click()
   await expect(page.getByTestId('person-row')).toHaveCount(2)
   await noButtonWraps(page)
 })

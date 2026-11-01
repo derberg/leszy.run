@@ -305,7 +305,7 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
         )}
         {errorLine}
         {confirming
-          ? <RemoveConfirm id="m-remove-q" onYes={saveMember} onNo={() => setConfirming(false)} />
+          ? <RemoveConfirm id="m-remove-q" name={memberName(form.target)} onYes={saveMember} onNo={() => setConfirming(false)} />
           : (
             <button type="submit" disabled={busy || !ready} className={primaryBtn}>
               {busy ? 'Chwileczkę…' : label}

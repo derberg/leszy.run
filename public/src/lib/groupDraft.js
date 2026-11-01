@@ -285,6 +285,16 @@ const ON_PERSON = new Set(['duplicate', 'email_retired'])
  * `full` with a `categoryId` lands on the competition select of every added card in that
  * competition (card 1's competition is the page's own and cannot be changed there).
  */
+/**
+ * The competitions an added person may pick on the group form: the open ones, in the event page's
+ * order, less every team competition. A team signs up only through the team form (D5-12), so a
+ * card there could only end in 409 team_competition after the whole form was filled.
+ * @param {{ competitions: Array<{ state: string, kind?: string }> }} model eventPageModel's
+ */
+export function addableCompetitions(model) {
+  return model.competitions.filter((c) => c.state === 'open' && c.kind !== 'team')
+}
+
 export function groupFailure(err, draft, today) {
   const errors = {}
   const put = (ci, field, message) => {
@@ -316,7 +326,9 @@ export function groupFailure(err, draft, today) {
     for (const [f, m] of Object.entries(err.buyer ?? {})) put(0, f, m)
     return routed(err.message)
   }
-  if (err?.status != null && err.code === 'full' && err.categoryId) {
+  // A full competition, or a team competition (team_competition, D5-12: a team signs up through
+  // the team form), lands on the competition select of the added cards in it.
+  if (err?.status != null && (err.code === 'full' || err.code === 'team_competition') && err.categoryId) {
     draft.cards.forEach((c, i) => { if (i > 0 && c.categoryId === err.categoryId) put(i, 'competition', err.message) })
     if (Object.keys(errors).length) {
       const names = erroredCards(draft, errors).map((key) => cardName(draft, draft.cards.findIndex((c) => c.key === key)))

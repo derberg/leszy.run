@@ -33,6 +33,35 @@ const teamsText = (n) => countPl(n, ['drużyna zapisana', 'drużyny zapisane', '
 const sizeText = (n) => countPl(n, ['osoba', 'osoby', 'osób'])
 
 const isTeam = (e) => e.kind === 'team'
+const sum = (rows, k) => rows.reduce((n, c) => n + (c[k] ?? 0), 0)
+
+// A paid event's header for a team competition: the unit is in every phrase, so it never reads as
+// people. CLAUDE.md: people and teams are never added into one number.
+const teamPaidText = (n) => countPl(n, ['drużyna opłacona', 'drużyny opłacone', 'drużyn opłaconych'])
+const teamFreeText = (n) => `${countPl(n, ['drużyna', 'drużyny', 'drużyn'])} bez opłaty`
+const teamAwaitingText = (n) => `+${countPl(n, ['drużyna', 'drużyny', 'drużyn'])} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
+const peoplePaidText = (n) => countPl(n, ['osoba opłacona', 'osoby opłacone', 'osób opłaconych'])
+const peopleFreeText = (n) => `${countPl(n, ['osoba', 'osoby', 'osób'])} bez opłaty`
+const peopleAwaitingText = (n) => `+${countPl(n, ['osoba', 'osoby', 'osób'])} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
+
+/**
+ * „53 opłacone · 5 bez opłaty · +2 czekają na wpłatę” with no team competition, as before. With
+ * one, people (the individual competitions, when there are any) then teams, each phrase with its
+ * unit: „2 osoby opłacone · 2 drużyny opłacone · 1 drużyna bez opłaty · +1 drużyna czeka na wpłatę”.
+ */
+function paidHeader(peopleComps, teamComps) {
+  const part = (rows, [paid, free, awaiting], always) => {
+    const p = sum(rows, 'paid')
+    const f = sum(rows, 'free')
+    const a = sum(rows, 'awaiting')
+    return [p > 0 || always ? paid(p) : null, f > 0 ? free(f) : null, a > 0 ? awaiting(a) : null]
+  }
+  if (!teamComps.length) return part(peopleComps, [paidText, freeText, awaitingText], true).filter(Boolean).join(' · ')
+  return [
+    ...(peopleComps.length ? part(peopleComps, [peoplePaidText, peopleFreeText, peopleAwaitingText], true) : []),
+    ...part(teamComps, [teamPaidText, teamFreeText, teamAwaitingText], true),
+  ].filter(Boolean).join(' · ')
+}
 
 function teamEntry(e, paidEvent) {
   const membersText = e.members.join(', ')
@@ -62,14 +91,12 @@ function teamEntry(e, paidEvent) {
 export function startListView(snapshot, { paidEvent }) {
   const comps = snapshot?.competitions ?? []
   const entries = snapshot?.entries ?? []
-  const sum = (k) => comps.reduce((n, c) => n + (c[k] ?? 0), 0)
-  const paid = sum('paid')
-  const free = sum('free')
-  const awaiting = sum('awaiting')
-  const teams = comps.filter((c) => c.kind === 'team').reduce((n, c) => n + (c.paid ?? 0) + (c.free ?? 0), 0)
-  const people = free + paid - teams
+  const teamComps = comps.filter((c) => c.kind === 'team')
+  const peopleComps = comps.filter((c) => c.kind !== 'team')
+  const teams = sum(teamComps, 'paid') + sum(teamComps, 'free')
+  const people = sum(peopleComps, 'paid') + sum(peopleComps, 'free')
   const header = paidEvent
-    ? [paidText(paid), free > 0 ? freeText(free) : null, awaiting > 0 ? awaitingText(awaiting) : null].filter(Boolean).join(' · ')
+    ? paidHeader(peopleComps, teamComps)
     : [people > 0 || teams === 0 ? registeredText(people) : null, teams > 0 ? teamsText(teams) : null].filter(Boolean).join(' · ')
   return {
     header,

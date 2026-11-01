@@ -68,6 +68,14 @@ CREATE INDEX registrations_team_id_idx ON public.registrations (team_id);
 CREATE UNIQUE INDEX registrations_team_leg_live_key ON public.registrations (team_id, team_leg)
   WHERE team_leg IS NOT NULL AND status IN ('pending_payment', 'confirmed');
 
+-- A member's place in the squad as the captain gave it: request order at sign-up (the captain is
+-- 1), an added member after the last, a swapped-in member in the old one's place. With leg order
+-- off it is the only order a team's names have: one sign-up writes every row in one transaction,
+-- so created_at is shared and the next key would be a random uuid (final review M-2). Not unique:
+-- a swap leaves the cancelled row on the same place.
+ALTER TABLE public.registrations
+  ADD COLUMN team_position integer CHECK (team_position >= 1);
+
 -- ---------------------------------------------------------------- teams_follow_captain
 
 CREATE FUNCTION public.teams_follow_captain() RETURNS trigger

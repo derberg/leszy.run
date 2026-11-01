@@ -597,7 +597,8 @@ BEGIN
                                               CASE WHEN v_idx = 1 THEN v_fee ELSE 0 END, v_ip, v_ua);
     UPDATE public.registrations
        SET team_id = v_team,
-           team_leg = CASE WHEN v_comp.leg_order_enabled THEN (v_person->>'leg')::integer END
+           team_leg = CASE WHEN v_comp.leg_order_enabled THEN (v_person->>'leg')::integer END,
+           team_position = v_idx
      WHERE id = v_reg;
     v_regs := v_regs || v_reg;
     v_out := v_out || jsonb_build_object('id', v_reg, 'index', v_idx - 1, 'role', v_person->>'role');

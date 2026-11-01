@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
         .select('id, category_id, order_id, first_name, last_name, age_group_label, status, created_at, price, ' +
           'profile_id, registered_by_profile_id, consent_state, guardian_profile_id, guardian_name, guardian_removed_at, team_id')
         .eq('event_id', eventId).order('created_at').order('id')),
-      allRows(() => admin.from('competitions').select('category_id, name, capacity, taken, hidden_at').eq('event_id', eventId).order('category_id')),
+      allRows(() => admin.from('competitions').select('category_id, name, kind, capacity, taken, hidden_at').eq('event_id', eventId).order('category_id')),
       allRows(() => admin.from('orders').select('id, total, expires_at, buyer_name').eq('event_id', eventId).order('id')),
       allRows(() => admin.from('teams').select('id, name, category_id, captain_registration_id, released_at').eq('event_id', eventId).order('id')),
     ])
@@ -144,10 +144,17 @@ Deno.serve(async (req) => {
     const orderOfReg = (r) => (r.order_id ? orderOf.get(r.order_id) : null)
 
     // placesLeft: capacity minus confirmed entries over the visible competitions. Entries
-    // awaiting payment hold no place (P3-R15), so they do not lower it.
-    const placesLeft = comps.filter((c) => !c.hidden_at)
+    // awaiting payment hold no place (P3-R15), so they do not lower it. A team competition's
+    // places are teams (D5-28), so they never join a person's: placesLeft is the individual
+    // competitions' (null on an event of team competitions only), teamPlacesLeft the team
+    // competitions' (null when there is none).
+    const isTeam = (c) => c.kind === 'team'
+    const left = (rows) => rows.filter((c) => !c.hidden_at)
       .reduce((n, c) => n + Math.max(0, (c.capacity ?? 0) - (c.taken ?? 0)), 0)
-    const counts = { paid: 0, awaiting: 0, free: 0, placesLeft, awaitingConsent: 0 }
+    const teamComps = comps.filter(isTeam)
+    const placesLeft = teamComps.length && teamComps.length === comps.length ? null : left(comps.filter((c) => !isTeam(c)))
+    const teamPlacesLeft = teamComps.length ? left(teamComps) : null
+    const counts = { paid: 0, awaiting: 0, free: 0, placesLeft, teamPlacesLeft, awaitingConsent: 0 }
     const registeredBy = await registeredByNames(admin, regs, orderOf)
     const data = regs.map((r) => {
       const order = orderOfReg(r)

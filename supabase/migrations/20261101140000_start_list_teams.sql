@@ -23,8 +23,9 @@
 -- town is the captain's, under the rule every town here follows: none for somebody under 18 on the
 -- event date or with no birth date. The captain is always an adult, so that leaves the no-date case.
 --
--- Names run in leg order when the competition has it on, else captain first, then as they
--- registered. The order is all the list says about the legs: `team_leg` is never returned. No
+-- Names run in leg order when the competition has it on, else in team_position: the order the
+-- captain gave them (the captain first), an added member last, a swapped-in member in the old
+-- place. The order is all the list says about the legs: `team_leg` is never returned. No
 -- surname, birth date, contact, guardian, price, or id of a team, person or order, at any depth.
 -- A team sorts by its name, in Polish, among its competition's entries.
 
@@ -115,7 +116,7 @@ AS $$
              'members', COALESCE((
                SELECT jsonb_agg(m.first_name ORDER BY
                         CASE WHEN t.leg_order_enabled IS TRUE THEN m.team_leg END NULLS LAST,
-                        (m.id = t.captain_registration_id) DESC, m.created_at, m.id)
+                        m.team_position NULLS LAST, m.created_at, m.id)
                  FROM public.registrations m
                 WHERE m.team_id = t.id AND m.status = 'confirmed'
                   AND m.consent_state IS DISTINCT FROM 'awaiting'
