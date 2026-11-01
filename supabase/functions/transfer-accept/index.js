@@ -25,7 +25,8 @@
 //
 // Every call claims transfer-ip:<ip> (30/h) and transfer-token:<hash> (10/h). A dead link (unknown,
 // used, cancelled, expired, or its entry no longer confirmed) is 409 gone; transfers switched off
-// or past their date 409 transfer_off. The token is looked up by its SHA-256 only, and never
+// or past their date 409 transfer_off; a refund of the entry waiting for dpay 409 refund_pending
+// (V-87), on every call, so no code is sent while it waits. The token is looked up by its SHA-256 only, and never
 // logged or returned.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest, isAllowed } from '../_shared/cors.js'
@@ -41,6 +42,7 @@ import { formatPln } from '../_shared/registration/money.js'
 import { warsawToday } from '../_shared/registration/dates.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
 import { callTransferRpc, GONE, sendAcceptedTransferEmail, TRANSFER_REFUSALS } from '../_shared/registration/transfers.js'
+import { refundsInFlight } from '../_shared/registration/refundInFlight.js'
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -94,6 +96,8 @@ async function loadInvite(admin, req, token, hash) {
   if (!settings.transfer_enabled || !settings.transfer_until || warsawToday() > settings.transfer_until) {
     return { response: refuse(req, 'transfer_off') }
   }
+  // V-87 (M-1): refused on the preview, before a code is sent, while a refund of the entry waits.
+  if ((await refundsInFlight(admin, [reg.id])).has(reg.id)) return { response: refuse(req, 'refund_pending') }
   return { transfer, reg, settings }
 }
 

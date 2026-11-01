@@ -584,9 +584,9 @@ test('O-30 M6 a list row carries exactly the D6-11 key set, so a field added lat
     'categoryId', 'firstName', 'lastName', 'birthDate', 'gender', 'phone', 'city', 'club', 'nationality', 'iceName',
     'icePhone', 'email', 'bib', 'orderId', 'price', 'lines', 'paidAmount', 'refunded', 'refundUnconfirmed',
     'statusKey', 'autoRefundReason',
-    // Plan 7: the partner (organizer-only, V-33), the voucher's code (CSV) and TransferDialog's
-    // same-price competitions (V-86)
-    'partnerId', 'partnerName', 'voucherCode', 'transferTo',
+    // Plan 7: the partner (organizer-only, V-33), the voucher's code (CSV), TransferDialog's
+    // same-price competitions (V-86) and a refund in flight that hides the transfer (V-87)
+    'partnerId', 'partnerName', 'voucherCode', 'transferTo', 'refundPending',
   ].sort())
 })
 

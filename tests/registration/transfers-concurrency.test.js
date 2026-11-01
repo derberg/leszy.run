@@ -151,6 +151,45 @@ test('V-47c 50 rounds: accept vs finish_organizer_refund(accepted) on the same l
   t.diagnostic(`outcomes ${JSON.stringify(counts)}`)
 })
 
+test('V-47h 50 rounds: reserve_organizer_refund (the whole entry) vs the accept of an open invite → exactly one wins: no refund on a moved line, no transfer with a refund reserved (V-87, V-89)', async (t) => {
+  const event = await paidEvent()
+  const [cat] = event.categoryIds
+  const counts = { refundFirst: 0, acceptFirst: 0 }
+  for (let round = 0; round < 50; round++) {
+    const a = await paidEntry(event)
+    const inv = await inviteOk(a.reg.id, a.profileId)
+    const [line] = (await rows('order_lines', { order_id: a.orderId })).filter((l) => l.kind === 'entry')
+    const go = await acceptCall(event, inv.hash, { categoryId: cat })
+    const [acc, res] = await together(round,
+      held(round, 0, go),
+      held(round, 1, () => rpc('reserve_organizer_refund', {
+        p_line_id: line.id, p_grosze: a.total, p_actor: ownerId, p_request_key: key(), p_registration_id: a.reg.id,
+      })))
+    noDeadlock(acc, `round ${round}`)
+    noDeadlock(res, `round ${round}`)
+    assert.ok(Boolean(acc.error) !== Boolean(res.error), `round ${round}: exactly one wins (${acc.error?.message} / ${res.error?.message})`)
+    const refunds = await rows('refunds', { order_id: a.orderId })
+    const nowLine = await one('order_lines', { id: line.id })
+    if (acc.error) {
+      assert.equal(acc.error.message, 'refund_pending', `round ${round}`)
+      assert.equal(refunds.length, 1)
+      assert.equal(nowLine.registration_id, a.reg.id, 'the refund sits on the old holder\'s line')
+      assert.equal((await reg(a.reg.id)).status, 'confirmed')
+      assert.equal((await one('transfers', { id: inv.transferId })).status, 'pending')
+      counts.refundFirst++
+    } else {
+      assert.equal(res.error.message, 'entry_changed', `round ${round}`)
+      assert.deepEqual(refunds, [], 'no refund reserved on the moved line')
+      assert.equal(nowLine.registration_id, acc.data.registrationId)
+      assert.equal(nowLine.refunded, 0)
+      assert.equal((await reg(a.reg.id)).status, 'transferred_out')
+      counts.acceptFirst++
+    }
+  }
+  t.diagnostic(`outcomes ${JSON.stringify(counts)}`)
+  assert.ok(counts.refundFirst > 0 && counts.acceptFirst > 0, `both orders must occur: ${JSON.stringify(counts)}`)
+})
+
 test('V-47d 50 rounds: a cross-competition accept vs register_free for the last slot → no 40P01, register_free never past the limit', async (t) => {
   const event = await freeEvent(1000)
   const [from, into] = event.categoryIds

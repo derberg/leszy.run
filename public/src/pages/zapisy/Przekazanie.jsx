@@ -229,6 +229,9 @@ export default function Przekazanie() {
       if (data) {
         setDraft((d) => ({ ...d, categoryId: d.categoryId || data.competition.categoryId }))
         setState({ step: 'form', preview: data })
+      } else if (err.code === 'refund_pending') {
+        // The link still works once the refund is settled (V-87): the token stays for this tab.
+        setState({ step: 'error', message: acceptError(err) })
       } else if (err.status === 409 || err.status === 400) {
         endLink(err)
       } else {

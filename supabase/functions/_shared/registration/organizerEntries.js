@@ -2,6 +2,7 @@
 // shaped for the panel and the CSV. Shared by list-event-registrations and
 // export-event-registrations, so the export holds exactly what the panel shows. The caller has
 // already checked that the session is the owner or an admin of the event's club.
+import { refundsInFlight } from './refundInFlight.js'
 import { allRows } from './allRows.js'
 import { paymentStatusOf, registrationRole } from './group.js'
 import { entryStatusKey, unconfirmedRefundGrosze } from './entries.js'
@@ -82,6 +83,7 @@ const groupBy = (items, key) => {
  *   statusKey           entryStatusKey, from this row's own refunds and participant
  *   autoRefundReason    'full' when the order was refunded automatically for a full competition
  *   partnerId, partnerName  the entry's partner (registration_partners), null when none
+ *   refundPending           a refund of the entry waits for dpay (V-87): no transfer is offered
  *   transferTo          the competitions an organizer transfer may move the entry to (same price
  *                       in its frozen tier, visible, individual; a captain's own), [] when none
  *   voucherCode         the code the entry was bought with, null when none
@@ -113,6 +115,8 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     allRows(() => admin.from('competition_prices').select('category_id, tier_id, amount, competitions!inner(event_id)')
       .eq('competitions.event_id', eventId).order('category_id').order('tier_id')),
   ])
+  // V-87 (M-1): ⋯ „Przekaż pakiet” is not offered while a refund of the entry waits for dpay.
+  const inFlight = await refundsInFlight(admin, regs.filter((r) => r.status === 'confirmed').map((r) => r.id))
   const partnerName = new Map(partnerRows.map((p) => [p.id, p.name]))
   const voucherCode = new Map(voucherRows.map((v) => [v.id, v.code]))
   const nameOf = new Map(comps.map((c) => [c.category_id, c.name]))
@@ -227,6 +231,7 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       partnerName: r.partner_id ? (partnerName.get(r.partner_id) ?? null) : null,
       voucherCode: r.voucher_id ? (voucherCode.get(r.voucher_id) ?? null) : null,
       transferTo: transferTo(r),
+      refundPending: inFlight.has(r.id),
     }
     row.statusKey = entryStatusKey({ ...row, refunds, participant }, now)
     if (guardianEmail) row.guardianEmail = role === 'minor' ? (r.guardian_email ?? null) : null

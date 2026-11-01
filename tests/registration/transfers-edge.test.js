@@ -167,7 +167,7 @@ test('V-50 create: no session 401, a stranger 404; the holder invites, the token
   // Transfers switched off → not allowed, and create answers transfer_off.
   await setSettings(event.eventId, { transfer_enabled: false })
   const off = await call('transfer-invite', { action: 'status', registrationId: a.reg.id }, { session: holder })
-  assert.deepEqual(off.body.data, { allowed: false, until: null, pending: null })
+  assert.deepEqual(off.body.data, { allowed: false, until: null, pending: null, refundPending: false })
 })
 
 test('V-50 create: 5 invites per entry per 24 h, the 6th is 429', async () => {
@@ -558,7 +558,7 @@ test('V-65 order-status: the buyer\'s own confirmed line carries the transfer bl
   }
   let lines = await read()
   const own = lines.find((l) => l.mine)
-  assert.deepEqual(own.transfer, { allowed: true, until, pending: null })
+  assert.deepEqual(own.transfer, { allowed: true, until, pending: null, refundPending: false })
   for (const l of lines.filter((x) => !x.mine)) assert.equal(l.transfer, null, `${l.role}: never another person's transfer data`)
 
   // An open invite shows on the buyer's own line only.
@@ -745,7 +745,7 @@ test('V-83 the recipient deletes the account: live invites to them are cancelled
 
 // ---------------------------------------------------------------- V-87 a refund in flight
 
-test('V-87 a refund in flight: transfer-invite, transfer-accept and organizer-entry-action answer 409 refund_pending in Polish', async () => {
+test('V-87 a refund in flight: transfer-invite, organizer-entry-action and transfer-accept (preview and code, before any code goes out) answer 409 refund_pending in Polish; the read models say so', async () => {
   const event = await paidEvent()
   const { a, holder } = await holderOf(event)
   const open = await invited(a, holder)
@@ -759,10 +759,26 @@ test('V-87 a refund in flight: transfer-invite, transfer-accept and organizer-en
   const inv = await call('transfer-invite', { action: 'create', registrationId: a.reg.id, toEmail: runnerEmail('later') }, { session: holder })
   assert.equal(inv.status, 409, inv.text)
   assert.deepEqual([inv.body.code, inv.body.error], ['refund_pending', RUNNER])
-  // The invite sent before the refund cannot be taken while dpay has not answered.
-  const took = await acceptWithCode(event, open.token, open.toEmail)
-  assert.equal(took.status, 409, took.text)
-  assert.deepEqual([took.body.code, took.body.error], ['refund_pending', RUNNER])
+
+  // M-1: the invitee is refused on the preview, and no code is sent to them.
+  const mailsBefore = (await messagesTo(open.toEmail)).length
+  const preview = await call('transfer-accept', { token: open.token })
+  assert.equal(preview.status, 409, preview.text)
+  assert.deepEqual([preview.body.code, preview.body.error], ['refund_pending', RUNNER])
+  const code = await call('transfer-accept', { token: open.token, sendCode: true, email: open.toEmail })
+  assert.equal(code.status, 409, code.text)
+  assert.equal(code.body.code, 'refund_pending')
+  await sleep(300)
+  assert.equal((await messagesTo(open.toEmail)).length, mailsBefore, 'no login code went out')
+
+  // The runner's transfer block and B3's row carry the flag.
+  const status = await call('transfer-invite', { action: 'status', registrationId: a.reg.id }, { session: holder })
+  assert.equal(status.body.data.allowed, false)
+  assert.equal(status.body.data.refundPending, true)
+  const mine = (await call('my-event-registrations', { slug: event.slug }, { session: holder })).body.data.find((r) => r.id === a.reg.id)
+  assert.deepEqual([mine.transfer.allowed, mine.transfer.refundPending], [false, true])
+  const list = await call('list-event-registrations', { eventId: event.eventId }, { session: owner })
+  assert.equal(list.body.data.find((r) => r.id === a.reg.id).refundPending, true)
 
   const org = await call('organizer-entry-action', {
     action: 'transfer', registrationId: a.reg.id, categoryId: event.categoryIds[0], person: recipientPerson(runnerEmail('org87')),
@@ -771,6 +787,24 @@ test('V-87 a refund in flight: transfer-invite, transfer-accept and organizer-en
   assert.equal(org.body.code, 'refund_pending')
   assert.equal(org.body.error, 'Trwa zwrot wpłaty za to zgłoszenie — przekazanie pakietu jest niemożliwe do czasu odpowiedzi operatora płatności.')
   assert.equal((await one('registrations', { id: a.reg.id })).status, 'confirmed')
+  assert.equal((await transferOf(open.transferId)).status, 'pending', 'the invite waits for the refund')
+})
+
+// ---------------------------------------------------------------- V-89 a stale refund dialog
+
+test('V-89 organizer-refund with the registrationId the dialog showed: after a transfer, 409 entry_changed in Polish and nothing reserved', async () => {
+  const event = await paidEvent()
+  const { a, holder } = await holderOf(event)
+  const [line] = (await rows('order_lines', { registration_id: a.reg.id })).filter((l) => l.kind === 'entry')
+  const open = await invited(a, holder)
+  const took = await acceptWithCode(event, open.token, open.toEmail)
+  assert.equal(took.status, 200, took.text)
+  const stale = await call('organizer-refund', { lineId: line.id, grosze: 1000, requestKey: crypto.randomUUID(), registrationId: a.reg.id }, { session: owner })
+  assert.equal(stale.status, 409, stale.text)
+  assert.deepEqual([stale.body.code, stale.body.error], ['entry_changed', 'Zgłoszenie zmieniło się — odśwież listę.'])
+  assert.deepEqual(await rows('refunds', { order_line_id: line.id }), [])
+  const bad = await call('organizer-refund', { lineId: line.id, grosze: 1000, requestKey: crypto.randomUUID(), registrationId: 'nie-uuid' }, { session: owner })
+  assert.equal(bad.status, 404, bad.text)
 })
 
 // ---------------------------------------------------------------- V-88 the invitee is told
@@ -798,7 +832,12 @@ test('V-88 the sender deletes the account: the invited address gets „Zaproszen
   // Straight through the RPC: the invite e-mail to this address would bounce too.
   const bounce = await inviteOk(two.a.reg.id, two.a.profileId, runnerEmail('bounce'))
   await deleteAccount(two.a.email, two.holder)
-  assert.equal((await transferOf(bounce.transferId)).status, 'cancelled')
+  const bounced = await transferOf(bounce.transferId)
+  assert.equal(bounced.status, 'cancelled')
+  // sendTransferEmail gives a claim back when the send certainly failed (the mail server said no);
+  // no job re-sends „Zaproszenie cofnięte”, so it stays unsent, with no second attempt.
+  assert.equal(bounced.cancel_emailed_at, null, 'the claim was given back')
+  assert.deepEqual(await messagesTo(bounce.toEmail), [])
   assert.equal((await one('registrations', { id: two.a.reg.id })).first_name, 'Usunięte konto')
 })
 

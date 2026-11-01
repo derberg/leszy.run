@@ -8,6 +8,7 @@ import { warsawToday } from './dates.js'
 import { ADULT_AGE } from './person.js'
 import { eventPageUrl } from './slug.js'
 import { transferAcceptedEmail, transferByOrganizerEmail, transferConfirmationEmail } from './transferEmails.js'
+import { refundsInFlight } from './refundInFlight.js'
 
 async function rows(query) {
   const { data, error } = await query
@@ -293,7 +294,9 @@ export function transferAllowed(reg, settings, userId, { team = null, now = new 
 
 /**
  * The transfer block of each of `regs` for the session `userId`:
- * → Map(id → { allowed, until, pending: { transferId, toEmail, createdAt, expiresAt } | null }).
+ * → Map(id → { allowed, until, pending: { transferId, toEmail, createdAt, expiresAt } | null,
+ *   refundPending }). `refundPending` (V-87): a refund of the entry waits for dpay, so the RPCs
+ * would answer refund_pending; `allowed` is false while it does.
  * `pending` is the holder's own open invite only, and an invite past expires_at is not pending,
  * whatever its status says (create_transfer marks those expired only on the next invite). The
  * address is the one the holder typed; nobody else is shown it.
@@ -302,12 +305,13 @@ export function transferAllowed(reg, settings, userId, { team = null, now = new 
 export async function transferViews(admin, regs, settings, userId, { now = new Date() } = {}) {
   const mine = regs.filter((r) => r.profile_id && r.profile_id === userId)
   const teamIds = [...new Set(mine.map((r) => r.team_id).filter(Boolean))]
-  const [pending, teams] = await Promise.all([
+  const [pending, teams, inFlight] = await Promise.all([
     mine.length
       ? rows(admin.from('transfers').select('id, registration_id, to_email, created_at, expires_at')
         .in('registration_id', mine.map((r) => r.id)).eq('status', 'pending').gt('expires_at', now.toISOString()))
       : [],
     teamIds.length ? rows(admin.from('teams').select('id, captain_registration_id').in('id', teamIds)) : [],
+    refundsInFlight(admin, mine.filter((r) => r.status === 'confirmed').map((r) => r.id)),
   ])
   const pendingOf = new Map(pending.map((t) => [t.registration_id, t]))
   const teamOf = new Map(teams.map((t) => [t.id, t]))
@@ -315,10 +319,12 @@ export async function transferViews(admin, regs, settings, userId, { now = new D
   return new Map(regs.map((r) => {
     const isMine = Boolean(r.profile_id) && r.profile_id === userId
     const t = isMine ? pendingOf.get(r.id) : null
+    const refundPending = inFlight.has(r.id)
     return [r.id, {
-      allowed: isMine && transferAllowed(r, settings, userId, { team: teamOf.get(r.team_id) ?? null, now }),
+      allowed: isMine && !refundPending && transferAllowed(r, settings, userId, { team: teamOf.get(r.team_id) ?? null, now }),
       until,
       pending: t ? { transferId: t.id, toEmail: t.to_email, createdAt: t.created_at, expiresAt: t.expires_at } : null,
+      refundPending,
     }]
   }))
 }

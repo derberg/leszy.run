@@ -635,10 +635,9 @@ async function reserve(registrationId, kind, grosze) {
 }
 const finish = async (refundId, outcome) => ok(await rpc('finish_organizer_refund', { p_refund_id: refundId, p_outcome: outcome }))
 
-test('V-87 a refund in flight on the entry or its extra blocks create_transfer, the accept of an open invite and organizer_transfer (refund_pending)', async () => {
+test('V-87 a refund in flight on the entry blocks create_transfer, the accept of an open invite and organizer_transfer (refund_pending), pending or unknown; once rejected the open invite is taken', async () => {
   const event = await paidEvent()
-  const { variants: { M } } = await makeExtra(event, { variants: [['M', 10]] })
-  const a = await paidEntry(event, { variant: M, displayed: 6000 + 4500 })
+  const a = await paidEntry(event)
   // An invite sent before the refund was asked for.
   const open = await inviteOk(a.reg.id, a.profileId, runnerEmail('open'))
 
@@ -647,13 +646,23 @@ test('V-87 a refund in flight on the entry or its extra blocks create_transfer, 
   // The open invite cannot be taken while dpay has not answered.
   refused(await accept(event, open.hash, { email: open.toEmail }), 'refund_pending')
   refused(await organizerTransfer(event, a.reg.id, ownerId), 'refund_pending')
-  // No answer yet from dpay is still in flight.
+  // No answer yet from dpay is still in flight, for all three.
   await finish(onEntry, 'unknown')
+  refused((await invite(a.reg.id, a.profileId, runnerEmail('unknown'))).result, 'refund_pending')
   refused(await accept(event, open.hash, { email: open.toEmail }), 'refund_pending')
   refused(await organizerTransfer(event, a.reg.id, ownerId), 'refund_pending')
-  // Rejected: the reservation came back, the package can move again.
+  // Rejected: the reservation came back, and the invite already open is taken at once.
   await finish(onEntry, 'rejected')
-  ok(await rpc('cancel_transfer', { p_transfer_id: open.transferId, p_actor: a.profileId }))
+  const moved = ok(await accept(event, open.hash, { email: open.toEmail }))
+  assert.equal((await reg(a.reg.id)).status, 'transferred_out')
+  assert.equal((await reg(moved.registrationId)).status, 'confirmed')
+  assert.equal((await reg(moved.registrationId)).refunded, 0)
+})
+
+test('V-87 an extra line\'s refund in flight blocks a new invite; once dpay accepted it, the entry still moves', async () => {
+  const event = await paidEvent()
+  const { variants: { M } } = await makeExtra(event, { variants: [['M', 10]] })
+  const a = await paidEntry(event, { variant: M, displayed: 6000 + 4500 })
 
   // A refund of the extra line alone blocks a new invite too.
   const onExtra = await reserve(a.reg.id, 'extra', 4500)
@@ -666,6 +675,29 @@ test('V-87 a refund in flight on the entry or its extra blocks create_transfer, 
   const again = await inviteOk(a.reg.id, a.profileId, runnerEmail('after'))
   ok(await accept(event, again.hash, { email: again.toEmail }))
   assert.equal((await reg(a.reg.id)).status, 'transferred_out')
+})
+
+// ---------------------------------------------------------------- V-89 a stale refund dialog
+
+test('V-89 reserve_organizer_refund for the entry the dialog showed: after a transfer moved the line, entry_changed and nothing reserved', async () => {
+  const event = await paidEvent()
+  const a = await paidEntry(event)
+  const [line] = (await rows('order_lines', { order_id: a.orderId })).filter((l) => l.kind === 'entry')
+  const t = await inviteOk(a.reg.id, a.profileId)
+  const out = ok(await accept(event, t.hash))
+  // The organizer's dialog was opened on Ola's row before the transfer landed.
+  refused(await rpc('reserve_organizer_refund', {
+    p_line_id: line.id, p_grosze: 1000, p_actor: ownerId, p_request_key: crypto.randomUUID(), p_registration_id: a.reg.id,
+  }), 'entry_changed')
+  assert.deepEqual(await rows('refunds', { order_id: a.orderId }), [])
+  assert.equal((await one('order_lines', { id: line.id })).refunded, 0)
+  assert.equal((await reg(out.registrationId)).refunded, 0)
+  // Opened on the new holder's row, it reserves; with no registration named (a Plan 6 caller), as before.
+  ok(await rpc('reserve_organizer_refund', {
+    p_line_id: line.id, p_grosze: 1000, p_actor: ownerId, p_request_key: crypto.randomUUID(), p_registration_id: out.registrationId,
+  }))
+  ok(await rpc('reserve_organizer_refund', { p_line_id: line.id, p_grosze: 500, p_actor: ownerId, p_request_key: crypto.randomUUID() }))
+  assert.equal((await one('order_lines', { id: line.id })).refunded, 1500)
 })
 
 // ---------------------------------------------------------------- V-49 cancel, and the grants

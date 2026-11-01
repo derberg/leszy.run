@@ -109,6 +109,9 @@ describe('entryActions (O-06)', () => {
   it('a paid entry before close', () => {
     assert.deepEqual(entryActions(row(), open), ['edit', 'message', 'partner', 'transfer', 'refund', 'cancel'])
   })
+  it('V-87 M-1: no „Przekaż pakiet” while a refund of the entry is in flight (refundPending)', () => {
+    assert.deepEqual(entryActions(row({ refundPending: true }), open), ['edit', 'message', 'partner', 'refund', 'cancel'])
+  })
   it('refund is absent on race day and for unpaid rows', () => {
     assert.ok(!entryActions(row(), { ...open, raceDay: true }).includes('refund'))
     assert.ok(!entryActions(row({ statusKey: 'free', paidAmount: 0, lines: [] }), open).includes('refund'))

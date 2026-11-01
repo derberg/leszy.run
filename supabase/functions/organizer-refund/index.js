@@ -29,6 +29,8 @@ const RESERVE_REFUSALS = {
   invalid_request_key: [400, 'Nieprawidłowe żądanie.'],
   request_key_mismatch: [409, 'To żądanie zwrotu dotyczy innej kwoty. Otwórz okno zwrotu jeszcze raz.'],
   not_found: [404, NOT_FOUND.error],
+  // V-89: the dialog was opened on an entry that no longer holds the line (a transfer moved it).
+  entry_changed: [409, 'Zgłoszenie zmieniło się — odśwież listę.'],
 }
 
 /** The answer for a refund in a given state: what this call learned, or a replay of the row. */
@@ -95,7 +97,10 @@ async function afterSettle(admin, req, settings, { finished, outcome, refundId, 
   return answerFor(req, refundId, status, cancelled)
 }
 
-// POST { lineId, grosze, requestKey } → refunds part of a paid order line (Plan 6, D6-18).
+// POST { lineId, grosze, requestKey, registrationId? } → refunds part of a paid order line (Plan 6,
+//   D6-18). registrationId is the entry the panel's dialog was opened for (Plan 7, V-89): when the
+//   line no longer belongs to it (a package transfer moved it meanwhile), 409 entry_changed and
+//   nothing is reserved. Without it the line is refunded whoever holds it (a Plan 6 caller).
 //   reserve_organizer_refund (the money is reserved on the line before dpay is called; the same
 //   requestKey is a replay, never a second call) → claimRefundRequest (P3-R10: at most one dpay
 //   call) → executeRefund(…, { partial, organizer }), which logs the exchange, stores dpay's
@@ -108,7 +113,7 @@ async function afterSettle(admin, req, settings, { finished, outcome, refundId, 
 //   202 { data: { status: 'unknown', refundId }, message: „Zwrot niepotwierdzony.” } the money stays
 //       reserved and the operator resolves it; the runner is told nothing yet
 //   409 exceeds (with remaining), race_day, not_paid, insufficient_balance, rejected,
-//       request_key_mismatch; 422 invalid_amount; 503 dpay not configured
+//       request_key_mismatch, entry_changed; 422 invalid_amount; 503 dpay not configured
 // The owner or an admin of the event's club: a member 403, an outsider or a disabled club 404,
 // an unknown line 404. Every reservation and every outcome this call stored is in organizer_actions.
 Deno.serve(async (req) => {
@@ -124,8 +129,9 @@ Deno.serve(async (req) => {
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON' }, 400, req) }
 
   try {
-    const { lineId, grosze, requestKey } = body ?? {}
+    const { lineId, grosze, requestKey, registrationId } = body ?? {}
     if (!isUuid(lineId)) return json(NOT_FOUND, 404, req)
+    if (registrationId !== undefined && registrationId !== null && !isUuid(registrationId)) return json(NOT_FOUND, 404, req)
     const line = await single(admin.from('order_lines')
       .select('id, order_id, kind, registration_id, orders!inner(event_id)').eq('id', lineId).maybeSingle())
     if (!line) return json(NOT_FOUND, 404, req)
@@ -153,6 +159,7 @@ Deno.serve(async (req) => {
 
     const { data: reserved, error: rErr } = await admin.rpc('reserve_organizer_refund', {
       p_line_id: line.id, p_grosze: grosze, p_actor: session.userId, p_request_key: requestKey,
+      ...(registrationId ? { p_registration_id: registrationId } : {}),
     })
     if (rErr) {
       const refused = reserveRefusal(req, rErr)

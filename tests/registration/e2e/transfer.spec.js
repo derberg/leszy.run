@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { test, expect } from './fixtures.js'
 import { admin, resetThrottle, sessionFor } from '../helpers/stack.js'
 import { lastCodeFor, messagesTo } from '../helpers/emailCapture.js'
@@ -329,4 +330,88 @@ test('I-2 a recipient who already has a paid start: after the code, the form nam
   await expect(page.locator('#p-email-error')).toHaveText(DUP)
   await expect(page.locator('#p-email')).toBeFocused()
   await page.context().close()
+})
+
+// ---------------------------------------------------------------- 10b fix round 1
+
+const REFUND_PENDING = 'Trwa zwrot wpłaty za ten pakiet — przekazanie jest niemożliwe.'
+const zgloszenia = (eventId) => `/klub/zatyrani-test/wydarzenia/${eventId}/zgloszenia`
+
+async function reserveRefund(holder, grosze = 1000) {
+  const { data: lines } = await admin().from('order_lines').select('id, kind').eq('registration_id', holder.reg.id)
+  const ownerId = (await admin().from('profiles').select('id').eq('email', 'owner@zatyrani-test.local').single()).data.id
+  const { data, error } = await admin().rpc('reserve_organizer_refund', {
+    p_line_id: lines.find((l) => l.kind === 'entry').id, p_grosze: grosze, p_actor: ownerId, p_request_key: crypto.randomUUID(),
+  })
+  if (error) throw error
+  return data.refundId
+}
+
+test('V-87 M-1 a refund in flight: RA5 and B3 offer no transfer, RA6 says why, RA7 refuses before any code and keeps the link; once dpay rejects it, all come back', async ({ browser }) => {
+  const { event, holder } = await paidHolder()
+  const inv = await inviteOk(holder.reg.id, holder.profileId, runnerEmail('czeka'))
+  const refundId = await reserveRefund(holder)
+
+  // RA5: the holder's row has no „Przekaż pakiet”.
+  const hctx = await contextFor(browser, holder.email)
+  const ra5 = await offline(await hctx.newPage())
+  await ra5.goto(`/events/${event.slug}/zapisano`)
+  await expect(ra5.getByTestId('done-person')).toHaveCount(1)
+  await expect(ra5.getByRole('link', { name: /Przekaż pakiet/ })).toHaveCount(0)
+  // RA6 reached by its address: the reason, no form.
+  await ra5.goto(`/events/${event.slug}/przekaz/${holder.reg.id}`)
+  await expect(ra5.getByTestId('transfer-unavailable')).toContainText(REFUND_PENDING)
+  await expect(ra5.getByLabel('E-mail osoby, która przejmie pakiet')).toHaveCount(0)
+
+  // B3: ⋯ has no „Przekaż pakiet”.
+  const octx = await contextFor(browser, 'owner@zatyrani-test.local')
+  const b3 = await offline(await octx.newPage())
+  await b3.goto(zgloszenia(event.eventId))
+  await b3.getByRole('button', { name: /^Akcje — / }).first().click()
+  await expect(b3.getByRole('menu')).toBeVisible()
+  await expect(b3.getByRole('menuitem', { name: 'Przekaż pakiet', exact: true })).toHaveCount(0)
+  await b3.keyboard.press('Escape')
+
+  // RA7: the refusal on load, before the form or a code; the link is kept for later.
+  const before = (await messagesTo(inv.toEmail)).length
+  const ra7 = await offline(await (await browser.newContext()).newPage())
+  await ra7.goto(`/przekazanie#${inv.token}`)
+  await expect(ra7.getByTestId('transfer-load-error')).toContainText(REFUND_PENDING)
+  await expect(ra7.getByTestId('transfer-accept')).toHaveCount(0)
+  await expect(ra7.locator('#reg-code')).toHaveCount(0)
+  expect((await messagesTo(inv.toEmail)).length).toBe(before)
+
+  // dpay rejects the refund: everything is offered again, and the same link opens the form.
+  const { error } = await admin().rpc('finish_organizer_refund', { p_refund_id: refundId, p_outcome: 'rejected' })
+  expect(error).toBeNull()
+  await ra7.getByRole('button', { name: 'Spróbuj ponownie' }).click()
+  await expect(ra7.getByTestId('transfer-accept')).toBeVisible()
+  await ra5.goto(`/events/${event.slug}/zapisano`)
+  await expect(ra5.getByRole('link', { name: 'Przekaż pakiet innej osobie →' })).toHaveCount(1)
+  await b3.reload()
+  await b3.getByRole('button', { name: /^Akcje — / }).first().click()
+  await expect(b3.getByRole('menuitem', { name: 'Przekaż pakiet', exact: true })).toHaveCount(1)
+  await Promise.all([hctx.close(), octx.close(), ra7.context().close()])
+})
+
+test('V-89 a refund dialog opened before a transfer landed is refused when submitted: „Zgłoszenie zmieniło się — odśwież listę.” and nothing is refunded', async ({ browser }) => {
+  const { event, holder } = await paidHolder()
+  const octx = await contextFor(browser, 'owner@zatyrani-test.local')
+  const b3 = await offline(await octx.newPage())
+  await b3.goto(zgloszenia(event.eventId))
+  await b3.getByRole('button', { name: /^Akcje — / }).first().click()
+  await b3.getByRole('menuitem', { name: 'Zwróć wpłatę', exact: true }).click()
+  const dialog = b3.getByRole('dialog', { name: 'Zwróć wpłatę' })
+  await dialog.getByLabel('Kwota zwrotu — Opłata startowa').fill('20')
+
+  // Meanwhile the holder's invite is taken.
+  const inv = await inviteOk(holder.reg.id, holder.profileId, runnerEmail('nowy'))
+  const done = await accept(event, inv.hash, { email: inv.toEmail })
+  expect(done.error).toBeNull()
+
+  await dialog.getByRole('button', { name: 'Zwróć 20,00 zł', exact: true }).click()
+  await expect(dialog.getByTestId('dialog-error')).toHaveText('Zgłoszenie zmieniło się — odśwież listę.')
+  const { data: refunds } = await admin().from('refunds').select('id').eq('order_id', holder.orderId)
+  expect(refunds).toEqual([])
+  await octx.close()
 })

@@ -86,7 +86,8 @@ export function entryActions(row, {
   const live = isLive(row)
   const awaitingPayment = row.statusKey === 'awaiting' && !closed && !payingClosed
   const canRefund = !raceDay && row.statusKey !== 'transferred' && refundable(row) > 0
-  const canTransfer = row.status === 'confirmed' && !raceDay && !isTeamRow && row.role !== 'minor' && (!row.team || isCaptain)
+  // Not while a refund of the entry waits for dpay: the RPCs refuse refund_pending (V-87).
+  const canTransfer = row.status === 'confirmed' && !raceDay && !isTeamRow && row.role !== 'minor' && (!row.team || isCaptain) && !row.refundPending
   return [
     ['edit', live && !closed && !isTeamRow],
     ['remind_payment', awaitingPayment && !full],

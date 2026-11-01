@@ -52,6 +52,7 @@ function Unavailable({ message, slug }) {
 
 /** Why a row the session sees is not offered (ruling 3): a child's or a member's entry, or the date. */
 function refusalOf(row) {
+  if (row.transfer?.refundPending) return TRANSFER_MESSAGES.refund_pending
   if (row.role === 'minor' || (row.teamId && !row.isCaptain) || row.mine !== true) return 'Tego pakietu nie można przekazać.'
   return 'Przekazanie pakietu nie jest już możliwe.'
 }
