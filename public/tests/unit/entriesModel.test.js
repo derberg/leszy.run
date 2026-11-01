@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  AWAITING_CONSENT, actionLabel, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, statusChips,
+  AWAITING_CONSENT, actionLabel, competitionChips, entryActions, extendChoices, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, statusChips,
 } from '../../src/lib/entriesModel.js'
 
 const row = (over = {}) => ({
@@ -144,6 +144,14 @@ describe('entryActions (O-06)', () => {
   it('a transferred entry\'s money is not refunded from its old row', () => {
     assert.ok(!entryActions(row({ status: 'transferred_out', statusKey: 'transferred' }), open).includes('refund'))
   })
+  it('the payment items stop an hour before close, as the server does (paying_closed)', () => {
+    const awaiting = row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 })
+    assert.deepEqual(entryActions(awaiting, { ...open, payingClosed: true }), ['edit', 'message', 'cancel'])
+  })
+  it('no payment reminder in a full competition, which the server refuses (D6-27); the extension stays', () => {
+    const awaiting = row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 })
+    assert.deepEqual(entryActions(awaiting, { ...open, full: true }), ['edit', 'extend', 'message', 'cancel'])
+  })
   it('a finished row offers nothing', () => {
     for (const [status, statusKey] of [['expired', 'expired'], ['transferred_out', 'transferred']]) {
       assert.deepEqual(entryActions(row({ status, statusKey, paidAmount: 0 }), open), [])
@@ -183,6 +191,15 @@ describe('the panel\'s tiles and chips (O-50)', () => {
     assert.deepEqual(competitionChips([], COMPETITIONS).map((c) => c.label), ['Wszystkie · 0', 'Bieg 9 km · 0', 'Sztafeta · 0 drużyn'])
   })
 
+  it('a released team is not counted; its people and a cancelled member count as people', () => {
+    const rows = [
+      row({ id: 'c', categoryId: 'c2', team: { id: 't1' } }), row({ id: 'd', categoryId: 'c2', team: { id: 't1' } }),
+      row({ id: 'x', categoryId: 'c2', status: 'cancelled', statusKey: 'cancelled', team: { id: 't1' } }),
+      row({ id: 'e', categoryId: 'c2', status: 'cancelled', statusKey: 'cancelled', team: { id: 't2' } }),
+    ]
+    assert.equal(competitionChips(rows, COMPETITIONS, [{ id: 't1' }])[2].label, 'Sztafeta · 1 drużyna · 2 os.')
+  })
+
   it('status chips: „Do wycofania w pomiarze” only when somebody is to be withdrawn', () => {
     const labels = (c) => statusChips(c).map((x) => x.label)
     assert.deepEqual(labels(counts()), ['Wszystkie', 'Opłacone · 30', 'Czeka na wpłatę · 4', 'Czeka na zgody · 3', 'Wygasłe · 0', 'Anulowane · 0'])
@@ -199,5 +216,21 @@ describe('the panel\'s tiles and chips (O-50)', () => {
       assert.ok(actionLabel(a, row()))
     }
     assert.throws(() => actionLabel('nope', row()))
+  })
+})
+
+describe('extendChoices (ExtendDialog)', () => {
+  const now = new Date('2026-11-01T12:00:00Z')
+  const at = (days) => new Date(now.getTime() + days * 86_400_000).toISOString()
+  const untils = (o) => extendChoices({ now, ...o }).map((c) => c.until?.toISOString() ?? null)
+
+  it('+ 7 and + 14 days count from the current deadline, never past 14 days from now', () => {
+    assert.deepEqual(untils({ expiresAt: at(2), closesAt: at(30) }), [at(9), at(14), null])
+  })
+  it('every choice is capped at closes_at, and „Do końca zapisów” is closes_at itself', () => {
+    assert.deepEqual(untils({ expiresAt: at(2), closesAt: at(5) }), [at(5), at(5), at(5)])
+  })
+  it('a choice that would not move the deadline forward is disabled', () => {
+    assert.deepEqual(untils({ expiresAt: at(5), closesAt: at(5) }), [null, null, null])
   })
 })

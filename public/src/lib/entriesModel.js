@@ -69,18 +69,21 @@ export function entryCounts(rows, competitions) {
  * What the row's ⋯ menu offers, in menu order. A team row stands for the team: its people have
  * their own rows, which hold `edit` and the consent controls.
  * @param {object} row
- * @param {{ closed?: boolean, raceDay?: boolean, isTeamRow?: boolean }} [context]
- *   `closed`: at or after closes_at. `raceDay`: from 00:00 Warsaw on event_date.
+ * @param {{ closed?: boolean, payingClosed?: boolean, raceDay?: boolean, isTeamRow?: boolean, full?: boolean }} [context]
+ *   `closed`: at or after closes_at. `payingClosed`: from an hour before closes_at, when online
+ *   payment stops and the server refuses a reminder or an extension (`paying_closed`). `raceDay`:
+ *   from 00:00 Warsaw on event_date. `full`: the row's competition has no place left, so the
+ *   server refuses a payment reminder (`full`, D6-27).
  * @returns {string[]} from edit, remind_payment, extend, remind_consent, consent_office, message,
  *   refund, cancel, rename_team, squad
  */
-export function entryActions(row, { closed = false, raceDay = false, isTeamRow = false } = {}) {
+export function entryActions(row, { closed = false, payingClosed = closed, raceDay = false, isTeamRow = false, full = false } = {}) {
   const live = isLive(row)
-  const awaitingPayment = row.statusKey === 'awaiting' && !closed
+  const awaitingPayment = row.statusKey === 'awaiting' && !closed && !payingClosed
   const canRefund = !raceDay && row.statusKey !== 'transferred' && refundable(row) > 0
   return [
     ['edit', live && !closed && !isTeamRow],
-    ['remind_payment', awaitingPayment],
+    ['remind_payment', awaitingPayment && !full],
     ['extend', awaitingPayment],
     ['remind_consent', awaitingConsent(row) && !isTeamRow],
     ['consent_office', awaitingConsent(row) && !isTeamRow],
@@ -118,16 +121,25 @@ export const noPlacesForAwaiting = (counts) => counts.perCompetition
 
 /**
  * The competition chips: „Wszystkie” and one per visible competition, each with the number of rows
- * it shows; a team competition counts its teams („Sztafeta · 5 drużyn”), never its people.
+ * it shows; a team competition counts its teams („Sztafeta · 5 drużyn”), never its people. A team
+ * counts only while it is live and in `teams` (list-event-registrations' teams, released ones left
+ * out); a row outside one (a cancelled member, a released team's people) is a person of its own,
+ * „Sztafeta · 1 drużyna · 2 os.”, as the list shows it. Without `teams` every team id counts.
+ * @param {object[]} rows
+ * @param {object[]} competitions
+ * @param {{ id: string }[]} [teams]
  * @returns {{ id: string|null, label: string }[]}
  */
-export function competitionChips(rows, competitions) {
+export function competitionChips(rows, competitions, teams = null) {
   const chips = [{ id: null, label: `Wszystkie · ${rows.length}` }]
+  const liveTeams = teams ? new Set(teams.map((t) => t.id)) : null
+  const inTeam = (row) => (liveTeams ? LIVE.has(row.status) && liveTeams.has(row.team?.id) : row.team?.id != null)
   for (const c of competitions) {
     const own = rows.filter((row) => row.categoryId === c.id)
     if (c.kind === 'team') {
-      const n = new Set(own.map((row) => row.team?.id ?? row.id)).size
-      chips.push({ id: c.id, label: `${c.name} · ${n} ${pluralPl(n, 'drużyna', 'drużyny', 'drużyn')}` })
+      const n = new Set(own.filter(inTeam).map((row) => row.team.id)).size
+      const loose = own.filter((row) => !inTeam(row)).length
+      chips.push({ id: c.id, label: `${c.name} · ${n} ${pluralPl(n, 'drużyna', 'drużyny', 'drużyn')}${loose ? ` · ${loose} os.` : ''}` })
     } else {
       chips.push({ id: c.id, label: `${c.name} · ${own.length}` })
     }
@@ -171,4 +183,27 @@ export function actionLabel(action, row, { isTeamRow = false } = {}) {
     case 'squad': return 'Skład drużyny'
     default: throw new Error(`unknown action: ${action}`)
   }
+}
+
+const DAY = 86_400_000
+
+/**
+ * The three choices → [{ id, label, until: Date|null }]; `until` null when that choice cannot
+ * move the deadline forward.
+ * @param {{ expiresAt: string|null, closesAt: string|null, now?: Date }} o
+ */
+export function extendChoices({ expiresAt, closesAt, now = new Date() }) {
+  const closes = closesAt ? new Date(closesAt) : null
+  const current = expiresAt ? new Date(expiresAt) : now
+  const limit = new Date(now.getTime() + 14 * DAY)
+  const cap = (d) => {
+    const capped = d > limit ? limit : d
+    return closes && capped > closes ? closes : capped
+  }
+  const usable = (d) => (d && d > current && d <= limit ? d : null)
+  return [
+    { id: '7', label: '+ 7 dni', until: usable(cap(new Date(current.getTime() + 7 * DAY))) },
+    { id: '14', label: '+ 14 dni', until: usable(cap(new Date(current.getTime() + 14 * DAY))) },
+    { id: 'close', label: 'Do końca zapisów', until: usable(closes) },
+  ]
 }

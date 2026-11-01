@@ -375,7 +375,7 @@ function Editor({ eventId, stepParam }) {
         </>
       )}
 
-      {onRegistrations && <Zgloszenia eventId={eventId} />}
+      {onRegistrations && <Zgloszenia eventId={eventId} clubName={club.name} contactEmail={event.settings.contactEmail ?? null} />}
       {StepBody && (
         <StepBody key={`${current}:${generation}`} event={stagedEvent(event)} queue={queue} saveState={saveState} readOnly={readOnly || busy} reload={reload}
           onSaved={onSaved} reportInvalid={reportInvalid} base={base} previewHref={`${base}/podglad`} />

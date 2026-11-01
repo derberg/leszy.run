@@ -10,6 +10,12 @@ import {
 import { teamStatusLabel } from '../../../lib/teamPage.js'
 import { btnGhost, btnPrimary } from '../settingsUi.js'
 import EntryMenu from './entries/EntryMenu.jsx'
+import CancelDialog from './entries/CancelDialog.jsx'
+import EditEntryDialog from './entries/EditEntryDialog.jsx'
+import ExtendDialog from './entries/ExtendDialog.jsx'
+import MessageDialog from './entries/MessageDialog.jsx'
+import RefundDialog from './entries/RefundDialog.jsx'
+import RenameTeamDialog from './entries/RenameTeamDialog.jsx'
 
 // The „Zgłoszenia” tab of a published event: the organizer's entries panel (B3). Plan 2's
 // PublishedHeader above the tabs carries the event name, date and state; this adds no second
@@ -18,10 +24,14 @@ import EntryMenu from './entries/EntryMenu.jsx'
 // row's ⋯ menu (entryActions). Plan 4's „Przypomnij” and „Podpisany w biurze” live in that menu now.
 // A team not released is one row, „<nazwa> · N os.” / „kapitan: …” / „ZGODY a/b”, standing where
 // its first member signed up, and opens to its members, who keep every action of a person's row.
-// Every action re-reads the list. The dialogs (refund, extend, cancel, edit, message, rename) are
-// Task 6b's; until then `onDialog` only records the request.
+// Every action re-reads the list, whether it succeeded or not. The ⋯ items that need more than a
+// click open a dialog (entries/): refund, extend, cancel, edit, message (B3a) and rename; the
+// dialog reads its row fresh from the list and gives the focus back to the ⋯ when it closes.
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
+// Online payment, and with it the reminder and the extension, stops an hour before closes_at
+// (organizer-entry-action's paying_closed).
+const PAYING_CLOSES_BEFORE_MS = 3600_000
 
 const STATUS_COLOUR = {
   paid: 'text-apex-yellow',
@@ -104,11 +114,13 @@ function TeamToggle({ team, open, onToggle }) {
 }
 
 function Tile({ label, value, extra, tone = 'text-apex-text-bright', testId }) {
+  // text-base at every width: at 1440 a four-tile row is about 250 px, and „3 / 22 · 1 / 10 DRUŻYN”
+  // then keeps to one line instead of leaving „· 1 / 10 DRUŻYN” alone on the second.
   return (
     <div className="border border-apex-border-mid bg-apex-surface px-3.5 py-3 min-w-0" data-testid={testId}>
       <span className="block font-mono text-[11px] tracking-widest uppercase text-apex-muted">{label}</span>
       {/* Each part keeps to one line; a narrow tile breaks only between them. */}
-      <span className={`block mt-1 font-mono text-base sm:text-lg leading-6 ${tone}`}>
+      <span className={`block mt-1 font-mono text-base leading-6 ${tone}`}>
         {value.split(' · ').map((part, i) => (
           <Fragment key={part + i}>{i > 0 && ' '}<span className="whitespace-nowrap">{i > 0 && '· '}{part}</span></Fragment>
         ))}
@@ -161,7 +173,9 @@ function OfficeConfirm({ row, busy, onYes, onNo }) {
 }
 
 function rowMenu(r, ctx, { isTeamRow = false, menuRow = r, name = r.name, squadHref = null } = {}) {
-  const actions = entryActions(menuRow, { closed: ctx.closed, raceDay: ctx.raceDay, isTeamRow })
+  const actions = entryActions(menuRow, {
+    closed: ctx.closed, payingClosed: ctx.payingClosed, raceDay: ctx.raceDay, isTeamRow, full: ctx.fullCategories.has(menuRow.categoryId),
+  }).filter((a) => a !== 'squad' || squadHref) // no address for the team page without the event's slug
   return (
     <EntryMenu name={name} row={menuRow} actions={actions} isTeamRow={isTeamRow} squadHref={squadHref}
       onSelect={(action, trigger) => ctx.onAction(action, menuRow, { isTeamRow, trigger })} />
@@ -284,7 +298,7 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
 
 const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null }
 
-export default function Zgloszenia({ eventId }) {
+export default function Zgloszenia({ eventId, clubName = null, contactEmail = null }) {
   const [state, setState] = useState(EMPTY)
   const [categoryId, setCategoryId] = useState(null)
   const [statusKey, setStatusKey] = useState(null)
@@ -294,8 +308,8 @@ export default function Zgloszenia({ eventId }) {
   const [exporting, setExporting] = useState(false)
   const [office, setOffice] = useState(null)
   const [officeBusy, setOfficeBusy] = useState(false)
-  // Task 6b's dialogs read this: { kind, row, isTeamRow, trigger }; closing one focuses `trigger`.
-  const [, setDialog] = useState(null)
+  // The open dialog: { kind, row, isTeamRow, trigger }; closing it focuses `trigger`.
+  const [dialog, setDialog] = useState(null)
   const searchId = useId()
 
   const load = useCallback(async () => {
@@ -321,6 +335,7 @@ export default function Zgloszenia({ eventId }) {
   const event = state.event ?? {}
   const now = new Date()
   const closed = event.closesAt ? now >= new Date(event.closesAt) : false
+  const payingClosed = event.closesAt ? now.getTime() >= Date.parse(event.closesAt) - PAYING_CLOSES_BEFORE_MS : false
   const raceDay = event.eventDate ? warsawToday(now) >= event.eventDate : false
   const byId = new Map(state.rows.map((r) => [r.id, r]))
   const filter = { categoryId: categoryId ?? undefined, statusKey: statusKey ?? undefined, q }
@@ -342,6 +357,7 @@ export default function Zgloszenia({ eventId }) {
       await load()
     } catch (err) {
       failed(err)
+      await load()
     }
   }
 
@@ -364,10 +380,10 @@ export default function Zgloszenia({ eventId }) {
     setNotice(null)
     try {
       await callFunction('mark-consent-office', { registrationId: office.row.id })
-      await load()
     } catch (err) {
       failed(err)
     } finally {
+      await load()
       setOfficeBusy(false)
       closeOffice()
     }
@@ -387,14 +403,48 @@ export default function Zgloszenia({ eventId }) {
     }
   }
 
+  function closeDialog() {
+    const back = dialog?.trigger
+    setDialog(null)
+    requestAnimationFrame(() => { if (back?.isConnected) back.focus() })
+  }
+
+  async function dialogDone(result) {
+    closeDialog()
+    setNotice(result)
+    await load()
+  }
+
   const ctx = {
     closed,
+    payingClosed,
     raceDay,
+    fullCategories: new Set(counts.perCompetition.filter((c) => c.listed >= c.capacity).map((c) => c.id)),
     onAction,
     rowOf: (id) => byId.get(id) ?? null,
     squadHref: (teamId) => (event.slug ? `/events/${event.slug}/druzyna/${teamId}` : null),
   }
   const blocked = noPlacesForAwaiting(counts) && counts.awaiting > 0
+
+  function renderDialog() {
+    // The row as the list holds it now: a refusal re-reads the list, and the dialog follows.
+    const row = dialog.row ? (byId.get(dialog.row.id) ?? dialog.row) : null
+    const captainOf = row ? state.teams.find((t) => t.captainId === row.id) ?? null : null
+    const common = { onClose: closeDialog, onDone: dialogDone, onFailed: load }
+    switch (dialog.kind) {
+      case 'refund': return <RefundDialog row={row} team={captainOf} {...common} />
+      case 'extend': return <ExtendDialog row={row} closesAt={event.closesAt ?? null} {...common} />
+      case 'cancel': return <CancelDialog row={row} team={captainOf} {...common} />
+      case 'edit': return <EditEntryDialog row={row} {...common} />
+      case 'rename_team': return captainOf ? <RenameTeamDialog team={captainOf} {...common} /> : null
+      case 'message':
+        return (
+          <MessageDialog eventId={eventId} row={row} isTeamRow={dialog.isTeamRow} team={captainOf} competitions={state.competitions}
+            clubName={clubName} contactEmail={contactEmail} {...common} />
+        )
+      default: return null
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3 min-w-0 max-w-full">
@@ -415,7 +465,7 @@ export default function Zgloszenia({ eventId }) {
         <Tile testId="tile-income" label="WPŁYWY DLA KLUBU" value={formatPln(counts.clubIncome)} />
       </div>
 
-      <Chips testId="competition-chips" label="Konkurencja" chips={competitionChips(state.rows, state.competitions)}
+      <Chips testId="competition-chips" label="Konkurencja" chips={competitionChips(state.rows, state.competitions, state.teams)}
         selected={categoryId} onPick={setCategoryId} />
       <Chips testId="status-chips" label="Status" chips={statusChips(counts).map((c) => ({ id: c.key, label: c.label }))}
         selected={statusKey} onPick={setStatusKey} />
@@ -463,6 +513,7 @@ export default function Zgloszenia({ eventId }) {
       )}
 
       {office && <OfficeConfirm row={office.row} busy={officeBusy} onYes={markOffice} onNo={closeOffice} />}
+      {dialog && renderDialog()}
     </div>
   )
 }

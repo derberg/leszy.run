@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
 import { actionLabel } from '../../../../lib/entriesModel.js'
 
 // The ⋯ menu of one row of the organizer's panel (B3). `actions` come from entryActions, in menu
@@ -101,11 +102,11 @@ export default function EntryMenu({ name, row, actions, isTeamRow = false, squad
       {open && createPortal(
         <div ref={menu} id={menuId} role="menu" aria-label={`Akcje — ${name}`}
           style={place ? { top: place.top, left: place.left } : { top: 0, left: 0, visibility: 'hidden' }}
-          className="fixed z-50 min-w-[220px] max-w-[calc(100vw-32px)] py-1 border border-apex-border-bright bg-apex-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+          className="fixed z-50 min-w-[220px] max-w-[calc(100vw-32px)] py-1 border border-apex-border-bright bg-apex-surface">
           {actions.map((action) => (action === 'squad' && squadHref
-            ? <a key={action} role="menuitem" tabIndex={-1} href={squadHref} className={itemClass} onClick={() => close({ focus: false })}>
+            ? <Link key={action} role="menuitem" tabIndex={-1} to={squadHref} className={itemClass} onClick={() => close({ focus: false })}>
                 {actionLabel(action, row, { isTeamRow })}
-              </a>
+              </Link>
             : <button key={action} type="button" role="menuitem" tabIndex={-1} className={itemClass} onClick={() => pick(action)}>
                 {actionLabel(action, row, { isTeamRow })}
               </button>))}
