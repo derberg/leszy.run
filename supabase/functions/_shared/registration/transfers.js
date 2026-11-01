@@ -147,7 +147,7 @@ async function one(query) {
  * the sender deleted the account, or the row is not that kind of transfer).
  *   accepted_emailed_at      → the sender, „Pakiet przejęła <Imię Nazwisko>” (runner transfers)
  *   confirmation_emailed_at  → the recipient, „Jesteś na liście” (runner transfers)
- *   holder_emailed_at        → the old holder, „Pakiet przekazany” (organizer transfers)
+ *   holder_emailed_at        → the old holder, „Pakiet przekazany” (organizer transfers; never names the recipient, N-1)
  */
 export async function buildTransferMail(admin, transfer, column) {
   const t = transfer.new_registration_id && transfer.kind
@@ -174,8 +174,9 @@ export async function buildTransferMail(admin, transfer, column) {
     const club = settings.club_id ? await one(admin.from('clubs').select('name').eq('id', settings.club_id).maybeSingle()) : null
     return {
       to: oldReg.email,
+      // Ruling N-1: the recipient is not passed, so it cannot reach the old holder.
       mail: transferByOrganizerEmail({
-        event, holderFirstName: oldReg.first_name, recipient,
+        event, holderFirstName: oldReg.first_name,
         organizer: { name: club?.name?.trim() || null, contactEmail: settings.contact_email ?? null },
       }),
     }

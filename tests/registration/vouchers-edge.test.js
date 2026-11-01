@@ -10,15 +10,17 @@ import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import postgres from 'postgres'
 import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
-import { messagesTo, startCapture } from './helpers/emailCapture.js'
+import { lastCodeFor, messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, callFn, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { dpayReset, payMock, startDpayMock } from './helpers/dpayControl.js'
 import {
-  consentIds, createOrder, db, expireNow, one, orderOf, orderOk, person, registrationsOf, rows, rpc, runnerEmail,
+  consentIds, createOrder, db, expireNow, one, orderOf, orderOk, person, registrationsOf, rows, rpc, runnerEmail, setSettings,
 } from './helpers/orders.js'
 import { adult, isDeadlock, orderGroup } from './helpers/groups.js'
 import { makeVoucher, vouchersMade } from './helpers/cart.js'
 import { assertVoucherInvariant } from './helpers/voucherInvariant.js'
+import { dayBefore, enableTransfers } from './helpers/transfers.js'
+import { warsawToday } from '../../supabase/functions/_shared/registration/dates.js'
 
 const PRICE = 6000
 const DISCOUNTED = 5100 // 15 %
@@ -493,6 +495,109 @@ test('V-38 a partnered code on a confirmed entry: no runner-facing answer or e-m
   for (const m of mails.filter((x) => !ownLines(x))) {
     assert.ok(!`${m.subject} ${m.text} ${m.html ?? ''}`.includes(v.code), `e-mail „${m.subject}” to ${m.to} holds the code`)
   }
+})
+
+// ---------------------------------------------------------------- V-81 (and V-38's transfer half)
+
+const TOKEN_RE = /\/przekazanie#([A-Za-z0-9_-]{43})(?![A-Za-z0-9_-])/
+
+test('V-81 a package bought on a partnered code is handed on twice: the transfer preview, every transfer e-mail and every export carry no partner, note or voucher note', async () => {
+  const event = await paidEvent()
+  const [c9] = event.categoryIds
+  await enableTransfers(event)
+  const partner = await createPartner(event.eventId, `Sklep Biegacz ${rand()}`, `Umowa poufna ${rand()}`)
+  const voucherNote = `Notatka wewnętrzna ${rand()}`
+  const v = await createVoucher(event.eventId, { maxUses: 10, partnerId: partner.id, note: voucherNote })
+  const secrets = [partner.name, partner.note, voucherNote, partner.id]
+  const person81 = (email, over = {}) => ({ firstName: 'Ola', lastName: 'Leśna', birthDate: '1990-05-01', gender: 'K', email, phone: '600100200', ...over })
+
+  // The runner pays on the code.
+  const me = runnerEmail('t81')
+  const runner = await sessionFor(me)
+  const created = await call('create-order', {
+    people: [{ categoryId: c9, person: person81(me), voucherCode: v.code }],
+    acceptedConsentIds: await consentIds(event.eventId), serviceRegulamin: true, displayedTotal: DISCOUNTED,
+  }, runner)
+  assert.equal(created.status, 201, JSON.stringify(created.body))
+  const [attempt] = await rows('payment_attempts', { order_id: created.body.data.orderId })
+  await payMock(attempt.dpay_transaction_id, 'paid')
+  await waitForMail(me, (m) => m.subject.startsWith('Opłacone'), 'confirmation')
+  const [reg] = await registrationsOf(created.body.data.orderId)
+  assert.equal(reg.partner_id, partner.id)
+
+  // An invite taken back → „Zaproszenie cofnięte” to that address.
+  const dropped = runnerEmail('t81-cancel')
+  const first = await call('transfer-invite', { action: 'create', registrationId: reg.id, toEmail: dropped }, runner)
+  assert.equal(first.status, 201, JSON.stringify(first.body))
+  await waitForMail(dropped, (m) => /przekazuje Ci start/.test(m.subject), 'first invite')
+  const back = await call('transfer-invite', { action: 'cancel', transferId: first.body.data.transferId }, runner)
+  assert.equal(back.status, 200, JSON.stringify(back.body))
+  await waitForMail(dropped, (m) => m.subject.startsWith('Zaproszenie cofnięte'), 'cancel notice')
+
+  // The real invite: preview, code, accept → „Pakiet przejęła …” to the runner, „Jesteś na liście” to the invitee.
+  const invitee = runnerEmail('t81-invitee')
+  const sent = await call('transfer-invite', { action: 'create', registrationId: reg.id, toEmail: invitee }, runner)
+  assert.equal(sent.status, 201, JSON.stringify(sent.body))
+  const inviteMail = (await waitForMail(invitee, (m) => /przekazuje Ci start/.test(m.subject), 'invite'))
+    .find((m) => /przekazuje Ci start/.test(m.subject))
+  const token = inviteMail.text.match(TOKEN_RE)?.[1]
+  assert.ok(token, 'the token sits in the link fragment')
+  const preview = await call('transfer-accept', { token })
+  assert.equal(preview.status, 200, JSON.stringify(preview.body))
+  assert.equal((await call('transfer-accept', { token, sendCode: true, email: invitee })).status, 200)
+  let code = null
+  for (let i = 0; i < 40 && !code; i++) { code = await lastCodeFor(invitee); if (!code) await sleep(250) }
+  assert.ok(code, 'a login code was mailed')
+  const accepted = await call('transfer-accept', {
+    token, code, person: person81(invitee, { firstName: 'Jan', lastName: 'Nowak', gender: 'M' }), categoryId: c9,
+    acceptedConsentIds: await consentIds(event.eventId), serviceRegulamin: true,
+  })
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.body))
+  const newReg = await one('registrations', { id: accepted.body.data.registrationId })
+  assert.equal(newReg.partner_id, partner.id, 'the partner stays on the moved line (ruling 2), organizer-only')
+  await waitForMail(me, (m) => m.subject.startsWith('Pakiet przejęła'), 'accepted notice')
+  await waitForMail(invitee, (m) => m.subject.startsWith('Jesteś na liście'), 'recipient confirmation')
+
+  // The organizer hands the invitee's package on after transfer_until → „Pakiet przekazany” to the
+  // invitee and the consent request to the third person.
+  await setSettings(event.eventId, { transfer_until: dayBefore(warsawToday()) })
+  const third = runnerEmail('t81-third')
+  const org = await callFn('organizer-entry-action', owner, {
+    action: 'transfer', registrationId: newReg.id, categoryId: c9,
+    person: person81(third, { firstName: 'Ewa', lastName: 'Borowa' }),
+  })
+  assert.equal(org.status, 200, JSON.stringify(org.body))
+  await waitForMail(invitee, (m) => m.subject.startsWith('Pakiet przekazany'), 'holder notice')
+  await waitForMail(third, () => true, 'consent request')
+
+  // V-38: the transfer preview and every export of the four people.
+  const answers = {
+    'transfer-accept preview': preview.body,
+    'export-my-data (runner)': (await call('export-my-data', {}, runner)).body,
+    'export-my-data (invitee)': (await call('export-my-data', {}, await sessionFor(invitee))).body,
+    'export-my-data (third)': (await call('export-my-data', {}, await sessionFor(third))).body,
+    'export-my-data (dropped)': (await call('export-my-data', {}, await sessionFor(dropped))).body,
+  }
+  assert.ok(answers['transfer-accept preview'].data?.senderFirstName, JSON.stringify(answers['transfer-accept preview']))
+  for (const what of Object.keys(answers).filter((k) => k.startsWith('export'))) {
+    assert.ok(answers[what].transfers, `${what} answered with its transfers`)
+  }
+  for (const [what, value] of Object.entries(answers)) assertNoPartner(what, value, secrets)
+  assert.ok(!JSON.stringify(answers['transfer-accept preview']).includes(v.code), 'the preview never names the code')
+
+  // V-81: every e-mail the four received, the transfer ones each present.
+  const mails = [...await messagesTo(me), ...await messagesTo(dropped), ...await messagesTo(invitee), ...await messagesTo(third)]
+  const subjects = mails.map((m) => m.subject.split(' — ')[0])
+  for (const s of ['Zaproszenie cofnięte', 'Pakiet przejęła Jan Nowak', 'Jesteś na liście', 'Pakiet przekazany']) {
+    assert.ok(subjects.includes(s), `${s} in ${subjects}`)
+  }
+  assert.equal(subjects.filter((s) => / przekazuje Ci start$/.test(s)).length, 2, 'both invites')
+  for (const m of mails) assertNoPartner(`e-mail „${m.subject}” to ${m.to}`, { text: m.text, html: m.html ?? '', subject: m.subject }, secrets)
+  for (const m of mails.filter((x) => !(x.to === me && x.subject.startsWith('Opłacone')))) {
+    assert.ok(!`${m.subject} ${m.text} ${m.html ?? ''}`.includes(v.code), `e-mail „${m.subject}” to ${m.to} holds the code`)
+  }
+  // The use stays one: a transfer moves it, never spends another (the afterEach invariant checks the rest).
+  assert.equal((await one('vouchers', { id: v.id })).used, 1)
 })
 
 // ---------------------------------------------------------------- V-35 locks and tenancy

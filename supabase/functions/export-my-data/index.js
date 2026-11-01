@@ -35,6 +35,12 @@ const REGISTRATION_COLUMNS = 'id, event_id, category_id, status, first_name, las
   + 'consent_acceptances(consent_kind, accepted_as, regulamin_version, accepted_at, ip, user_agent), '
   + 'consent_requests(sent_at, emailed_at, last_reminded_at, auto_reminded_at, used_at, expires_at)'
 
+// Plan 7: package transfers (§2). The token's SHA-256 is a credential and is never exported. No
+// partner or voucher field exists on a transfer, and REGISTRATION_COLUMNS above keeps leaving out
+// partner_id and voucher_id (D7-11): partner attribution is the organizer's, never the runner's.
+const TRANSFER_COLUMNS = 'id, event_id, registration_id, new_registration_id, kind, status, from_profile_id, to_email, '
+  + 'accepted_by_profile_id, created_at, expires_at, accepted_at, cancelled_at, registration_settings(name, event_date, club_id)'
+
 const GUARDIAN_COLUMNS = 'id, event_id, status, first_name, last_name, guardian_name, guardian_email, guardian_removed_at, created_at, '
   + 'registration_settings(name, event_date), '
   + 'consent_acceptances(consent_kind, accepted_as, accepted_by_profile_id, regulamin_version, accepted_at, ip, user_agent)'
@@ -266,6 +272,83 @@ Deno.serve(async (req) => {
       created_at: t.created_at,
     }))
 
+  // Plan 7: the transfers of the person's packages (sent) and those addressed to them (received).
+  //   sent: every transfer of an entry they held, the invites they typed and an organizer's. The
+  //     address they typed themselves is theirs to see; an organizer's recipient is not (ruling N-1:
+  //     the old holder did not choose them), so it stays out, as does every name of a recipient.
+  //   received: an invite to their address (open or not), a link they took (also a forwarded one)
+  //     and an organizer transfer to them. `from_name` is who gave LESZY.RUN their address
+  //     (Art. 14(2)(f)): the sender's first name, as the invite showed it, or the organizer's club.
+  //     to_email is kept only when it is their own address: a forwarded link's invited address
+  //     belongs to the person it was sent to.
+  const myEmail = session.email ? session.email.toLowerCase().trim() : null
+  const ownRegIds = ownRegs.map((r) => r.id)
+  const transferLists = await Promise.all([
+    ownRegIds.length
+      ? fetchAll(() => supabaseAdmin.from('transfers').select(TRANSFER_COLUMNS)
+        .in('registration_id', ownRegIds).order('created_at').order('id'), 'transfers of own entries')
+      : Promise.resolve([]),
+    fetchAll(() => supabaseAdmin.from('transfers').select(TRANSFER_COLUMNS)
+      .eq('from_profile_id', userId).eq('kind', 'runner').order('created_at').order('id'), 'transfers sent'),
+    ownRegIds.length
+      ? fetchAll(() => supabaseAdmin.from('transfers').select(TRANSFER_COLUMNS)
+        .in('new_registration_id', ownRegIds).order('created_at').order('id'), 'transfers into own entries')
+      : Promise.resolve([]),
+    fetchAll(() => supabaseAdmin.from('transfers').select(TRANSFER_COLUMNS)
+      .eq('accepted_by_profile_id', userId).order('created_at').order('id'), 'transfers accepted'),
+    myEmail
+      ? fetchAll(() => supabaseAdmin.from('transfers').select(TRANSFER_COLUMNS)
+        .eq('to_email', myEmail).order('created_at').order('id'), 'transfers to address')
+      : Promise.resolve([]),
+  ])
+  const uniqueTransfers = (lists) => [...new Map(lists.flat().map((t) => [t.id, t])).values()]
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)))
+  const sentRows = uniqueTransfers(transferLists.slice(0, 2))
+  const receivedRows = uniqueTransfers(transferLists.slice(2))
+  // Who gave the recipient's address: the sender's first name (as in the invite), the club for an
+  // organizer transfer. One read of each, by id.
+  const senderRegIds = [...new Set(receivedRows.filter((t) => t.kind === 'runner').map((t) => t.registration_id))]
+  const clubIds = [...new Set(receivedRows.filter((t) => t.kind === 'organizer')
+    .map((t) => t.registration_settings?.club_id).filter(Boolean))]
+  const [senderRegs, transferClubs] = await Promise.all([
+    senderRegIds.length
+      ? fetchAll(() => supabaseAdmin.from('registrations').select('id, first_name').in('id', senderRegIds).order('id'), 'transfer senders')
+      : Promise.resolve([]),
+    clubIds.length
+      ? fetchAll(() => supabaseAdmin.from('clubs').select('id, name').in('id', clubIds).order('id'), 'transfer clubs')
+      : Promise.resolve([]),
+  ])
+  const senderName = new Map(senderRegs.map((r) => [r.id, r.first_name?.trim() || null]))
+  const clubName = new Map(transferClubs.map((c) => [c.id, c.name?.trim() || null]))
+  const transferBase = (t) => ({
+    id: t.id,
+    event_id: t.event_id,
+    event_name: t.registration_settings?.name ?? null,
+    event_date: t.registration_settings?.event_date ?? null,
+    kind: t.kind,
+    status: t.status,
+    created_at: t.created_at,
+    expires_at: t.expires_at,
+    accepted_at: t.accepted_at,
+    cancelled_at: t.cancelled_at,
+  })
+  const transfers = {
+    // Each side gets its own registration's id only: the other one belongs to the other person.
+    sent: sentRows.map((t) => ({
+      ...transferBase(t),
+      registration_id: t.registration_id,
+      to_email: t.kind === 'runner' ? t.to_email : null,
+    })),
+    received: receivedRows.map((t) => ({
+      ...transferBase(t),
+      new_registration_id: t.new_registration_id,
+      to_email: myEmail && t.to_email === myEmail ? t.to_email : null,
+      from_name: t.kind === 'organizer'
+        ? clubName.get(t.registration_settings?.club_id) ?? 'Organizator zawodów'
+        : senderName.get(t.registration_id) ?? null,
+    })),
+  }
+
   const registrations = ownRegs
     .map((row) => {
       const { registration_settings: rs, consent_requests: _cr, order_id: _order, registered_by_profile_id: _by, team_id: teamId, ...r } = row
@@ -345,6 +428,7 @@ Deno.serve(async (req) => {
     registrations,
     registrations_as_guardian: registrationsAsGuardian,
     teams,
+    transfers,
     orders,
     organizer_messages_received: organizerMessages.map(organizerMessageView),
     race_entries: (raceEntries.data ?? []).map((p) => ({

@@ -1,6 +1,6 @@
 # Informacja o przetwarzaniu danych zawodnika
 
-**Wersja:** 2026-11-v6
+**Wersja:** 2026-11-v7
 **Status:** projekt do weryfikacji prawnej, nieobowiązujący
 **Zastosowanie:** domyślna treść dokumentu „Informacja o danych” (`event_consents.kind = 'data_info'`), tworzonego z każdym Wydarzeniem. Organizator może ją zastąpić własną. Pola w nawiasach klamrowych `{…}` Serwis wypełnia danymi Wydarzenia i Organizatora.
 
@@ -70,6 +70,16 @@ Ta osoba dostaje jeden e-mail z linkiem i z tą informacją. Na stronie z linku 
 Osobę niepełnoletnią zapisuje jej rodzic lub opiekun prawny, który podaje swoje imię, nazwisko i adres e-mail. Oświadczenia za osobę niepełnoletnią składa opiekun. Dziecko nie dostaje od LESZY.RUN żadnych wiadomości. Jeżeli opiekun usunie konto LESZY.RUN, zgłoszenie dziecka zostaje, bez danych kontaktowych opiekuna.
 
 W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO). Każda dorosła osoba dostaje wtedy e-mail opisany wyżej, a za dziecko, którego kapitan jest rodzicem lub opiekunem, kapitan składa oświadczenia sam. Kapitan może zmieniać skład do zamknięcia zapisów; osoba usunięta ze składu po zapisie dostaje o tym e-mail, a jej zgłoszenie jest anulowane. Jeżeli kapitan usunie konto LESZY.RUN, drużyna zostaje na liście startowej pod neutralną nazwą, a składem zajmuje się Organizator.
+
+## Gdy przekazujesz pakiet innej osobie
+
+Jeżeli Organizator na to pozwala, możesz przekazać swój pakiet innej osobie dorosłej. Podajesz wtedy jej adres e-mail, na który wysyłamy link do przejęcia pakietu. Źródłem tego adresu jesteś Ty (art. 14 ust. 2 lit. f RODO): w e-mailu i na stronie z linku podajemy osobie zaproszonej Twoje imię, bez nazwiska i danych kontaktowych. Przekaż jej, że podałeś jej adres.
+
+Osoba, która przyjmuje pakiet, sama podaje swoje dane, potwierdza swój adres kodem wysłanym e-mailem i akceptuje regulamin zawodów. Gdy to zrobi, dostajesz e-mail z jej imieniem i nazwiskiem, bez jej adresu e-mail, a ona zajmuje Twoje miejsce na liście startowej. Link działa raz i przestaje działać po cofnięciu zaproszenia albo z końcem ostatniego dnia przekazywania pakietów.
+
+Organizator może też sam przekazać Twój pakiet innej osobie, wpisując jej dane. Dostajesz wtedy e-mail, że pakiet został przekazany, bez danych osoby, która go przejęła. Ta osoba dostaje e-mail z prośbą o akceptację regulaminu, w którym jako źródło jej danych wskazujemy Organizatora.
+
+Jeżeli usuniesz konto LESZY.RUN, otwarte zaproszenia do przejęcia Twoich pakietów i zaproszenia wysłane na Twój adres są cofane, a Twój adres e-mail jest usuwany z zapisów o przekazaniach.
 
 ## Osoba do kontaktu w nagłych wypadkach
 

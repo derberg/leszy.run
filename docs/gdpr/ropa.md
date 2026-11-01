@@ -3,7 +3,7 @@
 **Administrator:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
 **Data ostatniej aktualizacji:** 2026-11-01
-**Wersja:** 1.7
+**Wersja:** 1.8
 
 ## Rola Leszy.run
 
@@ -203,10 +203,40 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
   - komórki CSV zabezpieczone przed formułami arkusza (tekst zawodnika zaczynający się od `=`, `+`, `-`, `@` jest poprzedzony apostrofem); odpowiedź bez zapisu w pamięci podręcznej (`Cache-Control: no-store`);
   - żaden adres nie trafia do logów funkcji.
 
+## 14. Kody rabatowe, partnerzy i przekazanie pakietu innej osobie
+
+- **Rola:** jak w pkt 10 — dane zgłoszeń LESZY.RUN przetwarza w imieniu Organizatora (art. 28 RODO, rejestr z art. 30 ust. 2); konta i dane płatności — LESZY.RUN jako administrator.
+- **Cel:** obniżenie opłaty kodem rabatowym i przypisanie zgłoszenia partnerowi Organizatora (np. sklepowi, który rozdał kod) na potrzeby rozliczeń Organizatora; przekazanie opłaconego pakietu startowego innej osobie przez zawodnika (zaproszenie e-mailem) albo przez Organizatora w panelu.
+- **Podstawa prawna:** art. 6(1)(b) RODO — umowa o udział w zawodach (przekazanie pakietu jest jej wykonaniem na żądanie zawodnika); art. 6(1)(f) — prawnie uzasadniony interes Organizatora w rozliczeniu z partnerami i ochrona formularza przed nadużyciem (limity zapytań).
+- **Kategorie danych:**
+  - `registrations.voucher_id`, `registrations.partner_id` — kod użyty przy zgłoszeniu i partner przypisany do zgłoszenia; `vouchers.note` i `partners.note` to notatki Organizatora, nie dane zawodnika;
+  - `transfers.to_email` — adres osoby zaproszonej do przejęcia pakietu, podany przez zawodnika przekazującego (źródło danych w rozumieniu art. 14 ust. 2 lit. f) albo wpisany przez Organizatora;
+  - `transfers.token_hash` — wyłącznie skrót SHA-256 tokenu z linku; sam token jest tylko we fragmencie adresu (`/przekazanie#…`) i nie trafia do bazy, logów ani odpowiedzi;
+  - `transfers.from_profile_id`, `transfers.accepted_by_profile_id`, `registration_id`, `new_registration_id` i daty (utworzenie, ważność, przyjęcie, cofnięcie);
+  - dane nowego zgłoszenia osoby przejmującej — jak w pkt 10 (osoba przyjmująca sama wypełnia formularz i akceptuje regulamin; przy przekazaniu przez Organizatora dostaje prośbę o akceptację jak w pkt 11, a jako źródło jej danych wskazany jest Organizator).
+- **Kategorie osób:** zawodnicy przekazujący pakiet, osoby zaproszone i osoby przejmujące pakiet (także z przekazanego dalej linku).
+- **Odbiorcy:**
+  - partner, kod i notatki są widoczne wyłącznie dla Organizatora (panel zgłoszeń, eksport CSV); nie trafiają na listę startową, stronę zawodów, stronę zamówienia, stronę przekazania, do eksportu zawodnika ani do żadnego e-maila do zawodnika;
+  - osoba zaproszona widzi tylko imię przekazującego (bez nazwiska, adresu, telefonu i daty urodzenia), zawody, konkurencję i cenę pakietu;
+  - przekazujący dostaje e-mail z imieniem i nazwiskiem osoby, która przejęła pakiet, nigdy z jej adresem (osoba z przekazanego dalej linku jest nazwana tak samo);
+  - przy przekazaniu przez Organizatora dotychczasowy zawodnik dostaje tylko informację, że pakiet przekazano innej osobie, bez jej imienia, nazwiska i adresu (minimalizacja danych: nie on wybrał tę osobę);
+  - po zamknięciu zapisów uczestnik przekazujący zostaje na hoście pomiaru czasu, a alert dla operatora wskazuje identyfikator zgłoszenia, wydarzenie i numer startowy, bez imienia i nazwiska.
+- **Transfery poza EOG:** jak w pkt 1.
+- **Okres przechowywania:** wiersz `transfers` zostaje jako zapis tego, gdzie trafił pakiet (opłata zostaje przy pierwotnym zamówieniu, pkt 10). Link wygasa z końcem dnia `transfer_until` (czas warszawski). Dane zgłoszeń — jak w pkt 10 i 11.
+- **Prawa osób:**
+  - eksport (`export-my-data`) zawiera `transfers.sent` (przekazania pakietów tej osoby: rodzaj, stan, daty, wydarzenie; adres, który sama wpisała — przy przekazaniu przez Organizatora bez danych osoby przejmującej) i `transfers.received` (zaproszenia na jej adres i pakiety przez nią przejęte, z `from_name` — imieniem przekazującego albo nazwą klubu Organizatora — jako źródłem jej adresu; adres zaproszenia tylko wtedy, gdy jest jej własny). Skrót tokenu, partner, kod i notatki nie są eksportowane;
+  - usunięcie konta (`delete-my-account`, funkcja `forget_transfer_parties`): jako przekazujący — otwarte zaproszenia zgłoszeń, które są anonimizowane, są cofane, a ich linki przestają działać; jako osoba zaproszona — otwarte zaproszenia na jej adres są cofane, a potem `to_email` jest usuwany ze wszystkich przekazań na ten adres. Wiersze przekazań zostają bez adresu.
+- **Środki bezpieczeństwa:**
+  - tabele `vouchers`, `partners` i `transfers` z RLS i `REVOKE ALL … FROM anon, authenticated`, dostęp tylko przez funkcje brzegowe i funkcje bazy dla service_role;
+  - jedno przekazanie oczekujące na zgłoszenie; przyjęcie w jednej transakcji, warunkowane `UPDATE … WHERE status = 'pending' AND expires_at > now()`;
+  - osoba przyjmująca potwierdza swój adres kodem wysłanym e-mailem (albo sesją na ten adres); limity: 10 wywołań na token i 30 na adres IP na godzinę, 5 zaproszeń na zgłoszenie na dobę;
+  - e-maile z linkiem z tokenem bez śledzenia kliknięć (link nie jest przepisywany).
+
 ## Historia zmian
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.8 | 2026-11-01 | Dodano sekcję 14 (kody rabatowe i partnerzy widoczni tylko dla Organizatora; przekazanie pakietu: adres osoby zaproszonej podany przez przekazującego, przekazujący widzi imię i nazwisko osoby przejmującej, przy przekazaniu przez Organizatora dotychczasowy zawodnik nie dostaje danych osoby przejmującej; eksport i usuwanie konta). |
 | 1.7 | 2026-11-01 | Sekcja 13: wiadomość do jednego zawodnika zawiera identyfikator jego zgłoszenia, więc jest w jego eksporcie (bez wskazania osoby nadawcy) i jest usuwana przy usunięciu konta; to samo dotyczy opiekuna przy wiadomości do zgłoszenia dziecka. Sekcja 10: `refunds.resolved_by` (notatka operatora przy ręcznym rozstrzygnięciu zwrotu) wskazuje operatora. |
 | 1.6 | 2026-11-01 | Dodano sekcję 13 (panel zgłoszeń Organizatora: wiadomości do zawodników — adresy ustalane przy wysyłce, nie zapisywane per odbiorca — oraz eksport CSV z wpisem `csv_exported` w `organizer_actions`, bez tekstu wyszukiwania); w sekcji 11 doprecyzowano, że adres opiekuna dziecka zawiera eksport CSV. |
 | 1.5 | 2026-11-01 | Dodano sekcję 12 (drużyny i sztafety: nazwa drużyny jako dana osobowa i jej usuwanie po 30 dniach oraz przy usunięciu konta kapitana, eksport, dane członków podawane przez kapitana, anonimizacja osoby usuniętej ze składu w chwili wymiany, nazwa drużyny przy zamówieniu wygasłym lub anulowanym). |

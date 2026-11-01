@@ -160,16 +160,22 @@ describe('transferAllowed (ruling 3, §5.4)', async () => {
   })
 })
 
-describe('transferByOrganizerEmail (M-2)', () => {
+describe('transferByOrganizerEmail (M-2, ruling N-1)', () => {
   const mail = transferByOrganizerEmail({
-    event: EVENT, holderFirstName: 'Ola', recipient: { firstName: 'Jan', lastName: 'Nowak' },
-    organizer: { name: 'Zatyrani', contactEmail: 'biuro@zatyrani.pl' },
+    event: EVENT, holderFirstName: 'Ola', organizer: { name: 'Zatyrani', contactEmail: 'biuro@zatyrani.pl' },
   })
-  it('subject „Pakiet przekazany — <nazwa>”, the new holder by name, the organizer to write to', () => {
+  it('subject „Pakiet przekazany — <nazwa>”, the organizer named, the organizer to write to', () => {
     assert.equal(mail.subject, 'Pakiet przekazany — Wilczy Bieg <Nocny>')
     assert.match(mail.text, /^Cześć Ola,/)
-    assert.match(mail.text, /\(Zatyrani\) przekazał Twój pakiet tej osobie: Jan Nowak\./)
+    assert.match(mail.text, /\(Zatyrani\) przekazał Twój pakiet innej osobie\./)
     assert.match(mail.text, /biuro@zatyrani\.pl/)
+  })
+  it('N-1: never names the new holder, even when a caller passes them (the old holder did not choose them)', () => {
+    const passed = transferByOrganizerEmail({
+      event: EVENT, holderFirstName: 'Ola', recipient: { firstName: 'Jan', lastName: 'Nowak', email: 'jan@x.pl' },
+      organizer: { name: 'Zatyrani' },
+    })
+    assert.doesNotMatch(all(passed), /Jan|Nowak|jan@x\.pl/)
   })
   it('names no bib, partner or fee', () => assertNothingExtra(mail))
 })

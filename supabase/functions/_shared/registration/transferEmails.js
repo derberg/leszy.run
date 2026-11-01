@@ -126,14 +126,14 @@ export function transferConfirmationEmail({ event, person, competition }) {
 
 /**
  * To the old holder, when the organizer handed their package on from B3 (ruling 4; controller
- * ruling M-2: fairness). Names the new holder by first name and surname only, never their address.
- * event { name }, holderFirstName, recipient { firstName, lastName }, organizer { name, contactEmail? }.
+ * ruling M-2: fairness). Ruling N-1 (data minimisation): it never names the new holder, by name
+ * or by address, because the old holder did not choose them; it names the organizer, whom they
+ * can ask. event { name }, holderFirstName, organizer { name, contactEmail? }.
  */
-export function transferByOrganizerEmail({ event, holderFirstName, recipient, organizer }) {
-  const who = fullName(recipient) || 'inna osoba'
+export function transferByOrganizerEmail({ event, holderFirstName, organizer }) {
   const org = organizer?.name || 'Organizator zawodów'
   const greeting = holderFirstName ? `Cześć ${holderFirstName},` : 'Cześć,'
-  const lead = `organizator zawodów ${event.name} (${org}) przekazał Twój pakiet tej osobie: ${who}. Nie jesteś już na liście startowej tych zawodów.`
+  const lead = `organizator zawodów ${event.name} (${org}) przekazał Twój pakiet innej osobie. Nie jesteś już na liście startowej tych zawodów.`
   const contact = organizer?.contactEmail
     ? `Jeśli to pomyłka, napisz do organizatora: ${organizer.contactEmail}.`
     : 'Jeśli to pomyłka, napisz do organizatora.'

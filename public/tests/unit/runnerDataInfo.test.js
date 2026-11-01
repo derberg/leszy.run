@@ -177,3 +177,32 @@ describe('runnerDataInfo group registration (Plan 4, task 8)', () => {
     assert.notEqual(RUNNER_DATA_INFO_VERSION, '2026-11-v3')
   })
 })
+
+describe('runnerDataInfo transfers (Plan 7, task 10)', () => {
+  const section = () => runnerDataInfo(base).sections.find((s) => s.heading === 'Gdy przekazujesz pakiet innej osobie')
+
+  it('the sender is the source of the invited address and is named by first name only', () => {
+    const t = JSON.stringify(section())
+    assert.ok(t.includes('Źródłem tego adresu jesteś Ty (art. 14 ust. 2 lit. f RODO)'))
+    assert.ok(t.includes('Twoje imię, bez nazwiska i danych kontaktowych'))
+  })
+
+  it('the sender learns the recipient\'s name, never the address; after an organizer transfer, nothing about the recipient (N-1)', () => {
+    const t = JSON.stringify(section())
+    assert.ok(t.includes('dostajesz e-mail z jej imieniem i nazwiskiem, bez jej adresu e-mail'))
+    assert.ok(t.includes('bez danych osoby, która go przejęła'))
+    assert.ok(t.includes('otwarte zaproszenia do przejęcia Twoich pakietów i zaproszenia wysłane na Twój adres są cofane'))
+  })
+
+  it('never mentions a partner or a discount code', () => {
+    assert.doesNotMatch(JSON.stringify(runnerDataInfo({ ...base, paid: true, teams: true })), /partner/i)
+  })
+
+  it('the source document carries the same section, word for word, and the version moved past v6', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
+    const md = await readFile(new URL('../../../docs/legal/zapisy/informacja-o-danych-zawodnika.md', import.meta.url), 'utf8')
+    for (const block of section().blocks) assert.ok(md.includes(block), block.slice(0, 60))
+    assert.notEqual(RUNNER_DATA_INFO_VERSION, '2026-11-v6')
+  })
+})

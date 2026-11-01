@@ -378,13 +378,13 @@ test('V-55 an organizer transfer after transfer_until → 200, a consent request
   assert.ok(!mail.text.includes('Ola Leśna'), 'not the original buyer')
   assert.equal(mail.trackClicks, false, 'the consent link is never click-tracked')
 
-  // M-2: the old holder is told, by the new holder's name and never their address.
+  // M-2: the old holder is told; ruling N-1: never who has the package now (name or address).
   assert.equal(res.body.data.holderNotified, true)
   const [notice] = await waitForMail(a.email, 1, bySubject(/^Pakiet przekazany — /))
   assert.ok(notice, 'the old holder got a notice')
   assert.equal(notice.subject, `Pakiet przekazany — ${settings.name}`)
-  assert.match(notice.text, /Jan Nowak/)
-  assert.ok(!`${notice.text}${notice.html}`.includes(email))
+  assert.match(notice.text, /przekazał Twój pakiet innej osobie\./)
+  for (const s of ['Jan', 'Nowak', email]) assert.ok(!`${notice.subject}${notice.text}${notice.html}`.includes(s), `the notice holds "${s}"`)
   const orgTransfer = (await rows('transfers', { registration_id: a.reg.id })).find((t) => t.kind === 'organizer')
   assert.ok(orgTransfer.holder_emailed_at)
 
@@ -577,4 +577,159 @@ test('V-65 order-status: the buyer\'s own confirmed line carries the transfer bl
   await setSettings(event.eventId, { transfer_until: dayBefore(warsawToday()) })
   lines = await read()
   assert.equal(lines.find((l) => l.mine).transfer.allowed, false)
+})
+
+// ---------------------------------------------------------------- V-82 export-my-data
+
+const exportOf = async (session) => {
+  const res = await call('export-my-data', {}, { session })
+  assert.equal(res.status, 200, res.text)
+  return res.body
+}
+
+test('V-82 export-my-data: the sender lists the transfer sent, the invitee the one received; no token, no partner or voucher', async () => {
+  const { event, a, holder } = await holderOf()
+  const name = (await one('registration_settings', { event_id: event.eventId })).name
+  const inv = await invited(a, holder)
+
+  // While the invite is open, the invited address already holds it as received (it is addressed to them).
+  const invitee = await sessionFor(inv.toEmail)
+  let mineIn = await exportOf(invitee)
+  assert.equal(mineIn.transfers.received.length, 1)
+  assert.equal(mineIn.transfers.received[0].status, 'pending')
+
+  const res = await acceptWithCode(event, inv.token, inv.toEmail)
+  assert.equal(res.status, 200, res.text)
+
+  const out = await exportOf(holder)
+  assert.deepEqual(out.transfers.received, [])
+  assert.equal(out.transfers.sent.length, 1)
+  const sent = out.transfers.sent[0]
+  assert.equal(sent.id, inv.transferId)
+  assert.equal(sent.kind, 'runner')
+  assert.equal(sent.status, 'accepted')
+  assert.equal(sent.event_name, name)
+  assert.equal(sent.to_email, inv.toEmail, 'the address the sender typed')
+  assert.equal(sent.registration_id, a.reg.id)
+  assert.ok(sent.accepted_at)
+
+  mineIn = await exportOf(invitee)
+  assert.deepEqual(mineIn.transfers.sent, [])
+  assert.equal(mineIn.transfers.received.length, 1)
+  const got = mineIn.transfers.received[0]
+  assert.equal(got.id, inv.transferId)
+  assert.equal(got.status, 'accepted')
+  assert.equal(got.from_name, 'Ola', 'who gave the address (Art. 14(2)(f)): the sender by first name')
+  assert.equal(got.to_email, inv.toEmail)
+  assert.equal(got.new_registration_id, res.body.data.registrationId)
+  assert.ok(mineIn.registrations.some((r) => r.id === res.body.data.registrationId), 'the entry taken over is theirs')
+
+  for (const body of [out, mineIn]) {
+    const text = JSON.stringify(body.transfers)
+    assert.ok(!text.includes(inv.token) && !text.includes(hashToken(inv.token)) && !/token/i.test(text), 'never the token or its hash')
+    assert.ok(!/partner|voucher/i.test(text), 'no partner or voucher in the transfer records')
+    for (const r of body.registrations) assert.ok(!('partner_id' in r) && !('voucher_id' in r), 'D7-11: registrations stay without them')
+  }
+})
+
+test('V-82 a forwarded link: the person who took it never sees the invited address in their export', async () => {
+  const { event, a, holder } = await holderOf()
+  const inv = await invited(a, holder)
+  const third = runnerEmail('third')
+  const res = await acceptWithCode(event, inv.token, third)
+  assert.equal(res.status, 200, res.text)
+  const body = await exportOf(await sessionFor(third))
+  assert.equal(body.transfers.received.length, 1)
+  assert.equal(body.transfers.received[0].to_email, null)
+  assert.ok(!JSON.stringify(body).includes(inv.toEmail), 'the invited address is not the third person\'s data')
+})
+
+test('V-82 an organizer transfer: the old holder\'s export lists it without the recipient (N-1), the recipient\'s names the club', async () => {
+  const event = await paidEvent()
+  const a = await paidEntry(event)
+  await setSettings(event.eventId, { transfer_until: dayBefore(warsawToday()) })
+  const email = runnerEmail('org82')
+  const res = await call('organizer-entry-action', {
+    action: 'transfer', registrationId: a.reg.id, categoryId: event.categoryIds[0], person: recipientPerson(email),
+  }, { session: owner })
+  assert.equal(res.status, 200, res.text)
+  const club = await one('clubs', { id: (await one('registration_settings', { event_id: event.eventId })).club_id })
+
+  const old = await exportOf(await sessionFor(a.email))
+  assert.equal(old.transfers.sent.length, 1)
+  assert.equal(old.transfers.sent[0].kind, 'organizer')
+  assert.equal(old.transfers.sent[0].to_email, null)
+  assert.ok(!JSON.stringify(old.transfers).includes(email) && !JSON.stringify(old.transfers).includes('Nowak'))
+
+  const fresh = await exportOf(await sessionFor(email))
+  assert.equal(fresh.transfers.received.length, 1)
+  assert.equal(fresh.transfers.received[0].from_name, club.name)
+})
+
+// ---------------------------------------------------------------- delete-my-account (carry T10 a)
+
+const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex')
+async function deleteAccount(email, session) {
+  const { error } = await db().from('auth_codes').insert({
+    email, code_hash: sha256('123456'), purpose: 'delete_account', expires_at: new Date(Date.now() + 600000).toISOString(),
+  })
+  assert.ifError(error)
+  const r = await call('delete-my-account', { action: 'confirm', code: '123456' }, { session })
+  assert.equal(r.status, 200, r.text)
+}
+
+test('T10-D1 the sender deletes the account: the pending invite of the anonymised entry is cancelled and its link is gone', async () => {
+  const { a, holder } = await holderOf()
+  const inv = await invited(a, holder)
+  await deleteAccount(a.email, holder)
+
+  const t = await transferOf(inv.transferId)
+  assert.equal(t.status, 'cancelled')
+  assert.ok(t.cancelled_at)
+  const reg = await one('registrations', { id: a.reg.id })
+  assert.equal(reg.first_name, 'Usunięte konto')
+  assert.equal(reg.status, 'confirmed', 'the entry keeps its place')
+  const res = await call('transfer-accept', { token: inv.token })
+  assert.equal(res.status, 409)
+  assert.equal(res.body.error, GONE)
+})
+
+test('T10-D2 the recipient deletes the account: live invites to them are cancelled, then every transfer addressed to them loses the address', async () => {
+  const recipient = runnerEmail('erase')
+  // An accepted transfer to them, and a second invite from somebody else still open.
+  const one1 = await holderOf()
+  const inv1 = await invited(one1.a, one1.holder, recipient)
+  const ok = await acceptWithCode(one1.event, inv1.token, recipient)
+  assert.equal(ok.status, 200, ok.text)
+  const two = await holderOf()
+  const inv2 = await invited(two.a, two.holder, recipient)
+  // An organizer transfer typed in for them.
+  const three = await holderOf()
+  await setSettings(three.event.eventId, { transfer_until: dayBefore(warsawToday()) })
+  const org = await call('organizer-entry-action', {
+    action: 'transfer', registrationId: three.a.reg.id, categoryId: three.event.categoryIds[0], person: recipientPerson(recipient),
+  }, { session: owner })
+  assert.equal(org.status, 200, org.text)
+  // Somebody else's invite must not be touched.
+  const four = await holderOf()
+  const other = await invited(four.a, four.holder)
+
+  await deleteAccount(recipient, await sessionFor(recipient))
+
+  const t1 = await transferOf(inv1.transferId)
+  assert.equal(t1.status, 'accepted', 'an accepted transfer stays accepted')
+  assert.equal(t1.to_email, null)
+  const t2 = await transferOf(inv2.transferId)
+  assert.equal(t2.status, 'cancelled')
+  assert.ok(t2.cancelled_at)
+  assert.equal(t2.to_email, null)
+  const orgRow = (await rows('transfers', { registration_id: three.a.reg.id })).find((t) => t.kind === 'organizer')
+  assert.equal(orgRow.to_email, null)
+  assert.equal((await rows('transfers', { to_email: recipient })).length, 0, 'no row keeps the address')
+  assert.equal((await transferOf(other.transferId)).status, 'pending')
+  assert.equal((await transferOf(other.transferId)).to_email, other.toEmail)
+
+  // The cancelled link is gone; the sender's entry is untouched.
+  assert.equal((await call('transfer-accept', { token: inv2.token })).body.error, GONE)
+  assert.equal((await one('registrations', { id: two.a.reg.id })).status, 'confirmed')
 })

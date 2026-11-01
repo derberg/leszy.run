@@ -191,8 +191,8 @@ async function checkEdit(admin, settings, registrationId, fields) {
 //                   consentState: 'awaiting', hostWithdraw, consentRequestSent, holderNotified } }
 //                   organizer_transfer (ruling 4, any time before 00:00 Warsaw on the race day),
 //                   then Plan 4's consent request to the new adult, naming the club as the source
-//                   of the data, and „Pakiet przekazany” to the old holder (the new holder's name,
-//                   never their address). 422 invalid_person with `fields`, 409 race_day / recipient_minor /
+//                   of the data, and „Pakiet przekazany” to the old holder (ruling N-1: never the new holder's name
+//                   or address). 422 invalid_person with `fields`, 409 race_day / recipient_minor /
 //                   price_differs / duplicate / pending_elsewhere / not_transferable / gone / …
 // The owner or an admin of the event's club: a member 403, an outsider or a disabled club 404, an
 // unknown target 404. Every change writes one organizer_actions row naming its target; no personal
@@ -328,7 +328,7 @@ Deno.serve(async (req) => {
       } catch (err) {
         console.error('organizer-entry-action: consent request not issued:', `registration ${data.registrationId}`, err?.message)
       }
-      // M-2: the old holder is told who has their package now (name only, never the address).
+      // M-2: the old holder is told the package moved; ruling N-1: never to whom.
       holderNotified = await sendAcceptedTransferEmail(admin, {
         id: data.transferId, kind: 'organizer', status: 'accepted', event_id: settings.event_id,
         registration_id: target.registrationId, new_registration_id: data.registrationId,

@@ -356,6 +356,17 @@ Deno.serve(async (req) => {
       if (teamErr) console.error('delete-my-account: team names cleanup failed:', teamErr.message)
     }
 
+    // 1b-bis. Package transfers (Plan 7, carry T10 a), in one RPC so both halves see one snapshot:
+    //   as SENDER, an open invite of an entry anonymised above (or one they sent) is cancelled: its
+    //   link would otherwise hand an anonymised entry to whoever holds it;
+    //   as RECIPIENT, the open invites to their address are cancelled first (a pending invite must
+    //   keep an address, transfers_pending_has_address), then every transfer addressed to them loses
+    //   to_email. The rows stay: they are the record of where a package went.
+    const { error: trErr } = await supabaseAdmin.rpc('forget_transfer_parties', {
+      p_registration_ids: [...regIds], p_profile_id: profile.id, p_email: originalEmail,
+    })
+    if (trErr) console.error('delete-my-account: transfers cleanup failed:', trErr.message)
+
     // 1c. The person as GUARDIAN of someone else's registration (a child, later
     // a group): the guardian fields on that row are THEIR data, the rest of the
     // row is the child's and stays. The acceptances they gave for anyone lose

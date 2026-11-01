@@ -663,8 +663,9 @@ test('V-49 service_role only, internals nobody, search_path empty', async () => 
            has_function_privilege('service_role', p.oid, 'execute') as service
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
-       and p.proname in ('create_transfer', 'cancel_transfer', 'accept_transfer', 'organizer_transfer', 'apply_transfer')`
-  assert.equal(fns.length, 5)
+       and p.proname in ('create_transfer', 'cancel_transfer', 'accept_transfer', 'organizer_transfer', 'apply_transfer',
+                         'forget_transfer_parties')`
+  assert.equal(fns.length, 6)
   for (const f of fns) {
     assert.deepEqual(f.proconfig, ['search_path=""'], f.sig)
     assert.equal(f.anon, false, f.sig)
