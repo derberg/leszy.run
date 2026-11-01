@@ -11,6 +11,8 @@ import { test, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import postgres from 'postgres'
 import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
@@ -20,8 +22,8 @@ import { acceptAgreement, createPublishedPaidEvent } from './helpers/registratio
 import { dpayMode, dpayRefunds, dpayReset, payMock, startDpayMock } from './helpers/dpayControl.js'
 import { DPAY_MOCK_PORT } from './helpers/dpayMock.js'
 import {
-  attemptFor, competitionOf, confirm, confirmOk, consentIds, db, expireNow, orderOf, orderOk, paidOrderOk, registrationsOf, rows,
-  runnerEmail, totalFor,
+  attemptFor, competitionOf, confirm, confirmOk, consentIds, db, expireNow, orderOf, orderOk, paidOrderOk, profileFor, registrationsOf,
+  rows, rpc, runnerEmail, totalFor,
 } from './helpers/orders.js'
 import { dpayConfig } from '../../supabase/functions/_shared/dpay.js'
 import { raiseAlert, settleConfirmOutcome } from '../../supabase/functions/_shared/registration/orderFlow.js'
@@ -81,7 +83,7 @@ async function jobsOk() {
   return r.body.data
 }
 
-const CLAIMED = ['reminders', 'expiredNotices', 'confirmationsResent', 'refundRetries', 'alertsEmailed']
+const CLAIMED = ['reminders', 'expiredNotices', 'confirmationsResent', 'refundRetries', 'refundEmails', 'alertsEmailed']
 // Runs the job until a run claims nothing, so the backlog of earlier test runs is gone.
 async function drain() {
   for (let i = 0; i < 80; i++) {
@@ -888,6 +890,7 @@ test('P3-R16 a run without dpay settings skips the dpay steps (reported, no aler
     assert.equal(data.refundRetries, 0)
     assert.ok(data.expiredNotices >= 1)
     assert.ok(data.alertsEmailed >= 1)
+    assert.ok(!('refund_emails' in data.skipped), 'the refund e-mail catch-up needs no dpay (D6-23)')
     assert.deepEqual(subjects(await waitForMail(email)), ['Zgłoszenie wygasło'])
     const digests = await messagesTo(OPERATOR)
     assert.ok(digests.some((m) => m.text.includes(marker)), 'the digest went out')
@@ -899,4 +902,209 @@ test('P3-R16 a run without dpay settings skips the dpay steps (reported, no aler
     if (hadDeno) globalThis.Deno = prev
     else delete globalThis.Deno
   }
+})
+
+// ---------------------------------------------------------------- Plan 6 Task 5: organizer refunds
+
+const ORG_PRICE = 6000
+const OWNER = 'owner@zatyrani-test.local'
+const REPO = fileURLToPath(new URL('../../', import.meta.url))
+
+/** A confirmed one-person paid entry (no dpay call: the attempt is recorded and confirmed directly). */
+async function paidEntry(event, email = runnerEmail('orgref')) {
+  const out = await orderOk(event, { emails: [email] })
+  const { txn } = await attemptFor(out.orderId, out.total)
+  assert.equal((await confirmOk(out.orderId, txn, out.total)).outcome, 'confirmed')
+  const [l] = await rows('order_lines', { order_id: out.orderId })
+  return { orderId: out.orderId, txn, email, registrationId: l.registration_id, lineId: l.id }
+}
+
+async function rpcOk(fn, args) {
+  const { data, error } = await rpc(fn, args)
+  assert.ifError(error)
+  return data
+}
+
+/** An organizer refund reserved and claimed for dpay (requested_at), as organizer-refund leaves it before the call. */
+async function reservedRefund(entry, grosze) {
+  const r = await rpcOk('reserve_organizer_refund', {
+    p_line_id: entry.lineId, p_grosze: grosze, p_actor: await profileFor(OWNER), p_request_key: crypto.randomUUID(),
+  })
+  const { error } = await db().from('refunds').update({ requested_at: new Date().toISOString() }).eq('id', r.refundId)
+  assert.ifError(error)
+  return r.refundId
+}
+
+/** An organizer refund dpay answered with a timeout or a 5xx: stored `unknown`, the money still reserved. */
+async function unknownRefund(entry, grosze) {
+  const id = await reservedRefund(entry, grosze)
+  assert.equal((await rpcOk('finish_organizer_refund', { p_refund_id: id, p_outcome: 'unknown' })).status, 'unknown')
+  return id
+}
+
+const refundRow = async (id) => (await rows('refunds', { id }))[0]
+const refundMails = async (email) => (await messagesTo(email)).filter((m) => m.subject.startsWith('Zwrot '))
+
+test('O-40 an organizer refund claimed 16 min ago with no dpay answer → one refund_stalled alert, no dpay call; the next run → none; 14 min → none', async () => {
+  const event = await paidEvent()
+  const old = await paidEntry(event)
+  const young = await paidEntry(event)
+  const oldId = await reservedRefund(old, 1000)
+  const youngId = await reservedRefund(young, 1000)
+  const set = (id, v) => db().from('refunds').update(v).eq('id', id)
+  assert.ifError((await set(oldId, { created_at: ago(17 * MIN), requested_at: ago(16 * MIN) })).error)
+  assert.ifError((await set(youngId, { created_at: ago(15 * MIN), requested_at: ago(14 * MIN) })).error)
+
+  await jobsOk()
+  const stalled = await rows('operator_alerts', { order_id: old.orderId, kind: 'refund_stalled' })
+  assert.equal(stalled.length, 1)
+  assert.equal(stalled[0].payload.refundId, oldId)
+  assert.equal(stalled[0].payload.reason, 'organizer')
+  await jobsOk()
+  assert.equal((await rows('operator_alerts', { order_id: old.orderId, kind: 'refund_stalled' })).length, 1, 'deduplicated')
+  assert.equal((await alertsOf(young.orderId)).filter((k) => k.startsWith('refund_')).length, 0)
+  assert.equal((await dpayRefunds()).length, 0, 'a stall is alerted, never re-sent')
+  const row = await refundRow(oldId)
+  assert.equal(row.dpay_status, 'pending')
+  assert.equal(row.runner_notified_at, null)
+})
+
+test('O-41 resolve_organizer_refund(accepted) on an unknown refund → the job sends exactly one runner e-mail; rejected → reservation released, no e-mail', async () => {
+  const event = await paidEvent()
+  const { data: settings } = await db().from('registration_settings').select('name, club_id').eq('event_id', event.eventId).single()
+  const { data: club } = await db().from('clubs').select('name').eq('id', settings.club_id).single()
+  const part = await paidEntry(event)
+  const whole = await paidEntry(event)
+  const refused = await paidEntry(event)
+  const partId = await unknownRefund(part, 2000)
+  const wholeId = await unknownRefund(whole, ORG_PRICE)
+  const refusedId = await unknownRefund(refused, 2000)
+
+  await jobsOk()
+  for (const e of [part, whole, refused]) assert.deepEqual(await refundMails(e.email), [], 'unknown: the runner is told nothing')
+
+  await rpcOk('resolve_organizer_refund', { p_refund_id: partId, p_outcome: 'accepted', p_note: 'panel dpay: zwrot widoczny' })
+  await rpcOk('resolve_organizer_refund', { p_refund_id: wholeId, p_outcome: 'accepted', p_note: 'panel dpay: zwrot widoczny' })
+  await rpcOk('resolve_organizer_refund', { p_refund_id: refusedId, p_outcome: 'rejected', p_note: 'panel dpay: brak zwrotu' })
+  assert.equal((await rows('registrations', { id: whole.registrationId }))[0].status, 'cancelled')
+
+  // Concurrent runs: the claim on runner_notified_at lets one of them send.
+  const runs = await Promise.all([jobsOk(), jobsOk()])
+  await jobsOk()
+  assert.ok(runs.reduce((n, d) => n + d.refundEmails, 0) >= 2)
+  const [partMail] = await waitForMail(part.email)
+  await sleep(300)
+  assert.equal((await refundMails(part.email)).length, 1)
+  assert.equal(partMail.subject, `Zwrot 20,00 zł — ${settings.name}`)
+  assert.equal(partMail.fromName, `${club.name} przez LESZY.RUN`)
+  assert.ok(!partMail.text.includes('anulowane'))
+  await waitForMail(whole.email)
+  const wholeMails = await refundMails(whole.email)
+  assert.equal(wholeMails.length, 1)
+  assert.equal(wholeMails[0].subject, `Zwrot 60,00 zł — ${settings.name}`)
+  assert.match(wholeMails[0].text, /Zgłoszenie zostało anulowane\./)
+  assert.ok((await refundRow(partId)).runner_notified_at)
+  assert.ok((await refundRow(wholeId)).runner_notified_at)
+
+  assert.deepEqual(await refundMails(refused.email), [])
+  const r = await refundRow(refusedId)
+  assert.equal(r.dpay_status, 'rejected')
+  assert.equal(r.runner_notified_at, null)
+  assert.equal((await rows('order_lines', { id: refused.lineId }))[0].refunded, 0, 'the reservation is given back')
+  assert.equal((await rows('registrations', { id: refused.registrationId }))[0].refunded, 0)
+  assert.equal((await rows('registrations', { id: refused.registrationId }))[0].status, 'confirmed')
+  assert.equal((await dpayRefunds()).length, 0, 'the job never calls dpay for an organizer refund')
+})
+
+test('O-41 a catch-up e-mail the sender refuses → one refund_email_failed alert, the claim kept, never resent by the job', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event, runnerEmail('bounce'))
+  const id = await unknownRefund(e, 1500)
+  await rpcOk('resolve_organizer_refund', { p_refund_id: id, p_outcome: 'accepted', p_note: 'panel dpay' })
+  await jobsOk()
+  await jobsOk()
+  const alerts = await rows('operator_alerts', { order_id: e.orderId, kind: 'refund_email_failed' })
+  assert.equal(alerts.length, 1)
+  assert.equal(alerts[0].payload.refundId, id)
+  assert.ok(!JSON.stringify(alerts[0].payload).includes(e.email), 'no address in an alert')
+  assert.ok((await refundRow(id)).runner_notified_at, 'kept: the operator decides')
+})
+
+test('O-41 an accepted organizer refund the function is still notifying for is left alone; an automatic refund is never the job\'s', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  const id = await unknownRefund(e, 1000)
+  await rpcOk('resolve_organizer_refund', { p_refund_id: id, p_outcome: 'accepted', p_note: 'panel dpay' })
+  // The function claimed it (the mail went, or its fate is unknown): the job sends nothing.
+  const stamp = ago(MIN)
+  assert.ifError((await db().from('refunds').update({ runner_notified_at: stamp }).eq('id', id)).error)
+  await jobsOk()
+  assert.deepEqual(await refundMails(e.email), [])
+  assert.equal(Date.parse((await refundRow(id)).runner_notified_at), Date.parse(stamp))
+
+  const auto = await recordedDoubleRefund('autoaccepted')
+  assert.ifError((await db().from('refunds').update({ dpay_status: 'accepted', requested_at: ago(MIN), responded_at: ago(MIN) })
+    .eq('id', auto.refund.id)).error)
+  await jobsOk()
+  assert.equal((await refundRow(auto.refund.id)).runner_notified_at, null)
+  assert.deepEqual(await refundMails(auto.email), [])
+})
+
+test('Ledger: a paid order whose entry was cancelled before the lost-confirmation job gets no confirmation; a live one still does', async () => {
+  const event = await paidEvent()
+  const gone = await paidEntry(event)
+  const live = await paidEntry(event)
+  await rpcOk('cancel_registration', { p_registration_id: gone.registrationId, p_reason: 'organizer', p_actor: await profileFor(OWNER) })
+  for (const e of [gone, live]) await setOrder(e.orderId, { paid_at: ago(11 * MIN) })
+  await jobsOk()
+  await jobsOk()
+  await waitForMail(live.email)
+  await sleep(300)
+  assert.deepEqual(subjects(await messagesTo(live.email)), ['Opłacone'])
+  assert.deepEqual(await messagesTo(gone.email), [], 'nothing to confirm')
+  assert.ok((await orderOf(gone.orderId)).confirmation_sent_at, 'settled, so it is not looked at again')
+})
+
+// ---------------------------------------------------------------- O-42 the operator's script
+
+/** The script run against THIS local stack only: no --env-file, the URL and key set here. */
+function resolveScript(args) {
+  const { url, serviceKey } = localEnv()
+  const env = { PATH: process.env.PATH, HOME: process.env.HOME, SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: serviceKey }
+  return spawnSync(process.execPath, ['scripts/resolve-registration-refund.js', ...args],
+    { cwd: `${REPO}backend`, env, encoding: 'utf8', timeout: 30_000 })
+}
+
+test('O-42 resolve-registration-refund.js without --apply prints the refund, its line and order and writes nothing; --apply resolves it', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  const id = await unknownRefund(e, 2500)
+  const before = await refundRow(id)
+
+  const dry = resolveScript(['--refund', id, '--outcome', 'accepted', '--note', 'panel dpay: zwrot widoczny'])
+  assert.equal(dry.status, 0, dry.stderr)
+  for (const s of [id, e.lineId, e.orderId, e.txn, 'unknown', '25,00 zł', 'DRY RUN']) assert.ok(dry.stdout.includes(s), `${s} in:\n${dry.stdout}`)
+  assert.ok(!dry.stdout.includes(e.email), 'no address printed')
+  assert.deepEqual(await refundRow(id), before, 'a dry run writes nothing')
+  assert.equal((await rows('order_lines', { id: e.lineId }))[0].refunded, 2500)
+
+  for (const bad of [
+    ['--refund', id, '--outcome', 'maybe', '--note', 'x'],
+    ['--refund', id, '--outcome', 'accepted'],
+    ['--refund', 'nope', '--outcome', 'accepted', '--note', 'x'],
+  ]) {
+    const r = resolveScript([...bad, '--apply'])
+    assert.notEqual(r.status, 0, bad.join(' '))
+  }
+  assert.deepEqual(await refundRow(id), before)
+
+  const applied = resolveScript(['--refund', id, '--outcome', 'accepted', '--note', 'panel dpay: zwrot widoczny', '--apply'])
+  assert.equal(applied.status, 0, applied.stderr)
+  const after = await refundRow(id)
+  assert.equal(after.dpay_status, 'accepted')
+  assert.equal(after.resolved_by, 'panel dpay: zwrot widoczny')
+
+  const again = resolveScript(['--refund', id, '--outcome', 'rejected', '--note', 'x', '--apply'])
+  assert.notEqual(again.status, 0, 'a settled refund is refused')
+  assert.equal((await refundRow(id)).dpay_status, 'accepted')
 })

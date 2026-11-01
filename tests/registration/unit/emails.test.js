@@ -9,6 +9,7 @@ import {
   orderExpiredEmail,
   paymentRefundedEmail,
   operatorAlertEmail,
+  ALERT_HINTS,
 } from '../../../supabase/functions/_shared/registration/emails.js'
 import { formatPln } from '../../../supabase/functions/_shared/registration/money.js'
 
@@ -350,4 +351,23 @@ test('T-40 consentRequestEmail with a team: „w drużynie <nazwa>”; without o
   assert.ok(m.html.includes('w drużynie Wilcze &lt;Stado&gt;'))
   assert.ok(!m.html.includes('<Stado>'))
   assert.doesNotMatch(consentRequestEmail(consentArgs).text, /drużyn/)
+})
+
+test('Plan 6 Task 5 the operator digest says what to do for the organizer refund alerts, once per kind, and nothing for others', () => {
+  const kinds = ['refund_unknown', 'refund_stalled', 'refund_never_sent', 'refund_email_failed', 'refund_email_unknown', 'refund_followup_failed']
+  const m = operatorAlertEmail({ alerts: [
+    ...kinds.map((kind) => ({ kind, orderId: 'o-1', payload: { refundId: 'r-1', reason: 'organizer' }, createdAt: '2026-11-01T10:00:00Z' })),
+    { kind: 'refund_unknown', orderId: 'o-2', payload: null, createdAt: '2026-11-01T10:01:00Z' },
+    { kind: 'late_refund', orderId: 'o-3', payload: null, createdAt: '2026-11-01T10:02:00Z' },
+  ] })
+  assert.match(m.text, /Co zrobić:/)
+  for (const k of kinds) {
+    assert.ok(ALERT_HINTS[k], k)
+    assert.equal(m.text.split('\n').filter((l) => l.startsWith(`- ${k}: `)).length, 1, k)
+  }
+  assert.ok(!m.text.includes('- late_refund: '))
+  assert.equal(m.text.split('resolve-registration-refund.js').length - 1, 3, 'unknown, stalled and never_sent name the script')
+  assert.ok(m.html.includes('Co zrobić:'))
+  const plain = operatorAlertEmail({ alerts: [{ kind: 'late_refund', orderId: 'o', payload: null, createdAt: '2026-11-01T10:00:00Z' }] })
+  assert.doesNotMatch(plain.text, /Co zrobić/)
 })

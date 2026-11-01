@@ -15,6 +15,7 @@ Without `DPAY_ENV=sandbox` every test is skipped ("DPAY_ENV is not sandbox").
 | S-04 | refunds of 10,00 zł then 5,00 zł accepted, one over the rest is 400; `details` reports the refunded sum (soft assertion) |
 | S-05 | the transaction is registered with an unreachable IPN URL: `order-status` confirms through `details` (no `ipn` event, a `status_check` event) |
 | S-06 | records the real `details` shape before and after a partial refund, the refund response, and whether a repeated `DigitalPayments-PSP-Message-ID` refunds twice |
+| S-07 | the organizer's refunds through `organizer-refund` (Plan 6): 10,00 zł accepted, the rest accepted and the entry cancelled, a third request 409 `exceeds` with no dpay call; `details` shows the refunded sum |
 
 Until S-05 and S-06 pass against the sandbox, the poll path is unproven against dpay.
 

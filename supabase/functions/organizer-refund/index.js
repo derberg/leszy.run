@@ -2,14 +2,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { logOrganizerAction } from '../_shared/organizer.js'
-import { sendEmailToEach } from '../_shared/email.js'
 import { dpayConfig, DpayConfigError } from '../_shared/dpay.js'
 import { isUuid, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { claimRefundRequest, executeRefund, PAYMENTS_OFF, raiseAlert } from '../_shared/registration/orderFlow.js'
-import { organizerRefundEmail } from '../_shared/registration/emails.js'
-import { clubSender } from '../_shared/registration/organizerSender.js'
 import { formatPln } from '../_shared/registration/money.js'
-import { trySend } from '../_shared/registration/organizerMail.js'
+import { notifyRefundRunner } from '../_shared/registration/refundNotice.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -64,71 +61,6 @@ async function single(query) {
 }
 
 /**
- * The club's refund e-mail, at most once: runner_notified_at is claimed by one UPDATE before
- * sending. It goes to the payer (the order's buyer, whose money it is) and, in the same request
- * with a personalization each, to the entry's own adult runner when that address differs (ruling
- * S2): an added adult whose entry is refunded and cancelled must hear of it. A child has no
- * address; the payer is the guardian or paid for them.
- * Never throws: dpay's acceptance is already stored, so nothing here may become a 500 (review I2).
- *   - the claim fails → logged and alerted (`refund_email_failed`), nothing sent; Task 5's job
- *     finds runner_notified_at null and sends it
- *   - the send is refused → the claim is given back for that job (an alert only if it cannot be)
- *   - the send timed out (deliveryUnknown) → the claim is kept and the operator alerted
- *     (`refund_email_unknown`): the mail may have gone, and a second copy is not resent blindly
- * No address reaches a log or an alert.
- */
-async function notifyRunner(admin, settings, { refundId, orderId, registrationId, grosze, cancelled }) {
-  const alert = (kind, step, err) => raiseAlert(admin, kind, orderId, { refundId, step, error: String(err?.message ?? err ?? '') })
-  try {
-    const { data: claimed, error } = await admin.from('refunds').update({ runner_notified_at: new Date().toISOString() })
-      .eq('id', refundId).is('runner_notified_at', null).select('id')
-    if (error) throw error
-    if (!claimed?.length) return
-  } catch (err) {
-    console.error('organizer-refund: e-mail claim failed:', err?.message)
-    await alert('refund_email_failed', 'claim', err)
-    return
-  }
-  let out
-  try {
-    const [order, reg, club] = await Promise.all([
-      single(admin.from('orders').select('buyer_email').eq('id', orderId).single()),
-      registrationId
-        ? single(admin.from('registrations').select('first_name, last_name, email').eq('id', registrationId).maybeSingle())
-        : null,
-      single(admin.from('clubs').select('name').eq('id', settings.club_id).single()),
-    ])
-    const to = [...new Set([order?.buyer_email, reg?.email].filter(Boolean).map((a) => a.toLowerCase()))]
-    if (!to.length) return
-    const deleted = reg?.first_name === 'Usunięte konto'
-    const mail = organizerRefundEmail({
-      event: { name: settings.name },
-      person: deleted || !reg ? null : { firstName: reg.first_name, lastName: reg.last_name },
-      grosze,
-      cancelled,
-      organizer: { name: club.name },
-    })
-    const sender = await clubSender(admin, settings)
-    out = await trySend(() => sendEmailToEach(to, { ...mail, ...sender }))
-  } catch (err) {
-    console.error('organizer-refund: refund e-mail not built:', err?.message)
-    out = { ok: false, unknown: false }
-  }
-  if (out.ok) return
-  if (out.unknown) {
-    await alert('refund_email_unknown', 'send', 'no answer from the sender')
-    return
-  }
-  try {
-    const { error } = await admin.from('refunds').update({ runner_notified_at: null }).eq('id', refundId)
-    if (error) throw error
-  } catch (err) {
-    console.error('organizer-refund: e-mail claim not released:', err?.message)
-    await alert('refund_email_failed', 'release', err)
-  }
-}
-
-/**
  * After finish_organizer_refund stored dpay's answer: the alert, the audit and the e-mail, then
  * the answer for the stored state. Never throws (review I2): the organizer who sees a 500 for
  * money that already left reopens the dialog, and a new requestKey refunds again.
@@ -149,7 +81,10 @@ async function afterSettle(admin, req, settings, { finished, outcome, refundId, 
       ...audit, action: 'refund_settled', payload: { status, grosze, cancelled },
     })
     if (outcome === 'accepted') {
-      await notifyRunner(admin, settings, {
+      // The club's e-mail, claimed on runner_notified_at (refundNotice.js). A definite failure
+      // gives the claim back for registration-jobs' refund_emails step; a timeout keeps it and
+      // alerts refund_email_unknown. It never throws.
+      await notifyRefundRunner(admin, settings, {
         refundId, orderId: refund.order_id, registrationId: line.registration_id, grosze, cancelled: cancelled.length > 0,
       })
     }
