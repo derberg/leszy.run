@@ -24,22 +24,33 @@ now the entry prices alone, so an organizer's 0,01 zł price (`sections.js` acce
 where it used to be at least 0,21 zł. No document in this repo states dpay's minimum, and no test covers it yet.
 The run log is `tests/registration/test-results/sandbox-run-log.json` (field names, types and lengths only).
 
-## Production hosts (the suite refuses these)
+## Test mode
 
-`DPAY_SANDBOX_API_BASE` and `DPAY_SANDBOX_PANEL_BASE` must not have one of these hostnames (`guard.js`,
-`PRODUCTION_DPAY_HOSTS`, unit-tested in `guard.test.js`); an unparsable URL is refused too:
+dpay has no separate sandbox host. Test mode is a switch on a payment service, on the same hosts as
+production ([docs.dpay.pl: Środowisko testowe](https://docs.dpay.pl/docs/pierwsze-kroki/srodowisko-testowe/)):
 
-`dpay.pl`, `www.dpay.pl`, `secure.dpay.pl`, `panel.dpay.pl`, `api.dpay.pl`
+- `DPAY_SANDBOX_API_BASE=https://api-payments.dpay.pl` (`/api/v1_0/payments/register`)
+- `DPAY_SANDBOX_PANEL_BASE=https://panel.dpay.pl` (`/api/v1/pbl/details`, `/api/v1/pbl/refund`)
 
-Check the list against dpay's docs when you get the sandbox credentials, and add any live host that is missing.
+So the suite needs its own service with test mode on. The dpay panel does not offer test mode on an active
+production service, so this must be a separate, unverified service (ours is `leszyrun-sandbox`). Never point
+the suite at the production service (`LESZY.RUN`): on it the test numbers below are ordinary payment data.
+
+`guard.js` refuses to run unless `DPAY_SANDBOX_SERVICE` contains `sandbox` or `test` (case-insensitive), and
+unless both bases are https URLs on a `dpay.pl` host (unit-tested in `guard.test.js`). The name rule is only
+the machine-checkable part; the real protection is that only the test-mode service is ever configured here.
+
+Test values from the docs page above: BLIK `777200` (success), card `4111111111111111` (success),
+`4000000000000002` (declined, for `DPAY_SANDBOX_DECLINE_CARD_NUMBER`). On a new service dpay may still have
+cards pending its approval, so S-02 and S-03 can fail until it approves them.
 
 ## Environment
 
 | Variable | Meaning |
 |---|---|
 | `DPAY_ENV` | `sandbox` switches the suite on |
-| `DPAY_SANDBOX_SERVICE`, `DPAY_SANDBOX_SECRET` | the sandbox service and its secret |
-| `DPAY_SANDBOX_API_BASE`, `DPAY_SANDBOX_PANEL_BASE` | sandbox hosts (registration / panel API) |
+| `DPAY_SANDBOX_SERVICE`, `DPAY_SANDBOX_SECRET` | the test-mode service (its identifier must contain `sandbox` or `test`) and its secret |
+| `DPAY_SANDBOX_API_BASE`, `DPAY_SANDBOX_PANEL_BASE` | `https://api-payments.dpay.pl` / `https://panel.dpay.pl` (see Test mode) |
 | `DPAY_SANDBOX_BLIK_CODE` | a BLIK code the sandbox accepts |
 | `DPAY_SANDBOX_CARD_NUMBER`, `DPAY_SANDBOX_CARD_EXPIRY`, `DPAY_SANDBOX_CARD_CVC` | the sandbox test card |
 | `DPAY_SANDBOX_DECLINE_CARD_NUMBER` | optional: a card the sandbox declines (S-03) |

@@ -58,7 +58,7 @@ test.describe('dpay sandbox acceptance', () => {
   })
 
   test.beforeAll(async () => {
-    cfg = sandboxConfig() // refuses a production dpay host
+    cfg = sandboxConfig() // refuses a non-test service or a non-dpay base URL
     h = {
       stack: await import('../helpers/stack.js'),
       fx: await import('../helpers/registrationFixtures.js'),
