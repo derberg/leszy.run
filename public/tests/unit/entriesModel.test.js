@@ -60,8 +60,15 @@ describe('entryCounts', () => {
   const counts = entryCounts(rows, COMPETITIONS)
 
   it('listed equals the competitions\' taken: confirmed entries, a team once', () => {
-    assert.equal(counts.listed, COMPETITIONS.reduce((n, c) => n + c.taken, 0))
-    assert.equal(counts.capacity, 15)
+    const taken = (kind) => COMPETITIONS.filter((c) => c.kind === kind).reduce((n, c) => n + c.taken, 0)
+    assert.deepEqual(counts.listed, { people: taken('individual'), teams: taken('team') })
+  })
+  it('people and teams never add up into one number: listed and capacity keep them apart', () => {
+    assert.deepEqual(counts.listed, { people: 3, teams: 1 })
+    assert.deepEqual(counts.capacity, { people: 10, teams: 5 })
+    const peopleOnly = entryCounts([row({ id: 'x' })], [COMPETITIONS[0]])
+    assert.deepEqual(peopleOnly.listed, { people: 1, teams: 0 })
+    assert.deepEqual(peopleOnly.capacity, { people: 10, teams: 0 })
   })
   it('awaiting stays outside listed and the limit (D6-14), a lapsed deadline is not awaiting', () => {
     assert.equal(counts.awaiting, 1)

@@ -17,12 +17,15 @@ const refundable = (row) => (row.paidAmount > 0
 /**
  * @param {object[]} rows every row of the event, unfiltered
  * @param {{ id: string, name: string, kind: string, capacity: number }[]} competitions the visible ones
- * @returns {{ listed: number, capacity: number, awaiting: number, awaitingConsent: number,
- *   expired: number, cancelled: number, clubIncome: number, byStatus: Record<string, number>,
+ * @returns {{ listed: { people: number, teams: number }, capacity: { people: number, teams: number },
+ *   awaiting: number, awaitingConsent: number, expired: number, cancelled: number, clubIncome: number,
+ *   byStatus: Record<string, number>,
  *   perCompetition: { id: string, name: string, kind: string, capacity: number, listed: number, awaiting: number }[] }}
- *   `listed` equals `taken`: confirmed entries, a team once. `awaiting` is people, and stays outside
- *   `listed` and the limit (P3-R15). `clubIncome` keeps an unconfirmed refund: only dpay's
- *   acceptance proves money left.
+ *   `listed` equals `taken`: confirmed entries, a team once. People and teams are never added into
+ *   one number (Plan 5): `listed` and `capacity` keep the individual competitions (`people`) and
+ *   the team competitions (`teams`, whose limit counts teams) apart. `awaiting` is people, and
+ *   stays outside `listed` and the limit (P3-R15). `clubIncome` keeps an unconfirmed refund: only
+ *   dpay's acceptance proves money left.
  */
 export function entryCounts(rows, competitions) {
   const byStatus = {}
@@ -38,11 +41,16 @@ export function entryCounts(rows, competitions) {
     if (row.statusKey === 'awaiting') awaitingIn.set(row.categoryId, (awaitingIn.get(row.categoryId) ?? 0) + 1)
     clubIncome += refundable(row) + (row.paidAmount > 0 ? (row.refundUnconfirmed ?? 0) : 0)
   }
-  let listed = 0
-  for (const units of slots.values()) listed += units.size
+  const listed = { people: 0, teams: 0 }
+  const capacity = { people: 0, teams: 0 }
+  for (const c of competitions) {
+    const unit = c.kind === 'team' ? 'teams' : 'people'
+    listed[unit] += slots.get(c.id)?.size ?? 0
+    capacity[unit] += c.capacity ?? 0
+  }
   return {
     listed,
-    capacity: competitions.reduce((sum, c) => sum + c.capacity, 0),
+    capacity,
     awaiting: byStatus.awaiting ?? 0,
     awaitingConsent: rows.filter(awaitingConsent).length,
     // By status, so a cancelled row shown as withdraw_on_host or refund_unconfirmed still counts.
