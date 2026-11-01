@@ -10,8 +10,9 @@ import {
   cartAmounts,
   voucherLineLabel,
   TIERS_ORDER_MESSAGE,
+  MAX_LIST_PRICE,
 } from '../../../supabase/functions/_shared/registration/pricing.js'
-import { MoneyError } from '../../../supabase/functions/_shared/registration/money.js'
+import { MoneyError, MAX_DPAY_GROSZE } from '../../../supabase/functions/_shared/registration/money.js'
 
 // mulberry32: a fixed seed makes every run check the same 100 000 carts.
 function rng(seed) {
@@ -238,4 +239,94 @@ test('voucherLineLabel refuses a price that does not follow from the list and pe
     voucherLineLabel({ listPrice: 4999, percent: 15, code: 'LESZY-15', price: 4250 }),
     '49,99 zł − 15% (LESZY-15) = 42,50 zł',
   )
+})
+
+// Review fixes: oracles that do not restate the implementation's expression.
+
+test('V-01 literal table: hand-computed prices', () => {
+  // [list, percent, price]; price = list minus the discount, the discount rounded down.
+  const table = [
+    [4999, 15, 4250], // 749.85 → 749 off
+    [6000, 15, 5100],
+    [1, 50, 1], // 0.5 → 0 off
+    [3, 33, 3], // 0.99 → 0 off
+    [199, 50, 100], // 99.5 → 99 off
+    [100, 1, 99],
+    [99, 1, 99], // 0.99 → 0 off
+    [12345, 10, 11111], // 1234.5 → 1234 off
+    [2999, 25, 2250], // 749.75 → 749 off
+    [7, 99, 1], // 6.93 → 6 off
+    [5000, 100, 0],
+    [10_000_000, 99, 100_000],
+    [10_000_000, 33, 6_700_000],
+    [9_999_999, 33, 6_700_000], // 3 299 999.67 → 3 299 999 off
+  ]
+  for (const [list, p, price] of table) assert.equal(discountedPrice(list, p), price, `${list},${p}`)
+})
+
+test('V-01 list price cap: 10 000 000 grosze (100 000 zł), as sections.js; above it throws', () => {
+  assert.equal(MAX_LIST_PRICE, 10_000_000)
+  assert.equal(discountedPrice(MAX_LIST_PRICE, 100), 0)
+  assert.equal(discountedPrice(MAX_LIST_PRICE, null), MAX_LIST_PRICE)
+  for (const list of [MAX_LIST_PRICE + 1, 2 ** 53, Number.MAX_SAFE_INTEGER]) {
+    assert.throws(() => discountedPrice(list, 15), MoneyError, String(list))
+    assert.throws(() => discountedPrice(list, null), MoneyError, String(list))
+  }
+})
+
+test('V-04 literal table: hand-computed carts', () => {
+  const cases = [
+    // RA4 with a 15% code on the first person and a 45 zł T-shirt: 51 + 20 + 45 + 20 = 136 zł.
+    [{ people: [
+      { listPrice: 6000, voucherPercent: 15, extras: [{ price: 4500, qty: 1 }] },
+      { listPrice: 2000, voucherPercent: null, extras: [] },
+    ], donation: 2000 }, { entryTotal: 7100, extrasTotal: 4500, donation: 2000, total: 13600 }],
+    // 49,99 at 15% → 42,50; two 12,50 buffs; 3 at 33% stays 3.
+    [{ people: [
+      { listPrice: 4999, voucherPercent: 15, extras: [{ price: 1250, qty: 2 }] },
+      { listPrice: 3, voucherPercent: 33, extras: [] },
+    ] }, { entryTotal: 4253, extrasTotal: 2500, donation: 0, total: 6753 }],
+    // A 100% code, extras only.
+    [{ people: [{ listPrice: 8000, voucherPercent: 100, extras: [{ price: 3000, qty: 1 }, { price: 500, qty: 4 }] }], donation: 5000 },
+      { entryTotal: 0, extrasTotal: 5000, donation: 5000, total: 10000 }],
+  ]
+  for (const [input, expected] of cases) {
+    const { lines, ...amounts } = cartAmounts(input)
+    assert.deepEqual(amounts, expected)
+    assert.equal(lines.length, input.people.length)
+  }
+})
+
+test('V-04 a cart above the dpay limit throws instead of overflowing', () => {
+  // 10 people at the list cap = 100 000 000 grosze, one past MAX_DPAY_GROSZE.
+  const people = Array.from({ length: 10 }, () => ({ listPrice: MAX_LIST_PRICE, voucherPercent: null, extras: [] }))
+  assert.equal(MAX_DPAY_GROSZE, 99_999_999)
+  assert.throws(() => cartAmounts({ people }), MoneyError)
+  // Just under: 9 at the cap + 9 999 999 → 99 999 999 exactly.
+  people[9] = { listPrice: MAX_LIST_PRICE - 1, voucherPercent: null, extras: [] }
+  assert.equal(cartAmounts({ people }).total, MAX_DPAY_GROSZE)
+  // One grosz of donation tips it over.
+  assert.throws(() => cartAmounts({ people, donation: 1 }), MoneyError)
+  // Extras: a price above the cap, or a quantity whose product passes 2^53.
+  assert.throws(() => cartAmounts({ people: [{ listPrice: 0, voucherPercent: null, extras: [{ price: MAX_LIST_PRICE + 1, qty: 1 }] }] }), MoneyError)
+  assert.throws(() => cartAmounts({ people: [{ listPrice: 0, voucherPercent: null, extras: [{ price: MAX_LIST_PRICE, qty: Number.MAX_SAFE_INTEGER }] }] }), MoneyError)
+})
+
+test('V-03 a tier with endsOn undefined sorts like null, in either order', () => {
+  const now = at('2026-11-01T12:00:00Z')
+  const a = [{ id: 'open', sortOrder: 0 }, { id: 'dated', endsOn: '2026-11-15', sortOrder: 1 }]
+  assert.equal(currentTier(a, now).id, 'dated')
+  assert.equal(currentTier([...a].reverse(), now).id, 'dated')
+  assert.deepEqual(nextTier(a, now), { tier: a[0], from: '2026-11-16' })
+  // undefined and null tie, and fall through to sortOrder.
+  const b = [{ id: 'y', endsOn: null, sortOrder: 2 }, { id: 'x', sortOrder: 1 }]
+  assert.equal(currentTier(b, now).id, 'x')
+  assert.equal(currentTier([...b].reverse(), now).id, 'x')
+})
+
+test('V-05 validateTiers takes Warsaw ISO days only: a timestamp window is refused', () => {
+  const tiers = [tier('2026-11-15'), tier(null)]
+  assert.equal(validateTiers(tiers, { opensOn: '2026-10-31T23:00:00.000Z', closesOn: '2026-12-31' }).ok, false)
+  assert.equal(validateTiers(tiers, { opensOn: '2026-11-01', closesOn: '2026-12-31T23:00:00Z' }).ok, false)
+  assert.equal(validateTiers(tiers, WINDOW).ok, true)
 })

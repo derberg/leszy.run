@@ -7,6 +7,11 @@ import { MoneyError, orderAmounts, formatPln } from './money.js'
 import { warsawToday } from './dates.js'
 
 export const MAX_TIERS = 5
+// The highest list or extra price, 100 000 zł: the same cap as MAX_PRICE_GROSZE in sections.js,
+// so list × percent stays below 1e9 and exact in a double. The SQL mirror
+// (registration_discounted_price, Task 2) must compute in bigint: in int4, list × percent overflows
+// above 21 474 836 grosze, and the cap is checked there too.
+export const MAX_LIST_PRICE = 10_000_000
 export const TIERS_ORDER_MESSAGE = 'Daty progów muszą rosnąć i kończyć się przed zamknięciem zapisów.'
 const TIERS_COUNT_MESSAGE = 'Od 1 do 5 progów cenowych.'
 const TIERS_OPEN_MESSAGE = 'Ostatni próg trwa do końca zapisów, i tylko on.'
@@ -29,10 +34,12 @@ function dayAfter(isoDate) {
 // Plan 2's registration_raw order: ends_on nulls last, sort_order, id.
 function sortTiers(tiers) {
   return [...tiers].sort((a, b) => {
-    if (a.endsOn !== b.endsOn) {
-      if (a.endsOn == null) return 1
-      if (b.endsOn == null) return -1
-      return a.endsOn < b.endsOn ? -1 : 1
+    const ae = a.endsOn ?? null
+    const be = b.endsOn ?? null
+    if (ae !== be) {
+      if (ae === null) return 1
+      if (be === null) return -1
+      return ae < be ? -1 : 1
     }
     const so = (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
     if (so) return so
@@ -66,10 +73,17 @@ export function nextTier(tiers, now = new Date()) {
 /**
  * 1–5 tiers in the order given; only the last is open-ended (endsOn null). The dated ones strictly
  * increase, start no earlier than opensOn and end before closesOn.
+ * Every date here, `endsOn`, `opensOn` and `closesOn`, is a Warsaw calendar day as 'YYYY-MM-DD'
+ * (the wizard's „Zapisy online od/do” fields). Compared as strings, so a caller holding
+ * opens_at / closes_at timestamps converts them first: opensOn = warsawToday(opens_at), closesOn =
+ * warsawToday(closes_at - 1 ms), the last open day. A timestamp passed here is refused.
  * @returns {{ ok: boolean, errors: Record<string, string> }}
  */
 export function validateTiers(tiers, { opensOn, closesOn } = {}) {
   const fail = (message) => ({ ok: false, errors: { tiers: message } })
+  for (const day of [opensOn, closesOn]) {
+    if (day != null && !isIsoDate(day)) return fail(TIERS_ORDER_MESSAGE)
+  }
   if (!Array.isArray(tiers) || tiers.length < 1 || tiers.length > MAX_TIERS) return fail(TIERS_COUNT_MESSAGE)
   const last = tiers.length - 1
   for (let i = 0; i < tiers.length; i++) {
@@ -84,8 +98,8 @@ export function validateTiers(tiers, { opensOn, closesOn } = {}) {
   return { ok: true, errors: {} }
 }
 
-function grosze(value, name) {
-  if (!Number.isSafeInteger(value) || value < 0) throw new MoneyError(`invalid_amount:${name}`)
+function grosze(value, name, max = Number.MAX_SAFE_INTEGER) {
+  if (!Number.isSafeInteger(value) || value < 0 || value > max) throw new MoneyError(`invalid_amount:${name}`)
   return value
 }
 
@@ -94,7 +108,7 @@ function grosze(value, name) {
  * 1 grosz (4999 at 15% → 4250). A null percent is no voucher.
  */
 export function discountedPrice(list, percent) {
-  grosze(list, 'list')
+  grosze(list, 'list', MAX_LIST_PRICE)
   if (percent === null) return list
   if (!Number.isInteger(percent) || percent < 1 || percent > 100) throw new MoneyError('invalid_percent')
   return list - Math.floor((list * percent) / 100)
@@ -108,13 +122,13 @@ export function cartAmounts({ people, donation = 0 } = {}) {
   if (!Array.isArray(people) || people.length === 0) throw new MoneyError('invalid_amount:people')
   let extrasTotal = 0
   const lines = people.map((person) => {
-    const listPrice = grosze(person?.listPrice, 'listPrice')
+    const listPrice = grosze(person?.listPrice, 'listPrice', MAX_LIST_PRICE)
     const price = discountedPrice(listPrice, person.voucherPercent ?? null)
     let lineExtras = 0
     for (const extra of person.extras ?? []) {
-      lineExtras += grosze(extra?.price, 'extraPrice') * grosze(extra?.qty, 'extraQty')
+      lineExtras += grosze(extra?.price, 'extraPrice', MAX_LIST_PRICE) * grosze(extra?.qty, 'extraQty')
+      grosze(lineExtras, 'extrasTotal') // past 2^53 the sum is no longer exact: refuse it there
     }
-    grosze(lineExtras, 'extrasTotal')
     extrasTotal += lineExtras
     return { listPrice, discount: listPrice - price, price, extrasTotal: lineExtras }
   })

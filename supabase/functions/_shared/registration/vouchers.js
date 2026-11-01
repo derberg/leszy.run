@@ -7,16 +7,19 @@ import { isIsoDate } from './pricing.js'
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // 32 symbols: byte & 31 is unbiased
 export const MAX_GENERATED_CODES = 200
 export const MAX_VOUCHER_USES = 100_000
-const CODE_RE = /^[A-Z0-9-]{4,32}$/
-const PREFIX_RE = /^[A-Z0-9-]{1,23}$/ // PREFIX + '-' + 8 stays within 32
+// Tested on the input BEFORE upper-casing: toUpperCase folds 'ß' into 'SS' and 'ſ' into 'S', which
+// would turn non-ASCII into a valid code the database never folds the same way. At least one letter
+// or digit: '----' is not a code.
+const CODE_RE = /^(?=.*[A-Za-z0-9])[A-Za-z0-9-]{4,32}$/
+const PREFIX_RE = /^(?=.*[A-Za-z0-9])[A-Za-z0-9-]{1,23}$/ // PREFIX + '-' + 8 stays within 32
 const GENERATED_LENGTH = 8
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** Trimmed and upper-cased, or null when it is not 4–32 of A–Z, 0–9 and '-'. */
+/** Trimmed and upper-cased, or null unless it is 4–32 of ASCII letters, digits and '-', with a letter or digit. */
 export function normalizeCode(s) {
   if (typeof s !== 'string') return null
-  const code = s.trim().toUpperCase()
-  return CODE_RE.test(code) ? code : null
+  const code = s.trim()
+  return CODE_RE.test(code) ? code.toUpperCase() : null
 }
 
 function randomCode() {
@@ -31,9 +34,9 @@ export function generateCodes(n, { prefix } = {}) {
   if (!Number.isInteger(n) || n < 1 || n > MAX_GENERATED_CODES) throw new RangeError('invalid_count')
   let head = ''
   if (prefix != null) {
-    const p = String(prefix).trim().toUpperCase()
+    const p = String(prefix).trim()
     if (!PREFIX_RE.test(p)) throw new RangeError('invalid_prefix')
-    head = `${p}-`
+    head = `${p.toUpperCase()}-`
   }
   const codes = new Set()
   while (codes.size < n) codes.add(head + randomCode())

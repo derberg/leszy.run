@@ -101,3 +101,28 @@ test('validateVoucherInput rejects each bad field under its own key', () => {
   }
   assert.equal(validateVoucherInput(null).ok, false)
 })
+
+test('V-06 normalizeCode refuses non-ASCII that upper-cases into ASCII (ß, ſ, ı, ﬀ)', () => {
+  assert.equal('ßßß'.toUpperCase(), 'SSSSSS') // what the old code stored
+  for (const s of ['ßßß', 'ſſſſ', 'ıııı', 'ﬀﬀ', 'LESZYß', 'ABCD\u0307']) {
+    assert.equal(normalizeCode(s), null, s)
+  }
+})
+
+test('V-06 normalizeCode refuses a code with no letter or digit', () => {
+  for (const s of ['----', '-'.repeat(32), ' ---- ']) assert.equal(normalizeCode(s), null, s)
+  assert.equal(normalizeCode('-AB-'), '-AB-')
+  assert.equal(normalizeCode('a-1-'), 'A-1-')
+})
+
+test('V-07 generateCodes refuses a hyphen-only or non-ASCII prefix', () => {
+  for (const prefix of ['-', '---', 'ß', 'ſ']) assert.throws(() => generateCodes(1, { prefix }), RangeError, prefix)
+})
+
+test('validateVoucherInput refuses a folded or hyphen-only code', () => {
+  for (const code of ['ßßß', '----']) {
+    const v = validateVoucherInput({ code, percent: 15, maxUses: 10 })
+    assert.equal(v.ok, false, code)
+    assert.deepEqual(Object.keys(v.errors), ['code'])
+  }
+})
