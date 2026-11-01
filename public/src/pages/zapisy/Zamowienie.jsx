@@ -282,6 +282,8 @@ const ENDED_REASONS = {
   full: 'Zanim Twoja wpłata dotarła, inne osoby opłaciły ostatnie wolne miejsca. Zwracamy całą wpłatę.',
   unavailable: 'Zapisy na tę konkurencję nie są już prowadzone. Zwracamy całą wpłatę.',
   closed: 'Wpłata dotarła po zamknięciu zapisów. Zwracamy całą wpłatę.',
+  voucher: 'Zanim Twoja wpłata dotarła, kod rabatowy został wykorzystany. Zwracamy całą wpłatę.',
+  stock: 'Zanim Twoja wpłata dotarła, wybrany dodatek się wyprzedał. Zwracamy całą wpłatę.',
   buyer_cancelled: 'Anulowano zgłoszenie na Twoją prośbę. Możesz zapisać się jeszcze raz.',
 }
 

@@ -166,6 +166,9 @@ const REFUND_REASONS = {
   duplicate: 'Płatność dotarła po wygaśnięciu zgłoszenia, a ten adres e-mail został w tym czasie zapisany ponownie.',
   cancelled: 'Płatność dotarła po anulowaniu zgłoszenia.',
   unavailable: 'Płatność dotarła, gdy zapisy na tę konkurencję nie były już prowadzone.',
+  // D7-20: an expired order's late payment could not take its code or its extras again (ruling 8).
+  voucher: 'Płatność dotarła po wygaśnięciu zgłoszenia, a Twój kod rabatowy został w tym czasie wykorzystany.',
+  stock: 'Płatność dotarła po wygaśnięciu zgłoszenia, a wybrany dodatek został w tym czasie wyprzedany.',
 }
 
 /** A payment refunded in full: reason 'late', 'double', or confirm_order's refund reason. */

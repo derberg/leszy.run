@@ -13,7 +13,7 @@ import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { sessionFor } from './helpers/stack.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
-import { db, one, rows, rpc } from './helpers/orders.js'
+import { db, one, rows, rpc, runnerEmail } from './helpers/orders.js'
 import { adult, isDeadlock, orderGroup } from './helpers/groups.js'
 import { code, makeExtra, makeVoucher, vouchersMade } from './helpers/cart.js'
 import { assertVoucherInvariant } from './helpers/voucherInvariant.js'
@@ -125,4 +125,92 @@ test('V-27c the claim itself: 10 parallel claim_extra_stock(qty 1) on stock 3 �
   assert.equal(ok.length, 10)
   assert.equal(ok.filter((r) => r.data === true).length, 3)
   assert.equal((await one('extra_variants', { id: M.id })).sold, 3)
+})
+
+// ---------------------------------------------------------------- (d), (e): task 4b, the releases racing a claim
+
+/** sold = the qty on the extra lines of orders still holding stock (pending or paid). */
+async function soldMatchesLiveLines(variantId) {
+  const v = await one('extra_variants', { id: variantId })
+  const lines = await rows('order_lines', { extra_variant_id: variantId })
+  let held = 0
+  for (const l of lines) {
+    const o = await one('orders', { id: l.order_id })
+    if (o.status === 'pending' || o.status === 'paid') held += l.qty
+  }
+  assert.ok(v.sold <= v.stock, `sold ${v.sold} <= stock ${v.stock}`)
+  assert.equal(v.sold, held, 'sold = the qty on live orders')
+}
+
+const ROUNDS = 100
+// A random start within a few ms on each side, so the two calls overlap in both orders.
+const jitter = (fn) => new Promise((resolve) => setTimeout(resolve, Math.random() * 12)).then(fn)
+const pastExpiry = (orderId) => db().from('orders').update({ expires_at: new Date(Date.now() - 60_000).toISOString() }).eq('id', orderId)
+
+for (const [label, sameEmail] of [['', false], [' (one e-mail)', true]]) {
+  // max_uses 2 and stock 2, the expiring order holding one of each: the create's plain read passes,
+  // so it claims the last use and shirt while the expiry releases the other, on the same two rows.
+  test(`V-27d ${ROUNDS} rounds: expire_orders racing a create_order for the last use and the last shirt${label} → invariants, no 40P01`, async () => {
+    const event = await paidEvent()
+    const seen = new Map()
+    for (let round = 0; round < ROUNDS; round++) {
+      const cat = event.categoryIds[round % COMPETITIONS]
+      const voucher = await makeVoucher(event.eventId, { percent: 15, max_uses: 2 })
+      const { variants: { M } } = await makeExtra(event, { variants: [['M', 2]] })
+      const cart = { voucherCode: voucher.code, extras: [{ variantId: M.id, qty: 1 }] }
+      const emailA = runnerEmail('race')
+      const a = await orderGroup(event, [{ ...adult(cat, 'self', emailA), ...cart }], { displayed: 5100 + 4500 })
+      assert.equal(a.error, null, a.error?.message)
+      const { error } = await pastExpiry(a.data.orderId)
+      if (error) throw error
+      const email = sameEmail ? emailA : undefined
+      const [expired, b] = await Promise.all([
+        jitter(() => rpc('expire_orders', {})),
+        jitter(() => orderGroup(event, [{ ...adult(cat, 'self', email), ...cart }], { displayed: 5100 + 4500 })),
+      ])
+      const { errors } = outcomes([expired, b])
+      for (const e of errors) seen.set(e, (seen.get(e) ?? 0) + 1)
+      assert.ok(errors.every((e) => ['voucher_used_up:0', 'extra_sold_out:0', 'duplicate:0'].includes(e)), JSON.stringify(errors))
+      assert.equal((await one('orders', { id: a.data.orderId })).status, 'expired')
+      await assertVoucherInvariant(voucher.id)
+      await soldMatchesLiveLines(M.id)
+    }
+    console.log(`V-27d${label}: create refusals ${JSON.stringify(Object.fromEntries(seen))} of ${ROUNDS}`)
+  })
+}
+
+test('V-27e 20 rounds: a late confirm_order racing a create_order for the last use → exactly one holds it', async () => {
+  const event = await paidEvent()
+  let late = 0
+  for (let round = 0; round < 20; round++) {
+    const voucher = await makeVoucher(event.eventId, { percent: 15, max_uses: 1 })
+    const catA = event.categoryIds[round % COMPETITIONS]
+    const catB = event.categoryIds[(round + 1) % COMPETITIONS]
+    const a = await orderGroup(event, [{ ...adult(catA, 'self'), voucherCode: voucher.code }], { displayed: 5100 })
+    assert.equal(a.error, null, a.error?.message)
+    const att = await rpc('add_payment_attempt', { p_order_id: a.data.orderId, p_txn: `TXN-${round}-${voucher.id}`, p_grosze: 5100 })
+    assert.equal(att.error, null, att.error?.message)
+    const { error } = await pastExpiry(a.data.orderId)
+    if (error) throw error
+    assert.ok((await rpc('expire_orders', {})).data >= 1)
+    assert.equal((await one('vouchers', { id: voucher.id })).used, 0)
+
+    const [confirmed, b] = await Promise.all([
+      jitter(() => rpc('confirm_order', { p_order_id: a.data.orderId, p_txn: `TXN-${round}-${voucher.id}`, p_grosze: 5100, p_source: 'ipn' })),
+      jitter(() => orderGroup(event, [{ ...adult(catB, 'self'), voucherCode: voucher.code }], { displayed: 5100 })),
+    ])
+    outcomes([confirmed, b])
+    assert.equal(confirmed.error, null, confirmed.error?.message)
+    const outcome = confirmed.data.outcome
+    if (outcome === 'late_confirmed') {
+      late += 1
+      assert.equal(b.error?.message, 'voucher_used_up:0')
+    } else {
+      assert.deepEqual([outcome, confirmed.data.refund.reason], ['late_refund', 'voucher'])
+      assert.equal(b.error, null, b.error?.message)
+    }
+    assert.equal((await one('vouchers', { id: voucher.id })).used, 1, 'exactly one holds it')
+    await assertVoucherInvariant(voucher.id)
+  }
+  console.log(`V-27e: late payment won ${late} of 20`)
 })
