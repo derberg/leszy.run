@@ -12,7 +12,7 @@ import { validatePerson } from '../_shared/registration/person.js'
 import { personContexts } from '../_shared/registration/registrationRequest.js'
 import { TEAM_NAME_MESSAGE } from '../_shared/registration/team.js'
 import { releaseSlot, sendOnAllowance } from '../_shared/registration/organizerMail.js'
-import { callTransferRpc, TRANSFER_REFUSALS } from '../_shared/registration/transfers.js'
+import { callTransferRpc, sendAcceptedTransferEmail, TRANSFER_REFUSALS } from '../_shared/registration/transfers.js'
 
 function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -188,10 +188,11 @@ async function checkEdit(admin, settings, registrationId, fields) {
 //                   B3 „Partner”: attributes a live entry to one of the event's partners, or clears
 //                   it (Plan 7). 409 not_live, 422 invalid_partner (unknown or another event's).
 //   transfer        { registrationId, person, categoryId } → 200 { data: { registrationId,
-//                   consentState: 'awaiting', hostWithdraw, consentRequestSent } }
+//                   consentState: 'awaiting', hostWithdraw, consentRequestSent, holderNotified } }
 //                   organizer_transfer (ruling 4, any time before 00:00 Warsaw on the race day),
 //                   then Plan 4's consent request to the new adult, naming the club as the source
-//                   of the data. 422 invalid_person with `fields`, 409 race_day / recipient_minor /
+//                   of the data, and „Pakiet przekazany” to the old holder (the new holder's name,
+//                   never their address). 422 invalid_person with `fields`, 409 race_day / recipient_minor /
 //                   price_differs / duplicate / pending_elsewhere / not_transferable / gone / …
 // The owner or an admin of the event's club: a member 403, an outsider or a disabled club 404, an
 // unknown target 404. Every change writes one organizer_actions row naming its target; no personal
@@ -313,17 +314,35 @@ Deno.serve(async (req) => {
         if (!known) throw error
         return json({ error: known[1], code: error.message, ...(error.message === 'invalid_person' ? { fields: {} } : {}) }, known[0], req)
       }
-      const club = settings.club_id
-        ? await single(admin.from('clubs').select('name').eq('id', settings.club_id).maybeSingle())
-        : null
-      const consentRequestSent = await issueConsentRequests(admin, [data.registrationId],
-        { registeredBy: club?.name?.trim() || 'Organizator zawodów' })
+      // The entry has moved: nothing below may turn that into a 500 (M-1). A failure is logged by
+      // id and reported as not sent; registration-jobs issues a missing consent request and
+      // re-sends the old holder's notice.
+      let consentRequestSent = false
+      let holderNotified = false
+      try {
+        const club = settings.club_id
+          ? await single(admin.from('clubs').select('name').eq('id', settings.club_id).maybeSingle())
+          : null
+        consentRequestSent = (await issueConsentRequests(admin, [data.registrationId],
+          { registeredBy: club?.name?.trim() || 'Organizator zawodów' })) > 0
+      } catch (err) {
+        console.error('organizer-entry-action: consent request not issued:', `registration ${data.registrationId}`, err?.message)
+      }
+      // M-2: the old holder is told who has their package now (name only, never the address).
+      holderNotified = await sendAcceptedTransferEmail(admin, {
+        id: data.transferId, kind: 'organizer', status: 'accepted', event_id: settings.event_id,
+        registration_id: target.registrationId, new_registration_id: data.registrationId,
+      }, 'holder_emailed_at')
       const hostWithdraw = data.hostWithdraw === true
       // Ids only: the recipient's data stays out of the audit row.
-      await log('registration_transferred', target.registrationId,
-        { newRegistrationId: data.registrationId, categoryId: competition.category_id, hostWithdraw })
+      try {
+        await log('registration_transferred', target.registrationId,
+          { newRegistrationId: data.registrationId, categoryId: competition.category_id, hostWithdraw })
+      } catch (err) {
+        console.error('organizer-entry-action: transfer not logged:', target.registrationId, err?.message)
+      }
       return json({
-        data: { registrationId: data.registrationId, consentState: 'awaiting', hostWithdraw, consentRequestSent: consentRequestSent > 0 },
+        data: { registrationId: data.registrationId, consentState: 'awaiting', hostWithdraw, consentRequestSent, holderNotified },
       }, 200, req)
     }
 

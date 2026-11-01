@@ -14,8 +14,8 @@ import { readFileSync } from 'node:fs'
 import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { lastCodeFor, messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
-import { consentIds, db, one, orderOf, person, profileFor, rows, runnerEmail, setSettings } from './helpers/orders.js'
-import { BIEG, DZIECI } from './helpers/groups.js'
+import { attemptFor, confirmOk, consentIds, db, one, orderOf, person, profileFor, rows, runnerEmail, setSettings } from './helpers/orders.js'
+import { BIEG, DZIECI, adult, minor, orderGroupOk } from './helpers/groups.js'
 import { dayBefore, enableTransfers, hashToken, paidEntry } from './helpers/transfers.js'
 import { warsawToday } from '../../supabase/functions/_shared/registration/dates.js'
 
@@ -133,6 +133,7 @@ test('V-50 create: no session 401, a stranger 404; the holder invites, the token
   assert.ok(!inv.body.text?.includes(inv.token) && !JSON.stringify(inv.body).includes(inv.token), 'the answer never carries the token')
   assert.equal(inv.mail.subject, `Ola przekazuje Ci start — ${(await one('registration_settings', { event_id: event.eventId })).name}`)
   assert.match(inv.mail.text, /poza LESZY\.RUN/)
+  assert.equal(inv.mail.trackClicks, false, 'click tracking off: no redirect may rewrite the token link')
 
   const again = await call('transfer-invite', { action: 'create', registrationId: a.reg.id, toEmail: runnerEmail('second') }, { session: holder })
   assert.equal(again.status, 409)
@@ -155,6 +156,13 @@ test('V-50 create: no session 401, a stranger 404; the holder invites, the token
   const lapsed = await call('my-event-registrations', { slug: event.slug }, { session: holder })
   assert.equal(lapsed.body.data.find((r) => r.id === a.reg.id).transfer.pending, null, 'a lapsed invite reads as not pending')
   assert.equal((await transferOf(inv.transferId)).status, 'pending', 'its status still says pending')
+  // M-3: taking back a lapsed invite is answered as expired, and the invitee is told nothing.
+  const late = await call('transfer-invite', { action: 'cancel', transferId: inv.transferId }, { session: holder })
+  assert.equal(late.status, 409)
+  assert.equal(late.body.code, 'expired')
+  await sleep(300)
+  assert.equal((await messagesTo(toEmail)).filter(bySubject(/^Zaproszenie cofnięte/)).length, 0)
+  assert.equal((await transferOf(inv.transferId)).cancel_emailed_at, null)
 
   // Transfers switched off → not allowed, and create answers transfer_off.
   await setSettings(event.eventId, { transfer_enabled: false })
@@ -247,6 +255,14 @@ test('V-52 accept refusals: no code 401, a bad person 400 invalid_person, a mino
   })
   assert.equal(noCode.status, 401)
   assert.equal(noCode.body.code, 'code_required')
+  // M-6: a session on another address is no proof of this one: still a code.
+  const other = await sessionFor(runnerEmail('other'))
+  const wrongSession = await call('transfer-accept', {
+    token: inv.token, person: recipientPerson(email), categoryId: event.categoryIds[0],
+    acceptedConsentIds: await consentIds(event.eventId), serviceRegulamin: true,
+  }, { session: other })
+  assert.equal(wrongSession.status, 401)
+  assert.equal(wrongSession.body.code, 'code_required')
 
   const session = await sessionFor(email)
   const badPhone = await call('transfer-accept', {
@@ -360,6 +376,22 @@ test('V-55 an organizer transfer after transfer_until → 200, a consent request
   assert.ok(mail.text.startsWith('Cześć Jan,'))
   assert.ok(mail.text.includes(`${club.name} zapisał(a) Cię`), 'the club is named as the source (Art. 14(2)(f))')
   assert.ok(!mail.text.includes('Ola Leśna'), 'not the original buyer')
+  assert.equal(mail.trackClicks, false, 'the consent link is never click-tracked')
+
+  // M-2: the old holder is told, by the new holder's name and never their address.
+  assert.equal(res.body.data.holderNotified, true)
+  const [notice] = await waitForMail(a.email, 1, bySubject(/^Pakiet przekazany — /))
+  assert.ok(notice, 'the old holder got a notice')
+  assert.equal(notice.subject, `Pakiet przekazany — ${settings.name}`)
+  assert.match(notice.text, /Jan Nowak/)
+  assert.ok(!`${notice.text}${notice.html}`.includes(email))
+  const orgTransfer = (await rows('transfers', { registration_id: a.reg.id })).find((t) => t.kind === 'organizer')
+  assert.ok(orgTransfer.holder_emailed_at)
+
+  // M-4: the organizer's own runner page does not list the person they typed in.
+  const own = await call('my-event-registrations', { slug: event.slug }, { session: owner })
+  assert.equal(own.status, 200, own.text)
+  assert.ok(!own.body.data.some((r) => r.id === newReg.id))
 
   // V-59: the new adult's own export names the club too.
   const recipient = await sessionFor(email)
@@ -442,6 +474,61 @@ test('V-58 the order page and a confirmation re-send show the line as transferre
   assert.ok((await orderOf(a.orderId)).confirmation_sent_at)
   const [mail] = await waitForMail(a.email, 1, bySubject(/^Opłacone — /))
   assert.ok(mail, 'the confirmation was re-sent to the buyer')
-  assert.match(mail.text, /- Jan Nowak — pakiet przekazany/)
+  assert.match(mail.text, /- Jan Nowak — przejął\(-ęła\) pakiet/)
   assert.ok(!`${mail.text}${mail.html}`.includes(third))
+})
+
+// ---------------------------------------------------------------- I-1 the job re-sends a released claim
+
+async function runJobs() {
+  const res = await fetch(`${localEnv().functionsUrl}/registration-jobs`, {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-jobs-secret': JOBS_SECRET }, body: '{}',
+  })
+  const body = await res.json()
+  assert.equal(res.status, 200, JSON.stringify(body))
+  return body.data
+}
+
+test('I-1 an accepted transfer whose e-mails certainly failed is re-sent once by registration-jobs, 10 minutes on', async () => {
+  const { event, a, holder } = await holderOf()
+  const inv = await invited(a, holder)
+  const third = runnerEmail('i1')
+  const res = await acceptWithCode(event, inv.token, third)
+  assert.equal(res.status, 200, res.text)
+  await waitForMail(third, 1, bySubject(/^Jesteś na liście/))
+  // As the first send leaves it when it gave the claims back.
+  await db().from('transfers').update({ accepted_emailed_at: null, confirmation_emailed_at: null }).eq('id', inv.transferId)
+
+  await runJobs()
+  assert.equal((await transferOf(inv.transferId)).accepted_emailed_at, null, 'not before 10 minutes')
+
+  await db().from('transfers').update({ accepted_at: new Date(Date.now() - 11 * 60_000).toISOString() }).eq('id', inv.transferId)
+  const first = await runJobs()
+  assert.ok(first.transferEmailsResent >= 2, JSON.stringify(first))
+  const t = await transferOf(inv.transferId)
+  assert.ok(t.accepted_emailed_at && t.confirmation_emailed_at)
+  assert.equal((await waitForMail(a.email, 2, bySubject(/^Pakiet przejęła/))).length, 2, 'the first send and the re-send')
+  assert.equal((await waitForMail(third, 2, bySubject(/^Jesteś na liście/))).length, 2)
+
+  await runJobs()
+  await sleep(500)
+  assert.equal((await messagesTo(a.email)).filter(bySubject(/^Pakiet przejęła/)).length, 2, 'never a third')
+})
+
+// ---------------------------------------------------------------- M-7 a guardian
+
+test('M-7 a guardian asking to hand on a child\'s entry → 409 not_transferable, not 404', async () => {
+  const event = await paidEvent()
+  const guardianEmail = runnerEmail('guardian')
+  const out = await orderGroupOk(event, [adult(event.categoryIds[0], 'self', guardianEmail), minor(event.categoryIds[1])])
+  const att = await attemptFor(out.orderId, out.total)
+  assert.equal((await confirmOk(out.orderId, att.txn, out.total)).outcome, 'confirmed')
+  const child = (await rows('registrations', { order_id: out.orderId })).find((r) => !r.email)
+  const guardian = await sessionFor(guardianEmail)
+  assert.equal(child.guardian_profile_id, guardian.profileId)
+  const res = await call('transfer-invite', { action: 'create', registrationId: child.id, toEmail: runnerEmail('x') }, { session: guardian })
+  assert.equal(res.status, 409)
+  assert.equal(res.body.code, 'not_transferable')
+  const status = await call('transfer-invite', { action: 'status', registrationId: child.id }, { session: guardian })
+  assert.equal(status.body.data.allowed, false)
 })

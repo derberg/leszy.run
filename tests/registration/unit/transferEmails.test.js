@@ -3,9 +3,13 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  MONEY_NOTE, transferAcceptedEmail, transferCancelledEmail, transferConfirmationEmail, transferInviteEmail,
+  MONEY_NOTE, transferAcceptedEmail, transferByOrganizerEmail, transferCancelledEmail, transferConfirmationEmail, transferInviteEmail,
 } from '../../../supabase/functions/_shared/registration/transferEmails.js'
-import { orderConfirmationEmail, teamConfirmationEmail } from '../../../supabase/functions/_shared/registration/emails.js'
+import {
+  consentRequestEmail, orderConfirmationEmail, paymentReminderEmail, teamConfirmationEmail,
+} from '../../../supabase/functions/_shared/registration/emails.js'
+import { sendGridBody } from '../../../supabase/functions/_shared/email.js'
+import { sendTransferEmail } from '../../../supabase/functions/_shared/registration/transfers.js'
 
 const EVENT = { name: 'Wilczy Bieg <Nocny>', eventDate: '2026-11-28', place: 'Wilków, stadion' }
 const COMP = { name: 'Bieg 10 km', startTime: '10:00' }
@@ -84,12 +88,12 @@ describe('transferConfirmationEmail', () => {
 
 describe('V-58 a transferred line in the order e-mails', () => {
   const order = { id: 'o1', entryTotal: 6000, total: 6000, paidTransactionId: 'T1', paidAt: '2026-11-01T10:00:00Z' }
-  it('the order confirmation shows the recipient by name as „pakiet przekazany”, nothing else of theirs', () => {
+  it('the order confirmation shows the recipient by name as „przejął(-ęła) pakiet”, nothing else of theirs', () => {
     const mail = orderConfirmationEmail({
       event: EVENT, order, organizer: { name: 'Klub' },
       lines: [{ transferred: true, firstName: 'Jan', lastName: 'Nowak', email: 'jan@example.com', competition: 'Bieg 10 km', ageGroupLabel: 'M30', startTime: '10:00' }],
     })
-    assert.match(mail.text, /- Jan Nowak — pakiet przekazany\n/)
+    assert.match(mail.text, /- Jan Nowak — przejął\(-ęła\) pakiet\n/)
     assert.doesNotMatch(all(mail), /jan@example\.com|M30/)
   })
   it('a team confirmation marks a captain whose package was handed on', () => {
@@ -97,7 +101,7 @@ describe('V-58 a transferred line in the order e-mails', () => {
       event: EVENT, team: { name: 'Wilki', competition: 'Sztafeta' }, link: 'https://x',
       members: [{ firstName: 'Jan', lastName: 'Nowak', role: 'self', transferred: true }],
     })
-    assert.match(mail.text, /Jan Nowak — kapitan, pakiet przekazany/)
+    assert.match(mail.text, /Jan Nowak — kapitan, przejął\(-ęła\) pakiet/)
   })
 })
 
@@ -153,5 +157,106 @@ describe('transferAllowed (ruling 3, §5.4)', async () => {
     const member = { ...reg, team_id: 't' }
     assert.equal(transferAllowed(member, settings, 'u1', { team: { captain_registration_id: 'r9' }, now: NOW }), false)
     assert.equal(transferAllowed(member, settings, 'u1', { team: { captain_registration_id: 'r1' }, now: NOW }), true)
+  })
+})
+
+describe('transferByOrganizerEmail (M-2)', () => {
+  const mail = transferByOrganizerEmail({
+    event: EVENT, holderFirstName: 'Ola', recipient: { firstName: 'Jan', lastName: 'Nowak' },
+    organizer: { name: 'Zatyrani', contactEmail: 'biuro@zatyrani.pl' },
+  })
+  it('subject „Pakiet przekazany — <nazwa>”, the new holder by name, the organizer to write to', () => {
+    assert.equal(mail.subject, 'Pakiet przekazany — Wilczy Bieg <Nocny>')
+    assert.match(mail.text, /^Cześć Ola,/)
+    assert.match(mail.text, /\(Zatyrani\) przekazał Twój pakiet tej osobie: Jan Nowak\./)
+    assert.match(mail.text, /biuro@zatyrani\.pl/)
+  })
+  it('names no bib, partner or fee', () => assertNothingExtra(mail))
+})
+
+describe('click tracking: a token link is never rewritten (review M-5)', () => {
+  it('the invite and the consent request ask for no click tracking; other e-mails leave it alone', () => {
+    const invite = transferInviteEmail({ event: EVENT, senderFirstName: 'Ola', competition: COMP, link: LINK, until: '2026-11-20' })
+    const consent = consentRequestEmail({
+      event: EVENT, person: { firstName: 'Piotr' }, registeredBy: 'Ola', competition: COMP,
+      link: 'https://www.leszy.run/zgoda#x', dataInfoUrl: 'https://www.leszy.run/events/w/informacja-o-danych',
+    })
+    assert.equal(invite.trackClicks, false)
+    assert.equal(consent.trackClicks, false)
+    assert.equal(paymentReminderEmail({ event: EVENT, order: { total: 100 }, payUrl: 'https://x' }).trackClicks, undefined)
+  })
+  it('the SendGrid payload sets tracking_settings.click_tracking.enable = false for such a message', () => {
+    const body = sendGridBody({ to: 'a@b.pl', subject: 's', text: 't', html: '<p>t</p>', trackClicks: false }, 'from@leszy.run')
+    assert.deepEqual(body.tracking_settings, { click_tracking: { enable: false, enable_text: false } })
+    assert.equal(body.trackClicks, undefined, 'the flag itself never reaches SendGrid')
+    const plain = sendGridBody({ to: 'a@b.pl', subject: 's', text: 't' }, 'from@leszy.run')
+    assert.equal(plain.tracking_settings, undefined)
+  })
+})
+
+/** A stand-in for the admin client: records each statement on `transfers` / `operator_alerts`. */
+function fakeAdmin({ claimed = true } = {}) {
+  const calls = []
+  const admin = {
+    calls,
+    from(table) {
+      const q = { table, op: null, values: null, filters: [] }
+      calls.push(q)
+      const chain = {
+        update(values) { q.op = 'update'; q.values = values; return chain },
+        upsert(values, opts) { q.op = 'upsert'; q.values = values; q.opts = opts; return chain },
+        eq(k, v) { q.filters.push(['eq', k, v]); return chain },
+        is(k, v) { q.filters.push(['is', k, v]); return chain },
+        select() { q.select = true; return chain },
+        then(resolve) {
+          const isClaim = q.op === 'update' && q.filters.some(([f]) => f === 'is')
+          resolve({ data: isClaim ? (claimed ? [{ id: 't1' }] : []) : null, error: null })
+        },
+      }
+      return chain
+    },
+  }
+  return admin
+}
+const MAIL = { subject: 's', text: 't', html: 'h' }
+const releases = (admin) => admin.calls.filter((c) => c.op === 'update' && c.values.accepted_emailed_at === null)
+const alerts = (admin) => admin.calls.filter((c) => c.table === 'operator_alerts')
+
+describe('sendTransferEmail: claim, send, and what a failure does (review I-1)', () => {
+  it('sent → true, the claim stays, no alert', async () => {
+    const admin = fakeAdmin()
+    assert.equal(await sendTransferEmail(admin, 't1', 'accepted_emailed_at', 'a@b.pl', MAIL, { send: async () => ({ ok: true }) }), true)
+    assert.equal(releases(admin).length, 0)
+    assert.equal(alerts(admin).length, 0)
+  })
+  it('already claimed by somebody else → false, nothing sent', async () => {
+    const admin = fakeAdmin({ claimed: false })
+    let sent = 0
+    assert.equal(await sendTransferEmail(admin, 't1', 'accepted_emailed_at', 'a@b.pl', MAIL, { send: async () => { sent++; return { ok: true } } }), false)
+    assert.equal(sent, 0)
+  })
+  it('a certain failure (non-2xx) gives the claim back, no alert', async () => {
+    const admin = fakeAdmin()
+    assert.equal(await sendTransferEmail(admin, 't1', 'accepted_emailed_at', 'a@b.pl', MAIL, { send: async () => ({ ok: false, status: 500 }) }), false)
+    assert.equal(releases(admin).length, 1)
+    assert.deepEqual(releases(admin)[0].filters, [['eq', 'id', 't1']])
+    assert.equal(alerts(admin).length, 0)
+  })
+  it('an unknown outcome keeps the claim and alerts with the transfer id and column only', async () => {
+    const admin = fakeAdmin()
+    const send = async () => { const e = new Error('SendGrid: no answer in 10000 ms'); e.deliveryUnknown = true; throw e }
+    assert.equal(await sendTransferEmail(admin, 't1', 'accepted_emailed_at', 'a@b.pl', MAIL, { send }), false)
+    assert.equal(releases(admin).length, 0)
+    const [alert] = alerts(admin)
+    assert.equal(alert.values.kind, 'transfer_email_unknown')
+    assert.deepEqual(alert.values.payload, { transferId: 't1', column: 'accepted_emailed_at' })
+    assert.equal(alert.values.order_id, null)
+  })
+  it('the job\'s own re-send (claimed) never gives the claim back: it alerts transfer_email_failed', async () => {
+    const admin = fakeAdmin()
+    assert.equal(await sendTransferEmail(admin, 't1', 'accepted_emailed_at', 'a@b.pl', MAIL,
+      { claimed: true, send: async () => ({ ok: false, status: 500 }) }), false)
+    assert.equal(releases(admin).length, 0)
+    assert.equal(alerts(admin)[0].values.kind, 'transfer_email_failed')
   })
 })

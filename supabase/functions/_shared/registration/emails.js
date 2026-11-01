@@ -34,7 +34,7 @@ function personLines(lines) {
   return lines.map((l) => {
     const name = `${l.firstName ?? ''} ${l.lastName ?? ''}`.trim()
     // A line whose package was handed on (Plan 7): the holder's name only, nothing else of theirs.
-    if (l.transferred) return `${name} — pakiet przekazany`
+    if (l.transferred) return `${name} — przejął(-ęła) pakiet`
     const facts = [l.competition, l.ageGroupLabel ? `kategoria ${l.ageGroupLabel}` : null, l.startTime ? `start ${l.startTime}` : null]
       .filter(Boolean).join(', ')
     return `${name} — ${facts}`
@@ -412,7 +412,8 @@ export function consentRequestEmail({ event, person, registeredBy, competition, 
     '<p>LESZY.RUN</p>',
   ].join('')
   const subject = `Zapisano Cię na ${event.name} — zaakceptuj regulamin`
-  return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html }
+  // The link carries the token in its fragment: no click-tracking redirect may rewrite it.
+  return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html, trackClicks: false }
 }
 
 // ---------------------------------------------------------------- teams (Plan 5)
@@ -422,7 +423,7 @@ function memberLine(m) {
     m.ageGroupLabel ? `kategoria ${m.ageGroupLabel}` : null,
     m.role === 'self' ? 'kapitan' : null,
     m.role === 'minor' ? 'opiekun: kapitan' : null,
-    m.transferred ? 'pakiet przekazany' : null,
+    m.transferred ? 'przejął(-ęła) pakiet' : null,
   ].filter(Boolean).join(', ')
   return facts ? `${fullName(m)} — ${facts}` : fullName(m)
 }

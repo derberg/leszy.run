@@ -85,14 +85,20 @@ export function buildSendGridBody({ to, subject, text, html, replyTo, fromName =
   return body
 }
 
-async function send({ to, subject, text, html, replyTo, fromName = 'LESZY.RUN', noTracking = false }) {
+// Rebase shim (Plan 7 used `trackClicks: false`); removed once every caller passes noTracking.
+export function sendGridBody({ trackClicks = true, ...rest }, fromEmail) {
+  return buildSendGridBody({ ...rest, noTracking: rest.noTracking || trackClicks === false }, fromEmail)
+}
+
+async function send({ to, subject, text, html, replyTo, fromName = 'LESZY.RUN', noTracking: noTrackingArg = false, trackClicks = true }) {
+  const noTracking = noTrackingArg || trackClicks === false
   const captureUrl = Deno.env.get('EMAIL_CAPTURE_URL')
   if (captureUrl) {
     try {
       const res = await postToCapture(captureUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, subject, text, html, replyTo, fromName, noTracking }),
+        body: JSON.stringify({ to, subject, text, html, replyTo, fromName, noTracking, ...(noTracking ? { trackClicks: false } : {}) }),
       })
       if (!res.ok) console.error('Email capture error:', res.status)
       return { ok: res.ok, status: res.status }

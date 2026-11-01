@@ -1,5 +1,6 @@
 // POST { action, … } — the holder's side of a package transfer (Plan 7, RA6). A session is
-// required (401); the entry must be the session's own, so a stranger, whoever they are, gets 404.
+// required (401). The entry must be the session's own; a guardian of a child's entry or the captain
+// of a member's entry gets create_transfer's 409 not_transferable (ruling 3); anybody else 404.
 //
 //   create { registrationId, toEmail } → 201 { data: { transferId, expiresAt, toEmail, emailed } }
 //       A fresh token, create_transfer (only its SHA-256 is stored), then the invite e-mail to
@@ -7,9 +8,10 @@
 //       fragment only (Plan 4's rule), so it never reaches a server log, a referrer or an answer.
 //       transfer-create:<registrationId>, 5 per 24 h, claimed before the RPC (fail closed: this
 //       path mails an address the caller names).
-//   cancel { transferId }              → 200 { data: { cancelled: true } }
-//       cancel_transfer, then „Zaproszenie cofnięte” to the invited address. 409 not_pending when
-//       the invite was accepted, cancelled or expired meanwhile (no e-mail).
+//   cancel { transferId }              → 200 { data: { cancelled: true, emailed } }
+//       cancel_transfer, then „Zaproszenie cofnięte” to the invited address. 409 expired for an
+//       invite past expires_at (its status may still say pending), 409 not_pending when it was
+//       accepted or cancelled meanwhile; no e-mail either way.
 //   status { registrationId }          → 200 { data: { allowed, until, pending } }
 //       The transfer block my-event-registrations carries, for one entry.
 //
@@ -31,6 +33,7 @@ import { sendTransferEmail, TRANSFER_REFUSALS, transferViews } from '../_shared/
 const NOT_FOUND = { error: 'Not found' }
 const TOO_MANY = 'Zbyt wiele zaproszeń. Spróbuj ponownie jutro.'
 const NOT_PENDING = 'Zaproszenia nie można już cofnąć: zostało przyjęte, cofnięte albo wygasło.'
+const EXPIRED = 'To zaproszenie już wygasło. Link nie działa.'
 const CREATE_LIMIT = 5
 const DAY = 86400
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -50,11 +53,26 @@ async function single(query) {
   return data
 }
 
-/** The session's own entry, or null (unknown, malformed, or anybody else's: all 404). */
-async function ownEntry(admin, registrationId, userId) {
+/**
+ * The entry, when the session may ask about it → { reg, own }, or null (unknown, malformed, or
+ * nobody's the session answers for: 404). `own` is the holder's own entry. A guardian of a child's
+ * entry and the captain of a member's entry are answered too (M-7), so create_transfer can say
+ * „not transferable” (ruling 3) instead of pretending the entry does not exist.
+ */
+async function entryFor(admin, registrationId, userId) {
   if (!isUuid(registrationId)) return null
   const reg = await single(admin.from('registrations').select(REG_COLUMNS).eq('id', registrationId).maybeSingle())
-  return reg && reg.profile_id === userId ? reg : null
+  if (!reg) return null
+  if (reg.profile_id === userId) return { reg, own: true }
+  if (reg.guardian_profile_id === userId) return { reg, own: false }
+  if (reg.team_id) {
+    const team = await single(admin.from('teams').select('captain_registration_id').eq('id', reg.team_id).maybeSingle())
+    const captain = team?.captain_registration_id
+      ? await single(admin.from('registrations').select('profile_id').eq('id', team.captain_registration_id).maybeSingle())
+      : null
+    if (captain?.profile_id === userId) return { reg, own: false }
+  }
+  return null
 }
 
 async function eventOf(admin, reg) {
@@ -90,8 +108,9 @@ Deno.serve(async (req) => {
     const action = body?.action
 
     if (action === 'status') {
-      const reg = await ownEntry(admin, body.registrationId, session.userId)
-      if (!reg) return json(NOT_FOUND, 404, req)
+      const found = await entryFor(admin, body.registrationId, session.userId)
+      if (!found) return json(NOT_FOUND, 404, req)
+      const { reg } = found
       ref = `registration ${reg.id}`
       const { settings } = await eventOf(admin, reg)
       const views = await transferViews(admin, [reg], settings, session.userId)
@@ -99,8 +118,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'create') {
-      const reg = await ownEntry(admin, body.registrationId, session.userId)
-      if (!reg) return json(NOT_FOUND, 404, req)
+      const found = await entryFor(admin, body.registrationId, session.userId)
+      if (!found) return json(NOT_FOUND, 404, req)
+      const { reg } = found
       ref = `registration ${reg.id}`
       const toEmail = typeof body.toEmail === 'string' ? body.toEmail.trim().toLowerCase() : ''
       if (!EMAIL_RE.test(toEmail) || toEmail.length > 254) {
@@ -117,31 +137,51 @@ Deno.serve(async (req) => {
       })
       if (error) return refusalOrThrow(req, error)
 
-      const { settings, competition } = await eventOf(admin, reg)
-      const mail = transferInviteEmail({
-        event: eventFacts(settings),
-        senderFirstName: reg.first_name,
-        competition: { name: competition?.name ?? null, startTime: (competition?.start_time ?? settings.first_start_time)?.slice(0, 5) ?? null },
-        link: `${publicSite()}/przekazanie#${token}`,
-        until: settings.transfer_until,
-      })
-      const emailed = await sendTransferEmail(admin, data.transferId, 'invite_emailed_at', toEmail, mail)
+      // The invite exists from here on: nothing below may turn it into a 500 (M-1). The token
+      // lives only in this request, so a certain send failure gives the claim back and answers
+      // emailed: false (the holder cancels and invites again); it is never re-sent by a job.
+      let emailed = false
+      try {
+        const { settings, competition } = await eventOf(admin, reg)
+        const mail = transferInviteEmail({
+          event: eventFacts(settings),
+          senderFirstName: reg.first_name,
+          competition: { name: competition?.name ?? null, startTime: (competition?.start_time ?? settings.first_start_time)?.slice(0, 5) ?? null },
+          link: `${publicSite()}/przekazanie#${token}`,
+          until: settings.transfer_until,
+        })
+        emailed = await sendTransferEmail(admin, data.transferId, 'invite_emailed_at', toEmail, mail)
+      } catch (err) {
+        console.error('transfer-invite: invite not built:', `transfer ${data.transferId}`, err?.message)
+      }
       return json({ data: { transferId: data.transferId, expiresAt: data.expiresAt, toEmail, emailed } }, 201, req)
     }
 
     if (action === 'cancel') {
       if (!isUuid(body.transferId)) return json(NOT_FOUND, 404, req)
       ref = `transfer ${body.transferId}`
-      const { data: cancelled, error } = await admin.rpc('cancel_transfer', { p_transfer_id: body.transferId, p_actor: session.userId })
+      // M-3: an invite past expires_at still reads `pending` until the next invite marks it. Its
+      // link is dead already, so it is answered as expired and nobody is told it was taken back.
+      const t = await single(admin.from('transfers')
+        .select('id, kind, from_profile_id, registration_id, to_email, status, expires_at').eq('id', body.transferId).maybeSingle())
+      if (!t || t.kind !== 'runner' || t.from_profile_id !== session.userId) return json(NOT_FOUND, 404, req)
+      if (t.status === 'expired' || (t.status === 'pending' && Date.parse(t.expires_at) <= Date.now())) {
+        return json({ error: EXPIRED, code: 'expired' }, 409, req)
+      }
+      const { data: cancelled, error } = await admin.rpc('cancel_transfer', { p_transfer_id: t.id, p_actor: session.userId })
       if (error) return refusalOrThrow(req, error)
       if (cancelled !== true) return json({ error: NOT_PENDING, code: 'not_pending' }, 409, req)
 
-      const t = await single(admin.from('transfers').select('id, registration_id, to_email').eq('id', body.transferId).single())
-      const reg = await single(admin.from('registrations').select(REG_COLUMNS).eq('id', t.registration_id).single())
-      const { settings } = await eventOf(admin, reg)
-      await sendTransferEmail(admin, t.id, 'cancel_emailed_at', t.to_email,
-        transferCancelledEmail({ event: eventFacts(settings), senderFirstName: reg.first_name }))
-      return json({ data: { cancelled: true } }, 200, req)
+      let emailed = false
+      try {
+        const reg = await single(admin.from('registrations').select(REG_COLUMNS).eq('id', t.registration_id).single())
+        const { settings } = await eventOf(admin, reg)
+        emailed = await sendTransferEmail(admin, t.id, 'cancel_emailed_at', t.to_email,
+          transferCancelledEmail({ event: eventFacts(settings), senderFirstName: reg.first_name }))
+      } catch (err) {
+        console.error('transfer-invite: cancel e-mail not built:', ref, err?.message)
+      }
+      return json({ data: { cancelled: true, emailed } }, 200, req)
     }
 
     return json({ error: 'Nieznana operacja.', code: 'invalid_action' }, 400, req)

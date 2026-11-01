@@ -49,11 +49,20 @@ Deno.serve(async (req) => {
     if (error) throw error
     if (!settings || settings.state === 'draft') return json({ error: 'Not found' }, 404, req)
 
-    const regs = await allRows(() => admin.from('registrations')
+    const listed = await allRows(() => admin.from('registrations')
       .select('id, category_id, first_name, last_name, age_group_label, kids_group_id, status, created_at, consent_state, team_id, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at, email, birth_date')
       .eq('event_id', settings.event_id).eq('status', 'confirmed')
       .or(`profile_id.eq.${session.userId},registered_by_profile_id.eq.${session.userId}`)
       .order('created_at').order('id'))
+    // M-4: organizer_transfer stores the organizer as registered_by_profile_id. Such an entry is
+    // the organizer's panel data, not somebody the organizer signed up on this page: left out
+    // unless it is the session's own start.
+    const others = listed.filter((r) => r.profile_id !== session.userId).map((r) => r.id)
+    const byOrganizer = others.length
+      ? new Set((await allRows(() => admin.from('transfers').select('id, new_registration_id')
+        .eq('kind', 'organizer').in('new_registration_id', others).order('id'))).map((t) => t.new_registration_id))
+      : new Set()
+    const regs = listed.filter((r) => !byOrganizer.has(r.id))
     const categoryIds = [...new Set(regs.map((r) => r.category_id))]
     const comps = categoryIds.length
       ? await allRows(() => admin.from('competitions').select('category_id, name, start_time').in('category_id', categoryIds).order('category_id'))

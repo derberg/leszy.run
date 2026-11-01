@@ -58,7 +58,8 @@ export function transferInviteEmail({ event, senderFirstName, competition, link:
     `<p>${escapeHtml(source)}</p>`,
     signature.html,
   ].join('')
-  return { subject: `${sender} przekazuje Ci start — ${event.name}`, text, html }
+  // The link carries the token in its fragment: no click-tracking redirect may rewrite it.
+  return { subject: `${sender} przekazuje Ci start — ${event.name}`, text, html, trackClicks: false }
 }
 
 /**
@@ -121,4 +122,27 @@ export function transferConfirmationEmail({ event, person, competition }) {
     signature.html,
   ].join('')
   return { subject: `Jesteś na liście — ${event.name}`, text, html }
+}
+
+/**
+ * To the old holder, when the organizer handed their package on from B3 (ruling 4; controller
+ * ruling M-2: fairness). Names the new holder by first name and surname only, never their address.
+ * event { name }, holderFirstName, recipient { firstName, lastName }, organizer { name, contactEmail? }.
+ */
+export function transferByOrganizerEmail({ event, holderFirstName, recipient, organizer }) {
+  const who = fullName(recipient) || 'inna osoba'
+  const org = organizer?.name || 'Organizator zawodów'
+  const greeting = holderFirstName ? `Cześć ${holderFirstName},` : 'Cześć,'
+  const lead = `organizator zawodów ${event.name} (${org}) przekazał Twój pakiet tej osobie: ${who}. Nie jesteś już na liście startowej tych zawodów.`
+  const contact = organizer?.contactEmail
+    ? `Jeśli to pomyłka, napisz do organizatora: ${organizer.contactEmail}.`
+    : 'Jeśli to pomyłka, napisz do organizatora.'
+  const text = [greeting, '', lead, '', contact, ...signature.text].join('\n')
+  const html = [
+    `<p>${escapeHtml(greeting)}</p>`,
+    `<p>${escapeHtml(lead)}</p>`,
+    `<p>${escapeHtml(contact)}</p>`,
+    signature.html,
+  ].join('')
+  return { subject: `Pakiet przekazany — ${event.name}`, text, html }
 }

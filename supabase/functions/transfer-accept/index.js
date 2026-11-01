@@ -16,7 +16,9 @@
 //       (400 invalid_person with `fields`); every event consent, the image acceptance included,
 //       and the service regulamin (400 consents_required otherwise, nothing accepted; D7-8);
 //       accept_transfer; then „Pakiet przejęła …” to the sender and „Jesteś na liście” to the
-//       recipient, each claimed on the transfer row (at most once) and only after the RPC returned.
+//       recipient, each claimed on the transfer row (at most once) and only after the RPC returned
+//       (a certain send failure gives the claim back and registration-jobs re-sends it once; an
+//       unknown outcome keeps the claim and alerts the operator).
 //       → 200 { data: { status: 'accepted', registrationId, event: { name, slug } } }.
 //       401 code_required (no code and no matching session), the code's own 400/401/403/429.
 //       The client sends the person on with postAuthPath({ skipOnboarding: true }).
@@ -37,10 +39,8 @@ import { throttled, tokenHash, TOO_MANY } from '../_shared/registration/consentA
 import { validatePerson } from '../_shared/registration/person.js'
 import { formatPln } from '../_shared/registration/money.js'
 import { warsawToday } from '../_shared/registration/dates.js'
-import { eventPageUrl } from '../_shared/registration/slug.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
-import { transferAcceptedEmail, transferConfirmationEmail } from '../_shared/registration/transferEmails.js'
-import { callTransferRpc, GONE, sendTransferEmail, TRANSFER_REFUSALS } from '../_shared/registration/transfers.js'
+import { callTransferRpc, GONE, sendAcceptedTransferEmail, TRANSFER_REFUSALS } from '../_shared/registration/transfers.js'
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -240,16 +240,13 @@ async function accept(admin, req, body, hash, { transfer, reg, settings }) {
     return json({ error: text, code: error.message, ...(error.message === 'invalid_person' ? { fields: {} } : {}) }, status, req, withCookie)
   }
 
-  // ---- only now, after a successful return: the two e-mails, each claimed once
-  const event = eventFacts(settings)
-  const startTime = startOf(competition, settings)
-  await sendTransferEmail(admin, transfer.id, 'accepted_emailed_at', out.senderEmail ?? null,
-    transferAcceptedEmail({ event, senderFirstName: reg.first_name, recipient: { firstName: value.firstName, lastName: value.lastName } }))
-  await sendTransferEmail(admin, transfer.id, 'confirmation_emailed_at', email, transferConfirmationEmail({
-    event: { ...event, url: eventPageUrl(settings.slug) },
-    person: { firstName: value.firstName, ageGroupLabel: value.ageGroupLabel },
-    competition: { name: competition.name, startTime },
-  }))
+  // ---- only now, after a successful return: the two e-mails, each claimed once. Built from the
+  // stored rows (the job's re-send builds the same); a failure here never turns the accepted
+  // transfer into a 500 (M-1): a certain failure gives its claim back for registration-jobs.
+  const accepted = { id: transfer.id, kind: 'runner', status: 'accepted', event_id: reg.event_id,
+    registration_id: reg.id, new_registration_id: out.registrationId }
+  await sendAcceptedTransferEmail(admin, accepted, 'accepted_emailed_at')
+  await sendAcceptedTransferEmail(admin, accepted, 'confirmation_emailed_at')
 
   return json({
     data: { status: 'accepted', registrationId: out.registrationId, event: { name: settings.name, slug: settings.slug } },

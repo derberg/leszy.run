@@ -6,6 +6,8 @@ import { sendEmail } from '../email.js'
 import { ageOn } from './ageGroups.js'
 import { warsawToday } from './dates.js'
 import { ADULT_AGE } from './person.js'
+import { eventPageUrl } from './slug.js'
+import { transferAcceptedEmail, transferByOrganizerEmail, transferConfirmationEmail } from './transferEmails.js'
 
 async function rows(query) {
   const { data, error } = await query
@@ -71,20 +73,174 @@ export async function claimTransferEmail(admin, transferId, column) {
 }
 
 /**
- * Claims, then sends. Never throws: the transfer stands whether or not the e-mail goes out, and a
- * failure is logged by the transfer's id, never by the address. → true when handed to the sender.
+ * An operator alert naming the transfer and the column only (no address, no token), once per pair.
+ * Never throws.
  */
-export async function sendTransferEmail(admin, transferId, column, to, mail) {
-  if (!to || !mail) return false
+export async function transferAlert(admin, kind, transferId, column) {
   try {
-    if (!await claimTransferEmail(admin, transferId, column)) return false
-    const res = await sendEmail({ to, ...mail })
+    const { error } = await admin.from('operator_alerts').upsert(
+      { kind, order_id: null, payload: { transferId, column }, dedupe_key: `${kind}:${transferId}:${column}` },
+      { onConflict: 'dedupe_key', ignoreDuplicates: true })
+    if (error) console.error(`operator alert ${kind} not stored:`, error.message)
+  } catch (err) {
+    console.error(`operator alert ${kind} not stored:`, err?.message)
+  }
+}
+
+/**
+ * Claims, then sends: Plan 3's rule (sendOrderConfirmation). Never throws: the transfer stands
+ * whether or not the e-mail goes out, and a failure is logged by the transfer's id, never by the
+ * address. → true when handed to the sender.
+ *   - a send that certainly failed (an error before it, or the sender's non-2xx answer) gives the
+ *     claim back, so registration-jobs can send it again (resendTransferEmails);
+ *   - a send whose fate is unknown (`deliveryUnknown`: SendGrid's timeout or a broken connection)
+ *     keeps the claim and raises `transfer_email_unknown`: a second copy is worse than one the
+ *     operator re-sends by hand;
+ *   - `claimed: true` (the job's own re-send, claimed already) never gives the claim back: a
+ *     failure raises `transfer_email_failed` and nothing retries it again.
+ * `send` is for the unit tests.
+ */
+export async function sendTransferEmail(admin, transferId, column, to, mail, { claimed = false, send = sendEmail } = {}) {
+  if (!to || !mail) return false
+  let mine = claimed
+  try {
+    if (!claimed) {
+      if (!await claimTransferEmail(admin, transferId, column)) return false
+      mine = true
+    }
+    const res = await send({ to, ...mail })
     if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
     return true
   } catch (err) {
     console.error(`transfer ${transferId}: ${column} not sent:`, err?.message)
+    if (claimed) {
+      await transferAlert(admin, 'transfer_email_failed', transferId, column)
+    } else if (mine && err?.deliveryUnknown) {
+      await transferAlert(admin, 'transfer_email_unknown', transferId, column)
+    } else if (mine) {
+      try {
+        const { error } = await admin.from('transfers').update({ [column]: null }).eq('id', transferId)
+        if (error) throw error
+      } catch (e) {
+        console.error(`transfer ${transferId}: ${column} claim not released:`, e?.message)
+      }
+    }
     return false
   }
+}
+
+const eventFacts = (settings) => ({
+  name: settings.name,
+  eventDate: settings.event_date,
+  place: [settings.town_label, settings.place_details].filter(Boolean).join(', ') || null,
+})
+
+async function one(query) {
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}
+
+/**
+ * The e-mail a column of an ACCEPTED transfer stands for, built from the stored rows, so the
+ * first send and the job's re-send are the same e-mail → { to, mail } or null (nobody to send to:
+ * the sender deleted the account, or the row is not that kind of transfer).
+ *   accepted_emailed_at      → the sender, „Pakiet przejęła <Imię Nazwisko>” (runner transfers)
+ *   confirmation_emailed_at  → the recipient, „Jesteś na liście” (runner transfers)
+ *   holder_emailed_at        → the old holder, „Pakiet przekazany” (organizer transfers)
+ */
+export async function buildTransferMail(admin, transfer, column) {
+  const t = transfer.new_registration_id && transfer.kind
+    ? transfer
+    : await one(admin.from('transfers').select('id, kind, status, event_id, registration_id, new_registration_id').eq('id', transfer.id).single())
+  if (t.status !== 'accepted' || !t.new_registration_id) return null
+  const want = { accepted_emailed_at: 'runner', confirmation_emailed_at: 'runner', holder_emailed_at: 'organizer' }[column]
+  if (!want || t.kind !== want) return null
+  const cols = 'id, category_id, first_name, last_name, email, age_group_label'
+  const [oldReg, newReg, settings] = await Promise.all([
+    one(admin.from('registrations').select(cols).eq('id', t.registration_id).single()),
+    one(admin.from('registrations').select(cols).eq('id', t.new_registration_id).single()),
+    one(admin.from('registration_settings')
+      .select('event_id, name, slug, event_date, first_start_time, town_label, place_details, club_id, contact_email')
+      .eq('event_id', t.event_id).single()),
+  ])
+  const event = eventFacts(settings)
+  const recipient = { firstName: newReg.first_name, lastName: newReg.last_name }
+  if (column === 'accepted_emailed_at') {
+    return oldReg.email ? { to: oldReg.email, mail: transferAcceptedEmail({ event, senderFirstName: oldReg.first_name, recipient }) } : null
+  }
+  if (column === 'holder_emailed_at') {
+    if (!oldReg.email) return null
+    const club = settings.club_id ? await one(admin.from('clubs').select('name').eq('id', settings.club_id).maybeSingle()) : null
+    return {
+      to: oldReg.email,
+      mail: transferByOrganizerEmail({
+        event, holderFirstName: oldReg.first_name, recipient,
+        organizer: { name: club?.name?.trim() || null, contactEmail: settings.contact_email ?? null },
+      }),
+    }
+  }
+  const comp = await one(admin.from('competitions').select('name, start_time').eq('category_id', newReg.category_id).maybeSingle())
+  return newReg.email
+    ? {
+      to: newReg.email,
+      mail: transferConfirmationEmail({
+        event: { ...event, url: eventPageUrl(settings.slug) },
+        person: { firstName: newReg.first_name, ageGroupLabel: newReg.age_group_label },
+        competition: { name: comp?.name ?? null, startTime: (comp?.start_time ?? settings.first_start_time)?.slice(0, 5) ?? null },
+      }),
+    }
+    : null
+}
+
+/**
+ * Builds and sends one column's e-mail of an accepted transfer (first send). Never throws.
+ */
+export async function sendAcceptedTransferEmail(admin, transfer, column) {
+  try {
+    const built = await buildTransferMail(admin, transfer, column)
+    if (!built) return false
+    return await sendTransferEmail(admin, transfer.id, column, built.to, built.mail)
+  } catch (err) {
+    console.error(`transfer ${transfer.id}: ${column} not built:`, err?.message)
+    return false
+  }
+}
+
+const RESEND_AFTER_MS = 10 * 60_000
+const RESEND_WINDOW_MS = 7 * 86_400_000
+const RESEND_COLUMNS = [['accepted_emailed_at', 'runner'], ['confirmation_emailed_at', 'runner'], ['holder_emailed_at', 'organizer']]
+
+/**
+ * registration-jobs' sweep: an accepted transfer whose e-mail column is still NULL 10 minutes
+ * after acceptance (the first send certainly failed and gave its claim back, or the function died
+ * between the RPC and the claim) gets it once: claimed here first, so a failure raises
+ * `transfer_email_failed` and is never retried again. Accepted in the last 7 days only.
+ * The invite (its token lives only in the request that made it) and the cancel e-mail (an invite
+ * cancelled by cancel_registration or organizer_transfer looks the same as one the holder took
+ * back) are not re-sent. → the number of e-mails handed to the sender.
+ */
+export async function resendTransferEmails(admin, { limit = 50, now = Date.now() } = {}) {
+  let sent = 0
+  for (const [column, kind] of RESEND_COLUMNS) {
+    const due = await rows(admin.from('transfers')
+      .select('id, kind, status, event_id, registration_id, new_registration_id')
+      .eq('kind', kind).eq('status', 'accepted').is(column, null)
+      .lte('accepted_at', new Date(now - RESEND_AFTER_MS).toISOString())
+      .gt('accepted_at', new Date(now - RESEND_WINDOW_MS).toISOString())
+      .order('accepted_at').limit(limit))
+    for (const t of due) {
+      if (!await claimTransferEmail(admin, t.id, column)) continue
+      try {
+        const built = await buildTransferMail(admin, t, column)
+        if (built && await sendTransferEmail(admin, t.id, column, built.to, built.mail, { claimed: true })) sent++
+      } catch (err) {
+        console.error(`transfer ${t.id}: ${column} re-send failed:`, err?.message)
+        await transferAlert(admin, 'transfer_email_failed', t.id, column)
+      }
+    }
+  }
+  return sent
 }
 
 /**
