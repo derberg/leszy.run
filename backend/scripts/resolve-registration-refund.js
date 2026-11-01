@@ -30,6 +30,12 @@
 //   refund_followup_failed            the refund itself is stored. The audit row or the e-mail after
 //                                     it failed: if runner_notified_at is NULL the job sends the
 //                                     e-mail; nothing about the money needs doing.
+//   refund_email_args_failed          the job could not read what the e-mail needs (a database
+//                                     error on that refund's line, order or event). It retries every
+//                                     run; look at the refunds row and its order_line_id.
+//   refund_insufficient_balance (reason organizer) dpay refused for a low balance. Nothing to
+//                                     resolve: the reservation was given back, nobody retries it, and
+//                                     the organizer can ask again once the dpay balance is topped up.
 // The note goes into refunds.resolved_by (500 characters at most): say who looked and what the
 // panel showed, e.g. "LG 2026-11-01: panel dpay, zwrot 20,00 zł widoczny".
 
@@ -39,9 +45,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const OUTCOMES = ['accepted', 'rejected']
 const OPEN = ['pending', 'unknown']
 
+// A value that is itself a flag counts as missing: `--note --apply` must not apply with the note
+// "--apply" (Task 5 review M2).
 function arg(name) {
   const i = process.argv.indexOf(name)
-  return i === -1 ? undefined : process.argv[i + 1]
+  const value = i === -1 ? undefined : process.argv[i + 1]
+  return value === undefined || value.startsWith('--') ? undefined : value
 }
 
 function usage(message) {

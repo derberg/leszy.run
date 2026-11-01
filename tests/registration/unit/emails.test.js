@@ -371,3 +371,23 @@ test('Plan 6 Task 5 the operator digest says what to do for the organizer refund
   const plain = operatorAlertEmail({ alerts: [{ kind: 'late_refund', orderId: 'o', payload: null, createdAt: '2026-11-01T10:00:00Z' }] })
   assert.doesNotMatch(plain.text, /Co zrobić/)
 })
+
+test('O-44 M1/M6 the resolve-script hints for refund_unknown, refund_pending and refund_insufficient_balance appear only for an organizer refund', () => {
+  const at = '2026-11-01T10:00:00Z'
+  const auto = operatorAlertEmail({ alerts: ['refund_unknown', 'refund_pending', 'refund_insufficient_balance'].map((kind) => (
+    { kind, orderId: 'o-a', payload: { refundId: 'r-a', reason: 'late' }, createdAt: at })) })
+  assert.doesNotMatch(auto.text, /Co zrobić/, 'an automatic refund keeps Plan 3\'s manual handling')
+  assert.ok(!auto.text.includes('resolve-registration-refund.js'))
+
+  const mixed = operatorAlertEmail({ alerts: [
+    { kind: 'refund_unknown', orderId: 'o-a', payload: { reason: 'late' }, createdAt: at },
+    { kind: 'refund_unknown', orderId: 'o-o', payload: { reason: 'organizer' }, createdAt: at },
+    { kind: 'refund_pending', orderId: 'o-p', payload: { reason: 'organizer' }, createdAt: at },
+    { kind: 'refund_insufficient_balance', orderId: 'o-i', payload: { reason: 'organizer' }, createdAt: at },
+  ] })
+  for (const k of ['refund_unknown', 'refund_pending', 'refund_insufficient_balance']) {
+    assert.equal(mixed.text.split('\n').filter((l) => l.startsWith(`- ${k}: `)).length, 1, k)
+  }
+  assert.equal(mixed.text.split('resolve-registration-refund.js').length - 1, 2, 'unknown and pending name the script')
+  assert.match(mixed.text, /- refund_insufficient_balance: .*rezerwacja zwolniona/)
+})

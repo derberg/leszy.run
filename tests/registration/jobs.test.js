@@ -1097,6 +1097,16 @@ test('O-42 resolve-registration-refund.js without --apply prints the refund, its
     assert.notEqual(r.status, 0, bad.join(' '))
   }
   assert.deepEqual(await refundRow(id), before)
+  // M2: a flag where a value belongs counts as missing, so `--note --apply` never applies with "--apply" as the note.
+  for (const bad of [
+    ['--refund', id, '--outcome', 'rejected', '--note', '--apply'],
+    ['--refund', id, '--outcome', '--apply', '--note', 'x'],
+    ['--refund', '--apply', '--outcome', 'rejected', '--note', 'x'],
+  ]) {
+    const r = resolveScript(bad)
+    assert.equal(r.status, 2, `${bad.join(' ')}\n${r.stdout}${r.stderr}`)
+  }
+  assert.deepEqual(await refundRow(id), before)
 
   const applied = resolveScript(['--refund', id, '--outcome', 'accepted', '--note', 'panel dpay: zwrot widoczny', '--apply'])
   assert.equal(applied.status, 0, applied.stderr)
@@ -1107,4 +1117,87 @@ test('O-42 resolve-registration-refund.js without --apply prints the refund, its
   const again = resolveScript(['--refund', id, '--outcome', 'rejected', '--note', 'x', '--apply'])
   assert.notEqual(again.status, 0, 'a settled refund is refused')
   assert.equal((await refundRow(id)).dpay_status, 'accepted')
+})
+
+// ---------------------------------------------------------------- Task 5 review M3–M5
+
+async function whileRefusing(table, when, condition, fn) {
+  const name = `test_refuse_${crypto.randomBytes(4).toString('hex')}`
+  const sql = postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} })
+  try {
+    await sql.unsafe(`CREATE FUNCTION public.${name}() RETURNS trigger LANGUAGE plpgsql AS $f$
+      BEGIN IF ${condition} THEN RAISE EXCEPTION 'test_refused'; END IF; RETURN NEW; END $f$`)
+    await sql.unsafe(`CREATE TRIGGER ${name} BEFORE ${when} ON public.${table} FOR EACH ROW EXECUTE FUNCTION public.${name}()`)
+    return await fn()
+  } finally {
+    await sql.unsafe(`DROP TRIGGER IF EXISTS ${name} ON public.${table}`)
+    await sql.unsafe(`DROP FUNCTION IF EXISTS public.${name}()`)
+    await sql.end()
+  }
+}
+
+test('O-41 M5 a runner_notified_at claim that keeps failing in the job → one refund_email_failed alert over several runs, and the e-mail once it works', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  const id = await unknownRefund(e, 1000)
+  await rpcOk('resolve_organizer_refund', { p_refund_id: id, p_outcome: 'accepted', p_note: 'panel dpay' })
+  await whileRefusing('refunds', 'UPDATE',
+    `OLD.runner_notified_at IS NULL AND NEW.runner_notified_at IS NOT NULL AND NEW.id = '${id}'`,
+    async () => { await jobsOk(); await jobsOk(); await jobsOk() })
+  const alerts = await rows('operator_alerts', { order_id: e.orderId, kind: 'refund_email_failed' })
+  assert.equal(alerts.length, 1, 'deduplicated per refund')
+  assert.equal(alerts[0].payload.step, 'claim')
+  assert.equal((await refundRow(id)).runner_notified_at, null)
+  await jobsOk()
+  assert.equal((await waitForMail(e.email)).filter((m) => m.subject.startsWith('Zwrot ')).length, 1)
+})
+
+test('O-41 M4 a row whose e-mail arguments cannot be read → one refund_email_args alert, deduplicated; the next row still gets its e-mail', async () => {
+  const event = await paidEvent()
+  const bad = await paidEntry(event)
+  const good = await paidEntry(event)
+  const badId = await unknownRefund(bad, 1000)
+  const goodId = await unknownRefund(good, 1000)
+  await rpcOk('resolve_organizer_refund', { p_refund_id: badId, p_outcome: 'accepted', p_note: 'panel dpay' })
+  await rpcOk('resolve_organizer_refund', { p_refund_id: goodId, p_outcome: 'accepted', p_note: 'panel dpay' })
+  // The older row first in the step's order; its line read fails every time (a refusing SELECT is not
+  // possible through a trigger, so the line id is replaced by one PostgREST rejects as a uuid).
+  assert.ifError((await db().from('refunds').update({ responded_at: ago(HOUR) }).eq('id', badId)).error)
+  const sql = postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} })
+  try {
+    await sql`alter table public.refunds disable trigger user`
+    await sql`update public.refunds set order_line_id = null where id = ${badId}`
+  } finally {
+    await sql`alter table public.refunds enable trigger user`
+    await sql.end({ timeout: 1 })
+  }
+  await jobsOk()
+  await jobsOk()
+  const alerts = await rows('operator_alerts', { order_id: bad.orderId, kind: 'refund_email_args_failed' })
+  assert.equal(alerts.length, 1)
+  assert.equal(alerts[0].payload.refundId, badId)
+  assert.equal((await waitForMail(good.email)).filter((m) => m.subject.startsWith('Zwrot ')).length, 1)
+  assert.ok((await refundRow(goodId)).runner_notified_at)
+  assert.equal((await refundRow(badId)).runner_notified_at, null)
+})
+
+test('O-41 M3 a run with too little budget left for a send defers refund_emails and claims nothing', async () => {
+  const env = { PIPELINE_ALERT_EMAIL: OPERATOR, EMAIL_CAPTURE_URL: `http://127.0.0.1:${CAPTURE_PORT}/send`, PUBLIC_SITE_URL: 'http://localhost:5173' }
+  const hadDeno = 'Deno' in globalThis
+  const prev = globalThis.Deno
+  globalThis.Deno = { env: { get: (k) => env[k] } }
+  try {
+    const event = await paidEvent()
+    const e = await paidEntry(event)
+    const id = await unknownRefund(e, 1000)
+    await rpcOk('resolve_organizer_refund', { p_refund_id: id, p_outcome: 'accepted', p_note: 'panel dpay' })
+    const data = await runJobsAndBeat(db(), jobsSettings(env), { budgetMs: 5_000 })
+    assert.ok(data.deferred.includes('refund_emails'), JSON.stringify(data))
+    assert.equal(data.refundEmails, 0)
+    assert.equal((await refundRow(id)).runner_notified_at, null, 'unclaimed: the next run sends it')
+  } finally {
+    if (hadDeno) globalThis.Deno = prev
+    else delete globalThis.Deno
+  }
+  await jobsOk()
 })

@@ -36,7 +36,8 @@ async function single(query) {
  *   `refund_email_unknown` raised (the mail may have gone and is never resent blindly).
  */
 export async function notifyRefundRunner(admin, settings, { refundId, orderId, registrationId, grosze, cancelled }, { onFailure = 'release' } = {}) {
-  const alert = (kind, step, err) => raiseAlert(admin, kind, orderId, { refundId, step, error: String(err?.message ?? err ?? '') })
+  const alert = (kind, step, err, dedupeKey = null) =>
+    raiseAlert(admin, kind, orderId, { refundId, step, error: String(err?.message ?? err ?? '') }, { dedupeKey })
   try {
     const { data: claimed, error } = await admin.from('refunds').update({ runner_notified_at: new Date().toISOString() })
       .eq('id', refundId).is('runner_notified_at', null).select('id')
@@ -44,7 +45,8 @@ export async function notifyRefundRunner(admin, settings, { refundId, orderId, r
     if (!claimed?.length) return 'claimed_elsewhere'
   } catch (err) {
     console.error('refund e-mail: claim failed:', err?.message)
-    await alert('refund_email_failed', 'claim', err)
+    // Review M5: the job meets a failing claim every 15 min; one alert per refund is enough.
+    await alert('refund_email_failed', 'claim', err, `refund_email_claim:${refundId}`)
     return 'failed'
   }
   let out
