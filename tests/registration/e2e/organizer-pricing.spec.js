@@ -364,6 +364,8 @@ test('V-72 Płatności: a partner, 20 generated codes listed with it, the CSV wi
   await gd.getByRole('button', { name: 'Wygeneruj', exact: true }).click()
   await expect(gd.getByLabel('Rabat (%)')).toHaveAttribute('aria-invalid', 'true')
   await expect(gd).toContainText('Rabat od 1 do 100%.')
+  // 9b M-3: a 422 that names its field says so under it only, not again by the button.
+  await expect(gd.getByTestId('dialog-error')).toHaveCount(0)
   await gd.getByLabel('Rabat (%)').fill('15')
   await gd.getByRole('button', { name: 'Wygeneruj', exact: true }).click()
   await expect(gd).toHaveCount(0)
@@ -389,8 +391,23 @@ test('V-72 Płatności: a partner, 20 generated codes listed with it, the CSV wi
   const own = rows.filter({ hasText: 'BIEGACZ10' })
   await own.getByRole('button', { name: 'Wyłącz — BIEGACZ10' }).click()
   await expect(own).toContainText('WYŁĄCZONY')
+  // 9b M-2: „Usuń” asks first; „Nie” keeps the code, „Usuń” in the question deletes it.
   await own.getByRole('button', { name: 'Usuń — BIEGACZ10' }).click()
+  const ask = page.getByRole('alertdialog', { name: 'Usunąć kod BIEGACZ10?' })
+  await ask.getByRole('button', { name: 'Nie' }).click()
+  await expect(ask).toHaveCount(0)
+  await expect(rows).toHaveCount(21)
+  await own.getByRole('button', { name: 'Usuń — BIEGACZ10' }).click()
+  await ask.getByRole('button', { name: 'Usuń' }).click()
   await expect(rows).toHaveCount(20)
+  // A partner nobody carries is deleted the same way.
+  await partners.getByRole('button', { name: '+ Partner' }).click()
+  await page.getByRole('dialog', { name: 'Nowy partner' }).getByLabel('Nazwa').fill('Radio Piekary')
+  await page.getByRole('dialog', { name: 'Nowy partner' }).getByRole('button', { name: 'Dodaj partnera' }).click()
+  await expect(partners.getByTestId('partner-row')).toHaveCount(2)
+  await partners.getByRole('button', { name: 'Usuń — Radio Piekary' }).click()
+  await page.getByRole('alertdialog', { name: 'Usunąć partnera Radio Piekary?' }).getByRole('button', { name: 'Usuń' }).click()
+  await expect(partners.getByTestId('partner-row')).toHaveText([/Sklep Biegacz/])
 
   // „Eksport CSV”: the server's file, BOM first.
   const [download] = await Promise.all([page.waitForEvent('download'), codes.getByRole('button', { name: 'Eksport CSV' }).click()])
@@ -412,6 +429,10 @@ test('V-72 Płatności: a partner, 20 generated codes listed with it, the CSV wi
     const { data } = await db().from('registration_pending_changes').select('payload').eq('event_id', event.eventId).maybeSingle()
     return data?.payload?.payments ?? null
   }, { timeout: 15_000 }).toMatchObject({ transfer_enabled: true, transfer_until: day(10) })
+  // The section goes out whole (window + transfer), but only what differs from live is a change:
+  // the unchanged window is not listed for „Opublikuj zmiany” (review open item).
+  const { data: staged } = await db().from('registration_pending_changes').select('changed_fields').eq('event_id', event.eventId).single()
+  expect([...staged.changed_fields].sort()).toEqual(['payments.transfer_enabled', 'payments.transfer_until'])
   await page.reload()
   await expect(page.getByTestId('transfer-settings').getByRole('radio', { name: 'Pozwalam przekazać pakiet' })).toHaveAttribute('aria-checked', 'true')
   await expect(page.getByTestId('transfer-settings').getByLabel('Możliwe do')).toHaveValue(day(10))
@@ -481,8 +502,9 @@ test('V-73 B3: ⋯ „Partner” sets it and the „Partnerzy” filter shows th
   await expect(page.getByTestId('entries-notice')).toHaveText('Pakiet przekazany: Jan Kowalski → Adam Nowy.')
   await expect(row('Jan Kowalski').getByTestId('registration-status')).toHaveText('WYCOFAJ W PANELU POMIARU')
   await expect(row('Adam Nowy').getByTestId('registration-status')).toHaveText('OPŁACONE')
-  // The partner moved with the package.
+  // The partner moved with the package; the chip counts the one live package, not both rows (9b I-1).
   await expect(row('Adam Nowy').getByTestId('registration-partner')).toHaveText('Sklep Biegacz')
+  await expect(chips.getByRole('button', { name: /^Sklep Biegacz/ })).toHaveText('Sklep Biegacz · 1')
   await ctx.close()
 })
 
@@ -498,7 +520,20 @@ test('V-74 no button wraps at 390 px: Płatności with codes and partners, the p
   await page.setViewportSize({ width: 390, height: 844 })
 
   await page.goto(`${base}/platnosci`)
-  await expect(page.getByTestId('vouchers').getByTestId('voucher-row')).toHaveCount(3)
+  // 9b M-1: cards at 390 px, every action in view, nothing clipped in a scroll box.
+  const cards390 = page.getByTestId('vouchers').getByTestId('voucher-card')
+  await expect(cards390).toHaveCount(3)
+  for (const name of ['Wyłącz', 'Usuń']) {
+    const box = await cards390.first().getByRole('button', { name: new RegExp(`^${name} —`) }).boundingBox()
+    expect(box.x + box.width).toBeLessThanOrEqual(390)
+  }
+  await expect(cards390.first()).toContainText('Stowarzyszenie Biegaczy Ziemi Gliwickiej')
+  await cards390.first().getByRole('button', { name: /^Usuń —/ }).click()
+  await expect(page.getByRole('alertdialog')).toBeVisible()
+  expect(await wrappedButtons(page)).toEqual([])
+  expect(await noSideways(page)).toBe(true)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
   await page.getByTestId('transfer-settings').getByRole('radio', { name: 'Pozwalam przekazać pakiet' }).click()
   await expect(page.getByTestId('transfer-settings').getByLabel('Możliwe do')).toBeVisible()
   expect(await wrappedButtons(page)).toEqual([])

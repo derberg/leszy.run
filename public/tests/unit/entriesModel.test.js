@@ -273,12 +273,17 @@ describe('extendChoices (ExtendDialog)', () => {
 
 describe('partnerChips (B3 „Partnerzy”)', () => {
   const partners = [{ id: 'p1', name: 'Sklep Biegacz', count: 1 }, { id: 'p2', name: 'Radio Piekary', count: 0 }]
-  it('„Wszyscy” and one chip per partner, each counting the rows its filter shows', () => {
-    const rows = [row({ id: 'a', partnerId: 'p1' }), row({ id: 'b', partnerId: 'p1', status: 'cancelled', statusKey: 'cancelled' }), row({ id: 'c' })]
+  it('„Wszyscy” and one chip per partner with the server\'s live count (9b I-1): never a cancelled or transferred-out row', () => {
+    const rows = [
+      row({ id: 'a', partnerId: 'p1' }),
+      row({ id: 'b', partnerId: 'p1', status: 'cancelled', statusKey: 'cancelled' }),
+      row({ id: 'c', partnerId: 'p1', status: 'transferred_out', statusKey: 'transferred' }),
+    ]
     assert.deepEqual(partnerChips(rows, partners), [
-      { id: null, label: 'Wszyscy' }, { id: 'p1', label: 'Sklep Biegacz · 2' }, { id: 'p2', label: 'Radio Piekary · 0' },
+      { id: null, label: 'Wszyscy' }, { id: 'p1', label: 'Sklep Biegacz · 1' }, { id: 'p2', label: 'Radio Piekary · 0' },
     ])
-    assert.deepEqual(filterEntries(rows, { partnerId: 'p1' }).map((r) => r.id), ['a', 'b'])
+    // The filter still shows every row the partner is on.
+    assert.deepEqual(filterEntries(rows, { partnerId: 'p1' }).map((r) => r.id), ['a', 'b', 'c'])
   })
   it('none without partners', () => assert.deepEqual(partnerChips([row()], []), []))
 })
@@ -289,6 +294,10 @@ describe('transferTargets (TransferDialog)', () => {
   ]
   it('the competitions the server names at the same price, in the event\'s order, the own one first selected', () => {
     assert.deepEqual(transferTargets(row({ transferTo: ['c3', 'c1'] }), competitions).map((c) => c.id), ['c1', 'c3'])
+  })
+  it('the own competition stays offered when it is hidden (9b I-2): apply_transfer allows a move within it', () => {
+    const r = row({ categoryId: 'c9', competition: 'Ukryty 9 km', transferTo: ['c9', 'c1'] })
+    assert.deepEqual(transferTargets(r, competitions), [{ id: 'c9', name: 'Ukryty 9 km' }, { id: 'c1', name: 'Bieg 9 km', kind: 'individual' }])
   })
   it('without the server\'s list, the row\'s own competition only', () => {
     assert.deepEqual(transferTargets(row(), competitions).map((c) => c.id), ['c1'])

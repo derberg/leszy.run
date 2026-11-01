@@ -47,6 +47,35 @@ export const TRANSFER_REFUSALS = {
   transfer_retry: [409, TRY_AGAIN],
 }
 
+// organizer_transfer's refusals (Plan 7, ruling 4), worded for the organizer where the runner's copy
+// would say „you”. A runner's 400 is a 422 here, the panel's contract for a refused value.
+const ORGANIZER_TRANSFER_REFUSALS = {
+  ...Object.fromEntries(Object.entries(TRANSFER_REFUSALS).map(([k, [status, text]]) => [k, [status === 400 ? 422 : status, text]])),
+  gone: [409, 'To zgłoszenie nie jest już aktywne.'],
+  duplicate: [409, 'Ta osoba jest już zapisana na te zawody.'],
+  pending_elsewhere: [409, 'Ta osoba ma nieopłacone zgłoszenie na te zawody razem z innymi osobami.'],
+  same_person: [409, 'To jest osoba, która ma ten pakiet.'],
+  recipient_minor: [409, 'Pakiet może przejąć tylko osoba pełnoletnia.'],
+  invalid_person: [422, 'Popraw zaznaczone pola.'],
+}
+
+// The field a 422 is about. Every 422 of organizer-entry-action carries `fields` (Plan 6's
+// contract), an empty set when the RPC names none.
+const ORGANIZER_TRANSFER_FIELDS = { invalid_email: 'email' }
+
+/**
+ * organizer-entry-action `transfer`'s answer to an RPC refusal → { status, body } or null for an
+ * unknown code (the caller throws: a 500).
+ */
+export function organizerTransferRefusal(code) {
+  const known = ORGANIZER_TRANSFER_REFUSALS[code]
+  if (!known) return null
+  const [status, error] = known
+  if (status !== 422) return { status, body: { error, code } }
+  const field = ORGANIZER_TRANSFER_FIELDS[code]
+  return { status, body: { error, code, fields: field ? { [field]: error } : {} } }
+}
+
 /** The SQLSTATE of transfer_retry: the recipient opened an order between the RPC's read and its locks. */
 export const isRetry = (error) => error?.code === '40001' || error?.message === 'transfer_retry'
 

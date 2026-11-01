@@ -139,13 +139,21 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
   // 0 zł one), a team captain only within the team's competition. The RPC decides; this list only
   // keeps the select from offering what it would refuse.
   const priceOf = new Map(priceRows.map((p) => [`${p.category_id}:${p.tier_id}`, p.amount]))
-  const individual = comps.filter((c) => !c.hidden_at && c.kind !== 'team')
+  // A hidden competition is no target, except the entry's own: apply_transfer refuses `unavailable`
+  // only for a move INTO a hidden one, so a transfer within it stays allowed (9b I-2).
+  const individual = comps.filter((c) => c.kind !== 'team')
   function transferTo(r) {
     if (r.status !== 'confirmed') return []
+    // A captain stays in the team's competition, with no price check here: the SQL still compares
+    // (price_differs), but the own competition's cell in the order's frozen tier is locked once the
+    // competition is in use (ruling 9, A8), and a confirmed team makes it in use, so the list price
+    // still equals that cell (9b M-4).
     if (r.team_id) return [r.category_id]
     const tier = orderOfReg(r)?.tier_id ?? null
     const listPrice = r.list_price ?? 0
-    return individual.filter((c) => (tier ? priceOf.get(`${c.category_id}:${tier}`) ?? null : 0) === listPrice)
+    return individual
+      .filter((c) => !c.hidden_at || c.category_id === r.category_id)
+      .filter((c) => (tier ? priceOf.get(`${c.category_id}:${tier}`) ?? null : 0) === listPrice)
       .map((c) => c.category_id)
   }
 

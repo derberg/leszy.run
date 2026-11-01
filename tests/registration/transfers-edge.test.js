@@ -745,13 +745,15 @@ test('V-83 the recipient deletes the account: live invites to them are cancelled
 
 // ---------------------------------------------------------------- V-86 B3's same-price list
 
-test('V-86 a B3 row carries transferTo: the visible individual competitions at its list price in its frozen tier; none for an entry that cannot move', async () => {
+test('V-86 a B3 row carries transferTo: the visible individual competitions at its list price in its frozen tier, its own even when hidden; none for an entry that cannot move', async () => {
   const event = await createPublishedPaidEvent(owner, {
     competitions: [BIEG(), { ...BIEG(), name: 'Bieg 5 km', distanceLabel: '5 km' }, { ...BIEG(), name: 'Nordic walking 9 km', discipline: 'nw' },
       { ...BIEG(), name: 'Ukryty 9 km', distanceLabel: '9 km' }],
     prices: { 'Bieg 9 km': 6000, 'Bieg 5 km': 6000, 'Nordic walking 9 km': 4000, 'Ukryty 9 km': 6000 },
   })
   const [c9, c5, nw, hidden] = event.categoryIds
+  // 9b I-2: an entry already in the competition before it was hidden.
+  const inHidden = await paidEntry(event, { categoryId: hidden })
   await db().from('competitions').update({ hidden_at: new Date().toISOString() }).eq('category_id', hidden).throwOnError()
   const a = await paidEntry(event)
   const pending = await orderGroupOk(event, [adult(c5, 'self', runnerEmail('pend'))])
@@ -761,4 +763,6 @@ test('V-86 a B3 row carries transferTo: the visible individual competitions at i
   assert.deepEqual(rowOf(a.reg.id).transferTo, [c9, c5], 'same price, visible, in the event\'s order; NW 40 zł and the hidden one left out')
   const [pendingReg] = await rows('registrations', { order_id: pending.orderId })
   assert.deepEqual(rowOf(pendingReg.id).transferTo, [], 'an unpaid entry cannot be transferred')
+  assert.deepEqual(rowOf(inHidden.reg.id).transferTo, [c9, c5, hidden],
+    'its own hidden competition stays a target: apply_transfer refuses only a move into a hidden one')
 })

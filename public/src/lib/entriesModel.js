@@ -156,29 +156,33 @@ export function competitionChips(rows, competitions, teams = null) {
 }
 
 /**
- * The „Partnerzy” chips (Plan 7): „Wszyscy” and one per partner of the event, each counting the
- * rows its filter shows, as the competition chips do. None while the event has no partner.
- * @param {object[]} rows
- * @param {{ id: string, name: string }[]} partners list-event-registrations' `partners`
+ * The „Partnerzy” chips (Plan 7): „Wszyscy” and one per partner of the event. The number is the
+ * server's live count (`partners[].count`: live entries attributed), never the rows a filter shows:
+ * a package handed on keeps its partner on the transferred-out row too, and a cancelled entry
+ * brought nothing, so counting rows would overstate what a partner brought (9b I-1). None while the
+ * event has no partner. `rows` is kept for the call shape; the filter still shows every row.
+ * @param {object[]} _rows
+ * @param {{ id: string, name: string, count: number }[]} partners list-event-registrations' `partners`
  * @returns {{ id: string|null, label: string }[]}
  */
-export function partnerChips(rows, partners = []) {
+export function partnerChips(_rows, partners = []) {
   if (!partners.length) return []
-  return [
-    { id: null, label: 'Wszyscy' },
-    ...partners.map((p) => ({ id: p.id, label: `${p.name} · ${rows.filter((r) => r.partnerId === p.id).length}` })),
-  ]
+  return [{ id: null, label: 'Wszyscy' }, ...partners.map((p) => ({ id: p.id, label: `${p.name} · ${p.count ?? 0}` }))]
 }
 
 /**
  * The competitions TransferDialog offers: the row's `transferTo` (list-event-registrations: the
- * same price in its frozen tier), in the event's order. Without that list, its own competition.
+ * same price in its frozen tier), in the event's order. Without that list, its own competition. The
+ * own competition is offered even when it is hidden, which `competitions` (the visible ones) leaves
+ * out: apply_transfer allows a move within a hidden competition (9b I-2).
  * @param {object} row
  * @param {{ id: string, name: string }[]} competitions the visible ones, in the event's order
  */
 export function transferTargets(row, competitions) {
   const ids = new Set(row.transferTo ?? [row.categoryId])
-  return competitions.filter((c) => ids.has(c.id))
+  const shown = competitions.filter((c) => ids.has(c.id))
+  const ownHidden = ids.has(row.categoryId) && !competitions.some((c) => c.id === row.categoryId)
+  return ownHidden ? [{ id: row.categoryId, name: row.competition }, ...shown] : shown
 }
 
 /**

@@ -12,7 +12,7 @@ import { validatePerson } from '../_shared/registration/person.js'
 import { personContexts } from '../_shared/registration/registrationRequest.js'
 import { TEAM_NAME_MESSAGE } from '../_shared/registration/team.js'
 import { releaseSlot, sendOnAllowance } from '../_shared/registration/organizerMail.js'
-import { callTransferRpc, sendAcceptedTransferEmail, TRANSFER_REFUSALS } from '../_shared/registration/transfers.js'
+import { callTransferRpc, organizerTransferRefusal, sendAcceptedTransferEmail } from '../_shared/registration/transfers.js'
 
 function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -55,18 +55,6 @@ const REFUSALS = {
   team_inactive: [409, 'To zgłoszenie nie jest już aktywne.'],
   invalid_partner: [422, 'Nieznany partner.'],
   not_found: [404, NOT_FOUND.error],
-}
-
-// organizer_transfer's refusals (Plan 7, ruling 4), worded for the organizer where the runner's copy
-// would say „you”. The rest come from the shared table.
-const ORGANIZER_TRANSFER_REFUSALS = {
-  ...Object.fromEntries(Object.entries(TRANSFER_REFUSALS).map(([k, [status, text]]) => [k, [status === 400 ? 422 : status, text]])),
-  gone: [409, 'To zgłoszenie nie jest już aktywne.'],
-  duplicate: [409, 'Ta osoba jest już zapisana na te zawody.'],
-  pending_elsewhere: [409, 'Ta osoba ma nieopłacone zgłoszenie na te zawody razem z innymi osobami.'],
-  same_person: [409, 'To jest osoba, która ma ten pakiet.'],
-  recipient_minor: [409, 'Pakiet może przejąć tylko osoba pełnoletnia.'],
-  invalid_person: [422, 'Popraw zaznaczone pola.'],
 }
 
 /** A refusal by code. Every 422 carries `fields` (field → message), so the dialog marks the field. */
@@ -313,9 +301,9 @@ Deno.serve(async (req) => {
         p_registration_id: target.registrationId, p_person: person, p_category_id: competition.category_id, p_actor: actor,
       })
       if (error) {
-        const known = ORGANIZER_TRANSFER_REFUSALS[error.message]
-        if (!known) throw error
-        return json({ error: known[1], code: error.message, ...(error.message === 'invalid_person' ? { fields: {} } : {}) }, known[0], req)
+        const refused = organizerTransferRefusal(error.message)
+        if (!refused) throw error
+        return json(refused.body, refused.status, req)
       }
       // The entry has moved: nothing below may turn that into a 500 (M-1). A failure is logged by
       // id and reported as not sent; registration-jobs issues a missing consent request and
