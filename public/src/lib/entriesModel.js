@@ -168,8 +168,10 @@ export function statusChips(counts) {
 /**
  * The ⋯ label of an action from entryActions. A team row writes to its captain; an unpaid entry's
  * cancel is „Anuluj nieopłacone zgłoszenie” (D6-16): it cancels the whole order and refunds nothing.
+ * Cancelling a captain cancels the team (cancel_registration), so on the team row and on the
+ * captain's own row it reads „Anuluj drużynę”.
  */
-export function actionLabel(action, row, { isTeamRow = false } = {}) {
+export function actionLabel(action, row, { isTeamRow = false, isCaptain = false } = {}) {
   switch (action) {
     case 'edit': return 'Edytuj dane'
     case 'remind_payment': return 'Przypomnij o wpłacie'
@@ -178,7 +180,9 @@ export function actionLabel(action, row, { isTeamRow = false } = {}) {
     case 'consent_office': return 'Regulamin podpisany w biurze'
     case 'message': return isTeamRow ? 'Napisz do kapitana' : 'Napisz do zawodnika'
     case 'refund': return 'Zwróć wpłatę'
-    case 'cancel': return row.statusKey === 'awaiting' ? 'Anuluj nieopłacone zgłoszenie' : 'Anuluj zgłoszenie'
+    case 'cancel':
+      if (isTeamRow || isCaptain) return 'Anuluj drużynę'
+      return row.statusKey === 'awaiting' ? 'Anuluj nieopłacone zgłoszenie' : 'Anuluj zgłoszenie'
     case 'rename_team': return 'Zmień nazwę drużyny'
     case 'squad': return 'Skład drużyny'
     default: throw new Error(`unknown action: ${action}`)
@@ -186,24 +190,33 @@ export function actionLabel(action, row, { isTeamRow = false } = {}) {
 }
 
 const DAY = 86_400_000
+// extend_order_window takes up to now() + 14 days on the server's clock; the dialog stays 10 min
+// under it, so a browser clock a little ahead of the server's is not refused.
+const CLOCK_MARGIN = 10 * 60_000
 
 /**
  * The three choices → [{ id, label, until: Date|null }]; `until` null when that choice cannot
- * move the deadline forward.
+ * move the deadline forward, or lands where an earlier choice already does.
  * @param {{ expiresAt: string|null, closesAt: string|null, now?: Date }} o
  */
 export function extendChoices({ expiresAt, closesAt, now = new Date() }) {
   const closes = closesAt ? new Date(closesAt) : null
   const current = expiresAt ? new Date(expiresAt) : now
-  const limit = new Date(now.getTime() + 14 * DAY)
+  const limit = new Date(now.getTime() + 14 * DAY - CLOCK_MARGIN)
   const cap = (d) => {
     const capped = d > limit ? limit : d
     return closes && capped > closes ? closes : capped
   }
   const usable = (d) => (d && d > current && d <= limit ? d : null)
-  return [
+  const choices = [
     { id: '7', label: '+ 7 dni', until: usable(cap(new Date(current.getTime() + 7 * DAY))) },
     { id: '14', label: '+ 14 dni', until: usable(cap(new Date(current.getTime() + 14 * DAY))) },
     { id: 'close', label: 'Do końca zapisów', until: usable(closes) },
   ]
+  let latest = null
+  for (const c of choices) {
+    if (c.until && latest && c.until <= latest) c.until = null
+    if (c.until) latest = c.until
+  }
+  return choices
 }

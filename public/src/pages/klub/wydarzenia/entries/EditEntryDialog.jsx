@@ -1,13 +1,16 @@
 import { useId, useMemo, useState } from 'react'
 import { countryOptions } from '@registration/countries.js'
 import { callFunction } from '../../../../lib/auth.js'
+import { fieldModes } from '../../../../lib/personFormModel.js'
 import { btnPrimary } from '../../settingsUi.js'
 import EntryDialog, { FieldMessage, dialogInput, dialogLabel } from './EntryDialog.jsx'
 
 // „Edytuj dane” (B3): the person's fields prefilled from the row; only what changed goes to
 // organizer-entry-action edit, which runs the form's own validatePerson and answers a 422 with
-// `fields`, each shown under its input. The e-mail is never editable. Nationality shows only when
-// the entry has one (it is off by default, P2-R31). Until closes_at only (the ⋯ hides it after).
+// `fields`, each shown under its input. The e-mail is never editable. Miejscowość, Klub, the
+// emergency contact and Narodowość follow the event's form switches (organizer_edit_registration
+// refuses a value in a field switched off), and a field switched off still shows while the entry
+// holds a value in it. Until closes_at only (the ⋯ hides it after).
 
 // Fields a person may leave empty: an empty one is sent as null. The rest are required.
 const OPTIONAL = new Set(['city', 'club', 'iceName', 'icePhone', 'nationality'])
@@ -41,14 +44,21 @@ export function changedFields(before, after) {
   return out
 }
 
-export default function EditEntryDialog({ row, onClose, onDone, onFailed }) {
+export default function EditEntryDialog({ row, formFields = null, onClose, onDone, onFailed }) {
   const ids = useId()
   const [start] = useState(() => initial(row))
   const [value, setValue] = useState(start)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [fields, setFields] = useState({})
-  const countries = useMemo(() => (row.nationality ? countryOptions('pl') : []), [row.nationality])
+  const modes = fieldModes(formFields)
+  const shown = {
+    city: modes.city !== 'off' || !!row.city,
+    club: modes.club !== 'off' || !!row.club,
+    ice: modes.ice !== 'off' || !!row.iceName || !!row.icePhone,
+    nationality: modes.nationality !== 'off' || !!row.nationality,
+  }
+  const countries = useMemo(() => (shown.nationality ? countryOptions('pl') : []), [shown.nationality])
   const id = (key) => `${ids}-${key}`
   const set = (key) => (e) => setValue({ ...value, [key]: e.target.value })
 
@@ -104,9 +114,9 @@ export default function EditEntryDialog({ row, onClose, onDone, onFailed }) {
           <FieldMessage message={fields.gender} />
         </div>
         {input('phone', { type: 'tel', maxLength: 40 })}
-        {input('city', { maxLength: 200 })}
-        {input('club', { maxLength: 200 })}
-        {row.nationality && (
+        {shown.city && input('city', { maxLength: 200 })}
+        {shown.club && input('club', { maxLength: 200 })}
+        {shown.nationality && (
           <div className="min-w-0">
             <label htmlFor={id('nationality')} className={dialogLabel}>{LABELS.nationality}</label>
             <select id={id('nationality')} value={value.nationality} onChange={set('nationality')} disabled={busy} className={dialogInput}>
@@ -116,8 +126,8 @@ export default function EditEntryDialog({ row, onClose, onDone, onFailed }) {
             <FieldMessage message={fields.nationality} />
           </div>
         )}
-        {input('iceName', { maxLength: 200 })}
-        {input('icePhone', { type: 'tel', maxLength: 40 })}
+        {shown.ice && input('iceName', { maxLength: 200 })}
+        {shown.ice && input('icePhone', { type: 'tel', maxLength: 40 })}
       </div>
     </EntryDialog>
   )

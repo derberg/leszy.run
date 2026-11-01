@@ -13,6 +13,10 @@ import EntryDialog, { FieldMessage, dialogInput } from './EntryDialog.jsx'
 // for a captain the whole team.
 
 const LINE_NAME = { entry: 'Opłata startowa', extra: 'Dodatek', donation: 'Darowizna' }
+// dpay's final refusals: the refund row under that key is settled for good, so a retry needs a new
+// key (a replay would answer the same refusal forever). Any other failure keeps the key: the
+// request may have gone through, and the same key replays it.
+const SETTLED_REFUSALS = new Set(['rejected', 'insufficient_balance'])
 
 const remainingOf = (line) => line.amount - line.refunded
 const newKey = () => crypto.randomUUID()
@@ -42,8 +46,9 @@ export default function RefundDialog({ row, team, onClose, onDone, onFailed }) {
   const parsed = Object.fromEntries(lines.map((l) => [l.id, amountOf(amounts[l.id] ?? '', remainingOf(l))]))
   const invalid = Object.values(parsed).some((p) => p.error)
   const total = Object.values(parsed).reduce((n, p) => n + (p.grosze ?? 0), 0)
-  // The entry line refunded to its last grosz cancels the entry (finish_organizer_refund).
-  const cancels = lines.some((l) => l.kind === 'entry' && remainingOf(l) > 0 && parsed[l.id].grosze === remainingOf(l))
+  // The entry line refunded to its last grosz cancels the entry (finish_organizer_refund), counted
+  // on accepted refunds only: while one is unconfirmed, the last grosz cancels nothing yet.
+  const cancels = !(row.refundUnconfirmed > 0) && lines.some((l) => l.kind === 'entry' && remainingOf(l) > 0 && parsed[l.id].grosze === remainingOf(l))
   const label = `Zwróć ${formatPln(total)}${cancels ? (team ? ` i anuluj drużynę (${team.size} os.)` : ' i anuluj zgłoszenie') : ''}`
 
   async function refund() {
@@ -52,10 +57,12 @@ export default function RefundDialog({ row, team, onClose, onDone, onFailed }) {
     let refunded = 0
     let unconfirmed = false
     const done = []
+    let current = null
     try {
       for (const line of lines) {
         const grosze = parsed[line.id].grosze ?? 0
         if (!grosze) continue
+        current = line.id
         const r = await callFunction('organizer-refund', { lineId: line.id, grosze, requestKey: keys[line.id] })
         done.push(line.id)
         if (r.data?.status === 'unknown') {
@@ -67,15 +74,17 @@ export default function RefundDialog({ row, team, onClose, onDone, onFailed }) {
     } catch (err) {
       // What went through is done: those lines get a fresh key, the list is re-read and the
       // dialog stays open on the refusal.
-      setKeys((k) => ({ ...k, ...Object.fromEntries(done.map((id) => [id, newKey()])) }))
+      const fresh = SETTLED_REFUSALS.has(err.code) ? [...done, current] : done
+      setKeys((k) => ({ ...k, ...Object.fromEntries(fresh.map((id) => [id, newKey()])) }))
       setAmounts((a) => ({ ...a, ...Object.fromEntries(done.map((id) => [id, ''])) }))
       setError(err.status == null ? 'Brak połączenia.' : err.message)
       setBusy(false)
       onFailed()
       return
     }
+    // An unconfirmed line stops the rest; what went through before it is said too.
     onDone(unconfirmed
-      ? { text: `Zwrot niepotwierdzony — ${row.name}.`, error: true }
+      ? { text: `${refunded > 0 ? `Zwrócono ${formatPln(refunded)}. ` : ''}Zwrot niepotwierdzony — ${row.name}.`, error: true }
       : { text: `Zwrócono ${formatPln(refunded)} — ${row.name}.` })
   }
 

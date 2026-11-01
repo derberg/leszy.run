@@ -219,16 +219,28 @@ describe('the panel\'s tiles and chips (O-50)', () => {
   })
 })
 
+describe('actionLabel', () => {
+  it('cancel on a team row or the captain\'s own row cancels the team', () => {
+    assert.equal(actionLabel('cancel', row(), { isTeamRow: true }), 'Anuluj drużynę')
+    assert.equal(actionLabel('cancel', row(), { isCaptain: true }), 'Anuluj drużynę')
+    assert.equal(actionLabel('cancel', row()), 'Anuluj zgłoszenie')
+    assert.equal(actionLabel('cancel', row({ statusKey: 'awaiting' })), 'Anuluj nieopłacone zgłoszenie')
+  })
+})
+
 describe('extendChoices (ExtendDialog)', () => {
   const now = new Date('2026-11-01T12:00:00Z')
   const at = (days) => new Date(now.getTime() + days * 86_400_000).toISOString()
   const untils = (o) => extendChoices({ now, ...o }).map((c) => c.until?.toISOString() ?? null)
 
-  it('+ 7 and + 14 days count from the current deadline, never past 14 days from now', () => {
-    assert.deepEqual(untils({ expiresAt: at(2), closesAt: at(30) }), [at(9), at(14), null])
+  const margin = 10 * 60_000
+  it('+ 7 and + 14 days count from the current deadline, never past 14 days from now less a margin for the clock', () => {
+    assert.deepEqual(untils({ expiresAt: at(2), closesAt: at(30) }),
+      [at(9), new Date(now.getTime() + 14 * 86_400_000 - margin).toISOString(), null])
   })
-  it('every choice is capped at closes_at, and „Do końca zapisów” is closes_at itself', () => {
-    assert.deepEqual(untils({ expiresAt: at(2), closesAt: at(5) }), [at(5), at(5), at(5)])
+  it('every choice is capped at closes_at; one landing where an earlier one does is disabled', () => {
+    assert.deepEqual(untils({ expiresAt: at(2), closesAt: at(5) }), [at(5), null, null])
+    assert.deepEqual(untils({ expiresAt: at(1), closesAt: at(10) }), [at(8), at(10), null])
   })
   it('a choice that would not move the deadline forward is disabled', () => {
     assert.deepEqual(untils({ expiresAt: at(5), closesAt: at(5) }), [null, null, null])

@@ -177,7 +177,7 @@ function rowMenu(r, ctx, { isTeamRow = false, menuRow = r, name = r.name, squadH
     closed: ctx.closed, payingClosed: ctx.payingClosed, raceDay: ctx.raceDay, isTeamRow, full: ctx.fullCategories.has(menuRow.categoryId),
   }).filter((a) => a !== 'squad' || squadHref) // no address for the team page without the event's slug
   return (
-    <EntryMenu name={name} row={menuRow} actions={actions} isTeamRow={isTeamRow} squadHref={squadHref}
+    <EntryMenu name={name} row={menuRow} actions={actions} isTeamRow={isTeamRow} isCaptain={ctx.captainIds.has(menuRow.id)} squadHref={squadHref}
       onSelect={(action, trigger) => ctx.onAction(action, menuRow, { isTeamRow, trigger })} />
   )
 }
@@ -298,7 +298,7 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
 
 const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null }
 
-export default function Zgloszenia({ eventId, clubName = null, contactEmail = null }) {
+export default function Zgloszenia({ eventId, clubName = null, contactEmail = null, formFields = null }) {
   const [state, setState] = useState(EMPTY)
   const [categoryId, setCategoryId] = useState(null)
   const [statusKey, setStatusKey] = useState(null)
@@ -419,6 +419,7 @@ export default function Zgloszenia({ eventId, clubName = null, contactEmail = nu
     closed,
     payingClosed,
     raceDay,
+    captainIds: new Set(state.teams.map((t) => t.captainId)),
     fullCategories: new Set(counts.perCompetition.filter((c) => c.listed >= c.capacity).map((c) => c.id)),
     onAction,
     rowOf: (id) => byId.get(id) ?? null,
@@ -434,8 +435,14 @@ export default function Zgloszenia({ eventId, clubName = null, contactEmail = nu
     switch (dialog.kind) {
       case 'refund': return <RefundDialog row={row} team={captainOf} {...common} />
       case 'extend': return <ExtendDialog row={row} closesAt={event.closesAt ?? null} {...common} />
-      case 'cancel': return <CancelDialog row={row} team={captainOf} {...common} />
-      case 'edit': return <EditEntryDialog row={row} {...common} />
+      case 'cancel': {
+        // An unpaid entry cancels its whole order (D6-24): the dialog names everyone in it (ruling 6).
+        const orderRows = row.statusKey === 'awaiting' && row.orderId
+          ? state.rows.filter((r) => r.orderId === row.orderId && r.status === 'pending_payment')
+          : [row]
+        return <CancelDialog row={row} team={captainOf} orderRows={orderRows} {...common} />
+      }
+      case 'edit': return <EditEntryDialog row={row} formFields={formFields} {...common} />
       case 'rename_team': return captainOf ? <RenameTeamDialog team={captainOf} {...common} /> : null
       case 'message':
         return (

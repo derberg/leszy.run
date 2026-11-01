@@ -14,7 +14,7 @@ const EDGE = 16
 const itemClass = 'block w-full text-left px-3.5 py-2.5 font-sans font-semibold text-[15px] leading-5 whitespace-nowrap ' +
   'text-apex-text-bright hover:bg-apex-surface-2 focus:bg-apex-surface-2 focus:outline-none no-underline'
 
-export default function EntryMenu({ name, row, actions, isTeamRow = false, squadHref = null, onSelect }) {
+export default function EntryMenu({ name, row, actions, isTeamRow = false, isCaptain = false, squadHref = null, onSelect }) {
   const [open, setOpen] = useState(false)
   const [place, setPlace] = useState(null)
   const trigger = useRef(null)
@@ -105,10 +105,10 @@ export default function EntryMenu({ name, row, actions, isTeamRow = false, squad
           className="fixed z-50 min-w-[220px] max-w-[calc(100vw-32px)] py-1 border border-apex-border-bright bg-apex-surface">
           {actions.map((action) => (action === 'squad' && squadHref
             ? <Link key={action} role="menuitem" tabIndex={-1} to={squadHref} className={itemClass} onClick={() => close({ focus: false })}>
-                {actionLabel(action, row, { isTeamRow })}
+                {actionLabel(action, row, { isTeamRow, isCaptain })}
               </Link>
             : <button key={action} type="button" role="menuitem" tabIndex={-1} className={itemClass} onClick={() => pick(action)}>
-                {actionLabel(action, row, { isTeamRow })}
+                {actionLabel(action, row, { isTeamRow, isCaptain })}
               </button>))}
         </div>,
         document.body,

@@ -7,6 +7,23 @@ import { btnGhost } from '../../settingsUi.js'
 
 const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
 
+/**
+ * What Tab visits inside `box`, in order: a radio group is one stop, its checked radio (or its first
+ * enabled one when none is checked), as the browser itself treats it.
+ */
+function tabStops(box) {
+  const seen = new Set()
+  return [...box.querySelectorAll(FOCUSABLE)].filter((el) => {
+    if (el.type !== 'radio' || !el.name) return true
+    if (seen.has(el.name)) return false
+    const group = [...box.querySelectorAll(`input[type="radio"][name="${CSS.escape(el.name)}"]:not([disabled])`)]
+    const stop = group.find((r) => r.checked) ?? group[0]
+    if (el !== stop) return false
+    seen.add(el.name)
+    return true
+  })
+}
+
 export const dialogTitle = 'font-display font-extrabold text-[24px] sm:text-[28px] uppercase leading-none text-apex-text-bright break-words'
 export const dialogLabel = 'block font-mono text-xs uppercase tracking-wide text-apex-muted mb-1.5'
 export const dialogInput = 'w-full min-w-0 bg-apex-bg border border-apex-border-mid text-apex-text-bright font-sans text-base font-medium py-2 px-3 outline-none focus:border-apex-yellow-dim disabled:opacity-60'
@@ -33,6 +50,13 @@ export default function EntryDialog({ title, subtitle, busy, onClose, error, act
     ;(first ?? box.current)?.focus()
   }, [])
 
+  // The button just pressed is disabled while its request runs, which drops the focus to the page:
+  // the dialog box keeps it instead.
+  useEffect(() => {
+    if (!busy || !box.current || box.current.contains(document.activeElement)) return
+    box.current.focus()
+  }, [busy])
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
@@ -41,21 +65,17 @@ export default function EntryDialog({ title, subtitle, busy, onClose, error, act
         return
       }
       if (e.key !== 'Tab' || !box.current) return
-      const items = [...box.current.querySelectorAll(FOCUSABLE)]
-      if (!items.length) {
-        e.preventDefault()
-        return
-      }
-      const first = items[0]
-      const last = items[items.length - 1]
-      const inside = box.current.contains(document.activeElement)
-      if (e.shiftKey && (document.activeElement === first || !inside)) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && (document.activeElement === last || !inside)) {
-        e.preventDefault()
-        first.focus()
-      }
+      // Every Tab is moved here, so focus never reaches the page behind, from a radio group either.
+      e.preventDefault()
+      const items = tabStops(box.current)
+      if (!items.length) return
+      const active = document.activeElement
+      let at = items.indexOf(active)
+      if (at === -1 && active?.type === 'radio') at = items.findIndex((el) => el.type === 'radio' && el.name === active.name)
+      const next = at === -1
+        ? (e.shiftKey ? items.length - 1 : 0)
+        : (at + (e.shiftKey ? -1 : 1) + items.length) % items.length
+      items[next].focus()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)

@@ -149,8 +149,9 @@ test('O-50 ⋯ offers what each row allows; no „Przypomnij o wpłacie” in a 
   expect(await items('Piotr Zieliński')).toEqual([
     'Edytuj dane', 'Przedłuż termin wpłaty', 'Napisz do zawodnika', 'Anuluj nieopłacone zgłoszenie',
   ])
+  // Cancelling the captain cancels the team: the team row and the captain's own row both say so.
   expect(await items('Wilcze Stado')).toEqual([
-    'Napisz do kapitana', 'Zwróć wpłatę', 'Anuluj zgłoszenie', 'Zmień nazwę drużyny', 'Skład drużyny',
+    'Napisz do kapitana', 'Zwróć wpłatę', 'Anuluj drużynę', 'Zmień nazwę drużyny', 'Skład drużyny',
   ])
   await page.getByRole('button', { name: 'Akcje — Wilcze Stado' }).click()
   await expect(page.getByRole('menuitem', { name: 'Skład drużyny' }))
@@ -162,6 +163,7 @@ test('O-50 ⋯ offers what each row allows; no „Przypomnij o wpłacie” in a 
   expect(await items('Piotr Leśny')).toEqual([
     'Edytuj dane', 'Przypomnij o akceptacji regulaminu', 'Regulamin podpisany w biurze', 'Napisz do zawodnika', 'Anuluj zgłoszenie',
   ])
+  expect(await items('Ola Leśna')).toContain('Anuluj drużynę')
 
 })
 
@@ -254,7 +256,9 @@ test.describe('the entries panel dialogs (6b)', () => {
     return { ...e, jan, piotr: { ...piotr, email: piotrEmail } }
   }
 
-  const row = (page, name) => page.getByTestId('registrations').getByTestId('registration-row').filter({ hasText: name })
+  // By the name itself: an added adult's row also says „zapisał(a): <buyer>”.
+  const row = (page, name) => page.getByTestId('registrations').getByTestId('registration-row')
+    .filter({ has: page.getByText(name, { exact: true }) })
   async function choose(page, name, item) {
     const trigger = page.getByRole('button', { name: `Akcje — ${name}` }).first()
     await trigger.click()
@@ -332,6 +336,21 @@ test.describe('the entries panel dialogs (6b)', () => {
     expect(line.refunded).toBe(2000)
   })
 
+  test('O-56 a refund dpay refused for lack of balance can be retried in the same dialog once the balance is there', async ({ actors }) => {
+    const e = await small()
+    const page = await open(actors.owner, 1440, zgloszenia(e.eventId))
+    await choose(page, 'Jan Kowalski', 'Zwróć wpłatę')
+    const dialog = page.getByRole('dialog', { name: 'Zwróć wpłatę' })
+    await dialog.getByLabel('Kwota zwrotu — Opłata startowa').fill('20')
+    await dpayMode({ refundInsufficient: true })
+    await dialog.getByRole('button', { name: 'Zwróć 20,00 zł' }).click()
+    await expect(dialog.getByTestId('dialog-error')).toHaveText('Operator płatności odrzucił zwrot: brak środków.')
+    await dpayMode({ refundInsufficient: false })
+    await dialog.getByRole('button', { name: 'Zwróć 20,00 zł' }).click()
+    await expect(page.getByTestId('entries-notice')).toHaveText('Zwrócono 20,00 zł — Jan Kowalski.')
+    expect((await dpayRefunds()).map((r) => r.grosze)).toEqual([2000])
+  })
+
   test('O-57 „Przedłuż termin wpłaty” moves the deadline, never past closes_at; Escape closes and returns focus; both payment items stop an hour before close', async ({ actors }) => {
     const e = await small()
     const closes = minutesFromNow(10 * 24 * 60)
@@ -346,8 +365,11 @@ test.describe('the entries panel dialogs (6b)', () => {
     await expect(trigger).toBeFocused()
 
     await choose(page, 'Piotr Zieliński', 'Przedłuż termin wpłaty')
-    // + 14 dni is capped at closes_at, 10 days away: the same instant as „Do końca zapisów”.
-    await dialog.getByRole('radio', { name: /\+ 14 dni/ }).check()
+    // + 7 dni from the 7-day deadline is capped at closes_at, 10 days away; „+ 14 dni” and „Do końca
+    // zapisów” would land on the same instant, so they are disabled.
+    await expect(dialog.getByRole('radio', { name: /\+ 14 dni/ })).toBeDisabled()
+    await expect(dialog.getByRole('radio', { name: /Do końca zapisów/ })).toBeDisabled()
+    await dialog.getByRole('radio', { name: /\+ 7 dni/ }).check()
     await dialog.getByRole('button', { name: 'Przedłuż' }).click()
     await expect(page.getByTestId('entries-notice')).toContainText('Nowy termin wpłaty: ')
     expect(Date.parse((await orderOf(e.piotr.orderId)).expires_at)).toBe(Date.parse(closes))
@@ -364,6 +386,22 @@ test.describe('the entries panel dialogs (6b)', () => {
     expect(labels).toEqual(['Edytuj dane', 'Napisz do zawodnika', 'Anuluj nieopłacone zgłoszenie'])
   })
 
+  test('O-57 two choices a day apart; Shift+Tab from the checked one stays in the dialog', async ({ actors }) => {
+    const e = await small()
+    await setSettings(e.eventId, { closes_at: minutesFromNow(20 * 24 * 60) })
+    await admin().from('orders').update({ expires_at: minutesFromNow(24 * 60) }).eq('id', e.piotr.orderId)
+    const page = await open(actors.owner, 1440, zgloszenia(e.eventId))
+    await choose(page, 'Piotr Zieliński', 'Przedłuż termin wpłaty')
+    const dialog = page.getByRole('dialog', { name: 'Przedłuż termin wpłaty' })
+    await expect(dialog.getByRole('radio', { name: /\+ 7 dni/ })).toBeEnabled()
+    await expect(dialog.getByRole('radio', { name: /Do końca zapisów/ })).toBeDisabled()
+    await dialog.getByRole('radio', { name: /\+ 14 dni/ }).check()
+    for (let i = 0; i < 6; i++) {
+      await page.keyboard.press('Shift+Tab')
+      expect(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'))).toBe(true)
+    }
+  })
+
   test('O-58 „Anuluj nieopłacone zgłoszenie” cancels the unpaid order', async ({ actors }) => {
     const e = await small()
     const page = await open(actors.owner, 1440, zgloszenia(e.eventId))
@@ -375,11 +413,34 @@ test.describe('the entries panel dialogs (6b)', () => {
     await expect(paid).toHaveCount(0)
     await choose(page, 'Piotr Zieliński', 'Anuluj nieopłacone zgłoszenie')
     const dialog = page.getByRole('dialog', { name: 'Anulować nieopłacone zgłoszenie?' })
+    await expect(dialog.getByTestId('cancel-people')).toHaveCount(0)
     await expect(dialog).toContainText('Piotr Zieliński · Bieg 9 km')
     await dialog.getByRole('button', { name: 'Anuluj nieopłacone zgłoszenie' }).click()
     await expect(row(page, 'Piotr Zieliński').getByTestId('registration-status')).toHaveText('ANULOWANE')
     const order = await orderOf(e.piotr.orderId)
     expect([order.status, order.cancelled_reason]).toEqual(['cancelled', 'organizer_cancelled'])
+  })
+
+  test('O-58 cancelling one entry of an unpaid group order names everyone the order cancels (ruling 6)', async ({ actors }) => {
+    const e = await small()
+    const group = await orderOk(e, { people: [
+      person(runnerEmail('marta'), { firstName: 'Marta', lastName: 'Nowak' }),
+      person(runnerEmail('kuba'), { firstName: 'Kuba', lastName: 'Nowak' }),
+      person(runnerEmail('ala'), { firstName: 'Ala', lastName: 'Nowak' }),
+    ] })
+    const page = await open(actors.owner, 1440, zgloszenia(e.eventId))
+    await choose(page, 'Kuba Nowak', 'Anuluj nieopłacone zgłoszenie')
+    const dialog = page.getByRole('dialog', { name: 'Anulować nieopłacone zamówienie (3 os.)?' })
+    // One order's rows share their sign-up instant, so their order is the ids'.
+    const listed = await dialog.getByTestId('cancel-people').getByRole('listitem').allTextContents()
+    expect(listed.sort()).toEqual(['Ala Nowak · Bieg 9 km', 'Kuba Nowak · Bieg 9 km', 'Marta Nowak · Bieg 9 km'])
+    await dialog.getByRole('button', { name: 'Anuluj zamówienie (3 os.)' }).click()
+    await expect(dialog).toHaveCount(0)
+    for (const name of ['Marta Nowak', 'Kuba Nowak', 'Ala Nowak']) {
+      await expect(row(page, name).getByTestId('registration-status')).toHaveText('ANULOWANE')
+    }
+    await expect(row(page, 'Piotr Zieliński').getByTestId('registration-status')).toContainText('CZEKA NA WPŁATĘ')
+    expect((await orderOf(group.orderId)).status).toBe('cancelled')
   })
 
   test('O-59 „Edytuj dane” saves the changed fields and shows a refusal under its field', async ({ actors }) => {
@@ -399,6 +460,15 @@ test.describe('the entries panel dialogs (6b)', () => {
     await expect(page.getByTestId('entries-notice')).toHaveText('Zapisano — Jan Kowalski.')
     const [reg] = await rows('registrations', { order_id: e.jan.orderId })
     expect([reg.city, reg.phone]).toEqual(['Gdańsk', '+48 600 700 800'])
+
+    // A field the event switched off is not offered; nationality is offered once it is on.
+    await setSettings(e.eventId, { form_fields: { city: 'optional', club: 'off', ice: 'off', nationality: 'optional' } })
+    await page.reload()
+    await choose(page, 'Jan Kowalski', 'Edytuj dane')
+    await expect(dialog.getByLabel('Miejscowość')).toHaveValue('Gdańsk')
+    await expect(dialog.getByLabel('Klub')).toHaveCount(0)
+    await expect(dialog.getByLabel('Kontakt w razie wypadku — imię')).toHaveCount(0)
+    await expect(dialog.getByLabel('Narodowość')).toHaveValue('')
   })
 
   test('O-61 „Wiadomość do uczestników”: the count follows the audience, a test goes to me, then the message', async ({ actors }) => {
@@ -428,6 +498,80 @@ test.describe('the entries panel dialogs (6b)', () => {
       const got = (await messagesTo(email)).filter((m) => m.subject === subject)
       expect(got.map((m) => [m.fromName, m.replyTo])).toEqual([['Zatyrani Test przez LESZY.RUN', 'zapisy@klub.example']])
     }
+  })
+
+  test('O-61 a test the sender refuses answers 502 in the dialog; a failed count does not leave „Wyślij” stuck', async ({ browser }) => {
+    const e = await small()
+    // The owner, signed in under an address the e-mail sender refuses (capture: runner-bounce-…).
+    const { data: profile } = await admin().from('profiles').select('id').eq('email', ACTOR_EMAILS.owner).single()
+    const token = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '')
+    const { error } = await admin().from('auth_sessions').insert({
+      id: token, user_id: profile.id, email: runnerEmail('bounce'), expires_at: minutesFromNow(60),
+    })
+    expect(error).toBeNull()
+    const context = await browser.newContext()
+    await context.addCookies([{ name: 'leszy_session', value: token, domain: 'localhost', path: '/', httpOnly: true, secure: false, sameSite: 'Lax' }])
+    try {
+      const page = await open(context, 1440, zgloszenia(e.eventId))
+      // The count fails on the way while `failing`; the next audience change asks again and clears it.
+      let failing = true
+      await page.route('**/send-organizer-message', (route) => (failing ? route.abort() : route.continue()))
+      await page.getByRole('button', { name: 'Wiadomość do uczestników' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Wiadomość do uczestników' })
+      await expect(dialog.getByTestId('dialog-error')).toHaveText('Brak połączenia.')
+      await expect(dialog.getByRole('button', { name: 'Wyślij', exact: true })).toBeDisabled()
+      failing = false
+      await dialog.getByRole('button', { name: 'Wszyscy zgłoszeni' }).click()
+      await expect(dialog.getByTestId('message-count')).toHaveText('DO 2 OSÓB')
+      await expect(dialog.getByTestId('dialog-error')).toHaveCount(0)
+      await expect(dialog.getByRole('button', { name: 'Wyślij', exact: true })).toBeEnabled()
+
+      await dialog.getByLabel('Temat').fill('Próba')
+      await dialog.getByLabel('Treść').fill('Treść próby.')
+      await dialog.getByRole('button', { name: 'Wyślij test do mnie' }).click()
+      await expect(dialog.getByTestId('dialog-error')).toHaveText('Nie udało się wysłać wiadomości próbnej. Spróbuj ponownie za chwilę.')
+      await expect(dialog.getByRole('status')).toHaveCount(0)
+      await expect(dialog.getByRole('button', { name: 'Wyślij test do mnie' })).toBeEnabled()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('O-63 a captain\'s team: „Anulować drużynę?” names the team, and a full refund reads „… i anuluj drużynę (2 os.)”', async ({ actors }) => {
+    const e = await createPublishedPaidEvent(owner, { competitions: [STAFETA], prices: { Sztafeta: 24000 } })
+    const { data: consents } = await admin().from('event_consents').select('id').eq('event_id', e.eventId)
+    const r = await callFn('register-team', captain, {
+      categoryId: e.categoryIds[0], teamName: 'Szybkie Sowy',
+      members: [
+        { person: member({ firstName: 'Ola', lastName: 'Leśna', birthDate: '1988-03-01', gender: 'K', email: ACTOR_EMAILS.runner }) },
+        { person: member({ firstName: 'Piotr', email: runnerEmail('piotr') }) },
+      ],
+      membersConsent: true, acceptedConsentIds: consents.map((c) => c.id), serviceRegulamin: true, displayedTotal: 24000,
+    })
+    expect(r.status, JSON.stringify(r.body)).toBe(201)
+    const paid = await callFn('pay-order', captain, { orderId: r.body.data.orderId })
+    expect(paid.status, JSON.stringify(paid.body)).toBe(200)
+    const { data: [attempt] } = await admin().from('payment_attempts').select('dpay_transaction_id')
+      .eq('order_id', r.body.data.orderId).order('created_at', { ascending: false }).limit(1)
+    await payMock(attempt.dpay_transaction_id, 'paid')
+    await expect.poll(async () => (await orderOf(r.body.data.orderId)).status, { timeout: 15_000 }).toBe('paid')
+
+    const page = await open(actors.owner, 1440, zgloszenia(e.eventId))
+    await choose(page, 'Szybkie Sowy', 'Anuluj drużynę')
+    const cancel = page.getByRole('dialog', { name: 'Anulować drużynę?' })
+    await expect(cancel).toContainText('Szybkie Sowy · 2 os.')
+    await expect(cancel.getByTestId('cancel-no-refund')).toHaveText('BEZ ZWROTU · 240,00 zł')
+    await cancel.getByRole('button', { name: 'Nie', exact: true }).click()
+
+    await choose(page, 'Szybkie Sowy', 'Zwróć wpłatę')
+    const refund = page.getByRole('dialog', { name: 'Zwróć wpłatę' })
+    await expect(refund).toContainText('Szybkie Sowy · 2 os.')
+    await refund.getByLabel('Kwota zwrotu — Opłata startowa').fill('240')
+    await refund.getByRole('button', { name: 'Zwróć 240,00 zł i anuluj drużynę (2 os.)' }).click()
+    await expect(page.getByTestId('entries-notice')).toHaveText('Zwrócono 240,00 zł — Ola Leśna.')
+    // The team is released with its captain: both people are cancelled rows now.
+    await expect(page.getByTestId('registrations').getByTestId('team-row')).toHaveCount(0)
+    await expect(row(page, 'Piotr Leśny').getByTestId('registration-status')).toHaveText('ANULOWANE')
   })
 
   test('O-61 „Napisz do zawodnika” writes to that one entry', async ({ actors }) => {
@@ -474,6 +618,8 @@ test.describe('the entries panel dialogs (6b)', () => {
       // Tab from the last control comes back to the first, never to the page behind.
       for (let i = 0; i < 40; i++) await page.keyboard.press('Tab')
       expect(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')), item).toBe(true)
+      for (let i = 0; i < 40; i++) await page.keyboard.press('Shift+Tab')
+      expect(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')), `${item} (Shift+Tab)`).toBe(true)
       await page.keyboard.press('Escape')
       await expect(dialog).toHaveCount(0)
     }

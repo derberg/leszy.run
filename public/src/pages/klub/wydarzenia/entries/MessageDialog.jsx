@@ -52,6 +52,8 @@ export default function MessageDialog({ eventId, row, isTeamRow, team, competiti
   const [count, setCount] = useState(null)
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
+  // The count's own failure, kept apart from a send's: each new count clears it.
+  const [previewError, setPreviewError] = useState(null)
   const [fields, setFields] = useState({})
   const [tested, setTested] = useState(false)
   const asked = useRef(0)
@@ -62,9 +64,10 @@ export default function MessageDialog({ eventId, row, isTeamRow, team, competiti
   useEffect(() => {
     const n = ++asked.current
     setCount(null)
+    setPreviewError(null)
     callFunction('send-organizer-message', { ...target, mode: 'preview' })
       .then((r) => { if (n === asked.current) setCount(r.data.count) })
-      .catch((err) => { if (n === asked.current) setError(err.status == null ? 'Brak połączenia.' : err.message) })
+      .catch((err) => { if (n === asked.current) setPreviewError(err.status == null ? 'Brak połączenia.' : err.message) })
   // The audience is the whole dependency: categoryIds is a new array only when it changed.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [single, row?.id, categoryIds, status, teams])
@@ -101,7 +104,7 @@ export default function MessageDialog({ eventId, row, isTeamRow, team, competiti
 
   return (
     <EntryDialog testId="message-dialog" title={title} subtitle={subtitle} busy={busy != null} onClose={onClose} wide
-      error={error && !Object.keys(fields).length ? error : null}
+      error={(error && !Object.keys(fields).length ? error : null) ?? previewError}
       actions={(
         <>
           <button type="button" className={btnGhost} disabled={busy != null} onClick={() => post('test')}>Wyślij test do mnie</button>
