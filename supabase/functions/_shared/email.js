@@ -59,14 +59,40 @@ export async function postToSendGrid(body, apiKey, { timeoutMs = SENDGRID_TIMEOU
 
 // to: one address, or a list sent as one request with a personalization per
 // address (at most 1000, SendGrid's limit), so nobody sees the others.
-async function send({ to, subject, text, html, replyTo, fromName = 'LESZY.RUN' }) {
+//
+// noTracking: true switches SendGrid click tracking off for the message. Click tracking rewrites
+// every link through SendGrid's redirect host, so a link that carries a secret (a login code, a
+// single-use token, an id that opens a page) would pass through, and be logged by, a third party.
+// Set it on every message whose link is a credential. Marketing and digest mail leave it off.
+export function trackingSettings(noTracking) {
+  return noTracking ? { click_tracking: { enable: false, enable_text: false } } : undefined
+}
+
+export function buildSendGridBody({ to, subject, text, html, replyTo, fromName = 'LESZY.RUN', noTracking = false }, fromEmail) {
+  const body = {
+    personalizations: (Array.isArray(to) ? to : [to]).map((email) => ({ to: [{ email }] })),
+    from: { email: fromEmail, name: fromName },
+    subject,
+    // Organizer messages are plain text only (spec 12.10): no html part then.
+    content: [
+      { type: 'text/plain', value: text },
+      ...(html ? [{ type: 'text/html', value: html }] : []),
+    ],
+  }
+  if (replyTo) body.reply_to = { email: replyTo }
+  const tracking = trackingSettings(noTracking)
+  if (tracking) body.tracking_settings = tracking
+  return body
+}
+
+async function send({ to, subject, text, html, replyTo, fromName = 'LESZY.RUN', noTracking = false }) {
   const captureUrl = Deno.env.get('EMAIL_CAPTURE_URL')
   if (captureUrl) {
     try {
       const res = await postToCapture(captureUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, subject, text, html, replyTo, fromName }),
+        body: JSON.stringify({ to, subject, text, html, replyTo, fromName, noTracking }),
       })
       if (!res.ok) console.error('Email capture error:', res.status)
       return { ok: res.ok, status: res.status }
@@ -79,17 +105,7 @@ async function send({ to, subject, text, html, replyTo, fromName = 'LESZY.RUN' }
   const apiKey = Deno.env.get('SENDGRID_API_KEY')
   if (!apiKey) return { ok: false, status: 0 }
 
-  const body = {
-    personalizations: (Array.isArray(to) ? to : [to]).map((email) => ({ to: [{ email }] })),
-    from: { email: Deno.env.get('SENDGRID_FROM_EMAIL'), name: fromName },
-    subject,
-    // Organizer messages are plain text only (spec 12.10): no html part then.
-    content: [
-      { type: 'text/plain', value: text },
-      ...(html ? [{ type: 'text/html', value: html }] : []),
-    ],
-  }
-  if (replyTo) body.reply_to = { email: replyTo }
+  const body = buildSendGridBody({ to, subject, text, html, replyTo, fromName, noTracking }, Deno.env.get('SENDGRID_FROM_EMAIL'))
 
   const sgRes = await postToSendGrid(body, apiKey)
   if (!sgRes.ok) console.error('SendGrid error:', await sgRes.text())

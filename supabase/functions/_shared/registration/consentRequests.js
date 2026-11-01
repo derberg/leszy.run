@@ -83,7 +83,7 @@ async function mailContext(admin, regs, { registeredBy = null, site = null } = {
 // Sends; throws when the sender refused. Then stamps emailed_at on the request that still holds
 // this token (a rotation meanwhile means another e-mail carries the live link).
 async function deliver(admin, r, hash, mail) {
-  const res = await sendEmail({ to: r.email, ...mail })
+  const res = await sendEmail({ to: r.email, ...mail, noTracking: true })
   if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
   const { error } = await admin.from('consent_requests').update({ emailed_at: new Date().toISOString() })
     .eq('registration_id', r.id).eq('token_hash', hash)

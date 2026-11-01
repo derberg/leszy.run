@@ -140,7 +140,7 @@ async function mailClaimed(admin, orderId, kind, build) {
   try {
     const view = await loadOrderView(admin, orderId)
     if (!view?.order.buyer_email) return false
-    const res = await sendEmail({ to: view.order.buyer_email, ...build(orderEmailArgs(view)) })
+    const res = await sendEmail({ to: view.order.buyer_email, ...build(orderEmailArgs(view)), noTracking: true })
     if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
     return true
   } catch (err) {
