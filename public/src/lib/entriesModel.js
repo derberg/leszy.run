@@ -67,8 +67,9 @@ export function entryCounts(rows, competitions) {
     capacity: competitions.reduce((sum, c) => sum + c.capacity, 0),
     awaiting: byStatus.awaiting ?? 0,
     awaitingConsent: rows.filter(awaitingConsent).length,
-    expired: byStatus.expired ?? 0,
-    cancelled: byStatus.cancelled ?? 0,
+    // By status, so a cancelled row shown as withdraw_on_host or refund_unconfirmed still counts.
+    expired: rows.filter((row) => row.status === 'expired' || row.statusKey === 'expired').length,
+    cancelled: rows.filter((row) => row.status === 'cancelled').length,
     clubIncome,
     byStatus,
     perCompetition: competitions.map(({ id, name, kind, capacity }) => ({

@@ -39,9 +39,25 @@ describe('entriesToCsv (O-04)', () => {
   })
 
   it('neutralises a name, a team and a phone as well as a club', () => {
-    const line = entriesToCsv([{ ...ROW, firstName: '=A', lastName: '@B', team: { name: '+C' }, phone: '+48500' }]).split('\r\n').at(-1)
+    const line = entriesToCsv([{ ...ROW, firstName: '=A', lastName: '@B', team: { name: '+C' }, phone: '-1+A1' }]).split('\r\n').at(-1)
     const cells = cellsOf(line)
-    assert.deepEqual([cells[1], cells[2], cells[7], cells[12]], ["'=A", "'@B", "'+C", "'+48500"])
+    assert.deepEqual([cells[1], cells[2], cells[7], cells[12]], ["'=A", "'@B", "'+C", "'-1+A1"])
+  })
+
+  it('leaves a real phone usable in Telefon and Telefon ICE (F1)', () => {
+    const cells = cellsOf(entriesToCsv([{ ...ROW, phone: '+48 600 100 200', icePhone: '+48 (600) 100-201' }]).split('\r\n').at(-1))
+    assert.deepEqual([cells[12], cells[14]], ['+48 600 100 200', '+48 (600) 100-201'])
+  })
+
+  it('still guards a phone column holding anything but phone characters (F1)', () => {
+    const cells = cellsOf(entriesToCsv([{ ...ROW, phone: '+48+SUM(A1)', icePhone: '=1+2' }]).split('\r\n').at(-1))
+    assert.deepEqual([cells[12], cells[14]], ["'+48+SUM(A1)", "'=1+2"])
+    assert.equal(cellsOf(entriesToCsv([{ ...ROW, club: '+48 600 100 200' }]).split('\r\n').at(-1))[8], "'+48 600 100 200")
+  })
+
+  it('never writes a negative refund, and does not fail the export (F4)', () => {
+    const cells = cellsOf(entriesToCsv([{ ...ROW, refunded: 1000, refundUnconfirmed: 3000 }]).split('\r\n').at(-1))
+    assert.equal(cells[19], '0,00')
   })
 
   it('doubles quotes and keeps a separator and a newline inside the quotes', () => {

@@ -37,6 +37,13 @@ describe('entryStatusKey (O-01)', () => {
   }
 })
 
+describe('entryStatusKey contract (F5)', () => {
+  it('a confirmed row without paymentStatus throws instead of reading free', () => {
+    assert.throws(() => entryStatusKey({ status: 'confirmed' }, NOW), /missing_payment_status/)
+    assert.throws(() => entryStatusKey({ status: 'confirmed', paymentStatus: 'awaiting' }, NOW), /missing_payment_status/)
+  })
+})
+
 describe('unconfirmedRefundGrosze', () => {
   it('sums the organizer reservations nobody has confirmed', () => {
     assert.equal(unconfirmedRefundGrosze({

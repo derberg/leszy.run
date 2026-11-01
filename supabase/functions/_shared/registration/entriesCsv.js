@@ -16,9 +16,13 @@ const warsawTime = new Intl.DateTimeFormat('en-GB', {
 // because some importers trim them, which would leave the formula standing.
 const FORMULA = /^\s*[=+\-@]|^[\t\r]/
 
-function cell(value) {
+// A phone column keeps a value made of phone characters only („+48 600 100 200”): no letter, no `=`,
+// so nothing a spreadsheet can run. Anything else in it is guarded like every other cell.
+const PHONE = /^\+?[\d ()-]+$/
+
+function cell(value, { phone = false } = {}) {
   const text = String(value ?? '')
-  const safe = FORMULA.test(text) ? `'${text}` : text
+  const safe = FORMULA.test(text) && !(phone && PHONE.test(text)) ? `'${text}` : text
   return `"${safe.replaceAll('"', '""')}"`
 }
 
@@ -48,15 +52,16 @@ const COLUMNS = [
   ['Miejscowość', (r) => r.city],
   ['Narodowość', (r) => r.nationality],
   ['E-mail', (r) => r.email],
-  ['Telefon', (r) => r.phone],
+  ['Telefon', (r) => r.phone, { phone: true }],
   ['Kontakt ICE', (r) => r.iceName],
-  ['Telefon ICE', (r) => r.icePhone],
+  ['Telefon ICE', (r) => r.icePhone, { phone: true }],
   ['Opiekun', (r) => r.guardianName],
   ['E-mail opiekuna', (r) => r.guardianEmail],
   ['Status', (r) => statusLabel(r.statusKey, r)],
   ['Wpłata (zł)', (r) => zloty(r.paidAmount)],
   // `refunded` holds unconfirmed reservations too; this column states money that left.
-  ['Zwrócono (zł)', (r) => zloty((r.refunded ?? 0) - (r.refundUnconfirmed ?? 0))],
+  // Clamped: inconsistent data must not throw in formatDpayValue and fail the whole export.
+  ['Zwrócono (zł)', (r) => zloty(Math.max(0, (r.refunded ?? 0) - (r.refundUnconfirmed ?? 0)))],
   ['Regulamin', consentText],
   ['Partner', (r) => r.partnerName],
   ['Data zapisu', (r) => signedUp(r.createdAt)],
@@ -64,7 +69,7 @@ const COLUMNS = [
 
 /** @param {object[]} rows the panel's rows (list-event-registrations), plus `guardianEmail` */
 export function entriesToCsv(rows) {
-  const line = (cells) => cells.map(cell).join(';')
-  const header = line(COLUMNS.map(([title]) => title))
-  return `﻿${[header, ...rows.map((row) => line(COLUMNS.map(([, read]) => read(row))))].join('\r\n')}`
+  const header = COLUMNS.map(([title]) => cell(title)).join(';')
+  const line = (row) => COLUMNS.map(([, read, options]) => cell(read(row), options)).join(';')
+  return `\uFEFF${[header, ...rows.map(line)].join('\r\n')}`
 }

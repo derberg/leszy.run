@@ -38,7 +38,11 @@ export function entryStatusKey(row, now) {
   if (row.refunds?.some(unconfirmed)) return 'refund_unconfirmed'
   const { participant } = row
   if (row.status === 'cancelled' && participant && !participant.removed_at && !participant.withdrawn_at) return 'withdraw_on_host'
-  if (row.status === 'confirmed') return row.paymentStatus === 'paid' ? 'paid' : 'free'
+  if (row.status === 'confirmed') {
+    // A missing paymentStatus must not quietly turn a paid entry into a free one.
+    if (row.paymentStatus !== 'paid' && row.paymentStatus !== 'free') throw new Error('missing_payment_status')
+    return row.paymentStatus
+  }
   if (row.status === 'pending_payment') {
     // A lapsed order stays pending until the next job run, but nobody can pay it any more.
     return row.expiresAt && new Date(row.expiresAt) <= now ? 'expired' : 'awaiting'

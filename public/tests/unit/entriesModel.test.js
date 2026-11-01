@@ -67,8 +67,10 @@ describe('entryCounts', () => {
     assert.equal(counts.awaiting, 1)
     assert.equal(counts.expired, 2)
   })
-  it('cancelled counts what the „Anulowane” chip shows; the withdraw row has its own count', () => {
-    assert.equal(counts.cancelled, 1)
+  it('cancelled counts every cancelled entry, whatever its status key (F3)', () => {
+    assert.equal(counts.cancelled, 2)
+    const extra = [row({ status: 'cancelled', statusKey: 'refund_unconfirmed', refunded: 2000, refundUnconfirmed: 2000 })]
+    assert.equal(entryCounts([...rows, ...extra], COMPETITIONS).cancelled, 3)
     assert.equal(counts.byStatus.withdraw_on_host, 1)
     assert.equal(counts.byStatus.paid, 5)
   })

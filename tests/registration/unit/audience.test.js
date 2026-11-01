@@ -38,6 +38,17 @@ describe('resolveAudience (O-05)', () => {
     assert.deepEqual(resolveAudience(rows, ALL).map((r) => r.email), ['a@example.pl', 'b@example.pl'])
   })
 
+  it('skips a pending order past its deadline that no job has swept yet (F2)', () => {
+    const now = new Date('2026-11-01T12:00:00Z')
+    const rows = [
+      adult('a', 'a@example.pl', { status: 'pending_payment', expires_at: '2026-11-01T11:59:00Z' }),
+      adult('b', 'b@example.pl', { status: 'pending_payment', expires_at: '2026-11-04T22:59:00Z' }),
+      adult('c', 'c@example.pl', { status: 'pending_payment', expires_at: null }),
+    ]
+    assert.deepEqual(resolveAudience(rows, { status: 'awaiting', teams: 'members' }, now).map((r) => r.email), ['b@example.pl', 'c@example.pl'])
+    assert.deepEqual(resolveAudience(rows, ALL, now).map((r) => r.email), ['b@example.pl', 'c@example.pl'])
+  })
+
   it('narrows by status', () => {
     const rows = [adult('a', 'a@example.pl'), adult('b', 'b@example.pl', { status: 'pending_payment' })]
     assert.deepEqual(resolveAudience(rows, { status: 'confirmed', teams: 'members' }).map((r) => r.email), ['a@example.pl'])
