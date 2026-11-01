@@ -413,7 +413,7 @@ export function consentRequestEmail({ event, person, registeredBy, competition, 
   ].join('')
   const subject = `Zapisano Cię na ${event.name} — zaakceptuj regulamin`
   // The link carries the token in its fragment: no click-tracking redirect may rewrite it.
-  return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html, trackClicks: false }
+  return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html, noTracking: true }
 }
 
 // ---------------------------------------------------------------- teams (Plan 5)

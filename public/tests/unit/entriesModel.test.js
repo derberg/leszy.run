@@ -153,11 +153,11 @@ describe('entryActions (O-06)', () => {
   })
   it('the payment items stop an hour before close, as the server does (paying_closed)', () => {
     const awaiting = row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 })
-    assert.deepEqual(entryActions(awaiting, { ...open, payingClosed: true }), ['edit', 'message', 'cancel'])
+    assert.deepEqual(entryActions(awaiting, { ...open, payingClosed: true }), ['edit', 'message', 'cancel', 'partner'])
   })
   it('no payment reminder in a full competition, which the server refuses (D6-27); the extension stays', () => {
     const awaiting = row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 })
-    assert.deepEqual(entryActions(awaiting, { ...open, full: true }), ['edit', 'extend', 'message', 'cancel'])
+    assert.deepEqual(entryActions(awaiting, { ...open, full: true }), ['edit', 'extend', 'message', 'cancel', 'partner'])
   })
   it('a finished row offers nothing', () => {
     for (const [status, statusKey] of [['expired', 'expired'], ['transferred_out', 'transferred']]) {

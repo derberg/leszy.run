@@ -14,7 +14,7 @@ import { makeExtra, makeVoucher, setCharity } from '../helpers/cart.js'
 // extras under the person, the donation chips and the summary lines, and its total is
 // cartAmounts'. A total above 0 goes to create-order, a free event with nothing picked to
 // register-free. RB1 takes the team line's code and each member's extras. Scenarios V-60…V-62, V-61b,
-// V-66 (RA2, RA4), V-68 (the form's fallback) and V-69 in docs/registration/scenario-matrix.md.
+// V-66 (RA2, RA4), V-68 (the form's fallback) and V-85 in docs/registration/scenario-matrix.md.
 
 const ZT = '00000000-0000-4000-8000-0000000000c1'
 const NINE = { name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 }

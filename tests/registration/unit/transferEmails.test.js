@@ -8,7 +8,7 @@ import {
 import {
   consentRequestEmail, orderConfirmationEmail, paymentReminderEmail, teamConfirmationEmail,
 } from '../../../supabase/functions/_shared/registration/emails.js'
-import { sendGridBody } from '../../../supabase/functions/_shared/email.js'
+import { buildSendGridBody } from '../../../supabase/functions/_shared/email.js'
 import { sendTransferEmail } from '../../../supabase/functions/_shared/registration/transfers.js'
 
 const EVENT = { name: 'Wilczy Bieg <Nocny>', eventDate: '2026-11-28', place: 'Wilków, stadion' }
@@ -187,15 +187,15 @@ describe('click tracking: a token link is never rewritten (review M-5)', () => {
       event: EVENT, person: { firstName: 'Piotr' }, registeredBy: 'Ola', competition: COMP,
       link: 'https://www.leszy.run/zgoda#x', dataInfoUrl: 'https://www.leszy.run/events/w/informacja-o-danych',
     })
-    assert.equal(invite.trackClicks, false)
-    assert.equal(consent.trackClicks, false)
-    assert.equal(paymentReminderEmail({ event: EVENT, order: { total: 100 }, payUrl: 'https://x' }).trackClicks, undefined)
+    assert.equal(invite.noTracking, true)
+    assert.equal(consent.noTracking, true)
+    assert.equal(paymentReminderEmail({ event: EVENT, order: { total: 100 }, payUrl: 'https://x' }).noTracking, undefined)
   })
   it('the SendGrid payload sets tracking_settings.click_tracking.enable = false for such a message', () => {
-    const body = sendGridBody({ to: 'a@b.pl', subject: 's', text: 't', html: '<p>t</p>', trackClicks: false }, 'from@leszy.run')
+    const body = buildSendGridBody({ to: 'a@b.pl', subject: 's', text: 't', html: '<p>t</p>', noTracking: true }, 'from@leszy.run')
     assert.deepEqual(body.tracking_settings, { click_tracking: { enable: false, enable_text: false } })
-    assert.equal(body.trackClicks, undefined, 'the flag itself never reaches SendGrid')
-    const plain = sendGridBody({ to: 'a@b.pl', subject: 's', text: 't' }, 'from@leszy.run')
+    assert.equal(body.noTracking, undefined, 'the flag itself never reaches SendGrid')
+    const plain = buildSendGridBody({ to: 'a@b.pl', subject: 's', text: 't' }, 'from@leszy.run')
     assert.equal(plain.tracking_settings, undefined)
   })
 })

@@ -133,7 +133,7 @@ test('V-50 create: no session 401, a stranger 404; the holder invites, the token
   assert.ok(!inv.body.text?.includes(inv.token) && !JSON.stringify(inv.body).includes(inv.token), 'the answer never carries the token')
   assert.equal(inv.mail.subject, `Ola przekazuje Ci start — ${(await one('registration_settings', { event_id: event.eventId })).name}`)
   assert.match(inv.mail.text, /poza LESZY\.RUN/)
-  assert.equal(inv.mail.trackClicks, false, 'click tracking off: no redirect may rewrite the token link')
+  assert.equal(inv.mail.noTracking, true, 'click tracking off: no redirect may rewrite the token link')
 
   const again = await call('transfer-invite', { action: 'create', registrationId: a.reg.id, toEmail: runnerEmail('second') }, { session: holder })
   assert.equal(again.status, 409)
@@ -376,7 +376,7 @@ test('V-55 an organizer transfer after transfer_until → 200, a consent request
   assert.ok(mail.text.startsWith('Cześć Jan,'))
   assert.ok(mail.text.includes(`${club.name} zapisał(a) Cię`), 'the club is named as the source (Art. 14(2)(f))')
   assert.ok(!mail.text.includes('Ola Leśna'), 'not the original buyer')
-  assert.equal(mail.trackClicks, false, 'the consent link is never click-tracked')
+  assert.equal(mail.noTracking, true, 'the consent link is never click-tracked')
 
   // M-2: the old holder is told; ruling N-1: never who has the package now (name or address).
   assert.equal(res.body.data.holderNotified, true)

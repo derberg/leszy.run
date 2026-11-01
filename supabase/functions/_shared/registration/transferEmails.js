@@ -59,7 +59,7 @@ export function transferInviteEmail({ event, senderFirstName, competition, link:
     signature.html,
   ].join('')
   // The link carries the token in its fragment: no click-tracking redirect may rewrite it.
-  return { subject: `${sender} przekazuje Ci start — ${event.name}`, text, html, trackClicks: false }
+  return { subject: `${sender} przekazuje Ci start — ${event.name}`, text, html, noTracking: true }
 }
 
 /**
