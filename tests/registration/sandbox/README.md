@@ -94,3 +94,11 @@ The unit part needs no sandbox: `node --test tests/registration/sandbox/guard.te
 - The sandbox may not honour a `localhost` return URL; the suite does not follow the payer's redirect.
 - Playwright cannot import `supabase/functions/_shared/*.js` (read as CommonJS), so `bridge.mjs` runs the real
   `dpay.js` / `money.js` / order helpers in a child Node process.
+
+## Findings from the first green run (2026-11-01, run 41349324225, service `leszyrun-sandbox` in test mode)
+
+- A service in test mode shows dpay's simulator page („Symuluj sukces” / „Symuluj niepowodzenie”), not a BLIK or card form. The pay helpers click it; the BLIK code and card numbers are unused in test mode.
+- The IPN `amount` is a string with a dot and two decimals (`"60.00"`). Its keys are `amount`, `attempt`, `custom`, `id`, `signature`, `type`, `version`.
+- `/pbl/details` reports refunds in `refunded_amount` and `available_refund_amount`.
+- **A refund repeated with the same `DigitalPayments-PSP-Message-ID` is accepted twice** (S-06). dpay does not deduplicate, so our one-claim-per-refund rule (`refunds.requested_at`) is the only guard against a double refund.
+- dpay rate-limits its payment page per client and answers „Błąd 429 Za dużo zapytań”; `openGateway` waits a minute and retries.
