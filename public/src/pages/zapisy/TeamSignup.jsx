@@ -472,13 +472,15 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
         }}
         lines={[{
           key: 'fee', categoryId, name: `${row?.name ?? competition.name} · drużyna ${members}-osobowa`, priceGrosze,
+          hasCode: teamVoucher.code.trim() !== '',
           voucher: teamVoucher.state === 'ok' && priceGrosze > 0
             ? { code: normalizeCode(teamVoucher.code) ?? teamVoucher.code.trim(), percent: teamVoucher.percent } : null,
           extras: draft.cards.flatMap(picksOf),
         }]}
         donation={donationsOffered(raw) ? { goal: raw.charityGoal ?? null } : null}
         onRegisterFree={!feePaid && !ordersExtras ? () => registerTeam() : null}
-        onRepriced={(byCategory) => setFee(byCategory[categoryId] ?? null)}
+        // Absent (a coded fee is never fed back, N-1): the current fee stays (N-2).
+        onRepriced={(byCategory) => { if (categoryId in byCategory) setFee(byCategory[categoryId]) }}
         onBack={() => { setMessage(null); setStep('squad'); setAt(LIST_STEP) }} onFailure={fail} />
     )
   }

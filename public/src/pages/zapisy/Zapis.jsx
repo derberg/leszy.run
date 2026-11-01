@@ -503,6 +503,7 @@ function PersonSignup({ raw: rawProp, categoryId, preview = false, backTo }) {
         key: c.key, categoryId: c.categoryId, name: `${p.firstName} ${p.lastName}`, competitionName: rowOf(c.categoryId)?.name ?? '',
         ageGroupLabel: groupOf(i), priceGrosze: listPriceOf(c.categoryId),
         voucher: c.voucher.state === 'ok' ? { code: normalizeCode(c.voucher.code) ?? c.voucher.code.trim(), percent: c.voucher.percent } : null,
+        hasCode: c.voucher.code.trim() !== '',
         extras: picksOf(c),
       }]
     })

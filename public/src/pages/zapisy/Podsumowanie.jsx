@@ -6,7 +6,7 @@ import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction } from '../../lib/auth.js'
 import { releaseLeaveGuard } from '../../lib/leaveGuard.js'
-import { backToForm, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS, repricedByCategory, repriceCart } from '../../lib/checkout.js'
+import { backToForm, listPricesFrom, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS, repriceCart } from '../../lib/checkout.js'
 import { checkoutCart, donationOf, extraLineLabel } from '../../lib/cartModel.js'
 import { formatPln } from '@registration/money.js'
 import PageTop from '../../components/registration/PageTop.jsx'
@@ -157,8 +157,8 @@ export default function Podsumowanie({
         const repriced = repriceCart(lines, err.amounts, { extrasTotal: cart.extrasTotal, donation: cart.donation })
         if (repriced) {
           setLines(repriced)
-          // A coded line's new price is not its competition's list price: only plain lines go back.
-          onRepriced?.(repricedByCategory(repriced.filter((_, i) => !lines[i].voucher)))
+          // A line whose card holds a code is never fed back as a list price (N-1).
+          onRepriced?.(listPricesFrom(lines, repriced))
           setMessage(err.message)
           return
         }

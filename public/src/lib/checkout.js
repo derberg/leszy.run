@@ -59,6 +59,16 @@ export function repriceLines(lines, amounts) {
 
 const grosze = (n) => Number.isSafeInteger(n) && n >= 0
 
+/**
+ * The list prices a price_changed teaches the form, as { categoryId: price }: only lines whose card
+ * holds no code (`hasCode`, whatever its state). A coded line's new price is discounted, and a code
+ * left unchecked after a 429 has no voucher on its line, so feeding either back as the list price
+ * would discount it a second time (re-review N-1). Lines with a code are never fed back.
+ */
+export function listPricesFrom(lines, repriced) {
+  return repricedByCategory((repriced ?? []).filter((_, i) => !lines[i]?.voucher && !lines[i]?.hasCode))
+}
+
 /** Re-priced lines as { categoryId: price }, so „Wróć” keeps the server's prices on the form. */
 export function repricedByCategory(lines) {
   const out = {}
