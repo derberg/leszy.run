@@ -480,7 +480,7 @@ test.describe.serial('the code step of a paid event', () => {
 // (a code e-mail costs one of the address's five per window). The address verified at the code
 // step counts until the person changes it.
 test('N1 „Wróć” from RA4, then „Dalej” again: straight back to RA4, no second code e-mail; a changed address gets its code', async ({ actors }) => {
-  // Every code request of the suite comes from one IP (20 an hour): start this test's two afresh.
+  // Every code request of the suite comes from one IP (100 per 15 min): start this test's two afresh.
   await resetThrottle()
   const event = await createPublishedPaidEvent(owner, { competitions: [BIEG], prices: { 'Bieg 9 km': 6000 } })
   const person = { first: 'Ola', last: 'Wraca', email: runnerEmail('back') }

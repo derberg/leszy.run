@@ -11,7 +11,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
+import { fillThrottle, localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { CAPTURE_PORT } from './helpers/emailCaptureServer.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, createPublishedFreeEvent } from './helpers/registrationFixtures.js'
@@ -296,13 +296,12 @@ test('G-27 after closes_at: accept with edits.phone → 422 edits_closed; accept
 
 // ---------------------------------------------------------------- G-32b throttles
 
-test('G-32b the 31st consent-request from one IP in an hour → 429; the 31st call for one token → 429 (m4)', async () => {
+test('G-32b the 301st consent-request from one IP in an hour → 429 (SEC-1: shared addresses); the 31st call for one token → 429 (m4)', async () => {
   await resetThrottle()
   const from = `203.0.113.${crypto.randomInt(1, 255)}`
-  for (let i = 0; i < 30; i++) {
-    const r = await call('consent-request', { token: (await newToken()).token }, { from })
-    assert.equal(r.status, 410, `call ${i + 1}: ${JSON.stringify(r.body)}`)
-  }
+  await fillThrottle(`consent-ip:${from}`, 299)
+  const under = await call('consent-request', { token: (await newToken()).token }, { from })
+  assert.equal(under.status, 410, JSON.stringify(under.body))
   const ipCapped = await call('consent-request', { token: (await newToken()).token }, { from })
   assert.equal(ipCapped.status, 429)
   assert.ok(ipCapped.body.error)
@@ -665,13 +664,12 @@ test('G-67 the code e-mail requested from the consent page carries the code and 
   assert.ok(ok.body.data.person)
 })
 
-test('G-68 accept-consent counts per IP like consent-request: the 31st call from one IP in an hour → 429 (final review M-5)', async () => {
+test('G-68 accept-consent counts per IP like consent-request: the 301st call from one IP in an hour → 429 (final review M-5, SEC-1)', async () => {
   await resetThrottle()
   const from = `203.0.113.${crypto.randomInt(1, 255)}`
-  for (let i = 0; i < 30; i++) {
-    const r = await call('accept-consent', { token: (await newToken()).token }, { from })
-    assert.notEqual(r.status, 429, `call ${i + 1}: ${JSON.stringify(r.body)}`)
-  }
+  await fillThrottle(`consent-ip:${from}`, 299)
+  const under = await call('accept-consent', { token: (await newToken()).token }, { from })
+  assert.notEqual(under.status, 429, JSON.stringify(under.body))
   const capped = await call('accept-consent', { token: (await newToken()).token }, { from })
   assert.equal(capped.status, 429, JSON.stringify(capped.body))
   assert.equal(capped.body.code, 'throttled')

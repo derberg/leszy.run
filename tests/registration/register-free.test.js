@@ -36,7 +36,7 @@ beforeEach(async () => { await resetThrottle() })
 /**
  * POST register-free; keeps the Set-Cookie header (callFn drops headers). The client address is
  * `RUNNER_IP` for every call, which the acceptance rows are checked against; the per-IP throttle
- * (20 an hour) is reset before each test, so the file's calls never add up to it.
+ * (200 an hour) is reset before each test, so the file's calls never add up to it.
  */
 const RUNNER_IP = '203.0.113.9'
 async function register(body, session = null) {
