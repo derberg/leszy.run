@@ -495,13 +495,13 @@ test('cancel_order releases a pending order once; a later payment is refunded', 
   assert.equal((await competitionOf(cat)).taken, 0)
 })
 
-test('record_refund / settle_refund (P3-R6): message id from the refund id; 406 retries in an hour; pending moves; accepted and rejected are final', async () => {
+test('record_refund / settle_refund (P3-R6, D6-20): message id from the refund id; an automatic 406 retries in an hour; pending moves; accepted and rejected are final', async () => {
   const event = await paid()
   const out = await orderOk(event)
   const att = await attemptFor(out.orderId, out.total)
   await confirmOk(out.orderId, att.txn, out.total)
 
-  const r = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: out.total, p_kind: 'organizer', p_reason: 'rezygnacja' })
+  const r = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: out.total, p_kind: 'automatic', p_reason: 'rezygnacja' })
   assert.equal(r.error, null, r.error?.message)
   assert.equal(r.data.messageId, r.data.refundId.replaceAll('-', '').slice(0, 24))
 
