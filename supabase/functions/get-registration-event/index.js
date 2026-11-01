@@ -31,8 +31,11 @@ async function rows(query) {
 // fixed price in grosze), office hours as Warsaw days and times, age and kids
 // groups, consents (a custom one carries `accepted` for owner/admin),
 // uploads, pending changes, registered count, the caller's role and the
-// publish checklist. Each competition carries `inUse` for owner/admin. Any active member of the owning club may
-// read it.
+// publish checklist. Each competition carries `inUse` for owner/admin, and `prices` ({ tierId:
+// grosze }) beside the fixed `priceGrosze`. `tiers` lists the price tiers in registration_raw's
+// order (Warsaw days), and `extras` the extras with their competitions and variants (stock and
+// sold, so the wizard can lock what sold). Any active member of the owning club may read it.
+// Vouchers and partners are not here: organizer-vouchers serves them.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -51,7 +54,7 @@ Deno.serve(async (req) => {
     const { settings, role } = loaded
     const eventId = settings.event_id
 
-    const [competitions, hours, consents, uploads, pendingRows, registered, hasAgreement, payout] = await Promise.all([
+    const [competitions, hours, consents, uploads, pendingRows, registered, hasAgreement, payout, tiers, extras] = await Promise.all([
       rows(admin.from('competitions').select('*').eq('event_id', eventId).order('sort_order')),
       rows(admin.from('office_hours').select('id, starts_at, ends_at').eq('event_id', eventId).order('starts_at')),
       rows(admin.from('event_consents').select('id, kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
@@ -63,6 +66,11 @@ Deno.serve(async (req) => {
         .eq('event_id', eventId).eq('status', 'confirmed').is('team_id', null),
       clubHasAgreement(admin, settings.club_id),
       payoutState(admin, settings),
+      rows(admin.from('price_tiers').select('id, ends_on, sort_order').eq('event_id', eventId)
+        .order('ends_on', { ascending: true, nullsFirst: false }).order('sort_order').order('id')),
+      rows(admin.from('extras')
+        .select('id, name, image_upload_id, price, order_until, sort_order, extra_competitions(category_id), extra_variants(id, label, stock, sold, sort_order)')
+        .eq('event_id', eventId).order('sort_order').order('id')),
     ])
     if (registered.error) throw registered.error
 
@@ -90,7 +98,7 @@ Deno.serve(async (req) => {
     const categoryIds = competitions.map((c) => c.category_id)
     const [prices, ageGroups, kidsGroups] = categoryIds.length
       ? await Promise.all([
-        rows(admin.from('competition_prices').select('category_id, amount, price_tiers(ends_on)').in('category_id', categoryIds)),
+        rows(admin.from('competition_prices').select('category_id, tier_id, amount, price_tiers(ends_on)').in('category_id', categoryIds)),
         rows(admin.from('age_groups').select('*').in('category_id', categoryIds).order('min_age')),
         rows(admin.from('kids_groups').select('*').in('category_id', categoryIds).order('birth_year_from')),
       ])
@@ -106,7 +114,16 @@ Deno.serve(async (req) => {
         closesOn: settings.closes_at ? warsawToday(new Date(new Date(settings.closes_at).getTime() - 1)) : null,
       },
       competitions: competitions.map((c) => ({
-        ...camel(c), priceGrosze: priceOf.get(c.category_id) ?? null, ...(inUse ? { inUse: inUse.get(c.category_id) } : {}),
+        ...camel(c), priceGrosze: priceOf.get(c.category_id) ?? null,
+        prices: Object.fromEntries(prices.filter((p) => p.category_id === c.category_id).map((p) => [p.tier_id, p.amount])),
+        ...(inUse ? { inUse: inUse.get(c.category_id) } : {}),
+      })),
+      tiers: tiers.map((t) => ({ id: t.id, endsOn: t.ends_on, sortOrder: t.sort_order })),
+      extras: extras.map((x) => ({
+        id: x.id, name: x.name, imageUploadId: x.image_upload_id, price: x.price, orderUntil: x.order_until,
+        categoryIds: (x.extra_competitions ?? []).map((l) => l.category_id).sort(),
+        variants: [...(x.extra_variants ?? [])].sort((a, b) => a.sort_order - b.sort_order || (a.id < b.id ? -1 : 1))
+          .map((v) => ({ id: v.id, label: v.label, stock: v.stock, sold: v.sold })),
       })),
       officeHours: hours.map((h) => ({
         id: h.id, date: warsawToday(new Date(h.starts_at)), from: hhmm(h.starts_at), to: hhmm(h.ends_at),

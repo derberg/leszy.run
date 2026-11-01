@@ -1,7 +1,7 @@
 // W-13: the publish checklist (_shared/registration/checklist.js).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM } from '../../../supabase/functions/_shared/registration/checklist.js'
+import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM, takesMoney } from '../../../supabase/functions/_shared/registration/checklist.js'
 import { registrationWindow } from '../../../supabase/functions/_shared/registration/dates.js'
 
 const window = (opensOn, closesOn) => {
@@ -172,4 +172,37 @@ test('T-06 a team with a size, a hidden team and an individual competition do no
   assert.deepEqual(publishChecklist(complete({ competitions: teams })).blocking, [])
   const hidden = [comp({ kind: 'team', hiddenAt: '2026-10-01' }), comp({ categoryId: 'c2', isKids: true })]
   assert.deepEqual(publishChecklist(complete({ competitions: hidden })).blocking, [])
+})
+
+// ---------------------------------------------------------------- V-20 (D7-22)
+
+// An event takes money when its pricing mode is not free, or it has a priced extra, or donations
+// are on (a charity event with „Pozwól dopłacić darowiznę”, ruling 7). Each then needs a payout
+// account, and is held by the payments flag.
+const PAYOUT_CLUB = { key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' }
+
+test('V-20 a free event with donations on and no payout → the blocking payout item', () => {
+  const r = publishChecklist(complete({ settings: { isCharity: true, donationsEnabled: true }, payout: { mode: 'club', ready: false } }))
+  assert.deepEqual(r.blocking, [PAYMENTS_SOON, PAYOUT_CLUB])
+})
+
+test('V-20 a free event with a priced extra and no payout → the blocking payout item; a 0 zł extra asks nothing', () => {
+  const priced = publishChecklist({ ...complete({ payout: { mode: 'club', ready: false } }), extras: [{ price: 4500 }] })
+  assert.deepEqual(priced.blocking, [PAYMENTS_SOON, PAYOUT_CLUB])
+  const gratis = publishChecklist({ ...complete({ payout: { mode: 'club', ready: false } }), extras: [{ price: 0 }] })
+  assert.deepEqual(gratis.blocking, [])
+})
+
+test('V-20 donations switched on outside a charity event take no money (ruling 7)', () => {
+  assert.deepEqual(publishChecklist(complete({ settings: { isCharity: false, donationsEnabled: true }, payout: { mode: 'club', ready: false } })).blocking, [])
+})
+
+test('V-20 takesMoney: pricing mode, a priced extra or donations on', () => {
+  assert.equal(takesMoney({ settings: { pricingMode: 'free' } }), false)
+  assert.equal(takesMoney({ settings: { pricingMode: 'fixed' } }), true)
+  assert.equal(takesMoney({ settings: { pricingMode: 'tiered' } }), true)
+  assert.equal(takesMoney({ settings: { pricingMode: 'free' }, extras: [{ price: 0 }, { price: 1 }] }), true)
+  assert.equal(takesMoney({ settings: { pricingMode: 'free', isCharity: true, donationsEnabled: true } }), true)
+  assert.equal(takesMoney({ settings: { pricingMode: 'free', isCharity: true, donationsEnabled: false } }), false)
+  assert.equal(takesMoney({}), false)
 })

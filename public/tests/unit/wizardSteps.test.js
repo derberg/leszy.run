@@ -19,9 +19,16 @@ test('a free event has no Płatności step', () => {
   }
 })
 
-test('Dodatki is never available; every other step is', () => {
+test('every step is available, Dodatki included (Plan 7)', () => {
   const steps = wizardSteps({ pricingMode: 'fixed', hasKidsCompetition: true, state: { checklist: empty } })
-  for (const s of steps) assert.equal(s.available, s.key !== 'dodatki', s.key)
+  for (const s of steps) assert.equal(s.available, true, s.key)
+})
+
+test('V-20 a free event shows Płatności when it has a priced extra or takes donations (D7-22)', () => {
+  const labels = (over) => wizardSteps({ pricingMode: 'free', hasKidsCompetition: false, state: { checklist: empty }, ...over }).map((s) => s.label)
+  assert.deepEqual(labels({ hasPricedExtras: true }), ALL)
+  assert.deepEqual(labels({ donationsEnabled: true }), ALL)
+  assert.deepEqual(labels({ hasPricedExtras: false, donationsEnabled: false }), ALL.filter((l) => l !== 'Płatności'))
 })
 
 test('Kategorie offers kids groups only when a kids competition exists', () => {

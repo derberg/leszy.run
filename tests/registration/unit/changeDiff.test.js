@@ -204,3 +204,73 @@ test('T-51 leg_order never leaks into the settings the checklist reads', () => {
   const merged = mergedChecklistInput(liveTeam, { form: { leg_order: { [C1]: true } } })
   assert.equal('legOrder' in merged.settings, false)
 })
+
+// ---------------------------------------------------------------- Plan 7 task 3
+
+const T1 = 'aaaaaaaa-0000-4000-8000-000000000001'
+const T2 = 'aaaaaaaa-0000-4000-8000-000000000002'
+const T3 = 'aaaaaaaa-0000-4000-8000-000000000003'
+const tieredLive = {
+  ...live,
+  settings: { ...live.settings, pricing_mode: 'tiered' },
+  tiers: [{ id: T1, ends_on: '2026-11-15' }, { id: T2, ends_on: '2026-11-25' }, { id: T3, ends_on: null }],
+  competitions: live.competitions.map((c, i) => ({ ...c, prices: { [T1]: 6000 + i * 100, [T2]: 7000, [T3]: 8000 } })),
+}
+const tieredItem = (c, prices) => item(c, { prices })
+const A3_STAGED = (prices1, tiers = tieredLive.tiers) => ({
+  pricing_mode: 'tiered', tiers,
+  items: [tieredItem(tieredLive.competitions[0], prices1), tieredItem(tieredLive.competitions[1], { [T1]: 6100, [T2]: 7000, [T3]: 8000 })],
+})
+
+test('V-17 staged tiers equal to the live ones are no change', () => {
+  assert.deepEqual(changeDiff(tieredLive, { competitions: A3_STAGED({ [T1]: 6000, [T2]: 7000, [T3]: 8000 }) }), [])
+})
+
+test('V-17 a tier amount is one row per competition, in tier order; a new tier is one row of „Progi cenowe”', () => {
+  const amounts = changeDiff(tieredLive, { competitions: A3_STAGED({ [T1]: 6000, [T2]: 7500, [T3]: 8000 }) })
+  assert.deepEqual(amounts.map((d) => [d.field, d.label, d.before, d.after, d.categoryId]), [
+    ['competitions.prices', 'Bieg 9 km: opłaty', '60 zł · 70 zł · 80 zł', '60 zł · 75 zł · 80 zł', C1],
+  ])
+  const added = changeDiff(tieredLive, { competitions: {
+    pricing_mode: 'tiered',
+    tiers: [tieredLive.tiers[0], { id: null, ends_on: '2026-11-20' }, tieredLive.tiers[1], tieredLive.tiers[2]],
+    items: tieredLive.competitions.map((c) => tieredItem(c, { ...c.prices, 'new:1': 6500 })),
+  } })
+  assert.deepEqual(added.map((d) => [d.field, d.before, d.after]), [
+    ['competitions.tiers', 'do 15.11 · do 25.11 · do końca zapisów', 'do 15.11 · do 20.11 · do 25.11 · do końca zapisów'],
+    ['competitions.prices', '60 zł · 70 zł · 80 zł', '60 zł · 65 zł · 70 zł · 80 zł'],
+    ['competitions.prices', '61 zł · 70 zł · 80 zł', '61 zł · 65 zł · 70 zł · 80 zł'],
+  ])
+  assert.equal(added[0].label, 'Progi cenowe')
+})
+
+test('V-17 mergedChecklistInput never carries the staged tiers into the settings', () => {
+  const merged = mergedChecklistInput(tieredLive, { competitions: A3_STAGED({ [T1]: 6000, [T2]: 7000, [T3]: 8000 }) })
+  assert.equal(merged.settings.tiers, undefined)
+  assert.equal(merged.settings.pricingMode, 'tiered')
+})
+
+test('V-18 extras: a staged change is one „Dodatki” row; the same list is none', () => {
+  const extra = { id: 'x1', name: 'Koszulka', image_upload_id: null, price: 4500, order_until: '2026-11-25', category_ids: [], variants: [{ id: 'v1', label: 'M', stock: 30 }] }
+  const withExtras = { ...live, extras: [extra] }
+  assert.deepEqual(changeDiff(withExtras, { extras: { items: [extra] } }), [])
+  const diff = changeDiff(withExtras, { extras: { items: [{ ...extra, price: 5000, variants: [{ id: 'v1', label: 'M', stock: 40 }] }] } })
+  assert.deepEqual(diff.map((d) => [d.field, d.label, d.before, d.after]), [
+    ['extras.items', 'Dodatki', ['Koszulka: 45 zł, do 25.11 (M: 30)'], ['Koszulka: 50 zł, do 25.11 (M: 40)']],
+  ])
+})
+
+test('V-20 mergedChecklistInput carries the extras the event will have: a staged priced extra makes it take money', () => {
+  const merged = mergedChecklistInput({ ...live, extras: [] }, { extras: { items: [{ id: null, name: 'Koszulka', price: 4500, variants: [] }] } })
+  assert.deepEqual(merged.extras.map((x) => x.price), [4500])
+  assert.deepEqual(mergedChecklistInput({ ...live, extras: [{ price: 0 }] }, {}).extras, [{ price: 0 }])
+})
+
+test('V-15 transfer settings are diff rows of their own', () => {
+  const diff = changeDiff({ ...live, settings: { ...live.settings, transfer_enabled: false, transfer_until: null } },
+    { payments: { transfer_enabled: true, transfer_until: '2026-12-05' } })
+  assert.deepEqual(diff.map((d) => [d.field, d.label, d.before, d.after]), [
+    ['payments.transfer_enabled', 'Przekazanie pakietu', 'nie', 'tak'],
+    ['payments.transfer_until', 'Przekazanie możliwe do', null, '2026-12-05'],
+  ])
+})

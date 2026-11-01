@@ -242,6 +242,8 @@ function Editor({ eventId, stepParam }) {
   const current = stepParam
   const steps = wizardSteps({
     pricingMode: event.settings.pricingMode,
+    hasPricedExtras: (event.extras ?? []).some((x) => x.price > 0),
+    donationsEnabled: !!(event.settings.isCharity && event.settings.donationsEnabled),
     hasKidsCompetition: event.competitions.some((c) => c.isKids),
     state: { checklist: event.checklist, current },
   })

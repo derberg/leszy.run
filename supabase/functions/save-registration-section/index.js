@@ -28,6 +28,12 @@ function rpcErrorResponse(error, req) {
   if (msg === 'price_locked') {
     return json({ error: 'Opłaty nie można zmienić: są już zapisy.', code: 'price_locked' }, 409, req)
   }
+  if (msg === 'extra_locked') {
+    return json({ error: 'Tego dodatku nie można tak zmienić: są już zamówienia. Cena i sprzedane warianty zostają, a limit nie spadnie poniżej sprzedanych.', code: 'extra_locked' }, 409, req)
+  }
+  if (msg === 'competition_linked') {
+    return json({ error: 'Tej konkurencji nie można usunąć: wskazują ją kody rabatowe albo dodatki. Najpierw je zmień.', code: 'competition_linked' }, 409, req)
+  }
   if (msg === 'consent_locked') {
     return json({ error: 'Tej zgody nie można już usunąć ani zmienić: zaakceptowali ją zapisani. Możesz dodać nową.', code: 'consent_locked' }, 409, req)
   }
@@ -90,7 +96,8 @@ Deno.serve(async (req) => {
       return json({ error: 'Wydarzenie jest zamknięte.', code: 'not_draft' }, 409, req)
     }
 
-    const ctx = { state: settings.state, eventDate: settings.event_date }
+    // The stored window: price tiers are checked against its Warsaw days (validateTiers).
+    const ctx = { state: settings.state, eventDate: settings.event_date, opensAt: settings.opens_at, closesAt: settings.closes_at }
     if (section === 'form' && value?.legOrder) ctx.teamCategoryIds = await teamCategoryIds(admin, eventId, staged)
     const checked = validateSection(section, value, ctx)
     if (!checked.ok) return json({ error: 'Popraw zaznaczone pola.', fields: checked.errors }, 422, req)

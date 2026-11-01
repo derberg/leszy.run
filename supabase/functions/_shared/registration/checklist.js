@@ -12,7 +12,12 @@
 // competitions, officeHours }, camelCase) plus `hasAgreement`: whether the
 // owning club accepted the current organizer agreement, and `payout`:
 // { mode: 'club'|'custom', ready } from eventPayout.js (never the account
-// itself). A paid event with no `payout` given is not ready.
+// itself). A paid event with no `payout` given is not ready. `extras` (optional) lists the
+// event's extras, each with its `price` in grosze.
+//
+// takesMoney(event): whether the event collects money at all (D7-22): a pricing mode other than
+// free, a priced extra, or donations on (a charity event with „Pozwól dopłacić darowiznę”,
+// ruling 7). Such an event needs a payout account and is held by PAID_REGISTRATION_ENABLED.
 
 import { warsawDayAfter } from './dates.js'
 import { PAID_REGISTRATION_ENABLED } from './flags.js'
@@ -39,8 +44,16 @@ function regulaminGiven(s) {
   return false
 }
 
+/** @param {{ settings?: object, extras?: { price: number }[] }} event */
+export function takesMoney(event) {
+  const s = event?.settings ?? {}
+  if ((s.pricingMode ?? 'free') !== 'free') return true
+  if ((event?.extras ?? []).some((x) => Number(x?.price) > 0)) return true
+  return s.isCharity === true && s.donationsEnabled === true
+}
+
 /**
- * @param {{ settings: object, competitions?: object[], officeHours?: object[], hasAgreement: boolean, payout?: { mode: string, ready: boolean } }} event
+ * @param {{ settings: object, competitions?: object[], officeHours?: object[], extras?: object[], hasAgreement: boolean, payout?: { mode: string, ready: boolean } }} event
  * @returns {{ blocking: { key: string, label: string }[], missing: { key: string, label: string, step: string }[] }}
  */
 export function publishChecklist(event) {
@@ -69,7 +82,7 @@ export function publishChecklist(event) {
   if (!regulaminGiven(s)) block('regulamin', 'Regulamin (PDF albo link)')
   if (blank(s.contactEmail)) block('contact_email', 'Adres kontaktowy organizatora')
   if (!event?.hasAgreement) block('agreement', 'Akceptacja umowy organizatora')
-  const paid = (s.pricingMode ?? 'free') !== 'free'
+  const paid = takesMoney(event)
   if (!PAID_REGISTRATION_ENABLED && paid) block('payments', 'Płatności online — wkrótce')
   if (paid && !event?.payout?.ready) {
     block('payout', event?.payout?.mode === 'custom' ? 'Dane do wypłat tego wydarzenia' : 'Uzupełnij dane do wypłat w ustawieniach klubu')

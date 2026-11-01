@@ -7,18 +7,21 @@
 // keys sent are written. Lists (competition items, office hours, groups,
 // custom consents) are the whole list. Required-ness is the publish
 // checklist's job (Task 5), so a draft may hold blanks. `eventDate` is the
-// stored event date, for rules that need it (none in this task). `teamCategoryIds`
+// stored event date (an extra's „Zamówienia do” and the transfer window need it), and
+// `opensAt` / `closesAt` the stored registration window, as timestamps: price tiers are
+// checked against its Warsaw days (Plan 7). `teamCategoryIds`
 // lists the event's team competitions, as the event will be once staged changes
 // apply: the form section's leg order is refused for any other competition.
 
 import { isValidSlug } from './slug.js'
-import { registrationWindow } from './dates.js'
+import { registrationWindow, warsawToday } from './dates.js'
 import { MAX_PEOPLE_PER_REQUEST, MIN_TEAM_SIZE } from './flags.js'
+import { validateTiers } from './pricing.js'
 
-export const SECTIONS = ['basics', 'office', 'competitions', 'categories', 'timing', 'form', 'payments']
+export const SECTIONS = ['basics', 'office', 'competitions', 'categories', 'timing', 'form', 'payments', 'extras']
 
 const UNKNOWN = 'Nieznane pole.'
-const SOON = 'Wkrótce.'
+const PRICE_MESSAGE = 'Podaj cenę w złotych, np. 60 albo 60,50.'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -191,7 +194,7 @@ function validateOffice(value, ctx, c) {
 // ---------------------------------------------------------------- competitions
 
 const ITEM_KEYS = ['categoryId', 'name', 'kind', 'discipline', 'distanceLabel', 'startTime', 'capacity',
-  'minAge', 'maxAge', 'isKids', 'timed', 'gpxUploadId', 'price', 'teamMin', 'teamMax']
+  'minAge', 'maxAge', 'isKids', 'timed', 'gpxUploadId', 'price', 'prices', 'teamMin', 'teamMax']
 // After publish a competition is hidden, never deleted (applied by
 // „Opublikuj zmiany” only while nobody is registered for it).
 const PUBLISHED_ITEM_KEYS = [...ITEM_KEYS, 'hidden']
@@ -206,7 +209,22 @@ function validateTeamSize({ teamMin, teamMax }, c) {
   return { team_min: null, team_max: null }
 }
 
-function validateItem(item, pricingMode, ctx, c) {
+// A tiered competition's prices: one per listed tier, keyed by the tier's id or `new:<index>` for a
+// tier the save creates (D7-4). Anything else, a missing or extra key included, is one error.
+function tieredPrices(prices, tierKeys, c) {
+  if (!isPlainObject(prices)) return c.fail('prices', PRICE_MESSAGE)
+  const keys = Object.keys(prices)
+  if (keys.length !== tierKeys.length || !tierKeys.every((k) => k in prices)) return c.fail('prices', PRICE_MESSAGE)
+  const out = {}
+  for (const k of tierKeys) {
+    const grosze = parsePriceGrosze(prices[k])
+    if (grosze === null) return c.fail('prices', PRICE_MESSAGE)
+    out[k] = grosze
+  }
+  return out
+}
+
+function validateItem(item, pricingMode, ctx, c, tierKeys) {
   if (!isPlainObject(item)) return c.fail('items', 'Nieprawidłowa konkurencja.')
   checkKeys(item, ctx.state === 'draft' ? ITEM_KEYS : PUBLISHED_ITEM_KEYS, c)
   const name = rules.text(120, { required: true, emptyMsg: 'Podaj nazwę konkurencji.' })(item.name, 'name', c)
@@ -222,8 +240,9 @@ function validateItem(item, pricingMode, ctx, c) {
   let price = null
   if (pricingMode === 'fixed') {
     price = parsePriceGrosze(item.price)
-    if (price === null) c.fail('price', 'Podaj cenę w złotych, np. 60 albo 60,50.')
+    if (price === null) c.fail('price', PRICE_MESSAGE)
   }
+  const prices = pricingMode === 'tiered' && tierKeys ? tieredPrices(item.prices, tierKeys, c) : undefined
   const hidden = ctx.state !== 'draft' && 'hidden' in item ? rules.bool()(item.hidden, 'hidden', c) : undefined
   return {
     ...(typeof hidden === 'boolean' ? { hidden } : {}),
@@ -240,24 +259,52 @@ function validateItem(item, pricingMode, ctx, c) {
     timed: timed ?? true,
     gpx_upload_id: rules.uuid()(item.gpxUploadId, 'gpxUploadId', c) ?? null,
     price,
+    ...(prices ? { prices } : {}),
     // A size sent with an individual competition (the row was switched back) is dropped.
     ...(kind === 'team' ? validateTeamSize(item, c) : { team_min: null, team_max: null }),
   }
 }
 
+// The Warsaw days of the stored window, as validateTiers compares them: the first day open and the
+// last day open (closes_at is the Warsaw midnight after it).
+function windowDays(ctx) {
+  const at = (iso, shift) => (iso && !Number.isNaN(Date.parse(iso)) ? warsawToday(new Date(Date.parse(iso) + shift)) : undefined)
+  return { opensOn: at(ctx.opensAt, 0), closesOn: at(ctx.closesAt, -1) }
+}
+
+// `tiers` of a tiered save: [{ id?, endsOn|null }] in the grid's order, checked by validateTiers
+// against the window's Warsaw days. → { tiers: [{ id, ends_on }], keys } or undefined.
+function validateTierList(tiers, ctx, c) {
+  if (!Array.isArray(tiers)) return c.fail('tiers', 'Od 1 do 5 progów cenowych.')
+  if (tiers.some((t) => !isPlainObject(t))) return c.fail('tiers', 'Nieprawidłowy próg cenowy.')
+  for (const t of tiers) checkKeys(t, ['id', 'endsOn'], c)
+  const ids = tiers.map((t) => rules.uuid()(t.id, 'id', c) ?? null)
+  if (ids.some((id) => id === undefined)) return undefined
+  const given = ids.filter(Boolean)
+  if (new Set(given).size !== given.length) return c.fail('tiers', 'Ten sam próg występuje dwa razy.')
+  const checked = validateTiers(tiers.map((t) => ({ endsOn: t.endsOn ?? null })), windowDays(ctx))
+  if (!checked.ok) return c.fail('tiers', checked.errors.tiers)
+  return {
+    tiers: tiers.map((t, i) => ({ id: ids[i], ends_on: t.endsOn ?? null })),
+    keys: ids.map((id, i) => id ?? `new:${i}`),
+  }
+}
+
 function validateCompetitions(value, ctx, c) {
-  checkKeys(value, ['pricingMode', 'items'], c)
+  checkKeys(value, ['pricingMode', 'items', 'tiers'], c)
   const pricingMode = value.pricingMode
-  if (pricingMode === 'tiered') c.fail('pricingMode', SOON)
-  else if (!['free', 'fixed'].includes(pricingMode)) c.fail('pricingMode', 'Wybierz rodzaj opłaty.')
+  if (!['free', 'fixed', 'tiered'].includes(pricingMode)) c.fail('pricingMode', 'Wybierz rodzaj opłaty.')
   if (!Array.isArray(value.items) || value.items.length > MAX_ITEMS) {
     c.fail('items', 'Nieprawidłowa lista konkurencji.')
     return {}
   }
   const ids = value.items.map((i) => i?.categoryId).filter(Boolean)
   if (new Set(ids).size !== ids.length) c.fail('categoryId', 'Ta sama konkurencja występuje dwa razy.')
-  const items = value.items.map((item) => validateItem(item, pricingMode, ctx, c))
-  return { pricing_mode: pricingMode, items }
+  // Tiers only mean something for tiered pricing: sent with fixed or free they are dropped, as the
+  // wizard keeps the grid while the organizer flips the fee box.
+  const tiered = pricingMode === 'tiered' ? validateTierList(value.tiers, ctx, c) : undefined
+  const items = value.items.map((item) => validateItem(item, pricingMode, ctx, c, tiered?.keys))
+  return { pricing_mode: pricingMode, ...(tiered ? { tiers: tiered.tiers } : {}), items }
 }
 
 // ---------------------------------------------------------------- categories
@@ -399,9 +446,37 @@ function validateForm(value, ctx, c) {
 // update-event-payout (ruling P3-R1).
 export const PAYMENT_WINDOW_HOURS = Object.freeze([24, 168, 336])
 
+const TRANSFER_UNTIL_MESSAGE = 'Przekazanie możliwe najpóźniej dzień przed zawodami.'
+
+/** The calendar day before an ISO date. */
+function dayBefore(isoDate) {
+  const [y, m, d] = isoDate.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10)
+}
+
+// „Przekazanie pakietu”: allowed or not, and the last Warsaw day a runner may hand the package on,
+// at the latest the day before the race (ruling 4). The fee is not a field: it stays 0 (ruling 1).
+function validateTransfer(value, ctx, c, out) {
+  if ('transferEnabled' in value) {
+    if (typeof value.transferEnabled === 'boolean') out.transfer_enabled = value.transferEnabled
+    else c.fail('transferEnabled', 'Nieprawidłowa wartość.')
+  }
+  if ('transferUntil' in value) {
+    const v = value.transferUntil
+    if (v === null) out.transfer_until = null
+    else if (!isIsoDate(v)) c.fail('transferUntil', 'Nieprawidłowa data.')
+    else if (ctx.eventDate && v > dayBefore(ctx.eventDate)) c.fail('transferUntil', TRANSFER_UNTIL_MESSAGE)
+    else out.transfer_until = v
+  }
+  if (value.transferEnabled === true && !(value.transferUntil && isIsoDate(value.transferUntil))) {
+    c.fail('transferUntil', 'Podaj, do kiedy można przekazać pakiet.')
+  }
+}
+
 function validatePayments(value, ctx, c) {
-  checkKeys(value, ['paymentWindowHours', 'paymentWindowUntilClose'], c)
+  checkKeys(value, ['paymentWindowHours', 'paymentWindowUntilClose', 'transferEnabled', 'transferUntil'], c)
   const out = {}
+  validateTransfer(value, ctx, c, out)
   if ('paymentWindowHours' in value) {
     const v = rules.oneOf(PAYMENT_WINDOW_HOURS, 'Wybierz czas na opłacenie zgłoszenia.')(value.paymentWindowHours, 'paymentWindowHours', c)
     if (v !== undefined) out.payment_window_hours = v
@@ -413,6 +488,73 @@ function validatePayments(value, ctx, c) {
   return out
 }
 
+// ---------------------------------------------------------------- extras
+
+// Dodatki (A5b): items the runner buys with the entry, each with variants and a stock. The list is
+// the whole list. „Bez limitu” is written as MAX_STOCK (§4.8), never null. An empty list removes
+// every extra. After publish the locks (sold variants, ruling 10) are the database's.
+export const MAX_EXTRAS = 20
+export const MAX_VARIANTS = 20
+export const MAX_STOCK = 100000
+const STOCK_MESSAGE = `Limit sztuk: od 0 do ${MAX_STOCK.toLocaleString('pl-PL')}.`
+
+function validateVariant(v, c) {
+  if (!isPlainObject(v)) return c.fail('variants', 'Nieprawidłowy wariant.')
+  checkKeys(v, ['id', 'label', 'stock'], c)
+  return {
+    id: rules.uuid()(v.id, 'id', c) ?? null,
+    label: rules.text(60, { required: true, emptyMsg: 'Podaj nazwę wariantu.' })(v.label, 'label', c) ?? null,
+    stock: Number.isInteger(v.stock) && v.stock >= 0 && v.stock <= MAX_STOCK ? v.stock : c.fail('stock', STOCK_MESSAGE),
+  }
+}
+
+function validateExtra(x, ctx, c) {
+  if (!isPlainObject(x)) return c.fail('items', 'Nieprawidłowy dodatek.')
+  checkKeys(x, ['id', 'name', 'imageUploadId', 'price', 'orderUntil', 'categoryIds', 'variants'], c)
+  const price = parsePriceGrosze(x.price)
+  if (price === null) c.fail('price', PRICE_MESSAGE)
+  let orderUntil = null
+  if (!isIsoDate(x.orderUntil)) c.fail('orderUntil', 'Podaj datę, do której przyjmujesz zamówienia.')
+  else if (ctx.eventDate && x.orderUntil > ctx.eventDate) c.fail('orderUntil', 'Zamówienia najpóźniej w dniu zawodów.')
+  else orderUntil = x.orderUntil
+  const categoryIds = x.categoryIds ?? []
+  let categories = []
+  if (!Array.isArray(categoryIds) || categoryIds.length > MAX_ITEMS || categoryIds.some((id) => !UUID_RE.test(String(id)))) {
+    c.fail('categoryIds', 'Wybierz konkurencje z listy.')
+  } else {
+    categories = [...new Set(categoryIds.map((id) => id.toLowerCase()))]
+  }
+  let variants = []
+  if (!Array.isArray(x.variants) || x.variants.length < 1 || x.variants.length > MAX_VARIANTS) {
+    c.fail('variants', `Od 1 do ${MAX_VARIANTS} wariantów.`)
+  } else {
+    variants = x.variants.map((v) => validateVariant(v, c))
+    const ids = variants.map((v) => v?.id).filter(Boolean)
+    if (new Set(ids).size !== ids.length) c.fail('variants', 'Ten sam wariant występuje dwa razy.')
+  }
+  return {
+    id: rules.uuid()(x.id, 'id', c) ?? null,
+    name: rules.text(80, { required: true, emptyMsg: 'Podaj nazwę dodatku.' })(x.name, 'name', c) ?? null,
+    image_upload_id: rules.uuid()(x.imageUploadId, 'imageUploadId', c) ?? null,
+    price,
+    order_until: orderUntil,
+    category_ids: categories,
+    variants,
+  }
+}
+
+function validateExtras(value, ctx, c) {
+  checkKeys(value, ['items'], c)
+  if (!Array.isArray(value.items) || value.items.length > MAX_EXTRAS) {
+    c.fail('items', `Najwyżej ${MAX_EXTRAS} dodatków.`)
+    return {}
+  }
+  const items = value.items.map((x) => validateExtra(x, ctx, c))
+  const ids = items.map((x) => x?.id).filter(Boolean)
+  if (new Set(ids).size !== ids.length) c.fail('items', 'Ten sam dodatek występuje dwa razy.')
+  return { items }
+}
+
 const VALIDATORS = {
   basics: validateBasics,
   office: validateOffice,
@@ -421,12 +563,13 @@ const VALIDATORS = {
   timing: validateTiming,
   form: validateForm,
   payments: validatePayments,
+  extras: validateExtras,
 }
 
 /**
  * @param {string} section one of SECTIONS
  * @param {object} value the section's input (camelCase)
- * @param {{ state: 'draft'|'published'|'closed', eventDate?: string|null, teamCategoryIds?: string[] }} ctx
+ * @param {{ state: 'draft'|'published'|'closed', eventDate?: string|null, opensAt?: string|null, closesAt?: string|null, teamCategoryIds?: string[] }} ctx
  * @returns {{ ok: true, value: object } | { ok: false, errors: Record<string, string> }}
  */
 export function validateSection(section, value, ctx = { state: 'draft' }) {

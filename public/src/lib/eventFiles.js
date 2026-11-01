@@ -7,18 +7,19 @@
 const BUCKET = 'registration-files'
 
 /**
- * @param {object} raw registration_raw output (posterPath, regulamin.path, competitions[].course.gpxPath)
+ * @param {object} raw registration_raw output (posterPath, regulamin.path, competitions[].course.gpxPath, extras[].imagePath)
  * @param {string} supabaseUrl the project URL, e.g. https://<ref>.supabase.co
- * @returns {object} a copy with posterUrl, regulamin.url (for a PDF) and course.gpxUrl, and no paths
+ * @returns {object} a copy with posterUrl, regulamin.url (for a PDF), course.gpxUrl and extras[].imageUrl, and no paths
  */
 export function withFileUrls(raw, supabaseUrl) {
   const base = `${String(supabaseUrl).replace(/\/+$/, '')}/storage/v1/object/public/${BUCKET}/`
   const url = (path) => (path ? base + path.split('/').map(encodeURIComponent).join('/') : null)
-  const { posterPath, regulamin, competitions, ...rest } = raw
+  const { posterPath, regulamin, competitions, extras, ...rest } = raw
   const { path: regulaminPath, ...reg } = regulamin ?? {}
   return {
     ...rest,
     posterUrl: url(posterPath),
+    ...(extras ? { extras: extras.map(({ imagePath, ...x }) => ({ ...x, imageUrl: url(imagePath) })) } : {}),
     regulamin: { ...reg, url: reg.kind === 'pdf' ? url(regulaminPath) : (reg.url ?? null) },
     competitions: (competitions ?? []).map(({ course, ...c }) => {
       if (!course) return { ...c, course: null }
