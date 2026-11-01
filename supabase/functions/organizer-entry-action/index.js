@@ -186,7 +186,8 @@ async function checkEdit(admin, settings, registrationId, fields) {
 //                   409 team_name_taken, 422 invalid_team_name.
 //   partner         { registrationId, partnerId | null } → 200 { data: { partnerId, changed } }
 //                   B3 „Partner”: attributes a live entry to one of the event's partners, or clears
-//                   it (Plan 7). 409 not_live, 422 invalid_partner (unknown or another event's).
+//                   it (Plan 7). 409 not_live, 422 invalid_partner (unknown or another event's)
+//                   with `fields: { partnerId }`.
 //   transfer        { registrationId, person, categoryId } → 200 { data: { registrationId,
 //                   consentState: 'awaiting', hostWithdraw, consentRequestSent, holderNotified } }
 //                   organizer_transfer (ruling 4, any time before 00:00 Warsaw on the race day),
@@ -280,13 +281,15 @@ Deno.serve(async (req) => {
 
     if (action === 'partner') {
       // Clearing takes an explicit null: a missing or misnamed key must not wipe the attribution.
-      if (!('partnerId' in body)) return refuse(req, 'invalid_partner')
+      // Every 422 names the field, so PartnerDialog marks the choice (9b).
+      const partnerFields = () => ({ partnerId: REFUSALS.invalid_partner[1] })
+      if (!('partnerId' in body)) return refuse(req, 'invalid_partner', partnerFields())
       const { partnerId } = body
-      if (partnerId !== null && !isUuid(partnerId)) return refuse(req, 'invalid_partner')
+      if (partnerId !== null && !isUuid(partnerId)) return refuse(req, 'invalid_partner', partnerFields())
       const { data, error } = await admin.rpc('set_registration_partner', {
         p_registration_id: target.registrationId, p_partner_id: partnerId, p_actor: actor,
       })
-      if (error) return refusalOrThrow(req, error)
+      if (error) return refusalOrThrow(req, error, partnerFields)
       await log('registration_partner_set', target.registrationId, { partnerId, changed: data?.changed === true })
       return json({ data: { partnerId, changed: data?.changed === true } }, 200, req)
     }

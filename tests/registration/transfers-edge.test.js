@@ -742,3 +742,23 @@ test('V-83 the recipient deletes the account: live invites to them are cancelled
   assert.equal((await call('transfer-accept', { token: inv2.token })).body.error, GONE)
   assert.equal((await one('registrations', { id: two.a.reg.id })).status, 'confirmed')
 })
+
+// ---------------------------------------------------------------- V-86 B3's same-price list
+
+test('V-86 a B3 row carries transferTo: the visible individual competitions at its list price in its frozen tier; none for an entry that cannot move', async () => {
+  const event = await createPublishedPaidEvent(owner, {
+    competitions: [BIEG(), { ...BIEG(), name: 'Bieg 5 km', distanceLabel: '5 km' }, { ...BIEG(), name: 'Nordic walking 9 km', discipline: 'nw' },
+      { ...BIEG(), name: 'Ukryty 9 km', distanceLabel: '9 km' }],
+    prices: { 'Bieg 9 km': 6000, 'Bieg 5 km': 6000, 'Nordic walking 9 km': 4000, 'Ukryty 9 km': 6000 },
+  })
+  const [c9, c5, nw, hidden] = event.categoryIds
+  await db().from('competitions').update({ hidden_at: new Date().toISOString() }).eq('category_id', hidden).throwOnError()
+  const a = await paidEntry(event)
+  const pending = await orderGroupOk(event, [adult(c5, 'self', runnerEmail('pend'))])
+  const list = await call('list-event-registrations', { eventId: event.eventId }, { session: owner })
+  assert.equal(list.status, 200, list.text)
+  const rowOf = (id) => list.body.data.find((r) => r.id === id)
+  assert.deepEqual(rowOf(a.reg.id).transferTo, [c9, c5], 'same price, visible, in the event\'s order; NW 40 zł and the hidden one left out')
+  const [pendingReg] = await rows('registrations', { order_id: pending.orderId })
+  assert.deepEqual(rowOf(pendingReg.id).transferTo, [], 'an unpaid entry cannot be transferred')
+})

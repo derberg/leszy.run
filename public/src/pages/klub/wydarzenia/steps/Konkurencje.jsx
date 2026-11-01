@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { parsePriceGrosze } from '@registration/sections.js'
 import { uploadDocument } from '../../../../lib/organizer.js'
 import {
   addTier, assignIds, assignTierIds, capacityLabel, capacityUnit, competitionRow, competitionsSection, dayLabel,
@@ -36,7 +37,6 @@ const PRICE_HINT = {
   free: 'Uzupełnij konkurencje: nazwa i limit miejsc.',
 }
 
-const PRICE_RE = /^\d{1,7}(?:[,.]\d{1,2})?$/
 
 function TierGrid({ rows, tiers, locks, closesOn, readOnly, errorId, error, rowErrors, onDate, onPrice, onAdd, onRemove }) {
   const dated = tiers.length - 1
@@ -76,9 +76,13 @@ function TierGrid({ rows, tiers, locks, closesOn, readOnly, errorId, error, rowE
           </thead>
           <tbody>
             {rows.map((r, i) => {
-              // A missing or bad tier price is named under this row and linked to its cells (M-4).
+              // A missing or bad tier price is named under this row and linked to its cells (M-4):
+              // each cell the validator's own parser refuses (format and the 100 000 zł limit alike),
+              // or, when the error names no single cell, every editable cell of the row (9b).
               const priceError = rowErrors[r.key]?.prices
               const priceErrorId = `${errorId}-row-${r.key}`
+              const refused = (t) => parsePriceGrosze(String(r.prices?.[t.key] ?? '').trim()) === null
+              const anyRefused = !!priceError && tiers.some(refused)
               return [
               <tr key={r.key} className={r.hidden ? 'opacity-60' : ''}>
                 <td className={`${tdClass} text-apex-text-bright`}>
@@ -87,7 +91,7 @@ function TierGrid({ rows, tiers, locks, closesOn, readOnly, errorId, error, rowE
                 </td>
                 {tiers.map((t, k) => {
                   const locked = locks.amount(t, r)
-                  const bad = !!priceError && !PRICE_RE.test(String(r.prices?.[t.key] ?? '').trim())
+                  const bad = !!priceError && !locked && (anyRefused ? refused(t) : true)
                   return (
                     <td key={t.key} className={tdClass}>
                       <div className="flex items-center gap-1.5">

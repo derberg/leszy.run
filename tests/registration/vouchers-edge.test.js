@@ -300,12 +300,14 @@ test('V-33 a partner set by hand on an entry without a voucher → the B3 row na
   const other = await paidEvent()
   const foreign = await createPartner(other.eventId)
   const fr = await callFn('organizer-entry-action', owner, { action: 'partner', registrationId: ra.id, partnerId: foreign.id })
-  assert.deepEqual([fr.status, fr.body.code], [422, 'invalid_partner'])
-  assert.equal((await callFn('organizer-entry-action', owner, { action: 'partner', registrationId: ra.id, partnerId: 'x' })).status, 422)
+  // Every 422 of organizer-entry-action carries `fields`, so PartnerDialog marks the choice (9b).
+  assert.deepEqual([fr.status, fr.body.code, fr.body.fields], [422, 'invalid_partner', { partnerId: 'Nieznany partner.' }])
+  const bad = await callFn('organizer-entry-action', owner, { action: 'partner', registrationId: ra.id, partnerId: 'x' })
+  assert.deepEqual([bad.status, bad.body.fields], [422, { partnerId: 'Nieznany partner.' }])
   // Clearing takes an explicit null: a missing or misnamed key wipes nothing.
   for (const typo of [{}, { partner_id: null }]) {
     const r = await callFn('organizer-entry-action', owner, { action: 'partner', registrationId: ra.id, ...typo })
-    assert.deepEqual([r.status, r.body.code], [422, 'invalid_partner'], JSON.stringify(typo))
+    assert.deepEqual([r.status, r.body.code, r.body.fields], [422, 'invalid_partner', { partnerId: 'Nieznany partner.' }], JSON.stringify(typo))
   }
   assert.equal((await one('registrations', { id: ra.id })).partner_id, partner.id)
   // A member may not; the audit names the target and the partner id, nothing personal.

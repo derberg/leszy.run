@@ -332,3 +332,33 @@ test('9a M-1 a queued function that answers undefined (its section turned invali
   assert.equal(await autosave.flush(), true)
   assert.deepEqual(calls, [])
 })
+
+test('9a N-1 a retry whose function answers undefined drops the failed save\'s error with it: no stale „Nie zapisano”, flush is clean', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let fail = true
+  const calls = []
+  const save = async (section, value) => {
+    calls.push(value)
+    if (fail) {
+      const err = new Error('Brak połączenia.')
+      err.status = undefined
+      throw err
+    }
+  }
+  const autosave = createAutosave({ save, delayMs: 10, retryDelaysMs: [2000] })
+  let valid = true
+  autosave.queue('competitions', () => (valid ? { items: [] } : undefined))
+  t.mock.timers.tick(10)
+  await settle()
+  await settle()
+  assert.equal(autosave.state.error?.section, 'competitions', 'the network failure is shown')
+  // The organizer clears a tier date before the 2 s retry: the section is no longer savable.
+  valid = false
+  fail = false
+  t.mock.timers.tick(2000)
+  await settle()
+  await settle()
+  assert.equal(calls.length, 1, 'nothing more went out')
+  assert.equal(autosave.state.error, null, 'the failed save is no longer pending, so its error goes too')
+  assert.equal(await autosave.flush(), true)
+})

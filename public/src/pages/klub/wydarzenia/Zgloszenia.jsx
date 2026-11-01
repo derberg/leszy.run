@@ -5,7 +5,8 @@ import { warsawToday } from '@registration/dates.js'
 import { callFunction } from '../../../lib/auth.js'
 import { downloadCsv } from '../../../lib/csvDownload.js'
 import {
-  AWAITING_CONSENT, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, statusChips,
+  AWAITING_CONSENT, competitionChips, entryActions, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, partnerChips,
+  statusChips,
 } from '../../../lib/entriesModel.js'
 import { teamStatusLabel } from '../../../lib/teamPage.js'
 import { btnGhost, btnPrimary } from '../settingsUi.js'
@@ -14,8 +15,10 @@ import CancelDialog from './entries/CancelDialog.jsx'
 import EditEntryDialog from './entries/EditEntryDialog.jsx'
 import ExtendDialog from './entries/ExtendDialog.jsx'
 import MessageDialog from './entries/MessageDialog.jsx'
+import PartnerDialog from './entries/PartnerDialog.jsx'
 import RefundDialog from './entries/RefundDialog.jsx'
 import RenameTeamDialog from './entries/RenameTeamDialog.jsx'
+import TransferDialog from './entries/TransferDialog.jsx'
 
 // The „Zgłoszenia” tab of a published event: the organizer's entries panel (B3). Plan 2's
 // PublishedHeader above the tabs carries the event name, date and state; this adds no second
@@ -27,6 +30,9 @@ import RenameTeamDialog from './entries/RenameTeamDialog.jsx'
 // Every action re-reads the list, whether it succeeded or not. The ⋯ items that need more than a
 // click open a dialog (entries/): refund, extend, cancel, edit, message (B3a) and rename; the
 // dialog reads its row fresh from the list and gives the focus back to the ⋯ when it closes.
+// Plan 7 adds the partner (organizer-only, V-38): a „Partner” column and the „Partnerzy” chips
+// while the event has partners, ⋯ „Partner” (PartnerDialog) and ⋯ „Przekaż pakiet”
+// (TransferDialog, the organizer's transfer, until the race day).
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
 // Online payment, and with it the reminder and the extension, stops an hour before closes_at
@@ -175,7 +181,10 @@ function OfficeConfirm({ row, busy, onYes, onNo }) {
 function rowMenu(r, ctx, { isTeamRow = false, menuRow = r, name = r.name, squadHref = null } = {}) {
   const actions = entryActions(menuRow, {
     closed: ctx.closed, payingClosed: ctx.payingClosed, raceDay: ctx.raceDay, isTeamRow, full: ctx.fullCategories.has(menuRow.categoryId),
+    isCaptain: ctx.captainIds.has(menuRow.id),
   }).filter((a) => a !== 'squad' || squadHref) // no address for the team page without the event's slug
+    // Nothing to pick while the event has no partner, unless the entry still carries one to clear.
+    .filter((a) => a !== 'partner' || ctx.hasPartners || menuRow.partnerId)
   return (
     <EntryMenu name={name} row={menuRow} actions={actions} isTeamRow={isTeamRow} isCaptain={ctx.captainIds.has(menuRow.id)} squadHref={squadHref}
       onSelect={(action, trigger) => ctx.onAction(action, menuRow, { isTeamRow, trigger })} />
@@ -201,6 +210,9 @@ function PersonCard({ r, ctx, testId = 'registration-card' }) {
         <span className={amountColour}>{amount}</span>
       </div>
       <ConsentLine r={r} />
+      {ctx.hasPartners && r.partnerName && (
+        <span className="font-mono text-xs text-apex-muted [overflow-wrap:anywhere]" data-testid="registration-partner">PARTNER: {r.partnerName}</span>
+      )}
     </li>
   )
 }
@@ -262,6 +274,11 @@ function PersonTableRow({ r, ctx, member = false }) {
       <td className={`${td} font-mono whitespace-nowrap ${member ? 'text-apex-muted' : amountColour}`} data-testid="registration-payment">
         {member && r.paidAmount === 0 ? '' : amount}
       </td>
+      {ctx.hasPartners && (
+        <td className={`${td} min-w-[120px] ${r.partnerName ? 'text-apex-text-bright' : 'text-apex-muted'}`} data-testid="registration-partner">
+          {r.partnerName ?? '—'}
+        </td>
+      )}
       <td className="px-3 py-2 text-right">{rowMenu(r, ctx)}</td>
     </tr>
   )
@@ -287,6 +304,7 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
         <td className={td}>{t.competition}</td>
         <td className={`${td} font-mono text-xs whitespace-nowrap ${teamColour(t)}`}>{teamStatusLabel(t.paymentStatus)}</td>
         <td className={`${td} font-mono whitespace-nowrap text-apex-text-bright`}>{t.fee > 0 ? formatPln(t.fee) : '—'}</td>
+        {ctx.hasPartners && <td className={td} />}
         <td className="px-3 py-2 text-right">
           {captain && rowMenu(captain, ctx, { isTeamRow: true, name: t.name, squadHref: ctx.squadHref(t.id) })}
         </td>
@@ -296,12 +314,15 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
   )
 }
 
-const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null }
+const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null, partners: [] }
 
-export default function Zgloszenia({ eventId, clubName = null, contactEmail = null, formFields = null }) {
+export default function Zgloszenia({
+  eventId, clubName = null, contactEmail = null, formFields = null, ageGroups = [], reckoning = 'race_day',
+}) {
   const [state, setState] = useState(EMPTY)
   const [categoryId, setCategoryId] = useState(null)
   const [statusKey, setStatusKey] = useState(null)
+  const [partnerId, setPartnerId] = useState(null)
   const [q, setQ] = useState('')
   const [openTeams, setOpenTeams] = useState(() => new Set())
   const [notice, setNotice] = useState(null)
@@ -315,7 +336,10 @@ export default function Zgloszenia({ eventId, clubName = null, contactEmail = nu
   const load = useCallback(async () => {
     try {
       const r = await callFunction('list-event-registrations', { eventId })
-      setState({ status: 'ok', rows: r.data ?? [], teams: r.teams ?? [], competitions: r.competitions ?? [], event: r.event ?? null })
+      setState({
+        status: 'ok', rows: r.data ?? [], teams: r.teams ?? [], competitions: r.competitions ?? [], event: r.event ?? null,
+        partners: r.partners ?? [],
+      })
     } catch {
       setState((s) => (s.status === 'ok' ? s : { ...EMPTY, status: 'error' }))
     }
@@ -338,7 +362,9 @@ export default function Zgloszenia({ eventId, clubName = null, contactEmail = nu
   const payingClosed = event.closesAt ? now.getTime() >= Date.parse(event.closesAt) - PAYING_CLOSES_BEFORE_MS : false
   const raceDay = event.eventDate ? warsawToday(now) >= event.eventDate : false
   const byId = new Map(state.rows.map((r) => [r.id, r]))
-  const filter = { categoryId: categoryId ?? undefined, statusKey: statusKey ?? undefined, q }
+  // A partner deleted meanwhile is no filter any more.
+  const partnerFilter = partnerId && state.partners.some((p) => p.id === partnerId) ? partnerId : undefined
+  const filter = { categoryId: categoryId ?? undefined, statusKey: statusKey ?? undefined, partnerId: partnerFilter, q }
   const consentView = statusKey === AWAITING_CONSENT
   const items = listItems(filterEntries(state.rows, filter), state.teams)
   const isOpen = (id) => consentView || openTeams.has(id)
@@ -423,6 +449,7 @@ export default function Zgloszenia({ eventId, clubName = null, contactEmail = nu
     fullCategories: new Set(counts.perCompetition.filter((c) => c.listed >= c.capacity).map((c) => c.id)),
     onAction,
     rowOf: (id) => byId.get(id) ?? null,
+    hasPartners: state.partners.length > 0,
     squadHref: (teamId) => (event.slug ? `/events/${event.slug}/druzyna/${teamId}` : null),
   }
   const blocked = noPlacesForAwaiting(counts) && counts.awaiting > 0
@@ -444,6 +471,12 @@ export default function Zgloszenia({ eventId, clubName = null, contactEmail = nu
       }
       case 'edit': return <EditEntryDialog row={row} formFields={formFields} {...common} />
       case 'rename_team': return captainOf ? <RenameTeamDialog team={captainOf} {...common} /> : null
+      case 'partner': return <PartnerDialog row={row} partners={state.partners} {...common} />
+      case 'transfer':
+        return (
+          <TransferDialog row={row} competitions={state.competitions} formFields={formFields} eventDate={event.eventDate ?? null}
+            reckoning={reckoning} ageGroups={ageGroups} {...common} />
+        )
       case 'message':
         return (
           <MessageDialog eventId={eventId} row={row} isTeamRow={dialog.isTeamRow} team={captainOf} competitions={state.competitions}
@@ -476,6 +509,10 @@ export default function Zgloszenia({ eventId, clubName = null, contactEmail = nu
         selected={categoryId} onPick={setCategoryId} />
       <Chips testId="status-chips" label="Status" chips={statusChips(counts).map((c) => ({ id: c.key, label: c.label }))}
         selected={statusKey} onPick={setStatusKey} />
+      {state.partners.length > 0 && (
+        <Chips testId="partner-chips" label="Partnerzy" chips={partnerChips(state.rows, state.partners)}
+          selected={partnerFilter ?? null} onPick={setPartnerId} />
+      )}
       <div className="max-w-[360px]">
         <label htmlFor={searchId} className="sr-only">Szukaj</label>
         <input id={searchId} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Szukaj"
@@ -505,6 +542,7 @@ export default function Zgloszenia({ eventId, clubName = null, contactEmail = nu
                   <th className="px-3 py-2 font-normal">Konkurencja</th>
                   <th className="px-3 py-2 font-normal">Status</th>
                   <th className="px-3 py-2 font-normal">Wpłata</th>
+                  {state.partners.length > 0 && <th className="px-3 py-2 font-normal">Partner</th>}
                   <th className="px-3 py-2 font-normal"><span className="sr-only">Akcje</span></th>
                 </tr>
               </thead>

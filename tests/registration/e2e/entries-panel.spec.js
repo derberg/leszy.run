@@ -144,7 +144,8 @@ test('O-50 ⋯ offers what each row allows; no „Przypomnij o wpłacie” in a 
     await expect(menu).toHaveCount(0)
     return labels
   }
-  expect(await items('Jan Kowalski')).toEqual(['Edytuj dane', 'Napisz do zawodnika', 'Zwróć wpłatę', 'Anuluj zgłoszenie'])
+  // Plan 7: „Przekaż pakiet” on a confirmed adult's own row; no „Partner” while the event has none.
+  expect(await items('Jan Kowalski')).toEqual(['Edytuj dane', 'Napisz do zawodnika', 'Przekaż pakiet', 'Zwróć wpłatę', 'Anuluj zgłoszenie'])
   // Bieg 9 km is full: the server would refuse a reminder nobody could pay (D6-27), so ⋯ has none.
   expect(await items('Piotr Zieliński')).toEqual([
     'Edytuj dane', 'Przedłuż termin wpłaty', 'Napisz do zawodnika', 'Anuluj nieopłacone zgłoszenie',
@@ -310,7 +311,7 @@ test.describe('the entries panel dialogs (6b)', () => {
       await page.keyboard.press('Escape')
       return labels
     }
-    expect(await items('Jan Kowalski')).toEqual(['Napisz do zawodnika', 'Zwróć wpłatę', 'Anuluj zgłoszenie'])
+    expect(await items('Jan Kowalski')).toEqual(['Napisz do zawodnika', 'Przekaż pakiet', 'Zwróć wpłatę', 'Anuluj zgłoszenie'])
     expect(await items('Piotr Zieliński')).not.toContain('Przedłuż termin wpłaty')
     expect(await items('Piotr Zieliński')).not.toContain('Edytuj dane')
 

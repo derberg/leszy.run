@@ -15,7 +15,7 @@ const fullName = (r) => (r.first_name === DELETED ? null : `${r.first_name ?? ''
 const roleOf = registrationRole
 
 const REG_COLUMNS = 'id, category_id, order_id, first_name, last_name, birth_date, gender, phone, city, club, nationality, ' +
-  'ice_name, ice_phone, email, age_group_label, status, created_at, price, partner_id, voucher_id, participant_id, profile_id, ' +
+  'ice_name, ice_phone, email, age_group_label, status, created_at, price, list_price, partner_id, voucher_id, participant_id, profile_id, ' +
   'registered_by_profile_id, consent_state, guardian_profile_id, guardian_name, guardian_removed_at, team_id'
 
 // Who registered each added adult and child, by the rule consentRequests.js names the buyer
@@ -82,6 +82,8 @@ const groupBy = (items, key) => {
  *   statusKey           entryStatusKey, from this row's own refunds and participant
  *   autoRefundReason    'full' when the order was refunded automatically for a full competition
  *   partnerId, partnerName  the entry's partner (registration_partners), null when none
+ *   transferTo          the competitions an organizer transfer may move the entry to (same price
+ *                       in its frozen tier, visible, individual; a captain's own), [] when none
  *   voucherCode         the code the entry was bought with, null when none
  * partners are the event's: [{ id, name, count }], count = the live entries attributed to each
  * (pending_payment or confirmed, not lapsed). Organizer-only, like the rows (V-38).
@@ -92,13 +94,13 @@ const groupBy = (items, key) => {
 export async function loadEntries(admin, settings, { guardianEmail = false, now = new Date() } = {}) {
   const eventId = settings.event_id
   const regColumns = guardianEmail ? `${REG_COLUMNS}, guardian_email` : REG_COLUMNS
-  const [regs, comps, orders, teamRows, lineRows, refundRows, participants, partnerRows, voucherRows] = await Promise.all([
+  const [regs, comps, orders, teamRows, lineRows, refundRows, participants, partnerRows, voucherRows, priceRows] = await Promise.all([
     allRows(() => admin.from('registrations').select(regColumns)
       .eq('event_id', eventId).order('created_at').order('id')),
     // In the event's own order (the wizard's), which the panel's chips follow.
     allRows(() => admin.from('competitions').select('category_id, name, capacity, taken, hidden_at, kind, sort_order')
       .eq('event_id', eventId).order('sort_order').order('category_id')),
-    allRows(() => admin.from('orders').select('id, total, status, expires_at, buyer_name').eq('event_id', eventId).order('id')),
+    allRows(() => admin.from('orders').select('id, total, status, expires_at, buyer_name, tier_id').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('teams').select('id, name, category_id, captain_registration_id, released_at').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('order_lines').select('id, order_id, kind, registration_id, amount, refunded, orders!inner(event_id)')
       .eq('orders.event_id', eventId).order('id')),
@@ -108,6 +110,8 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       .eq('event_id', eventId).not('registration_id', 'is', null).order('id')),
     allRows(() => admin.from('registration_partners').select('id, name').eq('event_id', eventId).order('id')),
     allRows(() => admin.from('vouchers').select('id, code').eq('event_id', eventId).order('id')),
+    allRows(() => admin.from('competition_prices').select('category_id, tier_id, amount, competitions!inner(event_id)')
+      .eq('competitions.event_id', eventId).order('category_id').order('tier_id')),
   ])
   const partnerName = new Map(partnerRows.map((p) => [p.id, p.name]))
   const voucherCode = new Map(voucherRows.map((v) => [v.id, v.code]))
@@ -129,6 +133,21 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     }]
   }))
   const orderOfReg = (r) => (r.order_id ? orderOf.get(r.order_id) : null)
+  // TransferDialog's competitions (B3, Plan 7): apply_transfer's rules for the target, as the
+  // client can see them. A confirmed entry moves to a visible individual competition whose list
+  // price in the entry's frozen tier equals its own (ruling 2; a free entry, with no tier, to a
+  // 0 zł one), a team captain only within the team's competition. The RPC decides; this list only
+  // keeps the select from offering what it would refuse.
+  const priceOf = new Map(priceRows.map((p) => [`${p.category_id}:${p.tier_id}`, p.amount]))
+  const individual = comps.filter((c) => !c.hidden_at && c.kind !== 'team')
+  function transferTo(r) {
+    if (r.status !== 'confirmed') return []
+    if (r.team_id) return [r.category_id]
+    const tier = orderOfReg(r)?.tier_id ?? null
+    const listPrice = r.list_price ?? 0
+    return individual.filter((c) => (tier ? priceOf.get(`${c.category_id}:${tier}`) ?? null : 0) === listPrice)
+      .map((c) => c.category_id)
+  }
 
   const visible = comps.filter((c) => !c.hidden_at)
   // placesLeft: capacity minus confirmed entries over the visible competitions. Entries
@@ -199,6 +218,7 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       partnerId: r.partner_id ?? null,
       partnerName: r.partner_id ? (partnerName.get(r.partner_id) ?? null) : null,
       voucherCode: r.voucher_id ? (voucherCode.get(r.voucher_id) ?? null) : null,
+      transferTo: transferTo(r),
     }
     row.statusKey = entryStatusKey({ ...row, refunds, participant }, now)
     if (guardianEmail) row.guardianEmail = role === 'minor' ? (r.guardian_email ?? null) : null

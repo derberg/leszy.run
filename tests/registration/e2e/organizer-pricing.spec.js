@@ -1,14 +1,17 @@
 import crypto from 'node:crypto'
+import fs from 'node:fs/promises'
 import zlib from 'node:zlib'
 import { test, expect } from './fixtures.js'
-import { admin, sessionFor } from '../helpers/stack.js'
-import { callFn, createPublishedFreeEvent, makeClub } from '../helpers/registrationFixtures.js'
-import { orderOk } from '../helpers/orders.js'
+import { admin, resetThrottle, sessionFor } from '../helpers/stack.js'
+import { callFn, createPublishedFreeEvent, createPublishedPaidEvent, makeClub } from '../helpers/registrationFixtures.js'
+import { minutesFromNow, orderOk, paidOrderOk, person, runnerEmail, setSettings } from '../helpers/orders.js'
 
 // Plan 7 task 9a: the organizer's side of tiered prices (A3), extras (A5b) and the locks after
 // publish (A8). V-70: the owner builds the A3 tier fixture and an extra in a draft, and both
 // survive a reload (autosave). V-71: after a registration the tier-1 cell is read-only, tier 2 is
 // editable and „Opublikuj zmiany” applies it; a sold extra keeps its price and its sold variant.
+// Task 9b: V-72 Płatności's codes, partners and package transfer (A6), V-73 B3's partner column,
+// filter and dialog and the organizer's transfer, V-74 no button wraps at 390 px.
 // Playwright loads the Deno-side modules as CommonJS, so nothing here imports
 // supabase/functions/_shared.
 
@@ -165,6 +168,17 @@ test('V-70 the owner builds the A3 tiers and an extra in a draft; a reload keeps
     .toEqual(['2027-11-15', '2027-11-25', null])
   await expect.poll(() => amountsOf(eventId, categoryIds[0]), { timeout: 15_000 }).toEqual([6000, 7000, 8500])
   await expect(page.getByTestId('unsaved')).toHaveCount(0)
+  // 9a M-4 (9b): a price the format accepts but the limit refuses still points its cell at the
+  // message, not only a malformed one.
+  const tooMuch = page.getByLabel('Cena Bieg 9 km · próg 3')
+  await tooMuch.fill('1000000')
+  await expect(page.getByTestId('tier-price-error')).toBeVisible()
+  await expect(tooMuch).toHaveAttribute('aria-invalid', 'true')
+  const describedBy = await tooMuch.getAttribute('aria-describedby')
+  await expect(page.locator(`[id="${describedBy}"]`)).toHaveText(await page.getByTestId('tier-price-error').innerText())
+  await expect(page.getByLabel('Cena Bieg 9 km · próg 2')).not.toHaveAttribute('aria-invalid', 'true')
+  await tooMuch.fill('85')
+  await expect(page.getByTestId('tier-price-error')).toHaveCount(0)
 
   // A5b: an extra with an image, two variants (one without a limit) and one competition left out.
   await page.goto(`${base}/dodatki`)
@@ -291,5 +305,226 @@ test('V-71 after a registration: tier 1 is read-only, a tier-2 change is staged 
   await expect(card.getByLabel('Wariant 2', { exact: true })).toBeEnabled()
   await expect(card.getByRole('button', { name: 'Usuń wariant 2' })).toBeVisible()
   await expect(card.getByLabel('Nazwa')).toBeEnabled()
+  await ctx.close()
+})
+
+// ---------------------------------------------------------------- 9b: A6 and B3
+
+const BIEG9 = { name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 }
+const BIEG5 = { name: 'Bieg 5 km', discipline: 'run', distanceLabel: '5 km', startTime: '10:30', capacity: 50 }
+const NW = { name: 'Nordic walking 9 km', discipline: 'nw', distanceLabel: '9 km', startTime: '10:05', capacity: 50 }
+
+/** A published paid event of its own club, with Jan Kowalski and Anna Lis paid. */
+async function paidEventWithEntries(prefix) {
+  await resetThrottle()
+  const { club, owner, slug } = await clubWithAgreement(prefix)
+  const event = await createPublishedPaidEvent(owner, {
+    clubSlug: slug, competitions: [BIEG9, BIEG5, NW], prices: { 'Bieg 9 km': 6000, 'Bieg 5 km': 6000, 'Nordic walking 9 km': 4000 },
+  })
+  const [c9] = event.categoryIds
+  const one = (firstName, lastName) => ({ categoryId: c9, people: [person(runnerEmail(lastName.toLowerCase()), { firstName, lastName })] })
+  const jan = await paidOrderOk(event, one('Jan', 'Kowalski'))
+  await paidOrderOk(event, one('Anna', 'Lis'))
+  return { club, owner, slug, event, jan, base: `/klub/${slug}/wydarzenia/${event.eventId}` }
+}
+
+/** Buttons whose label wrapped, or overflows its box, among the visible ones (a one-glyph ⓘ or × has no label to wrap). */
+const wrappedButtons = (page) => page.locator('button:visible').evaluateAll((els) => els.filter((e) => e.textContent.trim().length > 1).filter((e) => {
+  const s = getComputedStyle(e)
+  const line = Number.parseFloat(s.lineHeight) || Number.parseFloat(s.fontSize) * 1.5
+  const chrome = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((n, k) => n + Number.parseFloat(s[k]), 0)
+  const single = Math.max(Number.parseFloat(s.minHeight) || 0, line + chrome)
+  return e.getBoundingClientRect().height > single + 1 || e.scrollWidth > e.clientWidth + 1
+}).map((e) => e.textContent))
+const noSideways = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+
+test('V-72 Płatności: a partner, 20 generated codes listed with it, the CSV with the BOM; the package transfer switch and date are kept', async ({ browser }) => {
+  test.setTimeout(150_000)
+  const { club, event, base } = await paidEventWithEntries('v72')
+  const ctx = await contextFor(browser, club.ownerEmail)
+  const page = await ctx.newPage()
+  await page.goto(`${base}/platnosci`)
+
+  // Partnerzy: „+ Partner”.
+  const partners = page.getByTestId('partners')
+  await partners.getByRole('button', { name: '+ Partner' }).click()
+  const pd = page.getByRole('dialog', { name: 'Nowy partner' })
+  await pd.getByLabel('Nazwa').fill('Sklep Biegacz')
+  await pd.getByRole('button', { name: 'Dodaj partnera' }).click()
+  await expect(pd).toHaveCount(0)
+  await expect(partners.getByTestId('partner-row')).toHaveText([/Sklep Biegacz/])
+
+  // Kody rabatowe: „Wygeneruj kody”, a 422 names its field first.
+  const codes = page.getByTestId('vouchers')
+  await codes.getByRole('button', { name: 'Wygeneruj kody' }).click()
+  const gd = page.getByRole('dialog', { name: 'Wygeneruj kody' })
+  await gd.getByLabel('Liczba kodów').fill('20')
+  await gd.getByLabel('Rabat (%)').fill('150')
+  await gd.getByLabel('Partner').selectOption({ label: 'Sklep Biegacz' })
+  await gd.getByRole('button', { name: 'Wygeneruj', exact: true }).click()
+  await expect(gd.getByLabel('Rabat (%)')).toHaveAttribute('aria-invalid', 'true')
+  await expect(gd).toContainText('Rabat od 1 do 100%.')
+  await gd.getByLabel('Rabat (%)').fill('15')
+  await gd.getByRole('button', { name: 'Wygeneruj', exact: true }).click()
+  await expect(gd).toHaveCount(0)
+  const rows = codes.getByTestId('voucher-row')
+  await expect(rows).toHaveCount(20)
+  await expect(codes.locator('thead th')).toHaveText(['Kod', 'Rabat', 'Użycia', 'Partner', 'Ważny do', 'Akcje'])
+  await expect(rows.first()).toContainText('−15%')
+  await expect(rows.first()).toContainText('0 / 1')
+  await expect(rows.first()).toContainText('Sklep Biegacz')
+  const { data: stored } = await db().from('vouchers').select('code, percent, max_uses, partner_id').eq('event_id', event.eventId)
+  expect(stored).toHaveLength(20)
+  expect(new Set(stored.map((v) => `${v.percent}/${v.max_uses}`))).toEqual(new Set(['15/1']))
+
+  // One code of its own, then disabled; an unused one deleted.
+  await codes.getByRole('button', { name: '+ Kod' }).click()
+  const cd = page.getByRole('dialog', { name: 'Nowy kod' })
+  await cd.getByLabel('Kod · opcjonalnie').fill('BIEGACZ10')
+  await cd.getByLabel('Rabat (%)').fill('10')
+  await cd.getByLabel('Limit użyć').fill('50')
+  await cd.getByRole('button', { name: 'Dodaj kod' }).click()
+  await expect(cd).toHaveCount(0)
+  await expect(rows).toHaveCount(21)
+  const own = rows.filter({ hasText: 'BIEGACZ10' })
+  await own.getByRole('button', { name: 'Wyłącz — BIEGACZ10' }).click()
+  await expect(own).toContainText('WYŁĄCZONY')
+  await own.getByRole('button', { name: 'Usuń — BIEGACZ10' }).click()
+  await expect(rows).toHaveCount(20)
+
+  // „Eksport CSV”: the server's file, BOM first.
+  const [download] = await Promise.all([page.waitForEvent('download'), codes.getByRole('button', { name: 'Eksport CSV' }).click()])
+  expect(download.suggestedFilename()).toMatch(/^kody-.+-\d{4}-\d\d-\d\d\.csv$/)
+  const bytes = await fs.readFile(await download.path())
+  expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
+  const lines = bytes.toString('utf8').slice(1).split('\r\n')
+  expect(lines[0]).toBe('"Kod";"Rabat";"Wykorzystano";"Limit";"Ważny do";"Partner";"Notatka"')
+  expect(lines).toHaveLength(21)
+
+  // Przekazanie pakietu: allowed until a date; after publish it is staged, and a reload shows it.
+  const transfer = page.getByTestId('transfer-settings')
+  await expect(transfer.getByLabel('Możliwe do')).toHaveCount(0)
+  await transfer.getByRole('radio', { name: 'Pozwalam przekazać pakiet' }).click()
+  const until = transfer.getByLabel('Możliwe do')
+  await expect(until).toHaveAttribute('max', new Date(Date.parse(`${event.eventDate}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10))
+  await until.fill(day(10))
+  await expect.poll(async () => {
+    const { data } = await db().from('registration_pending_changes').select('payload').eq('event_id', event.eventId).maybeSingle()
+    return data?.payload?.payments ?? null
+  }, { timeout: 15_000 }).toMatchObject({ transfer_enabled: true, transfer_until: day(10) })
+  await page.reload()
+  await expect(page.getByTestId('transfer-settings').getByRole('radio', { name: 'Pozwalam przekazać pakiet' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByTestId('transfer-settings').getByLabel('Możliwe do')).toHaveValue(day(10))
+  await ctx.close()
+})
+
+test('V-73 B3: ⋯ „Partner” sets it and the „Partnerzy” filter shows that row; an organizer transfer after close leaves „WYCOFAJ W PANELU POMIARU”', async ({ browser }) => {
+  test.setTimeout(150_000)
+  const { club, owner, event, jan, base } = await paidEventWithEntries('v73')
+  const vouchers = (body) => callFn('organizer-vouchers', owner, { eventId: event.eventId, ...body })
+  expect((await vouchers({ action: 'partner_create', name: 'Sklep Biegacz' })).status).toBe(201)
+  expect((await vouchers({ action: 'partner_create', name: 'Radio Piekary' })).status).toBe(201)
+  const ctx = await contextFor(browser, club.ownerEmail)
+  const page = await ctx.newPage()
+  await page.goto(`${base}/zgloszenia`)
+  const table = page.getByTestId('registrations')
+  const row = (name) => table.getByTestId('registration-row').filter({ has: page.getByText(name, { exact: true }) })
+  await expect(table.locator('thead th')).toHaveText(['Nr', 'Zawodnik / drużyna', 'Konkurencja', 'Status', 'Wpłata', 'Partner', 'Akcje'])
+  await expect(row('Jan Kowalski').getByTestId('registration-partner')).toHaveText('—')
+
+  const trigger = page.getByRole('button', { name: 'Akcje — Jan Kowalski' }).first()
+  await trigger.click()
+  expect(await page.getByRole('menu').getByRole('menuitem').allTextContents())
+    .toEqual(['Edytuj dane', 'Napisz do zawodnika', 'Partner', 'Przekaż pakiet', 'Zwróć wpłatę', 'Anuluj zgłoszenie'])
+  await page.getByRole('menuitem', { name: 'Partner', exact: true }).click()
+  const pd = page.getByRole('dialog', { name: 'Partner' })
+  await expect(pd.getByRole('radio', { name: 'Bez partnera' })).toBeChecked()
+  await pd.getByRole('radio', { name: 'Sklep Biegacz' }).check()
+  await pd.getByRole('button', { name: 'Zapisz' }).click()
+  await expect(pd).toHaveCount(0)
+  await expect(page.getByTestId('entries-notice')).toHaveText('Partner: Sklep Biegacz — Jan Kowalski.')
+  await expect(trigger).toBeFocused()
+  await expect(row('Jan Kowalski').getByTestId('registration-partner')).toHaveText('Sklep Biegacz')
+  const { data: [janReg] } = await db().from('registrations').select('partner_id').eq('order_id', jan.orderId)
+  const { data: [sklep] } = await db().from('registration_partners').select('id').eq('event_id', event.eventId).eq('name', 'Sklep Biegacz')
+  expect(janReg.partner_id).toBe(sklep.id)
+
+  const chips = page.getByTestId('partner-chips')
+  await expect(chips.getByRole('button')).toHaveText(['Wszyscy', 'Radio Piekary · 0', 'Sklep Biegacz · 1'])
+  await chips.getByRole('button', { name: 'Sklep Biegacz · 1' }).click()
+  await expect(table.getByTestId('registration-row')).toHaveText([/Jan Kowalski/])
+  await chips.getByRole('button', { name: 'Wszyscy' }).click()
+  await expect(table.getByTestId('registration-row')).toHaveCount(2)
+
+  // After closes_at: the organizer transfers, the host owns the old participant.
+  await setSettings(event.eventId, { closes_at: minutesFromNow(-1) })
+  await page.reload()
+  await page.getByRole('button', { name: 'Akcje — Jan Kowalski' }).first().click()
+  await page.getByRole('menuitem', { name: 'Przekaż pakiet', exact: true }).click()
+  const td = page.getByRole('dialog', { name: 'Przekaż pakiet' })
+  // Same price only: Bieg 9 km and Bieg 5 km (60 zł), never NW (40 zł).
+  await expect(td.getByLabel('Konkurencja').locator('option')).toHaveText(['Bieg 9 km', 'Bieg 5 km'])
+  await expect(td.getByLabel('Konkurencja')).toHaveValue(event.categoryIds[0])
+  await td.getByLabel('Imię', { exact: true }).fill('Adam')
+  await td.getByLabel('Nazwisko').fill('Nowy')
+  await td.getByLabel('Data urodzenia').fill('2015-05-05')
+  await td.getByRole('button', { name: 'Mężczyzna' }).click()
+  await td.getByLabel('E-mail').fill(runnerEmail('nowy'))
+  await td.getByLabel('Telefon', { exact: true }).fill('600700800')
+  await td.getByRole('button', { name: 'Przekaż pakiet' }).click()
+  // A refusal reads near the button, and the field it is about is marked.
+  await expect(td.getByTestId('dialog-error')).toHaveText('Pakiet może przejąć tylko osoba pełnoletnia.')
+  await expect(td.getByLabel('Data urodzenia')).toHaveAttribute('aria-invalid', 'true')
+  await td.getByLabel('Data urodzenia').fill('1985-05-05')
+  await td.getByRole('button', { name: 'Przekaż pakiet' }).click()
+  await expect(td).toHaveCount(0)
+  await expect(page.getByTestId('entries-notice')).toHaveText('Pakiet przekazany: Jan Kowalski → Adam Nowy.')
+  await expect(row('Jan Kowalski').getByTestId('registration-status')).toHaveText('WYCOFAJ W PANELU POMIARU')
+  await expect(row('Adam Nowy').getByTestId('registration-status')).toHaveText('OPŁACONE')
+  // The partner moved with the package.
+  await expect(row('Adam Nowy').getByTestId('registration-partner')).toHaveText('Sklep Biegacz')
+  await ctx.close()
+})
+
+test('V-74 no button wraps at 390 px: Płatności with codes and partners, the panel with partners, PartnerDialog and TransferDialog', async ({ browser }) => {
+  test.setTimeout(120_000)
+  const { club, owner, event, base } = await paidEventWithEntries('v74')
+  const vouchers = (body) => callFn('organizer-vouchers', owner, { eventId: event.eventId, ...body })
+  const partner = await vouchers({ action: 'partner_create', name: 'Stowarzyszenie Biegaczy Ziemi Gliwickiej' })
+  expect(partner.status).toBe(201)
+  expect((await vouchers({ action: 'generate', n: 3, percent: 10, partnerId: partner.body.data.id, validUntil: day(20) })).status).toBe(201)
+  const ctx = await contextFor(browser, club.ownerEmail)
+  const page = await ctx.newPage()
+  await page.setViewportSize({ width: 390, height: 844 })
+
+  await page.goto(`${base}/platnosci`)
+  await expect(page.getByTestId('vouchers').getByTestId('voucher-row')).toHaveCount(3)
+  await page.getByTestId('transfer-settings').getByRole('radio', { name: 'Pozwalam przekazać pakiet' }).click()
+  await expect(page.getByTestId('transfer-settings').getByLabel('Możliwe do')).toBeVisible()
+  expect(await wrappedButtons(page)).toEqual([])
+  expect(await noSideways(page)).toBe(true)
+  for (const name of ['Wygeneruj kody', '+ Kod']) {
+    await page.getByTestId('vouchers').getByRole('button', { name }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    expect(await wrappedButtons(page)).toEqual([])
+    expect(await noSideways(page)).toBe(true)
+    await page.keyboard.press('Escape')
+  }
+
+  await page.goto(`${base}/zgloszenia`)
+  const cards = page.getByTestId('registrations-cards')
+  await expect(cards.getByTestId('registration-card')).toHaveCount(2)
+  await expect(page.getByTestId('partner-chips')).toBeVisible()
+  expect(await wrappedButtons(page)).toEqual([])
+  expect(await noSideways(page)).toBe(true)
+  for (const item of ['Partner', 'Przekaż pakiet']) {
+    await cards.getByRole('button', { name: 'Akcje — Jan Kowalski' }).click()
+    await page.getByRole('menuitem', { name: item, exact: true }).click()
+    await expect(page.getByRole('dialog', { name: item })).toBeVisible()
+    expect(await wrappedButtons(page)).toEqual([])
+    expect(await noSideways(page)).toBe(true)
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  }
   await ctx.close()
 })

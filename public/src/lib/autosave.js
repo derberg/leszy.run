@@ -57,7 +57,13 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
     const value = typeof queued === 'function' ? queued() : queued
     // A function answers undefined when its section stopped being savable after it was queued
     // (a tier date cleared meanwhile): nothing goes out, and the next valid edit queues again.
-    if (value === undefined) return
+    // An earlier failure of that value goes with it (9a N-1): nothing is pending any more, so a
+    // „Nie zapisano” left behind would only keep flush() failing.
+    if (value === undefined) {
+      attempts.delete(section)
+      if (errors.delete(section)) emit()
+      return
+    }
     const startedIn = epoch
 
     const attempt = (async () => {

@@ -379,7 +379,7 @@ function Editor({ eventId, stepParam }) {
       )}
 
       {onRegistrations && <Zgloszenia eventId={eventId} clubName={club.name} contactEmail={event.settings.contactEmail ?? null}
-        formFields={event.settings.formFields ?? null} />}
+        formFields={event.settings.formFields ?? null} ageGroups={event.ageGroups ?? []} reckoning={event.settings.ageReckoning ?? 'race_day'} />}
       {StepBody && (
         <StepBody key={`${current}:${generation}`} event={shown} queue={queue} saveState={saveState} readOnly={readOnly || busy} reload={reload}
           onSaved={onSaved} reportInvalid={reportInvalid} base={base} previewHref={`${base}/podglad`} />
