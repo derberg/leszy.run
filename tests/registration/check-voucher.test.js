@@ -3,7 +3,7 @@
 import { test, before, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
-import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { localEnv, resetThrottle, sessionFor, EDGE_PROXY, fillThrottle } from './helpers/stack.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { db, one } from './helpers/orders.js'
 import { makeVoucher, setTiers, vouchersMade, warsawDay } from './helpers/cart.js'
@@ -37,7 +37,7 @@ const someIp = () => `198.51.100.${(lastIp++ % 254) + 1}`
 async function check(body, { ip = someIp(), origin = null } = {}) {
   const res = await fetch(`${localEnv().functionsUrl}/check-voucher`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip, ...(origin ? { origin } : {}) },
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip, ...EDGE_PROXY, ...(origin ? { origin } : {}) },
     body: JSON.stringify(body),
   })
   const text = await res.text()
@@ -124,31 +124,35 @@ test('V-67 check-voucher prices at the current tier (Warsaw day), as create_orde
   assert.deepEqual((await check({ slug: event.slug, categoryId: c9, code: v.code })).body, { data: { percent: 15, price: 4250 } })
 })
 
-test('V-68 check-voucher throttles per IP: 10 refused codes an hour, 30 checks an hour; an accepted code costs no wrong slot', async () => {
+test('V-68 check-voucher throttles per client IP, one bucket each (C-1): 100 refused codes and 300 checks an hour, CGNAT-sized; an accepted code costs no wrong slot', async () => {
   const event = await twoEvents()
   const [c9] = event.categoryIds
   const v = await makeVoucher(event.eventId, { percent: 15, max_uses: 5 })
 
-  // Ten wrong guesses in parallel, then even the right code waits.
+  // One address that already spent its refused codes: even the right code waits.
   const guesser = someIp()
-  const wrong = await Promise.all(Array.from({ length: 10 }, (_, i) => check({ slug: event.slug, categoryId: c9, code: `ZLY-KOD-${i}` }, { ip: guesser })))
-  assert.deepEqual(wrong.map((r) => r.status), Array(10).fill(422))
-  const eleventh = await check({ slug: event.slug, categoryId: c9, code: v.code }, { ip: guesser })
-  assert.equal(eleventh.status, 429, JSON.stringify(eleventh.body))
-  assert.equal(eleventh.body.error, 'Zbyt wiele prób. Spróbuj ponownie później.')
-  // Another address is not affected.
-  assert.equal((await check({ slug: event.slug, categoryId: c9, code: v.code })).status, 200)
+  await fillThrottle(`voucher-wrong-ip:${guesser}`, 100)
+  const blocked = await check({ slug: event.slug, categoryId: c9, code: v.code }, { ip: guesser })
+  assert.equal(blocked.status, 429, JSON.stringify(blocked.body))
+  assert.equal(blocked.body.error, 'Zbyt wiele prób. Spróbuj ponownie później.')
+  // Another address has its own bucket.
+  const other = someIp()
+  assert.equal((await check({ slug: event.slug, categoryId: c9, code: v.code }, { ip: other })).status, 200)
+  const keys = (await db().from('otp_throttle').select('key').in('key', [`voucher-ip:${guesser}`, `voucher-ip:${other}`])).data.map((r) => r.key).sort()
+  assert.deepEqual(keys, [`voucher-ip:${guesser}`, `voucher-ip:${other}`].sort(), 'the bucket is keyed on the real address')
 
   // Accepted codes do not use up the wrong allowance: 12 right, then 9 wrong still answer 422.
   const honest = someIp()
   for (let i = 0; i < 12; i++) assert.equal((await check({ slug: event.slug, categoryId: c9, code: v.code }, { ip: honest })).status, 200)
   for (let i = 0; i < 9; i++) assert.equal((await check({ slug: event.slug, categoryId: c9, code: `ZLY-${i}-X` }, { ip: honest })).status, 422)
+  const wrongSlots = (await db().from('otp_throttle').select('attempts').eq('key', `voucher-wrong-ip:${honest}`).single()).data.attempts
+  assert.equal(wrongSlots, 9)
 
-  // 30 checks an hour, whatever their answer: the 31st waits.
+  // 300 checks an hour, whatever their answer: the next one waits.
   const busy = someIp()
-  const answers = []
-  for (let i = 0; i < 31; i++) answers.push((await check({ slug: event.slug, categoryId: c9, code: v.code }, { ip: busy })).status)
-  assert.deepEqual(answers, [...Array(30).fill(200), 429])
+  await fillThrottle(`voucher-ip:${busy}`, 299)
+  assert.equal((await check({ slug: event.slug, categoryId: c9, code: v.code }, { ip: busy })).status, 200)
+  assert.equal((await check({ slug: event.slug, categoryId: c9, code: v.code }, { ip: busy })).status, 429)
 })
 
 test('V-68 (I-1) a guesser rotating x-forwarded-for meets the event cap: 50 refused codes an hour per event, then 429 for everyone there; another event is unaffected', async () => {

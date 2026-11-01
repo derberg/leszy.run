@@ -1,3 +1,4 @@
+import { moneyLiveFor, PAYMENTS_OFF_REFUSAL } from '../_shared/registration/moneyLive.js'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
 import { clientIp } from '../_shared/clientIp.js'
@@ -17,10 +18,11 @@ import { CART_REFUSALS, NOT_FOUND, ORDER_REFUSALS, json, throttled } from '../_s
 // create_order (voucherCheck.js); a code of another event is voucher_invalid, nothing more. 404 for
 // an unknown, draft, closed-down or hidden competition and a disabled club; 409 no_price.
 // The answer never names the voucher, its partner, its note or its uses: only percent and price.
-// Throttles (claim_throttle_slot, one statement each), per hour: voucher-ip:<ip> 30 checks and
-// voucher-wrong-ip:<ip> 10 refused codes, and voucher-wrong-event:<eventId> 50 refused codes for
-// the whole event. The IP is the first x-forwarded-for element (clientIp.js), which a caller of
-// *.supabase.co sets to anything, so the IP caps only slow a browser; the event cap is the one a
+// Throttles (claim_throttle_slot, one statement each), per hour: voucher-ip:<ip> 300 checks and
+// voucher-wrong-ip:<ip> 100 refused codes, and voucher-wrong-event:<eventId> 50 refused codes for
+// the whole event. The address is clientIp()'s (#333): the browser address the /edge route vouched
+// for, else the address the gateway saw. Many people can share one address (CGNAT, an office), so the
+// per-address caps are generous and only slow one machine; the event cap is the real guard, the one a
 // guesser cannot rotate around. 50 an hour: a dictionary of memorable codes („BIEG”, „WILK2026”)
 // takes days instead of minutes, while an event's honest typos stay well below it (a runner who
 // mistypes tries once or twice). A guesser can exhaust it for an hour, so the form never treats a
@@ -30,8 +32,8 @@ import { CART_REFUSALS, NOT_FOUND, ORDER_REFUSALS, json, throttled } from '../_s
 // guesses cannot all pass a cap and a failing server spends nobody's attempts.
 
 const HOUR = 3600
-const CHECKS_PER_HOUR = 30
-const WRONG_PER_HOUR = 10
+const CHECKS_PER_HOUR = 300
+const WRONG_PER_HOUR = 100
 const WRONG_PER_EVENT_HOUR = 50
 
 Deno.serve(async (req) => {
@@ -45,6 +47,8 @@ Deno.serve(async (req) => {
   let body
   try { body = await req.json() } catch { return json({ error: 'Invalid JSON' }, 400, req) }
   const { slug, categoryId, code } = body ?? {}
+  // Vouchers are a Plan 7 money feature: off while PAID_REGISTRATION_ENABLED is (flags.js).
+  if (!moneyLiveFor(req)) return json(PAYMENTS_OFF_REFUSAL, 409, req)
 
   // The wrong-code slots this request holds, and the answer after giving them back.
   const claimed = []
@@ -57,7 +61,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const ip = clientIp(req) ?? 'unknown'
+    const ip = (await clientIp(req)) ?? 'unknown'
     const checks = await checkAndIncrement(admin, `voucher-ip:${ip}`, CHECKS_PER_HOUR, { windowSeconds: HOUR })
     if (!checks.allowed) return throttled(req, checks.retryAfterSec)
     const wrongKey = `voucher-wrong-ip:${ip}`

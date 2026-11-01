@@ -206,16 +206,19 @@ export async function loadOrderView(admin, orderId) {
   // Carry T7 (b): a line whose package was handed on points at the recipient's registration. The
   // buyer sees it as transferred, with the recipient's name only: no address, role, consent state
   // or account, so nothing of theirs but the name reaches the order page or a confirmation re-send.
+  // After an ORGANIZER transfer not even the name (ruling N-1): the payer did not choose that person.
   const transferred = await transferredRegistrationIds(admin, regIds)
   const lines = lineRows.filter((l) => l.kind === 'entry').map((l) => {
     const r = regById.get(l.registration_id) ?? {}
     const c = compById.get(r.category_id) ?? {}
     if (transferred.has(l.registration_id)) {
+      const byOrganizer = transferred.get(l.registration_id) === 'organizer'
       return {
         registrationId: l.registration_id,
         transferred: true,
-        firstName: r.first_name ?? null,
-        lastName: r.last_name ?? null,
+        transferredBy: byOrganizer ? 'organizer' : 'runner',
+        firstName: byOrganizer ? null : (r.first_name ?? null),
+        lastName: byOrganizer ? null : (r.last_name ?? null),
         email: null,
         competition: c.name ?? null,
         ageGroupLabel: null,
@@ -315,13 +318,18 @@ export async function teamEmailArgs(admin, teamId) {
   const transferred = await transferredRegistrationIds(admin, regs.map((r) => r.id))
   const members = regs
     .sort((a, b) => rank(a) - rank(b) || (a.team_position ?? Number.MAX_SAFE_INTEGER) - (b.team_position ?? Number.MAX_SAFE_INTEGER))
-    .map((r) => ({
-      firstName: r.first_name,
-      lastName: r.last_name,
-      ageGroupLabel: r.age_group_label,
-      role: r.id === team.captain_registration_id ? 'self' : registrationRole(r),
-      transferred: transferred.has(r.id),
-    }))
+    .map((r) => {
+      // Ruling N-1: a member placed by an organizer transfer is not named to the captain's payer.
+      const byOrganizer = transferred.get(r.id) === 'organizer'
+      return {
+        firstName: byOrganizer ? null : r.first_name,
+        lastName: byOrganizer ? null : r.last_name,
+        ageGroupLabel: r.age_group_label,
+        role: r.id === team.captain_registration_id ? 'self' : registrationRole(r),
+        transferred: transferred.has(r.id),
+        transferredBy: transferred.get(r.id) ?? null,
+      }
+    })
   return {
     event: {
       name: settings.name,

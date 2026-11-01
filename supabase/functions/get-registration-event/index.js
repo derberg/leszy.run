@@ -1,3 +1,4 @@
+import { moneyLiveFor } from '../_shared/registration/moneyLive.js'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
@@ -131,6 +132,7 @@ Deno.serve(async (req) => {
       })),
     }
 
+    const moneyLive = moneyLiveFor(req)
     return json({ data: {
       ...event,
       ageGroups: ageGroups.map(camel),
@@ -142,7 +144,9 @@ Deno.serve(async (req) => {
       role,
       // Only the checklist sees the payout, as { mode, ready }; the account
       // itself is get-event-payout's alone (ruling P3-R1).
-      checklist: publishChecklist({ ...event, hasAgreement, payout }),
+      checklist: publishChecklist({ ...event, hasAgreement, payout, moneyLive }),
+      // Plan 7's money features (flags.js): the wizard shows Dodatki, codes and partners only when live.
+      moneyLive,
     } }, 200, req)
   } catch (err) {
     console.error('get-registration-event error:', err?.message, err?.code)

@@ -7,7 +7,7 @@
 import { test, before, after, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
-import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { acceptAgreement, createPublishedFreeEvent, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { startDpayMock } from './helpers/dpayControl.js'
 import { consentIds, one, orderOf, registrationsOf, rows, runnerEmail } from './helpers/orders.js'
@@ -37,7 +37,7 @@ const ip = () => `198.51.100.${crypto.randomInt(1, 255)}`
 async function call(fn, body, session, { raw } = {}) {
   const res = await fetch(`${localEnv().functionsUrl}/${fn}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip(), ...(session ? { cookie: session.cookie } : {}) },
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip(), ...EDGE_PROXY, ...(session ? { cookie: session.cookie } : {}) },
     body: raw ?? JSON.stringify(body),
   })
   const text = await res.text()

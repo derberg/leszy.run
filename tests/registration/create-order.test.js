@@ -356,6 +356,8 @@ test('P-24 order-status: buyer only, with the event\'s closesAt; a fresh pending
     teamId: null, teamName: null, isCaptain: false,
     // Plan 7 task 7 (V-58): whether the package was handed on.
     transferred: false,
+    // Plan 7 final review I-2: who handed a transferred line on (null when it was not).
+    transferredBy: null,
     // Plan 7 task 8b (V-65): an unpaid order has nothing to hand on.
     transfer: null,
   }])

@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { describe, it, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { wizardSteps, stepForBlocking } from '../../src/lib/wizardSteps.js'
 
@@ -76,4 +76,17 @@ test('blocking items map to the step that fixes them', () => {
   assert.equal(stepForBlocking('tiers'), 'konkurencje')
   assert.equal(stepForBlocking('transfer_until'), 'platnosci')
   assert.equal(stepForBlocking('extras_order_until'), 'dodatki')
+})
+
+describe('wizardSteps with the money features off (final review I-1 + I-4)', () => {
+  const keys = (args) => wizardSteps(args).map((s) => s.key)
+  it('no Dodatki, and Płatności only for a paid event: donations and priced extras take no money', () => {
+    assert.ok(!keys({ pricingMode: 'free', donationsEnabled: true, hasPricedExtras: true, moneyLive: false }).includes('platnosci'))
+    assert.ok(!keys({ pricingMode: 'free', moneyLive: false }).includes('dodatki'))
+    assert.ok(keys({ pricingMode: 'fixed', moneyLive: false }).includes('platnosci'))
+  })
+  it('live (the default): Dodatki always, Płatności for donations too', () => {
+    assert.ok(keys({ pricingMode: 'free' }).includes('dodatki'))
+    assert.ok(keys({ pricingMode: 'free', donationsEnabled: true }).includes('platnosci'))
+  })
 })

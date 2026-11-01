@@ -3,7 +3,7 @@
 **Administrator:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
 **Data ostatniej aktualizacji:** 2026-11-01
-**Wersja:** 1.9
+**Wersja:** 1.10
 
 ## Rola Leszy.run
 
@@ -219,10 +219,10 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
   - partner, kod i notatki są widoczne wyłącznie dla Organizatora (panel zgłoszeń, eksport CSV); nie trafiają na listę startową, stronę zawodów, stronę zamówienia, stronę przekazania, do eksportu zawodnika ani do żadnego e-maila do zawodnika;
   - osoba zaproszona widzi tylko imię przekazującego (bez nazwiska, adresu, telefonu i daty urodzenia), zawody, konkurencję i cenę pakietu;
   - przekazujący dostaje e-mail z imieniem i nazwiskiem osoby, która przejęła pakiet, nigdy z jej adresem (osoba z przekazanego dalej linku jest nazwana tak samo);
-  - przy przekazaniu przez Organizatora dotychczasowy zawodnik dostaje tylko informację, że pakiet przekazano innej osobie, bez jej imienia, nazwiska i adresu (minimalizacja danych: nie on wybrał tę osobę);
+  - przy przekazaniu przez Organizatora dotychczasowy zawodnik dostaje tylko informację, że pakiet przekazano innej osobie, bez jej imienia, nazwiska i adresu (minimalizacja danych: nie on wybrał tę osobę) — tak samo na stronie zamówienia, w ponownie wysłanym potwierdzeniu i w e-mailu o zwrocie z tego pakietu; osoba, która przejęła pakiet, dostaje własną kopię e-maila o zwrocie, z informacją, że pieniądze wracają do osoby, która zapłaciła;
   - po zamknięciu zapisów uczestnik przekazujący zostaje na hoście pomiaru czasu, a alert dla operatora wskazuje identyfikator zgłoszenia, wydarzenie i numer startowy, bez imienia i nazwiska.
 - **Transfery poza EOG:** jak w pkt 1.
-- **Okres przechowywania:** wiersz `transfers` zostaje jako zapis tego, gdzie trafił pakiet (opłata zostaje przy pierwotnym zamówieniu, pkt 10). Link wygasa z końcem dnia `transfer_until` (czas warszawski). Dane zgłoszeń — jak w pkt 10 i 11.
+- **Okres przechowywania:** wiersz `transfers` zostaje jako zapis tego, gdzie trafił pakiet (opłata zostaje przy pierwotnym zamówieniu, pkt 10). Link wygasa z końcem dnia `transfer_until` (czas warszawski). Adres osoby zaproszonej (`transfers.to_email`) jest usuwany: od razu, gdy zaproszenie przyjmuje sama osoba zaproszona (jej adres jest w jej nowym zgłoszeniu); przy przekazaniu przez Organizatora nie jest zapisywany wcale; w pozostałych przypadkach (zaproszenie nieprzyjęte, cofnięte, wygasłe albo przyjęte przez kogoś innego z przekazanego dalej linku) — 30 dni po dniu zawodów (czas warszawski), razem z danymi kontaktowymi zgłoszeń (`purge_registration_contact_data`); zaproszenie wciąż otwarte jest wtedy najpierw oznaczane jako wygasłe. Dane zgłoszeń — jak w pkt 10 i 11.
 - **Prawa osób:**
   - eksport (`export-my-data`) zawiera `transfers.sent` (przekazania pakietów tej osoby: rodzaj, stan, daty, wydarzenie; adres, który sama wpisała — przy przekazaniu przez Organizatora bez danych osoby przejmującej) i `transfers.received` (zaproszenia na jej adres i pakiety przez nią przejęte, z `from_name` — imieniem przekazującego albo nazwą klubu Organizatora — jako źródłem jej adresu; adres zaproszenia tylko wtedy, gdy jest jej własny). Skrót tokenu, partner, kod i notatki nie są eksportowane;
   - usunięcie konta (`delete-my-account`, funkcja `forget_transfer_parties`): jako przekazujący — otwarte zaproszenia zgłoszeń, które są anonimizowane, są cofane, a ich linki przestają działać; osoba zaproszona dostaje jeden e-mail „Zaproszenie cofnięte”, który nie wskazuje przekazującego (nieudana wysyłka nie wstrzymuje usunięcia konta); jako osoba zaproszona — otwarte zaproszenia na jej adres są cofane, a potem `to_email` jest usuwany ze wszystkich przekazań na ten adres. Wiersze przekazań zostają bez adresu.
@@ -236,6 +236,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.10 | 2026-11-01 | Sekcja 14: adres osoby zaproszonej usuwany przy przyjęciu przez nią zaproszenia, niezapisywany przy przekazaniu przez Organizatora, a w pozostałych przypadkach 30 dni po zawodach; dane osoby przejmującej po przekazaniu przez Organizatora nie trafiają do dotychczasowego zawodnika także na stronie zamówienia, w ponownie wysłanym potwierdzeniu i w e-mailu o zwrocie. |
 | 1.9 | 2026-11-01 | Sekcja 14: przy usunięciu konta przekazującego osoba zaproszona dostaje e-mail o cofnięciu zaproszenia, bez danych przekazującego. |
 | 1.8 | 2026-11-01 | Dodano sekcję 14 (kody rabatowe i partnerzy widoczni tylko dla Organizatora; przekazanie pakietu: adres osoby zaproszonej podany przez przekazującego, przekazujący widzi imię i nazwisko osoby przejmującej, przy przekazaniu przez Organizatora dotychczasowy zawodnik nie dostaje danych osoby przejmującej; eksport i usuwanie konta). |
 | 1.7 | 2026-11-01 | Sekcja 13: wiadomość do jednego zawodnika zawiera identyfikator jego zgłoszenia, więc jest w jego eksporcie (bez wskazania osoby nadawcy) i jest usuwana przy usunięciu konta; to samo dotyczy opiekuna przy wiadomości do zgłoszenia dziecka. Sekcja 10: `refunds.resolved_by` (notatka operatora przy ręcznym rozstrzygnięciu zwrotu) wskazuje operatora. |

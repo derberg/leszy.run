@@ -3,7 +3,8 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { logOrganizerAction } from '../_shared/organizer.js'
 import { AGREEMENT_REQUIRED, clubHasAgreement, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
-import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM, moneyReason } from '../_shared/registration/checklist.js'
+import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM, moneyReason, paymentsRefusal } from '../_shared/registration/checklist.js'
+import { moneyLiveFor } from '../_shared/registration/moneyLive.js'
 import { eventPageUrl } from '../_shared/registration/slug.js'
 import { changeDiff, mergedChecklistInput, noticeAudience } from '../_shared/registration/changeDiff.js'
 import { PAID_REGISTRATION_ENABLED } from '../_shared/registration/flags.js'
@@ -24,14 +25,6 @@ const NOT_PUBLISHED = { error: 'Wydarzenie nie jest opublikowane.', code: 'not_p
 const ACTIONS = ['publish', 'publish_changes', 'discard_changes', 'preview_changes']
 const SUBJECT_MAX = 200
 const BODY_MAX = 5000
-
-// The 409 while paid registration is off names what makes the event take money (M-2): a free
-// charity event held only by its donations switch must learn which switch it is.
-const PAYMENTS_SOON = {
-  pricing: 'Nie można opublikować: płatności online — wkrótce.',
-  extras: 'Nie można opublikować: płatne dodatki to płatności online — wkrótce.',
-  donations: 'Nie można opublikować: darowizny przy zapisie to płatności online — wkrótce. Wyłącz „Pozwól dopłacić darowiznę” w Podstawach.',
-}
 
 const refused = (blocking, req) => json({ error: blockingMessage(blocking), blocking }, 409, req)
 
@@ -205,11 +198,12 @@ async function publishChanges(admin, req, session, settings, notifyInput, expect
   // published; staged again since, the dialog must show the new diff first.
   if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== pending.updated_at) return json(CHANGED, 409, req)
   const live = await liveSnapshot(admin, settings)
-  const merged = mergedChecklistInput(live, pending.payload)
+  const merged = { ...mergedChecklistInput(live, pending.payload), moneyLive: moneyLiveFor(req) }
   // An event that will take money (a paid mode, a priced extra, donations; D7-22) waits for the flag.
+  // With the money features off, extras and donations take none (final review I-1).
   const reason = moneyReason(merged)
   if (!PAID_REGISTRATION_ENABLED && reason) {
-    return json({ error: PAYMENTS_SOON[reason], code: 'payments', reason }, 409, req)
+    return json({ error: paymentsRefusal(reason), code: 'payments', reason }, 409, req)
   }
 
   // The event as it will be must pass the first publish's checklist too.
@@ -328,7 +322,7 @@ Deno.serve(async (req) => {
     if (settings.state !== 'draft') return json(NOT_DRAFT, 409, req)
     if (!(await clubHasAgreement(admin, settings.club_id))) return json(AGREEMENT_REQUIRED, 409, req)
 
-    const { blocking } = publishChecklist({ ...(await checklistInput(admin, settings)), hasAgreement: true })
+    const { blocking } = publishChecklist({ ...(await checklistInput(admin, settings)), hasAgreement: true, moneyLive: moneyLiveFor(req) })
     if (blocking.length) return refused(blocking, req)
 
     const { data, error } = await admin.rpc('publish_registration_event', {

@@ -3,6 +3,7 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { logOrganizerAction } from '../_shared/organizer.js'
 import { isUuid, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
+import { moneyLiveFor, PAYMENTS_OFF_REFUSAL } from '../_shared/registration/moneyLive.js'
 import { allRows } from '../_shared/registration/allRows.js'
 import { generateCodes, MAX_GENERATED_CODES, validateVoucherInput } from '../_shared/registration/vouchers.js'
 import { vouchersToCsv } from '../_shared/registration/entriesCsv.js'
@@ -168,6 +169,8 @@ Deno.serve(async (req) => {
     if (!MANAGERS.includes(loaded.role)) return json(NOT_FOUND, 404, req)
     const action = body.action
     if (!ACTIONS.includes(action)) return json({ error: 'Nieznana operacja.', code: 'invalid_action' }, 400, req)
+    // Codes and partners are Plan 7 money features: off while PAID_REGISTRATION_ENABLED is (flags.js).
+    if (!moneyLiveFor(req)) return json(PAYMENTS_OFF_REFUSAL, 409, req)
 
     const { settings } = loaded
     const eventId = settings.event_id

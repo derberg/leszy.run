@@ -26,6 +26,7 @@ import { TEAM_NAME_MESSAGE, normalizeTeamRequest, teamSizeMessage, validateTeam 
 import { DONATION_MESSAGE, EXTRAS_MESSAGE, VOUCHER_CODE_MESSAGE, cartIsEmpty, cartOfRequest, withCart } from './cart.js'
 import { cartAmounts } from './pricing.js'
 import { normalizeCode } from './vouchers.js'
+import { moneyLiveFor } from './moneyLive.js'
 
 export function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -73,6 +74,8 @@ export const REFUSALS = {
   duplicate: [409, 'Ten adres e-mail jest już zapisany na te zawody.'],
   consents_changed: [400, 'Zaznacz wymagane zgody.'],
   team_competition: [409, 'W tej konkurencji startują tylko drużyny.'],
+  // Plan 7's money features while PAID_REGISTRATION_ENABLED is false (flags.js moneyFeaturesLive).
+  payments: [409, 'Płatności online będą dostępne wkrótce.'],
 }
 
 // create_order's refusals beyond register_free's. create_team_registration raises them too.
@@ -240,7 +243,7 @@ export async function personContexts(admin, settings, compRows) {
  *   people: [{ categoryId, role: self|adult|minor, …validatePerson value, voucherCode?, extras? }],
  *   buyer, buyerName, consentIds, email (the buyer's address), profileId, withCookie, legacy, teamName,
  *   cart (cartOfRequest: the donation, and the team's voucherCode) }.
- * `pricing(settings, cart)` returns a refusal code (a key of `refusals`) for an event this path does
+ * `pricing(settings, cart, { moneyLive })` returns a refusal code (a key of `refusals`) for an event this path does
  * not serve, or null.
  * `throttles(email)` lists the counters to claim: [{ key, limit, windowSeconds }].
  */
@@ -276,7 +279,11 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
   // Early answers; the RPC re-checks all of them under its locks.
   if (settings.state !== 'published' || compRows.some((c) => c.hidden_at)) return { response: refusal('closed', req) }
   if (team && competition.kind !== 'team') return { response: refusal('not_team', req, {}, refusals) }
-  const priced = pricing(settings, cart)
+  // Final review I-1 + I-4: with the money features off, a code, an extra or a donation is refused
+  // before anything else, and the event is the plain free event it was before Plan 7.
+  const moneyLive = moneyLiveFor(req)
+  if (!moneyLive && !cartIsEmpty(cart)) return { response: refusal('payments', req, {}, refusals) }
+  const priced = pricing(settings, cart, { moneyLive })
   if (priced) return { response: refusal(priced, req, {}, refusals) }
   const window = settings.opens_at && settings.closes_at
     ? isOpen({ opensAt: settings.opens_at, closesAt: settings.closes_at })

@@ -107,9 +107,13 @@ function useOrderStatus(orderId) {
   return { ...state, again }
 }
 
+// Ruling N-1: a package the organizer handed on names nobody to the payer.
+const ORGANIZER_TRANSFER = 'Pakiet przekazany przez organizatora'
+
 function Person({ line, showTag = false, onStale, slug = null }) {
+  const name = line.transferredBy === 'organizer' ? ORGANIZER_TRANSFER : line.name
   return (
-    <RegisteredPerson person={line} registrationId={line.registrationId} name={line.name} showTag={showTag}
+    <RegisteredPerson person={line} registrationId={line.registrationId} name={name} showTag={showTag}
       onStale={onStale} testId="order-person" footer={slug ? <TransferLink row={line} slug={slug} /> : null}
       meta={[line.competition, personGroupLabel(line), line.startTime ? `start ${line.startTime}` : null]} />
   )

@@ -160,6 +160,8 @@ Deno.serve(async (req) => {
           registrationId: l.registrationId,
           // Plan 7: a package handed on. The line keeps the recipient's name and nothing else of theirs.
           transferred: l.transferred === true,
+          // Ruling N-1: after an organizer transfer the line carries no name at all.
+          transferredBy: l.transferred ? (l.transferredBy ?? 'runner') : null,
           name: [l.firstName, l.lastName].filter(Boolean).join(' '),
           firstName: l.firstName,
           role: l.role,

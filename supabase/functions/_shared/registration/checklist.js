@@ -55,6 +55,10 @@ function regulaminGiven(s) {
 export function moneyReason(event) {
   const s = event?.settings ?? {}
   if ((s.pricingMode ?? 'free') !== 'free') return 'pricing'
+  // Extras and donations take money only while Plan 7's money features are live (flags.js
+  // moneyFeaturesLive, passed as event.moneyLive by the edge functions; absent means live). Off, a
+  // free charity event is the free event it was before Plan 7 (final review I-1).
+  if (event?.moneyLive === false) return null
   if ((event?.extras ?? []).some((x) => Number(x?.price) > 0)) return 'extras'
   if (s.isCharity === true && s.donationsEnabled === true) return 'donations'
   return null
@@ -65,10 +69,20 @@ export function takesMoney(event) {
   return moneyReason(event) !== null
 }
 
-const PAYMENTS_SOON = {
+/**
+ * Why an event that takes money cannot be published yet, by moneyReason. The checklist item's label;
+ * publish-registration-event's 409 is paymentsRefusal() of the same text (M-2: one wording).
+ */
+export const PAYMENTS_SOON = {
   pricing: 'Płatności online — wkrótce',
   extras: 'Płatne dodatki to płatności online — wkrótce',
-  donations: 'Darowizny przy zapisie to płatności online — wkrótce. Wyłącz je w Podstawach',
+  donations: 'Darowizny przy zapisie to płatności online — wkrótce. Wyłącz „Pozwól dopłacić darowiznę” w Podstawach',
+}
+
+/** The 409 text for a publish held by `reason`: „Nie można opublikować: <the checklist label>.” */
+export function paymentsRefusal(reason) {
+  const label = PAYMENTS_SOON[reason]
+  return `Nie można opublikować: ${label.charAt(0).toLowerCase()}${label.slice(1)}.`
 }
 
 /** '2026-12-06' → '2026-12-05' */

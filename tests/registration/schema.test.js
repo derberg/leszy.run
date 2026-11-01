@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
-import { localEnv, admin, sessionFor } from './helpers/stack.js'
+import { localEnv, admin, sessionFor, waitForRest } from './helpers/stack.js'
 
 const ZT_CLUB = '00000000-0000-4000-8000-0000000000c1'
 const IK_CLUB = '00000000-0000-4000-8000-0000000000c2'
@@ -113,6 +113,8 @@ test('F-03 the same deletes on an event without registration succeed', async () 
 })
 
 test('F-04 a removed participant is hidden from participants_public and the PIN RPCs', async () => {
+  // An earlier file's DDL may still have PostgREST reloading its schema (the full-run flake).
+  await waitForRest(['participants', 'participants_public', 'event_secrets'])
   const { event, category } = await seedEvent({ registration: false })
   const tag = crypto.randomUUID().slice(0, 8)
   const kept = await insert('participants', {

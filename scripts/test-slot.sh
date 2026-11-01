@@ -66,7 +66,7 @@ case "$1" in
       supabase ${workdir_args[@]+"${workdir_args[@]}"} "$@"
       eval "$(supabase ${workdir_args[@]+"${workdir_args[@]}"} status -o env 2>/dev/null | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
       for _ in $(seq 1 60); do
-        code=$(curl -s -o /dev/null -w '%{http_code}' -H "apikey: ${SERVICE_ROLE_KEY:-}" \
+        code=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' -H "apikey: ${SERVICE_ROLE_KEY:-}" \
           -H "Authorization: Bearer ${SERVICE_ROLE_KEY:-}" "${API_URL:-}/rest/v1/clubs?select=id&limit=1" || true)
         [ "$code" = 200 ] && { echo "REST ready."; exit 0; }
         sleep 2

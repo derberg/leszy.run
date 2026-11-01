@@ -252,7 +252,7 @@ export default function Platnosci({ event, queue, saveState, readOnly, reload })
         {untilError && <p id={`${untilId}-err`} className="text-apex-red font-sans text-sm">{untilError}</p>}
       </section>
 
-      {writer && <Vouchers eventId={s.eventId} competitions={event.competitions ?? []} />}
+      {writer && event.moneyLive !== false && <Vouchers eventId={s.eventId} competitions={event.competitions ?? []} />}
     </div>
   )
 }

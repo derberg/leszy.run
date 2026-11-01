@@ -33,7 +33,9 @@ export const link = (url, label) => `<p><a href="${escapeHtml(url)}">${escapeHtm
 function personLines(lines) {
   return lines.map((l) => {
     const name = `${l.firstName ?? ''} ${l.lastName ?? ''}`.trim()
-    // A line whose package was handed on (Plan 7): the holder's name only, nothing else of theirs.
+    // A line whose package was handed on (Plan 7): the holder's name only, nothing else of theirs;
+    // after an organizer transfer not even that (ruling N-1).
+    if (l.transferred && (l.transferredBy === 'organizer' || !name)) return 'Pakiet przekazany przez organizatora'
     if (l.transferred) return `${name} — przejął(-ęła) pakiet`
     const facts = [l.competition, l.ageGroupLabel ? `kategoria ${l.ageGroupLabel}` : null, l.startTime ? `start ${l.startTime}` : null]
       .filter(Boolean).join(', ')
@@ -204,7 +206,7 @@ export function paymentRefundedEmail({ event, order, amount, reason }) {
  * (spec 12.10). event { name }, person { firstName, lastName } (the entry, null names for a deleted
  * account), grosze (this refund), cancelled (the refund cancelled the entry), organizer { name }.
  */
-export function organizerRefundEmail({ event, person, grosze, cancelled, organizer }) {
+export function organizerRefundEmail({ event, person, grosze, cancelled, organizer, paidByOther = false }) {
   const amount = formatPln(grosze)
   const who = [person?.firstName, person?.lastName].filter(Boolean).join(' ')
   const entry = who ? `zgłoszenia: ${who}` : 'zgłoszenia'
@@ -214,7 +216,10 @@ export function organizerRefundEmail({ event, person, grosze, cancelled, organiz
     `organizator zawodów ${event.name}, ${organizer.name}, zwrócił ${amount} z opłaty za ${entry}.`,
     ...(cancelled ? ['', 'Zgłoszenie zostało anulowane.'] : []),
     '',
-    'Pieniądze wrócą tą samą drogą, którą zostały wysłane, zwykle w ciągu kilku dni roboczych.',
+    // A package taken over from somebody else (Plan 7): the money goes back to whoever paid.
+    paidByOther
+      ? 'Zwrot trafia do osoby, która zapłaciła za to zgłoszenie.'
+      : 'Pieniądze wrócą tą samą drogą, którą zostały wysłane, zwykle w ciągu kilku dni roboczych.',
     'Pytania o zwrot kieruj do organizatora: wystarczy odpowiedzieć na tę wiadomość.',
     '',
     organizer.name,

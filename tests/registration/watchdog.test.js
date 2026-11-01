@@ -10,7 +10,7 @@ import crypto from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import postgres from 'postgres'
-import { admin, localEnv } from './helpers/stack.js'
+import { admin, localEnv, waitForRest } from './helpers/stack.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
 
 const OPERATOR = 'operator@leszy.test' // PIPELINE_ALERT_EMAIL in functions.env
@@ -182,6 +182,7 @@ test('P-60 the heartbeats unreadable: 500, and the operator is mailed once for t
   try {
     await sql`delete from public.operator_alerts where dedupe_key = ${key}`
     await sql`alter table public.registration_job_heartbeats rename to registration_job_heartbeats_away`
+    await sql`notify pgrst, 'reload schema'`
     const first = await watchdog()
     assert.equal(first.status, 500, JSON.stringify(first.body))
     assert.equal(first.body.error, 'heartbeats_unreadable')
@@ -204,5 +205,8 @@ test('P-60 the heartbeats unreadable: 500, and the operator is mailed once for t
     await sql`alter table if exists public.registration_job_heartbeats_away rename to registration_job_heartbeats`
     await sql`delete from public.operator_alerts where dedupe_key = ${key}`
     await sql.end()
+    // The rename made PostgREST reload its schema; until it has, the next read of the heartbeats
+    // answers PGRST205 („Perhaps you meant …_away”) and fails whichever test comes next.
+    await waitForRest(['registration_job_heartbeats'])
   }
 })

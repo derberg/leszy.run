@@ -247,6 +247,7 @@ function Editor({ eventId, stepParam }) {
     hasPricedExtras: (shown.extras ?? []).some((x) => x.price > 0),
     donationsEnabled: !!(event.settings.isCharity && event.settings.donationsEnabled),
     hasKidsCompetition: event.competitions.some((c) => c.isKids),
+    moneyLive: event.moneyLive !== false,
     state: { checklist: event.checklist, current },
   })
   const onRegistrations = current === 'zgloszenia' && published && writer

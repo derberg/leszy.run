@@ -93,6 +93,15 @@ DECLARE
   v_id    uuid;
   v_exp   timestamptz;
 BEGIN
+  -- Final review M-3: the transfers row's foreign key to registration_settings takes KEY SHARE on
+  -- the settings row, which sits before registrations in the lock order. Take it first, from a plain
+  -- read of the event, so the insert below never reaches back to an earlier lock.
+  SELECT x.event_id INTO v_id FROM public.registrations x WHERE x.id = p_registration_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'not_found';
+  END IF;
+  SELECT * INTO v_rs FROM public.registration_settings WHERE event_id = v_id FOR KEY SHARE;
+  v_id := NULL;
   SELECT * INTO r FROM public.registrations WHERE id = p_registration_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'not_found';
@@ -100,7 +109,6 @@ BEGIN
   IF r.team_id IS NOT NULL THEN
     SELECT * INTO v_team FROM public.teams WHERE id = r.team_id;
   END IF;
-  SELECT * INTO v_rs FROM public.registration_settings WHERE event_id = r.event_id;
 
   -- Ruling 3: the holder's own adult entry, or a team captain's. A guardian or a captain asking for
   -- a child's or a member's entry is told it cannot be transferred; anybody else is not the owner.
@@ -491,9 +499,13 @@ BEGIN
     'runner', p_profile_id, t.id);
 
   -- The gate: the write is the check. A link used, cancelled or expired meanwhile undoes it all.
+  -- I-3 (final review): accepted by the invited address itself, that address is now on the new
+  -- registration, so the record keeps none. A forwarded link's invited address is somebody else's
+  -- and stays until purge_registration_contact_data clears it 30 days after the race.
   UPDATE public.transfers
      SET status = 'accepted', accepted_at = now(), accepted_by_profile_id = p_profile_id,
-         new_registration_id = (v_out->>'registrationId')::uuid
+         new_registration_id = (v_out->>'registrationId')::uuid,
+         to_email = CASE WHEN to_email = lower(btrim(p_person->>'email')) THEN NULL ELSE to_email END
    WHERE token_hash = p_token_hash AND status = 'pending' AND expires_at > now()
   RETURNING * INTO t;
   IF NOT FOUND THEN
@@ -540,9 +552,10 @@ BEGIN
   -- Last in the lock order: the invite that can no longer be accepted, then the record.
   UPDATE public.transfers SET status = 'cancelled', cancelled_at = now()
    WHERE registration_id = p_registration_id AND status = 'pending';
+  -- I-3: the recipient's address is on the new registration; the record keeps none.
   INSERT INTO public.transfers (event_id, registration_id, kind, from_profile_id, to_email, status,
                                 new_registration_id, accepted_at)
-  VALUES (r.event_id, r.id, 'organizer', r.profile_id, lower(btrim(p_person->>'email')), 'accepted',
+  VALUES (r.event_id, r.id, 'organizer', r.profile_id, NULL, 'accepted',
           (v_out->>'registrationId')::uuid, now())
   RETURNING id INTO v_id;
 

@@ -23,7 +23,7 @@
 //       401 code_required (no code and no matching session), the code's own 400/401/403/429.
 //       The client sends the person on with postAuthPath({ skipOnboarding: true }).
 //
-// Every call claims transfer-ip:<ip> (30/h) and transfer-token:<hash> (10/h). A dead link (unknown,
+// Every call claims transfer-ip:<ip> (300/h; a missing address counts in the shared `unknown` bucket) and transfer-token:<hash> (10/h). A dead link (unknown,
 // used, cancelled, expired, or its entry no longer confirmed) is 409 gone; transfers switched off
 // or past their date 409 transfer_off; a refund of the entry waiting for dpay 409 refund_pending
 // (V-87), on every call, so no code is sent while it waits. The token is looked up by its SHA-256 only, and never
@@ -46,7 +46,9 @@ import { refundsInFlight } from '../_shared/registration/refundInFlight.js'
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const HOUR_IP_LIMIT = 30
+// Per client address (clientIp, #333): generous, because a whole carrier's CGNAT or an office can share
+// one address; the per-token cap (10/h) and the e-mail code are the per-link guards.
+const HOUR_IP_LIMIT = 300
 const TOKEN_LIMIT = 10
 const CONSENTS = 'Zaznacz wymagane zgody.'
 const INVALID = 'Popraw zaznaczone pola.'
@@ -174,7 +176,7 @@ async function preview(admin, req, { transfer, reg, settings }) {
 async function sendCode(admin, req, body) {
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   if (!EMAIL_RE.test(email) || email.length > 254) return refuse(req, 'invalid_email')
-  const sent = await requestLoginCode(admin, { email, ip: clientIp(req), linkBase: siteFor(req), link: false })
+  const sent = await requestLoginCode(admin, { email, ip: await clientIp(req), linkBase: siteFor(req), link: false })
   if (!sent.ok) {
     if (sent.status === 429) {
       return json({ error: TOO_MANY, code: 'throttled' }, 429, req, { 'retry-after': String(sent.retryAfterSec ?? 60) })
@@ -236,7 +238,7 @@ async function accept(admin, req, body, hash, { transfer, reg, settings }) {
     p_category_id: competition.category_id,
     p_profile_id: profileId,
     p_consent: { consentIds: acceptedConsentIds, serviceRegulamin: true },
-    p_meta: { ip: clientIp(req), userAgent: req.headers.get('user-agent') || null },
+    p_meta: { ip: await clientIp(req), userAgent: req.headers.get('user-agent') || null },
   })
   if (error) {
     if (!TRANSFER_REFUSALS[error.message]) throw error
@@ -270,9 +272,9 @@ Deno.serve(async (req) => {
   let ref = null
   try {
     const hash = await tokenHash(body?.token)
-    const ip = clientIp(req)
+    const ip = (await clientIp(req)) ?? 'unknown'
     const limited = await throttled(admin, req, [
-      ...(ip ? [{ key: `transfer-ip:${ip}`, limit: HOUR_IP_LIMIT }] : []),
+      { key: `transfer-ip:${ip}`, limit: HOUR_IP_LIMIT },
       { key: `transfer-token:${hash}`, limit: TOKEN_LIMIT },
     ])
     if (limited) return limited

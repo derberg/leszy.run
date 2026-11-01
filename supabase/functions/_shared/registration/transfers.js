@@ -330,13 +330,15 @@ export async function transferViews(admin, regs, settings, userId, { now = new D
 }
 
 /**
- * The registrations among `ids` that a package transfer created → Set of ids (accepted transfers
- * of either kind). An order line pointing at one of them is a transferred line (carry T7 b).
+ * The registrations among `ids` that a package transfer created → Map(id → kind, 'runner' |
+ * 'organizer'), accepted transfers only. An order line pointing at one of them is a transferred
+ * line (carry T7 b). The kind decides what the payer may learn (ruling N-1): after a runner's
+ * transfer the sender chose the recipient and is told the name; after an organizer's, never.
  */
 export async function transferredRegistrationIds(admin, ids) {
   const list = [...new Set((ids ?? []).filter(Boolean))]
-  if (!list.length) return new Set()
-  const found = await rows(admin.from('transfers').select('new_registration_id')
+  if (!list.length) return new Map()
+  const found = await rows(admin.from('transfers').select('new_registration_id, kind')
     .in('new_registration_id', list).eq('status', 'accepted'))
-  return new Set(found.map((t) => t.new_registration_id))
+  return new Map(found.map((t) => [t.new_registration_id, t.kind]))
 }

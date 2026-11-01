@@ -603,7 +603,8 @@ test('V-48 organizer_transfer after transfer_until: awaiting consent, a pending 
   const record = await one('transfers', { id: out.transferId })
   assert.equal(record.kind, 'organizer')
   assert.equal(record.status, 'accepted')
-  assert.equal(record.to_email, email)
+  // I-3: the recipient's address is on their own registration; the record keeps none.
+  assert.equal(record.to_email, null)
   assert.equal(record.token_hash, null)
   assert.equal(record.new_registration_id, fresh.id)
 })
@@ -700,6 +701,52 @@ test('V-89 reserve_organizer_refund for the entry the dialog showed: after a tra
   assert.equal((await one('order_lines', { id: line.id })).refunded, 1500)
 })
 
+// ---------------------------------------------------------------- I-3 the invited address is not kept
+
+test('I-3 accepted by the invited address itself: to_email is cleared at the accept; taken through a forwarded link, the invited address stays until the purge', async () => {
+  const event = await paidEvent()
+  const a = await paidEntry(event)
+  const own = await inviteOk(a.reg.id, a.profileId, runnerEmail('own'))
+  ok(await accept(event, own.hash, { email: own.toEmail }))
+  assert.equal((await one('transfers', { id: own.transferId })).to_email, null, 'the address is on the new registration')
+
+  const b = await paidEntry(event)
+  const fwd = await inviteOk(b.reg.id, b.profileId, runnerEmail('invited'))
+  ok(await accept(event, fwd.hash, { email: runnerEmail('taker') }))
+  assert.equal((await one('transfers', { id: fwd.transferId })).to_email, fwd.toEmail)
+})
+
+test('I-3 purge_registration_contact_data: 30 days after the race every transfer of the event loses to_email (an open invite is expired first); 29 days after, nothing changes', async () => {
+  const event = await paidEvent()
+  const a = await paidEntry(event)
+  const b = await paidEntry(event)
+  const c = await paidEntry(event)
+  const open = await inviteOk(a.reg.id, a.profileId, runnerEmail('open'))
+  const gone = await inviteOk(b.reg.id, b.profileId, runnerEmail('gone'))
+  ok(await rpc('cancel_transfer', { p_transfer_id: gone.transferId, p_actor: b.profileId }))
+  const fwd = await inviteOk(c.reg.id, c.profileId, runnerEmail('invited'))
+  ok(await accept(event, fwd.hash, { email: runnerEmail('taker') }))
+
+  const recent = await paidEvent()
+  const r = await paidEntry(recent)
+  const kept = await inviteOk(r.reg.id, r.profileId, runnerEmail('kept'))
+
+  const warsaw = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw' }).format(new Date(Date.now() + d * 86_400_000))
+  // Moving a past race date is a fixture step: the locks that guard it are for organizers.
+  await sql()`update public.registration_settings set event_date = ${warsaw(-31)}, opens_at = now() - interval '40 days', closes_at = now() - interval '31 days', transfer_until = null where event_id = ${event.eventId}`
+  await sql()`update public.registration_settings set event_date = ${warsaw(-29)}, opens_at = now() - interval '40 days', closes_at = now() - interval '29 days', transfer_until = null where event_id = ${recent.eventId}`
+  ok(await rpc('purge_registration_contact_data', {}))
+
+  const rowsOf = await rows('transfers', { event_id: event.eventId })
+  assert.equal(rowsOf.length, 3)
+  for (const t of rowsOf) assert.equal(t.to_email, null, `${t.status} keeps no address`)
+  assert.equal(rowsOf.find((t) => t.id === open.transferId).status, 'expired')
+  assert.equal(rowsOf.find((t) => t.id === gone.transferId).status, 'cancelled')
+  assert.equal(rowsOf.find((t) => t.id === fwd.transferId).status, 'accepted')
+  const untouched = await one('transfers', { id: kept.transferId })
+  assert.deepEqual([untouched.status, untouched.to_email], ['pending', kept.toEmail])
+})
+
 // ---------------------------------------------------------------- V-49 cancel, and the grants
 
 test('V-49 cancel_registration of an entry with a pending invite cancels the invite: the link is gone', async () => {
@@ -740,8 +787,8 @@ test('V-49 service_role only, internals nobody, search_path empty', async () => 
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
        and p.proname in ('create_transfer', 'cancel_transfer', 'accept_transfer', 'organizer_transfer', 'apply_transfer',
-                         'forget_transfer_parties', 'registration_refund_in_flight')`
-  assert.equal(fns.length, 7)
+                         'forget_transfer_parties', 'registration_refund_in_flight', 'registration_refunds_in_flight')`
+  assert.equal(fns.length, 8)
   for (const f of fns) {
     assert.deepEqual(f.proconfig, ['search_path=""'], f.sig)
     assert.equal(f.anon, false, f.sig)

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import postgres from 'postgres'
 import { createClient } from '@supabase/supabase-js'
-import { localEnv, admin, authenticatedClient } from './helpers/stack.js'
+import { localEnv, admin, authenticatedClient, waitForRest } from './helpers/stack.js'
 
 const WRITE_PRIVILEGES = ['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']
 
@@ -75,6 +75,8 @@ test('F-23 a view created later gives client roles no write privilege by default
     assert.deepEqual(held.map((h) => `${h.rolname} ${h.privilege}`), [])
     await tx.unsafe(`DROP VIEW public.${name}`)
   })
+  // The DDL made PostgREST reload its schema: wait, so the next test does not meet the reload (F-04).
+  await waitForRest(['participants', 'participants_public'])
 })
 
 test('F-23 anon UPDATE through participants_public is refused and the participant is unchanged', async () => {

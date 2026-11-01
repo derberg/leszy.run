@@ -45,8 +45,12 @@ Deno.serve(async (req) => {
   try {
     const ip = await clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
-      // Ruling 7: a free event takes an order only for its extras or a donation.
-      pricing: (settings, cart) => (settings.pricing_mode === 'free' && !cartMakesMoney(cart) ? 'free_event' : null),
+      // Ruling 7: a free event takes an order only for its extras or a donation. With the money
+      // features off (flags.js) a free event is free and a paid one waits for PAID_REGISTRATION_ENABLED.
+      pricing: (settings, cart, { moneyLive }) => {
+        if (!moneyLive) return settings.pricing_mode === 'free' ? 'free_event' : 'payments'
+        return settings.pricing_mode === 'free' && !cartMakesMoney(cart) ? 'free_event' : null
+      },
       refusals: ORDER_REFUSALS,
       throttles: orderThrottles(ip),
     })

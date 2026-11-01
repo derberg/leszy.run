@@ -113,3 +113,21 @@ export async function fillThrottle(key, attempts) {
     .upsert({ key, attempts, window_started_at: new Date().toISOString() }, { onConflict: 'key' })
   if (error) throw error
 }
+
+/**
+ * Waits until PostgREST serves `tables` again (local stack only). A test that runs DDL (CREATE or
+ * DROP a view, ALTER TABLE … RENAME, a trigger toggle) makes PostgREST reload its schema cache, and
+ * for a moment afterwards reads answer PGRST002 or PGRST205 with the old names: the next test, not
+ * the one that ran the DDL, then fails at random (F-04, P-60). Call it after such DDL.
+ */
+export async function waitForRest(tables = ['registration_job_heartbeats', 'participants'], { timeoutMs = 20_000 } = {}) {
+  localEnv()
+  const until = Date.now() + timeoutMs
+  for (;;) {
+    const results = await Promise.all(tables.map((t) => admin().from(t).select('*', { head: true, count: 'exact' }).limit(1)))
+    const failing = results.find((r) => r.error)
+    if (!failing) return
+    if (Date.now() > until) throw new Error(`PostgREST did not reload its schema: ${failing.error.message}`)
+    await new Promise((r) => setTimeout(r, 200))
+  }
+}

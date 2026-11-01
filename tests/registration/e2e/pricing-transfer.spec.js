@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { test, expect, ACTOR_EMAILS } from './fixtures.js'
 import { admin, resetThrottle, sessionFor } from '../helpers/stack.js'
-import { callFn, createPublishedPaidEvent } from '../helpers/registrationFixtures.js'
+import { callFn, createPublishedFreeEvent as createPublishedFreeEventFor, createPublishedPaidEvent } from '../helpers/registrationFixtures.js'
 import { clearMessages, lastCodeFor, messagesTo } from '../helpers/emailCapture.js'
 import { dpayReset } from '../helpers/dpayControl.js'
 import { DPAY_MOCK_PORT } from '../helpers/dpayMock.js'
@@ -278,4 +278,44 @@ test('V-80 a partnered, discounted package across four audiences: the code and p
   expect((await one('vouchers', { id: voucher.id })).used).toBe(1)
   await assertVoucherInvariant(voucher.id)
   expect((await orderOf(order.id)).total).toBe(expected.total)
+})
+
+// Final review I-1 + I-4 (V-90): the production default, PAID_REGISTRATION_ENABLED false. Every request of
+// this page carries x-registration-money: off, which turns Plan 7's money features off on the local stack.
+test('V-90 flag off: a published free charity event with donations and a shirt behaves as before Plan 7: no extras, no donation chips, „Zapisz się” registers free', async ({ actors }) => {
+  await resetThrottle()
+  await clearMessages()
+  const e = await createPublishedFreeEventFor(owner)
+  await setCharity(e.eventId, true)
+  await admin().from('registration_settings').update({ charity_goal: 'Rehabilitacja Zosi' }).eq('event_id', e.eventId)
+  await makeExtra(e, { name: 'Koszulka', price: 4500, variants: [['M', 10]] })
+  const email = runnerEmail('off')
+
+  const page = await actors.viewer.newPage()
+  await page.route(/tile\.openstreetmap\.org|unpkg\.com/, (route) => route.fulfill({ status: 204, body: '' }))
+  await page.route(/\/(api\/event|edge\/)/, (route) => route.continue({ headers: { ...route.request().headers(), 'x-registration-money': 'off' } }))
+  await page.goto(`/events/${e.slug}`)
+  const nine = page.getByTestId('competition').filter({ hasText: 'Bieg 9 km' })
+  await expect(nine).toBeVisible()
+  await expect(page.getByTestId('competition-extra')).toHaveCount(0)
+  await nine.click()
+  await page.locator('#p-first').fill('Ola')
+  await page.locator('#p-last').fill('Bezpłatna')
+  await page.locator('#p-birth').fill('1990-04-12')
+  await page.getByRole('button', { name: 'Kobieta', exact: true }).click()
+  await page.locator('#p-email').fill(email)
+  await page.locator('#p-phone').fill('600100200')
+  await expect(page.getByTestId('extra')).toHaveCount(0)
+  await expect(page.getByLabel('Kod rabatowy')).toHaveCount(0)
+  const boxes = page.getByTestId('consents').getByRole('checkbox')
+  for (let i = 0; i < await boxes.count(); i++) await boxes.nth(i).check()
+  await page.getByTestId('registration-submit').click()
+  await expect(page.getByTestId('code-step')).toBeVisible()
+  await page.getByLabel('Kod (6 cyfr)').fill(await codeFor(email))
+  await expect(page.getByTestId('donation')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Zapisz się' }).click()
+  await expect(page).toHaveURL(new RegExp(`/events/${e.slug}/zapisano`))
+  expect((await admin().from('orders').select('id').eq('event_id', e.eventId)).data).toEqual([])
+  const [reg] = (await admin().from('registrations').select('status, price').eq('event_id', e.eventId)).data
+  expect(reg).toEqual({ status: 'confirmed', price: 0 })
 })

@@ -11,10 +11,13 @@ import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { localEnv, resetThrottle, sessionFor, EDGE_PROXY, fillThrottle } from './helpers/stack.js'
 import { lastCodeFor, messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
-import { attemptFor, confirmOk, consentIds, db, one, orderOf, person, profileFor, rows, runnerEmail, setSettings } from './helpers/orders.js'
+import { attemptFor, confirmOk, consentIds, db, one, orderOf, orderOk, person, profileFor, rows, runnerEmail, setSettings } from './helpers/orders.js'
+import { dpayMode, payMock } from './helpers/dpayControl.js'
+import { nodeDpay } from './helpers/organizerRefund.js'
+import { registerTransaction } from '../../supabase/functions/_shared/dpay.js'
 import { BIEG, DZIECI, adult, minor, orderGroupOk } from './helpers/groups.js'
 import { dayBefore, enableTransfers, hashToken, inviteOk, paidEntry } from './helpers/transfers.js'
 import { warsawToday } from '../../supabase/functions/_shared/registration/dates.js'
@@ -41,7 +44,7 @@ async function call(fn, body, { session = null, cookie = null, from = ip() } = {
   const res = await fetch(`${localEnv().functionsUrl}/${fn}`, {
     method: 'POST',
     headers: {
-      'content-type': 'application/json', 'x-forwarded-for': from,
+      'content-type': 'application/json', 'x-forwarded-for': from, ...EDGE_PROXY,
       ...(session || cookie ? { cookie: cookie ?? session.cookie } : {}),
     },
     body: JSON.stringify(body),
@@ -478,6 +481,77 @@ test('V-58 the order page and a confirmation re-send show the line as transferre
   assert.ok(!`${mail.text}${mail.html}`.includes(third))
 })
 
+/** A paid holder whose transaction the dpay mock holds as paid, so an organizer refund is accepted. */
+async function mockPaidHolder() {
+  const event = await paidEvent()
+  const email = runnerEmail('mock')
+  const out = await orderOk(event, { emails: [email] })
+  const { transactionId } = await registerTransaction(nodeDpay(), { orderId: out.orderId, grosze: out.total })
+  await attemptFor(out.orderId, out.total, transactionId)
+  await dpayMode({ dropIpn: true })
+  await payMock(transactionId, 'paid')
+  await dpayMode({ dropIpn: false })
+  assert.equal((await confirmOk(out.orderId, transactionId, out.total)).outcome, 'confirmed')
+  const [reg] = await rows('registrations', { order_id: out.orderId })
+  return { event, a: { orderId: out.orderId, email, reg, profileId: await profileFor(email) }, holder: await sessionFor(email) }
+}
+
+test('I-2 (ruling N-1) after an ORGANIZER transfer the old holder never sees the recipient\'s name: not on the order page, not in a confirmation re-send, not in the refund e-mail; the new holder\'s copy says the money goes back to the payer', async () => {
+  const { event, a, holder } = await mockPaidHolder()
+  await setSettings(event.eventId, { transfer_until: dayBefore(warsawToday()) })
+  const third = runnerEmail('n1')
+  const org = await call('organizer-entry-action', {
+    action: 'transfer', registrationId: a.reg.id, categoryId: event.categoryIds[0], person: recipientPerson(third, { firstName: 'Ewa', lastName: 'Tajna' }),
+  }, { session: owner })
+  assert.equal(org.status, 200, org.text)
+  const newId = org.body.data.registrationId
+
+  const status = await call('order-status', { orderId: a.orderId }, { session: holder })
+  assert.equal(status.status, 200, status.text)
+  const [line] = status.body.data.lines
+  assert.equal(line.transferred, true)
+  assert.equal(line.transferredBy, 'organizer')
+  assert.equal(line.name, '')
+  assert.equal(line.firstName, null)
+  assert.ok(!status.text.includes('Ewa') && !status.text.includes('Tajna') && !status.text.includes(third))
+
+  // A lost confirmation re-sent after the transfer.
+  await db().from('orders').update({ paid_at: new Date(Date.now() - 11 * 60_000).toISOString(), confirmation_sent_at: null }).eq('id', a.orderId)
+  await runJobs()
+  const [mail] = await waitForMail(a.email, 1, bySubject(/^Opłacone — /))
+  assert.ok(mail, 'the confirmation was re-sent to the buyer')
+  assert.match(mail.text, /- Pakiet przekazany przez organizatora/)
+  assert.ok(!/Ewa|Tajna/.test(`${mail.text}${mail.html}`))
+
+  // The organizer refunds the moved line: the payer is not told who holds it now.
+  const [entryLine] = (await rows('order_lines', { registration_id: newId })).filter((l) => l.kind === 'entry')
+  const refund = await call('organizer-refund', { lineId: entryLine.id, grosze: 1000, requestKey: crypto.randomUUID(), registrationId: newId }, { session: owner })
+  assert.equal(refund.status, 200, refund.text)
+  const [payerMail] = await waitForMail(a.email, 1, bySubject(/^Zwrot /))
+  assert.ok(payerMail, 'the payer is told')
+  assert.ok(!/Ewa|Tajna/.test(payerMail.text), payerMail.text)
+  const [holderMail] = await waitForMail(third, 1, bySubject(/^Zwrot /))
+  assert.ok(holderMail, 'the new holder is told')
+  assert.match(holderMail.text, /Ewa Tajna/)
+  assert.match(holderMail.text, /Zwrot trafia do osoby, która zapłaciła za to zgłoszenie\./)
+})
+
+test('I-2 after a RUNNER transfer the sender keeps seeing the recipient\'s name in the refund e-mail (the existing rule)', async () => {
+  const { event, a, holder } = await mockPaidHolder()
+  const inv = await invited(a, holder)
+  const third = runnerEmail('n1r')
+  const res = await acceptWithCode(event, inv.token, third)
+  assert.equal(res.status, 200, res.text)
+  const newId = res.body.data.registrationId
+  const [entryLine] = (await rows('order_lines', { registration_id: newId })).filter((l) => l.kind === 'entry')
+  const refund = await call('organizer-refund', { lineId: entryLine.id, grosze: 1000, requestKey: crypto.randomUUID(), registrationId: newId }, { session: owner })
+  assert.equal(refund.status, 200, refund.text)
+  const [payerMail] = await waitForMail(a.email, 1, bySubject(/^Zwrot /))
+  assert.match(payerMail.text, /Jan Nowak/)
+  const [holderMail] = await waitForMail(third, 1, bySubject(/^Zwrot /))
+  assert.match(holderMail.text, /Zwrot trafia do osoby, która zapłaciła za to zgłoszenie\./)
+})
+
 // ---------------------------------------------------------------- I-1 the job re-sends a released claim
 
 async function runJobs() {
@@ -609,7 +683,8 @@ test('V-82 export-my-data: the sender lists the transfer sent, the invitee the o
   assert.equal(sent.kind, 'runner')
   assert.equal(sent.status, 'accepted')
   assert.equal(sent.event_name, name)
-  assert.equal(sent.to_email, inv.toEmail, 'the address the sender typed')
+  // I-3: accepted by the invited address itself, the record keeps no address (it is on the new entry).
+  assert.equal(sent.to_email, null)
   assert.equal(sent.registration_id, a.reg.id)
   assert.ok(sent.accepted_at)
 
@@ -620,7 +695,7 @@ test('V-82 export-my-data: the sender lists the transfer sent, the invitee the o
   assert.equal(got.id, inv.transferId)
   assert.equal(got.status, 'accepted')
   assert.equal(got.from_name, 'Ola', 'who gave the address (Art. 14(2)(f)): the sender by first name')
-  assert.equal(got.to_email, inv.toEmail)
+  assert.equal(got.to_email, null)
   assert.equal(got.new_registration_id, res.body.data.registrationId)
   assert.ok(mineIn.registrations.some((r) => r.id === res.body.data.registrationId), 'the entry taken over is theirs')
 
@@ -788,6 +863,48 @@ test('V-87 a refund in flight: transfer-invite, organizer-entry-action and trans
   assert.equal(org.body.error, 'Trwa zwrot wpłaty za to zgłoszenie — przekazanie pakietu jest niemożliwe do czasu odpowiedzi operatora płatności.')
   assert.equal((await one('registrations', { id: a.reg.id })).status, 'confirmed')
   assert.equal((await transferOf(open.transferId)).status, 'pending', 'the invite waits for the refund')
+})
+
+// ---------------------------------------------------------------- M-1 the organizer's people allowance
+
+test('M-1 an organizer transfer spends the event\'s organizer-people allowance (100 per 24 h); a refused one gives its slot back', async () => {
+  const event = await paidEvent()
+  const a = await paidEntry(event)
+  const key = `organizer-people:${event.eventId}`
+  const attempts = async () => (await db().from('otp_throttle').select('attempts').eq('key', key).maybeSingle()).data?.attempts ?? 0
+  const transfer = (over = {}) => call('organizer-entry-action', {
+    action: 'transfer', registrationId: a.reg.id, categoryId: event.categoryIds[0], person: recipientPerson(runnerEmail('m1'), over),
+  }, { session: owner })
+
+  const minor = await transfer({ birthDate: '2015-05-05' })
+  assert.equal(minor.status, 409, minor.text)
+  assert.equal(await attempts(), 0, 'a refused transfer gives its slot back')
+
+  await fillThrottle(key, 100)
+  const full = await transfer()
+  assert.equal(full.status, 429, full.text)
+  assert.equal((await one('registrations', { id: a.reg.id })).status, 'confirmed')
+
+  await fillThrottle(key, 99)
+  const ok = await transfer()
+  assert.equal(ok.status, 200, ok.text)
+  assert.equal(await attempts(), 100)
+})
+
+// ---------------------------------------------------------------- C-1 per-IP buckets
+
+test('C-1 transfer-accept keys its per-IP cap on the real client address (300 an hour, CGNAT-sized): one full bucket never blocks another address', async () => {
+  const { a, holder } = await holderOf()
+  const open = await invited(a, holder)
+  const full = '203.0.113.71'
+  const fresh = '203.0.113.72'
+  await fillThrottle(`transfer-ip:${full}`, 300)
+  const blocked = await call('transfer-accept', { token: open.token }, { from: full })
+  assert.equal(blocked.status, 429, blocked.text)
+  const other = await call('transfer-accept', { token: open.token }, { from: fresh })
+  assert.equal(other.status, 200, other.text)
+  const keys = await rows('otp_throttle', { key: `transfer-ip:${fresh}` })
+  assert.equal(keys.length, 1, 'the bucket is the address, not a Promise')
 })
 
 // ---------------------------------------------------------------- V-89 a stale refund dialog

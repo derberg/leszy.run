@@ -46,7 +46,8 @@ Deno.serve(async (req) => {
     const ip = await clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
       team: true,
-      pricing: () => null,
+      // A paid team waits for PAID_REGISTRATION_ENABLED while the money features are off (flags.js).
+      pricing: (settings, cart, { moneyLive }) => (!moneyLive && settings.pricing_mode !== 'free' ? 'payments' : null),
       refusals: TEAM_REFUSALS,
       throttles: orderThrottles(ip),
     })

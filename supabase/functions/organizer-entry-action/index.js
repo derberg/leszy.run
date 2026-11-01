@@ -23,6 +23,8 @@ function json(body, status, req, headers = {}) {
 
 const NOT_FOUND = { error: 'Not found' }
 const DAY = 86400
+// An organizer bringing a person in (an organizer transfer, like a squad edit in team-squad).
+const ORGANIZER_PEOPLE_PER_DAY = 100
 // Online payment stops an hour before closes_at (spec 14.10, create_order's paying_closed).
 const PAYING_CLOSES_BEFORE_MS = 3600_000
 const FIELD_MESSAGE = 'Sprawdź to pole.'
@@ -297,10 +299,20 @@ Deno.serve(async (req) => {
       const checked = validatePerson(body.person ?? {}, { ...context, now: new Date() })
       if (!checked.ok) return json({ error: 'Popraw zaznaczone pola.', code: 'invalid_person', fields: checked.errors }, 422, req)
       const { isMinor: _minor, ...person } = checked.value
+      // Final review M-1: each transfer e-mails a consent request to an address the organizer typed,
+      // so it spends the event's organizer-people allowance, as an organizer's squad edit does
+      // (100 per event per 24 h, fail closed). A refused transfer gives its slot back.
+      const peopleKey = `organizer-people:${settings.event_id}`
+      const claim = await checkAndIncrement(admin, peopleKey, ORGANIZER_PEOPLE_PER_DAY, { windowSeconds: DAY })
+      if (!claim.allowed) {
+        return json({ error: 'Zbyt wiele prób. Spróbuj ponownie później.', code: 'throttled' }, 429, req,
+          { 'Retry-After': String(claim.retryAfterSec ?? 60) })
+      }
       const { data, error } = await callTransferRpc(admin, 'organizer_transfer', {
         p_registration_id: target.registrationId, p_person: person, p_category_id: competition.category_id, p_actor: actor,
       })
       if (error) {
+        try { await releaseSlot(admin, peopleKey)() } catch (err) { console.error('organizer-entry-action: slot not given back:', err?.message) }
         const refused = organizerTransferRefusal(error.message)
         if (!refused) throw error
         return json(refused.body, refused.status, req)

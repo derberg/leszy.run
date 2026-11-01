@@ -181,7 +181,7 @@ test('T-06 a team with a size, a hidden team and an individual competition do no
 // account, and is held by the payments flag.
 const PAYOUT_CLUB = { key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' }
 // M-2 (fix round 1): the payments item names what makes the event take money.
-const PAYMENTS_DONATIONS = { key: 'payments', label: 'Darowizny przy zapisie to płatności online — wkrótce. Wyłącz je w Podstawach' }
+const PAYMENTS_DONATIONS = { key: 'payments', label: 'Darowizny przy zapisie to płatności online — wkrótce. Wyłącz „Pozwól dopłacić darowiznę” w Podstawach' }
 const PAYMENTS_EXTRAS = { key: 'payments', label: 'Płatne dodatki to płatności online — wkrótce' }
 
 test('V-20 a free event with donations on and no payout → the blocking payout item', () => {
