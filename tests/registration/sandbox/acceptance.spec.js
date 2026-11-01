@@ -101,12 +101,28 @@ test.describe('dpay sandbox acceptance', () => {
   async function openGateway(page, redirectUrl) {
     await page.goto(redirectUrl, { waitUntil: 'domcontentloaded' })
   }
+  // A dpay service in test mode („Tryb testowy”) shows no payment form: one page with „Symuluj sukces
+  // (przekierowanie na url_success)” and „Symuluj niepowodzenie (przekierowanie na url_fail)”, seen on the
+  // first sandbox run (2026-11-01, run 41348191102). With it, BLIK and card are the same click, and a decline
+  // is the failure button. The real form below is kept for a service that is not in test mode.
+  async function simulator(page) {
+    const success = page.getByRole('button', { name: /symuluj sukces/i })
+    const form = page.getByText(/blik|kart/i).first()
+    await success.or(form).first().waitFor({ timeout: 60_000 })
+    return (await success.count()) > 0
+  }
+  async function simulate(page, outcome) {
+    const name = outcome === 'success' ? /symuluj sukces/i : /symuluj niepowodzenie/i
+    await page.getByRole('button', { name }).first().click()
+  }
   async function payBlik(page) {
+    if (await simulator(page)) return simulate(page, 'success')
     await page.getByText(/blik/i).first().click()
     await page.getByLabel(/kod|blik/i).first().fill(cfg.blikCode)
     await page.getByRole('button', { name: /zapłać|zaplac|pay/i }).first().click()
   }
   async function payCard(page, number = cfg.card.number) {
+    if (await simulator(page)) return simulate(page, number === cfg.declineCard ? 'failure' : 'success')
     await page.getByText(/kart/i).first().click()
     await page.getByLabel(/numer karty|card number/i).first().fill(number)
     await page.getByLabel(/wa[żz]no[śs][ćc]|expir|mm\s*\/\s*yy/i).first().fill(cfg.card.expiry)
