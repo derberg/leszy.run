@@ -65,4 +65,33 @@ describe('createAuthStore', () => {
     const none = createAuthStore({ fetchUser: async () => null, readCache: () => null, clearCache: () => {}, revalidateMs: 100 })
     assert.equal(none.needsCheck(), true)
   })
+
+  // G-44 flake (V-99): a page that mounts while another component's /auth-me is in flight
+  // renders „unknown” (loading). When that call lands before the page's effect runs, the cache is
+  // fresh and no new call is needed, so the page must take the user from the store, not stay on
+  // the null it rendered with: that null made the form ask a signed-in runner for a code.
+  it('knownUser: the answer of a call that landed between a render and its effect', async () => {
+    const calls = []
+    let cache = null
+    const store = createAuthStore({
+      fetchUser: (o) => { const d = deferred(); calls.push({ ...d, ...o }); return d.promise },
+      readCache: () => cache, clearCache: () => { cache = null }, revalidateMs: 1000, now: () => 10,
+    })
+    assert.equal(store.knownUser(), undefined, 'nothing known yet: call load()')
+    const p = store.load() // the navbar's check
+    assert.equal(store.current(), undefined) // the page renders now: loading
+    cache = { user: { email: 'runner@test.local' }, ts: 10 } // getMe writes the cache when it answers
+    calls[0].resolve({ email: 'runner@test.local' })
+    await p
+    // The page's effect runs now: no call is needed, and the user is the one that landed.
+    assert.equal(store.needsCheck(), false)
+    assert.deepEqual(store.knownUser(), { email: 'runner@test.local' })
+  })
+
+  it('knownUser: a confirmed visitor from a fresh cache is null; a stale cache is unknown', () => {
+    const visitor = createAuthStore({ fetchUser: async () => null, readCache: () => ({ user: null, ts: 1000 }), clearCache: () => {}, revalidateMs: 100, now: () => 1050 })
+    assert.equal(visitor.knownUser(), null)
+    const stale = createAuthStore({ fetchUser: async () => null, readCache: () => ({ user: { email: 'a@b.pl' }, ts: 1000 }), clearCache: () => {}, revalidateMs: 100, now: () => 1200 })
+    assert.equal(stale.knownUser(), undefined)
+  })
 })

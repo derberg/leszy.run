@@ -34,6 +34,13 @@ export function createAuthStore({ fetchUser, readCache, clearCache, revalidateMs
     return p
   }
 
+  /** False when a fresh cache already says who this is. */
+  function needsCheck() {
+    const stored = readCache()
+    const fresh = stored && (now() - stored.ts) < revalidateMs
+    return !(fresh && user !== undefined)
+  }
+
   /** The user, from the call in flight or a new one. */
   function load() {
     return inflight ?? start()
@@ -41,11 +48,14 @@ export function createAuthStore({ fetchUser, readCache, clearCache, revalidateMs
 
   return {
     current: () => user,
-    /** False when a fresh cache already says who this is. */
-    needsCheck() {
-      const stored = readCache()
-      const fresh = stored && (now() - stored.ts) < revalidateMs
-      return !(fresh && user !== undefined)
+    needsCheck,
+    /**
+     * For a component mounting now: the user (null = visitor) when no call is needed, else
+     * undefined (call load). A component that rendered while another one's call was in flight
+     * must take its answer from here: the call can land before the component's effect runs.
+     */
+    knownUser() {
+      return needsCheck() ? undefined : user
     },
     load,
     clear() {

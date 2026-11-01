@@ -552,6 +552,68 @@ test('I-2 after a RUNNER transfer the sender keeps seeing the recipient\'s name 
   assert.match(holderMail.text, /Zwrot trafia do osoby, która zapłaciła za to zgłoszenie\./)
 })
 
+// ---------------------------------------------------------------- follow-ups NB-1, NB-2: the refund e-mails of a moved line
+
+/** The organizer moves `a`'s paid line to `toEmail` → the moved entry line. */
+async function organizerMoved(event, a, toEmail) {
+  const org = await call('organizer-entry-action', {
+    action: 'transfer', registrationId: a.reg.id, categoryId: event.categoryIds[0], person: recipientPerson(toEmail, { firstName: 'Ewa', lastName: 'Tajna' }),
+  }, { session: owner })
+  assert.equal(org.status, 200, org.text)
+  const newId = org.body.data.registrationId
+  const [entryLine] = (await rows('order_lines', { registration_id: newId })).filter((l) => l.kind === 'entry')
+  return { newId, entryLine }
+}
+
+test('V-95 (NB-1) a moved line\'s refund: the payer\'s copy goes out, the holder\'s is refused → the claim is kept, the alert names the failed copy and its status, and the job never sends the payer a second copy', async () => {
+  const { event, a } = await mockPaidHolder()
+  const third = runnerEmail('bounce') // the capture server refuses this address with a 500
+  const { newId, entryLine } = await organizerMoved(event, a, third)
+  const refund = await call('organizer-refund', { lineId: entryLine.id, grosze: 1000, requestKey: crypto.randomUUID(), registrationId: newId }, { session: owner })
+  assert.equal(refund.status, 200, refund.text)
+  assert.equal((await waitForMail(a.email, 1, bySubject(/^Zwrot /))).length, 1, 'the payer is told once')
+
+  const [row] = await rows('refunds', { order_id: a.orderId })
+  assert.ok(row.runner_notified_at, 'a delivered copy keeps the claim: releasing it would send that copy again')
+  const alerts = await rows('operator_alerts', { order_id: a.orderId, kind: 'refund_email_failed' })
+  assert.equal(alerts.length, 1, JSON.stringify(alerts))
+  assert.equal(alerts[0].payload.copy, 'holder')
+  assert.equal(alerts[0].payload.error, 'e-mail not accepted (500)', 'the failed send\'s status, not the delivered one\'s')
+  assert.ok(!JSON.stringify(alerts[0].payload).includes(third), 'no address in the alert')
+
+  await runJobs()
+  await sleep(500)
+  assert.equal((await messagesTo(a.email)).filter(bySubject(/^Zwrot /)).length, 1, 'the job sends the payer nothing more')
+  assert.equal((await rows('operator_alerts', { order_id: a.orderId, kind: 'refund_email_failed' })).length, 1)
+})
+
+test('V-96 (NB-2) the payer deleted the account: the new holder\'s only refund e-mail says the money goes back to whoever paid, never „Pieniądze wrócą tą samą drogą…”', async () => {
+  for (const kind of ['organizer', 'runner']) {
+    const { event, a, holder } = await mockPaidHolder()
+    const third = runnerEmail(`nb2${kind[0]}`)
+    let newId, entryLine
+    if (kind === 'organizer') {
+      ({ newId, entryLine } = await organizerMoved(event, a, third))
+    } else {
+      const inv = await invited(a, holder)
+      const res = await acceptWithCode(event, inv.token, third)
+      assert.equal(res.status, 200, res.text)
+      newId = res.body.data.registrationId;
+      [entryLine] = (await rows('order_lines', { registration_id: newId })).filter((l) => l.kind === 'entry')
+    }
+    // delete-my-account keeps the order and drops the payer's address and name.
+    assert.ifError((await db().from('orders').update({ buyer_email: null, buyer_name: null }).eq('id', a.orderId)).error)
+
+    const refund = await call('organizer-refund', { lineId: entryLine.id, grosze: 1000, requestKey: crypto.randomUUID(), registrationId: newId }, { session: owner })
+    assert.equal(refund.status, 200, refund.text)
+    const mails = await waitForMail(third, 1, bySubject(/^Zwrot /))
+    assert.equal(mails.length, 1, kind)
+    assert.match(mails[0].text, /Zwrot trafia do osoby, która zapłaciła za to zgłoszenie\./, kind)
+    assert.doesNotMatch(mails[0].text, /tą samą drogą/, kind)
+    assert.ok((await one('refunds', { order_id: a.orderId })).runner_notified_at, kind)
+  }
+})
+
 // ---------------------------------------------------------------- I-1 the job re-sends a released claim
 
 async function runJobs() {

@@ -14,6 +14,7 @@ import { acceptAgreement, createPublishedFreeEvent } from './helpers/registratio
 import { consentIds, db, one, person, runnerEmail } from './helpers/orders.js'
 import { makeExtra, makeVoucher, setCharity } from './helpers/cart.js'
 import { enableTransfers, freeEntry } from './helpers/transfers.js'
+import { mergePending } from '../../public/src/lib/eventPageModel.js'
 
 let owner
 before(async () => {
@@ -116,4 +117,44 @@ test('V-90 flag off: transfers stay live for free entries (runner invite and org
     person: { firstName: 'Jan', lastName: 'Nowak', birthDate: '1985-05-05', gender: 'M', email: runnerEmail('org'), phone: '600700800' },
   }, owner)
   assert.equal(org.status, 200, org.text)
+})
+
+// Plan 7 follow-up NB-3 (V-97): „Podgląd jako zawodnik” shows the organizer the page a runner
+// sees. With the money features off, /api/event serves no donations and no extras, so the
+// preview must not show them either: not from the live event, not from staged changes.
+test('V-97 flag off: preview-registration-event hides donations and extras, live and staged, exactly as /api/event does', async () => {
+  const event = await charityFree()
+  const { error } = await db().from('registration_pending_changes').insert({
+    event_id: event.eventId,
+    payload: {
+      basics: { donations_enabled: true, first_start_time: '10:15' },
+      extras: { items: [{ id: null, name: 'Czapka', price: 2000, order_until: event.eventDate, category_ids: [], variants: [{ id: null, label: 'S', stock: 5 }] }] },
+    },
+    changed_fields: ['basics', 'extras'],
+  })
+  assert.ifError(error)
+
+  const off = await call('preview-registration-event', { eventId: event.eventId, withPending: true }, owner)
+  assert.equal(off.status, 200, off.text)
+  const { raw, pending } = off.body.data
+  assert.equal(raw.donationsEnabled, false)
+  assert.deepEqual(raw.extras, [])
+  assert.ok(!off.text.includes('Koszulka') && !off.text.includes('Czapka'), off.text)
+  const shown = mergePending(raw, pending)
+  assert.equal(shown.donationsEnabled, false, 'a staged donations switch does not bring the chips back')
+  assert.deepEqual(shown.extras, [], 'staged extras do not come back')
+  assert.equal(shown.firstStartTime, '10:15', 'the other staged changes still show')
+  assert.equal(raw.isCharity, true, 'the charity itself is not money')
+
+  // Without the staged changes, the same.
+  const plain = await call('preview-registration-event', { eventId: event.eventId }, owner)
+  assert.equal(plain.body.data.raw.donationsEnabled, false)
+  assert.deepEqual(plain.body.data.raw.extras, [])
+
+  // On the money-live test stack the preview still shows both (the flag-on behaviour).
+  const on = await call('preview-registration-event', { eventId: event.eventId, withPending: true }, owner, { money: 'on' })
+  assert.equal(on.status, 200, on.text)
+  assert.equal(on.body.data.raw.donationsEnabled, true)
+  assert.deepEqual(on.body.data.raw.extras.map((x) => x.name), ['Koszulka'])
+  assert.deepEqual(mergePending(on.body.data.raw, on.body.data.pending).extras.map((x) => x.name), ['Czapka'])
 })

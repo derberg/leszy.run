@@ -23,10 +23,15 @@
 //                                     step "claim" or "release" in the payload, or step "send" from
 //                                     the job: fix the cause (the address bounced: write to the
 //                                     runner by hand), or set refunds.runner_notified_at back to
-//                                     NULL so the job sends it on its next run.
+//                                     NULL so the job sends it on its next run. With `copy`
+//                                     (payer or holder) in the payload, the refund was of a moved
+//                                     package and only that copy failed while the other went out:
+//                                     write to that person by hand and leave runner_notified_at
+//                                     set, or the job sends the delivered copy a second time.
 //   refund_email_unknown              the sender timed out; the e-mail may have gone. Check the
 //                                     SendGrid activity for the order's buyer; only if nothing was
-//                                     delivered, set runner_notified_at back to NULL as above.
+//                                     delivered, set runner_notified_at back to NULL as above
+//                                     (never when the payload has `copy`: write by hand instead).
 //   refund_followup_failed            the refund itself is stored. The audit row or the e-mail after
 //                                     it failed: if runner_notified_at is NULL the job sends the
 //                                     e-mail; nothing about the money needs doing.
