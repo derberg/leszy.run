@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { entriesToCsv } from '../../../supabase/functions/_shared/registration/entriesCsv.js'
+import { entriesToCsv, vouchersToCsv } from '../../../supabase/functions/_shared/registration/entriesCsv.js'
 
-const HEADER = 'Nr;Imię;Nazwisko;Data urodzenia;Płeć;Kategoria;Konkurencja;Drużyna;Klub;Miejscowość;Narodowość;E-mail;Telefon;Kontakt ICE;Telefon ICE;Opiekun;E-mail opiekuna;Status;Wpłata (zł);Zwrócono (zł);Regulamin;Partner;Data zapisu'
+const HEADER = 'Nr;Imię;Nazwisko;Data urodzenia;Płeć;Kategoria;Konkurencja;Drużyna;Klub;Miejscowość;Narodowość;E-mail;Telefon;Kontakt ICE;Telefon ICE;Opiekun;E-mail opiekuna;Status;Wpłata (zł);Zwrócono (zł);Regulamin;Partner;Kod rabatowy;Data zapisu'
 const quotedHeader = HEADER.split(';').map((h) => `"${h}"`).join(';')
 
 const ROW = {
@@ -25,7 +25,7 @@ describe('entriesToCsv (O-04)', () => {
     assert.equal(lines.length, 2)
     assert.deepEqual(cellsOf(lines[1]), [
       '214', 'Anna', 'Wiśniewska', '1990-05-01', 'K', 'K30–39', 'Bieg 9 km', 'Leśne Dziki', 'ZATYRANI', 'Zabrze', 'PL',
-      'anna@example.pl', '500600700', 'Jan', '500600701', '', '', 'OPŁACONE', '60,50', '0,00', 'zaakceptowany', '',
+      'anna@example.pl', '500600700', 'Jan', '500600701', '', '', 'OPŁACONE', '60,50', '0,00', 'zaakceptowany', '', '',
       '2026-10-21 00:30',
     ])
   })
@@ -101,5 +101,31 @@ describe('entriesToCsv (O-04)', () => {
     assert.equal(regulamin({ consentState: 'awaiting' }), 'czeka na zgodę')
     assert.equal(regulamin({ consentState: 'office' }), 'podpisany w biurze')
     assert.equal(regulamin({ status: 'cancelled', statusKey: 'cancelled' }), '')
+  })
+})
+
+describe('Partner and Kod rabatowy (Plan 7, V-34)', () => {
+  it('fills both from the row, and escapes a partner named like a formula', () => {
+    const cells = cellsOf(entriesToCsv([{ ...ROW, partnerName: 'Sklep Biegacz', voucherCode: 'BIEGACZ15' }]).split('\r\n').at(-1))
+    assert.deepEqual([cells[21], cells[22]], ['Sklep Biegacz', 'BIEGACZ15'])
+    const bad = cellsOf(entriesToCsv([{ ...ROW, partnerName: '=HYPERLINK(1)', voucherCode: '-ABC' }]).split('\r\n').at(-1))
+    assert.deepEqual([bad[21], bad[22]], ["'=HYPERLINK(1)", "'-ABC"])
+  })
+})
+
+describe('vouchersToCsv (Plan 7, organizer-vouchers export)', () => {
+  const V = { code: 'BIEGACZ15', percent: 15, used: 3, maxUses: 10, validUntil: '2026-11-30', partner: { id: 'p', name: 'Sklep' }, note: 'ulotki' }
+
+  it('starts with the BOM and the header, one CRLF line per code', () => {
+    const csv = vouchersToCsv([V])
+    assert.ok(csv.startsWith('\uFEFF"Kod";"Rabat";"Wykorzystano";"Limit";"Ważny do";"Partner";"Notatka"\r\n'))
+    assert.deepEqual(cellsOf(csv.split('\r\n')[1]), ['BIEGACZ15', '15%', '3', '10', '2026-11-30', 'Sklep', 'ulotki'])
+  })
+
+  it('leaves an open code, no partner and no note empty, and escapes a partner or note formula', () => {
+    const cells = cellsOf(vouchersToCsv([{ ...V, validUntil: null, partner: null, note: null }]).split('\r\n')[1])
+    assert.deepEqual(cells.slice(4), ['', '', ''])
+    const bad = cellsOf(vouchersToCsv([{ ...V, partner: { name: '=HYPERLINK(1)' }, note: '@cmd' }]).split('\r\n')[1])
+    assert.deepEqual(bad.slice(5), ["'=HYPERLINK(1)", "'@cmd"])
   })
 })

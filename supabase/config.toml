@@ -258,6 +258,10 @@ entrypoint = "./functions/organizer-refund/index.js"
 verify_jwt = false
 entrypoint = "./functions/export-event-registrations/index.js"
 
+[functions.organizer-vouchers]
+verify_jwt = false
+entrypoint = "./functions/organizer-vouchers/index.js"
+
 [functions.send-organizer-message]
 verify_jwt = false
 entrypoint = "./functions/send-organizer-message/index.js"

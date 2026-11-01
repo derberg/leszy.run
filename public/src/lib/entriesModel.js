@@ -75,7 +75,7 @@ export function entryCounts(rows, competitions) {
  *   from 00:00 Warsaw on event_date. `full`: the row's competition has no place left, so the
  *   server refuses a payment reminder (`full`, D6-27).
  * @returns {string[]} from edit, remind_payment, extend, remind_consent, consent_office, message,
- *   refund, cancel, rename_team, squad
+ *   refund, cancel, rename_team, squad, partner (Plan 7: a live person row, never a team row)
  */
 export function entryActions(row, { closed = false, payingClosed = closed, raceDay = false, isTeamRow = false, full = false } = {}) {
   const live = isLive(row)
@@ -92,6 +92,7 @@ export function entryActions(row, { closed = false, payingClosed = closed, raceD
     ['cancel', live],
     ['rename_team', live && isTeamRow],
     ['squad', live && isTeamRow],
+    ['partner', live && !isTeamRow],
   ].filter(([, offered]) => offered).map(([action]) => action)
 }
 

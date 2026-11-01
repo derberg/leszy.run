@@ -25,7 +25,7 @@ const DAY = 86400
 // Online payment stops an hour before closes_at (spec 14.10, create_order's paying_closed).
 const PAYING_CLOSES_BEFORE_MS = 3600_000
 const FIELD_MESSAGE = 'Sprawdź to pole.'
-const ACTIONS = ['extend', 'remind_payment', 'cancel', 'edit', 'rename_team']
+const ACTIONS = ['extend', 'remind_payment', 'cancel', 'edit', 'rename_team', 'partner']
 // The fields „Edytuj dane” may change (ruling 7). Never the e-mail: the one-start key and the account.
 const EDITABLE = ['firstName', 'lastName', 'birthDate', 'gender', 'phone', 'city', 'club', 'nationality', 'iceName', 'icePhone']
 
@@ -51,6 +51,7 @@ const REFUSALS = {
   invalid_team_name: [422, TEAM_NAME_MESSAGE],
   team_name_taken: [409, 'Ta nazwa drużyny jest już zajęta.'],
   team_inactive: [409, 'To zgłoszenie nie jest już aktywne.'],
+  invalid_partner: [422, 'Nieznany partner.'],
   not_found: [404, NOT_FOUND.error],
 }
 
@@ -169,6 +170,9 @@ async function checkEdit(admin, settings, registrationId, fields) {
 //                   `fields`; 409 edits_closed after closes_at.
 //   rename_team     { teamId, name }                      → 200 { data: { name } }
 //                   409 team_name_taken, 422 invalid_team_name.
+//   partner         { registrationId, partnerId | null } → 200 { data: { partnerId, changed } }
+//                   B3 „Partner”: attributes a live entry to one of the event's partners, or clears
+//                   it (Plan 7). 409 not_live, 422 invalid_partner (unknown or another event's).
 // The owner or an admin of the event's club: a member 403, an outsider or a disabled club 404, an
 // unknown target 404. Every change writes one organizer_actions row naming its target; no personal
 // value goes into the payload or a log.
@@ -251,6 +255,19 @@ Deno.serve(async (req) => {
       // Which fields, never their values: the audit keeps no personal data the purge would miss.
       await log('registration_edited', target.registrationId, { fields: checked.keys, changed: data?.changed === true })
       return json({ data: { changed: data?.changed === true, ageGroupLabel: data?.ageGroupLabel ?? null } }, 200, req)
+    }
+
+    if (action === 'partner') {
+      // Clearing takes an explicit null: a missing or misnamed key must not wipe the attribution.
+      if (!('partnerId' in body)) return refuse(req, 'invalid_partner')
+      const { partnerId } = body
+      if (partnerId !== null && !isUuid(partnerId)) return refuse(req, 'invalid_partner')
+      const { data, error } = await admin.rpc('set_registration_partner', {
+        p_registration_id: target.registrationId, p_partner_id: partnerId, p_actor: actor,
+      })
+      if (error) return refusalOrThrow(req, error)
+      await log('registration_partner_set', target.registrationId, { partnerId, changed: data?.changed === true })
+      return json({ data: { partnerId, changed: data?.changed === true } }, 200, req)
     }
 
     // rename_team

@@ -106,7 +106,7 @@ describe('entryActions (O-06)', () => {
   const open = { closed: false, raceDay: false, isTeamRow: false }
 
   it('a paid entry before close', () => {
-    assert.deepEqual(entryActions(row(), open), ['edit', 'message', 'refund', 'cancel'])
+    assert.deepEqual(entryActions(row(), open), ['edit', 'message', 'refund', 'cancel', 'partner'])
   })
   it('refund is absent on race day and for unpaid rows', () => {
     assert.ok(!entryActions(row(), { ...open, raceDay: true }).includes('refund'))
@@ -120,11 +120,11 @@ describe('entryActions (O-06)', () => {
   })
   it('edit is absent when closed', () => {
     assert.ok(!entryActions(row(), { ...open, closed: true }).includes('edit'))
-    assert.deepEqual(entryActions(row(), { ...open, closed: true }), ['message', 'refund', 'cancel'])
+    assert.deepEqual(entryActions(row(), { ...open, closed: true }), ['message', 'refund', 'cancel', 'partner'])
   })
   it('extend and the payment reminder are for an order still awaiting, before close', () => {
     const awaiting = row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 })
-    assert.deepEqual(entryActions(awaiting, open), ['edit', 'remind_payment', 'extend', 'message', 'cancel'])
+    assert.deepEqual(entryActions(awaiting, open), ['edit', 'remind_payment', 'extend', 'message', 'cancel', 'partner'])
     assert.ok(!entryActions(awaiting, { ...open, closed: true }).includes('extend'))
     assert.ok(!entryActions(row({ status: 'pending_payment', statusKey: 'expired', paidAmount: 0 }), open).includes('extend'))
     for (const statusKey of ['free', 'paid', 'cancelled', 'refund_unconfirmed']) {
@@ -140,6 +140,13 @@ describe('entryActions (O-06)', () => {
     assert.ok(!entryActions(row(), open).includes('rename_team'))
     assert.ok(!entryActions(row(), open).includes('squad'))
     assert.deepEqual(entryActions(row({ consentState: 'awaiting' }), { ...open, isTeamRow: true }), ['message', 'refund', 'cancel', 'rename_team', 'squad'])
+  })
+  it('partner (Plan 7, V-33) on a live person row only: not a team row, not a lapsed or finished one', () => {
+    assert.ok(entryActions(row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 }), open).includes('partner'))
+    assert.ok(!entryActions(row(), { ...open, isTeamRow: true }).includes('partner'))
+    for (const [status, statusKey] of [['cancelled', 'cancelled'], ['pending_payment', 'expired'], ['transferred_out', 'transferred']]) {
+      assert.ok(!entryActions(row({ status, statusKey }), open).includes('partner'), statusKey)
+    }
   })
   it('a transferred entry\'s money is not refunded from its old row', () => {
     assert.ok(!entryActions(row({ status: 'transferred_out', statusKey: 'transferred' }), open).includes('refund'))

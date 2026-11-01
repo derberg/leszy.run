@@ -14,7 +14,7 @@ const fullName = (r) => (r.first_name === DELETED ? null : `${r.first_name ?? ''
 const roleOf = registrationRole
 
 const REG_COLUMNS = 'id, category_id, order_id, first_name, last_name, birth_date, gender, phone, city, club, nationality, ' +
-  'ice_name, ice_phone, email, age_group_label, status, created_at, price, partner_id, participant_id, profile_id, ' +
+  'ice_name, ice_phone, email, age_group_label, status, created_at, price, partner_id, voucher_id, participant_id, profile_id, ' +
   'registered_by_profile_id, consent_state, guardian_profile_id, guardian_name, guardian_removed_at, team_id'
 
 // Who registered each added adult and child, by the rule consentRequests.js names the buyer
@@ -59,7 +59,7 @@ const groupBy = (items, key) => {
 /**
  * Every registration of the event in sign-up order, with the panel's fields.
  * `guardianEmail: true` adds a child's guardian address (the CSV's „E-mail opiekuna”); the panel
- * never gets it. → { rows, counts, teams, competitions, event }
+ * never gets it. → { rows, counts, teams, competitions, event, partners }
  *
  * Rows keep Plans 2–5's fields (id, name, competition, ageGroupLabel, status, createdAt,
  * paymentStatus, expiresAt, role, consentState, guardianName, guardianRemoved, registeredBy, team)
@@ -74,7 +74,10 @@ const groupBy = (items, key) => {
  *   refundUnconfirmed   grosze of organizer refunds dpay has not confirmed (in `refunded` too)
  *   statusKey           entryStatusKey, from this row's own refunds and participant
  *   autoRefundReason    'full' when the order was refunded automatically for a full competition
- *   partnerId, partnerName (null: no partner names yet)
+ *   partnerId, partnerName  the entry's partner (registration_partners), null when none
+ *   voucherCode         the code the entry was bought with, null when none
+ * partners are the event's: [{ id, name, count }], count = the live entries attributed to each
+ * (pending_payment or confirmed, not lapsed). Organizer-only, like the rows (V-38).
  * counts are per person (D5-32), with people's places (placesLeft) and teams' (teamPlacesLeft) apart;
  * competitions are the visible ones (entryCounts' limit), in the event's order; a team carries
  * `captainId` (the row its ⋯ acts on) and the event its `slug` (the squad page's address).
@@ -82,7 +85,7 @@ const groupBy = (items, key) => {
 export async function loadEntries(admin, settings, { guardianEmail = false, now = new Date() } = {}) {
   const eventId = settings.event_id
   const regColumns = guardianEmail ? `${REG_COLUMNS}, guardian_email` : REG_COLUMNS
-  const [regs, comps, orders, teamRows, lineRows, refundRows, participants] = await Promise.all([
+  const [regs, comps, orders, teamRows, lineRows, refundRows, participants, partnerRows, voucherRows] = await Promise.all([
     allRows(() => admin.from('registrations').select(regColumns)
       .eq('event_id', eventId).order('created_at').order('id')),
     // In the event's own order (the wizard's), which the panel's chips follow.
@@ -96,7 +99,11 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       .eq('orders.event_id', eventId).order('id')),
     allRows(() => admin.from('participants').select('id, registration_id, bib_number, removed_at, withdrawn_at')
       .eq('event_id', eventId).not('registration_id', 'is', null).order('id')),
+    allRows(() => admin.from('registration_partners').select('id, name').eq('event_id', eventId).order('id')),
+    allRows(() => admin.from('vouchers').select('id, code').eq('event_id', eventId).order('id')),
   ])
+  const partnerName = new Map(partnerRows.map((p) => [p.id, p.name]))
+  const voucherCode = new Map(voucherRows.map((v) => [v.id, v.code]))
   const nameOf = new Map(comps.map((c) => [c.category_id, c.name]))
   const orderOf = new Map(orders.map((o) => [o.id, o]))
   const regOf = new Map(regs.map((r) => [r.id, r]))
@@ -183,7 +190,8 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
       refundUnconfirmed: unconfirmedRefundGrosze({ refunds }),
       autoRefundReason: order && fullRefundOrders.has(order.id) ? 'full' : null,
       partnerId: r.partner_id ?? null,
-      partnerName: null,
+      partnerName: r.partner_id ? (partnerName.get(r.partner_id) ?? null) : null,
+      voucherCode: r.voucher_id ? (voucherCode.get(r.voucher_id) ?? null) : null,
     }
     row.statusKey = entryStatusKey({ ...row, refunds, participant }, now)
     if (guardianEmail) row.guardianEmail = role === 'minor' ? (r.guardian_email ?? null) : null
@@ -205,9 +213,20 @@ export async function loadEntries(admin, settings, { guardianEmail = false, now 
     }
   })
 
+  const partnerCount = new Map()
+  for (const row of rows) {
+    if (row.partnerId && LIVE.has(row.status) && row.statusKey !== 'expired') {
+      partnerCount.set(row.partnerId, (partnerCount.get(row.partnerId) ?? 0) + 1)
+    }
+  }
+  const partners = partnerRows
+    .map((p) => ({ id: p.id, name: p.name, count: partnerCount.get(p.id) ?? 0 }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pl'))
+
   return {
     rows,
     counts,
+    partners,
     teams,
     competitions: visible.map((c) => ({ id: c.category_id, name: c.name, capacity: c.capacity, taken: c.taken, kind: c.kind })),
     event: { name: settings.name, slug: settings.slug ?? null, eventDate: settings.event_date, closesAt: settings.closes_at, state: settings.state },
