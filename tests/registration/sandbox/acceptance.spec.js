@@ -21,6 +21,7 @@ function record(id, what, data) {
 }
 
 const PRICE = 6000
+const ZT = '00000000-0000-4000-8000-0000000000c1' // seed club zatyrani-test
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 async function waitFor(fn, { what, timeout = 120_000, every = 2000 }) {
   const end = Date.now() + timeout
@@ -65,8 +66,13 @@ test.describe('dpay sandbox acceptance', () => {
     }
     h.stack.localEnv() // refuses anything but the local stack
     await h.stack.resetThrottle()
-    await h.fx.acceptAgreement('zatyrani-test')
     owner = await h.stack.sessionFor('owner@zatyrani-test.local')
+    // Not fx.acceptAgreement(): that imports a Deno-side module, which Playwright's loader cannot parse
+    // outside the e2e testDir (SyntaxError in CI). Accept through the edge function, as the e2e specs do.
+    const status = await h.fx.callFn('organizer-status', owner, { clubId: ZT })
+    if (!status.body.data.agreementAccepted) {
+      await h.fx.callFn('accept-organizer-agreement', owner, { clubId: ZT, version: status.body.data.version })
+    }
     event = await h.fx.createPublishedPaidEvent(owner, { prices: { 'Bieg 9 km': PRICE } })
   })
 
