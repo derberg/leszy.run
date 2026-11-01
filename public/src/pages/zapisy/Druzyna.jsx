@@ -60,6 +60,12 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
   const [accepted, setAccepted] = useState({})
   const [serviceAccepted, setServiceAccepted] = useState(false)
   const [busy, setBusy] = useState(false)
+  // The member fields are disabled while busy, so a server error can only be
+  // focused once the form is enabled again: a rAF ran before that commit.
+  const [focusError, setFocusError] = useState(0)
+  useEffect(() => {
+    if (focusError && !busy) document.querySelector('[aria-invalid="true"]')?.focus()
+  }, [focusError, busy])
   const inFlight = useRef(false)
   const moves = useMoveFocus()
   const path = teamPath(raw.slug, teamId)
@@ -189,7 +195,7 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
       } else {
         setErrors(f.fields)
         setMessage(f.message ?? (Object.keys(f.fields).length ? 'Popraw zaznaczone pola.' : null))
-        requestAnimationFrame(() => document.querySelector('[aria-invalid="true"]')?.focus())
+        setFocusError((n) => n + 1)
       }
     } finally {
       inFlight.current = false
@@ -203,7 +209,7 @@ function Team({ raw: shellRaw, teamId, notice, setNotice }) {
     if (Object.keys(found).length) {
       setErrors(found)
       setMessage('Popraw zaznaczone pola.')
-      requestAnimationFrame(() => document.querySelector('[aria-invalid="true"]')?.focus())
+      setFocusError((n) => n + 1)
       return undefined
     }
     if (form.kind === 'swap' && !confirming) { setConfirming(true); return undefined }
