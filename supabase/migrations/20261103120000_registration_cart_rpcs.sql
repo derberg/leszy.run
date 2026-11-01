@@ -1,6 +1,7 @@
 -- Plan 7, task 4a: vouchers, extras and a donation in the orders a runner creates.
 --
---   claim_registration_voucher   one use of a code, in one statement (§16): used + 1 only while
+--   claim_registration_voucher   one use of a voucher (by the id the caller resolved, else by code),
+--                                in one statement (§16): used + 1 only while
 --                                used < max_uses, not disabled, not past valid_until and offered in
 --                                the competition. Raises voucher_invalid (unknown, malformed or
 --                                disabled), voucher_expired, voucher_category or voucher_used_up.
@@ -16,8 +17,12 @@
 -- donations on, else donation_not_allowed). total = entry_total + extras_total + donation, with
 -- the entry prices discounted (registration_discounted_price), as orders_amounts_add_up_check
 -- requires. Nothing is payable to LESZY.RUN (2026-10-31). A free event (pricing_mode 'free')
--- takes an order when it has extras or a donation (ruling 7), and register_free refuses any of the
--- three (not_free).
+-- takes an order when it has extras or a donation (ruling 7), and register_free refuses a code, an
+-- extra with qty above 0 or a donation above 0 (not_free); all-zero extras and a zero donation still
+-- register free. A code on an entry whose list price is 0 is refused (voucher_not_applicable:<index>,
+-- controller ruling on M-2): it would spend a use and credit a partner for a 0 zł discount.
+-- registration_group_insert (from 20261031100000) takes the list price, voucher and partner, so a
+-- coded registration is written once.
 --
 -- Order of work (Global Constraints lock order: competitions by category_id → settings → teams →
 -- vouchers by id → extra_variants by id → registrations):
@@ -25,14 +30,16 @@
 --   2. plain reads only: the tier and list prices, each extra (extra_unavailable:<index> when the
 --      variant is not this event's, its order_until has passed or it is not offered in that
 --      person's competition), each code resolved to its voucher (voucher_invalid / _expired /
---      _category / _used_up :<index> when the read already says so);
+--      _category / _used_up :<index> when the read already says so; voucher_not_applicable:<index>
+--      on a 0 zł entry);
 --   3. the totals, then paying_closed, too_many_pending and price_changed as before;
 --   4. capacity (P3-R15): an order to be paid claims no slot and is refused with full:<categoryId>
 --      when the confirmed entries plus its people pass the limit; a total-0 order is confirmed at
 --      once and claims its slots here;
 --   5. the voucher uses, in voucher-id order (then person order: the second person typing one
---      single-use code gets voucher_used_up:1). The codes were resolved to ids by the plain read in
---      step 2, so two orders always lock vouchers in the same order;
+--      single-use code gets voucher_used_up:1). Each claim takes the id the plain read in step 2
+--      resolved, so two orders always lock vouchers in the same order and a code edited in between
+--      cannot swap in another voucher (or its partner);
 --   6. the stock, in variant-id order (extra_sold_out:<index>);
 --   7. the registrations (list_price from the frozen tier, price discounted, voucher_id and the
 --      voucher's partner_id) and the lines: an entry line per person, an extra line per person and
@@ -81,7 +88,11 @@ REVOKE EXECUTE ON FUNCTION public.registration_voucher_refusal(public.vouchers, 
 
 -- ---------------------------------------------------------------- claims and releases
 
+-- p_voucher_id: the voucher the caller's plain read resolved the code to. Given, the claim takes that
+-- row and no other (the code may have been edited since, while used = 0), so the caller's id order
+-- is the order rows are locked in and the partner is the one it read. Without it the code decides.
 CREATE FUNCTION public.claim_registration_voucher(p_event_id uuid, p_code text, p_category_id uuid,
+                                                  p_voucher_id uuid DEFAULT NULL,
                                                   OUT o_id uuid, OUT o_percent integer, OUT o_partner_id uuid)
   LANGUAGE plpgsql
   SECURITY DEFINER
@@ -91,12 +102,13 @@ DECLARE
   v_code text := public.registration_normalize_code(p_code);
   v      public.vouchers%ROWTYPE;
 BEGIN
-  IF v_code IS NULL THEN
+  IF p_voucher_id IS NULL AND v_code IS NULL THEN
     RAISE EXCEPTION 'voucher_invalid';
   END IF;
   -- §16: the write is the check.
   UPDATE public.vouchers AS x SET used = x.used + 1
-   WHERE x.event_id = p_event_id AND x.code = v_code
+   WHERE x.event_id = p_event_id
+     AND CASE WHEN p_voucher_id IS NOT NULL THEN x.id = p_voucher_id ELSE x.code = v_code END
      AND x.used < x.max_uses AND x.disabled_at IS NULL
      AND (x.valid_until IS NULL OR x.valid_until > now())
      AND (NOT EXISTS (SELECT 1 FROM public.voucher_competitions vc WHERE vc.voucher_id = x.id)
@@ -106,11 +118,13 @@ BEGIN
   IF FOUND THEN
     RETURN;
   END IF;
-  SELECT * INTO v FROM public.vouchers x WHERE x.event_id = p_event_id AND x.code = v_code;
+  SELECT * INTO v FROM public.vouchers x
+   WHERE x.event_id = p_event_id
+     AND CASE WHEN p_voucher_id IS NOT NULL THEN x.id = p_voucher_id ELSE x.code = v_code END;
   RAISE EXCEPTION '%', coalesce(public.registration_voucher_refusal(v, p_category_id), 'voucher_used_up');
 END $$;
-REVOKE EXECUTE ON FUNCTION public.claim_registration_voucher(uuid, text, uuid) FROM public, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.claim_registration_voucher(uuid, text, uuid) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.claim_registration_voucher(uuid, text, uuid, uuid) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_registration_voucher(uuid, text, uuid, uuid) TO service_role;
 
 CREATE FUNCTION public.claim_extra_stock(p_variant_id uuid, p_qty integer) RETURNS boolean
   LANGUAGE plpgsql
@@ -282,21 +296,102 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.registration_claim_extras(jsonb) FROM public, anon, authenticated, service_role;
 
 -- One voucher use with the person's index on the refusal → (id, percent, partner_id).
-CREATE FUNCTION public.registration_claim_voucher_at(p_event_id uuid, p_code text, p_category_id uuid, p_index integer,
+CREATE FUNCTION public.registration_claim_voucher_at(p_event_id uuid, p_voucher_id uuid, p_code text, p_category_id uuid,
+                                                     p_index integer,
                                                      OUT o_id uuid, OUT o_percent integer, OUT o_partner_id uuid)
   LANGUAGE plpgsql
   SET search_path = ''
 AS $$
 BEGIN
   SELECT c.o_id, c.o_percent, c.o_partner_id INTO o_id, o_percent, o_partner_id
-    FROM public.claim_registration_voucher(p_event_id, p_code, p_category_id) c;
+    FROM public.claim_registration_voucher(p_event_id, p_code, p_category_id, p_voucher_id) c;
 EXCEPTION WHEN raise_exception THEN
   IF SQLERRM IN ('voucher_invalid', 'voucher_expired', 'voucher_category', 'voucher_used_up') THEN
     RAISE EXCEPTION '%:%', SQLERRM, p_index;
   END IF;
   RAISE;
 END $$;
-REVOKE EXECUTE ON FUNCTION public.registration_claim_voucher_at(uuid, text, uuid, integer) FROM public, anon, authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.registration_claim_voucher_at(uuid, uuid, text, uuid, integer) FROM public, anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------- registration_group_insert (from 20261031100000)
+
+-- M-5: a coded entry is written once, with its list price, discounted price, voucher and partner.
+-- Three trailing parameters, defaulted, so the 11-argument callers (register_free, team_squad_insert)
+-- resolve to it unchanged; the old signature is dropped so no call is ambiguous. p_list_price null
+-- means the list price is p_price, as before.
+DROP FUNCTION public.registration_group_insert(public.registration_settings, jsonb, integer, uuid, text, text,
+  uuid, text, integer, inet, text);
+CREATE FUNCTION public.registration_group_insert(
+  p_rs public.registration_settings, p_person jsonb, p_index integer, p_profile_id uuid,
+  p_buyer_email text, p_buyer_name text, p_order_id uuid, p_status text, p_price integer,
+  p_ip inet, p_ua text, p_list_price integer DEFAULT NULL, p_voucher_id uuid DEFAULT NULL,
+  p_partner_id uuid DEFAULT NULL) RETURNS uuid
+  LANGUAGE plpgsql
+  SET search_path = ''
+AS $$
+DECLARE
+  v_role  text := p_person->>'role';
+  v_email text := CASE WHEN p_person->>'role' = 'minor' THEN NULL ELSE lower(btrim(p_person->>'email')) END;
+  v_reg   uuid;
+BEGIN
+  BEGIN
+    INSERT INTO public.registrations (
+      event_id, category_id, order_id, status, profile_id, registered_by_profile_id,
+      first_name, last_name, birth_date, gender, email,
+      phone, city, club, ice_name, ice_phone, nationality, age_group_label, kids_group_id,
+      guardian_profile_id, guardian_name, guardian_email, consent_state, list_price, price, voucher_id, partner_id)
+    VALUES (
+      p_rs.event_id, (p_person->>'categoryId')::uuid, p_order_id, p_status,
+      -- The account is this person's only when its address is theirs.
+      CASE WHEN v_email IS NOT NULL
+           THEN (SELECT p.id FROM public.profiles p WHERE p.id = p_profile_id AND lower(p.email) = v_email) END,
+      p_profile_id,
+      p_person->>'firstName', p_person->>'lastName', (p_person->>'birthDate')::date, p_person->>'gender', v_email,
+      p_person->>'phone', p_person->>'city', p_person->>'club', p_person->>'iceName', p_person->>'icePhone',
+      nullif(p_person->>'nationality', ''), p_person->>'ageGroupLabel', nullif(p_person->>'kidsGroupId', '')::uuid,
+      CASE WHEN v_role = 'minor' THEN p_profile_id END,
+      CASE WHEN v_role = 'minor' THEN p_buyer_name END,
+      CASE WHEN v_role = 'minor' THEN p_buyer_email END,
+      CASE WHEN v_role = 'adult' THEN 'awaiting' ELSE 'accepted' END,
+      coalesce(p_list_price, p_price), p_price, p_voucher_id, p_partner_id)
+    RETURNING id INTO v_reg;
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'duplicate:%', p_index;
+  END;
+
+  -- An added adult accepts for themself later (consent request, task 3). The buyer accepts
+  -- for themself, and as guardian for every child, the LESZY.RUN service regulamin included.
+  IF v_role IN ('self', 'minor') THEN
+    INSERT INTO public.consent_acceptances (
+      registration_id, consent_id, consent_kind, accepted_by_profile_id, accepted_as, regulamin_version, ip, user_agent)
+    SELECT v_reg, ec.id, ec.kind, p_profile_id, CASE WHEN v_role = 'minor' THEN 'guardian' ELSE 'self' END,
+           CASE WHEN ec.kind = 'regulamin' THEN p_rs.regulamin_version END, p_ip, p_ua
+      FROM public.event_consents ec WHERE ec.event_id = p_rs.event_id
+    UNION ALL
+    SELECT v_reg, NULL, 'service_regulamin', p_profile_id, CASE WHEN v_role = 'minor' THEN 'guardian' ELSE 'self' END,
+           NULL, p_ip, p_ua;
+  END IF;
+  RETURN v_reg;
+END $$;
+REVOKE EXECUTE ON FUNCTION public.registration_group_insert(public.registration_settings, jsonb, integer, uuid, text, text,
+  uuid, text, integer, inet, text, integer, uuid, uuid) FROM public, anon, authenticated, service_role;
+
+-- true for an absent, null or zero amount: 0, 0.0, "0" or " 0 ". Anything else, malformed included,
+-- is not zero.
+CREATE FUNCTION public.registration_zero_amount(p_value jsonb) RETURNS boolean
+  LANGUAGE sql
+  IMMUTABLE
+  SET search_path = ''
+AS $$
+  SELECT CASE
+    WHEN p_value IS NULL OR p_value = 'null'::jsonb THEN true
+    WHEN jsonb_typeof(p_value) = 'number' THEN p_value::text::numeric = 0
+    WHEN jsonb_typeof(p_value) = 'string' AND btrim(p_value #>> '{}') ~ '^-?[0-9]+(\.[0-9]+)?$'
+      THEN btrim(p_value #>> '{}')::numeric = 0
+    ELSE false
+  END
+$$;
+REVOKE EXECUTE ON FUNCTION public.registration_zero_amount(jsonb) FROM public, anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------- register_free (from 20261101110000)
 
@@ -329,11 +424,17 @@ BEGIN
   IF v_rs.pricing_mode <> 'free' THEN
     RAISE EXCEPTION 'not_free';
   END IF;
-  -- Ruling 7: a code, an extra or a donation is money, and money goes through create_order.
+  -- Ruling 7: a code, an extra or a donation is money, and money goes through create_order. The
+  -- picker sends every extra row, at qty 0 when not taken, so only a row that is not a number 0
+  -- counts; a donation is money unless it is absent, null or zero (0, 0.0, "0").
   IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_people) e
               WHERE nullif(btrim(e->>'voucherCode'), '') IS NOT NULL
-                 OR (jsonb_typeof(e->'extras') = 'array' AND jsonb_array_length(e->'extras') > 0))
-     OR coalesce(p_meta->>'donation', '0') <> '0' THEN
+                 OR (e->'extras' IS NOT NULL AND e->'extras' <> 'null'::jsonb
+                     AND (jsonb_typeof(e->'extras') <> 'array'
+                          OR EXISTS (SELECT 1 FROM jsonb_array_elements(e->'extras') x
+                                      WHERE CASE WHEN jsonb_typeof(x) = 'object' AND jsonb_typeof(x->'qty') = 'number'
+                                                 THEN (x->>'qty')::numeric <> 0 ELSE true END))))
+     OR NOT public.registration_zero_amount(p_meta->'donation') THEN
     RAISE EXCEPTION 'not_free';
   END IF;
 
@@ -486,6 +587,10 @@ BEGIN
     IF v_refusal IS NOT NULL THEN
       RAISE EXCEPTION '%:%', v_refusal, v_idx - 1;
     END IF;
+    -- A code discounts nothing on a 0 zł entry: refused, so no use is spent and no partner credited.
+    IF v_list[v_idx] = 0 THEN
+      RAISE EXCEPTION 'voucher_not_applicable:%', v_idx - 1;
+    END IF;
     v_vid[v_idx] := v_voucher.id;
     v_pct[v_idx] := v_voucher.percent;
   END LOOP;
@@ -537,7 +642,7 @@ BEGIN
   -- The voucher uses, in voucher-id order, then person order.
   FOR u IN SELECT t.i::integer AS i FROM unnest(v_vid) WITH ORDINALITY AS t(vid, i)
             WHERE t.vid IS NOT NULL ORDER BY t.vid, t.i LOOP
-    SELECT * INTO v_claim FROM public.registration_claim_voucher_at(v_rs.event_id, v_code[u.i], v_cat[u.i], u.i - 1);
+    SELECT * INTO v_claim FROM public.registration_claim_voucher_at(v_rs.event_id, v_vid[u.i], v_code[u.i], v_cat[u.i], u.i - 1);
     v_vid[u.i] := v_claim.o_id;
     v_pct[u.i] := v_claim.o_percent;
     v_partner[u.i] := v_claim.o_partner_id;
@@ -572,15 +677,10 @@ BEGIN
                         FROM jsonb_array_elements(p_people) e WHERE e->>'role' = 'self' LIMIT 1));
 
   FOR v_person, v_idx IN SELECT value, ordinality FROM jsonb_array_elements(p_people) WITH ORDINALITY LOOP
+    v_price := public.registration_discounted_price(v_list[v_idx], v_pct[v_idx]);
     v_reg := public.registration_group_insert(v_rs, v_person, (v_idx - 1)::integer, v_profile, v_buyer, v_name,
                                               v_order, CASE WHEN v_free THEN 'confirmed' ELSE 'pending_payment' END,
-                                              v_list[v_idx], v_ip, v_ua);
-    v_price := public.registration_discounted_price(v_list[v_idx], v_pct[v_idx]);
-    IF v_vid[v_idx] IS NOT NULL THEN
-      UPDATE public.registrations
-         SET price = v_price, voucher_id = v_vid[v_idx], partner_id = v_partner[v_idx]
-       WHERE id = v_reg;
-    END IF;
+                                              v_price, v_ip, v_ua, v_list[v_idx], v_vid[v_idx], v_partner[v_idx]);
     INSERT INTO public.order_lines (order_id, kind, registration_id, qty, amount, tier_label, tier_ends_on)
     VALUES (v_order, 'entry', v_reg, 1, v_price, v_label, v_tier_ends);
     v_regs := v_regs || v_reg;
@@ -745,6 +845,9 @@ BEGIN
     IF v_refusal IS NOT NULL THEN
       RAISE EXCEPTION '%:0', v_refusal;
     END IF;
+    IF v_list = 0 THEN
+      RAISE EXCEPTION 'voucher_not_applicable:0';
+    END IF;
   END IF;
   v_fee := public.registration_discounted_price(v_list, v_voucher.percent);
   SELECT coalesce(sum((x->>'price')::bigint * (x->>'qty')::bigint), 0) INTO v_extras FROM jsonb_array_elements(v_items) x;
@@ -793,7 +896,7 @@ BEGIN
 
   -- Lock order: teams → vouchers → extra_variants → registrations.
   IF v_code IS NOT NULL THEN
-    SELECT * INTO v_claim FROM public.registration_claim_voucher_at(v_rs.event_id, v_code, p_category_id, 0);
+    SELECT * INTO v_claim FROM public.registration_claim_voucher_at(v_rs.event_id, v_voucher.id, v_code, p_category_id, 0);
     v_voucher_id := v_claim.o_id;
     v_partner := v_claim.o_partner_id;
     IF public.registration_discounted_price(v_list, v_claim.o_percent) <> v_fee THEN
@@ -827,14 +930,14 @@ BEGIN
   FOR v_person, v_idx IN SELECT value, ordinality FROM jsonb_array_elements(v_people) WITH ORDINALITY LOOP
     v_reg := public.registration_group_insert(v_rs, v_person, (v_idx - 1)::integer, v_profile, v_buyer, v_name,
                                               v_order, CASE WHEN v_free THEN 'confirmed' ELSE 'pending_payment' END,
-                                              CASE WHEN v_idx = 1 THEN v_list ELSE 0 END, v_ip, v_ua);
+                                              CASE WHEN v_idx = 1 THEN v_fee ELSE 0 END, v_ip, v_ua,
+                                              CASE WHEN v_idx = 1 THEN v_list ELSE 0 END,
+                                              CASE WHEN v_idx = 1 THEN v_voucher_id END,
+                                              CASE WHEN v_idx = 1 THEN v_partner END);
     UPDATE public.registrations
        SET team_id = v_team,
            team_leg = CASE WHEN v_comp.leg_order_enabled THEN (v_person->>'leg')::integer END,
-           team_position = v_idx,
-           price = CASE WHEN v_idx = 1 THEN v_fee ELSE 0 END,
-           voucher_id = CASE WHEN v_idx = 1 THEN v_voucher_id END,
-           partner_id = CASE WHEN v_idx = 1 THEN v_partner END
+           team_position = v_idx
      WHERE id = v_reg;
     v_regs := v_regs || v_reg;
     v_out := v_out || jsonb_build_object('id', v_reg, 'index', v_idx - 1, 'role', v_person->>'role');
