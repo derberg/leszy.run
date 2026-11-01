@@ -56,6 +56,36 @@ describe('runnerDataInfo start list (ruling P3-R14)', () => {
   })
 })
 
+describe('runnerDataInfo teams (Plan 5, T-84)', () => {
+  const lines = [
+    'Drużyna ma na liście startowej jeden wiersz: nazwę drużyny, imiona członków bez nazwisk, liczbę osób i miejscowość kapitana.',
+    'Nazwa drużyny: 30 dni po dniu zawodów.',
+    'W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO).',
+    'Jeżeli kapitan usunie konto LESZY.RUN, drużyna zostaje na liście startowej pod neutralną nazwą',
+  ]
+
+  it('with team competitions: what a team publishes, how long its name lives, who gave the members\' data', () => {
+    const t = text(runnerDataInfo({ ...base, teams: true }))
+    for (const line of lines) assert.ok(t.includes(line), line)
+  })
+
+  it('without them, none of it', () => {
+    const t = text(runnerDataInfo(base))
+    for (const line of lines) assert.equal(t.includes(line), false, line)
+  })
+
+  it('the source document holds the same lines', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const md = await readFile(new URL('../../../docs/legal/zapisy/informacja-o-danych-zawodnika.md', import.meta.url), 'utf8')
+    for (const line of lines) assert.ok(md.includes(line), line)
+  })
+
+  it('the version moved past v5 with these lines', async () => {
+    const { RUNNER_DATA_INFO_VERSION } = await import('../../src/legal/runnerDataInfo.js')
+    assert.notEqual(RUNNER_DATA_INFO_VERSION, '2026-11-v5')
+  })
+})
+
 describe('runnerDataInfo version', () => {
   it('matches the „Wersja” of the source document, and moved past v1 with the nationality line', async () => {
     const { readFile } = await import('node:fs/promises')

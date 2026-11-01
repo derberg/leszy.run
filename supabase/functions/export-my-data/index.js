@@ -30,7 +30,7 @@ async function fetchAll(buildQuery, label) {
 // hash is never exported: it is a credential, not information about the person.
 const REGISTRATION_COLUMNS = 'id, event_id, category_id, status, first_name, last_name, birth_date, gender, email, phone, city, club, nationality, '
   + 'ice_name, ice_phone, guardian_name, guardian_email, guardian_removed_at, age_group_label, list_price, price, refunded, consent_state, created_at, '
-  + 'order_id, registered_by_profile_id, '
+  + 'order_id, registered_by_profile_id, team_id, '
   + 'registration_settings(name, event_date), '
   + 'consent_acceptances(consent_kind, accepted_as, regulamin_version, accepted_at, ip, user_agent), '
   + 'consent_requests(sent_at, emailed_at, last_reminded_at, auto_reminded_at, used_at, expires_at)'
@@ -223,13 +223,40 @@ Deno.serve(async (req) => {
       console.error('export-my-data: registered_by names failed:', err?.message)
     }
   }
+  // Plan 5: a team the person runs in. Everyone gets its name on their own entry; the captain, who
+  // typed it, also gets the team as a record. The squad's size is a number: the other adults'
+  // entries are their data (the children are in registrations_as_guardian).
+  const teamIds = [...new Set(ownRegs.map((r) => r.team_id).filter(Boolean))]
+  const [teamRows, teamMembers] = teamIds.length > 0
+    ? await Promise.all([
+      fetchAll(() => supabaseAdmin.from('teams')
+        .select('id, name, captain_registration_id, created_at, competitions(name), registration_settings(name, event_date)')
+        .in('id', teamIds).order('created_at').order('id'), 'teams'),
+      fetchAll(() => supabaseAdmin.from('registrations')
+        .select('team_id').in('team_id', teamIds).in('status', ['confirmed', 'pending_payment']).order('id'), 'team sizes'),
+    ])
+    : [[], []]
+  const teamById = new Map(teamRows.map((t) => [t.id, t]))
+  const teams = teamRows
+    .filter((t) => ownRegs.some((r) => r.id === t.captain_registration_id))
+    .map((t) => ({
+      name: t.name,
+      competition: t.competitions?.name ?? null,
+      event_name: t.registration_settings?.name ?? null,
+      event_date: t.registration_settings?.event_date ?? null,
+      size: teamMembers.filter((m) => m.team_id === t.id).length,
+      status: ownRegs.find((r) => r.id === t.captain_registration_id).status,
+      created_at: t.created_at,
+    }))
+
   const registrations = ownRegs
     .map((row) => {
-      const { registration_settings: rs, consent_requests: _cr, order_id: _order, registered_by_profile_id: _by, ...r } = row
+      const { registration_settings: rs, consent_requests: _cr, order_id: _order, registered_by_profile_id: _by, team_id: teamId, ...r } = row
       return {
         ...r,
         event_name: rs?.name ?? null,
         event_date: rs?.event_date ?? null,
+        team_name: teamId ? teamById.get(teamId)?.name ?? null : null,
         // null: the person registered themself. Otherwise { name }: the name is null when nothing
         // names the buyer any more (they deleted their account: registered_by and buyer_name go).
         registered_by: addedBySomebody(row) ? { name: registeredBy(row) } : null,
@@ -291,6 +318,7 @@ Deno.serve(async (req) => {
     clubs: { membership, memberships, membership_history, owned },
     registrations,
     registrations_as_guardian: registrationsAsGuardian,
+    teams,
     orders,
     race_entries: (raceEntries.data ?? []).map((p) => ({
       event_name: p.events?.name ?? null,

@@ -151,7 +151,10 @@ test('T-40 a free team: 201 with no order; one confirmation to the captain with 
   assert.ok(asked[0].text.includes('Ola Leśna zapisał(a) Cię'))
   await sleep(300)
   assert.equal((await messagesTo(me)).length, 1, 'the captain gets no consent e-mail')
-  assert.equal((await rows('consent_requests', {})).filter((c) => regs.some((x) => x.id === c.registration_id)).length, 1)
+  // By id: an unfiltered read stops at PostgREST's 1000 rows, which a stack that was not reset passes.
+  const { data: requests, error } = await db().from('consent_requests').select('id').in('registration_id', regs.map((x) => x.id))
+  assert.ifError(error)
+  assert.equal(requests.length, 1)
 })
 
 test('T-40 a 0 zł fee on a paid event is confirmed at once, never reaches dpay, and the confirmation has no payment wording (P3-R9, D5-23)', async () => {

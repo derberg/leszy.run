@@ -15,13 +15,29 @@ export function emailConfigured() {
   return Boolean(Deno.env.get('EMAIL_CAPTURE_URL') || Deno.env.get('SENDGRID_API_KEY'))
 }
 
+// The local test stack only. A connection from the edge-runtime container to the host sometimes
+// stalls before the request is sent, for 3 to 68 s (tests/registration/README.md), and the capture
+// server answers in milliseconds. So a request with no answer after timeoutMs was never delivered,
+// and sending it again on a new connection cannot duplicate it. Only a stall is retried: an answer,
+// or a refused connection, is the result.
+export async function postToCapture(url, init, { timeoutMs = 2000, tries = 4, fetchFn = fetch } = {}) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fetchFn(url, { ...init, signal: AbortSignal.timeout(timeoutMs) })
+    } catch (err) {
+      if (err?.name !== 'TimeoutError' || attempt >= tries) throw err
+      console.warn(`Email capture: no answer in ${timeoutMs} ms (try ${attempt}), retrying`)
+    }
+  }
+}
+
 // to: one address, or a list sent as one request with a personalization per
 // address (at most 1000, SendGrid's limit), so nobody sees the others.
 async function send({ to, subject, text, html, replyTo, fromName = 'LESZY.RUN' }) {
   const captureUrl = Deno.env.get('EMAIL_CAPTURE_URL')
   if (captureUrl) {
     try {
-      const res = await fetch(captureUrl, {
+      const res = await postToCapture(captureUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to, subject, text, html, replyTo, fromName }),

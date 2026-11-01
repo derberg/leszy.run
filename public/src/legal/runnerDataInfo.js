@@ -15,11 +15,13 @@
 // crowd shots art. 81 ust. 2 pkt 2), which is not GDPR consent. Plan 4 (groups): the
 // added adult's data come from the person who registered them (Art. 14(2)(f)), who is named in
 // the consent e-mail; the consent link, its reminders and the office override are described; the
-// start list shows gender (filters) and no added adult by name before they accept.
+// start list shows gender (filters) and no added adult by name before they accept. Plan 5 (teams):
+// what a team's row publishes, that its name goes 30 days after the race, and the members' data
+// given by the captain (Art. 14) appear only with team competitions.
 //
 // Keep in step with the source document when it changes.
 
-export const RUNNER_DATA_INFO_VERSION = '2026-11-v5'
+export const RUNNER_DATA_INFO_VERSION = '2026-11-v6'
 
 /**
  * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
@@ -67,6 +69,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
         heading: 'Co jest publikowane',
         blocks: [
           `Na publicznej liście startowej: ${listedText}. Miejscowości osób niepełnoletnich nie publikujemy. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. ${unpublished.join(', ')} i dane osoby do kontaktu w nagłych wypadkach nie są publikowane.`,
+          ...only(teams, 'Drużyna ma na liście startowej jeden wiersz: nazwę drużyny, imiona członków bez nazwisk, liczbę osób i miejscowość kapitana. Nazwa drużyny jest widoczna dla wszystkich, więc nie wpisuj w niej niczego, czego nie chcesz publikować.'),
           'Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i publikować go w relacjach z zawodów. Podstawą przetwarzania danych jest prawnie uzasadniony interes Organizatora w relacjonowaniu zawodów (art. 6 ust. 1 lit. f RODO); możesz wnieść sprzeciw wobec takiej publikacji (art. 21 RODO): napisz do Organizatora. Rozpowszechnianie Twojego wizerunku opiera się na zezwoleniu, którego udzielasz, akceptując to postanowienie regulaminu zawodów (art. 81 ust. 1 ustawy o prawie autorskim i prawach pokrewnych). Zezwolenia nie wymaga wizerunek, który jest jedynie szczegółem całości, np. tłumu uczestników lub publiczności (art. 81 ust. 2 pkt 2 tej ustawy). To zezwolenie nie jest zgodą w rozumieniu RODO.',
         ],
       },
@@ -87,6 +90,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
         blocks: [{
           list: [
             'Numer telefonu i dane osoby do kontaktu w nagłych wypadkach: 30 dni po dniu zawodów.',
+            ...only(teams, 'Nazwa drużyny: 30 dni po dniu zawodów. Potem drużyna zostaje na liście startowej pod neutralną nazwą.'),
             ...only(paid, 'Zgłoszenie, które nie zostało opłacone w terminie: 30 dni po jego wygaśnięciu.'),
             'Pozostałe dane zgłoszenia: 12 miesięcy po dniu zawodów, a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.',
             ...only(paid, 'Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).'),
@@ -109,6 +113,7 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
           'Zapisując inną osobę dorosłą (członka rodziny, drużyny), podajesz jej dane w jej imieniu. Źródłem jej danych jesteś Ty (art. 14 ust. 2 lit. f RODO): w e-mailu do tej osoby podajemy Twoje imię i nazwisko jako osoby, która ją zapisała. Przekaż jej, że dane podałeś.',
           'Ta osoba dostaje jeden e-mail z linkiem i z tą informacją. Na stronie z linku potwierdza swój adres kodem wysłanym e-mailem, sprawdza i może poprawić swoje dane, a potem akceptuje regulamin zawodów. Jeżeli tego nie zrobi, przed końcem zapisów dostanie jedno automatyczne przypomnienie; Ty i Organizator możecie wysłać kolejne (łącznie najwyżej trzy na dobę). Każde przypomnienie unieważnia poprzedni link. Organizator może też przyjąć jej podpis pod regulaminem w biurze zawodów. Dopóki ta osoba nie zaakceptuje regulaminu, nie pokazujemy jej na publicznej liście startowej z imienia i nazwiska.',
           'Osobę niepełnoletnią zapisuje jej rodzic lub opiekun prawny, który podaje swoje imię, nazwisko i adres e-mail. Oświadczenia za osobę niepełnoletnią składa opiekun. Dziecko nie dostaje od LESZY.RUN żadnych wiadomości. Jeżeli opiekun usunie konto LESZY.RUN, zgłoszenie dziecka zostaje, bez danych kontaktowych opiekuna.',
+          ...only(teams, 'W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO). Każda dorosła osoba dostaje wtedy e-mail opisany wyżej, a za dziecko, którego kapitan jest rodzicem lub opiekunem, kapitan składa oświadczenia sam. Kapitan może zmieniać skład do zamknięcia zapisów; osoba usunięta ze składu po zapisie dostaje o tym e-mail, a jej zgłoszenie jest anulowane. Jeżeli kapitan usunie konto LESZY.RUN, drużyna zostaje na liście startowej pod neutralną nazwą, a składem zajmuje się Organizator.'),
         ],
       },
       {

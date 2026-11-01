@@ -175,7 +175,12 @@ export async function createPublishedFreeEvent(owner, {
  */
 export async function createPublishedPaidEvent(owner, { prices = {}, paymentWindowHours = 168, ...options } = {}) {
   localEnv()
-  const event = await createPublishedFreeEvent(owner, options)
+  return makeEventPaid(await createPublishedFreeEvent(owner, options), { prices, paymentWindowHours })
+}
+
+/** createPublishedPaidEvent's LOCAL-only step, for an event published as free some other way (the wizard). */
+export async function makeEventPaid(event, { prices = {}, paymentWindowHours = 168 } = {}) {
+  localEnv()
   const db = admin()
   const { data: comps, error: cErr } = await db.from('competitions')
     .select('category_id, name').in('category_id', event.categoryIds)

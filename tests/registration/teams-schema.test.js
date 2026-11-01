@@ -19,7 +19,7 @@ import { assertSlotInvariant } from './helpers/slotInvariant.js'
 import { teamNameKey } from '../../supabase/functions/_shared/registration/team.js'
 
 const ZT_CLUB = '00000000-0000-4000-8000-0000000000c1'
-const NBSP = ' '
+const NBSP = '\u00a0'
 
 let owner
 let sqlClient
@@ -166,8 +166,8 @@ test('T-11 the name index agrees with teamNameKey on NBSP, tabs, CJK space and P
     [`Dziki${NBSP}Biegacze`, 'dziki biegacze'],
     [`${NBSP}Rysie${NBSP}`, 'rysie'],
     [` ${NBSP} Sowy \t\n${NBSP}Nocne${NBSP} `, 'sowy nocne'],
-    ['Lisy　Polne', 'lisy polne'],
-    ['Żbiki Leśne﻿', 'żbiki leśne'],
+    ['Lisy\u3000Polne', 'lisy polne'],
+    ['Żbiki\u2003Leśne\ufeff', 'żbiki leśne'],
   ]
   for (const [a, b] of same) {
     assert.equal(teamNameKey(a), teamNameKey(b), `the JS key must make ${JSON.stringify(a)} = ${JSON.stringify(b)}`)
@@ -176,7 +176,7 @@ test('T-11 the name index agrees with teamNameKey on NBSP, tabs, CJK space and P
     assert.equal(r.error?.code, '23505', `${JSON.stringify(a)} vs ${JSON.stringify(b)}: ${r.error?.message ?? 'no conflict'}`)
   }
   // Letters that differ stay different on both sides; so does a name split by a zero-width space.
-  const different = [['Żubry', 'Zubry'], ['Łania', 'Lania'], ['A​B', 'A B']]
+  const different = [['Żubry', 'Zubry'], ['Łania', 'Lania'], ['A\u200bB', 'A B']]
   for (const [a, b] of different) {
     assert.notEqual(teamNameKey(a), teamNameKey(b))
     await insertTeam(event, cat, a)
