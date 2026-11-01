@@ -380,7 +380,7 @@ test('T-37 EXECUTE: service_role only, SECURITY DEFINER with an empty search_pat
     select has_function_privilege('anon', f, 'execute') as anon,
            has_function_privilege('authenticated', f, 'execute') as authed,
            has_function_privilege('service_role', f, 'execute') as service
-      from (select 'public.team_squad_edit(uuid, uuid, jsonb, jsonb)'::regprocedure as f) t`
+      from (select 'public.team_squad_edit(uuid, uuid, jsonb, jsonb, boolean)'::regprocedure as f) t`
   assert.deepEqual({ ...grants }, { anon: false, authed: false, service: true })
   const [helper] = await sql()`
     select has_function_privilege('anon', p.oid, 'execute') as anon,

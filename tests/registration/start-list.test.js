@@ -225,7 +225,8 @@ test('P-45 list-event-registrations: paymentStatus and expiresAt per row, counts
   assert.equal(byName['Celina Wygasła'].status, 'expired')
   assert.equal(byName['Celina Wygasła'].paymentStatus, null)
   assert.equal(byName['Damian Anulowany'].paymentStatus, null)
-  assert.ok(!JSON.stringify(r.body).includes(people.paid.email))
+  // Plan 6 (D6-11): the organizer sees each entry's own address, for the panel and the CSV.
+  assert.equal(byName['Anna Zielna'].email, people.paid.email)
   assert.deepEqual((await callFn('list-event-registrations', clubAdmin, { eventId: event.eventId })).body.counts, { paid: 4, awaiting: 1, free: 1, placesLeft: left, teamPlacesLeft: null, awaitingConsent: 0 })
 })
 
@@ -429,7 +430,9 @@ test('G-50 a 0 zł kids competition inside a paid family order: the child is fre
   assert.equal(org['Ola Darmowa'].paymentStatus, 'free')
   assert.equal(r.body.counts.paid, 1)
   assert.equal(r.body.counts.free, 1)
-  assert.ok(!('price' in org['Ola Darmowa']), 'the price is not returned')
+  // Plan 6 (B3) returns the price for the panel: a 0 zł entry inside a paid order reads free.
+  assert.equal(org['Ola Darmowa'].price, 0)
+  assert.equal(org['Ola Darmowa'].paidAmount, 0)
 })
 
 test('G-51 an added adult is counted but listed only once they accept online or the office records consent', async () => {

@@ -2,12 +2,13 @@
 // (supabase/functions/registration-jobs/index.js); here so a Node test can run them with or
 // without dpay settings.
 import { dpayConfig } from '../dpay.js'
-import { sendEmail } from '../email.js'
+import { SENDGRID_TIMEOUT_MS, sendEmail } from '../email.js'
 import { operatorAlertEmail, orderExpiredEmail, paymentReminderEmail } from './emails.js'
 import {
   checkAttemptsAtDpay, executeRefund, loadOrderView, orderEmailArgs, raiseAlert, sendOrderConfirmation,
 } from './orderFlow.js'
 import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
+import { notifyRefundRunner, refundNoticeArgs } from './refundNotice.js'
 
 // The payment window jobs (plan 3, task 7). pg_cron POSTs here every 15 minutes through pg_net
 // (job `registration-jobs`) with the header x-jobs-secret = REGISTRATION_JOBS_SECRET; anything
@@ -19,8 +20,9 @@ import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
 // wall clock). Steps run cheapest and most critical first, each checks what is left, and whatever
 // does not fit is left for the next run (its rows stay unclaimed):
 //   1. the operator digest: every alert not e-mailed yet
-//   2. stalled refunds (P3-R10, review I1): never sent, or sent and never answered → one alert
-//      each (deduplicated), never a send
+//   2. stalled refunds (P3-R10, review I1), automatic and organizer ones alike (Plan 6, D6-22):
+//      never sent, or sent and never answered → one alert each (deduplicated), never a send. An
+//      organizer refund is then the operator's: backend/scripts/resolve-registration-refund.js
 //   3. refund retries: insufficient_balance (406) only, an hour apart, 24 at most
 //   4. reminders: a pending order with a window of 6 h or more past its half
 //   5. dpay check (Task 5 review M6, review I2): an order about to expire, or expired less than
@@ -31,6 +33,16 @@ import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
 //   6. „Zgłoszenie wygasło” (skipped for the run when step 5 failed): claim_expired_notices only
 //      hands out orders with that proof, with no unpaid transaction, or expired over 2 h ago
 //   7. lost confirmations (P3-R10): a paid order with no confirmation_sent_at 10 min after payment
+//      and at least one entry still confirmed (an order whose entries were all cancelled or
+//      refunded meanwhile is stamped and gets nothing, migration 20261102130000)
+//   7b. refund e-mails (Plan 6, D6-23; no dpay, so it runs under P3-R16): an accepted organizer
+//      refund whose runner_notified_at is still null (organizer-refund gave its claim back after a
+//      failed send, or died, or the operator resolved an `unknown` refund to accepted) gets the
+//      club's refund e-mail (refundNotice.js, the function's own copy). Claimed first; a failure
+//      is alerted (refund_email_failed / refund_email_unknown), the claim kept, never resent.
+//      A batch of 5 starts only with a SendGrid wait left in the budget (the rest is deferred,
+//      unclaimed), and a row whose arguments cannot be read is alerted once
+//      (refund_email_args_failed, deduplicated per refund) without stopping the others.
 //   8. consent requests (plan 4, D4-24; no dpay, so it runs under P3-R16):
 //      a. a confirmed adult awaiting consent with no request (the function died after the commit)
 //         is issued one (issueConsentRequests: issue_consent_request is the claim, so idempotent).
@@ -60,12 +72,12 @@ import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
 // no alert; everything else runs and the heartbeat is still stamped.
 // POST body: {} from cron; { budgetMs } may only shorten the budget (tests).
 // → 200 { data: { checked, confirmed, reminders, expiredNotices, confirmationsResent,
-//   refundRetries, stalledRefunds, consentRequestsIssued, consentEmailsResent, consentReminders,
+//   refundEmails, refundRetries, stalledRefunds, consentRequestsIssued, consentEmailsResent, consentReminders,
 //   alertsEmailed, deferred: [step…], skipped: { step: reason } } }
 
 const BUDGET_MS = 90_000
 const MIN_BUDGET_MS = 5_000
-const LIMIT = { check: 50, reminders: 100, notices: 100, confirmations: 50, retries: 20, stalled: 100, alerts: 200, consent: 50 }
+const LIMIT = { check: 50, reminders: 100, notices: 100, confirmations: 50, refundEmails: 50, retries: 20, stalled: 100, alerts: 200, consent: 50 }
 const CHECK_AHEAD_MS = 20 * 60_000 // a run every 15 min sees each order at least once before expiry
 const CHECK_BEHIND_MS = 2 * 3_600_000 // after this an expired order is told without a dpay check
 const CHECK_GAP_MS = 10 * 60_000
@@ -87,6 +99,10 @@ const DEFAULT_SITE = 'https://www.leszy.run'
 // Step 8 claims up to LIMIT.consent rows three times and sends 5 at a time: up to 30 rounds of
 // e-mail, about 1 s each through SendGrid.
 const CONSENT_STEP_MS = 15_000
+// The refund_emails step sends 5 at a time; a batch starts only with one SendGrid wait (10 s) and
+// a margin left, so a run is never cut off between a claim and its send (Task 5 review M3).
+const REFUND_EMAIL_WIDTH = 5
+const REFUND_EMAIL_BATCH_MS = SENDGRID_TIMEOUT_MS + 2_000
 const CONSENT_PART_MS = 10_000
 // The run at which a missing request that keeps failing is alerted (m7).
 const CONSENT_ISSUE_ALERT_AT = 3
@@ -269,7 +285,7 @@ async function checkAtDpay(admin, cfg, time) {
 export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
   const time = clock(budgetMs)
   const counts = {
-    checked: 0, confirmed: 0, reminders: 0, expiredNotices: 0, confirmationsResent: 0,
+    checked: 0, confirmed: 0, reminders: 0, expiredNotices: 0, confirmationsResent: 0, refundEmails: 0,
     refundRetries: 0, stalledRefunds: 0, consentRequestsIssued: 0, consentEmailsResent: 0, consentReminders: 0,
     alertsEmailed: 0, deferred: [], skipped: {},
   }
@@ -347,6 +363,30 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
       const ids = await rpcRows(admin, 'claim_confirmation_resends', { p_limit: LIMIT.confirmations })
       await eachLimited(ids, (id) => sendOrderConfirmation(admin, id, { claimed: true }))
       counts.confirmationsResent = ids.length
+    }],
+    ['refund_emails', 2_000, async () => {
+      const { data: due, error } = await admin.from('refunds').select('id, order_id, order_line_id, amount')
+        .eq('kind', 'organizer').eq('dpay_status', 'accepted').is('runner_notified_at', null)
+        .order('responded_at', { ascending: true }).limit(LIMIT.refundEmails)
+      if (error) throw error
+      const list = due ?? []
+      for (let i = 0; i < list.length; i += REFUND_EMAIL_WIDTH) {
+        // Review M3: a batch claims only when a whole send still fits; the rest waits, unclaimed.
+        if (time.left() < REFUND_EMAIL_BATCH_MS) { counts.deferred.push('refund_emails'); return }
+        await Promise.all(list.slice(i, i + REFUND_EMAIL_WIDTH).map(async (row) => {
+          // Review M4: one row that cannot be read never stops the others; alerted once per refund.
+          try {
+            const args = await refundNoticeArgs(admin, row)
+            if (!args) return
+            const outcome = await notifyRefundRunner(admin, args.settings, args.refund, { onFailure: 'keep' })
+            if (outcome === 'sent') counts.refundEmails++
+          } catch (err) {
+            console.error('registration-jobs: refund e-mail arguments not read:', err?.message)
+            await raiseAlert(admin, 'refund_email_args_failed', row.order_id,
+              { refundId: row.id, error: String(err?.message ?? err) }, { dedupeKey: `refund_email_args:${row.id}` })
+          }
+        }))
+      }
     }],
     ['consent_reminders', CONSENT_STEP_MS, async () => {
       const fits = () => {

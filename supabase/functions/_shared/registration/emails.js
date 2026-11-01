@@ -194,6 +194,53 @@ export function paymentRefundedEmail({ event, order, amount, reason }) {
   return { subject: `Płatność zwrócona — ${event.name}`, text, html }
 }
 
+/**
+ * An organizer's refund (Plan 6), sent as the club: plain text only, like every organizer message
+ * (spec 12.10). event { name }, person { firstName, lastName } (the entry, null names for a deleted
+ * account), grosze (this refund), cancelled (the refund cancelled the entry), organizer { name }.
+ */
+export function organizerRefundEmail({ event, person, grosze, cancelled, organizer }) {
+  const amount = formatPln(grosze)
+  const who = [person?.firstName, person?.lastName].filter(Boolean).join(' ')
+  const entry = who ? `zgłoszenia: ${who}` : 'zgłoszenia'
+  const text = [
+    'Cześć,',
+    '',
+    `organizator zawodów ${event.name}, ${organizer.name}, zwrócił ${amount} z opłaty za ${entry}.`,
+    ...(cancelled ? ['', 'Zgłoszenie zostało anulowane.'] : []),
+    '',
+    'Pieniądze wrócą tą samą drogą, którą zostały wysłane, zwykle w ciągu kilku dni roboczych.',
+    'Pytania o zwrot kieruj do organizatora: wystarczy odpowiedzieć na tę wiadomość.',
+    '',
+    organizer.name,
+  ].join('\n')
+  return { subject: `Zwrot ${amount} — ${event.name}`, text }
+}
+
+const RESOLVE = 'backend/scripts/resolve-registration-refund.js --refund <refundId> --outcome accepted|rejected --note "…"'
+
+/**
+ * What the operator does about an alert kind, one line each, for the kinds Plan 6's organizer
+ * refunds raise (the runbook in backend/scripts/resolve-registration-refund.js says the same).
+ * An automatic refund's stalled or unknown alert keeps Plan 3's manual handling: the kinds in
+ * ORGANIZER_ONLY_HINTS are raised for both, so their hint is shown only when an alert of that kind
+ * carries payload.reason 'organizer' (Task 5 review M1).
+ */
+export const ALERT_HINTS = {
+  refund_unknown: `zwrot organizatora bez pewnej odpowiedzi dpay: sprawdź panel dpay, potem ${RESOLVE}`,
+  refund_pending: `zwrot organizatora w toku po stronie dpay: sprawdź panel dpay, potem ${RESOLVE}`,
+  refund_stalled: `zwrot bez odpowiedzi dpay od 15 min. Organizatora (reason organizer): sprawdź panel dpay, potem ${RESOLVE}`,
+  refund_never_sent: `zwrot nigdy nie wysłany do dpay. Organizatora (reason organizer): brak zwrotu w panelu dpay → ${RESOLVE} z --outcome rejected`,
+  refund_email_failed: 'zwrot przyjęty, e-mail do biegacza nie wyszedł: popraw przyczynę lub napisz ręcznie; refunds.runner_notified_at = NULL każe zadaniu wysłać go ponownie',
+  refund_email_unknown: 'zwrot przyjęty, e-mail mógł wyjść (timeout): sprawdź SendGrid; tylko gdy nie doszedł, refunds.runner_notified_at = NULL',
+  refund_followup_failed: 'zwrot zapisany, nie powiódł się wpis audytu lub e-mail po nim: pieniędzy to nie dotyczy; e-mail wyśle zadanie, gdy runner_notified_at jest puste',
+  refund_cancel_failed: 'zwrot przyjęty, zgłoszenia nie udało się anulować: anuluj je ręcznie w panelu organizatora',
+  refund_email_args_failed: 'zadanie nie odczytało danych do e-maila o zwrocie (błąd bazy): sprawdź wiersz refunds i jego order_line_id; zadanie próbuje co 15 min',
+  refund_insufficient_balance: 'zwrot organizatora odrzucony, saldo dpay za niskie: rezerwacja zwolniona, organizator może zlecić zwrot ponownie po zasileniu konta (nikt go nie ponawia)',
+}
+
+const ORGANIZER_ONLY_HINTS = new Set(['refund_unknown', 'refund_pending', 'refund_insufficient_balance'])
+
 /** Operator digest of operator_alerts rows: [{ kind, orderId, payload, createdAt }]. */
 export function operatorAlertEmail({ alerts }) {
   const kinds = [...new Set(alerts.map((a) => a.kind))]
@@ -202,16 +249,21 @@ export function operatorAlertEmail({ alerts }) {
     `zamówienie ${a.orderId ?? '—'}`,
     a.payload ? JSON.stringify(a.payload) : '',
   ].filter(Boolean).join(' · '))
+  const hinted = (k) => ALERT_HINTS[k] && (!ORGANIZER_ONLY_HINTS.has(k)
+    || alerts.some((a) => a.kind === k && a.payload?.reason === 'organizer'))
+  const hints = kinds.filter(hinted).map((k) => `${k}: ${ALERT_HINTS[k]}`)
   const text = [
     `Płatności wymagają sprawdzenia (${alerts.length}):`,
     '',
     ...entries.map((e) => `- ${e}`),
+    ...(hints.length ? ['', 'Co zrobić:', ...hints.map((h) => `- ${h}`)] : []),
     '',
     'Sprawdź panel dpay przed jakimkolwiek ręcznym zwrotem.',
   ].join('\n')
   const html = [
     `<p>Płatności wymagają sprawdzenia (${alerts.length}):</p>`,
     `<ul>${entries.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`,
+    ...(hints.length ? ['<p>Co zrobić:</p>', `<ul>${hints.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ul>`] : []),
     '<p>Sprawdź panel dpay przed jakimkolwiek ręcznym zwrotem.</p>',
   ].join('')
   return { subject: `[ALERT] Płatności: ${kinds.join(', ')}`, text, html }

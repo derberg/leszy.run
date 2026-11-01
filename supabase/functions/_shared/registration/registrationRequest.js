@@ -107,6 +107,7 @@ export const SQUAD_REFUSALS = {
   invalid_op: [422, 'Nie rozpoznano tej zmiany składu.'],
   invalid_people: [422, 'Popraw zaznaczone pola.'],
   edits_closed: [422, 'Po zamknięciu zapisów dane poprawisz w biurze zawodów.'],
+  minor_by_organizer: [422, 'Dziecko do składu dopisuje kapitan drużyny.'],
 }
 const SQUAD_TRY_AGAIN = 'Nie udało się zmienić składu. Spróbuj ponownie.'
 

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { test, expect } from '@playwright/test'
 import { sandboxConfig, shapeOf } from './guard.js'
 
-// dpay sandbox acceptance, S-01…S-06 (plan 3, task 10). Real dpay sandbox, the LOCAL Supabase stack, the
+// dpay sandbox acceptance, S-01…S-06 (plan 3, task 10) and S-07 (plan 6, task 5: the organizer's refund). Real dpay sandbox, the LOCAL Supabase stack, the
 // real edge functions and a public tunnel for the IPN. Never in PR CI: see README.md.
 // Everything is skipped unless DPAY_ENV=sandbox.
 
@@ -36,7 +36,7 @@ test.describe('dpay sandbox acceptance', () => {
   test.skip(!enabled, 'DPAY_ENV is not "sandbox": this suite talks to the dpay sandbox and is run by hand or nightly')
   test.describe.configure({ mode: 'serial' })
 
-  let cfg, h, event
+  let cfg, h, event, owner
 
   // The real app code (dpay.js, money.js) runs in a child Node process: see bridge.mjs.
   const bridge = (op, req = {}) => {
@@ -58,7 +58,7 @@ test.describe('dpay sandbox acceptance', () => {
   })
 
   test.beforeAll(async () => {
-    cfg = sandboxConfig() // refuses a production dpay host
+    cfg = sandboxConfig() // refuses a non-test service or a non-dpay base URL
     h = {
       stack: await import('../helpers/stack.js'),
       fx: await import('../helpers/registrationFixtures.js'),
@@ -66,7 +66,7 @@ test.describe('dpay sandbox acceptance', () => {
     h.stack.localEnv() // refuses anything but the local stack
     await h.stack.resetThrottle()
     await h.fx.acceptAgreement('zatyrani-test')
-    const owner = await h.stack.sessionFor('owner@zatyrani-test.local')
+    owner = await h.stack.sessionFor('owner@zatyrani-test.local')
     event = await h.fx.createPublishedPaidEvent(owner, { prices: { 'Bieg 9 km': PRICE } })
   })
 
@@ -243,5 +243,52 @@ test.describe('dpay sandbox acceptance', () => {
       refundedTwice: r2.outcome === 'accepted', refundFieldsAfter: refundFields,
     })
     test.info().annotations.push({ type: 'S-06', description: `repeat of a message id -> ${r2.outcome} (${r2.httpStatus})` })
+  })
+
+  test('S-07 organizer refunds through organizer-refund: 10,00 zł, then the rest cancels the entry, then 409 exceeds with no dpay call', async ({ page }) => {
+    const order = await placeOrder()
+    await openGateway(page, order.redirectUrl)
+    await payBlik(page)
+    await waitPaid(order.orderId)
+    const [attempt] = await rows('payment_attempts', { order_id: order.orderId })
+    const txn = attempt.dpay_transaction_id
+    const [line] = (await rows('order_lines', { order_id: order.orderId })).filter((l) => l.kind === 'entry')
+    const refundCalls = async () => (await rows('payment_events', { order_id: order.orderId })).filter((e) => e.kind === 'refund').length
+    const refund = (grosze) => h.fx.callFn('organizer-refund', owner, { lineId: line.id, grosze, requestKey: crypto.randomUUID() })
+
+    const first = await refund(1000)
+    record('S-07', 'first organizer refund (10,00 zł)', { status: first.status, body: first.body })
+    expect(first.status, JSON.stringify(first.body)).toBe(200)
+    expect(first.body.data.status).toBe('accepted')
+    expect(first.body.data.cancelled).toEqual([])
+
+    const rest = await refund(line.amount - 1000)
+    record('S-07', 'second organizer refund (the rest of the entry)', { status: rest.status, body: rest.body })
+    expect(rest.status, JSON.stringify(rest.body)).toBe(200)
+    expect(rest.body.data.status).toBe('accepted')
+    const [reg] = await rows('registrations', { id: line.registration_id })
+    expect(reg.status).toBe('cancelled')
+    expect(rest.body.data.cancelled).toEqual([line.registration_id])
+
+    const calls = await refundCalls()
+    const over = await refund(100)
+    expect(over.status).toBe(409)
+    expect(over.body.code).toBe('exceeds')
+    expect(await refundCalls(), 'no dpay call for a refused refund').toBe(calls)
+
+    const refunds = await rows('refunds', { order_id: order.orderId })
+    expect(refunds.map((f) => f.dpay_status).sort()).toEqual(['accepted', 'accepted'])
+    expect(refunds.every((f) => f.runner_notified_at)).toBe(true)
+
+    const details = await bridge('details', { txn })
+    const refunded = []
+    const walk = (v, key = '') => {
+      if (v && typeof v === 'object') return Object.entries(v).forEach(([k, x]) => walk(x, k))
+      if (/refund|zwrot/i.test(key) && (typeof v === 'string' || typeof v === 'number')) refunded.push([key, v])
+    }
+    walk(details.raw)
+    record('S-07', 'details after the organizer refunds: refund-looking fields', { found: refunded.map(([k]) => k), shape: shapeOf(details.raw) })
+    const sums = refunded.map(([, v]) => bridge('parse', { str: String(v) }).grosze ?? null)
+    expect(sums, 'transactionDetails shows the refunded sum').toContain(line.amount)
   })
 })

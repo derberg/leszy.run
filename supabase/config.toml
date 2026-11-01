@@ -246,6 +246,22 @@ entrypoint = "./functions/my-event-registrations/index.js"
 verify_jwt = false
 entrypoint = "./functions/list-event-registrations/index.js"
 
+[functions.organizer-entry-action]
+verify_jwt = false
+entrypoint = "./functions/organizer-entry-action/index.js"
+
+[functions.organizer-refund]
+verify_jwt = false
+entrypoint = "./functions/organizer-refund/index.js"
+
+[functions.export-event-registrations]
+verify_jwt = false
+entrypoint = "./functions/export-event-registrations/index.js"
+
+[functions.send-organizer-message]
+verify_jwt = false
+entrypoint = "./functions/send-organizer-message/index.js"
+
 [functions.preview-registration-event]
 verify_jwt = false
 entrypoint = "./functions/preview-registration-event/index.js"

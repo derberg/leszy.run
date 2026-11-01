@@ -101,6 +101,15 @@ export function sendEmail(message) {
   return send({ ...message, to: String(message.to) })
 }
 
+/**
+ * One message to a few addresses in ONE request, a personalization each (nobody sees the others).
+ * → { ok, status }; throws like sendEmail (a SendGrid timeout carries `deliveryUnknown`). For a
+ * handful of addresses that must succeed or fail together; mass mail is sendBulkEmail.
+ */
+export function sendEmailToEach(addresses, message) {
+  return send({ ...message, to: addresses.map(String) })
+}
+
 /** One message to many addresses, 1000 per request. → { sent, failed, batches } */
 export function sendBulkEmail(recipients, message) {
   return sendInBatches(recipients, (batch) => send({ ...message, to: batch }))

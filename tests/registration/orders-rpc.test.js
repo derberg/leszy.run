@@ -495,13 +495,13 @@ test('cancel_order releases a pending order once; a later payment is refunded', 
   assert.equal((await competitionOf(cat)).taken, 0)
 })
 
-test('record_refund / settle_refund (P3-R6): message id from the refund id; 406 retries in an hour; pending moves; accepted and rejected are final', async () => {
+test('record_refund / settle_refund (P3-R6, D6-20): message id from the refund id; an automatic 406 retries in an hour; pending moves; accepted and rejected are final', async () => {
   const event = await paid()
   const out = await orderOk(event)
   const att = await attemptFor(out.orderId, out.total)
   await confirmOk(out.orderId, att.txn, out.total)
 
-  const r = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: out.total, p_kind: 'organizer', p_reason: 'rezygnacja' })
+  const r = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: out.total, p_kind: 'automatic', p_reason: 'rezygnacja' })
   assert.equal(r.error, null, r.error?.message)
   assert.equal(r.data.messageId, r.data.refundId.replaceAll('-', '').slice(0, 24))
 
@@ -528,14 +528,15 @@ test('record_refund / settle_refund (P3-R6): message id from the refund id; 406 
   assert.equal(done.dpay_status, 'accepted')
   assert.equal(done.attempts, 0)
   // The money left once: no second refund of it.
-  const twice = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: out.total, p_kind: 'organizer', p_reason: 'x' })
+  const twice = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: out.total, p_kind: 'automatic', p_reason: 'x' })
   assert.equal(twice.error?.message, 'invalid_amount')
 
   // A rejected refund is final too, and frees its amount for a new attempt.
   const out2 = await orderOk(event)
   const att2 = await attemptFor(out2.orderId, out2.total)
   await confirmOk(out2.orderId, att2.txn, out2.total)
-  const r2 = await rpc('record_refund', { p_attempt_id: att2.id, p_grosze: out2.total, p_kind: 'organizer', p_reason: 'x' })
+  // Automatic: since 20261102102000 settle_refund refuses an organizer refund (finish_organizer_refund settles those).
+  const r2 = await rpc('record_refund', { p_attempt_id: att2.id, p_grosze: out2.total, p_kind: 'automatic', p_reason: 'x' })
   assert.equal((await rpc('settle_refund', { p_refund_id: r2.data.refundId, p_outcome: 'rejected' })).data, 'settled')
   assert.equal((await rpc('settle_refund', { p_refund_id: r2.data.refundId, p_outcome: 'accepted' })).data, 'already_settled')
   assert.equal((await one('refunds', { id: r2.data.refundId })).dpay_status, 'rejected')
@@ -545,7 +546,7 @@ test('record_refund / settle_refund (P3-R6): message id from the refund id; 406 
   assert.equal(bad.error?.message, 'invalid_outcome')
   const missing = await rpc('settle_refund', { p_refund_id: crypto.randomUUID(), p_outcome: 'accepted' })
   assert.equal(missing.error?.message, 'not_found')
-  const zero = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: 0, p_kind: 'organizer', p_reason: 'x' })
+  const zero = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: 0, p_kind: 'automatic', p_reason: 'x' })
   assert.equal(zero.error?.message, 'invalid_amount')
 })
 

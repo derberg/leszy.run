@@ -222,7 +222,10 @@ test('W-29 my-event-registrations returns the session’s confirmed registration
   assert.equal(list.status, 200, JSON.stringify(list.body))
   assert.equal(list.body.data.length, 1)
   const [row] = list.body.data
-  assert.deepEqual({ ...row, createdAt: typeof row.createdAt }, {
+  // Plan 6 adds the panel's fields (organizer-edge.test.js, O-30); these are Plans 2–5's.
+  const PLAN5 = ['id', 'name', 'competition', 'ageGroupLabel', 'status', 'createdAt', 'paymentStatus', 'expiresAt',
+    'role', 'consentState', 'guardianName', 'guardianRemoved', 'registeredBy', 'team']
+  assert.deepEqual({ ...Object.fromEntries(PLAN5.map((k) => [k, row[k]])), createdAt: typeof row.createdAt }, {
     id: r.body.data.registrations[0].id, name: 'Ola Leśna', competition: 'Bieg 9 km', ageGroupLabel: 'K open',
     status: 'confirmed', createdAt: 'string', paymentStatus: 'free', expiresAt: null,
     // Plan 4 task 6: the consent columns (G-53).

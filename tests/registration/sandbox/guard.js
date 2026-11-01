@@ -1,8 +1,13 @@
-// Refuses to point the sandbox suite at real dpay. Pure: unit-tested in guard.test.js, used by the
-// spec and by write-functions-env.js. The host list is mirrored in README.md ("Production hosts").
+// Keeps the sandbox suite off the production dpay service. Pure: unit-tested in guard.test.js, used by
+// the spec and by write-functions-env.js. Mirrored in README.md ("Test mode").
+//
+// dpay has no sandbox host: test mode is a switch on a service, on the production hosts
+// (api-payments.dpay.pl, panel.dpay.pl). So the host cannot tell test from live. What protects
+// production is that only a dedicated test-mode service is ever configured here; the name rule below
+// is the part a machine can check.
 
-/** dpay's live hosts. A sandbox host never equals one of these. */
-export const PRODUCTION_DPAY_HOSTS = ['dpay.pl', 'www.dpay.pl', 'secure.dpay.pl', 'panel.dpay.pl', 'api.dpay.pl']
+/** A test service's identifier must say so. Refuses e.g. `LESZY.RUN` or `leszyrun`. */
+export const TEST_SERVICE_PATTERN = /sandbox|test/i
 
 export const SANDBOX_ENV_KEYS = [
   'DPAY_SANDBOX_SERVICE', 'DPAY_SANDBOX_SECRET', 'DPAY_SANDBOX_API_BASE', 'DPAY_SANDBOX_PANEL_BASE',
@@ -10,19 +15,32 @@ export const SANDBOX_ENV_KEYS = [
   'SANDBOX_PUBLIC_IPN_URL',
 ]
 
-export function isProductionDpayHost(url) {
-  let host
-  try { host = new URL(url).hostname.toLowerCase() } catch { return true } // unparsable: refuse
-  return PRODUCTION_DPAY_HOSTS.includes(host)
+/** True when the service identifier names a test service. */
+export function isTestService(service) {
+  return TEST_SERVICE_PATTERN.test(String(service ?? ''))
 }
 
-/** Throws when a base URL is a production dpay host, or the env is incomplete. Returns the config. */
+/** True when `url` parses as an https URL on dpay.pl or a subdomain of it. */
+export function isDpayHttpsUrl(url) {
+  let parsed
+  try { parsed = new URL(url) } catch { return false }
+  const host = parsed.hostname.toLowerCase()
+  return parsed.protocol === 'https:' && (host === 'dpay.pl' || host.endsWith('.dpay.pl'))
+}
+
+/**
+ * Throws when the env is incomplete, the service is not named as a test service, or a base URL is
+ * not https on a dpay.pl host. Returns the config.
+ */
 export function sandboxConfig(env = process.env) {
   const missing = SANDBOX_ENV_KEYS.filter((k) => !env[k]?.trim())
   if (missing.length) throw new Error(`sandbox suite: missing ${missing.join(', ')}`)
+  if (!isTestService(env.DPAY_SANDBOX_SERVICE.trim())) {
+    throw new Error('sandbox suite refuses to run: DPAY_SANDBOX_SERVICE does not contain "sandbox" or "test" (use a dedicated test-mode service)')
+  }
   for (const key of ['DPAY_SANDBOX_API_BASE', 'DPAY_SANDBOX_PANEL_BASE']) {
-    if (isProductionDpayHost(env[key])) {
-      throw new Error(`sandbox suite refuses to run: ${key} is a production dpay host (${new URL(env[key]).hostname})`)
+    if (!isDpayHttpsUrl(env[key].trim())) {
+      throw new Error(`sandbox suite refuses to run: ${key} is not an https URL on a dpay.pl host`)
     }
   }
   return {

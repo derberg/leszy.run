@@ -98,7 +98,7 @@ test('T-81 the captain\'s export holds the team and both children, never the add
   assert.equal(his.body.registrations[0].team_name, t.name, 'the team he runs in is his data too')
 })
 
-test('T-82 the captain deletes their account → the team stays listed under a neutral name, and team-squad answers 404 to any session', async () => {
+test('T-82 the captain deletes their account → the team stays listed under a neutral name; team-squad answers 404 to any session but the club\'s organizer', async () => {
   const t = await relay()
   const before = await startList(t.event.eventId)
   assert.equal(before.entries.find((e) => e.kind === 'team').name, t.name)
@@ -119,10 +119,10 @@ test('T-82 the captain deletes their account → the team stays listed under a n
   assert.ok(!JSON.stringify(after).includes(t.name))
   assert.equal(after.competitions[0].free + after.competitions[0].paid, before.competitions[0].free + before.competitions[0].paid)
 
-  for (const session of [owner, await sessionFor(t.piotrEmail)]) {
-    const r = await callFn('team-squad', session, { teamId: t.teamId, action: 'get' })
-    assert.equal(r.status, 404, JSON.stringify(r.body))
-  }
+  // Plan 6, ruling 11: only the club's organizer can still reach the squad (organizer-edge O-36).
+  assert.equal((await callFn('team-squad', owner, { teamId: t.teamId, action: 'get' })).status, 200)
+  const piotr = await callFn('team-squad', await sessionFor(t.piotrEmail), { teamId: t.teamId, action: 'get' })
+  assert.equal(piotr.status, 404, JSON.stringify(piotr.body))
   const dead = await callFn('team-squad', t.session, { teamId: t.teamId, action: 'get' })
   assert.equal(dead.status, 401, 'the session went with the account')
 })

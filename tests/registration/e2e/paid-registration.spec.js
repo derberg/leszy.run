@@ -161,8 +161,12 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
 
     const org = await offline(await actors.owner.newPage())
     await org.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/zgloszenia`)
-    await expect(org.getByTestId('registrations-counts')).toHaveText('0 opłaconych · 1 czeka na wpłatę · 50 wolnych miejsc')
-    await expect(org.getByTestId('registration-payment')).toContainText('czeka na wpłatę do ')
+    // An unpaid entry holds no place (P3-R15): 0 on the list, 1 waiting beside it.
+    await expect(org.getByTestId('tile-listed')).toHaveText('NA LIŚCIE0 / 50')
+    await expect(org.getByTestId('tile-awaiting')).toHaveText('CZEKA NA WPŁATĘ1')
+    const row = org.getByTestId('registrations').getByTestId('registration-row')
+    await expect(row.getByTestId('registration-status')).toHaveText(/^CZEKA NA WPŁATĘ · DO \d+\.\d\d$/)
+    await expect(row.getByTestId('registration-payment')).toHaveText('60,00 zł')
 
     // P3-R8: the same buyer filling the form again lands on the unpaid order, not on a second one.
     await page.goto(`/events/${event.slug}`)
@@ -195,7 +199,9 @@ test.describe.serial('a runner pays for „Bieg 9 km” while the organizer and 
 
     const org = await offline(await actors.owner.newPage())
     await org.goto(`/klub/zatyrani-test/wydarzenia/${event.eventId}/zgloszenia`)
-    await expect(org.getByTestId('registrations-counts')).toHaveText('1 opłacone · 0 czeka na wpłatę · 49 wolnych miejsc')
+    await expect(org.getByTestId('tile-listed')).toHaveText('NA LIŚCIE1 / 50')
+    await expect(org.getByTestId('tile-awaiting')).toHaveText('CZEKA NA WPŁATĘ0')
+    await expect(org.getByTestId('registrations').getByTestId('registration-status')).toHaveText('OPŁACONE')
 
     await expect.poll(async () => (await messagesTo(runner.email)).map((m) => m.subject).join('|')).toMatch(/Opłacone — /)
 

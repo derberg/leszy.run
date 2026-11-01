@@ -394,6 +394,24 @@ Deno.serve(async (req) => {
         }
       }
     }
+    // 1c-bis. „Napisz do zawodnika” (Plan 6): subject and body are free text written to this one
+    // person, and organizer_messages.filter points at their entry. The row goes, not just the
+    // link: a body left behind can still name them, with nothing left to find it by. The message
+    // on a child's entry reached the guardian, so it goes too (read before step 1c's update below
+    // clears the keys that find those rows); the child's entry stays. The club keeps its record of
+    // the act: `message_sent` in organizer_actions holds the ids and the count, never the text,
+    // and the registration id in it now names an anonymised row. A bulk message names nobody.
+    const messagedIds = new Set(regIds)
+    for (const [column, value] of guardianKeys) {
+      const { data: kids, error: kErr } = await supabaseAdmin.from('registrations').select('id').eq(column, value)
+      if (kErr) console.error('delete-my-account: guardian entries lookup failed:', column, kErr.message)
+      for (const k of kids ?? []) messagedIds.add(k.id)
+    }
+    if (messagedIds.size > 0) {
+      const { error: msgErr } = await supabaseAdmin.from('organizer_messages').delete()
+        .eq('filter->>kind', 'single').in('filter->>registrationId', [...messagedIds])
+      if (msgErr) console.error('delete-my-account: organizer_messages cleanup failed:', msgErr.message)
+    }
     for (const [column, value] of guardianKeys) {
       const { error: gErr } = await supabaseAdmin.from('registrations')
         // guardian_removed_at is the organizer's „kontakt opiekuna usunięty” (D4-25): the 30-day

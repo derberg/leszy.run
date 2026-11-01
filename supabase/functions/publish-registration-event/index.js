@@ -9,6 +9,8 @@ import { changeDiff, mergedChecklistInput, noticeAudience } from '../_shared/reg
 import { PAID_REGISTRATION_ENABLED } from '../_shared/registration/flags.js'
 import { payoutState } from '../_shared/registration/eventPayout.js'
 import { sendBulkEmail } from '../_shared/email.js'
+import { clubSender } from '../_shared/registration/organizerSender.js'
+import { allRows } from '../_shared/registration/allRows.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -20,7 +22,6 @@ function json(body, status, req) {
 const NOT_DRAFT = { error: 'Wydarzenie jest już opublikowane.', code: 'not_draft' }
 const NOT_PUBLISHED = { error: 'Wydarzenie nie jest opublikowane.', code: 'not_published' }
 const ACTIONS = ['publish', 'publish_changes', 'discard_changes', 'preview_changes']
-const PAGE = 1000
 const SUBJECT_MAX = 200
 const BODY_MAX = 5000
 
@@ -39,17 +40,6 @@ async function checklistInput(admin, settings) {
   if (competitions.error) throw competitions.error
   if (hours.error) throw hours.error
   return { settings: camel(settings), competitions: competitions.data.map(camel), officeHours: hours.data, payout }
-}
-
-/** Every row of a query, 1000 at a time (PostgREST caps one response at 1000). */
-async function allRows(query) {
-  const out = []
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await query().range(from, from + PAGE - 1)
-    if (error) throw error
-    out.push(...data)
-    if (data.length < PAGE) return out
-  }
 }
 
 // The live rows changeDiff() compares the staged payload with.
@@ -103,14 +93,6 @@ async function noticeRecipients(admin, eventId, audience) {
     return q
   })
   return [...new Set(rows.map((r) => (r.email ?? r.guardian_email)?.toLowerCase()).filter(Boolean))]
-}
-
-// Sent from the LESZY.RUN domain with the club as display name and the event's
-// contact address as reply-to (ruling P2-R19: never a member's own address).
-async function clubSender(admin, settings) {
-  const { data: club, error } = await admin.from('clubs').select('name').eq('id', settings.club_id).single()
-  if (error) throw error
-  return { fromName: `${club.name} przez LESZY.RUN`, replyTo: settings.contact_email ?? undefined }
 }
 
 const changeRefusal = (error) => {

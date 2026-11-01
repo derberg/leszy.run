@@ -52,7 +52,9 @@ jobs:
 
       - run: npm ci
 
-      - name: Refuse a production dpay host
+      # The configured service must be a test service, the bases https on dpay.pl (guard.js). The IPN
+      # URL is a placeholder here: the tunnel that provides the real one opens later.
+      - name: Refuse a non-test dpay service
         run: |
           node --test tests/registration/sandbox/guard.test.js
           node -e "import('./tests/registration/sandbox/guard.js').then((g) => g.sandboxConfig({ ...process.env, SANDBOX_PUBLIC_IPN_URL: 'https://placeholder.invalid' }))"
