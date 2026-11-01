@@ -14,7 +14,7 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   retries: 0,
-  timeout: 240_000,
+  timeout: 480_000, // room for openGateway to wait out dpay 429s
   reporter: [['list'], ['json', { outputFile: path.join(here, '../test-results/sandbox-report.json') }]],
   use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
 })

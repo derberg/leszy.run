@@ -98,8 +98,17 @@ test.describe('dpay sandbox acceptance', () => {
 
   // dpay's payment page. Its markup is not documented: the locators below are the first guess and are the
   // part most likely to need adjusting on the first sandbox run (screenshots and a trace are kept on failure).
+  // dpay rate-limits its payment page per client: after a few payments in a row it answers „Błąd 429 Za dużo
+  // zapytań … spróbuj ponownie za minutę” (run 41348875854, S-05). Wait it out, at most three times.
   async function openGateway(page, redirectUrl) {
-    await page.goto(redirectUrl, { waitUntil: 'domcontentloaded' })
+    for (let attempt = 0; ; attempt++) {
+      const res = await page.goto(redirectUrl, { waitUntil: 'domcontentloaded' })
+      const limited = res?.status() === 429 || await page.getByText(/za dużo zapytań/i).count() > 0
+      if (!limited) return
+      if (attempt === 3) throw new Error('dpay answered 429 four times in a row')
+      record('gateway', 'dpay 429, waiting a minute', { attempt })
+      await wait(65_000)
+    }
   }
   // A dpay service in test mode („Tryb testowy”) shows no payment form: one page with „Symuluj sukces
   // (przekierowanie na url_success)” and „Symuluj niepowodzenie (przekierowanie na url_fail)”, seen on the
