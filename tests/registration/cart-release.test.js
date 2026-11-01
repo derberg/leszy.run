@@ -110,6 +110,36 @@ test('V-25 expire_orders releases several orders at once, uses and stock summed 
   assert.deepEqual([await usedOf(voucher.id), await soldOf(M.id)], [0, 0])
 })
 
+test('V-25 m-3 the per-order fallback: one order that cannot be released is alerted, the others still expire and give back', async () => {
+  const event = await paidEvent()
+  const { voucher, M } = await cartFixtures(event)
+  const { variants: { M: broken } } = await makeExtra(event, { name: 'Buff', variants: [['M', 5]] })
+  const good = await cartOrder(event, { voucher, variant: M })
+  const bad = await orderGroupOk(event, [{ ...adult(event.categoryIds[0], 'self'), extras: [{ variantId: broken.id, qty: 1 }] }],
+    { displayed: 6000 + 4500 })
+  // The bad order's release would take sold below 0: the set-based release fails as a unit.
+  const set = (id, sold) => db().from('extra_variants').update({ sold }).eq('id', id)
+  assert.ifError((await set(broken.id, 0)).error)
+  const past = new Date(Date.now() - 60_000).toISOString()
+  assert.ifError((await db().from('orders').update({ expires_at: past }).in('id', [good.orderId, bad.orderId])).error)
+  try {
+    const r = await rpc('expire_orders', {})
+    assert.equal(r.error, null, r.error?.message)
+    assert.equal((await orderOf(good.orderId)).status, 'expired')
+    assert.deepEqual([await usedOf(voucher.id), await soldOf(M.id)], [0, 0])
+    assert.equal((await orderOf(bad.orderId)).status, 'pending')
+    const alerts = (await rows('operator_alerts', { order_id: bad.orderId })).filter((x) => x.kind === 'expire_failed')
+    assert.equal(alerts.length, 1)
+    assert.equal(alerts[0].payload.sqlstate, '23514')
+  } finally {
+    // Repair the stock and let the next run expire it, so later tests' set-based runs succeed.
+    assert.ifError((await set(broken.id, 1)).error)
+    assert.equal((await rpc('expire_orders', {})).error, null)
+  }
+  assert.equal((await orderOf(bad.orderId)).status, 'expired')
+  assert.equal(await soldOf(broken.id), 0)
+})
+
 test('V-25 cancel_order, buyer_cancel_order and the orphan job give the code and the shirt back (D7-18)', async () => {
   const event = await paidEvent()
   const [c9] = event.categoryIds
@@ -277,6 +307,38 @@ test('V-26 the code used up meanwhile → late_refund voucher, the whole order r
   assert.equal(s.refund.reason, 'stock')
   assert.deepEqual([await soldOf(M.id), await takenOf(c9)], [1, 0])
   assert.ok((await registrationsOf(b.orderId)).every((x) => x.status === 'expired'))
+})
+
+test('V-26 m-1 the buyer re-registered with the freed single-use code: the late payment answers duplicate before voucher (ruling 8)', async () => {
+  const event = await paidEvent()
+  const { voucher } = await cartFixtures(event)
+  const a = await expiredWithAttempt(event, { voucher })
+  const again = await cartOrder(event, { voucher, email: a.email }) // same address, the code freed on expiry
+  assert.equal(again.status, 'pending')
+  const r = await confirmOk(a.orderId, a.att.txn, a.total)
+  assert.deepEqual([r.outcome, r.refund.reason], ['late_refund', 'duplicate'])
+  assert.equal((await orderOf(a.orderId)).status, 'expired')
+  assert.equal((await orderOf(again.orderId)).status, 'pending', 'the new order is untouched')
+  assert.equal(await usedOf(voucher.id), 1, 'the new order keeps its use')
+})
+
+test('V-26 m-1 a re-registered child (no e-mail, the minor key) is a duplicate too; an unrelated live entry is not', async () => {
+  const event = await paidEvent()
+  const [c9, kids] = event.categoryIds
+  const buyer = runnerEmail('parent')
+  const child = { categoryId: kids, role: 'minor', firstName: 'Zosia', lastName: 'Leśna', birthDate: '2016-05-05',
+    gender: 'K', phone: '+48500100200', ageGroupLabel: 'K dzieci' }
+  const first = await orderGroupOk(event, [child], { buyerEmail: buyer, displayed: 2000 })
+  const att = await attemptFor(first.orderId, first.total)
+  await expireNow(first.orderId)
+  await orderGroupOk(event, [child], { buyerEmail: buyer, displayed: 2000 })
+  const r = await confirmOk(first.orderId, att.txn, first.total)
+  assert.deepEqual([r.outcome, r.refund.reason], ['late_refund', 'duplicate'])
+
+  const other = await expiredWithAttempt(event, {})
+  await cartOrder(event, {}) // somebody else, live in the same competition
+  assert.equal((await confirmOk(other.orderId, other.att.txn, other.total)).outcome, 'late_confirmed')
+  competitionsSeen.add(c9)
 })
 
 test('V-26 the voucher re-claimed before the stock fails is undone too (one subtransaction)', async () => {

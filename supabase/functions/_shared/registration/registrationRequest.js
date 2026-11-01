@@ -23,7 +23,9 @@ import { isOpen } from './dates.js'
 import { normalizeGroupRequest, validateGroup } from './group.js'
 import { DPAY_DOWN, PAYMENTS_OFF } from './orderFlow.js'
 import { TEAM_NAME_MESSAGE, normalizeTeamRequest, teamSizeMessage, validateTeam } from './team.js'
-import { DONATION_MESSAGE, EXTRAS_MESSAGE, VOUCHER_CODE_MESSAGE, cartOfRequest, withCart } from './cart.js'
+import { DONATION_MESSAGE, EXTRAS_MESSAGE, VOUCHER_CODE_MESSAGE, cartIsEmpty, cartOfRequest, withCart } from './cart.js'
+import { cartAmounts } from './pricing.js'
+import { normalizeCode } from './vouchers.js'
 
 export function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -114,6 +116,55 @@ export function cartRefusal(msg) {
   if (msg === 'donation_not_allowed') return [409, { error: DONATION_NOT_ALLOWED, code: msg, field: 'donation' }]
   if (msg === 'invalid_amount:donation') return [400, { error: DONATION_MESSAGE, code: msg, field: 'donation' }]
   return null
+}
+
+/**
+ * The amounts behind a price_changed refusal, priced as create_order and create_team_registration
+ * price (D7-21). `people` are lines [{ categoryId, voucherCode?, extras? }]: a group's people, or a
+ * team's one line (the team code, every member's extras). Each line's list price is its
+ * competition's current price from the public read model (the same tier choice the RPCs make,
+ * D4-27), its code's percent a plain read by the normalised code, its extras at the extra's price,
+ * plus the donation, through cartAmounts. `entryPrices` are the discounted entries, one per line in
+ * request order (Plan 3's shape). When they do not reproduce the RPC's total (something moved again
+ * in between) only the total goes back.
+ */
+export async function cartChangedAmounts(admin, settings, people, donation, total) {
+  try {
+    const { data } = await admin.rpc('registration_raw', { p_event_id: settings.event_id })
+    const free = settings.pricing_mode === 'free'
+    const priceOf = new Map((data?.competitions ?? []).map((c) => [String(c.categoryId).toLowerCase(), c.priceGrosze]))
+    const codes = [...new Set(people.map((p) => normalizeCode(p.voucherCode ?? '')).filter(Boolean))]
+    const percentOf = new Map()
+    if (codes.length) {
+      const { data: vouchers, error } = await admin.from('vouchers').select('code, percent')
+        .eq('event_id', settings.event_id).in('code', codes)
+      if (error) throw error
+      for (const v of vouchers ?? []) percentOf.set(v.code, v.percent)
+    }
+    const variantIds = [...new Set(people.flatMap((p) => (p.extras ?? []).map((e) => e.variantId.toLowerCase())))]
+    const extraPriceOf = new Map()
+    if (variantIds.length) {
+      const { data: variants, error } = await admin.from('extra_variants').select('id, extras(price)').in('id', variantIds)
+      if (error) throw error
+      for (const v of variants ?? []) extraPriceOf.set(v.id, v.extras?.price)
+    }
+    const cart = people.map((p) => ({
+      listPrice: free ? 0 : priceOf.get(String(p.categoryId).toLowerCase()),
+      voucherPercent: p.voucherCode ? percentOf.get(normalizeCode(p.voucherCode)) ?? null : null,
+      extras: (p.extras ?? []).filter((e) => e.qty > 0)
+        .map((e) => ({ price: extraPriceOf.get(e.variantId.toLowerCase()), qty: e.qty })),
+    }))
+    const a = cartAmounts({ people: cart, donation })
+    if (a.total === total) {
+      return {
+        entryPrices: a.lines.map((l) => l.price),
+        entryTotal: a.entryTotal, extrasTotal: a.extrasTotal, donation: a.donation, total,
+      }
+    }
+  } catch (err) {
+    console.error('price_changed amounts:', err?.message)
+  }
+  return { total }
 }
 
 /** cartOfRequest's refusal of a malformed body as the 400 answer. */
@@ -436,8 +487,10 @@ export async function groupRefusal(admin, msg, { competitions, people, legacy, e
  * error that is no refusal. A deadlock (40P01; two teams sharing members in opposite order, which
  * no lock serialises) wrote nothing and goes through on a retry. `duplicate:<i>` keeps the daily
  * reveal cap of groupRefusal. `competition` is the competitions row, for the size in the message.
+ * With a non-empty `cart` (and the event's `settings`), price_changed is priced through
+ * cartChangedAmounts; without one it carries the one fee.
  */
-export async function teamRefusal(admin, error, { competition, people, email }) {
+export async function teamRefusal(admin, error, { competition, people, email, settings = null, cart = null }) {
   if (error?.code === '40P01') return [409, { error: TEAM_TRY_AGAIN, code: 'try_again' }]
   const msg = error?.message ?? ''
   if (msg === 'not_found') return [404, NOT_FOUND]
@@ -450,6 +503,12 @@ export async function teamRefusal(admin, error, { competition, people, email }) 
   const changed = /^price_changed:(\d+)$/.exec(msg)
   if (changed) {
     const total = Number(changed[1])
+    // Plan 7 (review I-1): a team with a code, extras or a donation is one line through cartAmounts,
+    // so the page gets the fee and the extras apart and its resend matches.
+    if (cart && !cartIsEmpty(cart)) {
+      const line = { categoryId: competition.category_id, voucherCode: cart.voucherCode, extras: people.flatMap((p) => p.extras ?? []) }
+      return [409, { error: PRICE_CHANGED, code: 'price_changed', amounts: await cartChangedAmounts(admin, settings, [line], cart.donation, total) }]
+    }
     return [409, {
       error: PRICE_CHANGED, code: 'price_changed',
       amounts: { entryPrices: [total], entryTotal: total, extrasTotal: 0, donation: 0, total },
@@ -460,8 +519,8 @@ export async function teamRefusal(admin, error, { competition, people, email }) 
     if (body.code !== 'duplicate') return [status, body]
     return [status, { error: PERSON_DUPLICATE, code: 'duplicate', index: body.index, errors: { [body.index]: { email: PERSON_DUPLICATE } } }]
   }
-  const cart = cartRefusal(msg)
-  if (cart) return cart
+  const refusedCart = cartRefusal(msg)
+  if (refusedCart) return refusedCart
   if (TEAM_REFUSALS[msg]) {
     const [status, text] = TEAM_REFUSALS[msg]
     return [status, { error: text, code: msg }]

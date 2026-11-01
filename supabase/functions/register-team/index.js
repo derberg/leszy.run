@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
         const pendingId = await ownPendingOrder(admin, settings.event_id, people, profileId)
         if (pendingId) return answer({ error: PENDING_ORDER, code: 'pending_order', orderId: pendingId }, 409)
       }
-      const refused = await teamRefusal(admin, error, { competition, people, email })
+      const refused = await teamRefusal(admin, error, { competition, people, email, settings, cart })
       if (refused) return answer(refused[1], refused[0])
       throw error
     }

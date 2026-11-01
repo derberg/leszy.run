@@ -13,7 +13,7 @@ import { startDpayMock } from './helpers/dpayControl.js'
 import { consentIds, one, orderOf, registrationsOf, rows, runnerEmail } from './helpers/orders.js'
 import { BIEG, DZIECI } from './helpers/groups.js'
 import { STAFETA, teamName } from './helpers/teams.js'
-import { makeExtra, makeVoucher, setCharity, vouchersMade } from './helpers/cart.js'
+import { makeExtra, makeVoucher, setCharity, setTiers, vouchersMade } from './helpers/cart.js'
 import { assertVoucherInvariant } from './helpers/voucherInvariant.js'
 
 const NOT_FREE_CART = 'Do bezpłatnego zapisu nie dodasz kodu rabatowego, dodatków ani darowizny.'
@@ -236,6 +236,27 @@ test('V-21 register-team forwards the team code, a member shirt and a donation; 
   const captain = (await registrationsOf(order.id)).find((x) => x.voucher_id === voucher.id)
   assert.deepEqual([captain.list_price, captain.price], [24000, 21600])
   assert.equal((await rows('order_lines', { order_id: order.id })).filter((l) => l.kind === 'extra').length, 1)
+})
+
+test('V-21 I-1 register-team price_changed with a cart answers cartAmounts\' split, and the resend with that total goes through', async () => {
+  const event = await createPublishedPaidEvent(owner, { competitions: [STAFETA(50)], prices: { Sztafeta: 24000 } })
+  const [cat] = event.categoryIds
+  await setCharity(event.eventId)
+  const voucher = await makeVoucher(event.eventId, { percent: 10 })
+  const { variants: { M } } = await makeExtra(event)
+  await setTiers(event.eventId, [{ endsOn: null, prices: { [cat]: 30000 } }]) // the fee moved while the captain typed
+  const me = runnerEmail('retier')
+  const session = await sessionFor(me)
+  const body = {
+    categoryId: cat, teamName: teamName(), membersConsent: true,
+    acceptedConsentIds: await consentIds(event.eventId), serviceRegulamin: true, voucherCode: voucher.code, donation: 1000,
+    members: [{ person: grownUp(me) }, { person: grownUp(runnerEmail('m2'), { firstName: 'Piotr' }), extras: [{ variantId: M.id, qty: 1 }] }],
+  }
+  const stale = await call('register-team', { ...body, displayedTotal: 21600 + 4500 + 1000 }, session)
+  assert.deepEqual([stale.status, stale.body.code], [409, 'price_changed'], JSON.stringify(stale.body))
+  assert.deepEqual(stale.body.amounts, { entryPrices: [27000], entryTotal: 27000, extrasTotal: 4500, donation: 1000, total: 32500 })
+  const again = await call('register-team', { ...body, displayedTotal: stale.body.amounts.total }, session)
+  assert.equal(again.status, 201, JSON.stringify(again.body))
 })
 
 test('V-28 register-free with a code → 409 not_free (the cart sentence); all-zero extras and a "0" donation register', async () => {

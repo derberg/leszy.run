@@ -27,8 +27,9 @@
 -- never past max_uses (→ late_refund 'voucher'), then the stock of every extra line (→ 'stock'). A
 -- still-pending order holds both and re-claims nothing. The subtransaction undoes every re-claim of
 -- a refused payment, and registration_drop_unpaid_order releases what a pending order held. Refusal
--- order: closed (before the block), then full, voucher, stock, duplicate (the slots, vouchers and
--- stock are claimed before the registrations flip, in the Global Constraints lock order).
+-- order, ruling 8's: closed, duplicate, full, voucher, stock. The duplicate is found by a plain read
+-- before the block (an expired order's people registered again meanwhile, often with the code the
+-- expiry freed); the unique index at the flip stays the backstop for a registration racing it.
 --
 -- cancel_registration (from 20261102102000): cancelling a confirmed entry gives back its slot (as
 -- before) and then the voucher use of every registration it cancels; the extra stays sold (§14.11).
@@ -259,6 +260,21 @@ BEGIN
   -- Plan 7 (D7-19, ruling 8): an expired order gave its voucher uses and stock back,
   -- so it takes them again here, after the slots and before the registrations; a
   -- refusal ('voucher', 'stock') undoes the slots too. A pending order holds them.
+  -- Ruling 8's order: a duplicate before full, voucher and stock. Only an expired order's rows are
+  -- out of the live unique indexes; a plain read with their keys (e-mail per event, and a child's
+  -- name and birth date) finds a live entry made meanwhile. No lock: the flip below decides a race.
+  IF o.status = 'expired' AND EXISTS (
+       SELECT 1 FROM public.registrations r
+         JOIN public.registrations x
+           ON x.event_id = r.event_id AND x.id <> r.id AND x.status IN ('pending_payment', 'confirmed')
+        WHERE r.order_id = o.id AND r.status = 'expired'
+          AND ((r.email IS NOT NULL AND x.email IS NOT NULL AND lower(x.email) = lower(r.email))
+            OR (r.email IS NULL AND x.email IS NULL AND x.birth_date = r.birth_date
+                AND lower(btrim(x.first_name)) = lower(btrim(r.first_name))
+                AND lower(btrim(x.last_name)) = lower(btrim(r.last_name))))) THEN
+    v_reason := 'duplicate';
+  END IF;
+  IF v_reason IS NULL THEN
   BEGIN
     FOR u IN SELECT * FROM public.registration_slot_units(o.id,
                ARRAY[CASE WHEN o.status = 'pending' THEN 'pending_payment' ELSE 'expired' END]) LOOP
@@ -280,6 +296,7 @@ BEGIN
       END IF;
       v_reason := SQLERRM;
   END;
+  END IF;
   IF v_reason IS NOT NULL THEN
     PERFORM public.registration_drop_unpaid_order(o.id, o.status, v_reason);
     v_refund := public.registration_refund_attempt(o.id, a.id, p_grosze, 'late_refund', v_reason, p_source);
@@ -355,8 +372,14 @@ BEGIN
      WHERE o.status = 'pending' AND o.expires_at <= p_now
      ORDER BY o.id
        FOR UPDATE OF o SKIP LOCKED) x;
-  -- The loop's subtransactions keep their locks, so take them all in id order first.
-  PERFORM public.registration_lock_unpaid_cart(v_ids);
+  -- The loop's subtransactions keep their locks, so take them all in id order first. In its own
+  -- subtransaction: a lock timeout here only loses that ordering, never the run (each order below
+  -- still fails alone and is alerted).
+  BEGIN
+    PERFORM public.registration_lock_unpaid_cart(v_ids);
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
   FOR r IN SELECT unnest(v_ids) AS id LOOP
     BEGIN
       UPDATE public.orders SET status = 'expired' WHERE id = r.id AND status = 'pending';
@@ -396,8 +419,14 @@ BEGIN
        AND NOT EXISTS (SELECT 1 FROM public.payment_attempts a WHERE a.order_id = o.id)
      ORDER BY o.id
        FOR UPDATE OF o SKIP LOCKED) x;
-  -- The loop's subtransactions keep their locks, so take them all in id order first.
-  PERFORM public.registration_lock_unpaid_cart(v_ids);
+  -- The loop's subtransactions keep their locks, so take them all in id order first. In its own
+  -- subtransaction: a lock timeout here only loses that ordering, never the run (each order below
+  -- still fails alone and is alerted).
+  BEGIN
+    PERFORM public.registration_lock_unpaid_cart(v_ids);
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
   FOR r IN SELECT unnest(v_ids) AS id LOOP
     BEGIN
       UPDATE public.orders o

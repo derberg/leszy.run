@@ -2,62 +2,15 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
 import { clientIp } from '../_shared/organizer.js'
 import { dpayConfig } from '../_shared/dpay.js'
-import { cartAmounts } from '../_shared/registration/pricing.js'
-import { normalizeCode } from '../_shared/registration/vouchers.js'
 import { cartMakesMoney } from '../_shared/registration/cart.js'
 import {
-  json, NOT_FOUND, ORDER_REFUSALS, PENDING_ORDER, PRICE_CHANGED, cartRefusal, fullRefusal, groupRefusal, orderThrottles,
+  json, NOT_FOUND, ORDER_REFUSALS, PENDING_ORDER, PRICE_CHANGED, cartChangedAmounts, cartRefusal, fullRefusal, groupRefusal, orderThrottles,
   prepareRegistration, rpcPeople,
 } from '../_shared/registration/registrationRequest.js'
 import {
   DPAY_DOWN, PAYMENTS_OFF, ownPendingOrder, sendOrderConfirmation, startPaymentAttempt,
 } from '../_shared/registration/orderFlow.js'
 import { issueOrderConsentRequests } from '../_shared/registration/consentRequests.js'
-
-// The amounts behind a price_changed refusal, priced as create_order prices (D7-21): each person's
-// list price at their competition's current price from the public read model (the same tier choice
-// create_order makes, D4-27), their code's percent (a plain read by the normalised code), their
-// extras at the extra's price, plus the donation, through cartAmounts. `entryPrices` are the
-// discounted entries, one per person in request order, so RA4 re-prices every line (Plan 3's shape). When they do not reproduce the RPC's total (something moved again in
-// between) only the total goes back.
-async function currentAmounts(admin, settings, people, donation, total) {
-  try {
-    const { data } = await admin.rpc('registration_raw', { p_event_id: settings.event_id })
-    const free = settings.pricing_mode === 'free'
-    const priceOf = new Map((data?.competitions ?? []).map((c) => [String(c.categoryId).toLowerCase(), c.priceGrosze]))
-    const codes = [...new Set(people.map((p) => normalizeCode(p.voucherCode ?? '')).filter(Boolean))]
-    const percentOf = new Map()
-    if (codes.length) {
-      const { data: vouchers, error } = await admin.from('vouchers').select('code, percent')
-        .eq('event_id', settings.event_id).in('code', codes)
-      if (error) throw error
-      for (const v of vouchers ?? []) percentOf.set(v.code, v.percent)
-    }
-    const variantIds = [...new Set(people.flatMap((p) => (p.extras ?? []).map((e) => e.variantId.toLowerCase())))]
-    const extraPriceOf = new Map()
-    if (variantIds.length) {
-      const { data: variants, error } = await admin.from('extra_variants').select('id, extras(price)').in('id', variantIds)
-      if (error) throw error
-      for (const v of variants ?? []) extraPriceOf.set(v.id, v.extras?.price)
-    }
-    const cart = people.map((p) => ({
-      listPrice: free ? 0 : priceOf.get(String(p.categoryId).toLowerCase()),
-      voucherPercent: p.voucherCode ? percentOf.get(normalizeCode(p.voucherCode)) ?? null : null,
-      extras: (p.extras ?? []).filter((e) => e.qty > 0)
-        .map((e) => ({ price: extraPriceOf.get(e.variantId.toLowerCase()), qty: e.qty })),
-    }))
-    const a = cartAmounts({ people: cart, donation })
-    if (a.total === total) {
-      return {
-        entryPrices: a.lines.map((l) => l.price),
-        entryTotal: a.entryTotal, extrasTotal: a.extrasTotal, donation: a.donation, total,
-      }
-    }
-  } catch (err) {
-    console.error('create-order: amounts for price_changed:', err?.message)
-  }
-  return { total }
-}
 
 // POST { people: [{ categoryId, person, guardianConsent? }], buyer?, acceptedConsentIds, serviceRegulamin,
 //        displayedTotal, code?, donation? }, or Plan 3's { categoryId, person, … } (a group of one); each
@@ -126,7 +79,7 @@ Deno.serve(async (req) => {
       if (msg === 'session_required') return answer({ error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }, 401)
       const changed = /^price_changed:(\d+)$/.exec(msg)
       if (changed) {
-        const amounts = await currentAmounts(admin, settings, people, cart.donation, Number(changed[1]))
+        const amounts = await cartChangedAmounts(admin, settings, people, cart.donation, Number(changed[1]))
         return answer({ error: PRICE_CHANGED, code: 'price_changed', amounts }, 409)
       }
       if (/^duplicate:\d+$/.test(msg)) {
