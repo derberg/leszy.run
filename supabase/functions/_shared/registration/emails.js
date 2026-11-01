@@ -39,6 +39,21 @@ function personLines(lines) {
   })
 }
 
+// What every paid confirmation states about the money, an order's and a team's alike.
+function paymentFacts(order, organizer) {
+  return {
+    amounts: [
+      [`Opłaty startowe (pobrane w imieniu i na rzecz Organizatora: ${organizer.name})`, formatPln(order.entryTotal)],
+      ['Razem', formatPln(order.total)],
+    ],
+    payment: [
+      ...(order.paidTransactionId ? [['Transakcja dpay', order.paidTransactionId]] : []),
+      ...(warsawDateTime(order.paidAt) ? [['Data płatności', warsawDateTime(order.paidAt)]] : []),
+    ],
+    note: 'To potwierdzenie płatności, nie jest paragonem ani fakturą.',
+  }
+}
+
 /**
  * The payment confirmation. event { name, slug?, eventDate?, place? }, order { id, entryTotal,
  * total, paidTransactionId, paidAt }, lines [{ firstName, lastName,
@@ -51,15 +66,7 @@ export function orderConfirmationEmail({ event, order, lines, organizer, orderUr
   const when = [isoDay(event.eventDate), event.place].filter(Boolean).join(', ')
   const whenText = when ? ` (${when})` : ''
   const free = order.total === 0
-  const amounts = free ? [] : [
-    [`Opłaty startowe (pobrane w imieniu i na rzecz Organizatora: ${organizer.name})`, formatPln(order.entryTotal)],
-    ['Razem', formatPln(order.total)],
-  ]
-  const payment = free ? [] : [
-    ...(order.paidTransactionId ? [['Transakcja dpay', order.paidTransactionId]] : []),
-    ...(warsawDateTime(order.paidAt) ? [['Data płatności', warsawDateTime(order.paidAt)]] : []),
-  ]
-  const note = free ? null : 'To potwierdzenie płatności, nie jest paragonem ani fakturą.'
+  const { amounts, payment, note } = free ? { amounts: [], payment: [], note: null } : paymentFacts(order, organizer)
   const lead = (name) => free
     ? `Twoje zgłoszenie na zawody ${name}${whenText} zostało potwierdzone.`
     : `płatność za zgłoszenie na zawody ${name}${whenText} została przyjęta.`
@@ -304,9 +311,10 @@ export function freeConfirmationEmail({ event, people, payerFirstName, officeHou
  * the data did not come from them). event { name, eventDate, place? }, person { firstName },
  * registeredBy (who provided the data), competition { name, startTime }, link (the consent
  * page, `/zgoda#<token>`), dataInfoUrl (the runner data information). `reminder: true` prefixes
- * the subject with „Przypomnienie: ”. The link is the only place the token appears.
+ * the subject with „Przypomnienie: ”. team { name } (optional) adds „w drużynie <nazwa>”. The link
+ * is the only place the token appears.
  */
-export function consentRequestEmail({ event, person, registeredBy, competition, link: url, dataInfoUrl, reminder = false }) {
+export function consentRequestEmail({ event, person, registeredBy, competition, link: url, dataInfoUrl, reminder = false, team = null }) {
   const day = isoDay(event.eventDate)
   const start = [day, competition?.startTime ? `godz. ${competition.startTime}` : null].filter(Boolean).join(', ')
   const facts = [
@@ -320,10 +328,11 @@ export function consentRequestEmail({ event, person, registeredBy, competition, 
   const office = 'Jeśli nie zaakceptujesz online, podpiszesz regulamin w biurze zawodów.'
   const dataNote = `Twoje dane (imię, nazwisko, datę urodzenia, płeć, e-mail, telefon i pozostałe pola zgłoszenia) podał(a) ${whoInside}. Kto je przetwarza, w jakim celu i jakie masz prawa:`
   const greeting = person?.firstName ? `Cześć ${person.firstName},` : 'Cześć,'
+  const inTeam = team?.name ? ` w drużynie ${team.name}` : ''
   const text = [
     greeting,
     '',
-    `${who} zapisał(a) Cię na zawody ${event.name}.`,
+    `${who} zapisał(a) Cię na zawody ${event.name}${inTeam}.`,
     '',
     ...textBlock(facts),
     '',
@@ -338,7 +347,7 @@ export function consentRequestEmail({ event, person, registeredBy, competition, 
   ].join('\n')
   const html = [
     `<p>${escapeHtml(greeting)}</p>`,
-    `<p>${escapeHtml(who)} zapisał(a) Cię na zawody <strong>${escapeHtml(event.name)}</strong>.</p>`,
+    `<p>${escapeHtml(who)} zapisał(a) Cię na zawody <strong>${escapeHtml(event.name)}</strong>${escapeHtml(inTeam)}.</p>`,
     htmlBlock(facts),
     link(url, 'Zaakceptuj regulamin'),
     `<p>${escapeHtml(office)}</p>`,
@@ -347,4 +356,123 @@ export function consentRequestEmail({ event, person, registeredBy, competition, 
   ].join('')
   const subject = `Zapisano Cię na ${event.name} — zaakceptuj regulamin`
   return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html }
+}
+
+// ---------------------------------------------------------------- teams (Plan 5)
+
+function memberLine(m) {
+  const facts = [
+    m.ageGroupLabel ? `kategoria ${m.ageGroupLabel}` : null,
+    m.role === 'self' ? 'kapitan' : null,
+    m.role === 'minor' ? 'opiekun: kapitan' : null,
+  ].filter(Boolean).join(', ')
+  return facts ? `${fullName(m)} — ${facts}` : fullName(m)
+}
+
+/**
+ * The team confirmation, to the captain. event { name, eventDate?, place? }, team { name,
+ * competition }, members [{ firstName, lastName, role: self|adult|minor, ageGroupLabel }], link
+ * (the squad page). `paid` is { order, organizer, orderUrl } for a fee that was paid, which makes
+ * this the payment confirmation as well; a free team and a 0 zł fee pass null (P3-R9). No bib and
+ * no leg numbers.
+ */
+export function teamConfirmationEmail({ event, team, members, link: url, paid = null }) {
+  const lines = members.map(memberLine)
+  const facts = [['Konkurencja', team.competition], ['Data', isoDay(event.eventDate)], ['Miejsce', event.place]].filter(([, v]) => v)
+  const { amounts, payment, note } = paid ? paymentFacts(paid.order, paid.organizer) : { amounts: [], payment: [], note: null }
+  const orderUrl = paid?.orderUrl ?? null
+  const awaiting = members.some((m) => m.role === 'adult')
+    ? 'Każdy dorosły członek drużyny dostanie osobny e-mail z prośbą o akceptację regulaminu.'
+    : null
+  const lead = 'jest na liście startowej zawodów'
+  const text = [
+    'Cześć,',
+    '',
+    `drużyna ${team.name} ${lead} ${event.name}.`,
+    '',
+    ...textBlock(facts),
+    '',
+    'Skład:',
+    ...lines.map((l) => `- ${l}`),
+    ...(awaiting ? ['', awaiting] : []),
+    ...(amounts.length ? ['', ...textBlock(amounts)] : []),
+    ...(payment.length ? ['', ...textBlock(payment)] : []),
+    ...(note ? ['', note] : []),
+    '',
+    `Zarządzaj składem: ${url}`,
+    ...(orderUrl ? [`Twoje zgłoszenie: ${orderUrl}`] : []),
+    '',
+    'LESZY.RUN',
+  ].join('\n')
+  const html = [
+    '<p>Cześć,</p>',
+    `<p>drużyna <strong>${escapeHtml(team.name)}</strong> ${lead} <strong>${escapeHtml(event.name)}</strong>.</p>`,
+    htmlBlock(facts),
+    '<p>Skład:</p>',
+    `<ul>${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`,
+    awaiting ? `<p>${escapeHtml(awaiting)}</p>` : '',
+    amounts.length ? htmlBlock(amounts) : '',
+    payment.length ? htmlBlock(payment) : '',
+    note ? `<p>${escapeHtml(note)}</p>` : '',
+    link(url, 'Zarządzaj składem'),
+    orderUrl ? link(orderUrl, 'Twoje zgłoszenie') : '',
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  return { subject: `Drużyna ${team.name} jest na liście — ${event.name}`, text, html }
+}
+
+/** To an adult swapped out of a squad. event { name }, team { name }. */
+export function squadRemovedEmail({ event, team, firstName }) {
+  const greeting = firstName ? `Cześć ${firstName},` : 'Cześć,'
+  const after = 'Kapitan zmienił skład, więc Twoje zgłoszenie nie jest już aktywne.'
+  const text = [
+    greeting,
+    '',
+    `nie jesteś już w składzie drużyny ${team.name} na zawody ${event.name}. ${after}`,
+    '',
+    'LESZY.RUN',
+  ].join('\n')
+  const html = [
+    `<p>${escapeHtml(greeting)}</p>`,
+    `<p>nie jesteś już w składzie drużyny <strong>${escapeHtml(team.name)}</strong> na zawody <strong>${escapeHtml(event.name)}</strong>. ${escapeHtml(after)}</p>`,
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  return { subject: `Nie jesteś już w składzie drużyny ${team.name}`, text, html }
+}
+
+/**
+ * To the captain, after a swap or an add. event { name }, team { name }, members as in
+ * teamConfirmationEmail, link (the squad page). removedName (first name) is null on an add.
+ * consentAsked is the first name of an adult whose consent e-mail goes out now, else null.
+ */
+export function squadChangedEmail({ event, team, members, link: url, removedName = null, addedName, consentAsked = null }) {
+  const lines = members.map(memberLine)
+  const changes = [removedName ? `Wypisano: ${removedName}` : null, `Dopisano: ${addedName}`].filter(Boolean)
+  const asked = consentAsked ? `${consentAsked} dostanie osobny e-mail z prośbą o akceptację regulaminu.` : null
+  const text = [
+    'Cześć,',
+    '',
+    `skład drużyny ${team.name} na zawody ${event.name} został zmieniony.`,
+    '',
+    ...changes,
+    ...(asked ? ['', asked] : []),
+    '',
+    'Skład:',
+    ...lines.map((l) => `- ${l}`),
+    '',
+    `Zarządzaj składem: ${url}`,
+    '',
+    'LESZY.RUN',
+  ].join('\n')
+  const html = [
+    '<p>Cześć,</p>',
+    `<p>skład drużyny <strong>${escapeHtml(team.name)}</strong> na zawody <strong>${escapeHtml(event.name)}</strong> został zmieniony.</p>`,
+    `<p>${changes.map(escapeHtml).join('<br>')}</p>`,
+    asked ? `<p>${escapeHtml(asked)}</p>` : '',
+    '<p>Skład:</p>',
+    `<ul>${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`,
+    link(url, 'Zarządzaj składem'),
+    '<p>LESZY.RUN</p>',
+  ].join('')
+  return { subject: `Zmiana składu drużyny ${team.name} — ${event.name}`, text, html }
 }

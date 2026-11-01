@@ -60,16 +60,31 @@ describe('G-46 RA4 for a group', () => {
     assert.equal(backToForm(err(409, 'full')), false)
     assert.equal(backToForm(err(409, 'paying_closed')), false)
     assert.equal(backToForm(err(429, 'throttled')), false)
+    // A team's own refusals go back to the form; an individual order never gets them.
+    assert.equal(backToForm(err(409, 'team_name_taken'), [], { team: true }), true)
+    assert.equal(backToForm(err(400, 'invalid_team_name'), [], { team: true }), true)
+    assert.equal(backToForm(err(400, 'invalid_group'), [], { team: true }), true)
+    assert.equal(backToForm(err(409, 'team_size'), [], { team: true }), true)
+    assert.equal(backToForm(err(409, 'try_again'), [], { team: true }), false)
+    assert.equal(backToForm(err(400, 'invalid_group')), false)
     assert.equal(backToForm(err(502, 'dpay_unavailable')), false)
     assert.equal(backToForm(new Error('offline')), false)
+  })
+
+  it('final review I-1: team_competition goes back to the form when an added card is in it', () => {
+    const err = (extra) => Object.assign(new Error('W tej konkurencji startują tylko drużyny.'), { status: 409, code: 'team_competition', ...extra })
+    const id = '11111111-1111-4111-8111-111111111111'
+    assert.equal(backToForm(err({ categoryId: id }), [id.toUpperCase()]), true)
+    assert.equal(backToForm(err({ categoryId: id }), []), false)
+    assert.equal(backToForm(err({})), false)
   })
 })
 
 describe('G-46 RA5 consent tags', () => {
-  it('the person registering, an added adult who accepted, or signed in the office → „✓ REGULAMIN”', () => {
+  it('the person registering, an added adult who accepted → „✓ REGULAMIN”, one who signed in the office → „PODPISANY W BIURZE”', () => {
     assert.deepEqual(consentTag({ role: 'self', consentState: 'accepted' }), { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' })
     assert.deepEqual(consentTag({ role: 'adult', consentState: 'accepted' }), { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' })
-    assert.deepEqual(consentTag({ role: 'adult', consentState: 'office' }), { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' })
+    assert.deepEqual(consentTag({ role: 'adult', consentState: 'office' }), { kind: 'office', label: 'PODPISANY W BIURZE', srLabel: 'regulamin podpisany w biurze zawodów' })
   })
 
   it('a child → „✓ OPIEKUN”', () => {

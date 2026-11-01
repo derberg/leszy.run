@@ -6,6 +6,9 @@ export const PAID_REGISTRATION_ENABLED = false
 // People in one registration request (a group: one payer, up to ten participants).
 export const MAX_PEOPLE_PER_REQUEST = 10
 
+// The smallest team. The largest is MAX_PEOPLE_PER_REQUEST: a team is registered in one request.
+export const MIN_TEAM_SIZE = 2
+
 // Never register a dpay transaction with a preselected `channel`: that requires `accept_tos` and the
 // payer's names, and BLIK Level 0 is deferred. The payer picks the method on dpay's page.
 export const PAYMENT_CHANNEL_PRESELECT = false

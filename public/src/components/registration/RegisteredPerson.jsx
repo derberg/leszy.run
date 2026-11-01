@@ -3,23 +3,27 @@ import { callFunction } from '../../lib/auth.js'
 import { canRemind, consentTag, remindAriaLabel, remindError, remindLabel } from '../../lib/consentTag.js'
 import MetaLine from './MetaLine.jsx'
 
-// One registered person on RA5 (Zamowienie for a paid order, Zapisano for a free one): the
-// name, competition · group · start, and in a group the regulamin tag of RB4 („✓ REGULAMIN” /
-// „✓ OPIEKUN” / „CZEKA NA ZGODĘ”). An added adult still awaiting
-// gets „Wyślij przypomnienie →” in their row (remind-consent: a new link, the old one stops
-// working; 3 per registration per 24 h). After a send the control stays off for the page's
-// life: a second click would spend another of the 3 and kill the link just sent. A 409 means
-// the person accepted (or the link ended) meanwhile, so the page reads the people again.
+// One registered person on RA5 (Zamowienie for a paid order, Zapisano for a free one) and RB4: the
+// name, competition · group · start, and in a group the regulamin tag („✓ REGULAMIN” / „✓ OPIEKUN” /
+// „CZEKA NA ZGODĘ” / „PODPISANY W BIURZE”). An added adult still awaiting gets „Wyślij
+// przypomnienie →” in their row, and the row's name is in the button's accessible name
+// (remind-consent: a new link, the old one stops working; 3 per registration per 24 h). After a
+// send the control stays off for the page's life: a second click would spend another of the 3 and
+// kill the link just sent. A page that unmounts this row and comes back (RB4's steps) holds that
+// itself: `sent` and `onSent`. A 409 means the person accepted (or the link ended) meanwhile, so
+// the page reads the people again.
 
 const TAG_CLS = {
   accepted: 'border-apex-yellow-dim text-apex-yellow',
   guardian: 'border-apex-yellow-dim text-apex-yellow',
   awaiting: 'border-apex-cyan text-apex-cyan-text',
+  office: 'border-apex-border-bright text-apex-text-bright',
 }
 
-function RemindConsent({ registrationId, name, onStale }) {
+function RemindConsent({ registrationId, name, onStale, sent: sentBefore = false, onSent }) {
   const [busy, setBusy] = useState(false)
-  const [sent, setSent] = useState(false)
+  const [sentNow, setSentNow] = useState(false)
+  const sent = sentBefore || sentNow
   const [error, setError] = useState(null)
   const inFlight = useRef(false)
 
@@ -30,7 +34,8 @@ function RemindConsent({ registrationId, name, onStale }) {
     setError(null)
     try {
       await callFunction('remind-consent', { registrationId })
-      setSent(true)
+      setSentNow(true)
+      onSent?.(registrationId)
     } catch (err) {
       setError(remindError(err))
       if (err.status === 409) onStale?.()
@@ -57,9 +62,10 @@ function RemindConsent({ registrationId, name, onStale }) {
 
 /**
  * @param {{ person: { role?, consentState?, mine? }, registrationId?: string, name: string,
- *   meta: Array<string|null>, showTag: boolean, testId: string, onStale?: () => void }} p
+ *   meta: Array<string|null>, showTag: boolean, testId: string, onStale?: () => void,
+ *   reminded?: boolean, onReminded?: (registrationId: string) => void }} p
  */
-export default function RegisteredPerson({ person, registrationId, name, meta, showTag, testId, onStale }) {
+export default function RegisteredPerson({ person, registrationId, name, meta, showTag, testId, onStale, reminded, onReminded }) {
   const tag = showTag ? consentTag(person) : null
   return (
     <div className="border border-apex-border-mid bg-apex-surface p-3.5" data-testid={testId}>
@@ -75,7 +81,7 @@ export default function RegisteredPerson({ person, registrationId, name, meta, s
       </div>
       <MetaLine parts={meta} />
       {tag && canRemind(person) && registrationId && (
-        <RemindConsent registrationId={registrationId} name={name} onStale={onStale} />
+        <RemindConsent registrationId={registrationId} name={name} onStale={onStale} sent={reminded} onSent={onReminded} />
       )}
     </div>
   )

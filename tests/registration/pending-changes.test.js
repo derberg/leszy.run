@@ -179,11 +179,11 @@ test('W-21 publish_changes applies basics, office and the regulamin (version bum
 
 // ---------------------------------------------------------------- W-22
 
-test('W-22 refused at validation: kind team → 422 „Wkrótce.”, slug and timing mode → 422', async () => {
+test('W-22 refused at validation: kind team with no size → 422, slug and timing mode → 422', async () => {
   const event = await published()
   const team = await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG], [{ kind: 'team' }]) })
   assert.equal(team.status, 422)
-  assert.equal(team.body.fields.kind, 'Wkrótce.')
+  assert.equal(team.body.fields.teamMin, 'Skład: od 2 do 10 osób, min ≤ max.')
   const slug = await save(event.eventId, 'basics', { slug: `inny-adres-${rand()}` })
   assert.equal(slug.status, 422)
   assert.ok(slug.body.fields.slug)
@@ -191,6 +191,32 @@ test('W-22 refused at validation: kind team → 422 „Wkrótce.”, slug and ti
   assert.equal(timing.status, 422)
   assert.ok(timing.body.fields.timingMode)
   assert.equal(await pendingOf(event.eventId), null)
+})
+
+test('T-06 legOrder: refused on an individual competition, accepted for a team one, a staged kind counts', async () => {
+  const event = await published()
+  const [categoryId] = event.categoryIds
+  const message = 'Kolejność zmian ustawisz tylko w konkurencji drużynowej.'
+
+  const solo = await save(event.eventId, 'form', { legOrder: { [categoryId]: true } })
+  assert.equal(solo.status, 422, JSON.stringify(solo.body))
+  assert.equal(solo.body.fields.legOrder, message)
+
+  // Published: the competition is a team only once the staged change says so.
+  const staged = await save(event.eventId, 'competitions', { pricingMode: 'free', items: items(event, [BIEG], [{ kind: 'team', teamMin: 3, teamMax: 5 }]) })
+  assert.equal(staged.status, 200, JSON.stringify(staged.body))
+  const ok = await save(event.eventId, 'form', { legOrder: { [categoryId]: true } })
+  assert.equal(ok.status, 200, JSON.stringify(ok.body))
+
+  // The staged list is the whole list: a live team staged back to individual is not a team.
+  const other = await published([BIEG])
+  await db().from('competitions').update({ kind: 'team' }).eq('category_id', other.categoryIds[0]).throwOnError()
+  const live = await save(other.eventId, 'form', { legOrder: { [other.categoryIds[0]]: true } })
+  assert.equal(live.status, 200, JSON.stringify(live.body))
+  const back = await save(other.eventId, 'competitions', { pricingMode: 'free', items: items(other, [BIEG]) })
+  assert.equal(back.status, 200, JSON.stringify(back.body))
+  const refused = await save(other.eventId, 'form', { legOrder: { [other.categoryIds[0]]: false } })
+  assert.equal(refused.status, 422, JSON.stringify(refused.body))
 })
 
 test('W-22 removing a competition after publish → 409 competition_locked, even with nobody registered', async () => {

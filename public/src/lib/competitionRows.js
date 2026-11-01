@@ -10,6 +10,7 @@
 //   with its `hidden` flag: a competition left out of the list would mean
 //   deleting it, and the server refuses that (409).
 import { validateSection } from '../../../supabase/functions/_shared/registration/sections.js'
+import { countPl, pluralPl } from './plural.js'
 
 let rowSeq = 0
 
@@ -27,6 +28,10 @@ export function competitionRow(c) {
     key: ++rowSeq,
     categoryId: c.categoryId,
     name: c.name ?? '',
+    // A kind-less item validates as individual, so a save would flip a team back.
+    kind: c.kind ?? 'individual',
+    teamMin: text(c.teamMin),
+    teamMax: text(c.teamMax),
     discipline: c.discipline ?? 'run',
     distanceLabel: c.distanceLabel ?? '',
     startTime: c.startTime ? c.startTime.slice(0, 5) : '',
@@ -50,7 +55,7 @@ export function competitionRow(c) {
 
 export function newCompetitionRow(over = {}) {
   return {
-    key: ++rowSeq, categoryId: null, name: '', discipline: 'run', distanceLabel: '', startTime: '',
+    key: ++rowSeq, categoryId: null, name: '', kind: 'individual', teamMin: '', teamMax: '', discipline: 'run', distanceLabel: '', startTime: '',
     capacity: '', minAge: '', maxAge: '', isKids: false, timed: true, gpxUploadId: null, price: '',
     hidden: false, taken: 0, inUse: false, saved: null, ...over,
   }
@@ -68,7 +73,8 @@ function baseItem(r) {
   return {
     ...(r.categoryId ? { categoryId: r.categoryId } : {}),
     name: r.name,
-    kind: 'individual',
+    kind: r.kind,
+    ...(r.kind === 'team' ? { teamMin: int(r.teamMin), teamMax: int(r.teamMax) } : {}),
     discipline: r.discipline,
     distanceLabel: r.distanceLabel.trim() || null,
     startTime: r.startTime || null,
@@ -131,7 +137,27 @@ export function assignIds(rows, sentKeys, ids) {
   })
 }
 
-/** Sum of the visible competitions' limits. */
+/** Sum of the visible competitions' limits: a team competition's limit counts teams. */
 export function eventCapacity(rows) {
-  return rows.filter((r) => !r.hidden).reduce((sum, r) => sum + (Number.isInteger(int(r.capacity)) ? int(r.capacity) : 0), 0)
+  const sum = { people: 0, teams: 0 }
+  for (const r of rows) {
+    const n = int(r.capacity)
+    if (!r.hidden && Number.isInteger(n)) sum[r.kind === 'team' ? 'teams' : 'people'] += n
+  }
+  return sum
+}
+
+/** The word beside a team competition's limit. A number still being typed reads as many. */
+export function capacityUnit(capacity) {
+  const n = int(capacity)
+  return pluralPl(Number.isInteger(n) && n >= 0 ? n : 0, 'DRUŻYNA', 'DRUŻYNY', 'DRUŻYN')
+}
+
+/** „200 OSÓB + 20 DRUŻYN”. */
+export function capacityLabel(rows) {
+  const { people, teams } = eventCapacity(rows)
+  const labels = []
+  if (people || !teams) labels.push(countPl(people, ['OSOBA', 'OSOBY', 'OSÓB']))
+  if (teams) labels.push(countPl(teams, ['DRUŻYNA', 'DRUŻYNY', 'DRUŻYN']))
+  return labels.join(' + ')
 }

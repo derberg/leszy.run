@@ -48,6 +48,21 @@ function rpcErrorResponse(error, req) {
   return null
 }
 
+// The event's team competitions as they will be: on a published event the staged list, which is
+// the whole list, decides, so a competition staged as a team can get its leg order in the same
+// round of changes.
+async function teamCategoryIds(admin, eventId, staged) {
+  if (staged) {
+    const { data, error } = await admin.from('registration_pending_changes').select('payload').eq('event_id', eventId).maybeSingle()
+    if (error) throw error
+    const items = data?.payload?.competitions?.items
+    if (items) return items.filter((i) => i.kind === 'team' && i.category_id).map((i) => i.category_id)
+  }
+  const { data, error } = await admin.from('competitions').select('category_id').eq('event_id', eventId).eq('kind', 'team')
+  if (error) throw error
+  return data.map((c) => c.category_id)
+}
+
 // POST { eventId, section, value } → 200 { data: { savedAt, …ids } }.
 // A draft is written straight to the tables. A published event is staged in
 // registration_pending_changes → 200 { data: { savedAt, changedFields } }; the
@@ -75,7 +90,9 @@ Deno.serve(async (req) => {
       return json({ error: 'Wydarzenie jest zamknięte.', code: 'not_draft' }, 409, req)
     }
 
-    const checked = validateSection(section, value, { state: settings.state, eventDate: settings.event_date })
+    const ctx = { state: settings.state, eventDate: settings.event_date }
+    if (section === 'form' && value?.legOrder) ctx.teamCategoryIds = await teamCategoryIds(admin, eventId, staged)
+    const checked = validateSection(section, value, ctx)
     if (!checked.ok) return json({ error: 'Popraw zaznaczone pola.', fields: checked.errors }, 422, req)
 
     const { data, error } = staged

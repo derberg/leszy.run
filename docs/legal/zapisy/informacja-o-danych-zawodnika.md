@@ -1,6 +1,6 @@
 # Informacja o przetwarzaniu danych zawodnika
 
-**Wersja:** 2026-11-v5
+**Wersja:** 2026-11-v6
 **Status:** projekt do weryfikacji prawnej, nieobowiązujący
 **Zastosowanie:** domyślna treść dokumentu „Informacja o danych” (`event_consents.kind = 'data_info'`), tworzonego z każdym Wydarzeniem. Organizator może ją zastąpić własną. Pola w nawiasach klamrowych `{…}` Serwis wypełnia danymi Wydarzenia i Organizatora.
 
@@ -31,6 +31,8 @@ Podanie danych oznaczonych w formularzu jako wymagane jest warunkiem zapisu. Bez
 
 Na publicznej liście startowej: imię, nazwisko, płeć, miejscowość, klub, konkurencja, kategoria wiekowa, nazwa drużyny, a przy opłaconym zgłoszeniu informacja, że jest opłacone. Zgłoszenia czekające na wpłatę pokazujemy tylko jako liczbę, bez imienia i nazwiska. Miejscowości osób niepełnoletnich nie publikujemy. W wynikach: imię, nazwisko, klub, kategoria, numer startowy, czasy i miejsce. Data urodzenia, adres e-mail, numer telefonu, narodowość (jeżeli formularz o nią prosi) i dane osoby do kontaktu w nagłych wypadkach nie są publikowane.
 
+Drużyna ma na liście startowej jeden wiersz: nazwę drużyny, imiona członków bez nazwisk, liczbę osób i miejscowość kapitana. Nazwa drużyny jest widoczna dla wszystkich, więc nie wpisuj w niej niczego, czego nie chcesz publikować.
+
 Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i publikować go w relacjach z zawodów. Podstawą przetwarzania danych jest prawnie uzasadniony interes Organizatora w relacjonowaniu zawodów (art. 6 ust. 1 lit. f RODO); możesz wnieść sprzeciw wobec takiej publikacji (art. 21 RODO): napisz do Organizatora. Rozpowszechnianie Twojego wizerunku opiera się na zezwoleniu, którego udzielasz, akceptując to postanowienie regulaminu zawodów (art. 81 ust. 1 ustawy o prawie autorskim i prawach pokrewnych). Zezwolenia nie wymaga wizerunek, który jest jedynie szczegółem całości, np. tłumu uczestników lub publiczności (art. 81 ust. 2 pkt 2 tej ustawy). To zezwolenie nie jest zgodą w rozumieniu RODO.
 
 ## Kto otrzymuje dane
@@ -44,6 +46,7 @@ Podczas zawodów Organizator może utrwalać Twój wizerunek (zdjęcia, wideo) i
 ## Jak długo
 
 - Numer telefonu i dane osoby do kontaktu w nagłych wypadkach: 30 dni po dniu zawodów.
+- Nazwa drużyny: 30 dni po dniu zawodów. Potem drużyna zostaje na liście startowej pod neutralną nazwą.
 - Zgłoszenie, które nie zostało opłacone w terminie: 30 dni po jego wygaśnięciu.
 - Pozostałe dane zgłoszenia: [DO UZUPEŁNIENIA: proponowane 12 miesięcy po dniu zawodów], a dłużej, jeżeli jest to potrzebne do obrony przed roszczeniami — do upływu terminu ich przedawnienia.
 - Dane o płatnościach: 5 lat od końca roku kalendarzowego, w którym dokonano płatności (przepisy podatkowe).
@@ -65,6 +68,8 @@ Zapisując inną osobę dorosłą (członka rodziny, drużyny), podajesz jej dan
 Ta osoba dostaje jeden e-mail z linkiem i z tą informacją. Na stronie z linku potwierdza swój adres kodem wysłanym e-mailem, sprawdza i może poprawić swoje dane, a potem akceptuje regulamin zawodów. Jeżeli tego nie zrobi, przed końcem zapisów dostanie jedno automatyczne przypomnienie; Ty i Organizator możecie wysłać kolejne (łącznie najwyżej trzy na dobę). Każde przypomnienie unieważnia poprzedni link. Organizator może też przyjąć jej podpis pod regulaminem w biurze zawodów. Dopóki ta osoba nie zaakceptuje regulaminu, nie pokazujemy jej na publicznej liście startowej z imienia i nazwiska.
 
 Osobę niepełnoletnią zapisuje jej rodzic lub opiekun prawny, który podaje swoje imię, nazwisko i adres e-mail. Oświadczenia za osobę niepełnoletnią składa opiekun. Dziecko nie dostaje od LESZY.RUN żadnych wiadomości. Jeżeli opiekun usunie konto LESZY.RUN, zgłoszenie dziecka zostaje, bez danych kontaktowych opiekuna.
+
+W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO). Każda dorosła osoba dostaje wtedy e-mail opisany wyżej, a za dziecko, którego kapitan jest rodzicem lub opiekunem, kapitan składa oświadczenia sam. Kapitan może zmieniać skład do zamknięcia zapisów; osoba usunięta ze składu po zapisie dostaje o tym e-mail, a jej zgłoszenie jest anulowane. Jeżeli kapitan usunie konto LESZY.RUN, drużyna zostaje na liście startowej pod neutralną nazwą, a składem zajmuje się Organizator.
 
 ## Osoba do kontaktu w nagłych wypadkach
 

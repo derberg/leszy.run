@@ -111,3 +111,26 @@ Pełna ocena zapisów online jest w `docs/legal/zapisy/dpia-uzupelnienie.md`. Te
 - Osoba dorosła usuwa konto: jej prośba o akceptację (`consent_requests`) jest usuwana.
 
 **Ocena.** Ryzyko rezydualne dla tych operacji: **niskie**, z wyjątkiem klubu dziecka, ocenionego jako **niskie do średniego** i przyjętego świadomie.
+
+## 10. Uzupełnienie 2026-11-01: drużyny i sztafety (zapisy online, Plan 5)
+
+Ten punkt opisuje, co zmieniają drużyny: kapitan zapisuje jednym zgłoszeniem cały skład, płaci jedną opłatę i zmienia skład do zamknięcia zapisów. Zasady zapisu innych osób są takie same jak w pkt 9.
+
+**Nazwa drużyny.** To tekst swobodny, publiczny, wpisany przez kapitana. Może zawierać nazwisko albo inną informację o osobach z drużyny, np. „Rodzina Kowalskich”. **Ryzyko:** nazwa przetrwałaby ludzi, bo zgłoszenia są anonimizowane, a nazwa zostawała na liście startowej. **Środki:**
+- informacja o danych mówi, że nazwa jest publiczna;
+- 30 dni po zawodach `purge_registration_contact_data` zastępuje nazwę neutralną;
+- drużyna, której zamówienie wygasło lub zostało anulowane, traci nazwę razem z danymi osób: `purge_expired_registrations` zastępuje ją neutralną 30 dni po wygaśnięciu lub anulowaniu;
+- usunięcie konta kapitana zastępuje nazwy wszystkich jego drużyn od razu, także drużyn zwolnionych;
+- nazwa nie trafia na hosty pomiaru czasu ani do wyników.
+
+Nazwa jest zastępowana, a nie usuwana, bo drużyna zajmuje miejsce na liście i odpowiada za nią opłata. **Ryzyko rezydualne:** nazwa jest publiczna do 30 dni po zawodach, a kopie w wyszukiwarkach lub zrzuty ekranu mogą przetrwać dłużej. Żadna kontrola formularza nie rozpozna nazwiska w nazwie.
+
+**Kapitan a dane innych osób (art. 14 RODO).** Kapitan podaje dane członków, a każda dorosła osoba dostaje e-mail z linkiem, jak w pkt 9. Dopóki nie zaakceptuje regulaminu, lista startowa ją tylko liczy. Kapitan widzi w składzie imiona, nazwiska, wiek i stan zgody, nigdy adresu, telefonu ani daty urodzenia członka. **Ryzyko:** kapitan może wpisać osobę bez jej wiedzy. E-mail z linkiem ją o tym informuje, a osoba dorosła, która nie zaakceptuje, nie jest publikowana.
+
+**Zmiana składu.** Osoba usunięta ze składu potwierdzonej drużyny dostaje e-mail, a jej zgłoszenie jest anulowane. Na hoście uczestnik dostaje `removed_at` i zachowuje numer startowy oraz chip, bo tych nie wolno użyć ponownie. Osoba dodana pojawia się jako nowy uczestnik bez numeru.
+
+Dane osoby usuniętej ze składu są anonimizowane w chwili wymiany, w tej samej transakcji (`team_squad_edit`): imię, nazwisko, e-mail, telefon, data urodzenia, miejscowość, klub, narodowość, kontakt ICE, dane opiekuna i powiązanie z kontem, a w akceptacjach adres IP i user agent. Na potwierdzonej drużynie anonimizowany jest też uczestnik (imię, nazwisko, e-mail, telefon, data urodzenia, klub); numer startowy i chip zostają. Zgłoszenie zostaje jako anulowane, przy drużynie i zamówieniu, bo opłata za drużynę dotyczy zamówienia. **Ryzyko:** bez tego dane osoby wymienionej ze składu nie miały końca przechowywania, bo nie obejmowało ich żadne czyszczenie, a osoba z drużyny czekającej na wpłatę nie dostała żadnej informacji (art. 14 RODO). **Środek:** anonimizacja w chwili wymiany. E-mail do osoby usuniętej z potwierdzonej drużyny wychodzi z adresu odczytanego przed anonimizacją i nie jest nigdzie zapisywany.
+
+**Kapitan usuwa konto.** Drużyna zostaje na liście startowej pod neutralną nazwą, bez imienia i miejscowości kapitana, a zgłoszenia pozostałych członków zostają. Skład może potem zmieniać tylko Organizator. Dane opiekuna przy dzieciach kapitana są usuwane jak w pkt 9.
+
+**Ocena.** Ryzyko rezydualne dla tych operacji: **niskie**. Publiczna nazwa drużyny do 30 dni po zawodach została przyjęta świadomie, bo jest częścią publicznej listy startowej.

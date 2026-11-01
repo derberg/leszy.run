@@ -1,17 +1,18 @@
 // What happens around the order RPCs: logging a dpay exchange, raising an operator alert,
 // reading an order the way the runner sees it, and acting on a confirm_order outcome
-// (the confirmation e-mail, or an automatic refund). Shared by create-order, pay-order,
-// order-status and dpay-ipn. Runs on the admin (service role) client.
+// (the confirmation e-mail, or an automatic refund), and starting a dpay payment for an order.
+// Shared by create-order, register-team, pay-order, order-status and dpay-ipn. Runs on the admin
+// (service role) client.
 //
 // Logging is best effort and never blocks a registration or a confirmation: a failed
 // payment_events insert is reported to the console (no payload) and as an operator alert.
 // Every payload goes through redactDpay first, because the database refuses an `email`
 // key at any depth and an address anywhere in the response text.
-import { refundTransaction, transactionDetails } from '../dpay.js'
+import { refundTransaction, registerTransaction, transactionDetails } from '../dpay.js'
 import { sendEmail } from '../email.js'
 import { redactDpay } from './redactDpay.js'
-import { orderConfirmationEmail, paymentRefundedEmail } from './emails.js'
-import { issueOrderConsentRequests } from './consentRequests.js'
+import { orderConfirmationEmail, paymentRefundedEmail, teamConfirmationEmail } from './emails.js'
+import { issueOrderConsentRequests, publicSite } from './consentRequests.js'
 import { registrationRole } from './group.js'
 import { kidsGroupLabels } from './kidsGroupLabels.js'
 
@@ -69,6 +70,99 @@ async function rows(query) {
   return data ?? []
 }
 
+export const PAYMENTS_OFF = 'Płatności online są chwilowo niedostępne.'
+export const DPAY_DOWN = 'Nie udało się połączyć z operatorem płatności. Spróbuj ponownie.'
+
+/**
+ * Registers a dpay transaction for a pending order and hands out its address (D5-24): the logged
+ * register call, then add_payment_attempt, which re-checks under the order lock.
+ * → { redirectUrl }, or { refused } and the caller words the answer:
+ *   'dpay_unconfigured' (cfg is null), 'dpay_unavailable' (dpay did not register it),
+ *   'full' / 'not_payable' (add_payment_attempt refused).
+ * Any other add_payment_attempt error is thrown.
+ * `cancelOnFailure` is for an order made by this same request: unless a redirect was handed out,
+ * for any reason including a throw, the order is cancelled (P3-R7), and a failed cancel raises
+ * `cancel_failed`. pay-order leaves it off, because a pending order keeps its payment window.
+ */
+export async function startPaymentAttempt(admin, cfg, { orderId, total, cancelOnFailure = false }) {
+  let handedOut = false
+  let cancelReason = 'create_order_aborted'
+  try {
+    if (!cfg) {
+      cancelReason = 'dpay_unconfigured'
+      return { refused: 'dpay_unconfigured' }
+    }
+    let txn
+    try {
+      txn = await registerTransaction(cfg, { orderId, grosze: total })
+    } catch (err) {
+      console.error('payment attempt: dpay register failed:', err?.httpStatus ?? null, err?.message)
+      await logPaymentEvent(admin, {
+        kind: 'register', orderId,
+        payload: { ok: false, httpStatus: err?.httpStatus ?? null, message: err?.message ?? null, grosze: total },
+      })
+      cancelReason = 'dpay_register_failed'
+      return { refused: 'dpay_unavailable' }
+    }
+
+    const { data: attemptId, error: aErr } = await admin.rpc('add_payment_attempt', {
+      p_order_id: orderId, p_txn: txn.transactionId, p_grosze: total,
+    })
+    if (aErr) {
+      // A transaction we never hand out: nobody can pay it.
+      console.error('payment attempt: add_payment_attempt failed:', aErr.message)
+      if (aErr.message === 'full' || aErr.message === 'not_payable') {
+        cancelReason = 'attempt_refused'
+        return { refused: aErr.message }
+      }
+      throw aErr
+    }
+    await logPaymentEvent(admin, {
+      kind: 'register', orderId, attemptId,
+      payload: { ok: true, transactionId: txn.transactionId, redirectUrl: txn.redirectUrl, grosze: total },
+    })
+    handedOut = true
+    return { redirectUrl: txn.redirectUrl }
+  } finally {
+    if (cancelOnFailure && !handedOut) {
+      try {
+        const { error: cErr } = await admin.rpc('cancel_order', { p_order_id: orderId, p_reason: cancelReason })
+        if (cErr) throw cErr
+      } catch (err) {
+        console.error('payment attempt: cancel_order failed:', err?.message)
+        await raiseAlert(admin, 'cancel_failed', orderId, { reason: cancelReason })
+      }
+    }
+  }
+}
+
+// A name matched case-insensitively and literally (a % or _ in it is not a wildcard).
+const likeLiteral = (v) => String(v).replace(/[\\%_]/g, (c) => `\\${c}`)
+
+/**
+ * A live registration of the group (any adult's address, or a child by name and birth date) in
+ * this buyer's own pending order (a resubmit after leaving the dpay page, or a double click) →
+ * that order's id, else null (P3-R8, D4-27).
+ */
+export async function ownPendingOrder(admin, eventId, people, profileId) {
+  const emails = people.map((p) => p.email).filter(Boolean)
+  const found = emails.length
+    ? await rows(admin.from('registrations').select('order_id')
+      .eq('event_id', eventId).in('email', emails).eq('status', 'pending_payment'))
+    : []
+  for (const m of people.filter((p) => p.role === 'minor')) {
+    found.push(...await rows(admin.from('registrations').select('order_id, first_name, last_name')
+      .eq('event_id', eventId).is('email', null).eq('birth_date', m.birthDate).eq('status', 'pending_payment')
+      .ilike('first_name', likeLiteral(m.firstName)).ilike('last_name', likeLiteral(m.lastName))))
+  }
+  const ids = [...new Set(found.map((r) => r.order_id).filter(Boolean))]
+  if (!ids.length) return null
+  const { data: orders, error: oErr } = await admin.from('orders')
+    .select('id').in('id', ids).eq('status', 'pending').eq('buyer_profile_id', profileId).limit(1)
+  if (oErr) throw oErr
+  return orders?.[0]?.id ?? null
+}
+
 /**
  * The order as its buyer sees it, or null when there is none.
  * → { order, settings, club, lines: [{ registrationId, firstName, lastName, competition,
@@ -89,9 +183,14 @@ export async function loadOrderView(admin, orderId) {
   const regIds = lineRows.filter((l) => l.registration_id).map((l) => l.registration_id)
   const regs = regIds.length
     ? await rows(admin.from('registrations')
-      .select('id, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
+      .select('id, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at, team_id')
       .in('id', regIds))
     : []
+  const teamIds = [...new Set(regs.map((r) => r.team_id).filter(Boolean))]
+  const teams = teamIds.length
+    ? await rows(admin.from('teams').select('id, name, captain_registration_id').in('id', teamIds))
+    : []
+  const teamById = new Map(teams.map((t) => [t.id, t]))
   const catIds = [...new Set(regs.map((r) => r.category_id))]
   const comps = catIds.length
     ? await rows(admin.from('competitions').select('category_id, name, start_time').in('category_id', catIds))
@@ -119,6 +218,9 @@ export async function loadOrderView(admin, orderId) {
       amount: l.amount,
       role: l.registration_id ? registrationRole(r) : null,
       consentState: r.consent_state ?? null,
+      teamId: r.team_id ?? null,
+      teamName: teamById.get(r.team_id)?.name ?? null,
+      isCaptain: teamById.get(r.team_id)?.captain_registration_id === l.registration_id,
     }
   })
   return { order, settings, club, lines }
@@ -165,15 +267,92 @@ export function orderEmailArgs(view) {
 }
 
 /**
+ * Everything teamConfirmationEmail needs but `paid`, from the stored team: its live members,
+ * the captain first, then by leg, then in team_position (a team's rows share one created_at).
+ */
+export async function teamEmailArgs(admin, teamId) {
+  const { data: team, error } = await admin.from('teams')
+    .select('id, name, event_id, category_id, captain_registration_id').eq('id', teamId).single()
+  if (error) throw error
+  const [regs, settingsRow, compRow] = await Promise.all([
+    rows(admin.from('registrations')
+      .select('id, first_name, last_name, age_group_label, team_leg, team_position, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at')
+      .eq('team_id', teamId).in('status', ['confirmed', 'pending_payment'])),
+    admin.from('registration_settings').select('name, slug, event_date, town_label, place_details').eq('event_id', team.event_id).single(),
+    admin.from('competitions').select('name').eq('category_id', team.category_id).single(),
+  ])
+  if (settingsRow.error) throw settingsRow.error
+  if (compRow.error) throw compRow.error
+  const settings = settingsRow.data
+  const rank = (r) => (r.id === team.captain_registration_id ? -1 : r.team_leg ?? Number.MAX_SAFE_INTEGER)
+  const members = regs
+    .sort((a, b) => rank(a) - rank(b) || (a.team_position ?? Number.MAX_SAFE_INTEGER) - (b.team_position ?? Number.MAX_SAFE_INTEGER))
+    .map((r) => ({
+      firstName: r.first_name,
+      lastName: r.last_name,
+      ageGroupLabel: r.age_group_label,
+      role: r.id === team.captain_registration_id ? 'self' : registrationRole(r),
+    }))
+  return {
+    event: {
+      name: settings.name,
+      slug: settings.slug,
+      eventDate: settings.event_date,
+      place: [settings.town_label, settings.place_details].filter(Boolean).join(', ') || null,
+    },
+    team: { name: team.name, competition: compRow.data.name },
+    members,
+    link: `${publicSite()}/events/${encodeURIComponent(settings.slug)}/druzyna/${encodeURIComponent(team.id)}`,
+  }
+}
+
+/**
+ * A free team's confirmation to its captain. A team with an order goes through
+ * sendOrderConfirmation instead. Best effort: never throws, the team stands either way.
+ */
+export async function sendTeamConfirmation(admin, teamId, to) {
+  try {
+    const res = await sendEmail({ to, ...teamConfirmationEmail({ ...(await teamEmailArgs(admin, teamId)), paid: null }) })
+    if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
+  } catch (err) {
+    console.error('team confirmation email failed:', err?.message)
+  }
+}
+
+// The order's confirmation: a team's when the order holds one (D5-25), so the first send and the
+// job's resend are the same e-mail. A 0 zł order paid nothing, so it says nothing of money (P3-R9).
+async function confirmationMail(admin, view) {
+  const args = orderEmailArgs(view)
+  const [held] = await rows(admin.from('registrations').select('team_id')
+    .eq('order_id', view.order.id).not('team_id', 'is', null).limit(1))
+  if (!held) return orderConfirmationEmail(args)
+  const paid = view.order.total > 0 ? { order: args.order, organizer: args.organizer, orderUrl: args.orderUrl } : null
+  return teamConfirmationEmail({ ...(await teamEmailArgs(admin, held.team_id)), paid })
+}
+
+/** The order's confirmation, built and sent. → false with no buyer address; throws when not sent. */
+async function deliverConfirmation(admin, orderId) {
+  const view = await loadOrderView(admin, orderId)
+  if (!view?.order.buyer_email) return false
+  const res = await sendEmail({ to: view.order.buyer_email, ...await confirmationMail(admin, view) })
+  if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
+  return true
+}
+
+/**
  * The payment confirmation to the buyer, at most once (P3-R10). Best effort: never throws.
  * Claim, then send: orders.confirmation_sent_at is stamped by one UPDATE … WHERE it is null
  * before the e-mail goes out, and a second caller that finds it stamped sends nothing.
- * A send that fails here gives the claim back, so registration-jobs sends it 10 minutes after
- * payment; if this function dies between the claim and the send, nothing is resent (at most
- * once beats twice). `claimed: true` is the job, which claimed already: a failure there is
- * alerted, never resent.
+ * A send that certainly failed (an error before the send, or SendGrid's own non-2xx answer)
+ * gives the claim back, so registration-jobs sends it 10 minutes after payment. A send whose
+ * fate is unknown (`deliveryUnknown`: the 10 s timeout or a broken connection, postToSendGrid)
+ * keeps the claim and alerts the operator instead: SendGrid may have taken the mail and answered
+ * late, it has no idempotency key, and a second confirmation of a payment is worse than one the
+ * operator resends by hand (final review I-4). If this function dies between the claim and the
+ * send, nothing is resent either (at most once beats twice). `claimed: true` is the job, which
+ * claimed already: a failure there is alerted, never resent. `deliver` is for the unit tests.
  */
-export async function sendOrderConfirmation(admin, orderId, { claimed = false } = {}) {
+export async function sendOrderConfirmation(admin, orderId, { claimed = false, deliver = deliverConfirmation } = {}) {
   let mine = claimed
   try {
     if (!claimed) {
@@ -183,15 +362,13 @@ export async function sendOrderConfirmation(admin, orderId, { claimed = false } 
       if (!data?.length) return false
       mine = true
     }
-    const view = await loadOrderView(admin, orderId)
-    if (!view?.order.buyer_email) return false
-    const res = await sendEmail({ to: view.order.buyer_email, ...orderConfirmationEmail(orderEmailArgs(view)) })
-    if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
-    return true
+    return await deliver(admin, orderId)
   } catch (err) {
     console.error('order confirmation email failed:', err?.message)
     if (claimed) {
       await raiseAlert(admin, 'confirmation_email_failed', orderId, { error: String(err?.message ?? err) })
+    } else if (mine && err?.deliveryUnknown) {
+      await raiseAlert(admin, 'confirmation_email_unknown', orderId, { error: String(err?.message ?? err) })
     } else if (mine) {
       const { error } = await admin.from('orders').update({ confirmation_sent_at: null }).eq('id', orderId)
       if (error) console.error('confirmation claim not released:', error.message)

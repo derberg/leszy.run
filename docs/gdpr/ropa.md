@@ -2,8 +2,8 @@
 
 **Administrator:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
-**Data ostatniej aktualizacji:** 2026-10-29
-**Wersja:** 1.4
+**Data ostatniej aktualizacji:** 2026-11-01
+**Wersja:** 1.5
 
 ## Rola Leszy.run
 
@@ -157,10 +157,36 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
   - podpis w biurze zawodów Organizator potwierdza w panelu, z wpisem do `organizer_actions`;
   - tabele z RLS i `REVOKE ALL … FROM anon, authenticated`.
 
+## 12. Drużyny i sztafety w zapisach online
+
+- **Rola:** jak w pkt 10 — dane zgłoszeń LESZY.RUN przetwarza w imieniu Organizatora (art. 28 RODO, rejestr z art. 30 ust. 2); konto kapitana i dane płatności — LESZY.RUN jako administrator.
+- **Cel:** zapisanie drużyny jednym zgłoszeniem i jedną opłatą; publikacja drużyny na liście startowej; zarządzanie składem przez kapitana do zamknięcia zapisów; przekazanie członków składu do pomiaru czasu.
+- **Podstawa prawna:** art. 6(1)(b) RODO — umowa o udział w zawodach; art. 6(1)(f) — ochrona formularza przed nadużyciem (limity zapytań).
+- **Kategorie danych:**
+  - `teams.name` — nazwa wpisana przez kapitana, tekst swobodny, który może zawierać nazwisko (np. „Rodzina Kowalskich”), a więc traktowany jak dana osobowa;
+  - `teams.captain_registration_id` — wskazanie kapitana;
+  - `registrations.team_id`, `registrations.team_leg` — przynależność do drużyny i numer zmiany;
+  - dane członków jak w pkt 10 i 11. Dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f), osoba dorosła dostaje e-mail z linkiem jak w pkt 11, a kapitan składa oświadczenia za dziecko, którego jest rodzicem lub opiekunem.
+- **Kategorie osób:** kapitanowie, dorośli członkowie drużyn, dzieci zapisane przez kapitana.
+- **Odbiorcy:** jak w pkt 10. Publiczna lista startowa pokazuje nazwę drużyny, imiona członków bez nazwisk, liczbę osób i miejscowość kapitana; dorosła osoba, która nie zaakceptowała regulaminu, jest tylko liczona. Drużyna czekająca na wpłatę jest tylko liczbą. Kapitan widzi w składzie imiona, nazwiska, wiek i stan zgody członków, bez adresów, telefonów i dat urodzenia. Do hostów pomiaru czasu trafiają uczestnicy (`participants`); tabela `teams` i nazwa drużyny nie opuszczają Supabase.
+- **Transfery poza EOG:** jak w pkt 1.
+- **Okres przechowywania:**
+  - `teams.name` — 30 dni po zawodach; `purge_registration_contact_data` zastępuje ją neutralną nazwą („Drużyna” i osiem znaków identyfikatora drużyny albo, gdy ta nazwa jest już zajęta w konkurencji, cały identyfikator), także przy drużynie zwolnionej. Przy zamówieniu wygasłym lub anulowanym — 30 dni po wygaśnięciu lub anulowaniu; `purge_expired_registrations` zastępuje nazwę razem z anonimizacją zgłoszeń;
+  - osoba usunięta ze składu: dane osobowe zgłoszenia (imię, nazwisko, e-mail, telefon, data urodzenia, miejscowość, klub, narodowość, kontakt ICE, dane opiekuna, powiązanie z kontem) oraz adres IP i user agent akceptacji są anonimizowane w chwili wymiany, w tej samej transakcji (`team_squad_edit`), na drużynie czekającej na wpłatę i na potwierdzonej. Zgłoszenie zostaje jako anulowane, przy drużynie i zamówieniu, bo opłata jest rozliczana na zamówieniu. Uczestnik ze znacznikiem `removed_at` traci imię, nazwisko, e-mail, telefon, datę urodzenia i klub, a zachowuje numer startowy i chip na hoście, bo tych nie wolno użyć ponownie;
+  - pozostałe dane zgłoszeń — jak w pkt 10 i 11.
+- **Prawa osób:**
+  - eksport (`export-my-data`) daje kapitanowi listę `teams` (nazwa, konkurencja, wydarzenie, liczba osób, stan), a członkowi nazwę drużyny przy jego zgłoszeniu (`team_name`). Zgłoszenia dzieci są w `registrations_as_guardian`; zgłoszenia innych dorosłych członków są danymi tamtych osób i nie są eksportowane;
+  - usunięcie konta (`delete-my-account`) przez kapitana zastępuje nazwę każdej jego drużyny neutralną nazwą (`anonymise_team_names`), także drużyny zwolnionej. Drużyna zostaje na liście startowej, zgłoszenia pozostałych członków zostają, a imię kapitana i jego miejscowość znikają z listy. Skład może potem zmieniać tylko Organizator. Usunięcie konta przez innego członka nie zmienia nazwy drużyny.
+- **Środki bezpieczeństwa:**
+  - tabela `teams` z RLS i `REVOKE ALL … FROM anon, authenticated`, odczyt tylko przez funkcje brzegowe i `start_list`;
+  - strona składu tylko dla sesji kapitana, każdemu innemu odpowiada 404;
+  - limity: 30 zmian składu i 120 odczytów na drużynę na godzinę, a każda osoba dodana do składu liczy się do limitu 30 osób na zapisującego na dobę z pkt 11.
+
 ## Historia zmian
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.5 | 2026-11-01 | Dodano sekcję 12 (drużyny i sztafety: nazwa drużyny jako dana osobowa i jej usuwanie po 30 dniach oraz przy usunięciu konta kapitana, eksport, dane członków podawane przez kapitana, anonimizacja osoby usuniętej ze składu w chwili wymiany, nazwa drużyny przy zamówieniu wygasłym lub anulowanym). |
 | 1.4 | 2026-10-29 | Dodano sekcję 11 (zapisy grupowe: opiekunowie, osoby dorosłe zapisane przez kogoś innego, prośby o akceptację regulaminu, podpis w biurze; eksport i usuwanie konta). |
 | 1.3 | 2026-10-29 | Dodano sekcję 10 (zapisy online z płatnością przez dpay: zamówienia, płatności, zwroty, retencja 5 lat / 30 dni). |
 | 1.2 | 2026-10-03 | Dodano sekcję 9 (rozpoznawanie numerów startowych z obrazu) — wdrożenie ekranu „Audyt kamery" i automatycznego purge po 30 dniach. |

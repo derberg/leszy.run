@@ -2,7 +2,7 @@
 // optional change notice goes to (W-24).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { changeDiff, noticeAudience, noticeRows } from '../../../supabase/functions/_shared/registration/changeDiff.js'
+import { changeDiff, mergedChecklistInput, noticeAudience, noticeRows } from '../../../supabase/functions/_shared/registration/changeDiff.js'
 
 const C1 = '11111111-1111-4111-8111-111111111111'
 const C2 = '22222222-2222-4222-8222-222222222222'
@@ -154,4 +154,53 @@ test('M-1 the checklist on staged values: a staged paid pricing with a payout no
   const keys = (payout) => publishChecklist({ ...mergedChecklistInput({ ...settled, payout }, paid), hasAgreement: true }).blocking.map((b) => b.key)
   assert.deepEqual(keys({ mode: 'club', ready: false }), ['payments', 'payout'])
   assert.deepEqual(keys({ mode: 'club', ready: true }), ['payments'])
+})
+
+test('T-06 mergedChecklistInput: a staged team reads as sized, a live team stays sized, a staged one with no size blocks', async () => {
+  const { mergedChecklistInput } = await import('../../../supabase/functions/_shared/registration/changeDiff.js')
+  const { publishChecklist } = await import('../../../supabase/functions/_shared/registration/checklist.js')
+  const row = { category_id: 'c1', name: 'Sztafeta', distance_label: '4 × 5 km', start_time: '10:00:00', capacity: 20 }
+  const live = { settings: {}, competitions: [row] }
+  const blocked = (pending, l = live) => publishChecklist({ ...mergedChecklistInput(l, pending), hasAgreement: true })
+    .blocking.filter((b) => b.key === 'competition:c1').map((b) => b.label)
+
+  assert.deepEqual(blocked({ competitions: { items: [{ ...row, kind: 'team', team_min: 3, team_max: 5 }] } }), [])
+  assert.deepEqual(blocked({ basics: { name: 'X' } }, { ...live, competitions: [{ ...row, kind: 'team', team_min: 3, team_max: 5 }] }), [])
+  assert.deepEqual(blocked({ competitions: { items: [{ ...row, kind: 'team', team_min: null, team_max: null }] } }), ['Konkurencja „Sztafeta”: skład drużyny'])
+})
+
+// ---------------------------------------------------------------- teams (plan 5, task 6)
+
+const liveTeam = {
+  ...live,
+  competitions: [{ ...live.competitions[0], name: 'Sztafeta', kind: 'team', team_min: 2, team_max: 6, leg_order_enabled: false }],
+}
+const teamItem = (over = {}) => item(liveTeam.competitions[0], { kind: 'team', team_min: 2, team_max: 6, ...over })
+
+test('T-50 a staged team size is a row of the diff, an unchanged one is not', () => {
+  assert.deepEqual(changeDiff(liveTeam, { competitions: { pricing_mode: 'free', items: [teamItem()] } }), [])
+  const diff = changeDiff(liveTeam, { competitions: { pricing_mode: 'free', items: [teamItem({ team_min: 3, team_max: 8 })] } })
+  assert.deepEqual(diff.map((d) => [d.field, d.label, d.before, d.after]), [
+    ['competitions.team_min', 'Sztafeta: skład od', 2, 3],
+    ['competitions.team_max', 'Sztafeta: skład do', 6, 8],
+  ])
+})
+
+test('T-51 leg order is one row per competition that changes; a map equal to the live one is none', () => {
+  assert.deepEqual(changeDiff(liveTeam, { form: { leg_order: { [C1]: false } } }), [])
+  const diff = changeDiff(liveTeam, { form: { leg_order: { [C1]: true } } })
+  assert.deepEqual(diff, [{ field: 'form.leg_order', label: 'Sztafeta: kolejność zmian', before: false, after: true, categoryId: C1 }])
+})
+
+test('T-51 a competition staged back to individual in the same round has no leg order row: publish skips it', () => {
+  const diff = changeDiff(liveTeam, {
+    competitions: { pricing_mode: 'free', items: [teamItem({ kind: 'individual', team_min: null, team_max: null })] },
+    form: { leg_order: { [C1]: true } },
+  })
+  assert.equal(diff.some((d) => d.field === 'form.leg_order'), false)
+})
+
+test('T-51 leg_order never leaks into the settings the checklist reads', () => {
+  const merged = mergedChecklistInput(liveTeam, { form: { leg_order: { [C1]: true } } })
+  assert.equal('legOrder' in merged.settings, false)
 })

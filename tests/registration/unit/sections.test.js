@@ -48,11 +48,72 @@ test('competitions: capacity 0 → Limit musi być większy od zera.', () => {
   assert.deepEqual(r.errors, { capacity: 'Limit musi być większy od zera.' })
 })
 
-test('competitions: tiered pricing and team kind are refused with Wkrótce.', () => {
+test('competitions: tiered pricing is refused with Wkrótce.', () => {
   const t = validateSection('competitions', { pricingMode: 'tiered', items: [item()] }, DRAFT)
   assert.deepEqual(t.errors, { pricingMode: 'Wkrótce.' })
-  const k = validateSection('competitions', { pricingMode: 'free', items: [item({ kind: 'team' })] }, DRAFT)
-  assert.deepEqual(k.errors, { kind: 'Wkrótce.' })
+})
+
+const TEAM_SIZE = 'Skład: od 2 do 10 osób, min ≤ max.'
+const team = (over = {}) => item({ kind: 'team', teamMin: 3, teamMax: 5, ...over })
+const competitions = (i, ctx = DRAFT) => validateSection('competitions', { pricingMode: 'free', items: [i] }, ctx)
+
+test('T-06 competitions: a team with min 3 / max 5 is accepted, draft or published, as team_min / team_max', () => {
+  for (const ctx of [DRAFT, PUBLISHED]) {
+    const r = competitions(team(), ctx)
+    assert.equal(r.ok, true, JSON.stringify(r))
+    assert.equal(r.value.items[0].kind, 'team')
+    assert.equal(r.value.items[0].team_min, 3)
+    assert.equal(r.value.items[0].team_max, 5)
+  }
+  assert.equal(competitions(team({ teamMin: 2, teamMax: 10 })).ok, true)
+  assert.equal(competitions(team({ teamMin: 4, teamMax: 4 })).ok, true)
+})
+
+test('T-06 competitions: a team size outside 2–10, min above max, or none at all is refused', () => {
+  for (const [teamMin, teamMax, field] of [
+    [1, 5, 'teamMin'], [0, 5, 'teamMin'], [11, 11, 'teamMin'], [null, 5, 'teamMin'], [undefined, 5, 'teamMin'], ['3', 5, 'teamMin'], [2.5, 5, 'teamMin'],
+    [2, 11, 'teamMax'], [5, 3, 'teamMax'], [3, null, 'teamMax'], [3, undefined, 'teamMax'], [3, '5', 'teamMax'],
+  ]) {
+    const r = competitions(team({ teamMin, teamMax }))
+    assert.equal(r.ok, false, `${teamMin}–${teamMax}`)
+    assert.deepEqual(r.errors, { [field]: TEAM_SIZE }, `${teamMin}–${teamMax}`)
+  }
+})
+
+test('T-06 competitions: an unknown kind is refused; an individual competition keeps no team size', () => {
+  assert.deepEqual(competitions(item({ kind: 'relay' })).errors, { kind: 'Nieprawidłowa wartość.' })
+  const r = competitions(item({ teamMin: 3, teamMax: 5 }))
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.equal(r.value.items[0].kind, 'individual')
+  assert.equal(r.value.items[0].team_min, null)
+  assert.equal(r.value.items[0].team_max, null)
+})
+
+const TEAM_ID = '11111111-1111-4111-8111-111111111111'
+const SOLO_ID = '22222222-2222-4222-8222-222222222222'
+
+test('T-06 form: legOrder is accepted for a team competition and comes out as leg_order', () => {
+  const r = validateSection('form', { legOrder: { [TEAM_ID]: true } }, { ...DRAFT, teamCategoryIds: [TEAM_ID] })
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.deepEqual(r.value, { leg_order: { [TEAM_ID]: true } })
+  const off = validateSection('form', { legOrder: { [TEAM_ID]: false } }, { ...PUBLISHED, teamCategoryIds: [TEAM_ID] })
+  assert.deepEqual(off.value, { leg_order: { [TEAM_ID]: false } })
+})
+
+test('T-06 form: legOrder on an individual or unknown competition is refused, whichever way it is switched', () => {
+  const ctx = { ...DRAFT, teamCategoryIds: [TEAM_ID] }
+  for (const v of [true, false]) {
+    const r = validateSection('form', { legOrder: { [SOLO_ID]: v } }, ctx)
+    assert.equal(r.ok, false)
+    assert.deepEqual(r.errors, { legOrder: 'Kolejność zmian ustawisz tylko w konkurencji drużynowej.' })
+  }
+  assert.equal(validateSection('form', { legOrder: { [TEAM_ID]: true } }, DRAFT).ok, false, 'no team list in the context refuses')
+})
+
+test('T-06 form: a legOrder that is not a map of booleans is refused', () => {
+  const ctx = { ...DRAFT, teamCategoryIds: [TEAM_ID] }
+  for (const legOrder of [null, [], true, 'x']) assert.ok(validateSection('form', { legOrder }, ctx).errors.legOrder, String(legOrder))
+  assert.ok(validateSection('form', { legOrder: { [TEAM_ID]: 'tak' } }, ctx).errors.legOrder)
 })
 
 test('competitions: a valid free list normalizes to the RPC shape', () => {
@@ -62,7 +123,7 @@ test('competitions: a valid free list normalizes to the RPC shape', () => {
   assert.deepEqual(r.value.items[0], {
     category_id: null, name: 'Bieg 9 km', kind: 'individual', discipline: 'run', distance_label: '9 km',
     start_time: '10:00', capacity: 80, min_age: 16, max_age: null, is_kids: false, timed: true,
-    gpx_upload_id: null, price: null,
+    gpx_upload_id: null, price: null, team_min: null, team_max: null,
   })
 })
 

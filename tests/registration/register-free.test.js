@@ -227,9 +227,11 @@ test('W-29 my-event-registrations returns the session’s confirmed registration
     status: 'confirmed', createdAt: 'string', paymentStatus: 'free', expiresAt: null,
     // Plan 4 task 6: the consent columns (G-53).
     role: 'self', consentState: 'accepted', guardianName: null, guardianRemoved: false, registeredBy: null,
+    // Plan 5 task 5b (T-43).
+    team: null,
   })
   const { data: caps } = await admin().from('competitions').select('capacity, taken').eq('event_id', event.eventId)
-  assert.deepEqual(list.body.counts, { paid: 0, awaiting: 0, free: 1, placesLeft: caps.reduce((n, c) => n + c.capacity - c.taken, 0), awaitingConsent: 0 })
+  assert.deepEqual(list.body.counts, { paid: 0, awaiting: 0, free: 1, placesLeft: caps.reduce((n, c) => n + c.capacity - c.taken, 0), teamPlacesLeft: null, awaitingConsent: 0 })
   assert.equal((await callFn('list-event-registrations', outsider, { eventId: event.eventId })).status, 404)
   assert.equal((await callFn('list-event-registrations', null, { eventId: event.eventId })).status, 401)
 })

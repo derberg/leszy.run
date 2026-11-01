@@ -15,6 +15,11 @@
 // Ruling P3-R15: the limit counts paid entries only, so „N / limit” and the bar
 // are paid + free; an entry awaiting payment holds no place and is only named
 // beside them („+N czeka na wpłatę”).
+//
+// A confirmed team is one entry of the list and one slot of its competition (D5-28), so a team
+// competition's numbers count teams. A team has no club, gender or age group: Kategoria, Płeć and
+// Klub hide it (ruling 8), and search reads its name and first names. `size` is the squad; the names
+// can be fewer, because a person who has not accepted yet is not named.
 
 import { countPl, pluralPl } from './plural.js'
 
@@ -24,6 +29,60 @@ const paidText = (n) => countPl(n, ['opłacone', 'opłacone', 'opłaconych'])
 const freeText = (n) => `${n} bez opłaty`
 const awaitingText = (n) => `+${n} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
 const registeredText = (n) => countPl(n, ['osoba zapisana', 'osoby zapisane', 'osób zapisanych'])
+const teamsText = (n) => countPl(n, ['drużyna zapisana', 'drużyny zapisane', 'drużyn zapisanych'])
+const sizeText = (n) => countPl(n, ['osoba', 'osoby', 'osób'])
+
+const isTeam = (e) => e.kind === 'team'
+const sum = (rows, k) => rows.reduce((n, c) => n + (c[k] ?? 0), 0)
+
+// A paid event's header for a team competition: the unit is in every phrase, so it never reads as
+// people. CLAUDE.md: people and teams are never added into one number.
+const teamPaidText = (n) => countPl(n, ['drużyna opłacona', 'drużyny opłacone', 'drużyn opłaconych'])
+const teamFreeText = (n) => `${countPl(n, ['drużyna', 'drużyny', 'drużyn'])} bez opłaty`
+const teamAwaitingText = (n) => `+${countPl(n, ['drużyna', 'drużyny', 'drużyn'])} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
+const peoplePaidText = (n) => countPl(n, ['osoba opłacona', 'osoby opłacone', 'osób opłaconych'])
+const peopleFreeText = (n) => `${countPl(n, ['osoba', 'osoby', 'osób'])} bez opłaty`
+const peopleAwaitingText = (n) => `+${countPl(n, ['osoba', 'osoby', 'osób'])} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na wpłatę`
+
+/**
+ * „53 opłacone · 5 bez opłaty · +2 czekają na wpłatę” with no team competition, as before. With
+ * one, people (the individual competitions, when there are any) then teams, each phrase with its
+ * unit: „2 osoby opłacone · 2 drużyny opłacone · 1 drużyna bez opłaty · +1 drużyna czeka na wpłatę”.
+ */
+function paidHeader(peopleComps, teamComps) {
+  const part = (rows, [paid, free, awaiting], always) => {
+    const p = sum(rows, 'paid')
+    const f = sum(rows, 'free')
+    const a = sum(rows, 'awaiting')
+    return [p > 0 || always ? paid(p) : null, f > 0 ? free(f) : null, a > 0 ? awaiting(a) : null]
+  }
+  if (!teamComps.length) return part(peopleComps, [paidText, freeText, awaitingText], true).filter(Boolean).join(' · ')
+  return [
+    ...(peopleComps.length ? part(peopleComps, [peoplePaidText, peopleFreeText, peopleAwaitingText], true) : []),
+    ...part(teamComps, [teamPaidText, teamFreeText, teamAwaitingText], true),
+  ].filter(Boolean).join(' · ')
+}
+
+function teamEntry(e, paidEvent) {
+  const membersText = e.members.join(', ')
+  const size = sizeText(e.size)
+  return {
+    kind: 'team',
+    name: e.name,
+    members: e.members,
+    membersText,
+    size,
+    town: e.town ?? null,
+    club: null,
+    categoryId: e.categoryId,
+    competition: e.competition,
+    category: null,
+    gender: null,
+    where: membersText,
+    what: `${e.competition} · ${size}`,
+    badge: paidEvent && e.payment === 'paid' ? 'opłacone' : null,
+  }
+}
 
 /**
  * @param {object} snapshot the /api/startlist answer
@@ -32,13 +91,13 @@ const registeredText = (n) => countPl(n, ['osoba zapisana', 'osoby zapisane', 'o
 export function startListView(snapshot, { paidEvent }) {
   const comps = snapshot?.competitions ?? []
   const entries = snapshot?.entries ?? []
-  const sum = (k) => comps.reduce((n, c) => n + (c[k] ?? 0), 0)
-  const paid = sum('paid')
-  const free = sum('free')
-  const awaiting = sum('awaiting')
+  const teamComps = comps.filter((c) => c.kind === 'team')
+  const peopleComps = comps.filter((c) => c.kind !== 'team')
+  const teams = sum(teamComps, 'paid') + sum(teamComps, 'free')
+  const people = sum(peopleComps, 'paid') + sum(peopleComps, 'free')
   const header = paidEvent
-    ? [paidText(paid), free > 0 ? freeText(free) : null, awaiting > 0 ? awaitingText(awaiting) : null].filter(Boolean).join(' · ')
-    : registeredText(free + paid)
+    ? paidHeader(peopleComps, teamComps)
+    : [people > 0 || teams === 0 ? registeredText(people) : null, teams > 0 ? teamsText(teams) : null].filter(Boolean).join(' · ')
   return {
     header,
     competitions: comps.map((c) => {
@@ -50,6 +109,7 @@ export function startListView(snapshot, { paidEvent }) {
       return {
         categoryId: c.categoryId,
         name: c.name,
+        label: c.kind === 'team' ? `${c.name} · drużyny` : c.name,
         isKids: c.isKids === true,
         taken: cPaid + cFree,
         capacity: c.capacity,
@@ -61,6 +121,7 @@ export function startListView(snapshot, { paidEvent }) {
       }
     }),
     entries: entries.map((e) => {
+      if (isTeam(e)) return teamEntry(e, paidEvent)
       const category = e.kidsGroupLabel ?? e.ageGroupLabel ?? null
       return {
         name: e.name,
@@ -103,7 +164,8 @@ export function foldPl(text) {
 export function startListFilterOptions(view, { categoryId = '' } = {}) {
   const kids = (view?.competitions ?? []).some((c) => c.categoryId === categoryId && c.isKids)
   const genderLabels = kids ? { K: 'Dziewczynki', M: 'Chłopcy' } : { K: 'Kobiety', M: 'Mężczyźni' }
-  const entries = view?.entries ?? []
+  // A team has neither a gender nor a club, so it offers no „Bez klubu”.
+  const entries = (view?.entries ?? []).filter((e) => !isTeam(e))
   const uniq = (xs) => [...new Set(xs.filter(Boolean))].sort(collator.compare)
   const genders = new Set(entries.map((e) => e.gender))
   const clubs = uniq(entries.map((e) => e.club)).map((c) => ({ value: c, label: c }))
@@ -119,7 +181,9 @@ export function startListFilterOptions(view, { categoryId = '' } = {}) {
 /**
  * The entries a viewer's filters keep, in start_list's order. Every empty filter
  * keeps everyone; `club` '__none' keeps those with no club; `q` matches name, town
- * and club, ignoring case and Polish diacritics. `total` is the whole list.
+ * and club, ignoring case and Polish diacritics. A team stays only with `category`,
+ * `gender` and `club` empty, and `q` matches its name and first names. `total` is the
+ * whole list.
  * @param {ReturnType<typeof startListView>} view
  * @param {{ categoryId?: string, category?: string, gender?: string, club?: string, q?: string }} filters
  */
@@ -128,10 +192,12 @@ export function filterStartList(view, { categoryId = '', category = '', gender =
   const needle = foldPl(q)
   const entries = all.filter((e) =>
     (!categoryId || e.categoryId === categoryId)
-    && (!category || e.category === category)
-    && (!gender || e.gender === gender)
-    && (!club || (club === NO_CLUB ? !e.club : e.club === club))
-    && (!needle || [e.name, e.town, e.club].some((f) => f && foldPl(f).includes(needle))))
+    && (isTeam(e)
+      ? !category && !gender && !club
+      : (!category || e.category === category)
+        && (!gender || e.gender === gender)
+        && (!club || (club === NO_CLUB ? !e.club : e.club === club)))
+    && (!needle || (isTeam(e) ? [e.name, ...e.members] : [e.name, e.town, e.club]).some((f) => f && foldPl(f).includes(needle))))
   return { entries, total: all.length }
 }
 

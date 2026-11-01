@@ -29,6 +29,7 @@ function competitionGaps(c) {
   if (blank(c.distanceLabel)) gaps.push('dystans')
   if (blank(c.startTime)) gaps.push('godzina startu')
   if (!Number.isInteger(c.capacity) || c.capacity < 1) gaps.push('limit miejsc')
+  if (c.kind === 'team' && !(Number.isInteger(c.teamMin) && Number.isInteger(c.teamMax))) gaps.push('skład drużyny')
   return gaps
 }
 

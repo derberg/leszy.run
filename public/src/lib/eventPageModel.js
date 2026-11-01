@@ -8,7 +8,9 @@
 
 // The Warsaw calendar date (YYYY-MM-DD) of an instant; same rule as
 // warsawToday() in _shared/registration/dates.js, kept here so this module has
-// no imports.
+// no imports from there.
+import { pluralPl } from './plural.js'
+
 const warsawDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' })
 const warsawToday = (d) => warsawDate.format(d)
 
@@ -57,6 +59,16 @@ function daysLeftLabel(raw, now) {
   return n === 1 ? '1 dzień' : `${n} dni`
 }
 
+// RA1's line of a team competition. The count is teams, the limit too: a team takes one place.
+function teamLine(c) {
+  if (c.kind !== 'team') return null
+  const sized = c.teamMin != null && c.teamMax != null
+  const size = !sized ? null : c.teamMin === c.teamMax ? `Drużyny ${c.teamMin}-osobowe` : `Drużyny ${c.teamMin}–${c.teamMax} osób`
+  const price = c.priceGrosze == null ? null : c.priceGrosze === 0 ? 'Bezpłatne' : `${money(c.priceGrosze)} / drużyna`
+  const limit = Number.isInteger(c.capacity) && c.capacity >= 0 ? pluralPl(c.capacity, 'DRUŻYNA', 'DRUŻYNY', 'DRUŻYN') : 'DRUŻYN'
+  return [size, price, `${c.taken} / ${c.capacity} ${limit}`].filter(Boolean).join(' · ')
+}
+
 function competitionRow(c, win) {
   const age = ageLabel(c.minAge, c.maxAge)
   const byAge = c.isKids && c.kidsGroups?.some((g) => g.distanceLabel) ? 'dystans wg wieku' : null
@@ -64,9 +76,11 @@ function competitionRow(c, win) {
   return {
     categoryId: c.categoryId,
     name: c.name,
+    kind: c.kind === 'team' ? 'team' : 'individual',
     startLabel: [c.startTime ? `start ${hm(c.startTime)}` : null, age, byAge].filter(Boolean).join(' · '),
     ageLabel: age,
     priceLabel: c.priceGrosze == null ? null : c.priceGrosze === 0 ? 'Bezpłatne' : money(c.priceGrosze),
+    teamLine: teamLine(c),
     nextPriceLabel: c.nextPrice ? `od ${ymd(c.nextPrice.from).d}.${ymd(c.nextPrice.from).m}: ${money(c.nextPrice.grosze)}` : null,
     full,
     state: win === 'open' && full ? 'full' : win,
@@ -144,6 +158,41 @@ function officePlace(raw) {
   return { label, mapUrl: lat != null && lng != null ? osmUrl(lat, lng) : null }
 }
 
+// A team competition's taken and capacity count teams (D5-28), so people and teams are never
+// added into one number: registered / confirmed / free are the individual competitions', and
+// `teams` holds the team competitions' own (`only`: the event has no individual competition), or
+// null when the event has none.
+function stats(competitions, daysLeft) {
+  const sum = (rows, f) => rows.reduce((n, c) => n + f(c), 0)
+  const people = competitions.filter((c) => c.kind !== 'team')
+  const teams = competitions.filter((c) => c.kind === 'team')
+  const free = (c) => Math.max(0, c.capacity - c.taken)
+  return {
+    registered: sum(people, (c) => c.taken),
+    confirmed: sum(people, (c) => c.confirmed),
+    free: sum(people, free),
+    teams: teams.length ? { registered: sum(teams, (c) => c.taken), free: sum(teams, free), only: !people.length } : null,
+    daysLeft,
+  }
+}
+
+/**
+ * RA1's „Zapisani” and „Wolne” as lines of { count, unit }. With no team competition each is one
+ * bare number, as it always was. Otherwise people and teams are separate lines with their units,
+ * and the people line is left out when the event has only team competitions.
+ */
+export function statParts(s) {
+  if (!s.teams) return { registered: [{ count: s.registered, unit: null }], free: [{ count: s.free, unit: null }] }
+  const people = (n, unit) => (s.teams.only ? [] : [{ count: n, unit }])
+  return {
+    registered: [
+      ...people(s.registered, pluralPl(s.registered, 'osoba', 'osoby', 'osób')),
+      { count: s.teams.registered, unit: pluralPl(s.teams.registered, 'drużyna', 'drużyny', 'drużyn') },
+    ],
+    free: [...people(s.free, pluralPl(s.free, 'miejsce', 'miejsca', 'miejsc')), { count: s.teams.free, unit: 'dla drużyn' }],
+  }
+}
+
 /**
  * @param {object} raw a registration_raw snapshot with file URLs
  * @param {Date} now
@@ -167,12 +216,7 @@ export function eventPageModel(raw, now = new Date()) {
     registrationState: win,
     closesLabel: closesLabel(raw.closesAt),
     charityGoal: raw.isCharity ? (raw.charityGoal ?? null) : null,
-    stats: {
-      registered: competitions.reduce((n, c) => n + c.taken, 0),
-      confirmed: competitions.reduce((n, c) => n + c.confirmed, 0),
-      free: competitions.reduce((n, c) => n + Math.max(0, c.capacity - c.taken), 0),
-      daysLeft: win === 'closed' ? null : daysLeftLabel(raw, now),
-    },
+    stats: stats(competitions, win === 'closed' ? null : daysLeftLabel(raw, now)),
     office: (raw.office?.hours ?? []).map((h) => {
       const { d, m } = ymd(h.date)
       return { label: `${WEEKDAYS_SHORT[weekday(h.date)]} ${d}.${m}`, hours: `${hm(h.from)}–${hm(h.to)}` }
@@ -209,11 +253,13 @@ function mergeCompetitions(raw, value, uploads) {
   const shown = (i) => (has(i, 'hidden') ? !i.hidden : !i.category_id || live.has(i.category_id))
   const competitions = (value.items ?? []).filter(shown).map((i) => {
     const base = live.get(i.category_id) ?? {
-      categoryId: null, kind: 'individual', taken: 0, confirmed: 0, priceGrosze: null, nextPrice: null,
+      categoryId: null, kind: 'individual', teamMin: null, teamMax: null, legOrderEnabled: false,
+      taken: 0, confirmed: 0, priceGrosze: null, nextPrice: null,
       ageGroups: [], kidsGroups: [], course: null,
     }
     const c = pick({ ...base }, i, {
-      name: 'name', discipline: 'discipline', distance_label: 'distanceLabel', start_time: 'startTime',
+      name: 'name', kind: 'kind', team_min: 'teamMin', team_max: 'teamMax',
+      discipline: 'discipline', distance_label: 'distanceLabel', start_time: 'startTime',
       capacity: 'capacity', min_age: 'minAge', max_age: 'maxAge', is_kids: 'isKids', timed: 'timed',
     })
     if (has(i, 'gpx_upload_id')) c.course = i.gpx_upload_id ? (courseFrom(uploads[i.gpx_upload_id]) ?? base.course) : null
@@ -289,6 +335,10 @@ export function mergePending(raw, pending) {
   }
   if (payload.form) {
     pick(out, payload.form, { form_fields: 'formFields' })
+    const legs = payload.form.leg_order
+    if (legs) {
+      out.competitions = out.competitions.map((c) => (c.categoryId in legs ? { ...c, legOrderEnabled: legs[c.categoryId] } : c))
+    }
     if (has(payload.form, 'consents')) {
       out.consents = [
         ...(raw.consents ?? []).filter((k) => k.kind !== 'custom'),

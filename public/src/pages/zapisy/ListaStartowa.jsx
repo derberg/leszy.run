@@ -8,7 +8,7 @@ import RegistrationShell from './RegistrationShell.jsx'
 import { eventPath, startListPath } from './RegistrationEventPage.jsx'
 
 // RA8 (mobile cards) and RA8d (desktop table): everyone on the list of a published
-// event, with filters. Ruling P3-R14: an entry awaiting payment is only counted
+// event, with filters. A team is one row: its name over its first names. Ruling P3-R14: an entry awaiting payment is only counted
 // („+N czeka na wpłatę”), never listed by name, so there is no „Wpłata” filter or
 // column (D4-19), and a minor's town is never shown; „opłacone” marks an entry that
 // was paid (never a free event or a 0 zł entry). The event id comes from the
@@ -54,7 +54,7 @@ function Badge({ text }) {
 function CompetitionCount({ c }) {
   return (
     <div className="px-2.5 py-2 border border-apex-border min-w-0" data-testid="list-competition">
-      <span className={`${labelCls} text-[11px] block truncate`}>{c.name}</span>
+      <span className={`${labelCls} text-[11px] block truncate`}>{c.label}</span>
       <div className="font-mono text-lg text-apex-text-bright">
         {c.taken}<span className="text-apex-muted text-[13px]"> / {c.capacity} miejsc</span>
       </div>
@@ -158,11 +158,12 @@ function EntryTable({ entries }) {
             <tr key={`${e.name}-${i}`} data-testid="start-list-entry">
               <td className={`${tdCls} text-apex-text-bright font-bold`}>
                 <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} />}</span>
+                {e.kind === 'team' && <span className="block text-sm font-normal text-apex-muted">{e.membersText}</span>}
               </td>
               <td className={tdCls}>{e.town ?? '—'}</td>
               <td className={tdCls}>{e.club ?? '—'}</td>
               <td className={tdCls}>{e.competition}</td>
-              <td className={`${tdCls} font-mono text-sm`}>{e.category ?? '—'}</td>
+              <td className={`${tdCls} font-mono text-sm`}>{e.size ?? e.category ?? '—'}</td>
             </tr>
           ))}
         </tbody>

@@ -350,6 +350,10 @@ Deno.serve(async (req) => {
       // so these rows must go before any registration of theirs could ever be deleted.
       const { error: crErr } = await supabaseAdmin.from('consent_requests').delete().in('registration_id', ids)
       if (crErr) console.error('delete-my-account: consent_requests cleanup failed:', crErr.message)
+      // A team's name is free text the captain typed, often a family's name. The team stays on the
+      // start list (ruling 11), under a neutral name. Released teams too: the row still holds it.
+      const { error: teamErr } = await supabaseAdmin.rpc('anonymise_team_names', { p_captain_registration_ids: ids })
+      if (teamErr) console.error('delete-my-account: team names cleanup failed:', teamErr.message)
     }
 
     // 1c. The person as GUARDIAN of someone else's registration (a child, later

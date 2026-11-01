@@ -21,9 +21,11 @@ function downloadIcs(text, name) {
 
 /**
  * @param {{ model: object, raw: object, eventHref: string,
- *   first: { uid: string, name: string, competition: string|null, startTime: string|null } }} p
+ *   first: { uid: string, name: string, competition: string|null, startTime: string|null },
+ *   teamHref?: string|null }} p
+ * `teamHref`: the captain's way to RB4.
  */
-export default function DoneActions({ model, raw, eventHref, first }) {
+export default function DoneActions({ model, raw, eventHref, first, teamHref = null }) {
   const mailSubject = `${model.title} — ${first.name}`
   const addToCalendar = () => {
     downloadIcs(icsFor({
@@ -34,6 +36,11 @@ export default function DoneActions({ model, raw, eventHref, first }) {
   return (
     <>
       <span className={labelCls}>Co dalej</span>
+      {teamHref && (
+        <Link to={teamHref} className={`${act} no-underline`} data-action>
+          <span className="whitespace-nowrap">Zarządzaj składem</span><span className="font-mono text-apex-muted" aria-hidden="true">→</span>
+        </Link>
+      )}
       <button type="button" onClick={addToCalendar} className={act}>
         <span className="whitespace-nowrap">Dodaj do kalendarza</span><span className="font-mono text-apex-muted" aria-hidden="true">→</span>
       </button>

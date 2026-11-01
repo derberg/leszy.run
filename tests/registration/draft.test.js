@@ -345,7 +345,8 @@ test('W-11 removing a competition in draft deletes its category and competition 
   assert.deepEqual(cats.map((c) => c.id), [keep])
   const { data: ag } = await db().from('age_groups').select('id').eq('category_id', drop)
   assert.equal(ag.length, 0)
-  const { data: prices } = await db().from('competition_prices').select('category_id, amount')
+  // By id: an unfiltered read stops at PostgREST's 1000 rows, which a stack that was not reset passes.
+  const { data: prices } = await db().from('competition_prices').select('category_id, amount').in('category_id', [keep, drop])
   assert.equal(prices.filter((p) => p.category_id === drop).length, 0)
   assert.equal(prices.find((p) => p.category_id === keep).amount, 5000)
 })

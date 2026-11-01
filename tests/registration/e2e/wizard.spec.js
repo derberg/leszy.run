@@ -211,7 +211,6 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await page.getByLabel('Wiek do 2').fill('9')
   await page.getByLabel('Dzieci 2').check()
   await expect(page.getByTestId('event-capacity')).toHaveText('100 OSÓB')
-  await expect(page.getByLabel('Rodzaj 1').locator('option[value=team]')).toBeDisabled()
   await expect(page.getByText('Rośnie z datą zapisu')).toBeVisible()
   await expect(page.getByRole('radio', { name: /Rośnie z datą zapisu/ })).toBeDisabled()
   await page.getByRole('button', { name: '+ Konkurencja' }).click()

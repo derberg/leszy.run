@@ -40,6 +40,9 @@ export function stagedEvent(event) {
           categoryId: i.category_id ?? null,
           priceGrosze: price ?? null,
           taken: was?.taken ?? 0,
+          // Neither is in the staged item, and a team awaiting payment has taken 0: only inUse locks it.
+          inUse: was?.inUse ?? false,
+          legOrderEnabled: was?.legOrderEnabled ?? false,
           hiddenAt: hidden === true ? (was?.hiddenAt ?? 'staged') : hidden === false ? null : (was?.hiddenAt ?? null),
         }
       })
@@ -55,6 +58,13 @@ export function stagedEvent(event) {
   if (payload.payments) Object.assign(out.settings, camel(payload.payments))
   if (payload.form) {
     if ('form_fields' in payload.form) out.settings.formFields = payload.form.form_fields
+    // legOrderLive: what the staged value is compared with (legOrderToSend).
+    const legs = payload.form.leg_order
+    if (legs) {
+      out.competitions = (out.competitions ?? []).map((c) => (c.categoryId in legs
+        ? { ...c, legOrderLive: !!c.legOrderEnabled, legOrderEnabled: legs[c.categoryId] }
+        : c))
+    }
     if (payload.form.consents) {
       out.consents = [
         ...(event.consents ?? []).filter((k) => k.kind !== 'custom'),

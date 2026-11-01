@@ -14,18 +14,22 @@ import {
 import {
   newDraft, addPerson, removePerson, updatePerson, setCardCompetition, setCardOpen, setGuardianConsent, setNotRunning,
   cardVariants, effectivePerson, peopleCount, canAdd, toRequest, claimedEmail, checkDraft, draftReady, groupFailure,
-  cardEmpty, cardName, erroredCards, fixMessage, formStep, stepAfter, LIST_STEP,
+  cardEmpty, cardName, erroredCards, fixMessage, formStep, stepAfter, LIST_STEP, addableCompetitions,
 } from '../../lib/groupDraft.js'
 import { useLeaveGuard, confirmLeave } from '../../lib/leaveGuard.js'
+import { focusCardError, useStepHistory } from '../../lib/useStepHistory.js'
 import { countPl } from '../../lib/plural.js'
 import { warsawToday } from '@registration/dates.js'
 import { runnerDataInfo } from '../../legal/runnerDataInfo.js'
 import PersonForm from '../../components/registration/PersonForm.jsx'
 import ConsentList from '../../components/registration/ConsentList.jsx'
+import CodeStep from '../../components/registration/CodeStep.jsx'
 import PageTop from '../../components/registration/PageTop.jsx'
-import { inputCls, labelCls, primaryBtn, sectionCls, secondaryBtn } from '../../components/registration/ui.js'
+import { PersonRow, RemoveConfirm } from '../../components/registration/PersonRow.jsx'
+import { inputCls, labelCls, primaryBtn, removeBtn, sectionCls, secondaryBtn } from '../../components/registration/ui.js'
 import RegistrationShell from './RegistrationShell.jsx'
 import Podsumowanie from './Podsumowanie.jsx'
+import TeamSignup from './TeamSignup.jsx'
 import { eventPath, formPath } from './RegistrationEventPage.jsx'
 
 // RA2: one runner sees their card and the consents on one page. A group goes one person at
@@ -44,84 +48,7 @@ import { eventPath, formPath } from './RegistrationEventPage.jsx'
 
 export const donePath = (slug) => `/events/${slug}/zapisano`
 
-function CodeStep({ email, code, onCode, error, busy, onSubmit, onResend, onChangeAddress, resent, submitLabel }) {
-  return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5" data-testid="code-step">
-      <h1 className="font-display font-extrabold text-[38px] leading-none uppercase text-apex-text-bright">Sprawdź skrzynkę</h1>
-      <p className="text-lg leading-snug">
-        Wysłaliśmy 6-cyfrowy kod na <strong className="text-apex-text-bright break-all">{email}</strong>. Bez niego zgłoszenie nie powstanie.
-      </p>
-      <p className="text-sm text-apex-text border-l-2 border-apex-yellow pl-3">
-        Nie widzisz maila? Zajrzyj do spamu i zakładek typu Oferty, Promocje czy Newslettery.
-      </p>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="reg-code" className={labelCls}>Kod (6 cyfr)</label>
-        <input id="reg-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="\d{6}" required autoFocus
-          value={code} onChange={(e) => onCode(e.target.value.replace(/\D/g, ''))}
-          className={`${inputCls} font-mono text-2xl tracking-[0.5em] h-14 ${error ? 'border-apex-red' : ''}`} />
-        {error && <p className="text-apex-red text-sm" data-testid="code-error" role="alert">{error}</p>}
-      </div>
-      <button type="submit" disabled={busy || code.length !== 6} className={primaryBtn}>
-        {busy ? (submitLabel === 'Dalej' ? 'Sprawdzamy…' : 'Zapisujemy…') : submitLabel}
-      </button>
-      <div className="flex justify-between gap-3">
-        <button type="button" onClick={onResend} disabled={busy} className="min-h-11 text-base text-apex-yellow whitespace-nowrap disabled:opacity-40">
-          {resent ? 'Wysłano ponownie' : 'Wyślij ponownie'}
-        </button>
-        <button type="button" onClick={onChangeAddress} disabled={busy} className="min-h-11 text-base text-apex-muted whitespace-nowrap">Zmień adres</button>
-      </div>
-      <div className="border border-apex-border bg-apex-surface p-3.5 flex flex-col gap-1.5">
-        <span className={labelCls}>Dlaczego kod?</span>
-        <span className="text-base leading-snug">
-          Sprawdzamy, że adres jest Twój — tu przyjdzie potwierdzenie zapisu i wiadomości od organizatora. Kod loguje Cię też do LESZY.RUN; konto powstaje samo.
-        </span>
-      </div>
-    </form>
-  )
-}
-
 const ADULT_NOTE = 'Ta osoba dostanie e-mail z prośbą o akceptację regulaminu.'
-// OVERDRIVE border buttons (border + text, fills on hover), small enough to sit beside a name.
-const smallBtn = 'min-h-11 px-3 border font-sans font-bold text-base whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed'
-const editBtn = `${smallBtn} border-apex-yellow-dim text-apex-yellow hover:bg-apex-yellow hover:text-apex-ink`
-const removeBtn = `${smallBtn} border-apex-border-bright text-apex-text hover:border-apex-red hover:bg-apex-red hover:text-apex-ink`
-
-/** „Usunąć <imię>?” Tak / Nie, in place of the buttons, for a card that holds anything. */
-function RemoveConfirm({ id, name, onYes, onNo }) {
-  return (
-    <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-labelledby={id} data-testid="remove-confirm">
-      <span id={id} className="font-sans font-semibold text-base text-apex-text-bright">Usunąć {name}?</span>
-      <span className="flex gap-2">
-        <button type="button" onClick={onYes} className={removeBtn} data-testid="remove-yes">Tak</button>
-        <button type="button" onClick={onNo} className={`${smallBtn} border-apex-border-bright text-apex-text-bright hover:bg-apex-surface-2`} autoFocus data-testid="remove-no">Nie</button>
-      </span>
-    </div>
-  )
-}
-
-/** One person on the list step: name, competition and group, „Zmień”, and „Usuń” for an added person. */
-function PersonRow({ cardKey, n, label, person, detail, onEdit, onRemove, confirming, onConfirm, onCancel, disabled }) {
-  const name = [person.firstName, person.lastName].filter(Boolean).join(' ') || `osoba ${n}`
-  return (
-    <li className="border border-apex-border-mid bg-apex-surface px-3.5 py-2.5 flex flex-col gap-2" data-testid="person-row" data-card-key={cardKey}>
-      <div className="flex justify-between items-center gap-3">
-        <span className="min-w-0">
-          <span className="block font-mono text-xs text-apex-muted uppercase">{label}</span>
-          <span className="block text-[17px] text-apex-text-bright [overflow-wrap:anywhere]">{name}</span>
-          <span className="block font-mono text-[13px] text-apex-muted uppercase [overflow-wrap:anywhere]">{detail}</span>
-        </span>
-        {!confirming && (
-          <span className="flex gap-2 shrink-0">
-            <button type="button" onClick={onEdit} disabled={disabled} className={editBtn} aria-label={`Zmień — ${name}`}>Zmień</button>
-            {onRemove && <button type="button" id={`p${n}-remove`} onClick={onRemove} disabled={disabled} className={removeBtn} aria-label={`Usuń — ${name}`}>Usuń</button>}
-          </span>
-        )}
-      </div>
-      {confirming && <RemoveConfirm id={`p${n}-remove-q`} name={person.firstName?.trim() || `osobę ${n}`} onYes={onConfirm} onNo={onCancel} />}
-    </li>
-  )
-}
-
 /**
  * The form for one competition, and the group built on it (RA2, RA3): card 1 is „Twoje dane”
  * (or, with „Nie startuję”, only the payer and guardian), „+ Zapisz kolejną osobę” adds a
@@ -131,7 +58,7 @@ function PersonRow({ cardKey, n, label, person, detail, onEdit, onRemove, confir
  * (groupDraft.js); a page with a second person asks before it is closed. `preview` (organizer
  * „Podgląd jako zawodnik”) renders everything with the submit disabled.
  */
-export function ZapisView({ raw, categoryId, preview = false, backTo }) {
+function PersonSignup({ raw, categoryId, preview = false, backTo }) {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const model = useMemo(() => eventPageModel(raw), [raw])
@@ -140,8 +67,8 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   const contexts = useMemo(() => new Map(raw.competitions.map((c) => [c.categoryId, personContext(raw, c)])), [raw])
   const fields = fieldModes(raw.formFields)
   const consents = raw.consents ?? []
-  // Competitions a further person may pick: the open ones, in the event page's order.
-  const choices = useMemo(() => model.competitions.filter((c) => c.state === 'open'), [model])
+  // Competitions a further person may pick: the open individual ones, in the event page's order.
+  const choices = useMemo(() => addableCompetitions(model), [model])
 
   const [step, setStep] = useState('form')
   const [draft, setDraft] = useState(() => newDraft(categoryId))
@@ -167,17 +94,9 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   // them, and fills every other field even when it lands after they started:
   // on a slow phone the sign-in check can arrive well after the first keystroke.
   const touched = useRef(new Set())
-  // The step last on screen; a change of it scrolls to the top and moves the focus.
-  const shownStep = useRef(undefined)
-  // This form's history entries; an older form's in the same tab held another draft.
-  const formId = useRef(Math.random().toString(36).slice(2))
-  // The step on its way to the screen came from Back or Forward: it has an entry already.
-  const restoring = useRef(false)
-  // The entry under the first step is the way out of a group (set with the second person).
-  const exitEntry = useRef(false)
   // The card whose first invalid field takes the focus once the errors are on screen (I-1).
   const errorFocus = useRef(null)
-  // The card asking „Usunąć <imię>?” (M-6).
+  // The card asking „Usunąć tę osobę?” (M-6).
   const [removing, setRemoving] = useState(null)
 
   // The logged-in person's own profile fills card 1, field by field, and nobody else's.
@@ -199,72 +118,30 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
   // moves the focus itself, in the next effect.
   const view = formStep(draft, at)
   const stepId = view.kind === 'list' ? LIST_STEP : draft.cards[view.index ?? 0].key
-  useEffect(() => {
-    const before = shownStep.current
-    const id = step === 'form' ? stepId : step
-    shownStep.current = id
-    // Each step is a history entry, in history.state and never in the address, so a phone's
-    // Back goes to the previous step. The router's own keys stay in the entry.
-    const entry = { ...window.history.state, zapis: { form: formId.current, id, step, at: stepId } }
-    if (before === undefined) window.history.replaceState(entry, '')
-    if (before === undefined || id === before) return
-    if (restoring.current) {
-      restoring.current = false
-    } else {
-      // The second person is coming: the entry under the first step becomes the way out.
-      if (guard && !exitEntry.current) {
-        exitEntry.current = true
-        window.history.replaceState({ ...entry, zapis: { form: formId.current, exit: true } }, '')
-        window.history.pushState({ ...entry, zapis: { ...entry.zapis, id: before, step: 'form', at: before } }, '')
-      }
-      window.history.pushState(entry, '')
-    }
-    if (step !== 'form' || errorFocus.current) return
-    window.scrollTo({ top: 0, behavior: 'instant' })
-    const target = view.kind === 'list' ? 'group-list-heading' : `${view.index ? `p${view.index + 1}` : 'p'}-first`
-    document.getElementById(target)?.focus({ preventScroll: true })
-  }, [step, stepId])
-
-  // Back or Forward. An entry of this form restores its step. Its exit entry asks first, since
-  // beforeunload does not fire for an in-app page, and passes on to the page before the form;
-  // the router hears every popstate, and none of this form's entries changes the address.
-  useEffect(() => {
-    const onPop = (e) => {
-      const s = e.state?.zapis
-      if (s?.form !== formId.current) return
-      if (s.exit) {
-        if (!guard || confirmLeave()) window.history.back()
-        else window.history.forward()
-        return
-      }
-      restoring.current = s.id !== shownStep.current
+  useStepHistory({
+    id: step === 'form' ? stepId : step,
+    state: { step, at: stepId },
+    guard,
+    onEnter: () => {
+      if (step !== 'form' || errorFocus.current) return
+      window.scrollTo({ top: 0, behavior: 'instant' })
+      const target = view.kind === 'list' ? 'group-list-heading' : `${view.index ? `p${view.index + 1}` : 'p'}-first`
+      document.getElementById(target)?.focus({ preventScroll: true })
+    },
+    onRestore: (s) => {
       setMessage(null)
       setRemoving(null)
       setStep(s.step)
       setAt(s.at)
-    }
-    // The browser would put a step back at its old scroll, over the top the step opens at.
-    const scrolling = window.history.scrollRestoration
-    window.history.scrollRestoration = 'manual'
-    window.addEventListener('popstate', onPop)
-    return () => {
-      window.history.scrollRestoration = scrolling
-      window.removeEventListener('popstate', onPop)
-    }
-  }, [guard])
+    },
+  })
 
   // A refusal landed on a card, whose step is on screen now: focus its first invalid field.
   useEffect(() => {
     const key = errorFocus.current
     if (!key || step !== 'form') return
     errorFocus.current = null
-    const root = document.querySelector(`[data-card-key="${key}"]`)
-    if (!root) return
-    const target = root.querySelector('[aria-invalid="true"], [data-invalid="true"] button') ?? root
-    target.focus({ preventScroll: true })
-    // From the top, so „Popraw dane: …” is read too, unless the field is below the fold then.
-    window.scrollTo({ top: 0, behavior: 'instant' })
-    if (target.getBoundingClientRect().bottom > window.innerHeight) target.scrollIntoView({ block: 'center' })
+    focusCardError(key)
   }, [draft, errors, step, at])
 
   if (!competition || !row) {
@@ -495,7 +372,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
     return setAt(payerDone ? next.autoCard : next.cards[0].key)
   }
 
-  // „Usuń”: an empty card goes at once; one holding anything asks „Usunąć <imię>?” first.
+  // „Usuń”: an empty card goes at once; one holding anything asks „Usunąć tę osobę?” first.
   function askRemove(c) {
     if (cardEmpty(c)) return confirmRemove(c.key)
     return setRemoving(c.key)
@@ -595,7 +472,7 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
           )}
         </div>
         {removing === c.key && (
-          <RemoveConfirm id={`p${n}-remove-q`} name={c.person.firstName?.trim() || `osobę ${n}`}
+          <RemoveConfirm id={`p${n}-remove-q`} name={cardName(draft, i)}
             onYes={() => confirmRemove(c.key)} onNo={() => cancelRemove(n)} />
         )}
         <div className="flex flex-col gap-1.5">
@@ -710,6 +587,13 @@ export function ZapisView({ raw, categoryId, preview = false, backTo }) {
       )}
     </form>
   )
+}
+
+/** A team competition has its own flow (RB1–RB3); every other one is the person form. */
+export function ZapisView(props) {
+  const { raw, categoryId } = props
+  const competition = raw.competitions.find((c) => c.categoryId === categoryId)
+  return competition?.kind === 'team' ? <TeamSignup {...props} /> : <PersonSignup {...props} />
 }
 
 function Seo({ raw }) {

@@ -1,5 +1,5 @@
-// RA5: each person's regulamin state, as the tags of RB4. The person registering and an added
-// adult who accepted (or signed in the office) „✓ REGULAMIN”; a child „✓ OPIEKUN” (the guardian
+// RA5 and RB4: each person's regulamin state. The person registering and an added adult who
+// accepted „✓ REGULAMIN”; one who signed in the office „PODPISANY W BIURZE”; a child „✓ OPIEKUN” (the guardian
 // accepted for them); an added adult who has not accepted yet „CZEKA NA ZGODĘ”, with
 // „Wyślij przypomnienie do <imię> →” (remind-consent, 3 per registration per 24 h).
 // `role` and `consentState` come from order-status lines and my-event-registrations rows.
@@ -11,7 +11,8 @@
 export function consentTag({ role, consentState } = {}) {
   if (role === 'minor') return { kind: 'guardian', label: '✓ OPIEKUN', srLabel: 'zgoda opiekuna' }
   if (consentState === 'awaiting') return { kind: 'awaiting', label: 'CZEKA NA ZGODĘ', srLabel: 'czeka na zgodę na regulamin' }
-  if (consentState === 'accepted' || consentState === 'office') return { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' }
+  if (consentState === 'office') return { kind: 'office', label: 'PODPISANY W BIURZE', srLabel: 'regulamin podpisany w biurze zawodów' }
+  if (consentState === 'accepted') return { kind: 'accepted', label: '✓ REGULAMIN', srLabel: 'regulamin zaakceptowany' }
   return null
 }
 

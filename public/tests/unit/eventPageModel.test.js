@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { eventPageModel, mergePending } from '../../src/lib/eventPageModel.js'
+import { eventPageModel, mergePending, statParts } from '../../src/lib/eventPageModel.js'
 import { withFileUrls } from '../../src/lib/eventFiles.js'
 
 const BASE = 'https://proj.supabase.co'
@@ -53,7 +53,7 @@ const model = (raw = RA1, now = NOW) => eventPageModel(withFileUrls(raw, BASE), 
 
 describe('eventPageModel (RA1)', () => {
   it('stats: registered, confirmed, free places, days until registration closes', () => {
-    assert.deepEqual(model().stats, { registered: 87, confirmed: 84, free: 113, daysLeft: '27 dni' })
+    assert.deepEqual(model().stats, { registered: 87, confirmed: 84, free: 113, teams: null, daysLeft: '27 dni' })
   })
 
   it('header: title, Warsaw date with weekday, place, charity goal', () => {
@@ -74,8 +74,8 @@ describe('eventPageModel (RA1)', () => {
   it('competition rows: start and age, current price, next tier', () => {
     const [bieg9, , , , kids] = model().competitions
     assert.deepEqual(bieg9, {
-      categoryId: 'c1', name: 'Bieg 9 km', startLabel: 'start 10:00 · od 16 lat', ageLabel: 'od 16 lat',
-      priceLabel: '60 zł', nextPriceLabel: 'od 16.11: 70 zł', full: false, state: 'open',
+      categoryId: 'c1', name: 'Bieg 9 km', kind: 'individual', startLabel: 'start 10:00 · od 16 lat', ageLabel: 'od 16 lat',
+      priceLabel: '60 zł', teamLine: null, nextPriceLabel: 'od 16.11: 70 zł', full: false, state: 'open',
     })
     assert.equal(kids.startLabel, 'start 11:30 · do 15 lat · dystans wg wieku')
     assert.equal(kids.priceLabel, '20 zł')
@@ -209,6 +209,17 @@ describe('mergePending', () => {
     assert.equal(mergePending(RA1, null), RA1)
   })
 
+  it('T-51 the runner preview shows a staged kind, team size and leg order', () => {
+    const raw = { pricingMode: 'free', competitions: [{ categoryId: 'c1', name: 'Bieg', kind: 'individual', teamMin: null, teamMax: null, legOrderEnabled: false }] }
+    const out = mergePending(raw, { payload: {
+      competitions: { pricing_mode: 'free', items: [{ category_id: 'c1', name: 'Bieg', kind: 'team', team_min: 2, team_max: 4 }] },
+      form: { leg_order: { c1: true } },
+    } })
+    const c = out.competitions[0]
+    assert.deepEqual([c.kind, c.teamMin, c.teamMax, c.legOrderEnabled], ['team', 2, 4, true])
+    assert.equal(raw.competitions[0].kind, 'individual', 'the raw is never changed')
+  })
+
   it('shows staged basics, office and competitions the way the public page will', () => {
     const merged = mergePending(RA1, pending)
     assert.equal(merged.name, 'Bieg Leszego 2026')
@@ -322,5 +333,57 @@ describe('eventPageModel course elevation (review U2 M2)', () => {
       assert.equal(c.downM, null)
       assert.deepEqual(c.profile, [])
     }
+  })
+})
+
+describe('T-62 RA1: the team card', () => {
+  const team = (over = {}) => comp({ categoryId: 't1', name: 'Sztafeta', kind: 'team', teamMin: 2, teamMax: 5, capacity: 20, taken: 3, priceGrosze: 24000, ...over })
+  const line = (c) => eventPageModel({ ...RA1, competitions: [c] }).competitions[0].teamLine
+
+  it('„Drużyny N–M osób · <cena> / drużyna · X / Y DRUŻYN”', () => {
+    assert.equal(line(team()), 'Drużyny 2–5 osób · 240 zł / drużyna · 3 / 20 DRUŻYN')
+  })
+  it('a free team has no „/ drużyna”, one fixed size reads as one', () => {
+    assert.equal(line(team({ priceGrosze: 0 })), 'Drużyny 2–5 osób · Bezpłatne · 3 / 20 DRUŻYN')
+    assert.equal(line(team({ teamMin: 4, teamMax: 4 })), 'Drużyny 4-osobowe · 240 zł / drużyna · 3 / 20 DRUŻYN')
+  })
+  it('a team competition with no size yet says nothing about one, never „undefined”', () => {
+    assert.equal(line(team({ teamMin: null, teamMax: null })), '240 zł / drużyna · 3 / 20 DRUŻYN')
+    assert.equal(line(team({ teamMin: undefined, teamMax: undefined })), '240 zł / drużyna · 3 / 20 DRUŻYN')
+    assert.equal(line(team({ teamMin: 2, teamMax: null })), '240 zł / drużyna · 3 / 20 DRUŻYN')
+  })
+  it('an individual competition has none', () => {
+    assert.equal(line(comp({ categoryId: 'c', name: 'Bieg' })), null)
+  })
+})
+
+describe('Final review: RA1 never adds people and teams into one number', () => {
+  const team = (over = {}) => comp({ categoryId: 't1', name: 'Sztafeta', kind: 'team', teamMin: 2, teamMax: 5, capacity: 20, taken: 3, confirmed: 3, priceGrosze: 24000, ...over })
+  const people = comp({ categoryId: 'c1', name: 'Bieg 9 km', capacity: 80, taken: 40, confirmed: 39 })
+
+  it('I-5 a mixed event: people from the individual competitions, teams on their own', () => {
+    const m = eventPageModel({ ...RA1, competitions: [people, team()] }, NOW)
+    assert.deepEqual(m.stats, { registered: 40, confirmed: 39, free: 40, teams: { registered: 3, free: 17, only: false }, daysLeft: '27 dni' })
+    assert.deepEqual(statParts(m.stats), {
+      registered: [{ count: 40, unit: 'osób' }, { count: 3, unit: 'drużyny' }],
+      free: [{ count: 40, unit: 'miejsc' }, { count: 17, unit: 'dla drużyn' }],
+    })
+  })
+  it('I-5 only teams: the units say drużyny; only people: one bare number, as before', () => {
+    const m = eventPageModel({ ...RA1, competitions: [team({ taken: 1, capacity: 2 })] }, NOW)
+    assert.deepEqual(statParts(m.stats), { registered: [{ count: 1, unit: 'drużyna' }], free: [{ count: 1, unit: 'dla drużyn' }] })
+    assert.deepEqual(statParts(model().stats), { registered: [{ count: 87, unit: null }], free: [{ count: 113, unit: null }] })
+  })
+  it('L-2 the team line\'s limit word follows the limit', () => {
+    const line = (capacity, taken = 0) => eventPageModel({ ...RA1, competitions: [team({ capacity, taken })] }, NOW).competitions[0].teamLine
+    assert.match(line(1), / · 0 \/ 1 DRUŻYNA$/)
+    assert.match(line(3, 1), / · 1 \/ 3 DRUŻYNY$/)
+    assert.match(line(5), / · 0 \/ 5 DRUŻYN$/)
+    assert.match(line(22), / · 0 \/ 22 DRUŻYNY$/)
+    assert.match(line(12), / · 0 \/ 12 DRUŻYN$/)
+  })
+  it('kind rides on the row, so the group form can leave a team competition out', () => {
+    const m = eventPageModel({ ...RA1, competitions: [people, team()] }, NOW)
+    assert.deepEqual(m.competitions.map((c) => c.kind), ['individual', 'team'])
   })
 })

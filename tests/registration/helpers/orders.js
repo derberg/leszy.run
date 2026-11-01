@@ -146,13 +146,17 @@ export async function setSettings(eventId, values) {
 
 export const minutesFromNow = (m) => new Date(Date.now() + m * 60_000).toISOString()
 
-/** taken must equal the live (pending_payment + confirmed) registrations, teams counted once. */
 // The slots a competition's confirmed registrations hold, a team counted once. Since P3-R15 only
 // confirmed entries (paid, free, 0 zł) hold one: an entry awaiting payment holds nothing.
 export async function liveSlots(categoryId) {
-  const { data, error } = await db().from('registrations').select('team_id, status').eq('category_id', categoryId)
-    .eq('status', 'confirmed')
-  if (error) throw error
+  const data = []
+  for (let from = 0; ; from += 1000) { // PostgREST caps a response at 1000 rows
+    const { data: page, error } = await db().from('registrations').select('id, team_id')
+      .eq('category_id', categoryId).eq('status', 'confirmed').order('id').range(from, from + 999)
+    if (error) throw error
+    data.push(...page)
+    if (page.length < 1000) break
+  }
   const teams = new Set(data.filter((r) => r.team_id).map((r) => r.team_id))
   return data.filter((r) => !r.team_id).length + teams.size
 }

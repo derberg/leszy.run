@@ -40,6 +40,17 @@ function rangeMessage(minAge, maxAge) {
 }
 
 /**
+ * Under ADULT_AGE today in Warsaw, whatever the event's age reckoning says about race categories:
+ * the person accepts the regulamin now. False for a missing or impossible date.
+ */
+export function isMinorToday(birthDate, now = new Date()) {
+  const date = text(birthDate)
+  const today = warsawToday(now)
+  if (!validDate(date) || date > today) return false
+  return ageOn(date, today, 'race_day') < ADULT_AGE
+}
+
+/**
  * @param {object} person  { firstName, lastName, birthDate, gender, email, phone, city?, club?, iceName?, icePhone?, nationality? }
  * @param {object} ctx
  *   formFields  { city|club|ice: 'required'|'optional'|'off' } (missing = optional),
@@ -73,8 +84,6 @@ export function validatePerson(person, {
 
   const birthDate = text(p.birthDate)
   const today = warsawToday(now)
-  // Adulthood is judged today, whatever the event's age reckoning says about race
-  // categories: the person accepts the regulamin now.
   let isMinor = false
   if (!validDate(birthDate) || birthDate < '1900-01-01' || birthDate > today) {
     errors.birthDate = 'Podaj poprawną datę urodzenia.'
@@ -84,7 +93,7 @@ export function validatePerson(person, {
     if ((minAge != null && age < minAge) || (maxAge != null && age > maxAge)) {
       errors.birthDate = rangeMessage(minAge, maxAge)
     } else {
-      isMinor = ageOn(birthDate, today, 'race_day') < ADULT_AGE
+      isMinor = isMinorToday(birthDate, now)
     }
   }
 

@@ -79,12 +79,15 @@ function GuardianConsent({ id, guardian }) {
  *   competition: object, raceDate: string, reckoning: string, ageGroups: object[], prefill: object|null,
  *   loginHref?: string, codeNote?: string, disabled?: boolean, variant?: 'self'|'buyer'|'adult'|'minor',
  *   idPrefix?: string, guardian?: { name, email, checked, onChange, error },
- *   notRunning?: boolean, onNotRunning?: (on: boolean) => void, emailReadOnly?: boolean }} p
+ *   notRunning?: boolean, onNotRunning?: (on: boolean) => void, emailReadOnly?: boolean,
+ *   ownHeading?: string }} p
  * `emailReadOnly`: the consent page (/zgoda) shows the address the link was sent to; it is never edited there.
+ * `ownHeading`: the team form's „Kapitan”.
  */
 export default function PersonForm({
   fields, value, onChange, errors = {}, competition, raceDate, reckoning, ageGroups, prefill, loginHref, codeNote, disabled = false,
   variant = 'self', idPrefix = 'p', guardian, notRunning = false, onNotRunning, emailReadOnly = false,
+  ownHeading = 'Twoje dane',
 }) {
   const minor = variant === 'minor'
   const buyer = variant === 'buyer'
@@ -121,7 +124,7 @@ export default function PersonForm({
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-[18px] min-w-0">
       <div className="flex flex-col gap-3">
-        {own && <h2 className={sectionCls}>Twoje dane</h2>}
+        {own && <h2 className={sectionCls}>{ownHeading}</h2>}
         {own && !prefill && loginHref && (
           <Link to={loginHref} data-testid="login-offer"
             className="flex justify-between items-center gap-3 min-h-12 px-3.5 py-2 border border-apex-border-bright text-apex-text-bright font-sans font-semibold text-base hover:border-apex-yellow-dim">
