@@ -34,11 +34,11 @@ const STEP_COMPONENTS = {
 }
 
 // The section each step saves.
-const SECTIONS_OF = { podstawy: 'basics', biuro: 'office', konkurencje: 'competitions', kategorie: 'categories', pomiar: 'timing', formularz: 'form', platnosci: 'payments' }
+const SECTIONS_OF = { podstawy: 'basics', biuro: 'office', konkurencje: 'competitions', kategorie: 'categories', pomiar: 'timing', formularz: 'form', dodatki: 'extras', platnosci: 'payments' }
 
 const SECTION_STEP = {
   basics: 'Podstawy', office: 'Biuro zawodów', competitions: 'Konkurencje',
-  categories: 'Kategorie', timing: 'Pomiar czasu', form: 'Formularz', payments: 'Płatności',
+  categories: 'Kategorie', timing: 'Pomiar czasu', form: 'Formularz', extras: 'Dodatki', payments: 'Płatności',
 }
 
 /** „Nie zapisano: Podstawy — Ten adres jest już zajęty.” */
@@ -240,15 +240,19 @@ function Editor({ eventId, stepParam }) {
   const home = published && writer ? 'zgloszenia' : 'podstawy'
   if (!stepParam) return <Navigate to={`${base}/${home}`} replace />
   const current = stepParam
+  // What the steps show: staged values over live ones (P2-R25).
+  const shown = stagedEvent(event)
   const steps = wizardSteps({
-    pricingMode: event.settings.pricingMode,
+    pricingMode: shown.settings.pricingMode,
+    hasPricedExtras: (shown.extras ?? []).some((x) => x.price > 0),
+    donationsEnabled: !!(event.settings.isCharity && event.settings.donationsEnabled),
     hasKidsCompetition: event.competitions.some((c) => c.isKids),
+    moneyLive: event.moneyLive !== false,
     state: { checklist: event.checklist, current },
   })
   const onRegistrations = current === 'zgloszenia' && published && writer
   const index = steps.findIndex((s) => s.key === current)
-  // Dodatki is listed but not built: its page only says so.
-  if (!onRegistrations && (!STEP_KEYS.includes(current) || index < 0 || (!steps[index].available && current !== 'dodatki'))) {
+  if (!onRegistrations && (!STEP_KEYS.includes(current) || index < 0 || !steps[index].available)) {
     return <Navigate to={`${base}/${home}`} replace />
   }
 
@@ -258,7 +262,7 @@ function Editor({ eventId, stepParam }) {
   // Publikacja stays reachable by its address after publish, not as a tab.
   const tabs = published
     ? [...(writer ? [{ key: 'zgloszenia', label: 'Zgłoszenia', available: true }] : []),
-      ...steps.filter((s) => s.key !== 'publikacja').map((s) => ({ ...s, available: s.available || s.key === 'dodatki' }))]
+      ...steps.filter((s) => s.key !== 'publikacja')]
     : null
   const missing = published ? missingAfterPublish(event.checklist?.missing ?? []) : []
   const diff = preview?.diff ?? []
@@ -376,9 +380,9 @@ function Editor({ eventId, stepParam }) {
       )}
 
       {onRegistrations && <Zgloszenia eventId={eventId} clubName={club.name} contactEmail={event.settings.contactEmail ?? null}
-        formFields={event.settings.formFields ?? null} />}
+        formFields={event.settings.formFields ?? null} ageGroups={event.ageGroups ?? []} reckoning={event.settings.ageReckoning ?? 'race_day'} />}
       {StepBody && (
-        <StepBody key={`${current}:${generation}`} event={stagedEvent(event)} queue={queue} saveState={saveState} readOnly={readOnly || busy} reload={reload}
+        <StepBody key={`${current}:${generation}`} event={shown} queue={queue} saveState={saveState} readOnly={readOnly || busy} reload={reload}
           onSaved={onSaved} reportInvalid={reportInvalid} base={base} previewHref={`${base}/podglad`} />
       )}
 

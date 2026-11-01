@@ -17,6 +17,7 @@ import { organizerRefundEmail } from './emails.js'
 import { clubSender } from './organizerSender.js'
 import { trySend } from './organizerMail.js'
 import { raiseAlert } from './orderFlow.js'
+import { transferredRegistrationIds } from './transfers.js'
 
 async function single(query) {
   const { data, error } = await query
@@ -61,15 +62,25 @@ export async function notifyRefundRunner(admin, settings, { refundId, orderId, r
     const to = [...new Set([order?.buyer_email, reg?.email].filter(Boolean).map((a) => a.toLowerCase()))]
     if (!to.length) return 'no_address'
     const deleted = reg?.first_name === 'Usunięte konto'
-    const mail = organizerRefundEmail({
-      event: { name: settings.name },
-      person: deleted || !reg ? null : { firstName: reg.first_name, lastName: reg.last_name },
-      grosze,
-      cancelled,
-      organizer: { name: club.name },
-    })
+    const named = deleted || !reg ? null : { firstName: reg.first_name, lastName: reg.last_name }
+    const base = { event: { name: settings.name }, grosze, cancelled, organizer: { name: club.name } }
     const sender = await clubSender(admin, settings)
-    out = await trySend(() => sendEmailToEach(to, { ...mail, ...sender }))
+    // A line a package transfer moved (Plan 7): its holder did not pay. The payer's copy names the
+    // holder only after a runner's transfer (ruling N-1), and the holder's copy says the money goes
+    // back to whoever paid. Otherwise one message to both, as before.
+    const kind = registrationId ? (await transferredRegistrationIds(admin, [registrationId])).get(registrationId) : undefined
+    const buyer = order?.buyer_email?.toLowerCase() ?? null
+    const holder = reg?.email?.toLowerCase() ?? null
+    if (kind && buyer && holder && buyer !== holder) {
+      const payerMail = organizerRefundEmail({ ...base, person: kind === 'organizer' ? null : named })
+      const holderMail = organizerRefundEmail({ ...base, person: named, paidByOther: true })
+      const a = await trySend(() => sendEmailToEach([buyer], { ...payerMail, ...sender }))
+      const b = await trySend(() => sendEmailToEach([holder], { ...holderMail, ...sender }))
+      out = { ok: a.ok && b.ok, unknown: a.unknown || b.unknown, status: a.status ?? b.status }
+    } else {
+      const mail = organizerRefundEmail({ ...base, person: named })
+      out = await trySend(() => sendEmailToEach(to, { ...mail, ...sender }))
+    }
   } catch (err) {
     console.error('refund e-mail: not built:', err?.message)
     out = { ok: false, unknown: false }

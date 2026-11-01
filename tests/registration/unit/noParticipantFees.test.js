@@ -22,6 +22,9 @@ const RUNNER_FACING = [
   'supabase/functions/register-team/index.js',
   'supabase/functions/team-squad/index.js',
   'supabase/functions/order-status/index.js',
+  'supabase/functions/_shared/registration/transferEmails.js',
+  'supabase/functions/transfer-invite/index.js',
+  'supabase/functions/transfer-accept/index.js',
 ]
 const FORBIDDEN = /wspieram|nie tym razem|wesprzesz|wspierasz|wsparci|obsługa płatności|opłat\p{L}* za obsług|doliczamy/iu
 

@@ -226,6 +226,14 @@ entrypoint = "./functions/consent-request/index.js"
 verify_jwt = false
 entrypoint = "./functions/accept-consent/index.js"
 
+[functions.transfer-invite]
+verify_jwt = false
+entrypoint = "./functions/transfer-invite/index.js"
+
+[functions.transfer-accept]
+verify_jwt = false
+entrypoint = "./functions/transfer-accept/index.js"
+
 [functions.remind-consent]
 verify_jwt = false
 entrypoint = "./functions/remind-consent/index.js"
@@ -242,6 +250,10 @@ entrypoint = "./functions/dpay-ipn/index.js"
 verify_jwt = false
 entrypoint = "./functions/my-event-registrations/index.js"
 
+[functions.check-voucher]
+verify_jwt = false
+entrypoint = "./functions/check-voucher/index.js"
+
 [functions.list-event-registrations]
 verify_jwt = false
 entrypoint = "./functions/list-event-registrations/index.js"
@@ -257,6 +269,10 @@ entrypoint = "./functions/organizer-refund/index.js"
 [functions.export-event-registrations]
 verify_jwt = false
 entrypoint = "./functions/export-event-registrations/index.js"
+
+[functions.organizer-vouchers]
+verify_jwt = false
+entrypoint = "./functions/organizer-vouchers/index.js"
 
 [functions.send-organizer-message]
 verify_jwt = false

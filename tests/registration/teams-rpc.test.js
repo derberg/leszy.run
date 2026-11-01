@@ -467,8 +467,10 @@ test('T-24 no price, an amount over the limit', async () => {
   const noPrice = await paid()
   await db().from('competition_prices').delete().eq('category_id', noPrice.categoryIds[0])
   refused(await createTeam(noPrice), 'no_price')
-  const huge = await paid({ price: 100000000 })
-  refused(await createTeam(huge), 'invalid_amount:total')
+  // A fee above the dpay limit can no longer be stored: competition_prices_amount_max (Plan 7)
+  // caps a list price at 10 000 000 grosze, so create_team_registration's invalid_amount:total
+  // is unreachable through the fee alone.
+  await assert.rejects(paid({ price: 100000000 }), (err) => /competition_prices_amount_max/.test(err?.message ?? ''))
 })
 
 test('T-24 two pending orders per account and event, across team and individual orders', async () => {
@@ -523,7 +525,7 @@ test('T-24 nobody but service_role runs it; the price helpers run for nobody', a
   const [def] = await sql()`SELECT prosecdef, proconfig FROM pg_proc WHERE oid = ${fn}::regprocedure`
   assert.equal(def.prosecdef, true)
   assert.deepEqual(def.proconfig, ['search_path=""'])
-  for (const helper of ['public.registration_current_tier(uuid)', 'public.registration_current_price(uuid)']) {
+  for (const helper of ['public.registration_current_tier(uuid, timestamptz)', 'public.registration_current_price(uuid)']) {
     for (const role of ['anon', 'authenticated', 'service_role']) {
       const [{ can }] = await sql()`SELECT has_function_privilege(${role}, ${helper}, 'EXECUTE') AS can`
       assert.equal(can, false, `${role} may execute ${helper}`)

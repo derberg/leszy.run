@@ -37,7 +37,10 @@ export function unconfirmedRefundGrosze(row) {
 export function entryStatusKey(row, now) {
   if (row.refunds?.some(unconfirmed)) return 'refund_unconfirmed'
   const { participant } = row
-  if (row.status === 'cancelled' && participant && !participant.removed_at && !participant.withdrawn_at) return 'withdraw_on_host'
+  // A cancelled entry, or one whose package was handed on after closes_at (D7-24): the host owns the
+  // participant from then on, so its runner must be withdrawn there by hand.
+  const left = row.status === 'cancelled' || row.status === 'transferred_out'
+  if (left && participant && !participant.removed_at && !participant.withdrawn_at) return 'withdraw_on_host'
   if (row.status === 'confirmed') {
     // A missing paymentStatus must not quietly turn a paid entry into a free one.
     if (row.paymentStatus !== 'paid' && row.paymentStatus !== 'free') throw new Error('missing_payment_status')

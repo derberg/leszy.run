@@ -8,7 +8,10 @@
 //   live = { settings, competitions, officeHours, ageGroups, kidsGroups, consents }
 //     settings      the registration_settings row
 //     competitions  competitions rows, each with `price` (grosze of the fixed
-//                   tier, or null)
+//                   tier, or null) and, for tiered pricing, `prices` ({ tierId: grosze })
+//     tiers         price_tiers rows (id, ends_on) in registration_raw's order
+//     extras        extras (snake_case, as the extras section stages them: id, name,
+//                   price, order_until, category_ids, variants [{ id, label, stock }])
 //     officeHours   office_hours rows (starts_at, ends_at)
 //     ageGroups, kidsGroups, consents  their rows (consents: custom ones are compared)
 //     payout        { mode, ready } of the event's payout account (eventPayout.js),
@@ -39,13 +42,17 @@ const SETTINGS_LABELS = {
   categories: { age_reckoning: 'Liczenie wieku' },
   timing: { timing_company: 'Firma pomiaru czasu', results_url: 'Wyniki', live_results_url: 'Wyniki na żywo' },
   form: { form_fields: 'Pola formularza' },
-  payments: { payment_window_hours: 'Czas na opłacenie zgłoszenia' },
+  payments: {
+    payment_window_hours: 'Czas na opłacenie zgłoszenia', transfer_enabled: 'Przekazanie pakietu',
+    transfer_until: 'Przekazanie możliwe do',
+  },
 }
 
 // Values shown in words rather than as stored.
 const WINDOW_WORDS = { 24: '24 godziny', 168: '7 dni', 336: '14 dni' }
 const VALUE_WORDS = {
   'payments.payment_window_hours': (v) => WINDOW_WORDS[v] ?? (v == null ? null : `${v} godz.`),
+  'payments.transfer_enabled': (v) => (v === true ? 'tak' : 'nie'),
 }
 // The payment window as the organizer chose it: „do końca zapisów” hides the hours behind it.
 const windowWords = (s) => (s.payment_window_until_close === true
@@ -109,6 +116,42 @@ const LISTS = {
 
 const shown = (v) => norm(v)
 
+// ---------------------------------------------------------------- tiers and extras
+
+/** 6000 → '60 zł', 6050 → '60,50 zł' */
+function money(grosze) {
+  if (grosze == null) return '—'
+  const zl = grosze / 100
+  return `${Number.isInteger(zl) ? zl : zl.toFixed(2).replace('.', ',')} zł`
+}
+/** '2026-11-15' → '15.11' */
+const dm = (iso) => { const [, m, d] = iso.split('-').map(Number); return `${d}.${m}` }
+const tierWords = (tiers) => tiers.map((t) => (t.ends_on == null ? 'do końca zapisów' : `do ${dm(t.ends_on)}`)).join(' · ')
+const tierKey = (t, i) => t.id ?? `new:${i}`
+
+// One row for the tier dates, one per competition whose amounts change, in tier order.
+function tierDiff(live, value, out) {
+  const before = live.tiers ?? []
+  const after = value.tiers ?? []
+  const wasTiered = live.settings?.pricing_mode === 'tiered'
+  if (!wasTiered || tierWords(before) !== tierWords(after)) {
+    out.push({ field: 'competitions.tiers', label: 'Progi cenowe', before: wasTiered ? tierWords(before) : null, after: tierWords(after) })
+  }
+  const byId = new Map((live.competitions ?? []).map((c) => [c.category_id, c]))
+  for (const item of value.items ?? []) {
+    const c = byId.get(item.category_id)
+    if (!c) continue
+    const was = wasTiered ? before.map((t) => money(c.prices?.[t.id])).join(' · ') : null
+    const now = after.map((t, i) => money(item.prices?.[tierKey(t, i)])).join(' · ')
+    if (was === now) continue
+    out.push({ field: 'competitions.prices', label: `${c.name}: opłaty`, before: was, after: now, categoryId: c.category_id })
+  }
+}
+
+// Dodatki as one row: each extra as „name: price, do d.m (variant: stock, …)”.
+const extraWords = (items = []) => items.map((x) =>
+  `${x.name}: ${money(x.price)}, do ${dm(x.order_until)} (${(x.variants ?? []).map((v) => `${v.label}: ${v.stock}`).join(', ')})`)
+
 function competitionDiff(live, value, out) {
   const byId = new Map((live.competitions ?? []).map((c) => [c.category_id, c]))
   for (const item of value.items ?? []) {
@@ -162,11 +205,27 @@ export function changeDiff(live, pending) {
       if (before !== after) {
         out.push({ field: 'payments.payment_window_hours', label: SETTINGS_LABELS.payments.payment_window_hours, before, after })
       }
+      for (const key of ['transfer_enabled', 'transfer_until']) {
+        if (!(key in value) || same(settings[key] ?? null, value[key])) continue
+        const field = `payments.${key}`
+        const words = VALUE_WORDS[field] ?? shown
+        out.push({ field, label: SETTINGS_LABELS.payments[key], before: words(settings[key] ?? null), after: words(value[key]) })
+      }
+      continue
+    }
+    if (section === 'extras') {
+      const before = extraWords(live.extras)
+      const after = extraWords(value.items)
+      if (!same(before, after)) out.push({ field: 'extras.items', label: 'Dodatki', before, after })
       continue
     }
     for (const [key, after] of Object.entries(value)) {
       const field = `${section}.${key}`
       if (section === 'competitions' && key === 'items') { competitionDiff(live, value, out); continue }
+      if (section === 'competitions' && key === 'tiers') {
+        if (value.pricing_mode === 'tiered') tierDiff(live, value, out)
+        continue
+      }
       if (field === 'form.leg_order') { legOrderDiff(live, after, pending, out); continue }
       if (LISTS[field]) {
         const { label, live: fromLive, staged } = LISTS[field]
@@ -202,16 +261,17 @@ export function noticeRows(diff) {
 
 const camelKey = (k) => k.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase())
 const camel = (row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [camelKey(k), v]))
-const LIST_KEYS = new Set(['hours', 'items', 'age_groups', 'kids_groups', 'consents', 'leg_order'])
+const LIST_KEYS = new Set(['hours', 'items', 'age_groups', 'kids_groups', 'consents', 'leg_order', 'tiers'])
 
 /**
  * @param {object} live see the module comment
  * @param {object|null} pending registration_pending_changes.payload
- * @returns {{ settings: object, competitions: object[], officeHours: object[], payout?: object }} camelCase
+ * @returns {{ settings: object, competitions: object[], officeHours: object[], extras: object[], payout?: object }} camelCase
  */
 export function mergedChecklistInput(live, pending) {
   const settings = { ...live.settings }
-  for (const value of Object.values(pending ?? {})) {
+  for (const [section, value] of Object.entries(pending ?? {})) {
+    if (section === 'extras') continue
     if (!value || typeof value !== 'object') continue
     for (const [key, v] of Object.entries(value)) if (!LIST_KEYS.has(key)) settings[key] = v
   }
@@ -228,5 +288,10 @@ export function mergedChecklistInput(live, pending) {
   }
   const officeHours = pending?.office?.hours ?? live.officeHours ?? []
   // The payout is never staged: it is the live state, { mode, ready } only.
-  return { settings: camel(settings), competitions: competitions.map(camel), officeHours, payout: live.payout }
+  // The extras the event will have: only their prices matter to the checklist (takesMoney).
+  const extras = pending?.extras?.items ?? live.extras ?? []
+  // The tiers it will have: a staged competitions section decides (no tiers unless tiered).
+  const staged = pending?.competitions
+  const tiers = staged ? (staged.pricing_mode === 'tiered' ? (staged.tiers ?? []) : []) : (live.tiers ?? [])
+  return { settings: camel(settings), competitions: competitions.map(camel), officeHours, extras, tiers, payout: live.payout }
 }

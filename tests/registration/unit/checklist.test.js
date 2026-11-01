@@ -1,7 +1,7 @@
 // W-13: the publish checklist (_shared/registration/checklist.js).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM } from '../../../supabase/functions/_shared/registration/checklist.js'
+import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM, takesMoney, moneyReason } from '../../../supabase/functions/_shared/registration/checklist.js'
 import { registrationWindow } from '../../../supabase/functions/_shared/registration/dates.js'
 
 const window = (opensOn, closesOn) => {
@@ -172,4 +172,82 @@ test('T-06 a team with a size, a hidden team and an individual competition do no
   assert.deepEqual(publishChecklist(complete({ competitions: teams })).blocking, [])
   const hidden = [comp({ kind: 'team', hiddenAt: '2026-10-01' }), comp({ categoryId: 'c2', isKids: true })]
   assert.deepEqual(publishChecklist(complete({ competitions: hidden })).blocking, [])
+})
+
+// ---------------------------------------------------------------- V-20 (D7-22)
+
+// An event takes money when its pricing mode is not free, or it has a priced extra, or donations
+// are on (a charity event with „Pozwól dopłacić darowiznę”, ruling 7). Each then needs a payout
+// account, and is held by the payments flag.
+const PAYOUT_CLUB = { key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' }
+// M-2 (fix round 1): the payments item names what makes the event take money.
+const PAYMENTS_DONATIONS = { key: 'payments', label: 'Darowizny przy zapisie to płatności online — wkrótce. Wyłącz „Pozwól dopłacić darowiznę” w Podstawach' }
+const PAYMENTS_EXTRAS = { key: 'payments', label: 'Płatne dodatki to płatności online — wkrótce' }
+
+test('V-20 a free event with donations on and no payout → the blocking payout item', () => {
+  const r = publishChecklist(complete({ settings: { isCharity: true, donationsEnabled: true }, payout: { mode: 'club', ready: false } }))
+  assert.deepEqual(r.blocking, [PAYMENTS_DONATIONS, PAYOUT_CLUB])
+})
+
+test('V-20 a free event with a priced extra and no payout → the blocking payout item; a 0 zł extra asks nothing', () => {
+  const priced = publishChecklist({ ...complete({ payout: { mode: 'club', ready: false } }), extras: [{ price: 4500 }] })
+  assert.deepEqual(priced.blocking, [PAYMENTS_EXTRAS, PAYOUT_CLUB])
+  const gratis = publishChecklist({ ...complete({ payout: { mode: 'club', ready: false } }), extras: [{ price: 0 }] })
+  assert.deepEqual(gratis.blocking, [])
+})
+
+test('V-20 donations switched on outside a charity event take no money (ruling 7)', () => {
+  assert.deepEqual(publishChecklist(complete({ settings: { isCharity: false, donationsEnabled: true }, payout: { mode: 'club', ready: false } })).blocking, [])
+})
+
+test('V-20 takesMoney: pricing mode, a priced extra or donations on', () => {
+  assert.equal(takesMoney({ settings: { pricingMode: 'free' } }), false)
+  assert.equal(takesMoney({ settings: { pricingMode: 'fixed' } }), true)
+  assert.equal(takesMoney({ settings: { pricingMode: 'tiered' } }), true)
+  assert.equal(takesMoney({ settings: { pricingMode: 'free' }, extras: [{ price: 0 }, { price: 1 }] }), true)
+  assert.equal(takesMoney({ settings: { pricingMode: 'free', isCharity: true, donationsEnabled: true } }), true)
+  assert.equal(takesMoney({ settings: { pricingMode: 'free', isCharity: true, donationsEnabled: false } }), false)
+  assert.equal(takesMoney({}), false)
+})
+
+test('M-2 moneyReason: the pricing mode first, then priced extras, then donations', () => {
+  assert.equal(moneyReason({ settings: { pricingMode: 'fixed', isCharity: true, donationsEnabled: true } }), 'pricing')
+  assert.equal(moneyReason({ settings: { pricingMode: 'free', isCharity: true, donationsEnabled: true }, extras: [{ price: 1 }] }), 'extras')
+  assert.equal(moneyReason({ settings: { pricingMode: 'free', isCharity: true, donationsEnabled: true } }), 'donations')
+  assert.equal(moneyReason({ settings: { pricingMode: 'free' } }), null)
+})
+
+// ---------------------------------------------------------------- fix round 1: I-1, M-4
+
+const TRANSFER_LATE = { key: 'transfer_until', label: 'Przekazanie pakietu: najpóźniej dzień przed zawodami' }
+const TRANSFER_DATE = { key: 'transfer_until', label: 'Przekazanie pakietu: podaj, do kiedy' }
+const ORDER_LATE = { key: 'extras_order_until', label: 'Dodatki: zamówienia najpóźniej w dniu zawodów' }
+
+test('I-1 the transfer window is judged on the event as it is: the race moved earlier blocks, the day before passes', () => {
+  const at = (settings) => publishChecklist(complete({ settings: { transferEnabled: true, ...settings } })).blocking
+  assert.deepEqual(at({ transferUntil: '2026-12-05' }), [])
+  assert.deepEqual(at({ transferUntil: '2026-12-06' }), [TRANSFER_LATE])
+  assert.deepEqual(at({ transferUntil: '2026-12-05', eventDate: '2026-12-05', ...window('2026-11-01', '2026-12-05') }), [TRANSFER_LATE])
+  assert.deepEqual(at({ transferUntil: null }), [TRANSFER_DATE])
+  assert.deepEqual(publishChecklist(complete({ settings: { transferEnabled: false, transferUntil: '2026-12-31' } })).blocking, [],
+    'switched off, a stale date asks nothing')
+})
+
+test('I-1 an extra ordered after the race day blocks, in either spelling of the extras', () => {
+  const free = (extras) => publishChecklist({ ...complete(), extras }).blocking
+  assert.deepEqual(free([{ price: 0, orderUntil: '2026-12-06' }]), [])
+  assert.deepEqual(free([{ price: 0, orderUntil: '2026-12-07' }]), [ORDER_LATE])
+  assert.deepEqual(free([{ price: 0, order_until: '2026-12-07' }]), [ORDER_LATE])
+})
+
+test('M-4 tiers are checked against the window as it is: a tier ending on or after the last open day blocks', () => {
+  const tiered = (tiers, over = {}) => publishChecklist({ ...complete({ settings: { pricingMode: 'tiered', ...over } }), tiers })
+    .blocking.filter((b) => b.key === 'tiers')
+  assert.deepEqual(tiered([{ endsOn: '2026-11-15' }, { endsOn: '2026-11-25' }, { endsOn: null }]), [])
+  assert.deepEqual(tiered([{ ends_on: '2026-11-15' }, { ends_on: null }]), [], 'the staged spelling')
+  const late = tiered([{ endsOn: '2026-11-15' }, { endsOn: '2026-11-25' }, { endsOn: null }], window('2026-11-01', '2026-11-20'))
+  assert.deepEqual(late, [{ key: 'tiers', label: 'Progi cenowe: Daty progów muszą rosnąć i kończyć się przed zamknięciem zapisów.' }])
+  assert.equal(tiered([], {}).length, 1, 'tiered with no tiers')
+  assert.deepEqual(publishChecklist({ ...complete({ settings: { pricingMode: 'fixed' } }), tiers: [{ endsOn: '2030-01-01' }] })
+    .blocking.filter((b) => b.key === 'tiers'), [], 'only tiered pricing has tiers to check')
 })

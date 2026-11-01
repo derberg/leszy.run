@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { describe, it, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { wizardSteps, stepForBlocking } from '../../src/lib/wizardSteps.js'
 
@@ -19,9 +19,16 @@ test('a free event has no Płatności step', () => {
   }
 })
 
-test('Dodatki is never available; every other step is', () => {
+test('every step is available, Dodatki included (Plan 7)', () => {
   const steps = wizardSteps({ pricingMode: 'fixed', hasKidsCompetition: true, state: { checklist: empty } })
-  for (const s of steps) assert.equal(s.available, s.key !== 'dodatki', s.key)
+  for (const s of steps) assert.equal(s.available, true, s.key)
+})
+
+test('V-20 a free event shows Płatności when it has a priced extra or takes donations (D7-22)', () => {
+  const labels = (over) => wizardSteps({ pricingMode: 'free', hasKidsCompetition: false, state: { checklist: empty }, ...over }).map((s) => s.label)
+  assert.deepEqual(labels({ hasPricedExtras: true }), ALL)
+  assert.deepEqual(labels({ donationsEnabled: true }), ALL)
+  assert.deepEqual(labels({ hasPricedExtras: false, donationsEnabled: false }), ALL.filter((l) => l !== 'Płatności'))
 })
 
 test('Kategorie offers kids groups only when a kids competition exists', () => {
@@ -66,4 +73,20 @@ test('blocking items map to the step that fixes them', () => {
   assert.equal(stepForBlocking('payments'), 'platnosci')
   assert.equal(stepForBlocking('payout'), 'platnosci')
   assert.equal(stepForBlocking('agreement'), 'publikacja')
+  assert.equal(stepForBlocking('tiers'), 'konkurencje')
+  assert.equal(stepForBlocking('transfer_until'), 'platnosci')
+  assert.equal(stepForBlocking('extras_order_until'), 'dodatki')
+})
+
+describe('wizardSteps with the money features off (final review I-1 + I-4)', () => {
+  const keys = (args) => wizardSteps(args).map((s) => s.key)
+  it('no Dodatki, and Płatności only for a paid event: donations and priced extras take no money', () => {
+    assert.ok(!keys({ pricingMode: 'free', donationsEnabled: true, hasPricedExtras: true, moneyLive: false }).includes('platnosci'))
+    assert.ok(!keys({ pricingMode: 'free', moneyLive: false }).includes('dodatki'))
+    assert.ok(keys({ pricingMode: 'fixed', moneyLive: false }).includes('platnosci'))
+  })
+  it('live (the default): Dodatki always, Płatności for donations too', () => {
+    assert.ok(keys({ pricingMode: 'free' }).includes('dodatki'))
+    assert.ok(keys({ pricingMode: 'free', donationsEnabled: true }).includes('platnosci'))
+  })
 })

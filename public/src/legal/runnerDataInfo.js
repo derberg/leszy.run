@@ -17,11 +17,14 @@
 // the consent e-mail; the consent link, its reminders and the office override are described; the
 // start list shows gender (filters) and no added adult by name before they accept. Plan 5 (teams):
 // what a team's row publishes, that its name goes 30 days after the race, and the members' data
-// given by the captain (Art. 14) appear only with team competitions.
+// given by the captain (Art. 14) appear only with team competitions. Plan 7 (transfers): the
+// invited address comes from the sender (Art. 14(2)(f)), who is named by first name; the sender is
+// told the recipient's name, never their address; after an organizer transfer the old holder is
+// told nothing about the recipient (ruling N-1); deleting the account cancels open invites.
 //
 // Keep in step with the source document when it changes.
 
-export const RUNNER_DATA_INFO_VERSION = '2026-11-v6'
+export const RUNNER_DATA_INFO_VERSION = '2026-11-v8'
 
 /**
  * @param {{ eventName: string, organizerName: string|null, contactEmail: string|null, paid?: boolean, teams?: boolean, nationality?: boolean }} p
@@ -114,6 +117,15 @@ export function runnerDataInfo({ eventName, organizerName, contactEmail, paid = 
           'Ta osoba dostaje jeden e-mail z linkiem i z tą informacją. Na stronie z linku potwierdza swój adres kodem wysłanym e-mailem, sprawdza i może poprawić swoje dane, a potem akceptuje regulamin zawodów. Jeżeli tego nie zrobi, przed końcem zapisów dostanie jedno automatyczne przypomnienie; Ty i Organizator możecie wysłać kolejne (łącznie najwyżej trzy na dobę). Każde przypomnienie unieważnia poprzedni link. Organizator może też przyjąć jej podpis pod regulaminem w biurze zawodów. Dopóki ta osoba nie zaakceptuje regulaminu, nie pokazujemy jej na publicznej liście startowej z imienia i nazwiska.',
           'Osobę niepełnoletnią zapisuje jej rodzic lub opiekun prawny, który podaje swoje imię, nazwisko i adres e-mail. Oświadczenia za osobę niepełnoletnią składa opiekun. Dziecko nie dostaje od LESZY.RUN żadnych wiadomości. Jeżeli opiekun usunie konto LESZY.RUN, zgłoszenie dziecka zostaje, bez danych kontaktowych opiekuna.',
           ...only(teams, 'W drużynie dane pozostałych członków podaje kapitan (art. 14 ust. 2 lit. f RODO). Każda dorosła osoba dostaje wtedy e-mail opisany wyżej, a za dziecko, którego kapitan jest rodzicem lub opiekunem, kapitan składa oświadczenia sam. Kapitan może zmieniać skład do zamknięcia zapisów; osoba usunięta ze składu po zapisie dostaje o tym e-mail, a jej zgłoszenie jest anulowane. Jeżeli kapitan usunie konto LESZY.RUN, drużyna zostaje na liście startowej pod neutralną nazwą, a składem zajmuje się Organizator.'),
+        ],
+      },
+      {
+        heading: 'Gdy przekazujesz pakiet innej osobie',
+        blocks: [
+          'Jeżeli Organizator na to pozwala, możesz przekazać swój pakiet innej osobie dorosłej. Podajesz wtedy jej adres e-mail, na który wysyłamy link do przejęcia pakietu. Źródłem tego adresu jesteś Ty (art. 14 ust. 2 lit. f RODO): w e-mailu i na stronie z linku podajemy osobie zaproszonej Twoje imię, bez nazwiska i danych kontaktowych. Przekaż jej, że podałeś jej adres.',
+          'Osoba, która przyjmuje pakiet, sama podaje swoje dane, potwierdza swój adres kodem wysłanym e-mailem i akceptuje regulamin zawodów. Gdy to zrobi, dostajesz e-mail z jej imieniem i nazwiskiem, bez jej adresu e-mail, a ona zajmuje Twoje miejsce na liście startowej. Link działa raz i przestaje działać po cofnięciu zaproszenia albo z końcem ostatniego dnia przekazywania pakietów.',
+          'Organizator może też sam przekazać Twój pakiet innej osobie, wpisując jej dane. Dostajesz wtedy e-mail, że pakiet został przekazany, bez danych osoby, która go przejęła. Ta osoba dostaje e-mail z prośbą o akceptację regulaminu, w którym jako źródło jej danych wskazujemy Organizatora.',
+          'Jeżeli usuniesz konto LESZY.RUN, otwarte zaproszenia do przejęcia Twoich pakietów i zaproszenia wysłane na Twój adres są cofane, a Twój adres e-mail jest usuwany z zapisów o przekazaniach. Osoba zaproszona dostaje wtedy e-mail, że zaproszenie cofnięto, bez Twojego imienia.',
         ],
       },
       {

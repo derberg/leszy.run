@@ -69,7 +69,27 @@ function teamLine(c) {
   return [size, price, `${c.taken} / ${c.capacity} ${limit}`].filter(Boolean).join(' · ')
 }
 
-function competitionRow(c, win) {
+const DM = (iso) => `${ymd(iso).d}.${ymd(iso).m}`
+
+// The extras a competition offers (no competition named = every one), for RA1 and the form. A
+// variant with nothing left stays, as „brak”.
+function extrasFor(extras, categoryId) {
+  return (extras ?? [])
+    .filter((x) => !x.categoryIds?.length || x.categoryIds.includes(categoryId))
+    .map((x) => ({
+      id: x.id,
+      name: x.name,
+      imageUrl: x.imageUrl ?? null,
+      priceLabel: money(x.price),
+      orderUntil: x.orderUntil,
+      orderUntilLabel: x.orderUntil ? `zamówienia do ${DM(x.orderUntil)}` : null,
+      variants: (x.variants ?? []).map((v) => ({
+        id: v.id, label: v.label, left: v.left, soldOut: v.left <= 0, leftLabel: v.left <= 0 ? 'brak' : null,
+      })),
+    }))
+}
+
+function competitionRow(c, win, extras) {
   const age = ageLabel(c.minAge, c.maxAge)
   const byAge = c.isKids && c.kidsGroups?.some((g) => g.distanceLabel) ? 'dystans wg wieku' : null
   const full = c.taken >= c.capacity
@@ -84,6 +104,7 @@ function competitionRow(c, win) {
     nextPriceLabel: c.nextPrice ? `od ${ymd(c.nextPrice.from).d}.${ymd(c.nextPrice.from).m}: ${money(c.nextPrice.grosze)}` : null,
     full,
     state: win === 'open' && full ? 'full' : win,
+    extras: extrasFor(extras, c.categoryId),
   }
 }
 
@@ -221,7 +242,7 @@ export function eventPageModel(raw, now = new Date()) {
       const { d, m } = ymd(h.date)
       return { label: `${WEEKDAYS_SHORT[weekday(h.date)]} ${d}.${m}`, hours: `${hm(h.from)}–${hm(h.to)}` }
     }),
-    competitions: competitions.map((c) => competitionRow(c, win)),
+    competitions: competitions.map((c) => competitionRow(c, win, raw.extras)),
     // „Lista startowa” (/events/:slug/lista, the /api/startlist snapshot).
     showStartList: competitions.length > 0,
     regulaminUrl: raw.regulamin?.url ?? null,
@@ -245,7 +266,26 @@ function courseFrom(upload) {
   return { km, upM, downM, points, profile, gpxPath: upload.path }
 }
 
-function mergeCompetitions(raw, value, uploads) {
+// The staged tiers (snake_case, in the grid's order) as registration_raw would read them at
+// `now`: the current tier is the first ending today or later (Warsaw) or open-ended; the next
+// one starts the day after it ends. A tier's price is keyed by its id or new:<index>.
+function stagedTierPrices(tiers, prices, now) {
+  const today = warsawToday(now)
+  const keyed = tiers.map((t, i) => ({ endsOn: t.ends_on ?? null, key: t.id ?? `new:${i}` }))
+  const i = keyed.findIndex((t) => t.endsOn == null || t.endsOn >= today)
+  if (i < 0) return { priceGrosze: null, nextPrice: null }
+  const cur = keyed[i]
+  const next = cur.endsOn != null ? keyed[i + 1] : null
+  const [y, m, d] = (cur.endsOn ?? '').split('-').map(Number)
+  return {
+    priceGrosze: prices?.[cur.key] ?? null,
+    nextPrice: next && prices?.[next.key] != null
+      ? { grosze: prices[next.key], from: new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10) }
+      : null,
+  }
+}
+
+function mergeCompetitions(raw, value, uploads, now) {
   const pricingMode = value.pricing_mode ?? raw.pricingMode
   const live = new Map(raw.competitions.map((c) => [c.categoryId, c]))
   // The raw leaves hidden competitions out, so an item with an id the raw lacks
@@ -263,7 +303,9 @@ function mergeCompetitions(raw, value, uploads) {
       capacity: 'capacity', min_age: 'minAge', max_age: 'maxAge', is_kids: 'isKids', timed: 'timed',
     })
     if (has(i, 'gpx_upload_id')) c.course = i.gpx_upload_id ? (courseFrom(uploads[i.gpx_upload_id]) ?? base.course) : null
-    if (pricingMode === 'free') { c.priceGrosze = 0; c.nextPrice = null } else if (i.price != null) { c.priceGrosze = i.price; c.nextPrice = null }
+    if (pricingMode === 'free') { c.priceGrosze = 0; c.nextPrice = null } else if (pricingMode === 'tiered' && value.tiers && i.prices) {
+      Object.assign(c, stagedTierPrices(value.tiers, i.prices, now))
+    } else if (i.price != null) { c.priceGrosze = i.price; c.nextPrice = null }
     return c
   })
   return { ...raw, pricingMode, competitions }
@@ -278,15 +320,32 @@ function groupsBy(rows, toItem) {
   return out
 }
 
+// Staged extras as registration_raw shows them: what is left is the staged stock less what the
+// live variant already sold (`pending.sold`, by variant id).
+function mergeExtras(raw, items, uploads, sold) {
+  const live = new Map((raw.extras ?? []).map((x) => [x.id, x]))
+  return items.map((x) => ({
+    id: x.id ?? null,
+    name: x.name,
+    imagePath: x.image_upload_id ? (uploads[x.image_upload_id]?.path ?? live.get(x.id)?.imagePath ?? null) : null,
+    price: x.price,
+    orderUntil: x.order_until,
+    categoryIds: x.category_ids ?? [],
+    variants: (x.variants ?? []).map((v) => ({ id: v.id ?? null, label: v.label, left: Math.max(0, v.stock - (v.id ? (sold[v.id] ?? 0) : 0)) })),
+  }))
+}
+
 /**
  * The organizer preview: staged sections (registration_pending_changes.payload,
  * each the validated snake_case value save-registration-section stages) over
  * the live raw. `pending.uploads` maps the upload ids the payload names to
- * { path, meta }. Returns a new raw; the input is not changed.
+ * { path, meta }; `pending.sold` maps a live extra variant's id to its sales.
+ * Returns a new raw; the input is not changed.
  * `payload.competitions.items[].hidden` (published events only): true hides that
- * competition from the preview, false or absent shows it.
+ * competition from the preview, false or absent shows it. Staged tiers are read
+ * at `now`, as registration_raw reads the live ones.
  */
-export function mergePending(raw, pending) {
+export function mergePending(raw, pending, now = new Date()) {
   const payload = pending?.payload
   if (!payload) return raw
   const uploads = pending.uploads ?? {}
@@ -314,7 +373,8 @@ export function mergePending(raw, pending) {
       office_lat: 'lat', office_lng: 'lng', hours: 'hours',
     })
   }
-  if (payload.competitions) out = mergeCompetitions(out, payload.competitions, uploads)
+  if (payload.competitions) out = mergeCompetitions(out, payload.competitions, uploads, now)
+  if (payload.extras) out.extras = mergeExtras(raw, payload.extras.items ?? [], uploads, pending.sold ?? {})
   if (payload.categories) {
     const v = payload.categories
     pick(out, v, { age_reckoning: 'ageReckoning' })

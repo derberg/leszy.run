@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getClubPayout, getEventPayout, updateEventPayout } from '../../../../lib/organizer.js'
 import { groupIban } from '../../../../lib/iban.js'
 import { btnPrimary, errorClass, fieldInput, savedClass } from '../../settingsUi.js'
 import { useKlub } from '../../context.js'
-import { FieldError, InfoTip, Seg, Soon, cardClass, cardTitle, monoLabel, sectionErrors } from '../wizardUi.jsx'
+import { FieldError, InfoTip, Seg, cardClass, cardTitle, monoLabel, sectionErrors } from '../wizardUi.jsx'
+import Vouchers from './Vouchers.jsx'
 
 // A6: the payment window (24 h, 7 or 14 days, or „do końca zapisów”, with an ⓘ saying an unpaid
 // entry expires and holds no place; the `payments` section: autosaved in a draft,
-// staged after publish), the payout account and the package transfer (Plan 7).
+// staged after publish), the payout account, the package transfer (Plan 7: allowed or not and
+// „Możliwe do”, at the latest the day before the race; part of `payments`, so every save sends the
+// window and the transfer together, and a quick edit of one never drops the other), and the codes
+// and partners (Vouchers.jsx, organizer-vouchers, applied at once). No transfer fee: ruling 1.
 // The payout is not a section (ruling P3-R1): the club owner sets it through
 // update-event-payout and it applies at once; an admin sees it masked
 // (get-event-payout); a member never loads it.
@@ -162,18 +166,47 @@ function Payout({ eventId, role, readOnly, reload }) {
   )
 }
 
+/** '2026-12-06' → '2026-12-05' */
+function dayBefore(isoDate) {
+  const [y, m, d] = isoDate.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10)
+}
+
+const TRANSFER_TIP = 'Zawodnik może przekazać opłacony pakiet innej osobie. Ta osoba dostaje link, wypełnia formularz zapisu (bez płatności) i dopiero wtedy pakiet przechodzi na nią. Link działa także po zamknięciu zapisów, do podanej daty. Rozliczenie pieniędzy między nimi nas nie dotyczy.'
+
 export default function Platnosci({ event, queue, saveState, readOnly, reload }) {
   const s = event.settings
   const writer = event.role === 'owner' || event.role === 'admin'
   const [choice, setChoice] = useState(s.paymentWindowUntilClose ? UNTIL_CLOSE : (s.paymentWindowHours ?? 168))
+  const [transfer, setTransfer] = useState({ enabled: s.transferEnabled === true, until: s.transferUntil ?? '' })
   const errors = sectionErrors(saveState, 'payments')
+  const untilId = useId()
+  const lastDay = s.eventDate ? dayBefore(s.eventDate) : undefined
+
+  // The whole section each time: autosave keeps one value per section, the latest.
+  function send(window, t) {
+    queue('payments', {
+      ...(window === UNTIL_CLOSE
+        ? { paymentWindowUntilClose: true }
+        : { paymentWindowHours: window, paymentWindowUntilClose: false }),
+      transferEnabled: t.enabled,
+      ...(t.enabled ? { transferUntil: t.until || null } : {}),
+    })
+  }
 
   function pick(value) {
     setChoice(value)
-    queue('payments', value === UNTIL_CLOSE
-      ? { paymentWindowUntilClose: true }
-      : { paymentWindowHours: value, paymentWindowUntilClose: false })
+    send(value, transfer)
   }
+
+  function changeTransfer(next) {
+    setTransfer(next)
+    send(choice, next)
+  }
+
+  // Allowing it starts at the last day it may run to, the day before the race.
+  const allow = (on) => changeTransfer(on ? { enabled: true, until: transfer.until || lastDay || '' } : { ...transfer, enabled: false })
+  const untilError = errors.transferUntil ?? errors.transferEnabled
 
   return (
     <div className="space-y-5 min-w-0 max-w-[900px]" data-testid="platnosci-step">
@@ -198,16 +231,28 @@ export default function Platnosci({ event, queue, saveState, readOnly, reload })
         </section>
       )}
 
-      <section className={`${cardClass} opacity-60`} aria-disabled="true">
+      <section className={cardClass} data-testid="transfer-settings">
         <div className="flex flex-wrap items-center gap-2.5">
           <h2 className={cardTitle}>Przekazanie pakietu</h2>
-          <Soon />
+          <InfoTip label="Co oznacza przekazanie pakietu" testId="transfer-tip">{TRANSFER_TIP}</InfoTip>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Seg disabled>Nie</Seg>
-          <Seg disabled>Tak</Seg>
-        </div>
+        <fieldset disabled={readOnly} className="flex flex-wrap gap-2 min-w-0" role="radiogroup" aria-label="Przekazanie pakietu">
+          <Seg on={transfer.enabled} role="radio" aria-checked={transfer.enabled} onClick={() => allow(true)}>Pozwalam przekazać pakiet</Seg>
+          <Seg on={!transfer.enabled} role="radio" aria-checked={!transfer.enabled} onClick={() => allow(false)}>Nie pozwalam</Seg>
+        </fieldset>
+        {transfer.enabled && (
+          <div className="max-w-[240px]">
+            <label htmlFor={untilId} className={label}>Możliwe do</label>
+            <input id={untilId} type="date" value={transfer.until} max={lastDay} disabled={readOnly}
+              aria-invalid={untilError ? 'true' : undefined} aria-describedby={untilError ? `${untilId}-err` : undefined}
+              onChange={(e) => changeTransfer({ enabled: true, until: e.target.value })}
+              className={`${fieldInput} tabular-nums ${untilError ? 'border-apex-red' : ''}`} />
+          </div>
+        )}
+        {untilError && <p id={`${untilId}-err`} className="text-apex-red font-sans text-sm">{untilError}</p>}
       </section>
+
+      {writer && event.moneyLive !== false && <Vouchers eventId={s.eventId} competitions={event.competitions ?? []} />}
     </div>
   )
 }

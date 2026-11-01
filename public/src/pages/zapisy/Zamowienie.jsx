@@ -11,6 +11,7 @@ import { captainTeamPath } from '../../lib/teamPage.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import DoneActions from '../../components/registration/DoneActions.jsx'
 import RegisteredPerson from '../../components/registration/RegisteredPerson.jsx'
+import TransferLink from '../../components/registration/TransferLink.jsx'
 import { orderPeople, personGroupLabel, showsConsentTags } from '../../lib/consentTag.js'
 import { labelCls, linkCls, primaryBtn, secondaryBtn } from '../../components/registration/ui.js'
 import { formatPln } from '@registration/money.js'
@@ -29,7 +30,8 @@ import { eventPath } from './RegistrationEventPage.jsx'
 //             group each person's regulamin tag („✓ REGULAMIN” / „✓ OPIEKUN” /
 //             „CZEKA NA ZGODĘ”) and „Wyślij przypomnienie do <imię> →” for an added
 //             adult who has not accepted (the consent e-mail goes out on payment, so
-//             a pending order shows no tags)
+//             a pending order shows no tags); „Przekaż pakiet innej osobie →” under the
+//             buyer's own line where order-status's `transfer` block allows it (Plan 7)
 // pending   → „Opłać do <data, godzina>” and „Zapłać” (pay-order: a new dpay
 //             transaction at the frozen price), none from the server's closesAt
 //             on (order-status returns it; the page re-checks at that moment), and
@@ -37,7 +39,9 @@ import { eventPath } from './RegistrationEventPage.jsx'
 //             „Anuluj zgłoszenie” (cancel-my-order, after a confirm step in the page)
 //             always, and as the main action once full: until it is cancelled or
 //             expires, the address cannot register again (409 pending_order)
-// expired / cancelled → „Zgłoszenie wygasło” / „…anulowane” and „Zapisz się ponownie”
+// expired / cancelled → „Zgłoszenie wygasło” / „…anulowane” and „Zapisz się ponownie”; a
+//             cancellation because the buyer took somebody's package (transfer_accepted) says so
+//             and links to the entry instead
 
 const warsaw = new Intl.DateTimeFormat('pl-PL', {
   timeZone: 'Europe/Warsaw', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -103,10 +107,14 @@ function useOrderStatus(orderId) {
   return { ...state, again }
 }
 
-function Person({ line, showTag = false, onStale }) {
+// Ruling N-1: a package the organizer handed on names nobody to the payer.
+const ORGANIZER_TRANSFER = 'Pakiet przekazany przez organizatora'
+
+function Person({ line, showTag = false, onStale, slug = null }) {
+  const name = line.transferredBy === 'organizer' ? ORGANIZER_TRANSFER : line.name
   return (
-    <RegisteredPerson person={line} registrationId={line.registrationId} name={line.name} showTag={showTag}
-      onStale={onStale} testId="order-person"
+    <RegisteredPerson person={line} registrationId={line.registrationId} name={name} showTag={showTag}
+      onStale={onStale} testId="order-person" footer={slug ? <TransferLink row={line} slug={slug} /> : null}
       meta={[line.competition, personGroupLabel(line), line.startTime ? `start ${line.startTime}` : null]} />
   )
 }
@@ -139,7 +147,7 @@ function Paid({ order, raw, model, onAgain }) {
         <span className="font-display font-extrabold text-4xl leading-none uppercase">Jesteście na liście</span>
         <span className="text-base font-semibold">{[title, day].filter(Boolean).join(' · ')}</span>
       </div>
-      {people.map((l, i) => <Person key={l.registrationId ?? `${l.name}-${i}`} line={l} showTag={tags} onStale={onAgain} />)}
+      {people.map((l, i) => <Person key={l.registrationId ?? `${l.name}-${i}`} line={l} showTag={tags} onStale={onAgain} slug={order.event.slug} />)}
       {raw && first && (
         <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)} teamHref={captainTeamPath(order.event.slug, order.lines)}
           first={{ uid: `${order.event.slug}-${first.name}`, name: first.name, competition: first.competition, startTime: first.startTime }} />
@@ -282,8 +290,15 @@ const ENDED_REASONS = {
   full: 'Zanim Twoja wpłata dotarła, inne osoby opłaciły ostatnie wolne miejsca. Zwracamy całą wpłatę.',
   unavailable: 'Zapisy na tę konkurencję nie są już prowadzone. Zwracamy całą wpłatę.',
   closed: 'Wpłata dotarła po zamknięciu zapisów. Zwracamy całą wpłatę.',
+  voucher: 'Zanim Twoja wpłata dotarła, kod rabatowy został wykorzystany. Zwracamy całą wpłatę.',
+  stock: 'Zanim Twoja wpłata dotarła, wybrany dodatek się wyprzedał. Zwracamy całą wpłatę.',
   buyer_cancelled: 'Anulowano zgłoszenie na Twoją prośbę. Możesz zapisać się jeszcze raz.',
+  // Plan 7: the buyer accepted somebody's package for this event, which replaced this unpaid order.
+  transfer_accepted: 'Przejąłeś(-ęłaś) pakiet od innej osoby, więc to nieopłacone zgłoszenie anulowaliśmy.',
 }
+
+// A reason after which registering again would make a second entry: no „Zapisz się ponownie”.
+const NO_AGAIN = new Set(['transfer_accepted'])
 
 function Ended({ order, raw }) {
   const expired = order.status === 'expired'
@@ -302,7 +317,9 @@ function Ended({ order, raw }) {
           ? 'Nie dostaliśmy wpłaty w terminie. Możesz zapisać się jeszcze raz, po aktualnej cenie.'
           : ENDED_REASONS[order.cancelledReason] ?? 'To zgłoszenie nie jest już ważne. Możesz zapisać się jeszcze raz.'}
       </p>
-      <Link to={href} className={`${primaryBtn} flex items-center justify-center`} data-testid="order-again">Zapisz się ponownie</Link>
+      {NO_AGAIN.has(order.cancelledReason)
+        ? <Link to={href === '/' ? '/' : `${href}/zapisano`} className={secondaryBtn} data-testid="order-own-entry">Twój zapis</Link>
+        : <Link to={href} className={`${primaryBtn} flex items-center justify-center`} data-testid="order-again">Zapisz się ponownie</Link>}
     </div>
   )
 }

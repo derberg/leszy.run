@@ -29,6 +29,9 @@ export default defineConfig({
     env: {
       VITE_SUPABASE_URL: env.url,
       VITE_SUPABASE_ANON_KEY: env.anonKey,
+      // Plan 7's money features on this local stack (flags.js moneyFeaturesLive, public/src/lib/moneyFeatures.js);
+      // pricing-transfer's V-90 test turns them off per request with x-registration-money: off.
+      REGISTRATION_MONEY_TEST: 'on',
     },
   },
 })

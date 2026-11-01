@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { categoryPreview, kidsGroupLabel } from '../../lib/personFormModel.js'
 import { countryOptions } from '@registration/countries.js'
 import { inputCls, labelCls, sectionCls } from './ui.js'
+import VoucherField from './VoucherField.jsx'
+import ExtrasPicker from './ExtrasPicker.jsx'
 
 // The one person form of online registration (spec §2 UI rules: RA2 now; RA3,
 // RB1, RB2 and RA7 reuse it). Controlled: `value` is the person, `onChange`
@@ -80,14 +82,16 @@ function GuardianConsent({ id, guardian }) {
  *   loginHref?: string, codeNote?: string, disabled?: boolean, variant?: 'self'|'buyer'|'adult'|'minor',
  *   idPrefix?: string, guardian?: { name, email, checked, onChange, error },
  *   notRunning?: boolean, onNotRunning?: (on: boolean) => void, emailReadOnly?: boolean,
- *   ownHeading?: string }} p
+ *   ownHeading?: string, voucher?: object|null, extras?: object|null }} p
  * `emailReadOnly`: the consent page (/zgoda) shows the address the link was sent to; it is never edited there.
  * `ownHeading`: the team form's „Kapitan”.
+ * `voucher` / `extras` (Plan 7, RA2/RA3): VoucherField's and ExtrasPicker's props (without the ids,
+ * which follow `idPrefix`), on a priced entry and where the competition offers extras.
  */
 export default function PersonForm({
   fields, value, onChange, errors = {}, competition, raceDate, reckoning, ageGroups, prefill, loginHref, codeNote, disabled = false,
   variant = 'self', idPrefix = 'p', guardian, notRunning = false, onNotRunning, emailReadOnly = false,
-  ownHeading = 'Twoje dane',
+  ownHeading = 'Twoje dane', voucher = null, extras = null,
 }) {
   const minor = variant === 'minor'
   const buyer = variant === 'buyer'
@@ -209,6 +213,17 @@ export default function PersonForm({
         </div>
       )}
       {minor && guardian && <GuardianConsent id={id('guardian')} guardian={{ ...guardian, error: guardian.error ?? errors.guardianConsent }} />}
+      {!buyer && (voucher || extras?.extras?.length > 0) && (
+        <div className="flex flex-col gap-3" data-testid="person-cart">
+          {extras?.extras?.length > 0 && (
+            <>
+              {own ? <h2 className={sectionCls}>Dodatki</h2> : <h3 className={sectionCls}>Dodatki</h3>}
+              <ExtrasPicker idPrefix={idPrefix} {...extras} error={errors.extras} disabled={disabled} />
+            </>
+          )}
+          {voucher && <VoucherField id={id('voucher')} {...voucher} error={errors.voucherCode} disabled={disabled} />}
+        </div>
+      )}
     </fieldset>
   )
 }

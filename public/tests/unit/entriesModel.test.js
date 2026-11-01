@@ -1,12 +1,13 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  AWAITING_CONSENT, actionLabel, competitionChips, entryActions, extendChoices, entryCounts, filterEntries, listedTile, noPlacesForAwaiting, statusChips,
+  AWAITING_CONSENT, actionLabel, competitionChips, entryActions, extendChoices, entryCounts, filterEntries, listedTile, noPlacesForAwaiting,
+  partnerChips, statusChips, transferTargets,
 } from '../../src/lib/entriesModel.js'
 
 const row = (over = {}) => ({
   id: 'r', name: 'Anna Nowak', firstName: 'Anna', lastName: 'Nowak', email: 'anna@example.pl', bib: null, categoryId: 'c1',
-  status: 'confirmed', statusKey: 'paid', consentState: 'accepted', team: null, partnerId: null,
+  status: 'confirmed', statusKey: 'paid', consentState: 'accepted', team: null, partnerId: null, role: 'self',
   paidAmount: 6000, refunded: 0, refundUnconfirmed: 0, lines: [{ id: 'l', kind: 'entry', amount: 6000, refunded: 0 }], ...over,
 })
 const COMPETITIONS = [
@@ -106,7 +107,10 @@ describe('entryActions (O-06)', () => {
   const open = { closed: false, raceDay: false, isTeamRow: false }
 
   it('a paid entry before close', () => {
-    assert.deepEqual(entryActions(row(), open), ['edit', 'message', 'refund', 'cancel'])
+    assert.deepEqual(entryActions(row(), open), ['edit', 'message', 'partner', 'transfer', 'refund', 'cancel'])
+  })
+  it('V-87 M-1: no „Przekaż pakiet” while a refund of the entry is in flight (refundPending)', () => {
+    assert.deepEqual(entryActions(row({ refundPending: true }), open), ['edit', 'message', 'partner', 'refund', 'cancel'])
   })
   it('refund is absent on race day and for unpaid rows', () => {
     assert.ok(!entryActions(row(), { ...open, raceDay: true }).includes('refund'))
@@ -120,11 +124,11 @@ describe('entryActions (O-06)', () => {
   })
   it('edit is absent when closed', () => {
     assert.ok(!entryActions(row(), { ...open, closed: true }).includes('edit'))
-    assert.deepEqual(entryActions(row(), { ...open, closed: true }), ['message', 'refund', 'cancel'])
+    assert.deepEqual(entryActions(row(), { ...open, closed: true }), ['message', 'partner', 'transfer', 'refund', 'cancel'])
   })
   it('extend and the payment reminder are for an order still awaiting, before close', () => {
     const awaiting = row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 })
-    assert.deepEqual(entryActions(awaiting, open), ['edit', 'remind_payment', 'extend', 'message', 'cancel'])
+    assert.deepEqual(entryActions(awaiting, open), ['edit', 'remind_payment', 'extend', 'message', 'partner', 'cancel'])
     assert.ok(!entryActions(awaiting, { ...open, closed: true }).includes('extend'))
     assert.ok(!entryActions(row({ status: 'pending_payment', statusKey: 'expired', paidAmount: 0 }), open).includes('extend'))
     for (const statusKey of ['free', 'paid', 'cancelled', 'refund_unconfirmed']) {
@@ -141,16 +145,37 @@ describe('entryActions (O-06)', () => {
     assert.ok(!entryActions(row(), open).includes('squad'))
     assert.deepEqual(entryActions(row({ consentState: 'awaiting' }), { ...open, isTeamRow: true }), ['message', 'refund', 'cancel', 'rename_team', 'squad'])
   })
+  it('partner (Plan 7, V-33) on a live person row only: not a team row, not a lapsed or finished one', () => {
+    assert.ok(entryActions(row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 }), open).includes('partner'))
+    assert.ok(!entryActions(row(), { ...open, isTeamRow: true }).includes('partner'))
+    for (const [status, statusKey] of [['cancelled', 'cancelled'], ['pending_payment', 'expired'], ['transferred_out', 'transferred']]) {
+      assert.ok(!entryActions(row({ status, statusKey }), open).includes('partner'), statusKey)
+    }
+  })
+  it('transfer (Plan 7, ruling 4): a confirmed adult\'s own row, a team member\'s only as captain, never on race day', () => {
+    assert.ok(entryActions(row({ role: 'adult' }), open).includes('transfer'))
+    assert.ok(entryActions(row(), { ...open, closed: true }).includes('transfer'), 'after close too: the organizer transfers until the race day')
+    assert.ok(!entryActions(row(), { ...open, raceDay: true }).includes('transfer'))
+    assert.ok(!entryActions(row({ role: 'minor' }), open).includes('transfer'))
+    assert.ok(!entryActions(row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 }), open).includes('transfer'))
+    const member = row({ categoryId: 'c2', team: { id: 't' } })
+    assert.ok(!entryActions(member, open).includes('transfer'))
+    assert.ok(entryActions(member, { ...open, isCaptain: true }).includes('transfer'))
+    assert.ok(!entryActions(member, { ...open, isCaptain: true, isTeamRow: true }).includes('transfer'))
+    for (const [status, statusKey] of [['cancelled', 'cancelled'], ['transferred_out', 'transferred'], ['transferred_out', 'withdraw_on_host']]) {
+      assert.ok(!entryActions(row({ status, statusKey }), open).includes('transfer'), statusKey)
+    }
+  })
   it('a transferred entry\'s money is not refunded from its old row', () => {
     assert.ok(!entryActions(row({ status: 'transferred_out', statusKey: 'transferred' }), open).includes('refund'))
   })
   it('the payment items stop an hour before close, as the server does (paying_closed)', () => {
     const awaiting = row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 })
-    assert.deepEqual(entryActions(awaiting, { ...open, payingClosed: true }), ['edit', 'message', 'cancel'])
+    assert.deepEqual(entryActions(awaiting, { ...open, payingClosed: true }), ['edit', 'message', 'partner', 'cancel'])
   })
   it('no payment reminder in a full competition, which the server refuses (D6-27); the extension stays', () => {
     const awaiting = row({ status: 'pending_payment', statusKey: 'awaiting', paidAmount: 0 })
-    assert.deepEqual(entryActions(awaiting, { ...open, full: true }), ['edit', 'extend', 'message', 'cancel'])
+    assert.deepEqual(entryActions(awaiting, { ...open, full: true }), ['edit', 'extend', 'message', 'partner', 'cancel'])
   })
   it('a finished row offers nothing', () => {
     for (const [status, statusKey] of [['expired', 'expired'], ['transferred_out', 'transferred']]) {
@@ -212,6 +237,8 @@ describe('the panel\'s tiles and chips (O-50)', () => {
     assert.equal(actionLabel('message', row(), { isTeamRow: true }), 'Napisz do kapitana')
     assert.equal(actionLabel('cancel', row()), 'Anuluj zgłoszenie')
     assert.equal(actionLabel('cancel', row({ statusKey: 'awaiting' })), 'Anuluj nieopłacone zgłoszenie')
+    assert.equal(actionLabel('partner', row()), 'Partner')
+    assert.equal(actionLabel('transfer', row()), 'Przekaż pakiet')
     for (const a of ['edit', 'remind_payment', 'extend', 'remind_consent', 'consent_office', 'refund', 'rename_team', 'squad']) {
       assert.ok(actionLabel(a, row()))
     }
@@ -244,5 +271,38 @@ describe('extendChoices (ExtendDialog)', () => {
   })
   it('a choice that would not move the deadline forward is disabled', () => {
     assert.deepEqual(untils({ expiresAt: at(5), closesAt: at(5) }), [null, null, null])
+  })
+})
+
+describe('partnerChips (B3 „Partnerzy”)', () => {
+  const partners = [{ id: 'p1', name: 'Sklep Biegacz', count: 1 }, { id: 'p2', name: 'Radio Piekary', count: 0 }]
+  it('„Wszyscy” and one chip per partner with the server\'s live count (9b I-1): never a cancelled or transferred-out row', () => {
+    const rows = [
+      row({ id: 'a', partnerId: 'p1' }),
+      row({ id: 'b', partnerId: 'p1', status: 'cancelled', statusKey: 'cancelled' }),
+      row({ id: 'c', partnerId: 'p1', status: 'transferred_out', statusKey: 'transferred' }),
+    ]
+    assert.deepEqual(partnerChips(rows, partners), [
+      { id: null, label: 'Wszyscy' }, { id: 'p1', label: 'Sklep Biegacz · 1' }, { id: 'p2', label: 'Radio Piekary · 0' },
+    ])
+    // The filter still shows every row the partner is on.
+    assert.deepEqual(filterEntries(rows, { partnerId: 'p1' }).map((r) => r.id), ['a', 'b', 'c'])
+  })
+  it('none without partners', () => assert.deepEqual(partnerChips([row()], []), []))
+})
+
+describe('transferTargets (TransferDialog)', () => {
+  const competitions = [
+    { id: 'c1', name: 'Bieg 9 km', kind: 'individual' }, { id: 'c3', name: 'NW 9 km', kind: 'individual' }, { id: 'c2', name: 'Sztafeta', kind: 'team' },
+  ]
+  it('the competitions the server names at the same price, in the event\'s order, the own one first selected', () => {
+    assert.deepEqual(transferTargets(row({ transferTo: ['c3', 'c1'] }), competitions).map((c) => c.id), ['c1', 'c3'])
+  })
+  it('the own competition stays offered when it is hidden (9b I-2): apply_transfer allows a move within it', () => {
+    const r = row({ categoryId: 'c9', competition: 'Ukryty 9 km', transferTo: ['c9', 'c1'] })
+    assert.deepEqual(transferTargets(r, competitions), [{ id: 'c9', name: 'Ukryty 9 km' }, { id: 'c1', name: 'Bieg 9 km', kind: 'individual' }])
+  })
+  it('without the server\'s list, the row\'s own competition only', () => {
+    assert.deepEqual(transferTargets(row(), competitions).map((c) => c.id), ['c1'])
   })
 })

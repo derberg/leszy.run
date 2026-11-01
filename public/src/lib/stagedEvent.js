@@ -30,6 +30,9 @@ export function stagedEvent(event) {
   if (payload.competitions) {
     const v = payload.competitions
     if ('pricing_mode' in v) out.settings.pricingMode = v.pricing_mode
+    // Staged tiers in the grid's order; a column the publish will create has no id yet, and the
+    // items' `prices` name it `new:<index>`, as the section did.
+    if (v.tiers) out.tiers = v.tiers.map((t, i) => ({ id: t.id ?? null, endsOn: t.ends_on ?? null, sortOrder: i }))
     if (v.items) {
       const live = new Map((event.competitions ?? []).map((c) => [c.categoryId, c]))
       out.competitions = v.items.map((i) => {
@@ -53,6 +56,15 @@ export function stagedEvent(event) {
     if ('age_reckoning' in v) out.settings.ageReckoning = v.age_reckoning
     if (v.age_groups) out.ageGroups = v.age_groups.map(camel)
     if (v.kids_groups) out.kidsGroups = v.kids_groups.map(camel)
+  }
+  if (payload.extras?.items) {
+    // `sold` is the live variant's: a staged list cannot unlock what sold.
+    const sold = new Map((event.extras ?? []).flatMap((x) => x.variants ?? []).map((v) => [v.id, v.sold ?? 0]))
+    out.extras = payload.extras.items.map((x) => ({
+      id: x.id ?? null, name: x.name, imageUploadId: x.image_upload_id ?? null, price: x.price, orderUntil: x.order_until,
+      categoryIds: x.category_ids ?? [],
+      variants: (x.variants ?? []).map((v) => ({ id: v.id ?? null, label: v.label, stock: v.stock, sold: (v.id && sold.get(v.id)) || 0 })),
+    }))
   }
   if (payload.timing) Object.assign(out.settings, camel(payload.timing))
   if (payload.payments) Object.assign(out.settings, camel(payload.payments))

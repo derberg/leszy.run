@@ -23,6 +23,10 @@ import { isOpen } from './dates.js'
 import { normalizeGroupRequest, validateGroup } from './group.js'
 import { DPAY_DOWN, PAYMENTS_OFF } from './orderFlow.js'
 import { TEAM_NAME_MESSAGE, normalizeTeamRequest, teamSizeMessage, validateTeam } from './team.js'
+import { DONATION_MESSAGE, EXTRAS_MESSAGE, VOUCHER_CODE_MESSAGE, cartIsEmpty, cartOfRequest, withCart } from './cart.js'
+import { cartAmounts } from './pricing.js'
+import { normalizeCode } from './vouchers.js'
+import { moneyLiveFor } from './moneyLive.js'
 
 export function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -70,6 +74,8 @@ export const REFUSALS = {
   duplicate: [409, 'Ten adres e-mail jest już zapisany na te zawody.'],
   consents_changed: [400, 'Zaznacz wymagane zgody.'],
   team_competition: [409, 'W tej konkurencji startują tylko drużyny.'],
+  // Plan 7's money features while PAID_REGISTRATION_ENABLED is false (flags.js moneyFeaturesLive).
+  payments: [409, 'Płatności online będą dostępne wkrótce.'],
 }
 
 // create_order's refusals beyond register_free's. create_team_registration raises them too.
@@ -81,8 +87,95 @@ export const ORDER_REFUSALS = {
   too_many_pending: [409, 'Masz już dwa nieopłacone zgłoszenia na te zawody.'],
   invalid_buyer_email: [400, 'Popraw adres e-mail.'],
   'invalid_amount:total': [400, 'Kwota zamówienia przekracza limit płatności online.'],
+  // Plan 7: a person the RPC cannot read (an extra past its limits, among others).
+  invalid_people: [400, 'Popraw zaznaczone pola.'],
 }
 export const PRICE_CHANGED = 'Cena się zmieniła. Sprawdź podsumowanie.'
+
+// Plan 7 (ruling C-1): the cart's refusals. The RPCs raise `<code>:<index>` for a person's code or
+// extra (the team's code is the team line, index 0); the answer names the person and the field the
+// form marks. All are 409 (the code, the extra or the event changed under the runner) except a
+// malformed amount or extra, which is the page's own input (400).
+export const CART_REFUSALS = {
+  voucher_invalid: [409, VOUCHER_CODE_MESSAGE, 'voucherCode'],
+  voucher_expired: [409, 'Kod stracił ważność.', 'voucherCode'],
+  voucher_used_up: [409, 'Kod został już wykorzystany.', 'voucherCode'],
+  voucher_category: [409, 'Ten kod nie obejmuje tej konkurencji.', 'voucherCode'],
+  voucher_not_applicable: [409, 'Ten kod nie obniży ceny: start w tej konkurencji jest bezpłatny.', 'voucherCode'],
+  extra_unavailable: [409, 'Ten dodatek nie jest już dostępny.', 'extras'],
+  extra_sold_out: [409, 'Ten dodatek właśnie się wyprzedał.', 'extras'],
+}
+export const DONATION_NOT_ALLOWED = 'Te zawody nie przyjmują darowizn.'
+export const NOT_FREE_CART = 'Do bezpłatnego zapisu nie dodasz kodu rabatowego, dodatków ani darowizny.'
+
+/** A cart refusal from an RPC message as an answer → [status, body], or null for any other. */
+export function cartRefusal(msg) {
+  const m = /^([a-z_]+):(\d+)$/.exec(msg ?? '')
+  if (m && CART_REFUSALS[m[1]]) {
+    const [status, error, field] = CART_REFUSALS[m[1]]
+    const index = Number(m[2])
+    return [status, { error, code: m[1], index, field }]
+  }
+  if (msg === 'donation_not_allowed') return [409, { error: DONATION_NOT_ALLOWED, code: msg, field: 'donation' }]
+  if (msg === 'invalid_amount:donation') return [400, { error: DONATION_MESSAGE, code: msg, field: 'donation' }]
+  return null
+}
+
+/**
+ * The amounts behind a price_changed refusal, priced as create_order and create_team_registration
+ * price (D7-21). `people` are lines [{ categoryId, voucherCode?, extras? }]: a group's people, or a
+ * team's one line (the team code, every member's extras). Each line's list price is its
+ * competition's current price from the public read model (the same tier choice the RPCs make,
+ * D4-27), its code's percent a plain read by the normalised code, its extras at the extra's price,
+ * plus the donation, through cartAmounts. `entryPrices` are the discounted entries, one per line in
+ * request order (Plan 3's shape). When they do not reproduce the RPC's total (something moved again
+ * in between) only the total goes back.
+ */
+export async function cartChangedAmounts(admin, settings, people, donation, total) {
+  try {
+    const { data } = await admin.rpc('registration_raw', { p_event_id: settings.event_id })
+    const free = settings.pricing_mode === 'free'
+    const priceOf = new Map((data?.competitions ?? []).map((c) => [String(c.categoryId).toLowerCase(), c.priceGrosze]))
+    const codes = [...new Set(people.map((p) => normalizeCode(p.voucherCode ?? '')).filter(Boolean))]
+    const percentOf = new Map()
+    if (codes.length) {
+      const { data: vouchers, error } = await admin.from('vouchers').select('code, percent')
+        .eq('event_id', settings.event_id).in('code', codes)
+      if (error) throw error
+      for (const v of vouchers ?? []) percentOf.set(v.code, v.percent)
+    }
+    const variantIds = [...new Set(people.flatMap((p) => (p.extras ?? []).map((e) => e.variantId.toLowerCase())))]
+    const extraPriceOf = new Map()
+    if (variantIds.length) {
+      const { data: variants, error } = await admin.from('extra_variants').select('id, extras(price)').in('id', variantIds)
+      if (error) throw error
+      for (const v of variants ?? []) extraPriceOf.set(v.id, v.extras?.price)
+    }
+    const cart = people.map((p) => ({
+      listPrice: free ? 0 : priceOf.get(String(p.categoryId).toLowerCase()),
+      voucherPercent: p.voucherCode ? percentOf.get(normalizeCode(p.voucherCode)) ?? null : null,
+      extras: (p.extras ?? []).filter((e) => e.qty > 0)
+        .map((e) => ({ price: extraPriceOf.get(e.variantId.toLowerCase()), qty: e.qty })),
+    }))
+    const a = cartAmounts({ people: cart, donation })
+    if (a.total === total) {
+      return {
+        entryPrices: a.lines.map((l) => l.price),
+        entryTotal: a.entryTotal, extrasTotal: a.extrasTotal, donation: a.donation, total,
+      }
+    }
+  } catch (err) {
+    console.error('price_changed amounts:', err?.message)
+  }
+  return { total }
+}
+
+/** cartOfRequest's refusal of a malformed body as the 400 answer. */
+function cartShapeRefusal(cart) {
+  if (cart.field === 'donation') return { error: DONATION_MESSAGE, code: 'invalid_amount:donation', field: 'donation' }
+  if (cart.field === 'extras') return { error: EXTRAS_MESSAGE, code: 'invalid_extras', index: cart.index, field: 'extras' }
+  return { error: VOUCHER_CODE_MESSAGE, code: 'invalid_voucher_code', index: cart.index, field: 'voucherCode' }
+}
 export const PENDING_ORDER = 'Masz już nieopłacone zgłoszenie na te zawody.'
 
 export const TEAM_REFUSALS = {
@@ -147,9 +240,10 @@ export async function personContexts(admin, settings, compRows) {
 /**
  * Runs the shared steps. → { response } for an early answer, or
  * { competitions: Map<categoryId, competition>, competition (the first person's), settings,
- *   people: [{ categoryId, role: self|adult|minor, …validatePerson value }], buyer, buyerName,
- *   consentIds, email (the buyer's address), profileId, withCookie, legacy, teamName }.
- * `pricing(settings)` returns a refusal code (a key of `refusals`) for an event this path does
+ *   people: [{ categoryId, role: self|adult|minor, …validatePerson value, voucherCode?, extras? }],
+ *   buyer, buyerName, consentIds, email (the buyer's address), profileId, withCookie, legacy, teamName,
+ *   cart (cartOfRequest: the donation, and the team's voucherCode) }.
+ * `pricing(settings, cart, { moneyLive })` returns a refusal code (a key of `refusals`) for an event this path does
  * not serve, or null.
  * `throttles(email)` lists the counters to claim: [{ key, limit, windowSeconds }].
  */
@@ -161,6 +255,9 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
     ? { people: teamRequest.members.map((m) => ({ categoryId: teamRequest.categoryId, person: m.person })), buyer: null }
     : normalizeGroupRequest(body)
   if (group.people.length === 0) return { response: json({ error: 'Brak danych osoby.' }, 400, req) }
+  // Plan 7: the codes, extras and donation, by shape only (the RPC decides the rest).
+  const cart = cartOfRequest(body, { team })
+  if (!cart.ok) return { response: json(cartShapeRefusal(cart), 400, req) }
 
   // ---- the event, derived from the competitions: every one known and of one event
   const categoryIds = [...new Set(group.people.map((p) => p.categoryId))]
@@ -182,7 +279,11 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
   // Early answers; the RPC re-checks all of them under its locks.
   if (settings.state !== 'published' || compRows.some((c) => c.hidden_at)) return { response: refusal('closed', req) }
   if (team && competition.kind !== 'team') return { response: refusal('not_team', req, {}, refusals) }
-  const priced = pricing(settings)
+  // Final review I-1 + I-4: with the money features off, a code, an extra or a donation is refused
+  // before anything else, and the event is the plain free event it was before Plan 7.
+  const moneyLive = moneyLiveFor(req)
+  if (!moneyLive && !cartIsEmpty(cart)) return { response: refusal('payments', req, {}, refusals) }
+  const priced = pricing(settings, cart, { moneyLive })
   if (priced) return { response: refusal(priced, req, {}, refusals) }
   const window = settings.opens_at && settings.closes_at
     ? isOpen({ opensAt: settings.opens_at, closesAt: settings.closes_at })
@@ -241,7 +342,7 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
       }, 400, req),
     }
   }
-  const people = checked.value
+  const people = checked.value.map((p, i) => withCart(p, cart.people[i]))
   const email = checked.buyerEmail
   const self = people.filter((p) => p.role === 'self')
   // validateGroup's guarantees, kept here as the request layer's own check (the RPC does not):
@@ -325,6 +426,7 @@ export async function prepareRegistration(req, admin, body, { pricing, throttles
     legacy,
     withCookie,
     teamName: teamValue?.teamName ?? null,
+    cart,
   }
 }
 
@@ -392,8 +494,10 @@ export async function groupRefusal(admin, msg, { competitions, people, legacy, e
  * error that is no refusal. A deadlock (40P01; two teams sharing members in opposite order, which
  * no lock serialises) wrote nothing and goes through on a retry. `duplicate:<i>` keeps the daily
  * reveal cap of groupRefusal. `competition` is the competitions row, for the size in the message.
+ * With a non-empty `cart` (and the event's `settings`), price_changed is priced through
+ * cartChangedAmounts; without one it carries the one fee.
  */
-export async function teamRefusal(admin, error, { competition, people, email }) {
+export async function teamRefusal(admin, error, { competition, people, email, settings = null, cart = null }) {
   if (error?.code === '40P01') return [409, { error: TEAM_TRY_AGAIN, code: 'try_again' }]
   const msg = error?.message ?? ''
   if (msg === 'not_found') return [404, NOT_FOUND]
@@ -406,6 +510,12 @@ export async function teamRefusal(admin, error, { competition, people, email }) 
   const changed = /^price_changed:(\d+)$/.exec(msg)
   if (changed) {
     const total = Number(changed[1])
+    // Plan 7 (review I-1): a team with a code, extras or a donation is one line through cartAmounts,
+    // so the page gets the fee and the extras apart and its resend matches.
+    if (cart && !cartIsEmpty(cart)) {
+      const line = { categoryId: competition.category_id, voucherCode: cart.voucherCode, extras: people.flatMap((p) => p.extras ?? []) }
+      return [409, { error: PRICE_CHANGED, code: 'price_changed', amounts: await cartChangedAmounts(admin, settings, [line], cart.donation, total) }]
+    }
     return [409, {
       error: PRICE_CHANGED, code: 'price_changed',
       amounts: { entryPrices: [total], entryTotal: total, extrasTotal: 0, donation: 0, total },
@@ -416,6 +526,8 @@ export async function teamRefusal(admin, error, { competition, people, email }) 
     if (body.code !== 'duplicate') return [status, body]
     return [status, { error: PERSON_DUPLICATE, code: 'duplicate', index: body.index, errors: { [body.index]: { email: PERSON_DUPLICATE } } }]
   }
+  const refusedCart = cartRefusal(msg)
+  if (refusedCart) return refusedCart
   if (TEAM_REFUSALS[msg]) {
     const [status, text] = TEAM_REFUSALS[msg]
     return [status, { error: text, code: msg }]

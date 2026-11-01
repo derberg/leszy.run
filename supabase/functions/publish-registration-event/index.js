@@ -3,7 +3,8 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { logOrganizerAction } from '../_shared/organizer.js'
 import { AGREEMENT_REQUIRED, clubHasAgreement, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
-import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM } from '../_shared/registration/checklist.js'
+import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM, moneyReason, paymentsRefusal } from '../_shared/registration/checklist.js'
+import { moneyLiveFor } from '../_shared/registration/moneyLive.js'
 import { eventPageUrl } from '../_shared/registration/slug.js'
 import { changeDiff, mergedChecklistInput, noticeAudience } from '../_shared/registration/changeDiff.js'
 import { PAID_REGISTRATION_ENABLED } from '../_shared/registration/flags.js'
@@ -32,14 +33,32 @@ const camel = (row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [c
 
 // What publishChecklist() reads, in get-registration-event's shape.
 async function checklistInput(admin, settings) {
-  const [competitions, hours, payout] = await Promise.all([
+  const [competitions, hours, extras, tiers, payout] = await Promise.all([
     admin.from('competitions').select('*').eq('event_id', settings.event_id),
     admin.from('office_hours').select('id').eq('event_id', settings.event_id).limit(1),
+    admin.from('extras').select('id, price, order_until').eq('event_id', settings.event_id),
+    admin.from('price_tiers').select('id, ends_on').eq('event_id', settings.event_id)
+      .order('ends_on', { ascending: true, nullsFirst: false }).order('sort_order').order('id'),
     payoutState(admin, settings),
   ])
-  if (competitions.error) throw competitions.error
-  if (hours.error) throw hours.error
-  return { settings: camel(settings), competitions: competitions.data.map(camel), officeHours: hours.data, payout }
+  for (const r of [competitions, hours, extras, tiers]) if (r.error) throw r.error
+  return {
+    settings: camel(settings), competitions: competitions.data.map(camel), officeHours: hours.data,
+    extras: extras.data, tiers: tiers.data, payout,
+  }
+}
+
+// The live extras in the extras section's staged shape, for changeDiff and the checklist.
+async function liveExtras(admin, eventId) {
+  const extras = await allRows(() => admin.from('extras')
+    .select('id, name, image_upload_id, price, order_until, sort_order, extra_competitions(category_id), extra_variants(id, label, stock, sort_order)')
+    .eq('event_id', eventId).order('sort_order').order('id'))
+  return extras.map((x) => ({
+    id: x.id, name: x.name, image_upload_id: x.image_upload_id, price: x.price, order_until: x.order_until,
+    category_ids: (x.extra_competitions ?? []).map((l) => l.category_id).sort(),
+    variants: [...(x.extra_variants ?? [])].sort((a, b) => a.sort_order - b.sort_order || (a.id < b.id ? -1 : 1))
+      .map((v) => ({ id: v.id, label: v.label, stock: v.stock })),
+  }))
 }
 
 // The live rows changeDiff() compares the staged payload with.
@@ -50,18 +69,29 @@ async function liveSnapshot(admin, settings) {
   const byCategory = (table, cols) => (ids.length
     ? allRows(() => admin.from(table).select(cols).in('category_id', ids).order('category_id'))
     : [])
-  const [prices, hours, ageGroups, kidsGroups, consents, payout] = await Promise.all([
-    byCategory('competition_prices', 'category_id, amount, price_tiers!inner(ends_on)'),
+  const [prices, hours, ageGroups, kidsGroups, consents, payout, tiers, extras] = await Promise.all([
+    byCategory('competition_prices', 'category_id, tier_id, amount, price_tiers!inner(ends_on)'),
     allRows(() => admin.from('office_hours').select('starts_at, ends_at').eq('event_id', eventId).order('starts_at')),
     byCategory('age_groups', '*'),
     byCategory('kids_groups', '*'),
     allRows(() => admin.from('event_consents').select('kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
     payoutState(admin, settings),
+    // registration_raw's tier order: ends_on nulls last, sort_order, id.
+    allRows(() => admin.from('price_tiers').select('id, ends_on, sort_order').eq('event_id', eventId)
+      .order('ends_on', { ascending: true, nullsFirst: false }).order('sort_order').order('id')),
+    liveExtras(admin, eventId),
   ])
   const fixedPrice = new Map(prices.filter((p) => p.price_tiers?.ends_on == null).map((p) => [p.category_id, p.amount]))
+  const tierPrices = (categoryId) => Object.fromEntries(prices.filter((p) => p.category_id === categoryId).map((p) => [p.tier_id, p.amount]))
   return {
     settings,
-    competitions: competitions.map((c) => ({ ...c, price: settings.pricing_mode === 'fixed' ? (fixedPrice.get(c.category_id) ?? null) : null })),
+    competitions: competitions.map((c) => ({
+      ...c,
+      price: settings.pricing_mode === 'fixed' ? (fixedPrice.get(c.category_id) ?? null) : null,
+      prices: settings.pricing_mode === 'tiered' ? tierPrices(c.category_id) : null,
+    })),
+    tiers: tiers.map(({ id, ends_on }) => ({ id, ends_on })),
+    extras,
     officeHours: hours, ageGroups, kidsGroups, consents, payout,
   }
 }
@@ -108,6 +138,9 @@ const changeRefusal = (error) => {
     return [409, { error: 'Nie można opublikować: konkurencji nie można usunąć, a z zapisami także ukryć ani zmienić jej rodzaju.', code: 'competition_locked' }]
   }
   if (msg === 'price_locked') return [409, { error: 'Nie można opublikować: opłaty nie można zmienić, są już zapisy.', code: 'price_locked' }]
+  if (msg === 'extra_locked') {
+    return [409, { error: 'Nie można opublikować: dodatku z zamówieniami nie można tak zmienić. Cena i sprzedane warianty zostają, a limit nie spadnie poniżej sprzedanych.', code: 'extra_locked' }]
+  }
   if (msg === 'consent_locked') {
     return [409, { error: 'Nie można opublikować: zgody zaakceptowanej przez zapisanych nie można usunąć ani zmienić. Odrzuć zmiany i dodaj nową zgodę.', code: 'consent_locked' }]
   }
@@ -164,14 +197,17 @@ async function publishChanges(admin, req, session, settings, notifyInput, expect
   // P2-R28: what the organizer confirmed (preview_changes' stamp) is what is
   // published; staged again since, the dialog must show the new diff first.
   if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== pending.updated_at) return json(CHANGED, 409, req)
-  const mode = pending.payload.competitions?.pricing_mode
-  if (!PAID_REGISTRATION_ENABLED && mode && mode !== 'free') {
-    return json({ error: 'Nie można opublikować: płatności online — wkrótce.', code: 'payments' }, 409, req)
+  const live = await liveSnapshot(admin, settings)
+  const merged = { ...mergedChecklistInput(live, pending.payload), moneyLive: moneyLiveFor(req) }
+  // An event that will take money (a paid mode, a priced extra, donations; D7-22) waits for the flag.
+  // With the money features off, extras and donations take none (final review I-1).
+  const reason = moneyReason(merged)
+  if (!PAID_REGISTRATION_ENABLED && reason) {
+    return json({ error: paymentsRefusal(reason), code: 'payments', reason }, 409, req)
   }
 
-  const live = await liveSnapshot(admin, settings)
   // The event as it will be must pass the first publish's checklist too.
-  const { blocking } = publishChecklist({ ...mergedChecklistInput(live, pending.payload), hasAgreement: true })
+  const { blocking } = publishChecklist({ ...merged, hasAgreement: true })
   if (blocking.length) return refused(blocking, req)
 
   const diff = changeDiff(live, pending.payload)
@@ -286,7 +322,7 @@ Deno.serve(async (req) => {
     if (settings.state !== 'draft') return json(NOT_DRAFT, 409, req)
     if (!(await clubHasAgreement(admin, settings.club_id))) return json(AGREEMENT_REQUIRED, 409, req)
 
-    const { blocking } = publishChecklist({ ...(await checklistInput(admin, settings)), hasAgreement: true })
+    const { blocking } = publishChecklist({ ...(await checklistInput(admin, settings)), hasAgreement: true, moneyLive: moneyLiveFor(req) })
     if (blocking.length) return refused(blocking, req)
 
     const { data, error } = await admin.rpc('publish_registration_event', {

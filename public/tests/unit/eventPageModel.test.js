@@ -75,7 +75,7 @@ describe('eventPageModel (RA1)', () => {
     const [bieg9, , , , kids] = model().competitions
     assert.deepEqual(bieg9, {
       categoryId: 'c1', name: 'Bieg 9 km', kind: 'individual', startLabel: 'start 10:00 · od 16 lat', ageLabel: 'od 16 lat',
-      priceLabel: '60 zł', teamLine: null, nextPriceLabel: 'od 16.11: 70 zł', full: false, state: 'open',
+      priceLabel: '60 zł', teamLine: null, nextPriceLabel: 'od 16.11: 70 zł', full: false, state: 'open', extras: [],
     })
     assert.equal(kids.startLabel, 'start 11:30 · do 15 lat · dystans wg wieku')
     assert.equal(kids.priceLabel, '20 zł')
@@ -385,5 +385,83 @@ describe('Final review: RA1 never adds people and teams into one number', () => 
   it('kind rides on the row, so the group form can leave a team competition out', () => {
     const m = eventPageModel({ ...RA1, competitions: [people, team()] }, NOW)
     assert.deepEqual(m.competitions.map((c) => c.kind), ['individual', 'team'])
+  })
+})
+
+// ---------------------------------------------------------------- Plan 7 task 3
+
+describe('extras (Plan 7)', () => {
+  const SHIRT = {
+    id: 'x1', name: 'Koszulka techniczna', imagePath: 'e1/extra/k.jpg', price: 4500, orderUntil: '2026-11-25',
+    categoryIds: [], variants: [{ id: 'v1', label: 'M', left: 3 }, { id: 'v2', label: 'L', left: 0 }],
+  }
+  const MEDAL = { id: 'x2', name: 'Medal grawerowany', imagePath: null, price: 2000, orderUntil: '2026-12-06', categoryIds: ['c5'], variants: [{ id: 'v3', label: 'Jeden rozmiar', left: 50 }] }
+  const withExtras = { ...RA1, extras: [SHIRT, MEDAL] }
+
+  it('every competition lists the extras offered in it: none named = every competition', () => {
+    const m = model(withExtras)
+    assert.deepEqual(m.competitions[0].extras.map((x) => x.name), ['Koszulka techniczna'])
+    assert.deepEqual(m.competitions[4].extras.map((x) => x.name), ['Koszulka techniczna', 'Medal grawerowany'])
+  })
+
+  it('an extra shows its image URL, price and order deadline; a variant with nothing left stays, as „brak”', () => {
+    const [shirt] = model(withExtras).competitions[0].extras
+    assert.deepEqual(shirt, {
+      id: 'x1', name: 'Koszulka techniczna', imageUrl: fileUrl('e1/extra/k.jpg'), priceLabel: '45 zł', orderUntil: '2026-11-25',
+      orderUntilLabel: 'zamówienia do 25.11',
+      variants: [{ id: 'v1', label: 'M', left: 3, soldOut: false, leftLabel: null }, { id: 'v2', label: 'L', left: 0, soldOut: true, leftLabel: 'brak' }],
+    })
+  })
+
+  it('a raw with no extras key gives every competition an empty list', () => {
+    assert.ok(model().competitions.every((c) => Array.isArray(c.extras) && c.extras.length === 0))
+  })
+})
+
+describe('mergePending: staged tiers and extras (Plan 7)', () => {
+  // The A3 mockup staged through the wizard: 15.11 / 25.11 / do końca zapisów, 60 / 70 / 80 zł.
+  const A3 = {
+    pricing_mode: 'tiered',
+    tiers: [{ id: null, ends_on: '2026-11-15' }, { id: 't2', ends_on: '2026-11-25' }, { id: null, ends_on: null }],
+    items: [{ category_id: 'c1', name: 'Bieg 9 km', start_time: '10:00', capacity: 80, min_age: 16, max_age: null, is_kids: false, timed: true,
+      discipline: 'run', distance_label: '9 km', gpx_upload_id: null, price: null, prices: { 'new:0': 6000, t2: 7000, 'new:2': 8000 } }],
+  }
+
+  it('V-19 the current and next staged tier give the price and RA1\'s „od 16.11: 70 zł”', () => {
+    const merged = mergePending({ ...RA1, pricingMode: 'free' }, { payload: { competitions: A3 } }, new Date('2026-11-06T10:00:00Z'))
+    assert.equal(merged.competitions[0].priceGrosze, 6000)
+    assert.deepEqual(merged.competitions[0].nextPrice, { grosze: 7000, from: '2026-11-16' })
+    const m = eventPageModel(withFileUrls(merged, BASE), NOW)
+    assert.equal(m.competitions[0].priceLabel, '60 zł')
+    assert.equal(m.competitions[0].nextPriceLabel, 'od 16.11: 70 zł')
+  })
+
+  it('a tier ends at Warsaw midnight: on 15.11 at 23:59:59 Warsaw tier 1, a millisecond later tier 2', () => {
+    const at = (iso) => mergePending(RA1, { payload: { competitions: A3 } }, new Date(iso)).competitions[0]
+    assert.equal(at('2026-11-15T22:59:59.999Z').priceGrosze, 6000)
+    const later = at('2026-11-15T23:00:00.000Z')
+    assert.equal(later.priceGrosze, 7000)
+    assert.deepEqual(later.nextPrice, { grosze: 8000, from: '2026-11-26' })
+    assert.equal(at('2026-11-30T12:00:00Z').nextPrice, null)
+  })
+
+  it('staged extras replace the live ones, with stock as what is left after the live sales', () => {
+    const raw = { ...RA1, extras: [{ id: 'x1', name: 'Koszulka', imagePath: 'e1/extra/k.jpg', price: 4500, orderUntil: '2026-11-25', categoryIds: [], variants: [{ id: 'v1', label: 'M', left: 3 }] }] }
+    const merged = mergePending(raw, {
+      payload: { extras: { items: [
+        { id: 'x1', name: 'Koszulka', image_upload_id: 'u1', price: 4500, order_until: '2026-11-25', category_ids: [],
+          variants: [{ id: 'v1', label: 'M', stock: 10 }, { id: null, label: 'XL', stock: 5 }] },
+        { id: null, name: 'Czapka', image_upload_id: null, price: 3000, order_until: '2026-12-01', category_ids: ['c1'], variants: [{ id: null, label: 'Uni', stock: 100000 }] },
+      ] } },
+      uploads: { u1: { path: 'e1/extra/nowa.jpg', meta: {} } },
+      sold: { v1: 7 },
+    })
+    assert.deepEqual(merged.extras, [
+      { id: 'x1', name: 'Koszulka', imagePath: 'e1/extra/nowa.jpg', price: 4500, orderUntil: '2026-11-25', categoryIds: [],
+        variants: [{ id: 'v1', label: 'M', left: 3 }, { id: null, label: 'XL', left: 5 }] },
+      { id: null, name: 'Czapka', imagePath: null, price: 3000, orderUntil: '2026-12-01', categoryIds: ['c1'],
+        variants: [{ id: null, label: 'Uni', left: 100000 }] },
+    ])
+    assert.equal(raw.extras[0].variants.length, 1, 'input untouched')
   })
 })

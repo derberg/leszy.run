@@ -3,7 +3,7 @@
 # stack, so several worktrees or agents can run tests/registration at once.
 #
 #   scripts/test-slot.sh <n> start              start the slot's stack (start-stack.sh's exclude list)
-#   scripts/test-slot.sh <n> db reset           migrations + seed
+#   scripts/test-slot.sh <n> db reset           migrations + seed, then waits until REST answers
 #   scripts/test-slot.sh <n> functions serve    serves THIS worktree's functions, with the slot's functions.env
 #   scripts/test-slot.sh <n> status | stop      any other supabase command is passed through
 #
@@ -57,6 +57,23 @@ case "$1" in
   start)
     shift
     exec "$reg/start-stack.sh" ${workdir_args[@]+"${workdir_args[@]}"} "$@"
+    ;;
+  db)
+    if [ "${2:-}" = reset ]; then
+      # A reset restarts the containers, and PostgREST answers PGRST002 („Could not query the
+      # database for the schema cache”) for a while after it: a suite started at once fails its
+      # first files. Wait until REST serves a real table (up to 120 s).
+      supabase ${workdir_args[@]+"${workdir_args[@]}"} "$@"
+      eval "$(supabase ${workdir_args[@]+"${workdir_args[@]}"} status -o env 2>/dev/null | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
+      for _ in $(seq 1 60); do
+        code=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' -H "apikey: ${SERVICE_ROLE_KEY:-}" \
+          -H "Authorization: Bearer ${SERVICE_ROLE_KEY:-}" "${API_URL:-}/rest/v1/clubs?select=id&limit=1" || true)
+        [ "$code" = 200 ] && { echo "REST ready."; exit 0; }
+        sleep 2
+      done
+      echo "REST did not answer 200 within 120 s after the reset (last: $code)" >&2
+      exit 1
+    fi
     ;;
   functions)
     if [ "${2:-}" = serve ] && [[ " $* " != *" --env-file"* ]]; then

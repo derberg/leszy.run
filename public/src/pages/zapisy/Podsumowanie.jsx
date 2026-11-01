@@ -6,10 +6,12 @@ import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction } from '../../lib/auth.js'
 import { releaseLeaveGuard } from '../../lib/leaveGuard.js'
-import { backToForm, checkoutModel, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS, repricedByCategory, repriceLines } from '../../lib/checkout.js'
+import { backToForm, listPricesFrom, newOrderPayable, PAYING_CLOSED_TEXT, PAYING_CLOSES_BEFORE_MS, repriceCart } from '../../lib/checkout.js'
+import { checkoutCart, donationOf, extraLineLabel } from '../../lib/cartModel.js'
 import { formatPln } from '@registration/money.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import MetaLine from '../../components/registration/MetaLine.jsx'
+import DonationChips from '../../components/registration/DonationChips.jsx'
 import { primaryBtn, sectionCls } from '../../components/registration/ui.js'
 
 // RA4 (paid events): one line per person (name, competition · group, that competition's
@@ -37,29 +39,54 @@ import { primaryBtn, sectionCls } from '../../components/registration/ui.js'
 // RB3 is this page with `team`: one fee line, the squad numbered above it, „Zapłać” calling
 // register-team (`endpoint`). A paid team's answer always carries a redirect; a 2xx with no
 // `data` is the honeypot's, which is answered as if nothing happened (D5-26, D5-27).
+//
+// Plan 7 (task 8a): a line may carry a code (`voucher`, shown as „60,00 zł − 15% (KOD) = 51,00 zł”)
+// and the person's extras („Koszulka · M · 45,00 zł”); a charity event with donations on adds the
+// chips (`donation`). The amounts are cartAmounts' (checkoutCart), and with extras or a donation
+// „Opłaty startowe”, „Dodatki” and „Darowizna na cel” stand above „Razem”. Nothing is payable to
+// LESZY.RUN (2026-10-31). A free event whose total stays 0 registers through `onRegisterFree`
+// (register-free) instead. A refused code or extra goes back to that person's card; a refused
+// donation stays here, under the chips.
 
 export const orderPath = (orderId) => `/zamowienie/${orderId}`
 
 const row = 'flex justify-between gap-2.5 py-2 border-b border-apex-border text-base'
 
 /**
- * @param {{ raw: object, open: boolean, lines: Array<{ key, categoryId, name, competitionName, ageGroupLabel, priceGrosze }>,
+ * @param {{ raw: object, open: boolean,
+ *   lines: Array<{ key, categoryId, name, competitionName, ageGroupLabel, priceGrosze, voucher?, extras? }>,
  *   body: object (groupDraft's toRequest, without a code), addedCategoryIds: string[],
  *   onBack: () => void, onFailure: (err: Error) => void,
  *   onRepriced: (byCategory: Record<string, number>) => void, endpoint?: string, stepLabel?: string,
- *   team?: { name: string, members: Array<{ key, name, detail }> } }} p
+ *   team?: { name: string, members: Array<{ key, name, detail, extras? }> },
+ *   donation?: { goal: string|null }|null, onRegisterFree?: (() => Promise<void>)|null }} p
+ * A line's `priceGrosze` is its list price, `voucher` { code, percent } and `extras`
+ * [{ name, variantLabel, price, qty }] (cartModel's pickedExtras).
  */
 export default function Podsumowanie({
   raw, open, lines: formLines, body, addedCategoryIds = [], onBack, onFailure, onRepriced, endpoint = 'create-order', stepLabel = 'KROK 2/3', team = null,
+  donation = null, onRegisterFree = null,
 }) {
   const navigate = useNavigate()
   // The lines as the server last priced them: the form's, until a price_changed re-prices them.
   const [lines, setLines] = useState(formLines)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
+  const [chip, setChip] = useState('none')
+  const [other, setOther] = useState('')
+  const [donationError, setDonationError] = useState(null)
   const [, tick] = useState(0)
   const payable = newOrderPayable(raw.closesAt)
-  const m = checkoutModel({ entryPrices: lines.map((l) => l.priceGrosze), busy, closed: !open || !payable })
+  const given = donation ? donationOf(chip, other) : { ok: true, grosze: 0 }
+  const cart = checkoutCart(lines, given.ok ? given.grosze : 0)
+  const free = onRegisterFree != null && cart.total === 0
+  const m = {
+    totalLabel: formatPln(cart.total),
+    displayedTotal: cart.total,
+    payDisabled: busy || !open || (!payable && !free) || !given.ok,
+  }
+  const shownDonationError = donationError ?? (chip === 'other' && other.trim() !== '' && !given.ok ? given.error : null)
+  const itemized = cart.extrasTotal > 0 || cart.donation > 0
 
   // The form above it was scrolled to its end: the summary starts at its top.
   useEffect(() => { window.scrollTo(0, 0) }, [])
@@ -92,9 +119,16 @@ export default function Podsumowanie({
     if (m.payDisabled) return
     setBusy(true)
     setMessage(null)
+    setDonationError(null)
+    if (free) {
+      // register-free: the form handles its answer (Zapis.jsx's register), success and refusal alike.
+      await onRegisterFree()
+      return
+    }
     try {
       const r = await callFunction(endpoint, {
         ...body,
+        ...(donation ? { donation: cart.donation } : {}),
         displayedTotal: m.displayedTotal,
       })
       settled()
@@ -115,11 +149,16 @@ export default function Podsumowanie({
         navigate(orderPath(err.orderId), { replace: true })
         return
       }
+      if (err.field === 'donation') {
+        setDonationError(err.message)
+        return
+      }
       if (err.code === 'price_changed') {
-        const repriced = repriceLines(lines, err.amounts)
+        const repriced = repriceCart(lines, err.amounts, { extrasTotal: cart.extrasTotal, donation: cart.donation })
         if (repriced) {
           setLines(repriced)
-          onRepriced?.(repricedByCategory(repriced))
+          // A line whose card holds a code is never fed back as a list price (N-1).
+          onRepriced?.(listPricesFrom(lines, repriced))
           setMessage(err.message)
           return
         }
@@ -151,6 +190,11 @@ export default function Podsumowanie({
                 <span className="min-w-0">
                   <span className="block text-apex-text-bright text-[17px] [overflow-wrap:anywhere]">{m.name}</span>
                   <MetaLine parts={[m.detail]} />
+                  {(m.extras ?? []).map((x) => (
+                    <span key={x.variantId ?? x.name} className="block text-[15px] text-apex-text [overflow-wrap:anywhere]" data-testid="checkout-extra">
+                      {extraLineLabel(x)}
+                    </span>
+                  ))}
                 </span>
               </li>
             ))}
@@ -158,31 +202,63 @@ export default function Podsumowanie({
         </div>
       )}
       <div>
-        {lines.map((l) => (
-          <div key={l.key} className={row} data-testid="checkout-line">
-            <span className="min-w-0">
-              <span className="block text-apex-text-bright text-[17px]">{l.name}</span>
-              <MetaLine parts={[l.competitionName, l.ageGroupLabel]} />
-            </span>
-            <span className="font-mono text-apex-text-bright whitespace-nowrap" data-testid="checkout-line-price">{formatPln(l.priceGrosze)}</span>
+        {lines.map((l, i) => (
+          <div key={l.key} className="py-2 border-b border-apex-border flex flex-col gap-1" data-testid="checkout-line">
+            <div className="flex justify-between gap-2.5 text-base">
+              <span className="min-w-0">
+                <span className="block text-apex-text-bright text-[17px]">{l.name}</span>
+                <MetaLine parts={[l.competitionName, l.ageGroupLabel]} />
+              </span>
+              <span className="font-mono text-apex-text-bright whitespace-nowrap" data-testid="checkout-line-price">{formatPln(cart.lines[i].price)}</span>
+            </div>
+            {cart.voucherLabels[i] && (
+              <span className="font-mono text-sm text-apex-yellow [overflow-wrap:anywhere]" data-testid="checkout-voucher">{cart.voucherLabels[i]}</span>
+            )}
+            {/* RB3 lists each member's extras under the member, above; the fee line carries them for the amounts. */}
+            {!team && (l.extras ?? []).map((x) => (
+              <span key={x.variantId ?? x.name} className="text-[15px] text-apex-text [overflow-wrap:anywhere]" data-testid="checkout-extra">
+                {extraLineLabel(x)}
+              </span>
+            ))}
           </div>
         ))}
       </div>
+      {donation && (
+        <DonationChips goal={donation.goal} chip={chip} other={other} error={shownDonationError} disabled={busy}
+          onChip={(k) => { setChip(k); setDonationError(null) }} onOther={(t) => { setOther(t); setDonationError(null) }} />
+      )}
       <div data-testid="checkout-amounts">
+        {itemized && (
+          <>
+            <div className={row} data-testid="amount-entries">
+              <span>Opłaty startowe</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(cart.entryTotal)}</span>
+            </div>
+            {cart.extrasTotal > 0 && (
+              <div className={row} data-testid="amount-extras">
+                <span>Dodatki</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(cart.extrasTotal)}</span>
+              </div>
+            )}
+            {cart.donation > 0 && (
+              <div className={row} data-testid="amount-donation">
+                <span>Darowizna na cel</span><span className="font-mono text-apex-text-bright whitespace-nowrap">{formatPln(cart.donation)}</span>
+              </div>
+            )}
+          </>
+        )}
         <div className="flex justify-between gap-2.5 py-2 text-xl font-bold text-apex-text-bright" data-testid="checkout-total">
           <span>Razem</span><span className="font-mono text-apex-yellow whitespace-nowrap">{m.totalLabel}</span>
         </div>
       </div>
       {!open && <p className="text-apex-red text-base">Zapisy są zamknięte.</p>}
-      {open && !payable && <p className="text-apex-red text-base" data-testid="paying-closed">{PAYING_CLOSED_TEXT}</p>}
+      {open && !payable && !free && <p className="text-apex-red text-base" data-testid="paying-closed">{PAYING_CLOSED_TEXT}</p>}
       {message && <p className="text-apex-red text-base" role="alert">{message}</p>}
       <button type="button" onClick={pay} disabled={m.payDisabled} className={primaryBtn} data-testid="pay">
-        {busy ? 'Chwileczkę…' : 'Zapłać'}
+        {busy ? 'Chwileczkę…' : free ? 'Zapisz się' : 'Zapłać'}
       </button>
       {team && <p className="text-base text-apex-text">Skład możesz zmieniać do zamknięcia zapisów.</p>}
-      <p className="text-sm text-apex-muted">
+      {!free && <p className="text-sm text-apex-muted">
         Płatność obsługuje dpay. Opłaty startowe pobieramy w imieniu i na rzecz organizatora: {raw.club?.name ?? 'klubu'}.
-      </p>
+      </p>}
     </div>
   )
 }

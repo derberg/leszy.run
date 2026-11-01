@@ -2,39 +2,19 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
 import { clientIp } from '../_shared/organizer.js'
 import { dpayConfig } from '../_shared/dpay.js'
-import { orderAmounts } from '../_shared/registration/money.js'
+import { cartMakesMoney } from '../_shared/registration/cart.js'
 import {
-  json, NOT_FOUND, ORDER_REFUSALS, PENDING_ORDER, PRICE_CHANGED, fullRefusal, groupRefusal, orderThrottles, prepareRegistration, rpcPeople,
+  json, NOT_FOUND, ORDER_REFUSALS, PENDING_ORDER, PRICE_CHANGED, cartChangedAmounts, cartRefusal, fullRefusal, groupRefusal, orderThrottles,
+  prepareRegistration, rpcPeople,
 } from '../_shared/registration/registrationRequest.js'
 import {
   DPAY_DOWN, PAYMENTS_OFF, ownPendingOrder, sendOrderConfirmation, startPaymentAttempt,
 } from '../_shared/registration/orderFlow.js'
 import { issueOrderConsentRequests } from '../_shared/registration/consentRequests.js'
 
-// The amounts behind a price_changed refusal: each person at their own competition's current
-// price from the public read model (the same tier choice create_order makes, D4-27) through
-// money.js, with `entryPrices` one per person in request order, so RA4 re-prices every line.
-// When they do not reproduce the RPC's total (the price moved again in between) only the total
-// goes back.
-async function currentAmounts(admin, settings, people, total) {
-  try {
-    const { data } = await admin.rpc('registration_raw', { p_event_id: settings.event_id })
-    const priceOf = new Map((data?.competitions ?? []).map((c) => [String(c.categoryId).toLowerCase(), c.priceGrosze]))
-    const entryPrices = people.map((p) => priceOf.get(String(p.categoryId).toLowerCase()))
-    if (entryPrices.every(Number.isSafeInteger)) {
-      const a = orderAmounts({ entryPrices })
-      if (a.total === total) {
-        return { entryPrices, entryTotal: a.entryTotal, extrasTotal: 0, donation: 0, total }
-      }
-    }
-  } catch (err) {
-    console.error('create-order: amounts for price_changed:', err?.message)
-  }
-  return { total }
-}
-
 // POST { people: [{ categoryId, person, guardianConsent? }], buyer?, acceptedConsentIds, serviceRegulamin,
-//        displayedTotal, code? }, or Plan 3's { categoryId, person, … } (a group of one)
+//        displayedTotal, code?, donation? }, or Plan 3's { categoryId, person, … } (a group of one); each
+//        person may carry voucherCode and extras [{ variantId, qty }] (Plan 7)
 //   → 201 { data: { orderId, redirectUrl } }, or { data: { orderId, status: 'paid' } } when the total is 0.
 // A group is one order, each person at their own competition's price (D4-27). register-free's body
 // plus the total the page showed, which is only compared with the server's (409 price_changed with
@@ -65,12 +45,17 @@ Deno.serve(async (req) => {
   try {
     const ip = await clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
-      pricing: (settings) => (settings.pricing_mode === 'free' ? 'free_event' : null),
+      // Ruling 7: a free event takes an order only for its extras or a donation. With the money
+      // features off (flags.js) a free event is free and a paid one waits for PAID_REGISTRATION_ENABLED.
+      pricing: (settings, cart, { moneyLive }) => {
+        if (!moneyLive) return settings.pricing_mode === 'free' ? 'free_event' : 'payments'
+        return settings.pricing_mode === 'free' && !cartMakesMoney(cart) ? 'free_event' : null
+      },
       refusals: ORDER_REFUSALS,
       throttles: orderThrottles(ip),
     })
     if (prepared.response) return prepared.response
-    const { competitions, settings, people, consentIds, email, profileId, buyerName, legacy } = prepared
+    const { competitions, settings, people, consentIds, email, profileId, buyerName, legacy, cart } = prepared
     withCookie = prepared.withCookie
     const answer = (payload, status) => json(payload, status, req, withCookie)
 
@@ -88,15 +73,17 @@ Deno.serve(async (req) => {
       p_profile_id: profileId,
       p_buyer_email: email,
       p_displayed_total: displayedTotal,
-      p_meta: { consentIds, buyerName, ip, userAgent: req.headers.get('user-agent') || null },
+      p_meta: { consentIds, buyerName, ip, userAgent: req.headers.get('user-agent') || null, donation: cart.donation },
     })
     if (error) {
       const msg = error.message ?? ''
       if (msg === 'not_found') return answer(NOT_FOUND, 404)
+      const refusedCart = cartRefusal(msg)
+      if (refusedCart) return answer(refusedCart[1], refusedCart[0])
       if (msg === 'session_required') return answer({ error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }, 401)
       const changed = /^price_changed:(\d+)$/.exec(msg)
       if (changed) {
-        const amounts = await currentAmounts(admin, settings, people, Number(changed[1]))
+        const amounts = await cartChangedAmounts(admin, settings, people, cart.donation, Number(changed[1]))
         return answer({ error: PRICE_CHANGED, code: 'price_changed', amounts }, 409)
       }
       if (/^duplicate:\d+$/.test(msg)) {

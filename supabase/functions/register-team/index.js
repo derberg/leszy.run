@@ -11,7 +11,8 @@ import {
 import { issueConsentRequests, issueOrderConsentRequests } from '../_shared/registration/consentRequests.js'
 
 // POST { categoryId, teamName, members: [{ person, leg?, guardianConsent? }], membersConsent,
-//        acceptedConsentIds, serviceRegulamin, displayedTotal, code?, website? }
+//        acceptedConsentIds, serviceRegulamin, displayedTotal, code?, website?, voucherCode?, donation? }
+//   (Plan 7: the team's voucherCode is the team line's; each member may carry extras [{ variantId, qty }])
 //   → 201 { data: { orderId, teamId, redirectUrl } }, or { data: { teamId, status: 'confirmed' } }
 //     (with orderId for a 0 zł fee on a paid event, D5-23).
 // Member 0 is the captain: the session must be that address, otherwise the e-mail code for it logs
@@ -45,12 +46,13 @@ Deno.serve(async (req) => {
     const ip = await clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
       team: true,
-      pricing: () => null,
+      // A paid team waits for PAID_REGISTRATION_ENABLED while the money features are off (flags.js).
+      pricing: (settings, cart, { moneyLive }) => (!moneyLive && settings.pricing_mode !== 'free' ? 'payments' : null),
       refusals: TEAM_REFUSALS,
       throttles: orderThrottles(ip),
     })
     if (prepared.response) return prepared.response
-    const { competition, settings, people, teamName, consentIds, email, profileId, buyerName } = prepared
+    const { competition, settings, people, teamName, consentIds, email, profileId, buyerName, cart } = prepared
     withCookie = prepared.withCookie
     const answer = (payload, status) => json(payload, status, req, withCookie)
 
@@ -69,7 +71,10 @@ Deno.serve(async (req) => {
       p_profile_id: profileId,
       p_buyer_email: email,
       p_displayed_total: displayedTotal,
-      p_meta: { consentIds, buyerName, ip, userAgent: req.headers.get('user-agent') || null },
+      p_meta: {
+        consentIds, buyerName, ip, userAgent: req.headers.get('user-agent') || null,
+        donation: cart.donation, ...(cart.voucherCode ? { voucherCode: cart.voucherCode } : {}),
+      },
     })
     if (error) {
       const msg = error.message ?? ''
@@ -77,7 +82,7 @@ Deno.serve(async (req) => {
         const pendingId = await ownPendingOrder(admin, settings.event_id, people, profileId)
         if (pendingId) return answer({ error: PENDING_ORDER, code: 'pending_order', orderId: pendingId }, 409)
       }
-      const refused = await teamRefusal(admin, error, { competition, people, email })
+      const refused = await teamRefusal(admin, error, { competition, people, email, settings, cart })
       if (refused) return answer(refused[1], refused[0])
       throw error
     }

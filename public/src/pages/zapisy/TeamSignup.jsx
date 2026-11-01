@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import useAuth, { clearAuthCache, resolveUser } from '../../hooks/useAuth.js'
 import { clearFavoritesCache } from '../../hooks/useFavorites.js'
 import { clearNotificationsCache } from '../../hooks/useNotifications.js'
-import { forgetPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
+import { forgetPublicRegistrationEvent, reloadPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction, requestCode, verifyCode } from '../../lib/auth.js'
 import { afterRegistrationPath } from '../../lib/inviteLink.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
@@ -12,8 +12,12 @@ import {
 } from '../../lib/personFormModel.js'
 import {
   updatePerson, setCardOpen, setGuardianConsent, cardVariants, effectivePerson, cardEmpty, cardName, claimedEmail,
-  erroredCards, fixMessage, formStep, LIST_STEP,
+  erroredCards, fixMessage, formStep, LIST_STEP, setCardVoucher, setCardExtra, draftOrdersExtras,
 } from '../../lib/groupDraft.js'
+import { donationsOffered, orderableExtras, pickedExtras } from '../../lib/cartModel.js'
+import { checkVoucherCode } from '../../lib/voucherCheck.js'
+import { discountedPrice, voucherLineLabel } from '@registration/pricing.js'
+import { normalizeCode } from '@registration/vouchers.js'
 import {
   ADULT_EMAIL_NOTE, initTeam, setSize, droppedBy, moveMember, removeMember, squadCards, toTeamRequest, teamContext, checkTeam, checkCaptain,
   firstOpenMember, memberAfter, memberAgeLabel, teamFailure, repricedFee,
@@ -42,10 +46,20 @@ import { formPath } from './RegistrationEventPage.jsx'
 // a free team, or a 0 zł fee, is registered from the list. The draft is in memory only (teamDraft.js),
 // and once RB1 is left the page asks before it is closed. `preview` (organizer „Podgląd jako
 // zawodnik”) renders RB1 with the way on disabled.
+//
+// Plan 7 (task 8a fix round): RB1 takes the team line's one discount code (on the captain's step,
+// kept on the captain's card, checked by check-voucher when RB1 is left; a 429 or no connection
+// leaves it to register-team), and each member's step its extras. RB3's fee line goes through
+// checkoutCart with the code and every member's extras, which RB3 lists under each member. The
+// team goes through RB3 whenever it can cost money (a fee, an extra, or a charity event's chips);
+// a total that stays 0 on a free team registers from there.
 
 const stepTitle = (legOrder, n) => (legOrder ? `Zmiana ${n}` : `Osoba ${n}`)
 
-export default function TeamSignup({ raw, categoryId, preview = false, backTo }) {
+export default function TeamSignup({ raw: rawProp, categoryId, preview = false, backTo }) {
+  // The snapshot read again after the server said it is stale (a sold-out extra; review M-1).
+  const [freshRaw, setFreshRaw] = useState(null)
+  const raw = freshRaw ?? rawProp
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const model = useMemo(() => eventPageModel(raw), [raw])
@@ -76,6 +90,8 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
   // The fee after a price_changed: a trip back to RB2 and on to RB3 shows the server's.
   const [fee, setFee] = useState(null)
   const [verifiedEmail, setVerifiedEmail] = useState(null)
+  // check-voucher's note on a team code it could not judge (429, no connection).
+  const [voucherNote, setVoucherNote] = useState(null)
   // RB1 has been left: from here on closing the tab loses a squad.
   const [leftCaptain, setLeftCaptain] = useState(false)
   // The card asking „Usunąć tę osobę?”, and the smaller size asking „Usunąć z drużyny: …?” on RB1.
@@ -133,7 +149,13 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
   const variants = cardVariants(draft, today)
   const open = row?.state === 'open'
   const priceGrosze = fee ?? competition.priceGrosze ?? 0
-  const paid = raw.pricingMode !== 'free' && priceGrosze !== 0
+  const feePaid = raw.pricingMode !== 'free' && priceGrosze !== 0
+  // What each member orders, of what the page still offers: RB3 shows it and the request carries it.
+  const picksOf = (c) => pickedExtras(c.extras, orderableExtras(raw.extras, categoryId))
+  const extrasOf = (c) => picksOf(c).map((x) => ({ variantId: x.variantId, qty: x.qty }))
+  const ordersExtras = draftOrdersExtras(draft, extrasOf)
+  // Through RB3 when the team can cost money (Plan 7).
+  const paid = feePaid || ordersExtras || donationsOffered(raw)
   const email = claimedEmail(draft).trim()
   const codeNeeded = needsCode(user?.email, email, verifiedEmail)
   const captainKey = draft.cards[0].key
@@ -191,6 +213,12 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
   }
 
   function fail(err) {
+    // A sold-out or withdrawn extra: the page's copy of the stock is stale (M-1).
+    if (err?.field === 'extras') {
+      reloadPublicRegistrationEvent(raw.slug).then((r) => { if (r.status === 'ok') setFreshRaw(r.raw) })
+    }
+    // The team code register-team refused is no longer accepted.
+    if (err?.field === 'voucherCode') setDraft((d) => setCardVoucher(d, captainKey, { state: 'error' }))
     const f = teamFailure(err, draft, today)
     if (f.step === 'code') {
       // The session is gone: the earlier verification no longer counts.
@@ -219,9 +247,46 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
     }
   }
 
+  /**
+   * The team code, checked by check-voucher. → { ok, error }. A 429 or no connection leaves it
+   * unchecked with a note and does not hold RB1 (register-team decides; review I-1).
+   */
+  async function checkTeamCode() {
+    const code = (draft.cards[0].voucher?.code ?? '').trim()
+    if (!code) return { ok: true }
+    const same = (d) => d.cards[0].voucher.code.trim() === code
+    setDraft((d) => (same(d) ? setCardVoucher(d, captainKey, { state: 'checking' }) : d))
+    setVoucherNote(null)
+    const r = await checkVoucherCode({ slug: raw.slug, categoryId, code })
+    if (r.state === 'ok') {
+      setDraft((d) => (same(d) ? setCardVoucher(d, captainKey, { state: 'ok', percent: r.percent, price: r.price }) : d))
+      clearErrors(captainKey, ['voucherCode'])
+      return { ok: true }
+    }
+    if (r.state === 'unchecked') {
+      setDraft((d) => (same(d) ? setCardVoucher(d, captainKey, { state: 'idle' }) : d))
+      clearErrors(captainKey, ['voucherCode'])
+      setVoucherNote(r.note)
+      return { ok: true }
+    }
+    setDraft((d) => (same(d) ? setCardVoucher(d, captainKey, { state: 'error' }) : d))
+    setErrors((e) => ({ ...e, [captainKey]: { ...(e[captainKey] ?? {}), voucherCode: r.error } }))
+    return { ok: false, error: r.error }
+  }
+
   async function leaveCaptain() {
     if (preview || busy || !open || !consentsComplete(consents, accepted, serviceAccepted)) return undefined
     setMessage(null)
+    const v = draft.cards[0].voucher
+    if (v.code.trim() && v.state !== 'ok') {
+      setBusy(true)
+      const checked = await checkTeamCode()
+      setBusy(false)
+      if (!checked.ok) {
+        errorFocus.current = captainKey
+        return undefined
+      }
+    }
     const r = checkCaptain(draft, { context, now: new Date() })
     if (!r.ok) {
       show({ to: 'captain', errors: r.errors, nameError: r.nameError, message: r.groupError ?? 'Popraw zaznaczone pola.' })
@@ -332,7 +397,7 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
     setBusy(true)
     try {
       const r = await callFunction('register-team', toTeamRequest(draft, {
-        consents, legOrder, displayedTotal: priceGrosze, today, website: honeypot,
+        consents, legOrder, displayedTotal: priceGrosze, today, website: honeypot, extrasOf,
       }))
       settled()
       // A 0 zł fee on a paid event has an order (D5-23). The honeypot's 200 carries no data.
@@ -397,12 +462,25 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
   }
 
   if (step === 'payment' && !preview) {
+    const teamVoucher = draft.cards[0].voucher
     return (
       <Podsumowanie raw={raw} open={open} endpoint="register-team" stepLabel="KROK 3/3"
-        body={toTeamRequest(draft, { consents, legOrder, today, website: honeypot })}
-        team={{ name: draft.teamName.trim(), members: squadCards(draft).map(({ card, index }) => ({ key: card.key, name: personName(index), detail: rowDetail(index) })) }}
-        lines={[{ key: 'fee', categoryId, name: `${row?.name ?? competition.name} · drużyna ${members}-osobowa`, priceGrosze }]}
-        onRepriced={(byCategory) => setFee(byCategory[categoryId] ?? null)}
+        body={toTeamRequest(draft, { consents, legOrder, today, website: honeypot, extrasOf })}
+        team={{
+          name: draft.teamName.trim(),
+          members: squadCards(draft).map(({ card, index }) => ({ key: card.key, name: personName(index), detail: rowDetail(index), extras: picksOf(card) })),
+        }}
+        lines={[{
+          key: 'fee', categoryId, name: `${row?.name ?? competition.name} · drużyna ${members}-osobowa`, priceGrosze,
+          hasCode: teamVoucher.code.trim() !== '',
+          voucher: teamVoucher.state === 'ok' && priceGrosze > 0
+            ? { code: normalizeCode(teamVoucher.code) ?? teamVoucher.code.trim(), percent: teamVoucher.percent } : null,
+          extras: draft.cards.flatMap(picksOf),
+        }]}
+        donation={donationsOffered(raw) ? { goal: raw.charityGoal ?? null } : null}
+        onRegisterFree={!feePaid && !ordersExtras ? () => registerTeam() : null}
+        // Absent (a coded fee is never fed back, N-1): the current fee stays (N-2).
+        onRepriced={(byCategory) => { if (categoryId in byCategory) setFee(byCategory[categoryId]) }}
         onBack={() => { setMessage(null); setStep('squad'); setAt(LIST_STEP) }} onFailure={fail} />
     )
   }
@@ -418,7 +496,26 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
   }
 
   const errorLine = message && <p className="text-apex-red text-base" role="alert" data-testid="form-error">{message}</p>
-  const priceLine = row?.priceLabel && (paid ? `${row.priceLabel} / drużyna` : row.priceLabel)
+  const priceLine = row?.priceLabel && (feePaid ? `${row.priceLabel} / drużyna` : row.priceLabel)
+  // Plan 7: the team line's code on RB1 (a priced fee, or a code still held), and a member's extras.
+  const offered = orderableExtras(raw.extras, categoryId)
+  const extrasProps = (c) => (offered.length ? {
+    extras: offered, picks: c.extras,
+    onPick: (extraId, patch) => { setDraft((d) => setCardExtra(d, c.key, extraId, patch)); clearErrors(c.key, ['extras']) },
+  } : null)
+  const teamVoucher = draft.cards[0].voucher
+  const voucherProps = priceGrosze > 0 || teamVoucher.code.trim() ? {
+    value: teamVoucher,
+    note: voucherNote,
+    okLabel: teamVoucher.state === 'ok' && priceGrosze > 0
+      ? voucherLineLabel({
+        listPrice: priceGrosze, percent: teamVoucher.percent, code: normalizeCode(teamVoucher.code) ?? teamVoucher.code.trim(),
+        price: discountedPrice(priceGrosze, teamVoucher.percent),
+      })
+      : null,
+    onCode: (v) => { setDraft((d) => setCardVoucher(d, captainKey, { code: v })); clearErrors(captainKey, ['voucherCode']); setVoucherNote(null) },
+    onCheck: () => { checkTeamCode() },
+  } : null
   const banner = (
     <div className="border border-apex-yellow px-3.5 py-3 flex justify-between items-center gap-3" data-testid="group-competitions">
       <span className="text-lg font-bold text-apex-text-bright">{competition.name}</span>
@@ -469,7 +566,8 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
             competition={competition} raceDate={context.raceDate} reckoning={context.reckoning} ageGroups={context.ageGroups} disabled={busy}
             variant="self" idPrefix="p" ownHeading="Kapitan" prefill={authLoading ? {} : prefill}
             loginHref={`/login?from=${encodeURIComponent(formPath(raw.slug, categoryId))}`}
-            codeNote={codeNeeded ? 'Wyślemy na niego kod potwierdzający zapis.' : 'Jesteś zalogowany na ten adres — bez kodu.'} />
+            codeNote={codeNeeded ? 'Wyślemy na niego kod potwierdzający zapis.' : 'Jesteś zalogowany na ten adres — bez kodu.'}
+            voucher={voucherProps} extras={extrasProps(draft.cards[0])} />
         </div>
         <ConsentList consents={consents} accepted={accepted} onToggle={(id, v) => setAccepted((a) => ({ ...a, [id]: v }))}
           serviceAccepted={serviceAccepted} onService={setServiceAccepted} regulaminUrl={model.regulaminUrl} dataInfo={dataInfo} />
@@ -504,6 +602,7 @@ export default function TeamSignup({ raw, categoryId, preview = false, backTo })
         <PersonForm fields={fields} value={effectivePerson(draft, i, today)} onChange={change(c.key, i)} errors={errors[c.key] ?? {}}
           competition={competition} raceDate={context.raceDate} reckoning={context.reckoning} ageGroups={context.ageGroups} disabled={busy}
           variant={variants[i]} idPrefix={`p${n}`} prefill={null} codeNote={variants[i] === 'adult' ? ADULT_EMAIL_NOTE : undefined}
+          extras={extrasProps(c)}
           guardian={{
             name: cardName(draft, 0), email: draft.cards[0].person.email, checked: c.guardianConsent,
             onChange: (v) => { setDraft((d) => setGuardianConsent(d, c.key, v)); clearErrors(c.key, ['guardianConsent']) },

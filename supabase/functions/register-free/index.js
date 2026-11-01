@@ -6,8 +6,9 @@ import { eventPageUrl } from '../_shared/registration/slug.js'
 import { freeConfirmationEmail } from '../_shared/registration/emails.js'
 import { issueConsentRequests } from '../_shared/registration/consentRequests.js'
 import {
-  json, NOT_FOUND, REFUSALS, groupRefusal, prepareRegistration, rpcPeople,
+  json, NOT_FOUND, NOT_FREE_CART, REFUSALS, groupRefusal, prepareRegistration, rpcPeople,
 } from '../_shared/registration/registrationRequest.js'
+import { cartIsEmpty } from '../_shared/registration/cart.js'
 
 // Throttles (claim_throttle_slot): requests per address, 10 per hour, and per client IP, 20 per
 // hour (fix round 1, I-2). prepareRegistration adds the buyer's 30 people a day.
@@ -60,14 +61,15 @@ Deno.serve(async (req) => {
       ],
     })
     if (prepared.response) return prepared.response
-    const { competitions, settings, people, consentIds, profileId, email, buyerName, buyerFirstName, legacy } = prepared
+    const { competitions, settings, people, consentIds, profileId, email, buyerName, buyerFirstName, legacy, cart } = prepared
     withCookie = prepared.withCookie
 
     // ---- one transaction
     const { data, error } = await admin.rpc('register_free', {
       p_people: rpcPeople(people),
       p_profile_id: profileId,
-      p_meta: { consentIds, buyerName, ip, userAgent: req.headers.get('user-agent') || null },
+      // Plan 7: a code, an extra or a donation is forwarded so register_free refuses it (not_free).
+      p_meta: { consentIds, buyerName, ip, userAgent: req.headers.get('user-agent') || null, donation: cart.donation },
     })
     if (error) {
       const msg = error.message ?? ''
@@ -75,6 +77,8 @@ Deno.serve(async (req) => {
       if (msg === 'session_required') return json({ error: 'Wpisz kod wysłany na adres e-mail.', code: 'code_required' }, 401, req, withCookie)
       const group = await groupRefusal(admin, msg, { competitions, people, legacy, email })
       if (group) return json(group[1], group[0], req, withCookie)
+      // The event is free (checked above), so the RPC's not_free is the cart's.
+      if (msg === 'not_free' && !cartIsEmpty(cart)) return json({ error: NOT_FREE_CART, code: msg }, 409, req, withCookie)
       if (REFUSALS[msg]) {
         const [status, text] = REFUSALS[msg]
         return json({ error: text, code: msg }, status, req, withCookie)

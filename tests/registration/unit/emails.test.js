@@ -138,6 +138,12 @@ test('P-24 the refund e-mail says what happened for each confirm_order reason', 
   assert.match(paymentRefundedEmail({ event, order, amount: 6000, reason: 'cancelled' }).text, /anulowaniu/)
 })
 
+test('V-26 D7-20 a late payment that cannot re-claim its code or its extra gets its own sentence', () => {
+  assert.match(paymentRefundedEmail({ event, order, amount: 9600, reason: 'voucher' }).text, /kod rabatowy został w tym czasie wykorzystany/)
+  assert.match(paymentRefundedEmail({ event, order, amount: 9600, reason: 'stock' }).text, /dodatek został w tym czasie wyprzedany/)
+  assert.throws(() => paymentRefundedEmail({ event, order, amount: 9600, reason: 'nope' }), /unknown refund reason/)
+})
+
 // P3-R15 re-review I2: an unpaid entry holds no place, so neither the reminder nor the expiry
 // notice may say a place is kept or released (CLAUDE.md: copy never says an unpaid entry holds a place).
 test('P-58 the reminder and the expiry notice never say an unpaid entry holds or releases a place', () => {

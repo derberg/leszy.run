@@ -9,6 +9,7 @@
 import { createHash } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { withFileUrls } from '../src/lib/eventFiles.js'
+import { moneyLiveForApi, withoutMoneyFeatures } from '../src/lib/moneyFeatures.js'
 
 // Same rule as isValidSlug() in _shared/registration/slug.js and the
 // registration_settings_slug_check constraint.
@@ -60,7 +61,9 @@ export default async function handler(req, res) {
     const { data, error } = await client().rpc('registration_public', { p_slug: slug })
     if (error) throw new Error(error.message)
     if (!data) return send(res, 404, { error: 'not found' }, CACHED)
-    const raw = withFileUrls(data, process.env.VITE_SUPABASE_URL.trim())
+    const live = moneyLiveForApi(process.env, req.headers?.['x-registration-money'] ?? null)
+    // Plan 7's donations and extras only once paid registration is on (moneyFeatures.js).
+    const raw = withFileUrls(live ? data : withoutMoneyFeatures(data), process.env.VITE_SUPABASE_URL.trim())
     // Changes only when the data does, so a page can skip a re-render.
     const version = createHash('sha1').update(JSON.stringify(raw)).digest('hex')
     send(res, 200, { version, generatedAt: new Date().toISOString(), ...raw }, { ...CACHED, ETag: `"${version}"` })

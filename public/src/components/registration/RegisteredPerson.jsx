@@ -63,9 +63,10 @@ function RemindConsent({ registrationId, name, onStale, sent: sentBefore = false
 /**
  * @param {{ person: { role?, consentState?, mine? }, registrationId?: string, name: string,
  *   meta: Array<string|null>, showTag: boolean, testId: string, onStale?: () => void,
- *   reminded?: boolean, onReminded?: (registrationId: string) => void }} p
+ *   reminded?: boolean, onReminded?: (registrationId: string) => void, footer?: import('react').ReactNode }} p
+ * `footer`: what the page adds under the person (RA5's „Przekaż pakiet innej osobie →”).
  */
-export default function RegisteredPerson({ person, registrationId, name, meta, showTag, testId, onStale, reminded, onReminded }) {
+export default function RegisteredPerson({ person, registrationId, name, meta, showTag, testId, onStale, reminded, onReminded, footer }) {
   const tag = showTag ? consentTag(person) : null
   return (
     <div className="border border-apex-border-mid bg-apex-surface p-3.5" data-testid={testId}>
@@ -83,6 +84,7 @@ export default function RegisteredPerson({ person, registrationId, name, meta, s
       {tag && canRemind(person) && registrationId && (
         <RemindConsent registrationId={registrationId} name={name} onStale={onStale} sent={reminded} onSent={onReminded} />
       )}
+      {footer}
     </div>
   )
 }

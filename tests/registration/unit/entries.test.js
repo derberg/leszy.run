@@ -37,6 +37,16 @@ describe('entryStatusKey (O-01)', () => {
   }
 })
 
+describe('V-56 a package handed on after closes_at, with the runner still on the host', () => {
+  it('transferred_out with a live participant → withdraw_on_host', () => {
+    assert.equal(entryStatusKey({ status: 'transferred_out', participant: onHost }, NOW), 'withdraw_on_host')
+  })
+  it('transferred_out whose participant was removed or withdrawn → transferred', () => {
+    assert.equal(entryStatusKey({ status: 'transferred_out', participant: { removed_at: EARLIER, withdrawn_at: null } }, NOW), 'transferred')
+    assert.equal(entryStatusKey({ status: 'transferred_out', participant: { removed_at: null, withdrawn_at: EARLIER } }, NOW), 'transferred')
+  })
+})
+
 describe('entryStatusKey contract (F5)', () => {
   it('a confirmed row without paymentStatus throws instead of reading free', () => {
     assert.throws(() => entryStatusKey({ status: 'confirmed' }, NOW), /missing_payment_status/)

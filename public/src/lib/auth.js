@@ -65,6 +65,8 @@ async function callEdge(name, body, { keepalive = false } = {}) {
     // register-team keys the same field errors by member.
     if (data.errors) err.errors = data.errors
     if (data.buyer) err.buyer = data.buyer
+    // Plan 7: a cart refusal names the field of the person (`index`) it is about: voucherCode, extras, donation.
+    if (typeof data.field === 'string') err.field = data.field
     const retryAfter = Number(res.headers.get('retry-after'))
     if (Number.isFinite(retryAfter) && retryAfter > 0) err.retryAfterSec = retryAfter
     throw err

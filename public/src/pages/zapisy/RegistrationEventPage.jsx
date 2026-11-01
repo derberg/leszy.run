@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import { eventPageModel, statParts } from '../../lib/eventPageModel.js'
+import { orderableExtras, soldOut } from '../../lib/cartModel.js'
 import { labelCls, linkCls } from '../../components/registration/ui.js'
 import CoursePanel from '../../components/registration/CoursePanel.jsx'
 
@@ -54,13 +55,29 @@ function deadlineText(m, opensLabel) {
   return `Zapisy do ${m.closesLabel}`
 }
 
-function CompetitionRow({ c, href, opensLabel }) {
+// Plan 7: the extras a competition offers, under its name („Koszulka 45,00 zł”), still orderable
+// today; one with nothing left reads „Czapka · brak”.
+function ExtrasLine({ extras }) {
+  if (!extras.length) return null
+  return (
+    <small className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-sm text-apex-text font-medium" data-testid="competition-extras">
+      {extras.map((x) => (
+        <span key={x.id} className="[overflow-wrap:anywhere]" data-testid="competition-extra">
+          {soldOut(x) ? `${x.name} · brak` : <>{x.name} <span className="font-mono text-apex-yellow whitespace-nowrap">{x.priceLabel}</span></>}
+        </span>
+      ))}
+    </small>
+  )
+}
+
+function CompetitionRow({ c, href, opensLabel, extras = [] }) {
   const body = (
     <>
       <span className="min-w-0">
         <strong className="block text-[19px] text-apex-text-bright font-bold">{c.name}</strong>
         {c.startLabel && <small className="block text-sm text-apex-muted font-medium">{c.startLabel}</small>}
         {c.teamLine && <small className="block text-sm text-apex-text font-medium" data-testid="team-line">{c.teamLine}</small>}
+        <ExtrasLine extras={extras} />
       </span>
       <span className="text-right shrink-0">
         {c.state === 'open' && (
@@ -194,6 +211,7 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
         <div className="flex flex-col gap-2">
           {m.competitions.map((c) => (
             <CompetitionRow key={c.categoryId} c={c} opensLabel={opensLabel}
+              extras={orderableExtras(raw.extras, c.categoryId, now ?? new Date())}
               href={c.state === 'open' && form ? form(c.categoryId) : null} />
           ))}
         </div>

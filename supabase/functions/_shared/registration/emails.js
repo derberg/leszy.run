@@ -9,10 +9,10 @@ const TZ = 'Europe/Warsaw'
 const dayFmt = new Intl.DateTimeFormat('pl-PL', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' })
 const timeFmt = new Intl.DateTimeFormat('pl-PL', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+export const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
 /** '2026-11-28' → '28.11.2026' (a calendar date, no time zone involved). */
-function isoDay(iso) {
+export function isoDay(iso) {
   if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return null
   const [y, m, d] = iso.slice(0, 10).split('-')
   return `${d}.${m}.${y}`
@@ -26,13 +26,17 @@ function warsawDateTime(iso) {
   return `${dayFmt.format(d)}, ${timeFmt.format(d)}`
 }
 
-const textBlock = (pairs) => pairs.map(([k, v]) => `${k}: ${v}`)
-const htmlBlock = (pairs) => `<p>${pairs.map(([k, v]) => `${escapeHtml(k)}: <strong>${escapeHtml(v)}</strong>`).join('<br>')}</p>`
-const link = (url, label) => `<p><a href="${escapeHtml(url)}">${escapeHtml(label)}</a></p>`
+export const textBlock = (pairs) => pairs.map(([k, v]) => `${k}: ${v}`)
+export const htmlBlock = (pairs) => `<p>${pairs.map(([k, v]) => `${escapeHtml(k)}: <strong>${escapeHtml(v)}</strong>`).join('<br>')}</p>`
+export const link = (url, label) => `<p><a href="${escapeHtml(url)}">${escapeHtml(label)}</a></p>`
 
 function personLines(lines) {
   return lines.map((l) => {
     const name = `${l.firstName ?? ''} ${l.lastName ?? ''}`.trim()
+    // A line whose package was handed on (Plan 7): the holder's name only, nothing else of theirs;
+    // after an organizer transfer not even that (ruling N-1).
+    if (l.transferred && (l.transferredBy === 'organizer' || !name)) return 'Pakiet przekazany przez organizatora'
+    if (l.transferred) return `${name} — przejął(-ęła) pakiet`
     const facts = [l.competition, l.ageGroupLabel ? `kategoria ${l.ageGroupLabel}` : null, l.startTime ? `start ${l.startTime}` : null]
       .filter(Boolean).join(', ')
     return `${name} — ${facts}`
@@ -166,6 +170,9 @@ const REFUND_REASONS = {
   duplicate: 'Płatność dotarła po wygaśnięciu zgłoszenia, a ten adres e-mail został w tym czasie zapisany ponownie.',
   cancelled: 'Płatność dotarła po anulowaniu zgłoszenia.',
   unavailable: 'Płatność dotarła, gdy zapisy na tę konkurencję nie były już prowadzone.',
+  // D7-20: an expired order's late payment could not take its code or its extras again (ruling 8).
+  voucher: 'Płatność dotarła po wygaśnięciu zgłoszenia, a Twój kod rabatowy został w tym czasie wykorzystany.',
+  stock: 'Płatność dotarła po wygaśnięciu zgłoszenia, a wybrany dodatek został w tym czasie wyprzedany.',
 }
 
 /** A payment refunded in full: reason 'late', 'double', or confirm_order's refund reason. */
@@ -199,7 +206,7 @@ export function paymentRefundedEmail({ event, order, amount, reason }) {
  * (spec 12.10). event { name }, person { firstName, lastName } (the entry, null names for a deleted
  * account), grosze (this refund), cancelled (the refund cancelled the entry), organizer { name }.
  */
-export function organizerRefundEmail({ event, person, grosze, cancelled, organizer }) {
+export function organizerRefundEmail({ event, person, grosze, cancelled, organizer, paidByOther = false }) {
   const amount = formatPln(grosze)
   const who = [person?.firstName, person?.lastName].filter(Boolean).join(' ')
   const entry = who ? `zgłoszenia: ${who}` : 'zgłoszenia'
@@ -209,7 +216,10 @@ export function organizerRefundEmail({ event, person, grosze, cancelled, organiz
     `organizator zawodów ${event.name}, ${organizer.name}, zwrócił ${amount} z opłaty za ${entry}.`,
     ...(cancelled ? ['', 'Zgłoszenie zostało anulowane.'] : []),
     '',
-    'Pieniądze wrócą tą samą drogą, którą zostały wysłane, zwykle w ciągu kilku dni roboczych.',
+    // A package taken over from somebody else (Plan 7): the money goes back to whoever paid.
+    paidByOther
+      ? 'Zwrot trafia do osoby, która zapłaciła za to zgłoszenie.'
+      : 'Pieniądze wrócą tą samą drogą, którą zostały wysłane, zwykle w ciągu kilku dni roboczych.',
     'Pytania o zwrot kieruj do organizatora: wystarczy odpowiedzieć na tę wiadomość.',
     '',
     organizer.name,
@@ -407,7 +417,8 @@ export function consentRequestEmail({ event, person, registeredBy, competition, 
     '<p>LESZY.RUN</p>',
   ].join('')
   const subject = `Zapisano Cię na ${event.name} — zaakceptuj regulamin`
-  return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html }
+  // The link carries the token in its fragment: no click-tracking redirect may rewrite it.
+  return { subject: reminder ? `Przypomnienie: ${subject}` : subject, text, html, noTracking: true }
 }
 
 // ---------------------------------------------------------------- teams (Plan 5)
@@ -417,6 +428,7 @@ function memberLine(m) {
     m.ageGroupLabel ? `kategoria ${m.ageGroupLabel}` : null,
     m.role === 'self' ? 'kapitan' : null,
     m.role === 'minor' ? 'opiekun: kapitan' : null,
+    m.transferred ? 'przejął(-ęła) pakiet' : null,
   ].filter(Boolean).join(', ')
   return facts ? `${fullName(m)} — ${facts}` : fullName(m)
 }

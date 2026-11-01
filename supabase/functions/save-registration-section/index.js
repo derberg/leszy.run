@@ -28,6 +28,12 @@ function rpcErrorResponse(error, req) {
   if (msg === 'price_locked') {
     return json({ error: 'Opłaty nie można zmienić: są już zapisy.', code: 'price_locked' }, 409, req)
   }
+  if (msg === 'extra_locked') {
+    return json({ error: 'Tego dodatku nie można tak zmienić: są już zamówienia. Cena i sprzedane warianty zostają, a limit nie spadnie poniżej sprzedanych.', code: 'extra_locked' }, 409, req)
+  }
+  if (msg === 'competition_linked') {
+    return json({ error: 'Tej konkurencji nie można usunąć: wskazują ją kody rabatowe albo dodatki. Najpierw je zmień.', code: 'competition_linked' }, 409, req)
+  }
   if (msg === 'consent_locked') {
     return json({ error: 'Tej zgody nie można już usunąć ani zmienić: zaakceptowali ją zapisani. Możesz dodać nową.', code: 'consent_locked' }, 409, req)
   }
@@ -63,6 +69,12 @@ async function teamCategoryIds(admin, eventId, staged) {
   return data.map((c) => c.category_id)
 }
 
+async function pendingPayload(admin, eventId) {
+  const { data, error } = await admin.from('registration_pending_changes').select('payload').eq('event_id', eventId).maybeSingle()
+  if (error) throw error
+  return data?.payload ?? {}
+}
+
 // POST { eventId, section, value } → 200 { data: { savedAt, …ids } }.
 // A draft is written straight to the tables. A published event is staged in
 // registration_pending_changes → 200 { data: { savedAt, changedFields } }; the
@@ -90,7 +102,16 @@ Deno.serve(async (req) => {
       return json({ error: 'Wydarzenie jest zamknięte.', code: 'not_draft' }, 409, req)
     }
 
-    const ctx = { state: settings.state, eventDate: settings.event_date }
+    // The event as it will be: the stored row, with a published event's staged basics and payments
+    // over it. Price tiers are checked against the window's Warsaw days (validateTiers), the transfer
+    // window and an extra's order date against the race date, and the payments patch against the
+    // stored transfer values (I-1). The publish checklist judges the merged event again.
+    const stagedPayload = staged ? await pendingPayload(admin, eventId) : {}
+    const live = { ...settings, ...(stagedPayload.basics ?? {}), ...(stagedPayload.payments ?? {}) }
+    const ctx = {
+      state: settings.state, eventDate: live.event_date, opensAt: live.opens_at, closesAt: live.closes_at,
+      transferEnabled: live.transfer_enabled, transferUntil: live.transfer_until,
+    }
     if (section === 'form' && value?.legOrder) ctx.teamCategoryIds = await teamCategoryIds(admin, eventId, staged)
     const checked = validateSection(section, value, ctx)
     if (!checked.ok) return json({ error: 'Popraw zaznaczone pola.', fields: checked.errors }, 422, req)

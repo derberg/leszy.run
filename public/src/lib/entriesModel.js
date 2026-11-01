@@ -69,18 +69,25 @@ export function entryCounts(rows, competitions) {
  * What the row's ⋯ menu offers, in menu order. A team row stands for the team: its people have
  * their own rows, which hold `edit` and the consent controls.
  * @param {object} row
- * @param {{ closed?: boolean, payingClosed?: boolean, raceDay?: boolean, isTeamRow?: boolean, full?: boolean }} [context]
+ * @param {{ closed?: boolean, payingClosed?: boolean, raceDay?: boolean, isTeamRow?: boolean, full?: boolean,
+ *   isCaptain?: boolean }} [context]
  *   `closed`: at or after closes_at. `payingClosed`: from an hour before closes_at, when online
  *   payment stops and the server refuses a reminder or an extension (`paying_closed`). `raceDay`:
  *   from 00:00 Warsaw on event_date. `full`: the row's competition has no place left, so the
- *   server refuses a payment reminder (`full`, D6-27).
+ *   server refuses a payment reminder (`full`, D6-27). `isCaptain`: the row is a team's captain.
  * @returns {string[]} from edit, remind_payment, extend, remind_consent, consent_office, message,
+ *   partner (Plan 7: a live person row, never a team row), transfer (Plan 7, ruling 4: a confirmed
+ *   adult's own row, a team member's only as captain, until the race day, after close too),
  *   refund, cancel, rename_team, squad
  */
-export function entryActions(row, { closed = false, payingClosed = closed, raceDay = false, isTeamRow = false, full = false } = {}) {
+export function entryActions(row, {
+  closed = false, payingClosed = closed, raceDay = false, isTeamRow = false, full = false, isCaptain = false,
+} = {}) {
   const live = isLive(row)
   const awaitingPayment = row.statusKey === 'awaiting' && !closed && !payingClosed
   const canRefund = !raceDay && row.statusKey !== 'transferred' && refundable(row) > 0
+  // Not while a refund of the entry waits for dpay: the RPCs refuse refund_pending (V-87).
+  const canTransfer = row.status === 'confirmed' && !raceDay && !isTeamRow && row.role !== 'minor' && (!row.team || isCaptain) && !row.refundPending
   return [
     ['edit', live && !closed && !isTeamRow],
     ['remind_payment', awaitingPayment && !full],
@@ -88,6 +95,8 @@ export function entryActions(row, { closed = false, payingClosed = closed, raceD
     ['remind_consent', awaitingConsent(row) && !isTeamRow],
     ['consent_office', awaitingConsent(row) && !isTeamRow],
     ['message', live],
+    ['partner', live && !isTeamRow],
+    ['transfer', canTransfer],
     ['refund', canRefund],
     ['cancel', live],
     ['rename_team', live && isTeamRow],
@@ -148,6 +157,36 @@ export function competitionChips(rows, competitions, teams = null) {
 }
 
 /**
+ * The „Partnerzy” chips (Plan 7): „Wszyscy” and one per partner of the event. The number is the
+ * server's live count (`partners[].count`: live entries attributed), never the rows a filter shows:
+ * a package handed on keeps its partner on the transferred-out row too, and a cancelled entry
+ * brought nothing, so counting rows would overstate what a partner brought (9b I-1). None while the
+ * event has no partner. `rows` is kept for the call shape; the filter still shows every row.
+ * @param {object[]} _rows
+ * @param {{ id: string, name: string, count: number }[]} partners list-event-registrations' `partners`
+ * @returns {{ id: string|null, label: string }[]}
+ */
+export function partnerChips(_rows, partners = []) {
+  if (!partners.length) return []
+  return [{ id: null, label: 'Wszyscy' }, ...partners.map((p) => ({ id: p.id, label: `${p.name} · ${p.count ?? 0}` }))]
+}
+
+/**
+ * The competitions TransferDialog offers: the row's `transferTo` (list-event-registrations: the
+ * same price in its frozen tier), in the event's order. Without that list, its own competition. The
+ * own competition is offered even when it is hidden, which `competitions` (the visible ones) leaves
+ * out: apply_transfer allows a move within a hidden competition (9b I-2).
+ * @param {object} row
+ * @param {{ id: string, name: string }[]} competitions the visible ones, in the event's order
+ */
+export function transferTargets(row, competitions) {
+  const ids = new Set(row.transferTo ?? [row.categoryId])
+  const shown = competitions.filter((c) => ids.has(c.id))
+  const ownHidden = ids.has(row.categoryId) && !competitions.some((c) => c.id === row.categoryId)
+  return ownHidden ? [{ id: row.categoryId, name: row.competition }, ...shown] : shown
+}
+
+/**
  * The status chips, each counting the rows its filter shows. „Do wycofania w pomiarze” only while
  * somebody is to be withdrawn.
  * @returns {{ key: string|null, label: string }[]}
@@ -185,6 +224,8 @@ export function actionLabel(action, row, { isTeamRow = false, isCaptain = false 
       return row.statusKey === 'awaiting' ? 'Anuluj nieopłacone zgłoszenie' : 'Anuluj zgłoszenie'
     case 'rename_team': return 'Zmień nazwę drużyny'
     case 'squad': return 'Skład drużyny'
+    case 'partner': return 'Partner'
+    case 'transfer': return 'Przekaż pakiet'
     default: throw new Error(`unknown action: ${action}`)
   }
 }

@@ -7,11 +7,12 @@ import { sendEmail } from '../_shared/email.js'
 import { isUuid, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { loadOrderView, orderEmailArgs } from '../_shared/registration/orderFlow.js'
 import { paymentReminderEmail } from '../_shared/registration/emails.js'
-import { publicSite } from '../_shared/registration/consentRequests.js'
+import { issueConsentRequests, publicSite } from '../_shared/registration/consentRequests.js'
 import { validatePerson } from '../_shared/registration/person.js'
 import { personContexts } from '../_shared/registration/registrationRequest.js'
 import { TEAM_NAME_MESSAGE } from '../_shared/registration/team.js'
 import { releaseSlot, sendOnAllowance } from '../_shared/registration/organizerMail.js'
+import { callTransferRpc, organizerTransferRefusal, sendAcceptedTransferEmail } from '../_shared/registration/transfers.js'
 
 function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -22,10 +23,12 @@ function json(body, status, req, headers = {}) {
 
 const NOT_FOUND = { error: 'Not found' }
 const DAY = 86400
+// An organizer bringing a person in (an organizer transfer, like a squad edit in team-squad).
+const ORGANIZER_PEOPLE_PER_DAY = 100
 // Online payment stops an hour before closes_at (spec 14.10, create_order's paying_closed).
 const PAYING_CLOSES_BEFORE_MS = 3600_000
 const FIELD_MESSAGE = 'Sprawdź to pole.'
-const ACTIONS = ['extend', 'remind_payment', 'cancel', 'edit', 'rename_team']
+const ACTIONS = ['extend', 'remind_payment', 'cancel', 'edit', 'rename_team', 'partner', 'transfer']
 // The fields „Edytuj dane” may change (ruling 7). Never the e-mail: the one-start key and the account.
 const EDITABLE = ['firstName', 'lastName', 'birthDate', 'gender', 'phone', 'city', 'club', 'nationality', 'iceName', 'icePhone']
 
@@ -39,6 +42,7 @@ const REFUSALS = {
   paying_closed: [409, 'Płatność online jest już zamknięta: kończy się godzinę przed zamknięciem zapisów.'],
   no_address: [409, 'Zamawiający nie ma już adresu e-mail.'],
   already_cancelled: [409, 'To zgłoszenie jest już anulowane.'],
+  transferred: [409, 'Pakiet został przekazany innej osobie.'],
   not_live: [409, 'To zgłoszenie nie jest już aktywne.'],
   payment_received: [409, 'Płatność za to zgłoszenie jest w toku. Spróbuj za kilka minut.'],
   below_team_min: [409, 'Drużyna miałaby za mało osób. Anuluj kapitana, żeby anulować całą drużynę.'],
@@ -51,6 +55,7 @@ const REFUSALS = {
   invalid_team_name: [422, TEAM_NAME_MESSAGE],
   team_name_taken: [409, 'Ta nazwa drużyny jest już zajęta.'],
   team_inactive: [409, 'To zgłoszenie nie jest już aktywne.'],
+  invalid_partner: [422, 'Nieznany partner.'],
   not_found: [404, NOT_FOUND.error],
 }
 
@@ -169,6 +174,17 @@ async function checkEdit(admin, settings, registrationId, fields) {
 //                   `fields`; 409 edits_closed after closes_at.
 //   rename_team     { teamId, name }                      → 200 { data: { name } }
 //                   409 team_name_taken, 422 invalid_team_name.
+//   partner         { registrationId, partnerId | null } → 200 { data: { partnerId, changed } }
+//                   B3 „Partner”: attributes a live entry to one of the event's partners, or clears
+//                   it (Plan 7). 409 not_live, 422 invalid_partner (unknown or another event's)
+//                   with `fields: { partnerId }`.
+//   transfer        { registrationId, person, categoryId } → 200 { data: { registrationId,
+//                   consentState: 'awaiting', hostWithdraw, consentRequestSent, holderNotified } }
+//                   organizer_transfer (ruling 4, any time before 00:00 Warsaw on the race day),
+//                   then Plan 4's consent request to the new adult, naming the club as the source
+//                   of the data, and „Pakiet przekazany” to the old holder (ruling N-1: never the new holder's name
+//                   or address). 422 invalid_person with `fields`, 409 race_day / recipient_minor /
+//                   price_differs / duplicate / pending_elsewhere / not_transferable / gone / …
 // The owner or an admin of the event's club: a member 403, an outsider or a disabled club 404, an
 // unknown target 404. Every change writes one organizer_actions row naming its target; no personal
 // value goes into the payload or a log.
@@ -251,6 +267,86 @@ Deno.serve(async (req) => {
       // Which fields, never their values: the audit keeps no personal data the purge would miss.
       await log('registration_edited', target.registrationId, { fields: checked.keys, changed: data?.changed === true })
       return json({ data: { changed: data?.changed === true, ageGroupLabel: data?.ageGroupLabel ?? null } }, 200, req)
+    }
+
+    if (action === 'partner') {
+      // Clearing takes an explicit null: a missing or misnamed key must not wipe the attribution.
+      // Every 422 names the field, so PartnerDialog marks the choice (9b).
+      const partnerFields = () => ({ partnerId: REFUSALS.invalid_partner[1] })
+      if (!('partnerId' in body)) return refuse(req, 'invalid_partner', partnerFields())
+      const { partnerId } = body
+      if (partnerId !== null && !isUuid(partnerId)) return refuse(req, 'invalid_partner', partnerFields())
+      const { data, error } = await admin.rpc('set_registration_partner', {
+        p_registration_id: target.registrationId, p_partner_id: partnerId, p_actor: actor,
+      })
+      if (error) return refusalOrThrow(req, error, partnerFields)
+      await log('registration_partner_set', target.registrationId, { partnerId, changed: data?.changed === true })
+      return json({ data: { partnerId, changed: data?.changed === true } }, 200, req)
+    }
+
+    if (action === 'transfer') {
+      // Ruling 4: after transfer_until the organizer types the recipient in, until 00:00 Warsaw on
+      // the race day. The new entry is an adult awaiting consent: Plan 4's request follows, naming
+      // the organizer as the source of the data (carry T7 c).
+      const categoryId = body.categoryId
+      const competition = isUuid(categoryId)
+        ? await single(admin.from('competitions').select('*').eq('category_id', categoryId).eq('event_id', settings.event_id).maybeSingle())
+        : null
+      if (!competition) {
+        return json({ error: 'Popraw zaznaczone pola.', code: 'invalid_person', fields: { categoryId: 'Wybierz konkurencję.' } }, 422, req)
+      }
+      const context = (await personContexts(admin, settings, [competition])).get(competition.category_id)
+      const checked = validatePerson(body.person ?? {}, { ...context, now: new Date() })
+      if (!checked.ok) return json({ error: 'Popraw zaznaczone pola.', code: 'invalid_person', fields: checked.errors }, 422, req)
+      const { isMinor: _minor, ...person } = checked.value
+      // Final review M-1: each transfer e-mails a consent request to an address the organizer typed,
+      // so it spends the event's organizer-people allowance, as an organizer's squad edit does
+      // (100 per event per 24 h, fail closed). A refused transfer gives its slot back.
+      const peopleKey = `organizer-people:${settings.event_id}`
+      const claim = await checkAndIncrement(admin, peopleKey, ORGANIZER_PEOPLE_PER_DAY, { windowSeconds: DAY })
+      if (!claim.allowed) {
+        return json({ error: 'Zbyt wiele prób. Spróbuj ponownie później.', code: 'throttled' }, 429, req,
+          { 'Retry-After': String(claim.retryAfterSec ?? 60) })
+      }
+      const { data, error } = await callTransferRpc(admin, 'organizer_transfer', {
+        p_registration_id: target.registrationId, p_person: person, p_category_id: competition.category_id, p_actor: actor,
+      })
+      if (error) {
+        try { await releaseSlot(admin, peopleKey)() } catch (err) { console.error('organizer-entry-action: slot not given back:', err?.message) }
+        const refused = organizerTransferRefusal(error.message)
+        if (!refused) throw error
+        return json(refused.body, refused.status, req)
+      }
+      // The entry has moved: nothing below may turn that into a 500 (M-1). A failure is logged by
+      // id and reported as not sent; registration-jobs issues a missing consent request and
+      // re-sends the old holder's notice.
+      let consentRequestSent = false
+      let holderNotified = false
+      try {
+        const club = settings.club_id
+          ? await single(admin.from('clubs').select('name').eq('id', settings.club_id).maybeSingle())
+          : null
+        consentRequestSent = (await issueConsentRequests(admin, [data.registrationId],
+          { registeredBy: club?.name?.trim() || 'Organizator zawodów' })) > 0
+      } catch (err) {
+        console.error('organizer-entry-action: consent request not issued:', `registration ${data.registrationId}`, err?.message)
+      }
+      // M-2: the old holder is told the package moved; ruling N-1: never to whom.
+      holderNotified = await sendAcceptedTransferEmail(admin, {
+        id: data.transferId, kind: 'organizer', status: 'accepted', event_id: settings.event_id,
+        registration_id: target.registrationId, new_registration_id: data.registrationId,
+      }, 'holder_emailed_at')
+      const hostWithdraw = data.hostWithdraw === true
+      // Ids only: the recipient's data stays out of the audit row.
+      try {
+        await log('registration_transferred', target.registrationId,
+          { newRegistrationId: data.registrationId, categoryId: competition.category_id, hostWithdraw })
+      } catch (err) {
+        console.error('organizer-entry-action: transfer not logged:', target.registrationId, err?.message)
+      }
+      return json({
+        data: { registrationId: data.registrationId, consentState: 'awaiting', hostWithdraw, consentRequestSent, holderNotified },
+      }, 200, req)
     }
 
     // rename_team

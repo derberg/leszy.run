@@ -75,3 +75,23 @@ test('SEC-1 the /edge route sets the proxy header from the Vercel env, after del
   assert.deepEqual(del, { type: 'request.headers', op: 'delete', target: { key: EDGE_HEADER } })
   assert.deepEqual(set, { type: 'request.headers', op: 'set', target: { key: EDGE_HEADER }, args: '$EDGE_PROXY_SECRET', env: ['EDGE_PROXY_SECRET'] })
 })
+
+test('SEC-1 (Plan 7 final review C-1) every clientIp() call is awaited: it returns a Promise since #333', () => {
+  const root = new URL('../../../supabase/functions/', import.meta.url).pathname
+  const offenders = []
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name)
+      if (statSync(p).isDirectory()) { if (name !== 'tests' && name !== 'node_modules') walk(p); continue }
+      if (!p.endsWith('.js') || p.endsWith('/_shared/clientIp.js')) continue
+      // Comments name the function too; only code is checked.
+      const src = readFileSync(p, 'utf8').split('\n').map((l) => (/^\s*(\/\/|\*)/.test(l) ? '' : l)).join('\n')
+      for (const m of src.matchAll(/(^|[^\w.])clientIp\(/g)) {
+        const before = src.slice(Math.max(0, m.index - 8), m.index + m[1].length)
+        if (!/await\s*\(?\s*$/.test(before)) offenders.push(`${p.slice(root.length)}:${src.slice(0, m.index).split('\n').length}`)
+      }
+    }
+  }
+  walk(root)
+  assert.deepEqual(offenders, [])
+})

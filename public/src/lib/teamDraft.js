@@ -10,7 +10,7 @@
 import { normalizeTeamRequest, validateTeam, CAPTAIN_SELF_MESSAGE } from '../../../supabase/functions/_shared/registration/team.js'
 import { ageOn } from '../../../supabase/functions/_shared/registration/ageGroups.js'
 import {
-  addPerson, cardVariant, claimedEmail, erroredCards, groupFailure, LIST_STEP, newDraft, removePerson, requestPeople, withoutHiddenFields,
+  addPerson, cartOfCard, cardVariant, claimedEmail, erroredCards, groupFailure, LIST_STEP, newDraft, removePerson, requestPeople, withoutHiddenFields,
 } from './groupDraft.js'
 import { personContext } from './personFormModel.js'
 import { countPl } from './plural.js'
@@ -86,15 +86,20 @@ export function memberAgeLabel(person, raceDate, reckoning) {
  * The register-team body. Member 0 is the captain. `leg` goes only with leg order on.
  * `website` is the form's honeypot, sent only when something filled it.
  */
-export function toTeamRequest(draft, { consents, legOrder = false, displayedTotal, today, website } = {}) {
+export function toTeamRequest(draft, { consents, legOrder = false, displayedTotal, today, website, extrasOf } = {}) {
   const members = requestPeople(draft, today).map(({ person, guardianConsent }, i) => ({
     person,
     ...(guardianConsent === undefined ? {} : { guardianConsent }),
     ...(legOrder ? { leg: legOf(draft, draft.cards[i].key) } : {}),
+    // Plan 7: each member's extras. The code is the team line's, never a member's.
+    ...memberExtras(draft.cards[i], extrasOf),
   }))
+  // Plan 7 (RB1): the team line's one code, typed on the captain's step and kept on the captain's card.
+  const voucherCode = cartOfCard(draft.cards[0], () => []).voucherCode
   return {
     categoryId: draft.cards[0].categoryId,
     teamName: draft.teamName,
+    ...(voucherCode ? { voucherCode } : {}),
     members,
     membersConsent: draft.membersConsent === true,
     acceptedConsentIds: (consents ?? []).map((k) => k.id),
@@ -102,6 +107,11 @@ export function toTeamRequest(draft, { consents, legOrder = false, displayedTota
     ...(displayedTotal === undefined ? {} : { displayedTotal }),
     ...(website ? { website } : {}),
   }
+}
+
+function memberExtras(card, extrasOf) {
+  const { extras } = cartOfCard(card, extrasOf)
+  return extras ? { extras } : {}
 }
 
 /** validateTeam's competition: validatePerson's context plus the squad's rules. */

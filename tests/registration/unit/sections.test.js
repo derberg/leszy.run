@@ -10,8 +10,8 @@ const item = (over = {}) => ({
   capacity: 80, minAge: 16, maxAge: null, isKids: false, timed: true, ...over,
 })
 
-test('SECTIONS lists the seven wizard sections', () => {
-  assert.deepEqual(SECTIONS, ['basics', 'office', 'competitions', 'categories', 'timing', 'form', 'payments'])
+test('SECTIONS lists the eight wizard sections, extras last (D7-7)', () => {
+  assert.deepEqual(SECTIONS, ['basics', 'office', 'competitions', 'categories', 'timing', 'form', 'payments', 'extras'])
 })
 
 test('an unknown section is refused', () => {
@@ -48,10 +48,6 @@ test('competitions: capacity 0 → Limit musi być większy od zera.', () => {
   assert.deepEqual(r.errors, { capacity: 'Limit musi być większy od zera.' })
 })
 
-test('competitions: tiered pricing is refused with Wkrótce.', () => {
-  const t = validateSection('competitions', { pricingMode: 'tiered', items: [item()] }, DRAFT)
-  assert.deepEqual(t.errors, { pricingMode: 'Wkrótce.' })
-})
 
 const TEAM_SIZE = 'Skład: od 2 do 10 osób, min ≤ max.'
 const team = (over = {}) => item({ kind: 'team', teamMin: 3, teamMax: 5, ...over })
@@ -365,5 +361,207 @@ test('P-40 payments: taken and every payout key are refused; the payout is not a
     const r = validateSection('payments', { paymentWindowHours: 168, [key]: 'PL61109010140000071219812874' }, DRAFT)
     assert.equal(r.ok, false, key)
     assert.equal(r.errors[key], 'Nieznane pole.', key)
+  }
+})
+
+// ---------------------------------------------------------------- Plan 7 task 3 (V-15)
+
+// The A3 mockup: „DO 15.11” 60 zł, „DO 25.11” 70 zł, „DO KOŃCA ZAPISÓW” 80 zł. Registration open
+// 1.11–5.12 (Warsaw days), race 6.12. The context carries the stored window as timestamps, the way
+// save-registration-section reads registration_settings; the validator turns them into Warsaw days.
+const WINDOW = { opensAt: '2026-10-31T23:00:00.000Z', closesAt: '2026-12-05T23:00:00.000Z' }
+const TIERED_DRAFT = { ...DRAFT, eventDate: '2026-12-06', ...WINDOW }
+const TIER_IDS = ['aaaaaaaa-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000002']
+const A3_TIERS = [{ endsOn: '2026-11-15' }, { endsOn: '2026-11-25' }, { endsOn: null }]
+const A3_PRICES = { 'new:0': '60', 'new:1': '70', 'new:2': '80' }
+const tiered = (over = {}) => ({ pricingMode: 'tiered', tiers: A3_TIERS, items: [item({ prices: A3_PRICES })], ...over })
+const TIERS_ORDER = 'Daty progów muszą rosnąć i kończyć się przed zamknięciem zapisów.'
+
+test('V-15 tiered: the A3 fixture (15.11 / 25.11 / end; 60/70/80) passes, snake_case tiers and prices in grosze', () => {
+  const r = validateSection('competitions', tiered(), TIERED_DRAFT)
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.equal(r.value.pricing_mode, 'tiered')
+  assert.deepEqual(r.value.tiers, [
+    { id: null, ends_on: '2026-11-15' }, { id: null, ends_on: '2026-11-25' }, { id: null, ends_on: null },
+  ])
+  assert.deepEqual(r.value.items[0].prices, { 'new:0': 6000, 'new:1': 7000, 'new:2': 8000 })
+  assert.equal(r.value.items[0].price, null)
+})
+
+test('V-15 tiered: a tier key is the tier id, or new:<index> for a new tier; published edits validate too', () => {
+  const tiers = [{ id: TIER_IDS[0], endsOn: '2026-11-15' }, { endsOn: '2026-11-20' }, { id: TIER_IDS[1], endsOn: null }]
+  const prices = { [TIER_IDS[0]]: '60', 'new:1': '65', [TIER_IDS[1]]: '80,50' }
+  for (const ctx of [TIERED_DRAFT, { ...PUBLISHED, ...WINDOW }]) {
+    const r = validateSection('competitions', tiered({ tiers, items: [item({ prices })] }), ctx)
+    assert.equal(r.ok, true, JSON.stringify(r))
+    assert.deepEqual(r.value.tiers, [
+      { id: TIER_IDS[0], ends_on: '2026-11-15' }, { id: null, ends_on: '2026-11-20' }, { id: TIER_IDS[1], ends_on: null },
+    ])
+    assert.deepEqual(r.value.items[0].prices, { [TIER_IDS[0]]: 6000, 'new:1': 6500, [TIER_IDS[1]]: 8050 })
+  }
+})
+
+test('V-15 tiered: equal dates fail with the tiers message', () => {
+  const r = validateSection('competitions', tiered({ tiers: [{ endsOn: '2026-11-15' }, { endsOn: '2026-11-15' }, { endsOn: null }] }), TIERED_DRAFT)
+  assert.equal(r.ok, false)
+  assert.equal(r.errors.tiers, TIERS_ORDER)
+})
+
+test('V-15 tiered: the window is compared as Warsaw days: a tier may end on the opening day, never on the last day', () => {
+  const at = (endsOn) => validateSection('competitions', tiered({
+    tiers: [{ endsOn }, { endsOn: null }], items: [item({ prices: { 'new:0': '60', 'new:1': '70' } })],
+  }), TIERED_DRAFT)
+  assert.equal(at('2026-11-01').ok, true, 'the first Warsaw day of the window (opens_at is 31.10 23:00 UTC)')
+  assert.equal(at('2026-10-31').errors.tiers, TIERS_ORDER)
+  assert.equal(at('2026-12-04').ok, true)
+  assert.equal(at('2026-12-05').errors.tiers, TIERS_ORDER, 'the last day of registration (closes_at is 5.12 23:00 UTC)')
+})
+
+test('V-15 tiered: 6 tiers, two open tiers, an open tier that is not last are refused', () => {
+  const six = Array.from({ length: 5 }, (_, i) => ({ endsOn: `2026-11-1${i}` })).concat([{ endsOn: null }])
+  const keysOf = (tiers) => Object.fromEntries(tiers.map((_, i) => [`new:${i}`, '60']))
+  for (const tiers of [six, [{ endsOn: null }, { endsOn: null }], [{ endsOn: null }, { endsOn: '2026-11-15' }]]) {
+    const r = validateSection('competitions', tiered({ tiers, items: [item({ prices: keysOf(tiers) })] }), TIERED_DRAFT)
+    assert.equal(r.ok, false, JSON.stringify(tiers))
+    assert.ok(r.errors.tiers)
+  }
+})
+
+test('V-15 tiered: every competition needs a valid price for exactly the listed tiers', () => {
+  const PRICE = 'Podaj cenę w złotych, np. 60 albo 60,50.'
+  for (const prices of [
+    { 'new:0': '60', 'new:1': '70' },
+    { 'new:0': '60', 'new:1': '70', 'new:2': '80', 'new:3': '90' },
+    { 'new:0': '60', 'new:1': 'siedemdziesiąt', 'new:2': '80' },
+    { 'new:0': '60', 'new:1': '-70', 'new:2': '80' },
+    { 'new:0': '60', 'new:1': '100000,01', 'new:2': '80' },
+    { [TIER_IDS[0]]: '60', 'new:1': '70', 'new:2': '80' },
+    null, '60',
+  ]) {
+    const r = validateSection('competitions', tiered({ items: [item({ prices })] }), TIERED_DRAFT)
+    assert.equal(r.ok, false, JSON.stringify(prices))
+    assert.equal(r.errors.prices, PRICE, JSON.stringify(prices))
+  }
+})
+
+test('V-15 tiered: a tier id must be a uuid and appear once; a tier carries only id and endsOn', () => {
+  const bad = (tiers) => validateSection('competitions', tiered({ tiers, items: [item({ prices: Object.fromEntries(tiers.map((t, i) => [t.id ?? `new:${i}`, '60'])) })] }), TIERED_DRAFT)
+  assert.ok(bad([{ id: 'nope', endsOn: '2026-11-15' }, { endsOn: null }]).errors.id)
+  assert.ok(bad([{ id: TIER_IDS[0], endsOn: '2026-11-15' }, { id: TIER_IDS[0], endsOn: null }]).errors.tiers)
+  assert.equal(bad([{ endsOn: '2026-11-15', sortOrder: 1 }, { endsOn: null }]).errors.sortOrder, 'Nieznane pole.')
+})
+
+test('V-15 fixed keeps items[].price and stores no tiers; free drops every price; tiers sent with them are ignored', () => {
+  const fixed = validateSection('competitions', { pricingMode: 'fixed', tiers: A3_TIERS, items: [item({ price: '60', prices: A3_PRICES })] }, TIERED_DRAFT)
+  assert.equal(fixed.ok, true, JSON.stringify(fixed))
+  assert.equal(fixed.value.items[0].price, 6000)
+  assert.equal(fixed.value.items[0].prices, undefined)
+  assert.equal(fixed.value.tiers, undefined)
+  const free = validateSection('competitions', { pricingMode: 'free', tiers: A3_TIERS, items: [item({ price: '60', prices: A3_PRICES })] }, TIERED_DRAFT)
+  assert.equal(free.ok, true, JSON.stringify(free))
+  assert.equal(free.value.items[0].price, null)
+  assert.equal(free.value.items[0].prices, undefined)
+  assert.equal(free.value.tiers, undefined)
+})
+
+// ---------------------------------------------------------------- payments: transfer (V-15)
+
+test('V-15 payments: transferEnabled with transferUntil the day before the race passes; on race day it fails', () => {
+  const ctx = { ...DRAFT, eventDate: '2026-12-06' }
+  assert.deepEqual(validateSection('payments', { transferEnabled: true, transferUntil: '2026-12-05' }, ctx),
+    { ok: true, value: { transfer_enabled: true, transfer_until: '2026-12-05' } })
+  const raceDay = validateSection('payments', { transferEnabled: true, transferUntil: '2026-12-06' }, ctx)
+  assert.equal(raceDay.ok, false)
+  assert.equal(raceDay.errors.transferUntil, 'Przekazanie możliwe najpóźniej dzień przed zawodami.')
+  assert.equal(validateSection('payments', { transferUntil: '2026-12-07' }, { ...PUBLISHED }).errors.transferUntil,
+    'Przekazanie możliwe najpóźniej dzień przed zawodami.')
+})
+
+test('V-15 payments: transferUntil is required when transfers are enabled; switched off it may be null', () => {
+  const ctx = { ...DRAFT, eventDate: '2026-12-06' }
+  for (const v of [{ transferEnabled: true }, { transferEnabled: true, transferUntil: null }, { transferEnabled: true, transferUntil: '5.12.2026' }]) {
+    const r = validateSection('payments', v, ctx)
+    assert.equal(r.ok, false, JSON.stringify(v))
+    assert.ok(r.errors.transferUntil, JSON.stringify(v))
+  }
+  assert.deepEqual(validateSection('payments', { transferEnabled: false, transferUntil: null }, ctx),
+    { ok: true, value: { transfer_enabled: false, transfer_until: null } })
+  assert.equal(validateSection('payments', { transferEnabled: 'tak' }, ctx).ok, false)
+  assert.equal(validateSection('payments', { transferFee: 500 }, ctx).errors.transferFee, 'Nieznane pole.')
+})
+
+// ---------------------------------------------------------------- extras (V-15)
+
+const EXTRA = (over = {}) => ({
+  name: 'Koszulka techniczna', price: '45', orderUntil: '2026-11-25', categoryIds: [],
+  variants: [{ label: 'M', stock: 30 }, { label: 'L', stock: 100000 }], ...over,
+})
+const EXTRA_CTX = { ...DRAFT, eventDate: '2026-12-06' }
+const CAT = '11111111-1111-4111-8111-111111111111'
+
+test('V-15 extras: one extra with two variants passes as snake_case, prices in grosze, „Bez limitu” as 100 000', () => {
+  const r = validateSection('extras', { items: [EXTRA({ categoryIds: [CAT, CAT.toUpperCase()] })] }, EXTRA_CTX)
+  assert.equal(r.ok, true, JSON.stringify(r))
+  assert.deepEqual(r.value, { items: [{
+    id: null, name: 'Koszulka techniczna', image_upload_id: null, price: 4500, order_until: '2026-11-25',
+    category_ids: [CAT], variants: [{ id: null, label: 'M', stock: 30 }, { id: null, label: 'L', stock: 100000 }],
+  }] })
+})
+
+test('V-15 extras: orderUntil may be the race day, not later', () => {
+  assert.equal(validateSection('extras', { items: [EXTRA({ orderUntil: '2026-12-06' })] }, EXTRA_CTX).ok, true)
+  const late = validateSection('extras', { items: [EXTRA({ orderUntil: '2026-12-07' })] }, EXTRA_CTX)
+  assert.equal(late.ok, false)
+  assert.ok(late.errors.orderUntil)
+})
+
+test('V-15 extras: at most 20 extras of 1–20 variants, stock 0–100 000, a name and a label', () => {
+  const variants = (n) => Array.from({ length: n }, (_, i) => ({ label: `R${i}`, stock: 1 }))
+  assert.equal(validateSection('extras', { items: Array.from({ length: 20 }, () => EXTRA()) }, EXTRA_CTX).ok, true)
+  assert.ok(validateSection('extras', { items: Array.from({ length: 21 }, () => EXTRA()) }, EXTRA_CTX).errors.items)
+  assert.equal(validateSection('extras', { items: [EXTRA({ variants: variants(20) })] }, EXTRA_CTX).ok, true)
+  for (const n of [0, 21]) assert.ok(validateSection('extras', { items: [EXTRA({ variants: variants(n) })] }, EXTRA_CTX).errors.variants, String(n))
+  for (const stock of [-1, 100001, 1.5, '30', null]) {
+    assert.ok(validateSection('extras', { items: [EXTRA({ variants: [{ label: 'M', stock }] })] }, EXTRA_CTX).errors.stock, String(stock))
+  }
+  assert.equal(validateSection('extras', { items: [EXTRA({ variants: [{ label: 'M', stock: 0 }] })] }, EXTRA_CTX).ok, true)
+  assert.ok(validateSection('extras', { items: [EXTRA({ name: '  ' })] }, EXTRA_CTX).errors.name)
+  assert.ok(validateSection('extras', { items: [EXTRA({ variants: [{ label: '', stock: 1 }] })] }, EXTRA_CTX).errors.label)
+  assert.ok(validateSection('extras', { items: [EXTRA({ price: '-5' })] }, EXTRA_CTX).errors.price)
+  assert.ok(validateSection('extras', { items: [EXTRA({ categoryIds: ['nope'] })] }, EXTRA_CTX).errors.categoryIds)
+  assert.equal(validateSection('extras', { items: [EXTRA({ sold: 3 })] }, EXTRA_CTX).errors.sold, 'Nieznane pole.')
+  assert.equal(validateSection('extras', { items: [EXTRA({ variants: [{ label: 'M', stock: 3, sold: 1 }] })] }, EXTRA_CTX).errors.sold, 'Nieznane pole.')
+})
+
+test('V-15 extras: an empty list means no extras', () => {
+  assert.deepEqual(validateSection('extras', { items: [] }, EXTRA_CTX), { ok: true, value: { items: [] } })
+})
+
+// ---------------------------------------------------------------- fix round 1: I-1
+
+test('I-1 payments: {transferUntil: null} alone while transfers are on (stored or staged) is refused', () => {
+  const on = { ...DRAFT, eventDate: '2026-12-06', transferEnabled: true, transferUntil: '2026-12-05' }
+  const r = validateSection('payments', { transferUntil: null }, on)
+  assert.equal(r.ok, false)
+  assert.equal(r.errors.transferUntil, 'Podaj, do kiedy można przekazać pakiet.')
+  assert.deepEqual(validateSection('payments', { transferUntil: null }, { ...on, transferEnabled: false }),
+    { ok: true, value: { transfer_until: null } })
+})
+
+test('I-1 payments: {transferEnabled: true} alone uses the stored date, which must still be the day before the race', () => {
+  const ctx = { ...DRAFT, eventDate: '2026-12-06', transferEnabled: false }
+  assert.deepEqual(validateSection('payments', { transferEnabled: true }, { ...ctx, transferUntil: '2026-12-05' }),
+    { ok: true, value: { transfer_enabled: true } })
+  assert.equal(validateSection('payments', { transferEnabled: true }, { ...ctx, transferUntil: '2026-12-06' }).errors.transferUntil,
+    'Przekazanie możliwe najpóźniej dzień przed zawodami.')
+  assert.equal(validateSection('payments', { transferEnabled: true }, { ...ctx, transferUntil: null }).errors.transferUntil,
+    'Podaj, do kiedy można przekazać pakiet.')
+})
+
+test('M-1 competitions: a fixed or free save carries no tiers key at all', () => {
+  for (const pricingMode of ['fixed', 'free']) {
+    const r = validateSection('competitions', { pricingMode, items: [item({ price: '60' })] }, DRAFT)
+    assert.equal(r.ok, true)
+    assert.equal('tiers' in r.value, false)
   }
 })

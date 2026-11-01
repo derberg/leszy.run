@@ -63,7 +63,7 @@ export default function RefundDialog({ row, team, onClose, onDone, onFailed }) {
         const grosze = parsed[line.id].grosze ?? 0
         if (!grosze) continue
         current = line.id
-        const r = await callFunction('organizer-refund', { lineId: line.id, grosze, requestKey: keys[line.id] })
+        const r = await callFunction('organizer-refund', { lineId: line.id, grosze, requestKey: keys[line.id], registrationId: row.id })
         done.push(line.id)
         if (r.data?.status === 'unknown') {
           unconfirmed = true

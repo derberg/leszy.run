@@ -65,12 +65,34 @@ const COLUMNS = [
   ['Zwrócono (zł)', (r) => zloty(Math.max(0, (r.refunded ?? 0) - (r.refundUnconfirmed ?? 0)))],
   ['Regulamin', consentText],
   ['Partner', (r) => r.partnerName],
+  ['Kod rabatowy', (r) => r.voucherCode],
   ['Data zapisu', (r) => signedUp(r.createdAt)],
 ]
 
+function toCsv(columns, rows) {
+  const header = columns.map(([title]) => cell(title)).join(';')
+  const line = (row) => columns.map(([, read, options]) => cell(read(row), options)).join(';')
+  return `\uFEFF${[header, ...rows.map(line)].join('\r\n')}`
+}
+
 /** @param {object[]} rows the panel's rows (list-event-registrations), plus `guardianEmail` */
 export function entriesToCsv(rows) {
-  const header = COLUMNS.map(([title]) => cell(title)).join(';')
-  const line = (row) => COLUMNS.map(([, read, options]) => cell(read(row), options)).join(';')
-  return `\uFEFF${[header, ...rows.map(line)].join('\r\n')}`
+  return toCsv(COLUMNS, rows)
+}
+
+// The organizer's codes (organizer-vouchers `export`), on the same escaping: a partner name or a
+// note is typed by the organizer's own staff, and still reaches a spreadsheet.
+const VOUCHER_COLUMNS = [
+  ['Kod', (v) => v.code],
+  ['Rabat', (v) => `${v.percent}%`],
+  ['Wykorzystano', (v) => v.used],
+  ['Limit', (v) => v.maxUses],
+  ['Ważny do', (v) => v.validUntil],
+  ['Partner', (v) => v.partner?.name],
+  ['Notatka', (v) => v.note],
+]
+
+/** @param {{ code, percent, used, maxUses, validUntil, partner, note }[]} vouchers organizer-vouchers' `list` */
+export function vouchersToCsv(vouchers) {
+  return toCsv(VOUCHER_COLUMNS, vouchers)
 }

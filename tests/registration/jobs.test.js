@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import postgres from 'postgres'
-import { admin, localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
+import { admin, localEnv, resetThrottle, sessionFor, EDGE_PROXY, waitForRest } from './helpers/stack.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
 import { CAPTURE_PORT } from './helpers/emailCaptureServer.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
@@ -1169,6 +1169,7 @@ test('O-41 M4 a row whose e-mail arguments cannot be read → one refund_email_a
     await sql`update public.refunds set order_line_id = null where id = ${badId}`
   } finally {
     await sql`alter table public.refunds enable trigger user`
+    await waitForRest(['refunds', 'participants'])
     await sql.end({ timeout: 1 })
   }
   await jobsOk()

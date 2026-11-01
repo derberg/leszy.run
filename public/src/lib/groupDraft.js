@@ -18,8 +18,13 @@ export { MAX_PEOPLE_PER_REQUEST }
 let seq = 0
 const newKey = () => `card-${++seq}`
 
+// Plan 7: a card's cart. `voucher.state`: 'idle' (typed, not checked), 'checking', 'ok' (check-voucher
+// accepted it for this competition: `percent`, `price`) or 'error'. `extras`: { [extraId]: { variantId, qty } }.
+export const EMPTY_VOUCHER = { code: '', state: 'idle', percent: null, price: null }
+
 const card = (categoryId, person = {}) => ({
   key: newKey(), categoryId, person: { ...EMPTY_PERSON, ...person }, guardianConsent: false, phoneTouched: false, open: true,
+  voucher: EMPTY_VOUCHER, extras: {},
 })
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -75,8 +80,43 @@ export function updatePerson(draft, key, patch) {
   }))
 }
 
-export function setCardCompetition(draft, key, categoryId) {
-  return mapCard(draft, key, (c) => ({ ...c, categoryId }))
+/**
+ * Another competition: a checked code is checked again (its competitions and price differ), the
+ * extras start over. `priced: false` (the new competition costs 0 zł) drops the code: it would
+ * discount nothing and be refused (voucher_not_applicable) on a card with no code field (review I-2).
+ */
+export function setCardCompetition(draft, key, categoryId, { priced = true } = {}) {
+  return mapCard(draft, key, (c) => (c.categoryId === categoryId ? c : {
+    ...c, categoryId, voucher: { ...EMPTY_VOUCHER, code: priced ? (c.voucher?.code ?? '') : '' }, extras: {},
+  }))
+}
+
+/** A patch of the card's code: a new `code` is unchecked again. */
+export function setCardVoucher(draft, key, patch) {
+  return mapCard(draft, key, (c) => {
+    const prev = c.voucher ?? EMPTY_VOUCHER
+    const next = { ...prev, ...patch }
+    if ('code' in patch && patch.code !== prev.code) Object.assign(next, { state: 'idle', percent: null, price: null })
+    return { ...c, voucher: next }
+  })
+}
+
+/** One extra of the card: { variantId?, qty? }. */
+export function setCardExtra(draft, key, extraId, patch) {
+  return mapCard(draft, key, (c) => ({ ...c, extras: { ...c.extras, [extraId]: { ...(c.extras?.[extraId] ?? { qty: 0 }), ...patch } } }))
+}
+
+/** The cards whose typed code has not been accepted yet (`state` idle or error). */
+export function uncheckedCodes(draft) {
+  return draft.cards.filter((c) => (c.voucher?.code ?? '').trim() && c.voucher.state !== 'ok').map((c) => c.key)
+}
+
+/**
+ * Whether any card orders an extra (qty above 0): such a request is an order (ruling 7).
+ * `extrasOf(card)` (cartOfCard's) counts only what the page still offers.
+ */
+export function draftOrdersExtras(draft, extrasOf = rawExtras) {
+  return draft.cards.some((c, i) => !(i === 0 && draft.notRunning) && extrasOf(c).length > 0)
 }
 
 export function setCardOpen(draft, key, open) {
@@ -163,11 +203,13 @@ export function requestPeople(draft, day) {
  * the functions read it as a group of one with the same answers, and the functions still in
  * production while Vercel deploys ahead of `supabase functions deploy` read nothing else.
  */
-export function toRequest(draft, { consents, code, today } = {}) {
+export function toRequest(draft, { consents, code, today, extrasOf } = {}) {
   const people = requestPeople(draft, dayOf(today))
+  // Plan 7: each person's code and extras (qty above 0 only), in the same order as people[].
+  draft.cards.filter((_, i) => !(i === 0 && draft.notRunning)).forEach((c, i) => Object.assign(people[i], cartOfCard(c, extrasOf)))
   const shared = { acceptedConsentIds: (consents ?? []).map((k) => k.id), serviceRegulamin: true }
   const body = people.length === 1 && !draft.notRunning
-    ? { categoryId: people[0].categoryId, person: people[0].person, ...shared }
+    ? { categoryId: people[0].categoryId, person: people[0].person, ...cartOfCard(draft.cards[0], extrasOf), ...shared }
     : { people, ...shared }
   if (draft.notRunning) {
     const b = draft.cards[0].person
@@ -176,6 +218,23 @@ export function toRequest(draft, { consents, code, today } = {}) {
   const c = typeof code === 'string' ? code.trim() : ''
   if (c) body.code = c
   return body
+}
+
+/** A card's picks with qty above 0 as [{ variantId, qty }], unfiltered (the page passes its own filter). */
+const rawExtras = (c) => Object.values(c.extras ?? {}).filter((e) => e.qty > 0 && e.variantId).map((e) => ({ variantId: e.variantId, qty: e.qty }))
+
+/**
+ * A card's cart fields as the request carries them: `voucherCode` and `extras`, each only when there
+ * is one. `extrasOf(card)` → [{ variantId, qty }] is the page's filter (cartModel's pickedExtras over
+ * what it still offers), so the request orders exactly what RA4 shows (review M-2).
+ */
+export function cartOfCard(c, extrasOf = rawExtras) {
+  const out = {}
+  const voucherCode = (c.voucher?.code ?? '').trim()
+  if (voucherCode) out.voucherCode = voucherCode
+  const extras = (extrasOf ?? rawExtras)(c)
+  if (extras.length) out.extras = extras
+  return out
 }
 
 /** The address the code goes to and the session must hold: card 1's (self or buyer). */
@@ -275,6 +334,8 @@ export function stepAfter(draft, key, errors) {
 }
 
 const ON_PERSON = new Set(['duplicate', 'email_retired'])
+// Plan 7: a cart refusal about one person's code or extras lands on that field of their card.
+const CART_FIELDS = new Set(['voucherCode', 'extras'])
 
 /**
  * Where a refusal from register-free, create-order or the code step shows:
@@ -304,6 +365,10 @@ export function groupFailure(err, draft, today) {
   const routed = (message) => {
     const shown = withoutHiddenFields(draft, errors, today)
     return { step: 'form', errors: shown, code: null, message: fixMessage(draft, shown) ?? message, focus: erroredCards(draft, shown)[0] ?? null }
+  }
+  if (err?.status != null && CART_FIELDS.has(err.field) && Number.isInteger(err.index)) {
+    put(cardIndexOf(draft, err.index), err.field, err.message)
+    return routed(null)
   }
   if (err?.status != null && ON_PERSON.has(err.code)) {
     if (Number.isInteger(err.index)) {

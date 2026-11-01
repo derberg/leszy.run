@@ -12,19 +12,40 @@ async function rows(query) {
 const LIVE = ['confirmed', 'pending_payment']
 
 /**
- * → (registration) → name | null, in this order: the name the buyer typed for the
+ * Carry T7 (c): an entry an organizer transfer created (B3 typed the recipient in) names the
+ * organizer, the event's club, as the source of the data (Art. 14(2)(f)), never the original
+ * buyer, whose order the new row keeps. → Map(registration id → club name).
+ */
+export async function organizerTransferSources(admin, regs) {
+  const ids = [...new Set(regs.map((r) => r.id).filter(Boolean))]
+  if (!ids.length) return new Map()
+  const moved = await rows(admin.from('transfers').select('new_registration_id, event_id')
+    .eq('kind', 'organizer').in('new_registration_id', ids))
+  if (!moved.length) return new Map()
+  const settings = await rows(admin.from('registration_settings').select('event_id, club_id')
+    .in('event_id', [...new Set(moved.map((t) => t.event_id))]))
+  const clubIds = [...new Set(settings.map((s) => s.club_id).filter(Boolean))]
+  const clubs = clubIds.length ? await rows(admin.from('clubs').select('id, name').in('id', clubIds)) : []
+  const clubOf = new Map(settings.map((s) => [s.event_id, clubs.find((c) => c.id === s.club_id)?.name?.trim() || null]))
+  return new Map(moved.map((t) => [t.new_registration_id, clubOf.get(t.event_id) || 'Organizator zawodów']))
+}
+
+/**
+ * → (registration) → name | null, in this order: the organizer for an entry an organizer transfer
+ * created (organizerTransferSources), then the name the buyer typed for the
  * registration's order (m-1), the buyer's own live entry in the event (the latest one), the
  * guardian name their children carry, the account's display name. A free group has no order,
  * so it starts at the second. A deleted account names nobody: delete-my-account nulls
  * registered_by_profile_id and the order's buyer_name, and its display name is left out.
  * Cancelled and expired entries are not read (m-6).
- * `regs` carry event_id, order_id and registered_by_profile_id.
+ * `regs` carry id, event_id, order_id and registered_by_profile_id.
  */
 export async function registeredByNames(admin, regs) {
   const ids = [...new Set(regs.map((r) => r.registered_by_profile_id).filter(Boolean))]
   const orderIds = [...new Set(regs.map((r) => r.order_id).filter(Boolean))]
   const events = [...new Set(regs.map((r) => r.event_id))]
-  const [orders, own, kids, profiles] = await Promise.all([
+  const [byTransfer, orders, own, kids, profiles] = await Promise.all([
+    organizerTransferSources(admin, regs),
     orderIds.length ? rows(admin.from('orders').select('id, buyer_name').in('id', orderIds)) : [],
     ids.length
       ? rows(admin.from('registrations').select('profile_id, first_name, last_name')
@@ -53,5 +74,5 @@ export async function registeredByNames(admin, regs) {
   }
   firstOf(kids, 'guardian_profile_id', (k) => k.guardian_name?.trim())
   firstOf(own, 'profile_id', (o) => `${o.first_name ?? ''} ${o.last_name ?? ''}`.trim())
-  return (r) => byOrder.get(r.order_id) ?? byProfile.get(r.registered_by_profile_id) ?? null
+  return (r) => byTransfer.get(r.id) ?? byOrder.get(r.order_id) ?? byProfile.get(r.registered_by_profile_id) ?? null
 }

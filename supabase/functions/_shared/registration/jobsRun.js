@@ -9,6 +9,7 @@ import {
 } from './orderFlow.js'
 import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
 import { notifyRefundRunner, refundNoticeArgs } from './refundNotice.js'
+import { resendTransferEmails } from './transfers.js'
 
 // The payment window jobs (plan 3, task 7). pg_cron POSTs here every 15 minutes through pg_net
 // (job `registration-jobs`) with the header x-jobs-secret = REGISTRATION_JOBS_SECRET; anything
@@ -73,11 +74,11 @@ import { notifyRefundRunner, refundNoticeArgs } from './refundNotice.js'
 // POST body: {} from cron; { budgetMs } may only shorten the budget (tests).
 // → 200 { data: { checked, confirmed, reminders, expiredNotices, confirmationsResent,
 //   refundEmails, refundRetries, stalledRefunds, consentRequestsIssued, consentEmailsResent, consentReminders,
-//   alertsEmailed, deferred: [step…], skipped: { step: reason } } }
+//   transferEmailsResent, alertsEmailed, deferred: [step…], skipped: { step: reason } } }
 
 const BUDGET_MS = 90_000
 const MIN_BUDGET_MS = 5_000
-const LIMIT = { check: 50, reminders: 100, notices: 100, confirmations: 50, refundEmails: 50, retries: 20, stalled: 100, alerts: 200, consent: 50 }
+const LIMIT = { check: 50, reminders: 100, notices: 100, confirmations: 50, refundEmails: 50, retries: 20, stalled: 100, alerts: 200, consent: 50, transfers: 50 }
 const CHECK_AHEAD_MS = 20 * 60_000 // a run every 15 min sees each order at least once before expiry
 const CHECK_BEHIND_MS = 2 * 3_600_000 // after this an expired order is told without a dpay check
 const CHECK_GAP_MS = 10 * 60_000
@@ -287,7 +288,7 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
   const counts = {
     checked: 0, confirmed: 0, reminders: 0, expiredNotices: 0, confirmationsResent: 0, refundEmails: 0,
     refundRetries: 0, stalledRefunds: 0, consentRequestsIssued: 0, consentEmailsResent: 0, consentReminders: 0,
-    alertsEmailed: 0, deferred: [], skipped: {},
+    transferEmailsResent: 0, alertsEmailed: 0, deferred: [], skipped: {},
   }
   const hour = new Date().toISOString().slice(0, 13)
   const budgetAlert = (step) => raiseAlert(admin, 'jobs_step_failed', null,
@@ -387,6 +388,11 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
           }
         }))
       }
+    }],
+    // Plan 7: a transfer's accepted, confirmation or holder e-mail whose first send certainly
+    // failed (its claim was given back), once, 10 minutes after the transfer.
+    ['transfer_emails', 2_000, async () => {
+      counts.transferEmailsResent = await resendTransferEmails(admin, { limit: LIMIT.transfers })
     }],
     ['consent_reminders', CONSENT_STEP_MS, async () => {
       const fits = () => {

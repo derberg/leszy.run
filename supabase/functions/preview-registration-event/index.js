@@ -10,17 +10,18 @@ function json(body, status, req) {
   })
 }
 
-// Upload ids a staged section names (basics: regulamin, poster; competitions: GPX).
+// Upload ids a staged section names (basics: regulamin, poster; competitions: GPX; extras: images).
 function stagedUploadIds(payload) {
   const ids = [payload?.basics?.regulamin_upload_id, payload?.basics?.poster_upload_id,
-    ...(payload?.competitions?.items ?? []).map((i) => i?.gpx_upload_id)]
+    ...(payload?.competitions?.items ?? []).map((i) => i?.gpx_upload_id),
+    ...(payload?.extras?.items ?? []).map((x) => x?.image_upload_id)]
   return [...new Set(ids.filter((id) => typeof id === 'string'))]
 }
 
 // POST { eventId, withPending } → { data: { raw, pending } }: the event page as
 // a runner would see it (registration_raw, any state, drafts included), for any
 // active member of the owning club. With withPending, `pending` is the staged
-// changes ({ payload, changedFields, updatedAt, uploads: { id: { path, meta } } })
+// changes ({ payload, changedFields, updatedAt, uploads: { id: { path, meta } }, sold: { variantId: n } })
 // for mergePending() in public/src/lib/eventPageModel.js; else null. Everyone
 // else, anonymous included, gets 404: the preview must not reveal that a draft
 // exists.
@@ -55,11 +56,18 @@ Deno.serve(async (req) => {
           ? await admin.from('registration_uploads').select('id, kind, path, meta').eq('event_id', eventId).in('id', ids)
           : { data: [], error: null }
         if (uErr) throw uErr
+        // What each staged live variant already sold: the preview shows stock less sales.
+        const variantIds = (row.payload?.extras?.items ?? []).flatMap((x) => (x?.variants ?? []).map((v) => v?.id)).filter((id) => typeof id === 'string')
+        const { data: sold, error: sErr } = variantIds.length
+          ? await admin.from('extra_variants').select('id, sold, extras!inner(event_id)').in('id', variantIds).eq('extras.event_id', eventId)
+          : { data: [], error: null }
+        if (sErr) throw sErr
         pending = {
           payload: row.payload,
           changedFields: row.changed_fields,
           updatedAt: row.updated_at,
           uploads: Object.fromEntries(files.map((f) => [f.id, { path: f.path, meta: f.kind === 'gpx' ? f.meta : {} }])),
+          sold: Object.fromEntries(sold.map((v) => [v.id, v.sold])),
         }
       }
     }
