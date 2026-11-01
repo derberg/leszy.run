@@ -11,6 +11,7 @@ import { publicSite } from '../_shared/registration/consentRequests.js'
 import { validatePerson } from '../_shared/registration/person.js'
 import { personContexts } from '../_shared/registration/registrationRequest.js'
 import { TEAM_NAME_MESSAGE } from '../_shared/registration/team.js'
+import { releaseSlot, sendOnAllowance } from '../_shared/registration/organizerMail.js'
 
 function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -21,6 +22,9 @@ function json(body, status, req, headers = {}) {
 
 const NOT_FOUND = { error: 'Not found' }
 const DAY = 86400
+// Online payment stops an hour before closes_at (spec 14.10, create_order's paying_closed).
+const PAYING_CLOSES_BEFORE_MS = 3600_000
+const FIELD_MESSAGE = 'Sprawdź to pole.'
 const ACTIONS = ['extend', 'remind_payment', 'cancel', 'edit', 'rename_team']
 // The fields „Edytuj dane” may change (ruling 7). Never the e-mail: the one-start key and the account.
 const EDITABLE = ['firstName', 'lastName', 'birthDate', 'gender', 'phone', 'city', 'club', 'nationality', 'iceName', 'icePhone']
@@ -32,6 +36,8 @@ const REFUSALS = {
   paid: [409, 'To zgłoszenie jest już opłacone.'],
   cancelled: [409, 'To zgłoszenie jest anulowane.'],
   full: [409, 'Brak wolnych miejsc w tej konkurencji.'],
+  paying_closed: [409, 'Płatność online jest już zamknięta: kończy się godzinę przed zamknięciem zapisów.'],
+  no_address: [409, 'Zamawiający nie ma już adresu e-mail.'],
   already_cancelled: [409, 'To zgłoszenie jest już anulowane.'],
   not_live: [409, 'To zgłoszenie nie jest już aktywne.'],
   payment_received: [409, 'Płatność za to zgłoszenie jest w toku. Spróbuj za kilka minut.'],
@@ -48,15 +54,20 @@ const REFUSALS = {
   not_found: [404, NOT_FOUND.error],
 }
 
-const refuse = (req, code) => {
+/** A refusal by code. Every 422 carries `fields` (field → message), so the dialog marks the field. */
+const refuse = (req, code, fields = undefined) => {
   const [status, error] = REFUSALS[code]
-  return json({ error, code }, status, req)
+  return json(fields ? { error, code, fields } : { error, code }, status, req)
 }
 
-/** An RPC error mapped to its 4xx answer; anything unexpected is thrown (a 500). */
-function refusalOrThrow(req, error) {
+/**
+ * An RPC error mapped to its 4xx answer; anything unexpected is thrown (a 500). `fieldsFor(code)`
+ * names the fields of a 422: the SQL raises a code, never a field, so an edit marks every field it
+ * touched (review M5).
+ */
+function refusalOrThrow(req, error, fieldsFor = () => undefined) {
   const msg = error?.message ?? ''
-  if (REFUSALS[msg]) return refuse(req, msg)
+  if (REFUSALS[msg]) return refuse(req, msg, REFUSALS[msg][0] === 422 ? fieldsFor(msg) : undefined)
   throw error
 }
 
@@ -89,25 +100,28 @@ async function targetOf(admin, action, body) {
 }
 
 // „Przypomnij o wpłacie”: Plan 3's reminder e-mail, now. Refused for an order nobody can pay any more
-// (D6-27, as pay-order refuses it), and once per order per 24 h (`pay-remind:<orderId>`), counted
-// only when the e-mail is about to go.
-async function remindPayment(admin, req, orderId) {
+// (D6-27, as pay-order refuses it), once online payment has stopped an hour before closes_at (review
+// M2), and once per order per 24 h (`pay-remind:<orderId>`). Only a sent e-mail spends that
+// allowance: a refused or timed-out send gives the slot back and answers { failed } (review M1).
+async function remindPayment(admin, settings, orderId) {
   const order = await single(admin.from('orders').select('id, status, expires_at').eq('id', orderId).single())
   if (order.status === 'paid') return { refused: 'paid' }
   if (order.status === 'cancelled') return { refused: 'cancelled' }
   if (order.status !== 'pending' || (order.expires_at && Date.parse(order.expires_at) <= Date.now())) return { refused: 'expired' }
+  if (!settings.closes_at || Date.now() >= Date.parse(settings.closes_at) - PAYING_CLOSES_BEFORE_MS) return { refused: 'paying_closed' }
   const { data: fits, error } = await admin.rpc('registration_order_fits', { p_order_id: orderId })
   if (error) throw error
   if (fits === false) return { refused: 'full' }
-  const throttle = await checkAndIncrement(admin, `pay-remind:${orderId}`, 1, { windowSeconds: DAY })
-  if (!throttle.allowed) return { throttled: throttle.retryAfterSec }
   const view = await loadOrderView(admin, orderId)
-  if (!view?.order.buyer_email) return { sent: false }
+  if (!view?.order.buyer_email) return { refused: 'no_address' }
   const args = orderEmailArgs(view)
   const mail = paymentReminderEmail({ event: args.event, order: args.order, payUrl: `${publicSite()}/zamowienie/${encodeURIComponent(orderId)}` })
-  const res = await sendEmail({ to: view.order.buyer_email, ...mail })
-  if (res && res.ok === false) console.error(`organizer-entry-action: reminder e-mail not accepted (${res.status})`)
-  return { sent: res?.ok !== false }
+  const key = `pay-remind:${orderId}`
+  return sendOnAllowance({
+    claim: () => checkAndIncrement(admin, key, 1, { windowSeconds: DAY }),
+    release: releaseSlot(admin, key),
+    send: () => sendEmail({ to: view.order.buyer_email, ...mail }),
+  })
 }
 
 /**
@@ -143,13 +157,16 @@ async function checkEdit(admin, settings, registrationId, fields) {
 //   extend          { orderId | registrationId, until }  → 200 { data: { expiresAt } }
 //                   „Przedłuż termin wpłaty”: up to 14 days and never past closes_at (ruling 2). It
 //                   reserves no place (D6-13). 409 expired, 422 invalid_until.
-//   remind_payment  { orderId | registrationId }          → 200 { data: { sent } }
-//                   409 paid / cancelled / expired, 409 full (D6-27), 429 a second within 24 h.
+//   remind_payment  { orderId | registrationId }          → 200 { data: { sent: true } }
+//                   409 paid / cancelled / expired, 409 paying_closed (from an hour before
+//                   closes_at), 409 full (D6-27), 409 no_address, 429 a second within 24 h,
+//                   502 email_failed when the e-mail did not go out (no allowance spent).
 //   cancel          { registrationId }                    → 200 { data: { cancelled, hostWithdraw } }
 //                   cancel_registration: a pending entry cancels its whole order (D6-24, no refund),
 //                   a captain the whole team, a confirmed entry is cancelled without a refund.
 //   edit            { registrationId, fields }            → 200 { data: { changed, ageGroupLabel } }
-//                   422 invalid_person with `fields`, 409 edits_closed after closes_at.
+//                   422 invalid_person, edit_invalid, invalid_field or ineligible, each with
+//                   `fields`; 409 edits_closed after closes_at.
 //   rename_team     { teamId, name }                      → 200 { data: { name } }
 //                   409 team_name_taken, 422 invalid_team_name.
 // The owner or an admin of the event's club: a member 403, an outsider or a disabled club 404, an
@@ -182,24 +199,28 @@ Deno.serve(async (req) => {
 
     if (action === 'extend') {
       const until = typeof body.until === 'string' ? new Date(body.until) : null
-      if (!until || Number.isNaN(until.getTime())) return refuse(req, 'invalid_until')
+      const untilFields = () => ({ until: REFUSALS.invalid_until[1] })
+      if (!until || Number.isNaN(until.getTime())) return refuse(req, 'invalid_until', untilFields())
       const { data, error } = await admin.rpc('extend_order_window', {
         p_order_id: target.orderId, p_until: until.toISOString(), p_actor: actor,
       })
-      if (error) return refusalOrThrow(req, error)
+      if (error) return refusalOrThrow(req, error, untilFields)
       await log('window_extended', target.orderId, { until: data })
       return json({ data: { expiresAt: data } }, 200, req)
     }
 
     if (action === 'remind_payment') {
-      const out = await remindPayment(admin, req, target.orderId)
+      const out = await remindPayment(admin, settings, target.orderId)
       if (out.refused) return refuse(req, out.refused)
       if (out.throttled) {
         return json({ error: 'Przypomnienie o wpłacie można wysłać raz na dobę.', code: 'throttled' }, 429, req,
           { 'Retry-After': String(out.throttled) })
       }
-      await log('payment_reminded', target.orderId, { sent: out.sent })
-      return json({ data: { sent: out.sent } }, 200, req)
+      if (out.failed) {
+        return json({ error: 'Nie udało się wysłać przypomnienia. Spróbuj ponownie za chwilę.', code: 'email_failed' }, 502, req)
+      }
+      await log('payment_reminded', target.orderId, { sent: true })
+      return json({ data: { sent: true } }, 200, req)
     }
 
     if (action === 'cancel') {
@@ -222,7 +243,11 @@ Deno.serve(async (req) => {
       const { data, error } = await admin.rpc('organizer_edit_registration', {
         p_registration_id: target.registrationId, p_fields: fields, p_actor: actor,
       })
-      if (error) return refusalOrThrow(req, error)
+      if (error) {
+        return refusalOrThrow(req, error, (code) => (code === 'ineligible'
+          ? { birthDate: REFUSALS.ineligible[1] }
+          : Object.fromEntries(checked.keys.map((k) => [k, FIELD_MESSAGE]))))
+      }
       // Which fields, never their values: the audit keeps no personal data the purge would miss.
       await log('registration_edited', target.registrationId, { fields: checked.keys, changed: data?.changed === true })
       return json({ data: { changed: data?.changed === true, ageGroupLabel: data?.ageGroupLabel ?? null } }, 200, req)
@@ -230,7 +255,7 @@ Deno.serve(async (req) => {
 
     // rename_team
     const { data, error } = await admin.rpc('rename_team', { p_team_id: target.teamId, p_name: body.name ?? '', p_actor: actor })
-    if (error) return refusalOrThrow(req, error)
+    if (error) return refusalOrThrow(req, error, () => ({ name: TEAM_NAME_MESSAGE }))
     await log('team_renamed', target.teamId)
     return json({ data: { name: data } }, 200, req)
   } catch (err) {

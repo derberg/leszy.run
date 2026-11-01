@@ -19,10 +19,21 @@ export async function clubRegistrationEnabled(admin, clubId) {
 // The one validated parser (clientIp.js); re-exported for the functions that import it from here.
 export { clientIp }
 
+/**
+ * Appends one organizer_actions row. Never throws: a failed insert is logged and answered false,
+ * so a caller that must not act unaudited (the CSV export) can refuse.
+ * @returns {Promise<boolean>} whether the row was stored
+ */
 export async function logOrganizerAction(admin, req, { actorId, clubId, eventId = null, action, target = null, payload = null }) {
-  const { error } = await admin.from('organizer_actions').insert({
-    actor_id: actorId, club_id: clubId, event_id: eventId, action, target, payload,
-    ip: clientIp(req), user_agent: req.headers.get('user-agent') || null,
-  })
-  if (error) console.error('organizer_actions insert failed:', error.message)
+  try {
+    const { error } = await admin.from('organizer_actions').insert({
+      actor_id: actorId, club_id: clubId, event_id: eventId, action, target, payload,
+      ip: clientIp(req), user_agent: req.headers.get('user-agent') || null,
+    })
+    if (!error) return true
+    console.error('organizer_actions insert failed:', error.message)
+  } catch (err) {
+    console.error('organizer_actions insert failed:', err?.message)
+  }
+  return false
 }

@@ -531,3 +531,201 @@ test('O-37 record_refund refuses p_kind organizer: only reserve_organizer_refund
   assert.equal(r.error?.message, 'organizer_refund')
   assert.equal((await rows('refunds', { order_id: e.orderId })).length, 0)
 })
+
+// ---------------------------------------------------------------- fix round 1 (task 4 review)
+
+const throttleAttempts = async (k) => (await db().from('otp_throttle').select('attempts').eq('key', k).maybeSingle()).data?.attempts ?? 0
+
+/**
+ * Runs fn while a test trigger on `table` refuses the rows `condition` (plpgsql, NEW/OLD) names,
+ * so a function's write there fails as a database error would. Dropped afterwards, whatever happens.
+ */
+async function whileRefusing(table, when, condition, fn) {
+  const name = `test_refuse_${crypto.randomBytes(4).toString('hex')}`
+  const sql = postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} })
+  try {
+    await sql.unsafe(`CREATE FUNCTION public.${name}() RETURNS trigger LANGUAGE plpgsql AS $f$
+      BEGIN IF ${condition} THEN RAISE EXCEPTION 'test_refused'; END IF; RETURN NEW; END $f$`)
+    await sql.unsafe(`CREATE TRIGGER ${name} BEFORE ${when} ON public.${table} FOR EACH ROW EXECUTE FUNCTION public.${name}()`)
+    return await fn()
+  } finally {
+    await sql.unsafe(`DROP TRIGGER IF EXISTS ${name} ON public.${table}`)
+    await sql.unsafe(`DROP FUNCTION IF EXISTS public.${name}()`)
+    await sql.end()
+  }
+}
+
+/** A group order the mock holds as paid → its order id and each person's line, by e-mail or first name. */
+async function paidGroup(event, people, buyerEmail) {
+  const out = await orderGroupOk(event, people, { buyerEmail })
+  const { transactionId } = await registerTransaction(nodeDpay(), { orderId: out.orderId, grosze: out.total })
+  await attemptFor(out.orderId, out.total, transactionId)
+  await dpayMode({ dropIpn: true })
+  await payMock(transactionId, 'paid')
+  await dpayMode({ dropIpn: false })
+  assert.equal((await confirmOk(out.orderId, transactionId, out.total)).outcome, 'confirmed')
+  const regs = await rows('registrations', { order_id: out.orderId })
+  const lines = await rows('order_lines', { order_id: out.orderId })
+  const lineOf = (pred) => lines.find((l) => l.registration_id === regs.find(pred).id)
+  return { orderId: out.orderId, regs, lineOf }
+}
+
+test('O-30 M6 a list row carries exactly the D6-11 key set, so a field added later fails here first', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  const r = await callFn('list-event-registrations', owner, { eventId: event.eventId })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  const row = r.body.data.find((x) => x.id === e.registrationId)
+  assert.deepEqual(Object.keys(row).sort(), [
+    // Plans 2–5
+    'id', 'name', 'competition', 'ageGroupLabel', 'status', 'createdAt', 'paymentStatus', 'expiresAt', 'role',
+    'consentState', 'guardianName', 'guardianRemoved', 'registeredBy', 'team',
+    // Plan 6 (D6-11, plus categoryId from Task 1)
+    'categoryId', 'firstName', 'lastName', 'birthDate', 'gender', 'phone', 'city', 'club', 'nationality', 'iceName',
+    'icePhone', 'email', 'bib', 'orderId', 'price', 'lines', 'paidAmount', 'refunded', 'refundUnconfirmed',
+    'statusKey', 'autoRefundReason', 'partnerId', 'partnerName',
+  ].sort())
+})
+
+test('O-35 M1–M3 remind_payment: a send that did not go out → 502 and no allowance spent; refused once online payment stopped and when the competition is full', async () => {
+  const event = await paidEvent({ competitions: BIEG(1) })
+  const action = (body) => callFn('organizer-entry-action', owner, body)
+
+  // M1: the sender refuses the e-mail.
+  const bounce = await orderOk(event, { emails: [runnerEmail('bounce')] })
+  const failed = await action({ action: 'remind_payment', orderId: bounce.orderId })
+  assert.equal(failed.status, 502, JSON.stringify(failed.body))
+  assert.equal(failed.body.code, 'email_failed')
+  assert.equal(failed.body.error, 'Nie udało się wysłać przypomnienia. Spróbuj ponownie za chwilę.')
+  assert.equal(await throttleAttempts(`pay-remind:${bounce.orderId}`), 0, 'a failed send spends no allowance')
+  assert.equal((await actions(event.eventId, 'payment_reminded')).length, 0)
+  // The address is fixed: the organizer may try again at once.
+  const fixed = runnerEmail('fixed')
+  await db().from('orders').update({ buyer_email: fixed }).eq('id', bounce.orderId)
+  const ok = await action({ action: 'remind_payment', orderId: bounce.orderId })
+  assert.equal(ok.status, 200, JSON.stringify(ok.body))
+  assert.equal(ok.body.data.sent, true)
+  assert.equal((await waitForMail(fixed, 1)).length, 1)
+  assert.equal(await throttleAttempts(`pay-remind:${bounce.orderId}`), 1)
+
+  // M3 (D6-27): another order paid the only place → nobody can pay this one.
+  await paidOrderOk(event, { emails: [runnerEmail('paid')] })
+  await db().from('otp_throttle').delete().eq('key', `pay-remind:${bounce.orderId}`)
+  const full = await action({ action: 'remind_payment', orderId: bounce.orderId })
+  assert.equal(full.status, 409, JSON.stringify(full.body))
+  assert.equal(full.body.code, 'full')
+  assert.equal(full.body.error, 'Brak wolnych miejsc w tej konkurencji.')
+  assert.equal(await throttleAttempts(`pay-remind:${bounce.orderId}`), 0)
+
+  // M2: online payment stops an hour before closes_at, and so does the reminder.
+  const roomy = await paidEvent()
+  const late = await orderOk(roomy, { emails: [runnerEmail('late')] })
+  await setSettings(roomy.eventId, { closes_at: minutesFromNow(30) })
+  const closed = await callFn('organizer-entry-action', owner, { action: 'remind_payment', orderId: late.orderId })
+  assert.equal(closed.status, 409, JSON.stringify(closed.body))
+  assert.equal(closed.body.code, 'paying_closed')
+  assert.equal(closed.body.error, 'Płatność online jest już zamknięta: kończy się godzinę przed zamknięciem zapisów.')
+  assert.equal(await throttleAttempts(`pay-remind:${late.orderId}`), 0)
+})
+
+test('O-35 M5 a refusal of organizer_edit_registration answers 422 with `fields`', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  // Nationality is off on this event: validatePerson ignores it, the SQL refuses it (edit_invalid).
+  const r = await callFn('organizer-entry-action', owner, { action: 'edit', registrationId: e.registrationId, fields: { nationality: 'DE' } })
+  assert.equal(r.status, 422, JSON.stringify(r.body))
+  assert.equal(r.body.code, 'edit_invalid')
+  assert.deepEqual(Object.keys(r.body.fields), ['nationality'])
+})
+
+test('O-31 M4 a subject with a line break → 422 on subject, nothing sent, no allowance spent', async () => {
+  const event = await paidEvent()
+  await paidOrderOk(event, { emails: [runnerEmail('nl')] })
+  await clearMessages()
+  for (const subject of ['Zmiana\nstartu', 'Zmiana\r\nstartu', 'Zmiana\rstartu']) {
+    const r = await callFn('send-organizer-message', owner, { eventId: event.eventId, audience: ALL, subject, body: 'Treść', mode: 'send' })
+    assert.equal(r.status, 422, JSON.stringify(r.body))
+    assert.ok(r.body.fields.subject)
+  }
+  assert.equal(await throttleAttempts(`message:${event.eventId}`), 0)
+  assert.deepEqual(await captureRequests(), [])
+})
+
+test('O-32 I1 M8 the csv_exported row names the filter keys and whether there was a search, never the text; no audit row, no CSV', async () => {
+  const event = await createPublishedFreeEvent(owner, { competitions: BIEG() })
+  const cat = event.categoryIds[0]
+  const email = runnerEmail('szukany')
+  assert.equal((await registerGroup(event, [adult(cat, 'self', email)])).error, null)
+  const found = await callFn('export-event-registrations', owner, { eventId: event.eventId, filter: { q: email, categoryId: cat } })
+  assert.equal(found.status, 200, JSON.stringify(found.body))
+  assert.equal(found.body.data.csv.split('\r\n').length, 2)
+  const [logged] = await actions(event.eventId, 'csv_exported')
+  assert.deepEqual(logged.payload, { rows: 1, filter: { keys: ['categoryId'], search: true } })
+  assert.ok(!JSON.stringify(logged).includes(email.split('@')[0]), 'the search text is not stored')
+
+  // M8: the audit row cannot be written → the export does not leave.
+  const refused = await whileRefusing('organizer_actions', 'INSERT',
+    `NEW.action = 'csv_exported' AND NEW.event_id = '${event.eventId}'`,
+    () => callFn('export-event-registrations', owner, { eventId: event.eventId, filter: {} }))
+  assert.equal(refused.status, 503, JSON.stringify(refused.body))
+  assert.equal(refused.body.code, 'audit_failed')
+  assert.equal(refused.body.data, undefined, 'no CSV')
+  assert.equal((await actions(event.eventId, 'csv_exported')).length, 1)
+})
+
+test('O-33 I2 dpay accepted and the refund stored: a failed runner_notified_at claim still answers 200 with the refund, and alerts', async () => {
+  const event = await paidEvent()
+  const e = await paidEntry(event)
+  const r = await whileRefusing('refunds', 'UPDATE',
+    `OLD.runner_notified_at IS NULL AND NEW.runner_notified_at IS NOT NULL AND NEW.order_id = '${e.orderId}'`,
+    () => callFn('organizer-refund', owner, { lineId: e.lineId, grosze: 2000, requestKey: key() }))
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(r.body.data.status, 'accepted')
+  const refund = await one('refunds', { id: r.body.data.refundId })
+  assert.equal(refund.dpay_status, 'accepted')
+  assert.equal(refund.runner_notified_at, null, 'left for the job to send')
+  assert.equal((await rows('operator_alerts', { order_id: e.orderId, kind: 'refund_email_failed' })).length, 1)
+  assert.equal((await actions(event.eventId, 'refund_settled')).length, 1)
+})
+
+test('O-33 S2 the refund e-mail goes to the payer and to the entry\'s own adult runner when the address differs', async () => {
+  const event = await paidEvent()
+  const cat = event.categoryIds[0]
+  const payer = runnerEmail('platnik')
+  const spouse = runnerEmail('malzonka')
+  const g = await paidGroup(event, [
+    adult(cat, 'self', payer), adult(cat, 'adult', spouse),
+    minor(cat, { firstName: `Zosia${crypto.randomBytes(2).toString('hex')}` }),
+  ], payer)
+  await clearMessages()
+
+  const toSpouse = await callFn('organizer-refund', owner, { lineId: g.lineOf((x) => x.email === spouse).id, grosze: 1000, requestKey: key() })
+  assert.equal(toSpouse.status, 200, JSON.stringify(toSpouse.body))
+  const [p1] = await waitForMail(payer, 1)
+  const [s1] = await waitForMail(spouse, 1)
+  assert.match(p1.subject, /^Zwrot 10,00 zł — /)
+  assert.equal(s1.subject, p1.subject)
+  assertClubSender(s1)
+  assert.deepEqual((await captureRequests()).map((q) => q.recipients), [2], 'one request, one personalization each')
+
+  // The payer's own entry: one address, one e-mail. A child's: the payer only.
+  await callFn('organizer-refund', owner, { lineId: g.lineOf((x) => x.email === payer).id, grosze: 1000, requestKey: key() })
+  await callFn('organizer-refund', owner, { lineId: g.lineOf((x) => x.guardian_name).id, grosze: 1000, requestKey: key() })
+  assert.equal((await waitForMail(payer, 3)).length, 3)
+  assert.equal((await messagesTo(spouse)).length, 1)
+})
+
+test('O-36 M7 the organizer\'s squad edit spends an organizer allowance, never their own register-people one', async () => {
+  const event = await paidTeamEvent(owner)
+  const team = await teamOk(event)
+  const members = await rows('registrations', { team_id: team.teamId })
+  const { captain_registration_id: captainId } = await one('teams', { id: team.teamId })
+  const swapOut = members.find((m) => m.id !== captainId && m.email)
+  const personal = await throttleAttempts(`register-people:${OWNER}`)
+  const r = await callFn('team-squad', owner, {
+    teamId: team.teamId, action: 'swap', registrationId: swapOut.id, person: person(runnerEmail('zmiana'), { firstName: 'Iga' }),
+  })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  assert.equal(await throttleAttempts(`register-people:${OWNER}`), personal)
+  assert.equal(await throttleAttempts(`organizer-people:${event.eventId}`), 1)
+})

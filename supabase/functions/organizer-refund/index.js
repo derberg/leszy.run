@@ -2,13 +2,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { logOrganizerAction } from '../_shared/organizer.js'
-import { sendEmail } from '../_shared/email.js'
+import { sendEmailToEach } from '../_shared/email.js'
 import { dpayConfig, DpayConfigError } from '../_shared/dpay.js'
 import { isUuid, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { claimRefundRequest, executeRefund, PAYMENTS_OFF, raiseAlert } from '../_shared/registration/orderFlow.js'
 import { organizerRefundEmail } from '../_shared/registration/emails.js'
 import { clubSender } from '../_shared/registration/organizerSender.js'
 import { formatPln } from '../_shared/registration/money.js'
+import { trySend } from '../_shared/registration/organizerMail.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -63,24 +64,42 @@ async function single(query) {
 }
 
 /**
- * The club's refund e-mail to the payer, at most once: runner_notified_at is claimed by one
- * UPDATE before sending, and given back when the send fails, so registration-jobs sends it later
- * (Task 5). The payer is the order's buyer, whose money it is. No address reaches a log.
+ * The club's refund e-mail, at most once: runner_notified_at is claimed by one UPDATE before
+ * sending. It goes to the payer (the order's buyer, whose money it is) and, in the same request
+ * with a personalization each, to the entry's own adult runner when that address differs (ruling
+ * S2): an added adult whose entry is refunded and cancelled must hear of it. A child has no
+ * address; the payer is the guardian or paid for them.
+ * Never throws: dpay's acceptance is already stored, so nothing here may become a 500 (review I2).
+ *   - the claim fails → logged and alerted (`refund_email_failed`), nothing sent; Task 5's job
+ *     finds runner_notified_at null and sends it
+ *   - the send is refused → the claim is given back for that job (an alert only if it cannot be)
+ *   - the send timed out (deliveryUnknown) → the claim is kept and the operator alerted
+ *     (`refund_email_unknown`): the mail may have gone, and a second copy is not resent blindly
+ * No address reaches a log or an alert.
  */
 async function notifyRunner(admin, settings, { refundId, orderId, registrationId, grosze, cancelled }) {
-  const { data: claimed, error } = await admin.from('refunds').update({ runner_notified_at: new Date().toISOString() })
-    .eq('id', refundId).is('runner_notified_at', null).select('id')
-  if (error) throw error
-  if (!claimed?.length) return
+  const alert = (kind, step, err) => raiseAlert(admin, kind, orderId, { refundId, step, error: String(err?.message ?? err ?? '') })
+  try {
+    const { data: claimed, error } = await admin.from('refunds').update({ runner_notified_at: new Date().toISOString() })
+      .eq('id', refundId).is('runner_notified_at', null).select('id')
+    if (error) throw error
+    if (!claimed?.length) return
+  } catch (err) {
+    console.error('organizer-refund: e-mail claim failed:', err?.message)
+    await alert('refund_email_failed', 'claim', err)
+    return
+  }
+  let out
   try {
     const [order, reg, club] = await Promise.all([
       single(admin.from('orders').select('buyer_email').eq('id', orderId).single()),
       registrationId
-        ? single(admin.from('registrations').select('first_name, last_name').eq('id', registrationId).maybeSingle())
+        ? single(admin.from('registrations').select('first_name, last_name, email').eq('id', registrationId).maybeSingle())
         : null,
       single(admin.from('clubs').select('name').eq('id', settings.club_id).single()),
     ])
-    if (!order?.buyer_email) return
+    const to = [...new Set([order?.buyer_email, reg?.email].filter(Boolean).map((a) => a.toLowerCase()))]
+    if (!to.length) return
     const deleted = reg?.first_name === 'Usunięte konto'
     const mail = organizerRefundEmail({
       event: { name: settings.name },
@@ -89,13 +108,56 @@ async function notifyRunner(admin, settings, { refundId, orderId, registrationId
       cancelled,
       organizer: { name: club.name },
     })
-    const res = await sendEmail({ to: order.buyer_email, ...mail, ...(await clubSender(admin, settings)) })
-    if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
+    const sender = await clubSender(admin, settings)
+    out = await trySend(() => sendEmailToEach(to, { ...mail, ...sender }))
   } catch (err) {
-    console.error('organizer-refund: refund e-mail failed:', err?.message)
-    const { error: rErr } = await admin.from('refunds').update({ runner_notified_at: null }).eq('id', refundId)
-    if (rErr) console.error('organizer-refund: e-mail claim not released:', rErr.message)
+    console.error('organizer-refund: refund e-mail not built:', err?.message)
+    out = { ok: false, unknown: false }
   }
+  if (out.ok) return
+  if (out.unknown) {
+    await alert('refund_email_unknown', 'send', 'no answer from the sender')
+    return
+  }
+  try {
+    const { error } = await admin.from('refunds').update({ runner_notified_at: null }).eq('id', refundId)
+    if (error) throw error
+  } catch (err) {
+    console.error('organizer-refund: e-mail claim not released:', err?.message)
+    await alert('refund_email_failed', 'release', err)
+  }
+}
+
+/**
+ * After finish_organizer_refund stored dpay's answer: the alert, the audit and the e-mail, then
+ * the answer for the stored state. Never throws (review I2): the organizer who sees a 500 for
+ * money that already left reopens the dialog, and a new requestKey refunds again.
+ * already_settled carries the stored state itself (`finished.status`), so nothing is re-read.
+ */
+async function afterSettle(admin, req, settings, { finished, outcome, refundId, refund, line, grosze, transactionId, audit }) {
+  const status = finished.status ?? outcome
+  if (finished.settled === 'already_settled') return answerFor(req, refundId, status)
+  const cancelled = finished.cancelled ?? []
+  try {
+    if (outcome === 'insufficient_balance') {
+      // Never retried for an organizer refund (ruling 3): the operator hears of it here.
+      await raiseAlert(admin, 'refund_insufficient_balance', refund.order_id, {
+        refundId, txn: transactionId, grosze, reason: 'organizer',
+      })
+    }
+    await logOrganizerAction(admin, req, {
+      ...audit, action: 'refund_settled', payload: { status, grosze, cancelled },
+    })
+    if (outcome === 'accepted') {
+      await notifyRunner(admin, settings, {
+        refundId, orderId: refund.order_id, registrationId: line.registration_id, grosze, cancelled: cancelled.length > 0,
+      })
+    }
+  } catch (err) {
+    console.error('organizer-refund: after settle:', err?.message)
+    await raiseAlert(admin, 'refund_followup_failed', refund.order_id, { refundId, status, error: String(err?.message ?? err) })
+  }
+  return answerFor(req, refundId, status, cancelled)
 }
 
 // POST { lineId, grosze, requestKey } → refunds part of a paid order line (Plan 6, D6-18).
@@ -105,7 +167,9 @@ async function notifyRunner(admin, settings, { refundId, orderId, registrationId
 //   answer through finish_organizer_refund and alerts rejected / pending / unknown. A 406 is
 //   alerted here and never retried: the organizer retries by hand.
 //   200 { data: { status: 'accepted', cancelled: [registrationId], refundId } } and the club's
-//       e-mail to the payer, claimed on runner_notified_at
+//       e-mail to the payer and the entry's adult runner, claimed on runner_notified_at. Once
+//       dpay's answer is stored, the answer is that refund's state whatever fails after it (the
+//       e-mail, the audit): a failure is logged and alerted, never a 500 (review I2)
 //   202 { data: { status: 'unknown', refundId }, message: „Zwrot niepotwierdzony.” } the money stays
 //       reserved and the operator resolves it; the runner is told nothing yet
 //   409 exceeds (with remaining), race_day, not_paid, insufficient_balance, rejected,
@@ -184,26 +248,9 @@ Deno.serve(async (req) => {
       // The settle step failed (executeRefund alerted it): nothing is known to be stored.
       return answerFor(req, refundId, 'unknown')
     }
-    if (finished.settled === 'already_settled') {
-      const now = await single(admin.from('refunds').select('dpay_status').eq('id', refundId).single())
-      return answerFor(req, refundId, now.dpay_status)
-    }
-    if (outcome === 'insufficient_balance') {
-      // Never retried for an organizer refund (ruling 3): the operator hears of it here.
-      await raiseAlert(admin, 'refund_insufficient_balance', refund.order_id, {
-        refundId, txn: transactionId, grosze, reason: 'organizer',
-      })
-    }
-    const cancelled = finished.cancelled ?? []
-    await logOrganizerAction(admin, req, {
-      ...audit, action: 'refund_settled', payload: { status: finished.status ?? outcome, grosze, cancelled },
+    return await afterSettle(admin, req, settings, {
+      finished, outcome, refundId, refund, line, grosze, transactionId, audit,
     })
-    if (outcome === 'accepted') {
-      await notifyRunner(admin, settings, {
-        refundId, orderId: refund.order_id, registrationId: line.registration_id, grosze, cancelled: cancelled.length > 0,
-      })
-    }
-    return answerFor(req, refundId, finished.status ?? outcome, cancelled)
   } catch (err) {
     console.error('organizer-refund error:', err?.message, err?.code)
     return json({ error: 'Internal server error' }, 500, req)

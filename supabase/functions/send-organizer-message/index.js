@@ -8,6 +8,7 @@ import { isUuid, loadOrganizerEvent } from '../_shared/registration/organizerEve
 import { allRows } from '../_shared/registration/allRows.js'
 import { resolveAudience } from '../_shared/registration/audience.js'
 import { clubSender } from '../_shared/registration/organizerSender.js'
+import { releaseSlot, sendOnAllowance } from '../_shared/registration/organizerMail.js'
 
 function json(body, status, req, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -30,6 +31,7 @@ const LIMITS = {
   test: (actorId) => ({ key: `message-test:${actorId}`, limit: 10, windowSeconds: HOUR }),
 }
 const THROTTLED = 'Limit wiadomości wyczerpany. Spróbuj później.'
+const TEST_FAILED = 'Nie udało się wysłać wiadomości próbnej. Spróbuj ponownie za chwilę.'
 
 const REG_COLUMNS = 'id, status, category_id, email, order_id, team_id, profile_id, registered_by_profile_id, ' +
   'consent_state, guardian_email, guardian_name, guardian_profile_id, guardian_removed_at'
@@ -40,6 +42,7 @@ function checkMessage(input) {
   const subject = typeof input?.subject === 'string' ? input.subject.trim() : ''
   const text = typeof input?.body === 'string' ? input.body.trim() : ''
   if (!subject) fields.subject = 'Podaj temat wiadomości.'
+  else if (/[\r\n]/.test(subject)) fields.subject = 'Temat musi się zmieścić w jednym wierszu.'
   else if (subject.length > SUBJECT_MAX) fields.subject = `Najwyżej ${SUBJECT_MAX} znaków.`
   if (!text) fields.body = 'Podaj treść wiadomości.'
   else if (text.length > BODY_MAX) fields.body = `Najwyżej ${BODY_MAX} znaków.`
@@ -93,12 +96,15 @@ const throttled = (req, retryAfterSec) =>
 //                   a child through the guardian, nothing for cancelled, expired or lapsed entries
 //   registrationId  „Napisz do zawodnika”: that one entry, if it is still live
 //   mode preview    → 200 { data: { count } }, no subject or body needed, nothing sent or counted
-//   mode test       → 200 { data: { recipientCount: 1, failed } }, to the caller's own address only
+//   mode test       → 200 { data: { recipientCount: 1, failed: 0 } }, to the caller's own address
+//                   only; 502 email_failed when it did not go out (a refusal or the 10 s timeout),
+//                   and the test allowance is given back
 //   mode send       → 200 { data: { recipientCount, failed } }; the organizer_messages row is written
 //                   first with recipient_count 0 and its count after (a crash leaves a row saying 0,
 //                   never mail with no record), as Plan 2's change notice does
 // Plain text, from „<klub> przez LESZY.RUN”, reply-to the event's contact address, never anyone's
-// own (P2-R19). 422 for a bad subject, body or audience, 409 no_recipients, 429 past ruling 9's
+// own (P2-R19). 422 for a bad subject (a line break included: SendGrid refuses one after the
+// slot is spent), body or audience, 409 no_recipients, 429 past ruling 9's
 // limits. The owner or an admin of the event's club: a member 403, an outsider or a disabled club
 // 404. No address reaches a log.
 Deno.serve(async (req) => {
@@ -141,12 +147,16 @@ Deno.serve(async (req) => {
     const audit = { actorId: session.userId, clubId: settings.club_id, eventId: settings.event_id }
 
     if (mode === 'test') {
-      const t = await claim(admin, LIMITS.test(session.userId))
-      if (!t.allowed) return throttled(req, t.retryAfterSec)
-      const res = await sendEmail({ to: session.email, subject: message.subject, text: message.body, ...sender })
-      const failed = res?.ok === false ? 1 : 0
-      await logOrganizerAction(admin, req, { ...audit, action: 'message_test_sent', target: settings.event_id, payload: { failed } })
-      return json({ data: { recipientCount: 1, failed } }, 200, req)
+      const limit = LIMITS.test(session.userId)
+      const out = await sendOnAllowance({
+        claim: () => claim(admin, limit),
+        release: releaseSlot(admin, limit.key),
+        send: () => sendEmail({ to: session.email, subject: message.subject, text: message.body, ...sender }),
+      })
+      if (out.throttled) return throttled(req, out.throttled)
+      if (out.failed) return json({ error: TEST_FAILED, code: 'email_failed' }, 502, req)
+      await logOrganizerAction(admin, req, { ...audit, action: 'message_test_sent', target: settings.event_id, payload: { failed: 0 } })
+      return json({ data: { recipientCount: 1, failed: 0 } }, 200, req)
     }
 
     if (!recipients.length) return json({ error: 'Nikt z wybranych osób nie dostanie tej wiadomości.', code: 'no_recipients' }, 409, req)

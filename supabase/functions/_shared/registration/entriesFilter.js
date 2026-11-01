@@ -35,3 +35,19 @@ export function filterEntries(rows, { categoryId, statusKey, q, partnerId } = {}
     return !needle || matches(row, needle)
   })
 }
+
+const SUMMARY_KEYS = ['categoryId', 'statusKey', 'partnerId']
+
+/**
+ * What the CSV export's audit row keeps of the filter: which filter keys were used and whether
+ * there was a search. Never the search text: it is usually a runner's name or address, and
+ * organizer_actions outlives every retention rule (review I1).
+ * @returns {{ keys: string[], search: boolean }}
+ */
+export function filterSummary(filter) {
+  const f = filter && typeof filter === 'object' ? filter : {}
+  return {
+    keys: SUMMARY_KEYS.filter((k) => typeof f[k] === 'string' && f[k] !== ''),
+    search: fold(f.q) !== '',
+  }
+}

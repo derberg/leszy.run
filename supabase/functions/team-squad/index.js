@@ -22,6 +22,11 @@ const SQUAD_LIMIT = 30
 const SQUAD_READ_LIMIT = 120
 const HOUR = 3600
 const DAY = 86400
+// An organizer's squad edits bring people in on the event's own allowance, never the organizer's
+// personal register-people one, which every sign-up of theirs shares across events (review M7).
+// Per event: each person brought in can get an e-mail, so the cap stays; the squad's own 30 per
+// team per hour still applies first.
+const ORGANIZER_PEOPLE_PER_DAY = 100
 const LIVE = ['confirmed', 'pending_payment']
 const ACTIONS = ['get', 'reorder', 'swap', 'add']
 const ORGANIZERS = ['owner', 'admin']
@@ -156,7 +161,8 @@ async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName,
 // service regulamin; an adult accepts for themself from the e-mail, so an adult's edit needs neither.
 // team_squad_edit decides under its locks: a refused edit changes nothing and e-mails nobody.
 // An edit that brings a person in spends the buyer's daily people allowance, shared with sign-ups,
-// because each one can send an e-mail to an address the captain typed. Both throttles fail closed.
+// because each one can send an e-mail to an address the captain typed; an organizer's edit spends
+// the event's `organizer-people:<eventId>` (100 per 24 h) instead. Both throttles fail closed.
 // Consent reminders are Plan 4's remind-consent: the captain is registered_by_profile_id.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -230,7 +236,9 @@ Deno.serve(async (req) => {
         meta.consentIds = body.acceptedConsentIds
       }
 
-      const claim = await checkAndIncrement(admin, `register-people:${email}`, PEOPLE_PER_DAY, { windowSeconds: DAY })
+      const claim = asOrganizer
+        ? await checkAndIncrement(admin, `organizer-people:${team.event_id}`, ORGANIZER_PEOPLE_PER_DAY, { windowSeconds: DAY })
+        : await checkAndIncrement(admin, `register-people:${email}`, PEOPLE_PER_DAY, { windowSeconds: DAY })
       if (!claim.allowed) return throttled(req, claim.retryAfterSec)
       // Ruling 8 of Plan 4, after the session and the throttles: a child's address is never stored.
       if (person.role === 'adult' && await isEmailRetired(admin, person.email)) {
