@@ -28,6 +28,7 @@ const NEW_FUNCTIONS = [
   'public.registration_current_tier(uuid, timestamp with time zone)',
   'public.registration_tier_price(uuid, uuid)',
   'public.registration_current_price(uuid)',
+  'public.order_lines_extra_same_event()',
 ]
 
 function anon() {
@@ -273,6 +274,53 @@ test('V-13 extra stock: sold above stock, negative, or stock above 100 000 is re
   await expectCode(db()`insert into public.extras ${db()({ event_id: s.eventId, name: 'Medal', price: -1, order_until: '2099-01-01' })}`, '23514', 'negative price')
   await expectCode(db()`insert into public.extras ${db()({ event_id: s.eventId, name: 'Medal', price: MAX_LIST_PRICE + 1, order_until: '2099-01-01' })}`, '23514', 'price above the cap')
   await expectCode(db()`insert into public.extras (event_id, name, price) values (${s.eventId}, 'Medal', 100)`, '23502', 'no order_until')
+  await expectCode(db()`insert into public.extras ${db()({ event_id: s.eventId, name: ' Medal', price: 100, order_until: '2099-01-01' })}`, '23514', 'an untrimmed extra name')
+  await expectCode(db()`insert into public.extra_variants ${db()({ extra_id: extra.id, label: 'M ', stock: 1 })}`, '23514', 'an untrimmed variant label')
+  await expectCode(db()`insert into public.extra_variants ${db()({ extra_id: extra.id, label: '', stock: 1 })}`, '23514', 'an empty variant label')
+})
+
+test('V-13 competition_prices.amount is capped at MAX_LIST_PRICE, like the SQL discount', async () => {
+  const s = await seedEvent()
+  const tier = await insert('price_tiers', { event_id: s.eventId, ends_on: null, sort_order: 0 })
+  await expectCode(db()`insert into public.competition_prices ${db()({ category_id: s.categoryId, tier_id: tier.id, amount: MAX_LIST_PRICE + 1 })}`,
+    '23514', 'a list price above the cap')
+  await insert('competition_prices', { category_id: s.categoryId, tier_id: tier.id, amount: MAX_LIST_PRICE })
+})
+
+test('V-13 an extra\'s image is this event\'s own upload of kind extra; deleting it clears only the image', async () => {
+  const s = await seedEvent()
+  const other = await seedEvent()
+  const upload = (ev, kind) => insert('registration_uploads', { event_id: ev.eventId, kind, path: `${ev.eventId}/${kind}/${crypto.randomUUID()}.jpg` })
+  const own = await upload(s, 'extra')
+  const foreign = await upload(other, 'extra')
+  const regulamin = await upload(s, 'regulamin')
+  const row = (image) => ({ event_id: s.eventId, name: 'Koszulka', price: 5000, order_until: '2099-01-01', image_upload_id: image })
+  await expectCode(db()`insert into public.extras ${db()(row(foreign.id))}`, '23503', 'another event\'s image')
+  await expectCode(db()`insert into public.extras ${db()(row(regulamin.id))}`, '23503', 'a regulamin as the image')
+  await expectCode(db()`insert into public.extras ${db()({ ...row(own.id), image_kind: 'poster' })}`, '23514', 'image_kind other than extra')
+  const extra = await insert('extras', row(own.id))
+  await db()`delete from public.registration_uploads where id = ${own.id}`
+  const [after1] = await db()`select image_upload_id, event_id from public.extras where id = ${extra.id}`
+  assert.deepEqual({ ...after1 }, { image_upload_id: null, event_id: s.eventId })
+})
+
+test('V-13 an order line names a variant exactly when it is an extra line, and only one of the order\'s event', async () => {
+  const s = await seedEvent()
+  const other = await seedEvent()
+  const variantOf = async (ev) => {
+    const extra = await insert('extras', { event_id: ev.eventId, name: 'Koszulka', price: 5000, order_until: '2099-01-01' })
+    return insert('extra_variants', { extra_id: extra.id, label: 'M', stock: 10 })
+  }
+  const own = await variantOf(s)
+  const foreign = await variantOf(other)
+  const order = await insert('orders', { event_id: s.eventId, buyer_email: 'k@test.local', entry_total: 0, extras_total: 5000,
+    donation: 0, total: 5000, expires_at: new Date(Date.now() + 86400000).toISOString() })
+  const line = (over) => ({ order_id: order.id, kind: 'extra', qty: 1, amount: 5000, ...over })
+  await expectCode(db()`insert into public.order_lines ${db()(line({ extra_variant_id: foreign.id }))}`, '23503', 'another event\'s variant')
+  await expectCode(db()`insert into public.order_lines ${db()(line({ extra_variant_id: null }))}`, '23514', 'an extra line without a variant')
+  await expectCode(db()`insert into public.order_lines ${db()(line({ kind: 'donation', extra_variant_id: own.id }))}`, '23514', 'a donation line with a variant')
+  const ok = await insert('order_lines', line({ extra_variant_id: own.id }))
+  await expectCode(db()`update public.order_lines set extra_variant_id = ${foreign.id} where id = ${ok.id}`, '23503', 'repointed to another event\'s variant')
 })
 
 test('V-13 vouchers: used above max_uses, percent and max_uses out of range are refused', async () => {
@@ -311,7 +359,7 @@ test('V-13 transfer_fee and a transfer fee other than 0 are refused; transfer se
   await expectCode(db()`update public.registration_settings set transfer_fee = 500 where event_id = ${s.eventId}`, '23514', 'transfer_fee 500')
   const reg = await insert('registrations', registrationRow(s))
   await expectCode(db()`insert into public.transfers ${db()({
-    registration_id: reg.id, kind: 'runner', to_email: 'nowy@test.local', token_hash: sha(), fee: 500,
+    event_id: s.eventId, registration_id: reg.id, kind: 'runner', to_email: 'nowy@test.local', token_hash: sha(), fee: 500,
     expires_at: new Date(Date.now() + 86400000).toISOString(),
   })}`, '23514', 'transfers.fee 500')
 })
@@ -320,7 +368,7 @@ test('V-13 transfers: one pending per registration, a lower-case address, a toke
   const s = await seedEvent()
   const reg = await insert('registrations', registrationRow(s))
   const expires = new Date(Date.now() + 86400000).toISOString()
-  const base = { registration_id: reg.id, kind: 'runner', to_email: 'nowy@test.local', expires_at: expires }
+  const base = { event_id: s.eventId, registration_id: reg.id, kind: 'runner', to_email: 'nowy@test.local', expires_at: expires }
   const first = await insert('transfers', { ...base, token_hash: sha() })
   assert.equal(first.status, 'pending')
   assert.equal(first.fee, 0)
@@ -347,20 +395,33 @@ test('V-13 transfers: one pending per registration, a lower-case address, a toke
     await expectCode(db()`insert into public.transfers ${db()(row)}`, '23514', what)
   }
   // An organizer transfer has no token and no link expiry.
-  await insert('transfers', { registration_id: reg2.id, kind: 'organizer', to_email: 'nowy@test.local' })
+  await insert('transfers', { event_id: s.eventId, registration_id: reg2.id, kind: 'organizer', to_email: 'nowy@test.local' })
 })
 
 test('V-13 an accepted transfer names its new registration; the old address of a cancelled invite may be erased', async () => {
   const s = await seedEvent()
   const reg = await insert('registrations', registrationRow(s))
   const next = await insert('registrations', registrationRow(s, { status: 'pending_payment' }))
-  const t = await insert('transfers', { registration_id: reg.id, kind: 'runner', to_email: 'nowy@test.local', token_hash: sha(),
+  const t = await insert('transfers', { event_id: s.eventId, registration_id: reg.id, kind: 'runner', to_email: 'nowy@test.local', token_hash: sha(),
     expires_at: new Date(Date.now() + 86400000).toISOString() })
   await db()`update public.transfers set status = 'accepted', accepted_at = now(), new_registration_id = ${next.id} where id = ${t.id}`
-  const t2 = await insert('transfers', { registration_id: next.id, kind: 'runner', to_email: 'trzeci@test.local', token_hash: sha(),
+  const t2 = await insert('transfers', { event_id: s.eventId, registration_id: next.id, kind: 'runner', to_email: 'trzeci@test.local', token_hash: sha(),
     expires_at: new Date(Date.now() + 86400000).toISOString() })
   await db()`update public.transfers set status = 'cancelled', cancelled_at = now(), to_email = null where id = ${t2.id}`
   await expectCode(db()`delete from public.registrations where id = ${next.id}`, '23503', 'delete a transferred-to registration')
+})
+
+test('V-13 a transfer stays in one event: both registrations must be the transfer\'s event\'s', async () => {
+  const s = await seedEvent()
+  const other = await seedEvent()
+  const reg = await insert('registrations', registrationRow(s))
+  const foreign = await insert('registrations', registrationRow(other))
+  const expires = new Date(Date.now() + 86400000).toISOString()
+  const row = { event_id: s.eventId, kind: 'runner', to_email: 'nowy@test.local', expires_at: expires }
+  await expectCode(db()`insert into public.transfers ${db()({ ...row, registration_id: foreign.id, token_hash: sha() })}`, '23503', 'another event\'s registration')
+  const t = await insert('transfers', { ...row, registration_id: reg.id, token_hash: sha() })
+  await expectCode(db()`update public.transfers set status = 'accepted', accepted_at = now(), new_registration_id = ${foreign.id} where id = ${t.id}`,
+    '23503', 'accepted into another event\'s registration')
 })
 
 // ---------------------------------------------------------------- foreign keys
@@ -427,7 +488,7 @@ test('V-13 every foreign key on the new tables and the new ones on registrations
   for (const [tbl, col, rule] of [
     ['registrations', 'voucher_id', 'r'], ['registrations', 'partner_id', 'r'], ['order_lines', 'extra_variant_id', 'r'],
     ['vouchers', 'partner_id', 'r'], ['extra_variants', 'extra_id', 'r'], ['transfers', 'registration_id', 'r'],
-    ['transfers', 'new_registration_id', 'r'],
+    ['transfers', 'new_registration_id', 'r'], ['transfers', 'event_id', 'r'], ['extras', 'image_upload_id', 'n'],
   ]) {
     assert.equal(named(tbl, col)?.confdeltype, rule, `${tbl}.${col} is not ON DELETE RESTRICT`)
   }

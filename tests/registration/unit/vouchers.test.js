@@ -67,8 +67,26 @@ test('validateVoucherInput accepts a full voucher and returns it normalised in s
   assert.deepEqual(v, {
     ok: true,
     errors: {},
-    value: { code: 'LESZY-15', percent: 15, max_uses: 30, valid_until: '2026-12-31', category_ids: [UUID, UUID2], partner_id: UUID },
+    value: { code: 'LESZY-15', percent: 15, max_uses: 30, valid_until: '2026-12-31T23:00:00.000Z', category_ids: [UUID, UUID2], partner_id: UUID },
   })
+})
+
+// vouchers.valid_until is a timestamptz and the voucher is valid while valid_until > now(): the
+// organizer's „Ważny do” day must last through 23:59:59.999 Warsaw, so the stored instant is the
+// start of the next Warsaw day, never UTC midnight of the typed day.
+test('V-09 validateVoucherInput: „Ważny do” D is stored as the start of the Warsaw day after D', () => {
+  for (const [day, instant] of [
+    ['2026-12-31', '2026-12-31T23:00:00.000Z'], // winter, UTC+1
+    ['2026-07-15', '2026-07-15T22:00:00.000Z'], // summer, UTC+2
+    ['2026-10-24', '2026-10-24T22:00:00.000Z'], // the next day (25.10) starts still in UTC+2
+    ['2026-10-25', '2026-10-25T23:00:00.000Z'], // the 25-hour day
+    ['2026-03-28', '2026-03-28T23:00:00.000Z'],
+    ['2026-03-29', '2026-03-29T22:00:00.000Z'], // the 23-hour day
+  ]) {
+    const v = validateVoucherInput({ percent: 10, maxUses: 1, validUntil: day })
+    assert.equal(v.ok, true, day)
+    assert.equal(v.value.valid_until, instant, day)
+  }
 })
 
 test('validateVoucherInput: code, date, competitions and partner are optional', () => {

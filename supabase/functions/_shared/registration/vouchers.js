@@ -3,6 +3,7 @@
 // is typed back right. Plain ESM, Web Crypto only: runs in Deno and Node.
 
 import { isIsoDate } from './pricing.js'
+import { warsawDayAfter } from './dates.js'
 
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // 32 symbols: byte & 31 is unbiased
 export const MAX_GENERATED_CODES = 200
@@ -50,7 +51,8 @@ function intIn(value, lo, hi) {
 
 /**
  * An organizer's code form. `code` may be omitted (generated codes come from generateCodes);
- * `categoryIds` empty means every competition. The value is snake_case, as stored.
+ * `categoryIds` empty means every competition. The value is snake_case, as stored; `valid_until`
+ * is the ISO instant the Warsaw day after `validUntil` begins (a code is valid while now < it).
  * @returns {{ ok: true, value: object, errors: {} } | { ok: false, errors: Record<string, string> }}
  */
 export function validateVoucherInput(input) {
@@ -69,7 +71,8 @@ export function validateVoucherInput(input) {
   if (value.max_uses == null) errors.maxUses = 'Liczba użyć od 1 do 100 000.'
 
   if (validUntil == null || validUntil === '') value.valid_until = null
-  else if (isIsoDate(validUntil)) value.valid_until = validUntil
+  // „Ważny do” D lasts through the end of D in Warsaw: vouchers.valid_until is the exclusive end.
+  else if (isIsoDate(validUntil)) value.valid_until = warsawDayAfter(validUntil).toISOString()
   else errors.validUntil = 'Nieprawidłowa data.'
 
   if (categoryIds == null) value.category_ids = []

@@ -21,6 +21,32 @@
 -- create_order and create_team_registration (20261101110000) read all three for the tier snapshot
 -- on an entry line, and they resolve the call at run time, so they keep working unchanged.
 
+-- ---------------------------------------------------------------- lock order
+
+-- Live sign-ups take registration_settings FOR SHARE and then write registrations (D3-1). This file
+-- takes registration_settings first, in its strongest mode (the ADD COLUMN, ACCESS EXCLUSIVE), so
+-- it never holds a lock on registrations while waiting for the settings: a sign-up in flight
+-- either finishes first or waits behind the whole migration. The timeout makes a release that
+-- still cannot get its locks fail fast and leave sign-ups alone, rather than queue them.
+SET LOCAL lock_timeout = '10s';
+
+-- ---------------------------------------------------------------- transfer settings
+
+-- „Przekazanie pakietu” in Płatności, saved through the payments section (D7-22). The fee is not
+-- rendered and stays 0 until the user decides otherwise (ruling 1).
+ALTER TABLE public.registration_settings
+  ADD COLUMN transfer_enabled boolean NOT NULL DEFAULT false,
+  ADD COLUMN transfer_until   date,
+  ADD COLUMN transfer_fee     integer NOT NULL DEFAULT 0 CONSTRAINT registration_settings_transfer_fee_check CHECK (transfer_fee = 0);
+
+-- ---------------------------------------------------------------- list price cap
+
+-- MAX_LIST_PRICE (pricing.js) = MAX_PRICE_GROSZE (sections.js), which has refused a higher price
+-- since competition_prices was created (Plan 2, #323), so no stored row can exceed it. Above it
+-- registration_discounted_price raises; with this check no stored price can reach that branch.
+ALTER TABLE public.competition_prices
+  ADD CONSTRAINT competition_prices_amount_max CHECK (amount <= 10000000);
+
 -- ---------------------------------------------------------------- partners
 
 CREATE TABLE public.registration_partners (
@@ -83,15 +109,28 @@ REVOKE ALL ON public.voucher_competitions FROM anon, authenticated;
 
 -- ---------------------------------------------------------------- extras
 
+-- An extra's image is a one-step upload like the poster (upload-registration-file, kind 'extra').
+ALTER TABLE public.registration_uploads DROP CONSTRAINT registration_uploads_kind_check;
+ALTER TABLE public.registration_uploads
+  ADD CONSTRAINT registration_uploads_kind_check CHECK (kind IN ('poster', 'regulamin', 'gpx', 'extra')),
+  ADD CONSTRAINT registration_uploads_id_event_kind_key UNIQUE (id, event_id, kind);
+
+-- image_kind is the constant half of the image's foreign key: the image must be this event's own
+-- upload of kind 'extra', never another event's file or a regulamin. A deleted upload nulls only
+-- image_upload_id.
 CREATE TABLE public.extras (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id        uuid NOT NULL REFERENCES public.registration_settings(event_id) ON DELETE RESTRICT,
-  name            text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 80),
-  image_upload_id uuid REFERENCES public.registration_uploads(id) ON DELETE SET NULL,
+  name            text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 80 AND name = btrim(name)),
+  image_upload_id uuid,
+  image_kind      text NOT NULL DEFAULT 'extra' CHECK (image_kind = 'extra'),
   price           integer NOT NULL CHECK (price BETWEEN 0 AND 10000000),
   order_until     date NOT NULL,
   sort_order      integer NOT NULL DEFAULT 0,
-  created_at      timestamptz NOT NULL DEFAULT now()
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (id, event_id),
+  CONSTRAINT extras_image_upload_id_fkey FOREIGN KEY (image_upload_id, event_id, image_kind)
+    REFERENCES public.registration_uploads (id, event_id, kind) ON DELETE SET NULL (image_upload_id)
 );
 CREATE INDEX extras_event_id_idx ON public.extras (event_id);
 CREATE INDEX extras_image_upload_id_idx ON public.extras (image_upload_id);
@@ -100,7 +139,7 @@ CREATE INDEX extras_image_upload_id_idx ON public.extras (image_upload_id);
 CREATE TABLE public.extra_variants (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   extra_id   uuid NOT NULL REFERENCES public.extras(id) ON DELETE RESTRICT,
-  label      text NOT NULL CHECK (char_length(label) BETWEEN 1 AND 60),
+  label      text NOT NULL CHECK (char_length(label) BETWEEN 1 AND 60 AND label = btrim(label)),
   stock      integer NOT NULL CHECK (stock BETWEEN 0 AND 100000),
   sold       integer NOT NULL DEFAULT 0,
   sort_order integer NOT NULL DEFAULT 0,
@@ -123,15 +162,36 @@ REVOKE ALL ON public.extra_variants FROM anon, authenticated;
 ALTER TABLE public.extra_competitions ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.extra_competitions FROM anon, authenticated;
 
--- An extra's image is a one-step upload like the poster (upload-registration-file, kind 'extra').
-ALTER TABLE public.registration_uploads DROP CONSTRAINT registration_uploads_kind_check;
-ALTER TABLE public.registration_uploads
-  ADD CONSTRAINT registration_uploads_kind_check CHECK (kind IN ('poster', 'regulamin', 'gpx', 'extra'));
-
--- Plan 3 left this a plain uuid until the extras existed.
+-- Plan 3 left this a plain uuid until the extras existed. An extra line names a variant and only an
+-- extra line does (no extra line exists before this file). order_lines has no event_id, so the
+-- variant's event is checked against the order's by a trigger, with the foreign key's error code.
 ALTER TABLE public.order_lines
   ADD CONSTRAINT order_lines_extra_variant_id_fkey
-    FOREIGN KEY (extra_variant_id) REFERENCES public.extra_variants(id) ON DELETE RESTRICT;
+    FOREIGN KEY (extra_variant_id) REFERENCES public.extra_variants(id) ON DELETE RESTRICT,
+  ADD CONSTRAINT order_lines_extra_variant_check CHECK ((kind = 'extra') = (extra_variant_id IS NOT NULL));
+
+CREATE FUNCTION public.order_lines_extra_same_event() RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = ''
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.orders o
+      JOIN public.extra_variants v ON v.id = NEW.extra_variant_id
+      JOIN public.extras e ON e.id = v.extra_id
+     WHERE o.id = NEW.order_id AND e.event_id = o.event_id
+  ) THEN
+    RAISE EXCEPTION 'order_lines_extra_variant_event' USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END $$;
+REVOKE EXECUTE ON FUNCTION public.order_lines_extra_same_event() FROM public, anon, authenticated, service_role;
+
+CREATE TRIGGER order_lines_extra_same_event
+  BEFORE INSERT OR UPDATE OF order_id, extra_variant_id ON public.order_lines
+  FOR EACH ROW
+  WHEN (NEW.extra_variant_id IS NOT NULL)
+  EXECUTE FUNCTION public.order_lines_extra_same_event();
 
 -- ---------------------------------------------------------------- registrations: voucher and partner
 
@@ -151,14 +211,18 @@ CREATE INDEX registrations_partner_id_idx ON public.registrations (partner_id);
 --   kind 'runner': the holder invites by e-mail; the link carries a token whose SHA-256 is
 --     token_hash, valid until expires_at (Warsaw day after transfer_until, ruling 4).
 --   kind 'organizer': B3 types the recipient in; no token and no link expiry.
+-- Both registrations belong to the transfer's event (composite keys on registrations (id, event_id)).
 -- At most one pending transfer per registration. to_email is stored lower case; delete-my-account
 -- nulls it on an invite it cancels, so it may be null once the transfer is not pending.
 -- The accept path (Plan 7 task 6) repoints teams.captain_registration_id to the new registration
 -- before the old one leaves live: teams_follow_captain releases a team only through its current
 -- captain, so the team stays.
+ALTER TABLE public.registrations ADD CONSTRAINT registrations_id_event_id_key UNIQUE (id, event_id);
+
 CREATE TABLE public.transfers (
   id                     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  registration_id        uuid NOT NULL REFERENCES public.registrations(id) ON DELETE RESTRICT,
+  event_id               uuid NOT NULL REFERENCES public.registration_settings(event_id) ON DELETE RESTRICT,
+  registration_id        uuid NOT NULL,
   kind                   text NOT NULL CHECK (kind IN ('runner', 'organizer')),
   from_profile_id        uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   to_email               text CHECK (to_email = lower(btrim(to_email)) AND char_length(to_email) <= 254
@@ -166,7 +230,7 @@ CREATE TABLE public.transfers (
   token_hash             text UNIQUE CHECK (token_hash ~ '^[0-9a-f]{64}$'),
   status                 text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'cancelled', 'expired')),
   fee                    integer NOT NULL DEFAULT 0 CHECK (fee = 0),
-  new_registration_id    uuid REFERENCES public.registrations(id) ON DELETE RESTRICT,
+  new_registration_id    uuid,
   expires_at             timestamptz,
   accepted_at            timestamptz,
   accepted_by_profile_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -177,8 +241,13 @@ CREATE TABLE public.transfers (
   CONSTRAINT transfers_pending_has_address CHECK (status <> 'pending' OR to_email IS NOT NULL),
   CONSTRAINT transfers_accepted_complete CHECK (status <> 'accepted' OR (accepted_at IS NOT NULL AND new_registration_id IS NOT NULL)),
   CONSTRAINT transfers_cancelled_at CHECK (status <> 'cancelled' OR cancelled_at IS NOT NULL),
-  CONSTRAINT transfers_not_to_itself CHECK (new_registration_id <> registration_id)
+  CONSTRAINT transfers_not_to_itself CHECK (new_registration_id <> registration_id),
+  CONSTRAINT transfers_registration_id_fkey FOREIGN KEY (registration_id, event_id)
+    REFERENCES public.registrations (id, event_id) ON DELETE RESTRICT,
+  CONSTRAINT transfers_new_registration_id_fkey FOREIGN KEY (new_registration_id, event_id)
+    REFERENCES public.registrations (id, event_id) ON DELETE RESTRICT
 );
+CREATE INDEX transfers_event_id_idx ON public.transfers (event_id);
 CREATE UNIQUE INDEX transfers_registration_pending_key ON public.transfers (registration_id) WHERE status = 'pending';
 CREATE UNIQUE INDEX transfers_new_registration_id_key ON public.transfers (new_registration_id) WHERE new_registration_id IS NOT NULL;
 CREATE INDEX transfers_registration_id_idx ON public.transfers (registration_id);
@@ -189,20 +258,10 @@ CREATE INDEX transfers_to_email_pending_idx ON public.transfers (to_email) WHERE
 ALTER TABLE public.transfers ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.transfers FROM anon, authenticated;
 
--- ---------------------------------------------------------------- transfer settings
-
--- „Przekazanie pakietu” in Płatności, saved through the payments section (D7-22). The fee is not
--- rendered and stays 0 until the user decides otherwise (ruling 1).
-ALTER TABLE public.registration_settings
-  ADD COLUMN transfer_enabled boolean NOT NULL DEFAULT false,
-  ADD COLUMN transfer_until   date,
-  ADD COLUMN transfer_fee     integer NOT NULL DEFAULT 0 CONSTRAINT registration_settings_transfer_fee_check CHECK (transfer_fee = 0);
-
 -- ---------------------------------------------------------------- SQL mirrors of pricing.js
 
--- discountedPrice: list − floor(list × percent / 100), in bigint (an int4 product overflows above
--- 21 474 836 grosze). Both operands are non-negative, so integer division is floor. A null percent
--- is no voucher. Out-of-range input raises, as the JS throws.
+-- discountedPrice: list − floor(list × percent / 100). Both operands are non-negative, so integer
+-- division is floor. A null percent is no voucher. Out-of-range input raises, as the JS throws.
 CREATE FUNCTION public.registration_discounted_price(p_list integer, p_percent integer) RETURNS integer
   LANGUAGE plpgsql
   IMMUTABLE
