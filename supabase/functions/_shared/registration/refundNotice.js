@@ -11,6 +11,10 @@
 // anything is sent. The mail goes to the payer (the order's buyer, whose money it is) and, in the
 // same request with a personalization each, to the entry's own adult runner when that address
 // differs (ruling S2). A child has no address; the payer is the guardian or paid for them.
+// A line a package transfer moved gets two separate sends, one per copy (Plan 7): the claim covers
+// both, so it is given back only when neither copy can have gone out. When one copy went out and
+// the other did not, the claim is kept and the alert names the failed copy (`copy`) and its own
+// status: releasing it would send the delivered copy a second time (follow-up NB-1).
 // No address reaches a log or an alert.
 import { sendEmailToEach } from '../email.js'
 import { organizerRefundEmail } from './emails.js'
@@ -32,13 +36,16 @@ async function single(query) {
  * @param {{ refundId: string, orderId: string, registrationId: string|null, grosze: number, cancelled: boolean }} refund
  * @param {{ onFailure?: 'release'|'keep' }} [opts]
  * @returns {Promise<'sent'|'claimed_elsewhere'|'no_address'|'failed'|'unknown'>}
- *   failed: nothing went out (with 'release' the claim was given back, with 'keep' it was kept and
- *   `refund_email_failed` raised); unknown: the send timed out, the claim kept and
- *   `refund_email_unknown` raised (the mail may have gone and is never resent blindly).
+ *   failed: a copy did not go out. When nothing went out, with 'release' the claim was given back,
+ *   with 'keep' it was kept and `refund_email_failed` raised; when the other copy of a moved line
+ *   went out, the claim is kept and `refund_email_failed` names the failed copy, whatever
+ *   `onFailure` says. unknown: a send timed out, the claim kept and `refund_email_unknown` raised
+ *   (the mail may have gone and is never resent blindly).
  */
 export async function notifyRefundRunner(admin, settings, { refundId, orderId, registrationId, grosze, cancelled }, { onFailure = 'release' } = {}) {
-  const alert = (kind, step, err, dedupeKey = null) =>
-    raiseAlert(admin, kind, orderId, { refundId, step, error: String(err?.message ?? err ?? '') }, { dedupeKey })
+  const alert = (kind, step, err, dedupeKey = null, extra = {}) =>
+    raiseAlert(admin, kind, orderId, { refundId, step, error: String(err?.message ?? err ?? ''), ...extra }, { dedupeKey })
+  const notAccepted = (status) => (status ? `e-mail not accepted (${status})` : 'not sent')
   try {
     const { data: claimed, error } = await admin.from('refunds').update({ runner_notified_at: new Date().toISOString() })
       .eq('id', refundId).is('runner_notified_at', null).select('id')
@@ -50,7 +57,9 @@ export async function notifyRefundRunner(admin, settings, { refundId, orderId, r
     await alert('refund_email_failed', 'claim', err, `refund_email_claim:${refundId}`)
     return 'failed'
   }
-  let out
+  // One entry per send: { copy, ok, unknown, status }. `copy` is 'payer' or 'holder' for a moved
+  // line's two copies, null for the one message of every other refund.
+  let sends
   try {
     const [order, reg, club] = await Promise.all([
       single(admin.from('orders').select('buyer_email').eq('id', orderId).single()),
@@ -65,33 +74,49 @@ export async function notifyRefundRunner(admin, settings, { refundId, orderId, r
     const named = deleted || !reg ? null : { firstName: reg.first_name, lastName: reg.last_name }
     const base = { event: { name: settings.name }, grosze, cancelled, organizer: { name: club.name } }
     const sender = await clubSender(admin, settings)
-    // A line a package transfer moved (Plan 7): its holder did not pay. The payer's copy names the
-    // holder only after a runner's transfer (ruling N-1), and the holder's copy says the money goes
-    // back to whoever paid. Otherwise one message to both, as before.
+    // A line a package transfer moved (Plan 7): its holder did not pay. The holder's copy says the
+    // money goes back to whoever paid, also when the payer's address is gone (an account deleted,
+    // NB-2): the money still goes to the payer's card, never the holder's. The payer's copy, sent
+    // only when there is a payer address, names the holder only after a runner's transfer
+    // (ruling N-1). Otherwise one message to both, as before.
     const kind = registrationId ? (await transferredRegistrationIds(admin, [registrationId])).get(registrationId) : undefined
     const buyer = order?.buyer_email?.toLowerCase() ?? null
     const holder = reg?.email?.toLowerCase() ?? null
-    if (kind && buyer && holder && buyer !== holder) {
-      const payerMail = organizerRefundEmail({ ...base, person: kind === 'organizer' ? null : named })
-      const holderMail = organizerRefundEmail({ ...base, person: named, paidByOther: true })
-      const a = await trySend(() => sendEmailToEach([buyer], { ...payerMail, ...sender }))
-      const b = await trySend(() => sendEmailToEach([holder], { ...holderMail, ...sender }))
-      out = { ok: a.ok && b.ok, unknown: a.unknown || b.unknown, status: a.status ?? b.status }
+    if (kind && buyer !== holder) {
+      const copies = []
+      if (buyer) copies.push(['payer', buyer, organizerRefundEmail({ ...base, person: kind === 'organizer' ? null : named })])
+      if (holder) copies.push(['holder', holder, organizerRefundEmail({ ...base, person: named, paidByOther: true })])
+      sends = []
+      for (const [copy, address, mail] of copies) {
+        sends.push({ copy, ...(await trySend(() => sendEmailToEach([address], { ...mail, ...sender }))) })
+      }
     } else {
       const mail = organizerRefundEmail({ ...base, person: named })
-      out = await trySend(() => sendEmailToEach(to, { ...mail, ...sender }))
+      sends = [{ copy: null, ...(await trySend(() => sendEmailToEach(to, { ...mail, ...sender }))) }]
     }
   } catch (err) {
     console.error('refund e-mail: not built:', err?.message)
-    out = { ok: false, unknown: false }
+    sends = [{ copy: null, ok: false, unknown: false }]
   }
-  if (out.ok) return 'sent'
-  if (out.unknown) {
-    await alert('refund_email_unknown', 'send', 'no answer from the sender')
-    return 'unknown'
+  if (sends.every((s) => s.ok)) return 'sent'
+  const copyOf = (s) => (s.copy ? { copy: s.copy } : {})
+  // A copy that went out, or may have (a timeout), must never be sent again: the claim stays and
+  // every copy that did not go out is alerted on its own, with its own status.
+  if (sends.some((s) => s.ok || s.unknown)) {
+    let unknown = false
+    for (const s of sends.filter((x) => !x.ok)) {
+      if (s.unknown) {
+        unknown = true
+        await alert('refund_email_unknown', 'send', 'no answer from the sender', null, copyOf(s))
+      } else {
+        await alert('refund_email_failed', 'send', notAccepted(s.status), null, copyOf(s))
+      }
+    }
+    return unknown ? 'unknown' : 'failed'
   }
+  // Nothing went out: the claim may be given back, and every copy will be sent again.
   if (onFailure === 'keep') {
-    await alert('refund_email_failed', 'send', out.status ? `e-mail not accepted (${out.status})` : 'not sent')
+    for (const s of sends) await alert('refund_email_failed', 'send', notAccepted(s.status), null, copyOf(s))
     return 'failed'
   }
   try {

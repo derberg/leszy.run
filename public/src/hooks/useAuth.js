@@ -47,7 +47,12 @@ export default function useAuth() {
   const [loading, setLoading] = useState(store.current() === undefined)
 
   useEffect(() => {
-    if (!store.needsCheck()) {
+    // No call needed. The user still comes from the store: this component may have rendered
+    // while another one's call was in flight, and that call may have landed since (G-44 flake:
+    // the registration form kept the null it rendered with and asked a signed-in runner for a code).
+    const known = store.knownUser()
+    if (known !== undefined) {
+      setUser(known)
       setLoading(false)
       return
     }

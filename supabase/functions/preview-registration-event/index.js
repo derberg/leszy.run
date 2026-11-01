@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
+import { moneyLiveFor, payloadWithoutMoneyFeatures, rawWithoutMoneyFeatures } from '../_shared/registration/moneyLive.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -24,7 +25,9 @@ function stagedUploadIds(payload) {
 // changes ({ payload, changedFields, updatedAt, uploads: { id: { path, meta } }, sold: { variantId: n } })
 // for mergePending() in public/src/lib/eventPageModel.js; else null. Everyone
 // else, anonymous included, gets 404: the preview must not reveal that a draft
-// exists.
+// exists. With Plan 7's money features off (moneyLiveFor), both are stripped of donations and
+// extras exactly as /api/event strips the public page, so the preview never shows what a runner
+// cannot see (NB-3).
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
@@ -42,8 +45,10 @@ Deno.serve(async (req) => {
     if (loaded instanceof Response) return loaded
     const eventId = loaded.settings.event_id
 
-    const { data: raw, error } = await admin.rpc('registration_raw', { p_event_id: eventId })
+    const moneyLive = moneyLiveFor(req)
+    const { data: liveRaw, error } = await admin.rpc('registration_raw', { p_event_id: eventId })
     if (error) throw error
+    const raw = moneyLive ? liveRaw : rawWithoutMoneyFeatures(liveRaw)
 
     let pending = null
     if (body?.withPending === true) {
@@ -51,20 +56,22 @@ Deno.serve(async (req) => {
         .select('payload, changed_fields, updated_at').eq('event_id', eventId).maybeSingle()
       if (pErr) throw pErr
       if (row) {
-        const ids = stagedUploadIds(row.payload)
+        const payload = moneyLive ? row.payload : payloadWithoutMoneyFeatures(row.payload)
+        const changedFields = moneyLive ? row.changed_fields : (row.changed_fields ?? []).filter((f) => f !== 'extras')
+        const ids = stagedUploadIds(payload)
         const { data: files, error: uErr } = ids.length
           ? await admin.from('registration_uploads').select('id, kind, path, meta').eq('event_id', eventId).in('id', ids)
           : { data: [], error: null }
         if (uErr) throw uErr
         // What each staged live variant already sold: the preview shows stock less sales.
-        const variantIds = (row.payload?.extras?.items ?? []).flatMap((x) => (x?.variants ?? []).map((v) => v?.id)).filter((id) => typeof id === 'string')
+        const variantIds = (payload?.extras?.items ?? []).flatMap((x) => (x?.variants ?? []).map((v) => v?.id)).filter((id) => typeof id === 'string')
         const { data: sold, error: sErr } = variantIds.length
           ? await admin.from('extra_variants').select('id, sold, extras!inner(event_id)').in('id', variantIds).eq('extras.event_id', eventId)
           : { data: [], error: null }
         if (sErr) throw sErr
         pending = {
-          payload: row.payload,
-          changedFields: row.changed_fields,
+          payload,
+          changedFields,
           updatedAt: row.updated_at,
           uploads: Object.fromEntries(files.map((f) => [f.id, { path: f.path, meta: f.kind === 'gpx' ? f.meta : {} }])),
           sold: Object.fromEntries(sold.map((v) => [v.id, v.sold])),
