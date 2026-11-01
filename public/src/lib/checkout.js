@@ -2,6 +2,7 @@
 // use). Pure, so the page and the unit tests call the same function. A runner pays the entry
 // prices and nothing to LESZY.RUN, so „Zapłać” depends only on the page being busy or closed.
 import { formatPln, orderAmounts } from '../../../supabase/functions/_shared/registration/money.js'
+import { discountedPrice } from '../../../supabase/functions/_shared/registration/pricing.js'
 
 /**
  * @param {{ entryPrices: number[], busy?: boolean, closed?: boolean }} p
@@ -84,10 +85,35 @@ const TEAM_BACK_TO_FORM = new Set(['team_name_taken', 'invalid_team_name', 'inva
 export function backToForm(err, addedCategoryIds = [], { team = false } = {}) {
   if (!err || err.status == null) return false
   if (err.status === 401) return true
+  // Plan 7: a person's code or extras (create-order's cart refusals carry the person's index).
+  if (!team && Number.isInteger(err.index) && (err.field === 'voucherCode' || err.field === 'extras')) return true
   if (team && TEAM_BACK_TO_FORM.has(err.code)) return true
   if (err.code === 'full' || err.code === 'team_competition') {
     const id = typeof err.categoryId === 'string' ? err.categoryId.toLowerCase() : ''
     return id !== '' && addedCategoryIds.some((c) => String(c).toLowerCase() === id)
   }
   return BACK_TO_FORM.has(err.code)
+}
+
+/**
+ * RA4 after a 409 price_changed, with a cart (Plan 7): repriceLines over the lines, where a line's
+ * `priceGrosze` is its list price and `voucher` its code. create-order answers the discounted entry
+ * prices: a line whose code still gives that price keeps its list price and code; any other takes
+ * the new price as it is, its voucher line no longer shown (the code still goes with the request).
+ * Null when the server's extras or donation differ from the page's (the page starts again).
+ * @param {Array<{ priceGrosze: number, voucher?: { percent: number }|null }>} lines
+ * @param {object|null} amounts @param {{ extrasTotal: number, donation: number }} cart the page's
+ */
+export function repriceCart(lines, amounts, { extrasTotal = 0, donation = 0 } = {}) {
+  if (!amounts) return null
+  if (amounts.extrasTotal != null && amounts.extrasTotal !== extrasTotal) return null
+  if (amounts.donation != null && amounts.donation !== donation) return null
+  if (!Array.isArray(amounts.entryPrices) && (extrasTotal > 0 || donation > 0)) return null
+  const repriced = repriceLines(lines, amounts)
+  if (!repriced) return null
+  return repriced.map((l, i) => {
+    const v = lines[i].voucher
+    if (!v) return l
+    return discountedPrice(lines[i].priceGrosze, v.percent) === l.priceGrosze ? lines[i] : { ...l, voucher: null }
+  })
 }

@@ -464,14 +464,19 @@ test('V-38 a partnered code on a confirmed entry: no runner-facing answer or e-m
     'order-status': (await call('order-status', { orderId }, runner)).body,
     'my-event-registrations': (await call('my-event-registrations', { slug }, runner)).body,
     'export-my-data': (await call('export-my-data', {}, runner)).body,
+    // Plan 7 task 8a (carry T5 C-1): RA2's „Sprawdź” on the partnered code, with and without a session.
+    'check-voucher': (await call('check-voucher', { slug, categoryId: c9, code: v.code }, runner)).body,
+    'check-voucher (no session)': (await call('check-voucher', { slug, categoryId: c9, code: v.code.toLowerCase() })).body,
   }
+  assert.deepEqual(answers['check-voucher'], { data: { percent: 15, price: DISCOUNTED } })
+  assert.deepEqual(answers['check-voucher (no session)'], { data: { percent: 15, price: DISCOUNTED } })
   assert.ok(answers['order-status'].data, JSON.stringify(answers['order-status']))
   assert.ok(Array.isArray(answers['my-event-registrations'].data), JSON.stringify(answers['my-event-registrations']))
   assert.ok(answers['export-my-data'].registrations ?? answers['export-my-data'].data, 'export-my-data answered')
   for (const [what, value] of Object.entries(answers)) assertNoPartner(what, value, secrets)
   // The code is the runner's own: never on the public answers.
   // order-status and export-my-data are the buyer's own order, the one place the code may appear.
-  for (const what of ['start_list', '/api/event', 'my-event-registrations']) {
+  for (const what of ['start_list', '/api/event', 'my-event-registrations', 'check-voucher', 'check-voucher (no session)']) {
     assert.ok(!JSON.stringify(answers[what]).includes(v.code), `${what} holds the code`)
   }
 
