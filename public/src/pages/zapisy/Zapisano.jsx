@@ -9,7 +9,7 @@ import RegisteredPerson from '../../components/registration/RegisteredPerson.jsx
 import { orderPeople, personGroupLabel, showsConsentTags } from '../../lib/consentTag.js'
 import { captainTeamPath } from '../../lib/teamPage.js'
 import { linkCls } from '../../components/registration/ui.js'
-import { transferAction } from '../../lib/transferCopy.js'
+import TransferLink from '../../components/registration/TransferLink.jsx'
 import RegistrationShell from './RegistrationShell.jsx'
 import { eventPath } from './RegistrationEventPage.jsx'
 
@@ -24,20 +24,6 @@ import { eventPath } from './RegistrationEventPage.jsx'
 // Plan 7 ruling 3) carries „Przekaż pakiet innej osobie →” to RA6, and „Czeka na <adres>” while an
 // invite is open. A child's row never does. Editing, adding people and changing competition belong
 // to later plans.
-
-/** RA5's transfer action under one person, or nothing. */
-function TransferLink({ row, slug }) {
-  const action = transferAction(row, slug)
-  if (!action) return null
-  return (
-    <div className="flex flex-col gap-1 pt-2.5 mt-2.5 border-t border-apex-border" data-testid="transfer-action">
-      <Link to={action.href} className="self-start whitespace-nowrap text-base font-bold text-apex-yellow hover:text-apex-yellow-bright underline-offset-2 hover:underline">
-        {action.label}
-      </Link>
-      {action.pending && <span className="text-sm text-apex-text-bright [overflow-wrap:anywhere]">{action.pending}</span>}
-    </div>
-  )
-}
 
 function Done({ raw }) {
   const model = eventPageModel(raw)

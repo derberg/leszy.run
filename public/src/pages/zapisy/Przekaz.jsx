@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import { callFunction } from '../../lib/auth.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
-import { MONEY_NOTE, inviteError, untilLabel } from '../../lib/transferCopy.js'
+import { MONEY_NOTE, TRANSFER_MESSAGES, inviteError, untilLabel } from '../../lib/transferCopy.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import MetaLine from '../../components/registration/MetaLine.jsx'
 import { inputCls, labelCls, linkCls, primaryBtn, secondaryBtn } from '../../components/registration/ui.js'
@@ -131,6 +131,10 @@ function Handover({ raw, registrationId }) {
   const model = eventPageModel(raw)
   const entry = useEntry(raw.slug, registrationId)
   const [notEmailed, setNotEmailed] = useState(false)
+  // M-1: an invite this page showed, whose entry then left the session's confirmed rows, was taken
+  // (my-event-registrations lists confirmed entries only): say so, not „not found”.
+  const hadInvite = useRef(false)
+  if (entry.status === 'ok' && entry.row?.transfer?.pending) hadInvite.current = true
   const back = { to: `${eventPath(raw.slug)}/zapisano`, label: 'Twój zapis' }
   const top = <PageTop back={back} right={model.title} />
 
@@ -156,7 +160,9 @@ function Handover({ raw, registrationId }) {
       </div>
     )
   }
-  if (entry.status === 'missing') return <>{top}<Unavailable slug={raw.slug} message="Nie znaleźliśmy tego zgłoszenia." /></>
+  if (entry.status === 'missing') {
+    return <>{top}<Unavailable slug={raw.slug} message={hadInvite.current ? TRANSFER_MESSAGES.not_pending : 'Nie znaleźliśmy tego zgłoszenia.'} /></>
+  }
   const { row } = entry
   if (row.transfer?.allowed !== true) return <>{top}<Unavailable slug={raw.slug} message={refusalOf(row)} /></>
 

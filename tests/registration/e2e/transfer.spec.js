@@ -2,7 +2,7 @@ import { test, expect } from './fixtures.js'
 import { admin, resetThrottle, sessionFor } from '../helpers/stack.js'
 import { lastCodeFor, messagesTo } from '../helpers/emailCapture.js'
 import { callFn, createPublishedFreeEvent, createPublishedPaidEvent } from '../helpers/registrationFixtures.js'
-import { runnerEmail, setSettings } from '../helpers/orders.js'
+import { attemptFor, confirmOk, runnerEmail, setSettings } from '../helpers/orders.js'
 import { BIEG, adult, minor, orderGroupOk, registerGroup } from '../helpers/groups.js'
 import { accept, enableTransfers, inviteOk, paidEntry } from '../helpers/transfers.js'
 
@@ -226,7 +226,10 @@ test('V-63, V-64, V-66 RA6 → RA7 at 390 px: invite, take back, invite again; t
   await again.goto(`/przekazanie#${token}`)
   await expect(again.getByTestId('transfer-gone')).toContainText(GONE)
 
-  // RA6 after the hand-over: the holder's page no longer offers anything.
+  // RA6 still open on „Czeka na …” after the hand-over: taking the invite back says it was taken
+  // (review M-1), and the page offers nothing more.
+  await ra6.getByRole('button', { name: 'Cofnij zaproszenie' }).click()
+  await expect(ra6.getByTestId('transfer-unavailable')).toContainText('Zaproszenia nie można już cofnąć: zostało przyjęte, cofnięte albo wygasło.')
   await ra6.reload()
   await expect(ra6.getByTestId('transfer-unavailable')).toBeVisible()
   await Promise.all([hctx.close(), ctxA.close(), ctxB.close()])
@@ -273,4 +276,57 @@ test('carry T8 (e): an unpaid order replaced by an accepted package says why on 
   await expect(page.getByTestId('order-again')).toHaveCount(0)
   await expect(page.getByTestId('order-own-entry')).toHaveAttribute('href', `/events/${event.slug}/zapisano`)
   await ctx.close()
+})
+
+test('V-65 RA5 on the order page: the action under the payer\'s own line, never under the child\'s', async ({ browser }) => {
+  const event = await createPublishedPaidEvent(owner, {
+    competitions: [BIEG(), DZIECI], prices: { 'Bieg 9 km': 6000, 'Bieg dzieci 1 km': 2000 },
+  })
+  await enableTransfers(event)
+  const email = runnerEmail('payer')
+  const out = await orderGroupOk(event, [adult(event.categoryIds[0], 'self', email), minor(event.categoryIds[1], { firstName: 'Zosia' })])
+  const att = await attemptFor(out.orderId, out.total)
+  expect((await confirmOk(out.orderId, att.txn, out.total)).outcome).toBe('confirmed')
+  const own = (await admin().from('registrations').select('id').eq('order_id', out.orderId).eq('email', email).single()).data
+
+  const ctx = await contextFor(browser, email)
+  const page = await offline(await ctx.newPage())
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/zamowienie/${out.orderId}`)
+  const lines = page.getByTestId('order-person')
+  await expect(lines).toHaveCount(2)
+  await expect(lines.filter({ hasText: 'Ola Leśna' }).getByRole('link', { name: 'Przekaż pakiet innej osobie →' }))
+    .toHaveAttribute('href', `/events/${event.slug}/przekaz/${own.id}`)
+  await expect(lines.filter({ hasText: 'Zosia' }).getByRole('link', { name: /Przekaż pakiet/ })).toHaveCount(0)
+  await fitsNarrow(page)
+
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+  await setSettings(event.eventId, { transfer_until: yesterday })
+  await page.reload()
+  await expect(lines).toHaveCount(2)
+  await expect(page.getByRole('link', { name: /Przekaż pakiet/ })).toHaveCount(0)
+  await ctx.close()
+})
+
+test('I-2 a recipient who already has a paid start: after the code, the form names it by the button and on the focused e-mail field', async ({ browser }) => {
+  const { event, holder } = await paidHolder()
+  const recipient = runnerEmail('juz-jest')
+  await paidEntry(event, { email: recipient, categoryId: event.categoryIds[1] })
+  const inv = await inviteOk(holder.reg.id, holder.profileId, runnerEmail('adres-zaproszenia'))
+
+  const page = await offline(await (await browser.newContext()).newPage())
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/przekazanie#${inv.token}`)
+  await expect(page.getByTestId('transfer-accept')).toBeVisible()
+  await fillRecipient(page, recipient)
+  await page.getByRole('button', { name: 'Przyjmij pakiet' }).click()
+  const code = await codeFor(recipient)
+  await page.locator('#reg-code').fill(code)
+  await page.getByRole('button', { name: 'Przyjmij pakiet' }).click()
+
+  const DUP = 'Masz już opłacony start na tych zawodach.'
+  await expect(page.getByTestId('transfer-error')).toHaveText(DUP)
+  await expect(page.locator('#p-email-error')).toHaveText(DUP)
+  await expect(page.locator('#p-email')).toBeFocused()
+  await page.context().close()
 })

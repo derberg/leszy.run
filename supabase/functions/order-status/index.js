@@ -6,6 +6,7 @@ import { dpayConfig, transactionDetails } from '../_shared/dpay.js'
 import { isUuid } from '../_shared/registration/organizerEvent.js'
 import { json, NOT_FOUND } from '../_shared/registration/registrationRequest.js'
 import { loadOrderView, logPaymentEvent, orderAmountsOf, settleConfirmOutcome } from '../_shared/registration/orderFlow.js'
+import { transferViews } from '../_shared/registration/transfers.js'
 
 // The poll fallback for a missing IPN: only attempts older than this are asked about (dpay's
 // IPN normally lands first), at most this many, and at most once per order per CHECK_GAP_MS.
@@ -73,11 +74,31 @@ async function poll(admin, req, orderId) {
   }
 }
 
+/**
+ * The transfer block of the buyer's own lines of a paid order → Map(registrationId → block), through
+ * the same transferViews as my-event-registrations. Lines of anybody else (an added adult, a child,
+ * a handed-on line) get nothing: only the holder transfers, and nobody else's invite is shown.
+ */
+async function ownTransferViews(admin, view, userId) {
+  if (view.order.status !== 'paid' || !view.settings?.event_id) return new Map()
+  const ids = view.lines.filter((l) => !l.transferred && l.profileId && l.profileId === userId).map((l) => l.registrationId)
+  if (!ids.length) return new Map()
+  const [{ data: regs, error }, { data: settings, error: sErr }] = await Promise.all([
+    admin.from('registrations').select('id, profile_id, status, email, guardian_profile_id, birth_date, team_id').in('id', ids),
+    admin.from('registration_settings').select('event_date, transfer_enabled, transfer_until').eq('event_id', view.settings.event_id).single(),
+  ])
+  if (error) throw error
+  if (sErr) throw sErr
+  return transferViews(admin, regs ?? [], settings, userId)
+}
+
 // POST { orderId } → 200 { data: { status, expiresAt, lines: [{ registrationId, name, firstName,
 //   role: self|adult|minor, consentState: accepted|awaiting|office, competition, ageGroupLabel,
 //   kidsGroupLabel (a child's kids' group, else null), mine (the line is the buyer's own entry),
 //   startTime, amount, teamId, teamName, isCaptain, transferred (Plan 7: the package was handed on;
-//   then role, consentState and ageGroupLabel are null and mine false) }], amounts, event: { slug, name }, closesAt, full, cancelledReason } }
+//   then role, consentState and ageGroupLabel are null and mine false), transfer (Plan 7, RA5: the
+//   my-event-registrations block { allowed, until, pending } on the buyer's own line of a paid order,
+//   null on every other line) }], amounts, event: { slug, name }, closesAt, full, cancelledReason } }
 // The order page's state, for the buyer only (401 without a session, 404 otherwise). While the
 // order is pending and dpay may have taken the money without an IPN reaching us, it asks dpay
 // (see poll) before answering.
@@ -124,6 +145,13 @@ Deno.serve(async (req) => {
       if (fitErr) console.error('order-status: registration_order_fits failed:', fitErr.message)
       else full = fits === false
     }
+    // The payment's own answer never fails on the transfer block: without it the line shows no action.
+    let transfers = new Map()
+    try {
+      transfers = await ownTransferViews(admin, view, session.userId)
+    } catch (err) {
+      console.error('order-status: transfer views failed:', err?.message)
+    }
     return json({
       data: {
         status: view.order.status,
@@ -145,6 +173,8 @@ Deno.serve(async (req) => {
           teamId: l.teamId,
           teamName: l.teamName,
           isCaptain: l.isCaptain,
+          // Plan 7 (RA5): the buyer's own confirmed entry only; null on every other line.
+          transfer: transfers.get(l.registrationId) ?? null,
         })),
         amounts: orderAmountsOf(view.order),
         event: { slug: view.settings?.slug ?? null, name: view.settings?.name ?? null },

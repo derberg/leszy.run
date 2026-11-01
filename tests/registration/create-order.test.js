@@ -356,6 +356,8 @@ test('P-24 order-status: buyer only, with the event\'s closesAt; a fresh pending
     teamId: null, teamName: null, isCaptain: false,
     // Plan 7 task 7 (V-58): whether the package was handed on.
     transferred: false,
+    // Plan 7 task 8b (V-65): an unpaid order has nothing to hand on.
+    transfer: null,
   }])
   assert.deepEqual(d.amounts, { entryTotal: 6000, extrasTotal: 0, donation: 0, total: 6000 })
   assert.equal(d.event.slug, event.slug)

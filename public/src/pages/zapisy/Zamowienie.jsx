@@ -11,6 +11,7 @@ import { captainTeamPath } from '../../lib/teamPage.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import DoneActions from '../../components/registration/DoneActions.jsx'
 import RegisteredPerson from '../../components/registration/RegisteredPerson.jsx'
+import TransferLink from '../../components/registration/TransferLink.jsx'
 import { orderPeople, personGroupLabel, showsConsentTags } from '../../lib/consentTag.js'
 import { labelCls, linkCls, primaryBtn, secondaryBtn } from '../../components/registration/ui.js'
 import { formatPln } from '@registration/money.js'
@@ -29,7 +30,8 @@ import { eventPath } from './RegistrationEventPage.jsx'
 //             group each person's regulamin tag („✓ REGULAMIN” / „✓ OPIEKUN” /
 //             „CZEKA NA ZGODĘ”) and „Wyślij przypomnienie do <imię> →” for an added
 //             adult who has not accepted (the consent e-mail goes out on payment, so
-//             a pending order shows no tags)
+//             a pending order shows no tags); „Przekaż pakiet innej osobie →” under the
+//             buyer's own line where order-status's `transfer` block allows it (Plan 7)
 // pending   → „Opłać do <data, godzina>” and „Zapłać” (pay-order: a new dpay
 //             transaction at the frozen price), none from the server's closesAt
 //             on (order-status returns it; the page re-checks at that moment), and
@@ -105,10 +107,10 @@ function useOrderStatus(orderId) {
   return { ...state, again }
 }
 
-function Person({ line, showTag = false, onStale }) {
+function Person({ line, showTag = false, onStale, slug = null }) {
   return (
     <RegisteredPerson person={line} registrationId={line.registrationId} name={line.name} showTag={showTag}
-      onStale={onStale} testId="order-person"
+      onStale={onStale} testId="order-person" footer={slug ? <TransferLink row={line} slug={slug} /> : null}
       meta={[line.competition, personGroupLabel(line), line.startTime ? `start ${line.startTime}` : null]} />
   )
 }
@@ -141,7 +143,7 @@ function Paid({ order, raw, model, onAgain }) {
         <span className="font-display font-extrabold text-4xl leading-none uppercase">Jesteście na liście</span>
         <span className="text-base font-semibold">{[title, day].filter(Boolean).join(' · ')}</span>
       </div>
-      {people.map((l, i) => <Person key={l.registrationId ?? `${l.name}-${i}`} line={l} showTag={tags} onStale={onAgain} />)}
+      {people.map((l, i) => <Person key={l.registrationId ?? `${l.name}-${i}`} line={l} showTag={tags} onStale={onAgain} slug={order.event.slug} />)}
       {raw && first && (
         <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)} teamHref={captainTeamPath(order.event.slug, order.lines)}
           first={{ uid: `${order.event.slug}-${first.name}`, name: first.name, competition: first.competition, startTime: first.startTime }} />

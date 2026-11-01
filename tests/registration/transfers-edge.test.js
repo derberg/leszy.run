@@ -532,3 +532,49 @@ test('M-7 a guardian asking to hand on a child\'s entry → 409 not_transferable
   const status = await call('transfer-invite', { action: 'status', registrationId: child.id }, { session: guardian })
   assert.equal(status.body.data.allowed, false)
 })
+
+// ---------------------------------------------------------------- 8b I-1 RA5 on the order page
+
+test('V-65 order-status: the buyer\'s own confirmed line carries the transfer block; a child\'s, another adult\'s and a pending order\'s do not', async () => {
+  const event = await paidEvent()
+  const buyerEmail = runnerEmail('ra5')
+  const otherEmail = runnerEmail('ra5-adult')
+  const out = await orderGroupOk(event, [
+    adult(event.categoryIds[0], 'self', buyerEmail), adult(event.categoryIds[0], 'adult', otherEmail), minor(event.categoryIds[1]),
+  ])
+  const buyer = await sessionFor(buyerEmail)
+
+  const pending = await call('order-status', { orderId: out.orderId }, { session: buyer })
+  assert.equal(pending.status, 200, pending.text)
+  for (const l of pending.body.data.lines) assert.equal(l.transfer, null, 'nothing to hand on before payment')
+
+  const att = await attemptFor(out.orderId, out.total)
+  assert.equal((await confirmOk(out.orderId, att.txn, out.total)).outcome, 'confirmed')
+  const until = (await one('registration_settings', { event_id: event.eventId })).transfer_until
+  const read = async () => {
+    const res = await call('order-status', { orderId: out.orderId }, { session: buyer })
+    assert.equal(res.status, 200, res.text)
+    return res.body.data.lines
+  }
+  let lines = await read()
+  const own = lines.find((l) => l.mine)
+  assert.deepEqual(own.transfer, { allowed: true, until, pending: null })
+  for (const l of lines.filter((x) => !x.mine)) assert.equal(l.transfer, null, `${l.role}: never another person's transfer data`)
+
+  // An open invite shows on the buyer's own line only.
+  const toEmail = runnerEmail('ra5-to')
+  const created = await call('transfer-invite', { action: 'create', registrationId: own.registrationId, toEmail }, { session: buyer })
+  assert.equal(created.status, 201, created.text)
+  lines = await read()
+  assert.equal(lines.find((l) => l.mine).transfer.pending.toEmail, toEmail)
+  assert.equal(lines.find((l) => l.mine).transfer.pending.transferId, created.body.data.transferId)
+
+  // The other adult reads nothing of the order; the stranger keeps the 404.
+  const other = await sessionFor(otherEmail)
+  assert.equal((await call('order-status', { orderId: out.orderId }, { session: other })).status, 404)
+
+  // After the last day: still on the line, no longer allowed.
+  await setSettings(event.eventId, { transfer_until: dayBefore(warsawToday()) })
+  lines = await read()
+  assert.equal(lines.find((l) => l.mine).transfer.allowed, false)
+})

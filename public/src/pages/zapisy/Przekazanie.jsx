@@ -119,7 +119,7 @@ function contextFor(snapshot, preview, categoryId) {
   }
 }
 
-function TransferForm({ preview, snapshot, draft, setDraft, errors, setErrors, consentError, setConsentError, message, busy, onSubmit }) {
+function TransferForm({ preview, snapshot, draft, setDraft, errors, setErrors, consentError, setConsentError, message, busy, onSubmit, focus }) {
   const { user } = useAuth()
   const model = useMemo(() => (snapshot ? eventPageModel(snapshot) : null), [snapshot])
   const fields = fieldModes(preview.formFields)
@@ -127,6 +127,16 @@ function TransferForm({ preview, snapshot, draft, setDraft, errors, setErrors, c
   const badge = closedBadge(preview)
   const ready = consentsComplete(preview.consents, draft.accepted, draft.serviceAccepted)
   const touched = useRef(new Set())
+
+  // The field a refusal names, once the form is enabled again (a disabled input takes no focus).
+  const focused = useRef(0)
+  useEffect(() => {
+    if (!focus || busy || focused.current === focus.n) return
+    focused.current = focus.n
+    const el = document.getElementById(focus.id)
+    el?.focus()
+    el?.scrollIntoView?.({ block: 'center' })
+  }, [focus, busy])
 
   // A signed-in reader's own profile fills what they have not typed yet.
   useEffect(() => {
@@ -162,7 +172,7 @@ function TransferForm({ preview, snapshot, draft, setDraft, errors, setErrors, c
           className={`${inputCls} ${errors.categoryId ? 'border-apex-red' : ''}`}>
           {preview.competitions.map((c) => <option key={c.categoryId} value={c.categoryId}>{optionLabel(c)}</option>)}
         </select>
-        {errors.categoryId && <p id={`${CATEGORY}-error`} className="text-apex-red text-sm">{errors.categoryId}</p>}
+        {errors.categoryId && <p id={`${CATEGORY}-error`} className="text-apex-red text-sm" role="alert">{errors.categoryId}</p>}
       </div>
       <PersonForm fields={fields} value={draft.person} onChange={change} errors={errors} competition={comp}
         raceDate={ctx.raceDate} reckoning={ctx.reckoning} ageGroups={ctx.ageGroups} prefill={user ? profilePrefill(user) : null}
@@ -202,6 +212,7 @@ export default function Przekazanie() {
   const [resent, setResent] = useState(false)
   const [authKey, setAuthKey] = useState(0)
   const [verifiedEmail, setVerifiedEmail] = useState(null)
+  const [focus, setFocus] = useState(null)
   const started = useRef(false)
   const preview = state.preview ?? null
   const snapshotState = usePublicRegistrationEvent(preview?.event?.slug ?? null)
@@ -238,9 +249,17 @@ export default function Przekazanie() {
     if (ENDS_LINK.has(err.code)) return endLink(err)
     const text = acceptError(err)
     const back = () => setState((s) => ({ step: 'form', preview: s.preview }))
-    if (ON_EMAIL.has(err.code)) { back(); return setErrors({ email: text }) }
-    if (err.code === 'recipient_minor') { back(); return setErrors({ birthDate: text }) }
-    if (ON_CATEGORY.has(err.code)) { back(); return setErrors({ categoryId: text }) }
+    // A refusal that belongs to one field: shown under it, named by the button too (the field can
+    // be a screen or more above it at 390 px), and the field gets the focus.
+    const onField = (key, id) => {
+      back()
+      setErrors({ [key]: text })
+      setMessage(text)
+      setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 }))
+    }
+    if (ON_EMAIL.has(err.code)) return onField('email', 'p-email')
+    if (err.code === 'recipient_minor') return onField('birthDate', 'p-birth')
+    if (ON_CATEGORY.has(err.code)) return onField('categoryId', CATEGORY)
     if (err.code === 'invalid_person') { back(); setErrors(err.fields ?? {}); return setMessage(text) }
     if (err.code === 'consents_required' || err.code === 'consents_changed') { back(); return setConsentError(text) }
     return onCodeStep ? setCodeError(text) : setMessage(text)
@@ -251,6 +270,7 @@ export default function Przekazanie() {
     if (err) return refused(err, { onCodeStep: again })
     setCode('')
     setCodeError(null)
+    setFocus(null)
     setResent(again)
     setState((s) => ({ step: 'code', preview: s.preview }))
     return undefined
@@ -366,7 +386,7 @@ export default function Przekazanie() {
   } else {
     body = (
       <TransferForm preview={preview} snapshot={snapshot} draft={draft} setDraft={setDraft} errors={errors} setErrors={setErrors}
-        consentError={consentError} setConsentError={setConsentError} message={message} busy={busy} onSubmit={submitForm} />
+        consentError={consentError} setConsentError={setConsentError} message={message} busy={busy} onSubmit={submitForm} focus={focus} />
     )
   }
   return <Shell authKey={authKey}>{body}</Shell>
