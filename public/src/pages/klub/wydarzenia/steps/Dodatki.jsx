@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { uploadExtraImage } from '../../../../lib/organizer.js'
 import { resizePoster } from '../../../../lib/resizePoster.js'
 import { publicFileUrl } from '../../../../lib/registrationFiles.js'
+import { MAX_EXTRAS, MAX_VARIANTS } from '@registration/sections.js'
 import {
   addVariant, assignExtraIds, competitionOn, extraRow, extraSold, extrasSection, newExtraRow, toggleCompetition,
 } from '../../../../lib/extraRows.js'
@@ -100,7 +101,7 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
               return (
                 <li key={v.key} className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <input aria-label={`Wariant ${k}`} placeholder="np. M" className={`${cellInput} w-[140px]`} value={v.label} disabled={locked}
+                    <input aria-label={`Wariant ${k}`} placeholder="np. M" className={`${cellInput} w-[140px]`} value={v.label}
                       aria-invalid={e.label ? true : undefined} aria-describedby={e.label || e.stock ? errId : undefined} onChange={setVariant(v.key, 'label')} />
                     <span className="text-apex-muted">·</span>
                     <input aria-label={`Limit sztuk ${k}`} inputMode="numeric" placeholder="bez limitu" className={`${cellInput} w-[110px]`} value={v.stock}
@@ -108,7 +109,7 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
                     {locked && (
                       <span className="flex items-center gap-1.5">
                         <span data-testid="variant-sold" className="font-mono text-[11px] text-apex-muted whitespace-nowrap">SPRZEDANO {v.sold}</span>
-                        <Lock title="Są zamówienia: wariantu nie można usunąć ani przemianować" />
+                        <Lock title="Są zamówienia: wariantu nie można usunąć" />
                       </span>
                     )}
                     {!locked && row.variants.length > 1 && !readOnly && (
@@ -122,7 +123,8 @@ function ExtraCard({ row, n, competitions, imageUrl, errors, published, readOnly
           </ul>
           {fields.variants && <FieldError message={fields.variants} />}
           {!readOnly && (
-            <button type="button" className={`${btnGhost} self-start`} onClick={() => onChange(addVariant(row))}>+ wariant</button>
+            <button type="button" className={`${btnGhost} self-start`} disabled={row.variants.length >= MAX_VARIANTS}
+              onClick={() => onChange(addVariant(row))}>+ wariant</button>
           )}
         </div>
 
@@ -228,7 +230,7 @@ export default function Dodatki({ event, queue, saveState, readOnly, reload, onS
       ))}
       {uploadError && <p role="alert" className="text-apex-red font-sans text-sm">{uploadError}</p>}
       {Object.keys(serverErrors).length > 0 && <FieldError message={Object.values(serverErrors).join(' ')} />}
-      {!readOnly && <button type="button" className={btnGhost} onClick={add}>+ Dodatek</button>}
+      {!readOnly && <button type="button" className={btnGhost} disabled={rows.length >= MAX_EXTRAS} onClick={add}>+ Dodatek</button>}
     </fieldset>
   )
 }

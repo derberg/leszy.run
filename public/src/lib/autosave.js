@@ -55,6 +55,9 @@ export function createAutosave({ save, delayMs = 1500, retryDelaysMs = RETRY_DEL
     // A function is read now, so it sees what the previous save taught the
     // caller (ids of rows it created).
     const value = typeof queued === 'function' ? queued() : queued
+    // A function answers undefined when its section stopped being savable after it was queued
+    // (a tier date cleared meanwhile): nothing goes out, and the next valid edit queues again.
+    if (value === undefined) return
     const startedIn = epoch
 
     const attempt = (async () => {

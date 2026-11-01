@@ -179,21 +179,27 @@ export function assignTierIds(tiers, sentKeys, ids) {
 }
 
 /**
- * The fee box switched. To tiered: columns start as given (or one dated and the close), and an
- * empty cell takes the row's fixed price. To fixed: an empty price takes today's tier price, the
- * tier the server keeps (Task 3 ruling).
+ * The fee box switched from `from` → { rows, tiers }. To tiered: columns as kept (or one dated and the close),
+ * and an empty cell takes the row's fixed price. Leaving tiered: the fixed price is today's tier
+ * price, the tier the server keeps (Task 3 ruling), and the columns lose their ids, because the
+ * save that follows deletes every other tier: coming back, every column goes out as new (I-1).
  */
-export function switchPricing(rows, tiers, mode, today = warsawToday()) {
+export function switchPricing(rows, tiers, mode, today = warsawToday(), from = 'tiered') {
   if (mode === 'tiered') {
-    return rows.map((r) => ({
-      ...r, prices: Object.fromEntries(tiers.map((t) => [t.key, r.prices?.[t.key] || r.price || ''])),
-    }))
+    return {
+      tiers,
+      rows: rows.map((r) => ({
+        ...r, prices: Object.fromEntries(tiers.map((t) => [t.key, r.prices?.[t.key] || r.price || ''])),
+      })),
+    }
   }
-  if (mode === 'fixed') {
-    const cur = tiers[currentTierIndex(tiers, today)] ?? tiers[tiers.length - 1]
-    return rows.map((r) => (r.price || !cur ? r : { ...r, price: r.prices?.[cur.key] ?? '' }))
+  const cur = tiers[currentTierIndex(tiers, today)] ?? tiers[tiers.length - 1]
+  return {
+    tiers: tiers.map((t) => ({ ...t, id: null })),
+    rows: mode === 'fixed' && from === 'tiered' && cur
+      ? rows.map((r) => ({ ...r, price: r.prices?.[cur.key] || r.price }))
+      : rows,
   }
-  return rows
 }
 
 function tierListError(tiers, ctx) {

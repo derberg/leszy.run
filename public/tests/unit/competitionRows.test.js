@@ -151,7 +151,7 @@ test('V-70 fixed → tiered: one dated column and the close; every cell starts a
   const rows = [competitionRow(server({ priceGrosze: 6000 }))]
   const tiers = tierColumns([], 'fixed')
   assert.deepEqual(tiers.map((t) => [t.id, t.endsOn]), [[null, ''], [null, null]])
-  const next = switchPricing(rows, tiers, 'tiered')
+  const next = switchPricing(rows, tiers, 'tiered').rows
   assert.deepEqual(tiers.map((t) => next[0].prices[t.key]), ['60', '60'])
 })
 
@@ -192,7 +192,7 @@ test('V-70 a row missing a tier price is not sent and is named', () => {
 test('tiered → fixed: an empty fixed price takes today\'s tier price, the tier the server keeps', () => {
   const tiers = tierColumns([{ id: T1, endsOn: '2027-11-15' }, { id: T2, endsOn: '2027-11-25' }, { id: T3, endsOn: null }], 'tiered')
   const row = { ...competitionRow(server()), price: '', prices: { [T1]: '60', [T2]: '70', [T3]: '80' } }
-  assert.equal(switchPricing([row], tiers, 'fixed', '2027-11-20')[0].price, '70')
+  assert.equal(switchPricing([row], tiers, 'fixed', '2027-11-20').rows[0].price, '70')
   assert.equal(currentTierIndex(tiers, '2027-11-26'), 2)
   assert.equal(tierLabel('2027-11-05'), 'DO 5.11')
   assert.equal(tierLabel(''), 'DO')
@@ -217,4 +217,22 @@ test('V-71 A8: in use, the current and past columns are locked; a later column a
   // A column added after publish has no id: never locked.
   const added = addTier(tiers)
   assert.equal(tierLocks(added, [used], { published: true, today: '2027-11-10' }).date(added[2]), false)
+})
+
+test('9a I-1 tiered → fixed → tiered sends no tier id the fixed save may have deleted', () => {
+  const tiers = tierColumns([{ id: T1, endsOn: '2027-11-15' }, { id: T2, endsOn: '2027-11-25' }, { id: T3, endsOn: null }], 'tiered')
+  const row = { ...competitionRow(server({ priceGrosze: 8000, prices: { [T1]: 6000, [T2]: 7000, [T3]: 8000 } })) }
+  const toFixed = switchPricing([row], tiers, 'fixed', '2027-11-10')
+  const back = switchPricing(toFixed.rows, toFixed.tiers, 'tiered', '2027-11-10')
+  const s = competitionsSection(back.rows, { pricingMode: 'tiered', state: 'draft', tiers: back.tiers, ...WINDOW })
+  assert.equal(s.ok, true)
+  assert.deepEqual(s.value.tiers, [{ endsOn: '2027-11-15' }, { endsOn: '2027-11-25' }, { endsOn: null }])
+  assert.deepEqual(s.value.items[0].prices, { 'new:0': '60', 'new:1': '70', 'new:2': '80' })
+})
+
+test('9a M-6 tiered → fixed takes today\'s tier price even when the row holds the open-ended tier\'s', () => {
+  const tiers = tierColumns([{ id: T1, endsOn: '2027-11-15' }, { id: T2, endsOn: '2027-11-25' }, { id: T3, endsOn: null }], 'tiered')
+  const row = competitionRow(server({ priceGrosze: 8000, prices: { [T1]: 6000, [T2]: 7000, [T3]: 8000 } }))
+  assert.equal(row.price, '80')
+  assert.equal(switchPricing([row], tiers, 'fixed', '2027-11-10').rows[0].price, '60')
 })

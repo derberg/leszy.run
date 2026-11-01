@@ -36,7 +36,9 @@ const PRICE_HINT = {
   free: 'Uzupełnij konkurencje: nazwa i limit miejsc.',
 }
 
-function TierGrid({ rows, tiers, locks, closesOn, readOnly, errorId, error, onDate, onPrice, onAdd, onRemove }) {
+const PRICE_RE = /^\d{1,7}(?:[,.]\d{1,2})?$/
+
+function TierGrid({ rows, tiers, locks, closesOn, readOnly, errorId, error, rowErrors, onDate, onPrice, onAdd, onRemove }) {
   const dated = tiers.length - 1
   return (
     <>
@@ -73,7 +75,11 @@ function TierGrid({ rows, tiers, locks, closesOn, readOnly, errorId, error, onDa
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
+            {rows.map((r, i) => {
+              // A missing or bad tier price is named under this row and linked to its cells (M-4).
+              const priceError = rowErrors[r.key]?.prices
+              const priceErrorId = `${errorId}-row-${r.key}`
+              return [
               <tr key={r.key} className={r.hidden ? 'opacity-60' : ''}>
                 <td className={`${tdClass} text-apex-text-bright`}>
                   <span className="block">{r.name || `Konkurencja ${i + 1}`}</span>
@@ -81,19 +87,29 @@ function TierGrid({ rows, tiers, locks, closesOn, readOnly, errorId, error, onDa
                 </td>
                 {tiers.map((t, k) => {
                   const locked = locks.amount(t, r)
+                  const bad = !!priceError && !PRICE_RE.test(String(r.prices?.[t.key] ?? '').trim())
                   return (
                     <td key={t.key} className={tdClass}>
                       <div className="flex items-center gap-1.5">
                         <input aria-label={`Cena ${r.name || i + 1} · próg ${k + 1}`} inputMode="decimal" className={`${cellInput} w-[90px]`}
-                          value={r.prices?.[t.key] ?? ''} disabled={locked} onChange={(e) => onPrice(r.key, t.key, e.target.value)} />
+                          value={r.prices?.[t.key] ?? ''} disabled={locked} aria-invalid={bad ? true : undefined}
+                          aria-describedby={bad ? priceErrorId : undefined} onChange={(e) => onPrice(r.key, t.key, e.target.value)} />
                         <span className="font-mono text-sm text-apex-muted">zł</span>
                         {locked && <Lock title="Są zgłoszenia: opłaty w progu, który trwa lub minął, nie można zmienić" />}
                       </div>
                     </td>
                   )
                 })}
-              </tr>
-            ))}
+              </tr>,
+              priceError && (
+                <tr key={`${r.key}-err`}>
+                  <td colSpan={tiers.length + 1} className="px-2.5 pb-2">
+                    <p id={priceErrorId} className="text-apex-red font-sans text-sm" data-testid="tier-price-error">{priceError}</p>
+                  </td>
+                </tr>
+              ),
+              ]
+            })}
           </tbody>
         </table>
       </div>
@@ -134,7 +150,13 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
   const [rows, setRows] = useState(() => (event.competitions ?? []).map(competitionRow))
   const [pricingMode, setPricingMode] = useState(settings.pricingMode ?? 'free')
   const [tiers, setTiers] = useState(() => tierColumns(event.tiers, settings.pricingMode))
-  const [tierError, setTierError] = useState(null)
+  // A window shortened in Podstawy after the tiers were saved is named on arrival (M-3).
+  const [tierError, setTierError] = useState(() => (settings.pricingMode === 'tiered'
+    ? competitionsSection([], {
+      pricingMode: 'tiered', state, tiers: tierColumns(event.tiers, 'tiered'),
+      opensAt: settings.opensAt ?? null, closesAt: settings.closesAt ?? null,
+    }).tierError
+    : null))
   const tierErrorId = useId()
   const [rowErrors, setRowErrors] = useState({})
   const [sectionError, setSectionError] = useState(null) // whole section not savable (e.g. a missing price)
@@ -161,6 +183,9 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
   const sectionNow = () => {
     const { rows: r, pricingMode: mode, tiers: t } = latest.current
     const s = competitionsSection(r, { pricingMode: mode, state, tiers: t, ...windowCtx })
+    // Something made the section unsavable after this save was queued (a tier date cleared, an
+    // empty column added): send nothing; the next valid edit queues again (M-1).
+    if (!s.ok) return undefined
     sentKeys.current = s.sentKeys
     sentTierKeys.current = s.sentTierKeys
     return s.value
@@ -178,7 +203,10 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
     if (s.ok) queue('competitions', sectionNow)
   }
 
-  const switchMode = (mode) => apply(switchPricing(latest.current.rows, latest.current.tiers, mode), mode)
+  const switchMode = (mode) => {
+    const next = switchPricing(latest.current.rows, latest.current.tiers, mode, undefined, latest.current.pricingMode)
+    apply(next.rows, mode, next.tiers)
+  }
   const setTierDate = (key, endsOn) => apply(latest.current.rows, undefined, latest.current.tiers.map((t) => (t.key === key ? { ...t, endsOn } : t)))
   const addTierColumn = () => apply(latest.current.rows, undefined, addTier(latest.current.tiers))
   const removeTier = (key) => apply(
@@ -226,7 +254,9 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
   useEffect(() => () => reportInvalid?.('competitions', null), [reportInvalid])
 
   const radio = 'flex items-center gap-2.5 min-h-9 font-sans text-base text-apex-text-bright'
-  const errorsOf = (key) => Object.values(rowErrors[key] ?? {})
+  // In the tier grid a price error is shown under its own row there.
+  const errorsOf = (key) => Object.entries(rowErrors[key] ?? {})
+    .filter(([field]) => !(pricingMode === 'tiered' && field === 'prices')).map(([, m]) => m)
 
   return (
     <fieldset disabled={readOnly} className="space-y-6 min-w-0">
@@ -389,7 +419,7 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
           </div>
         )}
         {pricingMode === 'tiered' && (
-          <TierGrid rows={rows} tiers={tiers} locks={locks} closesOn={settings.closesOn} readOnly={readOnly}
+          <TierGrid rows={rows} tiers={tiers} locks={locks} closesOn={settings.closesOn} readOnly={readOnly} rowErrors={rowErrors}
             errorId={tierErrorId} error={tierError} onDate={setTierDate} onPrice={setPrice} onAdd={addTierColumn} onRemove={removeTier} />
         )}
       </section>

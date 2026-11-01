@@ -324,3 +324,11 @@ test('clear (I1): a save in flight that fails after clear is not queued again', 
   assert.equal(autosave.hasPending(), false)
   assert.equal(autosave.state.error, null)
 })
+
+test('9a M-1 a queued function that answers undefined (its section turned invalid meanwhile) saves nothing and flushes clean', async () => {
+  const { calls, save } = recorder()
+  const autosave = createAutosave({ save, delayMs: 1500 })
+  autosave.queue('competitions', () => undefined)
+  assert.equal(await autosave.flush(), true)
+  assert.deepEqual(calls, [])
+})

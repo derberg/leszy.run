@@ -153,6 +153,19 @@ test('V-70 the owner builds the A3 tiers and an extra in a draft; a reload keeps
   await expect(page.getByLabel('Próg 2: do')).toHaveValue('2027-11-25')
   await expect(page.getByLabel('Cena Bieg 3 km · próg 3')).toHaveValue('80')
 
+  // I-1: Stała saves one tier (today's, at its price, M-6) and deletes the rest; back to tiered,
+  // the columns go out as new and save, with no stale tier id refused.
+  await page.getByRole('radio', { name: 'Stała' }).check()
+  await expect(page.getByLabel('Cena Bieg 9 km', { exact: true })).toHaveValue('60')
+  await expect.poll(async () => (await tiersOf(eventId)).map((t) => t.ends_on), { timeout: 15_000 }).toEqual([null])
+  await page.getByRole('radio', { name: 'Rośnie z datą zapisu' }).check()
+  await expect(page.getByLabel('Próg 2: do')).toHaveValue('2027-11-25')
+  await page.getByLabel('Cena Bieg 9 km · próg 3').fill('85')
+  await expect.poll(async () => (await tiersOf(eventId)).map((t) => t.ends_on), { timeout: 15_000 })
+    .toEqual(['2027-11-15', '2027-11-25', null])
+  await expect.poll(() => amountsOf(eventId, categoryIds[0]), { timeout: 15_000 }).toEqual([6000, 7000, 8500])
+  await expect(page.getByTestId('unsaved')).toHaveCount(0)
+
   // A5b: an extra with an image, two variants (one without a limit) and one competition left out.
   await page.goto(`${base}/dodatki`)
   await expect(page.getByTestId('soon')).toHaveCount(0)
@@ -271,7 +284,8 @@ test('V-71 after a registration: tier 1 is read-only, a tier-2 change is staged 
   const card = page.getByTestId('extra').first()
   await expect(card.getByLabel('Cena')).toBeDisabled()
   await expect(card.getByRole('button', { name: 'Usuń dodatek' })).toHaveCount(0)
-  await expect(card.getByLabel('Wariant 1', { exact: true })).toBeDisabled()
+  // M-2: the server lets a sold variant be renamed (ruling 10 locks price, existence and stock ≥ sold).
+  await expect(card.getByLabel('Wariant 1', { exact: true })).toBeEnabled()
   await expect(card.getByRole('button', { name: 'Usuń wariant 1' })).toHaveCount(0)
   await expect(card.getByTestId('variant-sold').first()).toHaveText('SPRZEDANO 1')
   await expect(card.getByLabel('Wariant 2', { exact: true })).toBeEnabled()
