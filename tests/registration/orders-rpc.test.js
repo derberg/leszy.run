@@ -535,7 +535,8 @@ test('record_refund / settle_refund (P3-R6, D6-20): message id from the refund i
   const out2 = await orderOk(event)
   const att2 = await attemptFor(out2.orderId, out2.total)
   await confirmOk(out2.orderId, att2.txn, out2.total)
-  const r2 = await rpc('record_refund', { p_attempt_id: att2.id, p_grosze: out2.total, p_kind: 'organizer', p_reason: 'x' })
+  // Automatic: since 20261102102000 settle_refund refuses an organizer refund (finish_organizer_refund settles those).
+  const r2 = await rpc('record_refund', { p_attempt_id: att2.id, p_grosze: out2.total, p_kind: 'automatic', p_reason: 'x' })
   assert.equal((await rpc('settle_refund', { p_refund_id: r2.data.refundId, p_outcome: 'rejected' })).data, 'settled')
   assert.equal((await rpc('settle_refund', { p_refund_id: r2.data.refundId, p_outcome: 'accepted' })).data, 'already_settled')
   assert.equal((await one('refunds', { id: r2.data.refundId })).dpay_status, 'rejected')
