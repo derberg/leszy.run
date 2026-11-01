@@ -253,7 +253,9 @@ CREATE UNIQUE INDEX transfers_new_registration_id_key ON public.transfers (new_r
 CREATE INDEX transfers_registration_id_idx ON public.transfers (registration_id);
 CREATE INDEX transfers_from_profile_id_idx ON public.transfers (from_profile_id);
 CREATE INDEX transfers_accepted_by_profile_id_idx ON public.transfers (accepted_by_profile_id);
-CREATE INDEX transfers_to_email_pending_idx ON public.transfers (to_email) WHERE status = 'pending';
+-- Every status, not only pending: export-my-data reads all transfers addressed to a person, and
+-- delete-my-account (forget_transfer_parties) clears to_email on the non-pending ones.
+CREATE INDEX transfers_to_email_idx ON public.transfers (to_email);
 
 ALTER TABLE public.transfers ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.transfers FROM anon, authenticated;

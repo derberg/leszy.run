@@ -642,6 +642,15 @@ test('V-82 a forwarded link: the person who took it never sees the invited addre
   assert.equal(body.transfers.received.length, 1)
   assert.equal(body.transfers.received[0].to_email, null)
   assert.ok(!JSON.stringify(body).includes(inv.toEmail), 'the invited address is not the third person\'s data')
+  assert.equal(body.transfers.received[0].new_registration_id, res.body.data.registrationId, 'the taker\'s own entry')
+
+  // M-1: the invited person holds the transfer as received, but the entry it created is the third's.
+  const invitedExport = await exportOf(await sessionFor(inv.toEmail))
+  assert.equal(invitedExport.transfers.received.length, 1)
+  assert.equal(invitedExport.transfers.received[0].to_email, inv.toEmail)
+  assert.equal(invitedExport.transfers.received[0].new_registration_id, null)
+  assert.ok(!JSON.stringify(invitedExport).includes(res.body.data.registrationId), 'no id of the third person\'s entry')
+  assert.ok(!JSON.stringify(invitedExport).includes(third), 'nor their address')
 })
 
 test('V-82 an organizer transfer: the old holder\'s export lists it without the recipient (N-1), the recipient\'s names the club', async () => {
@@ -678,7 +687,7 @@ async function deleteAccount(email, session) {
   assert.equal(r.status, 200, r.text)
 }
 
-test('T10-D1 the sender deletes the account: the pending invite of the anonymised entry is cancelled and its link is gone', async () => {
+test('V-83 the sender deletes the account: the pending invite of the anonymised entry is cancelled and its link is gone', async () => {
   const { a, holder } = await holderOf()
   const inv = await invited(a, holder)
   await deleteAccount(a.email, holder)
@@ -694,7 +703,7 @@ test('T10-D1 the sender deletes the account: the pending invite of the anonymise
   assert.equal(res.body.error, GONE)
 })
 
-test('T10-D2 the recipient deletes the account: live invites to them are cancelled, then every transfer addressed to them loses the address', async () => {
+test('V-83 the recipient deletes the account: live invites to them are cancelled, then every transfer addressed to them loses the address', async () => {
   const recipient = runnerEmail('erase')
   // An accepted transfer to them, and a second invite from somebody else still open.
   const one1 = await holderOf()

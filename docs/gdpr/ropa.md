@@ -209,7 +209,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
 - **Cel:** obniżenie opłaty kodem rabatowym i przypisanie zgłoszenia partnerowi Organizatora (np. sklepowi, który rozdał kod) na potrzeby rozliczeń Organizatora; przekazanie opłaconego pakietu startowego innej osobie przez zawodnika (zaproszenie e-mailem) albo przez Organizatora w panelu.
 - **Podstawa prawna:** art. 6(1)(b) RODO — umowa o udział w zawodach (przekazanie pakietu jest jej wykonaniem na żądanie zawodnika); art. 6(1)(f) — prawnie uzasadniony interes Organizatora w rozliczeniu z partnerami i ochrona formularza przed nadużyciem (limity zapytań).
 - **Kategorie danych:**
-  - `registrations.voucher_id`, `registrations.partner_id` — kod użyty przy zgłoszeniu i partner przypisany do zgłoszenia; `vouchers.note` i `partners.note` to notatki Organizatora, nie dane zawodnika;
+  - `registrations.voucher_id`, `registrations.partner_id` — kod użyty przy zgłoszeniu i partner przypisany do zgłoszenia; `vouchers.note` i `registration_partners.note` to notatki Organizatora, nie dane zawodnika;
   - `transfers.to_email` — adres osoby zaproszonej do przejęcia pakietu, podany przez zawodnika przekazującego (źródło danych w rozumieniu art. 14 ust. 2 lit. f) albo wpisany przez Organizatora;
   - `transfers.token_hash` — wyłącznie skrót SHA-256 tokenu z linku; sam token jest tylko we fragmencie adresu (`/przekazanie#…`) i nie trafia do bazy, logów ani odpowiedzi;
   - `transfers.from_profile_id`, `transfers.accepted_by_profile_id`, `registration_id`, `new_registration_id` i daty (utworzenie, ważność, przyjęcie, cofnięcie);
@@ -227,7 +227,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
   - eksport (`export-my-data`) zawiera `transfers.sent` (przekazania pakietów tej osoby: rodzaj, stan, daty, wydarzenie; adres, który sama wpisała — przy przekazaniu przez Organizatora bez danych osoby przejmującej) i `transfers.received` (zaproszenia na jej adres i pakiety przez nią przejęte, z `from_name` — imieniem przekazującego albo nazwą klubu Organizatora — jako źródłem jej adresu; adres zaproszenia tylko wtedy, gdy jest jej własny). Skrót tokenu, partner, kod i notatki nie są eksportowane;
   - usunięcie konta (`delete-my-account`, funkcja `forget_transfer_parties`): jako przekazujący — otwarte zaproszenia zgłoszeń, które są anonimizowane, są cofane, a ich linki przestają działać; jako osoba zaproszona — otwarte zaproszenia na jej adres są cofane, a potem `to_email` jest usuwany ze wszystkich przekazań na ten adres. Wiersze przekazań zostają bez adresu.
 - **Środki bezpieczeństwa:**
-  - tabele `vouchers`, `partners` i `transfers` z RLS i `REVOKE ALL … FROM anon, authenticated`, dostęp tylko przez funkcje brzegowe i funkcje bazy dla service_role;
+  - tabele `vouchers`, `registration_partners` i `transfers` z RLS i `REVOKE ALL … FROM anon, authenticated`, dostęp tylko przez funkcje brzegowe i funkcje bazy dla service_role;
   - jedno przekazanie oczekujące na zgłoszenie; przyjęcie w jednej transakcji, warunkowane `UPDATE … WHERE status = 'pending' AND expires_at > now()`;
   - osoba przyjmująca potwierdza swój adres kodem wysłanym e-mailem (albo sesją na ten adres); limity: 10 wywołań na token i 30 na adres IP na godzinę, 5 zaproszeń na zgłoszenie na dobę;
   - e-maile z linkiem z tokenem bez śledzenia kliknięć (link nie jest przepisywany).

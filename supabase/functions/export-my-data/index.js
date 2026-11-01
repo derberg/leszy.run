@@ -341,7 +341,8 @@ Deno.serve(async (req) => {
     })),
     received: receivedRows.map((t) => ({
       ...transferBase(t),
-      new_registration_id: t.new_registration_id,
+      // A forwarded link: the invited person's row holds the taker's registration, not theirs.
+      new_registration_id: ownRegIds.includes(t.new_registration_id) ? t.new_registration_id : null,
       to_email: myEmail && t.to_email === myEmail ? t.to_email : null,
       from_name: t.kind === 'organizer'
         ? clubName.get(t.registration_settings?.club_id) ?? 'Organizator zawodów'
