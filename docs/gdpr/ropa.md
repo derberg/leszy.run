@@ -3,7 +3,7 @@
 **Administrator:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis Leszy.run
 **Kontakt:** lukasz@leszy.run
 **Data ostatniej aktualizacji:** 2026-11-01
-**Wersja:** 1.5
+**Wersja:** 1.6
 
 ## Rola Leszy.run
 
@@ -141,7 +141,7 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
   - liczniki limitów w `otp_throttle` (adres IP, konto zapisującego).
   Dziecko nie ma adresu e-mail ani konta.
 - **Kategorie osób:** opiekunowie (rodzice) i zapisane przez nich dzieci; osoby dorosłe zapisane przez członka rodziny lub drużyny; osoby zapisujące innych bez własnego startu („Nie startuję — zapisuję tylko inne osoby”).
-- **Odbiorcy:** jak w pkt 10. Osoba dorosła zapisana przez kogoś innego dostaje dokładnie jeden e-mail z linkiem do strony `/zgoda` i z informacją o danych (`/events/<slug>/informacja-o-danych`), jedno automatyczne przypomnienie 72 h przed końcem zapisów i przypomnienia na żądanie zapisującego lub Organizatora (łącznie 3 na dobę na zgłoszenie). Dziecko nie dostaje żadnych wiadomości. Organizator widzi w panelu stan akceptacji, imię i nazwisko zapisującego i opiekuna, nigdy ich adresów. Publiczna lista startowa nie pokazuje osoby dorosłej z imienia i nazwiska, dopóki nie zaakceptuje regulaminu (jest tylko liczona), ani miejscowości osoby poniżej 18 lat.
+- **Odbiorcy:** jak w pkt 10. Osoba dorosła zapisana przez kogoś innego dostaje dokładnie jeden e-mail z linkiem do strony `/zgoda` i z informacją o danych (`/events/<slug>/informacja-o-danych`), jedno automatyczne przypomnienie 72 h przed końcem zapisów i przypomnienia na żądanie zapisującego lub Organizatora (łącznie 3 na dobę na zgłoszenie). Dziecko nie dostaje żadnych wiadomości. Organizator widzi w panelu stan akceptacji, imię i nazwisko zapisującego i opiekuna, bez ich adresów; adres e-mail opiekuna dziecka zawiera dopiero eksport CSV (pkt 13). Publiczna lista startowa nie pokazuje osoby dorosłej z imienia i nazwiska, dopóki nie zaakceptuje regulaminu (jest tylko liczona), ani miejscowości osoby poniżej 18 lat.
 - **Transfery poza EOG:** jak w pkt 1.
 - **Okres przechowywania:**
   - `consent_requests` — przez czas istnienia zgłoszenia; link wygasa z końcem zapisów, a każde przypomnienie unieważnia poprzedni token;
@@ -182,10 +182,32 @@ Leszy.run / Łukasz Górnicki jest **jedynym administratorem (controller)** dla 
   - strona składu tylko dla sesji kapitana, każdemu innemu odpowiada 404;
   - limity: 30 zmian składu i 120 odczytów na drużynę na godzinę, a każda osoba dodana do składu liczy się do limitu 30 osób na zapisującego na dobę z pkt 11.
 
+## 13. Panel zgłoszeń Organizatora: wiadomości do zawodników i eksport CSV
+
+- **Rola:** jak w pkt 10 — dane zgłoszeń LESZY.RUN przetwarza w imieniu Organizatora (art. 28 RODO, rejestr z art. 30 ust. 2). Wiadomość i eksport wykonuje właściciel lub administrator klubu Organizatora; członek klubu bez tej roli nie ma do nich dostępu.
+- **Cel:** wiadomości Organizatora do osób zapisanych (organizacja zawodów, zmiany, przypomnienia), wiadomość do jednego zawodnika („Napisz do zawodnika”); przekazanie Organizatorowi listy zgłoszeń w pliku CSV do obsługi biura zawodów i pomiaru czasu; rozliczalność tych operacji.
+- **Podstawa prawna:** art. 6(1)(b) RODO — umowa o udział w zawodach (informacje o zawodach, wydanie pakietów, pomiar czasu); art. 6(1)(f) — rozliczalność (dziennik `organizer_actions`) i ochrona przed nadużyciem (limity wysyłki).
+- **Kategorie danych:**
+  - wiadomości: adresy odbiorców są ustalane **w chwili wysyłki** z bieżących zgłoszeń (jeden e-mail na adres; dziecko przez adres opiekuna; nic do zgłoszeń anulowanych, wygasłych i nieopłaconych po terminie) i **nie są zapisywane per odbiorca**. W `organizer_messages` zostaje: wydarzenie, konto nadawcy (`sent_by`), temat, treść, filtr odbiorców (konkurencje, status, członkowie drużyn albo kapitanowie; przy wiadomości do jednego zawodnika — identyfikator jego zgłoszenia) i liczba wysłanych e-maili. Treść pisze Organizator, więc może zawierać dane osobowe. W `organizer_actions` — wpis `message_sent` (identyfikator wiadomości, liczba wysłanych i nieudanych, filtr) albo `message_test_sent` (wiadomość próbna, tylko na adres nadawcy);
+  - eksport CSV: numer startowy, imię, nazwisko, data urodzenia, płeć, kategoria wiekowa, konkurencja, nazwa drużyny, klub, miejscowość, narodowość, e-mail, telefon, kontakt ICE (imię i telefon), opiekun (imię i nazwisko oraz e-mail opiekuna dziecka), status, wpłata i kwota zwrócona, stan akceptacji regulaminu, partner, data zapisu — dla wierszy wybranych filtrem panelu. Plik powstaje na żądanie i nie jest zapisywany po stronie LESZY.RUN. Każdy eksport zapisuje w `organizer_actions` wpis `csv_exported`: liczbę wierszy, **nazwy** użytych filtrów (konkurencja, status, partner) i to, czy użyto wyszukiwania — **nigdy wpisanego tekstu wyszukiwania**;
+  - każdy wpis `organizer_actions` zawiera konto osoby działającej, klub, wydarzenie, adres IP i user agent.
+- **Kategorie osób:** zawodnicy i osoby zapisujące, opiekunowie dzieci (odbiorcy wiadomości i osoby w eksporcie); właściciele i administratorzy klubów (nadawcy, autorzy eksportu).
+- **Odbiorcy:** Twilio / SendGrid (wysyłka wiadomości, nadawca „<klub> przez LESZY.RUN”, odpowiedź na adres kontaktowy wydarzenia, nigdy na prywatny adres członka klubu); Supabase, Inc.; Organizator — plik CSV pobrany przez właściciela lub administratora klubu, od tej chwili w jego posiadaniu i na jego odpowiedzialność jako administratora danych zgłoszeń.
+- **Transfery poza EOG:** jak w pkt 1 (Supabase, SendGrid).
+- **Okres przechowywania:** `organizer_messages` i `organizer_actions` — razem z wydarzeniem, bez automatycznego usuwania (do wdrożenia razem z retencją zgłoszeń); przy usunięciu konta autora wpisy `organizer_actions` tracą adres IP i user agent. Adresów odbiorców wiadomości nie ma czego usuwać — nie są zapisywane.
+- **Prawa osób:** eksport (`export-my-data`) zawiera wpisy `organizer_actions` osoby, która działała jako Organizator (w tym wysyłki i eksporty CSV). Wiadomości otrzymane przez zawodnika nie są zapisane per odbiorca, więc nie ma ich w eksporcie danych zawodnika.
+- **Środki bezpieczeństwa:**
+  - dostęp tylko dla właściciela i administratora klubu, wydarzenie ustalane po stronie serwera z rekordu zgłoszenia, nigdy z żądania;
+  - limity wysyłki (licznik w `otp_throttle`, przy awarii licznika wysyłka jest odmawiana): wiadomość zbiorcza 5 na wydarzenie na dobę, „Napisz do zawodnika” 30 na wydarzenie na godzinę, wiadomość próbna 10 na nadawcę na godzinę;
+  - eksport, którego nie udało się zapisać w `organizer_actions`, nie jest wydawany (odpowiedź 503);
+  - komórki CSV zabezpieczone przed formułami arkusza (tekst zawodnika zaczynający się od `=`, `+`, `-`, `@` jest poprzedzony apostrofem); odpowiedź bez zapisu w pamięci podręcznej (`Cache-Control: no-store`);
+  - żaden adres nie trafia do logów funkcji.
+
 ## Historia zmian
 
 | Wersja | Data | Opis |
 |---|---|---|
+| 1.6 | 2026-11-01 | Dodano sekcję 13 (panel zgłoszeń Organizatora: wiadomości do zawodników — adresy ustalane przy wysyłce, nie zapisywane per odbiorca — oraz eksport CSV z wpisem `csv_exported` w `organizer_actions`, bez tekstu wyszukiwania); w sekcji 11 doprecyzowano, że adres opiekuna dziecka zawiera eksport CSV. |
 | 1.5 | 2026-11-01 | Dodano sekcję 12 (drużyny i sztafety: nazwa drużyny jako dana osobowa i jej usuwanie po 30 dniach oraz przy usunięciu konta kapitana, eksport, dane członków podawane przez kapitana, anonimizacja osoby usuniętej ze składu w chwili wymiany, nazwa drużyny przy zamówieniu wygasłym lub anulowanym). |
 | 1.4 | 2026-10-29 | Dodano sekcję 11 (zapisy grupowe: opiekunowie, osoby dorosłe zapisane przez kogoś innego, prośby o akceptację regulaminu, podpis w biurze; eksport i usuwanie konta). |
 | 1.3 | 2026-10-29 | Dodano sekcję 10 (zapisy online z płatnością przez dpay: zamówienia, płatności, zwroty, retencja 5 lat / 30 dni). |
