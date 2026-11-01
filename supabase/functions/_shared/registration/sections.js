@@ -468,9 +468,16 @@ function validateTransfer(value, ctx, c, out) {
     else if (ctx.eventDate && v > dayBefore(ctx.eventDate)) c.fail('transferUntil', TRANSFER_UNTIL_MESSAGE)
     else out.transfer_until = v
   }
-  if (value.transferEnabled === true && !(value.transferUntil && isIsoDate(value.transferUntil))) {
-    c.fail('transferUntil', 'Podaj, do kiedy można przekazać pakiet.')
-  }
+  // The section is a patch: the rule holds on the values as they will be, the ones sent over the
+  // stored (or staged) ones the caller passes as ctx.transferEnabled / ctx.transferUntil. So
+  // { transferUntil: null } alone is refused while transfers are on, and { transferEnabled: true }
+  // alone uses the stored date. The race date can still move later in Podstawy: the publish
+  // checklist judges the merged event too (transfer_until).
+  const enabled = 'transferEnabled' in value ? value.transferEnabled : ctx.transferEnabled
+  const until = 'transferUntil' in value ? value.transferUntil : (ctx.transferUntil ?? null)
+  if (enabled !== true) return
+  if (!(until && isIsoDate(until))) c.fail('transferUntil', 'Podaj, do kiedy można przekazać pakiet.')
+  else if (ctx.eventDate && until > dayBefore(ctx.eventDate)) c.fail('transferUntil', TRANSFER_UNTIL_MESSAGE)
 }
 
 function validatePayments(value, ctx, c) {
@@ -569,7 +576,7 @@ const VALIDATORS = {
 /**
  * @param {string} section one of SECTIONS
  * @param {object} value the section's input (camelCase)
- * @param {{ state: 'draft'|'published'|'closed', eventDate?: string|null, opensAt?: string|null, closesAt?: string|null, teamCategoryIds?: string[] }} ctx
+ * @param {{ state: 'draft'|'published'|'closed', eventDate?: string|null, opensAt?: string|null, closesAt?: string|null, transferEnabled?: boolean, transferUntil?: string|null, teamCategoryIds?: string[] }} ctx
  * @returns {{ ok: true, value: object } | { ok: false, errors: Record<string, string> }}
  */
 export function validateSection(section, value, ctx = { state: 'draft' }) {

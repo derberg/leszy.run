@@ -290,5 +290,8 @@ export function mergedChecklistInput(live, pending) {
   // The payout is never staged: it is the live state, { mode, ready } only.
   // The extras the event will have: only their prices matter to the checklist (takesMoney).
   const extras = pending?.extras?.items ?? live.extras ?? []
-  return { settings: camel(settings), competitions: competitions.map(camel), officeHours, extras, payout: live.payout }
+  // The tiers it will have: a staged competitions section decides (no tiers unless tiered).
+  const staged = pending?.competitions
+  const tiers = staged ? (staged.pricing_mode === 'tiered' ? (staged.tiers ?? []) : []) : (live.tiers ?? [])
+  return { settings: camel(settings), competitions: competitions.map(camel), officeHours, extras, tiers, payout: live.payout }
 }

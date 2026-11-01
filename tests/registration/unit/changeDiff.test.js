@@ -274,3 +274,10 @@ test('V-15 transfer settings are diff rows of their own', () => {
     ['payments.transfer_until', 'Przekazanie możliwe do', null, '2026-12-05'],
   ])
 })
+
+test('M-4 mergedChecklistInput carries the tiers the event will have', () => {
+  const staged = { pricing_mode: 'tiered', tiers: [{ id: null, ends_on: '2026-11-20' }, { id: null, ends_on: null }], items: [] }
+  assert.deepEqual(mergedChecklistInput(tieredLive, { competitions: staged }).tiers, staged.tiers)
+  assert.deepEqual(mergedChecklistInput(tieredLive, {}).tiers, tieredLive.tiers)
+  assert.deepEqual(mergedChecklistInput(tieredLive, { competitions: { pricing_mode: 'fixed', items: [] } }).tiers, [])
+})

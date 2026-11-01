@@ -535,3 +535,78 @@ test('V-19 registration_raw carries extras (a sold-out variant kept with left 0)
   const text = JSON.stringify(raw)
   assert.ok(!text.includes('tajne') && !text.includes('dla sklepu') && !text.includes('Sklep '), 'no partner name or note')
 })
+
+// ---------------------------------------------------------------- fix round 1 (I-1, M-1, M-4)
+
+const publish = (eventId) => callFn('publish-registration-event', owner, { eventId, action: 'publish' })
+const publishChanges = (eventId) => callFn('publish-registration-event', owner, { eventId, action: 'publish_changes', notify: { send: false } })
+const blockingKeys = (r) => (r.body.blocking ?? []).map((b) => b.key)
+
+test('I-1 the race moved earlier in Podstawy: the stored transfer window and an extra ordered after the new race day block publish', async () => {
+  const event = await draft(1)
+  let r = await save(event.eventId, 'payments', { transferEnabled: true, transferUntil: day(39) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  r = await save(event.eventId, 'extras', { items: [{ name: 'Medal', price: '0', orderUntil: EVENT_DATE, categoryIds: [], variants: [{ label: 'Jeden', stock: 5 }] }] })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  r = await save(event.eventId, 'basics', { eventDate: day(30), opensOn: day(-1), closesOn: day(29) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  r = await publish(event.eventId)
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.ok(blockingKeys(r).includes('transfer_until'), JSON.stringify(r.body))
+  assert.ok(blockingKeys(r).includes('extras_order_until'), JSON.stringify(r.body))
+})
+
+test('I-1 published: a race date staged earlier than the transfer window → 409 with the transfer item, nothing applied', async () => {
+  const event = await createPublishedFreeEvent(owner, { eventDate: EVENT_DATE, opensOn: day(-1), closesOn: day(39) })
+  await db().from('registration_settings').update({ transfer_enabled: true, transfer_until: day(39) }).eq('event_id', event.eventId).throwOnError()
+  const r0 = await save(event.eventId, 'basics', { eventDate: day(30), opensOn: day(-1), closesOn: day(29) })
+  assert.equal(r0.status, 200, JSON.stringify(r0.body))
+  const r = await publishChanges(event.eventId)
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  assert.deepEqual(blockingKeys(r), ['transfer_until'])
+  const { data } = await db().from('registration_settings').select('event_date').eq('event_id', event.eventId).single()
+  assert.equal(data.event_date, EVENT_DATE)
+})
+
+test('I-1 {transferUntil: null} alone while transfers are on is refused, in a draft and staged after publish', async () => {
+  const event = await draft(1)
+  let r = await save(event.eventId, 'payments', { transferEnabled: true, transferUntil: day(39) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  r = await save(event.eventId, 'payments', { transferUntil: null })
+  assert.equal(r.status, 422, JSON.stringify(r.body))
+  assert.equal(r.body.fields.transferUntil, 'Podaj, do kiedy można przekazać pakiet.')
+
+  const pub = await createPublishedFreeEvent(owner, { eventDate: EVENT_DATE, opensOn: day(-1), closesOn: day(39) })
+  r = await save(pub.eventId, 'payments', { transferEnabled: true, transferUntil: day(39) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  r = await save(pub.eventId, 'payments', { transferUntil: null })
+  assert.equal(r.status, 422, 'the staged value counts: ' + JSON.stringify(r.body))
+})
+
+test('M-1 a stage back to fixed drops the earlier staged tiers from the pending payload', async () => {
+  const event = await publishedTiered()
+  const [t1, t2, t3] = event.tiers
+  let r = await stage(event.eventId, 'competitions', stagedTiered(event, [t1, t2, t3], [6000, 7500, 8000]))
+  assert.equal(r.error, null, r.error?.message)
+  const fixed = stagedTiered(event, [t1, t2, t3], [6000, 7500, 8000])
+  r = await stage(event.eventId, 'competitions', {
+    pricing_mode: 'fixed', items: fixed.items.map(({ prices, ...i }) => ({ ...i, price: 6000 })),
+  })
+  assert.equal(r.error, null, r.error?.message)
+  const { data } = await db().from('registration_pending_changes').select('payload, changed_fields').eq('event_id', event.eventId).single()
+  assert.equal('tiers' in data.payload.competitions, false)
+  assert.equal(data.payload.competitions.pricing_mode, 'fixed')
+  assert.ok(!data.changed_fields.includes('competitions.tiers'))
+})
+
+test('M-4 the window shortened after the tiers were saved: publish names the tiers', async () => {
+  const event = await draft(1)
+  let r = await save(event.eventId, 'competitions', { pricingMode: 'tiered', tiers: A3_TIERS(), items: tieredItems(event) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  r = await save(event.eventId, 'basics', { closesOn: day(15), opensOn: day(-1) })
+  assert.equal(r.status, 200, JSON.stringify(r.body))
+  r = await publish(event.eventId)
+  assert.equal(r.status, 409, JSON.stringify(r.body))
+  const item = r.body.blocking.find((b) => b.key === 'tiers')
+  assert.equal(item?.label, 'Progi cenowe: Daty progów muszą rosnąć i kończyć się przed zamknięciem zapisów.')
+})

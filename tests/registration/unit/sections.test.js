@@ -536,3 +536,32 @@ test('V-15 extras: at most 20 extras of 1–20 variants, stock 0–100 000, a na
 test('V-15 extras: an empty list means no extras', () => {
   assert.deepEqual(validateSection('extras', { items: [] }, EXTRA_CTX), { ok: true, value: { items: [] } })
 })
+
+// ---------------------------------------------------------------- fix round 1: I-1
+
+test('I-1 payments: {transferUntil: null} alone while transfers are on (stored or staged) is refused', () => {
+  const on = { ...DRAFT, eventDate: '2026-12-06', transferEnabled: true, transferUntil: '2026-12-05' }
+  const r = validateSection('payments', { transferUntil: null }, on)
+  assert.equal(r.ok, false)
+  assert.equal(r.errors.transferUntil, 'Podaj, do kiedy można przekazać pakiet.')
+  assert.deepEqual(validateSection('payments', { transferUntil: null }, { ...on, transferEnabled: false }),
+    { ok: true, value: { transfer_until: null } })
+})
+
+test('I-1 payments: {transferEnabled: true} alone uses the stored date, which must still be the day before the race', () => {
+  const ctx = { ...DRAFT, eventDate: '2026-12-06', transferEnabled: false }
+  assert.deepEqual(validateSection('payments', { transferEnabled: true }, { ...ctx, transferUntil: '2026-12-05' }),
+    { ok: true, value: { transfer_enabled: true } })
+  assert.equal(validateSection('payments', { transferEnabled: true }, { ...ctx, transferUntil: '2026-12-06' }).errors.transferUntil,
+    'Przekazanie możliwe najpóźniej dzień przed zawodami.')
+  assert.equal(validateSection('payments', { transferEnabled: true }, { ...ctx, transferUntil: null }).errors.transferUntil,
+    'Podaj, do kiedy można przekazać pakiet.')
+})
+
+test('M-1 competitions: a fixed or free save carries no tiers key at all', () => {
+  for (const pricingMode of ['fixed', 'free']) {
+    const r = validateSection('competitions', { pricingMode, items: [item({ price: '60' })] }, DRAFT)
+    assert.equal(r.ok, true)
+    assert.equal('tiers' in r.value, false)
+  }
+})

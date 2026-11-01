@@ -13,14 +13,16 @@
 // owning club accepted the current organizer agreement, and `payout`:
 // { mode: 'club'|'custom', ready } from eventPayout.js (never the account
 // itself). A paid event with no `payout` given is not ready. `extras` (optional) lists the
-// event's extras, each with its `price` in grosze.
+// event's extras, each with its `price` in grosze and `orderUntil` (or `order_until`), and
+// `tiers` (optional) the price tiers in the grid's order, each `endsOn` (or `ends_on`).
 //
 // takesMoney(event): whether the event collects money at all (D7-22): a pricing mode other than
 // free, a priced extra, or donations on (a charity event with „Pozwól dopłacić darowiznę”,
 // ruling 7). Such an event needs a payout account and is held by PAID_REGISTRATION_ENABLED.
 
-import { warsawDayAfter } from './dates.js'
+import { warsawDayAfter, warsawToday } from './dates.js'
 import { PAID_REGISTRATION_ENABLED } from './flags.js'
+import { validateTiers } from './pricing.js'
 
 // Raised by publish_registration_event when an ordinary events row took the
 // slug after the draft reserved it. Not computable from the draft alone.
@@ -44,12 +46,56 @@ function regulaminGiven(s) {
   return false
 }
 
+/**
+ * What makes the event take money, the first that applies: 'pricing', 'extras', 'donations', or
+ * null. The 409 and the checklist name it, so an organizer whose free event is held by donations
+ * knows which switch it is (M-2).
+ * @param {{ settings?: object, extras?: { price: number }[] }} event
+ */
+export function moneyReason(event) {
+  const s = event?.settings ?? {}
+  if ((s.pricingMode ?? 'free') !== 'free') return 'pricing'
+  if ((event?.extras ?? []).some((x) => Number(x?.price) > 0)) return 'extras'
+  if (s.isCharity === true && s.donationsEnabled === true) return 'donations'
+  return null
+}
+
 /** @param {{ settings?: object, extras?: { price: number }[] }} event */
 export function takesMoney(event) {
-  const s = event?.settings ?? {}
-  if ((s.pricingMode ?? 'free') !== 'free') return true
-  if ((event?.extras ?? []).some((x) => Number(x?.price) > 0)) return true
-  return s.isCharity === true && s.donationsEnabled === true
+  return moneyReason(event) !== null
+}
+
+const PAYMENTS_SOON = {
+  pricing: 'Płatności online — wkrótce',
+  extras: 'Płatne dodatki to płatności online — wkrótce',
+  donations: 'Darowizny przy zapisie to płatności online — wkrótce. Wyłącz je w Podstawach',
+}
+
+/** '2026-12-06' → '2026-12-05' */
+function dayBefore(isoDate) {
+  const [y, m, d] = isoDate.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10)
+}
+
+// Rules that tie a later step to the race date or the window, judged on the event as it is (or
+// will be, for staged changes): a section save only sees its own patch, and Podstawy can move the
+// race or the window afterwards (I-1, M-4).
+function datedItems(event, s, block) {
+  if (s.transferEnabled === true) {
+    if (blank(s.transferUntil)) block('transfer_until', 'Przekazanie pakietu: podaj, do kiedy')
+    else if (!blank(s.eventDate) && s.transferUntil > dayBefore(s.eventDate)) {
+      block('transfer_until', 'Przekazanie pakietu: najpóźniej dzień przed zawodami')
+    }
+  }
+  if (!blank(s.eventDate) && (event?.extras ?? []).some((x) => (x?.orderUntil ?? x?.order_until ?? '') > s.eventDate)) {
+    block('extras_order_until', 'Dodatki: zamówienia najpóźniej w dniu zawodów')
+  }
+  if (s.pricingMode === 'tiered') {
+    const at = (iso, shift) => (blank(iso) ? undefined : warsawToday(new Date(Date.parse(iso) + shift)))
+    const tiers = (event?.tiers ?? []).map((t) => ({ endsOn: t?.endsOn ?? t?.ends_on ?? null }))
+    const checked = validateTiers(tiers, { opensOn: at(s.opensAt, 0), closesOn: at(s.closesAt, -1) })
+    if (!checked.ok) block('tiers', `Progi cenowe: ${checked.errors.tiers}`)
+  }
 }
 
 /**
@@ -82,8 +128,10 @@ export function publishChecklist(event) {
   if (!regulaminGiven(s)) block('regulamin', 'Regulamin (PDF albo link)')
   if (blank(s.contactEmail)) block('contact_email', 'Adres kontaktowy organizatora')
   if (!event?.hasAgreement) block('agreement', 'Akceptacja umowy organizatora')
-  const paid = takesMoney(event)
-  if (!PAID_REGISTRATION_ENABLED && paid) block('payments', 'Płatności online — wkrótce')
+  datedItems(event, s, block)
+  const reason = moneyReason(event)
+  const paid = reason !== null
+  if (!PAID_REGISTRATION_ENABLED && paid) block('payments', PAYMENTS_SOON[reason])
   if (paid && !event?.payout?.ready) {
     block('payout', event?.payout?.mode === 'custom' ? 'Dane do wypłat tego wydarzenia' : 'Uzupełnij dane do wypłat w ustawieniach klubu')
   }

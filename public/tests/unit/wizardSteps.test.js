@@ -73,4 +73,7 @@ test('blocking items map to the step that fixes them', () => {
   assert.equal(stepForBlocking('payments'), 'platnosci')
   assert.equal(stepForBlocking('payout'), 'platnosci')
   assert.equal(stepForBlocking('agreement'), 'publikacja')
+  assert.equal(stepForBlocking('tiers'), 'konkurencje')
+  assert.equal(stepForBlocking('transfer_until'), 'platnosci')
+  assert.equal(stepForBlocking('extras_order_until'), 'dodatki')
 })

@@ -14,12 +14,13 @@
 --     tiers keep dates and amounts once in use; a future tier ends after the current one) and
 --     ruling 10's extra locks (price_locked / extra_locked).
 --   * stage_registration_section (from 20261030130000) and publish_registration_changes (from
---     20261030160000): the section list gains `extras` (D7-7); publish locks the event's extra
+--     20261030160000): the section list gains `extras` (D7-7); a competitions stage that is not
+--     tiered drops staged `tiers` left by an earlier stage; publish locks the event's extra
 --     variants after the settings row and re-checks every lock against the Warsaw day of the
 --     apply (D7-2, D7-3).
 --   * registration_raw (from 20261101130000): `transfer` and `extras`. registration_public reads
 --     it and is not recreated (D7-6). No voucher, partner, stock or sales figure is exposed.
--- CREATE OR REPLACE keeps every grant; the REVOKEs below restate them.
+-- CREATE OR REPLACE keeps every grant; the REVOKE / GRANT after each function restates it.
 
 -- ---------------------------------------------------------------- apply_registration_section (from 20261101100000)
 
@@ -725,7 +726,11 @@ BEGIN
   INSERT INTO public.registration_pending_changes AS pc (event_id, payload, changed_fields, updated_by)
   VALUES (p_event_id, jsonb_build_object(p_section, p_value), '{}', p_actor)
   ON CONFLICT (event_id) DO UPDATE
-    SET payload = pc.payload || jsonb_build_object(p_section, coalesce(pc.payload->p_section, '{}'::jsonb) || p_value),
+    -- A competitions stage that is not tiered drops tiers an earlier stage left (M-1).
+    SET payload = pc.payload || jsonb_build_object(p_section,
+          (coalesce(pc.payload->p_section, '{}'::jsonb) || p_value)
+          - CASE WHEN p_section = 'competitions' AND p_value ? 'pricing_mode' AND p_value->>'pricing_mode' <> 'tiered'
+                 THEN 'tiers' ELSE '' END),
         updated_by = p_actor
   RETURNING payload INTO v_payload;
 
@@ -847,6 +852,8 @@ BEGIN
 
   RETURN jsonb_build_object('categoryIds', v_ids, 'changedFields', to_jsonb(v_pending.changed_fields), 'publishedAt', now());
 END $$;
+REVOKE EXECUTE ON FUNCTION public.publish_registration_changes(uuid, uuid, timestamptz, boolean) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.publish_registration_changes(uuid, uuid, timestamptz, boolean) TO service_role;
 
 -- ---------------------------------------------------------------- registration_raw (from 20261101130000)
 
@@ -986,3 +993,5 @@ AS $$
   )
   FROM rs
 $$;
+REVOKE EXECUTE ON FUNCTION public.registration_raw(uuid) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.registration_raw(uuid) TO service_role;

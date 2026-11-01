@@ -3,7 +3,7 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { logOrganizerAction } from '../_shared/organizer.js'
 import { AGREEMENT_REQUIRED, clubHasAgreement, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
-import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM, takesMoney } from '../_shared/registration/checklist.js'
+import { publishChecklist, blockingMessage, SLUG_TAKEN_ITEM, moneyReason } from '../_shared/registration/checklist.js'
 import { eventPageUrl } from '../_shared/registration/slug.js'
 import { changeDiff, mergedChecklistInput, noticeAudience } from '../_shared/registration/changeDiff.js'
 import { PAID_REGISTRATION_ENABLED } from '../_shared/registration/flags.js'
@@ -25,6 +25,14 @@ const ACTIONS = ['publish', 'publish_changes', 'discard_changes', 'preview_chang
 const SUBJECT_MAX = 200
 const BODY_MAX = 5000
 
+// The 409 while paid registration is off names what makes the event take money (M-2): a free
+// charity event held only by its donations switch must learn which switch it is.
+const PAYMENTS_SOON = {
+  pricing: 'Nie można opublikować: płatności online — wkrótce.',
+  extras: 'Nie można opublikować: płatne dodatki to płatności online — wkrótce.',
+  donations: 'Nie można opublikować: darowizny przy zapisie to płatności online — wkrótce. Wyłącz „Pozwól dopłacić darowiznę” w Podstawach.',
+}
+
 const refused = (blocking, req) => json({ error: blockingMessage(blocking), blocking }, 409, req)
 
 const camelKey = (k) => k.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
@@ -32,16 +40,19 @@ const camel = (row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [c
 
 // What publishChecklist() reads, in get-registration-event's shape.
 async function checklistInput(admin, settings) {
-  const [competitions, hours, extras, payout] = await Promise.all([
+  const [competitions, hours, extras, tiers, payout] = await Promise.all([
     admin.from('competitions').select('*').eq('event_id', settings.event_id),
     admin.from('office_hours').select('id').eq('event_id', settings.event_id).limit(1),
-    admin.from('extras').select('id, price').eq('event_id', settings.event_id),
+    admin.from('extras').select('id, price, order_until').eq('event_id', settings.event_id),
+    admin.from('price_tiers').select('id, ends_on').eq('event_id', settings.event_id)
+      .order('ends_on', { ascending: true, nullsFirst: false }).order('sort_order').order('id'),
     payoutState(admin, settings),
   ])
-  if (competitions.error) throw competitions.error
-  if (hours.error) throw hours.error
-  if (extras.error) throw extras.error
-  return { settings: camel(settings), competitions: competitions.data.map(camel), officeHours: hours.data, extras: extras.data, payout }
+  for (const r of [competitions, hours, extras, tiers]) if (r.error) throw r.error
+  return {
+    settings: camel(settings), competitions: competitions.data.map(camel), officeHours: hours.data,
+    extras: extras.data, tiers: tiers.data, payout,
+  }
 }
 
 // The live extras in the extras section's staged shape, for changeDiff and the checklist.
@@ -196,8 +207,9 @@ async function publishChanges(admin, req, session, settings, notifyInput, expect
   const live = await liveSnapshot(admin, settings)
   const merged = mergedChecklistInput(live, pending.payload)
   // An event that will take money (a paid mode, a priced extra, donations; D7-22) waits for the flag.
-  if (!PAID_REGISTRATION_ENABLED && takesMoney(merged)) {
-    return json({ error: 'Nie można opublikować: płatności online — wkrótce.', code: 'payments' }, 409, req)
+  const reason = moneyReason(merged)
+  if (!PAID_REGISTRATION_ENABLED && reason) {
+    return json({ error: PAYMENTS_SOON[reason], code: 'payments', reason }, 409, req)
   }
 
   // The event as it will be must pass the first publish's checklist too.
