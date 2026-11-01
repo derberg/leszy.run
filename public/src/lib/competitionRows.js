@@ -9,10 +9,17 @@
 // * After publish every competition is sent, hidden ones included, each
 //   with its `hidden` flag: a competition left out of the list would mean
 //   deleting it, and the server refuses that (409).
+// * Tiered pricing (A3, D7-12): the tiers are shared date columns, the last one
+//   open until registration closes, and each row holds one price per column.
+//   A column is keyed by `key` in the UI; the section names it by its id, or
+//   `new:<index>` for a column the save creates (D7-4).
 import { validateSection } from '../../../supabase/functions/_shared/registration/sections.js'
+import { warsawToday } from '../../../supabase/functions/_shared/registration/dates.js'
+import { MAX_TIERS } from '../../../supabase/functions/_shared/registration/pricing.js'
 import { countPl, pluralPl } from './plural.js'
 
 let rowSeq = 0
+let tierSeq = 0
 
 /** 6050 → '60,50', 6000 → '60', null → ''. */
 export function priceText(grosze) {
@@ -42,6 +49,8 @@ export function competitionRow(c) {
     timed: c.timed !== false,
     gpxUploadId: c.gpxUploadId ?? null,
     price: priceText(c.priceGrosze),
+    // Tiered prices by column key (a tier id, or `new:<index>` for a staged column).
+    prices: Object.fromEntries(Object.entries(c.prices ?? {}).map(([k, v]) => [k, priceText(v)])),
     hidden: !!c.hiddenAt,
     taken: c.taken ?? 0,
     // Locks kind, price and hiding (get-registration-event, owner/admin): confirmed entries or a
@@ -56,7 +65,7 @@ export function competitionRow(c) {
 export function newCompetitionRow(over = {}) {
   return {
     key: ++rowSeq, categoryId: null, name: '', kind: 'individual', teamMin: '', teamMax: '', discipline: 'run', distanceLabel: '', startTime: '',
-    capacity: '', minAge: '', maxAge: '', isKids: false, timed: true, gpxUploadId: null, price: '',
+    capacity: '', minAge: '', maxAge: '', isKids: false, timed: true, gpxUploadId: null, price: '', prices: {},
     hidden: false, taken: 0, inUse: false, saved: null, ...over,
   }
 }
@@ -85,46 +94,153 @@ function baseItem(r) {
     timed: r.timed,
     gpxUploadId: r.gpxUploadId,
     price: r.price,
+    prices: { ...(r.prices ?? {}) },
   }
 }
 
-function sectionItem(base, row, { pricingMode, state }) {
-  const { price, ...item } = base
+/** The section's name for a tier column: its id, or `new:<index>` for one the save creates. */
+const tierRef = (t, i) => t.id ?? `new:${i}`
+
+function sectionItem(base, row, { pricingMode, state, tiers = [] }) {
+  const { price, prices, ...item } = base
   if (pricingMode === 'fixed') item.price = price
+  if (pricingMode === 'tiered') item.prices = Object.fromEntries(tiers.map((t, i) => [tierRef(t, i), prices?.[t.key] ?? '']))
   if (state !== 'draft') item.hidden = row.hidden
   return item
+}
+
+// ---------------------------------------------------------------- tiers
+
+const newTier = (endsOn = '') => ({ key: `local:${++tierSeq}`, id: null, endsOn })
+
+/**
+ * The columns of the tier grid from the event (live or staged, registration_raw's order):
+ * [{ key, id, endsOn }], the last one open-ended (endsOn null). A dated column not yet filled
+ * in has endsOn ''. No tiers (fixed or free so far) → one dated column and the close.
+ */
+export function tierColumns(tiers, pricingMode) {
+  if (pricingMode !== 'tiered' || !tiers?.length) return [newTier(), newTier(null)]
+  return tiers.map((t, i) => ({ key: tierRef(t, i), id: t.id ?? null, endsOn: t.endsOn ?? null }))
+}
+
+/** „+ Próg”: a dated column before the open-ended one. */
+export function addTier(tiers) {
+  if (tiers.length >= MAX_TIERS) return tiers
+  const last = tiers.length - 1
+  return [...tiers.slice(0, last), newTier(), ...tiers.slice(last)]
+}
+
+export const canAddTier = (tiers) => tiers.length < MAX_TIERS
+
+/** The column in force today: the first not yet ended (Warsaw days), or the open-ended one. */
+export function currentTierIndex(tiers, today = warsawToday()) {
+  return tiers.findIndex((t) => t.endsOn === null || (t.endsOn && t.endsOn >= today))
+}
+
+/**
+ * A8, ruling 9: once any competition is in use, the saved columns in force or past keep their
+ * date and stay (`date`); a competition in use keeps its amounts in them (`amountOf(row)`).
+ * Columns the event does not have yet are never locked. The current column is judged among the
+ * saved ones only, as registration_check_locks does.
+ */
+export function tierLocks(tiers, rows, { published, today = warsawToday() }) {
+  const saved = tiers.filter((t) => t.id)
+  const cur = saved[currentTierIndex(saved, today)]
+  const anyInUse = published && rows.some((r) => r.inUse)
+  const fixedTier = (t) => !!t.id && (t === cur || (t.endsOn !== null && t.endsOn < today))
+  return {
+    date: (t) => anyInUse && fixedTier(t),
+    amount: (t, row) => published && row.inUse && fixedTier(t),
+    // A new column must end after the current one: none can when the open-ended one is current.
+    canAdd: canAddTier(tiers) && !(anyInUse && cur && cur.endsOn === null),
+  }
+}
+
+/** „DO 15.11” for a column header, „DO” while its date is blank. */
+export function tierLabel(endsOn) {
+  if (!endsOn) return 'DO'
+  const [, m, d] = endsOn.split('-')
+  return `DO ${Number(d)}.${m}`
+}
+
+/** 1.12 for the last open day. */
+export function dayLabel(iso) {
+  if (!iso) return ''
+  const [, m, d] = iso.split('-')
+  return `${Number(d)}.${m}`
+}
+
+/** The save answered `tierIds` in column order: give them to the columns sent without one. */
+export function assignTierIds(tiers, sentKeys, ids) {
+  return tiers.map((t) => {
+    const i = sentKeys.indexOf(t.key)
+    return i < 0 || t.id || !ids?.[i] ? t : { ...t, id: ids[i] }
+  })
+}
+
+/**
+ * The fee box switched. To tiered: columns start as given (or one dated and the close), and an
+ * empty cell takes the row's fixed price. To fixed: an empty price takes today's tier price, the
+ * tier the server keeps (Task 3 ruling).
+ */
+export function switchPricing(rows, tiers, mode, today = warsawToday()) {
+  if (mode === 'tiered') {
+    return rows.map((r) => ({
+      ...r, prices: Object.fromEntries(tiers.map((t) => [t.key, r.prices?.[t.key] || r.price || ''])),
+    }))
+  }
+  if (mode === 'fixed') {
+    const cur = tiers[currentTierIndex(tiers, today)] ?? tiers[tiers.length - 1]
+    return rows.map((r) => (r.price || !cur ? r : { ...r, price: r.prices?.[cur.key] ?? '' }))
+  }
+  return rows
+}
+
+function tierListError(tiers, ctx) {
+  if (tiers.some((t, i) => i < tiers.length - 1 && !t.endsOn)) return 'Podaj datę końca każdego progu.'
+  const check = validateSection('competitions', {
+    pricingMode: 'tiered', items: [], tiers: tiers.map((t) => ({ ...(t.id ? { id: t.id } : {}), endsOn: t.endsOn })),
+  }, ctx)
+  return check.ok ? null : check.errors.tiers ?? null
 }
 
 const started = (r) => !!(r.categoryId || r.name.trim() || r.capacity.trim() || r.distanceLabel.trim() || r.startTime)
 
 /**
- * → { ok, value: { pricingMode, items }, sentKeys, rowErrors: { [rowKey]: { field: message } }, rows }
- * `rows` carry their new last whole value; `sentKeys[i]` is the row behind items[i].
+ * → { ok, value: { pricingMode, items, tiers? }, sentKeys, sentTierKeys, rowErrors: { [rowKey]: { field: message } },
+ *     tierError, rows }
+ * `rows` carry their new last whole value; `sentKeys[i]` is the row behind items[i], `sentTierKeys[i]`
+ * the column behind tiers[i]. `opensAt` / `closesAt` (the window, timestamps) judge the tier dates.
  */
-export function competitionsSection(rows, { pricingMode, state }) {
-  const ctx = { pricingMode, state }
+export function competitionsSection(rows, { pricingMode, state, tiers = [], opensAt = null, closesAt = null }) {
+  const tiered = pricingMode === 'tiered'
+  const ctx = { pricingMode, state, tiers }
+  const tierList = tiered ? tiers.map((t) => ({ ...(t.id ? { id: t.id } : {}), endsOn: t.endsOn || null })) : undefined
   const items = []
   const sentKeys = []
   const rowErrors = {}
   const settled = rows.map((r) => {
     const base = baseItem(r)
     const item = sectionItem(base, r, ctx)
-    const check = validateSection('competitions', { pricingMode, items: [item] }, { state })
-    if (check.ok) {
+    // A row is judged on its own fields: the tier dates are the grid's, reported once below it.
+    const check = validateSection('competitions', { pricingMode, items: [item], ...(tiered ? { tiers: tierList } : {}) }, { state })
+    const errors = Object.fromEntries(Object.entries(check.ok ? {} : check.errors).filter(([k]) => k !== 'tiers'))
+    if (!Object.keys(errors).length) {
       items.push(item)
       sentKeys.push(r.key)
       return { ...r, saved: base }
     }
-    if (started(r)) rowErrors[r.key] = check.errors
+    if (started(r)) rowErrors[r.key] = errors
     if (r.saved) {
       items.push(sectionItem(r.saved, r, ctx))
       sentKeys.push(r.key)
     }
     return r
   })
-  const value = { pricingMode, items }
-  const ok = validateSection('competitions', value, { state }).ok
-  return { ok, value, sentKeys, rowErrors, rows: settled }
+  const value = { pricingMode, items, ...(tiered ? { tiers: tierList } : {}) }
+  const tierError = tiered ? tierListError(tiers, { state, opensAt, closesAt }) : null
+  const ok = !tierError && validateSection('competitions', value, { state, opensAt, closesAt }).ok
+  return { ok, value, sentKeys, sentTierKeys: tiered ? tiers.map((t) => t.key) : [], rowErrors, tierError, rows: settled }
 }
 
 /** The save answered `categoryIds` in item order: give them to the rows sent without one. */

@@ -117,6 +117,7 @@ async function ownerBuildsTheEvent(page, owner) {
   await page.getByRole('group', { name: `Kolejność zmian: ${RELAY}` }).getByRole('button', { name: 'Zbieraj' }).click()
   await expect.poll(async () => (await competitions())[0].leg_order_enabled, { timeout: 15_000 }).toBe(true)
 
+  await page.getByRole('button', { name: 'Dalej: dodatki' }).click()
   await page.getByRole('button', { name: 'Dalej: publikacja' }).click()
   await expect(page.getByTestId('checklist')).toBeVisible()
   await expect(page.getByTestId('blocking-item')).toHaveCount(0)

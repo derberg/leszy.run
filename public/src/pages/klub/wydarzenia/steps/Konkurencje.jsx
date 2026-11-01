@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { uploadDocument } from '../../../../lib/organizer.js'
 import {
-  assignIds, capacityLabel, capacityUnit, competitionRow, competitionsSection, newCompetitionRow,
+  addTier, assignIds, assignTierIds, capacityLabel, capacityUnit, competitionRow, competitionsSection, dayLabel,
+  newCompetitionRow, switchPricing, tierColumns, tierLabel, tierLocks,
 } from '../../../../lib/competitionRows.js'
 import { btnGhost } from '../../settingsUi.js'
 import {
-  FieldError, Lock, Soon, cardClass, cellInput, monoLabel, sectionErrors, tdClass, thClass,
+  FieldError, Lock, cardClass, cellInput, monoLabel, sectionErrors, tdClass, thClass,
 } from '../wizardUi.jsx'
 
 // A3: the event's competitions and the entry fee. A draft competition can be
@@ -16,11 +17,93 @@ import {
 // are locked, as the server's registration_check_locks refuses them. The limit
 // may not go under the confirmed entries (`taken`, „MIN.”): an unpaid order holds
 // no place. A team competition's limit and fee are per team.
+// „Rośnie z datą zapisu” (D7-12): shared date columns, the last one open until
+// registration closes, a price per competition per column. After publish the
+// columns in force or past keep their dates once anyone registered, and a
+// competition in use keeps its amounts in them (ruling 9); later columns stay
+// editable.
 
 const GPX_MAX = 5 * 1024 * 1024
 
 const km = (n) => (n == null ? null : `${String(Number(Number(n).toFixed(1))).replace('.', ',')} KM`)
 const gpxSummary = (meta) => [km(meta?.km), meta?.upM != null ? `+${Math.round(meta.upM)} M` : null].filter(Boolean).join(' · ')
+
+const removeBtn = 'inline-flex items-center justify-center w-10 h-10 shrink-0 border border-apex-border-bright text-apex-muted hover:text-apex-text-bright font-sans text-xl leading-none rounded-none'
+
+const PRICE_HINT = {
+  fixed: 'Uzupełnij konkurencje: nazwa, limit miejsc i cena przy opłacie stałej.',
+  tiered: 'Uzupełnij konkurencje: nazwa, limit miejsc i cena w każdym progu.',
+  free: 'Uzupełnij konkurencje: nazwa i limit miejsc.',
+}
+
+function TierGrid({ rows, tiers, locks, closesOn, readOnly, errorId, error, onDate, onPrice, onAdd, onRemove }) {
+  const dated = tiers.length - 1
+  return (
+    <>
+      <div className="relative overflow-x-auto border border-apex-border">
+        <table className="w-full border-collapse" style={{ minWidth: `${200 + tiers.length * 170}px` }} data-testid="tiers">
+          <thead>
+            <tr>
+              <th className={`${thClass} align-bottom`}>Konkurencja</th>
+              {tiers.map((t, k) => {
+                const n = k + 1
+                const last = k === dated
+                const dateLocked = locks.date(t)
+                return (
+                  <th key={t.key} className={`${thClass} align-bottom`}>
+                    <div className="flex flex-col gap-1">
+                      <span>{last ? 'DO KOŃCA ZAPISÓW' : tierLabel(t.endsOn)}</span>
+                      {last ? (
+                        <span className="min-h-10 flex items-center font-mono text-[13px] text-apex-text-bright">{dayLabel(closesOn)}</span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <input type="date" aria-label={`Próg ${n}: do`} className={`${cellInput} w-[150px]`} value={t.endsOn ?? ''}
+                            disabled={dateLocked} aria-invalid={error ? true : undefined} aria-describedby={error ? errorId : undefined}
+                            onChange={(e) => onDate(t.key, e.target.value)} />
+                          {dateLocked && <Lock title="Są zgłoszenia: progu, który trwa lub minął, nie można zmienić" />}
+                          {!dateLocked && dated > 0 && !readOnly && (
+                            <button type="button" aria-label={`Usuń próg ${n}`} className={removeBtn} onClick={() => onRemove(t.key)}>×</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                )
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.key} className={r.hidden ? 'opacity-60' : ''}>
+                <td className={`${tdClass} text-apex-text-bright`}>
+                  <span className="block">{r.name || `Konkurencja ${i + 1}`}</span>
+                  {r.kind === 'team' && <span className="block font-mono text-[11px] text-apex-muted whitespace-nowrap">ZA DRUŻYNĘ</span>}
+                </td>
+                {tiers.map((t, k) => {
+                  const locked = locks.amount(t, r)
+                  return (
+                    <td key={t.key} className={tdClass}>
+                      <div className="flex items-center gap-1.5">
+                        <input aria-label={`Cena ${r.name || i + 1} · próg ${k + 1}`} inputMode="decimal" className={`${cellInput} w-[90px]`}
+                          value={r.prices?.[t.key] ?? ''} disabled={locked} onChange={(e) => onPrice(r.key, t.key, e.target.value)} />
+                        <span className="font-mono text-sm text-apex-muted">zł</span>
+                        {locked && <Lock title="Są zgłoszenia: opłaty w progu, który trwa lub minął, nie można zmienić" />}
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {error && <p id={errorId} role="alert" data-testid="tiers-error" className="text-apex-red font-sans text-sm">{error}</p>}
+      {!readOnly && (
+        <button type="button" className={`${btnGhost} self-start`} disabled={!locks.canAdd} onClick={onAdd}>+ Próg</button>
+      )}
+    </>
+  )
+}
 
 function GpxCell({ row, meta, disabled, busy, onFile }) {
   const input = useRef(null)
@@ -50,39 +133,59 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
   const published = state !== 'draft'
   const [rows, setRows] = useState(() => (event.competitions ?? []).map(competitionRow))
   const [pricingMode, setPricingMode] = useState(settings.pricingMode ?? 'free')
+  const [tiers, setTiers] = useState(() => tierColumns(event.tiers, settings.pricingMode))
+  const [tierError, setTierError] = useState(null)
+  const tierErrorId = useId()
   const [rowErrors, setRowErrors] = useState({})
   const [sectionError, setSectionError] = useState(null) // whole section not savable (e.g. a missing price)
   const [uploading, setUploading] = useState(null) // row key
   const [uploadError, setUploadError] = useState(null)
   const [gpxMeta, setGpxMeta] = useState({}) // uploads made here, before the event is read again
-  const latest = useRef({ rows, pricingMode })
+  const latest = useRef({ rows, pricingMode, tiers })
   const sentKeys = useRef([])
+  const sentTierKeys = useRef([])
+  const windowCtx = { opensAt: settings.opensAt ?? null, closesAt: settings.closesAt ?? null }
   const serverErrors = sectionErrors(saveState, 'competitions')
   const uploads = new Map((event.uploads ?? []).map((u) => [u.id, u.meta]))
 
   // The save hands back the ids of competitions it created, in item order.
   useEffect(() => onSaved('competitions', (data) => {
     const next = assignIds(latest.current.rows, sentKeys.current, data?.categoryIds)
-    latest.current = { ...latest.current, rows: next }
+    const nextTiers = assignTierIds(latest.current.tiers, sentTierKeys.current, data?.tierIds)
+    latest.current = { ...latest.current, rows: next, tiers: nextTiers }
     setRows(next)
+    setTiers(nextTiers)
   }), [onSaved])
 
   // Read when the save starts, so it carries ids the previous save returned.
   const sectionNow = () => {
-    const s = competitionsSection(latest.current.rows, { pricingMode: latest.current.pricingMode, state })
+    const { rows: r, pricingMode: mode, tiers: t } = latest.current
+    const s = competitionsSection(r, { pricingMode: mode, state, tiers: t, ...windowCtx })
     sentKeys.current = s.sentKeys
+    sentTierKeys.current = s.sentTierKeys
     return s.value
   }
 
-  function apply(nextRows, mode = latest.current.pricingMode) {
-    const s = competitionsSection(nextRows, { pricingMode: mode, state })
-    latest.current = { rows: s.rows, pricingMode: mode }
+  function apply(nextRows, mode = latest.current.pricingMode, nextTiers = latest.current.tiers) {
+    const s = competitionsSection(nextRows, { pricingMode: mode, state, tiers: nextTiers, ...windowCtx })
+    latest.current = { rows: s.rows, pricingMode: mode, tiers: nextTiers }
     setRows(s.rows)
     setPricingMode(mode)
+    setTiers(nextTiers)
     setRowErrors(s.rowErrors)
-    setSectionError(s.ok ? null : 'Uzupełnij konkurencje: nazwa, limit miejsc i cena przy opłacie stałej.')
+    setTierError(s.tierError)
+    setSectionError(s.ok || s.tierError ? null : PRICE_HINT[mode] ?? PRICE_HINT.free)
     if (s.ok) queue('competitions', sectionNow)
   }
+
+  const switchMode = (mode) => apply(switchPricing(latest.current.rows, latest.current.tiers, mode), mode)
+  const setTierDate = (key, endsOn) => apply(latest.current.rows, undefined, latest.current.tiers.map((t) => (t.key === key ? { ...t, endsOn } : t)))
+  const addTierColumn = () => apply(latest.current.rows, undefined, addTier(latest.current.tiers))
+  const removeTier = (key) => apply(
+    latest.current.rows.map((r) => { const { [key]: _gone, ...prices } = r.prices ?? {}; return { ...r, prices } }),
+    undefined, latest.current.tiers.filter((t) => t.key !== key))
+  const setPrice = (rowKey, tierKey, value) => apply(latest.current.rows.map((r) => (r.key === rowKey ? { ...r, prices: { ...r.prices, [tierKey]: value } } : r)))
+  const locks = tierLocks(tiers, rows, { published })
 
   const setRow = (key, field) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value
@@ -117,9 +220,9 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
   // Input that does not validate yet keeps the organizer on this step (P2-R27).
   const firstRowError = Object.values(rowErrors).map((e) => Object.values(e).join(' ')).find(Boolean)
   useEffect(() => {
-    const message = firstRowError ?? sectionError
+    const message = firstRowError ?? tierError ?? sectionError
     reportInvalid?.('competitions', message ? { items: message } : null)
-  }, [firstRowError, sectionError, reportInvalid])
+  }, [firstRowError, tierError, sectionError, reportInvalid])
   useEffect(() => () => reportInvalid?.('competitions', null), [reportInvalid])
 
   const radio = 'flex items-center gap-2.5 min-h-9 font-sans text-base text-apex-text-bright'
@@ -247,16 +350,17 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
         <div className="flex flex-wrap gap-x-6 gap-y-1">
           <label className={radio}>
             <input type="radio" name="pricing" className="w-[18px] h-[18px] accent-apex-yellow" disabled={published}
-              checked={pricingMode === 'fixed'} onChange={() => apply(latest.current.rows, 'fixed')} />
+              checked={pricingMode === 'fixed'} onChange={() => switchMode('fixed')} />
             Stała
-          </label>
-          <label className={`${radio} opacity-60`}>
-            <input type="radio" name="pricing" className="w-[18px] h-[18px]" disabled checked={false} onChange={() => {}} />
-            Rośnie z datą zapisu <Soon />
           </label>
           <label className={radio}>
             <input type="radio" name="pricing" className="w-[18px] h-[18px] accent-apex-yellow" disabled={published}
-              checked={pricingMode === 'free'} onChange={() => apply(latest.current.rows, 'free')} />
+              checked={pricingMode === 'tiered'} onChange={() => switchMode('tiered')} />
+            Rośnie z datą zapisu
+          </label>
+          <label className={radio}>
+            <input type="radio" name="pricing" className="w-[18px] h-[18px] accent-apex-yellow" disabled={published}
+              checked={pricingMode === 'free'} onChange={() => switchMode('free')} />
             Bezpłatne
           </label>
           {published && <Lock title="Rodzaju opłaty nie można zmienić po publikacji" />}
@@ -283,6 +387,10 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
               </tbody>
             </table>
           </div>
+        )}
+        {pricingMode === 'tiered' && (
+          <TierGrid rows={rows} tiers={tiers} locks={locks} closesOn={settings.closesOn} readOnly={readOnly}
+            errorId={tierErrorId} error={tierError} onDate={setTierDate} onPrice={setPrice} onAdd={addTierColumn} onRemove={removeTier} />
         )}
       </section>
     </fieldset>

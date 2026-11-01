@@ -212,7 +212,8 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await page.getByLabel('Dzieci 2').check()
   await expect(page.getByTestId('event-capacity')).toHaveText('100 OSÓB')
   await expect(page.getByText('Rośnie z datą zapisu')).toBeVisible()
-  await expect(page.getByRole('radio', { name: /Rośnie z datą zapisu/ })).toBeDisabled()
+  // Plan 7 (D7-12): tiered pricing is offered; organizer-pricing.spec.js builds it.
+  await expect(page.getByRole('radio', { name: /Rośnie z datą zapisu/ })).toBeEnabled()
   await page.getByRole('button', { name: '+ Konkurencja' }).click()
   await page.getByLabel('Nazwa konkurencji 3').fill('Do usunięcia')
   // P2-R27: a row that cannot be saved yet keeps the organizer on the step.
@@ -317,13 +318,12 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await expect(page.getByRole('group', { name: 'Start na własną odpowiedzialność' }).getByRole('button', { name: 'Dodaj' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByLabel('Treść zgody 1')).toHaveValue('Zgadzam się na pomiar czasu chipem.')
 
-  // A5b: Dodatki is listed but not built; „Dalej” goes past it.
+  // A5b: Dodatki is a step of its own (Plan 7); with no extras „Dalej” goes on to Publikacja.
   const steps = page.getByRole('navigation', { name: 'Kroki' })
-  await expect(steps.getByText('Dodatki')).toBeVisible()
-  await expect(steps.getByRole('link', { name: /Dodatki/ })).toHaveCount(0)
-  await page.goto(`/klub/zatyrani-test/wydarzenia/${eventId}/dodatki`)
-  await expect(page.getByTestId('soon')).toHaveText('wkrótce')
-  await page.goto(`/klub/zatyrani-test/wydarzenia/${eventId}/formularz`)
+  await expect(steps.getByRole('link', { name: /Dodatki/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Dalej: dodatki' }).click()
+  await expect(page.getByTestId('dodatki-step')).toBeVisible()
+  await expect(page.getByTestId('soon')).toHaveCount(0)
 
   // A7: Publikacja. Nothing blocks; the kids' course is worth adding.
   await page.getByRole('button', { name: 'Dalej: publikacja' }).click()

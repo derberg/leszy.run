@@ -63,6 +63,11 @@ export async function uploadPoster(eventId, dataUrl, fileName) {
   return (await callFunction('upload-registration-file', { eventId, kind: 'poster', dataUrl, fileName })).data
 }
 
+/** An extra's image (A5b): an already resized JPEG as a data URL, at least 400 px wide. → { uploadId, url, meta } */
+export async function uploadExtraImage(eventId, dataUrl, fileName) {
+  return (await callFunction('upload-registration-file', { eventId, kind: 'extra', dataUrl, fileName })).data
+}
+
 /**
  * Regulamin PDF or GPX: too big for a JSON body, so start → PUT straight to
  * the private pending bucket through the signed token → finish.

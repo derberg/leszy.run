@@ -136,3 +136,85 @@ test('capacityUnit: the word beside a team limit agrees with the number, and an 
   assert.deepEqual(['1', '2', '4', '5', '12', '22', '20'].map(capacityUnit), ['DRUŻYNA', 'DRUŻYNY', 'DRUŻYNY', 'DRUŻYN', 'DRUŻYN', 'DRUŻYNY', 'DRUŻYN'])
   assert.deepEqual(['', 'x', null, undefined].map(capacityUnit), ['DRUŻYN', 'DRUŻYN', 'DRUŻYN', 'DRUŻYN'])
 })
+
+// ---------------------------------------------------------------- tiered (A3, A8)
+import {
+  addTier, assignTierIds, currentTierIndex, switchPricing, tierColumns, tierLabel, tierLocks,
+} from '../../src/lib/competitionRows.js'
+
+const T1 = '33333333-3333-4333-8333-333333333333'
+const T2 = '44444444-4444-4444-8444-444444444444'
+const T3 = '55555555-5555-4555-8555-555555555555'
+const WINDOW = { opensAt: '2027-10-31T23:00:00.000Z', closesAt: '2027-12-01T23:00:00.000Z' } // 1.11–1.12 Warsaw
+
+test('V-70 fixed → tiered: one dated column and the close; every cell starts at the fixed price', () => {
+  const rows = [competitionRow(server({ priceGrosze: 6000 }))]
+  const tiers = tierColumns([], 'fixed')
+  assert.deepEqual(tiers.map((t) => [t.id, t.endsOn]), [[null, ''], [null, null]])
+  const next = switchPricing(rows, tiers, 'tiered')
+  assert.deepEqual(tiers.map((t) => next[0].prices[t.key]), ['60', '60'])
+})
+
+test('V-70 the A3 fixture: tiers new:<index> in column order, a price per column, the window judges the dates', () => {
+  let tiers = addTier(tierColumns([], 'fixed'))
+  tiers = tiers.map((t, i) => (i === 0 ? { ...t, endsOn: '2027-11-15' } : i === 1 ? { ...t, endsOn: '2027-11-25' } : t))
+  const row = competitionRow(server())
+  row.prices = Object.fromEntries(tiers.map((t, i) => [t.key, ['60', '70', '80'][i]]))
+  const s = competitionsSection([row], { pricingMode: 'tiered', state: 'draft', tiers, ...WINDOW })
+  assert.equal(s.ok, true)
+  assert.equal(s.tierError, null)
+  assert.deepEqual(s.value.tiers, [{ endsOn: '2027-11-15' }, { endsOn: '2027-11-25' }, { endsOn: null }])
+  assert.deepEqual(s.value.items[0].prices, { 'new:0': '60', 'new:1': '70', 'new:2': '80' })
+  assert.deepEqual(s.sentTierKeys, tiers.map((t) => t.key))
+
+  const ids = assignTierIds(tiers, s.sentTierKeys, [T1, T2, T3])
+  const again = competitionsSection(s.rows, { pricingMode: 'tiered', state: 'draft', tiers: ids, ...WINDOW })
+  assert.deepEqual(again.value.items[0].prices, { [T1]: '60', [T2]: '70', [T3]: '80' })
+  assert.deepEqual(again.value.tiers[0], { id: T1, endsOn: '2027-11-15' })
+
+  const late = tiers.map((t, i) => (i === 1 ? { ...t, endsOn: '2027-12-01' } : t))
+  const bad = competitionsSection([row], { pricingMode: 'tiered', state: 'draft', tiers: late, ...WINDOW })
+  assert.equal(bad.ok, false)
+  assert.equal(bad.tierError, 'Daty progów muszą rosnąć i kończyć się przed zamknięciem zapisów.')
+  assert.deepEqual(bad.rowErrors, {})
+  const blank = competitionsSection([row], { pricingMode: 'tiered', state: 'draft', tiers: addTier(tiers), ...WINDOW })
+  assert.equal(blank.tierError, 'Podaj datę końca każdego progu.')
+})
+
+test('V-70 a row missing a tier price is not sent and is named', () => {
+  const tiers = tierColumns([{ id: T1, endsOn: '2027-11-15' }, { id: T3, endsOn: null }], 'tiered')
+  const row = { ...newCompetitionRow(), name: 'Bieg 3 km', capacity: '50', prices: { [T1]: '60' } }
+  const s = competitionsSection([row], { pricingMode: 'tiered', state: 'draft', tiers, ...WINDOW })
+  assert.equal(s.value.items.length, 0)
+  assert.equal(s.rowErrors[row.key].prices, 'Podaj cenę w złotych, np. 60 albo 60,50.')
+})
+
+test('tiered → fixed: an empty fixed price takes today\'s tier price, the tier the server keeps', () => {
+  const tiers = tierColumns([{ id: T1, endsOn: '2027-11-15' }, { id: T2, endsOn: '2027-11-25' }, { id: T3, endsOn: null }], 'tiered')
+  const row = { ...competitionRow(server()), price: '', prices: { [T1]: '60', [T2]: '70', [T3]: '80' } }
+  assert.equal(switchPricing([row], tiers, 'fixed', '2027-11-20')[0].price, '70')
+  assert.equal(currentTierIndex(tiers, '2027-11-26'), 2)
+  assert.equal(tierLabel('2027-11-05'), 'DO 5.11')
+  assert.equal(tierLabel(''), 'DO')
+})
+
+test('V-71 A8: in use, the current and past columns are locked; a later column and an unused competition are not', () => {
+  const tiers = tierColumns([{ id: T1, endsOn: '2027-11-15' }, { id: T2, endsOn: '2027-11-25' }, { id: T3, endsOn: null }], 'tiered')
+  const used = { ...competitionRow(server({ inUse: true })) }
+  const free = { ...competitionRow(server({ categoryId: ID2, inUse: false })) }
+  const locks = tierLocks(tiers, [used, free], { published: true, today: '2027-11-10' })
+  assert.deepEqual(tiers.map((t) => locks.date(t)), [true, false, false])
+  assert.deepEqual(tiers.map((t) => locks.amount(t, used)), [true, false, false])
+  assert.deepEqual(tiers.map((t) => locks.amount(t, free)), [false, false, false])
+  assert.equal(locks.canAdd, true)
+  // Past tier 1 and current tier 2 on 20.11; once the open-ended one is current nothing can be added.
+  const later = tierLocks(tiers, [used], { published: true, today: '2027-11-20' })
+  assert.deepEqual(tiers.map((t) => later.amount(t, used)), [true, true, false])
+  assert.equal(tierLocks(tiers, [used], { published: true, today: '2027-11-30' }).canAdd, false)
+  // A draft, or nobody registered: nothing is locked.
+  const draft = tierLocks(tiers, [used], { published: false, today: '2027-11-20' })
+  assert.deepEqual(tiers.map((t) => [draft.date(t), draft.amount(t, used)]), [[false, false], [false, false], [false, false]])
+  // A column added after publish has no id: never locked.
+  const added = addTier(tiers)
+  assert.equal(tierLocks(added, [used], { published: true, today: '2027-11-10' }).date(added[2]), false)
+})
