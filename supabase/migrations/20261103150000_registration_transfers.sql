@@ -46,7 +46,7 @@
 -- Error codes (RAISE messages): not_found, not_owner, not_transferable, transfer_off, same_person,
 -- pending_exists, invalid_email, invalid_token, gone, recipient_minor, price_differs, duplicate,
 -- pending_elsewhere, team_competition, unavailable, consents_required, consents_changed,
--- profile_mismatch, invalid_person, race_day; transfer_retry (SQLSTATE 40001) when the recipient
+-- profile_mismatch, invalid_person, race_day, transferred (cancel_registration of a transferred_out row); transfer_retry (SQLSTATE 40001) when the recipient
 -- opened another unpaid order between the plain read and the locks, which the caller may retry.
 --
 -- Grants: the four entry points are SECURITY DEFINER for service_role only; apply_transfer runs as
@@ -111,6 +111,11 @@ BEGIN
   IF p_token_hash IS NULL OR p_token_hash !~ '^[0-9a-f]{64}$' THEN
     RAISE EXCEPTION 'invalid_token';
   END IF;
+
+  -- An invite whose link died is no longer pending (m-2): it would otherwise block a new one with
+  -- pending_exists after the organizer moved transfer_until later. Under the registration lock.
+  UPDATE public.transfers SET status = 'expired'
+   WHERE registration_id = r.id AND status = 'pending' AND expires_at <= p_now;
 
   -- Ruling 4: valid through 23:59:59.999 Warsaw on transfer_until.
   v_exp := ((v_rs.transfer_until + 1)::timestamp AT TIME ZONE 'Europe/Warsaw');
@@ -207,6 +212,10 @@ BEGIN
      OR v_email IS NULL OR v_email = '' OR nullif(p_person->>'birthDate', '') IS NULL THEN
     RAISE EXCEPTION 'invalid_person';
   END IF;
+  -- The shape transfers.to_email and the organizer's record need (m-4), refused before any work.
+  IF char_length(v_email) > 254 OR v_email NOT LIKE '%_@_%' OR v_email ~ '\s' THEN
+    RAISE EXCEPTION 'invalid_email';
+  END IF;
   BEGIN
     v_birth := (p_person->>'birthDate')::date;
   EXCEPTION WHEN others THEN
@@ -250,9 +259,20 @@ BEGIN
   IF r.team_id IS NOT NULL THEN
     SELECT * INTO v_team FROM public.teams WHERE id = r.team_id FOR UPDATE;
   END IF;
-  -- 6. the uses and stock the recipient's unpaid order would give back, by id.
+  -- 6. vouchers by id: the old entry's (the new row's foreign key reads it) together with those the
+  --    recipient's unpaid order would give back; then that order's variants by id; then the
+  --    partner the new row's foreign key reads (m-1).
+  PERFORM 1 FROM public.vouchers v
+   WHERE v.id = r.voucher_id
+      OR (v_rec_order IS NOT NULL AND v.id IN (SELECT y.voucher_id FROM public.registrations y
+                                                WHERE y.order_id = v_rec_order AND y.status = 'pending_payment'))
+   ORDER BY v.id
+     FOR UPDATE;
   IF v_rec_order IS NOT NULL THEN
     PERFORM public.registration_lock_unpaid_cart(ARRAY[v_rec_order]);
+  END IF;
+  IF r.partner_id IS NOT NULL THEN
+    PERFORM 1 FROM public.registration_partners WHERE id = r.partner_id FOR KEY SHARE;
   END IF;
   -- 7. the registrations, by id.
   PERFORM 1 FROM public.registrations
@@ -268,6 +288,13 @@ BEGIN
   END IF;
   IF r.status <> 'confirmed' THEN
     RAISE EXCEPTION 'gone';
+  END IF;
+  -- I-1: an open invite follows the organizer's switch and date (§5.4). The settings row is held FOR
+  -- SHARE, so a save of the payments section waits for this accept or this accept sees it.
+  IF p_kind = 'runner'
+     AND (NOT v_rs.transfer_enabled OR v_rs.transfer_until IS NULL
+          OR (now() AT TIME ZONE 'Europe/Warsaw')::date > v_rs.transfer_until) THEN
+    RAISE EXCEPTION 'transfer_off';
   END IF;
   IF r.email IS NULL OR r.guardian_profile_id IS NOT NULL
      OR r.birth_date IS NULL OR r.birth_date > (v_rs.event_date - interval '18 years')::date
@@ -537,7 +564,8 @@ BEGIN
     RETURN jsonb_build_object('cancelled', to_jsonb(v_done), 'hostWithdraw', false);
   END IF;
   IF r.status <> 'confirmed' THEN
-    RAISE EXCEPTION '%', CASE WHEN r.status IN ('cancelled', 'transferred_out') THEN 'already_cancelled' ELSE 'not_live' END;
+    RAISE EXCEPTION '%', CASE WHEN r.status = 'cancelled' THEN 'already_cancelled'
+                              WHEN r.status = 'transferred_out' THEN 'transferred' ELSE 'not_live' END;
   END IF;
 
   -- Confirmed: the locks in the Global Constraints order. Plan 2's free path has no order.
@@ -563,7 +591,8 @@ BEGIN
   END IF;
   SELECT * INTO r FROM public.registrations WHERE id = p_registration_id;
   IF r.status <> 'confirmed' THEN
-    RAISE EXCEPTION 'already_cancelled';
+    -- A transfer that won the lock answers the same as one seen by the plain read (m-5).
+    RAISE EXCEPTION '%', CASE WHEN r.status = 'transferred_out' THEN 'transferred' ELSE 'already_cancelled' END;
   END IF;
 
   IF r.team_id IS NULL THEN

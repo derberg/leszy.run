@@ -39,6 +39,7 @@ const REFUSALS = {
   paying_closed: [409, 'Płatność online jest już zamknięta: kończy się godzinę przed zamknięciem zapisów.'],
   no_address: [409, 'Zamawiający nie ma już adresu e-mail.'],
   already_cancelled: [409, 'To zgłoszenie jest już anulowane.'],
+  transferred: [409, 'Pakiet został przekazany innej osobie.'],
   not_live: [409, 'To zgłoszenie nie jest już aktywne.'],
   payment_received: [409, 'Płatność za to zgłoszenie jest w toku. Spróbuj za kilka minut.'],
   below_team_min: [409, 'Drużyna miałaby za mało osób. Anuluj kapitana, żeby anulować całą drużynę.'],

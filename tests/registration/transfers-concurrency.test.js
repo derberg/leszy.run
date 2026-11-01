@@ -3,24 +3,30 @@
 // its own PostgREST connection. Half the rounds start the calls in the other order, and the call
 // with less work before its first lock waits a moment on some rounds, so both orders occur.
 // LOCAL stack only.
-import { afterEach, before, test } from 'node:test'
+import { after, afterEach, before, test } from 'node:test'
+import postgres from 'postgres'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
-import { resetThrottle, sessionFor } from './helpers/stack.js'
+import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { acceptAgreement, createPublishedFreeEvent, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import {
-  attemptFor, competitionOf, confirm, db, one, orderOf, overdue, profileFor, registrationsOf, rows, rpc, runnerEmail,
+  attemptFor, competitionOf, confirm, db, one, orderOf, overdue, person, profileFor, registrationsOf, rows, rpc, runnerEmail,
 } from './helpers/orders.js'
 import { BIEG, adult, groupMeta, isDeadlock, orderGroupOk, registerGroup } from './helpers/groups.js'
 import { makeExtra, makeVoucher, vouchersMade } from './helpers/cart.js'
-import { acceptCall, enableTransfers, freeEntry, inviteOk, paidEntry } from './helpers/transfers.js'
+import { META, acceptCall, consentOf, enableTransfers, freeEntry, inviteOk, paidEntry } from './helpers/transfers.js'
 import { assertVoucherInvariant } from './helpers/voucherInvariant.js'
 import { assertSlotInvariant } from './helpers/slotInvariant.js'
 
 const BIEG_5 = (capacity = 500) =>
   ({ name: 'Bieg 5 km', discipline: 'run', distanceLabel: '5 km', startTime: '11:00', capacity })
 
-let owner, ownerId
+let owner, ownerId, sqlClient
+const sql = () => (sqlClient ??= postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} }))
+let sqlClient2, sqlClient3
+const sql3 = () => (sqlClient3 ??= postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} }))
+const sql2 = () => (sqlClient2 ??= postgres(localEnv().dbUrl, { max: 1, onnotice: () => {} }))
+after(async () => { if (sqlClient) await sqlClient.end(); if (sqlClient2) await sqlClient2.end(); if (sqlClient3) await sqlClient3.end() })
 const seen = new Set()
 const watch = (event) => { event.categoryIds.forEach((c) => seen.add(c)); return event }
 
@@ -223,7 +229,7 @@ test('V-47d 50 rounds: a cross-competition accept vs confirm_order for the last 
   t.diagnostic(`outcomes ${JSON.stringify(counts)}`)
 })
 
-test('V-47e 50 rounds: accept vs cancel_registration of the old entry → cancelled and gone, or transferred and already_cancelled', async (t) => {
+test('V-47e 50 rounds: accept vs cancel_registration of the old entry → cancelled and gone, or transferred and transferred', async (t) => {
   const event = await freeEvent()
   const [cat] = event.categoryIds
   const counts = { cancelled: 0, transferred: 0 }
@@ -246,7 +252,7 @@ test('V-47e 50 rounds: accept vs cancel_registration of the old entry → cancel
       assert.equal((await competitionOf(cat)).taken, before - 1)
       counts.cancelled++
     } else {
-      assert.equal(can.error?.message, 'already_cancelled', `round ${round}`)
+      assert.equal(can.error?.message, 'transferred', `round ${round}`)
       assert.equal(row.status, 'accepted')
       assert.equal((await reg(a.reg.id)).status, 'transferred_out')
       assert.equal((await reg(acc.data.registrationId)).status, 'confirmed')
@@ -261,7 +267,7 @@ test('V-47f 50 rounds: accept by a recipient whose unpaid order is expiring → 
   const event = await paidEvent()
   const [cat] = event.categoryIds
   const { variants: { M } } = await makeExtra(event, { variants: [['M', 1000]] })
-  const counts = { accepted: 0 }
+  const counts = { expiredFirst: 0, acceptFirst: 0 }
   for (let round = 0; round < 50; round++) {
     const voucher = await makeVoucher(event.eventId, { percent: 15, max_uses: 1 })
     const email = runnerEmail('recipient')
@@ -282,15 +288,69 @@ test('V-47f 50 rounds: accept by a recipient whose unpaid order is expiring → 
     ok(acc)
     ok(exp)
     const order = await orderOf(mine.orderId)
-    assert.ok(['expired', 'cancelled'].includes(order.status), `round ${round}: ${order.status}`)
+    if (order.status === 'expired') counts.expiredFirst++
+    else {
+      assert.equal(order.status, 'cancelled', `round ${round}`)
+      assert.equal(order.cancelled_reason, 'transfer_accepted', `round ${round}`)
+      counts.acceptFirst++
+    }
     assert.ok((await registrationsOf(mine.orderId)).every((r) => ['expired', 'cancelled'].includes(r.status)))
     assert.equal((await one('vouchers', { id: voucher.id })).used, 0, `round ${round}`)
     assert.equal((await competitionOf(cat)).taken, taken)
     await assertVoucherInvariant(voucher.id)
     await assertSlotInvariant(cat)
-    counts.accepted++
   }
   const sold = (await one('extra_variants', { id: M.id })).sold
   assert.equal(sold, 0, 'every shirt of a replaced or expired order came back')
   t.diagnostic(`outcomes ${JSON.stringify(counts)}`)
+  assert.ok(counts.expiredFirst > 0 && counts.acceptFirst > 0, `both orders must occur: ${JSON.stringify(counts)}`)
+})
+
+// I-2: the recipient opens another unpaid order between the accept's plain read and its locks. The
+// accept cannot lock that order without breaking the lock order, so it answers 40001 transfer_retry
+// and changes nothing. The call goes straight to PostgreSQL: through PostgREST the same race came back
+// 200, the order replaced, so the API answered a retry itself (observed on this stack); Task 7 retries
+// once either way.
+test('V-47g transfer_retry: an unpaid order opened between the plain read and the locks → 40001, nothing changes', async () => {
+  const event = await paidEvent()
+  const [c9, c5] = event.categoryIds
+  const a = await paidEntry(event, { categoryId: c9 })
+  const email = runnerEmail('recipient')
+  const inv = await inviteOk(a.reg.id, a.profileId, email)
+  const profile = await profileFor(email)
+  const consent = await consentOf(event.eventId)
+  let release
+  const released = new Promise((resolve) => { release = resolve })
+  let held
+  const holding = new Promise((resolve) => { held = resolve })
+  const blocker = sql().begin(async (tx) => {
+    await tx`select 1 from public.orders where id = ${a.orderId} for update`
+    held()
+    await released
+  })
+  await holding
+  let pending
+  let mine
+  try {
+    pending = sql3()`select public.accept_transfer(${inv.hash}, ${sql3().json(person(email))}, ${c9}, ${profile},
+      ${sql3().json(consent)}, ${sql3().json(META)}) as out`.then((rows) => ({ data: rows[0].out }), (error) => ({ error }))
+    // Until the accept has read "no unpaid order" and waits on the old order's lock.
+    const waiting = async () => (await sql2()`select count(*)::int as n from pg_stat_activity
+      where wait_event_type = 'Lock' and query like '%accept_transfer%' and pid <> pg_backend_pid()`)[0].n
+    for (let i = 0; i < 100 && (await waiting()) === 0; i++) await sleep(50)
+    assert.equal(await waiting(), 1, 'the accept waits on the old order')
+    mine = await orderGroupOk(event, [adult(c5, 'self', email)])
+  } finally {
+    release()
+    await blocker
+  }
+  const r = await pending
+  assert.equal(r.error?.code, '40001', String(r.error ?? JSON.stringify(r.data)))
+  assert.equal(r.error?.message, 'transfer_retry')
+  assert.equal((await reg(a.reg.id)).status, 'confirmed')
+  assert.equal((await one('transfers', { id: inv.transferId })).status, 'pending')
+  assert.equal((await orderOf(mine.orderId)).status, 'pending')
+  // The retry: the unpaid order is alone in its order, so it is replaced.
+  ok(await (await acceptCall(event, inv.hash, { email, categoryId: c9 }))())
+  assert.equal((await orderOf(mine.orderId)).status, 'cancelled')
 })

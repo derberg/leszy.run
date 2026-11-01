@@ -377,6 +377,41 @@ test('V-44 transfers off, or past the last Warsaw day (the DST-safe instants of 
   assert.equal(new Date(t.expiresAt).toISOString(), first)
 })
 
+test('V-44 I-1 an open invite follows the switch and the date: off or past transfer_until → transfer_off, still pending', async () => {
+  const event = await freeEvent()
+  const a = await freeEntry(event)
+  const t = await inviteOk(a.reg.id, a.profileId)
+  await setSettings(event.eventId, { transfer_enabled: false })
+  refused(await accept(event, t.hash), 'transfer_off')
+  assert.equal((await one('transfers', { id: t.transferId })).status, 'pending')
+  await setSettings(event.eventId, { transfer_enabled: true, transfer_until: warsawDay(-1) })
+  refused(await accept(event, t.hash), 'transfer_off')
+  assert.equal((await reg(a.reg.id)).status, 'confirmed')
+  await setSettings(event.eventId, { transfer_until: warsawDay(0) })
+  ok(await accept(event, t.hash))
+})
+
+test('V-44 I-1 a dead link still answers gone before transfer_off', async () => {
+  const event = await freeEvent()
+  const a = await freeEntry(event)
+  const t = await inviteOk(a.reg.id, a.profileId)
+  ok(await rpc('cancel_transfer', { p_transfer_id: t.transferId, p_actor: a.profileId }))
+  await setSettings(event.eventId, { transfer_enabled: false })
+  refused(await accept(event, t.hash), 'gone')
+})
+
+test('V-44 m-2 an invite past expires_at is marked expired when the holder sends a new one', async () => {
+  const event = await freeEvent()
+  const a = await freeEntry(event)
+  const t = await inviteOk(a.reg.id, a.profileId)
+  assert.ifError((await db().from('transfers').update({ expires_at: minutesFromNow(-1) }).eq('id', t.transferId)).error)
+  const next = await inviteOk(a.reg.id, a.profileId)
+  assert.equal((await one('transfers', { id: t.transferId })).status, 'expired')
+  assert.equal((await one('transfers', { id: next.transferId })).status, 'pending')
+  refused(await accept(event, t.hash), 'gone')
+  ok(await accept(event, next.hash))
+})
+
 test('V-44 the link dies at expires_at: 1 ms before it works, at it → gone', async () => {
   const event = await freeEvent()
   const consent = await consentOf(event.eventId)
@@ -582,6 +617,10 @@ test('V-48 organizer_transfer keeps every recipient rule', async () => {
   refused(await organizerTransfer(event, a.reg.id, ownerId, { categoryId: kids }), 'price_differs')
   refused(await organizerTransfer(event, a.reg.id, ownerId, { over: { birthDate: warsawDay(-3650) } }), 'recipient_minor')
   refused(await organizerTransfer(event, a.reg.id, ownerId, { email: a.email }), 'same_person')
+  // m-4: refused before any work, never the raw CHECK of transfers.to_email.
+  refused(await organizerTransfer(event, a.reg.id, ownerId, { email: 'nie-adres' }), 'invalid_email')
+  refused(await organizerTransfer(event, a.reg.id, ownerId, { email: 'ola bór@example.org' }), 'invalid_email')
+  assert.equal((await reg(a.reg.id)).status, 'confirmed')
   assert.equal(await taken(cat), 2)
 })
 
@@ -607,12 +646,12 @@ test('V-49 after closes_at too, cancel_registration cancels the invite', async (
   assert.equal((await one('transfers', { id: t.transferId })).status, 'cancelled')
 })
 
-test('V-49 a transferred entry cannot be cancelled: the holder is the new row', async () => {
+test('V-49 a transferred entry cannot be cancelled: the holder is the new row (transferred, m-5)', async () => {
   const event = await freeEvent()
   const a = await freeEntry(event)
   const t = await inviteOk(a.reg.id, a.profileId)
   const out = ok(await accept(event, t.hash))
-  refused(await rpc('cancel_registration', { p_registration_id: a.reg.id, p_reason: 'organizer', p_actor: ownerId }), 'already_cancelled')
+  refused(await rpc('cancel_registration', { p_registration_id: a.reg.id, p_reason: 'organizer', p_actor: ownerId }), 'transferred')
   assert.equal((await reg(out.registrationId)).status, 'confirmed')
 })
 
