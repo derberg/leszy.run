@@ -381,6 +381,38 @@ test('O-18 organizer_edit_registration: allow-list, eligibility, the participant
   assert.equal(p.phone, '+48600700800')
 })
 
+test('O-18 final review M1: the adult or child check reads the age on race day, not today', async () => {
+  const event = await paidEvent()
+  // 17 today, 18 ten days from now, and the race is 30 days away: an adult, with an e-mail.
+  const birthday = new Date(Date.now() + 10 * 86400000)
+  birthday.setUTCFullYear(birthday.getUTCFullYear() - 18)
+  const birthDate = birthday.toISOString().slice(0, 10)
+  const out = await orderOk(event, { people: [{
+    firstName: 'Ola', lastName: 'Prawie', birthDate, gender: 'K', email: runnerEmail('osiemnastka'),
+    phone: '+48500100200', ageGroupLabel: 'K open',
+  }] })
+  const [r] = await rows('registrations', { order_id: out.orderId })
+  assert.ok(r.email, 'registered as an adult')
+  assert.equal(ok(await edit(r.id, { gender: 'M' })).changed, true)
+  assert.equal((await reg(r.id)).gender, 'M')
+  // A real child's birth date on this adult's entry is still a role change.
+  refused(await edit(r.id, { birthDate: '2015-01-01' }), 'role_change')
+})
+
+test('O-13d final review M2: stalled_refunds can use refunds_unanswered_idx for organizer refunds too', async () => {
+  const [{ indexdef }] = await sql()`SELECT indexdef FROM pg_indexes WHERE indexname = 'refunds_unanswered_idx'`
+  assert.doesNotMatch(indexdef, /automatic/, indexdef)
+  const plan = await sql().begin(async (tx) => {
+    await tx`SET LOCAL enable_seqscan = off`
+    return tx.unsafe(`EXPLAIN SELECT f.id FROM public.refunds f
+      WHERE f.dpay_status NOT IN ('accepted', 'rejected') AND f.next_retry_at IS NULL
+        AND ((f.requested_at IS NULL AND f.created_at < now() - interval '10 minutes')
+          OR (f.requested_at < now() - interval '15 minutes'
+              AND (f.responded_at IS NULL OR f.responded_at < f.requested_at)))`)
+  })
+  assert.match(plan.map((p) => p['QUERY PLAN']).join('\n'), /refunds_unanswered_idx/)
+})
+
 test('O-18 rename_team: the name rules and the live-name index', async () => {
   const event = watch(await freeTeamEvent(owner))
   const a = await teamOk(event)

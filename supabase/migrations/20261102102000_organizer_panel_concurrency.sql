@@ -603,7 +603,8 @@ BEGIN
       RAISE EXCEPTION 'ineligible';
     END IF;
     -- A child's entry has no e-mail and a guardian; an adult's has an e-mail. The role follows them.
-    IF (public.registration_age_on(v_birth, v_today, 'race_day') < 18) <> (r.email IS NULL) THEN
+    -- A minor is under 18 on race day (Warsaw), as everywhere in registration, never today.
+    IF (public.registration_age_on(v_birth, coalesce(v_rs.event_date, v_today), 'race_day') < 18) <> (r.email IS NULL) THEN
       RAISE EXCEPTION 'role_change';
     END IF;
     SELECT coalesce((SELECT g.label FROM public.age_groups g

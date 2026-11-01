@@ -16,9 +16,10 @@ const warsawTime = new Intl.DateTimeFormat('en-GB', {
 // because some importers trim them, which would leave the formula standing.
 const FORMULA = /^\s*[=+\-@]|^[\t\r]/
 
-// A phone column keeps a value made of phone characters only („+48 600 100 200”): no letter, no `=`,
-// so nothing a spreadsheet can run. Anything else in it is guarded like every other cell.
-const PHONE = /^\+?[\d ()-]+$/
+// A phone column keeps an international number as typed („+48 600 100 200”): `+`, a digit, then
+// digits and spaces only (the ledger ruling), which a spreadsheet reads as a number at most.
+// Anything else in it, a `-` or a bracket included, is guarded like every other cell.
+const PHONE = /^\+\d[\d ]*$/
 
 function cell(value, { phone = false } = {}) {
   const text = String(value ?? '')

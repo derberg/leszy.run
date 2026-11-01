@@ -45,8 +45,15 @@ describe('entriesToCsv (O-04)', () => {
   })
 
   it('leaves a real phone usable in Telefon and Telefon ICE (F1)', () => {
-    const cells = cellsOf(entriesToCsv([{ ...ROW, phone: '+48 600 100 200', icePhone: '+48 (600) 100-201' }]).split('\r\n').at(-1))
-    assert.deepEqual([cells[12], cells[14]], ['+48 600 100 200', '+48 (600) 100-201'])
+    const cells = cellsOf(entriesToCsv([{ ...ROW, phone: '+48 600 100 200', icePhone: '+48600100201' }]).split('\r\n').at(-1))
+    assert.deepEqual([cells[12], cells[14]], ['+48 600 100 200', '+48600100201'])
+  })
+
+  it('exempts only `+`, a digit, then digits and spaces (the ledger ruling, final review M3)', () => {
+    for (const bad of ['-2-3', '-600 100 200', '+48 (600) 100-201', '+ 48 600', '+48-600-100']) {
+      const cells = cellsOf(entriesToCsv([{ ...ROW, phone: bad, icePhone: bad }]).split('\r\n').at(-1))
+      assert.deepEqual([cells[12], cells[14]], [`'${bad}`, `'${bad}`], bad)
+    }
   })
 
   it('still guards a phone column holding anything but phone characters (F1)', () => {
