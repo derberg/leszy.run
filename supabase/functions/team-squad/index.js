@@ -108,7 +108,7 @@ async function squadView(admin, team, settings, competition) {
 // Best effort: the edit is committed and answered whatever happens to an e-mail. No address in a log.
 async function mail(what, to, message) {
   try {
-    const res = await sendEmail({ to, ...message })
+    const res = await sendEmail({ to, ...message, noTracking: true })
     if (res && res.ok === false) console.error(`team-squad: ${what} e-mail not accepted (${res.status})`)
   } catch (err) {
     console.error(`team-squad: ${what} e-mail failed:`, err?.message)

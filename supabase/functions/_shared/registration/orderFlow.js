@@ -312,7 +312,7 @@ export async function teamEmailArgs(admin, teamId) {
  */
 export async function sendTeamConfirmation(admin, teamId, to) {
   try {
-    const res = await sendEmail({ to, ...teamConfirmationEmail({ ...(await teamEmailArgs(admin, teamId)), paid: null }) })
+    const res = await sendEmail({ to, ...teamConfirmationEmail({ ...(await teamEmailArgs(admin, teamId)), paid: null }), noTracking: true })
     if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
   } catch (err) {
     console.error('team confirmation email failed:', err?.message)
@@ -334,7 +334,7 @@ async function confirmationMail(admin, view) {
 async function deliverConfirmation(admin, orderId) {
   const view = await loadOrderView(admin, orderId)
   if (!view?.order.buyer_email) return false
-  const res = await sendEmail({ to: view.order.buyer_email, ...await confirmationMail(admin, view) })
+  const res = await sendEmail({ to: view.order.buyer_email, ...await confirmationMail(admin, view), noTracking: true })
   if (res && res.ok === false) throw new Error(`e-mail not accepted (${res.status})`)
   return true
 }

@@ -166,7 +166,7 @@ export async function requestLoginCode(supabaseAdmin, { email, ip = null, linkBa
   if (emailConfigured()) {
     const fromQs = from ? `&from=${encodeURIComponent(from)}` : ''
     const magicLink = link ? `${linkBase}/login?email=${encodeURIComponent(normalizedEmail)}&code=${code}${fromQs}` : null
-    await sendEmail({ to: normalizedEmail, ...loginCodeEmail(code, magicLink), fromName: 'Łukasz z LESZY.RUN' })
+    await sendEmail({ to: normalizedEmail, ...loginCodeEmail(code, magicLink), fromName: 'Łukasz z LESZY.RUN', noTracking: true })
   } else {
     console.warn('No email transport configured — email not sent (code stored in DB)')
   }
