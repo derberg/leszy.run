@@ -28,7 +28,7 @@ export async function logOrganizerAction(admin, req, { actorId, clubId, eventId 
   try {
     const { error } = await admin.from('organizer_actions').insert({
       actor_id: actorId, club_id: clubId, event_id: eventId, action, target, payload,
-      ip: clientIp(req), user_agent: req.headers.get('user-agent') || null,
+      ip: await clientIp(req), user_agent: req.headers.get('user-agent') || null,
     })
     if (!error) return true
     console.error('organizer_actions insert failed:', error.message)

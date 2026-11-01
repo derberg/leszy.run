@@ -1,8 +1,17 @@
 {
   "regions": ["dub1"],
+  "routes": [
+    {
+      "src": "/edge/(.*)",
+      "dest": "https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/$1",
+      "transforms": [
+        { "type": "request.headers", "op": "delete", "target": { "key": "x-leszy-edge" } },
+        { "type": "request.headers", "op": "set", "target": { "key": "x-leszy-edge" }, "args": "$EDGE_PROXY_SECRET", "env": ["EDGE_PROXY_SECRET"] }
+      ]
+    }
+  ],
   "rewrites": [
-    { "source": "/edge/:name*", "destination": "https://kojoxazlnxncrpxmnxiq.supabase.co/functions/v1/:name*" },
-    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|edge/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

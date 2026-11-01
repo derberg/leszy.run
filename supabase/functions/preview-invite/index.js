@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { inviteState } from '../_shared/clubInvites.js'
-import { clientIp, peerIp } from '../_shared/clientIp.js'
+import { clientIp } from '../_shared/clientIp.js'
 
 // What an invite link leads to, for a visitor who is not logged in yet.
 //
@@ -20,11 +20,11 @@ const CODE_RE = /^[0-9a-f]{10}$/
 // 40 bits of code make guessing hopeless anyway; this only keeps a script from
 // using the function as a free database probe.
 const WINDOW_MS = 15 * 60 * 1000
-const MAX_PER_WINDOW = 60
-const MAX_PER_PEER = 1000
+// 300, not 60: many people can share one address (CGNAT, an office).
+const MAX_PER_WINDOW = 300
 const attempts = new Map()
 
-function throttled(ip, max = MAX_PER_WINDOW) {
+function throttled(ip) {
   const now = Date.now()
   if (attempts.size > 10_000) {
     for (const [key, entry] of attempts) {
@@ -37,7 +37,7 @@ function throttled(ip, max = MAX_PER_WINDOW) {
     return false
   }
   entry.count++
-  return entry.count > max
+  return entry.count > MAX_PER_WINDOW
 }
 
 function json(body, status, req) {
@@ -51,8 +51,8 @@ Deno.serve(async (req) => {
   const guard = guardRequest(req)
   if (guard) return guard
 
-  // Per client and per peer (clientIp.js): a forged x-forwarded-for resets only the first.
-  if (throttled(`c:${clientIp(req) ?? 'unknown'}`) || throttled(`p:${peerIp(req) ?? 'unknown'}`, MAX_PER_PEER)) return json({ error: 'Zbyt wiele prób. Spróbuj za kilka minut.' }, 429, req)
+  const ip = (await clientIp(req)) ?? 'unknown'
+  if (throttled(ip)) return json({ error: 'Zbyt wiele prób. Spróbuj za kilka minut.' }, 429, req)
 
   try {
     const { code } = await req.json().catch(() => ({}))

@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { localEnv, admin, sessionFor, authenticatedClient } from './helpers/stack.js'
+import { localEnv, admin, sessionFor, authenticatedClient, EDGE_PROXY } from './helpers/stack.js'
 import { createClient } from '@supabase/supabase-js'
 import { startCapture, messagesTo, clearMessages } from './helpers/emailCapture.js'
 
@@ -34,7 +34,7 @@ after(async () => {
 async function call(session, body) {
   const res = await fetch(`${localEnv().functionsUrl}/update-club-payout`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: session.cookie, 'x-forwarded-for': '203.0.113.7' },
+    headers: { 'content-type': 'application/json', cookie: session.cookie, ...EDGE_PROXY, 'x-forwarded-for': '203.0.113.7' },
     body: JSON.stringify(body),
   })
   return { status: res.status, body: await res.json() }

@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { clientIp } from '../_shared/clientIp.js'
 import { guardRequest } from '../_shared/cors.js'
+import { clientIp } from '../_shared/organizer.js'
 import { dpayConfig } from '../_shared/dpay.js'
 import { orderAmounts } from '../_shared/registration/money.js'
 import {
@@ -63,11 +63,11 @@ Deno.serve(async (req) => {
 
   let withCookie = {}
   try {
-    const ip = clientIp(req)
+    const ip = await clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
       pricing: (settings) => (settings.pricing_mode === 'free' ? 'free_event' : null),
       refusals: ORDER_REFUSALS,
-      throttles: orderThrottles(req),
+      throttles: orderThrottles(ip),
     })
     if (prepared.response) return prepared.response
     const { competitions, settings, people, consentIds, email, profileId, buyerName, legacy } = prepared

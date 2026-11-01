@@ -4,7 +4,7 @@
 import { test, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
-import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { admin, localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { lastCodeFor, messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, callFn, createPublishedFreeEvent, makeClub } from './helpers/registrationFixtures.js'
 import { startScratchHost } from './helpers/hostPull.js'
@@ -43,7 +43,7 @@ async function register(body, session = null) {
   const res = await fetch(`${localEnv().functionsUrl}/register-free`, {
     method: 'POST',
     headers: {
-      'content-type': 'application/json', 'x-forwarded-for': RUNNER_IP,
+      'content-type': 'application/json', ...EDGE_PROXY, 'x-forwarded-for': RUNNER_IP,
       ...(session ? { cookie: session.cookie } : {}),
     },
     body: JSON.stringify(body),
@@ -756,34 +756,47 @@ test('W-66 every published event carries the image acceptance; registering witho
 
 // ---------------------------------------------------------------- SEC-1 forged x-forwarded-for
 
-test('SEC-1 a fresh forged x-forwarded-for per request no longer resets the per-IP limit: the peer counter refuses', async () => {
-  const event = await publishedEvent()
-  const octet = () => crypto.randomInt(1, 255)
-  // Called directly, as a script would call <project>.supabase.co: no Origin, a made-up first element.
-  // The local gateway (like Cloudflare in production) appends the address it really saw.
-  const send = async () => {
-    const res = await fetch(`${localEnv().functionsUrl}/register-free`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-forwarded-for': `198.18.${octet()}.${octet()}` },
-      body: JSON.stringify(await body(event, runnerEmail('forged'))),
-    })
-    await res.text()
-    return res.status
-  }
-  const peerCounters = async () => {
-    const { data, error } = await db().from('otp_throttle').select('key, attempts').like('key', 'register-ip-peer:%')
-    assert.ifError(error)
-    return data
-  }
+/** POST register-free as a direct caller would, with a made-up first x-forwarded-for element. → status */
+async function sendForged(event, extraHeaders = {}) {
+  const forged = `198.18.${crypto.randomInt(1, 255)}.${crypto.randomInt(1, 255)}`
+  const res = await fetch(`${localEnv().functionsUrl}/register-free`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': forged, ...extraHeaders },
+    body: JSON.stringify(await body(event, runnerEmail('forged'))),
+  })
+  await res.text()
+  return { status: res.status, forged }
+}
 
-  assert.notEqual(await send(), 429)
-  assert.notEqual(await send(), 429)
-  const counters = await peerCounters()
-  assert.equal(counters.length, 1, 'two different forged addresses, one peer counter')
-  assert.equal(counters[0].attempts, 2)
-
-  // As 600 requests in the hour would leave it. A forged address the limiter has never seen is still refused.
-  const { error } = await db().from('otp_throttle').update({ attempts: 600 }).eq('key', counters[0].key)
+async function registerIpCounters() {
+  const { data, error } = await db().from('otp_throttle').select('key, attempts').like('key', 'register-ip:%')
   assert.ifError(error)
-  assert.equal(await send(), 429)
+  return data
+}
+
+for (const [label, extra] of [['no proxy header', {}], ['a wrong proxy header', { 'x-leszy-edge': 'guessed' }]]) {
+  test(`SEC-1 a direct caller with ${label} and a fresh forged x-forwarded-for per request is keyed on the address the gateway saw`, async () => {
+    const event = await publishedEvent()
+    const a = await sendForged(event, extra)
+    const b = await sendForged(event, extra)
+    assert.notEqual(a.status, 429)
+    assert.notEqual(b.status, 429)
+    const counters = await registerIpCounters()
+    assert.equal(counters.length, 1, 'two different forged addresses, one counter')
+    assert.equal(counters[0].attempts, 2)
+    assert.ok(!counters[0].key.includes('198.18.'), 'not keyed on the forged element')
+
+    // As 200 requests in the hour would leave it: a forged address the limiter has never seen is still refused.
+    const { error } = await db().from('otp_throttle').update({ attempts: 200 }).eq('key', counters[0].key)
+    assert.ifError(error)
+    assert.equal((await sendForged(event, extra)).status, 429)
+  })
+}
+
+test('SEC-1 through the /edge proxy (secret header matches) the browser address it forwarded is the key, one counter each', async () => {
+  const event = await publishedEvent()
+  const a = await sendForged(event, EDGE_PROXY)
+  const b = await sendForged(event, EDGE_PROXY)
+  const keys = (await registerIpCounters()).map((c) => c.key).sort()
+  assert.deepEqual(keys, [`register-ip:${a.forged}`, `register-ip:${b.forged}`].sort())
 })

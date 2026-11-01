@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
 import { sendEmail } from '../_shared/email.js'
-import { clientIp, ipThrottles } from '../_shared/clientIp.js'
+import { clientIp } from '../_shared/organizer.js'
 import { eventPageUrl } from '../_shared/registration/slug.js'
 import { freeConfirmationEmail } from '../_shared/registration/emails.js'
 import { issueConsentRequests } from '../_shared/registration/consentRequests.js'
@@ -12,9 +12,9 @@ import {
 // Throttles (claim_throttle_slot): requests per address, 10 per hour, and per client IP, 20 per
 // hour (fix round 1, I-2). prepareRegistration adds the buyer's 30 people a day.
 const REGISTER_LIMIT = 10
-const REGISTER_IP_LIMIT = 20
-// Per peer (clientIp.js): a forged x-forwarded-for cannot reset it; on the /edge path it is site-wide.
-const REGISTER_PEER_LIMIT = 600
+// Per client IP. 200, not 20: a carrier's CGNAT or an office puts many people on one address; the
+// per-address limit (REGISTER_LIMIT) and the per-buyer people cap are the per-person guards.
+const REGISTER_IP_LIMIT = 200
 const REGISTER_WINDOW_SECONDS = 3600
 
 async function rows(query) {
@@ -51,11 +51,11 @@ Deno.serve(async (req) => {
 
   let withCookie = {}
   try {
-    const ip = clientIp(req)
+    const ip = await clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
       pricing: (settings) => (settings.pricing_mode !== 'free' ? 'not_free' : null),
       throttles: (email) => [
-        ...ipThrottles(req, 'register-ip', { limit: REGISTER_IP_LIMIT, peerLimit: REGISTER_PEER_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS }),
+        { key: `register-ip:${ip ?? 'unknown'}`, limit: REGISTER_IP_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS },
         { key: `register:${email}`, limit: REGISTER_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS },
       ],
     })

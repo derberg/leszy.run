@@ -214,7 +214,7 @@ Deno.serve(async (req) => {
     if (read) return json({ data: await squadView(admin, team, settings, competition) }, 200, req)
 
     const email = session.email.toLowerCase()
-    const meta = { ip: clientIp(req), userAgent: req.headers.get('user-agent') || null }
+    const meta = { ip: await clientIp(req), userAgent: req.headers.get('user-agent') || null }
     let op = { op: action, legs: body.legs }
     let person = null
 

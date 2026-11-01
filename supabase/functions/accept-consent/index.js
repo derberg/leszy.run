@@ -38,7 +38,7 @@ import { ADULT_AGE, validatePerson } from '../_shared/registration/person.js'
 import { ageOn } from '../_shared/registration/ageGroups.js'
 import { warsawToday } from '../_shared/registration/dates.js'
 import {
-  EDITS_CLOSED, GONE_ENTRY, GONE_LINK, ipLimits, loadByToken, personContext, personOf, sessionMatches, throttled,
+  EDITS_CLOSED, GONE_ENTRY, GONE_LINK, IP_LIMIT, ipKey, loadByToken, personContext, personOf, sessionMatches, throttled,
   TOKEN_LIMIT, tokenHash, WRONG_SESSION,
 } from '../_shared/registration/consentAccess.js'
 
@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     const hash = await tokenHash(body?.token)
     // consent-ip:<ip> is consent-request's counter too (final review M-5): one per-IP budget for the page.
     const limited = await throttled(admin, req, [
-      ...ipLimits(req),
+      { key: await ipKey(req), limit: IP_LIMIT },
       { key: `consent-token:${hash}`, limit: TOKEN_LIMIT },
     ])
     if (limited) return limited
@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
       p_token_hash: hash,
       p_profile_id: session.userId,
       p_edits: hasEdits ? changed : null,
-      p_meta: { consentIds: acceptedConsentIds, ip: clientIp(req), userAgent: req.headers.get('user-agent') || null },
+      p_meta: { consentIds: acceptedConsentIds, ip: await clientIp(req), userAgent: req.headers.get('user-agent') || null },
     })
     if (error) {
       const known = RPC_ERRORS[error.message]

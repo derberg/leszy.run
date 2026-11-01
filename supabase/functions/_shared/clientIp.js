@@ -1,69 +1,65 @@
 // The caller's IP, for rate limits and audit rows. This module is the only place in the edge
-// functions that reads an IP header (a unit test fails on any other file that does).
+// functions that reads an IP header (tests/registration/unit/clientIp.test.js fails on any other).
 //
 // What arrives, and who wrote each part:
-//   - A browser on www.leszy.run goes through the /edge rewrite in public/vercel.json. Vercel
-//     OVERWRITES x-forwarded-for with the browser's address ("we overwrite the X-Forwarded-For
-//     header and do not forward external IPs", vercel.com/docs/headers/request-headers), then
-//     Supabase's Cloudflare front appends Vercel's egress address and sets cf-connecting-ip to it.
-//     Chain: [browser, vercel-egress], peer = vercel-egress.
+//   - A browser on www.leszy.run goes through the /edge route in public/vercel.json. Vercel
+//     OVERWRITES x-forwarded-for with the browser's address (vercel.com/docs/headers/request-headers),
+//     the route sets x-leszy-edge to the Vercel env EDGE_PROXY_SECRET (after deleting any value the
+//     client sent), and Supabase's Cloudflare front appends Vercel's egress address and sets
+//     cf-connecting-ip to it. Chain: [browser, vercel-egress].
 //   - Anything can also call <project>.supabase.co/functions/v1/* directly, with no Origin, so
 //     guardRequest lets it through. Every x-forwarded-for element it sends is its own; Cloudflare
-//     appends the real address and sets cf-connecting-ip (observed on this platform:
-//     "x-forwarded-for: spoofed,68.65.164.215" with "cf-connecting-ip: 68.65.164.215",
-//     github.com/orgs/supabase/discussions/34647). Chain: [anything…, caller], peer = caller.
-//     The local stack's Kong does the same: it appends the peer and sets x-real-ip.
+//     appends the real address and sets cf-connecting-ip ("x-forwarded-for: spoofed,68.65.164.215"
+//     with "cf-connecting-ip: 68.65.164.215", github.com/orgs/supabase/discussions/34647). The local
+//     stack's Kong does the same.
 //
-// So the peer (cf-connecting-ip, else the right-most element) is the one address no caller can
-// choose. It is NOT the browser on the /edge path: there it is Vercel, shared by every user of the
-// site. The browser's address is the element left of the peer, which Vercel vouches for on the
-// /edge path and which a direct caller forges at will. No header separates the two paths (a direct
-// caller can send x-vercel-* too), so there is no unforgeable per-browser address. Hence two
-// counters for every per-IP limit (`ipThrottles`):
-//   - per client (`clientIp`): the old limit, per browser. A direct caller can rotate it.
-//   - per peer (`peerIp`): a higher limit nobody can rotate. For a direct caller it caps them
-//     whatever they forge; for the /edge path it is a site-wide ceiling on browser traffic, so it
-//     is set well above real traffic and an attacker would have to push that many requests through
-//     /edge (where each of their own addresses is held to the per-client limit) to reach it.
-// Reading the LEFT-most element, as this did until 2026-11-01, let a direct caller reset every
-// per-IP limit with a fresh fake value per request.
+// So the browser address is trusted only when x-leszy-edge equals EDGE_PROXY_SECRET (constant time):
+// then it is the element Vercel set, left of the peer. Otherwise the caller skipped Vercel and is
+// keyed on the peer (cf-connecting-ip, else the right-most element), which it cannot choose. Reading
+// the LEFT-most element unconditionally let a direct caller reset every per-IP limit with a fresh
+// fake value per request.
 //
-// A missing address never skips a limit: it counts in the shared `unknown` bucket.
+// Until EDGE_PROXY_SECRET is set in the function secrets this reads the left-most element, exactly as
+// before: switching on the peer while the /edge route sends no secret would put every browser into
+// Vercel's few egress addresses. Set the Vercel env var first, redeploy, then the Supabase secret.
+import { sameSecret } from './sameSecret.js'
+
+export const EDGE_HEADER = 'x-leszy-edge'
 
 const IP_RE = /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]+)$/
 const isIp = (s) => !!s && IP_RE.test(s) && (s.includes('.') || s.includes(':'))
+const list = (req, name) => (req.headers.get(name) || '').split(',').map((s) => s.trim()).filter(Boolean)
+const configuredSecret = () => globalThis.Deno?.env?.get('EDGE_PROXY_SECRET') ?? ''
 
-const forwardedList = (req) =>
-  (req.headers.get('x-forwarded-for') || '').split(',').map((s) => s.trim()).filter(Boolean)
-
-/** The address the platform connected from: cf-connecting-ip, else the right-most x-forwarded-for element. Unforgeable. */
+/** The address the platform connected from: cf-connecting-ip, else the right-most x-forwarded-for element. */
 export function peerIp(req) {
   const cf = (req.headers.get('cf-connecting-ip') || '').trim()
   if (isIp(cf)) return cf
-  const last = forwardedList(req).at(-1)
+  const last = list(req, 'x-forwarded-for').at(-1)
   return isIp(last) ? last : null
 }
 
-/**
- * The best per-client address: the element the proxy in front of the peer vouched for (the browser
- * behind /edge), else the peer itself. Forgeable by a caller that skips /edge, so every limit keyed
- * on it is paired with a per-peer one (`ipThrottles`). Also what audit rows store.
- */
-export function clientIp(req) {
+/** The browser address the /edge route vouched for: the element left of the peer, else x-vercel-forwarded-for. */
+function proxiedIp(req) {
   const peer = peerIp(req)
-  const list = forwardedList(req)
-  const at = peer ? list.lastIndexOf(peer) : -1
-  const left = at > 0 ? list[at - 1] : null
-  return isIp(left) ? left : peer
+  const xff = list(req, 'x-forwarded-for')
+  const at = peer ? xff.lastIndexOf(peer) : -1
+  if (at > 0 && isIp(xff[at - 1])) return xff[at - 1]
+  const vercel = list(req, 'x-vercel-forwarded-for')[0]
+  return isIp(vercel) ? vercel : null
 }
 
 /**
- * The `{ key, limit, windowSeconds }` pair for a per-IP limit, for checkAndIncrement / prepareRegistration:
- * `<prefix>:<clientIp>` at `limit` and `<prefix>-peer:<peerIp>` at `peerLimit`. Never empty.
+ * The caller's address, or null when there is none. Per-IP limits key on `clientIp(req) ?? 'unknown'`
+ * (a missing address is a shared bucket, never a skipped limit).
+ * @param {{ headers: { get(name: string): string|null } }} req
+ * @param {{ secret?: string }} [opts] the EDGE_PROXY_SECRET to compare with (tests); default the function secret.
  */
-export function ipThrottles(req, prefix, { limit, peerLimit, windowSeconds }) {
-  return [
-    { key: `${prefix}:${clientIp(req) ?? 'unknown'}`, limit, windowSeconds },
-    { key: `${prefix}-peer:${peerIp(req) ?? 'unknown'}`, limit: peerLimit, windowSeconds },
-  ]
+export async function clientIp(req, { secret = configuredSecret() } = {}) {
+  if (!secret) {
+    const first = list(req, 'x-forwarded-for')[0]
+    return isIp(first) ? first : null
+  }
+  if (await sameSecret(req.headers.get(EDGE_HEADER), secret)) return proxiedIp(req) ?? peerIp(req)
+  return peerIp(req)
 }

@@ -20,21 +20,17 @@ test('G-36 m3 emailHint shows the first letter, the first letter of the domain a
   assert.equal(emailHint(null), '*@*')
 })
 
-test('G-36 nit: one validated client-IP parser, used by auth-request-code and the organizer side', () => {
+test('G-36 nit: one validated client-IP parser, used by auth-request-code and the organizer side', async () => {
   const req = (xff) => ({ headers: { get: (k) => (k === 'x-forwarded-for' ? xff : null) } })
-  // SEC-1: the element left of the platform-appended peer, never the left-most one.
-  assert.equal(clientIp(req('203.0.113.9, 10.0.0.1')), '203.0.113.9')
-  assert.equal(clientIp(req('6.6.6.6, 203.0.113.9, 10.0.0.1')), '203.0.113.9')
-  assert.equal(clientIp(req('2001:db8::1')), '2001:db8::1')
-  assert.equal(clientIp(req('not-an-ip')), null)
-  assert.equal(clientIp(req('not-an-ip, 10.0.0.1')), '10.0.0.1')
-  assert.equal(clientIp(req('')), null)
-  assert.equal(clientIp(req(null)), null)
+  // No EDGE_PROXY_SECRET (as in Node): the left-most element, as before SEC-1.
+  assert.equal(await clientIp(req('203.0.113.9, 10.0.0.1')), '203.0.113.9')
+  assert.equal(await clientIp(req('2001:db8::1')), '2001:db8::1')
+  assert.equal(await clientIp(req('not-an-ip')), null)
+  assert.equal(await clientIp(req('')), null)
+  assert.equal(await clientIp(req(null)), null)
   const src = readFileSync(new URL('../../../supabase/functions/auth-request-code/index.js', import.meta.url), 'utf8')
-  // auth-request-code hands the request to requestLoginCode, which keys its limits through clientIp.js.
-  assert.match(src, /requestLoginCode\(supabaseAdmin, \{\s*email, req,/)
+  assert.match(src, /from '\.\.\/_shared\/clientIp\.js'/)
   assert.doesNotMatch(src, /function clientIp/)
-  assert.match(readFileSync(new URL('../../../supabase/functions/_shared/requestCode.js', import.meta.url), 'utf8'), /from '\.\/clientIp\.js'/)
   // The 429's retry-after is set whenever the limiter gave a value, 0 included (as before 4b).
   assert.match(src, /retryAfterSec != null/)
 })

@@ -11,7 +11,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { CAPTURE_PORT } from './helpers/emailCaptureServer.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, createPublishedFreeEvent } from './helpers/registrationFixtures.js'
@@ -51,7 +51,7 @@ async function call(fn, body, { session = null, cookie = null, from = ip() } = {
   const res = await fetch(`${localEnv().functionsUrl}/${fn}`, {
     method: 'POST',
     headers: {
-      'content-type': 'application/json', 'x-forwarded-for': from,
+      'content-type': 'application/json', ...EDGE_PROXY, 'x-forwarded-for': from,
       ...(session || cookie ? { cookie: cookie ?? session.cookie } : {}),
     },
     body: JSON.stringify(body),

@@ -21,12 +21,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest, isAllowed } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { clientIp } from '../_shared/clientIp.js'
 import { verifyCodeAndOpenSession } from '../_shared/verifyCode.js'
 import { requestLoginCode } from '../_shared/requestCode.js'
 import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from '../_shared/deletedEmails.js'
 import { json } from '../_shared/registration/registrationRequest.js'
 import {
-  emailHint, ipLimits, loadByToken, personContext, personOf, sessionMatches, throttled, TOKEN_LIMIT, tokenHash, TOO_MANY,
+  emailHint, IP_LIMIT, ipKey, loadByToken, personContext, personOf, sessionMatches, throttled, TOKEN_LIMIT, tokenHash, TOO_MANY,
 } from '../_shared/registration/consentAccess.js'
 
 const KIND_ORDER = { regulamin: 0, data_info: 1, image: 2 }
@@ -84,7 +85,7 @@ Deno.serve(async (req) => {
   try {
     const hash = await tokenHash(body?.token)
     const limited = await throttled(admin, req, [
-      ...ipLimits(req),
+      { key: await ipKey(req), limit: IP_LIMIT },
       { key: `consent-token:${hash}`, limit: TOKEN_LIMIT },
     ])
     if (limited) return limited
@@ -129,7 +130,7 @@ Deno.serve(async (req) => {
       // The code only, no magic link (final review M-4): the token lives in this tab's
       // sessionStorage, so a link opened from the e-mail lands in a new tab without it, and
       // would spend the code the person is about to type here.
-      const sent = await requestLoginCode(admin, { email: registration.email, req, linkBase: siteFor(req), link: false })
+      const sent = await requestLoginCode(admin, { email: registration.email, ip: await clientIp(req), linkBase: siteFor(req), link: false })
       if (!sent.ok) {
         if (sent.status === 429) {
           return json({ error: TOO_MANY, code: 'throttled' }, 429, req, { 'retry-after': String(sent.retryAfterSec ?? 60) })

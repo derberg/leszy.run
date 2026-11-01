@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     return json({ error: 'policyVersion is required and must be a non-empty string' }, 400, req)
   }
 
-  const ipInet = clientIp(req)
+  const ipInet = await clientIp(req)
 
   const userAgent = req.headers.get('user-agent') ?? null
 

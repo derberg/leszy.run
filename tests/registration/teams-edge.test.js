@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import postgres from 'postgres'
-import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { lastCodeFor, messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, makeClub } from './helpers/registrationFixtures.js'
 import { dpayMode, dpayRefunds, dpayReset, dpayTransactions, payMock, replayIpn, startDpayMock } from './helpers/dpayControl.js'
@@ -48,7 +48,7 @@ const ip = () => `198.51.100.${crypto.randomInt(1, 255)}`
 async function call(fn, body, session = null) {
   const res = await fetch(`${localEnv().functionsUrl}/${fn}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip(), ...(session ? { cookie: session.cookie } : {}) },
+    headers: { 'content-type': 'application/json', ...EDGE_PROXY, 'x-forwarded-for': ip(), ...(session ? { cookie: session.cookie } : {}) },
     body: JSON.stringify(body),
   })
   const text = await res.text()

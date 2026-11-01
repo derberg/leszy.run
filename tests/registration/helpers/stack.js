@@ -98,3 +98,10 @@ export function authenticatedClient() {
     global: { headers: { Authorization: `Bearer ${unsigned}.${sig}` } },
   })
 }
+
+/**
+ * The header the /edge route adds (public/vercel.json): with it, the functions trust the browser address
+ * in x-forwarded-for; without it a caller is keyed on the address the gateway saw. Equal to
+ * EDGE_PROXY_SECRET in functions.env.
+ */
+export const EDGE_PROXY = Object.freeze({ 'x-leszy-edge': 'local-edge-proxy-secret' })

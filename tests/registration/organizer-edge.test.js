@@ -6,7 +6,7 @@ import { after, before, beforeEach, test } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import postgres from 'postgres'
-import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { captureRequests, clearMessages, messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, callFn, createPublishedFreeEvent, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { dpayMode, dpayReset, payMock, startDpayMock } from './helpers/dpayControl.js'
@@ -59,7 +59,7 @@ const actions = (eventId, action) => rows('organizer_actions', { event_id: event
 async function callRaw(fn, session, body) {
   const res = await fetch(`${localEnv().functionsUrl}/${fn}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9', cookie: session.cookie },
+    headers: { 'content-type': 'application/json', ...EDGE_PROXY, 'x-forwarded-for': '203.0.113.9', cookie: session.cookie },
     body: JSON.stringify(body),
   })
   return { status: res.status, headers: res.headers, body: await res.json() }

@@ -64,6 +64,12 @@ export default defineConfig(({ mode }) => {
               target: supabaseUrl,
               changeOrigin: true,
               rewrite: (p) => p.replace(/^\/edge/, '/functions/v1'),
+              // As the /edge route in vercel.json: drop any x-leszy-edge the client sent and,
+              // when EDGE_PROXY_SECRET is set locally, send it (supabase/functions/_shared/clientIp.js).
+              configure: (proxy) => proxy.on('proxyReq', (proxyReq) => {
+                proxyReq.removeHeader('x-leszy-edge')
+                if (env.EDGE_PROXY_SECRET) proxyReq.setHeader('x-leszy-edge', env.EDGE_PROXY_SECRET)
+              }),
             },
             // NOTE: bare `/klub/:slug` used to proxy here to the render-club SSR
             // function (mirroring the old Vercel rewrite). That function is retired

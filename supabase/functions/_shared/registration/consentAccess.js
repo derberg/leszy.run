@@ -4,7 +4,7 @@
 // appears in a response only after the person proved it (session or e-mail code). Logs name
 // registrations by id, never by address.
 import { checkAndIncrement } from '../throttle.js'
-import { ipThrottles } from '../clientIp.js'
+import { clientIp } from '../clientIp.js'
 import { hashToken } from './tokens.js'
 import { json } from './registrationRequest.js'
 
@@ -59,13 +59,13 @@ export async function throttled(admin, req, limits) {
 }
 
 /**
- * consent-ip:<client ip> (30) and consent-ip-peer:<peer> (600) per hour, one pair of counters for
- * consent-request and accept-consent (final review M-5). See clientIp.js for the two addresses.
+ * consent-ip:<ip> per hour, one counter for consent-request and accept-consent (final review M-5).
+ * 300: one address can carry many people (CGNAT, an office); consent-token:<hash> is the per-link guard.
+ * No address is the shared `unknown` bucket, never a skipped limit.
  */
-export const IP_LIMIT = 30
-export const IP_PEER_LIMIT = 600
+export const IP_LIMIT = 300
 
-export const ipLimits = (req) => ipThrottles(req, 'consent-ip', { limit: IP_LIMIT, peerLimit: IP_PEER_LIMIT, windowSeconds: HOUR })
+export const ipKey = async (req) => `consent-ip:${(await clientIp(req)) ?? 'unknown'}`
 
 /**
  * The request and its registration for a token. → { request, registration } or { response }:
