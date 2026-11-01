@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
   let withCookie = {}
   try {
-    const ip = clientIp(req)
+    const ip = await clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
       pricing: (settings) => (settings.pricing_mode === 'free' ? 'free_event' : null),
       refusals: ORDER_REFUSALS,

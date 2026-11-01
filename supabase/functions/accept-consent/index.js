@@ -109,9 +109,8 @@ Deno.serve(async (req) => {
   try {
     const hash = await tokenHash(body?.token)
     // consent-ip:<ip> is consent-request's counter too (final review M-5): one per-IP budget for the page.
-    const ipThrottle = ipKey(req)
     const limited = await throttled(admin, req, [
-      ...(ipThrottle ? [{ key: ipThrottle, limit: IP_LIMIT }] : []),
+      { key: await ipKey(req), limit: IP_LIMIT },
       { key: `consent-token:${hash}`, limit: TOKEN_LIMIT },
     ])
     if (limited) return limited
@@ -172,7 +171,7 @@ Deno.serve(async (req) => {
       p_token_hash: hash,
       p_profile_id: session.userId,
       p_edits: hasEdits ? changed : null,
-      p_meta: { consentIds: acceptedConsentIds, ip: clientIp(req), userAgent: req.headers.get('user-agent') || null },
+      p_meta: { consentIds: acceptedConsentIds, ip: await clientIp(req), userAgent: req.headers.get('user-agent') || null },
     })
     if (error) {
       const known = RPC_ERRORS[error.message]

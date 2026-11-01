@@ -1,12 +1,14 @@
 // Issuing a login code by e-mail, shared by auth-request-code and any form that logs a person
 // in on the way (consent-request, Plan 4), as verifyCode.js is for checking one. The caller
-// validates the address; this refuses a retired one, applies the per-address (5) and per-IP (20)
+// validates the address; this refuses a retired one, applies the per-address (5) and per-IP (100)
 // limits of a 15-minute window, invalidates the address's earlier unused login codes, stores the
 // new one as a SHA-256 and mails it. It never builds a Response. A database failure throws, and
 // the caller answers 500.
 import { checkAndIncrement } from './throttle.js'
 import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from './deletedEmails.js'
 import { emailConfigured, sendEmail } from './email.js'
+
+export const LOGIN_IP_LIMIT = 100
 
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -134,13 +136,12 @@ export async function requestLoginCode(supabaseAdmin, { email, ip = null, linkBa
     return fail(403, RETIRED_EMAIL_MESSAGE, { code: 'email_retired' })
   }
 
-  // Rate limiting: 5 requests per email and 20 per IP within a 15-minute window
+  // Rate limiting within a 15-minute window: 5 requests per email (the per-person guard) and 100 per
+  // IP, which many people can share (CGNAT, an office). No address is the shared `unknown` bucket.
   const emailThrottle = await checkAndIncrement(supabaseAdmin, `email:${normalizedEmail}`, 5)
   if (!emailThrottle.allowed) return fail(429, 'Too many requests', { retryAfterSec: emailThrottle.retryAfterSec })
-  if (ip) {
-    const ipThrottle = await checkAndIncrement(supabaseAdmin, `ip:${ip}`, 20)
-    if (!ipThrottle.allowed) return fail(429, 'Too many requests', { retryAfterSec: ipThrottle.retryAfterSec })
-  }
+  const ipThrottle = await checkAndIncrement(supabaseAdmin, `ip:${ip ?? 'unknown'}`, LOGIN_IP_LIMIT)
+  if (!ipThrottle.allowed) return fail(429, 'Too many requests', { retryAfterSec: ipThrottle.retryAfterSec })
 
   // Invalidate previous unused LOGIN codes for this email. Scoped by purpose:
   // without it, asking for a login code silently killed a pending

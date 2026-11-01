@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { localEnv, admin, sessionFor } from './helpers/stack.js'
+import { localEnv, admin, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { startCapture, messagesTo, clearMessages } from './helpers/emailCapture.js'
 
 const OPERATOR = 'operator@leszy.test' // PIPELINE_ALERT_EMAIL in functions.env
@@ -22,7 +22,7 @@ after(async () => { if (stopCapture) await stopCapture() })
 async function call(fn, session, body) {
   const res = await fetch(`${localEnv().functionsUrl}/${fn}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: session.cookie, 'x-forwarded-for': '203.0.113.7' },
+    headers: { 'content-type': 'application/json', cookie: session.cookie, ...EDGE_PROXY, 'x-forwarded-for': '203.0.113.7' },
     body: JSON.stringify(body),
   })
   return { status: res.status, body: await res.json() }

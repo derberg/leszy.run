@@ -12,7 +12,9 @@ import {
 // Throttles (claim_throttle_slot): requests per address, 10 per hour, and per client IP, 20 per
 // hour (fix round 1, I-2). prepareRegistration adds the buyer's 30 people a day.
 const REGISTER_LIMIT = 10
-const REGISTER_IP_LIMIT = 20
+// Per client IP. 200, not 20: a carrier's CGNAT or an office puts many people on one address; the
+// per-address limit (REGISTER_LIMIT) and the per-buyer people cap are the per-person guards.
+const REGISTER_IP_LIMIT = 200
 const REGISTER_WINDOW_SECONDS = 3600
 
 async function rows(query) {
@@ -49,11 +51,11 @@ Deno.serve(async (req) => {
 
   let withCookie = {}
   try {
-    const ip = clientIp(req)
+    const ip = await clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
       pricing: (settings) => (settings.pricing_mode !== 'free' ? 'not_free' : null),
       throttles: (email) => [
-        ...(ip ? [{ key: `register-ip:${ip}`, limit: REGISTER_IP_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS }] : []),
+        { key: `register-ip:${ip ?? 'unknown'}`, limit: REGISTER_IP_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS },
         { key: `register:${email}`, limit: REGISTER_LIMIT, windowSeconds: REGISTER_WINDOW_SECONDS },
       ],
     })

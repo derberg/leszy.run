@@ -4,7 +4,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
-import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { admin, localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { lastCodeFor, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, callFn, createPublishedFreeEvent } from './helpers/registrationFixtures.js'
 import { mergePending } from '../../public/src/lib/eventPageModel.js'
@@ -54,7 +54,7 @@ async function registerRunner(event, categoryId) {
   const email = `runner-public-${rand()}@test.local`
   const fns = localEnv().functionsUrl
   const post = (fn, body) => fetch(`${fns}/${fn}`, {
-    method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9' }, body: JSON.stringify(body),
+    method: 'POST', headers: { 'content-type': 'application/json', ...EDGE_PROXY, 'x-forwarded-for': '203.0.113.9' }, body: JSON.stringify(body),
   })
   assert.equal((await post('auth-request-code', { email })).status, 200)
   let code = null

@@ -4,7 +4,7 @@
 import { test, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
-import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { admin, localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { lastCodeFor, messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, callFn, createPublishedFreeEvent, makeClub } from './helpers/registrationFixtures.js'
 import { startScratchHost } from './helpers/hostPull.js'
@@ -36,14 +36,14 @@ beforeEach(async () => { await resetThrottle() })
 /**
  * POST register-free; keeps the Set-Cookie header (callFn drops headers). The client address is
  * `RUNNER_IP` for every call, which the acceptance rows are checked against; the per-IP throttle
- * (20 an hour) is reset before each test, so the file's calls never add up to it.
+ * (200 an hour) is reset before each test, so the file's calls never add up to it.
  */
 const RUNNER_IP = '203.0.113.9'
 async function register(body, session = null) {
   const res = await fetch(`${localEnv().functionsUrl}/register-free`, {
     method: 'POST',
     headers: {
-      'content-type': 'application/json', 'x-forwarded-for': RUNNER_IP,
+      'content-type': 'application/json', ...EDGE_PROXY, 'x-forwarded-for': RUNNER_IP,
       ...(session ? { cookie: session.cookie } : {}),
     },
     body: JSON.stringify(body),
@@ -752,4 +752,51 @@ test('W-66 every published event carries the image acceptance; registering witho
   const { data: acc } = await db().from('consent_acceptances').select('consent_id, consent_kind')
     .eq('registration_id', ok.body.data.registrations[0].id).eq('consent_kind', 'image')
   assert.deepEqual(acc, [{ consent_id: image[0].id, consent_kind: 'image' }])
+})
+
+// ---------------------------------------------------------------- SEC-1 forged x-forwarded-for
+
+/** POST register-free as a direct caller would, with a made-up first x-forwarded-for element. → status */
+async function sendForged(event, extraHeaders = {}) {
+  const forged = `198.18.${crypto.randomInt(1, 255)}.${crypto.randomInt(1, 255)}`
+  const res = await fetch(`${localEnv().functionsUrl}/register-free`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': forged, ...extraHeaders },
+    body: JSON.stringify(await body(event, runnerEmail('forged'))),
+  })
+  await res.text()
+  return { status: res.status, forged }
+}
+
+async function registerIpCounters() {
+  const { data, error } = await db().from('otp_throttle').select('key, attempts').like('key', 'register-ip:%')
+  assert.ifError(error)
+  return data
+}
+
+for (const [label, extra] of [['no proxy header', {}], ['a wrong proxy header', { 'x-leszy-edge': 'guessed' }]]) {
+  test(`SEC-1 a direct caller with ${label} and a fresh forged x-forwarded-for per request is keyed on the address the gateway saw`, async () => {
+    const event = await publishedEvent()
+    const a = await sendForged(event, extra)
+    const b = await sendForged(event, extra)
+    assert.notEqual(a.status, 429)
+    assert.notEqual(b.status, 429)
+    const counters = await registerIpCounters()
+    assert.equal(counters.length, 1, 'two different forged addresses, one counter')
+    assert.equal(counters[0].attempts, 2)
+    assert.ok(!counters[0].key.includes('198.18.'), 'not keyed on the forged element')
+
+    // As 200 requests in the hour would leave it: a forged address the limiter has never seen is still refused.
+    const { error } = await db().from('otp_throttle').update({ attempts: 200 }).eq('key', counters[0].key)
+    assert.ifError(error)
+    assert.equal((await sendForged(event, extra)).status, 429)
+  })
+}
+
+test('SEC-1 through the /edge proxy (secret header matches) the browser address it forwarded is the key, one counter each', async () => {
+  const event = await publishedEvent()
+  const a = await sendForged(event, EDGE_PROXY)
+  const b = await sendForged(event, EDGE_PROXY)
+  const keys = (await registerIpCounters()).map((c) => c.key).sort()
+  assert.deepEqual(keys, [`register-ip:${a.forged}`, `register-ip:${b.forged}`].sort())
 })

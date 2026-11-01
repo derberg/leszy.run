@@ -58,13 +58,14 @@ export async function throttled(admin, req, limits) {
   return null
 }
 
-/** consent-ip:<ip> per hour, one counter for consent-request and accept-consent (final review M-5). */
-export const IP_LIMIT = 30
+/**
+ * consent-ip:<ip> per hour, one counter for consent-request and accept-consent (final review M-5).
+ * 300: one address can carry many people (CGNAT, an office); consent-token:<hash> is the per-link guard.
+ * No address is the shared `unknown` bucket, never a skipped limit.
+ */
+export const IP_LIMIT = 300
 
-export const ipKey = (req) => {
-  const ip = clientIp(req)
-  return ip ? `consent-ip:${ip}` : null
-}
+export const ipKey = async (req) => `consent-ip:${(await clientIp(req)) ?? 'unknown'}`
 
 /**
  * The request and its registration for a token. → { request, registration } or { response }:

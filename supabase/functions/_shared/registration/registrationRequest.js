@@ -41,13 +41,14 @@ const DAY = 86400
 // can spend another address's allowance. A group refused later (full, duplicate) keeps its claim.
 export const PEOPLE_PER_DAY = 30
 // Per address and per client IP, per hour: a team and an order share one allowance. The IP limit
-// is register-free's 20 (fix round 1).
+// is register-free's 200: generous, because many people can share one address (CGNAT, an office);
+// ORDER_LIMIT and the per-buyer people cap are the per-person guards.
 export const ORDER_LIMIT = 10
-export const ORDER_IP_LIMIT = 20
+export const ORDER_IP_LIMIT = 200
 const HOUR = 3600
 /** prepareRegistration's `throttles` for create-order and register-team. */
 export const orderThrottles = (ip) => (email) => [
-  ...(ip ? [{ key: `order-ip:${ip}`, limit: ORDER_IP_LIMIT, windowSeconds: HOUR }] : []),
+  { key: `order-ip:${ip ?? 'unknown'}`, limit: ORDER_IP_LIMIT, windowSeconds: HOUR },
   { key: `order:${email}`, limit: ORDER_LIMIT, windowSeconds: HOUR },
 ]
 // Duplicate answers that say which card (`index`) per buyer per 24 h (I-1): the form needs the

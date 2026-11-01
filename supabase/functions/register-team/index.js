@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
   let withCookie = {}
   try {
-    const ip = clientIp(req)
+    const ip = await clientIp(req)
     const prepared = await prepareRegistration(req, admin, body, {
       team: true,
       pricing: () => null,

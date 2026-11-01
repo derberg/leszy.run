@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     const { data: club } = await admin.from('clubs').select('name').eq('id', clubId).single()
     const { data: row, error } = await admin.from('organizer_agreements').insert({
       club_id: clubId, club_name: club.name, version, accepted_by: session.userId,
-      ip: clientIp(req), user_agent: req.headers.get('user-agent') || null,
+      ip: await clientIp(req), user_agent: req.headers.get('user-agent') || null,
     }).select('id, version, accepted_at').single()
     if (error?.code === '23505') {
       // A concurrent accept won the UNIQUE (club_id, version) race: its row is the record.

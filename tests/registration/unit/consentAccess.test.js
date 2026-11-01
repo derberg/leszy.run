@@ -20,13 +20,14 @@ test('G-36 m3 emailHint shows the first letter, the first letter of the domain a
   assert.equal(emailHint(null), '*@*')
 })
 
-test('G-36 nit: one validated client-IP parser, used by auth-request-code and the organizer side', () => {
+test('G-36 nit: one validated client-IP parser, used by auth-request-code and the organizer side', async () => {
   const req = (xff) => ({ headers: { get: (k) => (k === 'x-forwarded-for' ? xff : null) } })
-  assert.equal(clientIp(req('203.0.113.9, 10.0.0.1')), '203.0.113.9')
-  assert.equal(clientIp(req('2001:db8::1')), '2001:db8::1')
-  assert.equal(clientIp(req('not-an-ip')), null)
-  assert.equal(clientIp(req('')), null)
-  assert.equal(clientIp(req(null)), null)
+  // No EDGE_PROXY_SECRET (as in Node): the left-most element, as before SEC-1.
+  assert.equal(await clientIp(req('203.0.113.9, 10.0.0.1')), '203.0.113.9')
+  assert.equal(await clientIp(req('2001:db8::1')), '2001:db8::1')
+  assert.equal(await clientIp(req('not-an-ip')), null)
+  assert.equal(await clientIp(req('')), null)
+  assert.equal(await clientIp(req(null)), null)
   const src = readFileSync(new URL('../../../supabase/functions/auth-request-code/index.js', import.meta.url), 'utf8')
   assert.match(src, /from '\.\.\/_shared\/clientIp\.js'/)
   assert.doesNotMatch(src, /function clientIp/)

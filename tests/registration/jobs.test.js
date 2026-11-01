@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import postgres from 'postgres'
-import { admin, localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { admin, localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
 import { CAPTURE_PORT } from './helpers/emailCaptureServer.js'
 import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
@@ -113,7 +113,7 @@ async function call(fn, body, session) {
   const res = await fetch(`${localEnv().functionsUrl}/${fn}`, {
     method: 'POST',
     headers: {
-      'content-type': 'application/json', 'x-forwarded-for': `198.51.100.${crypto.randomInt(1, 255)}`,
+      'content-type': 'application/json', ...EDGE_PROXY, 'x-forwarded-for': `198.51.100.${crypto.randomInt(1, 255)}`,
       ...(session ? { cookie: session.cookie } : {}),
     },
     body: JSON.stringify(body),

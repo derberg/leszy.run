@@ -84,9 +84,8 @@ Deno.serve(async (req) => {
   let registrationId = null
   try {
     const hash = await tokenHash(body?.token)
-    const ipThrottle = ipKey(req)
     const limited = await throttled(admin, req, [
-      ...(ipThrottle ? [{ key: ipThrottle, limit: IP_LIMIT }] : []),
+      { key: await ipKey(req), limit: IP_LIMIT },
       { key: `consent-token:${hash}`, limit: TOKEN_LIMIT },
     ])
     if (limited) return limited
@@ -131,7 +130,7 @@ Deno.serve(async (req) => {
       // The code only, no magic link (final review M-4): the token lives in this tab's
       // sessionStorage, so a link opened from the e-mail lands in a new tab without it, and
       // would spend the code the person is about to type here.
-      const sent = await requestLoginCode(admin, { email: registration.email, ip: clientIp(req), linkBase: siteFor(req), link: false })
+      const sent = await requestLoginCode(admin, { email: registration.email, ip: await clientIp(req), linkBase: siteFor(req), link: false })
       if (!sent.ok) {
         if (sent.status === 429) {
           return json({ error: TOO_MANY, code: 'throttled' }, 429, req, { 'retry-after': String(sent.retryAfterSec ?? 60) })

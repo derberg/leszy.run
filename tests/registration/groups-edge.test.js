@@ -4,7 +4,7 @@
 import { test, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
-import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
+import { fillThrottle, localEnv, resetThrottle, sessionFor, EDGE_PROXY } from './helpers/stack.js'
 import { CAPTURE_PORT } from './helpers/emailCaptureServer.js'
 import { lastCodeFor, messagesTo, startCapture } from './helpers/emailCapture.js'
 import { acceptAgreement, createPublishedFreeEvent, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
@@ -45,7 +45,7 @@ const ip = () => `198.51.100.${crypto.randomInt(1, 255)}`
 async function call(fn, body, session = null, from = ip()) {
   const res = await fetch(`${localEnv().functionsUrl}/${fn}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': from, ...(session ? { cookie: session.cookie } : {}) },
+    headers: { 'content-type': 'application/json', ...EDGE_PROXY, 'x-forwarded-for': from, ...(session ? { cookie: session.cookie } : {}) },
     body: JSON.stringify(body),
   })
   const text = await res.text()
@@ -488,22 +488,24 @@ const CHILD_DUPLICATE = 'Ta osoba jest już zapisana na te zawody.'
 // A documentation-range address of its own per test, so these counters start at zero.
 const fixedIp = () => `192.0.2.${crypto.randomInt(1, 255)}`
 
-test('G-34 the per-IP throttle: 20 requests an hour from one address, on register-free and on create-order', async () => {
-  for (const [fn, event, extra] of [
-    ['register-free', await freeFamily(), () => ({})],
-    ['create-order', await paidFamily(), (people, ev) => ({
+test('G-34 the per-IP throttle: 200 requests an hour from one address (SEC-1: shared addresses), on register-free and on create-order', async () => {
+  for (const [fn, prefix, event, extra] of [
+    ['register-free', 'register-ip', await freeFamily(), () => ({})],
+    ['create-order', 'order-ip', await paidFamily(), (people, ev) => ({
       displayedTotal: groupTotal(ev, people.map((p) => ({ categoryId: p.categoryId }))),
     })],
   ]) {
     const from = fixedIp()
-    let last
-    for (let i = 0; i < 21; i++) {
-      // A different buyer each time, no session, no code: each request stops at code_required.
+    // As 199 earlier requests from this address would leave the counter.
+    await fillThrottle(`${prefix}:${from}`, 199)
+    const statuses = []
+    for (let i = 0; i < 2; i++) {
+      // A different buyer each time, no session, no code: a request under the cap stops at code_required.
       const people = [{ categoryId: event.categoryIds[0], person: grownUp(runnerEmail(`ip${i}`)) }]
-      last = await call(fn, await groupBody(event, people, extra(people, event)), null, from)
-      if (i < 20) assert.equal(last.status, 401, `${fn} request ${i + 1}: ${JSON.stringify(last.body)}`)
+      const r = await call(fn, await groupBody(event, people, extra(people, event)), null, from)
+      statuses.push(r.status)
     }
-    assert.equal(last.status, 429, `${fn}: ${JSON.stringify(last.body)}`)
+    assert.deepEqual(statuses, [401, 429], fn)
   }
 })
 

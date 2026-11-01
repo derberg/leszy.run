@@ -4,7 +4,7 @@
 // another state get a club of their own from makeClub() rather than mutating the seed.
 import crypto from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
-import { admin, localEnv } from './stack.js'
+import { admin, localEnv, EDGE_PROXY } from './stack.js'
 
 // Loaded lazily so the Playwright specs can import this file: Playwright loads
 // the Deno-side modules as CommonJS and cannot parse them. Specs therefore never
@@ -81,7 +81,7 @@ export async function callFn(fn, session, body) {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-forwarded-for': '203.0.113.9',
+      ...EDGE_PROXY, 'x-forwarded-for': '203.0.113.9',
       ...(session ? { cookie: session.cookie } : {}),
     },
     body: JSON.stringify(body),

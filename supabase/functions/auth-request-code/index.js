@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
 
     // The retired-address refusal, the limits, the code and the e-mail: _shared/requestCode.js.
     const result = await requestLoginCode(supabaseAdmin, {
-      email, ip: clientIp(req), linkBase: magicLinkBase(req), from: safeFrom,
+      email, ip: await clientIp(req), linkBase: magicLinkBase(req), from: safeFrom,
     })
     if (!result.ok) {
       const headers = { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
