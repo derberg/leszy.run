@@ -556,10 +556,12 @@ const walk = (v, path = '') => (v && typeof v === 'object'
 
 // ---------------------------------------------------------------- T-42 get
 
-test('T-42 get: no session 401; a stranger, a team member, the owner, a bad id and an unknown team → 404', async () => {
+test('T-42 get: no session 401; a stranger, a team member, a bad id and an unknown team → 404; the club owner reads it (Plan 6)', async () => {
   const { teamId, partner } = await freeTeam()
   assert.equal((await squadCall(teamId, 'get', null)).status, 401)
-  for (const session of [await sessionFor(runnerEmail('stranger')), await sessionFor(partner), owner]) {
+  // Plan 6, ruling 11: the club's owner and admins may read and edit a squad (organizer-edge O-36).
+  assert.equal((await squadCall(teamId, 'get', owner)).status, 200)
+  for (const session of [await sessionFor(runnerEmail('stranger')), await sessionFor(partner)]) {
     const r = await squadCall(teamId, 'get', session)
     assert.equal(r.status, 404, JSON.stringify(r.body))
     assert.deepEqual(r.body, { error: 'Not found' })

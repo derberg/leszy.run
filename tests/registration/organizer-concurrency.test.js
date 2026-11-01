@@ -4,9 +4,9 @@
 // IPN, an extension racing expiry, and the lock order against register_free, confirm_order and a
 // squad edit. Every concurrent call runs on its own PostgREST connection.
 //
-// The refund pipeline is helpers/organizerRefund.js: Plan 6's D6-18 steps run in this process
-// against the mocked dpay, until Task 4's `organizer-refund` function replaces it. The IPN path is
-// the real one: the mock posts its signed IPN to this slot's dpay-ipn. LOCAL stack only.
+// A refund goes through the served `organizer-refund` function (Task 4), as the owner's or the
+// admin's session, against the mocked dpay. The IPN path is the real one: the mock posts its signed
+// IPN to this slot's dpay-ipn. LOCAL stack only.
 import { after, afterEach, before, beforeEach, test } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs'
 import postgres from 'postgres'
 import { localEnv, resetThrottle, sessionFor } from './helpers/stack.js'
 import { messagesTo, startCapture } from './helpers/emailCapture.js'
-import { acceptAgreement, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
+import { acceptAgreement, callFn, createPublishedPaidEvent } from './helpers/registrationFixtures.js'
 import { dpayMode, dpayRefunds, dpayReset, payMock, replayIpn, startDpayMock } from './helpers/dpayControl.js'
 import {
   attemptFor, competitionOf, confirm, confirmOk, db, minutesFromNow, one, orderOf, orderOk, profileFor, rows, rpc,
@@ -23,9 +23,7 @@ import {
 import { adult, groupMeta, isDeadlock, registerGroup } from './helpers/groups.js'
 import { assertSlotInvariant } from './helpers/slotInvariant.js'
 import { captain, paidTeamEvent, squadEdit, teamOk } from './helpers/teams.js'
-import {
-  INSUFFICIENT, UNCONFIRMED, exceedsCopy, nodeDpay, organizerRefund,
-} from './helpers/organizerRefund.js'
+import { INSUFFICIENT, UNCONFIRMED, exceedsCopy, nodeDpay } from './helpers/organizerRefund.js'
 import { registerTransaction, refundTransaction } from '../../supabase/functions/_shared/dpay.js'
 import { COUNTRY_CODES } from '../../supabase/functions/_shared/registration/countries.js'
 
@@ -34,7 +32,7 @@ const PRICE = 6000
 const JOBS_SECRET = readFileSync(new URL('./functions.env', import.meta.url), 'utf8')
   .match(/^REGISTRATION_JOBS_SECRET=(.*)$/m)?.[1]?.trim()
 
-let owner, ownerId, adminId, stopCapture, stopMock
+let owner, adminSession, ownerId, adminId, stopCapture, stopMock
 const seen = new Set()
 const watch = (event) => { event.categoryIds.forEach((c) => seen.add(c)); return event }
 
@@ -44,6 +42,7 @@ before(async () => {
   await resetThrottle()
   await acceptAgreement('zatyrani-test')
   owner = await sessionFor('owner@zatyrani-test.local')
+  adminSession = await sessionFor('admin@zatyrani-test.local')
   ownerId = await profileFor('owner@zatyrani-test.local')
   adminId = await profileFor('admin@zatyrani-test.local')
 })
@@ -106,8 +105,9 @@ async function paidEntry(event, { ipn = false } = {}) {
   return o
 }
 
-const refund = (e, grosze, { requestKey = key(), actor = ownerId, cfg } = {}) =>
-  organizerRefund({ lineId: e.lineId, grosze, requestKey, actor, ...(cfg ? { cfg } : {}) })
+/** organizer-refund as the owner (actor ownerId) or the admin (adminId) → { status, body }. */
+const refund = (e, grosze, { requestKey = key(), actor = ownerId } = {}) =>
+  callFn('organizer-refund', actor === adminId ? adminSession : owner, { lineId: e.lineId, grosze, requestKey })
 
 async function runJobs() {
   const res = await fetch(`${localEnv().functionsUrl}/registration-jobs`, {
@@ -271,6 +271,9 @@ test('O-22 after a full refund five IPN replays change nothing: still cancelled,
   const done = await refund(e, PRICE)
   assert.equal(done.status, 200, JSON.stringify(done))
   assert.deepEqual(done.body.data.cancelled, [e.registrationId])
+  const afterRefund = await waitForMail(e.email, mails + 1)
+  assert.equal(afterRefund.length, mails + 1, 'the club\'s refund e-mail')
+  assert.match(afterRefund.at(-1).subject, /^Zwrot 60,00 zł — /)
 
   await replayIpn(e.txn, { times: 5 })
   assert.equal(ok(await confirm(e.orderId, e.txn, e.total)).outcome, 'already_confirmed')
@@ -282,7 +285,7 @@ test('O-22 after a full refund five IPN replays change nothing: still cancelled,
   assert.deepEqual((await refundsAtMock(e.txn)).map((x) => x.grosze), [PRICE])
   assert.equal((await rows('refunds', { order_id: e.orderId })).length, 1, 'no double_payment refund')
   await sleep(500)
-  assert.equal((await messagesTo(e.email)).length, mails, 'no confirmation e-mail from the replays')
+  assert.equal((await messagesTo(e.email)).length, mails + 1, 'no confirmation e-mail from the replays')
 })
 
 // ---------------------------------------------------------------- O-23
@@ -340,11 +343,11 @@ test('O-24 dpay answers 500 → unknown, the reservation kept, one alert; the re
   assert.equal((await alerts(e.orderId, 'refund_unknown')).length, 1)
 })
 
-test('O-24 dpay never answers → unknown after the timeout, the reservation kept, the job makes no dpay call', async () => {
+test('O-24 dpay never answers → unknown after the function\'s 10 s timeout, the reservation kept, the job makes no dpay call', async () => {
   const event = await paidEvent()
   const e = await paidEntry(event)
   await dpayMode({ refundHang: true })
-  const r = await refund(e, 2000, { cfg: nodeDpay({ timeoutMs: 300 }) })
+  const r = await refund(e, 2000)
   assert.equal(r.status, 202, JSON.stringify(r))
   const [f] = await rows('refunds', { order_id: e.orderId })
   assert.equal(f.dpay_status, 'unknown')

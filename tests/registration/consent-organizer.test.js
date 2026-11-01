@@ -76,9 +76,11 @@ test('G-53 list-event-registrations: role, consentState, registeredBy, guardian,
     { role: kid.role, consentState: kid.consentState, registeredBy: kid.registeredBy, guardianName: kid.guardianName, guardianRemoved: kid.guardianRemoved },
     { role: 'minor', consentState: 'accepted', registeredBy: 'Ola Leśna', guardianName: 'Ola Leśna', guardianRemoved: false })
   assert.equal(first.body.counts.awaitingConsent, 2, 'two added adults wait')
-  // Nothing beyond what the tab shows: no address, phone or birth date at any depth.
-  const text = JSON.stringify(first.body)
-  for (const leak of [a.payerEmail, b.payerEmail, '+48', '1990-', '2016-']) assert.ok(!text.includes(leak), leak)
+  // Plan 6 (D6-11) returns each person's own data for „Edytuj dane”, but never a guardian's
+  // address: a child's row carries no e-mail of its own and no guardianEmail (the CSV adds it).
+  assert.equal(kid.email, null)
+  assert.ok(!JSON.stringify(first.body).includes('guardianEmail'))
+  assert.ok(!JSON.stringify(first.body).includes('guardian_email'))
 
   // A member never reads it (P2-R20).
   assert.equal((await list(event, member)).status, 404)

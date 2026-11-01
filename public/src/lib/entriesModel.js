@@ -1,35 +1,13 @@
 // The organizer panel's model (B3): filters, counts and the actions of one entry, over the rows
 // of list-event-registrations. Money is integer grosze.
-import { foldPl } from './startList.js'
+import { AWAITING_CONSENT, awaitingConsent, filterEntries } from '../../../supabase/functions/_shared/registration/entriesFilter.js'
 
-/** „Czeka na zgody” in the status filter: a state of the consent, not an entry status. */
-export const AWAITING_CONSENT = 'awaiting_consent'
+// The filter is shared with export-event-registrations, so the CSV holds the rows the panel shows.
+export { AWAITING_CONSENT, filterEntries }
 
 const LIVE = new Set(['confirmed', 'pending_payment'])
 
-const awaitingConsent = (row) => row.status === 'confirmed' && row.consentState === 'awaiting'
 const isLive = (row) => LIVE.has(row.status) && row.statusKey !== 'expired'
-
-function matches(row, needle) {
-  return [row.name, row.email, row.team?.name, row.bib].some((value) => foldPl(value).includes(needle))
-}
-
-/**
- * @param {object[]} rows
- * @param {{ categoryId?: string, statusKey?: string, q?: string, partnerId?: string }} [filters]
- *   `q` looks in the name, e-mail, team name and bib, ignoring case and diacritics
- */
-export function filterEntries(rows, { categoryId, statusKey, q, partnerId } = {}) {
-  const needle = foldPl(q)
-  return rows.filter((row) => {
-    if (categoryId && row.categoryId !== categoryId) return false
-    if (partnerId && row.partnerId !== partnerId) return false
-    if (statusKey === AWAITING_CONSENT) {
-      if (!awaitingConsent(row)) return false
-    } else if (statusKey && row.statusKey !== statusKey) return false
-    return !needle || matches(row, needle)
-  })
-}
 
 // What is left of the paid lines, reservations counted as gone.
 const refundable = (row) => (row.paidAmount > 0

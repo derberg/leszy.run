@@ -459,15 +459,28 @@ export async function claimRefundRequest(admin, refundId) {
  * (rejected, pending, unknown). insufficient_balance is left to the retry job.
  * `grosze` is sent as the refund value only with `partial: true`; otherwise dpay refunds what is
  * left of the transaction (an automatic refund is always the whole payment).
+ *
+ * An organizer refund (Plan 6, D6-18) passes `organizer: true`:
+ *   - dpay's 410 is stored as `unknown`, not `rejected` (ruling 3): an earlier refund that was never
+ *     confirmed may have taken the money, so the reservation is kept for the operator;
+ *   - it settles through `finish_organizer_refund`, never `settle_refund` (which refuses it), and
+ *     `onSettled(result)` receives that RPC's answer ({ status, settled, cancelled, hostWithdraw });
+ *   - no `sendRefundNotice`: the runner gets the club's organizerRefundEmail from the caller;
+ *   - insufficient_balance is never retried, so the caller raises its alert (this function raises
+ *     none for it, as for an automatic refund the retry job owns).
  * → the outcome string. Never throws.
  */
-export async function executeRefund(admin, cfg, { orderId, txn, refundId, messageId, attemptId = null, grosze, reason, partial = false, source = null }) {
+export async function executeRefund(admin, cfg, {
+  orderId, txn, refundId, messageId, attemptId = null, grosze, reason, partial = false, source = null,
+  organizer = false, onSettled = null,
+}) {
   let result
   try {
     result = await refundTransaction(cfg, { transactionId: txn, messageId, ...(partial ? { grosze } : {}) })
   } catch (err) {
     result = { outcome: 'unknown', httpStatus: null, message: String(err?.message ?? err) }
   }
+  if (organizer && result.httpStatus === 410) result = { ...result, outcome: 'unknown' }
   await logPaymentEvent(admin, {
     kind: 'refund',
     orderId,
@@ -478,19 +491,22 @@ export async function executeRefund(admin, cfg, { orderId, txn, refundId, messag
     },
   })
   let settled = null
+  const outcome = SETTLED.has(result.outcome) ? result.outcome : 'unknown'
+  const settleFn = organizer ? 'finish_organizer_refund' : 'settle_refund'
   try {
-    const { data, error } = await admin.rpc('settle_refund', { p_refund_id: refundId, p_outcome: SETTLED.has(result.outcome) ? result.outcome : 'unknown' })
+    const { data, error } = await admin.rpc(settleFn, { p_refund_id: refundId, p_outcome: outcome })
     if (error) throw error
-    settled = data
+    settled = organizer ? data?.settled : data
+    if (onSettled) await onSettled(data)
   } catch (err) {
-    console.error('settle_refund failed:', err?.message)
+    console.error(`${settleFn} failed:`, err?.message)
     await raiseAlert(admin, 'refund_settle_failed', orderId, { refundId, outcome: result.outcome })
   }
   // 'already_settled': a final state (accepted / rejected) was recorded by someone else; the
   // follow-up belongs to them.
   if (settled === 'already_settled') return result.outcome
   if (result.outcome === 'accepted') {
-    await sendRefundNotice(admin, orderId, grosze, reason === 'double_payment' ? 'double' : (reason ?? 'late'))
+    if (!organizer) await sendRefundNotice(admin, orderId, grosze, reason === 'double_payment' ? 'double' : (reason ?? 'late'))
   } else if (result.outcome !== 'insufficient_balance') {
     await raiseAlert(admin, `refund_${result.outcome}`, orderId, {
       refundId, txn, grosze, reason, httpStatus: result.httpStatus,

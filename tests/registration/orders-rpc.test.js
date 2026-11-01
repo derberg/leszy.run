@@ -528,7 +528,7 @@ test('record_refund / settle_refund (P3-R6, D6-20): message id from the refund i
   assert.equal(done.dpay_status, 'accepted')
   assert.equal(done.attempts, 0)
   // The money left once: no second refund of it.
-  const twice = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: out.total, p_kind: 'organizer', p_reason: 'x' })
+  const twice = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: out.total, p_kind: 'automatic', p_reason: 'x' })
   assert.equal(twice.error?.message, 'invalid_amount')
 
   // A rejected refund is final too, and frees its amount for a new attempt.
@@ -546,7 +546,7 @@ test('record_refund / settle_refund (P3-R6, D6-20): message id from the refund i
   assert.equal(bad.error?.message, 'invalid_outcome')
   const missing = await rpc('settle_refund', { p_refund_id: crypto.randomUUID(), p_outcome: 'accepted' })
   assert.equal(missing.error?.message, 'not_found')
-  const zero = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: 0, p_kind: 'organizer', p_reason: 'x' })
+  const zero = await rpc('record_refund', { p_attempt_id: att.id, p_grosze: 0, p_kind: 'automatic', p_reason: 'x' })
   assert.equal(zero.error?.message, 'invalid_amount')
 })
 

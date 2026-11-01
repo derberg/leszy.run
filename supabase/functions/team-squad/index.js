@@ -2,10 +2,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { checkAndIncrement } from '../_shared/throttle.js'
-import { clientIp, clubRegistrationEnabled } from '../_shared/organizer.js'
+import { clientIp, clubRegistrationEnabled, logOrganizerAction } from '../_shared/organizer.js'
 import { isEmailRetired, RETIRED_EMAIL_MESSAGE } from '../_shared/deletedEmails.js'
 import { sendEmail } from '../_shared/email.js'
-import { isUuid } from '../_shared/registration/organizerEvent.js'
+import { isUuid, loadOrganizerEvent } from '../_shared/registration/organizerEvent.js'
 import { ageOn } from '../_shared/registration/ageGroups.js'
 import { paymentStatusOf, registrationRole } from '../_shared/registration/group.js'
 import { validateSquadMember } from '../_shared/registration/team.js'
@@ -24,6 +24,8 @@ const HOUR = 3600
 const DAY = 86400
 const LIVE = ['confirmed', 'pending_payment']
 const ACTIONS = ['get', 'reorder', 'swap', 'add']
+const ORGANIZERS = ['owner', 'admin']
+const MINOR_BY_ORGANIZER = 'Dziecko do składu dopisuje kapitan drużyny.'
 // An entry whose person deleted the account carries this as both names: shown once.
 const DELETED = 'Usunięte konto'
 
@@ -122,7 +124,7 @@ async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName,
     if (confirmed && removed?.email && removed.email.toLowerCase() !== person.email?.toLowerCase()) {
       await mail('removed', removed.email, squadRemovedEmail({ event: args.event, team: args.team, firstName: removed.firstName }))
     }
-    await mail('summary', captainEmail, squadChangedEmail({
+    if (captainEmail) await mail('summary', captainEmail, squadChangedEmail({
       ...args,
       removedName: removed?.firstName ?? null,
       addedName: `${person.firstName} ${person.lastName}`,
@@ -141,8 +143,14 @@ async function tellPeople(admin, { teamId, confirmed, captainEmail, captainName,
 //   reorder { legs: [registrationId…] }  every live member, in running order
 //   swap    { registrationId, person, guardianConsent?, acceptedConsentIds?, serviceRegulamin? }
 //   add     { person, guardianConsent?, acceptedConsentIds?, serviceRegulamin? }
-// The captain's session only: 401 without one, 404 for anybody else and for a disabled club. A
-// read of a released team is 404 too: its squad is gone. An edit there is 409 team_inactive.
+// The captain's session, or the owner or an admin of the event's club (Plan 6, ruling 11: the
+// organizer edits a squad whose captain deleted the account or asked the club to). 401 without a
+// session, 404 for anybody else and for a disabled club; a plain club member gets 404 for a read
+// and 403 for an edit (D6-1). A read of a released team is 404 too: its squad is gone. An edit
+// there is 409 team_inactive. The organizer cannot bring in a child (422 minor_by_organizer: the
+// one who registers a child is their guardian), and every organizer edit is in organizer_actions
+// (`squad_edited_by_organizer`). The captain's summary e-mail goes to the captain's address on the
+// entry, so nowhere once the captain deleted the account.
 // A person is checked here and their role comes from the birth date, never from the request. A
 // child's acceptances are the captain's as guardian, so they carry the event's consents and the
 // service regulamin; an adult accepts for themself from the e-mail, so an adult's edit needs neither.
@@ -169,8 +177,15 @@ Deno.serve(async (req) => {
       .select('id, name, event_id, category_id, captain_registration_id, released_at').eq('id', teamId).maybeSingle())
     if (!team) return json(NOT_FOUND, 404, req)
     const captain = await single(admin.from('registrations')
-      .select('profile_id, first_name, last_name').eq('id', team.captain_registration_id).single())
-    if (!captain.profile_id || captain.profile_id !== session.userId) return json(NOT_FOUND, 404, req)
+      .select('profile_id, first_name, last_name, email').eq('id', team.captain_registration_id).single())
+    const isCaptain = !!captain.profile_id && captain.profile_id === session.userId
+    if (!isCaptain) {
+      // Not the captain: the club's owner or an admin, or nobody. The event is the team's.
+      const loaded = await loadOrganizerEvent(admin, team.event_id, session, { write: action !== 'get', req })
+      if (loaded instanceof Response) return loaded
+      if (!ORGANIZERS.includes(loaded.role)) return json(NOT_FOUND, 404, req)
+    }
+    const asOrganizer = !isCaptain
     const [settings, competition] = await Promise.all([
       single(admin.from('registration_settings').select('*').eq('event_id', team.event_id).single()),
       single(admin.from('competitions').select('*').eq('category_id', team.category_id).single()),
@@ -204,6 +219,9 @@ Deno.serve(async (req) => {
         return json({ error: 'Popraw zaznaczone pola.', code: 'invalid_person', fields: checked.errors }, 400, req)
       }
       ;[person] = rpcPeople([checked.value])
+      if (asOrganizer && person.role === 'minor') {
+        return json({ error: MINOR_BY_ORGANIZER, code: 'minor_by_organizer' }, 422, req)
+      }
 
       if (person.role === 'minor') {
         if (body.serviceRegulamin !== true) {
@@ -222,7 +240,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: result, error } = await admin.rpc('team_squad_edit', {
-      p_team_id: team.id, p_actor_profile_id: session.userId, p_op: op, p_meta: meta,
+      p_team_id: team.id, p_actor_profile_id: session.userId, p_op: op, p_meta: meta, p_as_organizer: asOrganizer,
     })
     if (error) {
       const refused = await squadRefusal(admin, error, { person, email })
@@ -230,13 +248,23 @@ Deno.serve(async (req) => {
       throw error
     }
 
+    if (asOrganizer) {
+      await logOrganizerAction(admin, req, {
+        actorId: session.userId, clubId: settings.club_id, eventId: settings.event_id,
+        action: 'squad_edited_by_organizer', target: team.id,
+        payload: { op: action, added: (result?.added ?? []).map((a) => a.id), removed: (result?.removed ?? []).map((r) => r.id) },
+      })
+    }
     const view = await squadView(admin, team, settings, competition)
     if (person) {
+      const clubName = asOrganizer
+        ? (await single(admin.from('clubs').select('name').eq('id', settings.club_id).single())).name
+        : null
       await tellPeople(admin, {
         teamId: team.id,
         confirmed: view.team.status === 'confirmed',
-        captainEmail: email,
-        captainName: `${captain.first_name} ${captain.last_name}`,
+        captainEmail: asOrganizer ? captain.email : email,
+        captainName: asOrganizer ? clubName : `${captain.first_name} ${captain.last_name}`,
         person,
         result,
       })

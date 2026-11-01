@@ -194,6 +194,29 @@ export function paymentRefundedEmail({ event, order, amount, reason }) {
   return { subject: `Płatność zwrócona — ${event.name}`, text, html }
 }
 
+/**
+ * An organizer's refund (Plan 6), sent as the club: plain text only, like every organizer message
+ * (spec 12.10). event { name }, person { firstName, lastName } (the entry, null names for a deleted
+ * account), grosze (this refund), cancelled (the refund cancelled the entry), organizer { name }.
+ */
+export function organizerRefundEmail({ event, person, grosze, cancelled, organizer }) {
+  const amount = formatPln(grosze)
+  const who = [person?.firstName, person?.lastName].filter(Boolean).join(' ')
+  const entry = who ? `zgłoszenia: ${who}` : 'zgłoszenia'
+  const text = [
+    'Cześć,',
+    '',
+    `organizator zawodów ${event.name}, ${organizer.name}, zwrócił ${amount} z opłaty za ${entry}.`,
+    ...(cancelled ? ['', 'Zgłoszenie zostało anulowane.'] : []),
+    '',
+    'Pieniądze wrócą tą samą drogą, którą zostały wysłane, zwykle w ciągu kilku dni roboczych.',
+    'Pytania o zwrot kieruj do organizatora: wystarczy odpowiedzieć na tę wiadomość.',
+    '',
+    organizer.name,
+  ].join('\n')
+  return { subject: `Zwrot ${amount} — ${event.name}`, text }
+}
+
 /** Operator digest of operator_alerts rows: [{ kind, orderId, payload, createdAt }]. */
 export function operatorAlertEmail({ alerts }) {
   const kinds = [...new Set(alerts.map((a) => a.kind))]

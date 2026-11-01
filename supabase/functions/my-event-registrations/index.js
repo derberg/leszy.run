@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
+import { allRows } from '../_shared/registration/allRows.js'
 import { isValidSlug } from '../_shared/registration/slug.js'
 import { registrationRole } from '../_shared/registration/group.js'
 import { kidsGroupLabels } from '../_shared/registration/kidsGroupLabels.js'
@@ -12,18 +13,7 @@ function json(body, status, req) {
   })
 }
 
-const PAGE = 1000
 
-// PostgREST caps a response at 1000 rows, so every list read pages.
-async function allRows(makeQuery) {
-  const out = []
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await makeQuery().range(from, from + PAGE - 1)
-    if (error) throw error
-    out.push(...data)
-    if (data.length < PAGE) return out
-  }
-}
 
 // POST { slug } → 200 { data: [{ id, competition, ageGroupLabel, startTime,
 // firstName, lastName, status, createdAt, role: self|adult|minor, consentState,
