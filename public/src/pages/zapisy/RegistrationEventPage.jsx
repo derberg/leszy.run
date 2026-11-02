@@ -198,34 +198,50 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
           </section>
         )}
 
-        {(m.startPlace || m.office.length > 0 || m.officePlace) && (
-          <div className="grid sm:grid-cols-2 gap-2">
-            {m.startPlace && (
-              <div className="border border-apex-border px-3.5 py-3 flex flex-col gap-1 min-w-0" data-testid="start">
-                <span className={labelCls}>Start</span>
-                <PlaceLine place={m.startPlace} testId="start-place" />
-              </div>
-            )}
-            {(m.office.length > 0 || m.officePlace) && (
-              <div className="border border-apex-border px-3.5 py-3 flex flex-col gap-1 min-w-0" data-testid="office">
-                <span className={labelCls}>Biuro zawodów</span>
-                {m.office.length > 0 && (
-                  <span className="text-base text-apex-text-bright">
-                    {m.office.map((h) => (
-                      <span key={h.label + h.hours + (h.note ?? '')} className="block">
-                        {h.label} · {h.hours}
-                        {h.note && <span className="block text-sm text-apex-muted" data-testid="office-hours-note">{h.note}</span>}
-                      </span>
-                    ))}
-                  </span>
-                )}
-                {m.officeAtStart && m.startPlace
-                  ? <span className="text-[15px]" data-testid="office-at-start">W miejscu startu</span>
-                  : <PlaceLine place={m.officePlace} testId="office-place" />}
-              </div>
-            )}
+        {m.startPlace && (
+          <div className="border border-apex-border px-3.5 py-3 flex flex-col gap-1 min-w-0" data-testid="start">
+            <span className={labelCls}>Start</span>
+            <PlaceLine place={m.startPlace} testId="start-place" />
           </div>
         )}
+        <div className={`grid gap-2 ${m.office.length > 0 || m.officePlace ? 'sm:grid-cols-2' : ''}`}>
+          {(m.office.length > 0 || m.officePlace) && (
+            <div className="border border-apex-border px-3.5 py-3 flex flex-col gap-1 min-w-0" data-testid="office">
+              <span className={labelCls}>Biuro zawodów</span>
+              {m.office.length > 0 && (
+                <span className="text-base text-apex-text-bright">
+                  {m.office.map((h) => (
+                    <span key={h.label + h.hours + (h.note ?? '')} className="block">
+                      {h.label} · {h.hours}
+                      {h.note && <span className="block text-sm text-apex-muted" data-testid="office-hours-note">{h.note}</span>}
+                    </span>
+                  ))}
+                </span>
+              )}
+              {m.officeAtStart && m.startPlace
+                ? <span className="text-[15px]" data-testid="office-at-start">W miejscu startu</span>
+                : <PlaceLine place={m.officePlace} testId="office-place" />}
+            </div>
+          )}
+          <div className="border border-apex-border px-3.5 py-3 flex flex-col gap-2" data-testid="event-info">
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className={labelCls}>Regulamin</span>
+              {m.regulaminUrl
+                ? (
+                  <a href={m.regulaminUrl} target="_blank" rel="noopener noreferrer" className={`text-base ${linkCls}`} data-testid="regulamin-link">
+                    Regulamin zawodów{raw.regulamin?.kind === 'pdf' ? ' (PDF)' : ''} ↗
+                  </a>
+                )
+                : <span className="text-base text-apex-muted" data-testid="regulamin-missing">Organizator nie dodał jeszcze regulaminu</span>}
+            </div>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className={labelCls}>Kontakt z organizatorem</span>
+              {m.contactEmail
+                ? <a href={`mailto:${m.contactEmail}`} className={`text-base break-all ${linkCls}`} data-testid="contact-link">{m.contactEmail}</a>
+                : <span className="text-base text-apex-muted" data-testid="contact-missing">Organizator nie podał jeszcze adresu</span>}
+            </div>
+          </div>
+        </div>
 
         <div className="flex justify-between items-baseline gap-3">
           <span className={labelCls}>{anyOpen ? 'Wybierz konkurencję' : 'Konkurencje'}</span>
@@ -250,25 +266,6 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
             <CoursePanel courses={m.courses} compact />
           </section>
         )}
-
-        <div className="border border-apex-border px-3.5 py-3 flex flex-col gap-2" data-testid="event-info">
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className={labelCls}>Regulamin</span>
-            {m.regulaminUrl
-              ? (
-                <a href={m.regulaminUrl} target="_blank" rel="noopener noreferrer" className={`text-base ${linkCls}`} data-testid="regulamin-link">
-                  Regulamin zawodów{raw.regulamin?.kind === 'pdf' ? ' (PDF)' : ''} ↗
-                </a>
-              )
-              : <span className="text-base text-apex-muted" data-testid="regulamin-missing">Organizator nie dodał jeszcze regulaminu</span>}
-          </div>
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className={labelCls}>Kontakt z organizatorem</span>
-            {m.contactEmail
-              ? <a href={`mailto:${m.contactEmail}`} className={`text-base break-all ${linkCls}`} data-testid="contact-link">{m.contactEmail}</a>
-              : <span className="text-base text-apex-muted" data-testid="contact-missing">Organizator nie podał jeszcze adresu</span>}
-          </div>
-        </div>
       </div>
     </div>
   )
