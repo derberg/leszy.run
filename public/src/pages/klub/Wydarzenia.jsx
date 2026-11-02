@@ -69,11 +69,15 @@ function AgreementCard({ club, isOwner, version }) {
   return (
     <section data-testid="agreement-pending" className={cardClass}>
       <div className={eyebrowClass}>Umowa organizatora · wersja <span className="normal-case">{version}</span></div>
+      <h2 className="font-display font-extrabold text-xl uppercase text-apex-text-bright">Zapisy online są włączone</h2>
+      <p className="font-sans text-sm text-apex-text">
+        Zanim klub utworzy pierwsze wydarzenie, właściciel klubu akceptuje umowę organizatora. Umowa mówi, jak LESZY.RUN przyjmuje w imieniu klubu zgłoszenia i opłaty startowe, kiedy wypłaca pieniądze i kto odpowiada za dane uczestników.
+      </p>
       {!isOwner && (
-        <p className="font-sans text-sm text-apex-text">Umowę akceptuje właściciel klubu</p>
+        <p className="font-sans text-sm text-apex-text">Umowę akceptuje właściciel klubu. Do tego czasu nie da się utworzyć wydarzenia.</p>
       )}
       <Link to={`/klub/${club.slug}/wydarzenia/umowa`} className={`${primaryBtnClass} inline-block no-underline`}>
-        Umowa organizatora →
+        {isOwner ? 'Przeczytaj i zaakceptuj umowę →' : 'Przeczytaj umowę →'}
       </Link>
     </section>
   )

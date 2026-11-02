@@ -74,7 +74,7 @@ test('F-20 inny-klub: no payout section and no agreement while the club is not e
     await expect(umowa.getByTestId('waitlist')).toBeVisible()
     await expect(umowa.getByTestId('organizer-agreement')).toHaveCount(0)
     await expect(umowa.getByRole('button', { name: 'Akceptuję umowę' })).toHaveCount(0)
-    await expect(umowa.getByRole('link', { name: 'Umowa organizatora' })).toHaveCount(0)
+    await expect(umowa.getByRole('link', { name: /Przeczytaj.*umowę/ })).toHaveCount(0)
   }
   const { data } = await admin().from('organizer_agreements').select('id').eq('club_id', IK)
   expect(data.length).toBe(0)
@@ -83,6 +83,7 @@ test('F-20 inny-klub: no payout section and no agreement while the club is not e
 test('F-20 zatyrani-test: the owner accepts the agreement, then owner and admin get the new-event button', async ({ actors }) => {
   const adm = await open(actors.admin, '/klub/zatyrani-test/wydarzenia')
   await expect(adm.getByText('Umowę akceptuje właściciel klubu')).toBeVisible()
+  await expect(adm.getByRole('link', { name: 'Przeczytaj umowę →' })).toBeVisible()
   await expect(adm.getByRole('button', { name: /Nowe wydarzenie/ })).toHaveCount(0)
 
   const member = await open(actors.member, '/klub/zatyrani-test/wydarzenia')
@@ -95,7 +96,7 @@ test('F-20 zatyrani-test: the owner accepts the agreement, then owner and admin 
   await expect(member.getByText('Umowę akceptuje właściciel klubu')).toHaveCount(0)
 
   const owner = await open(actors.owner, '/klub/zatyrani-test/wydarzenia')
-  await owner.getByRole('link', { name: 'Umowa organizatora' }).click()
+  await owner.getByRole('link', { name: 'Przeczytaj i zaakceptuj umowę →' }).click()
   await expect(owner).toHaveURL(/\/klub\/zatyrani-test\/wydarzenia\/umowa$/)
   await owner.getByRole('button', { name: 'Akceptuję umowę' }).click()
   await expect(owner).toHaveURL(/\/klub\/zatyrani-test\/wydarzenia$/)
