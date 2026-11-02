@@ -18,7 +18,7 @@
 > `dismissed_duplicates`, the `partner-logos` storage write policies (`TO public`) were dropped,
 > and TRUNCATE was revoked from anon and authenticated on every public table.
 
-> **Superseded in part on 2026-11-02** (migration `20261108200000_event_partners_unified.sql`).
+> **Superseded in part on 2026-11-02** (migration `20261109200000_event_partners_unified.sql`).
 > `event_partners` now also holds Plan 7's discount-code partners (`registration_partners` was
 > merged into it and dropped), with an organizer-only `note` and an `is_public` switch. anon and
 > authenticated hold SELECT on `id, event_id, name, logo_url, website_url, sort_order` only (a
@@ -110,7 +110,7 @@ HaveIBeenPwned integration in Supabase Auth. This project uses **magic-link / OT
 
 ### WARN — public_bucket_allows_listing (1)
 
-`partner-logos` bucket has a broad SELECT policy allowing clients to list all objects. Not a GDPR issue (logos are non-personal). **Resolved 2026-11-02**: the policy was dropped (`20261108200000_event_partners_unified.sql`), because a hidden partner's logo must not be findable by listing.
+`partner-logos` bucket has a broad SELECT policy allowing clients to list all objects. Not a GDPR issue (logos are non-personal). **Resolved 2026-11-02**: the policy was dropped (`20261109200000_event_partners_unified.sql`), because a hidden partner's logo must not be findable by listing.
 
 ---
 
