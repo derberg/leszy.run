@@ -12,6 +12,15 @@ const TITLE_MAX = 140
 
 const blank = (v) => v == null || String(v).trim() === ''
 
+/**
+ * The club's details name the Organizer (agreement §1 ust. 2): a name, a NIP
+ * and an address. That is what a paid event needs to publish. The account
+ * number is needed only to pay out (§7) and may come later.
+ */
+export function organizerIdentityReady(row) {
+  return !!row && !blank(row.legal_name) && !blank(row.nip) && !blank(row.address)
+}
+
 /** A stored other account is complete: a recipient, a valid NIP and a valid Polish IBAN. */
 export function customPayoutReady(row) {
   return !!row && !blank(row.payout_recipient) && isValidNip(row.payout_tax_id) && isValidPolishIban(row.payout_iban)
@@ -37,20 +46,24 @@ export function validateEventPayout({ mode, recipient, taxId, iban, title } = {}
   }
 }
 
-/** → { mode: 'club'|'custom', ready: boolean } for the checklist; reads no more than it needs. */
+/**
+ * → { mode: 'club'|'custom', ready, ibanMissing, ... } for the checklist; reads no more than it needs.
+ * `ready`: a paid event may publish. `ibanMissing`: it may, but the club account has no number yet.
+ */
 export async function payoutState(admin, settings) {
   const { data: row, error } = await admin.from('event_payout_details')
     .select('payout_mode, payout_recipient, payout_tax_id, payout_iban').eq('event_id', settings.event_id).maybeSingle()
   if (error) throw error
   const { data: club, error: cErr } = await admin.from('club_payout_details')
-    .select('club_id').eq('club_id', settings.club_id).maybeSingle()
+    .select('legal_name, nip, address, iban').eq('club_id', settings.club_id).maybeSingle()
   if (cErr) throw cErr
   // The club's own details name the Organizer (name, NIP, address), the party to
   // the organizer agreement (§1 ust. 2): a paid event needs them even when its
   // money goes to another account, so a club with no legal identity stays free.
+  const clubReady = organizerIdentityReady(club)
   if (row?.payout_mode === 'custom') {
     const accountReady = customPayoutReady(row)
-    return { mode: 'custom', ready: accountReady && !!club, accountReady, clubReady: !!club }
+    return { mode: 'custom', ready: accountReady && clubReady, accountReady, clubReady, ibanMissing: false }
   }
-  return { mode: 'club', ready: !!club }
+  return { mode: 'club', ready: clubReady, ibanMissing: clubReady && blank(club.iban) }
 }

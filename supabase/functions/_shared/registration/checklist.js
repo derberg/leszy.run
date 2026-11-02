@@ -113,7 +113,7 @@ function datedItems(event, s, block) {
 }
 
 /**
- * @param {{ settings: object, competitions?: object[], officeHours?: object[], extras?: object[], hasAgreement: boolean, payout?: { mode: string, ready: boolean } }} event
+ * @param {{ settings: object, competitions?: object[], officeHours?: object[], extras?: object[], hasAgreement: boolean, payout?: { mode: string, ready: boolean, ibanMissing?: boolean } }} event
  * @returns {{ blocking: { key: string, label: string }[], missing: { key: string, label: string, step: string }[] }}
  */
 export function publishChecklist(event) {
@@ -148,12 +148,17 @@ export function publishChecklist(event) {
   if (!PAID_REGISTRATION_ENABLED && paid) block('payments', PAYMENTS_SOON[reason])
   if (paid && !event?.payout?.ready) {
     // An incomplete other account is named first; a complete one still needs the
-    // club's own details (agreement §1 ust. 2), which live in club settings.
+    // club's own name, NIP and address (agreement §1 ust. 2), set in club settings.
     const p = event?.payout
     const custom = p?.mode === 'custom' && (p.accountReady === false || p.clubReady !== false)
     block('payout', custom ? 'Dane do wypłat tego wydarzenia' : 'Uzupełnij dane do wypłat w ustawieniach klubu')
   }
 
+  // Publishing needs the Organizer named, not the account: the number is needed
+  // only for the payout, 7 days after the race (agreement §7 ust. 2).
+  if (paid && event?.payout?.ready && event.payout.ibanMissing) {
+    missing.push({ key: 'payout_iban', label: 'Numer rachunku do wypłat', step: 'platnosci' })
+  }
   if (!(event?.officeHours ?? []).length) {
     missing.push({ key: 'office_hours', label: 'Godziny otwarcia biura zawodów', step: 'biuro' })
   }

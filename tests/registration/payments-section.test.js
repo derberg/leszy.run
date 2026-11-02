@@ -326,11 +326,23 @@ test('P-42 a paid draft: club account without club payout details blocks; with t
   assert.equal(refused.status, 409)
   assert.deepEqual(refused.body.blocking.map((b) => b.key), ['payout'])
 
-  const { error } = await db().from('club_payout_details').insert({
-    club_id: own.clubId, legal_name: 'Klub', nip: NIP, iban: IBAN, address: 'ul. Leśna 1',
-  })
+  // A name alone does not name the Organizer: still blocks.
+  const { error: partialErr } = await db().from('club_payout_details').insert({ club_id: own.clubId, legal_name: 'Klub' })
+  assert.ifError(partialErr)
+  assert.deepEqual((await blocking()).map((b) => b.key), ['payout'])
+
+  // Name, NIP and address without an account number: publishable, the number is asked for (P-42b).
+  const { error: idErr } = await db().from('club_payout_details').update({ nip: NIP, address: 'ul. Leśna 1' }).eq('club_id', own.clubId)
+  assert.ifError(idErr)
+  const noIban = (await callFn('get-registration-event', ownerS, { eventId })).body.data.checklist
+  assert.deepEqual(noIban.blocking, [])
+  assert.ok(noIban.missing.some((m) => m.key === 'payout_iban'), JSON.stringify(noIban.missing))
+
+  const { error } = await db().from('club_payout_details').update({ iban: IBAN }).eq('club_id', own.clubId)
   assert.ifError(error)
   assert.deepEqual(await blocking(), [])
+  assert.equal((await callFn('get-registration-event', ownerS, { eventId })).body.data.checklist.missing
+    .some((m) => m.key === 'payout_iban'), false)
 
   // Another account, valid: nothing blocks, and the paid event publishes (PAID_REGISTRATION_ENABLED).
   assert.equal((await setPayout(eventId, CUSTOM, ownerS)).status, 200)
@@ -339,6 +351,35 @@ test('P-42 a paid draft: club account without club payout details blocks; with t
   assert.equal(published.status, 200, JSON.stringify(published.body))
   const after = await settingsOf(eventId)
   assert.deepEqual([after.state, after.pricing_mode], ['published', 'fixed'])
+})
+
+test('P-42b a paid event publishes with the Organizer named and no account number; switching back to the club account is allowed', async () => {
+  const own = await makeClub({ slug: `p3-pay42b-${rand()}` })
+  const ownerS = await sessionFor(own.ownerEmail)
+  const created = await callFn('create-registration-event', ownerS, { clubId: own.clubId, name: `Bieg bez rachunku ${rand()}` })
+  assert.equal(created.status, 201)
+  const eventId = created.body.data.eventId
+  const sec = (section, value) => callFn('save-registration-section', ownerS, { eventId, section, value })
+  assert.equal((await sec('basics', {
+    eventDate: '2027-03-14', opensOn: '2027-01-10', closesOn: '2027-03-12', townLabel: 'Nieborowice', lat: 50.2381, lng: 18.5412,
+    regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf', contactEmail: 'zapisy@klub.example',
+  })).status, 200)
+  assert.equal((await sec('competitions', { pricingMode: 'fixed', items: [{
+    name: 'Bieg 9 km', kind: 'individual', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50, price: '60',
+  }] })).status, 200)
+
+  // A published paid event on another account may switch to the club account only once the
+  // Organizer is named; the account number is not required (save_event_payout).
+  const { error } = await db().from('club_payout_details').insert({ club_id: own.clubId, legal_name: 'Klub', nip: NIP, address: 'ul. Leśna 1' })
+  assert.ifError(error)
+  const published = await callFn('publish-registration-event', ownerS, { eventId, action: 'publish' })
+  assert.equal(published.status, 200, JSON.stringify(published.body))
+  assert.equal((await settingsOf(eventId)).state, 'published')
+
+  assert.equal((await setPayout(eventId, CUSTOM, ownerS)).status, 200)
+  assert.equal((await setPayout(eventId, { mode: 'club' }, ownerS)).status, 200)
+  const live = (await callFn('get-registration-event', ownerS, { eventId })).body.data.checklist
+  assert.ok(live.missing.some((m) => m.key === 'payout_iban'), JSON.stringify(live.missing))
 })
 
 test('P-42 an incomplete other account stored directly (no edge function) blocks a paid event', async () => {

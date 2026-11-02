@@ -92,14 +92,16 @@ The current agreement version is the string in
 git -C /Users/derberg/Documents/GitHub/BeepBeep show origin/main:supabase/functions/_shared/organizer.js | grep ORGANIZER_AGREEMENT_VERSION
 ```
 
-Enabled clubs with their owner, latest accepted version and whether payout
-details exist. The IBAN is masked **in the query**, so the full value never
-reaches the terminal:
+Enabled clubs with their owner, latest accepted version and how far the payout
+details go. They can be saved in parts: `identity_ready` (name, NIP and address)
+is what a paid event needs to publish; a missing IBAN only blocks the payout.
+The IBAN is masked **in the query**, so the full value never reaches the terminal:
 
 ```sql
 SELECT c.id, c.name, c.slug, o.username AS owner,
        a.version AS latest_agreement, a.accepted_at,
        (d.club_id IS NOT NULL) AS has_payout,
+       (d.legal_name IS NOT NULL AND d.nip IS NOT NULL AND d.address IS NOT NULL) AS identity_ready,
        CASE WHEN d.iban IS NULL THEN NULL
             WHEN length(regexp_replace(d.iban, '\s', '', 'g')) < 12 THEN '••••'
             ELSE left(regexp_replace(d.iban, '\s', '', 'g'), 4) || ' … ' ||

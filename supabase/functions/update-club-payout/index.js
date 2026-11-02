@@ -46,35 +46,41 @@ Deno.serve(async (req) => {
     if (role !== 'owner') return json({ error: 'Dane do wypłat zmienia właściciel klubu.' }, 403, req)
     if (!(await clubRegistrationEnabled(admin, clubId))) return json({ error: 'Not found' }, 404, req)
 
+    // Every field is optional: the owner may save what they have and come back.
+    // A paid event publishes once the name, NIP and address are in (the
+    // Organizer, §1 ust. 2); the account is needed only for the payout (§7).
     const name = String(legalName ?? '').trim()
     const addr = String(address ?? '').trim()
-    if (!name) return json({ error: 'Podaj nazwę podmiotu.' }, 400, req)
-    if (!addr) return json({ error: 'Podaj adres.' }, 400, req)
+    const nipIn = String(nip ?? '').trim()
+    const krsIn = String(krs ?? '').trim()
+    const ibanIn = String(iban ?? '').trim()
+    if (!name && !addr && !nipIn && !krsIn && !ibanIn) return json({ error: 'Wpisz co najmniej jedno pole.' }, 400, req)
     if (name.length > 200) return json({ error: 'Nazwa podmiotu jest za długa (maks. 200 znaków).' }, 400, req)
     if (addr.length > 300) return json({ error: 'Adres jest za długi (maks. 300 znaków).' }, 400, req)
-    if (!isValidNip(nip)) return json({ error: 'Nieprawidłowy NIP.' }, 400, req)
-    if (!isValidKrs(krs)) return json({ error: 'Nieprawidłowy KRS.' }, 400, req)
-    if (!isValidPolishIban(iban)) return json({ error: 'Nieprawidłowy numer rachunku.' }, 400, req)
+    if (nipIn && !isValidNip(nipIn)) return json({ error: 'Nieprawidłowy NIP.' }, 400, req)
+    if (!isValidKrs(krsIn)) return json({ error: 'Nieprawidłowy KRS.' }, 400, req)
+    if (ibanIn && !isValidPolishIban(ibanIn)) return json({ error: 'Nieprawidłowy numer rachunku.' }, 400, req)
 
     const next = {
-      legal_name: name,
-      nip: normalizeNip(nip),
-      krs: krs && String(krs).trim() ? String(krs).trim() : null,
-      iban: normalizeIban(iban),
-      address: addr,
+      legal_name: name || null,
+      nip: nipIn ? normalizeNip(nipIn) : null,
+      krs: krsIn || null,
+      iban: ibanIn ? normalizeIban(ibanIn) : null,
+      address: addr || null,
     }
 
     const { data: club } = await admin.from('clubs').select('name, owner_id').eq('id', clubId).maybeSingle()
     if (!club) return json({ error: 'Not found' }, 404, req)
 
     // The name, NIP and KRS name the Organizer, the party to the organizer
-    // agreement (§1 ust. 2): once saved they change only by hand, after the
-    // owner writes in, so a new entity never takes over a club's agreement
-    // unnoticed. The account and the address stay editable (§7 ust. 4).
+    // agreement (§1 ust. 2): once the name and the NIP are both saved, the three
+    // change only by hand, after the owner writes in, so a new entity never
+    // takes over a club's agreement unnoticed. Until then a partial save is a
+    // draft and stays editable. The account and the address always do (§7 ust. 4).
     const { data: current, error: curErr } = await admin.from('club_payout_details')
       .select('legal_name, nip, krs').eq('club_id', clubId).maybeSingle()
     if (curErr) throw curErr
-    if (current && IDENTITY_FIELDS.some((f) => (current[f] ?? null) !== next[f])) {
+    if (current?.legal_name && current?.nip && IDENTITY_FIELDS.some((f) => (current[f] ?? null) !== next[f])) {
       return json({ error: IDENTITY_LOCKED_MESSAGE, code: 'identity_locked' }, 409, req)
     }
 

@@ -3,6 +3,7 @@ import { getCorsHeaders, guardRequest } from '../_shared/cors.js'
 import { getSession } from '../_shared/session.js'
 import { clubRole, clubRegistrationEnabled } from '../_shared/organizer.js'
 import { maskIban } from '../_shared/maskIban.js'
+import { organizerIdentityReady } from '../_shared/registration/eventPayout.js'
 
 function json(body, status, req) {
   return new Response(JSON.stringify(body), {
@@ -13,6 +14,7 @@ function json(body, status, req) {
 
 // Payout details for the club settings page. The owner gets every field to
 // edit; an admin gets the name and a masked account number; anyone else 403.
+// Any field may be null: the owner can save the details in parts.
 // A club without online registration (registration_enabled = false) answers 404.
 Deno.serve(async (req) => {
   const guard = guardRequest(req)
@@ -37,11 +39,13 @@ Deno.serve(async (req) => {
     if (error) throw error
     if (!row) return json({ data: null }, 200, req)
 
+    // identityReady: the Organizer is named (name, NIP, address), so a paid event may publish.
+    const identityReady = organizerIdentityReady(row)
     if (role === 'admin') {
-      return json({ data: { legalName: row.legal_name, ibanMasked: maskIban(row.iban) } }, 200, req)
+      return json({ data: { legalName: row.legal_name, ibanMasked: maskIban(row.iban), identityReady } }, 200, req)
     }
     return json({ data: {
-      legalName: row.legal_name, nip: row.nip, krs: row.krs, iban: row.iban, address: row.address,
+      legalName: row.legal_name, nip: row.nip, krs: row.krs, iban: row.iban, address: row.address, identityReady,
     } }, 200, req)
   } catch (err) {
     // Never the whole error: PostgREST details can echo the IBAN or NIP.

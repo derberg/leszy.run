@@ -5,9 +5,11 @@ import { panelClass, panelTitle, formWidth, fieldLabel, fieldInput, errorClass, 
 
 // "Dane do wypłat" in club settings. The owner edits; an admin sees the name
 // and the account masked as "PL61 … 2874" (get-club-payout masks it server-side,
-// so the full number never reaches an admin's browser). Once saved, the name,
-// NIP and KRS are read-only: they name the party to the organizer agreement and
-// change only by hand (update-club-payout answers 409 identity_locked).
+// so the full number never reaches an admin's browser). Every field is optional,
+// so the owner can save what they have. Once the name and NIP are saved, the
+// name, NIP and KRS are read-only: they name the party to the organizer
+// agreement and change only by hand (update-club-payout answers 409 identity_locked).
+// A paid event publishes without the account number; the payout waits for it.
 
 const EMPTY = { legalName: '', nip: '', krs: '', iban: '', address: '' }
 // `wide` spans both columns on desktop; NIP and KRS sit side by side. Numbers stay
@@ -15,7 +17,7 @@ const EMPTY = { legalName: '', nip: '', krs: '', iban: '', address: '' }
 const FIELDS = [
   { key: 'legalName', id: 'payout-legal-name', label: 'Nazwa podmiotu', maxLength: 200, wide: true, identity: true },
   { key: 'nip', id: 'payout-nip', label: 'NIP', inputMode: 'numeric', identity: true },
-  { key: 'krs', id: 'payout-krs', label: 'KRS', inputMode: 'numeric', optional: true, identity: true },
+  { key: 'krs', id: 'payout-krs', label: 'KRS', inputMode: 'numeric', identity: true },
   { key: 'iban', id: 'payout-iban', label: 'Numer rachunku', wide: true },
   { key: 'address', id: 'payout-address', label: 'Adres', maxLength: 300, wide: true },
 ]
@@ -24,18 +26,26 @@ function fromServer(d) {
   return d ? { legalName: d.legalName || '', nip: d.nip || '', krs: d.krs || '', iban: groupIban(d.iban), address: d.address || '' } : EMPTY
 }
 
+// The payout is due within 7 days of the race (agreement §7 ust. 2) and needs the number.
+const IBAN_MISSING = 'Bez numeru rachunku nie wypłacimy środków w terminie 7 dni od zawodów. Uzupełnij go jak najszybciej.'
+
+export function IbanMissing({ className = '' }) {
+  return <p data-testid="payout-iban-missing" className={`font-sans text-sm text-apex-red ${className}`}>{IBAN_MISSING}</p>
+}
+
 function ReadOnly({ payout }) {
   if (!payout) return <p className="font-sans text-sm text-apex-muted">Brak danych do wypłat.</p>
   return (
     <dl className={`space-y-4 ${formWidth}`}>
       <div>
         <dt className={fieldLabel}>Nazwa podmiotu</dt>
-        <dd className="font-sans text-base font-medium text-apex-text-bright break-words">{payout.legalName}</dd>
+        <dd className="font-sans text-base font-medium text-apex-text-bright break-words">{payout.legalName || '—'}</dd>
       </div>
       <div>
         <dt className={fieldLabel}>Rachunek</dt>
-        <dd className="font-mono text-base text-apex-text-bright">{payout.ibanMasked}</dd>
+        <dd className="font-mono text-base text-apex-text-bright">{payout.ibanMasked || '—'}</dd>
       </div>
+      {!payout.ibanMasked && <IbanMissing />}
     </dl>
   )
 }
@@ -75,6 +85,9 @@ export default function PayoutDetails({ clubId, isOwner }) {
     }
   }
 
+  // Locked once the name and NIP are stored, matching update-club-payout.
+  const identityLocked = !!(payout?.legalName && payout?.nip)
+
   return (
     <section data-testid="payout-details" className={panelClass}>
       <h2 className={panelTitle}>Dane do wypłat</h2>
@@ -91,14 +104,15 @@ export default function PayoutDetails({ clubId, isOwner }) {
               <div key={f.key} className={f.wide ? 'sm:col-span-2' : undefined}>
                 <label htmlFor={f.id} className={fieldLabel}>{f.label}</label>
                 <input id={f.id} type="text" value={form[f.key]} inputMode={f.inputMode} maxLength={f.maxLength}
-                  required={!f.optional} autoComplete="off" readOnly={!!payout && f.identity}
+                  autoComplete="off" readOnly={identityLocked && f.identity}
                   onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))}
                   onBlur={f.key === 'iban' ? () => setForm((s) => ({ ...s, iban: groupIban(s.iban) })) : undefined}
-                  className={`${fieldInput} tabular-nums ${payout && f.identity ? 'opacity-70 cursor-not-allowed' : ''}`} />
+                  className={`${fieldInput} tabular-nums ${identityLocked && f.identity ? 'opacity-70 cursor-not-allowed' : ''}`} />
               </div>
             ))}
           </div>
-          {payout && (
+          {payout && !payout.iban && <IbanMissing className="mt-4" />}
+          {identityLocked && (
             <p data-testid="payout-identity-locked" className="font-sans text-sm text-apex-muted mt-4">
               Zmiana nazwy, NIP lub KRS: lukasz@leszy.run
             </p>

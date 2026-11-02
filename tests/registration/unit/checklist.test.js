@@ -155,6 +155,16 @@ test('P-42 paid, another account, but the club has no payout details of its own:
     [{ key: 'payout', label: 'Dane do wypłat tego wydarzenia' }], 'an incomplete other account is named first')
 })
 
+test('P-42b paid, club account named (name, NIP, address) but no account number: publishes, and asks for the number', () => {
+  const r = paid({ mode: 'club', ready: true, ibanMissing: true })
+  assert.deepEqual(r.blocking, [])
+  assert.deepEqual(r.missing.filter((m) => m.key === 'payout_iban'),
+    [{ key: 'payout_iban', label: 'Numer rachunku do wypłat', step: 'platnosci' }])
+  assert.equal(paid({ mode: 'club', ready: true, ibanMissing: false }).missing.some((m) => m.key === 'payout_iban'), false)
+  assert.equal(publishChecklist(complete({ payout: { mode: 'club', ready: true, ibanMissing: true } })).missing
+    .some((m) => m.key === 'payout_iban'), false, 'a free event never asks for the account')
+})
+
 test('P-42 paid with no payout state at all blocks (fail closed)', () => {
   const r = publishChecklist({ ...complete({ settings: { pricingMode: 'fixed' } }), payout: undefined })
   assert.deepEqual(keys(r.blocking), ['payout'])
