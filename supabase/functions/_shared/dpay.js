@@ -173,7 +173,11 @@ function detailsAmount(value) {
  * POST {panelBase}/api/v1/pbl/details { service, transaction_id, checksum }
  * https://docs.dpay.pl/docs/cykl-platnosci/statusy-transakcji/
  * Returns { status: one of created|processing|paid|captured|expired, or null when unrecognised,
- *           grosze: int|null, raw }. Throws DpayError on a non-2xx answer, a timeout or a non-JSON body.
+ *           grosze: int|null, refundedGrosze: int|null, raw }. Throws DpayError on a non-2xx answer,
+ *           a timeout or a non-JSON body.
+ * refundedGrosze is `transaction.refunded_amount` (seen in the sandbox on 2026-11-01, sandbox README:
+ * dpay reports every refund there, also one made in its merchant panel); null when absent or not an
+ * amount parseDpayAmount accepts, which must never be read as "nothing refunded".
  */
 export async function transactionDetails(cfg, txnId) {
   const body = { service: cfg.service, transaction_id: txnId }
@@ -186,6 +190,7 @@ export async function transactionDetails(cfg, txnId) {
   return {
     status: KNOWN_STATUSES.has(t.status) ? t.status : null,
     grosze: detailsAmount(t.value),
+    refundedGrosze: detailsAmount(t.refunded_amount),
     raw: json,
   }
 }

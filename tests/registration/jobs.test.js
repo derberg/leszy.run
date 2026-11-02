@@ -26,7 +26,7 @@ import {
   rows, rpc, runnerEmail, totalFor,
 } from './helpers/orders.js'
 import { adult, orderGroupOk } from './helpers/groups.js'
-import { dpayConfig } from '../../supabase/functions/_shared/dpay.js'
+import { dpayConfig, refundTransaction } from '../../supabase/functions/_shared/dpay.js'
 import { raiseAlert, settleConfirmOutcome } from '../../supabase/functions/_shared/registration/orderFlow.js'
 import { jobsSettings, runJobsAndBeat } from '../../supabase/functions/_shared/registration/jobsRun.js'
 
@@ -896,7 +896,10 @@ test('P3-R16 a run without dpay settings skips the dpay steps (reported, no aler
     assert.equal(settings.dpayMissing, true)
     const data = await runJobsAndBeat(db(), settings, {})
 
-    assert.deepEqual(data.skipped, { refund_retries: 'dpay_not_configured', dpay_check: 'dpay_not_configured' })
+    assert.deepEqual(data.skipped, {
+      refund_retries: 'dpay_not_configured', dpay_check: 'dpay_not_configured', external_refunds: 'dpay_not_configured',
+    })
+    assert.equal(data.externalRefundsChecked, 0)
     assert.equal(data.checked, 0)
     assert.equal(data.refundRetries, 0)
     assert.ok(data.expiredNotices >= 1)
@@ -1160,6 +1163,90 @@ test('O-42 resolve-registration-refund.js without --apply prints the refund, its
   const again = resolveScript(['--refund', id, '--outcome', 'rejected', '--note', 'x', '--apply'])
   assert.notEqual(again.status, 0, 'a settled refund is refused')
   assert.equal((await refundRow(id)).dpay_status, 'accepted')
+})
+
+// ---------------------------------------------------------------- O-47 refunds made in the dpay panel
+
+/** A paid order through the real flow (create-order, pay at the mock, the IPN) → { orderId, txn, total }. */
+async function paidAtMock(tag) {
+  const { orderId, txn } = await pendingOrder({ tag })
+  await payMock(txn, 'paid')
+  for (let i = 0; i < 50 && (await orderOf(orderId)).status !== 'paid'; i++) await sleep(100)
+  const order = await orderOf(orderId)
+  assert.equal(order.status, 'paid')
+  return { orderId, txn, total: order.total }
+}
+
+const externalAlerts = (orderId) => rows('operator_alerts', { order_id: orderId, kind: 'refund_external' })
+const checkedAt = async (orderId) => (await orderOf(orderId)).external_refund_checked_at
+
+test('O-47 a refund made in the dpay panel → one refund_external alert naming the order and the difference, once a day; recorded, it stays quiet', async () => {
+  const quiet = await paidAtMock('extquiet')
+  const panel = await paidAtMock('extpanel')
+  // The organizer refunds 20 zł in the dpay panel: dpay sends us nothing.
+  assert.equal((await refundTransaction(nodeCfg(), { transactionId: panel.txn, grosze: 2000, messageId: 'panel' })).outcome, 'accepted')
+
+  const run = await jobsOk()
+  assert.ok(run.externalRefundsChecked >= 2, JSON.stringify(run))
+  assert.ok(await checkedAt(quiet.orderId), 'every paid order is looked at')
+  assert.deepEqual(await externalAlerts(quiet.orderId), [], 'dpay shows nothing refunded: no alert')
+  const [alert, ...more] = await externalAlerts(panel.orderId)
+  assert.ok(alert, 'one alert')
+  assert.deepEqual(more, [])
+  assert.equal(alert.payload.txn, panel.txn)
+  assert.equal(alert.payload.dpayRefunded, 2000)
+  assert.equal(alert.payload.recorded, 0)
+  assert.equal(alert.payload.difference, 2000)
+  const digest = (await messagesTo(OPERATOR)).find((m) => m.text.includes(panel.orderId))
+  assert.ok(digest, 'the operator digest names the order')
+  assert.match(digest.text, /refund_external: .*record-external-refund\.js/)
+
+  // Throttled: the next run does not ask dpay again about the same order.
+  const stamp = await checkedAt(panel.orderId)
+  await jobsOk()
+  assert.equal(await checkedAt(panel.orderId), stamp)
+  assert.equal((await externalAlerts(panel.orderId)).length, 1)
+
+  // A day later, still unrecorded: deduplicated on the same amount.
+  await setOrder(panel.orderId, { external_refund_checked_at: ago(25 * HOUR) })
+  await jobsOk()
+  assert.notEqual(await checkedAt(panel.orderId), stamp)
+  assert.equal((await externalAlerts(panel.orderId)).length, 1, 'the same difference is one alert')
+
+  // The operator records it: the next check finds dpay and the ledger agree.
+  const [line] = await rows('order_lines', { order_id: panel.orderId })
+  const { error } = await rpc('record_external_refund', { p_line_id: line.id, p_grosze: 2000, p_note: 'LG test: panel dpay 20,00 zł' })
+  assert.ifError(error)
+  await setOrder(panel.orderId, { external_refund_checked_at: ago(25 * HOUR) })
+  await jobsOk()
+  assert.equal((await externalAlerts(panel.orderId)).length, 1, 'recorded: no new alert')
+
+  // A second panel refund later is a new difference: one more alert.
+  assert.equal((await refundTransaction(nodeCfg(), { transactionId: panel.txn, grosze: 1000, messageId: 'panel2' })).outcome, 'accepted')
+  await setOrder(panel.orderId, { external_refund_checked_at: ago(25 * HOUR) })
+  await jobsOk()
+  const after = await externalAlerts(panel.orderId)
+  assert.equal(after.length, 2)
+  assert.ok(after.some((a) => a.payload.dpayRefunded === 3000 && a.payload.recorded === 2000 && a.payload.difference === 1000))
+})
+
+test('O-47 an organizer refund still in flight at dpay is not an external refund; a past event is not checked', async () => {
+  const flight = await paidAtMock('extflight')
+  const [line] = await rows('order_lines', { order_id: flight.orderId })
+  // Reserved and sent; dpay carried it out but our answer is not stored yet (pending).
+  await rpcOk('reserve_organizer_refund', {
+    p_line_id: line.id, p_grosze: 1500, p_actor: await profileFor(OWNER), p_request_key: crypto.randomUUID(),
+  })
+  assert.equal((await refundTransaction(nodeCfg(), { transactionId: flight.txn, grosze: 1500, messageId: 'flight' })).outcome, 'accepted')
+  await jobsOk()
+  assert.ok(await checkedAt(flight.orderId))
+  assert.deepEqual(await externalAlerts(flight.orderId), [])
+
+  const old = await paidAtMock('extold')
+  const { data: o } = await db().from('orders').select('event_id').eq('id', old.orderId).single()
+  assert.ifError((await db().from('registration_settings').update({ event_date: '2025-01-01' }).eq('event_id', o.event_id)).error)
+  await jobsOk()
+  assert.equal(await checkedAt(old.orderId), null, 'outside the window: never asked about')
 })
 
 // ---------------------------------------------------------------- Task 5 review M3–M5

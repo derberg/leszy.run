@@ -208,6 +208,24 @@ test('P-09 details: status and grosze; detailsStatus override; unrecognised amou
   assert.equal((await transactionDetails(cfg, transactionId)).status, null)
 })
 
+test('O-47 details: refundedGrosze is dpay\'s refunded_amount; missing or unreadable → null', async () => {
+  const { transactionId } = await registerTransaction(cfg, { orderId: ORDER, grosze: 6000 })
+  await payMock(transactionId, 'paid')
+  assert.equal((await transactionDetails(cfg, transactionId)).refundedGrosze, 0)
+  assert.equal((await refundTransaction(cfg, { transactionId, grosze: 2550 })).outcome, 'accepted')
+  assert.equal((await transactionDetails(cfg, transactionId)).refundedGrosze, 2550)
+  for (const body of [
+    { transaction: { id: transactionId, status: 'paid', value: '60.00' } },
+    { transaction: { id: transactionId, status: 'paid', value: '60.00', refunded_amount: '25,50' } },
+    { transaction: { id: transactionId, status: 'paid', value: '60.00', refunded_amount: null } },
+  ]) {
+    await dpayMode({ detailsBodyOverride: body })
+    assert.equal((await transactionDetails(cfg, transactionId)).refundedGrosze, null, JSON.stringify(body))
+  }
+  await dpayMode({ detailsBodyOverride: { transaction: { id: transactionId, status: 'paid', value: '60.00', refunded_amount: 25.5 } } })
+  assert.equal((await transactionDetails(cfg, transactionId)).refundedGrosze, 2550)
+})
+
 test('P-09 details of an unknown transaction → DpayError(404)', async () => {
   await assert.rejects(transactionDetails(cfg, 'no-such-txn'), { name: 'DpayError', httpStatus: 404 })
 })

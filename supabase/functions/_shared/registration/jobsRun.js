@@ -1,11 +1,11 @@
 // The payment window jobs (plan 3, task 7), run by the registration-jobs edge function
 // (supabase/functions/registration-jobs/index.js); here so a Node test can run them with or
 // without dpay settings.
-import { dpayConfig } from '../dpay.js'
+import { dpayConfig, transactionDetails } from '../dpay.js'
 import { SENDGRID_TIMEOUT_MS, sendEmail } from '../email.js'
 import { operatorAlertEmail, orderExpiredEmail, paymentReminderEmail } from './emails.js'
 import {
-  checkAttemptsAtDpay, executeRefund, loadOrderView, orderEmailArgs, raiseAlert, sendOrderConfirmation,
+  checkAttemptsAtDpay, executeRefund, loadOrderView, logPaymentEvent, orderEmailArgs, raiseAlert, sendOrderConfirmation,
 } from './orderFlow.js'
 import { issueConsentRequestsReport, rotateAndSend } from './consentRequests.js'
 import { notifyRefundRunner, refundNoticeArgs } from './refundNotice.js'
@@ -58,6 +58,15 @@ import { resendTransferEmails } from './transfers.js'
 //      step needs CONSENT_STEP_MS to start, and each sub-step starts (claims) only with
 //      CONSENT_PART_MS left, so a claim is never made that the run has no time to send; what
 //      does not fit waits, unclaimed, for the next run. Its counts are e-mails sent, not claims.
+//   8b. refunds made in the dpay panel (external_refunds): dpay sends no IPN for a refund, so an
+//      organizer who refunds in the merchant panel instead of „Zwróć wpłatę” leaves the order paid
+//      and the entry live. Each paid order whose event is at most 60 days past is claimed once a
+//      day (claim_external_refund_checks) and its paid transaction read at dpay (/pbl/details
+//      refunded_amount). When dpay shows more than our accepted refunds plus those still in flight
+//      (pending / unknown, which have their own alerts), one refund_external alert names the order
+//      and the difference, deduplicated per order and dpay amount; the operator records it with
+//      backend/scripts/record-external-refund.js. A failed read is counted and retried the next
+//      day; the step needs dpay settings (skipped without them) and runs only with a dpay wait left.
 //   9. the operator digest again, for the alerts this run raised
 // A finished run stamps registration_job_heartbeats ('registration-jobs'); the
 // registration-watchdog function (hourly, P3-R18) alerts when that stamp is older than 3 runs.
@@ -69,16 +78,17 @@ import { resendTransferEmails } from './transfers.js'
 // digest went out, so a crash or a failure sends them again next time (a second digest is cheap,
 // a lost one hides a problem).
 // Without dpay settings (P3-R16: paid registration not switched on, no production dpay
-// secrets yet) steps 3 and 5 are skipped and reported in `skipped` as dpay_not_configured, with
+// secrets yet) steps 3, 5 and 8b are skipped and reported in `skipped` as dpay_not_configured, with
 // no alert; everything else runs and the heartbeat is still stamped.
 // POST body: {} from cron; { budgetMs } may only shorten the budget (tests).
 // → 200 { data: { checked, confirmed, reminders, expiredNotices, confirmationsResent,
 //   refundEmails, refundRetries, stalledRefunds, consentRequestsIssued, consentEmailsResent, consentReminders,
-//   transferEmailsResent, alertsEmailed, deferred: [step…], skipped: { step: reason } } }
+//   transferEmailsResent, externalRefundsChecked, externalRefundAlerts, externalRefundErrors,
+//   alertsEmailed, deferred: [step…], skipped: { step: reason } } }
 
 const BUDGET_MS = 90_000
 const MIN_BUDGET_MS = 5_000
-const LIMIT = { check: 50, reminders: 100, notices: 100, confirmations: 50, refundEmails: 50, retries: 20, stalled: 100, alerts: 200, consent: 50, transfers: 50 }
+const LIMIT = { check: 50, reminders: 100, notices: 100, confirmations: 50, refundEmails: 50, retries: 20, stalled: 100, alerts: 200, consent: 50, transfers: 50, externalRefunds: 20 }
 const CHECK_AHEAD_MS = 20 * 60_000 // a run every 15 min sees each order at least once before expiry
 const CHECK_BEHIND_MS = 2 * 3_600_000 // after this an expired order is told without a dpay check
 const CHECK_GAP_MS = 10 * 60_000
@@ -95,7 +105,11 @@ const CHECK_SHARE = 0.6
 
 export const DPAY_NOT_CONFIGURED = 'dpay_not_configured'
 // The steps that call dpay: skipped without its settings.
-export const DPAY_STEPS = ['refund_retries', 'dpay_check']
+export const DPAY_STEPS = ['refund_retries', 'dpay_check', 'external_refunds']
+// Step 8b asks dpay about 5 orders at a time and starts a batch only with one dpay wait and the
+// final digest left in the budget.
+const EXTERNAL_WIDTH = 5
+const EXTERNAL_BATCH_MS = DPAY_CALL_MS + 3_000
 const DEFAULT_SITE = 'https://www.leszy.run'
 // Step 8 claims up to LIMIT.consent rows three times and sends 5 at a time: up to 30 rounds of
 // e-mail, about 1 s each through SendGrid.
@@ -283,12 +297,44 @@ async function checkAtDpay(admin, cfg, time) {
   return { checked, confirmed, cut: cut || queue.length > 0 }
 }
 
+// Step 8b for one claimed order: dpay's refunded_amount against our ledger. → 'alert' | 'ok' | 'error'
+async function checkExternalRefund(admin, cfg, { order_id: orderId, txn }) {
+  try {
+    const { data: attempt, error: aErr } = await admin.from('payment_attempts').select('id')
+      .eq('order_id', orderId).eq('dpay_transaction_id', txn).maybeSingle()
+    if (aErr) throw aErr
+    if (!attempt) return 'ok'
+    const details = await transactionDetails(cfg, txn)
+    await logPaymentEvent(admin, {
+      kind: 'status_check', orderId, attemptId: attempt.id,
+      payload: { txn, status: details.status, refundedGrosze: details.refundedGrosze, source: 'external_refunds' },
+    })
+    if (!Number.isSafeInteger(details.refundedGrosze)) return 'error'
+    // Read after dpay answered, so a refund reserved meanwhile counts as in flight.
+    const { data: refunds, error: rErr } = await admin.from('refunds').select('amount, dpay_status')
+      .eq('payment_attempt_id', attempt.id)
+    if (rErr) throw rErr
+    const sum = (states) => (refunds ?? []).filter((r) => states.includes(r.dpay_status)).reduce((n, r) => n + r.amount, 0)
+    const recorded = sum(['accepted'])
+    const inFlight = sum(['pending', 'unknown'])
+    if (details.refundedGrosze <= recorded + inFlight) return 'ok'
+    await raiseAlert(admin, 'refund_external', orderId, {
+      txn, dpayRefunded: details.refundedGrosze, recorded, inFlight, difference: details.refundedGrosze - recorded,
+    }, { dedupeKey: `refund_external:${orderId}:${details.refundedGrosze}` })
+    return 'alert'
+  } catch (err) {
+    console.error(`registration-jobs: external refund check of ${orderId} failed:`, err?.message)
+    return 'error'
+  }
+}
+
 export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
   const time = clock(budgetMs)
   const counts = {
     checked: 0, confirmed: 0, reminders: 0, expiredNotices: 0, confirmationsResent: 0, refundEmails: 0,
     refundRetries: 0, stalledRefunds: 0, consentRequestsIssued: 0, consentEmailsResent: 0, consentReminders: 0,
-    transferEmailsResent: 0, alertsEmailed: 0, deferred: [], skipped: {},
+    transferEmailsResent: 0, externalRefundsChecked: 0, externalRefundAlerts: 0, externalRefundErrors: 0,
+    alertsEmailed: 0, deferred: [], skipped: {},
   }
   const hour = new Date().toISOString().slice(0, 13)
   const budgetAlert = (step) => raiseAlert(admin, 'jobs_step_failed', null,
@@ -417,8 +463,38 @@ export async function runJobs(admin, cfg, { site, alertTo, budgetMs }) {
         if (await consentMail(admin, id, { reminder: true, site, template: 'consent_reminder' })) counts.consentReminders++
       })
     }],
+    ['external_refunds', EXTERNAL_BATCH_MS, async () => {
+      try {
+        await externalRefunds()
+      } finally {
+        // A read that keeps failing (dpay down, a changed answer) must not look like "no refunds":
+        // one alert a day says how many orders went unchecked.
+        if (counts.externalRefundErrors) {
+          await raiseAlert(admin, 'external_refund_check_failed', null,
+            { errors: counts.externalRefundErrors, checked: counts.externalRefundsChecked },
+            { dedupeKey: `external_refund_check_failed:${hour.slice(0, 10)}` })
+        }
+      }
+    }],
     ['digest', 1_000, async () => { counts.alertsEmailed += await digest(admin, alertTo) }],
   ]
+  async function externalRefunds() {
+    let claimedTotal = 0
+    while (claimedTotal < LIMIT.externalRefunds) {
+      const left = time.left()
+      // Nothing is claimed that this run has no time to ask about (a claim waits a day).
+      if (left < EXTERNAL_BATCH_MS) { counts.deferred.push('external_refunds'); return }
+      const batch = await rpcRows(admin, 'claim_external_refund_checks',
+        { p_limit: Math.min(EXTERNAL_WIDTH, LIMIT.externalRefunds - claimedTotal) })
+      if (!batch.length) return
+      claimedTotal += batch.length
+      const callCfg = { ...cfg, timeoutMs: Math.min(DPAY_CALL_MS, Math.max(1_000, left - 3_000)) }
+      const outcomes = await Promise.all(batch.map((row) => checkExternalRefund(admin, callCfg, row)))
+      counts.externalRefundsChecked += batch.length
+      counts.externalRefundAlerts += outcomes.filter((o) => o === 'alert').length
+      counts.externalRefundErrors += outcomes.filter((o) => o === 'error').length
+    }
+  }
   for (const [name, needs, step] of steps) {
     if (!cfg && DPAY_STEPS.includes(name)) {
       counts.skipped[name] = DPAY_NOT_CONFIGURED
