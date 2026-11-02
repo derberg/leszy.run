@@ -31,6 +31,7 @@ const LandingPage = lazy(() => import('./pages/LandingPage.jsx'))
 const Login = lazy(() => import('./pages/Login.jsx'))
 const Onboarding = lazy(() => import('./pages/Onboarding.jsx'))
 const Profil = lazy(() => import('./pages/Profil.jsx'))
+const Zapisy = lazy(() => import('./pages/profil/Zapisy.jsx'))
 const Obserwowane = lazy(() => import('./pages/profil/Obserwowane.jsx'))
 const Zgloszenia = lazy(() => import('./pages/profil/Zgloszenia.jsx'))
 const Klub = lazy(() => import('./pages/profil/Klub.jsx'))
@@ -101,6 +102,7 @@ export default function App() {
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/profil" element={<Profil />}>
             <Route index element={<Navigate to="obserwowane" replace />} />
+            <Route path="zapisy" element={<Zapisy />} />
             <Route path="obserwowane" element={<Obserwowane />} />
             <Route path="zgloszenia" element={<Zgloszenia />} />
             <Route path="klub" element={<Klub />} />
