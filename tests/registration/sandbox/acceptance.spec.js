@@ -378,7 +378,7 @@ test.describe('dpay sandbox acceptance', () => {
 test.describe('dpay sandbox: minimum amount', () => {
   test.skip(!enabled, 'DPAY_ENV is not "sandbox": this suite talks to the dpay sandbox and is run by hand or nightly')
 
-  test('S-09 which small amounts dpay accepts: 0,01 zł, 0,50 zł, 0,99 zł, 1,00 zł', async ({ page }) => {
+  test('S-09 which small amounts dpay accepts: 0,01 zł, 0,50 zł, 0,99 zł, 1,00 zł', async ({ context }) => {
     sandboxConfig() // refuses a non-test service or a non-dpay base URL
     const results = {}
     for (const grosze of [1, 50, 99, 100]) {
@@ -388,6 +388,9 @@ test.describe('dpay sandbox: minimum amount', () => {
       if (!reg.accepted) {
         Object.assign(r, { httpStatus: reg.httpStatus, message: reg.message })
       } else {
+        // A fresh page per amount: a simulated success redirects to url_success (localhost, which fails in
+        // CI), and on a shared page that redirect interrupted the next amount's navigation (run 41385808122).
+        const page = await context.newPage()
         try {
           await openGateway(page, reg.redirectUrl)
           r.simulatorShown = await simulator(page).catch(() => false)
@@ -404,6 +407,8 @@ test.describe('dpay sandbox: minimum amount', () => {
           }
         } catch (e) {
           r.gatewayError = e.message
+        } finally {
+          await page.close()
         }
       }
       r.accepted = r.registered && (r.detailsStatus === 'paid' || r.detailsStatus === 'captured')
