@@ -15,6 +15,8 @@ function json(body, status, req) {
   })
 }
 
+const IDENTITY_FIELDS = ['legal_name', 'nip', 'krs']
+const IDENTITY_LOCKED_MESSAGE = 'Nazwy, NIP i KRS nie można zmienić. Napisz na lukasz@leszy.run.'
 const FIELD_LABELS = { legal_name: 'Nazwa', nip: 'NIP', krs: 'KRS', iban: 'Rachunek', address: 'Adres' }
 
 function shown(field, value) {
@@ -64,6 +66,17 @@ Deno.serve(async (req) => {
 
     const { data: club } = await admin.from('clubs').select('name, owner_id').eq('id', clubId).maybeSingle()
     if (!club) return json({ error: 'Not found' }, 404, req)
+
+    // The name, NIP and KRS name the Organizer, the party to the organizer
+    // agreement (§1 ust. 2): once saved they change only by hand, after the
+    // owner writes in, so a new entity never takes over a club's agreement
+    // unnoticed. The account and the address stay editable (§7 ust. 4).
+    const { data: current, error: curErr } = await admin.from('club_payout_details')
+      .select('legal_name, nip, krs').eq('club_id', clubId).maybeSingle()
+    if (curErr) throw curErr
+    if (current && IDENTITY_FIELDS.some((f) => (current[f] ?? null) !== next[f])) {
+      return json({ error: IDENTITY_LOCKED_MESSAGE, code: 'identity_locked' }, 409, req)
+    }
 
     // One transaction: details row + history row (history is appended even when nothing changed).
     const { data: saved, error: saveErr } = await admin.rpc('save_club_payout', {

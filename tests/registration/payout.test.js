@@ -115,6 +115,20 @@ test('F-19 a changed IBAN is listed by field in the owner email', async () => {
   assert.match(mails[0].text, /Rachunek: PL61 … 2874 → PL27 … 5387/)
 })
 
+test('F-19a once saved, the name, NIP and KRS are locked: 409 identity_locked, nothing written; the account stays editable', async () => {
+  const s = await sessionFor(OWNER)
+  const before = (await admin().from('club_payout_history').select('id').eq('club_id', ZT)).data.length
+  for (const change of [{ legalName: 'Inny Podmiot' }, { nip: '7740001454' }, { krs: '0000654321' }, { krs: '' }]) {
+    const r = await call(s, { ...GOOD, iban: 'PL27114020040000300201355387', ...change })
+    assert.equal(r.status, 409, JSON.stringify(change))
+    assert.deepEqual(r.body, { error: 'Nazwy, NIP i KRS nie można zmienić. Napisz na lukasz@leszy.run.', code: 'identity_locked' })
+  }
+  const { data: row } = await admin().from('club_payout_details').select('legal_name, nip, krs').eq('club_id', ZT).single()
+  assert.deepEqual(row, { legal_name: GOOD.legalName, nip: '5260250274', krs: '0000123456' })
+  assert.equal((await admin().from('club_payout_history').select('id').eq('club_id', ZT)).data.length, before)
+  assert.equal((await call(s, { ...GOOD, iban: 'PL27114020040000300201355387', nip: '5260250274' })).status, 200, 'the same NIP written differently is no change')
+})
+
 test('F-19 over-long name or address is 400', async () => {
   const s = await sessionFor(OWNER)
   assert.equal((await call(s, { ...GOOD, legalName: 'x'.repeat(201) })).status, 400)

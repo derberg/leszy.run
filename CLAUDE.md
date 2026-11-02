@@ -654,7 +654,7 @@ survive (check-ins, participants, tag assignments, event config).
   agreement text**: an acceptance points at a version, and only a new version makes every owner re-accept.
   Since `2026-11-v5` the text has no `[DO UZUPEŁNIENIA]` or `[DO WERYFIKACJI]` markers left.
 - **Organizer edge functions:** `organizer-status`, `join-registration-waitlist`,
-  `accept-organizer-agreement`, `update-club-payout` (owner only; writes through the `save_club_payout`
+  `accept-organizer-agreement`, `update-club-payout` (owner only; once saved, the name, NIP and KRS are locked, 409 `identity_locked`, because they name the party to the agreement and change only by hand; writes through the `save_club_payout`
   RPC, which takes a per-club advisory lock, updates the details and appends `club_payout_history` in one
   transaction), `get-club-payout` (owner full, admin masked IBAN, member 403).
 - **Login refusal of a retired address** answers 403 `{ error: RETIRED_EMAIL_MESSAGE, code: 'email_retired' }`

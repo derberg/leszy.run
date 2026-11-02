@@ -10,7 +10,7 @@ Umowę zawiera się w Serwisie: właściciel klubu wybiera „Akceptuję umowę 
 ## §1. Strony
 
 1. **Usługodawca:** Wookiee Łukasz Górnicki, ul. Wierzbowa 2, 44-144 Nieborowice, NIP 6292248418, REGON 385416140, prowadzący serwis LESZY.RUN pod adresem www.leszy.run, kontakt: lukasz@leszy.run.
-2. **Organizator:** podmiot wskazany w danych do wypłat klubu w Serwisie (nazwa, NIP, a jeżeli podmiot jest wpisany do KRS, także numer KRS, oraz adres), w imieniu którego działa osoba akceptująca umowę. Klub może tworzyć płatne Wydarzenia dopiero po wprowadzeniu tych danych przez właściciela klubu w ustawieniach klubu. Klub, który ich nie wprowadził, może tworzyć wyłącznie bezpłatne Wydarzenia; Organizatorem i stroną umowy jest wtedy osoba akceptująca umowę. Zmiana NIP lub nazwy Organizatora w danych do wypłat wymaga ponownej akceptacji umowy przez nowy podmiot.
+2. **Organizator:** podmiot wskazany w danych do wypłat klubu w Serwisie (nazwa, NIP, a jeżeli podmiot jest wpisany do KRS, także numer KRS, oraz adres), w imieniu którego działa osoba akceptująca umowę. Klub może tworzyć płatne Wydarzenia dopiero po wprowadzeniu tych danych przez właściciela klubu w ustawieniach klubu. Klub, który ich nie wprowadził, może tworzyć wyłącznie bezpłatne Wydarzenia; Organizatorem i stroną umowy jest wtedy osoba akceptująca umowę. Po zapisaniu danych Organizatora nazwy, NIP i numeru KRS nie można zmienić w Serwisie. Zmianę Organizatora uzgadnia się z Usługodawcą pod adresem lukasz@leszy.run i wymaga ona zawarcia umowy z nowym podmiotem.
 3. Osoba akceptująca umowę oświadcza, że jest umocowana do zawarcia jej w imieniu Organizatora. Jeżeli nie jest, odpowiada na zasadach art. 103 Kodeksu cywilnego.
 
 ## §2. Definicje

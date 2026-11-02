@@ -5,15 +5,17 @@ import { panelClass, panelTitle, formWidth, fieldLabel, fieldInput, errorClass, 
 
 // "Dane do wypłat" in club settings. The owner edits; an admin sees the name
 // and the account masked as "PL61 … 2874" (get-club-payout masks it server-side,
-// so the full number never reaches an admin's browser).
+// so the full number never reaches an admin's browser). Once saved, the name,
+// NIP and KRS are read-only: they name the party to the organizer agreement and
+// change only by hand (update-club-payout answers 409 identity_locked).
 
 const EMPTY = { legalName: '', nip: '', krs: '', iban: '', address: '' }
 // `wide` spans both columns on desktop; NIP and KRS sit side by side. Numbers stay
 // in the body font: a 32-character grouped IBAN in mono does not fit a 360 px screen.
 const FIELDS = [
-  { key: 'legalName', id: 'payout-legal-name', label: 'Nazwa podmiotu', maxLength: 200, wide: true },
-  { key: 'nip', id: 'payout-nip', label: 'NIP', inputMode: 'numeric' },
-  { key: 'krs', id: 'payout-krs', label: 'KRS', inputMode: 'numeric', optional: true },
+  { key: 'legalName', id: 'payout-legal-name', label: 'Nazwa podmiotu', maxLength: 200, wide: true, identity: true },
+  { key: 'nip', id: 'payout-nip', label: 'NIP', inputMode: 'numeric', identity: true },
+  { key: 'krs', id: 'payout-krs', label: 'KRS', inputMode: 'numeric', optional: true, identity: true },
   { key: 'iban', id: 'payout-iban', label: 'Numer rachunku', wide: true },
   { key: 'address', id: 'payout-address', label: 'Adres', maxLength: 300, wide: true },
 ]
@@ -89,13 +91,18 @@ export default function PayoutDetails({ clubId, isOwner }) {
               <div key={f.key} className={f.wide ? 'sm:col-span-2' : undefined}>
                 <label htmlFor={f.id} className={fieldLabel}>{f.label}</label>
                 <input id={f.id} type="text" value={form[f.key]} inputMode={f.inputMode} maxLength={f.maxLength}
-                  required={!f.optional} autoComplete="off"
+                  required={!f.optional} autoComplete="off" readOnly={!!payout && f.identity}
                   onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))}
                   onBlur={f.key === 'iban' ? () => setForm((s) => ({ ...s, iban: groupIban(s.iban) })) : undefined}
-                  className={`${fieldInput} tabular-nums`} />
+                  className={`${fieldInput} tabular-nums ${payout && f.identity ? 'opacity-70 cursor-not-allowed' : ''}`} />
               </div>
             ))}
           </div>
+          {payout && (
+            <p data-testid="payout-identity-locked" className="font-sans text-sm text-apex-muted mt-4">
+              Zmiana nazwy, NIP lub KRS: lukasz@leszy.run
+            </p>
+          )}
           {saveError && <p className={`${errorClass} mt-4`}>{saveError}</p>}
           <div className="flex flex-wrap items-center gap-3 mt-5">
             <button type="submit" disabled={saving} className={btnPrimary}>
