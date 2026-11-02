@@ -140,7 +140,7 @@ SELECT created, status_code, left(content, 300)
 ```
 
 In production all five registration jobs (with `registration-watchdog`, next section) must be `active = true`. `supabase/seed.sql` deactivates every
-`registration-*` job, but the seed only runs on a local or CI stack (`supabase db reset`); a
+`registration-*` job, but the seed only runs on a local or CI stack (`supabase start` on a fresh stack, or `supabase db reset`); a
 production job that reads `false` was switched off by hand and nothing expires or gets sent.
 
 Expect `status_code = 200` with a body starting `{"data":{"checked"` (before dpay is configured
