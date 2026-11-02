@@ -49,7 +49,8 @@ function Skeleton() {
 
 function EventCard({ ev, today }) {
   const past = ev.eventDate != null && ev.eventDate < today
-  const confirmed = ev.people.some((p) => p.status === 'confirmed')
+  // „Twój zapis” opens /zapisano, which lists every confirmed entry of the session's for the event.
+  const confirmed = ev.people.filter((p) => p.status === 'confirmed').length
   return (
     <article data-testid="zapisy-event" className="border border-apex-border border-l-2 hover:border-l-apex-yellow p-3 transition-colors">
       <div className="flex items-baseline gap-3 min-w-0">
@@ -95,9 +96,9 @@ function EventCard({ ev, today }) {
         </ul>
       )}
 
-      {confirmed && (
+      {confirmed > 0 && (
         <div className="mt-2 flex justify-end">
-          <Link to={`/events/${ev.slug}/zapisano`} className={linkCls}>Twój zapis →</Link>
+          <Link to={`/events/${ev.slug}/zapisano`} className={linkCls}>{confirmed > 1 ? 'Twoje zapisy →' : 'Twój zapis →'}</Link>
         </div>
       )}
     </article>
