@@ -166,8 +166,8 @@ export async function ownPendingOrder(admin, eventId, people, profileId) {
 
 /**
  * The order as its buyer sees it, or null when there is none.
- * → { order, settings, club, lines: [{ registrationId, firstName, lastName, competition,
- *     ageGroupLabel, startTime, amount }] }
+ * → { order, settings, club, lines: [{ registrationId, cancelled, firstName, lastName, competition,
+ *     ageGroupLabel, startTime, amount }] }, the live lines first, then the cancelled ones.
  */
 export async function loadOrderView(admin, orderId) {
   const { data: order, error } = await admin.from('orders').select('*').eq('id', orderId).maybeSingle()
@@ -184,7 +184,7 @@ export async function loadOrderView(admin, orderId) {
   const regIds = lineRows.filter((l) => l.registration_id).map((l) => l.registration_id)
   const regs = regIds.length
     ? await rows(admin.from('registrations')
-      .select('id, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at, team_id')
+      .select('id, status, first_name, last_name, email, category_id, age_group_label, kids_group_id, consent_state, profile_id, registered_by_profile_id, guardian_name, guardian_profile_id, guardian_removed_at, team_id')
       .in('id', regIds))
     : []
   const teamIds = [...new Set(regs.map((r) => r.team_id).filter(Boolean))]
@@ -208,13 +208,15 @@ export async function loadOrderView(admin, orderId) {
   // or account, so nothing of theirs but the name reaches the order page or a confirmation re-send.
   // After an ORGANIZER transfer not even the name (ruling N-1): the payer did not choose that person.
   const transferred = await transferredRegistrationIds(admin, regIds)
-  const lines = lineRows.filter((l) => l.kind === 'entry').map((l) => {
+  const built = lineRows.filter((l) => l.kind === 'entry').map((l) => {
     const r = regById.get(l.registration_id) ?? {}
     const c = compById.get(r.category_id) ?? {}
+    const cancelled = r.status === 'cancelled'
     if (transferred.has(l.registration_id)) {
       const byOrganizer = transferred.get(l.registration_id) === 'organizer'
       return {
         registrationId: l.registration_id,
+        cancelled,
         transferred: true,
         transferredBy: byOrganizer ? 'organizer' : 'runner',
         firstName: byOrganizer ? null : (r.first_name ?? null),
@@ -235,6 +237,7 @@ export async function loadOrderView(admin, orderId) {
     }
     return {
       transferred: false,
+      cancelled,
       registrationId: l.registration_id,
       firstName: r.first_name ?? null,
       lastName: r.last_name ?? null,
@@ -252,6 +255,9 @@ export async function loadOrderView(admin, orderId) {
       isCaptain: teamById.get(r.team_id)?.captain_registration_id === l.registration_id,
     }
   })
+  // The live entries first, in their order, then the cancelled ones (user decision 2026-11-02):
+  // the confirmation, its re-send and the order page all read this order.
+  const lines = [...built.filter((l) => !l.cancelled), ...built.filter((l) => l.cancelled)]
   return { order, settings, club, lines }
 }
 

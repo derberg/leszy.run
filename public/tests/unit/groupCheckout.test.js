@@ -115,6 +115,14 @@ describe('G-46 RA5 order and tags shown', () => {
     assert.deepEqual(orderPeople(undefined), [])
   })
 
+  it('P-24c the cancelled entries come after every live one, each part in the order above (user decision 2026-11-02)', () => {
+    const rows = [
+      { id: 1, role: 'self', cancelled: true }, { id: 2, role: 'minor' }, { id: 3, role: 'adult', cancelled: true },
+      { id: 4, role: 'adult' }, { id: 5, role: 'minor', cancelled: true },
+    ]
+    assert.deepEqual(orderPeople(rows).map((r) => r.id), [4, 2, 1, 3, 5])
+  })
+
   it('a page listing only the person registering shows no tags; a group does', () => {
     assert.equal(showsConsentTags([{ role: 'self' }]), false)
     assert.equal(showsConsentTags([{ role: 'self' }, { role: 'minor' }]), true)

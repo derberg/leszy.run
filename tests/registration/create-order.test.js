@@ -358,6 +358,8 @@ test('P-24 order-status: buyer only, with the event\'s closesAt; a fresh pending
     transferred: false,
     // Plan 7 final review I-2: who handed a transferred line on (null when it was not).
     transferredBy: null,
+    // User decision 2026-11-02: a cancelled entry is marked and listed after every live one.
+    cancelled: false,
     // Plan 7 task 8b (V-65): an unpaid order has nothing to hand on.
     transfer: null,
   }])

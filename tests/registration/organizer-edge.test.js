@@ -15,7 +15,8 @@ import {
   profileFor, rows, rpc, runnerEmail, setSettings,
 } from './helpers/orders.js'
 import { adult, minor, orderGroupOk, registerGroup } from './helpers/groups.js'
-import { paidTeamEvent, squadEdit, teamOk } from './helpers/teams.js'
+import { captain, createTeam, paidTeamEvent, squadEdit, teamOk } from './helpers/teams.js'
+import { makeExtra } from './helpers/cart.js'
 import { nodeDpay } from './helpers/organizerRefund.js'
 import { registerTransaction } from '../../supabase/functions/_shared/dpay.js'
 
@@ -716,6 +717,48 @@ test('O-33 S2 the refund e-mail goes to the payer and to the entry\'s own adult 
   await callFn('organizer-refund', owner, { lineId: g.lineOf((x) => x.guardian_name).id, grosze: 1000, requestKey: key() })
   assert.equal((await waitForMail(payer, 3)).length, 3)
   assert.equal((await messagesTo(spouse)).length, 1)
+})
+
+test('O-33b a team\'s refund e-mail goes to the captain only: a member\'s extra and the whole team line, never the member (user decision 2026-11-02)', async () => {
+  const event = await paidTeamEvent(owner)
+  const cat = event.categoryIds[0]
+  const { variants: { M } } = await makeExtra(event)
+  const capEmail = runnerEmail('kapitan')
+  const mateEmail = runnerEmail('druzyna')
+  const created = await createTeam(event, {
+    members: [captain(capEmail), { ...adult(cat, 'adult', mateEmail), extras: [{ variantId: M.id, qty: 1 }] }],
+    displayed: 24000 + 4500,
+  })
+  assert.equal(created.error, null, created.error?.message)
+  const { orderId } = created.data
+  const total = 24000 + 4500
+  const { transactionId } = await registerTransaction(nodeDpay(), { orderId, grosze: total })
+  await attemptFor(orderId, total, transactionId)
+  await dpayMode({ dropIpn: true })
+  await payMock(transactionId, 'paid')
+  await dpayMode({ dropIpn: false })
+  assert.equal((await confirmOk(orderId, transactionId, total)).outcome, 'confirmed')
+  const lines = await rows('order_lines', { order_id: orderId })
+  const extra = lines.find((l) => l.kind === 'extra')
+  const entry = lines.find((l) => l.kind === 'entry')
+  const mate = await one('registrations', { email: mateEmail })
+  assert.equal(extra.registration_id, mate.id, 'the extra line is the member\'s')
+  await clearMessages()
+
+  // The member's own extra: the captain hears of it, the member does not.
+  const r1 = await callFn('organizer-refund', owner, { lineId: extra.id, grosze: 4500, requestKey: key() })
+  assert.equal(r1.status, 200, JSON.stringify(r1.body))
+  const [c1] = await waitForMail(capEmail, 1)
+  assert.match(c1.subject, /^Zwrot 45,00 zł — /)
+  assertClubSender(c1)
+
+  // The whole team line: the team is cancelled, and still only the captain is told.
+  const r2 = await callFn('organizer-refund', owner, { lineId: entry.id, grosze: 24000, requestKey: key() })
+  assert.equal(r2.status, 200, JSON.stringify(r2.body))
+  assert.equal((await waitForMail(capEmail, 2)).length, 2)
+  await sleep(500)
+  assert.deepEqual(await messagesTo(mateEmail), [], 'no refund e-mail to a member who is not the captain')
+  assert.ok((await one('refunds', { id: r1.body.data.refundId })).runner_notified_at, 'claimed')
 })
 
 test('O-36 M7 the organizer\'s squad edit spends an organizer allowance, never their own register-people one', async () => {
