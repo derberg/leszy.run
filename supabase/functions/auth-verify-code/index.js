@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     }
 
     return json(
-      { success: true, hasUsername: Boolean(result.profile.username) },
+      { success: true, hasUsername: Boolean(result.profile.username), existing: result.existing },
       200,
       req,
       { 'Set-Cookie': result.cookie }

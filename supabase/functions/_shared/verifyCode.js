@@ -139,5 +139,6 @@ export async function verifyCodeAndOpenSession(supabaseAdmin, { email, code }) {
 
   const cookie = `leszy_session=${sessionToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESSION_MAX_AGE}`
 
-  return { ok: true, profile, email: normalizedEmail, cookie }
+  // `existing`: the address already had an account, so the registration forms can say „welcome back”.
+  return { ok: true, profile, email: normalizedEmail, cookie, existing: Boolean(existingProfile) }
 }

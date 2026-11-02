@@ -46,6 +46,12 @@ export default function useAuth() {
   const [user, setUser] = useState(store.current() === undefined ? null : store.current())
   const [loading, setLoading] = useState(store.current() === undefined)
 
+  // A login or logout without a page reload (the registration code step) clears the store: read
+  // the session again, or this component keeps showing the visitor it rendered for.
+  useEffect(() => store.subscribe(() => {
+    store.load().then(setUser)
+  }), [])
+
   useEffect(() => {
     // No call needed. The user still comes from the store: this component may have rendered
     // while another one's call was in flight, and that call may have landed since (G-44 flake:

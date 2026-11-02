@@ -16,6 +16,9 @@ export function createAuthStore({ fetchUser, readCache, clearCache, revalidateMs
   let user = seeded ? seeded.user ?? null : undefined
   let inflight = null
   let generation = 0
+  // Mounted useAuth hooks: told on every clear(), so a page that stays mounted through a login
+  // (the registration form's code step) re-reads the session instead of keeping the visitor.
+  const listeners = new Set()
 
   function start() {
     const gen = generation
@@ -58,11 +61,17 @@ export function createAuthStore({ fetchUser, readCache, clearCache, revalidateMs
       return needsCheck() ? undefined : user
     },
     load,
+    /** @param {() => void} fn called after every clear(); returns the unsubscribe. */
+    subscribe(fn) {
+      listeners.add(fn)
+      return () => listeners.delete(fn)
+    },
     clear() {
       generation += 1
       user = undefined
       inflight = null
       clearCache()
+      for (const fn of [...listeners]) fn()
     },
   }
 }
