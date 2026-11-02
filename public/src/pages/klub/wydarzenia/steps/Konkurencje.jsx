@@ -29,6 +29,15 @@ const GPX_MAX = 5 * 1024 * 1024
 const km = (n) => (n == null ? null : `${String(Number(Number(n).toFixed(1))).replace('.', ',')} KM`)
 const gpxSummary = (meta) => [km(meta?.km), meta?.upM != null ? `+${Math.round(meta.upM)} M` : null].filter(Boolean).join(' · ')
 
+function Field({ label, className = '', children }) {
+  return (
+    <div className={`flex flex-col gap-1 min-w-0 ${className}`}>
+      <span className={monoLabel} aria-hidden="true">{label}</span>
+      {children}
+    </div>
+  )
+}
+
 const removeBtn = 'inline-flex items-center justify-center w-10 h-10 shrink-0 border border-apex-border-bright text-apex-muted hover:text-apex-text-bright font-sans text-xl leading-none rounded-none'
 
 const PRICE_HINT = {
@@ -258,119 +267,107 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
   useEffect(() => () => reportInvalid?.('competitions', null), [reportInvalid])
 
   const radio = 'flex items-center gap-2.5 min-h-9 font-sans text-base text-apex-text-bright'
-  // In the tier grid a price error is shown under its own row there.
+  // A price error is shown in the fee section beside its own input, never on the competition.
   const errorsOf = (key) => Object.entries(rowErrors[key] ?? {})
-    .filter(([field]) => !(pricingMode === 'tiered' && field === 'prices')).map(([, m]) => m)
+    .filter(([field]) => field !== 'price' && field !== 'prices').map(([, m]) => m)
+  // A fixed price not typed yet is not an error to shout about the moment „Stała” is chosen:
+  // one neutral line asks for the prices, and red is kept for a price typed wrong.
+  const fixedRows = rows.filter((r) => !r.hidden)
+  const priceMissing = pricingMode === 'fixed' && fixedRows.some((r) => !String(r.price ?? '').trim())
+  const priceErrorOf = (r) => (String(r.price ?? '').trim() ? rowErrors[r.key]?.price : null)
 
   return (
     <fieldset disabled={readOnly} className="space-y-6 min-w-0">
-      <div className="relative overflow-x-auto border border-apex-border">
-        <table className="w-full border-collapse min-w-[1180px]" data-testid="competitions">
-          <thead>
-            <tr>
-              <th className={thClass}>Konkurencja</th>
-              <th className={thClass}>Rodzaj</th>
-              <th className={thClass}>Dyscyplina</th>
-              <th className={thClass}>Dystans</th>
-              <th className={thClass}>Start</th>
-              <th className={thClass}>Limit</th>
-              <th className={thClass}>Wiek</th>
-              <th className={thClass}>Dzieci</th>
-              <th className={thClass}>Trasa</th>
-              <th className={thClass}><span className="sr-only">Akcje</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => {
-              const locked = published && r.inUse
-              const n = i + 1
-              return [
-                <tr key={r.key} data-testid="competition-row" className={r.hidden ? 'opacity-60' : r.isKids ? 'bg-apex-surface' : ''}>
-                  <td className={tdClass}>
-                    <input aria-label={`Nazwa konkurencji ${n}`} className={`${cellInput} w-full min-w-[180px]`} value={r.name} onChange={setRow(r.key, 'name')} />
-                    {r.hidden && <span className="inline-block mt-1 font-mono text-[11px] uppercase text-apex-muted border border-apex-border-bright px-1.5" data-testid="hidden-tag">Ukryta</span>}
-                  </td>
-                  <td className={tdClass}>
-                    <div className="flex items-center gap-1.5">
-                      <select aria-label={`Rodzaj ${n}`} className={`${cellInput} w-[170px]`} value={r.kind} disabled={locked} onChange={setRow(r.key, 'kind')}>
-                        <option value="individual">Indywidualna</option>
-                        <option value="team">Drużyna</option>
-                      </select>
-                      {locked && <Lock title="Są zgłoszenia: rodzaju nie można zmienić" />}
-                    </div>
-                    {r.kind === 'team' && (
-                      <div className="flex items-center gap-1 mt-1.5" data-testid="team-size">
-                        <input aria-label={`Skład od ${n}`} inputMode="numeric" placeholder="min" className={`${cellInput} w-[56px] text-center`} value={r.teamMin} disabled={locked} onChange={setRow(r.key, 'teamMin')} />
-                        <span>–</span>
-                        <input aria-label={`Skład do ${n}`} inputMode="numeric" placeholder="max" className={`${cellInput} w-[56px] text-center`} value={r.teamMax} disabled={locked} onChange={setRow(r.key, 'teamMax')} />
-                        <span className="font-mono text-[11px] text-apex-muted whitespace-nowrap">OSÓB</span>
-                        {locked && <Lock title="Są zgłoszenia: składu nie można zmienić" />}
-                      </div>
-                    )}
-                  </td>
-                  <td className={tdClass}>
-                    <select aria-label={`Dyscyplina ${n}`} className={`${cellInput} w-[150px]`} value={r.discipline ?? 'run'} onChange={setRow(r.key, 'discipline')}>
-                      <option value="run">Bieg</option>
-                      <option value="nw">Nordic walking</option>
-                    </select>
-                  </td>
-                  <td className={tdClass}>
-                    <input aria-label={`Dystans ${n}`} className={`${cellInput} w-[90px]`} value={r.distanceLabel} onChange={setRow(r.key, 'distanceLabel')} />
-                  </td>
-                  <td className={tdClass}>
-                    <input aria-label={`Start ${n}`} type="time" className={`${cellInput} w-[110px]`} value={r.startTime} onChange={setRow(r.key, 'startTime')} />
-                  </td>
-                  <td className={tdClass}>
-                    <div className="flex items-center gap-1.5">
-                      <input aria-label={`Limit ${n}`} inputMode="numeric" className={`${cellInput} w-[76px]`} value={r.capacity} onChange={setRow(r.key, 'capacity')} />
-                      {r.kind === 'team' && <span className="font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-unit">{capacityUnit(r.capacity)}</span>}
-                    </div>
-                    {published && r.taken > 0 && <span className="block mt-1 font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-min">MIN. {r.taken}</span>}
-                  </td>
-                  <td className={tdClass}>
-                    <div className="flex items-center gap-1">
-                      <input aria-label={`Wiek od ${n}`} inputMode="numeric" placeholder="od" className={`${cellInput} w-[56px] text-center`} value={r.minAge} onChange={setRow(r.key, 'minAge')} />
-                      <span>–</span>
-                      <input aria-label={`Wiek do ${n}`} inputMode="numeric" placeholder="do" className={`${cellInput} w-[56px] text-center`} value={r.maxAge} onChange={setRow(r.key, 'maxAge')} />
-                    </div>
-                  </td>
-                  <td className={tdClass}>
-                    <input type="checkbox" aria-label={`Dzieci ${n}`} className="w-[18px] h-[18px] mt-2.5 accent-apex-cyan" checked={r.isKids} onChange={setRow(r.key, 'isKids')} />
-                  </td>
-                  <td className={tdClass}>
-                    <GpxCell row={r} meta={gpxMeta[r.gpxUploadId] ?? uploads.get(r.gpxUploadId)} disabled={readOnly || !!uploading}
-                      busy={uploading === r.key} onFile={(f) => onGpx(r.key, f)} />
-                  </td>
-                  <td className={`${tdClass} text-right`}>
-                    {!published && (
-                      <button type="button" aria-label={`Usuń konkurencję ${n}`} className={`${btnGhost} text-base px-3`} onClick={() => removeRow(r.key)}>×</button>
-                    )}
-                    {published && !r.inUse && (
-                      <button type="button" className={btnGhost} onClick={() => toggleHidden(r.key)}>
-                        {r.hidden ? 'Pokaż konkurencję' : 'Ukryj konkurencję'}
-                      </button>
-                    )}
-                  </td>
-                </tr>,
-                errorsOf(r.key).length > 0 && (
-                  <tr key={`${r.key}-err`}>
-                    <td colSpan={10} className="px-2.5 pb-2"><FieldError message={errorsOf(r.key).join(' ')} /></td>
-                  </tr>
-                ),
-              ]
-            })}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={10} className="px-2.5 py-2.5">
-                <div className="sticky left-2.5 w-fit flex items-baseline gap-3 whitespace-nowrap">
-                  <span className="font-mono text-[13px] text-apex-muted">LIMIT WYDARZENIA</span>
-                  <span className="font-mono text-sm text-apex-yellow" data-testid="event-capacity">{capacityLabel(rows)}</span>
+      {/* One card per competition, its fields wrapping to the width: a ten-column table needed a
+          horizontal scroll nobody noticed, and the limit and age sat past the edge. */}
+      <div className="flex flex-col gap-3" data-testid="competitions">
+        {rows.map((r, i) => {
+          const locked = published && r.inUse
+          const n = i + 1
+          const errors = errorsOf(r.key)
+          return (
+            <div key={r.key} data-testid="competition-row"
+              className={`border border-apex-border p-3 sm:p-4 flex flex-col gap-3 min-w-0 ${r.hidden ? 'opacity-60' : r.isKids ? 'bg-apex-surface' : ''}`}>
+              <div className="flex items-center justify-between gap-3">
+                <span className={monoLabel}>Konkurencja {n}</span>
+                <div className="flex items-center gap-2">
+                  {r.hidden && <span className="font-mono text-[11px] uppercase text-apex-muted border border-apex-border-bright px-1.5" data-testid="hidden-tag">Ukryta</span>}
+                  {!published && (
+                    <button type="button" aria-label={`Usuń konkurencję ${n}`} className={`${btnGhost} text-base px-3`} onClick={() => removeRow(r.key)}>×</button>
+                  )}
+                  {published && !r.inUse && (
+                    <button type="button" className={btnGhost} onClick={() => toggleHidden(r.key)}>
+                      {r.hidden ? 'Pokaż konkurencję' : 'Ukryj konkurencję'}
+                    </button>
+                  )}
                 </div>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-3 items-start">
+                <Field label="Nazwa" className="basis-full sm:basis-[260px] grow">
+                  <input aria-label={`Nazwa konkurencji ${n}`} className={`${cellInput} w-full`} value={r.name} onChange={setRow(r.key, 'name')} />
+                </Field>
+                <Field label="Rodzaj">
+                  <div className="flex items-center gap-1.5">
+                    <select aria-label={`Rodzaj ${n}`} className={`${cellInput} w-[160px]`} value={r.kind} disabled={locked} onChange={setRow(r.key, 'kind')}>
+                      <option value="individual">Indywidualna</option>
+                      <option value="team">Drużyna</option>
+                    </select>
+                    {locked && <Lock title="Są zgłoszenia: rodzaju nie można zmienić" />}
+                  </div>
+                  {r.kind === 'team' && (
+                    <div className="flex items-center gap-1 mt-1.5" data-testid="team-size">
+                      <input aria-label={`Skład od ${n}`} inputMode="numeric" placeholder="min" className={`${cellInput} w-[56px] text-center`} value={r.teamMin} disabled={locked} onChange={setRow(r.key, 'teamMin')} />
+                      <span>–</span>
+                      <input aria-label={`Skład do ${n}`} inputMode="numeric" placeholder="max" className={`${cellInput} w-[56px] text-center`} value={r.teamMax} disabled={locked} onChange={setRow(r.key, 'teamMax')} />
+                      <span className="font-mono text-[11px] text-apex-muted whitespace-nowrap">OSÓB</span>
+                      {locked && <Lock title="Są zgłoszenia: składu nie można zmienić" />}
+                    </div>
+                  )}
+                </Field>
+                <Field label="Dyscyplina">
+                  <select aria-label={`Dyscyplina ${n}`} className={`${cellInput} w-[160px]`} value={r.discipline ?? 'run'} onChange={setRow(r.key, 'discipline')}>
+                    <option value="run">Bieg</option>
+                    <option value="nw">Nordic walking</option>
+                  </select>
+                </Field>
+                <Field label="Dystans">
+                  <input aria-label={`Dystans ${n}`} className={`${cellInput} w-[90px]`} value={r.distanceLabel} onChange={setRow(r.key, 'distanceLabel')} />
+                </Field>
+                <Field label="Start">
+                  <input aria-label={`Start ${n}`} type="time" className={`${cellInput} w-[110px]`} value={r.startTime} onChange={setRow(r.key, 'startTime')} />
+                </Field>
+                <Field label="Limit">
+                  <div className="flex items-center gap-1.5">
+                    <input aria-label={`Limit ${n}`} inputMode="numeric" className={`${cellInput} w-[76px]`} value={r.capacity} onChange={setRow(r.key, 'capacity')} />
+                    {r.kind === 'team' && <span className="font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-unit">{capacityUnit(r.capacity)}</span>}
+                  </div>
+                  {published && r.taken > 0 && <span className="block mt-1 font-mono text-[11px] text-apex-muted whitespace-nowrap" data-testid="capacity-min">MIN. {r.taken}</span>}
+                </Field>
+                <Field label="Wiek">
+                  <div className="flex items-center gap-1">
+                    <input aria-label={`Wiek od ${n}`} inputMode="numeric" placeholder="od" className={`${cellInput} w-[56px] text-center`} value={r.minAge} onChange={setRow(r.key, 'minAge')} />
+                    <span>–</span>
+                    <input aria-label={`Wiek do ${n}`} inputMode="numeric" placeholder="do" className={`${cellInput} w-[56px] text-center`} value={r.maxAge} onChange={setRow(r.key, 'maxAge')} />
+                  </div>
+                </Field>
+                <Field label="Dzieci">
+                  <div className="h-10 flex items-center">
+                    <input type="checkbox" aria-label={`Dzieci ${n}`} className="w-[18px] h-[18px] accent-apex-cyan" checked={r.isKids} onChange={setRow(r.key, 'isKids')} />
+                  </div>
+                </Field>
+                <Field label="Trasa">
+                  <GpxCell row={r} meta={gpxMeta[r.gpxUploadId] ?? uploads.get(r.gpxUploadId)} disabled={readOnly || !!uploading}
+                    busy={uploading === r.key} onFile={(f) => onGpx(r.key, f)} />
+                </Field>
+              </div>
+              {errors.length > 0 && <FieldError message={errors.join(' ')} />}
+            </div>
+          )
+        })}
+        <div className="flex items-baseline gap-3 whitespace-nowrap px-1">
+          <span className="font-mono text-[13px] text-apex-muted">LIMIT WYDARZENIA</span>
+          <span className="font-mono text-sm text-apex-yellow" data-testid="event-capacity">{capacityLabel(rows)}</span>
+        </div>
       </div>
       <div className="flex flex-wrap gap-3 items-center">
         <button type="button" className={btnGhost} onClick={addRow}>+ Konkurencja</button>
@@ -401,27 +398,34 @@ export default function Konkurencje({ event, queue, saveState, readOnly, onSaved
         </div>
         {pricingMode === 'fixed' && (
           <div className="relative overflow-x-auto border border-apex-border">
-            <table className="w-full border-collapse min-w-[360px]" data-testid="prices">
+            <table className="w-full border-collapse" data-testid="prices">
               <thead><tr><th className={thClass}>Konkurencja</th><th className={thClass}>Cena</th></tr></thead>
               <tbody>
-                {rows.filter((r) => !r.hidden).map((r, i) => (
-                  <tr key={r.key}>
-                    <td className={`${tdClass} text-apex-text-bright`}>{r.name || `Konkurencja ${i + 1}`}</td>
-                    <td className={tdClass}>
-                      <div className="flex items-center gap-1.5">
-                        <input aria-label={`Cena ${r.name || i + 1}`} inputMode="decimal" className={`${cellInput} w-[100px]`}
-                          value={r.price} disabled={published && r.inUse} onChange={setRow(r.key, 'price')} />
-                        <span className="font-mono text-sm text-apex-muted">zł</span>
-                        {published && r.inUse && <Lock title="Są zgłoszenia: opłaty nie można zmienić" />}
-                      </div>
-                      {r.kind === 'team' && <span className="block mt-1 font-mono text-[11px] text-apex-muted whitespace-nowrap">ZA DRUŻYNĘ</span>}
-                    </td>
-                  </tr>
-                ))}
+                {fixedRows.map((r, i) => {
+                  const error = priceErrorOf(r)
+                  const errorId = `price-error-${r.key}`
+                  return (
+                    <tr key={r.key}>
+                      <td className={`${tdClass} text-apex-text-bright`}>{r.name || `Konkurencja ${i + 1}`}</td>
+                      <td className={tdClass}>
+                        <div className="flex items-center gap-1.5">
+                          <input aria-label={`Cena ${r.name || i + 1}`} inputMode="decimal" className={`${cellInput} w-[100px]`}
+                            value={r.price} disabled={published && r.inUse} onChange={setRow(r.key, 'price')}
+                            aria-invalid={error ? true : undefined} aria-describedby={error ? errorId : undefined} />
+                          <span className="font-mono text-sm text-apex-muted">zł</span>
+                          {published && r.inUse && <Lock title="Są zgłoszenia: opłaty nie można zmienić" />}
+                        </div>
+                        {r.kind === 'team' && <span className="block mt-1 font-mono text-[11px] text-apex-muted whitespace-nowrap">ZA DRUŻYNĘ</span>}
+                        {error && <p id={errorId} className="text-apex-red font-sans text-sm mt-1.5" data-testid="price-error">{error}</p>}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
+        {priceMissing && <p className="font-sans text-sm text-apex-muted" data-testid="price-missing">Wpisz cenę każdej konkurencji.</p>}
         {pricingMode === 'tiered' && (
           <TierGrid rows={rows} tiers={tiers} locks={locks} closesOn={settings.closesOn} readOnly={readOnly} rowErrors={rowErrors}
             errorId={tierErrorId} error={tierError} onDate={setTierDate} onPrice={setPrice} onAdd={addTierColumn} onRemove={removeTier} />
