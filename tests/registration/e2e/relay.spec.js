@@ -93,6 +93,12 @@ async function ownerBuildsTheEvent(page, owner) {
     regulaminKind: 'link', regulaminUrl: 'https://example.org/regulamin.pdf', contactEmail: 'zapisy@klub.example',
   } })
   expect(basics.status, JSON.stringify(basics.body)).toBe(200)
+  // The runner fields as they were before city and club became required by default
+  // (migration 20261105090000), like createPublishedFreeEvent: this suite's people give neither.
+  const form = await callFn('save-registration-section', owner, { eventId, section: 'form', value: {
+    formFields: { city: 'optional', club: 'optional', ice: 'optional', nationality: 'off' },
+  } })
+  expect(form.status, JSON.stringify(form.body)).toBe(200)
 
   const steps = `/klub/zatyrani-test/wydarzenia/${eventId}`
   await page.goto(`${steps}/konkurencje`)
