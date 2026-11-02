@@ -90,11 +90,18 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await expect(page.getByLabel('Adres strony')).toHaveValue(new RegExp(`^${name.toLowerCase().replaceAll(' ', '-')}(-\\d+)?$`))
   await expect(page.getByRole('navigation', { name: 'Kroki' }).getByText('Płatności')).toHaveCount(0)
 
-  await page.getByLabel('Data', { exact: true }).fill('2026-12-06')
+  await page.getByLabel('Data wydarzenia').fill('2026-12-06')
   await page.getByLabel('Start pierwszej konkurencji').fill('10:00')
   await page.getByLabel('Zapisy otwarte od').fill('2026-11-01')
   await page.getByLabel('Zapisy online do').fill('2026-12-03')
 
+  // W-72: the description, plain text with its line breaks.
+  await page.getByLabel('Opis wydarzenia').fill('Nocny bieg po lesie.\n\nZabierz czołówkę.')
+  await expect(page.getByText('39 / 5000')).toBeVisible()
+
+  // W-74: the button says what it does, and a hint under the field says so too.
+  await expect(page.getByRole('button', { name: 'Pokaż na mapie' })).toBeVisible()
+  await expect(page.getByText('Enter albo „Pokaż na mapie” stawia pinezkę. Możesz ją potem przesunąć.')).toBeVisible()
   // One keystroke, no lookup: Nominatim is asked on Enter only.
   const town = page.getByLabel('Miejscowość')
   await town.fill('Niebor')
@@ -111,6 +118,19 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await page.getByLabel('E-mail kontaktowy organizatora').fill('zapisy@zatyrani.example')
   await page.getByLabel('Wydarzenie charytatywne').check()
   await page.getByLabel('Cel', { exact: true }).fill('Leczenie Zuzi')
+  // W-73: the cause's page; anything but http(s) is refused under the field and not saved.
+  await page.getByLabel('Strona celu').fill('zbiorka.example.org')
+  await expect(page.getByText('Podaj adres zaczynający się od http:// albo https://.')).toBeVisible()
+  await page.getByLabel('Strona celu').fill('https://zbiorka.example.org/zuzia')
+  await expect(page.getByText('Podaj adres zaczynający się od http:// albo https://.')).toHaveCount(0)
+  // W-75: the donation tip opens on a click with its text, and the click leaves the checkbox alone.
+  const donations = page.getByLabel('Pozwól dopłacić darowiznę przy zapisie')
+  await expect(donations).not.toBeChecked()
+  await page.getByRole('button', { name: 'Co oznacza darowizna przy zapisie' }).click()
+  await expect(page.getByTestId('donation-tip')).toHaveText(/dopłacić do opłaty startowej dowolną kwotę na cel zbiórki/)
+  await expect(donations).not.toBeChecked()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('donation-tip')).toHaveCount(0)
 
   // Uploads go through three requests (start, signed PUT, finish); the first
   // call of a function on the local stack boots its worker.
@@ -124,14 +144,16 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await expect.poll(async () => {
     const s = await settingsOf(eventId)
     return [s.event_date, s.first_start_time, s.town_label, s.town_area, Number(s.lat), s.place_details, s.is_charity,
-      s.charity_goal, s.regulamin_kind, !!s.regulamin_upload_id, !!s.poster_upload_id, !!s.opens_at, !!s.closes_at, s.contact_email]
+      s.charity_goal, s.regulamin_kind, !!s.regulamin_upload_id, !!s.poster_upload_id, !!s.opens_at, !!s.closes_at, s.contact_email,
+      s.description, s.charity_url]
   }, { timeout: 15_000 }).toEqual(['2026-12-06', '10:00:00', 'Nieborowice', 'GM. PILCHOWICE · ŚLĄSKIE', 50.2381,
-    'Boisko LKS, ul. Szkolna 12.', true, 'Leczenie Zuzi', 'pdf', true, true, true, true, 'zapisy@zatyrani.example'])
+    'Boisko LKS, ul. Szkolna 12.', true, 'Leczenie Zuzi', 'pdf', true, true, true, true, 'zapisy@zatyrani.example',
+    'Nocny bieg po lesie.\n\nZabierz czołówkę.', 'https://zbiorka.example.org/zuzia'])
   await expect(page.getByTestId('save-status')).toContainText('ZAPISANO AUTOMATYCZNIE')
 
   // Reload mid-wizard: everything comes back from the server.
   await page.reload()
-  await expect(page.getByLabel('Data', { exact: true })).toHaveValue('2026-12-06')
+  await expect(page.getByLabel('Data wydarzenia')).toHaveValue('2026-12-06')
   await expect(page.getByLabel('Start pierwszej konkurencji')).toHaveValue('10:00')
   await expect(page.getByLabel('Zapisy otwarte od')).toHaveValue('2026-11-01')
   await expect(page.getByLabel('Zapisy online do')).toHaveValue('2026-12-03')
@@ -140,6 +162,8 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await expect(page.getByLabel('Szczegóły miejsca')).toHaveValue('Boisko LKS, ul. Szkolna 12.')
   await expect(page.getByLabel('Wydarzenie charytatywne')).toBeChecked()
   await expect(page.getByLabel('Cel', { exact: true })).toHaveValue('Leczenie Zuzi')
+  await expect(page.getByLabel('Strona celu')).toHaveValue('https://zbiorka.example.org/zuzia')
+  await expect(page.getByLabel('Opis wydarzenia')).toHaveValue('Nocny bieg po lesie.\n\nZabierz czołówkę.')
   await expect(page.getByLabel('E-mail kontaktowy organizatora')).toHaveValue('zapisy@zatyrani.example')
   await expect(page.getByTestId('regulamin-file')).toBeVisible()
   await expect(page.getByTestId('poster-file')).toHaveText('plakat-leszy.png')
@@ -247,6 +271,11 @@ test('W-25 owner creates an event, fills every step, reloads, previews as a runn
   await expect(page.getByRole('heading', { name: 'Kategorie' })).toBeVisible()
   await page.getByTestId('add-age-classes').click()
   await expect(page.getByTestId('age-chips').getByText('K16–29')).toBeVisible()
+  // W-75: the age-reckoning tip shows its text on a click.
+  await page.getByRole('button', { name: 'Jak liczony jest wiek' }).click()
+  await expect(page.getByTestId('reckoning-tip')).toHaveText(/W dniu zawodów: ukończone lata w dniu startu/)
+  await page.getByRole('button', { name: 'Jak liczony jest wiek' }).click()
+  await expect(page.getByTestId('reckoning-tip')).toHaveCount(0)
   await expect(page.getByTestId('age-count')).toHaveText('× 1 KONKURENCJA = 10 KLASYFIKACJI')
   // I1: switching back and forth never sends an id the server deleted.
   const ageGroupsOf = async () => (await admin().from('age_groups').select('label').in('category_id', ids)).data.map((g) => g.label).sort()

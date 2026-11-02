@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
 import { eventPageModel, statParts } from '../../lib/eventPageModel.js'
 import { orderableExtras, soldOut } from '../../lib/cartModel.js'
+import { linkParts } from '../../lib/linkify.js'
 import { labelCls, linkCls } from '../../components/registration/ui.js'
 import CoursePanel from '../../components/registration/CoursePanel.jsx'
 
@@ -165,7 +166,15 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
             {m.organizerName && <span className="font-mono text-xs text-apex-muted uppercase text-right shrink-0 max-w-[45%] truncate" title={m.organizerName}>{m.organizerName}</span>}
           </div>
           <h1 className="font-display font-extrabold text-[40px] md:text-5xl leading-[0.95] uppercase text-apex-text-bright break-words">{m.title}</h1>
-          {m.charityGoal && <span className="text-[17px]">{m.charityGoal}</span>}
+          {(m.charityGoal || m.charityUrl) && (
+            <span className="text-[17px]" data-testid="charity-goal">
+              {m.charityGoal}
+              {m.charityUrl && (
+                <>{m.charityGoal ? ' · ' : ''}<a href={m.charityUrl} target="_blank" rel="noopener noreferrer" className={`whitespace-nowrap ${linkCls}`}
+                  data-testid="charity-link">Strona celu ↗</a></>
+              )}
+            </span>
+          )}
         </div>
 
         <div className="border border-apex-yellow-dim px-3.5 py-2.5 font-mono text-[15px] uppercase tracking-wide text-apex-yellow" data-testid="deadline">
@@ -177,6 +186,17 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
           <Stat testId="stat-free" label="Wolne" value={<StatLines parts={statParts(m.stats).free} />} />
           <Stat testId="stat-days" label={thirdStat.label} value={thirdStat.value} />
         </div>
+
+        {m.description && (
+          <section className="border border-apex-border px-3.5 py-3 flex flex-col gap-1.5 min-w-0" data-testid="event-description">
+            <span className={labelCls}>O wydarzeniu</span>
+            <p className="text-base text-apex-text-bright whitespace-pre-line break-words">
+              {linkParts(m.description).map((p, i) => (p.href
+                ? <a key={i} href={p.href} target="_blank" rel="noopener noreferrer nofollow" className={`break-all ${linkCls}`}>{p.text}</a>
+                : <span key={i}>{p.text}</span>))}
+            </p>
+          </section>
+        )}
 
         {(m.startPlace || m.office.length > 0 || m.officePlace) && (
           <div className="grid sm:grid-cols-2 gap-2">

@@ -6,7 +6,7 @@ import {
 } from '../../../../lib/categoryRows.js'
 import { btnGhost } from '../../settingsUi.js'
 import {
-  FieldError, Seg, cardClass, cardTitle, cellInput, monoLabel, sectionErrors, tdClass, thClass,
+  FieldError, InfoTip, Seg, cardClass, cardTitle, cellInput, monoLabel, sectionErrors, tdClass, thClass,
 } from '../wizardUi.jsx'
 
 // A4: Open K/M always; age classes (co 10 / co 5 lat / własne) applied to
@@ -214,11 +214,10 @@ export default function Kategorie({ event, queue, saveState, readOnly, onSaved, 
           )}
           <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] items-end">
             <div>
-              <label htmlFor="age-reckoning" className={`${label} flex items-center gap-1.5`}>
-                Wiek liczony
-                <span tabIndex={0} title={reckoningTip(year)} aria-label={reckoningTip(year)}
-                  className="inline-flex items-center justify-center w-[18px] h-[18px] border border-apex-border-bright text-[11px] normal-case cursor-help">?</span>
-              </label>
+              <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                <label htmlFor="age-reckoning" className={`${label} !mb-0`}>Wiek liczony</label>
+                <InfoTip mark="?" label="Jak liczony jest wiek" testId="reckoning-tip">{reckoningTip(year)}</InfoTip>
+              </div>
               <select id="age-reckoning" className={`${cellInput} w-full`} value={reckoning} onChange={(e) => apply({ reckoning: e.target.value })}>
                 <option value="race_day">w dniu zawodów</option>
                 <option value="year_end">rocznikiem ({year} − rok ur.)</option>

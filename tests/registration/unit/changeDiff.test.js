@@ -281,3 +281,13 @@ test('M-4 mergedChecklistInput carries the tiers the event will have', () => {
   assert.deepEqual(mergedChecklistInput(tieredLive, {}).tiers, tieredLive.tiers)
   assert.deepEqual(mergedChecklistInput(tieredLive, { competitions: { pricing_mode: 'fixed', items: [] } }).tiers, [])
 })
+
+test('W-72 W-73 the description and the cause page are diff rows with their labels', () => {
+  const out = changeDiff({ ...live, settings: { ...live.settings, description: 'Stary opis', charity_url: null } },
+    { basics: { description: 'Nowy opis', charity_url: 'https://example.org/cel' } })
+  assert.deepEqual(out, [
+    { field: 'basics.description', label: 'Opis wydarzenia', before: 'Stary opis', after: 'Nowy opis' },
+    { field: 'basics.charity_url', label: 'Strona celu', before: null, after: 'https://example.org/cel' },
+  ])
+  assert.deepEqual(noticeAudience(out), { all: false, categoryIds: [] })
+})
