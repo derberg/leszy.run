@@ -147,7 +147,8 @@ export function publishChecklist(event) {
   const paid = reason !== null
   if (!PAID_REGISTRATION_ENABLED && paid) block('payments', PAYMENTS_SOON[reason])
   if (paid && !event?.payout?.ready) {
-    block('payout', event?.payout?.mode === 'custom' ? 'Dane do wypłat tego wydarzenia' : 'Uzupełnij dane do wypłat w ustawieniach klubu')
+    const custom = event?.payout?.mode === 'custom' && event.payout.clubReady !== false
+    block('payout', custom ? 'Dane do wypłat tego wydarzenia' : 'Uzupełnij dane do wypłat w ustawieniach klubu')
   }
 
   if (!(event?.officeHours ?? []).length) {

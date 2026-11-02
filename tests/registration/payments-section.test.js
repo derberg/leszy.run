@@ -415,6 +415,26 @@ test('M-1 a published free event with a staged paid pricing counts as paid; a dr
   assert.equal((await setPayout(draftId, { mode: 'club' }, c.owner)).status, 200)
 })
 
+// Agreement v6 §1 ust. 2: the club's own payout details name the Organizer, so
+// a paid event needs them even when its money goes to another account.
+test('P-42a a complete other account does not stand in for the club\'s own payout details', async () => {
+  const c = await freshClub('p42a')
+  const created = await callFn('create-registration-event', c.owner, { clubId: c.clubId, name: `Szkic ${rand()}` })
+  const draftId = created.body.data.eventId
+  assert.equal((await callFn('save-registration-section', c.owner, { eventId: draftId, section: 'competitions', value: {
+    pricingMode: 'fixed', items: [{ name: 'Bieg', kind: 'individual', distanceLabel: '9 km', startTime: '10:00', capacity: 5, price: '60' }],
+  } })).status, 200)
+  assert.equal((await setPayout(draftId, CUSTOM, c.owner)).status, 200)
+  const payoutBlocks = async () => (await callFn('get-registration-event', c.owner, { eventId: draftId }))
+    .body.data.checklist.blocking.filter((b) => b.key === 'payout')
+  assert.deepEqual(await payoutBlocks(), [{ key: 'payout', label: 'Uzupełnij dane do wypłat w ustawieniach klubu' }])
+  const { error } = await db().from('club_payout_details').insert({
+    club_id: c.clubId, legal_name: 'Klub', nip: NIP, iban: IBAN, address: 'ul. Leśna 1',
+  })
+  assert.ifError(error)
+  assert.deepEqual(await payoutBlocks(), [])
+})
+
 // M-3, M-10: a club without online registration.
 test('M-3 M-10 a disabled club: both payout functions 404 and save_event_payout refuses', async () => {
   const c = await freshClub('m3')
