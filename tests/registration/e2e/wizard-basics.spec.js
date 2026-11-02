@@ -99,3 +99,19 @@ test('W-77 the public event page shows „Więcej informacji” with the event p
   await expect(page.getByTestId('event-description')).toContainText('Nocny bieg po lesie.')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
+
+test('W-78 the public event page shows the share of the income in the charity panel', async ({ actors }) => {
+  const session = await owner()
+  const event = await createPublishedFreeEvent(session)
+  await admin().from('registration_settings').update({
+    is_charity: true, charity_goal: 'Schronisko w Gliwicach', charity_percent: 100,
+  }).eq('event_id', event.eventId)
+
+  const page = await actors.viewer.newPage()
+  await offline(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`/events/${event.slug}`)
+  await expect(page.getByTestId('charity-goal')).toContainText('Cel charytatywny')
+  await expect(page.getByTestId('charity-percent')).toHaveText('100% dochodu trafia na: Schronisko w Gliwicach')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})

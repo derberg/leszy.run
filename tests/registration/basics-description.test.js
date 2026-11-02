@@ -130,6 +130,32 @@ test('W-77 the event page: saved in a draft, refused when not http(s) (also by t
   assert.equal((await getEvent(event.slug)).body.websiteUrl, 'https://example.org/bieg')
 })
 
+test('W-78 the share for the cause: saved in a draft, refused outside 1..100 (also by the column), staged after publish and served by /api/event', async () => {
+  const r = await callFn('create-registration-event', owner, { clubId, name: `Procent Leszego ${rand()}` })
+  const { eventId } = r.body.data
+  assert.equal((await save(eventId, { isCharity: true, charityPercent: 100 })).status, 200)
+  assert.equal((await settingsOf(eventId)).charity_percent, 100)
+  assert.equal((await callFn('get-registration-event', owner, { eventId })).body.data.settings.charityPercent, 100)
+  const bad = await save(eventId, { charityPercent: 0 })
+  assert.equal(bad.status, 422)
+  assert.equal(bad.body.fields.charityPercent, 'Podaj liczbę od 1 do 100.')
+
+  const event = await createPublishedFreeEvent(owner)
+  const col = await db().from('registration_settings').update({ charity_percent: 101 }).eq('event_id', event.eventId)
+  assert.equal(col.error?.code, '23514')
+  assert.equal((await getEvent(event.slug)).body.charityPercent, null)
+  const s = await save(event.eventId, { charityPercent: 50 })
+  assert.equal(s.status, 200, JSON.stringify(s.body))
+  assert.ok(s.body.data.changedFields.includes('basics.charity_percent'))
+  assert.equal((await settingsOf(event.eventId)).charity_percent, null, 'nothing live before publish')
+  const preview = await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'preview_changes' })
+  const row = preview.body.data.diff.find((d) => d.field === 'basics.charity_percent')
+  assert.equal(row.label, 'Procent dochodu na cel')
+  const pub = await callFn('publish-registration-event', owner, { eventId: event.eventId, action: 'publish_changes', notify: { send: false } })
+  assert.equal(pub.status, 200, JSON.stringify(pub.body))
+  assert.equal((await getEvent(event.slug)).body.charityPercent, 50)
+})
+
 test('W-76 a taken address is refused on the step-1 save, before publish, and the other basics fields still save', async () => {
   const a = await createPublishedFreeEvent(owner)
   const r = await callFn('create-registration-event', owner, { clubId, name: `Adres Leszego ${rand()}` })

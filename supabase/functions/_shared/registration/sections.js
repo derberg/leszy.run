@@ -134,6 +134,8 @@ const BASICS = {
   isCharity: ['is_charity', rules.bool()],
   charityGoal: ['charity_goal', rules.text(300)],
   charityUrl: ['charity_url', rules.webUrl()],
+  // The share of the income that goes to the cause, a whole percent; null says nothing.
+  charityPercent: ['charity_percent', rules.int(1, 100, 'Podaj liczbę od 1 do 100.')],
   // Plain text shown on the public event page; never rendered as HTML.
   description: ['description', rules.text(5000)],
   // The event's own page, „Więcej informacji” under the description.

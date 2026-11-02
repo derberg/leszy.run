@@ -317,3 +317,10 @@ test('consents: switching minorsOnly alone is a change; the same list with the s
     ['form.consents', [text], [`${text} (tylko przy dziecku)`]],
   ])
 })
+
+test('W-78 the share for the cause is a diff row „Procent dochodu na cel”', () => {
+  const out = changeDiff({ ...live, settings: { ...live.settings, charity_percent: null } },
+    { basics: { charity_percent: 50 } })
+  assert.deepEqual(out, [{ field: 'basics.charity_percent', label: 'Procent dochodu na cel', before: null, after: 50 }])
+  assert.deepEqual(noticeAudience(out), { all: false, categoryIds: [] })
+})

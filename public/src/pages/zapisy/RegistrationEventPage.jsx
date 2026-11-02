@@ -177,12 +177,16 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
           <h1 className="font-display font-extrabold text-[40px] md:text-5xl leading-[0.95] uppercase text-apex-text-bright break-words">{m.title}</h1>
         </div>
 
-        {(m.charityGoal || m.charityUrl) && (
+        {(m.charityGoal || m.charityUrl || m.charityPercent != null) && (
           <section className="border border-apex-border border-l-[3px] border-l-apex-rose px-3.5 py-3 flex flex-col gap-1.5 min-w-0" data-testid="charity-goal">
             <span className="font-mono text-xs tracking-wider uppercase text-apex-rose flex items-center gap-1.5">
               <HeartIcon />Cel charytatywny
             </span>
-            {m.charityGoal && <p className="text-[17px] text-apex-text-bright break-words">{m.charityGoal}</p>}
+            {m.charityPercent != null ? (
+              <p className="text-[17px] text-apex-text-bright break-words" data-testid="charity-percent">
+                <span className="font-mono">{m.charityPercent}%</span> dochodu trafia {m.charityGoal ? <>na: {m.charityGoal}</> : 'na cel charytatywny'}
+              </p>
+            ) : m.charityGoal && <p className="text-[17px] text-apex-text-bright break-words">{m.charityGoal}</p>}
             {m.charityUrl && (
               <a href={m.charityUrl} target="_blank" rel="noopener noreferrer" className={`self-start whitespace-nowrap text-[15px] ${linkCls}`}
                 data-testid="charity-link">Strona celu ↗</a>

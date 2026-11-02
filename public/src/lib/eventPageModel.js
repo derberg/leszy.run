@@ -239,6 +239,8 @@ export function eventPageModel(raw, now = new Date()) {
     charityGoal: raw.isCharity ? (raw.charityGoal ?? null) : null,
     // A link only to an http(s) address, whatever the stored value says.
     charityUrl: raw.isCharity && /^https?:\/\//i.test(raw.charityUrl ?? '') ? raw.charityUrl : null,
+    // „N% dochodu trafia na: …” in the charity panel; only what the organizer stated.
+    charityPercent: raw.isCharity && Number.isInteger(raw.charityPercent) ? raw.charityPercent : null,
     // Plain text: the page keeps its line breaks and never renders it as HTML.
     description: raw.description || null,
     // „Więcej informacji” under the description: http(s) only, like charityUrl.
@@ -361,7 +363,7 @@ export function mergePending(raw, pending, now = new Date()) {
     const b = payload.basics
     pick(out, b, {
       name: 'name', slug: 'slug', event_date: 'eventDate', first_start_time: 'firstStartTime', opens_at: 'opensAt', closes_at: 'closesAt',
-      is_charity: 'isCharity', charity_goal: 'charityGoal', charity_url: 'charityUrl', donations_enabled: 'donationsEnabled',
+      is_charity: 'isCharity', charity_goal: 'charityGoal', charity_url: 'charityUrl', charity_percent: 'charityPercent', donations_enabled: 'donationsEnabled',
       description: 'description', website_url: 'websiteUrl',
       contact_email: 'contactEmail',
     })

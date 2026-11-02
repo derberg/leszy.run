@@ -31,6 +31,7 @@ function initialForm(s) {
     isCharity: !!s.isCharity,
     charityGoal: s.charityGoal ?? '',
     charityUrl: s.charityUrl ?? '',
+    charityPercent: s.charityPercent == null ? '' : String(s.charityPercent),
     description: s.description ?? '',
     websiteUrl: s.websiteUrl ?? '',
     donationsEnabled: !!s.donationsEnabled,
@@ -63,6 +64,7 @@ function basicsValue(f, { state, savedSlug, refusedSlug }) {
     isCharity: f.isCharity,
     charityGoal: orNull(f.charityGoal),
     charityUrl: orNull(f.charityUrl.trim()),
+    charityPercent: f.charityPercent.trim() === '' ? null : Number(f.charityPercent),
     description: orNull(f.description),
     websiteUrl: orNull(f.websiteUrl.trim()),
     donationsEnabled: f.donationsEnabled,
@@ -139,7 +141,7 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
     }
     // An address still being typed waits; everything else saves meanwhile.
     const typing = {}
-    for (const field of ['contactEmail', 'charityUrl', 'websiteUrl']) {
+    for (const field of ['contactEmail', 'charityUrl', 'charityPercent', 'websiteUrl']) {
       if (result.ok || !result.errors[field]) continue
       typing[field] = result.errors[field]
       const { [field]: _dropped, ...rest } = value
@@ -298,6 +300,16 @@ export default function Podstawy({ event, queue, saveState, readOnly, reload, re
               <label htmlFor="ev-goal" className={fieldLabel}>Cel</label>
               <input id="ev-goal" className={fieldInput} value={form.charityGoal} onChange={set('charityGoal')} />
               <FieldError message={errors.charityGoal} />
+            </div>
+            <div>
+              <label htmlFor="ev-goal-percent" className={fieldLabel}>Jaki procent dochodu trafia na cel?</label>
+              <div className="flex items-center gap-2">
+                <input id="ev-goal-percent" type="number" inputMode="numeric" min="1" max="100" step="1" className={`${fieldInput} max-w-[120px]`}
+                  value={form.charityPercent} onChange={set('charityPercent')} />
+                <span className="font-mono text-base text-apex-text-bright">%</span>
+              </div>
+              <MonoHint>Jeśli podasz, pokażemy na stronie zapisów: „{form.charityPercent || '100'}% dochodu trafia na: …”</MonoHint>
+              <FieldError message={errors.charityPercent} />
             </div>
             <div>
               <label htmlFor="ev-goal-url" className={fieldLabel}>Strona celu</label>
