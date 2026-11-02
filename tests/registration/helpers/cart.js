@@ -22,8 +22,9 @@ export async function makeVoucher(eventId, { categoryIds = [], ...over } = {}) {
   return v
 }
 
+/** A partner of the event, hidden from the public page like a discount-code partner. */
 export const makePartner = (eventId, name = `Sklep ${crypto.randomBytes(3).toString('hex')}`) =>
-  insert('registration_partners', { event_id: eventId, name })
+  insert('event_partners', { event_id: eventId, name, is_public: false })
 
 /**
  * An extra with variants → { extra, variants: { [label]: row } }. `orderUntil` defaults to the

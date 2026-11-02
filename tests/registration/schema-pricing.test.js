@@ -13,8 +13,8 @@ import { MAX_VOUCHER_USES } from '../../supabase/functions/_shared/registration/
 
 const ZT_CLUB = '00000000-0000-4000-8000-0000000000c1'
 
+// event_partners (which replaced registration_partners) has a public column grant: partners-schema.test.js.
 const NEW_TABLES = [
-  'registration_partners',
   'vouchers',
   'voucher_competitions',
   'extras',
@@ -429,7 +429,7 @@ test('V-13 a transfer stays in one event: both registrations must be the transfe
 test('V-13 registrations.voucher_id and partner_id reference this event\'s vouchers and partners, restrict', async () => {
   const s = await seedEvent()
   const other = await seedEvent()
-  const partner = await insert('registration_partners', { event_id: s.eventId, name: 'Sklep Biegowy' })
+  const partner = await insert('event_partners', { event_id: s.eventId, name: 'Sklep Biegowy', is_public: false })
   const v = await voucher(s, { partner_id: partner.id, max_uses: 2 })
   const foreign = await voucher(other)
   const reg = await insert('registrations', registrationRow(s, { voucher_id: v.id, partner_id: partner.id }))
@@ -440,10 +440,10 @@ test('V-13 registrations.voucher_id and partner_id reference this event\'s vouch
   await expectCode(db()`insert into public.registrations ${db()(registrationRow(other, { partner_id: partner.id }))}`, '23503', 'another event\'s partner')
   await expectCode(db()`insert into public.vouchers ${db()(voucherRow(other, { partner_id: partner.id }))}`, '23503', 'a voucher with another event\'s partner')
   await expectCode(db()`delete from public.vouchers where id = ${v.id}`, '23503', 'delete a used voucher')
-  await expectCode(db()`delete from public.registration_partners where id = ${partner.id}`, '23503', 'delete a partner in use')
-  await expectCode(db()`insert into public.registration_partners ${db()({ event_id: s.eventId, name: 'sklep biegowy' })}`, '23505', 'the same partner name')
-  await expectCode(db()`insert into public.registration_partners ${db()({ event_id: s.eventId, name: '' })}`, '23514', 'an empty partner name')
-  await expectCode(db()`insert into public.registration_partners ${db()({ event_id: s.eventId, name: 'x'.repeat(81) })}`, '23514', 'an 81-character partner name')
+  await expectCode(db()`delete from public.event_partners where id = ${partner.id}`, '23503', 'delete a partner in use')
+  await expectCode(db()`insert into public.event_partners ${db()({ event_id: s.eventId, name: 'sklep biegowy' })}`, '23505', 'the same partner name')
+  await expectCode(db()`insert into public.event_partners ${db()({ event_id: s.eventId, name: '' })}`, '23514', 'an empty partner name')
+  await expectCode(db()`insert into public.event_partners ${db()({ event_id: s.eventId, name: 'x'.repeat(81) })}`, '23514', 'an 81-character partner name')
   assert.equal(reg.voucher_id, v.id)
 })
 
