@@ -254,6 +254,8 @@ export const ALERT_HINTS = {
   refund_followup_failed: 'zwrot zapisany, nie powiódł się wpis audytu lub e-mail po nim: pieniędzy to nie dotyczy; e-mail wyśle zadanie, gdy runner_notified_at jest puste',
   refund_cancel_failed: 'zwrot przyjęty, zgłoszenia nie udało się anulować: anuluj je ręcznie w panelu organizatora',
   refund_email_args_failed: 'zadanie nie odczytało danych do e-maila o zwrocie (błąd bazy): sprawdź wiersz refunds i jego order_line_id; zadanie próbuje co 15 min',
+  refund_external: 'dpay pokazuje zwrot, którego leszy.run nie zapisał (zwrot zrobiony w panelu dpay, nie przez „Zwróć wpłatę”); difference w groszach: sprawdź transakcję txn w panelu dpay, potem backend/scripts/record-external-refund.js --order <orderId> --amount <zł> --note "…" (bez --apply to podgląd; --notify wysyła biegaczowi e-mail o zwrocie)',
+  external_refund_check_failed: 'zadanie nie odczytało w dpay kwoty zwrotów (refunded_amount) części opłaconych zamówień, więc zwrot zrobiony w panelu dpay mógł zostać niezauważony: sprawdź dostęp do dpay i logi registration-jobs; zamówienia są sprawdzane ponownie następnego dnia',
   refund_insufficient_balance: 'zwrot organizatora odrzucony, saldo dpay za niskie: rezerwacja zwolniona, organizator może zlecić zwrot ponownie po zasileniu konta (nikt go nie ponawia)',
 }
 
