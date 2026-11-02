@@ -5,6 +5,7 @@ import { clearFavoritesCache } from '../../hooks/useFavorites.js'
 import { clearNotificationsCache } from '../../hooks/useNotifications.js'
 import { forgetPublicRegistrationEvent, reloadPublicRegistrationEvent } from '../../hooks/usePublicRegistrationEvent.js'
 import { callFunction, requestCode, verifyCode } from '../../lib/auth.js'
+import { welcomeBackText } from '../../lib/welcomeBack.js'
 import { afterRegistrationPath } from '../../lib/inviteLink.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import {
@@ -88,6 +89,8 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
   const [serviceAccepted, setServiceAccepted] = useState(false)
   const [honeypot, setHoneypot] = useState('')
   const [code, setCode] = useState('')
+  // „Witaj ponownie” for the summary, when the code step signed in an existing account.
+  const [welcome, setWelcome] = useState(null)
   const [sentTo, setSentTo] = useState(null)
   const [resent, setResent] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -323,9 +326,11 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
     e.preventDefault()
     setBusy(true)
     try {
-      await verifyCode(sentTo ?? email, code)
+      const verified = await verifyCode(sentTo ?? email, code)
       setVerifiedEmail(sentTo ?? email)
       clearAuthCache()
+      // An address that already had an account: say so on the summary once the session is read.
+      if (verified?.existing) resolveUser().then((u) => setWelcome(welcomeBackText(u)))
       clearFavoritesCache()
       clearNotificationsCache()
       enterSquad()
@@ -470,7 +475,7 @@ export default function TeamSignup({ raw: rawProp, categoryId, preview = false, 
   if (step === 'payment' && !preview) {
     const teamVoucher = draft.cards[0].voucher
     return (
-      <Podsumowanie raw={raw} open={open} endpoint="register-team" stepLabel="KROK 3/3"
+      <Podsumowanie raw={raw} open={open} welcome={welcome} endpoint="register-team" stepLabel="KROK 3/3"
         body={toTeamRequest(draft, { consents, legOrder, today, website: honeypot, extrasOf })}
         team={{
           name: draft.teamName.trim(),

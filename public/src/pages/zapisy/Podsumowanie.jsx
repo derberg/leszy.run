@@ -65,7 +65,7 @@ const row = 'flex justify-between gap-2.5 py-2 border-b border-apex-border text-
  */
 export default function Podsumowanie({
   raw, open, lines: formLines, body, addedCategoryIds = [], onBack, onFailure, onRepriced, endpoint = 'create-order', stepLabel = 'KROK 2/3', team = null,
-  donation = null, onRegisterFree = null,
+  donation = null, onRegisterFree = null, welcome = null,
 }) {
   const navigate = useNavigate()
   // The lines as the server last priced them: the form's, until a price_changed re-prices them.
@@ -180,6 +180,9 @@ export default function Podsumowanie({
     <div className="flex flex-col gap-[18px]" data-testid="checkout">
       <PageTop back={{ label: 'Wróć', onClick: onBack }} right={stepLabel} />
       <h1 className="font-display font-extrabold text-[32px] leading-none uppercase text-apex-text-bright">{team ? 'Jedna opłata za drużynę' : 'Podsumowanie'}</h1>
+      {welcome && (
+        <p className="text-base leading-snug border-l-2 border-apex-yellow pl-3" data-testid="welcome-back" role="status">{welcome}</p>
+      )}
       {team && (
         <div className="flex flex-col gap-2">
           <span className={sectionCls}><span className="[overflow-wrap:anywhere]">{team.name}</span></span>

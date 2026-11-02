@@ -116,13 +116,24 @@ test('F-15 auth-verify-code keeps its other answers: 400 bad input, 400 no code,
 
   r = await post({ email, code })
   assert.equal(r.status, 200)
-  assert.deepEqual(await r.json(), { success: true, hasUsername: false })
+  assert.deepEqual(await r.json(), { success: true, hasUsername: false, existing: false })
   assert.match(r.headers.get('set-cookie'), /^leszy_session=[0-9a-f]{64}; HttpOnly; Secure; SameSite=Lax; Path=\/; Max-Age=7776000$/)
 
   // The code is spent: a second submit gets the "no code" answer, as before.
   r = await post({ email, code })
   assert.equal(r.status, 400)
   assert.deepEqual(await r.json(), { error: 'Kod wygasł lub nie istnieje. Poproś o nowy.' })
+
+  // The address has an account now: the next login says so (the registration form's „Witaj ponownie”).
+  let again = await requestCode(email)
+  // The capture may still hold the first code for a moment; wait for the new mail.
+  for (let i = 0; i < 20 && again === code; i++) {
+    await new Promise((res) => setTimeout(res, 250))
+    again = await lastCodeFor(email)
+  }
+  r = await post({ email, code: again })
+  assert.equal(r.status, 200)
+  assert.deepEqual(await r.json(), { success: true, hasUsername: false, existing: true })
 })
 
 test('F-15 auth-verify-code: a fourth guess on one code is refused with 403', async () => {
