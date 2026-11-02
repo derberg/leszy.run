@@ -36,8 +36,10 @@ const REGISTRATION_COLUMNS = 'id, event_id, category_id, status, first_name, las
   + 'consent_requests(sent_at, emailed_at, last_reminded_at, auto_reminded_at, used_at, expires_at)'
 
 // Plan 7: package transfers (§2). The token's SHA-256 is a credential and is never exported. No
-// partner or voucher field exists on a transfer, and REGISTRATION_COLUMNS above keeps leaving out
-// partner_id and voucher_id (D7-11): partner attribution is the organizer's, never the runner's.
+// partner or voucher field exists on a transfer (apply_transfer copies the entry's partner_id to
+// the new holder's entry, never onto the transfer row), and REGISTRATION_COLUMNS above keeps
+// leaving out partner_id and voucher_id (D7-11): which event_partners row an entry carries, and
+// that partner's note, are the organizer's, never the runner's.
 const TRANSFER_COLUMNS = 'id, event_id, registration_id, new_registration_id, kind, status, from_profile_id, to_email, '
   + 'accepted_by_profile_id, created_at, expires_at, accepted_at, cancelled_at, registration_settings(name, event_date, club_id)'
 
