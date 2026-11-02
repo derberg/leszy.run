@@ -23,11 +23,11 @@ describe('V-60 the donation „inna”', () => {
     }
   })
 
-  it('the chips: „0”, „+20 zł”, „+50 zł”, „inna”, nothing preselected beyond 0', () => {
-    assert.deepEqual(DONATION_CHIPS.map((c) => c.label), ['0', '+20 zł', '+50 zł', 'inna'])
+  it('the chips: „0”, „+5 zł”, „+10 zł”, „inna”, nothing preselected beyond 0', () => {
+    assert.deepEqual(DONATION_CHIPS.map((c) => c.label), ['0', '+5 zł', '+10 zł', 'inna'])
     assert.deepEqual(donationOf('none'), { ok: true, grosze: 0 })
-    assert.deepEqual(donationOf('20'), { ok: true, grosze: 2000 })
-    assert.deepEqual(donationOf('50'), { ok: true, grosze: 5000 })
+    assert.deepEqual(donationOf('5'), { ok: true, grosze: 500 })
+    assert.deepEqual(donationOf('10'), { ok: true, grosze: 1000 })
     assert.deepEqual(donationOf('other', '12,5'), { ok: true, grosze: 1250 })
     assert.equal(donationOf('other', '').ok, false)
   })

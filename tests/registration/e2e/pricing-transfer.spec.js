@@ -16,7 +16,7 @@ import { startScratchHost } from '../helpers/hostPull.js'
 // partnered, discounted package seen by four audiences in parallel contexts, then handed on.
 //   owner    creates partner „Sklep Biegacz” and code BIEGACZ15 (15 %, 10 uses, with that partner) in
 //            Płatności, on a charity event with tiers 60 / 70 zł and a shirt;
-//   runner   registers with the code, a shirt M and +20 zł, pays on the mock; RA4's line reads
+//   runner   registers with the code, a shirt M and +10 zł, pays on the mock; RA4's line reads
 //            „60,00 zł − 15% (BIEGACZ15) = 51,00 zł” and orders.total is cartAmounts' (no runner fee:
 //            ruling T4-F, entry + extras + donation and nothing else);
 //   owner    sees the row with the partner and the chip count 1; viewer's start list shows the runner
@@ -123,7 +123,7 @@ test('V-80 a partnered, discounted package across four audiences: the code and p
   const partner = await one('registration_partners', { event_id: e.eventId, name: PARTNER })
   expect([voucher.percent, voucher.max_uses, voucher.used, voucher.partner_id]).toEqual([15, 10, 0, partner.id])
 
-  // ---- runner: the code, a shirt M and +20 zł; RA4's line and total are cartAmounts'.
+  // ---- runner: the code, a shirt M and +10 zł; RA4's line and total are cartAmounts'.
   const runner = await open(actors.runner, `/events/${e.slug}`)
   await runner.getByTestId('competition').filter({ hasText: 'Bieg 9 km' }).click()
   await runner.locator('#p-first').fill('Ola')
@@ -147,17 +147,17 @@ test('V-80 a partnered, discounted package across four audiences: the code and p
   await expect(line.getByTestId('checkout-voucher')).toHaveText(LINE)
   await expect(line.getByTestId('checkout-line-price')).toHaveText('51,00 zł')
   await expect(line.getByTestId('checkout-extra')).toHaveText(['Koszulka · M · 45,00 zł'])
-  await runner.getByRole('radio', { name: '+20 zł' }).click()
-  const expected = cartAmounts({ people: [{ listPrice: 6000, voucherPercent: 15, extras: [{ price: 4500, qty: 1 }] }], donation: 2000 })
-  expect([expected.entryTotal, expected.extrasTotal, expected.donation, expected.total]).toEqual([5100, 4500, 2000, 11600])
+  await runner.getByRole('radio', { name: '+10 zł' }).click()
+  const expected = cartAmounts({ people: [{ listPrice: 6000, voucherPercent: 15, extras: [{ price: 4500, qty: 1 }] }], donation: 1000 })
+  expect([expected.entryTotal, expected.extrasTotal, expected.donation, expected.total]).toEqual([5100, 4500, 1000, 10600])
   await expect(runner.getByTestId('amount-entries')).toHaveText(/Opłaty startowe\s*51,00 zł/)
   await expect(runner.getByTestId('amount-extras')).toHaveText(/Dodatki\s*45,00 zł/)
-  await expect(runner.getByTestId('amount-donation')).toHaveText(/Darowizna na cel\s*20,00 zł/)
-  await expect(runner.getByTestId('checkout-total')).toHaveText(/Razem\s*116,00 zł/)
+  await expect(runner.getByTestId('amount-donation')).toHaveText(/Dodatkowa darowizna na cel\s*10,00 zł/)
+  await expect(runner.getByTestId('checkout-total')).toHaveText(/Razem\s*106,00 zł/)
   await expect(runner.getByTestId('checkout')).not.toContainText(FEE)
   await runner.getByTestId('pay').click()
   await expect(runner).toHaveURL(PAY_PAGE)
-  await expect(runner.getByTestId('amount')).toHaveText('116.00')
+  await expect(runner.getByTestId('amount')).toHaveText('106.00')
   await runner.getByRole('button', { name: 'Zapłać (mock)' }).click()
   await runner.waitForURL((u) => !PAY_PAGE.test(u.href)).catch(() => {})
   const orderOfRunner = async () => (await admin().from('orders').select('*').eq('event_id', e.eventId).eq('buyer_email', ACTOR_EMAILS.runner)).data[0]
@@ -165,7 +165,7 @@ test('V-80 a partnered, discounted package across four audiences: the code and p
   const order = await orderOfRunner()
   // The mock's return URL is slot 0's site; the order page is opened here, as O-60 does.
   await runner.goto(`/zamowienie/${order.id}`)
-  await expect(runner.getByTestId('order-paid-label')).toHaveText(/Opłacone · 116,00 zł/i)
+  await expect(runner.getByTestId('order-paid-label')).toHaveText(/Opłacone · 106,00 zł/i)
   await expect(runner.locator('#main-content')).not.toContainText(FEE)
   expect([order.entry_total, order.extras_total, order.donation, order.total])
     .toEqual([expected.entryTotal, expected.extrasTotal, expected.donation, expected.total])
@@ -317,7 +317,7 @@ test('V-90 flag on: a published free charity event with donations and a shirt sh
   // Donations are live, so the form goes on to the checkout with the chips; a 0 zł cart registers free.
   await page.getByRole('button', { name: 'Dalej' }).click()
   await expect(page.getByTestId('checkout')).toBeVisible()
-  await expect(page.getByTestId('donation')).toContainText('Darowizna na cel: Rehabilitacja Zosi')
+  await expect(page.getByTestId('donation')).toContainText('Dodatkowa darowizna na cel: Rehabilitacja Zosi')
   await expect(page.getByRole('radio', { name: '0', exact: true })).toHaveAttribute('aria-checked', 'true')
   await page.getByRole('button', { name: 'Zapisz się' }).click()
   await expect(page).toHaveURL(new RegExp(`/events/${e.slug}/zapisano`))

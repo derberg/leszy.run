@@ -8,13 +8,13 @@ import { parsePriceGrosze } from '../../../supabase/functions/_shared/registrati
 import { DONATION_MESSAGE } from '../../../supabase/functions/_shared/registration/cart.js'
 import { warsawToday } from '../../../supabase/functions/_shared/registration/dates.js'
 
-// Ruling 7: a donation is 1–5 000 zł, chosen from „0”, „+20 zł”, „+50 zł” or „inna”.
+// Ruling 7: a donation is 1–5 000 zł, chosen from „0”, „+5 zł”, „+10 zł” or „inna”.
 export const DONATION_MIN = 100
 export const DONATION_MAX = 500_000
 export const DONATION_CHIPS = [
   { key: 'none', label: '0', grosze: 0 },
-  { key: '20', label: '+20 zł', grosze: 2000 },
-  { key: '50', label: '+50 zł', grosze: 5000 },
+  { key: '5', label: '+5 zł', grosze: 500 },
+  { key: '10', label: '+10 zł', grosze: 1000 },
   { key: 'other', label: 'inna', grosze: null },
 ]
 export const MAX_EXTRA_QTY = 10
