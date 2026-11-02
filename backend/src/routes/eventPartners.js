@@ -5,6 +5,7 @@ import { processPartnerLogo, PartnerLogoError } from '../lib/partnerLogo.js'
 
 const BUCKET = 'partner-logos'
 const DUPLICATE = { error: 'Taki partner już istnieje.' }
+const IN_USE = { error: 'Partnera przypisanego do kodów lub zgłoszeń nie można usunąć.' }
 const PATCHABLE = ['name', 'note', 'website_url', 'is_public', 'sort_order']
 
 /** Validates the partner fields present in `body`; returns { fields } or { error }. */
@@ -96,24 +97,21 @@ export async function eventPartnersRoutes(fastify, opts = {}) {
     return { data }
   })
 
-  // Delete partner (also removes logo from storage)
+  // Delete partner, then its logo. The row goes first: a partner that codes or entries hold
+  // is refused by the foreign key (23503), and its logo must survive that refusal.
   fastify.delete('/partners/:id', async (request, reply) => {
     const { id } = request.params
 
-    const { data: partner } = await db
-      .from('event_partners')
-      .select('logo_url, logo_path')
-      .eq('id', id)
-      .single()
-
-    await removeLogo(partner)
-
-    const { error } = await db
+    const { data: partner, error } = await db
       .from('event_partners')
       .delete()
       .eq('id', id)
+      .select('logo_url, logo_path')
+      .maybeSingle()
 
+    if (error?.code === '23503') return reply.status(409).send(IN_USE)
     if (error) return reply.status(400).send({ error: error.message })
+    await removeLogo(partner)
     return { success: true }
   })
 
@@ -171,8 +169,6 @@ export async function eventPartnersRoutes(fastify, opts = {}) {
       .eq('id', id)
       .single()
 
-    await removeLogo(partner)
-
     const { data, error } = await db
       .from('event_partners')
       .update({ logo_url: null, logo_path: null, updated_at: new Date().toISOString() })
@@ -181,6 +177,8 @@ export async function eventPartnersRoutes(fastify, opts = {}) {
       .single()
 
     if (error) return reply.status(400).send({ error: error.message })
+    // The row no longer points at the object; only now remove it.
+    await removeLogo(partner)
     return { data }
   })
 }

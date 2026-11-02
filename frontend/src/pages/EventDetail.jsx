@@ -1073,13 +1073,16 @@ function PartnersManager({ eventId }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['partners', eventId] }); closeDialog() },
   })
 
-  const deletePartner = useMutation({
-    mutationFn: api.partners.delete,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['partners', eventId] }),
-  })
-
   const [logoErrors, setLogoErrors] = useState({})
   const [patchErrors, setPatchErrors] = useState({})
+  const [deleteErrors, setDeleteErrors] = useState({})
+
+  const deletePartner = useMutation({
+    mutationFn: api.partners.delete,
+    onMutate: (id) => setDeleteErrors(e => ({ ...e, [id]: null })),
+    onError: (err, id) => setDeleteErrors(e => ({ ...e, [id]: err.message })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['partners', eventId] }),
+  })
 
   const patchPartner = useMutation({
     mutationFn: ({ id, ...body }) => api.partners.update(id, body),
@@ -1221,6 +1224,7 @@ function PartnersManager({ eventId }) {
                 Publiczny
               </label>
               {patchErrors[p.id] && <p className="text-[11px] text-apex-red mt-1">{patchErrors[p.id]}</p>}
+              {deleteErrors[p.id] && <p className="text-[11px] text-apex-red mt-1">{deleteErrors[p.id]}</p>}
             </div>
 
             {/* Replace logo when one exists */}

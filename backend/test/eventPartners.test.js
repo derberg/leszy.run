@@ -18,21 +18,32 @@ test('partner fields: backend validators answer like the edge ones', () => {
 
 // A minimal stub of the supabase query builder: records updates, answers a fixed row.
 function stubClient(row, opts = {}) {
-  const calls = { updates: [], inserts: [], removed: [] }
+  // `log` keeps the order of row writes and storage removals.
+  const calls = { updates: [], inserts: [], removed: [], log: [] }
   const builder = (table) => {
+    let deleting = false
     const b = {
       select() { return b }, eq() { return b }, order() { return b },
       update(u) { calls.updates.push(u); return b },
       insert(r) { calls.inserts.push(r); return b },
-      delete() { return b },
-      single: async () => (opts.error ? { data: null, error: opts.error } : { data: { ...row, ...(calls.updates.at(-1) || {}) }, error: null }),
+      delete() { deleting = true; return b },
+      maybeSingle: async () => {
+        if (!deleting) return { data: row, error: null }
+        if (opts.deleteError) { calls.log.push('delete-refused'); return { data: null, error: opts.deleteError } }
+        calls.log.push('delete'); return { data: row, error: null }
+      },
+      single: async () => {
+        if (opts.error) return { data: null, error: opts.error }
+        if (calls.updates.length) calls.log.push('update')
+        return { data: { ...row, ...(calls.updates.at(-1) || {}) }, error: null }
+      },
     }
     return b
   }
   return {
     calls,
     from: builder,
-    storage: { from: () => ({ remove: async (p) => { calls.removed.push(p); return {} },
+    storage: { from: () => ({ remove: async (p) => { calls.removed.push(p); calls.log.push('remove'); return {} },
       upload: async () => ({ error: null }), getPublicUrl: (p) => ({ data: { publicUrl: `https://x/storage/v1/object/public/partner-logos/${p}` } }) }) },
   }
 }
@@ -82,4 +93,48 @@ test('POST partner: invalid note and url are 400s', async () => {
   assert.equal(r2.statusCode, 400)
   const r3 = await f.inject({ method: 'POST', url: '/events/e/partners', payload: { name: '  ' } })
   assert.equal(r3.statusCode, 400)
+})
+
+test('DELETE partner held by codes or entries: 409 and the logo stays', async () => {
+  const c = stubClient({ id: 'p', logo_url: 'https://x/storage/v1/object/public/partner-logos/a.png', logo_path: 'a.png' },
+    { deleteError: { code: '23503', message: 'violates foreign key constraint' } })
+  const f = await app(c)
+  const r = await f.inject({ method: 'DELETE', url: '/partners/p' })
+  assert.equal(r.statusCode, 409)
+  assert.equal(JSON.parse(r.body).error, 'Partnera przypisanego do kodów lub zgłoszeń nie można usunąć.')
+  assert.deepEqual(c.calls.removed, [])
+})
+
+test('DELETE partner: the row goes first, then its logo (logo_path)', async () => {
+  const c = stubClient({ id: 'p', logo_url: 'https://x/storage/v1/object/public/partner-logos/old.png', logo_path: 'a.png' })
+  const f = await app(c)
+  const r = await f.inject({ method: 'DELETE', url: '/partners/p' })
+  assert.equal(r.statusCode, 200)
+  assert.deepEqual(c.calls.log, ['delete', 'remove'])
+  assert.deepEqual(c.calls.removed, [['a.png']])
+})
+
+test('DELETE partner: a legacy row without logo_path removes the object named by logo_url', async () => {
+  const c = stubClient({ id: 'p', logo_url: 'https://x/storage/v1/object/public/partner-logos/e/legacy.svg', logo_path: null })
+  const f = await app(c)
+  const r = await f.inject({ method: 'DELETE', url: '/partners/p' })
+  assert.equal(r.statusCode, 200)
+  assert.deepEqual(c.calls.removed, [['e/legacy.svg']])
+})
+
+test('DELETE partner logo: the columns are cleared first, then the object removed', async () => {
+  const c = stubClient({ id: 'p', logo_url: 'https://x/storage/v1/object/public/partner-logos/a.png', logo_path: 'a.png' })
+  const f = await app(c)
+  const r = await f.inject({ method: 'DELETE', url: '/partners/p/logo' })
+  assert.equal(r.statusCode, 200)
+  assert.deepEqual(c.calls.log, ['update', 'remove'])
+  assert.equal(c.calls.updates[0].logo_path, null)
+})
+
+test('DELETE partner logo: a failed update keeps the object', async () => {
+  const c = stubClient({ id: 'p', logo_path: 'a.png' }, { error: { code: 'XX000', message: 'boom' } })
+  const f = await app(c)
+  const r = await f.inject({ method: 'DELETE', url: '/partners/p/logo' })
+  assert.equal(r.statusCode, 400)
+  assert.deepEqual(c.calls.removed, [])
 })
