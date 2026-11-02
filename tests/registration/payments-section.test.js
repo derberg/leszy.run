@@ -512,7 +512,7 @@ test('P-59 after publish: „do końca zapisów” is staged (changedFields), pr
   assert.equal((await settingsOf(event.eventId)).payment_window_until_close, true)
 })
 
-test('P-59 an order on a „do końca zapisów” event expires at closes_at, even three weeks away; the reminder comes at half the window', async () => {
+test('P-59 an order on a „do końca zapisów” event expires at closes_at, even three weeks away; the reminder comes 3 days before it', async () => {
   const { createPublishedPaidEvent } = await import('./helpers/registrationFixtures.js')
   const { orderOk, setSettings, rpc } = await import('./helpers/orders.js')
   const event = await createPublishedPaidEvent(owner, { clubSlug: slug, prices: { 'Bieg 9 km': 6000 } })
@@ -521,12 +521,19 @@ test('P-59 an order on a „do końca zapisów” event expires at closes_at, ev
   await setSettings(event.eventId, { payment_window_until_close: true, closes_at: closes.toISOString() })
   const out = await orderOk(event)
   assert.equal(Date.parse(out.expiresAt), closes.getTime())
-  // Not before half the window ...
+  // Not 21 days ahead ...
   let claimed = await rpc('claim_payment_reminders', { p_limit: 1000 })
   assert.ifError(claimed.error)
   assert.ok(!claimed.data.includes(out.orderId))
-  // ... and once the half has passed (created 30 days before a close 21 days away: the half was 4.5 days ago).
-  const { error } = await db().from('orders').update({ created_at: new Date(Date.now() - 30 * 24 * 3600e3).toISOString() }).eq('id', out.orderId)
+  // ... nor 3 days and a minute ahead (created 30 days earlier, so long past half the window) ...
+  const at = (ms) => new Date(Date.now() + ms).toISOString()
+  let { error } = await db().from('orders').update({ created_at: at(-30 * 24 * 3600e3), expires_at: at(3 * 24 * 3600e3 + 60e3) }).eq('id', out.orderId)
+  assert.ifError(error)
+  claimed = await rpc('claim_payment_reminders', { p_limit: 1000 })
+  assert.ifError(claimed.error)
+  assert.ok(!claimed.data.includes(out.orderId))
+  // ... and once fewer than 3 days are left.
+  ;({ error } = await db().from('orders').update({ expires_at: at(3 * 24 * 3600e3 - 60e3) }).eq('id', out.orderId))
   assert.ifError(error)
   claimed = await rpc('claim_payment_reminders', { p_limit: 1000 })
   assert.ifError(claimed.error)
