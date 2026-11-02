@@ -317,7 +317,7 @@ function TeamTableRows({ item, ctx, open, onToggle, toggles }) {
 const EMPTY = { status: 'loading', rows: [], teams: [], competitions: [], event: null, partners: [] }
 
 export default function Zgloszenia({
-  eventId, clubName = null, contactEmail = null, formFields = null, ageGroups = [], reckoning = 'race_day',
+  eventId, clubName = null, contactEmail = null, formFields = null, ageGroups = [], reckoning = 'race_day', charity = false,
 }) {
   const [state, setState] = useState(EMPTY)
   const [categoryId, setCategoryId] = useState(null)
@@ -460,7 +460,7 @@ export default function Zgloszenia({
     const captainOf = row ? state.teams.find((t) => t.captainId === row.id) ?? null : null
     const common = { onClose: closeDialog, onDone: dialogDone, onFailed: load }
     switch (dialog.kind) {
-      case 'refund': return <RefundDialog row={row} team={captainOf} {...common} />
+      case 'refund': return <RefundDialog row={row} team={captainOf} charity={charity} {...common} />
       case 'extend': return <ExtendDialog row={row} closesAt={event.closesAt ?? null} {...common} />
       case 'cancel': {
         // An unpaid entry cancels its whole order (D6-24): the dialog names everyone in it (ruling 6).

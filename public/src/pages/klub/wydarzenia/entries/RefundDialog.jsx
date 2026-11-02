@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { formatPln } from '@registration/money.js'
+import { dpayFee, formatPln } from '@registration/money.js'
 import { parsePriceGrosze } from '@registration/sections.js'
 import { callFunction } from '../../../../lib/auth.js'
 import { btnDanger, btnPrimary } from '../../settingsUi.js'
@@ -10,7 +10,9 @@ import EntryDialog, { FieldMessage, dialogInput } from './EntryDialog.jsx'
 // repeated after a lost answer is a replay, never a second refund (D6-18). The server answers 200
 // with the refund's state once dpay took the request; `unknown` leaves the money reserved and the
 // row reads „ZWROT NIEPOTWIERDZONY”. Refunding the whole remaining entry amount cancels the entry,
-// for a captain the whole team.
+// for a captain the whole team. The runner always gets the amount typed; dpay's commission on the
+// payment and on each refund call is LESZY.RUN's cost, invoiced to the organizer (agreement §8),
+// so the dialog only shows it, and leaves the invoice unsaid on a charity event.
 
 const LINE_NAME = { entry: 'Opłata startowa', extra: 'Dodatek', donation: 'Darowizna' }
 // dpay's final refusals: the refund row under that key is settled for good, so a retry needs a new
@@ -30,12 +32,20 @@ function amountOf(text, max) {
   return { grosze }
 }
 
+/** dpay's commission behind a refund: on the entry's payment, and on each line's own refund call. */
+function feeNote(row, parsed, charity) {
+  const refundFee = Object.values(parsed).reduce((n, p) => n + (p.grosze ? dpayFee(p.grosze) : 0), 0)
+  const note = `Prowizja operatora płatności: ${formatPln(dpayFee(row.paidAmount ?? 0))} za wpłatę + ${formatPln(refundFee)} za zwrot. Zawodnik dostaje pełną kwotę zwrotu`
+  return charity ? `${note}.` : `${note}, prowizję doliczamy do faktury LESZY.RUN.`
+}
+
 /**
- * @param {{ row: object, team: object|null, onClose: () => void, onDone: (notice: object) => void,
+ * @param {{ row: object, team: object|null, charity?: boolean, onClose: () => void, onDone: (notice: object) => void,
  *   onFailed: () => void }} props
  *   `team`: the team when the row is its captain (a full refund cancels the team).
+ *   `charity`: the event is a charity event (the fee note names no invoice).
  */
-export default function RefundDialog({ row, team, onClose, onDone, onFailed }) {
+export default function RefundDialog({ row, team, charity = false, onClose, onDone, onFailed }) {
   const ids = useId()
   const lines = row.lines ?? []
   const [amounts, setAmounts] = useState(() => Object.fromEntries(lines.map((l) => [l.id, ''])))
@@ -124,6 +134,9 @@ export default function RefundDialog({ row, team, onClose, onDone, onFailed }) {
           )
         })}
       </ul>
+      {total > 0 && (
+        <p className="font-sans text-sm text-apex-muted pt-3" data-testid="refund-fee">{feeNote(row, parsed, charity)}</p>
+      )}
     </EntryDialog>
   )
 }

@@ -6,6 +6,7 @@ import {
   formatPln,
   formatDpayValue,
   parseDpayAmount,
+  dpayFee,
 } from '../../../supabase/functions/_shared/registration/money.js'
 import { PAYMENT_CHANNEL_PRESELECT } from '../../../supabase/functions/_shared/registration/flags.js'
 
@@ -107,4 +108,15 @@ test('P-05 floats, negatives and non-arrays throw', () => {
 
 test('PAYMENT_CHANNEL_PRESELECT is off', () => {
   assert.equal(PAYMENT_CHANNEL_PRESELECT, false)
+})
+
+test('dpayFee: 0.9% rounded up, at least 0.20 zł, nothing on 0', () => {
+  assert.equal(dpayFee(0), 0)
+  assert.equal(dpayFee(1), 20)
+  assert.equal(dpayFee(2000), 20) // 0.18 zł is under the 0.20 zł minimum
+  assert.equal(dpayFee(2223), 21) // 20.007 → 21
+  assert.equal(dpayFee(6000), 54)
+  assert.equal(dpayFee(10000), 90)
+  assert.throws(() => dpayFee(1.5), MoneyError)
+  assert.throws(() => dpayFee(-1), MoneyError)
 })
