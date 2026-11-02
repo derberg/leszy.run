@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { NO_CLUB, activeFilterCount, filterStartList, startListFilterOptions, startListView } from '../../src/lib/startList.js'
+import { NO_CLUB, activeFilterCount, filterStartList, splitStartList, startListCountText, startListFilterOptions, startListView } from '../../src/lib/startList.js'
 
 // The snapshot start_list() returns. Entries awaiting payment are never in it
 // (ruling P3-R14): only the per-competition `awaiting` count.
@@ -236,6 +236,7 @@ describe('T-72 teams on the start list', () => {
     assert.deepEqual(team, {
       kind: 'team', name: 'Wilcze Stado', membersText: 'Ola, Piotr, Zosia, Staś', members: ['Ola', 'Piotr', 'Zosia', 'Staś'],
       town: 'Gliwice', club: null, categoryId: 't1', competition: 'Sztafeta', category: null, gender: null,
+      unnamedText: null, squad: 4,
       size: '4 osoby', where: 'Ola, Piotr, Zosia, Staś', what: 'Sztafeta · 4 osoby', badge: 'opłacone',
     })
   })
@@ -243,6 +244,7 @@ describe('T-72 teams on the start list', () => {
   it('the size is the squad, not the names listed: a person waiting to accept is still in it', () => {
     assert.equal(view.entries[3].membersText, 'Ewa, Jan')
     assert.equal(view.entries[3].size, '5 osób')
+    assert.equal(view.entries[3].unnamedText, '+3 czekają na potwierdzenie')
     assert.equal(view.entries[3].badge, null)
   })
 
@@ -299,5 +301,31 @@ describe('Final review I-5: a paid event\'s header never adds people and teams',
   it('a mixed paid event with no person yet still says 0 people, never folds teams into them', () => {
     const v = startListView({ competitions: [{ ...TEAMS.competitions[0], paid: 0 }, TEAMS.competitions[1]], entries: [] }, { paidEvent: true })
     assert.equal(v.header, '0 osób opłaconych · 2 drużyny opłacone · 1 drużyna bez opłaty · +1 drużyna czeka na wpłatę')
+  })
+})
+
+describe('Two lists: people, then teams', () => {
+  const view = startListView(TEAMS, { paidEvent: true })
+  const all = splitStartList(view.entries)
+
+  it('splits people from teams, each in start_list order', () => {
+    assert.deepEqual(all.people.map((e) => e.name), ['Anna Mazur', 'Tomasz Łoś'])
+    assert.deepEqual(all.teams.map((e) => e.name), ['Wilcze Stado', 'Żubry'])
+  })
+
+  it('„Na liście” never adds people and teams', () => {
+    assert.equal(startListCountText(all, all, false), '2 osoby · 2 drużyny')
+    const shown = splitStartList(filterStartList(view, { q: 'wilcze' }).entries)
+    assert.equal(startListCountText(shown, all, true), '0 osób z 2 · 1 drużyna z 2')
+  })
+
+  it('with no team on the list it is the bare number, as before', () => {
+    const people = splitStartList(startListView(SNAP, { paidEvent: true }).entries)
+    assert.equal(startListCountText(people, people, false), String(people.people.length))
+  })
+
+  it('only teams: no 0 osób', () => {
+    const teams = { people: [], teams: all.teams }
+    assert.equal(startListCountText(teams, teams, false), '2 drużyny')
   })
 })

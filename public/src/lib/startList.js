@@ -18,8 +18,9 @@
 //
 // A confirmed team is one entry of the list and one slot of its competition (D5-28), so a team
 // competition's numbers count teams. A team has no club, gender or age group: Kategoria, Płeć and
-// Klub hide it (ruling 8), and search reads its name and first names. `size` is the squad; the names
-// can be fewer, because a person who has not accepted yet is not named.
+// Klub hide it (ruling 8), and search reads its name and its members' names. `size` is the squad; the
+// names can be fewer, because a person who has not accepted yet is not named: `unnamed` counts them
+// („+2 czekają na potwierdzenie”).
 
 import { countPl, pluralPl } from './plural.js'
 
@@ -31,6 +32,7 @@ const awaitingText = (n) => `+${n} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} 
 const registeredText = (n) => countPl(n, ['osoba zapisana', 'osoby zapisane', 'osób zapisanych'])
 const teamsText = (n) => countPl(n, ['drużyna zapisana', 'drużyny zapisane', 'drużyn zapisanych'])
 const sizeText = (n) => countPl(n, ['osoba', 'osoby', 'osób'])
+const unnamedText = (n) => `+${n} ${pluralPl(n, 'czeka', 'czekają', 'czeka')} na potwierdzenie`
 
 const isTeam = (e) => e.kind === 'team'
 const sum = (rows, k) => rows.reduce((n, c) => n + (c[k] ?? 0), 0)
@@ -66,11 +68,14 @@ function paidHeader(peopleComps, teamComps) {
 function teamEntry(e, paidEvent) {
   const membersText = e.members.join(', ')
   const size = sizeText(e.size)
+  const unnamed = Math.max(0, (e.size ?? 0) - e.members.length)
   return {
     kind: 'team',
     name: e.name,
     members: e.members,
     membersText,
+    unnamedText: unnamed > 0 ? unnamedText(unnamed) : null,
+    squad: e.size ?? 0,
     size,
     town: e.town ?? null,
     club: null,
@@ -204,4 +209,28 @@ export function filterStartList(view, { categoryId = '', category = '', gender =
 /** How many of the viewer's filters are set (the collapsed „Filtry (N)” toggle). */
 export function activeFilterCount({ categoryId = '', category = '', gender = '', club = '', q = '' } = {}) {
   return [categoryId, category, gender, club, q.trim()].filter(Boolean).length
+}
+
+/**
+ * The shown entries as RA8's two lists: people, then teams, each in start_list's order.
+ * @param {Array<object>} entries
+ */
+export function splitStartList(entries) {
+  return { people: entries.filter((e) => !isTeam(e)), teams: entries.filter(isTeam) }
+}
+
+/**
+ * „Na liście: …” for the shown entries. With no team on the list it is the bare number, as
+ * before; with one, people and teams each with their unit, never added (CLAUDE.md).
+ * @param {{ people: object[], teams: object[] }} shown
+ * @param {{ people: object[], teams: object[] }} all the whole list, for „z N”
+ * @param {boolean} filtered
+ */
+export function startListCountText(shown, all, filtered) {
+  if (all.teams.length === 0) return `${shown.people.length}${filtered ? ` z ${all.people.length}` : ''}`
+  const part = (n, of, forms) => `${countPl(n, forms)}${filtered ? ` z ${of}` : ''}`
+  return [
+    all.people.length > 0 ? part(shown.people.length, all.people.length, ['osoba', 'osoby', 'osób']) : null,
+    part(shown.teams.length, all.teams.length, ['drużyna', 'drużyny', 'drużyn']),
+  ].filter(Boolean).join(' · ')
 }
