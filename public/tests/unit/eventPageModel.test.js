@@ -489,11 +489,6 @@ describe('W-72 W-73 description and cause page', () => {
     assert.equal(plain.charityUrl, null)
     assert.equal(model(RA1).description, null)
   })
-  it('donations are announced only on a charity event that takes them', () => {
-    assert.equal(model(RA1).donationsOffered, true)
-    assert.equal(model({ ...RA1, donationsEnabled: false }).donationsOffered, false)
-    assert.equal(model({ ...RA1, isCharity: false }).donationsOffered, false)
-  })
   it('a cause page that is not http(s) is never a link', () => {
     assert.equal(model({ ...RA1, charityUrl: 'javascript:alert(1)' }).charityUrl, null)
   })

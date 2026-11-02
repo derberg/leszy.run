@@ -183,7 +183,6 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
               <HeartIcon />Cel charytatywny
             </span>
             {m.charityGoal && <p className="text-[17px] text-apex-text-bright break-words">{m.charityGoal}</p>}
-            {m.donationsOffered && <p className="text-[15px] text-apex-text">Przy zapisie możesz dodać darowiznę na ten cel.</p>}
             {m.charityUrl && (
               <a href={m.charityUrl} target="_blank" rel="noopener noreferrer" className={`self-start whitespace-nowrap text-[15px] ${linkCls}`}
                 data-testid="charity-link">Strona celu ↗</a>
