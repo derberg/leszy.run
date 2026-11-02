@@ -363,7 +363,8 @@ test('P-24 order-status: buyer only, with the event\'s closesAt; a fresh pending
     // Plan 7 task 8b (V-65): an unpaid order has nothing to hand on.
     transfer: null,
   }])
-  assert.deepEqual(d.amounts, { entryTotal: 6000, extrasTotal: 0, donation: 0, total: 6000 })
+  // W-90: refunded counts accepted refunds only; a fresh order has none.
+  assert.deepEqual(d.amounts, { entryTotal: 6000, extrasTotal: 0, donation: 0, total: 6000, refunded: 0 })
   assert.equal(d.event.slug, event.slug)
   assert.ok(d.event.name)
   // Task 9 review M1: the order page decides „Zapłać” from the server's closesAt, not the snapshot's.
