@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import useSeo from '../../hooks/useSeo.js'
-import { activeFilterCount, filterStartList, startListFilterOptions, startListView } from '../../lib/startList.js'
+import { activeFilterCount, filterStartList, splitStartList, startListCountText, startListFilterOptions, startListView } from '../../lib/startList.js'
 import PageTop from '../../components/registration/PageTop.jsx'
 import { inputCls, labelCls } from '../../components/registration/ui.js'
 import RegistrationShell from './RegistrationShell.jsx'
 import { eventPath, startListPath } from './RegistrationEventPage.jsx'
 
 // RA8 (mobile cards) and RA8d (desktop table): everyone on the list of a published
-// event, with filters. A team is one row: its name over its first names. Ruling P3-R14: an entry awaiting payment is only counted
+// event, with filters. People and teams are two lists; a team shows its whole named squad. Ruling P3-R14: an entry awaiting payment is only counted
 // („+N czeka na wpłatę”), never listed by name, so there is no „Wpłata” filter or
 // column (D4-19), and a minor's town is never shown; „opłacone” marks an entry that
 // was paid (never a free event or a 0 zł entry). The event id comes from the
@@ -124,6 +124,35 @@ function Filters({ options, filters, setFilters, desktop }) {
   )
 }
 
+function Members({ e }) {
+  return (
+    <ul className="flex flex-col" data-testid="team-members">
+      {e.members.map((m, i) => <li key={`${m}-${i}`} className="text-base text-apex-text break-words">{m}</li>)}
+      {e.unnamedText && <li className="font-mono text-xs text-apex-muted">{e.unnamedText}</li>}
+    </ul>
+  )
+}
+
+function TeamCards({ entries }) {
+  return (
+    <ul className="flex flex-col gap-1.5" data-testid="start-list-teams">
+      {entries.map((e, i) => (
+        <li key={`${e.name}-${i}`} className="border border-apex-border-mid bg-apex-surface px-3.5 py-3 flex flex-col gap-1.5" data-testid="start-list-entry">
+          <div className="flex justify-between items-start gap-2.5">
+            <span className="min-w-0">
+              <span className="block text-[17px] font-bold text-apex-text-bright break-words">{e.name}</span>
+              {e.town && <span className="block text-sm text-apex-muted break-words">{e.town}</span>}
+            </span>
+            {e.badge && <Badge text={e.badge} />}
+          </div>
+          <Members e={e} />
+          <span className="font-mono text-xs text-apex-muted uppercase">{e.what}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function EntryCards({ entries }) {
   return (
     <ul className="flex flex-col gap-1.5" data-testid="start-list-entries">
@@ -158,17 +187,52 @@ function EntryTable({ entries }) {
             <tr key={`${e.name}-${i}`} data-testid="start-list-entry">
               <td className={`${tdCls} text-apex-text-bright font-bold`}>
                 <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} />}</span>
-                {e.kind === 'team' && <span className="block text-sm font-normal text-apex-muted">{e.membersText}</span>}
               </td>
               <td className={tdCls}>{e.town ?? '—'}</td>
               <td className={tdCls}>{e.club ?? '—'}</td>
               <td className={tdCls}>{e.competition}</td>
-              <td className={`${tdCls} font-mono text-sm`}>{e.size ?? e.category ?? '—'}</td>
+              <td className={`${tdCls} font-mono text-sm`}>{e.category ?? '—'}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  )
+}
+
+function TeamTable({ entries }) {
+  return (
+    <div className="border border-apex-border overflow-x-auto">
+      <table className="w-full border-collapse" data-testid="start-list-teams">
+        <thead>
+          <tr><th className={thCls}>Drużyna</th><th className={thCls}>Skład</th><th className={thCls}>Miejscowość</th><th className={thCls}>Konkurencja</th><th className={thCls}>Liczba osób</th></tr>
+        </thead>
+        <tbody>
+          {entries.map((e, i) => (
+            <tr key={`${e.name}-${i}`} data-testid="start-list-entry">
+              <td className={`${tdCls} text-apex-text-bright font-bold`}>
+                <span className="inline-flex items-center gap-2.5 flex-wrap">{e.name}{e.badge && <Badge text={e.badge} />}</span>
+              </td>
+              <td className={tdCls}><Members e={e} /></td>
+              <td className={tdCls}>{e.town ?? '—'}</td>
+              <td className={tdCls}>{e.competition}</td>
+              <td className={`${tdCls} font-mono text-sm`}>{e.squad}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function Section({ title, count, children }) {
+  return (
+    <section className="flex flex-col gap-2" data-testid="start-list-section">
+      <h2 className="font-display font-extrabold text-2xl leading-none uppercase text-apex-text-bright">
+        {title} <span className="font-mono text-base font-medium text-apex-muted">{count}</span>
+      </h2>
+      {children}
+    </section>
   )
 }
 
@@ -189,6 +253,8 @@ function StartList({ raw }) {
   const options = useMemo(() => (view ? startListFilterOptions(view, { categoryId: filters.categoryId }) : null), [view, filters.categoryId])
   const shown = useMemo(() => (view ? filterStartList(view, filters) : null), [view, filters])
   const filtered = shown && shown.entries.length !== shown.total
+  const all = useMemo(() => (view ? splitStartList(view.entries) : null), [view])
+  const parts = useMemo(() => (shown ? splitStartList(shown.entries) : null), [shown])
   return (
     <div className="flex flex-col gap-3.5" data-testid="start-list">
       <PageTop back={{ to: eventPath(raw.slug), label: 'Zawody' }} right={raw.name} />
@@ -211,11 +277,25 @@ function StartList({ raw }) {
               <>
                 <Filters options={options} filters={filters} setFilters={setFilters} desktop={desktop} />
                 <span className="font-mono text-[13px] text-apex-muted uppercase" data-testid="start-list-count" aria-live="polite">
-                  Na liście: {shown.entries.length}{filtered ? ` z ${shown.total}` : ''}
+                  Na liście: {startListCountText(parts, all, filtered)}
                 </span>
-                {shown.entries.length === 0
-                  ? <p className="text-lg text-apex-text-bright" data-testid="start-list-no-match">Brak osób dla wybranych filtrów.</p>
-                  : desktop ? <EntryTable entries={shown.entries} /> : <EntryCards entries={shown.entries} />}
+                {shown.entries.length === 0 && <p className="text-lg text-apex-text-bright" data-testid="start-list-no-match">Brak osób dla wybranych filtrów.</p>}
+                {all.teams.length === 0
+                  ? parts.people.length > 0 && (desktop ? <EntryTable entries={parts.people} /> : <EntryCards entries={parts.people} />)
+                  : (
+                    <>
+                      {parts.people.length > 0 && (
+                        <Section title="Zawodnicy" count={parts.people.length}>
+                          {desktop ? <EntryTable entries={parts.people} /> : <EntryCards entries={parts.people} />}
+                        </Section>
+                      )}
+                      {parts.teams.length > 0 && (
+                        <Section title="Drużyny" count={parts.teams.length}>
+                          {desktop ? <TeamTable entries={parts.teams} /> : <TeamCards entries={parts.teams} />}
+                        </Section>
+                      )}
+                    </>
+                  )}
               </>
             )}
         </>
