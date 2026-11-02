@@ -232,8 +232,8 @@ test('V-16 transfer settings are saved through the payments section', async () =
 // ---------------------------------------------------------------- V-17
 
 /**
- * A published event switched to tiered pricing (LOCAL only, like makeEventPaid: a paid publish is
- * refused while PAID_REGISTRATION_ENABLED is false). → the event plus its tiers in order.
+ * A published event switched to tiered pricing (LOCAL only, like makeEventPaid: a shortcut that
+ * needs no payout account). → the event plus its tiers in order.
  */
 async function publishedTiered(competitions = [COMP(0)]) {
   const event = await createPublishedFreeEvent(owner, { competitions, eventDate: EVENT_DATE, opensOn: day(-1), closesOn: day(39) })

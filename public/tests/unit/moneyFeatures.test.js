@@ -1,4 +1,5 @@
-// Plan 7 final review I-1 + I-4: the public read model while PAID_REGISTRATION_ENABLED is false.
+// Plan 7 final review I-1 + I-4: the public read model. PAID_REGISTRATION_ENABLED is true, so /api/event
+// serves donations and extras; withoutMoneyFeatures is the strip it would apply with the flag off.
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { MONEY_FEATURES_FLAG, moneyLiveForApi, withoutMoneyFeatures } from '../../src/lib/moneyFeatures.js'
@@ -23,12 +24,14 @@ describe('moneyFeatures (V-90)', () => {
     assert.deepEqual(out.competitions, RAW.competitions)
     assert.equal(RAW.extras.length, 2, 'the input is not changed')
   })
-  it('live only on a local http Supabase with the test switch on, never on https, and off by the header', () => {
+  it('the flag is on: live everywhere, on https and locally, and the off header is ignored', () => {
+    assert.equal(MONEY_FEATURES_FLAG, true)
     const local = 'http://127.0.0.1:54421'
     assert.equal(moneyLiveForApi({ VITE_SUPABASE_URL: local, REGISTRATION_MONEY_TEST: 'on' }, null), true)
-    assert.equal(moneyLiveForApi({ VITE_SUPABASE_URL: local, REGISTRATION_MONEY_TEST: 'on' }, 'off'), false)
-    assert.equal(moneyLiveForApi({ VITE_SUPABASE_URL: local }, null), false)
-    assert.equal(moneyLiveForApi({ VITE_SUPABASE_URL: 'https://abc.supabase.co', REGISTRATION_MONEY_TEST: 'on' }, null), false)
-    assert.equal(moneyLiveForApi({}, null), false)
+    assert.equal(moneyLiveForApi({ VITE_SUPABASE_URL: local, REGISTRATION_MONEY_TEST: 'on' }, 'off'), true)
+    assert.equal(moneyLiveForApi({ VITE_SUPABASE_URL: local }, null), true)
+    assert.equal(moneyLiveForApi({ VITE_SUPABASE_URL: 'https://abc.supabase.co' }, null), true)
+    assert.equal(moneyLiveForApi({ VITE_SUPABASE_URL: 'https://abc.supabase.co' }, 'off'), true)
+    assert.equal(moneyLiveForApi({}, null), true)
   })
 })

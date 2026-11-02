@@ -13,60 +13,51 @@ import {
 } from '../../../supabase/functions/_shared/registration/moneyLive.js'
 import { moneyLiveForApi, withoutMoneyFeatures } from '../../../public/src/lib/moneyFeatures.js'
 
-// [supabaseUrl, testSwitch, offHeader, live]
+// [supabaseUrl, testSwitch, offHeader]: every address, test switch and header a request can carry.
+// With PAID_REGISTRATION_ENABLED true the features are live for all of them: the local test switch
+// and the x-registration-money header are only consulted while the flag is false.
 const CASES = [
   // Production: the deployed project is https and has no test switch.
-  ['https://abcdefghijklmnop.supabase.co', undefined, null, false],
-  ['https://abcdefghijklmnop.supabase.co', 'on', null, false],
-  ['https://abcdefghijklmnop.supabase.co', 'on', 'on', false],
-  ['https://127.0.0.1:54321', 'on', null, false],
-  // The switch alone, or a local address alone, is not enough.
-  ['http://127.0.0.1:54321', undefined, null, false],
-  ['http://127.0.0.1:54321', 'off', null, false],
-  ['http://127.0.0.1:54321', 'ON', null, false],
-  ['http://127.0.0.1:54321', 'on', null, true],
-  ['http://localhost:54421', 'on', null, true],
-  ['http://localhost', 'on', null, true],
-  ['  http://127.0.0.1:54321/  ', 'on', null, true],
-  // A look-alike host is not local.
-  ['http://127.0.0.1.evil.example:54321', 'on', null, false],
-  ['http://localhost.example.com', 'on', null, false],
-  ['http://example.com/http://127.0.0.1', 'on', null, false],
-  [undefined, 'on', null, false],
-  ['', 'on', null, false],
-  // The header can only turn the features off.
-  ['http://127.0.0.1:54321', 'on', 'off', false],
-  ['http://127.0.0.1:54321', 'on', 'on', true],
-  ['http://127.0.0.1:54321', undefined, 'on', false],
+  ['https://abcdefghijklmnop.supabase.co', undefined, null],
+  ['https://abcdefghijklmnop.supabase.co', 'on', null],
+  ['https://abcdefghijklmnop.supabase.co', undefined, 'off'],
+  ['https://127.0.0.1:54321', 'on', null],
+  // The local test stack, with and without its switch.
+  ['http://127.0.0.1:54321', undefined, null],
+  ['http://127.0.0.1:54321', 'off', null],
+  ['http://127.0.0.1:54321', 'on', null],
+  ['http://localhost:54421', 'on', null],
+  ['  http://127.0.0.1:54321/  ', 'on', null],
+  ['http://127.0.0.1.evil.example:54321', 'on', null],
+  [undefined, 'on', null],
+  ['', undefined, null],
+  // The off header is ignored by design once the flag is on.
+  ['http://127.0.0.1:54321', 'on', 'off'],
+  ['http://127.0.0.1:54321', 'on', 'on'],
 ]
 
 describe('moneyFeaturesLive (edge, V-98)', () => {
-  it('the production default: the flag is off', () => {
-    assert.equal(PAID_REGISTRATION_ENABLED, false)
+  it('production: the flag is on', () => {
+    assert.equal(PAID_REGISTRATION_ENABLED, true)
   })
 
-  for (const [supabaseUrl, testSwitch, offHeader, live] of CASES) {
-    it(`${JSON.stringify(supabaseUrl)} switch=${testSwitch} header=${offHeader} → ${live ? 'live' : 'off'}`, () => {
-      assert.equal(moneyFeaturesLive({ supabaseUrl, testSwitch, offHeader }), live)
+  for (const [supabaseUrl, testSwitch, offHeader] of CASES) {
+    it(`${JSON.stringify(supabaseUrl)} switch=${testSwitch} header=${offHeader} → live`, () => {
+      assert.equal(moneyFeaturesLive({ supabaseUrl, testSwitch, offHeader }), true)
     })
   }
 
-  it('no arguments at all → off', () => {
-    assert.equal(moneyFeaturesLive(), false)
-    assert.equal(moneyFeaturesLive({}), false)
+  it('no arguments at all → live', () => {
+    assert.equal(moneyFeaturesLive(), true)
+    assert.equal(moneyFeaturesLive({}), true)
   })
 
-  it('the public copy answers the same for every address it knows (127.0.0.1 and localhost)', () => {
-    for (const [supabaseUrl, testSwitch, offHeader, live] of CASES) {
+  it('the public copy answers the same for every case', () => {
+    for (const [supabaseUrl, testSwitch, offHeader] of CASES) {
       const env = { VITE_SUPABASE_URL: supabaseUrl, ...(testSwitch === undefined ? {} : { REGISTRATION_MONEY_TEST: testSwitch }) }
-      assert.equal(moneyLiveForApi(env, offHeader), live, JSON.stringify([supabaseUrl, testSwitch, offHeader]))
+      assert.equal(moneyLiveForApi(env, offHeader), true, JSON.stringify([supabaseUrl, testSwitch, offHeader]))
     }
-  })
-
-  it('the Docker-side local names (kong, host.docker.internal) are local only on the edge side', () => {
-    assert.equal(moneyFeaturesLive({ supabaseUrl: 'http://kong:8000', testSwitch: 'on', offHeader: null }), true)
-    assert.equal(moneyFeaturesLive({ supabaseUrl: 'http://host.docker.internal:54321', testSwitch: 'on', offHeader: null }), true)
-    assert.equal(moneyFeaturesLive({ supabaseUrl: 'https://kong:8000', testSwitch: 'on', offHeader: null }), false)
+    assert.equal(moneyLiveForApi(undefined, null), true)
   })
 })
 
@@ -81,36 +72,27 @@ describe('moneyLiveFor(req) (edge, V-98)', () => {
   }
   const req = (headers = {}) => new Request('http://localhost/x', { method: 'POST', headers })
 
-  it('production: an https SUPABASE_URL and no switch → off', () => {
+  it('production: an https SUPABASE_URL and no switch → live', () => {
     withEnv({ SUPABASE_URL: 'https://abcdefghijklmnop.supabase.co' })
-    assert.equal(moneyLiveFor(req()), false)
-  })
-
-  it('production: the switch set by mistake on an https project → still off', () => {
-    withEnv({ SUPABASE_URL: 'https://abcdefghijklmnop.supabase.co', [MONEY_TEST_ENV]: 'on' })
-    assert.equal(moneyLiveFor(req()), false)
-  })
-
-  it('the local test stack (REGISTRATION_MONEY_TEST=on, http://127.0.0.1) → live', () => {
-    withEnv({ SUPABASE_URL: 'http://127.0.0.1:54321', [MONEY_TEST_ENV]: 'on' })
     assert.equal(moneyLiveFor(req()), true)
   })
 
-  it('the local test stack with `x-registration-money: off` on the request → off', () => {
-    withEnv({ SUPABASE_URL: 'http://127.0.0.1:54321', [MONEY_TEST_ENV]: 'on' })
-    assert.equal(moneyLiveFor(req({ [MONEY_OFF_HEADER]: 'off' })), false)
-    assert.equal(moneyLiveFor(req({ [MONEY_OFF_HEADER]: 'on' })), true)
-  })
-
-  it('the header cannot turn the features on in production', () => {
+  it('production: `x-registration-money: off` is ignored → still live', () => {
     withEnv({ SUPABASE_URL: 'https://abcdefghijklmnop.supabase.co' })
-    assert.equal(moneyLiveFor(req({ [MONEY_OFF_HEADER]: 'on' })), false)
+    assert.equal(moneyLiveFor(req({ [MONEY_OFF_HEADER]: 'off' })), true)
   })
 
-  it('outside Deno, or with no request → off', () => {
-    delete globalThis.Deno
-    assert.equal(moneyLiveFor(req()), false)
+  it('the local test stack, with or without the switch and the off header → live', () => {
     withEnv({ SUPABASE_URL: 'http://127.0.0.1:54321', [MONEY_TEST_ENV]: 'on' })
+    assert.equal(moneyLiveFor(req()), true)
+    assert.equal(moneyLiveFor(req({ [MONEY_OFF_HEADER]: 'off' })), true)
+    withEnv({ SUPABASE_URL: 'http://127.0.0.1:54321' })
+    assert.equal(moneyLiveFor(req()), true)
+  })
+
+  it('outside Deno, or with no request → live', () => {
+    delete globalThis.Deno
+    assert.equal(moneyLiveFor(req()), true)
     assert.equal(moneyLiveFor(undefined), true)
   })
 })

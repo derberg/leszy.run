@@ -29,8 +29,8 @@ export default defineConfig({
     env: {
       VITE_SUPABASE_URL: env.url,
       VITE_SUPABASE_ANON_KEY: env.anonKey,
-      // Plan 7's money features on this local stack (flags.js moneyFeaturesLive, public/src/lib/moneyFeatures.js);
-      // pricing-transfer's V-90 test turns them off per request with x-registration-money: off.
+      // The local switch for Plan 7's money features (flags.js moneyFeaturesLive, public/src/lib/moneyFeatures.js),
+      // consulted only while PAID_REGISTRATION_ENABLED is false; pricing-transfer's V-90 test proves the off header is ignored.
       REGISTRATION_MONEY_TEST: 'on',
     },
   },

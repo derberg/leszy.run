@@ -238,7 +238,11 @@ test('V-71 after a registration: tier 1 is read-only, a tier-2 change is staged 
     competitions: [{ name: 'Bieg 9 km', discipline: 'run', distanceLabel: '9 km', startTime: '10:00', capacity: 50 }],
   })
   const categoryId = event.categoryIds[0]
-  // Tiered after publish, LOCAL only: a paid publish is refused while PAID_REGISTRATION_ENABLED is false.
+  // Tiered after publish, LOCAL only (a shortcut: the wizard's tier grid on a draft is V-70). The club's
+  // payout account is what a published event that takes money needs before „Opublikuj zmiany”.
+  await db().from('club_payout_details').insert({
+    club_id: club.clubId, legal_name: `Klub ${slug}`, nip: '5260250274', iban: 'PL61109010140000071219812874', address: 'ul. Leśna 1',
+  }).throwOnError()
   const tiers = []
   for (const [i, endsOn] of [day(10), day(20), null].entries()) {
     const { data, error } = await db().from('price_tiers').insert({ event_id: event.eventId, ends_on: endsOn, sort_order: i }).select('*').single()
@@ -276,17 +280,11 @@ test('V-71 after a registration: tier 1 is read-only, a tier-2 change is staged 
   const dialog = page.getByRole('dialog', { name: 'Opublikować zmiany?' })
   await expect(dialog).toBeVisible()
   await expect(dialog.getByTestId('change-row')).toContainText('Bieg 9 km: opłaty')
-  // A tiered event takes money: while PAID_REGISTRATION_ENABLED is false, „Opublikuj zmiany” says
-  // so and applies nothing (Task 3's flag gate). The staged tier-2 change is applied the way
-  // V-17 does it, through publish_registration_changes (LOCAL only).
-  await dialog.getByRole('button', { name: 'Opublikuj', exact: true }).click()
-  await expect(dialog.getByRole('alert')).toHaveText('Nie można opublikować: płatności online — wkrótce.')
-  await dialog.getByRole('button', { name: 'Anuluj' }).click()
+  // A tiered event takes money. With PAID_REGISTRATION_ENABLED true and a payout account,
+  // „Opublikuj zmiany” in the wizard applies the staged tier-2 change to the paid event.
   expect(await amountsOf(event.eventId, categoryId)).toEqual([6000, 7000, 8000])
-  const { error: applyError } = await db().rpc('publish_registration_changes', {
-    p_event_id: event.eventId, p_actor: owner.profileId, p_expected_updated_at: null,
-  })
-  expect(applyError).toBeNull()
+  await dialog.getByRole('button', { name: 'Opublikuj', exact: true }).click()
+  await expect(dialog).toBeHidden({ timeout: 15_000 })
   await expect.poll(() => amountsOf(event.eventId, categoryId), { timeout: 15_000 }).toEqual([6000, 7500, 8000])
   await page.reload()
   await expect(page.getByTestId('pending-bar')).toHaveCount(0)
