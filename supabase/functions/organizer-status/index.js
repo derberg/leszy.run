@@ -30,13 +30,14 @@ Deno.serve(async (req) => {
     const [enabled, waitlist, agreement, payout] = await Promise.all([
       clubRegistrationEnabled(admin, clubId),
       admin.from('registration_waitlist').select('club_id').eq('club_id', clubId).maybeSingle(),
-      admin.from('organizer_agreements').select('id').eq('club_id', clubId).eq('version', ORGANIZER_AGREEMENT_VERSION).limit(1),
+      admin.from('organizer_agreements').select('accepted_at').eq('club_id', clubId).eq('version', ORGANIZER_AGREEMENT_VERSION).limit(1),
       admin.from('club_payout_details').select('club_id').eq('club_id', clubId).maybeSingle(),
     ])
     return json({ data: {
       enabled,
       waitlisted: !!waitlist.data,
       agreementAccepted: (agreement.data?.length ?? 0) > 0,
+      agreementAcceptedAt: agreement.data?.[0]?.accepted_at ?? null,
       version: ORGANIZER_AGREEMENT_VERSION,
       payoutConfigured: !!payout.data,
       role,

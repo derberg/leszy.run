@@ -83,6 +83,21 @@ function AgreementCard({ club, isOwner, version }) {
   )
 }
 
+// After acceptance the agreement card is gone; this line keeps the text (and its
+// PDF) one click away for the owner and admins.
+function AgreementLink({ club, version, acceptedAt }) {
+  const date = acceptedAt
+    ? new Date(acceptedAt).toLocaleDateString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric' })
+    : null
+  return (
+    <p data-testid="agreement-link" className="font-mono text-xs text-apex-muted">
+      <Link to={`/klub/${club.slug}/wydarzenia/umowa`} className="hover:text-apex-yellow">
+        Umowa organizatora · wersja <span className="normal-case">{version}</span>{date && ` · zaakceptowana ${date}`} →
+      </Link>
+    </p>
+  )
+}
+
 const STATE_TAG = { draft: 'SZKIC', published: 'OPUBLIKOWANE', closed: 'ZAMKNIĘTE' }
 
 function dateLabel(iso) {
@@ -188,6 +203,9 @@ export default function Wydarzenia() {
         <div data-testid="event-list" className="space-y-4">
           {events.map((e) => <EventCard key={e.eventId} club={club} event={e} canManage={canManage} />)}
         </div>
+      )}
+      {canManage && status.agreementAccepted && (
+        <AgreementLink club={club} version={status.version} acceptedAt={status.agreementAcceptedAt} />
       )}
     </div>
   )

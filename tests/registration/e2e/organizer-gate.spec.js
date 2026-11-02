@@ -101,8 +101,16 @@ test('F-20 zatyrani-test: the owner accepts the agreement, then owner and admin 
   await owner.getByRole('button', { name: 'Akceptuję umowę' }).click()
   await expect(owner).toHaveURL(/\/klub\/zatyrani-test\/wydarzenia$/)
   await expect(owner.getByRole('button', { name: '+ Nowe wydarzenie' })).toBeEnabled()
+  // After acceptance the agreement stays one click away, with its version and date.
+  const link = owner.getByTestId('agreement-link')
+  await expect(link).toContainText(/Umowa organizatora · wersja .+ · zaakceptowana \d{2}\.\d{2}\.\d{4}/)
+  await link.getByRole('link').click()
+  await expect(owner).toHaveURL(/\/klub\/zatyrani-test\/wydarzenia\/umowa$/)
+  await expect(owner.getByTestId('agreement-accepted')).toBeVisible()
+  await owner.goBack()
 
   await adm.reload()
+  await expect(adm.getByTestId('agreement-link')).toBeVisible()
   const wizard = adm.getByRole('button', { name: '+ Nowe wydarzenie' })
   await expect(wizard).toBeEnabled()
   await expect(wizard).not.toContainText('wkrótce')
@@ -112,6 +120,7 @@ test('F-20 zatyrani-test: the owner accepts the agreement, then owner and admin 
   await member.reload()
   await expect(member.getByRole('heading', { name: 'Wydarzenia klubu' })).toBeVisible()
   await expect(member.getByRole('button', { name: /Nowe wydarzenie/ })).toHaveCount(0)
+  await expect(member.getByTestId('agreement-link')).toHaveCount(0)
 })
 
 test('F-20 zatyrani-test: the owner saves payout details, the admin sees the masked account', async ({ actors }) => {
