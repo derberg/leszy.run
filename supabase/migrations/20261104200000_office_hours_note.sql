@@ -2,7 +2,7 @@
 -- e-mail („tylko bieg dzieci”, „pakiety dla dorosłych”). Optional, at most 120 characters
 -- (HOURS_NOTE_MAX in _shared/registration/sections.js).
 --
--- Every function here is recreated from its latest body (20261103110000) and changed only where
+-- Every function here is recreated from its latest body (20261104100000) and changed only where
 -- marked:
 --   * apply_registration_section: the office branch writes each row's `note`.
 --   * registration_raw: each office hour carries `note` (null when none). registration_public
@@ -12,7 +12,7 @@
 ALTER TABLE public.office_hours
   ADD COLUMN note text CHECK (note IS NULL OR char_length(note) BETWEEN 1 AND 120);
 
--- ---------------------------------------------------------------- apply_registration_section (from 20261103110000)
+-- ---------------------------------------------------------------- apply_registration_section (from 20261104100000)
 
 CREATE OR REPLACE FUNCTION public.apply_registration_section(p_event_id uuid, p_section text, p_value jsonb, p_allow_delete boolean)
   RETURNS jsonb
@@ -79,7 +79,10 @@ BEGIN
         regulamin_url       = CASE WHEN p_value ? 'regulamin_url' THEN p_value->>'regulamin_url' ELSE regulamin_url END,
         regulamin_upload_id = CASE WHEN p_value ? 'regulamin_upload_id' THEN (p_value->>'regulamin_upload_id')::uuid ELSE regulamin_upload_id END,
         poster_upload_id    = CASE WHEN p_value ? 'poster_upload_id' THEN (p_value->>'poster_upload_id')::uuid ELSE poster_upload_id END,
-        contact_email       = CASE WHEN p_value ? 'contact_email' THEN p_value->>'contact_email' ELSE contact_email END
+        contact_email       = CASE WHEN p_value ? 'contact_email' THEN p_value->>'contact_email' ELSE contact_email END,
+        -- new: the description and the cause's page
+        description         = CASE WHEN p_value ? 'description' THEN p_value->>'description' ELSE description END,
+        charity_url         = CASE WHEN p_value ? 'charity_url' THEN p_value->>'charity_url' ELSE charity_url END
       WHERE event_id = p_event_id;
     EXCEPTION WHEN unique_violation THEN
       -- a concurrent save claimed the slug after the check above
@@ -501,8 +504,7 @@ BEGIN
 END $$;
 REVOKE EXECUTE ON FUNCTION public.apply_registration_section(uuid, text, jsonb, boolean) FROM public, anon, authenticated, service_role;
 
-
--- ---------------------------------------------------------------- registration_raw (from 20261103110000)
+-- ---------------------------------------------------------------- registration_raw (from 20261104100000)
 
 CREATE OR REPLACE FUNCTION public.registration_raw(p_event_id uuid) RETURNS jsonb
   LANGUAGE sql
@@ -549,6 +551,8 @@ AS $$
     'closesAt', rs.closes_at,
     'isCharity', rs.is_charity,
     'charityGoal', rs.charity_goal,
+    'charityUrl', rs.charity_url,       -- new
+    'description', rs.description,      -- new
     'donationsEnabled', rs.donations_enabled,
     'town', jsonb_build_object(
       'label', rs.town_label, 'area', rs.town_area, 'placeDetails', rs.place_details,
