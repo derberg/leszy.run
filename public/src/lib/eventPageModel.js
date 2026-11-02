@@ -146,6 +146,12 @@ function courses(competitions) {
 }
 
 const osmUrl = (lat, lng) => `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`
+// Google's documented cross-platform Maps URL: opens the app on a phone, the site elsewhere.
+const googleMapsUrl = (lat, lng) => `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+/** The map links for a pin, or nulls when there is none. */
+const mapLinks = (lat, lng) => (lat != null && lng != null
+  ? { mapUrl: osmUrl(lat, lng), googleMapsUrl: googleMapsUrl(lat, lng) }
+  : { mapUrl: null, googleMapsUrl: null })
 const join = (...parts) => parts.filter(Boolean).join(', ') || null
 
 /** Where the start is: the event place and pin set in Podstawy. */
@@ -153,7 +159,7 @@ function startPlace(raw) {
   const t = raw.town ?? {}
   const label = join(t.label, t.placeDetails)
   if (!label && t.lat == null) return null
-  return { label, mapUrl: t.lat != null && t.lng != null ? osmUrl(t.lat, t.lng) : null }
+  return { label, ...mapLinks(t.lat, t.lng) }
 }
 
 // „2.12.2026, 23:59”: the last Warsaw minute of registration. closesAt is
@@ -176,7 +182,7 @@ function officePlace(raw) {
     ? [join(t.label, t.placeDetails), t.lat, t.lng]
     : [o.address || null, o.lat, o.lng]
   if (!label && lat == null) return null
-  return { label, mapUrl: lat != null && lng != null ? osmUrl(lat, lng) : null }
+  return { label, ...mapLinks(lat, lng) }
 }
 
 // A team competition's taken and capacity count teams (D5-28), so people and teams are never
