@@ -34,9 +34,12 @@ export function compareEvents(a, b, today) {
  * @param {object[]} p.orders orders rows: id, event_id, buyer_profile_id, status, total, expires_at, paid_at, created_at
  * @param {object[]} p.registrations registrations rows: id, event_id, category_id, status, first_name, last_name, profile_id, created_at
  * @param {object[]} p.competitions competitions rows: category_id, name
+ * @param {Map<string, number>} [p.refunded] order id → grosze dpay has paid back (accepted refunds)
+ * @param {Set<string>} [p.liveOrderIds] orders that still hold a live entry; a paid order outside it
+ *   had every entry cancelled (`cancelled: true`). Omitted, no order is marked.
  * @param {Date} [p.now]
  */
-export function shapeMyRegistrations({ userId, settings, orders, registrations, competitions, now = new Date() }) {
+export function shapeMyRegistrations({ userId, settings, orders, registrations, competitions, refunded = new Map(), liveOrderIds = null, now = new Date() }) {
   const settingsOf = new Map(settings.filter((s) => s.state !== 'draft').map((s) => [s.event_id, s]))
   const compName = new Map(competitions.map((c) => [c.category_id, c.name]))
   const events = new Map()
@@ -67,6 +70,8 @@ export function shapeMyRegistrations({ userId, settings, orders, registrations, 
       id: o.id,
       status: o.status,
       total: o.total,
+      refunded: refunded.get(o.id) ?? 0,
+      cancelled: o.status === 'paid' && liveOrderIds != null && !liveOrderIds.has(o.id),
       expiresAt: o.expires_at ?? null,
       paidAt: o.paid_at ?? null,
       createdAt: o.created_at ?? null,

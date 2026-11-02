@@ -7,6 +7,7 @@ import { isUuid } from '../_shared/registration/organizerEvent.js'
 import { json, NOT_FOUND } from '../_shared/registration/registrationRequest.js'
 import { loadOrderView, logPaymentEvent, orderAmountsOf, settleConfirmOutcome } from '../_shared/registration/orderFlow.js'
 import { transferViews } from '../_shared/registration/transfers.js'
+import { acceptedRefundTotals } from '../_shared/registration/refundedTotals.js'
 
 // The poll fallback for a missing IPN: only attempts older than this are asked about (dpay's
 // IPN normally lands first), at most this many, and at most once per order per CHECK_GAP_MS.
@@ -98,7 +99,7 @@ async function ownTransferViews(admin, view, userId) {
 //   startTime, amount, teamId, teamName, isCaptain, transferred (Plan 7: the package was handed on;
 //   then role, consentState and ageGroupLabel are null and mine false), transfer (Plan 7, RA5: the
 //   my-event-registrations block { allowed, until, pending } on the buyer's own line of a paid order,
-//   null on every other line) }], amounts, event: { slug, name }, closesAt, full, cancelledReason } }
+//   null on every other line) }], amounts (+ refunded: grosze dpay paid back), event: { slug, name }, closesAt, full, cancelledReason } }
 // The order page's state, for the buyer only (401 without a session, 404 otherwise). While the
 // order is pending and dpay may have taken the money without an IPN reaching us, it asks dpay
 // (see poll) before answering.
@@ -152,6 +153,7 @@ Deno.serve(async (req) => {
     } catch (err) {
       console.error('order-status: transfer views failed:', err?.message)
     }
+    const refunded = (await acceptedRefundTotals(admin, [orderId])).get(orderId) ?? 0
     return json({
       data: {
         status: view.order.status,
@@ -180,7 +182,7 @@ Deno.serve(async (req) => {
           // Plan 7 (RA5): the buyer's own confirmed entry only; null on every other line.
           transfer: transfers.get(l.registrationId) ?? null,
         })),
-        amounts: orderAmountsOf(view.order),
+        amounts: { ...orderAmountsOf(view.order), refunded },
         event: { slug: view.settings?.slug ?? null, name: view.settings?.name ?? null },
         // The order page stops offering „Zapłać” at closes_at, as pay-order does.
         closesAt: view.settings?.closes_at ?? null,

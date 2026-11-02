@@ -6,6 +6,7 @@ import usePublicRegistrationEvent from '../../hooks/usePublicRegistrationEvent.j
 import { callFunction } from '../../lib/auth.js'
 import { eventPageModel } from '../../lib/eventPageModel.js'
 import { pollDelayMs } from '../../lib/orderPolling.js'
+import { paidOrderCancelled, refundState } from '../../lib/orderOutcome.js'
 import { payLinkOpen } from '../../lib/checkout.js'
 import { captainTeamPath } from '../../lib/teamPage.js'
 import PageTop from '../../components/registration/PageTop.jsx'
@@ -39,6 +40,8 @@ import { eventPath } from './RegistrationEventPage.jsx'
 //             „Anuluj zgłoszenie” (cancel-my-order, after a confirm step in the page)
 //             always, and as the main action once full: until it is cancelled or
 //             expires, the address cannot register again (409 pending_order)
+// paid, every entry cancelled (an organizer cancel or refund; the order stays paid) →
+//             „Zgłoszenie anulowane” and the amount dpay paid back, never „Jesteście na liście”
 // expired / cancelled → „Zgłoszenie wygasło” / „…anulowane” and „Zapisz się ponownie”; a
 //             cancellation because the buyer took somebody's package (transfer_accepted) says so
 //             and links to the entry instead
@@ -147,6 +150,9 @@ function Paid({ order, raw, model, onAgain }) {
         <span className="font-display font-extrabold text-4xl leading-none uppercase">Jesteście na liście</span>
         <span className="text-base font-semibold">{[title, day].filter(Boolean).join(' · ')}</span>
       </div>
+      {order.amounts.refunded > 0 && (
+        <p className="text-base" data-testid="order-refunded">Zwrócono {formatPln(order.amounts.refunded)} z {formatPln(order.amounts.total)}.</p>
+      )}
       {people.map((l, i) => <Person key={l.registrationId ?? `${l.name}-${i}`} line={l} showTag={tags} onStale={onAgain} slug={order.event.slug} />)}
       {raw && first && (
         <DoneActions model={model} raw={raw} eventHref={eventPath(raw.slug)} teamHref={captainTeamPath(order.event.slug, order.lines)}
@@ -325,6 +331,30 @@ function Ended({ order, raw }) {
   )
 }
 
+// A paid order whose entries were all cancelled after payment, usually with the organizer's refund.
+function PaidCancelled({ order, raw }) {
+  const { total, refunded } = order.amounts
+  const refund = refundState(total, refunded)
+  const href = raw ? eventPath(raw.slug) : order.event.slug ? eventPath(order.event.slug) : '/'
+  return (
+    <div className="flex flex-col gap-4" data-testid="order-paid-cancelled">
+      <PageTop right={order.event.name} />
+      <div className="border border-apex-border-bright p-[18px] flex flex-col gap-1">
+        <span className={labelCls}>{refund ? `Zwrot · ${formatPln(refunded)}` : 'Zgłoszenie anulowane'}</span>
+        <span className="font-display font-extrabold text-[32px] leading-none uppercase text-apex-text-bright">Zgłoszenie anulowane</span>
+      </div>
+      <p className="text-lg">
+        {refund === 'full'
+          ? `Organizator anulował to zgłoszenie i zwrócił całą wpłatę, ${formatPln(refunded)}. Pieniądze wracają tą samą drogą, którą zapłacono.`
+          : refund === 'partial'
+            ? `Organizator anulował to zgłoszenie i zwrócił ${formatPln(refunded)} z ${formatPln(total)}. Pieniądze wracają tą samą drogą, którą zapłacono.`
+            : 'Organizator anulował to zgłoszenie. Nie jesteś już na liście startowej.'}
+      </p>
+      <Link to={href} className={secondaryBtn} data-testid="order-event-link">Strona zawodów</Link>
+    </div>
+  )
+}
+
 function Message({ children, action }) {
   return (
     <div className="flex flex-col gap-4" data-testid="order-message">
@@ -361,6 +391,8 @@ export default function Zamowienie() {
     body = <Message>Nie znaleźliśmy tego zgłoszenia na Twoim koncie.</Message>
   } else if (order.status === 'error') {
     body = <Message>Nie udało się wczytać zgłoszenia. Odśwież stronę.</Message>
+  } else if (paidOrderCancelled(order.order)) {
+    body = <PaidCancelled order={order.order} raw={raw} />
   } else if (order.order.status === 'paid') {
     body = <Paid order={order.order} raw={raw} model={model} onAgain={order.again} />
   } else if (order.order.status === 'pending') {
