@@ -32,11 +32,15 @@ export function Soon() {
 }
 
 /** One button of a segmented choice. */
-export function Seg({ on, className = '', ...props }) {
+/** `check`: a chip in a pick-several group, which shows ✓ when on (colour alone does not say „chosen”). */
+export function Seg({ on, check = false, className = '', children, ...props }) {
   return (
     <button type="button" aria-pressed={props.role ? undefined : !!on} {...props}
       className={`whitespace-nowrap min-h-9 px-3 border font-sans font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
-        on ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-bright text-apex-muted hover:text-apex-text-bright'} ${className}`} />
+        on ? 'border-apex-yellow text-apex-yellow' : 'border-apex-border-bright text-apex-muted hover:text-apex-text-bright'} ${className}`}>
+      {check && <span aria-hidden="true" className={`inline-block w-4 mr-1 ${on ? '' : 'invisible'}`}>✓</span>}
+      {children}
+    </button>
   )
 }
 

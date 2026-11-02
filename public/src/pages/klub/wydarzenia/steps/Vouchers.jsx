@@ -97,7 +97,7 @@ function CodeDialog({ eventId, generate, partners, competitions, onClose, onDone
           <span id={id('c')} className={monoLabel}>Konkurencje</span>
           <div role="group" aria-labelledby={id('c')} className="flex flex-wrap gap-1.5">
             {competitions.map((c) => (
-              <Seg key={c.categoryId} on={competitionOn(form.categoryIds, c.categoryId)} disabled={busy}
+              <Seg key={c.categoryId} check on={competitionOn(form.categoryIds, c.categoryId)} disabled={busy}
                 onClick={() => setForm({ ...form, categoryIds: toggleCompetition(form.categoryIds, allIds, c.categoryId) })}>
                 {c.name}
               </Seg>
