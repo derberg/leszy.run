@@ -239,6 +239,9 @@ export function eventPageModel(raw, now = new Date()) {
     charityGoal: raw.isCharity ? (raw.charityGoal ?? null) : null,
     // A link only to an http(s) address, whatever the stored value says.
     charityUrl: raw.isCharity && /^https?:\/\//i.test(raw.charityUrl ?? '') ? raw.charityUrl : null,
+    // The form offers a donation (same rule as donationsOffered in cartModel.js, which this
+    // module cannot import): the charity panel says so up front.
+    donationsOffered: raw.isCharity === true && raw.donationsEnabled === true,
     // Plain text: the page keeps its line breaks and never renders it as HTML.
     description: raw.description || null,
     // „Więcej informacji” under the description: http(s) only, like charityUrl.
