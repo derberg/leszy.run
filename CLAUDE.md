@@ -652,7 +652,7 @@ survive (check-ins, participants, tag assignments, event config).
   a stale version answers 409. `organizer_agreements` is UNIQUE (club_id, version); a concurrent second
   accept gets the existing row. **Bump `ORGANIZER_AGREEMENT_VERSION` (both places) on every change to the
   agreement text**: an acceptance points at a version, and only a new version makes every owner re-accept.
-  Since `2026-11-v4` every `[DO UZUPEŁNIENIA]` is filled; four `[DO WERYFIKACJI]` markers await legal review.
+  Since `2026-11-v5` the text has no `[DO UZUPEŁNIENIA]` or `[DO WERYFIKACJI]` markers left.
 - **Organizer edge functions:** `organizer-status`, `join-registration-waitlist`,
   `accept-organizer-agreement`, `update-club-payout` (owner only; writes through the `save_club_payout`
   RPC, which takes a per-club advisory lock, updates the details and appends `club_payout_history` in one
