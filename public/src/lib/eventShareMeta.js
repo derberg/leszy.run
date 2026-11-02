@@ -43,6 +43,8 @@ export function eventShareFields(registration, eventRow) {
       description: registration.description || '',
       noindex: registration.listed === false,
       distances,
+      charity: registration.isCharity ? (registration.charityGoal || '') : null,
+      tags: competitionTags(registration.competitions),
     }
   }
   if (eventRow?.name && (eventRow.visibility === 'public' || eventRow.visibility === 'unlisted')) {
@@ -53,9 +55,34 @@ export function eventShareFields(registration, eventRow) {
       description: '',
       noindex: eventRow.visibility !== 'public',
       distances: [],
+      charity: null,
+      tags: [],
     }
   }
   return null
+}
+
+/**
+ * What kinds of entry the event offers, for the image's chips: the
+ * disciplines, then children and teams. Never one chip per competition.
+ */
+export function competitionTags(competitions) {
+  const list = competitions || []
+  const tags = []
+  if (list.some(c => c.discipline === 'run')) tags.push('BIEG')
+  if (list.some(c => c.discipline === 'nw')) tags.push('NORDIC WALKING')
+  if (list.some(c => c.isKids)) tags.push('DZIECI')
+  if (list.some(c => c.kind === 'team')) tags.push('DRUŻYNY')
+  return tags
+}
+
+/** The organizer's description cut to `max` characters at a word, on one line of whitespace. */
+export function shortBlurb(text, max) {
+  const flat = String(text || '').replace(/\s+/g, ' ').trim()
+  if (flat.length <= max) return flat
+  const cut = flat.slice(0, max - 1)
+  const atWord = cut.lastIndexOf(' ') > max * 0.6 ? cut.slice(0, cut.lastIndexOf(' ')) : cut
+  return atWord.replace(/[\s,.;:–—-]+$/, '') + '…'
 }
 
 function escapeAttr(s) {

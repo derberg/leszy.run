@@ -1,5 +1,5 @@
 // GET /api/event-og?slug=<slug>: the 1200x630 link preview image of one
-// leszy.run event, drawn with the kalendarz template (scripts/generate-event-og.js)
+// leszy.run event, drawn by renderLeszyrunEventOg() (scripts/generate-event-og.js)
 // and cached by Vercel's CDN. api/event-page.js and the pre-rendered past event
 // pages point og:image here. An unknown slug gets the site's own image.
 //
@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
-import { isEventSlug, readEventShareFields } from '../src/lib/eventShareMeta.js'
+import { isEventSlug, readEventShareFields, shortBlurb } from '../src/lib/eventShareMeta.js'
 
 // The function runtime has no system fonts: librsvg drew every letter as an
 // empty box. og-fonts/ (copied in by `includeFiles` in vercel.json) holds the
@@ -27,14 +27,14 @@ function useBundledFonts() {
   process.env.FONTCONFIG_FILE = conf
 }
 
-let renderEventOg = null
+let render = null
 
 async function renderer() {
-  if (!renderEventOg) {
+  if (!render) {
     useBundledFonts()
-    ;({ renderEventOg } = await import('../scripts/generate-event-og.js'))
+    ;({ renderLeszyrunEventOg: render } = await import('../scripts/generate-event-og.js'))
   }
-  return renderEventOg
+  return render
 }
 
 let supabase = null
@@ -78,7 +78,9 @@ export default async function handler(req, res) {
       name: fields.name,
       date: fields.date,
       location: fields.location,
-      distances: fields.distances,
+      charity: fields.charity,
+      blurb: shortBlurb(fields.description, 160),
+      tags: fields.tags,
     }, { footer: `leszy.run/events/${slug}` })
     res.statusCode = 200
     res.setHeader('Content-Type', 'image/png')

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { eventShareFields, injectShareMeta, isEventSlug, polishDate, readEventShareFields } from '../../src/lib/eventShareMeta.js'
+import { eventShareFields, injectShareMeta, isEventSlug, polishDate, readEventShareFields, shortBlurb, competitionTags } from '../../src/lib/eventShareMeta.js'
 
 const shell = readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
 
@@ -11,7 +11,14 @@ const registration = {
   town: { label: 'Nieborowice' },
   description: 'Wydarzenie charytatywne "pamięci" <Marka>.',
   listed: false,
-  competitions: [{ distanceLabel: '3 km' }, { distanceLabel: '9 km' }, { distanceLabel: '3 km' }, {}],
+  isCharity: true,
+  charityGoal: 'OTOZ Animals',
+  competitions: [
+    { distanceLabel: '3 km', discipline: 'run', kind: 'individual' },
+    { distanceLabel: '9 km', discipline: 'nw', kind: 'individual' },
+    { distanceLabel: '3 km', discipline: 'run', kind: 'team' },
+    { discipline: 'run', isKids: true },
+  ],
 }
 
 function meta(html, attr, key) {
@@ -24,7 +31,12 @@ describe('eventShareFields', () => {
     assert.deepEqual(eventShareFields(registration, null), {
       name: 'NieboCross 2027', date: '2027-04-18', location: 'Nieborowice',
       description: 'Wydarzenie charytatywne "pamięci" <Marka>.', noindex: true, distances: ['3 km', '9 km'],
+      charity: 'OTOZ Animals', tags: ['BIEG', 'NORDIC WALKING', 'DZIECI', 'DRUŻYNY'],
     })
+  })
+  it('says nothing about charity for an ordinary event', () => {
+    assert.equal(eventShareFields({ ...registration, isCharity: false }, null).charity, null)
+    assert.equal(eventShareFields({ ...registration, charityGoal: null }, null).charity, '')
   })
   it('falls back to a public or unlisted events row', () => {
     const row = { name: 'NieboCross', date: '2026-04-12', location: 'Nieborowice', visibility: 'public' }
@@ -67,6 +79,15 @@ describe('injectShareMeta', () => {
 })
 
 describe('helpers', () => {
+  it('cuts a description at a word', () => {
+    assert.equal(shortBlurb('Krótki opis.', 160), 'Krótki opis.')
+    assert.equal(shortBlurb('Bieg  w\nlesie pod miastem, dla wszystkich', 30), 'Bieg w lesie pod miastem…')
+    assert.ok(shortBlurb('x'.repeat(400), 160).length <= 160)
+  })
+  it('names kinds of entry, never each competition', () => {
+    assert.deepEqual(competitionTags([{ discipline: 'nw' }, { discipline: 'nw' }]), ['NORDIC WALKING'])
+    assert.deepEqual(competitionTags(undefined), [])
+  })
   it('formats a Polish date', () => {
     assert.equal(polishDate('2027-04-18'), '18 kwietnia 2027')
     assert.equal(polishDate(''), '')
