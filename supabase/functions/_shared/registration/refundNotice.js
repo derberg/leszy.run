@@ -10,7 +10,9 @@
 // At most once: refunds.runner_notified_at is claimed by one UPDATE … WHERE it is null before
 // anything is sent. The mail goes to the payer (the order's buyer, whose money it is) and, in the
 // same request with a personalization each, to the entry's own adult runner when that address
-// differs (ruling S2). A child has no address; the payer is the guardian or paid for them.
+// differs (ruling S2). A child has no address; the payer is the guardian or paid for them. A team's
+// refund goes to its captain only (user decision 2026-11-02): a line of a member who is not the
+// captain (an extra) mails the payer and the captain, never the member.
 // A line a package transfer moved gets two separate sends, one per copy (Plan 7): the claim covers
 // both, so it is given back only when neither copy can have gone out. When one copy went out and
 // the other did not, the claim is kept and the alert names the failed copy (`copy`) and its own
@@ -27,6 +29,19 @@ async function single(query) {
   const { data, error } = await query
   if (error) throw error
   return data
+}
+
+/**
+ * The runner's address for a refund of this registration's line: its own, or for a team member who
+ * is not the captain, the captain's (a team's refund e-mail goes to the captain only, user decision
+ * 2026-11-02). Null when there is none (a child, a deleted account).
+ */
+async function refundRunnerAddress(admin, registrationId, reg) {
+  if (!reg?.team_id) return reg?.email ?? null
+  const team = await single(admin.from('teams').select('captain_registration_id').eq('id', reg.team_id).maybeSingle())
+  if (!team?.captain_registration_id || team.captain_registration_id === registrationId) return reg.email ?? null
+  const captain = await single(admin.from('registrations').select('email').eq('id', team.captain_registration_id).maybeSingle())
+  return captain?.email ?? null
 }
 
 /**
@@ -64,11 +79,14 @@ export async function notifyRefundRunner(admin, settings, { refundId, orderId, r
     const [order, reg, club] = await Promise.all([
       single(admin.from('orders').select('buyer_email').eq('id', orderId).single()),
       registrationId
-        ? single(admin.from('registrations').select('first_name, last_name, email').eq('id', registrationId).maybeSingle())
+        ? single(admin.from('registrations').select('first_name, last_name, email, team_id').eq('id', registrationId).maybeSingle())
         : null,
       single(admin.from('clubs').select('name').eq('id', settings.club_id).single()),
     ])
-    const to = [...new Set([order?.buyer_email, reg?.email].filter(Boolean).map((a) => a.toLowerCase()))]
+    // A team's refund goes to its captain only (user decision 2026-11-02), never to another member:
+    // a member's own line (an extra) is the captain's to hear about, like the team's fee.
+    const runnerEmail = await refundRunnerAddress(admin, registrationId, reg)
+    const to = [...new Set([order?.buyer_email, runnerEmail].filter(Boolean).map((a) => a.toLowerCase()))]
     if (!to.length) return 'no_address'
     const deleted = reg?.first_name === 'Usunięte konto'
     const named = deleted || !reg ? null : { firstName: reg.first_name, lastName: reg.last_name }
@@ -81,7 +99,7 @@ export async function notifyRefundRunner(admin, settings, { refundId, orderId, r
     // (ruling N-1). Otherwise one message to both, as before.
     const kind = registrationId ? (await transferredRegistrationIds(admin, [registrationId])).get(registrationId) : undefined
     const buyer = order?.buyer_email?.toLowerCase() ?? null
-    const holder = reg?.email?.toLowerCase() ?? null
+    const holder = runnerEmail?.toLowerCase() ?? null
     if (kind && buyer !== holder) {
       const copies = []
       if (buyer) copies.push(['payer', buyer, organizerRefundEmail({ ...base, person: kind === 'organizer' ? null : named })])

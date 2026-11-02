@@ -158,6 +158,8 @@ Deno.serve(async (req) => {
         expiresAt: view.order.expires_at,
         lines: view.lines.map((l) => ({
           registrationId: l.registrationId,
+          // A cancelled entry comes after every live one (loadOrderView); the page keeps that order.
+          cancelled: l.cancelled === true,
           // Plan 7: a package handed on. The line keeps the recipient's name and nothing else of theirs.
           transferred: l.transferred === true,
           // Ruling N-1: after an organizer transfer the line carries no name at all.

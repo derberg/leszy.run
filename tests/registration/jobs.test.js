@@ -25,6 +25,7 @@ import {
   attemptFor, competitionOf, confirm, confirmOk, consentIds, db, expireNow, orderOf, orderOk, paidOrderOk, profileFor, registrationsOf,
   rows, rpc, runnerEmail, totalFor,
 } from './helpers/orders.js'
+import { adult, orderGroupOk } from './helpers/groups.js'
 import { dpayConfig } from '../../supabase/functions/_shared/dpay.js'
 import { raiseAlert, settleConfirmOutcome } from '../../supabase/functions/_shared/registration/orderFlow.js'
 import { jobsSettings, runJobsAndBeat } from '../../supabase/functions/_shared/registration/jobsRun.js'
@@ -75,6 +76,16 @@ async function jobs({ secret = JOBS_SECRET, method = 'POST', headers, body: payl
   let body
   try { body = JSON.parse(text) } catch { body = { raw: text } }
   return { status: res.status, body }
+}
+
+/** order-status as the buyer (the order page's read). */
+async function callStatus(session, orderId) {
+  const res = await fetch(`${localEnv().functionsUrl}/order-status`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...EDGE_PROXY, cookie: session.cookie },
+    body: JSON.stringify({ orderId }),
+  })
+  return { status: res.status, body: await res.json() }
 }
 
 async function jobsOk() {
@@ -1063,6 +1074,38 @@ test('Ledger: a paid order whose entry was cancelled before the lost-confirmatio
   assert.deepEqual(subjects(await messagesTo(live.email)), ['Opłacone'])
   assert.deepEqual(await messagesTo(gone.email), [], 'nothing to confirm')
   assert.ok((await orderOf(gone.orderId)).confirmation_sent_at, 'settled, so it is not looked at again')
+})
+
+test('P-24c a group order with a cancelled entry: the confirmation re-send and order-status list the live entries first, in their order, then the cancelled one (user decision 2026-11-02)', async () => {
+  const event = await paidEvent()
+  const cat = event.categoryIds[0]
+  const buyer = runnerEmail('grupa')
+  const tag = crypto.randomBytes(2).toString('hex')
+  const people = ['Adam', 'Basia', 'Cezary'].map((n, i) =>
+    adult(cat, i === 0 ? 'self' : 'adult', i === 0 ? buyer : runnerEmail(`grupa${i}`), { firstName: `${n}${tag}` }))
+  const out = await orderGroupOk(event, people, { buyerEmail: buyer })
+  const { txn } = await attemptFor(out.orderId, out.total)
+  assert.equal((await confirmOk(out.orderId, txn, out.total)).outcome, 'confirmed')
+  // The order's own line order (order_lines by id, as loadOrderView reads them): cancel the first.
+  const lines = (await rows('order_lines', { order_id: out.orderId })).filter((l) => l.kind === 'entry')
+    .sort((a, b) => (a.id < b.id ? -1 : 1))
+  const regs = await registrationsOf(out.orderId)
+  const nameOf = (l) => regs.find((r) => r.id === l.registration_id).first_name
+  const [first, ...rest] = lines
+  await rpcOk('cancel_registration', { p_registration_id: first.registration_id, p_reason: 'organizer', p_actor: await profileFor(OWNER) })
+  const expected = [...rest.map(nameOf), nameOf(first)]
+
+  await setOrder(out.orderId, { paid_at: ago(11 * MIN), confirmation_sent_at: null })
+  await jobsOk()
+  const [mail] = await waitForMail(buyer)
+  assert.ok(mail, 'the confirmation went out')
+  const listed = mail.text.split('\n').filter((l) => l.startsWith('- ')).map((l) => l.slice(2).split(' ')[0])
+  assert.deepEqual(listed, expected, 'live entries first, the cancelled one last')
+
+  const status = await callStatus(await sessionFor(buyer), out.orderId)
+  assert.equal(status.status, 200, JSON.stringify(status.body))
+  assert.deepEqual(status.body.data.lines.map((l) => l.firstName), expected)
+  assert.deepEqual(status.body.data.lines.map((l) => l.cancelled), [false, false, true])
 })
 
 // ---------------------------------------------------------------- O-42 the operator's script

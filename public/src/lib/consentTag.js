@@ -53,10 +53,12 @@ const ROLE_ORDER = { self: 0, adult: 1, minor: 2 }
 
 /**
  * RA5's people in the order the form had them: the person registering first, then the added
- * adults, then the children, each kept in the server's order (which follows no person).
+ * adults, then the children, each kept in the server's order (which follows no person). Cancelled
+ * entries come after every live one, in the same order among themselves (user decision 2026-11-02).
  */
 export function orderPeople(people) {
   return (people ?? []).map((p, i) => [p, i])
-    .sort(([a, i], [b, j]) => (ROLE_ORDER[a.role] ?? 1) - (ROLE_ORDER[b.role] ?? 1) || i - j)
+    .sort(([a, i], [b, j]) => (a.cancelled === true) - (b.cancelled === true)
+      || (ROLE_ORDER[a.role] ?? 1) - (ROLE_ORDER[b.role] ?? 1) || i - j)
     .map(([p]) => p)
 }
