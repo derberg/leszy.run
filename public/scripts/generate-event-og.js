@@ -363,7 +363,7 @@ export async function renderLeszyrunEventOg(event, { footer = 'leszy.run' } = {}
   <text x="60" y="${HEIGHT - 20}" font-family="'Rajdhani', Arial, sans-serif" font-weight="500"
     font-size="14" letter-spacing="3" fill="${TEXT_MUTED}" opacity="0.6">${escapeXml(footer)}</text>
   <text x="${WIDTH - 60}" y="${HEIGHT - 20}" font-family="'Rajdhani', Arial, sans-serif" font-weight="600"
-    font-size="14" letter-spacing="3" text-anchor="end" fill="${YELLOW}">ZAPISY · WYNIKI NA ŻYWO</text>
+    font-size="14" letter-spacing="3" text-anchor="end" fill="${YELLOW}">KALENDARZ BIEGÓW · LESZY.RUN/KALENDARZ</text>
   <rect x="0" y="${HEIGHT - 3}" width="${WIDTH}" height="3" fill="${YELLOW}" opacity="0.4"/>
 </svg>`
 
