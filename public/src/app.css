@@ -24,6 +24,10 @@
   --color-apex-cyan-dim: #004458;
   /* Cyan for small text (tags): the plain cyan is 3.7:1 on the light surface, below AA. */
   --color-apex-cyan-text: #00BFEF;
+  /* Status green (paid, OK). green-400 is 1.9:1 on the light surface, so light mode darkens it. */
+  --color-apex-green: #4ADE80;
+  --color-apex-green-dim: #166534;
+  --color-apex-green-bg: rgb(5 46 22 / 0.3);
   /* Charity: the heart and the stripe of the „Cel charytatywny” panel. */
   --color-apex-rose: #F43F5E;
   --color-apex-text: #9896B4;
@@ -68,6 +72,9 @@ body {
     --color-apex-cyan-dim: #ECFEFF;
     --color-apex-cyan-text: #0E7490;
     --color-apex-rose: #BE123C;
+    --color-apex-green: #15803D;
+    --color-apex-green-dim: #15803D;
+    --color-apex-green-bg: #F0FDF4;
     --color-apex-text: #4A4860;
     --color-apex-text-bright: #1A1830;
     --color-apex-muted: #6B6980;
@@ -96,6 +103,9 @@ html.light {
   --color-apex-cyan-dim: #ECFEFF;
   --color-apex-cyan-text: #0E7490;
   --color-apex-rose: #BE123C;
+  --color-apex-green: #15803D;
+  --color-apex-green-dim: #15803D;
+  --color-apex-green-bg: #F0FDF4;
   --color-apex-text: #4A4860;
   --color-apex-text-bright: #1A1830;
   --color-apex-muted: #6B6980;

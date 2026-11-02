@@ -43,7 +43,7 @@ export default function Obserwowane() {
           {notifications.map((n) => (
             <div key={n.id} className="flex items-center gap-3 py-2 border-b border-apex-border/50 text-xs">
               <span className={`px-1.5 py-0.5 font-mono text-[9px] border flex-shrink-0 ${
-                n.type === 'registration_opened' ? 'border-green-800 text-green-400'
+                n.type === 'registration_opened' ? 'border-apex-green-dim text-apex-green bg-apex-green-bg'
                 : 'border-apex-yellow-dim text-apex-yellow'
               }`}>
                 {n.type === 'registration_opened' ? 'Zapisy ruszyły' : 'Koniec zapisów blisko'}

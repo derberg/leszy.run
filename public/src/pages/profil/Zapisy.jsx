@@ -26,7 +26,7 @@ function expiryLabel(iso) {
 
 function OrderBadge({ status }) {
   return status === 'paid'
-    ? <span className="whitespace-nowrap px-1.5 py-0.5 text-[9px] font-mono border border-green-800 text-green-400 bg-green-950/30">OPŁACONE</span>
+    ? <span className="whitespace-nowrap px-1.5 py-0.5 text-[9px] font-mono border border-apex-green-dim text-apex-green bg-apex-green-bg">OPŁACONE</span>
     : <span className="whitespace-nowrap px-1.5 py-0.5 text-[9px] font-mono border border-apex-yellow-dim text-apex-yellow">DO ZAPŁATY</span>
 }
 

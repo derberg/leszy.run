@@ -5,7 +5,7 @@ import { useProfil } from './context.js'
 
 function StatusBadge({ status }) {
   if (status === 'accepted') {
-    return <span className="px-1.5 py-0.5 text-[9px] font-mono border border-green-800 text-green-400 bg-green-950/30">OK</span>
+    return <span className="px-1.5 py-0.5 text-[9px] font-mono border border-apex-green-dim text-apex-green bg-apex-green-bg">OK</span>
   }
   if (status === 'rejected') {
     return <span className="px-1.5 py-0.5 text-[9px] font-mono border border-red-900 text-apex-red bg-red-950/30">odrzucone</span>
