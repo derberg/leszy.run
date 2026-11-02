@@ -32,20 +32,37 @@ function nextDay(iso) {
   return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10)
 }
 
+// The entry's span: a timed start lasts two hours, no start time is one whole day.
+function span(eventDate, startTime) {
+  if (!startTime) return { allDay: true, start: day(eventDate), end: day(nextDay(eventDate)) }
+  const [h, min] = startTime.split(':').map(Number)
+  const start = warsawInstant(eventDate, h, min)
+  return { allDay: false, start: utc(start), end: utc(new Date(start.getTime() + DURATION_MS)) }
+}
+
 /** → the .ics text (CRLF line ends). */
 export function icsFor({ uid, title, eventDate, startTime, location, url, now = new Date() }) {
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//LESZY.RUN//zapisy//PL', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
     `UID:${uid}@leszy.run`, `DTSTAMP:${utc(now)}`]
-  if (startTime) {
-    const [h, min] = startTime.split(':').map(Number)
-    const start = warsawInstant(eventDate, h, min)
-    lines.push(`DTSTART:${utc(start)}`, `DTEND:${utc(new Date(start.getTime() + DURATION_MS))}`)
-  } else {
-    lines.push(`DTSTART;VALUE=DATE:${day(eventDate)}`, `DTEND;VALUE=DATE:${day(nextDay(eventDate))}`)
-  }
+  const s = span(eventDate, startTime)
+  if (s.allDay) lines.push(`DTSTART;VALUE=DATE:${s.start}`, `DTEND;VALUE=DATE:${s.end}`)
+  else lines.push(`DTSTART:${s.start}`, `DTEND:${s.end}`)
   lines.push(`SUMMARY:${esc(title)}`)
   if (location) lines.push(`LOCATION:${esc(location)}`)
   if (url) lines.push(`URL:${url}`)
   lines.push('END:VEVENT', 'END:VCALENDAR', '')
   return lines.join('\r\n')
+}
+
+/**
+ * → a Google Calendar link that opens the same entry prefilled, so Android and
+ * desktop browsers add it without downloading a file (the .ics stays for Apple
+ * and Outlook). The end date of an all-day entry is exclusive, as in the .ics.
+ */
+export function googleCalendarUrl({ title, eventDate, startTime, location, url }) {
+  const s = span(eventDate, startTime)
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: title, dates: `${s.start}/${s.end}` })
+  if (location) q.set('location', location)
+  if (url) q.set('details', url)
+  return `https://calendar.google.com/calendar/render?${q}`
 }

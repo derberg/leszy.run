@@ -48,13 +48,16 @@ const NO_STORE = { 'Cache-Control': 'no-store' }
 
 export default async function handler(req, res) {
   shell ??= readFileSync(SHELL_URL, 'utf8')
-  const slug = new URL(req.url, 'http://localhost').searchParams.get('slug')
+  const params = new URL(req.url, 'http://localhost').searchParams
+  const slug = params.get('slug')
+  // ?z=1: the link a runner shares from the registration page.
+  const signedUp = params.get('z') === '1'
   // Anything this cannot describe still gets the app, which shows its own
   // "not found": the page must never break because the preview could not be made.
   if (!isEventSlug(slug)) return send(res, shell, CACHED)
   try {
     const fields = await readEventShareFields(client(), slug)
-    send(res, fields ? injectShareMeta(shell, fields, slug) : shell, CACHED)
+    send(res, fields ? injectShareMeta(shell, fields, slug, { signedUp }) : shell, CACHED)
   } catch (err) {
     console.error(`[api/event-page] ${slug}: ${err.message}`)
     send(res, shell, NO_STORE)

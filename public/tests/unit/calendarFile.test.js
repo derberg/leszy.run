@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { icsFor } from '../../src/lib/calendarFile.js'
+import { icsFor, googleCalendarUrl } from '../../src/lib/calendarFile.js'
 
 const lines = (s) => s.split('\r\n')
 
@@ -58,3 +58,25 @@ describe('icsFor text escaping (RFC 5545 §3.3.11)', () => {
   })
 })
 
+
+describe('googleCalendarUrl', () => {
+  it('a timed start: the same UTC span as the .ics, place and page link', () => {
+    const u = new URL(googleCalendarUrl({
+      title: 'Bieg Leszego, NW 9 km', eventDate: '2026-12-06', startTime: '10:10',
+      location: 'Nieborowice', url: 'https://www.leszy.run/events/bieg-leszego',
+    }))
+    assert.equal(u.origin + u.pathname, 'https://calendar.google.com/calendar/render')
+    assert.equal(u.searchParams.get('action'), 'TEMPLATE')
+    assert.equal(u.searchParams.get('text'), 'Bieg Leszego, NW 9 km')
+    assert.equal(u.searchParams.get('dates'), '20261206T091000Z/20261206T111000Z')
+    assert.equal(u.searchParams.get('location'), 'Nieborowice')
+    assert.equal(u.searchParams.get('details'), 'https://www.leszy.run/events/bieg-leszego')
+  })
+
+  it('no start time: an all-day entry with an exclusive end, no empty params', () => {
+    const u = new URL(googleCalendarUrl({ title: 'X', eventDate: '2026-12-31', startTime: null }))
+    assert.equal(u.searchParams.get('dates'), '20261231/20270101')
+    assert.equal(u.searchParams.has('location'), false)
+    assert.equal(u.searchParams.has('details'), false)
+  })
+})
