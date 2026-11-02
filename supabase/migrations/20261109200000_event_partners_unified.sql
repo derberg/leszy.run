@@ -6,7 +6,8 @@
 -- registration_partners could not serve (its FK required registration_settings).
 --
 --   * event_partners gains note (organizer-only, ≤ 500), is_public (default true) and logo_path
---     (the storage path, so a delete never parses a URL), registration_partners' name rule (1–80,
+--     (the storage path, so a delete never parses a URL; filled for existing logos from the part
+--     of logo_url after /object/public/partner-logos/), registration_partners' name rule (1–80,
 --     trimmed, unique per event on lower(name)) and a website_url rule (NULL or http(s), ≤ 500).
 --     Existing rows that break a rule are repaired first, so the release never fails on them:
 --     names are trimmed and cut to 80, a duplicate name in one event gets " (2)", " (3)" in
@@ -39,6 +40,14 @@ ALTER TABLE public.event_partners
   ADD COLUMN note text CONSTRAINT event_partners_note_check CHECK (char_length(note) <= 500),
   ADD COLUMN is_public boolean NOT NULL DEFAULT true,
   ADD COLUMN logo_path text;
+
+-- Logos uploaded before logo_path existed: the path is the part of the public URL after the
+-- bucket, kept as stored, so deleting or replacing such a logo removes its object too.
+UPDATE public.event_partners
+   SET logo_path = substr(logo_url, strpos(logo_url, '/object/public/partner-logos/') + length('/object/public/partner-logos/'))
+ WHERE logo_path IS NULL
+   AND strpos(logo_url, '/object/public/partner-logos/') > 0
+   AND length(logo_url) > strpos(logo_url, '/object/public/partner-logos/') + length('/object/public/partner-logos/') - 1;
 
 ALTER TABLE public.event_partners
   ADD CONSTRAINT event_partners_name_check
