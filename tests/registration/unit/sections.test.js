@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SECTIONS, validateSection, parsePriceGrosze } from '../../../supabase/functions/_shared/registration/sections.js'
+import { HOURS_NOTE_MAX, SECTIONS, validateSection, parsePriceGrosze } from '../../../supabase/functions/_shared/registration/sections.js'
 
 const DRAFT = { state: 'draft', eventDate: null }
 const PUBLISHED = { state: 'published', eventDate: '2026-12-06' }
@@ -241,6 +241,21 @@ test('office: hours and place', () => {
   assert.equal(r.value.office_same_as_event, false)
   const bad = validateSection('office', { hours: [{ date: '2026-12-05', from: '19:00', to: '17:00' }] }, DRAFT)
   assert.ok(bad.errors.to)
+})
+
+test('office: a row may carry a note, trimmed; a blank note is left out; a long one is refused', () => {
+  const r = validateSection('office', { hours: [
+    { date: '2026-12-05', from: '17:00', to: '19:00', note: '  tylko bieg dzieci ' },
+    { date: '2026-12-06', from: '08:00', to: '09:30', note: '   ' },
+  ] }, DRAFT)
+  assert.equal(r.ok, true, JSON.stringify(r.errors))
+  assert.deepEqual(r.value.hours, [
+    { date: '2026-12-05', from: '17:00', to: '19:00', note: 'tylko bieg dzieci' },
+    { date: '2026-12-06', from: '08:00', to: '09:30' },
+  ])
+  const long = validateSection('office', { hours: [{ date: '2026-12-05', from: '17:00', to: '19:00', note: 'x'.repeat(HOURS_NOTE_MAX + 1) }] }, DRAFT)
+  assert.ok(long.errors.note)
+  assert.ok(validateSection('office', { hours: [{ date: '2026-12-05', from: '17:00', to: '19:00', note: 5 }] }, DRAFT).errors.note)
 })
 
 test('categories: reckoning, age groups and kids groups', () => {

@@ -211,7 +211,12 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
                 <span className={labelCls}>Biuro zawodów</span>
                 {m.office.length > 0 && (
                   <span className="text-base text-apex-text-bright">
-                    {m.office.map((h) => <span key={h.label + h.hours} className="block">{h.label} · {h.hours}</span>)}
+                    {m.office.map((h) => (
+                      <span key={h.label + h.hours + (h.note ?? '')} className="block">
+                        {h.label} · {h.hours}
+                        {h.note && <span className="block text-sm text-apex-muted" data-testid="office-hours-note">{h.note}</span>}
+                      </span>
+                    ))}
                   </span>
                 )}
                 {m.officeAtStart && m.startPlace

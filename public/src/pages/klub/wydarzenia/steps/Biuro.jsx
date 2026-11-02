@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { validateSection } from '@registration/sections.js'
+import { HOURS_NOTE_MAX, validateSection } from '@registration/sections.js'
 import { btnGhost, fieldInput, fieldLabel } from '../../settingsUi.js'
 import { FieldError, MonoHint, sectionErrors } from '../wizardUi.jsx'
 
@@ -11,15 +11,17 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 let rowSeq = 0
 // `saved`: the row's last whole value (as loaded, or as last sent). A saved
 // row being edited keeps that value on the server until the edit is whole.
-const row = (h = {}, saved = null) => ({ key: ++rowSeq, date: h.date ?? '', from: h.from ?? '', to: h.to ?? '', saved })
-const savedRow = (h) => row(h, { date: h.date, from: h.from, to: h.to })
+const row = (h = {}, saved = null) => ({ key: ++rowSeq, date: h.date ?? '', from: h.from ?? '', to: h.to ?? '', note: h.note ?? '', saved })
+// A row as the server takes it; the note only when there is one.
+const rowValue = (r) => ({ date: r.date, from: r.from, to: r.to, ...(r.note?.trim() ? { note: r.note.trim() } : {}) })
+const savedRow = (h) => row(h, rowValue({ ...h, note: h.note ?? '' }))
 
-const blankRow = (r) => !r.date && !r.from && !r.to
+const blankRow = (r) => !r.date && !r.from && !r.to && !r.note?.trim()
 
 function rowError(r) {
   if (TIME_RE.test(r.from) && TIME_RE.test(r.to) && r.to <= r.from) return 'Godzina zamknięcia musi być po otwarciu.'
   // A new row prefilled with a date only is not an error yet; a row being typed into is.
-  const started = r.saved || r.from || r.to
+  const started = r.saved || r.from || r.to || r.note?.trim()
   if (started && !blankRow(r) && !(r.date && TIME_RE.test(r.from) && TIME_RE.test(r.to))) return 'Podaj dzień i obie godziny.'
   return null
 }
@@ -37,12 +39,15 @@ function officeValue(f, rows) {
     notes: orNull(f.notes),
     lat: f.lat,
     lng: f.lng,
-    hours: rows.map((r) => (complete(r) ? { date: r.date, from: r.from, to: r.to } : r.saved)).filter(Boolean),
+    hours: rows.map((r) => (complete(r) ? rowValue(r) : r.saved)).filter(Boolean),
   }
 }
 
 // Whole rows become the saved value for later half-edits.
-const settle = (rows) => rows.map((r) => (complete(r) ? { ...r, saved: { date: r.date, from: r.from, to: r.to } } : r))
+const settle = (rows) => rows.map((r) => (complete(r) ? { ...r, saved: rowValue(r) } : r))
+
+// Dzień · Od · Do · Dla kogo · ×, from 640 px up.
+const HOURS_COLS = 'sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.6fr)_3rem]'
 
 export default function Biuro({ event, queue, saveState, readOnly, reportInvalid }) {
   const s = event.settings
@@ -144,18 +149,21 @@ export default function Biuro({ event, queue, saveState, readOnly, reportInvalid
         <span className={fieldLabel}>Godziny otwarcia</span>
         {rows.length > 0 && (
           <div className="space-y-3 mb-3">
-            <div className="hidden sm:grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_3rem] gap-2">
+            <div className={`hidden sm:grid ${HOURS_COLS} gap-2`}>
               <span className="font-mono text-xs uppercase tracking-wide text-apex-muted">Dzień</span>
               <span className="font-mono text-xs uppercase tracking-wide text-apex-muted">Od</span>
               <span className="font-mono text-xs uppercase tracking-wide text-apex-muted">Do</span>
+              <span className="font-mono text-xs uppercase tracking-wide text-apex-muted">Dla kogo</span>
             </div>
             {rows.map((r, i) => (
               <div key={r.key} data-testid="office-hours-row"
-                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem] sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_3rem] gap-2 items-stretch">
+                className={`grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem] ${HOURS_COLS} gap-2 items-stretch`}>
                 <input type="date" aria-label={`Dzień ${i + 1}`} className={`${fieldInput} px-2 col-span-full sm:col-span-1`} value={r.date} onChange={setRow(r.key, 'date')} />
                 <input type="time" aria-label={`Od ${i + 1}`} className={`${fieldInput} px-2`} value={r.from} onChange={setRow(r.key, 'from')} />
                 <input type="time" aria-label={`Do ${i + 1}`} className={`${fieldInput} px-2`} value={r.to} onChange={setRow(r.key, 'to')} />
-                <button type="button" aria-label="Usuń" className={`${btnGhost} text-base px-0`} onClick={() => removeRow(r.key)}>×</button>
+                <button type="button" aria-label="Usuń" className={`${btnGhost} text-base px-0 sm:col-start-5 sm:row-start-1`} onClick={() => removeRow(r.key)}>×</button>
+                <input type="text" aria-label={`Dla kogo ${i + 1}`} maxLength={HOURS_NOTE_MAX} placeholder="np. tylko bieg dzieci"
+                  className={`${fieldInput} px-2 col-span-full sm:col-span-1 sm:col-start-4 sm:row-start-1`} value={r.note} onChange={setRow(r.key, 'note')} />
                 {rowError(r) && <div className="col-span-full"><FieldError message={rowError(r)} /></div>}
               </div>
             ))}

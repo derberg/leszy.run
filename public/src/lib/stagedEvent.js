@@ -25,7 +25,7 @@ export function stagedEvent(event) {
   if (payload.office) {
     const { hours, ...rest } = payload.office
     Object.assign(out.settings, camel(rest))
-    if (hours) out.officeHours = hours.map((h) => ({ date: h.date, from: h.from, to: h.to }))
+    if (hours) out.officeHours = hours.map((h) => ({ date: h.date, from: h.from, to: h.to, ...(h.note ? { note: h.note } : {}) }))
   }
   if (payload.competitions) {
     const v = payload.competitions

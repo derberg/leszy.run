@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
 
     const [competitions, hours, consents, uploads, pendingRows, registered, hasAgreement, payout, tiers, extras] = await Promise.all([
       rows(admin.from('competitions').select('*').eq('event_id', eventId).order('sort_order')),
-      rows(admin.from('office_hours').select('id, starts_at, ends_at').eq('event_id', eventId).order('starts_at')),
+      rows(admin.from('office_hours').select('id, starts_at, ends_at, note').eq('event_id', eventId).order('starts_at')),
       rows(admin.from('event_consents').select('id, kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
       rows(admin.from('registration_uploads').select('id, kind, path, meta, created_at').eq('event_id', eventId).order('created_at')),
       rows(admin.from('registration_pending_changes').select('payload, changed_fields, updated_at').eq('event_id', eventId)),
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
       })),
       officeHours: hours.map((h) => ({
         id: h.id, date: warsawToday(new Date(h.starts_at)), from: hhmm(h.starts_at), to: hhmm(h.ends_at),
-        startsAt: h.starts_at, endsAt: h.ends_at,
+        note: h.note, startsAt: h.starts_at, endsAt: h.ends_at,
       })),
     }
 

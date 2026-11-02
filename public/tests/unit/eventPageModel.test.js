@@ -71,6 +71,14 @@ describe('eventPageModel (RA1)', () => {
     ])
   })
 
+  it('an office hours note rides on its row', () => {
+    const raw = { ...RA1, office: { ...RA1.office, hours: [{ date: '2026-12-05', from: '17:00', to: '19:00', note: 'tylko bieg dzieci' }, { date: '2026-12-06', from: '08:00', to: '09:30', note: null }] } }
+    assert.deepEqual(model(raw).office, [
+      { label: 'sob 5.12', hours: '17:00–19:00', note: 'tylko bieg dzieci' },
+      { label: 'ndz 6.12', hours: '8:00–9:30' },
+    ])
+  })
+
   it('competition rows: start and age, current price, next tier', () => {
     const [bieg9, , , , kids] = model().competitions
     assert.deepEqual(bieg9, {

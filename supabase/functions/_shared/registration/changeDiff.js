@@ -12,7 +12,7 @@
 //     tiers         price_tiers rows (id, ends_on) in registration_raw's order
 //     extras        extras (snake_case, as the extras section stages them: id, name,
 //                   price, order_until, category_ids, variants [{ id, label, stock }])
-//     officeHours   office_hours rows (starts_at, ends_at)
+//     officeHours   office_hours rows (starts_at, ends_at, note)
 //     ageGroups, kidsGroups, consents  their rows (consents: custom ones are compared)
 //     payout        { mode, ready } of the event's payout account (eventPayout.js),
 //                   carried into mergedChecklistInput; never the account itself
@@ -98,10 +98,14 @@ function warsaw(iso) {
   const p = Object.fromEntries(warsawParts.formatToParts(new Date(iso)).map((x) => [x.type, x.value]))
   return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` }
 }
+// A note is part of the row: changing only the note is a change.
+const withNote = (row, note) => (note ? { ...row, note } : row)
 const liveHours = (rows = []) => rows
-  .map((h) => ({ date: warsaw(h.starts_at).date, from: warsaw(h.starts_at).time, to: warsaw(h.ends_at).time }))
+  .map((h) => withNote({ date: warsaw(h.starts_at).date, from: warsaw(h.starts_at).time, to: warsaw(h.ends_at).time }, h.note))
   .sort((a, b) => `${a.date}${a.from}`.localeCompare(`${b.date}${b.from}`))
-const stagedHours = (rows = []) => [...rows].sort((a, b) => `${a.date}${a.from}`.localeCompare(`${b.date}${b.from}`))
+const stagedHours = (rows = []) => rows
+  .map((h) => withNote({ date: h.date, from: h.from, to: h.to }, h.note))
+  .sort((a, b) => `${a.date}${a.from}`.localeCompare(`${b.date}${b.from}`))
 const ageGroups = (rows = []) => rows.map(({ category_id, gender, label, min_age, max_age }) => ({ category_id, gender, label, min_age, max_age }))
 const kidsGroups = (rows = []) => rows.map(({ category_id, label, birth_year_from, birth_year_to, gender, distance_label }) =>
   ({ category_id, label, birth_year_from, birth_year_to, gender, distance_label }))

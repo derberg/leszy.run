@@ -244,7 +244,7 @@ export function eventPageModel(raw, now = new Date()) {
     stats: stats(competitions, win === 'closed' ? null : daysLeftLabel(raw, now)),
     office: (raw.office?.hours ?? []).map((h) => {
       const { d, m } = ymd(h.date)
-      return { label: `${WEEKDAYS_SHORT[weekday(h.date)]} ${d}.${m}`, hours: `${hm(h.from)}–${hm(h.to)}` }
+      return { label: `${WEEKDAYS_SHORT[weekday(h.date)]} ${d}.${m}`, hours: `${hm(h.from)}–${hm(h.to)}`, ...(h.note ? { note: h.note } : {}) }
     }),
     competitions: competitions.map((c) => competitionRow(c, win, raw.extras)),
     // „Lista startowa” (/events/:slug/lista, the /api/startlist snapshot).

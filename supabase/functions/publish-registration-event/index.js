@@ -71,7 +71,7 @@ async function liveSnapshot(admin, settings) {
     : [])
   const [prices, hours, ageGroups, kidsGroups, consents, payout, tiers, extras] = await Promise.all([
     byCategory('competition_prices', 'category_id, tier_id, amount, price_tiers!inner(ends_on)'),
-    allRows(() => admin.from('office_hours').select('starts_at, ends_at').eq('event_id', eventId).order('starts_at')),
+    allRows(() => admin.from('office_hours').select('starts_at, ends_at, note').eq('event_id', eventId).order('starts_at')),
     byCategory('age_groups', '*'),
     byCategory('kids_groups', '*'),
     allRows(() => admin.from('event_consents').select('kind, text, sort_order').eq('event_id', eventId).order('sort_order')),
