@@ -347,6 +347,40 @@ const wrappedButtons = (page) => page.locator('button:visible').evaluateAll((els
 }).map((e) => e.textContent))
 const noSideways = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
 
+test('V-73b B3: ⋯ „Przekaż pakiet” to somebody already signed up and unpaid is a pick from the list, not a form; their unpaid order is replaced', async ({ browser }) => {
+  test.setTimeout(150_000)
+  const { club, event, base } = await paidEventWithEntries('v73b')
+  const [c9] = event.categoryIds
+  // The recipient signed up as told and did not pay: an unpaid order of one.
+  const ewa = await orderOk(event, { categoryId: c9, people: [person(runnerEmail('ewa'), { firstName: 'Ewa', lastName: 'Nowa' })] })
+  const ctx = await contextFor(browser, club.ownerEmail)
+  const page = await ctx.newPage()
+  await page.goto(`${base}/zgloszenia`)
+  const table = page.getByTestId('registrations')
+  const row = (name) => table.getByTestId('registration-row').filter({ has: page.getByText(name, { exact: true }) })
+  await page.getByRole('button', { name: 'Akcje — Jan Kowalski' }).first().click()
+  await page.getByRole('menuitem', { name: 'Przekaż pakiet', exact: true }).click()
+  const td = page.getByRole('dialog', { name: 'Przekaż pakiet' })
+  // The list, no form: the unpaid one can be picked, the paid one is shown and cannot.
+  await expect(td.getByLabel('Imię', { exact: true })).toHaveCount(0)
+  const list = td.getByTestId('transfer-recipients')
+  await expect(list.getByRole('radio', { name: /Ewa Nowa/ })).toBeEnabled()
+  await expect(list.getByRole('radio', { name: /Anna Lis/ })).toBeDisabled()
+  await expect(list.getByText('Opłacone', { exact: true })).toBeVisible()
+  await expect(td.getByRole('button', { name: 'Przekaż pakiet' })).toBeDisabled()
+  await td.getByLabel('Komu przekazać', { exact: true }).fill('nowa')
+  await expect(list.getByRole('radio')).toHaveCount(1)
+  await list.getByRole('radio', { name: /Ewa Nowa/ }).check()
+  await td.getByRole('button', { name: 'Przekaż pakiet' }).click()
+  await expect(td).toHaveCount(0)
+  await expect(page.getByTestId('entries-notice')).toHaveText('Pakiet przekazany: Jan Kowalski → Ewa Nowa.')
+  // Her cancelled unpaid entry stays listed beside the package she now holds.
+  await expect(row('Ewa Nowa').getByTestId('registration-status').filter({ hasText: /^OPŁACONE$/ })).toHaveCount(1)
+  const { data: order } = await db().from('orders').select('status').eq('id', ewa.orderId).single()
+  expect(order.status).toBe('cancelled')
+  await ctx.close()
+})
+
 test('V-72 Płatności: a partner (made in Partnerzy), 20 generated codes listed with it, the CSV with the BOM; the package transfer switch and date are kept', async ({ browser }) => {
   test.setTimeout(150_000)
   const { club, event, base } = await paidEventWithEntries('v72')

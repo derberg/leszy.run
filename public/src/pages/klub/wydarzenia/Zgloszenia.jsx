@@ -474,7 +474,7 @@ export default function Zgloszenia({
       case 'partner': return <PartnerDialog row={row} partners={state.partners} {...common} />
       case 'transfer':
         return (
-          <TransferDialog row={row} competitions={state.competitions} formFields={formFields} eventDate={event.eventDate ?? null}
+          <TransferDialog row={row} rows={state.rows} competitions={state.competitions} formFields={formFields} eventDate={event.eventDate ?? null}
             reckoning={reckoning} ageGroups={ageGroups} {...common} />
         )
       case 'message':

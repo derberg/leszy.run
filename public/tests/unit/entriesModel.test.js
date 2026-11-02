@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   AWAITING_CONSENT, actionLabel, competitionChips, entryActions, extendChoices, entryCounts, filterEntries, listedTile, noPlacesForAwaiting,
-  partnerChips, statusChips, transferTargets,
+  partnerChips, statusChips, transferPersonFrom, transferRecipients, transferTargets,
 } from '../../src/lib/entriesModel.js'
 
 const row = (over = {}) => ({
@@ -304,5 +304,41 @@ describe('transferTargets (TransferDialog)', () => {
   })
   it('without the server\'s list, the row\'s own competition only', () => {
     assert.deepEqual(transferTargets(row(), competitions).map((c) => c.id), ['c1'])
+  })
+})
+
+describe('transferRecipients (TransferDialog: pick a person already on the list)', () => {
+  const holder = row({ id: 'h', name: 'Łukasz Górnicki', orderId: 'o0' })
+  const rows = [
+    holder,
+    row({ id: 'paid', name: 'Anna Paid', orderId: 'o1' }),
+    row({ id: 'solo', name: 'Zofia Solo', status: 'pending_payment', statusKey: 'awaiting', role: 'self', orderId: 'o2', phone: '600100200', iceName: null }),
+    row({ id: 'g1', name: 'Ewa Grupa', status: 'pending_payment', statusKey: 'awaiting', orderId: 'o3' }),
+    row({ id: 'g2', name: 'Adam Grupa', status: 'pending_payment', statusKey: 'awaiting', role: 'adult', orderId: 'o3' }),
+    row({ id: 'kid', name: 'Mała Kid', status: 'pending_payment', statusKey: 'awaiting', role: 'minor', orderId: 'o4' }),
+    row({ id: 'team', name: 'Kapitan Drużyny', status: 'pending_payment', statusKey: 'awaiting', orderId: 'o5', team: { id: 't' } }),
+    row({ id: 'gone', name: 'Stary Anulowany', status: 'cancelled', orderId: 'o6' }),
+  ]
+  const byId = Object.fromEntries(transferRecipients(rows, holder).map((r) => [r.id, r]))
+
+  it('lists every live entry but the holder, the ones that can take the package first', () => {
+    const list = transferRecipients(rows, holder)
+    assert.deepEqual(list.map((r) => r.id), ['solo', 'paid', 'g1', 'g2', 'kid', 'team'])
+  })
+  it('an unpaid adult alone in their order can be picked', () => assert.equal(byId.solo.reason, null))
+  it('a paid entry cannot: apply_transfer refuses it as duplicate', () => assert.equal(byId.paid.reason, 'Opłacone'))
+  it('an unpaid entry in a group order cannot: apply_transfer refuses pending_elsewhere', () => {
+    assert.equal(byId.g1.reason, 'W zamówieniu grupowym')
+    assert.equal(byId.g2.reason, 'W zamówieniu grupowym')
+  })
+  it('a child cannot (recipient_minor), nor a team entry', () => {
+    assert.equal(byId.kid.reason, 'Dziecko')
+    assert.equal(byId.team.reason, 'Drużyna')
+  })
+  it('a picked entry fills the whole person, nulls as empty strings', () => {
+    assert.deepEqual(transferPersonFrom(rows[2]), {
+      firstName: 'Anna', lastName: 'Nowak', birthDate: '', gender: '', email: 'anna@example.pl',
+      phone: '600100200', city: '', club: '', iceName: '', icePhone: '', nationality: '',
+    })
   })
 })

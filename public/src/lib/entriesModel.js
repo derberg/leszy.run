@@ -187,6 +187,38 @@ export function transferTargets(row, competitions) {
 }
 
 /**
+ * TransferDialog's list of people already registered: the recipient was usually told to sign up
+ * first, so the organizer picks them instead of typing them in again. Every live entry but the
+ * holder's, each with the reason apply_transfer would refuse it (null when it can take the package):
+ * a paid one is `duplicate`, an unpaid one sharing its order `pending_elsewhere`, a child
+ * `recipient_minor`. An unpaid entry alone in its order is replaced by the package in the same
+ * transaction (its order is cancelled). The ones that can be picked come first.
+ * @returns {(object & { reason: string|null })[]}
+ */
+export function transferRecipients(rows, holder) {
+  const live = rows.filter((r) => LIVE.has(r.status) && r.id !== holder.id)
+  const perOrder = new Map()
+  for (const r of rows) {
+    if (r.orderId && LIVE.has(r.status)) perOrder.set(r.orderId, (perOrder.get(r.orderId) ?? 0) + 1)
+  }
+  const reasonOf = (r) => {
+    if (r.status === 'confirmed') return 'Opłacone'
+    if (r.role === 'minor') return 'Dziecko'
+    if (r.team) return 'Drużyna'
+    if (r.orderId && (perOrder.get(r.orderId) ?? 0) > 1) return 'W zamówieniu grupowym'
+    return null
+  }
+  const out = live.map((r) => ({ ...r, reason: reasonOf(r) }))
+  return [...out.filter((r) => !r.reason), ...out.filter((r) => r.reason)]
+}
+
+/** The PersonForm value of a picked entry: the server validates it as if typed. */
+export function transferPersonFrom(r) {
+  const keys = ['firstName', 'lastName', 'birthDate', 'gender', 'email', 'phone', 'city', 'club', 'iceName', 'icePhone', 'nationality']
+  return Object.fromEntries(keys.map((k) => [k, r[k] ?? '']))
+}
+
+/**
  * The status chips, each counting the rows its filter shows. „Do wycofania w pomiarze” only while
  * somebody is to be withdrawn.
  * @returns {{ key: string|null, label: string }[]}
