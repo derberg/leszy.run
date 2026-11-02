@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { categoryPreview, kidsGroupLabel } from '../../lib/personFormModel.js'
+import { categoryPreview, childGroup } from '../../lib/personFormModel.js'
 import { countryOptions } from '@registration/countries.js'
 import { inputCls, labelCls, sectionCls } from './ui.js'
 import VoucherField from './VoucherField.jsx'
@@ -96,7 +96,8 @@ export default function PersonForm({
   const minor = variant === 'minor'
   const buyer = variant === 'buyer'
   const own = variant === 'self' || buyer
-  const category = (minor && kidsGroupLabel(value, competition)) || categoryPreview(value, { raceDate, reckoning, ageGroups })
+  const ctx = { raceDate, reckoning, ageGroups }
+  const category = minor ? childGroup(value, competition, ctx) : categoryPreview(value, ctx)
   const set = (key) => (v) => onChange({ [key]: v })
   const today = new Date().toISOString().slice(0, 10)
   const id = (name) => `${idPrefix}-${name}`
@@ -166,10 +167,12 @@ export default function PersonForm({
               </div>
               {errors.gender && <p id={id('gender-error')} className="text-apex-red font-sans text-sm">{errors.gender}</p>}
             </div>
-            <div className="flex justify-between items-center gap-3 px-3 py-2.5 bg-apex-surface-2 border border-apex-border" data-testid="category-preview">
-              <span className={labelCls}>{categoryLabel}</span>
-              <span className="font-mono text-xl text-apex-yellow whitespace-nowrap">{category ?? '—'}</span>
-            </div>
+            {!(minor && !category) && (
+              <div className="flex justify-between items-center gap-3 px-3 py-2.5 bg-apex-surface-2 border border-apex-border" data-testid="category-preview">
+                <span className={labelCls}>{categoryLabel}</span>
+                <span className="font-mono text-xl text-apex-yellow whitespace-nowrap">{category ?? '—'}</span>
+              </div>
+            )}
             {fields.city !== 'off' && (
               <Field id={id('city')} label={optional('Miejscowość', fields.city)} error={errors.city}>
                 <TextInput id={id('city')} value={value.city} onChange={set('city')} error={errors.city} autoComplete={own ? 'address-level2' : 'off'} maxLength={200} />

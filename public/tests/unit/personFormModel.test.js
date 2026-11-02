@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  EMPTY_PERSON, profilePrefill, mergePrefill, fieldModes, personContext, categoryPreview, checkPerson,
+  EMPTY_PERSON, profilePrefill, mergePrefill, fieldModes, personContext, categoryPreview, childGroup, checkPerson,
   needsCode, consentsComplete, registrationFailure,
 } from '../../src/lib/personFormModel.js'
 
@@ -84,6 +84,22 @@ describe('categoryPreview („Twoja kategoria”)', () => {
     assert.equal(categoryPreview({ ...grazyna, birthDate: '' }, ctx), null)
     assert.equal(categoryPreview({ ...grazyna, birthDate: '1971-02-30' }, ctx), null)
     assert.equal(categoryPreview({ ...grazyna, birthDate: '19' }, ctx), null)
+  })
+})
+
+describe('childGroup („Grupa” on a child card)', () => {
+  const kids = { isKids: true, kidsGroups: [{ label: '2016–2017', birthYearFrom: 2016, birthYearTo: 2017, gender: null }] }
+  const child = { ...grazyna, birthDate: '2016-05-01', gender: 'K' }
+  it('the kids group of the birth year', () => {
+    assert.equal(childGroup(child, kids, ctx), '2016–2017')
+  })
+  it('an age class that covers the child', () => {
+    const c = { ...ctx, ageGroups: [{ gender: 'K', label: 'K8–9', minAge: 8, maxAge: 9 }] }
+    assert.equal(childGroup({ ...child, birthDate: '2017-05-01' }, { isKids: false }, c), 'K8–9')
+  })
+  it('never the adult „K open” fallback: no group means nothing to show', () => {
+    assert.equal(childGroup({ ...child, birthDate: '2014-01-01' }, kids, ctx), null)
+    assert.equal(childGroup(child, { isKids: false }, ctx), null)
   })
 })
 
