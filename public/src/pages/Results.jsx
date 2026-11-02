@@ -130,7 +130,7 @@ export default function Results() {
   // The partners sit under the first podium on the page. Above the results
   // they filled the whole first screen of a phone. A view with no podium
   // (Blisko Mety, no categories) shows them at the end instead.
-  const partners = event ? <PartnerLogos eventId={event.id} /> : null
+  const partners = event ? <PartnerLogos partners={snapshot?.partners ?? []} /> : null
   const partnersUnderPodium = !loading && (activeView === 'category' || (activeView === 'all' && visibleCategories.length > 0))
 
   return (

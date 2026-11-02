@@ -46,6 +46,25 @@ const tables = {
   checkpoint_observations: [{ id: 'o1', checkpoint_id: 'cp1', participant_id: 'p1', bib_number: 7, observed_at: '2026-10-17T09:20:00Z' }],
 }
 
+describe('buildResultsSnapshot partners', () => {
+  it('carries only the event\'s partners the table lets anon read, as camelCase with no note or isPublic', async () => {
+    const snap = await buildResultsSnapshot(fakeSupabase({
+      ...tables,
+      // RLS hides is_public = false rows from the anon key; the fake applies the same rule.
+      event_partners: [
+        { id: 'pa', event_id: 'e1', name: 'Public', logo_url: 'https://l/p.png', website_url: 'https://p.pl', sort_order: 0 },
+        { id: 'pz', event_id: 'e2', name: 'Other event', logo_url: null, website_url: null, sort_order: 0 },
+      ],
+    }), 'e1')
+    assert.deepEqual(snap.partners, [{ id: 'pa', name: 'Public', logoUrl: 'https://l/p.png', websiteUrl: 'https://p.pl' }])
+    assert.deepEqual(Object.keys(snap.partners[0]).sort(), ['id', 'logoUrl', 'name', 'websiteUrl'])
+  })
+
+  it('is an empty list for an event with no partners', async () => {
+    assert.deepEqual((await buildResultsSnapshot(fakeSupabase(tables), 'e1')).partners, [])
+  })
+})
+
 describe('buildResultsSnapshot', () => {
   it('reads only the event and only the results of started runs', async () => {
     const snap = await buildResultsSnapshot(fakeSupabase(tables), 'e1')
@@ -95,7 +114,7 @@ describe('buildResultsSnapshot', () => {
   it('skips the dependent reads for an event with no categories or checkpoints', async () => {
     const sb = fakeSupabase(tables)
     const snap = await buildResultsSnapshot(sb, 'no-such-event')
-    assert.deepEqual(sb.reads.sort(), ['categories 0', 'checkpoints 0'])
+    assert.deepEqual(sb.reads.sort(), ['categories 0', 'checkpoints 0', 'event_partners 0'])
     assert.deepEqual(snap.results, [])
   })
 

@@ -5,6 +5,7 @@ import { isUnlistedRegistration } from '../../lib/eventListing.js'
 import { orderableExtras, soldOut } from '../../lib/cartModel.js'
 import { linkParts } from '../../lib/linkify.js'
 import { labelCls, linkCls } from '../../components/registration/ui.js'
+import PartnerLogos from '../../components/PartnerLogos.jsx'
 import CoursePanel from '../../components/registration/CoursePanel.jsx'
 
 // RA1: the public page of an event with online registration, from the
@@ -302,6 +303,7 @@ export default function RegistrationEventPage({ raw, now, preview = false, links
             <CoursePanel courses={m.courses} compact />
           </section>
         )}
+        <PartnerLogos partners={raw.partners ?? []} />
       </div>
     </div>
   )

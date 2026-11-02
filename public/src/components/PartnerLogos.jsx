@@ -1,23 +1,14 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase.js'
-
-export default function PartnerLogos({ eventId }) {
-  const [partners, setPartners] = useState([])
-
-  useEffect(() => {
-    if (!eventId) return
-    supabase
-      .from('event_partners')
-      .select('id, name, logo_url, website_url, sort_order')
-      .eq('event_id', eventId)
-      .order('sort_order')
-      .then(({ data }) => setPartners(data || []))
-  }, [eventId])
-
+/**
+ * Renders an event's public partners. Pure: the caller passes the camelCase
+ * list from the cached /api/event or /api/results JSON, so a viewer never
+ * queries Supabase.
+ * @param {{ partners?: Array<{ id: string, name: string, logoUrl: string|null, websiteUrl: string|null }> }} props
+ */
+export default function PartnerLogos({ partners = [] }) {
   if (partners.length === 0) return null
 
-  const textOnly = partners.filter(p => !p.logo_url)
-  const withLogos = partners.filter(p => p.logo_url)
+  const textOnly = partners.filter(p => !p.logoUrl)
+  const withLogos = partners.filter(p => p.logoUrl)
 
   return (
     <div className="pb-6">
@@ -31,9 +22,9 @@ export default function PartnerLogos({ eventId }) {
         {textOnly.length > 0 && (
           <div className="flex items-center justify-center gap-x-5 gap-y-1.5 flex-wrap mb-3">
             {textOnly.map(p => {
-              if (p.website_url) {
+              if (p.websiteUrl) {
                 return (
-                  <a key={p.id} href={p.website_url} target="_blank" rel="noopener noreferrer"
+                  <a key={p.id} href={p.websiteUrl} target="_blank" rel="noopener noreferrer sponsored"
                     className="text-sm font-semibold text-neutral-500 hover:text-neutral-800 transition-colors">
                     {p.name}
                   </a>
@@ -50,14 +41,15 @@ export default function PartnerLogos({ eventId }) {
               const img = (
                 <img
                   key={p.id}
-                  src={p.logo_url}
+                  src={p.logoUrl}
                   alt={p.name}
+                  loading="lazy"
                   title={p.name}
                   className="max-h-16 max-w-[160px] object-contain"
                 />
               )
-              return p.website_url ? (
-                <a key={p.id} href={p.website_url} target="_blank" rel="noopener noreferrer">
+              return p.websiteUrl ? (
+                <a key={p.id} href={p.websiteUrl} target="_blank" rel="noopener noreferrer sponsored">
                   {img}
                 </a>
               ) : (
